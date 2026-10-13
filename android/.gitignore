@@ -1,0 +1,15 @@
+# Lokal/geheim - nie einchecken
+local.properties
+keystore.properties
+*.jks
+*.keystore
+# Erzeugt
+.gradle/
+.kotlin/
+build/
+app/build/
+.idea/
+*.iml
+captures/
+.cxx/
+dist/

@@ -1,0 +1,6 @@
+#!/usr/bin/python3 -sP
+# Startskript im Flatpak: Python-Paket liegt in /app/share/hlidskjalf
+import sys
+sys.path.insert(0, "/app/share/hlidskjalf")
+from hlidskjalf.main import main
+sys.exit(main())

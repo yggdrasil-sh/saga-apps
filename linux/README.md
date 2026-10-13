@@ -18,14 +18,29 @@ App-ID: `io.github.yggdrasil_sh.Saga` · Paket und Befehl: `hlidskjalf` · Lizen
 ## Bauen und installieren (AlmaLinux 10 / Fedora)
 
 ```sh
-sudo dnf install rpm-build python3-pillow        # EPEL für python3-pillow auf AlmaLinux
-sh build-rpm.sh                                   # -> ~/rpmbuild/RPMS/noarch/hlidskjalf-<version>-<release>.noarch.rpm
-sudo dnf install ~/rpmbuild/RPMS/noarch/hlidskjalf-*.rpm
+sudo dnf install rpm-build python3                # AlmaLinux: python3-pillow kommt aus EPEL
+sh build-rpm.sh                                   # -> dist/saga-<version>-<release>.noarch.rpm
+sudo dnf install ./dist/saga-*.noarch.rpm
 ```
 
-Benötigt: gtk4 ≥ 4.14, libadwaita ≥ 1.6, python3-gobject, libsecret, python3-pillow.
+Benötigt: gtk4 ≥ 4.14, libadwaita ≥ 1.6, python3-gobject, libsecret, python3-pillow (auf AlmaLinux/RHEL 10 aus EPEL).
 `HK_RELEASE=2 sh build-rpm.sh` setzt die Release-Nummer (Standard 1). Die Version steht in `hlidskjalf/__init__.py`
-und wird für alle Apps mit `tools/set-version.sh` gesetzt.
+und wird für alle Apps mit `tools/set-version.sh` gesetzt. Das Paket heißt im RPM `hlidskjalf` (Befehl `hlidskjalf`),
+die Datei in `dist/` trägt zur Orientierung den Namen `saga`. In CI genügt ein Container `almalinux:10` oder
+`fedora:latest` mit `dnf install -y rpm-build python3`.
+
+## Flatpak
+
+```sh
+sh flatpak/build-flatpak.sh                       # -> dist/saga-<version>-<arch>.flatpak
+flatpak install --user ./dist/saga-*.flatpak      # Laufzeit org.gnome.Platform//49 kommt von Flathub
+flatpak run io.github.yggdrasil_sh.Saga
+```
+
+Benötigt `flatpak` und `flatpak-builder`; GNOME-SDK und -Laufzeit installiert das Skript bei Bedarf von Flathub
+(Nutzer-Installation). Manifest: `flatpak/io.github.yggdrasil_sh.Saga.yml`, Befehl im Flatpak: `saga`.
+Einstellungen und Zwischenspeicher liegen im Flatpak unter `~/.var/app/io.github.yggdrasil_sh.Saga/`,
+heruntergeladene Anhänge im Download-Ordner. Die GNOME-Suche funktioniert auch im Flatpak.
 
 ## Ohne Installation starten
 

@@ -2,6 +2,7 @@
 Wird per D-Bus gestartet (hlidskjalf --search-provider) und beendet sich nach einer Minute ohne Anfragen."""
 import json
 import os
+import sys
 
 from gi.repository import Gio, GLib
 
@@ -93,6 +94,14 @@ class Provider:
 
     @staticmethod
     def _launch(uri):
+        if os.path.exists("/.flatpak-info"):
+            # Flatpak: Kindprozesse enden mit diesem Dienst (Sandbox) -> nach der Antwort an die Shell
+            # diesen Prozess durch die App ersetzen (laeuft sie schon, uebergibt sie den Link und endet)
+            def run_app():
+                Gio.bus_get_sync(Gio.BusType.SESSION, None).flush_sync(None)    # Antwort zuerst zustellen
+                os.execv(sys.argv[0], [sys.argv[0], uri])
+            GLib.idle_add(run_app)
+            return
         app = Gio.DesktopAppInfo.new(APP_ID + ".desktop")
         if app:
             app.launch_uris([uri], None)

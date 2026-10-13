@@ -18,5 +18,8 @@ __pycache__/
 android/.gradle/
 android/build/
 android/app/build/
+android/dist/
 android/.idea/
+linux/dist/
+.flatpak-builder/
 .DS_Store

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="saga_icon_bg">#0F141C</color>
+    <color name="saga_gold">#C9A45C</color>
+    <color name="saga_bg_light">#FBF9F5</color>
+    <color name="saga_bg_dark">#0F141C</color>
+</resources>

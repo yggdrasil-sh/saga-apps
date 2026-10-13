@@ -1,0 +1,162 @@
+package io.github.yggdrasil_sh.saga.ui.login
+
+import android.os.Handler
+import android.os.Looper
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.DecodeHintType
+import com.google.zxing.PlanarYUVLuminanceSource
+import com.google.zxing.ReaderException
+import com.google.zxing.common.HybridBinarizer
+import com.google.zxing.qrcode.QRCodeReader
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
+
+/**
+ * QR-Code-Scanner ohne Google-Dienste: CameraX-Vorschau + zxing (nur QR).
+ * onResult liefert true, wenn der Text passt (dann schliesst der Aufrufer den Dialog).
+ */
+@Composable
+fun QrScannerDialog(onDismiss: () -> Unit, onResult: (String) -> Boolean) {
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        val context = LocalContext.current
+        val lifecycleOwner = LocalLifecycleOwner.current
+        var hint by remember { mutableStateOf("QR-Code aus „Apps & Geräte“ in den Rahmen halten") }
+        val result by rememberUpdatedState(onResult)
+        val executor = remember { Executors.newSingleThreadExecutor() }
+        val done = remember { AtomicBoolean(false) }
+        val main = remember { Handler(Looper.getMainLooper()) }
+
+        DisposableEffect(Unit) {
+            onDispose {
+                done.set(true)
+                val f = ProcessCameraProvider.getInstance(context)
+                f.addListener({ runCatching { f.get().unbindAll() } }, ContextCompat.getMainExecutor(context))
+                executor.shutdown()
+            }
+        }
+
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            AndroidView(
+                modifier = Modifier.fillMaxSize(),
+                factory = { ctx ->
+                    val view = PreviewView(ctx)
+                    val future = ProcessCameraProvider.getInstance(ctx)
+                    future.addListener({
+                        try {
+                            val provider = future.get()
+                            val preview = Preview.Builder().build().also { it.surfaceProvider = view.surfaceProvider }
+                            val analysis = ImageAnalysis.Builder()
+                                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build()
+                            analysis.setAnalyzer(executor, QrAnalyzer { text ->
+                                main.post {
+                                    if (!done.get()) {
+                                        if (result(text)) done.set(true) else hint = "Das ist kein Saga-QR-Code."
+                                    }
+                                }
+                            })
+                            val selector = when {
+                                provider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) -> CameraSelector.DEFAULT_BACK_CAMERA
+                                provider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) -> CameraSelector.DEFAULT_FRONT_CAMERA
+                                else -> null
+                            }
+                            if (selector == null) {
+                                hint = "Keine Kamera gefunden."
+                            } else {
+                                provider.unbindAll()
+                                provider.bindToLifecycle(lifecycleOwner, selector, preview, analysis)
+                            }
+                        } catch (e: Exception) {
+                            hint = "Kamera nicht verfügbar: ${e.message ?: e.javaClass.simpleName}"
+                        }
+                    }, ContextCompat.getMainExecutor(ctx))
+                    view
+                },
+            )
+            Box(
+                Modifier.align(Alignment.Center).size(240.dp)
+                    .border(3.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(18.dp)),
+            )
+            Column(Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(24.dp)) {
+                Text(
+                    hint, color = Color.White, textAlign = TextAlign.Center,
+                    modifier = Modifier.background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(10.dp)).padding(12.dp),
+                )
+            }
+            IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(8.dp)) {
+                Icon(Icons.Filled.Close, "Schließen", tint = Color.White)
+            }
+        }
+    }
+}
+
+/** Ein Bild der Kamera (Y-Ebene = Helligkeit) mit zxing nach einem QR-Code durchsuchen */
+private class QrAnalyzer(private val onText: (String) -> Unit) : ImageAnalysis.Analyzer {
+    private val reader = QRCodeReader()
+    private val hints = mapOf(
+        DecodeHintType.POSSIBLE_FORMATS to listOf(BarcodeFormat.QR_CODE),
+        DecodeHintType.TRY_HARDER to true,
+    )
+
+    override fun analyze(image: ImageProxy) {
+        try {
+            val plane = image.planes[0]
+            val buf = plane.buffer
+            val data = ByteArray(buf.remaining())
+            buf.get(data)
+            val stride = plane.rowStride
+            val h = minOf(image.height, data.size / maxOf(stride, 1))
+            val w = minOf(image.width, stride)
+            val source = PlanarYUVLuminanceSource(data, stride, h, 0, 0, w, h, false)
+            val text = try {
+                reader.decode(BinaryBitmap(HybridBinarizer(source)), hints).text
+            } catch (_: ReaderException) {
+                null
+            } finally {
+                reader.reset()
+            }
+            if (!text.isNullOrBlank()) onText(text)
+        } catch (_: Exception) {
+        } finally {
+            image.close()
+        }
+    }
+}

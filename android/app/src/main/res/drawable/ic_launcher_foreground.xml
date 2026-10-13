@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga-Symbol (goldenes Buch), nachgebaut aus linux/data/icons/.../io.github.yggdrasil_sh.Saga.svg.
+     Original-Koordinaten 512x512, hier auf die sichere Zone des adaptiven Symbols (108dp) verkleinert. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.16"
+        android:scaleY="0.16"
+        android:translateX="13.04"
+        android:translateY="12.08">
+        <path
+            android:pathData="M256,160 C214,128 156,120 100,128 V372 C156,366 214,374 256,404 C298,374 356,366 412,372 V128 C356,120 298,128 256,160 Z"
+            android:fillColor="#C9A45C"
+            android:fillAlpha="0.08"
+            android:strokeColor="#C9A45C"
+            android:strokeWidth="22"
+            android:strokeLineJoin="round" />
+        <path
+            android:pathData="M256,164 V398"
+            android:strokeColor="#C9A45C"
+            android:strokeAlpha="0.55"
+            android:strokeWidth="16"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M146,214 H214 M146,256 H214 M146,298 H196"
+            android:strokeColor="#C9A45C"
+            android:strokeAlpha="0.5"
+            android:strokeWidth="16"
+            android:strokeLineCap="round" />
+        <path
+            android:pathData="M308,196 L364,246 L306,290 L362,340"
+            android:strokeColor="#C9A45C"
+            android:strokeWidth="26"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round" />
+    </group>
+</vector>

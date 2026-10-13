@@ -13,8 +13,11 @@ DEVELOPMENT_TEAM = ABCDE12345
 // automatisch .widget / .share / .sharemac.
 SAGA_BUNDLE_ID = com.example.saga
 
-// App-Gruppe - Vorgabe ist group.<App-ID>; nur setzen, wenn sie anders heissen soll
+// App-Gruppe - Vorgabe ist group.<App-ID> (iOS) bzw. <TEAMID>.<App-ID> (macOS, ohne Profil nutzbar);
+// nur setzen, wenn sie anders heissen soll. Soll auch die Mac-App eine group.-Gruppe nutzen
+// (braucht dann ein Bereitstellungsprofil), zusaetzlich die [sdk=macosx*]-Zeile setzen.
 // SAGA_APP_GROUP = group.com.example.saga
+// SAGA_APP_GROUP[sdk=macosx*] = group.com.example.saga
 
 // Optional: Server-Adresse vorbelegen (z. B. fuer per MDM verteilte Builds)
 // SAGA_DEFAULT_SERVER = https:/$()/saga.example.org

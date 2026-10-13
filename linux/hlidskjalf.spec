@@ -6,20 +6,24 @@ License:        AGPL-3.0-only
 URL:            https://github.com/yggdrasil-sh/saga-apps
 Source0:        %{name}-%{version}.tar.gz
 BuildArch:      noarch
+BuildRequires:  python3
 Requires:       python3 >= 3.11
 Requires:       python3-gobject
 Requires:       gtk4 >= 4.14
 Requires:       libadwaita >= 1.6
 Requires:       libsecret
-Requires:       python3-pillow
+# Fedora: python3-pillow; AlmaLinux/RHEL 10: python3-pillow (AppStream bzw. EPEL)
+Requires:       python3dist(pillow)
 Requires:       desktop-file-utils
 Requires:       hicolor-icon-theme
 
 %description
-Native Linux-App (GTK4 + libadwaita) für den selbst gehosteten Saga-Server:
-Seiten mit Blöcken nativ bearbeiten, Datenbanken (Tabelle, Board, Liste, Galerie,
-Kalender), Aufgaben und externe Kalender. Bleibt per Geräte-Schlüssel im
-GNOME-Schlüsselbund angemeldet.
+Saga ist eine native GNOME-App (GTK4 und libadwaita) für einen selbst
+gehosteten Saga-Server. Seiten mit Blöcken lassen sich direkt bearbeiten,
+Datenbanken erscheinen als Tabelle, Board, Liste, Galerie oder Kalender,
+dazu kommen Aufgaben, externe Kalender (CalDAV) und die GNOME-Suche.
+Die Anmeldung bleibt über einen Geräte-Schlüssel im Schlüsselbund
+(libsecret) erhalten.
 
 %prep
 %setup -q

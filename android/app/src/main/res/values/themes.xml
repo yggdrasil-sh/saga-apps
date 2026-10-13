@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Nur Fensterhintergrund/Startbild - die Oberflaeche selbst ist Compose (Material 3) -->
+    <style name="Theme.Saga" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/saga_bg_light</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

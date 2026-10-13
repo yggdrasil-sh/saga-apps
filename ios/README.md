@@ -57,9 +57,16 @@ Die Skripte lesen optional `Config/local.env` (nicht versioniert, Vorlage `Confi
 | `./build-install.sh` | Baut für iPhone (`SAGA_DEVICE_ID`, falls verbunden) bzw. prüft den Simulator-Build und baut die Mac-App nach `/Applications/Saga.app` |
 | `./build-testflight.sh` | App-Store-Build, Upload zu TestFlight |
 | `./build-adhoc.sh` | Ad-hoc-`.ipa` (registrierte Geräte, 1 Jahr gültig) nach `dist/`; ruft danach optional `SAGA_PUBLISH_CMD <ipa>` auf (z. B. Upload ins MDM) |
+| `./build-dmg.sh` | Mac-App als signierte, notarisierte DMG für GitHub-Releases nach `dist/Saga-<VERSION>-macOS.dmg` (Developer ID, ohne Profile; Optionen im Skriptkopf) |
 
 TestFlight und Ad-hoc signieren über einen **App-Store-Connect-API-Schlüssel**, übergeben in
-`ASC_KEY_PATH`, `ASC_KEY_ID` und `ASC_ISSUER`.
+`ASC_KEY_PATH`, `ASC_KEY_ID` und `ASC_ISSUER`; `build-dmg.sh` nutzt ihn zum Notarisieren.
+
+- **DMG (GitHub-Releases):** braucht ein Zertifikat „Developer ID Application“ (anlegen kann es nur der
+  Account Holder: Xcode → Einstellungen → Accounts → Zertifikate verwalten → + → Developer ID Application).
+  Die Mac-App nutzt dafür die App-Gruppe `<TEAM>.<App-ID>` (kein Bereitstellungsprofil nötig);
+  `build-dmg.sh` baut immer mit der öffentlichen App-ID `io.github.yggdrasil-sh.saga` (außer `SAGA_BUNDLE_ID` ist gesetzt)
+  und ohne vorbelegten Server.
 
 - **Personal Team (kostenlos):** Installation nur aus Xcode, die App läuft 7 Tage; auf dem Gerät ist der Entwicklermodus nötig.
 - **TestFlight (empfohlen):** kein Entwicklermodus, keine Geräte-Registrierung; Tester per Apple-ID einladen.
