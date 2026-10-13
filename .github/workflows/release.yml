@@ -3,6 +3,7 @@
 #   - Linux:   saga-<v>-1.noarch.rpm, saga-<v>-<arch>.flatpak
 #   - Android: Saga-<v>.apk                  (signiert)
 # Ausloeser: Aenderung an VERSION auf main (tools/set-version.sh x.y.z) -> Tag v<x.y.z> + Release.
+# Ebenso ein Push auf main, dessen Commit-Nachricht "[release]" enthaelt (z. B. fuer eine Version ohne Sprung).
 # Jeder Push auf testing baut alle Pakete als Probelauf (Workflow-Artefakte, kein Release).
 # Von Hand (Actions -> Release -> Run workflow): nur bauen (Downloads als Workflow-Artefakte)
 # oder mit "release" auch veroeffentlichen. Gibt es den Tag schon, wird nur gebaut.
@@ -48,11 +49,12 @@ jobs:
           EVENT: ${{ github.event_name }}
           REF: ${{ github.ref }}
           BEFORE: ${{ github.event.before }}
+          MSG: ${{ github.event.head_commit.message }}
         run: |
           V=$(sh tools/set-version.sh --check)
           echo "version=$V" >> "$GITHUB_OUTPUT"
-          # Push auf main loest nur aus, wenn sich VERSION geaendert hat
-          if [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ]; then
+          # Push auf main loest nur aus, wenn sich VERSION geaendert hat oder die Commit-Nachricht [release] enthaelt
+          if [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ] && ! printf '%s' "$MSG" | grep -qF '[release]'; then
             git fetch -q --depth=1 origin "$BEFORE" 2>/dev/null || true
             if git cat-file -e "$BEFORE" 2>/dev/null && git diff --quiet "$BEFORE" HEAD -- VERSION; then
               echo "::notice::VERSION unveraendert - es wird nur gebaut"

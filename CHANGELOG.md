@@ -4,7 +4,7 @@ Alle nennenswerten Änderungen an den Saga-Apps. Format nach [Keep a Changelog](
 Versionen nach [Semantic Versioning](https://semver.org/lang/de/). Neue Version: `tools/set-version.sh x.y.z`,
 Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht dann alle Downloads.
 
-## [1.0.0]
+## [1.0.0] – 2026-10-13
 
 Erste öffentliche Version der nativen Apps für einen eigenen [Saga](https://github.com/yggdrasil-sh/saga)-Server.
 
