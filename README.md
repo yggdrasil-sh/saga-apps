@@ -20,6 +20,18 @@ Die Apps verbinden sich mit deinem eigenen Saga-Server. Seiten, Datenbanken, Auf
 | Linux (GNOME) | Python, GTK4 + libadwaita, RPM | [`linux/`](linux/) | [linux/README.md](linux/README.md) |
 | Android | Kotlin, Jetpack Compose | [`android/`](android/) | [android/README.md](android/README.md) |
 
+## So sieht es aus
+
+<p align="center">
+  <img src="docs/screenshots/ios-start.png" width="200" alt="iPhone: Startseite mit Aufgaben und zuletzt geöffneten Seiten">
+  <img src="docs/screenshots/ios-dunkel-board.png" width="200" alt="iPhone: Datenbank als Board im dunklen Design">
+  <img src="docs/screenshots/android-dienste.png" width="200" alt="Android: Dienste nach Gruppen">
+  <img src="docs/screenshots/android-heute.png" width="200" alt="Android: Heute mit Terminen und Aufgaben">
+</p>
+<p align="center">
+  <img src="docs/screenshots/ipad-projekte.png" width="620" alt="iPad: Seitenleiste und Datenbank als Board">
+</p>
+
 ## Herunterladen
 
 Fertige Pakete gibt es unter [Releases](https://github.com/yggdrasil-sh/saga-apps/releases/latest):

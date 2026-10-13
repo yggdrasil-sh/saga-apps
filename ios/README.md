@@ -77,5 +77,19 @@ TestFlight und Ad-hoc signieren über einen **App-Store-Connect-API-Schlüssel**
 Wichtig für Updates: App-ID, App-Gruppe und Team eines einmal verteilten Builds nicht mehr ändern – sonst
 gelten Updates als neue App und gespeicherte Anmeldungen (Schlüsselbund `<App-ID>.device-login`) gehen verloren.
 
+## Screenshots für das README
+
+`Screenshots/` enthält einen UI-Test, der die Bilder in `docs/screenshots/` kopflos im Simulator aufnimmt
+(eigenes Projekt aus `screenshots.yml`, der normale Build bleibt unberührt). **Nur gegen einen Demo-Server
+mit Beispieldaten verwenden** (z. B. `tools/screens-remote.sh <port>` im Server-Repo).
+
+```sh
+xcrun simctl boot <UDID>
+SAGA_PAIR_LINK='saga://pair?u=http://127.0.0.1:<port>&c=<code>' \
+  Screenshots/make-screenshots.sh <UDID> ../docs/screenshots build
+```
+
+Den Kopplungs-Link (`SAGA_PAIR_LINK`) nie einchecken – er gilt ohnehin nur zwei Minuten.
+
 ## Lizenz
 AGPL-3.0 – siehe `LICENSE` im Repository.

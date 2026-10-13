@@ -1,0 +1,29 @@
+# Eigenes Projekt nur fuer README-Screenshots (UI-Test gegen einen Demo-Server).
+# Das normale Projekt (project.yml) bleibt unveraendert; erzeugt wird SagaScreenshots.xcodeproj:
+#   cd ios && xcodegen generate --spec screenshots.yml
+include: [project.yml]
+name: SagaScreenshots
+targets:
+  SagaScreenshots:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: Screenshots
+        excludes: ["*.md", "*.sh"]
+    dependencies:
+      - target: Hlidskjalf
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).screenshots
+        TARGETED_DEVICE_FAMILY: "1,2"
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: Hlidskjalf
+schemes:
+  SagaScreenshots:
+    build:
+      targets:
+        Hlidskjalf: [test]
+        SagaScreenshots: [test]
+    test:
+      config: Debug
+      targets: [SagaScreenshots]
