@@ -1,0 +1,22 @@
+# Persoenliche/lokale Einstellungen (Team-ID, App-ID, Geraete, Testrechner, Verteil-Befehle) - NIE einchecken
+ios/Config/Local.xcconfig
+ios/Config/local.env
+tools/local.env
+android/local.properties
+android/keystore.properties
+*.jks
+*.keystore
+# Erzeugtes
+ios/*.xcodeproj/
+ios/dist/
+ios/build/
+*.ipa
+*.xcarchive
+DerivedData/
+__pycache__/
+*.pyc
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+.DS_Store

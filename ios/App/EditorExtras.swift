@@ -1,0 +1,399 @@
+import SwiftUI
+import UniformTypeIdentifiers
+
+// Editor-Funktionen wie im Web: @-Datum/Erinnerung/Seite, Emoji per ":", Tabelle, Schaltflaechen,
+// Einbetten, Datei-Anhang, Format- und Block-Menue (Mac-Menueleiste).
+
+// MARK: - Datum aus Text (wie parseDate in static/keys.js)
+
+struct HKDate: Equatable { let date: String; let time: String? }
+
+func hkNorm(_ s: String) -> String {
+    s.lowercased().replacingOccurrences(of: "ä", with: "ae").replacingOccurrences(of: "ö", with: "oe")
+        .replacingOccurrences(of: "ü", with: "ue").replacingOccurrences(of: "ß", with: "ss")
+        .split(whereSeparator: \.isWhitespace).joined(separator: " ")
+}
+private let hkWD = ["sonntag", "montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag"]
+private let hkWDE = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+private let hkMON = ["januar", "februar", "maerz", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "dezember"]
+
+private func rx(_ s: String, _ p: String) -> [String]? {
+    guard let re = try? NSRegularExpression(pattern: p), let m = re.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) else { return nil }
+    return (0..<m.numberOfRanges).map { i in Range(m.range(at: i), in: s).map { String(s[$0]) } ?? "" }
+}
+
+/// "heute", "morgen", "freitag", "naechsten montag", "in 3 tagen", "12.10.", "12. oktober", "2026-10-12", optional "15:30" / "um 15 uhr"
+func parseHKDate(_ q0: String) -> HKDate? {
+    var q = hkNorm(q0)
+    var cal = Calendar(identifier: .gregorian); cal.timeZone = .current
+    let t0 = cal.startOfDay(for: .now)
+    func plus(_ n: Int, _ c: Calendar.Component = .day) -> Date { cal.date(byAdding: c, value: n, to: t0)! }
+    var time: String?
+    if let m = rx(q, #"(?:^|\s)(?:um\s+)?(\d{1,2})[:.](\d{2})(?:\s*uhr)?$"#) ?? rx(q, #"(?:^|\s)(?:um\s+)?(\d{1,2})\s*uhr$"#),
+       q.contains(":") || q.hasSuffix("uhr") {
+        let hh = Int(m[1]) ?? 99, mm = m.count > 2 ? Int(m[2]) ?? 0 : 0
+        guard hh <= 23, mm <= 59 else { return nil }
+        time = String(format: "%02d:%02d", hh, mm)
+        if let r = q.range(of: m[0], options: .backwards) { q = String(q[..<r.lowerBound]).trimmingCharacters(in: .whitespaces) }
+    }
+    var d: Date?
+    if q.isEmpty || q == "heute" || q == "today" { d = t0 }
+    else if q == "morgen" || q == "tomorrow" { d = plus(1) }
+    else if q == "uebermorgen" { d = plus(2) }
+    else if q == "gestern" || q == "yesterday" { d = plus(-1) }
+    else if let m = rx(q, #"^in (\d{1,3}) (tag|tage|tagen|woche|wochen|monat|monate|monaten|day|days|week|weeks)$"#) {
+        let n = Int(m[1]) ?? 0
+        d = m[2].hasPrefix("w") ? plus(7 * n) : m[2].hasPrefix("mo") ? plus(n, .month) : plus(n)
+    } else if q == "naechste woche" || q == "next week" { d = plus(7) }
+    else if let m = rx(q, #"^(?:(naechsten?|kommenden?|next)\s+)?([a-z]+)$"#) {
+        guard let wi = hkWD.firstIndex(of: m[2]) ?? hkWDE.firstIndex(of: m[2]) else { return nil }
+        var diff = (wi - (cal.component(.weekday, from: t0) - 1) + 7) % 7; if diff == 0 { diff = 7 }
+        d = plus(diff)
+    } else if let m = rx(q, #"^(\d{4})-(\d{2})-(\d{2})$"#) {
+        d = cal.date(from: DateComponents(year: Int(m[1]), month: Int(m[2]), day: Int(m[3])))
+    } else if let m = rx(q, #"^(\d{1,2})\.(\d{1,2})\.(\d{2,4})?$"#) {
+        var y = cal.component(.year, from: t0); if !m[3].isEmpty, let yy = Int(m[3]) { y = yy < 100 ? 2000 + yy : yy }
+        let mo = Int(m[2]) ?? 0, da = Int(m[1]) ?? 0
+        guard let x = cal.date(from: DateComponents(year: y, month: mo, day: da)), cal.component(.month, from: x) == mo else { return nil }
+        d = x
+    } else if let m = rx(q, #"^(\d{1,2})\.? ([a-z]+)\.?(?: (\d{4}))?$"#) {
+        guard m[2].count >= 3, let mi = hkMON.firstIndex(where: { $0.hasPrefix(m[2]) }) else { return nil }
+        let y = m[3].isEmpty ? cal.component(.year, from: t0) : (Int(m[3]) ?? 0)
+        guard let x = cal.date(from: DateComponents(year: y, month: mi + 1, day: Int(m[1]))), cal.component(.month, from: x) == mi + 1 else { return nil }
+        d = x
+    } else { return nil }
+    guard let d else { return nil }
+    let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+    return HKDate(date: f.string(from: d), time: time)
+}
+
+/// Im Text immer das feste Datum (wie im Web: "Fr., 10. Okt." bzw. mit Jahr)
+func hkDateText(_ d: HKDate) -> String {
+    let p = DateFormatter(); p.dateFormat = "yyyy-MM-dd"
+    guard let dt = p.date(from: d.date) else { return d.date }
+    let f = DateFormatter(); f.locale = Locale(identifier: "de_DE")
+    f.dateFormat = Calendar.current.isDate(dt, equalTo: .now, toGranularity: .year) ? "EEE, d. MMM" : "EEE, d. MMM yyyy"
+    return f.string(from: dt) + (d.time.map { ", " + $0 } ?? "")
+}
+func hkRelText(_ d: HKDate) -> String {
+    let p = DateFormatter(); p.dateFormat = "yyyy-MM-dd"
+    guard let dt = p.date(from: d.date) else { return hkDateText(d) }
+    let diff = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: .now), to: dt).day ?? 99
+    let r = [0: "Heute", 1: "Morgen", 2: "Übermorgen", -1: "Gestern"][diff]
+    return (r.map { $0 + " · " } ?? "") + hkDateText(d)
+}
+
+// MARK: - "@" und ":" an der Cursor-Position (Erkennung: MentionTrigger.swift)
+
+struct MentionItem: Identifiable {
+    let id = UUID()
+    let icon: String
+    let title: String
+    let hint: String
+    let insert: AttributedString
+}
+
+@MainActor
+func mentionItems(_ t: HKTrigger, store: Store, font: Font) -> [MentionItem] {
+    func run(_ text: String, _ link: URL?) -> AttributedString { var a = AttributedString(text); a.font = font; a.link = link; return a }
+    switch t {
+    case .emoji(let q0):
+        let q = hkNorm(q0)
+        func rank(_ k: String) -> Int {
+            let w = k.split(separator: " ").map(String.init)
+            if w.first == q { return 0 }; if w.contains(q) { return 1 }
+            if (" " + k).contains(" " + q) { return 2 }; if k.contains(q) { return 3 }; return 9
+        }
+        var hits: [(pos: Int, emoji: String, words: String, rank: Int)] = []
+        for (i, e) in emojiList.enumerated() {
+            let r = rank(e.1)
+            if r < 9 { hits.append((i, e.0, e.1, r)) }
+        }
+        hits.sort { a, b in a.rank == b.rank ? a.pos < b.pos : a.rank < b.rank }
+        var out: [MentionItem] = []
+        for h in hits.prefix(8) {
+            let word = String(h.words.split(separator: " ").first ?? "")
+            out.append(MentionItem(icon: h.emoji, title: word, hint: "", insert: run(h.emoji, nil)))
+        }
+        return out
+    case .at(let q):
+        var out: [MentionItem] = []
+        func dateItems(_ d: HKDate) {
+            let link = URL(string: "hkdate://d/\(d.date)" + (d.time.map { "T" + $0 } ?? ""))
+            out.append(MentionItem(icon: "📅", title: hkRelText(d), hint: "Datum", insert: run(hkDateText(d), link)))
+            out.append(MentionItem(icon: "⏰", title: "Erinnerung: " + hkRelText(d), hint: "Erinnerung",
+                                   insert: run("⏰ " + hkDateText(d), URL(string: (link?.absoluteString ?? "") + "?r=1"))))
+        }
+        if q.isEmpty {
+            [parseHKDate("heute"), parseHKDate("morgen")].compactMap { $0 }.forEach { d in
+                out.append(MentionItem(icon: "📅", title: hkRelText(d), hint: "Datum",
+                                       insert: run(hkDateText(d), URL(string: "hkdate://d/\(d.date)"))))
+            }
+            if let d = parseHKDate("morgen 9:00") {
+                out.append(MentionItem(icon: "⏰", title: "Erinnerung: " + hkRelText(d), hint: "Erinnerung",
+                                       insert: run("⏰ " + hkDateText(d), URL(string: "hkdate://d/\(d.date)T09:00?r=1"))))
+            }
+        } else if let d = parseHKDate(q) { dateItems(d) }
+        let nq = hkNorm(q)
+        let pages = store.pages.filter { nq.isEmpty || hkNorm($0.label).contains(nq) }.prefix(q.isEmpty ? 4 : 6)
+        for p in pages {
+            out.append(MentionItem(icon: (p.icon?.count ?? 0) <= 4 && !(p.icon ?? "").isEmpty ? p.icon! : (p.isDatabase ? "🗃️" : "📄"),
+                                   title: p.label, hint: "Seite", insert: run(p.label, URL(string: "hkpage://\(p.id)"))))
+        }
+        return out
+    }
+}
+
+/// Auswahlliste unter dem Absatz (wie das "/"-Menue)
+struct MentionMenu: View {
+    let items: [MentionItem]
+    let selected: Int
+    let pick: (MentionItem) -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { i, it in
+                Button { pick(it) } label: {
+                    HStack(spacing: 8) {
+                        Text(it.icon).frame(width: 22)
+                        Text(it.title).lineLimit(1)
+                        Spacer(minLength: 8)
+                        if !it.hint.isEmpty { Text(it.hint).font(.caption).foregroundStyle(.secondary) }
+                    }
+                    .padding(.vertical, 6).padding(.horizontal, 10).contentShape(Rectangle())
+                    .background(i == selected ? Color.accentColor.opacity(0.18) : .clear, in: RoundedRectangle(cornerRadius: 6))
+                }.buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(.secondary.opacity(0.25)))
+        .frame(maxWidth: 340)
+    }
+}
+
+/// Ausloeser (ab Zeichen-Offset start) durch die Auswahl ersetzen (+ Leerzeichen dahinter); Rueckgabe: Cursor-Offset danach
+@discardableResult
+func replaceTrigger(_ rich: inout AttributedString, _ t: HKTrigger, at start: Int, with insert: AttributedString, font: Font) -> Int {
+    var sp = AttributedString(" "); sp.font = font
+    return hkReplaceChars(&rich, start: start, length: t.length, with: insert, space: sp)
+}
+
+// MARK: - Tabelle (bearbeitbar)
+
+struct EditableTable: View {
+    let data: NSMutableDictionary
+    @EnvironmentObject var ed: PageEditor
+    @State private var rows: [[String]] = []
+    @State private var tick = 0
+    private var headings: Bool { data["withHeadings"] as? Bool ?? false }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ScrollView(.horizontal, showsIndicators: true) {
+                Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
+                    ForEach(rows.indices, id: \.self) { r in
+                        GridRow {
+                            ForEach(rows[r].indices, id: \.self) { c in
+                                TextField("", text: Binding(get: { rows[r][c] }, set: { rows[r][c] = $0; save() }), axis: .vertical)
+                                    .textFieldStyle(.plain).disabled(ed.locked)
+                                    .font(r == 0 && headings ? .subheadline.bold() : .subheadline)
+                                    .padding(8).frame(minWidth: 120, alignment: .leading)
+                                    .background(r == 0 && headings ? Color.secondary.opacity(0.1) : .clear)
+                                    .border(.secondary.opacity(0.25), width: 0.5)
+                                    .contextMenu { if !ed.locked { tableMenu(r, c) } }
+                            }
+                        }
+                    }
+                }
+            }
+            if !ed.locked {
+                HStack(spacing: 12) {
+                    Button { rows.append(Array(repeating: "", count: max(1, rows.first?.count ?? 2))); save() } label: { Label("Zeile", systemImage: "plus") }
+                    Button { for i in rows.indices { rows[i].append("") }; save() } label: { Label("Spalte", systemImage: "plus") }
+                    Toggle("Kopfzeile", isOn: Binding(get: { headings }, set: { data["withHeadings"] = $0; tick += 1; ed.changed() }))
+                        #if os(macOS)
+                        .toggleStyle(.checkbox)
+                        #endif
+                }
+                .font(.caption).buttonStyle(.plain).foregroundStyle(.secondary)
+            }
+        }
+        .onAppear { load() }
+    }
+    @ViewBuilder private func tableMenu(_ r: Int, _ c: Int) -> some View {
+        Button("Zeile darüber einfügen") { rows.insert(Array(repeating: "", count: rows[r].count), at: r); save() }
+        Button("Zeile darunter einfügen") { rows.insert(Array(repeating: "", count: rows[r].count), at: r + 1); save() }
+        Button("Spalte links einfügen") { for i in rows.indices { rows[i].insert("", at: min(c, rows[i].count)) }; save() }
+        Button("Spalte rechts einfügen") { for i in rows.indices { rows[i].insert("", at: min(c + 1, rows[i].count)) }; save() }
+        Divider()
+        if rows.count > 1 { Button("Zeile löschen", role: .destructive) { rows.remove(at: r); save() } }
+        if (rows.first?.count ?? 0) > 1 { Button("Spalte löschen", role: .destructive) { for i in rows.indices where c < rows[i].count { rows[i].remove(at: c) }; save() } }
+    }
+    private func load() {
+        rows = ((data["content"] as? [[String]]) ?? [["", ""], ["", ""]]).map { $0.map { decodeEntities(plain($0)) } }
+        if rows.isEmpty { rows = [["", ""], ["", ""]] }
+    }
+    private func save() {
+        func esc(_ s: String) -> String { s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\n", with: "<br>") }
+        data["content"] = rows.map { $0.map(esc) }
+        ed.textChanged()
+    }
+}
+
+// MARK: - Schaltflaechen einrichten (wie ⚙ im Web)
+
+struct ButtonsConfig: View {
+    let data: NSMutableDictionary
+    @EnvironmentObject var store: Store
+    @EnvironmentObject var ed: PageEditor
+    @Environment(\.dismiss) private var dismiss
+    @State private var buttons: [[String: Any]] = []
+    var body: some View {
+        NavigationStack {
+            Form {
+                ForEach(buttons.indices, id: \.self) { i in
+                    Section("Schaltfläche \(i + 1)") {
+                        TextField("Beschriftung", text: bind(i, "label"))
+                        TextField("Symbol (Emoji)", text: bind(i, "icon"))
+                        Picker("Aktion", selection: bind(i, "action")) {
+                            Text("keine").tag(""); Text("Neuer Eintrag in Datenbank").tag("db"); Text("Neue Aufgabe").tag("task"); Text("Seite öffnen").tag("page")
+                        }
+                        if buttons[i]["action"] as? String == "db" {
+                            Picker("Datenbank", selection: bindInt(i, "target")) {
+                                Text("– wählen –").tag(0); ForEach(store.pages.filter(\.isDatabase)) { Text($0.label).tag($0.id) }
+                            }
+                            Picker("Vorlage", selection: bindInt(i, "tpl")) {
+                                Text("keine (leere Seite)").tag(0); ForEach(store.pages.filter { $0.template == true }) { Text($0.label).tag($0.id) }
+                            }
+                            TextField("Titel ({datum} = heute)", text: bind(i, "title"))
+                        }
+                        if buttons[i]["action"] as? String == "page" {
+                            Picker("Seite", selection: bindInt(i, "target")) {
+                                Text("– wählen –").tag(0); ForEach(store.pages) { Text($0.label).tag($0.id) }
+                            }
+                        }
+                        if ["db", "page"].contains(buttons[i]["action"] as? String ?? "") {
+                            Picker("Öffnen als", selection: bind(i, "open")) { Text("Seite").tag(""); Text("Seitenansicht").tag("side"); Text("Mitte").tag("center") }
+                        }
+                        Button("Schaltfläche entfernen", role: .destructive) { buttons.remove(at: i) }
+                    }
+                }
+                Button { buttons.append(["label": "Neu", "icon": "➕", "action": ""]) } label: { Label("Schaltfläche hinzufügen", systemImage: "plus") }
+            }
+            .formStyle(.grouped)
+            .navigationTitle("Schaltflächen")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Fertig") { data["buttons"] = buttons; ed.changed(); dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
+            }
+        }
+        .frame(minWidth: 420, minHeight: 420)
+        .onAppear { buttons = (data["buttons"] as? [[String: Any]]) ?? [] }
+    }
+    private func bind(_ i: Int, _ k: String) -> Binding<String> {
+        Binding(get: { i < buttons.count ? buttons[i][k] as? String ?? "" : "" }, set: { if i < buttons.count { buttons[i][k] = $0 } })
+    }
+    private func bindInt(_ i: Int, _ k: String) -> Binding<Int> {
+        Binding(get: { i < buttons.count ? buttons[i][k] as? Int ?? 0 : 0 }, set: { if i < buttons.count { buttons[i][k] = $0 == 0 ? nil : $0 } })
+    }
+}
+
+// MARK: - Einbetten: Adresse eingeben
+
+struct EmbedPrompt: View {
+    let done: (String?) -> Void
+    @State private var url = ""
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Einbetten").font(.headline)
+            Text("YouTube-Video oder beliebiger Link (wird als Karte gezeigt)").font(.caption).foregroundStyle(.secondary)
+            TextField("https://…", text: $url).textFieldStyle(.roundedBorder).onSubmit { ok() }
+            HStack { Spacer(); Button("Abbrechen") { done(nil) }; Button("Einbetten") { ok() }.keyboardShortcut(.defaultAction).disabled(!valid) }
+        }
+        .padding(18).frame(width: 380)
+    }
+    private var valid: Bool { url.hasPrefix("http://") || url.hasPrefix("https://") }
+    private func ok() { if valid { done(url.trimmingCharacters(in: .whitespaces)) } }
+}
+
+// MARK: - Menueleiste: Format und Block (Mac / iPad mit Tastatur)
+
+struct PageEditorKey: FocusedValueKey { typealias Value = PageEditor }
+extension FocusedValues {
+    var pageEditor: PageEditor? { get { self[PageEditorKey.self] } set { self[PageEditorKey.self] = newValue } }
+}
+
+struct HKEditorCommands: Commands {
+    @FocusedValue(\.pageEditor) private var ed
+    private var block: String? { ed?.focusedBlock ?? ed?.hover.hovered }
+    var body: some Commands {
+        CommandMenu("Format") {
+            Button("Fett") { ed?.format("bold") }.keyboardShortcut("b", modifiers: .command)
+            Button("Kursiv") { ed?.format("italic") }.keyboardShortcut("i", modifiers: .command)
+            Button("Unterstrichen") { ed?.format("underline") }.keyboardShortcut("u", modifiers: .command)
+            Button("Durchgestrichen") { ed?.format("strike") }.keyboardShortcut("x", modifiers: [.command, .shift])
+            Button("Markieren") { ed?.format("mark") }.keyboardShortcut("h", modifiers: [.command, .shift])
+            Button("Code") { ed?.format("code") }.keyboardShortcut("e", modifiers: .command)
+            Divider()
+            Button("Link …") { ed?.format("link") }.keyboardShortcut("k", modifiers: [.command, .shift])
+        }
+        CommandMenu("Block") {
+            Button("Text") { conv("paragraph", 0) }.keyboardShortcut("0", modifiers: [.command, .option])
+            Button("Überschrift 1") { conv("header", 1) }.keyboardShortcut("1", modifiers: [.command, .option])
+            Button("Überschrift 2") { conv("header", 2) }.keyboardShortcut("2", modifiers: [.command, .option])
+            Button("Überschrift 3") { conv("header", 3) }.keyboardShortcut("3", modifiers: [.command, .option])
+            Button("Checkliste") { conv("checklist", 0) }.keyboardShortcut("4", modifiers: [.command, .option])
+            Button("Aufzählung") { conv("unordered", 0) }.keyboardShortcut("5", modifiers: [.command, .option])
+            Button("Nummerierte Liste") { conv("ordered", 0) }.keyboardShortcut("6", modifiers: [.command, .option])
+            Button("Toggle") { conv("toggle", 0) }.keyboardShortcut("7", modifiers: [.command, .option])
+            Button("Code") { conv("code", 0) }.keyboardShortcut("8", modifiers: [.command, .option])
+            Button("Zitat") { conv("quote", 0) }
+            Button("Hinweis") { conv("callout", 0) }
+            Divider()
+            Button("Nach oben") { if let b = block { ed?.move(b, by: -1) } }.keyboardShortcut(.upArrow, modifiers: [.command, .shift])
+            Button("Nach unten") { if let b = block { ed?.move(b, by: 1) } }.keyboardShortcut(.downArrow, modifiers: [.command, .shift])
+            Button("Duplizieren") { if let b = block { ed?.duplicate(b) } }.keyboardShortcut("d", modifiers: .command)
+            Button("Löschen") { if let b = block { ed?.delete(b) } }
+        }
+    }
+    private func conv(_ t: String, _ l: Int) { if let b = block { ed?.convert(b, to: t, level: l == 0 ? 2 : l) } }
+}
+
+
+// MARK: - Dialoge der Seite: Schaltflaechen, Einbetten, Datei (eigener Modifier - sonst rechnet der Compiler zu lange)
+
+struct PageEditorSheets: ViewModifier {
+    @ObservedObject var ed: PageEditor
+    @ObservedObject var doc: PageDoc
+    @EnvironmentObject var store: Store
+    func body(content: Content) -> some View {
+        content
+    .sheet(item: Binding(get: { ed.configButtons.map(MoveTarget.init(idString:)) }, set: { if $0 == nil { ed.configButtons = nil } })) { _ in
+            if let b = ed.configButtons, let (arr, i) = ed.locate(b), let blk = arr[i] as? NSMutableDictionary, let d = blk["data"] as? NSMutableDictionary {
+                ButtonsConfig(data: d).environmentObject(ed).environmentObject(store)
+            }
+        }
+            .sheet(item: Binding(get: { ed.embedFor.map(MoveTarget.init(idString:)) }, set: { if $0 == nil { ed.embedFor = nil } })) { _ in
+            EmbedPrompt { url in
+                if let url, let b = ed.embedFor, let (arr, i) = ed.locate(b) {
+                    arr.replaceObject(at: i, with: NSMutableDictionary(dictionary: ["id": b, "type": "embed", "data": NSMutableDictionary(dictionary: ["url": url])])); ed.changed()
+                }
+                ed.embedFor = nil
+            }
+        }
+            .fileImporter(isPresented: Binding(get: { ed.fileFor != nil }, set: { if !$0 { ed.fileFor = nil } }), allowedContentTypes: [.item]) { res in
+            guard let b = ed.fileFor, case .success(let url) = res else { ed.fileFor = nil; return }
+            Task {
+                let ok = url.startAccessingSecurityScopedResource(); defer { if ok { url.stopAccessingSecurityScopedResource() } }
+                do {
+                    let data = try Data(contentsOf: url)
+                    let f = try await store.uploadFile(data, name: url.lastPathComponent)
+                    if let (arr, i) = ed.locate(b) {
+                        arr.replaceObject(at: i, with: NSMutableDictionary(dictionary: ["id": b, "type": "attaches", "data": NSMutableDictionary(dictionary: ["file": f, "title": f["name"] ?? url.lastPathComponent])])); ed.changed()
+                    }
+                } catch { doc.error = error.localizedDescription }
+                ed.fileFor = nil
+            }
+        }
+            .focusedSceneValue(\.pageEditor, ed)
+    }
+}

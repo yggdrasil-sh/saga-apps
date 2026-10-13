@@ -1,0 +1,16 @@
+// Oeffentliche Grundeinstellungen fuer alle Ziele (App, Widget, Teilen-Erweiterungen).
+// Eigene Werte (Team-ID, App-ID, App-Gruppe, Vorgabe-Server) NICHT hier eintragen, sondern in
+// Config/Local.xcconfig (nicht versioniert) - Vorlage: Config/Local.xcconfig.example.
+
+// App-ID der Haupt-App; Erweiterungen haengen .widget / .share / .sharemac an
+SAGA_BUNDLE_ID = io.github.yggdrasil-sh.saga
+// App-Gruppe (gemeinsame Einstellungen von App, Widget und Teilen)
+SAGA_APP_GROUP = group.$(SAGA_BUNDLE_ID)
+// Apple-Team fuer die Signierung (leer = in Xcode waehlen bzw. unsigniert pruefen)
+DEVELOPMENT_TEAM =
+// Optional: vorbelegte Server-Adresse (leer = Anmeldebildschirm fragt nach dem Server)
+SAGA_DEFAULT_SERVER =
+// Optional: umgezogene Server-Adressen "alt=neu" (mehrere durch Leerzeichen getrennt)
+SAGA_MOVED_SERVERS =
+
+#include? "Local.xcconfig"

@@ -1,0 +1,133 @@
+/* Hliðskjálf – Linux. Ruhig wie Notion: viel Weissraum, Griffe nur beim Ueberfahren. */
+
+textview.hk-rt, textview.hk-rt > text { background: transparent; }
+textview.hk-rt { padding: 2px 0; }
+.hk-p { font-size: 1.0em; }
+.hk-h1 { font-size: 1.85em; font-weight: 800; margin-top: 10px; }
+.hk-h2 { font-size: 1.45em; font-weight: 750; margin-top: 8px; }
+.hk-h3 { font-size: 1.2em; font-weight: 700; margin-top: 4px; }
+.hk-h4 { font-size: 1.05em; font-weight: 700; }
+.hk-title { font-size: 2.3em; font-weight: 800; }
+.hk-italic { font-style: italic; }
+.hk-bold { font-weight: 700; }
+.hk-placeholder { color: alpha(currentColor, 0.35); }
+.hk-title .hk-placeholder { color: alpha(currentColor, 0.25); }
+
+.hk-quote { border-left: 3px solid alpha(currentColor, 0.55); padding-left: 12px; }
+.hk-callout { background: alpha(currentColor, 0.07); border-radius: 10px; padding: 10px 12px; }
+textview.hk-code { background: alpha(currentColor, 0.07); }
+textview.hk-code > text { background: transparent; }
+textview.hk-code { border-radius: 8px; padding: 10px 12px; font-size: 0.92em; }
+.hk-code-lang { font-family: monospace; font-size: 0.75em; opacity: 0.55; margin: 4px 10px; }
+.hk-marker { opacity: 0.6; margin-top: 2px; }
+.hk-check { margin-top: 1px; }
+
+.hk-handle { margin-top: 1px; }
+.hk-handle button { color: alpha(currentColor, 0.5); }
+button.hk-tiny { min-height: 20px; min-width: 20px; padding: 1px 3px; }
+.hk-block-row.hk-drop-top { box-shadow: inset 0 2px 0 0 @accent_color; }
+.hk-block-row.hk-drop-bottom { box-shadow: inset 0 -2px 0 0 @accent_color; }
+.hk-col-add { opacity: 0.6; }
+
+.hk-chip { border-radius: 5px; padding: 1px 7px; font-size: 0.85em; font-weight: 500; }
+.hk-c-gray { background: alpha(#8e8e93, 0.28); }
+.hk-c-brown { background: alpha(#a2845e, 0.30); }
+.hk-c-orange { background: alpha(#ff9500, 0.28); }
+.hk-c-yellow { background: alpha(#ffcc00, 0.32); }
+.hk-c-green { background: alpha(#34c759, 0.28); }
+.hk-c-blue { background: alpha(#007aff, 0.25); }
+.hk-c-purple { background: alpha(#af52de, 0.26); }
+.hk-c-pink { background: alpha(#ff2d55, 0.24); }
+.hk-c-red { background: alpha(#ff3b30, 0.26); }
+
+popover.hk-suggest > contents { padding: 4px; }
+popover.hk-suggest button.hk-sel { background: alpha(@accent_bg_color, 0.20); }
+
+textview.hk-cell, textview.hk-cell > text { background: transparent; }
+textview.hk-cell { border-right: 1px solid alpha(currentColor, 0.15); border-bottom: 1px solid alpha(currentColor, 0.15); padding: 6px 8px; }
+textview.hk-cell-head { background: alpha(currentColor, 0.06); font-weight: 700; }
+textview.hk-cell-head > text { background: transparent; }
+
+.hk-card-box { background: alpha(currentColor, 0.06); border-radius: 10px; padding: 10px 12px; }
+button.hk-card-box { padding: 10px 12px; }
+.hk-action-btn { font-weight: 500; }
+.hk-r4 { border-radius: 4px; }
+.hk-r6 { border-radius: 6px; }
+.hk-r8 { border-radius: 8px; }
+.hk-r10 { border-radius: 10px; }
+.hk-icon-big { font-size: 2em; }
+.hk-page-emoji { font-size: 4.2em; }
+.hk-small { font-size: 0.85em; }
+.hk-add-row { transition: opacity 150ms; }
+.hk-tag { background: alpha(currentColor, 0.10); border-radius: 99px; padding: 1px 4px 1px 9px; font-size: 0.85em; }
+.hk-toc { background: alpha(@window_bg_color, 0.92); border-radius: 10px; padding: 8px; box-shadow: 0 1px 6px alpha(black, 0.15); }
+.hk-cover-bar { background: alpha(@window_bg_color, 0.92); border-radius: 99px; padding: 2px 6px; box-shadow: 0 1px 4px alpha(black, 0.2); }
+.hk-cover-grip { background: alpha(@window_bg_color, 0.9); border-radius: 99px; border: 1px solid alpha(currentColor, 0.3); min-height: 8px; }
+.hk-emoji-btn { font-size: 1.6em; padding: 2px; }
+
+.hk-dbtable { border-top: 1px solid alpha(currentColor, 0.12); }
+.hk-dbhead { border-bottom: 1px solid alpha(currentColor, 0.15); }
+.hk-dbhead label { font-size: 0.92em; }
+.hk-dbrow { border-bottom: 1px solid alpha(currentColor, 0.09); min-height: 34px; }
+.hk-dbrow:hover { background: alpha(currentColor, 0.035); }
+.hk-colsep { border-left: 1px solid alpha(currentColor, 0.09); }
+.hk-row-gray { background: alpha(#8e8e93, 0.14); }
+.hk-row-brown { background: alpha(#a2845e, 0.14); }
+.hk-row-orange { background: alpha(#ff9500, 0.14); }
+.hk-row-yellow { background: alpha(#ffcc00, 0.16); }
+.hk-row-green { background: alpha(#34c759, 0.14); }
+.hk-row-blue { background: alpha(#007aff, 0.12); }
+.hk-row-purple { background: alpha(#af52de, 0.13); }
+.hk-row-pink { background: alpha(#ff2d55, 0.12); }
+.hk-row-red { background: alpha(#ff3b30, 0.13); }
+entry.hk-title-entry { font-weight: 600; min-height: 28px; }
+entry.hk-cell-entry { min-height: 26px; font-size: 0.95em; }
+entry.flat { background: transparent; box-shadow: none; outline: none; }
+entry.flat:focus-within { background: alpha(currentColor, 0.05); }
+button.hk-cellbtn { padding: 2px 4px; min-height: 26px; }
+.hk-empty { color: alpha(currentColor, 0.3); font-size: 0.92em; }
+button.hk-colhead { padding: 4px 8px; font-weight: 500; color: alpha(currentColor, 0.65); border-radius: 0; }
+.hk-calcrow button { padding: 2px 8px; }
+.hk-calc-empty { opacity: 0.3; font-size: 0.85em; }
+.hk-calcrow:hover .hk-calc-empty { opacity: 0.6; }
+.hk-listrow { padding: 2px 4px; }
+
+.hk-cardview { background: @card_bg_color; border-radius: 9px; border: 1px solid alpha(currentColor, 0.12); }
+.hk-card-title { font-weight: 600; }
+button.hk-cardbtn { padding: 0; }
+.hk-boardcol { border-radius: 10px; padding: 10px; }
+.hk-col-gray { background: alpha(#8e8e93, 0.08); }
+.hk-col-brown { background: alpha(#a2845e, 0.08); }
+.hk-col-orange { background: alpha(#ff9500, 0.08); }
+.hk-col-yellow { background: alpha(#ffcc00, 0.09); }
+.hk-col-green { background: alpha(#34c759, 0.08); }
+.hk-col-blue { background: alpha(#007aff, 0.07); }
+.hk-col-purple { background: alpha(#af52de, 0.08); }
+.hk-col-pink { background: alpha(#ff2d55, 0.07); }
+.hk-col-red { background: alpha(#ff3b30, 0.08); }
+.hk-calcell { background: alpha(currentColor, 0.04); border-radius: 4px; padding: 3px; }
+button.hk-calitem { background: alpha(@accent_bg_color, 0.18); border-radius: 3px; padding: 0 4px; min-height: 18px; font-size: 0.8em; }
+button.hk-dbname { border-radius: 99px; background: alpha(currentColor, 0.08); padding: 3px 10px; }
+button.hk-viewtab { border-radius: 99px; padding: 2px 10px; }
+button.hk-viewtab:checked { background: alpha(currentColor, 0.12); font-weight: 600; }
+
+button.hk-taskcheck { min-width: 26px; min-height: 26px; padding: 0; }
+
+.hk-srow { padding: 3px 4px; border-radius: 6px; min-height: 28px; }
+.hk-srow:hover { background: alpha(currentColor, 0.07); }
+.hk-srow.hk-active { background: alpha(@accent_bg_color, 0.20); }
+.hk-srow.hk-drop-into { background: alpha(@accent_bg_color, 0.35); }
+.hk-badge { font-size: 0.8em; background: alpha(currentColor, 0.12); border-radius: 99px; padding: 0 7px; }
+
+.hk-peek { background: @window_bg_color; box-shadow: -6px 0 22px alpha(black, 0.25); }
+.hk-peek-grip { background: alpha(currentColor, 0.12); }
+.hk-peek-grip:hover { background: @accent_bg_color; }
+
+.hk-album-cap { background: linear-gradient(to bottom, transparent, alpha(black, 0.7)); color: white; padding: 8px; border-radius: 0 0 8px 8px; }
+.hk-gif-badge { background: alpha(black, 0.6); color: white; font-size: 0.7em; font-weight: 700; border-radius: 3px; padding: 1px 4px; }
+
+.hk-table-grid { border: 1px solid alpha(currentColor, 0.18); }
+button.hk-plain, button.hk-plain label { font-weight: normal; }
+
+button.hk-cellbtn label { font-weight: normal; }
+.hk-svc-letter { background: alpha(currentColor, 0.14); border-radius: 7px; font-weight: 800; font-size: 1.05em; color: alpha(currentColor, 0.7); }

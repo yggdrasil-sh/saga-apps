@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.yggdrasil_sh.Saga</id>
+  <name>Saga</name>
+  <summary>Notizen, Datenbanken, Aufgaben und Termine – selbst gehostet</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-only</project_license>
+  <developer id="io.github.yggdrasil_sh"><name>Saga-Projekt</name></developer>
+  <url type="homepage">https://github.com/yggdrasil-sh/saga-apps</url>
+  <url type="bugtracker">https://github.com/yggdrasil-sh/saga-apps/issues</url>
+  <description><p>Native GNOME-App für den selbst gehosteten Saga-Server: Seiten mit Blöcken, Datenbanken mit Tabelle, Board, Liste, Galerie und Kalender, Aufgaben und externe Kalender.</p></description>
+  <launchable type="desktop-id">io.github.yggdrasil_sh.Saga.desktop</launchable>
+  <content_rating type="oars-1.1"/>
+</component>

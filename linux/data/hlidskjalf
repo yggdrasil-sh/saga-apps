@@ -1,0 +1,5 @@
+#!/usr/bin/python3 -sP
+import sys
+sys.path.insert(0, "/usr/share/hlidskjalf")
+from hlidskjalf.main import main
+sys.exit(main())

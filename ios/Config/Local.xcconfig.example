@@ -1,0 +1,23 @@
+// Persoenliche Einstellungen fuer eigene Builds.
+// Kopieren nach Config/Local.xcconfig (wird NICHT eingecheckt) und anpassen:
+//   cp Config/Local.xcconfig.example Config/Local.xcconfig
+// Alles, was hier fehlt, kommt aus Config/Base.xcconfig.
+//
+// Achtung: In .xcconfig-Dateien beginnt "//" einen Kommentar - auch mitten in einem Wert.
+// Adressen deshalb als https:/$()/host schreiben (das leere $() trennt die beiden Schraegstriche).
+
+// Team-ID aus developer.apple.com -> Membership (10 Zeichen)
+DEVELOPMENT_TEAM = ABCDE12345
+
+// Eigene App-ID (muss im eigenen Developer-Konto registrierbar sein). Erweiterungen erhalten
+// automatisch .widget / .share / .sharemac.
+SAGA_BUNDLE_ID = com.example.saga
+
+// App-Gruppe - Vorgabe ist group.<App-ID>; nur setzen, wenn sie anders heissen soll
+// SAGA_APP_GROUP = group.com.example.saga
+
+// Optional: Server-Adresse vorbelegen (z. B. fuer per MDM verteilte Builds)
+// SAGA_DEFAULT_SERVER = https:/$()/saga.example.org
+
+// Optional: frueher benutzte Adressen automatisch auf die neue umstellen ("alt=neu", durch Leerzeichen getrennt)
+// SAGA_MOVED_SERVERS = https:/$()/alt.example.org=https:/$()/saga.example.org

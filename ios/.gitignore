@@ -1,0 +1,9 @@
+*.xcodeproj/
+xcuserdata/
+DerivedData/
+build/
+*.ipa
+dist/
+# persoenliche Einstellungen - nie einchecken
+Config/Local.xcconfig
+Config/local.env

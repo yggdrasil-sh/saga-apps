@@ -1,0 +1,129 @@
+name: Hlidskjalf
+options:
+  developmentLanguage: de          # Siri-Saetze sind deutsch - sonst findet eine deutsche Siri die Kurzbefehle nicht
+  deploymentTarget:
+    iOS: "26.0"
+    macOS: "26.0"
+  createIntermediateGroups: true
+# App-ID, App-Gruppe und Team kommen aus Config/Base.xcconfig (+ optional Config/Local.xcconfig, nicht versioniert)
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+settings:
+  base:
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+targets:
+  Hlidskjalf:
+    type: application
+    supportedDestinations: [iOS, macOS]
+    sources: [App, Shared]
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleDisplayName: Saga
+        SagaAppGroup: $(SAGA_APP_GROUP)                    # gelesen von AppConfig.appGroup
+        SagaDefaultServer: $(SAGA_DEFAULT_SERVER)
+        SagaMovedServers: $(SAGA_MOVED_SERVERS)
+        CFBundleName: Saga                                   # Menueleiste/Dock/Finder auf dem Mac
+        CFBundleSpokenName: Saga                       # fuer VoiceOver/Siri lesbar
+        LSApplicationCategoryType: public.app-category.productivity
+        ITSAppUsesNonExemptEncryption: false                 # nur HTTPS/System-Krypto -> keine Exportfrage bei jedem TestFlight-Build
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight, UIInterfaceOrientationPortraitUpsideDown]
+        NSCameraUsageDescription: Fotos für Notizen aufnehmen und QR-Codes zum Anmelden scannen
+        NSPhotoLibraryAddUsageDescription: Bilder aus Notizen sichern
+        CFBundleURLTypes:
+          - CFBundleURLName: $(SAGA_BUNDLE_ID)
+            CFBundleURLSchemes: [hlidskjalf, saga]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID)
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_ENTITLEMENTS: App/App-iOS.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": App/App-macOS.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_HARDENED_RUNTIME: YES
+    dependencies:
+      - target: HlidskjalfWidget
+      - target: HlidskjalfShare
+        destinationFilters: [iOS]
+      - target: HlidskjalfShareMac
+        destinationFilters: [macOS]
+  HlidskjalfWidget:
+    type: app-extension
+    supportedDestinations: [iOS, macOS]
+    sources: [Widget, Shared/AppConfig.swift, Shared/API.swift, Shared/ColorHex.swift, Shared/DBQuery.swift]
+    info:
+      path: Widget/Info.plist
+      properties:
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleDisplayName: Saga
+        SagaAppGroup: $(SAGA_APP_GROUP)                    # gelesen von AppConfig.appGroup
+        SagaDefaultServer: $(SAGA_DEFAULT_SERVER)
+        SagaMovedServers: $(SAGA_MOVED_SERVERS)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).widget
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_ENTITLEMENTS: Widget/Widget-iOS.entitlements
+        "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]": Widget/Widget-macOS.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
+  HlidskjalfShare:
+    type: app-extension
+    platform: iOS
+    sources: [Share, Shared/AppConfig.swift, Shared/API.swift, Shared/ShareView.swift]
+    info:
+      path: Share/Info.plist
+      properties:
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleDisplayName: Saga
+        SagaAppGroup: $(SAGA_APP_GROUP)                    # gelesen von AppConfig.appGroup
+        SagaDefaultServer: $(SAGA_DEFAULT_SERVER)
+        SagaMovedServers: $(SAGA_MOVED_SERVERS)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).share
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_ENTITLEMENTS: Share/Share.entitlements
+  HlidskjalfShareMac:
+    type: app-extension
+    platform: macOS
+    sources: [ShareMac, Shared/AppConfig.swift, Shared/API.swift, Shared/ShareView.swift]
+    info:
+      path: ShareMac/Info.plist
+      properties:
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleDisplayName: Saga
+        SagaAppGroup: $(SAGA_APP_GROUP)                    # gelesen von AppConfig.appGroup
+        SagaDefaultServer: $(SAGA_DEFAULT_SERVER)
+        SagaMovedServers: $(SAGA_MOVED_SERVERS)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsWebURLWithMaxCount: 1
+              NSExtensionActivationSupportsText: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).sharemac
+        CODE_SIGN_ENTITLEMENTS: ShareMac/ShareMac.entitlements
+        ENABLE_HARDENED_RUNTIME: YES
