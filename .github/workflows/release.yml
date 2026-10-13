@@ -70,8 +70,12 @@ jobs:
       - name: Android-SDK
         run: |
           SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$SDKM" --licenses >/dev/null || true
-          "$SDKM" --install "platforms;android-37" "build-tools;36.0.0" >/dev/null
+          yes | "$SDKM" --licenses >/dev/null 2>&1 || true
+          # compileSdk 37 heisst im SDK "android-37.0"
+          if ! "$SDKM" --install "platforms;android-37.0" "build-tools;36.0.0" > "$RUNNER_TEMP/sdk.log" 2>&1; then
+            tail -15 "$RUNNER_TEMP/sdk.log" | while IFS= read -r l; do echo "::error::sdkmanager: $l"; done
+            exit 1
+          fi
           ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools" | tail -6
       - uses: gradle/actions/setup-gradle@v4
       - name: Signierschluessel
@@ -92,7 +96,12 @@ jobs:
           SAGA_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           SAGA_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           SAGA_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: ./gradlew --no-daemon assembleRelease testDebugUnitTest
+        run: |
+          # bei Fehlern die letzten Zeilen als Annotation ausgeben (Logs sind sonst nur fuer Admins lesbar)
+          if ! ./gradlew --no-daemon assembleRelease testDebugUnitTest 2>&1 | tee "$RUNNER_TEMP/gradle.log"; then
+            grep -E "FAILURE|What went wrong|e: |error:|> " "$RUNNER_TEMP/gradle.log" | head -20 | while IFS= read -r l; do echo "::error::gradle: $l"; done
+            exit 1
+          fi
       - name: Signatur pruefen
         if: env.SAGA_KEYSTORE_FILE != ''
         run: |
