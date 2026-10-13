@@ -9,9 +9,10 @@ from . import APP_ID, PROJECT_URL, images
 from .api import APIError, client, pkce
 from .blocks import flat_button, menu_popover
 from .config import device_name, get_device_token, settings
+from .i18n import _
 from .page import PageView
 from .store import is_db, label, store, watch
-from .util import bg, norm, placeholder
+from .util import bg, date_num, norm, placeholder
 
 
 class SidebarRow(Gtk.Box):
@@ -67,7 +68,7 @@ class Sidebar(Gtk.Box):
         self.results = []
         self.expanded = set(settings.get("expanded", []))
         self.show_archive = False
-        self.search = Gtk.SearchEntry(placeholder_text="Seiten durchsuchen", margin_start=8, margin_end=8, margin_bottom=6)
+        self.search = Gtk.SearchEntry(placeholder_text=_("Search pages"), margin_start=8, margin_end=8, margin_bottom=6)
         self.search.connect("search-changed", self._search)
         self.search.connect("stop-search", lambda *_: self.search.set_text(""))
         self.append(self.search)
@@ -107,7 +108,7 @@ class Sidebar(Gtk.Box):
             dt = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
             dt.connect("drop", lambda t, v, x, y: self.win.drop_pages(v, None))
             lb.add_controller(dt)
-            lb.set_tooltip_text("Hierher ziehen: auf die oberste Ebene")
+            lb.set_tooltip_text(_("Drop here to move to the top level"))
         self.box.append(lb)
 
     def fill(self, force=False):
@@ -121,44 +122,44 @@ class Sidebar(Gtk.Box):
         self.rows = {}
         w = self.win
         if self.query:
-            self.header("Treffer")
+            self.header(_("Results"))
             n = norm(self.query)
             by_name = [p for p in store.pages if n in norm(label(p))]
             ids = {p["id"] for p in by_name}
             hits = by_name + [r for r in self.results if r["id"] not in ids]
             if not hits:
-                lb = Gtk.Label(label="Keine Treffer", xalign=0, margin_start=12)
+                lb = Gtk.Label(label=_("No results"), xalign=0, margin_start=12)
                 lb.add_css_class("dim-label")
                 self.box.append(lb)
             for p in hits[:60]:
                 self._page_row(p, 0, flat=True, snippet=p.get("snippet"))
             return
-        for key, title, icon, badge in (("tasks", "Aufgaben", "object-select-symbolic", len(store.tasks) or None),
-                                        ("events", "Termine", "x-office-calendar-symbolic", None),
-                                        ("services", "Dienste", "view-app-grid-symbolic", None)):
+        for key, title, icon, badge in (("tasks", _("Tasks"), "object-select-symbolic", len(store.tasks) or None),
+                                        ("events", _("Events"), "x-office-calendar-symbolic", None),
+                                        ("services", _("Services"), "view-app-grid-symbolic", None)):
             r = SidebarRow(w, title, Gtk.Image.new_from_icon_name(icon), key=(key,), badge=badge)
             self.rows[(key,)] = r
             self.box.append(r)
         self.rows["tasks_badge"] = True
-        self.header("Heute")
+        self.header(_("Today"))
         from .agenda import TodayBox
         tb = TodayBox(w, compact=True)
         tb.set_margin_start(6)
         tb.set_margin_end(6)
         self.box.append(tb)
         if store.favorites:
-            self.header("Favoriten")
+            self.header(_("Favorites"))
             for p in store.favorites:
                 self._page_row(p, 0, flat=True)
         rec = [store.by_id[i] for i in store.recent if i in store.by_id and not store.by_id[i].get("archived")][:5]
         if rec:
-            self.header("Zuletzt")
+            self.header(_("Recent"))
             for p in rec:
                 self._page_row(p, 0, flat=True)
-        self.header("Seiten", drop=True)
+        self.header(_("Pages"), drop=True)
         self._tree(None, 0)
         if store.archived:
-            ex = flat_button(icon="pan-down-symbolic" if self.show_archive else "pan-end-symbolic", label=f"📦 Archiv ({len(store.archived)})",
+            ex = flat_button(icon="pan-down-symbolic" if self.show_archive else "pan-end-symbolic", label="📦 " + _("Archive ({count})").format(count=len(store.archived)),
                              css="dim-label hk-plain", cb=self._toggle_archive)
             ex.set_halign(Gtk.Align.START)
             ex.set_margin_top(8)
@@ -166,7 +167,7 @@ class Sidebar(Gtk.Box):
             if self.show_archive:
                 for p in store.archived:
                     self._page_row(p, 1, flat=True)
-        tr = flat_button(icon="user-trash-symbolic", label="Papierkorb", css="dim-label hk-plain", cb=w.trash_dialog)
+        tr = flat_button(icon="user-trash-symbolic", label=_("Trash"), css="dim-label hk-plain", cb=w.trash_dialog)
         tr.set_halign(Gtk.Align.START)
         tr.set_margin_top(8)
         self.box.append(tr)
@@ -285,7 +286,7 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _version_banner(self):
         if store.app_too_old:
-            self.old_banner.set_title(f"Diese App ist zu alt für den Server (ab {store.min_app}) – bitte aktualisieren.")
+            self.old_banner.set_title(_("This app is too old for the server (version {version} or later needed) – please update.").format(version=store.min_app))
         self.old_banner.set_revealed(store.app_too_old)
 
     def _activated(self):
@@ -306,16 +307,16 @@ class MainWindow(Adw.ApplicationWindow):
         sb = Adw.ToolbarView()
         hb = Adw.HeaderBar()
         hb.set_title_widget(Adw.WindowTitle(title="Saga"))
-        new = flat_button(icon="document-new-symbolic", tooltip="Neue Seite (Strg+N)", cb=self.new_page)
+        new = flat_button(icon="document-new-symbolic", tooltip=_("New page (Ctrl+N)"), cb=self.new_page)
         hb.pack_start(new)
-        menu = Gtk.MenuButton(icon_name="open-menu-symbolic", tooltip_text="Menü")
+        menu = Gtk.MenuButton(icon_name="open-menu-symbolic", tooltip_text=_("Menu"))
         m = Gio.Menu()
-        m.append("Befehlspalette", "win.palette")
-        m.append("Papierkorb", "win.trash")
-        m.append("Aktualisieren", "win.refresh")
-        m.append("Einstellungen", "win.settings")
-        m.append("Tastenkürzel", "win.shortcuts")
-        m.append("Über Saga", "win.about")
+        m.append(_("Command palette"), "win.palette")
+        m.append(_("Trash"), "win.trash")
+        m.append(_("Refresh"), "win.refresh")
+        m.append(_("Settings"), "win.settings")
+        m.append(_("Keyboard shortcuts"), "win.shortcuts")
+        m.append(_("About Saga"), "win.about")
         menu.set_menu_model(m)
         hb.pack_end(menu)
         sb.add_top_bar(hb)
@@ -325,18 +326,18 @@ class MainWindow(Adw.ApplicationWindow):
         ct = Adw.ToolbarView()
         self.chb = Adw.HeaderBar()
         # Knopf in der Inhalts-Kopfleiste: bleibt sichtbar, auch wenn die Seitenleiste eingeklappt ist
-        self.sb_btn = Gtk.ToggleButton(icon_name="sidebar-show-symbolic", tooltip_text="Seitenleiste ein-/ausblenden (F9)")
+        self.sb_btn = Gtk.ToggleButton(icon_name="sidebar-show-symbolic", tooltip_text=_("Show/hide sidebar (F9)"))
         self.split.bind_property("show-sidebar", self.sb_btn, "active", GObject.BindingFlags.BIDIRECTIONAL | GObject.BindingFlags.SYNC_CREATE)
         self.chb.pack_start(self.sb_btn)
-        self.back_btn = flat_button(icon="go-previous-symbolic", tooltip="Zurück (Alt+←)", cb=self.go_back)
-        self.fwd_btn = flat_button(icon="go-next-symbolic", tooltip="Vor (Alt+→)", cb=self.go_forward)
+        self.back_btn = flat_button(icon="go-previous-symbolic", tooltip=_("Back (Alt+←)"), cb=self.go_back)
+        self.fwd_btn = flat_button(icon="go-next-symbolic", tooltip=_("Forward (Alt+→)"), cb=self.go_forward)
         self.chb.pack_start(self.back_btn)
         self.chb.pack_start(self.fwd_btn)
         self.wtitle = Adw.WindowTitle(title="")
         self.chb.set_title_widget(self.wtitle)
-        self.menu_btn = flat_button(icon="view-more-symbolic", tooltip="Seitenmenü")
+        self.menu_btn = flat_button(icon="view-more-symbolic", tooltip=_("Page menu"))
         self.menu_btn.connect("clicked", lambda b: isinstance(self.current, PageView) and self.current.page_menu(b))
-        self.star_btn = flat_button(icon="non-starred-symbolic", tooltip="Zu Favoriten", cb=lambda: isinstance(self.current, PageView) and self.current.toggle_fav())
+        self.star_btn = flat_button(icon="non-starred-symbolic", tooltip=_("Add to favorites"), cb=lambda: isinstance(self.current, PageView) and self.current.toggle_fav())
         self.chb.pack_end(self.menu_btn)
         self.chb.pack_end(self.star_btn)
         ct.add_top_bar(self.chb)
@@ -347,7 +348,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.slot = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, vexpand=True, hexpand=True)
         self.overlay.set_child(self.slot)
         ct.set_content(self.overlay)
-        self.split.set_content(Adw.NavigationPage(title="Seite", child=ct))
+        self.split.set_content(Adw.NavigationPage(title=_("Page"), child=ct))
         bp = Adw.Breakpoint.new(Adw.BreakpointCondition.parse("max-width: 700sp"))
         bp.add_setter(self.split, "collapsed", True)
         self.add_breakpoint(bp)
@@ -375,17 +376,17 @@ class MainWindow(Adw.ApplicationWindow):
         self.sidebar.search.grab_focus()
 
     def _login_page(self):
-        sp = Adw.StatusPage(title="Saga", description="Anmelden mit Passkey, Sicherheitsschlüssel oder Passwort.\nDie Anmeldung öffnet sich im Browser.")
+        sp = Adw.StatusPage(title="Saga", description=_("Sign in with a passkey, security key or password.\nSign-in opens in your browser."))
         sp.set_icon_name(APP_ID)
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, halign=Gtk.Align.CENTER)
         lb = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE, width_request=360)
         lb.add_css_class("boxed-list")
-        self.login_server = Adw.EntryRow(title="Server-Adresse", text=settings.server)
+        self.login_server = Adw.EntryRow(title=_("Server address"), text=settings.server)
         placeholder(self.login_server, "https://saga.example.org")
         self.login_server.connect("entry-activated", lambda *_: self.start_login())
         lb.append(self.login_server)
         box.append(lb)
-        b = Gtk.Button(label="Anmelden")
+        b = Gtk.Button(label=_("Sign in"))
         b.add_css_class("suggested-action")
         b.add_css_class("pill")
         b.connect("clicked", lambda *_: self.start_login())
@@ -393,20 +394,20 @@ class MainWindow(Adw.ApplicationWindow):
         self.login_msg = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER)
         self.login_msg.add_css_class("dim-label")
         if not settings.server:
-            self.login_msg.set_label("Server-Adresse eingeben oder per Kopplungslink anmelden")
+            self.login_msg.set_label(_("Enter the server address or sign in with a pairing link"))
         box.append(self.login_msg)
-        px = Gtk.Expander(label="Mit Kopplungslink anmelden (QR-Code aus dem Web)")
+        px = Gtk.Expander(label=_("Sign in with a pairing link (QR code from the web)"))
         pb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=6)
-        pb.append(Gtk.Label(label="Im Browser: 👤 → Einstellungen → „Apps & Geräte“ → „App per QR-Code anmelden“. "
-                                  "Den Link unter dem QR-Code (…/app/pair?c=…) hier einfügen:", wrap=True, xalign=0))
+        pb.append(Gtk.Label(label=_("In the browser: 👤 → Settings → “Apps & devices” → “Sign in with QR code”. "
+                                    "Paste the link below the QR code (…/app/pair?c=…) here:"), wrap=True, xalign=0))
         pe = Gtk.Entry(placeholder_text="https://…/app/pair?c=…")
         pe.connect("activate", lambda e: self.pair_link(e.get_text().strip()))
         pb.append(pe)
         px.set_child(pb)
         box.append(px)
-        ex = Gtk.Expander(label="Browser leitet nicht zurück?")
+        ex = Gtk.Expander(label=_("Browser doesn't return to the app?"))
         eb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=6)
-        eb.append(Gtk.Label(label="Adresse aus der Fehlermeldung des Browsers (hlidskjalf://auth?code=…) hier einfügen:", wrap=True, xalign=0))
+        eb.append(Gtk.Label(label=_("Paste the address from the browser's error message (hlidskjalf://auth?code=…) here:"), wrap=True, xalign=0))
         en = Gtk.Entry(placeholder_text="hlidskjalf://auth?code=…")
         en.connect("activate", lambda e: self.finish_login(e.get_text().strip()))
         eb.append(en)
@@ -421,7 +422,7 @@ class MainWindow(Adw.ApplicationWindow):
         if s and "://" not in s:
             s = "https://" + s
         if not s.startswith("https://") or len(s) < 12:
-            self.login_msg.set_label("Bitte eine https-Adresse eingeben, z. B. https://saga.example.org")
+            self.login_msg.set_label(_("Please enter an https address, e.g. https://saga.example.org"))
             return False
         if s != settings.server:
             settings.server = s
@@ -445,19 +446,19 @@ class MainWindow(Adw.ApplicationWindow):
         else:
             srv = ""
         if len(code) < 20 or not srv.startswith(("https://", "http://")):
-            self.login_msg.set_label("Das ist kein gültiger Kopplungslink.")
+            self.login_msg.set_label(_("This is not a valid pairing link."))
             return
         if srv != settings.server:
             settings.server = srv
             client.clear_cookies()
         self.login_server.set_text(srv)
-        self.login_msg.set_label("Melde an …")
+        self.login_msg.set_label(_("Signing in …"))
 
         def fin(j):
             self.login_msg.set_label("")
             store.logged_in()
             self.present()
-            self.toast(f"Angemeldet als {j.get('name') or ''} – bleibt auf „{device_name()}“ angemeldet")
+            self.toast(_("Signed in as {name} – stays signed in on “{device}”").format(name=j.get("name") or "", device=device_name()))
         bg(client.pair, code, not (settings.get("token") or "").startswith("hk_"), done=fin, error=lambda e: self.login_msg.set_label(str(e)))
 
     def start_login(self):
@@ -465,7 +466,7 @@ class MainWindow(Adw.ApplicationWindow):
             return
         self.verifier, ch = pkce()
         url = f"{settings.server}/app/login?challenge={ch}"
-        self.login_msg.set_label("Bitte im Browser anmelden …")
+        self.login_msg.set_label(_("Please sign in in your browser …"))
         self.open_uri(url)
 
     def finish_login(self, uri):
@@ -476,16 +477,16 @@ class MainWindow(Adw.ApplicationWindow):
         except GLib.Error:
             code = None
         if not code or not self.verifier:
-            self.login_msg.set_label("Anmeldung bitte hier in der App starten.")
+            self.login_msg.set_label(_("Please start signing in here in the app."))
             return
-        self.login_msg.set_label("Melde an …")
+        self.login_msg.set_label(_("Signing in …"))
         v, self.verifier = self.verifier, None
 
         def fin(j):
             self.login_msg.set_label("")
             store.logged_in()
             self.present()
-            self.toast(f"Angemeldet als {j.get('name') or ''} – bleibt auf „{device_name()}“ angemeldet")
+            self.toast(_("Signed in as {name} – stays signed in on “{device}”").format(name=j.get("name") or "", device=device_name()))
 
         def err(e):
             self.login_msg.set_label(str(e))
@@ -585,10 +586,10 @@ class MainWindow(Adw.ApplicationWindow):
             self.wtitle.set_subtitle(store.path_text(d.id))
             fav = bool(d.page.get("pinned") if d.loaded else (store.by_id.get(d.id) or {}).get("pinned"))
             self.star_btn.set_icon_name("starred-symbolic" if fav else "non-starred-symbolic")
-            self.star_btn.set_tooltip_text("Aus Favoriten entfernen" if fav else "Zu Favoriten")
+            self.star_btn.set_tooltip_text(_("Remove from favorites") if fav else _("Add to favorites"))
             self.set_title(f"{d.title} – Saga")
         else:
-            t = {"today": "Heute", "tasks": "Aufgaben", "events": "Termine", "services": "Dienste"}.get((self.route or ("today",))[0], "")
+            t = {"today": _("Today"), "tasks": _("Tasks"), "events": _("Events"), "services": _("Services")}.get((self.route or ("today",))[0], "")
             self.wtitle.set_title(t)
             self.wtitle.set_subtitle("")
             self.set_title("Saga")
@@ -698,16 +699,16 @@ class MainWindow(Adw.ApplicationWindow):
         return False
 
     def palette_actions(self):
-        a = [("document-new-symbolic", "Neue Seite", self.new_page), ("weather-clear-symbolic", "Heute", lambda: self.show_root(("today",))),
-             ("object-select-symbolic", "Aufgaben", lambda: self.show_root(("tasks",))),
-             ("x-office-calendar-symbolic", "Termine", lambda: self.show_root(("events",))),
-             ("user-trash-symbolic", "Papierkorb", self.trash_dialog), ("view-app-grid-symbolic", "Dienste", lambda: self.show_root(("services",))),
-             ("view-refresh-symbolic", "Aktualisieren", lambda: store.refresh()), ("go-previous-symbolic", "Zurück", self.go_back),
-             ("go-next-symbolic", "Vor", self.go_forward), ("system-search-symbolic", "In der Seitenleiste suchen", self.search_sidebar),
-             ("sidebar-show-symbolic", "Seitenleiste ein-/ausblenden", self.toggle_sidebar),
-             ("emblem-system-symbolic", "Einstellungen", self.settings_dialog)]
+        a = [("document-new-symbolic", _("New page"), self.new_page), ("weather-clear-symbolic", _("Today"), lambda: self.show_root(("today",))),
+             ("object-select-symbolic", _("Tasks"), lambda: self.show_root(("tasks",))),
+             ("x-office-calendar-symbolic", _("Events"), lambda: self.show_root(("events",))),
+             ("user-trash-symbolic", _("Trash"), self.trash_dialog), ("view-app-grid-symbolic", _("Services"), lambda: self.show_root(("services",))),
+             ("view-refresh-symbolic", _("Refresh"), lambda: store.refresh()), ("go-previous-symbolic", _("Back"), self.go_back),
+             ("go-next-symbolic", _("Forward"), self.go_forward), ("system-search-symbolic", _("Search in the sidebar"), self.search_sidebar),
+             ("sidebar-show-symbolic", _("Show/hide sidebar"), self.toggle_sidebar),
+             ("emblem-system-symbolic", _("Settings"), self.settings_dialog)]
         if self.page_id():
-            a.append(("insert-link-symbolic", "Link zur Seite kopieren", self.copy_link))
+            a.append(("insert-link-symbolic", _("Copy link to page"), self.copy_link))
         return a
 
     def page_id(self):
@@ -728,7 +729,7 @@ class MainWindow(Adw.ApplicationWindow):
         pid = self.page_id()
         if pid:
             self.copy_text(store.page_url(pid))
-            self.toast("Link kopiert")
+            self.toast(_("Link copied"))
 
     def settings_dialog(self):
         from .settings import SettingsDialog
@@ -747,21 +748,22 @@ class MainWindow(Adw.ApplicationWindow):
         VersionsDialog(self, pid, restored).present(self)
 
     def shortcuts(self):
-        txt = ("Strg+K / Strg+P – Befehlspalette (Strg+K mit Auswahl: Link)\nStrg+N – Neue Seite\nAlt+← / Alt+→ – Zurück / Vor\n"
-               "Strg+R – Aktualisieren\nStrg+, – Einstellungen\nStrg+Umschalt+L – Link zur Seite kopieren\nStrg+Umschalt+F – Seitenleiste durchsuchen\n"
-               "F9 / Strg+\\ – Seitenleiste ein-/ausblenden\nStrg+1/2/3 – Heute / Aufgaben / Termine\nEsc – Peek schließen\nStrg+Umschalt+J/K – Im Peek blättern\n\n"
-               "Im Text:\nStrg+B/I/U – Fett, kursiv, unterstrichen\nStrg+Umschalt+X – Durchgestrichen\nStrg+Umschalt+H – Markieren\nStrg+E – Code\n"
-               "/ – Blocktypen   @ – Datum, Erinnerung, Seite   : – Emoji\n# ## ### - * 1. [] > ``` --- am Zeilenanfang – Blocktyp\n"
-               "Strg+Alt+0…8 – Text, Überschrift 1–3, Checkliste, Aufzählung, Nummeriert, Toggle, Code\n"
-               "Strg+Umschalt+↑/↓ – Block verschieben\nStrg+D – Block duplizieren\nStrg+Enter – Neuer Block darunter\nTab / Umschalt+Tab – Listenpunkt ein-/ausrücken")
-        d = Adw.AlertDialog(heading="Tastenkürzel", body=txt)
-        d.add_response("ok", "OK")
+        txt = _("Ctrl+K / Ctrl+P – Command palette (Ctrl+K with a selection: link)\nCtrl+N – New page\nAlt+← / Alt+→ – Back / Forward\n"
+                "Ctrl+R – Refresh\nCtrl+, – Settings\nCtrl+Shift+L – Copy link to page\nCtrl+Shift+F – Search the sidebar\n"
+                "F9 / Ctrl+\\ – Show/hide sidebar\nCtrl+1/2/3 – Today / Tasks / Events\nEsc – Close peek\nCtrl+Shift+J/K – Browse in peek\n\n"
+                "In text:\nCtrl+B/I/U – Bold, italic, underline\nCtrl+Shift+X – Strikethrough\nCtrl+Shift+H – Highlight\nCtrl+E – Code\n"
+                "/ – Block types   @ – Date, reminder, page   : – Emoji\n# ## ### - * 1. [] > ``` --- at the start of a line – Block type\n"
+                "Ctrl+Alt+0…8 – Text, Heading 1–3, Checklist, Bulleted list, Numbered list, Toggle, Code\n"
+                "Ctrl+Shift+↑/↓ – Move block\nCtrl+D – Duplicate block\nCtrl+Enter – New block below\nTab / Shift+Tab – Indent/outdent list item")
+        d = Adw.AlertDialog(heading=_("Keyboard shortcuts"), body=txt)
+        d.add_response("ok", _("OK"))
         d.present(self)
 
     def about(self):
         from . import VERSION
         a = Adw.AboutDialog(application_name="Saga", application_icon=APP_ID, version=VERSION,
-                            developer_name="Saga-Projekt", comments="Notizen, Datenbanken, Aufgaben und Termine – selbst gehostet.",
+                            developer_name=_("Saga project"), comments=_("Notes, databases, tasks and events – self-hosted."),
+                            translator_credits=_("translator-credits"),
                             website=PROJECT_URL, issue_url=PROJECT_URL + "/issues", license_type=Gtk.License.AGPL_3_0_ONLY)
         a.present(self)
 
@@ -769,15 +771,15 @@ class MainWindow(Adw.ApplicationWindow):
     def page_actions(self, widget, p):
         pid = p["id"]
         if p.get("archived"):
-            ents = [("Zurückholen", lambda: store.set_archived(pid, False))]
+            ents = [(_("Restore"), lambda: store.set_archived(pid, False))]
         else:
-            ents = [("Aus Favoriten entfernen" if p.get("pinned") else "Zu Favoriten", lambda: store.patch(pid, {"pinned": not p.get("pinned")}))]
+            ents = [(_("Remove from favorites") if p.get("pinned") else _("Add to favorites"), lambda: store.patch(pid, {"pinned": not p.get("pinned")}))]
             if not is_db(p):
-                ents.append(("Neue Unterseite", lambda: store.new_page(pid, done=lambda n: self.show_page(n))))
-            ents += [("Verschieben nach …", lambda: self.move_dialog(pid)), ("Duplizieren", lambda: store.duplicate(pid, done=lambda n: self.show_page(n))),
-                     ("Link kopieren", lambda: self.copy_text(store.page_url(pid))),
-                     ("Archivieren", lambda: (self._leave_if(pid), store.set_archived(pid, True))), None,
-                     ("In den Papierkorb", lambda: (self._leave_if(pid), store.trash(pid)), True)]
+                ents.append((_("New subpage"), lambda: store.new_page(pid, done=lambda n: self.show_page(n))))
+            ents += [(_("Move to …"), lambda: self.move_dialog(pid)), (_("Duplicate"), lambda: store.duplicate(pid, done=lambda n: self.show_page(n))),
+                     (_("Copy link"), lambda: self.copy_text(store.page_url(pid))),
+                     (_("Archive"), lambda: (self._leave_if(pid), store.set_archived(pid, True))), None,
+                     (_("Move to trash"), lambda: (self._leave_if(pid), store.trash(pid)), True)]
         menu_popover(widget, ents).popup()
 
     def _leave_if(self, pid):
@@ -800,7 +802,7 @@ class MainWindow(Adw.ApplicationWindow):
         if act == "page" and tgt:
             self.open_entry(tgt, mode)
         elif act == "db" and tgt:
-            title = (b.get("title") or "").replace("{datum}", _dt.date.today().strftime("%d.%m.%Y"))
+            title = (b.get("title") or "").replace("{datum}", date_num(_dt.date.today()))
             tpl = b.get("tpl")
             body = {"parent_id": tgt}
             if title or not tpl:
@@ -808,8 +810,8 @@ class MainWindow(Adw.ApplicationWindow):
             path = f"api/notes/{tpl}/duplicate" if tpl else "api/notes"
             store.run("POST", path, body, done=lambda r: (store.refresh(), store.emit("data-changed"), self.open_entry(r["id"], mode)))
         elif act == "task":
-            store.add_task(b.get("title") or "Neue Aufgabe")
-            self.toast("Aufgabe angelegt")
+            store.add_task(b.get("title") or _("New task"))
+            self.toast(_("Task created"))
 
     # --- Hilfen ----------------------------------------------------------------------------
     def toast(self, msg):
@@ -817,7 +819,7 @@ class MainWindow(Adw.ApplicationWindow):
             self.toasts.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(msg)), timeout=4))
 
     def _undo_toast(self, pid, title):
-        t = Adw.Toast(title=GLib.markup_escape_text(f"„{title}“ in den Papierkorb verschoben"), button_label="Rückgängig", timeout=6)
+        t = Adw.Toast(title=GLib.markup_escape_text(_("“{title}” moved to trash").format(title=title)), button_label=_("Undo"), timeout=6)
         t.connect("button-clicked", lambda *_: store.restore(pid))
         self.toasts.add_toast(t)
 
@@ -859,14 +861,14 @@ class MainWindow(Adw.ApplicationWindow):
             return p
 
         def fin(p):
-            self.toast(f"Gespeichert: {os.path.basename(p)}")
+            self.toast(_("Saved: {name}").format(name=os.path.basename(p)))
             Gtk.FileLauncher.new(Gio.File.new_for_path(p)).launch(self, None, None)
-        self.toast("Lade herunter …")
+        self.toast(_("Downloading …"))
         bg(work, done=fin, error=lambda e: self.toast(str(e)))
 
     def export_page(self, pid, title, with_sub):
-        base = (title or "Seite").replace("/", "-")
-        fd = Gtk.FileDialog(title="Exportieren", initial_name=base + (".zip" if with_sub else ".md"))
+        base = (title or _("Page")).replace("/", "-")
+        fd = Gtk.FileDialog(title=_("Export"), initial_name=base + (".zip" if with_sub else ".md"))
 
         def done(d, res):
             try:
@@ -877,7 +879,7 @@ class MainWindow(Adw.ApplicationWindow):
             def work():
                 data = client.request("GET", f"api/notes/{pid}/export" + ("?sub=1" if with_sub else ""), timeout=120)
                 f.replace_contents(data, None, False, Gio.FileCreateFlags.NONE, None)
-            bg(work, done=lambda _: self.toast("Exportiert"), error=lambda e: self.toast("Export fehlgeschlagen: " + str(e)))
+            bg(work, done=lambda r: self.toast(_("Exported")), error=lambda e: self.toast(_("Export failed: {error}").format(error=e)))
         fd.save(self, None, done)
 
     def open_link(self, uri):

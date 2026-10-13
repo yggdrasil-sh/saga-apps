@@ -7,35 +7,36 @@ from gi.repository import GLib
 
 from .api import APIError, client
 from .store import is_db, store
-from .util import bg, md_to_html, new_block_id
+from .i18n import _
+from .util import bg, esc, md_to_html, new_block_id
 
-# "/"-Menue: (Name, Typ, Ebene, Symbol, Suchwoerter)
+# "/"-Menue: (Name, Typ, Ebene, Symbol, Suchwoerter - deutsch, englisch, spanisch; der Name wird zusaetzlich durchsucht)
 SLASH_ITEMS = [
-    ("Text", "paragraph", 0, "format-justify-left-symbolic", "text absatz paragraph"),
-    ("Überschrift 1", "header", 1, "format-text-bold-symbolic", "h1 ueberschrift heading titel"),
-    ("Überschrift 2", "header", 2, "format-text-bold-symbolic", "h2 ueberschrift heading"),
-    ("Überschrift 3", "header", 3, "format-text-bold-symbolic", "h3 ueberschrift heading"),
-    ("Überschrift 4", "header", 4, "format-text-bold-symbolic", "h4 ueberschrift heading"),
-    ("Checkliste", "checklist", 0, "checkbox-checked-symbolic", "todo checkliste aufgabe check"),
-    ("Aufzählung", "unordered", 0, "view-list-bullet-symbolic", "liste aufzaehlung bullet punkt"),
-    ("Nummeriert", "ordered", 0, "view-list-ordered-symbolic", "nummeriert liste zahl ordered"),
-    ("Zitat", "quote", 0, "format-indent-more-symbolic", "zitat quote"),
-    ("Hinweis", "callout", 0, "dialog-information-symbolic", "hinweis callout info"),
-    ("Toggle", "toggle", 0, "pan-end-symbolic", "toggle aufklappen"),
-    ("Code", "code", 0, "utilities-terminal-symbolic", "code"),
-    ("Trenner", "delimiter", 0, "list-remove-symbolic", "trenner linie divider"),
-    ("Bild", "image", 0, "image-x-generic-symbolic", "bild foto image screenshot"),
-    ("Bild aus Immich", "immich_image", 0, "camera-photo-symbolic", "immich bild foto album"),
-    ("Seite", "page", 0, "document-new-symbolic", "seite unterseite page"),
-    ("Datenbank", "db_new", 0, "x-office-spreadsheet-symbolic", "datenbank database tabelle board galerie kalender inline"),
-    ("Verknüpfte Datenbank", "db_link", 0, "insert-link-symbolic", "verknuepfte datenbank linked view ansicht"),
-    ("Aufgaben", "tasks", 0, "object-select-symbolic", "aufgaben tasks todo"),
-    ("Kalender", "calendar", 0, "x-office-calendar-symbolic", "kalender termine calendar"),
-    ("Tabelle", "table", 0, "view-grid-symbolic", "tabelle table raster zellen"),
-    ("Spalten", "columns", 0, "view-dual-symbolic", "spalten columns nebeneinander"),
-    ("Schaltfläche", "buttons", 0, "input-mouse-symbolic", "schaltflaeche button knopf aktion"),
-    ("Einbetten", "embed", 0, "video-x-generic-symbolic", "einbetten embed video youtube link karte"),
-    ("Datei", "file", 0, "mail-attachment-symbolic", "datei anhang file pdf upload"),
+    (_("Text"), "paragraph", 0, "format-justify-left-symbolic", "text absatz paragraph texto parrafo"),
+    (_("Heading 1"), "header", 1, "format-text-bold-symbolic", "h1 ueberschrift heading titel titulo encabezado"),
+    (_("Heading 2"), "header", 2, "format-text-bold-symbolic", "h2 ueberschrift heading encabezado"),
+    (_("Heading 3"), "header", 3, "format-text-bold-symbolic", "h3 ueberschrift heading encabezado"),
+    (_("Heading 4"), "header", 4, "format-text-bold-symbolic", "h4 ueberschrift heading encabezado"),
+    (_("Checklist"), "checklist", 0, "checkbox-checked-symbolic", "todo checkliste aufgabe check checklist tarea verificacion"),
+    (_("Bulleted list"), "unordered", 0, "view-list-bullet-symbolic", "liste aufzaehlung bullet punkt list lista vinetas"),
+    (_("Numbered list"), "ordered", 0, "view-list-ordered-symbolic", "nummeriert liste zahl ordered numbered lista numerada"),
+    (_("Quote"), "quote", 0, "format-indent-more-symbolic", "zitat quote cita"),
+    (_("Callout"), "callout", 0, "dialog-information-symbolic", "hinweis callout info nota aviso"),
+    (_("Toggle"), "toggle", 0, "pan-end-symbolic", "toggle aufklappen desplegable"),
+    (_("Code"), "code", 0, "utilities-terminal-symbolic", "code codigo"),
+    (_("Divider"), "delimiter", 0, "list-remove-symbolic", "trenner linie divider separador linea"),
+    (_("Image"), "image", 0, "image-x-generic-symbolic", "bild foto image screenshot imagen"),
+    (_("Image from Immich"), "immich_image", 0, "camera-photo-symbolic", "immich bild foto album image imagen"),
+    (_("Page"), "page", 0, "document-new-symbolic", "seite unterseite page subpage pagina subpagina"),
+    (_("Database"), "db_new", 0, "x-office-spreadsheet-symbolic", "datenbank database tabelle board galerie kalender inline base datos tabla"),
+    (_("Linked database"), "db_link", 0, "insert-link-symbolic", "verknuepfte datenbank linked view ansicht vinculada vista"),
+    (_("Tasks"), "tasks", 0, "object-select-symbolic", "aufgaben tasks todo tareas"),
+    (_("Calendar"), "calendar", 0, "x-office-calendar-symbolic", "kalender termine calendar events calendario eventos"),
+    (_("Table"), "table", 0, "view-grid-symbolic", "tabelle table raster zellen tabla celdas"),
+    (_("Columns"), "columns", 0, "view-dual-symbolic", "spalten columns nebeneinander columnas"),
+    (_("Button"), "buttons", 0, "input-mouse-symbolic", "schaltflaeche button knopf aktion boton accion"),
+    (_("Embed"), "embed", 0, "video-x-generic-symbolic", "einbetten embed video youtube link karte insertar enlace"),
+    (_("File"), "file", 0, "mail-attachment-symbolic", "datei anhang file pdf upload attachment archivo adjunto"),
 ]
 CONVERTIBLE = [it for it in SLASH_ITEMS if it[1] not in ("image", "immich_image", "page", "db_new", "db_link", "tasks", "calendar",
                                                           "table", "columns", "buttons", "embed", "file")]
@@ -108,7 +109,7 @@ class PageDoc:
 
     @property
     def title(self):
-        return self.title_raw or "Unbenannt"
+        return self.title_raw or _("Untitled")
 
     @property
     def is_database(self):
@@ -224,11 +225,11 @@ class PageDoc:
             self._saving = False
             if isinstance(e, APIError) and e.code == 409:
                 if self.on_error:
-                    self.on_error("Die Seite wurde inzwischen woanders geändert – neu geladen.")
+                    self.on_error(_("The page was changed elsewhere in the meantime – reloaded."))
                 self.dirty = False
                 self.load(force=True)
             elif self.on_error:
-                self.on_error("Nicht gespeichert: " + str(e))
+                self.on_error(_("Not saved: {error}").format(error=e))
             if done:
                 done()
         bg(client.json, "PATCH", f"api/notes/{self.id}", b, done=fin, error=err)
@@ -586,7 +587,7 @@ class PageEditor:
             self.changed()
             return
         if btype == "buttons":
-            a[i] = {"id": bid, "type": "buttons", "data": {"buttons": [{"label": "Neu", "icon": "➕", "action": ""}]}}
+            a[i] = {"id": bid, "type": "buttons", "data": {"buttons": [{"label": _("New"), "icon": "➕", "action": ""}]}}
             self.set_focus(None)
             self.changed()
             v.config_buttons(bid)
@@ -610,7 +611,7 @@ class PageEditor:
             return
         if btype in ("db_new", "page"):
             self.set_focus(None)
-            body = ({"kind": "database", "title": "Neue Datenbank", "icon": "🗃️", "parent_id": self.doc.id} if btype == "db_new"
+            body = ({"kind": "database", "title": _("New database"), "icon": "🗃️", "parent_id": self.doc.id} if btype == "db_new"
                     else {"title": "", "parent_id": self.doc.id})
 
             def fin(res):
@@ -621,7 +622,7 @@ class PageEditor:
                 if btype == "db_new":
                     aa[j] = {"id": bid, "type": "database", "data": {"db": res["id"]}}
                 else:
-                    aa[j]["data"] = {"text": f'📄 <a href="/notes#{res["id"]}">Unbenannt</a>'}
+                    aa[j]["data"] = {"text": f'📄 <a href="/notes#{res["id"]}">{esc(_("Untitled"))}</a>'}
                 self.changed()
                 self.flush(lambda: store.refresh(done=lambda: btype == "page" and v.open_page(res["id"])))
             store.run("POST", "api/notes", body, done=fin)

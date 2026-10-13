@@ -252,38 +252,38 @@ final class PageEditor: ObservableObject {
 
 /// Eintraege des "/"-Menues: (Name, Typ, Ebene, Symbol, Suchwoerter)
 let slashItems: [(String, String, Int, String, String)] = [
-    ("Text", "paragraph", 0, "text.alignleft", "text absatz paragraph"),
-    ("Überschrift 1", "header", 1, "textformat.size.larger", "h1 ueberschrift heading titel"),
-    ("Überschrift 2", "header", 2, "textformat.size", "h2 ueberschrift heading"),
-    ("Überschrift 3", "header", 3, "textformat.size.smaller", "h3 ueberschrift heading"),
-    ("Überschrift 4", "header", 4, "textformat", "h4 ueberschrift heading"),
-    ("Checkliste", "checklist", 0, "checklist", "todo checkliste aufgabe check"),
-    ("Aufzählung", "unordered", 0, "list.bullet", "liste aufzaehlung bullet punkt"),
-    ("Nummeriert", "ordered", 0, "list.number", "nummeriert liste zahl ordered"),
-    ("Zitat", "quote", 0, "text.quote", "zitat quote"),
-    ("Hinweis", "callout", 0, "lightbulb", "hinweis callout info"),
-    ("Toggle", "toggle", 0, "chevron.right.circle", "toggle aufklappen"),
-    ("Code", "code", 0, "chevron.left.forwardslash.chevron.right", "code"),
-    ("Trenner", "delimiter", 0, "minus", "trenner linie divider"),
-    ("Bild", "image", 0, "photo", "bild foto image screenshot"),
-    ("Bild aus Immich", "immich_image", 0, "photo.on.rectangle.angled", "immich bild foto album"),
-    ("Seite", "page", 0, "doc.badge.plus", "seite unterseite page"),
-    ("Datenbank", "db_new", 0, "tablecells", "datenbank database tabelle board galerie kalender inline"),
-    ("Verknüpfte Datenbank", "db_link", 0, "link", "verknuepfte datenbank linked view ansicht"),
-    ("Aufgaben", "tasks", 0, "checklist.checked", "aufgaben tasks todo"),
-    ("Kalender", "calendar", 0, "calendar", "kalender termine calendar"),
-    ("Tabelle", "table", 0, "tablecells.badge.ellipsis", "tabelle table raster zellen"),
-    ("Spalten", "columns", 0, "rectangle.split.2x1", "spalten columns nebeneinander"),
-    ("Schaltfläche", "buttons", 0, "button.horizontal.top.press", "schaltflaeche button knopf aktion"),
-    ("Einbetten", "embed", 0, "play.rectangle", "einbetten embed video youtube link karte"),
-    ("Datei", "file", 0, "paperclip", "datei anhang file pdf upload"),
+    (String(localized: "Text"), "paragraph", 0, "text.alignleft", "text absatz paragraph texto parrafo"),
+    (String(localized: "Überschrift 1"), "header", 1, "textformat.size.larger", "h1 ueberschrift heading titel titulo encabezado"),
+    (String(localized: "Überschrift 2"), "header", 2, "textformat.size", "h2 ueberschrift heading titulo encabezado"),
+    (String(localized: "Überschrift 3"), "header", 3, "textformat.size.smaller", "h3 ueberschrift heading titulo encabezado"),
+    (String(localized: "Überschrift 4"), "header", 4, "textformat", "h4 ueberschrift heading titulo encabezado"),
+    (String(localized: "Checkliste"), "checklist", 0, "checklist", "todo checkliste aufgabe check casilla tareas"),
+    (String(localized: "Aufzählung"), "unordered", 0, "list.bullet", "liste aufzaehlung bullet punkt lista vinetas"),
+    (String(localized: "Nummeriert"), "ordered", 0, "list.number", "nummeriert liste zahl ordered numerada"),
+    (String(localized: "Zitat"), "quote", 0, "text.quote", "zitat quote cita"),
+    (String(localized: "Hinweis"), "callout", 0, "lightbulb", "hinweis callout info aviso nota"),
+    (String(localized: "Toggle"), "toggle", 0, "chevron.right.circle", "toggle aufklappen desplegable"),
+    (String(localized: "Code"), "code", 0, "chevron.left.forwardslash.chevron.right", "code codigo"),
+    (String(localized: "Trenner"), "delimiter", 0, "minus", "trenner linie divider separador linea"),
+    (String(localized: "Bild"), "image", 0, "photo", "bild foto image screenshot imagen"),
+    (String(localized: "Bild aus Immich"), "immich_image", 0, "photo.on.rectangle.angled", "immich bild foto album imagen"),
+    (String(localized: "Seite"), "page", 0, "doc.badge.plus", "seite unterseite page pagina subpagina"),
+    (String(localized: "Datenbank"), "db_new", 0, "tablecells", "datenbank database tabelle board galerie kalender inline base de datos tabla"),
+    (String(localized: "Verknüpfte Datenbank"), "db_link", 0, "link", "verknuepfte datenbank linked view ansicht base de datos vinculada vista"),
+    (String(localized: "Aufgaben"), "tasks", 0, "checklist.checked", "aufgaben tasks todo tareas"),
+    (String(localized: "Kalender"), "calendar", 0, "calendar", "kalender termine calendar calendario eventos"),
+    (String(localized: "Tabelle"), "table", 0, "tablecells.badge.ellipsis", "tabelle table raster zellen tabla celdas"),
+    (String(localized: "Spalten"), "columns", 0, "rectangle.split.2x1", "spalten columns nebeneinander columnas"),
+    (String(localized: "Schaltfläche"), "buttons", 0, "button.horizontal.top.press", "schaltflaeche button knopf aktion boton accion"),
+    (String(localized: "Einbetten"), "embed", 0, "play.rectangle", "einbetten embed video youtube link karte insertar incrustar"),
+    (String(localized: "Datei"), "file", 0, "paperclip", "datei anhang file pdf upload archivo adjunto"),
 ]
 
 struct EditText: View {
     let key: String
     let html: String
     var font: Font = .body
-    var placeholder = "Tippe etwas …"
+    var placeholder = String(localized: "Tippe etwas …")
     var splitOnReturn = true
     var raw = false                                    // Code: Text unveraendert, ohne Formatierung
     var muted = false
@@ -473,7 +473,7 @@ extension PageEditor {
             focus = nil; changed(); return
         }
         if type == "buttons" {
-            arr.replaceObject(at: i, with: NSMutableDictionary(dictionary: ["id": id, "type": "buttons", "data": NSMutableDictionary(dictionary: ["buttons": [["label": "Neu", "icon": "➕", "action": ""]]])]))
+            arr.replaceObject(at: i, with: NSMutableDictionary(dictionary: ["id": id, "type": "buttons", "data": NSMutableDictionary(dictionary: ["buttons": [["label": String(localized: "Neu"), "icon": "➕", "action": ""]]])]))
             focus = nil; changed(); configButtons = id; return
         }
         if type == "embed" { focus = nil; embedFor = id; return }
@@ -487,13 +487,13 @@ extension PageEditor {
             Task { @MainActor in
                 guard let store = self.store else { return }
                 struct R: Decodable { let id: Int }
-                let body: [String: Any] = type == "db_new" ? ["kind": "database", "title": "Neue Datenbank", "icon": "🗃️", "parent_id": self.doc.id] : ["title": "", "parent_id": self.doc.id]
+                let body: [String: Any] = type == "db_new" ? ["kind": "database", "title": String(localized: "Neue Datenbank"), "icon": "🗃️", "parent_id": self.doc.id] : ["title": "", "parent_id": self.doc.id]
                 guard let d = try? await store.api("api/notes", method: "POST", body: body), let r = try? JSONDecoder().decode(R.self, from: d),
-                      let (a, j) = self.locate(id) else { self.doc.error = "Konnte nicht angelegt werden"; return }
+                      let (a, j) = self.locate(id) else { self.doc.error = String(localized: "Konnte nicht angelegt werden"); return }
                 if type == "db_new" {
                     a.replaceObject(at: j, with: NSMutableDictionary(dictionary: ["id": id, "type": "database", "data": NSMutableDictionary(dictionary: ["db": r.id])]))
                 } else {   // Unterseite: Verweis-Absatz wie im Web, dann oeffnen
-                    (a[j] as? NSMutableDictionary)?["data"] = NSMutableDictionary(dictionary: ["text": "📄 <a href=\"/notes#\(r.id)\">Unbenannt</a>"])
+                    (a[j] as? NSMutableDictionary)?["data"] = NSMutableDictionary(dictionary: ["text": "📄 <a href=\"/notes#\(r.id)\">\(String(localized: "Unbenannt"))</a>"])
                 }
                 self.changed(); await self.flush(); await store.refresh()
                 if type == "page" { self.openPage = r.id }
@@ -516,7 +516,7 @@ extension Notification.Name { static let hkFormat = Notification.Name("hkFormat"
 // MARK: - Leiste ueber der Tastatur
 
 struct BlockTypeMenu: View {
-    let title: String
+    let title: LocalizedStringKey
     let icon: String
     let action: (String, Int) -> Void
     var body: some View {
@@ -554,16 +554,16 @@ extension PageEditor {
         if head.starts(with: [0xFF, 0xD8]) { name = "bild.jpg" } else if head.starts(with: [0x47, 0x49, 0x46]) { name = "bild.gif" }
         if !known {                                                   // z. B. HEIC -> JPEG
             #if os(iOS)
-            guard let j = UIImage(data: raw)?.jpegData(compressionQuality: 0.85) else { doc.error = "Bildformat nicht unterstützt"; return }
+            guard let j = UIImage(data: raw)?.jpegData(compressionQuality: 0.85) else { doc.error = String(localized: "Bildformat nicht unterstützt"); return }
             #else
-            guard let img = NSImage(data: raw), let tiff = img.tiffRepresentation, let j = NSBitmapImageRep(data: tiff)?.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) else { doc.error = "Bildformat nicht unterstützt"; return }
+            guard let img = NSImage(data: raw), let tiff = img.tiffRepresentation, let j = NSBitmapImageRep(data: tiff)?.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) else { doc.error = String(localized: "Bildformat nicht unterstützt"); return }
             #endif
             data = j; name = "bild.jpg"
         }
         do {
             let url = try await store.upload(data, name: name)
             insertImageURL(url)
-        } catch { doc.error = "Bild nicht hochgeladen: " + error.localizedDescription }
+        } catch { doc.error = String(localized: "Bild nicht hochgeladen: \(error.localizedDescription)") }
     }
     /// Bild-Block mit einer schon hochgeladenen Datei (/files/...) nach dem aktuellen Block (z. B. aus Immich)
     func insertImageURL(_ url: String) {

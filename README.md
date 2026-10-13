@@ -5,74 +5,79 @@
 <h1 align="center">Saga Apps</h1>
 
 <p align="center">
-  Native Apps für <a href="https://github.com/yggdrasil-sh/saga">Saga</a> – dein selbst gehostetes Zuhause für Dienste, Notizen und Aufgaben.<br>
+  Native apps for <a href="https://github.com/yggdrasil-sh/saga">Saga</a> – your self-hosted home for services, notes and tasks.<br>
   iPhone · iPad · Mac · Linux (GNOME) · Android
+</p>
+
+<p align="center">
+  <b>English</b> · <a href="README.de.md">Deutsch</a> · <a href="README.es.md">Español</a>
 </p>
 
 ---
 
-Die Apps verbinden sich mit deinem eigenen Saga-Server. Seiten, Datenbanken, Aufgaben und Termine werden
-**nativ** angezeigt und bearbeitet – keine eingebettete Webseite.
+The apps connect to your own Saga server. Pages, databases, tasks and events are shown and edited
+**natively** – not in a wrapped website. They follow your system language: English, German or Spanish
+(any other language falls back to English).
 
-| Plattform | Technik | Ordner | Anleitung |
+| Platform | Technology | Folder | Instructions |
 |---|---|---|---|
 | iOS, iPadOS, macOS | SwiftUI, WidgetKit | [`ios/`](ios/) | [ios/README.md](ios/README.md) |
 | Linux (GNOME) | Python, GTK4 + libadwaita, RPM | [`linux/`](linux/) | [linux/README.md](linux/README.md) |
 | Android | Kotlin, Jetpack Compose | [`android/`](android/) | [android/README.md](android/README.md) |
 
-## So sieht es aus
+## What it looks like
 
 <p align="center">
-  <img src="docs/screenshots/ios-start.png" width="200" alt="iPhone: Startseite mit Aufgaben und zuletzt geöffneten Seiten">
-  <img src="docs/screenshots/ios-dunkel-board.png" width="200" alt="iPhone: Datenbank als Board im dunklen Design">
-  <img src="docs/screenshots/android-dienste.png" width="200" alt="Android: Dienste nach Gruppen">
-  <img src="docs/screenshots/android-heute.png" width="200" alt="Android: Heute mit Terminen und Aufgaben">
+  <img src="docs/screenshots/ios-start.png" width="200" alt="iPhone: home with tasks and recent pages">
+  <img src="docs/screenshots/ios-dunkel-board.png" width="200" alt="iPhone: database as a board in dark mode">
+  <img src="docs/screenshots/android-dienste.png" width="200" alt="Android: services by group">
+  <img src="docs/screenshots/android-heute.png" width="200" alt="Android: today with events and tasks">
 </p>
 <p align="center">
-  <img src="docs/screenshots/ipad-projekte.png" width="620" alt="iPad: Seitenleiste und Datenbank als Board">
+  <img src="docs/screenshots/ipad-projekte.png" width="620" alt="iPad: sidebar and database as a board">
 </p>
 
-## Herunterladen
+## Download
 
-Fertige Pakete gibt es unter [Releases](https://github.com/yggdrasil-sh/saga-apps/releases/latest):
+Ready-made packages are available under [Releases](https://github.com/yggdrasil-sh/saga-apps/releases/latest):
 
-| System | Datei |
+| System | File |
 |---|---|
-| macOS 26 oder neuer | `Saga-<Version>-macOS.dmg` – signiert und von Apple beglaubigt |
-| Linux (Fedora, AlmaLinux/RHEL 10 mit EPEL) | `saga-<Version>-1.noarch.rpm` |
-| Linux (jede Distribution mit Flatpak) | `saga-<Version>-x86_64.flatpak` (`flatpak install --user saga-….flatpak`) |
-| Android 8 oder neuer | `Saga-<Version>.apk` (Installation aus unbekannten Quellen erlauben) |
+| macOS 26 or later | `Saga-<version>-macOS.dmg` – signed and notarized by Apple |
+| Linux (Fedora, AlmaLinux/RHEL 10 with EPEL) | `saga-<version>-1.noarch.rpm` |
+| Linux (any distribution with Flatpak) | `saga-<version>-x86_64.flatpak` (`flatpak install --user saga-….flatpak`) |
+| Android 8 or later | `Saga-<version>.apk` (allow installation from unknown sources) |
 
-iPhone und iPad: selbst bauen (siehe [ios/README.md](ios/README.md)) – für den App Store gibt es noch keine Version.
+iPhone and iPad: build it yourself (see [ios/README.md](ios/README.md)) – there is no App Store version yet.
 
-## Anmelden
+## Signing in
 
-1. Saga-Server eintragen (z. B. `https://saga.example.org`) und **Anmelden** – die Anmeldung öffnet sich im Browser
-   (lokales Konto, LDAP oder SSO, je nach Server).
-2. Oder bequemer: im Browser in Saga oben auf 👤 → **Einstellungen** → **Apps & Geräte** → **App per QR-Code anmelden**
-   und den Code mit der App scannen (Mac/Linux: Kopplungslink einfügen).
+1. Enter your Saga server (e.g. `https://saga.example.org`) and tap **Sign in** – sign-in opens in the browser
+   (local account, LDAP or SSO, depending on the server).
+2. Or, more conveniently: in Saga in your browser, open 👤 at the top → **Settings** → **Apps & devices** →
+   **Sign in with QR code** and scan the code with the app (Mac/Linux: paste the pairing link).
 
-Die Apps bleiben danach dauerhaft angemeldet. Abmelden lässt sich jedes Gerät jederzeit in Saga unter
-„Apps & Geräte“.
+The apps then stay signed in. You can sign out any device at any time in Saga under "Apps & devices".
 
-## Selbst bauen
+## Building it yourself
 
-Persönliche Einstellungen (Entwickler-Team, App-ID, Testgeräte, Verteil-Befehle) stehen **nie** im Repository,
-sondern in lokalen Dateien, die git ignoriert. Vorlagen liegen jeweils daneben:
+Personal settings (developer team, app ID, test devices, deployment commands) are **never** stored in the
+repository, but in local files that git ignores. Templates sit right next to them:
 
 - `ios/Config/Local.xcconfig.example` → `ios/Config/Local.xcconfig`
 - `ios/Config/local.env.example` → `ios/Config/local.env`
-- `tools/local.env.example` → `tools/local.env` (Rechner für die Linux-Tests)
+- `tools/local.env.example` → `tools/local.env` (machines for the Linux tests)
 
-Version aller Apps setzen: `tools/set-version.sh 1.2.0` (eine Quelle: `VERSION`). Landet die Änderung an
-`VERSION` auf `main`, baut GitHub alle Pakete und veröffentlicht sie als Release (`.github/workflows/release.yml`).
-Neues landet zuerst auf dem Branch `testing`: Jeder Push dort baut alle Pakete als Probelauf (ohne Release).
+Set the version of all apps: `tools/set-version.sh 1.2.0` (single source: `VERSION`). When a change to
+`VERSION` lands on `main`, GitHub builds all packages and publishes them as a release
+(`.github/workflows/release.yml`). New work lands on the `testing` branch first: every push there builds all
+packages as a dry run (without a release).
 
-## Versionen
+## Versions
 
-Die Apps folgen [Semantic Versioning](https://semver.org/lang/de/). Sie zeigen in den Einstellungen ihre eigene
-Version und die des Servers; ist eine App für den Server zu alt, weist sie darauf hin.
+The apps follow [Semantic Versioning](https://semver.org/). Their settings show the app's own version and the
+server's; if an app is too old for the server, it tells you.
 
-## Lizenz
+## License
 
-[GNU AGPL-3.0](LICENSE) – wie Saga selbst.
+[GNU AGPL-3.0](LICENSE) – just like Saga itself.

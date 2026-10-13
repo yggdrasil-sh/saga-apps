@@ -13,7 +13,7 @@ struct PItem: Hashable {
 
 struct PageEntry: TimelineEntry {
     let date: Date
-    var name = "Seite oder Datenbank"; var emoji = "📄"
+    var name = String(localized: "Seite oder Datenbank"); var emoji = "📄"
     var targetID: Int? = nil; var dbID: Int? = nil; var viewID: String? = nil
     var items: [PItem] = []
     var message: String? = nil
@@ -21,7 +21,7 @@ struct PageEntry: TimelineEntry {
 
 struct PageProvider: AppIntentTimelineProvider {
     func placeholder(in context: Context) -> PageEntry {
-        PageEntry(date: .now, name: "ToDos", emoji: "✅", items: [PItem(id: 1, title: "Eintrag", emoji: "📄", chip: "Offen", chipColor: "blue")])
+        PageEntry(date: .now, name: String(localized: "ToDos"), emoji: "✅", items: [PItem(id: 1, title: String(localized: "Eintrag"), emoji: "📄", chip: String(localized: "Offen"), chipColor: "blue")])
     }
     func snapshot(for configuration: PageWidgetIntent, in context: Context) async -> PageEntry {
         configuration.target == nil ? placeholder(in: context) : await load(configuration.target)
@@ -32,29 +32,29 @@ struct PageProvider: AppIntentTimelineProvider {
 
     private func load(_ t: TargetEntity?) async -> PageEntry {
         var e = PageEntry(date: .now)
-        guard let t, let id = t.pageID else { e.message = "Widget gedrückt halten → „Widget bearbeiten“ → Seite oder Datenbank wählen"; return e }
+        guard let t, let id = t.pageID else { e.message = String(localized: "Widget gedrückt halten → „Widget bearbeiten“ → Seite oder Datenbank wählen"); return e }
         e.name = t.name; e.emoji = t.icon ?? "📄"; e.targetID = id
         do {
             if t.isDatabase {
                 e.dbID = id; e.viewID = t.viewID
-                guard let q = DBQuery.parse(try await API.rows(id)) else { e.message = "Datenbank nicht lesbar"; return e }
+                guard let q = DBQuery.parse(try await API.rows(id)) else { e.message = String(localized: "Datenbank nicht lesbar"); return e }
                 let view = q.view(t.viewID)
                 // Chip: "Status" (sonst erste Auswahl); Haekchen: erstes Haekchen-Feld - wie in der Liste der App
                 let chipP = q.props.first { $0.type == "select" && $0.name.lowercased() == "status" } ?? q.props.first { $0.type == "select" }
                 let checkP = q.props.first { $0.type == "checkbox" }
                 e.items = q.rows(for: view).map { r in
-                    var it = PItem(id: r.id, title: r.title.isEmpty ? "Unbenannt" : r.title, emoji: emoji(r.icon) ?? "📄")
+                    var it = PItem(id: r.id, title: r.title.isEmpty ? String(localized: "Unbenannt") : r.title, emoji: emoji(r.icon) ?? "📄")
                     if let p = chipP, let o = p.option(q.value(p, r) as? String) { it.chip = o.name; it.chipColor = o.color }
                     if let p = checkP { it.check = (p.id, (q.value(p, r) as? Bool) ?? false) }
                     return it
                 }
-                if e.items.isEmpty { e.message = "Keine Einträge" }
+                if e.items.isEmpty { e.message = String(localized: "Keine Einträge") }
             } else {
                 let pages = try await API.pages()
                 e.items = pages.filter { $0.parent_id == id }.map { p in
-                    PItem(id: p.id, title: p.title.isEmpty ? "Unbenannt" : p.title, emoji: p.emoji ?? (p.isDatabase ? "🗂" : "📄"))
+                    PItem(id: p.id, title: p.title.isEmpty ? String(localized: "Unbenannt") : p.title, emoji: p.emoji ?? (p.isDatabase ? "🗂" : "📄"))
                 }
-                if e.items.isEmpty { e.message = "Keine Unterseiten" }
+                if e.items.isEmpty { e.message = String(localized: "Keine Unterseiten") }
             }
         } catch { e.message = error.localizedDescription }
         return e

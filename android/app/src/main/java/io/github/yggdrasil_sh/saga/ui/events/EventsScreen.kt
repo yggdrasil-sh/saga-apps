@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.events
 
+import androidx.compose.ui.res.stringResource
+import io.github.yggdrasil_sh.saga.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,7 +50,7 @@ fun EventRow(e: CalEvent) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.width(4.dp).height(34.dp).clip(RoundedCornerShape(2.dp)).background(hexColor(e.color, MaterialTheme.colorScheme.tertiary)))
         Column(Modifier.padding(start = 12.dp).weight(1f)) {
-            Text(e.summary.ifEmpty { "(ohne Titel)" } + if (e.series == true) " 🔁" else "", maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(e.summary.ifEmpty { stringResource(R.string.events_untitled) } + if (e.series == true) " 🔁" else "", maxLines = 1, overflow = TextOverflow.Ellipsis)
             val sub = listOfNotNull(eventTime(e.start, e.end, e.allday), e.location?.takeIf { it.isNotBlank() }, e.calendar?.takeIf { it.isNotBlank() })
             Text(sub.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
@@ -72,7 +74,7 @@ fun EventsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     }
     LaunchedEffect(Unit) { load(false) }
 
-    Scaffold(topBar = { SagaTopBar("Termine", nav, chrome) }) { pad ->
+    Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_events), nav, chrome) }) { pad ->
         PullToRefreshBox(
             isRefreshing = refreshing,
             onRefresh = { scope.launch { refreshing = true; load(true); refreshing = false } },
@@ -80,10 +82,10 @@ fun EventsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         ) {
             val byDay = (events ?: emptyList()).groupBy { eventDay(it.start) }.entries.sortedWith(compareBy(nullsLast()) { it.key })
             LazyColumn(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-                if (failed) item { Text("Termine konnten nicht geladen werden.", color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
-                if (events?.isEmpty() == true) item { Text("Keine Termine", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
+                if (failed) item { Text(stringResource(R.string.events_load_failed), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+                if (events?.isEmpty() == true) item { Text(stringResource(R.string.events_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
                 byDay.forEach { (day, list) ->
-                    item(key = "d-$day") { SectionHeader(day?.let { dayHeader(it) } ?: "Ohne Datum", Modifier.widthIn(max = 760.dp)) }
+                    item(key = "d-$day") { SectionHeader(day?.let { dayHeader(it) } ?: stringResource(R.string.no_date), Modifier.widthIn(max = 760.dp)) }
                     itemsIndexed(list, key = { i, _ -> "e-$day-$i" }) { _, e -> Box(Modifier.widthIn(max = 760.dp)) { EventRow(e) } }
                 }
             }

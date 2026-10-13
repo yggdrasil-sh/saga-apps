@@ -102,7 +102,7 @@ struct VersionsSheet: View {
                 List(list, selection: $sel) { v in
                     VStack(alignment: .leading) {
                         Text(Date(timeIntervalSince1970: v.created).formatted(date: .abbreviated, time: .shortened)).font(.subheadline)
-                        Text(v.title.isEmpty ? "Unbenannt" : v.title).font(.caption).foregroundStyle(.secondary)
+                        Text(v.title.isEmpty ? String(localized: "Unbenannt") : v.title).font(.caption).foregroundStyle(.secondary)
                     }.tag(v.id)
                 }
                 .frame(width: 230)
@@ -110,8 +110,8 @@ struct VersionsSheet: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
                         if let prev {
-                            Text(prev.title.isEmpty ? "Unbenannt" : prev.title).font(.title3.bold())
-                            Text(prev.text.isEmpty ? "(leer)" : prev.text).font(.body).textSelection(.enabled)
+                            Text(prev.title.isEmpty ? String(localized: "Unbenannt") : prev.title).font(.title3.bold())
+                            Text(prev.text.isEmpty ? String(localized: "(leer)") : prev.text).font(.body).textSelection(.enabled)
                         } else {
                             Text(loaded && list.isEmpty ? "Noch keine früheren Versionen. Beim Bearbeiten wird höchstens alle 10 Minuten ein Stand gesichert (bis zu 50 pro Seite)."
                                                         : "Version auswählen, um sie anzusehen.").foregroundStyle(.secondary)
@@ -149,7 +149,7 @@ struct VersionsSheet: View {
 func exportPage(_ id: Int, title: String, withSub: Bool, store: Store) async -> String? {
     do {
         let data = try await store.api("api/notes/\(id)/export" + (withSub ? "?sub=1" : ""))
-        let base = title.isEmpty ? "Seite" : title.replacingOccurrences(of: "/", with: "-")
+        let base = title.isEmpty ? String(localized: "Seite") : title.replacingOccurrences(of: "/", with: "-")
         #if os(macOS)
         let panel = NSSavePanel()
         panel.nameFieldStringValue = base + (withSub ? ".zip" : ".md")
@@ -162,7 +162,7 @@ func exportPage(_ id: Int, title: String, withSub: Bool, store: Store) async -> 
         try data.write(to: url)
         return url.path
         #endif
-    } catch { return "Export fehlgeschlagen: \(error.localizedDescription)" }
+    } catch { return String(localized: "Export fehlgeschlagen: \(error.localizedDescription)") }
 }
 
 // MARK: - Inhaltsverzeichnis (Mac: rechts neben der Seite, ab 3 Ueberschriften)

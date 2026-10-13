@@ -6,8 +6,8 @@ struct TodayEntry: TimelineEntry { let date: Date; let data: TodayData?; let err
 
 struct TodayProvider: TimelineProvider {
     func placeholder(in context: Context) -> TodayEntry {
-        TodayEntry(date: .now, data: TodayData(date: "", events: [TodayEvent(summary: "Termin", start: "", end: "", allday: false)],
-                                               tasks: [TodayTask(id: 1, text: "Aufgabe")], errors: nil), error: nil)
+        TodayEntry(date: .now, data: TodayData(date: "", events: [TodayEvent(summary: String(localized: "Termin"), start: "", end: "", allday: false)],
+                                               tasks: [TodayTask(id: 1, text: String(localized: "Aufgabe"))], errors: nil), error: nil)
     }
     func getSnapshot(in context: Context, completion: @escaping (TodayEntry) -> Void) { load(completion) }
     func getTimeline(in context: Context, completion: @escaping (Timeline<TodayEntry>) -> Void) {
@@ -33,13 +33,17 @@ enum WLink {
 
 private let isoF = ISO8601DateFormatter()
 private let dayF: DateFormatter = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.timeZone = .current; return f }()
-private let timeF: DateFormatter = { let f = DateFormatter(); f.dateFormat = "HH:mm"; return f }()
+private let timeF: DateFormatter = { let f = DateFormatter(); f.setLocalizedDateFormatFromTemplate("jmm"); return f }()   // 15:30 bzw. 3:30 PM
+/// 12-Stunden-Uhr (en-US): Zeitspalte im kleinen Widget etwas breiter
+private let uses12h = (DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current) ?? "").contains("a")
+/// Kennungen fuer "heute"/"morgen" (Anzeige und Vergleich)
+private let wToday = String(localized: "heute"), wTomorrow = String(localized: "morgen")
 
 /// Termine nur von HEUTE (lokal), ganztaegige zuerst.
 private func todays(_ evs: [TodayEvent]) -> [(time: String, ev: TodayEvent)] {
     let cal = Calendar.current, today = cal.startOfDay(for: .now)
     return evs.compactMap { e in
-        if e.allday, let s = dayF.date(from: e.start), let en = dayF.date(from: e.end), s <= today, today < en { return ("ganztägig", e) }
+        if e.allday, let s = dayF.date(from: e.start), let en = dayF.date(from: e.end), s <= today, today < en { return (String(localized: "ganztägig"), e) }
         if !e.allday, let s = isoF.date(from: e.start), cal.isDate(s, inSameDayAs: .now) { return (timeF.string(from: s), e) }
         return nil
     }
@@ -51,12 +55,12 @@ private func nextEvent(_ evs: [TodayEvent], now: Date) -> (when: String, ev: Tod
     let cands: [(Date, String, TodayEvent)] = evs.compactMap { e in
         if e.allday {
             guard let s = dayF.date(from: e.start), let en = dayF.date(from: e.end), en > now else { return nil }
-            return (s, cal.isDateInToday(max(s, cal.startOfDay(for: now))) ? "heute" : "morgen", e)
+            return (s, cal.isDateInToday(max(s, cal.startOfDay(for: now))) ? wToday : wTomorrow, e)
         }
         guard let s = isoF.date(from: e.start) else { return nil }
         let en = isoF.date(from: e.end) ?? s
         guard en > now else { return nil }
-        return (s, (cal.isDateInToday(s) ? "" : "morgen ") + timeF.string(from: s), e)
+        return (s, cal.isDateInToday(s) ? timeF.string(from: s) : String(localized: "morgen \(timeF.string(from: s))"), e)
     }
     // zeitgebundene zuerst (ganztaegige laufen nebenher)
     let timed = cands.filter { !$0.2.allday }.sorted { $0.0 < $1.0 }
@@ -92,7 +96,7 @@ struct TodayWidgetView: View {
                     Link(destination: WLink.events) {
                         HStack(spacing: 6) {
                             RoundedRectangle(cornerRadius: 1.5).fill(Color(hex: x.ev.color) ?? .blue).frame(width: 3)
-                            Text(x.time).font(.caption2).foregroundStyle(.secondary).frame(width: family == .systemSmall ? 34 : 56, alignment: .leading)
+                            Text(x.time).font(.caption2).foregroundStyle(.secondary).frame(width: family == .systemSmall ? (uses12h ? 46 : 34) : 56, alignment: .leading)
                             Text(x.ev.summary).font(.caption).lineLimit(1)
                             Spacer(minLength: 0)
                         }.frame(height: 15)
@@ -165,18 +169,18 @@ struct LockWidgetView: View {
                 }
                 .widgetURL(WLink.tasks)
             case .accessoryInline:
-                if let n = next { Text("📅 \(n.when == "heute" ? "" : n.when + " ")\(n.ev.summary)") }
+                if let n = next { Text(verbatim: "📅 " + (n.when == wToday ? "" : n.when + " ") + n.ev.summary) }
                 else { Text("✓ \(tasks.count) Aufgaben offen") }
             default:            // Rechteck
                 VStack(alignment: .leading, spacing: 1) {
                     if let n = next {
                         Text(n.ev.summary).font(.headline).lineLimit(1).widgetAccentable()
-                        Text([n.when == "heute" ? "ganztägig" : n.when, n.ev.location].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
+                        Text([n.when == wToday ? String(localized: "ganztägig") : n.when, n.ev.location].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
                             .font(.caption).lineLimit(1)
                     } else {
                         Text("Keine Termine").font(.headline).widgetAccentable()
                     }
-                    Text(tasks.isEmpty ? "Alles erledigt" : "\(tasks.count) Aufgabe\(tasks.count == 1 ? "" : "n")" + (overdue > 0 ? " · \(overdue) überfällig" : ""))
+                    Text(tasks.isEmpty ? String(localized: "Alles erledigt") : String(localized: "\(tasks.count) Aufgaben") + (overdue > 0 ? " · " + String(localized: "\(overdue) überfällig") : ""))
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

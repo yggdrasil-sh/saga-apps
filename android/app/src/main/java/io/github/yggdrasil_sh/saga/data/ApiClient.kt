@@ -1,6 +1,8 @@
 package io.github.yggdrasil_sh.saga.data
 
+import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.util.ServerUrl
+import io.github.yggdrasil_sh.saga.util.UiText
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -24,8 +26,14 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
-/** Fehler vom Server (HTTP-Status + Meldung aus {"error": ...}) */
-class ApiException(val code: Int, message: String) : Exception(message)
+/**
+ * Fehler vom Server (HTTP-Status + Meldung aus {"error": ...}).
+ * text = Anzeige fuer die Oberflaeche (uebersetzt; Meldungen des Servers unveraendert), message nur fuers Log.
+ */
+class ApiException(val code: Int, val text: UiText) : Exception("HTTP $code: $text")
+
+/** Erneuerung der Sitzung ging nicht durch (Netz) - als "Server nicht erreichbar" anzeigen */
+class ServerUnreachableException : IOException("server unreachable")
 
 /** Sitzungs-Cookie ("saga") nur im Speicher - laeuft sie ab, erneuert der Geraete-Schluessel sie still. */
 class MemoryCookieJar : CookieJar {
@@ -110,7 +118,7 @@ class ApiClient(
                 }
                 Resume.OFFLINE -> {
                     resp.close()
-                    throw IOException("Server nicht erreichbar")
+                    throw ServerUnreachableException()
                 }
             }
         }
@@ -145,7 +153,7 @@ class ApiClient(
 
     fun url(path: String): String {
         val server = serverProvider()
-        if (server.isEmpty()) throw ApiException(401, "Bitte Server eintragen")
+        if (server.isEmpty()) throw ApiException(401, UiText.Res(R.string.error_enter_server))
         return ServerUrl.absolute(server, path)
     }
 
@@ -157,7 +165,7 @@ class ApiClient(
         }
         val req = Request.Builder().url(url(path)).method(method, rb).build()
         val (code, text) = execute(if (auth) authClient else client, req)
-        if (code !in 200..299) throw ApiException(code, errorMessage(code, text))
+        if (code !in 200..299) throw ApiException(code, errorText(code, text))
         return text
     }
 
@@ -187,17 +195,17 @@ class ApiClient(
             })
         }
 
-    private fun errorMessage(code: Int, text: String): String {
+    private fun errorText(code: Int, text: String): UiText {
         val msg = try {
             ((Json.parseToJsonElement(text) as? JsonObject)?.get("error") as? JsonPrimitive)?.content
         } catch (_: Exception) {
             null
         }
         return when {
-            code == 401 && (msg.isNullOrBlank() || msg == "unauthorized") -> "Bitte anmelden"
-            msg.isNullOrBlank() -> "Server-Fehler $code"
-            msg == "not found" -> "Nicht gefunden"
-            else -> msg
+            code == 401 && (msg.isNullOrBlank() || msg == "unauthorized") -> UiText.Res(R.string.error_sign_in_required)
+            msg.isNullOrBlank() -> UiText.Res(R.string.error_server_code, code)
+            msg == "not found" -> UiText.Res(R.string.error_not_found)
+            else -> UiText.Raw(msg)
         }
     }
 }

@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.util.UiText
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -65,8 +67,8 @@ class PageEditor(val id: Int, private val repo: SagaRepository, private val scop
         private set
     var saving by mutableStateOf(false)
         private set
-    var error by mutableStateOf<String?>(null)
-    var info by mutableStateOf<String?>(null)
+    var error by mutableStateOf<UiText?>(null)
+    var info by mutableStateOf<UiText?>(null)
 
     /** Feld, das den Fokus bekommen soll (Schluessel) - das Feld setzt es nach dem Fokussieren zurueck */
     var focusRequest by mutableStateOf<String?>(null)
@@ -90,11 +92,11 @@ class PageEditor(val id: Int, private val repo: SagaRepository, private val scop
             if (dirty && fetched) return                     // eigene, noch nicht gespeicherte Eingaben schuetzen
             apply(p)
             repo.visited(id)
-        } catch (e: BlockDoc.UnreadableException) {
+        } catch (_: BlockDoc.UnreadableException) {
             fetched = false
-            error = e.message
+            error = UiText.Res(R.string.page_unreadable)
         } catch (e: Exception) {
-            if (!fetched) error = repo.friendly(e) else info = "Neu laden fehlgeschlagen: ${repo.friendly(e)}"
+            if (!fetched) error = repo.friendly(e) else info = UiText.Res(R.string.page_reload_failed, repo.friendly(e))
         } finally {
             loading = false
         }
@@ -311,7 +313,7 @@ class PageEditor(val id: Int, private val repo: SagaRepository, private val scop
     private suspend fun doSave(): Boolean {
         if (!fetched || !dirty || locked || repo.server.value != server) return false
         if (repo.needsLogin.value) {
-            error = "Nicht gespeichert – bitte anmelden."
+            error = UiText.Res(R.string.save_sign_in)
             return false
         }
         val v = version
@@ -327,18 +329,18 @@ class PageEditor(val id: Int, private val repo: SagaRepository, private val scop
         } catch (e: ApiException) {
             when (e.code) {
                 409 -> {
-                    info = "Die Seite wurde inzwischen woanders geändert – neu geladen. Deine letzte Änderung wurde nicht übernommen."
+                    info = UiText.Res(R.string.save_conflict)
                     return true
                 }
                 423 -> {
                     locked = true
-                    error = "Seite ist gesperrt – Änderung nicht gespeichert."
+                    error = UiText.Res(R.string.save_locked)
                 }
-                401 -> error = "Nicht gespeichert – bitte anmelden."
-                else -> error = "Nicht gespeichert: ${e.message}"
+                401 -> error = UiText.Res(R.string.save_sign_in)
+                else -> error = UiText.Res(R.string.save_failed, e.text)
             }
         } catch (e: Exception) {
-            error = "Nicht gespeichert: ${repo.friendly(e)} – neuer Versuch gleich."
+            error = UiText.Res(R.string.save_failed_retry, repo.friendly(e))
             scheduleSave(10_000)
         } finally {
             saving = false

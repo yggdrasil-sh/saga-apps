@@ -4,6 +4,7 @@ import XCTest
 /// Laeuft nur, wenn SAGA_SHOT_DIR gesetzt ist (beim Aufruf als TEST_RUNNER_SAGA_SHOT_DIR).
 /// Anmeldung: SAGA_PAIR_LINK (TEST_RUNNER_SAGA_PAIR_LINK) = Kopplungs-Link <app>://pair?u=...&c=...
 /// Optional SAGA_SHOT_PAGE / SAGA_SHOT_DB: Seiten-IDs von "Willkommen" und der Datenbank.
+/// SAGA_SHOT_LANG (de|en|es, Vorgabe de) / SAGA_SHOT_LOCALE: Sprache; bei en/es bekommen die Dateien die Endung -en/-es.
 final class SagaScreenshots: XCTestCase {
     private let env = ProcessInfo.processInfo.environment
     private var app: XCUIApplication!
@@ -17,7 +18,7 @@ final class SagaScreenshots: XCTestCase {
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         continueAfterFailure = false
         app = XCUIApplication()
-        app.launchArguments += ["-AppleLanguages", "(de)", "-AppleLocale", "de_DE"]
+        app.launchArguments += ["-AppleLanguages", "(\(lang))", "-AppleLocale", value("SAGA_SHOT_LOCALE", "de_DE")]
         app.launch()
         try signInIfNeeded()
     }
@@ -38,7 +39,7 @@ final class SagaScreenshots: XCTestCase {
         open("hlidskjalf://page/\(db)"); shot("ios-projekte")
         board(); shot("ios-projekte-board")
         open("hlidskjalf://today")
-        let services = app.staticTexts["Dienste"].firstMatch
+        let services = app.staticTexts[ui(de: "Dienste", en: "Services", es: "Servicios")].firstMatch
         if services.waitForExistence(timeout: 5) { services.tap(); settle(); shot("ios-dienste") }
     }
 
@@ -56,12 +57,15 @@ final class SagaScreenshots: XCTestCase {
     // MARK: - Hilfen
 
     private var dark: Bool { env["SAGA_SHOT_MODE"] == "dark" }
+    private var lang: String { value("SAGA_SHOT_LANG", "de") }
+    /// Beschriftung der App in der gewaehlten Sprache (zum Finden von Knoepfen)
+    private func ui(de: String, en: String, es: String) -> String { lang == "en" ? en : lang == "es" ? es : de }
 
     private func value(_ k: String, _ def: String) -> String { env[k].flatMap { $0.isEmpty ? nil : $0 } ?? def }
 
     /// Einmal koppeln, danach bleibt die App angemeldet (Geraete-Schluessel)
     private func signInIfNeeded() throws {
-        let login = app.buttons["Mit QR-Code anmelden"]
+        let login = app.buttons[ui(de: "Mit QR-Code anmelden", en: "Sign in with QR code", es: "Iniciar sesión con código QR")]
         guard login.waitForExistence(timeout: 4) else { return }
         guard let link = env["SAGA_PAIR_LINK"], let url = URL(string: link) else { throw XCTSkip("nicht angemeldet und SAGA_PAIR_LINK fehlt") }
         app.open(url)
@@ -86,7 +90,7 @@ final class SagaScreenshots: XCTestCase {
     /// Rueckfrage "In Saga oeffnen?" bestaetigen, falls das System sie zeigt
     private func confirmSystemDialog() {
         let sb = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        for t in ["Öffnen", "Open"] where sb.buttons[t].waitForExistence(timeout: 1.5) { sb.buttons[t].tap(); return }
+        for t in ["Öffnen", "Open", "Abrir"] where sb.buttons[t].waitForExistence(timeout: 1.5) { sb.buttons[t].tap(); return }
     }
 
     /// Warten, bis nichts mehr laedt
@@ -99,6 +103,6 @@ final class SagaScreenshots: XCTestCase {
 
     private func shot(_ name: String) {
         let png = XCUIScreen.main.screenshot().pngRepresentation
-        try? png.write(to: dir.appendingPathComponent(name + ".png"))
+        try? png.write(to: dir.appendingPathComponent(name + (lang == "de" ? "" : "-" + lang) + ".png"))   // ios-start-en.png
     }
 }

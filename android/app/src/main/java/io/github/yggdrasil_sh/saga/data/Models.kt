@@ -19,7 +19,6 @@ data class PageMeta(
     val tags: List<String> = emptyList(),
     val locked: Boolean = false,
 ) {
-    val label: String get() = title.ifEmpty { "Unbenannt" }
     val isDatabase: Boolean get() = kind == "database"
 }
 

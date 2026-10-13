@@ -2,7 +2,7 @@ import SwiftUI
 
 private let isoDayF: DateFormatter = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f }()
 private func dayKey(_ d: Date) -> String { isoDayF.string(from: d) }
-let repeatNames: [(String?, String)] = [(nil, "Nie"), ("daily", "Täglich"), ("weekdays", "Werktags"), ("weekly", "Wöchentlich"), ("monthly", "Monatlich"), ("yearly", "Jährlich")]
+let repeatNames: [(String?, String)] = [(nil, String(localized: "Nie")), ("daily", String(localized: "Täglich")), ("weekdays", String(localized: "Werktags")), ("weekly", String(localized: "Wöchentlich")), ("monthly", String(localized: "Monatlich")), ("yearly", String(localized: "Jährlich"))]
 
 // MARK: - Aufgaben
 
@@ -19,9 +19,9 @@ struct TaskListView: View {
     private var groups: [(String, [OpenTask])] {
         let today = dayKey(.now), tomorrow = dayKey(Calendar.current.date(byAdding: .day, value: 1, to: .now)!)
         let all = store.tasks
-        return [("Überfällig", all.filter { ($0.due ?? "9") < today }), ("Heute", all.filter { $0.due == today }),
-                ("Morgen", all.filter { $0.due == tomorrow }), ("Später", all.filter { ($0.due ?? "") > tomorrow }),
-                ("Ohne Datum", all.filter { $0.due == nil || $0.due == "" })].filter { !$0.1.isEmpty }
+        return [(String(localized: "Überfällig"), all.filter { ($0.due ?? "9") < today }), (String(localized: "Heute"), all.filter { $0.due == today }),
+                (String(localized: "Morgen"), all.filter { $0.due == tomorrow }), (String(localized: "Später"), all.filter { ($0.due ?? "") > tomorrow }),
+                (String(localized: "Ohne Datum"), all.filter { $0.due == nil || $0.due == "" })].filter { !$0.1.isEmpty }
     }
 
     var body: some View {
@@ -39,7 +39,7 @@ struct TaskListView: View {
             .padding(.vertical, 6)
             if store.tasks.isEmpty { Text("Alles erledigt 🎉").foregroundStyle(.secondary).padding(.vertical, 4) }
             ForEach(groups, id: \.0) { g in
-                if !compact || groups.count > 1 { Text(g.0).font(.caption.weight(.semibold)).foregroundStyle(g.0 == "Überfällig" ? .red : .secondary).padding(.top, 6) }
+                if !compact || groups.count > 1 { Text(g.0).font(.caption.weight(.semibold)).foregroundStyle(g.0 == String(localized: "Überfällig") ? .red : .secondary).padding(.top, 6) }
                 ForEach(g.1) { t in TaskRow(task: t) { editing = t } }
             }
             if !store.doneTasks.isEmpty {
@@ -145,17 +145,17 @@ struct EventRow: View {
         HStack(spacing: 10) {
             RoundedRectangle(cornerRadius: 2).fill(Color(hex: e.color) ?? .blue).frame(width: 4, height: 30)
             VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 4) { Text(e.summary.isEmpty ? "(ohne Titel)" : e.summary).lineLimit(1); if e.series == true { Image(systemName: "repeat").font(.caption2).foregroundStyle(.secondary) } }
+                HStack(spacing: 4) { Text(e.summary.isEmpty ? String(localized: "(ohne Titel)") : e.summary).lineLimit(1); if e.series == true { Image(systemName: "repeat").font(.caption2).foregroundStyle(.secondary) } }
                 Text(when).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 0)
         }.contentShape(Rectangle())
     }
     private var when: String {
-        let df = DateFormatter(); df.locale = Locale(identifier: "de_DE")
+        let day = Date.FormatStyle.dateTime.weekday(.abbreviated).day().month(.abbreviated)      // Format der Systemsprache
         var s: String
-        if e.allday { df.dateFormat = "EEE d. MMM"; s = (showDay ? (isoDayF.date(from: e.start).map { df.string(from: $0) + " · " } ?? "") : "") + "ganztägig" }
-        else { df.dateFormat = showDay ? "EEE d. MMM, HH:mm" : "HH:mm"; s = Self.iso.date(from: e.start).map { df.string(from: $0) } ?? e.start }
+        if e.allday { s = (showDay ? (isoDayF.date(from: e.start).map { $0.formatted(day) + " · " } ?? "") : "") + String(localized: "ganztägig") }
+        else { s = Self.iso.date(from: e.start).map { showDay ? $0.formatted(day.hour().minute()) : $0.formatted(date: .omitted, time: .shortened) } ?? e.start }
         if let l = e.location, !l.isEmpty { s += " · " + l }
         return s
     }
@@ -214,11 +214,11 @@ struct EventEditor: View {
             let c = Calendar.current, h = c.component(.hour, from: .now) + 1
             start = c.date(bySettingHour: min(h, 22), minute: 0, second: 0, of: day) ?? day; end = start.addingTimeInterval(3600)
             targets = await store.calTargets(); target = targets.first
-            if targets.isEmpty { error = "Kein beschreibbarer Kalender verbunden (Einstellungen → Kalender im Web)." }
+            if targets.isEmpty { error = String(localized: "Kein beschreibbarer Kalender verbunden (Einstellungen → Kalender im Web).") }
         }
     }
     private func save() async {
-        var b: [String: Any] = ["summary": title.isEmpty ? "Termin" : title, "allday": allday, "location": location, "description": desc]
+        var b: [String: Any] = ["summary": title.isEmpty ? String(localized: "Termin") : title, "allday": allday, "location": location, "description": desc]
         if allday { b["start"] = dayKey(start); b["end"] = dayKey(Calendar.current.date(byAdding: .day, value: 1, to: max(end, start))!) }
         else { let iso = ISO8601DateFormatter(); b["start"] = iso.string(from: start); b["end"] = iso.string(from: max(end, start.addingTimeInterval(60))) }
         if let e = event { b["account"] = e.account ?? 0; b["cal"] = e.cal ?? ""; b["href"] = e.href ?? ""; b["etag"] = e.etag ?? ""; b["uid"] = e.uid ?? "" }

@@ -5,32 +5,32 @@ import SwiftUI
 
 struct DBTemplate: Identifiable, Hashable { let id: Int; let title: String; let icon: String }
 
-let dbTypes: [(String, String)] = [("text", "Text"), ("number", "Zahl"), ("select", "Auswahl"), ("multi_select", "Mehrfachauswahl"),
-                                   ("date", "Datum"), ("checkbox", "Häkchen"), ("url", "URL"), ("created", "Erstellt"),
-                                   ("edited", "Bearbeitet"), ("calc", "Berechnet"), ("relation", "Relation")]
+let dbTypes: [(String, String)] = [("text", String(localized: "Text")), ("number", String(localized: "Zahl")), ("select", String(localized: "Auswahl")), ("multi_select", String(localized: "Mehrfachauswahl")),
+                                   ("date", String(localized: "Datum")), ("checkbox", String(localized: "Häkchen")), ("url", String(localized: "URL")), ("created", String(localized: "Erstellt")),
+                                   ("edited", String(localized: "Bearbeitet")), ("calc", String(localized: "Berechnet")), ("relation", String(localized: "Relation"))]
 let dbColors = ["gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red"]
-let dbColorNames = ["gray": "Grau", "brown": "Braun", "orange": "Orange", "yellow": "Gelb", "green": "Grün", "blue": "Blau",
-                    "purple": "Lila", "pink": "Rosa", "red": "Rot"]
-let dbCalcOps: [(String, String)] = [("div", "A ÷ B"), ("pct", "A in % von B"), ("mul", "A × B"), ("add", "A + B"), ("sub", "A − B")]
-let viewTypes: [(String, String, String)] = [("table", "Tabelle", "tablecells"), ("board", "Board", "rectangle.split.3x1"),
-                                             ("list", "Liste", "list.bullet"), ("gallery", "Galerie", "square.grid.2x2"),
-                                             ("calendar", "Kalender", "calendar")]
+let dbColorNames = ["gray": String(localized: "Grau"), "brown": String(localized: "Braun"), "orange": String(localized: "Orange"), "yellow": String(localized: "Gelb"), "green": String(localized: "Grün"), "blue": String(localized: "Blau"),
+                    "purple": String(localized: "Lila"), "pink": String(localized: "Rosa"), "red": String(localized: "Rot")]
+let dbCalcOps: [(String, String)] = [("div", "A ÷ B"), ("pct", String(localized: "A in Prozent von B")), ("mul", "A × B"), ("add", "A + B"), ("sub", "A − B")]
+let viewTypes: [(String, String, String)] = [("table", String(localized: "Tabelle"), "tablecells"), ("board", String(localized: "Board"), "rectangle.split.3x1"),
+                                             ("list", String(localized: "Liste"), "list.bullet"), ("gallery", String(localized: "Galerie"), "square.grid.2x2"),
+                                             ("calendar", String(localized: "Kalender"), "calendar")]
 func viewSymbol(_ t: String?) -> String { viewTypes.first { $0.0 == t }?.2 ?? "tablecells" }
 func newPID() -> String { String((0..<8).map { _ in "abcdefghijklmnopqrstuvwxyz0123456789".randomElement()! }) }
 
 /// Bedingungen je Typ (wie OPS im Web)
 func filterOps(_ type: String) -> [(String, String)] {
-    let empty = [("is_empty", "ist leer"), ("not_empty", "ist nicht leer")]
-    let rel = [("today", "ist heute"), ("this_week", "ist diese Woche"), ("this_month", "ist diesen Monat")]
+    let empty = [("is_empty", String(localized: "ist leer")), ("not_empty", String(localized: "ist nicht leer"))]
+    let rel = [("today", String(localized: "ist heute")), ("this_week", String(localized: "ist diese Woche")), ("this_month", String(localized: "ist diesen Monat"))]
     switch type {
     case "number", "calc": return [("eq", "="), ("gt", ">"), ("lt", "<")] + empty
-    case "select": return [("is", "ist"), ("is_not", "ist nicht")] + empty
-    case "multi_select": return [("contains", "enthält"), ("not_contains", "enthält nicht")] + empty
+    case "select": return [("is", String(localized: "ist")), ("is_not", String(localized: "ist nicht"))] + empty
+    case "multi_select": return [("contains", String(localized: "enthält")), ("not_contains", String(localized: "enthält nicht"))] + empty
     case "relation": return empty
-    case "date": return [("eq", "am"), ("before", "vor"), ("after", "nach")] + rel + empty
-    case "created", "edited": return [("after", "nach"), ("before", "vor"), ("eq", "am")] + rel
-    case "checkbox": return [("checked", "angehakt"), ("unchecked", "nicht angehakt")]
-    default: return [("contains", "enthält"), ("not_contains", "enthält nicht")] + empty
+    case "date": return [("eq", String(localized: "am")), ("before", String(localized: "vor")), ("after", String(localized: "nach"))] + rel + empty
+    case "created", "edited": return [("after", String(localized: "nach")), ("before", String(localized: "vor")), ("eq", String(localized: "am"))] + rel
+    case "checkbox": return [("checked", String(localized: "angehakt")), ("unchecked", String(localized: "nicht angehakt"))]
+    default: return [("contains", String(localized: "enthält")), ("not_contains", String(localized: "enthält nicht"))] + empty
     }
 }
 let filterNoValue: Set<String> = ["is_empty", "not_empty", "checked", "unchecked", "today", "this_week", "this_month"]
@@ -68,7 +68,7 @@ extension DBModel {
         }
         editSchema(store) { sc in
             var vs = sc["views"] as? [[String: Any]] ?? []
-            if vs.isEmpty { vs = [["id": "tabelle", "name": "Tabelle", "type": "table"]] }
+            if vs.isEmpty { vs = [["id": "tabelle", "name": String(localized: "Tabelle"), "type": "table"]] }
             change(&vs); sc["views"] = Array(vs.prefix(10))
         }
     }
@@ -76,14 +76,14 @@ extension DBModel {
         mutateViews(store) { vs in if let i = vs.firstIndex(where: { $0["id"] as? String == id }) { change(&vs[i]) } }
     }
     func addProp(_ store: Store, type: String, target: Int? = nil, targetName: String? = nil) {
-        var p: [String: Any] = ["id": newPID(), "name": dbTypes.first { $0.0 == type }?.1 ?? "Eigenschaft", "type": type]
+        var p: [String: Any] = ["id": newPID(), "name": dbTypes.first { $0.0 == type }?.1 ?? String(localized: "Eigenschaft"), "type": type]
         if type == "select" || type == "multi_select" { p["options"] = [] as [[String: Any]] }
         if type == "calc" {
             let ns = props.filter { $0.type == "number" }
-            p["name"] = "Fortschritt"; p["op"] = "pct"; p["fmt"] = "percent"; p["show"] = "ring"
+            p["name"] = String(localized: "Fortschritt"); p["op"] = "pct"; p["fmt"] = "percent"; p["show"] = "ring"
             if ns.count > 0 { p["a"] = ns[0].id }; if ns.count > 1 { p["b"] = ns[1].id }
         }
-        if type == "relation", let target { p["target"] = target; p["name"] = targetName ?? "Relation"; p["two_way"] = target != dbID }
+        if type == "relation", let target { p["target"] = target; p["name"] = targetName ?? String(localized: "Relation"); p["two_way"] = target != dbID }
         editSchema(store) { sc in sc["props"] = (sc["props"] as? [[String: Any]] ?? []) + [p] }
     }
     func deleteProp(_ store: Store, _ id: String) {
@@ -92,7 +92,7 @@ extension DBModel {
     @discardableResult
     func addView(_ store: Store, type: String) -> String {
         let id = "v" + String(newPID().prefix(7))
-        mutateViews(store) { vs in vs.append(["id": id, "name": viewTypes.first { $0.0 == type }?.1 ?? "Ansicht", "type": type]) }
+        mutateViews(store) { vs in vs.append(["id": id, "name": viewTypes.first { $0.0 == type }?.1 ?? String(localized: "Ansicht"), "type": type]) }
         return id
     }
     func deleteView(_ store: Store, _ id: String) {
@@ -100,7 +100,7 @@ extension DBModel {
     }
     func duplicateView(_ store: Store, _ id: String) -> String? {
         guard var v = editViews.first(where: { $0["id"] as? String == id }), editViews.count < 10 else { return nil }
-        let nid = "v" + String(newPID().prefix(7)); v["id"] = nid; v["name"] = "\(v["name"] as? String ?? "Ansicht") (Kopie)"
+        let nid = "v" + String(newPID().prefix(7)); v["id"] = nid; v["name"] = String(localized: "\(v["name"] as? String ?? String(localized: "Ansicht")) (Kopie)")
         let copy = v
         mutateViews(store) { vs in vs.append(copy) }
         return nid
@@ -243,7 +243,7 @@ struct DBViewBar: View {
                     ForEach(views.indices, id: \.self) { i in
                         let v = views[i], id = v["id"] as? String ?? ""
                         Button { current = id } label: {
-                            Label(v["name"] as? String ?? "Ansicht", systemImage: viewSymbol(v["type"] as? String))
+                            Label(v["name"] as? String ?? String(localized: "Ansicht"), systemImage: viewSymbol(v["type"] as? String))
                                 .font(.subheadline.weight(id == curID ? .semibold : .regular))
                                 .padding(.horizontal, 8).padding(.vertical, 4)
                                 .background(id == curID ? Color.secondary.opacity(0.16) : .clear, in: Capsule())
@@ -278,7 +278,7 @@ struct DBViewBar: View {
                 Menu("Neu") {
                     Button("Leerer Eintrag") { onNew(nil) }
                     Section("Vorlagen") {
-                        ForEach(m.templates) { t in Button((t.icon.count <= 4 && !t.icon.isEmpty ? t.icon + " " : "") + (t.title.isEmpty ? "Vorlage" : t.title)) {
+                        ForEach(m.templates) { t in Button((t.icon.count <= 4 && !t.icon.isEmpty ? t.icon + " " : "") + (t.title.isEmpty ? String(localized: "Vorlage") : t.title)) {
                             Task { if let id = await m.newFromTemplate(store, t) { onNew(id) } } } }
                     }
                 } primaryAction: { onNew(nil) }
@@ -381,7 +381,7 @@ struct FilterRow: View {
     @EnvironmentObject var store: Store
     @State private var text = ""
     private var pid: String { f["pid"] as? String ?? "title" }
-    private var prop: DBProp? { pid == "title" ? DBProp(["id": "title", "name": "Name", "type": "text"]) : m.prop(pid) }
+    private var prop: DBProp? { pid == "title" ? DBProp(["id": "title", "name": String(localized: "Name"), "type": "text"]) : m.prop(pid) }
     private var op: String { f["op"] as? String ?? "" }
     private func set(_ k: String, _ val: Any?) {
         m.editView(store, viewID) { d in var fs = d["filters"] as? [[String: Any]] ?? []; if index < fs.count { fs[index][k] = val }; d["filters"] = fs }

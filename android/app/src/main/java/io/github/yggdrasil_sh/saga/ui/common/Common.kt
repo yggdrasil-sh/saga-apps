@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.common
 
+import androidx.compose.ui.platform.LocalLocale
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -33,12 +34,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import coil3.compose.AsyncImage
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.data.PageMeta
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.ui.nav.AppNavigator
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.Locale
 
 /** Rahmen-Infos fuer die Titelleiste: Menue-Knopf (Seitenleiste) auf kleinen Bildschirmen */
@@ -51,8 +57,8 @@ fun SagaTopBar(title: String, nav: AppNavigator, chrome: Chrome, actions: @Compo
         title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         navigationIcon = {
             when {
-                nav.canGoBack -> IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Zurück") }
-                chrome.showMenu -> IconButton(onClick = chrome.onMenu) { Icon(Icons.Filled.Menu, "Seitenleiste") }
+                nav.canGoBack -> IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) }
+                chrome.showMenu -> IconButton(onClick = chrome.onMenu) { Icon(Icons.Filled.Menu, stringResource(R.string.action_sidebar)) }
             }
         },
         actions = actions,
@@ -92,20 +98,33 @@ fun openUrl(context: Context, url: String) {
         try {
             context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (_: ActivityNotFoundException) {
-            Toast.makeText(context, "Kein Browser gefunden", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.no_browser), Toast.LENGTH_SHORT).show()
         }
     }
 }
 
-// ---------------------------------------------------------------- Datum/Zeit (deutsch)
+/** Seitentitel fuer die Anzeige (leer -> "Unbenannt" in der App-Sprache) */
+@Composable
+fun pageTitle(p: PageMeta): String = p.title.ifEmpty { stringResource(R.string.page_untitled) }
 
-private val de = Locale.GERMAN
+// ---------------------------------------------------------------- Datum/Zeit (in der App-Sprache)
 
 fun todayIso(): String = LocalDate.now().toString()
 
-fun longDate(d: LocalDate = LocalDate.now()): String = d.format(DateTimeFormatter.ofPattern("EEEE, d. MMMM", de))
+/** Sprache der Oberflaeche (folgt auch der Per-App-Sprache ab Android 13) */
+@Composable
+fun appLocale(): Locale = LocalLocale.current.platformLocale
 
-/** Faelligkeit relativ: heute, morgen, gestern, sonst "Mo., 3. Nov." */
+/** Formatierer aus einem Skelett (z. B. "EEEEdMMMM"): Reihenfolge und Satzzeichen nach Sprache */
+private fun skeleton(locale: Locale, skeleton: String): DateTimeFormatter =
+    DateTimeFormatter.ofPattern(android.text.format.DateFormat.getBestDateTimePattern(locale, skeleton), locale)
+
+/** "Mittwoch, 14. Oktober" / "Wednesday, October 14" / "miércoles, 14 de octubre" */
+@Composable
+fun longDate(d: LocalDate = LocalDate.now()): String = d.format(skeleton(appLocale(), "EEEEdMMMM"))
+
+/** Faelligkeit relativ: heute, morgen, gestern, sonst kurzes Datum ("Mo., 3. Nov.") */
+@Composable
 fun dueText(iso: String): String {
     val d = try {
         LocalDate.parse(iso.take(10))
@@ -114,19 +133,20 @@ fun dueText(iso: String): String {
     }
     val t = LocalDate.now()
     return when (d) {
-        t -> "heute"
-        t.plusDays(1) -> "morgen"
-        t.minusDays(1) -> "gestern"
-        else -> d.format(DateTimeFormatter.ofPattern(if (d.year == t.year) "EE, d. MMM" else "d. MMM yyyy", de))
+        t -> stringResource(R.string.date_today)
+        t.plusDays(1) -> stringResource(R.string.date_tomorrow)
+        t.minusDays(1) -> stringResource(R.string.date_yesterday)
+        else -> d.format(skeleton(appLocale(), if (d.year == t.year) "EEEdMMM" else "yMMMd"))
     }
 }
 
+@Composable
 fun dayHeader(d: LocalDate): String {
     val t = LocalDate.now()
-    val base = d.format(DateTimeFormatter.ofPattern("EEEE, d. MMMM", de))
+    val base = longDate(d)
     return when (d) {
-        t -> "Heute · $base"
-        t.plusDays(1) -> "Morgen · $base"
+        t -> stringResource(R.string.day_header_today, base)
+        t.plusDays(1) -> stringResource(R.string.day_header_tomorrow, base)
         else -> base
     }
 }
@@ -142,9 +162,12 @@ fun eventDay(start: String): LocalDate? = try {
     }
 }
 
+/** Uhrzeit(en) eines Termins: 24-/12-Stunden-Format nach Systemeinstellung, Schreibweise nach Sprache */
+@Composable
 fun eventTime(start: String, end: String, allday: Boolean): String {
-    if (allday) return "ganztägig"
-    val f = DateTimeFormatter.ofPattern("HH:mm", de)
+    if (allday) return stringResource(R.string.event_all_day)
+    val h24 = android.text.format.DateFormat.is24HourFormat(LocalContext.current)
+    val f = skeleton(appLocale(), if (h24) "Hm" else "hm")
     return try {
         val s = OffsetDateTime.parse(start).atZoneSameInstant(ZoneId.systemDefault())
         val e = try {
@@ -158,10 +181,15 @@ fun eventTime(start: String, end: String, allday: Boolean): String {
     }
 }
 
-fun epochDay(v: Double?): String = v?.let {
-    java.time.Instant.ofEpochMilli((it * 1000).toLong()).atZone(ZoneId.systemDefault()).toLocalDate()
-        .format(DateTimeFormatter.ofPattern("d.M.yyyy", de))
-} ?: "–"
+/** Datum aus Sekunden seit 1970 (kurz, nach Sprache: 14.10.2026 / Oct 14, 2026 / 14 oct 2026) */
+@Composable
+fun epochDay(v: Double?): String {
+    val locale = appLocale()
+    return v?.let {
+        java.time.Instant.ofEpochMilli((it * 1000).toLong()).atZone(ZoneId.systemDefault()).toLocalDate()
+            .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
+    } ?: "–"
+}
 
 /** Farbe aus "#rrggbb" */
 fun hexColor(s: String?, fallback: androidx.compose.ui.graphics.Color): androidx.compose.ui.graphics.Color {

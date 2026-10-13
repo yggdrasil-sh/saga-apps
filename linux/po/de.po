@@ -1,0 +1,2065 @@
+# Saga (Linux-App) - Uebersetzungen.
+# Pflege: linux/po/update-po.sh
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: saga\n"
+"Report-Msgid-Bugs-To: https://github.com/yggdrasil-sh/saga-apps/issues\n"
+"POT-Creation-Date: 2026-10-14 01:09+0200\n"
+"PO-Revision-Date: 2026-10-14 01:09+0200\n"
+"Last-Translator: Saga-Projekt\n"
+"Language-Team: Deutsch\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: hlidskjalf/agenda.py:11
+msgid "Never"
+msgstr "Nie"
+
+#: hlidskjalf/agenda.py:11
+msgid "Daily"
+msgstr "Täglich"
+
+#: hlidskjalf/agenda.py:11
+msgid "Weekdays"
+msgstr "Werktags"
+
+#: hlidskjalf/agenda.py:11
+msgid "Weekly"
+msgstr "Wöchentlich"
+
+#: hlidskjalf/agenda.py:11
+msgid "Monthly"
+msgstr "Monatlich"
+
+#: hlidskjalf/agenda.py:12
+msgid "Yearly"
+msgstr "Jährlich"
+
+#: hlidskjalf/agenda.py:31
+msgid "Reopen"
+msgstr "Wieder öffnen"
+
+#: hlidskjalf/agenda.py:31 hlidskjalf/agenda.py:58
+msgid "Mark done"
+msgstr "Erledigt"
+
+#: hlidskjalf/agenda.py:59 hlidskjalf/blocks.py:646
+msgid "Delete"
+msgstr "Löschen"
+
+#: hlidskjalf/agenda.py:73
+msgid "New task …"
+msgstr "Neue Aufgabe …"
+
+#: hlidskjalf/agenda.py:97
+msgid "Overdue"
+msgstr "Überfällig"
+
+#: hlidskjalf/agenda.py:98 hlidskjalf/agenda.py:529 hlidskjalf/database.py:502 hlidskjalf/database.py:1021 hlidskjalf/richtext.py:286 hlidskjalf/window.py:144 hlidskjalf/window.py:592 hlidskjalf/window.py:702
+msgid "Today"
+msgstr "Heute"
+
+#: hlidskjalf/agenda.py:99 hlidskjalf/richtext.py:286
+msgid "Tomorrow"
+msgstr "Morgen"
+
+#: hlidskjalf/agenda.py:99
+msgid "Later"
+msgstr "Später"
+
+#: hlidskjalf/agenda.py:100
+msgid "No date"
+msgstr "Ohne Datum"
+
+#: hlidskjalf/agenda.py:103
+msgid "All done 🎉"
+msgstr "Alles erledigt 🎉"
+
+#: hlidskjalf/agenda.py:115
+#, python-brace-format
+msgid "{n} done"
+msgid_plural "{n} done"
+msgstr[0] "{n} erledigt"
+msgstr[1] "{n} erledigt"
+
+#: hlidskjalf/agenda.py:203 hlidskjalf/agenda.py:217
+msgid "Task"
+msgstr "Aufgabe"
+
+#: hlidskjalf/agenda.py:207 hlidskjalf/agenda.py:346 hlidskjalf/dbedit.py:147 hlidskjalf/dialogs.py:179 hlidskjalf/dialogs.py:510 hlidskjalf/page.py:97 hlidskjalf/page.py:630 hlidskjalf/page.py:701 hlidskjalf/settings.py:92 hlidskjalf/settings.py:254 hlidskjalf/settings.py:400
+msgid "Cancel"
+msgstr "Abbrechen"
+
+#: hlidskjalf/agenda.py:210 hlidskjalf/agenda.py:350 hlidskjalf/dbedit.py:148 hlidskjalf/page.py:93
+msgid "Save"
+msgstr "Speichern"
+
+#: hlidskjalf/agenda.py:219
+msgid "Due"
+msgstr "Fällig"
+
+#: hlidskjalf/agenda.py:224 hlidskjalf/blocks.py:713 hlidskjalf/blocks.py:718 hlidskjalf/dbedit.py:12 hlidskjalf/dbedit.py:217 hlidskjalf/dbedit.py:287
+msgid "Date"
+msgstr "Datum"
+
+#: hlidskjalf/agenda.py:228
+msgid "Priority"
+msgstr "Priorität"
+
+#: hlidskjalf/agenda.py:228
+msgid "High"
+msgstr "Hoch"
+
+#: hlidskjalf/agenda.py:228
+msgid "Normal"
+msgstr "Normal"
+
+#: hlidskjalf/agenda.py:228
+msgid "Low"
+msgstr "Niedrig"
+
+#: hlidskjalf/agenda.py:231
+msgid "Repeat"
+msgstr "Wiederholen"
+
+#: hlidskjalf/agenda.py:236 hlidskjalf/agenda.py:242
+msgid "Delete task"
+msgstr "Aufgabe löschen"
+
+#: hlidskjalf/agenda.py:273
+msgid "(untitled)"
+msgstr "(ohne Titel)"
+
+#: hlidskjalf/agenda.py:287
+msgid "all day"
+msgstr "ganztägig"
+
+#: hlidskjalf/agenda.py:307
+#, python-brace-format
+msgid "Events ({n} day)"
+msgid_plural "Events ({n} days)"
+msgstr[0] "Termine ({n} Tag)"
+msgstr[1] "Termine ({n} Tage)"
+
+#: hlidskjalf/agenda.py:311 hlidskjalf/agenda.py:340 hlidskjalf/agenda.py:437
+msgid "Event"
+msgstr "Termin"
+
+#: hlidskjalf/agenda.py:327
+msgid "No events"
+msgstr "Keine Termine"
+
+#: hlidskjalf/agenda.py:340
+msgid "New event"
+msgstr "Neuer Termin"
+
+#: hlidskjalf/agenda.py:346
+msgid "Close"
+msgstr "Schließen"
+
+#: hlidskjalf/agenda.py:350
+msgid "Create"
+msgstr "Anlegen"
+
+#: hlidskjalf/agenda.py:357
+msgid "Title"
+msgstr "Titel"
+
+#: hlidskjalf/agenda.py:359
+msgid "All day"
+msgstr "Ganztägig"
+
+#: hlidskjalf/agenda.py:364
+msgid "Start"
+msgstr "Beginn"
+
+#: hlidskjalf/agenda.py:364
+msgid "End"
+msgstr "Ende"
+
+#: hlidskjalf/agenda.py:371 hlidskjalf/agenda.py:375 hlidskjalf/dbedit.py:17 hlidskjalf/editor.py:34 hlidskjalf/settings.py:180 hlidskjalf/settings.py:210
+msgid "Calendar"
+msgstr "Kalender"
+
+#: hlidskjalf/agenda.py:371 hlidskjalf/dialogs.py:425 hlidskjalf/dialogs.py:466
+msgid "Loading …"
+msgstr "Lade …"
+
+#: hlidskjalf/agenda.py:377
+msgid "Location"
+msgstr "Ort"
+
+#: hlidskjalf/agenda.py:380
+msgid "Description"
+msgstr "Beschreibung"
+
+#: hlidskjalf/agenda.py:391
+msgid "Recurring event – please edit it directly in mailcow/Nextcloud so the series is kept."
+msgstr "Serientermin – bitte direkt in mailcow/Nextcloud bearbeiten, damit die Serie erhalten bleibt."
+
+#: hlidskjalf/agenda.py:392
+msgid "This calendar is read-only."
+msgstr "Dieser Kalender ist nur lesbar."
+
+#: hlidskjalf/agenda.py:396
+msgid "Delete event"
+msgstr "Termin löschen"
+
+#: hlidskjalf/agenda.py:431
+msgid "No writable calendar connected (Settings → Calendar)."
+msgstr "Kein beschreibbarer Kalender verbunden (Einstellungen → Kalender)."
+
+#: hlidskjalf/agenda.py:487 hlidskjalf/editor.py:33 hlidskjalf/window.py:137 hlidskjalf/window.py:592 hlidskjalf/window.py:703
+msgid "Tasks"
+msgstr "Aufgaben"
+
+#: hlidskjalf/agenda.py:494 hlidskjalf/window.py:138 hlidskjalf/window.py:592 hlidskjalf/window.py:704
+msgid "Events"
+msgstr "Termine"
+
+#: hlidskjalf/agenda.py:513
+msgid "Nothing planned 🎉"
+msgstr "Nichts geplant 🎉"
+
+#: hlidskjalf/api.py:30
+msgid "Please sign in"
+msgstr "Bitte anmelden"
+
+#: hlidskjalf/api.py:32 hlidskjalf/api.py:145
+msgid "Server not reachable"
+msgstr "Server nicht erreichbar"
+
+#: hlidskjalf/api.py:33
+#, python-brace-format
+msgid "Error {code}"
+msgstr "Fehler {code}"
+
+#: hlidskjalf/api.py:102
+msgid "No server address set"
+msgstr "Keine Server-Adresse eingetragen"
+
+#: hlidskjalf/api.py:124
+#, python-brace-format
+msgid "Server not reachable: {error}"
+msgstr "Server nicht erreichbar: {error}"
+
+#: hlidskjalf/api.py:200 hlidskjalf/api.py:216
+msgid "Sign-in failed"
+msgstr "Anmeldung fehlgeschlagen"
+
+#: hlidskjalf/api.py:257
+msgid "Upload failed"
+msgstr "Upload fehlgeschlagen"
+
+#: hlidskjalf/blocks.py:59 hlidskjalf/window.py:706
+msgid "Back"
+msgstr "Zurück"
+
+#: hlidskjalf/blocks.py:221
+msgid "Insert block below"
+msgstr "Block darunter einfügen"
+
+#: hlidskjalf/blocks.py:223
+msgid "Drag to move · Click for the menu"
+msgstr "Ziehen zum Verschieben · Klicken für das Menü"
+
+#: hlidskjalf/blocks.py:320
+msgid "Type something or “/” for blocks …"
+msgstr "Tippe etwas oder „/“ für Blöcke …"
+
+#: hlidskjalf/blocks.py:325
+#, python-brace-format
+msgid "Heading {n}"
+msgstr "Überschrift {n}"
+
+#: hlidskjalf/blocks.py:332 hlidskjalf/editor.py:23
+msgid "Quote"
+msgstr "Zitat"
+
+#: hlidskjalf/blocks.py:344 hlidskjalf/editor.py:24
+msgid "Callout"
+msgstr "Hinweis"
+
+#: hlidskjalf/blocks.py:350 hlidskjalf/editor.py:26
+msgid "Code"
+msgstr "Code"
+
+#: hlidskjalf/blocks.py:429 hlidskjalf/blocks.py:430
+msgid "List item"
+msgstr "Listenpunkt"
+
+#: hlidskjalf/blocks.py:449 hlidskjalf/editor.py:25
+msgid "Toggle"
+msgstr "Toggle"
+
+#: hlidskjalf/blocks.py:458
+msgid "Empty toggle – click to write"
+msgstr "Leerer Toggle – klicken zum Schreiben"
+
+#: hlidskjalf/blocks.py:480
+msgid "Block"
+msgstr "Block"
+
+#: hlidskjalf/blocks.py:511 hlidskjalf/editor.py:39
+msgid "File"
+msgstr "Datei"
+
+#: hlidskjalf/blocks.py:517
+msgid "Download and open"
+msgstr "Herunterladen und öffnen"
+
+#: hlidskjalf/blocks.py:536
+msgid "YouTube video"
+msgstr "YouTube-Video"
+
+#: hlidskjalf/blocks.py:561
+msgid "Set up buttons"
+msgstr "Schaltflächen einrichten"
+
+#: hlidskjalf/blocks.py:599
+msgid "Insert row above"
+msgstr "Zeile darüber einfügen"
+
+#: hlidskjalf/blocks.py:600
+msgid "Insert row below"
+msgstr "Zeile darunter einfügen"
+
+#: hlidskjalf/blocks.py:601
+msgid "Insert column left"
+msgstr "Spalte links einfügen"
+
+#: hlidskjalf/blocks.py:602
+msgid "Insert column right"
+msgstr "Spalte rechts einfügen"
+
+#: hlidskjalf/blocks.py:604
+msgid "Delete row"
+msgstr "Zeile löschen"
+
+#: hlidskjalf/blocks.py:606 hlidskjalf/dbedit.py:431
+msgid "Delete column"
+msgstr "Spalte löschen"
+
+#: hlidskjalf/blocks.py:613
+msgid "Row"
+msgstr "Zeile"
+
+#: hlidskjalf/blocks.py:615
+msgid "Column"
+msgstr "Spalte"
+
+#: hlidskjalf/blocks.py:617
+msgid "Header row"
+msgstr "Kopfzeile"
+
+#: hlidskjalf/blocks.py:627
+msgid "Turn into"
+msgstr "Umwandeln in"
+
+#: hlidskjalf/blocks.py:628
+msgid "Copy link to block"
+msgstr "Link zum Block kopieren"
+
+#: hlidskjalf/blocks.py:631 hlidskjalf/blocks.py:642
+#, python-brace-format
+msgid "Column {n}"
+msgstr "Spalte {n}"
+
+#: hlidskjalf/blocks.py:633
+msgid "To another column"
+msgstr "In andere Spalte"
+
+#: hlidskjalf/blocks.py:634
+msgid "Take out of the columns"
+msgstr "Aus den Spalten herausnehmen"
+
+#: hlidskjalf/blocks.py:639
+msgid "Merge with the columns above"
+msgstr "Mit Spalten darüber zusammenführen"
+
+#: hlidskjalf/blocks.py:641
+msgid "Move into the columns above"
+msgstr "In Spalte darüber verschieben"
+
+#: hlidskjalf/blocks.py:644
+msgid "Merge with the columns below"
+msgstr "Mit Spalten darunter zusammenführen"
+
+#: hlidskjalf/blocks.py:645 hlidskjalf/database.py:636 hlidskjalf/dbedit.py:161 hlidskjalf/page.py:598 hlidskjalf/window.py:779
+msgid "Duplicate"
+msgstr "Duplizieren"
+
+#: hlidskjalf/blocks.py:645
+msgid "Move up"
+msgstr "Nach oben"
+
+#: hlidskjalf/blocks.py:646
+msgid "Move down"
+msgstr "Nach unten"
+
+#: hlidskjalf/blocks.py:676
+#, python-brace-format
+msgid "No block type for “{query}”"
+msgstr "Kein Blocktyp für „{query}“"
+
+#: hlidskjalf/blocks.py:714 hlidskjalf/blocks.py:720
+#, python-brace-format
+msgid "Reminder: {date}"
+msgstr "Erinnerung: {date}"
+
+#: hlidskjalf/blocks.py:714 hlidskjalf/blocks.py:720
+msgid "Reminder"
+msgstr "Erinnerung"
+
+#: hlidskjalf/blocks.py:730 hlidskjalf/dialogs.py:553 hlidskjalf/dialogs.py:556 hlidskjalf/editor.py:30 hlidskjalf/window.py:351 hlidskjalf/window.py:870
+msgid "Page"
+msgstr "Seite"
+
+#: hlidskjalf/config.py:159
+msgid "Saga – sign-in of this device"
+msgstr "Saga – Anmeldung dieses Geräts"
+
+#: hlidskjalf/database.py:347 hlidskjalf/dbedit.py:16 hlidskjalf/editor.py:35
+msgid "Table"
+msgstr "Tabelle"
+
+#: hlidskjalf/database.py:446 hlidskjalf/database.py:504
+msgid "Clear"
+msgstr "Leeren"
+
+#: hlidskjalf/database.py:448
+msgid "New option …"
+msgstr "Neue Option …"
+
+#: hlidskjalf/database.py:449 hlidskjalf/database.py:478
+msgid "No options"
+msgstr "Keine Optionen"
+
+#: hlidskjalf/database.py:524 hlidskjalf/database.py:564 hlidskjalf/dbedit.py:18
+msgid "Empty"
+msgstr "Leer"
+
+#: hlidskjalf/database.py:557 hlidskjalf/database.py:635 hlidskjalf/database.py:838
+msgid "Open"
+msgstr "Öffnen"
+
+#: hlidskjalf/database.py:572 hlidskjalf/dbedit.py:412
+msgid "New option"
+msgstr "Neue Option"
+
+#: hlidskjalf/database.py:594
+msgid "Search entries"
+msgstr "Eintrag suchen"
+
+#: hlidskjalf/database.py:611 hlidskjalf/database.py:824 hlidskjalf/database.py:877 hlidskjalf/database.py:914 hlidskjalf/database.py:1054 hlidskjalf/dialogs.py:175 hlidskjalf/dialogs.py:288 hlidskjalf/dialogs.py:300 hlidskjalf/editor.py:112 hlidskjalf/page.py:282 hlidskjalf/page.py:373 hlidskjalf/searchprovider.py:48 hlidskjalf/searchprovider.py:85 hlidskjalf/store.py:18
+msgid "Untitled"
+msgstr "Unbenannt"
+
+#: hlidskjalf/database.py:637 hlidskjalf/page.py:599 hlidskjalf/window.py:780
+msgid "Copy link"
+msgstr "Link kopieren"
+
+#: hlidskjalf/database.py:638 hlidskjalf/page.py:605 hlidskjalf/window.py:782
+msgid "Move to trash"
+msgstr "In den Papierkorb"
+
+#: hlidskjalf/database.py:730 hlidskjalf/dbedit.py:206 hlidskjalf/dbedit.py:243 hlidskjalf/dbedit.py:272
+msgid "Name"
+msgstr "Name"
+
+#: hlidskjalf/database.py:751
+#, python-brace-format
+msgid "Load {n} more"
+msgstr "{n} weitere laden"
+
+#: hlidskjalf/database.py:756 hlidskjalf/database.py:895
+msgid "No entries"
+msgstr "Keine Einträge"
+
+#: hlidskjalf/database.py:761 hlidskjalf/database.py:964 hlidskjalf/dbedit.py:119 hlidskjalf/dbedit.py:130 hlidskjalf/dialogs.py:566 hlidskjalf/editor.py:590
+msgid "New"
+msgstr "Neu"
+
+#: hlidskjalf/database.py:785 hlidskjalf/database.py:942
+#, python-brace-format
+msgid "Without {name}"
+msgstr "Ohne {name}"
+
+#: hlidskjalf/database.py:940
+msgid "A board needs a select property"
+msgstr "Board braucht eine Auswahl-Eigenschaft"
+
+#: hlidskjalf/database.py:1024
+msgid "A calendar needs a date property"
+msgstr "Kalender braucht eine Datums-Eigenschaft"
+
+#: hlidskjalf/database.py:1112 hlidskjalf/dialogs.py:541 hlidskjalf/editor.py:31
+msgid "Database"
+msgstr "Datenbank"
+
+#: hlidskjalf/database.py:1119 hlidskjalf/page.py:229
+msgid "Open as full page"
+msgstr "Als ganze Seite öffnen"
+
+#: hlidskjalf/dbedit.py:12 hlidskjalf/editor.py:15
+msgid "Text"
+msgstr "Text"
+
+#: hlidskjalf/dbedit.py:12 hlidskjalf/dbedit.py:422 hlidskjalf/dbedit.py:424
+msgid "Number"
+msgstr "Zahl"
+
+#: hlidskjalf/dbedit.py:12
+msgid "Select"
+msgstr "Auswahl"
+
+#: hlidskjalf/dbedit.py:12
+msgid "Multi-select"
+msgstr "Mehrfachauswahl"
+
+#: hlidskjalf/dbedit.py:13
+msgid "Checkbox"
+msgstr "Häkchen"
+
+#: hlidskjalf/dbedit.py:13
+msgid "URL"
+msgstr "URL"
+
+#: hlidskjalf/dbedit.py:13
+msgid "Created"
+msgstr "Erstellt"
+
+#: hlidskjalf/dbedit.py:13
+msgid "Edited"
+msgstr "Bearbeitet"
+
+#: hlidskjalf/dbedit.py:13
+msgid "Calculated"
+msgstr "Berechnet"
+
+#: hlidskjalf/dbedit.py:14 hlidskjalf/dbedit.py:463 hlidskjalf/dbedit.py:479
+msgid "Relation"
+msgstr "Relation"
+
+#: hlidskjalf/dbedit.py:15
+msgid "A as percentage of B"
+msgstr "A in % von B"
+
+#: hlidskjalf/dbedit.py:16
+msgid "Board"
+msgstr "Board"
+
+#: hlidskjalf/dbedit.py:16
+msgid "List"
+msgstr "Liste"
+
+#: hlidskjalf/dbedit.py:17
+msgid "Gallery"
+msgstr "Galerie"
+
+#: hlidskjalf/dbedit.py:18
+msgid "Count"
+msgstr "Anzahl"
+
+#: hlidskjalf/dbedit.py:18
+msgid "Filled"
+msgstr "Ausgefüllt"
+
+#: hlidskjalf/dbedit.py:18
+msgid "Percent filled"
+msgstr "% ausgefüllt"
+
+#: hlidskjalf/dbedit.py:18
+msgid "Unique"
+msgstr "Verschiedene"
+
+#: hlidskjalf/dbedit.py:19
+msgid "Sum"
+msgstr "Summe"
+
+#: hlidskjalf/dbedit.py:19
+msgid "Average"
+msgstr "Durchschnitt"
+
+#: hlidskjalf/dbedit.py:19
+msgid "Median"
+msgstr "Median"
+
+#: hlidskjalf/dbedit.py:19
+msgid "Minimum"
+msgstr "Minimum"
+
+#: hlidskjalf/dbedit.py:19
+msgid "Maximum"
+msgstr "Maximum"
+
+#: hlidskjalf/dbedit.py:19
+msgid "Range"
+msgstr "Spanne"
+
+#: hlidskjalf/dbedit.py:20
+msgid "Checked"
+msgstr "Angehakt"
+
+#: hlidskjalf/dbedit.py:20
+msgid "Unchecked"
+msgstr "Nicht angehakt"
+
+#: hlidskjalf/dbedit.py:20
+msgid "Percent checked"
+msgstr "% angehakt"
+
+#: hlidskjalf/dbedit.py:20
+msgid "Earliest"
+msgstr "Frühestes"
+
+#: hlidskjalf/dbedit.py:20
+msgid "Latest"
+msgstr "Spätestes"
+
+#: hlidskjalf/dbedit.py:25
+msgid "is empty"
+msgstr "ist leer"
+
+#: hlidskjalf/dbedit.py:25
+msgid "is not empty"
+msgstr "ist nicht leer"
+
+#: hlidskjalf/dbedit.py:26
+msgid "is today"
+msgstr "ist heute"
+
+#: hlidskjalf/dbedit.py:26
+msgid "is this week"
+msgstr "ist diese Woche"
+
+#: hlidskjalf/dbedit.py:26
+msgid "is this month"
+msgstr "ist diesen Monat"
+
+#: hlidskjalf/dbedit.py:30
+msgid "is"
+msgstr "ist"
+
+#: hlidskjalf/dbedit.py:30
+msgid "is not"
+msgstr "ist nicht"
+
+#: hlidskjalf/dbedit.py:32 hlidskjalf/dbedit.py:41
+msgid "contains"
+msgstr "enthält"
+
+#: hlidskjalf/dbedit.py:32 hlidskjalf/dbedit.py:41
+msgid "does not contain"
+msgstr "enthält nicht"
+
+#: hlidskjalf/dbedit.py:36 hlidskjalf/dbedit.py:38
+msgid "on"
+msgstr "am"
+
+#: hlidskjalf/dbedit.py:36 hlidskjalf/dbedit.py:38
+msgid "before"
+msgstr "vor"
+
+#: hlidskjalf/dbedit.py:36 hlidskjalf/dbedit.py:38
+msgid "after"
+msgstr "nach"
+
+#: hlidskjalf/dbedit.py:40
+msgid "checked"
+msgstr "angehakt"
+
+#: hlidskjalf/dbedit.py:40
+msgid "unchecked"
+msgstr "nicht angehakt"
+
+#: hlidskjalf/dbedit.py:73
+msgid "Search"
+msgstr "Suchen"
+
+#: hlidskjalf/dbedit.py:76
+msgid "View: filters, sorting, properties"
+msgstr "Ansicht: Filter, Sortierung, Eigenschaften"
+
+#: hlidskjalf/dbedit.py:100 hlidskjalf/dbedit.py:151 hlidskjalf/dbedit.py:158 hlidskjalf/dbedit.py:203 hlidskjalf/dbedit.py:205
+msgid "View"
+msgstr "Ansicht"
+
+#: hlidskjalf/dbedit.py:111
+msgid "Add view"
+msgstr "Ansicht hinzufügen"
+
+#: hlidskjalf/dbedit.py:122
+msgid "Empty entry"
+msgstr "Leerer Eintrag"
+
+#: hlidskjalf/dbedit.py:125 hlidskjalf/dialogs.py:543
+msgid "Template"
+msgstr "Vorlage"
+
+#: hlidskjalf/dbedit.py:144
+msgid "Rename view"
+msgstr "Ansicht umbenennen"
+
+#: hlidskjalf/dbedit.py:158
+#, python-brace-format
+msgid "{name} (copy)"
+msgstr "{name} (Kopie)"
+
+#: hlidskjalf/dbedit.py:161
+msgid "Rename"
+msgstr "Umbenennen"
+
+#: hlidskjalf/dbedit.py:162 hlidskjalf/dbedit.py:207
+msgid "Layout"
+msgstr "Layout"
+
+#: hlidskjalf/dbedit.py:164
+msgid "Delete view"
+msgstr "Ansicht löschen"
+
+#: hlidskjalf/dbedit.py:209
+msgid "Group by"
+msgstr "Gruppieren nach"
+
+#: hlidskjalf/dbedit.py:212
+msgid "Grouping"
+msgstr "Gruppieren"
+
+#: hlidskjalf/dbedit.py:212
+msgid "no grouping"
+msgstr "nicht gruppieren"
+
+#: hlidskjalf/dbedit.py:220
+msgid "Card size"
+msgstr "Kartengröße"
+
+#: hlidskjalf/dbedit.py:220
+msgid "Medium"
+msgstr "Mittel"
+
+#: hlidskjalf/dbedit.py:220
+msgid "Small"
+msgstr "Klein"
+
+#: hlidskjalf/dbedit.py:220
+msgid "Large"
+msgstr "Groß"
+
+#: hlidskjalf/dbedit.py:222
+msgid "Open entries"
+msgstr "Einträge öffnen"
+
+#: hlidskjalf/dbedit.py:222 hlidskjalf/dialogs.py:556
+msgid "Side peek"
+msgstr "Seitenansicht"
+
+#: hlidskjalf/dbedit.py:222 hlidskjalf/dialogs.py:556
+msgid "Center"
+msgstr "Mitte"
+
+#: hlidskjalf/dbedit.py:222
+msgid "Full page"
+msgstr "Ganze Seite"
+
+#: hlidskjalf/dbedit.py:224
+msgid "Properties"
+msgstr "Eigenschaften"
+
+#: hlidskjalf/dbedit.py:242
+msgid "Sorting"
+msgstr "Sortierung"
+
+#: hlidskjalf/dbedit.py:247
+msgid "Ascending"
+msgstr "Aufsteigend"
+
+#: hlidskjalf/dbedit.py:247
+msgid "Descending"
+msgstr "Absteigend"
+
+#: hlidskjalf/dbedit.py:252
+msgid "Add sort"
+msgstr "Sortierung hinzufügen"
+
+#: hlidskjalf/dbedit.py:254
+msgid "Filters (all must match)"
+msgstr "Filter (alle müssen zutreffen)"
+
+#: hlidskjalf/dbedit.py:259
+msgid "Add filter"
+msgstr "Filter hinzufügen"
+
+#: hlidskjalf/dbedit.py:284 hlidskjalf/dialogs.py:541 hlidskjalf/dialogs.py:553
+msgid "– choose –"
+msgstr "– wählen –"
+
+#: hlidskjalf/dbedit.py:300
+msgid "Value"
+msgstr "Wert"
+
+#: hlidskjalf/dbedit.py:395
+msgid "Type"
+msgstr "Typ"
+
+#: hlidskjalf/dbedit.py:397
+msgid "Options"
+msgstr "Optionen"
+
+#: hlidskjalf/dbedit.py:407
+msgid "Delete option"
+msgstr "Option löschen"
+
+#: hlidskjalf/dbedit.py:422
+msgid "Format"
+msgstr "Format"
+
+#: hlidskjalf/dbedit.py:422
+msgid "Percent"
+msgstr "Prozent"
+
+#: hlidskjalf/dbedit.py:422
+msgid "Euro"
+msgstr "Euro"
+
+#: hlidskjalf/dbedit.py:424
+msgid "Show as"
+msgstr "Anzeigen als"
+
+#: hlidskjalf/dbedit.py:424
+msgid "Ring"
+msgstr "Ring"
+
+#: hlidskjalf/dbedit.py:424
+msgid "Bar"
+msgstr "Balken"
+
+#: hlidskjalf/dbedit.py:428
+msgid "Calculation"
+msgstr "Rechnung"
+
+#: hlidskjalf/dbedit.py:429
+msgid "Number A"
+msgstr "Zahl A"
+
+#: hlidskjalf/dbedit.py:430
+msgid "Number B"
+msgstr "Zahl B"
+
+#: hlidskjalf/dbedit.py:456
+msgid "Add column"
+msgstr "Spalte hinzufügen"
+
+#: hlidskjalf/dbedit.py:463
+msgid "No databases"
+msgstr "Keine Datenbanken"
+
+#: hlidskjalf/dbedit.py:468
+msgid "Property"
+msgstr "Eigenschaft"
+
+#: hlidskjalf/dbedit.py:473
+msgid "Progress"
+msgstr "Fortschritt"
+
+#: hlidskjalf/dbedit.py:501
+msgid "Calculate"
+msgstr "Berechnen"
+
+#: hlidskjalf/dbedit.py:504
+msgid "None"
+msgstr "Keine"
+
+#: hlidskjalf/dbedit.py:553 hlidskjalf/util.py:170 hlidskjalf/util.py:172
+#, python-brace-format
+msgid "{value}%"
+msgstr "{value} %"
+
+#: hlidskjalf/dialogs.py:42
+msgid "Search pages … (> for commands)"
+msgstr "Seite suchen … (> für Befehle)"
+
+#: hlidskjalf/dialogs.py:112
+msgid "Command"
+msgstr "Befehl"
+
+#: hlidskjalf/dialogs.py:118
+msgid "Nothing found"
+msgstr "Nichts gefunden"
+
+#: hlidskjalf/dialogs.py:136 hlidskjalf/window.py:170 hlidskjalf/window.py:315 hlidskjalf/window.py:705
+msgid "Trash"
+msgstr "Papierkorb"
+
+#: hlidskjalf/dialogs.py:140
+msgid "Empty trash"
+msgstr "Papierkorb leeren"
+
+#: hlidskjalf/dialogs.py:160
+msgid "The trash is empty."
+msgstr "Der Papierkorb ist leer."
+
+#: hlidskjalf/dialogs.py:165
+#, python-brace-format
+msgid "with {n} subpage"
+msgid_plural "with {n} subpages"
+msgstr[0] "mit {n} Unterseite"
+msgstr[1] "mit {n} Unterseiten"
+
+#: hlidskjalf/dialogs.py:166
+#, python-brace-format
+msgid "will be deleted on {date}"
+msgstr "wird gelöscht am {date}"
+
+#: hlidskjalf/dialogs.py:168 hlidskjalf/window.py:774
+msgid "Restore"
+msgstr "Zurückholen"
+
+#: hlidskjalf/dialogs.py:171 hlidskjalf/dialogs.py:180
+msgid "Delete permanently"
+msgstr "Endgültig löschen"
+
+#: hlidskjalf/dialogs.py:178
+msgid "Empty trash?"
+msgstr "Papierkorb leeren?"
+
+#: hlidskjalf/dialogs.py:178
+msgid "All pages in the trash will be deleted permanently."
+msgstr "Alle Seiten im Papierkorb werden endgültig gelöscht."
+
+#: hlidskjalf/dialogs.py:195
+msgid "Find page"
+msgstr "Seite suchen"
+
+#: hlidskjalf/dialogs.py:244
+msgid "Move to"
+msgstr "Verschieben nach"
+
+#: hlidskjalf/dialogs.py:244
+msgid "Top level"
+msgstr "Oberste Ebene"
+
+#: hlidskjalf/dialogs.py:249
+msgid "Version history"
+msgstr "Versionsverlauf"
+
+#: hlidskjalf/dialogs.py:254
+msgid "Restore this version"
+msgstr "Diese Version wiederherstellen"
+
+#: hlidskjalf/dialogs.py:273
+msgid "Select a version to view it."
+msgstr "Version auswählen, um sie anzusehen."
+
+#: hlidskjalf/dialogs.py:286
+msgid "No earlier versions yet. While you edit, a version is saved at most every 10 minutes (up to 50 per page)."
+msgstr "Noch keine früheren Versionen. Beim Bearbeiten wird höchstens alle 10 Minuten ein Stand gesichert (bis zu 50 pro Seite)."
+
+#: hlidskjalf/dialogs.py:303
+msgid "(empty)"
+msgstr "(leer)"
+
+#: hlidskjalf/dialogs.py:331 hlidskjalf/dialogs.py:389
+msgid "Albums"
+msgstr "Alben"
+
+#: hlidskjalf/dialogs.py:340
+#, python-brace-format
+msgid "Not reachable: {error}"
+msgstr "Nicht erreichbar: {error}"
+
+#: hlidskjalf/dialogs.py:354
+msgid "Immich is not set up on this server."
+msgstr "Immich ist auf diesem Server nicht eingerichtet."
+
+#: hlidskjalf/dialogs.py:362
+msgid "Enter the address of your Immich and an API key. In Immich, create a new key under Account Settings → API Keys (permissions: album.read, asset.read, asset.view, asset.download, user.read)."
+msgstr "Adresse deines Immich und einen API-Schlüssel eintragen. In Immich unter Kontoeinstellungen → API-Schlüssel einen neuen Schlüssel anlegen (Rechte: album.read, asset.read, asset.view, asset.download, user.read)."
+
+#: hlidskjalf/dialogs.py:366
+msgid "Immich address (https://…)"
+msgstr "Immich-Adresse (https://…)"
+
+#: hlidskjalf/dialogs.py:367 hlidskjalf/settings.py:127
+msgid "API key"
+msgstr "API-Schlüssel"
+
+#: hlidskjalf/dialogs.py:370 hlidskjalf/settings.py:128 hlidskjalf/settings.py:134 hlidskjalf/settings.py:200
+msgid "Connect"
+msgstr "Verbinden"
+
+#: hlidskjalf/dialogs.py:376 hlidskjalf/settings.py:81 hlidskjalf/settings.py:131
+msgid "Checking …"
+msgstr "Prüfe …"
+
+#: hlidskjalf/dialogs.py:388 hlidskjalf/window.py:156
+msgid "Recent"
+msgstr "Zuletzt"
+
+#: hlidskjalf/dialogs.py:394
+msgid "Search … (e.g. “beach”, “cat”)"
+msgstr "Suchen … (z. B. „Strand“, „Katze“)"
+
+#: hlidskjalf/dialogs.py:402
+msgid "Load more"
+msgstr "Mehr laden"
+
+#: hlidskjalf/dialogs.py:432
+msgid "No albums."
+msgstr "Keine Alben."
+
+#: hlidskjalf/dialogs.py:441
+#, python-brace-format
+msgid "{n} photo"
+msgid_plural "{n} photos"
+msgstr[0] "{n} Foto"
+msgstr[1] "{n} Fotos"
+
+#: hlidskjalf/dialogs.py:447
+msgid "Could not read albums"
+msgstr "Alben nicht lesbar"
+
+#: hlidskjalf/dialogs.py:451
+msgid "Album"
+msgstr "Album"
+
+#: hlidskjalf/dialogs.py:482
+msgid "No photos found."
+msgstr "Keine Fotos gefunden."
+
+#: hlidskjalf/dialogs.py:483
+msgid "Immich: search failed"
+msgstr "Immich: Suche fehlgeschlagen"
+
+#: hlidskjalf/dialogs.py:489
+#, python-brace-format
+msgid "Importing “{name}” …"
+msgstr "Übernehme „{name}“ …"
+
+#: hlidskjalf/dialogs.py:497
+#, python-brace-format
+msgid "Not imported: {error}"
+msgstr "Nicht übernommen: {error}"
+
+#: hlidskjalf/dialogs.py:505
+msgid "Buttons"
+msgstr "Schaltflächen"
+
+#: hlidskjalf/dialogs.py:513
+msgid "Done"
+msgstr "Fertig"
+
+#: hlidskjalf/dialogs.py:531
+#, python-brace-format
+msgid "Button {n}"
+msgstr "Schaltfläche {n}"
+
+#: hlidskjalf/dialogs.py:532
+msgid "Label"
+msgstr "Beschriftung"
+
+#: hlidskjalf/dialogs.py:535
+msgid "Icon (emoji)"
+msgstr "Symbol (Emoji)"
+
+#: hlidskjalf/dialogs.py:538
+msgid "none"
+msgstr "keine"
+
+#: hlidskjalf/dialogs.py:538
+msgid "New database entry"
+msgstr "Neuer Eintrag in Datenbank"
+
+#: hlidskjalf/dialogs.py:538 hlidskjalf/window.py:813
+msgid "New task"
+msgstr "Neue Aufgabe"
+
+#: hlidskjalf/dialogs.py:538
+msgid "Open page"
+msgstr "Seite öffnen"
+
+#: hlidskjalf/dialogs.py:539
+msgid "Action"
+msgstr "Aktion"
+
+#: hlidskjalf/dialogs.py:543
+msgid "none (empty page)"
+msgstr "keine (leere Seite)"
+
+#: hlidskjalf/dialogs.py:545
+#, python-brace-format
+msgid "Title ({datum} = today)"
+msgstr "Titel ({datum} = heute)"
+
+#: hlidskjalf/dialogs.py:549
+msgid "Task text"
+msgstr "Text der Aufgabe"
+
+#: hlidskjalf/dialogs.py:556
+msgid "Open as"
+msgstr "Öffnen als"
+
+#: hlidskjalf/dialogs.py:558
+msgid "Remove button"
+msgstr "Schaltfläche entfernen"
+
+#: hlidskjalf/dialogs.py:565
+msgid "Add button"
+msgstr "Schaltfläche hinzufügen"
+
+#: hlidskjalf/dialogs.py:620 hlidskjalf/window.py:139 hlidskjalf/window.py:592 hlidskjalf/window.py:705
+msgid "Services"
+msgstr "Dienste"
+
+#: hlidskjalf/dialogs.py:623
+msgid "Search services"
+msgstr "Dienst suchen"
+
+#: hlidskjalf/editor.py:16
+msgid "Heading 1"
+msgstr "Überschrift 1"
+
+#: hlidskjalf/editor.py:17
+msgid "Heading 2"
+msgstr "Überschrift 2"
+
+#: hlidskjalf/editor.py:18
+msgid "Heading 3"
+msgstr "Überschrift 3"
+
+#: hlidskjalf/editor.py:19
+msgid "Heading 4"
+msgstr "Überschrift 4"
+
+#: hlidskjalf/editor.py:20
+msgid "Checklist"
+msgstr "Checkliste"
+
+#: hlidskjalf/editor.py:21
+msgid "Bulleted list"
+msgstr "Aufzählung"
+
+#: hlidskjalf/editor.py:22
+msgid "Numbered list"
+msgstr "Nummeriert"
+
+#: hlidskjalf/editor.py:27
+msgid "Divider"
+msgstr "Trenner"
+
+#: hlidskjalf/editor.py:28 hlidskjalf/page.py:129
+msgid "Image"
+msgstr "Bild"
+
+#: hlidskjalf/editor.py:29
+msgid "Image from Immich"
+msgstr "Bild aus Immich"
+
+#: hlidskjalf/editor.py:32
+msgid "Linked database"
+msgstr "Verknüpfte Datenbank"
+
+#: hlidskjalf/editor.py:36
+msgid "Columns"
+msgstr "Spalten"
+
+#: hlidskjalf/editor.py:37
+msgid "Button"
+msgstr "Schaltfläche"
+
+#: hlidskjalf/editor.py:38 hlidskjalf/page.py:698 hlidskjalf/page.py:702
+msgid "Embed"
+msgstr "Einbetten"
+
+#: hlidskjalf/editor.py:228
+msgid "The page was changed elsewhere in the meantime – reloaded."
+msgstr "Die Seite wurde inzwischen woanders geändert – neu geladen."
+
+#: hlidskjalf/editor.py:232
+#, python-brace-format
+msgid "Not saved: {error}"
+msgstr "Nicht gespeichert: {error}"
+
+#: hlidskjalf/editor.py:614
+msgid "New database"
+msgstr "Neue Datenbank"
+
+#: hlidskjalf/images.py:75
+msgid "python3-pillow is missing"
+msgstr "python3-pillow fehlt"
+
+#: hlidskjalf/page.py:47
+msgid "Drag to change the cover image height"
+msgstr "Ziehen: Höhe des Titelbilds ändern"
+
+#: hlidskjalf/page.py:67
+msgid "Change"
+msgstr "Ändern"
+
+#: hlidskjalf/page.py:70 hlidskjalf/page.py:403
+msgid "File …"
+msgstr "Datei …"
+
+#: hlidskjalf/page.py:70 hlidskjalf/page.py:403
+msgid "From Immich …"
+msgstr "Aus Immich …"
+
+#: hlidskjalf/page.py:72
+msgid "Reposition"
+msgstr "Neu positionieren"
+
+#: hlidskjalf/page.py:73
+msgid "Height"
+msgstr "Höhe"
+
+#: hlidskjalf/page.py:77
+msgid "Height of the cover image"
+msgstr "Höhe des Titelbilds"
+
+#: hlidskjalf/page.py:83
+msgid "Applies to all pages on this computer."
+msgstr "Gilt für alle Seiten auf diesem Rechner."
+
+#: hlidskjalf/page.py:87 hlidskjalf/settings.py:238 hlidskjalf/settings.py:255
+msgid "Remove"
+msgstr "Entfernen"
+
+#: hlidskjalf/page.py:92
+msgid "Drag the image to position it"
+msgstr "Bild ziehen zum Positionieren"
+
+#: hlidskjalf/page.py:118
+msgid "Icon"
+msgstr "Symbol"
+
+#: hlidskjalf/page.py:124
+msgid "Choose emoji …"
+msgstr "Emoji wählen …"
+
+#: hlidskjalf/page.py:144
+msgid "Remove icon"
+msgstr "Symbol entfernen"
+
+#: hlidskjalf/page.py:228
+msgid "Close (Esc)"
+msgstr "Schließen (Esc)"
+
+#: hlidskjalf/page.py:234
+msgid "Previous entry (Ctrl+Shift+K)"
+msgstr "Vorheriger Eintrag (Strg+Umschalt+K)"
+
+#: hlidskjalf/page.py:235
+msgid "Next entry (Ctrl+Shift+J)"
+msgstr "Nächster Eintrag (Strg+Umschalt+J)"
+
+#: hlidskjalf/page.py:244 hlidskjalf/window.py:340 hlidskjalf/window.py:589 hlidskjalf/window.py:776
+msgid "Add to favorites"
+msgstr "Zu Favoriten"
+
+#: hlidskjalf/page.py:246 hlidskjalf/window.py:338
+msgid "Page menu"
+msgstr "Seitenmenü"
+
+#: hlidskjalf/page.py:258
+msgid "Page could not be loaded"
+msgstr "Seite konnte nicht geladen werden"
+
+#: hlidskjalf/page.py:260
+msgid "Try again"
+msgstr "Erneut versuchen"
+
+#: hlidskjalf/page.py:291
+msgid "Locked – click to unlock"
+msgstr "Gesperrt – klicken zum Entsperren"
+
+#: hlidskjalf/page.py:395
+msgid "Add icon"
+msgstr "Symbol hinzufügen"
+
+#: hlidskjalf/page.py:399
+msgid "Add cover image"
+msgstr "Titelbild hinzufügen"
+
+#: hlidskjalf/page.py:429 hlidskjalf/page.py:435
+msgid "Tag"
+msgstr "Tag"
+
+#: hlidskjalf/page.py:472
+msgid "Linked from"
+msgstr "Verlinkt von"
+
+#: hlidskjalf/page.py:510
+msgid "Contents"
+msgstr "Inhalt"
+
+#: hlidskjalf/page.py:589
+msgid "Full width"
+msgstr "Volle Breite"
+
+#: hlidskjalf/page.py:590
+msgid "Remove as home page"
+msgstr "Nicht mehr Startseite"
+
+#: hlidskjalf/page.py:590
+msgid "Set as home page"
+msgstr "Als Startseite festlegen"
+
+#: hlidskjalf/page.py:592 hlidskjalf/window.py:779
+msgid "Move to …"
+msgstr "Verschieben nach …"
+
+#: hlidskjalf/page.py:593
+msgid "Version history …"
+msgstr "Versionsverlauf …"
+
+#: hlidskjalf/page.py:594 hlidskjalf/window.py:871
+msgid "Export"
+msgstr "Exportieren"
+
+#: hlidskjalf/page.py:594
+msgid "As Markdown (.md)"
+msgstr "Als Markdown (.md)"
+
+#: hlidskjalf/page.py:595
+msgid "With subpages (.zip)"
+msgstr "Mit Unterseiten (.zip)"
+
+#: hlidskjalf/page.py:596
+msgid "As template"
+msgstr "Als Vorlage"
+
+#: hlidskjalf/page.py:600
+msgid "Open in browser"
+msgstr "Im Browser öffnen"
+
+#: hlidskjalf/page.py:601
+msgid "Reload"
+msgstr "Neu laden"
+
+#: hlidskjalf/page.py:603
+msgid "Unlock page"
+msgstr "Seite entsperren"
+
+#: hlidskjalf/page.py:603
+msgid "Lock page"
+msgstr "Seite sperren"
+
+#: hlidskjalf/page.py:604
+msgid "Restore from archive"
+msgstr "Aus dem Archiv holen"
+
+#: hlidskjalf/page.py:604 hlidskjalf/window.py:781
+msgid "Archive"
+msgstr "Archivieren"
+
+#: hlidskjalf/page.py:627
+msgid "Link"
+msgstr "Link"
+
+#: hlidskjalf/page.py:627
+msgid "Address or page reference (/notes#12)"
+msgstr "Adresse oder Seitenverweis (/notes#12)"
+
+#: hlidskjalf/page.py:628
+msgid "https://… or /notes#12"
+msgstr "https://… oder /notes#12"
+
+#: hlidskjalf/page.py:631
+msgid "Remove link"
+msgstr "Link entfernen"
+
+#: hlidskjalf/page.py:632
+msgid "Set"
+msgstr "Setzen"
+
+#: hlidskjalf/page.py:647
+msgid "Choose image"
+msgstr "Bild wählen"
+
+#: hlidskjalf/page.py:648
+msgid "Images"
+msgstr "Bilder"
+
+#: hlidskjalf/page.py:658 hlidskjalf/page.py:762
+#, python-brace-format
+msgid "Image not uploaded: {error}"
+msgstr "Bild nicht hochgeladen: {error}"
+
+#: hlidskjalf/page.py:698
+msgid "YouTube video or any link (shown as a card)"
+msgstr "YouTube-Video oder beliebiger Link (wird als Karte gezeigt)"
+
+#: hlidskjalf/page.py:717
+msgid "Attach file"
+msgstr "Datei anhängen"
+
+#: hlidskjalf/page.py:739
+msgid "Link database"
+msgstr "Datenbank verknüpfen"
+
+#. numeric date (GLib.DateTime.format), e.g. "10/12/2026"
+#: hlidskjalf/richtext.py:248 hlidskjalf/util.py:131
+msgid "%m/%d/%Y"
+msgstr "%d.%m.%Y"
+
+#: hlidskjalf/richtext.py:286
+msgid "Day after tomorrow"
+msgstr "Übermorgen"
+
+#: hlidskjalf/richtext.py:286
+msgid "Yesterday"
+msgstr "Gestern"
+
+#: hlidskjalf/settings.py:28 hlidskjalf/window.py:317 hlidskjalf/window.py:709
+msgid "Settings"
+msgstr "Einstellungen"
+
+#: hlidskjalf/settings.py:30
+msgid "General"
+msgstr "Allgemein"
+
+#: hlidskjalf/settings.py:31
+msgid "Server"
+msgstr "Server"
+
+#: hlidskjalf/settings.py:32
+msgid "Address"
+msgstr "Adresse"
+
+#: hlidskjalf/settings.py:38
+msgid "Version"
+msgstr "Version"
+
+#: hlidskjalf/settings.py:38
+#, python-brace-format
+msgid "App: Saga {version} · Server: {server}"
+msgstr "App: Saga {version} · Server: {server}"
+
+#: hlidskjalf/settings.py:40
+#, python-brace-format
+msgid "app too old (version {version} or later needed), please update"
+msgstr "App zu alt (ab {version}), bitte aktualisieren"
+
+#: hlidskjalf/settings.py:42 hlidskjalf/settings.py:293
+msgid "Test connection"
+msgstr "Verbindung testen"
+
+#: hlidskjalf/settings.py:43
+msgid "Test"
+msgstr "Testen"
+
+#: hlidskjalf/settings.py:46
+msgid "Appearance"
+msgstr "Darstellung"
+
+#: hlidskjalf/settings.py:48
+msgid "Cover image height"
+msgstr "Höhe der Titelbilder"
+
+#: hlidskjalf/settings.py:49
+msgid "Applies to all pages on this computer. You can also drag the image to change it."
+msgstr "Gilt für alle Seiten auf diesem Rechner. Auch per Ziehen am Bild änderbar."
+
+#: hlidskjalf/settings.py:55 hlidskjalf/settings.py:55 hlidskjalf/settings.py:93 hlidskjalf/settings.py:362 hlidskjalf/settings.py:411
+msgid "Sign out"
+msgstr "Abmelden"
+
+#: hlidskjalf/settings.py:59
+msgid "Removes the sign-in and the cache on this device."
+msgstr "Löscht die Anmeldung und den Zwischenspeicher auf diesem Gerät."
+
+#: hlidskjalf/settings.py:62
+msgid "Account"
+msgstr "Konto"
+
+#: hlidskjalf/settings.py:75
+msgid "Server saved – please sign in again if needed"
+msgstr "Server gespeichert – bitte neu anmelden, falls nötig"
+
+#: hlidskjalf/settings.py:78
+msgid "Please enter an https address"
+msgstr "Bitte eine https-Adresse eingeben"
+
+#: hlidskjalf/settings.py:86
+#, python-brace-format
+msgid "Connected – {pages}, {events} today"
+msgstr "Verbunden – {pages}, heute {events}"
+
+#: hlidskjalf/settings.py:87
+#, python-brace-format
+msgid "{n} page"
+msgid_plural "{n} pages"
+msgstr[0] "{n} Seite"
+msgstr[1] "{n} Seiten"
+
+#: hlidskjalf/settings.py:87
+#, python-brace-format
+msgid "{n} event"
+msgid_plural "{n} events"
+msgstr[0] "{n} Termin"
+msgstr[1] "{n} Termine"
+
+#: hlidskjalf/settings.py:91
+msgid "Sign out?"
+msgstr "Abmelden?"
+
+#: hlidskjalf/settings.py:91
+msgid "The sign-in and the cache on this device will be removed."
+msgstr "Die Anmeldung und der Zwischenspeicher auf diesem Gerät werden gelöscht."
+
+#: hlidskjalf/settings.py:118
+#, python-brace-format
+msgid "Connected as {name}"
+msgstr "Verbunden als {name}"
+
+#: hlidskjalf/settings.py:118
+msgid "Connected"
+msgstr "Verbunden"
+
+#: hlidskjalf/settings.py:120
+msgid "Disconnect"
+msgstr "Trennen"
+
+#: hlidskjalf/settings.py:124
+msgid "In Immich, create a key with album.read, asset.read, asset.view, asset.download and user.read under Account Settings → API Keys and paste it here."
+msgstr "In Immich unter Kontoeinstellungen → API-Schlüssel einen Schlüssel mit album.read, asset.read, asset.view, asset.download und user.read anlegen und hier einfügen."
+
+#: hlidskjalf/settings.py:126
+msgid "Immich address"
+msgstr "Immich-Adresse"
+
+#: hlidskjalf/settings.py:169
+msgid "read-only"
+msgstr "nur lesen"
+
+#: hlidskjalf/settings.py:180
+msgid "Connect external calendars (CalDAV) such as mailcow or Nextcloud. Tip: in mailcow, create a separate app password just for “DAV”."
+msgstr "Externe Kalender (CalDAV) wie mailcow oder Nextcloud verbinden. Tipp: In mailcow ein eigenes App-Passwort nur für „DAV“ anlegen."
+
+#: hlidskjalf/settings.py:195
+msgid "No calendar connected yet."
+msgstr "Noch kein Kalender verbunden."
+
+#: hlidskjalf/settings.py:199 hlidskjalf/settings.py:266
+msgid "Connect calendar"
+msgstr "Kalender verbinden"
+
+#: hlidskjalf/settings.py:211
+msgid "password saved"
+msgstr "Passwort gespeichert"
+
+#: hlidskjalf/settings.py:222
+msgid "Save selection"
+msgstr "Auswahl speichern"
+
+#: hlidskjalf/settings.py:222
+msgid "Saved"
+msgstr "Gespeichert"
+
+#: hlidskjalf/settings.py:233
+#, python-brace-format
+msgid "{n} calendar – remember to save the selection."
+msgid_plural "{n} calendars – remember to save the selection."
+msgstr[0] "{n} Kalender – Auswahl speichern nicht vergessen."
+msgstr[1] "{n} Kalender – Auswahl speichern nicht vergessen."
+
+#: hlidskjalf/settings.py:236
+msgid "Rescan"
+msgstr "Neu einlesen"
+
+#: hlidskjalf/settings.py:237
+msgid "New app password"
+msgstr "Neues App-Passwort"
+
+#: hlidskjalf/settings.py:242
+msgid "Check & save password"
+msgstr "Passwort prüfen & speichern"
+
+#: hlidskjalf/settings.py:243
+msgid "New password saved"
+msgstr "Neues Passwort gespeichert"
+
+#: hlidskjalf/settings.py:253
+msgid "Remove calendar account?"
+msgstr "Kalender-Zugang entfernen?"
+
+#: hlidskjalf/settings.py:253
+msgid "The events in the calendar itself are kept."
+msgstr "Die Termine im Kalender selbst bleiben erhalten."
+
+#: hlidskjalf/settings.py:272
+msgid "Other CalDAV address"
+msgstr "Andere CalDAV-Adresse"
+
+#: hlidskjalf/settings.py:273
+msgid "Provider"
+msgstr "Anbieter"
+
+#: hlidskjalf/settings.py:276
+msgid "CalDAV address"
+msgstr "CalDAV-Adresse"
+
+#: hlidskjalf/settings.py:283
+msgid "User (e.g. name@example.org)"
+msgstr "Benutzer (z. B. name@example.org)"
+
+#: hlidskjalf/settings.py:284
+msgid "App password"
+msgstr "App-Passwort"
+
+#: hlidskjalf/settings.py:285
+msgid "Label (optional, e.g. “Personal”)"
+msgstr "Bezeichnung (optional, z. B. „Privat“)"
+
+#: hlidskjalf/settings.py:288
+#, python-brace-format
+msgid "Allowed servers: {list}"
+msgstr "Erlaubte Server: {list}"
+
+#: hlidskjalf/settings.py:306
+msgid "Connecting …"
+msgstr "Verbinde …"
+
+#: hlidskjalf/settings.py:310
+#, python-brace-format
+msgid "Connected – {n} calendar found. Select and save:"
+msgid_plural "Connected – {n} calendars found. Select and save:"
+msgstr[0] "Verbunden – {n} Kalender gefunden. Auswählen und speichern:"
+msgstr[1] "Verbunden – {n} Kalender gefunden. Auswählen und speichern:"
+
+#: hlidskjalf/settings.py:316
+msgid "Connect & save"
+msgstr "Verbinden & speichern"
+
+#. the title is markup - write "&" as "&amp;"
+#: hlidskjalf/settings.py:340
+msgid "Apps &amp; devices"
+msgstr "Apps &amp; Geräte"
+
+#: hlidskjalf/settings.py:341
+msgid "Signed-in apps stay signed in. Each one has a small key for widgets, sharing and shortcuts. Lost a device? Sign it out and both are gone."
+msgstr "Angemeldete Apps bleiben angemeldet. Zu jeder gehört ein kleiner Schlüssel für Widget, Teilen und Kurzbefehle. Verlorenes Gerät → abmelden, dann ist beides weg."
+
+#: hlidskjalf/settings.py:356
+msgid "No app signed in."
+msgstr "Keine App angemeldet."
+
+#: hlidskjalf/settings.py:358
+#, python-brace-format
+msgid "signed in {date} · last used {last}"
+msgstr "angemeldet {date} · zuletzt {last}"
+
+#: hlidskjalf/settings.py:360
+msgid "with widget key"
+msgstr "mit Widget-Schlüssel"
+
+#: hlidskjalf/settings.py:364
+msgid "More keys"
+msgstr "Weitere Schlüssel"
+
+#: hlidskjalf/settings.py:365
+msgid "Created manually, e.g. for shortcuts or scripts"
+msgstr "Von Hand erzeugt, z. B. für Kurzbefehle oder Skripte"
+
+#: hlidskjalf/settings.py:368
+msgid "None."
+msgstr "Keine."
+
+#: hlidskjalf/settings.py:370
+#, python-brace-format
+msgid "last used {date}"
+msgstr "zuletzt {date}"
+
+#: hlidskjalf/settings.py:370
+msgid "never used"
+msgstr "noch nie benutzt"
+
+#: hlidskjalf/settings.py:372
+#, python-brace-format
+msgid "created {date}"
+msgstr "erstellt {date}"
+
+#: hlidskjalf/settings.py:373 hlidskjalf/settings.py:407
+msgid "Revoke"
+msgstr "Widerrufen"
+
+#: hlidskjalf/settings.py:375
+msgid "Name, e.g. “Shortcuts”"
+msgstr "Name, z. B. „Kurzbefehle“"
+
+#: hlidskjalf/settings.py:386
+#, python-brace-format
+msgid "New key for “{name}” – visible only now!"
+msgstr "Neuer Schlüssel für „{name}“ – nur jetzt sichtbar!"
+
+#: hlidskjalf/settings.py:389
+msgid "Copy"
+msgstr "Kopieren"
+
+#: hlidskjalf/settings.py:407
+msgid "Revoke key?"
+msgstr "Schlüssel widerrufen?"
+
+#: hlidskjalf/settings.py:407
+msgid "Whoever uses it can no longer save anything."
+msgstr "Wer ihn benutzt, kann dann nichts mehr ablegen."
+
+#: hlidskjalf/settings.py:411
+msgid "Sign out this device?"
+msgstr "Dieses Gerät abmelden?"
+
+#: hlidskjalf/settings.py:411
+msgid "The app has to sign in again; widget and sharing lose access."
+msgstr "Die App muss sich neu anmelden; Widget und Teilen verlieren den Zugang."
+
+#. time of day (GLib.DateTime.format), e.g. 14:30 - use %I:%M %p for a 12-hour clock
+#: hlidskjalf/util.py:94
+msgid "%H:%M"
+msgstr "%H:%M"
+
+#. month and year above a calendar (GLib.DateTime.format), e.g. "October 2026"
+#: hlidskjalf/util.py:104
+msgid "%B %Y"
+msgstr "%B %Y"
+
+#. short date in the current year (GLib.DateTime.format), e.g. "Oct 12"
+#: hlidskjalf/util.py:114
+msgid "%b %-d"
+msgstr "%-d. %b"
+
+#. short date in another year (GLib.DateTime.format), e.g. "Oct 12, 2025"
+#: hlidskjalf/util.py:116
+msgid "%b %-d, %Y"
+msgstr "%-d. %b %Y"
+
+#. weekday and date with year (GLib.DateTime.format), e.g. "Mon, Oct 12, 2026"
+#: hlidskjalf/util.py:123
+msgid "%a, %b %-d, %Y"
+msgstr "%a, %-d. %b %Y"
+
+#. weekday and date (GLib.DateTime.format), e.g. "Mon, Oct 12"
+#: hlidskjalf/util.py:125
+msgid "%a, %b %-d"
+msgstr "%a, %-d. %b"
+
+#. date and time (GLib.DateTime.format), e.g. "Oct 12, 2026, 14:30"
+#: hlidskjalf/util.py:145
+msgid "%b %-d, %Y, %H:%M"
+msgstr "%-d. %b %Y, %H:%M"
+
+#: hlidskjalf/util.py:153
+#, python-brace-format
+msgid "Edited today, {time}"
+msgstr "Bearbeitet heute, {time}"
+
+#: hlidskjalf/util.py:154
+#, python-brace-format
+msgid "Edited {date}"
+msgstr "Bearbeitet {date}"
+
+#: hlidskjalf/util.py:174
+#, python-brace-format
+msgid "€{value}"
+msgstr "{value} €"
+
+#: hlidskjalf/util.py:247
+msgid "Gray"
+msgstr "Grau"
+
+#: hlidskjalf/util.py:247
+msgid "Brown"
+msgstr "Braun"
+
+#: hlidskjalf/util.py:247
+msgid "Orange"
+msgstr "Orange"
+
+#: hlidskjalf/util.py:247
+msgid "Yellow"
+msgstr "Gelb"
+
+#: hlidskjalf/util.py:247
+msgid "Green"
+msgstr "Grün"
+
+#: hlidskjalf/util.py:248
+msgid "Blue"
+msgstr "Blau"
+
+#: hlidskjalf/util.py:248
+msgid "Purple"
+msgstr "Lila"
+
+#: hlidskjalf/util.py:248
+msgid "Pink"
+msgstr "Rosa"
+
+#: hlidskjalf/util.py:248
+msgid "Red"
+msgstr "Rot"
+
+#: hlidskjalf/window.py:71
+msgid "Search pages"
+msgstr "Seiten durchsuchen"
+
+#: hlidskjalf/window.py:111
+msgid "Drop here to move to the top level"
+msgstr "Hierher ziehen: auf die oberste Ebene"
+
+#: hlidskjalf/window.py:125
+msgid "Results"
+msgstr "Treffer"
+
+#: hlidskjalf/window.py:131
+msgid "No results"
+msgstr "Keine Treffer"
+
+#: hlidskjalf/window.py:151
+msgid "Favorites"
+msgstr "Favoriten"
+
+#: hlidskjalf/window.py:159
+msgid "Pages"
+msgstr "Seiten"
+
+#: hlidskjalf/window.py:162
+#, python-brace-format
+msgid "Archive ({count})"
+msgstr "Archiv ({count})"
+
+#: hlidskjalf/window.py:289
+#, python-brace-format
+msgid "This app is too old for the server (version {version} or later needed) – please update."
+msgstr "Diese App ist zu alt für den Server (ab {version}) – bitte aktualisieren."
+
+#: hlidskjalf/window.py:310
+msgid "New page (Ctrl+N)"
+msgstr "Neue Seite (Strg+N)"
+
+#: hlidskjalf/window.py:312
+msgid "Menu"
+msgstr "Menü"
+
+#: hlidskjalf/window.py:314
+msgid "Command palette"
+msgstr "Befehlspalette"
+
+#: hlidskjalf/window.py:316 hlidskjalf/window.py:706
+msgid "Refresh"
+msgstr "Aktualisieren"
+
+#: hlidskjalf/window.py:318 hlidskjalf/window.py:758
+msgid "Keyboard shortcuts"
+msgstr "Tastenkürzel"
+
+#: hlidskjalf/window.py:319
+msgid "About Saga"
+msgstr "Über Saga"
+
+#: hlidskjalf/window.py:329
+msgid "Show/hide sidebar (F9)"
+msgstr "Seitenleiste ein-/ausblenden (F9)"
+
+#: hlidskjalf/window.py:332
+msgid "Back (Alt+←)"
+msgstr "Zurück (Alt+←)"
+
+#: hlidskjalf/window.py:333
+msgid "Forward (Alt+→)"
+msgstr "Vor (Alt+→)"
+
+#: hlidskjalf/window.py:379
+msgid ""
+"Sign in with a passkey, security key or password.\n"
+"Sign-in opens in your browser."
+msgstr ""
+"Anmelden mit Passkey, Sicherheitsschlüssel oder Passwort.\n"
+"Die Anmeldung öffnet sich im Browser."
+
+#: hlidskjalf/window.py:384
+msgid "Server address"
+msgstr "Server-Adresse"
+
+#: hlidskjalf/window.py:389
+msgid "Sign in"
+msgstr "Anmelden"
+
+#: hlidskjalf/window.py:397
+msgid "Enter the server address or sign in with a pairing link"
+msgstr "Server-Adresse eingeben oder per Kopplungslink anmelden"
+
+#: hlidskjalf/window.py:399
+msgid "Sign in with a pairing link (QR code from the web)"
+msgstr "Mit Kopplungslink anmelden (QR-Code aus dem Web)"
+
+#: hlidskjalf/window.py:401
+msgid "In the browser: 👤 → Settings → “Apps & devices” → “Sign in with QR code”. Paste the link below the QR code (…/app/pair?c=…) here:"
+msgstr "Im Browser: 👤 → Einstellungen → „Apps & Geräte“ → „App per QR-Code anmelden“. Den Link unter dem QR-Code (…/app/pair?c=…) hier einfügen:"
+
+#: hlidskjalf/window.py:408
+msgid "Browser doesn't return to the app?"
+msgstr "Browser leitet nicht zurück?"
+
+#: hlidskjalf/window.py:410
+msgid "Paste the address from the browser's error message (hlidskjalf://auth?code=…) here:"
+msgstr "Adresse aus der Fehlermeldung des Browsers (hlidskjalf://auth?code=…) hier einfügen:"
+
+#: hlidskjalf/window.py:425
+msgid "Please enter an https address, e.g. https://saga.example.org"
+msgstr "Bitte eine https-Adresse eingeben, z. B. https://saga.example.org"
+
+#: hlidskjalf/window.py:449
+msgid "This is not a valid pairing link."
+msgstr "Das ist kein gültiger Kopplungslink."
+
+#: hlidskjalf/window.py:455 hlidskjalf/window.py:482
+msgid "Signing in …"
+msgstr "Melde an …"
+
+#: hlidskjalf/window.py:461 hlidskjalf/window.py:489
+#, python-brace-format
+msgid "Signed in as {name} – stays signed in on “{device}”"
+msgstr "Angemeldet als {name} – bleibt auf „{device}“ angemeldet"
+
+#: hlidskjalf/window.py:469
+msgid "Please sign in in your browser …"
+msgstr "Bitte im Browser anmelden …"
+
+#: hlidskjalf/window.py:480
+msgid "Please start signing in here in the app."
+msgstr "Anmeldung bitte hier in der App starten."
+
+#: hlidskjalf/window.py:589 hlidskjalf/window.py:776
+msgid "Remove from favorites"
+msgstr "Aus Favoriten entfernen"
+
+#: hlidskjalf/window.py:702
+msgid "New page"
+msgstr "Neue Seite"
+
+#: hlidskjalf/window.py:707
+msgid "Forward"
+msgstr "Vor"
+
+#: hlidskjalf/window.py:707
+msgid "Search in the sidebar"
+msgstr "In der Seitenleiste suchen"
+
+#: hlidskjalf/window.py:708
+msgid "Show/hide sidebar"
+msgstr "Seitenleiste ein-/ausblenden"
+
+#: hlidskjalf/window.py:711
+msgid "Copy link to page"
+msgstr "Link zur Seite kopieren"
+
+#: hlidskjalf/window.py:732
+msgid "Link copied"
+msgstr "Link kopiert"
+
+#: hlidskjalf/window.py:751
+msgid ""
+"Ctrl+K / Ctrl+P – Command palette (Ctrl+K with a selection: link)\n"
+"Ctrl+N – New page\n"
+"Alt+← / Alt+→ – Back / Forward\n"
+"Ctrl+R – Refresh\n"
+"Ctrl+, – Settings\n"
+"Ctrl+Shift+L – Copy link to page\n"
+"Ctrl+Shift+F – Search the sidebar\n"
+"F9 / Ctrl+\\ – Show/hide sidebar\n"
+"Ctrl+1/2/3 – Today / Tasks / Events\n"
+"Esc – Close peek\n"
+"Ctrl+Shift+J/K – Browse in peek\n"
+"\n"
+"In text:\n"
+"Ctrl+B/I/U – Bold, italic, underline\n"
+"Ctrl+Shift+X – Strikethrough\n"
+"Ctrl+Shift+H – Highlight\n"
+"Ctrl+E – Code\n"
+"/ – Block types   @ – Date, reminder, page   : – Emoji\n"
+"# ## ### - * 1. [] > ``` --- at the start of a line – Block type\n"
+"Ctrl+Alt+0…8 – Text, Heading 1–3, Checklist, Bulleted list, Numbered list, Toggle, Code\n"
+"Ctrl+Shift+↑/↓ – Move block\n"
+"Ctrl+D – Duplicate block\n"
+"Ctrl+Enter – New block below\n"
+"Tab / Shift+Tab – Indent/outdent list item"
+msgstr ""
+"Strg+K / Strg+P – Befehlspalette (Strg+K mit Auswahl: Link)\n"
+"Strg+N – Neue Seite\n"
+"Alt+← / Alt+→ – Zurück / Vor\n"
+"Strg+R – Aktualisieren\n"
+"Strg+, – Einstellungen\n"
+"Strg+Umschalt+L – Link zur Seite kopieren\n"
+"Strg+Umschalt+F – Seitenleiste durchsuchen\n"
+"F9 / Strg+\\ – Seitenleiste ein-/ausblenden\n"
+"Strg+1/2/3 – Heute / Aufgaben / Termine\n"
+"Esc – Peek schließen\n"
+"Strg+Umschalt+J/K – Im Peek blättern\n"
+"\n"
+"Im Text:\n"
+"Strg+B/I/U – Fett, kursiv, unterstrichen\n"
+"Strg+Umschalt+X – Durchgestrichen\n"
+"Strg+Umschalt+H – Markieren\n"
+"Strg+E – Code\n"
+"/ – Blocktypen   @ – Datum, Erinnerung, Seite   : – Emoji\n"
+"# ## ### - * 1. [] > ``` --- am Zeilenanfang – Blocktyp\n"
+"Strg+Alt+0…8 – Text, Überschrift 1–3, Checkliste, Aufzählung, Nummeriert, Toggle, Code\n"
+"Strg+Umschalt+↑/↓ – Block verschieben\n"
+"Strg+D – Block duplizieren\n"
+"Strg+Enter – Neuer Block darunter\n"
+"Tab / Umschalt+Tab – Listenpunkt ein-/ausrücken"
+
+#: hlidskjalf/window.py:759
+msgid "OK"
+msgstr "OK"
+
+#: hlidskjalf/window.py:765
+msgid "Saga project"
+msgstr "Saga-Projekt"
+
+#: hlidskjalf/window.py:765
+msgid "Notes, databases, tasks and events – self-hosted."
+msgstr "Notizen, Datenbanken, Aufgaben und Termine – selbst gehostet."
+
+#: hlidskjalf/window.py:766
+msgid "translator-credits"
+msgstr "Saga-Projekt"
+
+#: hlidskjalf/window.py:778
+msgid "New subpage"
+msgstr "Neue Unterseite"
+
+#: hlidskjalf/window.py:814
+msgid "Task created"
+msgstr "Aufgabe angelegt"
+
+#: hlidskjalf/window.py:822
+#, python-brace-format
+msgid "“{title}” moved to trash"
+msgstr "„{title}“ in den Papierkorb verschoben"
+
+#: hlidskjalf/window.py:822
+msgid "Undo"
+msgstr "Rückgängig"
+
+#: hlidskjalf/window.py:864
+#, python-brace-format
+msgid "Saved: {name}"
+msgstr "Gespeichert: {name}"
+
+#: hlidskjalf/window.py:866
+msgid "Downloading …"
+msgstr "Lade herunter …"
+
+#: hlidskjalf/window.py:882
+msgid "Exported"
+msgstr "Exportiert"
+
+#: hlidskjalf/window.py:882
+#, python-brace-format
+msgid "Export failed: {error}"
+msgstr "Export fehlgeschlagen: {error}"

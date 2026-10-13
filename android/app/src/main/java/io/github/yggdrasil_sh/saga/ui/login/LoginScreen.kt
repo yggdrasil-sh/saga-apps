@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.login
 
+import androidx.compose.ui.res.stringResource
+import io.github.yggdrasil_sh.saga.util.UiText
+import io.github.yggdrasil_sh.saga.util.resolve
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -71,7 +74,7 @@ fun LoginScreen(repo: SagaRepository) {
     var server by remember { mutableStateOf(savedServer) }
     val busy by repo.loginBusy.collectAsState()
     val loginError by repo.loginError.collectAsState()
-    var localError by remember { mutableStateOf<String?>(null) }
+    var localError by remember { mutableStateOf<UiText?>(null) }
     var scanning by remember { mutableStateOf(false) }
     var cameraDenied by remember { mutableStateOf(false) }
 
@@ -86,7 +89,7 @@ fun LoginScreen(repo: SagaRepository) {
             try {
                 openUrl(context, repo.prepareBrowserLogin(server))
             } catch (e: Exception) {
-                localError = e.message
+                localError = repo.friendly(e)
             }
         }
     }
@@ -109,37 +112,37 @@ fun LoginScreen(repo: SagaRepository) {
                     painterResource(R.drawable.ic_launcher_foreground), contentDescription = null,
                     modifier = Modifier.size(96.dp).clip(RoundedCornerShape(22.dp)).background(SagaNight),
                 )
-                Text("Saga", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
                 Text(
-                    "Anmelden mit Passkey oder Passwort im Browser", textAlign = TextAlign.Center,
+                    stringResource(R.string.login_subtitle), textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedTextField(
                     value = server, onValueChange = { server = it },
-                    label = { Text("Server") }, placeholder = { Text("https://saga.example.org") },
+                    label = { Text(stringResource(R.string.login_server_label)) }, placeholder = { Text(stringResource(R.string.server_placeholder)) },
                     singleLine = true, enabled = !busy,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go, autoCorrectEnabled = false),
                     keyboardActions = KeyboardActions(onGo = { login() }),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Button(onClick = { login() }, enabled = !busy && server.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
-                    Text(if (busy) "Anmelden …" else "Anmelden")
+                    Text(stringResource(if (busy) R.string.login_button_busy else R.string.login_button))
                 }
                 OutlinedButton(onClick = { startScan() }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                    Text("Mit QR-Code anmelden")
+                    Text(stringResource(R.string.login_qr))
                 }
                 Text(
-                    "Den QR-Code zeigt Saga im Browser unter Benutzer → Einstellungen → „Apps & Geräte“.",
+                    stringResource(R.string.login_qr_hint),
                     style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (busy) CircularProgressIndicator(Modifier.size(28.dp))
                 (localError ?: loginError)?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
+                    Text(it.resolve(), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
                 }
                 if (cameraDenied) {
                     Text(
-                        "Ohne Kamera-Erlaubnis kann der QR-Code nicht gelesen werden.", textAlign = TextAlign.Center,
+                        stringResource(R.string.login_camera_denied), textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     TextButton(onClick = {
@@ -147,7 +150,7 @@ fun LoginScreen(repo: SagaRepository) {
                             Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
                                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         )
-                    }) { Text("App-Einstellungen öffnen") }
+                    }) { Text(stringResource(R.string.login_open_app_settings)) }
                 }
                 Spacer(Modifier.height(8.dp))
             }

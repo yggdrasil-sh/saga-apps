@@ -1,43 +1,44 @@
 """Datenbanken bearbeiten wie im Web: Ansichten, Filter, Sortierung, Spalten, Berechnungen (DatabaseEdit.swift)."""
 import statistics
 
-from gi.repository import Adw, Gtk, Pango
+from gi.repository import Adw, GLib, Gtk, Pango
 
 from .blocks import chip, flat_button, menu_popover
 from .database import PROP_ICON, has_value
+from .i18n import _
 from .store import label, store
 from .util import COLOR_NAMES, COLOR_ORDER, day_text, iso_day, new_pid, num_text, parse_day
 
-DB_TYPES = [("text", "Text"), ("number", "Zahl"), ("select", "Auswahl"), ("multi_select", "Mehrfachauswahl"), ("date", "Datum"),
-            ("checkbox", "Häkchen"), ("url", "URL"), ("created", "Erstellt"), ("edited", "Bearbeitet"), ("calc", "Berechnet"),
-            ("relation", "Relation")]
-CALC_OPS = [("div", "A ÷ B"), ("pct", "A in % von B"), ("mul", "A × B"), ("add", "A + B"), ("sub", "A − B")]
-VIEW_TYPES = [("table", "Tabelle", "view-grid-symbolic"), ("board", "Board", "view-dual-symbolic"), ("list", "Liste", "view-list-symbolic"),
-              ("gallery", "Galerie", "view-app-grid-symbolic"), ("calendar", "Kalender", "x-office-calendar-symbolic")]
-CALC_NAMES = {"count": "Anzahl", "filled": "Ausgefüllt", "empty": "Leer", "pct_filled": "% ausgefüllt", "unique": "Verschiedene",
-              "sum": "Summe", "avg": "Durchschnitt", "median": "Median", "min": "Minimum", "max": "Maximum", "range": "Spanne",
-              "checked": "Angehakt", "unchecked": "Nicht angehakt", "pct_checked": "% angehakt", "earliest": "Frühestes", "latest": "Spätestes"}
+DB_TYPES = [("text", _("Text")), ("number", _("Number")), ("select", _("Select")), ("multi_select", _("Multi-select")), ("date", _("Date")),
+            ("checkbox", _("Checkbox")), ("url", _("URL")), ("created", _("Created")), ("edited", _("Edited")), ("calc", _("Calculated")),
+            ("relation", _("Relation"))]
+CALC_OPS = [("div", "A ÷ B"), ("pct", _("A as percentage of B")), ("mul", "A × B"), ("add", "A + B"), ("sub", "A − B")]
+VIEW_TYPES = [("table", _("Table"), "view-grid-symbolic"), ("board", _("Board"), "view-dual-symbolic"), ("list", _("List"), "view-list-symbolic"),
+              ("gallery", _("Gallery"), "view-app-grid-symbolic"), ("calendar", _("Calendar"), "x-office-calendar-symbolic")]
+CALC_NAMES = {"count": _("Count"), "filled": _("Filled"), "empty": _("Empty"), "pct_filled": _("Percent filled"), "unique": _("Unique"),
+              "sum": _("Sum"), "avg": _("Average"), "median": _("Median"), "min": _("Minimum"), "max": _("Maximum"), "range": _("Range"),
+              "checked": _("Checked"), "unchecked": _("Unchecked"), "pct_checked": _("Percent checked"), "earliest": _("Earliest"), "latest": _("Latest")}
 NO_VALUE = {"is_empty", "not_empty", "checked", "unchecked", "today", "this_week", "this_month"}
 
 
 def filter_ops(t):
-    empty = [("is_empty", "ist leer"), ("not_empty", "ist nicht leer")]
-    rel = [("today", "ist heute"), ("this_week", "ist diese Woche"), ("this_month", "ist diesen Monat")]
+    empty = [("is_empty", _("is empty")), ("not_empty", _("is not empty"))]
+    rel = [("today", _("is today")), ("this_week", _("is this week")), ("this_month", _("is this month"))]
     if t in ("number", "calc"):
         return [("eq", "="), ("gt", ">"), ("lt", "<")] + empty
     if t == "select":
-        return [("is", "ist"), ("is_not", "ist nicht")] + empty
+        return [("is", _("is")), ("is_not", _("is not"))] + empty
     if t == "multi_select":
-        return [("contains", "enthält"), ("not_contains", "enthält nicht")] + empty
+        return [("contains", _("contains")), ("not_contains", _("does not contain"))] + empty
     if t == "relation":
         return empty
     if t == "date":
-        return [("eq", "am"), ("before", "vor"), ("after", "nach")] + rel + empty
+        return [("eq", _("on")), ("before", _("before")), ("after", _("after"))] + rel + empty
     if t in ("created", "edited"):
-        return [("after", "nach"), ("before", "vor"), ("eq", "am")] + rel
+        return [("after", _("after")), ("before", _("before")), ("eq", _("on"))] + rel
     if t == "checkbox":
-        return [("checked", "angehakt"), ("unchecked", "nicht angehakt")]
-    return [("contains", "enthält"), ("not_contains", "enthält nicht")] + empty
+        return [("checked", _("checked")), ("unchecked", _("unchecked"))]
+    return [("contains", _("contains")), ("not_contains", _("does not contain"))] + empty
 
 
 def dropdown(pairs, current, on_change, width=None):
@@ -69,10 +70,10 @@ class ViewBar(Gtk.Box):
         self.tabs = Gtk.Box(spacing=2)
         sw.set_child(self.tabs)
         self.append(sw)
-        self.search = Gtk.SearchEntry(placeholder_text="Suchen", width_chars=12)
+        self.search = Gtk.SearchEntry(placeholder_text=_("Search"), width_chars=12)
         self.search.connect("search-changed", self._search)
         self.append(self.search)
-        self.settings = Gtk.MenuButton(icon_name="emblem-system-symbolic", tooltip_text="Ansicht: Filter, Sortierung, Eigenschaften")
+        self.settings = Gtk.MenuButton(icon_name="emblem-system-symbolic", tooltip_text=_("View: filters, sorting, properties"))
         self.settings.add_css_class("flat")
         self.settings.set_create_popup_func(self._settings_popup)
         self.append(self.settings)
@@ -96,7 +97,7 @@ class ViewBar(Gtk.Box):
             vid = v.get("id")
             bx = Gtk.Box(spacing=5)
             bx.append(Gtk.Image.new_from_icon_name(next((t[2] for t in VIEW_TYPES if t[0] == v.get("type")), "view-grid-symbolic")))
-            bx.append(Gtk.Label(label=v.get("name") or "Ansicht"))
+            bx.append(Gtk.Label(label=v.get("name") or _("View")))
             b = Gtk.ToggleButton(child=bx, active=vid == cur)
             b.add_css_class("flat")
             b.add_css_class("hk-viewtab")
@@ -107,7 +108,7 @@ class ViewBar(Gtk.Box):
                 b.add_controller(g)
             self.tabs.append(b)
         if self.editable:
-            add = Gtk.MenuButton(icon_name="list-add-symbolic", tooltip_text="Ansicht hinzufügen")
+            add = Gtk.MenuButton(icon_name="list-add-symbolic", tooltip_text=_("Add view"))
             add.add_css_class("flat")
             add.set_create_popup_func(lambda mb: mb.set_popover(menu_popover(None, [(t[1], (lambda t=t[0]: self._add_view(t))) for t in VIEW_TYPES])))
             self.tabs.append(add)
@@ -115,18 +116,18 @@ class ViewBar(Gtk.Box):
         while (c := self.new_slot.get_first_child()):
             self.new_slot.remove(c)
         if self.m.templates:
-            sb = Adw.SplitButton(label="Neu")
+            sb = Adw.SplitButton(label=_("New"))
             sb.add_css_class("suggested-action")
             sb.connect("clicked", lambda *_: self.dv.new_entry())
-            ents = [("Leerer Eintrag", lambda: self.dv.new_entry()), None]
+            ents = [(_("Empty entry"), lambda: self.dv.new_entry()), None]
             for t in self.m.templates:
                 ic = t.get("icon") or ""
-                name = ((ic + " ") if ic and len(ic) <= 4 else "") + (t.get("title") or "Vorlage")
+                name = ((ic + " ") if ic and len(ic) <= 4 else "") + (t.get("title") or _("Template"))
                 ents.append((name, (lambda tid=t["id"]: self.dv.new_entry(tid))))
             sb.set_popover(menu_popover(None, ents))
             self.new_slot.append(sb)
         else:
-            nb = Gtk.Button(label="Neu")
+            nb = Gtk.Button(label=_("New"))
             nb.add_css_class("suggested-action")
             nb.connect("clicked", lambda *_: self.dv.new_entry())
             self.new_slot.append(nb)
@@ -140,27 +141,27 @@ class ViewBar(Gtk.Box):
         vid = v.get("id")
 
         def rename():
-            dlg = Adw.AlertDialog(heading="Ansicht umbenennen")
+            dlg = Adw.AlertDialog(heading=_("Rename view"))
             en = Gtk.Entry(text=v.get("name") or "")
             dlg.set_extra_child(en)
-            dlg.add_response("cancel", "Abbrechen")
-            dlg.add_response("ok", "Sichern")
+            dlg.add_response("cancel", _("Cancel"))
+            dlg.add_response("ok", _("Save"))
             dlg.set_default_response("ok")
             dlg.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
-            dlg.connect("response", lambda d, r: r == "ok" and self.m.edit_view(vid, lambda x: x.__setitem__("name", en.get_text().strip() or "Ansicht")))
+            dlg.connect("response", lambda d, r: r == "ok" and self.m.edit_view(vid, lambda x: x.__setitem__("name", en.get_text().strip() or _("View"))))
             dlg.present(self.dv.win)
 
         def dup():
             if len(self.dv.views) >= 10:
                 return
             nid = "v" + new_pid()[:7]
-            cp = dict(v, id=nid, name=f"{v.get('name') or 'Ansicht'} (Kopie)")
+            cp = dict(v, id=nid, name=_("{name} (copy)").format(name=v.get("name") or _("View")))
             self.dv.current = nid
             self.m.mutate_views(lambda vs: vs.append(cp))
-        ents = [("Umbenennen", rename), ("Duplizieren", dup),
-                ("Layout", [(t[1], (lambda t=t[0]: self.m.edit_view(vid, lambda x: x.__setitem__("type", t)))) for t in VIEW_TYPES])]
+        ents = [(_("Rename"), rename), (_("Duplicate"), dup),
+                (_("Layout"), [(t[1], (lambda t=t[0]: self.m.edit_view(vid, lambda x: x.__setitem__("type", t)))) for t in VIEW_TYPES])]
         if len(self.dv.views) > 1:
-            ents += [None, ("Ansicht löschen", lambda: (setattr(self.dv, "current", None),
+            ents += [None, (_("Delete view"), lambda: (setattr(self.dv, "current", None),
                                                          self.m.mutate_views(lambda vs: vs.__setitem__(slice(None), [x for x in vs if x.get("id") != vid]))), True)]
         menu_popover(b, ents).popup()
 
@@ -199,28 +200,28 @@ class ViewSettings(Gtk.Box):
             if rebuild:
                 refill()
 
-        self.append(section("Ansicht"))
+        self.append(section(_("View")))
         en = Gtk.Entry(text=v.get("name") or "")
-        en.connect("activate", lambda e: setv(lambda d: d.__setitem__("name", e.get_text().strip() or "Ansicht"), False))
-        self.append(self._row("Name", en))
-        self.append(self._row("Layout", dropdown([(x[0], x[1]) for x in VIEW_TYPES], t, lambda val: setv(lambda d: d.__setitem__("type", val)))))
+        en.connect("activate", lambda e: setv(lambda d: d.__setitem__("name", e.get_text().strip() or _("View")), False))
+        self.append(self._row(_("Name"), en))
+        self.append(self._row(_("Layout"), dropdown([(x[0], x[1]) for x in VIEW_TYPES], t, lambda val: setv(lambda d: d.__setitem__("type", val)))))
         if t == "board" and selects:
-            self.append(self._row("Gruppieren nach", dropdown([(p["id"], p["name"]) for p in selects], v.get("group_by") or selects[0]["id"],
+            self.append(self._row(_("Group by"), dropdown([(p["id"], p["name"]) for p in selects], v.get("group_by") or selects[0]["id"],
                                                               lambda val: setv(lambda d: d.__setitem__("group_by", val)))))
         if t in ("table", "list"):
-            self.append(self._row("Gruppieren", dropdown([("", "nicht gruppieren")] + [(p["id"], p["name"]) for p in selects], v.get("group") or "",
+            self.append(self._row(_("Grouping"), dropdown([("", _("no grouping"))] + [(p["id"], p["name"]) for p in selects], v.get("group") or "",
                                                          lambda val: setv(lambda d: _set(d, "group", val)))))
         if t == "calendar":
             dates = [p for p in m.props if p.get("type") in ("date", "created", "edited")]
             if dates:
-                self.append(self._row("Datum", dropdown([(p["id"], p["name"]) for p in dates], v.get("date_by") or dates[0]["id"],
+                self.append(self._row(_("Date"), dropdown([(p["id"], p["name"]) for p in dates], v.get("date_by") or dates[0]["id"],
                                                         lambda val: setv(lambda d: d.__setitem__("date_by", val)))))
         if t == "gallery":
-            self.append(self._row("Kartengröße", dropdown([("", "Mittel"), ("s", "Klein"), ("l", "Groß")], v.get("card") or "",
+            self.append(self._row(_("Card size"), dropdown([("", _("Medium")), ("s", _("Small")), ("l", _("Large"))], v.get("card") or "",
                                                           lambda val: setv(lambda d: _set(d, "card", val)))))
-        self.append(self._row("Einträge öffnen", dropdown([("", "Seitenansicht"), ("center", "Mitte"), ("page", "Ganze Seite")], v.get("open") or "",
+        self.append(self._row(_("Open entries"), dropdown([("", _("Side peek")), ("center", _("Center")), ("page", _("Full page"))], v.get("open") or "",
                                                           lambda val: setv(lambda d: _set(d, "open", val)))))
-        self.append(section("Eigenschaften"))
+        self.append(section(_("Properties")))
         hidden = v.get("hidden") or []
         for p in m.props:
             r = Gtk.Box(spacing=8)
@@ -238,24 +239,24 @@ class ViewSettings(Gtk.Box):
             sw.connect("notify::active", tog)
             r.append(sw)
             self.append(r)
-        self.append(section("Sortierung"))
-        name_pairs = [("title", "Name")] + [(p["id"], p.get("name") or "") for p in m.props]
+        self.append(section(_("Sorting")))
+        name_pairs = [("title", _("Name"))] + [(p["id"], p.get("name") or "") for p in m.props]
         for i, s in enumerate(v.get("sorts") or []):
             r = Gtk.Box(spacing=6)
             r.append(dropdown(name_pairs, s.get("pid") or "title", lambda val, i=i: setv(lambda d: _at(d, "sorts", i, "pid", val)), 170))
-            r.append(dropdown([("asc", "Aufsteigend"), ("desc", "Absteigend")], s.get("dir") or "asc",
+            r.append(dropdown([("asc", _("Ascending")), ("desc", _("Descending"))], s.get("dir") or "asc",
                               lambda val, i=i: setv(lambda d: _at(d, "sorts", i, "dir", val))))
             r.append(flat_button(icon="window-close-symbolic", cb=lambda i=i: setv(lambda d: _drop(d, "sorts", i))))
             self.append(r)
         if len(v.get("sorts") or []) < 3:
-            self.append(flat_button(icon="list-add-symbolic", label="Sortierung hinzufügen",
+            self.append(flat_button(icon="list-add-symbolic", label=_("Add sort"),
                                     cb=lambda: setv(lambda d: d.__setitem__("sorts", (d.get("sorts") or []) + [{"pid": "title", "dir": "asc"}]))))
-        self.append(section("Filter (alle müssen zutreffen)"))
+        self.append(section(_("Filters (all must match)")))
         for i, f in enumerate(v.get("filters") or []):
             self.append(self._filter_row(i, f, name_pairs, setv))
         if len(v.get("filters") or []) < 10 and m.props:
             first = m.props[0]
-            self.append(flat_button(icon="list-add-symbolic", label="Filter hinzufügen",
+            self.append(flat_button(icon="list-add-symbolic", label=_("Add filter"),
                                     cb=lambda: setv(lambda d: d.__setitem__("filters", (d.get("filters") or []) + [
                                         {"pid": first["id"], "op": filter_ops(first.get("type"))[0][0], "value": ""}]))))
 
@@ -268,7 +269,7 @@ class ViewSettings(Gtk.Box):
     def _filter_row(self, i, f, name_pairs, setv):
         m = self.m
         pid = f.get("pid") or "title"
-        p = {"id": "title", "name": "Name", "type": "text"} if pid == "title" else m.prop(pid)
+        p = {"id": "title", "name": _("Name"), "type": "text"} if pid == "title" else m.prop(pid)
         ptype = (p or {}).get("type") or "text"
         op = f.get("op") or ""
         r = Gtk.Box(spacing=4)
@@ -280,10 +281,10 @@ class ViewSettings(Gtk.Box):
         r.append(dropdown(filter_ops(ptype), op, lambda val: setv(lambda d: _at(d, "filters", i, "op", val))))
         if op not in NO_VALUE and p:
             if ptype in ("select", "multi_select"):
-                r.append(dropdown([("", "– wählen –")] + [(o["id"], o["name"]) for o in p.get("options") or []], f.get("value") or "",
+                r.append(dropdown([("", _("– choose –"))] + [(o["id"], o["name"]) for o in p.get("options") or []], f.get("value") or "",
                                   lambda val: setv(lambda d: _at(d, "filters", i, "value", val)), 120))
             elif ptype in ("date", "created", "edited"):
-                mb = Gtk.MenuButton(label=day_text(f.get("value")) if f.get("value") else "Datum")
+                mb = Gtk.MenuButton(label=day_text(f.get("value")) if f.get("value") else _("Date"))
                 pop = Gtk.Popover()
                 cal = Gtk.Calendar()
 
@@ -296,7 +297,7 @@ class ViewSettings(Gtk.Box):
                 mb.set_popover(pop)
                 r.append(mb)
             else:
-                en = Gtk.Entry(text=str(f.get("value") or ""), placeholder_text="Wert", width_chars=8)
+                en = Gtk.Entry(text=str(f.get("value") or ""), placeholder_text=_("Value"), width_chars=8)
                 en.connect("activate", lambda e: setv(lambda d: _at(d, "filters", i, "value", e.get_text())))
                 r.append(en)
         r.append(flat_button(icon="window-close-symbolic", cb=lambda: setv(lambda d: _drop(d, "filters", i))))
@@ -391,9 +392,9 @@ class ColumnEditor(Gtk.Popover):
                     d["fmt"], d["show"] = "percent", "ring"
             self.edit(ch)
         types = [x for x in DB_TYPES if x[0] != "relation" or t == "relation"]
-        self.box.append(_labeled("Typ", dropdown(types, t, set_type)))
+        self.box.append(_labeled(_("Type"), dropdown(types, t, set_type)))
         if t in ("select", "multi_select"):
-            self.box.append(section("Optionen"))
+            self.box.append(section(_("Options")))
             for i, o in enumerate(p.get("options") or []):
                 r = Gtk.Box(spacing=6)
                 r.append(chip(o.get("name") or "", o.get("color")))
@@ -403,12 +404,12 @@ class ColumnEditor(Gtk.Popover):
 
                 def popup(b, i=i):
                     ents = [(COLOR_NAMES[c], (lambda c=c: self.edit(lambda d: _opt(d, i, "color", c)))) for c in COLOR_ORDER]
-                    ents += [None, ("Option löschen", lambda: self.edit(lambda d: d.__setitem__("options", [x for k, x in enumerate(d.get("options") or []) if k != i])), True)]
+                    ents += [None, (_("Delete option"), lambda: self.edit(lambda d: d.__setitem__("options", [x for k, x in enumerate(d.get("options") or []) if k != i])), True)]
                     b.set_popover(menu_popover(None, ents))
                 mb.set_create_popup_func(popup)
                 r.append(mb)
                 self.box.append(r)
-            ne = Gtk.Entry(placeholder_text="Neue Option")
+            ne = Gtk.Entry(placeholder_text=_("New option"))
 
             def add(*_):
                 n = ne.get_text().strip()
@@ -418,16 +419,16 @@ class ColumnEditor(Gtk.Popover):
             ne.connect("activate", add)
             self.box.append(ne)
         if t in ("number", "calc"):
-            self.box.append(_labeled("Format", dropdown([("", "Zahl"), ("percent", "Prozent"), ("euro", "Euro")], p.get("fmt") or "",
+            self.box.append(_labeled(_("Format"), dropdown([("", _("Number")), ("percent", _("Percent")), ("euro", _("Euro"))], p.get("fmt") or "",
                                                        lambda val: self.edit(lambda d: _set(d, "fmt", val)))))
-            self.box.append(_labeled("Anzeigen als", dropdown([("", "Zahl"), ("ring", "Ring"), ("bar", "Balken")], p.get("show") or "",
+            self.box.append(_labeled(_("Show as"), dropdown([("", _("Number")), ("ring", _("Ring")), ("bar", _("Bar"))], p.get("show") or "",
                                                              lambda val: self.edit(lambda d: _set(d, "show", val)))))
         if t == "calc":
             nums = [("", "–")] + [(x["id"], x.get("name") or "") for x in self.m.props if x.get("type") == "number"]
-            self.box.append(_labeled("Rechnung", dropdown(CALC_OPS, p.get("op") or "div", lambda val: self.edit(lambda d: d.__setitem__("op", val)))))
-            self.box.append(_labeled("Zahl A", dropdown(nums, p.get("a") or "", lambda val: self.edit(lambda d: _set(d, "a", val)))))
-            self.box.append(_labeled("Zahl B", dropdown(nums, p.get("b") or "", lambda val: self.edit(lambda d: _set(d, "b", val)))))
-        dl = Gtk.Button(label="Spalte löschen", margin_top=8)
+            self.box.append(_labeled(_("Calculation"), dropdown(CALC_OPS, p.get("op") or "div", lambda val: self.edit(lambda d: d.__setitem__("op", val)))))
+            self.box.append(_labeled(_("Number A"), dropdown(nums, p.get("a") or "", lambda val: self.edit(lambda d: _set(d, "a", val)))))
+            self.box.append(_labeled(_("Number B"), dropdown(nums, p.get("b") or "", lambda val: self.edit(lambda d: _set(d, "b", val)))))
+        dl = Gtk.Button(label=_("Delete column"), margin_top=8)
         dl.add_css_class("destructive-action")
         dl.connect("clicked", lambda *_: (self.popdown(), self.m.edit_schema(
             lambda sc: sc.__setitem__("props", [x for x in sc.get("props") or [] if x.get("id") != self.pid]))))
@@ -452,30 +453,30 @@ class AddColumnButton(Gtk.MenuButton):
     __gtype_name__ = "HKAddColumn"
 
     def __init__(self, m):
-        super().__init__(icon_name="list-add-symbolic", tooltip_text="Spalte hinzufügen", valign=Gtk.Align.CENTER)
+        super().__init__(icon_name="list-add-symbolic", tooltip_text=_("Add column"), valign=Gtk.Align.CENTER)
         self.m = m
         self.add_css_class("flat")
         self.set_create_popup_func(self._popup)
 
     def _popup(self, mb):
         ents = [(n, (lambda t=t: self.add(t))) for t, n in DB_TYPES if t != "relation"]
-        ents.append(("Relation", [(label(d), (lambda d=d: self.add("relation", d["id"], label(d)))) for d in store.databases()] or [("Keine Datenbanken", lambda: None)]))
+        ents.append((_("Relation"), [(label(d), (lambda d=d: self.add("relation", d["id"], label(d)))) for d in store.databases()] or [(_("No databases"), lambda: None)]))
         mb.set_popover(menu_popover(None, ents))
 
     def add(self, t, target=None, tname=None):
         m = self.m
-        p = {"id": new_pid(), "name": dict(DB_TYPES).get(t, "Eigenschaft"), "type": t}
+        p = {"id": new_pid(), "name": dict(DB_TYPES).get(t, _("Property")), "type": t}
         if t in ("select", "multi_select"):
             p["options"] = []
         if t == "calc":
             ns = [x for x in m.props if x.get("type") == "number"]
-            p.update(name="Fortschritt", op="pct", fmt="percent", show="ring")
+            p.update(name=_("Progress"), op="pct", fmt="percent", show="ring")
             if ns:
                 p["a"] = ns[0]["id"]
             if len(ns) > 1:
                 p["b"] = ns[1]["id"]
         if t == "relation":
-            p.update(target=target, name=tname or "Relation", two_way=target != m.db_id)
+            p.update(target=target, name=tname or _("Relation"), two_way=target != m.db_id)
         m.edit_schema(lambda sc: sc.__setitem__("props", (sc.get("props") or []) + [p]))
 
 
@@ -494,12 +495,13 @@ class CalcRow(Gtk.Box):
             mb.add_css_class("hk-calc")
             if op:
                 lb = Gtk.Label(xalign=1, ellipsize=Pango.EllipsizeMode.END)
-                lb.set_markup(f'<span size="small" alpha="70%">{CALC_NAMES.get(op, op)}</span> <b>{self.value(op, p)}</b>')
+                lb.set_markup(f'<span size="small" alpha="70%">{GLib.markup_escape_text(CALC_NAMES.get(op, op))}</span> '
+                              f'<b>{GLib.markup_escape_text(self.value(op, p))}</b>')
             else:
-                lb = Gtk.Label(label="Berechnen", xalign=1)
+                lb = Gtk.Label(label=_("Calculate"), xalign=1)
                 lb.add_css_class("hk-calc-empty")
             mb.set_child(lb)
-            mb.set_create_popup_func(lambda b, key=key, p=p: b.set_popover(menu_popover(None, [("Keine", lambda key=key: self.set(key, None))] +
+            mb.set_create_popup_func(lambda b, key=key, p=p: b.set_popover(menu_popover(None, [(_("None"), lambda key=key: self.set(key, None))] +
                                                                                          [(CALC_NAMES[o], (lambda o=o, key=key: self.set(key, o))) for o in self.ops(p)])))
             self.append(table._cell(key, mb))
 
@@ -548,7 +550,7 @@ class CalcRow(Gtk.Box):
             return num_text(x, p.get("fmt")) if p and p.get("type") in ("number", "calc") else num_text(x)
 
         def pct(a):
-            return f"{round(a / n * 100)} %" if n else "–"
+            return _("{value}%").format(value=round(a / n * 100)) if n else "–"
         days = sorted(str(v)[:10] for v in filled if isinstance(v, str) and len(v) >= 10)
         if op == "count":
             return str(n)

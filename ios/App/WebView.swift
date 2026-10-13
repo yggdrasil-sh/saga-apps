@@ -79,7 +79,8 @@ final class WebModel: NSObject, ObservableObject, WKNavigationDelegate, WKUIDele
             if let t = body["token"] as? String, t.hasPrefix("hk_"), t.count < 120 {
                 AppConfig.token = t
                 WidgetCenter.shared.reloadAllTimelines()
-                webView.evaluateJavaScript("window.HK && HK.toast('In dieser App gespeichert ✓')")
+                let msg = String(localized: "In dieser App gespeichert ✓").replacingOccurrences(of: "'", with: "\\'")
+                webView.evaluateJavaScript("window.HK && HK.toast('\(msg)')")
             }
         case "settings":
             showSettings = true

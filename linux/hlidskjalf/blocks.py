@@ -5,6 +5,7 @@ from . import images
 from .config import settings
 from .editor import CONVERTIBLE, SLASH_ITEMS, make
 from .emoji import EMOJI
+from .i18n import _
 from .richtext import RichText, date_text, find_trigger, html_to_markup, parse_date, rel_text
 from .store import is_db, label, store
 from .util import color_hex, decode_entities, human_size, norm, plain
@@ -55,7 +56,7 @@ def menu_popover(parent, entries):
     def page(items, name, back=False):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         if back:
-            b = flat_button(icon="go-previous-symbolic", label="Zurück", cb=lambda: stack.set_visible_child_name("main"))
+            b = flat_button(icon="go-previous-symbolic", label=_("Back"), cb=lambda: stack.set_visible_child_name("main"))
             box.append(b)
             box.append(Gtk.Separator())
         for e in items:
@@ -217,9 +218,9 @@ class BlockRow(Gtk.Box):
         self.handle.add_css_class("hk-handle")
         self.handle.set_size_request(44, -1)
         if not kit.view.editor.locked:
-            plus = flat_button(icon="list-add-symbolic", tooltip="Block darunter einfügen", css="hk-tiny",
+            plus = flat_button(icon="list-add-symbolic", tooltip=_("Insert block below"), css="hk-tiny",
                                cb=lambda: kit.editor.insert(make("paragraph"), after=self.bid))
-            grip = Gtk.Button(icon_name="view-app-grid-symbolic", tooltip_text="Ziehen zum Verschieben · Klicken für das Menü")
+            grip = Gtk.Button(icon_name="view-app-grid-symbolic", tooltip_text=_("Drag to move · Click for the menu"))
             grip.add_css_class("flat")
             grip.add_css_class("hk-tiny")
             grip.connect("clicked", lambda b: kit.block_menu(b, self.bid))
@@ -316,19 +317,19 @@ class BlockKit:
             d = b["data"] = {}
         bid = b.get("id")
         if t == "paragraph":
-            rt = self._rt(bid, b, "text", d.get("text", ""), placeholder="Tippe etwas oder „/“ für Blöcke …")
+            rt = self._rt(bid, b, "text", d.get("text", ""), placeholder=_("Type something or “/” for blocks …"))
             rt.set_placeholder(rt.placeholder_text, always=False)
             return rt
         if t == "header":
             lvl = d.get("level") or 2
-            rt = self._rt(bid, b, "text", d.get("text", ""), css=HEADER_CSS.get(lvl, "hk-h4"), placeholder=f"Überschrift {lvl}", base_bold=True)
+            rt = self._rt(bid, b, "text", d.get("text", ""), css=HEADER_CSS.get(lvl, "hk-h4"), placeholder=_("Heading {n}").format(n=lvl), base_bold=True)
             return rt
         if t == "list":
             return self._list(b, d.get("items") or [], d.get("style") or "unordered", [])
         if t == "quote":
             box = Gtk.Box(spacing=10)
             box.add_css_class("hk-quote")
-            box.append(self._rt(bid, b, "text", d.get("text", ""), css="hk-p hk-italic", placeholder="Zitat"))
+            box.append(self._rt(bid, b, "text", d.get("text", ""), css="hk-p hk-italic", placeholder=_("Quote")))
             return box
         if t == "callout":
             box = Gtk.Box(spacing=10)
@@ -340,13 +341,13 @@ class BlockKit:
             em.set_popover(ch)
             em.set_sensitive(not self.editor.locked)
             box.append(em)
-            rt = self._rt(bid, b, "text", d.get("text", ""), placeholder="Hinweis")
+            rt = self._rt(bid, b, "text", d.get("text", ""), placeholder=_("Callout"))
             rt.set_hexpand(True)
             box.append(rt)
             return box
         if t == "code":
             ov = Gtk.Overlay()
-            rt = self._rt(bid, b, "code", d.get("code", ""), css="hk-code", placeholder="Code", raw=True)
+            rt = self._rt(bid, b, "code", d.get("code", ""), css="hk-code", placeholder=_("Code"), raw=True)
             ov.set_child(rt)
             if d.get("language"):
                 lg = Gtk.Label(label=d["language"], halign=Gtk.Align.END, valign=Gtk.Align.START)
@@ -425,8 +426,8 @@ class BlockKit:
                 mk.set_size_request(18, -1)
                 row.append(mk)
             col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, hexpand=True)
-            rt = self._rt(key, b, "content", it.get("content", ""), placeholder="Listenpunkt", item=it)
-            rt.set_placeholder("Listenpunkt", always=False)
+            rt = self._rt(key, b, "content", it.get("content", ""), placeholder=_("List item"), item=it)
+            rt.set_placeholder(_("List item"), always=False)
             if checked:
                 rt.set_muted(True)
             col.append(rt)
@@ -445,7 +446,7 @@ class BlockKit:
         arrow.add_css_class("flat")
         arrow.add_css_class("hk-tiny")
         head.append(arrow)
-        rt = self._rt(b["id"], b, "title", d.get("title", ""), css="hk-p hk-bold", placeholder="Toggle", base_bold=True)
+        rt = self._rt(b["id"], b, "title", d.get("title", ""), css="hk-p hk-bold", placeholder=_("Toggle"), base_bold=True)
         rt.set_hexpand(True)
         head.append(rt)
         box.append(head)
@@ -454,7 +455,7 @@ class BlockKit:
         if inner:
             il = self.block_list(inner, depth + 1)
         else:
-            il = flat_button(label="Leerer Toggle – klicken zum Schreiben", css="dim-label",
+            il = flat_button(label=_("Empty toggle – click to write"), css="dim-label",
                              cb=lambda: self.editor.continue_writing(inner))
         il.set_margin_start(24)
         rev.set_child(il)
@@ -476,7 +477,7 @@ class BlockKit:
             col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, hexpand=True)
             col.append(self.block_list(c, depth + 1))
             if not self.editor.locked:
-                add = flat_button(icon="list-add-symbolic", label="Block", css="dim-label hk-col-add",
+                add = flat_button(icon="list-add-symbolic", label=_("Block"), css="dim-label hk-col-add",
                                   cb=lambda c=c: self.editor.continue_in_column(c))
                 add.set_halign(Gtk.Align.START)
                 add.set_opacity(0)
@@ -507,13 +508,13 @@ class BlockKit:
         box = Gtk.Box(spacing=10)
         box.add_css_class("hk-card-box")
         box.append(Gtk.Image.new_from_icon_name("mail-attachment-symbolic"))
-        box.append(Gtk.Label(label=f.get("name") or d.get("title") or "Datei", xalign=0, hexpand=True, ellipsize=Pango.EllipsizeMode.MIDDLE))
+        box.append(Gtk.Label(label=f.get("name") or d.get("title") or _("File"), xalign=0, hexpand=True, ellipsize=Pango.EllipsizeMode.MIDDLE))
         if f.get("size"):
             sz = Gtk.Label(label=human_size(f["size"]))
             sz.add_css_class("dim-label")
             box.append(sz)
         if f.get("url"):
-            box.append(flat_button(icon="folder-download-symbolic", tooltip="Herunterladen und öffnen",
+            box.append(flat_button(icon="folder-download-symbolic", tooltip=_("Download and open"),
                                    cb=lambda: self.view.win.download_open(f["url"], f.get("name") or "datei")))
         return box
 
@@ -532,7 +533,7 @@ class BlockKit:
             ic.add_css_class("error")
         row.append(ic)
         col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        t = Gtk.Label(label=title or ("YouTube-Video" if yt else host), xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        t = Gtk.Label(label=title or (_("YouTube video") if yt else host), xalign=0, ellipsize=Pango.EllipsizeMode.END)
         t.add_css_class("heading")
         col.append(t)
         h = Gtk.Label(label=host, xalign=0)
@@ -557,7 +558,7 @@ class BlockKit:
             bt.connect("clicked", lambda *_, c=cfg: self.view.run_button(c))
             box.append(bt)
         if not self.editor.locked:
-            box.append(flat_button(icon="emblem-system-symbolic", tooltip="Schaltflächen einrichten", css="dim-label",
+            box.append(flat_button(icon="emblem-system-symbolic", tooltip=_("Set up buttons"), css="dim-label",
                                    cb=lambda: self.view.config_buttons(b["id"])))
         return box
 
@@ -595,25 +596,25 @@ class BlockKit:
                     g = Gtk.GestureClick(button=3)
 
                     def menu(gs, n, x, y, r=r, c=c, tv=tv):
-                        ents = [("Zeile darüber einfügen", lambda: (rows.insert(r, [""] * len(rows[r])), save(), rebuild())),
-                                ("Zeile darunter einfügen", lambda: (rows.insert(r + 1, [""] * len(rows[r])), save(), rebuild())),
-                                ("Spalte links einfügen", lambda: ([x.insert(c, "") for x in rows], save(), rebuild())),
-                                ("Spalte rechts einfügen", lambda: ([x.insert(c + 1, "") for x in rows], save(), rebuild())), None]
+                        ents = [(_("Insert row above"), lambda: (rows.insert(r, [""] * len(rows[r])), save(), rebuild())),
+                                (_("Insert row below"), lambda: (rows.insert(r + 1, [""] * len(rows[r])), save(), rebuild())),
+                                (_("Insert column left"), lambda: ([x.insert(c, "") for x in rows], save(), rebuild())),
+                                (_("Insert column right"), lambda: ([x.insert(c + 1, "") for x in rows], save(), rebuild())), None]
                         if len(rows) > 1:
-                            ents.append(("Zeile löschen", lambda: (rows.pop(r), save(), rebuild()), True))
+                            ents.append((_("Delete row"), lambda: (rows.pop(r), save(), rebuild()), True))
                         if len(rows[0]) > 1:
-                            ents.append(("Spalte löschen", lambda: ([x.pop(c) for x in rows if c < len(x)], save(), rebuild()), True))
+                            ents.append((_("Delete column"), lambda: ([x.pop(c) for x in rows if c < len(x)], save(), rebuild()), True))
                         menu_popover(tv, ents).popup()
                     g.connect("pressed", menu)
                     tv.add_controller(g)
                 grid.attach(tv, c, r, 1, 1)
         if not self.editor.locked:
             bar = Gtk.Box(spacing=12)
-            bar.append(flat_button(icon="list-add-symbolic", label="Zeile", css="dim-label",
+            bar.append(flat_button(icon="list-add-symbolic", label=_("Row"), css="dim-label",
                                    cb=lambda: (rows.append([""] * max(1, len(rows[0]) if rows else 2)), save(), rebuild())))
-            bar.append(flat_button(icon="list-add-symbolic", label="Spalte", css="dim-label",
+            bar.append(flat_button(icon="list-add-symbolic", label=_("Column"), css="dim-label",
                                    cb=lambda: ([x.append("") for x in rows], save(), rebuild())))
-            hc = Gtk.CheckButton(label="Kopfzeile", active=heads)
+            hc = Gtk.CheckButton(label=_("Header row"), active=heads)
             hc.connect("toggled", lambda c: (d.__setitem__("withHeadings", c.get_active()), rebuild()))
             bar.append(hc)
             outer.append(bar)
@@ -623,26 +624,26 @@ class BlockKit:
     def block_menu(self, parent, bid):
         ed = self.editor
         conv = [(it[0], (lambda t=it[1], l=it[2]: ed.convert(bid, t, l or 2))) for it in CONVERTIBLE]
-        ents = [("Umwandeln in", conv),
-                ("Link zum Block kopieren", lambda: self.view.win.copy_text(f"{settings.server}/notes#{ed.doc.id}:{bid}"))]
+        ents = [(_("Turn into"), conv),
+                (_("Copy link to block"), lambda: self.view.win.copy_text(f"{settings.server}/notes#{ed.doc.id}:{bid}"))]
         c = ed.column_of(bid)
         if c:
-            others = [(f"Spalte {ci + 1}", (lambda ci=ci: ed.move_into_column(bid, c[0], ci))) for ci in range(ed.col_count(c[0])) if ci != c[3]]
+            others = [(_("Column {n}").format(n=ci + 1), (lambda ci=ci: ed.move_into_column(bid, c[0], ci))) for ci in range(ed.col_count(c[0])) if ci != c[3]]
             if others:
-                ents.append(("In andere Spalte", others))
-            ents.append(("Aus den Spalten herausnehmen", lambda: ed.move_out_of_columns(bid)))
+                ents.append((_("To another column"), others))
+            ents.append((_("Take out of the columns"), lambda: ed.move_out_of_columns(bid)))
         else:
             above = ed.columns_above(bid)
             if above is not None:
                 if ed.is_columns(bid):
-                    ents.append(("Mit Spalten darüber zusammenführen", lambda: ed.merge_into_above(bid)))
+                    ents.append((_("Merge with the columns above"), lambda: ed.merge_into_above(bid)))
                 else:
-                    ents.append(("In Spalte darüber verschieben",
-                                 [(f"Spalte {ci + 1}", (lambda ci=ci: ed.move_into_column(bid, above, ci))) for ci in range(ed.col_count(above))]))
+                    ents.append((_("Move into the columns above"),
+                                 [(_("Column {n}").format(n=ci + 1), (lambda ci=ci: ed.move_into_column(bid, above, ci))) for ci in range(ed.col_count(above))]))
         if ed.columns_below(bid) is not None and ed.is_columns(bid):
-            ents.append(("Mit Spalten darunter zusammenführen", lambda: ed.merge_columns(bid)))
-        ents += [("Duplizieren", lambda: ed.duplicate(bid)), ("Nach oben", lambda: ed.move(bid, -1)),
-                 ("Nach unten", lambda: ed.move(bid, 1)), None, ("Löschen", lambda: ed.delete(bid), True)]
+            ents.append((_("Merge with the columns below"), lambda: ed.merge_columns(bid)))
+        ents += [(_("Duplicate"), lambda: ed.duplicate(bid)), (_("Move up"), lambda: ed.move(bid, -1)),
+                 (_("Move down"), lambda: ed.move(bid, 1)), None, (_("Delete"), lambda: ed.delete(bid), True)]
         menu_popover(parent, ents).popup()
 
     # --- Tippen -----------------------------------------------------------------------------------
@@ -672,7 +673,7 @@ class BlockKit:
             q = norm(text[1:])
             items = [(it[3], it[0], "", (it[1], it[2])) for it in SLASH_ITEMS if not q or q in norm(it[0]) or q in it[4]]
             if not items:
-                items = [("", f"Kein Blocktyp für „{text[1:]}“", "", None)]
+                items = [("", _("No block type for “{query}”").format(query=text[1:]), "", None)]
             sg.show(rt, "slash", items, lambda v: v and self.editor.slash_apply(rt.hk_block["id"], v[0], v[1]))
             return
         before = rt.text_before_cursor()
@@ -709,14 +710,14 @@ class BlockKit:
 
         def date_items(d):
             dt = d[0] + (("T" + d[1]) if d[1] else "")
-            out.append(("📅", rel_text(d), "Datum", (date_text(d), ("t", dt))))
-            out.append(("⏰", "Erinnerung: " + rel_text(d), "Erinnerung", ("⏰ " + date_text(d), ("t", dt + "|r"))))
+            out.append(("📅", rel_text(d), _("Date"), (date_text(d), ("t", dt))))
+            out.append(("⏰", _("Reminder: {date}").format(date=rel_text(d)), _("Reminder"), ("⏰ " + date_text(d), ("t", dt + "|r"))))
         if not q:
             for w in ("heute", "morgen"):
                 d = parse_date(w)
-                out.append(("📅", rel_text(d), "Datum", (date_text(d), ("t", d[0]))))
+                out.append(("📅", rel_text(d), _("Date"), (date_text(d), ("t", d[0]))))
             d = parse_date("morgen 9:00")
-            out.append(("⏰", "Erinnerung: " + rel_text(d), "Erinnerung", ("⏰ " + date_text(d), ("t", d[0] + "T09:00|r"))))
+            out.append(("⏰", _("Reminder: {date}").format(date=rel_text(d)), _("Reminder"), ("⏰ " + date_text(d), ("t", d[0] + "T09:00|r"))))
         else:
             d = parse_date(q)
             if d:
@@ -726,7 +727,7 @@ class BlockKit:
         for p in pages:
             ic = p.get("icon") or ""
             ic = ic if ic and len(ic) <= 4 else ("🗃️" if is_db(p) else "📄")
-            out.append((ic, label(p), "Seite", (label(p), ("a", f"/notes#{p['id']}"))))
+            out.append((ic, label(p), _("Page"), (label(p), ("a", f"/notes#{p['id']}"))))
         return out
 
     def on_key(self, rt, kv, state):

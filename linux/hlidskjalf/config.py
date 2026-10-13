@@ -6,6 +6,7 @@ import socket
 from gi.repository import GLib
 
 from . import APP_ID
+from .i18n import _
 
 # Kein fester Server: Adresse beim ersten Start eingeben oder per Kopplungslink anmelden
 DEFAULT_SERVER = ""
@@ -155,7 +156,7 @@ def set_device_token(v):
         return
     if Secret:
         try:
-            if Secret.password_store_sync(_SCHEMA, _attrs(), Secret.COLLECTION_DEFAULT, "Saga – Anmeldung dieses Geräts", v, None):
+            if Secret.password_store_sync(_SCHEMA, _attrs(), Secret.COLLECTION_DEFAULT, _("Saga – sign-in of this device"), v, None):
                 return
         except GLib.Error:
             pass

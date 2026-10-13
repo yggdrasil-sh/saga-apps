@@ -19,7 +19,7 @@ struct PageCardQuery: EntityQuery, EntityStringQuery {
         let pages = try await API.pages()
         let dbIDs = Set(pages.filter(\.isDatabase).map(\.id))
         return pages.filter { rows || $0.parent_id.map { !dbIDs.contains($0) } ?? true }
-            .map { PageCardEntity(id: $0.id, name: $0.title.isEmpty ? "Unbenannt" : $0.title, icon: $0.emoji ?? ($0.isDatabase ? "🗂" : "📄")) }
+            .map { PageCardEntity(id: $0.id, name: $0.title.isEmpty ? String(localized: "Unbenannt") : $0.title, icon: $0.emoji ?? ($0.isDatabase ? "🗂" : "📄")) }
     }
     func entities(for identifiers: [Int]) async throws -> [PageCardEntity] {
         let all = try await Self.load(rows: true); return identifiers.compactMap { id in all.first { $0.id == id } }
@@ -40,7 +40,7 @@ struct PageCardIntent: WidgetConfigurationIntent {
 struct PageCardEntry: TimelineEntry {
     let date: Date
     var id: Int? = nil
-    var title = "Seite wählen"
+    var title = String(localized: "Seite wählen")
     var emoji: String? = nil
     var cover: CGImage? = nil
     var coverPos: Double = 50
@@ -57,7 +57,7 @@ func thumb(_ d: Data?, max: Int) -> CGImage? {
 }
 
 struct PageCardProvider: AppIntentTimelineProvider {
-    func placeholder(in context: Context) -> PageCardEntry { PageCardEntry(date: .now, title: "Haupt Dashboard", emoji: "🏠") }
+    func placeholder(in context: Context) -> PageCardEntry { PageCardEntry(date: .now, title: String(localized: "Haupt Dashboard"), emoji: "🏠") }
     func snapshot(for configuration: PageCardIntent, in context: Context) async -> PageCardEntry {
         configuration.page == nil ? placeholder(in: context) : await load(configuration.page)
     }
@@ -66,11 +66,11 @@ struct PageCardProvider: AppIntentTimelineProvider {
     }
     private func load(_ sel: PageCardEntity?) async -> PageCardEntry {
         var e = PageCardEntry(date: .now)
-        guard let sel else { e.hint = "Gedrückt halten → Widget bearbeiten"; return e }
+        guard let sel else { e.hint = String(localized: "Gedrückt halten → Widget bearbeiten"); return e }
         e.id = sel.id; e.title = sel.name; e.emoji = sel.icon
         guard let pages = try? await API.pages() else { return e }                // offline: Namen aus der Auswahl zeigen
-        guard let p = pages.first(where: { $0.id == sel.id }) else { e.hint = "Seite gelöscht"; return e }
-        e.title = p.title.isEmpty ? "Unbenannt" : p.title
+        guard let p = pages.first(where: { $0.id == sel.id }) else { e.hint = String(localized: "Seite gelöscht"); return e }
+        e.title = p.title.isEmpty ? String(localized: "Unbenannt") : p.title
         e.emoji = p.emoji ?? (p.icon.hasPrefix("/files/") ? nil : (p.isDatabase ? "🗂" : "📄"))
         e.coverPos = p.cover_pos ?? 50
         async let cov = API.pageImage(p.id, "cover")                                      // ohne Titelbild: erstes Bild im Inhalt

@@ -1,13 +1,19 @@
 [Desktop Entry]
 Type=Application
 Name=Saga
-GenericName=Notizen und Datenbanken
-Comment=Notizen, Datenbanken, Aufgaben und Termine – selbst gehostet
+GenericName=Notes and Databases
+GenericName[de]=Notizen und Datenbanken
+GenericName[es]=Notas y bases de datos
+Comment=Notes, databases, tasks and events – self-hosted
+Comment[de]=Notizen, Datenbanken, Aufgaben und Termine – selbst gehostet
+Comment[es]=Notas, bases de datos, tareas y eventos en tu propio servidor
 Exec=hlidskjalf %u
 Icon=io.github.yggdrasil_sh.Saga
 Terminal=false
 Categories=Office;Utility;GTK;
-Keywords=Notion;Notizen;Wiki;Datenbank;Aufgaben;Kalender;
+Keywords=Notion;Notes;Wiki;Database;Tasks;Calendar;
+Keywords[de]=Notion;Notizen;Wiki;Datenbank;Aufgaben;Kalender;
+Keywords[es]=Notion;Notas;Wiki;Base de datos;Tareas;Calendario;
 MimeType=x-scheme-handler/hlidskjalf;
 StartupNotify=true
 StartupWMClass=io.github.yggdrasil_sh.Saga
@@ -15,9 +21,13 @@ DBusActivatable=false
 Actions=new-page;new-task;
 
 [Desktop Action new-page]
-Name=Neue Seite
+Name=New Page
+Name[de]=Neue Seite
+Name[es]=Nueva página
 Exec=hlidskjalf hlidskjalf://new
 
 [Desktop Action new-task]
-Name=Neue Aufgabe
+Name=New Task
+Name[de]=Neue Aufgabe
+Name[es]=Nueva tarea
 Exec=hlidskjalf hlidskjalf://new-task

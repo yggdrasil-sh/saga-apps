@@ -82,7 +82,7 @@ struct SettingsView: View {
         save(); busy = true; defer { busy = false }
         do {
             let d = try await API.today()
-            status = "✓ Verbunden – heute \(d.events.count) Termine, \(d.tasks.count) offene Aufgaben"
+            status = String(localized: "✓ Verbunden – Termine heute: \(d.events.count) · offene Aufgaben: \(d.tasks.count)")
         } catch { status = "✗ " + error.localizedDescription }
     }
 }

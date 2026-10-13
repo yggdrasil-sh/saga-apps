@@ -6,6 +6,7 @@ from .api import client
 from .blocks import BlockKit, HoverManager, SuggestPopover, chip, flat_button, menu_popover
 from .config import settings
 from .editor import PageDoc, PageEditor, make
+from .i18n import _
 from .richtext import RichText
 from .store import is_db, label, store, watch
 from .util import bg, edited_text, new_block_id, plain
@@ -43,7 +44,7 @@ class CoverView(Gtk.Overlay):
         grip.add_css_class("hk-cover-grip")
         grip.set_size_request(56, 8)
         grip.set_cursor_from_name("ns-resize")
-        grip.set_tooltip_text("Ziehen: Höhe des Titelbilds ändern")
+        grip.set_tooltip_text(_("Drag to change the cover image height"))
         gd = Gtk.GestureDrag()
         gd.connect("drag-begin", lambda g, x, y: setattr(self, "_h0", int(settings.get("cover_height", 200))))
         gd.connect("drag-update", lambda g, x, y: (settings.set("cover_height", int(min(600, max(100, self._h0 + y)))), self._height()))
@@ -63,37 +64,37 @@ class CoverView(Gtk.Overlay):
 
     def _normal_bar(self):
         self._clear_bar()
-        ch = Gtk.MenuButton(label="Ändern")
+        ch = Gtk.MenuButton(label=_("Change"))
         ch.add_css_class("flat")
         ch.set_create_popup_func(lambda mb: mb.set_popover(menu_popover(None, [
-            ("Datei …", lambda: self.view.pick_cover()), ("Aus Immich …", lambda: self.view.pick_cover_immich())])))
+            (_("File …"), lambda: self.view.pick_cover()), (_("From Immich …"), lambda: self.view.pick_cover_immich())])))
         self.bar.append(ch)
-        self.bar.append(flat_button(label="Neu positionieren", cb=self._start_repos))
-        hb = Gtk.MenuButton(label="Höhe")
+        self.bar.append(flat_button(label=_("Reposition"), cb=self._start_repos))
+        hb = Gtk.MenuButton(label=_("Height"))
         hb.add_css_class("flat")
         pop = Gtk.Popover()
         bx = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_top=10, margin_bottom=10, margin_start=10, margin_end=10)
-        bx.append(Gtk.Label(label="Höhe des Titelbilds", xalign=0, css_classes=["heading"]))
+        bx.append(Gtk.Label(label=_("Height of the cover image"), xalign=0, css_classes=["heading"]))
         sc = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 100, 600, 10)
         sc.set_value(settings.get("cover_height", 200))
         sc.set_size_request(240, -1)
         sc.connect("value-changed", lambda s: (settings.set("cover_height", int(s.get_value())), self._height()))
         bx.append(sc)
-        bx.append(Gtk.Label(label="Gilt für alle Seiten auf diesem Rechner.", xalign=0, css_classes=["caption", "dim-label"]))
+        bx.append(Gtk.Label(label=_("Applies to all pages on this computer."), xalign=0, css_classes=["caption", "dim-label"]))
         pop.set_child(bx)
         hb.set_popover(pop)
         self.bar.append(hb)
-        self.bar.append(flat_button(label="Entfernen", cb=lambda: self.view.save_fields({"cover": None})))
+        self.bar.append(flat_button(label=_("Remove"), cb=lambda: self.view.save_fields({"cover": None})))
 
     def _start_repos(self):
         self.repos = True
         self._clear_bar()
-        self.bar.append(Gtk.Label(label="Bild ziehen zum Positionieren", margin_start=8, margin_end=8))
-        sv = Gtk.Button(label="Speichern")
+        self.bar.append(Gtk.Label(label=_("Drag the image to position it"), margin_start=8, margin_end=8))
+        sv = Gtk.Button(label=_("Save"))
         sv.add_css_class("suggested-action")
         sv.connect("clicked", lambda *_: self._end_repos(True))
         self.bar.append(sv)
-        self.bar.append(flat_button(label="Abbrechen", cb=lambda: self._end_repos(False)))
+        self.bar.append(flat_button(label=_("Cancel"), cb=lambda: self._end_repos(False)))
         self.set_cursor_from_name("ns-resize")
 
     def _end_repos(self, save):
@@ -114,18 +115,18 @@ class CoverView(Gtk.Overlay):
 
 class IconPicker(Adw.Dialog):
     def __init__(self, view):
-        super().__init__(title="Symbol", content_width=420, content_height=480)
+        super().__init__(title=_("Icon"), content_width=420, content_height=480)
         self.view = view
         tv = Adw.ToolbarView()
         tv.add_top_bar(Adw.HeaderBar())
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
         row = Gtk.Box(spacing=8)
-        ch = Gtk.MenuButton(label="😀 Emoji wählen …")
+        ch = Gtk.MenuButton(label="😀 " + _("Choose emoji …"))
         em = Gtk.EmojiChooser()
         em.connect("emoji-picked", lambda c, e: self._set(e))
         ch.set_popover(em)
         row.append(ch)
-        row.append(flat_button(icon="image-x-generic-symbolic", label="Bild", cb=self._image))
+        row.append(flat_button(icon="image-x-generic-symbolic", label=_("Image"), cb=self._image))
         row.append(flat_button(icon="camera-photo-symbolic", label="Immich", cb=self._immich))
         box.append(row)
         from .emoji import ICON_EMOJI
@@ -140,7 +141,7 @@ class IconPicker(Adw.Dialog):
         sw.set_child(fb)
         box.append(sw)
         if view.doc.page.get("icon"):
-            rm = Gtk.Button(label="Symbol entfernen")
+            rm = Gtk.Button(label=_("Remove icon"))
             rm.add_css_class("destructive-action")
             rm.connect("clicked", lambda *_: self._set(""))
             box.append(rm)
@@ -224,14 +225,14 @@ class PageView(Gtk.Box):
     # --- Kopf im Peek ------------------------------------------------------------------------
     def _peek_header(self):
         bar = Gtk.Box(spacing=6, margin_start=10, margin_end=10, margin_top=6, margin_bottom=6)
-        bar.append(flat_button(icon="window-close-symbolic", tooltip="Schließen (Esc)", cb=lambda: self.on_close and self.on_close()))
-        bar.append(flat_button(icon="view-fullscreen-symbolic", tooltip="Als ganze Seite öffnen",
+        bar.append(flat_button(icon="window-close-symbolic", tooltip=_("Close (Esc)"), cb=lambda: self.on_close and self.on_close()))
+        bar.append(flat_button(icon="view-fullscreen-symbolic", tooltip=_("Open as full page"),
                                cb=lambda: (self.on_close and self.on_close(), self.win.show_page(self.id))))
         lst = self.win.peek_list
         if len(lst) > 1:
             i = lst.index(self.id) if self.id in lst else -1
-            up = flat_button(icon="go-up-symbolic", tooltip="Vorheriger Eintrag (Strg+Umschalt+K)", cb=lambda: self.win.peek_step(-1))
-            dn = flat_button(icon="go-down-symbolic", tooltip="Nächster Eintrag (Strg+Umschalt+J)", cb=lambda: self.win.peek_step(1))
+            up = flat_button(icon="go-up-symbolic", tooltip=_("Previous entry (Ctrl+Shift+K)"), cb=lambda: self.win.peek_step(-1))
+            dn = flat_button(icon="go-down-symbolic", tooltip=_("Next entry (Ctrl+Shift+J)"), cb=lambda: self.win.peek_step(1))
             up.set_sensitive(i > 0)
             dn.set_sensitive(0 <= i < len(lst) - 1)
             bar.append(up)
@@ -240,9 +241,9 @@ class PageView(Gtk.Box):
         self.peek_title.add_css_class("heading")
         self.peek_title.add_css_class("dim-label")
         bar.append(self.peek_title)
-        self.peek_star = flat_button(icon="non-starred-symbolic", tooltip="Zu Favoriten", cb=self.toggle_fav)
+        self.peek_star = flat_button(icon="non-starred-symbolic", tooltip=_("Add to favorites"), cb=self.toggle_fav)
         bar.append(self.peek_star)
-        mb = flat_button(icon="view-more-symbolic", tooltip="Seitenmenü")
+        mb = flat_button(icon="view-more-symbolic", tooltip=_("Page menu"))
         mb.connect("clicked", lambda b: self.page_menu(b))
         bar.append(mb)
         return bar
@@ -254,9 +255,9 @@ class PageView(Gtk.Box):
         if not doc.loaded:
             return
         if not doc.fetched:                                  # Laden fehlgeschlagen: nichts Bearbeitbares zeigen
-            box = Adw.StatusPage(icon_name="dialog-warning-symbolic", title="Seite konnte nicht geladen werden",
+            box = Adw.StatusPage(icon_name="dialog-warning-symbolic", title=_("Page could not be loaded"),
                                  description=doc.error or "")
-            again = Gtk.Button(label="Erneut versuchen", halign=Gtk.Align.CENTER)
+            again = Gtk.Button(label=_("Try again"), halign=Gtk.Align.CENTER)
             again.add_css_class("pill")
             again.add_css_class("suggested-action")
             again.connect("clicked", lambda *_: (self.spinner.set_visible(True), self.doc.load(force=True)))
@@ -278,7 +279,7 @@ class PageView(Gtk.Box):
         col.append(self._icon_row())
         trow = Gtk.Box()
         trow.append(Gtk.Box(width_request=44))
-        self.title_rt = RichText(doc.title_raw, css="hk-title", placeholder="Unbenannt", raw=True, editable=not self.editor.locked)
+        self.title_rt = RichText(doc.title_raw, css="hk-title", placeholder=_("Untitled"), raw=True, editable=not self.editor.locked)
         self.title_rt.set_monospace(False)
         self.title_rt.set_hexpand(True)
         self.title_rt.on_key = self._title_key
@@ -287,7 +288,7 @@ class PageView(Gtk.Box):
         col.append(trow)
         ind = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_start=44)
         if self.editor.locked:
-            lk = Gtk.Button(label="🔒 Gesperrt – klicken zum Entsperren", halign=Gtk.Align.START)
+            lk = Gtk.Button(label="🔒 " + _("Locked – click to unlock"), halign=Gtk.Align.START)
             lk.add_css_class("pill")
             lk.add_css_class("hk-small")
             lk.connect("clicked", lambda *_: self.set_locked(False))
@@ -369,7 +370,7 @@ class PageView(Gtk.Box):
             self.doc.page["title"] = t
             self.editor.text_changed()
             if self.in_peek:
-                self.peek_title.set_label(t or "Unbenannt")
+                self.peek_title.set_label(t or _("Untitled"))
             if self.header_changed:
                 self.header_changed()
 
@@ -391,15 +392,15 @@ class PageView(Gtk.Box):
             row = Gtk.Box(spacing=12)
             row.add_css_class("hk-add-row")
             if not ic:
-                row.append(flat_button(icon="face-smile-symbolic", label="Symbol hinzufügen", css="dim-label",
+                row.append(flat_button(icon="face-smile-symbolic", label=_("Add icon"), css="dim-label",
                                        cb=lambda: IconPicker(self).present(self.win)))
             if not doc.page.get("cover"):
                 mb = Gtk.MenuButton()
-                mb.set_child(Gtk.Label(label="🖼  Titelbild hinzufügen"))
+                mb.set_child(Gtk.Label(label="🖼  " + _("Add cover image")))
                 mb.add_css_class("flat")
                 mb.add_css_class("dim-label")
                 mb.set_create_popup_func(lambda m: m.set_popover(menu_popover(None, [
-                    ("Datei …", self.pick_cover), ("Aus Immich …", self.pick_cover_immich)])))
+                    (_("File …"), self.pick_cover), (_("From Immich …"), self.pick_cover_immich)])))
                 row.append(mb)
             row.set_opacity(0)
             if self.editor.locked:
@@ -425,13 +426,13 @@ class PageView(Gtk.Box):
                 c.append(x)
             fb.append(c)
         if not self.editor.locked:
-            add = Gtk.MenuButton(child=Gtk.Label(label="+ Tag"))
+            add = Gtk.MenuButton(child=Gtk.Label(label="+ " + _("Tag")))
             add.add_css_class("flat")
             add.add_css_class("dim-label")
             add.add_css_class("hk-small")
             pop = Gtk.Popover()
             bx = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
-            en = Gtk.Entry(placeholder_text="Tag")
+            en = Gtk.Entry(placeholder_text=_("Tag"))
             bx.append(en)
             sug = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
             bx.append(sug)
@@ -468,7 +469,7 @@ class PageView(Gtk.Box):
             if not lst:
                 return
             box.append(Gtk.Separator(margin_top=8, margin_bottom=8))
-            h = Gtk.Label(label="Verlinkt von", xalign=0)
+            h = Gtk.Label(label=_("Linked from"), xalign=0)
             h.add_css_class("caption")
             h.add_css_class("dim-label")
             box.append(h)
@@ -506,7 +507,7 @@ class PageView(Gtk.Box):
             return
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, halign=Gtk.Align.END, valign=Gtk.Align.START, margin_top=70, margin_end=16)
         box.add_css_class("hk-toc")
-        hd = Gtk.Label(label="Inhalt", xalign=0)
+        hd = Gtk.Label(label=_("Contents"), xalign=0)
         hd.add_css_class("caption-heading")
         hd.add_css_class("dim-label")
         box.append(hd)
@@ -525,7 +526,7 @@ class PageView(Gtk.Box):
     def _relayout_soon(self):
         """Gtk.TextView meldet seine Hoehe fuer die Breite der LETZTEN Zuteilung - nach Aufbau/Breitenwechsel nachmessen"""
         def go():
-            for _, rt in self.kit.order:
+            for _k, rt in self.kit.order:
                 rt.queue_resize()
             if self.title_rt:
                 self.title_rt.queue_resize()
@@ -585,23 +586,23 @@ class PageView(Gtk.Box):
         home = store.home_page == self.id
         arch = bool(p.get("archived"))
         ents = [(edited_text(p.get("updated")) or "–", lambda: None), None,
-                (("✓ " if p.get("wide") else "") + "Volle Breite", lambda: self.save_fields({"wide": not p.get("wide")})),
-                ("Nicht mehr Startseite" if home else "Als Startseite festlegen", lambda: store.set_home(None if home else self.id)),
+                (("✓ " if p.get("wide") else "") + _("Full width"), lambda: self.save_fields({"wide": not p.get("wide")})),
+                (_("Remove as home page") if home else _("Set as home page"), lambda: store.set_home(None if home else self.id)),
                 None,
-                ("Verschieben nach …", lambda: win.move_dialog(self.id)),
-                ("Versionsverlauf …", lambda: ed.flush(lambda: win.versions_dialog(self.id, lambda: self.doc.load(force=True)))),
-                ("Exportieren", [("Als Markdown (.md)", lambda: ed.flush(lambda: win.export_page(self.id, self.doc.title, False)))] +
-                 ([("Mit Unterseiten (.zip)", lambda: ed.flush(lambda: win.export_page(self.id, self.doc.title, True)))] if store.has_children(self.id) else [])),
-                (("✓ " if p.get("template") else "") + "Als Vorlage", lambda: (p.__setitem__("template", not p.get("template")),
+                (_("Move to …"), lambda: win.move_dialog(self.id)),
+                (_("Version history …"), lambda: ed.flush(lambda: win.versions_dialog(self.id, lambda: self.doc.load(force=True)))),
+                (_("Export"), [(_("As Markdown (.md)"), lambda: ed.flush(lambda: win.export_page(self.id, self.doc.title, False)))] +
+                 ([(_("With subpages (.zip)"), lambda: ed.flush(lambda: win.export_page(self.id, self.doc.title, True)))] if store.has_children(self.id) else [])),
+                (("✓ " if p.get("template") else "") + _("As template"), lambda: (p.__setitem__("template", not p.get("template")),
                                                                           store.patch(self.id, {"template": p["template"]}, refresh=True))),
-                ("Duplizieren", lambda: store.duplicate(self.id, done=lambda n: win.show_page(n))),
-                ("Link kopieren", lambda: win.copy_text(store.page_url(self.id))),
-                ("Im Browser öffnen", lambda: win.open_uri(store.page_url(self.id))),
-                ("Neu laden", lambda: ed.flush(lambda: self.doc.load(force=True))),
+                (_("Duplicate"), lambda: store.duplicate(self.id, done=lambda n: win.show_page(n))),
+                (_("Copy link"), lambda: win.copy_text(store.page_url(self.id))),
+                (_("Open in browser"), lambda: win.open_uri(store.page_url(self.id))),
+                (_("Reload"), lambda: ed.flush(lambda: self.doc.load(force=True))),
                 None,
-                ("Seite entsperren" if ed.locked else "Seite sperren", lambda: self.set_locked(not ed.locked)),
-                ("Aus dem Archiv holen" if arch else "Archivieren", lambda: ed.flush(lambda: (store.set_archived(self.id, not arch), p.__setitem__("archived", not arch)))),
-                ("In den Papierkorb", lambda: ed.flush(lambda: store.trash(self.id, done=lambda: self.on_close() if self.in_peek and self.on_close else win.go_back_or_home())), True)]
+                (_("Unlock page") if ed.locked else _("Lock page"), lambda: self.set_locked(not ed.locked)),
+                (_("Restore from archive") if arch else _("Archive"), lambda: ed.flush(lambda: (store.set_archived(self.id, not arch), p.__setitem__("archived", not arch)))),
+                (_("Move to trash"), lambda: ed.flush(lambda: store.trash(self.id, done=lambda: self.on_close() if self.in_peek and self.on_close else win.go_back_or_home())), True)]
         menu_popover(parent, ents).popup()
 
     # --- Rueckrufe der Bloecke ------------------------------------------------------------------
@@ -623,12 +624,12 @@ class PageView(Gtk.Box):
         self.win.open_entry(pid, mode)
 
     def ask_link(self, rt):
-        dlg = Adw.AlertDialog(heading="Link", body="Adresse oder Seitenverweis (/notes#12)")
-        en = Gtk.Entry(placeholder_text="https://… oder /notes#12")
+        dlg = Adw.AlertDialog(heading=_("Link"), body=_("Address or page reference (/notes#12)"))
+        en = Gtk.Entry(placeholder_text=_("https://… or /notes#12"))
         dlg.set_extra_child(en)
-        dlg.add_response("cancel", "Abbrechen")
-        dlg.add_response("remove", "Link entfernen")
-        dlg.add_response("set", "Setzen")
+        dlg.add_response("cancel", _("Cancel"))
+        dlg.add_response("remove", _("Remove link"))
+        dlg.add_response("set", _("Set"))
         dlg.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE)
         dlg.set_response_appearance("set", Adw.ResponseAppearance.SUGGESTED)
         dlg.set_default_response("set")
@@ -643,8 +644,8 @@ class PageView(Gtk.Box):
         dlg.present(self.win)
 
     def choose_image_file(self, cb, multiple=False):
-        fd = Gtk.FileDialog(title="Bild wählen")
-        f = Gtk.FileFilter(name="Bilder")
+        fd = Gtk.FileDialog(title=_("Choose image"))
+        f = Gtk.FileFilter(name=_("Images"))
         f.add_mime_type("image/*")
         st = Gio.ListStore.new(Gtk.FileFilter)
         st.append(f)
@@ -654,7 +655,7 @@ class PageView(Gtk.Box):
             def work():
                 data = file.load_bytes(None)[0].get_data()
                 return self.win.upload_image(data, file.get_basename())
-            bg(work, done=cb, error=lambda e: self.win.toast("Bild nicht hochgeladen: " + str(e)))
+            bg(work, done=cb, error=lambda e: self.win.toast(_("Image not uploaded: {error}").format(error=e)))
 
         if multiple:
             def done(d, res):
@@ -694,11 +695,11 @@ class PageView(Gtk.Box):
             ButtonsConfig(b.setdefault("data", {}), self.editor.changed).present(self.win)
 
     def ask_embed(self, bid):
-        dlg = Adw.AlertDialog(heading="Einbetten", body="YouTube-Video oder beliebiger Link (wird als Karte gezeigt)")
+        dlg = Adw.AlertDialog(heading=_("Embed"), body=_("YouTube video or any link (shown as a card)"))
         en = Gtk.Entry(placeholder_text="https://…")
         dlg.set_extra_child(en)
-        dlg.add_response("cancel", "Abbrechen")
-        dlg.add_response("ok", "Einbetten")
+        dlg.add_response("cancel", _("Cancel"))
+        dlg.add_response("ok", _("Embed"))
         dlg.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
         dlg.set_default_response("ok")
 
@@ -713,7 +714,7 @@ class PageView(Gtk.Box):
         dlg.present(self.win)
 
     def pick_file(self, bid):
-        fd = Gtk.FileDialog(title="Datei anhängen")
+        fd = Gtk.FileDialog(title=_("Attach file"))
 
         def done(d, res):
             try:
@@ -735,7 +736,7 @@ class PageView(Gtk.Box):
 
     def link_database(self, bid):
         from .dialogs import PagePicker
-        PagePicker(self.win, "Datenbank verknüpfen", [p for p in store.pages if is_db(p)],
+        PagePicker(self.win, _("Link database"), [p for p in store.pages if is_db(p)],
                    lambda pid: self.editor.link_database(pid, bid)).present(self.win)
 
     def run_button(self, cfg):
@@ -758,7 +759,7 @@ class PageView(Gtk.Box):
                         return
                     data = tex.save_to_png_bytes().get_data()
                     bg(self.win.upload_image, data, "bild.png", done=lambda url: self.editor.insert_image_url(url, after=after),
-                       error=lambda e: self.win.toast("Bild nicht hochgeladen: " + str(e)))
+                       error=lambda e: self.win.toast(_("Image not uploaded: {error}").format(error=e)))
                 cb.read_texture_async(None, got)
                 return True
         return False

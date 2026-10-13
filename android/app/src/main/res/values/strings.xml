@@ -1,4 +1,204 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Englisch = Rueckfall fuer alle Sprachen ohne eigene Uebersetzung (de: values-de, es: values-es).
+     Begriffe nach ~/tmp/saga-status/GLOSSAR.md; "Saga" wird nie uebersetzt. -->
 <resources>
-    <string name="app_name">Saga</string>
+    <string name="app_name" translatable="false">Saga</string>
+    <string name="server_placeholder" translatable="false">https://saga.example.org</string>
+
+    <!-- Allgemein -->
+    <string name="action_back">Back</string>
+    <string name="action_sidebar">Sidebar</string>
+    <string name="action_close">Close</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_apply">Apply</string>
+    <string name="action_save">Save</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="action_retry">Try again</string>
+    <string name="action_more">More</string>
+    <string name="action_done">Done</string>
+    <string name="action_add">Add</string>
+    <string name="action_expand">Expand</string>
+    <string name="action_collapse">Collapse</string>
+    <string name="action_open_in_browser">Open in browser</string>
+    <string name="no_browser">No browser found</string>
+    <string name="loading">Loading…</string>
+
+    <!-- Navigation -->
+    <string name="nav_today">Today</string>
+    <string name="nav_tasks">Tasks</string>
+    <string name="nav_events">Events</string>
+    <string name="nav_services">Services</string>
+    <string name="nav_search">Search</string>
+    <string name="nav_search_pages">Search pages</string>
+    <string name="nav_settings">Settings</string>
+    <string name="pages">Pages</string>
+    <string name="sidebar_new_page">New page</string>
+    <string name="sidebar_favorites">Favorites</string>
+    <string name="sidebar_recent">Recent</string>
+    <string name="sidebar_no_pages">No pages yet</string>
+    <string name="favorite_add">Add to favorites</string>
+    <string name="favorite_remove">Remove from favorites</string>
+    <string name="new_subpage">New subpage</string>
+    <string name="app_too_old_banner">This app is too old for the server (requires %1$s or later) – please update.</string>
+
+    <!-- Anmeldung -->
+    <string name="login_subtitle">Sign in with a passkey or password in your browser</string>
+    <string name="login_server_label">Server</string>
+    <string name="login_button">Sign in</string>
+    <string name="login_button_busy">Signing in…</string>
+    <string name="login_qr">Sign in with QR code</string>
+    <string name="login_qr_hint">Saga shows the QR code in the browser under User → Settings → “Apps &amp; devices”.</string>
+    <string name="login_camera_denied">Without camera permission, the QR code can\'t be read.</string>
+    <string name="login_open_app_settings">Open app settings</string>
+    <string name="qr_frame_hint">Hold the QR code from “Apps &amp; devices” inside the frame</string>
+    <string name="qr_not_saga">That\'s not a Saga QR code.</string>
+    <string name="qr_no_camera">No camera found.</string>
+    <string name="qr_camera_unavailable">Camera unavailable: %1$s</string>
+    <string name="login_invalid_pair_link">That\'s not a valid Saga pairing link.</string>
+    <string name="login_restart">Please start signing in again from the app.</string>
+    <string name="login_code_invalid">Code invalid or expired – please sign in again.</string>
+    <string name="login_https_required">Please enter an https address, e.g. https://saga.example.org</string>
+    <string name="login_server_https">The server must be reachable via https.</string>
+
+    <!-- Fehler -->
+    <string name="error_generic">Error</string>
+    <string name="error_server_unreachable">Server unreachable</string>
+    <string name="error_timeout">Timed out – the server isn\'t responding</string>
+    <string name="error_network">Network error</string>
+    <string name="error_sign_in_required">Please sign in</string>
+    <string name="error_server_code">Server error %1$d</string>
+    <string name="error_not_found">Not found</string>
+    <string name="error_enter_server">Please enter a server</string>
+
+    <!-- Datum -->
+    <string name="date_today">today</string>
+    <string name="date_tomorrow">tomorrow</string>
+    <string name="date_yesterday">yesterday</string>
+    <string name="day_header_today">Today · %1$s</string>
+    <string name="day_header_tomorrow">Tomorrow · %1$s</string>
+    <string name="event_all_day">all day</string>
+    <string name="no_date">No date</string>
+
+    <!-- Heute, Aufgaben -->
+    <string name="today_no_events">No events today</string>
+    <string name="today_nothing_planned">Nothing planned 🎉</string>
+    <string name="today_no_tasks">No open tasks for today</string>
+    <string name="tasks_overdue">Overdue</string>
+    <string name="tasks_today">Today</string>
+    <string name="tasks_tomorrow">Tomorrow</string>
+    <string name="tasks_later">Later</string>
+    <string name="tasks_all_done">All done 🎉</string>
+    <plurals name="tasks_completed">
+        <item quantity="one">%d completed</item>
+        <item quantity="other">%d completed</item>
+    </plurals>
+    <string name="task_repeats">repeats</string>
+    <string name="task_high_priority">high priority</string>
+    <string name="task_new_placeholder">New task…</string>
+    <string name="task_due">Due %1$s</string>
+    <string name="task_due_chip">Due date</string>
+    <string name="task_no_due">No due date</string>
+    <string name="task_due_remove">Remove due date</string>
+    <string name="task_title">Task</string>
+    <string name="task_priority">Priority</string>
+    <string name="prio_high">High</string>
+    <string name="prio_normal">Normal</string>
+    <string name="prio_low">Low</string>
+    <string name="task_repeat_info">Repeats: %1$s (change on the web)</string>
+    <string name="task_delete">Delete task</string>
+    <string name="task_delete_confirm">Delete task?</string>
+    <string name="repeat_daily">daily</string>
+    <string name="repeat_weekdays">on weekdays</string>
+    <string name="repeat_weekly">weekly</string>
+    <string name="repeat_monthly">monthly</string>
+    <string name="repeat_yearly">yearly</string>
+    <string name="repeat_never">never</string>
+
+    <!-- Termine, Dienste, Suche -->
+    <string name="events_untitled">(untitled)</string>
+    <string name="events_load_failed">Couldn\'t load events.</string>
+    <string name="events_none">No events</string>
+    <string name="services_search">Search services</string>
+    <string name="services_none">No services</string>
+    <string name="services_other">Other</string>
+    <string name="search_placeholder">Search pages</string>
+    <string name="search_no_results">No results</string>
+
+    <!-- Einstellungen -->
+    <string name="settings_server">Server</string>
+    <string name="settings_server_change_hint">To switch servers, sign out and sign in again</string>
+    <string name="settings_about">About</string>
+    <string name="settings_app">App</string>
+    <string name="settings_app_too_old">This app is older than the server expects (%1$s or later). Please update the app.</string>
+    <string name="settings_apps_devices">Apps &amp; devices</string>
+    <string name="settings_apps_explainer">Signed-in apps stay signed in. Each one has a small key for the widget, sharing and shortcuts. Lost a device? Sign it out and both are gone.</string>
+    <string name="settings_no_apps">No apps signed in.</string>
+    <string name="settings_device_info">signed in %1$s · last used %2$s</string>
+    <string name="settings_device_with_key">with widget key</string>
+    <string name="settings_more_keys">Other keys: %1$d (manage on the web)</string>
+    <string name="sign_out">Sign out</string>
+    <string name="settings_sign_out_explainer">Removes this device\'s sign-in from the server and deletes the data in the app.</string>
+    <string name="settings_sign_out_device_title">Sign out “%1$s”?</string>
+    <string name="settings_sign_out_device_text">The app will have to sign in again; the widget and sharing lose access.</string>
+    <string name="settings_sign_out_this_device">Sign out on this device?</string>
+
+    <!-- Seite -->
+    <string name="page_untitled">Untitled</string>
+    <string name="page_lock">Lock page</string>
+    <string name="page_unlock">Unlock page</string>
+    <string name="page_reload">Reload</string>
+    <string name="page_copy_link">Copy link</string>
+    <string name="page_link_copied">Link copied</string>
+    <string name="page_database_soon">Databases with views (table, board, calendar…) are coming in an upcoming version.</string>
+    <string name="page_locked_chip">Locked – tap to unlock</string>
+    <string name="page_converted">Old text note – will be saved as blocks when you edit it.</string>
+    <string name="page_reload_failed">Reload failed: %1$s</string>
+    <string name="page_unreadable">Page content can\'t be read</string>
+    <string name="save_sign_in">Not saved – please sign in.</string>
+    <string name="save_conflict">The page was changed elsewhere in the meantime and has been reloaded. Your last change wasn\'t applied.</string>
+    <string name="save_locked">Page is locked – change not saved.</string>
+    <string name="save_failed">Not saved: %1$s</string>
+    <string name="save_failed_retry">Not saved: %1$s – retrying shortly.</string>
+
+    <!-- Editor -->
+    <string name="block_insert">Insert block</string>
+    <string name="block_change_type">Change block type</string>
+    <string name="list_change_type">Change list type</string>
+    <string name="block_move_up">Move block up</string>
+    <string name="block_move_down">Move block down</string>
+    <string name="format_link">Link</string>
+    <string name="link_open">Open link</string>
+    <string name="link_address_label">Address (https://… or /notes#123)</string>
+    <string name="link_invalid">Only http(s), mailto or page links (/notes#123)</string>
+    <string name="link_remove">Remove link</string>
+    <string name="block_text">Text</string>
+    <string name="block_heading">Heading %1$d</string>
+    <string name="block_bulleted">Bulleted list</string>
+    <string name="block_numbered">Numbered list</string>
+    <string name="block_checklist">Checklist</string>
+    <string name="block_quote">Quote</string>
+    <string name="block_callout">Callout</string>
+    <string name="block_code">Code</string>
+    <string name="block_toggle">Toggle</string>
+    <string name="block_divider">Divider</string>
+    <string name="placeholder_paragraph">Type something…</string>
+    <string name="placeholder_list_item">List item</string>
+    <string name="block_unsupported">%1$s – not supported here yet</string>
+    <plurals name="block_table_rows">
+        <item quantity="one">%d row</item>
+        <item quantity="other">%d rows</item>
+    </plurals>
+    <string name="toggle_empty_tap">Empty toggle – tap to write</string>
+    <string name="toggle_empty">Empty</string>
+    <string name="blocktype_table">Table</string>
+    <string name="blocktype_attachment">File attachment</string>
+    <string name="blocktype_database">Database view</string>
+    <string name="blocktype_tasks">Tasks block</string>
+    <string name="blocktype_calendar">Calendar block</string>
+    <string name="blocktype_buttons">Buttons</string>
+    <string name="blocktype_embed">Embed</string>
+    <string name="blocktype_columns">Columns</string>
+    <string name="blocktype_unknown">Unknown block</string>
+    <string name="blocktype_named">“%1$s”</string>
 </resources>

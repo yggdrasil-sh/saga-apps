@@ -7,8 +7,9 @@ from gi.repository import Gdk, GLib, GObject, Gtk, Pango
 from . import images
 from .api import client
 from .blocks import chip, flat_button, menu_popover
+from .i18n import _
 from .store import label, store, watch
-from .util import bg, color_hex, day_text, iso_day, num_text, parse_day, MONTHS_LONG
+from .util import bg, color_hex, day_text, iso_day, month_text, num_text, parse_day, parse_num, weekday_names
 
 PROP_ICON = {"text": "format-justify-left-symbolic", "number": "accessories-calculator-symbolic", "select": "go-down-symbolic",
              "multi_select": "view-list-bullet-symbolic", "checkbox": "checkbox-checked-symbolic", "date": "x-office-calendar-symbolic",
@@ -343,7 +344,7 @@ class DBModel(GObject.Object):
             return
 
         def ch(sc):
-            vs = sc.get("views") or [{"id": "tabelle", "name": "Tabelle", "type": "table"}]
+            vs = sc.get("views") or [{"id": "tabelle", "name": _("Table"), "type": "table"}]
             change(vs)
             sc["views"] = vs[:10]
         self.edit_schema(ch)
@@ -442,10 +443,10 @@ def prop_editor(p, v, setv, model=None, compact=False):
         def popup(m):
             ents = [(op_["name"], (lambda i=op_["id"]: setv(i))) for op_ in p.get("options") or []]
             if o:
-                ents += [None, ("Leeren", lambda: setv(None), True)]
+                ents += [None, (_("Clear"), lambda: setv(None), True)]
             if model is not None:
-                ents += [None, ("Neue Option …", lambda: _new_option(m.get_parent() or m, model, p, lambda oid: setv(oid)))]
-            m.set_popover(menu_popover(None, ents or [("Keine Optionen", lambda: None)]))
+                ents += [None, (_("New option …"), lambda: _new_option(m.get_parent() or m, model, p, lambda oid: setv(oid)))]
+            m.set_popover(menu_popover(None, ents or [(_("No options"), lambda: None)]))
         mb.set_create_popup_func(popup)
         return mb
     if t == "multi_select":
@@ -474,7 +475,7 @@ def prop_editor(p, v, setv, model=None, compact=False):
             c.connect("toggled", tg)
             bx.append(c)
         if not p.get("options"):
-            bx.append(Gtk.Label(label="Keine Optionen"))
+            bx.append(Gtk.Label(label=_("No options")))
         pop.set_child(bx)
         pop.connect("closed", lambda *_: cur != ids and setv(list(cur)))
         mb.set_popover(pop)
@@ -498,9 +499,9 @@ def prop_editor(p, v, setv, model=None, compact=False):
         cal.connect("day-selected", pick)
         bx.append(cal)
         row = Gtk.Box(spacing=6, homogeneous=True)
-        row.append(flat_button(label="Heute", cb=lambda: (pop.popdown(), setv(iso_day()))))
+        row.append(flat_button(label=_("Today"), cb=lambda: (pop.popdown(), setv(iso_day()))))
         if v:
-            row.append(flat_button(label="Leeren", css="error", cb=lambda: (pop.popdown(), setv(None))))
+            row.append(flat_button(label=_("Clear"), css="error", cb=lambda: (pop.popdown(), setv(None))))
         bx.append(row)
         pop.set_child(bx)
         mb.set_popover(pop)
@@ -520,7 +521,7 @@ def prop_editor(p, v, setv, model=None, compact=False):
         mb.set_create_popup_func(lambda m: m.set_popover(_relation_popover(m, p, ids, setv)))
         return mb
     # text, number, url, email, phone
-    en = Gtk.Entry(placeholder_text="Leer", hexpand=True)
+    en = Gtk.Entry(placeholder_text=_("Empty"), hexpand=True)
     en.add_css_class("flat")
     en.add_css_class("hk-cell-entry")
     if t == "number":
@@ -541,7 +542,7 @@ def prop_editor(p, v, setv, model=None, compact=False):
                 setv(None)
                 return
             try:
-                setv(float(txt.replace(".", "").replace(",", ".")))
+                setv(parse_num(txt))
             except ValueError:
                 en.set_text(cur)
         else:
@@ -553,14 +554,14 @@ def prop_editor(p, v, setv, model=None, compact=False):
     if t == "url" and v:
         box = Gtk.Box(spacing=2)
         box.append(en)
-        box.append(flat_button(icon="adw-external-link-symbolic", tooltip="Öffnen", css="hk-tiny",
+        box.append(flat_button(icon="adw-external-link-symbolic", tooltip=_("Open"), css="hk-tiny",
                                cb=lambda: Gtk.UriLauncher.new(str(v)).launch(en.get_root(), None, None)))
         return box
     return en
 
 
-def _leer(t="Leer"):
-    lb = Gtk.Label(label=t, xalign=0)
+def _leer(t=None):
+    lb = Gtk.Label(label=t or _("Empty"), xalign=0)
     lb.add_css_class("hk-empty")
     return lb
 
@@ -568,7 +569,7 @@ def _leer(t="Leer"):
 def _new_option(parent, model, p, then):
     from .util import new_pid, COLOR_ORDER
     pop = Gtk.Popover()
-    en = Gtk.Entry(placeholder_text="Neue Option", margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
+    en = Gtk.Entry(placeholder_text=_("New option"), margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
 
     def go(*_):
         n = en.get_text().strip()
@@ -590,7 +591,7 @@ def _new_option(parent, model, p, then):
 def _relation_popover(parent, p, ids, setv):
     pop = Gtk.Popover()
     bx = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
-    se = Gtk.SearchEntry(placeholder_text="Eintrag suchen")
+    se = Gtk.SearchEntry(placeholder_text=_("Search entries"))
     bx.append(se)
     lst = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
     sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, propagate_natural_height=True, max_content_height=320)
@@ -600,14 +601,14 @@ def _relation_popover(parent, p, ids, setv):
     cur = list(ids)
     rows = []
 
-    def fill(*_):
+    def fill(*a):
         while (c := lst.get_first_child()):
             lst.remove(c)
         q = se.get_text().lower()
         for r in rows:
             if q and q not in (r.get("title") or "").lower():
                 continue
-            c = Gtk.CheckButton(label=r.get("title") or "Unbenannt", active=r["id"] in cur)
+            c = Gtk.CheckButton(label=r.get("title") or _("Untitled"), active=r["id"] in cur)
 
             def tg(c, rid=r["id"]):
                 if c.get_active() and rid not in cur:
@@ -631,10 +632,10 @@ def _relation_popover(parent, p, ids, setv):
 class RowMenuMixin:
     def row_menu(self, widget, x, y, r):
         rows = self.rows
-        menu_popover(widget, [("Öffnen", lambda: self.open(r, rows)),
-                              ("Duplizieren", lambda: store.duplicate(r["id"], done=lambda n: self.m.load())),
-                              ("Link kopieren", lambda: self.win.copy_text(store.page_url(r["id"]))), None,
-                              ("In den Papierkorb", lambda: store.trash(r["id"], done=self.m.load), True)]).popup()
+        menu_popover(widget, [(_("Open"), lambda: self.open(r, rows)),
+                              (_("Duplicate"), lambda: store.duplicate(r["id"], done=lambda n: self.m.load())),
+                              (_("Copy link"), lambda: self.win.copy_text(store.page_url(r["id"]))), None,
+                              (_("Move to trash"), lambda: store.trash(r["id"], done=self.m.load), True)]).popup()
 
     def attach_menu(self, widget, r):
         g = Gtk.GestureClick(button=3)
@@ -726,7 +727,7 @@ class TableView(Gtk.ScrolledWindow, RowMenuMixin):
         head.add_css_class("hk-dbhead")
         t = Gtk.Box(spacing=5, margin_start=8, margin_end=8, margin_top=6, margin_bottom=6)
         t.append(Gtk.Label(label="Aa", css_classes=["dim-label"]))
-        t.append(Gtk.Label(label="Name", css_classes=["dim-label"], xalign=0))
+        t.append(Gtk.Label(label=_("Name"), css_classes=["dim-label"], xalign=0))
         head.append(self._with_resizer(self._cell("title", t), "title"))
         for p in self.cols:
             from .dbedit import ColumnHead
@@ -747,17 +748,17 @@ class TableView(Gtk.ScrolledWindow, RowMenuMixin):
             for r in rows[: self.shown]:
                 self.box.append(self._row(r))
         if len(self.rows) > self.shown and len(groups) == 1:
-            more = flat_button(label=f"{len(self.rows) - self.shown} weitere laden", css="dim-label",
+            more = flat_button(label=_("Load {n} more").format(n=len(self.rows) - self.shown), css="dim-label",
                                cb=lambda: self._more())
             more.set_halign(Gtk.Align.START)
             self.box.append(more)
         if not self.rows:
-            e = Gtk.Label(label="Keine Einträge", xalign=0, margin_start=8, margin_top=8, margin_bottom=8)
+            e = Gtk.Label(label=_("No entries"), xalign=0, margin_start=8, margin_top=8, margin_bottom=8)
             e.add_css_class("dim-label")
             self.box.append(e)
         from .dbedit import CalcRow
         self.box.append(CalcRow(self, m, self.view, self.cols, self.rows))
-        nb = flat_button(icon="list-add-symbolic", label="Neu", css="dim-label", cb=self.new_row)
+        nb = flat_button(icon="list-add-symbolic", label=_("New"), css="dim-label", cb=self.new_row)
         nb.set_halign(Gtk.Align.START)
         self.box.append(nb)
         self.apply_widths()
@@ -781,7 +782,7 @@ class TableView(Gtk.ScrolledWindow, RowMenuMixin):
                 out.append((o["name"], o.get("color"), rs))
         rest = [r for r in self.rows if not option(g, r["props"].get(g["id"]))]
         if rest:
-            out.append(("Ohne " + g.get("name", ""), None, rest))
+            out.append((_("Without {name}").format(name=g.get("name", "")), None, rest))
         return out or [(None, None, [])]
 
     def _with_resizer(self, w, key):
@@ -820,7 +821,7 @@ class TableView(Gtk.ScrolledWindow, RowMenuMixin):
         tc = Gtk.Box(spacing=6, margin_start=8, margin_end=4)
         if r.get("icon"):
             tc.append(images.page_icon(r["icon"]))
-        en = Gtk.Entry(text=r["title"], placeholder_text="Unbenannt", hexpand=True)
+        en = Gtk.Entry(text=r["title"], placeholder_text=_("Untitled"), hexpand=True)
         en.add_css_class("flat")
         en.add_css_class("hk-title-entry")
         en.set_sensitive(not m.locked)
@@ -834,7 +835,7 @@ class TableView(Gtk.ScrolledWindow, RowMenuMixin):
         fc.connect("leave", commit)
         en.add_controller(fc)
         tc.append(en)
-        ob = flat_button(icon="adw-external-link-symbolic", tooltip="Öffnen", css="hk-tiny", cb=lambda r=r: self.open(r))
+        ob = flat_button(icon="adw-external-link-symbolic", tooltip=_("Open"), css="hk-tiny", cb=lambda r=r: self.open(r))
         tc.append(ob)
         row.append(self._cell("title", tc))
         for p in self.cols:
@@ -873,7 +874,7 @@ class ListView(Gtk.Box, RowMenuMixin):
             inner = Gtk.Box(spacing=8)
             if check and r.get("icon"):
                 inner.append(images.page_icon(r["icon"]))
-            t = Gtk.Label(label=r["title"] or "Unbenannt", xalign=0, hexpand=True, wrap=True, natural_wrap_mode=Gtk.NaturalWrapMode.WORD)
+            t = Gtk.Label(label=r["title"] or _("Untitled"), xalign=0, hexpand=True, wrap=True, natural_wrap_mode=Gtk.NaturalWrapMode.WORD)
             if not r["title"]:
                 t.add_css_class("dim-label")
             inner.append(t)
@@ -891,7 +892,7 @@ class ListView(Gtk.Box, RowMenuMixin):
             self.append(row)
             self.append(Gtk.Separator())
         if not self.rows:
-            e = Gtk.Label(label="Keine Einträge", xalign=0, margin_top=8)
+            e = Gtk.Label(label=_("No entries"), xalign=0, margin_top=8)
             e.add_css_class("dim-label")
             self.append(e)
 
@@ -910,7 +911,7 @@ def card(win, m, r, view, cover=True):
     tr = Gtk.Box(spacing=6)
     if r.get("icon"):
         tr.append(images.page_icon(r["icon"]))
-    tl = Gtk.Label(label=r["title"] or "Unbenannt", xalign=0, wrap=True, lines=2, ellipsize=Pango.EllipsizeMode.END)
+    tl = Gtk.Label(label=r["title"] or _("Untitled"), xalign=0, wrap=True, lines=2, ellipsize=Pango.EllipsizeMode.END)
     tl.add_css_class("hk-card-title")
     tr.append(tl)
     inner.append(tr)
@@ -936,9 +937,9 @@ class BoardView(Gtk.ScrolledWindow, RowMenuMixin):
         hb = Gtk.Box(spacing=12)
         self.set_child(hb)
         if not g:
-            hb.append(Gtk.Label(label="Board braucht eine Auswahl-Eigenschaft", css_classes=["dim-label"]))
+            hb.append(Gtk.Label(label=_("A board needs a select property"), css_classes=["dim-label"]))
             return
-        cols = [(o["id"], o["name"], o.get("color")) for o in g.get("options") or []] + [(None, "Ohne " + g.get("name", ""), None)]
+        cols = [(o["id"], o["name"], o.get("color")) for o in g.get("options") or []] + [(None, _("Without {name}").format(name=g.get("name", "")), None)]
         for oid, name, color in cols:
             items = [r for r in self.rows if (r["props"].get(g["id"]) or None) == oid]
             col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -960,7 +961,7 @@ class BoardView(Gtk.ScrolledWindow, RowMenuMixin):
                 b.add_controller(ds)
                 self.attach_menu(b, r)
                 col.append(b)
-            col.append(flat_button(icon="list-add-symbolic", label="Neu", css="dim-label",
+            col.append(flat_button(icon="list-add-symbolic", label=_("New"), css="dim-label",
                                    cb=lambda oid=oid: self.new_row({g["id"]: oid} if oid else {})))
             dt = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
 
@@ -1012,18 +1013,18 @@ class CalendarView(Gtk.Box, RowMenuMixin):
         mth = self.month
         bar = Gtk.Box(spacing=6)
         bar.append(flat_button(icon="go-previous-symbolic", cb=lambda: self._shift(-1)))
-        ml = Gtk.Label(label=f"{MONTHS_LONG[mth.month - 1]} {mth.year}", width_chars=16)
+        ml = Gtk.Label(label=month_text(mth), width_chars=16)
         ml.add_css_class("heading")
         bar.append(ml)
         bar.append(flat_button(icon="go-next-symbolic", cb=lambda: self._shift(1)))
         bar.append(Gtk.Box(hexpand=True))
-        bar.append(flat_button(label="Heute", cb=lambda: self._today()))
+        bar.append(flat_button(label=_("Today"), cb=lambda: self._today()))
         self.append(bar)
         if not self.dp:
-            self.append(Gtk.Label(label="Kalender braucht eine Datums-Eigenschaft", css_classes=["dim-label"]))
+            self.append(Gtk.Label(label=_("A calendar needs a date property"), css_classes=["dim-label"]))
             return
         grid = Gtk.Grid(column_homogeneous=True, row_spacing=2, column_spacing=2)
-        for i, n in enumerate(["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]):
+        for i, n in enumerate(weekday_names()):
             grid.attach(Gtk.Label(label=n, css_classes=["caption", "dim-label"]), i, 0, 1, 1)
         lead = mth.weekday()
         nxt = _dt.date(mth.year + (mth.month == 12), mth.month % 12 + 1, 1)
@@ -1050,7 +1051,7 @@ class CalendarView(Gtk.Box, RowMenuMixin):
             cell.append(top)
             items = [r for r in self.rows if str(self.m.value(self.dp, r) or "").startswith(ds)]
             for r in items[:3]:
-                b = Gtk.Button(child=Gtk.Label(label=r["title"] or "Unbenannt", xalign=0, ellipsize=Pango.EllipsizeMode.END))
+                b = Gtk.Button(child=Gtk.Label(label=r["title"] or _("Untitled"), xalign=0, ellipsize=Pango.EllipsizeMode.END))
                 b.add_css_class("hk-calitem")
                 b.connect("clicked", lambda *_, r=r: self.open(r))
                 self.attach_menu(b, r)
@@ -1108,14 +1109,14 @@ class DatabaseView(Gtk.Box):
         row = Gtk.Box(spacing=8)
         inner = Gtk.Box(spacing=6)
         inner.append(images.page_icon((p or {}).get("icon"), fallback="🗃️"))
-        inner.append(Gtk.Label(label=label(p) if p else "Datenbank", css_classes=["heading"]))
+        inner.append(Gtk.Label(label=label(p) if p else _("Database"), css_classes=["heading"]))
         b = Gtk.Button(child=inner)
         b.add_css_class("flat")
         b.add_css_class("hk-dbname")
         b.connect("clicked", lambda *_: self.win.show_page(self.db_id))
         row.append(b)
         row.append(Gtk.Box(hexpand=True))
-        row.append(flat_button(icon="view-fullscreen-symbolic", tooltip="Als ganze Seite öffnen", css="dim-label",
+        row.append(flat_button(icon="view-fullscreen-symbolic", tooltip=_("Open as full page"), css="dim-label",
                                cb=lambda: self.win.show_page(self.db_id)))
         return row
 

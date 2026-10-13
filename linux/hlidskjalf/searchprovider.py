@@ -8,6 +8,7 @@ from gi.repository import Gio, GLib
 
 from . import APP_ID
 from .config import CACHE_DIR
+from .i18n import _
 from .util import norm
 
 BUS = APP_ID + ".SearchProvider"
@@ -44,7 +45,7 @@ class Provider:
     def path(self, pid):
         out, cur, n = [], (self.pages.get(pid) or {}).get("parent_id"), 0
         while cur in self.pages and n < 10:
-            out.insert(0, self.pages[cur].get("title") or "Unbenannt")
+            out.insert(0, self.pages[cur].get("title") or _("Untitled"))
             cur, n = self.pages[cur].get("parent_id"), n + 1
         return " / ".join(out)
 
@@ -81,7 +82,8 @@ class Provider:
                     continue
                 ic = p.get("icon") or ""
                 emoji = ic if ic and not ic.startswith("/") and len(ic) <= 4 else ("🗃️" if p.get("kind") == "database" else "📄")
-                metas.append({"id": GLib.Variant("s", i), "name": GLib.Variant("s", f"{emoji} {p.get('title') or 'Unbenannt'}"),
+                title = p.get("title") or _("Untitled")
+                metas.append({"id": GLib.Variant("s", i), "name": GLib.Variant("s", f"{emoji} {title}"),
                               "description": GLib.Variant("s", self.path(p["id"]) or "Saga"),
                               "gicon": GLib.Variant("s", APP_ID)})
             inv.return_value(GLib.Variant("(aa{sv})", (metas,)))

@@ -274,7 +274,8 @@ struct MoveSheet: View {
 /// "Bearbeitet am ..." wie Notion
 func editedText(_ ts: Double?) -> String {
     guard let ts else { return "" }
-    let d = Date(timeIntervalSince1970: ts), f = DateFormatter(); f.locale = Locale(identifier: "de_DE")
-    f.dateFormat = Calendar.current.isDateInToday(d) ? "'heute,' HH:mm" : "d. MMM yyyy, HH:mm"
-    return "Bearbeitet " + f.string(from: d)
+    let d = Date(timeIntervalSince1970: ts)
+    let when = Calendar.current.isDateInToday(d) ? String(localized: "heute, \(d.formatted(date: .omitted, time: .shortened))")
+                                                 : d.formatted(date: .abbreviated, time: .shortened)
+    return String(localized: "Bearbeitet \(when)")
 }

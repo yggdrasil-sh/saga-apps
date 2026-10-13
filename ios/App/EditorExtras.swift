@@ -11,10 +11,12 @@ struct HKDate: Equatable { let date: String; let time: String? }
 func hkNorm(_ s: String) -> String {
     s.lowercased().replacingOccurrences(of: "ä", with: "ae").replacingOccurrences(of: "ö", with: "oe")
         .replacingOccurrences(of: "ü", with: "ue").replacingOccurrences(of: "ß", with: "ss")
+        .folding(options: .diacriticInsensitive, locale: nil)            // spanisch: mañana -> manana, miércoles -> miercoles
         .split(whereSeparator: \.isWhitespace).joined(separator: " ")
 }
 private let hkWD = ["sonntag", "montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag"]
 private let hkWDE = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"]
+private let hkWDS = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"]
 private let hkMON = ["januar", "februar", "maerz", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "dezember"]
 
 private func rx(_ s: String, _ p: String) -> [String]? {
@@ -37,16 +39,16 @@ func parseHKDate(_ q0: String) -> HKDate? {
         if let r = q.range(of: m[0], options: .backwards) { q = String(q[..<r.lowerBound]).trimmingCharacters(in: .whitespaces) }
     }
     var d: Date?
-    if q.isEmpty || q == "heute" || q == "today" { d = t0 }
-    else if q == "morgen" || q == "tomorrow" { d = plus(1) }
-    else if q == "uebermorgen" { d = plus(2) }
-    else if q == "gestern" || q == "yesterday" { d = plus(-1) }
-    else if let m = rx(q, #"^in (\d{1,3}) (tag|tage|tagen|woche|wochen|monat|monate|monaten|day|days|week|weeks)$"#) {
+    if q.isEmpty || q == "heute" || q == "today" || q == "hoy" { d = t0 }
+    else if q == "morgen" || q == "tomorrow" || q == "manana" { d = plus(1) }
+    else if q == "uebermorgen" || q == "pasado manana" { d = plus(2) }
+    else if q == "gestern" || q == "yesterday" || q == "ayer" { d = plus(-1) }
+    else if let m = rx(q, #"^(?:in|en) (\d{1,3}) (tag|tage|tagen|woche|wochen|monat|monate|monaten|day|days|week|weeks|month|months|dia|dias|semana|semanas|mes|meses)$"#) {
         let n = Int(m[1]) ?? 0
-        d = m[2].hasPrefix("w") ? plus(7 * n) : m[2].hasPrefix("mo") ? plus(n, .month) : plus(n)
-    } else if q == "naechste woche" || q == "next week" { d = plus(7) }
-    else if let m = rx(q, #"^(?:(naechsten?|kommenden?|next)\s+)?([a-z]+)$"#) {
-        guard let wi = hkWD.firstIndex(of: m[2]) ?? hkWDE.firstIndex(of: m[2]) else { return nil }
+        d = m[2].hasPrefix("w") || m[2].hasPrefix("se") ? plus(7 * n) : m[2].hasPrefix("mo") || m[2].hasPrefix("mes") ? plus(n, .month) : plus(n)
+    } else if q == "naechste woche" || q == "next week" || q == "proxima semana" || q == "la proxima semana" { d = plus(7) }
+    else if let m = rx(q, #"^(?:(naechsten?|kommenden?|next|el proximo|proximo|el)\s+)?([a-z]+)$"#) {
+        guard let wi = hkWD.firstIndex(of: m[2]) ?? hkWDE.firstIndex(of: m[2]) ?? hkWDS.firstIndex(of: m[2]) else { return nil }
         var diff = (wi - (cal.component(.weekday, from: t0) - 1) + 7) % 7; if diff == 0 { diff = 7 }
         d = plus(diff)
     } else if let m = rx(q, #"^(\d{4})-(\d{2})-(\d{2})$"#) {
@@ -71,15 +73,15 @@ func parseHKDate(_ q0: String) -> HKDate? {
 func hkDateText(_ d: HKDate) -> String {
     let p = DateFormatter(); p.dateFormat = "yyyy-MM-dd"
     guard let dt = p.date(from: d.date) else { return d.date }
-    let f = DateFormatter(); f.locale = Locale(identifier: "de_DE")
-    f.dateFormat = Calendar.current.isDate(dt, equalTo: .now, toGranularity: .year) ? "EEE, d. MMM" : "EEE, d. MMM yyyy"
-    return f.string(from: dt) + (d.time.map { ", " + $0 } ?? "")
+    var style = Date.FormatStyle.dateTime.weekday(.abbreviated).day().month(.abbreviated)     // Format der Systemsprache
+    if !Calendar.current.isDate(dt, equalTo: .now, toGranularity: .year) { style = style.year() }
+    return dt.formatted(style) + (d.time.map { ", " + $0 } ?? "")
 }
 func hkRelText(_ d: HKDate) -> String {
     let p = DateFormatter(); p.dateFormat = "yyyy-MM-dd"
     guard let dt = p.date(from: d.date) else { return hkDateText(d) }
     let diff = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: .now), to: dt).day ?? 99
-    let r = [0: "Heute", 1: "Morgen", 2: "Übermorgen", -1: "Gestern"][diff]
+    let r = [0: String(localized: "Heute"), 1: String(localized: "Morgen"), 2: String(localized: "Übermorgen"), -1: String(localized: "Gestern")][diff]
     return (r.map { $0 + " · " } ?? "") + hkDateText(d)
 }
 
@@ -120,17 +122,17 @@ func mentionItems(_ t: HKTrigger, store: Store, font: Font) -> [MentionItem] {
         var out: [MentionItem] = []
         func dateItems(_ d: HKDate) {
             let link = URL(string: "hkdate://d/\(d.date)" + (d.time.map { "T" + $0 } ?? ""))
-            out.append(MentionItem(icon: "📅", title: hkRelText(d), hint: "Datum", insert: run(hkDateText(d), link)))
-            out.append(MentionItem(icon: "⏰", title: "Erinnerung: " + hkRelText(d), hint: "Erinnerung",
+            out.append(MentionItem(icon: "📅", title: hkRelText(d), hint: String(localized: "Datum"), insert: run(hkDateText(d), link)))
+            out.append(MentionItem(icon: "⏰", title: String(localized: "Erinnerung: \(hkRelText(d))"), hint: String(localized: "Erinnerung"),
                                    insert: run("⏰ " + hkDateText(d), URL(string: (link?.absoluteString ?? "") + "?r=1"))))
         }
         if q.isEmpty {
             [parseHKDate("heute"), parseHKDate("morgen")].compactMap { $0 }.forEach { d in
-                out.append(MentionItem(icon: "📅", title: hkRelText(d), hint: "Datum",
+                out.append(MentionItem(icon: "📅", title: hkRelText(d), hint: String(localized: "Datum"),
                                        insert: run(hkDateText(d), URL(string: "hkdate://d/\(d.date)"))))
             }
             if let d = parseHKDate("morgen 9:00") {
-                out.append(MentionItem(icon: "⏰", title: "Erinnerung: " + hkRelText(d), hint: "Erinnerung",
+                out.append(MentionItem(icon: "⏰", title: String(localized: "Erinnerung: \(hkRelText(d))"), hint: String(localized: "Erinnerung"),
                                        insert: run("⏰ " + hkDateText(d), URL(string: "hkdate://d/\(d.date)T09:00?r=1"))))
             }
         } else if let d = parseHKDate(q) { dateItems(d) }
@@ -138,7 +140,7 @@ func mentionItems(_ t: HKTrigger, store: Store, font: Font) -> [MentionItem] {
         let pages = store.pages.filter { nq.isEmpty || hkNorm($0.label).contains(nq) }.prefix(q.isEmpty ? 4 : 6)
         for p in pages {
             out.append(MentionItem(icon: (p.icon?.count ?? 0) <= 4 && !(p.icon ?? "").isEmpty ? p.icon! : (p.isDatabase ? "🗃️" : "📄"),
-                                   title: p.label, hint: "Seite", insert: run(p.label, URL(string: "hkpage://\(p.id)"))))
+                                   title: p.label, hint: String(localized: "Seite"), insert: run(p.label, URL(string: "hkpage://\(p.id)"))))
         }
         return out
     }
@@ -277,7 +279,7 @@ struct ButtonsConfig: View {
                         Button("Schaltfläche entfernen", role: .destructive) { buttons.remove(at: i) }
                     }
                 }
-                Button { buttons.append(["label": "Neu", "icon": "➕", "action": ""]) } label: { Label("Schaltfläche hinzufügen", systemImage: "plus") }
+                Button { buttons.append(["label": String(localized: "Neu"), "icon": "➕", "action": ""]) } label: { Label("Schaltfläche hinzufügen", systemImage: "plus") }
             }
             .formStyle(.grouped)
             .navigationTitle("Schaltflächen")

@@ -221,7 +221,7 @@ final class PageDoc: ObservableObject {
     init(id: Int) { self.id = id }
 
     var titleRaw: String { page["title"] as? String ?? "" }
-    var title: String { titleRaw.isEmpty ? "Unbenannt" : titleRaw }
+    var title: String { titleRaw.isEmpty ? String(localized: "Unbenannt") : titleRaw }
     var icon: String? { page["icon"] as? String }
     var cover: String? { (page["cover"] as? String).flatMap { $0.isEmpty ? nil : $0 } }
     var props: [String: Any] { page["props"] as? [String: Any] ?? [:] }
@@ -285,8 +285,8 @@ final class PageDoc: ObservableObject {
             error = nil; dirty = false; store.updateTitle(id, titleRaw)
             if parentSchema != nil { store.dataChanged() }          // Eintrag einer Datenbank: Titel in den Ansichten aktualisieren
         } catch APIError.http(409, _) {
-            error = "Die Seite wurde inzwischen woanders geändert – neu geladen."; await load(store)
-        } catch { self.error = "Nicht gespeichert: " + error.localizedDescription }
+            error = String(localized: "Die Seite wurde inzwischen woanders geändert – neu geladen."); await load(store)
+        } catch { self.error = String(localized: "Nicht gespeichert: \(error.localizedDescription)") }
     }
 }
 
@@ -572,20 +572,20 @@ struct BlockView: View {
     var body: some View {
         switch type {
         case "paragraph":
-            EditText(key: id, html: s("text"), placeholder: ed.focus == id ? "Tippe etwas oder „/“ für Blöcke …" : "", slash: true, setHTML: set("text"), onReturn: split("text")).id(id)
+            EditText(key: id, html: s("text"), placeholder: ed.focus == id ? String(localized: "Tippe etwas oder „/“ für Blöcke …") : "", slash: true, setHTML: set("text"), onReturn: split("text")).id(id)
         case "header":
             let lvl = data["level"] as? Int ?? 2
             EditText(key: id, html: s("text"), font: lvl <= 1 ? .title.bold() : lvl == 2 ? .title2.bold() : lvl == 3 ? .title3.bold() : .headline,
-                     placeholder: "Überschrift", boldBase: true, setHTML: set("text"), onReturn: split("text")).id(id).padding(.top, 6)
+                     placeholder: String(localized: "Überschrift"), boldBase: true, setHTML: set("text"), onReturn: split("text")).id(id).padding(.top, 6)
         case "list":
             ListBlock(blockID: id, items: data["items"] as? NSMutableArray ?? NSMutableArray(), style: s("style"), path: [])
         case "quote":
             HStack(alignment: .top, spacing: 10) {
                 Rectangle().fill(.secondary).frame(width: 3)
-                EditText(key: id, html: s("text"), placeholder: "Zitat", setHTML: set("text"), onReturn: split("text")).id(id).italic()
+                EditText(key: id, html: s("text"), placeholder: String(localized: "Zitat"), setHTML: set("text"), onReturn: split("text")).id(id).italic()
             }
         case "code":
-            EditText(key: id, html: s("code"), font: .system(.footnote, design: .monospaced), placeholder: "Code", splitOnReturn: false, raw: true, setHTML: set("code")).id(id)
+            EditText(key: id, html: s("code"), font: .system(.footnote, design: .monospaced), placeholder: String(localized: "Code"), splitOnReturn: false, raw: true, setHTML: set("code")).id(id)
                 .padding(10).padding(.top, s("language").isEmpty ? 0 : 8).background(.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
                 .overlay(alignment: .topTrailing) {                      // Sprache aus dem Web (Bash, YAML ...) - bleibt beim Bearbeiten erhalten
                     if !s("language").isEmpty { Text(s("language")).font(.caption2.monospaced()).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.top, 4) }
@@ -614,7 +614,7 @@ struct BlockView: View {
         case "callout":
             HStack(alignment: .top, spacing: 10) {
                 Text(s("emoji").isEmpty ? "💡" : s("emoji"))
-                EditText(key: id, html: s("text"), placeholder: "Hinweis", setHTML: set("text"), onReturn: split("text")).id(id)
+                EditText(key: id, html: s("text"), placeholder: String(localized: "Hinweis"), setHTML: set("text"), onReturn: split("text")).id(id)
             }
             .padding(12).background(.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
         case "toggle":
@@ -687,7 +687,7 @@ struct ListBlock: View {
                             Text(style == "ordered" ? "\(i + 1)." : "•").foregroundStyle(.secondary).frame(minWidth: 16, alignment: .trailing)
                         }
                         VStack(alignment: .leading, spacing: 6) {
-                            EditText(key: key(i), html: it["content"] as? String ?? "", placeholder: "Listenpunkt", muted: checked,
+                            EditText(key: key(i), html: it["content"] as? String ?? "", placeholder: String(localized: "Listenpunkt"), muted: checked,
                                      setHTML: { v in it["content"] = v; ed.textChanged() },
                                      onReturn: { before, after in returnIn(i, before: before, after: after) }).id(key(i))
                             if let sub = it["items"] as? NSMutableArray, sub.count > 0 { ListBlock(blockID: blockID, items: sub, style: style, path: path + [i]) }
@@ -729,7 +729,7 @@ struct ToggleBlock: View {
                 Button { withAnimation(.snappy) { open.toggle() } } label: {
                     Image(systemName: "chevron.right").font(.caption.bold()).rotationEffect(.degrees(open ? 90 : 0)).foregroundStyle(.secondary).frame(width: 18, height: 22)
                 }.buttonStyle(.plain)
-                EditText(key: id, html: data["title"] as? String ?? "", font: .body.bold(), placeholder: "Toggle", boldBase: true,
+                EditText(key: id, html: data["title"] as? String ?? "", font: .body.bold(), placeholder: String(localized: "Toggle"), boldBase: true,
                          setHTML: { v in data["title"] = v; ed.textChanged() },
                          onReturn: { before, after in
                              data["title"] = before; open = true
@@ -799,15 +799,14 @@ struct ButtonsBlock: View {
         case "page": if let t = target { nav.open(t, mode: b["open"] as? String ?? "") }
         case "db":
             guard let t = target else { return }
-            let df = DateFormatter(); df.dateFormat = "dd.MM.yyyy"
-            let title = (b["title"] as? String ?? "").replacingOccurrences(of: "{datum}", with: df.string(from: .now))
+            let title = (b["title"] as? String ?? "").replacingOccurrences(of: "{datum}", with: Date.now.formatted(date: .numeric, time: .omitted))
             struct R: Decodable { let id: Int }
             let tpl = b["tpl"] as? Int
             var body: [String: Any] = ["parent_id": t]; if !title.isEmpty || tpl == nil { body["title"] = title }
             if let d = try? await store.api(tpl.map { "api/notes/\($0)/duplicate" } ?? "api/notes", method: "POST", body: body),   // Vorlage: alles uebernehmen
                let r = try? JSONDecoder().decode(R.self, from: d) { await store.refresh(); store.dataChanged(); nav.open(r.id, mode: b["open"] as? String ?? "") }
         case "task":
-            _ = try? await store.api("api/tasks", method: "POST", body: ["text": (b["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Neue Aufgabe"])
+            _ = try? await store.api("api/tasks", method: "POST", body: ["text": (b["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? String(localized: "Neue Aufgabe")])
             await store.loadToday()
         default: break
         }
@@ -971,7 +970,7 @@ struct EmbedCard: View {
                     Image(systemName: isYouTube ? "play.rectangle.fill" : url.contains("goodnotes") ? "book.closed" : "link")
                         .font(.title2).foregroundStyle(isYouTube ? .red : .secondary).frame(width: 30)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(title.isEmpty ? (isYouTube ? "YouTube-Video" : (u.host ?? url).replacingOccurrences(of: "www.", with: "") + (u.path.count > 1 ? u.path : "")) : title)
+                        Text(title.isEmpty ? (isYouTube ? String(localized: "YouTube-Video") : (u.host ?? url).replacingOccurrences(of: "www.", with: "") + (u.path.count > 1 ? u.path : "")) : title)
                             .font(.subheadline.weight(.semibold)).lineLimit(1)
                         Text((u.host ?? "").replacingOccurrences(of: "www.", with: "")).font(.caption).foregroundStyle(.secondary)
                     }

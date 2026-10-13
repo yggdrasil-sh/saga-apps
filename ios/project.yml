@@ -1,6 +1,7 @@
 name: Hlidskjalf
 options:
-  developmentLanguage: de          # Siri-Saetze sind deutsch - sonst findet eine deutsche Siri die Kurzbefehle nicht
+  developmentLanguage: en          # Rueckfall fuer unbekannte Systemsprachen; Texte: Shared/Localizable.xcstrings (de, en, es)
+                                   # Siri-Saetze: App/AppShortcuts.xcstrings, Info.plist-Texte: App/InfoPlist.xcstrings
   deploymentTarget:
     iOS: "26.0"
     macOS: "26.0"
@@ -16,6 +17,8 @@ settings:
     CURRENT_PROJECT_VERSION: "1"
     SWIFT_VERSION: "5.0"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
+    SWIFT_EMIT_LOC_STRINGS: YES                    # Texte aus dem Code fuer die String Catalogs (Xcode gleicht beim Bauen ab)
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
 targets:
   Hlidskjalf:
     type: application
@@ -36,8 +39,8 @@ targets:
         ITSAppUsesNonExemptEncryption: false                 # nur HTTPS/System-Krypto -> keine Exportfrage bei jedem TestFlight-Build
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight, UIInterfaceOrientationPortraitUpsideDown]
-        NSCameraUsageDescription: Fotos für Notizen aufnehmen und QR-Codes zum Anmelden scannen
-        NSPhotoLibraryAddUsageDescription: Bilder aus Notizen sichern
+        NSCameraUsageDescription: Take photos for notes and scan QR codes to sign in      # uebersetzt: App/InfoPlist.xcstrings
+        NSPhotoLibraryAddUsageDescription: Save images from notes
         CFBundleURLTypes:
           - CFBundleURLName: $(SAGA_BUNDLE_ID)
             CFBundleURLSchemes: [hlidskjalf, saga]
@@ -58,7 +61,7 @@ targets:
   HlidskjalfWidget:
     type: app-extension
     supportedDestinations: [iOS, macOS]
-    sources: [Widget, Shared/AppConfig.swift, Shared/API.swift, Shared/ColorHex.swift, Shared/DBQuery.swift]
+    sources: [Widget, Shared/AppConfig.swift, Shared/API.swift, Shared/ColorHex.swift, Shared/DBQuery.swift, Shared/Localizable.xcstrings]
     info:
       path: Widget/Info.plist
       properties:
@@ -80,7 +83,7 @@ targets:
   HlidskjalfShare:
     type: app-extension
     platform: iOS
-    sources: [Share, Shared/AppConfig.swift, Shared/API.swift, Shared/ShareView.swift]
+    sources: [Share, Shared/AppConfig.swift, Shared/API.swift, Shared/ShareView.swift, Shared/Localizable.xcstrings]
     info:
       path: Share/Info.plist
       properties:
@@ -105,7 +108,7 @@ targets:
   HlidskjalfShareMac:
     type: app-extension
     platform: macOS
-    sources: [ShareMac, Shared/AppConfig.swift, Shared/API.swift, Shared/ShareView.swift]
+    sources: [ShareMac, Shared/AppConfig.swift, Shared/API.swift, Shared/ShareView.swift, Shared/Localizable.xcstrings]
     info:
       path: ShareMac/Info.plist
       properties:

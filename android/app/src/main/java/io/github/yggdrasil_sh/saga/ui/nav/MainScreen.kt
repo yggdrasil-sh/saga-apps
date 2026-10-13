@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.nav
 
+import androidx.compose.ui.res.stringResource
+import androidx.annotation.StringRes
+import io.github.yggdrasil_sh.saga.R
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -77,14 +80,14 @@ fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
     }
 }
 
-private data class MainItem(val dest: Dest, val label: String, val icon: ImageVector)
+private data class MainItem(val dest: Dest, @StringRes val label: Int, val icon: ImageVector)
 
 private val mainItems = listOf(
-    MainItem(Dest.Today, "Heute", Icons.Filled.Home),
-    MainItem(Dest.Tasks, "Aufgaben", Icons.Filled.CheckCircle),
-    MainItem(Dest.Events, "Termine", Icons.Filled.DateRange),
-    MainItem(Dest.Services, "Dienste", Icons.Filled.Build),
-    MainItem(Dest.Search, "Suche", Icons.Filled.Search),
+    MainItem(Dest.Today, R.string.nav_today, Icons.Filled.Home),
+    MainItem(Dest.Tasks, R.string.nav_tasks, Icons.Filled.CheckCircle),
+    MainItem(Dest.Events, R.string.nav_events, Icons.Filled.DateRange),
+    MainItem(Dest.Services, R.string.nav_services, Icons.Filled.Build),
+    MainItem(Dest.Search, R.string.nav_search, Icons.Filled.Search),
 )
 
 /** Adaptiv: Handy = Seitenleiste als Schublade; Tablet hochkant = Navigation Rail + Schublade; breit = feste Seitenleiste */
@@ -127,18 +130,18 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
                 if (medium) {
                     Row(Modifier.fillMaxSize()) {
                         NavigationRail(Modifier.statusBarsPadding(), header = {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Filled.Menu, "Seiten") }
+                            IconButton(onClick = { scope.launch { drawerState.open() } }) { Icon(Icons.Filled.Menu, stringResource(R.string.pages)) }
                         }) {
                             mainItems.forEach { it ->
                                 NavigationRailItem(
                                     selected = nav.root == it.dest, onClick = { nav.top(it.dest) },
-                                    icon = { Icon(it.icon, null) }, label = { Text(it.label) },
+                                    icon = { Icon(it.icon, null) }, label = { Text(stringResource(it.label)) },
                                 )
                             }
                             Spacer(Modifier.weight(1f))
                             NavigationRailItem(
                                 selected = nav.root == Dest.Settings, onClick = { nav.top(Dest.Settings) },
-                                icon = { Icon(Icons.Filled.Settings, null) }, label = { Text("Einstellungen") },
+                                icon = { Icon(Icons.Filled.Settings, null) }, label = { Text(stringResource(R.string.nav_settings)) },
                                 modifier = Modifier.padding(bottom = 12.dp),
                             )
                         }
@@ -158,7 +161,7 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
     Column(Modifier.fillMaxSize()) {
         if (minApp != null && repo.appTooOld) {                 // Server ist neuer, als diese App kann
             Text(
-                "Diese App ist zu alt für den Server (ab $minApp) – bitte aktualisieren.",
+                stringResource(R.string.app_too_old_banner, minApp ?: ""),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onTertiaryContainer,
                 modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.tertiaryContainer)

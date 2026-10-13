@@ -39,9 +39,9 @@
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Fotos für Notizen aufnehmen und QR-Codes zum Anmelden scannen</string>
+	<string>Take photos for notes and scan QR codes to sign in</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Bilder aus Notizen sichern</string>
+	<string>Save images from notes</string>
 	<key>SagaAppGroup</key>
 	<string>$(SAGA_APP_GROUP)</string>
 	<key>SagaDefaultServer</key>

@@ -117,9 +117,9 @@ struct TrashSheet: View {
                     HStack {
                         PageIcon(icon: it["icon"] as? String, store: store)
                         VStack(alignment: .leading) {
-                            Text((it["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? "Unbenannt")
+                            Text((it["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? String(localized: "Unbenannt"))
                             let sub = it["subpages"] as? Int ?? 0
-                            Text((sub > 0 ? "mit \(sub) Unterseite\(sub == 1 ? "" : "n") · " : "") + "wird gelöscht am " + day(it["purge_at"]))
+                            Text((sub > 0 ? String(localized: "mit \(sub) Unterseiten") + " · " : "") + String(localized: "wird gelöscht am \(day(it["purge_at"]))"))
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()

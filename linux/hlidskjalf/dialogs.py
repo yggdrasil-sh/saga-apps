@@ -4,6 +4,7 @@ from gi.repository import Adw, Gdk, GLib, Gtk, Pango
 from . import images
 from .api import client
 from .blocks import flat_button
+from .i18n import _, ngettext
 from .store import is_db, label, store
 from .util import bg, date_short, date_time_text, norm
 
@@ -38,7 +39,7 @@ class CommandPalette(Adw.Dialog):
         self.sel = 0
         self.hits = []
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.entry = Gtk.SearchEntry(placeholder_text="Seite suchen … (> für Befehle)", margin_top=12, margin_bottom=8, margin_start=12, margin_end=12)
+        self.entry = Gtk.SearchEntry(placeholder_text=_("Search pages … (> for commands)"), margin_top=12, margin_bottom=8, margin_start=12, margin_end=12)
         self.entry.connect("search-changed", self._changed)
         self.entry.connect("activate", lambda *_: self._pick(self.sel))
         kc = Gtk.EventControllerKey()
@@ -108,13 +109,13 @@ class CommandPalette(Adw.Dialog):
             if kind == "p":
                 w = _row(_page_icon(x), label(x), store.path_text(x["id"]) or None)
             else:
-                suf = Gtk.Label(label="Befehl")
+                suf = Gtk.Label(label=_("Command"))
                 suf.add_css_class("dim-label")
                 suf.add_css_class("caption")
                 w = _row(Gtk.Image.new_from_icon_name(x[0]), x[1], None, suf)
             self.list.append(w)
         if not hits:
-            lb = Gtk.Label(label="Nichts gefunden", margin_top=12)
+            lb = Gtk.Label(label=_("Nothing found"), margin_top=12)
             lb.add_css_class("dim-label")
             self.list.append(lb)
         self._select(self.sel)
@@ -132,11 +133,11 @@ class CommandPalette(Adw.Dialog):
 
 class TrashDialog(Adw.Dialog):
     def __init__(self, win):
-        super().__init__(title="Papierkorb", content_width=560, content_height=460)
+        super().__init__(title=_("Trash"), content_width=560, content_height=460)
         self.win = win
         tv = Adw.ToolbarView()
         hb = Adw.HeaderBar()
-        self.empty_btn = Gtk.Button(label="Papierkorb leeren")
+        self.empty_btn = Gtk.Button(label=_("Empty trash"))
         self.empty_btn.add_css_class("destructive-action")
         self.empty_btn.connect("clicked", lambda *_: self._confirm_empty())
         hb.pack_start(self.empty_btn)
@@ -156,26 +157,27 @@ class TrashDialog(Adw.Dialog):
             self.box.remove(c)
         self.empty_btn.set_sensitive(bool(items))
         if not items:
-            lb = Gtk.Label(label="Der Papierkorb ist leer.", margin_top=20)
+            lb = Gtk.Label(label=_("The trash is empty."), margin_top=20)
             lb.add_css_class("dim-label")
             self.box.append(lb)
         for it in items or []:
             sub = it.get("subpages") or 0
-            txt = (f"mit {sub} Unterseite{'' if sub == 1 else 'n'} · " if sub else "") + "wird gelöscht am " + date_short(it.get("purge_at"))
+            txt = ((ngettext("with {n} subpage", "with {n} subpages", sub).format(n=sub) + " · ") if sub else "") + \
+                _("will be deleted on {date}").format(date=date_short(it.get("purge_at")))
             suf = Gtk.Box(spacing=6)
-            rb = Gtk.Button(label="Zurückholen")
+            rb = Gtk.Button(label=_("Restore"))
             rb.connect("clicked", lambda *_, i=it["id"]: store.run("POST", f"api/trash/{i}/restore", {}, done=lambda _: (self.load(), store.refresh())))
             suf.append(rb)
-            db = Gtk.Button(label="Endgültig löschen")
+            db = Gtk.Button(label=_("Delete permanently"))
             db.add_css_class("destructive-action")
             db.connect("clicked", lambda *_, i=it["id"]: store.run("DELETE", f"api/trash/{i}", done=lambda _: self.load()))
             suf.append(db)
-            self.box.append(_row(images.page_icon(it.get("icon")), it.get("title") or "Unbenannt", txt, suf))
+            self.box.append(_row(images.page_icon(it.get("icon")), it.get("title") or _("Untitled"), txt, suf))
 
     def _confirm_empty(self):
-        d = Adw.AlertDialog(heading="Papierkorb leeren?", body="Alle Seiten im Papierkorb werden endgültig gelöscht.")
-        d.add_response("cancel", "Abbrechen")
-        d.add_response("ok", "Endgültig löschen")
+        d = Adw.AlertDialog(heading=_("Empty trash?"), body=_("All pages in the trash will be deleted permanently."))
+        d.add_response("cancel", _("Cancel"))
+        d.add_response("ok", _("Delete permanently"))
         d.set_response_appearance("ok", Adw.ResponseAppearance.DESTRUCTIVE)
         d.connect("response", lambda dd, r: r == "ok" and store.run("POST", "api/trash/empty", {}, done=lambda _: self.load()))
         d.present(self.win)
@@ -190,7 +192,7 @@ class PagePicker(Adw.Dialog):
         tv = Adw.ToolbarView()
         tv.add_top_bar(Adw.HeaderBar())
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=8, margin_start=10, margin_end=10, margin_bottom=8)
-        self.entry = Gtk.SearchEntry(placeholder_text="Seite suchen")
+        self.entry = Gtk.SearchEntry(placeholder_text=_("Find page"))
         self.entry.connect("search-changed", lambda *_: self.fill())
         box.append(self.entry)
         sw = Gtk.ScrolledWindow(vexpand=True)
@@ -239,17 +241,17 @@ def move_dialog(win, pid):
 
     def go(parent, dlg):
         store.move(pid, parent, done=dlg.close, error=lambda e: dlg.err.set_label(str(e)))
-    PagePicker(win, "Verschieben nach", targets, go, top_level="Oberste Ebene" if cur is not None else None).present(win)
+    PagePicker(win, _("Move to"), targets, go, top_level=_("Top level") if cur is not None else None).present(win)
 
 
 class VersionsDialog(Adw.Dialog):
     def __init__(self, win, pid, restored):
-        super().__init__(title="Versionsverlauf", content_width=760, content_height=500)
+        super().__init__(title=_("Version history"), content_width=760, content_height=500)
         self.pid, self.restored = pid, restored
         self.sel = None
         tv = Adw.ToolbarView()
         hb = Adw.HeaderBar()
-        self.restore_btn = Gtk.Button(label="Diese Version wiederherstellen", sensitive=False)
+        self.restore_btn = Gtk.Button(label=_("Restore this version"), sensitive=False)
         self.restore_btn.add_css_class("suggested-action")
         self.restore_btn.connect("clicked", lambda *_: self._restore())
         hb.pack_end(self.restore_btn)
@@ -268,7 +270,7 @@ class VersionsDialog(Adw.Dialog):
         tv.set_content(pane)
         self.set_child(tv)
         self.versions = []
-        self._msg("Version auswählen, um sie anzusehen.")
+        self._msg(_("Select a version to view it."))
         bg(client.get, f"api/notes/{pid}/versions", done=self._fill, error=lambda e: self._msg(str(e)))
 
     def _msg(self, t):
@@ -281,9 +283,9 @@ class VersionsDialog(Adw.Dialog):
     def _fill(self, vs):
         self.versions = vs or []
         if not self.versions:
-            self._msg("Noch keine früheren Versionen. Beim Bearbeiten wird höchstens alle 10 Minuten ein Stand gesichert (bis zu 50 pro Seite).")
+            self._msg(_("No earlier versions yet. While you edit, a version is saved at most every 10 minutes (up to 50 per page)."))
         for v in self.versions:
-            self.list.append(_row(Gtk.Image.new_from_icon_name("document-open-recent-symbolic"), date_time_text(v.get("created")), v.get("title") or "Unbenannt"))
+            self.list.append(_row(Gtk.Image.new_from_icon_name("document-open-recent-symbolic"), date_time_text(v.get("created")), v.get("title") or _("Untitled")))
 
     def _selected(self, lb, row):
         if row is None:
@@ -295,10 +297,10 @@ class VersionsDialog(Adw.Dialog):
         def show(p):
             while (c := self.prev.get_first_child()):
                 self.prev.remove(c)
-            h = Gtk.Label(label=p.get("title") or "Unbenannt", xalign=0, wrap=True)
+            h = Gtk.Label(label=p.get("title") or _("Untitled"), xalign=0, wrap=True)
             h.add_css_class("title-3")
             self.prev.append(h)
-            t = Gtk.Label(label=p.get("text") or "(leer)", xalign=0, wrap=True, selectable=True)
+            t = Gtk.Label(label=p.get("text") or _("(empty)"), xalign=0, wrap=True, selectable=True)
             self.prev.append(t)
         bg(client.get, f"api/notes/{self.pid}/versions/{v['id']}", done=show, error=lambda e: self._msg(str(e)))
 
@@ -326,7 +328,7 @@ class ImmichPicker(Adw.Dialog):
         self.busy = False
         tv = Adw.ToolbarView()
         hb = Adw.HeaderBar()
-        self.back = flat_button(icon="go-previous-symbolic", label="Alben", cb=self._back)
+        self.back = flat_button(icon="go-previous-symbolic", label=_("Albums"), cb=self._back)
         self.back.set_visible(False)
         hb.pack_start(self.back)
         tv.add_top_bar(hb)
@@ -335,7 +337,7 @@ class ImmichPicker(Adw.Dialog):
         self.set_child(tv)
         self.info = Gtk.Label(xalign=0, wrap=True)
         self.info.add_css_class("dim-label")
-        bg(client.get, "api/settings/immich", done=self._status, error=lambda e: self._message("Nicht erreichbar: " + str(e)))
+        bg(client.get, "api/settings/immich", done=self._status, error=lambda e: self._message(_("Not reachable: {error}").format(error=e)))
 
     def _clear(self):
         while (c := self.stack.get_first_child()):
@@ -349,7 +351,7 @@ class ImmichPicker(Adw.Dialog):
 
     def _status(self, j):
         if j.get("available") is False:
-            self._message("Immich ist auf diesem Server nicht eingerichtet.")
+            self._message(_("Immich is not set up on this server."))
         elif not j.get("connected"):
             self._connect_form(j.get("suggest") or "")
         else:
@@ -357,21 +359,21 @@ class ImmichPicker(Adw.Dialog):
 
     def _connect_form(self, suggest):
         self._clear()
-        t = Gtk.Label(label="Adresse deines Immich und einen API-Schlüssel eintragen. In Immich unter Kontoeinstellungen → API-Schlüssel einen neuen "
-                            "Schlüssel anlegen (Rechte: album.read, asset.read, asset.view, asset.download, user.read).", wrap=True, xalign=0)
+        t = Gtk.Label(label=_("Enter the address of your Immich and an API key. In Immich, create a new key under Account Settings → API Keys "
+                              "(permissions: album.read, asset.read, asset.view, asset.download, user.read)."), wrap=True, xalign=0)
         t.add_css_class("dim-label")
         self.stack.append(t)
-        url = Gtk.Entry(text=suggest, placeholder_text="Immich-Adresse (https://…)")
-        key = Gtk.PasswordEntry(placeholder_text="API-Schlüssel", show_peek_icon=True)
+        url = Gtk.Entry(text=suggest, placeholder_text=_("Immich address (https://…)"))
+        key = Gtk.PasswordEntry(placeholder_text=_("API key"), show_peek_icon=True)
         self.stack.append(url)
         self.stack.append(key)
-        b = Gtk.Button(label="Verbinden", halign=Gtk.Align.START)
+        b = Gtk.Button(label=_("Connect"), halign=Gtk.Align.START)
         b.add_css_class("suggested-action")
         msg = Gtk.Label(xalign=0, wrap=True)
         msg.add_css_class("error")
 
-        def go(*_):
-            msg.set_label("Prüfe …")
+        def go(*a):
+            msg.set_label(_("Checking …"))
             store.run("POST", "api/settings/immich", {"url": url.get_text().strip(), "apikey": key.get_text().strip()},
                       done=lambda _: bg(client.get, "api/settings/immich", done=self._status), error=lambda e: msg.set_label(str(e)))
         b.connect("clicked", go)
@@ -383,13 +385,13 @@ class ImmichPicker(Adw.Dialog):
         if self.album is None:
             sw = Gtk.StackSwitcher()
             self.tabs = Gtk.Stack()
-            self.tabs.add_titled(Gtk.Box(), "recent", "Zuletzt")
-            self.tabs.add_titled(Gtk.Box(), "albums", "Alben")
+            self.tabs.add_titled(Gtk.Box(), "recent", _("Recent"))
+            self.tabs.add_titled(Gtk.Box(), "albums", _("Albums"))
             sw.set_stack(self.tabs)
             sw.set_halign(Gtk.Align.CENTER)
             self.tabs.connect("notify::visible-child-name", lambda *_: self._tab())
             self.stack.append(sw)
-        self.search = Gtk.SearchEntry(placeholder_text="Suchen … (z. B. „Strand“, „Katze“)")
+        self.search = Gtk.SearchEntry(placeholder_text=_("Search … (e.g. “beach”, “cat”)"))
         self.search.connect("activate", lambda *_: self._load(True))
         self.stack.append(self.search)
         self.stack.append(self.info)
@@ -397,7 +399,7 @@ class ImmichPicker(Adw.Dialog):
         self.grid = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, row_spacing=4, column_spacing=4, homogeneous=True, max_children_per_line=10)
         col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         col.append(self.grid)
-        self.more = Gtk.Button(label="Mehr laden", halign=Gtk.Align.CENTER, margin_top=8, visible=False)
+        self.more = Gtk.Button(label=_("Load more"), halign=Gtk.Align.CENTER, margin_top=8, visible=False)
         self.more.connect("clicked", lambda *_: self._load(False))
         col.append(self.more)
         sw2.set_child(col)
@@ -420,14 +422,14 @@ class ImmichPicker(Adw.Dialog):
         self.tabs.set_visible_child_name("albums")
 
     def _albums(self):
-        self.info.set_label("Lade …")
+        self.info.set_label(_("Loading …"))
         self.more.set_visible(False)
 
         def fin(j):
             while (c := self.grid.get_first_child()):
                 self.grid.remove(c)
             al = j.get("albums") or []
-            self.info.set_label("" if al else "Keine Alben.")
+            self.info.set_label("" if al else _("No albums."))
             for a in al:
                 ov = Gtk.Overlay()
                 th = images.ImageView(f"/api/immich/thumb/{a['thumb']}" if a.get("thumb") else None, mode="cover", radius=8)
@@ -436,17 +438,17 @@ class ImmichPicker(Adw.Dialog):
                 cap = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.END)
                 cap.add_css_class("hk-album-cap")
                 cap.append(Gtk.Label(label=a.get("name") or "", xalign=0, ellipsize=Pango.EllipsizeMode.END, css_classes=["heading"]))
-                cap.append(Gtk.Label(label=f"{a.get('count') or 0} Fotos", xalign=0, css_classes=["caption"]))
+                cap.append(Gtk.Label(label=ngettext("{n} photo", "{n} photos", a.get("count") or 0).format(n=a.get("count") or 0), xalign=0, css_classes=["caption"]))
                 ov.add_overlay(cap)
                 b = Gtk.Button(child=ov)
                 b.add_css_class("flat")
                 b.connect("clicked", lambda *_, a=a: self._open_album(a))
                 self.grid.append(b)
-        bg(client.get, "api/immich/albums", done=fin, error=lambda e: self.info.set_label("Alben nicht lesbar"))
+        bg(client.get, "api/immich/albums", done=fin, error=lambda e: self.info.set_label(_("Could not read albums")))
 
     def _open_album(self, a):
         self.album = a
-        self.set_title(a.get("name") or "Album")
+        self.set_title(a.get("name") or _("Album"))
         self.back.set_visible(True)
         self._content()
 
@@ -461,7 +463,7 @@ class ImmichPicker(Adw.Dialog):
         q = self.search.get_text().strip()
         if q:
             b["q"] = q
-        self.info.set_label("Lade …")
+        self.info.set_label(_("Loading …"))
 
         def fin(j):
             items = j.get("items") or []
@@ -477,14 +479,14 @@ class ImmichPicker(Adw.Dialog):
                 self.grid.append(bt)
             self.next = j.get("next")
             self.more.set_visible(bool(self.next))
-            self.info.set_label("" if self.grid.get_first_child() else "Keine Fotos gefunden.")
-        bg(client.json, "POST", "api/immich/assets", b, done=fin, error=lambda e: self.info.set_label("Immich: Suche fehlgeschlagen"))
+            self.info.set_label("" if self.grid.get_first_child() else _("No photos found."))
+        bg(client.json, "POST", "api/immich/assets", b, done=fin, error=lambda e: self.info.set_label(_("Immich: search failed")))
 
     def _choose(self, it):
         if self.busy:
             return
         self.busy = True
-        self.info.set_label(f"Übernehme „{it.get('name') or ''}“ …")
+        self.info.set_label(_("Importing “{name}” …").format(name=it.get("name") or ""))
 
         def fin(r):
             self.close()
@@ -492,7 +494,7 @@ class ImmichPicker(Adw.Dialog):
 
         def err(e):
             self.busy = False
-            self.info.set_label("Nicht übernommen: " + str(e))
+            self.info.set_label(_("Not imported: {error}").format(error=e))
         bg(client.json, "POST", "api/immich/import", {"id": it["id"]}, done=fin, error=err)
 
 
@@ -500,15 +502,15 @@ class ButtonsConfig(Adw.Dialog):
     """Schaltflaechen-Block einrichten (wie ⚙ im Web)"""
 
     def __init__(self, data, changed):
-        super().__init__(title="Schaltflächen", content_width=460, content_height=560)
+        super().__init__(title=_("Buttons"), content_width=460, content_height=560)
         self.data, self.changed = data, changed
         self.buttons = [dict(b) for b in data.get("buttons") or []]
         tv = Adw.ToolbarView()
         hb = Adw.HeaderBar(show_end_title_buttons=False, show_start_title_buttons=False)
-        c = Gtk.Button(label="Abbrechen")
+        c = Gtk.Button(label=_("Cancel"))
         c.connect("clicked", lambda *_: self.close())
         hb.pack_start(c)
-        ok = Gtk.Button(label="Fertig")
+        ok = Gtk.Button(label=_("Done"))
         ok.add_css_class("suggested-action")
         ok.connect("clicked", lambda *_: self._done())
         hb.pack_end(ok)
@@ -526,42 +528,42 @@ class ButtonsConfig(Adw.Dialog):
         dbs = store.databases()
         tpls = store.templates()
         for i, b in enumerate(self.buttons):
-            g = Adw.PreferencesGroup(title=f"Schaltfläche {i + 1}")
-            lab = Adw.EntryRow(title="Beschriftung", text=b.get("label") or "")
+            g = Adw.PreferencesGroup(title=_("Button {n}").format(n=i + 1))
+            lab = Adw.EntryRow(title=_("Label"), text=b.get("label") or "")
             lab.connect("changed", lambda e, b=b: b.__setitem__("label", e.get_text()))
             g.add(lab)
-            ic = Adw.EntryRow(title="Symbol (Emoji)", text=b.get("icon") or "")
+            ic = Adw.EntryRow(title=_("Icon (emoji)"), text=b.get("icon") or "")
             ic.connect("changed", lambda e, b=b: b.__setitem__("icon", e.get_text()))
             g.add(ic)
-            acts = [("", "keine"), ("db", "Neuer Eintrag in Datenbank"), ("task", "Neue Aufgabe"), ("page", "Seite öffnen")]
-            g.add(self._combo("Aktion", acts, b.get("action") or "", lambda v, b=b: (b.__setitem__("action", v), self.fill())))
+            acts = [("", _("none")), ("db", _("New database entry")), ("task", _("New task")), ("page", _("Open page"))]
+            g.add(self._combo(_("Action"), acts, b.get("action") or "", lambda v, b=b: (b.__setitem__("action", v), self.fill())))
             if b.get("action") == "db":
-                g.add(self._combo("Datenbank", [(0, "– wählen –")] + [(d["id"], label(d)) for d in dbs], b.get("target") or 0,
+                g.add(self._combo(_("Database"), [(0, _("– choose –"))] + [(d["id"], label(d)) for d in dbs], b.get("target") or 0,
                                   lambda v, b=b: _seti(b, "target", v)))
-                g.add(self._combo("Vorlage", [(0, "keine (leere Seite)")] + [(t["id"], label(t)) for t in tpls], b.get("tpl") or 0,
+                g.add(self._combo(_("Template"), [(0, _("none (empty page)"))] + [(t["id"], label(t)) for t in tpls], b.get("tpl") or 0,
                                   lambda v, b=b: _seti(b, "tpl", v)))
-                tt = Adw.EntryRow(title="Titel ({datum} = heute)", text=b.get("title") or "")
+                tt = Adw.EntryRow(title=_("Title ({datum} = today)"), text=b.get("title") or "")
                 tt.connect("changed", lambda e, b=b: b.__setitem__("title", e.get_text()))
                 g.add(tt)
             if b.get("action") == "task":
-                tt = Adw.EntryRow(title="Text der Aufgabe", text=b.get("title") or "")
+                tt = Adw.EntryRow(title=_("Task text"), text=b.get("title") or "")
                 tt.connect("changed", lambda e, b=b: b.__setitem__("title", e.get_text()))
                 g.add(tt)
             if b.get("action") == "page":
-                g.add(self._combo("Seite", [(0, "– wählen –")] + [(p["id"], label(p)) for p in store.pages[:500]], b.get("target") or 0,
+                g.add(self._combo(_("Page"), [(0, _("– choose –"))] + [(p["id"], label(p)) for p in store.pages[:500]], b.get("target") or 0,
                                   lambda v, b=b: _seti(b, "target", v)))
             if b.get("action") in ("db", "page"):
-                g.add(self._combo("Öffnen als", [("", "Seite"), ("side", "Seitenansicht"), ("center", "Mitte")], b.get("open") or "",
+                g.add(self._combo(_("Open as"), [("", _("Page")), ("side", _("Side peek")), ("center", _("Center"))], b.get("open") or "",
                                   lambda v, b=b: b.__setitem__("open", v)))
-            rm = Gtk.Button(label="Schaltfläche entfernen", margin_top=6, halign=Gtk.Align.START)
+            rm = Gtk.Button(label=_("Remove button"), margin_top=6, halign=Gtk.Align.START)
             rm.add_css_class("destructive-action")
             rm.connect("clicked", lambda *_, i=i: (self.buttons.pop(i), self.fill()))
             g.add(rm)
             self.page.add(g)
             self.groups.append(g)
         g = Adw.PreferencesGroup()
-        add = Gtk.Button(label="Schaltfläche hinzufügen", halign=Gtk.Align.START)
-        add.connect("clicked", lambda *_: (self.buttons.append({"label": "Neu", "icon": "➕", "action": ""}), self.fill()))
+        add = Gtk.Button(label=_("Add button"), halign=Gtk.Align.START)
+        add.connect("clicked", lambda *a: (self.buttons.append({"label": _("New"), "icon": "➕", "action": ""}), self.fill()))
         g.add(add)
         self.page.add(g)
         self.groups.append(g)
@@ -615,10 +617,10 @@ def service_icon(icon, name, size=30):
 def services_screen(win):
     sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True)
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14, margin_top=18, margin_bottom=24, margin_start=24, margin_end=24)
-    h = Gtk.Label(label="Dienste", xalign=0)
+    h = Gtk.Label(label=_("Services"), xalign=0)
     h.add_css_class("title-1")
     box.append(h)
-    se = Gtk.SearchEntry(placeholder_text="Dienst suchen", halign=Gtk.Align.START, width_chars=30)
+    se = Gtk.SearchEntry(placeholder_text=_("Search services"), halign=Gtk.Align.START, width_chars=30)
     box.append(se)
     holder = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
     box.append(holder)

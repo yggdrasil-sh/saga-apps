@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.tasks
 
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import io.github.yggdrasil_sh.saga.R
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -47,14 +50,14 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val today = LocalDate.now().toString()
     val tomorrow = LocalDate.now().plusDays(1).toString()
     val groups = listOf(
-        "Überfällig" to tasks.filter { !it.due.isNullOrEmpty() && it.due < today },
-        "Heute" to tasks.filter { it.due == today },
-        "Morgen" to tasks.filter { it.due == tomorrow },
-        "Später" to tasks.filter { !it.due.isNullOrEmpty() && it.due > tomorrow },
-        "Ohne Datum" to tasks.filter { it.due.isNullOrEmpty() },
+        stringResource(R.string.tasks_overdue) to tasks.filter { !it.due.isNullOrEmpty() && it.due < today },
+        stringResource(R.string.tasks_today) to tasks.filter { it.due == today },
+        stringResource(R.string.tasks_tomorrow) to tasks.filter { it.due == tomorrow },
+        stringResource(R.string.tasks_later) to tasks.filter { !it.due.isNullOrEmpty() && it.due > tomorrow },
+        stringResource(R.string.no_date) to tasks.filter { it.due.isNullOrEmpty() },
     ).filter { it.second.isNotEmpty() }
 
-    Scaffold(topBar = { SagaTopBar("Aufgaben", nav, chrome) }) { pad ->
+    Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_tasks), nav, chrome) }) { pad ->
         PullToRefreshBox(
             isRefreshing = refreshing,
             onRefresh = { scope.launch { refreshing = true; repo.loadTasks(); refreshing = false } },
@@ -63,7 +66,7 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             LazyColumn(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
                 item { QuickAddTask(repo, Modifier.widthIn(max = 760.dp)) }
                 if (tasks.isEmpty()) {
-                    item { Text("Alles erledigt 🎉", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
+                    item { Text(stringResource(R.string.tasks_all_done), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
                 }
                 groups.forEach { (name, list) ->
                     item(key = "h-$name") {
@@ -76,7 +79,7 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 if (done.isNotEmpty()) {
                     item(key = "done-h") {
                         Text(
-                            (if (showDone) "▾ " else "▸ ") + "${done.size} erledigt",
+                            (if (showDone) "▾ " else "▸ ") + pluralStringResource(R.plurals.tasks_completed, done.size, done.size),
                             color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge,
                             modifier = Modifier.widthIn(max = 760.dp).fillMaxWidth().clickable { showDone = !showDone }.padding(16.dp),
                         )

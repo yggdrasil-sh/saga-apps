@@ -1,5 +1,9 @@
 package io.github.yggdrasil_sh.saga.ui.settings
 
+import androidx.compose.ui.res.stringResource
+import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.util.UiText
+import io.github.yggdrasil_sh.saga.util.resolve
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,7 +48,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val serverVersion by repo.serverVersion.collectAsState()
     val minApp by repo.minApp.collectAsState()
     var apps by remember { mutableStateOf<AppsResponse?>(null) }
-    var appsError by remember { mutableStateOf<String?>(null) }
+    var appsError by remember { mutableStateOf<UiText?>(null) }
     var drop by remember { mutableStateOf<DeviceInfo?>(null) }
     var confirmLogout by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -62,49 +66,53 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         loadApps()
     }
 
-    Scaffold(topBar = { SagaTopBar("Einstellungen", nav, chrome) }) { pad ->
+    Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_settings), nav, chrome) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
-            item { SectionHeader("Server", w) }
-            item { ListItem(headlineContent = { Text(server.ifEmpty { "–" }) }, supportingContent = { Text("Zum Wechseln abmelden und neu anmelden") }, modifier = w) }
+            item { SectionHeader(stringResource(R.string.settings_server), w) }
+            item { ListItem(headlineContent = { Text(server.ifEmpty { "–" }) }, supportingContent = { Text(stringResource(R.string.settings_server_change_hint)) }, modifier = w) }
 
-            item { SectionHeader("Über", w) }
-            item { ListItem(headlineContent = { Text("App") }, trailingContent = { Text("Saga ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") }, modifier = w) }
-            item { ListItem(headlineContent = { Text("Server") }, trailingContent = { Text(serverVersion?.let { "Saga $it" } ?: "–") }, modifier = w) }
+            item { SectionHeader(stringResource(R.string.settings_about), w) }
+            item { ListItem(headlineContent = { Text(stringResource(R.string.settings_app)) }, trailingContent = { Text("Saga ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") }, modifier = w) }
+            item { ListItem(headlineContent = { Text(stringResource(R.string.settings_server)) }, trailingContent = { Text(serverVersion?.let { "Saga $it" } ?: "–") }, modifier = w) }
             if (minApp != null && repo.appTooOld) {
                 item {
                     Text(
-                        "Diese App ist älter als der Server erwartet (ab $minApp). Bitte die App aktualisieren.",
+                        stringResource(R.string.settings_app_too_old, minApp ?: ""),
                         color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = w.padding(horizontal = 16.dp),
                     )
                 }
             }
 
-            item { SectionHeader("Apps & Geräte", w) }
+            item { SectionHeader(stringResource(R.string.settings_apps_devices), w) }
             item {
                 Text(
-                    "Angemeldete Apps bleiben angemeldet. Zu jeder gehört ein kleiner Schlüssel für Widget, Teilen und Kurzbefehle. " +
-                        "Verlorenes Gerät → abmelden, dann ist beides weg.",
+                    stringResource(R.string.settings_apps_explainer),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = w.padding(horizontal = 16.dp),
                 )
             }
-            appsError?.let { e -> item { Text(e, color = MaterialTheme.colorScheme.error, modifier = w.padding(16.dp)) } }
+            appsError?.let { e -> item { Text(e.resolve(), color = MaterialTheme.colorScheme.error, modifier = w.padding(16.dp)) } }
             apps?.let { a ->
-                if (a.devices.isEmpty()) item { Text("Keine App angemeldet.", modifier = w.padding(16.dp)) }
+                if (a.devices.isEmpty()) item { Text(stringResource(R.string.settings_no_apps), modifier = w.padding(16.dp)) }
                 items(a.devices, key = { "dev-${it.id}" }) { d ->
                     ListItem(
                         headlineContent = { Text(d.name) },
                         supportingContent = {
-                            Text("angemeldet ${epochDay(d.created)} · zuletzt ${epochDay(d.lastUsed)}" + if (d.key != null) " · mit Widget-Schlüssel" else "")
+                            Text(
+                                listOfNotNull(
+                                    stringResource(R.string.settings_device_info, epochDay(d.created), epochDay(d.lastUsed)),
+                                    if (d.key != null) stringResource(R.string.settings_device_with_key) else null,
+                                ).joinToString(" · ")
+                            )
                         },
-                        trailingContent = { TextButton(onClick = { drop = d }) { Text("Abmelden", color = MaterialTheme.colorScheme.error) } },
+                        trailingContent = { TextButton(onClick = { drop = d }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) } },
                         modifier = w,
                     )
                 }
                 if (a.keys.isNotEmpty()) {
                     item {
                         Text(
-                            "Weitere Schlüssel: ${a.keys.size} (verwalten im Web)", style = MaterialTheme.typography.bodySmall,
+                            stringResource(R.string.settings_more_keys, a.keys.size), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = w.padding(16.dp),
                         )
                     }
@@ -114,9 +122,9 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             item { HorizontalDivider(w.padding(vertical = 12.dp)) }
             item {
                 Column(w.padding(16.dp)) {
-                    OutlinedButton(onClick = { confirmLogout = true }) { Text("Abmelden", color = MaterialTheme.colorScheme.error) }
+                    OutlinedButton(onClick = { confirmLogout = true }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) }
                     Text(
-                        "Löscht die Anmeldung dieses Geräts am Server und die Daten in der App.",
+                        stringResource(R.string.settings_sign_out_explainer),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
                     )
                 }
@@ -127,8 +135,8 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     drop?.let { d ->
         AlertDialog(
             onDismissRequest = { drop = null },
-            title = { Text("„${d.name}“ abmelden?") },
-            text = { Text("Die App muss sich neu anmelden; Widget und Teilen verlieren den Zugang.") },
+            title = { Text(stringResource(R.string.settings_sign_out_device_title, d.name)) },
+            text = { Text(stringResource(R.string.settings_sign_out_device_text)) },
             confirmButton = {
                 TextButton(onClick = {
                     drop = null
@@ -140,19 +148,19 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                         }
                         loadApps()
                     }
-                }) { Text("Abmelden", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { drop = null }) { Text("Abbrechen") } },
+            dismissButton = { TextButton(onClick = { drop = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
     if (confirmLogout) {
         AlertDialog(
             onDismissRequest = { confirmLogout = false },
-            title = { Text("Auf diesem Gerät abmelden?") },
+            title = { Text(stringResource(R.string.settings_sign_out_this_device)) },
             confirmButton = {
-                TextButton(onClick = { confirmLogout = false; scope.launch { repo.logout() } }) { Text("Abmelden", color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = { confirmLogout = false; scope.launch { repo.logout() } }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text("Abbrechen") } },
+            dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }

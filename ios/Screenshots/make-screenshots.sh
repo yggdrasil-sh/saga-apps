@@ -6,6 +6,7 @@
 #   SAGA_PAIR_LINK='hlidskjalf://pair?u=...&c=...'   nur noetig, solange die App im Simulator nicht angemeldet ist
 #   SAGA_SHOT_PAGE / SAGA_SHOT_DB                      Seiten-IDs (Vorgabe 1 / 5)
 #   SAGA_SHOT_MODES                                    Vorgabe "light dark"
+#   SAGA_SHOT_LANG                                     Sprache de|en|es (Vorgabe de); en/es: Dateien mit Endung -en/-es
 #
 # Der Simulator muss gebootet sein (xcrun simctl boot <UDID>). Mit "build" wird vorher
 # gebaut (oeffentliche Konfiguration, ohne Signatur, eigenes Projekt aus screenshots.yml).
@@ -18,9 +19,16 @@ if [[ ${3:-} == build ]]; then
   xcodegen generate --spec screenshots.yml
   xcodebuild "${COMMON[@]}" build-for-testing
 fi
-# Deutsch, feste Uhrzeit, volle Batterie
-xcrun simctl spawn "$UDID" defaults write -g AppleLanguages '(de)'
-xcrun simctl spawn "$UDID" defaults write -g AppleLocale de_DE
+# Sprache, feste Uhrzeit, volle Batterie
+SHOT_LANG=${SAGA_SHOT_LANG:-de}
+case $SHOT_LANG in
+  de) SHOT_LOCALE=de_DE ;;
+  en) SHOT_LOCALE=en_US ;;
+  es) SHOT_LOCALE=es_ES ;;
+  *) echo "SAGA_SHOT_LANG muss de, en oder es sein" >&2; exit 1 ;;
+esac
+xcrun simctl spawn "$UDID" defaults write -g AppleLanguages "($SHOT_LANG)"
+xcrun simctl spawn "$UDID" defaults write -g AppleLocale "$SHOT_LOCALE"
 statusbar() { xcrun simctl status_bar "$UDID" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 }
 # Hell/dunkel: ohne Simulator.app wirkt der Wechsel erst nach einem Neustart des Simulators
 appearance() {
@@ -33,6 +41,7 @@ statusbar
 for MODE in ${=SAGA_SHOT_MODES:-light dark}; do
   appearance "$MODE"
   TEST_RUNNER_SAGA_SHOT_DIR="$OUT" TEST_RUNNER_SAGA_SHOT_MODE="$MODE" TEST_RUNNER_SAGA_PAIR_LINK="${SAGA_PAIR_LINK:-}" \
+  TEST_RUNNER_SAGA_SHOT_LANG="$SHOT_LANG" TEST_RUNNER_SAGA_SHOT_LOCALE="$SHOT_LOCALE" \
   TEST_RUNNER_SAGA_SHOT_PAGE="${SAGA_SHOT_PAGE:-}" TEST_RUNNER_SAGA_SHOT_DB="${SAGA_SHOT_DB:-}" \
     xcodebuild "${COMMON[@]}" test-without-building -only-testing:SagaScreenshots
 done

@@ -12,6 +12,7 @@ from gi.repository import Gdk, GLib, Graphene, Gsk, Gtk  # noqa: E402
 
 from . import config  # noqa: E402
 from .api import client  # noqa: E402
+from .i18n import _  # noqa: E402
 from .util import bg  # noqa: E402
 
 try:
@@ -71,7 +72,7 @@ def fetch_bytes(path):
 
 def _open(data):
     if Image is None:
-        raise RuntimeError("python3-pillow fehlt")
+        raise RuntimeError(_("python3-pillow is missing"))
     return Image.open(io.BytesIO(data))
 
 

@@ -63,11 +63,11 @@ struct TargetQuery: EntityStringQuery {
         let dbIDs = Set(pages.filter(\.isDatabase).map(\.id))
         var out: [TargetEntity] = []
         for p in pages where p.parent_id.map({ !dbIDs.contains($0) }) ?? true {
-            let name = p.title.isEmpty ? "Unbenannt" : p.title
+            let name = p.title.isEmpty ? String(localized: "Unbenannt") : p.title
             if p.isDatabase {
                 let views = p.views ?? []
                 if views.isEmpty { out.append(TargetEntity(id: "v:\(p.id):", name: name, icon: p.emoji ?? "🗂")) }
-                for v in views { out.append(TargetEntity(id: "v:\(p.id):\(v.id ?? "")", name: views.count > 1 ? "\(name) · \(v.name ?? "Ansicht")" : name, icon: p.emoji ?? "🗂")) }
+                for v in views { out.append(TargetEntity(id: "v:\(p.id):\(v.id ?? "")", name: views.count > 1 ? "\(name) · \(v.name ?? String(localized: "Ansicht"))" : name, icon: p.emoji ?? "🗂")) }
             } else {
                 out.append(TargetEntity(id: "p:\(p.id)", name: name, icon: p.emoji ?? "📄"))
             }

@@ -1,5 +1,9 @@
 package io.github.yggdrasil_sh.saga.ui.login
 
+import androidx.compose.ui.res.stringResource
+import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.util.UiText
+import io.github.yggdrasil_sh.saga.util.resolve
 import android.os.Handler
 import android.os.Looper
 import androidx.camera.core.CameraSelector
@@ -59,7 +63,7 @@ fun QrScannerDialog(onDismiss: () -> Unit, onResult: (String) -> Boolean) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         val context = LocalContext.current
         val lifecycleOwner = LocalLifecycleOwner.current
-        var hint by remember { mutableStateOf("QR-Code aus „Apps & Geräte“ in den Rahmen halten") }
+        var hint by remember { mutableStateOf<UiText>(UiText.Res(R.string.qr_frame_hint)) }
         val result by rememberUpdatedState(onResult)
         val executor = remember { Executors.newSingleThreadExecutor() }
         val done = remember { AtomicBoolean(false) }
@@ -89,7 +93,7 @@ fun QrScannerDialog(onDismiss: () -> Unit, onResult: (String) -> Boolean) {
                             analysis.setAnalyzer(executor, QrAnalyzer { text ->
                                 main.post {
                                     if (!done.get()) {
-                                        if (result(text)) done.set(true) else hint = "Das ist kein Saga-QR-Code."
+                                        if (result(text)) done.set(true) else hint = UiText.Res(R.string.qr_not_saga)
                                     }
                                 }
                             })
@@ -99,13 +103,13 @@ fun QrScannerDialog(onDismiss: () -> Unit, onResult: (String) -> Boolean) {
                                 else -> null
                             }
                             if (selector == null) {
-                                hint = "Keine Kamera gefunden."
+                                hint = UiText.Res(R.string.qr_no_camera)
                             } else {
                                 provider.unbindAll()
                                 provider.bindToLifecycle(lifecycleOwner, selector, preview, analysis)
                             }
                         } catch (e: Exception) {
-                            hint = "Kamera nicht verfügbar: ${e.message ?: e.javaClass.simpleName}"
+                            hint = UiText.Res(R.string.qr_camera_unavailable, e.message ?: e.javaClass.simpleName)
                         }
                     }, ContextCompat.getMainExecutor(ctx))
                     view
@@ -117,12 +121,12 @@ fun QrScannerDialog(onDismiss: () -> Unit, onResult: (String) -> Boolean) {
             )
             Column(Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(24.dp)) {
                 Text(
-                    hint, color = Color.White, textAlign = TextAlign.Center,
+                    hint.resolve(), color = Color.White, textAlign = TextAlign.Center,
                     modifier = Modifier.background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(10.dp)).padding(12.dp),
                 )
             }
             IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(8.dp)) {
-                Icon(Icons.Filled.Close, "Schließen", tint = Color.White)
+                Icon(Icons.Filled.Close, stringResource(R.string.action_close), tint = Color.White)
             }
         }
     }

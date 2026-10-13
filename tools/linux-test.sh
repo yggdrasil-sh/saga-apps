@@ -4,6 +4,8 @@
 #   tools/linux-test.sh linux/tests/smoke.py
 # Testrechner und Benutzer: Umgebung (HK_TEST_HOST, HK_TEST_USER) oder tools/local.env (nicht eingecheckt,
 # Vorlage: tools/local.env.example). Werte aus der Umgebung haben Vorrang.
+# Sprache: HK_LANG (Standard de_DE.UTF-8), z. B. HK_LANG=es_ES.UTF-8 sh tools/linux-test.sh linux/tests/sprachen.py
+# Die Uebersetzungen (linux/po) werden auf dem Testrechner mit msgfmt nach build/locale gebaut.
 set -e
 cd "$(dirname "$0")/.."
 H=${HK_TEST_HOST:-}
@@ -19,14 +21,15 @@ if [ -z "$H" ] || [ -z "$U" ]; then
   exit 2
 fi
 S=${1:?Testskript angeben, z. B. linux/tests/smoke.py}
-COPYFILE_DISABLE=1 tar --no-mac-metadata -C linux -czf /tmp/hk-linux.tgz hlidskjalf data
+COPYFILE_DISABLE=1 tar --no-mac-metadata -C linux -czf /tmp/hk-linux.tgz hlidskjalf data po
 scp -q -o BatchMode=yes /tmp/hk-linux.tgz "$S" "$H:/tmp/"
-ssh -o BatchMode=yes "$H" "U=$U; S=$(basename "$S")"'
+ssh -o BatchMode=yes "$H" "U=$U; S=$(basename "$S"); L=${HK_LANG:-de_DE.UTF-8}"'
 UID_=$(id -u $U)
 rm -rf /tmp/hk-linux /tmp/hk-shots && mkdir -p /tmp/hk-linux /tmp/hk-shots && tar -C /tmp/hk-linux -xzf /tmp/hk-linux.tgz 2>/dev/null
 cp /tmp/$S /tmp/hk-linux/test.py
+if command -v msgfmt >/dev/null; then (cd /tmp/hk-linux && sh po/build-mo.sh build/locale); else echo "msgfmt fehlt auf dem Testrechner - App laeuft englisch"; fi
 chown -R $U /tmp/hk-linux /tmp/hk-shots
-runuser -u $U -- env -i HOME=$(getent passwd $U | cut -d: -f6) USER=$U PATH=/usr/bin:/bin LANG=de_DE.UTF-8 \
+runuser -u $U -- env -i HOME=$(getent passwd $U | cut -d: -f6) USER=$U PATH=/usr/bin:/bin LANG=$L \
   XDG_RUNTIME_DIR=/run/user/$UID_ USERBUS=unix:path=/run/user/$UID_/bus \
   dbus-run-session -- sh -c "
     mutter --headless --no-x11 --virtual-monitor 1400x900 --wayland-display hk-test >/tmp/hk-shots/mutter.log 2>&1 &

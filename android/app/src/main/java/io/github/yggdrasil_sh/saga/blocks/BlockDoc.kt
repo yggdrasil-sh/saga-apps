@@ -27,9 +27,9 @@ object BlockDoc {
             val e = try {
                 Json.parseToJsonElement(body)
             } catch (ex: Exception) {
-                throw UnreadableException("Seiteninhalt nicht lesbar")
+                throw UnreadableException("page content unreadable")
             }
-            if (e !is JsonObject || e["blocks"] !is JsonArray) throw UnreadableException("Seiteninhalt nicht lesbar")
+            if (e !is JsonObject || e["blocks"] !is JsonArray) throw UnreadableException("page content unreadable")
             return Parsed(e, false)
         }
         val paras = (body ?: "").split("\n").filter { it.isNotBlank() }.map { newBlock("paragraph", InlineHtml.escape(it)) }
@@ -115,19 +115,5 @@ object BlockDoc {
         val text = mainText(block) ?: return null
         val t = if (toType == "code") InlineHtml.plain(text) else text
         return newBlock(toType, t, level, id)
-    }
-
-    /** Deutsche Namen fuer Bloecke, die (noch) nicht bearbeitet werden koennen */
-    fun typeLabel(type: String): String = when (type) {
-        "table" -> "Tabelle"
-        "attaches" -> "Datei-Anhang"
-        "database" -> "Datenbank-Ansicht"
-        "tasks" -> "Aufgaben-Block"
-        "calendar" -> "Kalender-Block"
-        "buttons" -> "Schaltflächen"
-        "embed" -> "Einbettung"
-        "columns" -> "Spalten"
-        "" -> "Unbekannter Block"
-        else -> "„$type“"
     }
 }

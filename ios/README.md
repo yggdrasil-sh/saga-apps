@@ -13,6 +13,7 @@ Native App (SwiftUI) für einen [Saga](https://github.com/yggdrasil-sh/saga)-Ser
 - **Kurzbefehle/Siri**: Aufgabe anlegen, Notiz ablegen, Seite öffnen, Aufgabe abhaken
 - Anmeldung mit Passkey, Face ID/Touch ID oder Passwort; die Sitzung erneuert sich über einen Geräte-Schlüssel
   im Schlüsselbund ohne erneutes Anmeldefenster
+- **Sprachen:** Deutsch, Englisch, Spanisch – die App folgt der Systemsprache, sonst Englisch
 
 ## Voraussetzungen
 - macOS mit **Xcode 26** (iOS/macOS 26 SDK) und [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
@@ -41,6 +42,14 @@ open Hlidskjalf.xcodeproj        # Gerät wählen → ▶︎
 xcodebuild -project Hlidskjalf.xcodeproj -scheme Hlidskjalf \
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
 ```
+
+## Sprachen
+Alle Texte stehen in String Catalogs (Quellsprache Englisch = Rückfall für andere Systemsprachen):
+`Shared/Localizable.xcstrings` (App, Widget, Teilen-Erweiterungen), `App/AppShortcuts.xcstrings` (Siri-Sätze),
+`App/InfoPlist.xcstrings` (Kamera/Fotos-Hinweise). Die Schlüssel sind die deutschen Texte aus dem Code; neue Texte
+in SwiftUI (`Text("…")`, `Button("…")` …) übernimmt Xcode beim Bauen automatisch in den Catalog, Texte in Variablen
+und Fehlermeldungen mit `String(localized: "…")` schreiben. Datum und Zahlen immer über `.formatted()`/Formatter
+der Systemsprache. `xcodebuild` kompiliert die Catalogs auch auf der Kommandozeile.
 
 ## Anmelden
 Beim ersten Start fragt die App nach dem Server (z. B. `https://saga.example.org`) und öffnet das
@@ -88,6 +97,9 @@ xcrun simctl boot <UDID>
 SAGA_PAIR_LINK='saga://pair?u=http://127.0.0.1:<port>&c=<code>' \
   Screenshots/make-screenshots.sh <UDID> ../docs/screenshots build
 ```
+
+Sprache wählen mit `SAGA_SHOT_LANG=de|en|es` (Vorgabe `de`); englische und spanische Bilder bekommen die
+Endung `-en`/`-es` (z. B. `ios-start-en.png`).
 
 Den Kopplungs-Link (`SAGA_PAIR_LINK`) nie einchecken – er gilt ohnehin nur zwei Minuten.
 

@@ -19,6 +19,8 @@ finish-args:
   # Datei-Anhaenge werden direkt in den Download-Ordner gespeichert und danach geoeffnet;
   # Bild waehlen, Anhaengen und Exportieren laufen ueber Gtk.FileDialog (Portal)
   - --filesystem=xdg-download
+# Uebersetzungen bleiben in der App (/app/share/locale): ein Locale-Erweiterungspaket fehlte sonst im Einzeldatei-Bundle
+separate-locales: false
 cleanup:
   - '*.pyi'
 modules:
@@ -44,6 +46,8 @@ modules:
       - install -d ${FLATPAK_DEST}/share/hlidskjalf/hlidskjalf
       - cp -a hlidskjalf/*.py hlidskjalf/style.css ${FLATPAK_DEST}/share/hlidskjalf/hlidskjalf/
       - python3 -m compileall -q -d /app/share/hlidskjalf/hlidskjalf ${FLATPAK_DEST}/share/hlidskjalf/hlidskjalf
+      # Uebersetzungen: po/*.po -> /app/share/locale/<sprache>/LC_MESSAGES/io.github.yggdrasil_sh.Saga.mo (msgfmt aus dem SDK)
+      - sh po/build-mo.sh ${FLATPAK_DEST}/share/locale
       - install -Dm755 flatpak/saga ${FLATPAK_DEST}/bin/saga
       # Befehl heisst im Flatpak "saga" (im RPM "hlidskjalf")
       - sed -e 's/^Exec=hlidskjalf/Exec=saga/' data/${FLATPAK_ID}.desktop > ${FLATPAK_ID}.desktop

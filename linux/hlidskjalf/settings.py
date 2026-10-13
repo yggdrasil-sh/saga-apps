@@ -3,6 +3,7 @@ from gi.repository import Adw, Gdk, GLib, Gtk
 
 from .api import client
 from .config import settings
+from .i18n import _, ngettext
 from .store import store
 from .util import bg, date_short, placeholder
 
@@ -24,40 +25,41 @@ def _btn(label, css=None, cb=None):
 
 class SettingsDialog(Adw.PreferencesDialog):
     def __init__(self, win):
-        super().__init__(title="Einstellungen", search_enabled=False)
+        super().__init__(title=_("Settings"), search_enabled=False)
         self.win = win
-        page = Adw.PreferencesPage(title="Allgemein", icon_name="emblem-system-symbolic")
-        g = Adw.PreferencesGroup(title="Server")
-        self.server = Adw.EntryRow(title="Adresse", text=settings.server, show_apply_button=True)
+        page = Adw.PreferencesPage(title=_("General"), icon_name="emblem-system-symbolic")
+        g = Adw.PreferencesGroup(title=_("Server"))
+        self.server = Adw.EntryRow(title=_("Address"), text=settings.server, show_apply_button=True)
         placeholder(self.server, "https://saga.example.org")
         self.server.connect("apply", self._apply_server)
         g.add(self.server)
         from . import VERSION
-        about = Adw.ActionRow(title="Version", subtitle=f"App: Saga {VERSION} · Server: " + (f"Saga {store.server_version}" if store.server_version else "–"))
+        srv = f"Saga {store.server_version}" if store.server_version else "–"
+        about = Adw.ActionRow(title=_("Version"), subtitle=_("App: Saga {version} · Server: {server}").format(version=VERSION, server=srv))
         if store.app_too_old:
-            about.set_subtitle(about.get_subtitle() + f" · App zu alt (ab {store.min_app}), bitte aktualisieren")
+            about.set_subtitle(about.get_subtitle() + " · " + _("app too old (version {version} or later needed), please update").format(version=store.min_app))
         g.add(about)
-        self.status = Adw.ActionRow(title="Verbindung testen")
-        self.status.add_suffix(_btn("Testen", cb=self._test))
+        self.status = Adw.ActionRow(title=_("Test connection"))
+        self.status.add_suffix(_btn(_("Test"), cb=self._test))
         g.add(self.status)
         page.add(g)
-        g2 = Adw.PreferencesGroup(title="Darstellung")
+        g2 = Adw.PreferencesGroup(title=_("Appearance"))
         ch = Adw.SpinRow.new_with_range(100, 600, 10)
-        ch.set_title("Höhe der Titelbilder")
-        ch.set_subtitle("Gilt für alle Seiten auf diesem Rechner. Auch per Ziehen am Bild änderbar.")
+        ch.set_title(_("Cover image height"))
+        ch.set_subtitle(_("Applies to all pages on this computer. You can also drag the image to change it."))
         ch.set_value(settings.get("cover_height", 200))
         ch.connect("notify::value", lambda r, _: settings.set("cover_height", int(r.get_value())))
         g2.add(ch)
         page.add(g2)
         g3 = Adw.PreferencesGroup()
-        out = Adw.ButtonRow(title="Abmelden") if hasattr(Adw, "ButtonRow") else Adw.ActionRow(title="Abmelden", activatable=True)
+        out = Adw.ButtonRow(title=_("Sign out")) if hasattr(Adw, "ButtonRow") else Adw.ActionRow(title=_("Sign out"), activatable=True)
         out.add_css_class("destructive-action")
         out.connect("activated", lambda *_: self._logout())
         g3.add(out)
-        g3.set_description("Löscht die Anmeldung und den Zwischenspeicher auf diesem Gerät.")
+        g3.set_description(_("Removes the sign-in and the cache on this device."))
         page.add(g3)
         self.add(page)
-        acc = Adw.PreferencesPage(title="Konto", icon_name="avatar-default-symbolic")
+        acc = Adw.PreferencesPage(title=_("Account"), icon_name="avatar-default-symbolic")
         acc.add(ImmichGroup(self))
         acc.add(CalendarGroup(self))
         acc.add(AppsGroup(self))
@@ -70,23 +72,25 @@ class SettingsDialog(Adw.PreferencesDialog):
                 client.clear_cookies()                    # Sitzung gehoert zum alten Server
                 store.server_version = store.min_app = None
             settings.server = u
-            self.add_toast(Adw.Toast(title="Server gespeichert – bitte neu anmelden, falls nötig"))
+            self.add_toast(Adw.Toast(title=_("Server saved – please sign in again if needed")))
             store.refresh()
         else:
-            self.add_toast(Adw.Toast(title="Bitte eine https-Adresse eingeben"))
+            self.add_toast(Adw.Toast(title=_("Please enter an https address")))
 
     def _test(self):
-        self.status.set_subtitle("Prüfe …")
+        self.status.set_subtitle(_("Checking …"))
 
         def fin(j):
             n = len(j.get("events") or []) if isinstance(j, dict) else 0
-            self.status.set_subtitle(f"✓ Verbunden – {len(store.pages)} Seiten, heute {n} Termine")
+            np = len(store.pages)
+            self.status.set_subtitle("✓ " + _("Connected – {pages}, {events} today").format(
+                pages=ngettext("{n} page", "{n} pages", np).format(n=np), events=ngettext("{n} event", "{n} events", n).format(n=n)))
         bg(client.get, store.ev_path(1), done=fin, error=lambda e: self.status.set_subtitle("✗ " + str(e)))
 
     def _logout(self):
-        d = Adw.AlertDialog(heading="Abmelden?", body="Die Anmeldung und der Zwischenspeicher auf diesem Gerät werden gelöscht.")
-        d.add_response("cancel", "Abbrechen")
-        d.add_response("ok", "Abmelden")
+        d = Adw.AlertDialog(heading=_("Sign out?"), body=_("The sign-in and the cache on this device will be removed."))
+        d.add_response("cancel", _("Cancel"))
+        d.add_response("ok", _("Sign out"))
         d.set_response_appearance("ok", Adw.ResponseAppearance.DESTRUCTIVE)
 
         def resp(dd, r):
@@ -111,22 +115,23 @@ class ImmichGroup(Adw.PreferencesGroup):
         _clear_group(self, self.rows)
         if info.get("connected"):
             host = (info.get("url") or "").replace("https://", "").replace("http://", "")
-            r = Adw.ActionRow(title="✅ Verbunden" + (f" als {info['name']}" if info.get("name") else ""), subtitle=host)
-            r.add_suffix(_btn("Trennen", "destructive-action", lambda: bg(client.request, "DELETE", "api/settings/immich", done=lambda _: self.load())))
+            who = _("Connected as {name}").format(name=GLib.markup_escape_text(info["name"])) if info.get("name") else _("Connected")
+            r = Adw.ActionRow(title="✅ " + who, subtitle=GLib.markup_escape_text(host))
+            r.add_suffix(_btn(_("Disconnect"), "destructive-action", lambda: bg(client.request, "DELETE", "api/settings/immich", done=lambda _: self.load())))
             self.add(r)
             self.rows.append(r)
             return
-        self.set_description("In Immich unter Kontoeinstellungen → API-Schlüssel einen Schlüssel mit album.read, asset.read, asset.view, "
-                             "asset.download und user.read anlegen und hier einfügen.")
-        url = Adw.EntryRow(title="Immich-Adresse", text=info.get("suggest") or "")
-        key = Adw.PasswordEntryRow(title="API-Schlüssel")
-        st = Adw.ActionRow(title="Verbinden")
+        self.set_description(_("In Immich, create a key with album.read, asset.read, asset.view, asset.download and user.read "
+                               "under Account Settings → API Keys and paste it here."))
+        url = Adw.EntryRow(title=_("Immich address"), text=info.get("suggest") or "")
+        key = Adw.PasswordEntryRow(title=_("API key"))
+        st = Adw.ActionRow(title=_("Connect"))
 
         def go():
-            st.set_subtitle("Prüfe …")
+            st.set_subtitle(_("Checking …"))
             bg(client.json, "POST", "api/settings/immich", {"url": url.get_text().strip(), "apikey": key.get_text().strip()},
                done=lambda _: self.load(), error=lambda e: st.set_subtitle(str(e)))
-        st.add_suffix(_btn("Verbinden", "suggested-action", go))
+        st.add_suffix(_btn(_("Connect"), "suggested-action", go))
         for r in (url, key, st):
             self.add(r)
             self.rows.append(r)
@@ -161,7 +166,7 @@ class CalEntries(Gtk.Box):
             en.connect("changed", lambda e, c=c: c.__setitem__("name", e.get_text().strip()))
             r.append(en)
             if c.get("writable") is False:
-                lb = Gtk.Label(label="nur lesen")
+                lb = Gtk.Label(label=_("read-only"))
                 lb.add_css_class("dim-label")
                 r.append(lb)
             self.append(r)
@@ -172,8 +177,8 @@ class CalEntries(Gtk.Box):
 
 class CalendarGroup(Adw.PreferencesGroup):
     def __init__(self, dlg):
-        super().__init__(title="📅 Kalender", description="Externe Kalender (CalDAV) wie mailcow oder Nextcloud verbinden. "
-                                                         "Tipp: In mailcow ein eigenes App-Passwort nur für „DAV“ anlegen.")
+        super().__init__(title="📅 " + _("Calendar"), description=_("Connect external calendars (CalDAV) such as mailcow or Nextcloud. "
+                                                                     "Tip: in mailcow, create a separate app password just for “DAV”."))
         self.dlg = dlg
         self.rows = []
         self.allowed = []
@@ -187,12 +192,12 @@ class CalendarGroup(Adw.PreferencesGroup):
         self.allowed = j.get("allowed") or []
         accs = j.get("accounts") or []
         if not accs:
-            r = Adw.ActionRow(title="Noch kein Kalender verbunden.")
+            r = Adw.ActionRow(title=_("No calendar connected yet."))
             self._add(r)
         for a in accs:
             self._add(self._account(a))
-        add = Adw.ActionRow(title="Kalender verbinden")
-        add.add_suffix(_btn("+ Verbinden", cb=lambda: self._new()))
+        add = Adw.ActionRow(title=_("Connect calendar"))
+        add.add_suffix(_btn("+ " + _("Connect"), cb=lambda: self._new()))
         self._add(add)
 
     def _add(self, w):
@@ -202,7 +207,8 @@ class CalendarGroup(Adw.PreferencesGroup):
     def _account(self, a):
         aid = a.get("id")
         host = GLib.Uri.parse(a.get("base_url") or "https://x", GLib.UriFlags.NONE).get_host() if a.get("base_url") else ""
-        ex = Adw.ExpanderRow(title=a.get("label") or a.get("username") or "Kalender", subtitle=f"{a.get('username') or ''} · {host} · Passwort gespeichert ✓")
+        ex = Adw.ExpanderRow(title=GLib.markup_escape_text(a.get("label") or a.get("username") or _("Calendar")),
+                             subtitle=GLib.markup_escape_text(f"{a.get('username') or ''} · {host} · ") + _("password saved") + " ✓")
         ce = CalEntries(a.get("calendars") or [])
         holder = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_top=8, margin_bottom=8, margin_start=12, margin_end=12)
         holder.append(ce)
@@ -213,7 +219,7 @@ class CalendarGroup(Adw.PreferencesGroup):
         def run(method, path, body, msg):
             st.set_label("…")
             bg(client.json, method, path, body, done=lambda _: (st.set_label(msg), store.emit("events-changed")), error=lambda e: st.set_label(str(e)))
-        bar.append(_btn("Auswahl speichern", cb=lambda: run("PATCH", f"api/settings/calendars/{aid}", {"calendars": ce.dicts()}, "✓ Gespeichert")))
+        bar.append(_btn(_("Save selection"), cb=lambda: run("PATCH", f"api/settings/calendars/{aid}", {"calendars": ce.dicts()}, "✓ " + _("Saved"))))
 
         def reread():
             st.set_label("…")
@@ -224,15 +230,17 @@ class CalendarGroup(Adw.PreferencesGroup):
                 merged = [by.get(f["href"]) or dict(f, show=False) for f in found]
                 a["calendars"] = merged
                 self.fill_again()
-                st.set_label(f"{len(found)} Kalender – Auswahl speichern nicht vergessen.")
+                st.set_label(ngettext("{n} calendar – remember to save the selection.", "{n} calendars – remember to save the selection.",
+                                      len(found)).format(n=len(found)))
             bg(client.json, "POST", "api/settings/calendars/test", {"id": aid}, done=fin, error=lambda e: st.set_label(str(e)))
-        bar.append(_btn("Neu einlesen", cb=reread))
-        pw = Gtk.PasswordEntry(placeholder_text="Neues App-Passwort", show_peek_icon=True, hexpand=True)
-        bar.append(_btn("Entfernen", "destructive-action", lambda: self._remove(aid)))
+        bar.append(_btn(_("Rescan"), cb=reread))
+        pw = Gtk.PasswordEntry(placeholder_text=_("New app password"), show_peek_icon=True, hexpand=True)
+        bar.append(_btn(_("Remove"), "destructive-action", lambda: self._remove(aid)))
         holder.append(bar)
         pr = Gtk.Box(spacing=6)
         pr.append(pw)
-        pr.append(_btn("Passwort prüfen & speichern", cb=lambda: run("PATCH", f"api/settings/calendars/{aid}", {"password": pw.get_text()}, "✓ Neues Passwort gespeichert")))
+        pr.append(_btn(_("Check & save password"), cb=lambda: run("PATCH", f"api/settings/calendars/{aid}", {"password": pw.get_text()},
+                                                                    "✓ " + _("New password saved"))))
         holder.append(pr)
         holder.append(st)
         ex.add_row(holder)
@@ -242,9 +250,9 @@ class CalendarGroup(Adw.PreferencesGroup):
         self.load()
 
     def _remove(self, aid):
-        d = Adw.AlertDialog(heading="Kalender-Zugang entfernen?", body="Die Termine im Kalender selbst bleiben erhalten.")
-        d.add_response("cancel", "Abbrechen")
-        d.add_response("ok", "Entfernen")
+        d = Adw.AlertDialog(heading=_("Remove calendar account?"), body=_("The events in the calendar itself are kept."))
+        d.add_response("cancel", _("Cancel"))
+        d.add_response("ok", _("Remove"))
         d.set_response_appearance("ok", Adw.ResponseAppearance.DESTRUCTIVE)
         d.connect("response", lambda dd, r: r == "ok" and bg(client.request, "DELETE", f"api/settings/calendars/{aid}", done=lambda _: self.load()))
         d.present(self.dlg)
@@ -255,34 +263,34 @@ class CalendarGroup(Adw.PreferencesGroup):
 
 class NewCalendar(Adw.Dialog):
     def __init__(self, group):
-        super().__init__(title="Kalender verbinden", content_width=480, content_height=600)
+        super().__init__(title=_("Connect calendar"), content_width=480, content_height=600)
         self.group = group
         tv = Adw.ToolbarView()
         tv.add_top_bar(Adw.HeaderBar())
         page = Adw.PreferencesPage()
         g = Adw.PreferencesGroup()
-        kinds = [("mailcow", "mailcow (SOGo)"), ("nextcloud", "Nextcloud"), ("other", "Andere CalDAV-Adresse")]
-        self.kind = Adw.ComboRow(title="Anbieter", model=Gtk.StringList.new([k[1] for k in kinds]))
+        kinds = [("mailcow", "mailcow (SOGo)"), ("nextcloud", "Nextcloud"), ("other", _("Other CalDAV address"))]
+        self.kind = Adw.ComboRow(title=_("Provider"), model=Gtk.StringList.new([k[1] for k in kinds]))
         allowed = group.allowed
         mc = next((a for a in allowed if a.startswith("mail.")), "mail.example.org")   # Vorgabe aus den erlaubten Servern
-        self.url = Adw.EntryRow(title="CalDAV-Adresse", text=f"https://{mc}/SOGo/dav/")
+        self.url = Adw.EntryRow(title=_("CalDAV address"), text=f"https://{mc}/SOGo/dav/")
 
         def kind_changed(r, _):
             k = kinds[r.get_selected()][0]
             nc = next((a for a in allowed if not a.startswith("mail.")), "HOST")
             self.url.set_text(f"https://{mc}/SOGo/dav/" if k == "mailcow" else f"https://{nc}/remote.php/dav/" if k == "nextcloud" else "https://")
         self.kind.connect("notify::selected", kind_changed)
-        self.user = Adw.EntryRow(title="Benutzer (z. B. name@example.org)")
-        self.pw = Adw.PasswordEntryRow(title="App-Passwort")
-        self.label = Adw.EntryRow(title="Bezeichnung (optional, z. B. „Privat“)")
+        self.user = Adw.EntryRow(title=_("User (e.g. name@example.org)"))
+        self.pw = Adw.PasswordEntryRow(title=_("App password"))
+        self.label = Adw.EntryRow(title=_("Label (optional, e.g. “Personal”)"))
         for r in (self.kind, self.url, self.user, self.pw, self.label):
             g.add(r)
-        g.set_description("Erlaubte Server: " + (", ".join(allowed) if allowed else "–"))
+        g.set_description(_("Allowed servers: {list}").format(list=GLib.markup_escape_text(", ".join(allowed)) if allowed else "–"))
         page.add(g)
         g2 = Adw.PreferencesGroup()
         self.box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.msg = Gtk.Label(xalign=0, wrap=True)
-        tb = Gtk.Button(label="Verbindung testen", halign=Gtk.Align.START)
+        tb = Gtk.Button(label=_("Test connection"), halign=Gtk.Align.START)
         tb.connect("clicked", lambda *_: self._test())
         self.box.append(tb)
         self.box.append(self.msg)
@@ -295,16 +303,17 @@ class NewCalendar(Adw.Dialog):
         self.entries = None
 
     def _test(self):
-        self.msg.set_label("Verbinde …")
+        self.msg.set_label(_("Connecting …"))
 
         def fin(d):
             cals = d.get("calendars") or []
-            self.msg.set_label(f"✓ Verbunden – {len(cals)} Kalender gefunden. Auswählen und speichern:")
+            self.msg.set_label("✓ " + ngettext("Connected – {n} calendar found. Select and save:",
+                                                "Connected – {n} calendars found. Select and save:", len(cals)).format(n=len(cals)))
             while (c := self.cal_holder.get_first_child()):
                 self.cal_holder.remove(c)
             self.entries = CalEntries(cals)
             self.cal_holder.append(self.entries)
-            sv = Gtk.Button(label="Verbinden & speichern", halign=Gtk.Align.START)
+            sv = Gtk.Button(label=_("Connect & save"), halign=Gtk.Align.START)
             sv.add_css_class("suggested-action")
             sv.connect("clicked", lambda *_: self._save())
             self.cal_holder.append(sv)
@@ -327,9 +336,10 @@ class AppsGroup(Adw.PreferencesGroup):
     """Eine Liste: angemeldete Geraete (mit ihrem Widget-/Teilen-Schluessel); von Hand erzeugte Schluessel eingeklappt."""
 
     def __init__(self, dlg):
-        super().__init__(title="📱 Apps &amp; Geräte",
-                         description="Angemeldete Apps bleiben angemeldet. Zu jeder gehört ein kleiner Schlüssel für Widget, Teilen und "
-                                     "Kurzbefehle. Verlorenes Gerät → abmelden, dann ist beides weg.")
+        # Translators: the title is markup - write "&" as "&amp;"
+        super().__init__(title="📱 " + _("Apps &amp; devices"),
+                         description=_("Signed-in apps stay signed in. Each one has a small key for widgets, sharing and "
+                                       "shortcuts. Lost a device? Sign it out and both are gone."))
         self.dlg = dlg
         self.rows = []
         self.fresh = None
@@ -343,25 +353,26 @@ class AppsGroup(Adw.PreferencesGroup):
         d = d or {}
         devs, keys = d.get("devices") or [], d.get("keys") or []
         if not devs:
-            self._add(Adw.ActionRow(title="Keine App angemeldet."))
+            self._add(Adw.ActionRow(title=_("No app signed in.")))
         for k in devs:
-            sub = f"angemeldet {date_short(k.get('created'))} · zuletzt {date_short(k.get('last_used'))}"
+            sub = _("signed in {date} · last used {last}").format(date=date_short(k.get("created")), last=date_short(k.get("last_used")))
             if k.get("key"):
-                sub += " · mit Widget-Schlüssel"
-            r = Adw.ActionRow(title=k.get("name") or "", subtitle=sub)
-            r.add_suffix(_btn("Abmelden", "destructive-action", lambda k=k: self._drop(k)))
+                sub += " · " + _("with widget key")
+            r = Adw.ActionRow(title=GLib.markup_escape_text(k.get("name") or ""), subtitle=sub)
+            r.add_suffix(_btn(_("Sign out"), "destructive-action", lambda k=k: self._drop(k)))
             self._add(r)
-        more = Adw.ExpanderRow(title="Weitere Schlüssel" + (f" ({len(keys)})" if keys else ""),
-                               subtitle="Von Hand erzeugt, z. B. für Kurzbefehle oder Skripte")
+        more = Adw.ExpanderRow(title=_("More keys") + (f" ({len(keys)})" if keys else ""),
+                               subtitle=_("Created manually, e.g. for shortcuts or scripts"))
         more.set_expanded(bool(self.fresh))
         if not keys:
-            more.add_row(Adw.ActionRow(title="Keine."))
+            more.add_row(Adw.ActionRow(title=_("None.")))
         for k in keys:
-            used = f"zuletzt {date_short(k['last_used'])}" if k.get("last_used") else "noch nie benutzt"
-            r = Adw.ActionRow(title=k.get("name") or "", subtitle=f"{k.get('prefix') or ''}… · erstellt {date_short(k.get('created'))} · {used}")
-            r.add_suffix(_btn("Widerrufen", "destructive-action", lambda k=k: self._revoke(k)))
+            used = _("last used {date}").format(date=date_short(k["last_used"])) if k.get("last_used") else _("never used")
+            r = Adw.ActionRow(title=GLib.markup_escape_text(k.get("name") or ""),
+                              subtitle=GLib.markup_escape_text(f"{k.get('prefix') or ''}… · ") + _("created {date}").format(date=date_short(k.get("created"))) + f" · {used}")
+            r.add_suffix(_btn(_("Revoke"), "destructive-action", lambda k=k: self._revoke(k)))
             more.add_row(r)
-        name = Adw.EntryRow(title="Name, z. B. „Kurzbefehle“", show_apply_button=True)
+        name = Adw.EntryRow(title=_("Name, e.g. “Shortcuts”"), show_apply_button=True)
 
         def create(row):
             def fin(d):
@@ -372,9 +383,10 @@ class AppsGroup(Adw.PreferencesGroup):
         more.add_row(name)
         if self.fresh:
             f = self.fresh
-            r = Adw.ActionRow(title=f"🔑 Neuer Schlüssel für „{f.get('name')}“ – nur jetzt sichtbar!", subtitle=f.get("token"))
+            r = Adw.ActionRow(title="🔑 " + _("New key for “{name}” – visible only now!").format(name=GLib.markup_escape_text(f.get("name") or "")),
+                              subtitle=f.get("token"))
             r.set_subtitle_selectable(True)
-            r.add_suffix(_btn("Kopieren", cb=lambda: self.dlg.win.copy_text(f.get("token"))))
+            r.add_suffix(_btn(_("Copy"), cb=lambda: self.dlg.win.copy_text(f.get("token"))))
             more.add_row(r)
             self.fresh = None
         self._add(more)
@@ -385,16 +397,16 @@ class AppsGroup(Adw.PreferencesGroup):
 
     def _ask(self, heading, body, label, cb):
         d = Adw.AlertDialog(heading=heading, body=body)
-        d.add_response("cancel", "Abbrechen")
+        d.add_response("cancel", _("Cancel"))
         d.add_response("ok", label)
         d.set_response_appearance("ok", Adw.ResponseAppearance.DESTRUCTIVE)
         d.connect("response", lambda dd, r: r == "ok" and cb())
         d.present(self.dlg)
 
     def _revoke(self, k):
-        self._ask("Schlüssel widerrufen?", "Wer ihn benutzt, kann dann nichts mehr ablegen.", "Widerrufen",
+        self._ask(_("Revoke key?"), _("Whoever uses it can no longer save anything."), _("Revoke"),
                   lambda: bg(client.request, "DELETE", f"api/settings/tokens/{k['id']}", done=lambda _: self.load()))
 
     def _drop(self, k):
-        self._ask("Dieses Gerät abmelden?", "Die App muss sich neu anmelden; Widget und Teilen verlieren den Zugang.", "Abmelden",
+        self._ask(_("Sign out this device?"), _("The app has to sign in again; widget and sharing lose access."), _("Sign out"),
                   lambda: bg(client.request, "DELETE", f"api/settings/devices/{k['id']}", done=lambda _: self.load()))

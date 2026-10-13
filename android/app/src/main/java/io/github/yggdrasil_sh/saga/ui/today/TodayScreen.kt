@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.today
 
+import androidx.compose.ui.res.stringResource
+import io.github.yggdrasil_sh.saga.R
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -59,8 +61,8 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val todayTasks = tasks.filter { it.due.isNullOrEmpty() || it.due <= today }
 
     Scaffold(topBar = {
-        SagaTopBar("Heute", nav, chrome) {
-            IconButton(onClick = { scope.launch { repo.refresh() } }) { Icon(Icons.Filled.Refresh, "Aktualisieren") }
+        SagaTopBar(stringResource(R.string.nav_today), nav, chrome) {
+            IconButton(onClick = { scope.launch { repo.refresh() } }) { Icon(Icons.Filled.Refresh, stringResource(R.string.action_refresh)) }
         }
     }) { pad ->
         PullToRefreshBox(isRefreshing = loading, onRefresh = { scope.launch { repo.refresh() } }, modifier = Modifier.padding(pad).fillMaxSize()) {
@@ -71,15 +73,15 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                         modifier = Modifier.widthIn(max = 760.dp).fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     )
                 }
-                item { SectionHeader("Termine", Modifier.widthIn(max = 760.dp)) }
+                item { SectionHeader(stringResource(R.string.nav_events), Modifier.widthIn(max = 760.dp)) }
                 if (events.isEmpty()) {
-                    item { Hint("Keine Termine heute") }
+                    item { Hint(stringResource(R.string.today_no_events)) }
                 }
                 itemsIndexed(events, key = { i, _ -> "ev-$i" }) { _, e -> Box(Modifier.widthIn(max = 760.dp)) { EventRow(e) } }
-                item { SectionHeader("Aufgaben", Modifier.widthIn(max = 760.dp)) }
+                item { SectionHeader(stringResource(R.string.nav_tasks), Modifier.widthIn(max = 760.dp)) }
                 item { QuickAddTask(repo, Modifier.widthIn(max = 760.dp), defaultDue = today) }
                 if (todayTasks.isEmpty()) {
-                    item { Hint(if (events.isEmpty()) "Nichts geplant 🎉" else "Keine offenen Aufgaben für heute") }
+                    item { Hint(stringResource(if (events.isEmpty()) R.string.today_nothing_planned else R.string.today_no_tasks)) }
                 }
                 items(todayTasks, key = { "t-${it.id}" }) { t -> Box(Modifier.widthIn(max = 760.dp)) { TaskRow(t, repo) { editing = it } } }
             }

@@ -12,8 +12,10 @@ import uuid
 from http.cookies import SimpleCookie
 
 from . import config
+from .i18n import _, ui_language
 
 COOKIE_FILE = os.path.join(config.DATA_DIR, "cookies.json")
+ACCEPT_LANGUAGE = {"de": "de, en;q=0.5", "es": "es, en;q=0.5"}.get(ui_language(), "en")
 
 
 class APIError(Exception):
@@ -25,10 +27,10 @@ class APIError(Exception):
 
     def __str__(self):
         if self.code == 401:
-            return self.msg if self.explicit else "Bitte anmelden"
+            return self.msg if self.explicit else _("Please sign in")
         if self.code == 0:
-            return self.msg or "Server nicht erreichbar"
-        return self.msg or f"Fehler {self.code}"
+            return self.msg or _("Server not reachable")
+        return self.msg or _("Error {code}").format(code=self.code)
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -97,10 +99,11 @@ class Client:
 
     def _send(self, method, path, data=None, ctype=None, timeout=20, auth=True):
         if not self.url(path).startswith(("https://", "http://")):
-            raise APIError(0, "Keine Server-Adresse eingetragen")
+            raise APIError(0, _("No server address set"))
         req = urllib.request.Request(self.url(path), data=data, method=method)
         req.add_header("X-Hlidskjalf", "1")
         req.add_header("User-Agent", "Hlidskjalf-Linux/1.0")
+        req.add_header("Accept-Language", ACCEPT_LANGUAGE)       # Fehlermeldungen des Servers in der Sprache der App
         if ctype:
             req.add_header("Content-Type", ctype)
         if auth:
@@ -118,7 +121,7 @@ class Client:
                 self._take_cookies(e.headers)
             return e.code, body
         except (urllib.error.URLError, OSError, TimeoutError) as e:
-            raise APIError(0, "Server nicht erreichbar: " + str(getattr(e, "reason", e))) from e
+            raise APIError(0, _("Server not reachable: {error}").format(error=getattr(e, "reason", e))) from e
 
     def request(self, method, path, body=None, raw=None, ctype=None, timeout=20):
         """JSON-Anfrage -> Bytes. 401: einmal still erneuern und wiederholen, sonst Anmeldung."""
@@ -139,7 +142,7 @@ class Client:
                 if r == "ok":
                     continue
                 if r == "offline":
-                    raise APIError(0, "Server nicht erreichbar")
+                    raise APIError(0, _("Server not reachable"))
             if self.on_need_login:
                 self.on_need_login()
             raise APIError(401)
@@ -194,7 +197,7 @@ class Client:
         except ValueError:
             pass
         if st != 200:
-            e = APIError(st, j.get("error") or "Anmeldung fehlgeschlagen")
+            e = APIError(st, j.get("error") or _("Sign-in failed"))
             e.explicit = bool(j.get("error"))
             raise e
         self.adopt(j)
@@ -210,7 +213,7 @@ class Client:
         except ValueError:
             pass
         if st != 200:
-            e = APIError(st, j.get("error") or "Anmeldung fehlgeschlagen")
+            e = APIError(st, j.get("error") or _("Sign-in failed"))
             e.explicit = bool(j.get("error"))
             raise e
         self.adopt(j)
@@ -251,7 +254,7 @@ class Client:
         j = json.loads(self.request("POST", "api/files", raw=body, ctype=f"multipart/form-data; boundary={boundary}", timeout=timeout))
         f = (j or {}).get("file") or {}
         if not f.get("url"):
-            raise APIError(500, (j or {}).get("error") or "Upload fehlgeschlagen")
+            raise APIError(500, (j or {}).get("error") or _("Upload failed"))
         return f
 
     def fetch(self, path, timeout=60):

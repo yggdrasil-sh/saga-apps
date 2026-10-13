@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 #endif
 
 // Siri, Kurzbefehle, Action-Button und Spotlight-Aktionen.
+// Siri-Saetze: hier Englisch (Entwicklungssprache), Deutsch/Spanisch in AppShortcuts.xcstrings.
 // Ablegen laeuft ueber den App-Schluessel (/api/app/*) - funktioniert auch, ohne die App zu oeffnen.
 
 struct AddTaskIntent: AppIntent {
@@ -16,8 +17,11 @@ struct AddTaskIntent: AppIntent {
     static var parameterSummary: some ParameterSummary { Summary("Aufgabe \(\.$text) anlegen") { \.$due } }
     func perform() async throws -> some IntentResult & ProvidesDialog {
         try await API.capture(kind: "task", title: text, text: "", url: nil, due: due)
-        let f = DateFormatter(); f.dateFormat = "EEEE, d. MMMM"; f.locale = Locale(identifier: "de_DE")
-        return .result(dialog: "Aufgabe „\(text)“ angelegt\(due.map { " – fällig \(f.string(from: $0))" } ?? "").")
+        if let due {
+            let when = due.formatted(.dateTime.weekday(.wide).day().month(.wide))
+            return .result(dialog: "Aufgabe „\(text)“ angelegt – fällig \(when).")
+        }
+        return .result(dialog: "Aufgabe „\(text)“ angelegt.")
     }
 }
 
@@ -45,7 +49,7 @@ struct HKPageEntity: AppEntity {
 }
 struct HKPageQuery: EntityStringQuery {
     private static func all() async throws -> [HKPageEntity] {
-        try await API.pages().map { HKPageEntity(id: $0.id, name: $0.title.isEmpty ? "Unbenannt" : $0.title, icon: $0.emoji) }
+        try await API.pages().map { HKPageEntity(id: $0.id, name: $0.title.isEmpty ? String(localized: "Unbenannt") : $0.title, icon: $0.emoji) }
     }
     func entities(for identifiers: [Int]) async throws -> [HKPageEntity] { let a = try await Self.all(); return identifiers.compactMap { i in a.first { $0.id == i } } }
     func entities(matching string: String) async throws -> [HKPageEntity] { try await Self.all().filter { $0.name.localizedCaseInsensitiveContains(string) } }
@@ -70,13 +74,13 @@ struct OpenTasksIntent: AppIntent {
 
 struct HKShortcuts: AppShortcutsProvider {
     static var appShortcuts: [AppShortcut] {
-        AppShortcut(intent: AddTaskIntent(), phrases: ["Neue Aufgabe in \(.applicationName)", "Aufgabe in \(.applicationName) anlegen", "\(.applicationName) Aufgabe"],
+        AppShortcut(intent: AddTaskIntent(), phrases: ["New task in \(.applicationName)", "Add a task in \(.applicationName)", "\(.applicationName) task"],
                     shortTitle: "Aufgabe anlegen", systemImageName: "checklist")
-        AppShortcut(intent: CaptureNoteIntent(), phrases: ["Notiz in \(.applicationName)", "\(.applicationName) Notiz ablegen"],
+        AppShortcut(intent: CaptureNoteIntent(), phrases: ["Note in \(.applicationName)", "Save a note in \(.applicationName)"],
                     shortTitle: "Notiz ablegen", systemImageName: "square.and.pencil")
-        AppShortcut(intent: OpenPageIntent(), phrases: ["Seite in \(.applicationName) öffnen", "\(.applicationName) \(\.$page) öffnen"],
+        AppShortcut(intent: OpenPageIntent(), phrases: ["Open a page in \(.applicationName)", "Open \(\.$page) in \(.applicationName)"],
                     shortTitle: "Seite öffnen", systemImageName: "doc.text")
-        AppShortcut(intent: OpenTasksIntent(), phrases: ["Aufgaben in \(.applicationName)", "\(.applicationName) Aufgaben zeigen"],
+        AppShortcut(intent: OpenTasksIntent(), phrases: ["Tasks in \(.applicationName)", "Show \(.applicationName) tasks"],
                     shortTitle: "Aufgaben", systemImageName: "checkmark.circle")
     }
 }
@@ -96,7 +100,7 @@ enum SpotlightIndex {
         let items = pages.map { p -> CSSearchableItem in
             let a = CSSearchableItemAttributeSet(contentType: .text)
             a.title = p.label
-            let pth = path(p); a.contentDescription = pth.isEmpty ? (p.isDatabase ? "Datenbank" : "Seite") : pth
+            let pth = path(p); a.contentDescription = pth.isEmpty ? (p.isDatabase ? String(localized: "Datenbank") : String(localized: "Seite")) : pth
             if let ic = p.icon, !ic.isEmpty, ic.count <= 4, !ic.hasPrefix("/") { a.displayName = ic + " " + p.label }
             return CSSearchableItem(uniqueIdentifier: "page-\(p.id)", domainIdentifier: "pages", attributeSet: a)
         }

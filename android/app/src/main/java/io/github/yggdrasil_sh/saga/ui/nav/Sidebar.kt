@@ -1,5 +1,9 @@
 package io.github.yggdrasil_sh.saga.ui.nav
 
+import androidx.compose.ui.res.stringResource
+import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.ui.common.pageTitle
+import io.github.yggdrasil_sh.saga.util.resolve
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -65,6 +69,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
     val tasks by repo.tasks.collectAsState()
     val recentIds by repo.settings.recent.collectAsState()
     val error by repo.error.collectAsState()
+    val loading by repo.loading.collectAsState()
     var expanded by rememberSaveable { mutableStateOf(setOf<Int>()) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -96,7 +101,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 if (parent != null) expanded = expanded + parent
                 open(id)
             } catch (e: Exception) {
-                Toast.makeText(context, repo.friendly(e), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -104,37 +109,37 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
     LazyColumn(Modifier.statusBarsPadding()) {
         item {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Saga", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                IconButton(onClick = { newPage(null) }) { Icon(Icons.Filled.Add, "Neue Seite") }
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                IconButton(onClick = { newPage(null) }) { Icon(Icons.Filled.Add, stringResource(R.string.sidebar_new_page)) }
             }
         }
-        item { NavItem("Heute", Icons.Filled.Home, nav.root == Dest.Today) { nav.top(Dest.Today); onNavigate() } }
+        item { NavItem(stringResource(R.string.nav_today), Icons.Filled.Home, nav.root == Dest.Today) { nav.top(Dest.Today); onNavigate() } }
         item {
-            NavItem("Aufgaben", Icons.Filled.CheckCircle, nav.root == Dest.Tasks, badge = tasks.size.takeIf { it > 0 }) {
+            NavItem(stringResource(R.string.nav_tasks), Icons.Filled.CheckCircle, nav.root == Dest.Tasks, badge = tasks.size.takeIf { it > 0 }) {
                 nav.top(Dest.Tasks); onNavigate()
             }
         }
-        item { NavItem("Termine", Icons.Filled.DateRange, nav.root == Dest.Events) { nav.top(Dest.Events); onNavigate() } }
-        item { NavItem("Dienste", Icons.Filled.Build, nav.root == Dest.Services) { nav.top(Dest.Services); onNavigate() } }
-        item { NavItem("In Seiten suchen", Icons.Filled.Search, nav.root == Dest.Search) { nav.top(Dest.Search); onNavigate() } }
+        item { NavItem(stringResource(R.string.nav_events), Icons.Filled.DateRange, nav.root == Dest.Events) { nav.top(Dest.Events); onNavigate() } }
+        item { NavItem(stringResource(R.string.nav_services), Icons.Filled.Build, nav.root == Dest.Services) { nav.top(Dest.Services); onNavigate() } }
+        item { NavItem(stringResource(R.string.nav_search_pages), Icons.Filled.Search, nav.root == Dest.Search) { nav.top(Dest.Search); onNavigate() } }
 
         if (favorites.isNotEmpty()) {
-            item { SectionHeader("Favoriten") }
+            item { SectionHeader(stringResource(R.string.sidebar_favorites)) }
             items(favorites, key = { "fav-${it.id}" }) { p ->
                 PageRowItem(p, 0, false, false, nav.root == Dest.Page(p.id), repo, { open(p.id) }, {}, { newPage(it) }, scope)
             }
         }
         if (recent.isNotEmpty()) {
-            item { SectionHeader("Zuletzt") }
+            item { SectionHeader(stringResource(R.string.sidebar_recent)) }
             items(recent, key = { "rec-${it.id}" }) { p ->
                 PageRowItem(p, 0, false, false, nav.root == Dest.Page(p.id), repo, { open(p.id) }, {}, { newPage(it) }, scope)
             }
         }
-        item { SectionHeader("Seiten") }
+        item { SectionHeader(stringResource(R.string.pages)) }
         if (tree.isEmpty()) {
             item {
                 Text(
-                    if (repo.loading.value) "Lädt …" else "Noch keine Seiten",
+                    stringResource(if (loading) R.string.loading else R.string.sidebar_no_pages),
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
                 )
             }
@@ -148,9 +153,9 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
             )
         }
         item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
-        item { NavItem("Einstellungen", Icons.Filled.Settings, nav.root == Dest.Settings) { nav.top(Dest.Settings); onNavigate() } }
+        item { NavItem(stringResource(R.string.nav_settings), Icons.Filled.Settings, nav.root == Dest.Settings) { nav.top(Dest.Settings); onNavigate() } }
         error?.let { e ->
-            item { Text(e, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp)) }
+            item { Text(e.resolve(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp)) }
         }
         item { Spacer(Modifier.height(24.dp)) }
     }
@@ -186,27 +191,27 @@ private fun PageRowItem(
         ) {
             if (hasChildren) {
                 IconButton(onClick = onToggle, modifier = Modifier.size(36.dp)) {
-                    Icon(if (isExpanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, if (isExpanded) "Zuklappen" else "Aufklappen")
+                    Icon(if (isExpanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(if (isExpanded) R.string.action_collapse else R.string.action_expand))
                 }
             } else {
                 Spacer(Modifier.width(36.dp))
             }
             PageIcon(p.icon, repo, p.isDatabase)
-            Text(p.label, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp).weight(1f))
+            Text(pageTitle(p), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp).weight(1f))
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(text = { Text(if (p.pinned) "Aus Favoriten entfernen" else "Zu Favoriten") }, onClick = {
+            DropdownMenuItem(text = { Text(stringResource(if (p.pinned) R.string.favorite_remove else R.string.favorite_add)) }, onClick = {
                 menu = false
                 scope.launch {
                     try {
                         repo.setPinned(p.id, !p.pinned)
                     } catch (e: Exception) {
-                        Toast.makeText(context, repo.friendly(e), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
                     }
                 }
             })
             if (!p.isDatabase) {
-                DropdownMenuItem(text = { Text("Neue Unterseite") }, onClick = { menu = false; onNewChild(p.id) })
+                DropdownMenuItem(text = { Text(stringResource(R.string.new_subpage)) }, onClick = { menu = false; onNewChild(p.id) })
             }
         }
     }

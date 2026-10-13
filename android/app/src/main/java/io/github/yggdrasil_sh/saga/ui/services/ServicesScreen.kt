@@ -1,5 +1,9 @@
 package io.github.yggdrasil_sh.saga.ui.services
 
+import androidx.compose.ui.res.stringResource
+import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.util.UiText
+import io.github.yggdrasil_sh.saga.util.resolve
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -48,7 +52,7 @@ import java.text.Normalizer
 @Composable
 fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     var list by remember { mutableStateOf<List<ServiceItem>?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<UiText?>(null) }
     var q by remember { mutableStateOf("") }
     val context = LocalContext.current
     LaunchedEffect(Unit) {
@@ -61,7 +65,7 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val shown = (list ?: emptyList()).filter { q.isBlank() || norm("${it.name} ${it.host} ${it.category}").contains(norm(q)) }
     val cats = shown.groupBy { it.category }.toSortedMap(String.CASE_INSENSITIVE_ORDER)
 
-    Scaffold(topBar = { SagaTopBar("Dienste", nav, chrome) }) { pad ->
+    Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_services), nav, chrome) }) { pad ->
         LazyVerticalGrid(
             columns = GridCells.Adaptive(170.dp),
             modifier = Modifier.padding(pad).fillMaxSize(),
@@ -69,17 +73,17 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 OutlinedTextField(
-                    value = q, onValueChange = { q = it }, singleLine = true, placeholder = { Text("Dienst suchen") },
+                    value = q, onValueChange = { q = it }, singleLine = true, placeholder = { Text(stringResource(R.string.services_search)) },
                     leadingIcon = { Icon(Icons.Filled.Search, null) }, modifier = Modifier.fillMaxWidth().padding(4.dp),
                 )
             }
-            error?.let { e -> item(span = { GridItemSpan(maxLineSpan) }) { Text(e, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(8.dp)) } }
+            error?.let { e -> item(span = { GridItemSpan(maxLineSpan) }) { Text(e.resolve(), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(8.dp)) } }
             if (list != null && shown.isEmpty()) {
-                item(span = { GridItemSpan(maxLineSpan) }) { Text("Keine Dienste", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp)) }
+                item(span = { GridItemSpan(maxLineSpan) }) { Text(stringResource(R.string.services_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp)) }
             }
             cats.forEach { (cat, items) ->
                 item(span = { GridItemSpan(maxLineSpan) }, key = "c-$cat") {
-                    Text(cat.ifEmpty { "Sonstige" }, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 6.dp, top = 14.dp, bottom = 4.dp))
+                    Text(cat.ifEmpty { stringResource(R.string.services_other) }, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 6.dp, top = 14.dp, bottom = 4.dp))
                 }
                 itemsIndexed(items, key = { i, s -> "s-$cat-$i-${s.url}" }) { _, s ->
                     Row(
@@ -89,7 +93,7 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     ) {
                         ServiceIcon(s, repo)
                         Column(Modifier.padding(start = 10.dp)) {
-                            Text(s.name, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(s.name, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             Text(s.host, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     }

@@ -159,7 +159,7 @@ struct DatabaseView: View {
     private var header: some View {
         HStack(spacing: 8) {
             Button { if embedded { nav.push(PageRoute(id: dbID)) } } label: {
-                HStack(spacing: 6) { PageIcon(icon: store.page(dbID)?.icon, store: store, fallback: "🗃️"); Text(store.page(dbID)?.label ?? "Datenbank").font(.subheadline.weight(.semibold)) }
+                HStack(spacing: 6) { PageIcon(icon: store.page(dbID)?.icon, store: store, fallback: "🗃️"); Text(store.page(dbID)?.label ?? String(localized: "Datenbank")).font(.subheadline.weight(.semibold)) }
                     .padding(.horizontal, 10).padding(.vertical, 5).background(.secondary.opacity(0.12), in: Capsule())
             }.buttonStyle(.plain)
             Spacer()
@@ -203,7 +203,7 @@ struct RowList: View {
                         let shown = chips.filter { hasValue(m.value($0, r)) }
                         let title = HStack(spacing: 8) {
                             if check != nil, let ic = r.icon, !ic.isEmpty { PageIcon(icon: ic, store: store) }
-                            Text(r.title.isEmpty ? "Unbenannt" : r.title).lineLimit(compact ? 3 : 2).multilineTextAlignment(.leading)
+                            Text(r.title.isEmpty ? String(localized: "Unbenannt") : r.title).lineLimit(compact ? 3 : 2).multilineTextAlignment(.leading)
                                 .foregroundStyle(r.title.isEmpty ? .secondary : .primary)
                         }
                         Group {
@@ -281,7 +281,7 @@ struct TableGrid: View {
         ScrollView(.horizontal, showsIndicators: true) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 0) {
-                    head(Text("Aa"), "Name", w["title"] ?? 260).overlay(alignment: .trailing) { resizer("title", w["title"] ?? 260) }
+                    head(Text(verbatim: "Aa"), String(localized: "Name"), w["title"] ?? 260).overlay(alignment: .trailing) { resizer("title", w["title"] ?? 260) }
                     ForEach(cols) { p in
                         ColumnHead(m: m, prop: p, width: w[p.id] ?? 170)
                             .overlay(alignment: .leading) { Rectangle().fill(.separator).frame(width: 1) }
@@ -401,9 +401,9 @@ struct CalcRow: View {
     let rows: [DBRow]
     @EnvironmentObject var store: Store
     private var calcs: [String: String] { view?["calcs"] as? [String: String] ?? [:] }
-    static let names: [String: String] = ["count": "Anzahl", "filled": "Ausgefüllt", "empty": "Leer", "pct_filled": "% ausgefüllt", "unique": "Verschiedene",
-        "sum": "Summe", "avg": "Durchschnitt", "median": "Median", "min": "Minimum", "max": "Maximum", "range": "Spanne",
-        "checked": "Angehakt", "unchecked": "Nicht angehakt", "pct_checked": "% angehakt", "earliest": "Frühestes", "latest": "Spätestes"]
+    static let names: [String: String] = ["count": String(localized: "Anzahl"), "filled": String(localized: "Ausgefüllt"), "empty": String(localized: "Leer"), "pct_filled": String(localized: "Prozent ausgefüllt"), "unique": String(localized: "Verschiedene"),
+        "sum": String(localized: "Summe"), "avg": String(localized: "Durchschnitt"), "median": String(localized: "Median"), "min": String(localized: "Minimum"), "max": String(localized: "Maximum"), "range": String(localized: "Spanne"),
+        "checked": String(localized: "Angehakt"), "unchecked": String(localized: "Nicht angehakt"), "pct_checked": String(localized: "Prozent angehakt"), "earliest": String(localized: "Frühestes"), "latest": String(localized: "Spätestes")]
     static func ops(_ p: DBProp?) -> [String] {
         let t = p.map { $0.type == "calc" ? "number" : $0.type } ?? "text"
         if t == "checkbox" { return ["count", "checked", "unchecked", "pct_checked"] }
@@ -440,7 +440,7 @@ struct CalcRow: View {
         let n = vals.count, filled = vals.filter { !empty($0) }
         let nums: [Double] = vals.compactMap { v in (v as? Double) ?? (v as? String).flatMap { Double($0) } }
         func fmt(_ x: Double) -> String { let r = (x * 100).rounded() / 100; return p.map { ["number", "calc"].contains($0.type) ? numText(r, $0.fmt) : r.formatted() } ?? r.formatted() }
-        func pct(_ a: Int) -> String { n > 0 ? "\(Int((Double(a) / Double(n) * 100).rounded())) %" : "–" }
+        func pct(_ a: Int) -> String { n > 0 ? (Double(a) / Double(n)).formatted(.percent.precision(.fractionLength(0))) : "–" }
         let days = filled.compactMap { $0 as? String }.filter { $0.count >= 10 }.map { String($0.prefix(10)) }.sorted()
         switch op {
         case "count": return "\(n)"
@@ -476,7 +476,7 @@ struct TitleCell: View {
     var body: some View {
         HStack(spacing: 6) {
             if let ic = row.icon, !ic.isEmpty { PageIcon(icon: ic, store: store) }
-            TextField("Unbenannt", text: $text, axis: .vertical).lineLimit(1...3).textFieldStyle(.plain).fontWeight(.medium)
+            TextField(String(localized: "Unbenannt"), text: $text, axis: .vertical).lineLimit(1...3).textFieldStyle(.plain).fontWeight(.medium)
                 .focused($focused).onSubmit { commit(); focused = false }
                 .onChange(of: focused) { _, f in if !f { commit() } }
             Button(action: open) { Image(systemName: "arrow.up.right.square").foregroundStyle(.secondary) }
@@ -545,13 +545,14 @@ struct ValueChip: View {
 func dayText(_ s: String) -> String {
     let p = DateFormatter(); p.dateFormat = "yyyy-MM-dd"
     guard let d = p.date(from: String(s.prefix(10))) else { return s }
-    let f = DateFormatter(); f.locale = Locale(identifier: "de_DE"); f.dateFormat = Calendar.current.isDate(d, equalTo: .now, toGranularity: .year) ? "d. MMM" : "d. MMM yyyy"
-    return f.string(from: d)
+    var style = Date.FormatStyle.dateTime.day().month(.abbreviated)                         // Format der Systemsprache
+    if !Calendar.current.isDate(d, equalTo: .now, toGranularity: .year) { style = style.year() }
+    return d.formatted(style)
 }
 func numText(_ n: Double, _ fmt: String?, _ show: String? = nil) -> String {
     switch fmt {
-    case "percent" where show == "ring" || show == "bar": return n.formatted(.number.precision(.fractionLength(0))) + " %"   // Fortschritt: ganze Prozent
-    case "percent": return n.formatted(.number.precision(.fractionLength(0...2))) + " %"; case "euro": return n.formatted(.currency(code: "EUR")); default: return n.formatted() }
+    case "percent" where show == "ring" || show == "bar": return (n / 100).formatted(.percent.precision(.fractionLength(0)))   // Fortschritt: ganze Prozent
+    case "percent": return (n / 100).formatted(.percent.precision(.fractionLength(0...2))); case "euro": return n.formatted(.currency(code: "EUR")); default: return n.formatted() }
 }
 
 // MARK: - Board: Spalten nach Auswahl, Karten ziehen aendert den Wert
@@ -565,7 +566,7 @@ struct BoardView: View {
         let group = m.prop(view?["group_by"] as? String) ?? m.props.first { $0.type == "select" }
         let rows = m.rows(for: view)
         if let group {
-            let cols: [(String?, String, String?)] = group.options.map { ($0.id, $0.name, $0.color) } + [(nil, "Ohne " + group.name, nil)]
+            let cols: [(String?, String, String?)] = group.options.map { ($0.id, $0.name, $0.color) } + [(nil, String(localized: "Ohne \(group.name)"), nil)]
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(cols, id: \.1) { col in
@@ -604,7 +605,7 @@ struct Card: View {
         VStack(alignment: .leading, spacing: 6) {
             if cover, let c = row.cover { RemoteImage(path: c, fill: true, w: 640).frame(height: 110).clipped() }
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 6) { if let ic = row.icon, !ic.isEmpty { PageIcon(icon: ic, store: store) }; Text(row.title.isEmpty ? "Unbenannt" : row.title).font(.subheadline.weight(.medium)).lineLimit(2) }
+                HStack(spacing: 6) { if let ic = row.icon, !ic.isEmpty { PageIcon(icon: ic, store: store) }; Text(row.title.isEmpty ? String(localized: "Unbenannt") : row.title).font(.subheadline.weight(.medium)).lineLimit(2) }
                 let ps = m.props.filter { !hidden.contains($0.id) && ["select", "multi_select", "date", "checkbox", "number", "calc"].contains($0.type) }.prefix(4)
                 FlowChips(m: m, row: row, props: Array(ps))
             }.padding(cover ? 10 : 8)
@@ -696,7 +697,9 @@ struct DBCalendarView: View {
     @EnvironmentObject var nav: NavModel
     @State private var month = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: .now))!
     static let dayFormat: DateFormatter = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f }()
-    static let monthFormat: DateFormatter = { let f = DateFormatter(); f.locale = Locale(identifier: "de_DE"); f.dateFormat = "LLLL yyyy"; return f }()
+    static let monthFormat: DateFormatter = { let f = DateFormatter(); f.setLocalizedDateFormatFromTemplate("LLLLyyyy"); return f }()
+    /// Wochentage ab Montag in der Systemsprache (Mo., Di. ... / Mon, Tue ... / lun, mar ...)
+    static let weekdayHeads: [String] = { let s = Calendar.current.shortStandaloneWeekdaySymbols; return Array(s[1...] + s[..<1]) }()
     var body: some View {
         let dp = m.prop(view?["date_by"] as? String) ?? m.props.first { $0.type == "date" }
         let cal = Calendar(identifier: .iso8601)
@@ -714,7 +717,7 @@ struct DBCalendarView: View {
             if let dp {
                 let rows = m.rows(for: view)
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 7), spacing: 2) {
-                    ForEach(["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"], id: \.self) { Text($0).font(.caption2).foregroundStyle(.secondary) }
+                    ForEach(Array(Self.weekdayHeads.enumerated()), id: \.offset) { Text($0.element).font(.caption2).foregroundStyle(.secondary) }
                     ForEach(0..<(lead + days), id: \.self) { i in
                         if i < lead { Color.clear.frame(height: 64) } else {
                             let d = cal.date(byAdding: .day, value: i - lead, to: first)!, ds = f.string(from: d)
@@ -729,7 +732,7 @@ struct DBCalendarView: View {
                                     }
                                 }
                                 ForEach(items.prefix(3)) { r in
-                                    Button { nav.open(r.id, mode: view?["open"] as? String ?? "side", list: m.rows(for: view).map(\.id)) } label: { Text(r.title.isEmpty ? "Unbenannt" : r.title).font(.caption2).lineLimit(1).padding(.horizontal, 3).frame(maxWidth: .infinity, alignment: .leading).background(Color.accentColor.opacity(0.18), in: RoundedRectangle(cornerRadius: 3)) }.buttonStyle(.plain)
+                                    Button { nav.open(r.id, mode: view?["open"] as? String ?? "side", list: m.rows(for: view).map(\.id)) } label: { Text(r.title.isEmpty ? String(localized: "Unbenannt") : r.title).font(.caption2).lineLimit(1).padding(.horizontal, 3).frame(maxWidth: .infinity, alignment: .leading).background(Color.accentColor.opacity(0.18), in: RoundedRectangle(cornerRadius: 3)) }.buttonStyle(.plain)
                                 }
                                 if items.count > 3 { Text("+\(items.count - 3)").font(.caption2).foregroundStyle(.secondary) }
                                 Spacer(minLength: 0)
@@ -835,7 +838,7 @@ struct PropEditor: View {
     private func commit() {
         let cur = value.map { "\($0)" } ?? ""
         if prop.type == "number" {
-            let n = Double(text.replacingOccurrences(of: ".", with: "").replacingOccurrences(of: ",", with: "."))
+            let n = (try? Double(text, format: .number)) ?? Double(text)          // Zahl in der Schreibweise der Systemsprache
             if text.isEmpty { if value != nil { set(nil) } } else if let n, n != (value as? Double) { set(n) }
         } else if text != cur { set(text.isEmpty ? nil : text) }
     }

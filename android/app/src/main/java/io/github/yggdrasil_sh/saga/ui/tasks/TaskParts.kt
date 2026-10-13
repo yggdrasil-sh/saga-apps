@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.tasks
 
+import androidx.compose.ui.res.stringResource
+import io.github.yggdrasil_sh.saga.R
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -70,7 +72,7 @@ fun TaskRow(t: TaskItem, repo: SagaRepository, onEdit: (TaskItem) -> Unit) {
                     try {
                         repo.setTaskDone(t, v)
                     } catch (e: Exception) {
-                        Toast.makeText(context, repo.friendly(e), Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
                     }
                 }
             },
@@ -84,8 +86,8 @@ fun TaskRow(t: TaskItem, repo: SagaRepository, onEdit: (TaskItem) -> Unit) {
             )
             val extra = listOfNotNull(
                 t.due?.takeIf { it.isNotEmpty() && !t.done }?.let { dueText(it) },
-                t.rep?.let { "wiederholt" },
-                if (t.prio == 1) "hohe Priorität" else null,
+                t.rep?.let { stringResource(R.string.task_repeats) },
+                if (t.prio == 1) stringResource(R.string.task_high_priority) else null,
             )
             if (extra.isNotEmpty()) {
                 Text(
@@ -117,7 +119,7 @@ fun QuickAddTask(repo: SagaRepository, modifier: Modifier = Modifier, defaultDue
                 text = ""
                 due = defaultDue
             } catch (e: Exception) {
-                Toast.makeText(context, repo.friendly(e), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
             } finally {
                 busy = false
             }
@@ -125,19 +127,19 @@ fun QuickAddTask(repo: SagaRepository, modifier: Modifier = Modifier, defaultDue
     }
     Column(modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
         OutlinedTextField(
-            value = text, onValueChange = { text = it }, placeholder = { Text("Neue Aufgabe …") },
+            value = text, onValueChange = { text = it }, placeholder = { Text(stringResource(R.string.task_new_placeholder)) },
             singleLine = true, modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { add() }),
-            trailingIcon = { IconButton(onClick = { add() }, enabled = text.isNotBlank() && !busy) { Icon(Icons.Filled.Add, "Hinzufügen") } },
+            trailingIcon = { IconButton(onClick = { add() }, enabled = text.isNotBlank() && !busy) { Icon(Icons.Filled.Add, stringResource(R.string.action_add)) } },
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             AssistChip(
                 onClick = { pick = true },
-                label = { Text(due?.let { "Fällig " + dueText(it) } ?: "Fälligkeit") },
+                label = { Text(due?.let { stringResource(R.string.task_due, dueText(it)) } ?: stringResource(R.string.task_due_chip)) },
                 leadingIcon = { Icon(Icons.Filled.DateRange, null) },
             )
-            if (due != null) IconButton(onClick = { due = null }) { Icon(Icons.Filled.Clear, "Fälligkeit entfernen") }
+            if (due != null) IconButton(onClick = { due = null }) { Icon(Icons.Filled.Clear, stringResource(R.string.task_due_remove)) }
         }
     }
     if (pick) DueDatePicker(due, onDismiss = { pick = false }) { due = it; pick = false }
@@ -154,9 +156,9 @@ fun DueDatePicker(initial: String?, onDismiss: () -> Unit, onPick: (String?) -> 
         confirmButton = {
             TextButton(onClick = {
                 onPick(state.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString() })
-            }) { Text("Übernehmen") }
+            }) { Text(stringResource(R.string.action_apply)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     ) { DatePicker(state) }
 }
 
@@ -176,53 +178,56 @@ fun TaskEditDialog(t: TaskItem, repo: SagaRepository, onClose: () -> Unit) {
                 block()
                 onClose()
             } catch (e: Exception) {
-                Toast.makeText(context, repo.friendly(e), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
             }
         }
     }
     AlertDialog(
         onDismissRequest = onClose,
-        title = { Text("Aufgabe") },
+        title = { Text(stringResource(R.string.task_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(value = text, onValueChange = { text = it }, label = { Text("Aufgabe") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = text, onValueChange = { text = it }, label = { Text(stringResource(R.string.task_title)) }, modifier = Modifier.fillMaxWidth())
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    AssistChip(onClick = { pick = true }, label = { Text(due?.let { "Fällig " + dueText(it) } ?: "Keine Fälligkeit") },
+                    AssistChip(onClick = { pick = true }, label = { Text(due?.let { stringResource(R.string.task_due, dueText(it)) } ?: stringResource(R.string.task_no_due)) },
                         leadingIcon = { Icon(Icons.Filled.DateRange, null) })
-                    if (due != null) IconButton(onClick = { due = null }) { Icon(Icons.Filled.Clear, "Fälligkeit entfernen") }
+                    if (due != null) IconButton(onClick = { due = null }) { Icon(Icons.Filled.Clear, stringResource(R.string.task_due_remove)) }
                 }
-                Text("Priorität", style = MaterialTheme.typography.labelLarge)
-                val labels = listOf(1 to "Hoch", 2 to "Normal", 3 to "Niedrig")
+                Text(stringResource(R.string.task_priority), style = MaterialTheme.typography.labelLarge)
+                val labels = listOf(1 to stringResource(R.string.prio_high), 2 to stringResource(R.string.prio_normal), 3 to stringResource(R.string.prio_low))
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     labels.forEachIndexed { i, (v, l) ->
                         SegmentedButton(selected = prio == v, onClick = { prio = v }, shape = SegmentedButtonDefaults.itemShape(i, labels.size)) { Text(l) }
                     }
                 }
-                if (t.rep != null) Text("Wiederholung: ${repeatName(t.rep)} (ändern im Web)", style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = { confirmDelete = true }) { Text("Aufgabe löschen", color = MaterialTheme.colorScheme.error) }
+                if (t.rep != null) Text(stringResource(R.string.task_repeat_info, repeatName(t.rep)), style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = { confirmDelete = true }) { Text(stringResource(R.string.task_delete), color = MaterialTheme.colorScheme.error) }
             }
         },
         confirmButton = {
-            TextButton(onClick = { run { repo.updateTask(t.id, text.trim(), due, prio) } }, enabled = text.isNotBlank()) { Text("Sichern") }
+            TextButton(onClick = { run { repo.updateTask(t.id, text.trim(), due, prio) } }, enabled = text.isNotBlank()) { Text(stringResource(R.string.action_save)) }
         },
-        dismissButton = { TextButton(onClick = onClose) { Text("Abbrechen") } },
+        dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_cancel)) } },
     )
     if (pick) DueDatePicker(due, onDismiss = { pick = false }) { due = it; pick = false }
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("Aufgabe löschen?") },
-            confirmButton = { TextButton(onClick = { confirmDelete = false; run { repo.deleteTask(t.id) } }) { Text("Löschen", color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Abbrechen") } },
+            title = { Text(stringResource(R.string.task_delete_confirm)) },
+            confirmButton = { TextButton(onClick = { confirmDelete = false; run { repo.deleteTask(t.id) } }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
 }
 
-fun repeatName(r: String?): String = when (r) {
-    "daily" -> "täglich"
-    "weekdays" -> "werktags"
-    "weekly" -> "wöchentlich"
-    "monthly" -> "monatlich"
-    "yearly" -> "jährlich"
-    else -> "nie"
-}
+@Composable
+fun repeatName(r: String?): String = stringResource(
+    when (r) {
+        "daily" -> R.string.repeat_daily
+        "weekdays" -> R.string.repeat_weekdays
+        "weekly" -> R.string.repeat_weekly
+        "monthly" -> R.string.repeat_monthly
+        "yearly" -> R.string.repeat_yearly
+        else -> R.string.repeat_never
+    }
+)

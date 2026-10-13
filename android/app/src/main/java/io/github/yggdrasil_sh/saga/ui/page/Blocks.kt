@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import io.github.yggdrasil_sh.saga.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -98,13 +101,13 @@ fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
     when (val type = BlockDoc.type(block)) {
         "paragraph" -> RichField(
             BlockDoc.str(d, "text"), key, ed, path, body, { ed.setString(path + listOf("data", "text"), it) },
-            placeholder = "Tippe etwas …", onEnter = splitToParagraph, onBackspaceAtStart = removeIfEmpty, onLink = env.onLink,
+            placeholder = stringResource(R.string.placeholder_paragraph), onEnter = splitToParagraph, onBackspaceAtStart = removeIfEmpty, onLink = env.onLink,
         )
         "header" -> {
             val lvl = BlockDoc.int(d, "level") ?: 2
             RichField(
                 BlockDoc.str(d, "text"), key, ed, path, headerStyle(lvl), { ed.setString(path + listOf("data", "text"), it) },
-                modifier = Modifier.padding(top = 6.dp), placeholder = "Überschrift $lvl",
+                modifier = Modifier.padding(top = 6.dp), placeholder = stringResource(R.string.block_heading, lvl),
                 onEnter = splitToParagraph, onBackspaceAtStart = removeIfEmpty, onLink = env.onLink,
             )
         }
@@ -113,7 +116,7 @@ fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
             Box(Modifier.width(3.dp).fillMaxHeight().background(MaterialTheme.colorScheme.outline))
             RichField(
                 BlockDoc.str(d, "text"), key, ed, path, body.copy(fontStyle = FontStyle.Italic), { ed.setString(path + listOf("data", "text"), it) },
-                modifier = Modifier.padding(start = 12.dp), placeholder = "Zitat",
+                modifier = Modifier.padding(start = 12.dp), placeholder = stringResource(R.string.block_quote),
                 onEnter = splitToParagraph, onBackspaceAtStart = removeIfEmpty, onLink = env.onLink,
             )
         }
@@ -123,7 +126,7 @@ fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
             Text(BlockDoc.str(d, "emoji").ifEmpty { "💡" }, modifier = Modifier.padding(end = 10.dp))
             RichField(
                 BlockDoc.str(d, "text"), key, ed, path, body, { ed.setString(path + listOf("data", "text"), it) },
-                placeholder = "Hinweis", onEnter = splitToParagraph, onLink = env.onLink,
+                placeholder = stringResource(R.string.block_callout), onEnter = splitToParagraph, onLink = env.onLink,
             )
         }
         "code" -> Box(
@@ -133,7 +136,7 @@ fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
             RichField(
                 BlockDoc.str(d, "code"), key, ed, path,
                 MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace), { ed.setString(path + listOf("data", "code"), it) },
-                modifier = Modifier.padding(top = if (lang.isEmpty()) 0.dp else 14.dp), placeholder = "Code", raw = true,
+                modifier = Modifier.padding(top = if (lang.isEmpty()) 0.dp else 14.dp), placeholder = stringResource(R.string.block_code), raw = true,
             )
             if (lang.isNotEmpty()) {
                 Text(lang, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.TopEnd))
@@ -190,7 +193,7 @@ private fun Unsupported(type: String, d: JsonObject, env: BlockEnv) {
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(12.dp),
     ) {
         Text(
-            "${BlockDoc.typeLabel(type)} – wird hier noch nicht unterstützt",
+            stringResource(R.string.block_unsupported, blockTypeLabel(type)),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         // kleine Vorschau, wo es einfach geht
@@ -209,7 +212,7 @@ private fun Unsupported(type: String, d: JsonObject, env: BlockEnv) {
             }
             "table" -> {
                 val rows = (d["content"] as? JsonArray)?.size ?: 0
-                if (rows > 0) Text("$rows Zeilen", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (rows > 0) Text(pluralStringResource(R.plurals.block_table_rows, rows, rows), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -247,7 +250,7 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
                             },
                             { ed.setString(contentPath, it) },
                             itemPath = itemPath,
-                            placeholder = "Listenpunkt",
+                            placeholder = stringResource(R.string.placeholder_list_item),
                             onEnter = { left, right ->
                                 if (left.text.isEmpty() && right.text.isEmpty() && obj?.get("items").let { (it as? JsonArray).isNullOrEmpty() } && indices.isEmpty()) {
                                     ed.endList(blockPath, itemPath)
@@ -280,12 +283,12 @@ private fun ToggleBlock(block: JsonObject, path: JsonPath, key: String, env: Blo
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { open = !open }, modifier = Modifier.size(32.dp)) {
-                Icon(if (open) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, if (open) "Zuklappen" else "Aufklappen")
+                Icon(if (open) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(if (open) R.string.action_collapse else R.string.action_expand))
             }
             RichField(
                 BlockDoc.str(d, "title"), key, ed, path, MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
                 { ed.setString(path + listOf("data", "title"), it) },
-                placeholder = "Toggle",
+                placeholder = stringResource(R.string.block_toggle),
                 onEnter = { _, right ->
                     open = true
                     ed.insertInto(inner, 0, BlockDoc.newBlock("paragraph", InlineHtml.toHtml(right)))
@@ -298,8 +301,8 @@ private fun ToggleBlock(block: JsonObject, path: JsonPath, key: String, env: Blo
             Box(Modifier.padding(start = 32.dp, top = 4.dp)) {
                 if (arr.isNullOrEmpty()) {
                     if (ed.editable) TextButton(onClick = { ed.insertInto(inner, 0, BlockDoc.newBlock("paragraph")) }) {
-                        Text("Leerer Toggle – tippen zum Schreiben")
-                    } else Text("Leer", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.toggle_empty_tap))
+                    } else Text(stringResource(R.string.toggle_empty), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     BlockColumn(inner, env)
                 }
@@ -326,4 +329,19 @@ private fun ColumnsBlock(d: JsonObject, path: JsonPath, env: BlockEnv) {
             }
         }
     }
+}
+
+/** Namen fuer Bloecke, die (noch) nicht bearbeitet werden koennen */
+@Composable
+private fun blockTypeLabel(type: String): String = when (type) {
+    "table" -> stringResource(R.string.blocktype_table)
+    "attaches" -> stringResource(R.string.blocktype_attachment)
+    "database" -> stringResource(R.string.blocktype_database)
+    "tasks" -> stringResource(R.string.blocktype_tasks)
+    "calendar" -> stringResource(R.string.blocktype_calendar)
+    "buttons" -> stringResource(R.string.blocktype_buttons)
+    "embed" -> stringResource(R.string.blocktype_embed)
+    "columns" -> stringResource(R.string.blocktype_columns)
+    "" -> stringResource(R.string.blocktype_unknown)
+    else -> stringResource(R.string.blocktype_named, type)
 }

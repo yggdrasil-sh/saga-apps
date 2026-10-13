@@ -19,9 +19,9 @@ enum APIError: LocalizedError {
     case noToken, http(Int, String), other(String)
     var errorDescription: String? {
         switch self {
-        case .noToken: return "Kein App-Schlüssel – in der App unter Einstellungen eintragen."
-        case .http(401, let m): return m.isEmpty ? "Schlüssel ungültig oder widerrufen." : m
-        case .http(let c, let m): return m.isEmpty ? "Server-Fehler \(c)" : m
+        case .noToken: return String(localized: "Kein App-Schlüssel – in der App unter Einstellungen eintragen.")
+        case .http(401, let m): return m.isEmpty ? String(localized: "Schlüssel ungültig oder widerrufen.") : m
+        case .http(let c, let m): return m.isEmpty ? String(localized: "Server-Fehler \(c)") : m
         case .other(let m): return m
         }
     }

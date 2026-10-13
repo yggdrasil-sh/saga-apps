@@ -136,7 +136,7 @@ jobs:
     runs-on: ubuntu-latest
     container: almalinux:10
     steps:
-      - run: dnf install -y rpm-build python3 git tar
+      - run: dnf install -y rpm-build python3 gettext git tar
       - uses: actions/checkout@v5
       - run: HK_RELEASE=1 sh linux/build-rpm.sh
       - run: rpm -qip linux/dist/saga-*.noarch.rpm

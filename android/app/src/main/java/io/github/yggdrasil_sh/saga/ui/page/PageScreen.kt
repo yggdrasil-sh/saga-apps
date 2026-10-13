@@ -1,5 +1,10 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.res.stringResource
+import io.github.yggdrasil_sh.saga.R
+import androidx.annotation.StringRes
+import io.github.yggdrasil_sh.saga.util.resolve
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -92,20 +97,26 @@ import kotlinx.serialization.json.JsonObject
 private val PAGE_LINK = Regex("^/notes#(\\d+)$")
 
 /** Blocktypen fuer "Neu" und "Typ" (Name, Typ, Ebene) */
+private data class BlockChoice(@param:StringRes val label: Int, val type: String, val level: Int)
+
 private val BLOCK_TYPES = listOf(
-    Triple("Text", "paragraph", 0),
-    Triple("Überschrift 1", "header", 1),
-    Triple("Überschrift 2", "header", 2),
-    Triple("Überschrift 3", "header", 3),
-    Triple("Aufzählung", "unordered", 0),
-    Triple("Nummerierte Liste", "ordered", 0),
-    Triple("Checkliste", "checklist", 0),
-    Triple("Zitat", "quote", 0),
-    Triple("Hinweis", "callout", 0),
-    Triple("Code", "code", 0),
-    Triple("Toggle", "toggle", 0),
-    Triple("Trenner", "delimiter", 0),
+    BlockChoice(R.string.block_text, "paragraph", 0),
+    BlockChoice(R.string.block_heading, "header", 1),
+    BlockChoice(R.string.block_heading, "header", 2),
+    BlockChoice(R.string.block_heading, "header", 3),
+    BlockChoice(R.string.block_bulleted, "unordered", 0),
+    BlockChoice(R.string.block_numbered, "ordered", 0),
+    BlockChoice(R.string.block_checklist, "checklist", 0),
+    BlockChoice(R.string.block_quote, "quote", 0),
+    BlockChoice(R.string.block_callout, "callout", 0),
+    BlockChoice(R.string.block_code, "code", 0),
+    BlockChoice(R.string.block_toggle, "toggle", 0),
+    BlockChoice(R.string.block_divider, "delimiter", 0),
 )
+
+/** Ueberschriften mit Ebene ("Ueberschrift 2"), sonst nur der Name */
+@Composable
+private fun BlockChoice.title(): String = if (type == "header") stringResource(R.string.block_heading, level) else stringResource(label)
 
 /** Eine Seite: Titel + Bloecke, bearbeitbar; speichert automatisch (verzoegert und beim Verlassen) */
 @Composable
@@ -133,7 +144,7 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
     val env = remember(ed) { BlockEnv(ed, repo, onLink) }
 
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
-        SagaTopBar(ed.title.ifEmpty { if (ed.fetched) "Unbenannt" else "" }, nav, chrome) {
+        SagaTopBar(ed.title.ifEmpty { if (ed.fetched) stringResource(R.string.page_untitled) else "" }, nav, chrome) {
             if (ed.saving) CircularProgressIndicator(Modifier.size(18.dp).padding(end = 4.dp), strokeWidth = 2.dp)
             if (ed.fetched) {
                 IconButton(onClick = {
@@ -141,40 +152,40 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
                         try {
                             ed.setPinned(!ed.pinned)
                         } catch (e: Exception) {
-                            Toast.makeText(context, repo.friendly(e), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
                         }
                     }
                 }) {
                     Icon(
-                        Icons.Filled.Star, if (ed.pinned) "Aus Favoriten entfernen" else "Zu Favoriten",
+                        Icons.Filled.Star, stringResource(if (ed.pinned) R.string.favorite_remove else R.string.favorite_add),
                         tint = if (ed.pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
                     )
                 }
             }
             Box {
-                IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Mehr") }
+                IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more)) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     if (ed.fetched && !ed.isDatabase) {
-                        DropdownMenuItem(text = { Text(if (ed.locked) "Seite entsperren" else "Seite sperren") }, onClick = {
+                        DropdownMenuItem(text = { Text(stringResource(if (ed.locked) R.string.page_unlock else R.string.page_lock)) }, onClick = {
                             menu = false
                             scope.launch {
                                 try {
                                     ed.setLocked(!ed.locked)
                                 } catch (e: Exception) {
-                                    Toast.makeText(context, repo.friendly(e), Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
                                 }
                             }
                         })
                     }
-                    DropdownMenuItem(text = { Text("Neu laden") }, onClick = {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.page_reload)) }, onClick = {
                         menu = false
                         scope.launch { ed.save(); ed.load() }
                     })
-                    DropdownMenuItem(text = { Text("Link kopieren") }, onClick = {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.page_copy_link)) }, onClick = {
                         menu = false
                         copy(context, repo.absoluteUrl("notes") + "#$id")
                     })
-                    DropdownMenuItem(text = { Text("Im Browser öffnen") }, onClick = {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.action_open_in_browser)) }, onClick = {
                         menu = false
                         scope.launch { ed.save() }
                         openUrl(context, repo.absoluteUrl("notes") + "#$id")
@@ -213,10 +224,10 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
                     item(key = "db") {
                         Column(Modifier.padding(vertical = 16.dp)) {
                             Text(
-                                "Datenbanken mit Ansichten (Tabelle, Board, Kalender …) kommen in einer der nächsten Versionen.",
+                                stringResource(R.string.page_database_soon),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            TextButton(onClick = { openUrl(context, repo.absoluteUrl("notes") + "#$id") }) { Text("Im Browser öffnen") }
+                            TextButton(onClick = { openUrl(context, repo.absoluteUrl("notes") + "#$id") }) { Text(stringResource(R.string.action_open_in_browser)) }
                         }
                     }
                 }
@@ -232,7 +243,7 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
 private fun copy(context: Context, text: String) {
     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     cm.setPrimaryClip(ClipData.newPlainText("Saga", text))
-    Toast.makeText(context, "Link kopiert", Toast.LENGTH_SHORT).show()
+    Toast.makeText(context, context.getString(R.string.page_link_copied), Toast.LENGTH_SHORT).show()
 }
 
 @Composable
@@ -247,7 +258,7 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository) {
         if (ed.fetched) {
             val titleStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             if (ed.locked) {
-                Text(ed.title.ifEmpty { "Unbenannt" }, style = titleStyle)
+                Text(ed.title.ifEmpty { stringResource(R.string.page_untitled) }, style = titleStyle)
             } else {
                 BasicTextField(
                     value = ed.title, onValueChange = { ed.editTitle(it) }, textStyle = titleStyle,
@@ -260,7 +271,7 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository) {
                     modifier = Modifier.fillMaxWidth(),
                     decorationBox = { inner ->
                         Box {
-                            if (ed.title.isEmpty()) Text("Unbenannt", style = titleStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)))
+                            if (ed.title.isEmpty()) Text(stringResource(R.string.page_untitled), style = titleStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)))
                             inner()
                         }
                     },
@@ -274,27 +285,27 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository) {
                         try {
                             ed.setLocked(false)
                         } catch (e: Exception) {
-                            Toast.makeText(context, repo.friendly(e), Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
                         }
                     }
                 },
-                label = { Text("Gesperrt – tippen zum Entsperren") },
+                label = { Text(stringResource(R.string.page_locked_chip)) },
                 leadingIcon = { Icon(Icons.Filled.Lock, null, Modifier.size(16.dp)) },
                 modifier = Modifier.padding(top = 6.dp),
             )
         }
         if (ed.converted) {
             Text(
-                "Alte Textnotiz – wird beim Bearbeiten als Blöcke gespeichert.",
+                stringResource(R.string.page_converted),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp),
             )
         }
         ed.info?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(top = 6.dp).clickable { ed.info = null })
+            Text(it.resolve(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(top = 6.dp).clickable { ed.info = null })
         }
-        ed.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 6.dp)) }
+        ed.error?.let { Text(it.resolve(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 6.dp)) }
         if (!ed.loading && !ed.fetched) {                        // Laden fehlgeschlagen: nichts Bearbeitbares zeigen
-            Button(onClick = { scope.launch { ed.load() } }, modifier = Modifier.padding(top = 12.dp)) { Text("Erneut versuchen") }
+            Button(onClick = { scope.launch { ed.load() } }, modifier = Modifier.padding(top = 12.dp)) { Text(stringResource(R.string.action_retry)) }
         }
     }
 }
@@ -303,6 +314,7 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository) {
 @Composable
 private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) -> Unit) {
     val context = LocalContext.current
+    val res = LocalResources.current
     val focus = LocalFocusManager.current
     var addMenu by remember { mutableStateOf(false) }
     var typeMenu by remember { mutableStateOf(false) }
@@ -318,10 +330,11 @@ private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) 
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box {
-                    IconButton(onClick = { addMenu = true }) { Icon(Icons.Filled.Add, "Block einfügen") }
+                    IconButton(onClick = { addMenu = true }) { Icon(Icons.Filled.Add, stringResource(R.string.block_insert)) }
                     DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
-                        BLOCK_TYPES.forEach { (label, type, level) ->
-                            DropdownMenuItem(text = { Text(label) }, onClick = {
+                        BLOCK_TYPES.forEach { choice ->
+                            val (_, type, level) = choice
+                            DropdownMenuItem(text = { Text(choice.title()) }, onClick = {
                                 addMenu = false
                                 ed.insertBlockAfter(blockPath, BlockDoc.newBlock(type, level = if (level == 0) 2 else level))
                             })
@@ -330,10 +343,11 @@ private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) 
                 }
                 if (active.itemPath() == null && ed.block(blockPath)?.let { BlockDoc.mainText(it) != null } == true) {
                     Box {
-                        IconButton(onClick = { typeMenu = true }) { Icon(Icons.Filled.Edit, "Blocktyp ändern") }
+                        IconButton(onClick = { typeMenu = true }) { Icon(Icons.Filled.Edit, stringResource(R.string.block_change_type)) }
                         DropdownMenu(expanded = typeMenu, onDismissRequest = { typeMenu = false }) {
-                            BLOCK_TYPES.filter { it.second != "delimiter" }.forEach { (label, type, level) ->
-                                DropdownMenuItem(text = { Text(label) }, onClick = {
+                            BLOCK_TYPES.filter { it.type != "delimiter" }.forEach { choice ->
+                                val (_, type, level) = choice
+                                DropdownMenuItem(text = { Text(choice.title()) }, onClick = {
                                     typeMenu = false
                                     ed.convertBlock(blockPath, type, if (level == 0) 2 else level)
                                 })
@@ -342,10 +356,10 @@ private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) 
                     }
                 } else if (active.itemPath() != null) {
                     Box {
-                        IconButton(onClick = { typeMenu = true }) { Icon(Icons.Filled.Edit, "Listenart ändern") }
+                        IconButton(onClick = { typeMenu = true }) { Icon(Icons.Filled.Edit, stringResource(R.string.list_change_type)) }
                         DropdownMenu(expanded = typeMenu, onDismissRequest = { typeMenu = false }) {
-                            listOf("Aufzählung" to "unordered", "Nummerierte Liste" to "ordered", "Checkliste" to "checklist", "Text" to "paragraph").forEach { (label, t) ->
-                                DropdownMenuItem(text = { Text(label) }, onClick = {
+                            listOf(R.string.block_bulleted to "unordered", R.string.block_numbered to "ordered", R.string.block_checklist to "checklist", R.string.block_text to "paragraph").forEach { (label, t) ->
+                                DropdownMenuItem(text = { Text(stringResource(label)) }, onClick = {
                                     typeMenu = false
                                     ed.convertBlock(blockPath, t)
                                 })
@@ -358,18 +372,18 @@ private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) 
                     FormatButton("I", active.styleOn(InlineStyle.ITALIC), active.hasSelection(), fontStyle = FontStyle.Italic) { active.toggle.invoke(InlineStyle.ITALIC) }
                     FormatButton("U", active.styleOn(InlineStyle.UNDERLINE), active.hasSelection(), deco = TextDecoration.Underline) { active.toggle.invoke(InlineStyle.UNDERLINE) }
                     FormatButton("S", active.styleOn(InlineStyle.STRIKE), active.hasSelection(), deco = TextDecoration.LineThrough) { active.toggle.invoke(InlineStyle.STRIKE) }
-                    FormatButton("Link", false, active.hasSelection()) { linkDialog = true }
+                    FormatButton(stringResource(R.string.format_link), false, active.hasSelection()) { linkDialog = true }
                     active.linkAtCursor?.invoke()?.let { href ->
-                        TextButton(onClick = { onLink(href) }) { Text("Link öffnen") }
+                        TextButton(onClick = { onLink(href) }) { Text(stringResource(R.string.link_open)) }
                     }
                 }
-                IconButton(onClick = { ed.moveBlock(blockPath, -1) }) { Icon(Icons.Filled.KeyboardArrowUp, "Block nach oben") }
-                IconButton(onClick = { ed.moveBlock(blockPath, 1) }) { Icon(Icons.Filled.KeyboardArrowDown, "Block nach unten") }
+                IconButton(onClick = { ed.moveBlock(blockPath, -1) }) { Icon(Icons.Filled.KeyboardArrowUp, stringResource(R.string.block_move_up)) }
+                IconButton(onClick = { ed.moveBlock(blockPath, 1) }) { Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.block_move_down)) }
                 IconButton(onClick = {
                     val ip = active.itemPath()
                     if (ip != null) ed.removeItem(blockPath, ip) else ed.deleteBlock(blockPath)
-                }) { Icon(Icons.Filled.Delete, "Löschen") }
-                IconButton(onClick = { focus.clearFocus(); ed.active = null }) { Icon(Icons.Filled.Check, "Fertig") }
+                }) { Icon(Icons.Filled.Delete, stringResource(R.string.action_delete)) }
+                IconButton(onClick = { focus.clearFocus(); ed.active = null }) { Icon(Icons.Filled.Check, stringResource(R.string.action_done)) }
             }
         }
     }
@@ -378,9 +392,9 @@ private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) 
         var href by remember { mutableStateOf(active.linkAtCursor?.invoke() ?: "https://") }
         AlertDialog(
             onDismissRequest = { linkDialog = false },
-            title = { Text("Link") },
+            title = { Text(stringResource(R.string.format_link)) },
             text = {
-                OutlinedTextField(value = href, onValueChange = { href = it }, singleLine = true, label = { Text("Adresse (https://… oder /notes#123)") })
+                OutlinedTextField(value = href, onValueChange = { href = it }, singleLine = true, label = { Text(stringResource(R.string.link_address_label)) })
             },
             confirmButton = {
                 TextButton(onClick = {
@@ -388,11 +402,11 @@ private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) 
                     val h = href.trim()
                     if (h.isEmpty() || h == "https://") active.setLink?.invoke("")
                     else if (h.startsWith("https://") || h.startsWith("http://") || h.startsWith("mailto:") || PAGE_LINK.matches(h)) active.setLink?.invoke(h)
-                    else Toast.makeText(context, "Nur http(s)-, mailto- oder Seiten-Links (/notes#123)", Toast.LENGTH_LONG).show()
-                }) { Text("Übernehmen") }
+                    else Toast.makeText(context, res.getString(R.string.link_invalid), Toast.LENGTH_LONG).show()
+                }) { Text(stringResource(R.string.action_apply)) }
             },
             dismissButton = {
-                TextButton(onClick = { linkDialog = false; active.setLink?.invoke("") }) { Text("Link entfernen") }
+                TextButton(onClick = { linkDialog = false; active.setLink?.invoke("") }) { Text(stringResource(R.string.link_remove)) }
             },
         )
     }

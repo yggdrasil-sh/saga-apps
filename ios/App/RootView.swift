@@ -157,22 +157,22 @@ extension RootView {
     /// Befehle der Palette (⌘K, mit ">" nur Befehle) - wie im Web
     var paletteActions: [CommandPalette.Action] {
         var a: [CommandPalette.Action] = [
-            .init(id: "new", icon: "doc.badge.plus", title: "Neue Seite") { Task { if let id = await store.newPage() { selection = id } } },
-            .init(id: "today", icon: "sun.max", title: "Heute") { selection = nil },
-            .init(id: "tasks", icon: "checklist", title: "Aufgaben") { selection = -1 },
-            .init(id: "events", icon: "calendar", title: "Termine") { selection = -2 },
-            .init(id: "trash", icon: "trash", title: "Papierkorb") { showTrash = true },
-            .init(id: "services", icon: "square.grid.3x3", title: "Dienste") { selection = -3 },
-            .init(id: "refresh", icon: "arrow.clockwise", title: "Aktualisieren") { Task { await store.refresh() } },
-            .init(id: "back", icon: "chevron.left", title: "Zurück") { nav.peek = nil; nav.back() },
-            .init(id: "fwd", icon: "chevron.right", title: "Vor") { nav.goForward() },
-            .init(id: "search", icon: "sidebar.left", title: "In der Seitenleiste suchen") { searchFocused = true },
+            .init(id: "new", icon: "doc.badge.plus", title: String(localized: "Neue Seite")) { Task { if let id = await store.newPage() { selection = id } } },
+            .init(id: "today", icon: "sun.max", title: String(localized: "Heute")) { selection = nil },
+            .init(id: "tasks", icon: "checklist", title: String(localized: "Aufgaben")) { selection = -1 },
+            .init(id: "events", icon: "calendar", title: String(localized: "Termine")) { selection = -2 },
+            .init(id: "trash", icon: "trash", title: String(localized: "Papierkorb")) { showTrash = true },
+            .init(id: "services", icon: "square.grid.3x3", title: String(localized: "Dienste")) { selection = -3 },
+            .init(id: "refresh", icon: "arrow.clockwise", title: String(localized: "Aktualisieren")) { Task { await store.refresh() } },
+            .init(id: "back", icon: "chevron.left", title: String(localized: "Zurück")) { nav.peek = nil; nav.back() },
+            .init(id: "fwd", icon: "chevron.right", title: String(localized: "Vor")) { nav.goForward() },
+            .init(id: "search", icon: "sidebar.left", title: String(localized: "In der Seitenleiste suchen")) { searchFocused = true },
         ]
-        if let id = currentPageID { a.append(.init(id: "link", icon: "link", title: "Link zur Seite kopieren") { copyPageLink(id) }) }
+        if let id = currentPageID { a.append(.init(id: "link", icon: "link", title: String(localized: "Link zur Seite kopieren")) { copyPageLink(id) }) }
         #if os(macOS)
-        a.append(.init(id: "settings", icon: "gearshape", title: "Einstellungen") { openSettings() })
+        a.append(.init(id: "settings", icon: "gearshape", title: String(localized: "Einstellungen")) { openSettings() })
         #else
-        a.append(.init(id: "settings", icon: "gearshape", title: "Einstellungen") { showSettings = true })
+        a.append(.init(id: "settings", icon: "gearshape", title: String(localized: "Einstellungen")) { showSettings = true })
         #endif
         return a
     }
@@ -448,13 +448,13 @@ struct LoginScreen: View {
     private func useServer() -> Bool {
         let s = server.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         guard let u = URL(string: s.contains("://") ? s : "https://" + s), u.scheme == "https", u.host != nil else {
-            error = "Bitte eine https-Adresse eingeben, z. B. https://saga.example.org"; return false
+            error = String(localized: "Bitte eine https-Adresse eingeben, z. B. https://saga.example.org"); return false
         }
         AppConfig.server = u; server = u.absoluteString; return true
     }
     private func pair(_ text: String) async {
         error = ""
-        guard let (srv, code) = Store.parsePairLink(text) else { error = "Das ist kein Saga-QR-Code."; return }
+        guard let (srv, code) = Store.parsePairLink(text) else { error = String(localized: "Das ist kein Saga-QR-Code."); return }
         busy = true; defer { busy = false }
         do { try await store.pair(server: srv, code: code); server = srv.absoluteString; onDone() } catch { self.error = error.localizedDescription }
     }
@@ -466,7 +466,7 @@ struct LoginScreen: View {
         do {
             let cb = try await webAuth.authenticate(using: url, callbackURLScheme: "hlidskjalf", preferredBrowserSession: .shared)
             guard let code = URLComponents(url: cb, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "code" })?.value else {
-                error = "Keine Antwort vom Server"; return
+                error = String(localized: "Keine Antwort vom Server"); return
             }
             try await store.exchange(code: code, verifier: verifier)
             onDone()

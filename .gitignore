@@ -23,3 +23,4 @@ android/.idea/
 linux/dist/
 .flatpak-builder/
 .DS_Store
+linux/build/

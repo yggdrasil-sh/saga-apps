@@ -43,7 +43,7 @@ object JsonTree {
                 l[step] = set(root[step], rest, value)
                 JsonArray(l)
             }
-            else -> throw IllegalArgumentException("Pfad passt nicht: $path")
+            else -> throw IllegalArgumentException("path mismatch: $path")
         }
     }
 

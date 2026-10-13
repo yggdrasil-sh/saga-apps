@@ -1,5 +1,10 @@
 package io.github.yggdrasil_sh.saga.ui.pages
 
+import androidx.compose.ui.res.stringResource
+import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.ui.common.pageTitle
+import io.github.yggdrasil_sh.saga.util.UiText
+import io.github.yggdrasil_sh.saga.util.resolve
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,7 +48,7 @@ import kotlinx.coroutines.delay
 fun SearchScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     var q by rememberSaveable { mutableStateOf("") }
     var results by remember { mutableStateOf<List<PageMeta>>(emptyList()) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<UiText?>(null) }
     var searched by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
@@ -62,18 +67,18 @@ fun SearchScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         }
         searched = true
     }
-    Scaffold(topBar = { SagaTopBar("Suche", nav, chrome) }) { pad ->
+    Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_search), nav, chrome) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             item {
                 OutlinedTextField(
                     value = q, onValueChange = { q = it }, singleLine = true,
-                    placeholder = { Text("Seiten durchsuchen") }, leadingIcon = { Icon(Icons.Filled.Search, null) },
+                    placeholder = { Text(stringResource(R.string.search_placeholder)) }, leadingIcon = { Icon(Icons.Filled.Search, null) },
                     modifier = Modifier.widthIn(max = 760.dp).fillMaxWidth().padding(16.dp).focusRequester(focus),
                 )
             }
-            error?.let { item { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) } }
+            error?.let { item { Text(it.resolve(), color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) } }
             if (searched && results.isEmpty() && error == null) {
-                item { Text("Keine Treffer", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp)) }
+                item { Text(stringResource(R.string.search_no_results), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp)) }
             }
             items(results, key = { it.id }) { p ->
                 Row(
@@ -82,7 +87,7 @@ fun SearchScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 ) {
                     PageIcon(p.icon, repo, p.isDatabase)
                     Column(Modifier.padding(start = 12.dp)) {
-                        Text(p.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(pageTitle(p), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         p.snippet?.takeIf { it.isNotBlank() }?.let {
                             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }

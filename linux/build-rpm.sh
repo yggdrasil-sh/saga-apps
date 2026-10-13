@@ -1,11 +1,12 @@
 #!/bin/sh
-# RPM bauen (AlmaLinux 10 / Fedora, lokal oder in CI). Voraussetzung: dnf install -y rpm-build python3
+# RPM bauen (AlmaLinux 10 / Fedora, lokal oder in CI). Voraussetzung: dnf install -y rpm-build python3 gettext
 #   sh build-rpm.sh                 -> dist/saga-<version>-<release>.noarch.rpm (+ ~/rpmbuild/RPMS/noarch/)
 #   HK_RELEASE=2 sh build-rpm.sh    -> Release-Nummer (Standard 1)
 # Die Version steht in hlidskjalf/__init__.py (VERSION = "x.y.z").
 set -eu
 cd "$(dirname "$0")"
-command -v rpmbuild >/dev/null || { echo "rpmbuild fehlt: dnf install -y rpm-build python3" >&2; exit 1; }
+command -v rpmbuild >/dev/null || { echo "rpmbuild fehlt: dnf install -y rpm-build python3 gettext" >&2; exit 1; }
+command -v msgfmt >/dev/null || { echo "msgfmt fehlt: dnf install -y gettext" >&2; exit 1; }
 V=$(sed -n 's/^VERSION = "\([^"]*\)".*/\1/p' hlidskjalf/__init__.py)
 [ -n "$V" ] || { echo "VERSION in hlidskjalf/__init__.py nicht gefunden" >&2; exit 1; }
 R=${HK_RELEASE:-1}
@@ -13,7 +14,7 @@ TOP=${HK_RPM_TOPDIR:-$HOME/rpmbuild}
 T=$(mktemp -d)
 trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/hlidskjalf-$V" "$TOP/SOURCES" "$TOP/RPMS" "$TOP/BUILD" "$TOP/SPECS" "$TOP/SRPMS"
-cp -a hlidskjalf data "$T/hlidskjalf-$V/"
+cp -a hlidskjalf data po "$T/hlidskjalf-$V/"
 find "$T" -name __pycache__ -prune -exec rm -rf {} +
 tar -C "$T" -czf "$TOP/SOURCES/hlidskjalf-$V.tar.gz" "hlidskjalf-$V"
 rpmbuild -bb --define "_topdir $TOP" --define "hk_version $V" --define "hk_release $R" hlidskjalf.spec

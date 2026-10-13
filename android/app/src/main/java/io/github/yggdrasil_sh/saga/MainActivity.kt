@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import io.github.yggdrasil_sh.saga.auth.PairLink
 import io.github.yggdrasil_sh.saga.ui.nav.SagaRoot
 import io.github.yggdrasil_sh.saga.ui.theme.SagaTheme
+import io.github.yggdrasil_sh.saga.util.UiText
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
@@ -43,7 +44,7 @@ class MainActivity : ComponentActivity() {
             "auth" -> data.getQueryParameter("code")?.let { code -> app.appScope.launch { repo.completeBrowserLogin(code) } }
             "pair" -> {
                 val t = PairLink.parse(data.toString())
-                if (t != null) app.appScope.launch { repo.pair(t) } else repo.loginError.value = "Das ist kein gültiger Saga-Kopplungslink."
+                if (t != null) app.appScope.launch { repo.pair(t) } else repo.loginError.value = UiText.Res(R.string.login_invalid_pair_link)
             }
         }
         intent.data = null                                  // nicht ein zweites Mal verarbeiten

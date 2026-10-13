@@ -5,9 +5,11 @@ from gi.repository import Adw, GLib, Gtk, Pango
 
 from .blocks import flat_button, menu_popover
 from .store import store, watch
-from .util import WEEKDAYS, MONTHS, day_text, iso_day, parse_day
+from .i18n import _, ngettext
+from .util import day_text, iso_day, parse_day, time_text, weekday_day_text
 
-REPEAT = [(None, "Nie"), ("daily", "Täglich"), ("weekdays", "Werktags"), ("weekly", "Wöchentlich"), ("monthly", "Monatlich"), ("yearly", "Jährlich")]
+REPEAT = [(None, _("Never")), ("daily", _("Daily")), ("weekdays", _("Weekdays")), ("weekly", _("Weekly")), ("monthly", _("Monthly")),
+          ("yearly", _("Yearly"))]
 
 
 def _clear(box):
@@ -26,7 +28,7 @@ class TaskRow(Gtk.Box):
         ck.add_css_class("hk-taskcheck")
         if t.get("prio") == 1 and not done:
             ck.add_css_class("error")
-        ck.set_tooltip_text("Wieder öffnen" if done else "Erledigt")
+        ck.set_tooltip_text(_("Reopen") if done else _("Mark done"))
         ck.connect("clicked", lambda *_: store.update_task(t["id"], {"done": False}) if done else store.complete_task(t))
         self.append(ck)
         inner = Gtk.Box(spacing=6)
@@ -53,8 +55,8 @@ class TaskRow(Gtk.Box):
         b.connect("clicked", lambda *_: TaskEditor(win, t).present(win))
         self.append(b)
         g = Gtk.GestureClick(button=3)
-        g.connect("pressed", lambda *_: menu_popover(self, [("Erledigt", lambda: store.complete_task(t)),
-                                                             ("Löschen", lambda: store.delete_task(t["id"]), True)]).popup())
+        g.connect("pressed", lambda *a: menu_popover(self, [(_("Mark done"), lambda: store.complete_task(t)),
+                                                             (_("Delete"), lambda: store.delete_task(t["id"]), True)]).popup())
         self.add_controller(g)
 
 
@@ -68,7 +70,7 @@ class TaskList(Gtk.Box):
         self.show_done = False
         add = Gtk.Box(spacing=8)
         add.append(Gtk.Image.new_from_icon_name("list-add-symbolic"))
-        self.entry = Gtk.Entry(placeholder_text="Neue Aufgabe …", hexpand=True)
+        self.entry = Gtk.Entry(placeholder_text=_("New task …"), hexpand=True)
         self.entry.add_css_class("flat")
         self.entry.connect("activate", self._add)
         add.append(self.entry)
@@ -92,24 +94,25 @@ class TaskList(Gtk.Box):
         today = iso_day()
         tomorrow = (_dt.date.today() + _dt.timedelta(days=1)).isoformat()
         all_ = store.tasks
-        groups = [("Überfällig", [t for t in all_ if (t.get("due") or "9") < today]), ("Heute", [t for t in all_ if t.get("due") == today]),
-                  ("Morgen", [t for t in all_ if t.get("due") == tomorrow]), ("Später", [t for t in all_ if (t.get("due") or "") > tomorrow]),
-                  ("Ohne Datum", [t for t in all_ if not t.get("due")])]
+        overdue = _("Overdue")
+        groups = [(overdue, [t for t in all_ if (t.get("due") or "9") < today]), (_("Today"), [t for t in all_ if t.get("due") == today]),
+                  (_("Tomorrow"), [t for t in all_ if t.get("due") == tomorrow]), (_("Later"), [t for t in all_ if (t.get("due") or "") > tomorrow]),
+                  (_("No date"), [t for t in all_ if not t.get("due")])]
         groups = [g for g in groups if g[1]]
         if not all_:
-            lb = Gtk.Label(label="Alles erledigt 🎉", xalign=0, margin_top=4)
+            lb = Gtk.Label(label=_("All done 🎉"), xalign=0, margin_top=4)
             lb.add_css_class("dim-label")
             self.list.append(lb)
         for name, ts in groups:
             if not self.compact or len(groups) > 1:
                 h = Gtk.Label(label=name, xalign=0, margin_top=6)
                 h.add_css_class("caption-heading")
-                h.add_css_class("error" if name == "Überfällig" else "dim-label")
+                h.add_css_class("error" if name == overdue else "dim-label")
                 self.list.append(h)
             for t in ts:
                 self.list.append(TaskRow(self.win, t))
         if store.done_tasks:
-            b = flat_button(icon="pan-down-symbolic" if self.show_done else "pan-end-symbolic", label=f"{len(store.done_tasks)} erledigt",
+            b = flat_button(icon="pan-down-symbolic" if self.show_done else "pan-end-symbolic", label=ngettext("{n} done", "{n} done", len(store.done_tasks)).format(n=len(store.done_tasks)),
                             css="dim-label hk-small", cb=self._toggle_done)
             b.set_halign(Gtk.Align.START)
             self.list.append(b)
@@ -160,8 +163,8 @@ class DateButton(Gtk.MenuButton):
 
     def _label(self):
         v = self.value
-        s = f"{WEEKDAYS[v.weekday()]} {v.day}. {MONTHS[v.month - 1]} {v.year}"
-        self.set_label(s + (f", {v:%H:%M}" if self.with_time else ""))
+        s = weekday_day_text(v, year=True)
+        self.set_label(s + (", " + time_text(v) if self.with_time else ""))
 
     def _day(self, c):
         d = c.get_date()
@@ -197,46 +200,46 @@ def _form_dialog(title, w=420, h=440):
 
 class TaskEditor(Adw.Dialog):
     def __init__(self, win, t):
-        super().__init__(title="Aufgabe", content_width=420, content_height=430)
+        super().__init__(title=_("Task"), content_width=420, content_height=430)
         self.t = t
         tv = Adw.ToolbarView()
         hb = Adw.HeaderBar(show_end_title_buttons=False, show_start_title_buttons=False)
-        cancel = Gtk.Button(label="Abbrechen")
-        cancel.connect("clicked", lambda *_: self.close())
+        cancel = Gtk.Button(label=_("Cancel"))
+        cancel.connect("clicked", lambda *a: self.close())
         hb.pack_start(cancel)
-        save = Gtk.Button(label="Sichern")
+        save = Gtk.Button(label=_("Save"))
         save.add_css_class("suggested-action")
         save.connect("clicked", lambda *_: self._save())
         hb.pack_end(save)
         tv.add_top_bar(hb)
         page = Adw.PreferencesPage()
         g = Adw.PreferencesGroup()
-        self.text = Adw.EntryRow(title="Aufgabe", text=t.get("text") or "")
+        self.text = Adw.EntryRow(title=_("Task"), text=t.get("text") or "")
         g.add(self.text)
-        self.has_due = Adw.SwitchRow(title="Fällig", active=bool(t.get("due")))
+        self.has_due = Adw.SwitchRow(title=_("Due"), active=bool(t.get("due")))
         g.add(self.has_due)
         d = parse_day(t.get("due")) or _dt.date.today()
         self.due = DateButton(_dt.datetime(d.year, d.month, d.day))
         self.due.set_valign(Gtk.Align.CENTER)
-        dr = Adw.ActionRow(title="Datum")
+        dr = Adw.ActionRow(title=_("Date"))
         dr.add_suffix(self.due)
         g.add(dr)
         self.has_due.bind_property("active", dr, "sensitive", 2)
-        self.prio = Adw.ComboRow(title="Priorität", model=Gtk.StringList.new(["Hoch", "Normal", "Niedrig"]))
+        self.prio = Adw.ComboRow(title=_("Priority"), model=Gtk.StringList.new([_("High"), _("Normal"), _("Low")]))
         self.prio.set_selected((t.get("prio") or 2) - 1)
         g.add(self.prio)
-        self.rep = Adw.ComboRow(title="Wiederholen", model=Gtk.StringList.new([n for _, n in REPEAT]))
-        self.rep.set_selected(next((i for i, (k, _) in enumerate(REPEAT) if k == t.get("repeat")), 0))
+        self.rep = Adw.ComboRow(title=_("Repeat"), model=Gtk.StringList.new([n for _k, n in REPEAT]))
+        self.rep.set_selected(next((i for i, (k, _n) in enumerate(REPEAT) if k == t.get("repeat")), 0))
         g.add(self.rep)
         page.add(g)
         g2 = Adw.PreferencesGroup()
-        dl = Adw.ButtonRow(title="Aufgabe löschen") if hasattr(Adw, "ButtonRow") else None
+        dl = Adw.ButtonRow(title=_("Delete task")) if hasattr(Adw, "ButtonRow") else None
         if dl:
             dl.add_css_class("destructive-action")
             dl.connect("activated", lambda *_: (store.delete_task(t["id"]), self.close()))
             g2.add(dl)
         else:
-            b = Gtk.Button(label="Aufgabe löschen")
+            b = Gtk.Button(label=_("Delete task"))
             b.add_css_class("destructive-action")
             b.connect("clicked", lambda *_: (store.delete_task(t["id"]), self.close()))
             g2.add(b)
@@ -267,7 +270,7 @@ class EventRow(Gtk.Box):
         self.append(bar)
         col_ = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
         top = Gtk.Box(spacing=4)
-        top.append(Gtk.Label(label=e.get("summary") or "(ohne Titel)", xalign=0, ellipsize=Pango.EllipsizeMode.END))
+        top.append(Gtk.Label(label=e.get("summary") or _("(untitled)"), xalign=0, ellipsize=Pango.EllipsizeMode.END))
         if e.get("series"):
             top.append(Gtk.Image.new_from_icon_name("media-playlist-repeat-symbolic"))
         col_.append(top)
@@ -281,11 +284,11 @@ class EventRow(Gtk.Box):
     def _when(e, show_day):
         if e.get("allday"):
             d = parse_day(e.get("start"))
-            s = (f"{WEEKDAYS[d.weekday()]} {d.day}. {MONTHS[d.month - 1]} · " if show_day and d else "") + "ganztägig"
+            s = (weekday_day_text(d) + " · " if show_day and d else "") + _("all day")
         else:
             try:
                 dt = _dt.datetime.fromisoformat(str(e.get("start")).replace("Z", "+00:00")).astimezone()
-                s = (f"{WEEKDAYS[dt.weekday()]} {dt.day}. {MONTHS[dt.month - 1]}, " if show_day else "") + f"{dt:%H:%M}"
+                s = (weekday_day_text(dt) + ", " if show_day else "") + time_text(dt)
             except ValueError:
                 s = str(e.get("start"))
         if e.get("location"):
@@ -301,11 +304,11 @@ class EventList(Gtk.Box):
         self.win, self.days = win, days
         top = Gtk.Box(spacing=6)
         if compact:
-            h = Gtk.Label(label=f"📅 Termine ({days} Tage)", xalign=0)
+            h = Gtk.Label(label="📅 " + ngettext("Events ({n} day)", "Events ({n} days)", days).format(n=days), xalign=0)
             h.add_css_class("heading")
             top.append(h)
         top.append(Gtk.Box(hexpand=True))
-        top.append(flat_button(icon="list-add-symbolic", label="Termin", cb=lambda: EventEditor(win, None, self.reload).present(win)))
+        top.append(flat_button(icon="list-add-symbolic", label=_("Event"), cb=lambda: EventEditor(win, None, self.reload).present(win)))
         self.append(top)
         self.list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         self.append(self.list)
@@ -321,7 +324,7 @@ class EventList(Gtk.Box):
     def fill(self, evs):
         _clear(self.list)
         if not evs:
-            lb = Gtk.Label(label="Keine Termine", xalign=0)
+            lb = Gtk.Label(label=_("No events"), xalign=0)
             lb.add_css_class("dim-label")
             self.list.append(lb)
         for e in evs:
@@ -334,47 +337,47 @@ class EventList(Gtk.Box):
 
 class EventEditor(Adw.Dialog):
     def __init__(self, win, ev, after=None, day=None):
-        super().__init__(title="Neuer Termin" if ev is None else "Termin", content_width=440, content_height=560)
+        super().__init__(title=_("New event") if ev is None else _("Event"), content_width=440, content_height=560)
         self.win, self.ev, self.after = win, ev, after
         self.read_only = bool(ev and (ev.get("series") or ev.get("writable") is False))
         self.targets = []
         tv = Adw.ToolbarView()
         hb = Adw.HeaderBar(show_end_title_buttons=False, show_start_title_buttons=False)
-        cancel = Gtk.Button(label="Schließen" if self.read_only else "Abbrechen")
+        cancel = Gtk.Button(label=_("Close") if self.read_only else _("Cancel"))
         cancel.connect("clicked", lambda *_: self.close())
         hb.pack_start(cancel)
         if not self.read_only:
-            self.save_btn = Gtk.Button(label="Anlegen" if ev is None else "Sichern")
+            self.save_btn = Gtk.Button(label=_("Create") if ev is None else _("Save"))
             self.save_btn.add_css_class("suggested-action")
             self.save_btn.connect("clicked", lambda *_: self._save())
             hb.pack_end(self.save_btn)
         tv.add_top_bar(hb)
         page = Adw.PreferencesPage()
         g = Adw.PreferencesGroup()
-        self.title = Adw.EntryRow(title="Titel", text=(ev or {}).get("summary") or "")
+        self.title = Adw.EntryRow(title=_("Title"), text=(ev or {}).get("summary") or "")
         g.add(self.title)
-        self.allday = Adw.SwitchRow(title="Ganztägig", active=bool((ev or {}).get("allday")))
+        self.allday = Adw.SwitchRow(title=_("All day"), active=bool((ev or {}).get("allday")))
         g.add(self.allday)
         start, end = self._initial(ev, day)
         self.start = DateButton(start, with_time=not self.allday.get_active(), on_change=self._start_changed)
         self.end = DateButton(end, with_time=not self.allday.get_active())
-        for t, w in (("Beginn", self.start), ("Ende", self.end)):
+        for t, w in ((_("Start"), self.start), (_("End"), self.end)):
             w.set_valign(Gtk.Align.CENTER)
             r = Adw.ActionRow(title=t)
             r.add_suffix(w)
             g.add(r)
         self.allday.connect("notify::active", lambda s, _: (self.start.set_time(not s.get_active()), self.end.set_time(not s.get_active())))
         if ev is None:
-            self.cal = Adw.ComboRow(title="Kalender", model=Gtk.StringList.new(["Lade …"]))
+            self.cal = Adw.ComboRow(title=_("Calendar"), model=Gtk.StringList.new([_("Loading …")]))
             g.add(self.cal)
             store.cal_targets(self._targets)
         else:
-            r = Adw.ActionRow(title="Kalender", subtitle=ev.get("calendar") or "")
+            r = Adw.ActionRow(title=_("Calendar"), subtitle=GLib.markup_escape_text(ev.get("calendar") or ""))
             g.add(r)
-        self.loc = Adw.EntryRow(title="Ort", text=(ev or {}).get("location") or "")
+        self.loc = Adw.EntryRow(title=_("Location"), text=(ev or {}).get("location") or "")
         g.add(self.loc)
         page.add(g)
-        g3 = Adw.PreferencesGroup(title="Beschreibung")
+        g3 = Adw.PreferencesGroup(title=_("Description"))
         self.desc = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD_CHAR, height_request=90)
         self.desc.add_css_class("card")
         self.desc.set_left_margin(8)
@@ -385,12 +388,12 @@ class EventEditor(Adw.Dialog):
         self.msg = Gtk.Label(xalign=0, wrap=True, margin_start=12, margin_end=12)
         self.msg.add_css_class("dim-label")
         if self.read_only:
-            self.msg.set_label("🔁 Serientermin – bitte direkt in mailcow/Nextcloud bearbeiten, damit die Serie erhalten bleibt."
-                               if ev.get("series") else "Dieser Kalender ist nur lesbar.")
+            self.msg.set_label("🔁 " + _("Recurring event – please edit it directly in mailcow/Nextcloud so the series is kept.")
+                               if ev.get("series") else _("This calendar is read-only."))
         g4 = Adw.PreferencesGroup()
         g4.add(self.msg)
         if ev is not None and not self.read_only:
-            dl = Gtk.Button(label="Termin löschen", margin_top=8)
+            dl = Gtk.Button(label=_("Delete event"), margin_top=8)
             dl.add_css_class("destructive-action")
             dl.connect("clicked", lambda *_: self._delete())
             g4.add(dl)
@@ -425,13 +428,13 @@ class EventEditor(Adw.Dialog):
         self.targets = ts
         self.cal.set_model(Gtk.StringList.new([t["name"] for t in ts] or ["–"]))
         if not ts:
-            self.msg.set_label("Kein beschreibbarer Kalender verbunden (Einstellungen → Kalender).")
+            self.msg.set_label(_("No writable calendar connected (Settings → Calendar)."))
             if hasattr(self, "save_btn"):
                 self.save_btn.set_sensitive(False)
 
     def _save(self):
         ev = self.ev
-        b = {"summary": self.title.get_text() or "Termin", "allday": self.allday.get_active(), "location": self.loc.get_text()}
+        b = {"summary": self.title.get_text() or _("Event"), "allday": self.allday.get_active(), "location": self.loc.get_text()}
         buf = self.desc.get_buffer()
         b["description"] = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), True)
         s, e = self.start.value, max(self.end.value, self.start.value)
@@ -481,14 +484,14 @@ def _screen(title, child):
 
 def tasks_screen(win):
     tl = TaskList(win)
-    w = _screen("Aufgaben", tl)
+    w = _screen(_("Tasks"), tl)
     w.task_list = tl
     store.load_today()
     return w
 
 
 def events_screen(win):
-    return _screen("Termine", EventList(win, days=31))
+    return _screen(_("Events"), EventList(win, days=31))
 
 
 class TodayBox(Gtk.Box):
@@ -507,7 +510,7 @@ class TodayBox(Gtk.Box):
         tasks = [t for t in store.tasks if not t.get("due") or t["due"] <= today][: self.lt]
         evs = store.events[: self.le]
         if not tasks and not evs:
-            lb = Gtk.Label(label="Nichts geplant 🎉", xalign=0, margin_start=6)
+            lb = Gtk.Label(label=_("Nothing planned 🎉"), xalign=0, margin_start=6)
             lb.add_css_class("dim-label")
             self.append(lb)
         for e in evs:
@@ -523,4 +526,4 @@ class TodayBox(Gtk.Box):
 def today_screen(win):
     bx = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
     bx.append(TodayBox(win, limit_events=50, limit_tasks=50))
-    return _screen("Heute", bx)
+    return _screen(_("Today"), bx)

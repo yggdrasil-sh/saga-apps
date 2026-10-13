@@ -43,7 +43,10 @@ struct HKMenuCommands: Commands {
 #if os(macOS)
 /// Menueleiste: Aufgabe oder Notiz ablegen, ohne das Fenster zu wechseln (ueber den App-Schluessel)
 struct QuickCaptureView: View {
-    enum Kind: String, CaseIterable { case task = "Aufgabe", note = "Notiz" }
+    enum Kind: CaseIterable {
+        case task, note
+        var label: LocalizedStringKey { self == .task ? "Aufgabe" : "Notiz" }
+    }
     @State private var kind: Kind = .task
     @State private var text = ""
     @State private var withDue = false
@@ -57,7 +60,7 @@ struct QuickCaptureView: View {
             HStack {
                 Text("Saga").font(.headline)
                 Spacer()
-                Picker("", selection: $kind) { ForEach(Kind.allCases, id: \.self) { Text($0.rawValue) } }.pickerStyle(.segmented).labelsHidden().fixedSize()
+                Picker("", selection: $kind) { ForEach(Kind.allCases, id: \.self) { Text($0.label) } }.pickerStyle(.segmented).labelsHidden().fixedSize()
             }
             TextField(kind == .task ? "Neue Aufgabe …" : "Notiz – erste Zeile wird der Titel", text: $text, axis: .vertical)
                 .lineLimit(kind == .task ? 1...3 : 3...8).textFieldStyle(.roundedBorder).focused($focus)
@@ -91,7 +94,7 @@ struct QuickCaptureView: View {
                     let parts = t.split(separator: "\n", maxSplits: 1)
                     try await API.capture(kind: "page", title: String(parts.first ?? "").prefix(80).description, text: parts.count > 1 ? String(parts[1]) : "", url: nil)
                 }
-                status = kind == .task ? "✓ Aufgabe angelegt" : "✓ Im Eingang abgelegt"; text = ""; withDue = false
+                status = kind == .task ? String(localized: "✓ Aufgabe angelegt") : String(localized: "✓ Im Eingang abgelegt"); text = ""; withDue = false
                 NotificationCenter.default.post(name: .hkCaptured, object: nil)
             } catch { status = error.localizedDescription }
             busy = false

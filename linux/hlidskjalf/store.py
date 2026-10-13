@@ -7,6 +7,7 @@ from gi.repository import GLib, GObject
 
 from . import config
 from .api import APIError, client
+from .i18n import _
 from .util import bg, iso_day
 
 PAGE_FIELDS = ("id", "title", "icon", "parent_id", "kind", "pinned", "updated", "snippet", "archived", "template", "tags")
@@ -14,7 +15,7 @@ PAGE_FIELDS = ("id", "title", "icon", "parent_id", "kind", "pinned", "updated", 
 
 def label(p):
     t = (p or {}).get("title") or ""
-    return t if t else "Unbenannt"
+    return t if t else _("Untitled")
 
 
 def is_db(p):

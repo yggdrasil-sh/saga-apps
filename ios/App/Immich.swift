@@ -41,7 +41,7 @@ struct ImmichPicker: View {
         #endif
     }
 
-    private func msg(_ t: String) -> some View { Text(t).foregroundStyle(.secondary).padding().frame(maxWidth: .infinity, maxHeight: .infinity) }
+    private func msg(_ t: LocalizedStringKey) -> some View { Text(t).foregroundStyle(.secondary).padding().frame(maxWidth: .infinity, maxHeight: .infinity) }
 
     private var connectForm: some View {
         Form {
@@ -105,13 +105,13 @@ struct ImmichPicker: View {
 
     // MARK: Server
     private func loadStatus() async {
-        guard let d = try? await store.api("api/settings/immich"), let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { info = "Nicht erreichbar"; status = (false, false); return }
+        guard let d = try? await store.api("api/settings/immich"), let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { info = String(localized: "Nicht erreichbar"); status = (false, false); return }
         status = (j["available"] as? Bool ?? true, j["connected"] as? Bool ?? false)
         if url.isEmpty, let s = j["suggest"] as? String { url = s }
         if status?.connected == true { await loadItems(reset: true) }
     }
     private func connect() async {
-        info = "Prüfe …"
+        info = String(localized: "Prüfe …")
         do { _ = try await store.api("api/settings/immich", method: "POST", body: ["url": url.trimmingCharacters(in: .whitespaces), "apikey": key.trimmingCharacters(in: .whitespaces)]); key = ""; info = ""; await loadStatus() }
         catch { info = error.localizedDescription }
     }
@@ -120,32 +120,32 @@ struct ImmichPicker: View {
         var b: [String: Any] = ["page": reset ? 1 : (next ?? 1)]
         if let a = album { b["album"] = a.id }
         let q = query.trimmingCharacters(in: .whitespaces); if !q.isEmpty { b["q"] = q }
-        info = items.isEmpty ? "Lade …" : ""
-        guard let d = try? await store.api("api/immich/assets", method: "POST", body: b), let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { info = "Immich: Suche fehlgeschlagen"; return }
+        info = items.isEmpty ? String(localized: "Lade …") : ""
+        guard let d = try? await store.api("api/immich/assets", method: "POST", body: b), let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { info = String(localized: "Immich: Suche fehlgeschlagen"); return }
         let new = (j["items"] as? [[String: Any]] ?? []).compactMap { x -> Item? in
             guard let id = x["id"] as? String else { return nil }
             return Item(id: id, name: x["name"] as? String ?? "", gif: x["mime"] as? String == "image/gif")
         }
         items += new; next = j["next"] as? Int
-        info = items.isEmpty ? "Keine Fotos gefunden." : ""
+        info = items.isEmpty ? String(localized: "Keine Fotos gefunden.") : ""
     }
     private func loadAlbums() async {
-        album = nil; info = "Lade …"
-        guard let d = try? await store.api("api/immich/albums"), let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { info = "Alben nicht lesbar"; return }
+        album = nil; info = String(localized: "Lade …")
+        guard let d = try? await store.api("api/immich/albums"), let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { info = String(localized: "Alben nicht lesbar"); return }
         albums = (j["albums"] as? [[String: Any]] ?? []).compactMap { a in
             guard let id = a["id"] as? String else { return nil }
             return Album(id: id, name: a["name"] as? String ?? "", count: a["count"] as? Int ?? 0, thumb: a["thumb"] as? String)
         }
-        info = albums.isEmpty ? "Keine Alben." : ""
+        info = albums.isEmpty ? String(localized: "Keine Alben.") : ""
     }
     private func choose(_ it: Item) async {
-        busy = it.id; info = "Übernehme „\(it.name)“ …"
+        busy = it.id; info = String(localized: "Übernehme „\(it.name)“ …")
         struct R: Decodable { let url: String }
         do {
             let d = try await store.api("api/immich/import", method: "POST", body: ["id": it.id])
             let r = try JSONDecoder().decode(R.self, from: d)
             dismiss(); onPick(r.url)
-        } catch { busy = nil; info = "Nicht übernommen: " + error.localizedDescription }
+        } catch { busy = nil; info = String(localized: "Nicht übernommen: \(error.localizedDescription)") }
     }
 }
 

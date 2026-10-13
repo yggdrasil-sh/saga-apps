@@ -18,7 +18,7 @@ struct ImmichSettingsSection: View {
         Section("📷 Immich") {
             if let info, info["connected"] as? Bool == true {
                 let host = (info["url"] as? String ?? "").replacingOccurrences(of: "https://", with: "").replacingOccurrences(of: "http://", with: "")
-                Text("✅ Verbunden" + ((info["name"] as? String).map { " als \($0)" } ?? "") + (host.isEmpty ? "" : " (\(host))"))
+                Text(((info["name"] as? String).map { String(localized: "✅ Verbunden als \($0)") } ?? String(localized: "✅ Verbunden")) + (host.isEmpty ? "" : " (\(host))"))
                 Button("Trennen", role: .destructive) { Task { _ = try? await store.api("api/settings/immich", method: "DELETE"); await load() } }
             } else {
                 Text("In Immich unter Kontoeinstellungen → API-Schlüssel einen Schlüssel mit album.read, asset.read, asset.view, asset.download und user.read anlegen und hier einfügen.")
@@ -111,12 +111,12 @@ struct CalAccountView: View {
     private var aid: Int { account["id"] as? Int ?? 0 }
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(account["label"] as? String ?? account["username"] as? String ?? "Kalender").font(.headline)
+            Text(account["label"] as? String ?? account["username"] as? String ?? String(localized: "Kalender")).font(.headline)
             Text("\(account["username"] as? String ?? "") · \(URL(string: account["base_url"] as? String ?? "")?.host ?? "") · Passwort gespeichert ✓")
                 .font(.caption).foregroundStyle(.secondary)
             CalPicker(cals: $cals)
             HStack {
-                Button("Auswahl speichern") { Task { await run { _ = try await store.api("api/settings/calendars/\(aid)", method: "PATCH", body: ["calendars": cals.map(\.dict)]); return "✓ Gespeichert" } } }
+                Button("Auswahl speichern") { Task { await run { _ = try await store.api("api/settings/calendars/\(aid)", method: "PATCH", body: ["calendars": cals.map(\.dict)]); return String(localized: "✓ Gespeichert") } } }
                 Button("Neu einlesen") {
                     Task {
                         await run {
@@ -124,7 +124,7 @@ struct CalAccountView: View {
                             let found = (d?["calendars"] as? [[String: Any]] ?? []).map(CalEntry.init)
                             let by = Dictionary(uniqueKeysWithValues: cals.map { ($0.href, $0) })
                             cals = found.map { f in by[f.href] ?? { var x = f; x.show = false; return x }() }
-                            return "\(found.count) Kalender – Auswahl speichern nicht vergessen."
+                            return String(localized: "\(found.count) Kalender – Auswahl speichern nicht vergessen.")
                         }
                     }
                 }
@@ -134,7 +134,7 @@ struct CalAccountView: View {
             if changingPW {
                 HStack {
                     SecureField("Neues App-Passwort", text: $newPW)
-                    Button("Prüfen & speichern") { Task { await run { _ = try await store.api("api/settings/calendars/\(aid)", method: "PATCH", body: ["password": newPW]); newPW = ""; changingPW = false; return "✓ Neues Passwort gespeichert" } } }
+                    Button("Prüfen & speichern") { Task { await run { _ = try await store.api("api/settings/calendars/\(aid)", method: "PATCH", body: ["password": newPW]); newPW = ""; changingPW = false; return String(localized: "✓ Neues Passwort gespeichert") } } }
                         .disabled(newPW.isEmpty)
                 }
             }
@@ -177,7 +177,7 @@ struct NewCalAccount: View {
             TextField("Benutzer", text: $user, prompt: Text("z. B. name@example.org")).autocorrectionDisabled()
             SecureField("App-Passwort", text: $pw)
             TextField("Bezeichnung", text: $label, prompt: Text("optional, z. B. „Privat“"))
-            Text("Erlaubte Server: " + (allowed.isEmpty ? "–" : allowed.joined(separator: ", "))).font(.caption).foregroundStyle(.secondary)
+            Text("Erlaubte Server: \(allowed.isEmpty ? "–" : allowed.joined(separator: ", "))").font(.caption).foregroundStyle(.secondary)
             HStack {
                 Button(busy ? "Verbinde …" : "Verbindung testen") {
                     Task {
@@ -185,7 +185,7 @@ struct NewCalAccount: View {
                         do {
                             let d = json(try await store.api("api/settings/calendars/test", method: "POST", body: ["base_url": url.trimmingCharacters(in: .whitespaces), "username": user.trimmingCharacters(in: .whitespaces), "password": pw])) as? [String: Any]
                             cals = (d?["calendars"] as? [[String: Any]] ?? []).map(CalEntry.init)
-                            status = "✓ Verbunden – \(cals.count) Kalender gefunden. Auswählen und speichern:"
+                            status = String(localized: "✓ Verbunden – \(cals.count) Kalender gefunden. Auswählen und speichern:")
                         } catch { status = error.localizedDescription }
                     }
                 }.disabled(busy || user.isEmpty || pw.isEmpty)
@@ -231,7 +231,7 @@ struct AppsDevicesSection: View {
                 HStack {
                     VStack(alignment: .leading) {
                         Text(k["name"] as? String ?? "").bold()
-                        Text("angemeldet \(day(k["created"])) · zuletzt \(day(k["last_used"]))" + (k["key"] is [String: Any] ? " · mit Widget-Schlüssel" : ""))
+                        Text(String(localized: "angemeldet \(day(k["created"])) · zuletzt \(day(k["last_used"]))") + (k["key"] is [String: Any] ? " · " + String(localized: "mit Widget-Schlüssel") : ""))
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -246,7 +246,7 @@ struct AppsDevicesSection: View {
                     HStack {
                         VStack(alignment: .leading) {
                             Text(k["name"] as? String ?? "").bold()
-                            Text("\(k["prefix"] as? String ?? "")… · erstellt \(day(k["created"])) · " + ((k["last_used"] as? Double).map { "zuletzt \(day($0))" } ?? "noch nie benutzt"))
+                            Text(String(localized: "\(k["prefix"] as? String ?? "")… · erstellt \(day(k["created"]))") + " · " + ((k["last_used"] as? Double).map { String(localized: "zuletzt \(day($0))") } ?? String(localized: "noch nie benutzt")))
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()

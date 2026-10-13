@@ -4,7 +4,8 @@ import re
 
 from gi.repository import Gdk, GLib, GObject, Gtk, Pango
 
-from .util import TAG_RE, decode_entities, esc, link_target, norm, MONTHS
+from .i18n import _
+from .util import TAG_RE, decode_entities, esc, link_target, norm, time_text, weekday_day_text
 
 FORMAT_TAGS = ("b", "i", "u", "s", "mark", "code")
 
@@ -163,49 +164,77 @@ def html_to_markup(html):
         return GLib.markup_escape_text(re.sub(r"<[^>]+>", "", html or ""))
 
 
-# --- Datum aus Text (wie parseHKDate) -----------------------------------------------------
+# --- Datum aus Text (wie parseHKDate) - versteht Deutsch, Englisch und Spanisch -----------------------
 _WD = ["montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag", "sonntag"]
 _WDE = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+_WDES = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
 _MON = ["januar", "februar", "maerz", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "dezember"]
-_WDS = ["Mo.", "Di.", "Mi.", "Do.", "Fr.", "Sa.", "So."]
+_MONE = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"]
+_MONES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+
+
+def _month(w):
+    if len(w) < 3:
+        return None
+    for names in (_MON, _MONE, _MONES):
+        mi = next((i for i, x in enumerate(names) if x.startswith(w)), None)
+        if mi is not None:
+            return mi
+    return None
+
+
+def _weekday(w):
+    for names in (_WD, _WDE, _WDES):
+        if w in names:
+            return names.index(w)
+    return None
 
 
 def parse_date(q0):
     q = norm(q0)
     t0 = _dt.date.today()
     time = None
-    m = re.search(r"(?:^|\s)(?:um\s+)?(\d{1,2})[:.](\d{2})(?:\s*uhr)?$", q) or re.search(r"(?:^|\s)(?:um\s+)?(\d{1,2})\s*uhr$", q)
-    if m and (":" in q or q.endswith("uhr")):
+    m = (re.search(r"(?:^|\s)(?:(?:um|at|a las|a la)\s+)?(\d{1,2})[:.](\d{2})(?:\s*(?:uhr|h))?$", q)
+         or re.search(r"(?:^|\s)(?:(?:um|at|a las|a la)\s+)?(\d{1,2})\s*uhr$", q))
+    if m and (":" in q or q.endswith("uhr") or q.endswith("h")):
         hh = int(m.group(1))
         mm = int(m.group(2)) if m.lastindex and m.lastindex >= 2 else 0
         if hh > 23 or mm > 59:
             return None
         time = f"{hh:02d}:{mm:02d}"
         q = q[:m.start()].strip()
+    elif (m := re.search(r"(?:^|\s)(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)$", q)):
+        hh, mm = int(m.group(1)), int(m.group(2) or 0)
+        if not 1 <= hh <= 12 or mm > 59:
+            return None
+        hh = hh % 12 + (12 if m.group(3) == "pm" else 0)
+        time = f"{hh:02d}:{mm:02d}"
+        q = q[:m.start()].strip()
     d = None
     try:
-        if q in ("", "heute", "today"):
+        if q in ("", "heute", "today", "hoy"):
             d = t0
-        elif q in ("morgen", "tomorrow"):
+        elif q in ("morgen", "tomorrow", "manana"):
             d = t0 + _dt.timedelta(days=1)
-        elif q == "uebermorgen":
+        elif q in ("uebermorgen", "day after tomorrow", "pasado manana"):
             d = t0 + _dt.timedelta(days=2)
-        elif q in ("gestern", "yesterday"):
+        elif q in ("gestern", "yesterday", "ayer"):
             d = t0 - _dt.timedelta(days=1)
-        elif (m := re.fullmatch(r"in (\d{1,3}) (tag|tage|tagen|woche|wochen|monat|monate|monaten|day|days|week|weeks)", q)):
+        elif (m := re.fullmatch(r"(?:in|en) (\d{1,3}) (tag|tage|tagen|woche|wochen|monat|monate|monaten|day|days|week|weeks|month|months"
+                                r"|dia|dias|semana|semanas|mes|meses)", q)):
             n = int(m.group(1))
-            if m.group(2).startswith("w"):
+            unit = m.group(2)
+            if unit.startswith(("w", "s")):
                 d = t0 + _dt.timedelta(days=7 * n)
-            elif m.group(2).startswith("mo"):
+            elif unit.startswith("mo") or unit.startswith("mes"):
                 mo = t0.month - 1 + n
                 d = t0.replace(year=t0.year + mo // 12, month=mo % 12 + 1, day=min(t0.day, 28))
             else:
                 d = t0 + _dt.timedelta(days=n)
-        elif q in ("naechste woche", "next week"):
+        elif q in ("naechste woche", "next week", "proxima semana", "la proxima semana", "semana que viene", "la semana que viene"):
             d = t0 + _dt.timedelta(days=7)
-        elif (m := re.fullmatch(r"(?:(?:naechsten?|kommenden?|next)\s+)?([a-z]+)", q)):
-            w = m.group(1)
-            wi = _WD.index(w) if w in _WD else (_WDE.index(w) if w in _WDE else None)
+        elif (m := re.fullmatch(r"(?:(?:naechsten?|kommenden?|next|el proximo|proximo|el)\s+)?([a-z]+)(?:\s+(?:que viene|proximo))?", q)):
+            wi = _weekday(m.group(1))
             if wi is None:
                 return None
             diff = (wi - t0.weekday() + 7) % 7 or 7
@@ -213,18 +242,22 @@ def parse_date(q0):
         elif (m := re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", q)):
             d = _dt.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
         elif (m := re.fullmatch(r"(\d{1,2})\.(\d{1,2})\.(\d{2,4})?", q)):
-            y = t0.year
-            if m.group(3):
-                y = int(m.group(3))
-                y = 2000 + y if y < 100 else y
-            d = _dt.date(y, int(m.group(2)), int(m.group(1)))
-        elif (m := re.fullmatch(r"(\d{1,2})\.? ([a-z]+)\.?(?: (\d{4}))?", q)):
-            if len(m.group(2)) < 3:
-                return None
-            mi = next((i for i, x in enumerate(_MON) if x.startswith(m.group(2))), None)
+            d = _dt.date(_year(m.group(3), t0), int(m.group(2)), int(m.group(1)))
+        elif (m := re.fullmatch(r"(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?", q)):
+            a, b = int(m.group(1)), int(m.group(2))
+            if _("%m/%d/%Y").startswith("%m"):                 # Schreibweise der Sprache: Monat zuerst (en) oder Tag zuerst
+                a, b = b, a
+            d = _dt.date(_year(m.group(3), t0), b, a)
+        elif (m := re.fullmatch(r"(\d{1,2})\.? (?:de )?([a-z]+)\.?(?: (?:de )?(\d{4}))?", q)):
+            mi = _month(m.group(2))
             if mi is None:
                 return None
             d = _dt.date(int(m.group(3)) if m.group(3) else t0.year, mi + 1, int(m.group(1)))
+        elif (m := re.fullmatch(r"([a-z]+)\.? (\d{1,2})(?:st|nd|rd|th)?,?(?: (\d{4}))?", q)):
+            mi = _month(m.group(1))
+            if mi is None:
+                return None
+            d = _dt.date(int(m.group(3)) if m.group(3) else t0.year, mi + 1, int(m.group(2)))
         else:
             return None
     except ValueError:
@@ -232,17 +265,25 @@ def parse_date(q0):
     return (d.isoformat(), time)
 
 
+def _year(s, t0):
+    if not s:
+        return t0.year
+    y = int(s)
+    return 2000 + y if y < 100 else y
+
+
 def date_text(d):
     day = _dt.date.fromisoformat(d[0])
-    s = f"{_WDS[day.weekday()]}, {day.day}. {MONTHS[day.month - 1]}"
-    if day.year != _dt.date.today().year:
-        s += f" {day.year}"
-    return s + (f", {d[1]}" if d[1] else "")
+    s = weekday_day_text(day, year=day.year != _dt.date.today().year)
+    if d[1]:
+        hh, mm = (int(x) for x in d[1].split(":")[:2])
+        s += ", " + time_text(_dt.datetime(day.year, day.month, day.day, hh, mm))
+    return s
 
 
 def rel_text(d):
     diff = (_dt.date.fromisoformat(d[0]) - _dt.date.today()).days
-    r = {0: "Heute", 1: "Morgen", 2: "Übermorgen", -1: "Gestern"}.get(diff)
+    r = {0: _("Today"), 1: _("Tomorrow"), 2: _("Day after tomorrow"), -1: _("Yesterday")}.get(diff)
     return (r + " · " if r else "") + date_text(d)
 
 

@@ -23,7 +23,7 @@ struct Page: Decodable, Identifiable, Hashable {
     var archived: Bool?
     var template: Bool?
     var tags: [String]?
-    var label: String { title.isEmpty ? "Unbenannt" : title }
+    var label: String { title.isEmpty ? String(localized: "Unbenannt") : title }
     var isDatabase: Bool { kind == "database" }
 }
 
@@ -100,8 +100,8 @@ final class Store: ObservableObject {
 
     func api(_ path: String, method: String = "GET", body: [String: Any]? = nil) async throws -> Data {
         // NICHT appendingPathComponent: das kodiert "?" als %3F und Abfrage-Parameter werden zum Pfad (404)
-        guard AppConfig.hasServer else { needsLogin = true; throw APIError.http(401, "Bitte Server eintragen") }   // noch kein Server -> Anmeldebildschirm
-        guard let url = URL(string: AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/" + path) else { throw APIError.other("Ungültige Adresse") }
+        guard AppConfig.hasServer else { needsLogin = true; throw APIError.http(401, String(localized: "Bitte Server eintragen")) }   // noch kein Server -> Anmeldebildschirm
+        guard let url = URL(string: AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/" + path) else { throw APIError.other(String(localized: "Ungültige Adresse")) }
         var req = URLRequest(url: url, timeoutInterval: 20)
         req.httpMethod = method
         req.setValue("1", forHTTPHeaderField: "X-Hlidskjalf"); req.httpShouldHandleCookies = false   // Cookie selbst setzen
@@ -126,11 +126,11 @@ final class Store: ObservableObject {
             cookieHeader = nil
             guard attempt == 0 else { break }
             let r = await resumeSession()
-            if r == .offline { throw APIError.other("Server nicht erreichbar") }
+            if r == .offline { throw APIError.other(String(localized: "Server nicht erreichbar")) }
             if r == .rejected { break }
         }
         needsLogin = true
-        throw APIError.http(401, "Bitte anmelden")
+        throw APIError.http(401, String(localized: "Bitte anmelden"))
     }
 
     enum ResumeResult { case ok, rejected, offline }
@@ -315,7 +315,7 @@ final class Store: ObservableObject {
         let (d, code) = try await send(req) { try await URLSession.shared.upload(for: $0, from: body) }
         let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any]
         guard code == 200, let f = j?["file"] as? [String: Any], let u = f["url"] as? String else {
-            throw APIError.other(j?["error"] as? String ?? "Upload fehlgeschlagen")
+            throw APIError.other(j?["error"] as? String ?? String(localized: "Upload fehlgeschlagen"))
         }
         return u
     }
@@ -335,7 +335,7 @@ final class Store: ObservableObject {
         let (d, code) = try await send(req) { try await URLSession.shared.upload(for: $0, from: body) }
         let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any]
         guard code == 200, let f = j?["file"] as? [String: Any] else {
-            throw APIError.other(j?["error"] as? String ?? "Upload fehlgeschlagen")
+            throw APIError.other(j?["error"] as? String ?? String(localized: "Upload fehlgeschlagen"))
         }
         return f
     }
@@ -411,9 +411,9 @@ final class Store: ObservableObject {
         if head.starts(with: [0x89, 0x50, 0x4E, 0x47]) { return try await upload(raw, name: "bild.png") }
         if head.starts(with: [0xFF, 0xD8]) || (raw.count > 12 && raw[8..<12] == Data("WEBP".utf8)) { return try await upload(raw, name: "bild.jpg") }
         #if os(iOS)
-        guard let j = UIImage(data: raw)?.jpegData(compressionQuality: 0.85) else { throw APIError.other("Bildformat nicht unterstützt") }
+        guard let j = UIImage(data: raw)?.jpegData(compressionQuality: 0.85) else { throw APIError.other(String(localized: "Bildformat nicht unterstützt")) }
         #else
-        guard let img = NSImage(data: raw), let tiff = img.tiffRepresentation, let j = NSBitmapImageRep(data: tiff)?.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) else { throw APIError.other("Bildformat nicht unterstützt") }
+        guard let img = NSImage(data: raw), let tiff = img.tiffRepresentation, let j = NSBitmapImageRep(data: tiff)?.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) else { throw APIError.other(String(localized: "Bildformat nicht unterstützt")) }
         #endif
         return try await upload(j, name: "bild.jpg")
     }
@@ -431,7 +431,7 @@ final class Store: ObservableObject {
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (d, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
-            let msg = (try? JSONSerialization.jsonObject(with: d) as? [String: Any])?["error"] as? String ?? "Anmeldung fehlgeschlagen"
+            let msg = (try? JSONSerialization.jsonObject(with: d) as? [String: Any])?["error"] as? String ?? String(localized: "Anmeldung fehlgeschlagen")
             throw APIError.other(msg)
         }
         await storeCookies(http, url)
@@ -449,7 +449,7 @@ final class Store: ObservableObject {
         req.httpBody = try JSONSerialization.data(withJSONObject: ["code": code, "device": DeviceKey.deviceName, "app_key": !AppConfig.hasToken])
         let (d, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
-            let msg = (try? JSONSerialization.jsonObject(with: d) as? [String: Any])?["error"] as? String ?? "Anmeldung fehlgeschlagen"
+            let msg = (try? JSONSerialization.jsonObject(with: d) as? [String: Any])?["error"] as? String ?? String(localized: "Anmeldung fehlgeschlagen")
             throw APIError.other(msg)
         }
         await storeCookies(http, url)

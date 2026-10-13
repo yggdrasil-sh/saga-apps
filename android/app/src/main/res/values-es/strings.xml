@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Español ("tú"), términos según ~/tmp/saga-status/GLOSSAR.md -->
+<resources>
+    <!-- Allgemein -->
+    <string name="action_back">Atrás</string>
+    <string name="action_sidebar">Barra lateral</string>
+    <string name="action_close">Cerrar</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="action_apply">Aplicar</string>
+    <string name="action_save">Guardar</string>
+    <string name="action_delete">Eliminar</string>
+    <string name="action_refresh">Actualizar</string>
+    <string name="action_retry">Reintentar</string>
+    <string name="action_more">Más</string>
+    <string name="action_done">Listo</string>
+    <string name="action_add">Añadir</string>
+    <string name="action_expand">Expandir</string>
+    <string name="action_collapse">Contraer</string>
+    <string name="action_open_in_browser">Abrir en el navegador</string>
+    <string name="no_browser">No se encontró ningún navegador</string>
+    <string name="loading">Cargando…</string>
+
+    <!-- Navigation -->
+    <string name="nav_today">Hoy</string>
+    <string name="nav_tasks">Tareas</string>
+    <string name="nav_events">Eventos</string>
+    <string name="nav_services">Servicios</string>
+    <string name="nav_search">Buscar</string>
+    <string name="nav_search_pages">Buscar en páginas</string>
+    <string name="nav_settings">Ajustes</string>
+    <string name="pages">Páginas</string>
+    <string name="sidebar_new_page">Nueva página</string>
+    <string name="sidebar_favorites">Favoritos</string>
+    <string name="sidebar_recent">Recientes</string>
+    <string name="sidebar_no_pages">Aún no hay páginas</string>
+    <string name="favorite_add">Añadir a favoritos</string>
+    <string name="favorite_remove">Quitar de favoritos</string>
+    <string name="new_subpage">Nueva subpágina</string>
+    <string name="app_too_old_banner">Esta app es demasiado antigua para el servidor (requiere %1$s o posterior): actualízala.</string>
+
+    <!-- Anmeldung -->
+    <string name="login_subtitle">Inicia sesión con una llave de acceso o contraseña en el navegador</string>
+    <string name="login_server_label">Servidor</string>
+    <string name="login_button">Iniciar sesión</string>
+    <string name="login_button_busy">Iniciando sesión…</string>
+    <string name="login_qr">Iniciar sesión con código QR</string>
+    <string name="login_qr_hint">Saga muestra el código QR en el navegador, en Usuario → Ajustes → «Apps y dispositivos».</string>
+    <string name="login_camera_denied">Sin permiso de cámara no se puede leer el código QR.</string>
+    <string name="login_open_app_settings">Abrir ajustes de la app</string>
+    <string name="qr_frame_hint">Coloca el código QR de «Apps y dispositivos» dentro del marco</string>
+    <string name="qr_not_saga">Ese no es un código QR de Saga.</string>
+    <string name="qr_no_camera">No se encontró ninguna cámara.</string>
+    <string name="qr_camera_unavailable">Cámara no disponible: %1$s</string>
+    <string name="login_invalid_pair_link">Ese no es un enlace de vinculación de Saga válido.</string>
+    <string name="login_restart">Vuelve a iniciar sesión desde la app.</string>
+    <string name="login_code_invalid">Código no válido o caducado: vuelve a iniciar sesión.</string>
+    <string name="login_https_required">Introduce una dirección https, p. ej. https://saga.example.org</string>
+    <string name="login_server_https">El servidor debe ser accesible por https.</string>
+
+    <!-- Fehler -->
+    <string name="error_generic">Error</string>
+    <string name="error_server_unreachable">No se puede acceder al servidor</string>
+    <string name="error_timeout">Tiempo de espera agotado: el servidor no responde</string>
+    <string name="error_network">Error de red</string>
+    <string name="error_sign_in_required">Inicia sesión</string>
+    <string name="error_server_code">Error del servidor %1$d</string>
+    <string name="error_not_found">No encontrado</string>
+    <string name="error_enter_server">Introduce un servidor</string>
+
+    <!-- Datum -->
+    <string name="date_today">hoy</string>
+    <string name="date_tomorrow">mañana</string>
+    <string name="date_yesterday">ayer</string>
+    <string name="day_header_today">Hoy · %1$s</string>
+    <string name="day_header_tomorrow">Mañana · %1$s</string>
+    <string name="event_all_day">todo el día</string>
+    <string name="no_date">Sin fecha</string>
+
+    <!-- Heute, Aufgaben -->
+    <string name="today_no_events">No hay eventos hoy</string>
+    <string name="today_nothing_planned">Nada planeado 🎉</string>
+    <string name="today_no_tasks">No hay tareas pendientes para hoy</string>
+    <string name="tasks_overdue">Vencidas</string>
+    <string name="tasks_today">Hoy</string>
+    <string name="tasks_tomorrow">Mañana</string>
+    <string name="tasks_later">Más adelante</string>
+    <string name="tasks_all_done">Todo hecho 🎉</string>
+    <plurals name="tasks_completed">
+        <item quantity="one">%d completada</item>
+        <item quantity="many">%d completadas</item>
+        <item quantity="other">%d completadas</item>
+    </plurals>
+    <string name="task_repeats">se repite</string>
+    <string name="task_high_priority">prioridad alta</string>
+    <string name="task_new_placeholder">Nueva tarea…</string>
+    <string name="task_due">Vence %1$s</string>
+    <string name="task_due_chip">Fecha límite</string>
+    <string name="task_no_due">Sin fecha límite</string>
+    <string name="task_due_remove">Quitar fecha límite</string>
+    <string name="task_title">Tarea</string>
+    <string name="task_priority">Prioridad</string>
+    <string name="prio_high">Alta</string>
+    <string name="prio_normal">Normal</string>
+    <string name="prio_low">Baja</string>
+    <string name="task_repeat_info">Repetición: %1$s (cámbiala en la web)</string>
+    <string name="task_delete">Eliminar tarea</string>
+    <string name="task_delete_confirm">¿Eliminar tarea?</string>
+    <string name="repeat_daily">a diario</string>
+    <string name="repeat_weekdays">entre semana</string>
+    <string name="repeat_weekly">semanalmente</string>
+    <string name="repeat_monthly">mensualmente</string>
+    <string name="repeat_yearly">anualmente</string>
+    <string name="repeat_never">nunca</string>
+
+    <!-- Termine, Dienste, Suche -->
+    <string name="events_untitled">(sin título)</string>
+    <string name="events_load_failed">No se pudieron cargar los eventos.</string>
+    <string name="events_none">No hay eventos</string>
+    <string name="services_search">Buscar servicios</string>
+    <string name="services_none">No hay servicios</string>
+    <string name="services_other">Otros</string>
+    <string name="search_placeholder">Buscar en páginas</string>
+    <string name="search_no_results">Sin resultados</string>
+
+    <!-- Einstellungen -->
+    <string name="settings_server">Servidor</string>
+    <string name="settings_server_change_hint">Para cambiar de servidor, cierra sesión y vuelve a iniciarla</string>
+    <string name="settings_about">Acerca de</string>
+    <string name="settings_app">App</string>
+    <string name="settings_app_too_old">Esta app es más antigua de lo que espera el servidor (%1$s o posterior). Actualiza la app.</string>
+    <string name="settings_apps_devices">Apps y dispositivos</string>
+    <string name="settings_apps_explainer">Las apps con sesión iniciada la mantienen. Cada una tiene una pequeña clave para el widget, compartir y los atajos. ¿Has perdido un dispositivo? Cierra su sesión y ambos desaparecen.</string>
+    <string name="settings_no_apps">Ninguna app tiene la sesión iniciada.</string>
+    <string name="settings_device_info">sesión iniciada %1$s · último uso %2$s</string>
+    <string name="settings_device_with_key">con clave de widget</string>
+    <string name="settings_more_keys">Otras claves: %1$d (gestiónalas en la web)</string>
+    <string name="sign_out">Cerrar sesión</string>
+    <string name="settings_sign_out_explainer">Elimina el inicio de sesión de este dispositivo en el servidor y los datos de la app.</string>
+    <string name="settings_sign_out_device_title">¿Cerrar la sesión de «%1$s»?</string>
+    <string name="settings_sign_out_device_text">La app tendrá que volver a iniciar sesión; el widget y compartir pierden el acceso.</string>
+    <string name="settings_sign_out_this_device">¿Cerrar sesión en este dispositivo?</string>
+
+    <!-- Seite -->
+    <string name="page_untitled">Sin título</string>
+    <string name="page_lock">Bloquear página</string>
+    <string name="page_unlock">Desbloquear página</string>
+    <string name="page_reload">Recargar</string>
+    <string name="page_copy_link">Copiar enlace</string>
+    <string name="page_link_copied">Enlace copiado</string>
+    <string name="page_database_soon">Las bases de datos con vistas (tabla, tablero, calendario…) llegarán en una próxima versión.</string>
+    <string name="page_locked_chip">Bloqueada: toca para desbloquear</string>
+    <string name="page_converted">Nota de texto antigua: se guardará como bloques al editarla.</string>
+    <string name="page_reload_failed">Error al recargar: %1$s</string>
+    <string name="page_unreadable">No se puede leer el contenido de la página</string>
+    <string name="save_sign_in">No guardado: inicia sesión.</string>
+    <string name="save_conflict">La página se modificó en otro lugar mientras tanto y se ha recargado. Tu último cambio no se aplicó.</string>
+    <string name="save_locked">La página está bloqueada: cambio no guardado.</string>
+    <string name="save_failed">No guardado: %1$s</string>
+    <string name="save_failed_retry">No guardado: %1$s. Se reintentará en breve.</string>
+
+    <!-- Editor -->
+    <string name="block_insert">Insertar bloque</string>
+    <string name="block_change_type">Cambiar tipo de bloque</string>
+    <string name="list_change_type">Cambiar tipo de lista</string>
+    <string name="block_move_up">Subir bloque</string>
+    <string name="block_move_down">Bajar bloque</string>
+    <string name="format_link">Enlace</string>
+    <string name="link_open">Abrir enlace</string>
+    <string name="link_address_label">Dirección (https://… o /notes#123)</string>
+    <string name="link_invalid">Solo enlaces http(s), mailto o de página (/notes#123)</string>
+    <string name="link_remove">Quitar enlace</string>
+    <string name="block_text">Texto</string>
+    <string name="block_heading">Encabezado %1$d</string>
+    <string name="block_bulleted">Lista con viñetas</string>
+    <string name="block_numbered">Lista numerada</string>
+    <string name="block_checklist">Lista de verificación</string>
+    <string name="block_quote">Cita</string>
+    <string name="block_callout">Aviso</string>
+    <string name="block_code">Código</string>
+    <string name="block_toggle">Desplegable</string>
+    <string name="block_divider">Separador</string>
+    <string name="placeholder_paragraph">Escribe algo…</string>
+    <string name="placeholder_list_item">Elemento de lista</string>
+    <string name="block_unsupported">%1$s: aún no es compatible aquí</string>
+    <plurals name="block_table_rows">
+        <item quantity="one">%d fila</item>
+        <item quantity="many">%d filas</item>
+        <item quantity="other">%d filas</item>
+    </plurals>
+    <string name="toggle_empty_tap">Desplegable vacío: toca para escribir</string>
+    <string name="toggle_empty">Vacío</string>
+    <string name="blocktype_table">Tabla</string>
+    <string name="blocktype_attachment">Archivo adjunto</string>
+    <string name="blocktype_database">Vista de base de datos</string>
+    <string name="blocktype_tasks">Bloque de tareas</string>
+    <string name="blocktype_calendar">Bloque de calendario</string>
+    <string name="blocktype_buttons">Botones</string>
+    <string name="blocktype_embed">Contenido insertado</string>
+    <string name="blocktype_columns">Columnas</string>
+    <string name="blocktype_unknown">Bloque desconocido</string>
+    <string name="blocktype_named">«%1$s»</string>
+</resources>

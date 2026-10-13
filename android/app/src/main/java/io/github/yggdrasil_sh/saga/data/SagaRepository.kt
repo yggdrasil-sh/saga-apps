@@ -1,9 +1,12 @@
 package io.github.yggdrasil_sh.saga.data
 
 import io.github.yggdrasil_sh.saga.BuildConfig
+import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.auth.PairTarget
 import io.github.yggdrasil_sh.saga.auth.Pkce
 import io.github.yggdrasil_sh.saga.util.ServerUrl
+import io.github.yggdrasil_sh.saga.util.UiText
+import io.github.yggdrasil_sh.saga.util.UiTextException
 import io.github.yggdrasil_sh.saga.util.Versions
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,10 +54,10 @@ class SagaRepository(
     val doneTasks = MutableStateFlow<List<TaskItem>>(emptyList())
     val todayEvents = MutableStateFlow<List<CalEvent>>(emptyList())
     val loading = MutableStateFlow(false)
-    val error = MutableStateFlow<String?>(null)
+    val error = MutableStateFlow<UiText?>(null)
     val serverVersion = MutableStateFlow<String?>(null)
     val minApp = MutableStateFlow<String?>(null)
-    val loginError = MutableStateFlow<String?>(null)
+    val loginError = MutableStateFlow<UiText?>(null)
     val loginBusy = MutableStateFlow(false)
 
     val server: StateFlow<String> get() = settings.server
@@ -62,12 +65,14 @@ class SagaRepository(
 
     // ---------------------------------------------------------------- Hilfen
 
-    fun friendly(e: Throwable): String = when (e) {
-        is ApiException -> e.message ?: "Fehler"
-        is UnknownHostException, is ConnectException -> "Server nicht erreichbar"
-        is SocketTimeoutException -> "Zeitüberschreitung – Server antwortet nicht"
-        is IOException -> e.message?.takeIf { it.isNotBlank() } ?: "Netzwerkfehler"
-        else -> e.message ?: "Fehler"
+    /** Fehler als Text fuer die Oberflaeche (uebersetzt; Meldungen des Servers/Systems unveraendert) */
+    fun friendly(e: Throwable): UiText = when (e) {
+        is ApiException -> e.text
+        is UiTextException -> e.text
+        is UnknownHostException, is ConnectException, is ServerUnreachableException -> UiText.Res(R.string.error_server_unreachable)
+        is SocketTimeoutException -> UiText.Res(R.string.error_timeout)
+        is IOException -> e.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) } ?: UiText.Res(R.string.error_network)
+        else -> e.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) } ?: UiText.Res(R.string.error_generic)
     }
 
     private fun today(): String = LocalDate.now().toString()
@@ -247,7 +252,7 @@ class SagaRepository(
     /** Schritt 1 der Browser-Anmeldung: Server pruefen/merken, PKCE erzeugen -> Adresse fuer den Custom Tab */
     suspend fun prepareBrowserLogin(serverInput: String): String {
         val server = ServerUrl.normalize(serverInput, BuildConfig.DEBUG)
-            ?: throw IllegalArgumentException("Bitte eine https-Adresse eingeben, z. B. https://saga.example.org")
+            ?: throw UiTextException(UiText.Res(R.string.login_https_required))
         if (server != settings.server.value) {
             api.cookies.clear()
             serverVersion.value = null
@@ -263,7 +268,7 @@ class SagaRepository(
     suspend fun completeBrowserLogin(code: String) {
         val verifier = secure.pkceVerifier
         if (verifier == null) {
-            loginError.value = "Anmeldung bitte in der App neu starten."
+            loginError.value = UiText.Res(R.string.login_restart)
             return
         }
         loginBusy.value = true
@@ -278,7 +283,7 @@ class SagaRepository(
             secure.pkceVerifier = null
             adopt(r)
         } catch (e: Exception) {
-            loginError.value = if (e is ApiException && e.code == 401) "Code ungültig oder abgelaufen – bitte erneut anmelden." else friendly(e)
+            loginError.value = if (e is ApiException && e.code == 401) UiText.Res(R.string.login_code_invalid) else friendly(e)
         } finally {
             loginBusy.value = false
         }
@@ -290,7 +295,7 @@ class SagaRepository(
         loginError.value = null
         try {
             if (!target.server.startsWith("https://") && !(BuildConfig.DEBUG && ServerUrl.isLocalHttp(target.server))) {
-                throw IllegalArgumentException("Der Server muss per https erreichbar sein.")
+                throw UiTextException(UiText.Res(R.string.login_server_https))
             }
             if (target.server != settings.server.value) {
                 api.cookies.clear()
