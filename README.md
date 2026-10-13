@@ -54,6 +54,7 @@ sondern in lokalen Dateien, die git ignoriert. Vorlagen liegen jeweils daneben:
 
 Version aller Apps setzen: `tools/set-version.sh 1.2.0` (eine Quelle: `VERSION`). Landet die Änderung an
 `VERSION` auf `main`, baut GitHub alle Pakete und veröffentlicht sie als Release (`.github/workflows/release.yml`).
+Neues landet zuerst auf dem Branch `testing`: Jeder Push dort baut alle Pakete als Probelauf (ohne Release).
 
 ## Versionen
 

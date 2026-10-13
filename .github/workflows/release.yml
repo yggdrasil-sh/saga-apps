@@ -3,6 +3,7 @@
 #   - Linux:   saga-<v>-1.noarch.rpm, saga-<v>-<arch>.flatpak
 #   - Android: Saga-<v>.apk                  (signiert)
 # Ausloeser: Aenderung an VERSION auf main (tools/set-version.sh x.y.z) -> Tag v<x.y.z> + Release.
+# Jeder Push auf testing baut alle Pakete als Probelauf (Workflow-Artefakte, kein Release).
 # Von Hand (Actions -> Release -> Run workflow): nur bauen (Downloads als Workflow-Artefakte)
 # oder mit "release" auch veroeffentlichen. Gibt es den Tag schon, wird nur gebaut.
 #
@@ -16,8 +17,7 @@ name: Release
 
 on:
   push:
-    branches: [main]
-    paths: [VERSION]
+    branches: [main, testing]
   workflow_dispatch:
     inputs:
       release:
@@ -29,8 +29,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: release
-  cancel-in-progress: false
+  group: release-${{ github.ref }}
+  # Probelaeufe auf testing: aelteren Lauf abbrechen, wenn ein neuer Push kommt
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   version:
@@ -43,10 +44,21 @@ jobs:
       - uses: actions/checkout@v5
       - id: v
         env:
-          WANT: ${{ github.event_name == 'push' || inputs.release == true }}
+          WANT: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.release == true }}
+          EVENT: ${{ github.event_name }}
+          REF: ${{ github.ref }}
+          BEFORE: ${{ github.event.before }}
         run: |
           V=$(sh tools/set-version.sh --check)
           echo "version=$V" >> "$GITHUB_OUTPUT"
+          # Push auf main loest nur aus, wenn sich VERSION geaendert hat
+          if [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ]; then
+            git fetch -q --depth=1 origin "$BEFORE" 2>/dev/null || true
+            if git cat-file -e "$BEFORE" 2>/dev/null && git diff --quiet "$BEFORE" HEAD -- VERSION; then
+              echo "::notice::VERSION unveraendert - es wird nur gebaut"
+              WANT=false
+            fi
+          fi
           if git ls-remote --exit-code --tags origin "refs/tags/v$V" >/dev/null; then
             echo "::notice::v$V ist schon veroeffentlicht - es wird nur gebaut"
             R=false
