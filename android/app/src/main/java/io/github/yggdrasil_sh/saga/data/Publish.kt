@@ -97,6 +97,31 @@ object Publish {
         return NeedName((o["suggested_name"] as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf { it.isNotBlank() })
     }
 
+    /**
+     * Fehler gehoert zur Adresse (Feld markieren statt Statuszeile): {"field": "slug"} oder 400/409 auf eine Anfrage
+     * mit "slug" (Format falsch bzw. "Diese Adresse benutzt schon eine andere deiner Seiten.").
+     */
+    fun slugError(e: Throwable, sentSlug: Boolean): Boolean {
+        if (e !is ApiException || e.code !in 400..499 || needName(e) != null) return false
+        val o = try {
+            lenient.parseToJsonElement(e.body) as? JsonObject
+        } catch (_: Exception) {
+            null
+        }
+        val field = (o?.get("field") as? JsonPrimitive)?.takeIf { it.isString }?.content
+        if (field != null) return field == "slug"
+        return sentSlug && (e.code == 400 || e.code == 409)
+    }
+
+    /**
+     * Adresse fuer die Anzeige: Umbruch nur nach "/" (U+200B dahinter, nicht nach "://"), Bindestriche untrennbar
+     * (U+2011). Nur anzeigen - kopiert/geteilt wird immer die Original-Adresse.
+     */
+    fun breakable(url: String): String {
+        val start = url.indexOf("://").let { if (it < 0) 0 else it + 3 }
+        return (url.substring(0, start) + url.substring(start).replace("/", "/\u200B")).replace("-", "\u2011")
+    }
+
     /** Aeltere Server ohne /publish: 404 ohne {"error": ...} (eine fehlende Seite meldet {"error": "not found"}) */
     fun unsupported(e: Throwable): Boolean = e is ApiException && e.code == 404 && !e.body.contains("\"error\"")
 }

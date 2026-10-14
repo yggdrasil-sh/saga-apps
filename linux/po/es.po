@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: saga\n"
 "Report-Msgid-Bugs-To: https://github.com/yggdrasil-sh/saga-apps/issues\n"
-"POT-Creation-Date: 2026-10-14 12:14+0000\n"
+"POT-Creation-Date: 2026-10-14 12:57+0000\n"
 "PO-Revision-Date: 2026-10-14 14:30+0200\n"
 "Last-Translator: Saga-Projekt\n"
 "Language-Team: Español\n"
@@ -69,7 +69,7 @@ msgstr "Vencidas"
 
 #: hlidskjalf/agenda.py:107 hlidskjalf/agenda.py:549 hlidskjalf/database.py:508
 #: hlidskjalf/database.py:1035 hlidskjalf/richtext.py:286
-#: hlidskjalf/window.py:208 hlidskjalf/window.py:844 hlidskjalf/window.py:953
+#: hlidskjalf/window.py:208 hlidskjalf/window.py:845 hlidskjalf/window.py:954
 msgid "Today"
 msgstr "Hoy"
 
@@ -103,9 +103,9 @@ msgstr "Tarea"
 #: hlidskjalf/agenda.py:216 hlidskjalf/agenda.py:366 hlidskjalf/dbedit.py:154
 #: hlidskjalf/dialogs.py:184 hlidskjalf/dialogs.py:194
 #: hlidskjalf/dialogs.py:525 hlidskjalf/page.py:95 hlidskjalf/page.py:753
-#: hlidskjalf/page.py:837 hlidskjalf/publish.py:184 hlidskjalf/settings.py:87
+#: hlidskjalf/page.py:837 hlidskjalf/publish.py:217 hlidskjalf/settings.py:87
 #: hlidskjalf/settings.py:120 hlidskjalf/settings.py:283
-#: hlidskjalf/settings.py:429 hlidskjalf/window.py:679
+#: hlidskjalf/settings.py:429 hlidskjalf/window.py:680
 #: hlidskjalf/window.py:1157 hlidskjalf/window.py:1238
 msgid "Cancel"
 msgstr "Cancelar"
@@ -239,12 +239,12 @@ msgstr ""
 "No hay ningún calendario con escritura conectado (Ajustes → Calendario)."
 
 #: hlidskjalf/agenda.py:507 hlidskjalf/editor.py:34 hlidskjalf/window.py:201
-#: hlidskjalf/window.py:844 hlidskjalf/window.py:954
+#: hlidskjalf/window.py:845 hlidskjalf/window.py:955
 msgid "Tasks"
 msgstr "Tareas"
 
-#: hlidskjalf/agenda.py:514 hlidskjalf/window.py:202 hlidskjalf/window.py:844
-#: hlidskjalf/window.py:955
+#: hlidskjalf/agenda.py:514 hlidskjalf/window.py:202 hlidskjalf/window.py:845
+#: hlidskjalf/window.py:956
 msgid "Events"
 msgstr "Eventos"
 
@@ -256,7 +256,7 @@ msgstr "Nada planeado 🎉"
 msgid "Please sign in"
 msgstr "Inicia sesión"
 
-#: hlidskjalf/api.py:36 hlidskjalf/api.py:212
+#: hlidskjalf/api.py:36 hlidskjalf/api.py:213
 msgid "Server not reachable"
 msgstr "No se puede acceder al servidor"
 
@@ -273,16 +273,16 @@ msgstr "Esta dirección pertenece a otro servidor."
 msgid "No server address set"
 msgstr "No se ha indicado ninguna dirección de servidor"
 
-#: hlidskjalf/api.py:182 hlidskjalf/api.py:360
+#: hlidskjalf/api.py:183 hlidskjalf/api.py:363
 #, python-brace-format
 msgid "Server not reachable: {error}"
 msgstr "No se puede acceder al servidor: {error}"
 
-#: hlidskjalf/api.py:272
+#: hlidskjalf/api.py:273
 msgid "Sign-in failed"
 msgstr "Error al iniciar sesión"
 
-#: hlidskjalf/api.py:385
+#: hlidskjalf/api.py:388
 msgid "Upload failed"
 msgstr "Error al subir"
 
@@ -290,7 +290,7 @@ msgstr "Error al subir"
 msgid "More"
 msgstr "Más"
 
-#: hlidskjalf/blocks.py:91 hlidskjalf/window.py:957
+#: hlidskjalf/blocks.py:91 hlidskjalf/window.py:958
 msgid "Back"
 msgstr "Atrás"
 
@@ -463,7 +463,7 @@ msgid "Reminder: {date}"
 msgstr "Recordatorio: {date}"
 
 #: hlidskjalf/blocks.py:856 hlidskjalf/dialogs.py:568 hlidskjalf/dialogs.py:571
-#: hlidskjalf/editor.py:31 hlidskjalf/window.py:536 hlidskjalf/window.py:1194
+#: hlidskjalf/editor.py:31 hlidskjalf/window.py:537 hlidskjalf/window.py:1194
 msgid "Page"
 msgstr "Página"
 
@@ -493,7 +493,7 @@ msgid "Empty"
 msgstr "Vacío"
 
 #: hlidskjalf/database.py:563 hlidskjalf/database.py:641
-#: hlidskjalf/database.py:850 hlidskjalf/publish.py:427
+#: hlidskjalf/database.py:850 hlidskjalf/publish.py:520
 #: hlidskjalf/window.py:1178
 msgid "Open"
 msgstr "Abrir"
@@ -517,8 +517,9 @@ msgstr "Buscar entradas"
 msgid "Untitled"
 msgstr "Sin título"
 
-#: hlidskjalf/database.py:643 hlidskjalf/page.py:720 hlidskjalf/publish.py:381
-#: hlidskjalf/publish.py:425 hlidskjalf/window.py:1065
+#: hlidskjalf/database.py:643 hlidskjalf/page.py:720 hlidskjalf/publish.py:504
+#: hlidskjalf/publish.py:519 hlidskjalf/publish.py:524
+#: hlidskjalf/window.py:1065
 msgid "Copy link"
 msgstr "Copiar enlace"
 
@@ -531,7 +532,7 @@ msgid "Entry actions"
 msgstr "Acciones de la entrada"
 
 #: hlidskjalf/database.py:742 hlidskjalf/dbedit.py:213 hlidskjalf/dbedit.py:250
-#: hlidskjalf/dbedit.py:279 hlidskjalf/publish.py:580
+#: hlidskjalf/dbedit.py:279 hlidskjalf/publish.py:757
 msgid "Name"
 msgstr "Nombre"
 
@@ -964,7 +965,7 @@ msgid "Nothing found"
 msgstr "No se encontró nada"
 
 #: hlidskjalf/dialogs.py:136 hlidskjalf/window.py:233 hlidskjalf/window.py:492
-#: hlidskjalf/window.py:956
+#: hlidskjalf/window.py:957
 msgid "Trash"
 msgstr "Papelera"
 
@@ -1213,8 +1214,8 @@ msgstr "Quitar botón"
 msgid "Add button"
 msgstr "Añadir botón"
 
-#: hlidskjalf/dialogs.py:637 hlidskjalf/window.py:203 hlidskjalf/window.py:844
-#: hlidskjalf/window.py:956
+#: hlidskjalf/dialogs.py:637 hlidskjalf/window.py:203 hlidskjalf/window.py:845
+#: hlidskjalf/window.py:957
 msgid "Services"
 msgstr "Servicios"
 
@@ -1322,7 +1323,7 @@ msgstr "Falta python3-pillow"
 msgid "Drag to change the cover image height"
 msgstr "Arrastra para cambiar la altura de la portada"
 
-#: hlidskjalf/page.py:64
+#: hlidskjalf/page.py:64 hlidskjalf/publish.py:818
 msgid "Change"
 msgstr "Cambiar"
 
@@ -1382,7 +1383,7 @@ msgstr "Entrada anterior (Ctrl+Mayús+K)"
 msgid "Next entry (Ctrl+Shift+J)"
 msgstr "Entrada siguiente (Ctrl+Mayús+J)"
 
-#: hlidskjalf/page.py:264 hlidskjalf/window.py:517 hlidskjalf/window.py:835
+#: hlidskjalf/page.py:264 hlidskjalf/window.py:517 hlidskjalf/window.py:836
 #: hlidskjalf/window.py:1061
 msgid "Add to favorites"
 msgstr "Añadir a favoritos"
@@ -1502,7 +1503,7 @@ msgstr "Como plantilla"
 msgid "Open in browser"
 msgstr "Abrir en el navegador"
 
-#: hlidskjalf/page.py:722 hlidskjalf/window.py:965
+#: hlidskjalf/page.py:722 hlidskjalf/window.py:966
 msgid "Publish …"
 msgstr "Publicar …"
 
@@ -1530,7 +1531,7 @@ msgstr "Sacar del archivo"
 msgid "Address or page reference (/notes#12)"
 msgstr "Dirección o referencia a una página (/notes#12)"
 
-#: hlidskjalf/page.py:750 hlidskjalf/publish.py:379 hlidskjalf/publish.py:423
+#: hlidskjalf/page.py:750 hlidskjalf/publish.py:503 hlidskjalf/publish.py:518
 msgid "Link"
 msgstr "Enlace"
 
@@ -1571,224 +1572,253 @@ msgstr "Adjuntar archivo"
 msgid "Link database"
 msgstr "Vincular base de datos"
 
-#: hlidskjalf/publish.py:54 hlidskjalf/publish.py:104 hlidskjalf/publish.py:395
-#: hlidskjalf/window.py:521
+#: hlidskjalf/publish.py:67 hlidskjalf/publish.py:71 hlidskjalf/publish.py:117
+#: hlidskjalf/publish.py:496 hlidskjalf/window.py:522
 msgid "Public"
 msgstr "Pública"
 
-#: hlidskjalf/publish.py:54
+#: hlidskjalf/publish.py:67
 msgid "This page is public – click for settings"
 msgstr "Esta página es pública: haz clic para ver los ajustes"
 
-#: hlidskjalf/publish.py:59
-#, python-brace-format
-msgid "Public (via “{title}”)"
-msgstr "Pública (a través de «{title}»)"
-
-#: hlidskjalf/publish.py:60
+#: hlidskjalf/publish.py:72
 #, python-brace-format
 msgid "Public as a subpage of “{title}” – click for details"
 msgstr "Pública como subpágina de «{title}»: haz clic para ver los detalles"
 
-#: hlidskjalf/publish.py:93
+#: hlidskjalf/publish.py:105
 #, python-brace-format
 msgid ""
 "Withdrawn by the admin on {when}. Address and settings are kept – you can "
 "publish the page again."
-msgstr "Retirada por el administrador el {when}. La dirección y los ajustes se conservan; puedes volver a publicar la página."
-
-#: hlidskjalf/publish.py:96
-#, python-brace-format
-msgid ""
-"Stopped publishing on {when}. Address and settings are kept and apply again "
-"when you publish again."
-msgstr "Se dejó de publicar el {when}. La dirección y los ajustes se conservan y vuelven a aplicarse al publicar de nuevo."
-
-#: hlidskjalf/publish.py:102
-msgid ""
-"The admin has turned off publishing on this server – public addresses "
-"currently return “Not found”."
-msgstr "El administrador ha desactivado la publicación en este servidor: las direcciones públicas devuelven ahora «No encontrado»."
-
-#: hlidskjalf/publish.py:104
-msgid "Also publish at its own address"
-msgstr "Publicar también en su propia dirección"
+msgstr ""
+"Retirada por el administrador el {when}. La dirección y los ajustes se "
+"conservan; puedes volver a publicar la página."
 
 #: hlidskjalf/publish.py:108
 #, python-brace-format
 msgid ""
+"Stopped publishing on {when}. Address and settings are kept and apply again "
+"when you publish again."
+msgstr ""
+"Se dejó de publicar el {when}. La dirección y los ajustes se conservan y "
+"vuelven a aplicarse al publicar de nuevo."
+
+#: hlidskjalf/publish.py:115
+msgid ""
+"The admin has turned off publishing on this server – public addresses "
+"currently return “Not found”."
+msgstr ""
+"El administrador ha desactivado la publicación en este servidor: las "
+"direcciones públicas devuelven ahora «No encontrado»."
+
+#: hlidskjalf/publish.py:117
+msgid "Also publish at its own address"
+msgstr "Publicar también en su propia dirección"
+
+#: hlidskjalf/publish.py:121
+#, python-brace-format
+msgid ""
 "This page is already public: “{title}” is published together with its "
 "subpages."
-msgstr "Esta página ya es pública: «{title}» está publicada con sus subpáginas."
+msgstr ""
+"Esta página ya es pública: «{title}» está publicada con sus subpáginas."
 
-#: hlidskjalf/publish.py:114
-msgid "Only applied with “Change address”."
-msgstr "Solo se aplica con «Cambiar dirección»."
+#: hlidskjalf/publish.py:135
+msgid "Takes effect only when you tap “Change address”."
+msgstr "Solo se aplica al pulsar «Cambiar dirección»."
 
-#: hlidskjalf/publish.py:118
+#: hlidskjalf/publish.py:137
+msgid "Applies once the page is public"
+msgstr "Se aplica cuando la página sea pública"
+
+#: hlidskjalf/publish.py:139
 #, python-brace-format
 msgid "Replaces your current profile page “{title}”."
 msgstr "Sustituye a tu página de perfil actual «{title}»."
 
-#: hlidskjalf/publish.py:119
+#: hlidskjalf/publish.py:140
 msgid "Shown at your profile address – one page at most."
 msgstr "Se muestra en tu dirección de perfil; como máximo una página."
 
-#: hlidskjalf/publish.py:121
+#: hlidskjalf/publish.py:141
 #, python-brace-format
 msgid "Public name: @{name} – change it in Settings → Account."
 msgstr "Nombre público: @{name}; cámbialo en Ajustes → Cuenta."
 
-#: hlidskjalf/publish.py:129
+#: hlidskjalf/publish.py:149
 #, python-brace-format
 msgid "✓ Saved – replaces your previous profile page “{title}”."
 msgstr "✓ Guardado: sustituye a tu anterior página de perfil «{title}»."
 
-#: hlidskjalf/publish.py:130 hlidskjalf/publish.py:637
+#: hlidskjalf/publish.py:150 hlidskjalf/publish.py:833
 msgid "✓ Saved"
 msgstr "✓ Guardado"
 
-#: hlidskjalf/publish.py:136
+#: hlidskjalf/publish.py:156
 msgid "This server doesn't support publishing yet."
 msgstr "Este servidor aún no admite la publicación."
 
-#: hlidskjalf/publish.py:232
+#: hlidskjalf/publish.py:303
 msgid "✓ Available"
 msgstr "✓ Disponible"
 
-#: hlidskjalf/publish.py:270 hlidskjalf/publish.py:447
+#: hlidskjalf/publish.py:362 hlidskjalf/publish.py:566
 msgid "Publish"
 msgstr "Publicar"
 
-#: hlidskjalf/publish.py:307
+#: hlidskjalf/publish.py:402
 msgid ""
 "First choose your public name. It appears in every address of your public "
 "pages and is visible to everyone."
-msgstr "Primero elige tu nombre público. Aparece en todas las direcciones de tus páginas públicas y es visible para todos."
+msgstr ""
+"Primero elige tu nombre público. Aparece en todas las direcciones de tus "
+"páginas públicas y es visible para todos."
 
-#: hlidskjalf/publish.py:309 hlidskjalf/publish.py:334
-#: hlidskjalf/publish.py:576
+#: hlidskjalf/publish.py:407 hlidskjalf/publish.py:431
+#: hlidskjalf/publish.py:753
 msgid "Public name"
 msgstr "Nombre público"
 
-#: hlidskjalf/publish.py:317
+#: hlidskjalf/publish.py:413
 msgid ""
 "Not your username: pick something everyone may see. 2–32 characters, a–z, 0–"
 "9, - and _."
-msgstr "No es tu nombre de usuario: elige algo que todos puedan ver. 2–32 caracteres, a–z, 0–9, - y _."
+msgstr ""
+"No es tu nombre de usuario: elige algo que todos puedan ver. 2–32 "
+"caracteres, a–z, 0–9, - y _."
 
-#: hlidskjalf/publish.py:322
+#: hlidskjalf/publish.py:419
 msgid "Continue"
 msgstr "Continuar"
 
-#: hlidskjalf/publish.py:389
-msgid ""
-"It only becomes private when “Also publish subpages” is turned off there or "
-"the page is moved."
-msgstr "Solo vuelve a ser privada si allí se desactiva «Publicar también las subpáginas» o si se mueve la página."
-
-#: hlidskjalf/publish.py:395
+#: hlidskjalf/publish.py:496
 msgid "Anyone with the link can read this page without signing in."
 msgstr "Cualquiera con el enlace puede leer esta página sin iniciar sesión."
 
-#: hlidskjalf/publish.py:398 hlidskjalf/settings.py:33
-msgid "Address"
-msgstr "Dirección"
+#: hlidskjalf/publish.py:512
+msgid ""
+"It only becomes private when “Also publish subpages” is turned off there or "
+"the page is moved."
+msgstr ""
+"Solo vuelve a ser privada si allí se desactiva «Publicar también las "
+"subpáginas» o si se mueve la página."
 
-#: hlidskjalf/publish.py:400 hlidskjalf/publish.py:554
-msgid "Change address"
-msgstr "Cambiar dirección"
+#: hlidskjalf/publish.py:523
+msgid "Profile address"
+msgstr "Dirección del perfil"
 
-#: hlidskjalf/publish.py:412
-msgid "Also publish subpages"
-msgstr "Publicar también las subpáginas"
-
-#: hlidskjalf/publish.py:413
-msgid "Subpages (and database entries) of this page will then be public too."
-msgstr "Las subpáginas (y las entradas de bases de datos) de esta página también serán públicas."
-
-#: hlidskjalf/publish.py:414
-msgid "Allow search engines"
-msgstr "Permitir buscadores"
-
-#: hlidskjalf/publish.py:415
-msgid "Otherwise search engines are asked not to index the page."
-msgstr "Si no, se pide a los buscadores que no indexen la página."
-
-#: hlidskjalf/publish.py:416
-msgid "As profile page (/@name)"
-msgstr "Como página de perfil (/@name)"
-
-#: hlidskjalf/publish.py:433
+#: hlidskjalf/publish.py:527
 msgid "This page is the home page for visitors."
 msgstr "Esta página es la página de inicio para visitantes."
 
-#: hlidskjalf/publish.py:439 hlidskjalf/publish.py:546
+#: hlidskjalf/publish.py:533 hlidskjalf/settings.py:33
+msgid "Address"
+msgstr "Dirección"
+
+#: hlidskjalf/publish.py:545
+msgid "Also publish subpages"
+msgstr "Publicar también las subpáginas"
+
+#: hlidskjalf/publish.py:546
+msgid "Subpages (and database entries) of this page will then be public too."
+msgstr ""
+"Las subpáginas (y las entradas de bases de datos) de esta página también "
+"serán públicas."
+
+#: hlidskjalf/publish.py:547
+msgid "Allow search engines"
+msgstr "Permitir buscadores"
+
+#: hlidskjalf/publish.py:548
+msgid "Otherwise search engines are asked not to index the page."
+msgstr "Si no, se pide a los buscadores que no indexen la página."
+
+#: hlidskjalf/publish.py:549
+msgid "As profile page (/@name)"
+msgstr "Como página de perfil (/@name)"
+
+#: hlidskjalf/publish.py:557
 msgid "Stop publishing"
 msgstr "Dejar de publicar"
 
-#: hlidskjalf/publish.py:472
+#: hlidskjalf/publish.py:581 hlidskjalf/publish.py:582
+#: hlidskjalf/publish.py:721
+msgid "Change address"
+msgstr "Cambiar dirección"
+
+#: hlidskjalf/publish.py:609
 #, python-brace-format
 msgid "Open “{title}”"
 msgstr "Abrir «{title}»"
 
-#: hlidskjalf/publish.py:519
+#: hlidskjalf/publish.py:679
 msgid "Publishing is turned off on this server."
 msgstr "La publicación está desactivada en este servidor."
 
-#: hlidskjalf/publish.py:546
+#: hlidskjalf/publish.py:707
+msgctxt "stop publishing"
+msgid "Stop"
+msgstr "Dejar de publicar"
+
+#: hlidskjalf/publish.py:707
 msgid "Stop publishing?"
 msgstr "¿Dejar de publicar?"
 
-#: hlidskjalf/publish.py:546
-msgid "The link will no longer work."
+#: hlidskjalf/publish.py:707
+msgid "The link will stop working."
 msgstr "El enlace dejará de funcionar."
 
-#: hlidskjalf/publish.py:547
-msgid "No longer published."
-msgstr "Ya no está publicada."
-
-#: hlidskjalf/publish.py:553
+#: hlidskjalf/publish.py:719
 msgid "Change address?"
 msgstr "¿Cambiar la dirección?"
 
-#: hlidskjalf/publish.py:553
+#: hlidskjalf/publish.py:720
 #, python-brace-format
 msgid "The current link {url} will stop working."
 msgstr "El enlace actual {url} dejará de funcionar."
 
-#: hlidskjalf/publish.py:554
+#: hlidskjalf/publish.py:721
 msgid "✓ New address saved"
 msgstr "✓ Nueva dirección guardada"
 
-#: hlidskjalf/publish.py:559 hlidskjalf/window.py:986
+#: hlidskjalf/publish.py:727 hlidskjalf/window.py:987
 msgid "Link copied"
 msgstr "Enlace copiado"
 
-#: hlidskjalf/publish.py:582 hlidskjalf/publish.py:624
+#: hlidskjalf/publish.py:743
+#, python-brace-format
+msgid "New address: {url} (was {old})"
+msgstr "Nueva dirección: {url} (antes {old})"
+
+#: hlidskjalf/publish.py:759
 msgid "Save name"
 msgstr "Guardar nombre"
 
-#: hlidskjalf/publish.py:606
+#: hlidskjalf/publish.py:799
 #, python-brace-format
 msgid ""
 "Appears in the addresses of your public pages ({url}). If you change it, old "
 "links stop working."
-msgstr "Aparece en las direcciones de tus páginas públicas ({url}). Si lo cambias, los enlaces antiguos dejarán de funcionar."
+msgstr ""
+"Aparece en las direcciones de tus páginas públicas ({url}). Si lo cambias, "
+"los enlaces antiguos dejarán de funcionar."
 
-#: hlidskjalf/publish.py:609
+#: hlidskjalf/publish.py:802
 msgid ""
 "Appears in the addresses of your public pages (…/@name/…) and is visible to "
 "everyone – not your username. Set when you first publish."
-msgstr "Aparece en las direcciones de tus páginas públicas (…/@name/…) y es visible para todos; no es tu nombre de usuario. Se fija al publicar por primera vez."
+msgstr ""
+"Aparece en las direcciones de tus páginas públicas (…/@name/…) y es visible "
+"para todos; no es tu nombre de usuario. Se fija al publicar por primera vez."
 
-#: hlidskjalf/publish.py:623
-msgid "Change your public name?"
-msgstr "¿Cambiar tu nombre público?"
+#: hlidskjalf/publish.py:817
+msgid "Change public name?"
+msgstr "¿Cambiar el nombre público?"
 
-#: hlidskjalf/publish.py:623
-msgid "Old links to your public pages will stop working."
-msgstr "Los enlaces antiguos a tus páginas públicas dejarán de funcionar."
+#: hlidskjalf/publish.py:817
+msgid "Links to your published pages will change. Old links will stop working."
+msgstr "Los enlaces a tus páginas publicadas cambiarán. Los enlaces antiguos dejarán de funcionar."
 
 #. Translators: numeric date (GLib.DateTime.format), e.g. "10/12/2026"
 #: hlidskjalf/richtext.py:248 hlidskjalf/util.py:205
@@ -1803,7 +1833,7 @@ msgstr "Pasado mañana"
 msgid "Yesterday"
 msgstr "Ayer"
 
-#: hlidskjalf/settings.py:29 hlidskjalf/window.py:494 hlidskjalf/window.py:960
+#: hlidskjalf/settings.py:29 hlidskjalf/window.py:494 hlidskjalf/window.py:961
 #: hlidskjalf/window.py:1010
 msgid "Settings"
 msgstr "Ajustes"
@@ -2311,7 +2341,7 @@ msgstr ""
 msgid "New page (Ctrl+N)"
 msgstr "Nueva página (Ctrl+N)"
 
-#: hlidskjalf/window.py:489 hlidskjalf/window.py:568
+#: hlidskjalf/window.py:489 hlidskjalf/window.py:569
 msgid "Menu"
 msgstr "Menú"
 
@@ -2319,16 +2349,16 @@ msgstr "Menú"
 msgid "Command palette"
 msgstr "Paleta de comandos"
 
-#: hlidskjalf/window.py:493 hlidskjalf/window.py:957 hlidskjalf/window.py:1010
+#: hlidskjalf/window.py:493 hlidskjalf/window.py:958 hlidskjalf/window.py:1010
 msgid "Refresh"
 msgstr "Actualizar"
 
-#: hlidskjalf/window.py:495 hlidskjalf/window.py:570 hlidskjalf/window.py:1014
+#: hlidskjalf/window.py:495 hlidskjalf/window.py:571 hlidskjalf/window.py:1014
 #: hlidskjalf/window.py:1043
 msgid "Keyboard shortcuts"
 msgstr "Atajos de teclado"
 
-#: hlidskjalf/window.py:496 hlidskjalf/window.py:571
+#: hlidskjalf/window.py:496 hlidskjalf/window.py:572
 msgid "About Saga"
 msgstr "Acerca de Saga"
 
@@ -2344,11 +2374,11 @@ msgstr "Atrás (Alt+←)"
 msgid "Forward (Alt+→)"
 msgstr "Adelante (Alt+→)"
 
-#: hlidskjalf/window.py:572 hlidskjalf/window.py:1014
+#: hlidskjalf/window.py:573 hlidskjalf/window.py:1014
 msgid "Quit"
 msgstr "Salir"
 
-#: hlidskjalf/window.py:576
+#: hlidskjalf/window.py:577
 msgid ""
 "Sign in with a passkey, security key or password.\n"
 "Sign-in opens in your browser."
@@ -2357,25 +2387,25 @@ msgstr ""
 "contraseña.\n"
 "El inicio de sesión se abre en el navegador."
 
-#: hlidskjalf/window.py:582
+#: hlidskjalf/window.py:583
 msgid "Server address"
 msgstr "Dirección del servidor"
 
-#: hlidskjalf/window.py:587
+#: hlidskjalf/window.py:588
 msgid "Sign in"
 msgstr "Iniciar sesión"
 
-#: hlidskjalf/window.py:595
+#: hlidskjalf/window.py:596
 msgid "Enter the server address or sign in with a pairing link"
 msgstr ""
 "Introduce la dirección del servidor o inicia sesión con un enlace de "
 "vinculación"
 
-#: hlidskjalf/window.py:597
+#: hlidskjalf/window.py:598
 msgid "Sign in with a pairing link (QR code from the web)"
 msgstr "Iniciar sesión con un enlace de vinculación (código QR de la web)"
 
-#: hlidskjalf/window.py:599
+#: hlidskjalf/window.py:600
 msgid ""
 "In the browser: 👤 → Settings → “Apps & devices” → “Sign in with QR code”. "
 "Paste the link below the QR code (…/app/pair?c=…) here:"
@@ -2384,11 +2414,11 @@ msgstr ""
 "código QR». Pega aquí el enlace que aparece bajo el código QR (…/app/pair?"
 "c=…):"
 
-#: hlidskjalf/window.py:606
+#: hlidskjalf/window.py:607
 msgid "Browser doesn't return to the app?"
 msgstr "¿El navegador no vuelve a la app?"
 
-#: hlidskjalf/window.py:608
+#: hlidskjalf/window.py:609
 msgid ""
 "Paste the address from the browser's error message (hlidskjalf://auth?"
 "code=…) here:"
@@ -2396,24 +2426,24 @@ msgstr ""
 "Pega aquí la dirección del mensaje de error del navegador (hlidskjalf://auth?"
 "code=…):"
 
-#: hlidskjalf/window.py:631
+#: hlidskjalf/window.py:632
 msgid "Please enter an https address, e.g. https://saga.example.org"
 msgstr "Introduce una dirección https, p. ej. https://saga.example.org"
 
-#: hlidskjalf/window.py:658
+#: hlidskjalf/window.py:659
 msgid "This is not a valid pairing link."
 msgstr "Este no es un enlace de vinculación válido."
 
-#: hlidskjalf/window.py:661
+#: hlidskjalf/window.py:662
 msgid "Pairing links must use https."
 msgstr "Los enlaces de vinculación deben usar https."
 
-#: hlidskjalf/window.py:674
+#: hlidskjalf/window.py:675
 #, python-brace-format
 msgid "Saga will sign in to {host}."
 msgstr "Saga iniciará sesión en {host}."
 
-#: hlidskjalf/window.py:675
+#: hlidskjalf/window.py:676
 msgid ""
 "Only continue if you created this QR code or link yourself in Saga (Settings "
 "→ Apps & devices)."
@@ -2421,57 +2451,57 @@ msgstr ""
 "Continúa solo si has creado tú este código QR o enlace en Saga (Ajustes → "
 "Apps y dispositivos)."
 
-#: hlidskjalf/window.py:677
+#: hlidskjalf/window.py:678
 #, python-brace-format
 msgid "You're currently signed in to {alt} and will be signed out there."
 msgstr "Ahora tienes la sesión iniciada en {alt} y se cerrará allí."
 
-#: hlidskjalf/window.py:678
+#: hlidskjalf/window.py:679
 msgid "Pair with this server?"
 msgstr "¿Vincular con este servidor?"
 
-#: hlidskjalf/window.py:680
+#: hlidskjalf/window.py:681
 msgid "Pair"
 msgstr "Vincular"
 
-#: hlidskjalf/window.py:689 hlidskjalf/window.py:736
+#: hlidskjalf/window.py:690 hlidskjalf/window.py:737
 msgid "Signing in …"
 msgstr "Iniciando sesión…"
 
-#: hlidskjalf/window.py:710
+#: hlidskjalf/window.py:711
 #, python-brace-format
 msgid "Signed in as {name} – stays signed in on “{device}”"
 msgstr "Sesión iniciada como {name}: se mantiene en «{device}»"
 
-#: hlidskjalf/window.py:718
+#: hlidskjalf/window.py:719
 msgid "Please sign in in your browser …"
 msgstr "Inicia sesión en el navegador…"
 
-#: hlidskjalf/window.py:734
+#: hlidskjalf/window.py:735
 msgid "Please start signing in here in the app."
 msgstr "Inicia el proceso de inicio de sesión aquí, en la app."
 
-#: hlidskjalf/window.py:835 hlidskjalf/window.py:1061
+#: hlidskjalf/window.py:836 hlidskjalf/window.py:1061
 msgid "Remove from favorites"
 msgstr "Quitar de favoritos"
 
-#: hlidskjalf/window.py:953 hlidskjalf/window.py:1009
+#: hlidskjalf/window.py:954 hlidskjalf/window.py:1009
 msgid "New page"
 msgstr "Nueva página"
 
-#: hlidskjalf/window.py:958
+#: hlidskjalf/window.py:959
 msgid "Forward"
 msgstr "Adelante"
 
-#: hlidskjalf/window.py:958
+#: hlidskjalf/window.py:959
 msgid "Search in the sidebar"
 msgstr "Buscar en la barra lateral"
 
-#: hlidskjalf/window.py:959 hlidskjalf/window.py:1012
+#: hlidskjalf/window.py:960 hlidskjalf/window.py:1012
 msgid "Show/hide sidebar"
 msgstr "Mostrar u ocultar la barra lateral"
 
-#: hlidskjalf/window.py:962 hlidskjalf/window.py:1011
+#: hlidskjalf/window.py:963 hlidskjalf/window.py:1011
 msgid "Copy link to page"
 msgstr "Copiar enlace a la página"
 
@@ -2640,3 +2670,13 @@ msgstr "Un enlace quiere crear una página nueva en Saga."
 #: hlidskjalf/window.py:1239
 msgid "Create page"
 msgstr "Crear página"
+
+#, python-brace-format
+#~ msgid "Public (via “{title}”)"
+#~ msgstr "Pública (a través de «{title}»)"
+
+#~ msgid "The link will no longer work."
+#~ msgstr "El enlace dejará de funcionar."
+
+#~ msgid "No longer published."
+#~ msgstr "Ya no está publicada."

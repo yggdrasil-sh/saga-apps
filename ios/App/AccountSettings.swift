@@ -19,6 +19,12 @@ struct PublicNameSection: View {
     @State private var busy = false
     @State private var askChange = false
     private var current: String? { PubJSON.str(info?["name"]) }
+    /// Fehler direkt am Feld: Pruefung oder Speichern fehlgeschlagen
+    private var hasError: Bool {
+        if case .bad = check { return true }
+        if case .err? = status { return true }
+        return false
+    }
 
     var body: some View {
         Section {
@@ -30,10 +36,19 @@ struct PublicNameSection: View {
                         .textInputAutocapitalization(.never).keyboardType(.asciiCapable)
                         #endif
                         .onSubmit { trySave() }
+                        .fieldError(hasError)
+                }
+                .id("konto")
+                // Status direkt unter dem Feld, dann live die neue Adresse (alte Links brechen)
+                NameCheckLine(check: check)
+                if let status { PubStatusLine(status: status) }
+                if let p = PublishLogic.nameChangePreview(input: input, current: current, currentURL: PubJSON.str(info["url"]), server: AppConfig.serverString) {
+                    Text("Neue Adresse: \(PublishLogic.breakable(p.new)) (bisher \(PublishLogic.breakable(p.old)))")
+                        .font(.footnote.monospaced())
                 }
                 Group {
                     if let u = PubJSON.str(info["url"]) {
-                        Text("Steht in den Adressen deiner öffentlichen Seiten (\(u)). Beim Ändern funktionieren alte Links nicht mehr.")
+                        Text("Steht in den Adressen deiner öffentlichen Seiten (\(PublishLogic.breakable(u))). Beim Ändern funktionieren alte Links nicht mehr.")
                     } else {
                         Text("Steht in den Adressen deiner öffentlichen Seiten (…/@name/…) und ist für alle sichtbar – nicht dein Anmeldename. Wird beim ersten Veröffentlichen festgelegt.")
                     }
@@ -42,8 +57,6 @@ struct PublicNameSection: View {
                 if !(info["enabled"].map(PubJSON.bool) ?? true) {
                     Label("Veröffentlichen ist auf diesem Server abgeschaltet.", systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.orange)
                 }
-                NameCheckLine(check: check)
-                if let status { PubStatusLine(status: status) }
                 Button("Namen speichern") { trySave() }
                     .disabled(!PublishLogic.canSaveName(input: input, current: current, check: check) || busy)
             } else if supported {
@@ -52,10 +65,11 @@ struct PublicNameSection: View {
         } header: { if supported { Text("Konto") } }
         .task { await load() }
         .task(id: PublishLogic.normalize(input)) { await runCheck() }
-        .confirmationDialog("Öffentlichen Namen ändern? Alte Links auf deine öffentlichen Seiten funktionieren danach nicht mehr.",
-                            isPresented: $askChange, titleVisibility: .visible) {
-            Button("Namen speichern", role: .destructive) { Task { await save() } }
+        .alert("Öffentlichen Namen ändern?", isPresented: $askChange) {
+            Button("Ändern") { Task { await save() } }
             Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Links auf deine veröffentlichten Seiten ändern sich. Alte Links funktionieren nicht mehr.")
         }
     }
 
@@ -64,6 +78,12 @@ struct PublicNameSection: View {
               let j = json(r.0) as? [String: Any] else { if info == nil { supported = false }; return }
         info = j; supported = true
         if input.isEmpty { input = PubJSON.str(j["name"]) ?? "" }
+        #if DEBUG
+        if let v = UserDefaults.standard.string(forKey: "hkPublicName") { input = v }    // nur fuer Tests: neuen Namen vortippen
+        if UserDefaults.standard.string(forKey: "hkPublishAsk") == "name" {                // nur fuer Tests: Rueckfrage zeigen
+            try? await Task.sleep(for: .seconds(2)); trySave()
+        }
+        #endif
     }
 
     private func runCheck() async {

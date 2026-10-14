@@ -98,11 +98,17 @@ enum NameCheck: Equatable {
     }
 }
 
-/// Was der Dialog zeigt - abgeleitet aus Zustand und der gerade getippten Adresse
+/// Was der Dialog zeigt - abgeleitet aus Zustand und der gerade getippten Adresse.
+/// Reihenfolge (alle Plattformen): Schalter -> Link-Karte -> Adresse -> Optionen -> "Veroeffentlichung beenden"
 struct PublishDisplay: Equatable {
     enum MainTitle: Equatable { case isPublic, alsoOwnAddress }
     enum Withdrawn: Equatable { case byAdmin(Double), byUser(Double) }
-    enum Preview: Equatable { case url(String), pendingChange }
+    /// Link-Karte: aktiver Link (Kopieren/Oeffnen/Teilen) oder - solange privat - die kuenftige Adresse, gedaempft
+    enum LinkCard: Equatable {
+        case live(String), future(String)
+        var url: String { switch self { case .live(let u), .future(let u): return u } }
+        var isLive: Bool { if case .live = self { return true }; return false }
+    }
 
     var mainTitle: MainTitle
     var toggleOn: Bool
@@ -112,14 +118,20 @@ struct PublishDisplay: Equatable {
     /// Schon oeffentlich ueber eine Elternseite (nur, solange die Seite selbst nicht veroeffentlicht ist)
     var via: PubLink?
     var withdrawn: Withdrawn?
+    /// nil: keine eigene Link-Karte (nur ueber die Elternseite oeffentlich - die Karte der Elternseite steht an ihrer Stelle)
+    var linkCard: LinkCard?
+    /// Zweite Zeile der Link-Karte "Profiladresse: .../@name" (Profilseite eingeschaltet)
+    var profileLink: String?
+    /// Adresse und Optionen: bei "ueber Elternseite" erst, wenn "Zusaetzlich ..." an ist
+    var showAddress: Bool
+    var showOptions: Bool
+    /// Ueberschrift "Gilt, sobald die Seite oeffentlich ist" ueber den Optionen (solange privat)
+    var optionsPending: Bool
     var slugChanged: Bool
+    /// "Adresse aendern" + Hinweis "Wird erst mit ... uebernommen." nur, wenn die Eingabe von der gespeicherten Adresse abweicht
     var showChangeSlug: Bool
     var changeSlugEnabled: Bool
-    /// nil: keine Vorschau (veroeffentlicht und unveraendert - die Adresse steht dann im Link-Bereich)
-    var preview: Preview?
-    /// Link, Kopieren/Oeffnen und "Veroeffentlichung beenden"
-    var showLink: Bool
-    var link: String?
+    var showStop: Bool
     /// Titel der Profilseite, die ein Einschalten von "Als Profilseite" ersetzen wuerde
     var profileReplaces: String?
     var isHome: Bool
@@ -133,17 +145,40 @@ struct PublishDisplay: Equatable {
         serverDisabled = !s.enabled
         via = viaOnly ? s.via : nil
         if !s.published, let t = s.withdrawnAt { withdrawn = s.withdrawnBy == "admin" ? .byAdmin(t) : .byUser(t) } else { withdrawn = nil }
+        if viaOnly { linkCard = nil }
+        else if s.published, let u = s.url { linkCard = .live(u) }
+        else { linkCard = .future(PublishLogic.previewURL(s, slug: s.published ? s.slug : slug, server: server)) }
+        profileLink = !viaOnly && s.profile ? (s.profileURL ?? PublishLogic.namePreview(s.name ?? "", server: server)) : nil
+        showAddress = !viaOnly
+        showOptions = !viaOnly
+        optionsPending = !s.published
         slugChanged = s.published && slug != s.slug
-        showChangeSlug = s.published
+        showChangeSlug = slugChanged
         changeSlugEnabled = slugChanged && PublishLogic.slugLooksValid(slug)
-        if slugChanged { preview = .pendingChange }
-        else if s.published { preview = nil }
-        else { preview = .url(PublishLogic.previewURL(s, slug: slug, server: server)) }
-        showLink = s.published && s.url != nil
-        link = s.published ? s.url : nil
+        showStop = s.published
         profileReplaces = s.profileOther?.title
         isHome = s.home && s.published
     }
+}
+
+/// Wo eine Rueckmeldung steht (Fehler direkt am Feld, nicht in einer Statuszeile)
+enum PubField: Equatable {
+    case main, link, slug
+    case option(String)
+
+    /// Fehler einer PUT-Anfrage zuordnen: Adresse mitgeschickt und 400/409 -> am Adressfeld;
+    /// nur eine Option geaendert -> an dieser Option; sonst am Schalter
+    static func forError(body: [String: Any], code: Int) -> PubField {
+        if body["slug"] != nil, code == 400 || code == 409 { return .slug }
+        if body.count == 1, let k = body.keys.first, ["children", "indexable", "profile"].contains(k) { return .option(k) }
+        return .main
+    }
+}
+
+/// Einstellungen -> Konto: Live-Vorschau beim Aendern des oeffentlichen Namens
+struct NameChangePreview: Equatable {
+    var new: String
+    var old: String
 }
 
 /// Hinweis im Seitenkopf: aus GET /api/notes/{id} (published, public_url, published_via)
@@ -186,6 +221,32 @@ enum PublishLogic {
     /// Vorschau fuer den Namensschritt
     static func namePreview(_ name: String, server: String) -> String {
         server.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/@" + (name.isEmpty ? "…" : name)
+    }
+
+    /// Anzeige einer Adresse: Umbruch nur nach "/" (U+200B nach jeder Folge von "/"), nie nach "-" (U+2060).
+    /// Nur fuer die Anzeige - kopiert/geoeffnet wird immer die unveraenderte Adresse.
+    static func breakable(_ url: String) -> String {
+        var out = "", chars = Array(url)
+        for (i, c) in chars.enumerated() {
+            out.append(c)
+            let next: Character? = i + 1 < chars.count ? chars[i + 1] : nil
+            if c == "/", next != nil, next != "/" { out.append("\u{200B}") }
+            else if c == "-", next != nil { out.append("\u{2060}") }
+        }
+        return out
+    }
+
+    /// Basis-Adresse fuer /@name: aus der bisherigen Profiladresse (.../@name), sonst der App-Server
+    static func publicBase(url: String?, name: String?, server: String) -> String {
+        if let u = url, let n = name, u.hasSuffix("/@" + n) { return String(u.dropLast(n.count + 2)) }
+        return server.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+    /// Einstellungen: "Neue Adresse: .../@neu (bisher .../@alt)" - nur beim Aendern eines bestehenden Namens
+    static func nameChangePreview(input: String, current: String?, currentURL: String?, server: String) -> NameChangePreview? {
+        let v = normalize(input)
+        guard let c = current, !v.isEmpty, v != c else { return nil }
+        let base = publicBase(url: currentURL, name: c, server: server)
+        return NameChangePreview(new: base + "/@" + v, old: currentURL ?? base + "/@" + c)
     }
 
     /// Einschalten: alle Einstellungen mitschicken (die Adresse nur, wenn eine eingetippt ist)

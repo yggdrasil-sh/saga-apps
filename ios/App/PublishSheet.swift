@@ -38,6 +38,19 @@ extension Store {
     }
 }
 
+/// Fehler direkt am Feld: Rahmen rot (Text darunter steht beim Feld selbst)
+struct FieldErrorMark: ViewModifier {
+    let on: Bool
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, 6).padding(.vertical, 3)
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(on ? Color.red : Color.clear, lineWidth: 1))
+    }
+}
+extension View {
+    func fieldError(_ on: Bool) -> some View { modifier(FieldErrorMark(on: on)) }
+}
+
 struct PublishSheet: View {
     let id: Int
     /// Zustand geaendert (Seitenkopf nachfuehren)
@@ -53,7 +66,9 @@ struct PublishSheet: View {
     @State private var nameInput = ""
     @State private var nameCheck: NameCheck = .idle
     @State private var slugInput = ""
+    /// Rueckmeldung und das Feld, an dem sie steht
     @State private var status: PubStatus?
+    @State private var statusField: PubField = .main
     @State private var busy = false
     @State private var askStop = false
     @State private var askSlug = false
@@ -70,15 +85,28 @@ struct PublishSheet: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
+            .toolbar {
+                if naming {                                       // Namensschritt: Abbrechen / Weiter
+                    ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Weiter") { Task { await saveName() } }
+                            .disabled(!nameCheck.isOK || busy)
+                            .keyboardShortcut(.defaultAction)
+                    }
+                } else {
+                    ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } }
+                }
+            }
         }
         .macFrame(minWidth: 480, idealWidth: 540, minHeight: 520, idealHeight: 680)
         .task { await load() }
     }
 
     @ViewBuilder private var content: some View {
-        if let st {
-            if naming { nameStep(st) } else { mainForm(st) }
+        if naming {
+            nameStep(st)                                          // auch ohne Zustand (Server meldet need_name)
+        } else if let st {
+            mainForm(st)
         } else if let e = loadError {
             VStack(spacing: 12) {
                 Label(e, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
@@ -90,31 +118,47 @@ struct PublishSheet: View {
         }
     }
 
+    private func say(_ s: PubStatus?, at f: PubField = .main) { status = s; statusField = f }
+    /// Rueckmeldung an genau diesem Feld
+    @ViewBuilder private func feedback(_ f: PubField) -> some View {
+        if let status, statusField == f { PubStatusLine(status: status) }
+    }
+    private func hasError(_ f: PubField) -> Bool {
+        if case .err? = status, statusField == f { return true }
+        return false
+    }
+
     // MARK: Schritt 1: oeffentlicher Name
 
-    private func nameStep(_ s: PublishState) -> some View {
+    /// Fehler im Namensschritt: Pruefung beim Tippen oder Speichern - ersetzt den Hilfetext
+    private var nameError: String? {
+        if case .bad(let m) = nameCheck { return m ?? String(localized: "Server nicht erreichbar") }
+        if case .err(let t)? = status { return t }
+        return nil
+    }
+
+    private func nameStep(_ s: PublishState?) -> some View {
         Form {
             Section {
                 Text("Wähle zuerst deinen öffentlichen Namen. Er steht in jeder Adresse deiner öffentlichen Seiten und ist für alle sichtbar.")
                 LabeledContent("Öffentlicher Name") {
-                    TextField("Öffentlicher Name", text: $nameInput, prompt: Text(verbatim: s.suggestedName ?? ""))
+                    TextField("Öffentlicher Name", text: $nameInput, prompt: Text(verbatim: s?.suggestedName ?? ""))
                         .labelsHidden().autocorrectionDisabled()
                         #if os(iOS)
                         .textInputAutocapitalization(.never).keyboardType(.asciiCapable)
                         #endif
                         .onSubmit { if nameCheck.isOK && !busy { Task { await saveName() } } }
+                        .fieldError(nameError != nil)
                 }
-                Text(verbatim: PublishLogic.namePreview(PublishLogic.normalize(nameInput), server: AppConfig.serverString))
-                    .font(.callout.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
-                NameCheckLine(check: nameCheck)
-                if let status { PubStatusLine(status: status) }
+                Text(verbatim: PublishLogic.breakable(PublishLogic.namePreview(PublishLogic.normalize(nameInput), server: AppConfig.serverString)))
+                    .font(.callout.monospaced()).foregroundStyle(.secondary)
+                if nameCheck == .checking || nameCheck == .ok { NameCheckLine(check: nameCheck) }
             } footer: {
-                Text("Nicht dein Anmeldename: wähle etwas, das alle sehen dürfen. 2–32 Zeichen, a–z, 0–9, - und _.")
-            }
-            Section {
-                Button { Task { await saveName() } } label: { Text("Weiter").frame(maxWidth: .infinity) }
-                    .disabled(!nameCheck.isOK || busy)
-                    .keyboardShortcut(.defaultAction)
+                if let e = nameError {
+                    Label(e, systemImage: "exclamationmark.circle.fill").foregroundStyle(.red)
+                } else {
+                    Text("Nicht dein Anmeldename: wähle etwas, das alle sehen dürfen. 2–32 Zeichen, a–z, 0–9, - und _.")
+                }
             }
         }
         .formStyle(.grouped)
@@ -134,16 +178,18 @@ struct PublishSheet: View {
     }
 
     private func saveName() async {
+        guard nameCheck.isOK, !busy else { return }
         let v = PublishLogic.normalize(nameInput)
         busy = true; defer { busy = false }
         do {
             let (d, c) = try await store.apiResponse("api/account/public-name", method: "PUT", body: ["name": v])
             guard (200..<300).contains(c) else { nameCheck = NameCheck.parse(code: c, data: d); return }
             await load()                                          // jetzt mit Namen -> Einstellungen der Seite
-        } catch { status = .err(error.localizedDescription) }
+        } catch { say(.err(error.localizedDescription)) }
     }
 
     // MARK: Schritt 2: Einstellungen der Seite
+    // Reihenfolge: 1 Schalter -> 2 Link-Karte -> 3 Adresse -> 4 Optionen -> 5 "Veroeffentlichung beenden"
 
     private func mainForm(_ s: PublishState) -> some View {
         let d = PublishDisplay(s, slugInput: slugInput, server: AppConfig.serverString)
@@ -154,8 +200,6 @@ struct PublishSheet: View {
                         .foregroundStyle(.orange)
                 }
             }
-            if let v = d.via { viaSection(v) }
-            if let w = d.withdrawn { Section { withdrawnLabel(w) } }
             Section {
                 Toggle(isOn: Binding(get: { s.published }, set: { on in if on { Task { await publish() } } else { askStop = true } })) {
                     VStack(alignment: .leading, spacing: 2) {
@@ -163,45 +207,30 @@ struct PublishSheet: View {
                         Text("Jeder mit dem Link kann diese Seite ohne Anmeldung lesen.").font(.footnote).foregroundStyle(.secondary)
                     }
                 }
+                .toggleStyle(.switch)
                 .disabled(d.toggleDisabled || busy)
                 if d.isHome { Label("Diese Seite ist die Startseite für Besucher.", systemImage: "house").font(.footnote) }
-                if let status { PubStatusLine(status: status) }
+                if let w = d.withdrawn { withdrawnLabel(w).font(.footnote) }
+                feedback(.main)
             }
-            Section {
-                TextField("Adresse", text: $slugInput, prompt: Text(verbatim: s.slug))
-                    .labelsHidden().autocorrectionDisabled()
-                    #if os(iOS)
-                    .textInputAutocapitalization(.never).keyboardType(.asciiCapable)
-                    #endif
-                    .onSubmit { if d.changeSlugEnabled { askSlug = true } }
-                    .onChange(of: slugInput) { _, _ in status = nil }
-                if d.showChangeSlug {
-                    Button("Adresse ändern") { askSlug = true }.disabled(!d.changeSlugEnabled || busy)
-                }
-            } header: { Text("Adresse") } footer: {
-                switch d.preview {
-                case .url(let u): Text(verbatim: u).font(.footnote.monospaced()).textSelection(.enabled)
-                case .pendingChange: Text("Wird erst mit „Adresse ändern“ übernommen.")
-                case nil: EmptyView()
-                }
-            }
-            Section {
-                optionToggle("Unterseiten mit veröffentlichen", hint: Text("Unterseiten (und Einträge von Datenbanken) dieser Seite sind dann ebenfalls öffentlich."),
-                             key: "children", value: s.children)
-                optionToggle("Suchmaschinen erlauben", hint: Text("Sonst bitten wir Suchmaschinen, die Seite nicht aufzunehmen."),
-                             key: "indexable", value: s.indexable)
-                optionToggle("Als Profilseite (/@name)",
-                             hint: d.profileReplaces.map { Text("Ersetzt die bisherige Profilseite „\($0)“.") } ?? Text("Erscheint unter deiner Profil-Adresse – höchstens eine Seite."),
-                             key: "profile", value: s.profile)
-            }
-            if d.showLink, let link = d.link {
+            if let v = d.via { viaSection(v) }
+            else if let card = d.linkCard { linkSection(card, profile: d.profileLink) }
+            if d.showAddress { addressSection(s, d) }
+            if d.showOptions {
                 Section {
-                    Text(verbatim: link).font(.callout.monospaced()).textSelection(.enabled)
-                    linkButtons(link)
-                } header: { Text("Link") }
+                    optionToggle("Unterseiten mit veröffentlichen", hint: Text("Unterseiten (und Einträge von Datenbanken) dieser Seite sind dann ebenfalls öffentlich."),
+                                 key: "children", value: s.children)
+                    optionToggle("Suchmaschinen erlauben", hint: Text("Sonst bitten wir Suchmaschinen, die Seite nicht aufzunehmen."),
+                                 key: "indexable", value: s.indexable)
+                    optionToggle("Als Profilseite (/@name)",
+                                 hint: d.profileReplaces.map { Text("Ersetzt die bisherige Profilseite „\($0)“.") } ?? Text("Erscheint unter deiner Profiladresse – höchstens eine Seite."),
+                                 key: "profile", value: s.profile)
+                } header: {
+                    if d.optionsPending { Text("Gilt, sobald die Seite öffentlich ist") }
+                }
             }
             Section {
-                if s.published {
+                if d.showStop {
                     Button("Veröffentlichung beenden", role: .destructive) { askStop = true }.disabled(busy)
                 }
             } footer: {
@@ -209,45 +238,113 @@ struct PublishSheet: View {
             }
         }
         .formStyle(.grouped)
-        .confirmationDialog("Veröffentlichung beenden? Der Link funktioniert danach nicht mehr.", isPresented: $askStop, titleVisibility: .visible) {
-            Button("Veröffentlichung beenden", role: .destructive) { Task { await stop() } }
+        .alert("Veröffentlichung beenden?", isPresented: $askStop) {
+            Button("Beenden", role: .destructive) { Task { await stop() } }
             Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Der Link funktioniert danach nicht mehr.")
         }
-        .confirmationDialog(Text("Adresse ändern? Der bisherige Link \(s.url ?? "") funktioniert danach nicht mehr."), isPresented: $askSlug, titleVisibility: .visible) {
+        .alert("Adresse ändern?", isPresented: $askSlug) {
             Button("Adresse ändern") {
-                Task { await put(["slug": PublishLogic.normalize(slugInput)], done: String(localized: "✓ Neue Adresse gespeichert")) }
+                Task { await put(["slug": PublishLogic.normalize(slugInput)], done: String(localized: "✓ Neue Adresse gespeichert"), at: .slug) }
             }
             Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Der bisherige Link \(PublishLogic.breakable(s.url ?? "")) funktioniert danach nicht mehr.")
+        }
+        #if DEBUG
+        .task {                                                   // nur fuer Tests: Adresse vortippen (-hkPublishSlug x), Rueckfrage zeigen (-hkPublishAsk stop|slug)
+            let ud = UserDefaults.standard
+            if let v = ud.string(forKey: "hkPublishSlug") { slugInput = v }
+            guard s.published, let ask = ud.string(forKey: "hkPublishAsk") else { return }
+            try? await Task.sleep(for: .seconds(1))
+            if ask == "stop" { askStop = true }
+            if ask == "slug" { askSlug = PublishDisplay(s, slugInput: slugInput).changeSlugEnabled }
+        }
+        #endif
+    }
+
+    /// Link-Karte: aktiver Link mit Kopieren/Oeffnen/Teilen - solange privat die kuenftige Adresse, gedaempft (kein Link)
+    private func linkSection(_ card: PublishDisplay.LinkCard, profile: String?) -> some View {
+        Section {
+            Text(verbatim: PublishLogic.breakable(card.url))
+                .font(.callout.monospaced())
+                .foregroundStyle(card.isLive ? Color.primary : Color.secondary)
+                .accessibilityLabel(Text(verbatim: card.url))
+            if card.isLive { linkButtons(card.url) }
+            if let p = profile {
+                HStack(alignment: .center, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Profiladresse").font(.footnote).foregroundStyle(.secondary)
+                        Text(verbatim: PublishLogic.breakable(p)).font(.callout.monospaced())
+                            .foregroundStyle(card.isLive ? Color.primary : Color.secondary)
+                            .accessibilityLabel(Text(verbatim: p))
+                    }
+                    Spacer(minLength: 0)
+                    if card.isLive {
+                        Button { copyText(p); say(.ok(String(localized: "Link kopiert")), at: .link) } label: { Image(systemName: "doc.on.doc") }
+                            .buttonStyle(.borderless)
+                            .help(Text("Link kopieren"))
+                            .accessibilityLabel(Text("Link kopieren"))
+                    }
+                }
+            }
+            feedback(.link)
+        } header: { Text("Link") }
+    }
+
+    private func addressSection(_ s: PublishState, _ d: PublishDisplay) -> some View {
+        Section {
+            TextField("Adresse", text: $slugInput, prompt: Text(verbatim: s.slug))
+                .labelsHidden().autocorrectionDisabled()
+                #if os(iOS)
+                .textInputAutocapitalization(.never).keyboardType(.asciiCapable)
+                #endif
+                .onSubmit { if d.changeSlugEnabled { askSlug = true } }
+                .onChange(of: slugInput) { _, _ in if statusField == .slug { status = nil } }
+                .fieldError(hasError(.slug))
+            feedback(.slug)
+            if d.showChangeSlug {
+                Button("Adresse ändern") { askSlug = true }.disabled(!d.changeSlugEnabled || busy)
+            }
+        } header: { Text("Adresse") } footer: {
+            if d.showChangeSlug { Text("Wird erst mit „Adresse ändern“ übernommen.") }
         }
     }
 
     private func optionToggle(_ title: LocalizedStringKey, hint: Text, key: String, value: Bool) -> some View {
-        Toggle(isOn: Binding(get: { value }, set: { setOption(key, $0) })) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                hint.font(.footnote).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 4) {
+            Toggle(isOn: Binding(get: { value }, set: { setOption(key, $0) })) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                    hint.font(.footnote).foregroundStyle(.secondary)
+                }
             }
+            .toggleStyle(.switch)
+            .disabled(busy)
+            feedback(.option(key))
         }
-        .disabled(busy)
     }
 
     @ViewBuilder private func linkButtons(_ link: String) -> some View {
-        Button { copyText(link); status = .ok(String(localized: "Link kopiert")) } label: { Label("Link kopieren", systemImage: "doc.on.doc") }
+        Button { copyText(link); say(.ok(String(localized: "Link kopiert")), at: .link) } label: { Label("Link kopieren", systemImage: "doc.on.doc") }
         if let u = URL(string: link) {
             Button { openURL(u) } label: { Label("Öffnen", systemImage: "safari") }
             ShareLink(item: u) { Label("Link teilen", systemImage: "square.and.arrow.up") }
         }
     }
 
+    /// Nur ueber die Elternseite oeffentlich: deren Link steht an Stelle der eigenen Link-Karte
     private func viaSection(_ v: PubLink) -> some View {
         Section {
             Label { Text("Diese Seite ist bereits öffentlich: „\(v.title)“ ist mit Unterseiten veröffentlicht.") } icon: { Image(systemName: "globe") }
             if let u = v.url {
-                Text(verbatim: u).font(.callout.monospaced()).textSelection(.enabled)
+                Text(verbatim: PublishLogic.breakable(u)).font(.callout.monospaced()).accessibilityLabel(Text(verbatim: u))
                 linkButtons(u)
             }
             Button { dismiss(); openPage(v.noteID) } label: { Label("„\(v.title)“ öffnen", systemImage: "arrow.up.forward.square") }
-        } footer: {
+            feedback(.link)
+        } header: { Text("Link") } footer: {
             Text("Privat wird sie erst, wenn dort „Unterseiten mit veröffentlichen“ aus ist oder die Seite verschoben wird.")
         }
     }
@@ -284,12 +381,15 @@ struct PublishSheet: View {
             case .failed(let m, let code):
                 loadError = m ?? String(localized: "Server-Fehler \(code)")
             }
+            #if DEBUG
+            if naming, let v = UserDefaults.standard.string(forKey: "hkPublicName") { nameInput = v }   // nur fuer Tests: Namen vortippen
+            #endif
         } catch { loadError = error.localizedDescription }
     }
 
     private func publish() async {
         guard let s = st else { return }
-        guard s.enabled else { status = .err(String(localized: "Veröffentlichen ist auf diesem Server abgeschaltet.")); return }
+        guard s.enabled else { say(.err(String(localized: "Veröffentlichen ist auf diesem Server abgeschaltet."))); return }
         await put(PublishLogic.publishBody(s, slugInput: slugInput))
     }
 
@@ -303,41 +403,43 @@ struct PublishSheet: View {
         default: s.profile = v
         }
         st = s
-        if s.published { Task { await put([key: v], resetSlug: false, revert: old) } }
+        if s.published { Task { await put([key: v], resetSlug: false, revert: old, at: .option(key)) } }
     }
 
-    private func put(_ body: [String: Any], done: String? = nil, resetSlug: Bool = true, revert: PublishState? = nil) async {
+    /// PUT /publish; Erfolg wird an `at` gemeldet, ein Fehler an dem Feld, zu dem er gehoert (PubField.forError)
+    private func put(_ body: [String: Any], done: String? = nil, resetSlug: Bool = true, revert: PublishState? = nil, at: PubField = .main) async {
         busy = true; defer { busy = false }
         do {
             let (d, c) = try await store.apiResponse("api/notes/\(id)/publish", method: "PUT", body: body)
             switch PublishOutcome.parse(code: c, data: d) {
             case .state(let ns):
                 apply(ns, resetSlug: resetSlug)
-                status = .ok(ns.replacedProfile.map { String(localized: "✓ Gespeichert – ersetzt die bisherige Profilseite „\($0.title)“.") }
-                             ?? done ?? String(localized: "✓ Gespeichert"))
+                say(.ok(ns.replacedProfile.map { String(localized: "✓ Gespeichert – ersetzt die bisherige Profilseite „\($0.title)“.") }
+                        ?? done ?? String(localized: "✓ Gespeichert")), at: at)
             case .needName(let sug, let m):                       // Name fehlt (z. B. in einem anderen Fenster entfernt)
                 if let revert { st = revert }
                 if let sug { nameInput = sug }
-                naming = true; status = m.map { .err($0) }
+                naming = true; say(m.map { .err($0) })
             case .failed(let m, let code):
                 if let revert { st = revert }
-                status = .err(m ?? String(localized: "Server-Fehler \(code)"))
+                say(.err(m ?? String(localized: "Server-Fehler \(code)")), at: PubField.forError(body: body, code: code))
             }
         } catch {
             if let revert { st = revert }
-            status = .err(error.localizedDescription)
+            say(.err(error.localizedDescription), at: PubField.forError(body: body, code: 0))
         }
     }
 
+    /// Beenden: der Hinweis "Veroeffentlichung beendet am ..." am Schalter genuegt (kein zweites "beendet")
     private func stop() async {
         busy = true; defer { busy = false }
         do {
             let (d, c) = try await store.apiResponse("api/notes/\(id)/publish", method: "DELETE")
             switch PublishOutcome.parse(code: c, data: d) {
-            case .state(let ns): apply(ns); status = .ok(String(localized: "Veröffentlichung beendet."))
-            case .needName(_, let m), .failed(let m, _): status = .err(m ?? String(localized: "Server-Fehler \(c)"))
+            case .state(let ns): apply(ns); say(nil)
+            case .needName(_, let m), .failed(let m, _): say(.err(m ?? String(localized: "Server-Fehler \(c)")))
             }
-        } catch { status = .err(error.localizedDescription) }
+        } catch { say(.err(error.localizedDescription)) }
     }
 }
 

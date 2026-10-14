@@ -11,6 +11,10 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   öffentlichem Namen, Adresse, Unterseiten, Suchmaschinen, Profilseite, Link kopieren/öffnen und „Veröffentlichung
   beenden“; Hinweis „Öffentlich“ im Seitenkopf; „Öffentlicher Name“ unter Einstellungen → Konto.
   Fehlermeldungen des Servers kommen in der App-Sprache (Accept-Language).
+  Dialog auf allen Plattformen gleich: Schalter → Link (solange privat gedämpft; bei Profilseite mit Profiladresse)
+  → Adresse („Adresse ändern“ erst bei abweichender Eingabe) → Optionen → „Veröffentlichung beenden“; Schalter statt
+  Häkchen, Fehler direkt am Feld, einheitliche Rückfragen mit Titel. Android-Seitenmenü: „App-Link kopieren“ und
+  „Im Web-Editor öffnen“.
 
 ## [1.1.0] – 2026-10-14
 

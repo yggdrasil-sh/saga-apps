@@ -4,7 +4,7 @@
 #   sh tests/run-container.sh                 -> startet fedora:44 (podman oder docker) und laeuft dort alles
 #   sh tests/run-container.sh lint unit       -> nur diese Teile (lint | unit | ui | lang | shots | all)
 #     lint: pyflakes, compileall, msgfmt, desktop-file-validate, appstreamcli   unit: pytest (tests/test_*.py)
-#     ui: App startet (smoke.py)   lang: sprachen.py fuer de/en/es   shots: Bildschirmfotos (shots.py)
+#     ui: App startet (smoke.py)   lang: sprachen.py fuer de/en/es   shots: Bildschirmfotos (shots.py, dialoge.py, pubshots.py)
 #   sh tests/run-container.sh --inside ...    -> direkt hier laufen (im Container oder auf einem Fedora-Rechner mit den Paketen)
 #   PYTEST_ADDOPTS="-k konflikt" ...           -> nur passende pytest-Tests
 # Bildschirmfotos (Teil "shots"): build/shots/ im Linux-Ordner. Bild: HK_IMAGE (Standard fedora:44).
@@ -87,6 +87,8 @@ for part in $PARTS; do
       mkdir -p "$SRC/build/shots"
       HK_OUT="$SRC/build/shots" app_test shots.py
       HK_OUT="$SRC/build/shots" app_test dialoge.py
+      HK_OUT="$SRC/build/shots" app_test pubshots.py
+      HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test pubshots.py es_ES.UTF-8
       ;;
     *) echo "unbekannter Teil: $part" >&2; FAIL=$((FAIL + 1)) ;;
   esac

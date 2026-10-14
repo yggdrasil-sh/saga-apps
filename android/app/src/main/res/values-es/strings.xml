@@ -145,7 +145,8 @@
     <string name="page_lock">Bloquear página</string>
     <string name="page_unlock">Desbloquear página</string>
     <string name="page_reload">Recargar</string>
-    <string name="page_copy_link">Copiar enlace</string>
+    <string name="page_copy_link">Copiar enlace de la app</string>
+    <string name="page_open_web_editor">Abrir en el editor web</string>
     <string name="page_link_copied">Enlace copiado</string>
     <string name="page_database_soon">Las bases de datos con vistas (tabla, tablero, calendario…) llegarán en una próxima versión.</string>
     <string name="page_locked_chip">Bloqueada: toca para desbloquear</string>
@@ -293,8 +294,8 @@
     <string name="publish_public_hint">Cualquiera con el enlace puede leer esta página sin iniciar sesión.</string>
     <string name="publish_address">Dirección</string>
     <string name="publish_change_address">Cambiar dirección</string>
-    <string name="publish_address_pending">Solo se aplica con «Cambiar dirección».</string>
-    <string name="publish_address_confirm">¿Cambiar la dirección? El enlace actual %1$s dejará de funcionar.</string>
+    <string name="publish_address_pending">Solo se aplica al pulsar «Cambiar dirección».</string>
+    <string name="publish_address_confirm">El enlace actual %1$s dejará de funcionar.</string>
     <string name="publish_address_saved">✓ Nueva dirección guardada</string>
     <string name="publish_children">Publicar también las subpáginas</string>
     <string name="publish_children_hint">Las subpáginas (y las entradas de bases de datos) de esta página también serán públicas.</string>
@@ -309,8 +310,6 @@
     <string name="publish_link_copied">Enlace copiado</string>
     <string name="publish_name_footer">Nombre público: @%1$s; cámbialo en Ajustes → Cuenta.</string>
     <string name="publish_stop">Dejar de publicar</string>
-    <string name="publish_stop_confirm">¿Dejar de publicar? El enlace dejará de funcionar.</string>
-    <string name="publish_stopped">Ya no está publicada.</string>
     <string name="publish_via_text">Esta página ya es pública: «%1$s» está publicada con sus subpáginas.</string>
     <string name="publish_open_title">Abrir «%1$s»</string>
     <string name="publish_via_hint">Solo vuelve a ser privada si allí se desactiva «Publicar también las subpáginas» o si se mueve la página.</string>
@@ -326,5 +325,14 @@
     <string name="publish_name_hint_set">Aparece en las direcciones de tus páginas públicas (%1$s). Si lo cambias, los enlaces antiguos dejarán de funcionar.</string>
     <string name="publish_name_hint_unset">Aparece en las direcciones de tus páginas públicas (…/@name/…) y es visible para todos; no es tu nombre de usuario. Se fija al publicar por primera vez.</string>
     <string name="publish_name_save">Guardar nombre</string>
-    <string name="publish_name_change_confirm">¿Cambiar tu nombre público? Los enlaces antiguos a tus páginas públicas dejarán de funcionar.</string>
+    <string name="publish_name_new_address">Nueva dirección: %1$s (antes %2$s)</string>
+    <string name="publish_name_change">Cambiar</string>
+    <string name="publish_name_change_title">¿Cambiar el nombre público?</string>
+    <string name="publish_address_title">¿Cambiar la dirección?</string>
+    <string name="publish_stop_button">Dejar de publicar</string>
+    <string name="publish_stop_text">El enlace dejará de funcionar.</string>
+    <string name="publish_stop_title">¿Dejar de publicar?</string>
+    <string name="publish_profile_address">Dirección del perfil</string>
+    <string name="publish_options_pending">Se aplica cuando la página sea pública</string>
+    <string name="publish_name_change_confirm">Los enlaces a tus páginas publicadas cambiarán. Los enlaces antiguos dejarán de funcionar.</string>
 </resources>

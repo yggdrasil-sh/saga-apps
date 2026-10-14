@@ -54,6 +54,9 @@ sh po/build-mo.sh build/locale
 %install
 install -d %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf
 cp -a hlidskjalf/*.py hlidskjalf/style.css %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/
+# eigene Symbole (z. B. saga-globe-symbolic), App-eigener Suchpfad (main.py), nicht im System-Symbolthema
+install -d %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons
+install -m644 hlidskjalf/icons/*.svg %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/
 # Testmodus (HK_TEST, ctypes, fuehrt Skripte aus) gehoert nicht ins Paket
 rm -f %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/testing.py
 install -Dm755 data/hlidskjalf %{buildroot}%{_bindir}/hlidskjalf
@@ -77,6 +80,7 @@ if command -v appstreamcli >/dev/null; then
   appstreamcli validate --no-net %{buildroot}%{_metainfodir}/io.github.yggdrasil_sh.Saga.metainfo.xml
 fi
 test ! -e %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/testing.py
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-globe-symbolic.svg
 
 # Desktop-Datenbank und Symbol-Zwischenspeicher aktualisieren Fedora/RHEL selbst (Datei-Trigger) - keine Scriptlets noetig
 

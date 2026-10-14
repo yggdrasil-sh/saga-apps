@@ -46,6 +46,8 @@ modules:
     build-commands:
       - install -d ${FLATPAK_DEST}/share/hlidskjalf/hlidskjalf
       - cp -a hlidskjalf/*.py hlidskjalf/style.css ${FLATPAK_DEST}/share/hlidskjalf/hlidskjalf/
+      # eigene Symbole (z. B. saga-globe-symbolic): App-eigener Suchpfad, siehe main.py
+      - install -Dm644 -t ${FLATPAK_DEST}/share/hlidskjalf/hlidskjalf/icons hlidskjalf/icons/*.svg
       # Testmodus (HK_TEST) gehoert nicht ins Paket
       - rm -f ${FLATPAK_DEST}/share/hlidskjalf/hlidskjalf/testing.py
       - python3 -m compileall -q -d /app/share/hlidskjalf/hlidskjalf ${FLATPAK_DEST}/share/hlidskjalf/hlidskjalf

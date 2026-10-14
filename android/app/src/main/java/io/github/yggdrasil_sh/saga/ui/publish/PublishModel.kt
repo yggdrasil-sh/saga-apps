@@ -54,14 +54,24 @@ data class PublishView(
     /** beendet (Benutzer) bzw. zurueckgezogen (Admin) - Zeitpunkt in Sekunden */
     val withdrawnAt: Double?,
     val withdrawnByAdmin: Boolean,
+    /**
+     * Link-Karte direkt unter dem Schalter: veroeffentlicht der oeffentliche Link (aktiv: Kopieren, Oeffnen, Teilen),
+     * sonst die kuenftige Adresse gedaempft; null = keine Karte (oeffentlich ueber eine Elternseite)
+     */
+    val linkUrl: String?,
+    val linkActive: Boolean,
+    /** Profilseite: zweite Zeile "Profiladresse: …/@name" mit Kopieren */
+    val profileAddress: String?,
+    /** Adresse und Optionen zeigen (ueber eine Elternseite erst, wenn "Zusätzlich …" an ist) */
+    val showSettings: Boolean,
+    /** Ueberschrift "Gilt, sobald die Seite öffentlich ist" ueber den Optionen (solange privat) */
+    val optionsPending: Boolean,
+    /**
+     * "Adresse ändern" + Hinweis "Wird erst mit „Adresse ändern“ übernommen." - nur veroeffentlicht und wenn die
+     * Eingabe von der gespeicherten Adresse abweicht
+     */
     val showChangeAddress: Boolean,
     val changeAddressEnabled: Boolean,
-    /** Adresse geaendert, aber noch nicht uebernommen ("Wird erst mit „Adresse ändern“ übernommen.") */
-    val addressPending: Boolean,
-    /** Vorschau der Adresse (nicht veroeffentlicht); null = ausgeblendet */
-    val preview: String?,
-    /** oeffentlicher Link (veroeffentlicht) */
-    val link: String?,
     val showStop: Boolean,
     val profileHint: UiText,
     val home: Boolean,
@@ -72,8 +82,9 @@ data class PublishView(
             val newSlug = Publish.norm(slugInput)
             val changed = on && newSlug != st.slug
             val via = if (!on) st.publishedVia else null
+            val name = st.name.orEmpty()
             return PublishView(
-                name = st.name.orEmpty(),
+                name = name,
                 disabledWarning = !st.enabled,
                 via = via,
                 switchLabel = if (via != null) R.string.publish_also_own else R.string.publish_public,
@@ -81,11 +92,17 @@ data class PublishView(
                 switchEnabled = st.enabled || on,
                 withdrawnAt = if (!on) st.withdrawnAt else null,
                 withdrawnByAdmin = !on && st.withdrawnAt != null && st.withdrawnBy == "admin",
-                showChangeAddress = on,
+                linkUrl = when {
+                    on -> st.url
+                    via != null -> null
+                    else -> "$base/@$name/${newSlug.ifEmpty { "…" }}"
+                },
+                linkActive = on && st.url != null,
+                profileAddress = if (on && st.profile) st.profileUrl ?: "$base/@$name" else null,
+                showSettings = via == null,
+                optionsPending = !on,
+                showChangeAddress = changed,
                 changeAddressEnabled = changed && newSlug.isNotEmpty(),
-                addressPending = changed,
-                preview = if (on) null else "$base/@${st.name.orEmpty()}/${newSlug.ifEmpty { "…" }}",
-                link = if (on) st.url else null,
                 showStop = on,
                 profileHint = st.profileOther?.let { UiText.Res(R.string.publish_profile_replaces, it.title) }
                     ?: UiText.Res(R.string.publish_profile_hint),
@@ -132,6 +149,9 @@ class PublishModel(
     var profile by mutableStateOf(false)
         private set
     var status by mutableStateOf<Status?>(null)
+    /** Fehler zur Adresse - steht direkt am Feld (rot, Text darunter), nicht in der Statuszeile */
+    var slugError by mutableStateOf<UiText?>(null)
+        private set
     var busy by mutableStateOf(false)
         private set
 
@@ -212,6 +232,7 @@ class PublishModel(
 
     fun editSlug(v: String) {
         slugInput = v
+        slugError = null
         status = null
     }
 
@@ -251,7 +272,9 @@ class PublishModel(
         busy = true
         try {
             apply(backend.unpublish(id))
-            status = Status(UiText.Res(R.string.publish_stopped), StatusKind.OK)
+            // kein zweites "beendet": der Hinweis "Veröffentlichung beendet am …" steht schon im Dialog
+            status = null
+            slugError = null
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -276,13 +299,20 @@ class PublishModel(
         try {
             val ns = backend.publish(id, body)
             apply(ns)
+            slugError = null
             status = Status(ns.replacedProfile?.let { UiText.Res(R.string.publish_saved_replaced, it.title) } ?: done, StatusKind.OK)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             val need = Publish.needName(e)
-            if (need != null) toNameStep(need.suggested, backend.friendly(e))
-            else status = Status(backend.friendly(e), StatusKind.ERROR)
+            when {
+                need != null -> toNameStep(need.suggested, backend.friendly(e))
+                Publish.slugError(e, sentSlug = body.containsKey("slug")) -> {
+                    slugError = backend.friendly(e)
+                    status = null
+                }
+                else -> status = Status(backend.friendly(e), StatusKind.ERROR)
+            }
             // Optionen auf den Stand des Servers zuruecksetzen (Schalter zeigen nichts Ungespeichertes)
             if (st.published) {
                 children = st.children
@@ -330,6 +360,21 @@ class PublicNameModel(private val backend: PublishBackend) {
     /** Name schon gesetzt, wird geaendert und es gibt oeffentliche Seiten -> alte Links gehen nicht mehr */
     val needsConfirm: Boolean
         get() = info?.name?.let { it.isNotEmpty() && Publish.norm(input) != it } == true && (info?.published ?: 0) > 0
+
+    /**
+     * Live beim Tippen "Neue Adresse: …/@neu (bisher …/@alt)": (neu, bisher) - nur wenn schon ein Name gesetzt ist
+     * und die Eingabe davon abweicht (nicht bei ungueltigem/vergebenem Namen - dann steht der Fehler am Feld)
+     */
+    val newAddress: Pair<String, String>?
+        get() {
+            val p = info ?: return null
+            val old = p.name?.takeIf { it.isNotEmpty() } ?: return null
+            val oldUrl = p.url ?: return null
+            val n = Publish.norm(input)
+            val cut = oldUrl.lastIndexOf("/@")
+            if (n.isEmpty() || n == old || cut < 0 || status is NameStatus.Bad) return null
+            return "${oldUrl.substring(0, cut)}/@$n" to oldUrl
+        }
 
     suspend fun load() {
         try {

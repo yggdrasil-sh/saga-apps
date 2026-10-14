@@ -15,6 +15,18 @@ struct SettingsView: View {
     #endif
 
     var body: some View {
+        ScrollViewReader { proxy in
+            form
+            #if DEBUG
+            .task {                                                      // nur fuer Tests: zum Konto-Block (Startparameter -hkSettings konto)
+                guard UserDefaults.standard.string(forKey: "hkSettings") == "konto" else { return }
+                try? await Task.sleep(for: .seconds(2)); proxy.scrollTo("konto", anchor: .center)
+            }
+            #endif
+        }
+    }
+
+    private var form: some View {
         Form {
             Section("Server") {
                 TextField("https://saga.example.org", text: $server)

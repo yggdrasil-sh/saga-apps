@@ -124,6 +124,7 @@ struct RootView: View {
             if let home = store.homePage, !store.pages.isEmpty, store.page(home) == nil { store.setHome(nil); if selection == home { selection = nil } }   // geloescht -> vergessen
             #if DEBUG
             if let v = UserDefaults.standard.string(forKey: "hkOpen"), let id = Int(v) { selection = id }   // nur fuer Tests (Startparameter -hkOpen <id>)
+            if UserDefaults.standard.string(forKey: "hkSettings") != nil { showSettings = true }            // nur fuer Tests: Einstellungen oeffnen
             if let v = UserDefaults.standard.string(forKey: "hkPeek"), let id = Int(v) {                 // nur fuer Tests: Peek oeffnen
                 try? await Task.sleep(for: .seconds(2)); nav.open(id, mode: UserDefaults.standard.string(forKey: "hkPeekMode") ?? "side")
             }

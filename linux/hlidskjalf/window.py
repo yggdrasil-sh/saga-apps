@@ -517,7 +517,8 @@ class MainWindow(Adw.ApplicationWindow):
         self.star_btn = flat_button(icon="non-starred-symbolic", tooltip=_("Add to favorites"), cb=lambda: isinstance(self.current, PageView) and self.current.toggle_fav())
         self.chb.pack_end(self.menu_btn)
         self.chb.pack_end(self.star_btn)
-        # Hinweis "Oeffentlich" (Seite veroeffentlicht bzw. ueber eine Elternseite oeffentlich) - oeffnet den Dialog
+        # Hinweis "Oeffentlich" (Seite veroeffentlicht bzw. ueber eine Elternseite oeffentlich) - oeffnet den Dialog.
+        # Eigenes Symbol saga-globe-symbolic (hlidskjalf/icons), Beschriftung nur "Oeffentlich", "ueber ..." im Tooltip
         self.pub_content = Adw.ButtonContent(icon_name=globe_icon(), label=_("Public"))
         if hasattr(self.pub_content, "set_can_shrink"):
             self.pub_content.set_can_shrink(True)

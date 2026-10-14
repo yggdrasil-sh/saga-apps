@@ -192,26 +192,22 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
                         scope.launch { ed.save(); ed.load() }
                     })
                     if (ed.fetched && ed.publishSupported && !ed.template && !publishHidden) {
+                        // Menue einheitlich ohne Symbole (der Zustand "Öffentlich" steht im Seitenkopf)
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.publish_menu)) },
-                            leadingIcon = {
-                                Icon(
-                                    painterResource(R.drawable.ic_public), null,
-                                    tint = if (ed.published) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            },
                             onClick = {
                                 menu = false
                                 openPublish()
                             },
                         )
                     }
+                    // "App-Link kopieren" / "Im Web-Editor öffnen": Link in den Editor (nicht die oeffentliche Seite)
                     DropdownMenuItem(text = { Text(stringResource(R.string.page_copy_link)) }, onClick = {
                         menu = false
                         copy(context, repo.absoluteUrl("notes") + "#$id")
                         repo.notify(UiText.Res(R.string.page_link_copied))
                     })
-                    DropdownMenuItem(text = { Text(stringResource(R.string.action_open_in_browser)) }, onClick = {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.page_open_web_editor)) }, onClick = {
                         menu = false
                         ed.flush()
                         openUrl(context, repo.absoluteUrl("notes") + "#$id")

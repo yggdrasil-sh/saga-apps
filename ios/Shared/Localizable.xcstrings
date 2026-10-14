@@ -12898,28 +12898,6 @@
         }
       }
     },
-    "Adresse ändern? Der bisherige Link %@ funktioniert danach nicht mehr." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Adresse ändern? Der bisherige Link %@ funktioniert danach nicht mehr."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change the address? The current link %@ will stop working."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Cambiar la dirección? El enlace actual %@ dejará de funcionar."
-          }
-        }
-      }
-    },
     "Als Profilseite (/@name)" : {
       "localizations" : {
         "de" : {
@@ -13030,12 +13008,12 @@
         }
       }
     },
-    "Erscheint unter deiner Profil-Adresse – höchstens eine Seite." : {
+    "Erscheint unter deiner Profiladresse – höchstens eine Seite." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Erscheint unter deiner Profil-Adresse – höchstens eine Seite."
+            "value" : "Erscheint unter deiner Profiladresse – höchstens eine Seite."
           }
         },
         "en" : {
@@ -13448,28 +13426,6 @@
         }
       }
     },
-    "Veröffentlichung beenden? Der Link funktioniert danach nicht mehr." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Veröffentlichung beenden? Der Link funktioniert danach nicht mehr."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Stop publishing? The link will no longer work."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Dejar de publicar? El enlace dejará de funcionar."
-          }
-        }
-      }
-    },
     "Veröffentlichung beendet am %@. Adresse und Einstellungen sind gemerkt und gelten beim erneuten Veröffentlichen wieder." : {
       "localizations" : {
         "de" : {
@@ -13488,28 +13444,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Se dejó de publicar el %@. La dirección y los ajustes se conservan y vuelven a aplicarse al publicar de nuevo."
-          }
-        }
-      }
-    },
-    "Veröffentlichung beendet." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Veröffentlichung beendet."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No longer published."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ya no está publicada."
           }
         }
       }
@@ -13569,13 +13503,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Only applied with “Change address”."
+            "value" : "Takes effect only when you tap “Change address”."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Solo se aplica con «Cambiar dirección»."
+            "value" : "Solo se aplica al pulsar «Cambiar dirección»."
           }
         }
       }
@@ -13712,28 +13646,6 @@
         }
       }
     },
-    "Öffentlichen Namen ändern? Alte Links auf deine öffentlichen Seiten funktionieren danach nicht mehr." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Öffentlichen Namen ändern? Alte Links auf deine öffentlichen Seiten funktionieren danach nicht mehr."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change your public name? Old links to your public pages will stop working."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Cambiar tu nombre público? Los enlaces antiguos a tus páginas públicas dejarán de funcionar."
-          }
-        }
-      }
-    },
     "Öffentlicher Name" : {
       "localizations" : {
         "de" : {
@@ -13862,6 +13774,226 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "✓ Nueva dirección guardada"
+          }
+        }
+      }
+    },
+    "Gilt, sobald die Seite öffentlich ist" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gilt, sobald die Seite öffentlich ist"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applies once the page is public"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se aplica cuando la página sea pública"
+          }
+        }
+      }
+    },
+    "Profiladresse" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profiladresse"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile address"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dirección del perfil"
+          }
+        }
+      }
+    },
+    "Veröffentlichung beenden?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veröffentlichung beenden?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop publishing?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Dejar de publicar?"
+          }
+        }
+      }
+    },
+    "Der Link funktioniert danach nicht mehr." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Link funktioniert danach nicht mehr."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The link will stop working."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El enlace dejará de funcionar."
+          }
+        }
+      }
+    },
+    "Beenden" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beenden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dejar de publicar"
+          }
+        }
+      }
+    },
+    "Adresse ändern?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adresse ändern?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change address?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cambiar la dirección?"
+          }
+        }
+      }
+    },
+    "Der bisherige Link %@ funktioniert danach nicht mehr." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der bisherige Link %@ funktioniert danach nicht mehr."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The current link %@ will stop working."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El enlace actual %@ dejará de funcionar."
+          }
+        }
+      }
+    },
+    "Öffentlichen Namen ändern?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffentlichen Namen ändern?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change public name?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cambiar el nombre público?"
+          }
+        }
+      }
+    },
+    "Links auf deine veröffentlichten Seiten ändern sich. Alte Links funktionieren nicht mehr." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Links auf deine veröffentlichten Seiten ändern sich. Alte Links funktionieren nicht mehr."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Links to your published pages will change. Old links will stop working."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los enlaces a tus páginas publicadas cambiarán. Los enlaces antiguos dejarán de funcionar."
+          }
+        }
+      }
+    },
+    "Neue Adresse: %@ (bisher %@)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neue Adresse: %@ (bisher %@)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New address: %@ (was %@)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nueva dirección: %@ (antes %@)"
           }
         }
       }

@@ -144,7 +144,8 @@
     <string name="page_lock">Seite sperren</string>
     <string name="page_unlock">Seite entsperren</string>
     <string name="page_reload">Neu laden</string>
-    <string name="page_copy_link">Link kopieren</string>
+    <string name="page_copy_link">App-Link kopieren</string>
+    <string name="page_open_web_editor">Im Web-Editor öffnen</string>
     <string name="page_link_copied">Link kopiert</string>
     <string name="page_database_soon">Datenbanken mit Ansichten (Tabelle, Board, Kalender …) kommen in einer der nächsten Versionen.</string>
     <string name="page_locked_chip">Gesperrt – tippen zum Entsperren</string>
@@ -291,14 +292,14 @@
     <string name="publish_address">Adresse</string>
     <string name="publish_change_address">Adresse ändern</string>
     <string name="publish_address_pending">Wird erst mit „Adresse ändern“ übernommen.</string>
-    <string name="publish_address_confirm">Adresse ändern? Der bisherige Link %1$s funktioniert danach nicht mehr.</string>
+    <string name="publish_address_confirm">Der bisherige Link %1$s funktioniert danach nicht mehr.</string>
     <string name="publish_address_saved">✓ Neue Adresse gespeichert</string>
     <string name="publish_children">Unterseiten mit veröffentlichen</string>
     <string name="publish_children_hint">Unterseiten (und Einträge von Datenbanken) dieser Seite sind dann ebenfalls öffentlich.</string>
     <string name="publish_indexable">Suchmaschinen erlauben</string>
     <string name="publish_indexable_hint">Sonst bitten wir Suchmaschinen, die Seite nicht aufzunehmen.</string>
     <string name="publish_profile">Als Profilseite (/@name)</string>
-    <string name="publish_profile_hint">Erscheint unter deiner Profil-Adresse – höchstens eine Seite.</string>
+    <string name="publish_profile_hint">Erscheint unter deiner Profiladresse – höchstens eine Seite.</string>
     <string name="publish_profile_replaces">Ersetzt die bisherige Profilseite „%1$s“.</string>
     <string name="publish_copy_link">Link kopieren</string>
     <string name="publish_open">Öffnen</string>
@@ -306,8 +307,6 @@
     <string name="publish_link_copied">Link kopiert</string>
     <string name="publish_name_footer">Öffentlicher Name: @%1$s – ändern unter Einstellungen → Konto.</string>
     <string name="publish_stop">Veröffentlichung beenden</string>
-    <string name="publish_stop_confirm">Veröffentlichung beenden? Der Link funktioniert danach nicht mehr.</string>
-    <string name="publish_stopped">Veröffentlichung beendet.</string>
     <string name="publish_via_text">Diese Seite ist bereits öffentlich: „%1$s“ ist mit Unterseiten veröffentlicht.</string>
     <string name="publish_open_title">„%1$s“ öffnen</string>
     <string name="publish_via_hint">Privat wird sie erst, wenn dort „Unterseiten mit veröffentlichen“ aus ist oder die Seite verschoben wird.</string>
@@ -323,5 +322,14 @@
     <string name="publish_name_hint_set">Steht in den Adressen deiner öffentlichen Seiten (%1$s). Beim Ändern funktionieren alte Links nicht mehr.</string>
     <string name="publish_name_hint_unset">Steht in den Adressen deiner öffentlichen Seiten (…/@name/…) und ist für alle sichtbar – nicht dein Anmeldename. Wird beim ersten Veröffentlichen festgelegt.</string>
     <string name="publish_name_save">Namen speichern</string>
-    <string name="publish_name_change_confirm">Öffentlichen Namen ändern? Alte Links auf deine öffentlichen Seiten funktionieren danach nicht mehr.</string>
+    <string name="publish_name_new_address">Neue Adresse: %1$s (bisher %2$s)</string>
+    <string name="publish_name_change">Ändern</string>
+    <string name="publish_name_change_title">Öffentlichen Namen ändern?</string>
+    <string name="publish_address_title">Adresse ändern?</string>
+    <string name="publish_stop_button">Beenden</string>
+    <string name="publish_stop_text">Der Link funktioniert danach nicht mehr.</string>
+    <string name="publish_stop_title">Veröffentlichung beenden?</string>
+    <string name="publish_profile_address">Profiladresse</string>
+    <string name="publish_options_pending">Gilt, sobald die Seite öffentlich ist</string>
+    <string name="publish_name_change_confirm">Links auf deine veröffentlichten Seiten ändern sich. Alte Links funktionieren nicht mehr.</string>
 </resources>

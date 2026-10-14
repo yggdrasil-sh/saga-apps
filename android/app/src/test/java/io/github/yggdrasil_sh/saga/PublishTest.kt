@@ -125,12 +125,15 @@ class PublishViewTest {
         assertFalse(v.switchOn)
         assertTrue(v.switchEnabled)
         assertEquals(R.string.publish_public, v.switchLabel)
-        assertEquals("$BASE/@anna/garten", v.preview)
-        assertNull(v.link)
+        // Link-Karte zeigt die kuenftige Adresse gedaempft, Optionen mit "Gilt, sobald …"
+        assertEquals("$BASE/@anna/garten", v.linkUrl)
+        assertFalse(v.linkActive)
+        assertNull(v.profileAddress)
+        assertTrue(v.showSettings)
+        assertTrue(v.optionsPending)
         assertFalse(v.showStop)
         assertFalse(v.showChangeAddress)
-        assertFalse(v.addressPending)
-        assertEquals("$BASE/@anna/…", PublishView.of(named, "  ", BASE).preview)
+        assertEquals("$BASE/@anna/…", PublishView.of(named, "  ", BASE).linkUrl)
     }
 
     @Test
@@ -138,17 +141,20 @@ class PublishViewTest {
         val st = named.copy(published = true, url = "$BASE/@anna/garten", home = true)
         val v = PublishView.of(st, "garten", BASE)
         assertTrue(v.switchOn)
-        assertEquals("$BASE/@anna/garten", v.link)
+        assertEquals("$BASE/@anna/garten", v.linkUrl)
+        assertTrue(v.linkActive)
+        assertFalse(v.optionsPending)
         assertTrue(v.showStop)
-        assertTrue(v.showChangeAddress)
+        assertFalse(v.showChangeAddress)                  // erst sichtbar, wenn die Eingabe abweicht
         assertFalse(v.changeAddressEnabled)
-        assertFalse(v.addressPending)
-        assertNull(v.preview)
         assertTrue(v.home)
         val changed = PublishView.of(st, "Beete", BASE)
+        assertTrue(changed.showChangeAddress)
         assertTrue(changed.changeAddressEnabled)
-        assertTrue(changed.addressPending)
-        assertFalse(PublishView.of(st, " ", BASE).changeAddressEnabled)     // leere Adresse nie uebernehmen
+        assertEquals("$BASE/@anna/garten", changed.linkUrl)  // Link bleibt der gespeicherte
+        val empty = PublishView.of(st, " ", BASE)
+        assertTrue(empty.showChangeAddress)
+        assertFalse(empty.changeAddressEnabled)          // leere Adresse nie uebernehmen
     }
 
     @Test
@@ -157,10 +163,21 @@ class PublishViewTest {
         val v = PublishView.of(named.copy(publishedVia = via), "garten", BASE)
         assertEquals(via, v.via)
         assertEquals(R.string.publish_also_own, v.switchLabel)
+        assertNull(v.linkUrl)                             // Link steht in der Karte der Elternseite
+        assertFalse(v.showSettings)                       // Adresse + Optionen erst mit "Zusätzlich …"
         // selbst veroeffentlicht: kein Hinweis auf die Elternseite, Schalter heisst wieder "Oeffentlich"
         val own = PublishView.of(named.copy(publishedVia = via, published = true, url = "$BASE/@anna/garten"), "garten", BASE)
         assertNull(own.via)
         assertEquals(R.string.publish_public, own.switchLabel)
+        assertTrue(own.showSettings)
+    }
+
+    @Test
+    fun profileAddressOnlyForPublishedProfilePage() {
+        val st = named.copy(published = true, url = "$BASE/@anna/garten", profile = true)
+        assertEquals("$BASE/@anna", PublishView.of(st, "garten", BASE).profileAddress)
+        assertNull(PublishView.of(st.copy(profile = false), "garten", BASE).profileAddress)
+        assertNull(PublishView.of(st.copy(published = false, url = null), "garten", BASE).profileAddress)
     }
 
     @Test
@@ -243,6 +260,29 @@ class PublishParseTest {
     }
 
     @Test
+    fun slugErrorsBelongToTheAddressField() {
+        val taken = ApiException(409, UiText.Raw("Diese Adresse …"), """{"error": "Diese Adresse benutzt schon eine andere deiner Seiten."}""")
+        assertTrue(Publish.slugError(taken, sentSlug = true))
+        assertFalse(Publish.slugError(taken, sentSlug = false))
+        assertTrue(Publish.slugError(ApiException(400, UiText.Raw("Adresse: …"), """{"error": "Adresse: 2–60 Zeichen"}"""), sentSlug = true))
+        assertTrue(Publish.slugError(ApiException(422, UiText.Raw("x"), """{"error": "x", "field": "slug"}"""), sentSlug = false))
+        assertFalse(Publish.slugError(ApiException(400, UiText.Raw("x"), """{"error": "x", "field": "name"}"""), sentSlug = true))
+        assertFalse(Publish.slugError(ApiException(403, UiText.Raw("abgeschaltet"), """{"error": "abgeschaltet"}"""), sentSlug = true))
+        assertFalse(Publish.slugError(ApiException(409, UiText.Raw("x"), """{"error": "x", "need_name": true}"""), sentSlug = true))
+        assertFalse(Publish.slugError(IllegalStateException("x"), sentSlug = true))
+    }
+
+    @Test
+    fun urlsBreakOnlyAfterSlash() {
+        assertEquals("https://s.example.org/\u200B@anna/\u200Bmein\u2011garten", Publish.breakable("https://s.example.org/@anna/mein-garten"))
+        assertEquals("https://my\u2011host/\u200B@a", Publish.breakable("https://my-host/@a"))
+        assertEquals("/\u200B@a", Publish.breakable("/@a"))
+        // ohne Steuerzeichen wieder die Original-Adresse (kopiert wird nie die Anzeige)
+        val u = "https://s.example.org/@anna/mein-garten"
+        assertEquals(u, Publish.breakable(u).replace("\u200B", "").replace('\u2011', '-'))
+    }
+
+    @Test
     fun acceptLanguageFromAppLanguage() {
         assertEquals("de", acceptLanguage("de"))
         assertEquals("es-MX, es;q=0.9", acceptLanguage("es_MX"))
@@ -301,7 +341,7 @@ class PublishModelTest {
         assertEquals(listOf("anna"), server.names)
         assertEquals(PublishStep.MAIN, m.step)
         assertEquals("anna", m.state?.name)
-        assertEquals("$BASE/@anna/meine-seite", m.view?.preview)
+        assertEquals("$BASE/@anna/meine-seite", m.view?.linkUrl)
     }
 
     @Test
@@ -317,7 +357,8 @@ class PublishModelTest {
         m.setPublic(true)
         assertEquals(buildJsonObject { put("slug", "garten"); put("children", true); put("indexable", false); put("profile", true) }, server.puts.single())
         assertTrue(m.state!!.published)
-        assertEquals("$BASE/@anna/garten", m.view?.link)
+        assertEquals("$BASE/@anna/garten", m.view?.linkUrl)
+        assertTrue(m.view!!.linkActive)
         assertEquals(Status(UiText.Res(R.string.publish_saved), StatusKind.OK), m.status)
         assertTrue(changes.last().published)              // Seitenkopf erfaehrt es
     }
@@ -367,9 +408,42 @@ class PublishModelTest {
         assertTrue(m.view!!.changeAddressEnabled)
         m.changeSlug()
         assertEquals(buildJsonObject { put("slug", "beete") }, server.puts.single())
-        assertEquals("$BASE/@anna/beete", m.view?.link)
-        assertFalse(m.view!!.addressPending)
+        assertEquals("$BASE/@anna/beete", m.view?.linkUrl)
+        assertFalse(m.view!!.showChangeAddress)
         assertEquals(Status(UiText.Res(R.string.publish_address_saved), StatusKind.OK), m.status)
+    }
+
+    @Test
+    fun addressErrorsStayAtTheField() = runTest {
+        server.name = "anna"; server.published = true
+        val m = model()
+        m.load()
+        val taken = ApiException(409, UiText.Raw("Diese Adresse benutzt schon eine andere deiner Seiten."), """{"error": "Diese Adresse benutzt schon eine andere deiner Seiten."}""")
+        server.failPut = taken
+        m.editSlug("beete")
+        m.changeSlug()
+        assertEquals(UiText.Raw("Diese Adresse benutzt schon eine andere deiner Seiten."), m.slugError)
+        assertNull(m.status)                              // nicht in der Statuszeile
+        assertEquals("beete", m.slugInput)                // Eingabe bleibt zum Korrigieren
+        m.editSlug("beete-2")
+        assertNull(m.slugError)                           // Tippen raeumt den Fehler weg
+        server.failPut = null
+        m.changeSlug()
+        assertNull(m.slugError)
+        assertEquals("$BASE/@anna/beete-2", m.view?.linkUrl)
+    }
+
+    @Test
+    fun invalidAddressOnFirstPublishIsAFieldError() = runTest {
+        server.name = "anna"
+        val m = model()
+        m.load()
+        server.failPut = ApiException(400, UiText.Raw("Adresse: 2–60 Zeichen, a–z, 0–9, - und _ (klein)."), """{"error": "Adresse: 2–60 Zeichen"}""")
+        m.editSlug("x")
+        m.setPublic(true)
+        assertEquals(UiText.Raw("Adresse: 2–60 Zeichen, a–z, 0–9, - und _ (klein)."), m.slugError)
+        assertNull(m.status)
+        assertFalse(m.state!!.published)
     }
 
     @Test
@@ -389,7 +463,7 @@ class PublishModelTest {
         m.setPublic(false)
         assertEquals(1, server.deletes)
         assertFalse(m.state!!.published)
-        assertEquals(Status(UiText.Res(R.string.publish_stopped), StatusKind.OK), m.status)
+        assertNull(m.status)                              // nur "Veröffentlichung beendet am …", kein zweites "beendet"
         assertNotNull(m.view?.withdrawnAt)
         assertFalse(changes.last().published)
     }
@@ -459,6 +533,29 @@ class PublicNameModelTest {
         assertEquals(NameStatus.Bad(UiText.Raw("Dieser Name ist schon vergeben.")), m.status)
         m.save()                                         // Server lehnt ab -> Meldung des Servers
         assertEquals(NameStatus.Bad(UiText.Raw("Dieser Name ist schon vergeben.")), m.status)
+    }
+
+    @Test
+    fun newAddressLiveWhileTyping() = runTest {
+        server.name = "anna"
+        val m = PublicNameModel(server)
+        m.load()
+        assertNull(m.newAddress)                          // unveraendert
+        m.edit(" Anna-B ")
+        assertEquals("$BASE/@anna-b" to "$BASE/@anna", m.newAddress)
+        m.edit("")
+        assertNull(m.newAddress)
+        m.edit("x")
+        m.check()
+        assertNull(m.newAddress)                          // ungueltig: nur der Fehler am Feld
+        m.edit("anna-b")
+        m.check()
+        m.save()
+        assertNull(m.newAddress)                          // gespeichert: nichts mehr "neu"
+        val first = PublicNameModel(FakePublishServer())  // noch kein Name: kein "bisher"
+        first.load()
+        first.edit("neu")
+        assertNull(first.newAddress)
     }
 
     @Test

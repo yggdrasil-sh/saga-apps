@@ -148,7 +148,8 @@
     <string name="page_lock">Lock page</string>
     <string name="page_unlock">Unlock page</string>
     <string name="page_reload">Reload</string>
-    <string name="page_copy_link">Copy link</string>
+    <string name="page_copy_link">Copy app link</string>
+    <string name="page_open_web_editor">Open in web editor</string>
     <string name="page_link_copied">Link copied</string>
     <string name="page_database_soon">Databases with views (table, board, calendar…) are coming in an upcoming version.</string>
     <string name="page_locked_chip">Locked – tap to unlock</string>
@@ -293,8 +294,8 @@
     <string name="publish_public_hint">Anyone with the link can read this page without signing in.</string>
     <string name="publish_address">Address</string>
     <string name="publish_change_address">Change address</string>
-    <string name="publish_address_pending">Only applied with “Change address”.</string>
-    <string name="publish_address_confirm">Change the address? The current link %1$s will stop working.</string>
+    <string name="publish_address_pending">Takes effect only when you tap “Change address”.</string>
+    <string name="publish_address_confirm">The current link %1$s will stop working.</string>
     <string name="publish_address_saved">✓ New address saved</string>
     <string name="publish_children">Also publish subpages</string>
     <string name="publish_children_hint">Subpages (and database entries) of this page will then be public too.</string>
@@ -309,8 +310,6 @@
     <string name="publish_link_copied">Link copied</string>
     <string name="publish_name_footer">Public name: @%1$s – change it in Settings → Account.</string>
     <string name="publish_stop">Stop publishing</string>
-    <string name="publish_stop_confirm">Stop publishing? The link will no longer work.</string>
-    <string name="publish_stopped">No longer published.</string>
     <string name="publish_via_text">This page is already public: “%1$s” is published together with its subpages.</string>
     <string name="publish_open_title">Open “%1$s”</string>
     <string name="publish_via_hint">It only becomes private when “Also publish subpages” is turned off there or the page is moved.</string>
@@ -326,5 +325,14 @@
     <string name="publish_name_hint_set">Appears in the addresses of your public pages (%1$s). If you change it, old links stop working.</string>
     <string name="publish_name_hint_unset">Appears in the addresses of your public pages (…/@name/…) and is visible to everyone – not your username. Set when you first publish.</string>
     <string name="publish_name_save">Save name</string>
-    <string name="publish_name_change_confirm">Change your public name? Old links to your public pages will stop working.</string>
+    <string name="publish_name_new_address">New address: %1$s (was %2$s)</string>
+    <string name="publish_name_change">Change</string>
+    <string name="publish_name_change_title">Change public name?</string>
+    <string name="publish_address_title">Change address?</string>
+    <string name="publish_stop_button">Stop</string>
+    <string name="publish_stop_text">The link will stop working.</string>
+    <string name="publish_stop_title">Stop publishing?</string>
+    <string name="publish_profile_address">Profile address</string>
+    <string name="publish_options_pending">Applies once the page is public</string>
+    <string name="publish_name_change_confirm">Links to your published pages will change. Old links will stop working.</string>
 </resources>
