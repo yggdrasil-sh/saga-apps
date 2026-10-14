@@ -479,8 +479,10 @@ final class Store: ObservableObject {
     }
 
     /// Erfolgreich angemeldet/gekoppelt: erst jetzt den Server uebernehmen. Anderer Server -> vorher sauber vom alten abmelden.
-    private func adoptServer(_ server: URL, switching: Bool, http: HTTPURLResponse, url: URL, data d: Data) async {
-        if switching { await logout(switchingServer: true) }             // alter Server: Schluessel, Cookies, Zwischenspeicher weg
+    /// `signOut`: auch auf demselben Server das bisherige Konto abloesen (QR-Code kann zu einem anderen Konto gehoeren);
+    /// die Startseite wird dabei mit vergessen (Seiten-IDs gehoeren zum alten Konto).
+    private func adoptServer(_ server: URL, switching: Bool, signOut: Bool = false, http: HTTPURLResponse, url: URL, data d: Data) async {
+        if switching || signOut { await logout(switchingServer: true) }  // alter Server/altes Konto: Schluessel, Cookies, Zwischenspeicher weg
         AppConfig.server = server; cookieHeader = nil; serverVersion = nil; minApp = nil
         await storeCookies(http, url)
         adoptKeys(d); deviceKeyTried = true
@@ -489,27 +491,38 @@ final class Store: ObservableObject {
     }
 
     /// Anmeldung per QR-Code (Kopplungs-Code aus dem Web). Der Server wird erst nach erfolgreicher Kopplung
-    /// uebernommen; ist es ein anderer als bisher, wird vorher sauber vom alten abgemeldet.
+    /// uebernommen; vorher wird sauber abgemeldet - vom alten Server, und auch auf demselben Server vom bisherigen Konto
+    /// (so sagt es die Rueckfrage, `PairNotice`): sonst blieben Widget-Schluessel und Geraete-Anmeldung des alten Kontos liegen.
     func pair(server: URL, code: String) async throws {
         guard AppConfig.isAllowedServer(server) else { throw APIError.other(String(localized: "Nur https-Adressen sind erlaubt.")) }
         let switching = AppConfig.serverOrigin != AppConfig.origin(server)
+        let signOut = switching || signedIn
         let url = server.appendingPathComponent("app/pair")
         var req = URLRequest(url: url, timeoutInterval: 20)
         req.httpMethod = "POST"; req.httpShouldHandleCookies = false
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: ["code": code, "device": DeviceKey.deviceName, "app_key": switching || !AppConfig.hasToken])
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["code": code, "device": DeviceKey.deviceName, "app_key": signOut || !AppConfig.hasToken])
         let (d, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
             let msg = (try? JSONSerialization.jsonObject(with: d) as? [String: Any])?["error"] as? String ?? String(localized: "Anmeldung fehlgeschlagen")
             throw APIError.other(msg)
         }
-        await adoptServer(server, switching: switching, http: http, url: url, data: d)
+        await adoptServer(server, switching: switching, signOut: signOut, http: http, url: url, data: d)
         await refresh()
+    }
+
+    /// Angemeldet (fuer die Kopplungs-Rueckfrage): Server eingetragen, nicht auf dem Anmeldebildschirm, Schluessel vorhanden
+    var signedIn: Bool { !needsLogin && AppConfig.hasServer && (DeviceKey.stored() != nil || AppConfig.hasToken) }
+    /// Was die Kopplungs-Rueckfrage ueber die bisherige Anmeldung sagt
+    func pairNotice(for target: URL) -> PairNotice {
+        PairNotice.plan(target: target, current: AppConfig.hasServer ? AppConfig.server : nil, signedIn: signedIn, account: accountName)
     }
 
     // MARK: Konto (Entwuerfe gehoeren zu Server + Konto)
 
     private var accountChecked = false
+    /// Anzeigename des angemeldeten Kontos (sonst Benutzername); nur im Speicher, nur fuer Rueckfragen
+    private(set) var accountName: String?
     /// Konto beim Server erfragen (Konto-ID = Benutzername aus /api/account) und fuer die Entwuerfe merken.
     /// Fehler (offline, alter Server): bisherigen Stand behalten.
     func identifyAccount() async {
@@ -517,6 +530,8 @@ final class Store: ObservableObject {
               let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
               let u = j["username"] as? String, !u.isEmpty else { return }
         DraftOwner.app.signedIn(origin: o, account: u)
+        let n = (j["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        accountName = n.isEmpty ? u : n
     }
 
     /// Anderen Server eintragen (Einstellungen): anderer Server = vom alten sauber abmelden
@@ -560,7 +575,7 @@ final class Store: ObservableObject {
             _ = try? await URLSession.shared.data(for: req)
         }
         DeviceKey.set(nil); deviceKeyTried = false
-        DraftOwner.app.signedOut(); accountChecked = false              // Entwuerfe bleiben liegen, aber nur fuer ihr Konto lesbar
+        DraftOwner.app.signedOut(); accountChecked = false; accountName = nil // Entwuerfe bleiben liegen, aber nur fuer ihr Konto lesbar
         AppConfig.token = ""; reloadWidgets()                           // der Server loescht den Widget-Schluessel dieses Geraets mit
         let ds = WKWebsiteDataStore.default()
         let recs = await ds.dataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes())

@@ -239,7 +239,7 @@
     <string name="format_strike_short">D</string>
     <string name="pair_confirm_title">Mit diesem Server koppeln?</string>
     <string name="pair_switch_warning">Du bist gerade bei %1$s angemeldet und wirst dort abgemeldet.</string>
-    <string name="pair_confirm_trust">Nur fortfahren, wenn du diesen QR-Code oder Link gerade selbst in Saga erzeugt hast (Einstellungen → Apps &amp; Geräte).</string>
+    <string name="pair_confirm_trust">Kopple nur, wenn du diesen QR-Code oder Link gerade selbst in Saga erzeugt hast (Einstellungen → Apps &amp; Geräte).</string>
     <string name="pair_confirm_button">Koppeln</string>
     <string name="settings_account">Konto</string>
     <string name="settings_signed_in_as">Angemeldet als %1$s</string>
@@ -260,4 +260,14 @@
     <string name="draft_restore">Wiederherstellen</string>
     <string name="draft_discard">Verwerfen</string>
     <string name="offline_hint">Offline – Änderungen werden gespeichert, sobald der Server erreichbar ist.</string>
+    <string name="category_services">Dienste</string>
+    <string name="category_bookmarks">Lesezeichen</string>
+    <string name="pair_same_server_warning">Du wirst als „%1$s“ abgemeldet und mit dem Konto aus dem QR-Code angemeldet.</string>
+    <string name="pair_same_server_warning_noname">Du wirst abgemeldet und mit dem Konto aus dem QR-Code angemeldet.</string>
+    <string name="pair_success">Gekoppelt als %1$s</string>
+    <string name="pair_success_host">Gekoppelt mit %1$s</string>
+    <string name="pair_failed">Kopplung fehlgeschlagen: %1$s</string>
+    <string name="login_cancelled">Anmeldung abgebrochen.</string>
+    <string name="login_no_code">Die Anmeldung wurde nicht abgeschlossen – die App hat keinen Code erhalten.</string>
+    <string name="login_failed_reason">Anmeldung fehlgeschlagen (%1$s).</string>
 </resources>

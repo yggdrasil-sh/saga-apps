@@ -69,8 +69,10 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             appsError = repo.friendly(e)
         }
     }
-    LaunchedEffect(Unit) {
-        if (serverVersion == null) repo.checkVersion()
+    // Nach einer Kopplung/Anmeldung (gleicher Server, Ansicht bleibt) Geraeteliste und Version neu laden (Nachtest N2)
+    val signIns by repo.signInCount.collectAsState()
+    LaunchedEffect(signIns) {
+        if (repo.serverVersion.value == null) repo.checkVersion()
         loadApps()
     }
 

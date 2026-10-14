@@ -242,7 +242,7 @@
     <string name="format_strike_short">S</string>
     <string name="pair_confirm_title">Pair with this server?</string>
     <string name="pair_switch_warning">You\'re currently signed in to %1$s and will be signed out there.</string>
-    <string name="pair_confirm_trust">Only continue if you just created this QR code or link yourself in Saga (Settings → Apps &amp; devices).</string>
+    <string name="pair_confirm_trust">Only pair if you just created this QR code or link yourself in Saga (Settings → Apps &amp; devices).</string>
     <string name="pair_confirm_button">Pair</string>
     <string name="settings_account">Account</string>
     <string name="settings_signed_in_as">Signed in as %1$s</string>
@@ -263,4 +263,14 @@
     <string name="draft_restore">Restore</string>
     <string name="draft_discard">Discard</string>
     <string name="offline_hint">Offline – changes will be saved as soon as the server is reachable.</string>
+    <string name="category_services">Services</string>
+    <string name="category_bookmarks">Bookmarks</string>
+    <string name="pair_same_server_warning">You\'ll be signed out as “%1$s” and signed in with the account from the QR code.</string>
+    <string name="pair_same_server_warning_noname">You\'ll be signed out and signed in with the account from the QR code.</string>
+    <string name="pair_success">Paired as %1$s</string>
+    <string name="pair_success_host">Paired with %1$s</string>
+    <string name="pair_failed">Pairing failed: %1$s</string>
+    <string name="login_cancelled">Sign-in cancelled.</string>
+    <string name="login_no_code">Sign-in wasn\'t completed – the app didn\'t receive a code.</string>
+    <string name="login_failed_reason">Sign-in failed (%1$s).</string>
 </resources>

@@ -138,7 +138,9 @@ struct RootView: View {
         }
         .sheet(isPresented: $showTrash) { TrashSheet().environmentObject(store) }
         // Kopplungslink: Rueckfrage hier - oder im Anmeldebildschirm, solange der vorne liegt
-        .modifier(PairConfirm(ask: Binding(get: { store.needsLogin ? nil : store.pendingPair }, set: { store.pendingPair = $0 }), store: store))
+        // (nur hier zuruecksetzen, solange die Rueckfrage hier liegt: sonst loescht das Ausblenden beim Wechsel zum
+        // Anmeldebildschirm den Link - Kaltstart per QR-Code im abgemeldeten Zustand zeigte dann gar nichts)
+        .modifier(PairConfirm(ask: Binding(get: { store.needsLogin ? nil : store.pendingPair }, set: { if !store.needsLogin { store.pendingPair = $0 } }), store: store))
         .confirmationDialog("Neuen Eintrag anlegen?", isPresented: Binding(get: { newAsk != nil }, set: { if !$0 { newAsk = nil } }), titleVisibility: .visible) {
             Button("Anlegen") { if let u = newAsk { newAsk = nil; createFromLink(u) } }
             Button("Abbrechen", role: .cancel) { newAsk = nil }
@@ -229,29 +231,50 @@ extension RootView {
 struct PairRequest: Identifiable, Equatable {
     let server: URL; let code: String
     var id: String { code }
-    var host: String { server.host.map { h in server.port.map { "\(h):\($0)" } ?? h } ?? server.absoluteString }
+    var host: String { AppConfig.displayHost(server) }
 }
 
 struct PairConfirm: ViewModifier {
     @Binding var ask: PairRequest?
     @ObservedObject var store: Store
     @State private var error: String?
+    @State private var shown: PairRequest?
     func body(content: Content) -> some View {
         content
-            .alert("Mit diesem Server koppeln?", isPresented: Binding(get: { ask != nil }, set: { if !$0 { ask = nil } }), presenting: ask) { r in
-                Button("Koppeln") { ask = nil; Task { do { try await store.pair(server: r.server, code: r.code) } catch { self.error = error.localizedDescription } } }
+            // Kurz warten, bevor die Rueckfrage erscheint: beim Start per Link entscheidet sich erst noch, ob der
+            // Anmeldebildschirm nach vorne kommt - eine Rueckfrage mitten in diesem Wechsel ging verloren.
+            .task(id: ask) {
+                shown = nil
+                guard let a = ask else { return }
+                try? await Task.sleep(for: .milliseconds(500))
+                if !Task.isCancelled { shown = a }
+            }
+            .alert("Mit diesem Server koppeln?", isPresented: Binding(get: { shown != nil }, set: { if !$0 { shown = nil; ask = nil } }), presenting: shown) { r in
+                // Wer angemeldet ist, wird abgemeldet: "Koppeln" dann destruktiv (rot), sonst als Hauptaktion hervorgehoben
+                Button("Koppeln", role: store.pairNotice(for: r.server) == PairNotice.none ? ButtonRole.confirm : ButtonRole.destructive) {
+                    ask = nil; Task { do { try await store.pair(server: r.server, code: r.code) } catch { self.error = error.localizedDescription } }
+                }
+                .keyboardShortcut(.defaultAction)
                 Button("Abbrechen", role: .cancel) { ask = nil }
             } message: { r in
-                // Texte wie im Glossar ("Einheitliche Dialoge"); dazu der Sicherheitshinweis zur Herkunft des Codes
-                if let cur = AppConfig.serverOrigin, cur != AppConfig.origin(r.server), let h = AppConfig.server.host {
-                    Text(verbatim: "\(String(localized: "Saga meldet sich bei \(r.host) an."))\n\n\(String(localized: "Du bist gerade bei \(h) angemeldet und wirst dort abgemeldet."))\n\n\(String(localized: "Koppel nur, wenn du den QR-Code selbst in Saga erzeugt hast."))")
-                } else {
-                    Text(verbatim: "\(String(localized: "Saga meldet sich bei \(r.host) an."))\n\n\(String(localized: "Koppel nur, wenn du den QR-Code selbst in Saga erzeugt hast."))")
-                }
+                Text(verbatim: Self.message(r, store.pairNotice(for: r.server)))
             }
             .alert("Kopplung fehlgeschlagen", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
                 Button("OK", role: .cancel) { error = nil }
             } message: { Text(error ?? "") }
+    }
+    /// Texte wie im Glossar ("Einheitliche Dialoge") und auf Android; die Abmelde-Warnung mit Warnzeichen
+    /// (Alert-Texte lassen sich nicht einfaerben - rot ist dafuer der "Koppeln"-Knopf)
+    static func message(_ r: PairRequest, _ notice: PairNotice) -> String {
+        var parts = [String(localized: "Saga meldet sich bei \(r.host) an.")]
+        switch notice {
+        case .none: break
+        case .otherServer(let h): parts.append("⚠️ " + String(localized: "Du bist gerade bei \(h) angemeldet und wirst dort abgemeldet."))
+        case .sameServer(let name?): parts.append("⚠️ " + String(localized: "Du wirst als „\(name)“ abgemeldet und mit dem Konto aus dem QR-Code angemeldet."))
+        case .sameServer(nil): parts.append("⚠️ " + String(localized: "Du wirst abgemeldet und mit dem Konto aus dem QR-Code angemeldet."))
+        }
+        parts.append(String(localized: "Kopple nur, wenn du diesen QR-Code oder Link gerade selbst in Saga erzeugt hast (Einstellungen → Apps & Geräte)."))
+        return parts.joined(separator: "\n\n")
     }
 }
 

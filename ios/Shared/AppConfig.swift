@@ -40,6 +40,12 @@ enum AppConfig {
         if let p = u.port { o += ":\(p)" }
         return o
     }
+    /// Anzeige einer Server-Adresse: Host, mit Port, falls einer angegeben ist (z. B. "127.0.0.1:18090")
+    static func displayHost(_ u: URL) -> String {
+        guard let h = u.host, !h.isEmpty else { return u.absoluteString }
+        let host = h.contains(":") ? "[\(h)]" : h                         // IPv6 in Klammern, sonst ist der Port nicht abgrenzbar
+        return u.port.map { "\(host):\($0)" } ?? host
+    }
     /// Erlaubte Server-Adresse: nur https. http nur fuer den eigenen Rechner in Entwickler-Builds (Demo-Server).
     static func isAllowedServer(_ u: URL) -> Bool {
         guard let h = u.host?.lowercased(), !h.isEmpty, u.user == nil, u.password == nil else { return false }
@@ -172,5 +178,19 @@ enum LoginStep: Equatable {
         guard let u = AppConfig.normalizedServer(input) else { return .invalid }
         if let cur = currentOrigin, cur != AppConfig.origin(u), hasKeys { return .confirmSwitch(u) }
         return .signIn(u)
+    }
+}
+
+/// Kopplungs-Rueckfrage: was passiert mit der bisherigen Anmeldung? (reine Logik, mit `swift` pruefbar)
+/// Wer angemeldet ist, wird abgemeldet - auch auf demselben Server (der QR-Code kann zu einem anderen Konto gehoeren).
+enum PairNotice: Equatable {
+    case none                        // nicht angemeldet: nur Ziel zeigen
+    case otherServer(String)         // anderer Server: bisheriger Host[:Port]
+    case sameServer(account: String?) // gleicher Server: bisheriges Konto (Anzeigename, falls bekannt)
+    static func plan(target: URL, current: URL?, signedIn: Bool, account: String?) -> PairNotice {
+        guard signedIn, let current else { return .none }
+        if AppConfig.origin(current) != AppConfig.origin(target) { return .otherServer(AppConfig.displayHost(current)) }
+        let name = account?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return .sameServer(account: name?.isEmpty == false ? name : nil)
     }
 }

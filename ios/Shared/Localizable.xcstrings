@@ -12678,28 +12678,6 @@
         }
       }
     },
-    "Koppel nur, wenn du den QR-Code selbst in Saga erzeugt hast." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Koppel nur, wenn du den QR-Code selbst in Saga erzeugt hast."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Only pair if you created the QR code yourself in Saga."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Vincula solo si has creado tú el código QR en Saga."
-          }
-        }
-      }
-    },
     "Nicht gespeichert: Du darfst diese Seite nicht bearbeiten. Deine Änderungen bleiben auf diesem Gerät als Entwurf erhalten." : {
       "localizations" : {
         "de" : {
@@ -12806,6 +12784,72 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se guardó: el servidor rechazó el cambio (error %lld). Tus cambios se conservan en este dispositivo como borrador."
+          }
+        }
+      }
+    },
+    "Du wirst abgemeldet und mit dem Konto aus dem QR-Code angemeldet." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du wirst abgemeldet und mit dem Konto aus dem QR-Code angemeldet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You'll be signed out and signed in with the account from the QR code."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se cerrará tu sesión actual y se iniciará sesión con la cuenta del código QR."
+          }
+        }
+      }
+    },
+    "Du wirst als „%@“ abgemeldet und mit dem Konto aus dem QR-Code angemeldet." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du wirst als „%@“ abgemeldet und mit dem Konto aus dem QR-Code angemeldet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You'll be signed out as “%@” and signed in with the account from the QR code."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se cerrará la sesión de «%@» y se iniciará sesión con la cuenta del código QR."
+          }
+        }
+      }
+    },
+    "Kopple nur, wenn du diesen QR-Code oder Link gerade selbst in Saga erzeugt hast (Einstellungen → Apps & Geräte)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kopple nur, wenn du diesen QR-Code oder Link gerade selbst in Saga erzeugt hast (Einstellungen → Apps & Geräte)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only pair if you just created this QR code or link yourself in Saga (Settings → Apps & devices)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vincula solo si acabas de crear tú este código QR o enlace en Saga (Ajustes → Apps y dispositivos)."
           }
         }
       }

@@ -2,6 +2,8 @@ package io.github.yggdrasil_sh.saga.data
 
 import io.github.yggdrasil_sh.saga.BuildConfig
 import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.auth.BrowserReturn
+import io.github.yggdrasil_sh.saga.auth.PairLink
 import io.github.yggdrasil_sh.saga.auth.PairTarget
 import io.github.yggdrasil_sh.saga.auth.Pkce
 import io.github.yggdrasil_sh.saga.ui.page.PageBackend
@@ -116,6 +118,16 @@ class SagaRepository(
     val minApp = MutableStateFlow<String?>(null)
     val loginError = MutableStateFlow<UiText?>(null)
     val loginBusy = MutableStateFlow(false)
+
+    /** Neutraler Hinweis auf dem Startbildschirm (z. B. "Anmeldung abgebrochen") - mit "Erneut versuchen" */
+    val loginHint = MutableStateFlow<UiText?>(null)
+
+    /** Browser-Anmeldung laeuft (Custom Tab offen); kommt die App ohne saga://auth zurueck, wurde abgebrochen */
+    @Volatile
+    private var browserLoginPending = false
+
+    /** Zaehlt erfolgreiche Anmeldungen/Kopplungen - Ansichten laden danach neu (z. B. Geraeteliste) */
+    val signInCount = MutableStateFlow(0)
 
     /** Kopplungslink (Deep-Link oder QR), der noch bestaetigt werden muss */
     val pendingPair = MutableStateFlow<PairTarget?>(null)
@@ -668,6 +680,32 @@ class SagaRepository(
         if (v?.version == null) throw UiTextException(UiText.Res(R.string.login_not_saga))
     }
 
+    /** Der Browser fuer die Anmeldung wird gleich geoeffnet (Rueckkehr ohne saga://auth = abgebrochen) */
+    fun browserLoginStarted() {
+        loginHint.value = null
+        loginError.value = null
+        browserLoginPending = true
+    }
+
+    /** App wieder im Vordergrund (onResume, nach einem evtl. Deep-Link): Browser-Tab ohne Ergebnis geschlossen? */
+    fun onAppResumed() {
+        if (!browserLoginPending) return
+        browserLoginPending = false
+        if (needsLogin.value && !loginBusy.value) loginHint.value = UiText.Res(R.string.login_cancelled)
+    }
+
+    /** Rueckkehr aus dem Browser: saga://auth?code=... bzw. ?error=cancelled (Nachtest P7) */
+    fun onBrowserReturn(r: BrowserReturn) {
+        browserLoginPending = false
+        loginHint.value = null
+        when (r) {
+            is BrowserReturn.Code -> scope.launch { completeBrowserLogin(r.code) }
+            BrowserReturn.Cancelled -> loginHint.value = UiText.Res(R.string.login_cancelled)
+            BrowserReturn.NoCode -> loginHint.value = UiText.Res(R.string.login_no_code)
+            is BrowserReturn.Failed -> loginHint.value = UiText.Res(R.string.login_failed_reason, r.error)
+        }
+    }
+
     /** Schritt 2: saga://auth?code=... -> Code + Geheimnis gegen Sitzung und Geraete-Schluessel tauschen */
     suspend fun completeBrowserLogin(code: String) {
         awaitReady()
@@ -678,6 +716,7 @@ class SagaRepository(
         }
         loginBusy.value = true
         loginError.value = null
+        loginHint.value = null
         try {
             flushEditors()
             auth.exchange(server, code, verifier)
@@ -722,22 +761,30 @@ class SagaRepository(
             flushEditors()
             auth.pair(t)
             pendingPair.value = null
-            onSignedIn()
+            // Rueckmeldung (Nachtest N2): mit welchem Konto jetzt gekoppelt
+            val name = settings.account.value.trim()
+            onSignedIn(
+                if (name.isNotEmpty()) UiText.Res(R.string.pair_success, name)
+                else UiText.Res(R.string.pair_success_host, PairLink.displayHost(t.server))
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            pairError.value = friendly(e)
+            pairError.value = UiText.Res(R.string.pair_failed, friendly(e))
         } finally {
             loginBusy.value = false
         }
     }
 
-    private suspend fun onSignedIn() {
+    private suspend fun onSignedIn(message: UiText? = null) {
         adoptNamedDrafts()
         serverVersion.value = null
         minApp.value = null
         needsLogin.value = false
         loginError.value = null
+        loginHint.value = null
+        signInCount.value++                                  // Geraeteliste, Konto usw. neu laden
+        message?.let { notify(it) }
         refresh()
     }
 

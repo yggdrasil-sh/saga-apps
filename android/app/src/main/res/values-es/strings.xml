@@ -241,7 +241,7 @@
     <string name="format_strike_short">T</string>
     <string name="pair_confirm_title">¿Vincular con este servidor?</string>
     <string name="pair_switch_warning">Ahora tienes la sesión iniciada en %1$s y se cerrará allí.</string>
-    <string name="pair_confirm_trust">Continúa solo si acabas de crear tú este código QR o enlace en Saga (Ajustes → Apps y dispositivos).</string>
+    <string name="pair_confirm_trust">Vincula solo si acabas de crear tú este código QR o enlace en Saga (Ajustes → Apps y dispositivos).</string>
     <string name="pair_confirm_button">Vincular</string>
     <string name="settings_account">Cuenta</string>
     <string name="settings_signed_in_as">Sesión iniciada como %1$s</string>
@@ -263,4 +263,14 @@
     <string name="draft_restore">Restaurar</string>
     <string name="draft_discard">Descartar</string>
     <string name="offline_hint">Sin conexión: los cambios se guardarán en cuanto el servidor esté disponible.</string>
+    <string name="category_services">Servicios</string>
+    <string name="category_bookmarks">Marcadores</string>
+    <string name="pair_same_server_warning">Se cerrará la sesión de «%1$s» y se iniciará sesión con la cuenta del código QR.</string>
+    <string name="pair_same_server_warning_noname">Se cerrará tu sesión actual y se iniciará sesión con la cuenta del código QR.</string>
+    <string name="pair_success">Vinculado como %1$s</string>
+    <string name="pair_success_host">Vinculado con %1$s</string>
+    <string name="pair_failed">La vinculación ha fallado: %1$s</string>
+    <string name="login_cancelled">Inicio de sesión cancelado.</string>
+    <string name="login_no_code">No se completó el inicio de sesión: la app no recibió ningún código.</string>
+    <string name="login_failed_reason">Error al iniciar sesión (%1$s).</string>
 </resources>

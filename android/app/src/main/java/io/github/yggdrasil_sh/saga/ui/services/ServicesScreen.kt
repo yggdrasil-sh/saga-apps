@@ -45,6 +45,8 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.data.ServiceItem
+import io.github.yggdrasil_sh.saga.data.StdCategory
+import androidx.compose.ui.platform.LocalResources
 import io.github.yggdrasil_sh.saga.ui.common.Chrome
 import io.github.yggdrasil_sh.saga.ui.common.SagaTopBar
 import io.github.yggdrasil_sh.saga.ui.common.openUrl
@@ -67,8 +69,11 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             error = repo.friendly(e)
         }
     }
-    val shown = (list ?: emptyList()).filter { q.isBlank() || norm("${it.name} ${it.host} ${it.category}").contains(norm(q)) }
-    val cats = shown.groupBy { it.category }.toSortedMap(String.CASE_INSENSITIVE_ORDER)
+    // Standard-Kategorien ("Lesezeichen", "Dienste") in der App-Sprache statt der Konto-Sprache des Servers
+    val res = LocalResources.current
+    val labeled = (list ?: emptyList()).map { it to StdCategory.display(it.category) { id -> res.getString(id) } }
+    val shown = labeled.filter { (s, cat) -> q.isBlank() || norm("${s.name} ${s.host} $cat ${s.category}").contains(norm(q)) }
+    val cats = shown.groupBy({ it.second }, { it.first }).toSortedMap(String.CASE_INSENSITIVE_ORDER)
 
     Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_services), nav, chrome) }) { pad ->
         LazyVerticalGrid(

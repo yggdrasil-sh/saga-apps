@@ -74,6 +74,9 @@ import io.github.yggdrasil_sh.saga.ui.today.TodayScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.ui.platform.LocalAccessibilityManager
 
 /**
  * Wurzel: Hauptansicht, darueber der Anmeldebildschirm, solange keine Anmeldung besteht.
@@ -89,12 +92,22 @@ fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
     val pendingShare by repo.pendingShare.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     val res = LocalResources.current
+    val a11y = LocalAccessibilityManager.current
     LaunchedEffect(Unit) {
-        repo.messages.collect { m ->
-            val r = snackbar.showSnackbar(
-                message = m.text.asString(res), actionLabel = m.actionLabel?.asString(res), withDismissAction = m.action == null,
-                duration = if (m.action != null) SnackbarDuration.Long else SnackbarDuration.Short,
-            )
+        // collectLatest: eine neue Meldung ersetzt die angezeigte (statt bis zu 8 s in der Schlange zu warten)
+        repo.messages.collectLatest { m ->
+            val show = suspend {
+                snackbar.showSnackbar(
+                    message = m.text.asString(res), actionLabel = m.actionLabel?.asString(res), withDismissAction = m.action == null,
+                    duration = if (m.action != null) SnackbarDuration.Indefinite else SnackbarDuration.Short,
+                )
+            }
+            // Meldungen mit Aktion ("Aufgabe erledigt · Rueckgaengig") 8 s (Nachtest N6; laenger, wenn die
+            // Bedienungshilfen mehr Zeit verlangen); der Abbruch nach Ablauf blendet die Snackbar aus.
+            // Ohne Aktion: kurz wie bisher.
+            val ms = a11y?.calculateRecommendedTimeoutMillis(ACTION_SNACKBAR_MS, containsIcons = false, containsText = true, containsControls = true)
+                ?: ACTION_SNACKBAR_MS
+            val r = if (m.action != null) withTimeoutOrNull(ms) { show() } else show()
             if (r == SnackbarResult.ActionPerformed) m.action?.invoke()
         }
     }
@@ -113,6 +126,9 @@ fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
         SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().imePadding())
     }
 }
+
+/** Wie lange eine Meldung mit Aktion (z. B. "Rueckgaengig") stehen bleibt */
+const val ACTION_SNACKBAR_MS = 8_000L
 
 private data class MainItem(val dest: Dest, @StringRes val label: Int, val icon: ImageVector)
 

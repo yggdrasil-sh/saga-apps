@@ -7,6 +7,7 @@ import java.security.MessageDigest
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import io.github.yggdrasil_sh.saga.auth.BrowserReturn
 import io.github.yggdrasil_sh.saga.auth.PairLink
 import io.github.yggdrasil_sh.saga.data.SharedContent
 import io.github.yggdrasil_sh.saga.ui.nav.SagaRoot
@@ -41,6 +42,13 @@ class MainActivity : ComponentActivity() {
         app.appScope.launch { app.repo.refresh() }        // im Web Geaendertes uebernehmen
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Ein saga://auth-Link kommt vorher in onNewIntent/onCreate an. Laeuft danach noch eine Browser-Anmeldung,
+        // wurde der Tab ohne Ergebnis geschlossen -> "Anmeldung abgebrochen"
+        app.repo.onAppResumed()
+    }
+
     /** Deep-Links: saga://auth?code=... (Rueckkehr aus dem Browser), saga://pair?u=...&c=... (QR-Code) */
     private fun handleIntent(intent: Intent?) {
         if (intent?.action == Intent.ACTION_SEND && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) {
@@ -55,7 +63,8 @@ class MainActivity : ComponentActivity() {
         if (alreadyHandled(data.toString())) return         // Aufgabe nach App-Update mit dem alten Link neu gestartet
         val repo = app.repo
         when (data.host) {
-            "auth" -> data.getQueryParameter("code")?.let { code -> app.appScope.launch { repo.completeBrowserLogin(code) } }
+            // Code -> anmelden; error=cancelled bzw. ohne Code -> Hinweis auf dem Startbildschirm (Nachtest P7)
+            "auth" -> repo.onBrowserReturn(BrowserReturn.of(data.getQueryParameter("code"), data.getQueryParameter("error")))
             "pair" -> {
                 val t = PairLink.parse(data.toString())
                 // nie still koppeln: erst Ziel-Host zeigen und bestaetigen lassen (PairConfirmDialog)

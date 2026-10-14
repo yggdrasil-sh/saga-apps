@@ -48,6 +48,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -72,10 +73,12 @@ import kotlinx.coroutines.launch
 fun LoginScreen(repo: SagaRepository) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val focus = LocalFocusManager.current
     val savedServer by repo.server.collectAsState()
     var server by remember { mutableStateOf(savedServer) }
     val busy by repo.loginBusy.collectAsState()
     val loginError by repo.loginError.collectAsState()
+    val loginHint by repo.loginHint.collectAsState()
     var localError by remember { mutableStateOf<UiText?>(null) }
     var scanning by remember { mutableStateOf(false) }
     var cameraDenied by remember { mutableStateOf(false) }
@@ -85,11 +88,16 @@ fun LoginScreen(repo: SagaRepository) {
     }
 
     fun login() {
+        // Tastatur zu: sonst springt sie bei der Rueckkehr aus dem Browser wieder auf und verdeckt den Hinweis
+        focus.clearFocus()
         localError = null
         repo.loginError.value = null
+        repo.loginHint.value = null
         scope.launch {
             try {
-                openUrl(context, repo.prepareBrowserLogin(server))
+                val url = repo.prepareBrowserLogin(server)
+                repo.browserLoginStarted()                  // Rueckkehr ohne Code -> "Anmeldung abgebrochen"
+                openUrl(context, url)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -101,6 +109,7 @@ fun LoginScreen(repo: SagaRepository) {
     fun startScan() {
         localError = null
         repo.loginError.value = null
+        repo.loginHint.value = null
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) scanning = true
         else permission.launch(Manifest.permission.CAMERA)
     }
@@ -146,6 +155,11 @@ fun LoginScreen(repo: SagaRepository) {
                 if (busy) CircularProgressIndicator(Modifier.size(28.dp))
                 (localError ?: loginError)?.let {
                     Text(it.resolve(), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
+                }
+                // Browser ohne Ergebnis verlassen (abgebrochen, kein Code): neutraler Hinweis + erneut versuchen
+                if (localError == null && loginError == null && !busy) loginHint?.let {
+                    Text(it.resolve(), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
+                    if (server.isNotBlank()) TextButton(onClick = { login() }) { Text(stringResource(R.string.action_retry)) }
                 }
                 if (cameraDenied) {
                     Text(
