@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -53,7 +52,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import android.widget.Toast
+import io.github.yggdrasil_sh.saga.data.PageTree
+import kotlinx.coroutines.CancellationException
+import androidx.compose.foundation.layout.heightIn
 import io.github.yggdrasil_sh.saga.data.PageMeta
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.ui.common.PageIcon
@@ -76,11 +77,12 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
 
     val favorites = pages.filter { it.pinned }
     val recent = recentIds.mapNotNull { id -> pages.firstOrNull { it.id == id } }.take(5)
-    val tree = remember(pages, expanded) {
+    val pageTree = remember(pages) { PageTree(pages) }                // einmal gruppiert statt O(n²)
+    val tree = remember(pageTree, expanded) {
         val out = ArrayList<TreeRow>()
         fun walk(parent: Int?, depth: Int) {
-            for (p in repo.children(parent, pages)) {
-                val kids = if (p.isDatabase) emptyList() else repo.children(p.id, pages)
+            for (p in pageTree.children(parent)) {
+                val kids = if (p.isDatabase) emptyList() else pageTree.children(p.id)
                 out.add(TreeRow(p, depth, kids.isNotEmpty()))
                 if (p.id in expanded && kids.isNotEmpty() && depth < 12) walk(p.id, depth + 1)
             }
@@ -100,8 +102,10 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 val id = repo.newPage(parent)
                 if (parent != null) expanded = expanded + parent
                 open(id)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
-                Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
+                repo.notify(repo.friendly(e))
             }
         }
     }
@@ -185,30 +189,23 @@ private fun PageRowItem(
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(RoundedCornerShape(24.dp))
                 .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)
-                .combinedClickable(onClick = onOpen, onLongClick = { menu = true })
-                .padding(start = (4 + depth * 16).dp, end = 12.dp).height(44.dp),
+                .combinedClickable(onClick = onOpen, onLongClick = { menu = true }, onLongClickLabel = stringResource(R.string.page_actions))
+                .padding(start = (16 + depth * 16).dp, end = if (hasChildren) 0.dp else 12.dp).heightIn(min = 48.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (hasChildren) {
-                IconButton(onClick = onToggle, modifier = Modifier.size(36.dp)) {
-                    Icon(if (isExpanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(if (isExpanded) R.string.action_collapse else R.string.action_expand))
-                }
-            } else {
-                Spacer(Modifier.width(36.dp))
-            }
+            // Auf-/Zuklappen rechts: Seiten mit und ohne Unterseiten stehen buendig (kein leerer 48-dp-Platzhalter)
             PageIcon(p.icon, repo, p.isDatabase)
             Text(pageTitle(p), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp).weight(1f))
+            if (hasChildren) {
+                IconButton(onClick = onToggle) {
+                    Icon(if (isExpanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(if (isExpanded) R.string.action_collapse else R.string.action_expand))
+                }
+            }
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
             DropdownMenuItem(text = { Text(stringResource(if (p.pinned) R.string.favorite_remove else R.string.favorite_add)) }, onClick = {
                 menu = false
-                scope.launch {
-                    try {
-                        repo.setPinned(p.id, !p.pinned)
-                    } catch (e: Exception) {
-                        Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
-                    }
-                }
+                repo.launchAction { repo.setPinned(p.id, !p.pinned) }
             })
             if (!p.isDatabase) {
                 DropdownMenuItem(text = { Text(stringResource(R.string.new_subpage)) }, onClick = { menu = false; onNewChild(p.id) })

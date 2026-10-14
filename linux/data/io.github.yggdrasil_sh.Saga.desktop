@@ -10,7 +10,7 @@ Comment[es]=Notas, bases de datos, tareas y eventos en tu propio servidor
 Exec=hlidskjalf %u
 Icon=io.github.yggdrasil_sh.Saga
 Terminal=false
-Categories=Office;Utility;GTK;
+Categories=Office;GTK;
 Keywords=Notion;Notes;Wiki;Database;Tasks;Calendar;
 Keywords[de]=Notion;Notizen;Wiki;Datenbank;Aufgaben;Kalender;
 Keywords[es]=Notion;Notas;Wiki;Base de datos;Tareas;Calendario;
@@ -24,10 +24,10 @@ Actions=new-page;new-task;
 Name=New Page
 Name[de]=Neue Seite
 Name[es]=Nueva página
-Exec=hlidskjalf hlidskjalf://new
+Exec=hlidskjalf --new-page
 
 [Desktop Action new-task]
 Name=New Task
 Name[de]=Neue Aufgabe
 Name[es]=Nueva tarea
-Exec=hlidskjalf hlidskjalf://new-task
+Exec=hlidskjalf --new-task

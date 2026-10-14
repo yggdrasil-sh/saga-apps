@@ -40,7 +40,7 @@ def s1(g):
         S["err"].append("kein Katalog gefunden")
         print("FEHLER kein Katalog (.mo) gefunden", flush=True)
     win.stack.set_visible_child_name("login")
-    login = win.stack.get_child_by_name("login")
+    login = getattr(win, "login_status", None) or win.stack.get_child_by_name("login")
     kids = [login] + _children(login)
     btns = [c.get_label() for c in kids if c.__class__.__name__ == "Button" and c.get_label()]
     check("Knopf Anmelden", btns[0] if btns else None, EXPECT.get("button"))

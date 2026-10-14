@@ -54,6 +54,10 @@ final class DBModel: ObservableObject {
     @Published var search = ""                                 // Suche in der Ansicht
     @Published var localViews: [[String: Any]]?                 // verknuepfter Block: eigene Ansichten (in der Seite gespeichert)
     var onLocalViews: (([[String: Any]]) -> Void)?
+    /// Schema-Aenderungen, die noch nicht beim Server sind (entprellt, nacheinander gesendet)
+    var pendingSchema: [(inout [String: Any]) -> Void] = []
+    var schemaDebounce: Task<Void, Never>?
+    let schemaQueue = SerialQueue()
     init(dbID: Int) { self.dbID = dbID }
 
     func load(_ store: Store) async {
@@ -63,7 +67,9 @@ final class DBModel: ObservableObject {
     }
     private func apply(_ d: Data) {
         guard let q = DBQuery.parse(d) else { return }
-        props = q.props; views = q.views; rows = q.rows
+        rows = q.rows
+        guard pendingSchema.isEmpty else { return }               // eigene, noch nicht gesendete Schema-Aenderungen nicht zuruecksetzen
+        props = q.props; views = q.views
         if let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
             schema = j["schema"] as? [String: Any] ?? [:]
             templates = (j["templates"] as? [[String: Any]] ?? []).map { DBTemplate(id: $0["id"] as? Int ?? 0, title: $0["title"] as? String ?? "", icon: $0["icon"] as? String ?? "") }
@@ -130,7 +136,7 @@ struct DatabaseView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            header
+            if embedded { header }                                   // ganze Datenbank-Seite: Name steht schon als Titel darueber
             DBViewBar(m: m, views: views, current: $current, editable: localViews?.isEmpty != false || onLocalViews != nil) { id in
                 Task {
                     if let id { nav.open(id, mode: view?["open"] as? String ?? "side"); return }
@@ -144,7 +150,7 @@ struct DatabaseView: View {
                 case "gallery": GalleryView(m: m, view: view)
                 case "calendar": DBCalendarView(m: m, view: view)
                 case "list": RowList(m: m, view: view)
-                default: if compact { RowList(m: m, view: view) } else { TableGrid(m: m, view: view) }   // iPhone: Liste ohne Abschneiden
+                default: TableGrid(m: m, view: view)                 // auch iPhone: echte Spalten, waagrecht scrollbar
                 }
             }
             if let e = m.error { Text(e).font(.caption).foregroundStyle(.orange) }
@@ -164,7 +170,7 @@ struct DatabaseView: View {
             }.buttonStyle(.plain)
             Spacer()
             if embedded {
-                Button { nav.push(PageRoute(id: dbID)) } label: { Image(systemName: "arrow.up.left.and.arrow.down.right") }.buttonStyle(.plain).foregroundStyle(.secondary).help("Als ganze Seite öffnen")
+                Button { nav.push(PageRoute(id: dbID)) } label: { Image(systemName: "arrow.up.left.and.arrow.down.right") }.buttonStyle(.plain).foregroundStyle(.secondary).help("Als ganze Seite öffnen").accessibilityLabel("Als ganze Seite öffnen")
             }
         }
     }
@@ -198,6 +204,7 @@ struct RowList: View {
                         Button { Task { await m.set(r.id, check.id, !on, store: store) } } label: {
                             Image(systemName: on ? "checkmark.square.fill" : "square").foregroundStyle(on ? Color.accentColor : .secondary).font(.body)
                         }.buttonStyle(.plain)
+                        .accessibilityLabel(Text(check.name)).accessibilityAddTraits(on ? .isSelected : [])
                     } else { PageIcon(icon: r.icon, store: store) }
                     Button { nav.open(r.id, mode: view?["open"] as? String ?? "side", list: rows.map(\.id)) } label: {
                         let shown = chips.filter { hasValue(m.value($0, r)) }
@@ -271,7 +278,7 @@ struct TableGrid: View {
             let f = min(1, over / room)
             for k in keys { let d = (max(0, (out[k] ?? 0) - minW) * f).rounded(.down); out[k] = (out[k] ?? 0) - d; sum -= d }
         }
-        shrink(cols.map(\.id), 90); shrink(["title"], 150)
+        shrink(cols.map(\.id), 90); shrink(["title"], 140)
         if sum < avail { out["title"] = (out["title"] ?? 0) + avail - sum }
         return out
     }
@@ -346,28 +353,31 @@ struct TableGrid: View {
     @ViewBuilder private func cell(_ p: DBProp, _ r: DBRow) -> some View {
         let v = m.value(p, r)
         switch p.type {
-        case "text", "url", "date", "select", "multi_select":     // direkt in der Tabelle bearbeiten
+        case "text", "number", "date", "select", "multi_select":  // direkt in der Tabelle bearbeiten (Auswahl als Chips, Datum lesbar)
             PropEditor(prop: p, value: v) { nv in Task { await m.set(r.id, p.id, nv, store: store) } }.id("\(r.id)-\(p.id)-\(String(describing: v))")
-        case "number":
-            PropEditor(prop: p, value: v) { nv in Task { await m.set(r.id, p.id, nv, store: store) } }.id("\(r.id)-\(p.id)-\(String(describing: v))")
+        case "url":                                               // bearbeiten + Link oeffnen (nur http/https/mailto)
+            HStack(spacing: 4) {
+                PropEditor(prop: p, value: v) { nv in Task { await m.set(r.id, p.id, nv, store: store) } }.id("\(r.id)-\(p.id)-\(String(describing: v))")
+                if let s = v as? String, let u = safeLink(s) {
+                    Link(destination: u) { Image(systemName: "arrow.up.right.square") }.foregroundStyle(.secondary).accessibilityLabel("Link öffnen")
+                }
+            }
         case "checkbox":
             let on = (v as? Bool) ?? false
             Button { Task { await m.set(r.id, p.id, !on, store: store) } } label: {
                 Image(systemName: on ? "checkmark.square.fill" : "square").foregroundStyle(on ? Color.accentColor : .secondary)
             }.buttonStyle(.plain)
-        case "select", "multi_select":
-            WrapLayout { ValueChip(prop: p, value: v) }
-        case "number", "calc":
+            .accessibilityLabel(Text(p.name)).accessibilityAddTraits(on ? .isSelected : [])
+        case "calc":
             if let n = v as? Double {
                 HStack(spacing: 6) {
                     Text(numText(n, p.fmt, p.show)).monospacedDigit()
                     if p.fmt == "percent", p.show == "ring" { ProgressRing(value: n / 100) }
                 }
             }
-        case "date", "created", "edited":
-            if let s = v as? String, !s.isEmpty { Text(dayText(s)).foregroundStyle(.secondary) }
-        case "url":
-            if let s = v as? String, let u = URL(string: s), !s.isEmpty { Link(destination: u) { Text(s).lineLimit(1).truncationMode(.middle) } }
+        case "created", "edited":
+            if let ts = v as? Double { Text(Date(timeIntervalSince1970: ts).formatted(date: .abbreviated, time: .omitted)).foregroundStyle(.secondary) }
+            else if let s = v as? String, !s.isEmpty { Text(dayText(s)).foregroundStyle(.secondary) }
         case "relation":
             let ids = (v as? [AnyHashable])?.compactMap { ($0 as? Double).map(Int.init) ?? ($0 as? Int) } ?? []
             WrapLayout { ForEach(ids, id: \.self) { id in Chip(text: store.page(id)?.label ?? "↗", color: nil) } }
@@ -425,7 +435,9 @@ struct CalcRow: View {
             Button("Keine") { set(key, nil) }
             ForEach(Self.ops(p), id: \.self) { o in Button(Self.names[o] ?? o) { set(key, o) } }
         } label: {
-            if let op { (Text((Self.names[op] ?? op) + " ") + Text(value(op, p)).foregroundStyle(.primary).fontWeight(.semibold)).lineLimit(1) }
+            if let op {
+                HStack(spacing: 4) { Text(Self.names[op] ?? op); Text(value(op, p)).foregroundStyle(.primary).fontWeight(.semibold) }.lineLimit(1)
+            }
             else { Text("Berechnen").opacity(0.35) }
         }
         .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).padding(.horizontal, 8).padding(.vertical, 5)
@@ -479,7 +491,7 @@ struct TitleCell: View {
             TextField(String(localized: "Unbenannt"), text: $text, axis: .vertical).lineLimit(1...3).textFieldStyle(.plain).fontWeight(.medium)
                 .focused($focused).onSubmit { commit(); focused = false }
                 .onChange(of: focused) { _, f in if !f { commit() } }
-            Button(action: open) { Image(systemName: "arrow.up.right.square").foregroundStyle(.secondary) }
+            Button(action: open) { Image(systemName: "arrow.up.right.square").foregroundStyle(.secondary) }.accessibilityLabel("Öffnen")
                 .buttonStyle(.plain).opacity(hover ? 1 : 0.25).help("Öffnen")
         }
         .contentShape(Rectangle())
@@ -562,14 +574,19 @@ struct BoardView: View {
     let view: [String: Any]?
     @EnvironmentObject var store: Store
     @EnvironmentObject var nav: NavModel
+    @State private var avail: CGFloat = 0
     var body: some View {
         let group = m.prop(view?["group_by"] as? String) ?? m.props.first { $0.type == "select" }
         let rows = m.rows(for: view)
         if let group {
             let cols: [(String?, String, String?)] = group.options.map { ($0.id, $0.name, $0.color) } + [(nil, String(localized: "Ohne \(group.name)"), nil)]
-            ScrollView(.horizontal, showsIndicators: false) {
+            let rowIDs = Set(rows.map(\.id))
+            // Spalten fuellen die Breite, wenn alle passen; sonst 240 pt mit waagrechtem Scrollen und Hinweis am Rand
+            let fit = avail > 0 && CGFloat(cols.count) * 240 + CGFloat(cols.count - 1) * 12 <= avail
+            let colW = fit ? max(240, (avail - CGFloat(cols.count - 1) * 12) / CGFloat(max(1, cols.count))) : 240
+            ScrollView(.horizontal, showsIndicators: !fit) {
                 HStack(alignment: .top, spacing: 12) {
-                    ForEach(cols, id: \.1) { col in
+                    ForEach(Array(cols.enumerated()), id: \.offset) { _, col in
                         let items = rows.filter { (($0.props[group.id]?.base as? String).flatMap { $0.isEmpty ? nil : $0 }) == col.0 }
                         VStack(alignment: .leading, spacing: 8) {
                             HStack { Chip(text: col.1, color: col.2); Text("\(items.count)").font(.caption).foregroundStyle(.secondary) }
@@ -581,15 +598,21 @@ struct BoardView: View {
                                 Label("Neu", systemImage: "plus").font(.caption)
                             }.buttonStyle(.plain).foregroundStyle(.secondary)
                         }
-                        .padding(10).frame(width: 240, alignment: .topLeading)
+                        .padding(10).frame(width: colW, alignment: .topLeading)
                         .background(optColor(col.2).opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
                         .dropDestination(for: String.self) { ids, _ in
-                            for s in ids { if let id = Int(s) { Task { await m.set(id, group.id, col.0, store: store) } } }
-                            return true
+                            let mine = ids.compactMap(Int.init).filter { rowIDs.contains($0) }    // nur Karten dieses Boards (keine Seiten aus der Seitenleiste)
+                            for id in mine { Task { await m.set(id, group.id, col.0, store: store) } }
+                            return !mine.isEmpty
                         }
                     }
                 }
+                .padding(.trailing, fit ? 0 : 24)
             }
+            .overlay(alignment: .trailing) {                       // Hinweis: rechts geht es weiter
+                if !fit { LinearGradient(colors: [.clear, Color.primary.opacity(0.08)], startPoint: .leading, endPoint: .trailing).frame(width: 24).allowsHitTesting(false) }
+            }
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { avail = $0 }
         } else { Text("Board braucht eine Auswahl-Eigenschaft").foregroundStyle(.secondary) }
     }
 }
@@ -708,9 +731,9 @@ struct DBCalendarView: View {
         let f = Self.dayFormat, mf = Self.monthFormat
         VStack(spacing: 6) {
             HStack {
-                Button { month = cal.date(byAdding: .month, value: -1, to: month)! } label: { Image(systemName: "chevron.left") }
+                Button { month = cal.date(byAdding: .month, value: -1, to: month)! } label: { Image(systemName: "chevron.left") }.accessibilityLabel("Vorheriger Monat")
                 Text(mf.string(from: month)).font(.headline).frame(minWidth: 140)
-                Button { month = cal.date(byAdding: .month, value: 1, to: month)! } label: { Image(systemName: "chevron.right") }
+                Button { month = cal.date(byAdding: .month, value: 1, to: month)! } label: { Image(systemName: "chevron.right") }.accessibilityLabel("Nächster Monat")
                 Spacer()
                 Button("Heute") { month = cal.date(from: cal.dateComponents([.year, .month], from: .now))! }.font(.caption)
             }.buttonStyle(.plain)
@@ -719,7 +742,7 @@ struct DBCalendarView: View {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 2), count: 7), spacing: 2) {
                     ForEach(Array(Self.weekdayHeads.enumerated()), id: \.offset) { Text($0.element).font(.caption2).foregroundStyle(.secondary) }
                     ForEach(0..<(lead + days), id: \.self) { i in
-                        if i < lead { Color.clear.frame(height: 64) } else {
+                        if i < lead { Color.clear.frame(minHeight: 64) } else {
                             let d = cal.date(byAdding: .day, value: i - lead, to: first)!, ds = f.string(from: d)
                             let items = rows.filter { ((m.value(dp, $0) as? String) ?? "").hasPrefix(ds) }
                             VStack(alignment: .leading, spacing: 2) {
@@ -728,7 +751,7 @@ struct DBCalendarView: View {
                                         .foregroundStyle(cal.isDateInToday(d) ? Color.accentColor : .secondary)
                                     Spacer()
                                     if !["created", "edited"].contains(dp.type) {
-                                        Button { Task { if let id = await m.add(store, props: [dp.id: ds]) { nav.open(id, mode: view?["open"] as? String ?? "side") } } } label: { Image(systemName: "plus").font(.caption2) }.buttonStyle(.plain).foregroundStyle(.tertiary)
+                                        Button { Task { if let id = await m.add(store, props: [dp.id: ds]) { nav.open(id, mode: view?["open"] as? String ?? "side") } } } label: { Image(systemName: "plus").font(.caption2) }.buttonStyle(.plain).foregroundStyle(.tertiary).accessibilityLabel("Neuer Eintrag an diesem Tag")
                                     }
                                 }
                                 ForEach(items.prefix(3)) { r in
@@ -737,7 +760,7 @@ struct DBCalendarView: View {
                                 if items.count > 3 { Text("+\(items.count - 3)").font(.caption2).foregroundStyle(.secondary) }
                                 Spacer(minLength: 0)
                             }
-                            .padding(3).frame(height: 64, alignment: .top).background(.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4))
+                            .padding(3).frame(minHeight: 64, alignment: .top).background(.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 4))
                         }
                     }
                 }
@@ -783,7 +806,9 @@ struct PropEditor: View {
     let value: Any?
     let set: (Any?) -> Void
     @State private var text = ""
+    @State private var base = ""                                   // Wert beim Uebernehmen: nur echte Eingaben zurueckschreiben
     @State private var date = Date()
+    @FocusState private var focused: Bool
     var body: some View {
         switch prop.type {
         case "calc":                                              // berechnet: nur anzeigen
@@ -807,6 +832,7 @@ struct PropEditor: View {
         case "checkbox":
             let on = value as? Bool ?? false
             Button { set(!on) } label: { Image(systemName: on ? "checkmark.square.fill" : "square").foregroundStyle(on ? Color.accentColor : .secondary) }.buttonStyle(.plain)
+                .accessibilityLabel(Text(prop.name)).accessibilityAddTraits(on ? .isSelected : [])
         case "date":
             let s = value as? String ?? ""
             HStack(spacing: 6) {
@@ -814,7 +840,7 @@ struct PropEditor: View {
                     Button { set(isoDay(.now)) } label: { leer }.buttonStyle(.plain)
                 } else {
                     DatePicker("", selection: Binding(get: { parse(s) ?? .now }, set: { set(isoDay($0)) }), displayedComponents: .date).labelsHidden()
-                    Button { set(nil) } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }.buttonStyle(.plain)
+                    Button { set(nil) } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }.buttonStyle(.plain).accessibilityLabel("Datum entfernen")
                 }
             }
         case "created", "edited":
@@ -828,14 +854,20 @@ struct PropEditor: View {
                 #if os(iOS)
                 .keyboardType(prop.type == "number" ? .decimalPad : prop.type == "url" ? .URL : prop.type == "email" ? .emailAddress : prop.type == "phone" ? .phonePad : .default)
                 #endif
-                .onAppear { text = value.map { v in (v as? Double).map { prop.type == "number" ? $0.formatted() : "\($0)" } ?? "\(v)" } ?? "" }
+                .focused($focused)
+                .onAppear { text = shown; base = shown }
+                .onChange(of: shown) { _, v in if !focused || text == base { text = v; base = v } }   // neuer Wert vom Server: uebernehmen statt alten zurueckschreiben
                 .onSubmit { commit() }
-                .onChange(of: text) { _, _ in }
+                .onChange(of: focused) { _, f in if !f { commit() } }
                 .onDisappear { commit() }
         }
     }
     private var leer: some View { Text("Leer").font(.subheadline).foregroundStyle(.tertiary) }
+    /// Wert als Text (wie im Eingabefeld)
+    private var shown: String { value.map { v in (v as? Double).map { prop.type == "number" ? $0.formatted() : "\($0)" } ?? "\(v)" } ?? "" }
     private func commit() {
+        guard text != base else { return }                          // nichts eingegeben -> nichts (Veraltetes) zurueckschreiben
+        base = text
         let cur = value.map { "\($0)" } ?? ""
         if prop.type == "number" {
             let n = (try? Double(text, format: .number)) ?? Double(text)          // Zahl in der Schreibweise der Systemsprache
@@ -844,4 +876,10 @@ struct PropEditor: View {
     }
     private func isoDay(_ d: Date) -> String { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: d) }
     private func parse(_ s: String) -> Date? { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.date(from: String(s.prefix(10))) }
+}
+
+/// Nur Web- und Mail-Links oeffnen (keine App-Schemata wie saga://pair oder file:)
+func safeLink(_ s: String) -> URL? {
+    guard let u = URL(string: s.trimmingCharacters(in: .whitespaces)), let sc = u.scheme?.lowercased(), ["http", "https", "mailto"].contains(sc) else { return nil }
+    return u
 }

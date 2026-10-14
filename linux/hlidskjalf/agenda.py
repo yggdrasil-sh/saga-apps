@@ -1,9 +1,9 @@
 """Aufgaben und Termine wie Agenda.swift: Schnell-Eingabe, Gruppen nach Faelligkeit, Bearbeiten; externe Kalender."""
 import datetime as _dt
 
-from gi.repository import Adw, GLib, Gtk, Pango
+from gi.repository import Adw, Gdk, GLib, Gtk, Pango
 
-from .blocks import flat_button, menu_popover
+from .blocks import context_menu, flat_button, menu_popover, more_button
 from .store import store, watch
 from .i18n import _, ngettext
 from .util import day_text, iso_day, parse_day, time_text, weekday_day_text
@@ -18,7 +18,7 @@ def _clear(box):
 
 
 class TaskRow(Gtk.Box):
-    def __init__(self, win, t):
+    def __init__(self, win, t, compact=False):
         super().__init__(spacing=10, margin_top=2, margin_bottom=2)
         self.win, self.t = win, t
         done = bool(t.get("done"))
@@ -54,10 +54,19 @@ class TaskRow(Gtk.Box):
         b.add_css_class("hk-plain")
         b.connect("clicked", lambda *_: TaskEditor(win, t).present(win))
         self.append(b)
-        g = Gtk.GestureClick(button=3)
-        g.connect("pressed", lambda *a: menu_popover(self, [(_("Mark done"), lambda: store.complete_task(t)),
-                                                             (_("Delete"), lambda: store.delete_task(t["id"]), True)]).popup())
-        self.add_controller(g)
+
+        def entries():
+            ents = [(_("Edit …"), lambda: TaskEditor(win, t).present(win))]
+            ents.append((_("Reopen"), lambda: store.update_task(t["id"], {"done": False})) if done else
+                        (_("Mark done"), lambda: store.complete_task(t)))
+            return ents + [None, (_("Delete"), lambda: store.delete_task(t["id"]), True)]
+        mb = more_button(entries, _("Task actions"))      # sichtbar (auch ohne Maus/Rechtsklick)
+        mb.add_css_class("dim-label")
+        if compact:                                       # Seitenleiste: bei Maus, Fokus oder Touch
+            mb.add_css_class("hk-reveal")
+            self.add_css_class("hk-reveal-zone")
+        self.append(mb)
+        context_menu(b, lambda w: menu_popover(w, entries()).popup())
 
 
 class TaskList(Gtk.Box):
@@ -260,13 +269,12 @@ class TaskEditor(Adw.Dialog):
 class EventRow(Gtk.Box):
     def __init__(self, e, show_day=False):
         super().__init__(spacing=10, margin_top=2, margin_bottom=2)
-        bar = Gtk.Box()
-        bar.set_size_request(4, 30)
-        bar.add_css_class("hk-evbar")
-        prov = Gtk.CssProvider()
-        col = e.get("color") or "#3584e4"
-        prov.load_from_string(f".hk-evbar {{ background: {col}; border-radius: 2px; }}")
-        bar.get_style_context().add_provider(prov, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        # Kalenderfarbe vom Server: nur als gepruefte Farbe zeichnen (nie ungeprueft ins CSS)
+        rgba = Gdk.RGBA()
+        if not rgba.parse(str(e.get("color") or "")):
+            rgba.parse("#3584e4")
+        bar = Gtk.DrawingArea(content_width=4, content_height=30)
+        bar.set_draw_func(_draw_bar, rgba)
         self.append(bar)
         col_ = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
         top = Gtk.Box(spacing=4)
@@ -294,6 +302,18 @@ class EventRow(Gtk.Box):
         if e.get("location"):
             s += " · " + e["location"]
         return s
+
+
+def _draw_bar(area, cr, w, h, rgba):
+    r = min(2.0, w / 2)
+    cr.set_source_rgba(rgba.red, rgba.green, rgba.blue, rgba.alpha)
+    cr.new_sub_path()
+    cr.arc(w - r, r, r, -1.5708, 0)
+    cr.arc(w - r, h - r, r, 0, 1.5708)
+    cr.arc(r, h - r, r, 1.5708, 3.1416)
+    cr.arc(r, r, r, 3.1416, 4.7124)
+    cr.close_path()
+    cr.fill()
 
 
 class EventList(Gtk.Box):
@@ -470,7 +490,7 @@ class EventEditor(Adw.Dialog):
 
 
 def _screen(title, child):
-    sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True)
+    sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.AUTOMATIC, vexpand=True)
     cl = Adw.Clamp(maximum_size=760)
     bx = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_top=18, margin_bottom=24, margin_start=18, margin_end=18)
     h = Gtk.Label(label=title, xalign=0)
@@ -520,7 +540,7 @@ class TodayBox(Gtk.Box):
             b.connect("clicked", lambda *_, e=e: EventEditor(self.win, e, store.load_today).present(self.win))
             self.append(b)
         for t in tasks:
-            self.append(TaskRow(self.win, t))
+            self.append(TaskRow(self.win, t, compact=self.compact))
 
 
 def today_screen(win):

@@ -3,11 +3,11 @@ import statistics
 
 from gi.repository import Adw, GLib, Gtk, Pango
 
-from .blocks import chip, flat_button, menu_popover
+from .blocks import chip, context_menu, flat_button, menu_popover
 from .database import PROP_ICON, has_value
 from .i18n import _
 from .store import label, store
-from .util import COLOR_NAMES, COLOR_ORDER, day_text, iso_day, new_pid, num_text, parse_day
+from .util import COLOR_NAMES, COLOR_ORDER, day_text, new_pid, num_text
 
 DB_TYPES = [("text", _("Text")), ("number", _("Number")), ("select", _("Select")), ("multi_select", _("Multi-select")), ("date", _("Date")),
             ("checkbox", _("Checkbox")), ("url", _("URL")), ("created", _("Created")), ("edited", _("Edited")), ("calc", _("Calculated")),
@@ -103,10 +103,14 @@ class ViewBar(Gtk.Box):
             b.add_css_class("hk-viewtab")
             b.connect("clicked", lambda *_, vid=vid: self.dv.set_view(vid))
             if self.editable:
-                g = Gtk.GestureClick(button=3)
-                g.connect("pressed", lambda gs, n, x, y, v=v, b=b: self._tab_menu(b, v))
-                b.add_controller(g)
+                context_menu(b, lambda w, v=v: self._tab_menu(w, v))
             self.tabs.append(b)
+        if self.editable and self.dv.view is not None:
+            # sichtbarer "⋮" fuer die aktive Ansicht (Umbenennen, Duplizieren, Layout, Loeschen) - nicht nur per Rechtsklick
+            more = Gtk.MenuButton(icon_name="view-more-symbolic", tooltip_text=_("View actions"), valign=Gtk.Align.CENTER)
+            more.add_css_class("flat")
+            more.set_create_popup_func(lambda mb: mb.set_popover(menu_popover(None, self._tab_entries(self.dv.view))))
+            self.tabs.append(more)
         if self.editable:
             add = Gtk.MenuButton(icon_name="list-add-symbolic", tooltip_text=_("Add view"))
             add.add_css_class("flat")
@@ -138,6 +142,9 @@ class ViewBar(Gtk.Box):
         self.m.mutate_views(lambda vs: vs.append({"id": vid, "name": next(x[1] for x in VIEW_TYPES if x[0] == t), "type": t}))
 
     def _tab_menu(self, b, v):
+        menu_popover(b, self._tab_entries(v)).popup()
+
+    def _tab_entries(self, v):
         vid = v.get("id")
 
         def rename():
@@ -163,7 +170,7 @@ class ViewBar(Gtk.Box):
         if len(self.dv.views) > 1:
             ents += [None, (_("Delete view"), lambda: (setattr(self.dv, "current", None),
                                                          self.m.mutate_views(lambda vs: vs.__setitem__(slice(None), [x for x in vs if x.get("id") != vid]))), True)]
-        menu_popover(b, ents).popup()
+        return ents
 
     def _settings_popup(self, mb):
         pop = Gtk.Popover()
@@ -229,7 +236,7 @@ class ViewSettings(Gtk.Box):
             r.append(Gtk.Label(label=p.get("name") or "", xalign=0, hexpand=True))
             sw = Gtk.Switch(active=p["id"] not in hidden, valign=Gtk.Align.CENTER)
 
-            def tog(s, _, pid=p["id"]):
+            def tog(s, _pspec, pid=p["id"]):
                 def ch(d):
                     h = [x for x in (d.get("hidden") or []) if x != pid]
                     if not s.get_active():
@@ -357,7 +364,17 @@ class ColumnEditor(Gtk.Popover):
         self.box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=10, margin_bottom=10, margin_start=10, margin_end=10)
         self.box.set_size_request(320, -1)
         self.set_child(self.box)
+        self.name_entry = None
+        self.connect("closed", lambda *_: self._save_name())
         self.fill()
+
+    def _save_name(self, *_):
+        en = self.name_entry
+        if en is None:
+            return
+        n = en.get_text().strip()
+        if n and n != self._p().get("name"):
+            self.m.edit_prop(self.pid, lambda d: d.__setitem__("name", n))
 
     def _p(self):
         return next((x for x in self.m.schema.get("props") or [] if x.get("id") == self.pid), {})
@@ -373,13 +390,8 @@ class ColumnEditor(Gtk.Popover):
         p = self._p()
         t = p.get("type") or "text"
         en = Gtk.Entry(text=p.get("name") or "")
-
-        def save_name(*_):
-            n = en.get_text().strip()
-            if n and n != p.get("name"):
-                self.m.edit_prop(self.pid, lambda d: d.__setitem__("name", n))
-        en.connect("activate", save_name)
-        self.connect("closed", save_name)
+        self.name_entry = en
+        en.connect("activate", self._save_name)
         self.box.append(en)
 
         def set_type(val):

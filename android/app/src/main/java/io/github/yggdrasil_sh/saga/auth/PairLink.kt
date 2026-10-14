@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.auth
 
+import io.github.yggdrasil_sh.saga.util.ServerUrl
 import java.net.URI
 import java.net.URLDecoder
 
@@ -44,6 +45,25 @@ object PairLink {
             return PairTarget(srv.trim().trimEnd('/'), code)
         }
         return null
+    }
+
+    /**
+     * Darf an dieses Ziel gekoppelt werden? Nur https; http nur fuer den lokalen Testserver und nur, wenn
+     * allowLocalHttp (Debug-Build). Liefert das Ziel mit vereinheitlichter Server-Adresse, sonst null.
+     */
+    fun check(t: PairTarget, allowLocalHttp: Boolean): PairTarget? {
+        if (!t.server.contains("://")) return null              // kein stilles https:// davor - Links muessen vollstaendig sein
+        val s = ServerUrl.normalize(t.server, allowLocalHttp) ?: return null
+        if (!CODE_RE.matches(t.code)) return null
+        return PairTarget(s, t.code)
+    }
+
+    /** Host (mit Port) fuer die Anzeige im Bestaetigungsdialog */
+    fun displayHost(server: String): String = try {
+        val u = URI(server)
+        (u.host ?: server) + (if (u.port > 0) ":${u.port}" else "") + (u.rawPath?.trimEnd('/') ?: "")
+    } catch (_: Exception) {
+        server
     }
 
     private fun query(raw: String?): Map<String, String> {

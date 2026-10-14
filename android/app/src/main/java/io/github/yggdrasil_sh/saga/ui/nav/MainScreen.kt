@@ -42,7 +42,19 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalResources
+import io.github.yggdrasil_sh.saga.ui.login.PairConfirmDialog
+import io.github.yggdrasil_sh.saga.ui.share.ShareDialog
+import io.github.yggdrasil_sh.saga.util.UiText
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -66,17 +78,39 @@ import kotlinx.coroutines.launch
 /**
  * Wurzel: Hauptansicht, darueber der Anmeldebildschirm, solange keine Anmeldung besteht.
  * Die Hauptansicht bleibt dabei erhalten (ungespeicherte Eingaben gehen nach erneuter Anmeldung nicht verloren)
- * und wird bei einem anderen Server neu aufgebaut.
+ * und wird bei einem anderen Server neu aufgebaut. Ganz oben: Kopplungs-Bestaetigung und Meldungen (Snackbar).
  */
 @Composable
 fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
+    val ready by repo.ready.collectAsState()
     val needsLogin by repo.needsLogin.collectAsState()
     val server by repo.server.collectAsState()
-    var everLoggedIn by remember { mutableStateOf(!needsLogin) }
-    LaunchedEffect(needsLogin) { if (!needsLogin) everLoggedIn = true }
+    val pendingPair by repo.pendingPair.collectAsState()
+    val pendingShare by repo.pendingShare.collectAsState()
+    val snackbar = remember { SnackbarHostState() }
+    val res = LocalResources.current
+    LaunchedEffect(Unit) {
+        repo.messages.collect { m ->
+            val r = snackbar.showSnackbar(
+                message = m.text.asString(res), actionLabel = m.actionLabel?.asString(res), withDismissAction = m.action == null,
+                duration = if (m.action != null) SnackbarDuration.Long else SnackbarDuration.Short,
+            )
+            if (r == SnackbarResult.ActionPerformed) m.action?.invoke()
+        }
+    }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        if (everLoggedIn) key(server) { MainScreen(repo, appScope) }
-        if (needsLogin) LoginScreen(repo)
+        if (ready) {                                             // erst nach dem Laden der Einstellungen (im Hintergrund)
+            var everLoggedIn by remember { mutableStateOf(!needsLogin) }
+            LaunchedEffect(needsLogin) { if (!needsLogin) everLoggedIn = true }
+            if (everLoggedIn) key(server) { MainScreen(repo, appScope) }
+            if (needsLogin) LoginScreen(repo)
+            pendingPair?.let { PairConfirmDialog(repo, it, appScope) }
+            pendingShare?.let { sc ->
+                if (needsLogin) LaunchedEffect(sc) { repo.notify(UiText.Res(R.string.share_sign_in_first)) }   // nach Anmeldung erscheint der Dialog
+                else ShareDialog(repo, sc) { id -> repo.openPageRequest.value = id }
+            }
+        }
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().imePadding())
     }
 }
 
@@ -93,7 +127,11 @@ private val mainItems = listOf(
 /** Adaptiv: Handy = Seitenleiste als Schublade; Tablet hochkant = Navigation Rail + Schublade; breit = feste Seitenleiste */
 @Composable
 fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
-    val nav = remember { AppNavigator() }
+    val nav = rememberSaveable(saver = AppNavigator.Saver) { AppNavigator() }   // ueberlebt Prozess-Tod
+    val openRequest by repo.openPageRequest.collectAsState()
+    LaunchedEffect(openRequest) {
+        openRequest?.let { nav.top(Dest.Page(it)); repo.openPageRequest.value = null }
+    }
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val lifecycle = LocalLifecycleOwner.current.lifecycle

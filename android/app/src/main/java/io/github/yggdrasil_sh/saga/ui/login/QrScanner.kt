@@ -85,6 +85,7 @@ fun QrScannerDialog(onDismiss: () -> Unit, onResult: (String) -> Boolean) {
                     val view = PreviewView(ctx)
                     val future = ProcessCameraProvider.getInstance(ctx)
                     future.addListener({
+                        if (done.get()) return@addListener              // Dialog schon zu: Kamera nicht mehr binden
                         try {
                             val provider = future.get()
                             val preview = Preview.Builder().build().also { it.surfaceProvider = view.surfaceProvider }
@@ -106,7 +107,7 @@ fun QrScannerDialog(onDismiss: () -> Unit, onResult: (String) -> Boolean) {
                                 hint = UiText.Res(R.string.qr_no_camera)
                             } else {
                                 provider.unbindAll()
-                                provider.bindToLifecycle(lifecycleOwner, selector, preview, analysis)
+                                if (!done.get()) provider.bindToLifecycle(lifecycleOwner, selector, preview, analysis)
                             }
                         } catch (e: Exception) {
                             hint = UiText.Res(R.string.qr_camera_unavailable, e.message ?: e.javaClass.simpleName)

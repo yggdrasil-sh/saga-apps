@@ -2,12 +2,12 @@ package io.github.yggdrasil_sh.saga.ui.tasks
 
 import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.R
-import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -37,11 +37,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,7 +50,6 @@ import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.data.TaskItem
 import io.github.yggdrasil_sh.saga.ui.common.dueText
 import io.github.yggdrasil_sh.saga.ui.common.todayIso
-import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -58,25 +57,19 @@ import java.time.ZoneOffset
 /** Eine Aufgabe: Haken (erledigt/wieder offen), Text, Faelligkeit; antippen = bearbeiten */
 @Composable
 fun TaskRow(t: TaskItem, repo: SagaRepository, onEdit: (TaskItem) -> Unit) {
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     val overdue = !t.done && (t.due ?: "9") < todayIso()
     Row(
-        Modifier.fillMaxWidth().clickable { onEdit(t) }.padding(horizontal = 8.dp, vertical = 2.dp),
+        Modifier.fillMaxWidth().heightIn(min = 48.dp)
+            .clickable(onClickLabel = stringResource(R.string.task_edit)) { onEdit(t) }
+            .padding(horizontal = 8.dp, vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Checkbox(
             checked = t.done,
-            onCheckedChange = { v ->
-                scope.launch {
-                    try {
-                        repo.setTaskDone(t, v)
-                    } catch (e: Exception) {
-                        Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
-                    }
-                }
-            },
+            // im App-Scope: die Zeile verschwindet sofort aus "Heute" - ihr eigener Scope wuerde das Speichern abbrechen
+            onCheckedChange = { v -> repo.toggleTask(t, v) },
             colors = if (t.prio == 1 && !t.done) CheckboxDefaults.colors(uncheckedColor = MaterialTheme.colorScheme.error) else CheckboxDefaults.colors(),
+            modifier = Modifier.semantics { contentDescription = t.text },     // TalkBack: Aufgabentext + Zustand
         )
         Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
             Text(
@@ -107,23 +100,14 @@ fun QuickAddTask(repo: SagaRepository, modifier: Modifier = Modifier, defaultDue
     var due by remember { mutableStateOf(defaultDue) }
     var pick by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
     fun add() {
         val t = text.trim()
         if (t.isEmpty() || busy) return
         busy = true
-        scope.launch {
-            try {
-                repo.addTask(t, due)
-                text = ""
-                due = defaultDue
-            } catch (e: Exception) {
-                Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
-            } finally {
-                busy = false
-            }
-        }
+        val d = due
+        text = ""
+        due = defaultDue
+        repo.launchAction(onError = { text = t; due = d; busy = false }, onSuccess = { busy = false }) { repo.addTask(t, d) }
     }
     Column(modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
         OutlinedTextField(
@@ -170,17 +154,10 @@ fun TaskEditDialog(t: TaskItem, repo: SagaRepository, onClose: () -> Unit) {
     var prio by remember { mutableIntStateOf(t.prio ?: 2) }
     var pick by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
+    /** Dialog sofort schliessen, Aenderung im App-Scope speichern (Fehler als Meldung unten) */
     fun run(block: suspend () -> Unit) {
-        scope.launch {
-            try {
-                block()
-                onClose()
-            } catch (e: Exception) {
-                Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
-            }
-        }
+        onClose()
+        repo.launchAction(block = block)
     }
     AlertDialog(
         onDismissRequest = onClose,

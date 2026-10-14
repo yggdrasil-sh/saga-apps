@@ -1,5 +1,4 @@
 # Rundtour mit echten Daten (nur lesen): Startseite, Inhaltsseite, Datenbank-Ansichten, Peek, Palette, Einstellungen
-import json
 import os
 
 S = {}

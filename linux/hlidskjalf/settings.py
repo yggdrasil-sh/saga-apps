@@ -1,6 +1,7 @@
 """Einstellungen wie in der Mac-App: Server, Darstellung, Immich, Kalender (CalDAV), App-Schluessel, angemeldete Apps."""
 from gi.repository import Adw, Gdk, GLib, Gtk
 
+from . import config
 from .api import client
 from .config import settings
 from .i18n import _, ngettext
@@ -67,15 +68,40 @@ class SettingsDialog(Adw.PreferencesDialog):
 
     def _apply_server(self, row):
         u = row.get_text().strip().rstrip("/")
-        if u.startswith("https://") and "." in u:
-            if u != settings.server:
-                client.clear_cookies()                    # Sitzung gehoert zum alten Server
-                store.server_version = store.min_app = None
-            settings.server = u
-            self.add_toast(Adw.Toast(title=_("Server saved – please sign in again if needed")))
-            store.refresh()
-        else:
+        if u and "://" not in u:
+            u = "https://" + u
+        if not config.allowed_server(u) or "." not in u and "localhost" not in u:
             self.add_toast(Adw.Toast(title=_("Please enter an https address")))
+            return
+        u = config.origin(u)
+        if u == config.origin(settings.server):
+            row.set_text(settings.server)
+            return
+        host = GLib.Uri.parse(u, GLib.UriFlags.NONE).get_host()
+        d = Adw.AlertDialog(heading=_("Switch to {host}?").format(host=host),
+                            body=_("This device is signed out of the current server, and its session, cache, recent pages and "
+                                   "home page are removed from this device. Unsaved changes are saved first. Then sign in to the "
+                                   "new server."))
+        d.add_response("cancel", _("Cancel"))
+        d.add_response("ok", _("Switch server"))
+        d.set_response_appearance("ok", Adw.ResponseAppearance.DESTRUCTIVE)
+        d.set_default_response("cancel")
+        d.set_close_response("cancel")
+
+        def resp(dd, r):
+            if r != "ok":
+                row.set_text(settings.server)
+                return
+            win = self.win
+            self.close()
+
+            def switch():
+                store.switch_server(u)                    # Sitzung, Zwischenspeicher, Zuletzt, Startseite weg; beim alten abmelden
+                win.login_server.set_text(u)
+                store.refresh()                           # ohne Sitzung dort: Anmeldung
+            win.flush_then(switch)                        # erst zum alten Server speichern (Rest bleibt dort als Entwurf)
+        d.connect("response", resp)
+        d.present(self)
 
     def _test(self):
         self.status.set_subtitle(_("Checking …"))
@@ -85,7 +111,7 @@ class SettingsDialog(Adw.PreferencesDialog):
             np = len(store.pages)
             self.status.set_subtitle("✓ " + _("Connected – {pages}, {events} today").format(
                 pages=ngettext("{n} page", "{n} pages", np).format(n=np), events=ngettext("{n} event", "{n} events", n).format(n=n)))
-        bg(client.get, store.ev_path(1), done=fin, error=lambda e: self.status.set_subtitle("✗ " + str(e)))
+        bg(client.get, store.ev_path(1), done=fin, error=lambda e: self.status.set_subtitle("✗ " + GLib.markup_escape_text(str(e))))
 
     def _logout(self):
         d = Adw.AlertDialog(heading=_("Sign out?"), body=_("The sign-in and the cache on this device will be removed."))
@@ -96,6 +122,7 @@ class SettingsDialog(Adw.PreferencesDialog):
         def resp(dd, r):
             if r == "ok":
                 self.close()
+                self.win._flush_all()                     # Ungespeichertes zuerst senden (sonst bleibt es als Entwurf)
                 store.logout()
         d.connect("response", resp)
         d.present(self)
@@ -103,7 +130,7 @@ class SettingsDialog(Adw.PreferencesDialog):
 
 class ImmichGroup(Adw.PreferencesGroup):
     def __init__(self, dlg):
-        super().__init__(title="📷 Immich")
+        super().__init__(title="Immich")
         self.dlg = dlg
         self.rows = []
         self.load()
@@ -130,7 +157,7 @@ class ImmichGroup(Adw.PreferencesGroup):
         def go():
             st.set_subtitle(_("Checking …"))
             bg(client.json, "POST", "api/settings/immich", {"url": url.get_text().strip(), "apikey": key.get_text().strip()},
-               done=lambda _: self.load(), error=lambda e: st.set_subtitle(str(e)))
+               done=lambda _: self.load(), error=lambda e: st.set_subtitle(GLib.markup_escape_text(str(e))))
         st.add_suffix(_btn(_("Connect"), "suggested-action", go))
         for r in (url, key, st):
             self.add(r)
@@ -177,7 +204,7 @@ class CalEntries(Gtk.Box):
 
 class CalendarGroup(Adw.PreferencesGroup):
     def __init__(self, dlg):
-        super().__init__(title="📅 " + _("Calendar"), description=_("Connect external calendars (CalDAV) such as mailcow or Nextcloud. "
+        super().__init__(title=_("Calendar"), description=_("Connect external calendars (CalDAV) such as mailcow or Nextcloud. "
                                                                      "Tip: in mailcow, create a separate app password just for “DAV”."))
         self.dlg = dlg
         self.rows = []
@@ -337,7 +364,7 @@ class AppsGroup(Adw.PreferencesGroup):
 
     def __init__(self, dlg):
         # Translators: the title is markup - write "&" as "&amp;"
-        super().__init__(title="📱 " + _("Apps &amp; devices"),
+        super().__init__(title=_("Apps &amp; devices"),
                          description=_("Signed-in apps stay signed in. Each one has a small key for widgets, sharing and "
                                        "shortcuts. Lost a device? Sign it out and both are gone."))
         self.dlg = dlg

@@ -30,7 +30,8 @@ enum APIError: LocalizedError {
 /// Zugriff auf die eng begrenzten App-Endpunkte (/api/app/*) mit dem App-Schluessel.
 enum API {
     private static func request(_ path: String, method: String = "GET", body: [String: Any]? = nil) async throws -> Data {
-        guard AppConfig.hasToken, AppConfig.hasServer else { throw APIError.noToken }
+        // Schluessel nur an den Server, der ihn ausgestellt hat (AppConfig.token prueft das), und nur verschluesselt
+        guard AppConfig.hasServer, AppConfig.isAllowedServer(AppConfig.server), AppConfig.hasToken else { throw APIError.noToken }
         // NICHT appendingPathComponent: das kodiert "?" als %3F (Abfrage-Parameter wie ?w= wuerden zum Pfad)
         guard let url = URL(string: AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/" + path) else { throw APIError.noToken }
         var req = URLRequest(url: url, timeoutInterval: 20)

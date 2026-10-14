@@ -13,12 +13,13 @@ BuildRequires:  python3
 BuildRequires:  gettext
 Requires:       python3 >= 3.11
 Requires:       python3-gobject
-Requires:       gtk4 >= 4.14
+# CSS-Variablen (var(--accent-color) ...) brauchen GTK >= 4.16 / libadwaita >= 1.6
+Requires:       gtk4 >= 4.16
 Requires:       libadwaita >= 1.6
+# Schluesselbund ueber GObject-Introspection (gi.repository.Secret; Fedora/RHEL liefern dafuer kein typelib(Secret))
 Requires:       libsecret
 # Fedora: python3-pillow; AlmaLinux/RHEL 10: python3-pillow (AppStream bzw. EPEL)
 Requires:       python3dist(pillow)
-Requires:       desktop-file-utils
 Requires:       hicolor-icon-theme
 
 %description
@@ -53,6 +54,8 @@ sh po/build-mo.sh build/locale
 %install
 install -d %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf
 cp -a hlidskjalf/*.py hlidskjalf/style.css %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/
+# Testmodus (HK_TEST, ctypes, fuehrt Skripte aus) gehoert nicht ins Paket
+rm -f %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/testing.py
 install -Dm755 data/hlidskjalf %{buildroot}%{_bindir}/hlidskjalf
 install -Dm644 data/io.github.yggdrasil_sh.Saga.desktop %{buildroot}%{_datadir}/applications/io.github.yggdrasil_sh.Saga.desktop
 install -Dm644 data/io.github.yggdrasil_sh.Saga.metainfo.xml %{buildroot}%{_metainfodir}/io.github.yggdrasil_sh.Saga.metainfo.xml
@@ -65,19 +68,17 @@ mkdir -p %{buildroot}%{_datadir}/locale
 cp -a build/locale/. %{buildroot}%{_datadir}/locale/
 %find_lang io.github.yggdrasil_sh.Saga
 
-%post
-update-desktop-database -q %{_datadir}/applications &>/dev/null || :
-touch --no-create %{_datadir}/icons/hicolor &>/dev/null || :
-
-%postun
-update-desktop-database -q %{_datadir}/applications &>/dev/null || :
-if [ $1 -eq 0 ]; then
-  touch --no-create %{_datadir}/icons/hicolor &>/dev/null || :
-  gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
+%check
+# Pruefungen nur, wenn die Werkzeuge da sind (CI installiert nur rpm-build, python3, gettext)
+if command -v desktop-file-validate >/dev/null; then
+  desktop-file-validate %{buildroot}%{_datadir}/applications/io.github.yggdrasil_sh.Saga.desktop
 fi
+if command -v appstreamcli >/dev/null; then
+  appstreamcli validate --no-net %{buildroot}%{_metainfodir}/io.github.yggdrasil_sh.Saga.metainfo.xml
+fi
+test ! -e %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/testing.py
 
-%posttrans
-gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
+# Desktop-Datenbank und Symbol-Zwischenspeicher aktualisieren Fedora/RHEL selbst (Datei-Trigger) - keine Scriptlets noetig
 
 %files -f io.github.yggdrasil_sh.Saga.lang
 %{_bindir}/hlidskjalf
@@ -89,5 +90,8 @@ gtk-update-icon-cache %{_datadir}/icons/hicolor &>/dev/null || :
 %{_datadir}/dbus-1/services/io.github.yggdrasil_sh.Saga.SearchProvider.service
 
 %changelog
+* Wed Oct 14 2026 Saga-Projekt <342035222+yggdrasil-sh@users.noreply.github.com> - 1.0.0-1
+- Kopplung und Serverwechsel mit Rueckfrage, Schluessel an ihren Server gebunden
+- Speichern ohne Datenverlust (Konflikte, Entwuerfe, Schliessen wartet), Tastatur- und Touch-Bedienung
 * Sun Oct 11 2026 Saga-Projekt <342035222+yggdrasil-sh@users.noreply.github.com> - 1.0.0-1
 - Erste native Linux-Version

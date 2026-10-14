@@ -49,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -60,6 +61,7 @@ import io.github.yggdrasil_sh.saga.auth.PairLink
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.ui.common.openUrl
 import io.github.yggdrasil_sh.saga.ui.theme.SagaNight
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /**
@@ -88,6 +90,8 @@ fun LoginScreen(repo: SagaRepository) {
         scope.launch {
             try {
                 openUrl(context, repo.prepareBrowserLogin(server))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 localError = repo.friendly(e)
             }
@@ -119,7 +123,10 @@ fun LoginScreen(repo: SagaRepository) {
                 )
                 OutlinedTextField(
                     value = server, onValueChange = { server = it },
-                    label = { Text(stringResource(R.string.login_server_label)) }, placeholder = { Text(stringResource(R.string.server_placeholder)) },
+                    label = { Text(stringResource(R.string.login_server_label)) },
+                    // Platzhalter klar als Beispiel erkennbar (sonst wirkt er wie ein schon eingetragener Wert)
+                    placeholder = { Text(stringResource(R.string.server_placeholder), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f), fontStyle = FontStyle.Italic) },
+                    supportingText = { Text(stringResource(R.string.login_server_hint)) },
                     singleLine = true, enabled = !busy,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go, autoCorrectEnabled = false),
                     keyboardActions = KeyboardActions(onGo = { login() }),
@@ -164,8 +171,7 @@ fun LoginScreen(repo: SagaRepository) {
                 val t = PairLink.parse(text)
                 if (t != null) {
                     scanning = false
-                    server = t.server
-                    scope.launch { repo.pair(t) }
+                    repo.offerPair(t)                       // Ziel-Host bestaetigen lassen (auch beim QR-Scan)
                     true
                 } else false
             },

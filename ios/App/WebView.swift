@@ -40,7 +40,9 @@ final class WebModel: NSObject, ObservableObject, WKNavigationDelegate, WKUIDele
         #if os(iOS)
         webView.isOpaque = false; webView.backgroundColor = .clear
         #endif
-        if #available(iOS 16.4, macOS 13.3, *) { webView.isInspectable = true }
+        #if DEBUG
+        webView.isInspectable = true                                      // Safari-Webinspektor nur in Entwickler-Builds
+        #endif
         #if os(iOS)
         let rc = UIRefreshControl()
         rc.addTarget(self, action: #selector(pullRefresh(_:)), for: .valueChanged)

@@ -38,6 +38,22 @@ object BlockDoc {
 
     fun serialize(doc: JsonObject): String = Json.encodeToString(JsonElement.serializer(), doc)
 
+    /**
+     * Gleicher Inhalt? Zeitstempel und Editor-Version zaehlen nicht; eine leere Seite gleicht einer Seite mit nur
+     * einem leeren Absatz (den die App zum Losschreiben einfuegt).
+     */
+    fun sameContent(a: JsonObject, b: JsonObject): Boolean {
+        fun norm(d: JsonObject): JsonObject {
+            val m = LinkedHashMap(d)
+            m.remove("time")
+            m.remove("version")
+            val bl = blocks(d)
+            if (bl.size == 1 && type(bl[0]) == "paragraph" && str(data(bl[0]), "text").isEmpty()) m["blocks"] = JsonArray(emptyList())
+            return JsonObject(m)
+        }
+        return norm(a) == norm(b)
+    }
+
     fun withTime(doc: JsonObject, millis: Long): JsonObject = JsonObject(LinkedHashMap(doc).apply { put("time", JsonPrimitive(millis)) })
 
     fun blocks(doc: JsonObject): JsonArray = doc["blocks"] as? JsonArray ?: JsonArray(emptyList())

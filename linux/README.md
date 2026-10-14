@@ -41,7 +41,8 @@ flatpak run io.github.yggdrasil_sh.Saga
 Benötigt `flatpak` und `flatpak-builder`; GNOME-SDK und -Laufzeit installiert das Skript bei Bedarf von Flathub
 (Nutzer-Installation). Manifest: `flatpak/io.github.yggdrasil_sh.Saga.yml`, Befehl im Flatpak: `saga`.
 Einstellungen und Zwischenspeicher liegen im Flatpak unter `~/.var/app/io.github.yggdrasil_sh.Saga/`,
-heruntergeladene Anhänge im Download-Ordner. Die GNOME-Suche funktioniert auch im Flatpak.
+Anhänge speichert man über den Speichern-Dialog (Portal) – das Flatpak braucht keinen Dateisystem-Zugriff
+und keinen Zugriff auf den ganzen Schlüsselbund (Geräte-Schlüssel über das Secret-Portal). Die GNOME-Suche funktioniert auch im Flatpak.
 
 ## Ohne Installation starten
 
@@ -80,7 +81,43 @@ Die App hat keinen fest eingestellten Server. Beim ersten Start gibt es zwei Weg
 Danach bleibt das Gerät per Geräte-Schlüssel angemeldet. Die Server-Adresse lässt sich in den Einstellungen ändern;
 Einstellungen liegen in `~/.config/hlidskjalf`, der Zwischenspeicher in `~/.cache/hlidskjalf`.
 
+Sicherheit beim Anmelden und Wechseln:
+
+- Nur `https://` (Ausnahme: `http://localhost` im Test-/Debug-Modus mit `HK_TEST` bzw. `HK_DEBUG`).
+- Ein Kopplungslink, der von außen kommt (Browser, andere App: `hlidskjalf://pair?…`), wird nie still übernommen –
+  die App fragt mit dem Zielhost nach. Ebenso `hlidskjalf://new` (neue Seite); die Dock-Aktionen nutzen dafür
+  `hlidskjalf --new-page` bzw. `--new-task`.
+- Ein Server wird erst übernommen, wenn die Anmeldung dort geklappt hat. Beim Wechsel wird das Gerät beim alten Server
+  abgemeldet (`/app/forget`, Fehler blockieren nicht), Geräte- und App-Schlüssel des alten Servers werden gelöscht und
+  Sitzung, Zwischenspeicher, „Zuletzt“, Startseite und aufgeklappte Seiten entfernt.
+- Geräte-Schlüssel (Schlüsselbund, Attribut `server`) und App-Schlüssel (`app_keys` in den Einstellungen) gehören je zu
+  genau einem Server und werden nur an diesen gesendet; das Sitzungs-Cookie geht nur an den eingetragenen Server.
+
+Speichern: Jede Seite wird mit ihrer Revision gespeichert. Wurde sie woanders geändert (409), bleibt die eigene
+Eingabe erhalten und die App fragt wie iOS/Android („Meine Fassung behalten“ / „Server-Fassung laden (meine als Kopie
+sichern)“). „Server-Fassung laden“ legt die eigene Fassung vorher immer als lokale Kopie ab; ein Banner bietet sie an
+(„Nicht gespeicherte Änderungen vom …“: Wiederherstellen / Verwerfen). Esc schließt die Frage ohne Entscheidung: nichts
+wird überschrieben, oben an der Seite bleibt der Hinweis „Seite wurde woanders geändert“ mit „Fassung wählen“.
+Ungesendete Stände liegen als Entwurf in `~/.local/share/hlidskjalf/drafts/` – je Server und Konto getrennt (ein anderes
+Konto sieht sie nie) – und werden beim nächsten Öffnen der Seite wiederhergestellt (Absturz, offline). Das Schließen des
+Fensters wartet, bis alles gespeichert ist.
+
 ## Tests
+
+### Ohne Testrechner: Fedora-Container mit nachgebautem Server
+
+```sh
+sh tests/run-container.sh                  # fedora:44 per podman/docker: lint, pytest, App-Start, Sprachen, Bildschirmfotos
+sh tests/run-container.sh lint unit        # nur pyflakes/msgfmt/desktop-file-validate/appstreamcli und pytest
+PYTEST_ADDOPTS="-k konflikt" sh tests/run-container.sh unit
+```
+
+Kein echter Server und keine Zugangsdaten nötig: `tests/mockserver.py` ersetzt den Server-Zugriff (Seiten, Datenbank,
+Aufgaben, Kopplung, 409, Verzögerungen und Ausfälle). Die pytest-Tests (`tests/test_*.py`) prüfen u. a. Konflikte,
+Entwürfe, Schließen während des Speicherns, Rückruf-Warteschlangen, Schreib-Reihenfolge, Kopplung/Serverwechsel,
+Tastatur-Bedienung und den Teil-Neuaufbau des Editors. Bildschirmfotos (`shots.py`, `dialoge.py`) landen in `build/shots/`.
+
+### Auf dem Testrechner
 
 `tools/linux-test.sh linux/tests/<test>.py` kopiert den Stand per SSH auf einen Testrechner und startet die App dort
 unsichtbar (eigener kopfloser mutter, der Bildschirm der angemeldeten Person wird nicht berührt) mit einem Testskript;

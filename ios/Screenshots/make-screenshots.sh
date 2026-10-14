@@ -3,7 +3,9 @@
 # NUR gegen einen Demo-Server mit Beispieldaten verwenden.
 #
 #   make-screenshots.sh <Simulator-UDID> <Zielordner> [build]
-#   SAGA_PAIR_LINK='hlidskjalf://pair?u=...&c=...'   nur noetig, solange die App im Simulator nicht angemeldet ist
+#   SAGA_PAIR_LINK='saga://pair?u=...&c=...'         nur noetig, solange die App im Simulator nicht angemeldet ist
+#                                                    (die App fragt vor dem Koppeln nach - der UI-Test bestaetigt "Koppeln";
+#                                                    http://127.0.0.1 ist nur im Debug-Build erlaubt, den dieses Skript baut)
 #   SAGA_SHOT_PAGE / SAGA_SHOT_DB                      Seiten-IDs (Vorgabe 1 / 5)
 #   SAGA_SHOT_MODES                                    Vorgabe "light dark"
 #   SAGA_SHOT_LANG                                     Sprache de|en|es (Vorgabe de); en/es: Dateien mit Endung -en/-es

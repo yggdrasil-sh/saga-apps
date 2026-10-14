@@ -9,6 +9,10 @@ SAGA_APP_GROUP = group.$(SAGA_BUNDLE_ID)
 // macOS: Gruppe mit Team-Praefix (TEAMID.<App-ID>) - braucht kein Bereitstellungsprofil und laeuft
 // daher auch in Developer-ID-Builds (DMG ausserhalb des App Store). group.-Gruppen braeuchten auf dem Mac ein Profil.
 SAGA_APP_GROUP[sdk=macosx*] = $(TeamIdentifierPrefix)$(SAGA_BUNDLE_ID)
+// Gemeinsame Schluesselbund-Gruppe (App, Widget, Teilen) fuer den App-Schluessel; den Team-Praefix setzt Xcode beim Signieren
+SAGA_KEYCHAIN_GROUP = $(AppIdentifierPrefix)$(SAGA_BUNDLE_ID).shared
+// macOS: die App-Gruppe dient als Schluesselbund-Gruppe (keychain-access-groups braeuchte dort ein Bereitstellungsprofil)
+SAGA_KEYCHAIN_GROUP[sdk=macosx*] = $(SAGA_APP_GROUP)
 // Apple-Team fuer die Signierung (leer = in Xcode waehlen bzw. unsigniert pruefen)
 DEVELOPMENT_TEAM =
 // Optional: vorbelegte Server-Adresse (leer = Anmeldebildschirm fragt nach dem Server)

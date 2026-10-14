@@ -45,6 +45,7 @@ struct CalTarget: Identifiable, Hashable { let account: Int; let cal: String; le
 final class Store: ObservableObject {
     @Published var pages: [Page] = []
     @Published var needsLogin = false
+    @Published var pendingPair: PairRequest?               // Kopplungslink wartet auf Bestaetigung
     @Published var serverVersion: String?                // aus /api/version
     @Published var minApp: String?                       // aelteste App-Version, die der Server voll unterstuetzt
     var appTooOld: Bool { minApp.map { Store.versionLess(Store.appVersion, $0) } ?? false }
@@ -82,6 +83,8 @@ final class Store: ObservableObject {
     }()
 
     init() {                                                        // sofort aus dem Zwischenspeicher
+        // einmalig nach dem Update: alte Entwuerfe (nur je Server) gehoeren zur aktuell bestehenden Anmeldung
+        DraftOwner.app.migrate(origin: AppConfig.serverOrigin, signedIn: DeviceKey.get() != nil || AppConfig.hasToken)
         if let d = cachedData("api/notes"), let p = try? JSONDecoder().decode([Page].self, from: d) { setPages(p) }
     }
 
@@ -94,8 +97,19 @@ final class Store: ObservableObject {
 
     private func cookies(for url: URL) async -> [String: String] {
         if let h = cookieHeader, Date().timeIntervalSince(cookieAt) < 60 { return h }
-        let cs = await WKWebsiteDataStore.default().httpCookieStore.allCookies().filter { url.host?.hasSuffix($0.domain.trimmingCharacters(in: CharacterSet(charactersIn: "."))) == true }
+        let cs = await WKWebsiteDataStore.default().httpCookieStore.allCookies().filter { Store.cookieMatches($0, url) }
         let h = HTTPCookie.requestHeaderFields(with: cs); cookieHeader = h; cookieAt = Date(); return h
+    }
+
+    /// Cookie gehoert zu dieser Adresse? Domain nur an Punktgrenzen (evilexample.com passt nicht auf example.com),
+    /// Secure nur ueber https, Pfad-Praefix.
+    nonisolated static func cookieMatches(_ c: HTTPCookie, _ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        let d = c.domain.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        guard !d.isEmpty, host == d || host.hasSuffix("." + d) else { return false }
+        if c.isSecure && url.scheme?.lowercased() != "https" { return false }
+        let path = url.path.isEmpty ? "/" : url.path
+        return c.path.isEmpty || c.path == "/" || path == c.path || path.hasPrefix(c.path.hasSuffix("/") ? c.path : c.path + "/")
     }
 
     func api(_ path: String, method: String = "GET", body: [String: Any]? = nil) async throws -> Data {
@@ -147,7 +161,8 @@ final class Store: ObservableObject {
     }
 
     private func doResume() async -> ResumeResult {
-        guard AppConfig.hasServer, let tok = DeviceKey.get() else { return .rejected }
+        // Schluessel nur an den Server, der ihn ausgestellt hat, und nur verschluesselt
+        guard AppConfig.hasServer, AppConfig.isAllowedServer(AppConfig.server), let tok = DeviceKey.get() else { return .rejected }
         let url = AppConfig.server.appendingPathComponent("app/resume")
         var req = URLRequest(url: url, timeoutInterval: 20)
         req.httpMethod = "POST"; req.httpShouldHandleCookies = false
@@ -156,7 +171,7 @@ final class Store: ObservableObject {
         if AppConfig.hasToken { body["app_key"] = AppConfig.token }      // Widget-Schluessel diesem Geraet zuordnen (Einstellungen: eine Liste)
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
         guard let r = try? await URLSession.shared.data(for: req), let http = r.1 as? HTTPURLResponse else { return .offline }
-        if http.statusCode == 401 || http.statusCode == 403 { DeviceKey.set(nil); return .rejected }   // abgemeldet/gesperrt
+        if http.statusCode == 401 || http.statusCode == 403 { DeviceKey.set(nil); return .rejected }   // abgemeldet/gesperrt (gilt nur fuer diesen Server)
         guard http.statusCode == 200 else { return .offline }
         await storeCookies(http, url)
         return .ok
@@ -188,22 +203,39 @@ final class Store: ObservableObject {
         if let d = try? await api("app/device", method: "POST", body: ["device": DeviceKey.deviceName, "app_key": !AppConfig.hasToken]) { adoptKeys(d) }
     }
 
-    func refresh() async {
-        loading = true; defer { loading = false }
+    private var lastRefresh = Date.distantPast
+    func refresh(quiet: Bool = false) async {
+        if !quiet { loading = true }
+        defer { if !quiet { loading = false } }
+        lastRefresh = Date()
         do {
             setPages(try JSONDecoder().decode([Page].self, from: try await get("api/notes")))
-            needsLogin = false; error = nil
+            if needsLogin { needsLogin = false }
+            if error != nil { error = nil }
             if serverVersion == nil { await checkVersion() }
             await loadToday()
             await ensureDeviceKey()
-        } catch { if !needsLogin { self.error = error.localizedDescription } }
+            // Konto fuer die Entwuerfe: einmal je Start, und solange es fuer diesen Server noch unbekannt ist
+            if !accountChecked || AppConfig.serverOrigin.flatMap({ DraftOwner.app.account(origin: $0) }) == nil {
+                accountChecked = true; await identifyAccount()
+            }
+        } catch { if !needsLogin, self.error != error.localizedDescription { self.error = error.localizedDescription } }
+    }
+    /// 60-s-Abgleich: still, hoechstens einmal pro Takt fuer alle Fenster, und nur Geaendertes neu setzen
+    /// (sonst zeichnen alle Ansichten mit dem Store jede Minute neu)
+    func periodicRefresh() async {
+        guard Date().timeIntervalSince(lastRefresh) > 50 else { return }
+        await refresh(quiet: true)
     }
 
     func loadToday() async {
         struct T: Decodable { let open: [OpenTask]; let done: [OpenTask]? }
-        if let d = try? await api("api/tasks"), let t = try? JSONDecoder().decode(T.self, from: d) { tasks = t.open; doneTasks = t.done ?? [] }
-        if events.isEmpty, let c = cachedEvents(days: 1) { events = c }               // sofort anzeigen
-        if let e = await self.events(days: 1) { events = e }                         // Fehler: bisherigen Stand behalten
+        if let d = try? await api("api/tasks"), let t = try? JSONDecoder().decode(T.self, from: d) {
+            if tasks != t.open { tasks = t.open }
+            if doneTasks != (t.done ?? []) { doneTasks = t.done ?? [] }
+        }
+        if events.isEmpty, let c = cachedEvents(days: 1), !c.isEmpty { events = c }   // sofort anzeigen
+        if let e = await self.events(days: 1), e != events { events = e }            // Fehler: bisherigen Stand behalten
     }
 
     func search(_ q: String) async -> [Page] {
@@ -365,11 +397,16 @@ final class Store: ObservableObject {
     }
     /// Archiv: nicht im Baum/Suche, aber per Link erreichbar (wie im Web)
     @Published var archivedPages: [Page] = []
+    private var lastAll: [Page]?
     private func setPages(_ all: [Page]) {
-        pages = all.filter { $0.archived != true }
+        guard all != lastAll else { return }                              // unveraendert: nichts neu zeichnen, Spotlight nicht neu bauen
+        lastAll = all
+        let vis = all.filter { $0.archived != true }
+        if vis != pages { pages = vis }
         SpotlightIndex.update(pages)                                      // Seiten in der Systemsuche
         let ids = Set(all.filter { $0.archived == true }.map(\.id))
-        archivedPages = all.filter { $0.archived == true && !($0.parent_id.map { ids.contains($0) } ?? false) }   // nur oberste
+        let arch = all.filter { $0.archived == true && !($0.parent_id.map { ids.contains($0) } ?? false) }   // nur oberste
+        if arch != archivedPages { archivedPages = arch }
     }
     func setArchived(_ id: Int, _ on: Bool) async {
         _ = try? await api("api/notes/\(id)/archive", method: "POST", body: ["archived": on])
@@ -420,45 +457,79 @@ final class Store: ObservableObject {
 
     func updateTitle(_ id: Int, _ title: String) { if let i = pages.firstIndex(where: { $0.id == id }), pages[i].title != title { pages[i].title = title } }
 
-    /// Anmeldung ueber das System-Anmeldefenster: Code + Geheimnis -> Sitzung (auch fuer die Web-Ansichten)
-    func exchange(code: String, verifier: String) async throws {
-        let url = AppConfig.server.appendingPathComponent("app/exchange")
+    /// Anmeldung ueber das System-Anmeldefenster: Code + Geheimnis -> Sitzung (auch fuer die Web-Ansichten).
+    /// `server` ist der beim Start der Anmeldung vorgemerkte Server. Er wird erst nach Erfolg uebernommen
+    /// (wie bei `pair`); Abbruch, Fehler oder Tippfehler im Feld aendern nichts am bisherigen Server.
+    func exchange(server: URL, code: String, verifier: String) async throws {
+        guard AppConfig.isAllowedServer(server) else { throw APIError.other(String(localized: "Nur https-Adressen sind erlaubt.")) }
+        let switching = AppConfig.serverOrigin != AppConfig.origin(server)
+        let url = server.appendingPathComponent("app/exchange")
         var req = URLRequest(url: url, timeoutInterval: 20)
         req.httpMethod = "POST"; req.httpShouldHandleCookies = false
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        // device: Geraete-Anmeldung (bleibt angemeldet); app_key: Schluessel fuer Widget/Teilen, falls noch keiner eingetragen
-        let body: [String: Any] = ["code": code, "verifier": verifier, "device": DeviceKey.deviceName, "app_key": !AppConfig.hasToken]
+        // device: Geraete-Anmeldung (bleibt angemeldet); app_key: Schluessel fuer Widget/Teilen, falls (fuer diesen Server) noch keiner da ist
+        let body: [String: Any] = ["code": code, "verifier": verifier, "device": DeviceKey.deviceName, "app_key": switching || !AppConfig.hasToken]
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (d, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
             let msg = (try? JSONSerialization.jsonObject(with: d) as? [String: Any])?["error"] as? String ?? String(localized: "Anmeldung fehlgeschlagen")
             throw APIError.other(msg)
         }
+        await adoptServer(server, switching: switching, http: http, url: url, data: d)
+    }
+
+    /// Erfolgreich angemeldet/gekoppelt: erst jetzt den Server uebernehmen. Anderer Server -> vorher sauber vom alten abmelden.
+    private func adoptServer(_ server: URL, switching: Bool, http: HTTPURLResponse, url: URL, data d: Data) async {
+        if switching { await logout(switchingServer: true) }             // alter Server: Schluessel, Cookies, Zwischenspeicher weg
+        AppConfig.server = server; cookieHeader = nil; serverVersion = nil; minApp = nil
         await storeCookies(http, url)
         adoptKeys(d); deviceKeyTried = true
+        await identifyAccount()                                           // Entwuerfe gehoeren zu Server + Konto
         needsLogin = false
     }
 
-    /// Anmeldung per QR-Code (Kopplungs-Code aus dem Web): Server-Adresse uebernehmen, Code gegen Geraete-Anmeldung tauschen
+    /// Anmeldung per QR-Code (Kopplungs-Code aus dem Web). Der Server wird erst nach erfolgreicher Kopplung
+    /// uebernommen; ist es ein anderer als bisher, wird vorher sauber vom alten abgemeldet.
     func pair(server: URL, code: String) async throws {
-        AppConfig.server = server; cookieHeader = nil
+        guard AppConfig.isAllowedServer(server) else { throw APIError.other(String(localized: "Nur https-Adressen sind erlaubt.")) }
+        let switching = AppConfig.serverOrigin != AppConfig.origin(server)
         let url = server.appendingPathComponent("app/pair")
         var req = URLRequest(url: url, timeoutInterval: 20)
         req.httpMethod = "POST"; req.httpShouldHandleCookies = false
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.httpBody = try JSONSerialization.data(withJSONObject: ["code": code, "device": DeviceKey.deviceName, "app_key": !AppConfig.hasToken])
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["code": code, "device": DeviceKey.deviceName, "app_key": switching || !AppConfig.hasToken])
         let (d, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
             let msg = (try? JSONSerialization.jsonObject(with: d) as? [String: Any])?["error"] as? String ?? String(localized: "Anmeldung fehlgeschlagen")
             throw APIError.other(msg)
         }
-        await storeCookies(http, url)
-        adoptKeys(d); deviceKeyTried = true
-        needsLogin = false
+        await adoptServer(server, switching: switching, http: http, url: url, data: d)
         await refresh()
     }
 
-    /// Server-Adresse geaendert (Einstellungen): neu verbinden - der Geraete-Schluessel gilt weiter, wenn es derselbe Server ist
+    // MARK: Konto (Entwuerfe gehoeren zu Server + Konto)
+
+    private var accountChecked = false
+    /// Konto beim Server erfragen (Konto-ID = Benutzername aus /api/account) und fuer die Entwuerfe merken.
+    /// Fehler (offline, alter Server): bisherigen Stand behalten.
+    func identifyAccount() async {
+        guard let o = AppConfig.serverOrigin, let d = try? await api("api/account"),
+              let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+              let u = j["username"] as? String, !u.isEmpty else { return }
+        DraftOwner.app.signedIn(origin: o, account: u)
+    }
+
+    /// Anderen Server eintragen (Einstellungen): anderer Server = vom alten sauber abmelden
+    func switchServer(to server: URL) async {
+        if AppConfig.serverOrigin == AppConfig.origin(server) {
+            AppConfig.server = server; await serverChanged(); return
+        }
+        if AppConfig.hasServer && (DeviceKey.stored() != nil || !pages.isEmpty) { await logout(switchingServer: true) }
+        AppConfig.server = server; cookieHeader = nil; serverVersion = nil; minApp = nil
+        needsLogin = true
+    }
+
+    /// Server-Adresse geaendert (gleicher Server): neu verbinden
     func serverChanged() async { cookieHeader = nil; serverVersion = nil; minApp = nil; await refresh() }
 
     /// Kopplungs-Link aus dem QR-Code: https://server/app/pair?c=CODE oder <app>://pair?u=https://server&c=CODE
@@ -468,24 +539,28 @@ final class Store: ObservableObject {
         guard let code = q.first(where: { $0.name == "c" })?.value, code.count >= 20 else { return nil }
         if u.scheme == "https" || u.scheme == "http", u.path == "/app/pair", let host = u.host {
             var b = URLComponents(); b.scheme = u.scheme; b.host = host; b.port = u.port
-            return b.url.map { ($0, code) }
+            return b.url.flatMap { AppConfig.isAllowedServer($0) ? ($0, code) : nil }    // nur https (Demo: localhost im DEBUG-Build)
         }
-        if u.host == "pair", let srv = q.first(where: { $0.name == "u" })?.value, let s = URL(string: srv), s.scheme == "https" || s.scheme == "http" {
+        if ["hlidskjalf", "saga"].contains(u.scheme ?? ""), u.host == "pair", let srv = q.first(where: { $0.name == "u" })?.value,
+           let s = AppConfig.normalizedServer(srv) {
             return (s, code)
         }
         return nil
     }
 
-    /// Auf diesem Geraet abmelden: Sitzung + Zwischenspeicher loeschen
-    func logout() async {
-        if let tok = DeviceKey.get() {                                    // Geraete-Anmeldung auch am Server loeschen
-            var req = URLRequest(url: AppConfig.server.appendingPathComponent("app/forget"), timeoutInterval: 10)
+    /// Auf diesem Geraet abmelden: Sitzung + Zwischenspeicher loeschen. `switchingServer`: auch Startseite vergessen
+    /// (Seiten-IDs gehoeren zum alten Server).
+    func logout(switchingServer: Bool = false) async {
+        // Geraete-Anmeldung beim Server loeschen, der sie ausgestellt hat (nie an einen anderen senden)
+        if let tok = DeviceKey.stored(), let o = AppConfig.keyOrigin(device: true), let base = URL(string: o), AppConfig.isAllowedServer(base) {
+            var req = URLRequest(url: base.appendingPathComponent("app/forget"), timeoutInterval: 10)
             req.httpMethod = "POST"; req.httpShouldHandleCookies = false
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
             req.httpBody = try? JSONSerialization.data(withJSONObject: ["device_token": tok])
             _ = try? await URLSession.shared.data(for: req)
         }
         DeviceKey.set(nil); deviceKeyTried = false
+        DraftOwner.app.signedOut(); accountChecked = false              // Entwuerfe bleiben liegen, aber nur fuer ihr Konto lesbar
         AppConfig.token = ""; reloadWidgets()                           // der Server loescht den Widget-Schluessel dieses Geraets mit
         let ds = WKWebsiteDataStore.default()
         let recs = await ds.dataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes())
@@ -493,7 +568,8 @@ final class Store: ObservableObject {
         try? FileManager.default.removeItem(at: cacheDir)
         try? FileManager.default.createDirectory(at: cacheDir.appendingPathComponent("files"), withIntermediateDirectories: true)
         images.removeAllObjects(); cookieHeader = nil
-        pages = []; tasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
+        pages = []; archivedPages = []; lastAll = nil; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
+        if switchingServer { setHome(nil); serverVersion = nil; minApp = nil }
         SpotlightIndex.clear()                                            // abgemeldet: nichts mehr in der Systemsuche
         needsLogin = true
     }

@@ -59,7 +59,8 @@ def shot(win, path, widget=None):
 def run(win, script):
     """Das Skript definiert steps = [(ms, funktion), ...]; jede Funktion bekommt das Kontext-Woerterbuch."""
     from .store import store
-    g = {"win": win, "store": store, "Gtk": Gtk, "GLib": GLib, "shot": lambda p, w=None: shot(win, p, w), "out": os.environ.get("HK_OUT", "/tmp")}
+    g = {"win": win, "store": store, "Gtk": Gtk, "GLib": GLib, "shot": lambda p, w=None: shot(win, p, w), "out": os.environ.get("HK_OUT", "/tmp"),
+         "__file__": os.path.abspath(script), "__name__": "hk_test"}
     try:
         with open(script, encoding="utf-8") as f:
             exec(compile(f.read(), script, "exec"), g)  # noqa: S102

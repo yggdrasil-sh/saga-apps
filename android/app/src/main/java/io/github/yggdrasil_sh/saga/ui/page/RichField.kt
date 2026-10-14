@@ -20,11 +20,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onPreviewKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -97,12 +92,63 @@ internal fun newlineInserted(old: String, new: String): Int {
 }
 
 /**
+ * Unsichtbarer Anfang eines Feldes mit onBackspaceAtStart: Viele Soft-Keyboards melden die Ruecktaste am
+ * Feldanfang nicht als Tastenereignis. Steht dort ein Zeichen, loescht die Tastatur es wie jedes andere -
+ * das erkennen wir an der Text-Aenderung. Ein Zeilenumbruch (statt z. B. U+200B), damit die Tastatur den
+ * Anfang als Absatzanfang sieht und weiter gross schreibt. Er wird nicht angezeigt und nie gespeichert.
+ */
+private const val START = "\n"
+
+/**
+ * Zustand eines Feldes: formatierter Text, Eingabewert (mit START) und - ohne State, nur zum Vergleich beim
+ * Komponieren - das zuletzt von aussen uebernommene HTML sowie alles, was dieses Feld seitdem selbst gesendet hat.
+ */
+private class FieldState(html: String, val raw: Boolean, val pre: String) {
+    var rich by mutableStateOf(parseHtml(html, raw))
+    var value by mutableStateOf(TextFieldValue(pre + rich.text, TextRange(pre.length)))
+    /** zuletzt von aussen uebernommen */
+    var external: String = html
+    /** aktueller Stand dieses Feldes als HTML */
+    var current: String = html
+    /** seit der letzten Uebernahme von aussen selbst gesendet (eigenes Echo, auch verspaetet, nie als Aenderung werten) */
+    val sent = ArrayDeque<String>()
+
+    fun isExternalChange(html: String): Boolean = html != external && html != current && html !in sent
+
+    fun accept(html: String) {
+        external = html
+        current = html
+        sent.clear()
+    }
+
+    fun sent(h: String) {
+        current = h
+        sent.addLast(h)
+        if (sent.size > 200) sent.removeFirst()
+    }
+}
+
+private fun parseHtml(html: String, raw: Boolean): RichText = if (raw) RichText(html) else InlineHtml.parse(html)
+
+/** Anzeige ohne START: Cursor-Positionen um die Laenge von START verschieben */
+private class StartMapping(private val p: Int, private val shownLength: Int) : OffsetMapping {
+    override fun originalToTransformed(offset: Int): Int = (offset - p).coerceIn(0, shownLength)
+    override fun transformedToOriginal(offset: Int): Int = offset.coerceIn(0, shownLength) + p
+}
+
+/**
  * Bearbeitbares Textfeld eines Blocks. Der Text bleibt als Inline-HTML gespeichert; Formatierung
  * (fett, kursiv, Links, unbekannte Tags ...) wird beim Tippen mitgefuehrt (InlineHtml.applyEdit).
  * raw = Klartext (Code-Block, ohne HTML).
  *
  * onEnter(links, rechts): Return wurde gedrueckt - das Feld behaelt "links", der Aufrufer legt "rechts" neu an.
- * onBackspaceAtStart: Ruecktaste am Anfang (z. B. leeren Block entfernen).
+ * onBackspaceAtStart(leer): Ruecktaste am Anfang (leeren Block entfernen bzw. mit dem vorigen zusammenfuehren) -
+ * erkannt ueber die Text-Aenderung (unsichtbares START-Zeichen), funktioniert so auch mit Soft-Keyboards.
+ *
+ * WICHTIG (Fehler "getippt" -> "getptppt"): Frueher wurde jedes html != zuletzt gesendet als Aenderung von aussen
+ * gewertet (in einem LaunchedEffect). Kam ein veralteter Wert an (eigenes Echo von ein paar Tastendruecken vorher),
+ * wurde das Feld auf diesen alten Stand zurueckgesetzt, waehrend weiter getippt wurde - Zeichen gingen verloren oder
+ * landeten an falscher Stelle. Jetzt: eigenes Echo erkennen (FieldState.sent), synchron beim Komponieren pruefen.
  */
 @Composable
 fun RichField(
@@ -129,9 +175,20 @@ fun RichField(
         }
         return
     }
-    var rich by remember(fieldKey) { mutableStateOf(if (raw) RichText(html) else InlineHtml.parse(html)) }
-    var value by remember(fieldKey) { mutableStateOf(TextFieldValue(rich.text)) }
-    var lastHtml by remember(fieldKey) { mutableStateOf(html) }
+    val pre = if (onBackspaceAtStart != null) START else ""
+    val st = remember(fieldKey, pre) { FieldState(html, raw, pre) }
+    val p = pre.length
+
+    // Aenderung von aussen (Neu laden, Umwandeln, Zusammenfuehren) -> Feld neu aufsetzen. Eigene Eingaben kommen
+    // hier als Echo an - auch VERSPAETET: das Feld kann mit einem alten html-Parameter neu komponiert werden, bevor
+    // das Listenelement (LazyColumn) den neuen Stand weiterreicht. Ein Echo setzt nie zurueck.
+    if (st.isExternalChange(html)) {
+        st.accept(html)
+        st.rich = parseHtml(html, raw)
+        val sel = st.value.selection.end.coerceIn(p, p + st.rich.text.length)
+        st.value = TextFieldValue(pre + st.rich.text, TextRange(sel))
+    }
+
     val emit by rememberUpdatedState(onHtml)
     val enter by rememberUpdatedState(onEnter)
     val backspace by rememberUpdatedState(onBackspaceAtStart)
@@ -139,79 +196,85 @@ fun RichField(
     val itemNow by rememberUpdatedState(itemPath)
     val focusRequester = remember { FocusRequester() }
 
-    // Aenderung von aussen (Neu laden, Umwandeln) -> Feld neu aufsetzen
-    LaunchedEffect(html) {
-        if (html != lastHtml) {
-            lastHtml = html
-            rich = if (raw) RichText(html) else InlineHtml.parse(html)
-            val sel = value.selection.end.coerceAtMost(rich.text.length)
-            value = TextFieldValue(rich.text, TextRange(sel))
-        }
-    }
     LaunchedEffect(editor.focusRequest) {
         if (editor.focusRequest == fieldKey) {
             editor.focusRequest = null
-            val at = if (editor.focusAtEnd) rich.text.length else 0
-            value = value.copy(selection = TextRange(at))
+            val len = st.rich.text.length
+            val at = (editor.focusOffset ?: if (editor.focusAtEnd) len else 0).coerceIn(0, len)
+            editor.focusOffset = null
+            st.value = st.value.copy(selection = TextRange(p + at))
             runCatching { focusRequester.requestFocus() }
         }
     }
 
     fun publish(r: RichText) {
-        rich = r
+        st.rich = r
         val h = if (raw) r.text else InlineHtml.toHtml(r)
-        if (h != lastHtml) {
-            lastHtml = h
+        if (h != st.current) {
+            st.sent(h)
             emit(h)
         }
     }
+
+    /** Auswahl ohne START (Positionen im Klartext) */
+    fun sel(): TextRange = TextRange((st.value.selection.start - p).coerceAtLeast(0), (st.value.selection.end - p).coerceAtLeast(0))
 
     val active = remember(fieldKey) {
         ActiveField(
             key = fieldKey,
             blockPath = { pathNow },
             itemPath = { itemNow },
-            toggle = if (raw) null else { st ->
-                val s = value.selection
-                if (!s.collapsed) publish(InlineHtml.toggle(rich, s.min, s.max, st))
+            toggle = if (raw) null else { s ->
+                val r = sel()
+                if (!r.collapsed) publish(InlineHtml.toggle(st.rich, r.min, r.max, s))
             },
-            isActive = if (raw) null else { st -> InlineHtml.isActive(rich, value.selection.min, value.selection.max, st) },
+            isActive = if (raw) null else { s -> sel().let { r -> InlineHtml.isActive(st.rich, r.min, r.max, s) } },
             setLink = if (raw) null else { href ->
-                val s = value.selection
-                if (!s.collapsed) publish(InlineHtml.setLink(rich, s.min, s.max, href))
+                val r = sel()
+                if (!r.collapsed) publish(InlineHtml.setLink(st.rich, r.min, r.max, href))
             },
-            linkAtCursor = if (raw) null else { { InlineHtml.linkAt(rich, value.selection.start) } },
-            hasSelection = { !value.selection.collapsed },
+            linkAtCursor = if (raw) null else { { InlineHtml.linkAt(st.rich, sel().start) } },
+            hasSelection = { !st.value.selection.collapsed },
         )
     }
 
-    val transformation = if (raw) VisualTransformation.None else VisualTransformation { t ->
-        val r = rich
-        TransformedText(if (r.text == t.text) richAnnotated(r, c) else AnnotatedString(t.text), OffsetMapping.Identity)
+    val transformation = if (raw && p == 0) VisualTransformation.None else VisualTransformation { t ->
+        if (p > 0 && !t.text.startsWith(pre)) return@VisualTransformation TransformedText(t, OffsetMapping.Identity)
+        val shown = t.text.substring(p)
+        val r = st.rich
+        val ann = if (!raw && r.text == shown) richAnnotated(r, c) else AnnotatedString(shown)
+        TransformedText(ann, if (p == 0) OffsetMapping.Identity else StartMapping(p, shown.length))
+    }
+
+    /** Cursor/Auswahl nie vor START */
+    fun clamp(v: TextFieldValue): TextFieldValue {
+        if (p == 0) return v
+        val s = v.selection
+        if (s.start >= p && s.end >= p) return v
+        return v.copy(selection = TextRange(s.start.coerceAtLeast(p), s.end.coerceAtLeast(p)))
     }
 
     BasicTextField(
-        value = value,
+        value = st.value,
         onValueChange = { nv ->
-            if (nv.text == value.text) {
-                value = nv
-                return@BasicTextField
-            }
-            val updated = if (raw) RichText(nv.text) else InlineHtml.applyEdit(rich, nv.text)
-            val e = enter
-            if (!raw && e != null) {
-                val nl = newlineInserted(value.text, nv.text)
-                if (nl >= 0) {
-                    val left = InlineHtml.split(updated, nl).first
-                    val right = InlineHtml.split(updated, nl + 1).second
-                    value = TextFieldValue(left.text, TextRange(left.text.length))
-                    publish(left)
-                    e(left, right)
+            val old = st.value
+            if (p > 0 && !nv.text.startsWith(pre)) {
+                if (nv.text == old.text.substring(p)) {
+                    // START geloescht = Ruecktaste am Feldanfang (Hardware- oder Soft-Keyboard)
+                    st.value = TextFieldValue(old.text, TextRange(p))
+                    backspace?.invoke(st.rich.text.isEmpty())
                     return@BasicTextField
                 }
+                // ungewoehnliche Ersetzung inkl. START (z. B. Einfuegen ueber alles): START wieder davor
+                val fixed = nv.copy(text = pre + nv.text, selection = TextRange(nv.selection.start + p, nv.selection.end + p), composition = null)
+                applyChange(st, fixed, p, raw, enter, ::publish)
+                return@BasicTextField
             }
-            value = nv
-            publish(updated)
+            if (nv.text == old.text) {
+                st.value = clamp(nv)
+                return@BasicTextField
+            }
+            applyChange(st, clamp(nv), p, raw, enter, ::publish)
         },
         textStyle = style.copy(color = if (style.color == Color.Unspecified) c.onSurface else style.color),
         cursorBrush = SolidColor(c.primary),
@@ -223,23 +286,38 @@ fun RichField(
             .onFocusChanged {
                 if (it.isFocused) editor.active = active
                 else if (editor.active?.key == fieldKey) editor.active = null
-            }
-            .onPreviewKeyEvent { ev ->
-                val b = backspace
-                if (b != null && ev.type == KeyEventType.KeyDown && ev.key == Key.Backspace && value.selection == TextRange(0)) {
-                    b(value.text.isEmpty())
-                    true
-                } else false
             },
         decorationBox = { inner ->
             Box {
-                if (value.text.isEmpty() && placeholder.isNotEmpty() && editor.active?.key == fieldKey) {
+                if (st.value.text.length <= p && placeholder.isNotEmpty() && editor.active?.key == fieldKey) {
                     Text(placeholder, style = style.copy(color = c.onSurfaceVariant.copy(alpha = 0.6f)))
                 }
                 inner()
             }
         },
     )
+}
+
+/** Neue Eingabe uebernehmen: Return erkennen (Block teilen), sonst Text + Formatierung nachfuehren */
+private fun applyChange(
+    st: FieldState, nv: TextFieldValue, p: Int, raw: Boolean,
+    enter: ((RichText, RichText) -> Unit)?, publish: (RichText) -> Unit,
+) {
+    val plain = nv.text.substring(p)
+    val updated = if (raw) RichText(plain) else InlineHtml.applyEdit(st.rich, plain)
+    if (!raw && enter != null) {
+        val nl = newlineInserted(st.value.text.substring(p), plain)
+        if (nl >= 0) {
+            val left = InlineHtml.split(updated, nl).first
+            val right = InlineHtml.split(updated, nl + 1).second
+            st.value = TextFieldValue(st.pre + left.text, TextRange(p + left.text.length))
+            publish(left)
+            enter(left, right)
+            return
+        }
+    }
+    st.value = nv
+    publish(updated)
 }
 
 /** Hilfsfunktion fuer die Werkzeugleiste */

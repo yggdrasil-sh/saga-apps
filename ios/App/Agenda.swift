@@ -19,7 +19,7 @@ struct TaskListView: View {
     private var groups: [(String, [OpenTask])] {
         let today = dayKey(.now), tomorrow = dayKey(Calendar.current.date(byAdding: .day, value: 1, to: .now)!)
         let all = store.tasks
-        return [(String(localized: "Überfällig"), all.filter { ($0.due ?? "9") < today }), (String(localized: "Heute"), all.filter { $0.due == today }),
+        return [(String(localized: "Überfällig"), all.filter { ($0.due ?? "").isEmpty == false && ($0.due ?? "") < today }), (String(localized: "Heute"), all.filter { $0.due == today }),
                 (String(localized: "Morgen"), all.filter { $0.due == tomorrow }), (String(localized: "Später"), all.filter { ($0.due ?? "") > tomorrow }),
                 (String(localized: "Ohne Datum"), all.filter { $0.due == nil || $0.due == "" })].filter { !$0.1.isEmpty }
     }
@@ -63,6 +63,8 @@ struct TaskRow: View {
             Button { Task { if done { await store.updateTask(task.id, ["done": false]) } else { await store.completeTask(task) } } } label: {
                 Image(systemName: done ? "checkmark.circle.fill" : "circle").font(.title3).foregroundStyle(done ? Color.accentColor : task.prio == 1 ? .red : .secondary)
             }.buttonStyle(.plain)
+            .accessibilityLabel(done ? "Als offen markieren" : "Erledigt")
+            .accessibilityValue(task.text)
             Button(action: open) {
                 HStack(spacing: 6) {
                     Text(task.text).strikethrough(done).foregroundStyle(done ? .secondary : .primary).lineLimit(2)
@@ -71,7 +73,7 @@ struct TaskRow: View {
                     if let d = task.due, !d.isEmpty, !done {
                         Text(dayText(d)).font(.caption).foregroundStyle(d < dayKey(.now) ? .red : .secondary)
                     }
-                    if task.prio == 1 { Image(systemName: "flag.fill").font(.caption).foregroundStyle(.red) }
+                    if task.prio == 1 { Image(systemName: "flag.fill").font(.caption).foregroundStyle(.red).accessibilityLabel("Hohe Priorität") }
                 }.contentShape(Rectangle())
             }.buttonStyle(.plain)
         }
@@ -117,7 +119,7 @@ struct TaskEditor: View {
                 if let d = task.due, let date = isoDayF.date(from: d) { hasDue = true; due = date }
             }
         }
-        .frame(minWidth: 380, minHeight: 360)
+        .macFrame(minWidth: 380, minHeight: 360)
     }
     private func save() async {
         await store.updateTask(task.id, ["text": text.trimmingCharacters(in: .whitespaces), "due": hasDue ? dayKey(due) : NSNull(),
@@ -203,7 +205,7 @@ struct EventEditor: View {
             }
             .task { await setup() }
         }
-        .frame(minWidth: 400, minHeight: 460)
+        .macFrame(minWidth: 400, minHeight: 460)
     }
     private func setup() async {
         if let e = event {

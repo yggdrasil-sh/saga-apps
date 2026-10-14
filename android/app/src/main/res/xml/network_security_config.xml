@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Release: nur https. Vertraut den System-CAs UND vom Nutzer installierten CAs (selbst gehostete Server mit eigener
+     CA, z. B. FreeIPA/interne PKI: CA-Zertifikat unter Einstellungen > Sicherheit > Verschluesselung > CA-Zertifikat installieren).
+     Debug-Build: src/debug/res/xml/network_security_config.xml (erlaubt zusaetzlich Klartext zum lokalen Testserver). -->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+            <!-- bewusst (Review M4): eigene CA selbst gehosteter Server -->
+            <certificates src="user" tools:ignore="AcceptsUserCertificates" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

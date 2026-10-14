@@ -67,7 +67,7 @@ struct PageWidgetView: View {
     let entry: PageEntry
     private var limit: Int { family == .systemLarge ? 10 : family == .systemMedium ? 4 : 3 }
     private var newURL: URL? {
-        if let db = entry.dbID { return WLink.url("new?db=\(db)" + (entry.viewID.map { "&view=\($0)" } ?? "")) }
+        if let db = entry.dbID { return WLink.url("new?db=\(db)" + (entry.viewID.map { "&view=\($0)" } ?? "") + "&k=\(AppConfig.linkSecret)") }
         return entry.targetID.map { WLink.url("new?parent=\($0)") }
     }
 

@@ -170,9 +170,24 @@ class TrashDialog(Adw.Dialog):
             suf.append(rb)
             db = Gtk.Button(label=_("Delete permanently"))
             db.add_css_class("destructive-action")
-            db.connect("clicked", lambda *_, i=it["id"]: store.run("DELETE", f"api/trash/{i}", done=lambda _: self.load()))
+            db.connect("clicked", lambda *_, it=it: self._confirm_delete(it))
             suf.append(db)
             self.box.append(_row(images.page_icon(it.get("icon")), it.get("title") or _("Untitled"), txt, suf))
+
+    def _confirm_delete(self, it):
+        """einzelnen Eintrag endgueltig loeschen - nicht rueckgaengig zu machen, daher fragen"""
+        sub = it.get("subpages") or 0
+        body = _("“{title}” will be deleted permanently. This cannot be undone.").format(title=it.get("title") or _("Untitled"))
+        if sub:
+            body += " " + ngettext("Its {n} subpage is deleted too.", "Its {n} subpages are deleted too.", sub).format(n=sub)
+        d = Adw.AlertDialog(heading=_("Delete permanently?"), body=body)
+        d.add_response("cancel", _("Cancel"))
+        d.add_response("ok", _("Delete permanently"))
+        d.set_response_appearance("ok", Adw.ResponseAppearance.DESTRUCTIVE)
+        d.set_default_response("cancel")
+        d.set_close_response("cancel")
+        d.connect("response", lambda dd, r: r == "ok" and store.run("DELETE", f"api/trash/{it['id']}", done=lambda _: self.load()))
+        d.present(self.win)
 
     def _confirm_empty(self):
         d = Adw.AlertDialog(heading=_("Empty trash?"), body=_("All pages in the trash will be deleted permanently."))
@@ -594,6 +609,8 @@ def service_icon(icon, name, size=30):
     """Symbol eines Dienstes ueber den eigenen Server (selfh.st wie im Web), sonst Anfangsbuchstabe"""
     holder = Gtk.Box(valign=Gtk.Align.CENTER, halign=Gtk.Align.START, hexpand=False)
     holder.set_size_request(size, size)
+    holder.add_css_class("hk-svc-icon")
+    holder.set_vexpand(False)                              # sonst zieht das vexpand des Buchstabens die ganze Kachel hoch                    # Dunkelmodus: helle Plakette, damit dunkle Logos sichtbar bleiben
     letter = Gtk.Label(label=(name[:1] or "?").upper(), hexpand=True, vexpand=True)
     letter.add_css_class("hk-svc-letter")
     holder.append(letter)
@@ -615,7 +632,7 @@ def service_icon(icon, name, size=30):
 
 
 def services_screen(win):
-    sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True)
+    sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.AUTOMATIC, vexpand=True)
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14, margin_top=18, margin_bottom=24, margin_start=24, margin_end=24)
     h = Gtk.Label(label=_("Services"), xalign=0)
     h.add_css_class("title-1")
@@ -636,17 +653,22 @@ def services_screen(win):
             hl = Gtk.Label(label=cat, xalign=0)
             hl.add_css_class("heading")
             holder.append(hl)
-            fb = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, row_spacing=10, column_spacing=10, homogeneous=True, min_children_per_line=1, max_children_per_line=5)
+            fb = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, row_spacing=10, column_spacing=10, homogeneous=True,
+                             min_children_per_line=1, max_children_per_line=5, valign=Gtk.Align.START)
             for s in [x for x in shown if (x.get("category") or "") == cat]:
                 r = Gtk.Box(spacing=10)
                 r.append(service_icon(s.get("icon"), s.get("name") or ""))
-                col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-                col.append(Gtk.Label(label=s.get("name") or "", xalign=0, css_classes=["heading"]))
-                col.append(Gtk.Label(label=s.get("host") or "", xalign=0, ellipsize=Pango.EllipsizeMode.END, css_classes=["caption", "dim-label"]))
+                col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
+                # lange Namen kuerzen: sonst bestimmt die laengste Karte die Breite aller Karten (homogen)
+                col.append(Gtk.Label(label=s.get("name") or "", xalign=0, ellipsize=Pango.EllipsizeMode.END, max_width_chars=22,
+                                     css_classes=["heading"]))
+                col.append(Gtk.Label(label=s.get("host") or "", xalign=0, ellipsize=Pango.EllipsizeMode.END, max_width_chars=26,
+                                     css_classes=["caption", "dim-label"]))
                 r.append(col)
-                b = Gtk.Button(child=r)
+                b = Gtk.Button(child=r, valign=Gtk.Align.START)
                 b.add_css_class("hk-card-box")
                 b.add_css_class("flat")
+                b.set_tooltip_text(s.get("name") or "")
                 b.set_size_request(200, -1)
                 b.connect("clicked", lambda *_, u=s.get("url"): win.open_uri(u))
                 fb.append(b)

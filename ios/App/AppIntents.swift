@@ -91,7 +91,7 @@ enum SpotlightIndex {
     private static var lastHash = 0
     /// Nach jedem Laden der Seitenliste - indiziert nur neu, wenn sich Titel/Pfade geaendert haben
     static func update(_ pages: [Page]) {
-        let byId = Dictionary(uniqueKeysWithValues: pages.map { ($0.id, $0) })
+        let byId = Dictionary(pages.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         func path(_ p: Page) -> String {
             var out: [String] = [], cur = p.parent_id, guardN = 0
             while let c = cur, let pp = byId[c], guardN < 20 { out.insert(pp.label, at: 0); cur = pp.parent_id; guardN += 1 }

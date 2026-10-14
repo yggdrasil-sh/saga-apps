@@ -4,7 +4,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import io.github.yggdrasil_sh.saga.R
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material3.Icon
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -78,11 +87,24 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 }
                 if (done.isNotEmpty()) {
                     item(key = "done-h") {
-                        Text(
-                            (if (showDone) "▾ " else "▸ ") + pluralStringResource(R.plurals.tasks_completed, done.size, done.size),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.widthIn(max = 760.dp).fillMaxWidth().clickable { showDone = !showDone }.padding(16.dp),
-                        )
+                        val state = stringResource(if (showDone) R.string.state_expanded else R.string.state_collapsed)
+                        Row(
+                            Modifier.widthIn(max = 760.dp).fillMaxWidth().heightIn(min = 48.dp)
+                                .clickable(role = Role.Button) { showDone = !showDone }
+                                .semantics { stateDescription = state }
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                if (showDone) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                pluralStringResource(R.plurals.tasks_completed, done.size, done.size),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.padding(start = 6.dp),
+                            )
+                        }
                     }
                     if (showDone) items(done, key = { "d-${it.id}" }) { t ->
                         androidx.compose.foundation.layout.Box(Modifier.widthIn(max = 760.dp)) { TaskRow(t, repo) { editing = it } }

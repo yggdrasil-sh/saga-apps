@@ -8,7 +8,7 @@ import io.github.yggdrasil_sh.saga.util.resolve
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import android.widget.Toast
+import io.github.yggdrasil_sh.saga.util.UiText
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -37,6 +37,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Done
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -53,6 +55,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -77,6 +81,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.RoundedCornerShape
+import android.text.format.DateUtils
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -128,8 +139,8 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
     var menu by remember { mutableStateOf(false) }
 
     LaunchedEffect(id) { ed.load() }
-    DisposableEffect(id) { onDispose { ed.flush() } }
-    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { ed.flush() }
+    DisposableEffect(id) { onDispose { ed.close() } }                // speichern (laeuft im App-Scope weiter)
+    LifecycleEventEffect(Lifecycle.Event.ON_STOP) { ed.flush() }      // App verlassen: Entwurf auf Platte + speichern
     LaunchedEffect(needsLogin) { if (!needsLogin && ed.dirty) ed.scheduleSave(500) }   // nach erneuter Anmeldung nachholen
 
     val onLink: (String) -> Unit = { href ->
@@ -142,20 +153,15 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
         }
     }
     val env = remember(ed) { BlockEnv(ed, repo, onLink) }
+    var confirmTrash by remember { mutableStateOf(false) }
+    var conflictDialog by remember { mutableStateOf(false) }
+    LaunchedEffect(ed.conflict) { if (ed.conflict) conflictDialog = true }
 
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
         SagaTopBar(ed.title.ifEmpty { if (ed.fetched) stringResource(R.string.page_untitled) else "" }, nav, chrome) {
-            if (ed.saving) CircularProgressIndicator(Modifier.size(18.dp).padding(end = 4.dp), strokeWidth = 2.dp)
+            SaveState(ed)
             if (ed.fetched) {
-                IconButton(onClick = {
-                    scope.launch {
-                        try {
-                            ed.setPinned(!ed.pinned)
-                        } catch (e: Exception) {
-                            Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }) {
+                IconButton(onClick = { repo.launchAction { ed.setPinned(!ed.pinned) } }) {
                     Icon(
                         Icons.Filled.Star, stringResource(if (ed.pinned) R.string.favorite_remove else R.string.favorite_add),
                         tint = if (ed.pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
@@ -168,13 +174,7 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
                     if (ed.fetched && !ed.isDatabase) {
                         DropdownMenuItem(text = { Text(stringResource(if (ed.locked) R.string.page_unlock else R.string.page_lock)) }, onClick = {
                             menu = false
-                            scope.launch {
-                                try {
-                                    ed.setLocked(!ed.locked)
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
-                                }
-                            }
+                            repo.launchAction { ed.setLocked(!ed.locked) }
                         })
                     }
                     DropdownMenuItem(text = { Text(stringResource(R.string.page_reload)) }, onClick = {
@@ -184,14 +184,39 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
                     DropdownMenuItem(text = { Text(stringResource(R.string.page_copy_link)) }, onClick = {
                         menu = false
                         copy(context, repo.absoluteUrl("notes") + "#$id")
+                        repo.notify(UiText.Res(R.string.page_link_copied))
                     })
                     DropdownMenuItem(text = { Text(stringResource(R.string.action_open_in_browser)) }, onClick = {
                         menu = false
-                        scope.launch { ed.save() }
+                        ed.flush()
                         openUrl(context, repo.absoluteUrl("notes") + "#$id")
                     })
+                    if (ed.fetched) {
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text(stringResource(R.string.page_archive)) }, onClick = {
+                            menu = false
+                            repo.launchAction {
+                                ed.saveAndWait()
+                                repo.archivePage(id, true)
+                                if (!nav.pop()) nav.top(Dest.Today)
+                                repo.notify(UiText.Res(R.string.page_archived), UiText.Res(R.string.action_undo)) {
+                                    repo.launchAction { repo.archivePage(id, false) }
+                                }
+                            }
+                        })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.page_trash), color = MaterialTheme.colorScheme.error) }, onClick = {
+                            menu = false
+                            confirmTrash = true
+                        })
+                    }
                 }
             }
+        }
+        if (ed.conflict && !conflictDialog) {
+            Text(
+                stringResource(R.string.conflict_banner), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer,
+                modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.errorContainer).clickable { conflictDialog = true }.padding(12.dp),
+            )
         }
 
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
@@ -209,7 +234,9 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
                     itemsIndexed(blocks, key = { i, _ -> keys[i] }) { i, b ->
                         val obj = b as? JsonObject
                         if (obj != null) {
-                            Box(Modifier.padding(vertical = 4.dp)) { BlockView(obj, listOf("blocks", i), env) }
+                            // stabiles Pfad-Objekt: unveraenderte Bloecke werden beim Tippen uebersprungen (Strong Skipping)
+                            val path = remember(i) { listOf<Any>("blocks", i) }
+                            Box(Modifier.padding(vertical = 4.dp)) { BlockView(obj, path, env) }
                         }
                     }
                     item(key = "footer") {
@@ -238,12 +265,56 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
         val active = ed.active
         if (active != null && ed.editable) EditorToolbar(ed, active, onLink)
     }
+
+    if (confirmTrash) {
+        AlertDialog(
+            onDismissRequest = { confirmTrash = false },
+            title = { Text(stringResource(R.string.page_trash_confirm)) },
+            text = { Text(stringResource(R.string.page_trash_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmTrash = false
+                    repo.launchAction {
+                        ed.saveAndWait()
+                        repo.trashPage(id)
+                        if (!nav.pop()) nav.top(Dest.Today)
+                        repo.notify(UiText.Res(R.string.page_trashed), UiText.Res(R.string.action_undo)) {
+                            repo.launchAction { repo.restorePage(id) }
+                        }
+                    }
+                }) { Text(stringResource(R.string.action_delete), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmTrash = false }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
+    if (conflictDialog && ed.conflict) {
+        val copyTitle = stringResource(R.string.conflict_copy_title, ed.title.ifEmpty { stringResource(R.string.page_untitled) })
+        AlertDialog(
+            onDismissRequest = { conflictDialog = false },
+            title = { Text(stringResource(R.string.conflict_title)) },
+            text = { Text(stringResource(R.string.conflict_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    conflictDialog = false
+                    repo.launchAction { ed.keepMine() }
+                }) { Text(stringResource(R.string.conflict_keep_mine)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    conflictDialog = false
+                    repo.launchAction {
+                        val copy = ed.saveCopyAndLoadServer(copyTitle)
+                        if (copy != null) repo.notify(UiText.Res(R.string.conflict_copy_saved), UiText.Res(R.string.action_open)) { nav.push(Dest.Page(copy)) }
+                    }
+                }) { Text(stringResource(R.string.conflict_save_copy)) }
+            },
+        )
+    }
 }
 
 private fun copy(context: Context, text: String) {
     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
     cm.setPrimaryClip(ClipData.newPlainText("Saga", text))
-    Toast.makeText(context, context.getString(R.string.page_link_copied), Toast.LENGTH_SHORT).show()
 }
 
 @Composable
@@ -261,7 +332,7 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository) {
                 Text(ed.title.ifEmpty { stringResource(R.string.page_untitled) }, style = titleStyle)
             } else {
                 BasicTextField(
-                    value = ed.title, onValueChange = { ed.editTitle(it) }, textStyle = titleStyle,
+                    value = ed.title, onValueChange = { ed.editTitle(it) }, textStyle = titleStyle, readOnly = ed.pendingDraft != null,
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = {
@@ -280,15 +351,7 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository) {
         }
         if (ed.locked) {
             AssistChip(
-                onClick = {
-                    scope.launch {
-                        try {
-                            ed.setLocked(false)
-                        } catch (e: Exception) {
-                            Toast.makeText(context, repo.friendly(e).asString(context), Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                },
+                onClick = { repo.launchAction { ed.setLocked(false) } },
                 label = { Text(stringResource(R.string.page_locked_chip)) },
                 leadingIcon = { Icon(Icons.Filled.Lock, null, Modifier.size(16.dp)) },
                 modifier = Modifier.padding(top = 6.dp),
@@ -304,8 +367,39 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository) {
             Text(it.resolve(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(top = 6.dp).clickable { ed.info = null })
         }
         ed.error?.let { Text(it.resolve(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 6.dp)) }
+        if (ed.offline) {
+            Text(
+                stringResource(R.string.offline_hint), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(top = 6.dp),
+            )
+        }
+        ed.pendingDraft?.let { d -> DraftBanner(d.stamp, onRestore = { ed.restoreDraft() }, onDiscard = { ed.discardDraft() }) }
         if (!ed.loading && !ed.fetched) {                        // Laden fehlgeschlagen: nichts Bearbeitbares zeigen
             Button(onClick = { scope.launch { ed.load() } }, modifier = Modifier.padding(top = 12.dp)) { Text(stringResource(R.string.action_retry)) }
+        }
+    }
+}
+
+/** Entwurf vom letzten Mal (weicht vom Server-Stand ab): Wiederherstellen oder Verwerfen - wie iOS/Linux */
+@Composable
+private fun DraftBanner(stamp: Long, onRestore: () -> Unit, onDiscard: () -> Unit) {
+    val context = LocalContext.current
+    val time = remember(stamp) {
+        DateUtils.formatDateTime(context, stamp, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH)
+    }
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+    ) {
+        Column(Modifier.padding(start = 12.dp, end = 4.dp, top = 10.dp, bottom = 2.dp)) {
+            Text(
+                stringResource(R.string.draft_banner, time), style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDiscard) { Text(stringResource(R.string.draft_discard)) }
+                TextButton(onClick = onRestore) { Text(stringResource(R.string.draft_restore)) }
+            }
         }
     }
 }
@@ -368,11 +462,11 @@ private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) 
                     }
                 }
                 if (isText) {
-                    FormatButton("B", active.styleOn(InlineStyle.BOLD), active.hasSelection(), fontWeight = FontWeight.Bold) { active.toggle.invoke(InlineStyle.BOLD) }
-                    FormatButton("I", active.styleOn(InlineStyle.ITALIC), active.hasSelection(), fontStyle = FontStyle.Italic) { active.toggle.invoke(InlineStyle.ITALIC) }
-                    FormatButton("U", active.styleOn(InlineStyle.UNDERLINE), active.hasSelection(), deco = TextDecoration.Underline) { active.toggle.invoke(InlineStyle.UNDERLINE) }
-                    FormatButton("S", active.styleOn(InlineStyle.STRIKE), active.hasSelection(), deco = TextDecoration.LineThrough) { active.toggle.invoke(InlineStyle.STRIKE) }
-                    FormatButton(stringResource(R.string.format_link), false, active.hasSelection()) { linkDialog = true }
+                    FormatButton(stringResource(R.string.format_bold_short), stringResource(R.string.format_bold), active.styleOn(InlineStyle.BOLD), active.hasSelection(), fontWeight = FontWeight.Bold) { active.toggle.invoke(InlineStyle.BOLD) }
+                    FormatButton(stringResource(R.string.format_italic_short), stringResource(R.string.format_italic), active.styleOn(InlineStyle.ITALIC), active.hasSelection(), fontStyle = FontStyle.Italic) { active.toggle.invoke(InlineStyle.ITALIC) }
+                    FormatButton(stringResource(R.string.format_underline_short), stringResource(R.string.format_underline), active.styleOn(InlineStyle.UNDERLINE), active.hasSelection(), deco = TextDecoration.Underline) { active.toggle.invoke(InlineStyle.UNDERLINE) }
+                    FormatButton(stringResource(R.string.format_strike_short), stringResource(R.string.format_strike), active.styleOn(InlineStyle.STRIKE), active.hasSelection(), deco = TextDecoration.LineThrough) { active.toggle.invoke(InlineStyle.STRIKE) }
+                    TextButton(onClick = { linkDialog = true }, enabled = active.hasSelection(), modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.format_link)) }
                     active.linkAtCursor?.invoke()?.let { href ->
                         TextButton(onClick = { onLink(href) }) { Text(stringResource(R.string.link_open)) }
                     }
@@ -402,7 +496,7 @@ private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) 
                     val h = href.trim()
                     if (h.isEmpty() || h == "https://") active.setLink?.invoke("")
                     else if (h.startsWith("https://") || h.startsWith("http://") || h.startsWith("mailto:") || PAGE_LINK.matches(h)) active.setLink?.invoke(h)
-                    else Toast.makeText(context, res.getString(R.string.link_invalid), Toast.LENGTH_LONG).show()
+                    else ed.info = UiText.Res(R.string.link_invalid)
                 }) { Text(stringResource(R.string.action_apply)) }
             },
             dismissButton = {
@@ -412,15 +506,29 @@ private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) 
     }
 }
 
+/** Format-Knopf als Umschalter: 48 dp, TalkBack liest Namen und Zustand (an/aus) */
 @Composable
 private fun FormatButton(
-    label: String, on: Boolean, enabled: Boolean,
+    label: String, description: String, on: Boolean, enabled: Boolean,
     fontWeight: FontWeight? = null, fontStyle: FontStyle? = null, deco: TextDecoration? = null, onClick: () -> Unit,
 ) {
-    TextButton(onClick = onClick, enabled = enabled, modifier = Modifier.padding(horizontal = 0.dp)) {
-        Text(
-            label, fontWeight = fontWeight, fontStyle = fontStyle, textDecoration = deco, fontSize = 16.sp,
-            modifier = if (on) Modifier.background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 4.dp) else Modifier.padding(horizontal = 4.dp),
-        )
+    IconToggleButton(
+        checked = on, onCheckedChange = { onClick() }, enabled = enabled,
+        colors = IconButtonDefaults.iconToggleButtonColors(checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer),
+        modifier = Modifier.semantics { contentDescription = description },
+    ) {
+        Text(label, fontWeight = fontWeight, fontStyle = fontStyle, textDecoration = deco, fontSize = 18.sp, modifier = Modifier.clearAndSetSemantics { })
+    }
+}
+
+/** Titelleiste: speichert gerade / gespeichert / nicht gespeichert (wie "Gespeichert ✓" im Web) */
+@Composable
+private fun SaveState(ed: PageEditor) {
+    val color = MaterialTheme.colorScheme.onSurfaceVariant
+    when {
+        ed.saving -> CircularProgressIndicator(Modifier.size(18.dp).padding(end = 4.dp), strokeWidth = 2.dp)
+        ed.conflict || ed.error != null -> Icon(Icons.Filled.Warning, stringResource(R.string.save_state_unsaved), tint = MaterialTheme.colorScheme.error, modifier = Modifier.padding(end = 4.dp))
+        ed.dirty -> Text(stringResource(R.string.save_state_pending), style = MaterialTheme.typography.labelSmall, color = color, modifier = Modifier.padding(end = 4.dp))
+        ed.savedAt != null -> Icon(Icons.Filled.Done, stringResource(R.string.save_state_saved), tint = color, modifier = Modifier.padding(end = 4.dp).size(20.dp))
     }
 }

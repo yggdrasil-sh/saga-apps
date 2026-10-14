@@ -122,7 +122,7 @@ struct CalAccountView: View {
                         await run {
                             let d = json(try await store.api("api/settings/calendars/test", method: "POST", body: ["id": aid])) as? [String: Any]
                             let found = (d?["calendars"] as? [[String: Any]] ?? []).map(CalEntry.init)
-                            let by = Dictionary(uniqueKeysWithValues: cals.map { ($0.href, $0) })
+                            let by = Dictionary(cals.map { ($0.href, $0) }, uniquingKeysWith: { a, _ in a })   // gleiche href (z. B. leer) darf nicht abstuerzen
                             cals = found.map { f in by[f.href] ?? { var x = f; x.show = false; return x }() }
                             return String(localized: "\(found.count) Kalender – Auswahl speichern nicht vergessen.")
                         }

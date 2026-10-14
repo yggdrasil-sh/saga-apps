@@ -35,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -42,6 +43,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -79,7 +82,10 @@ fun BlockColumn(arrayPath: JsonPath, env: BlockEnv) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         arr.forEachIndexed { i, el ->
             val b = el as? JsonObject ?: return@forEachIndexed
-            key(BlockDoc.id(b) ?: "i$i") { BlockView(b, arrayPath + i, env) }
+            key(BlockDoc.id(b) ?: "i$i") {
+                val path = remember(arrayPath, i) { arrayPath + i }
+                BlockView(b, path, env)
+            }
         }
     }
 }
@@ -95,8 +101,8 @@ fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
     val splitToParagraph: (io.github.yggdrasil_sh.saga.blocks.RichText, io.github.yggdrasil_sh.saga.blocks.RichText) -> Unit = { _, right ->
         ed.insertBlockAfter(path, BlockDoc.newBlock("paragraph", InlineHtml.toHtml(right)))
     }
-    // Ruecktaste am Anfang eines leeren Blocks: Block entfernen, im vorigen weiterschreiben
-    val removeIfEmpty: (Boolean) -> Unit = { empty -> if (empty) ed.deleteBlock(path, focusPrevious = true) }
+    // Ruecktaste am Blockanfang: leer -> Block entfernen, im vorigen weiterschreiben; sonst mit dem vorigen zusammenfuehren
+    val removeIfEmpty: (Boolean) -> Unit = { empty -> if (empty) ed.deleteBlock(path, focusPrevious = true) else ed.mergeWithPrevious(path) }
 
     when (val type = BlockDoc.type(block)) {
         "paragraph" -> RichField(
@@ -232,12 +238,15 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
             val checked = BlockDoc.bool(obj?.get("meta") as? JsonObject, "checked")
             val myIdx = indices + i
             val fieldKey = prefix + "/" + myIdx.joinToString("/")
-            Row(verticalAlignment = Alignment.Top) {
+            Row(verticalAlignment = if (style == "checklist") Alignment.CenterVertically else Alignment.Top) {
                 when (style) {
-                    "checklist" -> Checkbox(
-                        checked = checked, onCheckedChange = { ed.toggleChecked(itemPath) }, enabled = ed.editable && obj != null,
-                        modifier = Modifier.size(32.dp).padding(end = 4.dp),
-                    )
+                    "checklist" -> {
+                        val label = InlineHtml.plain(content).ifBlank { stringResource(R.string.placeholder_list_item) }
+                        Checkbox(                                    // 48 dp Trefferflaeche; TalkBack liest den Punkt mit
+                            checked = checked, onCheckedChange = { ed.toggleChecked(itemPath) }, enabled = ed.editable && obj != null,
+                            modifier = Modifier.semantics { contentDescription = label },
+                        )
+                    }
                     "ordered" -> Text("${i + 1}.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.widthIn(min = 24.dp).padding(end = 6.dp))
                     else -> Text("•", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.widthIn(min = 16.dp).padding(end = 6.dp))
                 }
@@ -282,7 +291,7 @@ private fun ToggleBlock(block: JsonObject, path: JsonPath, key: String, env: Blo
     val inner = path + listOf("data", "blocks")
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { open = !open }, modifier = Modifier.size(32.dp)) {
+            IconButton(onClick = { open = !open }) {
                 Icon(if (open) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(if (open) R.string.action_collapse else R.string.action_expand))
             }
             RichField(

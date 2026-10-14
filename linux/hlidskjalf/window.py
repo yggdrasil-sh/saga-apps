@@ -2,12 +2,13 @@
 import datetime as _dt
 import io
 import os
+import time
 
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
 
-from . import APP_ID, PROJECT_URL, images
-from .api import APIError, client, pkce
-from .blocks import flat_button, menu_popover
+from . import APP_ID, PROJECT_URL, config, images
+from .api import Cancelled, client, pkce
+from .blocks import context_menu, flat_button, menu_popover
 from .config import device_name, get_device_token, settings
 from .i18n import _
 from .page import PageView
@@ -15,32 +16,45 @@ from .store import is_db, label, store, watch
 from .util import bg, date_num, norm, placeholder
 
 
-class SidebarRow(Gtk.Box):
-    """Zeile der Seitenleiste (Seite oder fester Eintrag)"""
+def set_expanded_state(w, on):
+    """Screenreader: auf-/zugeklappt (der Zustand erwartet einen int-Wert: 0/1, -1 = unbestimmt)"""
+    v = GObject.Value(GObject.TYPE_INT, 1 if on else 0)
+    w.update_state([Gtk.AccessibleState.EXPANDED], [v])
 
-    def __init__(self, win, title, icon_widget=None, key=None, depth=0, page=None, badge=None, expander=None):
-        super().__init__(spacing=6, margin_start=6 + depth * 14, margin_end=6)
-        self.win, self.key, self.page = win, key, page
+
+class SidebarRow(Gtk.ListBoxRow):
+    """Zeile der Seitenleiste (Seite, fester Eintrag oder Aktion): per Tastatur (Pfeile, Enter, Menue-Taste,
+    Umschalt+F10, Links/Rechts zum Zu-/Aufklappen), Maus, Touch (langes Druecken) und Screenreader bedienbar"""
+    __gtype_name__ = "HKSidebarRow"
+
+    def __init__(self, win, title, icon_widget=None, key=None, depth=0, page=None, badge=None, expander=None, action=None,
+                 snippet=None, kids=False, expanded=False):
+        super().__init__(activatable=True, selectable=False)
+        self.win, self.key, self.page, self.action, self.kids = win, key, page, action, kids
         self.add_css_class("hk-srow")
+        box = Gtk.Box(spacing=6, margin_start=depth * 14)
         if expander is not None:
-            self.append(expander)
+            box.append(expander)
         elif depth or page is not None:
-            self.append(Gtk.Box(width_request=22))
+            box.append(Gtk.Box(width_request=22))
         if icon_widget is not None:
-            self.append(icon_widget)
+            box.append(icon_widget)
         self.lbl = Gtk.Label(label=title, xalign=0, hexpand=True, ellipsize=Pango.EllipsizeMode.END)
-        self.append(self.lbl)
+        box.append(self.lbl)
         if badge:
             b = Gtk.Label(label=str(badge))
             b.add_css_class("hk-badge")
-            self.append(b)
-        g = Gtk.GestureClick()
-        g.connect("released", self._click)
-        self.add_controller(g)
+            box.append(b)
+        name = title + (f" ({badge})" if badge else "")
         if page is not None:
-            r = Gtk.GestureClick(button=3)
-            r.connect("pressed", lambda *_: win.page_actions(self, page))
-            self.add_controller(r)
+            more = Gtk.Button(icon_name="view-more-symbolic", tooltip_text=_("Page actions"), valign=Gtk.Align.CENTER)
+            more.add_css_class("flat")
+            more.add_css_class("hk-tiny")
+            more.add_css_class("hk-reveal")
+            more.set_focusable(False)                          # Tastatur: Menue-Taste/Umschalt+F10 auf der Zeile
+            more.connect("clicked", lambda b: win.page_actions(b, page))
+            box.append(more)
+            context_menu(self, lambda w: win.page_actions(w, page))
             ds = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
             ds.connect("prepare", lambda *_: Gdk.ContentProvider.new_for_value(f"hkpage:{page['id']}"))
             self.add_controller(ds)
@@ -50,10 +64,41 @@ class SidebarRow(Gtk.Box):
                 dt.connect("leave", lambda *_: self.remove_css_class("hk-drop-into"))
                 dt.connect("drop", lambda t, v, x, y: (self.remove_css_class("hk-drop-into"), win.drop_pages(v, page["id"]))[1])
                 self.add_controller(dt)
+        if snippet:
+            col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            col.append(box)
+            s = Gtk.Label(label=snippet, xalign=0, wrap=True, lines=2, ellipsize=Pango.EllipsizeMode.END, margin_start=34)
+            s.add_css_class("caption")
+            s.add_css_class("dim-label")
+            col.append(s)
+            self.set_child(col)
+        else:
+            self.set_child(box)
+        self.update_property([Gtk.AccessibleProperty.LABEL], [name])
+        if kids:
+            set_expanded_state(self, expanded)
 
-    def _click(self, g, n, x, y):
-        if self.key is not None:
+    def run(self):
+        if self.action is not None:
+            self.action()
+        elif self.key is not None:
             self.win.show_root(self.key)
+
+
+def _section_row(text, drop_cb=None):
+    """Ueberschrift in der Seitenleiste (nicht auswaehlbar, wird beim Navigieren mit den Pfeiltasten uebersprungen)"""
+    lb = Gtk.Label(label=text, xalign=0, margin_start=6, margin_top=10, margin_bottom=2)
+    lb.add_css_class("caption-heading")
+    lb.add_css_class("dim-label")
+    row = Gtk.ListBoxRow(activatable=False, selectable=False, focusable=False, child=lb)
+    row.add_css_class("hk-shead")
+    row.update_property([Gtk.AccessibleProperty.LABEL], [text])
+    if drop_cb is not None:
+        dt = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
+        dt.connect("drop", lambda t, v, x, y: drop_cb(v))
+        row.add_controller(dt)
+        row.set_tooltip_text(_("Drop here to move to the top level"))
+    return row
 
 
 class Sidebar(Gtk.Box):
@@ -73,12 +118,34 @@ class Sidebar(Gtk.Box):
         self.search.connect("stop-search", lambda *_: self.search.set_text(""))
         self.append(self.search)
         sw = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
-        self.box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1, margin_bottom=12)
+        self.box = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE, margin_bottom=12)
+        self.box.add_css_class("navigation-sidebar")
+        self.box.update_property([Gtk.AccessibleProperty.LABEL], [_("Pages")])
+        self.box.connect("row-activated", lambda lb, row: isinstance(row, SidebarRow) and row.run())
+        kc = Gtk.EventControllerKey()
+        kc.connect("key-pressed", self._key)
+        self.box.add_controller(kc)
         sw.set_child(self.box)
         self.append(sw)
         watch(self, "pages-changed", lambda: self.fill(force=False))
         watch(self, "today-changed", self._today_changed)
         self.fill(force=True)
+
+    def _key(self, c, kv, code, state):
+        return self.row_key(self.box.get_focus_child(), kv, state)
+
+    def row_key(self, row, kv, state):
+        """Links/Rechts (bzw. +/-): Seite zu-/aufklappen wie in einer Baumansicht"""
+        if not isinstance(row, SidebarRow) or row.page is None or state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK):
+            return False
+        pid = row.page["id"]
+        if kv in (Gdk.KEY_Right, Gdk.KEY_plus, Gdk.KEY_KP_Add) and row.kids and pid not in self.expanded:
+            self.toggle(pid)
+            return True
+        if kv in (Gdk.KEY_Left, Gdk.KEY_minus, Gdk.KEY_KP_Subtract) and pid in self.expanded:
+            self.toggle(pid)
+            return True
+        return False
 
     def _search(self, e):
         self.query = e.get_text().strip()
@@ -101,15 +168,11 @@ class Sidebar(Gtk.Box):
         self.fill(force=False)                       # nur neu, wenn sich die Anzahl der Aufgaben geaendert hat
 
     def header(self, text, drop=False):
-        lb = Gtk.Label(label=text, xalign=0, margin_start=12, margin_top=12, margin_bottom=2)
-        lb.add_css_class("caption-heading")
-        lb.add_css_class("dim-label")
-        if drop:
-            dt = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
-            dt.connect("drop", lambda t, v, x, y: self.win.drop_pages(v, None))
-            lb.add_controller(dt)
-            lb.set_tooltip_text(_("Drop here to move to the top level"))
-        self.box.append(lb)
+        self.box.append(_section_row(text, (lambda v: self.win.drop_pages(v, None)) if drop else None))
+
+    def _focused_key(self):
+        row = self.box.get_focus_child()
+        return getattr(row, "key", None) if row is not None else None
 
     def fill(self, force=False):
         sig = self._sig()
@@ -117,8 +180,8 @@ class Sidebar(Gtk.Box):
             self.win.mark_active()
             return
         self.sig = sig
-        while (c := self.box.get_first_child()):
-            self.box.remove(c)
+        refocus = self._focused_key()
+        self.box.remove_all()
         self.rows = {}
         w = self.win
         if self.query:
@@ -128,9 +191,9 @@ class Sidebar(Gtk.Box):
             ids = {p["id"] for p in by_name}
             hits = by_name + [r for r in self.results if r["id"] not in ids]
             if not hits:
-                lb = Gtk.Label(label=_("No results"), xalign=0, margin_start=12)
+                lb = Gtk.Label(label=_("No results"), xalign=0, margin_start=6)
                 lb.add_css_class("dim-label")
-                self.box.append(lb)
+                self.box.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=lb))
             for p in hits[:60]:
                 self._page_row(p, 0, flat=True, snippet=p.get("snippet"))
             return
@@ -144,9 +207,7 @@ class Sidebar(Gtk.Box):
         self.header(_("Today"))
         from .agenda import TodayBox
         tb = TodayBox(w, compact=True)
-        tb.set_margin_start(6)
-        tb.set_margin_end(6)
-        self.box.append(tb)
+        self.box.append(Gtk.ListBoxRow(activatable=False, selectable=False, focusable=False, child=tb))
         if store.favorites:
             self.header(_("Favorites"))
             for p in store.favorites:
@@ -159,19 +220,22 @@ class Sidebar(Gtk.Box):
         self.header(_("Pages"), drop=True)
         self._tree(None, 0)
         if store.archived:
-            ex = flat_button(icon="pan-down-symbolic" if self.show_archive else "pan-end-symbolic", label="📦 " + _("Archive ({count})").format(count=len(store.archived)),
-                             css="dim-label hk-plain", cb=self._toggle_archive)
-            ex.set_halign(Gtk.Align.START)
-            ex.set_margin_top(8)
-            self.box.append(ex)
+            ic = Gtk.Image.new_from_icon_name("pan-down-symbolic" if self.show_archive else "pan-end-symbolic")
+            ar = SidebarRow(w, "📦 " + _("Archive ({count})").format(count=len(store.archived)), ic, action=self._toggle_archive)
+            ar.add_css_class("dim-label")
+            ar.set_margin_top(8)
+            set_expanded_state(ar, self.show_archive)
+            self.box.append(ar)
             if self.show_archive:
                 for p in store.archived:
                     self._page_row(p, 1, flat=True)
-        tr = flat_button(icon="user-trash-symbolic", label=_("Trash"), css="dim-label hk-plain", cb=w.trash_dialog)
-        tr.set_halign(Gtk.Align.START)
+        tr = SidebarRow(w, _("Trash"), Gtk.Image.new_from_icon_name("user-trash-symbolic"), action=w.trash_dialog)
+        tr.add_css_class("dim-label")
         tr.set_margin_top(8)
         self.box.append(tr)
         w.mark_active()
+        if refocus is not None and refocus in self.rows and isinstance(self.rows[refocus], Gtk.Widget):
+            self.rows[refocus].grab_focus()
 
     def _toggle_archive(self):
         self.show_archive = not self.show_archive
@@ -186,24 +250,18 @@ class Sidebar(Gtk.Box):
 
     def _page_row(self, p, depth, kids=False, flat=False, snippet=None):
         exp = None
+        on = p["id"] in self.expanded
         if kids and not flat:
-            on = p["id"] in self.expanded
-            exp = Gtk.Button(icon_name="pan-down-symbolic" if on else "pan-end-symbolic", valign=Gtk.Align.CENTER)
+            exp = Gtk.Button(icon_name="pan-down-symbolic" if on else "pan-end-symbolic", valign=Gtk.Align.CENTER,
+                             tooltip_text=_("Collapse") if on else _("Expand"))
             exp.add_css_class("flat")
             exp.add_css_class("hk-tiny")
+            exp.set_focusable(False)                           # Tastatur: Links/Rechts auf der Zeile
             exp.connect("clicked", lambda *_, i=p["id"]: self.toggle(i))
         ic = images.page_icon(p.get("icon"), size=20, fallback="🗃️" if is_db(p) else "📄")
-        r = SidebarRow(self.win, label(p), ic, key=("page", p["id"]), depth=depth, page=p, expander=exp)
-        if snippet:
-            col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-            col.append(r)
-            s = Gtk.Label(label=snippet, xalign=0, wrap=True, lines=2, ellipsize=Pango.EllipsizeMode.END, margin_start=40, margin_end=8)
-            s.add_css_class("caption")
-            s.add_css_class("dim-label")
-            col.append(s)
-            self.box.append(col)
-        else:
-            self.box.append(r)
+        r = SidebarRow(self.win, label(p), ic, key=("page", p["id"]), depth=depth, page=p, expander=exp, snippet=snippet,
+                       kids=kids and not flat, expanded=on)
+        self.box.append(r)
         self.rows.setdefault(("page", p["id"]), r)
 
     def toggle(self, pid):
@@ -213,6 +271,9 @@ class Sidebar(Gtk.Box):
             self.expanded.add(pid)
         settings.set("expanded", sorted(self.expanded))
         self.fill(force=True)
+        r = self.rows.get(("page", pid))
+        if isinstance(r, Gtk.Widget):
+            r.grab_focus()
 
     def reveal(self, pid):
         """Pfad zur Seite aufklappen"""
@@ -224,6 +285,13 @@ class Sidebar(Gtk.Box):
         if changed:
             settings.set("expanded", sorted(self.expanded))
             self.fill(force=True)
+
+    def reset(self):
+        """anderer Server: aufgeklappte Seiten und Suche zuruecksetzen"""
+        self.expanded = set()
+        self.query, self.results = "", []
+        self.search.set_text("")
+        self.fill(force=True)
 
 
 class MainWindow(Adw.ApplicationWindow):
@@ -240,6 +308,9 @@ class MainWindow(Adw.ApplicationWindow):
         self.peek = None
         self.peek_list = []
         self.verifier = None
+        self.pending_server = None          # Anmeldung im Browser laeuft fuer diesen Server (erst nach Erfolg uebernehmen)
+        self._close_ok = False
+        self._close_waiting = False
         self.toasts = Adw.ToastOverlay()
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
         self.toasts.set_child(self.stack)
@@ -251,13 +322,23 @@ class MainWindow(Adw.ApplicationWindow):
         store.connect("logged-in", lambda *_: self.stack.set_visible_child_name("main"))
         store.connect("error", lambda s, m: self.toast(m))
         store.connect("undo", lambda s, pid, t: self._undo_toast(pid, t))
+        store.connect("task-deleted", lambda s, tid, t: self._task_undo_toast(tid, t))
+        store.connect("server-changed", lambda *_: self._server_changed())
         self.connect("notify::is-active", lambda *_: self.is_active() and self._activated())
         self.connect("close-request", self._closing)
         GLib.timeout_add_seconds(60, self._tick)
         kc = Gtk.EventControllerKey()
         kc.connect("key-pressed", self._key)
         self.add_controller(kc)
-        if not client.cookies and not get_device_token():
+        # Touch: Bedienelemente, die sonst erst beim Ueberfahren mit der Maus erscheinen, dauerhaft zeigen
+        lg = Gtk.EventControllerLegacy()
+        lg.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        lg.connect("event", self._input_kind)
+        self.add_controller(lg)
+        sm = Adw.StyleManager.get_default()                 # Dunkelmodus als Klasse: helle Plakette hinter Dienst-Symbolen
+        sm.connect("notify::dark", lambda m, _p: self._dark(m.get_dark()))
+        self._dark(sm.get_dark())
+        if not client.has_session and not get_device_token():
             self.stack.set_visible_child_name("login")
         else:
             self.stack.set_visible_child_name("main")
@@ -267,22 +348,117 @@ class MainWindow(Adw.ApplicationWindow):
         else:
             self.show_root(("today",))
         store.refresh(done=self._after_first_refresh)
+        bg(images.prune_disk_cache, error=lambda e: None, media=True)      # Bilder-Zwischenspeicher begrenzen
 
     def _after_first_refresh(self):
         home = store.home_page
         if home and store.pages and home not in store.by_id:
             store.set_home(None)
 
-    def _closing(self, *_):
-        if self.current is not None and isinstance(self.current, PageView):
+    def _flush_all(self):
+        """alle offenen Seiten sofort speichern"""
+        if isinstance(self.current, PageView):
             self.current.editor.flush()
         if self.peek is not None:
             self.peek[1].editor.flush()
+        for d in list(store.docs):
+            if d.dirty and not d.saving:
+                d.save()
+
+    def flush_then(self, cb, timeout=15):
+        """alles sofort speichern und cb() aufrufen, sobald nichts mehr unterwegs ist (hoechstens timeout Sekunden;
+        was dann noch fehlt, bleibt als Entwurf beim bisherigen Server/Konto)"""
+        self._flush_all()
+        t0 = time.monotonic()
+
+        def check():
+            if store.pending_work() and time.monotonic() - t0 < timeout:
+                return True
+            cb()
+            return False
+        GLib.timeout_add(100, check)
+
+    def _remember_size(self):
         w, h = self.get_default_size()
         settings.set("win_w", w)
         settings.set("win_h", h)
         settings.set("win_max", self.is_maximized())
+        settings.flush()
+
+    def _closing(self, *_args):
+        """Schliessen wartet, bis alles gespeichert ist (die App bleibt so lange am Leben: hold/release).
+        Klappt das nicht (offline, Konflikt), wird gefragt - die Eingaben liegen dann als Entwurf auf der Platte."""
+        if self._close_ok:
+            self._remember_size()
+            return False
+        if self._close_waiting:
+            return True
+        self._flush_all()
+        store.flush_task_deletes()
+        if not store.pending_work() and not store.unsaved_docs():
+            self._remember_size()
+            return False
+        self._close_waiting = True
+        app = self.get_application()
+        app.hold()
+        self.toast(_("Saving changes …"))
+        t0 = time.monotonic()
+
+        def check():
+            if store.pending_work() and time.monotonic() - t0 < 20:
+                return True
+            app.release()
+            self._close_waiting = False
+            if store.unsaved_docs() or store.pending_work():
+                self._ask_close_unsaved()
+            else:
+                self._close_ok = True
+                self.close()
+            return False
+        GLib.timeout_add(100, check)
+        return True
+
+    def _ask_close_unsaved(self):
+        d = Adw.AlertDialog(heading=_("Not everything could be saved"),
+                            body=_("Some changes have not reached the server yet (no connection or a conflict). "
+                                   "They are kept on this device and restored the next time you open the page."))
+        d.add_response("stay", _("Keep open"))
+        d.add_response("close", _("Close anyway"))
+        d.set_response_appearance("close", Adw.ResponseAppearance.DESTRUCTIVE)
+        d.set_default_response("stay")
+        d.set_close_response("stay")
+
+        def resp(dd, r):
+            if r == "close":
+                self._close_ok = True
+                self.close()
+        d.connect("response", resp)
+        d.present(self)
+
+    def _input_kind(self, c, ev=None):
+        ev = ev or c.get_current_event()
+        if ev is None:
+            return False
+        t = ev.get_event_type()
+        if t in (Gdk.EventType.TOUCH_BEGIN, Gdk.EventType.TOUCH_UPDATE):
+            if not self.has_css_class("hk-touch"):
+                self.add_css_class("hk-touch")
+        elif t in (Gdk.EventType.MOTION_NOTIFY, Gdk.EventType.BUTTON_PRESS) and self.has_css_class("hk-touch"):
+            dev = ev.get_device()
+            src = dev.get_source() if dev is not None else None
+            if src in (Gdk.InputSource.MOUSE, Gdk.InputSource.TOUCHPAD, Gdk.InputSource.TRACKPOINT) and not ev.get_pointer_emulated():
+                self.remove_css_class("hk-touch")
         return False
+
+    def _dark(self, on):
+        (self.add_css_class if on else self.remove_css_class)("hk-dark")
+
+    def _server_changed(self):
+        self.history, self.fwd = [], []
+        self.close_peek()
+        if hasattr(self, "sidebar"):
+            self.sidebar.reset()
+        self.show_root(("today",))
 
     def _version_banner(self):
         if store.app_too_old:
@@ -291,7 +467,7 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _activated(self):
         if not store.needs_login:
-            store.refresh()
+            store.refresh_if_stale(20)                     # Fokuswechsel: nicht jedes Mal alles neu laden
 
     def _tick(self):
         if self.is_active() and not store.needs_login:
@@ -349,7 +525,8 @@ class MainWindow(Adw.ApplicationWindow):
         self.overlay.set_child(self.slot)
         ct.set_content(self.overlay)
         self.split.set_content(Adw.NavigationPage(title=_("Page"), child=ct))
-        bp = Adw.Breakpoint.new(Adw.BreakpointCondition.parse("max-width: 700sp"))
+        # unter ~1000sp wird die Seitenleiste zum Overlay (sonst bleibt fuer Seiten und Dienste zu wenig Breite)
+        bp = Adw.Breakpoint.new(Adw.BreakpointCondition.parse("max-width: 1000sp"))
         bp.add_setter(self.split, "collapsed", True)
         self.add_breakpoint(bp)
         self.split.set_show_sidebar(bool(settings.get("sidebar_shown", True)))
@@ -376,10 +553,22 @@ class MainWindow(Adw.ApplicationWindow):
         self.sidebar.search.grab_focus()
 
     def _login_page(self):
+        tv = Adw.ToolbarView()
+        hb = Adw.HeaderBar()                                   # Schliessen, Verschieben, Menue auch vor der Anmeldung
+        hb.set_title_widget(Adw.WindowTitle(title=""))
+        menu = Gtk.MenuButton(icon_name="open-menu-symbolic", tooltip_text=_("Menu"))
+        m = Gio.Menu()
+        m.append(_("Keyboard shortcuts"), "win.shortcuts")
+        m.append(_("About Saga"), "win.about")
+        m.append(_("Quit"), "app.quit")
+        menu.set_menu_model(m)
+        hb.pack_end(menu)
+        tv.add_top_bar(hb)
         sp = Adw.StatusPage(title="Saga", description=_("Sign in with a passkey, security key or password.\nSign-in opens in your browser."))
         sp.set_icon_name(APP_ID)
+        self.login_status = sp
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, halign=Gtk.Align.CENTER)
-        lb = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE, width_request=360)
+        lb = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE, width_request=320)
         lb.add_css_class("boxed-list")
         self.login_server = Adw.EntryRow(title=_("Server address"), text=settings.server)
         placeholder(self.login_server, "https://saga.example.org")
@@ -414,24 +603,35 @@ class MainWindow(Adw.ApplicationWindow):
         ex.set_child(eb)
         box.append(ex)
         sp.set_child(box)
-        return sp
+        tv.set_content(sp)
+        return tv
 
     # --- Anmeldung -------------------------------------------------------------------------
-    def _use_server(self):
+    # Ein Server wird erst uebernommen, wenn die Anmeldung dort geklappt hat. Erst dann wechseln Sitzung, Zwischenspeicher
+    # und Schluessel; Geraete- und App-Schluessel sind an ihren Server gebunden und gehen nie an einen anderen.
+    def _login_note(self, text):
+        self.login_msg.set_label(text)
+        if self.stack.get_visible_child_name() != "login" and text:
+            self.toast(text)
+
+    def _entered_server(self):
         s = self.login_server.get_text().strip().rstrip("/")
         if s and "://" not in s:
             s = "https://" + s
-        if not s.startswith("https://") or len(s) < 12:
-            self.login_msg.set_label(_("Please enter an https address, e.g. https://saga.example.org"))
-            return False
-        if s != settings.server:
-            settings.server = s
-            client.clear_cookies()
+        if not config.allowed_server(s) or len(s) < 12:
+            self._login_note(_("Please enter an https address, e.g. https://saga.example.org"))
+            return None
+        s = config.origin(s)
         self.login_server.set_text(s)
-        return True
+        return s
 
-    def pair_link(self, text):
-        """https://server/app/pair?c=CODE  oder  <app>://pair?u=https://server&c=CODE"""
+    @staticmethod
+    def _host(srv):
+        return GLib.Uri.parse(srv, GLib.UriFlags.NONE).get_host() if srv else ""
+
+    def pair_link(self, text, external=False):
+        """https://server/app/pair?c=CODE  oder  <app>://pair?u=https://server&c=CODE.
+        external: kam als Link von aussen (Browser, andere App) - dann immer erst fragen."""
         try:
             u = GLib.Uri.parse(text, GLib.UriFlags.NONE)
             q = GLib.Uri.parse_params(u.get_query() or "", -1, "&", GLib.UriParamsFlags.NONE)
@@ -445,52 +645,89 @@ class MainWindow(Adw.ApplicationWindow):
             srv = (q.get("u") or "").rstrip("/")
         else:
             srv = ""
-        if len(code) < 20 or not srv.startswith(("https://", "http://")):
-            self.login_msg.set_label(_("This is not a valid pairing link."))
+        if len(code) < 20 or not config.origin(srv):
+            self._login_note(_("This is not a valid pairing link."))
             return
-        if srv != settings.server:
-            settings.server = srv
-            client.clear_cookies()
-        self.login_server.set_text(srv)
-        self.login_msg.set_label(_("Signing in …"))
+        if not config.allowed_server(srv):
+            self._login_note(_("Pairing links must use https."))
+            return
+        srv = config.origin(srv)
+        cur = config.origin(settings.server)
+        signed_in = client.has_session or bool(get_device_token())
+        if external or (cur and srv != cur):
+            self._confirm_pair(srv, code, switching=bool(cur) and srv != cur and signed_in, cur=cur)
+        else:
+            self._do_pair(srv, code)
 
-        def fin(j):
-            self.login_msg.set_label("")
-            store.logged_in()
-            self.present()
-            self.toast(_("Signed in as {name} – stays signed in on “{device}”").format(name=j.get("name") or "", device=device_name()))
-        bg(client.pair, code, not (settings.get("token") or "").startswith("hk_"), done=fin, error=lambda e: self.login_msg.set_label(str(e)))
+    def _confirm_pair(self, srv, code, switching, cur):
+        """Kopplung bestaetigen - Texte wie iOS/Android (Glossar "Einheitliche Dialoge")"""
+        host = self._host(srv)
+        body = _("Saga will sign in to {host}.").format(host=host) + "\n\n" + \
+            _("Only continue if you created this QR code or link yourself in Saga (Settings → Apps & devices).")
+        if switching:
+            body += "\n\n" + _("You're currently signed in to {alt} and will be signed out there.").format(alt=self._host(cur))
+        d = Adw.AlertDialog(heading=_("Pair with this server?"), body=body)
+        d.add_response("cancel", _("Cancel"))
+        d.add_response("pair", _("Pair"))
+        d.set_response_appearance("pair", Adw.ResponseAppearance.DESTRUCTIVE if switching else Adw.ResponseAppearance.SUGGESTED)
+        d.set_default_response("cancel")
+        d.set_close_response("cancel")
+        d.connect("response", lambda dd, r: r == "pair" and self._do_pair(srv, code))
+        self.present()
+        d.present(self)
+
+    def _do_pair(self, srv, code):
+        self._login_note(_("Signing in …"))
+        self._flush_all()
+        want = not config.app_key(srv).startswith("hk_")
+        bg(client.pair, code, srv, want, done=lambda r: self._signed_in(srv, *r), error=lambda e: self._login_note(str(e)))
+
+    def _signed_in(self, srv, j, jar, waited=False):
+        """Anmeldung hat geklappt: erst jetzt Server wechseln (alter Zwischenspeicher, Zuletzt, Startseite weg; das Geraet
+        wird beim alten Server abgemeldet). Vorher noch laufende Speicherungen zum alten Server abwarten."""
+        if not waited and config.origin(srv) != config.origin(settings.server) and store.pending_work():
+            self.flush_then(lambda: self._signed_in(srv, j, jar, True))
+            return
+        switched = store.switch_server(srv)
+        if not switched:
+            store.new_session(srv)                       # gleicher Server, evtl. anderes Konto: Konto neu ermitteln
+        client.adopt_login(srv, j, jar)
+        self.login_server.set_text(srv)
+        self.login_msg.set_label("")
+        store.logged_in()
+        if switched:
+            self.show_root(("today",))
+        self.present()
+        self.toast(_("Signed in as {name} – stays signed in on “{device}”").format(name=j.get("name") or "", device=device_name()))
 
     def start_login(self):
-        if not self._use_server():
+        srv = self._entered_server()
+        if not srv:
             return
+        self.pending_server = srv
         self.verifier, ch = pkce()
-        url = f"{settings.server}/app/login?challenge={ch}"
-        self.login_msg.set_label(_("Please sign in in your browser …"))
-        self.open_uri(url)
+        self._login_note(_("Please sign in in your browser …"))
+        self.open_uri(f"{srv}/app/login?challenge={ch}")
 
     def finish_login(self, uri):
         try:
             u = GLib.Uri.parse(uri, GLib.UriFlags.NONE)
             params = GLib.Uri.parse_params(u.get_query() or "", -1, "&", GLib.UriParamsFlags.NONE)
             code = params.get("code")
+            if params.get("error") == "cancelled":          # im Browser abgebrochen: still nichts tun
+                self.verifier = None
+                self._login_note("")
+                return
         except GLib.Error:
             code = None
-        if not code or not self.verifier:
-            self.login_msg.set_label(_("Please start signing in here in the app."))
+        srv = self.pending_server
+        if not code or not self.verifier or not srv:
+            self._login_note(_("Please start signing in here in the app."))
             return
-        self.login_msg.set_label(_("Signing in …"))
+        self._login_note(_("Signing in …"))
         v, self.verifier = self.verifier, None
-
-        def fin(j):
-            self.login_msg.set_label("")
-            store.logged_in()
-            self.present()
-            self.toast(_("Signed in as {name} – stays signed in on “{device}”").format(name=j.get("name") or "", device=device_name()))
-
-        def err(e):
-            self.login_msg.set_label(str(e))
-        bg(client.exchange, code, v, not (settings.get("token") or "").startswith("hk_"), done=fin, error=err)
+        want = not config.app_key(srv).startswith("hk_")
+        bg(client.exchange, code, v, srv, want, done=lambda r: self._signed_in(srv, *r), error=lambda e: self._login_note(str(e)))
 
     # --- Navigation -------------------------------------------------------------------------
     def _make(self, route):
@@ -624,6 +861,7 @@ class MainWindow(Adw.ApplicationWindow):
         g = Gtk.GestureDrag()
         g.connect("drag-begin", lambda *_: setattr(self, "_pw0", settings.get("peek_width", 560)))
         g.connect("drag-update", lambda gs, x, y: self._peek_width(int(min(1000, max(360, self._pw0 - x)))))
+        g.connect("drag-end", lambda *_: settings.flush())
         grip.add_controller(g)
         panel.append(grip)
         v.set_size_request(settings.get("peek_width", 560), -1)
@@ -632,14 +870,13 @@ class MainWindow(Adw.ApplicationWindow):
         self.peek = ("side", v, panel)
 
     def _peek_width(self, w):
-        settings.set("peek_width", w)
+        settings.set_soon("peek_width", w)               # beim Ziehen nicht bei jeder Mausbewegung auf die Platte
         if self.peek and self.peek[0] == "side":
             self.peek[1].set_size_request(w, -1)
 
     def _peek_closed(self, dlg):
         if self.peek and self.peek[2] is dlg:
             self.peek = None
-            store.emit("data-changed")
 
     def close_peek(self):
         if not self.peek:
@@ -651,7 +888,6 @@ class MainWindow(Adw.ApplicationWindow):
             self.overlay.remove_overlay(w)
         else:
             w.close()
-        store.emit("data-changed")
 
     def peek_step(self, d):
         if not self.peek or not self.peek_list:
@@ -747,15 +983,42 @@ class MainWindow(Adw.ApplicationWindow):
         from .dialogs import VersionsDialog
         VersionsDialog(self, pid, restored).present(self)
 
+    SHORTCUTS = [
+        (_("General"), [(_("Command palette"), "<Control>k <Control>p"), (_("New page"), "<Control>n"),
+                        (_("Back / Forward"), "<Alt>Left <Alt>Right"), (_("Refresh"), "<Control>r"), (_("Settings"), "<Control>comma"),
+                        (_("Copy link to page"), "<Control><Shift>l"), (_("Search the sidebar"), "<Control><Shift>f"),
+                        (_("Show/hide sidebar"), "F9 <Control>backslash"), (_("Today / Tasks / Events"), "<Control>1 <Control>2 <Control>3"),
+                        (_("Close peek"), "Escape"), (_("Browse in peek"), "<Control><Shift>j <Control><Shift>k"),
+                        (_("Context menu"), "Menu <Shift>F10"), (_("Keyboard shortcuts"), "<Control>question"), (_("Quit"), "<Control>q")]),
+        (_("Text"), [(_("Bold, italic, underline"), "<Control>b <Control>i <Control>u"), (_("Strikethrough"), "<Control><Shift>x"),
+                     (_("Highlight"), "<Control><Shift>h"), (_("Code"), "<Control>e"), (_("Link (with a selection)"), "<Control>k"),
+                     (_("Block types"), "slash"), (_("Date, reminder, page"), "at"), (_("Emoji"), "colon")]),
+        (_("Blocks"), [(_("Text, Heading 1–3"), "<Control><Alt>0 <Control><Alt>1 <Control><Alt>2 <Control><Alt>3"),
+                       (_("Checklist, bulleted list, numbered list"), "<Control><Alt>4 <Control><Alt>5 <Control><Alt>6"),
+                       (_("Toggle, code"), "<Control><Alt>7 <Control><Alt>8"), (_("Move block"), "<Control><Shift>Up <Control><Shift>Down"),
+                       (_("Duplicate block"), "<Control>d"), (_("New block below"), "<Control>Return"),
+                       (_("Indent/outdent list item"), "Tab <Shift>Tab"), (_("Block menu"), "Menu <Shift>F10")]),
+    ]
+
     def shortcuts(self):
-        txt = _("Ctrl+K / Ctrl+P – Command palette (Ctrl+K with a selection: link)\nCtrl+N – New page\nAlt+← / Alt+→ – Back / Forward\n"
-                "Ctrl+R – Refresh\nCtrl+, – Settings\nCtrl+Shift+L – Copy link to page\nCtrl+Shift+F – Search the sidebar\n"
-                "F9 / Ctrl+\\ – Show/hide sidebar\nCtrl+1/2/3 – Today / Tasks / Events\nEsc – Close peek\nCtrl+Shift+J/K – Browse in peek\n\n"
-                "In text:\nCtrl+B/I/U – Bold, italic, underline\nCtrl+Shift+X – Strikethrough\nCtrl+Shift+H – Highlight\nCtrl+E – Code\n"
-                "/ – Block types   @ – Date, reminder, page   : – Emoji\n# ## ### - * 1. [] > ``` --- at the start of a line – Block type\n"
-                "Ctrl+Alt+0…8 – Text, Heading 1–3, Checklist, Bulleted list, Numbered list, Toggle, Code\n"
-                "Ctrl+Shift+↑/↓ – Move block\nCtrl+D – Duplicate block\nCtrl+Enter – New block below\nTab / Shift+Tab – Indent/outdent list item")
-        d = Adw.AlertDialog(heading=_("Keyboard shortcuts"), body=txt)
+        if hasattr(Adw, "ShortcutsDialog"):                 # libadwaita >= 1.8
+            d = Adw.ShortcutsDialog()
+            for title, items in self.SHORTCUTS:
+                sec = Adw.ShortcutsSection(title=title)
+                for name, accel in items:
+                    sec.add(Adw.ShortcutsItem.new(name, accel))
+                d.add(sec)
+            d.present(self)
+            return
+        lines = []
+        for title, items in self.SHORTCUTS:
+            lines.append(title + ":")
+            for name, accel in items:
+                keys = " / ".join(Gtk.accelerator_get_label(*Gtk.accelerator_parse(a)[1:]) if Gtk.accelerator_parse(a)[0] else a
+                                  for a in accel.split())
+                lines.append(f"{keys} – {name}")
+            lines.append("")
+        d = Adw.AlertDialog(heading=_("Keyboard shortcuts"), body="\n".join(lines).strip())
         d.add_response("ok", _("OK"))
         d.present(self)
 
@@ -808,7 +1071,7 @@ class MainWindow(Adw.ApplicationWindow):
             if title or not tpl:
                 body["title"] = title
             path = f"api/notes/{tpl}/duplicate" if tpl else "api/notes"
-            store.run("POST", path, body, done=lambda r: (store.refresh(), store.emit("data-changed"), self.open_entry(r["id"], mode)))
+            store.run("POST", path, body, done=lambda r: (store.refresh(), store.changed_data(), self.open_entry(r["id"], mode)))
         elif act == "task":
             store.add_task(b.get("title") or _("New task"))
             self.toast(_("Task created"))
@@ -821,6 +1084,12 @@ class MainWindow(Adw.ApplicationWindow):
     def _undo_toast(self, pid, title):
         t = Adw.Toast(title=GLib.markup_escape_text(_("“{title}” moved to trash").format(title=title)), button_label=_("Undo"), timeout=6)
         t.connect("button-clicked", lambda *_: store.restore(pid))
+        self.toasts.add_toast(t)
+
+    def _task_undo_toast(self, tid, text):
+        t = Adw.Toast(title=GLib.markup_escape_text(_("Task “{title}” deleted").format(title=text)), button_label=_("Undo"),
+                      timeout=store.UNDO_SECONDS)
+        t.connect("button-clicked", lambda *_: store.undo_delete_task(tid))
         self.toasts.add_toast(t)
 
     def copy_text(self, s):
@@ -848,23 +1117,56 @@ class MainWindow(Adw.ApplicationWindow):
         return client.upload(data, name)["url"]
 
     def download_open(self, url, name):
-        def work():
-            data = client.fetch(url.lstrip("/"), timeout=300)
-            d = GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD) or os.path.expanduser("~")
-            base, ext = os.path.splitext(name.replace("/", "-"))
-            p, n = os.path.join(d, base + ext), 1
-            while os.path.exists(p):
-                p = os.path.join(d, f"{base} ({n}){ext}")
-                n += 1
-            with open(p, "wb") as f:
-                f.write(data)
-            return p
+        """Anhang speichern: Ort waehlen (Portal), stueckweise auf die Platte schreiben, abbrechbar; Oeffnen nur auf Wunsch"""
+        safe = os.path.basename((name or "").replace("/", "-").replace("\\", "-")).strip(". ") or "datei"
+        fd = Gtk.FileDialog(title=_("Save attachment"), initial_name=safe)
 
-        def fin(p):
-            self.toast(_("Saved: {name}").format(name=os.path.basename(p)))
-            Gtk.FileLauncher.new(Gio.File.new_for_path(p)).launch(self, None, None)
-        self.toast(_("Downloading …"))
-        bg(work, done=fin, error=lambda e: self.toast(str(e)))
+        def chosen(d, res):
+            try:
+                f = d.save_finish(res)
+            except GLib.Error:
+                return
+            if f is not None:
+                self._download_to(url, f, safe)
+        fd.save(self, None, chosen)
+
+    def _download_to(self, url, gfile, name):
+        state = {"cancel": False}
+        toast = Adw.Toast(title=GLib.markup_escape_text(_("Downloading “{name}” …").format(name=name)), button_label=_("Cancel"), timeout=0)
+        toast.connect("button-clicked", lambda *_: state.__setitem__("cancel", True))
+        self.toasts.add_toast(toast)
+
+        def work():
+            out = gfile.replace(None, False, Gio.FileCreateFlags.REPLACE_DESTINATION, None)
+            ok = False
+            try:
+                client.download(url.lstrip("/"), lambda b: out.write_all(b, None), cancelled=lambda: state["cancel"])
+                ok = True
+            finally:
+                out.close(None)
+                if not ok:
+                    try:
+                        gfile.delete(None)
+                    except GLib.Error:
+                        pass
+            return gfile
+
+        def fin(f):
+            toast.dismiss()
+            t = Adw.Toast(title=GLib.markup_escape_text(_("Saved: {name}").format(name=f.get_basename() or name)), button_label=_("Open"), timeout=8)
+
+            def open_it(*_):
+                fl = Gtk.FileLauncher.new(f)
+                fl.set_always_ask(True)                        # nie still mit dem Standardprogramm oeffnen
+                fl.launch(self, None, None)
+            t.connect("button-clicked", open_it)
+            self.toasts.add_toast(t)
+
+        def err(e):
+            toast.dismiss()
+            if not isinstance(e, Cancelled):
+                self.toast(_("Download failed: {error}").format(error=e))
+        bg(work, done=fin, error=err, media=True)
 
     def export_page(self, pid, title, with_sub):
         base = (title or _("Page")).replace("/", "-")
@@ -892,8 +1194,8 @@ class MainWindow(Adw.ApplicationWindow):
         if host == "auth":
             self.finish_login(uri)
             return
-        if host == "pair":                                     # QR-Code-Seite im Browser: "In der App öffnen"
-            self.pair_link(uri)
+        if host == "pair":                                     # QR-Code-Seite im Browser: "In der App öffnen" - immer nachfragen
+            self.pair_link(uri, external=True)
             return
         arg = (u.get_path() or "").strip("/")
         if host == "page" and arg.isdigit():
@@ -905,9 +1207,18 @@ class MainWindow(Adw.ApplicationWindow):
             tl = getattr(self.current, "task_list", None)
             if tl:
                 GLib.timeout_add(300, lambda: (tl.focus_entry(), False)[1])
-        elif host == "new":
+        elif host == "new":                                   # von einer Webseite aus: nur mit Rueckfrage
             params = GLib.Uri.parse_params(u.get_query() or "", -1, "&", GLib.UriParamsFlags.NONE)
             p = params.get("parent")
-            self.new_page(int(p) if p and p.isdigit() else None)
+            parent = int(p) if p and p.isdigit() else None
+            d = Adw.AlertDialog(heading=_("Create a new page?"),
+                                body=_("A link wants to create a new page in Saga."))
+            d.add_response("cancel", _("Cancel"))
+            d.add_response("ok", _("Create page"))
+            d.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
+            d.set_default_response("ok")
+            d.set_close_response("cancel")
+            d.connect("response", lambda dd, r: r == "ok" and self.new_page(parent))
+            d.present(self)
         else:
             self.show_root(("today",))

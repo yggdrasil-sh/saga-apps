@@ -2,6 +2,8 @@
 import io
 import os
 import re
+import threading
+import time
 from collections import OrderedDict
 
 import gi
@@ -21,9 +23,13 @@ except ImportError:  # pragma: no cover
     Image = None
 
 _MEM = OrderedDict()            # key -> Decoded
-_MEM_LIMIT = 300 * 1024 * 1024
+_MEM_LIMIT = 300 * 1024 * 1024  # Speicher-Zwischenspeicher insgesamt
+_ENTRY_LIMIT = 64 * 1024 * 1024  # hoechstens so viel je Bild (Animationen: danach keine weiteren Einzelbilder)
+_DISK_LIMIT = 400 * 1024 * 1024  # Platten-Zwischenspeicher: aelteste Dateien gehen zuerst
+_DISK_MAX_AGE = 60 * 86400
 _mem_size = 0
 _inflight = {}
+_disk_lock = threading.Lock()
 
 
 class Decoded:
@@ -62,12 +68,43 @@ def fetch_bytes(path):
         pass
     data = client.fetch(path.lstrip("/"))
     try:
-        with open(p + ".tmp", "wb") as f:
-            f.write(data)
-        os.replace(p + ".tmp", p)
+        config.atomic_write(p, data)
     except OSError:
         pass
     return data
+
+
+def prune_disk_cache(limit=None, max_age=None):
+    """Platten-Zwischenspeicher begrenzen: zu alte Dateien weg, dann die am laengsten ungenutzten bis unter die Grenze"""
+    limit = _DISK_LIMIT if limit is None else limit
+    max_age = _DISK_MAX_AGE if max_age is None else max_age
+    d = os.path.join(config.CACHE_DIR, "files")
+    with _disk_lock:
+        try:
+            entries = [e for e in os.scandir(d) if e.is_file(follow_symlinks=False)]
+        except OSError:
+            return 0
+        now = time.time()
+        files = []
+        for e in entries:
+            try:
+                st = e.stat(follow_symlinks=False)
+            except OSError:
+                continue
+            files.append((max(st.st_atime, st.st_mtime), st.st_size, e.path))
+        files.sort()
+        total = sum(f[1] for f in files)
+        removed = 0
+        for used, size, path in files:
+            if total <= limit and now - used <= max_age:
+                continue
+            try:
+                os.remove(path)
+                total -= size
+                removed += 1
+            except OSError:
+                pass
+        return removed
 
 
 def _open(data):
@@ -76,7 +113,7 @@ def _open(data):
     return Image.open(io.BytesIO(data))
 
 
-def _frame(im, i, lim):
+def _frame(im, i, lim):  # -> (rohe Pixel, Breite, Hoehe, Dauer in ms)
     im.seek(i)
     fr = im.convert("RGBA")
     if max(fr.size) > lim:
@@ -112,10 +149,14 @@ def _make(frames):
 
 def _remember(key, dec):
     global _mem_size
+    if dec.cost > _ENTRY_LIMIT:
+        return                                            # zu gross fuer den Zwischenspeicher (wird nur angezeigt)
+    old = _MEM.pop(key, None)
+    if old is not None:
+        _mem_size -= old.cost
     _MEM[key] = dec
-    _MEM.move_to_end(key)
     _mem_size += dec.cost
-    while _mem_size > _MEM_LIMIT and len(_MEM) > 1:
+    while _mem_size > _MEM_LIMIT and _MEM:
         _, old = _MEM.popitem(last=False)
         _mem_size -= old.cost
 
@@ -150,8 +191,13 @@ def load(path, cb, w=None, max_px=1600):
         lim = min(max_px, ANIM_PX)
         frames = [_frame(im, 0, lim)]
         GLib.idle_add(first, list(frames))
+        cost = len(frames[0][0])
         for i in range(1, min(n, 300)):
-            frames.append(_frame(im, i, lim))
+            fr = _frame(im, i, lim)
+            cost += len(fr[0])
+            if cost > _ENTRY_LIMIT:                       # lange/grosse Animation: nach der Grenze aufhoeren
+                break
+            frames.append(fr)
         return frames
 
     def fin(frames):
@@ -164,11 +210,11 @@ def load(path, cb, w=None, max_px=1600):
     def err(e):
         for c in _inflight.pop(key, {"cbs": []})["cbs"]:
             c(None)
-    bg(work, done=fin, error=err)
+    bg(work, done=fin, error=err, media=True)
 
 
 def load_local(data, cb, max_px=1600):
-    bg(lambda: _decode_static(_open(data), max_px), done=lambda fr: cb(_make(fr)), error=lambda e: cb(None))
+    bg(lambda: _decode_static(_open(data), max_px), done=lambda fr: cb(_make(fr)), error=lambda e: cb(None), media=True)
 
 
 class ImageView(Gtk.Widget):

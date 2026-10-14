@@ -14,11 +14,14 @@ from gi.repository import GLib
 
 from .i18n import _
 
-_pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="hk")
+# Getrennte Pools: Server-Anfragen (Speichern, Listen) warten nie hinter Bildern, Downloads oder Uploads
+_pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="hk-api")
+_media = ThreadPoolExecutor(max_workers=4, thread_name_prefix="hk-media")
 
 
-def bg(fn, *args, done=None, error=None):
-    """fn(*args) im Hintergrund; done(result) bzw. error(exc) danach im Hauptthread."""
+def bg(fn, *args, done=None, error=None, media=False):
+    """fn(*args) im Hintergrund; done(result) bzw. error(exc) danach im Hauptthread.
+    media=True: eigener Pool fuer Bilder, Downloads und Uploads."""
     def run():
         try:
             r = fn(*args)
@@ -28,7 +31,78 @@ def bg(fn, *args, done=None, error=None):
             GLib.idle_add(_call, error, e)
             return
         GLib.idle_add(_call, done, r)
-    _pool.submit(run)
+    (_media if media else _pool).submit(run)
+
+
+# --- Schreib-Warteschlangen: je Schluessel (z. B. ("note", 12)) hoechstens ein Zugriff unterwegs, Reihenfolge bleibt ---
+_lanes = {}              # Schluessel -> [Eintrag, ...]; der erste laeuft gerade
+
+
+def bg_serial(key, fn, *args, done=None, error=None, coalesce=None):
+    """Wie bg, aber der Reihe nach je key (nur aus dem Hauptthread aufrufen). coalesce: gleich benannte, noch
+    wartende Eintraege werden durch den neuesten ersetzt (z. B. ganzes Schema) - deren Rueckrufe laufen trotzdem."""
+    lane = _lanes.setdefault(key, [])
+    if coalesce is not None and len(lane) > 1 and lane[-1]["co"] == coalesce:
+        it = lane[-1]
+        it["fn"], it["args"] = fn, args
+        it["done"].append(done)
+        it["error"].append(error)
+        return
+    lane.append({"fn": fn, "args": args, "done": [done], "error": [error], "co": coalesce})
+    if len(lane) == 1:
+        _lane_next(key)
+
+
+def _lane_next(key):
+    lane = _lanes.get(key)
+    if not lane:
+        _lanes.pop(key, None)
+        return
+    it = lane[0]
+
+    def fin(r, ok):
+        lane.pop(0)
+        if lane:
+            _lane_next(key)
+        elif _lanes.get(key) is lane:
+            _lanes.pop(key, None)
+        cbs = [cb for cb in (it["done"] if ok else it["error"]) if cb is not None]
+        if not ok and not cbs:
+            print("hk: Schreibzugriff fehlgeschlagen:", r, file=sys.stderr)
+        for cb in cbs:
+            _call(cb, r)
+    bg(it["fn"], *it["args"], done=lambda r: fin(r, True), error=lambda e: fin(e, False))
+
+
+def lane_busy(key):
+    return bool(_lanes.get(key))
+
+
+def writes_pending():
+    """Anzahl wartender oder laufender Schreibzugriffe (Schliessen wartet darauf)"""
+    return sum(len(v) for v in _lanes.values())
+
+
+class Debounce:
+    """Rueckruf erst, wenn ms lang nichts mehr angestossen wurde (Hauptthread)"""
+
+    def __init__(self, ms, fn):
+        self.ms, self.fn, self.src = ms, fn, 0
+
+    def __call__(self, *_):
+        if self.src:
+            GLib.source_remove(self.src)
+        self.src = GLib.timeout_add(self.ms, self._fire)
+
+    def _fire(self):
+        self.src = 0
+        self.fn()
+        return False
+
+    def flush(self):
+        if self.src:
+            GLib.source_remove(self.src)
+            self._fire()
 
 
 def placeholder(row, text):

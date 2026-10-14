@@ -15,6 +15,7 @@ import okhttp3.Callback
 import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -61,21 +62,29 @@ class MemoryCookieJar : CookieJar {
 
 /**
  * HTTP-Zugang zum Saga-Server.
- *  - jede Anfrage mit "X-Saga: 1" (der Server verlangt die Kopfzeile fuer /api/...)
- *  - 401 -> einmal still POST /app/resume {device_token, app_key} und wiederholen;
+ *  - Anfragen an den eigenen Server mit "X-Saga: 1" (der Server verlangt die Kopfzeile fuer /api/...)
+ *  - 401 vom eigenen Server -> einmal still POST /app/resume {device_token, app_key} und wiederholen;
  *    401/403 dort -> Geraet abgemeldet -> onSessionLost (Anmeldebildschirm)
+ *  - Geraete-/App-Schluessel gehen NUR an den Server, fuer den sie ausgestellt wurden (SecureStore.tokenServer);
+ *    fremde Hosts (z. B. Bilder von anderen Seiten) bekommen weder Kopfzeilen noch Erneuerung noch Cookies.
  */
 class ApiClient(
     private val serverProvider: () -> String,
     private val secure: SecureStore,
     private val onSessionLost: () -> Unit,
-    userAgent: String,
+    private val userAgent: String,
+    private val onAccount: (String) -> Unit = {},
 ) {
     val cookies = MemoryCookieJar()
     private val jsonType = "application/json; charset=utf-8".toMediaType()
 
+    /** Gehoert die Adresse zum eingestellten Server (Schema, Host, Port und Pfad-Anfang)? */
+    fun isOwn(url: HttpUrl): Boolean = sameServer(serverProvider(), url)
+
     private val headers = Interceptor { chain ->
-        chain.proceed(chain.request().newBuilder().header("X-Saga", "1").header("User-Agent", userAgent).build())
+        val req = chain.request()
+        if (!isOwn(req.url)) return@Interceptor chain.proceed(req)
+        chain.proceed(req.newBuilder().header("X-Saga", "1").header("User-Agent", userAgent).build())
     }
 
     /** ohne Erneuerung: Anmeldung, Erneuerung selbst, Versionsabfrage */
@@ -86,8 +95,17 @@ class ApiClient(
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    /** normale Anfragen (auch Bilder): mit stiller Erneuerung der Sitzung */
+    /** normale Anfragen an den eigenen Server: mit stiller Erneuerung der Sitzung */
     val client: OkHttpClient = authClient.newBuilder().addInterceptor(SessionInterceptor()).build()
+
+    /** fremde Hosts (Bilder aus Bild-Bloecken): ohne Cookies, Kopfzeilen und Erneuerung */
+    private val plainClient: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .build()
+
+    /** Fuer Coil: eigener Server ueber die Sitzung, alles andere ueber einen neutralen Client */
+    val imageCallFactory: Call.Factory = Call.Factory { req -> (if (isOwn(req.url)) client else plainClient).newCall(req) }
 
     private enum class Resume { OK, REJECTED, OFFLINE }
 
@@ -98,6 +116,7 @@ class ApiClient(
     private inner class SessionInterceptor : Interceptor {
         override fun intercept(chain: Interceptor.Chain): Response {
             val req = chain.request()
+            if (!isOwn(req.url)) return chain.proceed(req)          // nie fuer fremde Hosts erneuern oder abmelden
             val gen = generation
             val resp = chain.proceed(req)
             if (resp.code != 401) return resp
@@ -125,11 +144,11 @@ class ApiClient(
     }
 
     private fun resumeBlocking(): Resume {
-        val tok = secure.deviceToken ?: return Resume.REJECTED
         val server = serverProvider().ifEmpty { return Resume.REJECTED }
+        val tok = secure.deviceTokenFor(server) ?: return Resume.REJECTED     // Schluessel gehoert zu einem anderen Server
         val body = buildJsonObject {
             put("device_token", tok)
-            secure.appKey?.let { put("app_key", it) }       // Widget-Schluessel diesem Geraet zuordnen
+            secure.appKeyFor(server)?.let { put("app_key", it) }             // Widget-Schluessel diesem Geraet zuordnen
         }
         val req = Request.Builder().url(ServerUrl.absolute(server, "app/resume"))
             .post(body.toString().toRequestBody(jsonType)).build()
@@ -137,10 +156,15 @@ class ApiClient(
             authClient.newCall(req).execute().use { r ->
                 when {
                     r.code == 401 || r.code == 403 -> {
-                        secure.deviceToken = null
+                        if (secure.tokenServer == server) secure.clearCredentials()
                         Resume.REJECTED
                     }
-                    r.isSuccessful -> Resume.OK
+                    r.isSuccessful -> {
+                        runCatching {
+                            ((Json.parseToJsonElement(r.body.string()) as? JsonObject)?.get("name") as? JsonPrimitive)?.content
+                        }.getOrNull()?.takeIf { it.isNotBlank() }?.let(onAccount)
+                        Resume.OK
+                    }
                     else -> Resume.OFFLINE
                 }
             }
@@ -157,14 +181,24 @@ class ApiClient(
         return ServerUrl.absolute(server, path)
     }
 
-    suspend fun request(method: String, path: String, body: JsonElement? = null, auth: Boolean = false): String {
+    /**
+     * base: anderer Server als der eingestellte (Kopplung/Anmeldung, bevor der Server uebernommen wird) -
+     * dann immer ohne Erneuerung.
+     */
+    suspend fun request(
+        method: String, path: String, body: JsonElement? = null, auth: Boolean = false, base: String? = null,
+        bearer: String? = null,
+    ): String {
         val rb = when {
             body != null -> body.toString().toRequestBody(jsonType)
             method == "GET" || method == "DELETE" -> null
             else -> "{}".toRequestBody(jsonType)
         }
-        val req = Request.Builder().url(url(path)).method(method, rb).build()
-        val (code, text) = execute(if (auth) authClient else client, req)
+        val target = if (base != null) ServerUrl.absolute(base, path) else url(path)
+        val rq = Request.Builder().url(target).method(method, rb).header("X-Saga", "1").header("User-Agent", userAgent)
+        if (bearer != null) rq.header("Authorization", "Bearer $bearer")
+        val req = rq.build()
+        val (code, text) = execute(if (auth || base != null || bearer != null) authClient else client, req)
         if (code !in 200..299) throw ApiException(code, errorText(code, text))
         return text
     }
@@ -208,4 +242,14 @@ class ApiClient(
             else -> UiText.Raw(msg)
         }
     }
+}
+
+
+/** Gehoert url zum Server-Ursprung server (Schema, Host, Port, Pfad-Anfang)? */
+fun sameServer(server: String, url: HttpUrl): Boolean {
+    if (server.isEmpty()) return false
+    val s = server.toHttpUrlOrNull() ?: return false
+    if (s.scheme != url.scheme || !s.host.equals(url.host, ignoreCase = true) || s.port != url.port) return false
+    val base = s.encodedPath.trimEnd('/')
+    return base.isEmpty() || url.encodedPath == base || url.encodedPath.startsWith("$base/")
 }

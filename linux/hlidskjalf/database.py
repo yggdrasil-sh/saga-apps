@@ -1,4 +1,5 @@
 """Datenbanken nativ: Modell + Filter/Sortierung wie im Web (DBQuery.swift), Ansichten, Eigenschafts-Editoren."""
+import copy
 import datetime as _dt
 import math
 
@@ -6,10 +7,10 @@ from gi.repository import Gdk, GLib, GObject, Gtk, Pango
 
 from . import images
 from .api import client
-from .blocks import chip, flat_button, menu_popover
+from .blocks import chip, context_menu, flat_button, menu_popover, more_button
 from .i18n import _
 from .store import label, store, watch
-from .util import bg, color_hex, day_text, iso_day, month_text, num_text, parse_day, parse_num, weekday_names
+from .util import bg, day_text, iso_day, lane_busy, month_text, num_text, parse_day, parse_num, weekday_names
 
 PROP_ICON = {"text": "format-justify-left-symbolic", "number": "accessories-calculator-symbolic", "select": "go-down-symbolic",
              "multi_select": "view-list-bullet-symbolic", "checkbox": "checkbox-checked-symbolic", "date": "x-office-calendar-symbolic",
@@ -104,6 +105,8 @@ class DBModel(GObject.Object):
                 self.emit("changed")
 
         def fin(j):
+            if lane_busy(("note", self.db_id)):
+                return                                    # Schema wird gerade gespeichert: danach kommt ein neueres Laden
             self._apply(j)
             self.loaded = True
             self.emit("changed")
@@ -284,14 +287,16 @@ class DBModel(GObject.Object):
             else:
                 r["props"][pid] = value
         self.emit("changed")
-        store.run("PATCH", f"api/notes/{row_id}", {"props": {pid: value}}, data_changed=False,
+        # Warteschlange je Eintrag: schnelles An/Aus kommt in der richtigen Reihenfolge an
+        store.run("PATCH", f"api/notes/{row_id}", {"props": {pid: value}}, data_changed=False, key=("note", row_id),
                   done=lambda _: store.drop_cache(f"api/notes/{row_id}"), error=lambda e: (store.emit("error", str(e)), self.load()))
 
     def rename(self, row_id, title):
+        """Titel mit Revision speichern (ueber den offenen Peek bzw. die aktuelle Revision) - kein 409 im Peek danach"""
         r = next((x for x in self.rows if x["id"] == row_id), None)
         if r is not None:
             r["title"] = title
-        store.run("PATCH", f"api/notes/{row_id}", {"title": title}, refresh=True)
+        store.rename(row_id, title)
 
     def add(self, props=None, done=None):
         b = {"parent_id": self.db_id, "title": ""}
@@ -309,13 +314,12 @@ class DBModel(GObject.Object):
         def fin(r):
             self.load()
             store.refresh()
-            store.emit("data-changed")
+            store.changed_data()
             if done:
                 done(r["id"])
         store.run("POST", f"api/notes/{tid}/duplicate", {"parent_id": self.db_id}, done=fin)
 
     def edit_schema(self, change):
-        import copy
         sc = copy.deepcopy(self.schema)
         sc.setdefault("props", [])
         change(sc)
@@ -323,8 +327,10 @@ class DBModel(GObject.Object):
         self.props = sc.get("props") or []
         self.views = sc.get("views") or []
         self.emit("changed")
-        store.run("PATCH", f"api/notes/{self.db_id}", {"schema": sc}, done=lambda _: (self.load(), store.emit("data-changed")),
-                  error=lambda e: (store.emit("error", str(e)), self.load()))
+        # ganzes Schema in der Warteschlange der Datenbank; noch wartende aeltere Fassungen werden ersetzt (coalesce),
+        # damit nie ein veraltetes Schema ein neueres ueberholt
+        store.run("PATCH", f"api/notes/{self.db_id}", {"schema": copy.deepcopy(sc)}, key=("note", self.db_id), coalesce="schema",
+                  done=lambda _: (self.load(), store.changed_data()), error=lambda e: (store.emit("error", str(e)), self.load()))
 
     def edit_prop(self, pid, change):
         def ch(sc):
@@ -630,17 +636,23 @@ def _relation_popover(parent, p, ids, setv):
 
 
 class RowMenuMixin:
-    def row_menu(self, widget, x, y, r):
+    def row_entries(self, r):
         rows = self.rows
-        menu_popover(widget, [(_("Open"), lambda: self.open(r, rows)),
-                              (_("Duplicate"), lambda: store.duplicate(r["id"], done=lambda n: self.m.load())),
-                              (_("Copy link"), lambda: self.win.copy_text(store.page_url(r["id"]))), None,
-                              (_("Move to trash"), lambda: store.trash(r["id"], done=self.m.load), True)]).popup()
+        return [(_("Open"), lambda: self.open(r, rows)),
+                (_("Duplicate"), lambda: store.duplicate(r["id"], done=lambda n: self.m.load())),
+                (_("Copy link"), lambda: self.win.copy_text(store.page_url(r["id"]))), None,
+                (_("Move to trash"), lambda: store.trash(r["id"], done=self.m.load), True)]
+
+    def row_menu(self, widget, r):
+        menu_popover(widget, self.row_entries(r)).popup()
 
     def attach_menu(self, widget, r):
-        g = Gtk.GestureClick(button=3)
-        g.connect("pressed", lambda gs, n, x, y: self.row_menu(widget, x, y, r))
-        widget.add_controller(g)
+        """Rechtsklick, langes Druecken (Touch) und Menue-Taste/Umschalt+F10"""
+        context_menu(widget, lambda w: self.row_menu(w, r))
+
+    def more(self, r):
+        """sichtbarer "⋮"-Knopf fuer das Zeilen-Menue"""
+        return more_button(lambda: self.row_entries(r), _("Entry actions"))
 
     def open(self, r, rows=None):
         self.win.open_entry(r["id"], (self.view or {}).get("open") or "side", [x["id"] for x in (rows or self.rows)])
@@ -837,6 +849,7 @@ class TableView(Gtk.ScrolledWindow, RowMenuMixin):
         tc.append(en)
         ob = flat_button(icon="adw-external-link-symbolic", tooltip=_("Open"), css="hk-tiny", cb=lambda r=r: self.open(r))
         tc.append(ob)
+        tc.append(self.more(r))
         row.append(self._cell("title", tc))
         for p in self.cols:
             v = m.value(p, r)
@@ -888,7 +901,8 @@ class ListView(Gtk.Box, RowMenuMixin):
             b.add_css_class("hk-plain")
             b.connect("clicked", lambda *_, r=r: self.open(r))
             row.append(b)
-            self.attach_menu(row, r)
+            row.append(self.more(r))
+            self.attach_menu(b, r)
             self.append(row)
             self.append(Gtk.Separator())
         if not self.rows:
@@ -1210,7 +1224,7 @@ class EditableProps(Gtk.Grid):
         props = dict(doc.props)
         props[p["id"]] = v
         doc.page["props"] = props
-        store.run("PATCH", f"api/notes/{doc.id}", {"props": {p["id"]: v}}, data_changed=True,
+        store.run("PATCH", f"api/notes/{doc.id}", {"props": {p["id"]: v}}, data_changed=True, key=("note", doc.id),
                   done=lambda _: store.drop_cache(f"api/notes/{doc.id}"))
         GLib.idle_add(lambda: (self.view.rebuild(), False)[1])
 

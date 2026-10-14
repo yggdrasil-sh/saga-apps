@@ -39,7 +39,7 @@
     <string name="app_too_old_banner">Esta app es demasiado antigua para el servidor (requiere %1$s o posterior): actualízala.</string>
 
     <!-- Anmeldung -->
-    <string name="login_subtitle">Inicia sesión con una llave de acceso o contraseña en el navegador</string>
+    <string name="login_subtitle">Inicia sesión en el navegador, con lo que ofrezca tu servidor (contraseña, SSO…)</string>
     <string name="login_server_label">Servidor</string>
     <string name="login_button">Iniciar sesión</string>
     <string name="login_button_busy">Iniciando sesión…</string>
@@ -124,7 +124,7 @@
 
     <!-- Einstellungen -->
     <string name="settings_server">Servidor</string>
-    <string name="settings_server_change_hint">Para cambiar de servidor, cierra sesión y vuelve a iniciarla</string>
+    <string name="settings_server_change_hint">Para cambiar de servidor o cuenta, cierra sesión y vuelve a iniciarla (o escanea un código QR nuevo).</string>
     <string name="settings_about">Acerca de</string>
     <string name="settings_app">App</string>
     <string name="settings_app_too_old">Esta app es más antigua de lo que espera el servidor (%1$s o posterior). Actualiza la app.</string>
@@ -153,7 +153,6 @@
     <string name="page_reload_failed">Error al recargar: %1$s</string>
     <string name="page_unreadable">No se puede leer el contenido de la página</string>
     <string name="save_sign_in">No guardado: inicia sesión.</string>
-    <string name="save_conflict">La página se modificó en otro lugar mientras tanto y se ha recargado. Tu último cambio no se aplicó.</string>
     <string name="save_locked">La página está bloqueada: cambio no guardado.</string>
     <string name="save_failed">No guardado: %1$s</string>
     <string name="save_failed_retry">No guardado: %1$s. Se reintentará en breve.</string>
@@ -199,4 +198,69 @@
     <string name="blocktype_columns">Columnas</string>
     <string name="blocktype_unknown">Bloque desconocido</string>
     <string name="blocktype_named">«%1$s»</string>
+
+    <!-- Review-Korrekturen 14.10.2026: Kopplung, Speichern, Konflikt, Barrierefreiheit, Teilen -->
+    <string name="server_placeholder">p. ej. saga.example.org</string>
+    <string name="login_server_hint">Dirección de tu servidor Saga; https:// se añade automáticamente</string>
+    <string name="login_no_device_token">El servidor no devolvió un inicio de sesión del dispositivo. Actualiza el servidor.</string>
+    <string name="login_not_saga">No hay ningún servidor Saga en esta dirección. Revisa la dirección.</string>
+    <string name="login_probe_failed">No se puede acceder al servidor: %1$s</string>
+    <string name="error_certificate">El certificado del servidor no es de confianza. Si usas tu propia CA, instala su certificado en los ajustes de Android (Seguridad → Cifrado y credenciales).</string>
+    <string name="error_no_https">El servidor no responde por https. Revisa la dirección y el puerto.</string>
+    <string name="action_undo">Deshacer</string>
+    <string name="action_open">Abrir</string>
+    <string name="task_done_message">Tarea completada</string>
+    <string name="task_not_saved">Tarea no guardada: %1$s</string>
+    <string name="task_edit">Editar</string>
+    <string name="state_expanded">desplegado</string>
+    <string name="state_collapsed">plegado</string>
+    <string name="page_actions">Acciones de la página</string>
+    <string name="conflict_banner">La página se cambió en otro lugar: toca para decidir</string>
+    <string name="conflict_title">La página se cambió en otro lugar</string>
+    <string name="conflict_text">Esta página se cambió mientras tanto en otro dispositivo. Tus cambios no se perderán.</string>
+    <string name="conflict_keep_mine">Conservar mi versión</string>
+    <string name="conflict_save_copy">Cargar la versión del servidor (guardar la mía como copia)</string>
+    <string name="conflict_copy_title">%1$s (mi versión)</string>
+    <string name="conflict_copy_saved">Tu versión se guardó como página nueva.</string>
+    <string name="save_state_saved">Guardado</string>
+    <string name="save_state_pending">Guardando…</string>
+    <string name="save_state_unsaved">Sin guardar</string>
+    <string name="page_archive">Archivar</string>
+    <string name="page_archived">Página archivada</string>
+    <string name="page_trash">Mover a la papelera</string>
+    <string name="page_trash_confirm">¿Mover la página a la papelera?</string>
+    <string name="page_trash_text">Las subpáginas también. Puedes restaurarlas desde la papelera en la web.</string>
+    <string name="page_trashed">Página movida a la papelera</string>
+    <string name="format_bold">Negrita</string>
+    <string name="format_italic">Cursiva</string>
+    <string name="format_underline">Subrayado</string>
+    <string name="format_strike">Tachado</string>
+    <string name="format_bold_short">N</string>
+    <string name="format_italic_short">K</string>
+    <string name="format_underline_short">S</string>
+    <string name="format_strike_short">T</string>
+    <string name="pair_confirm_title">¿Vincular con este servidor?</string>
+    <string name="pair_switch_warning">Ahora tienes la sesión iniciada en %1$s y se cerrará allí.</string>
+    <string name="pair_confirm_trust">Continúa solo si acabas de crear tú este código QR o enlace en Saga (Ajustes → Apps y dispositivos).</string>
+    <string name="pair_confirm_button">Vincular</string>
+    <string name="settings_account">Cuenta</string>
+    <string name="settings_signed_in_as">Sesión iniciada como %1$s</string>
+    <string name="settings_on_server">en %1$s</string>
+    <string name="share_title">Guardar en Saga</string>
+    <string name="share_as_task">Como tarea</string>
+    <string name="share_as_page">Como página nueva</string>
+    <string name="share_saved_task">Guardado como tarea</string>
+    <string name="share_saved_page">Guardado como página</string>
+    <string name="share_sign_in_first">Inicia sesión en Saga primero.</string>
+    <plurals name="pair_drafts_kept">
+        <item quantity="one">%d cambio sin guardar se queda en este dispositivo y se guardará cuando vuelvas a iniciar sesión con esta cuenta.</item>
+        <item quantity="many">%d cambios sin guardar se quedan en este dispositivo y se guardarán cuando vuelvas a iniciar sesión con esta cuenta.</item>
+        <item quantity="other">%d cambios sin guardar se quedan en este dispositivo y se guardarán cuando vuelvas a iniciar sesión con esta cuenta.</item>
+    </plurals>
+    <string name="share_page_title_label">Título</string>
+    <string name="pair_confirm_text">Saga iniciará sesión en %1$s.</string>
+    <string name="draft_banner">Cambios sin guardar del %1$s</string>
+    <string name="draft_restore">Restaurar</string>
+    <string name="draft_discard">Descartar</string>
+    <string name="offline_hint">Sin conexión: los cambios se guardarán en cuanto el servidor esté disponible.</string>
 </resources>

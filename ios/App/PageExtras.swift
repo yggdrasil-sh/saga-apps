@@ -22,7 +22,7 @@ struct TagsRow: View {
             ForEach(tags, id: \.self) { t in
                 HStack(spacing: 3) {
                     Text("#" + t).font(.caption)
-                    if !ed.locked { Button { set(tags.filter { $0 != t }) } label: { Image(systemName: "xmark").font(.caption2) }.buttonStyle(.plain).foregroundStyle(.secondary) }
+                    if !ed.locked { Button { set(tags.filter { $0 != t }) } label: { Image(systemName: "xmark").font(.caption2) }.buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Tag entfernen") }
                 }
                 .padding(.horizontal, 7).padding(.vertical, 2).background(.secondary.opacity(0.15), in: Capsule())
             }
@@ -96,16 +96,22 @@ struct VersionsSheet: View {
     @State private var sel: Int?
     @State private var prev: P?
     @State private var loaded = false
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var hsc
+    private var compact: Bool { hsc == .compact }
+    #else
+    private let compact = false
+    #endif
     var body: some View {
         NavigationStack {
-            HStack(spacing: 0) {
+            (compact ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))) {     // iPhone: Liste oben, Vorschau darunter
                 List(list, selection: $sel) { v in
                     VStack(alignment: .leading) {
                         Text(Date(timeIntervalSince1970: v.created).formatted(date: .abbreviated, time: .shortened)).font(.subheadline)
                         Text(v.title.isEmpty ? String(localized: "Unbenannt") : v.title).font(.caption).foregroundStyle(.secondary)
                     }.tag(v.id)
                 }
-                .frame(width: 230)
+                .frame(width: compact ? nil : 230, height: compact ? 220 : nil)
                 Divider()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
@@ -130,7 +136,7 @@ struct VersionsSheet: View {
                 }
             }
         }
-        .frame(minWidth: 680, minHeight: 440)
+        .macFrame(minWidth: 680, minHeight: 440)
         .task {
             if let d = try? await store.api("api/notes/\(id)/versions"), let l = try? JSONDecoder().decode([V].self, from: d) { list = l }
             loaded = true

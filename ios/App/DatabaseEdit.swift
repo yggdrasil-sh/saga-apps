@@ -40,18 +40,41 @@ extension DBModel {
     var schemaProps: [[String: Any]] { schema["props"] as? [[String: Any]] ?? [] }
     var schemaViews: [[String: Any]] { schema["views"] as? [[String: Any]] ?? [] }
 
-    /// Schema aendern: sofort anzeigen, dann speichern (Server-Fassung gewinnt danach)
-    func editSchema(_ store: Store, _ change: (inout [String: Any]) -> Void) {
+    /// Schema aendern: sofort anzeigen, dann entprellt speichern (z. B. Umbenennen: ein PATCH statt einer pro Taste).
+    /// Der Server kennt fuer das Schema keine Revision - deshalb vor dem Senden den aktuellen Server-Stand holen und
+    /// die eigenen Aenderungen darauf anwenden (so gehen parallele Aenderungen aus dem Web, z. B. neue Spalten, nicht verloren).
+    func editSchema(_ store: Store, _ change: @escaping (inout [String: Any]) -> Void) {
         var sc = schema
         if sc["props"] == nil { sc["props"] = [] as [[String: Any]] }
         change(&sc)
         schema = sc
         props = schemaProps.map(DBProp.init); views = schemaViews
-        Task {
-            do { _ = try await store.api("api/notes/\(dbID)", method: "PATCH", body: ["schema": sc]); store.dataChanged() }
-            catch { self.error = error.localizedDescription }
-            await load(store)
+        pendingSchema.append(change)
+        schemaDebounce?.cancel()
+        schemaDebounce = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled, let self else { return }
+            Task { await self.schemaQueue.run { await self.flushSchema(store) } }   // eigene Task: wird durch neue Eingaben nicht abgebrochen
         }
+    }
+    /// Offene Schema-Aenderungen senden (auf den frischen Server-Stand angewandt)
+    func flushSchema(_ store: Store) async {
+        guard !pendingSchema.isEmpty else { return }
+        let changes = pendingSchema
+        var base = schema
+        if let d = try? await store.api("api/notes/\(dbID)/rows"), let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+           let s = j["schema"] as? [String: Any] { base = s }
+        if base["props"] == nil { base["props"] = [] as [[String: Any]] }
+        for c in changes { c(&base) }
+        do {
+            _ = try await store.api("api/notes/\(dbID)", method: "PATCH", body: ["schema": base])
+            pendingSchema.removeFirst(min(changes.count, pendingSchema.count))
+            store.dataChanged()
+        } catch {
+            pendingSchema.removeFirst(min(changes.count, pendingSchema.count))   // abgelehnt (z. B. gesperrt): Server-Stand zeigen
+            self.error = error.localizedDescription
+        }
+        if pendingSchema.isEmpty { await load(store) }
     }
     func editProp(_ store: Store, _ id: String, _ change: @escaping (inout [String: Any]) -> Void) {
         editSchema(store) { sc in
@@ -152,7 +175,7 @@ struct ColumnEditor: View {
                                 ForEach(dbColors, id: \.self) { c in Button(dbColorNames[c] ?? c) { setOpt(i) { $0["color"] = c } } }
                                 Divider()
                                 Button("Option löschen", role: .destructive) { m.editProp(store, pid) { d in var os = d["options"] as? [[String: Any]] ?? []; if i < os.count { os.remove(at: i) }; d["options"] = os } }
-                            } label: { Image(systemName: "ellipsis.circle") }.menuIndicator(.hidden).fixedSize()
+                            } label: { Image(systemName: "ellipsis.circle") }.menuIndicator(.hidden).fixedSize().accessibilityLabel("Optionen")
                         }
                     }
                     HStack {
@@ -186,7 +209,7 @@ struct ColumnEditor: View {
             }
         }
         .formStyle(.grouped)
-        .frame(minWidth: 320, minHeight: 260)
+        .macFrame(minWidth: 320, minHeight: 260)
         .onAppear { name = p["name"] as? String ?? "" }
         .onDisappear { saveName() }
     }
@@ -217,7 +240,7 @@ struct AddColumnMenu: View {
                 ForEach(store.pages.filter(\.isDatabase)) { d in Button(d.label) { m.addProp(store, type: "relation", target: d.id, targetName: d.label) } }
             }
         } label: { Image(systemName: "plus").foregroundStyle(.secondary) }
-            .menuIndicator(.hidden).fixedSize().help("Spalte hinzufügen")
+            .menuIndicator(.hidden).fixedSize().help("Spalte hinzufügen").accessibilityLabel("Spalte hinzufügen")
     }
 }
 
@@ -233,62 +256,144 @@ struct DBViewBar: View {
     @State private var settings = false
     @State private var renaming: String?
     @State private var newName = ""
+    @State private var searching = false
+    @FocusState private var searchFocus: Bool
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var hsc
+    private var compact: Bool { hsc == .compact }
+    #else
+    private let compact = false
+    #endif
     private var curID: String { current ?? (views.first?["id"] as? String ?? "") }
     private var view: [String: Any]? { views.first { $0["id"] as? String == curID } ?? views.first }
+    private var canEdit: Bool { editable && !m.locked }
 
     var body: some View {
-        HStack(spacing: 6) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 2) {
-                    ForEach(views.indices, id: \.self) { i in
-                        let v = views[i], id = v["id"] as? String ?? ""
-                        Button { current = id } label: {
-                            Label(v["name"] as? String ?? String(localized: "Ansicht"), systemImage: viewSymbol(v["type"] as? String))
-                                .font(.subheadline.weight(id == curID ? .semibold : .regular))
-                                .padding(.horizontal, 8).padding(.vertical, 4)
-                                .background(id == curID ? Color.secondary.opacity(0.16) : .clear, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            if editable && !m.locked {
-                                Button("Umbenennen") { newName = v["name"] as? String ?? ""; renaming = id }
-                                Button("Duplizieren") { if let n = m.duplicateView(store, id) { current = n } }
-                                Menu("Layout") { ForEach(viewTypes, id: \.0) { t in Button { m.editView(store, id) { $0["type"] = t.0 } } label: { Label(t.1, systemImage: t.2) } } }
-                                if views.count > 1 { Divider(); Button("Ansicht löschen", role: .destructive) { m.deleteView(store, id); current = nil } }
-                            }
-                        }
+        Group {
+            if compact {
+                // iPhone: Ansicht als Menue (nichts wird abgeschnitten), Suche hinter der Lupe
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 10) {
+                        viewMenu
+                        Spacer(minLength: 4)
+                        searchButton
+                        settingsButton
+                        newButton
                     }
-                    if editable && !m.locked {
-                        Menu {
-                            ForEach(viewTypes, id: \.0) { t in Button { current = m.addView(store, type: t.0) } label: { Label(t.1, systemImage: t.2) } }
-                        } label: { Image(systemName: "plus").foregroundStyle(.secondary) }.menuIndicator(.hidden).fixedSize().help("Ansicht hinzufügen")
-                    }
+                    if searching || !m.search.isEmpty { searchField.frame(maxWidth: .infinity) }
                 }
-            }
-            Spacer(minLength: 4)
-            TextField("Suchen", text: $m.search).textFieldStyle(.roundedBorder).frame(maxWidth: 160)
-            if editable && !m.locked {
-                Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.buttonStyle(.plain).foregroundStyle(.secondary)
-                    .help("Ansicht: Filter, Sortierung, Eigenschaften")
-                    .popover(isPresented: $settings, arrowEdge: .bottom) { if let id = view?["id"] as? String { ViewSettings(m: m, viewID: id) } }
-            }
-            if m.templates.isEmpty {
-                Button("Neu") { onNew(nil) }.buttonStyle(.borderedProminent).controlSize(.small)
             } else {
-                Menu("Neu") {
-                    Button("Leerer Eintrag") { onNew(nil) }
-                    Section("Vorlagen") {
-                        ForEach(m.templates) { t in Button((t.icon.count <= 4 && !t.icon.isEmpty ? t.icon + " " : "") + (t.title.isEmpty ? String(localized: "Vorlage") : t.title)) {
-                            Task { if let id = await m.newFromTemplate(store, t) { onNew(id) } } } }
-                    }
-                } primaryAction: { onNew(nil) }
-                .menuStyle(.button).buttonStyle(.borderedProminent).controlSize(.small).fixedSize()
+                HStack(spacing: 6) {
+                    tabs.layoutPriority(1)
+                    Spacer(minLength: 4)
+                    searchField.frame(maxWidth: 160)
+                    settingsButton
+                    newButton
+                }
             }
         }
         .alert("Ansicht umbenennen", isPresented: Binding(get: { renaming != nil }, set: { if !$0 { renaming = nil } })) {
             TextField("Name", text: $newName)
             Button("Sichern") { if let id = renaming { let n = newName; m.editView(store, id) { $0["name"] = n } }; renaming = nil }
             Button("Abbrechen", role: .cancel) { renaming = nil }
+        }
+    }
+
+    private var tabs: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 2) {
+                ForEach(views.indices, id: \.self) { i in
+                    let v = views[i], id = v["id"] as? String ?? ""
+                    Button { current = id } label: {
+                        Label(v["name"] as? String ?? String(localized: "Ansicht"), systemImage: viewSymbol(v["type"] as? String))
+                            .font(.subheadline.weight(id == curID ? .semibold : .regular))
+                            .padding(.horizontal, 8).padding(.vertical, 4)
+                            .background(id == curID ? Color.secondary.opacity(0.16) : .clear, in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(id == curID ? .isSelected : [])
+                    .contextMenu { if canEdit { viewActions(v, id) } }
+                }
+                if canEdit { addViewMenu }
+            }
+        }
+    }
+
+    /// iPhone: aktuelle Ansicht als Knopf mit Menue (wechseln, anlegen, umbenennen ...)
+    private var viewMenu: some View {
+        Menu {
+            ForEach(views.indices, id: \.self) { i in
+                let v = views[i], id = v["id"] as? String ?? ""
+                Button { current = id } label: {
+                    Label(v["name"] as? String ?? String(localized: "Ansicht"), systemImage: id == curID ? "checkmark" : viewSymbol(v["type"] as? String))
+                }
+            }
+            if canEdit {
+                Divider()
+                Menu { ForEach(viewTypes, id: \.0) { t in Button { current = m.addView(store, type: t.0) } label: { Label(t.1, systemImage: t.2) } } }
+                    label: { Label("Ansicht hinzufügen", systemImage: "plus") }
+                if let v = view, let id = v["id"] as? String { Section { viewActions(v, id) } }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Label(view?["name"] as? String ?? String(localized: "Ansicht"), systemImage: viewSymbol(view?["type"] as? String))
+                    .font(.subheadline.weight(.semibold)).lineLimit(1)
+                Image(systemName: "chevron.down").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(Color.secondary.opacity(0.14), in: Capsule())
+        }
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .accessibilityLabel(String(localized: "Ansicht: \(view?["name"] as? String ?? String(localized: "Ansicht"))"))
+    }
+
+    @ViewBuilder private func viewActions(_ v: [String: Any], _ id: String) -> some View {
+        Button("Umbenennen") { newName = v["name"] as? String ?? ""; renaming = id }
+        Button("Duplizieren") { if let n = m.duplicateView(store, id) { current = n } }
+        Menu("Layout") { ForEach(viewTypes, id: \.0) { t in Button { m.editView(store, id) { $0["type"] = t.0 } } label: { Label(t.1, systemImage: t.2) } } }
+        if views.count > 1 { Divider(); Button("Ansicht löschen", role: .destructive) { m.deleteView(store, id); current = nil } }
+    }
+
+    private var addViewMenu: some View {
+        Menu {
+            ForEach(viewTypes, id: \.0) { t in Button { current = m.addView(store, type: t.0) } label: { Label(t.1, systemImage: t.2) } }
+        } label: { Image(systemName: "plus").foregroundStyle(.secondary) }
+            .menuIndicator(.hidden).fixedSize().help("Ansicht hinzufügen").accessibilityLabel("Ansicht hinzufügen")
+    }
+
+    private var searchField: some View {
+        TextField("Suchen", text: $m.search).textFieldStyle(.roundedBorder).focused($searchFocus)
+            .onSubmit { if m.search.isEmpty { searching = false } }
+    }
+    private var searchButton: some View {
+        Button { searching.toggle(); if searching { searchFocus = true } else { m.search = "" } } label: {
+            Image(systemName: searching || !m.search.isEmpty ? "xmark.circle" : "magnifyingglass")
+        }
+        .buttonStyle(.plain).foregroundStyle(.secondary)
+        .accessibilityLabel(searching ? "Suche schließen" : "Suchen")
+    }
+
+    @ViewBuilder private var settingsButton: some View {
+        if canEdit {
+            Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.buttonStyle(.plain).foregroundStyle(.secondary)
+                .help("Ansicht: Filter, Sortierung, Eigenschaften")
+                .accessibilityLabel("Ansicht: Filter, Sortierung, Eigenschaften")
+                .popover(isPresented: $settings, arrowEdge: .bottom) { if let id = view?["id"] as? String { ViewSettings(m: m, viewID: id) } }
+        }
+    }
+
+    @ViewBuilder private var newButton: some View {
+        if m.templates.isEmpty {
+            Button("Neu") { onNew(nil) }.prominentGold().controlSize(.small)
+        } else {
+            Menu("Neu") {
+                Button("Leerer Eintrag") { onNew(nil) }
+                Section("Vorlagen") {
+                    ForEach(m.templates) { t in Button((t.icon.count <= 4 && !t.icon.isEmpty ? t.icon + " " : "") + (t.title.isEmpty ? String(localized: "Vorlage") : t.title)) {
+                        Task { if let id = await m.newFromTemplate(store, t) { onNew(id) } } } }
+                }
+            } primaryAction: { onNew(nil) }
+            .menuStyle(.button).prominentGold().controlSize(.small).fixedSize()
         }
     }
 }
@@ -354,7 +459,7 @@ struct ViewSettings: View {
                         Picker("", selection: Binding(get: { s["dir"] as? String ?? "asc" }, set: { dir in set { d in var ss = d["sorts"] as? [[String: Any]] ?? []; if i < ss.count { ss[i]["dir"] = dir }; d["sorts"] = ss } })) {
                             Text("Aufsteigend").tag("asc"); Text("Absteigend").tag("desc")
                         }.labelsHidden().fixedSize()
-                        Button { set { d in var ss = d["sorts"] as? [[String: Any]] ?? []; if i < ss.count { ss.remove(at: i) }; d["sorts"] = ss.isEmpty ? nil : ss } } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }.buttonStyle(.plain)
+                        Button { set { d in var ss = d["sorts"] as? [[String: Any]] ?? []; if i < ss.count { ss.remove(at: i) }; d["sorts"] = ss.isEmpty ? nil : ss } } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }.buttonStyle(.plain).accessibilityLabel("Sortierung entfernen")
                     }
                 }
                 if sorts.count < 3 {
@@ -369,7 +474,7 @@ struct ViewSettings: View {
             }
         }
         .formStyle(.grouped)
-        .frame(minWidth: 380, minHeight: 420)
+        .macFrame(minWidth: 380, minHeight: 420)
     }
 }
 
@@ -411,7 +516,7 @@ struct FilterRow: View {
             Spacer(minLength: 0)
             Button {
                 m.editView(store, viewID) { d in var fs = d["filters"] as? [[String: Any]] ?? []; if index < fs.count { fs.remove(at: index) }; d["filters"] = fs.isEmpty ? nil : fs }
-            } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }.buttonStyle(.plain)
+            } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }.buttonStyle(.plain).accessibilityLabel("Filter entfernen")
         }
     }
 }

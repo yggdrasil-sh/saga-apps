@@ -3,8 +3,14 @@ import PhotosUI
 
 // MARK: - Inline: gespeichertes HTML <-> Bearbeitungs-Text (markdown-artig, verlustfrei fuer unsere Tags)
 
+/// Einmal uebersetzte Muster (htmlToMD/mdToHTML laufen bei jedem Bearbeiten)
+private let reCacheLock = NSLock()
+nonisolated(unsafe) private var reCache: [String: NSRegularExpression] = [:]
 private func reReplace(_ s: String, _ pattern: String, _ tmpl: String) -> String {
-    let re = try! NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators, .caseInsensitive])
+    reCacheLock.lock()
+    let re: NSRegularExpression
+    if let c = reCache[pattern] { re = c } else { re = try! NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators, .caseInsensitive]); reCache[pattern] = re }
+    reCacheLock.unlock()
     return re.stringByReplacingMatches(in: s, range: NSRange(s.startIndex..., in: s), withTemplate: tmpl)
 }
 
@@ -57,13 +63,13 @@ final class PageEditor: ObservableObject {
     let doc: PageDoc
     weak var store: Store?
     private var saveTask: Task<Void, Never>?
-    init(doc: PageDoc) { self.doc = doc }
+    init(doc: PageDoc) { self.doc = doc; SaveRegistry.add(self) }
 
     /// Strukturaenderung (Block einfuegen/loeschen/verschieben/Haken): Seite neu zeichnen + speichern
     func changed() { doc.objectWillChange.send(); textChanged() }
     /// Tippen: NUR speichern - das Textfeld zeigt den Text selbst, die Seite muss nicht neu gezeichnet werden
     func textChanged() {
-        doc.dirty = true
+        doc.markEdited()
         saveTask?.cancel()
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(700))
@@ -71,6 +77,7 @@ final class PageEditor: ObservableObject {
             await self.doc.save(store)
         }
     }
+    /// Sofort speichern (Verlassen, Hintergrund, Beenden) und warten, bis es durch ist
     func flush() async { saveTask?.cancel(); if let store { await doc.save(store) } }
 
     var focusedBlock: String? { focus?.split(separator: "/").first.map(String.init) }

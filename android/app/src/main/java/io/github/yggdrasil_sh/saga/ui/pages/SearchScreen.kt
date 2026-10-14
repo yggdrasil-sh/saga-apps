@@ -42,6 +42,7 @@ import io.github.yggdrasil_sh.saga.ui.common.SagaTopBar
 import io.github.yggdrasil_sh.saga.ui.nav.AppNavigator
 import io.github.yggdrasil_sh.saga.ui.nav.Dest
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 
 /** Volltextsuche in Titel, Tags und Inhalt (POST /api/notes/search), ab 2 Zeichen, nach kurzer Tipp-Pause */
 @Composable
@@ -57,11 +58,14 @@ fun SearchScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         if (q.trim().length < 2) {
             results = emptyList()
             searched = false
+            error = null
             return@LaunchedEffect
         }
         try {
             results = repo.search(q)
             error = null
+        } catch (e: CancellationException) {
+            throw e                                          // schneller getippt: neuer Suchlauf, kein Fehler
         } catch (e: Exception) {
             error = repo.friendly(e)
         }

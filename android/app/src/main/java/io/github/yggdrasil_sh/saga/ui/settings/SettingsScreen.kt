@@ -40,11 +40,17 @@ import io.github.yggdrasil_sh.saga.ui.common.SectionHeader
 import io.github.yggdrasil_sh.saga.ui.common.epochDay
 import io.github.yggdrasil_sh.saga.ui.nav.AppNavigator
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.CancellationException
+import io.github.yggdrasil_sh.saga.auth.PairLink
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Icon
 
 /** Einstellungen: Server, Versionen, Apps & Geraete, Abmelden */
 @Composable
 fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val server by repo.server.collectAsState()
+    val account by repo.account.collectAsState()
     val serverVersion by repo.serverVersion.collectAsState()
     val minApp by repo.minApp.collectAsState()
     var apps by remember { mutableStateOf<AppsResponse?>(null) }
@@ -57,6 +63,8 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         try {
             apps = repo.apps()
             appsError = null
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             appsError = repo.friendly(e)
         }
@@ -69,8 +77,22 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_settings), nav, chrome) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
-            item { SectionHeader(stringResource(R.string.settings_server), w) }
-            item { ListItem(headlineContent = { Text(server.ifEmpty { "–" }) }, supportingContent = { Text(stringResource(R.string.settings_server_change_hint)) }, modifier = w) }
+            item { SectionHeader(stringResource(R.string.settings_account), w) }
+            item {
+                // Mit welchem Konto auf welchem Server angemeldet (Schutz vor unbemerktem Kontowechsel)
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_signed_in_as, account.ifEmpty { "–" })) },
+                    supportingContent = { Text(stringResource(R.string.settings_on_server, PairLink.displayHost(server).ifEmpty { "–" })) },
+                    leadingContent = { Icon(Icons.Filled.Person, null) },
+                    modifier = w,
+                )
+            }
+            item {
+                Text(
+                    stringResource(R.string.settings_server_change_hint), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = w.padding(horizontal = 16.dp),
+                )
+            }
 
             item { SectionHeader(stringResource(R.string.settings_about), w) }
             item { ListItem(headlineContent = { Text(stringResource(R.string.settings_app)) }, trailingContent = { Text("Saga ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") }, modifier = w) }
@@ -143,6 +165,8 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     scope.launch {
                         try {
                             repo.deleteDevice(d.id)
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             appsError = repo.friendly(e)
                         }
@@ -158,7 +182,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             onDismissRequest = { confirmLogout = false },
             title = { Text(stringResource(R.string.settings_sign_out_this_device)) },
             confirmButton = {
-                TextButton(onClick = { confirmLogout = false; scope.launch { repo.logout() } }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) }
+                TextButton(onClick = { confirmLogout = false; repo.launchAction { repo.logout() } }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text(stringResource(R.string.action_cancel)) } },
         )

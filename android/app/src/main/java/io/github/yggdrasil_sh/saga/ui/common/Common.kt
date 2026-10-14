@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -77,7 +78,8 @@ fun SectionHeader(text: String, modifier: Modifier = Modifier) {
 @Composable
 fun PageIcon(icon: String?, repo: SagaRepository, isDatabase: Boolean = false, size: Dp = 22.dp) {
     val ic = icon?.trim().orEmpty()
-    Box(Modifier.size(size), contentAlignment = Alignment.Center) {
+    // Mindestgroesse statt fester Groesse: Emoji waechst mit der Schriftgroesse mit und wird nicht abgeschnitten
+    Box(Modifier.defaultMinSize(size, size), contentAlignment = Alignment.Center) {
         if (ic.startsWith("/files/")) {
             AsyncImage(
                 model = repo.absoluteUrl(if (ic.contains("?")) ic else "$ic?w=160"), contentDescription = null,

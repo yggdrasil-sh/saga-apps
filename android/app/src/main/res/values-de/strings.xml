@@ -39,7 +39,7 @@
     <string name="app_too_old_banner">Diese App ist zu alt für den Server (ab %1$s) – bitte aktualisieren.</string>
 
     <!-- Anmeldung -->
-    <string name="login_subtitle">Anmelden mit Passkey oder Passwort im Browser</string>
+    <string name="login_subtitle">Anmelden im Browser – so, wie es dein Server anbietet (Passwort, SSO …)</string>
     <string name="login_server_label">Server</string>
     <string name="login_button">Anmelden</string>
     <string name="login_button_busy">Anmelden …</string>
@@ -123,7 +123,7 @@
 
     <!-- Einstellungen -->
     <string name="settings_server">Server</string>
-    <string name="settings_server_change_hint">Zum Wechseln abmelden und neu anmelden</string>
+    <string name="settings_server_change_hint">Zum Wechseln von Server oder Konto abmelden und neu anmelden (oder neuen QR-Code scannen).</string>
     <string name="settings_about">Über</string>
     <string name="settings_app">App</string>
     <string name="settings_app_too_old">Diese App ist älter als der Server erwartet (ab %1$s). Bitte die App aktualisieren.</string>
@@ -152,7 +152,6 @@
     <string name="page_reload_failed">Neu laden fehlgeschlagen: %1$s</string>
     <string name="page_unreadable">Seiteninhalt nicht lesbar</string>
     <string name="save_sign_in">Nicht gespeichert – bitte anmelden.</string>
-    <string name="save_conflict">Die Seite wurde inzwischen woanders geändert – neu geladen. Deine letzte Änderung wurde nicht übernommen.</string>
     <string name="save_locked">Seite ist gesperrt – Änderung nicht gespeichert.</string>
     <string name="save_failed">Nicht gespeichert: %1$s</string>
     <string name="save_failed_retry">Nicht gespeichert: %1$s – neuer Versuch gleich.</string>
@@ -197,4 +196,68 @@
     <string name="blocktype_columns">Spalten</string>
     <string name="blocktype_unknown">Unbekannter Block</string>
     <string name="blocktype_named">„%1$s“</string>
+
+    <!-- Review-Korrekturen 14.10.2026: Kopplung, Speichern, Konflikt, Barrierefreiheit, Teilen -->
+    <string name="server_placeholder">z. B. saga.example.org</string>
+    <string name="login_server_hint">Adresse deines Saga-Servers – https:// wird automatisch ergänzt</string>
+    <string name="login_no_device_token">Der Server hat keine Geräte-Anmeldung geliefert. Bitte den Server aktualisieren.</string>
+    <string name="login_not_saga">Unter dieser Adresse läuft kein Saga-Server. Bitte die Adresse prüfen.</string>
+    <string name="login_probe_failed">Server nicht erreichbar: %1$s</string>
+    <string name="error_certificate">Das Zertifikat des Servers ist nicht vertrauenswürdig. Bei eigener CA deren Zertifikat in den Android-Einstellungen installieren (Sicherheit → Verschlüsselung &amp; Anmeldedaten).</string>
+    <string name="error_no_https">Der Server antwortet nicht über https. Bitte Adresse und Port prüfen.</string>
+    <string name="action_undo">Rückgängig</string>
+    <string name="action_open">Öffnen</string>
+    <string name="task_done_message">Aufgabe erledigt</string>
+    <string name="task_not_saved">Aufgabe nicht gespeichert: %1$s</string>
+    <string name="task_edit">Bearbeiten</string>
+    <string name="state_expanded">aufgeklappt</string>
+    <string name="state_collapsed">zugeklappt</string>
+    <string name="page_actions">Seitenaktionen</string>
+    <string name="conflict_banner">Seite wurde woanders geändert – zum Entscheiden tippen</string>
+    <string name="conflict_title">Seite wurde woanders geändert</string>
+    <string name="conflict_text">Diese Seite wurde inzwischen auf einem anderen Gerät geändert. Deine Änderungen gehen nicht verloren.</string>
+    <string name="conflict_keep_mine">Meine Fassung behalten</string>
+    <string name="conflict_save_copy">Server-Fassung laden (meine als Kopie sichern)</string>
+    <string name="conflict_copy_title">%1$s (meine Fassung)</string>
+    <string name="conflict_copy_saved">Deine Fassung wurde als neue Seite gesichert.</string>
+    <string name="save_state_saved">Gespeichert</string>
+    <string name="save_state_pending">Speichert…</string>
+    <string name="save_state_unsaved">Nicht gespeichert</string>
+    <string name="page_archive">Archivieren</string>
+    <string name="page_archived">Seite archiviert</string>
+    <string name="page_trash">In den Papierkorb</string>
+    <string name="page_trash_confirm">Seite in den Papierkorb?</string>
+    <string name="page_trash_text">Unterseiten kommen mit. Im Web kannst du sie aus dem Papierkorb wiederherstellen.</string>
+    <string name="page_trashed">Seite im Papierkorb</string>
+    <string name="format_bold">Fett</string>
+    <string name="format_italic">Kursiv</string>
+    <string name="format_underline">Unterstrichen</string>
+    <string name="format_strike">Durchgestrichen</string>
+    <string name="format_bold_short">F</string>
+    <string name="format_italic_short">K</string>
+    <string name="format_underline_short">U</string>
+    <string name="format_strike_short">D</string>
+    <string name="pair_confirm_title">Mit diesem Server koppeln?</string>
+    <string name="pair_switch_warning">Du bist gerade bei %1$s angemeldet und wirst dort abgemeldet.</string>
+    <string name="pair_confirm_trust">Nur fortfahren, wenn du diesen QR-Code oder Link gerade selbst in Saga erzeugt hast (Einstellungen → Apps &amp; Geräte).</string>
+    <string name="pair_confirm_button">Koppeln</string>
+    <string name="settings_account">Konto</string>
+    <string name="settings_signed_in_as">Angemeldet als %1$s</string>
+    <string name="settings_on_server">bei %1$s</string>
+    <string name="share_title">In Saga sichern</string>
+    <string name="share_as_task">Als Aufgabe</string>
+    <string name="share_as_page">Als neue Seite</string>
+    <string name="share_saved_task">Als Aufgabe gesichert</string>
+    <string name="share_saved_page">Als Seite gesichert</string>
+    <string name="share_sign_in_first">Bitte zuerst in Saga anmelden.</string>
+    <plurals name="pair_drafts_kept">
+        <item quantity="one">%d ungespeicherte Seitenänderung bleibt auf dem Gerät und wird gespeichert, wenn du dich wieder mit diesem Konto anmeldest.</item>
+        <item quantity="other">%d ungespeicherte Seitenänderungen bleiben auf dem Gerät und werden gespeichert, wenn du dich wieder mit diesem Konto anmeldest.</item>
+    </plurals>
+    <string name="share_page_title_label">Titel</string>
+    <string name="pair_confirm_text">Saga meldet sich bei %1$s an.</string>
+    <string name="draft_banner">Nicht gespeicherte Änderungen vom %1$s</string>
+    <string name="draft_restore">Wiederherstellen</string>
+    <string name="draft_discard">Verwerfen</string>
+    <string name="offline_hint">Offline – Änderungen werden gespeichert, sobald der Server erreichbar ist.</string>
 </resources>

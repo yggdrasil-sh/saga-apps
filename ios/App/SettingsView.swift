@@ -9,6 +9,7 @@ struct SettingsView: View {
     @State private var token = AppConfig.token
     @State private var status = ""
     @State private var busy = false
+    @State private var askSwitch: URL?                    // anderer Server: erst nach Rueckfrage (meldet vom alten ab)
     #if os(macOS)
     @AppStorage("hk.coverHeight") private var coverHeight: Double = 200
     #endif
@@ -21,6 +22,10 @@ struct SettingsView: View {
                     .keyboardType(.URL).textInputAutocapitalization(.never)
                     #endif
                     .autocorrectionDisabled()
+                    .onSubmit { applyServer() }
+                if server.trimmingCharacters(in: .whitespacesAndNewlines) != AppConfig.serverString {
+                    Button("Server übernehmen …") { applyServer() }
+                }
             }
             Section {
                 SecureField("hk_…", text: $token)
@@ -58,6 +63,14 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Einstellungen")
+        .confirmationDialog("Server wechseln?", isPresented: Binding(get: { askSwitch != nil }, set: { if !$0 { askSwitch = nil } }), titleVisibility: .visible) {
+            Button("Abmelden und wechseln", role: .destructive) {
+                if let u = askSwitch { askSwitch = nil; Task { await store.switchServer(to: u); server = AppConfig.serverString; dismiss() } }
+            }
+            Button("Abbrechen", role: .cancel) { askSwitch = nil; server = AppConfig.serverString }
+        } message: {
+            Text("Du wirst vom bisherigen Server abgemeldet. Anmeldung, Schlüssel und Zwischenspeicher auf diesem Gerät werden gelöscht.")
+        }
         .toolbar {
             #if os(iOS)
             ToolbarItem(placement: .confirmationAction) { Button("Fertig") { save(); dismiss() } }
@@ -70,12 +83,18 @@ struct SettingsView: View {
     }
 
     @EnvironmentObject private var store: Store
-    private func save() {
-        if let u = URL(string: server.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))),
-           u.scheme == "https", u.host != nil, u != AppConfig.server {
-            AppConfig.server = u; Task { await store.serverChanged() }
+    /// Server-Adresse uebernehmen: gleicher Server -> sofort; anderer Server -> nachfragen, dann sauber abmelden
+    private func applyServer() {
+        guard let u = AppConfig.normalizedServer(server) else {
+            status = String(localized: "Bitte eine https-Adresse eingeben, z. B. https://saga.example.org"); return
         }
-        if !(token.isEmpty && AppConfig.hasToken) { AppConfig.token = token }   // automatisch eingetragenen Schluessel nicht leeren
+        guard u != AppConfig.server else { server = AppConfig.serverString; return }
+        if let cur = AppConfig.serverOrigin, cur != AppConfig.origin(u) { askSwitch = u }
+        else { Task { await store.switchServer(to: u); server = AppConfig.serverString } }
+    }
+    /// Nur den App-Schluessel sichern - die Server-Adresse aendert ausschliesslich "Server uebernehmen"
+    private func save() {
+        if !(token.isEmpty && AppConfig.hasToken) && token != AppConfig.token { AppConfig.token = token }   // automatisch eingetragenen Schluessel nicht leeren
         WidgetCenter.shared.reloadAllTimelines()
     }
     private func test() async {

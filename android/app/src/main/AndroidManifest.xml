@@ -30,6 +30,7 @@
         android:localeConfig="@xml/locales_config"
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:theme="@style/Theme.Saga"
         tools:targetApi="37">
 
@@ -49,6 +50,12 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="saga" android:host="auth" />
+            </intent-filter>
+            <!-- Teilen-Ziel: Text oder Link aus einer anderen App als Seite (Eingang) oder Aufgabe sichern -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
             </intent-filter>
             <!-- Kopplung per QR-Code (Link aus der Kamera-App): saga://pair?u=...&c=... -->
             <intent-filter>

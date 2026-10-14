@@ -31,13 +31,14 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
             deviceName = deviceName(),
             userAgent = "Saga-Android/${BuildConfig.VERSION_NAME}",
             appVersion = BuildConfig.VERSION_NAME,
+            filesDir = filesDir,
         )
     }
 
-    /** Bilder (/files/...) mit derselben Sitzung laden wie die API */
+    /** Bilder: eigener Server (/files/...) mit derselben Sitzung wie die API, fremde Hosts ohne Sitzung/Kopfzeilen */
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)
-            .components { add(OkHttpNetworkFetcherFactory(callFactory = { repo.api.client })) }
+            .components { add(OkHttpNetworkFetcherFactory(callFactory = { repo.api.imageCallFactory })) }
             .crossfade(true)
             .build()
 

@@ -97,7 +97,7 @@ struct TodayWidgetView: View {
                         HStack(spacing: 6) {
                             RoundedRectangle(cornerRadius: 1.5).fill(Color(hex: x.ev.color) ?? .blue).frame(width: 3)
                             Text(x.time).font(.caption2).foregroundStyle(.secondary).frame(width: family == .systemSmall ? (uses12h ? 46 : 34) : 56, alignment: .leading)
-                            Text(x.ev.summary).font(.caption).lineLimit(1)
+                            Text(x.ev.summary).font(.caption).lineLimit(1).privacySensitive()
                             Spacer(minLength: 0)
                         }.frame(height: 15)
                     }
@@ -125,10 +125,10 @@ struct TaskLine: View {
             Button(intent: ToggleTaskIntent(taskID: task.id, done: true)) {        // abhaken, ohne die App zu oeffnen
                 Image(systemName: "circle").font(.caption).foregroundStyle(task.overdue == true ? .red : .secondary)
                     .frame(width: 18, height: 18).contentShape(Rectangle())
-            }.buttonStyle(.plain)
+            }.buttonStyle(.plain).accessibilityLabel("Erledigt")
             Link(destination: WLink.tasks) {
                 HStack(spacing: 4) {
-                    Text(task.text).font(.caption).lineLimit(1)
+                    Text(task.text).font(.caption).lineLimit(1).privacySensitive()
                     if task.prio == 1 { Text("!").font(.caption2.bold()).foregroundStyle(.orange) }
                     Spacer(minLength: 0)
                 }
@@ -169,14 +169,14 @@ struct LockWidgetView: View {
                 }
                 .widgetURL(WLink.tasks)
             case .accessoryInline:
-                if let n = next { Text(verbatim: "📅 " + (n.when == wToday ? "" : n.when + " ") + n.ev.summary) }
+                if let n = next { Text(verbatim: "📅 " + (n.when == wToday ? "" : n.when + " ") + n.ev.summary).privacySensitive() }
                 else { Text("✓ \(tasks.count) Aufgaben offen") }
             default:            // Rechteck
                 VStack(alignment: .leading, spacing: 1) {
                     if let n = next {
-                        Text(n.ev.summary).font(.headline).lineLimit(1).widgetAccentable()
+                        Text(n.ev.summary).font(.headline).lineLimit(1).widgetAccentable().privacySensitive()   // gesperrt: Termintitel ausblenden
                         Text([n.when == wToday ? String(localized: "ganztägig") : n.when, n.ev.location].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
-                            .font(.caption).lineLimit(1)
+                            .font(.caption).lineLimit(1).privacySensitive()
                     } else {
                         Text("Keine Termine").font(.headline).widgetAccentable()
                     }

@@ -68,16 +68,31 @@ final class SagaScreenshots: XCTestCase {
         let login = app.buttons[ui(de: "Mit QR-Code anmelden", en: "Sign in with QR code", es: "Iniciar sesión con código QR")]
         guard login.waitForExistence(timeout: 4) else { return }
         guard let link = env["SAGA_PAIR_LINK"], let url = URL(string: link) else { throw XCTSkip("nicht angemeldet und SAGA_PAIR_LINK fehlt") }
+        if !dark && UIDevice.current.userInterfaceIdiom == .phone { shot("ios-anmeldung") }
         app.open(url)
         confirmSystemDialog()
+        // Die App fragt vor dem Koppeln nach (Zielserver wird angezeigt) - bestaetigen
+        let pair = app.alerts.buttons[ui(de: "Koppeln", en: "Pair", es: "Vincular")]
+        if pair.waitForExistence(timeout: 10) {
+            if !dark && UIDevice.current.userInterfaceIdiom == .phone { shot("ios-kopplung") }
+            pair.tap()
+        }
         let gone = NSPredicate(format: "exists == false")
         expectation(for: gone, evaluatedWith: login)
         waitForExpectations(timeout: 20)
     }
 
-    /// Ansicht "Board" der Datenbank waehlen
+    /// Ansicht "Board" der Datenbank waehlen (iPad: Reiter; iPhone: Ansichts-Menue)
     private func board() {
-        let b = app.buttons.matching(NSPredicate(format: "label CONTAINS 'Board'")).firstMatch
+        let isBoard = NSPredicate(format: "label CONTAINS 'Board' OR label CONTAINS 'Tablero'")
+        let menu = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", ui(de: "Ansicht:", en: "View:", es: "Vista:"))).firstMatch
+        if menu.waitForExistence(timeout: 3) {
+            menu.tap()
+            let item = app.buttons.matching(isBoard).firstMatch
+            if item.waitForExistence(timeout: 3) { item.tap(); settle() }
+            return
+        }
+        let b = app.buttons.matching(isBoard).firstMatch
         if b.waitForExistence(timeout: 5) { b.tap(); settle() }
     }
 

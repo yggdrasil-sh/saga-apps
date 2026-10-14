@@ -20,6 +20,7 @@ struct RootView: View {
     @Environment(\.scenePhase) private var phase
     @AppStorage("hk.peekWidth") private var peekWidth: Double = 520
     @FocusState private var searchFocused: Bool
+    @State private var newAsk: URL?                                  // fremder Link "neuen Eintrag anlegen": erst nach Rueckfrage
 
     var body: some View {
         NavigationSplitView {
@@ -111,20 +112,22 @@ struct RootView: View {
             if p == .active { Task { await store.refresh() } }                     // im Web angelegte Seiten
             if p == .background { WidgetCenter.shared.reloadAllTimelines() }      // Widgets zeigen sofort den neuen Stand
         }
-        .task {                                                          // alle 60 s, solange die App vorne ist
+        .task {                                                          // alle 60 s, solange die App vorne ist (ein Takt fuer alle Fenster)
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(60))
-                if phase == .active { await store.refresh() }
+                if phase == .active { await store.periodicRefresh() }
             }
         }
         .task {
             if selection == nil, let home = store.homePage { selection = home }        // Startseite sofort (aus dem Zwischenspeicher)
             await store.refresh()
             if let home = store.homePage, !store.pages.isEmpty, store.page(home) == nil { store.setHome(nil); if selection == home { selection = nil } }   // geloescht -> vergessen
+            #if DEBUG
             if let v = UserDefaults.standard.string(forKey: "hkOpen"), let id = Int(v) { selection = id }   // nur fuer Tests (Startparameter -hkOpen <id>)
             if let v = UserDefaults.standard.string(forKey: "hkPeek"), let id = Int(v) {                 // nur fuer Tests: Peek oeffnen
                 try? await Task.sleep(for: .seconds(2)); nav.open(id, mode: UserDefaults.standard.string(forKey: "hkPeekMode") ?? "side")
             }
+            #endif
         }
         .sheet(isPresented: $showPalette) { CommandPalette(actions: paletteActions) { id in nav.peek = nil; nav.path = []; selection = id }.environmentObject(store) }
         .safeAreaInset(edge: .top, spacing: 0) {                         // Server ist neuer, als diese App kann
@@ -134,6 +137,12 @@ struct RootView: View {
             }
         }
         .sheet(isPresented: $showTrash) { TrashSheet().environmentObject(store) }
+        // Kopplungslink: Rueckfrage hier - oder im Anmeldebildschirm, solange der vorne liegt
+        .modifier(PairConfirm(ask: Binding(get: { store.needsLogin ? nil : store.pendingPair }, set: { store.pendingPair = $0 }), store: store))
+        .confirmationDialog("Neuen Eintrag anlegen?", isPresented: Binding(get: { newAsk != nil }, set: { if !$0 { newAsk = nil } }), titleVisibility: .visible) {
+            Button("Anlegen") { if let u = newAsk { newAsk = nil; createFromLink(u) } }
+            Button("Abbrechen", role: .cancel) { newAsk = nil }
+        } message: { Text("Ein Link möchte in Saga einen neuen Eintrag anlegen.") }
         .sheet(isPresented: $showSettings) { NavigationStack { SettingsView(onLogout: { Task { await store.logout() } }) }.environmentObject(store) }
         #if os(iOS)
         .fullScreenCover(isPresented: $store.needsLogin) { LoginScreen(store: store) { Task { await store.refresh() } } }
@@ -180,32 +189,69 @@ extension RootView {
     /// Seite, die gerade vorne ist: Peek, sonst oberste im Stapel, sonst die gewaehlte
     var currentPageID: Int? { nav.peek?.id ?? nav.path.last?.id ?? (selection.flatMap { $0 > 0 ? $0 : nil }) }
     func copyPageLink(_ id: Int) { HlidskjalfApp_copyPageLink(id) }
-    /// hlidskjalf://page/12 · today · tasks · events · new-task · new?db=7&view=tab · new?parent=12
+    /// hlidskjalf:// bzw. saga:// - page/12 · today · tasks · events · new-task · new?db=7&view=tab · new?parent=12 · pair?u=…&c=…
     func openLink(_ url: URL) {
-        guard url.scheme == "hlidskjalf" else { return }
+        guard url.scheme == "hlidskjalf" || url.scheme == "saga" else { return }
         let arg = url.pathComponents.first { $0 != "/" }
-        let q = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
-        func qi(_ n: String) -> String? { q.first { $0.name == n }?.value }
         nav.peek = nil; nav.path = []
         switch url.host {
-        case "pair":                                                       // QR-Code mit der Kamera-App gescannt
-            if let (srv, code) = Store.parsePairLink(url.absoluteString) { Task { try? await store.pair(server: srv, code: code) } }
+        case "pair":                                                       // QR-Code mit der Kamera-App gescannt: erst nachfragen
+            if let (srv, code) = Store.parsePairLink(url.absoluteString) { store.pendingPair = PairRequest(server: srv, code: code) }
+            else { store.error = String(localized: "Das ist kein Saga-QR-Code.") }
         case "page": if let id = Int(arg ?? "") { selection = id }
         case "tasks": selection = -1
         case "events": selection = -2
         case "new-task": selection = -1; nav.wantQuickAdd = true
-        case "new":
-            Task {
-                if let db = qi("db").flatMap(Int.init) {                   // neuer Eintrag passt zu den Filtern der Ansicht (wie "Neu")
-                    let m = DBModel(dbID: db); await m.load(store)
-                    let view = m.views.first { ($0["id"] as? String) == qi("view") } ?? m.views.first
-                    if let id = await m.add(store, props: m.defaults(for: view)) { selection = id }
-                } else if let p = qi("parent").flatMap(Int.init), let id = await store.newPage(parent: p) {
-                    selection = id
-                }
-            }
+        case "new":                                                        // eigene Widgets duerfen ohne Rueckfrage anlegen
+            let k = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first { $0.name == "k" }?.value
+            if k == AppConfig.linkSecret { createFromLink(url) } else { newAsk = url }
         default: selection = nil                                          // "today" (und alte Links)
         }
+    }
+
+    /// new?db=7&view=tab (Eintrag passend zu den Filtern der Ansicht) · new?parent=12 (Unterseite)
+    func createFromLink(_ url: URL) {
+        let q = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        func qi(_ n: String) -> String? { q.first { $0.name == n }?.value }
+        Task {
+            if let db = qi("db").flatMap(Int.init) {
+                let m = DBModel(dbID: db); await m.load(store)
+                let view = m.views.first { ($0["id"] as? String) == qi("view") } ?? m.views.first
+                if let id = await m.add(store, props: m.defaults(for: view)) { selection = id }
+            } else if let p = qi("parent").flatMap(Int.init), let id = await store.newPage(parent: p) {
+                selection = id
+            }
+        }
+    }
+}
+
+/// Kopplungslink (QR-Code, Link in Mail/Webseite): nie still koppeln - Zielserver zeigen, Wechsel deutlich machen
+struct PairRequest: Identifiable, Equatable {
+    let server: URL; let code: String
+    var id: String { code }
+    var host: String { server.host.map { h in server.port.map { "\(h):\($0)" } ?? h } ?? server.absoluteString }
+}
+
+struct PairConfirm: ViewModifier {
+    @Binding var ask: PairRequest?
+    @ObservedObject var store: Store
+    @State private var error: String?
+    func body(content: Content) -> some View {
+        content
+            .alert("Mit diesem Server koppeln?", isPresented: Binding(get: { ask != nil }, set: { if !$0 { ask = nil } }), presenting: ask) { r in
+                Button("Koppeln") { ask = nil; Task { do { try await store.pair(server: r.server, code: r.code) } catch { self.error = error.localizedDescription } } }
+                Button("Abbrechen", role: .cancel) { ask = nil }
+            } message: { r in
+                // Texte wie im Glossar ("Einheitliche Dialoge"); dazu der Sicherheitshinweis zur Herkunft des Codes
+                if let cur = AppConfig.serverOrigin, cur != AppConfig.origin(r.server), let h = AppConfig.server.host {
+                    Text(verbatim: "\(String(localized: "Saga meldet sich bei \(r.host) an."))\n\n\(String(localized: "Du bist gerade bei \(h) angemeldet und wirst dort abgemeldet."))\n\n\(String(localized: "Koppel nur, wenn du den QR-Code selbst in Saga erzeugt hast."))")
+                } else {
+                    Text(verbatim: "\(String(localized: "Saga meldet sich bei \(r.host) an."))\n\n\(String(localized: "Koppel nur, wenn du den QR-Code selbst in Saga erzeugt hast."))")
+                }
+            }
+            .alert("Kopplung fehlgeschlagen", isPresented: Binding(get: { error != nil }, set: { if !$0 { error = nil } })) {
+                Button("OK", role: .cancel) { error = nil }
+            } message: { Text(error ?? "") }
     }
 }
 
@@ -294,6 +340,7 @@ struct Sidebar: View {
 
 extension Sidebar {
     /// Seiten im Baum verschieben (wie Ziehen im Web); der Server lehnt Unsinn ab (in sich selbst, in Datenbanken)
+    @discardableResult
     func dropPages(_ ids: [String], into parent: Int?) -> Bool {
         let list = ids.compactMap(Int.init).filter { $0 != parent }
         guard !list.isEmpty else { return false }
@@ -381,7 +428,7 @@ struct PageScreen: View {
                             ShareLink(item: u) { Label("Link teilen", systemImage: "square.and.arrow.up") }
                             Link(destination: u) { Label("Im Browser öffnen", systemImage: "safari") }
                         }
-                    } label: { Image(systemName: "ellipsis.circle") }
+                    } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("Seitenmenü")
                 }
             }
             .onAppear { store.visited(id) }
@@ -407,10 +454,12 @@ struct LoginScreen: View {
     @State private var server = AppConfig.serverString
     @State private var showScanner = false
     @State private var pairLink = ""
+    @State private var askSwitch: URL?                     // anderer Server vorgemerkt, bisherige Anmeldung vorhanden
     var body: some View {
         VStack(spacing: 18) {
             Spacer()
-            Image(systemName: "book.pages.fill").font(.system(size: 54)).foregroundStyle(Color(red: 0.85, green: 0.68, blue: 0.33))
+            Image("AppLogo").resizable().scaledToFit().frame(width: 88, height: 88)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous)).accessibilityHidden(true)
             Text("Saga").font(.largeTitle.bold())
             Text("Anmelden mit Passkey, Face ID oder Passwort").foregroundStyle(.secondary).multilineTextAlignment(.center)
             VStack(alignment: .leading, spacing: 4) {
@@ -423,7 +472,7 @@ struct LoginScreen: View {
                     .onSubmit { Task { await login() } }
             }.frame(maxWidth: 320)
             Button { Task { await login() } } label: { Text(busy ? "Anmelden …" : "Anmelden").frame(maxWidth: 260) }
-                .buttonStyle(.borderedProminent).controlSize(.large).disabled(busy)
+                .prominentGold().controlSize(.large).disabled(busy)
             #if os(iOS)
             Button { showScanner = true } label: { Label("Mit QR-Code anmelden", systemImage: "qrcode.viewfinder").frame(maxWidth: 260) }
                 .buttonStyle(.bordered).controlSize(.large).disabled(busy)
@@ -439,36 +488,50 @@ struct LoginScreen: View {
         }
         .padding(30)
         .interactiveDismissDisabled()
+        .modifier(PairConfirm(ask: $store.pendingPair, store: store))
+        .confirmationDialog("Server wechseln?", isPresented: Binding(get: { askSwitch != nil }, set: { if !$0 { askSwitch = nil } }), titleVisibility: .visible) {
+            // abgemeldet wird erst, wenn die Anmeldung beim neuen Server geklappt hat
+            Button("Abmelden und wechseln", role: .destructive) { if let u = askSwitch { askSwitch = nil; Task { await signIn(u) } } }
+            Button("Abbrechen", role: .cancel) { askSwitch = nil; server = AppConfig.serverString }
+        } message: {
+            Text("Du wirst vom bisherigen Server abgemeldet. Anmeldung, Schlüssel und Zwischenspeicher auf diesem Gerät werden gelöscht.")
+        }
+        .onChange(of: store.needsLogin) { _, v in if !v { server = AppConfig.serverString } }
         #if os(iOS)
         .sheet(isPresented: $showScanner) {
             QRScannerSheet { text in showScanner = false; Task { await pair(text) } }
         }
         #endif
     }
-    private func useServer() -> Bool {
-        let s = server.trimmingCharacters(in: .whitespacesAndNewlines).trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        guard let u = URL(string: s.contains("://") ? s : "https://" + s), u.scheme == "https", u.host != nil else {
-            error = String(localized: "Bitte eine https-Adresse eingeben, z. B. https://saga.example.org"); return false
+    /// Server aus dem Feld nur vormerken - uebernommen wird er erst nach erfolgreicher Anmeldung (Store.exchange).
+    /// Bisher bei einem anderen Server angemeldet (Schluessel vorhanden) -> vorher nachfragen.
+    private func login() async {
+        error = ""
+        switch LoginStep.plan(server, currentOrigin: AppConfig.serverOrigin, hasKeys: DeviceKey.stored() != nil || AppConfig.hasToken) {
+        case .invalid: error = String(localized: "Bitte eine https-Adresse eingeben, z. B. https://saga.example.org")
+        case .confirmSwitch(let u): server = u.absoluteString; askSwitch = u
+        case .signIn(let u): server = u.absoluteString; await signIn(u)
         }
-        AppConfig.server = u; server = u.absoluteString; return true
     }
+    /// Gescannter/eingefuegter Kopplungslink: Ziel zeigen und bestaetigen lassen (wie beim Link von aussen)
     private func pair(_ text: String) async {
         error = ""
         guard let (srv, code) = Store.parsePairLink(text) else { error = String(localized: "Das ist kein Saga-QR-Code."); return }
-        busy = true; defer { busy = false }
-        do { try await store.pair(server: srv, code: code); server = srv.absoluteString; onDone() } catch { self.error = error.localizedDescription }
+        store.pendingPair = PairRequest(server: srv, code: code)
     }
-    private func login() async {
-        guard useServer() else { return }
+    /// Browser-Anmeldung gegen den vorgemerkten Server; Server + PKCE-Geheimnis gehoeren zu genau diesem Versuch
+    private func signIn(_ target: URL) async {
         busy = true; error = ""; defer { busy = false }
         let (verifier, challenge) = Store.pkce()
-        guard let url = URL(string: AppConfig.server.absoluteString + "/app/login?challenge=" + challenge) else { return }
+        guard let url = URL(string: target.absoluteString + "/app/login?challenge=" + challenge) else { return }
         do {
             let cb = try await webAuth.authenticate(using: url, callbackURLScheme: "hlidskjalf", preferredBrowserSession: .shared)
-            guard let code = URLComponents(url: cb, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "code" })?.value else {
+            let items = URLComponents(url: cb, resolvingAgainstBaseURL: false)?.queryItems ?? []
+            if items.first(where: { $0.name == "error" })?.value == "cancelled" { return }   // im Browser abgebrochen
+            guard let code = items.first(where: { $0.name == "code" })?.value else {
                 error = String(localized: "Keine Antwort vom Server"); return
             }
-            try await store.exchange(code: code, verifier: verifier)
+            try await store.exchange(server: target, code: code, verifier: verifier)   // erst hier wird der Server gewechselt
             onDone()
         } catch let e as ASWebAuthenticationSessionError where e.code == .canceledLogin {
             // abgebrochen - nichts tun

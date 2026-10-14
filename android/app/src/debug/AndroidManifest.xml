@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Nur Debug-Build: Klartext zum lokalen Testserver im Emulator erlauben -->
-    <application android:networkSecurityConfig="@xml/network_security_config" />
-</manifest>
+<!-- Debug-Build: eigene network_security_config (src/debug/res/xml) ueberschreibt die aus src/main -
+     zusaetzlich Klartext zum lokalen Testserver im Emulator. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" />

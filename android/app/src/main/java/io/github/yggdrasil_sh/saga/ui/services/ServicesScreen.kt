@@ -33,6 +33,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import kotlinx.coroutines.CancellationException
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -58,6 +61,8 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     LaunchedEffect(Unit) {
         try {
             list = repo.services()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             error = repo.friendly(e)
         }
@@ -115,9 +120,14 @@ private fun ServiceIcon(s: ServiceItem, repo: SagaRepository) {
     if (s.icon.isBlank() || !Regex("[a-z0-9][a-z0-9-]{0,63}").matches(s.icon)) {
         letter()
     } else {
+        // Dienst-Symbole sind oft dunkel auf transparent: im Dunkelmodus auf heller Plakette, sonst unsichtbar
+        val dark = MaterialTheme.colorScheme.background.luminance() < 0.3f
         SubcomposeAsyncImage(
             model = repo.absoluteUrl("api/services/icon/${s.icon}"), contentDescription = null, contentScale = ContentScale.Fit,
-            modifier = Modifier.size(32.dp), error = { letter() }, loading = { letter() },
+            modifier = Modifier.size(32.dp).then(
+                if (dark) Modifier.clip(RoundedCornerShape(7.dp)).background(Color(0xFFF1EDE4)).padding(3.dp) else Modifier
+            ),
+            error = { letter() }, loading = { letter() },
         )
     }
 }

@@ -21,13 +21,16 @@ struct PageRoute: Hashable { let id: Int; var web = false }
 
 // MARK: - Inline-HTML -> AttributedString
 
+/// Inline-Tags (einmal angelegt statt bei jedem Aufruf)
+let hkTagRegex = try! NSRegularExpression(pattern: "<(/?)([a-zA-Z]+)([^>]*)>")
+
 /// Wandelt das gespeicherte, bereinigte Inline-HTML (b/i/u/s/mark/code/a/br) in formatierten Text um.
 /// Verweise auf Seiten (/notes#123) werden zu hkpage://123 (oeffnet nativ), http(s) bleibt extern.
 func inlineText(_ html: String) -> AttributedString {
     var out = AttributedString()
     var bold = 0, italic = 0, under = 0, strike = 0, mark = 0, code = 0
     var links: [URL?] = []
-    let re = try! NSRegularExpression(pattern: "<(/?)([a-zA-Z]+)([^>]*)>")
+    let re = hkTagRegex
     let ns = html as NSString
     var pos = 0
     func emit(_ raw: String) {
@@ -214,10 +217,23 @@ final class PageDoc: ObservableObject {
     /// Echte Daten (Server oder Zwischenspeicher) angekommen. Vorher darf NIE gespeichert werden -
     /// sonst ueberschreibt die leere Ansicht ("Unbenannt") nach einem Ladefehler die Seite auf dem Server.
     @Published var fetched = false
+    /// Server nicht erreichbar: angezeigt wird der zuletzt geladene Stand
+    @Published var offline: String?
+    /// Server hat inzwischen eine andere Fassung (409) -> Nutzer entscheidet; bis dahin wird nicht gespeichert
+    @Published var conflict = false
+    /// Rueckfrage zum Konflikt anzeigen (getrennt von `conflict`, damit das Schliessen des Dialogs sauber ist)
+    @Published var askConflict = false
+    /// Lokaler Entwurf (ungespeicherte Aenderungen oder Konfliktkopie) zum Wiederherstellen
+    @Published var draft: PageDraft?
     private(set) var root = NSMutableArray()
     private var doc: NSMutableDictionary = [:]
     private var rev = 0
-    private var saving = false
+    private var tracker = EditTracker()
+    private let queue = SerialQueue()
+    private var retry: Task<Void, Never>?
+    private var retryCount = 0
+    /// Entwuerfe des angemeldeten Kontos auf diesem Server (jedes Mal frisch: Konto kann nach dem Oeffnen erkannt werden)
+    private var drafts: DraftStore? { DraftOwner.app.store(origin: AppConfig.serverOrigin) }
     init(id: Int) { self.id = id }
 
     var titleRaw: String { page["title"] as? String ?? "" }
@@ -226,6 +242,13 @@ final class PageDoc: ObservableObject {
     var cover: String? { (page["cover"] as? String).flatMap { $0.isEmpty ? nil : $0 } }
     var props: [String: Any] { page["props"] as? [String: Any] ?? [:] }
     var isDatabase: Bool { page["kind"] as? String == "database" }
+
+    /// ungespeicherte Eingaben -> nicht durch Neuladen ueberschreiben
+    var dirty: Bool { tracker.dirty }
+    /// Jede Eingabe/Strukturaenderung zaehlt (gespeichert ist nur, was wirklich gesendet wurde)
+    func markEdited() { tracker.edit() }
+    /// Laeuft noch eine Speicherung oder ist etwas offen? (Beenden abwarten)
+    var hasUnsaved: Bool { fetched && (dirty || queue.pending > 0) }
 
     /// Jeder Block braucht eine feste ID (Identitaet beim Einfuegen/Verschieben)
     private func ensureIDs(_ arr: NSMutableArray) {
@@ -238,22 +261,27 @@ final class PageDoc: ObservableObject {
         }
     }
 
-    var dirty = false                                            // ungespeicherte Eingaben -> nicht ueberschreiben
-
-    func load(_ store: Store) async {
+    /// `force`: auch ueber eigene, ungespeicherte Eingaben hinweg (nur nach bewusster Entscheidung)
+    func load(_ store: Store, force: Bool = false) async {
         if !loaded, let c = store.cachedData("api/notes/\(id)") { await apply(c, store) }     // sofort anzeigen
         do {
             let d = try await store.get("api/notes/\(id)")
-            if dirty && loaded { return }                     // eigene Eingaben schuetzen - aber nur, wenn schon etwas angezeigt wird
+            offline = nil
+            if dirty && loaded && !force { return }                // eigene Eingaben schuetzen - aber nur, wenn schon etwas angezeigt wird
+            if force { tracker.discard() }
             await apply(d, store)
-        } catch { if !fetched { self.error = error.localizedDescription; loaded = true } }
+            checkDraft()
+        } catch {
+            if !fetched { self.error = error.localizedDescription; loaded = true }
+            else {
+                offline = String(localized: "Offline – Änderungen werden gespeichert, sobald der Server erreichbar ist.")
+                if !dirty { checkDraft() }                          // auch offline: nicht Gespeichertes vom letzten Mal anbieten
+            }
+        }
     }
 
-    private func apply(_ d: Data, _ store: Store) async {
-        guard let p = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return }
-        page = p; rev = p["rev"] as? Int ?? 0
-        let body = p["body"] as? String ?? ""
-        if p["format"] as? String == "blocks", let bd = body.data(using: .utf8),
+    private func setBody(_ body: String, format: String?) {
+        if format == "blocks", let bd = body.data(using: .utf8),
            let m = try? JSONSerialization.jsonObject(with: bd, options: .mutableContainers) as? NSMutableDictionary,
            let arr = m["blocks"] as? NSMutableArray {
             doc = m; root = arr
@@ -262,7 +290,13 @@ final class PageDoc: ObservableObject {
             doc = ["blocks": root]
         }
         ensureIDs(root)
-        if root.count == 0 && !(p["kind"] as? String == "database") { root.add(PageEditor.make("paragraph")) }
+        if root.count == 0 && !isDatabase { root.add(PageEditor.make("paragraph")) }
+    }
+
+    private func apply(_ d: Data, _ store: Store) async {
+        guard let p = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return }
+        page = p; rev = p["rev"] as? Int ?? 0
+        setBody(p["body"] as? String ?? "", format: p["format"] as? String)
         // Eigenschaften nur, wenn die uebergeordnete Seite eine Datenbank ist (spart eine Anfrage)
         if let parent = p["parent_id"] as? Int, store.page(parent)?.isDatabase == true {
             let pd = store.cachedData("api/notes/\(parent)")
@@ -272,22 +306,125 @@ final class PageDoc: ObservableObject {
         error = nil; loaded = true; fetched = true
     }
 
-    /// Titel + Inhalt speichern - mit Revision (Konflikterkennung wie im Web-Editor)
-    func save(_ store: Store) async {
-        guard fetched, dirty else { return }                    // nur echte, geaenderte Seiten
+    /// Inhalt so, wie er gespeichert wird
+    private func serialized() -> String? {
         doc["blocks"] = root; doc["time"] = Int(Date().timeIntervalSince1970 * 1000)
-        guard let data = try? JSONSerialization.data(withJSONObject: doc), let body = String(data: data, encoding: .utf8) else { return }
-        var b: [String: Any] = ["title": titleRaw, "rev": rev]
+        guard let data = try? JSONSerialization.data(withJSONObject: doc) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    // MARK: Entwuerfe
+
+    private func writeDraft(conflict: Bool) {
+        guard !isDatabase, let body = serialized() else { return }
+        drafts?.save(id, PageDraft(title: titleRaw, body: body, rev: rev, saved: Date(), conflict: conflict))
+    }
+    /// Nach dem Laden: liegt ein Entwurf mit anderem Inhalt vor -> anbieten; sonst aufraeumen
+    private func checkDraft() {
+        guard let dr = drafts?.load(id) else { draft = nil; return }
+        if dr.title == titleRaw, let cur = serialized(), sameBlocks(dr.body, cur) { drafts?.remove(id); draft = nil; return }
+        if !dirty { draft = dr }
+    }
+    /// Entwurf uebernehmen: wird dann mit der aktuellen Server-Revision gespeichert (ueberschreibt)
+    func restoreDraft(_ store: Store) async {
+        guard let dr = draft else { return }
+        page["title"] = dr.title
+        setBody(dr.body, format: "blocks")
+        draft = nil; conflict = false
+        tracker.edit(); objectWillChange.send()
+        await save(store)
+    }
+    func discardDraft() { drafts?.remove(id); draft = nil }
+
+    // MARK: Speichern
+
+    /// Titel + Inhalt speichern - nacheinander, mit Revision (Konflikterkennung wie im Web-Editor)
+    func save(_ store: Store) async {
+        await queue.run { [weak self] in await self?.saveOnce(store) }
+    }
+
+    private func saveOnce(_ store: Store) async {
+        guard fetched, dirty else { return }                            // nur echte, geaenderte Seiten
+        if conflict { writeDraft(conflict: true); return }              // Konflikt offen: nicht senden, neueste Eingaben aber lokal sichern
+        let sent = tracker.snapshot
+        guard let body = serialized() else { return }
+        let title = titleRaw
+        if !isDatabase { drafts?.save(id, PageDraft(title: title, body: body, rev: rev, saved: Date(), conflict: false)) }   // vor dem Senden lokal sichern
+        var b: [String: Any] = ["title": title, "rev": rev]
         if !isDatabase { b["body"] = body; b["format"] = "blocks" }
         do {
             let r = try await store.api("api/notes/\(id)", method: "PATCH", body: b)
             if let j = try? JSONSerialization.jsonObject(with: r) as? [String: Any], let nr = j["rev"] as? Int { rev = nr }
-            error = nil; dirty = false; store.updateTitle(id, titleRaw)
+            tracker.confirm(sent)
+            error = nil; offline = nil; retryCount = 0; retry?.cancel(); retry = nil
+            if !dirty { drafts?.remove(id) }
+            store.updateTitle(id, title)
             if parentSchema != nil { store.dataChanged() }          // Eintrag einer Datenbank: Titel in den Ansichten aktualisieren
         } catch APIError.http(409, _) {
-            error = String(localized: "Die Seite wurde inzwischen woanders geändert – neu geladen."); await load(store)
-        } catch { self.error = String(localized: "Nicht gespeichert: \(error.localizedDescription)") }
+            writeDraft(conflict: true)                                 // eigene Fassung bleibt in jedem Fall erhalten
+            conflict = true; askConflict = true
+        } catch APIError.http(let code, _) where isPermanentSaveError(code) {
+            // dauerhafter Fehler: nicht automatisch wiederholen, klar anzeigen; Entwurf (vor dem Senden geschrieben) bleibt
+            retry?.cancel(); retry = nil; retryCount = 0
+            writeDraft(conflict: false)                                // neuester Stand (auch spaetere Eingaben) lokal
+            self.error = PageDoc.permanentErrorText(code)
+        } catch {
+            self.error = String(localized: "Nicht gespeichert – lokal gesichert, neuer Versuch folgt (\(error.localizedDescription)).")
+            scheduleRetry(store)
+        }
     }
+
+    static func permanentErrorText(_ code: Int) -> String {
+        switch code {
+        case 403: return String(localized: "Nicht gespeichert: Du darfst diese Seite nicht bearbeiten. Deine Änderungen bleiben auf diesem Gerät als Entwurf erhalten.")
+        case 404: return String(localized: "Nicht gespeichert: Diese Seite gibt es auf dem Server nicht mehr. Deine Änderungen bleiben auf diesem Gerät als Entwurf erhalten.")
+        case 413: return String(localized: "Nicht gespeichert: Die Seite ist zu groß für den Server. Deine Änderungen bleiben auf diesem Gerät als Entwurf erhalten.")
+        case 423: return String(localized: "Nicht gespeichert: Die Seite ist gesperrt. Deine Änderungen bleiben auf diesem Gerät als Entwurf erhalten.")
+        default: return String(localized: "Nicht gespeichert: Der Server hat die Änderung abgelehnt (Fehler \(code)). Deine Änderungen bleiben auf diesem Gerät als Entwurf erhalten.")
+        }
+    }
+
+    private func scheduleRetry(_ store: Store) {
+        retry?.cancel()
+        let wait = saveRetryDelay(retryCount); retryCount += 1
+        retry = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(wait))
+            guard !Task.isCancelled else { return }
+            await self?.save(store)
+        }
+    }
+
+    /// Konflikt: eigene Fassung behalten -> aktuelle Revision holen und damit ueberschreiben
+    func keepMine(_ store: Store) async {
+        guard let d = try? await store.api("api/notes/\(id)"), let p = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+              let r = p["rev"] as? Int else { error = String(localized: "Server nicht erreichbar – bitte später erneut versuchen."); return }
+        rev = r; conflict = false
+        if !dirty { tracker.edit() }
+        await save(store)
+    }
+    /// Konflikt: Server-Fassung laden - die eigene bleibt als lokale Kopie (Entwurf) und kann wiederhergestellt werden
+    func takeServer(_ store: Store) async {
+        guard drafts != nil || isDatabase else {                       // Konto noch unbekannt: keine lokale Kopie moeglich -> nichts verwerfen
+            error = String(localized: "Server nicht erreichbar – bitte später erneut versuchen."); askConflict = false; return
+        }
+        writeDraft(conflict: true)
+        conflict = false
+        await load(store, force: true)
+    }
+}
+
+extension DraftOwner {
+    /// Entwurfs-Zuordnung der App (Einstellungen dieser App, nicht der App-Gruppe)
+    static var app: DraftOwner { DraftOwner(defaults: .standard) }
+}
+
+/// Offene Editoren (Speichern vor dem Beenden abwarten)
+@MainActor
+enum SaveRegistry {
+    private static let editors = NSHashTable<PageEditor>.weakObjects()
+    static func add(_ e: PageEditor) { editors.add(e) }
+    static var hasUnsaved: Bool { editors.allObjects.contains { $0.doc.hasUnsaved } }
+    static func flushAll() async { for e in editors.allObjects { await e.flush() } }
 }
 
 // MARK: - Seite
@@ -314,6 +451,7 @@ struct NativePageScreen: View {
         return Button { Task { try? await store.patch(id, ["pinned": !fav]); doc.page["pinned"] = !fav } } label: {
             Image(systemName: fav ? "star.fill" : "star").foregroundStyle(fav ? .yellow : .primary)
         }.help(fav ? "Aus Favoriten entfernen" : "Zu Favoriten")
+        .accessibilityLabel(fav ? "Aus Favoriten entfernen" : "Zu Favoriten")
     }
     @ViewBuilder private var pageMenuItems: some View {
                     Text(editedText(doc.page["updated"] as? Double))
@@ -366,18 +504,20 @@ struct NativePageScreen: View {
     private var peekHeader: some View {
         HStack(spacing: 14) {
             Button { nav.peek = nil } label: { Image(systemName: "xmark") }.help("Schließen (Esc)").keyboardShortcut(.cancelAction)
+                .accessibilityLabel("Schließen")
             Button { nav.peek = nil; nav.push(PageRoute(id: id)) } label: { Image(systemName: "arrow.up.left.and.arrow.down.right") }.help("Als ganze Seite öffnen")
+                .accessibilityLabel("Als ganze Seite öffnen")
             if nav.peekList.count > 1 {                                  // wie Notion: im Peek durch die Ansicht blaettern
                 let i = nav.peekList.firstIndex(of: id)
                 Button { Task { await ed.flush(); nav.peekStep(-1) } } label: { Image(systemName: "chevron.up") }
-                    .help("Vorheriger Eintrag (⌃⇧K)").keyboardShortcut("k", modifiers: [.control, .shift]).disabled(i == nil || i == 0)
+                    .help("Vorheriger Eintrag (⌃⇧K)").accessibilityLabel("Vorheriger Eintrag").keyboardShortcut("k", modifiers: [.control, .shift]).disabled(i == nil || i == 0)
                 Button { Task { await ed.flush(); nav.peekStep(1) } } label: { Image(systemName: "chevron.down") }
-                    .help("Nächster Eintrag (⌃⇧J)").keyboardShortcut("j", modifiers: [.control, .shift]).disabled(i == nil || i == nav.peekList.count - 1)
+                    .help("Nächster Eintrag (⌃⇧J)").accessibilityLabel("Nächster Eintrag").keyboardShortcut("j", modifiers: [.control, .shift]).disabled(i == nil || i == nav.peekList.count - 1)
             }
             Text(doc.title).font(.headline).lineLimit(1).foregroundStyle(.secondary)
             Spacer()
             favButton
-            Menu { pageMenuItems } label: { Image(systemName: "ellipsis.circle") }.menuIndicator(.hidden).fixedSize()
+            Menu { pageMenuItems } label: { Image(systemName: "ellipsis.circle") }.menuIndicator(.hidden).fixedSize().accessibilityLabel("Seitenmenü")
         }
         .buttonStyle(.plain).font(.title3)
         .padding(.horizontal, 16).padding(.vertical, 10)
@@ -410,6 +550,14 @@ struct NativePageScreen: View {
                         Button { Task { await setLocked(false) } } label: { Label("Gesperrt – tippen zum Entsperren", systemImage: "lock.fill").font(.caption) }
                             .buttonStyle(.bordered).controlSize(.small).tint(.secondary)
                     }
+                    if let o = doc.offline {
+                        Label(o, systemImage: "wifi.slash").font(.footnote).foregroundStyle(.orange)
+                    }
+                    if doc.conflict && !doc.askConflict {             // Rueckfrage weggeklickt: erneut entscheiden (bis dahin wird nicht gespeichert)
+                        Button { doc.askConflict = true } label: { Label("Seite wurde woanders geändert", systemImage: "exclamationmark.triangle") }
+                            .font(.footnote).buttonStyle(.bordered).tint(.orange)
+                    }
+                    if let dr = doc.draft { DraftBanner(draft: dr, doc: doc, ed: ed) }
                     if doc.fetched && !doc.isDatabase { TagsRow(doc: doc) }
                     if let schema = doc.parentSchema { EditableProps(doc: doc, schema: schema).padding(.bottom, 8) }
                     if doc.isDatabase {
@@ -423,7 +571,7 @@ struct NativePageScreen: View {
                     if let e = doc.error { Text(e).font(.footnote).foregroundStyle(.orange) }
                     if doc.loaded && !doc.fetched {                              // Laden fehlgeschlagen: nichts Bearbeitbares zeigen
                         Button { Task { doc.loaded = false; await doc.load(store) } } label: { Label("Erneut versuchen", systemImage: "arrow.clockwise") }
-                            .buttonStyle(.borderedProminent).padding(.top, 4)
+                            .prominentGold().padding(.top, 4)
                     }
                 }
                 .padding(.horizontal, pageGutter).padding(.vertical, 12)
@@ -464,7 +612,7 @@ struct NativePageScreen: View {
                 }
                 .navigationTitle("Datenbank verknüpfen")
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { ed.linkDBFor = nil } } }
-            }.frame(minWidth: 360, minHeight: 420)
+            }.macFrame(minWidth: 360, minHeight: 420)
         }
         .onChange(of: ed.openPage) { _, v in if let v { ed.openPage = nil; nav.push(PageRoute(id: v)) } }
         .modifier(PageEditorSheets(ed: ed, doc: doc))
@@ -487,21 +635,21 @@ struct NativePageScreen: View {
         .toolbar {
             if !inPeek {                                     // im Peek: eigene Kopfzeile statt Fensterleiste (sonst Layout-Kreislauf am Mac)
                 ToolbarItem(placement: .primaryAction) { favButton }
-                ToolbarItem(placement: .primaryAction) { Menu { pageMenuItems } label: { Image(systemName: "ellipsis.circle") } }
+                ToolbarItem(placement: .primaryAction) { Menu { pageMenuItems } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("Seitenmenü") }
             }
             #if os(iOS)
             ToolbarItemGroup(placement: .keyboard) {
                 BlockTypeMenu(title: "Neu", icon: "plus") { t, l in ed.insert(PageEditor.make(t, level: l == 0 ? 2 : l), after: ed.focusedBlock) }
                 BlockTypeMenu(title: "Typ", icon: "textformat") { t, l in if let b = ed.focusedBlock { ed.convert(b, to: t, level: l == 0 ? 2 : l) } }
                 ImageInsertButtons()
-                Button { ed.format("bold") } label: { Image(systemName: "bold") }
-                Button { ed.format("italic") } label: { Image(systemName: "italic") }
-                Button { ed.format("underline") } label: { Image(systemName: "underline") }
-                Button { ed.format("strike") } label: { Image(systemName: "strikethrough") }
-                Button { ed.format("mark") } label: { Image(systemName: "highlighter") }
-                Button { if let b = ed.focusedBlock { ed.move(b, by: -1) } } label: { Image(systemName: "arrow.up") }
-                Button { if let b = ed.focusedBlock { ed.move(b, by: 1) } } label: { Image(systemName: "arrow.down") }
-                Button { if let b = ed.focusedBlock { ed.delete(b) } } label: { Image(systemName: "trash") }
+                Button { ed.format("bold") } label: { Image(systemName: "bold") }.accessibilityLabel("Fett")
+                Button { ed.format("italic") } label: { Image(systemName: "italic") }.accessibilityLabel("Kursiv")
+                Button { ed.format("underline") } label: { Image(systemName: "underline") }.accessibilityLabel("Unterstrichen")
+                Button { ed.format("strike") } label: { Image(systemName: "strikethrough") }.accessibilityLabel("Durchgestrichen")
+                Button { ed.format("mark") } label: { Image(systemName: "highlighter") }.accessibilityLabel("Markieren")
+                Button { if let b = ed.focusedBlock { ed.move(b, by: -1) } } label: { Image(systemName: "arrow.up") }.accessibilityLabel("Block nach oben")
+                Button { if let b = ed.focusedBlock { ed.move(b, by: 1) } } label: { Image(systemName: "arrow.down") }.accessibilityLabel("Block nach unten")
+                Button { if let b = ed.focusedBlock { ed.delete(b) } } label: { Image(systemName: "trash") }.accessibilityLabel("Block löschen")
                 Spacer()
                 Button("Fertig") { ed.focus = nil }.bold()
             }
@@ -509,6 +657,7 @@ struct NativePageScreen: View {
         }
         .task {
             ed.store = store; await doc.load(store); store.visited(id)
+            #if DEBUG
             if let ty = UserDefaults.standard.string(forKey: "hkHoverType") {              // nur fuer Tests: Griffe erzwingen
                 func find(_ a: NSMutableArray, inColumn: Bool) -> String? {
                     for case let b as NSMutableDictionary in a {
@@ -524,8 +673,10 @@ struct NativePageScreen: View {
                let b = doc.root.compactMap({ $0 as? NSMutableDictionary }).first(where: { ["paragraph", "header"].contains($0["type"] as? String ?? "") }) {
                 ed.focus = b.blockID
             }
+            #endif
         }
         .refreshable { await ed.flush(); await doc.load(store); store.refreshEvents() }
+        .modifier(SaveGuard(doc: doc, ed: ed))
         .onChange(of: (doc.page["locked"] as? Bool) ?? false, initial: true) { _, v in ed.locked = v; if v { ed.focus = nil } }
         .onAppear { if doc.loaded && ed.focus == nil { Task { await ed.flush(); await doc.load(store) } } }   // zurueck aus dem Web-Editor
         .onDisappear { Task { await ed.flush() } }
@@ -593,7 +744,7 @@ struct BlockView: View {
         case "delimiter":
             Divider().padding(.vertical, 6)
         case "table":
-            EditableTable(data: data).id(id)
+            EditableTable(data: data, blockID: id).id(id)
         case "image":
             if let url = (data["file"] as? NSDictionary)?["url"] as? String {
                 VStack(alignment: .leading, spacing: 4) {
@@ -608,7 +759,7 @@ struct BlockView: View {
                 Label((f?["name"] as? String) ?? s("title"), systemImage: "paperclip")
                 Spacer()
                 if let sz = f?["size"] as? Int { Text(ByteCountFormatter.string(fromByteCount: Int64(sz), countStyle: .file)).font(.caption).foregroundStyle(.secondary) }
-                if let fu { Link(destination: fu) { Image(systemName: "arrow.down.circle") }.help("Öffnen / herunterladen") }
+                if let fu { Link(destination: fu) { Image(systemName: "arrow.down.circle") }.help("Öffnen / herunterladen").accessibilityLabel("Öffnen / herunterladen") }
             }
             .padding(10).frame(maxWidth: .infinity, alignment: .leading).background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
         case "callout":
@@ -653,7 +804,7 @@ struct BlockView: View {
         case "buttons":
             HStack(spacing: 6) {
                 ButtonsBlock(buttons: data["buttons"] as? [[String: Any]] ?? [])
-                if !ed.locked { Button { ed.configButtons = id } label: { Image(systemName: "gearshape").foregroundStyle(.tertiary) }.buttonStyle(.plain).help("Schaltflächen einrichten") }
+                if !ed.locked { Button { ed.configButtons = id } label: { Image(systemName: "gearshape").foregroundStyle(.tertiary) }.buttonStyle(.plain).help("Schaltflächen einrichten").accessibilityLabel("Schaltflächen einrichten") }
             }
         case "embed":
             EmbedCard(url: decodeEntities(s("url")), title: decodeEntities(s("title")))
@@ -683,6 +834,7 @@ struct ListBlock: View {
                                 let m = meta ?? NSMutableDictionary(); m["checked"] = !checked; it["meta"] = m; ed.changed()
                             } label: { Image(systemName: checked ? "checkmark.square.fill" : "square").foregroundStyle(checked ? Color.accentColor : .secondary) }
                             .buttonStyle(.plain)
+                            .accessibilityLabel("Abhaken").accessibilityAddTraits(checked ? .isSelected : [])
                         } else {
                             Text(style == "ordered" ? "\(i + 1)." : "•").foregroundStyle(.secondary).frame(minWidth: 16, alignment: .trailing)
                         }
@@ -869,9 +1021,9 @@ struct BlockHandles: View {
             if let id = hover.hovered, let a = frames[id] {
                 let r = g[a]
                 HStack(spacing: 0) {
-                    Button { ed.insert(PageEditor.make("paragraph"), after: id) } label: { Image(systemName: "plus").frame(width: 22, height: 22).contentShape(Rectangle()) }
+                    Button { ed.insert(PageEditor.make("paragraph"), after: id) } label: { Image(systemName: "plus").frame(width: 22, height: 22).contentShape(Rectangle()) }.accessibilityLabel("Block einfügen")
                         .buttonStyle(.plain).help("Klicken: Block darunter einfügen")
-                    BlockMenu(id: id) { Image(systemName: "line.3.horizontal").frame(width: 20, height: 22).contentShape(Rectangle()) }.help("Block-Menü")
+                    BlockMenu(id: id) { Image(systemName: "line.3.horizontal").frame(width: 20, height: 22).contentShape(Rectangle()) }.help("Block-Menü").accessibilityLabel("Block-Menü")
                 }
                 .foregroundStyle(.secondary)
                 .padding(.trailing, 8).padding(.vertical, 4)                  // grosszuegige Trefferflaeche bis zum Text
@@ -937,7 +1089,7 @@ struct ColumnAddButton: View {
         Button(action: action) { Label("Block", systemImage: "plus").font(.subheadline).padding(.horizontal, 6).padding(.vertical, 3) }
             .buttonStyle(.plain).foregroundStyle(.secondary)
             .opacity(visible ? 1 : 0)
-            .help("Neuer Block am Ende dieser Spalte")
+            .help("Neuer Block am Ende dieser Spalte").accessibilityLabel("Neuer Block am Ende dieser Spalte")
     }
 }
 
@@ -981,5 +1133,54 @@ struct EmbedCard: View {
                 .background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
             }.buttonStyle(.plain)
         }
+    }
+}
+
+
+/// Lokaler Entwurf gefunden (ungespeicherte Aenderungen oder Konfliktkopie): wiederherstellen oder verwerfen
+struct DraftBanner: View {
+    let draft: PageDraft
+    @ObservedObject var doc: PageDoc
+    @ObservedObject var ed: PageEditor
+    @EnvironmentObject var store: Store
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Nicht gespeicherte Änderungen vom \(draft.saved.formatted(date: .abbreviated, time: .shortened))", systemImage: "doc.badge.clock")
+                .font(.subheadline.weight(.semibold))
+            Text("Wiederherstellen ersetzt den angezeigten Stand und speichert deine Fassung.").font(.footnote).foregroundStyle(.secondary)
+            HStack {
+                Button("Wiederherstellen") { ed.focus = nil; Task { await doc.restoreDraft(store); ed.changed() } }.prominentGold()
+                Button("Verwerfen", role: .destructive) { doc.discardDraft() }.buttonStyle(.bordered)
+            }.controlSize(.small)
+        }
+        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.orange.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+/// Konflikt-Rueckfrage (409) und Speichern beim Wechsel in den Hintergrund
+struct SaveGuard: ViewModifier {
+    @ObservedObject var doc: PageDoc
+    let ed: PageEditor
+    @EnvironmentObject var store: Store
+    @Environment(\.scenePhase) private var phase
+    func body(content: Content) -> some View {
+        content
+            .alert("Seite wurde woanders geändert", isPresented: $doc.askConflict) {
+                Button("Meine Fassung behalten") { Task { await doc.keepMine(store) } }
+                Button("Server-Fassung laden (meine als Kopie sichern)") { ed.focus = nil; Task { await doc.takeServer(store) } }
+            } message: {
+                Text("Diese Seite wurde inzwischen auf einem anderen Gerät geändert. Deine Änderungen gehen nicht verloren.")
+            }
+            .onChange(of: phase) { _, p in if p != .active { flushInBackground() } }   // App geht in den Hintergrund: Eingaben sichern
+    }
+    /// Speichern, auch wenn die App gerade in den Hintergrund geht (iOS gibt dafuer etwas Zeit)
+    private func flushInBackground() {
+        #if os(iOS)
+        let bg = UIApplication.shared.beginBackgroundTask(withName: "save-page")
+        Task { await ed.flush(); if bg != .invalid { UIApplication.shared.endBackgroundTask(bg) } }
+        #else
+        Task { await ed.flush() }
+        #endif
     }
 }

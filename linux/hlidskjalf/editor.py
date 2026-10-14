@@ -5,10 +5,11 @@ import time
 
 from gi.repository import GLib
 
-from .api import APIError, client
+from . import config, drafts
+from .api import SWITCHED, APIError, client
 from .store import is_db, store
 from .i18n import _
-from .util import bg, esc, md_to_html, new_block_id
+from .util import bg, bg_serial, esc, md_to_html, new_block_id
 
 # "/"-Menue: (Name, Typ, Ebene, Symbol, Suchwoerter - deutsch, englisch, spanisch; der Name wird zusaetzlich durchsucht)
 SLASH_ITEMS = [
@@ -78,8 +79,32 @@ def ensure_ids(arr):
                 ensure_ids(c["blocks"])
 
 
+def _draft_path(pid, server=None, account=drafts.CURRENT):
+    """Entwurf je Server, Konto und Seite (siehe drafts.py)"""
+    return drafts.path(pid, server, account)
+
+
+def read_draft(pid, server=None, account=drafts.CURRENT):
+    return drafts.read(pid, server, account)
+
+
+def drop_draft(pid, server=None, account=drafts.CURRENT):
+    drafts.drop(pid, server, account)
+
+
+def _blocks_key(blocks):
+    try:
+        return json.dumps(blocks, sort_keys=True, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return None
+
+
 class PageDoc:
-    """Eine Seite: Kopf (Titel, Icon, ...) + Bloecke. Speichern mit Revision (409 = woanders geaendert)."""
+    """Eine Seite: Kopf (Titel, Icon, ...) + Bloecke. Speichern mit Revision; nichts geht verloren:
+    - 409 (woanders geaendert): Server-Fassung holen, eigene behalten, on_conflict fragt (sonst Konfliktkopie)
+    - jeder Stand wird vor dem Senden als Entwurf auf der Platte abgelegt und erst nach Erfolg geloescht
+      (Absturz, offline, Schliessen) - beim naechsten Oeffnen wird er wiederhergestellt
+    - save(done)/flush(done): alle Rueckrufe laufen, wenn der letzte Stand gespeichert ist"""
 
     def __init__(self, pid):
         self.id = pid
@@ -91,17 +116,55 @@ class PageDoc:
         self.fetched = False           # echte Daten vom Server/Zwischenspeicher - erst dann darf gespeichert werden
         self.dirty = False
         self.error = None
+        self.last_error = None         # letzter Fehler beim Speichern (offline ...)
         self.parent_schema = None
+        self.conflict = None           # Server-Fassung, solange ein Konflikt offen ist
         self.on_loaded = None          # (doc) -> None
         self.on_error = None           # (text) -> None
         self.on_saved = None
+        self.on_conflict = None        # (doc, server_page) -> None; ohne: automatische Konfliktkopie
+        self.on_notice = None          # (text) -> None: Hinweis (Entwurf wiederhergestellt, Konfliktkopie angelegt)
+        self.on_title = None           # (title) -> None: Titel von aussen geaendert (Tabelle)
         self._saving = False
-        self._again = False
+        self._waiters = []
+        self._draft_checked = False
+        self._resolving = False
+        self._retry_src = 0
         self.gen = 0                   # zaehlt Aenderungen: was waehrend des Speicherns dazukommt, geht nicht verloren
+        self.server = config.settings.server       # die Seite gehoert zu diesem Server - nie an einen anderen speichern
+        self.account = config.account(self.server)  # ... und zu diesem Konto (None: noch unbekannt, wird zugeordnet)
+        self.on_copies = None          # () -> None: lokale Kopien geaendert (Banner)
+        self._offline = False
+        store.docs.add(self)
 
     def mark_dirty(self):
         self.dirty = True
         self.gen += 1
+
+    # --- Server + Konto ----------------------------------------------------------------------
+    def _acct(self):
+        """Konto, zu dem diese Seite gehoert. Unbekannt: das jetzt angemeldete Konto (sobald bekannt) uebernehmen."""
+        if self.account is None and config.origin(config.settings.server) == config.origin(self.server):
+            self.account = config.account(self.server)
+        return self.account
+
+    def same_session(self):
+        """Darf jetzt gesendet werden? Nur an den eigenen Server und mit dem eigenen Konto - nach einem Server- oder
+        Kontowechsel (auch waehrend das neue Konto noch nicht bekannt ist) bleibt alles als Entwurf liegen."""
+        if config.origin(config.settings.server) != config.origin(self.server):
+            return False
+        mine = self._acct()
+        return mine is None or config.account(self.server) == mine
+
+    def account_known(self):
+        """Store: Konto am Server jetzt bekannt -> zuordnen, ungespeicherte Eingaben senden (gleiches Konto)"""
+        self._acct()
+        if self.dirty and not self._saving and self.conflict is None and self.same_session():
+            self.save()
+
+    @property
+    def saving(self):
+        return self._saving
 
     @property
     def title_raw(self):
@@ -119,11 +182,19 @@ class PageDoc:
     def props(self):
         return self.page.get("props") or {}
 
+    def set_title(self, title):
+        self.page["title"] = title
+        self.mark_dirty()
+        if self.on_title:
+            self.on_title(title)
+
+    # --- Laden ---------------------------------------------------------------------------------
     def load(self, force=False):
         if not self.loaded:
             c = store.cached(f"api/notes/{self.id}")
             if isinstance(c, dict):
                 self._apply(c, None)
+                self._restore_draft(c)
                 if self.on_loaded:
                     self.on_loaded(self)
 
@@ -140,9 +211,18 @@ class PageDoc:
             return p, schema
 
         def fin(r):
-            if self.dirty and self.loaded and not force:
+            p, schema = r
+            if self._saving:
+                return                                       # das laufende Speichern entscheidet (409 -> Konflikt)
+            if (self.dirty or self.conflict is not None) and self.fetched:
+                known = self.conflict.get("rev") if self.conflict is not None else self.rev
+                if (p.get("rev") or 0) != known:
+                    self._conflict(p)                        # eigene Eingaben + inzwischen anderer Stand: sofort melden
+                if schema is not None:
+                    self.parent_schema = schema
                 return                                       # eigene Eingaben schuetzen
-            self._apply(r[0], r[1])
+            self._apply(p, schema)
+            self._restore_draft(p)
             if self.on_loaded:
                 self.on_loaded(self)
 
@@ -183,56 +263,304 @@ class PageDoc:
         self.loaded = True
         self.fetched = True
 
+    # --- Entwuerfe -------------------------------------------------------------------------------
+    def _snapshot(self, deep=False):
+        d = {"id": self.id, "rev": self.rev, "title": self.title_raw, "time": time.time()}
+        if not self.is_database:
+            self.doc["blocks"] = self.root
+            # deep: unabhaengige Kopie (spaetere Eingaben aendern sie nicht)
+            d["doc"] = json.loads(json.dumps(self.doc, ensure_ascii=False)) if deep else self.doc
+        return d
+
+    def _write_draft(self):
+        if not self.fetched:
+            return
+        try:
+            drafts.write(self._snapshot(), self.server, self._acct())
+        except (TypeError, ValueError):
+            pass
+
+    def _same_content(self, d):
+        """Entwurf/Kopie d entspricht dem angezeigten Stand (Titel + Bloecke)?"""
+        doc = d.get("doc") if isinstance(d.get("doc"), dict) and isinstance(d["doc"].get("blocks"), list) else None
+        same_title = (d.get("title") or "") == self.title_raw
+        return same_title and (doc is None or self.is_database or _blocks_key(doc.get("blocks")) == _blocks_key(self.root))
+
+    def _restore_draft(self, p):
+        """Ungespeicherter Stand vom letzten Mal (Absturz, offline, Schliessen) -> uebernehmen und speichern"""
+        if self._draft_checked or not self.fetched:
+            return
+        self._draft_checked = True
+        d = drafts.read(self.id, self.server, self._acct())
+        if not d:
+            return
+        if self._same_content(d):
+            drafts.drop(self.id, self.server, self._acct())               # nichts Neues (war schon gespeichert)
+            return
+        doc = d.get("doc") if isinstance(d.get("doc"), dict) and isinstance(d["doc"].get("blocks"), list) else None
+        self.page = dict(self.page, title=d.get("title") or "")
+        if doc is not None and not self.is_database:
+            ensure_ids(doc["blocks"])
+            self.doc, self.root = doc, doc["blocks"]
+        self.rev = d.get("rev") if isinstance(d.get("rev"), int) else self.rev
+        self.mark_dirty()
+        if self.on_notice:
+            self.on_notice(_("Unsaved changes from last time were restored."))
+        GLib.idle_add(lambda: (self.save(), False)[1])
+
+    # --- Lokale Kopien (Konflikt: "Server-Fassung laden" sichert vorher die eigene Fassung) -------------------------
+    def save_local_copy(self):
+        """eigene Fassung (wie gerade angezeigt) als lokale Kopie ablegen -> True, wenn sicher auf der Platte"""
+        if not self.fetched:
+            return False
+        try:
+            ok = drafts.write_copy(self._snapshot(deep=True), self.server, self._acct()) is not None
+        except (TypeError, ValueError):
+            ok = False
+        if ok and self.on_copies:
+            self.on_copies()
+        return ok
+
+    def local_copies(self):
+        """lokale Kopien, die sich vom angezeigten Stand unterscheiden (neueste zuerst). Gleicht eine dem gespeicherten
+        Stand, ist sie ueberfluessig und wird geloescht (nicht, solange der angezeigte Stand ungespeichert ist)."""
+        if not self.fetched:
+            return []
+        out = []
+        for p, d in drafts.copies(self.id, self.server, self._acct()):
+            if not self._same_content(d):
+                out.append((p, d))
+            elif not self.dirty and self.conflict is None and not self._saving:
+                drafts.drop_copy(p)
+        return out
+
+    def restore_copy(self, path):
+        """Kopie wiederherstellen: ersetzt den angezeigten Stand und speichert ihn (bewusste Entscheidung - auch ueber
+        die Server-Fassung hinweg). Die Kopie wird erst geloescht, wenn ihr Inhalt als Entwurf sicher liegt."""
+        d = next((d for p, d in drafts.copies(self.id, self.server, self._acct()) if p == path), None)
+        if d is None or not self.fetched:
+            return False
+        if (self.dirty or self.conflict is not None) and not self._same_content(d):
+            self.save_local_copy()                           # angezeigte, ungespeicherte Eingaben nicht verwerfen
+        if self.conflict is not None:                        # offener Konflikt: Wiederherstellen = meine Fassung
+            self.rev = self.conflict.get("rev") or self.rev
+            self.conflict = None
+        self.page = dict(self.page, title=d.get("title") or "")
+        doc = d.get("doc") if isinstance(d.get("doc"), dict) and isinstance(d["doc"].get("blocks"), list) else None
+        if doc is not None and not self.is_database:
+            ensure_ids(doc["blocks"])
+            self.doc, self.root = doc, doc["blocks"]
+        self.mark_dirty()
+        self._write_draft()
+        drafts.drop_copy(path)
+        store.update_title(self.id, self.title_raw)
+        if self.on_loaded:
+            self.on_loaded(self)
+        self.save()
+        return True
+
+    def discard_copy(self, path):
+        drafts.drop_copy(path)
+        if self.on_copies:
+            self.on_copies()
+
+    # --- Speichern -----------------------------------------------------------------------------
+    def _release(self):
+        ws, self._waiters = self._waiters, []
+        for cb in ws:
+            try:
+                cb()
+            except Exception:  # noqa: BLE001
+                import traceback
+                traceback.print_exc()
+
     def save(self, done=None):
         # Nie eine Seite speichern, die nicht geladen werden konnte: sonst wuerde die leere Ansicht
         # ("Unbenannt", ohne Bloecke) den echten Inhalt auf dem Server ueberschreiben.
+        if done is not None:
+            self._waiters.append(done)
         if not self.loaded or not self.fetched:
+            self._release()
+            return
+        if not self.same_session():
+            self._write_draft()                              # Server/Konto gewechselt: nur als Entwurf (dort) behalten
+            self._release()
+            return
+        if self.conflict is not None:                        # erst entscheiden (Dialog), dann weiter
+            self._write_draft()
             return
         if self._saving:
-            self._again = True
+            return                                           # fin() speichert danach den neuesten Stand
+        if not self.dirty:
+            self._release()
             return
+        if self._retry_src:
+            GLib.source_remove(self._retry_src)
+            self._retry_src = 0
         self._saving = True
         self.doc["blocks"] = self.root
         self.doc["time"] = int(time.time() * 1000)
+        self._write_draft()
         b = {"title": self.title_raw, "rev": self.rev}
         if not self.is_database:
             b["body"] = json.dumps(self.doc, ensure_ascii=False)
             b["format"] = "blocks"
         title = self.title_raw
         sent = self.gen
+        acct = self._acct()
 
         def fin(r):
             self._saving = False
             if isinstance(r, dict) and r.get("rev") is not None:
                 self.rev = r["rev"]
             self.dirty = self.gen != sent             # inzwischen weiter getippt -> gleich noch einmal
-            if self.dirty:
-                self._again = True
-            self.error = None
+            self.error = self.last_error = None
+            self._offline = False
             store.update_title(self.id, title)
             store.drop_cache(f"api/notes/{self.id}")
             if self.parent_schema is not None:
-                store.emit("data-changed")
+                store.changed_data()
+            if not self.dirty:
+                drafts.drop(self.id, self.server, acct)
             if self.on_saved:
                 self.on_saved()
-            if self._again:
-                self._again = False
+            if self.dirty:
                 self.save()
-            if done:
-                done()
+            else:
+                self._release()
 
         def err(e):
             self._saving = False
             if isinstance(e, APIError) and e.code == 409:
+                self._fetch_conflict()
+                return
+            self._write_draft()
+            if isinstance(e, APIError) and e.code == SWITCHED:   # Server/Konto gewechselt: bleibt als Entwurf
+                self._release()
+                return
+            self.last_error = e
+            self._report(e)
+            if not (isinstance(e, APIError) and e.code in (401, 403, 404, 413, 423)):
+                self._retry_src = GLib.timeout_add_seconds(20, self._retry)    # offline: spaeter noch einmal
+            self._release()
+        srv = self.server
+
+        def send():
+            return client.json("PATCH", f"api/notes/{self.id}", b, server=srv, account=acct)
+        bg_serial(("note", self.id), send, done=fin, error=err)
+
+    def _report(self, e):
+        """Fehler beim Speichern melden. Offline (Server nicht erreichbar): einmal der Offline-Hinweis, nicht bei
+        jedem weiteren Versuch."""
+        if isinstance(e, APIError) and e.code == 0:
+            if not self._offline and self.on_error:
+                self.on_error(_("Offline – changes will be saved as soon as the server is reachable."))
+            self._offline = True
+            return
+        self._offline = False
+        if self.on_error:
+            self.on_error(_("Not saved: {error}").format(error=e))
+
+    def _retry(self):
+        self._retry_src = 0
+        if self.dirty and not self._saving:
+            self.save()
+        return False
+
+    # --- Konflikte -----------------------------------------------------------------------------
+    def _fetch_conflict(self):
+        def fin(p):
+            if self.dirty or self.conflict is not None:     # inzwischen schon geloest (z. B. Server-Fassung uebernommen)?
+                self._conflict(p)
+
+        def err(e):
+            self.last_error = e
+            self._write_draft()
+            self._report(e)
+            self._release()
+        bg(client.get, f"api/notes/{self.id}", done=fin, error=err)
+
+    def _conflict(self, p):
+        already = self.conflict is not None
+        self.conflict = p                                    # immer die neueste Server-Fassung merken
+        self._write_draft()
+        if already:
+            return                                           # Frage laeuft schon
+        if self.on_conflict:
+            self.on_conflict(self, p)
+        else:
+            self.resolve("copy")
+
+    def resolve(self, choice):
+        """Konflikt loesen:
+        'mine'   meine Fassung behalten (speichern, ueberschreibt die andere Aenderung)
+        'theirs' Server-Fassung laden - meine Fassung wird IMMER vorher als lokale Kopie gesichert (Banner bietet sie an)
+        'later'  noch nicht entscheiden (Dialog geschlossen, Esc): nichts ueberschreiben, Hinweis bleibt an der Seite
+        'copy'   ohne Dialog (Seite nicht sichtbar): meine Fassung als Kopie-Seite auf dem Server, hier die Server-Fassung;
+                 was waehrenddessen weiter getippt wurde, bleibt als lokale Kopie"""
+        p = self.conflict
+        if p is None or self._resolving or choice == "later":
+            return
+        if choice == "copy" and self.is_database:
+            choice = "theirs"                                # Datenbank: nur der Titel - lokale Kopie genuegt
+        if choice == "mine":
+            self.conflict = None
+            self.rev = p.get("rev") or 0
+            self.mark_dirty()
+            self.save()
+            return
+        if choice == "theirs":
+            if self.save_local_copy():                       # gleicht sie der Server-Fassung, raeumt der Banner sie weg
+                self._take_theirs(p)
+            elif self.on_error:                              # Kopie nicht sicher abgelegt: nichts verwerfen
+                self.on_error(_("Your version could not be saved as a copy. Nothing was discarded."))
+            return
+        self._resolving = True                               # Konflikt bleibt offen, bis die Kopie sicher angelegt ist
+        self.doc["blocks"] = self.root
+        title = (self.title_raw or _("Untitled")) + " " + _("(conflict copy)")
+        body = json.dumps(self.doc, ensure_ascii=False)
+        parent = p.get("parent_id")
+        sent = self.gen
+        srv, acct = self.server, self._acct()
+
+        def work():
+            b = {"title": title}
+            if parent is not None:
+                b["parent_id"] = parent
+            r = client.json("POST", "api/notes", b, server=srv, account=acct)
+            client.json("PATCH", f"api/notes/{r['id']}", {"body": body, "format": "blocks"}, server=srv, account=acct)
+            return r["id"]
+
+        def fin(nid):
+            self._resolving = False
+            if self.gen != sent and not self.save_local_copy():    # inzwischen weiter getippt: das nicht verwerfen
+                self._write_draft()
                 if self.on_error:
-                    self.on_error(_("The page was changed elsewhere in the meantime – reloaded."))
-                self.dirty = False
-                self.load(force=True)
-            elif self.on_error:
-                self.on_error(_("Not saved: {error}").format(error=e))
-            if done:
-                done()
-        bg(client.json, "PATCH", f"api/notes/{self.id}", b, done=fin, error=err)
+                    self.on_error(_("Your version could not be saved as a copy. Nothing was discarded."))
+                store.refresh()
+                return
+            self._take_theirs(self.conflict or p)
+            if self.on_notice:
+                self.on_notice(_("Your version was saved as “{title}”.").format(title=title))
+            store.refresh()
+
+        def err(e):
+            self._resolving = False                          # nichts verwerfen: Konflikt bleibt offen
+            self._write_draft()
+            if self.on_error and not (isinstance(e, APIError) and e.code == SWITCHED):
+                self.on_error(_("Conflict copy not created: {error}").format(error=e))
+        bg(work, done=fin, error=err)
+
+    def _take_theirs(self, p):
+        self.conflict = None
+        drafts.drop(self.id, self.server, self._acct())
+        self.dirty = False
+        self.gen += 1
+        self._apply(p, None)
+        store.update_title(self.id, self.title_raw)
+        if self.on_loaded:
+            self.on_loaded(self)
+        self._release()
 
 
 class PageEditor:
@@ -248,8 +576,8 @@ class PageEditor:
 
     # --- Speichern ------------------------------------------------------------------------------
     def changed(self):
-        """Struktur geaendert: neu zeichnen + speichern"""
-        self.view.rebuild()
+        """Struktur geaendert: betroffene Bloecke neu zeichnen (unveraenderte bleiben stehen) + speichern"""
+        self.view.rebuild_blocks()
         self.text_changed()
 
     def text_changed(self):
@@ -264,10 +592,11 @@ class PageEditor:
         return False
 
     def flush(self, done=None):
+        """Sofort speichern; done() erst, wenn alles gespeichert ist (auch wenn gerade schon gespeichert wird)"""
         if self._save_src:
             GLib.source_remove(self._save_src)
             self._save_src = 0
-        if self.doc.dirty:
+        if self.doc.dirty or self.doc.saving or self.doc.conflict is not None:
             self.doc.save(done)
         elif done:
             done()
@@ -653,3 +982,4 @@ class PageEditor:
         else:
             self.insert(b, after)
             self.set_focus(None)
+        return b["id"]

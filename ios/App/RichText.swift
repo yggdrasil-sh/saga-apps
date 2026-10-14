@@ -11,7 +11,7 @@ func richText(_ html: String, base: Font) -> AttributedString {
     var out = AttributedString()
     var bold = 0, italic = 0, under = 0, strike = 0, mark = 0, code = 0
     var links: [URL?] = []
-    let re = try! NSRegularExpression(pattern: "<(/?)([a-zA-Z]+)([^>]*)>")
+    let re = hkTagRegex
     let ns = html as NSString
     var pos = 0
     func emit(_ raw: String) {

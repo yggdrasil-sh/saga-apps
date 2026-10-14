@@ -3,6 +3,9 @@ import SwiftUI
 @main
 struct HlidskjalfApp: App {
     @StateObject private var store = Store()
+    #if os(macOS)
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    #endif
 
     var body: some Scene {
         #if os(macOS)
@@ -26,3 +29,21 @@ struct HlidskjalfApp: App {
         #endif
     }
 }
+
+#if os(macOS)
+/// Beenden (⌘Q): erst offene Seiten speichern - hoechstens 8 Sekunden warten (Entwurf liegt ohnehin lokal)
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard MainActor.assumeIsolated({ SaveRegistry.hasUnsaved }) else { return .terminateNow }
+        let once = Once(sender)
+        Task { @MainActor in await SaveRegistry.flushAll(); once.reply() }
+        Task { @MainActor in try? await Task.sleep(for: .seconds(8)); once.reply() }
+        return .terminateLater
+    }
+    @MainActor private final class Once {
+        let app: NSApplication; var done = false
+        init(_ app: NSApplication) { self.app = app }
+        func reply() { if !done { done = true; app.reply(toApplicationShouldTerminate: true) } }
+    }
+}
+#endif

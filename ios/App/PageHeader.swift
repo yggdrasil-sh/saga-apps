@@ -220,7 +220,7 @@ struct IconPicker: View {
                 }
             }
         }
-        .frame(minWidth: 380, minHeight: 440)
+        .macFrame(minWidth: 380, minHeight: 440)
     }
     private func set(_ v: String) async {
         do { try await store.patch(doc.id, ["icon": v]); doc.page["icon"] = v; dismiss() } catch { doc.error = error.localizedDescription }
@@ -264,7 +264,7 @@ struct MoveSheet: View {
             .navigationTitle("Verschieben nach")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } } }
         }
-        .frame(minWidth: 380, minHeight: 460)
+        .macFrame(minWidth: 380, minHeight: 460)
     }
     private func go(_ parent: Int?) async {
         do { try await store.move(id, to: parent); dismiss() } catch { self.error = error.localizedDescription }

@@ -4,21 +4,34 @@ import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.util.UiText
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.yggdrasil_sh.saga.blocks.BlockDoc
+import io.github.yggdrasil_sh.saga.blocks.InlineHtml
 import io.github.yggdrasil_sh.saga.blocks.InlineStyle
 import io.github.yggdrasil_sh.saga.blocks.JsonPath
 import io.github.yggdrasil_sh.saga.blocks.JsonTree
 import io.github.yggdrasil_sh.saga.data.ApiException
-import io.github.yggdrasil_sh.saga.data.SagaRepository
+import io.github.yggdrasil_sh.saga.data.Draft
+import io.github.yggdrasil_sh.saga.data.Drafts
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import java.io.IOException
+import javax.net.ssl.SSLException
 
 /**
  * Das gerade bearbeitete Feld (fuer die Werkzeugleiste ueber der Tastatur).
@@ -36,17 +49,52 @@ class ActiveField(
 )
 
 /**
+ * Was der Editor vom Rest der App braucht (SagaRepository; in Tests eine Attrappe).
+ * server/drafts gelten fuer den Server + das Konto, mit dem der Editor geoeffnet wurde.
+ */
+interface PageBackend {
+    val currentServer: String
+    val signedOut: Boolean
+    fun draftsForCurrent(): Drafts
+    suspend fun <T> withPageLock(id: Int, block: suspend () -> T): T
+    suspend fun loadPage(id: Int): JsonObject
+    /** -> neue Revision; ApiException 409 = woanders geaendert, 423 = gesperrt */
+    suspend fun savePage(id: Int, title: String, body: String?, rev: Int?): Int?
+    /** Neue Seite mit diesem Inhalt (Konflikt-Kopie) -> ID */
+    suspend fun createPageWith(title: String, body: String): Int
+    suspend fun setPinned(id: Int, pinned: Boolean)
+    suspend fun setLocked(id: Int, locked: Boolean)
+    fun updateTitleLocal(id: Int, title: String)
+    fun visited(id: Int)
+    fun friendly(e: Throwable): UiText
+    /** Server nicht erreichbar (Netz weg, Zeitueberschreitung) - kein Zertifikats- oder Serverfehler */
+    fun isOffline(e: Throwable): Boolean = e is IOException && e !is SSLException
+    fun register(editor: PageEditor) {}
+    fun unregister(editor: PageEditor) {}
+}
+
+/**
  * Zustand einer Seite im Editor. REGELN (aus echten Fehlern gelernt):
  *  - nie speichern, wenn die Seite nicht erfolgreich geladen wurde (fetched)
  *  - nur speichern, wenn wirklich etwas geaendert wurde (dirty)
  *  - gesperrte Seiten (locked) nicht bearbeiten
  *  - unbekannte Bloecke bleiben unveraendert im JSON (es werden nur einzelne Werte ersetzt)
- *  - Speichern mit Revision: 409 = woanders geaendert -> neu laden, 423 = gesperrt
+ *  - Speichern mit Revision: 409 = woanders geaendert -> KONFLIKT (nichts verwerfen, Nutzer entscheidet), 423 = gesperrt
+ *  - ein laufendes Speichern wird nie abgebrochen: Tippen verschiebt nur das Entprellen, nicht den Request
+ *  - ungespeicherte Eingaben liegen zusaetzlich als Entwurf auf Platte (Prozess-Tod, offline, Serverwechsel)
  */
 @Stable
-class PageEditor(val id: Int, private val repo: SagaRepository, private val scope: CoroutineScope) {
+class PageEditor(
+    val id: Int,
+    private val repo: PageBackend,
+    private val scope: CoroutineScope,
+    private val io: CoroutineDispatcher = Dispatchers.IO,
+    private val cpu: CoroutineDispatcher = Dispatchers.Default,
+    private val clock: () -> Long = System::currentTimeMillis,
+) {
     /** Server, von dem die Seite stammt - nie auf einen anderen Server speichern */
-    private val server = repo.server.value
+    private val server = repo.currentServer
+    private val drafts: Drafts = repo.draftsForCurrent()
 
     var doc by mutableStateOf(JsonObject(emptyMap()))
         private set
@@ -67,21 +115,51 @@ class PageEditor(val id: Int, private val repo: SagaRepository, private val scop
         private set
     var saving by mutableStateOf(false)
         private set
+    /** zuletzt erfolgreich gespeichert (Uhrzeit, ms) - fuer "Gespeichert" in der Titelleiste */
+    var savedAt by mutableStateOf<Long?>(null)
+        private set
+    /** Konflikt (409): die Seite wurde woanders geaendert; automatisches Speichern pausiert, bis entschieden ist */
+    var conflict by mutableStateOf(false)
+        private set
+    /** Server nicht erreichbar: Eingaben liegen als Entwurf auf dem Geraet und werden spaeter gespeichert */
+    var offline by mutableStateOf(false)
+        private set
+    /**
+     * Entwurf vom letzten Mal, der vom Server-Stand abweicht (Banner "Nicht gespeicherte Aenderungen vom ...").
+     * Bis Wiederherstellen/Verwerfen ist die Seite nur lesbar - sonst wuerden neue Eingaben den Entwurf ueberschreiben.
+     */
+    var pendingDraft by mutableStateOf<Draft?>(null)
+        private set
+    private var pendingDoc: JsonObject? = null
     var error by mutableStateOf<UiText?>(null)
     var info by mutableStateOf<UiText?>(null)
 
     /** Feld, das den Fokus bekommen soll (Schluessel) - das Feld setzt es nach dem Fokussieren zurueck */
     var focusRequest by mutableStateOf<String?>(null)
     var focusAtEnd = false
+    /** Cursor-Position fuer focusRequest (Zeichen im Klartext), sonst Anfang bzw. Ende (focusAtEnd) */
+    var focusOffset: Int? = null
     var active by mutableStateOf<ActiveField?>(null)
 
     private var rev: Int? = null
-    private var version = 0
-    private var savedVersion = 0
+    // als State: "Gespeichert"/"Ungespeichert" in der Titelleiste folgt sofort
+    private var version by mutableIntStateOf(0)
+    private var savedVersion by mutableIntStateOf(0)
     val dirty: Boolean get() = version != savedVersion
     val isDatabase: Boolean get() = kind == "database"
-    val editable: Boolean get() = fetched && !locked && !isDatabase
-    private var saveJob: Job? = null
+    val editable: Boolean get() = fetched && !locked && !isDatabase && pendingDraft == null
+
+    private var debounceJob: Job? = null
+    private var retryJob: Job? = null
+    private var draftJob: Job? = null
+    private val draftLock = Mutex()
+    /** laeuft gerade ein Speichervorgang? (nur auf dem Haupt-Thread geaendert) */
+    private val running = MutableStateFlow(false)
+    private var again = false
+
+    init {
+        repo.register(this)
+    }
 
     // ---------------------------------------------------------------- Laden
 
@@ -90,22 +168,36 @@ class PageEditor(val id: Int, private val repo: SagaRepository, private val scop
         try {
             val p = repo.withPageLock(id) { repo.loadPage(id) }
             if (dirty && fetched) return                     // eigene, noch nicht gespeicherte Eingaben schuetzen
-            apply(p)
+            val parsed = withContext(cpu) { parse(p) }
+            apply(p, parsed)
+            offline = false
+            checkDraft(p)
             repo.visited(id)
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: BlockDoc.UnreadableException) {
             fetched = false
             error = UiText.Res(R.string.page_unreadable)
         } catch (e: Exception) {
-            if (!fetched) error = repo.friendly(e) else info = UiText.Res(R.string.page_reload_failed, repo.friendly(e))
+            when {
+                !fetched -> error = repo.friendly(e)
+                repo.isOffline(e) -> offline = true
+                else -> info = UiText.Res(R.string.page_reload_failed, repo.friendly(e))
+            }
         } finally {
             loading = false
         }
     }
 
-    private fun apply(p: JsonObject) {
+    private fun parse(p: JsonObject): BlockDoc.Parsed {
         val bodyEl = p["body"] as? JsonPrimitive
         val body = if (bodyEl != null && bodyEl.isString) bodyEl.content else null
-        val parsed = BlockDoc.parse(body, BlockDoc.str(p, "format").ifEmpty { "text" })
+        return BlockDoc.parse(body, BlockDoc.str(p, "format").ifEmpty { "text" })
+    }
+
+    private fun apply(p: JsonObject, parsed: BlockDoc.Parsed) {
+        val bodyEl = p["body"] as? JsonPrimitive
+        val body = if (bodyEl != null && bodyEl.isString) bodyEl.content else null
         title = BlockDoc.str(p, "title")
         icon = BlockDoc.str(p, "icon")
         kind = BlockDoc.str(p, "kind").ifEmpty { "page" }
@@ -113,22 +205,76 @@ class PageEditor(val id: Int, private val repo: SagaRepository, private val scop
         pinned = BlockDoc.bool(p, "pinned")
         rev = BlockDoc.int(p, "rev")
         converted = parsed.converted && !body.isNullOrBlank()
-        var d = parsed.doc
-        if (BlockDoc.blocks(d).isEmpty() && kind != "database") {      // leere Seite: ein Absatz zum Losschreiben (erst gespeichert, wenn etwas getippt wird)
-            d = JsonTree.set(d, listOf("blocks"), JsonArray(listOf(BlockDoc.newBlock("paragraph")))) as JsonObject
-        }
-        doc = d
+        doc = withStarter(parsed.doc)
         version = 0
         savedVersion = 0
         fetched = true
         error = null
     }
 
+    /** leere Seite: ein Absatz zum Losschreiben (erst gespeichert, wenn etwas getippt wird) */
+    private fun withStarter(d: JsonObject): JsonObject =
+        if (BlockDoc.blocks(d).isEmpty() && kind != "database") JsonTree.set(d, listOf("blocks"), JsonArray(listOf(BlockDoc.newBlock("paragraph")))) as JsonObject
+        else d
+
+    /**
+     * Nach dem Laden: Entwurf von Platte (letzte Sitzung nicht gespeichert)? Hat der Server inhaltlich schon genau
+     * diesen Stand (gespeichert, Prozess vor dem Loeschen des Entwurfs beendet), ist er erledigt - auch wenn die
+     * Revision inzwischen hoeher ist. Sonst anbieten (Banner): Wiederherstellen oder Verwerfen.
+     */
+    private suspend fun checkDraft(page: JsonObject) {
+        pendingDraft = null
+        pendingDoc = null
+        if (isDatabase || locked) return
+        val d = withContext(io) { drafts.read(id) } ?: return
+        if (withContext(cpu) { d.matchesPage(page) }) {
+            draftLock.withLock { withContext(io) { if (drafts.read(id)?.stamp == d.stamp) drafts.delete(id) } }
+            return
+        }
+        pendingDoc = try {
+            withContext(cpu) { d.body?.let { BlockDoc.parse(it, "blocks").doc } }
+        } catch (_: BlockDoc.UnreadableException) {
+            null                                             // unlesbarer Inhalt: nur der Titel laesst sich uebernehmen
+        }
+        pendingDraft = d
+    }
+
+    /**
+     * Banner "Wiederherstellen": Entwurf uebernehmen und speichern. Beruht er auf einem aelteren Stand als dem
+     * angezeigten (Revision) und weicht inhaltlich ab -> Konflikt (der Nutzer entscheidet, nichts wird ueberschrieben).
+     */
+    fun restoreDraft() {
+        val d = pendingDraft ?: return
+        val nd = pendingDoc
+        pendingDraft = null
+        pendingDoc = null
+        title = d.title
+        if (nd != null) doc = withStarter(nd)
+        version = savedVersion + 1                           // der Entwurf auf Platte bleibt (mit seiner Revision)
+        if (d.rev != null && rev != null && d.rev != rev) {
+            conflict = true                                  // Server hat inzwischen einen anderen Stand
+        } else {
+            requestSave()
+        }
+    }
+
+    /** Banner "Verwerfen": Entwurf loeschen, der Server-Stand bleibt */
+    fun discardDraft() {
+        val d = pendingDraft ?: return
+        pendingDraft = null
+        pendingDoc = null
+        scope.launch {
+            draftLock.withLock { withContext(io) { if (drafts.read(id)?.stamp == d.stamp) drafts.delete(id) } }
+        }
+    }
+
     // ---------------------------------------------------------------- Aendern
 
     private fun touched() {
         version++
+        if (error != null && retryJob?.isActive != true) error = null
         scheduleSave()
+        writeDraftSoon()
     }
 
     private fun change(newDoc: JsonObject) {
@@ -138,7 +284,7 @@ class PageEditor(val id: Int, private val repo: SagaRepository, private val scop
     }
 
     fun editTitle(v: String) {
-        if (!fetched || locked) return
+        if (!fetched || locked || pendingDraft != null) return
         val t = v.replace('\n', ' ')
         if (t == title) return
         title = t
@@ -148,7 +294,42 @@ class PageEditor(val id: Int, private val repo: SagaRepository, private val scop
     fun setString(path: JsonPath, value: String) {
         val cur = JsonTree.get(doc, path) as? JsonPrimitive
         if (cur != null && cur.isString && cur.content == value) return
-        change(JsonTree.set(doc, path, JsonPrimitive(value)) as JsonObject)
+        val nd = try {
+            JsonTree.set(doc, path, JsonPrimitive(value)) as? JsonObject
+        } catch (_: IllegalArgumentException) {
+            null                                             // unerwartete Daten / veralteter Pfad: nicht abstuerzen
+        } ?: return
+        change(nd)
+    }
+
+    /**
+     * Ruecktaste am Anfang eines nicht leeren Textblocks: Text an den vorigen Textblock anhaengen (wie im Web).
+     * -> false, wenn davor kein passender Block steht.
+     */
+    fun mergeWithPrevious(blockPath: JsonPath): Boolean {
+        if (!editable) return false
+        val (arr, idx) = arrayAndIndex(blockPath)
+        if (idx <= 0) return false
+        val cur = block(blockPath) ?: return false
+        val prevPath = arr + (idx - 1)
+        val prev = block(prevPath) ?: return false
+        val mergeable = setOf("paragraph", "header", "quote")
+        if (BlockDoc.type(cur) !in mergeable || BlockDoc.type(prev) !in mergeable) return false
+        val prevHtml = BlockDoc.str(BlockDoc.data(prev), "text")
+        val curHtml = BlockDoc.str(BlockDoc.data(cur), "text")
+        val joinAt = InlineHtml.plain(prevHtml).length
+        val d1 = try {
+            JsonTree.set(doc, prevPath + listOf("data", "text"), JsonPrimitive(prevHtml + curHtml)) as JsonObject
+        } catch (_: IllegalArgumentException) {
+            return false
+        }
+        val d2 = JsonTree.remove(d1, arr, idx) as JsonObject
+        active = null
+        change(d2)
+        focusOffset = joinAt
+        focusAtEnd = false
+        focusRequest = blockKey(prev, prevPath)
+        return true
     }
 
     fun block(path: JsonPath): JsonObject? = JsonTree.get(doc, path) as? JsonObject
@@ -166,6 +347,7 @@ class PageEditor(val id: Int, private val repo: SagaRepository, private val scop
     fun requestFocus(key: String?, atEnd: Boolean = false) {
         if (key == null) return
         focusAtEnd = atEnd
+        focusOffset = null
         focusRequest = key
     }
 
@@ -269,7 +451,12 @@ class PageEditor(val id: Int, private val repo: SagaRepository, private val scop
         val meta = item["meta"] as? JsonObject ?: JsonObject(emptyMap())
         val checked = BlockDoc.bool(meta, "checked")
         val nm = JsonObject(LinkedHashMap(meta).apply { put("checked", JsonPrimitive(!checked)) })
-        change(JsonTree.set(doc, itemPath + "meta", nm) as JsonObject)
+        val nd = try {
+            JsonTree.set(doc, itemPath + "meta", nm) as? JsonObject
+        } catch (_: IllegalArgumentException) {
+            null
+        } ?: return
+        change(nd)
     }
 
     /** Klick unter den letzten Block: dort weiterschreiben (leerer letzter Absatz) oder neuen Absatz anlegen */
@@ -287,32 +474,62 @@ class PageEditor(val id: Int, private val repo: SagaRepository, private val scop
 
     // ---------------------------------------------------------------- Speichern
 
+    /** Nach einer Tipp-Pause speichern. Bricht nur das Warten ab, nie ein laufendes Speichern. */
     fun scheduleSave(delayMs: Long = 1200) {
-        saveJob?.cancel()
-        saveJob = scope.launch {
+        debounceJob?.cancel()
+        debounceJob = scope.launch {
             delay(delayMs)
-            save()
+            debounceJob = null
+            requestSave()
         }
     }
 
-    /** Beim Verlassen der Seite / App: sofort speichern (laeuft im App-Scope weiter) */
+    /** Speichern anstossen: laeuft schon eins, wird danach mit dem neuesten Stand nochmal gespeichert */
+    fun requestSave() {
+        debounceJob?.cancel()
+        retryJob?.cancel()
+        if (running.value) {
+            again = true
+            return
+        }
+        if (!dirty || conflict) return
+        running.value = true
+        scope.launch {
+            try {
+                do {
+                    again = false
+                    val isConflict = repo.withPageLock(id) { doSave() }
+                    if (isConflict) conflict = true          // Dialog/Banner der Seite (Glossar: "Seite wurde woanders geaendert")
+                } while (again && dirty && !conflict && error == null && !offline)
+            } finally {
+                running.value = false
+            }
+        }
+    }
+
+    /** Beim Verlassen der Seite / App: Entwurf sofort auf Platte und sofort speichern (laeuft im App-Scope weiter) */
     fun flush() {
-        saveJob?.cancel()
-        if (dirty) scope.launch { save() }
-    }
-
-    suspend fun save() {
-        val conflict = repo.withPageLock(id) { doSave() }
-        if (conflict) {
-            savedVersion = version                          // lokale Aenderung verwerfen, Stand vom Server holen
-            load()
+        debounceJob?.cancel()
+        if (dirty) {
+            writeDraftSoon(0)
+            requestSave()
         }
     }
+
+    /** Speichern und warten, bis nichts mehr laeuft (vor Sperren, Neu laden, Serverwechsel) */
+    suspend fun saveAndWait() {
+        flush()
+        running.first { !it }
+        draftJob?.join()
+    }
+
+    /** Fuer Aufrufer, die nur "jetzt speichern" wollen */
+    suspend fun save() = saveAndWait()
 
     /** -> true bei Konflikt (409) */
     private suspend fun doSave(): Boolean {
-        if (!fetched || !dirty || locked || repo.server.value != server) return false
-        if (repo.needsLogin.value) {
+        if (!fetched || !dirty || locked || conflict || repo.currentServer != server) return false
+        if (repo.signedOut) {
             error = UiText.Res(R.string.save_sign_in)
             return false
         }
@@ -321,17 +538,19 @@ class PageEditor(val id: Int, private val repo: SagaRepository, private val scop
         val d = doc
         saving = true
         try {
-            val body = if (isDatabase) null else BlockDoc.serialize(BlockDoc.withTime(d, System.currentTimeMillis()))
+            val body = if (isDatabase) null else withContext(cpu) { BlockDoc.serialize(BlockDoc.withTime(d, clock())) }
             repo.savePage(id, t, body, rev)?.let { rev = it }
             savedVersion = v
             error = null
+            offline = false
+            savedAt = clock()
             repo.updateTitleLocal(id, t)
+            if (!dirty) deleteDraftSoon()
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: ApiException) {
             when (e.code) {
-                409 -> {
-                    info = UiText.Res(R.string.save_conflict)
-                    return true
-                }
+                409 -> return true
                 423 -> {
                     locked = true
                     error = UiText.Res(R.string.save_locked)
@@ -340,13 +559,102 @@ class PageEditor(val id: Int, private val repo: SagaRepository, private val scop
                 else -> error = UiText.Res(R.string.save_failed, e.text)
             }
         } catch (e: Exception) {
-            error = UiText.Res(R.string.save_failed_retry, repo.friendly(e))
-            scheduleSave(10_000)
+            if (repo.isOffline(e)) {
+                offline = true                               // Glossar "Offline-Hinweis"; Entwurf liegt auf Platte
+                error = null
+                writeDraftSoon(0)
+            } else {
+                error = UiText.Res(R.string.save_failed_retry, repo.friendly(e))
+            }
+            retryJob?.cancel()
+            retryJob = scope.launch {
+                delay(10_000)
+                retryJob = null
+                error = null
+                requestSave()
+            }
         } finally {
             saving = false
         }
-        if (dirty && error == null) scheduleSave()
         return false
+    }
+
+    // ---------------------------------------------------------------- Entwuerfe
+
+    private fun writeDraftSoon(delayMs: Long = 400) {
+        if (!fetched || isDatabase) return
+        draftJob?.cancel()
+        draftJob = scope.launch {
+            if (delayMs > 0) delay(delayMs)
+            writeDraftNow()
+        }
+    }
+
+    private suspend fun writeDraftNow() {
+        if (!dirty) return
+        val v = version
+        val t = title
+        val d = doc
+        val r = rev
+        val body = withContext(cpu) { BlockDoc.serialize(d) }
+        draftLock.withLock {
+            withContext(io) {
+                drafts.write(Draft(id, t, body, r, clock()))
+            }
+            if (savedVersion >= v) withContext(io) { drafts.delete(id) }   // inzwischen gespeichert
+        }
+    }
+
+    private fun deleteDraftSoon() {
+        scope.launch {
+            draftLock.withLock {
+                if (!dirty) withContext(io) { drafts.delete(id) }
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- Konflikt
+
+    /** Konflikt: meine Fassung behalten - auf den aktuellen Server-Stand (Revision) setzen und ueberschreiben */
+    suspend fun keepMine() {
+        try {
+            val p = repo.withPageLock(id) { repo.loadPage(id) }
+            rev = BlockDoc.int(p, "rev")
+            conflict = false
+            info = null
+            if (!dirty) version++
+            requestSave()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            error = UiText.Res(R.string.save_failed, repo.friendly(e))
+        }
+    }
+
+    /** Konflikt: meine Fassung als neue Seite sichern, dann die Server-Fassung laden. -> ID der Kopie oder null */
+    suspend fun saveCopyAndLoadServer(copyTitle: String): Int? {
+        return try {
+            val body = withContext(cpu) { BlockDoc.serialize(BlockDoc.withTime(doc, clock())) }
+            val newId = repo.createPageWith(copyTitle, body)
+            savedVersion = version
+            conflict = false
+            withContext(io) { drafts.delete(id) }
+            info = null
+            fetched = false
+            load()
+            newId
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            error = UiText.Res(R.string.save_failed, repo.friendly(e))
+            null
+        }
+    }
+
+    /** Editor wird nicht mehr angezeigt */
+    fun close() {
+        flush()
+        repo.unregister(this)
     }
 
     // ---------------------------------------------------------------- Seiten-Aktionen
@@ -357,10 +665,7 @@ class PageEditor(val id: Int, private val repo: SagaRepository, private val scop
     }
 
     suspend fun setLocked(on: Boolean) {
-        if (on) {
-            saveJob?.cancel()
-            save()                                           // erst speichern, dann sperren (wie im Web)
-        }
+        if (on) saveAndWait()                                // erst speichern, dann sperren (wie im Web)
         repo.setLocked(id, on)
         locked = on
         if (on) active = null

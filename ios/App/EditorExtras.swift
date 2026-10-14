@@ -182,63 +182,81 @@ func replaceTrigger(_ rich: inout AttributedString, _ t: HKTrigger, at start: In
 
 // MARK: - Tabelle (bearbeitbar)
 
+/// Tabellen-Block: Inhalt kommt immer aus den Blockdaten (auch nach Neuladen), Zellen behalten ihr Inline-HTML
+/// (Bearbeiten mit Formatierung wie Absaetze), feste Zeilen-/Spalten-IDs statt Indizes.
 struct EditableTable: View {
     let data: NSMutableDictionary
+    let blockID: String
     @EnvironmentObject var ed: PageEditor
-    @State private var rows: [[String]] = []
+    @State private var model = TableModel(content: nil)
     @State private var tick = 0
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var hsc
+    private var colWidth: CGFloat { hsc == .compact ? 150 : 200 }
+    #else
+    private let colWidth: CGFloat = 200
+    #endif
     private var headings: Bool { data["withHeadings"] as? Bool ?? false }
+    /// aktueller Stand in den Blockdaten (aendert sich beim Neuladen der Seite)
+    private var stored: [[String]] { TableModel(content: data["content"]).content }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             ScrollView(.horizontal, showsIndicators: true) {
                 Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
-                    ForEach(rows.indices, id: \.self) { r in
+                    ForEach(Array(model.rows.enumerated()), id: \.element.id) { ri, row in
                         GridRow {
-                            ForEach(rows[r].indices, id: \.self) { c in
-                                TextField("", text: Binding(get: { rows[r][c] }, set: { rows[r][c] = $0; save() }), axis: .vertical)
-                                    .textFieldStyle(.plain).disabled(ed.locked)
-                                    .font(r == 0 && headings ? .subheadline.bold() : .subheadline)
-                                    .padding(8).frame(minWidth: 120, alignment: .leading)
-                                    .background(r == 0 && headings ? Color.secondary.opacity(0.1) : .clear)
-                                    .border(.secondary.opacity(0.25), width: 0.5)
-                                    .contextMenu { if !ed.locked { tableMenu(r, c) } }
+                            ForEach(Array(model.cols.enumerated()), id: \.element) { ci, col in
+                                cellView(row: row.id, ri: ri, col: col, ci: ci)
                             }
                         }
                     }
                 }
+                .padding(.bottom, 2)
             }
+            .accessibilityLabel("Tabelle")
             if !ed.locked {
                 HStack(spacing: 12) {
-                    Button { rows.append(Array(repeating: "", count: max(1, rows.first?.count ?? 2))); save() } label: { Label("Zeile", systemImage: "plus") }
-                    Button { for i in rows.indices { rows[i].append("") }; save() } label: { Label("Spalte", systemImage: "plus") }
-                    Toggle("Kopfzeile", isOn: Binding(get: { headings }, set: { data["withHeadings"] = $0; tick += 1; ed.changed() }))
-                        #if os(macOS)
-                        .toggleStyle(.checkbox)
-                        #endif
+                    Button { model.insertRow(near: nil); structure() } label: { Label("Zeile", systemImage: "plus") }
+                    Button { model.insertCol(near: nil); structure() } label: { Label("Spalte", systemImage: "plus") }
+                    Button { data["withHeadings"] = !headings; tick += 1; ed.changed() } label: {     // kompakt wie die anderen Knoepfe (kein breiter Schalter)
+                        Label("Kopfzeile", systemImage: headings ? "checkmark.square" : "square")
+                    }
+                    .accessibilityAddTraits(headings ? .isSelected : [])
                 }
                 .font(.caption).buttonStyle(.plain).foregroundStyle(.secondary)
             }
         }
-        .onAppear { load() }
+        // Blockdaten neu (Neuladen, Rueckkehr aus dem Web-Editor, Wiederherstellen) -> Anzeige nachziehen
+        .onChange(of: stored, initial: true) { _, new in if new != model.content { model = TableModel(content: data["content"]) } }
     }
-    @ViewBuilder private func tableMenu(_ r: Int, _ c: Int) -> some View {
-        Button("Zeile darüber einfügen") { rows.insert(Array(repeating: "", count: rows[r].count), at: r); save() }
-        Button("Zeile darunter einfügen") { rows.insert(Array(repeating: "", count: rows[r].count), at: r + 1); save() }
-        Button("Spalte links einfügen") { for i in rows.indices { rows[i].insert("", at: min(c, rows[i].count)) }; save() }
-        Button("Spalte rechts einfügen") { for i in rows.indices { rows[i].insert("", at: min(c + 1, rows[i].count)) }; save() }
+
+    @ViewBuilder private func cellView(row: Int, ri: Int, col: Int, ci: Int) -> some View {
+        let head = ri == 0 && headings
+        EditText(key: "\(blockID)/t\(row)-\(col)", html: model.cell(row, ci),
+                 font: head ? .subheadline.bold() : .subheadline, placeholder: "", splitOnReturn: false, boldBase: head,
+                 setHTML: { h in model.set(row, col, h); write() })
+            .padding(8)
+            .frame(width: colWidth, alignment: .topLeading)
+            .frame(maxHeight: .infinity, alignment: .topLeading)
+            .background(head ? Color.secondary.opacity(0.1) : .clear)
+            .border(.secondary.opacity(0.25), width: 0.5)
+            .contextMenu { if !ed.locked { tableMenu(row, col) } }
+    }
+
+    @ViewBuilder private func tableMenu(_ row: Int, _ col: Int) -> some View {
+        Button("Zeile darüber einfügen") { model.insertRow(near: row, after: false); structure() }
+        Button("Zeile darunter einfügen") { model.insertRow(near: row, after: true); structure() }
+        Button("Spalte links einfügen") { model.insertCol(near: col, after: false); structure() }
+        Button("Spalte rechts einfügen") { model.insertCol(near: col, after: true); structure() }
         Divider()
-        if rows.count > 1 { Button("Zeile löschen", role: .destructive) { rows.remove(at: r); save() } }
-        if (rows.first?.count ?? 0) > 1 { Button("Spalte löschen", role: .destructive) { for i in rows.indices where c < rows[i].count { rows[i].remove(at: c) }; save() } }
+        if model.rows.count > 1 { Button("Zeile löschen", role: .destructive) { ed.focus = nil; model.removeRow(row); structure() } }
+        if model.width > 1 { Button("Spalte löschen", role: .destructive) { ed.focus = nil; model.removeCol(col); structure() } }
     }
-    private func load() {
-        rows = ((data["content"] as? [[String]]) ?? [["", ""], ["", ""]]).map { $0.map { decodeEntities(plain($0)) } }
-        if rows.isEmpty { rows = [["", ""], ["", ""]] }
-    }
-    private func save() {
-        func esc(_ s: String) -> String { s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;").replacingOccurrences(of: "\n", with: "<br>") }
-        data["content"] = rows.map { $0.map(esc) }
-        ed.textChanged()
-    }
+    /// Zelltext geaendert: nur speichern (das Textfeld zeigt sich selbst)
+    private func write() { data["content"] = model.content; ed.textChanged() }
+    /// Zeilen/Spalten geaendert: speichern + Seite neu zeichnen
+    private func structure() { data["content"] = model.content; ed.changed() }
 }
 
 // MARK: - Schaltflaechen einrichten (wie ⚙ im Web)
@@ -288,7 +306,7 @@ struct ButtonsConfig: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
             }
         }
-        .frame(minWidth: 420, minHeight: 420)
+        .macFrame(minWidth: 420, minHeight: 420)
         .onAppear { buttons = (data["buttons"] as? [[String: Any]]) ?? [] }
     }
     private func bind(_ i: Int, _ k: String) -> Binding<String> {
@@ -311,7 +329,7 @@ struct EmbedPrompt: View {
             TextField("https://…", text: $url).textFieldStyle(.roundedBorder).onSubmit { ok() }
             HStack { Spacer(); Button("Abbrechen") { done(nil) }; Button("Einbetten") { ok() }.keyboardShortcut(.defaultAction).disabled(!valid) }
         }
-        .padding(18).frame(width: 380)
+        .padding(18).macWidth(380)
     }
     private var valid: Bool { url.hasPrefix("http://") || url.hasPrefix("https://") }
     private func ok() { if valid { done(url.trimmingCharacters(in: .whitespaces)) } }
@@ -334,7 +352,7 @@ struct HKEditorCommands: Commands {
             Button("Unterstrichen") { ed?.format("underline") }.keyboardShortcut("u", modifiers: .command)
             Button("Durchgestrichen") { ed?.format("strike") }.keyboardShortcut("x", modifiers: [.command, .shift])
             Button("Markieren") { ed?.format("mark") }.keyboardShortcut("h", modifiers: [.command, .shift])
-            Button("Code") { ed?.format("code") }.keyboardShortcut("e", modifiers: .command)
+            Button("Code") { ed?.format("code") }.keyboardShortcut("e", modifiers: [.command, .shift])   // ⌘E bleibt "Auswahl suchen" (System)
             Divider()
             Button("Link …") { ed?.format("link") }.keyboardShortcut("k", modifiers: [.command, .shift])
         }

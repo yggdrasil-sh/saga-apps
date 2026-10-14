@@ -13,12 +13,13 @@ finish-args:
   - --share=ipc
   # GPU-Beschleunigung fuer GTK4
   - --device=dri
-  # Geraete-Schluessel im Schluesselbund (libsecret nutzt im Flatpak zuerst das Secret-Portal,
-  # dies ist der Rueckfall fuer Desktops ohne Portal-Backend)
+  # Geraete-Schluessel: libsecret nimmt im Flatpak das Secret-Portal (verschluesselte Datei in der App-Sandbox),
+  # sobald es eins gibt (GNOME, KDE mit Portal) - dann wird org.freedesktop.secrets gar nicht benutzt.
+  # Ohne Portal (z. B. Xfce, aeltere KDE) spricht libsecret direkt mit dem Schluesselbund: bisherige Installationen
+  # haben ihren Schluessel dort abgelegt und wuerden ohne diese Freigabe abgemeldet (neue landeten sonst in einer
+  # Ersatzdatei). Darum bleibt die Freigabe, obwohl sie dort Zugriff auf den ganzen Schluesselbund gibt.
   - --talk-name=org.freedesktop.secrets
-  # Datei-Anhaenge werden direkt in den Download-Ordner gespeichert und danach geoeffnet;
-  # Bild waehlen, Anhaengen und Exportieren laufen ueber Gtk.FileDialog (Portal)
-  - --filesystem=xdg-download
+  # Kein Dateisystem-Zugriff: Anhaenge speichern, Bild waehlen, Anhaengen und Exportieren laufen ueber Gtk.FileDialog (Portal)
 # Uebersetzungen bleiben in der App (/app/share/locale): ein Locale-Erweiterungspaket fehlte sonst im Einzeldatei-Bundle
 separate-locales: false
 cleanup:
@@ -45,6 +46,8 @@ modules:
     build-commands:
       - install -d ${FLATPAK_DEST}/share/hlidskjalf/hlidskjalf
       - cp -a hlidskjalf/*.py hlidskjalf/style.css ${FLATPAK_DEST}/share/hlidskjalf/hlidskjalf/
+      # Testmodus (HK_TEST) gehoert nicht ins Paket
+      - rm -f ${FLATPAK_DEST}/share/hlidskjalf/hlidskjalf/testing.py
       - python3 -m compileall -q -d /app/share/hlidskjalf/hlidskjalf ${FLATPAK_DEST}/share/hlidskjalf/hlidskjalf
       # Uebersetzungen: po/*.po -> /app/share/locale/<sprache>/LC_MESSAGES/io.github.yggdrasil_sh.Saga.mo (msgfmt aus dem SDK)
       - sh po/build-mo.sh ${FLATPAK_DEST}/share/locale

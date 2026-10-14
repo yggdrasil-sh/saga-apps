@@ -109,6 +109,10 @@ data class LoginResult(
     @SerialName("app_key") val appKey: String? = null,
 )
 
+/** Ausschnitt aus GET /api/account: username ist die stabile Kennung, name der (aenderbare) Anzeigename */
+@Serializable
+data class AccountInfo(val username: String? = null, val name: String? = null)
+
 @Serializable
 data class NewId(val id: Int)
 

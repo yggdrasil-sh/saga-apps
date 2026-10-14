@@ -26,4 +26,19 @@
     <lang percentage="100">es</lang>
   </languages>
   <content_rating type="oars-1.1"/>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+    <control>touch</control>
+  </supports>
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <releases>
+    <release version="1.0.0" date="2026-10-11">
+      <description>
+        <p>First native Linux version.</p>
+      </description>
+    </release>
+  </releases>
 </component>

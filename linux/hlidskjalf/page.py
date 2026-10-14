@@ -3,13 +3,13 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango
 
 from . import images
 from .api import client
-from .blocks import BlockKit, HoverManager, SuggestPopover, chip, flat_button, menu_popover
+from .blocks import BlockKit, HoverManager, SuggestPopover, flat_button, menu_popover
 from .config import settings
-from .editor import PageDoc, PageEditor, make
-from .i18n import _
+from .editor import PageDoc, PageEditor
+from .i18n import _, pgettext
 from .richtext import RichText
 from .store import is_db, label, store, watch
-from .util import bg, edited_text, new_block_id, plain
+from .util import bg, date_time_text, edited_text, new_block_id, plain
 
 GUTTER = 60
 
@@ -28,13 +28,10 @@ class CoverView(Gtk.Overlay):
         self._height()
         self.bar = Gtk.Box(spacing=0, halign=Gtk.Align.END, valign=Gtk.Align.START, margin_top=10, margin_end=10)
         self.bar.add_css_class("hk-cover-bar")
+        self.bar.add_css_class("hk-reveal")
+        self.add_css_class("hk-reveal-zone")
         self.add_overlay(self.bar)
         self._normal_bar()
-        self.bar.set_opacity(0)
-        mo = Gtk.EventControllerMotion()
-        mo.connect("enter", lambda *_: self.bar.set_opacity(1))
-        mo.connect("leave", lambda *_: (not self.repos) and self.bar.set_opacity(0))
-        self.add_controller(mo)
         dr = Gtk.GestureDrag()
         dr.connect("drag-begin", lambda g, x, y: setattr(self, "_start", self.pos))
         dr.connect("drag-update", self._drag)
@@ -47,13 +44,12 @@ class CoverView(Gtk.Overlay):
         grip.set_tooltip_text(_("Drag to change the cover image height"))
         gd = Gtk.GestureDrag()
         gd.connect("drag-begin", lambda g, x, y: setattr(self, "_h0", int(settings.get("cover_height", 200))))
-        gd.connect("drag-update", lambda g, x, y: (settings.set("cover_height", int(min(600, max(100, self._h0 + y)))), self._height()))
+        # beim Ziehen nur im Speicher, auf die Platte erst nach dem Loslassen (set_soon)
+        gd.connect("drag-update", lambda g, x, y: (settings.set_soon("cover_height", int(min(600, max(100, self._h0 + y)))), self._height()))
         grip.add_controller(gd)
+        grip.add_css_class("hk-reveal")
         self.add_overlay(grip)
         self.grip = grip
-        grip.set_opacity(0)
-        mo.connect("enter", lambda *_: grip.set_opacity(1))
-        mo.connect("leave", lambda *_: grip.set_opacity(0))
 
     def _height(self):
         self.img.set_size_request(-1, int(settings.get("cover_height", 200)))
@@ -78,7 +74,7 @@ class CoverView(Gtk.Overlay):
         sc = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 100, 600, 10)
         sc.set_value(settings.get("cover_height", 200))
         sc.set_size_request(240, -1)
-        sc.connect("value-changed", lambda s: (settings.set("cover_height", int(s.get_value())), self._height()))
+        sc.connect("value-changed", lambda s: (settings.set_soon("cover_height", int(s.get_value())), self._height()))
         bx.append(sc)
         bx.append(Gtk.Label(label=_("Applies to all pages on this computer."), xalign=0, css_classes=["caption", "dim-label"]))
         pop.set_child(bx)
@@ -88,6 +84,7 @@ class CoverView(Gtk.Overlay):
 
     def _start_repos(self):
         self.repos = True
+        self.bar.add_css_class("hk-on")
         self._clear_bar()
         self.bar.append(Gtk.Label(label=_("Drag the image to position it"), margin_start=8, margin_end=8))
         sv = Gtk.Button(label=_("Save"))
@@ -99,6 +96,7 @@ class CoverView(Gtk.Overlay):
 
     def _end_repos(self, save):
         self.repos = False
+        self.bar.remove_css_class("hk-on")
         self.set_cursor_from_name(None)
         if save:
             self.view.save_fields({"cover_pos": self.pos})
@@ -160,6 +158,19 @@ class IconPicker(Adw.Dialog):
         ImmichPicker(self.view.win, self._set).present(self.view.win)
 
 
+def _wrap_labels(w):
+    """Knopftexte eines Adw.AlertDialog umbrechen (libadwaita kuerzt sie sonst mit "…")"""
+    c = w.get_first_child()
+    while c is not None:
+        if isinstance(c, Gtk.Label) and isinstance(c.get_parent(), Gtk.Button):
+            c.set_ellipsize(Pango.EllipsizeMode.NONE)
+            c.set_wrap(True)
+            c.set_justify(Gtk.Justification.CENTER)
+        else:
+            _wrap_labels(c)
+        c = c.get_next_sibling()
+
+
 def _graphemes(s):
     out = []
     for ch in s:
@@ -186,14 +197,22 @@ class PageView(Gtk.Box):
         self.title_rt = None
         self.header_changed = None              # Rueckruf: Fensterleiste aktualisieren
         self._built_once = False
+        self.blocks_box = None
         self.doc.on_loaded = lambda d: self.rebuild()
         self.doc.on_error = self._error
-        self.doc.on_saved = lambda: self.header_changed and self.header_changed()
+        self.doc.on_saved = lambda: (self.header_changed and self.header_changed(), self.update_banners())
+        self.doc.on_conflict = self._conflict
+        self.doc.on_notice = self._error
+        self.doc.on_title = lambda t: self.rebuild()
+        self.doc.on_copies = lambda: self.update_banners()
+        self._conflict_dlg = None
         if in_peek:
             self.append(self._peek_header())
             self.append(Gtk.Separator())
+        self.append(self._banners())
         self.overlay = Gtk.Overlay(vexpand=True)
-        self.scroll = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True)
+        # AUTOMATIC: breite Bloecke (Spalten, Tabellen) erzwingen keine Mindestbreite des Fensters, sondern scrollen
+        self.scroll = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.AUTOMATIC, vexpand=True)
         self.overlay.set_child(self.scroll)
         self.append(self.overlay)
         self.spinner = Adw.Spinner() if hasattr(Adw, "Spinner") else Gtk.Spinner(spinning=True)
@@ -256,7 +275,7 @@ class PageView(Gtk.Box):
             return
         if not doc.fetched:                                  # Laden fehlgeschlagen: nichts Bearbeitbares zeigen
             box = Adw.StatusPage(icon_name="dialog-warning-symbolic", title=_("Page could not be loaded"),
-                                 description=doc.error or "")
+                                 description=GLib.markup_escape_text(doc.error or ""))
             again = Gtk.Button(label=_("Try again"), halign=Gtk.Align.CENTER)
             again.add_css_class("pill")
             again.add_css_class("suggested-action")
@@ -265,6 +284,7 @@ class PageView(Gtk.Box):
             self.scroll.set_child(box)
             return
         self.editor.locked = bool(doc.page.get("locked"))
+        self.blocks_box = None
         vadj = self.scroll.get_vadjustment().get_value()
         self.hover.reset()
         self.kit.reset()
@@ -310,7 +330,9 @@ class PageView(Gtk.Box):
             dv.set_margin_start(44)
             col.append(dv)
         else:
-            col.append(self.kit.block_list(doc.root))
+            self.blocks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            self.blocks_box.append(self.kit.block_list(doc.root))
+            col.append(self.blocks_box)
             filler = Gtk.Box(height_request=160)
             g = Gtk.GestureClick()
             g.connect("released", lambda *_: (not self.editor.locked) and self.editor.continue_writing())
@@ -330,10 +352,111 @@ class PageView(Gtk.Box):
         GLib.idle_add(lambda: (self.scroll.get_vadjustment().set_value(vadj), False)[1])
         self._relayout_soon()
         self.apply_focus()
+        self.update_banners()
         if not self._built_once:
             self._built_once = True
             if not doc.title_raw and not doc.is_database and len(doc.root) <= 1:
                 GLib.idle_add(lambda: (self.title_rt.focus_at("end"), False)[1])
+
+    def rebuild_blocks(self):
+        """Nach Enter, Loeschen, Verschieben ...: nur die Blockliste neu - unveraenderte Bloecke (samt eingebetteter
+        Datenbanken und Termine) werden wiederverwendet, Kopf, Tags und Rueckverweise bleiben stehen."""
+        doc = self.doc
+        if self.blocks_box is None or not doc.loaded or not doc.fetched or doc.is_database or \
+                bool(doc.page.get("locked")) != self.editor.locked:
+            self.rebuild()
+            return
+        vadj = self.scroll.get_vadjustment().get_value()
+        self.hover.reset()
+        self.kit.reset()
+        self.suggest.hide()
+        lst = self.kit.block_list(doc.root)
+        old = self.blocks_box.get_first_child()
+        if old is not None:
+            self.blocks_box.remove(old)
+        self.blocks_box.append(lst)
+        self._update_toc()
+        GLib.idle_add(lambda: (self.scroll.get_vadjustment().set_value(vadj), False)[1])
+        self._relayout_soon()
+        self.apply_focus()
+
+    def _conflict(self, doc, server_page):
+        """Die Seite wurde woanders geaendert, waehrend hier ungespeicherte Eingaben liegen: nichts verwerfen, fragen.
+        Texte wie iOS/Android (Glossar "Einheitliche Dialoge"). Schliessen/Esc = noch nicht entscheiden: nichts wird
+        ueberschrieben, der Hinweis bleibt oben an der Seite (auch bei Datenbanken - nie still "meine")."""
+        if self._conflict_dlg is not None or doc.conflict is None:
+            return
+        dlg = Adw.AlertDialog(heading=_("Page changed elsewhere"),
+                              body=_("This page was changed on another device in the meantime. Your changes won't be lost."))
+        dlg.add_response("mine", _("Keep my version"))
+        dlg.add_response("theirs", _("Load server version (save mine as a copy)"))
+        dlg.set_response_appearance("mine", Adw.ResponseAppearance.SUGGESTED)
+        if hasattr(dlg, "set_prefer_wide_layout"):
+            dlg.set_prefer_wide_layout(True)
+        dlg.set_close_response("later")
+        dlg.set_default_response("mine")
+        self._conflict_dlg = dlg
+
+        def resp(d, r):
+            self._conflict_dlg = None
+            doc.resolve(r)
+            self.update_banners()
+
+        def closed(d):                                       # ohne Antwort geschlossen: wie "spaeter"
+            if self._conflict_dlg is d:
+                self._conflict_dlg = None
+                self.update_banners()
+        dlg.connect("response", resp)
+        dlg.connect("closed", closed)
+        dlg.present(self.win)
+        _wrap_labels(dlg)                                    # lange Knopftexte (Glossar) umbrechen statt kuerzen
+        self.update_banners()
+
+    # --- Hinweise oben an der Seite: offener Konflikt, lokale Kopien -------------------------------------------------
+    def _banners(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.conflict_banner = Adw.Banner(title=_("Page changed elsewhere"), button_label=_("Choose version"), revealed=False)
+        self.conflict_banner.connect("button-clicked", lambda *_: self._conflict(self.doc, self.doc.conflict))
+        box.append(self.conflict_banner)
+        # Entwurf-Banner: zwei Knoepfe (Wiederherstellen / Verwerfen) - Adw.Banner kann nur einen
+        self.copy_rev = Gtk.Revealer(transition_type=Gtk.RevealerTransitionType.SLIDE_DOWN)
+        bar = Gtk.Box(spacing=8, margin_start=12, margin_end=12, margin_top=6, margin_bottom=6)
+        bar.add_css_class("hk-draft-banner")
+        self.copy_label = Gtk.Label(xalign=0, hexpand=True, wrap=True)
+        bar.append(self.copy_label)
+        self.copy_restore = Gtk.Button(label=pgettext("draft", "Restore"), valign=Gtk.Align.CENTER)
+        self.copy_restore.add_css_class("suggested-action")
+        self.copy_restore.connect("clicked", lambda *_: self._copy_action(True))
+        self.copy_discard = Gtk.Button(label=pgettext("draft", "Discard"), valign=Gtk.Align.CENTER)
+        self.copy_discard.add_css_class("destructive-action")
+        self.copy_discard.connect("clicked", lambda *_: self._copy_action(False))
+        bar.append(self.copy_restore)
+        bar.append(self.copy_discard)
+        self.copy_rev.set_child(bar)
+        box.append(self.copy_rev)
+        self.copy_shown = None
+        return box
+
+    def update_banners(self):
+        doc = self.doc
+        self.conflict_banner.set_revealed(doc.conflict is not None and self._conflict_dlg is None)
+        cps = doc.local_copies() if doc.fetched else []
+        self.copy_shown = cps[0][0] if cps else None
+        if cps:
+            d = cps[0][1]
+            self.copy_label.set_label(_("Unsaved changes from {time}").format(time=date_time_text(d.get("time"))))
+        self.copy_rev.set_reveal_child(bool(cps))
+
+    def _copy_action(self, restore):
+        p = self.copy_shown
+        if not p:
+            return
+        if restore:
+            self.editor.set_focus(None)
+            self.doc.restore_copy(p)
+        else:
+            self.doc.discard_copy(p)
+        self.update_banners()
 
     def apply_focus(self):
         key, where = self.editor.focus, self.editor.focus_where
@@ -402,13 +525,10 @@ class PageView(Gtk.Box):
                 mb.set_create_popup_func(lambda m: m.set_popover(menu_popover(None, [
                     (_("File …"), self.pick_cover), (_("From Immich …"), self.pick_cover_immich)])))
                 row.append(mb)
-            row.set_opacity(0)
+            row.add_css_class("hk-reveal")
+            box.add_css_class("hk-reveal-zone")
             if self.editor.locked:
                 row.set_visible(False)
-            mo = Gtk.EventControllerMotion()
-            mo.connect("enter", lambda *_: row.set_opacity(1))
-            mo.connect("leave", lambda *_: row.set_opacity(0))
-            box.add_controller(mo)
             box.append(row)
             if not ic and not doc.page.get("cover"):
                 box.set_margin_top(14)
@@ -655,16 +775,25 @@ class PageView(Gtk.Box):
             def work():
                 data = file.load_bytes(None)[0].get_data()
                 return self.win.upload_image(data, file.get_basename())
-            bg(work, done=cb, error=lambda e: self.win.toast(_("Image not uploaded: {error}").format(error=e)))
+            bg(work, done=cb, error=lambda e: self.win.toast(_("Image not uploaded: {error}").format(error=e)), media=True)
 
-        if multiple:
+        if multiple:                                            # cb bekommt die Liste (Reihenfolge wie gewaehlt)
             def done(d, res):
                 try:
                     files = d.open_multiple_finish(res)
                 except GLib.Error:
                     return
-                for i in range(files.get_n_items()):
-                    up(files.get_item(i))
+                fl = [files.get_item(i) for i in range(files.get_n_items())]
+
+                def work():
+                    out = []
+                    for file in fl:
+                        try:
+                            out.append(self.win.upload_image(file.load_bytes(None)[0].get_data(), file.get_basename()))
+                        except Exception as e:  # noqa: BLE001
+                            GLib.idle_add(lambda e=e: (self.win.toast(_("Image not uploaded: {error}").format(error=e)), False)[1])
+                    return out
+                bg(work, done=cb, media=True)
             fd.open_multiple(self.win, None, done)
         else:
             def done1(d, res):
@@ -675,7 +804,11 @@ class PageView(Gtk.Box):
             fd.open(self.win, None, done1)
 
     def pick_image(self, after=None):
-        self.choose_image_file(lambda url: self.editor.insert_image_url(url, after=after or self.editor.focused_block), multiple=True)
+        self.choose_image_file(lambda urls: self._insert_images(urls, after or self.editor.focused_block), multiple=True)
+
+    def _insert_images(self, urls, after):
+        for url in urls:                                        # der Reihe nach: jedes Bild unter das vorige
+            after = self.editor.insert_image_url(url, after=after)
 
     def pick_immich(self, after=None):
         from .dialogs import ImmichPicker
@@ -731,7 +864,7 @@ class PageView(Gtk.Box):
                 if rr:
                     rr[0][rr[1]] = {"id": bid, "type": "attaches", "data": {"file": info, "title": info.get("name") or f.get_basename()}}
                     self.editor.changed()
-            bg(work, done=fin, error=lambda e: self.win.toast(str(e)))
+            bg(work, done=fin, error=lambda e: self.win.toast(str(e)), media=True)
         fd.open(self.win, None, done)
 
     def link_database(self, bid):
@@ -759,7 +892,7 @@ class PageView(Gtk.Box):
                         return
                     data = tex.save_to_png_bytes().get_data()
                     bg(self.win.upload_image, data, "bild.png", done=lambda url: self.editor.insert_image_url(url, after=after),
-                       error=lambda e: self.win.toast(_("Image not uploaded: {error}").format(error=e)))
+                       error=lambda e: self.win.toast(_("Image not uploaded: {error}").format(error=e)), media=True)
                 cb.read_texture_async(None, got)
                 return True
         return False
@@ -767,25 +900,32 @@ class PageView(Gtk.Box):
     def _drop_files(self, t, value, x, y):
         if self.editor.locked or self.doc.is_database:
             return False
-        files = value.get_files() if hasattr(value, "get_files") else []
+        files = list(value.get_files()) if hasattr(value, "get_files") else []
         after = self.editor.focused_block
-        for f in files:
-            name = f.get_basename() or "datei"
-            is_img = name.lower().rsplit(".", 1)[-1] in ("png", "jpg", "jpeg", "gif", "webp", "heic")
 
-            def work(f=f, name=name, is_img=is_img):
-                data = f.load_bytes(None)[0].get_data()
-                if is_img:
-                    return ("img", self.win.upload_image(data, name))
-                return ("file", client.upload(data, name, field="file"))
+        def work():                                             # nacheinander hochladen: Reihenfolge bleibt wie abgelegt
+            out = []
+            for f in files:
+                name = f.get_basename() or "datei"
+                is_img = name.lower().rsplit(".", 1)[-1] in ("png", "jpg", "jpeg", "gif", "webp", "heic")
+                try:
+                    data = f.load_bytes(None)[0].get_data()
+                    out.append(("img", self.win.upload_image(data, name), name) if is_img else
+                               ("file", client.upload(data, name, field="file"), name))
+                except Exception as e:  # noqa: BLE001
+                    GLib.idle_add(lambda e=e: (self.win.toast(str(e)), False)[1])
+            return out
 
-            def fin(r, name=name):
-                if r[0] == "img":
-                    self.editor.insert_image_url(r[1], after=after)
+        def fin(results):
+            a = after
+            for kind, val, name in results:
+                if kind == "img":
+                    a = self.editor.insert_image_url(val, after=a) or a
                 else:
-                    self.editor.insert({"id": new_block_id(), "type": "attaches",
-                                        "data": {"file": r[1], "title": r[1].get("name") or name}}, after=after)
-            bg(work, done=fin, error=lambda e: self.win.toast(str(e)))
+                    a = self.editor.insert({"id": new_block_id(), "type": "attaches",
+                                            "data": {"file": val, "title": val.get("name") or name}}, after=a)
+        if files:
+            bg(work, done=fin, media=True)
         return True
 
 

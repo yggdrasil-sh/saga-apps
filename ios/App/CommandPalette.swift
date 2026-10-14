@@ -63,7 +63,7 @@ struct CommandPalette: View {
             }
             .frame(maxHeight: 380)
         }
-        .frame(width: 560)
+        .macWidth(560)
         .onAppear { focus = true }
         .onChange(of: q) { _, v in
             sel = 0
@@ -137,7 +137,7 @@ struct TrashSheet: View {
                 Button("Endgültig löschen", role: .destructive) { Task { _ = try? await store.api("api/trash/empty", method: "POST", body: [:]); await load() } }
             }
         }
-        .frame(minWidth: 520, minHeight: 420)
+        .macFrame(minWidth: 520, minHeight: 420)
         .task { await load() }
     }
     private func load() async {

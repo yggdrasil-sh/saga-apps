@@ -1,4 +1,6 @@
 """Bloecke als Widgets + Tastatur wie Notion (Enter teilt, Ruecktaste verbindet, Pfeile springen, Tab rueckt ein)."""
+import json
+
 from gi.repository import Gdk, GLib, GObject, Gtk, Pango
 
 from . import images
@@ -6,9 +8,9 @@ from .config import settings
 from .editor import CONVERTIBLE, SLASH_ITEMS, make
 from .emoji import EMOJI
 from .i18n import _
-from .richtext import RichText, date_text, find_trigger, html_to_markup, parse_date, rel_text
+from .richtext import RichText, date_text, find_trigger, parse_date, rel_text
 from .store import is_db, label, store
-from .util import color_hex, decode_entities, human_size, norm, plain
+from .util import decode_entities, human_size, norm, plain
 
 TEXT_FIELD = {"paragraph": "text", "header": "text", "quote": "text", "callout": "text"}
 HEADER_CSS = {1: "hk-h1", 2: "hk-h2", 3: "hk-h3", 4: "hk-h4"}
@@ -45,6 +47,36 @@ def chip(text, color=None):
     lb.add_css_class("hk-chip")
     lb.add_css_class(f"hk-c-{color or 'gray'}")
     return lb
+
+
+def is_menu_key(kv, state):
+    """Kontextmenue per Tastatur: Menue-Taste oder Umschalt+F10"""
+    return kv == Gdk.KEY_Menu or (kv == Gdk.KEY_F10 and bool(state & Gdk.ModifierType.SHIFT_MASK))
+
+
+def context_menu(widget, open_menu, long_press=True):
+    """Kontextmenue an widget: Rechtsklick, langes Druecken (Touch) und Menue-Taste/Umschalt+F10.
+    open_menu(widget) oeffnet das Menue."""
+    g = Gtk.GestureClick(button=3)
+    g.connect("pressed", lambda *_: open_menu(widget))
+    widget.add_controller(g)
+    if long_press:
+        lp = Gtk.GestureLongPress(touch_only=True)
+        lp.connect("pressed", lambda *_: open_menu(widget))
+        widget.add_controller(lp)
+    kc = Gtk.EventControllerKey()
+    kc.connect("key-pressed", lambda c, kv, code, st: (open_menu(widget), True)[1] if is_menu_key(kv, st) else False)
+    widget.add_controller(kc)
+
+
+def more_button(get_entries, tooltip=None):
+    """Sichtbarer "⋮"-Knopf fuer ein Menue (auch ohne Maus und Rechtsklick erreichbar)"""
+    mb = Gtk.MenuButton(icon_name="view-more-symbolic", valign=Gtk.Align.CENTER, tooltip_text=tooltip or _("More"))
+    mb.add_css_class("flat")
+    mb.add_css_class("hk-tiny")
+    mb.set_create_popup_func(lambda m: m.set_popover(menu_popover(None, get_entries())))
+    mb.update_property([Gtk.AccessibleProperty.LABEL], [tooltip or _("More")])
+    return mb
 
 
 def menu_popover(parent, entries):
@@ -95,11 +127,16 @@ def menu_popover(parent, entries):
 
 
 class HoverManager:
-    """Griffe (+ ⋮⋮) nur am innersten Block unter der Maus"""
+    """Griffe (+ ⋮⋮) am innersten Block unter der Maus - und am Block mit dem Fokus (Tastatur, Touch)"""
 
     def __init__(self):
         self.rows = []
         self.active = None
+        self.focused = None
+
+    def _show(self, row):
+        if row is not None:
+            row.show_handle(row is self.active or row is self.focused)
 
     def enter(self, row):
         if row not in self.rows:
@@ -114,15 +151,19 @@ class HoverManager:
     def _update(self):
         best = max(self.rows, key=lambda r: r.depth) if self.rows else None
         if best is not self.active:
-            if self.active is not None:
-                self.active.show_handle(False)
-            self.active = best
-            if best is not None:
-                best.show_handle(True)
+            old, self.active = self.active, best
+            self._show(old)
+            self._show(best)
         return False
 
+    def focus(self, row):
+        if row is not self.focused:
+            old, self.focused = self.focused, row
+            self._show(old)
+            self._show(row)
+
     def reset(self):
-        self.rows, self.active = [], None
+        self.rows, self.active, self.focused = [], None, None
 
 
 class SuggestPopover:
@@ -220,16 +261,17 @@ class BlockRow(Gtk.Box):
         if not kit.view.editor.locked:
             plus = flat_button(icon="list-add-symbolic", tooltip=_("Insert block below"), css="hk-tiny",
                                cb=lambda: kit.editor.insert(make("paragraph"), after=self.bid))
-            grip = Gtk.Button(icon_name="view-app-grid-symbolic", tooltip_text=_("Drag to move · Click for the menu"))
+            grip = Gtk.Button(icon_name="view-app-grid-symbolic", tooltip_text=_("Drag to move · Click for the menu (keyboard: Menu key or Shift+F10)"))
             grip.add_css_class("flat")
             grip.add_css_class("hk-tiny")
             grip.connect("clicked", lambda b: kit.block_menu(b, self.bid))
             ds = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
             ds.connect("prepare", lambda *_: Gdk.ContentProvider.new_for_value("hkblock:" + self.bid))
             grip.add_controller(ds)
+            for b in (plus, grip):
+                b.set_focusable(False)                       # Tastatur: Menue-Taste/Umschalt+F10 im Block
             self.handle.append(plus)
             self.handle.append(grip)
-        self.handle.set_opacity(0)
         self.append(self.handle)
         content = kit.build(block, depth)
         content.set_hexpand(True)
@@ -238,6 +280,10 @@ class BlockRow(Gtk.Box):
         mo.connect("enter", lambda *_: kit.view.hover.enter(self))
         mo.connect("leave", lambda *_: kit.view.hover.leave(self))
         self.add_controller(mo)
+        tp = Gtk.GestureClick(touch_only=True)                 # Touch: kein Ueberfahren - Antippen zeigt die Griffe
+        tp.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        tp.connect("pressed", lambda *_: self._touched())
+        self.add_controller(tp)
         if not kit.view.editor.locked:
             dt = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
             dt.connect("motion", self._motion)
@@ -246,7 +292,11 @@ class BlockRow(Gtk.Box):
             self.add_controller(dt)
 
     def show_handle(self, on):
-        self.handle.set_opacity(1 if on else 0)
+        (self.handle.add_css_class if on else self.handle.remove_css_class)("hk-on")
+
+    def _touched(self):
+        # CAPTURE laeuft von aussen nach innen: der innerste angetippte Block setzt sich zuletzt durch
+        self.kit.view.hover.focus(self)
 
     def _mark(self, where):
         self.remove_css_class("hk-drop-top")
@@ -276,21 +326,81 @@ class BlockKit:
         self.editor = view.editor
         self.order = []          # Fokus-Reihenfolge: [(key, RichText)]
         self.by_key = {}
+        self.cache = {}          # Block-ID -> BlockRow des letzten Aufbaus (zum Wiederverwenden)
+        self._built = []
 
     def reset(self):
         self.order, self.by_key = [], {}
+        self.cache = {r.bid: r for r in self._built}
+        self._built = []
 
     def register(self, key, rt):
         self.order.append((key, rt))
         self.by_key[key] = rt
 
     # --- Aufbau -------------------------------------------------------------------------------
+    def _sig(self, b, depth):
+        """Stand eines Blocks: unveraendert (gleiches Objekt, gleicher Inhalt) -> Widget wiederverwenden"""
+        ids = []
+
+        def walk(x):
+            if isinstance(x, dict):
+                ids.append(id(x))
+                for v in x.values():
+                    walk(v)
+            elif isinstance(x, list):
+                ids.append(id(x))
+                for v in x:
+                    walk(v)
+        walk(b)
+        try:
+            j = json.dumps(b, sort_keys=True, ensure_ascii=False, default=str)
+        except (TypeError, ValueError):
+            j = None
+        extra = (depth, self.editor.locked)
+        t = b.get("type")
+        if t == "columns":
+            extra += (bool(self.view.get_width() and self.view.get_width() < 700),)
+        elif t == "toggle":
+            extra += (self.view.toggle_state.get(b.get("id")),)
+        return (j, tuple(ids), extra)
+
+    def _reuse(self, b, depth):
+        row = self.cache.pop(b.get("id"), None)
+        if row is None or row.block is not b or row.depth != depth or row.sig != self._sig(b, depth):
+            return None
+        par = row.get_parent()
+        if par is not None:
+            par.remove(row)
+        row.show_handle(False)
+        for k, rt in row.regs:
+            self.register(k, rt)
+        self._built.extend(row.sub)
+        return row
+
     def block_list(self, arr, depth=0):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         for b in arr:
-            if isinstance(b, dict):
-                box.append(BlockRow(self, b, depth))
+            if not isinstance(b, dict):
+                continue
+            row = self._reuse(b, depth)
+            if row is None:
+                n0, o0 = len(self._built), len(self.order)
+                row = BlockRow(self, b, depth)
+                row.sub = self._built[n0:]
+                row.regs = self.order[o0:]
+                row.sig = self._sig(b, depth)
+            box.append(row)
+            self._built.append(row)
         return box
+
+    def synced(self, w):
+        """Eingabe kam aus dem Widget selbst: es zeigt den neuen Stand -> Blockzeilen darueber bleiben wiederverwendbar"""
+        p = w
+        while p is not None:
+            if isinstance(p, BlockRow) and getattr(p, "sig", None) is not None:
+                p.sig = self._sig(p.block, p.depth)
+            p = p.get_parent()
 
     def _rt(self, key, block, field, html, css="hk-p", placeholder="", base_bold=False, raw=False, item=None):
         rt = RichText(html, css=css, placeholder=placeholder, base_bold=base_bold, raw=raw, editable=not self.editor.locked)
@@ -309,6 +419,10 @@ class BlockKit:
         self.editor.focus = rt.hk_key
         if self.view.suggest.rt is not None and self.view.suggest.rt is not rt:
             self.view.suggest.hide()
+        p = rt.get_parent()
+        while p is not None and not isinstance(p, BlockRow):
+            p = p.get_parent()
+        self.view.hover.focus(p)
 
     def build(self, b, depth):
         t = b.get("type") or ""
@@ -337,7 +451,8 @@ class BlockKit:
             em = Gtk.MenuButton(child=Gtk.Label(label=d.get("emoji") or "💡"), valign=Gtk.Align.START)
             em.add_css_class("flat")
             ch = Gtk.EmojiChooser()
-            ch.connect("emoji-picked", lambda c, e: (d.__setitem__("emoji", e), em.get_child().set_label(e), self.editor.text_changed()))
+            ch.connect("emoji-picked", lambda c, e: (d.__setitem__("emoji", e), em.get_child().set_label(e), self.synced(em),
+                                                     self.editor.text_changed()))
             em.set_popover(ch)
             em.set_sensitive(not self.editor.locked)
             box.append(em)
@@ -372,11 +487,17 @@ class BlockKit:
         if t == "database" and d.get("db"):
             from .database import DatabaseView
 
+            holder = []
+
             def save_views(vs):
                 d["views"] = vs
+                if holder:
+                    self.synced(holder[0])                     # die Ansicht zeigt den neuen Stand schon
                 self.editor.text_changed()
-            return DatabaseView(self.view.win, d["db"], view_id=d.get("view"), local_views=d.get("views"), embedded=True,
-                                on_local_views=save_views)
+            dv = DatabaseView(self.view.win, d["db"], view_id=d.get("view"), local_views=d.get("views"), embedded=True,
+                              on_local_views=save_views)
+            holder.append(dv)
+            return dv
         if t == "tasks":
             from .agenda import TaskList
             fr = Gtk.Box()
@@ -480,11 +601,8 @@ class BlockKit:
                 add = flat_button(icon="list-add-symbolic", label=_("Block"), css="dim-label hk-col-add",
                                   cb=lambda c=c: self.editor.continue_in_column(c))
                 add.set_halign(Gtk.Align.START)
-                add.set_opacity(0)
-                mo = Gtk.EventControllerMotion()
-                mo.connect("enter", lambda *_, a=add: a.set_opacity(1))
-                mo.connect("leave", lambda *_, a=add: a.set_opacity(0))
-                col.add_controller(mo)
+                add.add_css_class("hk-reveal")
+                col.add_css_class("hk-reveal-zone")
                 col.append(add)
             box.append(col)
         return box
@@ -579,34 +697,39 @@ class BlockKit:
         def rebuild():
             self.editor.changed()
 
+        cur = {"cell": (0, 0)}                                 # zuletzt fokussierte Zelle (fuer "⋮" und die Menue-Taste)
+
+        def cell_entries(r, c):
+            ents = [(_("Insert row above"), lambda: (rows.insert(r, [""] * len(rows[r])), save(), rebuild())),
+                    (_("Insert row below"), lambda: (rows.insert(r + 1, [""] * len(rows[r])), save(), rebuild())),
+                    (_("Insert column left"), lambda: ([x.insert(c, "") for x in rows], save(), rebuild())),
+                    (_("Insert column right"), lambda: ([x.insert(c + 1, "") for x in rows], save(), rebuild())), None]
+            if len(rows) > 1:
+                ents.append((_("Delete row"), lambda: (rows.pop(r), save(), rebuild()), True))
+            if len(rows[0]) > 1:
+                ents.append((_("Delete column"), lambda: ([x.pop(c) for x in rows if c < len(x)], save(), rebuild()), True))
+            return ents
+
         for r, row in enumerate(rows):
             for c, val in enumerate(row):
-                tv = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD_CHAR, editable=not self.editor.locked)
+                tv = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD_CHAR, editable=not self.editor.locked, accepts_tab=False)
                 tv.get_buffer().set_text(val)
                 tv.add_css_class("hk-cell")
                 if r == 0 and heads:
                     tv.add_css_class("hk-cell-head")
                 tv.set_size_request(130, -1)
+                tv.update_property([Gtk.AccessibleProperty.LABEL], [_("Row {row}, column {col}").format(row=r + 1, col=c + 1)])
 
-                def ch(buf, r=r, c=c):
+                def ch(buf, r=r, c=c, tv=tv):
                     rows[r][c] = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), True)
                     save()
+                    self.synced(tv)
                 tv.get_buffer().connect("changed", ch)
+                fc = Gtk.EventControllerFocus()
+                fc.connect("enter", lambda *_, r=r, c=c: cur.__setitem__("cell", (r, c)))
+                tv.add_controller(fc)
                 if not self.editor.locked:
-                    g = Gtk.GestureClick(button=3)
-
-                    def menu(gs, n, x, y, r=r, c=c, tv=tv):
-                        ents = [(_("Insert row above"), lambda: (rows.insert(r, [""] * len(rows[r])), save(), rebuild())),
-                                (_("Insert row below"), lambda: (rows.insert(r + 1, [""] * len(rows[r])), save(), rebuild())),
-                                (_("Insert column left"), lambda: ([x.insert(c, "") for x in rows], save(), rebuild())),
-                                (_("Insert column right"), lambda: ([x.insert(c + 1, "") for x in rows], save(), rebuild())), None]
-                        if len(rows) > 1:
-                            ents.append((_("Delete row"), lambda: (rows.pop(r), save(), rebuild()), True))
-                        if len(rows[0]) > 1:
-                            ents.append((_("Delete column"), lambda: ([x.pop(c) for x in rows if c < len(x)], save(), rebuild()), True))
-                        menu_popover(tv, ents).popup()
-                    g.connect("pressed", menu)
-                    tv.add_controller(g)
+                    context_menu(tv, lambda w, r=r, c=c: menu_popover(w, cell_entries(r, c)).popup())
                 grid.attach(tv, c, r, 1, 1)
         if not self.editor.locked:
             bar = Gtk.Box(spacing=12)
@@ -617,6 +740,8 @@ class BlockKit:
             hc = Gtk.CheckButton(label=_("Header row"), active=heads)
             hc.connect("toggled", lambda c: (d.__setitem__("withHeadings", c.get_active()), rebuild()))
             bar.append(hc)
+            bar.append(more_button(lambda: cell_entries(*[min(v, len(rows if i == 0 else rows[0]) - 1) for i, v in enumerate(cur["cell"])]),
+                                   _("Row and column of the selected cell")))
             outer.append(bar)
         return outer
 
@@ -654,6 +779,7 @@ class BlockKit:
             rt.hk_item["content"] = html
         else:
             b.setdefault("data", {})[field] = html
+        self.synced(rt)
         self.editor.text_changed()
         if rt.raw:
             return
@@ -791,14 +917,20 @@ class BlockKit:
             return self._return(rt)
         if kv == Gdk.KEY_BackSpace and not rt.get_buffer().get_has_selection() and rt.cursor_offset() == 0:
             return self._backspace(rt)
-        if kv == Gdk.KEY_Tab and rt.hk_item is not None:
+        if is_menu_key(kv, state):
+            self.block_menu(rt, bid)
+            return True
+        if kv == Gdk.KEY_Tab and rt.hk_item is not None and not ctrl:
             self._indent(rt, -1 if shift else 1)
             return True
-        if kv == Gdk.KEY_ISO_Left_Tab and rt.hk_item is not None:
+        if kv == Gdk.KEY_ISO_Left_Tab and rt.hk_item is not None and not ctrl:
             self._indent(rt, -1)
             return True
-        if kv == Gdk.KEY_Tab:
+        if kv == Gdk.KEY_Tab and rt.raw and not ctrl and not shift:
+            rt.get_buffer().insert_at_cursor("\t")          # Code: Tabulator; Strg+Tab verlaesst den Block
             return True
+        if kv in (Gdk.KEY_Tab, Gdk.KEY_ISO_Left_Tab):
+            return False                                      # sonst: Fokus zum naechsten/vorigen Element
         if kv == Gdk.KEY_Up and not shift and rt.at_first_line():
             return self._jump(rt, -1, "end")
         if kv == Gdk.KEY_Down and not shift and rt.at_last_line():

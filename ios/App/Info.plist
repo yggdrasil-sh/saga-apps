@@ -46,6 +46,8 @@
 	<string>$(SAGA_APP_GROUP)</string>
 	<key>SagaDefaultServer</key>
 	<string>$(SAGA_DEFAULT_SERVER)</string>
+	<key>SagaKeychainGroup</key>
+	<string>$(SAGA_KEYCHAIN_GROUP)</string>
 	<key>SagaMovedServers</key>
 	<string>$(SAGA_MOVED_SERVERS)</string>
 	<key>UILaunchScreen</key>

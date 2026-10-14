@@ -1,5 +1,4 @@
 import Foundation
-import Security
 #if os(iOS)
 import UIKit
 #endif
@@ -7,40 +6,21 @@ import UIKit
 /// Geraete-Schluessel (hkd_...) im Schluesselbund: erneuert die 8-Stunden-Sitzung ohne Anmeldefenster.
 /// Nur dieses Geraet, nicht in iCloud; nach dem ersten Entsperren lesbar (auch im Hintergrund).
 enum DeviceKey {
-    private static let service = AppConfig.mainBundleID + ".device-login"     // <App-ID>.device-login
-    private static let account = "device_token"
+    private static let service = AppConfig.deviceKeyService                  // <App-ID>.device-login
+    private static let account = AppConfig.deviceKeyAccount
 
-    private static func base(_ dataProtection: Bool) -> [String: Any] {
-        var q: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                kSecAttrService as String: service, kSecAttrAccount as String: account]
-        #if os(macOS)
-        if dataProtection { q[kSecUseDataProtectionKeychain as String] = true }   // keine Rueckfrage-Dialoge am Mac
-        #endif
-        return q
+    /// Gespeicherter Schluessel - unabhaengig vom Server (nur zum Abmelden beim ausstellenden Server)
+    static func stored() -> String? {
+        Keychain.read(service: service, account: account).flatMap { $0.hasPrefix("hkd_") ? $0 : nil }
     }
-
+    /// Schluessel fuer den eingetragenen Server - gehoert er zu einem anderen Server, wird er nie gesendet
     static func get() -> String? {
-        for dp in [true, false] {
-            var q = base(dp); q[kSecReturnData as String] = true; q[kSecMatchLimit as String] = kSecMatchLimitOne
-            var out: AnyObject?
-            if SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let d = out as? Data,
-               let s = String(data: d, encoding: .utf8), s.hasPrefix("hkd_") { return s }
-            #if os(iOS)
-            break
-            #endif
-        }
-        return nil
+        AppConfig.keyMatchesServer(device: true) ? stored() : nil
     }
-
-    static func set(_ value: String?) {
-        for dp in [true, false] { SecItemDelete(base(dp) as CFDictionary) }
-        guard let value, let data = value.data(using: .utf8) else { return }
-        for dp in [true, false] {
-            var q = base(dp)
-            q[kSecValueData as String] = data
-            q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-            if SecItemAdd(q as CFDictionary, nil) == errSecSuccess { return }
-        }
+    /// Speichern (nil = loeschen); `origin`: Server, der ihn ausgestellt hat
+    static func set(_ value: String?, origin: String? = AppConfig.serverOrigin) {
+        Keychain.write(value, service: service, account: account, group: AppConfig.privateKeychainGroup)
+        AppConfig.setKeyOrigin(device: true, value == nil ? nil : origin)
     }
 
     /// Name, unter dem das Geraet in den Einstellungen erscheint
