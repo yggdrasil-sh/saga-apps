@@ -285,10 +285,18 @@ struct DBViewBar: View {
                     if searching || !m.search.isEmpty { searchField.frame(maxWidth: .infinity) }
                 }
             } else {
+                // Reiter nehmen nur den Rest (keine layoutPriority: die waagrechte ScrollView ist gierig und quetschte
+                // Suchfeld und "Neu" auf ihre Mindestbreite -> leere schwarze/goldene Pillen, Mac und iPad).
+                // Rechts: feste Breiten; Suchfeld nur, wenn Platz ist, sonst Lupe.
                 HStack(spacing: 6) {
-                    tabs.layoutPriority(1)
-                    Spacer(minLength: 4)
-                    searchField.frame(maxWidth: 160)
+                    tabs.frame(maxWidth: .infinity, alignment: .leading)
+                    ViewThatFits(in: .horizontal) {
+                        searchField.frame(width: 160)
+                        HStack(spacing: 6) {
+                            if searching || !m.search.isEmpty { searchField.frame(width: 120) }
+                            searchButton
+                        }
+                    }
                     settingsButton
                     newButton
                 }
@@ -377,7 +385,7 @@ struct DBViewBar: View {
 
     @ViewBuilder private var settingsButton: some View {
         if canEdit {
-            Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.buttonStyle(.plain).foregroundStyle(.secondary)
+            Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.buttonStyle(.plain).foregroundStyle(.secondary).fixedSize()
                 .help("Ansicht: Filter, Sortierung, Eigenschaften")
                 .accessibilityLabel("Ansicht: Filter, Sortierung, Eigenschaften")
                 .popover(isPresented: $settings, arrowEdge: .bottom) { if let id = view?["id"] as? String { ViewSettings(m: m, viewID: id) } }
@@ -387,9 +395,9 @@ struct DBViewBar: View {
     @ViewBuilder private var newButton: some View {
         if m.readOnly {
             Label("Nur lesen", systemImage: "eye").font(.caption).foregroundStyle(.secondary)
-                .padding(.horizontal, 8).padding(.vertical, 3).background(Color.secondary.opacity(0.12), in: Capsule())
+                .padding(.horizontal, 8).padding(.vertical, 3).background(Color.secondary.opacity(0.12), in: Capsule()).fixedSize()
         } else if m.templates.isEmpty {
-            Button("Neu") { onNew(nil) }.prominentGold().controlSize(.small)
+            Button("Neu") { onNew(nil) }.prominentGold().controlSize(.small).fixedSize()      // nie zur leeren Pille quetschen
         } else {
             Menu("Neu") {
                 Button("Leerer Eintrag") { onNew(nil) }

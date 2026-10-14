@@ -231,11 +231,12 @@ struct RowList: View {
                                     if !shown.isEmpty { WrapLayout { ForEach(shown, id: \.id) { p in ValueChip(prop: p, value: m.value(p, r)) } } }
                                 }.frame(maxWidth: .infinity, alignment: .leading)
                             } else {
+                                // Werte zuerst (bis 320, umbrechend), der Name bekommt den Rest. Frueher hatte der Name Vorrang:
+                                // ein langer Name liess WrapLayout auf Breite 0 schrumpfen -> Chips als leere Striche.
                                 HStack(spacing: 8) {
-                                    title.layoutPriority(1)
-                                    Spacer(minLength: 8)
-                                    WrapLayout(trailing: true) { ForEach(shown, id: \.id) { p in ValueChip(prop: p, value: m.value(p, r)) } }
-                                        .frame(maxWidth: 320, alignment: .trailing)
+                                    title.frame(maxWidth: .infinity, alignment: .leading)
+                                    WrapLayout(trailing: true, maxWidth: 320) { ForEach(shown, id: \.id) { p in ValueChip(prop: p, value: m.value(p, r)) } }
+                                        .layoutPriority(1)
                                 }
                             }
                         }.contentShape(Rectangle())
@@ -283,13 +284,15 @@ struct TableGrid: View {
         guard avail > 0 else { return out }
         let avail = self.avail - (m.locked ? 0 : 40)               // Platz fuer "+" (neue Spalte)
         var sum = out.values.reduce(0, +)
-        func shrink(_ keys: [String], _ minW: CGFloat) {
-            let over = sum - avail, room = keys.reduce(0) { $0 + max(0, (out[$1] ?? 0) - minW) }
+        func shrink(_ keys: [String], _ minW: (String) -> CGFloat) {
+            let over = sum - avail, room = keys.reduce(0) { $0 + max(0, (out[$1] ?? 0) - minW($1)) }
             guard over > 0, room > 0 else { return }
             let f = min(1, over / room)
-            for k in keys { let d = (max(0, (out[k] ?? 0) - minW) * f).rounded(.down); out[k] = (out[k] ?? 0) - d; sum -= d }
+            for k in keys { let d = (max(0, (out[k] ?? 0) - minW(k)) * f).rounded(.down); out[k] = (out[k] ?? 0) - d; sum -= d }
         }
-        shrink(cols.map(\.id), 90); shrink(["title"], 140)
+        // Datum: Datumswahl + "x" brauchen ~150 (bei 90 ragte das Datum in die naechste Spalte)
+        let dateCols = Set(cols.filter { $0.type == "date" }.map(\.id))
+        shrink(cols.map(\.id)) { dateCols.contains($0) ? 150 : 90 }; shrink(["title"]) { _ in 140 }
         if sum < avail { out["title"] = (out["title"] ?? 0) + avail - sum }
         return out
     }
@@ -674,6 +677,7 @@ func hasValue(_ v: Any?) -> Bool {
 struct WrapLayout: Layout {
     var spacing: CGFloat = 4, lineSpacing: CGFloat = 4
     var trailing = false
+    var maxWidth: CGFloat = .infinity                       // hoechstens so breit (umbrechen), sonst nur so breit wie noetig
     private func lines(_ maxW: CGFloat, _ subviews: Subviews) -> [[(Int, CGSize)]] {
         var out: [[(Int, CGSize)]] = [[]], x: CGFloat = 0
         for (i, s) in subviews.enumerated() {
@@ -685,14 +689,14 @@ struct WrapLayout: Layout {
         return out.filter { !$0.isEmpty }
     }
     func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        let ls = lines(proposal.width ?? .infinity, subviews)
+        let ls = lines(min(proposal.width ?? .infinity, maxWidth), subviews)
         let w = ls.map { l in l.reduce(0) { $0 + $1.1.width } + spacing * CGFloat(max(0, l.count - 1)) }.max() ?? 0
         let h = ls.map { l in l.map(\.1.height).max() ?? 0 }.reduce(0, +) + lineSpacing * CGFloat(max(0, ls.count - 1))
         return CGSize(width: min(w, proposal.width ?? w), height: h)
     }
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         var y = bounds.minY
-        for l in lines(bounds.width, subviews) {
+        for l in lines(min(bounds.width, maxWidth), subviews) {
             let lw = l.reduce(0) { $0 + $1.1.width } + spacing * CGFloat(max(0, l.count - 1)), lh = l.map(\.1.height).max() ?? 0
             var x = trailing ? bounds.maxX - lw : bounds.minX
             for (i, sz) in l { subviews[i].place(at: CGPoint(x: x, y: y + (lh - sz.height) / 2), proposal: ProposedViewSize(sz)); x += sz.width + spacing }
