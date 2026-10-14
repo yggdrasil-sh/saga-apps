@@ -37,25 +37,17 @@ enum RoleText {
 
 // MARK: - Kopfzeile fremder Seiten
 
-/// "👥 Geteilt von {Name} · Du kannst lesen" - Etikett, kein Knopf
+/// "Geteilt von {Name} · Du kannst lesen" unter dem Titel - Etikett, kein Knopf. Gleiche Groesse/Farbe wie die
+/// Zeile "Zuletzt geaendert von ..." darunter (Sekundaertext, gut lesbar); Symbol einfarbig.
 struct SharedByLabel: View {
     let owner: String
     let role: ShareRole
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 6) { who; Text(verbatim: "·").foregroundStyle(.tertiary); chip }
-            VStack(alignment: .leading, spacing: 4) { who; chip }
-        }
-        .font(.subheadline)
+        Label {
+            Text(verbatim: String(localized: "Geteilt von \(owner)") + " · " + RoleText.you(role))
+        } icon: { Image(systemName: "person.2") }
+        .font(.subheadline).foregroundStyle(.secondary)
         .accessibilityElement(children: .combine)
-    }
-    private var who: some View {
-        Label { Text("Geteilt von \(owner)").foregroundStyle(.secondary) } icon: { Image(systemName: "person.2.fill").foregroundStyle(.secondary) }
-    }
-    private var chip: some View {
-        Text(RoleText.you(role)).font(.subheadline.weight(.medium))
-            .padding(.horizontal, 8).padding(.vertical, 3)
-            .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 6))
     }
 }
 
@@ -66,7 +58,7 @@ struct PageMetaLine: View {
     var body: some View {
         let parts = Self.parts(access, updated)
         if !parts.isEmpty {
-            Text(verbatim: parts.joined(separator: " · ")).font(.footnote).foregroundStyle(.secondary)
+            Text(verbatim: parts.joined(separator: " · ")).font(.subheadline).foregroundStyle(.secondary)
         }
     }
     static func parts(_ a: PageAccess, _ updated: Double?) -> [String] {
@@ -92,16 +84,30 @@ struct OwnerOnlyBlock: View {
     }
 }
 
-/// Seite nicht (mehr) erreichbar (404/403 beim Laden)
+/// Seite nicht (mehr) erreichbar (404/403 beim Laden): Systemansicht (ueberall gleich mittig ausgerichtet),
+/// "Erneut versuchen" und "Zu „Mit mir geteilt“". Die Kopfzeile zeigt dann weder Titel noch Symbol der Seite.
 struct NoAccessView: View {
     var retry: () -> Void
+    var toShared: () -> Void
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Kein Zugriff auf diese Seite", systemImage: "lock.fill").font(.title3.weight(.semibold))
-            Text("Die Seite gibt es nicht (mehr), oder sie ist nicht (mehr) mit dir geteilt.").foregroundStyle(.secondary)
-            Button { retry() } label: { Label("Erneut versuchen", systemImage: "arrow.clockwise") }.buttonStyle(.bordered).padding(.top, 4)
+        ContentUnavailableView {
+            Label("Kein Zugriff auf diese Seite", systemImage: "lock.fill")
+        } description: {
+            Text("Die Seite gibt es nicht (mehr), oder sie ist nicht (mehr) mit dir geteilt.")
+        } actions: {
+            ViewThatFits(in: .horizontal) {                     // schmal/grosse Schrift: untereinander
+                HStack(spacing: 10) { retryButton; sharedButton }
+                VStack(spacing: 10) { sharedButton; retryButton }
+            }
+            .controlSize(.regular)
         }
-        .frame(maxWidth: .infinity, alignment: .leading).padding(.top, 30)
+        .frame(maxWidth: .infinity).padding(.top, 40)
+    }
+    private var retryButton: some View {
+        Button { retry() } label: { Label("Erneut versuchen", systemImage: "arrow.clockwise") }.buttonStyle(.bordered).fixedSize()
+    }
+    private var sharedButton: some View {
+        Button { toShared() } label: { Text("Zu „Mit mir geteilt“") }.prominentGold().fixedSize()
     }
 }
 
@@ -127,37 +133,53 @@ struct CopyTextDialog: Identifiable, Equatable {
     }
 }
 
+/// Zustandsdialog (Konflikt-Entwurf, Kein Zugriff mehr, Nur noch lesen) - ueberall gleich aufgebaut: Titel, kurzer
+/// Text, Textfeld (nur so hoch wie noetig, hoechstens ~40 % der Bildschirmhoehe), "Kopieren" und "Schliessen".
+/// Das Blatt ist nur so hoch wie sein Inhalt (iPhone/iPad: eigene Hoehe statt ganzer Bildschirm).
 struct CopyTextSheet: View {
     let dialog: CopyTextDialog
     @Environment(\.dismiss) private var dismiss
     @State private var copied = false
+    @State private var textH: CGFloat = 0
+    @State private var totalH: CGFloat = 0
     var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 12) {
-                #if os(macOS)
-                Text(dialog.title).font(.headline)
-                #endif
-                Text(dialog.message)
-                ScrollView {
-                    Text(verbatim: dialog.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(10)
-                }
-                .background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
-                .accessibilityLabel(Text("Dein Text"))
-                HStack {
-                    Button { copyText(dialog.text); copied = true } label: { Label(copied ? String(localized: "Text kopiert") : String(localized: "Kopieren"), systemImage: copied ? "checkmark" : "doc.on.doc") }
-                        .prominentGold()
-                    Button("Schließen") { dismiss() }.buttonStyle(.bordered)
-                }
-                .controlSize(.large)
+        VStack(alignment: .leading, spacing: 12) {
+            Text(dialog.title).font(.headline).accessibilityAddTraits(.isHeader)
+            Text(dialog.message).fixedSize(horizontal: false, vertical: true)
+            ScrollView {
+                Text(verbatim: dialog.text).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(10)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { textH = $0 }
             }
-            .padding()
-            .navigationTitle(dialog.title)
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
+            .scrollBounceBehavior(.basedOnSize)
+            .frame(height: min(max(textH, 44), Self.maxTextHeight))
+            .background(.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+            .accessibilityLabel(Text("Dein Text"))
+            HStack {
+                Button { copyText(dialog.text); copied = true } label: { Label(copied ? String(localized: "Text kopiert") : String(localized: "Kopieren"), systemImage: copied ? "checkmark" : "doc.on.doc") }
+                    .prominentGold()
+                Button("Schließen") { dismiss() }.buttonStyle(.bordered).keyboardShortcut(.cancelAction)
+            }
+            .controlSize(.large)
         }
-        .macFrame(minWidth: 460, minHeight: 380)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { totalH = $0 }
+        #if os(iOS)
+        .presentationDetents([.height(max(totalH, 220))])                   // iPhone
+        .presentationSizing(.form.fitted(horizontal: false, vertical: true)) // iPad
+        .presentationBackground(.background)
+        #endif
+        .macFrame(minWidth: 460, idealWidth: 520)
         .interactiveDismissDisabled()
+    }
+    /// ~40 % der Bildschirmhoehe
+    private static var maxTextHeight: CGFloat {
+        #if os(iOS)
+        let h = UIApplication.shared.connectedScenes.compactMap { ($0 as? UIWindowScene)?.screen.bounds.height }.first ?? 800
+        #else
+        let h = NSScreen.main?.visibleFrame.height ?? 800
+        #endif
+        return (h * 0.4).rounded()
     }
 }
 
@@ -264,6 +286,12 @@ struct ShareSheet: View {
                     #endif
                     .disabled(!s.canAdd)
                     .fieldError(searchError != nil)
+                // Fehler bzw. "Mindestens 3 Zeichen." direkt am Feld - der Hinweis nur bei 1-2 Zeichen
+                if let e = searchError {
+                    Label(e, systemImage: "exclamationmark.circle.fill").font(.footnote).foregroundStyle(.red)
+                } else if ShareLogic.minHint(q) {
+                    Text("Mindestens 3 Zeichen.").font(.footnote).foregroundStyle(.secondary)
+                }
                 Picker("Rolle für neue Freigabe", selection: $role) {
                     ForEach(ShareRole.grantable, id: \.self) { r in Text(RoleText.name(r)).tag(r) }
                 }
@@ -272,8 +300,7 @@ struct ShareSheet: View {
                 ForEach(hits) { h in hitRow(h, s) }
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
-                    if let e = searchError { Label(e, systemImage: "exclamationmark.circle.fill").foregroundStyle(.red) }
-                    else { Text(s.scope ? String(localized: "Nur Personen aus deinen Gruppen. Mindestens 3 Zeichen.") : String(localized: "Mindestens 3 Zeichen.")) }
+                    if s.scope { Text("Nur Personen aus deinen Gruppen.") }
                     Text(RoleText.help(role))
                 }
             }
@@ -297,7 +324,7 @@ struct ShareSheet: View {
                 } header: { Text("Über übergeordnete Seiten") } footer: { Text("Diese Freigaben gelten auch hier. Ändern kannst du sie auf der übergeordneten Seite.") }
             }
             Section {
-                Text(verbatim: PublishLogic.breakable(link)).font(.callout.monospaced()).foregroundStyle(Color.accentColor).textSelection(.enabled)
+                Text(verbatim: PublishLogic.breakable(link)).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
                 Button { copyText(link); status = .ok(String(localized: "Link kopiert")) } label: { Label("Link kopieren", systemImage: "link") }
             } footer: { Text("Der Link öffnet die Seite für alle, die Zugriff haben.") }
             if let status { PubStatusLine(status: status) }
@@ -314,9 +341,14 @@ struct ShareSheet: View {
                     ForEach(s.groups, id: \.self) { g in
                         let has = taken["group:" + g]
                         Button { Task { await put("group", g, role, done: String(localized: "✓ Geteilt mit \(g) (\(RoleText.name(role)))")) } } label: {
-                            Label(g, systemImage: "person.2.fill").font(.subheadline)
-                                .padding(.horizontal, 12).frame(minHeight: 44)
-                                .background(Capsule().strokeBorder(has != nil ? Color.accentColor : Color.secondary.opacity(0.4)))
+                            HStack(spacing: 6) {                   // einfarbiges Gruppen-Symbol; hat schon Zugriff -> ✓ im Chip
+                                Image(systemName: "person.2").foregroundStyle(.secondary)
+                                Text(verbatim: g)
+                                if has != nil { Image(systemName: "checkmark").font(.caption.weight(.semibold)).foregroundStyle(Color.accentColor) }
+                            }
+                            .font(.subheadline)
+                            .padding(.horizontal, 12).frame(minHeight: 44)
+                            .background(Capsule().strokeBorder(has != nil ? Color.accentColor : Color.secondary.opacity(0.4)))
                         }
                         .buttonStyle(.plain)
                         .accessibilityHint(has.map { String(localized: "hat Zugriff: \(RoleText.name($0))") } ?? String(localized: "als \(RoleText.name(role)) hinzufügen"))
@@ -351,8 +383,8 @@ struct ShareSheet: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(verbatim: e.name)
                 Text(sub(e)).font(.caption).foregroundStyle(.secondary)
-                if let v = e.stronger {
-                    Text("(über \(RoleText.via(v)): \(RoleText.name(v.role)))").font(.caption).foregroundStyle(Color.accentColor)
+                if let v = e.stronger {                                  // eigene Zeile, Sekundaerfarbe (nicht Akzent, nicht kursiv)
+                    Text("(über \(RoleText.via(v)): \(RoleText.name(v.role)))").font(.caption).foregroundStyle(.secondary)
                 }
             }
         }
@@ -366,14 +398,8 @@ struct ShareSheet: View {
             .buttonStyle(.plain).foregroundStyle(.secondary)
             .help("Freigabe entfernen").accessibilityLabel(Text("Freigabe für \(e.name) entfernen"))
         return VStack(alignment: .leading, spacing: 4) {
-            // breit: alles in einer Zeile; schmal (iPhone, grosse Schrift): Rolle unter dem Namen
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) { who.fixedSize(horizontal: true, vertical: false); Spacer(minLength: 4); picker; remove }
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack { who; Spacer(minLength: 4); remove }
-                    picker.padding(.leading, 38)
-                }
-            }
+            // Rolle und × immer rechts in der Zeile; der Namensblock nimmt den Rest und darf umbrechen
+            HStack(spacing: 6) { who.frame(maxWidth: .infinity, alignment: .leading); picker; remove }
             if let err = itemError[e.id] { Label(err, systemImage: "exclamationmark.circle.fill").font(.caption).foregroundStyle(.red) }
         }
     }

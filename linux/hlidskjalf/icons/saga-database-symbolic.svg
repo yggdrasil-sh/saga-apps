@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Saga: Ersatz fuer das Symbol einer Datenbank, das sich nicht darstellen laesst (Tabelle) im Stil der Adwaita-Symbole, 16x16, nur Flaechen (GTK faerbt sie ein) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <g fill="#222222">
+    <path fill-rule="evenodd" d="M 3 2 C 1.9 2 1 2.9 1 4 L 1 12 C 1 13.1 1.9 14 3 14 L 13 14 C 14.1 14 15 13.1 15 12 L 15 4 C 15 2.9 14.1 2 13 2 Z M 3 6 L 6 6 L 6 8 L 3 8 Z M 7 6 L 13 6 L 13 8 L 7 8 Z M 3 9 L 6 9 L 6 12 L 3 12 Z M 7 9 L 13 9 L 13 12 L 7 12 Z"/>
+  </g>
+</svg>

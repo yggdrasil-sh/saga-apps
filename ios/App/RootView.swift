@@ -24,7 +24,7 @@ struct RootView: View {
 
     var body: some View {
         NavigationSplitView {
-            Sidebar(store: store, selection: $selection, query: query, results: results)
+            Sidebar(store: store, selection: $selection, query: query, results: results, sharedJump: nav.sharedJump)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 380)      // wie Notion, nicht abgeschnitten
                 .navigationTitle("Saga")
                 .searchable(text: $query, prompt: "Seiten durchsuchen")
@@ -70,6 +70,7 @@ struct RootView: View {
             .animation(.snappy(duration: 0.25), value: nav.peek)
         }
         .onChange(of: selection) { _, _ in nav.path = []; nav.peek = nil }
+        .onChange(of: nav.sharedJump) { _, _ in nav.peek = nil; nav.path = []; selection = nil }   // "Zu „Mit mir geteilt“" (Kein Zugriff)
         .onChange(of: nav.peek) { old, new in if old != nil && new == nil { store.dataChanged() } }   // Peek zu -> Ansichten auffrischen
         // Peek mittig als Fenster (rechts: eigene Seitenleiste im detail-Bereich)
         .sheet(item: Binding(get: { nav.peek.flatMap { $0.center ? $0 : nil } }, set: { if $0 == nil { nav.peek = nil } })) { p in
@@ -94,7 +95,7 @@ struct RootView: View {
         .environmentObject(nav)
         .environment(\.openURL, OpenURLAction { url in          // Seitenverweise im Text -> nativ oeffnen
             if url.scheme == "hkpage", let id = Int(url.host ?? "") { nav.push(PageRoute(id: id)); return .handled }
-            if url.scheme == "hkdate" { return .handled }                  // @-Datum im Text: nichts oeffnen
+            if url.scheme == "hkdate" || url.scheme == "hkna" { return .handled }   // @-Datum, Seite ohne Zugriff: nichts oeffnen
             return .systemAction
         })
         .focusedSceneValue(\.hk, HKCommands(                            // Menue-Befehle (Mac/iPad-Tastatur)
@@ -289,6 +290,8 @@ struct Sidebar: View {
     @Binding var selection: Int?
     let query: String
     let results: [Page]
+    /// "Zu „Mit mir geteilt“" gewaehlt (zaehlt hoch): Bereich zeigen (auch leer) und dorthin scrollen
+    var sharedJump = 0
     @State private var moveID: MoveTarget?
     @State private var showTrash = false
 
@@ -306,6 +309,7 @@ struct Sidebar: View {
     }
 
     var body: some View {
+        ScrollViewReader { proxy in
         List(selection: $selection) {
             if !query.trimmingCharacters(in: .whitespaces).isEmpty {
                 Section("Treffer") {
@@ -342,19 +346,23 @@ struct Sidebar: View {
                     }
                 }
                 Section {
-                    OutlineGroup(tree(nil), children: \.children) { n in
+                    let top = tree(nil)
+                    OutlineGroup(top, children: \.children) { n in
                         PageRow(page: n.page, store: store).pageActions(n.page, store: store, selection: $selection, moveID: $moveID).tag(n.page.id)
                             .draggable(String(n.page.id))                                    // ziehen: auf eine Seite = darunter einsortieren
                             .dropDestination(for: String.self) { ids, _ in dropPages(ids, into: n.page.id) }
                     }
+                    if top.isEmpty && !store.loading { Text("Noch keine Seiten").foregroundStyle(.secondary) }   // statt leerer Ueberschrift
                 } header: {
                     Text("Seiten").frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                         .dropDestination(for: String.self) { ids, _ in dropPages(ids, into: nil) }        // auf "Seiten" = oberste Ebene
                 }
-                if !store.shared.isEmpty || store.shareOffHint {             // Mit mir geteilt (1.3)
+                if !store.shared.isEmpty || store.shareOffHint || sharedJump > 0 {     // Mit mir geteilt (1.3)
                     Section {
                         if store.shareOffHint {
                             Text("Teilen ist auf diesem Server zurzeit abgeschaltet – mit dir geteilte Seiten sind nicht erreichbar.").font(.caption).foregroundStyle(.secondary)
+                        } else if store.shared.isEmpty {
+                            Text("Zurzeit ist nichts mit dir geteilt.").foregroundStyle(.secondary)
                         }
                         OutlineGroup(sharedTree(nil), children: \.children) { n in
                             PageRow(page: n.page, store: store, ownerLine: n.page.root == true).tag(n.page.id)
@@ -369,6 +377,7 @@ struct Sidebar: View {
                                     .accessibilityLabel(n == 1 ? Text("1 Seite mit neuen Kommentaren") : Text("\(n) Seiten mit neuen Kommentaren"))
                             }
                         }
+                        .id(Self.sharedAnchor)
                     }
                 }
                 if !store.archivedPages.isEmpty {
@@ -395,7 +404,12 @@ struct Sidebar: View {
         .overlay { if store.loading && store.pages.isEmpty { ProgressView() } }
         .sheet(isPresented: $showTrash) { TrashSheet().environmentObject(store) }
         .sheet(item: $moveID) { m in MoveSheet(id: m.id) }
+        .onChange(of: sharedJump) { _, _ in
+            Task { await store.refresh(quiet: true); try? await Task.sleep(for: .milliseconds(350)); withAnimation { proxy.scrollTo(Self.sharedAnchor, anchor: .top) } }
+        }
+        }
     }
+    static let sharedAnchor = "hk-shared-section"
 }
 
 extension Sidebar {

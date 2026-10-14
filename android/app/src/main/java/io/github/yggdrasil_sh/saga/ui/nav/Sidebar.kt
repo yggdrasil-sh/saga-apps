@@ -65,6 +65,9 @@ import io.github.yggdrasil_sh.saga.data.PageMeta
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.ui.common.PageIcon
 import io.github.yggdrasil_sh.saga.ui.common.SectionHeader
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.launch
 
 private data class TreeRow(val page: PageMeta, val depth: Int, val hasChildren: Boolean)
@@ -122,7 +125,21 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
         }
     }
 
-    LazyColumn(Modifier.statusBarsPadding()) {
+    // "Zu „Mit mir geteilt“" (Seite ohne Zugriff): zum Bereich scrollen (Reihenfolge wie die Eintraege unten)
+    val listState = rememberLazyListState()
+    val showShared by repo.showSharedRequest.collectAsState()
+    var seenShared by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(repo.showSharedRequest.value) }
+    LaunchedEffect(showShared) {
+        if (showShared == seenShared) return@LaunchedEffect
+        seenShared = showShared
+        var i = 1 + 5                                                   // Kopf + Heute/Aufgaben/Termine/Dienste/Suchen
+        if (favorites.isNotEmpty()) i += 1 + favorites.size
+        if (recent.isNotEmpty()) i += 1 + recent.size
+        i += 1 + (if (tree.isEmpty()) 1 else tree.size)                 // "Seiten" + Baum bzw. "Noch keine Seiten"
+        listState.animateScrollToItem(i)
+    }
+
+    LazyColumn(Modifier.statusBarsPadding(), state = listState) {
         item {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
@@ -172,7 +189,14 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
             item(key = "shared-head") {
                 val res = LocalResources.current
                 Row(Modifier.fillMaxWidth().padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    SectionHeader("👥 " + stringResource(R.string.shared_with_me), Modifier.weight(1f))
+                    // G9: einfarbiges Gruppen-Symbol statt 👥
+                    Row(Modifier.weight(1f).padding(start = 16.dp, top = 18.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(painterResource(R.drawable.ic_group), null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            stringResource(R.string.shared_with_me), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
                     if (sharedUnread > 0) {
                         val d = res.getQuantityString(R.plurals.shared_unread_pages, sharedUnread, sharedUnread)
                         Badge(
@@ -259,7 +283,10 @@ private fun PageRowItem(
             }
             if (p.shared && !foreign) {
                 val d = stringResource(R.string.shared_icon_desc)
-                Text("👥", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp).semantics { contentDescription = d })
+                Icon(
+                    painterResource(R.drawable.ic_group), d, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 4.dp).size(16.dp),
+                )
             }
             if (hasChildren) {
                 IconButton(onClick = onToggle) {

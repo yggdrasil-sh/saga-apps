@@ -73,9 +73,21 @@ class ShareModelTest {
         assertFalse(ShareLogic.chipsVisible(st, "sc-"))                    // beim Suchen keine Chips
         assertFalse(ShareLogic.chipsVisible(st.copy(shareable = false), ""))
         assertFalse(ShareLogic.chipsVisible(ShareState(), ""))
-        assertEquals(R.string.share_search_hint_scope, ShareLogic.searchHint(st.copy(scope = true)))
+        assertEquals(R.string.share_search_hint_scope, ShareLogic.searchHint(st.copy(scope = true), "sc"))
         assertEquals(R.string.share_help_edit, ShareLogic.roleHelp(Role.EDIT))
         assertEquals(listOf(Role.VIEW, Role.COMMENT, Role.EDIT), ShareLogic.ROLES)
+    }
+
+    /** G5: "Mindestens 3 Zeichen." nur bei 1-2 eingegebenen Zeichen - nicht bei leerem Feld, nicht ab 3 Zeichen */
+    @Test
+    fun minCharsHintOnlyForOneOrTwoCharacters() {
+        val st = ShareState()
+        assertNull(ShareLogic.searchHint(st, ""))
+        assertNull(ShareLogic.searchHint(st, "   "))
+        assertEquals(R.string.share_search_hint, ShareLogic.searchHint(st, "s"))
+        assertEquals(R.string.share_search_hint, ShareLogic.searchHint(st, " sh "))
+        assertNull(ShareLogic.searchHint(st, "sh-"))
+        assertNull(ShareLogic.searchHint(st, "sh-and"))
     }
 
     @Test

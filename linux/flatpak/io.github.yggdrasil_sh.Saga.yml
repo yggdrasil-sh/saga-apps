@@ -1,5 +1,7 @@
 # Flatpak-Manifest fuer Saga (GTK4 + libadwaita, Python). Bauen: linux/flatpak/build-flatpak.sh
 app-id: io.github.yggdrasil_sh.Saga
+# Die GNOME-Laufzeit enthaelt die Farb-Emoji-Schrift (Noto Color Emoji, /usr/share/fonts/noto-emoji) - Seitensymbole
+# und Hinweise sind Emoji; build-flatpak.sh prueft das bei jedem Bau
 runtime: org.gnome.Platform
 runtime-version: '49'
 sdk: org.gnome.Sdk

@@ -20,11 +20,13 @@ PARTS=${*:-all}
 case " $PARTS " in *" all "*) PARTS="lint unit ui lang shots" ;; esac
 
 # --- Pakete (nur wenn etwas fehlt) ------------------------------------------------------------------------
-if ! python3 -c "import gi, pytest, pyflakes; gi.require_version('Adw', '1')" 2>/dev/null || ! command -v Xvfb >/dev/null; then
+# google-noto-color-emoji-fonts: wie im RPM (Requires) - Seitensymbole und Hinweise sind Emoji
+if ! python3 -c "import gi, pytest, pyflakes; gi.require_version('Adw', '1')" 2>/dev/null || ! command -v Xvfb >/dev/null \
+    || ! fc-list 2>/dev/null | grep -qi "color emoji"; then
   echo "== Pakete installieren"
   dnf -y -q install python3-gobject gtk4 libadwaita libsecret python3-pillow xorg-x11-server-Xvfb dbus-daemon dbus-tools \
     glibc-langpack-de glibc-langpack-es glibc-langpack-en gettext python3-pyflakes python3-pytest appstream desktop-file-utils adwaita-icon-theme \
-    >/dev/null
+    google-noto-color-emoji-fonts >/dev/null
 fi
 
 # Arbeitskopie: der Quellordner bleibt sauber (nur build/shots wird zurueckgeschrieben)

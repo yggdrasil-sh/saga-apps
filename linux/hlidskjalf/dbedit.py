@@ -119,6 +119,8 @@ class ViewBar(Gtk.Box):
         self.settings.set_visible(self.editable)
         while (c := self.new_slot.get_first_child()):
             self.new_slot.remove(c)
+        if self.m.host_locked:                                 # Block auf gesperrter Seite: kein "Neu"
+            return
         if self.m.readonly:                                    # fremde Datenbank, nur lesen: kein "Neu"
             lb = Gtk.Label(label=_("👁 View only"), valign=Gtk.Align.CENTER,
                            tooltip_text=_("View only – changes to the view are not saved."))
@@ -516,8 +518,12 @@ class CalcRow(Gtk.Box):
                 lb.set_markup(f'<span size="small" alpha="70%">{GLib.markup_escape_text(CALC_NAMES.get(op, op))}</span> '
                               f'<b>{GLib.markup_escape_text(self.value(op, p))}</b>')
             else:
-                lb = Gtk.Label(label=_("Calculate"), xalign=1)
+                lb = Gtk.Label(label="" if m.host_locked else _("Calculate"), xalign=1)
                 lb.add_css_class("hk-calc-empty")
+            if m.host_locked:                    # Block auf gesperrter Seite: Ergebnis nur zeigen, nichts einstellen
+                lb.add_css_class("hk-calc")
+                self.append(table._cell(key, lb))
+                continue
             mb.set_child(lb)
             mb.set_create_popup_func(lambda b, key=key, p=p: b.set_popover(menu_popover(None, [(_("None"), lambda key=key: self.set(key, None))] +
                                                                                          [(CALC_NAMES[o], (lambda o=o, key=key: self.set(key, o))) for o in self.ops(p)])))

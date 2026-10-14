@@ -347,8 +347,39 @@ def page_icon(icon, size=22, fallback="📄"):
         v.set_valign(Gtk.Align.CENTER)
         v.set_halign(Gtk.Align.CENTER)
         return v
-    lb = Gtk.Label(label=icon or fallback)
+    text = icon or fallback
+    if not glyphs_ok(text):
+        # keine Schrift kennt das Zeichen (z. B. Farb-Emoji-Schrift fehlt): einfarbiges Ersatzsymbol statt Kaestchen
+        from .publish import _icon
+        db = fallback.startswith("🗃") or text.startswith("🗃")
+        im = Gtk.Image.new_from_icon_name(_icon("saga-database-symbolic", "x-office-spreadsheet-symbolic") if db else
+                                          _icon("saga-page-symbolic", "text-x-generic-symbolic"))
+        im.set_pixel_size(max(16, int(size * 0.8)) if size <= 30 else int(size * 0.75))
+        im.set_size_request(size, size)
+        im.add_css_class("dim-label")
+        im.add_css_class("hk-icon-fallback")
+        im.set_tooltip_text(text)
+        return im
+    lb = Gtk.Label(label=text)
     if size > 30:
         lb.add_css_class("hk-icon-big")
     lb.set_size_request(size, size)
     return lb
+
+
+_GLYPHS = {}
+
+
+def glyphs_ok(text):
+    """Laesst sich der Text mit den installierten Schriften darstellen (kein Ersatzkaestchen mit Hex-Code)?
+    Pango zaehlt die Zeichen, fuer die keine Schrift ein Zeichen hat (unknown glyphs); Ergebnis je Text gemerkt."""
+    if not text:
+        return True
+    ok = _GLYPHS.get(text)
+    if ok is None:
+        try:
+            ok = Gtk.Label().create_pango_layout(text).get_unknown_glyphs_count() == 0
+        except (AttributeError, TypeError, GLib.Error):
+            ok = True
+        _GLYPHS[text] = ok
+    return ok

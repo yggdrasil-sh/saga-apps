@@ -372,6 +372,9 @@ class SagaRepository(
     /** Teilen-Dialog nach dem Oeffnen dieser Seite zeigen ("über „Elternseite“" im Dialog) */
     val openShareFor = MutableStateFlow<Int?>(null)
 
+    /** "Zu „Mit mir geteilt“" (Seite ohne Zugriff): Zaehler - Seitenleiste oeffnen und zum Bereich scrollen */
+    val showSharedRequest = MutableStateFlow(0)
+
     suspend fun loadShared() {
         try {
             val list = decode<List<PageMeta>>(api.get("api/shared"))

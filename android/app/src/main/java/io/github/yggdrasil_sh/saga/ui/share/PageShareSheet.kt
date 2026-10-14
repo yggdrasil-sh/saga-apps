@@ -24,7 +24,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.ui.res.painterResource
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -61,7 +67,6 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
@@ -116,23 +121,27 @@ fun PageShareSheet(
                 else -> {
                     if (!st.enabled) Warn(stringResource(R.string.share_disabled_warn))
                     if (!st.shareable) Warn(stringResource(R.string.share_not_shareable))
-                    // Suchen + Rolle
-                    Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val err = model.searchError
-                        OutlinedTextField(
-                            value = model.query, onValueChange = model::editQuery, singleLine = true, enabled = st.shareable && !model.busy,
-                            label = { Text(stringResource(R.string.share_search)) },
-                            isError = err != null,
-                            supportingText = {
-                                if (err != null) Text(err.resolve(), color = MaterialTheme.colorScheme.error, modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-                                else Text(stringResource(ShareLogic.searchHint(st)))
-                            },
-                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Search),
-                            modifier = Modifier.weight(1f),
-                        )
-                        RolePicker(model.newRole, stringResource(R.string.share_new_role), enabled = st.shareable, modifier = Modifier.padding(top = 8.dp)) { model.newRole = it }
-                    }
-                    Text(stringResource(ShareLogic.roleHelp(model.newRole)), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    // Suchen + Rolle: zwei gleich hohe OutlinedTextFields; Fehler/Hinweis direkt am Suchfeld (G5),
+                    // Erklaerung der Rolle als supportingText des Rollenfelds
+                    val err = model.searchError
+                    val hint = ShareLogic.searchHint(st, model.query)
+                    OutlinedTextField(
+                        value = model.query, onValueChange = model::editQuery, singleLine = true, enabled = st.shareable && !model.busy,
+                        label = { Text(stringResource(R.string.share_search)) },
+                        isError = err != null,
+                        supportingText = when {
+                            err != null -> {
+                                { Text(err.resolve(), modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite }) }
+                            }
+                            hint != null -> {
+                                { Text(stringResource(hint)) }
+                            }
+                            else -> null
+                        },
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Search),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    RoleField(model.newRole, enabled = st.shareable) { model.newRole = it }
                     val taken = ShareLogic.taken(st)
                     val roleName = stringResource(ShareLogic.roleName(model.newRole))
                     // Treffer
@@ -163,9 +172,15 @@ fun PageShareSheet(
                                 val has = taken[ShareLogic.key("group", g)]
                                 val desc = if (has != null) stringResource(R.string.share_has_role, stringResource(ShareLogic.roleName(has)))
                                 else stringResource(R.string.share_add_as, roleName)
+                                // G9/G11: einfarbiges Gruppen-Symbol; Gruppe mit Zugriff: ✓ im Chip
                                 FilterChip(
                                     selected = has != null, onClick = { scope.launch { model.add("group", g, g) } }, enabled = !model.busy,
-                                    label = { Text("👥 $g") }, modifier = Modifier.semantics { contentDescription = "$g · $desc" },
+                                    label = { Text(g) },
+                                    leadingIcon = {
+                                        if (has != null) Icon(Icons.Filled.Check, null, Modifier.size(FilterChipDefaults.IconSize))
+                                        else Icon(painterResource(R.drawable.ic_group), null, Modifier.size(FilterChipDefaults.IconSize), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    },
+                                    modifier = Modifier.semantics { contentDescription = "$g · $desc" },
                                 )
                             }
                         }
@@ -245,20 +260,25 @@ private fun Warn(text: String) {
     }
 }
 
-/** Rund: Anfangsbuchstabe bzw. 👥 fuer Gruppen */
+/** Rund: Anfangsbuchstabe bzw. einfarbiges Gruppen-Symbol (G9, kein 👥-Emoji) */
 @Composable
 private fun Avatar(type: String, name: String) {
     Box(
         Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            if (type == "group") "👥" else name.trim().take(1).uppercase().ifEmpty { "?" },
-            color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.titleSmall,
-        )
+        if (type == "group") {
+            Icon(painterResource(R.drawable.ic_group), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            Text(
+                name.trim().take(1).uppercase().ifEmpty { "?" },
+                color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.titleSmall,
+            )
+        }
     }
 }
 
+/** extra = "(über {Gruppe}: {Rolle})" - G6: eigene Zeile unter dem Namen, Sekundaerfarbe, nicht kursiv */
 @Composable
 private fun PersonRow(type: String, name: String, sub: String, extra: String? = null) {
     Row(Modifier.heightIn(min = 48.dp).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -266,7 +286,7 @@ private fun PersonRow(type: String, name: String, sub: String, extra: String? = 
         Column(Modifier.padding(start = 12.dp)) {
             Text(name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            extra?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, fontStyle = FontStyle.Italic) }
+            extra?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
     }
 }
@@ -303,7 +323,36 @@ private fun EntryRow(e: ShareEntry, model: ShareModel, scope: CoroutineScope, on
     }
 }
 
-/** Rolle waehlen: Knopf mit Menue (Lesen / Kommentieren / Bearbeiten) */
+/**
+ * Rolle fuer neue Freigaben (Nur Android): ExposedDropdownMenuBox mit OutlinedTextField - gleiche Hoehe und Form
+ * wie das Suchfeld; die Erklaerung der gewaehlten Rolle steht als supportingText darunter.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RoleField(current: Role, enabled: Boolean, onPick: (Role) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(expanded = open && enabled, onExpandedChange = { if (enabled) open = it }) {
+        OutlinedTextField(
+            value = stringResource(ShareLogic.roleName(current)), onValueChange = {}, readOnly = true, singleLine = true, enabled = enabled,
+            label = { Text(stringResource(R.string.share_new_role)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = open) },
+            supportingText = { Text(stringResource(ShareLogic.roleHelp(current))) },
+            modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled),
+        )
+        ExposedDropdownMenu(expanded = open && enabled, onDismissRequest = { open = false }) {
+            ShareLogic.ROLES.forEach { r ->
+                // nur der Name - die Erklaerung steht als supportingText unter dem Feld (sonst doppelt "Lesen: …")
+                DropdownMenuItem(
+                    text = { Text(stringResource(ShareLogic.roleName(r))) },
+                    onClick = { open = false; onPick(r) },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                )
+            }
+        }
+    }
+}
+
+/** Rolle einer bestehenden Freigabe: Knopf mit Menue (Lesen / Kommentieren / Bearbeiten) */
 @Composable
 private fun RolePicker(current: Role, label: String, modifier: Modifier = Modifier, enabled: Boolean = true, onPick: (Role) -> Unit) {
     var open by remember { mutableStateOf(false) }

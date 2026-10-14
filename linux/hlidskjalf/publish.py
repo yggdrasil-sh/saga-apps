@@ -258,9 +258,18 @@ class UrlRow(Adw.PreferencesRow):
         self.url = Gtk.Label(xalign=0, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR)
         col.append(self.head)
         col.append(self.url)
+        self.note = Gtk.Label(xalign=0, wrap=True, visible=False)      # Hinweis als Untertitel (z. B. Teilen-Link)
+        self.note.add_css_class("dim-label")
+        self.note.add_css_class("hk-row-note")
+        col.append(self.note)
         self.box.append(col)
         self.set_child(self.box)
         self.raw = ""
+
+    def set_note(self, text):
+        self.note.set_label(text or "")
+        self.note.set_visible(bool(text))
+        self.update_property([Gtk.AccessibleProperty.DESCRIPTION], [text or ""])
 
     def add_button(self, b):
         self.box.append(b)

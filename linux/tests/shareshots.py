@@ -1,6 +1,7 @@
 # Teilen + Kommentare mit nachgebautem Server ansehen (Bildschirmfotos), hell und dunkel; auf Spanisch nur hell:
 #   Mit mir geteilt + fremde Seite (Bearbeiten), fremde Seite (Lesen), Teilen-Dialog (Freigaben, Suche), Kommentare
-#   (alle, ein Block), Konflikt mit einer anderen Person (+ Entwurf), Zugriff verloren
+#   (alle, ein Block), Konflikt mit einer anderen Person (+ Entwurf), Zugriff verloren (nur noch lesen, kein Zugriff mehr),
+#   Ansicht "Kein Zugriff auf diese Seite", gesperrte Seite mit Datenbank-Block
 #   im Container: sh tests/run-container.sh shots   (Dateien linux-NN-*-<hell|dunkel|es>.png)
 import json
 import os
@@ -64,7 +65,14 @@ def start(g):
         {"id": "l2", "type": "list", "data": {"style": "unordered", "meta": {}, "items": [
             {"content": "Ein Roman über Gärten", "meta": {}, "items": []},
             {"content": "Ein Sachbuch über Holz", "meta": {}, "items": []}]}},
+        {"id": "l4", "type": "list", "data": {"style": "checklist", "meta": {}, "items": [
+            {"content": "Ausgelesen: Der Gartenroman", "meta": {"checked": True}, "items": []},
+            {"content": "Noch offen: Holzbuch", "meta": {"checked": False}, "items": []}]}},
         {"id": "l3", "type": "calendar", "data": {}}])
+    # eigene, gesperrte Seite mit Datenbank-Block (Nachtrag: kein "Neu", keine Ansichts-Einstellungen, kein "+")
+    srv.notes[3].update(title="Wochenplan", icon="🗓️", locked=True, body=json.dumps({"blocks": [
+        {"id": "w1", "type": "paragraph", "data": {"text": "Die Aufgaben dieser Woche – die Seite ist gesperrt."}},
+        {"id": "w2", "type": "database", "data": {"db": 10, "view": "tabelle"}}]}))
     t = srv.add_comment(200, "Reicht das Budget? Holzpreise siehe https://example.org/holz", uid="anna", block_id="g4", created=now - 3600)
     srv.add_comment(200, "Ja, wenn wir Lärche statt Eiche nehmen.", uid="bert", thread_id=t, created=now - 1800)
     srv.add_comment(200, "Tomaten erst nach den Eisheiligen.", uid="cora", block_id="g3", created=now - 7200, resolved=True)
@@ -166,9 +174,38 @@ def lost_shot(g):
     close_all(g)
 
 
+def gone_edit(g):
+    v = g["win"].current
+    S["srv"].grants[200] = "edit"                                  # noch einmal bearbeiten duerfen ...
+    v.doc.load(force=True)
+
+
+def gone_save(g):
+    v = g["win"].current
+    del S["srv"].grants[200]                                       # ... und beim Speichern ist die Freigabe weg
+    v.doc.root[0]["data"]["text"] = "Ziele – nach dem Entzug"
+    v.editor.text_changed()
+    v.editor.flush()
+
+
+def gone_shot(g):
+    shoot(g, "10-kein-zugriff-mehr")
+    close_all(g)
+
+
+def noaccess_shot(g):
+    shoot(g, "11-kein-zugriff")
+    g["win"].show_root(("page", 3))
+
+
+def locked_db_shot(g):
+    shoot(g, "12-gesperrt-datenbank")
+
+
 steps = [(300, start)]
 for _t, _s in THEMES:
     steps += [(2500, reset(_t, _s)), (2500, shared_shot), (2000, view_shot), (1500, share_open), (1500, share_shot),
               (1500, search_shot), (1500, comments_open), (1500, comments_shot), (1500, block_shot), (2000, conflict_shot),
-              (1500, draft_shot), (2000, lost_shot)]
+              (1500, draft_shot), (2000, lost_shot), (2000, gone_edit), (2000, gone_save), (2000, gone_shot),
+              (1500, noaccess_shot), (2500, locked_db_shot)]
 steps += [(500, lambda g: Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_LIGHT))]

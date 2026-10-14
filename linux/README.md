@@ -31,7 +31,8 @@ sh build-rpm.sh                                   # -> dist/saga-<version>-<rele
 sudo dnf install ./dist/saga-*.noarch.rpm
 ```
 
-Benötigt: gtk4 ≥ 4.14, libadwaita ≥ 1.6, python3-gobject, libsecret, python3-pillow (auf AlmaLinux/RHEL 10 aus EPEL).
+Benötigt: gtk4 ≥ 4.14, libadwaita ≥ 1.6, python3-gobject, libsecret, python3-pillow (auf AlmaLinux/RHEL 10 aus EPEL),
+google-noto-color-emoji-fonts (Seitensymbole sind Emoji; fehlt die Schrift, zeigt die App ein einfarbiges Ersatzsymbol).
 `HK_RELEASE=2 sh build-rpm.sh` setzt die Release-Nummer (Standard 1). Die Version steht in `hlidskjalf/__init__.py`
 und wird für alle Apps mit `tools/set-version.sh` gesetzt. Das Paket heißt im RPM `hlidskjalf` (Befehl `hlidskjalf`),
 die Datei in `dist/` trägt zur Orientierung den Namen `saga`. In CI genügt ein Container `almalinux:10` oder

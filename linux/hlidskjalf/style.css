@@ -16,13 +16,19 @@ textview.hk-rt { padding: 2px 0; }
 .hk-quote { border-left: 3px solid alpha(currentColor, 0.55); padding-left: 12px; }
 .hk-callout { background: alpha(currentColor, 0.07); border-radius: 10px; padding: 10px 12px; }
 /* Entwurf-Banner (lokale Kopie): wie Adw.Banner, aber mit zwei Knoepfen */
-.hk-draft-banner { background: color-mix(in srgb, var(--warning-bg-color) 22%, transparent); border-radius: 10px; padding: 4px 6px; }
+/* Entwurf-Banner: Farben und Abstaende von Adw.Banner (CSS-Namen banner > revealer > widget, siehe page.py) */
 textview.hk-code { background: alpha(currentColor, 0.07); }
 textview.hk-code > text { background: transparent; }
 textview.hk-code { border-radius: 8px; padding: 10px 12px; font-size: 0.92em; }
 .hk-code-lang { font-family: monospace; font-size: 0.75em; opacity: 0.55; margin: 4px 10px; }
 .hk-marker { opacity: 0.6; margin-top: 2px; }
 .hk-check { margin-top: 1px; }
+/* Kontrollkaestchen ohne Recht zum Bearbeiten (Lesen/Kommentieren, gesperrt): sichtbar gesperrt - Textfarbe mit ~45 %
+   Deckkraft statt Akzentfarbe, hell wie dunkel gut erkennbar */
+checkbutton.hk-check:disabled > check { filter: none; opacity: 1; background: none; color: transparent;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--window-fg-color) 45%, transparent); }
+checkbutton.hk-check:disabled > check:checked { background: color-mix(in srgb, var(--window-fg-color) 45%, transparent);
+  color: var(--window-bg-color); box-shadow: none; }
 
 .hk-handle { margin-top: 1px; opacity: 0; transition: opacity 120ms; }
 .hk-handle.hk-on, window.hk-touch .hk-handle.hk-on { opacity: 1; }
@@ -148,7 +154,10 @@ window.hk-dark .hk-svc-icon .hk-svc-letter { background: none; color: alpha(blac
 
 /* Teilen + Kommentare (1.3): dezent - Etiketten statt Knoepfe, Zahl am Block nur bei offenen Unterhaltungen */
 .hk-role-pill { font-size: 0.82em; background: alpha(var(--accent-bg-color), 0.16); border-radius: 6px; padding: 1px 7px; }
-.hk-sharedby { font-size: 0.92em; }
+/* Kopf fremder Seiten: "Geteilt von …" und "Zuletzt geaendert von …" gleich gross (Sekundaertext, gut lesbar) */
+.hk-pagemeta { font-size: 0.92em; }
+button.hk-chip-btn image.hk-chip-check { margin-left: 2px; }
+.hk-row-note { font-size: 0.9em; margin-top: 2px; }
 .hk-unread-dot { color: var(--accent-color); font-size: 0.62em; }
 .hk-badge.hk-badge-accent { background: alpha(var(--accent-bg-color), 0.28); }
 button.hk-shared-on { color: var(--accent-color); }

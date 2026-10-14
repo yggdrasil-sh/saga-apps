@@ -214,7 +214,7 @@
     <string name="state_expanded">aufgeklappt</string>
     <string name="state_collapsed">zugeklappt</string>
     <string name="page_actions">Seitenaktionen</string>
-    <string name="conflict_banner">Seite wurde woanders geändert – zum Entscheiden tippen</string>
+    <string name="conflict_banner">Die Seite wurde woanders geändert. Deine letzten Änderungen sind noch nicht gespeichert.</string>
     <string name="conflict_title">Seite wurde woanders geändert</string>
     <string name="conflict_text">Diese Seite wurde inzwischen auf einem anderen Gerät geändert. Deine Änderungen gehen nicht verloren.</string>
     <string name="conflict_keep_mine">Meine Fassung behalten</string>
@@ -222,7 +222,7 @@
     <string name="conflict_copy_title">%1$s (meine Fassung)</string>
     <string name="conflict_copy_saved">Deine Fassung wurde als neue Seite gesichert.</string>
     <string name="save_state_saved">Gespeichert</string>
-    <string name="save_state_pending">Speichert…</string>
+    <string name="save_state_pending">Noch nicht gespeichert</string>
     <string name="save_state_unsaved">Nicht gespeichert</string>
     <string name="page_archive">Archivieren</string>
     <string name="page_archived">Seite archiviert</string>
@@ -355,7 +355,7 @@
     <string name="meta_updated_by">Zuletzt geändert von %1$s · %2$s</string>
     <string name="conflict_by_title">%1$s hat diese Seite gerade geändert</string>
     <string name="conflict_by_text">Deine letzten Änderungen sind noch nicht gespeichert.</string>
-    <string name="conflict_by_banner">⚠ %1$s hat diese Seite gerade geändert. Deine letzten Änderungen sind noch nicht gespeichert.</string>
+    <string name="conflict_by_banner">%1$s hat diese Seite gerade geändert. Deine letzten Änderungen sind noch nicht gespeichert.</string>
     <string name="conflict_load_new">Neue Version laden</string>
     <string name="conflict_keep_version">Meine Version behalten</string>
     <string name="conflict_overwrite_title">Änderungen von %1$s überschreiben?</string>
@@ -490,4 +490,6 @@
         <item quantity="one">Keine offenen Kommentare · 1 erledigt</item>
         <item quantity="other">Keine offenen Kommentare · %d erledigt</item>
     </plurals>
+    <string name="conflict_choose">Version wählen</string>
+    <string name="no_access_to_shared">Zu „Mit mir geteilt“</string>
 </resources>

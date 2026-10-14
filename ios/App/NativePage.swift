@@ -357,7 +357,7 @@ final class PageDoc: ObservableObject {
     private func checkDraft() {
         guard let dr = drafts?.load(id) else { draft = nil; return }
         if dr.title == titleRaw, let cur = serialized(), sameBlocks(dr.body, cur) { drafts?.remove(id); draft = nil; return }
-        if !dirty { draft = dr }
+        if !dirty && !access.readOnly { draft = dr }                     // nur lesen: kein "Wiederherstellen" anbieten
     }
     /// Entwurf uebernehmen: wird dann mit der aktuellen Server-Revision gespeichert (ueberschreibt)
     func restoreDraft(_ store: Store) async {
@@ -424,6 +424,8 @@ final class PageDoc: ObservableObject {
             let text = plainTextNow()
             tracker.discard(); drafts?.remove(id)
             copyDialog = CopyTextDialog(kind: ro ? .readOnlyNow : .lostAccess, text: text)
+            // Seite zeigt sofort den neuen Zustand (Etikett, schreibgeschuetzt bzw. "Kein Zugriff") - nicht erst nach dem Dialog
+            Task { await load(store, force: true); await store.refresh(quiet: true) }
         case .other(let c) where isPermanentSaveError(c):
             // dauerhafter Fehler: nicht automatisch wiederholen, klar anzeigen; Entwurf (vor dem Senden geschrieben) bleibt
             retry?.cancel(); retry = nil; retryCount = 0
@@ -649,11 +651,13 @@ struct NativePageScreen: View {
                 Button { Task { await ed.flush(); nav.peekStep(1) } } label: { Image(systemName: "chevron.down") }
                     .help("Nächster Eintrag (⌃⇧J)").accessibilityLabel("Nächster Eintrag").keyboardShortcut("j", modifiers: [.control, .shift]).disabled(i == nil || i == nav.peekList.count - 1)
             }
-            Text(doc.title).font(.headline).lineLimit(1).foregroundStyle(.secondary)
+            if !doc.noAccess { Text(doc.title).font(.headline).lineLimit(1).foregroundStyle(.secondary) }
             Spacer()
-            commentsButton
-            favButton
-            Menu { pageMenuItems } label: { Image(systemName: "ellipsis.circle") }.menuIndicator(.hidden).fixedSize().accessibilityLabel("Seitenmenü")
+            if !doc.noAccess {
+                commentsButton
+                favButton
+                Menu { pageMenuItems } label: { Image(systemName: "ellipsis.circle") }.menuIndicator(.hidden).fixedSize().accessibilityLabel("Seitenmenü")
+            }
         }
         .buttonStyle(.plain).font(.title3)
         .padding(.horizontal, 16).padding(.vertical, 10)
@@ -673,16 +677,19 @@ struct NativePageScreen: View {
         ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                #if os(iOS)
-                CoverView(doc: doc, extendTop: topInset, readOnly: doc.access.readOnly)          // Titelbild bis ganz nach oben (wie Notion)
-                #else
-                CoverView(doc: doc, readOnly: doc.access.readOnly)
-                #endif
+                if !doc.noAccess {                                   // Kein Zugriff: weder Titelbild noch Symbol der Seite
+                    #if os(iOS)
+                    CoverView(doc: doc, extendTop: topInset, readOnly: doc.access.readOnly || pageLocked)          // Titelbild bis ganz nach oben (wie Notion)
+                    #else
+                    CoverView(doc: doc, readOnly: doc.access.readOnly || pageLocked)
+                    #endif
+                }
                 VStack(alignment: .leading, spacing: 10) {
                     if doc.noAccess {
-                        NoAccessView { Task { doc.loaded = false; await doc.load(store); await store.refresh(quiet: true) } }
+                        NoAccessView(retry: { Task { doc.loaded = false; await doc.load(store); await store.refresh(quiet: true) } },
+                                     toShared: { nav.toShared() })
                     } else {
-                    IconRow(doc: doc, readOnly: doc.access.readOnly)
+                    IconRow(doc: doc, readOnly: doc.access.readOnly || pageLocked)
                     TextField("Unbenannt", text: Binding(get: { doc.titleRaw }, set: { v in if v != doc.titleRaw { doc.page["title"] = v; ed.textChanged() } }), axis: .vertical)   // nur echte Aenderung
                         .font(.largeTitle.bold()).textFieldStyle(.plain).disabled(ed.locked || !doc.fetched)
                     if let by = doc.access.sharedBy { SharedByLabel(owner: by, role: doc.access.role) }      // fremde Seite (1.3)
@@ -699,7 +706,7 @@ struct NativePageScreen: View {
                     if let o = doc.offline {
                         Label(o, systemImage: "wifi.slash").font(.footnote).foregroundStyle(.orange)
                     }
-                    if doc.conflict && !doc.askConflict {             // Rueckfrage weggeklickt: erneut entscheiden (bis dahin wird nicht gespeichert)
+                    if doc.conflict && !doc.askConflict && !doc.access.readOnly {   // Rueckfrage weggeklickt: erneut entscheiden (nur lesen: nichts zu entscheiden)
                         Button { doc.askConflict = true } label: { Label("Seite wurde woanders geändert", systemImage: "exclamationmark.triangle") }
                             .font(.footnote).buttonStyle(.bordered).tint(.orange)
                     }
@@ -707,7 +714,7 @@ struct NativePageScreen: View {
                     if doc.fetched && !doc.isDatabase { TagsRow(doc: doc) }
                     if let schema = doc.parentSchema { EditableProps(doc: doc, schema: schema).padding(.bottom, 8).disabled(doc.access.readOnly) }
                     if doc.isDatabase {
-                        DatabaseView(dbID: id, viewID: nil, localViews: nil)
+                        DatabaseView(dbID: id, viewID: nil, localViews: nil, pageLocked: pageLocked)
                     } else if doc.fetched {
                         BlocksView(arr: doc.root)
                         // wie Notion: Klick in den freien Bereich unter dem letzten Block -> weiterschreiben
@@ -773,10 +780,11 @@ struct NativePageScreen: View {
         .environmentObject(ed)
         .overlay { if !doc.loaded { ProgressView() } }
         #if os(iOS)
-        .navigationTitle(scrolled ? doc.title : "")
+        .navigationTitle(scrolled && !doc.noAccess ? doc.title : "")
         .navigationBarTitleDisplayMode(.inline)
         #else
-        .modifier(MacTitle(on: !inPeek, title: doc.title, subtitle: store.path(id).map(\.label).joined(separator: " / ")))
+        .modifier(MacTitle(on: !inPeek, title: doc.noAccess ? String(localized: "Kein Zugriff") : doc.title,
+                           subtitle: doc.noAccess ? "" : store.path(id).map(\.label).joined(separator: " / ")))
         #endif
         .sheet(isPresented: $moving) { MoveSheet(id: id) }
         .sheet(isPresented: $publishing) {
@@ -785,7 +793,7 @@ struct NativePageScreen: View {
                 .environmentObject(store)
         }
         .toolbar {
-            if !inPeek {                                     // im Peek: eigene Kopfzeile statt Fensterleiste (sonst Layout-Kreislauf am Mac)
+            if !inPeek && !doc.noAccess {                    // im Peek: eigene Kopfzeile statt Fensterleiste (sonst Layout-Kreislauf am Mac); Kein Zugriff: nichts
                 ToolbarItem(placement: .primaryAction) { commentsButton }
                 ToolbarItem(placement: .primaryAction) { favButton }
                 ToolbarItem(placement: .primaryAction) { Menu { pageMenuItems } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("Seitenmenü") }
@@ -832,11 +840,21 @@ struct NativePageScreen: View {
                 try? await Task.sleep(for: .seconds(1)); commentsTarget = CommentsTarget(block: c == "all" ? nil : c)
             }
             let edAfter = UserDefaults.standard.integer(forKey: "hkEditAfter")               // nur fuer Tests: nach n s Text anhaengen + speichern (Konflikt)
-            if edAfter > 0, doc.fetched, let b = doc.root.compactMap({ $0 as? NSMutableDictionary }).last(where: { $0["type"] as? String == "paragraph" }),
-               let d = b["data"] as? NSMutableDictionary {
+            if edAfter > 0, doc.fetched {
                 try? await Task.sleep(for: .seconds(edAfter))
-                d["text"] = (d["text"] as? String ?? "") + " " + (UserDefaults.standard.string(forKey: "hkEditText") ?? "+")
-                ed.changed(); await ed.flush()
+                // Block erst jetzt suchen: die Seite kann inzwischen neu geladen sein (neuer Baum)
+                if let b = doc.root.compactMap({ $0 as? NSMutableDictionary }).last(where: { $0["type"] as? String == "paragraph" }),
+                   let d = b["data"] as? NSMutableDictionary {
+                    d["text"] = (d["text"] as? String ?? "") + " " + (UserDefaults.standard.string(forKey: "hkEditText") ?? "+")
+                    ed.changed(); await ed.flush()
+                }
+            }
+            if let t = UserDefaults.standard.string(forKey: "hkFocusText"),                // nur fuer Tests: Absatz mit diesem Text bearbeiten
+               let b = doc.root.compactMap({ $0 as? NSMutableDictionary }).first(where: { (($0["data"] as? NSDictionary)?["text"] as? String ?? "").contains(t) }) {
+                try? await Task.sleep(for: .seconds(1)); ed.focus = b.blockID
+            }
+            if UserDefaults.standard.bool(forKey: "hkToShared"), doc.noAccess {            // nur fuer Tests: "Zu „Mit mir geteilt“"
+                try? await Task.sleep(for: .seconds(3)); nav.toShared()
             }
             if UserDefaults.standard.bool(forKey: "hkFocusFirst"),                       // nur fuer Tests (Startparameter -hkFocusFirst YES)
                let b = doc.root.compactMap({ $0 as? NSMutableDictionary }).first(where: { ["paragraph", "header"].contains($0["type"] as? String ?? "") }) {
@@ -983,7 +1001,7 @@ struct BlockView: View {
             }
         case "database":
             if let db = data["db"] as? Int {
-                DatabaseView(dbID: db, viewID: data["view"] as? String, localViews: data["views"] as? [[String: Any]], embedded: true) { vs in
+                DatabaseView(dbID: db, viewID: data["view"] as? String, localViews: data["views"] as? [[String: Any]], embedded: true, pageLocked: ed.locked) { vs in
                     data["views"] = vs; ed.changed()                // eigene Ansichten des Blocks in der Seite speichern
                 }
             }
@@ -1022,9 +1040,9 @@ struct ListBlock: View {
                         if style == "checklist" {
                             Button {
                                 let m = meta ?? NSMutableDictionary(); m["checked"] = !checked; it["meta"] = m; ed.changed()
-                            } label: { Image(systemName: checked ? "checkmark.square.fill" : "square").foregroundStyle(checked ? Color.accentColor : .secondary) }
+                            } label: { CheckBoxIcon(on: checked) }
                             .buttonStyle(.plain)
-                            .disabled(ed.doc.access.readOnly)                  // fremde Seite, nur Lesen/Kommentieren: nicht abhaken (1.3)
+                            .disabled(ed.locked)                               // nur Lesen/Kommentieren oder gesperrt: nicht abhaken, sichtbar gedimmt
                             .accessibilityLabel("Abhaken").accessibilityAddTraits(checked ? .isSelected : [])
                         } else {
                             Text(style == "ordered" ? "\(i + 1)." : "•").foregroundStyle(.secondary).frame(minWidth: 16, alignment: .trailing)
@@ -1379,7 +1397,11 @@ struct SaveGuard: ViewModifier {
                    isPresented: $doc.askConflict) {
                 if let by = doc.conflictBy {
                     // andere Person (1.3): Hauptknopf "Neue Version laden" (eigener Text danach zum Kopieren); ueberschreiben nur mit Rueckfrage
+                    #if os(macOS)
                     Button("Neue Version laden") { ed.focus = nil; Task { await doc.loadNewVersion(store) } }.keyboardShortcut(.defaultAction)
+                    #else
+                    Button("Neue Version laden") { ed.focus = nil; Task { await doc.loadNewVersion(store) } }   // iOS: kein Standardknopf (dunkel weiss auf Gold 2,2:1)
+                    #endif
                     Button("Meine Version behalten") { askOverwrite = by }
                 } else {
                     Button("Meine Fassung behalten") { Task { await doc.keepMine(store) } }
@@ -1421,7 +1443,10 @@ struct CommentsPresenter: ViewModifier {
     let store: Store
     func body(content: Content) -> some View {
         #if os(iOS)
-        content.sheet(item: $target) { _ in panel.presentationDetents([.medium, .large]).presentationContentInteraction(.scrolls) }
+        content.sheet(item: $target) { _ in
+            panel.presentationDetents([.medium, .large]).presentationContentInteraction(.scrolls)
+                .presentationBackground(.background)              // deckend (iPad: links schien die Seitenleiste durch)
+        }
         #else
         content.sheet(item: $target) { _ in panel.frame(minWidth: 420, idealWidth: 460, minHeight: 520, idealHeight: 640) }
         #endif

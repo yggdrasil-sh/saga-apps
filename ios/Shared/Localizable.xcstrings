@@ -14543,7 +14543,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Puede editar"
+            "value" : "Editar"
           }
         }
       }
@@ -14565,7 +14565,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Puede editar: cambiar el contenido y crear subpáginas. Eliminar, mover y compartir siguen siendo cosa tuya."
+            "value" : "Editar: cambiar el contenido y crear subpáginas. Eliminar, mover y compartir siguen siendo cosa tuya."
           }
         }
       }
@@ -15093,7 +15093,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Puedes ver y comentar"
+            "value" : "Puedes comentar"
           }
         }
       }
@@ -15731,7 +15731,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Puede comentar"
+            "value" : "Comentar"
           }
         }
       }
@@ -15753,7 +15753,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Puede comentar: ver y escribir comentarios."
+            "value" : "Comentar: ver y escribir comentarios."
           }
         }
       }
@@ -15775,7 +15775,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Puede ver"
+            "value" : "Ver"
           }
         }
       }
@@ -15797,7 +15797,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Puede ver: ver y exportar la página, las subpáginas y las entradas."
+            "value" : "Ver: ver y exportar la página, las subpáginas y las entradas."
           }
         }
       }
@@ -16128,28 +16128,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Aún no se ha compartido con nadie. Busca arriba una persona o un grupo."
-          }
-        }
-      }
-    },
-    "Nur Personen aus deinen Gruppen. Mindestens 3 Zeichen." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nur Personen aus deinen Gruppen. Mindestens 3 Zeichen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Only people from your groups. At least 3 characters."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Solo personas de tus grupos. Al menos 3 caracteres."
           }
         }
       }
@@ -16986,6 +16964,116 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "de %@"
+          }
+        }
+      }
+    },
+    "Kein Zugriff" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein Zugriff"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No access"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin acceso"
+          }
+        }
+      }
+    },
+    "Noch keine Seiten" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Seiten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No pages yet"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay páginas"
+          }
+        }
+      }
+    },
+    "Nur Personen aus deinen Gruppen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur Personen aus deinen Gruppen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only people from your groups."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo personas de tus grupos."
+          }
+        }
+      }
+    },
+    "Zu „Mit mir geteilt“" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zu „Mit mir geteilt“"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Go to “Shared with me”"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ir a «Compartido conmigo»"
+          }
+        }
+      }
+    },
+    "Zurzeit ist nichts mit dir geteilt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zurzeit ist nichts mit dir geteilt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing is shared with you right now."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ahora mismo no hay nada compartido contigo."
           }
         }
       }

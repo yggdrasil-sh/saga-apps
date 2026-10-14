@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -93,10 +94,17 @@ fun SearchScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     Column(Modifier.padding(start = 12.dp)) {
                         Text(pageTitle(p), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         if (p.foreign) {
-                            Text(
-                                "👥 " + stringResource(R.string.shared_by, p.owner?.name.orEmpty()), style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {         // G9: einfarbiges Symbol statt 👥
+                                androidx.compose.material3.Icon(
+                                    androidx.compose.ui.res.painterResource(R.drawable.ic_group), null,
+                                    Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    stringResource(R.string.shared_by, p.owner?.name.orEmpty()), style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(start = 4.dp),
+                                )
+                            }
                         }
                         p.snippet?.takeIf { it.isNotBlank() }?.let {
                             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)

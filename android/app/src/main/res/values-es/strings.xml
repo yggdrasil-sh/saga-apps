@@ -216,7 +216,7 @@
     <string name="state_expanded">desplegado</string>
     <string name="state_collapsed">plegado</string>
     <string name="page_actions">Acciones de la página</string>
-    <string name="conflict_banner">La página se cambió en otro lugar: toca para decidir</string>
+    <string name="conflict_banner">La página se cambió en otro lugar. Tus últimos cambios aún no se han guardado.</string>
     <string name="conflict_title">La página se cambió en otro lugar</string>
     <string name="conflict_text">Esta página se cambió mientras tanto en otro dispositivo. Tus cambios no se perderán.</string>
     <string name="conflict_keep_mine">Conservar mi versión</string>
@@ -224,7 +224,7 @@
     <string name="conflict_copy_title">%1$s (mi versión)</string>
     <string name="conflict_copy_saved">Tu versión se guardó como página nueva.</string>
     <string name="save_state_saved">Guardado</string>
-    <string name="save_state_pending">Guardando…</string>
+    <string name="save_state_pending">Aún no guardado</string>
     <string name="save_state_unsaved">Sin guardar</string>
     <string name="page_archive">Archivar</string>
     <string name="page_archived">Página archivada</string>
@@ -341,16 +341,16 @@
     <string name="shared_icon_desc">Compartido</string>
     <string name="unread_dot_desc">Nuevo</string>
     <string name="shared_by">Compartido por %1$s</string>
-    <string name="share_role_view">Puede ver</string>
-    <string name="share_role_comment">Puede comentar</string>
-    <string name="share_role_edit">Puede editar</string>
+    <string name="share_role_view">Ver</string>
+    <string name="share_role_comment">Comentar</string>
+    <string name="share_role_edit">Editar</string>
     <string name="share_role_owner">Propietario</string>
     <string name="share_you_view">Puedes ver</string>
-    <string name="share_you_comment">Puedes ver y comentar</string>
+    <string name="share_you_comment">Puedes comentar</string>
     <string name="share_you_edit">Puedes editar</string>
-    <string name="share_help_view">Puede ver: ver y exportar la página, las subpáginas y las entradas.</string>
-    <string name="share_help_comment">Puede comentar: ver y escribir comentarios.</string>
-    <string name="share_help_edit">Puede editar: cambiar el contenido y crear subpáginas. Eliminar, mover y compartir siguen siendo cosa tuya.</string>
+    <string name="share_help_view">Ver: ver y exportar la página, las subpáginas y las entradas.</string>
+    <string name="share_help_comment">Comentar: ver y escribir comentarios.</string>
+    <string name="share_help_edit">Editar: cambiar el contenido y crear subpáginas. Eliminar, mover y compartir siguen siendo cosa tuya.</string>
     <string name="owner_only">Solo visible para el propietario</string>
     <string name="owner_only_tasks">Tareas</string>
     <string name="owner_only_calendar">Calendario</string>
@@ -358,7 +358,7 @@
     <string name="meta_updated_by">Último cambio de %1$s · %2$s</string>
     <string name="conflict_by_title">%1$s acaba de cambiar esta página</string>
     <string name="conflict_by_text">Tus últimos cambios aún no se han guardado.</string>
-    <string name="conflict_by_banner">⚠ %1$s acaba de cambiar esta página. Tus últimos cambios aún no se han guardado.</string>
+    <string name="conflict_by_banner">%1$s acaba de cambiar esta página. Tus últimos cambios aún no se han guardado.</string>
     <string name="conflict_load_new">Cargar la nueva versión</string>
     <string name="conflict_keep_version">Conservar mi versión</string>
     <string name="conflict_overwrite_title">¿Sobrescribir los cambios de %1$s?</string>
@@ -442,7 +442,7 @@
     <string name="comments_go_to_block">Ir al bloque</string>
     <string name="comments_resolved_by">Resuelto por %1$s</string>
     <string name="comments_resolved_by_you">Resuelto por ti</string>
-    <string name="comments_resolved">✓ Resuelto</string>
+    <string name="comments_resolved">Resuelto</string>
     <string name="comments_reply">Responder</string>
     <string name="comments_not_sent">No enviado: %1$s</string>
     <string name="comments_reopen">Reabrir</string>
@@ -501,4 +501,6 @@
         <item quantity="many">No hay comentarios abiertos · %d resueltos</item>
         <item quantity="other">No hay comentarios abiertos · %d resueltos</item>
     </plurals>
+    <string name="conflict_choose">Elegir versión</string>
+    <string name="no_access_to_shared">Ir a «Compartido conmigo»</string>
 </resources>

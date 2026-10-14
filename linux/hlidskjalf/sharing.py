@@ -16,6 +16,7 @@ RANK = {None: 0, "view": 1, "comment": 2, "edit": 3, "owner": 4}
 ROLES = ("view", "comment", "edit")
 SEARCH_MIN = 3                  # Personensuche ab 3 Zeichen (wie im Web)
 SEARCH_DELAY_MS = 200
+GAP = 8                         # Abstand Feld -> Hinweis/Chips im Teilen-Dialog
 # Aktionen, die nur der Eigentuemer hat (Seitenmenue, Seitenleiste, Befehlspalette)
 OWNER_ONLY = frozenset({"move", "trash", "archive", "publish", "share", "versions", "template", "favorite", "lock",
                         "duplicate", "home"})
@@ -202,6 +203,11 @@ def chip_rows(st, role):
     return out
 
 
+def short_query(q):
+    """"Mindestens 3 Zeichen." nur bei 1-2 eingegebenen Zeichen (leer: kein Hinweis, ab 3: Suche)"""
+    return 0 < len((q or "").strip()) < SEARCH_MIN
+
+
 def search_hint(st):
     if (st or {}).get("scope"):
         return _("Only people from your groups. At least 3 characters.")
@@ -331,19 +337,26 @@ def people_icon():
     return _icon("saga-people-symbolic", "system-users-symbolic", "avatar-default-symbolic")
 
 
+def lock_icon():
+    """Schloss (einfarbig): "Kein Zugriff auf diese Seite" """
+    from .publish import _icon
+    return _icon("saga-lock-symbolic", "changes-prevent-symbolic", "system-lock-screen-symbolic")
+
+
 def comment_icon():
     from .publish import _icon
     return _icon("saga-comment-symbolic", "mail-message-new-symbolic")
 
 
 def shared_by_box(page):
-    """Etikett unter dem Titel einer fremden Seite: 👥 Geteilt von <Name> · [Du kannst …] - kein Knopf"""
+    """Etikett unter dem Titel einer fremden Seite: [Personen-Symbol] Geteilt von <Name> · [Du kannst …] - kein Knopf"""
     sb = shared_by(page)
     if sb is None:
         return None
     tmpl, name, you = sb
     box = Gtk.Box(spacing=6)
     box.add_css_class("hk-sharedby")
+    box.add_css_class("hk-pagemeta")
     ic = Gtk.Image.new_from_icon_name(people_icon())
     ic.add_css_class("dim-label")
     box.append(ic)
@@ -379,48 +392,54 @@ def _row(title, subtitle="", activatable=False):
     return r
 
 
-class TextDialog(Adw.Dialog):
-    """Text zum Kopieren (eigener Entwurf nach "Neue Version laden", letzter Text bei verlorenem Zugriff)"""
+TEXT_MAX_SHARE = 0.4            # Textfeld im Zustandsdialog: hoechstens ~40 % der Fensterhoehe
+TEXT_MIN_PX = 72
+
+
+class TextDialog(Adw.AlertDialog):
+    """Zustandsdialog mit Text zum Kopieren (Entwurf nach "Neue Version laden", "Nur noch lesen", "Kein Zugriff mehr"),
+    einheitlich wie Web, iOS und Android: Titel, kurzer Text, Textfeld (nur so hoch wie noetig, hoechstens ~40 % der
+    Fensterhoehe), Hauptknopf "Kopieren" (kopiert und schliesst, Meldung im Fenster), zweiter Knopf "Schliessen" (Esc)
+    - kein zusaetzliches × in einer Kopfleiste."""
 
     def __init__(self, title, intro, text, on_closed=None):
-        super().__init__(title=title, content_width=560, content_height=480)
+        super().__init__(heading=title, body=intro)
         self.text = text or ""
-        self.toasts = Adw.ToastOverlay()
-        tv = Adw.ToolbarView()
-        tv.add_top_bar(Adw.HeaderBar())
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=12, margin_bottom=18, margin_start=18, margin_end=18)
-        self.intro = Gtk.Label(label=intro, xalign=0, wrap=True)
-        box.append(self.intro)
-        sw = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
-        sw.add_css_class("card")
-        self.view = Gtk.TextView(editable=False, wrap_mode=Gtk.WrapMode.WORD_CHAR, top_margin=10, bottom_margin=10,
-                                 left_margin=12, right_margin=12)
+        self._parent = None
+        self.scroll = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, propagate_natural_height=True,
+                                         min_content_height=TEXT_MIN_PX)
+        self.scroll.add_css_class("card")
+        self.scroll.add_css_class("hk-textdlg-box")
+        self.view = Gtk.TextView(editable=False, cursor_visible=False, wrap_mode=Gtk.WrapMode.WORD_CHAR, top_margin=10,
+                                 bottom_margin=10, left_margin=12, right_margin=12)
         self.view.add_css_class("hk-textdlg")
         self.view.get_buffer().set_text(self.text)
         self.view.update_property([Gtk.AccessibleProperty.LABEL], [_("Your text")])
-        sw.set_child(self.view)
-        box.append(sw)
-        bar = Gtk.Box(spacing=8, halign=Gtk.Align.END)
-        close = Gtk.Button(label=_("Close"))
-        close.connect("clicked", lambda *_: self.close())
-        self.copy_btn = Gtk.Button(label=_("Copy"))
-        self.copy_btn.add_css_class("suggested-action")
-        self.copy_btn.connect("clicked", lambda *_: self.copy())
-        bar.append(close)
-        bar.append(self.copy_btn)
-        box.append(bar)
-        tv.set_content(box)
-        self.toasts.set_child(tv)
-        self.set_child(self.toasts)
-        self.set_default_widget(self.copy_btn)
-        self.set_focus(self.copy_btn)
+        self.scroll.set_child(self.view)
+        self.set_extra_child(self.scroll)
+        self.add_response("close", _("Close"))
+        self.add_response("copy", _("Copy"))
+        self.set_response_appearance("copy", Adw.ResponseAppearance.SUGGESTED)
+        self.set_default_response("copy")
+        self.set_close_response("close")
+        if hasattr(self, "set_prefer_wide_layout"):
+            self.set_prefer_wide_layout(True)
+        self.connect("response", lambda _d, r: r == "copy" and self.copy())
         if on_closed:
             self.connect("closed", lambda *_: on_closed())
+
+    def present(self, parent=None):
+        self._parent = parent
+        h = parent.get_height() if parent is not None else 0
+        self.scroll.set_max_content_height(max(TEXT_MIN_PX * 2, int((h or 800) * TEXT_MAX_SHARE)))
+        Adw.AlertDialog.present(self, parent)
 
     def copy(self):
         from gi.repository import Gdk
         Gdk.Display.get_default().get_clipboard().set(self.text)
-        self.toasts.add_toast(Adw.Toast(title=_esc(_("Text copied")), timeout=3))
+        win = self._parent.get_root() if self._parent is not None else None
+        if hasattr(win, "toast"):
+            win.toast(_("Text copied"))
 
 
 # =====================================================================================================
@@ -458,7 +477,7 @@ class ShareDialog(Adw.Dialog):
         self.l_notes = note_label("warning")
         self.g_notes.add(self.l_notes)
         self.page.add(self.g_notes)
-        # Suche + Rolle
+        # Suche: Hinweis/Fehler direkt unter dem Feld, bei leerem Feld die eigenen Gruppen als Chips
         g = Adw.PreferencesGroup()
         self.q = Adw.EntryRow(title=_("Search for a person or group"))
         self.q.set_input_hints(Gtk.InputHints.NO_SPELLCHECK | Gtk.InputHints.NO_EMOJI)
@@ -469,15 +488,17 @@ class ShareDialog(Adw.Dialog):
         self.q.connect("changed", lambda *_: self._search())
         self.q.connect("entry-activated", lambda *_: self._first_hit())
         g.add(self.q)
-        self.role = Adw.ComboRow(title=_("Role for new share"), model=Gtk.StringList.new([role_name(r) for r in ROLES]))
-        self.role.connect("notify::selected", lambda *_: self._role_changed())
-        g.add(self.role)
         self.status = status_label()
-        self.status.add_css_class("dim-label")
-        self.status.set_margin_top(6)
+        self.status.set_margin_top(GAP)
         g.add(self.status)
         self.page.add(g)
         self.g_search = g
+        # Rolle fuer neue Freigaben (mit Erklaerung als Untertitel)
+        self.g_role = Adw.PreferencesGroup()
+        self.role = Adw.ComboRow(title=_("Role for new share"), model=Gtk.StringList.new([role_name(r) for r in ROLES]))
+        self.role.connect("notify::selected", lambda *_: self._role_changed())
+        self.g_role.add(self.role)
+        self.page.add(self.g_role)
         # Treffer
         self.g_hits = Adw.PreferencesGroup()
         self.page.add(self.g_hits)
@@ -490,7 +511,7 @@ class ShareDialog(Adw.Dialog):
         self.chips_label.add_css_class("dim-label")
         self.chips.append(self.chips_label)
         self.chips.append(self.chips_flow)
-        self.chips.set_margin_top(6)
+        self.chips.set_margin_top(GAP)
         g.add(self.chips)
         # Zugriff
         self.g_access = Adw.PreferencesGroup(title=_("Access"), description=_("Subpages and entries are included."))
@@ -501,14 +522,15 @@ class ShareDialog(Adw.Dialog):
         self.page.add(self.g_inh)
         # Link
         from .publish import UrlRow, icon_button
-        gl = Adw.PreferencesGroup(description=_("The link opens the page for everyone who has access."))
+        gl = Adw.PreferencesGroup()
         self.link = UrlRow(_("Link"))
         self.link.add_button(icon_button("edit-copy-symbolic", _("Copy link"), self._copy_link))
         self.link.set_url(store.page_url(pid))
+        self.link.set_note(_("The link opens the page for everyone who has access."))   # Hinweis als Untertitel der Zeile
         gl.add(self.link)
         self.page.add(gl)
         self.draw()
-        self._hint()                                       # "Mindestens 3 Zeichen." unter dem Suchfeld
+        self._hint()
         GLib.idle_add(lambda: (self.q.get_sensitive() and self.q.grab_focus(), False)[1])
 
     # --- Hilfen -----------------------------------------------------------------------------------------
@@ -545,8 +567,13 @@ class ShareDialog(Adw.Dialog):
         self.toast(_("Link copied"))
 
     def _hint(self, text=None, error=False):
+        """Rueckmeldung direkt unter dem Suchfeld: ohne Text "Mindestens 3 Zeichen." nur bei 1-2 Zeichen (als Fehler am
+        Feld), sonst nichts; mit Text (Fehler, "Niemand gefunden.") diesen"""
         from .publish import mark_error
-        self._set_status(self.status, text if text is not None else search_hint(self.st), False if error else None)
+        if text is None:
+            text = search_hint(self.st) if short_query(self.q.get_text()) else ""
+            error = bool(text)
+        self._set_status(self.status, text, False if error else None)
         (self.status.remove_css_class if error else self.status.add_css_class)("dim-label")
         mark_error(self.q, error)
 
@@ -630,6 +657,10 @@ class ShareDialog(Adw.Dialog):
             bx = Gtk.Box(spacing=4)
             bx.append(Gtk.Image.new_from_icon_name(people_icon()))
             bx.append(Gtk.Label(label=c["name"]))
+            if c["on"]:                                      # hat schon Zugriff: ✓ im Chip
+                ck = Gtk.Image.new_from_icon_name("object-select-symbolic")
+                ck.add_css_class("hk-chip-check")
+                bx.append(ck)
             b.set_child(bx)
             b.add_css_class("hk-chip-btn")
             if c["on"]:

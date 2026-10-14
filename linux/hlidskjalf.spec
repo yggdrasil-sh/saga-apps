@@ -21,6 +21,9 @@ Requires:       libsecret
 # Fedora: python3-pillow; AlmaLinux/RHEL 10: python3-pillow (AppStream bzw. EPEL)
 Requires:       python3dist(pillow)
 Requires:       hicolor-icon-theme
+# Seitensymbole, Callouts und Hinweise sind Emoji (wie im Web) - ohne Farb-Emoji-Schrift erscheinen Ersatzkaestchen
+# (die App zeigt dann fuer Seitensymbole ein einfarbiges Ersatzsymbol). Fedora und AlmaLinux/RHEL 10: gleicher Paketname
+Requires:       google-noto-color-emoji-fonts
 
 %description
 Saga is a native GNOME app (GTK4 and libadwaita) for a self-hosted
@@ -83,6 +86,9 @@ test ! -e %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/testing.py
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-globe-symbolic.svg
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-comment-symbolic.svg
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-people-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-lock-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-page-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-database-symbolic.svg
 
 # Desktop-Datenbank und Symbol-Zwischenspeicher aktualisieren Fedora/RHEL selbst (Datei-Trigger) - keine Scriptlets noetig
 

@@ -7,9 +7,12 @@ let hkCodeColor = Color.gray.opacity(0.22)
 
 /// HTML -> AttributedString fuer den Editor. Fett/kursiv/Code ueber die Schrift (so bearbeitet sie der Editor),
 /// unterstrichen/durchgestrichen/markiert/Link ueber eigene Attribute.
-func richText(_ html: String, base: Font) -> AttributedString {
+func richText(_ stored: String, base: Font) -> AttributedString {
+    // Verweis auf eine Seite ohne Zugriff (1.3): auch beim Bearbeiten mit 🔒, gedaempft und nicht als Link;
+    // intern hkna://<id>, beim Speichern wieder genau <a href="/notes#id">Text</a> (richToHTML)
+    let html = ShareLogic.markMasked(stored, keepRef: true)
     var out = AttributedString()
-    var bold = 0, italic = 0, under = 0, strike = 0, mark = 0, code = 0
+    var bold = 0, italic = 0, under = 0, strike = 0, mark = 0, code = 0, na = 0
     var links: [URL?] = []
     let re = hkTagRegex
     let ns = html as NSString
@@ -25,6 +28,7 @@ func richText(_ html: String, base: Font) -> AttributedString {
         if strike > 0 { s.strikethroughStyle = .single }
         if code > 0 { s.backgroundColor = hkCodeColor } else if mark > 0 { s.backgroundColor = hkMarkColor }
         if let l = links.last, let u = l { s.link = u }
+        if na > 0 { s.foregroundColor = .secondary }
         out += s
     }
     for m in re.matches(in: html, range: NSRange(location: 0, length: ns.length)) {
@@ -40,6 +44,13 @@ func richText(_ html: String, base: Font) -> AttributedString {
         case "mark": mark += d
         case "code": code += d
         case "br": if !closing { var nl = AttributedString("\n"); nl.font = base; out += nl }
+        case "na":
+            na += d
+            if closing { _ = links.popLast() } else {
+                let attrs = ns.substring(with: m.range(at: 3))
+                let id = attrs.range(of: #"/notes#[0-9]+"#, options: .regularExpression).map { String(attrs[$0].dropFirst(7)) } ?? ""
+                links.append(URL(string: "hkna://" + id))
+            }
         case "time":                       // @-Datum aus dem Web: als eigener Link (hkdate://), beim Speichern wieder <time>
             if closing { _ = links.popLast() } else {
                 let attrs = ns.substring(with: m.range(at: 3))
@@ -65,8 +76,9 @@ private func esc(_ s: String) -> String { s.replacingOccurrences(of: "&", with: 
 func richToHTML(_ a: AttributedString, ctx: Font.Context, baseBold: Bool) -> String {
     var html = ""
     for run in a.runs {
-        let text = String(a[run.range].characters)
+        var text = String(a[run.range].characters)
         guard !text.isEmpty else { continue }
+        if let u = run.link, u.scheme == "hkna" { text = ShareLogic.unmasked(text) }    // Schloss ist nur Darstellung
         let r = run.font?.resolve(in: ctx)
         let isBold = (r?.isBold ?? false) && !baseBold, isItalic = r?.isItalic ?? false
         let isCode = run.backgroundColor == hkCodeColor
@@ -77,7 +89,7 @@ func richToHTML(_ a: AttributedString, ctx: Font.Context, baseBold: Bool) -> Str
             let dt = String(u.path.dropFirst()), remind = u.query == "r=1"
             open += "<time datetime=\"\(esc(dt))\" class=\"\(remind ? "hk-remind" : "hk-date")\">"; close = "</time>" + close
         } else if let u = run.link {
-            let href = u.scheme == "hkpage" ? "/notes#" + (u.host ?? "") : u.absoluteString
+            let href = u.scheme == "hkpage" || u.scheme == "hkna" ? "/notes#" + (u.host ?? "") : u.absoluteString
             open += "<a href=\"\(esc(href).replacingOccurrences(of: "\"", with: "&quot;"))\">"; close = "</a>" + close
         }
         if isBold { wrap("b") }

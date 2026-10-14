@@ -124,6 +124,10 @@ import io.github.yggdrasil_sh.saga.ui.comments.CommentsSheet
 import io.github.yggdrasil_sh.saga.ui.share.PageShareSheet
 import io.github.yggdrasil_sh.saga.ui.share.ShareLogic
 import io.github.yggdrasil_sh.saga.ui.share.ShareModel
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.text.style.TextAlign
 
 private val PAGE_LINK = Regex("^/notes#(\\d+)$")
 
@@ -208,7 +212,8 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
     val listState = rememberLazyListState()
 
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
-        SagaTopBar(ed.title.ifEmpty { if (ed.fetched) stringResource(R.string.page_untitled) else "" }, nav, chrome) {
+        // G4: "Kein Zugriff": Kopfzeile ohne Titel/Symbol der Seite
+        SagaTopBar(if (ed.noAccess) "" else ed.title.ifEmpty { if (ed.fetched) stringResource(R.string.page_untitled) else "" }, nav, chrome) {
             SaveState(ed)
             // Kommentare dezent: "💬 n" nur bei offenen Unterhaltungen, Punkt bei ungelesenen
             if (ed.fetched && caps.showComments && comments.openCount > 0) {
@@ -297,11 +302,7 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
             }
         }
         if (ed.conflict && !conflictDialog) {
-            Text(
-                ed.conflictBy?.let { stringResource(R.string.conflict_by_banner, it) } ?: stringResource(R.string.conflict_banner),
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer,
-                modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.errorContainer).clickable { conflictDialog = true }.padding(12.dp),
-            )
+            ConflictBanner(ed.conflictBy) { conflictDialog = true }
         }
 
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
@@ -542,7 +543,8 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
                 )
             }
         }
-        // Fremde Seite: Etikett "👥 Geteilt von {Name} · Du kannst …" (kein Knopf) und wer zuletzt geaendert/angelegt hat
+        // Fremde Seite (G1): unter dem Titel "Geteilt von {Name} · Du kannst …" (kein Knopf), darunter wer zuletzt
+        // geaendert/angelegt hat - beide gleich gross (Sekundaertext)
         if (ed.fetched && ed.caps.foreign) SharedByLabel(ed.share)
         if (ed.fetched) MetaLine(ed.share)
         val via = if (!ed.published) ed.publishedVia else null
@@ -574,9 +576,13 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
                 color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(top = 6.dp),
             )
         }
-        ed.pendingDraft?.let { d -> DraftBanner(d.stamp, onRestore = { ed.restoreDraft() }, onDiscard = { ed.discardDraft() }) }
-        if (ed.noAccess && !ed.loading) NoAccess()
-        else if (!ed.loading && !ed.fetched) {                   // Laden fehlgeschlagen: nichts Bearbeitbares zeigen
+        // G2: kein "Wiederherstellen", wenn die Seite (inzwischen) nur lesbar ist
+        if (ed.share.role.canEdit && !ed.locked && ed.lost == null) {
+            ed.pendingDraft?.let { d -> DraftBanner(d.stamp, onRestore = { ed.restoreDraft() }, onDiscard = { ed.discardDraft() }) }
+        }
+        if (ed.noAccess && !ed.loading) {
+            NoAccess(onRetry = { scope.launch { ed.load() } }, onShared = { repo.showSharedRequest.value++ })
+        } else if (!ed.loading && !ed.fetched) {                   // Laden fehlgeschlagen: nichts Bearbeitbares zeigen
             Button(onClick = { scope.launch { ed.load() } }, modifier = Modifier.padding(top = 12.dp)) { Text(stringResource(R.string.action_retry)) }
         }
     }
@@ -750,30 +756,30 @@ private fun SaveState(ed: PageEditor) {
     val color = MaterialTheme.colorScheme.onSurfaceVariant
     when {
         ed.saving -> CircularProgressIndicator(Modifier.size(18.dp).padding(end = 4.dp), strokeWidth = 2.dp)
-        ed.conflict || ed.error != null -> Icon(Icons.Filled.Warning, stringResource(R.string.save_state_unsaved), tint = MaterialTheme.colorScheme.error, modifier = Modifier.padding(end = 4.dp))
-        ed.dirty -> Text(stringResource(R.string.save_state_pending), style = MaterialTheme.typography.labelSmall, color = color, modifier = Modifier.padding(end = 4.dp))
+        ed.conflict -> {}                                   // das Konflikt-Banner zeigt das (kein zweites Warnsymbol)
+        ed.error != null -> Icon(Icons.Filled.Warning, stringResource(R.string.save_state_unsaved), tint = MaterialTheme.colorScheme.error, modifier = Modifier.padding(end = 4.dp))
+        // als Symbol statt "Speichert…" neben dem Titel (der Titel bleibt lesbar)
+        ed.dirty -> Icon(painterResource(R.drawable.ic_cloud_upload), stringResource(R.string.save_state_pending), tint = color, modifier = Modifier.padding(end = 4.dp).size(20.dp))
         ed.savedAt != null -> Icon(Icons.Filled.Done, stringResource(R.string.save_state_saved), tint = color, modifier = Modifier.padding(end = 4.dp).size(20.dp))
     }
 }
 
 // ---------------------------------------------------------------- Teilen und Kommentare (Server 1.3)
 
-/** "👥 Geteilt von {Name} · Du kannst lesen" - Etikett unter dem Titel fremder Seiten (kein Knopf) */
+/**
+ * G1: "Geteilt von {Name} · Du kannst lesen" unter dem Titel fremder Seiten (kein Knopf) - einfarbiges
+ * Gruppen-Symbol (G9) und dieselbe Groesse/Farbe wie die Zeile "Zuletzt geändert von …" darunter
+ */
 @Composable
 private fun SharedByLabel(info: PageShareInfo) {
-    val name = info.owner?.name.orEmpty()
-    val role = stringResource(ShareLogic.roleYou(info.role))
-    Row(Modifier.padding(top = 6.dp).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
+    val text = stringResource(R.string.shared_by, info.owner?.name.orEmpty()) + " · " + stringResource(ShareLogic.roleYou(info.role))
+    Row(Modifier.padding(top = 6.dp).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.Top) {
+        // Symbol an der ersten Zeile (das Etikett kann umbrechen)
+        Icon(painterResource(R.drawable.ic_group), null, Modifier.padding(top = 1.dp).size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(
-            "👥 " + stringResource(R.string.shared_by, name), style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
+            text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 6.dp),
         )
-        Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(6.dp), modifier = Modifier.padding(start = 8.dp)) {
-            Text(
-                role, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-            )
-        }
     }
 }
 
@@ -787,21 +793,56 @@ private fun MetaLine(info: PageShareInfo) {
     if (up != null && !up.me && up.name.isNotEmpty() && at != null) parts.add(stringResource(R.string.meta_updated_by, up.name, relativeTime(at)))
     if (parts.isEmpty()) return
     Text(
-        parts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = 4.dp),
+        parts.joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 2.dp),
     )
 }
 
-/** Seite geloescht oder nicht (mehr) geteilt */
+/** G4: Seite geloescht oder nicht (mehr) geteilt - alles mittig, "Erneut versuchen" und "Zu „Mit mir geteilt“" */
 @Composable
-private fun NoAccess() {
-    Column(Modifier.fillMaxWidth().padding(top = 32.dp).semantics { liveRegion = LiveRegionMode.Polite }, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("🔒 " + stringResource(R.string.no_access_title), style = MaterialTheme.typography.titleMedium)
+private fun NoAccess(onRetry: () -> Unit, onShared: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().padding(top = 48.dp, start = 8.dp, end = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(Icons.Filled.Lock, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            stringResource(R.string.no_access_title), style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(top = 12.dp),     // dunkel sonst schwarz
+        )
         Text(
             stringResource(R.string.no_access_text), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp),
+            textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp),
         )
+        Column(Modifier.padding(top = 20.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = onShared) { Text(stringResource(R.string.no_access_to_shared)) }
+            OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
+        }
     }
+}
+
+/**
+ * Konflikt (Nur Android): M3-Banner unter der Kopfzeile - ein Warnsymbol, Text ohne ⚠ und TextButton
+ * "Version wählen" (oeffnet den Konflikt-Dialog). Die Kopfzeile zeigt dann kein zweites Warnsymbol.
+ */
+@Composable
+private fun ConflictBanner(by: String?, onChoose: () -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.errorContainer, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(start = 16.dp, end = 8.dp, top = 12.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Icon(Icons.Filled.Warning, null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onErrorContainer)
+                Text(
+                    by?.let { stringResource(R.string.conflict_by_banner, it) } ?: stringResource(R.string.conflict_banner),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier.padding(start = 12.dp, end = 8.dp).weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
+                )
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onChoose) { Text(stringResource(R.string.conflict_choose), color = MaterialTheme.colorScheme.onErrorContainer) }
+            }
+        }
+    }
+    HorizontalDivider()
 }
 
 /** Kopfzeile: Sprechblase + Zahl offener Unterhaltungen, Punkt bei ungelesenen (48 dp) */
@@ -846,12 +887,16 @@ private fun BlockBubble(count: Int, unread: Boolean, onClick: () -> Unit) {
     }
 }
 
-/** Text zum Kopieren (eigener Entwurf nach Konflikt, Zugriff verloren): Kopieren / Schließen */
+/**
+ * G3: Zustandsdialoge (Konflikt-Entwurf, Kein Zugriff mehr, Nur noch lesen) einheitlich: Titel, kurzer Text,
+ * Textfeld nur so hoch wie noetig (hoechstens ~40 % der Fensterhoehe), Hauptknopf "Kopieren", zweiter "Schließen"
+ */
 @Composable
 private fun CopyTextDialog(title: String, text: String, draft: String, onClose: () -> Unit) {
     val context = LocalContext.current
     val desc = stringResource(R.string.your_text)
     val copied = stringResource(R.string.text_copied)
+    val maxField = with(LocalDensity.current) { (LocalWindowInfo.current.containerSize.height * 0.4f).toDp() }.coerceAtLeast(120.dp)
     AlertDialog(
         onDismissRequest = onClose,
         title = { Text(title) },
@@ -861,7 +906,7 @@ private fun CopyTextDialog(title: String, text: String, draft: String, onClose: 
                 Surface(
                     color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(8.dp),
                     border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(max = 260.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(max = maxField),
                 ) {
                     SelectionContainer {
                         Text(
@@ -873,7 +918,7 @@ private fun CopyTextDialog(title: String, text: String, draft: String, onClose: 
             }
         },
         confirmButton = {
-            TextButton(onClick = {
+            Button(onClick = {
                 copy(context, draft)
                 android.widget.Toast.makeText(context, copied, android.widget.Toast.LENGTH_SHORT).show()
             }) { Text(stringResource(R.string.text_copy)) }

@@ -167,6 +167,14 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
         val chrome = Chrome(showMenu = !wide && !medium, onMenu = { scope.launch { drawerState.open() } })
         val closeDrawer: () -> Unit = { if (!wide) scope.launch { drawerState.close() } }
 
+        val showShared by repo.showSharedRequest.collectAsState()
+        var seenShared by rememberSaveable { androidx.compose.runtime.mutableIntStateOf(repo.showSharedRequest.value) }
+        LaunchedEffect(showShared) {
+            if (showShared != seenShared) {
+                seenShared = showShared
+                if (!wide) drawerState.open()
+            }
+        }
         BackHandler(enabled = drawerState.isOpen && !wide) { scope.launch { drawerState.close() } }
         BackHandler(enabled = nav.canGoBack && !drawerState.isOpen) { nav.pop() }
 

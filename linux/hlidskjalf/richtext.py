@@ -24,9 +24,13 @@ def _setup_tags(buf):
     # Verweis auf eine Seite ohne Zugriff (Text vom Server ersetzt): gedaempft, kein Link - das href bleibt (a:-Tag),
     # damit der Server beim Speichern den Originaltext wieder einsetzen kann
     buf.create_tag(NA_TAG, foreground_rgba=_rgba("rgba(127,127,127,0.95)"), underline=Pango.Underline.NONE)
+    # "🔒 " vor einem solchen Verweis: nur Anzeige (nicht bearbeitbar, beim Speichern weggelassen - href und Text bleiben)
+    buf.create_tag(DECO_TAG, foreground_rgba=_rgba("rgba(127,127,127,0.95)"), editable=False)
 
 
 NA_TAG = "hk-na"
+DECO_TAG = "hk-deco"
+NA_LOCK = "🔒" + chr(0x2009)  # Schloss + schmales Leerzeichen vor "Seite ohne Zugriff"
 
 
 def _na_on_top(buf):
@@ -72,6 +76,9 @@ def html_to_buffer(buf, html, base_bold=False, start=None):
             tags.append(links[-1])
             if (links[-1].props.name or "").startswith("a:/notes#") and text.strip() in NA_TEXTS:
                 tags.append(_na_on_top(buf))
+                deco = buf.get_tag_table().lookup(DECO_TAG)
+                deco.set_priority(buf.get_tag_table().get_size() - 1)
+                buf.insert_with_tags(buf.get_iter_at_mark(mark), NA_LOCK, deco)
         buf.insert_with_tags(buf.get_iter_at_mark(mark), text, *tags)
 
     for m in TAG_RE.finditer(html or ""):
@@ -122,8 +129,10 @@ def buffer_to_html(buf, start=None, end=None, base_bold=False):
         if not nxt.forward_to_tag_toggle(None) or nxt.compare(end) > 0:
             nxt = end.copy()
         text = buf.get_text(it, nxt, True)
+        names = [t.props.name for t in it.get_tags() if t.props.name] if text else []
+        if DECO_TAG in names:                          # nur Anzeige ("🔒 " vor "Seite ohne Zugriff"): nicht speichern
+            text = ""
         if text:
-            names = [t.props.name for t in it.get_tags() if t.props.name]
             o, c = "", ""
             link = next((n for n in names if n.startswith(("a:", "t:"))), None)
             if link and link.startswith("t:"):

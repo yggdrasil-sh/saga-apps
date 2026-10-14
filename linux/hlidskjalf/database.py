@@ -92,6 +92,7 @@ class DBModel(GObject.Object):
         self.local_views = None
         self.on_local_views = None
         self.role = "owner"                # Teilen (1.3): Rolle fuer diese Datenbank (Antwort von .../rows)
+        self.host_locked = False           # Datenbank-Block auf einer gesperrten (bzw. nur lesbaren) Seite
 
     @property
     def readonly(self):
@@ -100,7 +101,12 @@ class DBModel(GObject.Object):
 
     @property
     def locked(self):
-        return bool(self.schema.get("locked")) or self.readonly
+        return bool(self.schema.get("locked")) or self.readonly or self.host_locked
+
+    @property
+    def can_add(self):
+        """Eintraege anlegen ("Neu", "+"): nicht bei Nur-Lesen und nicht im Block einer gesperrten Seite"""
+        return not self.readonly and not self.host_locked
 
     def load(self):
         if not self.loaded:
@@ -313,7 +319,7 @@ class DBModel(GObject.Object):
         store.rename(row_id, title)
 
     def add(self, props=None, done=None):
-        if self.readonly:                  # nur lesen: keine Eintraege anlegen
+        if not self.can_add:               # nur lesen bzw. Seite gesperrt: keine Eintraege anlegen
             return
         b = {"parent_id": self.db_id, "title": ""}
         if props:
@@ -327,7 +333,7 @@ class DBModel(GObject.Object):
         store.run("POST", "api/notes", b, done=fin)
 
     def new_from_template(self, tid, done=None):
-        if self.readonly:
+        if not self.can_add:
             return
 
         def fin(r):
@@ -789,9 +795,10 @@ class TableView(Gtk.ScrolledWindow, RowMenuMixin):
             self.box.append(e)
         from .dbedit import CalcRow
         self.box.append(CalcRow(self, m, self.view, self.cols, self.rows))
-        nb = flat_button(icon="list-add-symbolic", label=_("New"), css="dim-label", cb=self.new_row)
-        nb.set_halign(Gtk.Align.START)
-        self.box.append(nb)
+        if m.can_add:
+            nb = flat_button(icon="list-add-symbolic", label=_("New"), css="dim-label", cb=self.new_row)
+            nb.set_halign(Gtk.Align.START)
+            self.box.append(nb)
         self.apply_widths()
 
     def _more(self):
@@ -994,8 +1001,9 @@ class BoardView(Gtk.ScrolledWindow, RowMenuMixin):
                 b.add_controller(ds)
                 self.attach_menu(b, r)
                 col.append(b)
-            col.append(flat_button(icon="list-add-symbolic", label=_("New"), css="dim-label",
-                                   cb=lambda oid=oid: self.new_row({g["id"]: oid} if oid else {})))
+            if self.m.can_add:
+                col.append(flat_button(icon="list-add-symbolic", label=_("New"), css="dim-label",
+                                       cb=lambda oid=oid: self.new_row({g["id"]: oid} if oid else {})))
             dt = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
 
             def drop(t, val, x, y, oid=oid):
@@ -1079,7 +1087,7 @@ class CalendarView(Gtk.Box, RowMenuMixin):
                 dl.add_css_class("dim-label")
             top.append(dl)
             ds = d.isoformat()
-            if self.dp.get("type") not in ("created", "edited"):
+            if self.dp.get("type") not in ("created", "edited") and self.m.can_add:
                 top.append(flat_button(icon="list-add-symbolic", css="hk-tiny dim-label", cb=lambda ds=ds: self.new_row({self.dp["id"]: ds})))
             cell.append(top)
             items = [r for r in self.rows if str(self.m.value(self.dp, r) or "").startswith(ds)]
@@ -1113,10 +1121,13 @@ class CalendarView(Gtk.Box, RowMenuMixin):
 class DatabaseView(Gtk.Box):
     __gtype_name__ = "HKDatabaseView"
 
-    def __init__(self, win, db_id, view_id=None, local_views=None, embedded=False, on_local_views=None):
+    def __init__(self, win, db_id, view_id=None, local_views=None, embedded=False, on_local_views=None, host_locked=False):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.win, self.db_id, self.embedded = win, db_id, embedded
         self.m = DBModel(db_id)
+        # Block auf einer gesperrten Seite: kein "Neu", keine Ansichts-Einstellungen, kein "+" (Ansicht) - nur ansehen,
+        # Eintraege oeffnen, suchen und zwischen den Ansichten wechseln
+        self.m.host_locked = bool(host_locked)
         if local_views and on_local_views:
             self.m.local_views = list(local_views)
             self.m.on_local_views = on_local_views

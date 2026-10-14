@@ -217,7 +217,7 @@
     <string name="state_expanded">expanded</string>
     <string name="state_collapsed">collapsed</string>
     <string name="page_actions">Page actions</string>
-    <string name="conflict_banner">Page changed elsewhere – tap to decide</string>
+    <string name="conflict_banner">This page was changed elsewhere. Your latest changes are not saved yet.</string>
     <string name="conflict_title">Page changed elsewhere</string>
     <string name="conflict_text">This page was changed on another device in the meantime. Your changes won\'t be lost.</string>
     <string name="conflict_keep_mine">Keep my version</string>
@@ -225,7 +225,7 @@
     <string name="conflict_copy_title">%1$s (my version)</string>
     <string name="conflict_copy_saved">Your version was saved as a new page.</string>
     <string name="save_state_saved">Saved</string>
-    <string name="save_state_pending">Saving…</string>
+    <string name="save_state_pending">Not saved yet</string>
     <string name="save_state_unsaved">Not saved</string>
     <string name="page_archive">Archive</string>
     <string name="page_archived">Page archived</string>
@@ -358,7 +358,7 @@
     <string name="meta_updated_by">Last changed by %1$s · %2$s</string>
     <string name="conflict_by_title">%1$s just changed this page</string>
     <string name="conflict_by_text">Your latest changes are not saved yet.</string>
-    <string name="conflict_by_banner">⚠ %1$s just changed this page. Your latest changes are not saved yet.</string>
+    <string name="conflict_by_banner">%1$s just changed this page. Your latest changes are not saved yet.</string>
     <string name="conflict_load_new">Load new version</string>
     <string name="conflict_keep_version">Keep my version</string>
     <string name="conflict_overwrite_title">Overwrite %1$s’s changes?</string>
@@ -493,4 +493,6 @@
         <item quantity="one">No open comments · 1 resolved</item>
         <item quantity="other">No open comments · %d resolved</item>
     </plurals>
+    <string name="conflict_choose">Choose version</string>
+    <string name="no_access_to_shared">Go to “Shared with me”</string>
 </resources>

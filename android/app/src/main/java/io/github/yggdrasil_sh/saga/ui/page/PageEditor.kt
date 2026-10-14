@@ -621,6 +621,10 @@ class PageEditor(
                     // Freigabe entzogen / Rolle auf Lesen gefallen: nicht weiter speichern, letzten Text zum Kopieren zeigen
                     lost = LostAccess(e.code, withContext(cpu) { DocText.plain(t, d) })
                     retryJob?.cancel()
+                    // G2: Seite sofort im neuen Zustand zeigen (Etikett/Rolle, nur lesen bzw. "Kein Zugriff"), nicht erst
+                    // nach dem Dialog. Der Text liegt im Dialog; der Entwurf auf Platte bleibt bis closeLost().
+                    savedVersion = version
+                    scope.launch { load() }                      // wartet auf die Seitensperre dieses Speicherns
                     return false
                 } else {
                     error = UiText.Res(R.string.save_failed, e.text)

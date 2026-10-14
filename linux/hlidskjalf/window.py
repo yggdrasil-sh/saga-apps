@@ -250,7 +250,12 @@ class Sidebar(Gtk.Box):
             for p in rec:
                 self._page_row(p, 0, flat=True)
         self.header(_("Pages"), drop=True)
-        self._tree(None, 0)
+        if store.children(None):
+            self._tree(None, 0)
+        else:                                                  # keine eigenen Seiten: Hinweis statt leerer Ueberschrift
+            lb = Gtk.Label(label=_("No pages yet"), xalign=0, margin_start=6)
+            lb.add_css_class("dim-label")
+            self.box.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=lb))
         roots = store.shared_roots()
         if roots or store.share_off:                           # Teilen (1.3): "Mit mir geteilt"
             n = store.shared_unread()
@@ -328,6 +333,15 @@ class Sidebar(Gtk.Box):
         r = self.rows.get(("page", pid))
         if isinstance(r, Gtk.Widget):
             r.grab_focus()
+
+    def focus_shared(self):
+        """Abschnitt "Mit mir geteilt": erste geteilte Seite fokussieren (die Liste rollt dorthin)"""
+        for p in store.shared_roots():
+            r = self.rows.get(("page", p["id"]))
+            if isinstance(r, Gtk.Widget):
+                r.grab_focus()
+                return True
+        return False
 
     def reveal(self, pid):
         """Pfad zur Seite aufklappen"""
@@ -859,6 +873,13 @@ class MainWindow(Adw.ApplicationWindow):
         self.fwd = []
         self._show(r)
 
+    def show_shared(self):
+        """Knopf "Zu „Mit mir geteilt“" (Ansicht "Kein Zugriff"): Seitenleiste zeigen, Liste neu laden, dort die mit mir
+        geteilten Seiten fokussieren"""
+        self.split.set_show_sidebar(True)
+        store.refresh()
+        GLib.idle_add(lambda: (self.sidebar.focus_shared(), False)[1])
+
     def go_back(self):
         if self.peek:
             self.close_peek()
@@ -895,15 +916,21 @@ class MainWindow(Adw.ApplicationWindow):
             from .comments import count_tooltip
             from .sharing import allowed, header_button
             d = self.current.doc
-            p = d.page if d.loaded and d.fetched else {}
-            self.wtitle.set_title(d.title if d.loaded else label(store.meta(d.id)))
-            self.wtitle.set_subtitle(store.path_text(d.id))
+            gone = self.current.no_access                      # "Kein Zugriff": Kopfzeile ohne Titel/Symbol der Seite
+            p = d.page if d.loaded and d.fetched and not gone else {}
+            self.menu_btn.set_visible(not gone)
+            if gone:
+                self.wtitle.set_title("")
+                self.wtitle.set_subtitle("")
+            else:
+                self.wtitle.set_title(d.title if d.loaded else label(store.meta(d.id)))
+                self.wtitle.set_subtitle(store.path_text(d.id))
             fav = bool(d.page.get("pinned") if d.loaded else (store.by_id.get(d.id) or {}).get("pinned"))
             self.star_btn.set_icon_name("starred-symbolic" if fav else "non-starred-symbolic")
             self.star_btn.set_tooltip_text(_("Remove from favorites") if fav else _("Add to favorites"))
-            self.star_btn.set_visible(allowed(p or store.meta(d.id), "favorite") and not store.is_foreign(d.id))
-            self.set_title(f"{d.title} – Saga")
-            hs = header_state(d.page) if d.loaded and d.fetched else None
+            self.star_btn.set_visible(allowed(p or store.meta(d.id), "favorite") and not store.is_foreign(d.id) and not gone)
+            self.set_title(_("No access") + " – Saga" if gone else f"{d.title} – Saga")
+            hs = header_state(d.page) if d.loaded and d.fetched and not gone else None
             self.pub_btn.set_visible(hs is not None)
             if hs:
                 self.pub_content.set_label(hs["label"])

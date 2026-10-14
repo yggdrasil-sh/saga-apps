@@ -37,7 +37,7 @@ let filterNoValue: Set<String> = ["is_empty", "not_empty", "checked", "unchecked
 
 extension DBModel {
     /// Schema gesperrt - oder nur lesen (Rolle Lesen/Kommentieren): keine Spalten/Ansichten aendern
-    var locked: Bool { schema["locked"] as? Bool == true || readOnly }
+    var locked: Bool { schema["locked"] as? Bool == true || readOnly || pageLocked }
     var schemaProps: [[String: Any]] { schema["props"] as? [[String: Any]] ?? [] }
     var schemaViews: [[String: Any]] { schema["views"] as? [[String: Any]] ?? [] }
 
@@ -277,7 +277,6 @@ struct DBViewBar: View {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack(spacing: 10) {
                         viewMenu
-                        Spacer(minLength: 4)
                         searchButton
                         settingsButton
                         newButton
@@ -353,7 +352,8 @@ struct DBViewBar: View {
             .padding(.horizontal, 10).padding(.vertical, 5)
             .background(Color.secondary.opacity(0.14), in: Capsule())
         }
-        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
+        .frame(maxWidth: .infinity, alignment: .leading)       // lange Ansichtsnamen werden gekuerzt und verdraengen "Neu" nicht
         .accessibilityLabel(String(localized: "Ansicht: \(view?["name"] as? String ?? String(localized: "Ansicht"))"))
     }
 
@@ -393,7 +393,9 @@ struct DBViewBar: View {
     }
 
     @ViewBuilder private var newButton: some View {
-        if m.readOnly {
+        if m.pageLocked && !m.readOnly {
+            EmptyView()                                                                     // Seite gesperrt: kein "Neu"
+        } else if m.readOnly {
             Label("Nur lesen", systemImage: "eye").font(.caption).foregroundStyle(.secondary)
                 .padding(.horizontal, 8).padding(.vertical, 3).background(Color.secondary.opacity(0.12), in: Capsule()).fixedSize()
         } else if m.templates.isEmpty {

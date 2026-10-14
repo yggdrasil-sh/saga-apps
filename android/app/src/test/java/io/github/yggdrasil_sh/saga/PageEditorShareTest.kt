@@ -7,6 +7,10 @@ import io.github.yggdrasil_sh.saga.data.MemoryDrafts
 import io.github.yggdrasil_sh.saga.data.Role
 import io.github.yggdrasil_sh.saga.ui.page.PageBackend
 import io.github.yggdrasil_sh.saga.ui.page.PageEditor
+import io.github.yggdrasil_sh.saga.blocks.InlineHtml
+import io.github.yggdrasil_sh.saga.ui.page.LOCK
+import io.github.yggdrasil_sh.saga.ui.page.LockMapping
+import io.github.yggdrasil_sh.saga.ui.page.maskedStarts
 import io.github.yggdrasil_sh.saga.util.UiText
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.sync.Mutex
@@ -225,6 +229,58 @@ class PageEditorShareTest {
         assertFalse(ed.noAccess)
         assertFalse(ed.editable)                           // jetzt nur lesen
         assertEquals("Hallo", text(ed))
+    }
+
+    /** G2: nach Rollenwechsel/Entzug sofort der neue Zustand - nicht erst nach dem Kopier-Dialog */
+    @Test
+    fun lostAccessShowsNewStateRightAway() = runTest {
+        val srv = SharedPageServer("edit")
+        val ed = editor(srv)
+        ed.load()
+        srv.failWith = 403
+        srv.role = "view"
+        ed.setString(path, "Meins")
+        settle()
+        assertTrue(ed.lost!!.readOnly)
+        assertEquals("Projektplan\n\nMeins", ed.lost!!.text)
+        assertEquals(Role.VIEW, ed.share.role)             // Etikett "Du kannst lesen" schon hinter dem Dialog
+        assertNull(ed.pendingDraft)                        // kein "Wiederherstellen" bei Nur-Lesen
+        assertFalse(ed.dirty)                              // kein "Speichert…"
+        assertFalse(ed.editable)
+        // 404: "Kein Zugriff auf diese Seite" schon hinter dem Dialog
+        val srv2 = SharedPageServer("edit")
+        val ed2 = editor(srv2)
+        ed2.load()
+        srv2.failWith = 404
+        srv2.gone = true
+        ed2.setString(path, "x")
+        settle()
+        assertTrue(ed2.lost != null && !ed2.lost!!.readOnly)
+        assertTrue(ed2.noAccess)
+        assertFalse(ed2.fetched)
+        ed2.closeLost()
+        settle()
+        assertNull(ed2.lost)
+        assertTrue(ed2.noAccess)
+    }
+
+    /** G7: 🔒 vor verdeckten Verweisen auch beim Bearbeiten - nur Anzeige, Cursor nie im Schloss */
+    @Test
+    fun lockBeforeMaskedLinksWhileEditing() {
+        val rt = InlineHtml.parse("Notizen in <a href=\"/notes#7\">Seite ohne Zugriff</a> und <a href=\"/notes#8\">Echt</a>")
+        val at = maskedStarts(rt)
+        assertEquals(listOf(11), at)
+        assertEquals("Notizen in Seite ohne Zugriff und Echt", rt.text)  // Text unveraendert
+        val m = LockMapping(1, rt.text.length, at)                        // mit START (Laenge 1)
+        val n = LOCK.length
+        assertEquals(0, m.originalToTransformed(1))
+        assertEquals(11, m.originalToTransformed(12))                     // vor dem Schloss
+        assertEquals(12 + n, m.originalToTransformed(13))                 // im Verweis: hinter dem Schloss
+        assertEquals(12, m.transformedToOriginal(11))
+        assertEquals(12, m.transformedToOriginal(12))                     // im Schloss -> vor den Verweis
+        assertEquals(12, m.transformedToOriginal(11 + n))
+        assertEquals(1 + rt.text.length, m.transformedToOriginal(rt.text.length + n))
+        assertEquals(rt.text.length + n, m.originalToTransformed(1 + rt.text.length))
     }
 
     @Test

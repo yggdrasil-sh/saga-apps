@@ -222,6 +222,7 @@ struct CommentsPanel: View {
     }
 
     @ViewBuilder private func commentView(_ c: CommentItem, _ t: CommentThread, first: Bool, dot: Bool) -> some View {
+        let acts = ShareLogic.actions(c, in: t, first: first, role: role)
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
                 Text(c.author.me ? String(localized: "Du") : (c.author.name.isEmpty ? String(localized: "Gelöschtes Konto") : c.author.name)).font(.subheadline.weight(.semibold))
@@ -229,7 +230,10 @@ struct CommentsPanel: View {
                 Text(Date(timeIntervalSince1970: c.created).formatted(.relative(presentation: .named))).font(.caption).foregroundStyle(.secondary)
                 if c.edited != nil && !c.deleted { Text("bearbeitet").font(.caption).foregroundStyle(.secondary) }
                 Spacer(minLength: 0)
-                let acts = ShareLogic.actions(c, in: t, first: first, role: role)
+            }
+            .padding(.trailing, acts.isEmpty ? 0 : 30)
+            // ⋯ als Overlay: 44-pt-Trefferflaeche, ohne die Kopfzeile des Kommentars hoeher zu machen
+            .overlay(alignment: .trailing) {
                 if !acts.isEmpty {
                     Menu {
                         ForEach(acts, id: \.self) { a in
@@ -239,8 +243,9 @@ struct CommentsPanel: View {
                             case .deleteThread: Button(role: .destructive) { askDelete = (c, t, first, true) } label: { Label("Unterhaltung löschen", systemImage: "trash") }
                             }
                         }
-                    } label: { Image(systemName: "ellipsis").frame(width: 44, height: 30).contentShape(Rectangle()) }
+                    } label: { Image(systemName: "ellipsis").frame(width: 44, height: 44).contentShape(Rectangle()) }
                     .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize().foregroundStyle(.secondary)
+                    .padding(.trailing, -8)
                     .accessibilityLabel(Text("Aktionen für diesen Kommentar"))
                 }
             }
@@ -291,7 +296,9 @@ struct CommentsPanel: View {
                     Task { busy = true; if await send(v) { text.wrappedValue = "" }; busy = false }
                 }
                 .keyboardShortcut(.return, modifiers: .command)
-                if can { btn.prominentGold() } else { btn.buttonStyle(.bordered).disabled(true) }   // gesperrt gut lesbar (Gold blass waere zu kontrastarm)
+                .buttonStyle(.borderedProminent)
+                // gesperrt: Systemdarstellung (.borderedProminent + .disabled) - kein schwarzes Loch im Dunkeln, nicht zu blass
+                if can { btn.foregroundStyle(Color("OnAccent")) } else { btn.disabled(true) }
             }
         }
     }

@@ -126,16 +126,23 @@ def test_texts_for_conflict_and_lost_access():
 
 
 def test_masked_link_is_not_a_link(app):
-    """Verweis auf eine Seite ohne Zugriff (Text vom Server ersetzt): gedaempft, kein Link; gespeichert bleibt das href"""
-    from hlidskjalf.richtext import NA_TAG, RichText
+    """Verweis auf eine Seite ohne Zugriff (Text vom Server ersetzt): gedaempft, kein Link, mit 🔒 davor (auch beim
+    Bearbeiten, nur Anzeige); gespeichert bleiben href und Text unveraendert"""
+    from hlidskjalf.richtext import DECO_TAG, NA_LOCK, NA_TAG, RichText
     html = 'Siehe <a href="/notes#77">Page without access</a> und <a href="/notes#3">Notizen</a>.'
-    rt = RichText(html)
-    buf = rt.get_buffer()
-    it = buf.get_iter_at_offset(len("Siehe ") + 2)
-    assert rt.link_at(it) == ("na", "/notes#77")
-    assert rt.link_at(buf.get_iter_at_offset(len("Siehe Page without access und ") + 1)) == ("a", "/notes#3")
-    assert buf.get_tag_table().lookup(NA_TAG) is not None
-    assert rt.html() == html
+    for editable in (False, True):
+        rt = RichText(html, editable=editable)
+        buf = rt.get_buffer()
+        text = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), True)
+        assert text == "Siehe " + NA_LOCK + "Page without access und Notizen."
+        lock = buf.get_iter_at_offset(len("Siehe "))
+        assert lock.has_tag(buf.get_tag_table().lookup(DECO_TAG)) and not lock.editable(True)   # Schloss: nicht bearbeitbar
+        assert rt.link_at(lock) is None                                                     # ... und kein Link
+        it = buf.get_iter_at_offset(len("Siehe " + NA_LOCK) + 2)
+        assert rt.link_at(it) == ("na", "/notes#77")
+        assert rt.link_at(buf.get_iter_at_offset(len("Siehe " + NA_LOCK + "Page without access und ") + 1)) == ("a", "/notes#3")
+        assert buf.get_tag_table().lookup(NA_TAG) is not None
+        assert rt.html() == html
 
 
 # --- Store: "Mit mir geteilt" ---------------------------------------------------------------------------------
@@ -359,11 +366,19 @@ def test_conflict_with_person_load_new_version(win, srv):
     d.force_close()
     assert pump(lambda: isinstance(win.get_visible_dialog(), TextDialog), 3)
     t = win.get_visible_dialog()
-    assert t.get_title() == "Your draft" and "Meine Fassung" in t.text
+    assert isinstance(t, Adw.AlertDialog) and t.get_heading() == "Your draft" and "Meine Fassung" in t.text
     assert v.doc.root[0]["data"]["text"] == "Fassung von Bert" and v.doc.conflict is None
     assert v.copy_rev.get_reveal_child()                                 # eigene Fassung auch als lokale Kopie
-    assert t.copy_btn.get_label() == "Copy" and t.view.get_buffer().get_property("text") == t.text
-    t.copy_btn.emit("clicked")
+    # einheitlicher Zustandsdialog: Hauptknopf "Kopieren", zweiter Knopf "Schliessen" (Esc), Textfeld als extra child
+    assert t.get_response_label("copy") == "Copy" and t.get_response_label("close") == "Close"
+    assert t.get_default_response() == "copy" and t.get_close_response() == "close"
+    assert t.get_extra_child() is t.scroll and t.view.get_buffer().get_property("text") == t.text
+    assert t.scroll.get_max_content_height() <= int(win.get_height() * 0.4) + 1
+    toasts = []
+    win.toast = lambda x: toasts.append(x)
+    t.emit("response", "copy")
+    assert toasts == ["Text copied"]
+    del win.toast
     t.force_close()
 
 
@@ -413,9 +428,13 @@ def test_lost_access_403_offers_text_and_stops_saving(win, srv):
     v.editor.flush()
     assert pump(lambda: isinstance(win.get_visible_dialog(), TextDialog), 6)
     t = win.get_visible_dialog()
-    assert t.get_title() == "View only now" and "Mein letzter Text" in t.text
-    assert t.intro.get_label().startswith("You can no longer edit this page.")
+    assert t.get_heading() == "View only now" and "Mein letzter Text" in t.text
+    assert t.get_body().startswith("You can no longer edit this page.")
     assert drafts.read(200) is None and not v.doc._retry_src
+    # die Seite zeigt sofort (hinter dem Dialog) den neuen Zustand: schreibgeschuetzt, Etikett "Du kannst lesen"
+    assert v.editor.locked and "You can view" in _labels(v.scroll.get_child())
+    assert "You can edit" not in _labels(v.scroll.get_child())
+    assert not v.copy_restore.get_visible()                              # kein "Wiederherstellen" bei Nur-Lesen
     t.force_close()
     assert pump(lambda: v.doc.fetched and v.doc.role == "view", 6)
     idle()
@@ -435,13 +454,23 @@ def test_lost_access_404_shows_no_access(win, srv):
     v.editor.flush()
     assert pump(lambda: isinstance(win.get_visible_dialog(), TextDialog), 6)
     t = win.get_visible_dialog()
-    assert t.get_title() == "No access anymore" and "Weg" in t.text
+    assert t.get_heading() == "No access anymore" and "Weg" in t.text
+    assert v.no_access and any(isinstance(w, Adw.StatusPage) for w in _walk(v.scroll.get_child()))  # sofort, hinter dem Dialog
     t.force_close()
     assert pump(lambda: v.doc.loaded and not v.doc.fetched, 6)
     idle()
     page = v.scroll.get_child()
     sp = next(w for w in _walk(page) if isinstance(w, Adw.StatusPage))
     assert sp.get_title() == "No access to this page"
+    btns = [w for w in _walk(sp) if isinstance(w, Gtk.Button)]
+    assert [b.get_label() for b in btns] == ["Try again", "Go to “Shared with me”"]
+    # Kopfzeile ohne Titel/Symbol der Seite, kein Seitenmenue, kein Kommentar-Knopf
+    assert win.wtitle.get_title() == "" and not win.menu_btn.get_visible() and not win.cm_btn.get_visible()
+    shown = []
+    win.sidebar.focus_shared = lambda: shown.append(1)
+    btns[1].emit("clicked")
+    assert pump(lambda: shown, 2) and win.split.get_show_sidebar()
+    del win.sidebar.focus_shared
 
 
 # --- Teilen-Dialog -------------------------------------------------------------------------------------------
@@ -465,17 +494,20 @@ def test_share_dialog_search_add_change_remove(win, srv, monkeypatch):
     d.toast = lambda t: toasts.append(t)
     assert d.get_title() == "Share" and d.q.get_title() == "Search for a person or group"
     assert d.role.get_subtitle().startswith("Can view: see and export")
-    assert d.status.get_label() == "At least 3 characters."
+    assert not d.status.get_visible() and not d.q.has_css_class("error")     # leer: kein "Mindestens 3 Zeichen."
     assert d.chips.get_visible() and "team" in _labels(d.chips)              # eigene Gruppen als Chips
+    assert d.link.note.get_label() == "The link opens the page for everyone who has access."   # Untertitel der Link-Zeile
     assert "Not shared with anyone yet. Search for a person or group above." in [r.get_title() for r in d._rows[d.g_access]]
     assert d.g_access.get_description() == "Subpages and entries are included."
     assert d.link.raw == "https://saga.test/notes#1"
     d.q.set_text("co")                                                       # unter 3 Zeichen: keine Suche
     pump(None, 0.4)
     assert not d.g_hits.get_visible()
+    assert d.status.get_visible() and d.status.get_label() == "At least 3 characters." and d.q.has_css_class("error")
     d.role.set_selected(1)                                                   # Kommentieren
     d.q.set_text("cor")
     assert pump(lambda: d.g_hits.get_visible(), 3)
+    assert not d.status.get_visible() and not d.q.has_css_class("error")
     hit = d._rows[d.g_hits][0]
     assert hit.get_title() == "Cora Muster" and "add as “Can comment”" in _labels(hit)
     hit.emit("activated")
@@ -492,9 +524,12 @@ def test_share_dialog_search_add_change_remove(win, srv, monkeypatch):
     # Gruppe per Chip, danach hat bert ueber team mehr Rechte als direkt
     d.role.set_selected(2)
     chip = next(w for w in _walk(d.chips) if isinstance(w, Gtk.Button))
+    assert not any(isinstance(w, Gtk.Image) and w.has_css_class("hk-chip-check") for w in _walk(chip))
     chip.emit("clicked")
     assert pump(lambda: any(s["type"] == "group" for s in srv.shares[1]), 5)
     idle()
+    chip = next(w for w in _walk(d.chips) if isinstance(w, Gtk.Button))    # Gruppe hat jetzt Zugriff: ✓ im Chip
+    assert any(isinstance(w, Gtk.Image) and w.has_css_class("hk-chip-check") for w in _walk(chip))
     srv.shares[1].append({"type": "user", "target": "bert", "role": "view"})
     d._sync(srv._share_state(1))
     bert = next(r for r in d._rows[d.g_access] if r.get_title() == "Bert Beispiel")

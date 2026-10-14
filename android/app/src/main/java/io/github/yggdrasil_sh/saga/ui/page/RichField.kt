@@ -26,6 +26,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -141,6 +142,50 @@ private class FieldState(html: String, val raw: Boolean, val pre: String) {
 
 private fun parseHtml(html: String, raw: Boolean): RichText = if (raw) RichText(html) else InlineHtml.parse(html)
 
+/** Nur zur Anzeige vor verdeckten Verweisen (G7) */
+internal const val LOCK = "🔒 "
+
+/** Stellen im Klartext, an denen ein verdeckter Verweis ("Seite ohne Zugriff") beginnt - aufsteigend, ohne Doppelte */
+internal fun maskedStarts(rt: RichText): List<Int> = rt.spans
+    .filter { sp ->
+        sp.tag == "a" && sp.start >= 0 && sp.end <= rt.text.length && sp.start < sp.end &&
+            Masking.isMasked(InlineHtml.hrefOf(sp.open), rt.text.substring(sp.start, sp.end))
+    }
+    .map { it.start }.distinct().sorted()
+
+/** Formatierten Text mit LOCK an den Stellen at (aufsteigend) - Formatierung bleibt erhalten */
+private fun withLocks(ann: AnnotatedString, at: List<Int>, color: Color): AnnotatedString = buildAnnotatedString {
+    var prev = 0
+    for (s in at) {
+        append(ann.subSequence(prev, s))
+        withStyle(SpanStyle(color = color)) { append(LOCK) }
+        prev = s
+    }
+    append(ann.subSequence(prev, ann.length))
+}
+
+/**
+ * Cursor-Positionen fuer die Anzeige mit LOCK vor verdeckten Verweisen (und ohne START der Laenge p).
+ * Original = START + Klartext; angezeigt = Klartext mit LOCK an den Stellen locks. Der Cursor steht nie im Schloss.
+ */
+internal class LockMapping(private val p: Int, private val shownLength: Int, private val locks: List<Int>) : OffsetMapping {
+    override fun originalToTransformed(offset: Int): Int {
+        val o = (offset - p).coerceIn(0, shownLength)
+        return o + LOCK.length * locks.count { it < o }
+    }
+
+    override fun transformedToOriginal(offset: Int): Int {
+        var shift = 0
+        for (s in locks) {
+            val ts = s + shift
+            if (offset <= ts) break
+            if (offset < ts + LOCK.length) return s + p
+            shift += LOCK.length
+        }
+        return (offset - shift).coerceIn(0, shownLength) + p
+    }
+}
+
 /** Anzeige ohne START: Cursor-Positionen um die Laenge von START verschieben */
 private class StartMapping(private val p: Int, private val shownLength: Int) : OffsetMapping {
     override fun originalToTransformed(offset: Int): Int = (offset - p).coerceIn(0, shownLength)
@@ -254,8 +299,15 @@ fun RichField(
         if (p > 0 && !t.text.startsWith(pre)) return@VisualTransformation TransformedText(t, OffsetMapping.Identity)
         val shown = t.text.substring(p)
         val r = st.rich
-        val ann = if (!raw && r.text == shown) richAnnotated(r, c, masked = foreign) else AnnotatedString(shown)
-        TransformedText(ann, if (p == 0) OffsetMapping.Identity else StartMapping(p, shown.length))
+        val rich = !raw && r.text == shown
+        val ann = if (rich) richAnnotated(r, c, masked = foreign) else AnnotatedString(shown)
+        // G7: auch beim Bearbeiten 🔒 vor "Seite ohne Zugriff" - nur angezeigt, nie Teil des Textes (href + Text bleiben)
+        val locks = if (rich && foreign) maskedStarts(r) else emptyList()
+        when {
+            locks.isNotEmpty() -> TransformedText(withLocks(ann, locks, c.onSurfaceVariant), LockMapping(p, shown.length, locks))
+            p == 0 -> TransformedText(ann, OffsetMapping.Identity)
+            else -> TransformedText(ann, StartMapping(p, shown.length))
+        }
     }
 
     /** Cursor/Auswahl nie vor START */

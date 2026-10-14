@@ -14,6 +14,8 @@ final class NavModel: ObservableObject {
     @Published var wantQuickAdd = false                              // Widget "+": Aufgaben-Eingabe gleich fokussieren
     @Published var peekList: [Int] = []                              // Reihenfolge der Ansicht -> im Peek blaettern (Ctrl+Shift+J/K)
     @Published var forward: [PageRoute] = []                         // fuer "Vor" (Cmd+])
+    @Published var sharedJump = 0                                    // "Zu „Mit mir geteilt“": Seitenleiste dort zeigen (zaehlt hoch)
+    func toShared() { sharedJump += 1 }
     func push(_ r: PageRoute) { path.append(r); forward = [] }
     func back() { if let r = path.popLast() { forward.append(r) } }
     func goForward() { if let r = forward.popLast() { path.append(r) } }
@@ -56,6 +58,11 @@ final class DBModel: ObservableObject {
     /// Rolle (1.3, aus /rows): Lesen/Kommentieren -> nur lesen ("Nur lesen"-Chip, keine Eingaben)
     @Published var role = "owner"
     var readOnly: Bool { role == "view" || role == "comment" }
+    /// Seite mit diesem Datenbank-Block (bzw. die Datenbank-Seite) ist gesperrt: keine neuen Eintraege, keine
+    /// Ansichten/Spalten aendern, solange die Sperre gilt (Eintraege selbst bleiben wie bisher)
+    @Published var pageLocked = false
+    /// "Neu" (Eintrag anlegen) anbieten?
+    var canAdd: Bool { !readOnly && !pageLocked }
     /// Datenbank nicht (mehr) erreichbar (404/403) - verknuepfte Datenbank auf einer fremden Seite
     @Published var noAccess = false
     var onLocalViews: (([[String: Any]]) -> Void)?
@@ -136,8 +143,10 @@ struct DatabaseView: View {
     private let compact = false
     #endif
     var onLocalViews: (([[String: Any]]) -> Void)? = nil
-    init(dbID: Int, viewID: String?, localViews: [[String: Any]]?, embedded: Bool = false, onLocalViews: (([[String: Any]]) -> Void)? = nil) {
-        self.dbID = dbID; self.viewID = viewID; self.localViews = localViews; self.embedded = embedded; self.onLocalViews = onLocalViews
+    /// Seite gesperrt: "Neu", Ansichts-Einstellungen, "+" (Ansicht/Spalte) aus, solange die Sperre gilt
+    var pageLocked = false
+    init(dbID: Int, viewID: String?, localViews: [[String: Any]]?, embedded: Bool = false, pageLocked: Bool = false, onLocalViews: (([[String: Any]]) -> Void)? = nil) {
+        self.dbID = dbID; self.viewID = viewID; self.localViews = localViews; self.embedded = embedded; self.pageLocked = pageLocked; self.onLocalViews = onLocalViews
         _m = StateObject(wrappedValue: DBModel(dbID: dbID)); _current = State(initialValue: viewID)
     }
     private var views: [[String: Any]] { m.localViews ?? (localViews?.isEmpty == false ? localViews : nil) ?? m.views }
@@ -166,6 +175,7 @@ struct DatabaseView: View {
             }
             if let e = m.error { Text(e).font(.caption).foregroundStyle(.orange) }
         }
+        .onChange(of: pageLocked, initial: true) { _, v in if m.pageLocked != v { m.pageLocked = v } }
         .task {
             if let lv = localViews, !lv.isEmpty, m.localViews == nil, let cb = onLocalViews { m.localViews = lv; m.onLocalViews = cb }
             await m.load(store)
@@ -213,7 +223,7 @@ struct RowList: View {
                     if let check {
                         let on = (r.props[check.id]?.base as? Bool) ?? false
                         Button { Task { await m.set(r.id, check.id, !on, store: store) } } label: {
-                            Image(systemName: on ? "checkmark.square.fill" : "square").foregroundStyle(on ? Color.accentColor : .secondary).font(.body)
+                            CheckBoxIcon(on: on).font(.body)
                         }.buttonStyle(.plain).disabled(m.readOnly)
                         .accessibilityLabel(Text(check.name)).accessibilityAddTraits(on ? .isSelected : [])
                     } else { PageIcon(icon: r.icon, store: store) }
@@ -329,7 +339,7 @@ struct TableGrid: View {
                     Divider()
                 }
                 CalcRow(m: m, view: view, cols: cols, widths: w, rows: rows)
-                if !m.readOnly {
+                if m.canAdd {
                     Button { Task { if let id = await m.add(store, props: m.defaults(for: view)) { nav.open(id, mode: view?["open"] as? String ?? "side") } } } label: {
                         Label("Neu", systemImage: "plus").font(.subheadline).foregroundStyle(.secondary).padding(8)
                     }.buttonStyle(.plain)
@@ -338,6 +348,21 @@ struct TableGrid: View {
             .frame(minWidth: avail, alignment: .leading)
         }
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { avail = $0 }
+        // schmale Spalte: Schattenkante zeigt, dass die Tabelle waagrecht weitergeht (links/rechts)
+        .onScrollGeometryChange(for: [Bool].self) { g in
+            [g.contentOffset.x > 1, g.contentSize.width - g.contentOffset.x - g.containerSize.width > 1]
+        } action: { _, v in if v != more { more = v } }
+        .overlay(alignment: .leading) { if more[0] { edgeShadow(toLeading: true) } }
+        .overlay(alignment: .trailing) { if more[1] { edgeShadow(toLeading: false) } }
+    }
+    @State private var more = [false, false]
+    @Environment(\.colorScheme) private var scheme
+    /// hell: Schatten; dunkel: heller Schimmer (ein schwarzer Schatten verschwaende auf schwarzem Grund)
+    private func edgeShadow(toLeading: Bool) -> some View {
+        let c: Color = scheme == .dark ? .white : .black
+        return LinearGradient(colors: [c.opacity(scheme == .dark ? 0.16 : 0.13), c.opacity(0)],
+                       startPoint: toLeading ? .leading : .trailing, endPoint: toLeading ? .trailing : .leading)
+            .frame(width: 14).allowsHitTesting(false).accessibilityHidden(true)
     }
 
     /// Rand rechts am Spaltenkopf: ziehen aendert die Breite (pro Ansicht gespeichert, wie im Web)
@@ -381,7 +406,7 @@ struct TableGrid: View {
         case "checkbox":
             let on = (v as? Bool) ?? false
             Button { Task { await m.set(r.id, p.id, !on, store: store) } } label: {
-                Image(systemName: on ? "checkmark.square.fill" : "square").foregroundStyle(on ? Color.accentColor : .secondary)
+                CheckBoxIcon(on: on)
             }.buttonStyle(.plain).disabled(m.readOnly)
             .accessibilityLabel(Text(p.name)).accessibilityAddTraits(on ? .isSelected : [])
         case "calc":
@@ -613,7 +638,7 @@ struct BoardView: View {
                                 Button { nav.open(r.id, mode: view?["open"] as? String ?? "side", list: m.rows(for: view).map(\.id)) } label: { Card(m: m, row: r, view: view, cover: false) }.buttonStyle(.plain)
                                     .draggable(String(r.id))
                             }
-                            if !m.readOnly {
+                            if m.canAdd {
                                 Button { Task { if let id = await m.add(store, props: col.0.map { [group.id: $0] } ?? [:]) { nav.open(id, mode: view?["open"] as? String ?? "side") } } } label: {
                                     Label("Neu", systemImage: "plus").font(.caption)
                                 }.buttonStyle(.plain).foregroundStyle(.secondary)
@@ -772,7 +797,7 @@ struct DBCalendarView: View {
                                     Text("\(cal.component(.day, from: d))").font(.caption2.weight(cal.isDateInToday(d) ? .bold : .regular))
                                         .foregroundStyle(cal.isDateInToday(d) ? Color.accentColor : .secondary)
                                     Spacer()
-                                    if !["created", "edited"].contains(dp.type) && !m.readOnly {
+                                    if !["created", "edited"].contains(dp.type) && m.canAdd {
                                         Button { Task { if let id = await m.add(store, props: [dp.id: ds]) { nav.open(id, mode: view?["open"] as? String ?? "side") } } } label: { Image(systemName: "plus").font(.caption2) }.buttonStyle(.plain).foregroundStyle(.tertiary).accessibilityLabel("Neuer Eintrag an diesem Tag")
                                     }
                                 }
@@ -853,7 +878,7 @@ struct PropEditor: View {
             }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize(horizontal: false, vertical: true)   // Chips duerfen umbrechen
         case "checkbox":
             let on = value as? Bool ?? false
-            Button { set(!on) } label: { Image(systemName: on ? "checkmark.square.fill" : "square").foregroundStyle(on ? Color.accentColor : .secondary) }.buttonStyle(.plain)
+            Button { set(!on) } label: { CheckBoxIcon(on: on) }.buttonStyle(.plain)
                 .accessibilityLabel(Text(prop.name)).accessibilityAddTraits(on ? .isSelected : [])
         case "date":
             let s = value as? String ?? ""

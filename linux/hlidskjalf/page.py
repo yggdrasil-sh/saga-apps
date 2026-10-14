@@ -9,13 +9,30 @@ from .editor import PageDoc, PageEditor
 from .i18n import _, ngettext, pgettext
 from .publish import available as publish_available
 from .richtext import RichText
-from .sharing import allowed, can_comment, meta_lines, shared_by_box
+from .sharing import RANK, allowed, can_comment, is_owner, meta_lines, role_of, shared_by_box
 from .store import is_db, label, store, watch
 from .util import bg, date_time_text, edited_text, new_block_id, plain
 
 GUTTER = 60
 CSLOT = 36              # Breite des Platzes fuer die Kommentar-Zahl rechts am Block
 COLLAPSE_COMMENTS = 820  # schmaler: Kommentar-Seitenleiste legt sich ueber die Seite
+
+
+class BannerBox(Gtk.Box):
+    """Rahmen mit dem CSS-Namen von Adw.Banner ("banner") - fuer einen Hinweis mit zwei Knoepfen im Banner-Aussehen"""
+    __gtype_name__ = "HKBannerBox"
+
+
+class BannerRow(Gtk.Box):
+    """Innere Zeile (CSS-Name "widget" wie in Adw.Banner: banner > revealer > widget)"""
+    __gtype_name__ = "HKBannerRow"
+
+
+for _cls, _name in ((BannerBox, "banner"), (BannerRow, "widget")):
+    try:
+        _cls.set_css_name(_name)
+    except (AttributeError, TypeError):            # aeltere PyGObject: dann nur die eigene Klasse hk-draft-banner
+        pass
 
 
 class CoverView(Gtk.Overlay):
@@ -308,13 +325,27 @@ class PageView(Gtk.Box):
         self.spinner.set_visible(not doc.loaded)
         if not doc.loaded:
             return
-        if not doc.fetched and doc.error_code == 404 and (store.share_api or store.is_foreign(self.id)):
-            # Teilen: Seite gibt es nicht (mehr) oder ist nicht (mehr) mit mir geteilt
-            from .sharing import people_icon
-            box = Adw.StatusPage(icon_name=people_icon(), title=_("No access to this page"),
+        if self.no_access:
+            # Teilen: Seite gibt es nicht (mehr) oder ist nicht (mehr) mit mir geteilt - wie im Web/iOS/Android:
+            # Schloss, Titel, Text, "Erneut versuchen" und "Zu „Mit mir geteilt“"; Kopfzeile ohne Titel der Seite
+            from .sharing import lock_icon
+            box = Adw.StatusPage(icon_name=lock_icon(), title=_("No access to this page"),
                                  description=GLib.markup_escape_text(
                                      _("The page doesn’t exist (anymore), or it is not (or no longer) shared with you.")))
+            box.add_css_class("hk-noaccess")
+            btns = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, halign=Gtk.Align.CENTER)
+            again = Gtk.Button(label=_("Try again"))
+            again.add_css_class("pill")
+            again.add_css_class("suggested-action")
+            again.connect("clicked", lambda *_: (self.spinner.set_visible(True), store.refresh(), self.doc.load(force=True)))
+            btns.append(again)
+            go = Gtk.Button(label=_("Go to “Shared with me”"))
+            go.add_css_class("pill")
+            go.connect("clicked", lambda *_: self.win.show_shared())
+            btns.append(go)
+            box.set_child(btns)
             self.scroll.set_child(box)
+            self.update_banners()
             if self.header_changed:
                 self.header_changed()
             return
@@ -345,11 +376,6 @@ class PageView(Gtk.Box):
         # rechter Rand: Platz fuer die Kommentar-Zahl am Block (BlockRow.cslot, 36 px) - zusammen wie bisher GUTTER
         col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_start=8,
                       margin_end=GUTTER if self.cpanel is None else GUTTER - CSLOT, margin_top=12, margin_bottom=40)
-        sb = shared_by_box(doc.page)                          # fremde Seite: "Geteilt von … · Du kannst …" (Etikett)
-        if sb is not None:
-            sb.set_margin_start(44)
-            sb.set_margin_top(4)
-            col.append(sb)
         col.append(self._icon_row())
         trow = Gtk.Box()
         trow.append(Gtk.Box(width_request=44))
@@ -361,13 +387,21 @@ class PageView(Gtk.Box):
         trow.append(self.title_rt)
         col.append(trow)
         ind = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_start=44)
-        meta = meta_lines(doc.page)                           # "Angelegt von …", "Zuletzt geaendert von … · vor …"
+        # fremde Seite, unter dem Titel: "Geteilt von … · Du kannst …", darunter "Zuletzt geaendert von … / Angelegt
+        # von …" - beides gleich gross (Sekundaertext, gut lesbar)
+        info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        sb = shared_by_box(doc.page)
+        if sb is not None:
+            info.append(sb)
+        meta = meta_lines(doc.page)
         if meta:
             ml = Gtk.Label(label=" · ".join(meta), xalign=0, wrap=True)
-            ml.add_css_class("caption")
+            ml.add_css_class("hk-pagemeta")
             ml.add_css_class("dim-label")
             ml.set_tooltip_text(date_time_text(doc.page.get("updated")))
-            ind.append(ml)
+            info.append(ml)
+        if info.get_first_child():
+            ind.append(info)
         if doc.page.get("locked") and allowed(doc.page, "lock"):
             lk = Gtk.Button(label="🔒 " + _("Locked – click to unlock"), halign=Gtk.Align.START)
             lk.add_css_class("pill")
@@ -542,12 +576,25 @@ class PageView(Gtk.Box):
 
         def closed():
             self._lost_dlg = None
-            store.refresh()
-            self.spinner.set_visible(True)
-            self.doc.load(force=True)                         # 403: jetzt schreibgeschuetzt; 404: "Kein Zugriff"
         self._lost_dlg = TextDialog(title, intro, text, on_closed=closed)
         self._lost_dlg.present(self.win)
-        self.update_banners()
+        # Seite zeigt sofort den neuen Zustand (hinter dem Dialog): 403 schreibgeschuetzt, 404 "Kein Zugriff" - ohne
+        # widerspruechliche Hinweise (Etikett "Du kannst bearbeiten", Entwurf "Wiederherstellen")
+        if code == 403 and doc.fetched and RANK.get(role_of(doc.page), 0) >= RANK["edit"] and not is_owner(doc.page):
+            doc.page["role"] = "view"                         # vorlaeufig, bis die Seite neu geladen ist
+        self.rebuild()
+        store.refresh()
+        self.doc.load(force=True)                             # 403: tatsaechliche Rolle; 404: "Kein Zugriff"
+
+    @property
+    def no_access(self):
+        """Ansicht "Kein Zugriff auf diese Seite": 404 beim Laden (Teilen) oder Freigabe beim Speichern entzogen"""
+        doc = self.doc
+        if not doc.loaded:
+            return False
+        if doc.lost == 404:
+            return True
+        return not doc.fetched and doc.error_code == 404 and bool(store.share_api or store.is_foreign(self.id))
 
     # --- Kommentare ------------------------------------------------------------------------------------------------
     @property
@@ -647,22 +694,25 @@ class PageView(Gtk.Box):
         self.conflict_banner = Adw.Banner(title=_("Page changed elsewhere"), button_label=_("Choose version"), revealed=False)
         self.conflict_banner.connect("button-clicked", lambda *_: self._conflict(self.doc, self.doc.conflict))
         box.append(self.conflict_banner)
-        # Entwurf-Banner: zwei Knoepfe (Wiederherstellen / Verwerfen) - Adw.Banner kann nur einen
+        # Entwurf-Banner: zwei Knoepfe (Wiederherstellen / Verwerfen) - Adw.Banner kann nur einen; gezeichnet wie
+        # Adw.Banner (CSS-Namen banner > revealer > widget: Farben von libadwaita, hell wie dunkel), "Verwerfen" flach
         self.copy_rev = Gtk.Revealer(transition_type=Gtk.RevealerTransitionType.SLIDE_DOWN)
-        bar = Gtk.Box(spacing=8, margin_start=12, margin_end=12, margin_top=6, margin_bottom=6)
+        bar = BannerRow(spacing=8)
         bar.add_css_class("hk-draft-banner")
-        self.copy_label = Gtk.Label(xalign=0, hexpand=True, wrap=True)
+        self.copy_label = Gtk.Label(xalign=0, hexpand=True, wrap=True, margin_start=6)
         bar.append(self.copy_label)
         self.copy_restore = Gtk.Button(label=pgettext("draft", "Restore"), valign=Gtk.Align.CENTER)
         self.copy_restore.add_css_class("suggested-action")
         self.copy_restore.connect("clicked", lambda *_: self._copy_action(True))
         self.copy_discard = Gtk.Button(label=pgettext("draft", "Discard"), valign=Gtk.Align.CENTER)
-        self.copy_discard.add_css_class("destructive-action")
+        self.copy_discard.add_css_class("flat")
         self.copy_discard.connect("clicked", lambda *_: self._copy_action(False))
         bar.append(self.copy_restore)
         bar.append(self.copy_discard)
         self.copy_rev.set_child(bar)
-        box.append(self.copy_rev)
+        frame = BannerBox()
+        frame.append(self.copy_rev)
+        box.append(frame)
         self.copy_shown = None
         return box
 
@@ -673,12 +723,16 @@ class PageView(Gtk.Box):
                 _("⚠ {name} just changed this page. Your latest changes are not saved yet.").format(name=doc.conflict_by)))
         else:
             self.conflict_banner.set_title(GLib.markup_escape_text(_("Page changed elsewhere")))
-        self.conflict_banner.set_revealed(doc.conflict is not None and self._conflict_dlg is None)
-        cps = doc.local_copies() if doc.fetched else []
+        gone = self.no_access
+        self.conflict_banner.set_revealed(doc.conflict is not None and self._conflict_dlg is None and not gone)
+        # lokale Kopie: "Wiederherstellen" nur, wenn ich (noch) bearbeiten darf - bei Nur-Lesen bleibt "Verwerfen"
+        # (der Text stand im Dialog zum Kopieren); ohne Zugriff kein Hinweis
+        cps = doc.local_copies() if doc.fetched and not gone else []
         self.copy_shown = cps[0][0] if cps else None
         if cps:
             d = cps[0][1]
             self.copy_label.set_label(_("Unsaved changes from {time}").format(time=date_time_text(d.get("time"))))
+        self.copy_restore.set_visible(not doc.read_only)
         self.copy_rev.set_reveal_child(bool(cps))
 
     def _copy_action(self, restore):

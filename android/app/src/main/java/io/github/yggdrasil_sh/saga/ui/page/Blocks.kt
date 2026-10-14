@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -261,8 +262,11 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
                 when (style) {
                     "checklist" -> {
                         val label = InlineHtml.plain(content).ifBlank { stringResource(R.string.placeholder_list_item) }
+                        // G8: Lesen/Kommentieren -> sichtbar gesperrt (onSurface ~45 %, auch dunkel gut erkennbar)
+                        val dim = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)
                         Checkbox(                                    // 48 dp Trefferflaeche; TalkBack liest den Punkt mit
                             checked = checked, onCheckedChange = { ed.toggleChecked(itemPath) }, enabled = ed.editable && obj != null,
+                            colors = CheckboxDefaults.colors(disabledCheckedColor = dim, disabledUncheckedColor = dim),
                             modifier = Modifier.semantics { contentDescription = label },
                         )
                     }

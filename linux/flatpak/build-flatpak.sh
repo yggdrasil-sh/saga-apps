@@ -22,6 +22,15 @@ W=$(mktemp -d "${TMPDIR:-/tmp}/saga-flatpak.XXXXXX")
 trap 'rm -rf "$W"' EXIT
 flatpak-builder --user --arch="$ARCH" --default-branch="$BRANCH" --install-deps-from=flathub \
   --force-clean --disable-rofiles-fuse --state-dir="$W/state" --repo="$W/repo" "$W/build" "$MANIFEST"
+# Farb-Emoji-Schrift: Seitensymbole, Callouts und Hinweise sind Emoji. Die GNOME-Laufzeit bringt Noto Color Emoji mit
+# (share/fonts/noto-emoji) - fehlt sie in einer neuen Laufzeit-Version, hier abbrechen statt Ersatzkaestchen auszuliefern
+# (die App zeigt fuer nicht darstellbare Seitensymbole zusaetzlich ein einfarbiges Ersatzsymbol).
+RV=$(sed -n "s/^runtime-version: *'\{0,1\}\([^']*\)'\{0,1\}.*/\1/p" "$MANIFEST")
+RT=$(flatpak --user info --show-location "org.gnome.Platform/$ARCH/$RV" 2>/dev/null || flatpak info --show-location "org.gnome.Platform/$ARCH/$RV")
+ls "$RT"/files/share/fonts/*/*olor*moji*.ttf >/dev/null 2>&1 || {
+  echo "org.gnome.Platform//$RV enthaelt keine Farb-Emoji-Schrift (share/fonts/*/NotoColorEmoji.ttf) - Manifest um ein Schrift-Modul ergaenzen" >&2
+  exit 1
+}
 mkdir -p dist
 OUT=dist/saga-$V-$ARCH.flatpak
 flatpak build-bundle --arch="$ARCH" --runtime-repo="$FLATHUB" "$W/repo" "$OUT" "$ID" "$BRANCH"

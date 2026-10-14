@@ -58,9 +58,13 @@ object ShareLogic {
 
     fun canSearch(q: String): Boolean = q.trim().length >= MIN_QUERY
 
-    /** Hilfetext am Suchfeld */
+    /** Hilfetext am Suchfeld - nur bei 1-2 eingegebenen Zeichen (G5), sonst keiner */
     @StringRes
-    fun searchHint(st: ShareState): Int = if (st.scope) R.string.share_search_hint_scope else R.string.share_search_hint
+    fun searchHint(st: ShareState, query: String): Int? {
+        val n = query.trim().length
+        if (n == 0 || n >= MIN_QUERY) return null
+        return if (st.scope) R.string.share_search_hint_scope else R.string.share_search_hint
+    }
 
     /** Eigene Gruppen als Chips - nur bei leerem Suchfeld */
     fun chipsVisible(st: ShareState, query: String): Boolean = st.groups.isNotEmpty() && query.isBlank() && st.shareable

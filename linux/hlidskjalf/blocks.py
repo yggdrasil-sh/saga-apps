@@ -569,7 +569,7 @@ class BlockKit:
                     self.synced(holder[0])                     # die Ansicht zeigt den neuen Stand schon
                 self.editor.text_changed()
             dv = DatabaseView(self.view.win, d["db"], view_id=d.get("view"), local_views=d.get("views"), embedded=True,
-                              on_local_views=save_views)
+                              on_local_views=save_views, host_locked=self.editor.locked)
             holder.append(dv)
             return dv
         if t == "tasks":

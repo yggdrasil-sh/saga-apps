@@ -357,21 +357,32 @@ enum ShareLogic {
 
     static func isOwnerOnlyBlock(_ type: String, foreign: Bool) -> Bool { foreign && ownerOnlyBlocks.contains(type) }
 
-    /// Verweise auf Seiten ohne Zugriff im Inline-HTML -> <na>🔒 Text</na> (ohne Link, gedaempft angezeigt)
-    static func markMasked(_ html: String) -> String {
+    /// Verweise auf Seiten ohne Zugriff im Inline-HTML -> <na>🔒 Text</na> (ohne Link, gedaempft angezeigt).
+    /// `keepRef` (Editor): <na href="/notes#12">🔒 Text</na> - die Seiten-ID bleibt erhalten, damit beim Speichern
+    /// wieder genau der gespeicherte Verweis (href + Text) entsteht (siehe `noAccessPrefix`/`unmasked`).
+    static func markMasked(_ html: String, keepRef: Bool = false) -> String {
         guard html.contains("/notes#") else { return html }
         var out = html
         for t in noAccessTexts {
             let esc = NSRegularExpression.escapedPattern(for: t)
-            guard let re = try? NSRegularExpression(pattern: #"<a\s[^>]*href="/notes#[0-9]+"[^>]*>"# + esc + "</a>") else { continue }
-            out = re.stringByReplacingMatches(in: out, range: NSRange(out.startIndex..., in: out), withTemplate: "<na>🔒 " + NSRegularExpression.escapedTemplate(for: t) + "</na>")
+            guard let re = try? NSRegularExpression(pattern: #"<a\s[^>]*href="/notes#([0-9]+)"[^>]*>"# + esc + "</a>") else { continue }
+            let open = keepRef ? #"<na href="/notes#$1">"# : "<na>"
+            out = re.stringByReplacingMatches(in: out, range: NSRange(out.startIndex..., in: out), withTemplate: open + noAccessPrefix + NSRegularExpression.escapedTemplate(for: t) + "</na>")
         }
         return out
+    }
+    /// Vorangestelltes Schloss vor "Seite ohne Zugriff" (nur Darstellung)
+    static let noAccessPrefix = "🔒 "
+    /// Text eines maskierten Verweises zurueck in den gespeicherten Wortlaut (ohne Schloss)
+    static func unmasked(_ shown: String) -> String {
+        shown.hasPrefix(noAccessPrefix) ? String(shown.dropFirst(noAccessPrefix.count)) : shown
     }
 
     // MARK: Teilen
 
     static func searchReady(_ q: String) -> Bool { q.trimmingCharacters(in: .whitespacesAndNewlines).count >= minQuery }
+    /// Hinweis "Mindestens 3 Zeichen." nur bei 1-2 eingegebenen Zeichen (leer: kein Hinweis)
+    static func minHint(_ q: String) -> Bool { (1..<minQuery).contains(q.trimmingCharacters(in: .whitespacesAndNewlines).count) }
 
     static func parseTargets(_ d: Data) -> [ShareTarget] {
         guard let j = ShareJSON.obj(d) else { return [] }

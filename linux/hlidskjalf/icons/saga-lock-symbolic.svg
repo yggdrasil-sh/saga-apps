@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Saga: Symbol "kein Zugriff / gesperrt" (Schloss) im Stil der Adwaita-Symbole, 16x16, nur Flaechen (GTK faerbt sie ein) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <g fill="#222222">
+    <path fill-rule="evenodd" d="M 8 1 C 5.79 1 4 2.79 4 5 L 4 7 L 6 7 L 6 5 C 6 3.9 6.9 3 8 3 C 9.1 3 10 3.9 10 5 L 10 7 L 12 7 L 12 5 C 12 2.79 10.21 1 8 1 Z"/>
+    <path fill-rule="evenodd" d="M 4 7 C 2.9 7 2 7.9 2 9 L 2 13 C 2 14.1 2.9 15 4 15 L 12 15 C 13.1 15 14 14.1 14 13 L 14 9 C 14 7.9 13.1 7 12 7 Z M 8 9.5 C 8.83 9.5 9.5 10.17 9.5 11 C 9.5 11.56 9.19 12.04 8.75 12.3 L 8.75 13 L 7.25 13 L 7.25 12.3 C 6.81 12.04 6.5 11.56 6.5 11 C 6.5 10.17 7.17 9.5 8 9.5 Z"/>
+  </g>
+</svg>
