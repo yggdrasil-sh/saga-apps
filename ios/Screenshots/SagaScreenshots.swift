@@ -54,6 +54,45 @@ final class SagaScreenshots: XCTestCase {
         XCUIDevice.shared.orientation = .portrait
     }
 
+    /// Regression: "Bild aus Immich" in der Leiste ueber der Tastatur darf die App nicht beenden (1.2.0 stuerzte ab).
+    /// SAGA_TOOLBAR_PAGE = ID einer Seite mit Absatz; die App fokussiert den ersten Absatz (-hkFocusFirst).
+    func testIPhoneKeyboardImmich() throws {
+        guard let page = env["SAGA_TOOLBAR_PAGE"], !page.isEmpty else { throw XCTSkip("SAGA_TOOLBAR_PAGE fehlt") }
+        app.terminate()
+        app.launchArguments += ["-hkOpen", page, "-hkFocusFirst", "YES"]
+        app.launch()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 20), "Tastatur erscheint nicht")
+        settle()
+        let immich = app.buttons["Bild aus Immich"].firstMatch
+        XCTAssertTrue(immich.waitForExistence(timeout: 5), "Knopf fehlt in der Tastaturleiste")
+        shot("toolbar-vorher")
+        immich.tap()
+        sleep(3)
+        shot("toolbar-nachher")
+        XCTAssertEqual(app.state, .runningForeground, "App nach Tipp auf \"Bild aus Immich\" beendet")
+        XCTAssertTrue(app.navigationBars["Immich"].waitForExistence(timeout: 10), "Immich-Auswahl nicht geoeffnet")
+        app.buttons["Abbrechen"].firstMatch.tap()
+        sleep(2)
+        XCTAssertEqual(app.state, .runningForeground)
+        // Fotos aus derselben Leiste (oeffnet die Auswahl der Seite)
+        app.terminate(); app.launch()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 20), "Tastatur erscheint nicht (2)")
+        settle()
+        let photos = app.buttons["Fotos"].firstMatch
+        XCTAssertTrue(photos.waitForExistence(timeout: 5), "Fotos-Knopf fehlt in der Tastaturleiste")
+        photos.tap()
+        sleep(4)
+        shot("toolbar-fotos")
+        XCTAssertEqual(app.state, .runningForeground, "App nach Tipp auf \"Fotos\" beendet")
+        // erstes Foto waehlen und uebernehmen (Auswahl laeuft ausser Haus: per Bildschirmposition) -> Bild nach dem 1. Absatz
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.17, dy: 0.43)).tap()
+        sleep(1)
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.905, dy: 0.145)).tap()
+        sleep(8)
+        shot("toolbar-fotos-eingefuegt")
+        XCTAssertEqual(app.state, .runningForeground, "App nach Uebernahme des Fotos beendet")
+    }
+
     // MARK: - Hilfen
 
     private var dark: Bool { env["SAGA_SHOT_MODE"] == "dark" }

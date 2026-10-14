@@ -60,6 +60,9 @@ final class PageEditor: ObservableObject {
     @Published var embedFor: String?                 // "/Einbetten" -> Adresse abfragen
     @Published var fileFor: String?                  // "/Datei" -> Datei waehlen und hochladen
     @Published var picked: [PhotosPickerItem] = []
+    /// Block, nach dem Bilder aus einer Auswahl (Fotos/Immich) landen: beim Oeffnen gemerkt, weil das Sheet den
+    /// Tastaturfokus nimmt (ed.focus -> nil); nach jedem Bild das Bild selbst (mehrere Fotos in Reihenfolge)
+    var imageAnchor: String?
     let doc: PageDoc
     weak var store: Store?
     private var saveTask: Task<Void, Never>?
@@ -468,8 +471,8 @@ extension PageEditor {
         guard let (arr, i) = locate(id), let b = arr[i] as? NSMutableDictionary else { return }
         (b["data"] as? NSMutableDictionary)?["text"] = ""
         if type == "paragraph" { focus = nil; changed(); DispatchQueue.main.async { self.focus = id }; return }
-        if type == "image" { focus = id; changed(); pickImage = true; return }      // Bild kommt nach dem (leeren) Absatz
-        if type == "immich_image" { focus = id; changed(); pickImmich = true; return }
+        if type == "image" { focus = id; changed(); openPhotos(); return }      // Bild kommt nach dem (leeren) Absatz
+        if type == "immich_image" { focus = id; changed(); openImmich(); return }
         if type == "table" {
             arr.replaceObject(at: i, with: NSMutableDictionary(dictionary: ["id": id, "type": "table", "data": NSMutableDictionary(dictionary: ["withHeadings": true, "content": [["", ""], ["", ""]]])]))
             focus = nil; changed(); return
@@ -576,9 +579,12 @@ extension PageEditor {
     func insertImageURL(_ url: String) {
         let b = NSMutableDictionary(dictionary: ["id": newBlockID(), "type": "image",
             "data": NSMutableDictionary(dictionary: ["file": NSMutableDictionary(dictionary: ["url": url]), "caption": "", "withBorder": false, "stretched": false, "withBackground": false])])
-        insert(b, after: focusedBlock)
+        imageAnchor = insert(b, after: focusedBlock ?? imageAnchor)    // ohne Fokus (Sheet war offen): gemerkter Block; fehlt er, ans Ende
         focus = nil
     }
+    /// Auswahl oeffnen und dabei die Einfuegestelle merken (vor dem Fokusverlust durch das Sheet)
+    func openPhotos() { imageAnchor = focusedBlock; pickImage = true }
+    func openImmich() { imageAnchor = focusedBlock; if !pickImmich { pickImmich = true } }
 
     func insertImages(from providers: [NSItemProvider]) {
         for p in providers where p.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
@@ -590,20 +596,19 @@ extension PageEditor {
     }
 }
 
-/// Knoepfe: Bild aus der Zwischenablage (System-Einfuegeknopf, ohne Rueckfrage) und aus Fotos
+/// Knoepfe: Bild aus der Zwischenablage (System-Einfuegeknopf, ohne Rueckfrage), aus Fotos und aus Immich.
+/// Steht in der Leiste ueber der Tastatur (.toolbar): die liegt AUSSERHALB von .environmentObject(ed) der Seite,
+/// deshalb wird der Editor ausdruecklich uebergeben (als @EnvironmentObject stuerzte der Tipp ab, 1.2.0).
+/// Fotos und Immich laufen ueber die Auswahl der Seite (ed.pickImage / ed.pickImmich), nicht ueber eigene Sheets hier.
 struct ImageInsertButtons: View {
-    @EnvironmentObject var ed: PageEditor
-    @State private var picks: [PhotosPickerItem] = []
+    @ObservedObject var ed: PageEditor
     var body: some View {
         #if os(iOS)
         PasteButton(supportedContentTypes: [.image]) { providers in ed.insertImages(from: providers) }
             .labelStyle(.iconOnly).buttonBorderShape(.circle)
         #endif
-        PhotosPicker(selection: $picks, maxSelectionCount: 5, matching: .images) { Image(systemName: "photo") }
-            .onChange(of: picks) { _, items in
-                Task { for it in items { if let d = try? await it.loadTransferable(type: Data.self) { await ed.insertImage(d) } }; picks = [] }
-            }
-        Button { ed.pickImmich = true } label: { Image(systemName: "photo.on.rectangle.angled") }.accessibilityLabel("Bild aus Immich")
+        Button { ed.openPhotos() } label: { Image(systemName: "photo") }.accessibilityLabel("Fotos")
+        Button { ed.openImmich() } label: { Image(systemName: "photo.on.rectangle.angled") }.accessibilityLabel("Bild aus Immich")
     }
 }
 

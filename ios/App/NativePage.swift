@@ -652,7 +652,7 @@ struct NativePageScreen: View {
             ToolbarItemGroup(placement: .keyboard) {
                 BlockTypeMenu(title: "Neu", icon: "plus") { t, l in ed.insert(PageEditor.make(t, level: l == 0 ? 2 : l), after: ed.focusedBlock) }
                 BlockTypeMenu(title: "Typ", icon: "textformat") { t, l in if let b = ed.focusedBlock { ed.convert(b, to: t, level: l == 0 ? 2 : l) } }
-                ImageInsertButtons()
+                ImageInsertButtons(ed: ed)                  // Leiste liegt ausserhalb von .environmentObject(ed): ausdruecklich uebergeben
                 Button { ed.format("bold") } label: { Image(systemName: "bold") }.accessibilityLabel("Fett")
                 Button { ed.format("italic") } label: { Image(systemName: "italic") }.accessibilityLabel("Kursiv")
                 Button { ed.format("underline") } label: { Image(systemName: "underline") }.accessibilityLabel("Unterstrichen")
