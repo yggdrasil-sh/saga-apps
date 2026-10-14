@@ -89,6 +89,8 @@ for part in $PARTS; do
       HK_OUT="$SRC/build/shots" app_test dialoge.py
       HK_OUT="$SRC/build/shots" app_test pubshots.py
       HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test pubshots.py es_ES.UTF-8
+      HK_OUT="$SRC/build/shots" app_test shareshots.py
+      HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test shareshots.py es_ES.UTF-8
       ;;
     *) echo "unbekannter Teil: $part" >&2; FAIL=$((FAIL + 1)) ;;
   esac

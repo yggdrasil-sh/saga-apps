@@ -1,6 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.common
 
 import androidx.compose.ui.platform.LocalLocale
+import android.icu.text.RelativeDateTimeFormatter
+import android.icu.util.ULocale
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -191,6 +193,23 @@ fun epochDay(v: Double?): String {
         java.time.Instant.ofEpochMilli((it * 1000).toLong()).atZone(ZoneId.systemDefault()).toLocalDate()
             .format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale))
     } ?: "–"
+}
+
+/** "jetzt" / "vor 5 Minuten" / "5 minutes ago" / "hace 5 minutos" (Sekunden seit 1970; in der App-Sprache) */
+@Composable
+fun relativeTime(epochSec: Double): String {
+    val locale = appLocale()
+    val d = System.currentTimeMillis() / 1000.0 - epochSec
+    val f = RelativeDateTimeFormatter.getInstance(ULocale.forLocale(locale))
+    val last = RelativeDateTimeFormatter.Direction.LAST
+    return when {
+        d < 10 -> f.format(RelativeDateTimeFormatter.Direction.PLAIN, RelativeDateTimeFormatter.AbsoluteUnit.NOW)
+        d < 60 -> f.format(d.toInt().toDouble(), last, RelativeDateTimeFormatter.RelativeUnit.SECONDS)
+        d < 3600 -> f.format((d / 60).toInt().toDouble(), last, RelativeDateTimeFormatter.RelativeUnit.MINUTES)
+        d < 86400 -> f.format((d / 3600).toInt().toDouble(), last, RelativeDateTimeFormatter.RelativeUnit.HOURS)
+        d < 7 * 86400 -> f.format((d / 86400).toInt().toDouble(), last, RelativeDateTimeFormatter.RelativeUnit.DAYS)
+        else -> epochDay(epochSec)
+    }
 }
 
 /** Farbe aus "#rrggbb" */

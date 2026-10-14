@@ -12,6 +12,10 @@ mit dem Funktionsumfang der Mac-App:
 - Seiten veröffentlichen (Server ab 1.2): Seitenmenü „Veröffentlichen …“ – öffentlicher Name, Adresse, Unterseiten,
   Suchmaschinen, Profilseite, Link kopieren/öffnen, beenden; Hinweis „Öffentlich“ in der Kopfleiste;
   Einstellungen → Konto → „Öffentlicher Name“
+- Teilen und Kommentare (Server ab 1.3): „Teilen …“ (Personen ab 3 Zeichen, eigene Gruppen, Rollen Lesen/Kommentieren/
+  Bearbeiten, Freigaben der Elternseiten), Bereich „Mit mir geteilt“ in der Seitenleiste, fremde Seiten mit Etikett
+  „Geteilt von … · Du kannst …“ (Lesen/Kommentieren schreibgeschützt), Kommentare als Seitenleiste rechts (Zahl am
+  Block, Antworten, Erledigt, Erledigte zeigen), Konflikt „… hat diese Seite gerade geändert“, Zugriff verloren
 - Aufgaben, Termine (CalDAV), Dienste, Befehlspalette (Strg+K), Einstellungen
 - Bleibt angemeldet: Geräte-Schlüssel im GNOME-Schlüsselbund (libsecret), Sitzung wird still erneuert
 - GNOME-Suche (Seiten in der Aktivitäten-Übersicht), Dock-Aktionen „Neue Seite“ / „Neue Aufgabe“
@@ -116,9 +120,11 @@ PYTEST_ADDOPTS="-k konflikt" sh tests/run-container.sh unit
 ```
 
 Kein echter Server und keine Zugangsdaten nötig: `tests/mockserver.py` ersetzt den Server-Zugriff (Seiten, Datenbank,
-Aufgaben, Kopplung, Veröffentlichen, 409, Verzögerungen und Ausfälle). Die pytest-Tests (`tests/test_*.py`) prüfen u. a. Konflikte,
-Entwürfe, Schließen während des Speicherns, Rückruf-Warteschlangen, Schreib-Reihenfolge, Kopplung/Serverwechsel,
-Tastatur-Bedienung, den Teil-Neuaufbau des Editors und das Veröffentlichen (`test_publish.py`). Bildschirmfotos (`shots.py`, `dialoge.py`) landen in `build/shots/`.
+Aufgaben, Kopplung, Veröffentlichen, Teilen und Kommentare, 409, Verzögerungen und Ausfälle). Die pytest-Tests (`tests/test_*.py`)
+prüfen u. a. Konflikte, Entwürfe, Schließen während des Speicherns, Rückruf-Warteschlangen, Schreib-Reihenfolge,
+Kopplung/Serverwechsel, Tastatur-Bedienung, den Teil-Neuaufbau des Editors, das Veröffentlichen (`test_publish.py`) sowie
+Teilen und Kommentare (`test_sharing.py`, `test_comments.py`). Bildschirmfotos (`shots.py`, `dialoge.py`, `pubshots.py`,
+`shareshots.py`) landen in `build/shots/`.
 
 ### Auf dem Testrechner
 

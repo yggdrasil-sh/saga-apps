@@ -60,6 +60,15 @@ final class PageEditor: ObservableObject {
     @Published var embedFor: String?                 // "/Einbetten" -> Adresse abfragen
     @Published var fileFor: String?                  // "/Datei" -> Datei waehlen und hochladen
     @Published var picked: [PhotosPickerItem] = []
+    // Kommentare (1.3): Zahl am Block (offene Unterhaltungen), ungelesen, Kommentieren erlaubt, Block zum Kommentieren
+    @Published var commentCounts: [String: Int] = [:]
+    @Published var commentUnread: Set<String> = []
+    @Published var canComment = false
+    /// Rolle Kommentieren: Tippen auf einen Absatz oeffnet die Kommentare dazu (Editor ist schreibgeschuetzt)
+    @Published var tapToComment = false
+    /// Fremde Seite: Aufgaben/Kalender/Immich nur als Platzhalter
+    @Published var foreign = false
+    @Published var commentBlock: String?
     /// Block, nach dem Bilder aus einer Auswahl (Fotos/Immich) landen: beim Oeffnen gemerkt, weil das Sheet den
     /// Tastaturfokus nimmt (ed.focus -> nil); nach jedem Bild das Bild selbst (mehrere Fotos in Reihenfolge)
     var imageAnchor: String?
@@ -79,6 +88,13 @@ final class PageEditor: ObservableObject {
             guard let self, !Task.isCancelled, let store = self.store else { return }
             await self.doc.save(store)
         }
+    }
+    /// Rolle/Zaehler der Seite uebernehmen (nur Geaendertes setzen: jede Aenderung zeichnet die Bloecke neu)
+    func applyAccess(_ a: PageAccess) {
+        if commentCounts != a.commentCounts { commentCounts = a.commentCounts }
+        if canComment != (a.commentsSupported && a.canComment) { canComment = a.commentsSupported && a.canComment }
+        if tapToComment != (a.commentsSupported && a.role == .comment) { tapToComment = a.commentsSupported && a.role == .comment }
+        if foreign != a.foreign { foreign = a.foreign }
     }
     /// Sofort speichern (Verlassen, Hintergrund, Beenden) und warten, bis es durch ist
     func flush() async { saveTask?.cancel(); if let store { await doc.save(store) } }
@@ -435,7 +451,7 @@ struct EditText: View {
             .font(font)
             .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
             .contentShape(Rectangle())
-            .onTapGesture { if !ed.locked { ed.focus = key } }
+            .onTapGesture { if !ed.locked { ed.focus = key } else if ed.tapToComment { ed.commentBlock = blockOf(key) } }
         }
     }
     private func blockOf(_ k: String) -> String { String(k.split(separator: "/").first ?? "") }
@@ -571,7 +587,7 @@ extension PageEditor {
             data = j; name = "bild.jpg"
         }
         do {
-            let url = try await store.upload(data, name: name)
+            let url = try await store.upload(data, name: name, note: doc.uploadNote)
             insertImageURL(url)
         } catch { doc.error = String(localized: "Bild nicht hochgeladen: \(error.localizedDescription)") }
     }

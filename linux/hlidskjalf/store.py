@@ -44,6 +44,12 @@ class Store(GObject.Object):
         self.pages = []
         self.archived = []
         self.by_id = {}
+        # Teilen (Server ab 1.3): fremde Seiten, die ich sehen darf (GET api/shared, flach; root=True = oberste geteilte
+        # Seite). Getrennt von den eigenen (by_id), damit Favoriten, Zuletzt, Verschieben ... nur eigene Seiten kennen.
+        self.shared = []
+        self.shared_by_id = {}
+        self.share_api = None             # Server kennt Teilen? None = noch unbekannt, False = aelterer Server (404)
+        self.share_off = False            # Teilen abgeschaltet, obwohl mir etwas freigegeben ist -> Hinweis
         self.tasks = []
         self.done_tasks = []
         self.events = []
@@ -61,6 +67,9 @@ class Store(GObject.Object):
         c = self.cached("api/notes")
         if isinstance(c, list):
             self._set_pages(c)
+        c = self.cached("api/shared")
+        if isinstance(c, list):
+            self._set_shared(c)
 
     # --- Zwischenspeicher --------------------------------------------------------------------
     @staticmethod
@@ -116,6 +125,8 @@ class Store(GObject.Object):
             bg(client.forget_server, old, tok, True, error=lambda e: None)
         self.clear_cache()
         self.pages, self.archived, self.by_id, self.tasks, self.done_tasks, self.events = [], [], {}, [], [], []
+        self._set_shared([])
+        self.share_api, self.share_off = None, False
         self.recent = []
         for k in ("recent", "home_page", "expanded"):
             config.settings.set(k, None)
@@ -169,6 +180,8 @@ class Store(GObject.Object):
         def fin(_):
             self.clear_cache()
             self.pages, self.archived, self.by_id, self.tasks, self.done_tasks, self.events = [], [], {}, [], [], []
+            self._set_shared([])
+            self.share_api, self.share_off = None, False
             self.recent = []
             config.settings.set("recent", None)
             self.emit("pages-changed")
@@ -185,6 +198,41 @@ class Store(GObject.Object):
         self.pages = [p for p in allp if not p.get("archived")]
         arch = {p["id"] for p in allp if p.get("archived")}
         self.archived = [p for p in allp if p.get("archived") and not (p.get("parent_id") in arch)]
+
+    def _set_shared(self, lst):
+        lst = [p for p in (lst or []) if isinstance(p, dict) and p.get("id") is not None]
+        self.shared = lst
+        self.shared_by_id = {p["id"]: p for p in lst}
+
+    def meta(self, pid):
+        """Seiten-Eintrag (eigene oder mit mir geteilte Seite) oder None"""
+        return self.by_id.get(pid) or self.shared_by_id.get(pid)
+
+    def is_foreign(self, pid):
+        """Seite eines anderen Kontos, die mit mir geteilt ist?"""
+        return pid not in self.by_id and pid in self.shared_by_id
+
+    def visible(self, pid):
+        return pid in self.by_id or pid in self.shared_by_id
+
+    def shared_roots(self):
+        return [p for p in self.shared if p.get("root")]
+
+    def shared_children(self, pid):
+        par = self.shared_by_id.get(pid)
+        if is_db(par):
+            return []
+        return [p for p in self.shared if p.get("parent_id") == pid and not p.get("root")]
+
+    def shared_unread(self):
+        """Anzahl mit mir geteilter Seiten mit neuen Kommentaren"""
+        return sum(1 for p in self.shared if p.get("unread"))
+
+    def set_unread(self, pid, on):
+        p = self.meta(pid)
+        if p is not None and bool(p.get("unread")) != bool(on):
+            p["unread"] = bool(on)
+            self.emit("pages-changed")
 
     def page(self, pid):
         p = self.by_id.get(pid)
@@ -211,9 +259,9 @@ class Store(GObject.Object):
         return [p for p in self.pages if p.get("pinned")]
 
     def path(self, pid):
-        out, cur, n = [], (self.by_id.get(pid) or {}).get("parent_id"), 0
-        while cur is not None and cur in self.by_id and n < 20:
-            p = self.by_id[cur]
+        out, cur, n = [], (self.meta(pid) or {}).get("parent_id"), 0
+        while cur is not None and self.meta(cur) is not None and n < 20:
+            p = self.meta(cur)
             out.insert(0, p)
             cur, n = p.get("parent_id"), n + 1
         return out
@@ -265,17 +313,25 @@ class Store(GObject.Object):
                         raise
             pages = self.get_cached("api/notes")
             t = client.get("api/tasks")
-            return pages, t, acct
+            return pages, t, acct, self._fetch_shared()
 
         def finish(ok, r):
             self._refreshing = False
             self.loading = False
             stale = srv != config.settings.server            # Server gewechselt: Ergebnis gehoert zum alten
             if ok and not stale:
-                pages, t, acct = r
+                pages, t, acct, (sh, sh_api, sh_off) = r
                 if acct and isinstance(acct, str) and session == self.session_gen:
                     self.set_account(acct, srv)
                 self._set_pages(pages)
+                if sh is not None:
+                    # nicht mehr mit mir geteilt: zwischengespeicherte Inhalte verwerfen (offline nicht mehr lesbar)
+                    keep = {p.get("id") for p in sh if isinstance(p, dict)} | set(self.by_id)
+                    for gid in set(self.shared_by_id) - keep:
+                        self.drop_cache(f"api/notes/{gid}")
+                        self.drop_cache(f"api/notes/{gid}/rows")
+                    self._set_shared(sh)
+                    self.share_api, self.share_off = sh_api, sh_off
                 self.tasks, self.done_tasks = t.get("open", []), t.get("done", []) or []
                 self._drop_pending_deleted()
                 self.needs_login = False
@@ -295,6 +351,29 @@ class Store(GObject.Object):
                 self.refresh(done=(lambda: [cb() for cb in nxt]) if nxt else None)
 
         bg(work, done=lambda r: finish(True, r), error=lambda e: finish(False, e))
+
+    def _fetch_shared(self):
+        """Hintergrund: "Mit mir geteilt" -> (liste | None = unveraendert lassen, Server kennt Teilen?, Hinweis "abgeschaltet"?).
+        Aeltere Server (404): leer, kein Teilen. Ist nichts geteilt, fragt api/share/info, ob Teilen abgeschaltet ist,
+        obwohl mir etwas freigegeben wurde (dann zeigt die Seitenleiste einen Hinweis statt still nichts)."""
+        try:
+            lst = self.get_cached("api/shared")
+        except APIError as e:
+            if e.code == 401:
+                raise
+            if e.code == 404:
+                self.drop_cache("api/shared")
+                return [], False, False
+            return None, self.share_api, self.share_off
+        lst = lst if isinstance(lst, list) else []
+        off = False
+        if not lst:
+            try:
+                info = client.get("api/share/info") or {}
+                off = info.get("enabled", True) is False and int(info.get("received") or 0) > 0
+            except (APIError, TypeError, ValueError):
+                off = self.share_off
+        return lst, True, off
 
     def refresh_if_stale(self, seconds=20):
         """Fokuswechsel: nur auffrischen, wenn die letzte Auffrischung laenger her ist"""

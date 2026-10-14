@@ -90,7 +90,9 @@ struct VersionsSheet: View {
     let restored: () -> Void
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
-    struct V: Decodable, Identifiable { let id: Int; let title: String; let created: Double }
+    struct V: Decodable, Identifiable { let id: Int; let title: String; let created: Double; var author: A? }
+    /// Wer die Fassung geschrieben hat (1.3; nil = du selbst)
+    struct A: Decodable { let name: String? }
     struct P: Decodable { let title: String; let text: String }
     @State private var list: [V] = []
     @State private var sel: Int?
@@ -109,6 +111,7 @@ struct VersionsSheet: View {
                     VStack(alignment: .leading) {
                         Text(Date(timeIntervalSince1970: v.created).formatted(date: .abbreviated, time: .shortened)).font(.subheadline)
                         Text(v.title.isEmpty ? String(localized: "Unbenannt") : v.title).font(.caption).foregroundStyle(.secondary)
+                        if let n = v.author?.name, !n.isEmpty { Text("von \(n)").font(.caption).foregroundStyle(.secondary) }
                     }.tag(v.id)
                 }
                 .frame(width: compact ? nil : 230, height: compact ? 220 : nil)

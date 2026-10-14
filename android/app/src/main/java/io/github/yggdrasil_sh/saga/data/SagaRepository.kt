@@ -9,6 +9,8 @@ import io.github.yggdrasil_sh.saga.auth.Pkce
 import io.github.yggdrasil_sh.saga.ui.page.PageBackend
 import io.github.yggdrasil_sh.saga.ui.page.PageEditor
 import io.github.yggdrasil_sh.saga.ui.publish.PublishBackend
+import io.github.yggdrasil_sh.saga.ui.comments.CommentBackend
+import io.github.yggdrasil_sh.saga.ui.share.ShareBackend
 import io.github.yggdrasil_sh.saga.util.ServerUrl
 import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.util.UiTextException
@@ -92,7 +94,7 @@ class SagaRepository(
     private val filesDir: File,
     /** Sprache der App-Oberflaeche fuer Accept-Language */
     language: () -> String = { "" },
-) : PageBackend, PublishBackend {
+) : PageBackend, PublishBackend, ShareBackend, CommentBackend {
     val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
@@ -236,6 +238,7 @@ class SagaRepository(
         try {
             setPages(decode<List<PageMeta>>(api.get("api/notes")))
             error.value = null
+            loadShared()
             if (serverVersion.value == null) checkVersion()
             loadTasks()
             loadTodayEvents()
@@ -253,7 +256,11 @@ class SagaRepository(
 
     private fun setPages(all: List<PageMeta>) {
         pages.value = all.filter { !it.archived }
+        ownIds = all.map { it.id }.toSet()
     }
+
+    /** IDs aller eigenen Seiten (auch archivierte; GET api/notes) - null = noch nicht geladen */
+    @Volatile private var ownIds: Set<Int>? = null
 
     /** Server-Version (oeffentlich, ohne Anmeldung); aeltere Server ohne /api/version: nichts anzeigen */
     suspend fun checkVersion() {
@@ -335,7 +342,10 @@ class SagaRepository(
     }
 
     /** Titel + Inhalt mit Revision speichern -> neue Revision. 409 = woanders geaendert, 423 = gesperrt */
-    override suspend fun savePage(id: Int, title: String, body: String?, rev: Int?): Int? {
+    override suspend fun savePage(id: Int, title: String, body: String?, rev: Int?): Int? = savePage(id, title, body, rev, false)
+
+    /** overwrite: "Meine Version behalten" nach einem Konflikt - der Server sichert die ueberschriebene Fassung als Version */
+    override suspend fun savePage(id: Int, title: String, body: String?, rev: Int?, overwrite: Boolean): Int? {
         val b = buildJsonObject {
             put("title", title)
             if (body != null) {
@@ -343,9 +353,104 @@ class SagaRepository(
                 put("format", "blocks")
             }
             if (rev != null) put("rev", rev)
+            if (overwrite) put("overwrite", true)
         }
         return decode<SaveResult>(api.patch("api/notes/$id", b)).rev
     }
+
+    // ---------------------------------------------------------------- Teilen und Kommentare (Server 1.3)
+
+    /** Mit mir geteilt: fremde Seiten (oberste mit root=true, darunter ihre Unterseiten) */
+    val sharedPages = MutableStateFlow<List<PageMeta>>(emptyList())
+
+    /** Server kennt Teilen (GET /api/shared; 404 = aelterer Server -> alles Neue ausblenden) */
+    val shareSupported = MutableStateFlow(false)
+
+    /** Teilen abgeschaltet, aber es gibt Freigaben an mich -> Hinweis in der Seitenleiste */
+    val shareOff = MutableStateFlow(false)
+
+    /** Teilen-Dialog nach dem Oeffnen dieser Seite zeigen ("über „Elternseite“" im Dialog) */
+    val openShareFor = MutableStateFlow<Int?>(null)
+
+    suspend fun loadShared() {
+        try {
+            val list = decode<List<PageMeta>>(api.get("api/shared"))
+            shareSupported.value = true
+            sharedPages.value = list.filter { !it.archived }
+            if (list.isEmpty()) {
+                val info = decode<ShareInfo>(api.get("api/share/info"))
+                shareOff.value = !info.enabled && info.received > 0
+            } else {
+                shareOff.value = false
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ApiException) {
+            if (e.code == 404) {
+                shareSupported.value = false
+                sharedPages.value = emptyList()
+                shareOff.value = false
+            }
+        } catch (_: Exception) {
+            // offline: bisherigen Stand behalten
+        }
+    }
+
+    /** Eigene Seite ist (nicht mehr) freigegeben -> Personen-Symbol im Baum */
+    fun markShared(id: Int, shared: Boolean) {
+        pages.value = pages.value.map { if (it.id == id && it.shared != shared) it.copy(shared = shared) else it }
+    }
+
+    /** Kommentare gelesen/geschrieben -> Punkt im Baum nachziehen */
+    fun markUnread(id: Int, unread: Boolean) {
+        pages.value = pages.value.map { if (it.id == id && it.unread != unread) it.copy(unread = unread) else it }
+        sharedPages.value = sharedPages.value.map { if (it.id == id && it.unread != unread) it.copy(unread = unread) else it }
+    }
+
+    private fun q(s: String): String = java.net.URLEncoder.encode(s, "UTF-8")
+
+    override suspend fun shares(id: Int): ShareState = decode(api.get("api/notes/$id/shares"))
+
+    override suspend fun putShare(id: Int, type: String, target: String, role: String): ShareState =
+        decode(api.request("PUT", "api/notes/$id/shares", buildJsonObject {
+            put("type", type)
+            put("target", target)
+            put("role", role)
+        }))
+
+    override suspend fun deleteShare(id: Int, type: String, target: String): ShareState =
+        decode(api.delete("api/notes/$id/shares?type=${q(type)}&target=${q(target)}"))
+
+    override suspend fun shareTargets(query: String): ShareTargets = decode(api.get("api/share/targets?q=${q(query)}"))
+
+    override fun shareChanged(id: Int, shared: Boolean) = markShared(id, shared)
+
+    override suspend fun comments(id: Int, resolved: Boolean): CommentsResponse =
+        decode(api.get("api/notes/$id/comments" + if (resolved) "?resolved=1" else ""))
+
+    override suspend fun addComment(id: Int, blockId: String?, threadId: Int?, body: String): CommentPosted =
+        decode(api.post("api/notes/$id/comments", buildJsonObject {
+            if (threadId != null) put("thread_id", threadId) else put("block_id", blockId.orEmpty())
+            put("body", body)
+        }))
+
+    override suspend fun editComment(cid: Int, body: String) {
+        api.patch("api/comments/$cid", buildJsonObject { put("body", body) })
+    }
+
+    override suspend fun deleteComment(cid: Int, all: Boolean) {
+        api.delete("api/comments/$cid" + if (all) "?all=1" else "")
+    }
+
+    override suspend fun resolveComment(cid: Int, resolved: Boolean) {
+        api.post("api/comments/$cid/resolve", buildJsonObject { put("resolved", resolved) })
+    }
+
+    override suspend fun commentSeen(cid: Int) {
+        api.post("api/comments/$cid/seen")
+    }
+
+    override fun unreadChanged(id: Int, unread: Boolean) = markUnread(id, unread)
 
     // ---------------------------------------------------------------- Veroeffentlichen (Server 1.2)
 
@@ -373,6 +478,7 @@ class SagaRepository(
 
     override val currentServer: String get() = settings.server.value
     override val signedOut: Boolean get() = needsLogin.value
+    override val currentAccountKey: String get() = settings.accountKey.value
 
     private val draftsLock = Any()
     private var draftsHandle: AccountDrafts? = null
@@ -475,8 +581,12 @@ class SagaRepository(
             val store = draftsForCurrent()
             val open = editors.map { it.id }.toSet()
             val list = withContext(Dispatchers.IO) { store.all() }
+            val own = ownIds
             for (d in list) {
                 if (d.id in open) continue
+                // Entwuerfe fremder (geteilter) Seiten nie still im Hintergrund hochladen: die Freigabe kann inzwischen
+                // entzogen oder auf Lesen gesetzt sein (und spaeter wiederkommen). Beim Oeffnen entscheidet der Nutzer.
+                if (!DraftSync.mayUpload(d.id, own)) continue
                 try {
                     withPageLock(d.id) { savePage(d.id, d.title, d.body, d.rev) }
                     withContext(Dispatchers.IO) { if (store.read(d.id)?.stamp == d.stamp) store.delete(d.id) }
@@ -813,6 +923,10 @@ class SagaRepository(
     private suspend fun clearLocalData() {
         api.cookies.clear()
         pages.value = emptyList()
+        ownIds = null
+        sharedPages.value = emptyList()
+        shareSupported.value = false
+        shareOff.value = false
         tasks.value = emptyList()
         doneTasks.value = emptyList()
         todayEvents.value = emptyList()

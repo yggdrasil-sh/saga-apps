@@ -144,3 +144,31 @@ row:hover .hk-reveal, row:focus .hk-reveal, row:focus-within .hk-reveal { opacit
 window:not(.hk-dark) .hk-svc-icon { box-shadow: 0 0 0 1px alpha(currentColor, 0.10); }
 window.hk-dark .hk-svc-icon { background: alpha(white, 0.9); padding: 3px; }
 window.hk-dark .hk-svc-icon .hk-svc-letter { background: none; color: alpha(black, 0.7); }
+
+
+/* Teilen + Kommentare (1.3): dezent - Etiketten statt Knoepfe, Zahl am Block nur bei offenen Unterhaltungen */
+.hk-role-pill { font-size: 0.82em; background: alpha(var(--accent-bg-color), 0.16); border-radius: 6px; padding: 1px 7px; }
+.hk-sharedby { font-size: 0.92em; }
+.hk-unread-dot { color: var(--accent-color); font-size: 0.62em; }
+.hk-badge.hk-badge-accent { background: alpha(var(--accent-bg-color), 0.28); }
+button.hk-shared-on { color: var(--accent-color); }
+headerbar button.hk-unread { color: var(--accent-color); }
+.hk-cslot { margin-top: 2px; }
+button.hk-cm-bubble { min-height: 24px; min-width: 30px; padding: 0 6px; border-radius: 99px; font-size: 0.8em;
+  background: alpha(currentColor, 0.06); box-shadow: inset 0 0 0 1px alpha(currentColor, 0.16); }
+button.hk-cm-bubble.hk-unread { box-shadow: inset 0 0 0 1px var(--accent-color); color: var(--accent-color); }
+button.hk-cm-add { min-height: 24px; min-width: 30px; padding: 0 4px; font-size: 0.8em; color: alpha(currentColor, 0.55);
+  opacity: 0; transition: opacity 120ms; }
+.hk-cslot.hk-on button.hk-cm-add, button.hk-cm-add:focus-visible { opacity: 1; }
+.hk-block-row.hk-cm-focus { background: alpha(var(--accent-bg-color), 0.10); border-radius: 6px; }
+.hk-block-row.hk-flash { background: alpha(var(--accent-bg-color), 0.20); border-radius: 6px; }
+.hk-cm-thread { padding: 0; }
+.hk-cm-thread.hk-unread { box-shadow: inset 0 0 0 1px alpha(var(--accent-color), 0.55); }
+.hk-cm-input { border-radius: 8px; background: alpha(currentColor, 0.04); box-shadow: inset 0 0 0 1px alpha(currentColor, 0.15); }
+.hk-cm-input textview, .hk-cm-input textview > text { background: transparent; }
+.hk-cm-text { font-size: 0.98em; }
+button.hk-cm-where { padding: 0 2px; min-height: 0; }
+button.hk-chip-btn { border-radius: 99px; padding: 2px 10px; min-height: 28px; font-weight: normal; }
+button.hk-chip-btn.hk-on { background: alpha(var(--accent-bg-color), 0.22); }
+.hk-owner-only { background: transparent; border: 1px dashed alpha(currentColor, 0.25); }
+textview.hk-textdlg, textview.hk-textdlg > text { background: transparent; }

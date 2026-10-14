@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Saga: Symbol "geteilt / Personen" im Stil der Adwaita-Symbole, 16x16, nur Flaechen (GTK faerbt sie ein) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <g fill="#222222">
+    <path d="M 5.5 2 A 2.5 2.5 0 0 0 3 4.5 A 2.5 2.5 0 0 0 5.5 7 A 2.5 2.5 0 0 0 8 4.5 A 2.5 2.5 0 0 0 5.5 2 Z"/>
+    <path d="M 5.5 8 C 2.9 8 1 9.5 1 11.5 L 1 14 L 10 14 L 10 11.5 C 10 9.5 8.1 8 5.5 8 Z"/>
+    <path d="M 11 3 A 2 2 0 0 0 9.4 3.8 A 3.5 3.5 0 0 1 9.4 6.2 A 2 2 0 0 0 11 7 A 2 2 0 0 0 13 5 A 2 2 0 0 0 11 3 Z"/>
+    <path d="M 11 8 C 10.6 8 10.2 8.05 9.85 8.13 C 10.88 8.95 11.5 10.1 11.5 11.5 L 11.5 14 L 15 14 L 15 11.5 C 15 9.55 13.25 8 11 8 Z"/>
+  </g>
+</svg>

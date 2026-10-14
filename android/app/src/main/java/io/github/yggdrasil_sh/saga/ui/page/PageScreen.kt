@@ -108,6 +108,22 @@ import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.text.style.TextOverflow
+import io.github.yggdrasil_sh.saga.data.PageShareInfo
+import io.github.yggdrasil_sh.saga.ui.common.relativeTime
+import io.github.yggdrasil_sh.saga.ui.comments.CommentLogic
+import io.github.yggdrasil_sh.saga.ui.comments.CommentsModel
+import io.github.yggdrasil_sh.saga.ui.comments.CommentsSheet
+import io.github.yggdrasil_sh.saga.ui.share.PageShareSheet
+import io.github.yggdrasil_sh.saga.ui.share.ShareLogic
+import io.github.yggdrasil_sh.saga.ui.share.ShareModel
 
 private val PAGE_LINK = Regex("^/notes#(\\d+)$")
 
@@ -136,14 +152,16 @@ private fun BlockChoice.title(): String = if (type == "header") stringResource(R
 /** Eine Seite: Titel + Bloecke, bearbeitbar; speichert automatisch (verzoegert und beim Verlassen) */
 @Composable
 fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome, appScope: CoroutineScope) {
-    val ed = remember(id) { PageEditor(id, repo, appScope) }
+    // neu angemeldet/gekoppelt (anderes Konto): Seite neu oeffnen - Rolle, Eigentuemer und Entwuerfe gehoeren zum Konto
+    val signIns by repo.signInCount.collectAsState()
+    val ed = remember(id, signIns) { PageEditor(id, repo, appScope) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val needsLogin by repo.needsLogin.collectAsState()
     var menu by remember { mutableStateOf(false) }
 
-    LaunchedEffect(id) { ed.load() }
-    DisposableEffect(id) { onDispose { ed.close() } }                // speichern (laeuft im App-Scope weiter)
+    LaunchedEffect(ed) { ed.load() }
+    DisposableEffect(ed) { onDispose { ed.close() } }                // speichern (laeuft im App-Scope weiter)
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { ed.flush() }      // App verlassen: Entwurf auf Platte + speichern
     LaunchedEffect(needsLogin) { if (!needsLogin && ed.dirty) ed.scheduleSave(500) }   // nach erneuter Anmeldung nachholen
 
@@ -167,10 +185,36 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
     }
     LaunchedEffect(ed.conflict) { if (ed.conflict) conflictDialog = true }
 
+    // Teilen + Kommentare (Server 1.3)
+    val caps = ed.caps
+    val comments = remember(ed) { CommentsModel(id, repo, PageShareInfo()) }
+    LaunchedEffect(comments, ed.share) {
+        comments.update(ed.share)
+        if (ed.share.commentsOpen > 0 && ed.share.supported) comments.load()     // Punkte an den Bloecken (ungelesen)
+    }
+    var shareModel by remember(ed) { mutableStateOf<ShareModel?>(null) }
+    val openShareFor by repo.openShareFor.collectAsState()
+    LaunchedEffect(openShareFor, ed.fetched, caps.canShare) {
+        if (openShareFor == id && ed.fetched) {
+            repo.openShareFor.value = null
+            if (caps.canShare) shareModel = ShareModel(id, repo)
+        }
+    }
+    /** Lesen/Kommentieren: angetippter Block (zeigt 💬+ zum Kommentieren) */
+    var selectedBlock by remember(id) { mutableStateOf<String?>(null) }
+    var confirmOverwrite by remember { mutableStateOf(false) }
+    /** eigener Text nach "Neue Version laden" (Kopier-Dialog) */
+    var copyDraft by remember { mutableStateOf<String?>(null) }
+    val listState = rememberLazyListState()
+
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
         SagaTopBar(ed.title.ifEmpty { if (ed.fetched) stringResource(R.string.page_untitled) else "" }, nav, chrome) {
             SaveState(ed)
-            if (ed.fetched) {
+            // Kommentare dezent: "💬 n" nur bei offenen Unterhaltungen, Punkt bei ungelesenen
+            if (ed.fetched && caps.showComments && comments.openCount > 0) {
+                CommentsButton(comments.openCount, comments.unreadCount) { comments.openAll() }
+            }
+            if (ed.fetched && caps.canFavorite) {
                 IconButton(onClick = { repo.launchAction { ed.setPinned(!ed.pinned) } }) {
                     Icon(
                         Icons.Filled.Star, stringResource(if (ed.pinned) R.string.favorite_remove else R.string.favorite_add),
@@ -181,7 +225,26 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
             Box {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more)) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    if (ed.fetched && !ed.isDatabase) {
+                    if (ed.fetched && caps.canShare) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.share_menu)) }, onClick = {
+                            menu = false
+                            shareModel = ShareModel(id, repo)
+                        })
+                    }
+                    if (ed.fetched && caps.showComments) {
+                        val nres = comments.resolvedCount
+                        DropdownMenuItem(
+                            text = {
+                                val res = LocalResources.current
+                                Text(stringResource(R.string.comments_menu) + if (nres > 0) " · " + res.getQuantityString(R.plurals.comments_resolved_n, nres, nres) else "")
+                            },
+                            onClick = {
+                                menu = false
+                                comments.openAll()
+                            },
+                        )
+                    }
+                    if (ed.fetched && !ed.isDatabase && caps.canLock) {
                         DropdownMenuItem(text = { Text(stringResource(if (ed.locked) R.string.page_unlock else R.string.page_lock)) }, onClick = {
                             menu = false
                             repo.launchAction { ed.setLocked(!ed.locked) }
@@ -191,7 +254,7 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
                         menu = false
                         scope.launch { ed.save(); ed.load() }
                     })
-                    if (ed.fetched && ed.publishSupported && !ed.template && !publishHidden) {
+                    if (ed.fetched && ed.publishSupported && !ed.template && !publishHidden && caps.canPublish) {
                         // Menue einheitlich ohne Symbole (der Zustand "Öffentlich" steht im Seitenkopf)
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.publish_menu)) },
@@ -212,7 +275,7 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
                         ed.flush()
                         openUrl(context, repo.absoluteUrl("notes") + "#$id")
                     })
-                    if (ed.fetched) {
+                    if (ed.fetched && caps.canArchive && caps.canTrash) {
                         HorizontalDivider()
                         DropdownMenuItem(text = { Text(stringResource(R.string.page_archive)) }, onClick = {
                             menu = false
@@ -235,7 +298,8 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
         }
         if (ed.conflict && !conflictDialog) {
             Text(
-                stringResource(R.string.conflict_banner), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer,
+                ed.conflictBy?.let { stringResource(R.string.conflict_by_banner, it) } ?: stringResource(R.string.conflict_banner),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onErrorContainer,
                 modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.errorContainer).clickable { conflictDialog = true }.padding(12.dp),
             )
         }
@@ -249,15 +313,41 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
                     if (seen.add(k)) k else "dup-$i-$k"
                 }
             }
-            LazyColumn(Modifier.widthIn(max = 820.dp).fillMaxSize().padding(horizontal = 18.dp)) {
-                item(key = "header") { PageHeader(ed, repo, onPublish = if (ed.template || publishHidden) null else openPublish) }
+            LazyColumn(Modifier.widthIn(max = 820.dp).fillMaxSize().padding(horizontal = 18.dp), state = listState) {
+                item(key = "header") { PageHeader(ed, repo, onPublish = if (ed.template || publishHidden || !caps.canPublish) null else openPublish) }
                 if (ed.fetched && !ed.isDatabase) {
+                    val counts = if (caps.showComments) comments.blockCounts else emptyMap()
+                    val unread = comments.unreadBlocks
+                    val activeTop = ed.active?.blockPath?.invoke()?.getOrNull(1) as? Int
                     itemsIndexed(blocks, key = { i, _ -> keys[i] }) { i, b ->
                         val obj = b as? JsonObject
                         if (obj != null) {
                             // stabiles Pfad-Objekt: unveraenderte Bloecke werden beim Tippen uebersprungen (Strong Skipping)
                             val path = remember(i) { listOf<Any>("blocks", i) }
-                            Box(Modifier.padding(vertical = 4.dp)) { BlockView(obj, path, env) }
+                            val bid = BlockDoc.id(obj)
+                            val n = bid?.let { counts[it] } ?: 0
+                            // 💬+ am ausgewaehlten Block (Bearbeiten: Block mit dem Cursor; Lesen/Kommentieren: angetippter Block)
+                            val add = bid != null && n == 0 && caps.canComment && (if (ed.editable) activeTop == i else selectedBlock == bid)
+                            val tap = !ed.editable && caps.canComment && bid != null
+                            val focused = comments.visible && comments.block != null && comments.block == bid
+                            Row(
+                                Modifier.padding(vertical = 4.dp)
+                                    .then(if (focused) Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh) else Modifier)
+                                    .then(
+                                        if (tap) Modifier.clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
+                                            selectedBlock = if (selectedBlock == bid) null else bid
+                                        } else Modifier,
+                                    ),
+                            ) {
+                                Box(Modifier.weight(1f)) { BlockView(obj, path, env) }
+                                if (bid != null && (n > 0 || add)) {
+                                    BlockBubble(n, bid in unread) {
+                                        selectedBlock = null
+                                        comments.openBlock(bid)
+                                        scope.launch { listState.animateScrollToItem(i + 1) }      // Block bleibt ueber dem Sheet sichtbar
+                                    }
+                                }
+                            }
                         }
                     }
                     item(key = "footer") {
@@ -322,7 +412,75 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
             dismissButton = { TextButton(onClick = { confirmTrash = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
-    if (conflictDialog && ed.conflict) {
+    shareModel?.let { m ->
+        PageShareSheet(
+            m, scope, ownerName = ed.share.owner?.name.orEmpty(), link = repo.absoluteUrl("notes") + "#$id",
+            onDismiss = { shareModel = null },
+            onOpenParent = { pid ->
+                shareModel = null
+                repo.openShareFor.value = pid                // dort den Dialog wieder oeffnen (wie im Web)
+                nav.push(Dest.Page(pid))
+            },
+            onCopied = { repo.notify(UiText.Res(R.string.share_link_copied)) },
+        )
+    }
+
+    if (comments.visible) {
+        CommentsSheet(
+            comments, scope,
+            quote = { bid -> CommentLogic.snippet(ed.doc, bid) },
+            onJump = { bid ->
+                val i = CommentLogic.topLevelIndex(ed.doc, bid)
+                comments.close()
+                if (i >= 0) scope.launch { listState.animateScrollToItem(i + 1) }
+            },
+        )
+    }
+
+    // Konflikt mit einer anderen Person (Server 1.3): "Neue Version laden" (Hauptknopf) / "Meine Version behalten" (Rueckfrage)
+    val by = ed.conflictBy
+    if (conflictDialog && ed.conflict && by != null) {
+        AlertDialog(
+            onDismissRequest = { conflictDialog = false },
+            title = { Text(stringResource(R.string.conflict_by_title, by)) },
+            text = { Text(stringResource(R.string.conflict_by_text)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    conflictDialog = false
+                    repo.launchAction { copyDraft = ed.loadServerVersion() }
+                }) { Text(stringResource(R.string.conflict_load_new)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { conflictDialog = false; confirmOverwrite = true }) { Text(stringResource(R.string.conflict_keep_version)) }
+            },
+        )
+    }
+    if (confirmOverwrite && ed.conflict) {
+        val who = ed.conflictBy.orEmpty()
+        AlertDialog(
+            onDismissRequest = { confirmOverwrite = false },
+            title = { Text(stringResource(R.string.conflict_overwrite_title, who)) },
+            text = { Text(stringResource(R.string.conflict_overwrite_text, who)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmOverwrite = false
+                    repo.launchAction { ed.keepMine() }
+                }) { Text(stringResource(R.string.conflict_overwrite), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmOverwrite = false }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
+    copyDraft?.let { text ->
+        CopyTextDialog(stringResource(R.string.draft_copy_title), stringResource(R.string.draft_copy_text), text) { copyDraft = null }
+    }
+    ed.lost?.let { l ->
+        CopyTextDialog(
+            stringResource(if (l.readOnly) R.string.lost_readonly_title else R.string.lost_none_title),
+            stringResource(if (l.readOnly) R.string.lost_readonly_text else R.string.lost_none_text), l.text,
+        ) { scope.launch { ed.closeLost() } }
+    }
+
+    if (conflictDialog && ed.conflict && by == null) {
         val copyTitle = stringResource(R.string.conflict_copy_title, ed.title.ifEmpty { stringResource(R.string.page_untitled) })
         AlertDialog(
             onDismissRequest = { conflictDialog = false },
@@ -357,13 +515,13 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)) {
-        if (ed.icon.isNotEmpty()) {
+        if (ed.icon.isNotEmpty() && !ed.noAccess) {
             PageIcon(ed.icon, repo, ed.isDatabase, size = 52.dp)
             Spacer(Modifier.height(6.dp))
         }
         if (ed.fetched) {
             val titleStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-            if (ed.locked) {
+            if (!ed.titleEditable) {                         // gesperrt oder fremde Seite mit Lesen/Kommentieren
                 Text(ed.title.ifEmpty { stringResource(R.string.page_untitled) }, style = titleStyle)
             } else {
                 BasicTextField(
@@ -384,12 +542,15 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
                 )
             }
         }
+        // Fremde Seite: Etikett "👥 Geteilt von {Name} · Du kannst …" (kein Knopf) und wer zuletzt geaendert/angelegt hat
+        if (ed.fetched && ed.caps.foreign) SharedByLabel(ed.share)
+        if (ed.fetched) MetaLine(ed.share)
         val via = if (!ed.published) ed.publishedVia else null
         if (ed.locked || ed.published || via != null) {
             Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (ed.locked) {
                     AssistChip(
-                        onClick = { repo.launchAction { ed.setLocked(false) } },
+                        onClick = { repo.launchAction { ed.setLocked(false) } }, enabled = ed.caps.canLock,
                         label = { Text(stringResource(R.string.page_locked_chip)) },
                         leadingIcon = { Icon(Icons.Filled.Lock, null, Modifier.size(16.dp)) },
                     )
@@ -414,7 +575,8 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
             )
         }
         ed.pendingDraft?.let { d -> DraftBanner(d.stamp, onRestore = { ed.restoreDraft() }, onDiscard = { ed.discardDraft() }) }
-        if (!ed.loading && !ed.fetched) {                        // Laden fehlgeschlagen: nichts Bearbeitbares zeigen
+        if (ed.noAccess && !ed.loading) NoAccess()
+        else if (!ed.loading && !ed.fetched) {                   // Laden fehlgeschlagen: nichts Bearbeitbares zeigen
             Button(onClick = { scope.launch { ed.load() } }, modifier = Modifier.padding(top = 12.dp)) { Text(stringResource(R.string.action_retry)) }
         }
     }
@@ -592,4 +754,130 @@ private fun SaveState(ed: PageEditor) {
         ed.dirty -> Text(stringResource(R.string.save_state_pending), style = MaterialTheme.typography.labelSmall, color = color, modifier = Modifier.padding(end = 4.dp))
         ed.savedAt != null -> Icon(Icons.Filled.Done, stringResource(R.string.save_state_saved), tint = color, modifier = Modifier.padding(end = 4.dp).size(20.dp))
     }
+}
+
+// ---------------------------------------------------------------- Teilen und Kommentare (Server 1.3)
+
+/** "👥 Geteilt von {Name} · Du kannst lesen" - Etikett unter dem Titel fremder Seiten (kein Knopf) */
+@Composable
+private fun SharedByLabel(info: PageShareInfo) {
+    val name = info.owner?.name.orEmpty()
+    val role = stringResource(ShareLogic.roleYou(info.role))
+    Row(Modifier.padding(top = 6.dp).semantics(mergeDescendants = true) {}, verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            "👥 " + stringResource(R.string.shared_by, name), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
+        )
+        Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(6.dp), modifier = Modifier.padding(start = 8.dp)) {
+            Text(
+                role, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            )
+        }
+    }
+}
+
+/** "Angelegt von {name}" / "Zuletzt geändert von {name} · vor …" - nur, wenn es nicht man selbst war */
+@Composable
+private fun MetaLine(info: PageShareInfo) {
+    val parts = ArrayList<String>()
+    info.createdBy?.takeIf { !it.me && it.name.isNotEmpty() }?.let { parts.add(stringResource(R.string.meta_created_by, it.name)) }
+    val up = info.updatedBy
+    val at = info.updated
+    if (up != null && !up.me && up.name.isNotEmpty() && at != null) parts.add(stringResource(R.string.meta_updated_by, up.name, relativeTime(at)))
+    if (parts.isEmpty()) return
+    Text(
+        parts.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 4.dp),
+    )
+}
+
+/** Seite geloescht oder nicht (mehr) geteilt */
+@Composable
+private fun NoAccess() {
+    Column(Modifier.fillMaxWidth().padding(top = 32.dp).semantics { liveRegion = LiveRegionMode.Polite }, horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("🔒 " + stringResource(R.string.no_access_title), style = MaterialTheme.typography.titleMedium)
+        Text(
+            stringResource(R.string.no_access_text), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 8.dp),
+        )
+    }
+}
+
+/** Kopfzeile: Sprechblase + Zahl offener Unterhaltungen, Punkt bei ungelesenen (48 dp) */
+@Composable
+private fun CommentsButton(open: Int, unread: Int, onClick: () -> Unit) {
+    val res = LocalResources.current
+    val desc = res.getQuantityString(R.plurals.comments_open_threads, open, open) +
+        if (unread > 0) " · " + res.getQuantityString(R.plurals.comments_unread, unread, unread) else ""
+    Row(
+        Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(24.dp)).clickable(onClick = onClick).padding(horizontal = 10.dp)
+            .semantics(mergeDescendants = true) { contentDescription = desc },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(painterResource(R.drawable.ic_comment), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("$open", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
+        if (unread > 0) Box(Modifier.padding(start = 4.dp).size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+    }
+}
+
+/** Am Block: kleine Zahl (offene Unterhaltungen) bzw. "💬+" am ausgewaehlten Block - dezent, 48 dp Trefferflaeche */
+@Composable
+private fun BlockBubble(count: Int, unread: Boolean, onClick: () -> Unit) {
+    val res = LocalResources.current
+    val desc = if (count > 0) res.getQuantityString(R.plurals.comments_block_threads, count, count) else stringResource(R.string.comments_add)
+    Box(
+        Modifier.size(48.dp).clip(CircleShape).clickable(onClick = onClick).semantics { contentDescription = desc },
+        contentAlignment = Alignment.Center,
+    ) {
+        Surface(
+            shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (unread) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+        ) {
+            Row(Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(painterResource(R.drawable.ic_comment), null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    if (count > 0) "$count" else "+", style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 2.dp),
+                )
+                if (unread) Box(Modifier.padding(start = 3.dp).size(6.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+            }
+        }
+    }
+}
+
+/** Text zum Kopieren (eigener Entwurf nach Konflikt, Zugriff verloren): Kopieren / Schließen */
+@Composable
+private fun CopyTextDialog(title: String, text: String, draft: String, onClose: () -> Unit) {
+    val context = LocalContext.current
+    val desc = stringResource(R.string.your_text)
+    val copied = stringResource(R.string.text_copied)
+    AlertDialog(
+        onDismissRequest = onClose,
+        title = { Text(title) },
+        text = {
+            Column {
+                Text(text)
+                Surface(
+                    color = MaterialTheme.colorScheme.surface, shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp).heightIn(max = 260.dp),
+                ) {
+                    SelectionContainer {
+                        Text(
+                            draft, style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.verticalScroll(rememberScrollState()).padding(10.dp).semantics { contentDescription = desc },
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                copy(context, draft)
+                android.widget.Toast.makeText(context, copied, android.widget.Toast.LENGTH_SHORT).show()
+            }) { Text(stringResource(R.string.text_copy)) }
+        },
+        dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_close)) } },
+    )
 }

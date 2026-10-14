@@ -92,6 +92,12 @@ fun SearchScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     PageIcon(p.icon, repo, p.isDatabase)
                     Column(Modifier.padding(start = 12.dp)) {
                         Text(pageTitle(p), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (p.foreign) {
+                            Text(
+                                "👥 " + stringResource(R.string.shared_by, p.owner?.name.orEmpty()), style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                         p.snippet?.takeIf { it.isNotBlank() }?.let {
                             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }

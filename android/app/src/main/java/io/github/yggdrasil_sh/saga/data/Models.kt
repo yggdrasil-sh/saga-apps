@@ -18,8 +18,17 @@ data class PageMeta(
     val template: Boolean = false,
     val tags: List<String> = emptyList(),
     val locked: Boolean = false,
+    /** Teilen (1.3): eigene Seite ist freigegeben (Personen-Symbol) bzw. fremde Seite */
+    val shared: Boolean = false,
+    /** neue Kommentare von anderen (Punkt) */
+    val unread: Boolean = false,
+    /** nur fremde Seiten (GET /api/shared, Suche): Rolle, Eigentuemer, oberste geteilte Seite */
+    val role: String? = null,
+    val owner: Person? = null,
+    val root: Boolean = false,
 ) {
     val isDatabase: Boolean get() = kind == "database"
+    val foreign: Boolean get() = owner != null && !owner.me
 }
 
 @Serializable

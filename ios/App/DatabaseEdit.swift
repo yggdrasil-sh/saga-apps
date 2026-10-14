@@ -36,7 +36,8 @@ func filterOps(_ type: String) -> [(String, String)] {
 let filterNoValue: Set<String> = ["is_empty", "not_empty", "checked", "unchecked", "today", "this_week", "this_month"]
 
 extension DBModel {
-    var locked: Bool { schema["locked"] as? Bool == true }
+    /// Schema gesperrt - oder nur lesen (Rolle Lesen/Kommentieren): keine Spalten/Ansichten aendern
+    var locked: Bool { schema["locked"] as? Bool == true || readOnly }
     var schemaProps: [[String: Any]] { schema["props"] as? [[String: Any]] ?? [] }
     var schemaViews: [[String: Any]] { schema["views"] as? [[String: Any]] ?? [] }
 
@@ -136,6 +137,7 @@ extension DBModel {
         return r.id
     }
     func rename(_ store: Store, row: Int, _ title: String) async {
+        guard !readOnly else { return }                           // nur lesen (1.3)
         if let i = rows.firstIndex(where: { $0.id == row }) { rows[i].title = title }
         do { _ = try await store.api("api/notes/\(row)", method: "PATCH", body: ["title": title]); await store.refresh() }
         catch { self.error = error.localizedDescription }
@@ -383,7 +385,10 @@ struct DBViewBar: View {
     }
 
     @ViewBuilder private var newButton: some View {
-        if m.templates.isEmpty {
+        if m.readOnly {
+            Label("Nur lesen", systemImage: "eye").font(.caption).foregroundStyle(.secondary)
+                .padding(.horizontal, 8).padding(.vertical, 3).background(Color.secondary.opacity(0.12), in: Capsule())
+        } else if m.templates.isEmpty {
             Button("Neu") { onNew(nil) }.prominentGold().controlSize(.small)
         } else {
             Menu("Neu") {

@@ -10,7 +10,7 @@ from . import APP_ID, PROJECT_URL, config, images
 from .api import Cancelled, client, pkce
 from .blocks import context_menu, flat_button, menu_popover
 from .config import device_name, get_device_token, settings
-from .i18n import _
+from .i18n import _, ngettext
 from .page import PageView
 from .publish import available as publish_available, globe_icon, header_state, open_publish
 from .store import is_db, label, store, watch
@@ -47,6 +47,24 @@ class SidebarRow(Gtk.ListBoxRow):
             b.add_css_class("hk-badge")
             box.append(b)
         name = title + (f" ({badge})" if badge else "")
+        foreign = page is not None and store.is_foreign(page.get("id"))
+        if page is not None and page.get("unread"):            # neue Kommentare von anderen: kleiner Punkt
+            dot = Gtk.Label(label="●", valign=Gtk.Align.CENTER, tooltip_text=_("New comments"))
+            dot.add_css_class("hk-unread-dot")
+            box.append(dot)
+            name += " – " + _("New comments")
+        if page is not None and not foreign and page.get("shared"):     # eigene, geteilte Seite: dezentes Personen-Symbol
+            from .sharing import people_icon
+            si = Gtk.Image.new_from_icon_name(people_icon())
+            si.add_css_class("dim-label")
+            si.set_tooltip_text(_("Shared"))
+            box.append(si)
+            name += " – " + _("Shared")
+        if page is not None and foreign:
+            from .sharing import shared_by_tooltip
+            tt = shared_by_tooltip(page) if page.get("root") else ""
+            if tt:
+                self.set_tooltip_text(tt)
         if page is not None:
             more = Gtk.Button(icon_name="view-more-symbolic", tooltip_text=_("Page actions"), valign=Gtk.Align.CENTER)
             more.add_css_class("flat")
@@ -56,10 +74,11 @@ class SidebarRow(Gtk.ListBoxRow):
             more.connect("clicked", lambda b: win.page_actions(b, page))
             box.append(more)
             context_menu(self, lambda w: win.page_actions(w, page))
-            ds = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
-            ds.connect("prepare", lambda *_: Gdk.ContentProvider.new_for_value(f"hkpage:{page['id']}"))
-            self.add_controller(ds)
-            if not page.get("archived"):
+            if not foreign:                                    # fremde Seiten verschiebt nur der Eigentuemer
+                ds = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
+                ds.connect("prepare", lambda *_: Gdk.ContentProvider.new_for_value(f"hkpage:{page['id']}"))
+                self.add_controller(ds)
+            if not page.get("archived") and not foreign:
                 dt = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
                 dt.connect("enter", lambda *_: (self.add_css_class("hk-drop-into"), Gdk.DragAction.MOVE)[1])
                 dt.connect("leave", lambda *_: self.remove_css_class("hk-drop-into"))
@@ -68,7 +87,8 @@ class SidebarRow(Gtk.ListBoxRow):
         if snippet:
             col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
             col.append(box)
-            s = Gtk.Label(label=snippet, xalign=0, wrap=True, lines=2, ellipsize=Pango.EllipsizeMode.END, margin_start=34)
+            s = Gtk.Label(label=snippet, xalign=0, wrap=True, lines=2, ellipsize=Pango.EllipsizeMode.END,
+                          margin_start=34 + depth * 14)
             s.add_css_class("caption")
             s.add_css_class("dim-label")
             col.append(s)
@@ -86,14 +106,22 @@ class SidebarRow(Gtk.ListBoxRow):
             self.win.show_root(self.key)
 
 
-def _section_row(text, drop_cb=None):
+def _section_row(text, drop_cb=None, badge=None, badge_tip=None):
     """Ueberschrift in der Seitenleiste (nicht auswaehlbar, wird beim Navigieren mit den Pfeiltasten uebersprungen)"""
     lb = Gtk.Label(label=text, xalign=0, margin_start=6, margin_top=10, margin_bottom=2)
     lb.add_css_class("caption-heading")
     lb.add_css_class("dim-label")
-    row = Gtk.ListBoxRow(activatable=False, selectable=False, focusable=False, child=lb)
+    child = lb
+    if badge:                                                  # z. B. Seiten mit neuen Kommentaren
+        child = Gtk.Box(spacing=6)
+        child.append(lb)
+        b = Gtk.Label(label=str(badge), valign=Gtk.Align.END, margin_bottom=2, tooltip_text=badge_tip)
+        b.add_css_class("hk-badge")
+        b.add_css_class("hk-badge-accent")
+        child.append(b)
+    row = Gtk.ListBoxRow(activatable=False, selectable=False, focusable=False, child=child)
     row.add_css_class("hk-shead")
-    row.update_property([Gtk.AccessibleProperty.LABEL], [text])
+    row.update_property([Gtk.AccessibleProperty.LABEL], [text + (f" – {badge_tip}" if badge and badge_tip else "")])
     if drop_cb is not None:
         dt = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
         dt.connect("drop", lambda t, v, x, y: drop_cb(v))
@@ -161,7 +189,10 @@ class Sidebar(Gtk.Box):
         self.fill(force=True)
 
     def _sig(self):
-        return (tuple((p["id"], p.get("title"), p.get("icon"), p.get("parent_id"), p.get("pinned"), p.get("kind")) for p in store.pages),
+        return (tuple((p["id"], p.get("title"), p.get("icon"), p.get("parent_id"), p.get("pinned"), p.get("kind"), p.get("shared"),
+                       p.get("unread")) for p in store.pages),
+                tuple((p["id"], p.get("title"), p.get("icon"), p.get("parent_id"), p.get("kind"), p.get("root"), p.get("unread"),
+                       p.get("role"), (p.get("owner") or {}).get("name")) for p in store.shared), store.share_off,
                 tuple(p["id"] for p in store.archived), tuple(store.recent[:5]), len(store.tasks), self.query, len(self.results),
                 tuple(sorted(self.expanded)), self.show_archive)
 
@@ -188,7 +219,7 @@ class Sidebar(Gtk.Box):
         if self.query:
             self.header(_("Results"))
             n = norm(self.query)
-            by_name = [p for p in store.pages if n in norm(label(p))]
+            by_name = [p for p in store.pages + store.shared if n in norm(label(p))]
             ids = {p["id"] for p in by_name}
             hits = by_name + [r for r in self.results if r["id"] not in ids]
             if not hits:
@@ -213,13 +244,26 @@ class Sidebar(Gtk.Box):
             self.header(_("Favorites"))
             for p in store.favorites:
                 self._page_row(p, 0, flat=True)
-        rec = [store.by_id[i] for i in store.recent if i in store.by_id and not store.by_id[i].get("archived")][:5]
+        rec = [store.meta(i) for i in store.recent if store.meta(i) is not None and not store.meta(i).get("archived")][:5]
         if rec:
             self.header(_("Recent"))
             for p in rec:
                 self._page_row(p, 0, flat=True)
         self.header(_("Pages"), drop=True)
         self._tree(None, 0)
+        roots = store.shared_roots()
+        if roots or store.share_off:                           # Teilen (1.3): "Mit mir geteilt"
+            n = store.shared_unread()
+            self.box.append(_section_row(_("Shared with me"), badge=n or None,
+                                         badge_tip=ngettext("{n} page with new comments", "{n} pages with new comments", n).format(n=n)))
+            if store.share_off:
+                lb = Gtk.Label(label=_("Sharing is currently turned off on this server – pages shared with you are not available."),
+                               xalign=0, wrap=True, margin_start=6, margin_end=6)
+                lb.add_css_class("caption")
+                lb.add_css_class("dim-label")
+                self.box.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=lb))
+            for p in roots:
+                self._shared_tree(p, 0)
         if store.archived:
             ic = Gtk.Image.new_from_icon_name("pan-down-symbolic" if self.show_archive else "pan-end-symbolic")
             ar = SidebarRow(w, "📦 " + _("Archive ({count})").format(count=len(store.archived)), ic, action=self._toggle_archive)
@@ -248,6 +292,15 @@ class Sidebar(Gtk.Box):
             self._page_row(p, depth, kids=kids)
             if kids and p["id"] in self.expanded:
                 self._tree(p["id"], depth + 1)
+
+    def _shared_tree(self, p, depth):
+        """Mit mir geteilte Seite (oberste mit dem Namen des Eigentuemers klein darunter) und ihre Unterseiten"""
+        kids = store.shared_children(p["id"])
+        owner = (p.get("owner") or {}).get("name") if p.get("root") else None
+        self._page_row(p, depth, kids=bool(kids), snippet=owner)
+        if kids and p["id"] in self.expanded:
+            for k in kids:
+                self._shared_tree(k, depth + 1)
 
     def _page_row(self, p, depth, kids=False, flat=False, snippet=None):
         exp = None
@@ -526,6 +579,17 @@ class MainWindow(Adw.ApplicationWindow):
         self.pub_btn.add_css_class("flat")
         self.pub_btn.connect("clicked", lambda *_: isinstance(self.current, PageView) and self.publish_dialog(self.current.id))
         self.chb.pack_end(self.pub_btn)
+        # Teilen (nur Eigentuemer) und Kommentare ("💬 3": offene Unterhaltungen, Punkt bei ungelesenen)
+        from .sharing import comment_icon, people_icon
+        self.share_btn = Gtk.Button(icon_name=people_icon(), visible=False)
+        self.share_btn.add_css_class("flat")
+        self.share_btn.connect("clicked", lambda *_: isinstance(self.current, PageView) and self.share_dialog(self.current.id))
+        self.chb.pack_end(self.share_btn)
+        self.cm_content = Adw.ButtonContent(icon_name=comment_icon(), label="")
+        self.cm_btn = Gtk.Button(child=self.cm_content, visible=False)
+        self.cm_btn.add_css_class("flat")
+        self.cm_btn.connect("clicked", lambda *_: isinstance(self.current, PageView) and self.current.toggle_comments())
+        self.chb.pack_end(self.cm_btn)
         ct.add_top_bar(self.chb)
         self.old_banner = Adw.Banner(title="", revealed=False)      # Server ist neuer, als diese App kann
         ct.add_top_bar(self.old_banner)
@@ -828,20 +892,39 @@ class MainWindow(Adw.ApplicationWindow):
         self.menu_btn.set_visible(is_page)
         self.star_btn.set_visible(is_page)
         if is_page:
+            from .comments import count_tooltip
+            from .sharing import allowed, header_button
             d = self.current.doc
-            self.wtitle.set_title(d.title if d.loaded else label(store.by_id.get(d.id)))
+            p = d.page if d.loaded and d.fetched else {}
+            self.wtitle.set_title(d.title if d.loaded else label(store.meta(d.id)))
             self.wtitle.set_subtitle(store.path_text(d.id))
             fav = bool(d.page.get("pinned") if d.loaded else (store.by_id.get(d.id) or {}).get("pinned"))
             self.star_btn.set_icon_name("starred-symbolic" if fav else "non-starred-symbolic")
             self.star_btn.set_tooltip_text(_("Remove from favorites") if fav else _("Add to favorites"))
+            self.star_btn.set_visible(allowed(p or store.meta(d.id), "favorite") and not store.is_foreign(d.id))
             self.set_title(f"{d.title} – Saga")
             hs = header_state(d.page) if d.loaded and d.fetched else None
             self.pub_btn.set_visible(hs is not None)
             if hs:
                 self.pub_content.set_label(hs["label"])
                 self.pub_btn.set_tooltip_text(hs["tooltip"])
+            sh = header_button(p) if store.share_api is not False else None
+            self.share_btn.set_visible(sh is not None)
+            if sh:
+                self.share_btn.set_tooltip_text(sh["tooltip"])
+                self.share_btn.update_property([Gtk.AccessibleProperty.LABEL], [sh["tooltip"]])
+                (self.share_btn.add_css_class if sh["on"] else self.share_btn.remove_css_class)("hk-shared-on")
+            n, un = int(p.get("comments_open") or 0), int(p.get("comments_unread") or 0)
+            self.cm_btn.set_visible("role" in p and (n > 0 or self.current.comments_open))
+            self.cm_content.set_label(str(n) if n else "")
+            tt = count_tooltip(n, un)
+            self.cm_btn.set_tooltip_text(tt)
+            self.cm_btn.update_property([Gtk.AccessibleProperty.LABEL], [tt])
+            (self.cm_btn.add_css_class if un else self.cm_btn.remove_css_class)("hk-unread")
         else:
             self.pub_btn.set_visible(False)
+            self.share_btn.set_visible(False)
+            self.cm_btn.set_visible(False)
             t = {"today": _("Today"), "tasks": _("Tasks"), "events": _("Events"), "services": _("Services")}.get((self.route or ("today",))[0], "")
             self.wtitle.set_title(t)
             self.wtitle.set_subtitle("")
@@ -960,10 +1043,16 @@ class MainWindow(Adw.ApplicationWindow):
              ("sidebar-show-symbolic", _("Show/hide sidebar"), self.toggle_sidebar),
              ("emblem-system-symbolic", _("Settings"), self.settings_dialog)]
         if self.page_id():
+            from .sharing import allowed, comment_icon, people_icon
             a.append(("insert-link-symbolic", _("Copy link to page"), self.copy_link))
             doc = self.peek[1].doc if self.peek else self.current.doc
-            if doc.fetched and publish_available(doc.page):
+            if doc.fetched and publish_available(doc.page) and allowed(doc.page, "publish"):
                 a.append((globe_icon(), _("Publish …"), lambda: self.publish_dialog(doc.id)))
+            if doc.fetched and "role" in doc.page:
+                if allowed(doc.page, "share"):
+                    a.append((people_icon(), _("Share …"), lambda: self.share_dialog(doc.id)))
+                view = self.peek[1] if self.peek else self.current
+                a.append((comment_icon(), _("Comments"), lambda: view.show_comments()))
         return a
 
     def page_id(self):
@@ -988,6 +1077,10 @@ class MainWindow(Adw.ApplicationWindow):
 
     def publish_dialog(self, pid):
         open_publish(self, pid)
+
+    def share_dialog(self, pid):
+        from .sharing import open_share
+        open_share(self, pid, on_change=self.update_header)
 
     def settings_dialog(self):
         from .settings import SettingsDialog
@@ -1055,6 +1148,14 @@ class MainWindow(Adw.ApplicationWindow):
     # --- Seitenleiste: Aktionen --------------------------------------------------------------------
     def page_actions(self, widget, p):
         pid = p["id"]
+        if store.is_foreign(pid):                              # mit mir geteilt: nur, was die Rolle darf
+            from .sharing import allowed
+            ents = []
+            if allowed(p, "subpage") and not is_db(p):
+                ents.append((_("New subpage"), lambda: store.new_page(pid, done=lambda n: self.show_page(n))))
+            ents.append((_("Copy link"), lambda: self.copy_text(store.page_url(pid))))
+            menu_popover(widget, ents).popup()
+            return
         if p.get("archived"):
             ents = [(_("Restore"), lambda: store.set_archived(pid, False))]
         else:
@@ -1120,8 +1221,9 @@ class MainWindow(Adw.ApplicationWindow):
     def open_uri(self, uri):
         Gtk.UriLauncher.new(uri).launch(self, None, None)
 
-    def upload_image(self, data, name="bild.png"):
-        """Hintergrund-Thread: Bild hochladen (HEIC & Co. -> JPEG), -> /files/..."""
+    def upload_image(self, data, name="bild.png", note=None):
+        """Hintergrund-Thread: Bild hochladen (HEIC & Co. -> JPEG), -> /files/...
+        note: ID einer fremden Seite (Teilen, Rolle Bearbeiten) - die Datei gehoert deren Eigentuemer."""
         head = data[:12]
         known = head.startswith(b"\x89PNG") or head.startswith(b"\xff\xd8") or head.startswith(b"GIF") or head[8:12] == b"WEBP"
         if head.startswith(b"\xff\xd8"):
@@ -1136,7 +1238,7 @@ class MainWindow(Adw.ApplicationWindow):
             out = io.BytesIO()
             im.save(out, "JPEG", quality=85)
             data, name = out.getvalue(), "bild.jpg"
-        return client.upload(data, name)["url"]
+        return client.upload(data, name, note=note)["url"]
 
     def download_open(self, url, name):
         """Anhang speichern: Ort waehlen (Portal), stueckweise auf die Platte schreiben, abbrechbar; Oeffnen nur auf Wunsch"""

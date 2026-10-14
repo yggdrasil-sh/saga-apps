@@ -12,9 +12,15 @@ import io.github.yggdrasil_sh.saga.blocks.InlineHtml
 import io.github.yggdrasil_sh.saga.blocks.InlineStyle
 import io.github.yggdrasil_sh.saga.blocks.JsonPath
 import io.github.yggdrasil_sh.saga.blocks.JsonTree
+import io.github.yggdrasil_sh.saga.data.AccountKey
 import io.github.yggdrasil_sh.saga.data.ApiException
 import io.github.yggdrasil_sh.saga.data.Draft
 import io.github.yggdrasil_sh.saga.data.Drafts
+import io.github.yggdrasil_sh.saga.data.DocText
+import io.github.yggdrasil_sh.saga.data.LostAccess
+import io.github.yggdrasil_sh.saga.data.PageCaps
+import io.github.yggdrasil_sh.saga.data.PageShareInfo
+import io.github.yggdrasil_sh.saga.data.conflictAuthor
 import io.github.yggdrasil_sh.saga.data.Publish
 import io.github.yggdrasil_sh.saga.data.PublishState
 import io.github.yggdrasil_sh.saga.data.PublishVia
@@ -58,11 +64,15 @@ class ActiveField(
 interface PageBackend {
     val currentServer: String
     val signedOut: Boolean
+    /** Kennung des angemeldeten Kontos ("uid:<Benutzername>", leer = unbekannt) - Editor speichert nie in ein anderes Konto */
+    val currentAccountKey: String get() = ""
     fun draftsForCurrent(): Drafts
     suspend fun <T> withPageLock(id: Int, block: suspend () -> T): T
     suspend fun loadPage(id: Int): JsonObject
     /** -> neue Revision; ApiException 409 = woanders geaendert, 423 = gesperrt */
     suspend fun savePage(id: Int, title: String, body: String?, rev: Int?): Int?
+    /** overwrite = "Meine Version behalten" nach einem Konflikt (Server 1.3 sichert die andere Fassung als Version) */
+    suspend fun savePage(id: Int, title: String, body: String?, rev: Int?, overwrite: Boolean): Int? = savePage(id, title, body, rev)
     /** Neue Seite mit diesem Inhalt (Konflikt-Kopie) -> ID */
     suspend fun createPageWith(title: String, body: String): Int
     suspend fun setPinned(id: Int, pinned: Boolean)
@@ -98,6 +108,8 @@ class PageEditor(
     /** Server, von dem die Seite stammt - nie auf einen anderen Server speichern */
     private val server = repo.currentServer
     private val drafts: Drafts = repo.draftsForCurrent()
+    /** Konto, mit dem die Seite geoeffnet wurde: nach einem Kontowechsel (gleicher Server) nichts mehr senden (Pruefer 1.3) */
+    private val account = repo.currentAccountKey
 
     var doc by mutableStateOf(JsonObject(emptyMap()))
         private set
@@ -144,6 +156,21 @@ class PageEditor(
     var error by mutableStateOf<UiText?>(null)
     var info by mutableStateOf<UiText?>(null)
 
+    /** Teilen (1.3): Rolle, Eigentuemer, Kommentar-Zaehler aus GET /api/notes/{id} */
+    var share by mutableStateOf(PageShareInfo())
+    val caps: PageCaps get() = PageCaps(share.role, share.supported)
+    /** Konflikt mit einer anderen Person: ihr Name (409 {"by": ...}); null = anderes Geraet/Tab */
+    var conflictBy by mutableStateOf<String?>(null)
+        private set
+    /** Freigabe beim Speichern verloren (403 = nur noch lesen, 404 = kein Zugriff): letzter Text zum Kopieren */
+    var lost by mutableStateOf<LostAccess?>(null)
+        private set
+    /** Seite nicht (mehr) erreichbar (404 beim Laden) - "Kein Zugriff auf diese Seite" */
+    var noAccess by mutableStateOf(false)
+        private set
+    /** naechstes Speichern mit overwrite (nach "Meine Version behalten") */
+    private var overwriteNext = false
+
     /** Feld, das den Fokus bekommen soll (Schluessel) - das Feld setzt es nach dem Fokussieren zurueck */
     var focusRequest by mutableStateOf<String?>(null)
     var focusAtEnd = false
@@ -157,7 +184,9 @@ class PageEditor(
     private var savedVersion by mutableIntStateOf(0)
     val dirty: Boolean get() = version != savedVersion
     val isDatabase: Boolean get() = kind == "database"
-    val editable: Boolean get() = fetched && !locked && !isDatabase && pendingDraft == null
+    /** Titel aenderbar: geladen, nicht gesperrt, Rolle mindestens Bearbeiten, Zugriff nicht verloren */
+    val titleEditable: Boolean get() = fetched && !locked && share.role.canEdit && lost == null
+    val editable: Boolean get() = titleEditable && !isDatabase && pendingDraft == null
 
     private var debounceJob: Job? = null
     private var retryJob: Job? = null
@@ -190,6 +219,11 @@ class PageEditor(
             error = UiText.Res(R.string.page_unreadable)
         } catch (e: Exception) {
             when {
+                e is ApiException && e.code == 404 && !dirty -> {   // geloescht oder nicht (mehr) mit mir geteilt
+                    noAccess = true
+                    fetched = false
+                    error = null
+                }
                 !fetched -> error = repo.friendly(e)
                 repo.isOffline(e) -> offline = true
                 else -> info = UiText.Res(R.string.page_reload_failed, repo.friendly(e))
@@ -218,6 +252,8 @@ class PageEditor(
         published = BlockDoc.bool(p, "published")
         publicUrl = BlockDoc.str(p, "public_url").ifEmpty { null }
         publishedVia = Publish.via(p)
+        share = PageShareInfo.of(p)
+        noAccess = false
         rev = BlockDoc.int(p, "rev")
         converted = parsed.converted && !body.isNullOrBlank()
         doc = withStarter(parsed.doc)
@@ -247,7 +283,7 @@ class PageEditor(
     private suspend fun checkDraft(page: JsonObject) {
         pendingDraft = null
         pendingDoc = null
-        if (isDatabase || locked) return
+        if (isDatabase || locked || !share.role.canEdit) return
         val d = withContext(io) { drafts.read(id) } ?: return
         if (withContext(cpu) { d.matchesPage(page) }) {
             draftLock.withLock { withContext(io) { if (drafts.read(id)?.stamp == d.stamp) drafts.delete(id) } }
@@ -306,7 +342,7 @@ class PageEditor(
     }
 
     fun editTitle(v: String) {
-        if (!fetched || locked || pendingDraft != null) return
+        if (!titleEditable || pendingDraft != null) return
         val t = v.replace('\n', ' ')
         if (t == title) return
         title = t
@@ -550,7 +586,9 @@ class PageEditor(
 
     /** -> true bei Konflikt (409) */
     private suspend fun doSave(): Boolean {
-        if (!fetched || !dirty || locked || conflict || repo.currentServer != server) return false
+        if (!fetched || !dirty || locked || conflict || lost != null || repo.currentServer != server) return false
+        // anderes Konto angemeldet (z. B. Kopplung per QR): Eingaben bleiben als Entwurf des alten Kontos (flush), nie ins neue
+        if (AccountKey.switched(account, repo.currentAccountKey)) return false
         if (repo.signedOut) {
             error = UiText.Res(R.string.save_sign_in)
             return false
@@ -558,10 +596,13 @@ class PageEditor(
         val v = version
         val t = title
         val d = doc
+        val ow = overwriteNext
         saving = true
         try {
             val body = if (isDatabase) null else withContext(cpu) { BlockDoc.serialize(BlockDoc.withTime(d, clock())) }
-            repo.savePage(id, t, body, rev)?.let { rev = it }
+            (if (ow) repo.savePage(id, t, body, rev, true) else repo.savePage(id, t, body, rev))?.let { rev = it }
+            if (ow) overwriteNext = false
+            conflictBy = null
             savedVersion = v
             error = null
             offline = false
@@ -572,7 +613,18 @@ class PageEditor(
             throw e
         } catch (e: ApiException) {
             when (e.code) {
-                409 -> return true
+                409 -> {
+                    conflictBy = conflictAuthor(e.body)
+                    return true
+                }
+                403, 404 -> if (!share.role.isOwner) {
+                    // Freigabe entzogen / Rolle auf Lesen gefallen: nicht weiter speichern, letzten Text zum Kopieren zeigen
+                    lost = LostAccess(e.code, withContext(cpu) { DocText.plain(t, d) })
+                    retryJob?.cancel()
+                    return false
+                } else {
+                    error = UiText.Res(R.string.save_failed, e.text)
+                }
                 423 -> {
                     locked = true
                     error = UiText.Res(R.string.save_locked)
@@ -637,13 +689,19 @@ class PageEditor(
 
     // ---------------------------------------------------------------- Konflikt
 
-    /** Konflikt: meine Fassung behalten - auf den aktuellen Server-Stand (Revision) setzen und ueberschreiben */
+    /**
+     * Konflikt: meine Fassung behalten - auf den aktuellen Server-Stand (Revision) setzen und mit overwrite
+     * ueberschreiben (der Server sichert die andere Fassung als Version, mit Autor).
+     */
     suspend fun keepMine() {
         try {
             val p = repo.withPageLock(id) { repo.loadPage(id) }
             rev = BlockDoc.int(p, "rev")
+            share = PageShareInfo.of(p)
             conflict = false
+            conflictBy = null
             info = null
+            overwriteNext = share.supported                  // aeltere Server kennen overwrite nicht
             if (!dirty) version++
             requestSave()
         } catch (e: CancellationException) {
@@ -671,6 +729,34 @@ class PageEditor(
             error = UiText.Res(R.string.save_failed, repo.friendly(e))
             null
         }
+    }
+
+    /**
+     * Konflikt mit einer anderen Person: "Neue Version laden" (Hauptknopf, wie im Web). Der eigene, nicht
+     * gespeicherte Stand kommt als Klartext zurueck (Kopier-Dialog), danach gilt die Fassung vom Server.
+     * -> eigener Text oder null (nichts Eigenes)
+     */
+    suspend fun loadServerVersion(): String? {
+        val mine = if (dirty) withContext(cpu) { DocText.plain(title, doc) }.ifBlank { null } else null
+        savedVersion = version
+        conflict = false
+        conflictBy = null
+        overwriteNext = false
+        draftLock.withLock { withContext(io) { drafts.delete(id) } }
+        info = null
+        fetched = false
+        load()
+        return mine
+    }
+
+    /** Dialog "Kein Zugriff mehr"/"Nur noch lesen" geschlossen: Entwurf weg, Seite neu laden (403: nur lesen, 404: kein Zugriff) */
+    suspend fun closeLost() {
+        lost ?: return
+        savedVersion = version
+        draftLock.withLock { withContext(io) { drafts.delete(id) } }
+        lost = null
+        fetched = false
+        load()
     }
 
     /** Editor wird nicht mehr angezeigt */

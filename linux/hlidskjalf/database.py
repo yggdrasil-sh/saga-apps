@@ -91,10 +91,16 @@ class DBModel(GObject.Object):
         self.search = ""
         self.local_views = None
         self.on_local_views = None
+        self.role = "owner"                # Teilen (1.3): Rolle fuer diese Datenbank (Antwort von .../rows)
+
+    @property
+    def readonly(self):
+        """Fremde Datenbank mit Lesen/Kommentieren: keine Eintraege anlegen oder aendern"""
+        return self.role in ("view", "comment")
 
     @property
     def locked(self):
-        return bool(self.schema.get("locked"))
+        return bool(self.schema.get("locked")) or self.readonly
 
     def load(self):
         if not self.loaded:
@@ -118,6 +124,8 @@ class DBModel(GObject.Object):
         bg(store.get_cached, f"api/notes/{self.db_id}/rows", done=fin, error=err)
 
     def _apply(self, j):
+        r = j.get("role")
+        self.role = r if r in ("owner", "edit", "comment", "view") else "owner"
         self.schema = j.get("schema") or {}
         self.props = self.schema.get("props") or []
         self.views = self.schema.get("views") or []
@@ -280,6 +288,9 @@ class DBModel(GObject.Object):
 
     # --- Aendern ------------------------------------------------------------------------------
     def set(self, row_id, pid, value):
+        if self.readonly:                  # nur lesen (1.3): Haken/Karte/Zelle nichts senden, Anzeige zuruecksetzen
+            self.emit("changed")
+            return
         r = next((x for x in self.rows if x["id"] == row_id), None)
         if r is not None:
             if value is None:
@@ -293,12 +304,17 @@ class DBModel(GObject.Object):
 
     def rename(self, row_id, title):
         """Titel mit Revision speichern (ueber den offenen Peek bzw. die aktuelle Revision) - kein 409 im Peek danach"""
+        if self.readonly:
+            self.emit("changed")
+            return
         r = next((x for x in self.rows if x["id"] == row_id), None)
         if r is not None:
             r["title"] = title
         store.rename(row_id, title)
 
     def add(self, props=None, done=None):
+        if self.readonly:                  # nur lesen: keine Eintraege anlegen
+            return
         b = {"parent_id": self.db_id, "title": ""}
         if props:
             b["props"] = props
@@ -311,6 +327,9 @@ class DBModel(GObject.Object):
         store.run("POST", "api/notes", b, done=fin)
 
     def new_from_template(self, tid, done=None):
+        if self.readonly:
+            return
+
         def fin(r):
             self.load()
             store.refresh()
@@ -1119,7 +1138,7 @@ class DatabaseView(Gtk.Box):
         self.m.load()
 
     def _header(self):
-        p = store.by_id.get(self.db_id)
+        p = store.meta(self.db_id)
         row = Gtk.Box(spacing=8)
         inner = Gtk.Box(spacing=6)
         inner.append(images.page_icon((p or {}).get("icon"), fallback="🗃️"))

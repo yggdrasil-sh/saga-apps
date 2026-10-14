@@ -40,6 +40,7 @@ import io.github.yggdrasil_sh.saga.blocks.InlineHtml
 import io.github.yggdrasil_sh.saga.blocks.InlineStyle
 import io.github.yggdrasil_sh.saga.blocks.JsonPath
 import io.github.yggdrasil_sh.saga.blocks.RichText
+import io.github.yggdrasil_sh.saga.data.Masking
 
 // ---------------------------------------------------------------- Darstellung
 
@@ -55,11 +56,18 @@ private fun styleFor(tag: String, c: ColorScheme): SpanStyle? = when (tag) {
     else -> null
 }
 
-/** Formatierten Text als AnnotatedString; mit onLink werden Links antippbar */
-fun richAnnotated(rt: RichText, c: ColorScheme, onLink: ((String) -> Unit)? = null): AnnotatedString = buildAnnotatedString {
+/**
+ * Formatierten Text als AnnotatedString; mit onLink werden Links antippbar.
+ * masked (fremde Seite): Verweise auf Seiten ohne Zugriff gedaempft und ohne Link.
+ */
+fun richAnnotated(rt: RichText, c: ColorScheme, onLink: ((String) -> Unit)? = null, masked: Boolean = false): AnnotatedString = buildAnnotatedString {
     append(rt.text)
     for (sp in rt.spans) {
         if (sp.start < 0 || sp.end > rt.text.length || sp.start >= sp.end) continue
+        if (sp.tag == "a" && masked && Masking.isMasked(InlineHtml.hrefOf(sp.open), rt.text.substring(sp.start, sp.end))) {
+            addStyle(SpanStyle(color = c.onSurfaceVariant), sp.start, sp.end)
+            continue
+        }
         styleFor(sp.tag, c)?.let { addStyle(it, sp.start, sp.end) }
         if (sp.tag == "a" && onLink != null) {
             val href = InlineHtml.hrefOf(sp.open) ?: continue
@@ -68,11 +76,14 @@ fun richAnnotated(rt: RichText, c: ColorScheme, onLink: ((String) -> Unit)? = nu
     }
 }
 
-/** Nur lesen (gesperrte Seite, Bildunterschrift): Links antippbar */
+/** Nur lesen (gesperrte/fremde Seite, Bildunterschrift): Links antippbar; foreign = verdeckte Verweise mit 🔒 */
 @Composable
-fun RichTextView(html: String, style: TextStyle, onLink: (String) -> Unit, modifier: Modifier = Modifier, raw: Boolean = false) {
+fun RichTextView(html: String, style: TextStyle, onLink: (String) -> Unit, modifier: Modifier = Modifier, raw: Boolean = false, foreign: Boolean = false) {
     val c = MaterialTheme.colorScheme
-    val text = remember(html, raw, c) { if (raw) AnnotatedString(html) else richAnnotated(InlineHtml.parse(html), c, onLink) }
+    val text = remember(html, raw, c, foreign) {
+        if (raw) AnnotatedString(html)
+        else richAnnotated(InlineHtml.parse(if (foreign) Masking.forDisplay(html) else html), c, onLink, foreign)
+    }
     BasicText(text, style = style.copy(color = if (style.color == Color.Unspecified) c.onSurface else style.color), modifier = modifier.fillMaxWidth())
 }
 
@@ -171,10 +182,11 @@ fun RichField(
         if (html.isEmpty()) {
             Box(modifier)
         } else {
-            RichTextView(html, style, onLink, modifier, raw)
+            RichTextView(html, style, onLink, modifier, raw, foreign = editor.caps.foreign)
         }
         return
     }
+    val foreign = editor.caps.foreign
     val pre = if (onBackspaceAtStart != null) START else ""
     val st = remember(fieldKey, pre) { FieldState(html, raw, pre) }
     val p = pre.length
@@ -242,7 +254,7 @@ fun RichField(
         if (p > 0 && !t.text.startsWith(pre)) return@VisualTransformation TransformedText(t, OffsetMapping.Identity)
         val shown = t.text.substring(p)
         val r = st.rich
-        val ann = if (!raw && r.text == shown) richAnnotated(r, c) else AnnotatedString(shown)
+        val ann = if (!raw && r.text == shown) richAnnotated(r, c, masked = foreign) else AnnotatedString(shown)
         TransformedText(ann, if (p == 0) OffsetMapping.Identity else StartMapping(p, shown.length))
     }
 

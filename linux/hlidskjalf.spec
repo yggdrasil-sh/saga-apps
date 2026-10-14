@@ -81,6 +81,8 @@ if command -v appstreamcli >/dev/null; then
 fi
 test ! -e %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/testing.py
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-globe-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-comment-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-people-symbolic.svg
 
 # Desktop-Datenbank und Symbol-Zwischenspeicher aktualisieren Fedora/RHEL selbst (Datei-Trigger) - keine Scriptlets noetig
 

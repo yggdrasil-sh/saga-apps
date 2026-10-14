@@ -142,6 +142,12 @@ object AccountKey {
     fun legacy(name: String) = LEGACY + name
 
     fun isStable(key: String) = key.startsWith(UID)
+
+    /**
+     * Inzwischen ein anderes Konto angemeldet? Nur bei zwei stabilen Kennungen sicher erkennbar (der Wechsel von
+     * name:/legacy: auf uid: desselben Kontos ist kein Kontowechsel).
+     */
+    fun switched(opened: String, now: String) = isStable(opened) && isStable(now) && opened != now
     fun isLegacy(key: String) = key.startsWith(LEGACY)
     fun frozenName(key: String): String? = when {
         key.startsWith(NAME) -> key.removePrefix(NAME)

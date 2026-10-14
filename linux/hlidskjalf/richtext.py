@@ -5,7 +5,7 @@ import re
 from gi.repository import Gdk, GLib, GObject, Gtk, Pango
 
 from .i18n import _
-from .util import TAG_RE, decode_entities, esc, link_target, norm, time_text, weekday_day_text
+from .util import NA_TEXTS, TAG_RE, decode_entities, esc, link_target, norm, time_text, weekday_day_text
 
 FORMAT_TAGS = ("b", "i", "u", "s", "mark", "code")
 
@@ -21,6 +21,20 @@ def _setup_tags(buf):
     buf.create_tag("mark", background_rgba=_rgba("rgba(255,204,0,0.35)"))
     buf.create_tag("code", family="monospace", background_rgba=_rgba("rgba(127,127,127,0.22)"))
     buf.create_tag("muted", foreground_rgba=_rgba("rgba(127,127,127,0.9)"), strikethrough=True)
+    # Verweis auf eine Seite ohne Zugriff (Text vom Server ersetzt): gedaempft, kein Link - das href bleibt (a:-Tag),
+    # damit der Server beim Speichern den Originaltext wieder einsetzen kann
+    buf.create_tag(NA_TAG, foreground_rgba=_rgba("rgba(127,127,127,0.95)"), underline=Pango.Underline.NONE)
+
+
+NA_TAG = "hk-na"
+
+
+def _na_on_top(buf):
+    """Das Tag "ohne Zugriff" muss ueber den (spaeter angelegten) Link-Tags liegen, sonst gewinnt deren Farbe"""
+    tt = buf.get_tag_table()
+    t = tt.lookup(NA_TAG)
+    t.set_priority(tt.get_size() - 1)
+    return t
 
 
 def _rgba(s):
@@ -53,9 +67,12 @@ def html_to_buffer(buf, html, base_bold=False, start=None):
         if not raw:
             return
         tags = [buf.get_tag_table().lookup(k) for k, n in counts.items() if n > 0]
+        text = decode_entities(raw)
         if links and links[-1] is not None:
             tags.append(links[-1])
-        buf.insert_with_tags(buf.get_iter_at_mark(mark), decode_entities(raw), *tags)
+            if (links[-1].props.name or "").startswith("a:/notes#") and text.strip() in NA_TEXTS:
+                tags.append(_na_on_top(buf))
+        buf.insert_with_tags(buf.get_iter_at_mark(mark), text, *tags)
 
     for m in TAG_RE.finditer(html or ""):
         emit(html[pos:m.start()])
@@ -478,10 +495,11 @@ class RichText(Gtk.TextView):
         buf.end_user_action()
 
     def link_at(self, it):
-        for t in it.get_tags():
-            n = t.props.name or ""
+        """("a", href) | ("t", datum) | ("na", href) fuer einen Verweis auf eine Seite ohne Zugriff | None"""
+        names = [t.props.name or "" for t in it.get_tags()]
+        for n in names:
             if n.startswith("a:"):
-                return ("a", n[2:])
+                return ("na" if NA_TAG in names else "a", n[2:])
             if n.startswith("t:"):
                 return ("t", n[2:])
         return None
@@ -521,7 +539,7 @@ class RichText(Gtk.TextView):
             return
         it = self._iter_at(x, y)
         lk = self.link_at(it) if it else None
-        if lk and lk[0] == "a" and self.on_link:
+        if lk and lk[0] in ("a", "na") and self.on_link:
             self.on_link(lk[0], lk[1])
 
     def _motion(self, c, x, y):

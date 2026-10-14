@@ -119,6 +119,12 @@ class ViewBar(Gtk.Box):
         self.settings.set_visible(self.editable)
         while (c := self.new_slot.get_first_child()):
             self.new_slot.remove(c)
+        if self.m.readonly:                                    # fremde Datenbank, nur lesen: kein "Neu"
+            lb = Gtk.Label(label=_("👁 View only"), valign=Gtk.Align.CENTER,
+                           tooltip_text=_("View only – changes to the view are not saved."))
+            lb.add_css_class("hk-role-pill")
+            self.new_slot.append(lb)
+            return
         if self.m.templates:
             sb = Adw.SplitButton(label=_("New"))
             sb.add_css_class("suggested-action")

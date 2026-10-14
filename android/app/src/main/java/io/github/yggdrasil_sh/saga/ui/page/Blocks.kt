@@ -152,7 +152,10 @@ fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
         "image" -> Selectable(key, path, env) { ImageBlock(d, env) }
         "toggle" -> ToggleBlock(block, path, key, env)
         "columns" -> ColumnsBlock(d, path, env)
-        else -> Selectable(key, path, env) { Unsupported(type, d, env) }
+        // Aufgaben, Kalender, Immich gehoeren dem Eigentuemer: auf fremden Seiten nur ein neutraler Platzhalter
+        // (der Block bleibt beim Speichern unveraendert)
+        else -> if (ed.caps.ownerOnlyBlock(type)) Selectable(key, path, env) { OwnerOnly(type) }
+        else Selectable(key, path, env) { Unsupported(type, d, env) }
     }
 }
 
@@ -190,6 +193,22 @@ private fun ImageBlock(d: JsonObject, env: BlockEnv) {
             RichTextView(cap, MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), env.onLink, Modifier.padding(top = 4.dp))
         }
     }
+}
+
+/** "✓ Aufgaben · Nur für den Eigentümer sichtbar" (wie im Web) - nie Daten des Eigentuemers */
+@Composable
+private fun OwnerOnly(type: String) {
+    val what = when (type) {
+        "tasks" -> "✓ " + stringResource(R.string.owner_only_tasks)
+        "calendar" -> "🗓 " + stringResource(R.string.owner_only_calendar)
+        else -> "📷 Immich"
+    }
+    Text(
+        what + " · " + stringResource(R.string.owner_only),
+        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(12.dp),
+    )
 }
 
 /** Platzhalter fuer Bloecke, die die App noch nicht kann - der Block bleibt unveraendert gespeichert */

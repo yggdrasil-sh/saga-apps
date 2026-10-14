@@ -3,6 +3,8 @@ import SwiftUI
 /// Bilder aus Immich waehlen (Zuletzt, Alben, Suche nach Bildinhalt). Das gewaehlte Foto uebernimmt der Server
 /// als eigene Datei (/api/immich/import) -> onPick(url). Ohne Schluessel: direkt hier verbinden.
 struct ImmichPicker: View {
+    /// Fremde Seite (Rolle Bearbeiten): Datei gehoert deren Eigentuemer
+    var note: Int? = nil
     let onPick: (String) -> Void
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
@@ -142,7 +144,9 @@ struct ImmichPicker: View {
         busy = it.id; info = String(localized: "Übernehme „\(it.name)“ …")
         struct R: Decodable { let url: String }
         do {
-            let d = try await store.api("api/immich/import", method: "POST", body: ["id": it.id])
+            var body: [String: Any] = ["id": it.id]
+            if let note { body["note"] = note }
+            let d = try await store.api("api/immich/import", method: "POST", body: body)
             let r = try JSONDecoder().decode(R.self, from: d)
             dismiss(); onPick(r.url)
         } catch { busy = nil; info = String(localized: "Nicht übernommen: \(error.localizedDescription)") }

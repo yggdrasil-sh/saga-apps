@@ -219,6 +219,33 @@ def date_time_text(ts):
     return fmt_date(d, _("%b %-d, %Y, %H:%M"))
 
 
+def rel_time(ts, now=None):
+    """Zeitstempel -> "vor 5 Minuten" (wie Intl.RelativeTimeFormat im Web); aelter als ein Monat: Datum"""
+    import time as _time
+    from .i18n import ngettext
+    if not ts:
+        return ""
+    sec = max(0, (now if now is not None else _time.time()) - float(ts))
+    if sec < 10:
+        return _("now")
+    if sec < 60:
+        n = int(sec)
+        return ngettext("{n} second ago", "{n} seconds ago", n).format(n=n)
+    if sec < 3600:
+        n = max(1, int(round(sec / 60)))
+        return ngettext("{n} minute ago", "{n} minutes ago", n).format(n=n)
+    if sec < 86400:
+        n = max(1, int(round(sec / 3600)))
+        return ngettext("{n} hour ago", "{n} hours ago", n).format(n=n)
+    if sec < 86400 * 7:
+        n = max(1, int(round(sec / 86400)))
+        return ngettext("{n} day ago", "{n} days ago", n).format(n=n)
+    if sec < 86400 * 30:
+        n = max(1, int(round(sec / (86400 * 7))))
+        return ngettext("{n} week ago", "{n} weeks ago", n).format(n=n)
+    return date_time_text(ts)
+
+
 def edited_text(ts):
     if not ts:
         return ""
@@ -289,6 +316,10 @@ def plain(html):
     s = re.sub(r"<br\s*/?>", "\n", html or "", flags=re.I)
     s = TAG_RE.sub("", s)
     return decode_entities(s)
+
+
+# Verweis auf eine Seite, die ich nicht sehen darf: der Server (ab 1.3) ersetzt den Text in der Sprache der Anfrage
+NA_TEXTS = frozenset({"Seite ohne Zugriff", "Page without access", "Página sin acceso"})
 
 
 def link_target(href):

@@ -26,9 +26,10 @@ let hkTagRegex = try! NSRegularExpression(pattern: "<(/?)([a-zA-Z]+)([^>]*)>")
 
 /// Wandelt das gespeicherte, bereinigte Inline-HTML (b/i/u/s/mark/code/a/br) in formatierten Text um.
 /// Verweise auf Seiten (/notes#123) werden zu hkpage://123 (oeffnet nativ), http(s) bleibt extern.
-func inlineText(_ html: String) -> AttributedString {
+func inlineText(_ raw: String) -> AttributedString {
+    let html = ShareLogic.markMasked(raw)                    // Verweis auf Seite ohne Zugriff: 🔒 ohne Link (1.3)
     var out = AttributedString()
-    var bold = 0, italic = 0, under = 0, strike = 0, mark = 0, code = 0
+    var bold = 0, italic = 0, under = 0, strike = 0, mark = 0, code = 0, na = 0
     var links: [URL?] = []
     let re = hkTagRegex
     let ns = html as NSString
@@ -45,6 +46,7 @@ func inlineText(_ html: String) -> AttributedString {
         if under > 0 { s.underlineStyle = .single }
         if mark > 0 { s.backgroundColor = Color.yellow.opacity(0.35) }
         if let l = links.last, let u = l { s.link = u; s.foregroundColor = .accentColor }
+        if na > 0 { s.foregroundColor = .secondary }
         out += s
     }
     for m in re.matches(in: html, range: NSRange(location: 0, length: ns.length)) {
@@ -59,6 +61,7 @@ func inlineText(_ html: String) -> AttributedString {
         case "s", "strike", "del": strike += d
         case "mark": mark += d
         case "code": code += d
+        case "na": na += d
         case "br": if !closing { out += AttributedString("\n") }
         case "a":
             if closing { _ = links.popLast() } else {
@@ -225,6 +228,23 @@ final class PageDoc: ObservableObject {
     @Published var askConflict = false
     /// Lokaler Entwurf (ungespeicherte Aenderungen oder Konfliktkopie) zum Wiederherstellen
     @Published var draft: PageDraft?
+    // Teilen (1.3)
+    /// Rolle, Eigentuemer, Kommentar-Zaehler (aus GET /api/notes/{id}; aeltere Server: eigene Seite)
+    @Published var access = PageAccess()
+    /// Laden mit 404/403: "Kein Zugriff auf diese Seite"
+    @Published var noAccess = false
+    /// Konflikt mit einer anderen Person: deren Name ("{name} hat diese Seite gerade geaendert")
+    @Published var conflictBy: String?
+    /// Text zum Kopieren (Entwurf nach "Neue Version laden", Zugriff verloren)
+    @Published var copyDialog: CopyTextDialog?
+    /// Zugriff beim Speichern verloren: bis zum Neuladen nichts mehr senden
+    private(set) var lostAccess = false
+    /// "Meine Version behalten": naechstes Speichern mit overwrite (der Server sichert die andere Fassung als Version)
+    private var overwriteNext = false
+    /// Sitzung/Konto, mit dem die Seite geladen wurde: nach Abmelden/Kontowechsel nichts mehr senden (Pruefer 1.3)
+    private var loadedGen = 0
+    private var loadedOrigin: String?
+    private var loadedAcct: String?
     private(set) var root = NSMutableArray()
     private var doc: NSMutableDictionary = [:]
     private var rev = 0
@@ -242,6 +262,10 @@ final class PageDoc: ObservableObject {
     var cover: String? { (page["cover"] as? String).flatMap { $0.isEmpty ? nil : $0 } }
     var props: [String: Any] { page["props"] as? [String: Any] ?? [:] }
     var isDatabase: Bool { page["kind"] as? String == "database" }
+    /// Uploads in eine fremde Seite (Rolle Bearbeiten): Datei gehoert dem Eigentuemer (X-Saga-Note)
+    var uploadNote: Int? { access.foreign ? id : nil }
+    /// Seite als Klartext (Titel + Bloecke, wie sie gerade im Editor stehen)
+    func plainTextNow() -> String { ShareLogic.plainText(title: titleRaw, blocks: root, strip: plain) }
 
     /// ungespeicherte Eingaben -> nicht durch Neuladen ueberschreiben
     var dirty: Bool { tracker.dirty }
@@ -272,6 +296,12 @@ final class PageDoc: ObservableObject {
             await apply(d, store)
             checkDraft()
         } catch {
+            if case APIError.http(let c, _) = error, c == 404 || c == 403, !dirty || !fetched {
+                // Seite geloescht oder nicht (mehr) geteilt: nichts Bearbeitbares zeigen, nie speichern;
+                // zwischengespeicherten Inhalt verwerfen (sonst offline weiter lesbar)
+                store.dropCache("api/notes/\(id)")
+                noAccess = true; fetched = false; loaded = true; self.error = nil; offline = nil; return
+            }
             if !fetched { self.error = error.localizedDescription; loaded = true }
             else {
                 offline = String(localized: "Offline – Änderungen werden gespeichert, sobald der Server erreichbar ist.")
@@ -296,6 +326,10 @@ final class PageDoc: ObservableObject {
     private func apply(_ d: Data, _ store: Store) async {
         guard let p = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return }
         page = p; rev = p["rev"] as? Int ?? 0
+        let a = PageAccess(page: p); if a != access { access = a }
+        noAccess = false; lostAccess = false
+        loadedGen = store.sessionGen; loadedOrigin = AppConfig.serverOrigin
+        loadedAcct = loadedOrigin.flatMap { DraftOwner.app.account(origin: $0) }
         setBody(p["body"] as? String ?? "", format: p["format"] as? String)
         // Eigenschaften nur, wenn die uebergeordnete Seite eine Datenbank ist (spart eine Anfrage)
         if let parent = p["parent_id"] as? Int, store.page(parent)?.isDatabase == true {
@@ -344,32 +378,60 @@ final class PageDoc: ObservableObject {
     }
 
     private func saveOnce(_ store: Store) async {
-        guard fetched, dirty else { return }                            // nur echte, geaenderte Seiten
+        guard fetched, dirty, !lostAccess else { return }               // nur echte, geaenderte Seiten; nach Zugriffsverlust nie
+        if access.readOnly { tracker.discard(); return }                // Lesen/Kommentieren: nie senden (1.3)
+        if staleSession(store) { retry?.cancel(); retry = nil; return } // abgemeldet/anderes Konto: nichts ins neue Konto senden
         if conflict { writeDraft(conflict: true); return }              // Konflikt offen: nicht senden, neueste Eingaben aber lokal sichern
         let sent = tracker.snapshot
         guard let body = serialized() else { return }
         let title = titleRaw
         if !isDatabase { drafts?.save(id, PageDraft(title: title, body: body, rev: rev, saved: Date(), conflict: false)) }   // vor dem Senden lokal sichern
-        var b: [String: Any] = ["title": title, "rev": rev]
+        var b: [String: Any] = ["title": title]
+        // "Meine Version behalten": ohne Revision, mit overwrite - der Server sichert die andere Fassung als Version
+        if overwriteNext { b["overwrite"] = true } else { b["rev"] = rev }
         if !isDatabase { b["body"] = body; b["format"] = "blocks" }
         do {
-            let r = try await store.api("api/notes/\(id)", method: "PATCH", body: b)
+            let (r, code) = try await store.apiResponse("api/notes/\(id)", method: "PATCH", body: b)
+            guard (200..<300).contains(code) else {
+                overwriteNext = false
+                failed(code: code, data: r, store: store)
+                return
+            }
+            overwriteNext = false
             if let j = try? JSONSerialization.jsonObject(with: r) as? [String: Any], let nr = j["rev"] as? Int { rev = nr }
             tracker.confirm(sent)
             error = nil; offline = nil; retryCount = 0; retry?.cancel(); retry = nil
             if !dirty { drafts?.remove(id) }
             store.updateTitle(id, title)
+            if access.updatedBy != nil && access.updatedBy?.me != true { access.updatedBy = SharePerson(name: "", me: true) }   // "zuletzt geaendert von" bin jetzt ich
             if parentSchema != nil { store.dataChanged() }          // Eintrag einer Datenbank: Titel in den Ansichten aktualisieren
-        } catch APIError.http(409, _) {
+        } catch {
+            self.error = String(localized: "Nicht gespeichert – lokal gesichert, neuer Versuch folgt (\(error.localizedDescription)).")
+            scheduleRetry(store)
+        }
+    }
+
+    /// Speichern abgelehnt: Konflikt (auch mit anderer Person), Zugriff verloren, dauerhafter oder voruebergehender Fehler
+    private func failed(code: Int, data: Data, store: Store) {
+        switch ShareLogic.saveFailure(code: code, data: data, foreign: access.foreign) {
+        case .conflict(let by):
             writeDraft(conflict: true)                                 // eigene Fassung bleibt in jedem Fall erhalten
-            conflict = true; askConflict = true
-        } catch APIError.http(let code, _) where isPermanentSaveError(code) {
+            conflictBy = by; conflict = true; askConflict = true
+        case .lostAccess, .readOnlyNow:
+            // Freigabe entzogen (404) bzw. nur noch Lesen (403): letzten Text zum Kopieren zeigen, danach nicht mehr speichern
+            let ro = code == 403
+            lostAccess = true; retry?.cancel(); retry = nil; retryCount = 0
+            let text = plainTextNow()
+            tracker.discard(); drafts?.remove(id)
+            copyDialog = CopyTextDialog(kind: ro ? .readOnlyNow : .lostAccess, text: text)
+        case .other(let c) where isPermanentSaveError(c):
             // dauerhafter Fehler: nicht automatisch wiederholen, klar anzeigen; Entwurf (vor dem Senden geschrieben) bleibt
             retry?.cancel(); retry = nil; retryCount = 0
             writeDraft(conflict: false)                                // neuester Stand (auch spaetere Eingaben) lokal
-            self.error = PageDoc.permanentErrorText(code)
-        } catch {
-            self.error = String(localized: "Nicht gespeichert – lokal gesichert, neuer Versuch folgt (\(error.localizedDescription)).")
+            self.error = PageDoc.permanentErrorText(c)
+        case .other(let c):
+            let msg = APIError.http(c, ShareJSON.obj(data).flatMap { ShareJSON.str($0["error"]) } ?? "").localizedDescription
+            self.error = String(localized: "Nicht gespeichert – lokal gesichert, neuer Versuch folgt (\(msg)).")
             scheduleRetry(store)
         }
     }
@@ -394,11 +456,9 @@ final class PageDoc: ObservableObject {
         }
     }
 
-    /// Konflikt: eigene Fassung behalten -> aktuelle Revision holen und damit ueberschreiben
+    /// Konflikt: eigene Fassung behalten -> mit overwrite speichern (die andere Fassung sichert der Server als Version)
     func keepMine(_ store: Store) async {
-        guard let d = try? await store.api("api/notes/\(id)"), let p = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
-              let r = p["rev"] as? Int else { error = String(localized: "Server nicht erreichbar – bitte später erneut versuchen."); return }
-        rev = r; conflict = false
+        overwriteNext = true; conflict = false; conflictBy = nil
         if !dirty { tracker.edit() }
         await save(store)
     }
@@ -408,8 +468,42 @@ final class PageDoc: ObservableObject {
             error = String(localized: "Server nicht erreichbar – bitte später erneut versuchen."); askConflict = false; return
         }
         writeDraft(conflict: true)
-        conflict = false
+        conflict = false; conflictBy = nil
         await load(store, force: true)
+    }
+    /// Konflikt mit einer anderen Person: "Neue Version laden" - der eigene, nicht gespeicherte Text kommt danach in den Kopier-Dialog
+    func loadNewVersion(_ store: Store) async {
+        let text = plainTextNow()
+        conflict = false; conflictBy = nil
+        await load(store, force: true)
+        guard fetched else { return }
+        drafts?.remove(id); draft = nil                               // statt Entwurfs-Hinweis: Text zum Kopieren
+        if !text.isEmpty { copyDialog = CopyTextDialog(kind: .draft, text: text) }
+    }
+    /// Seite wurde mit einer frueheren Anmeldung bzw. einem anderen Konto geladen (Abmelden, Kontowechsel, Kopplung):
+    /// dann nichts mehr senden - sonst landeten Eingaben des alten Kontos unter dem neuen (mit Teilen evtl. erlaubt).
+    func staleSession(_ store: Store) -> Bool {
+        if store.sessionGen != loadedGen { return true }
+        let now = AppConfig.serverOrigin.flatMap { DraftOwner.app.account(origin: $0) }
+        return AppConfig.serverOrigin != loadedOrigin || (loadedAcct != nil && now != nil && loadedAcct != now)
+    }
+    /// Neu angemeldet (anderes Konto/neue Sitzung), Seite noch offen: Eingaben als Entwurf des ALTEN Kontos sichern,
+    /// dann alles vergessen und fuer das neue Konto frisch laden (Rolle, Inhalt; 404 -> "Kein Zugriff").
+    func resetForNewSession(_ store: Store) async {
+        retry?.cancel(); retry = nil; retryCount = 0
+        if dirty, !isDatabase, let o = loadedOrigin, let a = loadedAcct, let body = serialized() {
+            DraftStore(origin: o, account: a).save(id, PageDraft(title: titleRaw, body: body, rev: rev, saved: Date(), conflict: conflict))
+        }
+        tracker.discard(); conflict = false; conflictBy = nil; askConflict = false; overwriteNext = false
+        draft = nil; copyDialog = nil; lostAccess = false
+        fetched = false; loaded = false
+        await load(store)
+    }
+    /// Kopier-Dialog nach Zugriffsverlust geschlossen: neu laden (403: jetzt schreibgeschuetzt; 404: "Kein Zugriff")
+    func afterLostAccess(_ store: Store) async {
+        guard lostAccess else { return }
+        await load(store, force: true)
+        await store.refresh(quiet: true)
     }
 }
 
@@ -439,6 +533,8 @@ struct NativePageScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var moving = false
     @State private var publishing = false                // Dialog "Veroeffentlichen"
+    @State private var sharing = false                   // Dialog "Teilen" (nur Eigentuemer)
+    @State private var commentsTarget: CommentsTarget?   // Kommentare (alle bzw. eines Blocks)
     @State private var scrolled = false                  // grosser Titel weggescrollt -> kleiner Titel + Leiste
     @State private var topInset: CGFloat = 0
     init(id: Int, inPeek: Bool = false) {
@@ -447,7 +543,16 @@ struct NativePageScreen: View {
         _doc = StateObject(wrappedValue: d); _ed = StateObject(wrappedValue: PageEditor(doc: d))
     }
 
-    private var favButton: some View {
+    @ViewBuilder private var favButton: some View {
+        if doc.access.allows(.favorite) { favButtonOwn }
+    }
+    /// Kommentare in der Kopfzeile: nur bei offenen Unterhaltungen (dezent)
+    @ViewBuilder private var commentsButton: some View {
+        if doc.access.commentsOpen > 0 {
+            CommentsHeadButton(open: doc.access.commentsOpen, unread: doc.access.commentsUnread) { commentsTarget = CommentsTarget(block: nil) }
+        }
+    }
+    private var favButtonOwn: some View {
         let fav = doc.page["pinned"] as? Bool ?? false
         return Button { Task { try? await store.patch(id, ["pinned": !fav]); doc.page["pinned"] = !fav } } label: {
             Image(systemName: fav ? "star.fill" : "star").foregroundStyle(fav ? .yellow : .primary)
@@ -455,6 +560,8 @@ struct NativePageScreen: View {
         .accessibilityLabel(fav ? "Aus Favoriten entfernen" : "Zu Favoriten")
     }
     @ViewBuilder private var pageMenuItems: some View {
+                    let a = doc.access
+                    if let by = a.sharedBy { Text("Geteilt von \(by) · \(RoleText.you(a.role))") }       // fremde Seite: Etikett, kein Knopf
                     Text(editedText(doc.page["updated"] as? Double))
                     #if os(iOS)
                     if !store.path(id).isEmpty {
@@ -462,27 +569,43 @@ struct NativePageScreen: View {
                             label: { Label("Übergeordnete Seiten", systemImage: "arrow.up.forward") }
                     }
                     #endif
-                    Toggle(isOn: Binding(get: { doc.page["wide"] as? Bool ?? false },
-                                         set: { v in Task { try? await store.patch(id, ["wide": v]); doc.page["wide"] = v } })) { Label("Volle Breite", systemImage: "arrow.left.and.right") }
+                    if a.allows(.wide) {
+                        Toggle(isOn: Binding(get: { doc.page["wide"] as? Bool ?? false },
+                                             set: { v in Task { try? await store.patch(id, ["wide": v]); doc.page["wide"] = v } })) { Label("Volle Breite", systemImage: "arrow.left.and.right") }
+                    }
                     Button { store.setHome(store.homePage == id ? nil : id) } label: {
                         Label(store.homePage == id ? "Nicht mehr Startseite" : "Als Startseite festlegen", systemImage: store.homePage == id ? "house.slash" : "house")
                     }
+                    if a.foreign && a.allows(.addSubpage) && !doc.isDatabase {
+                        Button { Task { await ed.flush(); if let n = await store.newPage(parent: id) { nav.push(PageRoute(id: n)) } } } label: { Label("Unterseite hinzufügen", systemImage: "doc.badge.plus") }
+                    }
+                    if a.commentsSupported {                          // Server 1.3: Kommentare (mit "n erledigt") und Teilen
+                        Button { commentsTarget = CommentsTarget(block: nil) } label: {
+                            Label("Kommentare", systemImage: "bubble.left")
+                            if a.commentsResolved > 0 { Text("\(a.commentsResolved) erledigt") }
+                        }
+                        if a.allows(.share) && doc.fetched {
+                            Button { Task { await ed.flush(); sharing = true } } label: { Label("Teilen …", systemImage: a.shared ? "person.2.fill" : "person.2") }
+                        }
+                    }
                     Divider()
-                    Button { moving = true } label: { Label("Verschieben nach …", systemImage: "arrow.turn.up.right") }
-                    Button { Task { await ed.flush(); showVersions = true } } label: { Label("Versionsverlauf …", systemImage: "clock.arrow.circlepath") }
+                    if a.allows(.move) { Button { moving = true } label: { Label("Verschieben nach …", systemImage: "arrow.turn.up.right") } }
+                    if a.allows(.versions) { Button { Task { await ed.flush(); showVersions = true } } label: { Label("Versionsverlauf …", systemImage: "clock.arrow.circlepath") } }
                     #if os(macOS)
                     Menu {
                         Button("Als Markdown (.md)") { Task { await ed.flush(); if let e = await exportPage(id, title: doc.title, withSub: false, store: store) { doc.error = e } } }
-                        if !store.children(of: id).isEmpty {
+                        if !store.children(of: id).isEmpty || !store.sharedChildren(of: id).isEmpty {
                             Button("Mit Unterseiten (.zip)") { Task { await ed.flush(); if let e = await exportPage(id, title: doc.title, withSub: true, store: store) { doc.error = e } } }
                         }
                     } label: { Label("Exportieren", systemImage: "square.and.arrow.down") }
                     #endif
-                    Toggle(isOn: Binding(get: { doc.page["template"] as? Bool ?? false },
-                                         set: { v in Task { try? await store.patch(id, ["template": v]); doc.page["template"] = v; await store.refresh() } })) { Label("Als Vorlage", systemImage: "doc.on.doc") }
-                    Button { Task { if let n = await store.duplicate(id) { nav.push(PageRoute(id: n)) } } } label: { Label("Duplizieren", systemImage: "plus.square.on.square") }
+                    if a.allows(.template) {
+                        Toggle(isOn: Binding(get: { doc.page["template"] as? Bool ?? false },
+                                             set: { v in Task { try? await store.patch(id, ["template": v]); doc.page["template"] = v; await store.refresh() } })) { Label("Als Vorlage", systemImage: "doc.on.doc") }
+                    }
+                    if a.allows(.duplicate) { Button { Task { if let n = await store.duplicate(id) { nav.push(PageRoute(id: n)) } } } label: { Label("Duplizieren", systemImage: "plus.square.on.square") } }
                     // Veroeffentlichen: nur, wenn der Server es kann (liefert "published"), nicht fuer Vorlagen
-                    if doc.fetched && PublicBadge.supported(doc.page) && !(doc.page["template"] as? Bool ?? false) {
+                    if a.allows(.publish) && doc.fetched && PublicBadge.supported(doc.page) && !(doc.page["template"] as? Bool ?? false) {
                         Button { Task { await ed.flush(); publishing = true } } label: { Label("Veröffentlichen …", systemImage: "globe") }
                     }
                     if let u = URL(string: AppConfig.server.absoluteString + "/notes#\(id)") {
@@ -490,16 +613,23 @@ struct NativePageScreen: View {
                     }
                     Button { nav.peek = nil; nav.push(PageRoute(id: id, web: true)) } label: { Label("Im Web-Editor öffnen", systemImage: "safari") }
                     Button { Task { await ed.flush(); await doc.load(store) } } label: { Label("Neu laden", systemImage: "arrow.clockwise") }
-                    Divider()
-                    Button { Task { await setLocked(!ed.locked) } } label: {
-                        Label(ed.locked ? "Seite entsperren" : "Seite sperren", systemImage: ed.locked ? "lock.open" : "lock")
+                    if a.foreign {
+                        Divider()
+                        Text("Verschieben, Löschen, Versionen und Freigaben verwaltet der Eigentümer.")
+                    } else {
+                        Divider()
+                        Button { Task { await setLocked(!pageLocked) } } label: {
+                            Label(pageLocked ? "Seite entsperren" : "Seite sperren", systemImage: pageLocked ? "lock.open" : "lock")
+                        }
+                        let isArch = (doc.page["archived"] as? Bool) == true
+                        Button { Task { await ed.flush(); await store.setArchived(id, !isArch); doc.page["archived"] = !isArch } } label: {
+                            Label(isArch ? "Aus dem Archiv holen" : "Archivieren", systemImage: isArch ? "tray.and.arrow.up" : "archivebox")
+                        }
+                        Button(role: .destructive) { Task { await ed.flush(); if await store.trash(id) { if inPeek { nav.peek = nil } else { dismiss() } } } } label: { Label("In den Papierkorb", systemImage: "trash") }   // im Peek: nur den Peek schliessen
                     }
-                    let isArch = (doc.page["archived"] as? Bool) == true
-                    Button { Task { await ed.flush(); await store.setArchived(id, !isArch); doc.page["archived"] = !isArch } } label: {
-                        Label(isArch ? "Aus dem Archiv holen" : "Archivieren", systemImage: isArch ? "tray.and.arrow.up" : "archivebox")
-                    }
-                    Button(role: .destructive) { Task { await ed.flush(); if await store.trash(id) { if inPeek { nav.peek = nil } else { dismiss() } } } } label: { Label("In den Papierkorb", systemImage: "trash") }   // im Peek: nur den Peek schliessen
     }
+    /// Seite vom Eigentuemer gesperrt (unabhaengig von der Rolle)
+    private var pageLocked: Bool { doc.page["locked"] as? Bool ?? false }
     /// Seite sperren/entsperren (wie im Web): erst speichern, dann sperren
     private func setLocked(_ on: Bool) async {
         if on { await ed.flush(); ed.focus = nil }
@@ -521,6 +651,7 @@ struct NativePageScreen: View {
             }
             Text(doc.title).font(.headline).lineLimit(1).foregroundStyle(.secondary)
             Spacer()
+            commentsButton
             favButton
             Menu { pageMenuItems } label: { Image(systemName: "ellipsis.circle") }.menuIndicator(.hidden).fixedSize().accessibilityLabel("Seitenmenü")
         }
@@ -543,17 +674,26 @@ struct NativePageScreen: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 #if os(iOS)
-                CoverView(doc: doc, extendTop: topInset)          // Titelbild bis ganz nach oben (wie Notion)
+                CoverView(doc: doc, extendTop: topInset, readOnly: doc.access.readOnly)          // Titelbild bis ganz nach oben (wie Notion)
                 #else
-                CoverView(doc: doc)
+                CoverView(doc: doc, readOnly: doc.access.readOnly)
                 #endif
                 VStack(alignment: .leading, spacing: 10) {
-                    IconRow(doc: doc)
+                    if doc.noAccess {
+                        NoAccessView { Task { doc.loaded = false; await doc.load(store); await store.refresh(quiet: true) } }
+                    } else {
+                    IconRow(doc: doc, readOnly: doc.access.readOnly)
                     TextField("Unbenannt", text: Binding(get: { doc.titleRaw }, set: { v in if v != doc.titleRaw { doc.page["title"] = v; ed.textChanged() } }), axis: .vertical)   // nur echte Aenderung
                         .font(.largeTitle.bold()).textFieldStyle(.plain).disabled(ed.locked || !doc.fetched)
-                    if ed.locked {
-                        Button { Task { await setLocked(false) } } label: { Label("Gesperrt – tippen zum Entsperren", systemImage: "lock.fill").font(.caption) }
-                            .buttonStyle(.bordered).controlSize(.small).tint(.secondary)
+                    if let by = doc.access.sharedBy { SharedByLabel(owner: by, role: doc.access.role) }      // fremde Seite (1.3)
+                    PageMetaLine(access: doc.access, updated: doc.page["updated"] as? Double)
+                    if pageLocked {
+                        if doc.access.allows(.lock) {
+                            Button { Task { await setLocked(false) } } label: { Label("Gesperrt – tippen zum Entsperren", systemImage: "lock.fill").font(.caption) }
+                                .buttonStyle(.bordered).controlSize(.small).tint(.secondary)
+                        } else {
+                            Label("Der Eigentümer hat die Seite gesperrt", systemImage: "lock.fill").font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                     if let pb = PublicBadge.from(doc.page) { PublicBadgeButton(badge: pb) { publishing = true } }
                     if let o = doc.offline {
@@ -563,9 +703,9 @@ struct NativePageScreen: View {
                         Button { doc.askConflict = true } label: { Label("Seite wurde woanders geändert", systemImage: "exclamationmark.triangle") }
                             .font(.footnote).buttonStyle(.bordered).tint(.orange)
                     }
-                    if let dr = doc.draft { DraftBanner(draft: dr, doc: doc, ed: ed) }
+                    if let dr = doc.draft, !doc.access.readOnly { DraftBanner(draft: dr, doc: doc, ed: ed) }   // nur lesen: nichts wiederherzustellen
                     if doc.fetched && !doc.isDatabase { TagsRow(doc: doc) }
-                    if let schema = doc.parentSchema { EditableProps(doc: doc, schema: schema).padding(.bottom, 8) }
+                    if let schema = doc.parentSchema { EditableProps(doc: doc, schema: schema).padding(.bottom, 8).disabled(doc.access.readOnly) }
                     if doc.isDatabase {
                         DatabaseView(dbID: id, viewID: nil, localViews: nil)
                     } else if doc.fetched {
@@ -578,6 +718,7 @@ struct NativePageScreen: View {
                     if doc.loaded && !doc.fetched {                              // Laden fehlgeschlagen: nichts Bearbeitbares zeigen
                         Button { Task { doc.loaded = false; await doc.load(store) } } label: { Label("Erneut versuchen", systemImage: "arrow.clockwise") }
                             .prominentGold().padding(.top, 4)
+                    }
                     }
                 }
                 .padding(.horizontal, pageGutter).padding(.vertical, 12)
@@ -608,7 +749,7 @@ struct NativePageScreen: View {
         .toolbarBackground(scrolled ? .visible : .hidden, for: .navigationBar)
         #endif
         .photosPicker(isPresented: $ed.pickImage, selection: $ed.picked, maxSelectionCount: 5, matching: .images)
-        .sheet(isPresented: $ed.pickImmich) { ImmichPicker { url in ed.insertImageURL(url) }.environmentObject(store) }
+        .sheet(isPresented: $ed.pickImmich) { ImmichPicker(note: doc.uploadNote) { url in ed.insertImageURL(url) }.environmentObject(store) }
         .sheet(item: Binding(get: { ed.linkDBFor.map(MoveTarget.init(idString:)) }, set: { if $0 == nil { ed.linkDBFor = nil } })) { _ in
             NavigationStack {
                 List(store.pages.filter { $0.isDatabase }) { p in
@@ -645,6 +786,7 @@ struct NativePageScreen: View {
         }
         .toolbar {
             if !inPeek {                                     // im Peek: eigene Kopfzeile statt Fensterleiste (sonst Layout-Kreislauf am Mac)
+                ToolbarItem(placement: .primaryAction) { commentsButton }
                 ToolbarItem(placement: .primaryAction) { favButton }
                 ToolbarItem(placement: .primaryAction) { Menu { pageMenuItems } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("Seitenmenü") }
             }
@@ -683,6 +825,19 @@ struct NativePageScreen: View {
             if UserDefaults.standard.bool(forKey: "hkPublish"), doc.fetched {             // nur fuer Tests: Dialog "Veroeffentlichen" oeffnen
                 try? await Task.sleep(for: .seconds(1)); publishing = true
             }
+            if UserDefaults.standard.bool(forKey: "hkShare"), doc.fetched, doc.access.allows(.share) {   // nur fuer Tests: Dialog "Teilen"
+                try? await Task.sleep(for: .seconds(1)); sharing = true
+            }
+            if let c = UserDefaults.standard.string(forKey: "hkComments"), doc.fetched {   // nur fuer Tests: Kommentare ("all" oder Block-ID)
+                try? await Task.sleep(for: .seconds(1)); commentsTarget = CommentsTarget(block: c == "all" ? nil : c)
+            }
+            let edAfter = UserDefaults.standard.integer(forKey: "hkEditAfter")               // nur fuer Tests: nach n s Text anhaengen + speichern (Konflikt)
+            if edAfter > 0, doc.fetched, let b = doc.root.compactMap({ $0 as? NSMutableDictionary }).last(where: { $0["type"] as? String == "paragraph" }),
+               let d = b["data"] as? NSMutableDictionary {
+                try? await Task.sleep(for: .seconds(edAfter))
+                d["text"] = (d["text"] as? String ?? "") + " " + (UserDefaults.standard.string(forKey: "hkEditText") ?? "+")
+                ed.changed(); await ed.flush()
+            }
             if UserDefaults.standard.bool(forKey: "hkFocusFirst"),                       // nur fuer Tests (Startparameter -hkFocusFirst YES)
                let b = doc.root.compactMap({ $0 as? NSMutableDictionary }).first(where: { ["paragraph", "header"].contains($0["type"] as? String ?? "") }) {
                 ed.focus = b.blockID
@@ -691,10 +846,23 @@ struct NativePageScreen: View {
         }
         .refreshable { await ed.flush(); await doc.load(store); store.refreshEvents() }
         .modifier(SaveGuard(doc: doc, ed: ed))
-        .onChange(of: (doc.page["locked"] as? Bool) ?? false, initial: true) { _, v in ed.locked = v; if v { ed.focus = nil } }
+        // gesperrt (Eigentuemer) oder Rolle Lesen/Kommentieren: schreibgeschuetzt, ohne Platzhalter und Griffe
+        .onChange(of: pageLocked || doc.access.readOnly, initial: true) { _, v in ed.locked = v; if v { ed.focus = nil } }
+        .onChange(of: doc.access, initial: true) { _, a in ed.applyAccess(a) }
+        .onChange(of: ed.commentBlock) { _, b in if let b { ed.commentBlock = nil; Task { await ed.flush(); commentsTarget = CommentsTarget(block: b) } } }
+        .modifier(CommentsPresenter(target: $commentsTarget, inPeek: inPeek, doc: doc, ed: ed, store: store))
+        .sheet(isPresented: $sharing) {
+            ShareSheet(id: id, ownerName: doc.access.owner?.name, onShared: { on in
+                doc.access.shared = on; doc.page["shared"] = on; Task { await store.refresh(quiet: true) }
+            }, openPage: { pid in nav.peek = nil; nav.push(PageRoute(id: pid)) })
+            .environmentObject(store)
+        }
         .onAppear { if doc.loaded && ed.focus == nil { Task { await ed.flush(); await doc.load(store) } } }   // zurueck aus dem Web-Editor
         .onDisappear { Task { await ed.flush() } }
-        .onChange(of: store.needsLogin) { _, v in if !v && !doc.fetched { Task { await doc.load(store) } } }   // wieder angemeldet -> neu laden
+        .onChange(of: store.needsLogin) { _, v in                          // wieder angemeldet -> neu laden
+            if !v && doc.fetched && doc.staleSession(store) { ed.focus = nil; Task { await doc.resetForNewSession(store) } }   // anderes Konto/neue Sitzung
+            else if !v && !doc.fetched { Task { await doc.load(store) } }
+        }
     }
 }
 
@@ -735,6 +903,14 @@ struct BlockView: View {
     }
 
     var body: some View {
+        if ShareLogic.isOwnerOnlyBlock(type, foreign: ed.foreign) {
+            OwnerOnlyBlock(type: type)                          // fremde Seite: Daten gehoeren dem, der schaut - neutraler Platzhalter
+        } else {
+            content
+        }
+    }
+
+    @ViewBuilder private var content: some View {
         switch type {
         case "paragraph":
             EditText(key: id, html: s("text"), placeholder: ed.focus == id ? String(localized: "Tippe etwas oder „/“ für Blöcke …") : "", slash: true, setHTML: set("text"), onReturn: split("text")).id(id)
@@ -848,6 +1024,7 @@ struct ListBlock: View {
                                 let m = meta ?? NSMutableDictionary(); m["checked"] = !checked; it["meta"] = m; ed.changed()
                             } label: { Image(systemName: checked ? "checkmark.square.fill" : "square").foregroundStyle(checked ? Color.accentColor : .secondary) }
                             .buttonStyle(.plain)
+                            .disabled(ed.doc.access.readOnly)                  // fremde Seite, nur Lesen/Kommentieren: nicht abhaken (1.3)
                             .accessibilityLabel("Abhaken").accessibilityAddTraits(checked ? .isSelected : [])
                         } else {
                             Text(style == "ordered" ? "\(i + 1)." : "•").foregroundStyle(.secondary).frame(minWidth: 16, alignment: .trailing)
@@ -998,6 +1175,14 @@ struct BlockRow: View {
     @Environment(\.blockDepth) private var depth
     private var id: String { block.blockID }
     var body: some View {
+        let n = ed.commentCounts[id] ?? 0
+        HStack(alignment: .top, spacing: 4) {
+            inner
+            if n > 0 { CommentBubble(count: n, unread: ed.commentUnread.contains(id)) { ed.commentBlock = id } }   // nur offene Unterhaltungen
+        }
+        .id(id)                                                        // Ziel fuer das Inhaltsverzeichnis
+    }
+    @ViewBuilder private var inner: some View {
         #if os(macOS)
         // Griffe zeichnet die SEITE (BlockHandles) - hier nur melden: Maus drueber + Position
         BlockView(block: block)
@@ -1006,12 +1191,11 @@ struct BlockRow: View {
             // transform: eigene Position ERGAENZEN (anchorPreference wuerde die der Bloecke darin ueberschreiben,
             // dann kennt die Seite Bloecke in Spalten nicht und zeichnet dort keine Griffe)
             .transformAnchorPreference(key: BlockFramesKey.self, value: .bounds) { frames, a in frames[id] = a }
-            .id(id)                                                    // Ziel fuer das Inhaltsverzeichnis
+            .contextMenu { if ed.locked { BlockMenuItems(id: id) } }   // schreibgeschuetzt (keine Griffe): Kommentieren, Link
         #else
         BlockView(block: block)
             .contentShape(Rectangle())
             .contextMenu { BlockMenuItems(id: id) }
-            .id(id)
         #endif
     }
 }
@@ -1053,6 +1237,16 @@ struct BlockMenuItems: View {
     let id: String
     @EnvironmentObject var ed: PageEditor
     var body: some View {
+        if ed.canComment {
+            Button { ed.commentBlock = id } label: { Label("Kommentieren", systemImage: "bubble.left") }
+        }
+        if ed.locked {                                                  // schreibgeschuetzt: nur Link (und Kommentieren)
+            Button { copyText(AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/notes#\(ed.doc.id):\(id)") } label: { Label("Link zum Block kopieren", systemImage: "link") }
+        } else {
+            editItems
+        }
+    }
+    @ViewBuilder private var editItems: some View {
         Menu {
             ForEach(slashItems.filter { !["image", "immich_image", "page", "db_new", "db_link", "tasks", "calendar", "table", "columns", "buttons", "embed", "file"].contains($0.1) }, id: \.0) { it in Button { ed.convert(id, to: it.1, level: it.2 == 0 ? 2 : it.2) } label: { Label(it.0, systemImage: it.3) } }
         } label: { Label("Umwandeln in", systemImage: "arrow.triangle.2.circlepath") }
@@ -1172,20 +1366,37 @@ struct DraftBanner: View {
     }
 }
 
-/// Konflikt-Rueckfrage (409) und Speichern beim Wechsel in den Hintergrund
+/// Konflikt-Rueckfrage (409), Zugriff verloren und Speichern beim Wechsel in den Hintergrund
 struct SaveGuard: ViewModifier {
     @ObservedObject var doc: PageDoc
     let ed: PageEditor
     @EnvironmentObject var store: Store
     @Environment(\.scenePhase) private var phase
+    @State private var askOverwrite: String?
     func body(content: Content) -> some View {
         content
-            .alert("Seite wurde woanders geändert", isPresented: $doc.askConflict) {
-                Button("Meine Fassung behalten") { Task { await doc.keepMine(store) } }
-                Button("Server-Fassung laden (meine als Kopie sichern)") { ed.focus = nil; Task { await doc.takeServer(store) } }
+            .alert(doc.conflictBy.map { String(localized: "\($0) hat diese Seite gerade geändert") } ?? String(localized: "Seite wurde woanders geändert"),
+                   isPresented: $doc.askConflict) {
+                if let by = doc.conflictBy {
+                    // andere Person (1.3): Hauptknopf "Neue Version laden" (eigener Text danach zum Kopieren); ueberschreiben nur mit Rueckfrage
+                    Button("Neue Version laden") { ed.focus = nil; Task { await doc.loadNewVersion(store) } }.keyboardShortcut(.defaultAction)
+                    Button("Meine Version behalten") { askOverwrite = by }
+                } else {
+                    Button("Meine Fassung behalten") { Task { await doc.keepMine(store) } }
+                    Button("Server-Fassung laden (meine als Kopie sichern)") { ed.focus = nil; Task { await doc.takeServer(store) } }
+                }
             } message: {
-                Text("Diese Seite wurde inzwischen auf einem anderen Gerät geändert. Deine Änderungen gehen nicht verloren.")
+                if doc.conflictBy != nil { Text("Deine letzten Änderungen sind noch nicht gespeichert.") }
+                else { Text("Diese Seite wurde inzwischen auf einem anderen Gerät geändert. Deine Änderungen gehen nicht verloren.") }
             }
+            .alert(askOverwrite.map { String(localized: "Änderungen von \($0) überschreiben?") } ?? "",
+                   isPresented: Binding(get: { askOverwrite != nil }, set: { if !$0 { askOverwrite = nil } })) {
+                Button("Überschreiben", role: .destructive) { askOverwrite = nil; Task { await doc.keepMine(store) } }
+                Button("Abbrechen", role: .cancel) { askOverwrite = nil; doc.askConflict = true }
+            } message: {
+                Text(verbatim: askOverwrite.map { String(localized: "Die Fassung von \($0) bleibt in den Versionen erhalten.") } ?? "")
+            }
+            .sheet(item: $doc.copyDialog, onDismiss: { Task { await doc.afterLostAccess(store) } }) { d in CopyTextSheet(dialog: d) }
             .onChange(of: phase) { _, p in if p != .active { flushInBackground() } }   // App geht in den Hintergrund: Eingaben sichern
     }
     /// Speichern, auch wenn die App gerade in den Hintergrund geht (iOS gibt dafuer etwas Zeit)
@@ -1196,5 +1407,44 @@ struct SaveGuard: ViewModifier {
         #else
         Task { await ed.flush() }
         #endif
+    }
+}
+
+
+/// Kommentare zeigen: iPhone als Blatt von unten (halbe/ganze Hoehe), iPad und Mac als Blatt.
+/// (Kein Inspector: der nahm auf dem iPhone der Seite die Knoepfe der Navigationsleiste.)
+struct CommentsPresenter: ViewModifier {
+    @Binding var target: CommentsTarget?
+    let inPeek: Bool
+    @ObservedObject var doc: PageDoc
+    let ed: PageEditor
+    let store: Store
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        content.sheet(item: $target) { _ in panel.presentationDetents([.medium, .large]).presentationContentInteraction(.scrolls) }
+        #else
+        content.sheet(item: $target) { _ in panel.frame(minWidth: 420, idealWidth: 460, minHeight: 520, idealHeight: 640) }
+        #endif
+    }
+    private var panel: some View {
+        CommentsPanel(noteID: doc.id, block: Binding(get: { target?.block }, set: { b in if target != nil { target = CommentsTarget(block: b) } }),
+                      role: doc.access.role, snippet: { blockSnippet($0) },
+                      onUpdate: { s in apply(s) }, close: { target = nil })
+            .environmentObject(store)
+    }
+    /// Zahlen an Block und Kopfzeile nachfuehren
+    private func apply(_ s: CommentsState) {
+        let (counts, unread) = ShareLogic.blockCounts(s.threads)
+        var a = doc.access
+        a.commentCounts = counts; a.commentsOpen = s.open.count; a.commentsUnread = s.open.filter(\.unread).count; a.commentsResolved = s.resolvedCount
+        if a != doc.access { doc.access = a }
+        if ed.commentUnread != unread { ed.commentUnread = unread }
+    }
+    /// Kurzer Text des Blocks (nil: Block gibt es nicht mehr)
+    private func blockSnippet(_ id: String) -> String? {
+        guard let (arr, i) = ed.locate(id), let b = arr[i] as? NSDictionary else { return nil }
+        var s = ShareLogic.plainText(title: "", blocks: [b], strip: plain).replacingOccurrences(of: "\n", with: " ")
+        if s.isEmpty { s = (b["type"] as? String) == "image" ? String(localized: "Bild") : String(localized: "Block") }
+        return s.count > 70 ? String(s.prefix(69)) + "…" : s
     }
 }

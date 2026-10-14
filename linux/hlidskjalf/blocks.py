@@ -276,6 +276,13 @@ class BlockRow(Gtk.Box):
         content = kit.build(block, depth)
         content.set_hexpand(True)
         self.append(content)
+        # Kommentare (1.3): rechts ein schmaler Platz fuer die Zahl offener Unterhaltungen bzw. 💬+ beim Ueberfahren
+        self.cslot = None
+        self._cm_sig = None
+        if depth == 0 and getattr(kit.view, "cpanel", None) is not None:
+            self.cslot = Gtk.Box(width_request=36, valign=Gtk.Align.START, halign=Gtk.Align.END)
+            self.cslot.add_css_class("hk-cslot")
+            self.append(self.cslot)
         mo = Gtk.EventControllerMotion()
         mo.connect("enter", lambda *_: kit.view.hover.enter(self))
         mo.connect("leave", lambda *_: kit.view.hover.leave(self))
@@ -293,6 +300,45 @@ class BlockRow(Gtk.Box):
 
     def show_handle(self, on):
         (self.handle.add_css_class if on else self.handle.remove_css_class)("hk-on")
+        if self.cslot is not None:
+            (self.cslot.add_css_class if on else self.cslot.remove_css_class)("hk-on")
+
+    def set_comments(self, n, unread, can):
+        """Zahl offener Unterhaltungen am Block (nur wenn > 0); sonst - wer kommentieren darf - 💬+ beim Ueberfahren"""
+        sig = (n, bool(unread), bool(can))
+        if self.cslot is None or sig == self._cm_sig:
+            return
+        self._cm_sig = sig
+        while (c := self.cslot.get_first_child()):
+            self.cslot.remove(c)
+        from .comments import bubble_tooltip
+        from .sharing import comment_icon
+        view = self.kit.view
+        if n:
+            bx = Gtk.Box(spacing=2)
+            ic = Gtk.Image.new_from_icon_name(comment_icon())
+            ic.set_pixel_size(12)
+            bx.append(ic)
+            bx.append(Gtk.Label(label=str(n)))
+            b = Gtk.Button(child=bx, valign=Gtk.Align.START, tooltip_text=bubble_tooltip(n))
+            b.add_css_class("hk-cm-bubble")
+            if unread:
+                b.add_css_class("hk-unread")
+            b.update_property([Gtk.AccessibleProperty.LABEL], [bubble_tooltip(n)])
+        elif can:
+            bx = Gtk.Box(spacing=0)
+            ic = Gtk.Image.new_from_icon_name(comment_icon())
+            ic.set_pixel_size(12)
+            bx.append(ic)
+            bx.append(Gtk.Label(label="+"))
+            b = Gtk.Button(child=bx, valign=Gtk.Align.START, tooltip_text=_("Comment"))
+            b.add_css_class("flat")
+            b.add_css_class("hk-cm-add")
+            b.update_property([Gtk.AccessibleProperty.LABEL], [_("Comment")])
+        else:
+            return
+        b.connect("clicked", lambda *_: view.show_comments(self.bid))
+        self.cslot.append(b)
 
     def _touched(self):
         # CAPTURE laeuft von aussen nach innen: der innerste angetippte Block setzt sich zuletzt durch
@@ -337,6 +383,21 @@ class BlockKit:
     def register(self, key, rt):
         self.order.append((key, rt))
         self.by_key[key] = rt
+
+    def rows(self):
+        """alle Blockzeilen des letzten Aufbaus (auch verschachtelte)"""
+        return list(self._built)
+
+    def _owner_only(self, what):
+        """Aufgaben, Kalender, Immich auf fremden Seiten: neutraler Platzhalter (nie Daten des Eigentuemers);
+        der Block bleibt beim Speichern unveraendert"""
+        lb = Gtk.Label(label=what + " · " + _("Only visible to the owner"), xalign=0, wrap=True)
+        lb.add_css_class("dim-label")
+        box = Gtk.Box()
+        box.add_css_class("hk-card-box")
+        box.add_css_class("hk-owner-only")
+        box.append(lb)
+        return box
 
     # --- Aufbau -------------------------------------------------------------------------------
     def _sig(self, b, depth):
@@ -430,8 +491,11 @@ class BlockKit:
         if not isinstance(d, dict):
             d = b["data"] = {}
         bid = b.get("id")
+        foreign = bool(getattr(self.view, "foreign", False))
         if t == "paragraph":
-            rt = self._rt(bid, b, "text", d.get("text", ""), placeholder=_("Type something or “/” for blocks …"))
+            # schreibgeschuetzt (gesperrt, nur Lesen/Kommentieren): kein Editor-Platzhalter
+            ph = "" if self.editor.locked else _("Type something or “/” for blocks …")
+            rt = self._rt(bid, b, "text", d.get("text", ""), placeholder=ph)
             rt.set_placeholder(rt.placeholder_text, always=False)
             return rt
         if t == "header":
@@ -484,6 +548,16 @@ class BlockKit:
             return self._toggle(b, d, depth)
         if t == "columns":
             return self._columns(b, d, depth)
+        if t in ("tasks", "calendar", "immich") and foreign:
+            return self._owner_only({"tasks": "✓ " + _("Tasks"), "calendar": "🗓 " + _("Calendar"), "immich": "📷 Immich"}[t])
+        if t == "database" and foreign and (not d.get("db") or not store.visible(d.get("db"))):
+            lb = Gtk.Label(label="🗃️ " + (_("Page without access") if d.get("db") else _("No database selected")), xalign=0)
+            lb.add_css_class("dim-label")
+            box = Gtk.Box()
+            box.add_css_class("hk-card-box")
+            box.add_css_class("hk-owner-only")
+            box.append(lb)
+            return box
         if t == "database" and d.get("db"):
             from .database import DatabaseView
 
@@ -746,11 +820,21 @@ class BlockKit:
         return outer
 
     # --- Block-Menue (⋮⋮) ---------------------------------------------------------------------------
+    def readonly_menu(self, parent, bid):
+        """Menue-Taste in einer schreibgeschuetzten Seite: Link zum Block, Kommentieren"""
+        ed = self.editor
+        ents = [(_("Copy link to block"), lambda: self.view.win.copy_text(f"{settings.server}/notes#{ed.doc.id}:{bid}"))]
+        if getattr(self.view, "cpanel", None) is not None and "role" in ed.doc.page:
+            ents.append((_("Comment"), lambda: self.view.show_comments(bid)))
+        menu_popover(parent, ents).popup()
+
     def block_menu(self, parent, bid):
         ed = self.editor
         conv = [(it[0], (lambda t=it[1], l=it[2]: ed.convert(bid, t, l or 2))) for it in CONVERTIBLE]
         ents = [(_("Turn into"), conv),
                 (_("Copy link to block"), lambda: self.view.win.copy_text(f"{settings.server}/notes#{ed.doc.id}:{bid}"))]
+        if getattr(self.view, "cpanel", None) is not None and "role" in ed.doc.page:     # Server ab 1.3
+            ents.append((_("Comment"), lambda: self.view.show_comments(bid)))
         c = ed.column_of(bid)
         if c:
             others = [(_("Column {n}").format(n=ci + 1), (lambda ci=ci: ed.move_into_column(bid, c[0], ci))) for ci in range(ed.col_count(c[0])) if ci != c[3]]
@@ -797,7 +881,10 @@ class BlockKit:
         if rt.hk_block.get("type") == "paragraph" and rt.hk_item is None and text.startswith("/") and " " not in text \
                 and "\n" not in text and len(text) <= 20 and sg.closed_for != text:
             q = norm(text[1:])
-            items = [(it[3], it[0], "", (it[1], it[2])) for it in SLASH_ITEMS if not q or q in norm(it[0]) or q in it[4]]
+            # fremde Seite: Aufgaben, Kalender und Immich gehoeren dem Konto - dort nicht anbieten
+            skip = ("tasks", "calendar", "immich_image") if getattr(self.view, "foreign", False) else ()
+            items = [(it[3], it[0], "", (it[1], it[2])) for it in SLASH_ITEMS
+                     if it[1] not in skip and (not q or q in norm(it[0]) or q in it[4])]
             if not items:
                 items = [("", _("No block type for “{query}”").format(query=text[1:]), "", None)]
             sg.show(rt, "slash", items, lambda v: v and self.editor.slash_apply(rt.hk_block["id"], v[0], v[1]))
@@ -875,6 +962,17 @@ class BlockKit:
                 return True
         ed, b = self.editor, rt.hk_block
         bid = b.get("id")
+        if ed.locked:
+            # gesperrt bzw. nur Lesen/Kommentieren: keine Formatierung, kein Teilen/Verschieben/Umwandeln von Bloecken;
+            # Pfeile, Esc, Kopieren und die Befehlspalette bleiben
+            if is_menu_key(kv, state):
+                self.readonly_menu(rt, bid)
+                return True
+            fmt_keys = (Gdk.KEY_b, Gdk.KEY_i, Gdk.KEY_u, Gdk.KEY_e, Gdk.KEY_X, Gdk.KEY_x, Gdk.KEY_H, Gdk.KEY_h, Gdk.KEY_Up,
+                        Gdk.KEY_Down, Gdk.KEY_d, Gdk.KEY_Return, Gdk.KEY_KP_Enter)
+            if (ctrl and alt) or (ctrl and kv in fmt_keys) or \
+                    (not ctrl and kv in (Gdk.KEY_Return, Gdk.KEY_KP_Enter, Gdk.KEY_BackSpace, Gdk.KEY_Tab, Gdk.KEY_ISO_Left_Tab)):
+                return True
         # Formatieren
         if ctrl and not alt:
             fmt = {Gdk.KEY_b: "b", Gdk.KEY_i: "i", Gdk.KEY_u: "u", Gdk.KEY_e: "code"}

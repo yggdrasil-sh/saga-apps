@@ -53,6 +53,11 @@ final class DBModel: ObservableObject {
     @Published var templates: [DBTemplate] = []                // Vorlagen dieser Datenbank ("Neu ▾")
     @Published var search = ""                                 // Suche in der Ansicht
     @Published var localViews: [[String: Any]]?                 // verknuepfter Block: eigene Ansichten (in der Seite gespeichert)
+    /// Rolle (1.3, aus /rows): Lesen/Kommentieren -> nur lesen ("Nur lesen"-Chip, keine Eingaben)
+    @Published var role = "owner"
+    var readOnly: Bool { role == "view" || role == "comment" }
+    /// Datenbank nicht (mehr) erreichbar (404/403) - verknuepfte Datenbank auf einer fremden Seite
+    @Published var noAccess = false
     var onLocalViews: (([[String: Any]]) -> Void)?
     /// Schema-Aenderungen, die noch nicht beim Server sind (entprellt, nacheinander gesendet)
     var pendingSchema: [(inout [String: Any]) -> Void] = []
@@ -62,7 +67,9 @@ final class DBModel: ObservableObject {
 
     func load(_ store: Store) async {
         if !loaded, let c = store.cachedData("api/notes/\(dbID)/rows") { apply(c) }
-        if let d = try? await store.get("api/notes/\(dbID)/rows") { apply(d) }
+        do { apply(try await store.get("api/notes/\(dbID)/rows")); noAccess = false }
+        catch APIError.http(let c, _) where c == 404 || c == 403 { noAccess = true; rows = []; store.dropCache("api/notes/\(dbID)/rows") }
+        catch {}
         loaded = true
     }
     private func apply(_ d: Data) {
@@ -71,6 +78,7 @@ final class DBModel: ObservableObject {
         guard pendingSchema.isEmpty else { return }               // eigene, noch nicht gesendete Schema-Aenderungen nicht zuruecksetzen
         props = q.props; views = q.views
         if let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
+            role = j["role"] as? String ?? "owner"
             schema = j["schema"] as? [String: Any] ?? [:]
             templates = (j["templates"] as? [[String: Any]] ?? []).map { DBTemplate(id: $0["id"] as? Int ?? 0, title: $0["title"] as? String ?? "", icon: $0["icon"] as? String ?? "") }
         }
@@ -80,11 +88,13 @@ final class DBModel: ObservableObject {
 
     /// Wert einer Eigenschaft setzen (der Server fuehrt die Eigenschaften zusammen)
     func set(_ row: Int, _ pid: String, _ value: Any?, store: Store) async {
+        guard !readOnly else { return }                           // nur lesen (1.3): z. B. Karte aufs Board gezogen - nichts senden
         if let i = rows.firstIndex(where: { $0.id == row }) { if let h = hashable(value) { rows[i].props[pid] = h } else { rows[i].props.removeValue(forKey: pid) } }
         do { _ = try await store.api("api/notes/\(row)", method: "PATCH", body: ["props": [pid: value ?? NSNull()]]); store.dataChanged() }
         catch { self.error = error.localizedDescription; await load(store) }
     }
     func add(_ store: Store, props: [String: Any] = [:]) async -> Int? {
+        guard !readOnly else { return nil }
         struct R: Decodable { let id: Int }
         var b: [String: Any] = ["parent_id": dbID, "title": ""]
         if !props.isEmpty { b["props"] = props }
@@ -144,6 +154,7 @@ struct DatabaseView: View {
                 }
             }
             if !m.loaded { ProgressView().frame(maxWidth: .infinity) }
+            else if m.noAccess { Text(verbatim: "🗃️ " + String(localized: "Seite ohne Zugriff")).foregroundStyle(.secondary) }
             else {
                 switch type {
                 case "board": BoardView(m: m, view: view)
@@ -203,7 +214,7 @@ struct RowList: View {
                         let on = (r.props[check.id]?.base as? Bool) ?? false
                         Button { Task { await m.set(r.id, check.id, !on, store: store) } } label: {
                             Image(systemName: on ? "checkmark.square.fill" : "square").foregroundStyle(on ? Color.accentColor : .secondary).font(.body)
-                        }.buttonStyle(.plain)
+                        }.buttonStyle(.plain).disabled(m.readOnly)
                         .accessibilityLabel(Text(check.name)).accessibilityAddTraits(on ? .isSelected : [])
                     } else { PageIcon(icon: r.icon, store: store) }
                     Button { nav.open(r.id, mode: view?["open"] as? String ?? "side", list: rows.map(\.id)) } label: {
@@ -315,9 +326,11 @@ struct TableGrid: View {
                     Divider()
                 }
                 CalcRow(m: m, view: view, cols: cols, widths: w, rows: rows)
-                Button { Task { if let id = await m.add(store, props: m.defaults(for: view)) { nav.open(id, mode: view?["open"] as? String ?? "side") } } } label: {
-                    Label("Neu", systemImage: "plus").font(.subheadline).foregroundStyle(.secondary).padding(8)
-                }.buttonStyle(.plain)
+                if !m.readOnly {
+                    Button { Task { if let id = await m.add(store, props: m.defaults(for: view)) { nav.open(id, mode: view?["open"] as? String ?? "side") } } } label: {
+                        Label("Neu", systemImage: "plus").font(.subheadline).foregroundStyle(.secondary).padding(8)
+                    }.buttonStyle(.plain)
+                }
             }
             .frame(minWidth: avail, alignment: .leading)
         }
@@ -354,10 +367,10 @@ struct TableGrid: View {
         let v = m.value(p, r)
         switch p.type {
         case "text", "number", "date", "select", "multi_select":  // direkt in der Tabelle bearbeiten (Auswahl als Chips, Datum lesbar)
-            PropEditor(prop: p, value: v) { nv in Task { await m.set(r.id, p.id, nv, store: store) } }.id("\(r.id)-\(p.id)-\(String(describing: v))")
+            PropEditor(prop: p, value: v) { nv in Task { await m.set(r.id, p.id, nv, store: store) } }.disabled(m.readOnly).id("\(r.id)-\(p.id)-\(String(describing: v))")
         case "url":                                               // bearbeiten + Link oeffnen (nur http/https/mailto)
             HStack(spacing: 4) {
-                PropEditor(prop: p, value: v) { nv in Task { await m.set(r.id, p.id, nv, store: store) } }.id("\(r.id)-\(p.id)-\(String(describing: v))")
+                PropEditor(prop: p, value: v) { nv in Task { await m.set(r.id, p.id, nv, store: store) } }.disabled(m.readOnly).id("\(r.id)-\(p.id)-\(String(describing: v))")
                 if let s = v as? String, let u = safeLink(s) {
                     Link(destination: u) { Image(systemName: "arrow.up.right.square") }.foregroundStyle(.secondary).accessibilityLabel("Link öffnen")
                 }
@@ -366,7 +379,7 @@ struct TableGrid: View {
             let on = (v as? Bool) ?? false
             Button { Task { await m.set(r.id, p.id, !on, store: store) } } label: {
                 Image(systemName: on ? "checkmark.square.fill" : "square").foregroundStyle(on ? Color.accentColor : .secondary)
-            }.buttonStyle(.plain)
+            }.buttonStyle(.plain).disabled(m.readOnly)
             .accessibilityLabel(Text(p.name)).accessibilityAddTraits(on ? .isSelected : [])
         case "calc":
             if let n = v as? Double {
@@ -395,10 +408,13 @@ struct RowMenu: View {
     @EnvironmentObject var store: Store
     var body: some View {
         Button("Öffnen", action: open)
-        Button("Duplizieren") { Task { _ = await store.duplicate(row.id); await m.load(store); store.dataChanged() } }
+        let owner = m.role == "owner"                                   // Duplizieren/Papierkorb: nur der Eigentuemer (1.3)
+        if owner { Button("Duplizieren") { Task { _ = await store.duplicate(row.id); await m.load(store); store.dataChanged() } } }
         Button("Link kopieren") { HlidskjalfApp_copyPageLink(row.id) }
-        Divider()
-        Button("In den Papierkorb", role: .destructive) { Task { _ = await store.trash(row.id); await m.load(store); store.dataChanged() } }
+        if owner {
+            Divider()
+            Button("In den Papierkorb", role: .destructive) { Task { _ = await store.trash(row.id); await m.load(store); store.dataChanged() } }
+        }
     }
 }
 
@@ -594,9 +610,11 @@ struct BoardView: View {
                                 Button { nav.open(r.id, mode: view?["open"] as? String ?? "side", list: m.rows(for: view).map(\.id)) } label: { Card(m: m, row: r, view: view, cover: false) }.buttonStyle(.plain)
                                     .draggable(String(r.id))
                             }
-                            Button { Task { if let id = await m.add(store, props: col.0.map { [group.id: $0] } ?? [:]) { nav.open(id, mode: view?["open"] as? String ?? "side") } } } label: {
-                                Label("Neu", systemImage: "plus").font(.caption)
-                            }.buttonStyle(.plain).foregroundStyle(.secondary)
+                            if !m.readOnly {
+                                Button { Task { if let id = await m.add(store, props: col.0.map { [group.id: $0] } ?? [:]) { nav.open(id, mode: view?["open"] as? String ?? "side") } } } label: {
+                                    Label("Neu", systemImage: "plus").font(.caption)
+                                }.buttonStyle(.plain).foregroundStyle(.secondary)
+                            }
                         }
                         .padding(10).frame(width: colW, alignment: .topLeading)
                         .background(optColor(col.2).opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
@@ -750,7 +768,7 @@ struct DBCalendarView: View {
                                     Text("\(cal.component(.day, from: d))").font(.caption2.weight(cal.isDateInToday(d) ? .bold : .regular))
                                         .foregroundStyle(cal.isDateInToday(d) ? Color.accentColor : .secondary)
                                     Spacer()
-                                    if !["created", "edited"].contains(dp.type) {
+                                    if !["created", "edited"].contains(dp.type) && !m.readOnly {
                                         Button { Task { if let id = await m.add(store, props: [dp.id: ds]) { nav.open(id, mode: view?["open"] as? String ?? "side") } } } label: { Image(systemName: "plus").font(.caption2) }.buttonStyle(.plain).foregroundStyle(.tertiary).accessibilityLabel("Neuer Eintrag an diesem Tag")
                                     }
                                 }

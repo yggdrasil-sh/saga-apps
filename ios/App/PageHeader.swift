@@ -9,6 +9,7 @@ import AppKit
 struct CoverView: View {
     @ObservedObject var doc: PageDoc
     var extendTop: CGFloat = 0                            // iPhone: um Statusleiste + Navigation nach oben verlaengern
+    var readOnly = false                                  // fremde Seite mit Lesen/Kommentieren: nichts aendern
     @EnvironmentObject var store: Store
     @State private var hover = false
     @State private var repositioning = false
@@ -61,7 +62,9 @@ struct CoverView: View {
                     pos = min(100, max(0, base - Double(g.translation.height) / 2))
                 }.onEnded { _ in dragStart = nil })
                 .overlay(alignment: .topTrailing) {
-                    if repositioning {
+                    if readOnly {
+                        EmptyView()
+                    } else if repositioning {
                         HStack(spacing: 8) {
                             Text("Bild ziehen zum Positionieren").font(.caption)
                             Button("Speichern") { Task { await save(["cover_pos": pos]); repositioning = false } }.buttonStyle(.borderedProminent)
@@ -104,13 +107,13 @@ struct CoverView: View {
                 #endif
                 .photosPicker(isPresented: $picking, selection: $pick, matching: .images)
                 .onChange(of: pick) { _, it in Task { await upload(it) } }
-                .sheet(isPresented: $immich) { ImmichPicker { url in Task { await save(["cover": url, "cover_pos": 50]) } }.environmentObject(store) }
+                .sheet(isPresented: $immich) { ImmichPicker(note: doc.uploadNote) { url in Task { await save(["cover": url, "cover_pos": 50]) } }.environmentObject(store) }
         }
     }
 
     private func upload(_ it: PhotosPickerItem?) async {
         guard let it, let d = try? await it.loadTransferable(type: Data.self) else { return }
-        do { let url = try await store.uploadImage(d); await save(["cover": url, "cover_pos": 50]) } catch { doc.error = error.localizedDescription }
+        do { let url = try await store.uploadImage(d, note: doc.uploadNote); await save(["cover": url, "cover_pos": 50]) } catch { doc.error = error.localizedDescription }
         pick = nil; showMenu = false
     }
     private func save(_ f: [String: Any]) async {
@@ -122,6 +125,7 @@ struct CoverView: View {
 
 struct IconRow: View {
     @ObservedObject var doc: PageDoc
+    var readOnly = false                                  // fremde Seite mit Lesen/Kommentieren
     @EnvironmentObject var store: Store
     @State private var picker = false
     @State private var coverPick: PhotosPickerItem?
@@ -132,17 +136,18 @@ struct IconRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             if let ic = doc.icon, !ic.isEmpty {
-                Button { picker = true } label: {
+                Button { if !readOnly { picker = true } } label: {             // nur lesen: nicht abblenden, nur nichts tun
                     Group {
                         if ic.hasPrefix("/files/") { RemoteImage(path: ic, w: 320).frame(width: 78, height: 78).clipShape(RoundedRectangle(cornerRadius: 10)) }
                         else { Text(ic).font(.system(size: 64)) }
                     }
                 }
                 .buttonStyle(.plain)
+                .allowsHitTesting(!readOnly)
                 .padding(.top, doc.cover == nil ? 10 : -44)
             }
             // Fehlt Icon oder Titelbild: dezent anbieten (Mac beim Ueberfahren, iPhone immer leicht sichtbar)
-            if doc.icon?.isEmpty != false || doc.cover == nil {
+            if !readOnly && (doc.icon?.isEmpty != false || doc.cover == nil) {
                 HStack(spacing: 14) {
                     if doc.icon?.isEmpty != false { Button { picker = true } label: { Label("Symbol hinzufügen", systemImage: "face.smiling") } }
                     if doc.cover == nil {
@@ -168,14 +173,14 @@ struct IconRow: View {
         #endif
         .sheet(isPresented: $picker) { IconPicker(doc: doc) }
         .sheet(isPresented: $coverImmich) {
-            ImmichPicker { url in Task { do { try await store.patch(doc.id, ["cover": url, "cover_pos": 50]); doc.page["cover"] = url; doc.page["cover_pos"] = 50.0 } catch { doc.error = error.localizedDescription } } }
+            ImmichPicker(note: doc.uploadNote) { url in Task { do { try await store.patch(doc.id, ["cover": url, "cover_pos": 50]); doc.page["cover"] = url; doc.page["cover_pos"] = 50.0 } catch { doc.error = error.localizedDescription } } }
                 .environmentObject(store)
         }
         .photosPicker(isPresented: $choosingCover, selection: $coverPick, matching: .images)
         .onChange(of: coverPick) { _, it in
             Task {
                 guard let it, let d = try? await it.loadTransferable(type: Data.self) else { return }
-                do { let url = try await store.uploadImage(d); try await store.patch(doc.id, ["cover": url, "cover_pos": 50]); doc.page["cover"] = url; doc.page["cover_pos"] = 50.0 }
+                do { let url = try await store.uploadImage(d, note: doc.uploadNote); try await store.patch(doc.id, ["cover": url, "cover_pos": 50]); doc.page["cover"] = url; doc.page["cover_pos"] = 50.0 }
                 catch { doc.error = error.localizedDescription }
                 coverPick = nil
             }
@@ -211,12 +216,12 @@ struct IconPicker: View {
                 .padding()
             }
             .navigationTitle("Symbol")
-            .sheet(isPresented: $immich) { ImmichPicker { url in Task { await set(url) } }.environmentObject(store) }
+            .sheet(isPresented: $immich) { ImmichPicker(note: doc.uploadNote) { url in Task { await set(url) } }.environmentObject(store) }
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Fertig") { dismiss() } } }
             .onChange(of: pick) { _, it in
                 Task {
                     guard let it, let d = try? await it.loadTransferable(type: Data.self) else { return }
-                    do { let url = try await store.uploadImage(d); await set(url) } catch { doc.error = error.localizedDescription }
+                    do { let url = try await store.uploadImage(d, note: doc.uploadNote); await set(url) } catch { doc.error = error.localizedDescription }
                 }
             }
         }

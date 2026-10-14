@@ -23,9 +23,17 @@ struct Page: Decodable, Identifiable, Hashable {
     var archived: Bool?
     var template: Bool?
     var tags: [String]?
+    // Teilen (1.3): eigene Seiten mit Freigaben (shared), neue Kommentare (unread); in "Mit mir geteilt" dazu
+    // Rolle, Eigentuemer und root (oberste geteilte Seite)
+    var shared: Bool?
+    var unread: Bool?
+    var role: String?
+    var root: Bool?
+    var owner: PageOwner?
     var label: String { title.isEmpty ? String(localized: "Unbenannt") : title }
     var isDatabase: Bool { kind == "database" }
 }
+struct PageOwner: Decodable, Hashable { var name: String?; var username: String? }
 
 struct OpenTask: Decodable, Identifiable, Hashable {
     let id: Int; var text: String; var due: String?; var prio: Int?; var rep: String?; var done: Bool?
@@ -90,6 +98,8 @@ final class Store: ObservableObject {
 
     private func cacheURL(_ path: String) -> URL { cacheDir.appendingPathComponent(path.replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "?", with: "_")) }
     func cachedData(_ path: String) -> Data? { try? Data(contentsOf: cacheURL(path)) }
+    /// Zwischenspeicher einer Antwort verwerfen (z. B. Freigabe entzogen: fremder Inhalt nicht offline lesbar lassen)
+    func dropCache(_ path: String) { try? FileManager.default.removeItem(at: cacheURL(path)) }
     /// GET mit Speichern im Zwischenspeicher (fuer sofortige Anzeige beim naechsten Mal)
     func get(_ path: String) async throws -> Data {
         let d = try await api(path); try? d.write(to: cacheURL(path), options: .atomic); return d
@@ -218,6 +228,7 @@ final class Store: ObservableObject {
         do {
             setPages(try JSONDecoder().decode([Page].self, from: try await get("api/notes")))
             if needsLogin { needsLogin = false }
+            await loadShared()
             if error != nil { error = nil }
             if serverVersion == nil { await checkVersion() }
             await loadToday()
@@ -331,8 +342,36 @@ final class Store: ObservableObject {
         UserDefaults.standard.set(recent, forKey: "recent")
     }
 
+    // MARK: Mit mir geteilt (1.3)
+    /// Fuer mich freigegebene fremde Seiten (flach; root = oberste geteilte Seite). Aeltere Server: leer.
+    @Published var shared: [Page] = []
+    /// Teilen abgeschaltet, aber Freigaben vorhanden -> Hinweis in der Seitenleiste
+    @Published var shareOffHint = false
+    func loadShared() async {
+        guard let (d, code) = try? await apiResponse("api/shared") else { return }      // offline: bisherigen Stand behalten
+        guard code == 200, let list = try? JSONDecoder().decode([Page].self, from: d) else {
+            if code == 404 || code == 405 { if !shared.isEmpty { shared = [] }; shareOffHint = false }   // alter Server: alles Neue aus
+            return
+        }
+        // nicht mehr geteilt: zwischengespeicherte Inhalte dieser Seiten verwerfen (offline nicht mehr lesbar)
+        let gone = Set(shared.map(\.id)).subtracting(list.map(\.id)).subtracting(pages.map(\.id))
+        for g in gone { dropCache("api/notes/\(g)"); dropCache("api/notes/\(g)/rows") }
+        if list != shared { shared = list }
+        var hint = false
+        if list.isEmpty, let (i, c) = try? await apiResponse("api/share/info"), c == 200, let info = SharedInfo(data: i) {
+            hint = info.showOffHint(sharedCount: 0)
+        }
+        if hint != shareOffHint { shareOffHint = hint }
+    }
+    /// Oberste geteilte Seiten bzw. Unterseiten einer geteilten Seite (ohne Datenbank-Eintraege, wie im eigenen Baum)
+    func sharedChildren(of id: Int?) -> [Page] {
+        guard let id else { return shared.filter { $0.root == true } }
+        if shared.first(where: { $0.id == id })?.isDatabase == true { return [] }
+        return shared.filter { $0.parent_id == id && $0.root != true }
+    }
+
     // Seitenbaum: oberste Ebene + Kinder (Datenbank-Zeilen erscheinen nicht im Baum, wie im Web)
-    func page(_ id: Int) -> Page? { pages.first { $0.id == id } }
+    func page(_ id: Int) -> Page? { pages.first { $0.id == id } ?? shared.first { $0.id == id } }
     func children(of id: Int?) -> [Page] {
         pages.filter { p in
             p.parent_id == id && !(p.parent_id.map { page($0)?.isDatabase ?? false } ?? false)
@@ -341,11 +380,13 @@ final class Store: ObservableObject {
     var favorites: [Page] { pages.filter { $0.pinned == true } }
 
     /// Datei hochladen (wie der Web-Editor: Formularfeld "image") -> /files/<id>
-    func upload(_ data: Data, name: String) async throws -> String {
+    /// `note`: Seite eines anderen Kontos (Rolle Bearbeiten) - die Datei gehoert dann deren Eigentuemer (X-Saga-Note)
+    func upload(_ data: Data, name: String, note: Int? = nil) async throws -> String {
         let url = AppConfig.server.appendingPathComponent("api/files")
         var req = URLRequest(url: url, timeoutInterval: 60)
         req.httpMethod = "POST"; req.httpShouldHandleCookies = false
         req.setValue("1", forHTTPHeaderField: "X-Hlidskjalf")
+        if let note { req.setValue(String(note), forHTTPHeaderField: "X-Saga-Note") }
         let boundary = "hk-" + UUID().uuidString
         req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         var body = Data()
@@ -360,11 +401,12 @@ final class Store: ObservableObject {
     }
 
     /// Datei-Anhang hochladen (Formularfeld "file": beliebige Datei) -> {url, name, size, extension, title}
-    func uploadFile(_ data: Data, name: String) async throws -> [String: Any] {
+    func uploadFile(_ data: Data, name: String, note: Int? = nil) async throws -> [String: Any] {
         let url = AppConfig.server.appendingPathComponent("api/files")
         var req = URLRequest(url: url, timeoutInterval: 120)
         req.httpMethod = "POST"; req.httpShouldHandleCookies = false
         req.setValue("1", forHTTPHeaderField: "X-Hlidskjalf")
+        if let note { req.setValue(String(note), forHTTPHeaderField: "X-Saga-Note") }
         let boundary = "hk-" + UUID().uuidString
         req.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         let safe = name.replacingOccurrences(of: "\"", with: "_")
@@ -449,17 +491,17 @@ final class Store: ObservableObject {
         return s
     }
     /// Bild hochladen wie im Editor (HEIC -> JPEG), GIF/PNG/JPEG/WebP unveraendert
-    func uploadImage(_ raw: Data) async throws -> String {
+    func uploadImage(_ raw: Data, note: Int? = nil) async throws -> String {
         let head = [UInt8](raw.prefix(4))
-        if head.starts(with: [0x47, 0x49, 0x46]) { return try await upload(raw, name: "bild.gif") }
-        if head.starts(with: [0x89, 0x50, 0x4E, 0x47]) { return try await upload(raw, name: "bild.png") }
-        if head.starts(with: [0xFF, 0xD8]) || (raw.count > 12 && raw[8..<12] == Data("WEBP".utf8)) { return try await upload(raw, name: "bild.jpg") }
+        if head.starts(with: [0x47, 0x49, 0x46]) { return try await upload(raw, name: "bild.gif", note: note) }
+        if head.starts(with: [0x89, 0x50, 0x4E, 0x47]) { return try await upload(raw, name: "bild.png", note: note) }
+        if head.starts(with: [0xFF, 0xD8]) || (raw.count > 12 && raw[8..<12] == Data("WEBP".utf8)) { return try await upload(raw, name: "bild.jpg", note: note) }
         #if os(iOS)
         guard let j = UIImage(data: raw)?.jpegData(compressionQuality: 0.85) else { throw APIError.other(String(localized: "Bildformat nicht unterstützt")) }
         #else
         guard let img = NSImage(data: raw), let tiff = img.tiffRepresentation, let j = NSBitmapImageRep(data: tiff)?.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) else { throw APIError.other(String(localized: "Bildformat nicht unterstützt")) }
         #endif
-        return try await upload(j, name: "bild.jpg")
+        return try await upload(j, name: "bild.jpg", note: note)
     }
 
     func updateTitle(_ id: Int, _ title: String) { if let i = pages.firstIndex(where: { $0.id == id }), pages[i].title != title { pages[i].title = title } }
@@ -572,9 +614,13 @@ final class Store: ObservableObject {
         return nil
     }
 
+    /// Zaehlt Abmeldungen/Kontowechsel: eine Seite, die vorher geladen wurde, gehoert zum alten Konto (PageDoc.staleSession)
+    private(set) var sessionGen = 0
+
     /// Auf diesem Geraet abmelden: Sitzung + Zwischenspeicher loeschen. `switchingServer`: auch Startseite vergessen
     /// (Seiten-IDs gehoeren zum alten Server).
     func logout(switchingServer: Bool = false) async {
+        sessionGen += 1                                                   // offene Seiten des alten Kontos senden nichts mehr
         // Geraete-Anmeldung beim Server loeschen, der sie ausgestellt hat (nie an einen anderen senden)
         if let tok = DeviceKey.stored(), let o = AppConfig.keyOrigin(device: true), let base = URL(string: o), AppConfig.isAllowedServer(base) {
             var req = URLRequest(url: base.appendingPathComponent("app/forget"), timeoutInterval: 10)
@@ -592,7 +638,7 @@ final class Store: ObservableObject {
         try? FileManager.default.removeItem(at: cacheDir)
         try? FileManager.default.createDirectory(at: cacheDir.appendingPathComponent("files"), withIntermediateDirectories: true)
         images.removeAllObjects(); cookieHeader = nil
-        pages = []; archivedPages = []; lastAll = nil; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
+        pages = []; archivedPages = []; lastAll = nil; shared = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
         if switchingServer { setHome(nil); serverVersion = nil; minApp = nil }
         SpotlightIndex.clear()                                            // abgemeldet: nichts mehr in der Systemsuche
         needsLogin = true

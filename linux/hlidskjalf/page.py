@@ -6,13 +6,16 @@ from .api import client
 from .blocks import BlockKit, HoverManager, SuggestPopover, flat_button, menu_popover
 from .config import settings
 from .editor import PageDoc, PageEditor
-from .i18n import _, pgettext
+from .i18n import _, ngettext, pgettext
 from .publish import available as publish_available
 from .richtext import RichText
+from .sharing import allowed, can_comment, meta_lines, shared_by_box
 from .store import is_db, label, store, watch
 from .util import bg, date_time_text, edited_text, new_block_id, plain
 
 GUTTER = 60
+CSLOT = 36              # Breite des Platzes fuer die Kommentar-Zahl rechts am Block
+COLLAPSE_COMMENTS = 820  # schmaler: Kommentar-Seitenleiste legt sich ueber die Seite
 
 
 class CoverView(Gtk.Overlay):
@@ -33,6 +36,8 @@ class CoverView(Gtk.Overlay):
         self.add_css_class("hk-reveal-zone")
         self.add_overlay(self.bar)
         self._normal_bar()
+        ro = view.editor.locked                     # gesperrt bzw. nur lesen: Titelbild nicht aendern
+        self.bar.set_visible(not ro)
         dr = Gtk.GestureDrag()
         dr.connect("drag-begin", lambda g, x, y: setattr(self, "_start", self.pos))
         dr.connect("drag-update", self._drag)
@@ -51,6 +56,7 @@ class CoverView(Gtk.Overlay):
         grip.add_css_class("hk-reveal")
         self.add_overlay(grip)
         self.grip = grip
+        grip.set_visible(not ro)
 
     def _height(self):
         self.img.set_size_request(-1, int(settings.get("cover_height", 200)))
@@ -107,7 +113,7 @@ class CoverView(Gtk.Overlay):
         self._normal_bar()
 
     def _drag(self, g, x, y):
-        if self.repos:
+        if self.repos and not self.view.editor.locked:
             self.pos = min(100.0, max(0.0, self._start - y / 2))
             self.img.set_valign_pct(self.pos)
 
@@ -206,7 +212,12 @@ class PageView(Gtk.Box):
         self.doc.on_notice = self._error
         self.doc.on_title = lambda t: self.rebuild()
         self.doc.on_copies = lambda: self.update_banners()
+        self.doc.on_lost = self._lost
         self._conflict_dlg = None
+        self._lost_dlg = None
+        # Kommentare (1.3): Zahl je Block (offene Unterhaltungen), Bloecke mit ungelesenen, hervorgehobener Block
+        self.cm_counts, self.cm_unread, self.cm_block = {}, set(), None
+        self.cm_loaded = False
         if in_peek:
             self.append(self._peek_header())
             self.append(Gtk.Separator())
@@ -215,7 +226,20 @@ class PageView(Gtk.Box):
         # AUTOMATIC: breite Bloecke (Spalten, Tabellen) erzwingen keine Mindestbreite des Fensters, sondern scrollen
         self.scroll = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.AUTOMATIC, vexpand=True)
         self.overlay.set_child(self.scroll)
-        self.append(self.overlay)
+        self.cpanel = self.csplit = None
+        if in_peek:
+            self.append(self.overlay)
+        else:
+            # Kommentare als Seitenleiste rechts (GNOME: Adw.OverlaySplitView); schmal legt sie sich ueber die Seite
+            from .comments import CommentsPanel
+            self.cpanel = CommentsPanel(self)
+            self.csplit = Adw.OverlaySplitView(sidebar_position=Gtk.PackType.END, show_sidebar=False, pin_sidebar=True,
+                                               min_sidebar_width=300, max_sidebar_width=420, sidebar_width_fraction=0.34,
+                                               vexpand=True)
+            self.csplit.set_content(self.overlay)
+            self.csplit.set_sidebar(self.cpanel)
+            self.csplit.connect("notify::show-sidebar", self._comments_toggled)
+            self.append(self.csplit)
         self.spinner = Adw.Spinner() if hasattr(Adw, "Spinner") else Gtk.Spinner(spinning=True)
         self.spinner.set_size_request(32, 32)
         self.spinner.set_halign(Gtk.Align.CENTER)
@@ -238,6 +262,16 @@ class PageView(Gtk.Box):
     def _pages_changed(self):
         if self.header_changed:
             self.header_changed()
+
+    @property
+    def foreign(self):
+        """Seite eines anderen Kontos (Teilen)"""
+        return self.doc.foreign
+
+    @property
+    def upload_note(self):
+        """Uploads in eine fremde Seite: Datei gehoert dem Eigentuemer (Kopfzeile X-Saga-Note)"""
+        return self.id if self.doc.foreign else None
 
     def _error(self, msg):
         self.win.toast(msg)
@@ -274,6 +308,16 @@ class PageView(Gtk.Box):
         self.spinner.set_visible(not doc.loaded)
         if not doc.loaded:
             return
+        if not doc.fetched and doc.error_code == 404 and (store.share_api or store.is_foreign(self.id)):
+            # Teilen: Seite gibt es nicht (mehr) oder ist nicht (mehr) mit mir geteilt
+            from .sharing import people_icon
+            box = Adw.StatusPage(icon_name=people_icon(), title=_("No access to this page"),
+                                 description=GLib.markup_escape_text(
+                                     _("The page doesn’t exist (anymore), or it is not (or no longer) shared with you.")))
+            self.scroll.set_child(box)
+            if self.header_changed:
+                self.header_changed()
+            return
         if not doc.fetched:                                  # Laden fehlgeschlagen: nichts Bearbeitbares zeigen
             box = Adw.StatusPage(icon_name="dialog-warning-symbolic", title=_("Page could not be loaded"),
                                  description=GLib.markup_escape_text(doc.error or ""))
@@ -284,7 +328,9 @@ class PageView(Gtk.Box):
             box.set_child(again)
             self.scroll.set_child(box)
             return
-        self.editor.locked = bool(doc.page.get("locked"))
+        self.editor.locked = bool(doc.page.get("locked")) or doc.read_only     # gesperrt oder nur Lesen/Kommentieren
+        if not self.cm_loaded:                               # vor dem ersten Laden der Kommentare: Zahlen vom Server
+            self.cm_counts = dict(doc.page.get("comment_counts") or {})
         self.blocks_box = None
         vadj = self.scroll.get_vadjustment().get_value()
         self.hover.reset()
@@ -296,7 +342,14 @@ class PageView(Gtk.Box):
             outer.append(self.cover)
         wide = bool(doc.page.get("wide"))
         clamp = Adw.Clamp(maximum_size=100000 if wide else 760 + 2 * GUTTER, tightening_threshold=600)
-        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_start=8, margin_end=GUTTER, margin_top=12, margin_bottom=40)
+        # rechter Rand: Platz fuer die Kommentar-Zahl am Block (BlockRow.cslot, 36 px) - zusammen wie bisher GUTTER
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_start=8,
+                      margin_end=GUTTER if self.cpanel is None else GUTTER - CSLOT, margin_top=12, margin_bottom=40)
+        sb = shared_by_box(doc.page)                          # fremde Seite: "Geteilt von … · Du kannst …" (Etikett)
+        if sb is not None:
+            sb.set_margin_start(44)
+            sb.set_margin_top(4)
+            col.append(sb)
         col.append(self._icon_row())
         trow = Gtk.Box()
         trow.append(Gtk.Box(width_request=44))
@@ -308,17 +361,31 @@ class PageView(Gtk.Box):
         trow.append(self.title_rt)
         col.append(trow)
         ind = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_start=44)
-        if self.editor.locked:
+        meta = meta_lines(doc.page)                           # "Angelegt von …", "Zuletzt geaendert von … · vor …"
+        if meta:
+            ml = Gtk.Label(label=" · ".join(meta), xalign=0, wrap=True)
+            ml.add_css_class("caption")
+            ml.add_css_class("dim-label")
+            ml.set_tooltip_text(date_time_text(doc.page.get("updated")))
+            ind.append(ml)
+        if doc.page.get("locked") and allowed(doc.page, "lock"):
             lk = Gtk.Button(label="🔒 " + _("Locked – click to unlock"), halign=Gtk.Align.START)
             lk.add_css_class("pill")
             lk.add_css_class("hk-small")
             lk.connect("clicked", lambda *_: self.set_locked(False))
             ind.append(lk)
-        if not doc.is_database:
+        elif doc.page.get("locked") and not doc.read_only:    # Bearbeiten, aber vom Eigentuemer gesperrt
+            lk = Gtk.Label(label=_("🔒 The owner locked this page."), xalign=0)
+            lk.add_css_class("dim-label")
+            lk.add_css_class("hk-small")
+            ind.append(lk)
+        if not doc.is_database and (not self.editor.locked or doc.page.get("tags")):
             ind.append(self._tags_row())
         if doc.parent_schema is not None:
             from .database import EditableProps
-            ind.append(EditableProps(self, doc.parent_schema))
+            ep = EditableProps(self, doc.parent_schema)
+            ep.set_sensitive(not doc.read_only)               # Eintrag einer fremden Datenbank nur lesen
+            ind.append(ep)
         if ind.get_first_child():
             col.append(ind)
         if doc.error:
@@ -350,10 +417,14 @@ class PageView(Gtk.Box):
         if self.in_peek:
             self.peek_title.set_label(doc.title)
             self.peek_star.set_icon_name("starred-symbolic" if doc.page.get("pinned") else "non-starred-symbolic")
+            self.peek_star.set_visible(allowed(doc.page, "favorite"))
         GLib.idle_add(lambda: (self.scroll.get_vadjustment().set_value(vadj), False)[1])
         self._relayout_soon()
         self.apply_focus()
         self.update_banners()
+        self.update_bubbles()
+        if not self._built_once and self.cpanel is not None and (doc.page.get("comments_open") or 0) > 0:
+            self.cpanel.reload()                              # Zahlen und ungelesen-Punkte am Block
         if not self._built_once:
             self._built_once = True
             if not doc.title_raw and not doc.is_database and len(doc.root) <= 1:
@@ -364,7 +435,7 @@ class PageView(Gtk.Box):
         Datenbanken und Termine) werden wiederverwendet, Kopf, Tags und Rueckverweise bleiben stehen."""
         doc = self.doc
         if self.blocks_box is None or not doc.loaded or not doc.fetched or doc.is_database or \
-                bool(doc.page.get("locked")) != self.editor.locked:
+                (bool(doc.page.get("locked")) or doc.read_only) != self.editor.locked:
             self.rebuild()
             return
         vadj = self.scroll.get_vadjustment().get_value()
@@ -376,6 +447,7 @@ class PageView(Gtk.Box):
         if old is not None:
             self.blocks_box.remove(old)
         self.blocks_box.append(lst)
+        self.update_bubbles()
         self._update_toc()
         GLib.idle_add(lambda: (self.scroll.get_vadjustment().set_value(vadj), False)[1])
         self._relayout_soon()
@@ -386,6 +458,9 @@ class PageView(Gtk.Box):
         Texte wie iOS/Android (Glossar "Einheitliche Dialoge"). Schliessen/Esc = noch nicht entscheiden: nichts wird
         ueberschrieben, der Hinweis bleibt oben an der Seite (auch bei Datenbanken - nie still "meine")."""
         if self._conflict_dlg is not None or doc.conflict is None:
+            return
+        if doc.conflict_by:
+            self._conflict_person(doc, doc.conflict_by)
             return
         dlg = Adw.AlertDialog(heading=_("Page changed elsewhere"),
                               body=_("This page was changed on another device in the meantime. Your changes won't be lost."))
@@ -412,6 +487,159 @@ class PageView(Gtk.Box):
         dlg.present(self.win)
         _wrap_labels(dlg)                                    # lange Knopftexte (Glossar) umbrechen statt kuerzen
         self.update_banners()
+
+    def _conflict_person(self, doc, by):
+        """Eine andere Person hat gespeichert (Teilen): Hauptknopf "Neue Version laden" - der eigene, nicht gespeicherte
+        Text bleibt danach zum Kopieren sichtbar (und als lokale Kopie im Entwurf-Banner); "Meine Version behalten" nur
+        mit Rueckfrage, die andere Fassung sichert der Server als Version. Esc = spaeter (Hinweis bleibt an der Seite)."""
+        from .sharing import conflict_texts
+        tx = conflict_texts(by)
+        dlg = Adw.AlertDialog(heading=tx["heading"], body=tx["body"])
+        dlg.add_response("mine", tx["keep"])
+        dlg.add_response("reload", tx["reload"])
+        dlg.set_response_appearance("reload", Adw.ResponseAppearance.SUGGESTED)
+        dlg.set_close_response("later")
+        dlg.set_default_response("reload")
+        self._conflict_dlg = dlg
+
+        def resp(d, r):
+            self._conflict_dlg = None
+            if r == "reload":
+                self._load_new_version(doc)
+            elif r == "mine":
+                self._ask_overwrite(doc, tx)
+            self.update_banners()
+
+        def closed(d):
+            if self._conflict_dlg is d:
+                self._conflict_dlg = None
+                self.update_banners()
+        dlg.connect("response", resp)
+        dlg.connect("closed", closed)
+        dlg.present(self.win)
+        _wrap_labels(dlg)
+        self.update_banners()
+
+    def _load_new_version(self, doc):
+        from .sharing import TextDialog, draft_texts
+        text = doc.text_now()
+        doc.resolve("theirs")                                # eigene Fassung vorher als lokale Kopie
+        if doc.conflict is None and text:
+            title, intro = draft_texts()
+            TextDialog(title, intro, text).present(self.win)
+
+    def _ask_overwrite(self, doc, tx):
+        from .publish import confirm
+        confirm(self.win, tx["ask_heading"], tx["ask_body"], tx["ask_ok"], lambda: (doc.resolve("mine"), self.update_banners()),
+                cancelled=self.update_banners)
+
+    # --- Zugriff verloren (Freigabe entzogen, nur noch Lesen) ---------------------------------------------------
+    def _lost(self, doc, code, text):
+        from .sharing import TextDialog, lost_texts
+        if self._lost_dlg is not None:
+            return
+        title, intro = lost_texts(code)
+
+        def closed():
+            self._lost_dlg = None
+            store.refresh()
+            self.spinner.set_visible(True)
+            self.doc.load(force=True)                         # 403: jetzt schreibgeschuetzt; 404: "Kein Zugriff"
+        self._lost_dlg = TextDialog(title, intro, text, on_closed=closed)
+        self._lost_dlg.present(self.win)
+        self.update_banners()
+
+    # --- Kommentare ------------------------------------------------------------------------------------------------
+    @property
+    def comments_open(self):
+        return self.csplit is not None and self.csplit.get_show_sidebar()
+
+    def show_comments(self, block=None):
+        """Seitenleiste "Kommentare": alle Unterhaltungen bzw. nur die eines Blocks"""
+        if self.cpanel is None:                               # Peek: die ganze Seite oeffnen
+            if self.on_close:
+                self.on_close()
+            self.win.show_page(self.id)
+            cur = self.win.current
+            if isinstance(cur, PageView) and cur.id == self.id:
+                GLib.idle_add(lambda: (cur.show_comments(block), False)[1])
+            return
+        if not self.doc.fetched:
+            return
+        self.mark_comment_block(block)
+        self.cpanel.open(block)
+        self.csplit.set_show_sidebar(True)
+
+    def hide_comments(self):
+        if self.csplit is not None:
+            self.csplit.set_show_sidebar(False)
+
+    def toggle_comments(self):
+        if self.comments_open and not self.cpanel.s.block:
+            self.hide_comments()
+        else:
+            self.show_comments()
+
+    def _comments_toggled(self, *_):
+        if not self.csplit.get_show_sidebar():
+            self.cpanel.closed()
+            self.mark_comment_block(None)
+        if self.header_changed:
+            self.header_changed()
+
+    def comments_changed(self, state):
+        """Unterhaltungen neu geladen bzw. gesehen/erledigt: Zahlen am Block, Kopfleiste, Punkt in der Seitenleiste"""
+        from .comments import block_counts
+        self.cm_loaded = True
+        self.cm_counts, self.cm_unread = block_counts(state.threads)
+        p = self.doc.page
+        p["comments_open"] = len(state.open())
+        p["comments_unread"] = state.unread_open()
+        p["comments_resolved"] = state.nres
+        p["comment_counts"] = dict(self.cm_counts)
+        if not p["comments_unread"]:
+            store.set_unread(self.id, False)
+        self.update_bubbles()
+        if self.header_changed:
+            self.header_changed()
+
+    def mark_comment_block(self, bid):
+        self.cm_block = bid
+        for r in self.kit.rows():
+            (r.add_css_class if r.bid == bid and bid else r.remove_css_class)("hk-cm-focus")
+
+    def update_bubbles(self):
+        """Kleine Zahl am rechten Rand der Bloecke mit offenen Unterhaltungen; sonst (beim Ueberfahren) 💬+"""
+        if self.cpanel is None or not self.doc.fetched:
+            return
+        can = can_comment(self.doc.page) and "role" in self.doc.page      # aeltere Server (ohne 'role'): keine Kommentare
+        for r in self.kit.rows():
+            if r.cslot is not None:
+                r.set_comments(self.cm_counts.get(r.bid, 0), r.bid in self.cm_unread, can)
+        self.mark_comment_block(self.cm_block)
+
+    def block_snippet(self, bid):
+        """Kurzer Text eines Blocks fuer die Kommentarliste (None: Block gibt es nicht mehr)"""
+        b = self.editor.block(bid)
+        if b is None:
+            return None
+        from .sharing import blocks_text
+        s = " ".join(blocks_text([b]).split())
+        if not s:
+            s = _("Image") if b.get("type") == "image" else _("Block")
+        return s if len(s) <= 70 else s[:69] + "…"
+
+    def show_block(self, bid):
+        """Zum Block springen und ihn kurz hervorheben"""
+        row = next((r for r in self.kit.rows() if r.bid == bid), None)
+        if row is None:
+            return False
+        ok, pt = row.compute_point(self.scroll.get_child(), _point(0, 0))
+        if ok:
+            self.scroll.get_vadjustment().set_value(max(0, pt.y - 80))
+        row.add_css_class("hk-flash")
+        GLib.timeout_add(1800, lambda: (row.remove_css_class("hk-flash"), False)[1])
+        return True
 
     # --- Hinweise oben an der Seite: offener Konflikt, lokale Kopien -------------------------------------------------
     def _banners(self):
@@ -440,6 +668,11 @@ class PageView(Gtk.Box):
 
     def update_banners(self):
         doc = self.doc
+        if doc.conflict is not None and doc.conflict_by:     # andere Person: Wortlaut wie im Web
+            self.conflict_banner.set_title(GLib.markup_escape_text(
+                _("⚠ {name} just changed this page. Your latest changes are not saved yet.").format(name=doc.conflict_by)))
+        else:
+            self.conflict_banner.set_title(GLib.markup_escape_text(_("Page changed elsewhere")))
         self.conflict_banner.set_revealed(doc.conflict is not None and self._conflict_dlg is None)
         cps = doc.local_copies() if doc.fetched else []
         self.copy_shown = cps[0][0] if cps else None
@@ -506,9 +739,13 @@ class PageView(Gtk.Box):
             w = images.page_icon(ic, size=78 if ic.startswith("/files/") else 64)
             if not ic.startswith("/files/"):
                 w.add_css_class("hk-page-emoji")
-            b = Gtk.Button(child=w, halign=Gtk.Align.START)
-            b.add_css_class("flat")
-            b.connect("clicked", lambda *_: IconPicker(self).present(self.win))
+            if self.editor.locked:                            # gesperrt bzw. nur lesen: Symbol nur zeigen
+                b = Gtk.Box(halign=Gtk.Align.START, margin_start=4)
+                b.append(w)
+            else:
+                b = Gtk.Button(child=w, halign=Gtk.Align.START)
+                b.add_css_class("flat")
+                b.connect("clicked", lambda *_: IconPicker(self).present(self.win))
             if doc.page.get("cover"):
                 b.add_css_class("hk-icon-over-cover")
             box.append(b)
@@ -660,8 +897,13 @@ class PageView(Gtk.Box):
         if abs(w - getattr(self, "_last_w", 0)) > 1:
             self._last_w = w
             self._relayout_soon()
+        if self.csplit is not None:
+            narrow = w < COLLAPSE_COMMENTS
+            if self.csplit.get_collapsed() != narrow:
+                GLib.idle_add(lambda: (self.csplit.set_collapsed(narrow), False)[1])
         if self.toc is not None:
-            vis = w > 1180
+            side = 400 if self.comments_open and not self.csplit.get_collapsed() else 0
+            vis = w - side > 1180
             if self.toc.get_visible() != vis:
                 GLib.idle_add(lambda: (self.toc is not None and self.toc.set_visible(vis), False)[1])
 
@@ -703,34 +945,64 @@ class PageView(Gtk.Box):
             go()
 
     def page_menu(self, parent):
+        """Seitenmenue. Fremde Seiten (Teilen): nur, was die Rolle darf - Loeschen, Verschieben, Archiv, Veroeffentlichen,
+        Teilen, Versionen, Vorlage, Favorit, Sperren, Duplizieren und Startseite bleiben beim Eigentuemer."""
+        from .sharing import shared_by_tooltip
         p, ed, win = self.doc.page, self.editor, self.win
         home = store.home_page == self.id
         arch = bool(p.get("archived"))
-        ents = [(edited_text(p.get("updated")) or "–", lambda: None), None,
-                (("✓ " if p.get("wide") else "") + _("Full width"), lambda: self.save_fields({"wide": not p.get("wide")})),
-                (_("Remove as home page") if home else _("Set as home page"), lambda: store.set_home(None if home else self.id)),
-                None,
-                (_("Move to …"), lambda: win.move_dialog(self.id)),
-                (_("Version history …"), lambda: ed.flush(lambda: win.versions_dialog(self.id, lambda: self.doc.load(force=True)))),
-                (_("Export"), [(_("As Markdown (.md)"), lambda: ed.flush(lambda: win.export_page(self.id, self.doc.title, False)))] +
-                 ([(_("With subpages (.zip)"), lambda: ed.flush(lambda: win.export_page(self.id, self.doc.title, True)))] if store.has_children(self.id) else [])),
-                (("✓ " if p.get("template") else "") + _("As template"), lambda: (p.__setitem__("template", not p.get("template")),
-                                                                          store.patch(self.id, {"template": p["template"]}, refresh=True))),
-                (_("Duplicate"), lambda: store.duplicate(self.id, done=lambda n: win.show_page(n))),
-                (_("Copy link"), lambda: win.copy_text(store.page_url(self.id))),
-                (_("Open in browser"), lambda: win.open_uri(store.page_url(self.id))),
-                *([(("✓ " if p.get("published") else "") + _("Publish …"), lambda: ed.flush(lambda: win.publish_dialog(self.id)))]
-                  if self.doc.fetched and publish_available(p) else []),
-                (_("Reload"), lambda: ed.flush(lambda: self.doc.load(force=True))),
-                None,
-                (_("Unlock page") if ed.locked else _("Lock page"), lambda: self.set_locked(not ed.locked)),
-                (_("Restore from archive") if arch else _("Archive"), lambda: ed.flush(lambda: (store.set_archived(self.id, not arch), p.__setitem__("archived", not arch)))),
-                (_("Move to trash"), lambda: ed.flush(lambda: store.trash(self.id, done=lambda: self.on_close() if self.in_peek and self.on_close else win.go_back_or_home())), True)]
+        locked = bool(p.get("locked"))
+        ok = lambda a: allowed(p, a)  # noqa: E731
+        info = shared_by_tooltip(p) if not ok("share") and isinstance(p.get("owner"), dict) else ""
+        n_open, n_res = int(p.get("comments_open") or 0), int(p.get("comments_resolved") or 0)
+        cm_label = _("Comments") + (f" ({n_open})" if n_open else "") + \
+            (" · " + ngettext("{n} resolved", "{n} resolved", n_res).format(n=n_res) if n_res else "")
+        ents = [(info or edited_text(p.get("updated")) or "–", lambda: None), None]
+        if ok("wide"):
+            ents.append((("✓ " if p.get("wide") else "") + _("Full width"), lambda: self.save_fields({"wide": not p.get("wide")})))
+        if ok("home"):
+            ents.append((_("Remove as home page") if home else _("Set as home page"), lambda: store.set_home(None if home else self.id)))
+        if "role" in p and self.doc.fetched:                     # Server kennt Teilen + Kommentare (ab 1.3)
+            ents.append((cm_label, lambda: self.show_comments()))
+            if ok("share"):
+                ents.append((("✓ " if p.get("shared") else "") + _("Share …"), lambda: win.share_dialog(self.id)))
+        ents.append(None)
+        if ok("move"):
+            ents.append((_("Move to …"), lambda: win.move_dialog(self.id)))
+        if ok("versions"):
+            ents.append((_("Version history …"), lambda: ed.flush(lambda: win.versions_dialog(self.id, lambda: self.doc.load(force=True)))))
+        ents.append((_("Export"), [(_("As Markdown (.md)"), lambda: ed.flush(lambda: win.export_page(self.id, self.doc.title, False)))] +
+                     ([(_("With subpages (.zip)"), lambda: ed.flush(lambda: win.export_page(self.id, self.doc.title, True)))]
+                      if store.has_children(self.id) or store.shared_children(self.id) else [])))
+        if ok("template"):
+            ents.append((("✓ " if p.get("template") else "") + _("As template"),
+                         lambda: (p.__setitem__("template", not p.get("template")), store.patch(self.id, {"template": p["template"]}, refresh=True))))
+        if ok("duplicate"):
+            ents.append((_("Duplicate"), lambda: store.duplicate(self.id, done=lambda n: win.show_page(n))))
+        ents += [(_("Copy link"), lambda: win.copy_text(store.page_url(self.id))),
+                 (_("Open in browser"), lambda: win.open_uri(store.page_url(self.id)))]
+        if ok("publish") and self.doc.fetched and publish_available(p):
+            ents.append((("✓ " if p.get("published") else "") + _("Publish …"), lambda: ed.flush(lambda: win.publish_dialog(self.id))))
+        ents.append((_("Reload"), lambda: ed.flush(lambda: self.doc.load(force=True))))
+        tail = []
+        if ok("lock"):
+            tail.append((_("Unlock page") if locked else _("Lock page"), lambda: self.set_locked(not locked)))
+        if ok("archive"):
+            tail.append((_("Restore from archive") if arch else _("Archive"),
+                         lambda: ed.flush(lambda: (store.set_archived(self.id, not arch), p.__setitem__("archived", not arch)))))
+        if ok("trash"):
+            tail.append((_("Move to trash"), lambda: ed.flush(lambda: store.trash(
+                self.id, done=lambda: self.on_close() if self.in_peek and self.on_close else win.go_back_or_home())), True))
+        if tail:
+            ents += [None] + tail
         menu_popover(parent, ents).popup()
 
     # --- Rueckrufe der Bloecke ------------------------------------------------------------------
     def open_link(self, kind, value):
         from .util import link_target
+        if kind == "na":                                      # Verweis auf eine Seite ohne Zugriff: kein Link
+            self.win.toast(_("Page without access"))
+            return
         if kind != "a":
             return
         t = link_target(value)
@@ -777,7 +1049,7 @@ class PageView(Gtk.Box):
         def up(file):
             def work():
                 data = file.load_bytes(None)[0].get_data()
-                return self.win.upload_image(data, file.get_basename())
+                return self.win.upload_image(data, file.get_basename(), note=self.upload_note)
             bg(work, done=cb, error=lambda e: self.win.toast(_("Image not uploaded: {error}").format(error=e)), media=True)
 
         if multiple:                                            # cb bekommt die Liste (Reihenfolge wie gewaehlt)
@@ -792,7 +1064,7 @@ class PageView(Gtk.Box):
                     out = []
                     for file in fl:
                         try:
-                            out.append(self.win.upload_image(file.load_bytes(None)[0].get_data(), file.get_basename()))
+                            out.append(self.win.upload_image(file.load_bytes(None)[0].get_data(), file.get_basename(), note=self.upload_note))
                         except Exception as e:  # noqa: BLE001
                             GLib.idle_add(lambda e=e: (self.win.toast(_("Image not uploaded: {error}").format(error=e)), False)[1])
                     return out
@@ -860,7 +1132,7 @@ class PageView(Gtk.Box):
 
             def work():
                 data = f.load_bytes(None)[0].get_data()
-                return client.upload(data, f.get_basename(), field="file")
+                return client.upload(data, f.get_basename(), field="file", note=self.upload_note)
 
             def fin(info):
                 rr = self.editor.locate(bid)
@@ -872,14 +1144,21 @@ class PageView(Gtk.Box):
 
     def link_database(self, bid):
         from .dialogs import PagePicker
-        PagePicker(self.win, _("Link database"), [p for p in store.pages if is_db(p)],
-                   lambda pid: self.editor.link_database(pid, bid)).present(self.win)
+        if self.doc.foreign:                                  # fremde Seite: nur geteilte Datenbanken desselben Eigentuemers
+            own = (self.doc.page.get("owner") or {}).get("username")
+            dbs = [p for p in store.shared if is_db(p) and (p.get("owner") or {}).get("username") == own]
+        else:
+            dbs = [p for p in store.pages if is_db(p)]
+        PagePicker(self.win, _("Link database"), dbs, lambda pid: self.editor.link_database(pid, bid)).present(self.win)
 
     def run_button(self, cfg):
         self.win.run_button(cfg)
 
     # --- Tastatur / Einfuegen / Ziehen ---------------------------------------------------------------
     def _page_key(self, ctrl, kv, code, state):
+        foc = self.win.get_focus() if self.win is not None else None
+        if self.cpanel is not None and foc is not None and foc.is_ancestor(self.cpanel):
+            return False                                      # Eingabe im Kommentarfeld: nichts in die Seite einfuegen
         if kv in (Gdk.KEY_v, Gdk.KEY_V) and state & Gdk.ModifierType.CONTROL_MASK and not self.editor.locked:
             cb = self.get_clipboard()
             fm = cb.get_formats()
@@ -894,7 +1173,7 @@ class PageView(Gtk.Box):
                     if tex is None:
                         return
                     data = tex.save_to_png_bytes().get_data()
-                    bg(self.win.upload_image, data, "bild.png", done=lambda url: self.editor.insert_image_url(url, after=after),
+                    bg(self.win.upload_image, data, "bild.png", self.upload_note, done=lambda url: self.editor.insert_image_url(url, after=after),
                        error=lambda e: self.win.toast(_("Image not uploaded: {error}").format(error=e)), media=True)
                 cb.read_texture_async(None, got)
                 return True
@@ -913,8 +1192,8 @@ class PageView(Gtk.Box):
                 is_img = name.lower().rsplit(".", 1)[-1] in ("png", "jpg", "jpeg", "gif", "webp", "heic")
                 try:
                     data = f.load_bytes(None)[0].get_data()
-                    out.append(("img", self.win.upload_image(data, name), name) if is_img else
-                               ("file", client.upload(data, name, field="file"), name))
+                    out.append(("img", self.win.upload_image(data, name, note=self.upload_note), name) if is_img else
+                               ("file", client.upload(data, name, field="file", note=self.upload_note), name))
                 except Exception as e:  # noqa: BLE001
                     GLib.idle_add(lambda e=e: (self.win.toast(str(e)), False)[1])
             return out

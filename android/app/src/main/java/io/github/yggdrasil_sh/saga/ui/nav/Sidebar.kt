@@ -53,6 +53,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.yggdrasil_sh.saga.data.PageTree
+import io.github.yggdrasil_sh.saga.data.SharedTree
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.platform.LocalResources
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import kotlinx.coroutines.CancellationException
 import androidx.compose.foundation.layout.heightIn
 import io.github.yggdrasil_sh.saga.data.PageMeta
@@ -75,8 +81,14 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
+    val shared by repo.sharedPages.collectAsState()
+    val shareOff by repo.shareOff.collectAsState()
+    var sharedExpanded by rememberSaveable { mutableStateOf(setOf<Int>()) }
     val favorites = pages.filter { it.pinned }
-    val recent = recentIds.mapNotNull { id -> pages.firstOrNull { it.id == id } }.take(5)
+    val recent = recentIds.mapNotNull { id -> pages.firstOrNull { it.id == id } ?: shared.firstOrNull { it.id == id } }.take(5)
+    // "Mit mir geteilt": oberste geteilte Seiten (mit Eigentuemer), darunter aufklappbar ihre Unterseiten
+    val sharedTree = remember(shared, sharedExpanded) { SharedTree.rows(shared, sharedExpanded) }
+    val sharedUnread = shared.count { it.unread }
     val pageTree = remember(pages) { PageTree(pages) }                // einmal gruppiert statt O(n²)
     val tree = remember(pageTree, expanded) {
         val out = ArrayList<TreeRow>()
@@ -156,6 +168,37 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 { newPage(it) }, scope,
             )
         }
+        if (sharedTree.isNotEmpty() || shareOff) {
+            item(key = "shared-head") {
+                val res = LocalResources.current
+                Row(Modifier.fillMaxWidth().padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    SectionHeader("👥 " + stringResource(R.string.shared_with_me), Modifier.weight(1f))
+                    if (sharedUnread > 0) {
+                        val d = res.getQuantityString(R.plurals.shared_unread_pages, sharedUnread, sharedUnread)
+                        Badge(
+                            Modifier.padding(top = 12.dp).semantics { contentDescription = d },
+                            containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary,
+                        ) { Text("$sharedUnread") }
+                    }
+                }
+            }
+            if (shareOff) {
+                item(key = "shared-off") {
+                    Text(
+                        stringResource(R.string.shared_off_hint), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                    )
+                }
+            }
+            items(sharedTree, key = { "shared-${it.page.id}" }) { r ->
+                PageRowItem(
+                    r.page, r.depth, r.hasChildren, r.page.id in sharedExpanded, nav.root == Dest.Page(r.page.id), repo,
+                    { open(r.page.id) },
+                    { sharedExpanded = if (r.page.id in sharedExpanded) sharedExpanded - r.page.id else sharedExpanded + r.page.id },
+                    { newPage(it) }, scope, owner = if (r.page.root) r.page.owner?.name else null,
+                )
+            }
+        }
         item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
         item { NavItem(stringResource(R.string.nav_settings), Icons.Filled.Settings, nav.root == Dest.Settings) { nav.top(Dest.Settings); onNavigate() } }
         error?.let { e ->
@@ -182,20 +225,42 @@ private fun NavItem(label: String, icon: ImageVector, selected: Boolean, badge: 
 private fun PageRowItem(
     p: PageMeta, depth: Int, hasChildren: Boolean, isExpanded: Boolean, selected: Boolean, repo: SagaRepository,
     onOpen: () -> Unit, onToggle: () -> Unit, onNewChild: (Int) -> Unit, scope: kotlinx.coroutines.CoroutineScope,
+    /** "Mit mir geteilt": Eigentuemer klein unter der obersten geteilten Seite */
+    owner: String? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val foreign = p.owner != null && !p.owner.me
+    // fremde Seiten: keine Favoriten (die gehoeren dem Eigentuemer); Unterseite nur mit "Bearbeiten"
+    val canFavorite = !foreign
+    val canSub = !p.isDatabase && (!foreign || p.role == "edit")
     Box {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(RoundedCornerShape(24.dp))
                 .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)
-                .combinedClickable(onClick = onOpen, onLongClick = { menu = true }, onLongClickLabel = stringResource(R.string.page_actions))
+                .combinedClickable(
+                    onClick = onOpen, onLongClick = if (canFavorite || canSub) ({ menu = true }) else null,
+                    onLongClickLabel = stringResource(R.string.page_actions),
+                )
                 .padding(start = (16 + depth * 16).dp, end = if (hasChildren) 0.dp else 12.dp).heightIn(min = 48.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Auf-/Zuklappen rechts: Seiten mit und ohne Unterseiten stehen buendig (kein leerer 48-dp-Platzhalter)
             PageIcon(p.icon, repo, p.isDatabase)
-            Text(pageTitle(p), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 10.dp).weight(1f))
+            Column(Modifier.padding(start = 10.dp).weight(1f)) {
+                Text(pageTitle(p), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (owner != null) {
+                    Text(owner, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            if (p.unread) {
+                val d = stringResource(R.string.unread_dot_desc)
+                Box(Modifier.padding(horizontal = 6.dp).size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).semantics { contentDescription = d })
+            }
+            if (p.shared && !foreign) {
+                val d = stringResource(R.string.shared_icon_desc)
+                Text("👥", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp).semantics { contentDescription = d })
+            }
             if (hasChildren) {
                 IconButton(onClick = onToggle) {
                     Icon(if (isExpanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(if (isExpanded) R.string.action_collapse else R.string.action_expand))
@@ -203,11 +268,13 @@ private fun PageRowItem(
             }
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-            DropdownMenuItem(text = { Text(stringResource(if (p.pinned) R.string.favorite_remove else R.string.favorite_add)) }, onClick = {
-                menu = false
-                repo.launchAction { repo.setPinned(p.id, !p.pinned) }
-            })
-            if (!p.isDatabase) {
+            if (canFavorite) {
+                DropdownMenuItem(text = { Text(stringResource(if (p.pinned) R.string.favorite_remove else R.string.favorite_add)) }, onClick = {
+                    menu = false
+                    repo.launchAction { repo.setPinned(p.id, !p.pinned) }
+                })
+            }
+            if (canSub) {
                 DropdownMenuItem(text = { Text(stringResource(R.string.new_subpage)) }, onClick = { menu = false; onNewChild(p.id) })
             }
         }

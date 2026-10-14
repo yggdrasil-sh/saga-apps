@@ -406,7 +406,7 @@ struct PageEditorSheets: ViewModifier {
                 let ok = url.startAccessingSecurityScopedResource(); defer { if ok { url.stopAccessingSecurityScopedResource() } }
                 do {
                     let data = try Data(contentsOf: url)
-                    let f = try await store.uploadFile(data, name: url.lastPathComponent)
+                    let f = try await store.uploadFile(data, name: url.lastPathComponent, note: doc.uploadNote)
                     if let (arr, i) = ed.locate(b) {
                         arr.replaceObject(at: i, with: NSMutableDictionary(dictionary: ["id": b, "type": "attaches", "data": NSMutableDictionary(dictionary: ["file": f, "title": f["name"] ?? url.lastPathComponent])])); ed.changed()
                     }

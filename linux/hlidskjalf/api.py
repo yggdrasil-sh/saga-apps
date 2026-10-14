@@ -154,7 +154,7 @@ class Client:
             return path
         return b + "/" + path.lstrip("/")
 
-    def _send(self, method, path, data=None, ctype=None, timeout=20, auth=True, base=None, jar=None):
+    def _send(self, method, path, data=None, ctype=None, timeout=20, auth=True, base=None, jar=None, headers=None):
         url = self.url(path, base)
         if not url.startswith(("https://", "http://")):
             raise APIError(0, _("No server address set"))
@@ -165,6 +165,8 @@ class Client:
         req.add_header("Accept-Language", ACCEPT_LANGUAGE)       # Fehlermeldungen des Servers in der Sprache der App
         if ctype:
             req.add_header("Content-Type", ctype)
+        for k, v in (headers or {}).items():                     # z. B. X-Saga-Note (Upload in eine fremde Seite)
+            req.add_header(k, v)
         if auth:
             ch = self.cookie_header_for(url, jar)
             if ch:
@@ -182,10 +184,11 @@ class Client:
         except (urllib.error.URLError, OSError, TimeoutError) as e:
             raise APIError(0, _("Server not reachable: {error}").format(error=getattr(e, "reason", e))) from e
 
-    def request(self, method, path, body=None, raw=None, ctype=None, timeout=20, server=None, account=None):
+    def request(self, method, path, body=None, raw=None, ctype=None, timeout=20, server=None, account=None, headers=None):
         """JSON-Anfrage -> Bytes. 401: einmal still erneuern und wiederholen, sonst Anmeldung.
         server/account: nur senden, solange noch genau dieser Server (und dieses Konto) eingetragen ist - sonst
-        APIError(SWITCHED), ohne etwas zu senden (z. B. Seite des alten Servers nach einem Wechsel)."""
+        APIError(SWITCHED), ohne etwas zu senden (z. B. Seite des alten Servers nach einem Wechsel).
+        headers: zusaetzliche Kopfzeilen (nur wenn noetig - die Tests ersetzen _send)."""
         data = raw
         if body is not None:
             data = json.dumps(body).encode()
@@ -202,7 +205,8 @@ class Client:
                 raise APIError(SWITCHED)
         for attempt in range(2):
             check()
-            code, out = self._send(method, path, data, ctype, timeout)
+            code, out = self._send(method, path, data, ctype, timeout, headers=headers) if headers else \
+                self._send(method, path, data, ctype, timeout)
             if code != 401:
                 break
             if attempt == 0:
@@ -377,12 +381,16 @@ class Client:
             return got
         raise APIError(401)
 
-    def upload(self, data, name, field="image", timeout=120):
+    def upload(self, data, name, field="image", timeout=120, note=None):
+        """Datei hochladen. note: ID einer fremden Seite (Rolle 'Bearbeiten') - die Datei gehoert dann deren
+        Eigentuemer (Kopfzeile X-Saga-Note, Server ab 1.3)."""
         boundary = "hk-" + uuid.uuid4().hex
         safe = "".join("_" if c in '"\r\n\\' or ord(c) < 32 else c for c in (name or "datei"))[:200]
         body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"{field}\"; filename=\"{safe}\"\r\n"
                 f"Content-Type: application/octet-stream\r\n\r\n").encode() + data + f"\r\n--{boundary}--\r\n".encode()
-        j = json.loads(self.request("POST", "api/files", raw=body, ctype=f"multipart/form-data; boundary={boundary}", timeout=timeout))
+        hd = {"X-Saga-Note": str(int(note))} if note else None
+        j = json.loads(self.request("POST", "api/files", raw=body, ctype=f"multipart/form-data; boundary={boundary}", timeout=timeout,
+                                    headers=hd))
         f = (j or {}).get("file") or {}
         if not f.get("url"):
             raise APIError(500, (j or {}).get("error") or _("Upload failed"))

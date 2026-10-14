@@ -292,6 +292,12 @@ struct Sidebar: View {
     @State private var moveID: MoveTarget?
     @State private var showTrash = false
 
+    private func sharedTree(_ parent: Int?) -> [TreeNode] {
+        store.sharedChildren(of: parent).map { p in
+            let kids = sharedTree(p.id)
+            return TreeNode(page: p, children: kids.isEmpty ? nil : kids)
+        }
+    }
     private func tree(_ parent: Int?) -> [TreeNode] {
         store.children(of: parent).map { p in
             let kids = p.isDatabase ? [] : tree(p.id)
@@ -306,7 +312,12 @@ struct Sidebar: View {
                     if results.isEmpty { Text("Keine Treffer").foregroundStyle(.secondary) }
                     ForEach(results) { p in
                         VStack(alignment: .leading, spacing: 2) {
-                            PageRow(page: p, store: store).pageActions(p, store: store, selection: $selection, moveID: $moveID)
+                            if p.role != nil && p.role != "owner" {                    // fremder Treffer (1.3): ohne Seiten-Aktionen
+                                PageRow(page: p, store: store)
+                                if let o = p.owner?.name { Text("Geteilt von \(o)").font(.caption).foregroundStyle(.secondary) }
+                            } else {
+                                PageRow(page: p, store: store).pageActions(p, store: store, selection: $selection, moveID: $moveID)
+                            }
                             if let s = p.snippet, !s.isEmpty { Text(s).font(.caption).foregroundStyle(.secondary).lineLimit(2) }
                         }.tag(p.id)
                     }
@@ -323,7 +334,12 @@ struct Sidebar: View {
                 }
                 let recent = store.recent.compactMap { store.page($0) }.prefix(5)
                 if !recent.isEmpty {
-                    Section("Zuletzt") { ForEach(Array(recent)) { PageRow(page: $0, store: store).pageActions($0, store: store, selection: $selection, moveID: $moveID).tag($0.id) } }
+                    Section("Zuletzt") {
+                        ForEach(Array(recent)) { p in
+                            if p.role != nil && p.role != "owner" { PageRow(page: p, store: store).tag(p.id) }   // fremde Seite (1.3): ohne Eigentuemer-Aktionen
+                            else { PageRow(page: p, store: store).pageActions(p, store: store, selection: $selection, moveID: $moveID).tag(p.id) }
+                        }
+                    }
                 }
                 Section {
                     OutlineGroup(tree(nil), children: \.children) { n in
@@ -334,6 +350,26 @@ struct Sidebar: View {
                 } header: {
                     Text("Seiten").frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                         .dropDestination(for: String.self) { ids, _ in dropPages(ids, into: nil) }        // auf "Seiten" = oberste Ebene
+                }
+                if !store.shared.isEmpty || store.shareOffHint {             // Mit mir geteilt (1.3)
+                    Section {
+                        if store.shareOffHint {
+                            Text("Teilen ist auf diesem Server zurzeit abgeschaltet – mit dir geteilte Seiten sind nicht erreichbar.").font(.caption).foregroundStyle(.secondary)
+                        }
+                        OutlineGroup(sharedTree(nil), children: \.children) { n in
+                            PageRow(page: n.page, store: store, ownerLine: n.page.root == true).tag(n.page.id)
+                        }
+                    } header: {
+                        HStack(spacing: 6) {
+                            Text("Mit mir geteilt")
+                            let n = store.shared.filter { $0.unread == true }.count
+                            if n > 0 {
+                                Text(verbatim: "\(n)").font(.caption2.bold()).foregroundStyle(Color("OnAccent"))
+                                    .padding(.horizontal, 6).padding(.vertical, 1).background(Color.accentColor, in: Capsule())
+                                    .accessibilityLabel(n == 1 ? Text("1 Seite mit neuen Kommentaren") : Text("\(n) Seiten mit neuen Kommentaren"))
+                            }
+                        }
+                    }
                 }
                 if !store.archivedPages.isEmpty {
                     Section {
@@ -376,8 +412,24 @@ extension Sidebar {
 struct PageRow: View {
     let page: Page
     @ObservedObject var store: Store
+    /// "Mit mir geteilt", oberste Seite: Eigentuemer klein darunter
+    var ownerLine = false
     var body: some View {
-        Label { Text(page.label).lineLimit(1) } icon: { PageIcon(icon: page.icon, store: store, fallback: page.isDatabase ? "🗃️" : "📄") }
+        Label {
+            HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(page.label).lineLimit(1)
+                    if ownerLine, let o = page.owner?.name { Text(verbatim: o).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                }
+                Spacer(minLength: 0)
+                if page.unread == true {                                    // neue Kommentare von anderen
+                    Circle().fill(Color.accentColor).frame(width: 7, height: 7).accessibilityLabel(Text("Neue Kommentare"))
+                }
+                if page.shared == true && page.role == nil {                // eigene Seite mit Freigaben
+                    Image(systemName: "person.2.fill").font(.caption2).foregroundStyle(.secondary).accessibilityLabel(Text("Geteilt"))
+                }
+            }
+        } icon: { PageIcon(icon: page.icon, store: store, fallback: page.isDatabase ? "🗃️" : "📄") }
     }
 }
 

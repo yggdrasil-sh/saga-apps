@@ -7,6 +7,7 @@ from gi.repository import GLib
 
 from . import config, drafts
 from .api import SWITCHED, APIError, client
+from .sharing import RANK, doc_text, role_of
 from .store import is_db, store
 from .i18n import _
 from .util import bg, bg_serial, esc, md_to_html, new_block_id
@@ -135,6 +136,12 @@ class PageDoc:
         self.account = config.account(self.server)  # ... und zu diesem Konto (None: noch unbekannt, wird zugeordnet)
         self.on_copies = None          # () -> None: lokale Kopien geaendert (Banner)
         self._offline = False
+        # Teilen (1.3): fremde Seiten
+        self.error_code = None         # HTTP-Code, wenn das Laden fehlschlug (404: kein Zugriff)
+        self.conflict_by = None        # Name der Person, die zuletzt gespeichert hat (409 'by' bzw. updated_by)
+        self.lost = None               # 403/404 beim Speichern einer fremden Seite: danach nicht mehr speichern
+        self.on_lost = None            # (doc, code, letzter Text) -> None
+        self._overwrite = False        # "Meine Version behalten": einmal mit overwrite speichern (andere Fassung -> Versionen)
         store.docs.add(self)
 
     def mark_dirty(self):
@@ -182,6 +189,24 @@ class PageDoc:
     def props(self):
         return self.page.get("props") or {}
 
+    @property
+    def role(self):
+        """'owner' | 'edit' | 'comment' | 'view' (eigene Seite bzw. aeltere Server: 'owner')"""
+        return role_of(self.page)
+
+    @property
+    def foreign(self):
+        return self.fetched and self.role != "owner"
+
+    @property
+    def read_only(self):
+        """Lesen/Kommentieren oder Zugriff verloren: nichts speichern"""
+        return self.fetched and (RANK[self.role] < RANK["edit"] or self.lost is not None)
+
+    def text_now(self):
+        """eigener Text (Titel + Bloecke) als Klartext - zum Kopieren"""
+        return doc_text(self.title_raw, None if self.is_database else self.root)
+
     def set_title(self, title):
         self.page["title"] = title
         self.mark_dirty()
@@ -202,7 +227,7 @@ class PageDoc:
             p = store.get_cached(f"api/notes/{self.id}")
             schema = None
             par = p.get("parent_id")
-            if par is not None and is_db(store.by_id.get(par)):
+            if par is not None and is_db(store.meta(par)):
                 try:
                     schema = store.get_cached(f"api/notes/{par}").get("schema")
                 except APIError:
@@ -227,8 +252,17 @@ class PageDoc:
                 self.on_loaded(self)
 
         def err(e):
+            code = e.code if isinstance(e, APIError) else None
+            if code == 404 and self.fetched and self.foreign:
+                # Freigabe entzogen (oder Teilen abgeschaltet): eigene Eingaben zum Kopieren anbieten, dann "Kein Zugriff"
+                if self.dirty or self.conflict is not None:
+                    self._lose(404)
+                    return
+                self.fetched = False
+                store.drop_cache(f"api/notes/{self.id}")
             if not self.fetched:
                 self.error = str(e)
+                self.error_code = code
                 self.loaded = True
                 if self.on_loaded:
                     self.on_loaded(self)
@@ -257,9 +291,11 @@ class PageDoc:
         self.root = root
         if schema is not None:
             self.parent_schema = schema
-        elif not is_db(store.by_id.get(p.get("parent_id"))):
+        elif not is_db(store.meta(p.get("parent_id"))):
             self.parent_schema = None
         self.error = None
+        self.error_code = None
+        self.lost = None                                     # frischer Stand: die Rolle darin entscheidet
         self.loaded = True
         self.fetched = True
 
@@ -296,6 +332,13 @@ class PageDoc:
             return
         if self._same_content(d):
             drafts.drop(self.id, self.server, self._acct())               # nichts Neues (war schon gespeichert)
+            return
+        if self.read_only:                       # inzwischen nur noch lesen: Text zum Kopieren anbieten, nicht speichern
+            from .sharing import snapshot_text
+            drafts.drop(self.id, self.server, self._acct())
+            text = snapshot_text(d)
+            if self.on_lost:
+                GLib.idle_add(lambda: (self.on_lost(self, 403, text), False)[1])
             return
         doc = d.get("doc") if isinstance(d.get("doc"), dict) and isinstance(d["doc"].get("blocks"), list) else None
         self.page = dict(self.page, title=d.get("title") or "")
@@ -382,6 +425,10 @@ class PageDoc:
         if not self.loaded or not self.fetched:
             self._release()
             return
+        if self.read_only:                                   # Lesen/Kommentieren, Zugriff verloren: nie speichern
+            self.dirty = False
+            self._release()
+            return
         if not self.same_session():
             self._write_draft()                              # Server/Konto gewechselt: nur als Entwurf (dort) behalten
             self._release()
@@ -405,6 +452,9 @@ class PageDoc:
         if not self.is_database:
             b["body"] = json.dumps(self.doc, ensure_ascii=False)
             b["format"] = "blocks"
+        if self._overwrite:                                  # "Meine Version behalten": andere Fassung als Version sichern
+            b["overwrite"] = True
+            self._overwrite = False
         title = self.title_raw
         sent = self.gen
         acct = self._acct()
@@ -415,7 +465,10 @@ class PageDoc:
                 self.rev = r["rev"]
             self.dirty = self.gen != sent             # inzwischen weiter getippt -> gleich noch einmal
             self.error = self.last_error = None
+            self.conflict_by = None
             self._offline = False
+            if isinstance(self.page.get("updated_by"), dict):  # "Zuletzt geaendert von": jetzt ich
+                self.page["updated_by"] = {"me": True, "name": "", "username": None}
             store.update_title(self.id, title)
             store.drop_cache(f"api/notes/{self.id}")
             if self.parent_schema is not None:
@@ -432,7 +485,12 @@ class PageDoc:
         def err(e):
             self._saving = False
             if isinstance(e, APIError) and e.code == 409:
+                by = e.data.get("by") if isinstance(e.data, dict) else None
+                self.conflict_by = by if isinstance(by, str) and by else None
                 self._fetch_conflict()
+                return
+            if isinstance(e, APIError) and e.code in (403, 404) and self.foreign:
+                self._lose(e.code)                           # Freigabe entzogen bzw. nur noch Lesen
                 return
             self._write_draft()
             if isinstance(e, APIError) and e.code == SWITCHED:   # Server/Konto gewechselt: bleibt als Entwurf
@@ -480,8 +538,30 @@ class PageDoc:
             self._release()
         bg(client.get, f"api/notes/{self.id}", done=fin, error=err)
 
+    def _lose(self, code):
+        """Speichern einer fremden Seite abgelehnt (403: nur noch lesen, 404: Freigabe weg): nicht mehr speichern,
+        den letzten eigenen Text zum Kopieren anbieten (on_lost), Entwurf verwerfen (er liesse sich nie speichern)."""
+        text = self.text_now()
+        self.lost = code
+        self.dirty = False
+        self.conflict = None
+        if self._retry_src:
+            GLib.source_remove(self._retry_src)
+            self._retry_src = 0
+        drafts.drop(self.id, self.server, self._acct())
+        self._release()
+        if self.on_lost:
+            self.on_lost(self, code, text)
+        elif self.on_error:
+            from .sharing import lost_texts
+            self.on_error(lost_texts(code)[0])
+
     def _conflict(self, p):
         already = self.conflict is not None
+        if not self.conflict_by:                             # beim Laden bemerkt: wer zuletzt gespeichert hat
+            ub = p.get("updated_by") if isinstance(p, dict) else None
+            if isinstance(ub, dict) and not ub.get("me") and ub.get("name"):
+                self.conflict_by = ub["name"]
         self.conflict = p                                    # immer die neueste Server-Fassung merken
         self._write_draft()
         if already:
@@ -505,7 +585,9 @@ class PageDoc:
             choice = "theirs"                                # Datenbank: nur der Titel - lokale Kopie genuegt
         if choice == "mine":
             self.conflict = None
+            self.conflict_by = None
             self.rev = p.get("rev") or 0
+            self._overwrite = True                           # Server sichert die andere Fassung als Version
             self.mark_dirty()
             self.save()
             return
@@ -553,6 +635,7 @@ class PageDoc:
 
     def _take_theirs(self, p):
         self.conflict = None
+        self.conflict_by = None
         drafts.drop(self.id, self.server, self._acct())
         self.dirty = False
         self.gen += 1
