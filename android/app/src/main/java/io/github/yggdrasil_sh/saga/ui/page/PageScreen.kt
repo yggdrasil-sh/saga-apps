@@ -101,6 +101,10 @@ import io.github.yggdrasil_sh.saga.ui.common.SagaTopBar
 import io.github.yggdrasil_sh.saga.ui.common.openUrl
 import io.github.yggdrasil_sh.saga.ui.nav.AppNavigator
 import io.github.yggdrasil_sh.saga.ui.nav.Dest
+import io.github.yggdrasil_sh.saga.ui.publish.PublishModel
+import io.github.yggdrasil_sh.saga.ui.publish.PublishSheet
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonObject
@@ -155,6 +159,12 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
     val env = remember(ed) { BlockEnv(ed, repo, onLink) }
     var confirmTrash by remember { mutableStateOf(false) }
     var conflictDialog by remember { mutableStateOf(false) }
+    // Veroeffentlichen: Dialog (Bottom Sheet); aeltere Server ohne /publish -> Menuepunkt ausblenden
+    var publishModel by remember(id) { mutableStateOf<PublishModel?>(null) }
+    var publishHidden by remember(id) { mutableStateOf(false) }
+    val openPublish: () -> Unit = {
+        publishModel = PublishModel(id, repo, repo.absoluteUrl("").trimEnd('/')) { ed.applyPublish(it) }
+    }
     LaunchedEffect(ed.conflict) { if (ed.conflict) conflictDialog = true }
 
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
@@ -181,6 +191,21 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
                         menu = false
                         scope.launch { ed.save(); ed.load() }
                     })
+                    if (ed.fetched && ed.publishSupported && !ed.template && !publishHidden) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.publish_menu)) },
+                            leadingIcon = {
+                                Icon(
+                                    painterResource(R.drawable.ic_public), null,
+                                    tint = if (ed.published) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            },
+                            onClick = {
+                                menu = false
+                                openPublish()
+                            },
+                        )
+                    }
                     DropdownMenuItem(text = { Text(stringResource(R.string.page_copy_link)) }, onClick = {
                         menu = false
                         copy(context, repo.absoluteUrl("notes") + "#$id")
@@ -229,7 +254,7 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
                 }
             }
             LazyColumn(Modifier.widthIn(max = 820.dp).fillMaxSize().padding(horizontal = 18.dp)) {
-                item(key = "header") { PageHeader(ed, repo) }
+                item(key = "header") { PageHeader(ed, repo, onPublish = if (ed.template || publishHidden) null else openPublish) }
                 if (ed.fetched && !ed.isDatabase) {
                     itemsIndexed(blocks, key = { i, _ -> keys[i] }) { i, b ->
                         val obj = b as? JsonObject
@@ -264,6 +289,20 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
 
         val active = ed.active
         if (active != null && ed.editable) EditorToolbar(ed, active, onLink)
+    }
+
+    publishModel?.let { m ->
+        PublishSheet(
+            m, scope,
+            onDismiss = {
+                if (m.unsupported) publishHidden = true
+                publishModel = null
+            },
+            onOpenPage = { pid ->
+                publishModel = null
+                nav.push(Dest.Page(pid))
+            },
+        )
     }
 
     if (confirmTrash) {
@@ -318,7 +357,7 @@ private fun copy(context: Context, text: String) {
 }
 
 @Composable
-private fun PageHeader(ed: PageEditor, repo: SagaRepository) {
+private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> Unit)?) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)) {
@@ -349,13 +388,18 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository) {
                 )
             }
         }
-        if (ed.locked) {
-            AssistChip(
-                onClick = { repo.launchAction { ed.setLocked(false) } },
-                label = { Text(stringResource(R.string.page_locked_chip)) },
-                leadingIcon = { Icon(Icons.Filled.Lock, null, Modifier.size(16.dp)) },
-                modifier = Modifier.padding(top = 6.dp),
-            )
+        val via = if (!ed.published) ed.publishedVia else null
+        if (ed.locked || ed.published || via != null) {
+            Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (ed.locked) {
+                    AssistChip(
+                        onClick = { repo.launchAction { ed.setLocked(false) } },
+                        label = { Text(stringResource(R.string.page_locked_chip)) },
+                        leadingIcon = { Icon(Icons.Filled.Lock, null, Modifier.size(16.dp)) },
+                    )
+                }
+                if (ed.published || via != null) PublicChip(via?.title, onPublish)
+            }
         }
         if (ed.converted) {
             Text(
@@ -378,6 +422,27 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository) {
             Button(onClick = { scope.launch { ed.load() } }, modifier = Modifier.padding(top = 12.dp)) { Text(stringResource(R.string.action_retry)) }
         }
     }
+}
+
+/**
+ * Hinweis "Oeffentlich" im Seitenkopf (wie "🌐 Öffentlich" im Web): Globus + Text, antippbar -> Dialog.
+ * viaTitle != null: oeffentlich als Unterseite dieser Seite (Titel gekuerzt wie im Web).
+ */
+@Composable
+private fun PublicChip(viaTitle: String?, onClick: (() -> Unit)?) {
+    val untitled = stringResource(R.string.page_untitled)
+    val full = viaTitle?.ifEmpty { untitled }
+    val short = full?.let { if (it.length > 28) it.take(27) + "…" else it }
+    val label = short?.let { stringResource(R.string.publish_badge_via, it) } ?: stringResource(R.string.publish_badge)
+    val hint = full?.let { stringResource(R.string.publish_badge_via_hint, it) } ?: stringResource(R.string.publish_badge_hint)
+    AssistChip(
+        onClick = { onClick?.invoke() }, enabled = onClick != null,
+        label = { Text(label, maxLines = 1) },
+        leadingIcon = {
+            Icon(painterResource(R.drawable.ic_public), null, Modifier.size(AssistChipDefaults.IconSize), tint = MaterialTheme.colorScheme.primary)
+        },
+        modifier = Modifier.semantics { contentDescription = hint },
+    )
 }
 
 /** Entwurf vom letzten Mal (weicht vom Server-Stand ab): Wiederherstellen oder Verwerfen - wie iOS/Linux */

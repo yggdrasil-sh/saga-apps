@@ -7,6 +7,7 @@
 """
 import io
 import json
+import re
 import threading
 import time
 import urllib.parse
@@ -85,6 +86,13 @@ class MockServer:
             12: {"id": 12, "title": "Zeile B", "format": "blocks", "body": _blocks("Inhalt B"), "rev": 1, "parent_id": 10,
                  "updated": now, "created": now, "props": {"st": "o2", "nr": 5, "ok": True}},
         }
+        # Veroeffentlichen (Server ab 1.2): publish_api=False wie ein aelterer Server (404, keine Felder in der Seite)
+        self.publish_api = True
+        self.publish_enabled = True
+        self.public_name = None
+        self.taken_names = {"vergeben"}
+        self.pubs = {}           # Seite -> {slug, children, indexable, profile, active, withdrawn_at, withdrawn_by}
+        self.public_home = 0
         self.trash = []
         self.tasks = [{"id": 1, "text": "Einkaufen", "prio": 2, "due": time.strftime("%Y-%m-%d")},
                       {"id": 2, "text": "Bericht schreiben", "prio": 1}]
@@ -183,7 +191,12 @@ class MockServer:
             rest = parts[3:]
             if not rest and method == "GET":
                 out = dict(n)
+                if self.publish_api:
+                    st = self.pub_state(nid)
+                    out.update(published=st["published"], published_via=st["published_via"], public_url=st["url"])
                 return self._reply(200, out)
+            if rest == ["publish"]:
+                return self._publish(method, nid, n, body or {}) if self.publish_api else self._reply(404, {"error": "not found"})
             if not rest and method == "PATCH":
                 content = "body" in body or "title" in body
                 if content and body.get("rev") is not None and body["rev"] != n["rev"]:
@@ -251,11 +264,123 @@ class MockServer:
         if parts[:2] == ["api", "trash"] and len(parts) == 3 and method == "DELETE":
             self.trash = [n for n in self.trash if n["id"] != int(parts[2])]
             return self._reply(200, {"ok": True})
+        if path == "api/account/public-name":
+            return self._public_name(method, body or {}) if self.publish_api else self._reply(404, {"error": "not found"})
         if path.startswith("api/settings"):
             return self._reply(200, {})
         if path.startswith("files/"):
             return self._reply(200, b"x" * 300000)
         return self._reply(200, {})
+
+
+    # --- Veroeffentlichen (wie saga/publish.py, vereinfacht) -------------------------------------------
+    NAME_RE = re.compile(r"[a-z0-9][a-z0-9_-]{1,31}")
+    SLUG_RE = re.compile(r"[a-z0-9][a-z0-9_-]{1,59}")
+
+    @staticmethod
+    def slugify(s):
+        s = (s or "").lower().replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss")
+        return re.sub(r"[^a-z0-9]+", "-", s).strip("-")[:60].strip("-")
+
+    def name_problem(self, name, check_taken=True):
+        if not self.NAME_RE.fullmatch(name or ""):
+            return "2–32 Zeichen: a–z, 0–9, - und _ (klein, am Anfang ein Buchstabe oder eine Ziffer)."
+        if name in ("admin", "api", "saga"):
+            return "Dieser Name ist reserviert."
+        if check_taken and name in self.taken_names:
+            return "Dieser Name ist schon vergeben."
+        return None
+
+    def pub_via(self, nid):
+        name = self.public_name
+        if not name:
+            return None
+        p = self.notes.get(nid, {}).get("parent_id")
+        while p:
+            x = self.pubs.get(p)
+            if x and x["active"] and x["children"]:
+                return {"note_id": p, "title": self.notes[p].get("title") or "Unbenannt", "url": f"{SERVER}/@{name}/{x['slug']}/{nid}"}
+            p = self.notes.get(p, {}).get("parent_id")
+        return None
+
+    def pub_state(self, nid):
+        name = self.public_name
+        r = self.pubs.get(nid)
+        active = bool(r and r["active"])
+        out = {"enabled": self.publish_enabled, "name": name, "published": active, "home": False, "url": None,
+               "profile_url": f"{SERVER}/@{name}" if name else None, "published_via": self.pub_via(nid),
+               "withdrawn_at": None, "withdrawn_by": None}
+        if r:
+            out.update({k: r[k] for k in ("slug", "children", "indexable", "profile")})
+            if active:
+                out["url"] = f"{SERVER}/@{name}/{r['slug']}" if name else None
+                out["home"] = self.public_home == nid
+            else:
+                out.update(withdrawn_at=r.get("withdrawn_at"), withdrawn_by=r.get("withdrawn_by"))
+        else:
+            out.update(slug=self.slugify(self.notes[nid].get("title")) or "unbenannt", children=False, indexable=False, profile=False)
+        other = next((k for k, x in self.pubs.items() if x["profile"] and x["active"] and k != nid), None)
+        out["profile_other"] = {"note_id": other, "title": self.notes[other].get("title") or "Unbenannt"} if other else None
+        if not name:
+            out["suggested_name"] = "test-autor"
+        return out
+
+    def _publish(self, method, nid, n, b):
+        if method == "GET":
+            return self._reply(200, self.pub_state(nid))
+        if method == "DELETE":
+            r = self.pubs.get(nid)
+            if r and r["active"]:
+                r.update(active=False, withdrawn_at=time.time(), withdrawn_by="user")
+            return self._reply(200, dict(self.pub_state(nid), ok=True, removed=bool(r)))
+        if not self.publish_enabled:
+            return self._reply(403, {"error": "Veröffentlichen ist auf diesem Server abgeschaltet."})
+        if n.get("template"):
+            return self._reply(400, {"error": "Vorlagen können nicht veröffentlicht werden."})
+        if not self.public_name:
+            if b.get("name"):
+                err = self.name_problem(str(b["name"]).strip().lower())
+                if err:
+                    return self._reply(400, {"error": err, "need_name": True})
+                self.public_name = str(b["name"]).strip().lower()
+            else:
+                return self._reply(409, {"error": "Bitte zuerst einen öffentlichen Namen wählen.", "need_name": True,
+                                         "suggested_name": "test-autor"})
+        old = self.pubs.get(nid) or {"slug": None, "children": False, "indexable": False, "profile": False}
+        if str(b.get("slug") or "").strip():
+            slug = str(b["slug"]).strip().lower()
+            if not self.SLUG_RE.fullmatch(slug):
+                return self._reply(400, {"error": "Adresse: 2–60 Zeichen, a–z, 0–9, - und _ (klein)."})
+            if any(x["slug"] == slug and k != nid for k, x in self.pubs.items()):
+                return self._reply(409, {"error": "Diese Adresse benutzt schon eine andere deiner Seiten."})
+        else:
+            slug = old["slug"] or self.slugify(n.get("title")) or "unbenannt"
+        fl = {k: (bool(b[k]) if k in b else old[k]) for k in ("children", "indexable", "profile")}
+        replaced = None
+        if fl["profile"]:
+            replaced = next((k for k, x in self.pubs.items() if x["profile"] and x["active"] and k != nid), None)
+            for k, x in self.pubs.items():
+                if k != nid:
+                    x["profile"] = False
+        self.pubs[nid] = dict(fl, slug=slug, active=True, withdrawn_at=None, withdrawn_by=None)
+        out = self.pub_state(nid)
+        if replaced:
+            out["replaced_profile"] = {"note_id": replaced, "title": self.notes[replaced].get("title") or "Unbenannt"}
+        return self._reply(200, out)
+
+    def _public_name(self, method, b):
+        if method == "GET":
+            n = sum(1 for x in self.pubs.values() if x["active"])
+            return self._reply(200, {"name": self.public_name, "url": f"{SERVER}/@{self.public_name}" if self.public_name else None,
+                                     "enabled": self.publish_enabled, "published": n, "suggested": self.public_name or "test-autor"})
+        name = str(b.get("name") or "").strip().lower()
+        err = self.name_problem(name)
+        if b.get("check"):
+            return self._reply(200, {"ok": not err, "available": not err, "name": name, **({"error": err} if err else {})})
+        if err:
+            return self._reply(409 if "vergeben" in err else 400, {"error": err})
+        self.public_name = name
+        return self._reply(200, {"ok": True, "name": name, "url": f"{SERVER}/@{name}"})
 
 
 class _Headers:

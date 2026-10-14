@@ -4,6 +4,14 @@ Alle nennenswerten Änderungen an den Saga-Apps. Format nach [Keep a Changelog](
 Versionen nach [Semantic Versioning](https://semver.org/lang/de/). Neue Version: `tools/set-version.sh x.y.z`,
 Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht dann alle Downloads.
 
+## [Unveröffentlicht]
+
+### Neu
+- **Seiten veröffentlichen** (braucht Saga-Server 1.2) in allen Apps: Seitenmenü „Veröffentlichen …“ mit
+  öffentlichem Namen, Adresse, Unterseiten, Suchmaschinen, Profilseite, Link kopieren/öffnen und „Veröffentlichung
+  beenden“; Hinweis „Öffentlich“ im Seitenkopf; „Öffentlicher Name“ unter Einstellungen → Konto.
+  Fehlermeldungen des Servers kommen in der App-Sprache (Accept-Language).
+
 ## [1.1.0] – 2026-10-14
 
 ### Neu

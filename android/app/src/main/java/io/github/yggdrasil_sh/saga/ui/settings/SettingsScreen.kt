@@ -95,6 +95,8 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = w.padding(horizontal = 16.dp),
                 )
             }
+            // Veroeffentlichen: oeffentlicher Name als eigener Block im Konto (nach Kopplung neu laden)
+            item { PublicNameBlock(repo, w.padding(top = 8.dp), reloadKey = signIns) }
 
             item { SectionHeader(stringResource(R.string.settings_about), w) }
             item { ListItem(headlineContent = { Text(stringResource(R.string.settings_app)) }, trailingContent = { Text("Saga ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") }, modifier = w) }

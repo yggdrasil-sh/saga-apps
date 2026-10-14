@@ -8,6 +8,7 @@ import io.github.yggdrasil_sh.saga.auth.PairTarget
 import io.github.yggdrasil_sh.saga.auth.Pkce
 import io.github.yggdrasil_sh.saga.ui.page.PageBackend
 import io.github.yggdrasil_sh.saga.ui.page.PageEditor
+import io.github.yggdrasil_sh.saga.ui.publish.PublishBackend
 import io.github.yggdrasil_sh.saga.util.ServerUrl
 import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.util.UiTextException
@@ -89,7 +90,9 @@ class SagaRepository(
     userAgent: String,
     val appVersion: String,
     private val filesDir: File,
-) : PageBackend {
+    /** Sprache der App-Oberflaeche fuer Accept-Language */
+    language: () -> String = { "" },
+) : PageBackend, PublishBackend {
     val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
@@ -103,6 +106,7 @@ class SagaRepository(
         onSessionLost = { needsLogin.value = true },
         userAgent = userAgent,
         onAccount = { name -> scope.launch { settings.setAccount(name) } },
+        language = language,
     )
 
     /** Einstellungen/Schluessel geladen (vorher zeigt die App nichts an) */
@@ -342,6 +346,23 @@ class SagaRepository(
         }
         return decode<SaveResult>(api.patch("api/notes/$id", b)).rev
     }
+
+    // ---------------------------------------------------------------- Veroeffentlichen (Server 1.2)
+
+    override suspend fun publishState(id: Int): PublishState = decode(api.get("api/notes/$id/publish"))
+
+    /** PUT nur mit Content-Type application/json (sonst 415) - request() schickt JSON */
+    override suspend fun publish(id: Int, body: JsonObject): PublishState = decode(api.request("PUT", "api/notes/$id/publish", body))
+
+    override suspend fun unpublish(id: Int): PublishState = decode(api.delete("api/notes/$id/publish"))
+
+    override suspend fun publicName(): PublicNameInfo = decode(api.get("api/account/public-name"))
+
+    override suspend fun checkPublicName(name: String): NameCheck =
+        decode(api.request("PUT", "api/account/public-name", buildJsonObject { put("name", name); put("check", true) }))
+
+    override suspend fun setPublicName(name: String): NameSaved =
+        decode(api.request("PUT", "api/account/public-name", buildJsonObject { put("name", name) }))
 
     override suspend fun createPageWith(title: String, body: String): Int {
         val id = decode<NewId>(api.post("api/notes", buildJsonObject { put("title", title) })).id

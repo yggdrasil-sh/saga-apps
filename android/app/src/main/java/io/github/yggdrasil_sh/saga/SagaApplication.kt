@@ -32,6 +32,8 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
             userAgent = "Saga-Android/${BuildConfig.VERSION_NAME}",
             appVersion = BuildConfig.VERSION_NAME,
             filesDir = filesDir,
+            // App-Sprache = Sprache der angezeigten Texte (de/en/es; sonst Englisch), nicht die Geraetesprache
+            language = { resources.getString(R.string.app_language) },
         )
     }
 

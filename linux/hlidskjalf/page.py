@@ -7,6 +7,7 @@ from .blocks import BlockKit, HoverManager, SuggestPopover, flat_button, menu_po
 from .config import settings
 from .editor import PageDoc, PageEditor
 from .i18n import _, pgettext
+from .publish import available as publish_available
 from .richtext import RichText
 from .store import is_db, label, store, watch
 from .util import bg, date_time_text, edited_text, new_block_id, plain
@@ -718,6 +719,8 @@ class PageView(Gtk.Box):
                 (_("Duplicate"), lambda: store.duplicate(self.id, done=lambda n: win.show_page(n))),
                 (_("Copy link"), lambda: win.copy_text(store.page_url(self.id))),
                 (_("Open in browser"), lambda: win.open_uri(store.page_url(self.id))),
+                *([(("✓ " if p.get("published") else "") + _("Publish …"), lambda: ed.flush(lambda: win.publish_dialog(self.id)))]
+                  if self.doc.fetched and publish_available(p) else []),
                 (_("Reload"), lambda: ed.flush(lambda: self.doc.load(force=True))),
                 None,
                 (_("Unlock page") if ed.locked else _("Lock page"), lambda: self.set_locked(not ed.locked)),

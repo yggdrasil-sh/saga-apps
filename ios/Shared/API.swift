@@ -37,6 +37,7 @@ enum API {
         var req = URLRequest(url: url, timeoutInterval: 20)
         req.httpMethod = method
         req.setValue("Bearer \(AppConfig.token)", forHTTPHeaderField: "Authorization")
+        req.setValue(AppConfig.appLanguage, forHTTPHeaderField: "Accept-Language")       // Fehlertexte in der App-Sprache
         if let body {
             req.setValue("application/json", forHTTPHeaderField: "Content-Type")
             req.httpBody = try JSONSerialization.data(withJSONObject: body)

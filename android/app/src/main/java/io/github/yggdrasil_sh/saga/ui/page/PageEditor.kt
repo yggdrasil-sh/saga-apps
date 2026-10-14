@@ -15,6 +15,9 @@ import io.github.yggdrasil_sh.saga.blocks.JsonTree
 import io.github.yggdrasil_sh.saga.data.ApiException
 import io.github.yggdrasil_sh.saga.data.Draft
 import io.github.yggdrasil_sh.saga.data.Drafts
+import io.github.yggdrasil_sh.saga.data.Publish
+import io.github.yggdrasil_sh.saga.data.PublishState
+import io.github.yggdrasil_sh.saga.data.PublishVia
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -107,6 +110,13 @@ class PageEditor(
     var locked by mutableStateOf(false)
         private set
     var pinned by mutableStateOf(false)
+    /** Vorlage (nicht veroeffentlichbar) */
+    var template by mutableStateOf(false)
+    /** Veroeffentlichen: Server kennt es (GET /api/notes/{id} liefert "published"); Zustand fuer den Seitenkopf */
+    var publishSupported by mutableStateOf(false)
+    var published by mutableStateOf(false)
+    var publicUrl by mutableStateOf<String?>(null)
+    var publishedVia by mutableStateOf<PublishVia?>(null)
     var loading by mutableStateOf(true)
         private set
     var fetched by mutableStateOf(false)
@@ -203,6 +213,11 @@ class PageEditor(
         kind = BlockDoc.str(p, "kind").ifEmpty { "page" }
         locked = BlockDoc.bool(p, "locked")
         pinned = BlockDoc.bool(p, "pinned")
+        template = BlockDoc.bool(p, "template")
+        publishSupported = Publish.supported(p)
+        published = BlockDoc.bool(p, "published")
+        publicUrl = BlockDoc.str(p, "public_url").ifEmpty { null }
+        publishedVia = Publish.via(p)
         rev = BlockDoc.int(p, "rev")
         converted = parsed.converted && !body.isNullOrBlank()
         doc = withStarter(parsed.doc)
@@ -210,6 +225,13 @@ class PageEditor(
         savedVersion = 0
         fetched = true
         error = null
+    }
+
+    /** Neuer Stand aus dem Dialog "Veroeffentlichen" -> Hinweis "Oeffentlich" im Seitenkopf */
+    fun applyPublish(st: PublishState) {
+        published = st.published
+        publicUrl = st.url
+        publishedVia = st.publishedVia
     }
 
     /** leere Seite: ein Absatz zum Losschreiben (erst gespeichert, wenn etwas getippt wird) */

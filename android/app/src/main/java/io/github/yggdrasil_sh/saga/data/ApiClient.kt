@@ -30,8 +30,9 @@ import kotlin.coroutines.resumeWithException
 /**
  * Fehler vom Server (HTTP-Status + Meldung aus {"error": ...}).
  * text = Anzeige fuer die Oberflaeche (uebersetzt; Meldungen des Servers unveraendert), message nur fuers Log.
+ * body = Antwort des Servers (JSON) fuer Zusatzangaben wie need_name beim Veroeffentlichen.
  */
-class ApiException(val code: Int, val text: UiText) : Exception("HTTP $code: $text")
+class ApiException(val code: Int, val text: UiText, val body: String = "") : Exception("HTTP $code: $text")
 
 /** Erneuerung der Sitzung ging nicht durch (Netz) - als "Server nicht erreichbar" anzeigen */
 class ServerUnreachableException : IOException("server unreachable")
@@ -74,6 +75,8 @@ class ApiClient(
     private val onSessionLost: () -> Unit,
     private val userAgent: String,
     private val onAccount: (String) -> Unit = {},
+    /** Sprache der App-Oberflaeche (BCP 47, z. B. "de") - der Server uebersetzt damit seine Fehlermeldungen */
+    private val language: () -> String = { "" },
 ) {
     val cookies = MemoryCookieJar()
     private val jsonType = "application/json; charset=utf-8".toMediaType()
@@ -84,7 +87,9 @@ class ApiClient(
     private val headers = Interceptor { chain ->
         val req = chain.request()
         if (!isOwn(req.url)) return@Interceptor chain.proceed(req)
-        chain.proceed(req.newBuilder().header("X-Saga", "1").header("User-Agent", userAgent).build())
+        val b = req.newBuilder().header("X-Saga", "1").header("User-Agent", userAgent)
+        acceptLanguage(language())?.let { b.header("Accept-Language", it) }
+        chain.proceed(b.build())
     }
 
     /** ohne Erneuerung: Anmeldung, Erneuerung selbst, Versionsabfrage */
@@ -199,7 +204,7 @@ class ApiClient(
         if (bearer != null) rq.header("Authorization", "Bearer $bearer")
         val req = rq.build()
         val (code, text) = execute(if (auth || base != null || bearer != null) authClient else client, req)
-        if (code !in 200..299) throw ApiException(code, errorText(code, text))
+        if (code !in 200..299) throw ApiException(code, errorText(code, text), text)
         return text
     }
 
@@ -244,6 +249,17 @@ class ApiClient(
     }
 }
 
+
+/**
+ * Accept-Language aus der App-Sprache: "de" -> "de", "es-MX" -> "es-MX, es;q=0.9"; ohne Sprache keine Kopfzeile.
+ * Nur Buchstaben, Ziffern und "-" (nie Steuerzeichen in einer Kopfzeile).
+ */
+fun acceptLanguage(tag: String): String? {
+    val t = tag.trim().replace('_', '-')
+    if (t.isEmpty() || t.equals("und", ignoreCase = true) || !Regex("[A-Za-z]{2,8}(-[A-Za-z0-9]{1,8})*").matches(t)) return null
+    val primary = t.substringBefore('-').lowercase()
+    return if (t.contains('-')) "$t, $primary;q=0.9" else primary
+}
 
 /** Gehoert url zum Server-Ursprung server (Schema, Host, Port, Pfad-Anfang)? */
 fun sameServer(server: String, url: HttpUrl): Boolean {

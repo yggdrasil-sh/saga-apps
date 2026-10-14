@@ -27,6 +27,7 @@ class APIError(Exception):
         self.code = code
         self.msg = msg
         self.explicit = False
+        self.data = None            # JSON-Antwort des Servers bei Fehlern (z. B. need_name, suggested_name)
 
     def __str__(self):
         if self.code == 401:
@@ -158,7 +159,8 @@ class Client:
         if not url.startswith(("https://", "http://")):
             raise APIError(0, _("No server address set"))
         req = urllib.request.Request(url, data=data, method=method)
-        req.add_header("X-Hlidskjalf", "1")
+        req.add_header("X-Saga", "1")                            # Schutz vor Cross-Site-Anfragen (Server ab 1.2)
+        req.add_header("X-Hlidskjalf", "1")                      # ... und fuer aeltere Server
         req.add_header("User-Agent", "Hlidskjalf-Linux/1.0")
         req.add_header("Accept-Language", ACCEPT_LANGUAGE)       # Fehlermeldungen des Servers in der Sprache der App
         if ctype:
@@ -214,12 +216,15 @@ class Client:
                 self.on_need_login()
             raise APIError(401)
         if not 200 <= code < 300:
-            msg = ""
+            data = None
             try:
-                msg = json.loads(out).get("error", "")
-            except (ValueError, AttributeError):
+                data = json.loads(out)
+            except ValueError:
                 pass
-            raise APIError(code, msg)
+            data = data if isinstance(data, dict) else None
+            e = APIError(code, str((data or {}).get("error") or ""))
+            e.data = data
+            raise e
         return out
 
     def json(self, method, path, body=None, **kw):
@@ -341,8 +346,10 @@ class Client:
         for attempt in range(2):
             url = self.url(path)
             req = urllib.request.Request(url, method="GET")
+            req.add_header("X-Saga", "1")
             req.add_header("X-Hlidskjalf", "1")
             req.add_header("User-Agent", "Hlidskjalf-Linux/1.0")
+            req.add_header("Accept-Language", ACCEPT_LANGUAGE)
             ch = self.cookie_header_for(url)
             if ch:
                 req.add_header("Cookie", ch)

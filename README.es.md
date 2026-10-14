@@ -60,6 +60,15 @@ iPhone y iPad: compílala tú (ver [ios/README.md](ios/README.md)); todavía no 
 Después, las apps mantienen la sesión iniciada. Puedes cerrar la sesión de cualquier dispositivo en todo
 momento en Saga, en "Apps y dispositivos".
 
+## Publicar páginas
+
+Con el servidor de Saga 1.2 o posterior, todas las apps pueden hacer pública una página: menú de la página →
+**Publicar …**. La primera vez eliges un **nombre público** (aparece en la dirección `…/@name/…`; nunca es tu
+nombre de usuario). Después defines la dirección, **Publicar también las subpáginas**, **Permitir buscadores** y
+**Como página de perfil**, copias o abres el enlace, o eliges **Dejar de publicar**. Las páginas públicas muestran
+**Pública** en la cabecera; tu nombre público se cambia en **Ajustes → Cuenta**. En servidores más antiguos no
+aparece la opción del menú.
+
 ## Compilarlas tú
 
 Los ajustes personales (equipo de desarrollo, ID de la app, dispositivos de prueba, comandos de distribución)

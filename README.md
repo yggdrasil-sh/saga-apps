@@ -59,6 +59,14 @@ iPhone and iPad: build it yourself (see [ios/README.md](ios/README.md)) – ther
 
 The apps then stay signed in. You can sign out any device at any time in Saga under "Apps & devices".
 
+## Publishing pages
+
+With Saga server 1.2 or later, every app can make a page public: page menu → **Publish …**. The first time,
+you choose a **public name** (it appears in the address `…/@name/…`, never your username). After that you set
+the address, **Also publish subpages**, **Allow search engines** and **As profile page**, copy or open the link,
+or **Stop publishing**. Public pages show **Public** in the page header; you can change your public name under
+**Settings → Account**. On older servers the menu item does not appear.
+
 ## Building it yourself
 
 Personal settings (developer team, app ID, test devices, deployment commands) are **never** stored in the

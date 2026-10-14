@@ -7,6 +7,8 @@ Native App (SwiftUI) für einen [Saga](https://github.com/yggdrasil-sh/saga)-Ser
 - **Datenbanken** mit Ansichten, Filtern und Sortierung; neue Einträge passend zur Ansicht
 - **Aufgaben und Termine** („Heute“, Agenda, Wiederholungen, Abhaken); Kalender per CalDAV verbinden
 - **Befehlspalette** (⌘K) zum Suchen nach Seitennamen und Inhalt
+- **Seiten veröffentlichen** (Server ab 1.2): Seitenmenü „Veröffentlichen …“ mit öffentlichem Namen, Adresse,
+  Unterseiten, Suchmaschinen, Profilseite und Link; Hinweis „Öffentlich“ im Seitenkopf; Name unter Einstellungen → Konto
 - Bilder und Dateien anhängen, optional Fotos aus Immich übernehmen
 - **Widgets**: „Heute“ (Termine + Aufgaben, direkt abhaken), „Seite“, „Seite oder Datenbank“
 - **Teilen-Erweiterung** (iOS und macOS): Link oder Text als Seite im Eingang oder als Aufgabe ablegen

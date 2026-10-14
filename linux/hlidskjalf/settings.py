@@ -61,6 +61,8 @@ class SettingsDialog(Adw.PreferencesDialog):
         page.add(g3)
         self.add(page)
         acc = Adw.PreferencesPage(title=_("Account"), icon_name="avatar-default-symbolic")
+        from .publish import PublicNameGroup
+        acc.add(PublicNameGroup(self))             # oeffentlicher Name (Veroeffentlichen); aeltere Server: unsichtbar
         acc.add(ImmichGroup(self))
         acc.add(CalendarGroup(self))
         acc.add(AppsGroup(self))

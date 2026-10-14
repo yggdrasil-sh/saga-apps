@@ -12853,6 +12853,1018 @@
           }
         }
       }
+    },
+    "Adresse" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adresse"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Address"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dirección"
+          }
+        }
+      }
+    },
+    "Adresse ändern" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adresse ändern"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change address"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambiar dirección"
+          }
+        }
+      }
+    },
+    "Adresse ändern? Der bisherige Link %@ funktioniert danach nicht mehr." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adresse ändern? Der bisherige Link %@ funktioniert danach nicht mehr."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change the address? The current link %@ will stop working."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cambiar la dirección? El enlace actual %@ dejará de funcionar."
+          }
+        }
+      }
+    },
+    "Als Profilseite (/@name)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als Profilseite (/@name)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "As profile page (/@name)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Como página de perfil (/@name)"
+          }
+        }
+      }
+    },
+    "Der Admin hat das Veröffentlichen auf diesem Server abgeschaltet – öffentliche Adressen liefern zurzeit „Nicht gefunden“." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Admin hat das Veröffentlichen auf diesem Server abgeschaltet – öffentliche Adressen liefern zurzeit „Nicht gefunden“."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The admin has turned off publishing on this server – public addresses currently return “Not found”."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El administrador ha desactivado la publicación en este servidor: las direcciones públicas devuelven ahora «No encontrado»."
+          }
+        }
+      }
+    },
+    "Diese Seite ist bereits öffentlich: „%@“ ist mit Unterseiten veröffentlicht." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Seite ist bereits öffentlich: „%@“ ist mit Unterseiten veröffentlicht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This page is already public: “%@” is published together with its subpages."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta página ya es pública: «%@» está publicada con sus subpáginas."
+          }
+        }
+      }
+    },
+    "Diese Seite ist die Startseite für Besucher." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Seite ist die Startseite für Besucher."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This page is the home page for visitors."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta página es la página de inicio para visitantes."
+          }
+        }
+      }
+    },
+    "Diese Seite ist öffentlich – klicken für Einstellungen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Seite ist öffentlich – klicken für Einstellungen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This page is public – click for settings"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta página es pública: haz clic para ver los ajustes"
+          }
+        }
+      }
+    },
+    "Erscheint unter deiner Profil-Adresse – höchstens eine Seite." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erscheint unter deiner Profil-Adresse – höchstens eine Seite."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shown at your profile address – one page at most."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se muestra en tu dirección de perfil; como máximo una página."
+          }
+        }
+      }
+    },
+    "Ersetzt die bisherige Profilseite „%@“." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ersetzt die bisherige Profilseite „%@“."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Replaces your current profile page “%@”."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sustituye a tu página de perfil actual «%@»."
+          }
+        }
+      }
+    },
+    "Frei" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frei"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Available"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disponible"
+          }
+        }
+      }
+    },
+    "Jeder mit dem Link kann diese Seite ohne Anmeldung lesen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jeder mit dem Link kann diese Seite ohne Anmeldung lesen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anyone with the link can read this page without signing in."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cualquiera con el enlace puede leer esta página sin iniciar sesión."
+          }
+        }
+      }
+    },
+    "Konto" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Konto"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Account"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cuenta"
+          }
+        }
+      }
+    },
+    "Link kopiert" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link kopiert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link copied"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enlace copiado"
+          }
+        }
+      }
+    },
+    "Namen speichern" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Namen speichern"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save name"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar nombre"
+          }
+        }
+      }
+    },
+    "Nicht dein Anmeldename: wähle etwas, das alle sehen dürfen. 2–32 Zeichen, a–z, 0–9, - und _." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht dein Anmeldename: wähle etwas, das alle sehen dürfen. 2–32 Zeichen, a–z, 0–9, - und _."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not your username: pick something everyone may see. 2–32 characters, a–z, 0–9, - and _."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No es tu nombre de usuario: elige algo que todos puedan ver. 2–32 caracteres, a–z, 0–9, - y _."
+          }
+        }
+      }
+    },
+    "Privat wird sie erst, wenn dort „Unterseiten mit veröffentlichen“ aus ist oder die Seite verschoben wird." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privat wird sie erst, wenn dort „Unterseiten mit veröffentlichen“ aus ist oder die Seite verschoben wird."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "It only becomes private when “Also publish subpages” is turned off there or the page is moved."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo vuelve a ser privada si allí se desactiva «Publicar también las subpáginas» o si se mueve la página."
+          }
+        }
+      }
+    },
+    "Sonst bitten wir Suchmaschinen, die Seite nicht aufzunehmen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sonst bitten wir Suchmaschinen, die Seite nicht aufzunehmen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otherwise search engines are asked not to index the page."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Si no, se pide a los buscadores que no indexen la página."
+          }
+        }
+      }
+    },
+    "Steht in den Adressen deiner öffentlichen Seiten (%@). Beim Ändern funktionieren alte Links nicht mehr." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steht in den Adressen deiner öffentlichen Seiten (%@). Beim Ändern funktionieren alte Links nicht mehr."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appears in the addresses of your public pages (%@). If you change it, old links stop working."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aparece en las direcciones de tus páginas públicas (%@). Si lo cambias, los enlaces antiguos dejarán de funcionar."
+          }
+        }
+      }
+    },
+    "Steht in den Adressen deiner öffentlichen Seiten (…/@name/…) und ist für alle sichtbar – nicht dein Anmeldename. Wird beim ersten Veröffentlichen festgelegt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Steht in den Adressen deiner öffentlichen Seiten (…/@name/…) und ist für alle sichtbar – nicht dein Anmeldename. Wird beim ersten Veröffentlichen festgelegt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appears in the addresses of your public pages (…/@name/…) and is visible to everyone – not your username. Set when you first publish."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aparece en las direcciones de tus páginas públicas (…/@name/…) y es visible para todos; no es tu nombre de usuario. Se fija al publicar por primera vez."
+          }
+        }
+      }
+    },
+    "Suchmaschinen erlauben" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suchmaschinen erlauben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow search engines"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permitir buscadores"
+          }
+        }
+      }
+    },
+    "Unterseiten (und Einträge von Datenbanken) dieser Seite sind dann ebenfalls öffentlich." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unterseiten (und Einträge von Datenbanken) dieser Seite sind dann ebenfalls öffentlich."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subpages (and database entries) of this page will then be public too."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las subpáginas (y las entradas de bases de datos) de esta página también serán públicas."
+          }
+        }
+      }
+    },
+    "Unterseiten mit veröffentlichen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unterseiten mit veröffentlichen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Also publish subpages"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publicar también las subpáginas"
+          }
+        }
+      }
+    },
+    "Veröffentlichen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veröffentlichen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publish"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publicar"
+          }
+        }
+      }
+    },
+    "Veröffentlichen ist auf diesem Server abgeschaltet." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veröffentlichen ist auf diesem Server abgeschaltet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publishing is turned off on this server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La publicación está desactivada en este servidor."
+          }
+        }
+      }
+    },
+    "Veröffentlichen …" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veröffentlichen …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publish …"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publicar …"
+          }
+        }
+      }
+    },
+    "Veröffentlichung beenden" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veröffentlichung beenden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop publishing"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dejar de publicar"
+          }
+        }
+      }
+    },
+    "Veröffentlichung beenden? Der Link funktioniert danach nicht mehr." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veröffentlichung beenden? Der Link funktioniert danach nicht mehr."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop publishing? The link will no longer work."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Dejar de publicar? El enlace dejará de funcionar."
+          }
+        }
+      }
+    },
+    "Veröffentlichung beendet am %@. Adresse und Einstellungen sind gemerkt und gelten beim erneuten Veröffentlichen wieder." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veröffentlichung beendet am %@. Adresse und Einstellungen sind gemerkt und gelten beim erneuten Veröffentlichen wieder."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stopped publishing on %@. Address and settings are kept and apply again when you publish again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se dejó de publicar el %@. La dirección y los ajustes se conservan y vuelven a aplicarse al publicar de nuevo."
+          }
+        }
+      }
+    },
+    "Veröffentlichung beendet." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Veröffentlichung beendet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No longer published."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya no está publicada."
+          }
+        }
+      }
+    },
+    "Vom Admin zurückgezogen am %@. Adresse und Einstellungen sind gemerkt – du kannst die Seite wieder veröffentlichen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vom Admin zurückgezogen am %@. Adresse und Einstellungen sind gemerkt – du kannst die Seite wieder veröffentlichen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Withdrawn by the admin on %@. Address and settings are kept – you can publish the page again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retirada por el administrador el %@. La dirección y los ajustes se conservan; puedes volver a publicar la página."
+          }
+        }
+      }
+    },
+    "Weiter" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weiter"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continue"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Continuar"
+          }
+        }
+      }
+    },
+    "Wird erst mit „Adresse ändern“ übernommen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird erst mit „Adresse ändern“ übernommen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only applied with “Change address”."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo se aplica con «Cambiar dirección»."
+          }
+        }
+      }
+    },
+    "Wähle zuerst deinen öffentlichen Namen. Er steht in jeder Adresse deiner öffentlichen Seiten und ist für alle sichtbar." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wähle zuerst deinen öffentlichen Namen. Er steht in jeder Adresse deiner öffentlichen Seiten und ist für alle sichtbar."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "First choose your public name. It appears in every address of your public pages and is visible to everyone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Primero elige tu nombre público. Aparece en todas las direcciones de tus páginas públicas y es visible para todos."
+          }
+        }
+      }
+    },
+    "Zusätzlich unter eigener Adresse veröffentlichen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zusätzlich unter eigener Adresse veröffentlichen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Also publish at its own address"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Publicar también en su propia dirección"
+          }
+        }
+      }
+    },
+    "Öffentlich" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffentlich"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Public"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pública"
+          }
+        }
+      }
+    },
+    "Öffentlich (über „%@“)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffentlich (über „%@“)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Public (via “%@”)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pública (a través de «%@»)"
+          }
+        }
+      }
+    },
+    "Öffentlich als Unterseite von „%@“ – klicken für Einzelheiten" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffentlich als Unterseite von „%@“ – klicken für Einzelheiten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Public as a subpage of “%@” – click for details"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pública como subpágina de «%@»: haz clic para ver los detalles"
+          }
+        }
+      }
+    },
+    "Öffentliche Seite öffnen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffentliche Seite öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open public page"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir la página pública"
+          }
+        }
+      }
+    },
+    "Öffentlichen Namen ändern? Alte Links auf deine öffentlichen Seiten funktionieren danach nicht mehr." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffentlichen Namen ändern? Alte Links auf deine öffentlichen Seiten funktionieren danach nicht mehr."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change your public name? Old links to your public pages will stop working."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Cambiar tu nombre público? Los enlaces antiguos a tus páginas públicas dejarán de funcionar."
+          }
+        }
+      }
+    },
+    "Öffentlicher Name" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffentlicher Name"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Public name"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre público"
+          }
+        }
+      }
+    },
+    "Öffentlicher Name: @%@ – ändern unter Einstellungen → Konto." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffentlicher Name: @%@ – ändern unter Einstellungen → Konto."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Public name: @%@ – change it in Settings → Account."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nombre público: @%@; cámbialo en Ajustes → Cuenta."
+          }
+        }
+      }
+    },
+    "Öffnet die Einstellungen zum Veröffentlichen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffnet die Einstellungen zum Veröffentlichen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the publishing settings."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre los ajustes de publicación."
+          }
+        }
+      }
+    },
+    "„%@“ öffnen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open “%@”"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir «%@»"
+          }
+        }
+      }
+    },
+    "✓ Gespeichert – ersetzt die bisherige Profilseite „%@“." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✓ Gespeichert – ersetzt die bisherige Profilseite „%@“."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✓ Saved – replaces your previous profile page “%@”."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✓ Guardado: sustituye a tu anterior página de perfil «%@»."
+          }
+        }
+      }
+    },
+    "✓ Neue Adresse gespeichert" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✓ Neue Adresse gespeichert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✓ New address saved"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "✓ Nueva dirección guardada"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

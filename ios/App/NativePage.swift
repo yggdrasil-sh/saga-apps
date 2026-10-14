@@ -438,6 +438,7 @@ struct NativePageScreen: View {
     @EnvironmentObject var nav: NavModel
     @Environment(\.dismiss) private var dismiss
     @State private var moving = false
+    @State private var publishing = false                // Dialog "Veroeffentlichen"
     @State private var scrolled = false                  // grosser Titel weggescrollt -> kleiner Titel + Leiste
     @State private var topInset: CGFloat = 0
     init(id: Int, inPeek: Bool = false) {
@@ -480,10 +481,14 @@ struct NativePageScreen: View {
                     Toggle(isOn: Binding(get: { doc.page["template"] as? Bool ?? false },
                                          set: { v in Task { try? await store.patch(id, ["template": v]); doc.page["template"] = v; await store.refresh() } })) { Label("Als Vorlage", systemImage: "doc.on.doc") }
                     Button { Task { if let n = await store.duplicate(id) { nav.push(PageRoute(id: n)) } } } label: { Label("Duplizieren", systemImage: "plus.square.on.square") }
+                    // Veroeffentlichen: nur, wenn der Server es kann (liefert "published"), nicht fuer Vorlagen
+                    if doc.fetched && PublicBadge.supported(doc.page) && !(doc.page["template"] as? Bool ?? false) {
+                        Button { Task { await ed.flush(); publishing = true } } label: { Label("Veröffentlichen …", systemImage: "globe") }
+                    }
                     if let u = URL(string: AppConfig.server.absoluteString + "/notes#\(id)") {
                         ShareLink(item: u) { Label("Link teilen", systemImage: "square.and.arrow.up") }
                     }
-                    Button { nav.peek = nil; nav.push(PageRoute(id: id, web: true)) } label: { Label("Im Web-Editor öffnen", systemImage: "globe") }
+                    Button { nav.peek = nil; nav.push(PageRoute(id: id, web: true)) } label: { Label("Im Web-Editor öffnen", systemImage: "safari") }
                     Button { Task { await ed.flush(); await doc.load(store) } } label: { Label("Neu laden", systemImage: "arrow.clockwise") }
                     Divider()
                     Button { Task { await setLocked(!ed.locked) } } label: {
@@ -550,6 +555,7 @@ struct NativePageScreen: View {
                         Button { Task { await setLocked(false) } } label: { Label("Gesperrt – tippen zum Entsperren", systemImage: "lock.fill").font(.caption) }
                             .buttonStyle(.bordered).controlSize(.small).tint(.secondary)
                     }
+                    if let pb = PublicBadge.from(doc.page) { PublicBadgeButton(badge: pb) { publishing = true } }
                     if let o = doc.offline {
                         Label(o, systemImage: "wifi.slash").font(.footnote).foregroundStyle(.orange)
                     }
@@ -632,6 +638,11 @@ struct NativePageScreen: View {
         .modifier(MacTitle(on: !inPeek, title: doc.title, subtitle: store.path(id).map(\.label).joined(separator: " / ")))
         #endif
         .sheet(isPresented: $moving) { MoveSheet(id: id) }
+        .sheet(isPresented: $publishing) {
+            PublishSheet(id: id, onChange: { s in for (k, v) in PublishLogic.pageFields(s) { doc.page[k] = v } },
+                         openPage: { pid in nav.peek = nil; nav.push(PageRoute(id: pid)) })
+                .environmentObject(store)
+        }
         .toolbar {
             if !inPeek {                                     // im Peek: eigene Kopfzeile statt Fensterleiste (sonst Layout-Kreislauf am Mac)
                 ToolbarItem(placement: .primaryAction) { favButton }
@@ -668,6 +679,9 @@ struct NativePageScreen: View {
                     return nil
                 }
                 if let hid = find(doc.root, inColumn: false) { try? await Task.sleep(for: .seconds(1)); ed.hover.hovered = hid; ed.hover.overHandle = true }
+            }
+            if UserDefaults.standard.bool(forKey: "hkPublish"), doc.fetched {             // nur fuer Tests: Dialog "Veroeffentlichen" oeffnen
+                try? await Task.sleep(for: .seconds(1)); publishing = true
             }
             if UserDefaults.standard.bool(forKey: "hkFocusFirst"),                       // nur fuer Tests (Startparameter -hkFocusFirst YES)
                let b = doc.root.compactMap({ $0 as? NSMutableDictionary }).first(where: { ["paragraph", "header"].contains($0["type"] as? String ?? "") }) {

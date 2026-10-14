@@ -60,6 +60,15 @@ iPhone und iPad: selbst bauen (siehe [ios/README.md](ios/README.md)) – für de
 Die Apps bleiben danach dauerhaft angemeldet. Abmelden lässt sich jedes Gerät jederzeit in Saga unter
 „Apps & Geräte“.
 
+## Seiten veröffentlichen
+
+Ab Saga-Server 1.2 kann jede App eine Seite öffentlich machen: Seitenmenü → **Veröffentlichen …**. Beim ersten
+Mal wählst du einen **öffentlichen Namen** (er steht in der Adresse `…/@name/…`, nie der Anmeldename). Danach
+legst du Adresse, **Unterseiten mit veröffentlichen**, **Suchmaschinen erlauben** und **Als Profilseite** fest,
+kopierst oder öffnest den Link oder wählst **Veröffentlichung beenden**. Öffentliche Seiten zeigen im Seitenkopf
+**Öffentlich**; den öffentlichen Namen änderst du unter **Einstellungen → Konto**. Bei älteren Servern fehlt der
+Menüpunkt.
+
 ## Selbst bauen
 
 Persönliche Einstellungen (Entwickler-Team, App-ID, Testgeräte, Verteil-Befehle) stehen **nie** im Repository,

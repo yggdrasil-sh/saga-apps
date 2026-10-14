@@ -55,6 +55,7 @@ struct SettingsView: View {
                     Text("Diese App ist älter als der Server erwartet (ab \(m)). Bitte die App aktualisieren.").font(.footnote).foregroundStyle(.orange)
                 }
             }
+            PublicNameSection()                           // Konto: oeffentlicher Name (Veroeffentlichen)
             ImmichSettingsSection()                       // wie im Web: 👤 → Einstellungen
             CalendarSettingsSection()
             AppsDevicesSection()

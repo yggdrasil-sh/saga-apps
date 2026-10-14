@@ -32,6 +32,16 @@ enum AppConfig {
         keychainGroup.hasSuffix(".shared") && keychainGroup.count > 7 ? String(keychainGroup.dropLast(7)) : nil
     }
 
+    // MARK: Sprache
+
+    /// Accept-Language aus der Sprache, in der die App gerade laeuft (Bundle.preferredLocalizations) - damit
+    /// Fehlertexte des Servers passen. Unbekannte Sprache -> Englisch.
+    static func acceptLanguage(_ preferred: [String]) -> String {
+        let l = preferred.first.map { String($0.prefix(2)).lowercased() } ?? "en"
+        return ["de", "en", "es"].contains(l) ? l : "en"
+    }
+    static var appLanguage: String { acceptLanguage(Bundle.main.preferredLocalizations) }
+
     // MARK: Server
 
     /// Ursprung einer Adresse (schema://host[:port]) - Schluessel gelten nur fuer den Server, von dem sie stammen

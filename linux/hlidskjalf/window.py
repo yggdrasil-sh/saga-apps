@@ -12,6 +12,7 @@ from .blocks import context_menu, flat_button, menu_popover
 from .config import device_name, get_device_token, settings
 from .i18n import _
 from .page import PageView
+from .publish import available as publish_available, globe_icon, header_state, open_publish
 from .store import is_db, label, store, watch
 from .util import bg, date_num, norm, placeholder
 
@@ -516,6 +517,14 @@ class MainWindow(Adw.ApplicationWindow):
         self.star_btn = flat_button(icon="non-starred-symbolic", tooltip=_("Add to favorites"), cb=lambda: isinstance(self.current, PageView) and self.current.toggle_fav())
         self.chb.pack_end(self.menu_btn)
         self.chb.pack_end(self.star_btn)
+        # Hinweis "Oeffentlich" (Seite veroeffentlicht bzw. ueber eine Elternseite oeffentlich) - oeffnet den Dialog
+        self.pub_content = Adw.ButtonContent(icon_name=globe_icon(), label=_("Public"))
+        if hasattr(self.pub_content, "set_can_shrink"):
+            self.pub_content.set_can_shrink(True)
+        self.pub_btn = Gtk.Button(child=self.pub_content, visible=False)
+        self.pub_btn.add_css_class("flat")
+        self.pub_btn.connect("clicked", lambda *_: isinstance(self.current, PageView) and self.publish_dialog(self.current.id))
+        self.chb.pack_end(self.pub_btn)
         ct.add_top_bar(self.chb)
         self.old_banner = Adw.Banner(title="", revealed=False)      # Server ist neuer, als diese App kann
         ct.add_top_bar(self.old_banner)
@@ -825,7 +834,13 @@ class MainWindow(Adw.ApplicationWindow):
             self.star_btn.set_icon_name("starred-symbolic" if fav else "non-starred-symbolic")
             self.star_btn.set_tooltip_text(_("Remove from favorites") if fav else _("Add to favorites"))
             self.set_title(f"{d.title} – Saga")
+            hs = header_state(d.page) if d.loaded and d.fetched else None
+            self.pub_btn.set_visible(hs is not None)
+            if hs:
+                self.pub_content.set_label(hs["label"])
+                self.pub_btn.set_tooltip_text(hs["tooltip"])
         else:
+            self.pub_btn.set_visible(False)
             t = {"today": _("Today"), "tasks": _("Tasks"), "events": _("Events"), "services": _("Services")}.get((self.route or ("today",))[0], "")
             self.wtitle.set_title(t)
             self.wtitle.set_subtitle("")
@@ -945,6 +960,9 @@ class MainWindow(Adw.ApplicationWindow):
              ("emblem-system-symbolic", _("Settings"), self.settings_dialog)]
         if self.page_id():
             a.append(("insert-link-symbolic", _("Copy link to page"), self.copy_link))
+            doc = self.peek[1].doc if self.peek else self.current.doc
+            if doc.fetched and publish_available(doc.page):
+                a.append((globe_icon(), _("Publish …"), lambda: self.publish_dialog(doc.id)))
         return a
 
     def page_id(self):
@@ -966,6 +984,9 @@ class MainWindow(Adw.ApplicationWindow):
         if pid:
             self.copy_text(store.page_url(pid))
             self.toast(_("Link copied"))
+
+    def publish_dialog(self, pid):
+        open_publish(self, pid)
 
     def settings_dialog(self):
         from .settings import SettingsDialog

@@ -113,6 +113,17 @@ final class Store: ObservableObject {
     }
 
     func api(_ path: String, method: String = "GET", body: [String: Any]? = nil) async throws -> Data {
+        let (data, code) = try await apiResponse(path, method: method, body: body)
+        guard (200..<300).contains(code) else {
+            let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String ?? ""
+            throw APIError.http(code, msg)
+        }
+        return data
+    }
+
+    /// Wie `api`, aber Fehlerantworten (4xx/5xx) kommen mit Code zurueck statt als Fehler - fuer Antworten mit
+    /// zusaetzlichen Feldern (z. B. 409 need_name beim Veroeffentlichen). Abgelaufene Sitzung wie bei `api`.
+    func apiResponse(_ path: String, method: String = "GET", body: [String: Any]? = nil) async throws -> (Data, Int) {
         // NICHT appendingPathComponent: das kodiert "?" als %3F und Abfrage-Parameter werden zum Pfad (404)
         guard AppConfig.hasServer else { needsLogin = true; throw APIError.http(401, String(localized: "Bitte Server eintragen")) }   // noch kein Server -> Anmeldebildschirm
         guard let url = URL(string: AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/" + path) else { throw APIError.other(String(localized: "Ungültige Adresse")) }
@@ -120,12 +131,7 @@ final class Store: ObservableObject {
         req.httpMethod = method
         req.setValue("1", forHTTPHeaderField: "X-Hlidskjalf"); req.httpShouldHandleCookies = false   // Cookie selbst setzen
         if let body { req.setValue("application/json", forHTTPHeaderField: "Content-Type"); req.httpBody = try JSONSerialization.data(withJSONObject: body) }
-        let (data, code) = try await send(req) { try await URLSession.shared.data(for: $0) }
-        guard (200..<300).contains(code) else {
-            let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String ?? ""
-            throw APIError.http(code, msg)
-        }
-        return data
+        return try await send(req) { try await URLSession.shared.data(for: $0) }
     }
 
     /// Anfrage mit Sitzungs-Cookie; abgelaufene Sitzung (401) -> einmal still mit dem Geraete-Schluessel erneuern
@@ -134,6 +140,7 @@ final class Store: ObservableObject {
         for attempt in 0..<2 {
             var req = base
             if let url = req.url { for (k, v) in await cookies(for: url) { req.setValue(v, forHTTPHeaderField: k) } }
+            req.setValue(AppConfig.appLanguage, forHTTPHeaderField: "Accept-Language")   // Fehlertexte des Servers in der App-Sprache
             let (data, resp) = try await run(req)
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             guard code == 401 else { return (data, code) }
@@ -467,6 +474,7 @@ final class Store: ObservableObject {
         var req = URLRequest(url: url, timeoutInterval: 20)
         req.httpMethod = "POST"; req.httpShouldHandleCookies = false
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(AppConfig.appLanguage, forHTTPHeaderField: "Accept-Language")       // Fehlertexte in der App-Sprache
         // device: Geraete-Anmeldung (bleibt angemeldet); app_key: Schluessel fuer Widget/Teilen, falls (fuer diesen Server) noch keiner da ist
         let body: [String: Any] = ["code": code, "verifier": verifier, "device": DeviceKey.deviceName, "app_key": switching || !AppConfig.hasToken]
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
@@ -501,6 +509,7 @@ final class Store: ObservableObject {
         var req = URLRequest(url: url, timeoutInterval: 20)
         req.httpMethod = "POST"; req.httpShouldHandleCookies = false
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(AppConfig.appLanguage, forHTTPHeaderField: "Accept-Language")       // Fehlertexte in der App-Sprache
         req.httpBody = try JSONSerialization.data(withJSONObject: ["code": code, "device": DeviceKey.deviceName, "app_key": signOut || !AppConfig.hasToken])
         let (d, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {

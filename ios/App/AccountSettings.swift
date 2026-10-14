@@ -5,6 +5,102 @@ import SwiftUI
 
 private func json(_ d: Data?) -> Any? { d.flatMap { try? JSONSerialization.jsonObject(with: $0) } }
 
+// MARK: - Konto: Oeffentlicher Name (Veroeffentlichen)
+
+/// Steht in jeder oeffentlichen Adresse /@name/..., nie der Anmeldename. Pruefung (gueltig + frei) schon beim Tippen,
+/// Rueckfrage nur beim Aendern, wenn schon Seiten oeffentlich sind (alte Links brechen). Aeltere Server: ausgeblendet.
+struct PublicNameSection: View {
+    @EnvironmentObject var store: Store
+    @State private var info: [String: Any]?
+    @State private var supported = true
+    @State private var input = ""
+    @State private var check: NameCheck = .idle
+    @State private var status: PubStatus?
+    @State private var busy = false
+    @State private var askChange = false
+    private var current: String? { PubJSON.str(info?["name"]) }
+
+    var body: some View {
+        Section {
+            if let info {
+                LabeledContent("Öffentlicher Name") {
+                    TextField("Öffentlicher Name", text: $input, prompt: Text(verbatim: PubJSON.str(info["suggested"]) ?? ""))
+                        .labelsHidden().autocorrectionDisabled()
+                        #if os(iOS)
+                        .textInputAutocapitalization(.never).keyboardType(.asciiCapable)
+                        #endif
+                        .onSubmit { trySave() }
+                }
+                Group {
+                    if let u = PubJSON.str(info["url"]) {
+                        Text("Steht in den Adressen deiner öffentlichen Seiten (\(u)). Beim Ändern funktionieren alte Links nicht mehr.")
+                    } else {
+                        Text("Steht in den Adressen deiner öffentlichen Seiten (…/@name/…) und ist für alle sichtbar – nicht dein Anmeldename. Wird beim ersten Veröffentlichen festgelegt.")
+                    }
+                }
+                .font(.footnote).foregroundStyle(.secondary)
+                if !(info["enabled"].map(PubJSON.bool) ?? true) {
+                    Label("Veröffentlichen ist auf diesem Server abgeschaltet.", systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.orange)
+                }
+                NameCheckLine(check: check)
+                if let status { PubStatusLine(status: status) }
+                Button("Namen speichern") { trySave() }
+                    .disabled(!PublishLogic.canSaveName(input: input, current: current, check: check) || busy)
+            } else if supported {
+                ProgressView()
+            }
+        } header: { if supported { Text("Konto") } }
+        .task { await load() }
+        .task(id: PublishLogic.normalize(input)) { await runCheck() }
+        .confirmationDialog("Öffentlichen Namen ändern? Alte Links auf deine öffentlichen Seiten funktionieren danach nicht mehr.",
+                            isPresented: $askChange, titleVisibility: .visible) {
+            Button("Namen speichern", role: .destructive) { Task { await save() } }
+            Button("Abbrechen", role: .cancel) {}
+        }
+    }
+
+    private func load() async {
+        guard let r = try? await store.apiResponse("api/account/public-name"), (200..<300).contains(r.1),
+              let j = json(r.0) as? [String: Any] else { if info == nil { supported = false }; return }
+        info = j; supported = true
+        if input.isEmpty { input = PubJSON.str(j["name"]) ?? "" }
+    }
+
+    private func runCheck() async {
+        let v = PublishLogic.normalize(input)
+        guard !v.isEmpty, v != current else { check = .idle; return }
+        status = nil                                              // alte Meldung verschwindet beim Weitertippen
+        check = .checking
+        try? await Task.sleep(for: .milliseconds(250))
+        guard !Task.isCancelled else { return }
+        let r = await store.checkPublicName(v)
+        guard !Task.isCancelled, PublishLogic.normalize(input) == v else { return }
+        check = r
+    }
+
+    private func trySave() {
+        guard !busy, PublishLogic.canSaveName(input: input, current: current, check: check) else { return }
+        if PublishLogic.needsNameChangeConfirm(input: input, current: current, publishedCount: PubJSON.int(info?["published"]) ?? 0) {
+            askChange = true
+        } else { Task { await save() } }
+    }
+
+    private func save() async {
+        let v = PublishLogic.normalize(input)
+        busy = true; defer { busy = false }
+        do {
+            let (d, c) = try await store.apiResponse("api/account/public-name", method: "PUT", body: ["name": v])
+            let j = json(d) as? [String: Any]
+            guard (200..<300).contains(c), let n = PubJSON.str(j?["name"]) else {
+                status = .err(PubJSON.str(j?["error"]) ?? String(localized: "Server-Fehler \(c)")); return
+            }
+            info?["name"] = n; info?["url"] = j?["url"]
+            input = n; check = .idle
+            status = .ok(String(localized: "✓ Gespeichert"))
+        } catch { status = .err(error.localizedDescription) }
+    }
+}
+
 // MARK: - Immich
 
 struct ImmichSettingsSection: View {
