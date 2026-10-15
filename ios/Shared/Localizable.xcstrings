@@ -23303,6 +23303,28 @@
           }
         }
       }
+    },
+    "Aus Immich" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aus Immich"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From Immich"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desde Immich"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

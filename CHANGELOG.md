@@ -6,6 +6,17 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu
+- **iOS, iPadOS, macOS:** Chat – „Aus Immich“ beim Anhängen (wenn Immich eingerichtet ist): dieselbe Auswahl wie auf
+  Seiten; das Foto wird über den Server geladen (Original, sonst große Vorschau; zu groß → verkleinert) und wie jeder
+  Anhang Ende-zu-Ende-verschlüsselt gesendet.
+
+### Behoben
+- **iOS, iPadOS, macOS:** Bilder aus der Zwischenablage (Bildschirmfoto, „Bild kopieren“, Bilddatei aus dem Finder)
+  lassen sich mit ⌘V bzw. „Einsetzen“ einfügen – auf Seiten als Bildblock, im Chat als verschlüsselter Anhang mit
+  Vorschau vor dem Senden. Vorher geschah am Mac nichts, auf iPhone/iPad landete ein leeres Ersatzzeichen im Text.
+  Text einsetzen bleibt unverändert.
+
 ## [2.0.0] – 2026-10-15
 
 Passt zu Saga-Server 2.0. **Die neuen Funktionen brauchen Saga-Server 2.0; ältere Server funktionieren weiter**

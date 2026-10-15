@@ -6,9 +6,12 @@ struct ImmichPicker: View {
     /// Fremde Seite (Rolle Bearbeiten): Datei gehoert deren Eigentuemer
     var note: Int? = nil
     let onPick: (String) -> Void
+    /// Chat (2.1): gewaehltes Foto NICHT importieren (das legte eine unverschluesselte Datei an), sondern hier uebergeben -
+    /// der Chat laedt es ueber den Proxy und verschluesselt es als Anhang
+    var forChat: ((Item) async throws -> Void)? = nil
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
-    struct Item: Identifiable, Hashable { let id: String; let name: String; let gif: Bool }
+    struct Item: Identifiable, Hashable { let id: String; let name: String; let gif: Bool; var mime = "" }
     struct Album: Identifiable, Hashable { let id: String; let name: String; let count: Int; let thumb: String? }
     enum Tab: Hashable { case recent, albums }
     @State private var status: (available: Bool, connected: Bool)?
@@ -36,7 +39,14 @@ struct ImmichPicker: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
                 if album != nil { ToolbarItem(placement: .navigation) { Button { album = nil; tab = .albums } label: { Label("Alben", systemImage: "chevron.left") } } }
             }
-            .task { await loadStatus() }
+            .task {
+                await loadStatus()
+                #if DEBUG
+                if let p = UserDefaults.standard.string(forKey: "hkImmichPick"), let it = items.first(where: { $0.id == p }) {   // nur fuer Tests
+                    try? await Task.sleep(for: .seconds(1.5)); await choose(it)
+                }
+                #endif
+            }
         }
         #if os(macOS)
         .frame(minWidth: 520, minHeight: 560)      // nur das Mac-Fenster; am iPhone (≈393 pt) wuerde es ueber den Rand ragen
@@ -126,7 +136,7 @@ struct ImmichPicker: View {
         guard let d = try? await store.api("api/immich/assets", method: "POST", body: b), let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { info = String(localized: "Immich: Suche fehlgeschlagen"); return }
         let new = (j["items"] as? [[String: Any]] ?? []).compactMap { x -> Item? in
             guard let id = x["id"] as? String else { return nil }
-            return Item(id: id, name: x["name"] as? String ?? "", gif: x["mime"] as? String == "image/gif")
+            return Item(id: id, name: x["name"] as? String ?? "", gif: x["mime"] as? String == "image/gif", mime: x["mime"] as? String ?? "")
         }
         items += new; next = j["next"] as? Int
         info = items.isEmpty ? String(localized: "Keine Fotos gefunden.") : ""
@@ -143,6 +153,10 @@ struct ImmichPicker: View {
     private func choose(_ it: Item) async {
         busy = it.id; info = String(localized: "Übernehme „\(it.name)“ …")
         struct R: Decodable { let url: String }
+        if let forChat {
+            do { try await forChat(it); dismiss() } catch { busy = nil; info = String(localized: "Nicht übernommen: \(error.localizedDescription)") }
+            return
+        }
         do {
             var body: [String: Any] = ["id": it.id]
             if let note { body["note"] = note }
@@ -150,6 +164,33 @@ struct ImmichPicker: View {
             let r = try JSONDecoder().decode(R.self, from: d)
             dismiss(); onPick(r.url)
         } catch { busy = nil; info = String(localized: "Nicht übernommen: \(error.localizedDescription)") }
+    }
+}
+
+extension ImmichPicker {
+    /// Immich fuer diese Person eingerichtet? (wie beim Bild-Einfuegen auf Seiten: GET /api/settings/immich)
+    @MainActor static func connected(_ store: Store) async -> Bool {
+        guard let d = try? await store.api("api/settings/immich"), let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return false }
+        return (j["available"] as? Bool ?? true) && (j["connected"] as? Bool ?? false)
+    }
+    /// Chat: Foto ueber den Immich-Proxy des Servers laden (dort nicht gespeichert) - Original, wenn moeglich, sonst die
+    /// grosse Vorschau; groesser als die Chat-Grenze -> verkleinert. Danach verschluesselt es der Chat wie jeden Anhang.
+    @MainActor static func loadForChat(_ it: Item, store: Store, maxBytes: Int) async throws -> PastedImage {
+        var last: Error = APIError.other(String(localized: "Bildformat nicht unterstützt"))
+        for size in MediaLogic.immichSizes(mime: it.mime) {
+            let (d, code) = try await store.apiResponse("api/immich/thumb/\(it.id)?size=\(size)")
+            if code == 200 {
+                let name = it.name.isEmpty ? "immich" : it.name
+                if let p = await Task.detached(priority: .userInitiated, operation: { ImagePaste.normalize(d, name: name, maxBytes: maxBytes) }).value,
+                   p.data.count <= maxBytes { return PastedImage(data: p.data, name: MediaLogic.immichName(name, ext: MediaLogic.sniff(p.data)?.ext ?? "jpg"), mime: p.mime) }
+                last = APIError.other(String(localized: "„\(name)“ ist zu groß (höchstens \(maxBytes / 1_048_576) MB)."))
+                continue
+            }
+            let msg = (try? JSONSerialization.jsonObject(with: d) as? [String: Any])?["error"] as? String ?? ""
+            last = APIError.http(code, msg)
+            if !MediaLogic.immichFallback(status: code) { break }
+        }
+        throw last
     }
 }
 

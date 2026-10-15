@@ -179,6 +179,7 @@ final class PushCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
 final class IOSAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = PushCenterDelegate.shared
+        ImagePaste.install()                                                         // Bilder aus der Zwischenablage (Seite, Chat)
         return true
     }
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {

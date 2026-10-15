@@ -1,6 +1,7 @@
 import SwiftUI
 import PhotosUI
 import UniformTypeIdentifiers
+import ImageIO
 
 // Unterhaltung: Blasen (eigene rechts), Antworten (Zitat), Anhaenge (Bilder inline, sonst teilen), @-Seiten,
 // "tippt …", Menue (Sicherheitsnummer, Mitglieder, Stummschalten, Aufbewahrung, Umbenennen/Verlassen), lokale Suche.
@@ -18,6 +19,8 @@ struct ConversationView: View {
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var pickFile = false
     @State private var pickPage = false
+    @State private var pickImmich = false
+    @State private var immichOn = false              // "Aus Immich" nur, wenn Immich fuer mich eingerichtet ist
     @State private var safetyPeer: ChatMember?
     @State private var showMembers = false
     @State private var askDelete: ChatMessage?
@@ -66,10 +69,15 @@ struct ConversationView: View {
                 await conv.send(text: t, replyTo: reply, files: f)
             }
             if let q = UserDefaults.standard.string(forKey: "hkChatSearch") { searching = true; search = q }
+            if UserDefaults.standard.bool(forKey: "hkChatFocus") { try? await Task.sleep(for: .seconds(1)); focused = true }   // nur fuer Tests: Einsetzen
+            if UserDefaults.standard.bool(forKey: "hkChatImmich") { try? await Task.sleep(for: .seconds(2)); pickImmich = true }   // nur fuer Tests: Immich-Auswahl
+            let after = UserDefaults.standard.double(forKey: "hkChatSendPendingAfter")        // nur fuer Tests: Anhaenge nach n s senden
+            if after > 0 { try? await Task.sleep(for: .seconds(after)); if text.isEmpty { text = "Eingesetzt" }; sendNow() }
             if UserDefaults.standard.bool(forKey: "hkChatAck") { for u in conv.changedPeers { conv.acknowledge(u) } }   // nur fuer Tests: "Verstanden"
             #endif
         }
         .onDisappear { if chat.open === conv { chat.open = nil } }
+        .modifier(ChatMediaInput(files: $files, pickImmich: $pickImmich, immichOn: $immichOn, enabled: !conv.notFound, maxBytes: chat.me.fileMax))
         .sheet(item: $safetyPeer) { p in SafetyNumberSheet(conv: conv, peer: p) }
         .sheet(isPresented: $showMembers) { MembersSheet(conv: conv) { p in showMembers = false; safetyPeer = p } }
         .sheet(isPresented: $pickPage) { PagePickSheet { id, title in text += (text.isEmpty || text.hasSuffix(" ") ? "" : " ") + "[[note:\(id)]] "; conv.notes[id] = (title, "") } }
@@ -197,11 +205,11 @@ struct ConversationView: View {
                     HStack {
                         ForEach(files) { f in
                             HStack(spacing: 4) {
-                                Image(systemName: f.mime.hasPrefix("image/") ? "photo" : "doc")
+                                PendingFileIcon(file: f)
                                 Text(verbatim: f.name).lineLimit(1)
                                 Button { files.removeAll { $0.id == f.id } } label: { Image(systemName: "xmark") }.buttonStyle(.plain).accessibilityLabel("Entfernen")
                             }
-                            .font(.caption).padding(.horizontal, 8).padding(.vertical, 4).background(Color.secondary.opacity(0.12), in: Capsule())
+                            .font(.caption).padding(.horizontal, 8).padding(.vertical, 4).background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
                         }
                     }
                 }
@@ -209,6 +217,7 @@ struct ConversationView: View {
             HStack(alignment: .bottom, spacing: 8) {
                 Menu {
                     Button { pickPhotos = true } label: { Label("Fotos", systemImage: "photo") }
+                    if immichOn { Button { pickImmich = true } label: { Label("Aus Immich", systemImage: "photo.on.rectangle.angled") } }
                     Button { pickFile = true } label: { Label("Datei", systemImage: "doc") }
                     Button { pickPage = true } label: { Label("Seite verlinken", systemImage: "at") }
                 } label: { Image(systemName: "plus.circle.fill").font(.title2).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle()) }   // Trefferflaeche 44 pt
@@ -571,5 +580,55 @@ struct PagePickSheet: View {
             }
         }
         .macFrame(minWidth: 380, idealWidth: 420, minHeight: 420)
+    }
+}
+
+// MARK: - Anhaenge vor dem Senden: Bilder aus der Zwischenablage und aus Immich (2.1)
+
+/// Chat-Eingabe: Cmd-V/Einsetzen mit Bild -> Anhang (mit Vorschau), "Aus Immich" -> Foto ueber den Server-Proxy laden.
+/// Beides wird beim Senden wie jeder Anhang Ende-zu-Ende verschluesselt. Eigener Modifier: Typpruefung der Unterhaltung.
+struct ChatMediaInput: ViewModifier {
+    @Binding var files: [ChatPendingFile]
+    @Binding var pickImmich: Bool
+    @Binding var immichOn: Bool
+    let enabled: Bool
+    let maxBytes: Int
+    @EnvironmentObject var store: Store
+    func body(content: Content) -> some View {
+        content
+            .imagePasteTarget(enabled: { enabled }, maxBytes: { maxBytes }) { imgs in add(imgs) }
+            .sheet(isPresented: $pickImmich) {
+                ImmichPicker(onPick: { _ in }, forChat: { it in add([try await ImmichPicker.loadForChat(it, store: store, maxBytes: maxBytes)]) })
+                    .environmentObject(store)
+            }
+            .task { immichOn = await ImmichPicker.connected(store) }
+    }
+    private func add(_ imgs: [PastedImage]) {
+        for p in imgs {
+            let n = p.name.hasPrefix("bild.") ? "bild-\(files.count + 1)." + (p.name.split(separator: ".").last.map(String.init) ?? "png") : p.name
+            files.append(ChatPendingFile(name: n, mime: p.mime, data: p.data))
+        }
+    }
+}
+
+/// Symbol eines Anhangs vor dem Senden: Bilder als kleine Vorschau
+struct PendingFileIcon: View {
+    let file: ChatPendingFile
+    @State private var thumb: CGImage?
+    var body: some View {
+        Group {
+            if let thumb { Image(decorative: thumb, scale: 2).resizable().scaledToFill().frame(width: 36, height: 36).clipShape(RoundedRectangle(cornerRadius: 6)) }
+            else { Image(systemName: file.mime.hasPrefix("image/") ? "photo" : "doc") }
+        }
+        .accessibilityHidden(true)
+        .task(id: file.id) {
+            guard file.mime.hasPrefix("image/") else { return }
+            let d = file.data
+            thumb = await Task.detached(priority: .utility) { () -> CGImage? in
+                guard let src = CGImageSourceCreateWithData(d as CFData, nil) else { return nil }
+                let o: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true, kCGImageSourceThumbnailMaxPixelSize: 96]
+                return CGImageSourceCreateThumbnailAtIndex(src, 0, o as CFDictionary)
+            }.value
+        }
     }
 }
