@@ -1184,13 +1184,13 @@ class ChatInfoDialog(Adw.Dialog):
             if isinstance(ch, dict):
                 chat._merge(ch)
             bg(chat.recipients, self.cid, True, done=self._rc, error=lambda e: None)
-        bg(client.json, "POST", f"api/chats/{self.cid}/members", {"user": u}, done=fin, error=lambda e: self.add_toast(Adw.Toast(title=str(e))))
+        bg(client.json, "POST", f"api/chats/{self.cid}/members", {"user": u}, done=fin, error=lambda e: self.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(e)))))
 
     def _remove(self, u):
         def fin(_r):
             chat.load_chat(self.cid, done=lambda ch: self.fill())
         bg(client.request, "DELETE", f"api/chats/{self.cid}/members/{GLib.Uri.escape_string(u, None, True)}", done=fin,
-           error=lambda e: self.add_toast(Adw.Toast(title=str(e))))
+           error=lambda e: self.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(e)))))
 
 
 class NewChatDialog(Adw.Dialog):
