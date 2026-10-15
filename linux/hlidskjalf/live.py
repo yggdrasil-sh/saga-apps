@@ -129,13 +129,14 @@ class Live(GObject.Object):
                     pass
                 return
             self._resp = r
-            delay = 1.0
+            delay = None                                            # None = ohne "hello" beendet -> wie ein Fehler
             try:
                 for ev, data, eid in sse_events(r, stop=lambda: not self.want or gen != self.gen):
                     if eid:
                         self.last_id = eid
                     if ev == "hello":
                         backoff = 2.0
+                        delay = 1.0 if delay is None else delay
                         self.boot = (data or {}).get("boot")
                         GLib.idle_add(self._dispatch, gen, "hello", data or {})
                         continue
@@ -153,6 +154,9 @@ class Live(GObject.Object):
             finally:
                 self._close()
                 GLib.idle_add(self._down, gen)
+            if delay is None:                                      # Verbindung sofort wieder zu (z. B. Proxy): nicht im Sekundentakt
+                delay = min(30.0, backoff)
+                backoff = min(60.0, backoff * 2)
             if delay < 0:                                          # Konto geloescht: nicht neu
                 return
             self._sleep(delay + random.random(), gen)
