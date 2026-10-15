@@ -8,7 +8,7 @@ import re
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango
 
 from . import chatcrypto as C
-from . import config
+from . import clipimg, config, images
 from .api import APIError, client
 from .blocks import flat_button, menu_popover
 from .chat import (NOTE_RX, RETENTIONS, ChatError, SafetyChanged, chat, fmt_recovery, keys_persistent, recovery_lines, retention_label,
@@ -850,8 +850,11 @@ class Conversation(Gtk.Box):
         att = Gtk.Button(icon_name="mail-attachment-symbolic", tooltip_text=_("Attach file"), valign=Gtk.Align.END)
         att.add_css_class("flat")
         att.update_property([Gtk.AccessibleProperty.LABEL], [_("Attach file")])
-        att.connect("clicked", lambda *_: self._pick_files())
+        att.connect("clicked", lambda *_: self._attach_menu())
         row.append(att)
+        self.att_btn = att
+        self.immich_ok = False                        # "Aus Immich" nur, wenn Immich fuer dieses Konto verbunden ist
+        clipimg.immich_ready(lambda ok: setattr(self, "immich_ok", ok))      # vorab fragen: das Menue kommt dann sofort
         at = Gtk.MenuButton(label="@", tooltip_text=_("Link a page"), valign=Gtk.Align.END)
         at.add_css_class("flat")
         at.set_popover(self._page_popover())
@@ -895,6 +898,8 @@ class Conversation(Gtk.Box):
         if kv in (Gdk.KEY_Return, Gdk.KEY_KP_Enter) and not state & (Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.CONTROL_MASK):
             self.send()
             return True
+        if clipimg.is_ctrl_v(kv, state) and self.entry.get_sensitive():
+            return self.paste()
         if kv == Gdk.KEY_Escape and self.reply is not None:
             self.set_reply(None)
             return True
@@ -906,6 +911,45 @@ class Conversation(Gtk.Box):
             nm = (m.get("sender") or {}).get("name") or ""
             self.reply_label.set_label(_("Reply to {name}").format(name=nm) + "\n" + snippet(m))
         self.reply_bar.set_visible(m is not None)
+        self.entry.grab_focus()
+
+    def paste(self, clipboard=None):
+        """Strg+V: Bild oder Dateien aus der Zwischenablage als Anhang; Text wie gewohnt ins Eingabefeld. -> abgefangen?"""
+        cb = clipboard or self.entry.get_clipboard()
+        return clipimg.read_paste(cb, self.add_files, self.add_image,
+                                  lambda: self.entry.activate_action("clipboard.paste", None))
+
+    def add_image(self, data, name=None, mime="image/png"):
+        """Bilddaten (Zwischenablage) als Anhang - zu gross: verkleinern"""
+        fmax = int((chat.limits or {}).get("file_max") or 25 * 1048576)
+
+        def work():
+            d, m = clipimg.shrink(data, fmax)
+            return name or clipimg.pasted_name(m), m, d
+        bg(work, done=lambda r: self._add_ready([r]), error=lambda e: _toast(self.win, str(e)), media=True)
+
+    def _attach_menu(self):
+        def show(ok):
+            self.immich_ok = ok
+            if not ok:
+                self._pick_files()
+            elif self.att_btn.get_root() is not None:
+                menu_popover(self.att_btn, [(_("File …"), self._pick_files), (_("From Immich …"), self._pick_immich)]).popup()
+        clipimg.immich_ready(show)
+
+    def _pick_immich(self):
+        from .dialogs import ImmichPicker
+        fmax = int((chat.limits or {}).get("file_max") or 25 * 1048576)
+        ImmichPicker(self.win, lambda r: self._add_ready([r]), fetch=lambda it: clipimg.immich_for_chat(it, fmax)).present(self.win)
+
+    def _add_ready(self, lst):
+        nmax = int((chat.limits or {}).get("files_per_msg") or 10)
+        for name, mime, data in lst:
+            if len(self.files) >= nmax:
+                _toast(self.win, ngettext("At most {n} file per message.", "At most {n} files per message.", nmax).format(n=nmax))
+                break
+            self.files.append((name, mime, data))
+        self._files_bar()
         self.entry.grab_focus()
 
     def _pick_files(self):
@@ -921,19 +965,26 @@ class Conversation(Gtk.Box):
         fd.open_multiple(self.win, None, done)
 
     def add_files(self, gfiles):
+        """Dateien (Auswahl, Zwischenablage) als Anhaenge; zu grosse Bilder werden verkleinert, andere abgelehnt"""
         lim = chat.limits or {}
         fmax = int(lim.get("file_max") or 25 * 1048576)
-        nmax = int(lim.get("files_per_msg") or 10)
 
         def work():
             out = []
             for g in gfiles:
                 info = g.query_info("standard::size,standard::content-type,standard::display-name", Gio.FileQueryInfoFlags.NONE, None)
                 name = info.get_display_name() or g.get_basename() or "datei"
+                mime = Gio.content_type_get_mime_type(info.get_content_type() or "") or "application/octet-stream"
                 if info.get_size() > fmax:
+                    if mime.startswith("image/") or clipimg.file_is_image(g):
+                        try:
+                            data, m = clipimg.shrink(g.load_bytes(None)[0].get_data(), fmax)
+                            out.append((clipimg.with_ext(name, m), m, data))
+                            continue
+                        except Exception:  # noqa: BLE001 - nicht lesbar: wie jede zu grosse Datei melden
+                            pass
                     out.append((name, None, _("“{name}” is too large (at most {n} MB).").format(name=name, n=fmax // 1048576)))
                     continue
-                mime = Gio.content_type_get_mime_type(info.get_content_type() or "") or "application/octet-stream"
                 out.append((name, mime, g.load_bytes(None)[0].get_data()))
             return out
 
@@ -941,18 +992,24 @@ class Conversation(Gtk.Box):
             for name, mime, data in lst:
                 if mime is None:
                     _toast(self.win, data)
-                elif len(self.files) < nmax:
-                    self.files.append((name, mime, data))
-            self._files_bar()
+            self._add_ready([x for x in lst if x[1] is not None])
         bg(work, done=fin, error=lambda e: _toast(self.win, str(e)), media=True)
 
     def _files_bar(self):
         self.files_bar.remove_all()
-        for i, (name, _mime, data) in enumerate(self.files):
-            chip = Gtk.Box(spacing=4)
+        for i, (name, mime, data) in enumerate(self.files):
+            chip = Gtk.Box(spacing=6)
             chip.add_css_class("hk-tag")
-            chip.append(_lbl("📎 " + name + " · " + human_size(len(data)), wrap=False, ellipsize=Pango.EllipsizeMode.MIDDLE,
-                             max_width_chars=28))
+            if (mime or "").startswith("image/"):              # Vorschau des Bildes (nur im Speicher)
+                pv = images.ImageView(mode="cover", radius=6)
+                pv.set_size_request(40, 40)
+                pv.set_valign(Gtk.Align.CENTER)
+                images.load_local(data, lambda d, pv=pv: d is not None and pv.set_decoded(d), max_px=96)
+                chip.append(pv)
+                label = name + " · " + human_size(len(data))
+            else:
+                label = "📎 " + name + " · " + human_size(len(data))
+            chip.append(_lbl(label, wrap=False, ellipsize=Pango.EllipsizeMode.MIDDLE, max_width_chars=28))
             chip.append(flat_button(icon="window-close-symbolic", css="hk-tiny", tooltip=_("Remove"),
                                     cb=lambda i=i: (self.files.pop(i), self._files_bar())))
             self.files_bar.append(chip)

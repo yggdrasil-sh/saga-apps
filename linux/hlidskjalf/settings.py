@@ -154,6 +154,8 @@ class ImmichGroup(Adw.PreferencesGroup):
         self.load()
 
     def load(self):
+        from .clipimg import forget_immich
+        forget_immich()                                # Chat fragt beim naechsten Anhaengen neu ("Aus Immich")
         bg(client.get, "api/settings/immich", done=self.fill, error=lambda e: None)
 
     def fill(self, info):

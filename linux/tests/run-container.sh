@@ -101,6 +101,13 @@ for part in $PARTS; do
       HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test shareshots.py es_ES.UTF-8
       HK_OUT="$SRC/build/shots" app_test v2shots.py
       HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test v2shots.py es_ES.UTF-8
+      HK_OUT="$SRC/build/shots" app_test v21shots.py
+      HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test v21shots.py es_ES.UTF-8
+      ;;
+    v21shots)                                            # nur die Bilder zu 2.1 (Immich im Chat, Einfuegen)
+      mkdir -p "$SRC/build/shots"
+      HK_OUT="$SRC/build/shots" app_test v21shots.py
+      HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test v21shots.py es_ES.UTF-8
       ;;
     app:*) app_test "${part#app:}" "${HK_LANG:-de_DE.UTF-8}" ;;                  # ein einzelnes HK_TEST-Skript, z. B. app:v2shots.py
     *) echo "unbekannter Teil: $part" >&2; FAIL=$((FAIL + 1)) ;;

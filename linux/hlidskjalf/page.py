@@ -1,7 +1,7 @@
 """Eine Seite nativ: Titelbild, Symbol, Titel, Tags, Eigenschaften, Bloecke, Inhaltsverzeichnis, Rueckverweise."""
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango
 
-from . import images
+from . import clipimg, images
 from .api import client
 from .blocks import BlockKit, HoverManager, SuggestPopover, flat_button, menu_popover
 from .config import settings
@@ -1442,37 +1442,44 @@ class PageView(Gtk.Box):
         foc = self.win.get_focus() if self.win is not None else None
         if self.cpanel is not None and foc is not None and foc.is_ancestor(self.cpanel):
             return False                                      # Eingabe im Kommentarfeld: nichts in die Seite einfuegen
-        if kv in (Gdk.KEY_v, Gdk.KEY_V) and state & Gdk.ModifierType.CONTROL_MASK and not self.editor.locked and not self.remote:
-            cb = self.get_clipboard()
-            fm = cb.get_formats()
-            if fm.contain_gtype(Gdk.Texture) and not fm.contain_mime_type("text/plain") and not fm.contain_mime_type("text/plain;charset=utf-8"):
-                after = self.editor.focused_block
-
-                def got(c, res):
-                    try:
-                        tex = c.read_texture_finish(res)
-                    except GLib.Error:
-                        return
-                    if tex is None:
-                        return
-                    data = tex.save_to_png_bytes().get_data()
-                    bg(self.win.upload_image, data, "bild.png", self.upload_note, done=lambda url: self.editor.insert_image_url(url, after=after),
-                       error=lambda e: self.win.toast(_("Image not uploaded: {error}").format(error=e)), media=True)
-                cb.read_texture_async(None, got)
-                return True
+        if clipimg.is_ctrl_v(kv, state) and not self.editor.locked and not self.remote and not self.doc.is_database:
+            return self.paste()
         return False
+
+    def paste(self, clipboard=None):
+        """Strg+V: Bild -> Bildblock, Dateien -> Bild- bzw. Dateibloecke unter dem Block mit dem Fokus; Text wie gewohnt.
+        -> abgefangen?"""
+        cb = clipboard or self.get_clipboard()
+        after = self.editor.focused_block
+        foc = self.win.get_focus() if self.win is not None else None
+
+        def text():                                             # doch keine (lokalen) Dateien: normal einfuegen
+            if foc is not None and foc.get_root() is not None:
+                foc.activate_action("clipboard.paste", None)
+
+        def image(data):
+            bg(self.win.upload_image, data, "bild.png", self.upload_note, done=lambda url: self.editor.insert_image_url(url, after=after),
+               error=lambda e: self.win.toast(_("Image not uploaded: {error}").format(error=e)), media=True)
+        return clipimg.read_paste(cb, lambda files: self._insert_files(files, after), image, text)
 
     def _drop_files(self, t, value, x, y):
         if self.editor.locked or self.doc.is_database or self.remote_blocked():
             return False
         files = list(value.get_files()) if hasattr(value, "get_files") else []
-        after = self.editor.focused_block
+        if files:
+            self._insert_files(files, self.editor.focused_block)
+        return True
+
+    def _insert_files(self, files, after):
+        """Bilder als Bildblock, alles andere als Dateiblock - der Reihe nach unter after"""
+        if self.remote_blocked():
+            return
 
         def work():                                             # nacheinander hochladen: Reihenfolge bleibt wie abgelegt
             out = []
             for f in files:
                 name = f.get_basename() or "datei"
-                is_img = name.lower().rsplit(".", 1)[-1] in ("png", "jpg", "jpeg", "gif", "webp", "heic")
+                is_img = clipimg.file_is_image(f)
                 try:
                     data = f.load_bytes(None)[0].get_data()
                     out.append(("img", self.win.upload_image(data, name, note=self.upload_note), name) if is_img else

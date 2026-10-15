@@ -60,6 +60,8 @@ def srv():
     _mem.clear()
     notifications.reset()
     ai.status, ai.known = {}, False
+    from hlidskjalf.clipimg import forget_immich
+    forget_immich()
     client.set_cookies("", {})
     s = mockserver.install()
     yield s

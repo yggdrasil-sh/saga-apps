@@ -337,11 +337,12 @@ class ImmichThumb(Gtk.Overlay):
 
 
 class ImmichPicker(Adw.Dialog):
-    """Bilder aus Immich: Zuletzt, Alben, Suche nach Bildinhalt; der Server uebernimmt das Foto als eigene Datei"""
+    """Bilder aus Immich: Zuletzt, Alben, Suche nach Bildinhalt; der Server uebernimmt das Foto als eigene Datei.
+    fetch (Chat): statt des Imports fetch(eintrag) im Hintergrund ausfuehren und dessen Ergebnis an on_pick geben."""
 
-    def __init__(self, win, on_pick):
+    def __init__(self, win, on_pick, fetch=None):
         super().__init__(title="Immich", content_width=620, content_height=600)
-        self.win, self.on_pick = win, on_pick
+        self.win, self.on_pick, self.fetch = win, on_pick, fetch
         self.album = None
         self.next = None
         self.busy = False
@@ -506,6 +507,18 @@ class ImmichPicker(Adw.Dialog):
         if self.busy:
             return
         self.busy = True
+        if self.fetch is not None:
+            self.info.set_label(_("Loading “{name}” …").format(name=it.get("name") or ""))
+
+            def got(r):
+                self.close()
+                self.on_pick(r)
+
+            def bad(e):
+                self.busy = False
+                self.info.set_label(_("Not loaded: {error}").format(error=e))
+            bg(self.fetch, it, done=got, error=bad, media=True)
+            return
         self.info.set_label(_("Importing “{name}” …").format(name=it.get("name") or ""))
 
         def fin(r):

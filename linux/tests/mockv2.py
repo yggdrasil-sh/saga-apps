@@ -54,6 +54,47 @@ def init(s):
     s.fed = {}                    # negative id -> Seite (mit remote)
     s.fed_unreachable = []
     s.fed_api = True
+    # Immich (Proxy des Servers): None = nicht verbunden; sonst {id: {name, mime, original, preview, thumb}}
+    s.immich = None
+    s.immich_albums = []
+    s.immich_size_api = True      # False: aelterer Server ohne ?size= (liefert immer die kleine Vorschau)
+
+
+def immich_add(s, aid, name, mime, original, preview, thumb=None):
+    if s.immich is None:
+        s.immich = {}
+    s.immich[aid] = {"name": name, "mime": mime, "original": original, "preview": preview, "thumb": thumb or preview}
+
+
+def _immich_api(s, method, path, parts, q, b):
+    if path == "api/settings/immich":
+        if s.immich is None:
+            return s._reply(200, {"available": True, "connected": False, "suggest": ""})
+        return s._reply(200, {"available": True, "connected": True, "url": "https://fotos.example.org", "name": "Test"})
+    if not path.startswith("api/immich/"):
+        return None
+    if s.immich is None:
+        return s._reply(400, {"error": "Immich ist nicht verbunden."})
+    if path == "api/immich/albums":
+        return s._reply(200, {"albums": s.immich_albums})
+    if path == "api/immich/assets" and method == "POST":
+        qq = (b.get("q") or "").lower()
+        items = [{"id": i, "name": a["name"], "mime": a["mime"], "date": "2026-10-01"} for i, a in s.immich.items()
+                 if not qq or qq in a["name"].lower()]
+        return s._reply(200, {"items": items, "next": None})
+    if path == "api/immich/import":
+        return s._reply(500, {"error": "mock: import ist fuer den Chat verboten"})
+    if len(parts) == 4 and parts[2] == "thumb":
+        a = s.immich.get(parts[3])
+        if a is None:
+            return s._reply(404, {"error": "not found"})
+        size = q.get("size") if s.immich_size_api else None
+        if size == "original":
+            if a["original"] is None:
+                return s._reply(415, {"error": "Format"})
+            return s._reply(200, a["original"])
+        return s._reply(200, a["preview"] if size == "preview" else a["thumb"])
+    return None
 
 
 # --- Live --------------------------------------------------------------------------------------------------------
@@ -476,6 +517,9 @@ def _chat_api(s, method, path, parts, q, b, raw):
 # --- Einstieg ------------------------------------------------------------------------------------------------------
 def handle(s, method, path, parts, q, b, raw):
     me = s.me
+    r = _immich_api(s, method, path, parts, q, b)
+    if r is not None:
+        return r
     if path == "api/notifications" and method == "GET":
         if not s.live_api:
             return s._reply(404, {"error": "not found"})
