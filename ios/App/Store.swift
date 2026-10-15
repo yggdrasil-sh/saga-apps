@@ -294,7 +294,31 @@ final class Store: ObservableObject {
             if !accountChecked || AppConfig.serverOrigin.flatMap({ DraftOwner.app.account(origin: $0) }) == nil {
                 accountChecked = true; await identifyAccount()
             }
+            Task { await resendDrafts() }                         // offline Geaendertes nachsenden (BUG-020)
         } catch { if !needsLogin, self.error != error.localizedDescription { self.error = error.localizedDescription } }
+    }
+    /// Liegengebliebene Entwuerfe (offline geaendert, Seite inzwischen verlassen) senden, sobald der Server wieder
+    /// antwortet - mit der Revision, auf der sie beruhen: hat sich die Seite inzwischen geaendert (409), wird nichts
+    /// ueberschrieben, der Entwurf wird dann beim Oeffnen angeboten. Offene Seiten senden selbst (BUG-020).
+    private var resendingDrafts = false
+    func resendDrafts() async {
+        guard !resendingDrafts, let o = AppConfig.serverOrigin, DraftOwner.app.account(origin: o) != nil,
+              let ds = DraftOwner.app.store(origin: o) else { return }
+        resendingDrafts = true; defer { resendingDrafts = false }
+        let gen = sessionGen
+        for f in ds.files {
+            guard let id = DraftResend.pageID(f.lastPathComponent), let dr = ds.load(id),
+                  DraftResend.shouldSend(dr, id: id, open: SaveRegistry.openIDs) else { continue }
+            let b: [String: Any] = ["title": dr.title, "body": dr.body, "format": "blocks", "rev": dr.rev]
+            guard let (_, code) = try? await apiResponse("api/notes/\(id)", method: "PATCH", body: b) else { return }   // offline: spaeter
+            // abgemeldet/anderes Konto oder Seite inzwischen geoeffnet bzw. Entwurf geaendert: nichts mehr anfassen
+            guard gen == sessionGen, AppConfig.serverOrigin == o, ds.load(id) == dr else { return }
+            switch DraftResend.outcome(code) {
+            case .sent: ds.remove(id); dropCache("api/notes/\(id)"); updateTitle(id, dr.title)
+            case .hold: var c = dr; c.conflict = true; ds.save(id, c)
+            case .retry: return
+            }
+        }
     }
     /// 60-s-Abgleich: still, hoechstens einmal pro Takt fuer alle Fenster, und nur Geaendertes neu setzen
     /// (sonst zeichnen alle Ansichten mit dem Store jede Minute neu)

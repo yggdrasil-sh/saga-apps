@@ -82,6 +82,7 @@ final class PageEditor: ObservableObject {
     /// Tippen: NUR speichern - das Textfeld zeigt den Text selbst, die Seite muss nicht neu gezeichnet werden
     func textChanged() {
         doc.markEdited()
+        if let store { doc.noteInput(store) }       // Entwurf sofort, Senden nach 700 ms (BUG-100)
         saveTask?.cancel()
         saveTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(700))

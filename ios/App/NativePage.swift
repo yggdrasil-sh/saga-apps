@@ -373,6 +373,13 @@ final class PageDoc: ObservableObject {
         guard !isDatabase, let body = serialized() else { return }
         drafts?.save(id, PageDraft(title: titleRaw, body: body, rev: rev, saved: Date(), conflict: conflict))
     }
+    /// Bei jeder Eingabe sofort lokal sichern (nur Datei, Senden bleibt entprellt): ein Absturz oder Beenden durch
+    /// das System kurz nach dem Tippen verliert sonst den Text (BUG-100). Nur fuer geladene, beschreibbare Seiten
+    /// der aktuellen Anmeldung.
+    func noteInput(_ store: Store) {
+        guard fetched, !lostAccess, !access.readOnly, !isDatabase, !staleSession(store) else { return }
+        writeDraft(conflict: conflict)
+    }
     /// Nach dem Laden: liegt ein Entwurf mit anderem Inhalt vor -> anbieten; sonst aufraeumen
     private func checkDraft() {
         guard let dr = drafts?.load(id) else { draft = nil; return }
@@ -540,6 +547,8 @@ enum SaveRegistry {
     private static let editors = NSHashTable<PageEditor>.weakObjects()
     static func add(_ e: PageEditor) { editors.add(e) }
     static var hasUnsaved: Bool { editors.allObjects.contains { $0.doc.hasUnsaved } }
+    /// Seiten mit offenem Editor (die senden ihre Entwuerfe selbst)
+    static var openIDs: Set<Int> { Set(editors.allObjects.map(\.doc.id)) }
     static func flushAll() async { for e in editors.allObjects { await e.flush() } }
 }
 
