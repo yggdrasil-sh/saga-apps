@@ -96,6 +96,28 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.chat.ChatAttach
+import io.github.yggdrasil_sh.saga.ui.common.ImmichPicker
+import io.github.yggdrasil_sh.saga.ui.common.IncomingImage
+import io.github.yggdrasil_sh.saga.ui.common.clipboardImages
+import io.github.yggdrasil_sh.saga.ui.common.imagesIn
+import io.github.yggdrasil_sh.saga.ui.common.prepareImage
+import io.github.yggdrasil_sh.saga.ui.common.readImage
+import io.github.yggdrasil_sh.saga.ui.common.rememberClipboardHasImage
+import io.github.yggdrasil_sh.saga.util.ImageData
+import android.content.ClipData
+import androidx.compose.foundation.content.MediaType
+import androidx.compose.foundation.content.ReceiveContentListener
+import androidx.compose.foundation.content.TransferableContent
+import androidx.compose.foundation.content.consume
+import androidx.compose.foundation.content.contentReceiver
+import androidx.compose.foundation.content.hasMediaType
+import androidx.compose.foundation.text.input.TextFieldLineLimits
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.drop
 import io.github.yggdrasil_sh.saga.chat.ChatFile
 import io.github.yggdrasil_sh.saga.chat.ChatFiles
 import kotlinx.coroutines.CoroutineScope
@@ -124,7 +146,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 
 /** Eine Unterhaltung: Blasen (eigene rechts), Antworten, Anhaenge, @-Seiten, "tippt …", Menue */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane: Boolean) {
     val svc = repo.chat
@@ -136,9 +158,58 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     var dialog by remember { mutableStateOf<String?>(null) }
     var unverifiedOf by remember { mutableStateOf<String?>(null) }
     var safetyFor by remember { mutableStateOf<String?>(null) }
-    var input by rememberSaveable(chatId) { mutableStateOf("") }          // ueberlebt Prozess-Tod (BUG-067)
     val files = remember(chatId) { mutableStateListOf<PendingFile>() }
     val noteIds = remember(chatId) { mutableStateListOf<ChatNoteRef>() }
+    // TextFieldState (statt String): nur damit gehen Bilder aus Zwischenablage/Tastatur/Ziehen (contentReceiver)
+    val input = rememberSaveable(chatId, saver = TextFieldState.Saver) { TextFieldState() }   // ueberlebt Prozess-Tod (BUG-067)
+    LaunchedEffect(input) {
+        snapshotFlow { input.text.toString() }.drop(1).collect { if (it.isNotBlank()) scope.launch { s.typingNow() } }
+    }
+    /** Immich fuer diese Person eingerichtet? -> "Aus Immich" beim Anhaengen */
+    var immichOn by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        immichOn = try {
+            repo.immich.connected()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            false
+        }
+    }
+    /** laufende Uebernahmen (Immich, eingefuegte Bilder) - Hinweis ueber dem Eingabefeld */
+    var fetching by remember { mutableIntStateOf(0) }
+    var immichBusy by remember { mutableIntStateOf(0) }
+    val clipHasImage = rememberClipboardHasImage()
+    val addImages: (List<IncomingImage>) -> Unit = { list ->
+        if (list.isNotEmpty()) scope.launch {
+            val max = svc.me.value?.limits?.fileMax ?: ChatLimits().fileMax
+            fetching++
+            try {
+                for (img in list) {
+                    val f = incomingImage(context, img, max)
+                    if (f != null) files.add(f) else repo.notify(UiText.Res(R.string.chat_file_broken))
+                }
+            } finally {
+                fetching--
+            }
+        }
+    }
+    val receiver = remember(chatId) {
+        ReceiveContentListener { tc ->
+            if (!tc.hasMediaType(MediaType.Image)) return@ReceiveContentListener tc
+            val found = ArrayList<IncomingImage>()
+            val rest = tc.consume { item ->
+                val u = item.uri ?: return@consume false
+                val img = imagesIn(context, ClipData(tc.clipEntry.clipData.description, item)).firstOrNull()
+                    ?: IncomingImage(u, "image/*").takeIf { tc.source == TransferableContent.Source.Keyboard }
+                    ?: return@consume false
+                found.add(img)
+                true
+            }
+            addImages(found)
+            rest
+        }
+    }
     val list = rememberLazyListState()
     val images = remember(chatId) { mutableStateMapOf<String, ImageBitmap?>() }
 
@@ -297,6 +368,15 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 IconButton(onClick = { s.replyTo = null }) { Icon(Icons.Filled.Close, stringResource(R.string.action_cancel)) }
             }
         }
+        if (immichBusy > 0) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                Text(
+                    stringResource(R.string.immich_loading_photo), style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+        }
         if (files.isNotEmpty() || noteIds.isNotEmpty()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 files.forEach { f ->
@@ -315,20 +395,19 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 IconButton(onClick = { attach = true }) { Icon(Icons.Filled.Add, stringResource(R.string.chat_attach)) }
                 DropdownMenu(expanded = attach, onDismissRequest = { attach = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_file)) }, onClick = { attach = false; pick.launch("*/*") })
+                    // gleiche Pruefung wie beim Bild-Einfuegen auf Seiten: nur wenn Immich fuer mich eingerichtet ist
+                    if (immichOn) DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_immich)) }, onClick = { attach = false; dialog = "immich" })
+                    if (clipHasImage) DropdownMenuItem(text = { Text(stringResource(R.string.paste_image)) }, onClick = { attach = false; addImages(clipboardImages(context)) })
                     DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_page)) }, onClick = { attach = false; dialog = "page" })
                 }
             }
             OutlinedTextField(
-                value = input,
-                onValueChange = {
-                    input = it
-                    if (it.isNotBlank()) scope.launch { s.typingNow() }
-                },
+                state = input,
                 placeholder = { Text(stringResource(R.string.chat_message_hint)) },
-                maxLines = 6, shape = RoundedCornerShape(24.dp),
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6), shape = RoundedCornerShape(24.dp),
+                modifier = Modifier.weight(1f).heightIn(min = 48.dp).contentReceiver(receiver),
             )
-            val canSend = (input.isNotBlank() || files.isNotEmpty() || noteIds.isNotEmpty()) && !s.sending
+            val canSend = (input.text.isNotBlank() || files.isNotEmpty() || noteIds.isNotEmpty()) && !s.sending && fetching == 0
             IconButton(onClick = {
                 // geaenderte Sicherheitsnummer sperrt das Senden: erklaeren und direkt "Anzeigen" anbieten (BUG-108)
                 s.identChanged.firstOrNull()?.let { uid ->
@@ -336,11 +415,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     repo.notify(UiText.Res(R.string.chat_safety_send_blocked, who), UiText.Res(R.string.chat_show)) { dialog = "safety" }
                     return@IconButton
                 }
-                val text = input.trim()
+                val text = input.text.toString().trim()
                 val fs = files.toList()
                 val ns = noteIds.map { it.id }
                 val refs = noteIds.toList()
-                input = ""
+                input.clearText()
                 files.clear()
                 noteIds.clear()
                 scope.launch {
@@ -349,7 +428,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        input = text                                       // nichts verlieren
+                        input.setTextAndPlaceCursorAtEnd(text)             // nichts verlieren
                         files.addAll(fs)
                         noteIds.addAll(refs)
                         repo.notify(repo.friendly(e))
@@ -382,6 +461,28 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         "members" -> MembersDialog(repo, s) { dialog = null }
         "retention" -> RetentionDialog(repo, s) { dialog = null }
         "rename" -> RenameDialog(repo, s) { dialog = null }
+        "immich" -> ImmichPicker(repo, onDismiss = { dialog = null }) { a ->
+            dialog = null
+            scope.launch {
+                val max = svc.me.value?.limits?.fileMax ?: ChatLimits().fileMax
+                fetching++
+                immichBusy++
+                try {
+                    // ueber den Immich-Proxy des Servers (nur durchgereicht), dann wie jeder Anhang E2E-verschluesselt
+                    val raw = repo.immich.chatImage(a, max)
+                    val prepared = prepareImage(raw, max)
+                    if (prepared == null) repo.notify(UiText.Res(R.string.image_unsupported))
+                    else files.add(PendingFile(ImageData.nameFor(a.name.ifEmpty { "immich" }, prepared.second), prepared.second, prepared.first))
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    repo.notify(UiText.Res(R.string.immich_photo_failed))
+                } finally {
+                    fetching--
+                    immichBusy--
+                }
+            }
+        }
         "page" -> PagePickDialog(repo, onDismiss = { dialog = null }) { n -> dialog = null; if (noteIds.none { it.id == n.id }) noteIds.add(n) }
         "leave" -> AlertDialog(
             onDismissRequest = { dialog = null },
@@ -395,6 +496,23 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             dismissButton = { TextButton(onClick = { dialog = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
+}
+
+/** Eingefuegtes/von der Tastatur gesendetes Bild -> Anhang (Name aus dem Anbieter, sonst "bild.<endung>") */
+private suspend fun incomingImage(context: Context, img: IncomingImage, max: Long): PendingFile? {
+    val name = withContext(Dispatchers.IO) {
+        try {
+            context.contentResolver.query(img.uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                if (c.moveToFirst()) c.getString(0) else null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+    // etwas mehr lesen als erlaubt: zu grosse Bilder werden danach verkleinert (statt abgelehnt)
+    val raw = readImage(context, img, maxOf(max, 4 * max)) ?: return null
+    val (data, mime) = prepareImage(raw, max) ?: return null
+    return PendingFile(ImageData.nameFor(name.orEmpty(), mime), mime, data)
 }
 
 /** Datei aus dem Auswahldialog lesen (Name, Typ, Inhalt) */

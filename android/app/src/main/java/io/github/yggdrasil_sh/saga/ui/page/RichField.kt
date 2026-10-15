@@ -42,6 +42,12 @@ import io.github.yggdrasil_sh.saga.blocks.InlineStyle
 import io.github.yggdrasil_sh.saga.blocks.JsonPath
 import io.github.yggdrasil_sh.saga.blocks.RichText
 import io.github.yggdrasil_sh.saga.data.Masking
+import io.github.yggdrasil_sh.saga.ui.common.IncomingImage
+import io.github.yggdrasil_sh.saga.ui.common.KeyboardImages
+import androidx.compose.runtime.compositionLocalOf
+
+/** Bilder in ein Textfeld der Seite (Tastatur/GBoard): Bild + Pfad des Blocks; null = nicht moeglich */
+val LocalPageImageSink = compositionLocalOf<((IncomingImage, JsonPath) -> Unit)?> { null }
 
 // ---------------------------------------------------------------- Darstellung
 
@@ -318,6 +324,8 @@ fun RichField(
         return v.copy(selection = TextRange(s.start.coerceAtLeast(p), s.end.coerceAtLeast(p)))
     }
 
+    val sink = LocalPageImageSink.current
+    KeyboardImages(if (raw || sink == null) null else { img -> sink(img, pathNow) }) {
     BasicTextField(
         value = st.value,
         onValueChange = { nv ->
@@ -360,6 +368,7 @@ fun RichField(
             }
         },
     )
+    }
 }
 
 /** Neue Eingabe uebernehmen: Return erkennen (Block teilen), sonst Text + Formatierung nachfuehren */

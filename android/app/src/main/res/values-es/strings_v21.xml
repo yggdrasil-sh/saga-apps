@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.1: Immich im Chat, Bilder einfuegen (Zwischenablage/Tastatur) -->
+<resources>
+    <string name="chat_attach_immich">Desde Immich</string>
+    <string name="paste_image">Pegar imagen</string>
+    <string name="immich_recent">Recientes</string>
+    <string name="immich_albums">Álbumes</string>
+    <string name="immich_search_hint">Buscar… (p. ej., «playa», «gato»)</string>
+    <string name="immich_more">Cargar más</string>
+    <string name="immich_none">No se encontraron fotos.</string>
+    <string name="immich_no_albums">No hay álbumes.</string>
+    <string name="immich_failed">Immich: la búsqueda falló</string>
+    <string name="immich_loading_photo">Cargando foto de Immich…</string>
+    <string name="immich_photo_failed">No se pudo cargar la foto de Immich.</string>
+    <string name="image_upload_failed">No se subió la imagen.</string>
+    <string name="image_uploading">Subiendo imagen…</string>
+    <string name="image_unsupported">Formato de imagen no compatible.</string>
+    <string name="image_remote_page">No se pueden añadir imágenes a páginas de otra instancia de Saga.</string>
+    <plurals name="immich_photos_n">
+        <item quantity="one">%1$d foto</item>
+        <item quantity="other">%1$d fotos</item>
+    </plurals>
+</resources>

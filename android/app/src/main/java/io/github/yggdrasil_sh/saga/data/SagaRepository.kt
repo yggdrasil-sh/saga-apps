@@ -1060,4 +1060,18 @@ class SagaRepository(
 
     /** Bild-/Datei-Adresse (/files/...) auf dem Server */
     fun absoluteUrl(path: String): String = ServerUrl.absolute(settings.server.value, path)
+
+    /** Immich (Bild-Auswahl im Chat) ueber die Server-Endpunkte */
+    val immich: ImmichApi by lazy { ImmichApi(api, json) }
+
+    /**
+     * Bild fuer eine Seite hochladen (POST api/files, Feld "image") -> Adresse /files/...
+     * note = fremde Seite mit Rolle Bearbeiten: die Datei gehoert deren Eigentuemer.
+     */
+    suspend fun uploadImage(data: ByteArray, name: String, mime: String, note: Long?): String {
+        val r = api.postMultipart("api/files", "image", name, mime, data, note)
+        val o = json.parseToJsonElement(r) as? JsonObject
+        val url = ((o?.get("file") as? JsonObject)?.get("url") as? kotlinx.serialization.json.JsonPrimitive)?.content
+        return url?.takeIf { it.isNotBlank() } ?: throw ApiException(500, UiText.Res(R.string.image_upload_failed))
+    }
 }

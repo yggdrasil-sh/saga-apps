@@ -514,6 +514,31 @@ class PageEditor(
         if (focus) requestFocus(fieldKeyFor(block, arr + (idx + 1)))
     }
 
+    /**
+     * Bild-Block (schon hochgeladene Datei /files/...) nach dem Block blockPath (null = ans Ende). Ein leerer Absatz
+     * wird zum Bild (wie im Web/Linux), sonst kommt das Bild dahinter. Ohne Bearbeiten-Recht: nichts.
+     * -> Pfad des neuen Bild-Blocks (fuer weitere Bilder dahinter) oder null, wenn nicht eingefuegt.
+     */
+    fun insertImage(blockPath: JsonPath?, url: String): JsonPath? {
+        if (!editable || url.isBlank()) return null
+        val img = jobj(
+            "id" to JsonPrimitive(BlockDoc.newId()), "type" to JsonPrimitive("image"),
+            "data" to jobj(
+                "file" to jobj("url" to JsonPrimitive(url)), "caption" to JsonPrimitive(""),
+                "withBorder" to JsonPrimitive(false), "stretched" to JsonPrimitive(false), "withBackground" to JsonPrimitive(false),
+            ),
+        )
+        val cur = blockPath?.let { block(it) }
+        if (blockPath != null && cur != null && BlockDoc.type(cur) == "paragraph" && BlockDoc.str(BlockDoc.data(cur), "text").isEmpty()) {
+            active = null
+            change(JsonTree.set(doc, blockPath, img) as JsonObject)
+            return blockPath
+        }
+        val (arr, idx) = if (blockPath.isNullOrEmpty() || cur == null) listOf<Any>("blocks") to BlockDoc.blocks(doc).size - 1 else arrayAndIndex(blockPath)
+        change(JsonTree.insert(doc, arr, idx + 1, img) as JsonObject)
+        return arr + (idx + 1)
+    }
+
     fun insertInto(arrayPath: JsonPath, index: Int, block: JsonObject) {
         if (!editable) return
         change(JsonTree.insert(doc, arrayPath, index, block) as JsonObject)
@@ -881,3 +906,5 @@ class PageEditor(
         error = null
     }
 }
+
+private fun jobj(vararg pairs: Pair<String, kotlinx.serialization.json.JsonElement>) = JsonObject(linkedMapOf(*pairs))
