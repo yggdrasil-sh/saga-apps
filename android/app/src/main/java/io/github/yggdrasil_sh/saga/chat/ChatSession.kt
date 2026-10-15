@@ -296,8 +296,23 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
 
     private fun recipientKeys(rc: List<Recipient>): Map<String, ByteArray>? {
         val c = svc.crypto
+        val mine = svc.keys()
+        val changed = HashSet<String>()
         for (r in rc) {
-            if (r.ready && r.identPub != null && r.username != me) svc.store.observe(r.username, r.identPub)
+            if (!r.ready || r.identPub == null) continue
+            if (r.username == me) {
+                // eigene Identitaet auf dem Server muss zu den Schluesseln dieses Geraets passen
+                if (mine == null || unb64(r.identPub, 32)?.contentEquals(mine.ident.identPk) != true) return null
+                continue
+            }
+            // TOFU: geaenderte Sicherheitsnummer blockiert das Senden, bis man sie angesehen hat
+            if (svc.store.observe(r.username, r.identPub) == TofuResult.CHANGED || svc.store.known()[r.username]?.changed == true) changed.add(r.username)
+        }
+        if (changed.isNotEmpty()) {
+            identChanged = identChanged + changed
+            val uid = changed.first()
+            val who = summary?.members?.firstOrNull { it.username == uid }?.name?.ifEmpty { null } ?: uid
+            throw UiTextException(UiText.Res(R.string.chat_safety_changed, who))
         }
         return ChatLogic.recipientKeys(
             rc,
