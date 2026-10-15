@@ -196,7 +196,8 @@ popover.hk-notif-pop > contents { padding: 0; }
 /* Chats (1.5): Blasen (eigene rechts, Akzent), Zitat, Anhaenge, Eingabe */
 .hk-bubble { background: alpha(currentColor, 0.07); border-radius: 14px; padding: 6px 11px 4px 11px; }
 .hk-bubble.hk-bubble-me { background: alpha(var(--accent-bg-color), 0.20); }
-.hk-bubble.hk-bubble-warn { opacity: 0.62; box-shadow: inset 0 0 0 1px alpha(var(--warning-color), 0.8); }
+.hk-bubble.hk-bubble-warn { box-shadow: inset 0 0 0 1px alpha(var(--warning-color), 0.8); }
+button.hk-unv { padding: 0 4px; min-height: 0; font-weight: normal; }
 .hk-bubble:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 1px; }
 .hk-bubble-name { color: var(--accent-color); }
 .hk-bubble-text { font-size: 1.0em; }
@@ -213,7 +214,9 @@ button.hk-img-btn { padding: 0; border-radius: 10px; }
 .hk-e2e-note { opacity: 0.9; }
 .hk-recovery { font-size: 1.35em; font-weight: 600; letter-spacing: 1px; padding: 14px; border-radius: 12px;
   background: alpha(currentColor, 0.06); }
-.hk-linkcode { font-size: 1.7em; font-weight: 700; letter-spacing: 2px; }
+.hk-linkcode { font-size: 1.6em; font-weight: 700; letter-spacing: 1px; padding: 0 0.3em; }
+flowbox.hk-codeview > flowboxchild { padding: 0; }
+.hk-warn-box { margin: 2px 0; }
 .hk-safety { font-size: 1.25em; line-height: 1.5; letter-spacing: 1px; }
 .hk-qr { margin: 4px 0; }
 

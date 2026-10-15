@@ -35,6 +35,12 @@ def fmt_recovery(rk):
     return "-".join(n[i:i + 4] for i in range(0, len(n), 4))
 
 
+def recovery_lines(rk):
+    """Anzeige: zwei Zeilen zu je 4 Gruppen - nie mitten in einer Gruppe umbrechen"""
+    g = fmt_recovery(rk).split("-")
+    return "-".join(g[:4]) + ("\n" + "-".join(g[4:]) if len(g) > 4 else "")
+
+
 class ChatError(Exception):
     """Fehler mit fertigem Text fuer die Oberflaeche"""
 
@@ -336,6 +342,8 @@ class ChatState(GObject.Object):
         try:
             k = C.open_bundle(uid, rk, ident.get("bundle"))
         except C.CryptoError as e:
+            if e.args and e.args[0] in ("kdf", "bundle"):           # Buendel ausserhalb der Grenzen bzw. kaputt
+                raise ChatError(_("Unknown key format.")) from e
             raise ChatError(_("This key doesn't match.")) from e
         if C.b64(k["ident_pk"]) != ident.get("ident_pub"):
             raise ChatError(_("This key doesn't match."))

@@ -189,6 +189,9 @@ def parse_plain(pt):
     return {"ident_sk": isk, "ident_pk": isk[32:], "backup_sk": bsk, "backup_pk": nb.crypto_scalarmult_base(bsk)}
 
 
+OPS_MAX, MEM_MAX = 10, 256 * 1024 * 1024                 # Argon2id: mehr wird nie geoeffnet (sonst "Unbekanntes Schluesselformat")
+
+
 def open_bundle(uid, rk, bundle):
     """Buendel mit dem Wiederherstellungsschluessel oeffnen (ops/mem aus dem Buendel) -> Schluessel; CryptoError sonst"""
     try:
@@ -197,7 +200,7 @@ def open_bundle(uid, rk, bundle):
         salt, nonce, ct = unb64(d["salt"], 16), unb64(d["nonce"], 24), unb64(d["ct"])
     except (ValueError, KeyError, TypeError) as e:
         raise CryptoError("bundle") from e
-    if not (1 <= ops <= 10 and 8192 <= mem <= 1 << 30):          # Grenzen: kein Speicher-Angriff ueber das Buendel
+    if not (1 <= ops <= OPS_MAX and 8192 <= mem <= MEM_MAX):     # Grenzen: kein Speicher-Angriff ueber das Buendel
         raise CryptoError("kdf")
     key = recovery_kdf(rk, salt, ops, mem)
     try:

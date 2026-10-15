@@ -114,6 +114,13 @@ def test_push_settings_page(win, srv):
     sw = next(x for x in _walk(page) if hasattr(x, "get_title") and isinstance(x, Gtk.Widget) and x.get_title() == "Push notifications on this device")
     assert not sw.get_sensitive()                              # kein Verteiler auf dem Testrechner
     chat_row = next(x for x in _walk(page) if hasattr(x, "get_title") and isinstance(x, Gtk.Widget) and x.get_title() == "Chat messages")
+    assert not chat_row.is_sensitive()                         # noch kein Geraet: "Worueber?" ausgegraut
+    srv.push_subs.append({"id": 9, "type": "ntfy", "name": "ntfy", "endpoint": "https://ntfy.example.org/x", "created": 0})
+    page.load()
+    pump(lambda: page.data and page.data.get("devices"), 4)
+    pump(None, 0.2)
+    chat_row = next(x for x in _walk(page) if hasattr(x, "get_title") and isinstance(x, Gtk.Widget) and x.get_title() == "Chat messages")
+    assert chat_row.is_sensitive()
     chat_row.set_active(False)
     idle()
     pump(None, 0.3)
@@ -123,7 +130,9 @@ def test_push_settings_page(win, srv):
     pump(lambda: page.data and not page.data["server"]["enabled"], 4)
     pump(None, 0.2)
     sw = next(x for x in _walk(page) if hasattr(x, "get_title") and isinstance(x, Gtk.Widget) and x.get_title() == "Push notifications on this device")
-    assert sw.get_subtitle() == "Push notifications are turned off on this server."
+    assert sw.get_subtitle() == "Push notifications are turned off on this server." and not sw.get_active()
+    chat_row = next(x for x in _walk(page) if hasattr(x, "get_title") and isinstance(x, Gtk.Widget) and x.get_title() == "Chat messages")
+    assert not chat_row.is_sensitive()                         # Server aus: alles ausgegraut, nichts widerspricht sich
     d.force_close()
 
 

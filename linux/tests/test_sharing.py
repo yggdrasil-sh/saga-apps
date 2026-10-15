@@ -97,10 +97,10 @@ def test_share_rows_effective_role_and_remove_texts():
     assert inh == [{"type": "user", "name": "Cora", "sub": "cora", "role": "Can comment", "from": "via “Projekt”", "note_id": 1}]
     hits = s.hit_rows({"users": [{"username": "cora", "name": "Cora"}, {"username": "emil", "name": "Emil"}], "groups": [{"name": "team"}]},
                       st, "view")
-    assert [(h["name"], h["has"]) for h in hits] == [("Cora", "has access"), ("Emil", "add as “Can view”"), ("team", "has access")]
+    assert [(h["name"], h["has"]) for h in hits] == [("Cora", "has access"), ("Emil", "Add (Can view)"), ("team", "has access")]
     chips = s.chip_rows({"groups": ["team", "eltern"], "shares": st["shares"]}, "comment")
     assert chips[0]["on"] and chips[0]["tooltip"] == "has access: Can edit"
-    assert not chips[1]["on"] and chips[1]["tooltip"] == "add as “Can comment”"
+    assert not chips[1]["on"] and chips[1]["tooltip"] == "Add (Can comment)"
     assert s.search_hint({"scope": True}) == "Only people from your groups. At least 3 characters."
     assert s.search_hint({}) == "At least 3 characters."
     assert s.dialog_notes({"enabled": False, "shareable": False}) == [
@@ -509,7 +509,7 @@ def test_share_dialog_search_add_change_remove(win, srv, monkeypatch):
     assert pump(lambda: d.g_hits.get_visible(), 3)
     assert not d.status.get_visible() and not d.q.has_css_class("error")
     hit = d._rows[d.g_hits][0]
-    assert hit.get_title() == "Cora Muster" and "add as “Can comment”" in _labels(hit)
+    assert hit.get_title() == "Cora Muster" and "Add (Can comment)" in _labels(hit)
     hit.emit("activated")
     assert pump(lambda: srv.shares.get(1) == [{"type": "user", "target": "cora", "role": "comment"}], 5)
     idle()

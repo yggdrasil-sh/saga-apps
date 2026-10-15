@@ -1,6 +1,7 @@
 """Einstellungen (~/.config/hlidskjalf), Zwischenspeicher (~/.cache/hlidskjalf), Geraete-Schluessel (Schluesselbund)."""
 import json
 import os
+import re
 import socket
 import tempfile
 import threading
@@ -204,9 +205,37 @@ def set_account(name, server=None):
         settings.set("accounts", accs or None)
 
 
+def _pretty_hostname():
+    """hostnamectl: PRETTY_HOSTNAME aus /etc/machine-info (z. B. "Svens Laptop")"""
+    try:
+        with open("/etc/machine-info", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("PRETTY_HOSTNAME="):
+                    return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except OSError:
+        pass
+    return ""
+
+
+def _os_name():
+    try:
+        with open("/etc/os-release", encoding="utf-8") as f:
+            for line in f:
+                if line.startswith("NAME="):
+                    return line.split("=", 1)[1].strip().strip('"')
+    except OSError:
+        pass
+    return ""
+
+
 def device_name():
-    h = GLib.get_host_name() or socket.gethostname() or "Linux"
-    return h.split(".")[0] + " (Linux)"
+    """Geraetename fuer den Server: "<Rechnername> (Linux)"; Rechnername aus hostnamectl (huebsch) bzw. Hostname -
+    technische Namen (Container-Kennung, localhost) durch den Namen des Systems ersetzen"""
+    h = _pretty_hostname() or (GLib.get_host_name() or socket.gethostname() or "").split(".")[0]
+    if not h or h.lower() in ("localhost", "localhost-live", "fedora") or re.fullmatch(r"[0-9a-f]{12,64}", h):
+        osn = _os_name()
+        return osn if "linux" in osn.lower() else (osn + " (Linux)" if osn else "Linux")
+    return h + " (Linux)"
 
 
 # --- Geraete-Schluessel: libsecret (GNOME-Schluesselbund), sonst Datei mit 0600 -----------
