@@ -193,6 +193,8 @@ class SagaRepository(
     /** KI-Assistent (Server 1.6) */
     val ai = io.github.yggdrasil_sh.saga.ai.AiService(this)
 
+    @Volatile private var pushChecked = false
+
     /** Chat oeffnen (aus einer Mitteilung) */
     val openChatRequest = MutableStateFlow<Long?>(null)
 
@@ -282,6 +284,11 @@ class SagaRepository(
             loadShared()
             scope.launch { loadFedShared() }                 // fremde Server koennen dauern: nicht darauf warten
             if (ai.status.value == null) scope.launch { ai.loadStatus() }
+            // Mitteilungen: Abo nach erneuter Anmeldung/Passwortwechsel wieder anmelden (einmal je Start)
+            if (appContext != null && !pushChecked) {
+                pushChecked = true
+                scope.launch { push.load() }
+            }
             if (chat.state.value == io.github.yggdrasil_sh.saga.chat.ChatSetup.LOADING) scope.launch { chat.refresh() }
             if (serverVersion.value == null) checkVersion()
             loadTasks()
@@ -1017,6 +1024,7 @@ class SagaRepository(
         chat.reset()
         ai.clear()
         if (appContext != null) push.clear()
+        pushChecked = false
         shareSupported.value = false
         shareOff.value = false
         tasks.value = emptyList()

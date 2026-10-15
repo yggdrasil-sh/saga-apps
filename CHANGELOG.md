@@ -6,6 +6,24 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu (Android, passt zu Saga-Server 2.0; alles optional, ältere Server unverändert)
+- **Live-Kanal und Benachrichtigungen:** Glocke mit Zähler und Liste (gelesen, „Alle gelesen“, „Ältere laden“),
+  Einstellungen je Art unter Einstellungen → Benachrichtigungen. Auf Seiten: wer gerade da ist bzw. bearbeitet,
+  Änderungen anderer werden still nachgeladen (sonst Hinweis „… hat diese Seite geändert“ + „Neu laden“),
+  Kommentare live. Eine Verbindung, nur im Vordergrund.
+- **Chats mit Ende-zu-Ende-Verschlüsselung** (libsodium über lazysodium-android): Einrichtung mit
+  Wiederherstellungsschlüssel, neues Gerät per „Mit anderem Gerät bestätigen“ (20-stelliger Code) oder
+  Wiederherstellungsschlüssel, „Neu beginnen“ (mit Passwort), Sicherheitsnummer mit QR-Code und Warnung bei Wechsel,
+  Direkt-, Gruppen-, Seiten-Chats und freie Gruppen, Antworten, Anhänge (verschlüsselt), @-Seiten, „tippt …“,
+  „Für alle löschen“, Stummschalten, automatisches Löschen; Einstellungen → Chats & Geräte. Prüft die gemeinsamen
+  Testvektoren (`tests/chat_vectors.json`) als Gerätetest.
+- **Mitteilungen** über UnifiedPush (z. B. ntfy als Verteiler, kein Google FCM), Ende-zu-Ende-verschlüsselt
+  (Web Push, RFC 8291); worüber, Namen, Ruhezeiten, Test, Geräteliste.
+- **KI-Assistent** (wenn der Server ihn anbietet): „Frag deine Seiten“ mit Quellen und „Diese Seite“
+  (Zusammenfassen, Aufgaben vorschlagen, markierten Text verbessern, übersetzen) – Übernehmen nur nach Klick.
+- **Föderation:** Seiten anderer Saga-Instanzen unter „Mit mir geteilt“ (lesen, kommentieren, mit Bearbeiten Titel
+  und Inhalt ändern), Teilen an `name@server`. Seiten-IDs sind jetzt 64-Bit.
+
 ## [1.2.0] – 2026-10-14
 
 Passt zu Saga-Server 1.2. Enthält auch alles, was für 1.1.0 vorgesehen war (1.1.0 wurde nicht separat veröffentlicht).

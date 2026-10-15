@@ -113,6 +113,13 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+
+    // JNA bringt Bibliotheken fuer alte ABIs mit (armeabi, mips), fuer die es weder libsodium noch Android 8 gibt
+    packaging {
+        jniLibs {
+            excludes += setOf("lib/armeabi/**", "lib/mips/**", "lib/mips64/**")
+        }
+    }
 }
 
 // Fertige APKs zusaetzlich als android/dist/Saga-<version>.apk ablegen (dist/ ist ignoriert).

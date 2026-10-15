@@ -186,6 +186,8 @@ fun rememberPageLive(id: Long, repo: SagaRepository, ed: PageEditor, comments: C
                     }
                 }
                 "reset" -> if (!ed.dirty) ed.load()
+                // Freigaben geaendert (auch durch andere Instanzen): fremde Seite neu oeffnen (Rolle/Zugriff)
+                "shared.changed" -> if (ed.caps.foreign && !ed.dirty) ed.load()
             }
         }
     }

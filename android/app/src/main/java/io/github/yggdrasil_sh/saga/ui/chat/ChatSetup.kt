@@ -269,7 +269,7 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
     val s = ls
     if (s != null && !expired) {
         Text(
-            s.code.replace(" ", "  "), fontFamily = FontFamily.Monospace, fontSize = 28.sp, fontWeight = FontWeight.Bold,
+            linkCodeLines(s.code), fontFamily = FontFamily.Monospace, fontSize = 28.sp, fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center, modifier = Modifier.padding(top = 20.dp).fillMaxWidth(),
         )
         CircularProgressIndicator(Modifier.padding(top = 16.dp).size(24.dp), strokeWidth = 2.dp)

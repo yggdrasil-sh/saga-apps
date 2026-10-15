@@ -124,6 +124,7 @@
     <string name="chat_people_hint">Ab 3 Zeichen; Person antippen (Direkt-Chat) oder Gruppe (Gruppen-Chat).</string>
     <string name="chat_not_ready">%1$s hat Chats noch nicht eingerichtet</string>
     <string name="chat_create">Erstellen</string>
+    <string name="chat_page_menu">Chat zu dieser Seite</string>
     <string name="push_title">Mitteilungen</string>
     <string name="push_settings_hint">Auf diesem Gerät, worüber, Ruhezeiten</string>
     <string name="push_unsupported">Dieser Server kennt noch keine Mitteilungen.</string>

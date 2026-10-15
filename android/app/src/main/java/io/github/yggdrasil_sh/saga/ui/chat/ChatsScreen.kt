@@ -159,7 +159,7 @@ private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, onClick: ()
             .clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Avatar(name, symbol = when (c.kind) { "page" -> "📄"; "group" -> "👥"; else -> null }, size = 40)
+        Avatar(name, symbol = if (c.kind == "page") "📄" else null, size = 40, icon = if (c.kind == "group" || c.kind == "free") R.drawable.ic_group else null)
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(

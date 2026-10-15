@@ -124,6 +124,7 @@
     <string name="chat_people_hint">A partir de 3 caracteres; toca una persona (chat directo) o un grupo (chat de grupo).</string>
     <string name="chat_not_ready">%1$s todavía no ha configurado los chats</string>
     <string name="chat_create">Crear</string>
+    <string name="chat_page_menu">Chat de esta página</string>
     <string name="push_title">Notificaciones push</string>
     <string name="push_settings_hint">En este dispositivo, sobre qué, horas de silencio</string>
     <string name="push_unsupported">Este servidor todavía no admite notificaciones push.</string>

@@ -139,7 +139,7 @@ private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Uni
         modifier.then(if (tap) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Avatar(n.actor?.name ?: "", if (n.kind.startsWith("chat.")) "💬" else null)
+        Avatar(n.actor?.name ?: "", icon = if (n.kind.startsWith("chat.")) R.drawable.ic_chat else null)
         Column(Modifier.weight(1f)) {
             Text(
                 n.text, style = MaterialTheme.typography.bodyMedium,
@@ -167,13 +167,20 @@ private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Uni
     }
 }
 
-/** Anfangsbuchstabe im Kreis (oder ein Symbol) */
+/** Anfangsbuchstabe im Kreis (oder ein einfarbiges Symbol / Emoji) */
 @Composable
-fun Avatar(name: String, symbol: String? = null, size: Int = 36) {
+fun Avatar(name: String, symbol: String? = null, size: Int = 36, icon: Int? = null) {
     Box(
         Modifier.size(size.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
         contentAlignment = Alignment.Center,
     ) {
+        if (icon != null) {
+            androidx.compose.material3.Icon(
+                androidx.compose.ui.res.painterResource(icon), null, Modifier.size((size * 0.55f).dp),
+                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            return@Box
+        }
         Text(
             symbol ?: name.trim().firstOrNull()?.uppercase() ?: "?",
             style = if (size >= 36) MaterialTheme.typography.titleSmall else MaterialTheme.typography.labelSmall,

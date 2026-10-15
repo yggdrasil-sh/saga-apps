@@ -128,7 +128,7 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                             ListItem(
                                 headlineContent = { Text(g.name) },
                                 supportingContent = { Text(stringResource(R.string.chat_kind_group)) },
-                                leadingContent = { Avatar(g.name, symbol = "👥", size = 32) },
+                                leadingContent = { Avatar(g.name, size = 32, icon = R.drawable.ic_group) },
                                 modifier = Modifier.clickable { repo.launchAction { onOpen(svc.createGroup(g.name).id) } },
                             )
                         }
@@ -171,7 +171,7 @@ fun SafetyDialog(s: ChatSession, onDismiss: () -> Unit) {
                     Text(stringResource(R.string.chat_not_ready, name), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     Text(
-                        number.split(" ").chunked(4).joinToString("\n") { it.joinToString("  ") }, fontFamily = FontFamily.Monospace,
+                        number.split(" ").chunked(3).joinToString("\n") { it.joinToString("  ") }, fontFamily = FontFamily.Monospace,
                         fontSize = 18.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
                     )
                     if (qr) {
@@ -348,7 +348,7 @@ fun ChatLinkApproval(repo: SagaRepository) {
             Column {
                 Text(stringResource(R.string.chat_link_request_text, l.name.ifEmpty { "?" }))
                 Text(
-                    code.orEmpty(), fontFamily = FontFamily.Monospace, fontSize = 22.sp, fontWeight = FontWeight.Bold,
+                    linkCodeLines(code.orEmpty()), fontFamily = FontFamily.Monospace, fontSize = 22.sp, fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
                 )
             }
@@ -357,3 +357,6 @@ fun ChatLinkApproval(repo: SagaRepository) {
         dismissButton = { TextButton(onClick = { repo.launchAction { svc.reject(l) } }) { Text(stringResource(R.string.chat_link_reject), color = MaterialTheme.colorScheme.error) } },
     )
 }
+
+/** Kopplungs-Code in zwei Zeilen a zwei Bloecke ("01234 56789\n01234 56789") - gut vergleichbar, ohne Umbruch mitten im Block */
+fun linkCodeLines(code: String): String = code.split(" ").chunked(2).joinToString("\n") { it.joinToString("  ") }

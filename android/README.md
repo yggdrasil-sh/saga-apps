@@ -10,6 +10,7 @@ Voraussetzung: JDK 17 oder 21 und das Android-SDK (z. B. aus Android Studio).
 cd android
 ./gradlew assembleDebug          # -> dist/Saga-<Version>-debug.apk (App-ID ...saga.debug, parallel installierbar)
 ./gradlew testDebugUnitTest      # Unit-Tests
+./gradlew connectedDebugAndroidTest   # Chat-Testvektoren (tests/chat_vectors.json) mit libsodium auf Geraet/Emulator
 ./gradlew assembleRelease        # -> dist/Saga-<Version>.apk
 ```
 
@@ -32,3 +33,8 @@ Release-Builds werden signiert, wenn ein Schlüssel angegeben ist – sonst ents
 
 Eigener Schlüssel: `keytool -genkeypair -v -keystore saga-release.jks -alias saga -keyalg RSA -keysize 4096 -validity 10950`.
 Den Schlüssel nie verlieren – ohne ihn lassen sich installierte Apps nicht mehr aktualisieren.
+
+## Mitteilungen (Push)
+
+Ohne Google-Dienste über [UnifiedPush](https://unifiedpush.org): einen Verteiler wie ntfy installieren, dann in Saga
+Einstellungen → Mitteilungen einschalten. Inhalte sind Ende-zu-Ende verschlüsselt (Web Push, RFC 8291).

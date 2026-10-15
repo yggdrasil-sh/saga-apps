@@ -4,6 +4,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -108,14 +109,20 @@ fun AssistantSheet(repo: SagaRepository, editor: PageEditor?, initialTab: Int, o
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet) {
         Column(Modifier.fillMaxWidth().navigationBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
             Column(Modifier.widthIn(max = 760.dp).fillMaxWidth()) {
-                Text("✦ " + stringResource(R.string.ai_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = 20.dp))
                 val st = status
+                var history by remember { mutableStateOf(false) }
+                Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("✦ " + stringResource(R.string.ai_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    // Verlauf nur, wenn der Admin ihn erlaubt
+                    if (st?.enabled == true && st.historyAllowed) TextButton(onClick = { history = true }) { Text(stringResource(R.string.ai_history)) }
+                }
+                if (history) HistoryDialog(repo, st) { history = false }
                 if (st != null && !st.enabled) {
                     Text(stringResource(R.string.ai_off), modifier = Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     return@Column
                 }
                 if (editor != null) {
-                    PrimaryTabRow(selectedTabIndex = tab) {
+                    PrimaryTabRow(selectedTabIndex = tab, containerColor = androidx.compose.ui.graphics.Color.Transparent) {
                         Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text(stringResource(R.string.ai_ask_pages)) })
                         Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text(stringResource(R.string.ai_this_page)) })
                     }
@@ -187,7 +194,6 @@ private fun AskTab(repo: SagaRepository, st: AiStatus?, onOpenPage: (Long) -> Un
     var tasks by remember { mutableStateOf(false) }
     var calendar by remember { mutableStateOf(false) }
     var job by remember { mutableStateOf<Job?>(null) }
-    var showHistory by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val list = rememberLazyListState()
     val running = turns.lastOrNull()?.running == true && job?.isActive == true
@@ -224,7 +230,6 @@ private fun AskTab(repo: SagaRepository, st: AiStatus?, onOpenPage: (Long) -> Un
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             FilterChip(selected = tasks, onClick = { tasks = !tasks }, label = { Text(stringResource(R.string.ai_include_tasks)) })
             FilterChip(selected = calendar, onClick = { calendar = !calendar }, label = { Text(stringResource(R.string.ai_include_calendar)) })
-            if (st?.historyAllowed == true) TextButton(onClick = { showHistory = true }) { Text(stringResource(R.string.ai_history)) }
         }
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.End) {
             if (running) {
@@ -256,7 +261,6 @@ private fun AskTab(repo: SagaRepository, st: AiStatus?, onOpenPage: (Long) -> Un
             }
         }
     }
-    if (showHistory) HistoryDialog(repo, st) { showHistory = false }
 }
 
 private fun updateQuota(repo: SagaRepository, d: AiDone) {
@@ -323,15 +327,19 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
     }
 
     Column(Modifier.padding(horizontal = 20.dp).verticalScroll(rememberScrollState())) {
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             OutlinedButton(onClick = { run("summarize") }, enabled = !running) { Text(stringResource(R.string.ai_summarize)) }
             OutlinedButton(onClick = { run("tasks") }, enabled = !running) { Text(stringResource(R.string.ai_suggest_tasks)) }
         }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        FlowRow(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             OutlinedButton(onClick = { run("improve") }, enabled = !running && selected.isNotEmpty()) { Text(stringResource(R.string.ai_improve)) }
-            OutlinedButton(onClick = { run("translate") }, enabled = !running && selected.isNotEmpty()) { Text(stringResource(R.string.ai_translate_to) + " " + target.uppercase()) }
+            OutlinedButton(onClick = { run("translate") }, enabled = !running && selected.isNotEmpty()) { Text(stringResource(R.string.ai_translate_to)) }
             Box {
-                TextButton(onClick = { targetMenu = true }, enabled = targets.isNotEmpty()) { Text("▾") }
+                // Zielsprache (aus status.targets)
+                AssistChip(
+                    onClick = { targetMenu = true }, enabled = targets.isNotEmpty(),
+                    label = { Text(Locale.forLanguageTag(target).getDisplayLanguage(Locale.getDefault()).ifEmpty { target } + " ▾") },
+                )
                 DropdownMenu(expanded = targetMenu, onDismissRequest = { targetMenu = false }) {
                     targets.forEach { t ->
                         DropdownMenuItem(text = { Text(Locale.forLanguageTag(t).getDisplayLanguage(Locale.getDefault()).ifEmpty { t } + " ($t)") }, onClick = { target = t; targetMenu = false })
@@ -377,7 +385,7 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                 }
             }
             val chosen = ts.filterIndexed { i, _ -> taskOn.getOrElse(i) { true } }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(vertical = 8.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(vertical = 8.dp)) {
                 Button(onClick = {
                     repo.launchAction {
                         chosen.forEach { repo.addTask(it, null) }
@@ -392,7 +400,7 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                 val segs = d.segments
                 val bl = d.blocks
                 val replaceable = canEdit && segs != null && bl != null && bl.size == segs.size && bl.all { it.replaceable }
-                Row(Modifier.padding(vertical = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     if ((action == "improve" || action == "translate") && replaceable) {
                         Button(onClick = { confirmReplace = true }) { Text(stringResource(R.string.ai_replace)) }
                     }

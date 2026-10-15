@@ -197,6 +197,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     // KI-Assistent: null = zu, 0 = "Frag deine Seiten", 1 = "Diese Seite"
     val aiStatus by repo.ai.status.collectAsState()
     val aiOn = aiStatus?.enabled == true
+    val chatOn = repo.live.chatEnabled.collectAsState().value && repo.chat.state.collectAsState().value == io.github.yggdrasil_sh.saga.chat.ChatSetup.READY
     var assistant by remember { mutableStateOf<Int?>(null) }
     // aus einer Benachrichtigung/Mitteilung: Kommentare (Unterhaltung am Block) gleich zeigen
     val openComments by repo.openCommentsFor.collectAsState()
@@ -242,7 +243,10 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             SaveState(ed)
             // KI-Assistent (1.6): nur sichtbar, wenn der Server ihn fuer diese Person anbietet
             if (aiOn && ed.fetched && !ed.isDatabase) {
-                IconButton(onClick = { assistant = 0 }) { Text("✦", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary) }
+                val aiDesc = stringResource(R.string.ai_title)
+                IconButton(onClick = { assistant = 0 }, modifier = Modifier.semantics { contentDescription = aiDesc }) {
+                    Text("✦", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clearAndSetSemantics { })
+                }
             }
             // Kommentare dezent: "💬 n" nur bei offenen Unterhaltungen, Punkt bei ungelesenen
             if (ed.fetched && caps.showComments && comments.openCount > 0) {
@@ -282,6 +286,13 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                         DropdownMenuItem(text = { Text(stringResource(if (ed.locked) R.string.page_unlock else R.string.page_lock)) }, onClick = {
                             menu = false
                             repo.launchAction { ed.setLocked(!ed.locked) }
+                        })
+                    }
+                    // Seiten-Chat (1.5): alle mit Zugriff auf die Seite, Ende-zu-Ende-verschluesselt
+                    if (chatOn && ed.fetched && !ed.isRemote) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.chat_page_menu)) }, onClick = {
+                            menu = false
+                            repo.launchAction { nav.push(Dest.Chat(repo.chat.createPage(id).id)) }
                         })
                     }
                     if (aiOn && ed.fetched && !ed.isDatabase) {
