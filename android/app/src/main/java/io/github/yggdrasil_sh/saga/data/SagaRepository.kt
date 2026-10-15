@@ -814,12 +814,7 @@ class SagaRepository(
     suspend fun capture(kind: String, title: String, text: String, url: String?): Long? {
         val key = withContext(Dispatchers.IO) { secure.appKeyFor(settings.server.value) }
         if (key != null) {
-            val r = api.request("POST", "api/app/capture", buildJsonObject {
-                put("kind", kind)
-                put("title", title)
-                put("text", if (kind == "page") text else "")
-                if (!url.isNullOrEmpty()) put("url", url)
-            }, bearer = key)
+            val r = api.request("POST", "api/app/capture", captureBody(kind, title, text, url), bearer = key)
             val id = decode<CaptureResult>(r).id
             if (kind == "task") loadTasks() else refresh()
             return if (kind == "page") id else null
@@ -836,6 +831,19 @@ class SagaRepository(
         }
         val body = BlockDoc.serialize(JsonObject(mapOf("blocks" to JsonArray(blocks))))
         return createPageWith(title.ifBlank { (url ?: text).take(80) }, body)
+    }
+
+    companion object {
+        /**
+         * Inhalt fuer POST api/app/capture. Text immer mitsenden: bei einer Aufgabe ohne Titel nimmt der Server die
+         * erste Zeile (vorher leer -> "nothing to save", BUG-024).
+         */
+        fun captureBody(kind: String, title: String, text: String, url: String?): JsonObject = buildJsonObject {
+            put("kind", kind)
+            put("title", title)
+            put("text", text)
+            if (!url.isNullOrEmpty()) put("url", url)
+        }
     }
 
     // ---------------------------------------------------------------- Termine
