@@ -142,6 +142,29 @@ def test_write_reply_resolve_and_show_resolved(win, srv):
     assert not v.comments_open
 
 
+def test_live_comments_show_up_and_keep_draft(win, srv):
+    """BUG-029: eigener Kommentar erscheint, auch wenn das Live-Ereignis comments.changed das Neuladen ueberholt; fremde
+    Kommentare erscheinen in der offenen Leiste; ein Entwurf im Eingabefeld bleibt dabei stehen"""
+    v = _open(win, 1)
+    p = _panel(win, v)
+    pump(lambda: p.s.loaded, 3)
+    srv.delay["GET api/notes/1/comments"] = 0.4                 # Laden nach dem Senden langsam ...
+    p.composer.buf.set_text("Eigener Kommentar")
+    p.composer.send()
+    assert pump(lambda: len(srv.comments) == 1, 5)
+    v.live_comments({"open": 1, "unread": 0})                   # ... und vom Live-Ereignis ueberholt
+    srv.delay.pop("GET api/notes/1/comments", None)
+    assert pump(lambda: "Eigener Kommentar" in _labels(p.list), 5), _labels(p.list)
+    # fremder Kommentar, waehrend im Feld ein Entwurf steht
+    p.composer.buf.set_text("Mein Entwurf")
+    comp = p.composer
+    srv.add_comment(1, "Von Anna")
+    v.live_comments({"open": 2, "unread": 1})
+    assert pump(lambda: "Von Anna" in _labels(p.list), 5), _labels(p.list)
+    assert p.composer is comp and comp.text() == "Mein Entwurf"
+    v.hide_comments()
+
+
 def test_block_bubble_and_block_view(win, srv):
     srv.add_comment(1, "Zum Absatz", block_id="p1")
     v = _open(win, 1)
@@ -249,6 +272,8 @@ def test_composer_limit_and_counter(app):
     c.buf.set_text("x" * 1850)
     assert c.count.get_label() == "1850 of 2000"
     c.buf.set_text("y" * 2100)
-    assert len(c.text()) == 2000
-    c.send()
+    c.send()                                                    # vor dem Kuerzen gesendet: trotzdem nur 2000
     assert sent == ["y" * 2000] and c.text() == ""
+    c.buf.set_text("z" * 2100)
+    pump(None, 0.2)                                             # gekuerzt nach dem "changed"-Handler (BUG-117)
+    assert len(c.text()) == 2000

@@ -4593,3 +4593,11 @@ msgstr "Ein Link möchte in Saga eine neue Seite anlegen."
 #: hlidskjalf/window.py:1649
 msgid "Create page"
 msgstr "Seite anlegen"
+
+#: hlidskjalf/editor.py hlidskjalf/page.py
+msgid "This page is too large to save. Shorten it or split it into several pages – until then your changes are only kept on this device."
+msgstr "Diese Seite ist zu groß zum Speichern. Kürze sie oder teile sie auf mehrere Seiten auf – bis dahin bleiben deine Änderungen nur auf diesem Gerät."
+
+#: hlidskjalf/window.py
+msgid "“{title}” is too large to save. Your changes are kept on this device, but they can only be saved once the page is shorter or split up."
+msgstr "„{title}“ ist zu groß zum Speichern. Deine Änderungen bleiben auf diesem Gerät, lassen sich aber erst speichern, wenn die Seite kürzer oder aufgeteilt ist."

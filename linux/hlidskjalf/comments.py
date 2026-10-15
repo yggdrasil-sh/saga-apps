@@ -216,6 +216,7 @@ class Composer(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self.on_ok, self.on_cancel, self.maxlen = on_ok, on_cancel, maxlen
         self.busy = False
+        self._trim_src = 0
         ov = Gtk.Overlay()
         sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, propagate_natural_height=True, max_content_height=220,
                                 min_content_height=56)
@@ -257,12 +258,22 @@ class Composer(Gtk.Box):
     def _update(self):
         t = self.text()
         if len(t) > self.maxlen:                                # wie maxlength im Web
-            self.buf.set_text(t[:self.maxlen])
+            # nicht im "changed"-Handler selbst kuerzen: GTK wuerde die Iteratoren des laufenden Einfuegens
+            # verwerfen ("Invalid text buffer iterator", BUG-117) - gleich danach
+            if not self._trim_src:
+                self._trim_src = GLib.idle_add(self._trim)
             return
         n = len(t)
         self.count.set_label(_("{n} of {max}").format(n=n, max=self.maxlen) if n > self.maxlen - 200 else "")
         self.ph.set_visible(n == 0)
         self.ok.set_sensitive(bool(t.strip()) and not self.busy)
+
+    def _trim(self):
+        self._trim_src = 0
+        t = self.text()
+        if len(t) > self.maxlen:
+            self.buf.set_text(t[:self.maxlen])
+        return False
 
     def _key(self, c, kv, code, state):
         if kv in (Gdk.KEY_Return, Gdk.KEY_KP_Enter) and state & Gdk.ModifierType.CONTROL_MASK:
@@ -274,7 +285,7 @@ class Composer(Gtk.Box):
         return False
 
     def send(self):
-        t = self.text().strip()
+        t = self.text()[:self.maxlen].strip()
         if not t or self.busy:
             return
         self.busy = True
@@ -303,6 +314,8 @@ class CommentsPanel(Gtk.Box):
         self.add_css_class("hk-cm-panel")
         self.s = CommentState()
         self.load_gen = 0
+        self._done = []                    # Rueckrufe ausstehender reload()-Aufrufe
+        self._foot_key = None              # Eingabefeld unten nur neu bauen, wenn sich Rolle/Block aendern (Entwurf bleibt)
         self.reply_to = None
         self.editing = None
         self.is_open = False
@@ -355,16 +368,21 @@ class CommentsPanel(Gtk.Box):
 
     # --- Daten -----------------------------------------------------------------------------------------
     def reload(self, done=None):
+        """Kommentare laden; done() nach dem Laden. Ueberholt ein neueres Laden ein aelteres (z. B. Live-Ereignis direkt
+        nach dem eigenen Senden), laufen die Rueckrufe des aelteren mit dem neuesten Stand - keiner geht verloren (BUG-029)."""
         gen = self.load_gen = self.load_gen + 1
         nid = self.nid
+        if done is not None and done not in self._done:
+            self._done.append(done)
 
         def fin(d):
             if gen != self.load_gen:
                 return
             self.s.apply(d)
             self.view.comments_changed(self.s)
-            if done:
-                done()
+            ds, self._done = self._done, []
+            for cb in ds:
+                cb()
 
         def err(e):
             if gen == self.load_gen and self.is_open:
@@ -379,6 +397,12 @@ class CommentsPanel(Gtk.Box):
         self.reload(self.render)
         if block is not None and self.composer is not None and self.s.can:
             GLib.idle_add(lambda: (self.composer is not None and self.composer.focus(), False)[1])
+
+    def live_render(self):
+        """Live (comments.changed, auch fremde Kommentare): neu zeichnen, solange keine Antwort/Bearbeitung offen ist -
+        deren Eingabefeld wuerde sonst neu gebaut (Entwurf weg). Das Feld unten bleibt stehen (render)."""
+        if self.is_open and self.reply_to is None and self.editing is None:
+            self.render()
 
     def closed(self):
         self.is_open = False
@@ -419,6 +443,10 @@ class CommentsPanel(Gtk.Box):
 
     def _foot(self):
         s = self.s
+        key = (s.can, s.block or "", s.placeholder(), s.max)
+        if key == self._foot_key and self.composer is not None:
+            return                                         # Entwurf und Fokus im Eingabefeld bleiben
+        self._foot_key = key
         while (c := self.foot.get_first_child()):
             self.foot.remove(c)
         self.composer = None

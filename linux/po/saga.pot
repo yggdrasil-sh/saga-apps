@@ -4735,3 +4735,11 @@ msgstr ""
 #: hlidskjalf/window.py:1649
 msgid "Create page"
 msgstr ""
+
+#: hlidskjalf/editor.py hlidskjalf/page.py
+msgid "This page is too large to save. Shorten it or split it into several pages – until then your changes are only kept on this device."
+msgstr ""
+
+#: hlidskjalf/window.py
+msgid "“{title}” is too large to save. Your changes are kept on this device, but they can only be saved once the page is shorter or split up."
+msgstr ""
