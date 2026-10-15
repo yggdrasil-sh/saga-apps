@@ -256,10 +256,18 @@ final class Store: ObservableObject {
     }
 
     /// Antwort der Anmeldung: Geraete-Schluessel sichern, App-Schluessel (Widget/Teilen) uebernehmen, falls noch keiner da ist
-    private func adoptKeys(_ d: Data) {
+    /// Rueckgabe false: Geraete-Schluessel kam, liess sich aber nicht im Schluesselbund speichern (BUG-104)
+    @discardableResult
+    private func adoptKeys(_ d: Data) -> Bool {
         let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any]
-        if let t = j?["device_token"] as? String, t.hasPrefix("hkd_") { DeviceKey.set(t) }
+        var ok = true
+        if let t = j?["device_token"] as? String, t.hasPrefix("hkd_") { DeviceKey.set(t); ok = DeviceKey.stored() == t }
         if let k = j?["app_key"] as? String, k.hasPrefix("hk_"), !AppConfig.hasToken { AppConfig.token = k; reloadWidgets() }
+        return ok
+    }
+    /// Text, wenn der Geraete-Schluessel nach Anmeldung/Kopplung nicht gespeichert werden konnte
+    static var keychainFailedText: String {
+        String(localized: "Der Geräte-Schlüssel konnte nicht im Schlüsselbund gespeichert werden. Die Anmeldung hält deshalb nur einige Stunden.")
     }
     private func reloadWidgets() {
         #if canImport(WidgetKit)
@@ -286,7 +294,7 @@ final class Store: ObservableObject {
             await loadShared()
             Task { await loadFedShared() }                        // fremde Server koennen dauern: nicht darauf warten
             Task { await notifs.loadCount(); await chat.refreshUnread(); await loadAIStatus() }
-            if error != nil { error = nil }
+            if error != nil, error != Store.keychainFailedText { error = nil }   // Schluesselbund-Problem bleibt sichtbar (BUG-104)
             if serverVersion == nil { await checkVersion() }
             await loadToday()
             await ensureDeviceKey()
@@ -294,7 +302,31 @@ final class Store: ObservableObject {
             if !accountChecked || AppConfig.serverOrigin.flatMap({ DraftOwner.app.account(origin: $0) }) == nil {
                 accountChecked = true; await identifyAccount()
             }
+            Task { await resendDrafts() }                         // offline Geaendertes nachsenden (BUG-020)
         } catch { if !needsLogin, self.error != error.localizedDescription { self.error = error.localizedDescription } }
+    }
+    /// Liegengebliebene Entwuerfe (offline geaendert, Seite inzwischen verlassen) senden, sobald der Server wieder
+    /// antwortet - mit der Revision, auf der sie beruhen: hat sich die Seite inzwischen geaendert (409), wird nichts
+    /// ueberschrieben, der Entwurf wird dann beim Oeffnen angeboten. Offene Seiten senden selbst (BUG-020).
+    private var resendingDrafts = false
+    func resendDrafts() async {
+        guard !resendingDrafts, let o = AppConfig.serverOrigin, DraftOwner.app.account(origin: o) != nil,
+              let ds = DraftOwner.app.store(origin: o) else { return }
+        resendingDrafts = true; defer { resendingDrafts = false }
+        let gen = sessionGen
+        for f in ds.files {
+            guard let id = DraftResend.pageID(f.lastPathComponent), let dr = ds.load(id),
+                  DraftResend.shouldSend(dr, id: id, open: SaveRegistry.openIDs) else { continue }
+            let b: [String: Any] = ["title": dr.title, "body": dr.body, "format": "blocks", "rev": dr.rev]
+            guard let (_, code) = try? await apiResponse("api/notes/\(id)", method: "PATCH", body: b) else { return }   // offline: spaeter
+            // abgemeldet/anderes Konto oder Seite inzwischen geoeffnet bzw. Entwurf geaendert: nichts mehr anfassen
+            guard gen == sessionGen, AppConfig.serverOrigin == o, ds.load(id) == dr else { return }
+            switch DraftResend.outcome(code) {
+            case .sent: ds.remove(id); dropCache("api/notes/\(id)"); updateTitle(id, dr.title)
+            case .hold: var c = dr; c.conflict = true; ds.save(id, c)
+            case .retry: return
+            }
+        }
     }
     /// 60-s-Abgleich: still, hoechstens einmal pro Takt fuer alle Fenster, und nur Geaendertes neu setzen
     /// (sonst zeichnen alle Ansichten mit dem Store jede Minute neu)
@@ -373,7 +405,20 @@ final class Store: ObservableObject {
 
     /// Startseite dieses Geraets (wird beim App-Start geoeffnet)
     @Published var homePage: Int? = UserDefaults.standard.object(forKey: "hk.homePage") as? Int
-    func setHome(_ id: Int?) { homePage = id; if let id { UserDefaults.standard.set(id, forKey: "hk.homePage") } else { UserDefaults.standard.removeObject(forKey: "hk.homePage") } }
+    /// Startseite merkt sich ihr Konto (Server + Benutzername): ein anderes Konto oeffnet sie nie (BUG-060)
+    func setHome(_ id: Int?) {
+        homePage = id
+        let d = UserDefaults.standard
+        if let id {
+            d.set(id, forKey: "hk.homePage")
+            if let o = AppConfig.serverOrigin, let a = DraftOwner.app.account(origin: o) { d.set(HomeOwner.key(origin: o, account: a), forKey: "hk.homeOwner") }
+        } else { d.removeObject(forKey: "hk.homePage"); d.removeObject(forKey: "hk.homeOwner") }
+    }
+    /// Konto erkannt: Startseite eines anderen Kontos vergessen
+    private func checkHomeOwner(origin: String, account: String) {
+        if homePage != nil, HomeOwner.mustForget(stored: UserDefaults.standard.string(forKey: "hk.homeOwner"), origin: origin, account: account) { setHome(nil) }
+        else if homePage != nil, UserDefaults.standard.string(forKey: "hk.homeOwner") == nil { setHome(homePage) }   // alte Fassung: Besitzer nachtragen
+    }
     func calTargets() async -> [CalTarget] {
         guard let d = try? await api("api/settings/calendars"), let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return [] }
         return (j["accounts"] as? [[String: Any]] ?? []).flatMap { a in
@@ -614,9 +659,10 @@ final class Store: ObservableObject {
         if switching || signOut { await logout(switchingServer: true) }  // alter Server/altes Konto: Schluessel, Cookies, Zwischenspeicher weg
         AppConfig.server = server; cookieHeader = nil; serverVersion = nil; minApp = nil
         await storeCookies(http, url)
-        adoptKeys(d); deviceKeyTried = true
+        let keyOK = adoptKeys(d); deviceKeyTried = true
         await identifyAccount()                                           // Entwuerfe gehoeren zu Server + Konto
         needsLogin = false
+        if !keyOK { error = Store.keychainFailedText }                    // nicht still: sonst spaeter unerklaert abgemeldet
     }
 
     /// Anmeldung per QR-Code (Kopplungs-Code aus dem Web). Der Server wird erst nach erfolgreicher Kopplung
@@ -660,6 +706,7 @@ final class Store: ObservableObject {
               let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
               let u = j["username"] as? String, !u.isEmpty else { return }
         DraftOwner.app.signedIn(origin: o, account: u)
+        checkHomeOwner(origin: o, account: u)
         let n = (j["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         accountName = n.isEmpty ? u : n
     }
@@ -709,6 +756,7 @@ final class Store: ObservableObject {
             _ = try? await URLSession.shared.data(for: req)
         }
         DeviceKey.set(nil); deviceKeyTried = false
+        if error == Store.keychainFailedText { error = nil }
         DraftOwner.app.signedOut(); accountChecked = false; accountName = nil // Entwuerfe bleiben liegen, aber nur fuer ihr Konto lesbar
         AppConfig.token = ""; reloadWidgets()                           // der Server loescht den Widget-Schluessel dieses Geraets mit
         let ds = WKWebsiteDataStore.default()
@@ -719,7 +767,10 @@ final class Store: ObservableObject {
         images.removeAllObjects(); cookieHeader = nil
         live.stop(); notifs.reset(); chat.signedOut(); push.signedOut()   // 2.0: Live, Glocke, Chat-Schluessel im Speicher, Push-Abo
         pages = []; archivedPages = []; lastAll = nil; shared = []; fedShared = []; aiEnabled = false; fedUnreachable = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
-        if switchingServer { setHome(nil); serverVersion = nil; minApp = nil }
+        // Startseite immer vergessen: die naechste Anmeldung kann ein anderes Konto sein - dessen Start sonst die
+        // Seiten-ID des alten Kontos an den Server schickte (BUG-060)
+        setHome(nil)
+        if switchingServer { serverVersion = nil; minApp = nil }
         SpotlightIndex.clear()                                            // abgemeldet: nichts mehr in der Systemsuche
         needsLogin = true
     }

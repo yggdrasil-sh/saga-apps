@@ -7,5 +7,6 @@ func check(_ c: Bool, _ msg: String, line: Int = #line) {
 }
 v2Tests()
 fixTests()
+bughuntTests()
 print("Logik-Tests 2.0: \(passed) ok, \(failed) fehlgeschlagen")
 exit(failed == 0 ? 0 : 1)

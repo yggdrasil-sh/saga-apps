@@ -23193,6 +23193,116 @@
           }
         }
       }
+    },
+    "Deine Chats sind Ende-zu-Ende-verschlüsselt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deine Chats sind Ende-zu-Ende-verschlüsselt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your chats are end-to-end encrypted."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tus chats están cifrados de extremo a extremo."
+          }
+        }
+      }
+    },
+    "Der Geräte-Schlüssel konnte nicht im Schlüsselbund gespeichert werden. Die Anmeldung hält deshalb nur einige Stunden." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Geräte-Schlüssel konnte nicht im Schlüsselbund gespeichert werden. Die Anmeldung hält deshalb nur einige Stunden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The device key couldn't be saved to the keychain, so this sign-in will only last a few hours."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo guardar la clave del dispositivo en el llavero, por lo que este inicio de sesión solo durará unas horas."
+          }
+        }
+      }
+    },
+    "Server nicht erreichbar – bitte die Adresse prüfen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server nicht erreichbar – bitte die Adresse prüfen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server not reachable – please check the address."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede acceder al servidor: comprueba la dirección."
+          }
+        }
+      }
+    },
+    "Unter dieser Adresse antwortet kein Saga-Server – bitte die Adresse prüfen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unter dieser Adresse antwortet kein Saga-Server – bitte die Adresse prüfen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No Saga server responds at this address – please check the address."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ningún servidor de Saga responde en esta dirección: comprueba la dirección."
+          }
+        }
+      }
+    },
+    "Bild einsetzen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bild einsetzen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste Image"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pegar imagen"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

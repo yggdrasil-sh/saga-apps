@@ -88,7 +88,7 @@ struct ChatListView: View {
             if chat.chats.isEmpty {
                 ContentUnavailableView {
                     Label("Noch keine Chats", systemImage: "bubble.left.and.bubble.right")
-                } description: { Text("Nachrichten in diesem Chat sind Ende-zu-Ende-verschlüsselt.") } actions: {
+                } description: { Text("Deine Chats sind Ende-zu-Ende-verschlüsselt.") } actions: {
                     Button("Neue Unterhaltung") { newChat = true }.prominentGold()
                 }
                 .listRowBackground(Color.clear)
@@ -401,13 +401,13 @@ struct ChatNewDeviceView: View {
     private func choice(_ t: LocalizedStringKey, _ s: LocalizedStringKey, _ icon: String, warn: Bool = false, _ a: @escaping () -> Void) -> some View {
         Button(action: a) {
             HStack(spacing: 12) {
-                Image(systemName: icon).font(.title2).frame(width: 36).foregroundStyle(warn ? Color.red : Color.gold)
+                Image(systemName: icon).font(.title2).frame(width: 36).foregroundStyle(warn ? Color.red : Color.gold).accessibilityHidden(true)   // Deko: VoiceOver liest den Text
                 VStack(alignment: .leading, spacing: 2) {
                     Text(t).font(.headline).foregroundStyle(warn ? Color.red : Color.primary)
                     Text(s).font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+                Image(systemName: "chevron.right").foregroundStyle(.tertiary).accessibilityHidden(true)
             }
             .padding(14).background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12)).contentShape(Rectangle())
         }.buttonStyle(.plain)

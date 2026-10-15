@@ -17,6 +17,11 @@ final class NavModel: ObservableObject {
     @Published var sharedJump = 0                                    // "Zu „Mit mir geteilt“": Seitenleiste dort zeigen (zaehlt hoch)
     /// Benachrichtigung zu einem Kommentar: beim Oeffnen der Seite die Kommentare dieses Blocks zeigen
     var pendingComments: (id: Int, block: String)?
+    /// zaehlt hoch, wenn `pendingComments` gesetzt wird - eine schon offene Seite oeffnet dann ihre Kommentare (BUG-059)
+    @Published var commentsJump = 0
+    func showComments(_ id: Int, block: String) { pendingComments = (id, block); commentsJump += 1 }
+    /// Neu angelegter Datenbank-Eintrag: beim Oeffnen den Titel fokussieren (Tastatur auf)
+    var focusTitle: Int?
     func toShared() { sharedJump += 1 }
     func push(_ r: PageRoute) { path.append(r); forward = [] }
     func back() { if let r = path.popLast() { forward.append(r) } }
@@ -161,7 +166,7 @@ struct DatabaseView: View {
             DBViewBar(m: m, views: views, current: $current, editable: localViews?.isEmpty != false || onLocalViews != nil) { id in
                 Task {
                     if let id { nav.open(id, mode: view?["open"] as? String ?? "side"); return }
-                    if let nid = await m.add(store, props: defaults()) { nav.open(nid, mode: view?["open"] as? String ?? "side") }
+                    if let nid = await m.add(store, props: defaults()) { nav.focusTitle = nid; nav.open(nid, mode: view?["open"] as? String ?? "side") }   // Titel gleich bearbeiten
                 }
             }
             if !m.loaded { ProgressView().frame(maxWidth: .infinity) }
@@ -565,7 +570,7 @@ struct ColumnHead: View {
                 .padding(.horizontal, 8).padding(.vertical, 7).frame(width: width, alignment: .leading).contentShape(Rectangle())
         }
         .buttonStyle(.plain).help(prop.name)
-        .popover(isPresented: $edit, arrowEdge: .bottom) { ColumnEditor(m: m, pid: prop.id) }
+        .popover(isPresented: $edit, arrowEdge: .bottom) { ColumnEditor(m: m, pid: prop.id).presentationCompactAdaptation(.popover) }   // iPhone: kein Blatt ohne "Fertig"
     }
 }
 

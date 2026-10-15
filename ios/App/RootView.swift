@@ -217,8 +217,10 @@ func HlidskjalfApp_copyPageLink(_ id: Int) {
 extension RootView {
     /// Startablauf (ausgelagert: ein grosser .task-Block sprengt sonst die Typpruefung im CI-Xcode)
     @MainActor func startup() async {
-        if selection == nil, let home = store.homePage { selection = home }        // Startseite sofort (aus dem Zwischenspeicher)
+        let startHome = store.homePage
+        if selection == nil, let home = startHome { selection = home }        // Startseite sofort (aus dem Zwischenspeicher)
         await store.refresh()
+        if let h = startHome, store.homePage == nil, selection == h { selection = nil }   // gehoerte einem anderen Konto (BUG-060)
         if !store.needsLogin { store.live.start(); store.push.appStarted(); Task { await store.chat.load() } }
         if let t = PushModel.pending { PushModel.pending = nil; openTarget(t) }   // Kaltstart per Mitteilung
         if let home = store.homePage, !store.pages.isEmpty, store.page(home) == nil { store.setHome(nil); if selection == home { selection = nil } }   // geloescht -> vergessen
@@ -272,7 +274,7 @@ extension RootView {
         case .chat(let id): nav.peek = nil; nav.path = []; selection = FedLogic.chatsTag; openChat = id
         case .page(let id, let block):
             nav.peek = nil
-            if let b = block { nav.pendingComments = (id, b) }
+            if let b = block { nav.showComments(id, block: b) }       // Seite schon offen: sie reagiert auf commentsJump
             if selection == id { nav.path = [] } else { selection = id }
         case .none: break
         }
@@ -423,7 +425,8 @@ struct Sidebar: View {
                 if !store.favorites.isEmpty {
                     Section("Favoriten") { ForEach(store.favorites) { PageRow(page: $0, store: store).pageActions($0, store: store, selection: $selection, moveID: $moveID).tag($0.id) } }
                 }
-                let recent = store.recent.compactMap { store.page($0) }.prefix(5)
+                // offene Seite nicht doppelt markieren (steht schon unter "Seiten")
+                let recent = store.recent.filter { $0 != selection }.compactMap { store.page($0) }.prefix(5)
                 if !recent.isEmpty {
                     Section("Zuletzt") {
                         ForEach(Array(recent)) { p in
@@ -565,14 +568,16 @@ struct PageIcon: View {
 
 struct TodaySection: View {
     @ObservedObject var store: Store
+    /// Abschnittskopf "Heute" (Seitenleiste); in der Ansicht "Heute" steht er schon als Titel darueber
+    var header = true
     @State private var editingTask: OpenTask?
     @State private var editingEvent: CalEvent?
     var body: some View {
-        Section("Heute") {
+        Section {
             if store.events.isEmpty && store.tasks.isEmpty { Text("Nichts geplant 🎉").foregroundStyle(.secondary) }
             ForEach(store.events.prefix(4)) { e in Button { editingEvent = e } label: { EventRow(e: e) }.buttonStyle(.plain) }
             ForEach(todayTasks) { t in TaskRow(task: t) { editingTask = t } }
-        }
+        } header: { if header { Text("Heute") } }
         .sheet(item: $editingTask) { t in TaskEditor(task: t).environmentObject(store) }
         .sheet(item: $editingEvent) { e in EventEditor(event: e).environmentObject(store) }
     }
@@ -619,7 +624,7 @@ struct PageScreen: View {
 struct TodayScreen: View {
     @ObservedObject var store: Store
     var body: some View {
-        List { TodaySection(store: store) }
+        List { TodaySection(store: store, header: false) }
             .navigationTitle("Heute")
     }
 }
@@ -664,6 +669,7 @@ struct LoginScreen: View {
             }.frame(maxWidth: 420)
             #endif
             if !error.isEmpty { Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center) }
+            else if store.error == Store.keychainFailedText { Text(Store.keychainFailedText).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center) }   // BUG-104
             Spacer()
         }
         .padding(30)
@@ -702,6 +708,13 @@ struct LoginScreen: View {
     /// Browser-Anmeldung gegen den vorgemerkten Server; Server + PKCE-Geheimnis gehoeren zu genau diesem Versuch
     private func signIn(_ target: URL) async {
         busy = true; error = ""; defer { busy = false }
+        // erst pruefen, ob dort ein Saga-Server antwortet - sonst kam gleich das System-Anmeldefenster mit einer
+        // Browser-Fehlerseite bzw. einer fremden Seite (BUG-063)
+        switch await LoginScreen.probe(target) {
+        case .unreachable: error = String(localized: "Server nicht erreichbar – bitte die Adresse prüfen."); return
+        case .notSaga: error = String(localized: "Unter dieser Adresse antwortet kein Saga-Server – bitte die Adresse prüfen."); return
+        case .ok: break
+        }
         let (verifier, challenge) = Store.pkce()
         guard let url = URL(string: target.absoluteString + "/app/login?challenge=" + challenge) else { return }
         do {
@@ -716,6 +729,20 @@ struct LoginScreen: View {
         } catch let e as ASWebAuthenticationSessionError where e.code == .canceledLogin {
             // abgebrochen - nichts tun
         } catch { self.error = error.localizedDescription }
+    }
+    /// Vorab-Pruefung der Server-Adresse: /api/version (oeffentlich), fuer alte Server /app/login ohne Challenge (400)
+    static func probe(_ target: URL) async -> ServerProbe.Result {
+        func status(_ path: String) async -> (Int, Data)? {
+            guard let u = URL(string: target.absoluteString + path) else { return nil }
+            var req = URLRequest(url: u, timeoutInterval: 8); req.httpShouldHandleCookies = false
+            guard let (d, r) = try? await URLSession.shared.data(for: req), let h = r as? HTTPURLResponse else { return nil }
+            return (h.statusCode, d)
+        }
+        let v = await status("/api/version")
+        let saga = v.map { $0.0 == 200 && ServerProbe.isSagaVersion($0.1) } ?? false
+        var login: Int?
+        if v != nil && !saga { login = await status("/app/login")?.0 }
+        return ServerProbe.classify(versionCode: v?.0, versionIsSaga: saga, loginCode: login)
     }
 }
 

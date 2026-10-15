@@ -373,6 +373,13 @@ final class PageDoc: ObservableObject {
         guard !isDatabase, let body = serialized() else { return }
         drafts?.save(id, PageDraft(title: titleRaw, body: body, rev: rev, saved: Date(), conflict: conflict))
     }
+    /// Bei jeder Eingabe sofort lokal sichern (nur Datei, Senden bleibt entprellt): ein Absturz oder Beenden durch
+    /// das System kurz nach dem Tippen verliert sonst den Text (BUG-100). Nur fuer geladene, beschreibbare Seiten
+    /// der aktuellen Anmeldung.
+    func noteInput(_ store: Store) {
+        guard fetched, !lostAccess, !access.readOnly, !isDatabase, !staleSession(store) else { return }
+        writeDraft(conflict: conflict)
+    }
     /// Nach dem Laden: liegt ein Entwurf mit anderem Inhalt vor -> anbieten; sonst aufraeumen
     private func checkDraft() {
         guard let dr = drafts?.load(id) else { draft = nil; return }
@@ -534,12 +541,45 @@ extension DraftOwner {
     static var app: DraftOwner { DraftOwner(defaults: .standard) }
 }
 
+/// Seitentitel: einzeilig gespeichert - Return springt in den ersten Block (BUG-062). Nicht geladene Seite: Titel aus
+/// der Seitenliste statt "Unbenannt", nicht bearbeitbar (BUG-061).
+struct PageTitleField: View {
+    @ObservedObject var doc: PageDoc
+    let ed: PageEditor
+    var fallback: String?
+    @EnvironmentObject private var nav: NavModel
+    @FocusState private var focused: Bool
+    var body: some View {
+        if !doc.fetched, doc.titleRaw.isEmpty, let t = fallback, !t.isEmpty {
+            Text(t).font(.largeTitle.bold()).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            TextField("Unbenannt", text: Binding(get: { doc.titleRaw }, set: { v in input(v) }), axis: .vertical)
+                .font(.largeTitle.bold()).textFieldStyle(.plain).disabled(ed.locked || !doc.fetched)
+                .focused($focused)
+                .onSubmit { ed.enterFromTitle() }                     // Mac: Return ohne Umbruch
+                .onChange(of: doc.fetched, initial: true) { _, f in    // neuer Datenbank-Eintrag: Titel gleich bearbeiten
+                    guard f, nav.focusTitle == doc.id, !ed.locked else { return }
+                    nav.focusTitle = nil
+                    Task { try? await Task.sleep(for: .milliseconds(400)); focused = true }
+                }
+        }
+    }
+    private func input(_ v: String) {
+        let r = TitleInput.apply(old: doc.titleRaw, new: v)
+        if r.title != doc.titleRaw { doc.page["title"] = r.title; ed.textChanged() }   // nur echte Aenderung
+        else if v != r.title { doc.objectWillChange.send() }          // Umbruch verworfen: Feld neu zeichnen
+        if r.enter { ed.enterFromTitle() }
+    }
+}
+
 /// Offene Editoren (Speichern vor dem Beenden abwarten)
 @MainActor
 enum SaveRegistry {
     private static let editors = NSHashTable<PageEditor>.weakObjects()
     static func add(_ e: PageEditor) { editors.add(e) }
     static var hasUnsaved: Bool { editors.allObjects.contains { $0.doc.hasUnsaved } }
+    /// Seiten mit offenem Editor (die senden ihre Entwuerfe selbst)
+    static var openIDs: Set<Int> { Set(editors.allObjects.map(\.doc.id)) }
     static func flushAll() async { for e in editors.allObjects { await e.flush() } }
 }
 
@@ -566,6 +606,9 @@ struct NativePageScreen: View {
     private var editorKeyboard: Bool {
         ed.focus != nil && commentsTarget == nil && assistant == nil && !sharing && !publishing && !moving && !showVersions
     }
+    #if os(iOS)
+    @ScaledMetric(relativeTo: .body) private var editorBarHeight: CGFloat = 56   // Hoehe der Editor-Leiste (waechst mit der Schrift)
+    #endif
     @Environment(\.scenePhase) private var phase
     init(id: Int, inPeek: Bool = false) {
         self.id = id; self.inPeek = inPeek
@@ -770,6 +813,9 @@ struct NativePageScreen: View {
 
     /// Seite vom Eigentuemer gesperrt (unabhaengig von der Rolle)
     private var pageLocked: Bool { doc.page["locked"] as? Bool ?? false }
+    /// Symbol/Titelbild nicht aenderbar: Rolle, Sperre, fremde Instanz - und solange die Seite nie geladen wurde
+    /// (sonst ueberschriebe ein PATCH ein unbekanntes vorhandenes Symbol/Titelbild, BUG-061)
+    private var headerReadOnly: Bool { doc.access.readOnly || pageLocked || doc.access.remote || !doc.fetched }
     /// Seite sperren/entsperren (wie im Web): erst speichern, dann sperren
     private func setLocked(_ on: Bool) async {
         if on { await ed.flush(); ed.focus = nil }
@@ -812,15 +858,17 @@ struct NativePageScreen: View {
 
     @State private var pageW: CGFloat = 0
     @State private var showVersions = false
-    private var pageBody: some View {
+    // Seite in drei Teilen (Inhalt, Blaetter, Leiste/Ablauf): eine einzige lange Modifier-Kette braucht im CI-Xcode
+    // sonst viele Sekunden Typpruefung
+    private var scrollPart: some View {
         ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 if !doc.noAccess {                                   // Kein Zugriff: weder Titelbild noch Symbol der Seite
                     #if os(iOS)
-                    CoverView(doc: doc, extendTop: topInset, readOnly: doc.access.readOnly || pageLocked || doc.access.remote)          // Titelbild bis ganz nach oben (wie Notion)
+                    CoverView(doc: doc, extendTop: topInset, readOnly: headerReadOnly)          // Titelbild bis ganz nach oben (wie Notion)
                     #else
-                    CoverView(doc: doc, readOnly: doc.access.readOnly || pageLocked || doc.access.remote)
+                    CoverView(doc: doc, readOnly: headerReadOnly)
                     #endif
                 }
                 VStack(alignment: .leading, spacing: 10) {
@@ -828,9 +876,8 @@ struct NativePageScreen: View {
                         NoAccessView(retry: { Task { doc.loaded = false; await doc.load(store); await store.refresh(quiet: true) } },
                                      toShared: { nav.toShared() })
                     } else {
-                    IconRow(doc: doc, readOnly: doc.access.readOnly || pageLocked || doc.access.remote)
-                    TextField("Unbenannt", text: Binding(get: { doc.titleRaw }, set: { v in if v != doc.titleRaw { doc.page["title"] = v; ed.textChanged() } }), axis: .vertical)   // nur echte Aenderung
-                        .font(.largeTitle.bold()).textFieldStyle(.plain).disabled(ed.locked || !doc.fetched)
+                    IconRow(doc: doc, readOnly: headerReadOnly)
+                    PageTitleField(doc: doc, ed: ed, fallback: store.page(id)?.title)
                     if let by = doc.access.sharedBy { SharedByLabel(owner: by, role: doc.access.role) }      // fremde Seite (1.3)
                     PageMetaLine(access: doc.access, updated: doc.page["updated"] as? Double)
                     if let host = doc.access.remoteHost { RemotePageBanner(host: host, canComment: doc.access.commentsSupported && doc.access.canComment, canEdit: !doc.access.readOnly) }                    // Foederation (2.0)
@@ -901,7 +948,13 @@ struct NativePageScreen: View {
             withAnimation(.easeInOut(duration: 0.2)) { scrolled = v }
         }
         .toolbarBackground(scrolled ? .visible : .hidden, for: .navigationBar)
+        // die schwebende Editor-Leiste ueber der Tastatur zaehlt nicht zur Tastatur: Platz dafuer lassen, sonst liegt die
+        // Schreibzeile unten auf der Seite dahinter (BUG-058)
+        .safeAreaPadding(.bottom, editorKeyboard ? editorBarHeight : 0)
         #endif
+    }
+    private var sheetsPart: some View {
+        scrollPart
         .photosPicker(isPresented: $ed.pickImage, selection: $ed.picked, maxSelectionCount: 5, matching: .images)
         .sheet(isPresented: $ed.pickImmich) { ImmichPicker(note: doc.uploadNote) { url in ed.insertImageURL(url) }.environmentObject(store) }
         .sheet(item: Binding(get: { ed.linkDBFor.map(MoveTarget.init(idString:)) }, set: { if $0 == nil { ed.linkDBFor = nil } })) { _ in
@@ -939,6 +992,9 @@ struct NativePageScreen: View {
                          openPage: { pid in nav.peek = nil; nav.push(PageRoute(id: pid)) })
                 .environmentObject(store)
         }
+    }
+    private var pageBody: some View {
+        sheetsPart
         .toolbar {
             if !inPeek && !doc.noAccess {                    // im Peek: eigene Kopfzeile statt Fensterleiste (sonst Layout-Kreislauf am Mac); Kein Zugriff: nichts
                 ToolbarItem(placement: .primaryAction) { assistantButton }
@@ -949,17 +1005,7 @@ struct NativePageScreen: View {
             #if os(iOS)
             if editorKeyboard {                            // nur fuer Seitenbloecke - nicht im Kommentar-/Assistent-/Teilen-Blatt (deckte dort "Kommentieren" ab)
             ToolbarItemGroup(placement: .keyboard) {
-                BlockTypeMenu(title: "Neu", icon: "plus") { t, l in ed.insert(PageEditor.make(t, level: l == 0 ? 2 : l), after: ed.focusedBlock) }
-                BlockTypeMenu(title: "Typ", icon: "textformat") { t, l in if let b = ed.focusedBlock { ed.convert(b, to: t, level: l == 0 ? 2 : l) } }
-                ImageInsertButtons(ed: ed)                  // Leiste liegt ausserhalb von .environmentObject(ed): ausdruecklich uebergeben
-                Button { ed.format("bold") } label: { Image(systemName: "bold") }.accessibilityLabel("Fett")
-                Button { ed.format("italic") } label: { Image(systemName: "italic") }.accessibilityLabel("Kursiv")
-                Button { ed.format("underline") } label: { Image(systemName: "underline") }.accessibilityLabel("Unterstrichen")
-                Button { ed.format("strike") } label: { Image(systemName: "strikethrough") }.accessibilityLabel("Durchgestrichen")
-                Button { ed.format("mark") } label: { Image(systemName: "highlighter") }.accessibilityLabel("Markieren")
-                Button { if let b = ed.focusedBlock { ed.move(b, by: -1) } } label: { Image(systemName: "arrow.up") }.accessibilityLabel("Block nach oben")
-                Button { if let b = ed.focusedBlock { ed.move(b, by: 1) } } label: { Image(systemName: "arrow.down") }.accessibilityLabel("Block nach unten")
-                Button { if let b = ed.focusedBlock { ed.delete(b) } } label: { Image(systemName: "trash") }.accessibilityLabel("Block löschen")
+                EditorKeyboardItems(ed: ed)                 // Leiste liegt ausserhalb von .environmentObject(ed): ausdruecklich uebergeben
                 Spacer()
                 Button("Fertig") { ed.focus = nil }.bold()
             }
@@ -1031,6 +1077,7 @@ struct NativePageScreen: View {
         .onChange(of: doc.access, initial: true) { _, a in ed.applyAccess(a) }
         .onChange(of: ed.commentBlock) { _, b in if let b { ed.commentBlock = nil; Task { await ed.flush(); commentsTarget = CommentsTarget(block: b) } } }
         .modifier(CommentsPresenter(target: $commentsTarget, inPeek: inPeek, doc: doc, ed: ed, store: store))
+        .modifier(PendingCommentsOpener(id: id, nav: nav, doc: doc, target: $commentsTarget))
         .sheet(isPresented: $sharing) {
             ShareSheet(id: id, ownerName: doc.access.owner?.name, onShared: { on in
                 doc.access.shared = on; doc.page["shared"] = on; Task { await store.refresh(quiet: true) }
@@ -1595,6 +1642,22 @@ struct SaveGuard: ViewModifier {
 }
 
 
+/// Benachrichtigung/Mitteilung zu einem Kommentar, waehrend die Seite schon offen ist: Kommentare dieses Blocks zeigen
+/// (der .task der Seite laeuft dann nicht erneut, BUG-059). Kurz warten, bis das Glocken-Blatt geschlossen ist.
+struct PendingCommentsOpener: ViewModifier {
+    let id: Int
+    @ObservedObject var nav: NavModel
+    @ObservedObject var doc: PageDoc
+    @Binding var target: CommentsTarget?
+    func body(content: Content) -> some View {
+        content.onChange(of: nav.commentsJump) { _, _ in
+            guard let p = nav.pendingComments, p.id == id, doc.fetched else { return }
+            nav.pendingComments = nil
+            Task { try? await Task.sleep(for: .milliseconds(500)); target = CommentsTarget(block: p.block) }
+        }
+    }
+}
+
 /// Kommentare zeigen: iPhone als Blatt von unten (halbe/ganze Hoehe), iPad und Mac als Blatt.
 /// (Kein Inspector: der nahm auf dem iPhone der Seite die Knoepfe der Navigationsleiste.)
 struct CommentsPresenter: ViewModifier {
@@ -1603,10 +1666,17 @@ struct CommentsPresenter: ViewModifier {
     @ObservedObject var doc: PageDoc
     let ed: PageEditor
     let store: Store
+    #if os(iOS)
+    @Environment(\.dynamicTypeSize) private var typeSize
+    /// iPad und grosse Schrift: gleich ganze Hoehe - halbhoch zeigte dort kaum einen Kommentar (BUG-064)
+    private var detents: Set<PresentationDetent> {
+        UIDevice.current.userInterfaceIdiom == .pad || typeSize.isAccessibilitySize ? [.large] : [.medium, .large]
+    }
+    #endif
     func body(content: Content) -> some View {
         #if os(iOS)
         content.sheet(item: $target) { _ in
-            panel.presentationDetents([.medium, .large]).presentationContentInteraction(.scrolls)
+            panel.presentationDetents(detents).presentationContentInteraction(.scrolls)
                 .presentationBackground(.background)              // deckend (iPad: links schien die Seitenleiste durch)
         }
         #else

@@ -388,7 +388,9 @@ struct DBViewBar: View {
             Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.buttonStyle(.plain).foregroundStyle(.secondary).fixedSize()
                 .help("Ansicht: Filter, Sortierung, Eigenschaften")
                 .accessibilityLabel("Ansicht: Filter, Sortierung, Eigenschaften")
-                .popover(isPresented: $settings, arrowEdge: .bottom) { if let id = view?["id"] as? String { ViewSettings(m: m, viewID: id) } }
+                .popover(isPresented: $settings, arrowEdge: .bottom) {
+                    if let id = view?["id"] as? String { ViewSettings(m: m, viewID: id).presentationCompactAdaptation(.popover) }   // iPhone: kein Blatt ohne "Fertig"
+                }
         }
     }
 
