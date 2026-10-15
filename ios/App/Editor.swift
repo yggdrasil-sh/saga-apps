@@ -545,9 +545,21 @@ extension Notification.Name { static let hkFormat = Notification.Name("hkFormat"
 struct BlockTypeMenu: View {
     let title: LocalizedStringKey
     let icon: String
+    /// Tastaturleiste "Neu": Bilder (Fotos, Immich) gleich mit anbieten
+    var images: PageEditor? = nil
     let action: (String, Int) -> Void
     var body: some View {
         Menu {
+            if let ed = images {
+                Button { ed.openPhotos() } label: { Label("Fotos", systemImage: "photo") }
+                Button { ed.openImmich() } label: { Label("Bild aus Immich", systemImage: "photo.on.rectangle.angled") }
+                #if os(iOS)
+                if UIPasteboard.general.hasImages {                 // statt eigenem Knopf (Platz in der Leiste)
+                    Button { ed.insertImages(from: UIPasteboard.general.itemProviders) } label: { Label("Bild einsetzen", systemImage: "doc.on.clipboard") }
+                }
+                #endif
+                Divider()
+            }
             Button { action("paragraph", 0) } label: { Label("Text", systemImage: "text.alignleft") }
             Button { action("header", 1) } label: { Label("Überschrift 1", systemImage: "textformat.size.larger") }
             Button { action("header", 2) } label: { Label("Überschrift 2", systemImage: "textformat.size") }
@@ -613,21 +625,32 @@ extension PageEditor {
     }
 }
 
-/// Knoepfe: Bild aus der Zwischenablage (System-Einfuegeknopf, ohne Rueckfrage), aus Fotos und aus Immich.
-/// Steht in der Leiste ueber der Tastatur (.toolbar): die liegt AUSSERHALB von .environmentObject(ed) der Seite,
-/// deshalb wird der Editor ausdruecklich uebergeben (als @EnvironmentObject stuerzte der Tipp ab, 1.2.0).
-/// Fotos und Immich laufen ueber die Auswahl der Seite (ed.pickImage / ed.pickImmich), nicht ueber eigene Sheets hier.
-struct ImageInsertButtons: View {
+#if os(iOS)
+/// Tastaturleiste des Seiten-Editors: wenige Knoepfe, der Rest in Menues. SwiftUI schiebt bei Platzmangel nur Elemente
+/// HINTER dem Spacer ins Ueberlaufmenue, alles davor fiel weg - auf dem iPhone fehlten so Fett/Kursiv/... und die
+/// Block-Befehle, "Fertig" lag versteckt (BUG-018). Bilder (Fotos, Immich, Zwischenablage) stehen im Menue "Neu".
+/// Die Leiste liegt AUSSERHALB von .environmentObject(ed) der Seite, deshalb wird der Editor ausdruecklich uebergeben
+/// (als @EnvironmentObject stuerzte der Tipp ab, 1.2.0). Fotos und Immich laufen ueber die Auswahl der Seite.
+struct EditorKeyboardItems: View {
     @ObservedObject var ed: PageEditor
     var body: some View {
-        #if os(iOS)
-        PasteButton(supportedContentTypes: [.image]) { providers in ed.insertImages(from: providers) }
-            .labelStyle(.iconOnly).buttonBorderShape(.circle)
-        #endif
-        Button { ed.openPhotos() } label: { Image(systemName: "photo") }.accessibilityLabel("Fotos")
-        Button { ed.openImmich() } label: { Image(systemName: "photo.on.rectangle.angled") }.accessibilityLabel("Bild aus Immich")
+        BlockTypeMenu(title: "Neu", icon: "plus", images: ed) { t, l in ed.insert(PageEditor.make(t, level: l == 0 ? 2 : l), after: ed.focusedBlock) }
+        BlockTypeMenu(title: "Typ", icon: "textformat") { t, l in if let b = ed.focusedBlock { ed.convert(b, to: t, level: l == 0 ? 2 : l) } }
+        Menu {
+            Button { ed.format("bold") } label: { Label("Fett", systemImage: "bold") }
+            Button { ed.format("italic") } label: { Label("Kursiv", systemImage: "italic") }
+            Button { ed.format("underline") } label: { Label("Unterstrichen", systemImage: "underline") }
+            Button { ed.format("strike") } label: { Label("Durchgestrichen", systemImage: "strikethrough") }
+            Button { ed.format("mark") } label: { Label("Markieren", systemImage: "highlighter") }
+        } label: { Label("Format", systemImage: "bold.italic.underline") }
+        Menu {
+            Button { if let b = ed.focusedBlock { ed.move(b, by: -1) } } label: { Label("Block nach oben", systemImage: "arrow.up") }
+            Button { if let b = ed.focusedBlock { ed.move(b, by: 1) } } label: { Label("Block nach unten", systemImage: "arrow.down") }
+            Button(role: .destructive) { if let b = ed.focusedBlock { ed.delete(b) } } label: { Label("Block löschen", systemImage: "trash") }
+        } label: { Label("Block", systemImage: "square.stack") }
     }
 }
+#endif
 
 
 /// Mac: Block unter der Maus (innerster gewinnt). Eigenes Modell, damit Mausbewegungen NICHT die ganze Seite neu zeichnen.

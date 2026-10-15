@@ -575,6 +575,9 @@ struct NativePageScreen: View {
     private var editorKeyboard: Bool {
         ed.focus != nil && commentsTarget == nil && assistant == nil && !sharing && !publishing && !moving && !showVersions
     }
+    #if os(iOS)
+    @ScaledMetric(relativeTo: .body) private var editorBarHeight: CGFloat = 56   // Hoehe der Editor-Leiste (waechst mit der Schrift)
+    #endif
     @Environment(\.scenePhase) private var phase
     init(id: Int, inPeek: Bool = false) {
         self.id = id; self.inPeek = inPeek
@@ -910,6 +913,9 @@ struct NativePageScreen: View {
             withAnimation(.easeInOut(duration: 0.2)) { scrolled = v }
         }
         .toolbarBackground(scrolled ? .visible : .hidden, for: .navigationBar)
+        // die schwebende Editor-Leiste ueber der Tastatur zaehlt nicht zur Tastatur: Platz dafuer lassen, sonst liegt die
+        // Schreibzeile unten auf der Seite dahinter (BUG-058)
+        .safeAreaPadding(.bottom, editorKeyboard ? editorBarHeight : 0)
         #endif
         .photosPicker(isPresented: $ed.pickImage, selection: $ed.picked, maxSelectionCount: 5, matching: .images)
         .sheet(isPresented: $ed.pickImmich) { ImmichPicker(note: doc.uploadNote) { url in ed.insertImageURL(url) }.environmentObject(store) }
@@ -958,17 +964,7 @@ struct NativePageScreen: View {
             #if os(iOS)
             if editorKeyboard {                            // nur fuer Seitenbloecke - nicht im Kommentar-/Assistent-/Teilen-Blatt (deckte dort "Kommentieren" ab)
             ToolbarItemGroup(placement: .keyboard) {
-                BlockTypeMenu(title: "Neu", icon: "plus") { t, l in ed.insert(PageEditor.make(t, level: l == 0 ? 2 : l), after: ed.focusedBlock) }
-                BlockTypeMenu(title: "Typ", icon: "textformat") { t, l in if let b = ed.focusedBlock { ed.convert(b, to: t, level: l == 0 ? 2 : l) } }
-                ImageInsertButtons(ed: ed)                  // Leiste liegt ausserhalb von .environmentObject(ed): ausdruecklich uebergeben
-                Button { ed.format("bold") } label: { Image(systemName: "bold") }.accessibilityLabel("Fett")
-                Button { ed.format("italic") } label: { Image(systemName: "italic") }.accessibilityLabel("Kursiv")
-                Button { ed.format("underline") } label: { Image(systemName: "underline") }.accessibilityLabel("Unterstrichen")
-                Button { ed.format("strike") } label: { Image(systemName: "strikethrough") }.accessibilityLabel("Durchgestrichen")
-                Button { ed.format("mark") } label: { Image(systemName: "highlighter") }.accessibilityLabel("Markieren")
-                Button { if let b = ed.focusedBlock { ed.move(b, by: -1) } } label: { Image(systemName: "arrow.up") }.accessibilityLabel("Block nach oben")
-                Button { if let b = ed.focusedBlock { ed.move(b, by: 1) } } label: { Image(systemName: "arrow.down") }.accessibilityLabel("Block nach unten")
-                Button { if let b = ed.focusedBlock { ed.delete(b) } } label: { Image(systemName: "trash") }.accessibilityLabel("Block löschen")
+                EditorKeyboardItems(ed: ed)                 // Leiste liegt ausserhalb von .environmentObject(ed): ausdruecklich uebergeben
                 Spacer()
                 Button("Fertig") { ed.focus = nil }.bold()
             }
