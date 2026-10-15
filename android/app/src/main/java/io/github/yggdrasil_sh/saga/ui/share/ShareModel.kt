@@ -16,12 +16,12 @@ import kotlinx.coroutines.CancellationException
 
 /** Freigaben einer Seite verwalten (SagaRepository; in Tests eine Attrappe) */
 interface ShareBackend {
-    suspend fun shares(id: Int): ShareState
-    suspend fun putShare(id: Int, type: String, target: String, role: String): ShareState
-    suspend fun deleteShare(id: Int, type: String, target: String): ShareState
+    suspend fun shares(id: Long): ShareState
+    suspend fun putShare(id: Long, type: String, target: String, role: String): ShareState
+    suspend fun deleteShare(id: Long, type: String, target: String): ShareState
     suspend fun shareTargets(query: String): ShareTargets
     /** Personen-Symbol im Seitenbaum nachziehen */
-    fun shareChanged(id: Int, shared: Boolean) {}
+    fun shareChanged(id: Long, shared: Boolean) {}
     fun friendly(e: Throwable): UiText
 }
 
@@ -85,8 +85,10 @@ object ShareLogic {
     fun viaLabel(v: ShareVia): UiText =
         if (v.type == "group") UiText.Raw(v.name) else UiText.Res(R.string.share_quoted, v.title?.ifBlank { null } ?: "…")
 
-    /** Zweite Zeile: Benutzername bzw. "Gruppe · n Personen" */
+    /** Zweite Zeile: Benutzername bzw. "Gruppe · n Personen"; andere Saga-Instanz (Foederation) */
     fun entrySub(type: String, target: String, members: Int?): UiText = when {
+        type == "remote" -> UiText.Res(R.string.fed_other_instance)
+        type == "remote_group" -> UiText.Res(R.string.fed_other_group)
         type != "group" -> UiText.Raw(target)
         members == null -> UiText.Res(R.string.share_group)
         else -> UiText.Plural(R.plurals.share_group_members, members)
@@ -107,7 +109,7 @@ object ShareLogic {
  * Dialog "Teilen" einer eigenen Seite: Suche ab 3 Zeichen (Personen + eigene Gruppen), Rolle waehlen, Liste der
  * Freigaben mit tatsaechlicher Rolle, Rolle aendern, entfernen; geerbte Freigaben nur lesend.
  */
-class ShareModel(val id: Int, private val backend: ShareBackend) {
+class ShareModel(val id: Long, private val backend: ShareBackend) {
     var state by mutableStateOf<ShareState?>(null)
         private set
     var loading by mutableStateOf(true)

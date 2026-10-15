@@ -208,6 +208,45 @@ class ApiClient(
         return text
     }
 
+    /** Rohdaten hochladen (verschluesselte Chat-Anhaenge, application/octet-stream) */
+    suspend fun postBytes(path: String, data: ByteArray): String {
+        val req = Request.Builder().url(url(path))
+            .post(data.toRequestBody("application/octet-stream".toMediaType())).header("X-Saga", "1").build()
+        val (code, text) = execute(client, req)
+        if (code !in 200..299) throw ApiException(code, errorText(code, text), text)
+        return text
+    }
+
+    /** Rohdaten laden (verschluesselte Chat-Anhaenge) */
+    suspend fun getBytes(path: String): ByteArray {
+        val req = Request.Builder().url(url(path)).get().header("X-Saga", "1").build()
+        return suspendCancellableCoroutine { cont ->
+            val call = client.newCall(req)
+            cont.invokeOnCancellation { call.cancel() }
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    if (cont.isActive) cont.resumeWithException(e)
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    try {
+                        response.use {
+                            if (it.code !in 200..299) {
+                                val t = it.body.string()
+                                if (cont.isActive) cont.resumeWithException(ApiException(it.code, errorText(it.code, t), t))
+                            } else {
+                                val b = it.body.bytes()
+                                if (cont.isActive) cont.resume(b)
+                            }
+                        }
+                    } catch (e: IOException) {
+                        if (cont.isActive) cont.resumeWithException(e)
+                    }
+                }
+            })
+        }
+    }
+
     suspend fun get(path: String) = request("GET", path)
     suspend fun post(path: String, body: JsonElement? = null) = request("POST", path, body)
     suspend fun patch(path: String, body: JsonElement) = request("PATCH", path, body)

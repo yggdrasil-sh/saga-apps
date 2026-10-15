@@ -6,10 +6,10 @@ import kotlinx.serialization.Serializable
 /** Seite in der Liste (GET /api/notes, Suche) - ohne Inhalt */
 @Serializable
 data class PageMeta(
-    val id: Int,
+    val id: Long,
     val title: String = "",
     val icon: String? = null,
-    @SerialName("parent_id") val parentId: Int? = null,
+    @SerialName("parent_id") val parentId: Long? = null,
     val kind: String? = null,
     val pinned: Boolean = false,
     val updated: Double? = null,
@@ -26,8 +26,12 @@ data class PageMeta(
     val role: String? = null,
     val owner: Person? = null,
     val root: Boolean = false,
+    /** Foederation (2.0): Seite einer anderen Saga-Instanz (id < 0) */
+    val remote: RemoteRef? = null,
 ) {
     val isDatabase: Boolean get() = kind == "database"
+    /** Seite einer anderen Saga-Instanz (negative ID oder Feld remote) */
+    val isRemote: Boolean get() = id < 0 || remote != null
     val foreign: Boolean get() = owner != null && !owner.me
 }
 
@@ -123,7 +127,7 @@ data class LoginResult(
 data class AccountInfo(val username: String? = null, val name: String? = null)
 
 @Serializable
-data class NewId(val id: Int)
+data class NewId(val id: Long)
 
 @Serializable
 data class SaveResult(val ok: Boolean = false, val rev: Int? = null, val updated: Double? = null)

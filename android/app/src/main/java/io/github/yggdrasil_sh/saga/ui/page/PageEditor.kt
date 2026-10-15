@@ -67,18 +67,18 @@ interface PageBackend {
     /** Kennung des angemeldeten Kontos ("uid:<Benutzername>", leer = unbekannt) - Editor speichert nie in ein anderes Konto */
     val currentAccountKey: String get() = ""
     fun draftsForCurrent(): Drafts
-    suspend fun <T> withPageLock(id: Int, block: suspend () -> T): T
-    suspend fun loadPage(id: Int): JsonObject
+    suspend fun <T> withPageLock(id: Long, block: suspend () -> T): T
+    suspend fun loadPage(id: Long): JsonObject
     /** -> neue Revision; ApiException 409 = woanders geaendert, 423 = gesperrt */
-    suspend fun savePage(id: Int, title: String, body: String?, rev: Int?): Int?
+    suspend fun savePage(id: Long, title: String, body: String?, rev: Int?): Int?
     /** overwrite = "Meine Version behalten" nach einem Konflikt (Server 1.3 sichert die andere Fassung als Version) */
-    suspend fun savePage(id: Int, title: String, body: String?, rev: Int?, overwrite: Boolean): Int? = savePage(id, title, body, rev)
+    suspend fun savePage(id: Long, title: String, body: String?, rev: Int?, overwrite: Boolean): Int? = savePage(id, title, body, rev)
     /** Neue Seite mit diesem Inhalt (Konflikt-Kopie) -> ID */
-    suspend fun createPageWith(title: String, body: String): Int
-    suspend fun setPinned(id: Int, pinned: Boolean)
-    suspend fun setLocked(id: Int, locked: Boolean)
-    fun updateTitleLocal(id: Int, title: String)
-    fun visited(id: Int)
+    suspend fun createPageWith(title: String, body: String): Long
+    suspend fun setPinned(id: Long, pinned: Boolean)
+    suspend fun setLocked(id: Long, locked: Boolean)
+    fun updateTitleLocal(id: Long, title: String)
+    fun visited(id: Long)
     fun friendly(e: Throwable): UiText
     /** Server nicht erreichbar (Netz weg, Zeitueberschreitung) - kein Zertifikats- oder Serverfehler */
     fun isOffline(e: Throwable): Boolean = e is IOException && e !is SSLException
@@ -98,7 +98,7 @@ interface PageBackend {
  */
 @Stable
 class PageEditor(
-    val id: Int,
+    val id: Long,
     private val repo: PageBackend,
     private val scope: CoroutineScope,
     private val io: CoroutineDispatcher = Dispatchers.IO,
@@ -179,6 +179,19 @@ class PageEditor(
     var active by mutableStateOf<ActiveField?>(null)
 
     private var rev: Int? = null
+    /** Revision des geladenen bzw. zuletzt gespeicherten Stands (Live-Kanal: fremde Aenderung erkennen) */
+    val currentRev: Int? get() = rev
+    /** letzte Eingabe (ms) - Anwesenheit "bearbeitet gerade" in den ersten 30 s danach */
+    var lastInputAt = 0L
+        private set
+    /** Foederation (2.0): Seite liegt auf dieser anderen Saga-Instanz (sonst null) */
+    var remoteHost by mutableStateOf<String?>(null)
+        private set
+    /** 403 bei einer Seite einer anderen Instanz: oeffentlicher Name fehlt (Weg zu den Einstellungen anbieten) */
+    var needsPublicName by mutableStateOf(false)
+        private set
+    /** Seite einer anderen Saga-Instanz (negative ID) */
+    val isRemote: Boolean get() = id < 0
     // als State: "Gespeichert"/"Ungespeichert" in der Titelleiste folgt sofort
     private var version by mutableIntStateOf(0)
     private var savedVersion by mutableIntStateOf(0)
@@ -224,7 +237,10 @@ class PageEditor(
                     fetched = false
                     error = null
                 }
-                !fetched -> error = repo.friendly(e)
+                !fetched -> {
+                    error = repo.friendly(e)
+                    needsPublicName = isRemote && e is ApiException && e.code == 403
+                }
                 repo.isOffline(e) -> offline = true
                 else -> info = UiText.Res(R.string.page_reload_failed, repo.friendly(e))
             }
@@ -253,6 +269,9 @@ class PageEditor(
         publicUrl = BlockDoc.str(p, "public_url").ifEmpty { null }
         publishedVia = Publish.via(p)
         share = PageShareInfo.of(p)
+        remoteHost = ((p["remote"] as? JsonObject)?.get("host") as? JsonPrimitive)?.content?.takeIf { it.isNotBlank() }
+            ?: if (isRemote) "" else null
+        needsPublicName = false
         noAccess = false
         rev = BlockDoc.int(p, "rev")
         converted = parsed.converted && !body.isNullOrBlank()
@@ -329,6 +348,7 @@ class PageEditor(
     // ---------------------------------------------------------------- Aendern
 
     private fun touched() {
+        lastInputAt = clock()
         version++
         if (error != null && retryJob?.isActive != true) error = null
         scheduleSave()
@@ -391,6 +411,82 @@ class PageEditor(
     }
 
     fun block(path: JsonPath): JsonObject? = JsonTree.get(doc, path) as? JsonObject
+
+    // ---------------------------------------------------------------- KI-Assistent: Vorschlaege uebernehmen (nach Klick)
+
+    /** Pfad eines Blocks mit dieser ID (auch verschachtelt, z. B. in Aufklappern) */
+    fun pathOfBlock(blockId: String): JsonPath? {
+        fun walk(e: kotlinx.serialization.json.JsonElement, path: JsonPath): JsonPath? {
+            when (e) {
+                is JsonObject -> {
+                    if (BlockDoc.id(e) == blockId && e["type"] != null) return path
+                    for ((k, v) in e) walk(v, path + k)?.let { return it }
+                }
+                is JsonArray -> e.forEachIndexed { i, v -> walk(v, path + i)?.let { return it } }
+                else -> {}
+            }
+            return null
+        }
+        return walk(doc, emptyList())
+    }
+
+    /** Bloecke der obersten Ebene mit Text (Auswahl "Markiert: n Blöcke") -> (ID, Klartext) */
+    fun textBlocks(): List<Pair<String, String>> = BlockDoc.blocks(doc).mapNotNull { b ->
+        val bid = BlockDoc.id(b) ?: return@mapNotNull null
+        val t = BlockDoc.mainText(b)?.let { InlineHtml.plain(it) }?.trim().orEmpty()
+        if (t.isEmpty()) null else bid to t
+    }
+
+    /** "Ersetzen": Text jedes Blocks durch den Vorschlag (Formatierung geht verloren); danach normal speichern */
+    fun replaceBlockTexts(texts: Map<String, String>): Boolean {
+        if (!editable) return false
+        var d: JsonObject = doc
+        for ((bid, text) in texts) {
+            val p = pathOfBlock(bid) ?: continue
+            val b = JsonTree.get(d, p) as? JsonObject ?: continue
+            val html = InlineHtml.escape(text.trim()).replace("\n", "<br>")
+            val nb: JsonObject = when (BlockDoc.type(b)) {
+                "paragraph", "header", "quote", "callout" -> JsonTree.set(b, listOf("data", "text"), JsonPrimitive(html)) as JsonObject
+                "toggle" -> JsonTree.set(b, listOf("data", "title"), JsonPrimitive(html)) as JsonObject
+                "code" -> JsonTree.set(b, listOf("data", "code"), JsonPrimitive(text)) as JsonObject
+                "list" -> {
+                    val check = BlockDoc.str(BlockDoc.data(b), "style") == "checklist"
+                    val items = text.lines().map { it.trim().removePrefix("- ").removePrefix("• ") }.filter { it.isNotEmpty() }
+                        .map { BlockDoc.newListItem(InlineHtml.escape(it), check) }
+                    JsonTree.set(b, listOf("data", "items"), JsonArray(items)) as JsonObject
+                }
+                else -> continue
+            }
+            d = JsonTree.set(d, p, nb) as JsonObject
+        }
+        if (d == doc) return false
+        change(d)
+        return true
+    }
+
+    /** "Darunter einfügen": Absaetze nach dem Block (oder am Ende) */
+    fun insertParagraphsAfter(blockId: String?, text: String): Boolean {
+        if (!editable) return false
+        val paras = text.split(Regex("\n\\s*\n")).map { it.trim() }.filter { it.isNotEmpty() }
+        if (paras.isEmpty()) return false
+        val p = blockId?.let { pathOfBlock(it) }
+        val (arr, idx) = if (p != null && p.last() is Int) p.dropLast(1) to (p.last() as Int) else listOf<Any>("blocks") to BlockDoc.blocks(doc).size - 1
+        var d: JsonObject = doc
+        paras.forEachIndexed { i, t ->
+            d = JsonTree.insert(d, arr, idx + 1 + i, BlockDoc.newBlock("paragraph", InlineHtml.escape(t).replace("\n", "<br>"))) as JsonObject
+        }
+        change(d)
+        return true
+    }
+
+    /** "Als Checkliste einfügen": Checkliste ans Seitenende */
+    fun appendChecklist(items: List<String>): Boolean {
+        if (!editable || items.isEmpty()) return false
+        val b = BlockDoc.newBlock("checklist")
+        val withItems = JsonTree.set(b, listOf("data", "items"), JsonArray(items.map { BlockDoc.newListItem(InlineHtml.escape(it), true) })) as JsonObject
+        change(JsonTree.insert(doc, listOf("blocks"), BlockDoc.blocks(doc).size, withItems) as JsonObject)
+        return true
+    }
 
     /** Stabiler Schluessel eines Blocks (ID; ohne ID: Position) */
     fun blockKey(block: JsonObject, path: JsonPath): String = "b:" + (BlockDoc.id(block) ?: path.joinToString("."))
@@ -716,7 +812,7 @@ class PageEditor(
     }
 
     /** Konflikt: meine Fassung als neue Seite sichern, dann die Server-Fassung laden. -> ID der Kopie oder null */
-    suspend fun saveCopyAndLoadServer(copyTitle: String): Int? {
+    suspend fun saveCopyAndLoadServer(copyTitle: String): Long? {
         return try {
             val body = withContext(cpu) { BlockDoc.serialize(BlockDoc.withTime(doc, clock())) }
             val newId = repo.createPageWith(copyTitle, body)

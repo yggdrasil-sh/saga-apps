@@ -66,12 +66,12 @@ private class FakePublishServer : PublishBackend {
         suggestedName = if (name == null) "vorschlag" else null,
     )
 
-    override suspend fun publishState(id: Int): PublishState {
+    override suspend fun publishState(id: Long): PublishState {
         failGet?.let { throw it }
         return state()
     }
 
-    override suspend fun publish(id: Int, body: JsonObject): PublishState {
+    override suspend fun publish(id: Long, body: JsonObject): PublishState {
         puts += body
         failPut?.let { throw it }
         if (name == null) throw ApiException(409, UiText.Raw("Bitte zuerst einen öffentlichen Namen wählen."),
@@ -83,7 +83,7 @@ private class FakePublishServer : PublishBackend {
         return state().copy(replacedProfile = replaced)
     }
 
-    override suspend fun unpublish(id: Int): PublishState {
+    override suspend fun unpublish(id: Long): PublishState {
         deletes++
         published = false
         withdrawnAt = 1_760_000_000.0

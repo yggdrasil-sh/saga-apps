@@ -64,6 +64,7 @@ android {
         targetSdk = 37
         versionCode = sagaVersionCode
         versionName = sagaVersion
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -111,6 +112,13 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
+    }
+
+    // JNA bringt Bibliotheken fuer alte ABIs mit (armeabi, mips), fuer die es weder libsodium noch Android 8 gibt
+    packaging {
+        jniLibs {
+            excludes += setOf("lib/armeabi/**", "lib/mips/**", "lib/mips64/**")
+        }
     }
 }
 
@@ -170,6 +178,16 @@ dependencies {
     implementation(libs.coil.network.okhttp)
     implementation(libs.zxing.core)
 
+    // Chat-Kryptografie (Ende-zu-Ende): libsodium ueber lazysodium-android (Vorgabe der Chat-Spezifikation);
+    // JNA als AAR (enthaelt die Android-Bibliotheken), lazysodium ohne transitive JNA-JAR
+    implementation(libs.lazysodium.android) { artifact { type = "aar" }; isTransitive = false }
+    implementation(libs.jna) { artifact { type = "aar" } }
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+
+    // Chat-Testvektoren laufen mit der echten libsodium auf dem Geraet/Emulator (connectedDebugAndroidTest)
+    androidTestImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
 }

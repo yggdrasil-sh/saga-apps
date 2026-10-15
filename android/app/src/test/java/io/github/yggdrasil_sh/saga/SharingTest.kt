@@ -96,11 +96,11 @@ class SharingTest {
             PageMeta(5, "Rezepte", root = true, owner = Person("Cora", "cora")),
         )
         val closed = SharedTree.rows(list, emptySet())
-        assertEquals(listOf(1, 5), closed.map { it.page.id })
+        assertEquals(listOf(1L, 5L), closed.map { it.page.id })
         assertTrue(closed[0].hasChildren)
         assertFalse(closed[1].hasChildren)
         val open = SharedTree.rows(list, setOf(1, 3))
-        assertEquals(listOf(1, 2, 3, 5), open.map { it.page.id })     // Datenbank-Eintraege nicht im Baum
+        assertEquals(listOf(1L, 2L, 3L, 5L), open.map { it.page.id })     // Datenbank-Eintraege nicht im Baum
         assertEquals(1, open[1].depth)
         assertTrue(list[0].foreign)
     }

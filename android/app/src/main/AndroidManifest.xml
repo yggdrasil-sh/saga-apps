@@ -4,6 +4,8 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Mitteilungen (Push ueber UnifiedPush, Android 13+ fragt nach) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Kamera nur fuer die QR-Anmeldung: Geraete ohne Kamera bleiben unterstuetzt -->
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
@@ -16,6 +18,10 @@
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.BROWSABLE" />
             <data android:scheme="https" />
+        </intent>
+        <!-- UnifiedPush-Verteiler (z. B. ntfy) finden -->
+        <intent>
+            <action android:name="org.unifiedpush.android.distributor.REGISTER" />
         </intent>
     </queries>
 
@@ -65,5 +71,30 @@
                 <data android:scheme="saga" android:host="pair" />
             </intent-filter>
         </activity>
+
+        <!-- UnifiedPush: Antworten der Verteiler-App (Adresse, Mitteilungen) - kein Google FCM -->
+        <receiver
+            android:name=".push.PushReceiver"
+            android:enabled="true"
+            android:exported="true"
+            tools:ignore="ExportedReceiver">
+            <intent-filter>
+                <action android:name="org.unifiedpush.android.connector.MESSAGE" />
+                <action android:name="org.unifiedpush.android.connector.UNREGISTERED" />
+                <action android:name="org.unifiedpush.android.connector.NEW_ENDPOINT" />
+                <action android:name="org.unifiedpush.android.connector.REGISTRATION_FAILED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Chat-Anhaenge (entschluesselt im Cache) an andere Apps weitergeben -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

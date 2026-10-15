@@ -82,7 +82,7 @@ fun PageIcon(icon: String?, repo: SagaRepository, isDatabase: Boolean = false, s
     val ic = icon?.trim().orEmpty()
     // Mindestgroesse statt fester Groesse: Emoji waechst mit der Schriftgroesse mit und wird nicht abgeschnitten
     Box(Modifier.defaultMinSize(size, size), contentAlignment = Alignment.Center) {
-        if (ic.startsWith("/files/")) {
+        if (ic.startsWith("/files/") || ic.startsWith("/api/fed/files/")) {
             AsyncImage(
                 model = repo.absoluteUrl(if (ic.contains("?")) ic else "$ic?w=160"), contentDescription = null,
                 contentScale = ContentScale.Crop,

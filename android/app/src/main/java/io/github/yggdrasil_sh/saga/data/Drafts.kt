@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 /** Noch nicht gespeicherte Fassung einer Seite (Titel + Inhalt als Block-JSON) und die Revision, auf der sie beruht */
 @Serializable
-data class Draft(val id: Int, val title: String, val body: String?, val rev: Int?, val stamp: Long) {
+data class Draft(val id: Long, val title: String, val body: String?, val rev: Int?, val stamp: Long) {
     /**
      * Hat der Server (Seite aus GET api/notes/<id>) inhaltlich schon genau diesen Stand? Dann ist der Entwurf
      * gespeichert und erledigt - egal, ob die Revision inzwischen hoeher ist (Prozess vor dem Loeschen beendet).
@@ -38,19 +38,19 @@ data class Draft(val id: Int, val title: String, val body: String?, val rev: Int
  * Alle Funktionen machen Datei-Zugriffe: nicht auf dem Haupt-Thread aufrufen.
  */
 interface Drafts {
-    fun read(id: Int): Draft?
+    fun read(id: Long): Draft?
     fun write(d: Draft)
-    fun delete(id: Int)
+    fun delete(id: Long)
     fun all(): List<Draft>
 }
 
 class MemoryDrafts : Drafts {
-    val map = ConcurrentHashMap<Int, Draft>()
-    override fun read(id: Int) = map[id]
+    val map = ConcurrentHashMap<Long, Draft>()
+    override fun read(id: Long) = map[id]
     override fun write(d: Draft) {
         map[d.id] = d
     }
-    override fun delete(id: Int) {
+    override fun delete(id: Long) {
         map.remove(id)
     }
     override fun all() = map.values.sortedBy { it.id }
@@ -59,10 +59,10 @@ class MemoryDrafts : Drafts {
 class FileDrafts(val dir: File) : Drafts {
     private val json = Json { ignoreUnknownKeys = true }
 
-    private fun file(id: Int) = File(dir, "$id.json")
+    private fun file(id: Long) = File(dir, "$id.json")
 
     @Synchronized
-    override fun read(id: Int): Draft? = try {
+    override fun read(id: Long): Draft? = try {
         file(id).takeIf { it.isFile }?.readText()?.let { json.decodeFromString(Draft.serializer(), it) }
     } catch (_: Exception) {
         null
@@ -80,13 +80,13 @@ class FileDrafts(val dir: File) : Drafts {
     }
 
     @Synchronized
-    override fun delete(id: Int) {
+    override fun delete(id: Long) {
         file(id).delete()
     }
 
     @Synchronized
     override fun all(): List<Draft> = (dir.listFiles { f -> f.name.endsWith(".json") } ?: emptyArray())
-        .mapNotNull { it.name.removeSuffix(".json").toIntOrNull()?.let(::read) }
+        .mapNotNull { it.name.removeSuffix(".json").toLongOrNull()?.let(::read) }
         .sortedBy { it.id }
 
     /**
@@ -185,9 +185,9 @@ class AccountDrafts(dir: File) : Drafts {
     @Synchronized
     fun covers(d: File) = d == files.dir || d in former
 
-    @Synchronized override fun read(id: Int) = files.read(id)
+    @Synchronized override fun read(id: Long) = files.read(id)
     @Synchronized override fun write(d: Draft) = files.write(d)
-    @Synchronized override fun delete(id: Int) = files.delete(id)
+    @Synchronized override fun delete(id: Long) = files.delete(id)
     @Synchronized override fun all() = files.all()
 
     /** Auf den Ordner target wechseln und alle Entwuerfe aus dem bisherigen Ordner und aus sources dorthin holen */

@@ -81,7 +81,7 @@ internal val SLUG_KEYS = KeyboardOptions(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PublishSheet(model: PublishModel, scope: CoroutineScope, onDismiss: () -> Unit, onOpenPage: (Int) -> Unit) {
+fun PublishSheet(model: PublishModel, scope: CoroutineScope, onDismiss: () -> Unit, onOpenPage: (Long) -> Unit) {
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var confirmStop by remember { mutableStateOf(false) }
     var confirmSlug by remember { mutableStateOf(false) }
@@ -202,7 +202,7 @@ internal fun NameStatusText(s: NameStatus, style: TextStyle = MaterialTheme.typo
 
 /** Schritt 2 in fester Reihenfolge: 1 Schalter, 2 Link-Karte, 3 Adresse, 4 Optionen, 5 "Veröffentlichung beenden" */
 @Composable
-private fun ColumnScope.MainStep(model: PublishModel, scope: CoroutineScope, onOpenPage: (Int) -> Unit, onStop: () -> Unit, onChangeSlug: () -> Unit) {
+private fun ColumnScope.MainStep(model: PublishModel, scope: CoroutineScope, onOpenPage: (Long) -> Unit, onStop: () -> Unit, onChangeSlug: () -> Unit) {
     val v = model.view ?: return
     val context = LocalContext.current
     val busy = model.busy

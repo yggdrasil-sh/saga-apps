@@ -40,15 +40,15 @@ private class SharedPageServer(var role: String? = "edit") : PageBackend {
     var gone = false                                     // Laden: 404
     val saves = ArrayList<Triple<String, Int?, Boolean>>()   // Text, Revision, overwrite
     val drafts = MemoryDrafts()
-    private val locks = HashMap<Int, Mutex>()
+    private val locks = HashMap<Long, Mutex>()
 
     override val currentServer = "https://s.example.org"
     override val signedOut = false
     var accountKey = "uid:bert"
     override val currentAccountKey: String get() = accountKey
     override fun draftsForCurrent(): Drafts = drafts
-    override suspend fun <T> withPageLock(id: Int, block: suspend () -> T): T = locks.getOrPut(id) { Mutex() }.withLock { block() }
-    override suspend fun loadPage(id: Int): JsonObject {
+    override suspend fun <T> withPageLock(id: Long, block: suspend () -> T): T = locks.getOrPut(id) { Mutex() }.withLock { block() }
+    override suspend fun loadPage(id: Long): JsonObject {
         if (gone) throw ApiException(404, UiText.Raw("not found"))
         return buildJsonObject {
             put("id", id); put("title", title); put("body", body); put("format", "blocks"); put("rev", rev)
@@ -64,9 +64,9 @@ private class SharedPageServer(var role: String? = "edit") : PageBackend {
         }
     }
 
-    override suspend fun savePage(id: Int, title: String, body: String?, rev: Int?): Int? = savePage(id, title, body, rev, false)
+    override suspend fun savePage(id: Long, title: String, body: String?, rev: Int?): Int? = savePage(id, title, body, rev, false)
 
-    override suspend fun savePage(id: Int, title: String, body: String?, rev: Int?, overwrite: Boolean): Int? {
+    override suspend fun savePage(id: Long, title: String, body: String?, rev: Int?, overwrite: Boolean): Int? {
         failWith?.let { throw ApiException(it, UiText.Raw("nope")) }
         if (rev != null && rev != this.rev) {
             val by = conflictBy?.let { "\"$it\"" } ?: "null"
@@ -79,11 +79,11 @@ private class SharedPageServer(var role: String? = "edit") : PageBackend {
         return this.rev
     }
 
-    override suspend fun createPageWith(title: String, body: String): Int = 99
-    override suspend fun setPinned(id: Int, pinned: Boolean) {}
-    override suspend fun setLocked(id: Int, locked: Boolean) {}
-    override fun updateTitleLocal(id: Int, title: String) {}
-    override fun visited(id: Int) {}
+    override suspend fun createPageWith(title: String, body: String): Long = 99
+    override suspend fun setPinned(id: Long, pinned: Boolean) {}
+    override suspend fun setLocked(id: Long, locked: Boolean) {}
+    override fun updateTitleLocal(id: Long, title: String) {}
+    override fun visited(id: Long) {}
     override fun friendly(e: Throwable): UiText = UiText.Raw(e.message ?: "?")
 
     fun text(b: String): String = BlockDoc.str(BlockDoc.data(BlockDoc.blocks(BlockDoc.parse(b, "blocks").doc)[0]), "text")

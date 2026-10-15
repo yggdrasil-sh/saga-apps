@@ -34,7 +34,13 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
             filesDir = filesDir,
             // App-Sprache = Sprache der angezeigten Texte (de/en/es; sonst Englisch), nicht die Geraetesprache
             language = { resources.getString(R.string.app_language) },
+            appContext = this,
         )
+        // Live-Kanal nur im Vordergrund (hoechstens eine Verbindung); im Hintergrund kommen Mitteilungen (Push)
+        androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
+            override fun onStart(owner: androidx.lifecycle.LifecycleOwner) = repo.live.foreground(true)
+            override fun onStop(owner: androidx.lifecycle.LifecycleOwner) = repo.live.foreground(false)
+        })
     }
 
     /** Bilder: eigener Server (/files/...) mit derselben Sitzung wie die API, fremde Hosts ohne Sitzung/Kopfzeilen */

@@ -38,4 +38,4 @@ sealed interface UiText {
 fun UiText.resolve(): String = asString(LocalResources.current)
 
 /** Fehler mit fertigem, uebersetzbarem Text (z. B. Eingabe pruefen im Repository) */
-class UiTextException(val text: UiText) : Exception(text.toString())
+open class UiTextException(val text: UiText) : Exception(text.toString())

@@ -45,6 +45,9 @@ import io.github.yggdrasil_sh.saga.auth.PairLink
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
+import androidx.compose.foundation.clickable
+import io.github.yggdrasil_sh.saga.chat.ChatSetup
+import io.github.yggdrasil_sh.saga.ui.nav.Dest
 
 /** Einstellungen: Server, Versionen, Apps & Geraete, Abmelden */
 @Composable
@@ -58,6 +61,19 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     var drop by remember { mutableStateOf<DeviceInfo?>(null) }
     var confirmLogout by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    var notifKinds by remember { mutableStateOf<List<io.github.yggdrasil_sh.saga.live.NotifKind>>(emptyList()) }
+    val pushSupported by repo.push.supported.collectAsState()
+    val chatState by repo.chat.state.collectAsState()
+    LaunchedEffect(Unit) {
+        try {
+            notifKinds = repo.live.settings().kinds
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+        repo.push.load()
+        repo.chat.refresh()
+    }
 
     suspend fun loadApps() {
         try {
@@ -97,6 +113,34 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             }
             // Veroeffentlichen: oeffentlicher Name als eigener Block im Konto (nach Kopplung neu laden)
             item { PublicNameBlock(repo, w.padding(top = 8.dp), reloadKey = signIns) }
+
+            // Saga 2.0: Benachrichtigungen (Glocke) je Art, Mitteilungen (Push), Chats & Geraete
+            if (notifKinds.isNotEmpty()) {
+                item { SectionHeader(stringResource(R.string.notifications), w) }
+                items(notifKinds, key = { "nk-" + it.kind }) { k ->
+                    io.github.yggdrasil_sh.saga.ui.push.SwitchRow(stringResource(notifKindLabel(k.kind)), k.on, w) { on ->
+                        repo.launchAction { notifKinds = repo.live.setKind(k.kind, on).kinds }
+                    }
+                }
+            }
+            if (pushSupported) {
+                item {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.push_title)) },
+                        supportingContent = { Text(stringResource(R.string.push_settings_hint)) },
+                        modifier = w.clickable { nav.push(Dest.Push) },
+                    )
+                }
+            }
+            if (chatState != ChatSetup.UNSUPPORTED && chatState != ChatSetup.OFF) {
+                item {
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.chat_devices)) },
+                        supportingContent = { Text(stringResource(R.string.chat_devices_hint)) },
+                        modifier = w.clickable { nav.push(Dest.ChatDevices) },
+                    )
+                }
+            }
 
             item { SectionHeader(stringResource(R.string.settings_about), w) }
             item { ListItem(headlineContent = { Text(stringResource(R.string.settings_app)) }, trailingContent = { Text("Saga ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") }, modifier = w) }
@@ -191,4 +235,15 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             dismissButton = { TextButton(onClick = { confirmLogout = false }) { Text(stringResource(R.string.action_cancel)) } },
         )
     }
+}
+
+/** Texte der Benachrichtigungs-Arten (GLOSSAR "Live-Kanal und Benachrichtigungen") */
+fun notifKindLabel(kind: String): Int = when (kind) {
+    "share.added" -> R.string.notify_kind_share_added
+    "share.role" -> R.string.notify_kind_share_role
+    "comment.new" -> R.string.notify_kind_comment_new
+    "comment.reply" -> R.string.notify_kind_comment_reply
+    "publish.withdrawn" -> R.string.notify_kind_publish_withdrawn
+    "chat.message" -> R.string.notify_kind_chat_message
+    else -> R.string.notifications
 }

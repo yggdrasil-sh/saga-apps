@@ -19,9 +19,9 @@ import kotlinx.serialization.json.put
 
 /** Schnittstelle fuer "Veroeffentlichen" (SagaRepository; in Tests eine Attrappe) */
 interface PublishBackend {
-    suspend fun publishState(id: Int): PublishState
-    suspend fun publish(id: Int, body: JsonObject): PublishState
-    suspend fun unpublish(id: Int): PublishState
+    suspend fun publishState(id: Long): PublishState
+    suspend fun publish(id: Long, body: JsonObject): PublishState
+    suspend fun unpublish(id: Long): PublishState
     suspend fun publicName(): PublicNameInfo
     suspend fun checkPublicName(name: String): NameCheck
     suspend fun setPublicName(name: String): NameSaved
@@ -120,7 +120,7 @@ enum class PublishStep { NAME, MAIN }
  * Aenderung sofort gespeichert. onChange meldet jeden neuen Zustand (Hinweis "Oeffentlich" im Seitenkopf).
  */
 class PublishModel(
-    val id: Int,
+    val id: Long,
     private val backend: PublishBackend,
     private val fallbackBase: String,
     private val onChange: (PublishState) -> Unit = {},

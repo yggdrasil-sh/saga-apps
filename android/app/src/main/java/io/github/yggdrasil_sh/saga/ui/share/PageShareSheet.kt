@@ -89,7 +89,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun PageShareSheet(
     model: ShareModel, scope: CoroutineScope, ownerName: String, link: String,
-    onDismiss: () -> Unit, onOpenParent: (Int) -> Unit, onCopied: () -> Unit,
+    onDismiss: () -> Unit, onOpenParent: (Long) -> Unit, onCopied: () -> Unit,
 ) {
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
@@ -141,6 +141,9 @@ fun PageShareSheet(
                         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.None, autoCorrectEnabled = false, imeAction = ImeAction.Search),
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    if (st.federation && st.shareable) {
+                        Text(stringResource(R.string.fed_share_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     RoleField(model.newRole, enabled = st.shareable) { model.newRole = it }
                     val taken = ShareLogic.taken(st)
                     val roleName = stringResource(ShareLogic.roleName(model.newRole))
@@ -156,6 +159,12 @@ fun PageShareSheet(
                                 h.groups.forEach { g ->
                                     HitRow("group", g.name, UiText.Res(R.string.share_group), taken[ShareLogic.key("group", g.name)], roleName) {
                                         scope.launch { model.add("group", g.name, g.name) }
+                                    }
+                                }
+                                // Foederation: name@server auf verbundenen Saga-Instanzen
+                                h.remote.forEach { r ->
+                                    HitRow(r.type, r.name.ifEmpty { r.target }, ShareLogic.entrySub(r.type, r.target, null), taken[ShareLogic.key(r.type, r.target)], roleName) {
+                                        scope.launch { model.add(r.type, r.target, r.name.ifEmpty { r.target }) }
                                     }
                                 }
                             }
@@ -267,7 +276,7 @@ private fun Avatar(type: String, name: String) {
         Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
         contentAlignment = Alignment.Center,
     ) {
-        if (type == "group") {
+        if (type == "group" || type == "remote_group") {
             Icon(painterResource(R.drawable.ic_group), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             Text(

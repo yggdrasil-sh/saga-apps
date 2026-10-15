@@ -182,7 +182,7 @@ private fun ImageBlock(d: JsonObject, env: BlockEnv) {
     val url = BlockDoc.str(file, "url").ifEmpty { BlockDoc.str(d, "url") }
     Column(Modifier.fillMaxWidth()) {
         if (url.isNotEmpty()) {
-            val sized = if (url.startsWith("/files/") && !url.contains("?")) "$url?w=2000" else url
+            val sized = if ((url.startsWith("/files/") || url.startsWith("/api/fed/files/")) && !url.contains("?")) "$url?w=2000" else url
             AsyncImage(
                 model = env.repo.absoluteUrl(sized), contentDescription = InlineHtml.plain(BlockDoc.str(d, "caption")).ifEmpty { null },
                 contentScale = ContentScale.Fit,
