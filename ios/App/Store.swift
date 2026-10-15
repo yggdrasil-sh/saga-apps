@@ -397,7 +397,20 @@ final class Store: ObservableObject {
 
     /// Startseite dieses Geraets (wird beim App-Start geoeffnet)
     @Published var homePage: Int? = UserDefaults.standard.object(forKey: "hk.homePage") as? Int
-    func setHome(_ id: Int?) { homePage = id; if let id { UserDefaults.standard.set(id, forKey: "hk.homePage") } else { UserDefaults.standard.removeObject(forKey: "hk.homePage") } }
+    /// Startseite merkt sich ihr Konto (Server + Benutzername): ein anderes Konto oeffnet sie nie (BUG-060)
+    func setHome(_ id: Int?) {
+        homePage = id
+        let d = UserDefaults.standard
+        if let id {
+            d.set(id, forKey: "hk.homePage")
+            if let o = AppConfig.serverOrigin, let a = DraftOwner.app.account(origin: o) { d.set(HomeOwner.key(origin: o, account: a), forKey: "hk.homeOwner") }
+        } else { d.removeObject(forKey: "hk.homePage"); d.removeObject(forKey: "hk.homeOwner") }
+    }
+    /// Konto erkannt: Startseite eines anderen Kontos vergessen
+    private func checkHomeOwner(origin: String, account: String) {
+        if homePage != nil, HomeOwner.mustForget(stored: UserDefaults.standard.string(forKey: "hk.homeOwner"), origin: origin, account: account) { setHome(nil) }
+        else if homePage != nil, UserDefaults.standard.string(forKey: "hk.homeOwner") == nil { setHome(homePage) }   // alte Fassung: Besitzer nachtragen
+    }
     func calTargets() async -> [CalTarget] {
         guard let d = try? await api("api/settings/calendars"), let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return [] }
         return (j["accounts"] as? [[String: Any]] ?? []).flatMap { a in
@@ -684,6 +697,7 @@ final class Store: ObservableObject {
               let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
               let u = j["username"] as? String, !u.isEmpty else { return }
         DraftOwner.app.signedIn(origin: o, account: u)
+        checkHomeOwner(origin: o, account: u)
         let n = (j["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         accountName = n.isEmpty ? u : n
     }
@@ -743,7 +757,10 @@ final class Store: ObservableObject {
         images.removeAllObjects(); cookieHeader = nil
         live.stop(); notifs.reset(); chat.signedOut(); push.signedOut()   // 2.0: Live, Glocke, Chat-Schluessel im Speicher, Push-Abo
         pages = []; archivedPages = []; lastAll = nil; shared = []; fedShared = []; aiEnabled = false; fedUnreachable = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
-        if switchingServer { setHome(nil); serverVersion = nil; minApp = nil }
+        // Startseite immer vergessen: die naechste Anmeldung kann ein anderes Konto sein - dessen Start sonst die
+        // Seiten-ID des alten Kontos an den Server schickte (BUG-060)
+        setHome(nil)
+        if switchingServer { serverVersion = nil; minApp = nil }
         SpotlightIndex.clear()                                            // abgemeldet: nichts mehr in der Systemsuche
         needsLogin = true
     }

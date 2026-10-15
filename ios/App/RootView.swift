@@ -217,8 +217,10 @@ func HlidskjalfApp_copyPageLink(_ id: Int) {
 extension RootView {
     /// Startablauf (ausgelagert: ein grosser .task-Block sprengt sonst die Typpruefung im CI-Xcode)
     @MainActor func startup() async {
-        if selection == nil, let home = store.homePage { selection = home }        // Startseite sofort (aus dem Zwischenspeicher)
+        let startHome = store.homePage
+        if selection == nil, let home = startHome { selection = home }        // Startseite sofort (aus dem Zwischenspeicher)
         await store.refresh()
+        if let h = startHome, store.homePage == nil, selection == h { selection = nil }   // gehoerte einem anderen Konto (BUG-060)
         if !store.needsLogin { store.live.start(); store.push.appStarted(); Task { await store.chat.load() } }
         if let t = PushModel.pending { PushModel.pending = nil; openTarget(t) }   // Kaltstart per Mitteilung
         if let home = store.homePage, !store.pages.isEmpty, store.page(home) == nil { store.setHome(nil); if selection == home { selection = nil } }   // geloescht -> vergessen
