@@ -290,10 +290,42 @@ object PushParse {
     }
 }
 
+/** HMAC-Signatur fuer Mitteilungs-Links (BUG-110), rein (Tests) */
+object NotifySig {
+    fun hex(b: ByteArray) = b.joinToString("") { "%02x".format(it) }
+    fun unhex(s: String) = ByteArray(s.length / 2) { s.substring(it * 2, it * 2 + 2).toInt(16).toByte() }
+
+    fun sign(key: ByteArray, url: String): String {
+        val mac = javax.crypto.Mac.getInstance("HmacSHA256")
+        mac.init(javax.crypto.spec.SecretKeySpec(key, "HmacSHA256"))
+        return hex(mac.doFinal(url.toByteArray(Charsets.UTF_8)))
+    }
+
+    fun check(key: ByteArray, url: String, sig: String?): Boolean =
+        sig != null && java.security.MessageDigest.isEqual(sign(key, url).toByteArray(), sig.toByteArray())
+}
+
 /** Anzeige in der Mitteilungszentrale: gleicher tag = gleiche Unterhaltung/Seite/Chat (ersetzt); Tippen oeffnet url */
 object Notifier {
     const val CHANNEL = "saga_push"
     const val EXTRA_URL = "saga_url"
+    const val EXTRA_SIG = "saga_sig"
+
+    /**
+     * MainActivity ist exportiert: saga_url nur aus eigenen Mitteilungen annehmen (BUG-110). Signatur = HMAC der url
+     * mit einem zufaelligen Schluessel dieser Installation (private Einstellungen, fuer andere Apps unlesbar).
+     */
+    private fun key(context: Context): ByteArray {
+        val p = context.getSharedPreferences("saga_ui", Context.MODE_PRIVATE)
+        p.getString("notify_key", null)?.let { return NotifySig.unhex(it) }
+        val k = ByteArray(32).also { java.security.SecureRandom().nextBytes(it) }
+        p.edit().putString("notify_key", NotifySig.hex(k)).apply()
+        return k
+    }
+
+    fun sign(context: Context, url: String): String = NotifySig.sign(key(context), url)
+
+    fun verify(context: Context, url: String, sig: String?): Boolean = NotifySig.check(key(context), url, sig)
 
     fun channel(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
@@ -309,7 +341,8 @@ object Notifier {
         channel(context)
         val tag = m.tag.ifEmpty { "saga" }
         val open = Intent(context, MainActivity::class.java).setAction(Intent.ACTION_VIEW)
-            .putExtra(EXTRA_URL, m.url).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            .putExtra(EXTRA_URL, m.url).putExtra(EXTRA_SIG, sign(context, m.url))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         val pi = PendingIntent.getActivity(context, tag.hashCode(), open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val n = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)

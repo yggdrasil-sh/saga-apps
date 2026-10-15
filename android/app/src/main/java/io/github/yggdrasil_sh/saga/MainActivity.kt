@@ -53,8 +53,13 @@ class MainActivity : ComponentActivity() {
     private fun handleIntent(intent: Intent?) {
         // Mitteilung angetippt: Seite/Chat oeffnen (url relativ zum Server)
         intent?.getStringExtra(io.github.yggdrasil_sh.saga.push.Notifier.EXTRA_URL)?.let { url ->
+            val sig = intent.getStringExtra(io.github.yggdrasil_sh.saga.push.Notifier.EXTRA_SIG)
             intent.removeExtra(io.github.yggdrasil_sh.saga.push.Notifier.EXTRA_URL)
-            if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) app.repo.openUrl(url)
+            intent.removeExtra(io.github.yggdrasil_sh.saga.push.Notifier.EXTRA_SIG)
+            // nur aus eigenen Mitteilungen (signiert) - fremde Apps duerfen nichts oeffnen/gelesen markieren (BUG-110)
+            if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0 &&
+                io.github.yggdrasil_sh.saga.push.Notifier.verify(this, url, sig)
+            ) app.repo.openUrl(url)
             return
         }
         if (intent?.action == Intent.ACTION_SEND && intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY == 0) {
