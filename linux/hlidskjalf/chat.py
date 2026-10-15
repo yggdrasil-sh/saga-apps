@@ -61,19 +61,33 @@ _mem = {}                       # ohne Schluesselbund: nur im Speicher
 _klock = threading.Lock()
 
 
+_kr = {"ok": None}              # Secret Service erreichbar? None = noch nicht geprueft, False = Schluessel nur im Speicher
+
+
 def _secret():
+    """libsecret, wenn der Schluesselbund-Dienst wirklich erreichbar ist (nicht nur die Typelib da ist), sonst None
+    (Schluessel nur im Speicher, wie ohne Schluesselbund). Die erste Pruefung ist ein D-Bus-Aufruf - nur im Hintergrund."""
     global _SCHEMA
-    if not config.Secret:
+    if not config.Secret or _kr["ok"] is False:
         return None
+    S = config.Secret
     if _SCHEMA is None:
-        S = config.Secret
         _SCHEMA = S.Schema.new(APP_ID + ".Chat", S.SchemaFlags.NONE,
                                {"server": S.SchemaAttributeType.STRING, "uid": S.SchemaAttributeType.STRING})
-    return config.Secret
+    if _kr["ok"] is None:
+        try:
+            S.password_lookup_sync(_SCHEMA, {"server": "-", "uid": "-"}, None)
+            _kr["ok"] = True
+        except GLib.Error:
+            _kr["ok"] = False                             # kein Dienst (Fenstermanager ohne Schluesselbund ...)
+            return None
+    return S
 
 
 def keys_persistent():
-    return _secret() is not None
+    """Bleiben die Chat-Schluessel ueber einen Neustart? Nein ohne Typelib und wenn der Dienst nicht erreichbar war
+    bzw. das Speichern scheiterte (BUG-028) - dann zeigt die Oberflaeche den Schluesselbund-Hinweis."""
+    return bool(config.Secret) and _kr["ok"] is not False
 
 
 def _kattrs(server, uid):
@@ -89,7 +103,7 @@ def load_keys(server, uid):
             raw = S.password_lookup_sync(_SCHEMA, _kattrs(server, uid), None)
         except GLib.Error:
             raw = None
-    else:
+    if not raw:
         with _klock:
             raw = _mem.get((config.origin(server), uid))
     if not raw:
@@ -117,7 +131,9 @@ def save_keys(server, uid, k):
                 return True
         except GLib.Error:
             pass
-        raise ChatError(_("The keys could not be stored in the keyring."))
+        # Nicht abbrechen: der Server kennt Identitaet bzw. Geraet schon - ohne Schluessel waeren sie verloren (BUG-028).
+        # Wie ohne Schluesselbund: im Speicher behalten, die Oberflaeche zeigt den Hinweis (keys_persistent()).
+        _kr["ok"] = False
     with _klock:
         _mem[(config.origin(server), uid)] = raw
     return False
@@ -242,6 +258,26 @@ class ChatState(GObject.Object):
     def device_id(self):
         return self.keys["device"]["id"] if self.keys else ""
 
+    AVAILABLE_STATES = ("setup", "device", "ready", "nocrypto")
+
+    def _remember_available(self, srv):
+        """Merken, ob dieser Server Chats hat - offline (Status noch unbekannt) bleibt "Chats" dann in der Seitenleiste
+        (BUG-113)"""
+        o = config.origin(srv) or srv
+        seen = [x for x in config.settings.get("chat_servers") or [] if isinstance(x, str)]
+        if self.status in self.AVAILABLE_STATES and o not in seen:
+            config.settings.set("chat_servers", seen + [o])
+        elif self.status == "off" and o in seen:
+            config.settings.set("chat_servers", [x for x in seen if x != o])
+
+    @property
+    def shown(self):
+        """"Chats" anzeigen: Status bekannt und Chats moeglich, oder noch unbekannt (offline) und frueher verfuegbar"""
+        if self.status in self.AVAILABLE_STATES:
+            return True
+        srv = config.settings.server
+        return self.status == "unknown" and bool(srv) and (config.origin(srv) or srv) in (config.settings.get("chat_servers") or [])
+
     def reset(self):
         """anderer Server / abgemeldet"""
         self.clear()
@@ -256,6 +292,7 @@ class ChatState(GObject.Object):
         srv = config.settings.server
 
         def work():
+            _secret()                                     # Schluesselbund-Dienst pruefen (D-Bus, nur im Hintergrund)
             uid = config.account(srv)
             keys = load_keys(srv, uid) if uid else None
             q = f"?device={keys['device']['id']}" if keys else ""
@@ -288,6 +325,7 @@ class ChatState(GObject.Object):
                     delete_keys(srv, self.uid)
                 self.keys = None
                 self.status = "device"
+            self._remember_available(srv)
             self.emit("changed")
             if self.status == "ready":
                 self.load_chats()
@@ -329,8 +367,12 @@ class ChatState(GObject.Object):
         """Haupt-Thread: Schluessel uebernommen -> bereit"""
         self.keys = k
         self.status = "ready"
-        self.cache = {}
+        old, self.cache = list(self.cache), {}
         self.emit("changed")
+        for cid in old:                                   # offene Unterhaltungen neu zeichnen: keine alten, mit den
+            self.emit("messages", cid)                    # vorigen Schluesseln entschluesselten Nachrichten (BUG-116)
+        if self.open_chat in old:
+            self.load_messages(self.open_chat)            # mit den neuen Schluesseln (aeltere: nicht entschluesselbar)
         self.refresh()
 
     def unlock(self, rk):
@@ -416,6 +458,18 @@ class ChatState(GObject.Object):
         body = {"sig": C.device_cert(self.uid, k["ident_sk"], dev),
                 "sealed": C.seal(C.bundle_plain(k["ident_sk"], k["backup_sk"]).encode(), dev["enc_pk"])}
         client.json("POST", f"api/chat/link/{urllib.parse.quote(ln['id'])}", body)
+
+    LINK_AGAIN_S = 60
+
+    def link_later(self, ln):
+        """Kopplungsanfrage ohne Entscheidung geschlossen: nicht als gesehen merken, spaeter erneut fragen"""
+        self._seen_links.discard(ln.get("id"))
+
+        def again():
+            if self.ready:
+                self.check_links()
+            return False
+        GLib.timeout_add_seconds(self.LINK_AGAIN_S, again)
 
     def link_decline(self, ln):
         bg(client.request, "DELETE", f"api/chat/link/{urllib.parse.quote(ln['id'])}", error=lambda e: None)
@@ -674,6 +728,15 @@ class ChatState(GObject.Object):
             c["rc"] = (client.get(f"api/chats/{cid}/recipients") or {}).get("recipients") or []
         return c["rc"]
 
+    def verify_recipients(self, cid):
+        """Hintergrund, beim Oeffnen eines Chats: Empfaenger frisch holen und pruefen - eine geaenderte Sicherheitsnummer
+        wird so schon vor dem ersten Senden gemerkt (pending), nicht erst beim Sendeversuch (BUG-076)"""
+        try:
+            self.check_recipients(self.recipients(cid, fresh=True))
+        except ChatError:
+            pass                                          # geaendert -> pending; anderes meldet das Senden
+        return True
+
     def upload_file(self, cid, data, name, mime):
         """Hintergrund: Datei verschluesseln und hochladen -> Eintrag fuer den Inhalt"""
         blob, key = C.encrypt_file(cid, data)
@@ -735,8 +798,8 @@ class ChatState(GObject.Object):
 
     def _merge(self, ch):
         old = self.chat(ch.get("id"))
-        if old is not None:
-            t = old.get("_title")
+        if old is not None and old is not ch:                # eben neu aufgenommen (dasselbe dict): nichts zu mischen,
+            t = old.get("_title")                            # clear() wuerde es leeren (BUG-030)
             old.clear()
             old.update(ch)
             if t and "_title" not in ch:

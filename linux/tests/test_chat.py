@@ -253,3 +253,156 @@ def test_ui_setup_list_and_conversation(win, srv):
     pump(lambda: "Noch etwas" in _labels(conv), 5)
     assert "Noch etwas" in _labels(conv)
     assert json.dumps(chat.limits)
+
+
+def test_new_chat_from_someone_else_appears(win, srv):
+    """BUG-030: ein Chat, den jemand anderes mit mir anlegt (load_chat, noch nicht in der Liste), erscheint vollstaendig -
+    _merge leerte frueher das eben eingefuegte dict (KeyError 'id' in der Liste)"""
+    from hlidskjalf.chat import chat
+    _ready(srv)
+    srv.chat_peer("anna", "Anna Beispiel")
+    chat.load_chats()
+    idle()
+    cid = srv.new_chat("dm", ["test", "anna"])
+    assert chat.chat(cid) is None
+    got = []
+    chat.load_chat(cid, done=got.append)
+    assert pump(lambda: got, 4)
+    ch = chat.chat(cid)
+    assert ch is not None and ch.get("id") == cid and ch.get("kind") == "dm"
+    assert all(isinstance(c.get("id"), int) for c in chat.chats)
+    assert chat.title(ch) == "Anna Beispiel"
+
+
+class _BrokenSecret:
+    """libsecret-Typelib da, Dienst aber nicht erreichbar (lookup_fail) bzw. Speichern scheitert (nur store)"""
+    COLLECTION_DEFAULT = "default"
+
+    def __init__(self, lookup_fail):
+        self.lookup_fail, self.stored = lookup_fail, []
+
+    def password_lookup_sync(self, schema, attrs, cancel):
+        from gi.repository import GLib
+        if self.lookup_fail:
+            raise GLib.Error("org.freedesktop.DBus.Error.ServiceUnknown")
+        return None
+
+    def password_store_sync(self, schema, attrs, coll, label, raw, cancel):
+        from gi.repository import GLib
+        raise GLib.Error("store failed")
+
+    def password_clear_sync(self, schema, attrs, cancel):
+        return True
+
+
+def _broken_keyring(monkeypatch, lookup_fail):
+    from hlidskjalf import chat as chatmod, config
+    fake = _BrokenSecret(lookup_fail)
+    monkeypatch.setattr(config, "Secret", fake)
+    monkeypatch.setattr(chatmod, "_SCHEMA", object())
+    monkeypatch.setitem(chatmod._kr, "ok", None)
+    return chatmod
+
+
+def test_keyring_service_missing_keeps_keys_in_memory(win, srv, monkeypatch):
+    """BUG-028: Typelib da, Dienst nicht erreichbar -> Hinweis (keys_persistent False) schon vor der Einrichtung; die
+    Einrichtung legt die Identitaet an UND behaelt die Schluessel (im Speicher) - kein verwaister Server-Zustand"""
+    chatmod = _broken_keyring(monkeypatch, lookup_fail=True)
+    assert chatmod.keys_persistent()                          # noch nicht geprueft
+    chat = chatmod.chat
+    chat.refresh()
+    assert pump(lambda: chatmod._kr["ok"] is not None and chat.status == "setup", 5)
+    assert not chatmod.keys_persistent()
+    k = chat.setup(C.recovery_key())
+    chat.adopt_keys(k)
+    assert pump(lambda: chat.status == "ready", 5)
+    assert chatmod.load_keys(chat.server, chat.uid)["device"]["id"] == k["device"]["id"]
+
+
+def test_keyring_store_fails_keeps_keys_in_memory(win, srv, monkeypatch):
+    """BUG-028: Dienst antwortet, Speichern scheitert -> kein Abbruch nach dem Anlegen am Server, Schluessel im Speicher,
+    danach Hinweis"""
+    chatmod = _broken_keyring(monkeypatch, lookup_fail=False)
+    chat = chatmod.chat
+    chat.refresh()
+    assert pump(lambda: chatmod._kr["ok"] is not None and chat.status == "setup", 5)
+    assert chatmod.keys_persistent()
+    k = chat.setup(C.recovery_key())                          # frueher: ChatError nach PUT api/chat/identity
+    assert not chatmod.keys_persistent()
+    assert srv.idents["test"]["ident_pub"] == C.b64(k["ident_pk"])
+    assert chatmod.load_keys(chat.server, chat.uid)["device"]["id"] == k["device"]["id"]
+
+
+def test_safety_change_noticed_when_opening_chat(win, srv):
+    """BUG-076: geaenderte Sicherheitsnummer wird beim Oeffnen des Chats bemerkt (Hinweis), nicht erst beim Senden"""
+    from hlidskjalf.chat import chat, trust_get
+    _ready(srv)
+    srv.chat_peer("anna", "Anna Beispiel")
+    cid = srv.new_chat("dm", ["test", "anna"])
+    chat.send(cid, {"v": 1, "type": "text", "text": "eins"})
+    srv.chat_peer("anna", "Anna Beispiel")                   # Anna beginnt neu
+    chat.load_chats()
+    pump(lambda: chat.chat(cid) is not None, 4)
+    assert not trust_get("test", "anna").get("pending")
+    win.show_route(("chat", cid))
+    v = win.current
+    assert pump(lambda: trust_get("test", "anna").get("pending"), 6), "nicht beim Oeffnen geprueft"
+    conv = getattr(v, "conv", None) or v
+    if hasattr(conv, "warn_rev"):
+        assert pump(lambda: conv.warn_rev.get_reveal_child(), 4)
+
+
+def test_link_request_closed_with_esc_comes_back(win, srv, monkeypatch):
+    """BUG-080: "Neues Geraet bestaetigen" mit Esc geschlossen -> Anfrage erscheint spaeter wieder (nicht nie mehr)"""
+    from hlidskjalf.chat import ChatState, chat
+    from hlidskjalf.chatview import approve_link
+    _ready(srv)
+    monkeypatch.setattr(ChatState, "LINK_AGAIN_S", 1)
+    new = ChatState()
+    new.me = dict(chat.me)
+    new.server = chat.server
+    new.link_start()
+    seen = []
+    h = chat.connect("link-request", lambda o, ln: seen.append(ln))
+    try:
+        chat.check_links()
+        assert pump(lambda: seen, 4)
+        pump(None, 0.3)
+        d = win.get_visible_dialog() or approve_link(win, seen[0])
+        d.close()                                             # wie Esc (close-response "close")
+        n = len(seen)
+        assert pump(lambda: len(seen) > n, 4), "Anfrage kam nicht wieder"
+    finally:
+        chat.disconnect(h)
+        while win.get_visible_dialog() is not None:
+            win.get_visible_dialog().force_close()
+            pump(None, 0.1)
+
+
+def test_rename_group_enter_and_start_over_redraws(win, srv):
+    """BUG-116: Enter in "Gruppe umbenennen" speichert; neue Schluessel (Neu beginnen) zeichnen offene Chats neu"""
+    from hlidskjalf.chat import chat
+    from hlidskjalf.chatview import rename_group
+    _ready(srv)
+    srv.chat_peer("anna", "Anna Beispiel")
+    cid = srv.new_chat("free", ["test", "anna"])
+    chat.load_chats()
+    assert pump(lambda: chat.chat(cid) is not None, 4)
+    n = len(srv.chats[cid]["msgs"])
+    rename_group(win, cid)
+    pump(None, 0.2)
+    d = win.get_visible_dialog()
+    en = d.get_extra_child()
+    en.set_text("Neuer Name")
+    en.emit("activate")
+    assert pump(lambda: win.get_visible_dialog() is None, 3), "Dialog nach Enter noch offen"
+    assert pump(lambda: len(srv.chats[cid]["msgs"]) > n, 4), "nichts gespeichert"
+    # Neu beginnen: offene Unterhaltung bekommt "messages" (neu zeichnen), alte Klartexte bleiben nicht stehen
+    chat.cache[cid] = {"msgs": [{"id": "alt", "text": "alter Klartext"}], "loaded": True}
+    got = []
+    h = chat.connect("messages", lambda o, c: got.append(c))
+    try:
+        chat.adopt_keys(chat.keys)
+        assert cid in got and "alter Klartext" not in str(chat.cache.get(cid))
+    finally:
+        chat.disconnect(h)

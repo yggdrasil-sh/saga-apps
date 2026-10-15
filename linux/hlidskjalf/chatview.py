@@ -526,6 +526,8 @@ class Conversation(Gtk.Box):
         self._to_bottom()
         self._mark_read()
         self._check_trust()
+        if chat.ready:                                    # Sicherheitsnummern gleich beim Oeffnen pruefen (BUG-076)
+            bg(chat.verify_recipients, self.cid, done=lambda _r: self._check_trust(), error=lambda e: None)
         GLib.idle_add(lambda: (self.entry.grab_focus(), False)[1])
 
     def _mapped(self):
@@ -1147,7 +1149,7 @@ def rename_group(win, cid):
         bg(chat.send, cid, {"v": 1, "type": "title", "title": name}, None, "title",
            done=lambda _r: chat.load_chat(cid), error=lambda e: _toast(win, _("Not sent: {err}").format(err=e)))
     d.connect("response", resp)
-    en.connect("activate", lambda *_: d.response("ok") if hasattr(d, "response") else None)
+    en.connect("activate", lambda *_: (resp(d, "ok"), d.force_close()))   # Enter speichert (BUG-116)
     d.present(win)
 
 
@@ -1174,12 +1176,16 @@ class ChatInfoDialog(Adw.Dialog):
         tv.add_top_bar(Adw.HeaderBar())
         self.page = Adw.PreferencesPage()
         tv.set_content(self.page)
-        self.set_child(tv)
+        self.toasts = Adw.ToastOverlay(child=tv)           # Fehlermeldungen im Dialog (Adw.Dialog hat kein add_toast)
+        self.set_child(self.toasts)
         self.group = None
         self.add_group = None
         self.rc = {}
         self.fill()
         bg(chat.recipients, cid, True, done=self._rc, error=lambda e: None)
+
+    def add_toast(self, t):
+        self.toasts.add_toast(t)
 
     def _rc(self, rc):
         self.rc = {r.get("username"): r for r in rc or []}
@@ -1279,6 +1285,7 @@ class NewChatDialog(Adw.Dialog):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_top=6, margin_bottom=12, margin_start=12, margin_end=12)
         self.search = Gtk.SearchEntry(placeholder_text=_("Search person or group (3+ characters)"))
         self.search.connect("search-changed", lambda *_: self._search())
+        self.search.connect("stop-search", lambda *_: self.close())    # Esc schliesst (die Suchzeile verschluckt es sonst, BUG-077)
         box.append(self.search)
         self.group_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, visible=False)
         self.group_box.append(_lbl(_("Custom group: selected people; the name is encrypted."), ("dim-label", "caption")))
@@ -1301,10 +1308,14 @@ class NewChatDialog(Adw.Dialog):
         self.multi_btn = _button(_("+ Group with several people …"), ("flat",), self._toggle_multi, halign=Gtk.Align.START)
         box.append(self.multi_btn)
         tv.set_content(box)
-        self.set_child(tv)
+        self.toasts = Adw.ToastOverlay(child=tv)           # Fehler vom Server im Dialog melden (BUG-075)
+        self.set_child(self.toasts)
         self._update()
         self.q = ""
         GLib.idle_add(lambda: (self.search.grab_focus(), False)[1])
+
+    def add_toast(self, t):
+        self.toasts.add_toast(t)
 
     def _toggle_multi(self):
         self.multi = not self.multi
@@ -1717,6 +1728,8 @@ def approve_link(win, ln):
             bg(chat.link_approve, ln, done=lambda _r: (_toast(win, _("Device confirmed.")), chat.refresh()), error=lambda e: _toast(win, str(e)))
         elif r == "no":
             chat.link_decline(ln)
+        else:                                            # Esc/Schliessen = spaeter: Anfrage nach einer Minute erneut
+            chat.link_later(ln)                          # zeigen (das neue Geraet wartet sonst ohne Hinweis, BUG-080)
     d.connect("response", resp)
     d.present(win)
     return d
