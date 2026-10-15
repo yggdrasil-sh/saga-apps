@@ -206,7 +206,7 @@ def set_account(name, server=None):
 
 
 def _pretty_hostname():
-    """hostnamectl: PRETTY_HOSTNAME aus /etc/machine-info (z. B. "Svens Laptop")"""
+    """hostnamectl: PRETTY_HOSTNAME aus /etc/machine-info (z. B. "Annas Laptop")"""
     try:
         with open("/etc/machine-info", encoding="utf-8") as f:
             for line in f:

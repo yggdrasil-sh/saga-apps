@@ -158,8 +158,8 @@ def test_device_name(monkeypatch):
     monkeypatch.setattr(config.GLib, "get_host_name", lambda: "d4a2f9dd5c93")
     monkeypatch.setattr(config, "_os_name", lambda: "Fedora Linux")
     assert config.device_name() == "Fedora Linux"
-    monkeypatch.setattr(config, "_pretty_hostname", lambda: "Svens Laptop")
-    assert config.device_name() == "Svens Laptop (Linux)"
+    monkeypatch.setattr(config, "_pretty_hostname", lambda: "Annas Laptop")
+    assert config.device_name() == "Annas Laptop (Linux)"
 
 
 # --- 10) fremde Seite: Hinweis je Rolle ------------------------------------------------------------------------------

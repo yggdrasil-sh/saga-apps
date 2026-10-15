@@ -85,7 +85,7 @@ class ChatUiTest {
     @Test
     fun deviceNames() {
         assertEquals("Android Emulator", DeviceNames.pretty("sdk_gphone64_arm64", "Google", "sdk_gphone64_arm64"))
-        assertEquals("Svens Pixel", DeviceNames.pretty("Svens Pixel", "Google", "Pixel 8"))
+        assertEquals("Annas Pixel", DeviceNames.pretty("Annas Pixel", "Google", "Pixel 8"))
         assertEquals("Google Pixel 8", DeviceNames.pretty(null, "google", "Pixel 8"))
         assertEquals("Samsung SM-S911B", DeviceNames.pretty("", "samsung", "SM-S911B"))
         assertEquals("OnePlus CPH2449", DeviceNames.pretty("CPH2449", "OnePlus", "CPH2449"))
