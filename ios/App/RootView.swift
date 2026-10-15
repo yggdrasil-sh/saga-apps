@@ -37,7 +37,11 @@ struct RootView: View {
             Sidebar(store: store, selection: $selection, query: query, results: results, sharedJump: nav.sharedJump)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 380)      // wie Notion, nicht abgeschnitten
                 .navigationTitle("Saga")
+                #if os(macOS)
+                .searchable(text: $query, placement: .sidebar, prompt: "Seiten durchsuchen")    // Mac: Feld in der Seitenleiste, keine zweite Lupe oben rechts
+                #else
                 .searchable(text: $query, prompt: "Seiten durchsuchen")
+                #endif
                 .searchFocused($searchFocused)
                 .task(id: query) {
                     try? await Task.sleep(for: .milliseconds(250))          // erst nach kurzer Tipp-Pause suchen
@@ -45,13 +49,13 @@ struct RootView: View {
                 }
                 .refreshable { await store.refresh() }
                 .toolbar {
+                    #if os(iOS)
                     ToolbarItem(placement: .primaryAction) {
                         Button { Task { if let id = await store.newPage() { selection = id } } } label: { Label("Neue Seite", systemImage: "square.and.pencil") }
                     }
                     ToolbarItem(placement: .primaryAction) {
                         if store.notifs.supported { BellButton(notifs: store.notifs) { showNotifs = true } }
                     }
-                    #if os(iOS)
                     ToolbarItem(placement: .topBarLeading) {
                         Button { showSettings = true } label: { Label("Einstellungen", systemImage: "gearshape") }
                     }
@@ -82,6 +86,18 @@ struct RootView: View {
                 }
             }
             .animation(.snappy(duration: 0.25), value: nav.peek)
+            #if os(macOS)
+            .toolbar {                                           // Mac: Glocke im Inhaltsbereich - auch bei eingeklappter Seitenleiste sichtbar
+                // "Neue Seite" ebenfalls hier: in der schmalen Seitenleisten-Leiste landete der Knopf im unbeschrifteten Ueberlauf ">>"
+                ToolbarItem(placement: .navigation) {
+                    Button { Task { if let id = await store.newPage() { selection = id } } } label: { Label("Neue Seite", systemImage: "doc.badge.plus") }
+                        .help(Text("Neue Seite"))                       // eigenes Symbol: "Neuer Chat" nutzt das Stift-Symbol
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    if store.notifs.supported { BellButton(notifs: store.notifs) { showNotifs = true } }
+                }
+            }
+            #endif
         }
         .onChange(of: selection) { _, v in nav.path = []; nav.peek = nil; if v != FedLogic.chatsTag { openChat = nil } }
         .onChange(of: nav.sharedJump) { _, _ in nav.peek = nil; nav.path = []; selection = nil }   // "Zu „Mit mir geteilt“" (Kein Zugriff)
@@ -193,7 +209,12 @@ struct RootView: View {
             Button("Anlegen") { if let u = newAsk { newAsk = nil; createFromLink(u) } }
             Button("Abbrechen", role: .cancel) { newAsk = nil }
         } message: { Text("Ein Link möchte in Saga einen neuen Eintrag anlegen.") }
-        .sheet(isPresented: $showSettings) { NavigationStack { SettingsView(onLogout: { Task { await store.logout() } }) }.environmentObject(store) }
+        .sheet(isPresented: $showSettings) {
+            NavigationStack { SettingsView(onLogout: { Task { await store.logout() } }) }.environmentObject(store)
+                #if os(macOS)
+                .frame(minWidth: 560, idealWidth: 600, minHeight: 480, idealHeight: 640, maxHeight: 720)   // Mac: "Fertig" unten bleibt sichtbar
+                #endif
+        }
         #if os(iOS)
         .fullScreenCover(isPresented: $store.needsLogin) { LoginScreen(store: store) { Task { await store.refresh() } } }
         #else

@@ -46,7 +46,7 @@ struct CommentsHeadButton: View {
                 Image(systemName: "bubble.left")
                 Text(verbatim: "\(open)").monospacedDigit()
             }
-            .overlay(alignment: .topTrailing) { if unread > 0 { Circle().fill(Color.accentColor).frame(width: 7, height: 7).offset(x: 5, y: -3) } }
+            .overlay(alignment: .topTrailing) { if unread > 0 { Circle().fill(Color.gold).frame(width: 7, height: 7).offset(x: 5, y: -3) } }
         }
         .help(Self.label(open, unread))
         .accessibilityLabel(Text(verbatim: Self.label(open, unread)))

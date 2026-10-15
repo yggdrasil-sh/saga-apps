@@ -27,7 +27,14 @@ struct ChatsScreen: View {
                 }
             case .setup: ScrollView { ChatSetupView(chat: chat).padding() }
             case .newDevice: ScrollView { ChatNewDeviceView(chat: chat).padding() }
-            case .ready: ready
+            case .ready:
+                #if DEBUG
+                if UserDefaults.standard.bool(forKey: "hkChatForceSetup") { ScrollView { ChatSetupView(chat: chat).padding() } }   // nur fuer Bilder: nichts wird gesendet
+                else if UserDefaults.standard.bool(forKey: "hkChatForceNewDevice") { ScrollView { ChatNewDeviceView(chat: chat).padding() } }
+                else { ready }
+                #else
+                ready
+                #endif
             }
         }
         .navigationTitle("Chats")
@@ -122,7 +129,7 @@ struct ChatRow: View {
                 if c.lastAt > 0 { Text(Date(timeIntervalSince1970: c.lastAt), format: .relative(presentation: .named)).font(.caption2).foregroundStyle(.secondary) }
                 if c.unread > 0 {
                     Text(verbatim: "\(c.unread)").font(.caption2.bold()).foregroundStyle(Color("OnAccent"))
-                        .padding(.horizontal, 6).padding(.vertical, 1).background(Color.accentColor, in: Capsule())
+                        .padding(.horizontal, 6).padding(.vertical, 1).background(Color.gold, in: Capsule())
                         .accessibilityLabel(Text("\(c.unread) ungelesen"))
                 }
             }
@@ -135,7 +142,7 @@ struct ChatAvatar: View {
     let c: ChatSummary
     var body: some View {
         ZStack {
-            Circle().fill(Color.accentColor.opacity(0.16))
+            Circle().fill(Color.gold.opacity(0.16))
             switch c.kind {
             case "dm": Text(verbatim: LiveLogic.initials(c.title)).font(.subheadline.weight(.semibold))
             case "page": Image(systemName: "doc.text").font(.subheadline)
@@ -180,7 +187,7 @@ struct NewChatSheet: View {
                                     Text(verbatim: u.ready ? u.username : u.username + " · " + String(localized: "hat Chats noch nicht eingerichtet")).font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer()
-                                if picked.contains(where: { $0.username == u.username }) { Image(systemName: "checkmark").foregroundStyle(Color.accentColor) }
+                                if picked.contains(where: { $0.username == u.username }) { Image(systemName: "checkmark").foregroundStyle(Color.gold) }
                             }.contentShape(Rectangle())
                         }.buttonStyle(.plain).disabled(busy)
                     }
@@ -261,10 +268,8 @@ struct RecoveryKeyBox: View {
     @State private var copied = false
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            let g = key.split(separator: "-").map(String.init)            // 2 Zeilen a 4 Gruppen (nicht mitten im Schluessel umbrechen)
-            VStack(spacing: 6) {
-                Text(verbatim: g.prefix(4).joined(separator: "-"))
-                Text(verbatim: g.dropFirst(4).joined(separator: "-"))
+            VStack(spacing: 6) {                                          // 2 Zeilen a 4 Gruppen (nie mitten in einer Gruppe umbrechen)
+                ForEach(ChatLogic.recoveryLines(key), id: \.self) { Text(verbatim: $0) }
             }
             .font(.title3.monospaced().weight(.semibold)).minimumScaleFactor(0.6).lineLimit(1).textSelection(.enabled)
                 .frame(maxWidth: .infinity).padding(14)
@@ -291,14 +296,16 @@ struct ChatSetupView: View {
     @State private var err: String?
     @State private var password = ""
     @State private var reauth: String?
+    @State private var stored = false
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Label(reset ? "Chats neu beginnen" : "Chats einrichten", systemImage: "lock.shield").font(.title2.bold())
             switch step {
             case .intro:
                 Text("Saga-Chats sind Ende-zu-Ende-verschlüsselt: Nachrichten und Anhänge werden auf deinen Geräten ver- und entschlüsselt. Der Server – auch der Admin – sieht nur verschlüsselte Daten.")
-                Text("Dafür bekommst du gleich einen Wiederherstellungsschlüssel. Damit holst du deine Chats auf ein neues Gerät, wenn kein anderes mehr da ist. Ohne ihn sind deine Nachrichten verloren – auch der Admin kann sie nicht wiederherstellen.")
-                    .foregroundStyle(.secondary)
+                Text("Dafür bekommst du gleich einen Wiederherstellungsschlüssel. Damit holst du deine Chats auf ein neues Gerät, wenn kein anderes mehr da ist.")
+                Label { Text("Ohne ihn sind deine Nachrichten verloren – auch der Admin kann sie nicht wiederherstellen.").fontWeight(.semibold) }
+                    icon: { Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange) }
                 if reset {
                     Label("Achtung: Neu beginnen erzeugt neue Schlüssel. Bisherige Nachrichten sind dann für dich nicht mehr lesbar, deine Gesprächspartner sehen eine geänderte Sicherheitsnummer.", systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
@@ -307,8 +314,10 @@ struct ChatSetupView: View {
             case .show:
                 Text("Dein Wiederherstellungsschlüssel").font(.headline)
                 RecoveryKeyBox(key: key)
-                Text("Schreibe ihn ab oder speichere ihn an einem sicheren Ort (z. B. im Passwort-Manager). Saga zeigt ihn nur jetzt.").font(.callout).foregroundStyle(.secondary)
-                Button("Weiter") { step = .confirm }.prominentGold()
+                Text("Schreibe ihn ab oder speichere ihn an einem sicheren Ort (z. B. im Passwort-Manager). Saga zeigt ihn nur jetzt.").font(.callout)
+                Toggle(isOn: $stored) { Text("Ich habe den Schlüssel sicher aufbewahrt") }
+                    .toggleStyle(CheckboxLikeToggleStyle()).id("stored")
+                Button("Weiter") { step = .confirm }.prominentGold().disabled(!stored)
             case .confirm:
                 Text("Wiederherstellungsschlüssel bestätigen").font(.headline)
                 Text("Gib zur Bestätigung die letzten vier Zeichen deines Wiederherstellungsschlüssels ein.")
@@ -336,7 +345,8 @@ struct ChatSetupView: View {
             if reset { reauth = chat.me.reauth }
             #if DEBUG
             if let k = UserDefaults.standard.string(forKey: "hkChatSetupKey"), let s = UserDefaults.standard.string(forKey: "hkChatSetupStep") {   // nur fuer Tests
-                key = k; step = s == "confirm" ? .confirm : .show
+                key = k; step = s == "confirm" ? .confirm : s == "intro" ? .intro : .show
+                if s == "confirm" { last4 = String(k.suffix(4)) }
             }
             #endif
         }
@@ -365,6 +375,9 @@ struct ChatNewDeviceView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Label("Chats auf diesem Gerät", systemImage: "lock.shield").font(.title2.bold())
+                #if DEBUG
+                .task { if UserDefaults.standard.integer(forKey: "hkChatNewDeviceMode") == 2 { mode = 2 } }      // nur fuer Bilder
+                #endif
             switch chat.linking != nil && mode == 0 ? 1 : mode {          // Kopplung laeuft (auch von aussen gestartet)
             case 1: linkView
             case 2: restoreView
@@ -375,7 +388,7 @@ struct ChatNewDeviceView: View {
                     mode = 1; Task { await chat.startLink() }
                 }
                 choice("Wiederherstellungsschlüssel eingeben", "Der Schlüssel, den du bei der Einrichtung bekommen hast.", "key") { mode = 2 }
-                Button("Beides nicht mehr vorhanden? Neu beginnen …") { askReset = true }.font(.callout)
+                choice("Neu beginnen", "Beides nicht mehr vorhanden? Neue Schlüssel – ältere Nachrichten sind danach nicht mehr lesbar.", "arrow.counterclockwise", warn: true) { askReset = true }
             }
             if let t = chat.toast { Label(t, systemImage: "checkmark.circle").foregroundStyle(.green) }
         }
@@ -385,11 +398,14 @@ struct ChatNewDeviceView: View {
             Button("Abbrechen", role: .cancel) {}
         } message: { Text("Neue Schlüssel: Bisherige Nachrichten sind dann für dich nicht mehr lesbar, deine anderen Geräte werden abgemeldet und deine Gesprächspartner sehen eine geänderte Sicherheitsnummer.") }
     }
-    private func choice(_ t: LocalizedStringKey, _ s: LocalizedStringKey, _ icon: String, _ a: @escaping () -> Void) -> some View {
+    private func choice(_ t: LocalizedStringKey, _ s: LocalizedStringKey, _ icon: String, warn: Bool = false, _ a: @escaping () -> Void) -> some View {
         Button(action: a) {
             HStack(spacing: 12) {
-                Image(systemName: icon).font(.title2).frame(width: 36).foregroundStyle(Color.accentColor)
-                VStack(alignment: .leading, spacing: 2) { Text(t).font(.headline); Text(s).font(.callout).foregroundStyle(.secondary) }
+                Image(systemName: icon).font(.title2).frame(width: 36).foregroundStyle(warn ? Color.red : Color.gold)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(t).font(.headline).foregroundStyle(warn ? Color.red : Color.primary)
+                    Text(s).font(.callout).foregroundStyle(.secondary)
+                }
                 Spacer()
                 Image(systemName: "chevron.right").foregroundStyle(.tertiary)
             }
@@ -412,7 +428,7 @@ struct ChatNewDeviceView: View {
     }
     @ViewBuilder private var restoreView: some View {
         Text("Wiederherstellungsschlüssel eingeben").font(.headline)
-        TextField(String(localized: "Wiederherstellungsschlüssel"), text: $rk, prompt: Text(verbatim: "XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"), axis: .vertical).font(.body.monospaced()).textFieldStyle(.roundedBorder)
+        TextField(String(localized: "Wiederherstellungsschlüssel"), text: $rk, prompt: Text(verbatim: "XXXX-XXXX-XXXX-XXXX-…"), axis: .vertical).font(.body.monospaced()).textFieldStyle(.roundedBorder)
             .autocorrectionDisabled()
             #if os(iOS)
             .textInputAutocapitalization(.characters)
@@ -428,15 +444,23 @@ struct ChatNewDeviceView: View {
     }
 }
 
-/// Kopplungs-Code gross (20 Ziffern in 4 Bloecken)
+/// Kopplungs-Code gross: 4 Gruppen a 5 Ziffern in einer Zeile, passt das nicht: 2 Zeilen a 2 Gruppen
 struct LinkCodeView: View {
     let code: String
     var body: some View {
-        Text(verbatim: code).font(.system(.title, design: .monospaced).weight(.semibold)).minimumScaleFactor(0.5).lineLimit(1)
-            .padding(.horizontal, 12).frame(maxWidth: .infinity).padding(.vertical, 16)
-            .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-            .textSelection(.enabled)
-            .accessibilityLabel(Text(verbatim: code.map { String($0) }.joined(separator: " ")))
+        ViewThatFits(in: .horizontal) {
+            lines(oneLine: true)
+            lines(oneLine: false)
+        }
+        .font(.system(.title, design: .monospaced).weight(.semibold))
+        .padding(.horizontal, 12).frame(maxWidth: .infinity).padding(.vertical, 16)
+        .background(Color.gold.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+        .textSelection(.enabled)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: ChatLogic.digitsOnly(code).map { String($0) }.joined(separator: " ")))
+    }
+    private func lines(oneLine: Bool) -> some View {
+        VStack(spacing: 6) { ForEach(ChatLogic.linkCodeLines(code, oneLine: oneLine), id: \.self) { Text(verbatim: $0).fixedSize() } }
     }
 }
 
@@ -457,9 +481,11 @@ struct LinkApproveSheet: View {
             }.controlSize(.large)
         }
         .padding(22)
+        .frame(maxHeight: .infinity, alignment: .top)                   // Inhalt oben, nicht in der Mitte des Blatts
         .macFrame(minWidth: 460, idealWidth: 520)
         #if os(iOS)
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
+        .presentationBackground(Color(uiColor: .systemBackground))      // deckend (dunkel schien der Hintergrund durch)
         #endif
         .interactiveDismissDisabled()
     }
@@ -487,10 +513,10 @@ struct ChatDevicesSection: View {
                                 .compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button(role: .destructive) { askRemove = d } label: { Image(systemName: "trash") }
-                            .buttonStyle(.borderless)
-                            .help(d.id == chat.deviceID ? String(localized: "Von diesem Gerät entfernen") : String(localized: "Entfernen"))
-                            .accessibilityLabel(d.id == chat.deviceID ? Text("Von diesem Gerät entfernen") : Text("Entfernen"))
+                        if d.id != chat.deviceID {                          // dieses Geraet ist nicht loeschbar (sonst sperrt man sich aus)
+                            Button(role: .destructive) { askRemove = d } label: { Image(systemName: "trash") }
+                                .buttonStyle(.borderless).help(Text("Entfernen")).accessibilityLabel(Text("Entfernen"))
+                        }
                     }
                 }
                 if chat.state == .ready {
@@ -550,10 +576,10 @@ struct SafetyNumberSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     if let n = number {
-                        let blocks = n.split(separator: " ").map(String.init)
+                        let rows = ChatLogic.safetyRows(n)                     // 3 Zeilen x 4 Gruppen a 5 Ziffern (wie Web)
                         Grid(horizontalSpacing: 14, verticalSpacing: 8) {
-                            ForEach(0..<3, id: \.self) { r in
-                                GridRow { ForEach(0..<4, id: \.self) { c in Text(verbatim: blocks[safe: r * 4 + c] ?? "").font(.title3.monospaced()) } }
+                            ForEach(rows.indices, id: \.self) { r in
+                                GridRow { ForEach(rows[r], id: \.self) { Text(verbatim: $0).font(.title3.monospaced()).fixedSize() } }
                             }
                         }
                         .frame(maxWidth: .infinity).padding().background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))

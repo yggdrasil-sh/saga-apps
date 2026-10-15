@@ -31,7 +31,7 @@ struct PresenceBar: View {
                 ForEach(users.prefix(4)) { u in
                     Text(verbatim: LiveLogic.initials(u.name)).font(.caption2.weight(.semibold))
                         .frame(width: 24, height: 24)
-                        .background(Circle().fill(u.editing ? Color.accentColor.opacity(0.35) : Color.secondary.opacity(0.2)))
+                        .background(Circle().fill(u.editing ? Color.gold.opacity(0.35) : Color.secondary.opacity(0.2)))
                         .overlay(Circle().strokeBorder(.background, lineWidth: 1.5))
                 }
             }
@@ -68,9 +68,15 @@ struct ChangedBanner: View {
 /// Seite liegt auf einem anderen Saga-Server (Foederation)
 struct RemotePageBanner: View {
     let host: String
+    var canComment = true
+    var canEdit = false
     var body: some View {
+        // nur versprechen, was die Rolle hier erlaubt
+        let h = host.isEmpty ? String(localized: "einer anderen Saga-Instanz") : host
         Label {
-            Text("Diese Seite liegt auf \(host.isEmpty ? String(localized: "einer anderen Saga-Instanz") : host). Hier kannst du sie lesen, kommentieren und – mit Bearbeiten – Titel und Inhalt ändern.")
+            if canEdit { Text("Diese Seite liegt auf \(h). Hier kannst du sie lesen, kommentieren und Titel und Inhalt ändern.") }
+            else if canComment { Text("Diese Seite liegt auf \(h). Hier kannst du sie lesen und kommentieren.") }
+            else { Text("Diese Seite liegt auf \(h). Hier kannst du sie lesen.") }
         } icon: { Image(systemName: "point.3.connected.trianglepath.dotted") }
         .font(.footnote).foregroundStyle(.secondary)
         .padding(10).frame(maxWidth: .infinity, alignment: .leading)

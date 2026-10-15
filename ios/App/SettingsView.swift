@@ -5,7 +5,7 @@ import WidgetKit
 struct SettingsView: View {
     var onLogout: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
-    @State private var server = AppConfig.serverString
+    @State private var server = ShotDisplay.server(AppConfig.serverString)
     @State private var token = AppConfig.token
     @State private var status = ""
     @State private var busy = false
@@ -21,6 +21,7 @@ struct SettingsView: View {
             .task {                                                      // nur fuer Tests: zum Konto-Block (Startparameter -hkSettings konto)
                 guard let v = UserDefaults.standard.string(forKey: "hkSettings"), v != "YES" else { return }
                 try? await Task.sleep(for: .seconds(2)); proxy.scrollTo(v, anchor: v == "konto" ? .center : .top)
+                try? await Task.sleep(for: .seconds(2)); proxy.scrollTo(v, anchor: v == "konto" ? .center : .top)   // Zeilen kommen ggf. erst nach dem Laden
             }
             #endif
         }
@@ -91,6 +92,10 @@ struct SettingsView: View {
         .toolbar {
             #if os(iOS)
             ToolbarItem(placement: .confirmationAction) { Button("Fertig") { save(); dismiss() } }
+            #else
+            if onLogout != nil {                                   // Mac als Blatt (nicht das Einstellungen-Fenster): "Fertig" unten
+                ToolbarItem(placement: .confirmationAction) { Button("Fertig") { save(); dismiss() } }
+            }
             #endif
         }
         #if os(macOS)

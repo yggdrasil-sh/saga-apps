@@ -29,10 +29,9 @@ enum DeviceKey {
         if let n = UserDefaults.standard.string(forKey: "hkDeviceName") { return n }     // nur fuer Tests (keine echten Geraetenamen in Bildern)
         #endif
         #if os(iOS)
-        let n = UIDevice.current.name
-        return n.isEmpty ? UIDevice.current.model : n
+        return ChatLogic.deviceName(name: UIDevice.current.name, model: UIDevice.current.model)
         #else
-        return Host.current().localizedName ?? "Mac"
+        return ChatLogic.deviceName(name: Host.current().localizedName ?? "", model: "Mac")
         #endif
     }
 }

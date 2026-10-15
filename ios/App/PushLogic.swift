@@ -77,4 +77,15 @@ enum PushLogic {
         if r == "ok" { return .ok }
         return .fail(ShareJSON.str(json?["error"]) ?? r ?? "\(code)")
     }
+
+    /// Bezeichnung des Dienstes in der Geraeteliste: Apple-Abos menschlich ("Saga-App", Entwicklungsbuild als Testversion)
+    enum Service: Equatable { case sagaApp(test: Bool), other(String) }
+    static func service(type: String, whereText: String) -> Service {
+        guard type == "apns" else { return .other(whereText) }
+        return .sagaApp(test: whereText.lowercased().contains("sandbox"))
+    }
+    /// Doppelte Abos desselben App-Geraets (z. B. nach neuem Token): alle ausser dem aktuellen entfernen
+    static func duplicates(_ devices: [PushDevice], keep: Int?) -> [Int] {
+        devices.filter { $0.thisDevice && $0.type == "apns" && $0.id != keep }.map(\.id)
+    }
 }

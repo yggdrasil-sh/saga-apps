@@ -123,6 +123,14 @@ final class PushModel: ObservableObject {
         do {
             let (d, code) = try await store.apiResponse("api/push/subscriptions", method: "POST", body: body)
             if !(200..<300).contains(code) { message = ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "\(code)" }
+            await load()
+            // aeltere Abos derselben App-Anmeldung (frueheres Token) entfernen - sonst steht das Geraet doppelt in der Liste
+            if (200..<300).contains(code), let keep = ShareJSON.obj(d).flatMap({ ShareJSON.int($0["id"]) }), let s = state {
+                let dup = PushLogic.duplicates(s.devices, keep: keep)
+                for id in dup { _ = try? await store.api("api/push/subscriptions/\(id)", method: "DELETE") }
+                if !dup.isEmpty { await load() }
+            }
+            return
         } catch { message = error.localizedDescription }
         await load()
     }
@@ -193,21 +201,23 @@ struct PushSettingsSection: View {
         if push.supported {
             Section {
                 let av = PushLogic.availability(push.state)
-                let on = push.wanted && push.state?.thisDevice != nil
+                // Schalter und Zustand duerfen sich nicht widersprechen: nur AN, wenn der Server zustellen kann
+                let on = av == .ok && push.wanted && push.state?.thisDevice != nil
                 Toggle(isOn: Binding(get: { on }, set: { v in Task { await push.setEnabled(v) } })) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Mitteilungen auf diesem Gerät").id("push")
+                        Text("Mitteilungen auf diesem Gerät")
                         if let d = push.state?.thisDevice, let e = d.lastError { Text("Letzter Fehler: \(e)").font(.caption).foregroundStyle(.orange) }
                     }
                 }
-                .disabled(push.busy || (av != .ok && !on))
+                .disabled(push.busy || av != .ok)
+                .id("push")
                 switch av {
                 case .serverOff: Label("Mitteilungen sind auf diesem Server abgeschaltet.", systemImage: "bell.slash").font(.footnote).foregroundStyle(.secondary)
                 case .appleMissing: Label("Mitteilungen an die Apple-App sind auf diesem Server noch nicht eingerichtet (Admin-Bereich).", systemImage: "info.circle").font(.footnote).foregroundStyle(.secondary)
                 default: EmptyView()
                 }
                 if let m = push.message { Text(m).font(.footnote).foregroundStyle(.secondary) }
-                if let s = push.state, s.enabled { options(s) }
+                if let s = push.state, s.enabled { options(s, enabled: on) }      // "Worueber?" nur bei eingeschalteten Mitteilungen
             } header: { Text("Mitteilungen") } footer: {
                 Text("Mitteilungen aufs Handy oder den Computer – auch wenn Saga geschlossen ist. Inhalte von Seiten, Kommentaren und Chats werden nie mitgeschickt.")
             }
@@ -221,7 +231,8 @@ struct PushSettingsSection: View {
         }
     }
 
-    @ViewBuilder private func options(_ s: PushState) -> some View {
+    @ViewBuilder private func options(_ s: PushState, enabled: Bool) -> some View {
+        Group {
         Text("Worüber?").font(.subheadline.weight(.semibold)).padding(.top, 4)
         ForEach(s.categories, id: \.self) { c in
             Toggle(Self.catLabel(c), isOn: Binding(get: { s.cats[c] ?? true }, set: { v in Task { await push.save(["cats": [c: v]]) } }))
@@ -237,6 +248,8 @@ struct PushSettingsSection: View {
             DatePicker("von", selection: timeBinding(s.quietFrom, key: "from"), displayedComponents: .hourAndMinute)
             DatePicker("bis", selection: timeBinding(s.quietTo, key: "to"), displayedComponents: .hourAndMinute)
         }
+        }
+        .disabled(!enabled).foregroundStyle(enabled ? Color.primary : Color.secondary)     // ausgegraut, solange Mitteilungen aus sind
     }
 
     private func devices(_ s: PushState) -> some View {
@@ -245,8 +258,8 @@ struct PushSettingsSection: View {
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(verbatim: (d.name.isEmpty ? d.whereText : d.name) + (d.thisDevice ? " · " + String(localized: "dieses Gerät") : ""))
-                            Text(verbatim: d.whereText + (d.encrypted ? "" : " · " + String(localized: "ohne Namen (Server sieht den Text)"))).font(.caption).foregroundStyle(.secondary)
+                            Text(verbatim: (d.name.isEmpty ? Self.serviceText(d) : d.name) + (d.thisDevice ? " · " + String(localized: "dieses Gerät") : ""))
+                            Text(verbatim: Self.serviceText(d) + (d.encrypted ? "" : " · " + String(localized: "ohne Namen (Server sieht den Text)"))).font(.caption).foregroundStyle(.secondary)
                             Group {
                                 if let e = d.lastError { Text("Letzter Fehler: \(e)") }
                                 else if let ok = d.lastOK { Text("Zuletzt zugestellt \(Date(timeIntervalSince1970: ok).formatted(.relative(presentation: .named)))") }
@@ -256,8 +269,10 @@ struct PushSettingsSection: View {
                         Spacer()
                         Button("Test") { Task { tests[d.id] = String(localized: "Sende …"); tests[d.id] = Self.testText(await push.test(d.id)) } }
                             .buttonStyle(.bordered).controlSize(.small).help("Testmitteilung an dieses Gerät senden")
-                        Button(role: .destructive) { askRemove = d } label: { Image(systemName: "trash") }
-                            .buttonStyle(.borderless).accessibilityLabel(Text("Entfernen"))
+                        if !d.thisDevice {                                   // dieses Geraet: ueber den Schalter oben
+                            Button(role: .destructive) { askRemove = d } label: { Image(systemName: "trash") }
+                                .buttonStyle(.borderless).help(Text("Entfernen")).accessibilityLabel(Text("Entfernen"))
+                        }
                     }
                     if let t = tests[d.id] { Text(verbatim: t).font(.caption).foregroundStyle(t.hasPrefix("✓") ? .green : .secondary) }
                 }
@@ -266,9 +281,15 @@ struct PushSettingsSection: View {
         .alert("Gerät entfernen?", isPresented: Binding(get: { askRemove != nil }, set: { if !$0 { askRemove = nil } }), presenting: askRemove) { d in
             Button("Entfernen", role: .destructive) { Task { await push.remove(d.id) } }
             Button("Abbrechen", role: .cancel) {}
-        } message: { d in Text("„\(d.name.isEmpty ? d.whereText : d.name)“ bekommt dann keine Mitteilungen mehr.") }
+        } message: { d in Text("„\(d.name.isEmpty ? Self.serviceText(d) : d.name)“ bekommt dann keine Mitteilungen mehr.") }
     }
 
+    static func serviceText(_ d: PushDevice) -> String {
+        switch PushLogic.service(type: d.type, whereText: d.whereText) {
+        case .sagaApp(let test): return test ? String(localized: "Saga-App (Testversion)") : String(localized: "Saga-App")
+        case .other(let w): return w
+        }
+    }
     static func catLabel(_ c: String) -> String {
         switch c {
         case "share": return String(localized: "Teilen: jemand teilt eine Seite mit mir oder ändert meine Rolle")
