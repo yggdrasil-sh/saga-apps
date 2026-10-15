@@ -21,6 +21,16 @@ ACCEPT_LANGUAGE = {"de": "de, en;q=0.5", "es": "es, en;q=0.5"}.get(ui_language()
 SWITCHED = -1      # APIError.code: inzwischen anderer Server/anderes Konto - nichts gesendet (Entwurf bleibt)
 
 
+def _unreachable(e):
+    """Verbindungsfehler -> Text fuer die Oberflaeche: ohne rohe Systemmeldung ("[Errno 111] Connection refused",
+    englisch in jeder Sprache, BUG-113); nur Zertifikatsfehler behalten ihre Einzelheit (die braucht man zum Beheben)"""
+    import ssl
+    r = getattr(e, "reason", e)
+    if isinstance(r, (ssl.SSLError, ssl.CertificateError)):
+        return _("Server not reachable: {error}").format(error=r)
+    return _("Server not reachable")
+
+
 class APIError(Exception):
     def __init__(self, code, msg=""):
         super().__init__(msg or f"HTTP {code}")
@@ -182,7 +192,7 @@ class Client:
                 self.take_cookies_for(url, e.headers, jar)
             return e.code, body
         except (urllib.error.URLError, OSError, TimeoutError) as e:
-            raise APIError(0, _("Server not reachable: {error}").format(error=getattr(e, "reason", e))) from e
+            raise APIError(0, _unreachable(e)) from e
 
     def request(self, method, path, body=None, raw=None, ctype=None, timeout=20, server=None, account=None, headers=None):
         """JSON-Anfrage -> Bytes. 401: einmal still erneuern und wiederholen, sonst Anmeldung.
@@ -364,7 +374,7 @@ class Client:
                     continue
                 raise APIError(e.code) from e
             except (urllib.error.URLError, OSError, TimeoutError) as e:
-                raise APIError(0, _("Server not reachable: {error}").format(error=getattr(e, "reason", e))) from e
+                raise APIError(0, _unreachable(e)) from e
             with r:
                 total = int(r.headers.get("Content-Length") or 0)
                 got = 0
@@ -412,7 +422,7 @@ class Client:
         except urllib.error.HTTPError as e:
             return e.code, e
         except (urllib.error.URLError, OSError, TimeoutError) as e:
-            raise APIError(0, _("Server not reachable: {error}").format(error=getattr(e, "reason", e))) from e
+            raise APIError(0, _unreachable(e)) from e
 
     def stream(self, method, path, body=None, headers=None, timeout=75):
         """SSE-Anfrage (Sitzung + X-Saga) -> offene Antwort (Zeilen mit readline). Fehler vor dem Strom: APIError mit

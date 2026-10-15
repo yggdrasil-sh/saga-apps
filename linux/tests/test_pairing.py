@@ -142,3 +142,26 @@ def test_upload_filename_sanitized(srv):
     raw = next(x[2] for x in srv.log if x[1].endswith("/api/files"))
     head = raw.split(b"\r\n\r\n")[0].split(b"\r\n")
     assert len(head) == 3 and head[1].startswith(b"Content-Disposition") and b"evil.png" in head[1]
+
+
+def test_same_server_pairing_asks_and_forgets_previous_account(win, srv):
+    """BUG-031: angemeldet, Kopplungs-Link desselben Servers (evtl. anderes Konto): Rueckfrage; danach keine Seite,
+    kein Zwischenspeicher und kein "Zuletzt" des vorigen Kontos"""
+    from hlidskjalf.page import PageView
+    from hlidskjalf.store import store
+    win.show_root(("page", 3))
+    assert pump(lambda: isinstance(win.current, PageView) and win.current.doc.fetched)
+    store.visited(3)
+    assert pump(lambda: os.path.exists(store._cache_path("api/notes/3")), 3)
+    win.pair_link("https://saga.test/app/pair?c=" + CODE)
+    pump(None, 0.3)
+    d = _dialog(win)
+    assert d is not None and "will be signed out" in d.get_body()
+    d.emit("response", "pair")
+    d.force_close()
+    assert pump(lambda: [x for x in srv.log if x[1] == "https://saga.test/app/pair"], 5)
+    idle()
+    pump(None, 0.5)
+    assert not isinstance(win.current, PageView)
+    assert 3 not in (store.recent or [])
+    assert not os.path.exists(store._cache_path("api/notes/3"))

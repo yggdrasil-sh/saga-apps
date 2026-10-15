@@ -392,6 +392,7 @@ class AssistantDialog(Adw.Dialog):
         if v is None or v.id < 0 or self.stream is not None:
             return
         self.stack.set_visible_child_name("page")
+        self.update_selection()                              # Hinweis "zuerst Bloecke markieren" nicht stehen lassen (BUG-117)
         body = {"action": action}
         if action in ("improve", "translate"):
             blocks = self.selected_blocks()
@@ -407,6 +408,8 @@ class AssistantDialog(Adw.Dialog):
             self.result.remove(c)
         title = {"summarize": _("Summarize"), "tasks": _("Suggest tasks"), "improve": _("Improve selected text"),
                  "translate": _("Translate to")}.get(action, "")
+        if action == "translate":                            # mit Zielsprache (BUG-117)
+            title += " " + _lang_name(body["target"])
         box = AnswerBox(self, title, page_action=action)
         self.result.append(box)
 

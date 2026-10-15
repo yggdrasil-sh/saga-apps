@@ -133,7 +133,7 @@ def _section_row(text, drop_cb=None, badge=None, badge_tip=None):
 def _chat_sig():
     """(Chats in der Seitenleiste zeigen?, Ungelesen) - ab Server 1.5, solange der Server Chats nicht abgeschaltet hat"""
     from .chat import chat
-    return (chat.status in ("setup", "device", "ready", "nocrypto"), chat.unread)
+    return (chat.shown, chat.unread)
 
 
 class Sidebar(Gtk.Box):
@@ -516,9 +516,14 @@ class MainWindow(Adw.ApplicationWindow):
         return True
 
     def _ask_close_unsaved(self):
-        d = Adw.AlertDialog(heading=_("Not everything could be saved"),
-                            body=_("Some changes have not reached the server yet (no connection or a conflict). "
-                                   "They are kept on this device and restored the next time you open the page."))
+        big = [d for d in store.unsaved_docs() if getattr(d, "too_large", False)]
+        if big:                                              # 413: "beim naechsten Oeffnen" hilft nicht (BUG-081)
+            body = _("“{title}” is too large to save. Your changes are kept on this device, but they can only be saved once "
+                     "the page is shorter or split up.").format(title=big[0].title_raw or _("Untitled"))
+        else:
+            body = _("Some changes have not reached the server yet (no connection or a conflict). "
+                     "They are kept on this device and restored the next time you open the page.")
+        d = Adw.AlertDialog(heading=_("Not everything could be saved"), body=body)
         d.add_response("stay", _("Keep open"))
         d.add_response("close", _("Close anyway"))
         d.set_response_appearance("close", Adw.ResponseAppearance.DESTRUCTIVE)
@@ -811,8 +816,8 @@ class MainWindow(Adw.ApplicationWindow):
         srv = config.origin(srv)
         cur = config.origin(settings.server)
         signed_in = client.has_session or bool(get_device_token())
-        if external or (cur and srv != cur):
-            self._confirm_pair(srv, code, switching=bool(cur) and srv != cur and signed_in, cur=cur)
+        if external or (cur and srv != cur) or signed_in:  # angemeldet: auch am selben Server fragen (anderes Konto?)
+            self._confirm_pair(srv, code, switching=bool(cur) and signed_in, cur=cur)
         else:
             self._do_pair(srv, code)
 
@@ -848,12 +853,16 @@ class MainWindow(Adw.ApplicationWindow):
         switched = store.switch_server(srv)
         if not switched:
             store.new_session(srv)                       # gleicher Server, evtl. anderes Konto: Konto neu ermitteln
+            # Inhalte des bisherigen Kontos nicht stehen lassen (offene Seite, Zwischenspeicher, Zuletzt) - BUG-031.
+            # Ungespeicherte Eingaben bleiben als Entwurf beim bisherigen Konto (new_session).
+            self._flush_all()
+            store.forget_account_data()
         client.adopt_login(srv, j, jar)
         self.login_server.set_text(srv)
         self.login_msg.set_label("")
         store.logged_in()
-        if switched:
-            self.show_root(("today",))
+        self.close_peek()
+        self.show_root(("today",))                       # auch am selben Server: keine Seite des vorigen Kontos offen
         self.present()
         self.toast(_("Signed in as {name} – stays signed in on “{device}”").format(name=j.get("name") or "", device=device_name()))
 
@@ -1002,6 +1011,8 @@ class MainWindow(Adw.ApplicationWindow):
         if n:
             for w in (self.fwd_btn, self.star_btn, self.share_btn, self.pub_btn, self.ai_btn):   # Assistent: im Seitenmenue
                 w.set_visible(False)
+            self.cm_content.set_label("")                    # nur das Symbol (Zahl im Tooltip/Screenreader): sonst ist
+                                                             # die Kopfleiste bei 360 px zu breit (BUG-082)
         else:
             self.fwd_btn.set_visible(True)
 
