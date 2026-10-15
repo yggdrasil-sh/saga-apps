@@ -216,6 +216,15 @@ final class PageEditor: ObservableObject {
         let p = Self.make("paragraph"); blocks.add(p); focus = p.blockID; changed()
     }
 
+    /// Return im Seitentitel (wie im Web): in den ersten Textblock springen, sonst oben einen Absatz anlegen
+    func enterFromTitle() {
+        guard !locked, doc.fetched, !doc.isDatabase else { return }
+        if let first = doc.root.firstObject as? NSMutableDictionary, ["paragraph", "header"].contains(first["type"] as? String ?? "") {
+            focus = first.blockID; return
+        }
+        let b = Self.make("paragraph"); doc.root.insert(b, at: 0)
+        focus = b["id"] as? String; changed()
+    }
     /// Klick unter den letzten Block: leeren Absatz am Ende fokussieren oder anlegen (wie Notion)
     func continueWriting() {
         if let last = doc.root.lastObject as? NSMutableDictionary, last["type"] as? String == "paragraph",

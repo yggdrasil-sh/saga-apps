@@ -541,6 +541,37 @@ extension DraftOwner {
     static var app: DraftOwner { DraftOwner(defaults: .standard) }
 }
 
+/// Seitentitel: einzeilig gespeichert - Return springt in den ersten Block (BUG-062). Nicht geladene Seite: Titel aus
+/// der Seitenliste statt "Unbenannt", nicht bearbeitbar (BUG-061).
+struct PageTitleField: View {
+    @ObservedObject var doc: PageDoc
+    let ed: PageEditor
+    var fallback: String?
+    @EnvironmentObject private var nav: NavModel
+    @FocusState private var focused: Bool
+    var body: some View {
+        if !doc.fetched, doc.titleRaw.isEmpty, let t = fallback, !t.isEmpty {
+            Text(t).font(.largeTitle.bold()).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            TextField("Unbenannt", text: Binding(get: { doc.titleRaw }, set: { v in input(v) }), axis: .vertical)
+                .font(.largeTitle.bold()).textFieldStyle(.plain).disabled(ed.locked || !doc.fetched)
+                .focused($focused)
+                .onSubmit { ed.enterFromTitle() }                     // Mac: Return ohne Umbruch
+                .onChange(of: doc.fetched, initial: true) { _, f in    // neuer Datenbank-Eintrag: Titel gleich bearbeiten
+                    guard f, nav.focusTitle == doc.id, !ed.locked else { return }
+                    nav.focusTitle = nil
+                    Task { try? await Task.sleep(for: .milliseconds(400)); focused = true }
+                }
+        }
+    }
+    private func input(_ v: String) {
+        let r = TitleInput.apply(old: doc.titleRaw, new: v)
+        if r.title != doc.titleRaw { doc.page["title"] = r.title; ed.textChanged() }   // nur echte Aenderung
+        else if v != r.title { doc.objectWillChange.send() }          // Umbruch verworfen: Feld neu zeichnen
+        if r.enter { ed.enterFromTitle() }
+    }
+}
+
 /// Offene Editoren (Speichern vor dem Beenden abwarten)
 @MainActor
 enum SaveRegistry {
@@ -782,6 +813,9 @@ struct NativePageScreen: View {
 
     /// Seite vom Eigentuemer gesperrt (unabhaengig von der Rolle)
     private var pageLocked: Bool { doc.page["locked"] as? Bool ?? false }
+    /// Symbol/Titelbild nicht aenderbar: Rolle, Sperre, fremde Instanz - und solange die Seite nie geladen wurde
+    /// (sonst ueberschriebe ein PATCH ein unbekanntes vorhandenes Symbol/Titelbild, BUG-061)
+    private var headerReadOnly: Bool { doc.access.readOnly || pageLocked || doc.access.remote || !doc.fetched }
     /// Seite sperren/entsperren (wie im Web): erst speichern, dann sperren
     private func setLocked(_ on: Bool) async {
         if on { await ed.flush(); ed.focus = nil }
@@ -830,9 +864,9 @@ struct NativePageScreen: View {
             VStack(alignment: .leading, spacing: 0) {
                 if !doc.noAccess {                                   // Kein Zugriff: weder Titelbild noch Symbol der Seite
                     #if os(iOS)
-                    CoverView(doc: doc, extendTop: topInset, readOnly: doc.access.readOnly || pageLocked || doc.access.remote)          // Titelbild bis ganz nach oben (wie Notion)
+                    CoverView(doc: doc, extendTop: topInset, readOnly: headerReadOnly)          // Titelbild bis ganz nach oben (wie Notion)
                     #else
-                    CoverView(doc: doc, readOnly: doc.access.readOnly || pageLocked || doc.access.remote)
+                    CoverView(doc: doc, readOnly: headerReadOnly)
                     #endif
                 }
                 VStack(alignment: .leading, spacing: 10) {
@@ -840,9 +874,8 @@ struct NativePageScreen: View {
                         NoAccessView(retry: { Task { doc.loaded = false; await doc.load(store); await store.refresh(quiet: true) } },
                                      toShared: { nav.toShared() })
                     } else {
-                    IconRow(doc: doc, readOnly: doc.access.readOnly || pageLocked || doc.access.remote)
-                    TextField("Unbenannt", text: Binding(get: { doc.titleRaw }, set: { v in if v != doc.titleRaw { doc.page["title"] = v; ed.textChanged() } }), axis: .vertical)   // nur echte Aenderung
-                        .font(.largeTitle.bold()).textFieldStyle(.plain).disabled(ed.locked || !doc.fetched)
+                    IconRow(doc: doc, readOnly: headerReadOnly)
+                    PageTitleField(doc: doc, ed: ed, fallback: store.page(id)?.title)
                     if let by = doc.access.sharedBy { SharedByLabel(owner: by, role: doc.access.role) }      // fremde Seite (1.3)
                     PageMetaLine(access: doc.access, updated: doc.page["updated"] as? Double)
                     if let host = doc.access.remoteHost { RemotePageBanner(host: host, canComment: doc.access.commentsSupported && doc.access.canComment, canEdit: !doc.access.readOnly) }                    // Foederation (2.0)
