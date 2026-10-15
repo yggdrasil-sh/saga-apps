@@ -1036,6 +1036,7 @@ struct NativePageScreen: View {
         .onChange(of: doc.access, initial: true) { _, a in ed.applyAccess(a) }
         .onChange(of: ed.commentBlock) { _, b in if let b { ed.commentBlock = nil; Task { await ed.flush(); commentsTarget = CommentsTarget(block: b) } } }
         .modifier(CommentsPresenter(target: $commentsTarget, inPeek: inPeek, doc: doc, ed: ed, store: store))
+        .modifier(PendingCommentsOpener(id: id, nav: nav, doc: doc, target: $commentsTarget))
         .sheet(isPresented: $sharing) {
             ShareSheet(id: id, ownerName: doc.access.owner?.name, onShared: { on in
                 doc.access.shared = on; doc.page["shared"] = on; Task { await store.refresh(quiet: true) }
@@ -1599,6 +1600,22 @@ struct SaveGuard: ViewModifier {
     }
 }
 
+
+/// Benachrichtigung/Mitteilung zu einem Kommentar, waehrend die Seite schon offen ist: Kommentare dieses Blocks zeigen
+/// (der .task der Seite laeuft dann nicht erneut, BUG-059). Kurz warten, bis das Glocken-Blatt geschlossen ist.
+struct PendingCommentsOpener: ViewModifier {
+    let id: Int
+    @ObservedObject var nav: NavModel
+    @ObservedObject var doc: PageDoc
+    @Binding var target: CommentsTarget?
+    func body(content: Content) -> some View {
+        content.onChange(of: nav.commentsJump) { _, _ in
+            guard let p = nav.pendingComments, p.id == id, doc.fetched else { return }
+            nav.pendingComments = nil
+            Task { try? await Task.sleep(for: .milliseconds(500)); target = CommentsTarget(block: p.block) }
+        }
+    }
+}
 
 /// Kommentare zeigen: iPhone als Blatt von unten (halbe/ganze Hoehe), iPad und Mac als Blatt.
 /// (Kein Inspector: der nahm auf dem iPhone der Seite die Knoepfe der Navigationsleiste.)

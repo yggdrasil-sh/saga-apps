@@ -274,7 +274,7 @@ extension RootView {
         case .chat(let id): nav.peek = nil; nav.path = []; selection = FedLogic.chatsTag; openChat = id
         case .page(let id, let block):
             nav.peek = nil
-            if let b = block { nav.pendingComments = (id, b) }
+            if let b = block { nav.showComments(id, block: b) }       // Seite schon offen: sie reagiert auf commentsJump
             if selection == id { nav.path = [] } else { selection = id }
         case .none: break
         }

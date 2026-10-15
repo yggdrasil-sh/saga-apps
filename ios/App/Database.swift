@@ -17,6 +17,11 @@ final class NavModel: ObservableObject {
     @Published var sharedJump = 0                                    // "Zu „Mit mir geteilt“": Seitenleiste dort zeigen (zaehlt hoch)
     /// Benachrichtigung zu einem Kommentar: beim Oeffnen der Seite die Kommentare dieses Blocks zeigen
     var pendingComments: (id: Int, block: String)?
+    /// zaehlt hoch, wenn `pendingComments` gesetzt wird - eine schon offene Seite oeffnet dann ihre Kommentare (BUG-059)
+    @Published var commentsJump = 0
+    func showComments(_ id: Int, block: String) { pendingComments = (id, block); commentsJump += 1 }
+    /// Neu angelegter Datenbank-Eintrag: beim Oeffnen den Titel fokussieren (Tastatur auf)
+    var focusTitle: Int?
     func toShared() { sharedJump += 1 }
     func push(_ r: PageRoute) { path.append(r); forward = [] }
     func back() { if let r = path.popLast() { forward.append(r) } }
