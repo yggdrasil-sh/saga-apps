@@ -705,6 +705,13 @@ struct LoginScreen: View {
     /// Browser-Anmeldung gegen den vorgemerkten Server; Server + PKCE-Geheimnis gehoeren zu genau diesem Versuch
     private func signIn(_ target: URL) async {
         busy = true; error = ""; defer { busy = false }
+        // erst pruefen, ob dort ein Saga-Server antwortet - sonst kam gleich das System-Anmeldefenster mit einer
+        // Browser-Fehlerseite bzw. einer fremden Seite (BUG-063)
+        switch await LoginScreen.probe(target) {
+        case .unreachable: error = String(localized: "Server nicht erreichbar – bitte die Adresse prüfen."); return
+        case .notSaga: error = String(localized: "Unter dieser Adresse antwortet kein Saga-Server – bitte die Adresse prüfen."); return
+        case .ok: break
+        }
         let (verifier, challenge) = Store.pkce()
         guard let url = URL(string: target.absoluteString + "/app/login?challenge=" + challenge) else { return }
         do {
@@ -719,6 +726,20 @@ struct LoginScreen: View {
         } catch let e as ASWebAuthenticationSessionError where e.code == .canceledLogin {
             // abgebrochen - nichts tun
         } catch { self.error = error.localizedDescription }
+    }
+    /// Vorab-Pruefung der Server-Adresse: /api/version (oeffentlich), fuer alte Server /app/login ohne Challenge (400)
+    static func probe(_ target: URL) async -> ServerProbe.Result {
+        func status(_ path: String) async -> (Int, Data)? {
+            guard let u = URL(string: target.absoluteString + path) else { return nil }
+            var req = URLRequest(url: u, timeoutInterval: 8); req.httpShouldHandleCookies = false
+            guard let (d, r) = try? await URLSession.shared.data(for: req), let h = r as? HTTPURLResponse else { return nil }
+            return (h.statusCode, d)
+        }
+        let v = await status("/api/version")
+        let saga = v.map { $0.0 == 200 && ServerProbe.isSagaVersion($0.1) } ?? false
+        var login: Int?
+        if v != nil && !saga { login = await status("/app/login")?.0 }
+        return ServerProbe.classify(versionCode: v?.0, versionIsSaga: saga, loginCode: login)
     }
 }
 
