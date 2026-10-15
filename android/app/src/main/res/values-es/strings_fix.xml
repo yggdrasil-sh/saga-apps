@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bugfix-Runde nach dem Bughunt 2.0 -->
+<resources>
+    <string name="chat_link_denied">La solicitud se rechazó en el otro dispositivo.</string>
+    <string name="chat_start_over_done">Has empezado de nuevo: tu nueva clave de recuperación ya es válida.</string>
+    <string name="chat_safety_send_blocked">El número de seguridad de %1$s ha cambiado: revísalo antes de enviar.</string>
+</resources>

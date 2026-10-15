@@ -210,6 +210,16 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
         PendingSetup(crypto.identity(), crypto.device(), crypto.recoveryKey())
     }
 
+    /** Einrichtung in Arbeit (nach Prozess-Tod derselbe Wiederherstellungsschluessel, BUG-022) */
+    fun savedPending(): PendingSetup? = store.pending()
+
+    /** Wie prepareSetup, aber gemerkt: eine schon begonnene Einrichtung wird fortgesetzt (BUG-022) */
+    suspend fun preparePending(): PendingSetup = withContext(Dispatchers.IO) { store.pending() }
+        ?: prepareSetup().also { p -> withContext(Dispatchers.IO) { store.savePending(p) } }
+
+    /** "Abbrechen": begonnene Einrichtung verwerfen (der gezeigte Schluessel wird nie gueltig) */
+    fun discardPending() = store.clearPending()
+
     /**
      * Schritt 2 (nach Bestaetigung der letzten 4 Zeichen): hochladen. reset = "Neu beginnen" (alte Geraete abgemeldet).
      * 403 {reauth} -> ReauthNeeded (Passwort bzw. neu anmelden).
@@ -251,6 +261,7 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
         }
         withContext(Dispatchers.IO) {
             store.saveKeys(LocalChatKeys(uid, p.ident, p.dev))
+            store.clearPending()
             cached = null
         }
         refresh()
@@ -302,12 +313,17 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
             put("sign_pub", b64(dev.signPk))
         }))
         val code = withContext(Dispatchers.Default) { crypto.linkCode(m.uid, dev.id, dev.encPk, dev.signPk) }
-        return LinkSession(r.id, code, dev, r.expires)
+        // gemerkt (verschluesselt): nach Prozess-Tod wird dieselbe Anfrage weiter abgefragt (BUG-068)
+        return LinkSession(r.id, code, dev, r.expires).also { l -> withContext(Dispatchers.IO) { store.saveLink(l) } }
     }
 
-    /** -> "pending" | "approved" (Schluessel uebernommen) | "expired" | "gone" */
+    /** Laufende Kopplungsanfrage dieses Geraets (nach Prozess-Tod fortsetzen) */
+    fun savedLink(): LinkSession? = store.link()
+
+    /** -> "pending" | "approved" (Schluessel uebernommen) | "expired" | "gone" (abgelehnt/zurueckgezogen) */
     suspend fun pollLink(ls: LinkSession): String {
         val r = decode<LinkState>(repo.api.get("api/chat/link/${ls.id}"))
+        if (r.state == "expired" || r.state == "gone") withContext(Dispatchers.IO) { store.clearLink() }
         if (r.state != "approved") return r.state
         val m = me.value ?: throw UiTextException(UiText.Res(R.string.error_generic))
         val ident = withContext(Dispatchers.Default) {
@@ -318,6 +334,7 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
         if (m.identity?.identPub != b64(ident.identPk)) throw UiTextException(UiText.Res(R.string.chat_link_failed))
         withContext(Dispatchers.IO) {
             store.saveKeys(LocalChatKeys(m.uid, ident, ls.dev))
+            store.clearLink()
             cached = null
         }
         refresh()
@@ -326,6 +343,7 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
     }
 
     suspend fun cancelLink(ls: LinkSession) {
+        withContext(Dispatchers.IO) { if (store.link()?.id == ls.id) store.clearLink() }
         try {
             repo.api.delete("api/chat/link/${ls.id}")
         } catch (e: CancellationException) {

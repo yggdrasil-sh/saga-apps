@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bugfix-Runde nach dem Bughunt 2.0 -->
+<resources>
+    <string name="chat_link_denied">Die Anfrage wurde auf dem anderen Gerät abgelehnt.</string>
+    <string name="chat_start_over_done">Neu begonnen – dein neuer Wiederherstellungsschlüssel gilt ab jetzt.</string>
+    <string name="chat_safety_send_blocked">Die Sicherheitsnummer von %1$s hat sich geändert – bitte erst ansehen, dann senden.</string>
+</resources>

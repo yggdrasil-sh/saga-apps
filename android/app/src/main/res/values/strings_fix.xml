@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bugfix-Runde nach dem Bughunt 2.0 -->
+<resources>
+    <string name="chat_link_denied">The request was declined on the other device.</string>
+    <string name="chat_start_over_done">Started over – your new recovery key is now valid.</string>
+    <string name="chat_safety_send_blocked">%1$s\'s safety number has changed – please review it before sending.</string>
+</resources>

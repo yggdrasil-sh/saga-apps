@@ -23,6 +23,12 @@ private data class StoredKeys(
     val backup_sk: String,
 )
 
+@Serializable
+private data class StoredPending(val keys: StoredKeys, val recovery: String)
+
+@Serializable
+private data class StoredLink(val id: String, val code: String, val expires: Double? = null, val keys: StoredKeys)
+
 /** Gemerkter Identitaetsschluessel eines Gegenuebers (TOFU), ueberprueft = Sicherheitsnummer verglichen */
 @Serializable
 data class KnownIdent(val k: String, val verified: Boolean = false, val changed: Boolean = false)
@@ -63,6 +69,50 @@ class ChatStore(private val secure: SecureStore, private val scope: () -> String
 
     /** Geraet entfernt / Neu beginnen: Schluessel loeschen (TOFU bleibt) */
     fun clearKeys() = secure.put(k("keys"), null)
+
+    // ---------------------------------------------------------------- Einrichtung/Kopplung in Arbeit
+    // Ueberleben Prozess-Tod (App im Hintergrund beim Sichern des Schluessels bzw. beim Bestaetigen auf dem anderen
+    // Geraet): derselbe Wiederherstellungsschluessel wird wieder gezeigt (BUG-022), dieselbe Kopplungsanfrage
+    // weiter abgefragt statt ein Geister-Geraet zu hinterlassen (BUG-068). Wie die Schluessel nur verschluesselt.
+
+    fun pending(): PendingSetup? = try {
+        secure.get(k("pending"))?.let { s ->
+            val d = json.decodeFromString(StoredPending.serializer(), s)
+            PendingSetup(identOf(d.keys), devOf(d.keys), d.recovery)
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    fun savePending(p: PendingSetup) =
+        secure.put(k("pending"), json.encodeToString(StoredPending.serializer(), StoredPending(stored("", p.ident, p.dev), p.recoveryKey)))
+
+    fun clearPending() = secure.put(k("pending"), null)
+
+    fun link(): LinkSession? = try {
+        secure.get(k("link"))?.let { s ->
+            val d = json.decodeFromString(StoredLink.serializer(), s)
+            LinkSession(d.id, d.code, devOf(d.keys), d.expires)
+        }
+    } catch (_: Exception) {
+        null
+    }
+
+    fun saveLink(l: LinkSession) {
+        val dev = l.dev
+        val d = StoredKeys("", dev.id, b64(dev.encPk), b64(dev.encSk), b64(dev.signPk), b64(dev.signSk), "", "", "", "")
+        secure.put(k("link"), json.encodeToString(StoredLink.serializer(), StoredLink(l.id, l.code, l.expires, d)))
+    }
+
+    fun clearLink() = secure.put(k("link"), null)
+
+    private fun stored(uid: String, i: Identity, d: DeviceKeys) = StoredKeys(
+        uid, d.id, b64(d.encPk), b64(d.encSk), b64(d.signPk), b64(d.signSk),
+        b64(i.identPk), b64(i.identSk), b64(i.backupPk), b64(i.backupSk),
+    )
+
+    private fun identOf(d: StoredKeys) = Identity(unb64(d.ident_pk, 32)!!, unb64(d.ident_sk, 64)!!, unb64(d.backup_pk, 32)!!, unb64(d.backup_sk, 32)!!)
+    private fun devOf(d: StoredKeys) = DeviceKeys(d.device_id, unb64(d.enc_pk, 32)!!, unb64(d.enc_sk, 32)!!, unb64(d.sign_pk, 32)!!, unb64(d.sign_sk, 64)!!)
 
     // ---------------------------------------------------------------- TOFU
 
