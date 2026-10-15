@@ -80,13 +80,13 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
     val recentIds by repo.settings.recent.collectAsState()
     val error by repo.error.collectAsState()
     val loading by repo.loading.collectAsState()
-    var expanded by rememberSaveable { mutableStateOf(setOf<Int>()) }
+    var expanded by rememberSaveable { mutableStateOf(setOf<Long>()) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
     val shared by repo.sharedPages.collectAsState()
     val shareOff by repo.shareOff.collectAsState()
-    var sharedExpanded by rememberSaveable { mutableStateOf(setOf<Int>()) }
+    var sharedExpanded by rememberSaveable { mutableStateOf(setOf<Long>()) }
     val favorites = pages.filter { it.pinned }
     val recent = recentIds.mapNotNull { id -> pages.firstOrNull { it.id == id } ?: shared.firstOrNull { it.id == id } }.take(5)
     // "Mit mir geteilt": oberste geteilte Seiten (mit Eigentuemer), darunter aufklappbar ihre Unterseiten
@@ -95,7 +95,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
     val pageTree = remember(pages) { PageTree(pages) }                // einmal gruppiert statt O(n²)
     val tree = remember(pageTree, expanded) {
         val out = ArrayList<TreeRow>()
-        fun walk(parent: Int?, depth: Int) {
+        fun walk(parent: Long?, depth: Int) {
             for (p in pageTree.children(parent)) {
                 val kids = if (p.isDatabase) emptyList() else pageTree.children(p.id)
                 out.add(TreeRow(p, depth, kids.isNotEmpty()))
@@ -106,12 +106,12 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
         out
     }
 
-    fun open(id: Int) {
+    fun open(id: Long) {
         nav.top(Dest.Page(id))
         onNavigate()
     }
 
-    fun newPage(parent: Int?) {
+    fun newPage(parent: Long?) {
         scope.launch {
             try {
                 val id = repo.newPage(parent)
@@ -248,7 +248,7 @@ private fun NavItem(label: String, icon: ImageVector, selected: Boolean, badge: 
 @Composable
 private fun PageRowItem(
     p: PageMeta, depth: Int, hasChildren: Boolean, isExpanded: Boolean, selected: Boolean, repo: SagaRepository,
-    onOpen: () -> Unit, onToggle: () -> Unit, onNewChild: (Int) -> Unit, scope: kotlinx.coroutines.CoroutineScope,
+    onOpen: () -> Unit, onToggle: () -> Unit, onNewChild: (Long) -> Unit, scope: kotlinx.coroutines.CoroutineScope,
     /** "Mit mir geteilt": Eigentuemer klein unter der obersten geteilten Seite */
     owner: String? = null,
 ) {

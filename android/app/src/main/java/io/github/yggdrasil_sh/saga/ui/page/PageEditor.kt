@@ -67,18 +67,18 @@ interface PageBackend {
     /** Kennung des angemeldeten Kontos ("uid:<Benutzername>", leer = unbekannt) - Editor speichert nie in ein anderes Konto */
     val currentAccountKey: String get() = ""
     fun draftsForCurrent(): Drafts
-    suspend fun <T> withPageLock(id: Int, block: suspend () -> T): T
-    suspend fun loadPage(id: Int): JsonObject
+    suspend fun <T> withPageLock(id: Long, block: suspend () -> T): T
+    suspend fun loadPage(id: Long): JsonObject
     /** -> neue Revision; ApiException 409 = woanders geaendert, 423 = gesperrt */
-    suspend fun savePage(id: Int, title: String, body: String?, rev: Int?): Int?
+    suspend fun savePage(id: Long, title: String, body: String?, rev: Int?): Int?
     /** overwrite = "Meine Version behalten" nach einem Konflikt (Server 1.3 sichert die andere Fassung als Version) */
-    suspend fun savePage(id: Int, title: String, body: String?, rev: Int?, overwrite: Boolean): Int? = savePage(id, title, body, rev)
+    suspend fun savePage(id: Long, title: String, body: String?, rev: Int?, overwrite: Boolean): Int? = savePage(id, title, body, rev)
     /** Neue Seite mit diesem Inhalt (Konflikt-Kopie) -> ID */
-    suspend fun createPageWith(title: String, body: String): Int
-    suspend fun setPinned(id: Int, pinned: Boolean)
-    suspend fun setLocked(id: Int, locked: Boolean)
-    fun updateTitleLocal(id: Int, title: String)
-    fun visited(id: Int)
+    suspend fun createPageWith(title: String, body: String): Long
+    suspend fun setPinned(id: Long, pinned: Boolean)
+    suspend fun setLocked(id: Long, locked: Boolean)
+    fun updateTitleLocal(id: Long, title: String)
+    fun visited(id: Long)
     fun friendly(e: Throwable): UiText
     /** Server nicht erreichbar (Netz weg, Zeitueberschreitung) - kein Zertifikats- oder Serverfehler */
     fun isOffline(e: Throwable): Boolean = e is IOException && e !is SSLException
@@ -98,7 +98,7 @@ interface PageBackend {
  */
 @Stable
 class PageEditor(
-    val id: Int,
+    val id: Long,
     private val repo: PageBackend,
     private val scope: CoroutineScope,
     private val io: CoroutineDispatcher = Dispatchers.IO,
@@ -716,7 +716,7 @@ class PageEditor(
     }
 
     /** Konflikt: meine Fassung als neue Seite sichern, dann die Server-Fassung laden. -> ID der Kopie oder null */
-    suspend fun saveCopyAndLoadServer(copyTitle: String): Int? {
+    suspend fun saveCopyAndLoadServer(copyTitle: String): Long? {
         return try {
             val body = withContext(cpu) { BlockDoc.serialize(BlockDoc.withTime(doc, clock())) }
             val newId = repo.createPageWith(copyTitle, body)

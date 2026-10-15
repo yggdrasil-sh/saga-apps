@@ -23,7 +23,7 @@ data class ShareVia(
     val type: String = "user",
     val name: String = "",
     val role: String = "view",
-    @SerialName("note_id") val noteId: Int? = null,
+    @SerialName("note_id") val noteId: Long? = null,
     val title: String? = null,
 )
 
@@ -44,7 +44,7 @@ data class ShareEntry(
 /** Freigabe einer Elternseite - gilt hier mit, aendern nur dort */
 @Serializable
 data class InheritedShare(
-    @SerialName("note_id") val noteId: Int = 0,
+    @SerialName("note_id") val noteId: Long = 0,
     val title: String = "",
     val type: String = "user",
     val target: String = "",
@@ -78,8 +78,8 @@ data class ShareTargets(val users: List<TargetUser> = emptyList(), val groups: L
 
 @Serializable
 data class Comment(
-    val id: Int = 0,
-    @SerialName("thread_id") val threadId: Int? = null,
+    val id: Long = 0,
+    @SerialName("thread_id") val threadId: Long? = null,
     @SerialName("block_id") val blockId: String = "",
     val author: Person = Person(),
     val body: String = "",
@@ -93,7 +93,7 @@ data class Comment(
 /** Unterhaltung = erster Kommentar + Antworten */
 @Serializable
 data class CommentThread(
-    val id: Int = 0,
+    val id: Long = 0,
     @SerialName("block_id") val blockId: String = "",
     @SerialName("block_exists") val blockExists: Boolean = true,
     @SerialName("resolved_at") val resolvedAt: Double? = null,
@@ -115,7 +115,7 @@ data class CommentsResponse(
 )
 
 @Serializable
-data class CommentPosted(val comment: Comment? = null, @SerialName("thread_id") val threadId: Int? = null)
+data class CommentPosted(val comment: Comment? = null, @SerialName("thread_id") val threadId: Long? = null)
 
 /** Rolle eines Kontos auf einer Seite: owner > edit > comment > view */
 enum class Role(val key: String, val rank: Int) {
@@ -287,7 +287,7 @@ object DocText {
  * 403/404 -> Text zum Kopieren). own = IDs aus GET api/notes, null = noch nicht geladen -> nichts hochladen.
  */
 object DraftSync {
-    fun mayUpload(id: Int, own: Set<Int>?): Boolean = own != null && id in own
+    fun mayUpload(id: Long, own: Set<Long>?): Boolean = own != null && id in own
 }
 
 /** Zeile im Bereich "Mit mir geteilt" */
@@ -298,10 +298,10 @@ data class SharedRow(val page: PageMeta, val depth: Int, val hasChildren: Boolea
  * die Unterseiten (aufklappbar). Zeilen von Datenbanken erscheinen nicht im Baum (wie bei eigenen Seiten).
  */
 object SharedTree {
-    fun rows(shared: List<PageMeta>, expanded: Set<Int>): List<SharedRow> {
+    fun rows(shared: List<PageMeta>, expanded: Set<Long>): List<SharedRow> {
         val dbs = shared.filter { it.isDatabase }.map { it.id }.toSet()
         val kids = shared.filter { !it.root }.groupBy { it.parentId }
-        fun children(id: Int): List<PageMeta> = if (id in dbs) emptyList() else kids[id].orEmpty()
+        fun children(id: Long): List<PageMeta> = if (id in dbs) emptyList() else kids[id].orEmpty()
         val out = ArrayList<SharedRow>()
         fun walk(list: List<PageMeta>, depth: Int) {
             for (p in list) {

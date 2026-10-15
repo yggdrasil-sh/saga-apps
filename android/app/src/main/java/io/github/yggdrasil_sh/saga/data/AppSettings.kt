@@ -41,8 +41,8 @@ class AppSettings(context: Context) : ServerSettings {
     override val account: StateFlow<String> = _account
     private val _accountKey = MutableStateFlow("")
     override val accountKey: StateFlow<String> = _accountKey
-    private val _recent = MutableStateFlow<List<Int>>(emptyList())
-    val recent: StateFlow<List<Int>> = _recent
+    private val _recent = MutableStateFlow<List<Long>>(emptyList())
+    val recent: StateFlow<List<Long>> = _recent
 
     /** Einmal beim Start (nicht auf dem Haupt-Thread aufrufen) */
     suspend fun load() {
@@ -70,7 +70,7 @@ class AppSettings(context: Context) : ServerSettings {
         ds.edit { it[keyAccountKey] = value }
     }
 
-    suspend fun visited(id: Int) {
+    suspend fun visited(id: Long) {
         val l = (listOf(id) + _recent.value.filter { it != id }).take(8)
         _recent.value = l
         ds.edit { it[keyRecent] = l.joinToString(",") }
@@ -81,5 +81,5 @@ class AppSettings(context: Context) : ServerSettings {
         ds.edit { it.remove(keyRecent) }
     }
 
-    private fun parseIds(s: String?): List<Int> = s?.split(',')?.mapNotNull { it.trim().toIntOrNull() } ?: emptyList()
+    private fun parseIds(s: String?): List<Long> = s?.split(',')?.mapNotNull { it.trim().toLongOrNull() } ?: emptyList()
 }

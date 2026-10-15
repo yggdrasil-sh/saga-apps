@@ -41,17 +41,17 @@ private class FakePageServer : PageBackend {
     var server = "https://s.example.org"
     var copies = ArrayList<Pair<String, String>>()
     val drafts = MemoryDrafts()
-    private val locks = HashMap<Int, Mutex>()
+    private val locks = HashMap<Long, Mutex>()
 
     override val currentServer get() = server
     override val signedOut = false
     override fun draftsForCurrent(): Drafts = drafts
-    override suspend fun <T> withPageLock(id: Int, block: suspend () -> T): T = locks.getOrPut(id) { Mutex() }.withLock { block() }
-    override suspend fun loadPage(id: Int): JsonObject = buildJsonObject {
+    override suspend fun <T> withPageLock(id: Long, block: suspend () -> T): T = locks.getOrPut(id) { Mutex() }.withLock { block() }
+    override suspend fun loadPage(id: Long): JsonObject = buildJsonObject {
         put("id", id); put("title", title); put("body", body); put("format", "blocks"); put("rev", rev)
     }
 
-    override suspend fun savePage(id: Int, title: String, body: String?, rev: Int?): Int? {
+    override suspend fun savePage(id: Long, title: String, body: String?, rev: Int?): Int? {
         if (offline) throw IOException("offline")
         try {
             gate?.await()
@@ -67,15 +67,15 @@ private class FakePageServer : PageBackend {
         return this.rev
     }
 
-    override suspend fun createPageWith(title: String, body: String): Int {
+    override suspend fun createPageWith(title: String, body: String): Long {
         copies += title to text(body)
         return 99
     }
 
-    override suspend fun setPinned(id: Int, pinned: Boolean) {}
-    override suspend fun setLocked(id: Int, locked: Boolean) {}
-    override fun updateTitleLocal(id: Int, title: String) {}
-    override fun visited(id: Int) {}
+    override suspend fun setPinned(id: Long, pinned: Boolean) {}
+    override suspend fun setLocked(id: Long, locked: Boolean) {}
+    override fun updateTitleLocal(id: Long, title: String) {}
+    override fun visited(id: Long) {}
     override fun friendly(e: Throwable): UiText = UiText.Raw(e.message ?: "?")
 
     fun text(b: String): String {
@@ -154,7 +154,7 @@ class PageEditorTest {
         assertTrue(ed.conflict)
         val id = ed.saveCopyAndLoadServer("Test (meine Fassung)")
         settle()
-        assertEquals(99, id)
+        assertEquals(99L, id)
         assertEquals(listOf("Test (meine Fassung)" to "Meine Fassung"), srv.copies)
         assertFalse(ed.conflict)
         assertEquals("Hallo", BlockDoc.str(BlockDoc.data(BlockDoc.blocks(ed.doc)[0]), "text"))

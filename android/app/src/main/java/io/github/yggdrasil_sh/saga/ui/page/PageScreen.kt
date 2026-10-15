@@ -129,7 +129,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.style.TextAlign
 
-private val PAGE_LINK = Regex("^/notes#(\\d+)$")
+private val PAGE_LINK = Regex("^/notes#(-?\\d+)$")
 
 /** Blocktypen fuer "Neu" und "Typ" (Name, Typ, Ebene) */
 private data class BlockChoice(@param:StringRes val label: Int, val type: String, val level: Int)
@@ -155,7 +155,7 @@ private fun BlockChoice.title(): String = if (type == "header") stringResource(R
 
 /** Eine Seite: Titel + Bloecke, bearbeitbar; speichert automatisch (verzoegert und beim Verlassen) */
 @Composable
-fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome, appScope: CoroutineScope) {
+fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome, appScope: CoroutineScope) {
     // neu angemeldet/gekoppelt (anderes Konto): Seite neu oeffnen - Rolle, Eigentuemer und Entwuerfe gehoeren zum Konto
     val signIns by repo.signInCount.collectAsState()
     val ed = remember(id, signIns) { PageEditor(id, repo, appScope) }
@@ -172,7 +172,7 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
     val onLink: (String) -> Unit = { href ->
         val m = PAGE_LINK.find(href)
         when {
-            m != null -> nav.push(Dest.Page(m.groupValues[1].toInt()))
+            m != null -> nav.push(Dest.Page(m.groupValues[1].toLong()))
             href.startsWith("http://") || href.startsWith("https://") -> openUrl(context, href)
             href.startsWith("mailto:") -> openUrl(context, href)
             href.startsWith("/") -> openUrl(context, repo.absoluteUrl(href))

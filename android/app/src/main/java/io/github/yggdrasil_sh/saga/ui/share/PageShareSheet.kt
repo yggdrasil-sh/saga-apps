@@ -89,7 +89,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun PageShareSheet(
     model: ShareModel, scope: CoroutineScope, ownerName: String, link: String,
-    onDismiss: () -> Unit, onOpenParent: (Int) -> Unit, onCopied: () -> Unit,
+    onDismiss: () -> Unit, onOpenParent: (Long) -> Unit, onCopied: () -> Unit,
 ) {
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current

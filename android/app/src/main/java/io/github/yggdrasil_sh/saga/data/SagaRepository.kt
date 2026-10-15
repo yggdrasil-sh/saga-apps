@@ -65,7 +65,7 @@ data class SharedContent(val title: String, val text: String, val url: String?) 
 }
 
 @kotlinx.serialization.Serializable
-data class CaptureResult(val ok: Boolean = false, val kind: String? = null, val id: Int? = null)
+data class CaptureResult(val ok: Boolean = false, val kind: String? = null, val id: Long? = null)
 
 /** Kurze Meldung unten (Snackbar), optional mit Aktion (z. B. "Rueckgaengig") */
 class UserMessage(val text: UiText, val actionLabel: UiText? = null, val action: (() -> Unit)? = null)
@@ -73,10 +73,10 @@ class UserMessage(val text: UiText, val actionLabel: UiText? = null, val action:
 /** Seitenbaum: Kinder je Eltern-ID einmal gruppiert (statt fuer jeden Knoten alle Seiten zu filtern) */
 class PageTree(all: List<PageMeta>) {
     private val dbs = all.filter { it.isDatabase }.map { it.id }.toSet()
-    private val byParent: Map<Int?, List<PageMeta>> = all.groupBy { it.parentId }
+    private val byParent: Map<Long?, List<PageMeta>> = all.groupBy { it.parentId }
 
     /** Unterseiten (Zeilen von Datenbanken erscheinen nicht im Baum, wie im Web) */
-    fun children(of: Int?): List<PageMeta> = if (of != null && of in dbs) emptyList() else byParent[of].orEmpty()
+    fun children(of: Long?): List<PageMeta> = if (of != null && of in dbs) emptyList() else byParent[of].orEmpty()
 }
 
 /**
@@ -260,7 +260,7 @@ class SagaRepository(
     }
 
     /** IDs aller eigenen Seiten (auch archivierte; GET api/notes) - null = noch nicht geladen */
-    @Volatile private var ownIds: Set<Int>? = null
+    @Volatile private var ownIds: Set<Long>? = null
 
     /** Server-Version (oeffentlich, ohne Anmeldung); aeltere Server ohne /api/version: nichts anzeigen */
     suspend fun checkVersion() {
@@ -276,14 +276,14 @@ class SagaRepository(
         }
     }
 
-    fun page(id: Int): PageMeta? = pages.value.firstOrNull { it.id == id }
+    fun page(id: Long): PageMeta? = pages.value.firstOrNull { it.id == id }
 
     suspend fun search(q: String): List<PageMeta> {
         if (q.trim().length < 2) return emptyList()
         return decode(api.post("api/notes/search", buildJsonObject { put("q", q.trim()) }))
     }
 
-    suspend fun newPage(parent: Int? = null, title: String = ""): Int {
+    suspend fun newPage(parent: Long? = null, title: String = ""): Long {
         val b = buildJsonObject {
             put("title", title)
             if (parent != null) put("parent_id", parent)
@@ -293,59 +293,59 @@ class SagaRepository(
         return id
     }
 
-    override suspend fun setPinned(id: Int, pinned: Boolean) {
+    override suspend fun setPinned(id: Long, pinned: Boolean) {
         api.patch("api/notes/$id", buildJsonObject { put("pinned", pinned) })
         pages.value = pages.value.map { if (it.id == id) it.copy(pinned = pinned) else it }
     }
 
-    override suspend fun setLocked(id: Int, locked: Boolean) {
+    override suspend fun setLocked(id: Long, locked: Boolean) {
         api.patch("api/notes/$id", buildJsonObject { put("locked", locked) })
         pages.value = pages.value.map { if (it.id == id) it.copy(locked = locked) else it }
     }
 
     /** Seite (samt Unterseiten) in den Papierkorb; Rueckgaengig ueber den Papierkorb */
-    suspend fun trashPage(id: Int) {
+    suspend fun trashPage(id: Long) {
         api.delete("api/notes/$id")
         pages.value = pages.value.filter { it.id != id }
         refresh()
     }
 
-    suspend fun restorePage(id: Int) {
+    suspend fun restorePage(id: Long) {
         api.post("api/trash/$id/restore")
         refresh()
     }
 
-    suspend fun archivePage(id: Int, archived: Boolean) {
+    suspend fun archivePage(id: Long, archived: Boolean) {
         api.post("api/notes/$id/archive", buildJsonObject { put("archived", archived) })
         if (archived) pages.value = pages.value.filter { it.id != id }
         refresh()
     }
 
-    override fun updateTitleLocal(id: Int, title: String) {
+    override fun updateTitleLocal(id: Long, title: String) {
         pages.value = pages.value.map { if (it.id == id && it.title != title) it.copy(title = title) else it }
     }
 
-    override fun visited(id: Int) {
+    override fun visited(id: Long) {
         scope.launch { settings.visited(id) }
     }
 
     // ---------------------------------------------------------------- Seite laden/speichern
 
-    private val pageLocks = ConcurrentHashMap<Int, Mutex>()
+    private val pageLocks = ConcurrentHashMap<Long, Mutex>()
 
     /** Laden und Speichern derselben Seite nacheinander (nie alten Stand laden, waehrend gespeichert wird) */
-    override suspend fun <T> withPageLock(id: Int, block: suspend () -> T): T = pageLocks.getOrPut(id) { Mutex() }.withLock { block() }
+    override suspend fun <T> withPageLock(id: Long, block: suspend () -> T): T = pageLocks.getOrPut(id) { Mutex() }.withLock { block() }
 
-    override suspend fun loadPage(id: Int): JsonObject {
+    override suspend fun loadPage(id: Long): JsonObject {
         val text = api.get("api/notes/$id")
         return withContext(Dispatchers.Default) { json.decodeFromString(JsonObject.serializer(), text) }
     }
 
     /** Titel + Inhalt mit Revision speichern -> neue Revision. 409 = woanders geaendert, 423 = gesperrt */
-    override suspend fun savePage(id: Int, title: String, body: String?, rev: Int?): Int? = savePage(id, title, body, rev, false)
+    override suspend fun savePage(id: Long, title: String, body: String?, rev: Int?): Int? = savePage(id, title, body, rev, false)
 
     /** overwrite: "Meine Version behalten" nach einem Konflikt - der Server sichert die ueberschriebene Fassung als Version */
-    override suspend fun savePage(id: Int, title: String, body: String?, rev: Int?, overwrite: Boolean): Int? {
+    override suspend fun savePage(id: Long, title: String, body: String?, rev: Int?, overwrite: Boolean): Int? {
         val b = buildJsonObject {
             put("title", title)
             if (body != null) {
@@ -370,7 +370,7 @@ class SagaRepository(
     val shareOff = MutableStateFlow(false)
 
     /** Teilen-Dialog nach dem Oeffnen dieser Seite zeigen ("über „Elternseite“" im Dialog) */
-    val openShareFor = MutableStateFlow<Int?>(null)
+    val openShareFor = MutableStateFlow<Long?>(null)
 
     /** "Zu „Mit mir geteilt“" (Seite ohne Zugriff): Zaehler - Seitenleiste oeffnen und zum Bereich scrollen */
     val showSharedRequest = MutableStateFlow(0)
@@ -400,69 +400,69 @@ class SagaRepository(
     }
 
     /** Eigene Seite ist (nicht mehr) freigegeben -> Personen-Symbol im Baum */
-    fun markShared(id: Int, shared: Boolean) {
+    fun markShared(id: Long, shared: Boolean) {
         pages.value = pages.value.map { if (it.id == id && it.shared != shared) it.copy(shared = shared) else it }
     }
 
     /** Kommentare gelesen/geschrieben -> Punkt im Baum nachziehen */
-    fun markUnread(id: Int, unread: Boolean) {
+    fun markUnread(id: Long, unread: Boolean) {
         pages.value = pages.value.map { if (it.id == id && it.unread != unread) it.copy(unread = unread) else it }
         sharedPages.value = sharedPages.value.map { if (it.id == id && it.unread != unread) it.copy(unread = unread) else it }
     }
 
     private fun q(s: String): String = java.net.URLEncoder.encode(s, "UTF-8")
 
-    override suspend fun shares(id: Int): ShareState = decode(api.get("api/notes/$id/shares"))
+    override suspend fun shares(id: Long): ShareState = decode(api.get("api/notes/$id/shares"))
 
-    override suspend fun putShare(id: Int, type: String, target: String, role: String): ShareState =
+    override suspend fun putShare(id: Long, type: String, target: String, role: String): ShareState =
         decode(api.request("PUT", "api/notes/$id/shares", buildJsonObject {
             put("type", type)
             put("target", target)
             put("role", role)
         }))
 
-    override suspend fun deleteShare(id: Int, type: String, target: String): ShareState =
+    override suspend fun deleteShare(id: Long, type: String, target: String): ShareState =
         decode(api.delete("api/notes/$id/shares?type=${q(type)}&target=${q(target)}"))
 
     override suspend fun shareTargets(query: String): ShareTargets = decode(api.get("api/share/targets?q=${q(query)}"))
 
-    override fun shareChanged(id: Int, shared: Boolean) = markShared(id, shared)
+    override fun shareChanged(id: Long, shared: Boolean) = markShared(id, shared)
 
-    override suspend fun comments(id: Int, resolved: Boolean): CommentsResponse =
+    override suspend fun comments(id: Long, resolved: Boolean): CommentsResponse =
         decode(api.get("api/notes/$id/comments" + if (resolved) "?resolved=1" else ""))
 
-    override suspend fun addComment(id: Int, blockId: String?, threadId: Int?, body: String): CommentPosted =
+    override suspend fun addComment(id: Long, blockId: String?, threadId: Long?, body: String): CommentPosted =
         decode(api.post("api/notes/$id/comments", buildJsonObject {
             if (threadId != null) put("thread_id", threadId) else put("block_id", blockId.orEmpty())
             put("body", body)
         }))
 
-    override suspend fun editComment(cid: Int, body: String) {
+    override suspend fun editComment(cid: Long, body: String) {
         api.patch("api/comments/$cid", buildJsonObject { put("body", body) })
     }
 
-    override suspend fun deleteComment(cid: Int, all: Boolean) {
+    override suspend fun deleteComment(cid: Long, all: Boolean) {
         api.delete("api/comments/$cid" + if (all) "?all=1" else "")
     }
 
-    override suspend fun resolveComment(cid: Int, resolved: Boolean) {
+    override suspend fun resolveComment(cid: Long, resolved: Boolean) {
         api.post("api/comments/$cid/resolve", buildJsonObject { put("resolved", resolved) })
     }
 
-    override suspend fun commentSeen(cid: Int) {
+    override suspend fun commentSeen(cid: Long) {
         api.post("api/comments/$cid/seen")
     }
 
-    override fun unreadChanged(id: Int, unread: Boolean) = markUnread(id, unread)
+    override fun unreadChanged(id: Long, unread: Boolean) = markUnread(id, unread)
 
     // ---------------------------------------------------------------- Veroeffentlichen (Server 1.2)
 
-    override suspend fun publishState(id: Int): PublishState = decode(api.get("api/notes/$id/publish"))
+    override suspend fun publishState(id: Long): PublishState = decode(api.get("api/notes/$id/publish"))
 
     /** PUT nur mit Content-Type application/json (sonst 415) - request() schickt JSON */
-    override suspend fun publish(id: Int, body: JsonObject): PublishState = decode(api.request("PUT", "api/notes/$id/publish", body))
+    override suspend fun publish(id: Long, body: JsonObject): PublishState = decode(api.request("PUT", "api/notes/$id/publish", body))
 
-    override suspend fun unpublish(id: Int): PublishState = decode(api.delete("api/notes/$id/publish"))
+    override suspend fun unpublish(id: Long): PublishState = decode(api.delete("api/notes/$id/publish"))
 
     override suspend fun publicName(): PublicNameInfo = decode(api.get("api/account/public-name"))
 
@@ -472,7 +472,7 @@ class SagaRepository(
     override suspend fun setPublicName(name: String): NameSaved =
         decode(api.request("PUT", "api/account/public-name", buildJsonObject { put("name", name) }))
 
-    override suspend fun createPageWith(title: String, body: String): Int {
+    override suspend fun createPageWith(title: String, body: String): Long {
         val id = decode<NewId>(api.post("api/notes", buildJsonObject { put("title", title) })).id
         savePage(id, title, body, null)
         refresh()
@@ -716,14 +716,14 @@ class SagaRepository(
     val pendingShare = MutableStateFlow<SharedContent?>(null)
 
     /** Seite oeffnen (aus Meldungen ausserhalb der Navigation, z. B. "Geteilt - Oeffnen") */
-    val openPageRequest = MutableStateFlow<Int?>(null)
+    val openPageRequest = MutableStateFlow<Long?>(null)
 
     /**
      * Geteiltes ablegen wie die iOS-Teilen-Erweiterung: POST api/app/capture mit dem App-Schluessel
      * (Seite landet im Eingang, Aufgabe in den Aufgaben). Ohne App-Schluessel ueber die normale Sitzung.
      * -> ID der neuen Seite bzw. null bei Aufgabe
      */
-    suspend fun capture(kind: String, title: String, text: String, url: String?): Int? {
+    suspend fun capture(kind: String, title: String, text: String, url: String?): Long? {
         val key = withContext(Dispatchers.IO) { secure.appKeyFor(settings.server.value) }
         if (key != null) {
             val r = api.request("POST", "api/app/capture", buildJsonObject {

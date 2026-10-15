@@ -12,7 +12,7 @@ sealed interface Dest {
     data object Services : Dest
     data object Search : Dest
     data object Settings : Dest
-    data class Page(val id: Int) : Dest
+    data class Page(val id: Long) : Dest
 
     companion object {
         /** Als Text (zum Sichern nach Prozess-Tod) */
@@ -33,7 +33,7 @@ sealed interface Dest {
             s == "services" -> Services
             s == "search" -> Search
             s == "settings" -> Settings
-            s.startsWith("page:") -> s.removePrefix("page:").toIntOrNull()?.let { Page(it) }
+            s.startsWith("page:") -> s.removePrefix("page:").toLongOrNull()?.let { Page(it) }
             else -> null
         }
     }

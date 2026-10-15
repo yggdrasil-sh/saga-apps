@@ -20,7 +20,7 @@ class DraftsTest {
     val tmp = TemporaryFolder()
 
     private val s = "https://s.example.org"
-    private fun draft(id: Int, text: String, stamp: Long) = Draft(id, "T$id", """{"blocks":[{"id":"a","type":"paragraph","data":{"text":"$text"}}]}""", 1, stamp)
+    private fun draft(id: Long, text: String, stamp: Long) = Draft(id, "T$id", """{"blocks":[{"id":"a","type":"paragraph","data":{"text":"$text"}}]}""", 1, stamp)
 
     @Test
     fun folderDependsOnServerAndUsernameNotOnDisplayName() {
@@ -50,13 +50,13 @@ class DraftsTest {
         handle.moveTo(target, names.map { FileDrafts.legacyDir(root, s, it) })
 
         assertEquals(target, handle.dir)
-        assertEquals(listOf(1, 2, 3), handle.all().map { it.id })
+        assertEquals(listOf(1L, 2L, 3L), handle.all().map { it.id })
         assertTrue(handle.read(3)!!.body!!.contains("neuer"))
         assertFalse("alter Ordner weg", FileDrafts.legacyDir(root, s, "").exists())
         assertFalse("alter Ordner weg", FileDrafts.legacyDir(root, s, "Mia").exists())
         // offene Editoren halten dasselbe Objekt und schreiben jetzt in den neuen Ordner
         handle.write(draft(4, "danach", 40))
-        assertEquals(listOf(1, 2, 3, 4), FileDrafts(target).all().map { it.id })
+        assertEquals(listOf(1L, 2L, 3L, 4L), FileDrafts(target).all().map { it.id })
         assertTrue(handle.covers(FileDrafts.legacyDir(root, s, "Mia")))
     }
 

@@ -15,11 +15,11 @@ import kotlinx.serialization.json.booleanOrNull
 
 /** Elternseite, ueber die eine Unterseite oeffentlich ist ("Unterseiten mit veroeffentlichen") */
 @Serializable
-data class PublishVia(@SerialName("note_id") val noteId: Int, val title: String = "", val url: String = "")
+data class PublishVia(@SerialName("note_id") val noteId: Long, val title: String = "", val url: String = "")
 
 /** Verweis auf eine andere eigene Seite (bisherige Profilseite) */
 @Serializable
-data class PublishRef(@SerialName("note_id") val noteId: Int, val title: String = "")
+data class PublishRef(@SerialName("note_id") val noteId: Long, val title: String = "")
 
 @Serializable
 data class PublishState(
@@ -69,7 +69,7 @@ object Publish {
     /** published_via aus GET /api/notes/{id} (null, wenn nicht vorhanden oder unlesbar) */
     fun via(note: JsonObject): PublishVia? {
         val o = note["published_via"] as? JsonObject ?: return null
-        val id = (o["note_id"] as? JsonPrimitive)?.content?.toIntOrNull() ?: return null
+        val id = (o["note_id"] as? JsonPrimitive)?.content?.toLongOrNull() ?: return null
         fun s(k: String) = (o[k] as? JsonPrimitive)?.takeIf { it.isString }?.content ?: ""
         return PublishVia(id, s("title"), s("url"))
     }

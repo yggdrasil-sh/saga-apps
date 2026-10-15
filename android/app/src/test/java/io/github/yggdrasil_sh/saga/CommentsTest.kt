@@ -28,10 +28,10 @@ private val ANNA = Person("Anna", "anna")
 private val BERT = Person("Bert", "bert")
 private val ME = Person("Cora", "cora", me = true)
 
-private fun c(id: Int, who: Person, body: String = "x", deleted: Boolean = false) =
+private fun c(id: Long, who: Person, body: String = "x", deleted: Boolean = false) =
     Comment(id = id, author = who, body = body, mine = who.me, deleted = deleted, created = 100.0 + id)
 
-private fun t(id: Int, block: String, vararg cs: Comment, resolved: Boolean = false, unread: Boolean = false, by: Person? = null) =
+private fun t(id: Long, block: String, vararg cs: Comment, resolved: Boolean = false, unread: Boolean = false, by: Person? = null) =
     CommentThread(id = id, blockId = block, resolvedAt = if (resolved) 5.0 else null, resolvedBy = by, unread = unread, comments = cs.toList())
 
 /** Server-Attrappe: merkt Aufrufe, liefert eine feste Liste */
@@ -41,29 +41,29 @@ private class FakeComments : CommentBackend {
     var fail: Int? = null
     var unreadReported: Boolean? = null
 
-    override suspend fun comments(id: Int, resolved: Boolean): CommentsResponse {
+    override suspend fun comments(id: Long, resolved: Boolean): CommentsResponse {
         calls += "load:$resolved"
         val list = if (resolved) threads else threads.filter { !it.resolved }
         return CommentsResponse(role = "comment", threads = list, resolvedCount = threads.count { it.resolved })
     }
 
-    override suspend fun addComment(id: Int, blockId: String?, threadId: Int?, body: String): CommentPosted {
+    override suspend fun addComment(id: Long, blockId: String?, threadId: Long?, body: String): CommentPosted {
         fail?.let { throw ApiException(it, UiText.Raw("Zu viele Kommentare in kurzer Zeit – bitte kurz warten.")) }
         calls += "add:${blockId ?: ""}:${threadId ?: ""}:$body"
         return CommentPosted()
     }
 
-    override suspend fun editComment(cid: Int, body: String) { calls += "edit:$cid:$body" }
-    override suspend fun deleteComment(cid: Int, all: Boolean) { calls += "delete:$cid:$all" }
-    override suspend fun resolveComment(cid: Int, resolved: Boolean) {
+    override suspend fun editComment(cid: Long, body: String) { calls += "edit:$cid:$body" }
+    override suspend fun deleteComment(cid: Long, all: Boolean) { calls += "delete:$cid:$all" }
+    override suspend fun resolveComment(cid: Long, resolved: Boolean) {
         calls += "resolve:$cid:$resolved"
         threads = threads.map { if (it.id == cid) it.copy(resolvedAt = if (resolved) 9.0 else null) else it }
     }
-    override suspend fun commentSeen(cid: Int) {
+    override suspend fun commentSeen(cid: Long) {
         calls += "seen:$cid"
         threads = threads.map { if (it.id == cid) it.copy(unread = false) else it }
     }
-    override fun unreadChanged(id: Int, unread: Boolean) { unreadReported = unread }
+    override fun unreadChanged(id: Long, unread: Boolean) { unreadReported = unread }
     override fun friendly(e: Throwable): UiText = (e as? ApiException)?.text ?: UiText.Raw(e.message ?: "?")
 }
 
@@ -73,9 +73,9 @@ class CommentsTest {
         val list = listOf(t(1, "b1", c(1, ANNA), unread = true), t(2, "b1", c(2, BERT)), t(3, "b2", c(3, ANNA), resolved = true), t(4, "", c(4, ME)))
         assertEquals(mapOf("b1" to 2), CommentLogic.blockCounts(list))        // nur offene, ohne "ganze Seite"
         assertEquals(setOf("b1"), CommentLogic.unreadBlocks(list))
-        assertEquals(listOf(1, 2, 4), CommentLogic.shown(list, false, null).map { it.id })
-        assertEquals(listOf(1, 2, 3, 4), CommentLogic.shown(list, true, null).map { it.id })
-        assertEquals(listOf(1, 2), CommentLogic.shown(list, false, "b1").map { it.id })
+        assertEquals(listOf(1L, 2L, 4L), CommentLogic.shown(list, false, null).map { it.id })
+        assertEquals(listOf(1L, 2L, 3L, 4L), CommentLogic.shown(list, true, null).map { it.id })
+        assertEquals(listOf(1L, 2L), CommentLogic.shown(list, false, "b1").map { it.id })
     }
 
     @Test
@@ -189,7 +189,7 @@ class CommentsTest {
         assertEquals(0, m.unreadCount)
         assertEquals(false, be.unreadReported)
         // erledigen: Zahl am Block sofort weg + Meldung mit Rueckgaengig
-        val th = m.threads.first { it.id == 1 }
+        val th = m.threads.first { it.id == 1L }
         m.resolve(th, true)
         assertTrue("resolve:1:true" in be.calls)
         assertTrue(m.blockCounts.isEmpty())

@@ -31,7 +31,7 @@ import io.github.yggdrasil_sh.saga.util.UiText
  * oder als Aufgabe sichern. Speichern laeuft im App-Scope.
  */
 @Composable
-fun ShareDialog(repo: SagaRepository, content: SharedContent, onOpenPage: (Int) -> Unit) {
+fun ShareDialog(repo: SagaRepository, content: SharedContent, onOpenPage: (Long) -> Unit) {
     var kind by remember(content) { mutableStateOf(if (content.url == null && content.text.length < 120 && !content.text.contains('\n')) "task" else "page") }
     var title by remember(content) { mutableStateOf(content.title) }
     var busy by remember { mutableStateOf(false) }

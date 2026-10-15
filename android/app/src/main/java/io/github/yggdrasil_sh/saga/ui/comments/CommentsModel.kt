@@ -21,16 +21,16 @@ import kotlinx.serialization.json.JsonPrimitive
 
 /** Kommentare einer Seite (SagaRepository; in Tests eine Attrappe) */
 interface CommentBackend {
-    suspend fun comments(id: Int, resolved: Boolean): CommentsResponse
+    suspend fun comments(id: Long, resolved: Boolean): CommentsResponse
     /** Neue Unterhaltung (blockId, "" = ganze Seite) oder Antwort (threadId) */
-    suspend fun addComment(id: Int, blockId: String?, threadId: Int?, body: String): CommentPosted
-    suspend fun editComment(cid: Int, body: String)
+    suspend fun addComment(id: Long, blockId: String?, threadId: Long?, body: String): CommentPosted
+    suspend fun editComment(cid: Long, body: String)
     /** all = ganze Unterhaltung (nur Eigentuemer der Seite) */
-    suspend fun deleteComment(cid: Int, all: Boolean)
-    suspend fun resolveComment(cid: Int, resolved: Boolean)
-    suspend fun commentSeen(cid: Int)
+    suspend fun deleteComment(cid: Long, all: Boolean)
+    suspend fun resolveComment(cid: Long, resolved: Boolean)
+    suspend fun commentSeen(cid: Long)
     /** Punkt "neue Kommentare" im Seitenbaum nachziehen */
-    fun unreadChanged(id: Int, unread: Boolean) {}
+    fun unreadChanged(id: Long, unread: Boolean) {}
     fun friendly(e: Throwable): UiText
 }
 
@@ -178,7 +178,7 @@ object CommentLogic {
  * Kommentare einer Seite: Liste (Sheet von unten), Zaehler fuer den Seitenkopf und die Zahl am Block.
  * Vor dem ersten Laden gelten die Zaehler aus GET /api/notes/{id}.
  */
-class CommentsModel(val pageId: Int, private val backend: CommentBackend, initial: PageShareInfo) {
+class CommentsModel(val pageId: Long, private val backend: CommentBackend, initial: PageShareInfo) {
     var role by mutableStateOf(initial.role)
         private set
     var threads by mutableStateOf<List<CommentThread>>(emptyList())
@@ -196,9 +196,9 @@ class CommentsModel(val pageId: Int, private val backend: CommentBackend, initia
         private set
     var block by mutableStateOf<String?>(null)
         private set
-    var replyTo by mutableStateOf<Int?>(null)
-    var editing by mutableStateOf<Int?>(null)
-    var expanded by mutableStateOf(setOf<Int>())
+    var replyTo by mutableStateOf<Long?>(null)
+    var editing by mutableStateOf<Long?>(null)
+    var expanded by mutableStateOf(setOf<Long>())
     var busy by mutableStateOf(false)
         private set
     var toast by mutableStateOf<SheetToast?>(null)
@@ -207,7 +207,7 @@ class CommentsModel(val pageId: Int, private val backend: CommentBackend, initia
     private var initialCounts by mutableStateOf(initial.commentCounts)
     private var initialOpen by mutableIntStateOf(initial.commentsOpen)
     private var initialUnread by mutableIntStateOf(initial.commentsUnread)
-    private val seenSent = HashSet<Int>()
+    private val seenSent = HashSet<Long>()
     private var seq = 0
 
     val canComment: Boolean get() = role.canComment
@@ -281,7 +281,7 @@ class CommentsModel(val pageId: Int, private val backend: CommentBackend, initia
         load()
     }
 
-    fun expand(threadId: Int) {
+    fun expand(threadId: Long) {
         expanded = expanded + threadId
     }
 
@@ -313,7 +313,7 @@ class CommentsModel(val pageId: Int, private val backend: CommentBackend, initia
         return write(R.string.comments_not_sent) { backend.addComment(pageId, block.orEmpty(), null, t.take(CommentLogic.MAX)) }
     }
 
-    suspend fun reply(threadId: Int, body: String): Boolean {
+    suspend fun reply(threadId: Long, body: String): Boolean {
         val t = body.trim()
         if (t.isEmpty() || !canComment) return false
         return write(R.string.comments_not_sent) {
@@ -322,7 +322,7 @@ class CommentsModel(val pageId: Int, private val backend: CommentBackend, initia
         }
     }
 
-    suspend fun edit(cid: Int, body: String): Boolean {
+    suspend fun edit(cid: Long, body: String): Boolean {
         val t = body.trim()
         if (t.isEmpty()) return false
         return write(R.string.comments_not_saved) {
@@ -331,7 +331,7 @@ class CommentsModel(val pageId: Int, private val backend: CommentBackend, initia
         }
     }
 
-    suspend fun delete(cid: Int, all: Boolean) {
+    suspend fun delete(cid: Long, all: Boolean) {
         write(R.string.comments_not_deleted) { backend.deleteComment(cid, all) }
     }
 

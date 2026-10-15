@@ -26,13 +26,13 @@ private class FakeShares : ShareBackend {
     var failDelete = false
     var sharedFlag: Boolean? = null
 
-    override suspend fun shares(id: Int) = state
-    override suspend fun putShare(id: Int, type: String, target: String, role: String): ShareState {
+    override suspend fun shares(id: Long) = state
+    override suspend fun putShare(id: Long, type: String, target: String, role: String): ShareState {
         val rest = state.shares.filter { !(it.type == type && it.target == target) }
         state = state.copy(shares = rest + ShareEntry(type, target, if (type == "user") "Bert Bearbeitet" else target, role, role))
         return state
     }
-    override suspend fun deleteShare(id: Int, type: String, target: String): ShareState {
+    override suspend fun deleteShare(id: Long, type: String, target: String): ShareState {
         if (failDelete) throw ApiException(404, UiText.Raw("not found"))
         state = state.copy(shares = state.shares.filter { !(it.type == type && it.target == target) })
         return state
@@ -41,7 +41,7 @@ private class FakeShares : ShareBackend {
         queries += query
         return if (query.startsWith("sc-")) targets else ShareTargets()
     }
-    override fun shareChanged(id: Int, shared: Boolean) { sharedFlag = shared }
+    override fun shareChanged(id: Long, shared: Boolean) { sharedFlag = shared }
     override fun friendly(e: Throwable): UiText = (e as? ApiException)?.text ?: UiText.Raw("?")
 }
 
