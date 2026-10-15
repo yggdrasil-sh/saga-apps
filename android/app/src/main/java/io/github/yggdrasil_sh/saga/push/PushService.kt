@@ -275,10 +275,12 @@ object PushParse {
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false; isLenient = true }
 
     fun parse(bytes: ByteArray, keys: PushKeys?): PushMessage? {
+        // ohne Schluessel angemeldet: Klartext-JSON (nie mit Namen). Mit Schluesseln nur Entschluesseltes annehmen -
+        // sonst koennte jeder, der die Verteiler-Adresse kennt, beliebige Mitteilungen unterschieben.
         val plain = try {
             if (keys != null) WebPushCrypto.decrypt(bytes, keys) else bytes
         } catch (_: Exception) {
-            bytes                                            // ohne Schluessel angemeldet: Klartext-JSON (nie mit Namen)
+            return null
         }
         return try {
             json.decodeFromString(PushMessage.serializer(), String(plain, Charsets.UTF_8)).takeIf { it.body.isNotEmpty() || it.title.isNotEmpty() }

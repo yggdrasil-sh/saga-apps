@@ -101,6 +101,8 @@ class V2FeaturesTest {
         assertEquals("chat-5", m.tag)
         assertEquals("/chats#c5", m.url)
         assertNull(PushParse.parse("kaputt".toByteArray(), null))
+        // mit Schluesseln angemeldet: unverschluesselte (untergeschobene) Mitteilungen verwerfen
+        assertNull(PushParse.parse(plain.toByteArray(), WebPushCrypto.generate()))
         val info = json.decodeFromString<PushInfo>(
             """{"server":{"enabled":true,"webpush":true,"vapid_public":"BD","ntfy":true,"unifiedpush":false,"apns":false},
                "settings":{"cats":{"share":true,"comment":false,"chat":true,"publish":true},"names":true,"quiet":{"on":true,"from":"22:00","to":"07:00","tz":"Europe/Berlin"}},
