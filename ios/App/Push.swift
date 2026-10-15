@@ -205,11 +205,12 @@ struct PushSettingsSection: View {
                 let on = av == .ok && push.wanted && push.state?.thisDevice != nil
                 Toggle(isOn: Binding(get: { on }, set: { v in Task { await push.setEnabled(v) } })) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Mitteilungen auf diesem Gerät").id("push")
+                        Text("Mitteilungen auf diesem Gerät")
                         if let d = push.state?.thisDevice, let e = d.lastError { Text("Letzter Fehler: \(e)").font(.caption).foregroundStyle(.orange) }
                     }
                 }
                 .disabled(push.busy || av != .ok)
+                .id("push")
                 switch av {
                 case .serverOff: Label("Mitteilungen sind auf diesem Server abgeschaltet.", systemImage: "bell.slash").font(.footnote).foregroundStyle(.secondary)
                 case .appleMissing: Label("Mitteilungen an die Apple-App sind auf diesem Server noch nicht eingerichtet (Admin-Bereich).", systemImage: "info.circle").font(.footnote).foregroundStyle(.secondary)

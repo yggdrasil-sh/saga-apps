@@ -481,6 +481,7 @@ struct LinkApproveSheet: View {
             }.controlSize(.large)
         }
         .padding(22)
+        .frame(maxHeight: .infinity, alignment: .top)                   // Inhalt oben, nicht in der Mitte des Blatts
         .macFrame(minWidth: 460, idealWidth: 520)
         #if os(iOS)
         .presentationDetents([.medium, .large])

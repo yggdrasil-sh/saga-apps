@@ -21,6 +21,7 @@ struct SettingsView: View {
             .task {                                                      // nur fuer Tests: zum Konto-Block (Startparameter -hkSettings konto)
                 guard let v = UserDefaults.standard.string(forKey: "hkSettings"), v != "YES" else { return }
                 try? await Task.sleep(for: .seconds(2)); proxy.scrollTo(v, anchor: v == "konto" ? .center : .top)
+                try? await Task.sleep(for: .seconds(2)); proxy.scrollTo(v, anchor: v == "konto" ? .center : .top)   // Zeilen kommen ggf. erst nach dem Laden
             }
             #endif
         }
