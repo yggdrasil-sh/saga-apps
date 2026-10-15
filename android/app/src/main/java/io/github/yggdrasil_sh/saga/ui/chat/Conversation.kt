@@ -56,6 +56,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -65,6 +67,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -130,7 +133,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     var dialog by remember { mutableStateOf<String?>(null) }
     var unverifiedOf by remember { mutableStateOf<String?>(null) }
     var safetyFor by remember { mutableStateOf<String?>(null) }
-    var input by remember(chatId) { mutableStateOf("") }
+    var input by rememberSaveable(chatId) { mutableStateOf("") }          // ueberlebt Prozess-Tod (BUG-067)
     val files = remember(chatId) { mutableStateListOf<PendingFile>() }
     val noteIds = remember(chatId) { mutableStateListOf<ChatNoteRef>() }
     val list = rememberLazyListState()
@@ -164,16 +167,23 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         }
     }
 
+    // Surface: Inhaltsfarbe onSurface fuer alle Symbole ohne eigene Farbe ("+" im Dunkelmodus war schwarz, BUG-072)
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
+        // zweizeiliger Titel: Kopfzeile waechst mit der Schriftgroesse (200 %: sonst unter der Statusleiste, BUG-070)
+        val fontScale = LocalDensity.current.fontScale
         TopAppBar(
+            expandedHeight = maxOf(TopAppBarDefaults.TopAppBarExpandedHeight, (46 * fontScale).dp),
             title = {
                 Column {
                     Text(s.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.Lock, null, Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        // eine Zeile: bei 200 % Schrift sonst hoeher als die Kopfzeile (ragt in die Statusleiste, BUG-070)
                         Text(
                             stringResource(R.string.chat_e2e), style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp),
+                            maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -341,6 +351,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 else Icon(Icons.AutoMirrored.Filled.Send, stringResource(R.string.chat_send), tint = if (canSend) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
             }
         }
+    }
     }
 
     unverifiedOf?.let { who ->

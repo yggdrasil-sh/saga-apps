@@ -205,6 +205,32 @@ class CommentsTest {
         assertEquals(UiText.Res(R.string.comments_not_sent, UiText.Raw("Zu viele Kommentare in kurzer Zeit – bitte kurz warten.")), m.toast?.text)
     }
 
+    // BUG-067: Entwurf bleibt beim Schliessen des Blatts (je Block), nach Senden leer, bei Fehler erhalten
+    @Test
+    fun draftSurvivesClosingTheSheet() = runTest {
+        val be = FakeComments()
+        val m = CommentsModel(1, be, PageShareInfo(supported = true, role = Role.COMMENT))
+        m.openAll()
+        m.draft = "Entwurf Seite"
+        m.close()
+        m.openBlock("b1")
+        assertEquals("", m.draft)
+        m.draft = "Entwurf Block"
+        m.close()
+        m.openAll()
+        assertEquals("Entwurf Seite", m.draft)
+        m.openBlock("b1")
+        assertEquals("Entwurf Block", m.draft)
+        be.fail = 429
+        assertFalse(m.send(m.draft))
+        assertEquals("Entwurf Block", m.draft)
+        be.fail = null
+        assertTrue(m.send(m.draft))
+        assertEquals("", m.draft)
+        m.showAll()
+        assertEquals("Entwurf Seite", m.draft)
+    }
+
     @Test
     fun viewRoleCannotWrite() = runTest {
         val be = FakeComments()
