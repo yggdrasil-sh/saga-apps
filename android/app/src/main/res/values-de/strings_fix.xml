@@ -3,5 +3,8 @@
 <resources>
     <string name="chat_link_denied">Die Anfrage wurde auf dem anderen Gerät abgelehnt.</string>
     <string name="chat_start_over_done">Neu begonnen – dein neuer Wiederherstellungsschlüssel gilt ab jetzt.</string>
+    <!-- ueberschreibt die Compose-Uebersetzung "Tabelle schließen" der Blatt-Abdunkelung (TalkBack, BUG-111) -->
+    <string name="close_sheet">Blatt schließen</string>
     <string name="chat_safety_send_blocked">Die Sicherheitsnummer von %1$s hat sich geändert – bitte erst ansehen, dann senden.</string>
+    <string name="push_permission_revoked">Mitteilungen sind für Saga in den Systemeinstellungen blockiert – es wird nichts angezeigt.</string>
 </resources>

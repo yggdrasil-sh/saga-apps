@@ -79,8 +79,17 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             else -> choose = ds
         }
     }
+    // dauerhaft verweigert fragt Android nicht mehr: Weg in die Systemeinstellungen anbieten (BUG-109)
+    val openSettings = { openNotificationSettings(context) }
     val askPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        if (ok) start() else repo.notify(UiText.Res(R.string.push_permission_denied))
+        if (ok) start() else repo.notify(UiText.Res(R.string.push_permission_denied), UiText.Res(R.string.login_open_app_settings), openSettings)
+    }
+    // Berechtigung spaeter entzogen: Mitteilungen werden still verworfen - sichtbar machen (BUG-109)
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    val resumed by lifecycle.currentStateFlow.collectAsState()
+    val permissionMissing = remember(resumed) {
+        Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
     }
 
     Scaffold(topBar = { SagaTopBar(stringResource(R.string.push_title), nav, chrome) }) { pad ->
@@ -120,6 +129,14 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                         else start()
                     },
                 )
+            }
+            if (state == PushState.ON && permissionMissing) {
+                item {
+                    Column(w.padding(horizontal = 16.dp)) {
+                        Text(stringResource(R.string.push_permission_revoked), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = openSettings) { Text(stringResource(R.string.login_open_app_settings)) }
+                    }
+                }
             }
             error?.let { e -> item { Text(e.resolve(), color = MaterialTheme.colorScheme.error, modifier = w.padding(horizontal = 16.dp)) } }
             if (noDistributor) {
@@ -283,4 +300,19 @@ object PushUi {
 
     /** "Worüber?", Namen, Ruhezeiten: nur wenn Mitteilungen auf dem Server an sind und hier oder anderswo eingerichtet */
     fun categoriesEnabled(serverOn: Boolean, state: PushState, devices: Int): Boolean = serverOn && (state == PushState.ON || devices > 0)
+}
+
+/** Mitteilungs-Einstellungen dieser App im System (nach dauerhaft verweigerter/entzogener Berechtigung, BUG-109) */
+private fun openNotificationSettings(context: android.content.Context) {
+    val i = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+        .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
+        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+    try {
+        context.startActivity(i)
+    } catch (_: Exception) {
+        context.startActivity(
+            android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", context.packageName, null))
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
 }

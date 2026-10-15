@@ -330,6 +330,12 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             )
             val canSend = (input.isNotBlank() || files.isNotEmpty() || noteIds.isNotEmpty()) && !s.sending
             IconButton(onClick = {
+                // geaenderte Sicherheitsnummer sperrt das Senden: erklaeren und direkt "Anzeigen" anbieten (BUG-108)
+                s.identChanged.firstOrNull()?.let { uid ->
+                    val who = s.summary?.members?.firstOrNull { it.username == uid }?.name?.ifEmpty { null } ?: uid
+                    repo.notify(UiText.Res(R.string.chat_safety_send_blocked, who), UiText.Res(R.string.chat_show)) { dialog = "safety" }
+                    return@IconButton
+                }
                 val text = input.trim()
                 val fs = files.toList()
                 val ns = noteIds.map { it.id }

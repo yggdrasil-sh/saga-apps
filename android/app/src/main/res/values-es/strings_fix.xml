@@ -4,4 +4,5 @@
     <string name="chat_link_denied">La solicitud se rechazó en el otro dispositivo.</string>
     <string name="chat_start_over_done">Has empezado de nuevo: tu nueva clave de recuperación ya es válida.</string>
     <string name="chat_safety_send_blocked">El número de seguridad de %1$s ha cambiado: revísalo antes de enviar.</string>
+    <string name="push_permission_revoked">Las notificaciones de Saga están bloqueadas en los ajustes del sistema; no se mostrará nada.</string>
 </resources>

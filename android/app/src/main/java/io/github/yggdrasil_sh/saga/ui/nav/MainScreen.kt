@@ -193,6 +193,8 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
         }
         BackHandler(enabled = drawerState.isOpen && !wide) { scope.launch { drawerState.close() } }
         BackHandler(enabled = nav.canGoBack && !drawerState.isOpen) { nav.pop() }
+        // oberste Ebene ausser "Heute": Zurueck fuehrt zum Startziel, erst dort beendet es die App (BUG-106)
+        BackHandler(enabled = !nav.canGoBack && nav.root != Dest.Today && !drawerState.isOpen) { nav.top(Dest.Today) }
 
         // Inhalt wandert beim Drehen/Wechsel Kompakt <-> Breit in einen anderen Zweig (feste Seitenleiste, Rail,
         // Schublade). movableContentOf nimmt dabei den Zustand mit (Chat-Entwurf, offene Blaetter, Editor) - BUG-021
