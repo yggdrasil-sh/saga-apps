@@ -406,9 +406,8 @@ class PageView(Gtk.Box):
         if sb is not None:
             info.append(sb)
         if self.remote:                                      # Foederation: Seite liegt auf einem anderen Server
-            from .sharing import remote_host
-            rl = Gtk.Label(label=_("This page is on {host}. Here you can read and comment on it and – with edit access – change the "
-                                   "title and content.").format(host=remote_host(doc.page) or "?"), xalign=0, wrap=True)
+            from .sharing import remote_info
+            rl = Gtk.Label(label=remote_info(doc.page), xalign=0, wrap=True)
             rl.add_css_class("hk-pagemeta")
             rl.add_css_class("dim-label")
             info.append(rl)

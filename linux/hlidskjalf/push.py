@@ -18,7 +18,7 @@ from gi.repository import Adw, Gio, GLib, GObject, Gtk
 from . import APP_ID, config
 from .api import APIError, client
 from .config import settings
-from .i18n import _
+from .i18n import _, pgettext
 from .util import bg, rel_time
 
 OBJ = "/org/unifiedpush/Connector"
@@ -268,7 +268,7 @@ class PushPage(Adw.PreferencesPage):
 
     def __init__(self, dlg):
         from .notifications import bell_icon
-        super().__init__(title=_("Push notifications"), icon_name=bell_icon())
+        super().__init__(title=pgettext("settings tab", "Push"), icon_name=bell_icon())     # kurz: Reiter passen auch schmal
         self.dlg = dlg
         self.data = None
         self.dists = None
@@ -336,8 +336,9 @@ class PushPage(Adw.PreferencesPage):
                                                "notifications while Saga is closed, Saga uses UnifiedPush – e.g. KUnifiedPush with ntfy."))
         sw = Adw.SwitchRow(title=_("Push notifications on this device"))
         on = subscribed()
-        sw.set_active(on)
-        if not srv.get("enabled") or not srv.get("unifiedpush"):
+        server_on = bool(srv.get("enabled"))
+        sw.set_active(on and server_on and bool(srv.get("unifiedpush")))   # Schalter und Zustandstext widersprechen sich nie
+        if not server_on or not srv.get("unifiedpush"):
             sw.set_sensitive(False)
             sw.set_subtitle(_("Push notifications are turned off on this server."))
         elif self.dists is not None and not self.dists and not on:
@@ -359,8 +360,13 @@ class PushPage(Adw.PreferencesPage):
             t.add_suffix(self._test_btn(mine, t))
             g.add(t)
         self._add(g)
-        # Worueber?
+        # Worueber? (gilt fuer alle Geraete des Kontos) - ausgegraut, solange Mitteilungen aus oder nirgends eingerichtet sind
+        any_dev = any(isinstance(x, dict) for x in d.get("devices") or [])
+        usable = server_on and (any_dev or (on and srv.get("unifiedpush")))
         g2 = Adw.PreferencesGroup(title=_("About what?"))
+        if not usable:
+            g2.set_description(_("Push notifications are turned off on this server.") if not server_on else
+                               _("Turn on push notifications on a device first."))
         cats = st.get("cats") or {}
         for key, text in CATS:
             if key not in cats:
@@ -372,6 +378,7 @@ class PushPage(Adw.PreferencesPage):
                            subtitle=_("Not for UnifiedPush without encryption and ntfy – there the server never sends names."))
         nm.connect("notify::active", lambda rr, _p: self._put({"names": rr.get_active()}))
         g2.add(nm)
+        g2.set_sensitive(usable)
         self._add(g2)
         # Ruhezeiten
         q = st.get("quiet") or {}
@@ -393,6 +400,7 @@ class PushPage(Adw.PreferencesPage):
             self._put({"quiet": {"on": rr.get_active(), "from": rows["from"].get_text().strip(), "to": rows["to"].get_text().strip(),
                                  "tz": local_tz()}})
         qs.connect("notify::active", quiet)
+        g3.set_sensitive(usable)
         self._add(g3)
         # Geraete
         g4 = Adw.PreferencesGroup(title=_("Devices"))

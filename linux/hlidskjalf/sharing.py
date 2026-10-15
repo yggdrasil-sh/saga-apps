@@ -204,7 +204,7 @@ def taken(st):
 def hit_rows(d, st, role):
     """Treffer der Personensuche -> [{type, target, name, sub, has}] (Personen, dann eigene Gruppen)"""
     tk, out = taken(st), []
-    add_as = _("add as “{role}”").format(role=role_name(role))
+    add_as = _("Add ({role})").format(role=role_name(role))
     for u in (d or {}).get("users") or []:
         t = u.get("username") or ""
         out.append({"type": "user", "target": t, "name": u.get("name") or t, "sub": t,
@@ -222,6 +222,18 @@ def hit_rows(d, st, role):
     return out
 
 
+def remote_info(page):
+    """Hinweis unter dem Titel einer Seite einer anderen Instanz - verspricht nur, was die Rolle erlaubt"""
+    host = remote_host(page) or "?"
+    r = role_of(page)
+    if RANK.get(r, 0) >= RANK["edit"]:
+        return _("This page is on {host}. Here you can read and comment on it and – with edit access – change the "
+                 "title and content.").format(host=host)
+    if RANK.get(r, 0) >= RANK["comment"]:
+        return _("This page is on {host}. Here you can read and comment on it.").format(host=host)
+    return _("This page is on {host}. Here you can read it.").format(host=host)
+
+
 def remote_sub(typ):
     return _("Group on another Saga instance") if typ == "remote_group" else _("Other Saga instance")
 
@@ -233,7 +245,7 @@ def chip_rows(st, role):
     for g in (st or {}).get("groups") or []:
         r = tk.get(f"group:{g}")
         out.append({"name": g, "on": bool(r),
-                    "tooltip": _("has access: {role}").format(role=role_name(r)) if r else _("add as “{role}”").format(role=role_name(role))})
+                    "tooltip": _("has access: {role}").format(role=role_name(r)) if r else _("Add ({role})").format(role=role_name(role))})
     return out
 
 

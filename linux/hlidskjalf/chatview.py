@@ -11,9 +11,9 @@ from . import chatcrypto as C
 from . import config
 from .api import APIError, client
 from .blocks import flat_button, menu_popover
-from .chat import (NOTE_RX, RETENTIONS, ChatError, SafetyChanged, chat, fmt_recovery, keys_persistent, retention_label, safety_for,
-                   safety_qr_text, trust_accept, trust_get, trust_verified)
-from .i18n import _, ngettext
+from .chat import (NOTE_RX, RETENTIONS, ChatError, SafetyChanged, chat, fmt_recovery, keys_persistent, recovery_lines, retention_label,
+                   safety_for, safety_qr_text, trust_accept, trust_get, trust_verified)
+from .i18n import _, ngettext, pgettext
 from .util import bg, date_short, esc, human_size, rel_time, time_text, weekday_day_text
 
 URL_RX = re.compile(r"https?://[^\s<>\"']+[^\s<>\"'.,;:!?)\]]")
@@ -45,13 +45,47 @@ def watch_chat(widget, signal, cb):
     widget.connect("unmap", on_unmap)
 
 
-def code_lines(code):
-    """Kopplungscode in zwei Zeilen (4 x 5 Ziffern passen sonst nicht ins schmale Fenster)"""
+def code_halves(code):
+    """Kopplungscode "12345 67890 12345 67890" -> ["12345 67890", "12345 67890"] (zwei Haelften, je 2 Gruppen)"""
     parts = (code or "").split()
     if len(parts) <= 2:
-        return code or ""
+        return [" ".join(parts)] if parts else []
     half = (len(parts) + 1) // 2
-    return " ".join(parts[:half]) + "\n" + " ".join(parts[half:])
+    return [" ".join(parts[:half]), " ".join(parts[half:])]
+
+
+class CodeView(Gtk.FlowBox):
+    """Kopplungscode, Monospace: in EINER Zeile, nur wenn sie nicht passt zwei Zeilen zu je 2 Gruppen"""
+    __gtype_name__ = "HKCodeView"
+
+    def __init__(self, code=""):
+        super().__init__(selection_mode=Gtk.SelectionMode.NONE, min_children_per_line=1, max_children_per_line=2,
+                         homogeneous=True, halign=Gtk.Align.CENTER, column_spacing=0, row_spacing=2)
+        self.add_css_class("hk-codeview")
+        self.set_code(code)
+
+    def set_code(self, code):
+        self.code = code or ""
+        self.remove_all()
+        for h in code_halves(code):
+            lb = Gtk.Label(label=h, xalign=0.5)
+            lb.add_css_class("hk-linkcode")
+            lb.add_css_class("monospace")
+            self.append(lb)
+        c = self.get_first_child()
+        while c is not None:
+            c.set_focusable(False)
+            c = c.get_next_sibling()
+        self.update_property([Gtk.AccessibleProperty.LABEL], [self.code])
+
+    def text(self):
+        """sichtbare Zeilen (fuer Tests): Kinder je Zeile"""
+        rows = {}
+        c = self.get_first_child()
+        while c is not None:
+            rows.setdefault(c.get_allocation().y, []).append(c.get_child().get_label())
+            c = c.get_next_sibling()
+        return [" ".join(v) for _k, v in sorted(rows.items())]
 
 
 def _lbl(text="", css=(), xalign=0, wrap=True, **kw):
@@ -61,6 +95,36 @@ def _lbl(text="", css=(), xalign=0, wrap=True, **kw):
     for c in css:
         lb.add_css_class(c)
     return lb
+
+
+def warn_label(text):
+    """wichtige Warnung: Symbol + Text fett in Vordergrundfarbe (nicht grau)"""
+    bx = Gtk.Box(spacing=8)
+    ic = Gtk.Image.new_from_icon_name("dialog-warning-symbolic")
+    ic.add_css_class("hk-warn-text")
+    ic.set_valign(Gtk.Align.START)
+    bx.append(ic)
+    bx.append(_lbl(text, ("heading",), hexpand=True))
+    bx.add_css_class("hk-warn-box")
+    return bx
+
+
+def keyring_help(win):
+    d = Adw.AlertDialog(heading=_("No keyring available"),
+                        body=_("Saga keeps the chat keys of this device in the system keyring (Secret Service). Install and unlock "
+                               "a keyring – e.g. GNOME Keyring (package gnome-keyring) or KWallet – and start Saga again. Until "
+                               "then the keys are only kept until Saga is closed; after that, this device needs the recovery key "
+                               "or another device again."))
+    d.add_response("close", _("Close"))
+    d.present(win)
+
+
+def keyring_banner(win):
+    """Hinweis oben: ohne Schluesselbund gelten die Chat-Schluessel nur bis zum Beenden - mit naechstem Schritt"""
+    b = Adw.Banner(title=_("No keyring available – the chat keys are only kept until Saga is closed."), revealed=True,
+                   button_label=_("What to do?"))
+    b.connect("button-clicked", lambda *_: keyring_help(win))
+    return b
 
 
 def _button(label, css=(), cb=None, **kw):
@@ -164,7 +228,6 @@ class ChatsScreen(Gtk.Box):
         self.stack.add_named(bpb, "main")
         watch_chat(self, "changed", lambda: self.render())
         watch_chat(self, "chat-changed", lambda cid: cid == self.cid and self._header())
-        watch_chat(self, "typing", lambda cid: cid == self.cid and self._header())
         self.connect("unmap", lambda *_: setattr(chat, "open_chat", None))
         self._state = None
         self.render(force=True)
@@ -228,7 +291,7 @@ class ChatsScreen(Gtk.Box):
                 _("Saga chats are end-to-end encrypted: messages and attachments are encrypted and decrypted on your devices. "
                   "The server – including the admin – only sees encrypted data.") + "\n\n" +
                 _("You'll get a recovery key in a moment. With it you can bring your chats to a new device when no other device "
-                  "is left. Without it your messages are lost – the admin can't restore them either."))
+                  "is left."))
             clamp.append(_button(_("Create keys"), ("pill", "suggested-action"), lambda: SetupDialog(self.win).present(self.win),
                                  halign=Gtk.Align.CENTER))
         else:                                                        # "device": eingerichtet, Schluessel fehlen hier
@@ -239,21 +302,21 @@ class ChatsScreen(Gtk.Box):
             for title, sub, icon, cb in ((_("Confirm with another device"), _("Confirm a code on a device where your chats already work."),
                                           "phone-symbolic", lambda: LinkDialog(self.win).present(self.win)),
                                          (_("Enter recovery key"), _("The key you got during setup."), "dialog-password-symbolic",
-                                          lambda: RecoveryDialog(self.win).present(self.win))):
+                                          lambda: RecoveryDialog(self.win).present(self.win)),
+                                         (_("Start over"), _("New keys – older messages can't be read afterwards."),
+                                          "view-refresh-symbolic", lambda: ask_start_over(self.win))):
                 r = Adw.ActionRow(title=title, subtitle=sub, activatable=True)
                 r.add_prefix(Gtk.Image.new_from_icon_name(icon))
                 r.add_suffix(Gtk.Image.new_from_icon_name("go-next-symbolic"))
                 r.connect("activated", lambda *_, cb=cb: cb())
                 lb.append(r)
             clamp.append(lb)
-            again = _button(None, ("flat",), lambda: ask_start_over(self.win), halign=Gtk.Align.CENTER,
-                            child=_lbl(_("Neither available any more? Start over …"), xalign=0.5, justify=Gtk.Justification.CENTER))
-            clamp.append(again)
-        if st in ("setup", "device") and not keys_persistent():
-            clamp.append(_lbl(_("No keyring available – the chat keys are only kept until Saga is closed."), ("caption", "dim-label"),
-                              xalign=0.5, justify=Gtk.Justification.CENTER))
+        if st == "setup":
+            clamp.prepend(warn_label(_("Without it your messages are lost – the admin can't restore them either.")))
         if clamp.get_first_child() is not None:
             page.set_child(Adw.Clamp(maximum_size=440, child=clamp))
+        if st in ("setup", "device") and not keys_persistent():
+            self.status_box.append(keyring_banner(self.win))
         self.status_box.append(page)
 
     def _header(self):
@@ -265,9 +328,6 @@ class ChatsScreen(Gtk.Box):
         c = chat.chat(self.cid) if self.cid is not None else None
         if c is None:
             return _("Chats"), ""
-        names = chat.typing_names(self.cid)
-        if names:
-            return chat.title(c), _("{names} is typing …").format(names=", ".join(names))
         if c.get("kind") == "dm":
             return chat.title(c), _("End-to-end encrypted")
         n = int(c.get("member_count") or len(c.get("members") or []))
@@ -642,9 +702,7 @@ class Conversation(Gtk.Box):
                 acc.append(f.get("n") or _("File"))
         meta = Gtk.Box(spacing=4, halign=Gtk.Align.END)
         if st == "unverified":
-            w = _lbl("⚠ " + _("Authenticity not confirmed"), ("caption", "hk-warn-text"), wrap=False)
-            w.set_tooltip_text(_("Sender not confirmed: signature or device key doesn't match (e.g. after “Start over”)."))
-            meta.append(w)
+            meta.append(self._unverified_button(m))
             acc.append(_("Authenticity not confirmed"))
         tm = _lbl(_time(m.get("created") or (m.get("ts") or 0) / 1000), ("caption", "dim-label"), wrap=False)
         meta.append(tm)
@@ -663,6 +721,20 @@ class Conversation(Gtk.Box):
                    and (self._msg_menu(b, m), True)[1])
         b.add_controller(kc)
         return row
+
+    def _unverified_button(self, m):
+        """Hinweis "⚠ Echtheit nicht bestaetigt" (Symbol orange, Text in Vordergrundfarbe) - oeffnet die Erklaerung"""
+        bx = Gtk.Box(spacing=4)
+        ic = Gtk.Label(label="⚠")
+        ic.add_css_class("hk-warn-text")
+        bx.append(ic)
+        bx.append(Gtk.Label(label=_("Authenticity not confirmed")))
+        b = Gtk.Button(child=bx, tooltip_text=_("What does this mean?"))
+        b.add_css_class("flat")
+        b.add_css_class("hk-unv")
+        b.add_css_class("caption")
+        b.connect("clicked", lambda *_: unverified_info(self.win, self.cid, (m.get("sender") or {}).get("username")))
+        return b
 
     def _link(self, label, uri):
         if uri.startswith("saga-note:"):
@@ -1335,15 +1407,23 @@ class RecoveryKeyPages:
         tv.add_top_bar(Adw.HeaderBar())
         b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14, margin_top=12, margin_bottom=18, margin_start=18, margin_end=18)
         b.append(_lbl(_("Write it down or store it somewhere safe (e.g. in a password manager). Saga only shows it now."), ("dim-label",)))
-        kl = _lbl(fmt_recovery(rk), ("hk-recovery", "monospace"), xalign=0.5, selectable=True, justify=Gtk.Justification.CENTER)
+        kl = _lbl(recovery_lines(rk), ("hk-recovery", "monospace"), xalign=0.5, wrap=False, selectable=True,
+                  justify=Gtk.Justification.CENTER)
         kl.update_property([Gtk.AccessibleProperty.LABEL], [_("Recovery key") + ": " + fmt_recovery(rk)])
         b.append(kl)
         bb = Gtk.Box(spacing=8, halign=Gtk.Align.CENTER)
         bb.append(_button(_("Copy"), ("pill",), self._copy))
         bb.append(_button(_("Save as file"), ("pill",), self._save))
         b.append(bb)
-        b.append(_button(_("Continue"), ("pill", "suggested-action"), lambda: self.nav.push(self.p2), halign=Gtk.Align.CENTER))
-        tv.set_content(b)
+        b.append(warn_label(_("Without it your messages are lost – the admin can't restore them either.")))
+        self.stored = Gtk.CheckButton(label=_("I've stored the key safely"))
+        b.append(self.stored)
+        self.cont = _button(_("Continue"), ("pill", "suggested-action"), lambda: self.nav.push(self.p2), halign=Gtk.Align.CENTER,
+                            sensitive=False)
+        self.stored.connect("toggled", lambda c: self.cont.set_sensitive(c.get_active()))
+        b.append(self.cont)
+        sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, propagate_natural_height=True, child=b)
+        tv.set_content(sw)
         self.p1 = Adw.NavigationPage(title=title, child=tv, tag="key")
         # 2) bestaetigen
         tv2 = Adw.ToolbarView()
@@ -1414,7 +1494,8 @@ class SetupDialog(Adw.Dialog):
         b.append(_lbl(_("Saga chats are end-to-end encrypted: messages and attachments are encrypted and decrypted on your devices. "
                         "The server – including the admin – only sees encrypted data.")))
         b.append(_lbl(_("You'll get a recovery key in a moment. With it you can bring your chats to a new device when no other device "
-                        "is left. Without it your messages are lost – the admin can't restore them either."), ("dim-label",)))
+                        "is left.")))
+        b.append(warn_label(_("Without it your messages are lost – the admin can't restore them either.")))
         if reset:
             w = _lbl(_("Note: starting over creates new keys. You won't be able to read earlier messages, and your contacts will see a "
                        "changed safety number."), ("hk-warn-text",))
@@ -1496,7 +1577,7 @@ class LinkDialog(Adw.Dialog):
         b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14, margin_top=12, margin_bottom=18, margin_start=18, margin_end=18)
         self.intro = _lbl(_("Sending request …"), ("dim-label",))
         b.append(self.intro)
-        self.code = _lbl("", ("hk-linkcode", "monospace"), xalign=0.5, wrap=False, selectable=True, justify=Gtk.Justification.CENTER)
+        self.code = CodeView()
         b.append(self.code)
         self.note = _lbl("", ("caption", "dim-label"), xalign=0.5)
         b.append(self.note)
@@ -1511,8 +1592,7 @@ class LinkDialog(Adw.Dialog):
         self.lw = chat.link_wait = lw
         self.intro.set_label(_("On a device where your chats already work, open “Chats”. This request appears there – confirm it if "
                                "the same code is shown:"))
-        self.code.set_label(code_lines(lw["code"]))
-        self.code.update_property([Gtk.AccessibleProperty.LABEL], [lw["code"]])
+        self.code.set_code(lw["code"])
         self.note.set_label(_("The request is valid for 10 minutes."))
         self.src = GLib.timeout_add_seconds(3, lambda: (self._poll(), True)[1])
 
@@ -1545,7 +1625,7 @@ class LinkDialog(Adw.Dialog):
             self.src = 0
         self.lw = chat.link_wait = None
         self.intro.set_label(text)
-        self.code.set_label("")
+        self.code.set_code("")
         self.note.set_label("")
 
     def _closed(self):
@@ -1598,6 +1678,22 @@ class RecoveryDialog(Adw.Dialog):
         bg(chat.unlock, rk, done=fin, error=err)
 
 
+def unverified_info(win, cid, username):
+    """Erklaerung zu "Echtheit nicht bestaetigt" mit naechstem Schritt (Sicherheitsnummer pruefen)"""
+    d = Adw.AlertDialog(heading=_("Authenticity not confirmed"),
+                        body=_("This message couldn't be matched to a confirmed device of the sender – e.g. because the device has "
+                               "since been removed. If in doubt, compare the safety number."))
+    d.add_response("close", _("Close"))
+    if username:
+        d.add_response("safety", _("Check safety number"))
+        d.set_response_appearance("safety", Adw.ResponseAppearance.SUGGESTED)
+        d.set_default_response("safety")
+    d.set_close_response("close")
+    d.connect("response", lambda _d, r: r == "safety" and open_safety(win, cid, username))
+    d.present(win)
+    return d
+
+
 def approve_link(win, ln):
     """Vorhandenes Geraet: neues Geraet bestaetigen (Code vergleichen!)"""
     code = chat.link_code_for(ln)
@@ -1606,9 +1702,9 @@ def approve_link(win, ln):
     d = Adw.AlertDialog(heading=_("Confirm new device"),
                         body=_("“{name}” wants to access your chats.").format(name=ln.get("name") or _("Unknown device")) + "\n\n" +
                         _("Only confirm if the new device shows exactly this code:"))
-    cl = _lbl(code_lines(code), ("hk-linkcode", "monospace"), xalign=0.5, wrap=False, justify=Gtk.Justification.CENTER)
-    cl.update_property([Gtk.AccessibleProperty.LABEL], [code])
-    d.set_extra_child(cl)
+    d.set_extra_child(CodeView(code))
+    if hasattr(d, "set_prefer_wide_layout"):                    # breit: Code in einer Zeile (schmal: zwei Zeilen)
+        d.set_prefer_wide_layout(True)
     d.add_response("no", _("Decline"))
     d.add_response("ok", _("Code matches – confirm"))
     d.set_response_appearance("ok", Adw.ResponseAppearance.SUGGESTED)
@@ -1629,7 +1725,7 @@ def approve_link(win, ln):
 # --- Einstellungen: Chats & Geraete --------------------------------------------------------------------------------
 class ChatDevicesPage(Adw.PreferencesPage):
     def __init__(self, dlg):
-        super().__init__(title=_("Chats & devices"), icon_name=chat_icon())
+        super().__init__(title=pgettext("settings tab", "Chats"), icon_name=chat_icon())    # kurz: Reiter passen auch schmal
         self.dlg = dlg
         self.groups = []
         watch_chat(self, "changed", lambda: self.fill())
@@ -1641,6 +1737,17 @@ class ChatDevicesPage(Adw.PreferencesPage):
             self.remove(g)
         self.groups = []
         me = chat.me or {}
+        if not keys_persistent():                            # Hinweis mit naechstem Schritt ganz oben
+            if hasattr(self, "set_banner"):
+                if self.get_banner() is None:
+                    self.set_banner(keyring_banner(self.dlg.win))
+            else:
+                g0 = Adw.PreferencesGroup()
+                r0 = Adw.ActionRow(title=_("No keyring available – the chat keys are only kept until Saga is closed."))
+                r0.add_suffix(_button(_("What to do?"), (), lambda: keyring_help(self.dlg.win), valign=Gtk.Align.CENTER))
+                g0.add(r0)
+                self.add(g0)
+                self.groups.append(g0)
         g = Adw.PreferencesGroup(title=_("Devices with access to your chats"))
         if chat.status == "off":
             g.set_description(_("Chats are turned off on this server."))
@@ -1673,8 +1780,6 @@ class ChatDevicesPage(Adw.PreferencesPage):
                                   description=_("Private keys never leave this device unencrypted. The server only holds public keys, "
                                                 "encrypted messages and your key bundle encrypted with the recovery key. Compare safety "
                                                 "numbers to make sure nobody is in between."))
-        if not keys_persistent():
-            g3.add(Adw.ActionRow(title=_("No keyring available – the chat keys are only kept until Saga is closed.")))
         self.add(g3)
         self.groups.append(g3)
 

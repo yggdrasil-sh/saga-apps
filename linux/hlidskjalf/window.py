@@ -678,8 +678,8 @@ class MainWindow(Adw.ApplicationWindow):
         bp = Adw.Breakpoint.new(Adw.BreakpointCondition.parse("max-width: 1000sp"))
         bp.add_setter(self.split, "collapsed", True)
         self.add_breakpoint(bp)
-        # sehr schmal (Telefon-Breite): Nebensachen aus der Kopfleiste nehmen (Vor, Favorit, Teilen, Anwesenheit; Assistent
-        # nur als Symbol) - alles bleibt ueber das Seitenmenue bzw. die Befehlspalette erreichbar
+        # sehr schmal (Telefon-Breite): Nebensachen aus der Kopfleiste nehmen (Vor, Favorit, Teilen, Veroeffentlicht, Assistent;
+        # Anwesenheit hoechstens 2 Kreise) - alles bleibt ueber das Seitenmenue bzw. die Befehlspalette erreichbar
         self.very_narrow = False
         bp2 = Adw.Breakpoint.new(Adw.BreakpointCondition.parse("max-width: 560sp"))
         bp2.add_setter(self.split, "collapsed", True)        # es gilt immer nur ein Breakpoint: Einklappen wiederholen
@@ -1000,7 +1000,7 @@ class MainWindow(Adw.ApplicationWindow):
         n = getattr(self, "very_narrow", False)
         self.ai_content.set_label("" if n else _("Assistant"))
         if n:
-            for w in (self.fwd_btn, self.star_btn, self.share_btn, self.presence_box, self.pub_btn):
+            for w in (self.fwd_btn, self.star_btn, self.share_btn, self.pub_btn, self.ai_btn):   # Assistent: im Seitenmenue
                 w.set_visible(False)
         else:
             self.fwd_btn.set_visible(True)
@@ -1013,7 +1013,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.star_btn.set_visible(is_page)
         if is_page:
             from .comments import count_tooltip
-            from .sharing import allowed, header_button
+            from .sharing import allowed, can_comment, header_button
             d = self.current.doc
             gone = self.current.no_access                      # "Kein Zugriff": Kopfzeile ohne Titel/Symbol der Seite
             p = d.page if d.loaded and d.fetched and not gone else {}
@@ -1044,7 +1044,9 @@ class MainWindow(Adw.ApplicationWindow):
             from .sharing import is_remote
             self.ai_btn.set_visible(ai.enabled and bool(p) and not is_remote(p))
             n, un = int(p.get("comments_open") or 0), int(p.get("comments_unread") or 0)
-            self.cm_btn.set_visible("role" in p and (n > 0 or self.current.comments_open))
+            # andere Instanz: Kommentar-Knopf immer, wenn die Rolle Kommentieren erlaubt (der Hinweis verspricht es)
+            can_cm = is_remote(p) and can_comment(p)
+            self.cm_btn.set_visible("role" in p and (n > 0 or self.current.comments_open or can_cm))
             self.cm_content.set_label(str(n) if n else "")
             tt = count_tooltip(n, un)
             self.cm_btn.set_tooltip_text(tt)
@@ -1139,11 +1141,12 @@ class MainWindow(Adw.ApplicationWindow):
         while (c := box.get_first_child()):
             box.remove(c)
         others = [u for u in users or [] if isinstance(u, dict) and not u.get("me")]
-        box.set_visible(bool(others) and not getattr(self, "very_narrow", False))
+        box.set_visible(bool(others))
         if not others:
             return
         tips = []
-        for u in others[:4]:
+        mx = 2 if getattr(self, "very_narrow", False) else 4         # sehr schmal: hoechstens zwei Kreise, Rest als +n
+        for u in others[:mx]:
             name = u.get("name") or u.get("username") or "?"
             tip = (_("{name} is editing") if u.get("editing") else _("{name} is also here")).format(name=name)
             tips.append(tip)
@@ -1152,12 +1155,12 @@ class MainWindow(Adw.ApplicationWindow):
             if u.get("editing"):
                 a.add_css_class("hk-pres-editing")
             box.append(a)
-        if len(others) > 4:
-            more = Gtk.Label(label=f"+{len(others) - 4}")
+        if len(others) > mx:
+            more = Gtk.Label(label=f"+{len(others) - mx}")
             more.add_css_class("caption")
             box.append(more)
             tips += [(_("{name} is editing") if u.get("editing") else _("{name} is also here")).format(name=u.get("name") or "")
-                     for u in others[4:]]
+                     for u in others[mx:]]
         acc = _("On this page right now") + ": " + "; ".join(tips)
         box.set_tooltip_text("\n".join(tips))
         box.update_property([Gtk.AccessibleProperty.LABEL], [acc])

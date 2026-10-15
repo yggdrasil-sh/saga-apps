@@ -226,7 +226,7 @@ def test_ui_setup_list_and_conversation(win, srv):
     pump(lambda: conv.loaded and len(chat.cache[cid]["msgs"]) == 2, 5)
     pump(None, 0.4)
     labels = _labels(conv)
-    assert "Wie geht's?" in labels and "⚠ Authenticity not confirmed" in labels
+    assert "Wie geht's?" in labels and "Authenticity not confirmed" in labels
     assert win.wtitle.get_title() == "Anna Beispiel" and win.wtitle.get_subtitle() == "End-to-end encrypted"
     # gelesen
     pump(lambda: any(m == "POST" and u.endswith(f"api/chats/{cid}/read") for m, u, b, c in srv.log), 3)

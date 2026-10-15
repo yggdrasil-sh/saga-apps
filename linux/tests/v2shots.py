@@ -16,6 +16,7 @@ P = os.environ.get("HK_SHOT_PREFIX", "")
 LANG = (os.environ.get("LANG") or "C")[:2]
 THEMES = [("hell", Adw.ColorScheme.FORCE_LIGHT)] + ([] if LANG == "es" else [("dunkel", Adw.ColorScheme.FORCE_DARK)])
 WIDE, NARROW = (1280, 820), (412, 860)
+EXAMPLE = "https://saga.example.org"
 S = {}
 
 
@@ -62,7 +63,8 @@ def _png(w=360, h=220):
 
 def start(g):
     from hlidskjalf import chatcrypto as C
-    srv = S["srv"] = mockserver.install()
+    mockserver.SERVER = EXAMPLE                               # Beispieladresse in den Bildern (Link, Konto)
+    srv = S["srv"] = mockserver.install(EXAMPLE)
     now = time.time()
     srv.names.update({"anna": "Anna Beispiel", "bert": "Bert Beispiel", "cora": "Cora Muster"})
     srv.notes[1]["title"] = "Projektplan Haus"
@@ -171,6 +173,8 @@ def bell_open(g):
 def bell_shot(g):
     shoot(g, "01-benachrichtigungen", g["win"].bell.pop)
     close_all(g)
+    if g["win"].split.get_collapsed():                        # schmal: Seitenleiste wieder zu (Anwesenheit sichtbar)
+        g["win"].split.set_show_sidebar(False)
     v = g["win"].current
     if v.presence is not None:
         v.presence.beat()
@@ -208,6 +212,27 @@ def group_open(g):
 
 def group_shot(g):
     shoot(g, "04-gruppen-chat")
+
+
+def unv_open(g):
+    from gi.repository import Gtk
+    stack, btn = [g["win"].current], None
+    while stack and btn is None:
+        w = stack.pop()
+        if isinstance(w, Gtk.Button) and "hk-unv" in w.get_css_classes():
+            btn = w
+            break
+        c = w.get_first_child()
+        while c is not None:
+            stack.append(c)
+            c = c.get_next_sibling()
+    if btn is not None:
+        btn.emit("clicked")
+
+
+def unv_shot(g):
+    shoot(g, "17-echtheit-nicht-bestaetigt")
+    close_all(g)
 
 
 def list_open(g):
@@ -330,7 +355,7 @@ steps = [(300, start)]
 for _th, _sc in THEMES:
     for _narrow in (False, True):
         steps += [(500, size(_narrow)), (2500, reset(_th, _sc)), (1500, bell_open), (1500, bell_shot), (2500, presence_change),
-                  (1200, presence_shot), (1500, chats_open), (2500, typing), (1500, chats_shot), (1500, group_open), (2000, group_shot),
+                  (1200, presence_shot), (1500, chats_open), (2500, typing), (1500, chats_shot), (1500, group_open), (2000, group_shot), (500, unv_open), (1500, unv_shot),
                   (800, list_open), (1500, list_shot), (800, safety_open), (2000, safety_shot), (800, setup_open), (1500, setup_shot),
                   (1500, key_shot), (1500, device_shot), (1500, approve_shot), (2500, push_shot), (2000, devices_shot), (800, ai_open),
                   (3000, ai_shot), (3000, ai_page_shot), (2500, fed_shot), (1500, share_remote), (2000, share_shot)]
