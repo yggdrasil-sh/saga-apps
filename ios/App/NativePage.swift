@@ -858,7 +858,9 @@ struct NativePageScreen: View {
 
     @State private var pageW: CGFloat = 0
     @State private var showVersions = false
-    private var pageBody: some View {
+    // Seite in drei Teilen (Inhalt, Blaetter, Leiste/Ablauf): eine einzige lange Modifier-Kette braucht im CI-Xcode
+    // sonst viele Sekunden Typpruefung
+    private var scrollPart: some View {
         ScrollViewReader { proxy in
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
@@ -950,6 +952,9 @@ struct NativePageScreen: View {
         // Schreibzeile unten auf der Seite dahinter (BUG-058)
         .safeAreaPadding(.bottom, editorKeyboard ? editorBarHeight : 0)
         #endif
+    }
+    private var sheetsPart: some View {
+        scrollPart
         .photosPicker(isPresented: $ed.pickImage, selection: $ed.picked, maxSelectionCount: 5, matching: .images)
         .sheet(isPresented: $ed.pickImmich) { ImmichPicker(note: doc.uploadNote) { url in ed.insertImageURL(url) }.environmentObject(store) }
         .sheet(item: Binding(get: { ed.linkDBFor.map(MoveTarget.init(idString:)) }, set: { if $0 == nil { ed.linkDBFor = nil } })) { _ in
@@ -987,6 +992,9 @@ struct NativePageScreen: View {
                          openPage: { pid in nav.peek = nil; nav.push(PageRoute(id: pid)) })
                 .environmentObject(store)
         }
+    }
+    private var pageBody: some View {
+        sheetsPart
         .toolbar {
             if !inPeek && !doc.noAccess {                    // im Peek: eigene Kopfzeile statt Fensterleiste (sonst Layout-Kreislauf am Mac); Kein Zugriff: nichts
                 ToolbarItem(placement: .primaryAction) { assistantButton }
