@@ -15,6 +15,8 @@ final class NavModel: ObservableObject {
     @Published var peekList: [Int] = []                              // Reihenfolge der Ansicht -> im Peek blaettern (Ctrl+Shift+J/K)
     @Published var forward: [PageRoute] = []                         // fuer "Vor" (Cmd+])
     @Published var sharedJump = 0                                    // "Zu „Mit mir geteilt“": Seitenleiste dort zeigen (zaehlt hoch)
+    /// Benachrichtigung zu einem Kommentar: beim Oeffnen der Seite die Kommentare dieses Blocks zeigen
+    var pendingComments: (id: Int, block: String)?
     func toShared() { sharedJump += 1 }
     func push(_ r: PageRoute) { path.append(r); forward = [] }
     func back() { if let r = path.popLast() { forward.append(r) } }

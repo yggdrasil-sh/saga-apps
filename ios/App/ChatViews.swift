@@ -1,0 +1,639 @@
+import SwiftUI
+import CoreImage
+import CoreImage.CIFilterBuiltins
+
+// Chat-Ansichten: Bereich "Chats" (Liste + Unterhaltung nebeneinander bzw. gestapelt), Einrichtung mit
+// Wiederherstellungsschluessel, neues Geraet (Kopplung/Wiederherstellung/Neu beginnen), Bestaetigung neuer Geraete,
+// Einstellungen "Chats & Geraete". Texte wie im Web (GLOSSAR "Chat").
+
+struct ChatsScreen: View {
+    @EnvironmentObject var store: Store
+    @ObservedObject var chat: ChatModel
+    @Binding var openChat: Int?
+    @Environment(\.horizontalSizeClass) private var hsc
+    @State private var width: CGFloat = 1000
+    var body: some View {
+        Group {
+            switch chat.state {
+            case .loading: ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .unsupported:
+                ContentUnavailableView("Chats", systemImage: "bubble.left.and.bubble.right", description: Text("Dieser Server kennt noch keine Chats."))
+            case .off(let m): ContentUnavailableView("Chats", systemImage: "bubble.left.and.bubble.right", description: Text(verbatim: m))
+            case .failed(let e):
+                ContentUnavailableView {
+                    Label("Chats", systemImage: "exclamationmark.triangle")
+                } description: { Text("Chats nicht geladen: \(e)") } actions: {
+                    Button("Erneut versuchen") { chat.state = .loading; Task { await chat.load() } }.buttonStyle(.bordered)
+                }
+            case .setup: ScrollView { ChatSetupView(chat: chat).padding() }
+            case .newDevice: ScrollView { ChatNewDeviceView(chat: chat).padding() }
+            case .ready: ready
+            }
+        }
+        .navigationTitle("Chats")
+        #if os(iOS)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }   // iPad hochkant: gestapelt
+        #endif
+        .task {
+            if chat.state == .loading || chat.state == .ready { await chat.load() }
+            #if DEBUG
+            let ud = UserDefaults.standard                                                   // nur fuer Tests (Startparameter)
+            if chat.state == .setup, let k = ud.string(forKey: "hkChatSetupKey"), ud.string(forKey: "hkChatSetupStep") == nil { try? await chat.setup(recoveryKey: k) }
+            if chat.state == .newDevice, ud.bool(forKey: "hkChatLink") { try? await Task.sleep(for: .seconds(1)); await chat.startLink() }
+            if chat.state == .newDevice, let k = ud.string(forKey: "hkChatRestoreKey") { try? await chat.restore(recoveryKey: k) }
+            #endif
+        }
+    }
+
+    @ViewBuilder private var ready: some View {
+        if hsc == .compact || width < 720 {                                  // schmal (iPhone, iPad hochkant mit Seitenleiste): gestapelt
+            ChatListView(chat: chat, selection: $openChat)
+                .navigationDestination(item: $openChat) { id in ConversationView(chatID: id, chat: chat).id(id) }
+        } else {
+            HStack(spacing: 0) {
+                ChatListView(chat: chat, selection: $openChat).frame(width: 320)
+                Divider()
+                if let id = openChat { ConversationView(chatID: id, chat: chat).id(id) }
+                else {
+                    ContentUnavailableView("Kein Chat gewählt", systemImage: "bubble.left.and.bubble.right",
+                                           description: Text("Wähle links einen Chat. Alle Chats sind Ende-zu-Ende-verschlüsselt."))
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Liste
+
+struct ChatListView: View {
+    @ObservedObject var chat: ChatModel
+    @Binding var selection: Int?
+    @State private var newChat = false
+    @State private var q = ""
+    var body: some View {
+        List(selection: $selection) {
+            #if os(macOS)
+            // Mac: zweites .searchable im selben Fenster wuerde die Werkzeugleiste sprengen (doppelte Suche) -> Feld in der Liste
+            TextField("Chats durchsuchen", text: $q).textFieldStyle(.roundedBorder).padding(.vertical, 4)
+            #endif
+            if let e = chat.listError { Text("Chats nicht geladen: \(e)").font(.footnote).foregroundStyle(.orange) }
+            if chat.chats.isEmpty {
+                ContentUnavailableView {
+                    Label("Noch keine Chats", systemImage: "bubble.left.and.bubble.right")
+                } description: { Text("Nachrichten in diesem Chat sind Ende-zu-Ende-verschlüsselt.") } actions: {
+                    Button("Neue Unterhaltung") { newChat = true }.prominentGold()
+                }
+                .listRowBackground(Color.clear)
+            }
+            ForEach(filtered) { c in ChatRow(c: c).tag(c.id) }
+        }
+        #if os(macOS)
+        .listStyle(.inset)
+        #endif
+        #if os(iOS)
+        .searchable(text: $q, prompt: Text("Chats durchsuchen"))
+        #endif
+        .refreshable { await chat.loadList() }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { newChat = true } label: { Label("Neue Unterhaltung", systemImage: "square.and.pencil") }
+            }
+        }
+        .sheet(isPresented: $newChat) { NewChatSheet(chat: chat) { id in selection = id } }
+    }
+    private var filtered: [ChatSummary] { q.isEmpty ? chat.chats : chat.chats.filter { ChatLogic.matches($0.title, q) } }
+}
+
+struct ChatRow: View {
+    let c: ChatSummary
+    var body: some View {
+        HStack(spacing: 10) {
+            ChatAvatar(c: c)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(verbatim: c.title).font(.body.weight(c.unread > 0 ? .semibold : .regular)).lineLimit(1)
+                    if c.muted { Image(systemName: "bell.slash").font(.caption).foregroundStyle(.secondary).accessibilityLabel(Text("Stummschalten")) }
+                }
+                Text(c.kind == "dm" ? c.kindLabel : "\(c.kindLabel) · \(String(localized: "\(c.memberCount) Personen"))").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            VStack(alignment: .trailing, spacing: 4) {
+                if c.lastAt > 0 { Text(Date(timeIntervalSince1970: c.lastAt), format: .relative(presentation: .named)).font(.caption2).foregroundStyle(.secondary) }
+                if c.unread > 0 {
+                    Text(verbatim: "\(c.unread)").font(.caption2.bold()).foregroundStyle(Color("OnAccent"))
+                        .padding(.horizontal, 6).padding(.vertical, 1).background(Color.accentColor, in: Capsule())
+                        .accessibilityLabel(Text("\(c.unread) ungelesen"))
+                }
+            }
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+struct ChatAvatar: View {
+    let c: ChatSummary
+    var body: some View {
+        ZStack {
+            Circle().fill(Color.accentColor.opacity(0.16))
+            switch c.kind {
+            case "dm": Text(verbatim: LiveLogic.initials(c.title)).font(.subheadline.weight(.semibold))
+            case "page": Image(systemName: "doc.text").font(.subheadline)
+            default: Image(systemName: "person.2.fill").font(.caption)
+            }
+        }
+        .frame(width: 36, height: 36).accessibilityHidden(true)
+    }
+}
+
+// MARK: - Neue Unterhaltung
+
+struct NewChatSheet: View {
+    @ObservedObject var chat: ChatModel
+    var opened: (Int) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var store: Store
+    @State private var q = ""
+    @State private var users: [(username: String, name: String, ready: Bool)] = []
+    @State private var groups: [String] = []
+    @State private var multi = false
+    @State private var picked: [(username: String, name: String)] = []
+    @State private var groupName = ""
+    @State private var err: String?
+    @State private var busy = false
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    TextField(multi ? "Person hinzufügen (ab 3 Zeichen)" : "Person oder Gruppe suchen (ab 3 Zeichen)", text: $q)
+                        .autocorrectionDisabled()
+                        #if os(iOS)
+                        .textInputAutocapitalization(.never)
+                        #endif
+                    if ShareLogic.searchReady(q) && users.isEmpty && groups.isEmpty { Text("Keine Treffer.").foregroundStyle(.secondary) }
+                    ForEach(users, id: \.username) { u in
+                        Button { pick(u) } label: {
+                            HStack {
+                                ShareAvatar(name: u.name, group: false)
+                                VStack(alignment: .leading) {
+                                    Text(verbatim: u.name)
+                                    Text(verbatim: u.ready ? u.username : u.username + " · " + String(localized: "hat Chats noch nicht eingerichtet")).font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                if picked.contains(where: { $0.username == u.username }) { Image(systemName: "checkmark").foregroundStyle(Color.accentColor) }
+                            }.contentShape(Rectangle())
+                        }.buttonStyle(.plain).disabled(busy)
+                    }
+                    if !multi {
+                        ForEach(groups, id: \.self) { g in
+                            Button { Task { await create(["kind": "group", "group": g]) } } label: {
+                                HStack {
+                                    ShareAvatar(name: g, group: true)
+                                    VStack(alignment: .leading) { Text(verbatim: g); Text("Gruppen-Chat für alle in der Gruppe").font(.caption).foregroundStyle(.secondary) }
+                                }.contentShape(Rectangle())
+                            }.buttonStyle(.plain).disabled(busy)
+                        }
+                    }
+                } footer: { if !multi { Button("+ Gruppe mit mehreren Personen …") { multi = true; q = "" }.font(.footnote) } }
+                if multi {
+                    Section {
+                        TextField("Name der Gruppe", text: $groupName)
+                        ForEach(picked, id: \.username) { p in Text(verbatim: p.name) }
+                        Button("Gruppe anlegen") { Task { await createFree() } }
+                            .disabled(picked.isEmpty || groupName.trimmingCharacters(in: .whitespaces).isEmpty || busy)
+                    } header: { Text("Gruppe anlegen") } footer: { Text("Freie Gruppe: ausgewählte Personen, der Name wird verschlüsselt.") }
+                }
+                if let err { Text(verbatim: err).font(.footnote).foregroundStyle(.red) }
+            }
+            .formStyle(.grouped)
+            .navigationTitle("Neue Unterhaltung")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } } }
+            .task(id: q) { await search() }
+        }
+        .macFrame(minWidth: 420, idealWidth: 460, minHeight: 460, idealHeight: 560)
+    }
+    private func search() async {
+        guard ShareLogic.searchReady(q) else { users = []; groups = []; return }
+        try? await Task.sleep(for: .milliseconds(250))
+        guard !Task.isCancelled, let enc = q.trimmingCharacters(in: .whitespaces).addingPercentEncoding(withAllowedCharacters: .alphanumerics),
+              let d = try? await store.api("api/chat/people?q=\(enc)"), let j = ShareJSON.obj(d) else { return }
+        users = (j["users"] as? [Any] ?? []).compactMap { v in
+            guard let u = v as? [String: Any], let n = u["username"] as? String else { return nil }
+            return (n, u["name"] as? String ?? n, ShareJSON.bool(u["ready"]))
+        }
+        groups = (j["groups"] as? [Any] ?? []).compactMap { ($0 as? [String: Any])?["name"] as? String }
+    }
+    private func pick(_ u: (username: String, name: String, ready: Bool)) {
+        if multi {
+            if let i = picked.firstIndex(where: { $0.username == u.username }) { picked.remove(at: i) } else { picked.append((u.username, u.name)) }
+        } else { Task { await create(["kind": "dm", "user": u.username]) } }
+    }
+    @discardableResult private func create(_ body: [String: Any]) async -> Int? {
+        busy = true; defer { busy = false }
+        var b = body; b["device"] = chat.deviceID ?? ""
+        do {
+            let d = try await store.api("api/chats", method: "POST", body: b)
+            guard let id = ShareJSON.int((ShareJSON.obj(d)?["chat"] as? [String: Any])?["id"]) else { return nil }
+            await chat.loadList(); dismiss(); opened(id); return id
+        } catch { err = error.localizedDescription; return nil }
+    }
+    private func createFree() async {
+        let name = groupName.trimmingCharacters(in: .whitespaces)
+        busy = true
+        guard let d = try? await store.api("api/chats", method: "POST", body: ["kind": "free", "members": picked.map(\.username), "device": chat.deviceID ?? ""]),
+              let id = ShareJSON.int((ShareJSON.obj(d)?["chat"] as? [String: Any])?["id"]) else { busy = false; err = String(localized: "Mit diesem Konto ist kein Chat möglich."); return }
+        let conv = ConversationModel(chatID: id, model: chat)
+        await conv.loadRecipients()
+        _ = await conv.send(text: "", replyTo: nil, files: [], kind: "title", title: name)   // Name verschluesselt wie eine Nachricht
+        busy = false
+        await chat.loadList(); dismiss(); opened(id)
+    }
+}
+
+// MARK: - Einrichtung (erstes Geraet) und Neu beginnen
+
+/// Wiederherstellungsschluessel gross, kopieren/teilen
+struct RecoveryKeyBox: View {
+    let key: String
+    @State private var copied = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            let g = key.split(separator: "-").map(String.init)            // 2 Zeilen a 4 Gruppen (nicht mitten im Schluessel umbrechen)
+            VStack(spacing: 6) {
+                Text(verbatim: g.prefix(4).joined(separator: "-"))
+                Text(verbatim: g.dropFirst(4).joined(separator: "-"))
+            }
+            .font(.title3.monospaced().weight(.semibold)).minimumScaleFactor(0.6).lineLimit(1).textSelection(.enabled)
+                .frame(maxWidth: .infinity).padding(14)
+                .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+                .accessibilityLabel(Text("Wiederherstellungsschlüssel"))
+            HStack {
+                Button { copyText(key); copied = true } label: { Label(copied ? String(localized: "Kopiert.") : String(localized: "Kopieren"), systemImage: copied ? "checkmark" : "doc.on.doc") }
+                ShareLink(item: String(localized: "Saga – Wiederherstellungsschlüssel für Chats") + "\n\n" + key) { Label("Teilen", systemImage: "square.and.arrow.up") }
+            }.buttonStyle(.bordered)
+        }
+    }
+}
+
+struct ChatSetupView: View {
+    @ObservedObject var chat: ChatModel
+    var reset = false
+    var done: (() -> Void)? = nil
+    @EnvironmentObject var store: Store
+    enum Step { case intro, show, confirm }
+    @State private var step = Step.intro
+    @State private var key = ""
+    @State private var last4 = ""
+    @State private var busy = false
+    @State private var err: String?
+    @State private var password = ""
+    @State private var reauth: String?
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label(reset ? "Chats neu beginnen" : "Chats einrichten", systemImage: "lock.shield").font(.title2.bold())
+            switch step {
+            case .intro:
+                Text("Saga-Chats sind Ende-zu-Ende-verschlüsselt: Nachrichten und Anhänge werden auf deinen Geräten ver- und entschlüsselt. Der Server – auch der Admin – sieht nur verschlüsselte Daten.")
+                Text("Dafür bekommst du gleich einen Wiederherstellungsschlüssel. Damit holst du deine Chats auf ein neues Gerät, wenn kein anderes mehr da ist. Ohne ihn sind deine Nachrichten verloren – auch der Admin kann sie nicht wiederherstellen.")
+                    .foregroundStyle(.secondary)
+                if reset {
+                    Label("Achtung: Neu beginnen erzeugt neue Schlüssel. Bisherige Nachrichten sind dann für dich nicht mehr lesbar, deine Gesprächspartner sehen eine geänderte Sicherheitsnummer.", systemImage: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                }
+                Button("Schlüssel erzeugen") { key = ChatCrypto.newRecoveryKey(); step = .show }.prominentGold()
+            case .show:
+                Text("Dein Wiederherstellungsschlüssel").font(.headline)
+                RecoveryKeyBox(key: key)
+                Text("Schreibe ihn ab oder speichere ihn an einem sicheren Ort (z. B. im Passwort-Manager). Saga zeigt ihn nur jetzt.").font(.callout).foregroundStyle(.secondary)
+                Button("Weiter") { step = .confirm }.prominentGold()
+            case .confirm:
+                Text("Wiederherstellungsschlüssel bestätigen").font(.headline)
+                Text("Gib zur Bestätigung die letzten vier Zeichen deines Wiederherstellungsschlüssels ein.")
+                TextField("Letzte vier Zeichen", text: $last4).font(.title3.monospaced()).textFieldStyle(.roundedBorder).frame(maxWidth: 220)
+                    .autocorrectionDisabled()
+                    #if os(iOS)
+                    .textInputAutocapitalization(.characters)
+                    #endif
+                if reauth == "password" {
+                    SecureField("Zur Sicherheit: dein Passwort", text: $password).textFieldStyle(.roundedBorder).frame(maxWidth: 320)
+                } else if reauth == "login" {
+                    Text("Zur Sicherheit bitte zuerst neu anmelden. Danach hast du 5 Minuten Zeit, um neu zu beginnen.").foregroundStyle(.orange)
+                    Button("Neu anmelden") { store.needsLogin = true }.buttonStyle(.bordered)
+                }
+                HStack {
+                    Button("Zurück") { step = .show }.buttonStyle(.bordered)
+                    Button(busy ? String(localized: "Schlüssel werden gesichert …") : String(localized: "Einrichten")) { Task { await run() } }
+                        .prominentGold().disabled(busy || last4.count < 4)
+                }
+            }
+            if let err { Label(err, systemImage: "exclamationmark.circle.fill").font(.footnote).foregroundStyle(.red) }
+        }
+        .frame(maxWidth: 560, alignment: .leading).frame(maxWidth: .infinity)
+        .task {
+            if reset { reauth = chat.me.reauth }
+            #if DEBUG
+            if let k = UserDefaults.standard.string(forKey: "hkChatSetupKey"), let s = UserDefaults.standard.string(forKey: "hkChatSetupStep") {   // nur fuer Tests
+                key = k; step = s == "confirm" ? .confirm : .show
+            }
+            #endif
+        }
+    }
+    private func run() async {
+        guard ChatLogic.confirmLast4(last4, key: key) else { err = String(localized: "Das passt nicht – bitte genau die letzten vier Zeichen."); return }
+        busy = true; err = nil; defer { busy = false }
+        do {
+            try await chat.setup(recoveryKey: key, reset: reset, password: reset && !password.isEmpty ? password : nil)
+            chat.toast = String(localized: "Chats sind eingerichtet.")
+            done?()
+        } catch let r as ChatReauth { reauth = r.kind; err = r.message }
+        catch { err = error.localizedDescription }
+    }
+}
+
+// MARK: - Neues Geraet
+
+struct ChatNewDeviceView: View {
+    @ObservedObject var chat: ChatModel
+    @State private var mode = 0                    // 0 Auswahl, 1 Kopplung, 2 Schluessel, 3 Neu beginnen
+    @State private var rk = ""
+    @State private var busy = false
+    @State private var err: String?
+    @State private var askReset = false
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Chats auf diesem Gerät", systemImage: "lock.shield").font(.title2.bold())
+            switch chat.linking != nil && mode == 0 ? 1 : mode {          // Kopplung laeuft (auch von aussen gestartet)
+            case 1: linkView
+            case 2: restoreView
+            case 3: ChatSetupView(chat: chat, reset: true)
+            default:
+                Text("Deine Chats sind Ende-zu-Ende-verschlüsselt. Damit dieses Gerät sie lesen kann, braucht es deine Schlüssel – wähle einen Weg:")
+                choice("Mit anderem Gerät bestätigen", "Auf einem Gerät, auf dem deine Chats schon laufen, einen Code bestätigen.", "iphone.and.arrow.forward") {
+                    mode = 1; Task { await chat.startLink() }
+                }
+                choice("Wiederherstellungsschlüssel eingeben", "Der Schlüssel, den du bei der Einrichtung bekommen hast.", "key") { mode = 2 }
+                Button("Beides nicht mehr vorhanden? Neu beginnen …") { askReset = true }.font(.callout)
+            }
+            if let t = chat.toast { Label(t, systemImage: "checkmark.circle").foregroundStyle(.green) }
+        }
+        .frame(maxWidth: 560, alignment: .leading).frame(maxWidth: .infinity)
+        .alert("Chats neu beginnen?", isPresented: $askReset) {
+            Button("Neu beginnen", role: .destructive) { mode = 3 }
+            Button("Abbrechen", role: .cancel) {}
+        } message: { Text("Neue Schlüssel: Bisherige Nachrichten sind dann für dich nicht mehr lesbar, deine anderen Geräte werden abgemeldet und deine Gesprächspartner sehen eine geänderte Sicherheitsnummer.") }
+    }
+    private func choice(_ t: LocalizedStringKey, _ s: LocalizedStringKey, _ icon: String, _ a: @escaping () -> Void) -> some View {
+        Button(action: a) {
+            HStack(spacing: 12) {
+                Image(systemName: icon).font(.title2).frame(width: 36).foregroundStyle(Color.accentColor)
+                VStack(alignment: .leading, spacing: 2) { Text(t).font(.headline); Text(s).font(.callout).foregroundStyle(.secondary) }
+                Spacer()
+                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+            }
+            .padding(14).background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12)).contentShape(Rectangle())
+        }.buttonStyle(.plain)
+    }
+    @ViewBuilder private var linkView: some View {
+        if let l = chat.linking {
+            Text("Öffne auf einem Gerät, auf dem deine Chats schon laufen, die Seite „Chats“. Dort erscheint diese Anfrage – bestätige sie, wenn derselbe Code angezeigt wird:")
+            LinkCodeView(code: l.code)
+            HStack(spacing: 8) { ProgressView().controlSize(.small); Text("Die Anfrage gilt 10 Minuten.").font(.footnote).foregroundStyle(.secondary) }
+            Button("Abbrechen") { chat.cancelLink(); mode = 0 }.buttonStyle(.bordered)
+        } else if let e = chat.linkError {
+            Label(e, systemImage: "exclamationmark.triangle").foregroundStyle(.orange)
+            HStack {
+                Button("Erneut versuchen") { Task { await chat.startLink() } }.buttonStyle(.bordered)
+                Button("Zurück") { chat.linkError = nil; mode = 0 }.buttonStyle(.bordered)
+            }
+        } else { HStack { ProgressView(); Text("Anfrage wird gesendet …") } }
+    }
+    @ViewBuilder private var restoreView: some View {
+        Text("Wiederherstellungsschlüssel eingeben").font(.headline)
+        TextField(String(localized: "Wiederherstellungsschlüssel"), text: $rk, prompt: Text(verbatim: "XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"), axis: .vertical).font(.body.monospaced()).textFieldStyle(.roundedBorder)
+            .autocorrectionDisabled()
+            #if os(iOS)
+            .textInputAutocapitalization(.characters)
+            #endif
+        if !rk.isEmpty && ChatCrypto.normRecovery(rk) == nil { Text("Ein Wiederherstellungsschlüssel hat 32 Zeichen (A–Z, 2–7).").font(.footnote).foregroundStyle(.secondary) }
+        HStack {
+            Button("Zurück") { mode = 0; err = nil }.buttonStyle(.bordered)
+            Button(busy ? String(localized: "Prüfe …") : String(localized: "Entsperren")) {
+                Task { busy = true; err = nil; do { try await chat.restore(recoveryKey: rk) } catch { err = error.localizedDescription }; busy = false }
+            }.prominentGold().disabled(busy || ChatCrypto.normRecovery(rk) == nil)
+        }
+        if let err { Label(err, systemImage: "exclamationmark.circle.fill").font(.footnote).foregroundStyle(.red) }
+    }
+}
+
+/// Kopplungs-Code gross (20 Ziffern in 4 Bloecken)
+struct LinkCodeView: View {
+    let code: String
+    var body: some View {
+        Text(verbatim: code).font(.system(.title, design: .monospaced).weight(.semibold)).minimumScaleFactor(0.5).lineLimit(1)
+            .padding(.horizontal, 12).frame(maxWidth: .infinity).padding(.vertical, 16)
+            .background(Color.accentColor.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
+            .textSelection(.enabled)
+            .accessibilityLabel(Text(verbatim: code.map { String($0) }.joined(separator: " ")))
+    }
+}
+
+/// Auf einem vorhandenen Geraet: neues Geraet bestaetigen (Code vergleichen!)
+struct LinkApproveSheet: View {
+    @ObservedObject var chat: ChatModel
+    let req: ChatLinkRequest
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("Neues Gerät bestätigen", systemImage: "iphone.and.arrow.forward").font(.title3.bold())
+            Text("„\(req.name.isEmpty ? String(localized: "Unbekanntes Gerät") : req.name)“ möchte auf deine Chats zugreifen.")
+            Text("Bestätige nur, wenn auf dem neuen Gerät genau dieser Code steht:").foregroundStyle(.secondary)
+            LinkCodeView(code: chat.code(for: req))
+            HStack {
+                Button("Ablehnen", role: .destructive) { Task { await chat.decline(req) } }.buttonStyle(.bordered)
+                Spacer()
+                Button("Code stimmt – bestätigen") { Task { await chat.approve(req) } }.prominentGold()
+            }.controlSize(.large)
+        }
+        .padding(22)
+        .macFrame(minWidth: 460, idealWidth: 520)
+        #if os(iOS)
+        .presentationDetents([.medium])
+        #endif
+        .interactiveDismissDisabled()
+    }
+}
+
+// MARK: - Einstellungen: Chats & Geraete
+
+struct ChatDevicesSection: View {
+    @EnvironmentObject var store: Store
+    @ObservedObject var chat: ChatModel
+    @State private var askRemove: ChatDeviceInfo?
+    @State private var newKey: String?
+    @State private var askNewKey = false
+    @State private var msg: String?
+    var body: some View {
+        if chat.state == .ready || chat.state == .newDevice || chat.state == .setup {
+            Section {
+                if chat.state == .setup { Text("Chats sind noch nicht eingerichtet.").foregroundStyle(.secondary) }
+                ForEach(chat.me.devices.filter { !$0.revoked }) { d in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(verbatim: d.name + (d.id == chat.deviceID ? " · " + String(localized: "dieses Gerät") : ""))
+                            Text(verbatim: [d.created.map { String(localized: "angemeldet \(Date(timeIntervalSince1970: $0).formatted(date: .numeric, time: .omitted))") },
+                                            d.lastSeen.map { String(localized: "zuletzt \(Date(timeIntervalSince1970: $0).formatted(.relative(presentation: .named)))") }]
+                                .compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button(role: .destructive) { askRemove = d } label: { Image(systemName: "trash") }
+                            .buttonStyle(.borderless)
+                            .help(d.id == chat.deviceID ? String(localized: "Von diesem Gerät entfernen") : String(localized: "Entfernen"))
+                            .accessibilityLabel(d.id == chat.deviceID ? Text("Von diesem Gerät entfernen") : Text("Entfernen"))
+                    }
+                }
+                if chat.state == .ready {
+                    if let k = newKey {
+                        Text("Neuer Wiederherstellungsschlüssel").font(.headline)
+                        RecoveryKeyBox(key: k)
+                        HStack {
+                            Button("Übernehmen") { Task { do { try await chat.applyRecoveryKey(k); newKey = nil; msg = String(localized: "Neuer Wiederherstellungsschlüssel gilt ab jetzt.") } catch { msg = error.localizedDescription } } }
+                                .prominentGold()
+                            Button("Abbrechen") { newKey = nil }
+                        }
+                    } else {
+                        Button("Neuen Wiederherstellungsschlüssel erzeugen") { askNewKey = true }
+                        Text("Verloren oder womöglich gesehen? Erzeuge einen neuen – der alte gilt dann nicht mehr. Deine Schlüssel und Nachrichten bleiben gleich.")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
+                if let msg { Text(verbatim: msg).font(.footnote).foregroundStyle(.secondary) }
+            } header: { Text("Chats & Geräte").id("chats") } footer: {
+                Text("Private Schlüssel verlassen dieses Gerät nie unverschlüsselt. Auf dem Server liegen nur öffentliche Schlüssel, verschlüsselte Nachrichten und dein mit dem Wiederherstellungsschlüssel verschlüsseltes Schlüssel-Bündel. Vergleiche Sicherheitsnummern, um sicherzugehen, dass niemand dazwischen sitzt.")
+            }
+            .alert("Gerät entfernen?", isPresented: Binding(get: { askRemove != nil }, set: { if !$0 { askRemove = nil } }), presenting: askRemove) { d in
+                Button("Entfernen", role: .destructive) { Task { do { try await chat.removeDevice(d.id) } catch { msg = error.localizedDescription } } }
+                Button("Abbrechen", role: .cancel) {}
+            } message: { d in
+                Text(d.id == chat.deviceID ? "Die Schlüssel werden von diesem Gerät gelöscht. Danach brauchst du ein anderes Gerät oder den Wiederherstellungsschlüssel."
+                     : "Das Gerät bekommt keine neuen Nachrichten mehr und kann vorhandene nicht mehr abrufen.")
+            }
+            .alert("Neuen Wiederherstellungsschlüssel erzeugen?", isPresented: $askNewKey) {
+                Button("Erzeugen") { newKey = ChatCrypto.newRecoveryKey() }
+                Button("Abbrechen", role: .cancel) {}
+            } message: { Text("Der bisherige Schlüssel funktioniert danach nicht mehr.") }
+        }
+    }
+}
+
+// MARK: - Sicherheitsnummer
+
+func qrImage(_ text: String) -> Image? {
+    let f = CIFilter.qrCodeGenerator()
+    f.message = Data(text.utf8); f.correctionLevel = "M"
+    guard let out = f.outputImage?.transformed(by: CGAffineTransform(scaleX: 8, y: 8)),
+          let cg = CIContext().createCGImage(out, from: out.extent) else { return nil }
+    return Image(decorative: cg, scale: 1).interpolation(.none)
+}
+
+struct SafetyNumberSheet: View {
+    @ObservedObject var conv: ConversationModel
+    let peer: ChatMember
+    @Environment(\.dismiss) private var dismiss
+    @State private var number: String?
+    @State private var verified = false
+    @State private var scanning = false
+    @State private var scanResult: Bool?
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    if let n = number {
+                        let blocks = n.split(separator: " ").map(String.init)
+                        Grid(horizontalSpacing: 14, verticalSpacing: 8) {
+                            ForEach(0..<3, id: \.self) { r in
+                                GridRow { ForEach(0..<4, id: \.self) { c in Text(verbatim: blocks[safe: r * 4 + c] ?? "").font(.title3.monospaced()) } }
+                            }
+                        }
+                        .frame(maxWidth: .infinity).padding().background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                        .textSelection(.enabled)
+                        if let img = qrImage(ChatLogic.safetyQR(n)) {
+                            img.resizable().scaledToFit().frame(width: 180, height: 180).padding(10).background(.white, in: RoundedRectangle(cornerRadius: 10))
+                                .frame(maxWidth: .infinity).accessibilityLabel(Text("Sicherheitsnummer"))
+                        }
+                        Text("Vergleiche diese Nummer mit \(peer.name) – persönlich, per Anruf oder auf deren Gerät. Stimmt sie überein, liest niemand mit. Sie ist auf beiden Seiten gleich.")
+                            .foregroundStyle(.secondary)
+                        if let ok = scanResult {
+                            Label(ok ? String(localized: "Stimmt überein.") : String(localized: "Stimmt nicht überein!"), systemImage: ok ? "checkmark.seal.fill" : "xmark.octagon.fill")
+                                .foregroundStyle(ok ? .green : .red)
+                        }
+                        ViewThatFits(in: .horizontal) {                         // schmal: untereinander
+                            HStack { safetyButtons }
+                            VStack(alignment: .leading, spacing: 10) { safetyButtons }
+                        }
+                    } else {
+                        Text("\(peer.name) hat Chats noch nicht eingerichtet.").foregroundStyle(.secondary)
+                    }
+                }.padding()
+            }
+            .navigationTitle(Text("Sicherheitsnummer"))
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
+        }
+        .macFrame(minWidth: 460, idealWidth: 520, minHeight: 520)
+        .task {
+            guard let k = conv.model.keys, let p = await conv.identity(of: peer.username) else { return }
+            number = ChatCrypto.safetyNumber(uidA: conv.model.me.uid, identA: k.identPK, uidB: peer.username, identB: p)
+            verified = ChatTrustStore.known(conv.model.me.uid, peer.username)?.verified ?? false
+        }
+        #if os(iOS)
+        .sheet(isPresented: $scanning) {
+            QRScannerSheet { text in scanning = false; scanResult = ChatLogic.safetyFromQR(text).map { $0 == ChatLogic.digitsOnly(number ?? "") } ?? false }
+        }
+        #endif
+    }
+}
+
+extension SafetyNumberSheet {
+    @ViewBuilder var safetyButtons: some View {
+        if verified { Label("überprüft", systemImage: "checkmark.seal.fill").foregroundStyle(.green) }
+        else { Button("Als überprüft markieren") { ChatTrustStore.verify(conv.model.me.uid, peer.username); conv.acknowledge(peer.username); verified = true }.prominentGold() }
+        #if os(iOS)
+        Button { scanning = true } label: { Label("QR-Code scannen", systemImage: "qrcode.viewfinder") }.buttonStyle(.bordered)
+        #endif
+    }
+}
+
+extension Array { subscript(safe i: Int) -> Element? { indices.contains(i) ? self[i] : nil } }
+
+// MARK: - Seitenleiste und Bestaetigungsdialog
+
+/// "Chats" in der Seitenleiste mit Ungelesen-Zahl (nur, wenn der Server Chats kann)
+struct ChatsSidebarRow: View {
+    @ObservedObject var chat: ChatModel
+    var body: some View {
+        switch chat.state {
+        case .unsupported, .off: EmptyView()
+        default: Label("Chats", systemImage: "bubble.left.and.bubble.right").badge(chat.unread)
+        }
+    }
+}
+
+/// Kopplungsanfrage eines neuen Geraets: Dialog, sobald chat.link kommt; Hinweise (Toast) unten
+struct ChatApprovalPresenter: ViewModifier {
+    @ObservedObject var chat: ChatModel
+    func body(content: Content) -> some View {
+        content
+            .sheet(item: $chat.approval) { r in LinkApproveSheet(chat: chat, req: r) }
+            .overlay(alignment: .bottom) {
+                if let t = chat.toast {
+                    Text(verbatim: t).font(.subheadline).padding(.horizontal, 16).padding(.vertical, 10)
+                        .background(.regularMaterial, in: Capsule()).padding(.bottom, 24)
+                        .task { try? await Task.sleep(for: .seconds(4)); chat.toast = nil }
+                }
+            }
+    }
+}

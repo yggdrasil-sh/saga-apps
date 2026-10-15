@@ -9,6 +9,15 @@ Native App (SwiftUI) für einen [Saga](https://github.com/yggdrasil-sh/saga)-Ser
 - **Befehlspalette** (⌘K) zum Suchen nach Seitennamen und Inhalt
 - **Seiten veröffentlichen** (Server ab 1.2): Seitenmenü „Veröffentlichen …“ mit öffentlichem Namen, Adresse,
   Unterseiten, Suchmaschinen, Profilseite und Link; Hinweis „Öffentlich“ im Seitenkopf; Name unter Einstellungen → Konto
+- **Live** (Server ab 1.4): Glocke mit Benachrichtigungen, „… ist auch hier“/„… bearbeitet gerade“ auf Seiten,
+  fremde Änderungen werden still nachgeladen (oder mit Hinweis, wenn eigene Eingaben offen sind)
+- **Chats mit Ende-zu-Ende-Verschlüsselung** (Server 2.0): Direkt-, Gruppen-, Seiten-Chats und freie Gruppen,
+  Anhänge, Antworten, Seitenverweise; Einrichtung mit Wiederherstellungsschlüssel, neue Geräte per Code bestätigen,
+  Sicherheitsnummer (mit QR-Code). Kryptografie nur über libsodium (swift-sodium), private Schlüssel nur im
+  Schlüsselbund dieses Geräts. Prüfung gegen die Testvektoren des Servers: `Tests/ChatVectors` (siehe unten)
+- **Mitteilungen** (Push über APNs, Server 2.0): Einstellungen → Mitteilungen; nie mit Inhalten
+- **KI-Assistent** (Server 2.0, wenn der Admin ihn einschaltet): „Frag deine Seiten“ und „Diese Seite“
+- **Föderation** (Server 2.0): Seiten anderer Saga-Instanzen unter „Mit mir geteilt“, Teilen an `name@server`
 - Bilder und Dateien anhängen, optional Fotos aus Immich übernehmen
 - **Widgets**: „Heute“ (Termine + Aufgaben, direkt abhaken), „Seite“, „Seite oder Datenbank“
 - **Teilen-Erweiterung** (iOS und macOS): Link oder Text als Seite im Eingang oder als Aufgabe ablegen
@@ -44,6 +53,21 @@ open Hlidskjalf.xcodeproj        # Gerät wählen → ▶︎
 xcodebuild -project Hlidskjalf.xcodeproj -scheme Hlidskjalf \
   -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
 ```
+
+### Chat-Kryptografie prüfen
+`App/ChatCrypto.swift` muss die Testvektoren des Servers (`tests/chat_vectors.json` im Saga-Repo) vollständig
+bestehen:
+
+```sh
+cd ios/Tests/ChatVectors && swift run -c release ChatVectors /pfad/zu/saga/tests/chat_vectors.json
+```
+
+### Mitteilungen (APNs)
+iOS/iPadOS haben die Berechtigung `aps-environment` immer (`App/App-iOS.entitlements`); das App-ID braucht dafür die
+Fähigkeit „Push Notifications“ (automatische Signierung richtet sie ein). Am Mac braucht Push ein
+Bereitstellungsprofil und ist deshalb abschaltbar: `SAGA_MAC_PUSH_SUFFIX = -push` in `Config/Local.xcconfig`
+nutzt `App/App-macOS-push.entitlements` (für ad-hoc signierte DMG-Builds leer lassen). Den APNs-Schlüssel trägt der
+Admin im Saga-Admin-Bereich ein; Debug-Builds melden sich als `sandbox`, alle anderen als `production` an.
 
 ## Sprachen
 Alle Texte stehen in String Catalogs (Quellsprache Englisch = Rückfall für andere Systemsprachen):

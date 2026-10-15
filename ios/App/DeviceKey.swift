@@ -25,6 +25,9 @@ enum DeviceKey {
 
     /// Name, unter dem das Geraet in den Einstellungen erscheint
     @MainActor static var deviceName: String {
+        #if DEBUG
+        if let n = UserDefaults.standard.string(forKey: "hkDeviceName") { return n }     // nur fuer Tests (keine echten Geraetenamen in Bildern)
+        #endif
         #if os(iOS)
         let n = UIDevice.current.name
         return n.isEmpty ? UIDevice.current.model : n
