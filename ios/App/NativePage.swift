@@ -562,6 +562,10 @@ struct NativePageScreen: View {
     @State private var presence: [PresenceUser] = []     // Live (1.4): andere auf dieser Seite
     @State private var presenceOff = false               // 404/aelterer Server: nicht mehr senden
     @State private var assistant: AssistantLaunch?       // KI-Assistent (1.6)
+    /// Editor-Tastaturleiste nur, solange ein Seitenblock bearbeitet wird und kein Blatt mit eigenem Textfeld offen ist
+    private var editorKeyboard: Bool {
+        ed.focus != nil && commentsTarget == nil && assistant == nil && !sharing && !publishing && !moving && !showVersions
+    }
     @Environment(\.scenePhase) private var phase
     init(id: Int, inPeek: Bool = false) {
         self.id = id; self.inPeek = inPeek
@@ -943,6 +947,7 @@ struct NativePageScreen: View {
                 ToolbarItem(placement: .primaryAction) { Menu { pageMenuItems } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("Seitenmenü") }
             }
             #if os(iOS)
+            if editorKeyboard {                            // nur fuer Seitenbloecke - nicht im Kommentar-/Assistent-/Teilen-Blatt (deckte dort "Kommentieren" ab)
             ToolbarItemGroup(placement: .keyboard) {
                 BlockTypeMenu(title: "Neu", icon: "plus") { t, l in ed.insert(PageEditor.make(t, level: l == 0 ? 2 : l), after: ed.focusedBlock) }
                 BlockTypeMenu(title: "Typ", icon: "textformat") { t, l in if let b = ed.focusedBlock { ed.convert(b, to: t, level: l == 0 ? 2 : l) } }
@@ -957,6 +962,7 @@ struct NativePageScreen: View {
                 Button { if let b = ed.focusedBlock { ed.delete(b) } } label: { Image(systemName: "trash") }.accessibilityLabel("Block löschen")
                 Spacer()
                 Button("Fertig") { ed.focus = nil }.bold()
+            }
             }
             #endif
         }
