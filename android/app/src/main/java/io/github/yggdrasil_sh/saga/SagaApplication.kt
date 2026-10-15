@@ -14,6 +14,7 @@ import io.github.yggdrasil_sh.saga.data.SecureStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /** App-weite Objekte (einfacher "Container" ohne DI-Bibliothek) */
 class SagaApplication : Application(), SingletonImageLoader.Factory {
@@ -32,6 +33,8 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
                 false
             }
         }
+        // Klartext-Kopien von Chat-Anhaengen aus einem frueheren Prozess entfernen (BUG-023)
+        appScope.launch(Dispatchers.IO) { io.github.yggdrasil_sh.saga.chat.ChatFiles.purge(cacheDir) }
         repo = SagaRepository(
             settings = AppSettings(this),
             secure = SecureStore(this),

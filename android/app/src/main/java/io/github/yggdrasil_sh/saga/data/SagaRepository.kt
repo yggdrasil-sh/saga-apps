@@ -1022,6 +1022,8 @@ class SagaRepository(
         fedUnreachable.value = emptyList()
         live.clear()
         chat.reset()
+        // entschluesselte Chat-Anhaenge (Klartext im Cache) beim Abmelden/Kontowechsel loeschen (BUG-023)
+        appContext?.cacheDir?.let { c -> withContext(Dispatchers.IO) { io.github.yggdrasil_sh.saga.chat.ChatFiles.purge(c) } }
         ai.clear()
         if (appContext != null) push.clear()
         pushChecked = false

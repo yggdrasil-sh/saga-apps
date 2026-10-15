@@ -97,6 +97,9 @@ import androidx.core.content.FileProvider
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.chat.ChatAttach
 import io.github.yggdrasil_sh.saga.chat.ChatFile
+import io.github.yggdrasil_sh.saga.chat.ChatFiles
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import io.github.yggdrasil_sh.saga.chat.ChatLimits
 import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.chat.ChatFormat
@@ -413,20 +416,37 @@ private suspend fun readFile(context: Context, u: Uri, max: Long): ChatAttach.Re
     }
 }
 
-/** Anhang laden, entschluesseln und mit einer anderen App oeffnen/teilen (nur im Cache, nicht dauerhaft) */
+/** Raeumt entschluesselte Anhaenge nach Ablauf weg - unabhaengig von der Ansicht (lebt so lange wie der Prozess) */
+private val fileCleanup = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+/**
+ * Anhang laden, entschluesseln und mit einer anderen App oeffnen oder teilen/speichern. Klartext nur kurz im Cache
+ * (eigener Zufallsordner); nach ChatFiles.KEEP_MS Freigabe zuruecknehmen und loeschen (BUG-023).
+ */
 private suspend fun openFile(context: Context, s: ChatSession, f: ChatFile, onError: (io.github.yggdrasil_sh.saga.util.UiText) -> Unit) {
     try {
         val data = s.download(f)
-        val uri = withContext(Dispatchers.IO) {
-            val dir = File(context.cacheDir, "chat-files").apply { mkdirs() }
-            val safe = f.n.replace(Regex("[^A-Za-z0-9._ -]"), "_").ifEmpty { "datei" }.take(100)
-            val out = File(dir, safe)
-            out.writeBytes(data)
-            FileProvider.getUriForFile(context, context.packageName + ".files", out)
+        val app = context.applicationContext
+        val (out, uri) = withContext(Dispatchers.IO) {
+            ChatFiles.purgeOlderThan(app.cacheDir)
+            val out = ChatFiles.write(app.cacheDir, f.n, data)
+            out to FileProvider.getUriForFile(app, app.packageName + ".files", out)
         }
-        val view = Intent(Intent.ACTION_VIEW).setDataAndType(uri, f.m.ifEmpty { "application/octet-stream" })
+        fileCleanup.launch {
+            delay(ChatFiles.KEEP_MS)
+            try {
+                app.revokeUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: Exception) {
+            }
+            ChatFiles.remove(out)
+        }
+        val type = f.m.ifEmpty { "application/octet-stream" }
+        val view = Intent(Intent.ACTION_VIEW).setDataAndType(uri, type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        // zusaetzlich Teilen (z. B. "In Dateien speichern") - auch fuer Typen ohne Betrachter-App (BUG-108)
+        val send = Intent(Intent.ACTION_SEND).setType(type).putExtra(Intent.EXTRA_STREAM, uri)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        context.startActivity(Intent.createChooser(view, f.n).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        val chooser = Intent.createChooser(view, f.n).putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(send))
+        context.startActivity(chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     } catch (e: CancellationException) {
         throw e
     } catch (_: Exception) {
