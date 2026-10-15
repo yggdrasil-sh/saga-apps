@@ -242,10 +242,11 @@ struct ShareSheet: View {
                     }.padding().frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) }
             }
-            .navigationTitle("Teilen")
             #if os(iOS)
+            .navigationTitle("Teilen")
             .navigationBarTitleDisplayMode(.inline)
             #endif
+            // Mac: Ueberschrift steht oben im Blatt - die Leiste zeigte sie sonst ein zweites Mal
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
         }
         .macFrame(minWidth: 480, idealWidth: 540, minHeight: 520, idealHeight: 660)
@@ -370,7 +371,7 @@ struct ShareSheet: View {
             HStack(spacing: 10) {
                 ShareAvatar(name: h.name, group: h.isGroup)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(verbatim: h.name).lineLimit(1).truncationMode(.middle)
+                    Text(verbatim: h.name).lineLimit(3)          // umbrechen: der Server-Teil (an wen man teilt) muss lesbar bleiben
                     Text(h.isRemote ? (h.isGroup ? String(localized: "Gruppe auf einer anderen Saga-Instanz") : String(localized: "Andere Saga-Instanz"))
                          : h.username.map { String($0) } ?? String(localized: "Gruppe")).font(.caption).foregroundStyle(.secondary)
                 }

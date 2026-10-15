@@ -166,7 +166,7 @@ struct DatabaseView: View {
             DBViewBar(m: m, views: views, current: $current, editable: localViews?.isEmpty != false || onLocalViews != nil) { id in
                 Task {
                     if let id { nav.open(id, mode: view?["open"] as? String ?? "side"); return }
-                    if let nid = await m.add(store, props: defaults()) { nav.open(nid, mode: view?["open"] as? String ?? "side") }
+                    if let nid = await m.add(store, props: defaults()) { nav.focusTitle = nid; nav.open(nid, mode: view?["open"] as? String ?? "side") }   // Titel gleich bearbeiten
                 }
             }
             if !m.loaded { ProgressView().frame(maxWidth: .infinity) }
@@ -570,7 +570,7 @@ struct ColumnHead: View {
                 .padding(.horizontal, 8).padding(.vertical, 7).frame(width: width, alignment: .leading).contentShape(Rectangle())
         }
         .buttonStyle(.plain).help(prop.name)
-        .popover(isPresented: $edit, arrowEdge: .bottom) { ColumnEditor(m: m, pid: prop.id) }
+        .popover(isPresented: $edit, arrowEdge: .bottom) { ColumnEditor(m: m, pid: prop.id).presentationCompactAdaptation(.popover) }   // iPhone: kein Blatt ohne "Fertig"
     }
 }
 

@@ -211,7 +211,7 @@ struct ConversationView: View {
                     Button { pickPhotos = true } label: { Label("Fotos", systemImage: "photo") }
                     Button { pickFile = true } label: { Label("Datei", systemImage: "doc") }
                     Button { pickPage = true } label: { Label("Seite verlinken", systemImage: "at") }
-                } label: { Image(systemName: "plus.circle.fill").font(.title2) }
+                } label: { Image(systemName: "plus.circle.fill").font(.title2).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle()) }   // Trefferflaeche 44 pt
                 .menuIndicator(.hidden).fixedSize().accessibilityLabel("Anhang")
                 TextField("Nachricht …", text: $text, axis: .vertical)
                     .lineLimit(1...6).textFieldStyle(.plain)
@@ -223,7 +223,9 @@ struct ConversationView: View {
                     #if os(macOS)
                     .onKeyPress(.return, phases: .down) { k in if k.modifiers.contains(.shift) { return .ignored }; sendNow(); return .handled }
                     #endif
-                Button { sendNow() } label: { Image(systemName: conv.sending ? "ellipsis.circle" : "arrow.up.circle.fill").font(.title2) }
+                Button { sendNow() } label: {
+                    Image(systemName: conv.sending ? "ellipsis.circle" : "arrow.up.circle.fill").font(.title2).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                }
                     .disabled(conv.sending || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && files.isEmpty))
                     .keyboardShortcut(.return, modifiers: .command)
                     .accessibilityLabel("Senden")

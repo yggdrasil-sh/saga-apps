@@ -119,7 +119,13 @@ struct NotificationsSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Schließen") { dismiss() } }
                 // wie im Web: "Alle gelesen" sichtbar, daneben die Einstellungen
                 ToolbarItem(placement: .primaryAction) {
+                    #if os(iOS)
+                    // als Symbol: der lange Text verdraengte auf dem iPhone den Titel des Blatts
+                    Button { Task { await notifs.markAll() } } label: { Label("Alle gelesen", systemImage: "checkmark.circle") }
+                        .disabled(notifs.unread == 0)
+                    #else
                     Button("Alle gelesen") { Task { await notifs.markAll() } }.disabled(notifs.unread == 0)
+                    #endif
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button { dismiss(); settings() } label: { Label("Benachrichtigungen einstellen", systemImage: "gearshape") }

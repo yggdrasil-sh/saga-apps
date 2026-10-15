@@ -425,7 +425,8 @@ struct Sidebar: View {
                 if !store.favorites.isEmpty {
                     Section("Favoriten") { ForEach(store.favorites) { PageRow(page: $0, store: store).pageActions($0, store: store, selection: $selection, moveID: $moveID).tag($0.id) } }
                 }
-                let recent = store.recent.compactMap { store.page($0) }.prefix(5)
+                // offene Seite nicht doppelt markieren (steht schon unter "Seiten")
+                let recent = store.recent.filter { $0 != selection }.compactMap { store.page($0) }.prefix(5)
                 if !recent.isEmpty {
                     Section("Zuletzt") {
                         ForEach(Array(recent)) { p in
@@ -567,14 +568,16 @@ struct PageIcon: View {
 
 struct TodaySection: View {
     @ObservedObject var store: Store
+    /// Abschnittskopf "Heute" (Seitenleiste); in der Ansicht "Heute" steht er schon als Titel darueber
+    var header = true
     @State private var editingTask: OpenTask?
     @State private var editingEvent: CalEvent?
     var body: some View {
-        Section("Heute") {
+        Section {
             if store.events.isEmpty && store.tasks.isEmpty { Text("Nichts geplant 🎉").foregroundStyle(.secondary) }
             ForEach(store.events.prefix(4)) { e in Button { editingEvent = e } label: { EventRow(e: e) }.buttonStyle(.plain) }
             ForEach(todayTasks) { t in TaskRow(task: t) { editingTask = t } }
-        }
+        } header: { if header { Text("Heute") } }
         .sheet(item: $editingTask) { t in TaskEditor(task: t).environmentObject(store) }
         .sheet(item: $editingEvent) { e in EventEditor(event: e).environmentObject(store) }
     }
@@ -621,7 +624,7 @@ struct PageScreen: View {
 struct TodayScreen: View {
     @ObservedObject var store: Store
     var body: some View {
-        List { TodaySection(store: store) }
+        List { TodaySection(store: store, header: false) }
             .navigationTitle("Heute")
     }
 }
