@@ -92,12 +92,16 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.chat.ChatAttach
 import io.github.yggdrasil_sh.saga.chat.ChatFile
+import io.github.yggdrasil_sh.saga.chat.ChatLimits
+import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.chat.ChatFormat
 import io.github.yggdrasil_sh.saga.chat.ChatMessage
 import io.github.yggdrasil_sh.saga.chat.ChatNoteRef
 import io.github.yggdrasil_sh.saga.chat.ChatSession
 import io.github.yggdrasil_sh.saga.chat.PendingFile
+import io.github.yggdrasil_sh.saga.chat.quietly
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.ui.nav.AppNavigator
 import io.github.yggdrasil_sh.saga.ui.nav.Dest
@@ -133,11 +137,14 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     val images = remember(chatId) { mutableStateMapOf<String, ImageBitmap?>() }
 
     LaunchedEffect(s) { s.open() }
-    LaunchedEffect(s) { repo.live.events.collect { s.onEvent(it) } }
+    // eine Ausnahme hier wuerde den Prozess beenden (BUG-003): jedes Ereignis einzeln abfangen
+    LaunchedEffect(s) { repo.live.events.collect { ev -> quietly { s.onEvent(ev) } } }
     LaunchedEffect(s) {
+        var tick = 0
         while (true) {
             delay(1_000)
             s.expireTyping()
+            if (++tick % 5 == 0) s.catchUp()                     // gescheitertes Nachladen wiederholen
         }
     }
     LaunchedEffect(s.messages.size) { if (s.messages.isNotEmpty() && list.firstVisibleItemIndex <= 2) list.animateScrollToItem(0) }
@@ -148,7 +155,12 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
 
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         scope.launch {
-            for (u in uris) readFile(context, u)?.let { files.add(it) }
+            val max = svc.me.value?.limits?.fileMax ?: ChatLimits().fileMax
+            for (u in uris) when (val r = readFile(context, u, max)) {
+                is ChatAttach.Read.Ok -> files.add(r.file)
+                ChatAttach.Read.TooBig -> repo.notify(UiText.Res(R.string.chat_file_too_big, (max / 1048576).toInt()))
+                ChatAttach.Read.Failed -> repo.notify(UiText.Res(R.string.chat_file_broken))
+            }
         }
     }
 
@@ -366,16 +378,27 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
 }
 
 /** Datei aus dem Auswahldialog lesen (Name, Typ, Inhalt) */
-private suspend fun readFile(context: Context, u: Uri): PendingFile? = withContext(Dispatchers.IO) {
+private suspend fun readFile(context: Context, u: Uri, max: Long): ChatAttach.Read = withContext(Dispatchers.IO) {
     try {
         val cr = context.contentResolver
         var name = "datei"
-        cr.query(u, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c -> if (c.moveToFirst()) c.getString(0)?.let { name = it } }
+        var size: Long? = null
+        cr.query(u, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
+            if (c.moveToFirst()) {
+                c.getString(0)?.let { name = it }
+                if (!c.isNull(1)) size = c.getLong(1)
+            }
+        }
+        // Groesse vor dem Lesen pruefen, dann begrenzt lesen (BUG-005: 600 MB -> OutOfMemoryError)
+        if (ChatAttach.tooBig(size, max)) return@withContext ChatAttach.Read.TooBig
         val mime = cr.getType(u) ?: "application/octet-stream"
-        val data = cr.openInputStream(u)?.use { it.readBytes() } ?: return@withContext null
-        PendingFile(name.take(200), mime, data)
+        val data = cr.openInputStream(u)?.use { ChatAttach.readLimited(it, max) ?: return@withContext ChatAttach.Read.TooBig }
+            ?: return@withContext ChatAttach.Read.Failed
+        ChatAttach.Read.Ok(PendingFile(name.take(200), mime, data))
+    } catch (_: OutOfMemoryError) {
+        ChatAttach.Read.TooBig
     } catch (_: Exception) {
-        null
+        ChatAttach.Read.Failed
     }
 }
 

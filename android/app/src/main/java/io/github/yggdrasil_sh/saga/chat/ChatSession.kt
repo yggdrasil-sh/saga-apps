@@ -68,6 +68,20 @@ class MessageOpener(private val svc: ChatService, private val k: LocalChatKeys) 
     }
 }
 
+/**
+ * Hintergrund-Arbeit ohne Ausnahme nach aussen (Live-Ereignisse, Nachladen nach dem Senden): ein Netzfehler darf weder
+ * den Prozess beenden (Ausnahme in LaunchedEffect) noch eine schon gesendete Nachricht als "nicht gesendet" melden.
+ * Abbruch (CancellationException) wird weitergereicht. -> false bei Fehler
+ */
+suspend fun quietly(block: suspend () -> Unit): Boolean = try {
+    block()
+    true
+} catch (e: CancellationException) {
+    throw e
+} catch (_: Exception) {
+    false
+}
+
 /** Anhang vor dem Senden (Klartext bleibt auf dem Geraet) */
 class PendingFile(val name: String, val mime: String, val data: ByteArray)
 
@@ -153,6 +167,15 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         messages.addAll(0, older)
         more = r.more
         resolveNotes()
+    }
+
+    /** Nachladen ist gescheitert (Live-Ereignis/nach dem Senden) - catchUp() versucht es erneut */
+    var behind by mutableStateOf(false)
+        private set
+
+    /** Liegengebliebenes Nachladen wiederholen (regelmaessig aus der Ansicht), nie mit Ausnahme */
+    suspend fun catchUp() {
+        if (behind) behind = !quietly { loadNewer() }
     }
 
     suspend fun loadNewer() {
@@ -254,7 +277,8 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             val plain = ChatLogic.content(text, uploaded, notesAll)
             postEncrypted(k, plain, replyTo?.id, "msg", uploaded.map { it.id })
             replyTo = null
-            loadNewer()
+            // gesendet ist gesendet: scheitert nur das Nachladen, holt catchUp() es nach (BUG-066, kein Doppelversand)
+            behind = !quietly { loadNewer() }
         } finally {
             sending = false
         }
@@ -403,7 +427,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         when (ev.type) {
             "chat.message" -> {
                 typing = typing - (ev.str("sender") ?: "")
-                loadNewer()
+                behind = !quietly { loadNewer() }        // Funkloch: kein Absturz (BUG-003), catchUp() holt nach
             }
             "chat.deleted" -> ev.str("id")?.let { id -> messages.removeAll { it.id == id } }
             "chat.typing" -> {
