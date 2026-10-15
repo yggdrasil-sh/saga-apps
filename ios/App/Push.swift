@@ -217,7 +217,9 @@ struct PushSettingsSection: View {
                 default: EmptyView()
                 }
                 if let m = push.message { Text(m).font(.footnote).foregroundStyle(.secondary) }
-                if let s = push.state, s.enabled { options(s, enabled: on) }      // "Worueber?" nur bei eingeschalteten Mitteilungen
+                // "Worueber?" nur, wenn Mitteilungen eingeschaltet sind UND der Server zustellen kann - sonst wirkten
+                // eingeschaltete Themen-Schalter, als kaeme etwas an (BUG-102)
+                if let s = push.state, s.enabled, av == .ok { options(s, enabled: on) }
             } header: { Text("Mitteilungen") } footer: {
                 Text("Mitteilungen aufs Handy oder den Computer – auch wenn Saga geschlossen ist. Inhalte von Seiten, Kommentaren und Chats werden nie mitgeschickt.")
             }

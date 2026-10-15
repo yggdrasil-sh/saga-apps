@@ -76,7 +76,7 @@ struct SettingsView: View {
             CalendarSettingsSection()
             AppsDevicesSection()
             if let onLogout {
-                Section { Button("Abmelden", role: .destructive) { dismiss(); onLogout() } } footer: { Text("Löscht die Anmeldung und den Zwischenspeicher auf diesem Gerät.") }
+                Section { Button("Abmelden", role: .destructive) { loggingOut = true; dismiss(); onLogout() } } footer: { Text("Löscht die Anmeldung und den Zwischenspeicher auf diesem Gerät.") }
             }
         }
         .navigationTitle("Einstellungen")
@@ -100,8 +100,8 @@ struct SettingsView: View {
         }
         #if os(macOS)
         .formStyle(.grouped)
-        .onDisappear { save() }
         #endif
+        .onDisappear { save() }                                   // auch iOS: Blatt weggewischt statt "Fertig" (BUG-101)
     }
 
     @EnvironmentObject private var store: Store
@@ -115,7 +115,13 @@ struct SettingsView: View {
         else { Task { await store.switchServer(to: u); server = AppConfig.serverString } }
     }
     /// Nur den App-Schluessel sichern - die Server-Adresse aendert ausschliesslich "Server uebernehmen"
+    /// Schluessel beim Oeffnen: nur eine echte Eingabe schreiben - sonst setzte das Schliessen nach "Abmelden" den eben
+    /// geloeschten Schluessel wieder ein
+    @State private var tokenAtOpen = AppConfig.token
+    @State private var loggingOut = false
     private func save() {
+        guard token != tokenAtOpen, !loggingOut else { return }
+        tokenAtOpen = token
         if !(token.isEmpty && AppConfig.hasToken) && token != AppConfig.token { AppConfig.token = token }   // automatisch eingetragenen Schluessel nicht leeren
         WidgetCenter.shared.reloadAllTimelines()
     }

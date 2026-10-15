@@ -342,11 +342,23 @@ extension FocusedValues {
     var pageEditor: PageEditor? { get { self[PageEditorKey.self] } set { self[PageEditorKey.self] = newValue } }
 }
 
+/// Block, der gerade bearbeitet wird (nil: kein Seitenblock im Fokus) - fuer die Menueleiste
+struct EditorBlockKey: FocusedValueKey { typealias Value = String }
+extension FocusedValues {
+    var editorBlock: String? { get { self[EditorBlockKey.self] } set { self[EditorBlockKey.self] = newValue } }
+}
+
+/// Menueleiste Format/Block: nur aktiv, solange ein Seitenblock bearbeitet wird, und nur fuer DIESEN Block - nicht fuer
+/// den Block unter der Maus (⌘D/Loeschen trafen sonst einen Block, den man nicht bearbeitet; BUG-103)
 struct HKEditorCommands: Commands {
     @FocusedValue(\.pageEditor) private var ed
-    private var block: String? { ed?.focusedBlock ?? ed?.hover.hovered }
+    @FocusedValue(\.editorBlock) private var block
+    private var off: Bool { ed == nil || block == nil }
     var body: some Commands {
-        CommandMenu("Format") {
+        CommandMenu("Format") { formatItems.disabled(off) }
+        CommandMenu("Block") { blockItems.disabled(off) }
+    }
+    @ViewBuilder private var formatItems: some View {
             Button("Fett") { ed?.format("bold") }.keyboardShortcut("b", modifiers: .command)
             Button("Kursiv") { ed?.format("italic") }.keyboardShortcut("i", modifiers: .command)
             Button("Unterstrichen") { ed?.format("underline") }.keyboardShortcut("u", modifiers: .command)
@@ -355,8 +367,8 @@ struct HKEditorCommands: Commands {
             Button("Code") { ed?.format("code") }.keyboardShortcut("e", modifiers: [.command, .shift])   // ⌘E bleibt "Auswahl suchen" (System)
             Divider()
             Button("Link …") { ed?.format("link") }.keyboardShortcut("k", modifiers: [.command, .shift])
-        }
-        CommandMenu("Block") {
+    }
+    @ViewBuilder private var blockItems: some View {
             Button("Text") { conv("paragraph", 0) }.keyboardShortcut("0", modifiers: [.command, .option])
             Button("Überschrift 1") { conv("header", 1) }.keyboardShortcut("1", modifiers: [.command, .option])
             Button("Überschrift 2") { conv("header", 2) }.keyboardShortcut("2", modifiers: [.command, .option])
@@ -373,7 +385,6 @@ struct HKEditorCommands: Commands {
             Button("Nach unten") { if let b = block { ed?.move(b, by: 1) } }.keyboardShortcut(.downArrow, modifiers: [.command, .shift])
             Button("Duplizieren") { if let b = block { ed?.duplicate(b) } }.keyboardShortcut("d", modifiers: .command)
             Button("Löschen") { if let b = block { ed?.delete(b) } }
-        }
     }
     private func conv(_ t: String, _ l: Int) { if let b = block { ed?.convert(b, to: t, level: l == 0 ? 2 : l) } }
 }
@@ -415,5 +426,6 @@ struct PageEditorSheets: ViewModifier {
             }
         }
             .focusedSceneValue(\.pageEditor, ed)
+            .focusedSceneValue(\.editorBlock, ed.locked ? nil : ed.focusedBlock)   // Menueleiste nur fuer den bearbeiteten Block
     }
 }
