@@ -6,6 +6,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Android
+- **Immich im Chat:** „Anhängen → Aus Immich“ (nur wenn Immich für dich eingerichtet ist) mit Zuletzt, Alben und
+  Inhaltssuche. Das Foto wird über den Immich-Proxy des Servers geladen (Original, sonst große Vorschau; zu groß →
+  verkleinert) und wie jeder Anhang Ende-zu-Ende-verschlüsselt gesendet.
+- **Bilder einfügen:** im Chat aus der Zwischenablage (Einfügen-Menü des Felds, „Anhängen → Bild einfügen“), per
+  Tastatur (GBoard: Sticker, GIFs, kopierte Bilder) und per Ziehen; auf Seiten per Tastatur und mit dem Knopf
+  „Bild einfügen“ in der Werkzeugleiste (lädt hoch und setzt einen Bild-Block hinter den aktuellen Block).
+
 ## [2.0.0] – 2026-10-15
 
 Passt zu Saga-Server 2.0. **Die neuen Funktionen brauchen Saga-Server 2.0; ältere Server funktionieren weiter**

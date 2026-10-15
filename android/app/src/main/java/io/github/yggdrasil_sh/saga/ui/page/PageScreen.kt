@@ -1,5 +1,14 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.material3.LinearProgressIndicator
+import io.github.yggdrasil_sh.saga.ui.common.IncomingImage
+import io.github.yggdrasil_sh.saga.ui.common.clipboardImages
+import io.github.yggdrasil_sh.saga.ui.common.prepareImage
+import io.github.yggdrasil_sh.saga.ui.common.readImage
+import io.github.yggdrasil_sh.saga.ui.common.rememberClipboardHasImage
+import io.github.yggdrasil_sh.saga.util.ImageData
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.R
@@ -189,6 +198,43 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
         }
     }
     val env = remember(ed) { BlockEnv(ed, repo, onLink) }
+    // Bilder einfuegen (Zwischenablage, Tastatur): hochladen wie im Web-Editor, dann Bild-Block hinter dem Block mit dem Cursor
+    var uploading by remember { mutableIntStateOf(0) }
+    val insertImages: (List<IncomingImage>, JsonPath?) -> Unit = { list, path ->
+        when {
+            list.isEmpty() || !ed.editable -> list.forEach { it.release() }
+            ed.isRemote -> {
+                list.forEach { it.release() }
+                repo.notify(UiText.Res(R.string.image_remote_page))
+            }
+            else -> scope.launch {
+                uploading++
+                try {
+                    val max = repo.chat.me.value?.limits?.fileMax ?: io.github.yggdrasil_sh.saga.chat.ChatLimits().fileMax
+                    var at = path
+                    for (img in list) {
+                        val prepared = readImage(context, img, 4 * max)?.let { prepareImage(it, max) }
+                        if (prepared == null) {
+                            repo.notify(UiText.Res(R.string.image_unsupported))
+                            continue
+                        }
+                        val (data, mime) = prepared
+                        // fremde Seite (Rolle Bearbeiten): die Datei gehoert dem Eigentuemer (wie Web/iOS)
+                        val url = repo.uploadImage(data, ImageData.nameFor("bild", mime), mime, if (ed.caps.foreign) ed.id else null)
+                        at = ed.insertImage(at, url) ?: at
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    repo.notify(if (e is io.github.yggdrasil_sh.saga.data.ApiException) e.text else UiText.Res(R.string.image_upload_failed))
+                } finally {
+                    uploading--
+                }
+            }
+        }
+    }
+    val imageSink: (IncomingImage, JsonPath) -> Unit = remember(ed) { { img, p -> insertImages(listOf(img), p) } }
+    val uploadingDesc = stringResource(R.string.image_uploading)
     var confirmTrash by remember { mutableStateOf(false) }
     var conflictDialog by remember { mutableStateOf(false) }
     // Veroeffentlichen: Dialog (Bottom Sheet); aeltere Server ohne /publish -> Menuepunkt ausblenden
@@ -381,6 +427,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                     if (seen.add(k)) k else "dup-$i-$k"
                 }
             }
+            CompositionLocalProvider(LocalPageImageSink provides imageSink) {
             LazyColumn(Modifier.widthIn(max = 820.dp).fillMaxSize().padding(horizontal = 18.dp), state = listState) {
                 item(key = "header") {
                     PageHeader(
@@ -443,11 +490,16 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                     }
                 }
             }
+            }
             if (ed.loading && !ed.fetched) CircularProgressIndicator(Modifier.padding(top = 80.dp))
+            if (uploading > 0) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter).semantics { contentDescription = uploadingDesc })
         }
 
         val active = ed.active
-        if (active != null && ed.editable) EditorToolbar(ed, active, onLink)
+        val clipHasImage = rememberClipboardHasImage()
+        if (active != null && ed.editable) {
+            EditorToolbar(ed, active, onLink, onPasteImage = if (clipHasImage && !ed.isRemote) { { insertImages(clipboardImages(context), active.blockPath()) } } else null)
+        }
     }
 
     assistant?.let { t ->
@@ -726,7 +778,7 @@ private fun DraftBanner(stamp: Long, onRestore: () -> Unit, onDiscard: () -> Uni
 
 /** Werkzeugleiste ueber der Tastatur: Block einfuegen/umwandeln, Formatierung, Link, verschieben, loeschen */
 @Composable
-private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) -> Unit) {
+private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) -> Unit, onPasteImage: (() -> Unit)? = null) {
     val context = LocalContext.current
     val res = LocalResources.current
     val focus = LocalFocusManager.current
@@ -754,6 +806,10 @@ private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) 
                             })
                         }
                     }
+                }
+                // Bild aus der Zwischenablage (nur sichtbar, wenn dort eins liegt) - das Feld selbst nimmt nur Text an
+                if (onPasteImage != null) {
+                    IconButton(onClick = onPasteImage) { Icon(painterResource(R.drawable.ic_paste_image), stringResource(R.string.paste_image)) }
                 }
                 if (active.itemPath() == null && ed.block(blockPath)?.let { BlockDoc.mainText(it) != null } == true) {
                     Box {

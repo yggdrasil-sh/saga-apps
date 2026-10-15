@@ -217,6 +217,21 @@ class ApiClient(
         return text
     }
 
+    /**
+     * Datei als Formular hochladen (POST api/files, Feld "image" bzw. "file" wie im Web-Editor).
+     * note = fremde Seite (Rolle Bearbeiten): die Datei gehoert deren Eigentuemer (Kopfzeile X-Saga-Note).
+     */
+    suspend fun postMultipart(path: String, field: String, fileName: String, mime: String, data: ByteArray, note: Long? = null): String {
+        val body = okhttp3.MultipartBody.Builder().setType(okhttp3.MultipartBody.FORM)
+            .addFormDataPart(field, fileName, data.toRequestBody(mime.toMediaType()))
+            .build()
+        val rq = Request.Builder().url(url(path)).post(body).header("X-Saga", "1")
+        if (note != null) rq.header("X-Saga-Note", note.toString())
+        val (code, text) = execute(client, rq.build())
+        if (code !in 200..299) throw ApiException(code, errorText(code, text), text)
+        return text
+    }
+
     /** Rohdaten laden (verschluesselte Chat-Anhaenge) */
     suspend fun getBytes(path: String): ByteArray {
         val req = Request.Builder().url(url(path)).get().header("X-Saga", "1").build()
