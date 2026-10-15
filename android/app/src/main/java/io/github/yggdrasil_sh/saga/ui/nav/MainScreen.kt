@@ -39,6 +39,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -193,11 +194,14 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
         BackHandler(enabled = drawerState.isOpen && !wide) { scope.launch { drawerState.close() } }
         BackHandler(enabled = nav.canGoBack && !drawerState.isOpen) { nav.pop() }
 
+        // Inhalt wandert beim Drehen/Wechsel Kompakt <-> Breit in einen anderen Zweig (feste Seitenleiste, Rail,
+        // Schublade). movableContentOf nimmt dabei den Zustand mit (Chat-Entwurf, offene Blaetter, Editor) - BUG-021
+        val content = remember { movableContentOf { c: Chrome -> Content(repo, nav, c, appScope) } }
         if (wide) {
             PermanentNavigationDrawer(drawerContent = {
                 PermanentDrawerSheet(Modifier.width(300.dp)) { Sidebar(repo, nav, onNavigate = {}) }
             }) {
-                Content(repo, nav, chrome, appScope)
+                content(chrome)
             }
         } else {
             ModalNavigationDrawer(
@@ -241,10 +245,10 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
                                 modifier = Modifier.padding(bottom = 12.dp),
                             )
                         }
-                        Box(Modifier.weight(1f)) { Content(repo, nav, chrome, appScope) }
+                        Box(Modifier.weight(1f)) { content(chrome) }
                     }
                 } else {
-                    Content(repo, nav, chrome, appScope)
+                    content(chrome)
                 }
             }
         }
