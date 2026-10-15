@@ -65,6 +65,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -130,6 +133,13 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.style.TextAlign
 
 private val PAGE_LINK = Regex("^/notes#(-?\\d+)$")
+
+/** Text des Kopier-Dialogs sichern (BUG-065); ueber COPY_DRAFT_MAX Zeichen nicht (Bundle-Grenze) */
+internal const val COPY_DRAFT_MAX = 100_000
+internal val CopyDraftSaver: Saver<MutableState<String?>, String> = Saver(
+    save = { it.value?.takeIf { s -> s.length <= COPY_DRAFT_MAX } },
+    restore = { mutableStateOf(it) },
+)
 
 /** Blocktypen fuer "Neu" und "Typ" (Name, Typ, Ebene) */
 private data class BlockChoice(@param:StringRes val label: Int, val type: String, val level: Int)
@@ -233,7 +243,10 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     var selectedBlock by remember(id) { mutableStateOf<String?>(null) }
     var confirmOverwrite by remember { mutableStateOf(false) }
     /** eigener Text nach "Neue Version laden" (Kopier-Dialog) */
-    var copyDraft by remember { mutableStateOf<String?>(null) }
+    // eigener Text nach "Neue Version laden": der Entwurf auf Platte ist schon geloescht - der Dialog-Text muss den
+    // Prozess-Tod ueberleben (typisch: zum Einfuegen in eine andere App gewechselt, BUG-065); sehr lange Texte nicht
+    // (Grenze des Sicherungs-Bundles)
+    var copyDraft by rememberSaveable(saver = CopyDraftSaver) { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
 
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
