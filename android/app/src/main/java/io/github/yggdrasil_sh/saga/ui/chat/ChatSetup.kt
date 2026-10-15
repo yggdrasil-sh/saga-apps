@@ -264,7 +264,9 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
     var err by remember { mutableStateOf<UiText?>(null) }
     var expired by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) {
+    // Anfrage starten - beim ersten Mal und bei "Erneut versuchen"; ohne Netz Fehlertext statt Absturz (BUG-004)
+    suspend fun start() {
+        err = null
         try {
             ls = svc.startLink()
         } catch (e: CancellationException) {
@@ -273,6 +275,7 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
             err = svc.repo.friendly(e)
         }
     }
+    LaunchedEffect(Unit) { start() }
     var approved by remember { mutableStateOf(false) }
     // Ansicht verlassen (Zurueck, anderer Bereich) ohne Bestaetigung: Anfrage zurueckziehen, sonst taucht sie spaeter
     // als fremde Kopplungsanfrage auf
@@ -313,7 +316,7 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
         CircularProgressIndicator(Modifier.padding(top = 16.dp).size(24.dp), strokeWidth = 2.dp)
     } else if (expired) {
         Info(stringResource(R.string.chat_link_expired))
-        Button(onClick = { expired = false; ls = null; scope.launch { ls = svc.startLink() } }, modifier = Modifier.padding(top = 12.dp)) {
+        Button(onClick = { expired = false; ls = null; scope.launch { start() } }, modifier = Modifier.padding(top = 12.dp)) {
             Text(stringResource(R.string.action_retry))
         }
     } else if (err == null) {
@@ -387,7 +390,16 @@ fun StartOver(svc: ChatService, onBack: () -> Unit) {
             confirmButton = {
                 TextButton(onClick = {
                     confirmed = true
-                    scope.launch { pending = svc.prepareSetup() }
+                    scope.launch {
+                        try {
+                            pending = svc.prepareSetup()
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {                   // nie den Prozess beenden (vgl. BUG-004)
+                            err = svc.repo.friendly(e)
+                            confirmed = false
+                        }
+                    }
                 }) { Text(stringResource(R.string.chat_start_over), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = onBack) { Text(stringResource(R.string.action_cancel)) } },
