@@ -4601,3 +4601,24 @@ msgstr "Esta página es demasiado grande para guardarla. Acórtala o divídela e
 #: hlidskjalf/window.py
 msgid "“{title}” is too large to save. Your changes are kept on this device, but they can only be saved once the page is shorter or split up."
 msgstr "«{title}» es demasiado grande para guardarla. Tus cambios se conservan en este dispositivo, pero solo se podrán guardar cuando la página sea más corta o esté dividida."
+
+#: hlidskjalf/clipimg.py
+msgid "Image too large."
+msgstr "Imagen demasiado grande."
+
+#: hlidskjalf/dialogs.py
+#, python-brace-format
+msgid "Loading “{name}” …"
+msgstr "Cargando «{name}» …"
+
+#: hlidskjalf/dialogs.py
+#, python-brace-format
+msgid "Not loaded: {error}"
+msgstr "No se cargó: {error}"
+
+#: hlidskjalf/chatview.py
+#, python-brace-format
+msgid "At most {n} file per message."
+msgid_plural "At most {n} files per message."
+msgstr[0] "Como máximo {n} archivo por mensaje."
+msgstr[1] "Como máximo {n} archivos por mensaje."

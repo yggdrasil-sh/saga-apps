@@ -4743,3 +4743,24 @@ msgstr ""
 #: hlidskjalf/window.py
 msgid "“{title}” is too large to save. Your changes are kept on this device, but they can only be saved once the page is shorter or split up."
 msgstr ""
+
+#: hlidskjalf/clipimg.py
+msgid "Image too large."
+msgstr ""
+
+#: hlidskjalf/dialogs.py
+#, python-brace-format
+msgid "Loading “{name}” …"
+msgstr ""
+
+#: hlidskjalf/dialogs.py
+#, python-brace-format
+msgid "Not loaded: {error}"
+msgstr ""
+
+#: hlidskjalf/chatview.py
+#, python-brace-format
+msgid "At most {n} file per message."
+msgid_plural "At most {n} files per message."
+msgstr[0] ""
+msgstr[1] ""

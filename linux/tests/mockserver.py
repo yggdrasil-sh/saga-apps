@@ -338,7 +338,8 @@ class MockServer:
         if path.startswith("api/settings"):
             return self._reply(200, {})
         if path.startswith("files/"):
-            return self._reply(200, b"x" * 300000)
+            up = getattr(self, "uploads", {}).get("/" + path.split("?")[0])
+            return self._reply(200, up if up else b"x" * 300000)
         return self._reply(200, {})
 
 
@@ -579,6 +580,12 @@ class MockServer:
             (len(parts) == 4 and parts[:2] == ["api", "notes"] and parts[3] in ("shares", "comments"))
         if path == "api/files" and method == "POST":
             self.next_id += 1
+            raw = bytes(getattr(self, "_raw", None) or b"")
+            i = min([x for x in (raw.find(b"\x89PNG"), raw.find(b"\xff\xd8\xff")) if x >= 0] or [-1])   # Bild wieder ausliefern
+            if i >= 0:
+                if not hasattr(self, "uploads"):
+                    self.uploads = {}
+                self.uploads[f"/files/up{self.next_id}"] = raw[i:raw.rfind(b"\r\n--")]
             return self._reply(200, {"file": {"url": f"/files/up{self.next_id}", "name": "datei"}})
         if not self.share_api:
             return self._reply(404, {"error": "not found"}) if new else None

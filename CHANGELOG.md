@@ -6,6 +6,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu (Linux)
+- **Immich im Chat:** Büroklammer → „Aus Immich …“ (nur wenn Immich verbunden ist), gleiche Auswahl wie auf Seiten;
+  das Bild wird über den Immich-Proxy des Servers geladen (Original bzw. große Vorschau, bei Bedarf verkleinert) und
+  wie jeder Anhang Ende-zu-Ende verschlüsselt hochgeladen.
+- **Einfügen aus der Zwischenablage (Strg+V):** Bilder (Bildschirmfotos, kopierte Bilder) und Dateien aus dem
+  Dateimanager kommen im Chat als Anhang mit Vorschau, auf Seiten als Bild- bzw. Dateiblock; Text wie bisher.
+  Zu große Bilder werden im Chat automatisch verkleinert.
+
 ## [2.0.0] – 2026-10-15
 
 Passt zu Saga-Server 2.0. **Die neuen Funktionen brauchen Saga-Server 2.0; ältere Server funktionieren weiter**
