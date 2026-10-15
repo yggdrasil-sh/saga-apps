@@ -380,6 +380,14 @@ struct MessageBubble: View {
         .buttonStyle(.plain)
         .accessibilityHint(Text("Zeigt, was das bedeutet"))
         #if DEBUG
+        .background {
+            if UserDefaults.standard.bool(forKey: "hkChatInfo") {
+                GeometryReader { g in
+                    Color.clear.onChange(of: g.frame(in: .global), initial: true) { _, f in if info { SnapshotHelper.anchor = f } }
+                        .onChange(of: info) { _, v in if v { SnapshotHelper.anchor = g.frame(in: .global) } }
+                }
+            }
+        }
         .task {
             if UserDefaults.standard.bool(forKey: "hkChatInfo") && !Self.infoShown { Self.infoShown = true; try? await Task.sleep(for: .seconds(2.5)); info = true }
         }

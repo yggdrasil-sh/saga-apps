@@ -91,6 +91,10 @@ struct SettingsView: View {
         .toolbar {
             #if os(iOS)
             ToolbarItem(placement: .confirmationAction) { Button("Fertig") { save(); dismiss() } }
+            #else
+            if onLogout != nil {                                   // Mac als Blatt (nicht das Einstellungen-Fenster): "Fertig" unten
+                ToolbarItem(placement: .confirmationAction) { Button("Fertig") { save(); dismiss() } }
+            }
             #endif
         }
         #if os(macOS)

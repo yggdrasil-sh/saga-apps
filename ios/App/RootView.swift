@@ -37,7 +37,11 @@ struct RootView: View {
             Sidebar(store: store, selection: $selection, query: query, results: results, sharedJump: nav.sharedJump)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 380)      // wie Notion, nicht abgeschnitten
                 .navigationTitle("Saga")
+                #if os(macOS)
+                .searchable(text: $query, placement: .sidebar, prompt: "Seiten durchsuchen")    // Mac: Feld in der Seitenleiste, keine zweite Lupe oben rechts
+                #else
                 .searchable(text: $query, prompt: "Seiten durchsuchen")
+                #endif
                 .searchFocused($searchFocused)
                 .task(id: query) {
                     try? await Task.sleep(for: .milliseconds(250))          // erst nach kurzer Tipp-Pause suchen
@@ -45,10 +49,10 @@ struct RootView: View {
                 }
                 .refreshable { await store.refresh() }
                 .toolbar {
+                    #if os(iOS)
                     ToolbarItem(placement: .primaryAction) {
                         Button { Task { if let id = await store.newPage() { selection = id } } } label: { Label("Neue Seite", systemImage: "square.and.pencil") }
                     }
-                    #if os(iOS)
                     ToolbarItem(placement: .primaryAction) {
                         if store.notifs.supported { BellButton(notifs: store.notifs) { showNotifs = true } }
                     }
@@ -84,6 +88,11 @@ struct RootView: View {
             .animation(.snappy(duration: 0.25), value: nav.peek)
             #if os(macOS)
             .toolbar {                                           // Mac: Glocke im Inhaltsbereich - auch bei eingeklappter Seitenleiste sichtbar
+                // "Neue Seite" ebenfalls hier: in der schmalen Seitenleisten-Leiste landete der Knopf im unbeschrifteten Ueberlauf ">>"
+                ToolbarItem(placement: .navigation) {
+                    Button { Task { if let id = await store.newPage() { selection = id } } } label: { Label("Neue Seite", systemImage: "doc.badge.plus") }
+                        .help(Text("Neue Seite"))                       // eigenes Symbol: "Neuer Chat" nutzt das Stift-Symbol
+                }
                 ToolbarItem(placement: .primaryAction) {
                     if store.notifs.supported { BellButton(notifs: store.notifs) { showNotifs = true } }
                 }

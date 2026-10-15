@@ -27,7 +27,14 @@ struct ChatsScreen: View {
                 }
             case .setup: ScrollView { ChatSetupView(chat: chat).padding() }
             case .newDevice: ScrollView { ChatNewDeviceView(chat: chat).padding() }
-            case .ready: ready
+            case .ready:
+                #if DEBUG
+                if UserDefaults.standard.bool(forKey: "hkChatForceSetup") { ScrollView { ChatSetupView(chat: chat).padding() } }   // nur fuer Bilder: nichts wird gesendet
+                else if UserDefaults.standard.bool(forKey: "hkChatForceNewDevice") { ScrollView { ChatNewDeviceView(chat: chat).padding() } }
+                else { ready }
+                #else
+                ready
+                #endif
             }
         }
         .navigationTitle("Chats")
@@ -338,7 +345,8 @@ struct ChatSetupView: View {
             if reset { reauth = chat.me.reauth }
             #if DEBUG
             if let k = UserDefaults.standard.string(forKey: "hkChatSetupKey"), let s = UserDefaults.standard.string(forKey: "hkChatSetupStep") {   // nur fuer Tests
-                key = k; step = s == "confirm" ? .confirm : .show
+                key = k; step = s == "confirm" ? .confirm : s == "intro" ? .intro : .show
+                if s == "confirm" { last4 = String(k.suffix(4)) }
             }
             #endif
         }
@@ -367,6 +375,9 @@ struct ChatNewDeviceView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Label("Chats auf diesem Gerät", systemImage: "lock.shield").font(.title2.bold())
+                #if DEBUG
+                .task { if UserDefaults.standard.integer(forKey: "hkChatNewDeviceMode") == 2 { mode = 2 } }      // nur fuer Bilder
+                #endif
             switch chat.linking != nil && mode == 0 ? 1 : mode {          // Kopplung laeuft (auch von aussen gestartet)
             case 1: linkView
             case 2: restoreView
@@ -417,7 +428,7 @@ struct ChatNewDeviceView: View {
     }
     @ViewBuilder private var restoreView: some View {
         Text("Wiederherstellungsschlüssel eingeben").font(.headline)
-        TextField(String(localized: "Wiederherstellungsschlüssel"), text: $rk, prompt: Text(verbatim: "XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"), axis: .vertical).font(.body.monospaced()).textFieldStyle(.roundedBorder)
+        TextField(String(localized: "Wiederherstellungsschlüssel"), text: $rk, prompt: Text(verbatim: "XXXX-XXXX-XXXX-XXXX-…"), axis: .vertical).font(.body.monospaced()).textFieldStyle(.roundedBorder)
             .autocorrectionDisabled()
             #if os(iOS)
             .textInputAutocapitalization(.characters)

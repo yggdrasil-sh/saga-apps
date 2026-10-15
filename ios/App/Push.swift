@@ -216,7 +216,7 @@ struct PushSettingsSection: View {
                 default: EmptyView()
                 }
                 if let m = push.message { Text(m).font(.footnote).foregroundStyle(.secondary) }
-                if let s = push.state, s.enabled { options(s).disabled(!on) }      // "Worueber?" nur bei eingeschalteten Mitteilungen
+                if let s = push.state, s.enabled { options(s, enabled: on) }      // "Worueber?" nur bei eingeschalteten Mitteilungen
             } header: { Text("Mitteilungen") } footer: {
                 Text("Mitteilungen aufs Handy oder den Computer – auch wenn Saga geschlossen ist. Inhalte von Seiten, Kommentaren und Chats werden nie mitgeschickt.")
             }
@@ -230,7 +230,8 @@ struct PushSettingsSection: View {
         }
     }
 
-    @ViewBuilder private func options(_ s: PushState) -> some View {
+    @ViewBuilder private func options(_ s: PushState, enabled: Bool) -> some View {
+        Group {
         Text("Worüber?").font(.subheadline.weight(.semibold)).padding(.top, 4)
         ForEach(s.categories, id: \.self) { c in
             Toggle(Self.catLabel(c), isOn: Binding(get: { s.cats[c] ?? true }, set: { v in Task { await push.save(["cats": [c: v]]) } }))
@@ -246,6 +247,8 @@ struct PushSettingsSection: View {
             DatePicker("von", selection: timeBinding(s.quietFrom, key: "from"), displayedComponents: .hourAndMinute)
             DatePicker("bis", selection: timeBinding(s.quietTo, key: "to"), displayedComponents: .hourAndMinute)
         }
+        }
+        .disabled(!enabled).foregroundStyle(enabled ? Color.primary : Color.secondary)     // ausgegraut, solange Mitteilungen aus sind
     }
 
     private func devices(_ s: PushState) -> some View {
