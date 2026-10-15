@@ -382,6 +382,7 @@ class NotificationSettingsGroup(Adw.PreferencesGroup):
                          description=_("Shown in Saga under the bell – instantly while Saga is open."))
         self.dlg = dlg
         self.rows = []
+        self._reverting = set()                # Schalter, die gerade nach einem Fehler zurueckgestellt werden
         self.set_visible(False)
         bg(client.get, "api/notifications/settings", done=self.fill, error=lambda e: None)
 
@@ -392,7 +393,7 @@ class NotificationSettingsGroup(Adw.PreferencesGroup):
         self.rows = []
         for k in kinds:
             sw = Adw.SwitchRow(title=kind_label(k["kind"]), active=bool(k.get("on")))
-            sw.connect("notify::active", lambda r, _p, kind=k["kind"]: self._set(kind, r.get_active()))
+            sw.connect("notify::active", lambda r, _p, kind=k["kind"]: self._set(kind, r))
             self.add(sw)
             self.rows.append(sw)
         dn = Adw.SwitchRow(title=_("Desktop notifications while Saga is open"),
@@ -402,6 +403,16 @@ class NotificationSettingsGroup(Adw.PreferencesGroup):
         self.rows.append(dn)
         self.set_visible(bool(kinds))
 
-    def _set(self, kind, on):
-        bg(client.json, "PUT", "api/notifications/settings", {kind: on},
-           error=lambda e: self.dlg.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(e)))))
+    def _set(self, kind, row):
+        """Thema an/aus; scheitert das Speichern, springt der Schalter zurueck (er zeigt nie einen Stand, den der Server
+        nicht hat, BUG-078)"""
+        if row in self._reverting:
+            return
+        on = row.get_active()
+
+        def err(e):
+            self._reverting.add(row)
+            row.set_active(not on)
+            self._reverting.discard(row)
+            self.dlg.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(e))))
+        bg(client.json, "PUT", "api/notifications/settings", {kind: on}, error=err)

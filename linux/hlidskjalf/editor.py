@@ -136,6 +136,7 @@ class PageDoc:
         self.account = config.account(self.server)  # ... und zu diesem Konto (None: noch unbekannt, wird zugeordnet)
         self.on_copies = None          # () -> None: lokale Kopien geaendert (Banner)
         self._offline = False
+        self.too_large = False         # 413 beim Speichern: Seite ueber der Servergrenze (bis ein Speichern klappt)
         # Teilen (1.3): fremde Seiten
         self.error_code = None         # HTTP-Code, wenn das Laden fehlschlug (404: kein Zugriff)
         self.conflict_by = None        # Name der Person, die zuletzt gespeichert hat (409 'by' bzw. updated_by)
@@ -467,6 +468,7 @@ class PageDoc:
             self.error = self.last_error = None
             self.conflict_by = None
             self._offline = False
+            self.too_large = False
             if isinstance(self.page.get("updated_by"), dict):  # "Zuletzt geaendert von": jetzt ich
                 self.page["updated_by"] = {"me": True, "name": "", "username": None}
             store.update_title(self.id, title)
@@ -509,7 +511,17 @@ class PageDoc:
 
     def _report(self, e):
         """Fehler beim Speichern melden. Offline (Server nicht erreichbar): einmal der Offline-Hinweis, nicht bei
-        jedem weiteren Versuch."""
+        jedem weiteren Versuch. 413 (Seite zu gross): einmal erklaeren, was zu tun ist; die Seite zeigt den Hinweis
+        dauerhaft (too_large), jede weitere Eingabe versucht es erneut (gekuerzt klappt es wieder) - BUG-081."""
+        if isinstance(e, APIError) and e.code == 413:
+            first = not self.too_large
+            self.too_large = True
+            if first and self.on_error:
+                self.on_error(_("This page is too large to save. Shorten it or split it into several pages – until then "
+                                "your changes are only kept on this device."))
+            if self.on_copies:
+                self.on_copies()                             # Hinweis oben an der Seite aktualisieren
+            return
         if isinstance(e, APIError) and e.code == 0:
             if not self._offline and self.on_error:
                 self.on_error(_("Offline – changes will be saved as soon as the server is reachable."))

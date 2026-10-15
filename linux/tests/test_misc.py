@@ -91,3 +91,30 @@ def test_origin():
     assert origin("https://saga.example.org:8443/") == "https://saga.example.org:8443"
     assert origin("hlidskjalf://pair") == ""
     assert origin("javascript:alert(1)") == ""
+
+
+def test_unreachable_text_without_raw_errno():
+    """BUG-113: keine rohe Systemmeldung ("[Errno 111] Connection refused") in der Oberflaeche; Zertifikatsfehler behalten
+    ihre Einzelheit"""
+    import ssl
+    import urllib.error
+    from hlidskjalf.api import _unreachable
+    t = _unreachable(urllib.error.URLError(ConnectionRefusedError(111, "Connection refused")))
+    assert t == "Server not reachable" and "Errno" not in t
+    assert _unreachable(ConnectionResetError(104, "Connection reset by peer")) == "Server not reachable"
+    c = _unreachable(urllib.error.URLError(ssl.SSLCertVerificationError("certificate verify failed")))
+    assert c.startswith("Server not reachable: ") and "certificate" in c
+
+
+def test_chats_entry_stays_while_offline(srv):
+    """BUG-113: hatte der Server Chats, bleibt "Chats" in der Seitenleiste, solange der Status offline unbekannt ist"""
+    from hlidskjalf import config
+    from hlidskjalf.chat import chat
+    chat.status = "ready"
+    chat._remember_available(config.settings.server)
+    chat.status = "unknown"
+    assert chat.shown
+    chat.status = "off"
+    chat._remember_available(config.settings.server)
+    chat.status = "unknown"
+    assert not chat.shown

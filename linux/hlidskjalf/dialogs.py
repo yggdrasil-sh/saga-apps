@@ -42,6 +42,7 @@ class CommandPalette(Adw.Dialog):
         self.entry = Gtk.SearchEntry(placeholder_text=_("Search pages … (> for commands)"), margin_top=12, margin_bottom=8, margin_start=12, margin_end=12)
         self.entry.connect("search-changed", self._changed)
         self.entry.connect("activate", lambda *_: self._pick(self.sel))
+        self.entry.connect("stop-search", lambda *_: self.close())    # Esc schliesst (Suchzeile verschluckt es sonst, BUG-077)
         kc = Gtk.EventControllerKey()
         kc.connect("key-pressed", self._key)
         self.entry.add_controller(kc)
@@ -156,6 +157,8 @@ class TrashDialog(Adw.Dialog):
         while (c := self.box.get_first_child()):
             self.box.remove(c)
         self.empty_btn.set_sensitive(bool(items))
+        if self.get_focus() is None:                         # Fokus lag auf "Papierkorb leeren" (jetzt gesperrt): ohne
+            self.child_focus(Gtk.DirectionType.TAB_FORWARD)  # Fokus kaeme Esc nicht beim Dialog an (BUG-077)
         if not items:
             lb = Gtk.Label(label=_("The trash is empty."), margin_top=20)
             lb.add_css_class("dim-label")
@@ -209,6 +212,7 @@ class PagePicker(Adw.Dialog):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=8, margin_start=10, margin_end=10, margin_bottom=8)
         self.entry = Gtk.SearchEntry(placeholder_text=_("Find page"))
         self.entry.connect("search-changed", lambda *_: self.fill())
+        self.entry.connect("stop-search", lambda *_: self.close())    # Esc schliesst (BUG-077)
         box.append(self.entry)
         sw = Gtk.ScrolledWindow(vexpand=True)
         self.list = Gtk.ListBox()
@@ -408,6 +412,7 @@ class ImmichPicker(Adw.Dialog):
             self.stack.append(sw)
         self.search = Gtk.SearchEntry(placeholder_text=_("Search … (e.g. “beach”, “cat”)"))
         self.search.connect("activate", lambda *_: self._load(True))
+        self.search.connect("stop-search", lambda *_: self.close())    # Esc schliesst (BUG-077)
         self.stack.append(self.search)
         self.stack.append(self.info)
         sw2 = Gtk.ScrolledWindow(vexpand=True)

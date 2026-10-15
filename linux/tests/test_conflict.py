@@ -161,3 +161,82 @@ def test_pair_dialog_texts(win, srv):
     assert d.get_body().startswith("Saga will sign in to neu.example.")
     assert d.get_response_label("pair") == "Pair"
     d.force_close()
+
+
+def test_conflict_dialog_waits_for_typing_pause(win, srv):
+    """BUG-027: mitten im Tippen geht kein Dialog auf (nur der Hinweis); danach ist "Meine Fassung behalten" nicht die
+    Standardantwort und die Knoepfe sind kurz gesperrt - ein gerade getippter Tastendruck entscheidet nichts"""
+    from gi.repository import GLib
+    win.show_root(("page", 3))
+    v = win.current
+    assert pump(lambda: v.doc.fetched)
+    srv.notes[3]["rev"] += 1
+    srv.notes[3]["title"] = "Woanders umbenannt"
+    v.doc.page["title"] = "Hier umbenannt"
+    v.editor.text_changed()
+    v.editor.flush()
+    assert pump(lambda: v.doc.conflict is not None, 6)
+    t0 = GLib.get_monotonic_time()
+    while GLib.get_monotonic_time() - t0 < 1_500_000:            # weiter tippen
+        v.on_typed()
+        pump(None, 0.2)
+        assert _dialog(win) is None, "Dialog mitten im Tippen"
+        assert v.conflict_banner.get_revealed()
+    assert pump(lambda: _dialog(win) is not None, 5), "kein Dialog nach der Tipp-Pause"
+    d = _dialog(win)
+    assert d.get_default_response() != "mine"
+    assert not d.get_response_enabled("mine") and not d.get_response_enabled("theirs")
+    pump(None, 1.2)
+    assert d.get_response_enabled("mine") and d.get_response_enabled("theirs")
+    assert srv.notes[3]["title"] == "Woanders umbenannt"             # nichts ueberschrieben
+    d.close()
+    pump(None, 0.3)
+
+
+def test_open_conflict_one_banner_and_reload_opens_dialog(win, srv):
+    """BUG-079: bei offenem Konflikt kein zweiter Hinweis; "Neu laden" fuehrt zur Fassungswahl mit der neuesten Fassung"""
+    v, d = _conflict_in_view(win, srv, 3)
+    d.close()                                                        # Esc: spaeter
+    pump(None, 0.3)
+    assert v.conflict_banner.get_revealed()
+    srv.notes[3]["rev"] += 1
+    srv.notes[3]["title"] = "Noch einmal woanders"
+    v.live_changed({"id": 3, "rev": srv.notes[3]["rev"], "by": {"name": "Anna"}})
+    assert pump(lambda: (v.doc.conflict or {}).get("rev") == srv.notes[3]["rev"], 6)
+    idle()
+    assert not v.changed_banner.get_revealed()
+    assert v.conflict_banner.get_revealed()
+    v.changed_banner.set_revealed(True)                              # aelterer Hinweis noch sichtbar: Neu laden
+    v._reload_from_banner()
+    pump(None, 0.3)
+    assert _dialog(win) is not None
+    assert not v.changed_banner.get_revealed()
+    _dialog(win).close()
+    pump(None, 0.3)
+
+
+def test_page_too_large_explained_once_and_recovers(win, srv):
+    """BUG-081: 413 (Seite zu gross) wird einmal erklaert, bleibt als Hinweis an der Seite und beim Schliessen; nach dem
+    Kuerzen speichert die Seite wieder"""
+    win.show_root(("page", 3))
+    v = win.current
+    assert pump(lambda: v.doc.fetched)
+    errs = []
+    v.doc.on_error = errs.append
+    srv.fail["PATCH api/notes/3"] = 413
+    try:
+        for t in ("sehr lang 1", "sehr lang 2"):
+            _type(v.doc, t)
+            v.doc.save()
+            idle()
+        assert len(errs) == 1 and "too large to save" in errs[0]
+        assert v.doc.too_large and v.doc.dirty
+        v.update_banners()
+        assert v.large_banner.get_revealed()
+    finally:
+        srv.fail.pop("PATCH api/notes/3", None)
+    _type(v.doc, "gekuerzt")
+    v.doc.save()
+    assert pump(lambda: note_texts(srv, 3) == ["gekuerzt"], 6)
+    idle()
+    assert not v.doc.too_large and not v.large_banner.get_revealed()

@@ -179,6 +179,19 @@ class Store(GObject.Object):
         for d in list(self.docs):
             d.account_known()
 
+    def forget_account_data(self):
+        """Inhalte des bisherigen Kontos weg (Zwischenspeicher, Seitenliste, Zuletzt ...) - Abmelden und Anmelden mit
+        einem (moeglicherweise anderen) Konto am selben Server (BUG-031). Entwuerfe bleiben je Konto getrennt liegen."""
+        self.clear_cache()
+        self.pages, self.archived, self.by_id, self.tasks, self.done_tasks, self.events = [], [], {}, [], [], []
+        self.fed_shared, self.fed_unreachable = [], []
+        self._set_shared([])
+        self.share_api, self.share_off = None, False
+        self.recent = []
+        config.settings.set("recent", None)
+        self.emit("pages-changed")
+        self.emit("today-changed")
+
     def logout(self, done=None):
         self.new_session()                                 # Entwuerfe bleiben beim Konto liegen (naechste Anmeldung)
 
@@ -186,15 +199,7 @@ class Store(GObject.Object):
             client.forget()
 
         def fin(_):
-            self.clear_cache()
-            self.pages, self.archived, self.by_id, self.tasks, self.done_tasks, self.events = [], [], {}, [], [], []
-            self.fed_shared, self.fed_unreachable = [], []
-            self._set_shared([])
-            self.share_api, self.share_off = None, False
-            self.recent = []
-            config.settings.set("recent", None)
-            self.emit("pages-changed")
-            self.emit("today-changed")
+            self.forget_account_data()
             self.needs_login = True
             self.emit("need-login")
             if done:

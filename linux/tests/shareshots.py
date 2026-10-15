@@ -205,7 +205,7 @@ def locked_db_shot(g):
 steps = [(300, start)]
 for _t, _s in THEMES:
     steps += [(2500, reset(_t, _s)), (2500, shared_shot), (2000, view_shot), (1500, share_open), (1500, share_shot),
-              (1500, search_shot), (1500, comments_open), (1500, comments_shot), (1500, block_shot), (2000, conflict_shot),
+              (1500, search_shot), (1500, comments_open), (1500, comments_shot), (1500, block_shot), (3500, conflict_shot),
               (1500, draft_shot), (2000, lost_shot), (2000, gone_edit), (2000, gone_save), (2000, gone_shot),
               (1500, noaccess_shot), (2500, locked_db_shot)]
 steps += [(500, lambda g: Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.FORCE_LIGHT))]

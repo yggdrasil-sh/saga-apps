@@ -70,7 +70,7 @@ class ViewBar(Gtk.Box):
         self.tabs = Gtk.Box(spacing=2)
         sw.set_child(self.tabs)
         self.append(sw)
-        self.search = Gtk.SearchEntry(placeholder_text=_("Search"), width_chars=12)
+        self.search = Gtk.SearchEntry(placeholder_text=_("Search"), width_chars=7, max_width_chars=14)   # schmal: passt (BUG-082)
         self.search.connect("search-changed", self._search)
         self.append(self.search)
         self.settings = Gtk.MenuButton(icon_name="emblem-system-symbolic", tooltip_text=_("View: filters, sorting, properties"))
@@ -419,8 +419,10 @@ class ColumnEditor(Gtk.Popover):
                 r = Gtk.Box(spacing=6)
                 r.append(chip(o.get("name") or "", o.get("color")))
                 r.append(Gtk.Box(hexpand=True))
-                mb = Gtk.MenuButton(icon_name="view-more-symbolic")
+                mb = Gtk.MenuButton(icon_name="view-more-symbolic", tooltip_text=_("More"))
                 mb.add_css_class("flat")
+                mb.update_property([Gtk.AccessibleProperty.LABEL],                  # Screenreader: nicht nur "Knopf" (BUG-114)
+                                   [_("More") + ": " + (o.get("name") or "")])
 
                 def popup(b, i=i):
                     ents = [(COLOR_NAMES[c], (lambda c=c: self.edit(lambda d: _opt(d, i, "color", c)))) for c in COLOR_ORDER]

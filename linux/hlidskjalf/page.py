@@ -231,6 +231,8 @@ class PageView(Gtk.Box):
         self.doc.on_copies = lambda: self.update_banners()
         self.doc.on_lost = self._lost
         self._conflict_dlg = None
+        self._conflict_wait = 0                 # Konflikt-Dialog wartet, bis eine Tipp-Pause ist (BUG-027)
+        self._typed_at = 0                      # GLib.get_monotonic_time() der letzten Eingabe
         self._lost_dlg = None
         # Kommentare (1.3): Zahl je Block (offene Unterhaltungen), Bloecke mit ungelesenen, hervorgehobener Block
         self.cm_counts, self.cm_unread, self.cm_block = {}, set(), None
@@ -506,11 +508,56 @@ class PageView(Gtk.Box):
         self._relayout_soon()
         self.apply_focus()
 
-    def _conflict(self, doc, server_page):
+    TYPING_PAUSE_US = 2_000_000                              # so lange keine Eingabe, bevor der Konflikt-Dialog aufgeht
+    RESPONSE_GUARD_MS = 800                                  # Knoepfe des Dialogs erst danach aktiv (BUG-027)
+
+    def _typing(self):
+        return GLib.get_monotonic_time() - self._typed_at < self.TYPING_PAUSE_US
+
+    def _defer_conflict(self):
+        """Mitten im Tippen keinen Dialog aufreissen (Leertaste/Enter wuerden einen Knopf ausloesen, Woerter gingen
+        verloren): Hinweis oben an der Seite zeigen und den Dialog erst nach einer Tipp-Pause oeffnen."""
+        self.update_banners()
+        if self._conflict_wait:
+            return
+
+        def tick():
+            doc = self.doc
+            if doc.conflict is None or self._conflict_dlg is not None or not self.get_mapped() \
+                    or self.win.current is not self:
+                self._conflict_wait = 0                     # geloest bzw. Seite nicht sichtbar: Hinweis bleibt
+                return False
+            if self._typing():
+                return True
+            self._conflict_wait = 0
+            self._conflict(doc, doc.conflict, asked=True)
+            return False
+        self._conflict_wait = GLib.timeout_add(250, tick)
+
+    def _present_conflict(self, dlg, ids):
+        """Dialog zeigen; Knoepfe kurz gesperrt, damit ein gerade getippter Tastendruck nichts entscheidet"""
+        for r in ids:
+            dlg.set_response_enabled(r, False)
+
+        def enable():
+            for r in ids:
+                dlg.set_response_enabled(r, True)
+            return False
+        GLib.timeout_add(self.RESPONSE_GUARD_MS, enable)
+        dlg.present(self.win)
+        _wrap_labels(dlg)                                    # lange Knopftexte (Glossar) umbrechen statt kuerzen
+        self.update_banners()
+
+    def _conflict(self, doc, server_page, asked=False):
         """Die Seite wurde woanders geaendert, waehrend hier ungespeicherte Eingaben liegen: nichts verwerfen, fragen.
         Texte wie iOS/Android (Glossar "Einheitliche Dialoge"). Schliessen/Esc = noch nicht entscheiden: nichts wird
-        ueberschrieben, der Hinweis bleibt oben an der Seite (auch bei Datenbanken - nie still "meine")."""
+        ueberschrieben, der Hinweis bleibt oben an der Seite (auch bei Datenbanken - nie still "meine").
+        asked: ueber den Hinweis geoeffnet (sofort); sonst erst nach einer Tipp-Pause. "Meine Fassung behalten"
+        ueberschreibt die andere Aenderung und ist deshalb nie die Standardantwort (Enter)."""
         if self._conflict_dlg is not None or doc.conflict is None:
+            return
+        if not asked and self._typing():
+            self._defer_conflict()
             return
         if doc.conflict_by:
             self._conflict_person(doc, doc.conflict_by)
@@ -519,11 +566,9 @@ class PageView(Gtk.Box):
                               body=_("This page was changed on another device in the meantime. Your changes won't be lost."))
         dlg.add_response("mine", _("Keep my version"))
         dlg.add_response("theirs", _("Load server version (save mine as a copy)"))
-        dlg.set_response_appearance("mine", Adw.ResponseAppearance.SUGGESTED)
         if hasattr(dlg, "set_prefer_wide_layout"):
             dlg.set_prefer_wide_layout(True)
         dlg.set_close_response("later")
-        dlg.set_default_response("mine")
         self._conflict_dlg = dlg
 
         def resp(d, r):
@@ -537,9 +582,7 @@ class PageView(Gtk.Box):
                 self.update_banners()
         dlg.connect("response", resp)
         dlg.connect("closed", closed)
-        dlg.present(self.win)
-        _wrap_labels(dlg)                                    # lange Knopftexte (Glossar) umbrechen statt kuerzen
-        self.update_banners()
+        self._present_conflict(dlg, ("mine", "theirs"))
 
     def _conflict_person(self, doc, by):
         """Eine andere Person hat gespeichert (Teilen): Hauptknopf "Neue Version laden" - der eigene, nicht gespeicherte
@@ -569,9 +612,7 @@ class PageView(Gtk.Box):
                 self.update_banners()
         dlg.connect("response", resp)
         dlg.connect("closed", closed)
-        dlg.present(self.win)
-        _wrap_labels(dlg)
-        self.update_banners()
+        self._present_conflict(dlg, ("mine", "reload"))
 
     def _load_new_version(self, doc):
         from .sharing import TextDialog, draft_texts
@@ -644,6 +685,7 @@ class PageView(Gtk.Box):
             self.win.set_presence(users)
 
     def on_typed(self):
+        self._typed_at = GLib.get_monotonic_time()
         if self.presence is not None:
             self.presence.typed()
 
@@ -684,11 +726,19 @@ class PageView(Gtk.Box):
             self.doc.on_loaded = loaded
             doc.load(force=True)
             return
+        if doc.conflict is not None:                         # Konflikt schon offen: nur die neueste Server-Fassung
+            doc.load(force=True)                             # merken - kein zweiter Hinweis (BUG-079)
+            self.update_banners()
+            return
         self.changed_banner.set_title(GLib.markup_escape_text(_("{name} changed this page").format(name=name or _("Someone"))))
         self.changed_banner.set_revealed(True)
 
     def _reload_from_banner(self):
         self.changed_banner.set_revealed(False)
+        if self.doc.conflict is not None:                    # Konflikt offen: "Neu laden" = Fassung waehlen (BUG-079)
+            self.doc.load(force=True)                        # neueste Server-Fassung fuer den Dialog
+            self._conflict(self.doc, self.doc.conflict, asked=True)
+            return
         self.editor.flush()
         self.doc.load(force=True)                            # eigene Eingaben: der Konflikt-Dialog entscheidet
 
@@ -703,7 +753,7 @@ class PageView(Gtk.Box):
             if not self.cm_loaded:
                 self.cm_counts = dict(counts["blocks"])
         if self.cpanel is not None and (self.comments_open or self.cm_loaded):
-            self.cpanel.reload()
+            self.cpanel.reload(self.cpanel.live_render)      # offene Leiste zeigt neue Kommentare sofort (BUG-029)
         self.update_bubbles()
         if self.header_changed:
             self.header_changed()
@@ -835,8 +885,13 @@ class PageView(Gtk.Box):
     def _banners(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.conflict_banner = Adw.Banner(title=_("Page changed elsewhere"), button_label=_("Choose version"), revealed=False)
-        self.conflict_banner.connect("button-clicked", lambda *_: self._conflict(self.doc, self.doc.conflict))
+        self.conflict_banner.connect("button-clicked", lambda *_: self._conflict(self.doc, self.doc.conflict, asked=True))
         box.append(self.conflict_banner)
+        # Seite ueber der Servergrenze (413): bleibt stehen, bis ein Speichern wieder klappt (BUG-081)
+        self.large_banner = Adw.Banner(title=GLib.markup_escape_text(_(
+            "This page is too large to save. Shorten it or split it into several pages – until then your changes are only "
+            "kept on this device.")), revealed=False)
+        box.append(self.large_banner)
         # Live (1.4): jemand anderes hat gespeichert, hier gibt es ungespeicherte Eingaben -> Hinweis + "Neu laden"
         self.changed_banner = Adw.Banner(title="", button_label=_("Reload"), revealed=False)
         self.changed_banner.connect("button-clicked", lambda *_: self._reload_from_banner())
@@ -871,7 +926,10 @@ class PageView(Gtk.Box):
         else:
             self.conflict_banner.set_title(GLib.markup_escape_text(_("Page changed elsewhere")))
         gone = self.no_access
+        self.large_banner.set_revealed(bool(doc.too_large) and not gone)
         self.conflict_banner.set_revealed(doc.conflict is not None and self._conflict_dlg is None and not gone)
+        if doc.conflict is not None:                         # ein Hinweis genuegt: "Fassung waehlen" (BUG-079)
+            self.changed_banner.set_revealed(False)
         # lokale Kopie: "Wiederherstellen" nur, wenn ich (noch) bearbeiten darf - bei Nur-Lesen bleibt "Verwerfen"
         # (der Text stand im Dialog zum Kopieren); ohne Zugriff kein Hinweis
         cps = doc.local_copies() if doc.fetched and not gone else []

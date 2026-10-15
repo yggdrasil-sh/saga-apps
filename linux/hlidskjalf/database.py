@@ -355,7 +355,14 @@ class DBModel(GObject.Object):
         # ganzes Schema in der Warteschlange der Datenbank; noch wartende aeltere Fassungen werden ersetzt (coalesce),
         # damit nie ein veraltetes Schema ein neueres ueberholt
         store.run("PATCH", f"api/notes/{self.db_id}", {"schema": copy.deepcopy(sc)}, key=("note", self.db_id), coalesce="schema",
-                  done=lambda _: (self.load(), store.changed_data()), error=lambda e: (store.emit("error", str(e)), self.load()))
+                  done=lambda r: (self._take_srev(r), self.load(), store.changed_data()),
+                  error=lambda e: (store.emit("error", str(e)), self.load()))
+
+    def _take_srev(self, r):
+        """Server (BUG-001): PATCH liefert die neue Schema-Revision - fuer die naechste Aenderung uebernehmen, damit der
+        Server erkennt, welche Spalten wir kennen (fremde, neuere bleiben sonst ohnehin erhalten)"""
+        if isinstance(r, dict) and isinstance(r.get("srev"), int) and isinstance(self.schema, dict):
+            self.schema["srev"] = r["srev"]
 
     def edit_prop(self, pid, change):
         def ch(sc):
@@ -1146,7 +1153,24 @@ class DatabaseView(Gtk.Box):
         self.append(self.err)
         self.m.connect("changed", lambda *_: self.render())
         watch(self, "data-changed", self.m.load)
+        self._narrow = None
+        self._narrow_src = 0
         self.m.load()
+
+    NARROW = 560
+
+    def do_size_allocate(self, width, height, baseline):
+        """Breite ueber die Grenze geaendert (Fenster verkleinert/vergroessert): Tabelle <-> Liste (BUG-082)"""
+        Gtk.Box.do_size_allocate(self, width, height, baseline)
+        narrow = 0 < width < self.NARROW
+        if self._narrow is not None and narrow != self._narrow and not self._narrow_src:
+            def later():
+                self._narrow_src = 0
+                if ((self.view or {}).get("type") or "table") == "table":
+                    self.render()
+                return False
+            self._narrow_src = GLib.idle_add(later)
+        self._narrow = narrow
 
     def _header(self):
         p = store.meta(self.db_id)
@@ -1192,7 +1216,7 @@ class DatabaseView(Gtk.Box):
             return
         v = self.view
         t = (v or {}).get("type") or "table"
-        narrow = 0 < self.get_width() < 560
+        narrow = 0 < self.get_width() < self.NARROW
         if t == "board":
             w = BoardView(self.win, self.m, v)
         elif t == "gallery":

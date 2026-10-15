@@ -13,6 +13,9 @@ BuildRequires:  python3
 BuildRequires:  gettext
 Requires:       python3 >= 3.11
 Requires:       python3-gobject
+# Typelibs von GLib/cairo (cairo-1.0.typelib, von Gtk-4.0 verlangt) liegen in gobject-introspection - auf Minimal-,
+# Server- und Container-Installationen fehlt das Paket sonst, und die App bricht beim Start ab (BUG-006)
+Requires:       gobject-introspection
 # CSS-Variablen (var(--accent-color) ...) brauchen GTK >= 4.16 / libadwaita >= 1.6
 Requires:       gtk4 >= 4.16
 Requires:       libadwaita >= 1.6
@@ -24,8 +27,10 @@ Requires:       hicolor-icon-theme
 # Seitensymbole, Callouts und Hinweise sind Emoji (wie im Web) - ohne Farb-Emoji-Schrift erscheinen Ersatzkaestchen
 # (die App zeigt dann fuer Seitensymbole ein einfarbiges Ersatzsymbol). Fedora und AlmaLinux/RHEL 10: gleicher Paketname
 Requires:       google-noto-color-emoji-fonts
-# Chats mit Ende-zu-Ende-Verschluesselung: libsodium ueber PyNaCl 1.6.x (Fedora/AlmaLinux: python3-pynacl)
-Requires:       python3dist(pynacl) >= 1.6
+# Chats mit Ende-zu-Ende-Verschluesselung: libsodium ueber PyNaCl (Fedora/AlmaLinux: python3-pynacl). Genutzt werden nur
+# Funktionen, die es seit PyNaCl 1.5 gibt (Testvektoren tests/test_chat_vectors.py laufen mit 1.5.0); EPEL 10 hat nur 1.5.0
+# (BUG-026). Die Krypto selbst kommt aus der System-libsodium, nicht aus PyNaCl.
+Requires:       python3dist(pynacl) >= 1.5
 
 %description
 Saga is a native GNOME app (GTK4 and libadwaita) for a self-hosted

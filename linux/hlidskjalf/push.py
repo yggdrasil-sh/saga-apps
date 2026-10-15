@@ -196,6 +196,10 @@ class UnifiedPush(GObject.Object):
             self.emit("changed")
 
         def err(e):
+            if isinstance(e, APIError) and 400 <= e.code < 500 and _state().get("token") == token:
+                # Server lehnt die Adresse ab: nicht "an" bleiben (Schalter zeigte an, kein Geraet am Server) -
+                # beim Verteiler abmelden, der Fehler steht unter dem Schalter (BUG-078)
+                self.unregister()
             self.last_error = str(e)
             self.emit("changed")
         if old:
