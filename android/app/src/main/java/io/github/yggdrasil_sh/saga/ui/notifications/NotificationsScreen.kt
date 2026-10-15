@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -25,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -68,9 +68,8 @@ fun NotificationsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome)
 
     Scaffold(topBar = {
         SagaTopBar(stringResource(R.string.notifications), nav, chrome) {
-            if (unread > 0) {
-                IconButton(onClick = { repo.launchAction { live.markAllRead() } }) { Icon(Icons.Filled.Done, stringResource(R.string.notifications_mark_all)) }
-            }
+            // "Alle gelesen" sichtbar als Textknopf (wie im Web), ohne Ungelesene gesperrt
+            TextButton(onClick = { repo.launchAction { live.markAllRead() } }, enabled = unread > 0) { Text(stringResource(R.string.notifications_mark_all)) }
             IconButton(onClick = { nav.top(Dest.Settings) }) { Icon(Icons.Filled.Settings, stringResource(R.string.notifications_settings)) }
         }
     }) { pad ->
@@ -136,7 +135,8 @@ private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Uni
     val tap = NotifLogic.tappable(n)
     val unreadDesc = stringResource(R.string.unread_dot_desc)
     Row(
-        modifier.then(if (tap) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier.then(if (n.read) Modifier else Modifier.background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)))
+            .then(if (tap) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Avatar(n.actor?.name ?: "", icon = if (n.kind.startsWith("chat.")) R.drawable.ic_chat else null)
@@ -147,7 +147,7 @@ private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Uni
                 color = if (tap) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                listOfNotNull(n.note?.icon?.takeIf { it.isNotEmpty() && !it.startsWith("/") }, n.title).joinToString(" "),
+                listOfNotNull(if (n.chat != null) "💬" else n.note?.icon?.takeIf { it.isNotEmpty() && !it.startsWith("/") } ?: "📄", n.title).joinToString(" "),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )

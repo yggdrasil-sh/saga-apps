@@ -17,6 +17,10 @@ cd android
 Die Version kommt aus `../VERSION` (`tools/set-version.sh`), der `versionCode` wird daraus berechnet
 (`major*1000000 + minor*10000 + patch*100`).
 
+Bildschirmfotos (nur Debug-Build): `adb shell settings put global saga_screenshot_mode 1` vor dem App-Start zeigt
+statt der echten Server-Adresse `saga.example.org` und als App-Version `2.0.0` (`util/ShotMode.kt`); die Statusleiste
+setzt man mit dem System-Demo-Modus (`com.android.systemui.demo`, Uhrzeit 9:41).
+
 ## Signieren
 
 Release-Builds werden signiert, wenn ein Schlüssel angegeben ist – sonst entsteht `Saga-<Version>-unsigned.apk`.

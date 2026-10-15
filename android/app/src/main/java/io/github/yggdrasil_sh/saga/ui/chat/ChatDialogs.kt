@@ -5,6 +5,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -149,9 +153,14 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
 
 /** Sicherheitsnummer je Gegenueber (60 Ziffern + QR "saga-safety:1:<ziffern>"), "Als überprüft markieren" */
 @Composable
-fun SafetyDialog(s: ChatSession, onDismiss: () -> Unit) {
+fun SafetyDialog(s: ChatSession, initial: String? = null, onDismiss: () -> Unit) {
     val others = s.summary?.members.orEmpty().filter { !it.me }
-    var who by remember { mutableStateOf(others.firstOrNull { it.username in s.identChanged }?.username ?: others.firstOrNull()?.username) }
+    var who by remember {
+        mutableStateOf(
+            initial?.takeIf { u -> others.any { it.username == u } }
+                ?: others.firstOrNull { it.username in s.identChanged }?.username ?: others.firstOrNull()?.username,
+        )
+    }
     var qr by remember { mutableStateOf(false) }
     val number = who?.let { s.safetyNumber(it) }
     LaunchedEffect(who) { who?.let { if (it in s.identChanged) s.acknowledge(it, false) } }
@@ -170,10 +179,7 @@ fun SafetyDialog(s: ChatSession, onDismiss: () -> Unit) {
                 if (number == null) {
                     Text(stringResource(R.string.chat_not_ready, name), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
-                    Text(
-                        number.split(" ").chunked(3).joinToString("\n") { it.joinToString("  ") }, fontFamily = FontFamily.Monospace,
-                        fontSize = 18.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
-                    )
+                    CodeRows(ChatFormat.safetyRows(number).map { it.joinToString("  ") }, 18.sp)
                     if (qr) {
                         val bmp = remember(number) { qrBitmap(ChatFormat.safetyQr(number)).asImageBitmap() }
                         Image(bmp, stringResource(R.string.chat_safety_qr), Modifier.padding(top = 12.dp).size(220.dp).align(Alignment.CenterHorizontally))
@@ -347,10 +353,7 @@ fun ChatLinkApproval(repo: SagaRepository) {
         text = {
             Column {
                 Text(stringResource(R.string.chat_link_request_text, l.name.ifEmpty { "?" }))
-                Text(
-                    linkCodeLines(code.orEmpty()), fontFamily = FontFamily.Monospace, fontSize = 22.sp, fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                )
+                LinkCodeView(code.orEmpty(), 22.sp, Modifier.padding(top = 16.dp), minOneLine = 16.sp)
             }
         },
         confirmButton = { TextButton(onClick = { repo.launchAction { svc.approve(l) } }, enabled = code != null) { Text(stringResource(R.string.chat_link_confirm)) } },
@@ -358,5 +361,40 @@ fun ChatLinkApproval(repo: SagaRepository) {
     )
 }
 
-/** Kopplungs-Code in zwei Zeilen a zwei Bloecke ("01234 56789\n01234 56789") - gut vergleichbar, ohne Umbruch mitten im Block */
-fun linkCodeLines(code: String): String = code.split(" ").chunked(2).joinToString("\n") { it.joinToString("  ") }
+private fun codeStyle(fs: Float, weight: FontWeight) = TextStyle(fontFamily = FontFamily.Monospace, fontSize = fs.sp, fontWeight = weight)
+
+/**
+ * Gruppen zeilenweise in Monospace (Sicherheitsnummer, Kopplungs-Code, Wiederherstellungsschluessel). Nie Umbruch mitten
+ * in einer Zeile: die Schrift wird bis [minFont] verkleinert, bis die laengste Zeile passt.
+ */
+@Composable
+fun CodeRows(lines: List<String>, fontSize: TextUnit, modifier: Modifier = Modifier, minFont: TextUnit = 12.sp, weight: FontWeight = FontWeight.SemiBold) {
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        val longest = lines.maxByOrNull { it.length }.orEmpty()
+        val maxPx = constraints.maxWidth
+        val fs = remember(longest, maxPx, fontSize) {
+            var f = fontSize.value
+            while (f > minFont.value && measurer.measure(longest, codeStyle(f, weight), softWrap = false).size.width > maxPx) f -= 0.5f
+            f
+        }
+        Text(
+            lines.joinToString("\n"), style = codeStyle(fs, weight), textAlign = TextAlign.Center, softWrap = false,
+            lineHeight = (fs * 1.45f).sp, color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/** Kopplungs-Code: 4 Gruppen in EINER Zeile; nur wenn sie selbst mit [minOneLine] nicht passt, 2 Zeilen a 2 Gruppen */
+@Composable
+fun LinkCodeView(code: String, fontSize: TextUnit, modifier: Modifier = Modifier, minOneLine: TextUnit = 18.sp) {
+    val measurer = rememberTextMeasurer()
+    BoxWithConstraints(modifier.fillMaxWidth()) {
+        val one = ChatFormat.linkCodeRows(code, true).map { it.joinToString("  ") }
+        val fits = remember(code, constraints.maxWidth) {
+            measurer.measure(one.firstOrNull().orEmpty(), codeStyle(minOneLine.value, FontWeight.Bold), softWrap = false).size.width <= constraints.maxWidth
+        }
+        val rows = if (fits) one else ChatFormat.linkCodeRows(code, false).map { it.joinToString("  ") }
+        CodeRows(rows, fontSize, minFont = if (fits) minOneLine else 14.sp, weight = FontWeight.Bold)
+    }
+}

@@ -15,6 +15,9 @@ import kotlinx.serialization.json.longOrNull
 
 class ChatCryptoException(msg: String) : Exception(msg)
 
+/** Schluessel-Buendel mit unbekannten/zu teuren Parametern (v, kdf, ops > 10, mem > 256 MiB) */
+class BundleFormatException : Exception("bundle format")
+
 /** Identitaet eines Kontos: Ed25519 (Signaturen) + X25519-Backup-Schluessel */
 class Identity(val identPk: ByteArray, val identSk: ByteArray, val backupPk: ByteArray, val backupSk: ByteArray)
 
@@ -162,11 +165,8 @@ class ChatCrypto(private val s: LazySodium) {
 
     /** Buendel mit dem Wiederherstellungsschluessel oeffnen (ops/mem aus dem Buendel) */
     fun openBundle(uid: String, rk: String, bundle: String): Identity {
-        val d = Json.parseToJsonElement(bundle) as? JsonObject ?: throw ChatCryptoException("bundle")
-        if ((d["v"] as? JsonPrimitive)?.intOrNull != 1 || (d["kdf"] as? JsonPrimitive)?.content != "argon2id13") throw ChatCryptoException("bundle version")
-        val ops = (d["ops"] as? JsonPrimitive)?.longOrNull ?: throw ChatCryptoException("bundle")
-        val mem = (d["mem"] as? JsonPrimitive)?.longOrNull ?: throw ChatCryptoException("bundle")
-        if (ops !in 1..20 || mem !in (8L shl 20)..(1L shl 30)) throw ChatCryptoException("bundle")
+        val (ops, mem) = ChatFormat.bundleKdf(bundle)              // vor Argon2: unbekannt/zu teuer -> BundleFormatException
+        val d = Json.parseToJsonElement(bundle) as JsonObject
         val salt = unb64((d["salt"] as? JsonPrimitive)?.content, 16) ?: throw ChatCryptoException("bundle")
         val nonce = unb64((d["nonce"] as? JsonPrimitive)?.content, 24) ?: throw ChatCryptoException("bundle")
         val ct = unb64((d["ct"] as? JsonPrimitive)?.content) ?: throw ChatCryptoException("bundle")

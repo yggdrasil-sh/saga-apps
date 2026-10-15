@@ -16,7 +16,7 @@ val SagaGold = Color(0xFFC9A45C)
  * hell = warmes Papier mit Gold, dunkel = Nachtblau (Hintergrund des App-Symbols) mit Gold. Quelle: Seed #C9A45C,
  * Nebenfarben auf das Nachtblau abgestimmt. Kontraste Text/Flaeche >= 4.5:1.
  */
-private val Light = lightColorScheme(
+internal val Light = lightColorScheme(
     primary = Color(0xFF7A5A12),
     onPrimary = Color.White,
     primaryContainer = Color(0xFFF3E2BC),
@@ -55,7 +55,7 @@ private val Light = lightColorScheme(
     surfaceContainerHighest = Color(0xFFE5E1D7),
 )
 
-private val Dark = darkColorScheme(
+internal val Dark = darkColorScheme(
     primary = SagaGold,
     onPrimary = Color(0xFF3F2E00),
     primaryContainer = Color(0xFF5A4410),

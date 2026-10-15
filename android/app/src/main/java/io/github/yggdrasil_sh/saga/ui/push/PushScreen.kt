@@ -94,7 +94,8 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             val available = srv?.enabled == true && srv.unifiedpush
             item { SectionHeader(stringResource(R.string.push_this_device), w) }
             item {
-                val on = state == PushState.ON || state == PushState.REGISTERING
+                // Hauptschalter und Zustandstext widersprechen sich nie: ohne Server-Unterstuetzung aus und gesperrt
+                val on = PushUi.switchOn(available, state)
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.push_on_device)) },
                     supportingContent = {
@@ -142,25 +143,35 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             }
 
             val set = info?.settings
+            // "Worüber?" nur bedienbar, wenn Mitteilungen auf diesem (oder einem anderen) Geraet eingerichtet sind
+            val catsOn = PushUi.categoriesEnabled(srv?.enabled == true, state, info?.devices.orEmpty().size)
             if (set != null && srv?.enabled == true) {
                 item { SectionHeader(stringResource(R.string.push_about_what), w) }
+                if (!catsOn) {
+                    item {
+                        Text(
+                            stringResource(R.string.push_cats_need_push), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = w.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
+                    }
+                }
                 val cats = listOf(
                     "share" to R.string.push_cat_share, "comment" to R.string.push_cat_comment,
                     "chat" to R.string.push_cat_chat, "publish" to R.string.push_cat_publish,
                 )
                 items(cats.filter { (c, _) -> info?.categories?.let { c in it } ?: true }, key = { it.first }) { (c, label) ->
                     val v = set.cats[c] ?: true
-                    SwitchRow(stringResource(label), v, w) { on ->
+                    SwitchRow(stringResource(label), v, w, enabled = catsOn) { on ->
                         repo.launchAction { push.putSettings(buildJsonObject { putJsonObject("cats") { put(c, on) } }) }
                     }
                 }
                 item {
-                    SwitchRow(stringResource(R.string.push_names), set.names, w, stringResource(R.string.push_names_hint)) { on ->
+                    SwitchRow(stringResource(R.string.push_names), set.names, w, stringResource(R.string.push_names_hint), enabled = catsOn) { on ->
                         repo.launchAction { push.putSettings(buildJsonObject { put("names", on) }) }
                     }
                 }
                 item {
-                    SwitchRow(stringResource(R.string.push_quiet), set.quiet.on, w) { on ->
+                    SwitchRow(stringResource(R.string.push_quiet), set.quiet.on, w, enabled = catsOn) { on ->
                         repo.launchAction {
                             push.putSettings(buildJsonObject {
                                 putJsonObject("quiet") {
@@ -193,9 +204,9 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                                 }, h, m, android.text.format.DateFormat.is24HourFormat(context)).show()
                             }
                             Text(stringResource(R.string.push_quiet_from))
-                            OutlinedButton(onClick = { pickTime(set.quiet.from, "from") }) { Text(set.quiet.from) }
+                            OutlinedButton(onClick = { pickTime(set.quiet.from, "from") }, enabled = catsOn) { Text(set.quiet.from) }
                             Text(stringResource(R.string.push_quiet_to))
-                            OutlinedButton(onClick = { pickTime(set.quiet.to, "to") }) { Text(set.quiet.to) }
+                            OutlinedButton(onClick = { pickTime(set.quiet.to, "to") }, enabled = catsOn) { Text(set.quiet.to) }
                         }
                     }
                 }
@@ -263,4 +274,13 @@ fun SwitchRow(label: String, value: Boolean, modifier: Modifier, hint: String? =
         trailingContent = { Switch(checked = value, onCheckedChange = null, enabled = enabled) },
         modifier = modifier.toggleable(value = value, enabled = enabled, role = Role.Switch, onValueChange = onChange),
     )
+}
+
+/** Zustand der Schalter (rein, getestet) */
+object PushUi {
+    /** Hauptschalter: nur an, wenn der Server UnifiedPush anbietet UND dieses Geraet angemeldet ist/wird */
+    fun switchOn(available: Boolean, state: PushState): Boolean = available && (state == PushState.ON || state == PushState.REGISTERING)
+
+    /** "Worüber?", Namen, Ruhezeiten: nur wenn Mitteilungen auf dem Server an sind und hier oder anderswo eingerichtet */
+    fun categoriesEnabled(serverOn: Boolean, state: PushState, devices: Int): Boolean = serverOn && (state == PushState.ON || devices > 0)
 }

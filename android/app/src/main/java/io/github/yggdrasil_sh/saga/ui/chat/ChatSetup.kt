@@ -18,11 +18,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -31,7 +35,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -171,21 +177,34 @@ fun RecoveryKeyConfirm(key: String, busy: Boolean, err: UiText?, onCancel: () ->
     val context = LocalContext.current
     var last4 by remember(key) { mutableStateOf("") }
     val norm = ChatFormat.normRecovery(key).orEmpty()
-    val ok = last4.trim().uppercase().replace('0', 'O').replace('1', 'I').replace('8', 'B') == norm.takeLast(4)
+    var stored by remember(key) { mutableStateOf(false) }
+    val ok = stored && last4.trim().uppercase().replace('0', 'O').replace('1', 'I').replace('8', 'B') == norm.takeLast(4)
     Text(stringResource(R.string.chat_recovery_title), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
     Text(
         stringResource(R.string.chat_recovery_text), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
         color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
     )
-    Card(Modifier.padding(top = 16.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+    // die wichtigste Warnung in Primaertextfarbe, fett, mit Warnsymbol (nicht grau)
+    Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.Top) {
+        Icon(Icons.Filled.Warning, null, Modifier.padding(top = 2.dp).size(18.dp), tint = MaterialTheme.colorScheme.error)
         Text(
-            key.chunked(20).joinToString("\n"), fontFamily = FontFamily.Monospace, fontSize = 20.sp, fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(16.dp),
+            stringResource(R.string.chat_recovery_warning), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.padding(start = 8.dp),
         )
+    }
+    Card(Modifier.padding(top = 16.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+        CodeRows(ChatFormat.recoveryRows(key), 22.sp, Modifier.padding(16.dp))
     }
     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedButton(onClick = { copyText(context, key) }) { Text(stringResource(R.string.text_copy)) }
         OutlinedButton(onClick = { shareText(context, key) }) { Text(stringResource(R.string.chat_share)) }
+    }
+    Row(
+        Modifier.padding(top = 12.dp).fillMaxWidth().toggleable(value = stored, role = Role.Checkbox) { stored = it }.padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(checked = stored, onCheckedChange = null)
+        Text(stringResource(R.string.chat_recovery_stored), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 12.dp))
     }
     OutlinedTextField(
         value = last4, onValueChange = { if (it.length <= 4) last4 = it }, singleLine = true,
@@ -220,9 +239,21 @@ private fun NewDevice(svc: ChatService) {
             )
             Button(onClick = { mode = "link" }, modifier = Modifier.padding(top = 20.dp).fillMaxWidth()) { Text(stringResource(R.string.chat_link_other)) }
             OutlinedButton(onClick = { mode = "recover" }, modifier = Modifier.padding(top = 8.dp).fillMaxWidth()) { Text(stringResource(R.string.chat_enter_recovery)) }
-            TextButton(onClick = { mode = "restart" }, modifier = Modifier.padding(top = 16.dp)) {
-                Text(stringResource(R.string.chat_start_over), color = MaterialTheme.colorScheme.error)
-            }
+            StartOverButton(Modifier.padding(top = 16.dp)) { mode = "restart" }
+        }
+    }
+}
+
+/** "Neu beginnen" (rot) mit Folgen-Hinweis darunter */
+@Composable
+fun StartOverButton(modifier: Modifier = Modifier, start: Boolean = false, onClick: () -> Unit) {
+    TextButton(onClick = onClick, modifier = modifier) {
+        Column(horizontalAlignment = if (start) Alignment.Start else Alignment.CenterHorizontally) {
+            Text(stringResource(R.string.chat_start_over), color = MaterialTheme.colorScheme.error)
+            Text(
+                stringResource(R.string.chat_start_over_sub), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = if (start) TextAlign.Start else TextAlign.Center,
+            )
         }
     }
 }
@@ -242,6 +273,13 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
             err = svc.repo.friendly(e)
         }
     }
+    var approved by remember { mutableStateOf(false) }
+    // Ansicht verlassen (Zurueck, anderer Bereich) ohne Bestaetigung: Anfrage zurueckziehen, sonst taucht sie spaeter
+    // als fremde Kopplungsanfrage auf
+    val current by rememberUpdatedState(ls)
+    DisposableEffect(Unit) {
+        onDispose { if (!approved) current?.let { l -> svc.repo.launchAction { svc.cancelLink(l) } } }
+    }
     // alle 3 s fragen; ein chat.link-Ereignis (approved) beschleunigt das ueber svc.refresh()
     LaunchedEffect(ls) {
         val s = ls ?: return@LaunchedEffect
@@ -249,7 +287,10 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
             delay(3_000)
             try {
                 when (svc.pollLink(s)) {
-                    "approved" -> return@LaunchedEffect
+                    "approved" -> {
+                        approved = true
+                        return@LaunchedEffect
+                    }
                     "expired", "gone" -> {
                         expired = true
                         return@LaunchedEffect
@@ -268,10 +309,7 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
     )
     val s = ls
     if (s != null && !expired) {
-        Text(
-            linkCodeLines(s.code), fontFamily = FontFamily.Monospace, fontSize = 28.sp, fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center, modifier = Modifier.padding(top = 20.dp).fillMaxWidth(),
-        )
+        LinkCodeView(s.code, 28.sp, Modifier.padding(top = 20.dp), minOneLine = 20.sp)
         CircularProgressIndicator(Modifier.padding(top = 16.dp).size(24.dp), strokeWidth = 2.dp)
     } else if (expired) {
         Info(stringResource(R.string.chat_link_expired))
@@ -283,8 +321,7 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
     }
     err?.let { ErrorText(it) }
     TextButton(onClick = {
-        ls?.let { scope.launch { svc.cancelLink(it) } }
-        onBack()
+        onBack()                                       // zieht die Anfrage beim Verlassen zurueck (DisposableEffect)
     }, modifier = Modifier.padding(top = 12.dp)) { Text(stringResource(R.string.action_cancel)) }
 }
 
@@ -341,7 +378,12 @@ fun StartOver(svc: ChatService, onBack: () -> Unit) {
         AlertDialog(
             onDismissRequest = onBack,
             title = { Text(stringResource(R.string.chat_start_over_title)) },
-            text = { Text(stringResource(R.string.chat_start_over_text)) },
+            text = {
+                Column {
+                    Text(stringResource(R.string.chat_start_over_text))
+                    Text(stringResource(R.string.chat_start_over_reauth), modifier = Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            },
             confirmButton = {
                 TextButton(onClick = {
                     confirmed = true
