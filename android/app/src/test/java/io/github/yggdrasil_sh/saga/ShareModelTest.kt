@@ -106,6 +106,11 @@ class ShareModelTest {
         m.editQuery("xyz")
         m.search()
         assertEquals(UiText.Res(R.string.share_nobody), m.searchError)
+        // BUG-112: nur ein Treffer auf einer anderen Instanz -> kein "Niemand gefunden"
+        be.targets = ShareTargets(remote = listOf(io.github.yggdrasil_sh.saga.data.TargetRemote("remote", "sc-fed@b.test:8163", "Foed")))
+        m.editQuery("sc-fed@b.test:8163")
+        m.search()
+        assertNull(m.searchError)
     }
 
     @Test

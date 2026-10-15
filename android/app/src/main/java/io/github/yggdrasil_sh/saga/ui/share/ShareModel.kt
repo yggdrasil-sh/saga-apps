@@ -167,7 +167,8 @@ class ShareModel(val id: Long, private val backend: ShareBackend) {
             val r = backend.shareTargets(q)
             if (n != seq || query.trim() != q) return
             hits = r
-            searchError = if (r.users.isEmpty() && r.groups.isEmpty()) UiText.Res(R.string.share_nobody) else null
+            // Treffer auf anderen Instanzen zaehlen mit (sonst "Niemand gefunden" ueber dem Treffer, BUG-112)
+            searchError = if (r.users.isEmpty() && r.groups.isEmpty() && r.remote.isEmpty()) UiText.Res(R.string.share_nobody) else null
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

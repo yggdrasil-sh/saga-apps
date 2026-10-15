@@ -59,6 +59,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role as SemRole
@@ -304,13 +305,23 @@ private fun PersonRow(type: String, name: String, sub: String, extra: String? = 
 @Composable
 private fun HitRow(type: String, name: String, sub: UiText, has: Role?, roleName: String, onClick: () -> Unit) {
     val trailing = if (has != null) stringResource(R.string.share_has) else stringResource(R.string.share_add_as, roleName)
-    Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 56.dp).padding(horizontal = 12.dp, vertical = 6.dp)
-            .semantics(mergeDescendants = true) { role = SemRole.Button },
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    val mod = Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 56.dp).padding(horizontal = 12.dp, vertical = 6.dp)
+        .semantics(mergeDescendants = true) { role = SemRole.Button }
+    if (LocalDensity.current.fontScale >= 1.5f) {
+        // grosse Schrift: Hinweis unter den Namen, sonst bleibt fuer Name/Benutzer kaum Platz ("hu…", BUG-070)
+        Column(mod) {
+            PersonRow(type, name, sub.resolve())
+            Text(trailing, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 52.dp))
+        }
+        return
+    }
+    Row(mod, verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.weight(1f)) { PersonRow(type, name, sub.resolve()) }
-        Text(trailing, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 8.dp))
+        // hoechstens 40 % der Breite, damit Name und Benutzer lesbar bleiben
+        Text(
+            trailing, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(start = 8.dp).fillMaxWidth(0.4f), textAlign = androidx.compose.ui.text.style.TextAlign.End,
+        )
     }
 }
 
