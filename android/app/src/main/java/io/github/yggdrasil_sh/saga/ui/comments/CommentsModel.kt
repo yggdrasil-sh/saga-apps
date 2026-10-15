@@ -2,6 +2,7 @@ package io.github.yggdrasil_sh.saga.ui.comments
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.yggdrasil_sh.saga.R
@@ -306,11 +307,22 @@ class CommentsModel(val pageId: Long, private val backend: CommentBackend, initi
         }
     }
 
-    /** Neue Unterhaltung am aktuellen Block (bzw. zur ganzen Seite) -> true = gesendet */
+    /** Ungesendete neue Kommentare je Block ("" = ganze Seite) - ueberleben das Schliessen des Blatts (BUG-067) */
+    private val drafts = mutableStateMapOf<String, String>()
+
+    var draft: String
+        get() = drafts[block.orEmpty()].orEmpty()
+        set(v) {
+            if (v.isEmpty()) drafts.remove(block.orEmpty()) else drafts[block.orEmpty()] = v
+        }
+
+    /** Neue Unterhaltung am aktuellen Block (bzw. zur ganzen Seite) -> true = gesendet (Entwurf geleert) */
     suspend fun send(body: String): Boolean {
         val t = body.trim()
         if (t.isEmpty() || !canComment) return false
-        return write(R.string.comments_not_sent) { backend.addComment(pageId, block.orEmpty(), null, t.take(CommentLogic.MAX)) }
+        val key = block.orEmpty()
+        return write(R.string.comments_not_sent) { backend.addComment(pageId, key, null, t.take(CommentLogic.MAX)) }
+            .also { if (it) drafts.remove(key) }
     }
 
     suspend fun reply(threadId: Long, body: String): Boolean {

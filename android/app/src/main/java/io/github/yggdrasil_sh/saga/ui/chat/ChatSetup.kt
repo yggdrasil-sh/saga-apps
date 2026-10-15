@@ -1,9 +1,15 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
+import android.os.PersistableBundle
+import android.view.WindowManager
+import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -72,9 +78,28 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-fun copyText(context: Context, text: String) {
+fun copyText(context: Context, text: String, sensitive: Boolean = false) {
     val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    cm.setPrimaryClip(ClipData.newPlainText("Saga", text))
+    val clip = ClipData.newPlainText("Saga", text)
+    // Geheimnisse (Wiederherstellungsschluessel): keine Vorschau im System, nicht im Tastatur-Verlauf (BUG-074)
+    if (sensitive) clip.description.extras = PersistableBundle().apply { putBoolean(CLIP_SENSITIVE, true) }
+    cm.setPrimaryClip(clip)
+}
+
+/** ClipDescription.EXTRA_IS_SENSITIVE (ab Android 13; aeltere Systeme ignorieren das Extra, Tastaturen lesen es trotzdem) */
+private const val CLIP_SENSITIVE = "android.content.extra.IS_SENSITIVE"
+
+/** Solange sichtbar: keine Screenshots, kein Vorschaubild in "Zuletzt" (FLAG_SECURE) - fuer Geheimnisse (BUG-074) */
+@Composable
+fun SecureScreen() {
+    val context = LocalContext.current
+    DisposableEffect(context) {
+        var c: Context? = context
+        while (c is ContextWrapper && c !is Activity) c = c.baseContext
+        val w = (c as? Activity)?.window
+        w?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        onDispose { w?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+    }
 }
 
 fun shareText(context: Context, text: String) {
@@ -118,7 +143,8 @@ private fun Info(text: String) {
 /** Erstes Geraet: Schluessel erzeugen, Wiederherstellungsschluessel zeigen und bestaetigen lassen */
 @Composable
 private fun NewAccount(svc: ChatService) {
-    var pending by remember { mutableStateOf<PendingSetup?>(null) }
+    // begonnene Einrichtung fortsetzen: nach Prozess-Tod derselbe (evtl. schon gesicherte) Schluessel (BUG-022)
+    var pending by remember { mutableStateOf(svc.savedPending()) }
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf<UiText?>(null) }
     val scope = rememberCoroutineScope()
@@ -133,7 +159,7 @@ private fun NewAccount(svc: ChatService) {
             busy = true
             scope.launch {
                 try {
-                    pending = svc.prepareSetup()
+                    pending = svc.preparePending()
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -145,7 +171,7 @@ private fun NewAccount(svc: ChatService) {
         }, enabled = !busy, modifier = Modifier.padding(top = 20.dp)) { Text(stringResource(R.string.chat_setup_start)) }
         err?.let { ErrorText(it) }
     } else {
-        RecoveryKeyConfirm(p.recoveryKey, busy, err, onCancel = { pending = null; err = null }) {
+        RecoveryKeyConfirm(p.recoveryKey, busy, err, onCancel = { svc.discardPending(); pending = null; err = null }) {
             busy = true
             err = null
             scope.launch {
@@ -175,9 +201,10 @@ private fun ErrorText(t: UiText) {
 @Composable
 fun RecoveryKeyConfirm(key: String, busy: Boolean, err: UiText?, onCancel: () -> Unit, onConfirm: () -> Unit) {
     val context = LocalContext.current
-    var last4 by remember(key) { mutableStateOf("") }
+    SecureScreen()
+    var last4 by rememberSaveable(key) { mutableStateOf("") }
     val norm = ChatFormat.normRecovery(key).orEmpty()
-    var stored by remember(key) { mutableStateOf(false) }
+    var stored by rememberSaveable(key) { mutableStateOf(false) }
     val ok = stored && last4.trim().uppercase().replace('0', 'O').replace('1', 'I').replace('8', 'B') == norm.takeLast(4)
     Text(stringResource(R.string.chat_recovery_title), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
     Text(
@@ -196,7 +223,7 @@ fun RecoveryKeyConfirm(key: String, busy: Boolean, err: UiText?, onCancel: () ->
         CodeRows(ChatFormat.recoveryRows(key), 22.sp, Modifier.padding(16.dp))
     }
     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedButton(onClick = { copyText(context, key) }) { Text(stringResource(R.string.text_copy)) }
+        OutlinedButton(onClick = { copyText(context, key, sensitive = true) }) { Text(stringResource(R.string.text_copy)) }
         OutlinedButton(onClick = { shareText(context, key) }) { Text(stringResource(R.string.chat_share)) }
     }
     Row(
@@ -226,7 +253,10 @@ fun RecoveryKeyConfirm(key: String, busy: Boolean, err: UiText?, onCancel: () ->
 /** Weiteres Geraet: koppeln, Wiederherstellungsschluessel eingeben oder (mit Warnung) neu beginnen */
 @Composable
 private fun NewDevice(svc: ChatService) {
-    var mode by remember { mutableStateOf("choose") }
+    // laufende Kopplung (nach Prozess-Tod) fortsetzen (BUG-068); Unteransicht ueberlebt Prozess-Tod
+    var mode by rememberSaveable { mutableStateOf(if (svc.savedLink() != null) "link" else "choose") }
+    // Zurueck in einer Unteransicht fuehrt zur Auswahl, nicht aus dem Bereich (BUG-106)
+    BackHandler(enabled = mode != "choose") { mode = "choose" }
     Text(stringResource(R.string.chat_new_device_title), style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
     when (mode) {
         "link" -> LinkWait(svc) { mode = "choose" }
@@ -260,11 +290,16 @@ fun StartOverButton(modifier: Modifier = Modifier, start: Boolean = false, onCli
 
 @Composable
 private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
-    var ls by remember { mutableStateOf<LinkSession?>(null) }
+    // nach Prozess-Tod dieselbe Anfrage (Schluessel des neuen Geraets gemerkt) weiter abfragen (BUG-068)
+    val saved = remember { svc.savedLink() }
+    var ls by remember { mutableStateOf(saved) }
     var err by remember { mutableStateOf<UiText?>(null) }
-    var expired by remember { mutableStateOf(false) }
+    /** null = laeuft; "expired" = abgelaufen; "gone" = auf dem anderen Geraet abgelehnt (BUG-108) */
+    var ended by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(Unit) {
+    // Anfrage starten - beim ersten Mal und bei "Erneut versuchen"; ohne Netz Fehlertext statt Absturz (BUG-004)
+    suspend fun start() {
+        err = null
         try {
             ls = svc.startLink()
         } catch (e: CancellationException) {
@@ -273,6 +308,7 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
             err = svc.repo.friendly(e)
         }
     }
+    LaunchedEffect(Unit) { if (saved == null) start() }
     var approved by remember { mutableStateOf(false) }
     // Ansicht verlassen (Zurueck, anderer Bereich) ohne Bestaetigung: Anfrage zurueckziehen, sonst taucht sie spaeter
     // als fremde Kopplungsanfrage auf
@@ -286,15 +322,16 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
         while (true) {
             delay(3_000)
             try {
-                when (svc.pollLink(s)) {
+                when (val st = svc.pollLink(s)) {
                     "approved" -> {
                         approved = true
                         return@LaunchedEffect
                     }
                     "expired", "gone" -> {
-                        expired = true
+                        ended = st
                         return@LaunchedEffect
                     }
+                    else -> err = null                         // wieder erreichbar
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -308,15 +345,17 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
         color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
     )
     val s = ls
-    if (s != null && !expired) {
+    val end = ended
+    if (s != null && end == null) {
         LinkCodeView(s.code, 28.sp, Modifier.padding(top = 20.dp), minOneLine = 20.sp)
         CircularProgressIndicator(Modifier.padding(top = 16.dp).size(24.dp), strokeWidth = 2.dp)
-    } else if (expired) {
-        Info(stringResource(R.string.chat_link_expired))
-        Button(onClick = { expired = false; ls = null; scope.launch { ls = svc.startLink() } }, modifier = Modifier.padding(top = 12.dp)) {
+    } else if (end != null || err != null) {
+        // abgelaufen / abgelehnt / Start ohne Netz gescheitert: erneut versuchen
+        if (end != null) Info(stringResource(if (end == "gone") R.string.chat_link_denied else R.string.chat_link_expired))
+        Button(onClick = { ended = null; ls = null; scope.launch { start() } }, modifier = Modifier.padding(top = 12.dp)) {
             Text(stringResource(R.string.action_retry))
         }
-    } else if (err == null) {
+    } else {
         CircularProgressIndicator(Modifier.padding(top = 16.dp))
     }
     err?.let { ErrorText(it) }
@@ -327,7 +366,8 @@ private fun LinkWait(svc: ChatService, onBack: () -> Unit) {
 
 @Composable
 private fun RecoverForm(svc: ChatService, onBack: () -> Unit) {
-    var key by remember { mutableStateOf("") }
+    SecureScreen()                                       // eingetippter Schluessel nicht in Screenshots/"Zuletzt" (BUG-074)
+    var key by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf<UiText?>(null) }
     val scope = rememberCoroutineScope()
@@ -387,7 +427,16 @@ fun StartOver(svc: ChatService, onBack: () -> Unit) {
             confirmButton = {
                 TextButton(onClick = {
                     confirmed = true
-                    scope.launch { pending = svc.prepareSetup() }
+                    scope.launch {
+                        try {
+                            pending = svc.preparePending()          // begonnener Neubeginn: derselbe Schluessel (BUG-022)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {                   // nie den Prozess beenden (vgl. BUG-004)
+                            err = svc.repo.friendly(e)
+                            confirmed = false
+                        }
+                    }
                 }) { Text(stringResource(R.string.chat_start_over), color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = { TextButton(onClick = onBack) { Text(stringResource(R.string.action_cancel)) } },
@@ -409,15 +458,19 @@ fun StartOver(svc: ChatService, onBack: () -> Unit) {
             label = { Text(stringResource(R.string.chat_reauth_password)) },
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier.padding(top = 12.dp).fillMaxWidth(),
+            modifier = Modifier.padding(top = 12.dp, bottom = 16.dp).fillMaxWidth(),
         )
     }
-    RecoveryKeyConfirm(p.recoveryKey, busy, err, onCancel = onBack) {
+    RecoveryKeyConfirm(p.recoveryKey, busy, err, onCancel = { svc.discardPending(); onBack() }) {
         busy = true
         err = null
         scope.launch {
             try {
                 svc.completeSetup(p, reset = true, password = password.ifEmpty { null })
+                // Erfolg: Formular schliessen + Meldung - ein zweites "Weiter" ergab 409 und verleitete zu
+                // erneutem Neubeginn (BUG-025)
+                svc.repo.notify(UiText.Res(R.string.chat_start_over_done))
+                onBack()
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ReauthNeeded) {

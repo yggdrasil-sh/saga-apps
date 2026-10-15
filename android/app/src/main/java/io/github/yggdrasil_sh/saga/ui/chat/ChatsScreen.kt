@@ -29,6 +29,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,6 +78,8 @@ fun ChatsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, chatId:
         }
         return
     }
+    // Drehen wechselt zwischen ein- und zweispaltig: Unterhaltung samt Entwurf mitnehmen statt neu aufbauen (BUG-021)
+    val conversation = remember { movableContentOf { id: Long, two: Boolean -> Conversation(repo, nav, id, twoPane = two) } }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val twoPane = maxWidth >= 720.dp
         val open: (Long) -> Unit = { id -> if (chatId == null) nav.push(Dest.Chat(id)) else { nav.pop(); nav.push(Dest.Chat(id)) } }
@@ -85,7 +88,7 @@ fun ChatsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, chatId:
                 Box(Modifier.width(340.dp).fillMaxHeight()) { ChatList(repo, nav, chrome, chatId, open, showBack = chatId == null) }
                 VerticalDivider()
                 Box(Modifier.weight(1f).fillMaxHeight()) {
-                    if (chatId != null) Conversation(repo, nav, chatId, twoPane = true)
+                    if (chatId != null) conversation(chatId, true)
                     else Text(
                         stringResource(R.string.chat_pick), color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
                         modifier = Modifier.align(Alignment.Center).padding(24.dp),
@@ -93,7 +96,7 @@ fun ChatsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, chatId:
                 }
             }
         } else if (chatId != null) {
-            Conversation(repo, nav, chatId, twoPane = false)
+            conversation(chatId, false)
         } else {
             ChatList(repo, nav, chrome, null, open, showBack = true)
         }

@@ -182,6 +182,26 @@ class PageEditorTest {
         assertNull(srv.drafts.read(1))
     }
 
+    // BUG-107: nach Rueckkehr des Servers mit 409 kein Offline-Hinweis mehr neben dem Konflikt
+    @Test
+    fun conflictAfterOfflineClearsOfflineHint() = runTest {
+        val srv = FakePageServer()
+        val ed = editor(srv)
+        ed.load()
+        srv.offline = true
+        ed.setString(path, "Offline getippt")
+        advanceTimeBy(2000)
+        runCurrent()
+        assertTrue(ed.offline)
+        srv.offline = false
+        srv.rev = 7                                       // inzwischen hat jemand anderes gespeichert
+        advanceTimeBy(11_000)
+        runCurrent()
+        settle()
+        assertTrue(ed.conflict)
+        assertFalse(ed.offline)
+    }
+
     @Test
     fun draftIsOfferedAndRestoredAfterProcessDeath() = runTest {
         val srv = FakePageServer()

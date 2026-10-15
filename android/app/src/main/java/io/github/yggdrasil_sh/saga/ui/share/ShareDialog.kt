@@ -33,7 +33,10 @@ import io.github.yggdrasil_sh.saga.util.UiText
 @Composable
 fun ShareDialog(repo: SagaRepository, content: SharedContent, onOpenPage: (Long) -> Unit) {
     var kind by remember(content) { mutableStateOf(if (content.url == null && content.text.length < 120 && !content.text.contains('\n')) "task" else "page") }
-    var title by remember(content) { mutableStateOf(content.title) }
+    // Aufgabe: Titelfeld mit dem geteilten Text vorbelegen - sichtbar, was gespeichert wird (BUG-024)
+    var title by remember(content) {
+        mutableStateOf(content.title.ifBlank { if (kind == "task") content.text.lineSequence().firstOrNull().orEmpty().trim().take(200) else "" })
+    }
     var busy by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = { if (!busy) repo.pendingShare.value = null },

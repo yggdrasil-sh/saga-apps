@@ -10,7 +10,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -87,7 +90,7 @@ import kotlinx.coroutines.launch
  * ungelesen = Punkt neben dem Autor. Rolle Lesen: nur lesen (Fusszeile erklaert es).
  * quote(blockId) = Zitat des Blocks fuer "Alle Unterhaltungen"; onJump springt zum Block.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CommentsSheet(model: CommentsModel, scope: CoroutineScope, quote: (String) -> BlockQuote?, onJump: (String) -> Unit) {
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -124,8 +127,11 @@ fun CommentsSheet(model: CommentsModel, scope: CoroutineScope, quote: (String) -
                 }
                 HorizontalDivider()
                 if (model.loading && !model.loaded) LinearProgressIndicator(Modifier.fillMaxWidth())
+                // Telefon quer + Tastatur: kaum Hoehe uebrig - dann darf die Liste ganz schrumpfen, damit Eingabe und
+                // "Kommentieren" sichtbar bleiben (BUG-069)
+                val imeOpen = WindowInsets.isImeVisible
                 LazyColumn(
-                    Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(min = 80.dp),
+                    Modifier.fillMaxWidth().weight(1f, fill = false).heightIn(min = if (imeOpen) 0.dp else 80.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
@@ -191,13 +197,13 @@ private fun Footer(model: CommentsModel, scope: CoroutineScope) {
         )
         return
     }
-    var text by rememberSaveable(model.block) { mutableStateOf("") }
+    // Entwurf im Modell: bleibt beim Schliessen des Blatts (Zurueck) erhalten (BUG-067)
     Editor(
-        value = text, onValue = { text = it },
+        value = model.draft, onValue = { model.draft = it },
         placeholder = stringResource(if (model.block != null) R.string.comments_ph_block else R.string.comments_ph_page),
         ok = stringResource(R.string.comments_add), busy = model.busy,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-        onOk = { scope.launch { if (model.send(text)) text = "" } },
+        onOk = { scope.launch { model.send(model.draft) } },
     )
 }
 
