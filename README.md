@@ -67,8 +67,10 @@ the address, **Also publish subpages**, **Allow search engines** and **As profil
 or **Stop publishing**. Public pages show **Public** in the page header; you can change your public name under
 **Settings → Account**. On older servers the menu item does not appear.
 
-## New with Saga server 2.0
+## New in 2.0 (with Saga server 2.0)
 
+- **Sharing and comments:** share pages with people and groups (view, comment, edit), comments on blocks with
+  replies and "Resolve".
 - **Notifications:** a bell with everything that concerns you; on pages you see who is also here or editing.
 - **Chats** with end-to-end encryption: direct, group and page chats. On first use you get a **recovery key**;
   confirm new devices with a code and compare the **safety number** with the other person.
@@ -77,7 +79,7 @@ or **Stop publishing**. Public pages show **Public** in the page header; you can
 - **AI assistant** (if the admin turns it on): **Ask your pages** and **This page**.
 - **Federation:** pages from other Saga instances appear under **Shared with me**; share with `name@server`.
 
-All of this is optional – with older servers the apps work as before.
+The new features need Saga server 2.0. All of this is optional – with older servers the apps work as before.
 
 ## Building it yourself
 
@@ -88,10 +90,10 @@ repository, but in local files that git ignores. Templates sit right next to the
 - `ios/Config/local.env.example` → `ios/Config/local.env`
 - `tools/local.env.example` → `tools/local.env` (machines for the Linux tests)
 
-Set the version of all apps: `tools/set-version.sh 1.2.0` (single source: `VERSION`). When a change to
+Set the version of all apps: `tools/set-version.sh 2.0.0` (single source: `VERSION`). When a change to
 `VERSION` lands on `main`, GitHub builds all packages and publishes them as a release
 (`.github/workflows/release.yml`). New work lands on the `testing` branch first: every push there builds all
-packages as a dry run (without a release).
+packages and replaces the pre-release `v<version>-testing` (never "Latest").
 
 ## Versions
 

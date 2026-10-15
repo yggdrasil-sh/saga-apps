@@ -69,8 +69,10 @@ nombre de usuario). Después defines la dirección, **Publicar también las subp
 **Pública** en la cabecera; tu nombre público se cambia en **Ajustes → Cuenta**. En servidores más antiguos no
 aparece la opción del menú.
 
-## Novedades con el servidor de Saga 2.0
+## Novedades de 2.0 (con el servidor de Saga 2.0)
 
+- **Compartir y comentar:** comparte páginas con personas y grupos (ver, comentar, editar), comentarios en los
+  bloques con respuestas y «Resolver».
 - **Notificaciones:** una campana con todo lo que te afecta; en las páginas ves quién también está aquí o editando.
 - **Chats** con cifrado de extremo a extremo: chats directos, de grupo y de página. La primera vez recibes una
   **clave de recuperación**; los dispositivos nuevos se confirman con un código y el **número de seguridad** lo
@@ -81,7 +83,8 @@ aparece la opción del menú.
 - **Federación:** las páginas de otras instancias de Saga aparecen en **Compartido conmigo**; compartir con
   `nombre@servidor`.
 
-Todo es opcional: con servidores más antiguos las apps funcionan como antes.
+Las funciones nuevas necesitan el servidor de Saga 2.0. Todo es opcional: con servidores más antiguos las apps
+funcionan como antes.
 
 ## Compilarlas tú
 
@@ -93,10 +96,10 @@ plantilla:
 - `ios/Config/local.env.example` → `ios/Config/local.env`
 - `tools/local.env.example` → `tools/local.env` (equipos para las pruebas de Linux)
 
-Versión de todas las apps: `tools/set-version.sh 1.2.0` (una sola fuente: `VERSION`). Cuando un cambio en
+Versión de todas las apps: `tools/set-version.sh 2.0.0` (una sola fuente: `VERSION`). Cuando un cambio en
 `VERSION` llega a `main`, GitHub compila todos los paquetes y los publica como release
 (`.github/workflows/release.yml`). Lo nuevo llega primero a la rama `testing`: cada push allí compila todos los
-paquetes como prueba (sin release).
+paquetes y reemplaza la versión preliminar `v<versión>-testing` (pre-release, nunca «Latest»).
 
 ## Versiones
 

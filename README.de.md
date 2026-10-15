@@ -69,8 +69,10 @@ kopierst oder öffnest den Link oder wählst **Veröffentlichung beenden**. Öff
 **Öffentlich**; den öffentlichen Namen änderst du unter **Einstellungen → Konto**. Bei älteren Servern fehlt der
 Menüpunkt.
 
-## Neu mit Saga-Server 2.0
+## Neu in 2.0 (mit Saga-Server 2.0)
 
+- **Teilen und Kommentare:** Seiten mit Personen und Gruppen teilen (Lesen, Kommentieren, Bearbeiten), Kommentare
+  am Block mit Antworten und „Erledigt“.
 - **Benachrichtigungen:** Glocke mit allem, was dich betrifft; auf Seiten siehst du, wer auch hier ist oder bearbeitet.
 - **Chats** mit Ende-zu-Ende-Verschlüsselung: Direkt-, Gruppen- und Seiten-Chats. Beim ersten Mal bekommst du einen
   **Wiederherstellungsschlüssel**; neue Geräte bestätigst du per Code, die **Sicherheitsnummer** vergleichst du mit
@@ -80,7 +82,7 @@ Menüpunkt.
 - **KI-Assistent** (wenn der Admin ihn einschaltet): **Frag deine Seiten** und **Diese Seite**.
 - **Föderation:** Seiten anderer Saga-Instanzen erscheinen unter **Mit mir geteilt**; Teilen an `name@server`.
 
-Alles ist optional – mit älteren Servern arbeiten die Apps wie bisher.
+Die neuen Funktionen brauchen Saga-Server 2.0. Alles ist optional – mit älteren Servern arbeiten die Apps wie bisher.
 
 ## Selbst bauen
 
@@ -91,9 +93,10 @@ sondern in lokalen Dateien, die git ignoriert. Vorlagen liegen jeweils daneben:
 - `ios/Config/local.env.example` → `ios/Config/local.env`
 - `tools/local.env.example` → `tools/local.env` (Rechner für die Linux-Tests)
 
-Version aller Apps setzen: `tools/set-version.sh 1.2.0` (eine Quelle: `VERSION`). Landet die Änderung an
+Version aller Apps setzen: `tools/set-version.sh 2.0.0` (eine Quelle: `VERSION`). Landet die Änderung an
 `VERSION` auf `main`, baut GitHub alle Pakete und veröffentlicht sie als Release (`.github/workflows/release.yml`).
-Neues landet zuerst auf dem Branch `testing`: Jeder Push dort baut alle Pakete als Probelauf (ohne Release).
+Neues landet zuerst auf dem Branch `testing`: Jeder Push dort baut alle Pakete und ersetzt die
+Vorabversion `v<Version>-testing` (Pre-release, nie „Latest“).
 
 ## Versionen
 

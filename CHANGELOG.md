@@ -6,44 +6,49 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
-### Neu (iOS, iPadOS, macOS, passt zu Saga-Server 2.0; alles optional, ältere Server unverändert)
-- **Live-Kanal und Benachrichtigungen:** Glocke mit Liste und Einstellungen je Art, „… ist auch hier“/„… bearbeitet
-  gerade“ auf Seiten, fremde Änderungen werden still nachgeladen (sonst Hinweis mit „Neu laden“).
-- **Chats mit Ende-zu-Ende-Verschlüsselung** (libsodium über swift-sodium, geprüft mit den Testvektoren des Servers):
-  Einrichtung mit Wiederherstellungsschlüssel, neues Gerät per Code bestätigen oder wiederherstellen,
-  Sicherheitsnummer mit QR-Code, Direkt-, Gruppen-, Seiten-Chats und freie Gruppen, Anhänge, Antworten,
-  „Chats & Geräte“. Private Schlüssel nur im Schlüsselbund.
-- **Mitteilungen** über APNs (iOS/iPadOS; am Mac optional, braucht ein Bereitstellungsprofil mit Push), nie mit Inhalten.
-- **KI-Assistent** („Frag deine Seiten“, „Diese Seite“) und **Föderation** (Seiten anderer Saga-Instanzen unter
-  „Mit mir geteilt“, Teilen an `name@server`).
+## [2.0.0] – 2026-10-15
 
-### Neu (Android, passt zu Saga-Server 2.0; alles optional, ältere Server unverändert)
-- **Live-Kanal und Benachrichtigungen:** Glocke mit Zähler und Liste (gelesen, „Alle gelesen“, „Ältere laden“),
-  Einstellungen je Art unter Einstellungen → Benachrichtigungen. Auf Seiten: wer gerade da ist bzw. bearbeitet,
-  Änderungen anderer werden still nachgeladen (sonst Hinweis „… hat diese Seite geändert“ + „Neu laden“),
-  Kommentare live. Eine Verbindung, nur im Vordergrund.
-- **Chats mit Ende-zu-Ende-Verschlüsselung** (libsodium über lazysodium-android): Einrichtung mit
-  Wiederherstellungsschlüssel, neues Gerät per „Mit anderem Gerät bestätigen“ (20-stelliger Code) oder
-  Wiederherstellungsschlüssel, „Neu beginnen“ (mit Passwort), Sicherheitsnummer mit QR-Code und Warnung bei Wechsel,
-  Direkt-, Gruppen-, Seiten-Chats und freie Gruppen, Antworten, Anhänge (verschlüsselt), @-Seiten, „tippt …“,
-  „Für alle löschen“, Stummschalten, automatisches Löschen; Einstellungen → Chats & Geräte. Prüft die gemeinsamen
-  Testvektoren (`tests/chat_vectors.json`) als Gerätetest.
-- **Mitteilungen** über UnifiedPush (z. B. ntfy als Verteiler, kein Google FCM), Ende-zu-Ende-verschlüsselt
-  (Web Push, RFC 8291); worüber, Namen, Ruhezeiten, Test, Geräteliste.
+Passt zu Saga-Server 2.0. **Die neuen Funktionen brauchen Saga-Server 2.0; ältere Server funktionieren weiter**
+(dort arbeiten die Apps wie bisher).
+
+### Neu (alle Apps)
+- **Teilen und Kommentare:** Seiten mit Personen und Gruppen teilen (Lesen, Kommentieren, Bearbeiten), „Mit mir
+  geteilt“, Kopfzeile „Geteilt von …“, Kommentare am Block mit Antworten und „Erledigt“.
+- **Live-Kanal und Benachrichtigungen:** Glocke mit Ungelesen-Zahl und Einstellungen je Art; auf Seiten „… ist auch
+  hier“ / „… bearbeitet gerade“; Änderungen anderer werden still nachgeladen (sonst Hinweis mit „Neu laden“).
+- **Chats mit Ende-zu-Ende-Verschlüsselung** (libsodium, Format v1, geprüft mit den Testvektoren des Servers):
+  Einrichtung mit Wiederherstellungsschlüssel, neues Gerät per 20-stelligem Code bestätigen oder wiederherstellen,
+  Sicherheitsnummer mit QR-Code und Warnung bei Wechsel, Direkt-, Gruppen-, Seiten-Chats und freie Gruppen,
+  Antworten, verschlüsselte Anhänge, „Chats & Geräte“. Private Schlüssel bleiben auf dem Gerät.
+- **Mitteilungen**, nie mit Inhalten: Bereiche, Namen, Ruhezeiten, Test, Geräteliste.
 - **KI-Assistent** (wenn der Server ihn anbietet): „Frag deine Seiten“ mit Quellen und „Diese Seite“
-  (Zusammenfassen, Aufgaben vorschlagen, markierten Text verbessern, übersetzen) – Übernehmen nur nach Klick.
-- **Föderation:** Seiten anderer Saga-Instanzen unter „Mit mir geteilt“ (lesen, kommentieren, mit Bearbeiten Titel
-  und Inhalt ändern), Teilen an `name@server`. Seiten-IDs sind jetzt 64-Bit.
+  (zusammenfassen, Aufgaben vorschlagen, Text verbessern, übersetzen) – übernommen wird nur nach Klick.
+- **Föderation:** Seiten anderer Saga-Server unter „Mit mir geteilt“ (lesen, kommentieren, mit Bearbeiten Titel und
+  Inhalt ändern), Teilen an `name@server`.
 
-### Neu (Linux, Saga-Server 2.0)
-- **Live-Kanal und Benachrichtigungen:** Glocke mit Ungelesen-Zahl, Anwesenheit im Seitenkopf, fremde Änderungen an der
-  offenen Seite werden still nachgeladen (bzw. Hinweis mit „Neu laden“), Desktop-Mitteilung solange Saga offen ist.
-- **Chats mit Ende-zu-Ende-Verschlüsselung** (PyNaCl/libsodium, Format v1, geprüft mit den Testvektoren des Servers):
-  Einrichtung mit Wiederherstellungsschlüssel, neues Gerät bestätigen (20-stelliger Code) oder wiederherstellen,
-  Sicherheitsnummer mit QR-Code, Anhänge, Antworten, „Chats & Geräte“. Private Schlüssel nur im Schlüsselbund.
-- **Mitteilungen** über UnifiedPush (D-Bus, z. B. KUnifiedPush mit ntfy) – auch bei geschlossener App.
-- **KI-Assistent** („Frag deine Seiten“, „Diese Seite“) und **Föderation** (Seiten anderer Saga-Instanzen, Teilen
-  mit name@server).
+### Je Plattform
+- **iOS, iPadOS, macOS:** Chats über swift-sodium; Mitteilungen über Apple Push (iOS/iPadOS; am Mac optional, braucht
+  ein Bereitstellungsprofil mit Push; der Server-Admin trägt einen APNs-Schlüssel ein).
+- **Android:** Chats über lazysodium-android; Mitteilungen über UnifiedPush (z. B. ntfy, ohne Google FCM),
+  Ende-zu-Ende-verschlüsselt (RFC 8291); Live nur im Vordergrund; Seiten-IDs jetzt 64-Bit.
+- **Linux:** Chats über PyNaCl; Mitteilungen über UnifiedPush (D-Bus, z. B. KUnifiedPush mit ntfy) auch bei
+  geschlossener App, sonst Desktop-Mitteilung, solange Saga offen ist.
+
+### Behoben
+- **Alle:** Entwürfe gehen offline nicht mehr verloren und werden nachgesendet; nach Abmelden/Kontowechsel öffnet
+  sich nicht mehr die Startseite des alten Kontos; nicht gespeicherter Geräte-Schlüssel führt zu einem Hinweis statt
+  stiller Abmeldung (BUG-020, BUG-060, BUG-100, BUG-104).
+- **iOS, iPadOS, macOS:** Tastaturleiste erreicht alle Editor-Funktionen und verdeckt weder Schreibzeile noch
+  „Kommentieren“; große Schrift sprengt die Seite nicht mehr; Anmelden prüft erst die Serveradresse;
+  Kommentar-Benachrichtigung öffnet die Kommentare auch bei offener Seite; kleinere Korrekturen in Einstellungen,
+  Menüleiste und Seitenkopf (BUG-018, BUG-019, BUG-058–064, BUG-101–105).
+- **Android:** keine Abstürze mehr im Chat (Nachladefehler, große Dateien, Kopplung ohne Netz); Chat-Einrichtung,
+  Kopplung und Entwürfe überstehen Drehen und Prozess-Tod; entschlüsselte Anhänge nur kurz im Cache; Teilen „als
+  Aufgabe“ speichert den Text; Netzwerkfehler ohne interne Adressen; Mitteilungs-Links nur aus eigenen Mitteilungen;
+  bessere Lesbarkeit bei großer Schrift und mit TalkBack (BUG-003–005, BUG-021–025, BUG-065–074, BUG-106–112).
+- **Linux:** Chat-Schlüssel auch ohne Schlüsselbund-Dienst, Konflikt-Dialog nicht mitten im Tippen, Kommentar-Leiste
+  live, Kontowechsel am selben Server, Esc in Suchdialogen, schmale Fenster; RPM verlangt gobject-introspection und
+  PyNaCl ab 1.5 (BUG-006, BUG-026–031, BUG-075–082, BUG-113–117).
 
 ## [1.2.0] – 2026-10-14
 
