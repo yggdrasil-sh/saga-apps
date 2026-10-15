@@ -117,11 +117,13 @@ struct NotificationsSheet: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Schließen") { dismiss() } }
+                // wie im Web: "Alle gelesen" sichtbar, daneben die Einstellungen
                 ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        Button { Task { await notifs.markAll() } } label: { Label("Alle gelesen", systemImage: "checkmark.circle") }.disabled(notifs.unread == 0)
-                        Button { dismiss(); settings() } label: { Label("Benachrichtigungen einstellen", systemImage: "gearshape") }
-                    } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("Mehr")
+                    Button("Alle gelesen") { Task { await notifs.markAll() } }.disabled(notifs.unread == 0)
+                }
+                ToolbarItem(placement: .primaryAction) {
+                    Button { dismiss(); settings() } label: { Label("Benachrichtigungen einstellen", systemImage: "gearshape") }
+                        .help(Text("Benachrichtigungen einstellen"))
                 }
             }
         }
@@ -135,29 +137,38 @@ struct NotificationsSheet: View {
     }
 }
 
+/// Zeile wie im Web: Person (Kuerzel), Ereignis, Seite bzw. Chat, Auszug, relative Zeit; ungelesen = Goldpunkt + fett
 struct NotifRow: View {
     let n: NotifItem
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             ZStack {
-                Circle().fill(Color.accentColor.opacity(0.16))
-                Text(verbatim: n.chatID != nil ? "💬" : (n.noteIcon ?? (n.access ? "📄" : "🔒")))
+                Circle().fill(Color.gold.opacity(0.16))
+                if n.kind == "publish.withdrawn" { Text(verbatim: "🛡") }
+                else if let a = n.actorName { Text(verbatim: LiveLogic.initials(a)).font(.caption.weight(.semibold)) }
+                else { Image(systemName: "person.fill.questionmark").font(.caption) }
             }
             .frame(width: 34, height: 34).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
-                Text(verbatim: n.title.isEmpty ? String(localized: "Unbenannt") : n.title).font(.subheadline.weight(n.read ? .regular : .semibold)).lineLimit(1)
-                Text(verbatim: n.text).font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text(verbatim: n.text).font(.subheadline.weight(n.read ? .regular : .semibold)).fixedSize(horizontal: false, vertical: true)
+                Text(verbatim: page).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                 if let x = n.excerpt { Text(verbatim: "„\(x)“").font(.footnote).foregroundStyle(.secondary).lineLimit(2) }
                 HStack(spacing: 6) {
-                    Text(Date(timeIntervalSince1970: n.created), format: .relative(presentation: .named)).font(.caption).foregroundStyle(.tertiary)
-                    if let h = n.host { Text(verbatim: "· \(h)").font(.caption).foregroundStyle(.tertiary) }
-                }
+                    Text(Date(timeIntervalSince1970: n.created), format: .relative(presentation: .named))
+                    if let h = n.host { Text(verbatim: "· \(h)") }
+                }.font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            if !n.read { Circle().fill(Color.accentColor).frame(width: 8, height: 8).padding(.top, 6).accessibilityLabel(Text("Ungelesen")) }
+            if !n.read { Circle().fill(Color.gold).frame(width: 9, height: 9).padding(.top, 6).accessibilityLabel(Text("Ungelesen")) }
         }
         .padding(.vertical, 2).contentShape(Rectangle())
         .opacity(n.access ? 1 : 0.7)
+    }
+    private var page: String {
+        if !n.access { return "🔒 " + String(localized: "Kein Zugriff mehr") }
+        if n.chatID != nil { return "💬 " + (n.title.isEmpty ? String(localized: "Chat") : n.title) }
+        let icon = n.noteIcon.flatMap { $0.isEmpty || $0.hasPrefix("/") ? nil : $0 } ?? "📄"
+        return icon + " " + (n.title.isEmpty ? String(localized: "Unbenannt") : n.title)
     }
 }
 

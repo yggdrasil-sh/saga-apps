@@ -16616,28 +16616,6 @@
         }
       }
     },
-    "als %@ hinzufügen" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "als %@ hinzufügen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "add as “%@”"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "añadir como «%@»"
-          }
-        }
-      }
-    },
     "bearbeitet" : {
       "localizations" : {
         "de" : {
@@ -17584,28 +17562,6 @@
         }
       }
     },
-    "Absender nicht bestätigt: Signatur oder Geräte-Schlüssel passen nicht (z. B. nach „Neu beginnen“)." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Absender nicht bestätigt: Signatur oder Geräte-Schlüssel passen nicht (z. B. nach „Neu beginnen“)."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Sender not confirmed: signature or device key doesn't match (e.g. after “Start over”)."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remitente no confirmado: la firma o la clave del dispositivo no coinciden (p. ej., tras «Empezar de nuevo»)."
-          }
-        }
-      }
-    },
     "Achtung: Neu beginnen erzeugt neue Schlüssel. Bisherige Nachrichten sind dann für dich nicht mehr lesbar, deine Gesprächspartner sehen eine geänderte Sicherheitsnummer." : {
       "localizations" : {
         "de" : {
@@ -18112,28 +18068,6 @@
         }
       }
     },
-    "Beides nicht mehr vorhanden? Neu beginnen …" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Beides nicht mehr vorhanden? Neu beginnen …"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Neither available any more? Start over …"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Ya no tienes ninguna de las dos? Empezar de nuevo…"
-          }
-        }
-      }
-    },
     "Benachrichtigungen" : {
       "localizations" : {
         "de" : {
@@ -18592,28 +18526,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "El código coincide: confirmar"
-          }
-        }
-      }
-    },
-    "Dafür bekommst du gleich einen Wiederherstellungsschlüssel. Damit holst du deine Chats auf ein neues Gerät, wenn kein anderes mehr da ist. Ohne ihn sind deine Nachrichten verloren – auch der Admin kann sie nicht wiederherstellen." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Dafür bekommst du gleich einen Wiederherstellungsschlüssel. Damit holst du deine Chats auf ein neues Gerät, wenn kein anderes mehr da ist. Ohne ihn sind deine Nachrichten verloren – auch der Admin kann sie nicht wiederherstellen."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "You'll get a recovery key in a moment. With it you can bring your chats to a new device when no other device is left. Without it your messages are lost – the admin can't restore them either."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "En un momento recibirás una clave de recuperación. Con ella puedes llevar tus chats a un dispositivo nuevo cuando no te quede ningún otro. Sin ella tus mensajes se pierden: tampoco el administrador puede recuperarlos."
           }
         }
       }
@@ -19098,28 +19010,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Esta página"
-          }
-        }
-      }
-    },
-    "Diese Seite liegt auf %@. Hier kannst du sie lesen, kommentieren und – mit Bearbeiten – Titel und Inhalt ändern." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Diese Seite liegt auf %@. Hier kannst du sie lesen, kommentieren und – mit Bearbeiten – Titel und Inhalt ändern."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This page is on %@. Here you can read and comment on it and – with edit access – change the title and content."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Esta página está en %@. Aquí puedes leerla, comentarla y, con permiso de edición, cambiar el título y el contenido."
           }
         }
       }
@@ -22314,28 +22204,6 @@
         }
       }
     },
-    "Von diesem Gerät entfernen" : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Von diesem Gerät entfernen"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Remove from this device"
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quitar de este dispositivo"
-          }
-        }
-      }
-    },
     "Wer neu dazukommt, sieht nur Nachrichten ab dem Beitritt." : {
       "localizations" : {
         "de" : {
@@ -22970,6 +22838,358 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "✓ Entregada"
+          }
+        }
+      }
+    },
+    "Beides nicht mehr vorhanden? Neue Schlüssel – ältere Nachrichten sind danach nicht mehr lesbar." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Beides nicht mehr vorhanden? Neue Schlüssel – ältere Nachrichten sind danach nicht mehr lesbar."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neither available any more? New keys – earlier messages can't be read afterwards."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Ya no tienes ninguna de las dos? Claves nuevas: después no podrás leer los mensajes anteriores."
+          }
+        }
+      }
+    },
+    "Dafür bekommst du gleich einen Wiederherstellungsschlüssel. Damit holst du deine Chats auf ein neues Gerät, wenn kein anderes mehr da ist." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dafür bekommst du gleich einen Wiederherstellungsschlüssel. Damit holst du deine Chats auf ein neues Gerät, wenn kein anderes mehr da ist."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You'll get a recovery key in a moment. With it you can bring your chats to a new device when no other device is left."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En un momento recibirás una clave de recuperación. Con ella puedes llevar tus chats a un dispositivo nuevo cuando no te quede ningún otro."
+          }
+        }
+      }
+    },
+    "Diese Nachricht konnte keinem bestätigten Gerät des Absenders zugeordnet werden – z. B. weil das Gerät inzwischen entfernt wurde. Vergleiche im Zweifel die Sicherheitsnummer." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Nachricht konnte keinem bestätigten Gerät des Absenders zugeordnet werden – z. B. weil das Gerät inzwischen entfernt wurde. Vergleiche im Zweifel die Sicherheitsnummer."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This message couldn't be matched to a confirmed device of the sender – e.g. because the device has since been removed. If in doubt, compare the safety number."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este mensaje no se pudo asociar a ningún dispositivo confirmado del remitente, p. ej., porque el dispositivo se ha quitado entretanto. Si tienes dudas, compara el número de seguridad."
+          }
+        }
+      }
+    },
+    "Diese Seite liegt auf %@. Hier kannst du sie lesen und kommentieren." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Seite liegt auf %@. Hier kannst du sie lesen und kommentieren."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This page is on %@. Here you can read and comment on it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta página está en %@. Aquí puedes leerla y comentarla."
+          }
+        }
+      }
+    },
+    "Diese Seite liegt auf %@. Hier kannst du sie lesen, kommentieren und Titel und Inhalt ändern." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Seite liegt auf %@. Hier kannst du sie lesen, kommentieren und Titel und Inhalt ändern."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This page is on %@. Here you can read and comment on it and change the title and content."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta página está en %@. Aquí puedes leerla, comentarla y cambiar el título y el contenido."
+          }
+        }
+      }
+    },
+    "Diese Seite liegt auf %@. Hier kannst du sie lesen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Seite liegt auf %@. Hier kannst du sie lesen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This page is on %@. Here you can read it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta página está en %@. Aquí puedes leerla."
+          }
+        }
+      }
+    },
+    "Hinzufügen (%@)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hinzufügen (%@)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add (%@)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Añadir (%@)"
+          }
+        }
+      }
+    },
+    "Ich habe den Schlüssel sicher aufbewahrt" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ich habe den Schlüssel sicher aufbewahrt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I have stored the key safely"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "He guardado la clave en un lugar seguro"
+          }
+        }
+      }
+    },
+    "In diesem Chat suchen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In diesem Chat suchen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search in this chat"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar en este chat"
+          }
+        }
+      }
+    },
+    "Ohne ihn sind deine Nachrichten verloren – auch der Admin kann sie nicht wiederherstellen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ohne ihn sind deine Nachrichten verloren – auch der Admin kann sie nicht wiederherstellen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Without it your messages are lost – the admin can't restore them either."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin ella tus mensajes se pierden: tampoco el administrador puede recuperarlos."
+          }
+        }
+      }
+    },
+    "Saga-App" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga-App"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga app"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App de Saga"
+          }
+        }
+      }
+    },
+    "Saga-App (Testversion)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga-App (Testversion)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga app (test version)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App de Saga (versión de prueba)"
+          }
+        }
+      }
+    },
+    "Sicherheitsnummer prüfen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sicherheitsnummer prüfen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check safety number"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobar el número de seguridad"
+          }
+        }
+      }
+    },
+    "Suchen (nur auf diesem Gerät, in geladenen Nachrichten)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suchen (nur auf diesem Gerät, in geladenen Nachrichten)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search (on this device only, in loaded messages)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar (solo en este dispositivo, en los mensajes cargados)"
+          }
+        }
+      }
+    },
+    "Unbekanntes Schlüsselformat" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unbekanntes Schlüsselformat"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unknown key format"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Formato de clave desconocido"
+          }
+        }
+      }
+    },
+    "Zeigt, was das bedeutet" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeigt, was das bedeutet"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows what this means"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra qué significa"
           }
         }
       }

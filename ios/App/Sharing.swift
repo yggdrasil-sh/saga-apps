@@ -325,12 +325,15 @@ struct ShareSheet: View {
                 } header: { Text("Über übergeordnete Seiten") } footer: { Text("Diese Freigaben gelten auch hier. Ändern kannst du sie auf der übergeordneten Seite.") }
             }
             Section {
-                Text(verbatim: PublishLogic.breakable(link)).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
+                Text(verbatim: PublishLogic.breakable(ShotDisplay.server(link))).font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
                 Button { copyText(link); status = .ok(String(localized: "Link kopiert")) } label: { Label("Link kopieren", systemImage: "link") }
             } footer: { Text("Der Link öffnet die Seite für alle, die Zugriff haben.") }
             if let status { PubStatusLine(status: status) }
         }
         .formStyle(.grouped)
+        #if os(iOS)
+        .contentMargins(.top, 4, for: .scrollContent)              // kein grosser Leerraum oben im Blatt
+        #endif
     }
 
     private func groupChips(_ s: ShareState) -> some View {
@@ -352,7 +355,7 @@ struct ShareSheet: View {
                             .background(Capsule().strokeBorder(has != nil ? Color.accentColor : Color.secondary.opacity(0.4)))
                         }
                         .buttonStyle(.plain)
-                        .accessibilityHint(has.map { String(localized: "hat Zugriff: \(RoleText.name($0))") } ?? String(localized: "als \(RoleText.name(role)) hinzufügen"))
+                        .accessibilityHint(has.map { String(localized: "hat Zugriff: \(RoleText.name($0))") } ?? String(localized: "Hinzufügen (\(RoleText.name(role)))"))
                     }
                 }
             }
@@ -372,7 +375,7 @@ struct ShareSheet: View {
                          : h.username.map { String($0) } ?? String(localized: "Gruppe")).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text(has ? String(localized: "hat Zugriff") : String(localized: "als \(RoleText.name(role)) hinzufügen")).font(.caption).foregroundStyle(.secondary)
+                Text(has ? String(localized: "hat Zugriff") : String(localized: "Hinzufügen (\(RoleText.name(role)))")).font(.caption).foregroundStyle(.secondary)
             }
             .frame(minHeight: 44).contentShape(Rectangle())
         }

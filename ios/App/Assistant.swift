@@ -199,7 +199,7 @@ struct AssistantSheet: View {
                     VStack(alignment: .leading, spacing: 16) {
                         if m.qa.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
-                                Image(systemName: "sparkles").font(.largeTitle).foregroundStyle(Color.accentColor)
+                                Image(systemName: "sparkles").font(.largeTitle).foregroundStyle(Color.gold)
                                 Text("Frag etwas – der Assistent sucht in den Seiten, die du sehen darfst, und nennt seine Quellen.")
                                 Text("Er kann nichts ändern: Vorschläge übernimmst du selbst. Chats liest er nie; Aufgaben und Kalender nur, wenn du sie einschaltest.")
                                     .font(.callout).foregroundStyle(.secondary)
@@ -207,7 +207,7 @@ struct AssistantSheet: View {
                         }
                         ForEach(m.qa) { x in
                             VStack(alignment: .leading, spacing: 8) {
-                                Text(verbatim: x.q).padding(10).background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
+                                Text(verbatim: x.q).padding(10).background(Color.gold.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
                                     .frame(maxWidth: .infinity, alignment: .trailing)
                                 if x.running && x.answer.isEmpty { HStack { ProgressView().controlSize(.small); Text("Denkt nach …").foregroundStyle(.secondary) } }
                                 if !x.answer.isEmpty { AnswerText(text: x.answer + (x.stopped ? " " + String(localized: "(abgebrochen)") : ""), sources: x.sources, openPage: open) }
@@ -261,7 +261,7 @@ struct AssistantSheet: View {
                             ForEach(m.status?.targets ?? [], id: \.self) { t in
                                 Button(Locale.current.localizedString(forLanguageCode: t)?.capitalized ?? t) { target = t; run("translate") }
                             }
-                        } label: { Label("Übersetzen nach", systemImage: "character.bubble").frame(maxWidth: .infinity, alignment: .leading) }
+                        } label: { Label("Übersetzen nach", systemImage: "character.bubble").lineLimit(2).frame(maxWidth: .infinity, minHeight: 42, alignment: .leading) }
                         .menuIndicator(.visible).buttonStyle(.bordered).controlSize(.large).disabled(sel == 0 || m.running)
                     }
                     if sel == 0 { Text("Für „Verbessern“ und „Übersetzen“ zuerst Text auf der Seite markieren.").font(.caption).foregroundStyle(.secondary) }
@@ -279,7 +279,8 @@ struct AssistantSheet: View {
         } message: { Text("Der Text der markierten Blöcke wird durch den Vorschlag ersetzt (Formatierungen gehen dabei verloren). Frühere Fassungen findest du im Versionsverlauf.") }
     }
     private func actionButton(_ t: LocalizedStringKey, _ icon: String, _ a: String) -> some View {
-        Button { run(a) } label: { Label(t, systemImage: icon).frame(maxWidth: .infinity, alignment: .leading) }
+        // gleich hohe Kacheln (Platz fuer zwei Zeilen, z. B. "Markierten Text verbessern" auf Spanisch)
+        Button { run(a) } label: { Label(t, systemImage: icon).lineLimit(2).multilineTextAlignment(.leading).frame(maxWidth: .infinity, minHeight: 42, alignment: .leading) }
             .buttonStyle(.bordered).controlSize(.large).disabled(m.running)
     }
     private func run(_ a: String) {
@@ -368,7 +369,7 @@ struct AnswerText: View {
             case .cite(let n, let id):
                 var x = AttributedString("[\(n)]")
                 if let id { x.link = URL(string: "hkaisrc://\(id)") }
-                x.foregroundColor = .accentColor
+                x.foregroundColor = Color.gold
                 a += x
             }
         }

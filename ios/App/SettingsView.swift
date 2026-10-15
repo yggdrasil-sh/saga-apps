@@ -5,7 +5,7 @@ import WidgetKit
 struct SettingsView: View {
     var onLogout: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
-    @State private var server = AppConfig.serverString
+    @State private var server = ShotDisplay.server(AppConfig.serverString)
     @State private var token = AppConfig.token
     @State private var status = ""
     @State private var busy = false

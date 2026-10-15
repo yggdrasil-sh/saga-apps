@@ -115,4 +115,54 @@ enum ChatLogic {
         let d = String(p.dropFirst("saga-safety:1:".count))
         return d.count == 60 && d.allSatisfy(\.isNumber) ? d : nil
     }
+
+    // MARK: Darstellung der Codes (auf allen Plattformen gleich)
+
+    /// Ziffern in Fuenfergruppen ("12345 67890 ...")
+    static func groups5(_ s: String) -> [String] {
+        let d = Array(digitsOnly(s))
+        return stride(from: 0, to: d.count, by: 5).map { String(d[$0..<min($0 + 5, d.count)]) }
+    }
+    /// Sicherheitsnummer: 3 Zeilen x 4 Gruppen a 5 Ziffern (Menschen vergleichen zeilenweise)
+    static func safetyRows(_ number: String) -> [[String]] {
+        let g = groups5(number)
+        return stride(from: 0, to: g.count, by: 4).map { Array(g[$0..<min($0 + 4, g.count)]) }
+    }
+    /// Kopplungscode: 4 Gruppen a 5 Ziffern in einer Zeile, sonst 2 Zeilen a 2 Gruppen
+    static func linkCodeLines(_ code: String, oneLine: Bool) -> [String] {
+        let g = groups5(code)
+        return oneLine ? [g.joined(separator: " ")] : stride(from: 0, to: g.count, by: 2).map { g[$0..<min($0 + 2, g.count)].joined(separator: " ") }
+    }
+    /// Wiederherstellungsschluessel: 2 Zeilen a 4 Gruppen - nie mitten in einer Gruppe umbrechen
+    static func recoveryLines(_ key: String) -> [String] {
+        let g = key.split(separator: "-").map(String.init)
+        return stride(from: 0, to: g.count, by: 4).map { g[$0..<min($0 + 4, g.count)].joined(separator: "-") }
+    }
+
+    // MARK: Farben und Kontrast ("Echtheit nicht bestaetigt" muss lesbar sein, >= 4,5:1)
+
+    /// Feste Farben der Chat-Blasen (deckend) und des Hinweises; hell/dunkel
+    enum Palette {
+        static let bubbleMine = (light: 0xE2DBCB as UInt32, dark: 0x2C2414 as UInt32)      // Gold 22 % auf Weiss bzw. Schwarz
+        static let bubbleOther = (light: 0xEDEDF0 as UInt32, dark: 0x232326 as UInt32)
+        static let hint = (light: 0x55555A as UInt32, dark: 0xB4B4BA as UInt32)            // Hinweistext (Sekundaerfarbe)
+        static let warn = (light: 0xA65400 as UInt32, dark: 0xFF9F0A as UInt32)            // Warnsymbol orange
+    }
+    /// relative Leuchtdichte nach WCAG 2
+    static func luminance(_ rgb: UInt32) -> Double {
+        func ch(_ v: UInt32) -> Double { let c = Double(v & 0xFF) / 255; return c <= 0.03928 ? c / 12.92 : pow((c + 0.055) / 1.055, 2.4) }
+        return 0.2126 * ch(rgb >> 16) + 0.7152 * ch(rgb >> 8) + 0.0722 * ch(rgb)
+    }
+    static func contrast(_ a: UInt32, _ b: UInt32) -> Double {
+        let x = luminance(a), y = luminance(b)
+        return (max(x, y) + 0.05) / (min(x, y) + 0.05)
+    }
+
+    /// Menschlicher Geraetename fuer neue Anmeldungen: Modell ("iPhone", "iPad", "Mac") + ggf. Geraetename
+    static func deviceName(name: String, model: String) -> String {
+        let n = name.trimmingCharacters(in: .whitespacesAndNewlines), m = model.trimmingCharacters(in: .whitespaces)
+        if n.isEmpty || n.caseInsensitiveCompare(m) == .orderedSame { return m.isEmpty ? "Apple" : m }
+        if m.isEmpty || n.range(of: m, options: .caseInsensitive) != nil { return String(n.prefix(80)) }
+        return String("\(n) (\(m))".prefix(80))
+    }
 }

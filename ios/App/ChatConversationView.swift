@@ -50,9 +50,7 @@ struct ConversationView: View {
         .navigationSubtitle(conv.info.map { $0.kind == "dm" ? $0.kindLabel : "\($0.kindLabel) · \(String(localized: "\($0.memberCount) Personen"))" } ?? "")
         #endif
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button { searching.toggle(); if !searching { search = "" } } label: { Image(systemName: "magnifyingglass") }.help("Suchen").accessibilityLabel("Suchen")
-            }
+            // Suche im Chat steckt im Menue (Befehl-F): eine zweite Lupe neben dem Suchfeld der Liste/Seitenleiste verwirrt
             ToolbarItem(placement: .primaryAction) { menu }
         }
         .task {
@@ -116,9 +114,11 @@ struct ConversationView: View {
         if searching {
             HStack {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Suchen", text: $search).textFieldStyle(.plain)
+                TextField("Suchen (nur auf diesem Gerät, in geladenen Nachrichten)", text: $search).textFieldStyle(.plain)
                 let n = search.isEmpty ? 0 : conv.messages.filter { ChatLogic.matches($0.text, search) }.count
                 if !search.isEmpty { Text("\(n) Treffer").font(.caption).foregroundStyle(.secondary) }
+                Button { searching = false; search = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary) }
+                    .buttonStyle(.plain).help(Text("Suche schließen")).accessibilityLabel(Text("Suche schließen"))
             }
             .padding(10).background(.bar)
             Divider()
@@ -155,7 +155,8 @@ struct ConversationView: View {
                                       quoted: m.replyTo.flatMap { r in conv.messages.first { $0.id == r } }, hasReply: m.replyTo != nil,
                                       conv: conv, highlight: !search.isEmpty && ChatLogic.matches(m.text, search),
                                       reply: { replyTo = m; focused = true }, delete: { askDelete = m },
-                                      openPage: { id in nav.push(PageRoute(id: id)) })
+                                      openPage: { id in nav.push(PageRoute(id: id)) },
+                                      checkSafety: { safetyPeer = ChatMember(username: m.sender, name: m.senderName, me: false) })
                             .id(m.id)
                     }
                     if let e = conv.error { Text("Nachrichten nicht geladen: \(e)").font(.footnote).foregroundStyle(.orange) }
@@ -182,7 +183,7 @@ struct ConversationView: View {
             if let s = conv.sendError { Text(verbatim: s).font(.footnote).foregroundStyle(.red).frame(maxWidth: .infinity, alignment: .leading) }
             if let r = replyTo {
                 HStack {
-                    Rectangle().fill(Color.accentColor).frame(width: 3)
+                    Rectangle().fill(Color.gold).frame(width: 3)
                     VStack(alignment: .leading) {
                         Text("Antwort an \(r.mine ? String(localized: "du") : r.senderName)").font(.caption.weight(.semibold))
                         Text(verbatim: r.text).font(.caption).lineLimit(1).foregroundStyle(.secondary)
@@ -227,7 +228,7 @@ struct ConversationView: View {
                     .keyboardShortcut(.return, modifiers: .command)
                     .accessibilityLabel("Senden")
             }
-            .buttonStyle(.plain).foregroundStyle(Color.accentColor)
+            .buttonStyle(.plain).foregroundStyle(Color.gold)
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .background(.bar)
@@ -245,6 +246,10 @@ struct ConversationView: View {
 
     private var menu: some View {
         Menu {
+            Button { searching.toggle(); if !searching { search = "" } } label: {
+                Label(searching ? "Suche schließen" : "In diesem Chat suchen", systemImage: "magnifyingglass")
+            }.keyboardShortcut("f", modifiers: .command)
+            Divider()
             if let i = conv.info {
                 if i.kind == "dm", let p = i.peer { Button { safetyPeer = p } label: { Label("Sicherheitsnummer", systemImage: "checkmark.shield") } }
                 Button { showMembers = true } label: { Label("Mitglieder", systemImage: "person.2") }
@@ -265,7 +270,7 @@ struct ConversationView: View {
                 }
             }
         } label: { Image(systemName: "ellipsis.circle") }
-        .accessibilityLabel("Mehr")
+        .accessibilityLabel("Mehr").help(Text("Mehr"))
     }
     static func retentionText(_ s: Int) -> String {
         switch ChatLogic.retention(s) {
@@ -318,6 +323,11 @@ struct MessageBubble: View {
     var reply: () -> Void
     var delete: () -> Void
     var openPage: (Int) -> Void
+    var checkSafety: () -> Void = {}
+    @State private var info = false
+    #if DEBUG
+    @MainActor static var infoShown = false                       // nur fuer Bilder: Erklaerung einmal oeffnen
+    #endif
     var body: some View {
         HStack {
             if m.mine { Spacer(minLength: 48) }
@@ -332,16 +342,11 @@ struct MessageBubble: View {
                         Label("Nicht entschlüsselbar", systemImage: "lock.trianglebadge.exclamationmark").font(.callout.italic())
                         Text("Diese Nachricht lässt sich auf diesem Gerät nicht entschlüsseln.").font(.caption).foregroundStyle(.secondary)
                     }
-                    if !m.verified && m.content != nil {
-                        // deutlich kennzeichnen (Nachtrag v2): ausgegraut + Hinweis
-                        Label("Echtheit nicht bestätigt", systemImage: "exclamationmark.triangle.fill").font(.caption.weight(.semibold)).foregroundStyle(.orange)
-                            .help("Absender nicht bestätigt: Signatur oder Geräte-Schlüssel passen nicht (z. B. nach „Neu beginnen“).")
-                    }
+                    if !m.verified && m.content != nil { unverifiedHint }
                 }
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background(bubbleColor, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(highlight ? Color.accentColor : .clear, lineWidth: 2))
-                .opacity(m.verified || m.content == nil ? 1 : 0.6)
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(highlight ? Color.gold : .clear, lineWidth: 2))
                 HStack(spacing: 4) {
                     Text(m.date, format: .dateTime.hour().minute())
                     if m.expiresAt != nil { Image(systemName: "timer") }
@@ -357,10 +362,44 @@ struct MessageBubble: View {
             if !m.mine { Spacer(minLength: 48) }
         }
     }
-    private var bubbleColor: Color { m.mine ? Color.accentColor.opacity(0.22) : Color.secondary.opacity(0.13) }
+    /// deckende Blasen (eigene golden wie auf iPhone/iPad, auch am Mac mit Graphit-Akzent)
+    private var bubbleColor: Color {
+        m.mine ? .adaptive(ChatLogic.Palette.bubbleMine.light, ChatLogic.Palette.bubbleMine.dark)
+               : .adaptive(ChatLogic.Palette.bubbleOther.light, ChatLogic.Palette.bubbleOther.dark)
+    }
+    /// "Echtheit nicht bestaetigt": Inhalt bleibt voll deckend; Symbol orange, Text in lesbarer Sekundaerfarbe (>= 4,5:1),
+    /// antippbar mit kurzer Erklaerung und dem naechsten Schritt
+    private var unverifiedHint: some View {
+        Button { info = true } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.adaptive(ChatLogic.Palette.warn.light, ChatLogic.Palette.warn.dark))
+                Text("Echtheit nicht bestätigt").foregroundStyle(Color.adaptive(ChatLogic.Palette.hint.light, ChatLogic.Palette.hint.dark))
+                Image(systemName: "info.circle").foregroundStyle(Color.adaptive(ChatLogic.Palette.hint.light, ChatLogic.Palette.hint.dark))
+            }.font(.caption.weight(.semibold))
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint(Text("Zeigt, was das bedeutet"))
+        #if DEBUG
+        .task {
+            if UserDefaults.standard.bool(forKey: "hkChatInfo") && !Self.infoShown { Self.infoShown = true; try? await Task.sleep(for: .seconds(2.5)); info = true }
+        }
+        #endif
+        .popover(isPresented: $info) {
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Echtheit nicht bestätigt", systemImage: "exclamationmark.triangle.fill").font(.headline)
+                Text("Diese Nachricht konnte keinem bestätigten Gerät des Absenders zugeordnet werden – z. B. weil das Gerät inzwischen entfernt wurde. Vergleiche im Zweifel die Sicherheitsnummer.")
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Sicherheitsnummer prüfen") { info = false; checkSafety() }.prominentGold()
+            }
+            .padding(18).frame(idealWidth: 340, maxWidth: 380)
+            #if os(iOS)
+            .presentationCompactAdaptation(.popover)
+            #endif
+        }
+    }
     private var quote: some View {
         HStack(spacing: 6) {
-            Rectangle().fill(Color.accentColor).frame(width: 3)
+            Rectangle().fill(Color.gold).frame(width: 3)
             VStack(alignment: .leading, spacing: 1) {
                 if let q = quoted {
                     Text(verbatim: q.mine ? String(localized: "du") : q.senderName).font(.caption.weight(.semibold))
@@ -378,7 +417,7 @@ struct MessageBubble: View {
             case .note(let id):
                 let n = conv.notes[id]
                 var x = AttributedString((n?.icon.isEmpty == false ? n!.icon + " " : "📄 ") + (n?.title ?? String(localized: "Seite")))
-                if n?.icon != "🔒" { x.link = URL(string: "hkchatnote://\(id)"); x.foregroundColor = .accentColor; x.underlineStyle = .single }
+                if n?.icon != "🔒" { x.link = URL(string: "hkchatnote://\(id)"); x.foregroundColor = Color.gold; x.underlineStyle = .single }
                 else { x.foregroundColor = .secondary }
                 a += x
             }

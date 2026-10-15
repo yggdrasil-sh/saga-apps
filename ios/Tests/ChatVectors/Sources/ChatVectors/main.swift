@@ -58,6 +58,18 @@ ok("link code", C.linkCode(uid: s(lk, "uid"), deviceID: s(lk, "device_id"), encP
 ok("link sealed bundle", C.sealOpen(b(lk, "sealed_bundle"), pk: enc.pk, sk: enc.sk).flatMap { String(data: $0, encoding: .utf8) } == s(r, "plain"))
 ok("safety number", C.safetyNumber(uidA: s(sf, "uid_a"), identA: b(sf, "ident_a"), uidB: s(sf, "uid_b"), identB: b(sf, "ident_b")) == s(sf, "number")
    && C.safetyNumber(uidA: s(sf, "uid_b"), identA: b(sf, "ident_b"), uidB: s(sf, "uid_a"), identB: b(sf, "ident_a")) == s(sf, "number"))
+// Grenzen beim Oeffnen des Buendels: ops <= 10, mem <= 256 MiB, nur v=1/argon2id13 (sonst "Unbekanntes Schluesselformat")
+func variant(_ f: (inout [String: Any]) -> Void) -> String {
+    var j = (try? JSONSerialization.jsonObject(with: Data(s(r, "bundle").utf8))) as? [String: Any] ?? [:]
+    f(&j); return String(data: try! JSONSerialization.data(withJSONObject: j), encoding: .utf8)!
+}
+let tooManyOps = variant { $0["ops"] = 11 }, tooMuchMem = variant { $0["mem"] = 256 * 1024 * 1024 + 1024 }
+let atLimit = variant { $0["ops"] = 10; $0["mem"] = 256 * 1024 * 1024 }, wrongKdf = variant { $0["kdf"] = "scrypt" }, wrongV = variant { $0["v"] = 2 }
+ok("bundle limits", C.bundleFormatOK(s(r, "bundle")) && C.bundleFormatOK(atLimit)
+   && !C.bundleFormatOK(tooManyOps) && !C.bundleFormatOK(tooMuchMem) && !C.bundleFormatOK(wrongKdf) && !C.bundleFormatOK(wrongV)
+   && !C.bundleFormatOK(variant { $0["ops"] = 0 }) && !C.bundleFormatOK("kein json")
+   && C.openBundle(uid: uid, recoveryKey: s(r, "key"), bundle: tooManyOps) == nil
+   && C.openBundle(uid: uid, recoveryKey: s(r, "key"), bundle: tooMuchMem) == nil)
 // eigene Rundreise: versiegeln/oeffnen mit frischen Schluesseln
 let kp = C.boxKeypair(), k = C.aeadKey()
 ok("seal roundtrip", C.seal(k, pk: kp.pk).flatMap { C.sealOpen($0, pk: kp.pk, sk: kp.sk) } == k && C.seal(k, pk: kp.pk)?.count == 80)

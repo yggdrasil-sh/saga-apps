@@ -291,6 +291,7 @@ final class ChatModel: ObservableObject {
     func restore(recoveryKey rk: String) async throws {
         guard let store, let bundle = me.bundle else { return }
         let uid = me.uid
+        guard ChatCrypto.bundleFormatOK(bundle) else { throw APIError.other(String(localized: "Unbekanntes Schlüsselformat")) }
         let b = await Task.detached { ChatCrypto.openBundle(uid: uid, recoveryKey: rk, bundle: bundle) }.value    // Argon2id: nicht auf dem Hauptthread
         guard let b, ChatCrypto.b64(b.identPK) == me.identPub else { throw APIError.other(String(localized: "Dieser Schlüssel passt nicht.")) }
         let enc = ChatCrypto.boxKeypair(), sign = ChatCrypto.signKeypair(), did = ChatCrypto.hexID()

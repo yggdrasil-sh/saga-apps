@@ -576,6 +576,10 @@ struct NativePageScreen: View {
     @ViewBuilder private var commentsButton: some View {
         if doc.access.commentsOpen > 0 {
             CommentsHeadButton(open: doc.access.commentsOpen, unread: doc.access.commentsUnread) { commentsTarget = CommentsTarget(block: nil) }
+        } else if doc.access.remote && doc.access.commentsSupported && doc.access.canComment && doc.fetched {
+            // fremde Seite (Foederation): der Hinweis verspricht "kommentieren" - also den Weg dorthin sichtbar anbieten
+            Button { commentsTarget = CommentsTarget(block: nil) } label: { Image(systemName: "bubble.left") }
+                .help(Text("Kommentieren")).accessibilityLabel(Text("Kommentieren"))
         }
     }
     private var favButtonOwn: some View {
@@ -825,7 +829,7 @@ struct NativePageScreen: View {
                         .font(.largeTitle.bold()).textFieldStyle(.plain).disabled(ed.locked || !doc.fetched)
                     if let by = doc.access.sharedBy { SharedByLabel(owner: by, role: doc.access.role) }      // fremde Seite (1.3)
                     PageMetaLine(access: doc.access, updated: doc.page["updated"] as? Double)
-                    if let host = doc.access.remoteHost { RemotePageBanner(host: host) }                    // Foederation (2.0)
+                    if let host = doc.access.remoteHost { RemotePageBanner(host: host, canComment: doc.access.commentsSupported && doc.access.canComment, canEdit: !doc.access.readOnly) }                    // Foederation (2.0)
                     if !presence.isEmpty { PresenceBar(users: presence) }                                 // Live (1.4)
                     if let by = doc.changedBy { ChangedBanner(name: by) { doc.changedBy = nil; ed.focus = nil; Task { await doc.loadNewVersion(store) } } }
                     if let by = doc.updatedBy { Label("Aktualisiert – geändert von \(by)", systemImage: "arrow.triangle.2.circlepath").font(.caption).foregroundStyle(.secondary) }

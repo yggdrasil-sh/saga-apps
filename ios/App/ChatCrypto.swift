@@ -211,11 +211,21 @@ extension ChatCrypto {
         return "{\"v\":1,\"kdf\":\"argon2id13\",\"ops\":\(ops),\"mem\":\(mem),\"salt\":\"\(b64(salt))\",\"nonce\":\"\(b64(nonce))\",\"ct\":\"\(b64(ct))\"}"
     }
     /// Buendel mit dem Wiederherstellungsschluessel oeffnen (ops/mem aus dem Buendel); nil = falscher Schluessel
-    static func openBundle(uid: String, recoveryKey rk: String, bundle: String) -> Bundle? {
+    /// Obergrenzen fuer die Argon2-Parameter aus dem Buendel (Schutz vor absurden Werten vom Server)
+    static let bundleMaxOps = 10, bundleMaxMem = 256 * 1024 * 1024
+
+    /// Buendel im bekannten Format (v=1, argon2id13, ops 1...10, mem 8 KiB...256 MiB)? Sonst "Unbekanntes Schluesselformat".
+    static func bundleFormatOK(_ bundle: String) -> Bool {
         guard let j = (try? JSONSerialization.jsonObject(with: Data(bundle.utf8))) as? [String: Any],
+              (j["v"] as? NSNumber)?.intValue == 1, j["kdf"] as? String == "argon2id13",
+              let ops = (j["ops"] as? NSNumber)?.intValue, let mem = (j["mem"] as? NSNumber)?.intValue else { return false }
+        return (1...bundleMaxOps).contains(ops) && (8192...bundleMaxMem).contains(mem)
+    }
+
+    static func openBundle(uid: String, recoveryKey rk: String, bundle: String) -> Bundle? {
+        guard bundleFormatOK(bundle), let j = (try? JSONSerialization.jsonObject(with: Data(bundle.utf8))) as? [String: Any],
               let salt = unb64(j["salt"] as? String, 16), let nonce = unb64(j["nonce"] as? String, 24), let ct = unb64(j["ct"] as? String),
               let ops = (j["ops"] as? NSNumber)?.intValue, let mem = (j["mem"] as? NSNumber)?.intValue,
-              ops <= 16, mem <= 1_073_741_824,                                  // keine absurden Werte vom Server
               let key = recoveryKDF(rk, salt: salt, ops: ops, mem: mem),
               let pt = aeadDecrypt(ct, ad: lp(V + "bundle", uid), nonce: nonce, key: key),
               let s = String(data: pt, encoding: .utf8) else { return nil }
