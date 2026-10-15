@@ -1,10 +1,13 @@
 import SwiftUI
+import UserNotifications
 
 @main
 struct HlidskjalfApp: App {
     @StateObject private var store = Store()
     #if os(macOS)
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    #else
+    @UIApplicationDelegateAdaptor(IOSAppDelegate.self) private var appDelegate   // Mitteilungen (APNs-Token, Antippen)
     #endif
 
     var body: some Scene {
@@ -21,7 +24,7 @@ struct HlidskjalfApp: App {
                 HKEditorCommands()
             }
         Settings { SettingsView().environmentObject(store).frame(width: 600, height: 720) }
-        MenuBarExtra("Saga", systemImage: "book") { QuickCaptureView() }     // Schnellerfassung in der Menueleiste
+        MenuBarExtra("Saga", systemImage: "book", isInserted: .constant(!SnapshotHelper.active)) { QuickCaptureView() }     // Schnellerfassung in der Menueleiste (nicht bei Test-Bildern)
             .menuBarExtraStyle(.window)
         #else
         WindowGroup { RootView(store: store) }
@@ -33,6 +36,18 @@ struct HlidskjalfApp: App {
 #if os(macOS)
 /// Beenden (⌘Q): erst offene Seiten speichern - hoechstens 8 Sekunden warten (Entwurf liegt ohnehin lokal)
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        UNUserNotificationCenter.current().delegate = PushCenterDelegate.shared       // Mitteilungen: Antippen, Anzeige im Vordergrund
+        #if DEBUG
+        SnapshotHelper.setUp()                                                       // nur fuer Tests: Fenster unsichtbar abbilden
+        #endif
+    }
+    func application(_ application: NSApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        Task { @MainActor in PushModel.current?.didRegister(token: deviceToken) }
+    }
+    func application(_ application: NSApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        Task { @MainActor in PushModel.current?.didFail(error) }
+    }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard MainActor.assumeIsolated({ SaveRegistry.hasUnsaved }) else { return .terminateNow }
         let once = Once(sender)

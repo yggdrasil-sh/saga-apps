@@ -1,0 +1,265 @@
+import SwiftUI
+
+// Ein geoeffneter Chat: Nachrichten laden/entschluesseln/pruefen, senden (je Empfaenger-Geraet + Backup versiegelt),
+// Anhaenge (clientseitig verschluesselt), Antworten, Loeschen, gelesen, "tippt …", Seitenverweise.
+
+struct ChatMessage: Identifiable, Equatable {
+    var seq: Int
+    var id: String
+    var sender: String
+    var senderName: String
+    var ts: Double
+    var created: Double
+    var expiresAt: Double?
+    var replyTo: String?
+    var content: ChatContent?
+    var verified: Bool
+    var mine: Bool
+    var date: Date { Date(timeIntervalSince1970: created > 0 ? created : ts / 1000) }
+    var text: String { content?.text ?? "" }
+}
+
+/// Anhang vor dem Senden
+struct ChatPendingFile: Identifiable, Equatable { let id = UUID(); var name: String; var mime: String; var data: Data }
+
+@MainActor
+final class ConversationModel: ObservableObject {
+    let chatID: Int
+    unowned let model: ChatModel
+    @Published var info: ChatSummary?
+    @Published var messages: [ChatMessage] = []
+    @Published var more = false
+    @Published var loading = false
+    @Published var error: String?
+    @Published var sendError: String?
+    @Published var sending = false
+    @Published var notFound = false
+    @Published var typing: [String: (name: String, at: Date)] = [:]
+    @Published var notes: [Int: (title: String, icon: String)] = [:]
+    @Published var changedPeers: [String] = []                      // Sicherheitsnummer geaendert (TOFU)
+    private var recipients: [[String: Any]]?
+    private var lastTyping = Date.distantPast
+    private var lastReadSent = 0
+
+    init(chatID: Int, model: ChatModel) { self.chatID = chatID; self.model = model }
+    private var store: Store? { model.store }
+    private var me: String { model.me.uid }
+    var typingNames: [String] { ChatLogic.typing(typing) }
+
+    // MARK: Laden
+
+    func load() async {
+        guard let store else { return }
+        loading = true; defer { loading = false }
+        do {
+            let (d, code) = try await store.apiResponse("api/chats/\(chatID)?\(model.deviceParam)")
+            if code == 404 { notFound = true; return }
+            guard code == 200, let c = ShareJSON.obj(d)?["chat"] else { throw APIError.http(code, ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "") }
+            var s = ChatSummary(c)
+            if s?.kind == "free", let x = s { s?.decryptedTitle = model.decryptTitle(x) }
+            info = s
+            let m = try await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&limit=50")
+            messages = []; ingest(m, prepend: false)
+            error = nil
+            await markRead()
+            await loadRecipients()
+        } catch { self.error = error.localizedDescription }
+    }
+    func loadOlder() async {
+        guard let store, more, let first = messages.first else { return }
+        if let d = try? await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&before=\(first.seq)&limit=50") { ingest(d, prepend: true) }
+    }
+    func fetchNew() async {
+        guard let store else { return }
+        let after = messages.last?.seq ?? 0
+        if let d = try? await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&after=\(after)&limit=200") { ingest(d, prepend: false, onlyMore: false) }
+        await markRead()
+    }
+
+    private func ingest(_ d: Data, prepend: Bool, onlyMore: Bool = true) {
+        guard let j = ShareJSON.obj(d) else { return }
+        let devs = j["devices"] as? [String: Any], ids = j["idents"] as? [String: Any]
+        var list: [ChatMessage] = []
+        for case let m as [String: Any] in (j["messages"] as? [Any] ?? []) {
+            let sender = (m["sender"] as? [String: Any])?["username"] as? String ?? ""
+            let name = (m["sender"] as? [String: Any])?["name"] as? String ?? String(localized: "Gelöschtes Konto")
+            let r = model.decrypt(chatID: chatID, raw: m, devices: devs, idents: ids)
+            if sender != me, let ip = ids?[sender] as? String, ChatTrustStore.observe(me, sender, pk: ip) == .changed || ChatTrustStore.known(me, sender)?.changed == true {
+                if !changedPeers.contains(sender) { changedPeers.append(sender) }
+            }
+            list.append(ChatMessage(seq: ShareJSON.int(m["seq"]) ?? 0, id: m["id"] as? String ?? "", sender: sender, senderName: name,
+                                    ts: ShareJSON.num(m["ts"]) ?? 0, created: ShareJSON.num(m["created"]) ?? 0, expiresAt: ShareJSON.num(m["expires_at"]),
+                                    replyTo: ShareJSON.str(m["reply_to"]), content: r?.content, verified: r?.verified ?? false, mine: sender == me))
+        }
+        let known = Set(messages.map(\.id))
+        list.removeAll { known.contains($0.id) }
+        if prepend { messages = list + messages; more = ShareJSON.bool(j["more"]) }
+        else { messages += list; if messages.count == list.count { more = ShareJSON.bool(j["more"]) } }
+        Task { await resolveNotes(list) }
+    }
+
+    /// Seitenverweise [[note:id]] aufloesen (Titel nur bei eigenem Zugriff)
+    private func resolveNotes(_ list: [ChatMessage]) async {
+        let ids = Set(list.flatMap { m in (m.content?.notes ?? []) + ChatLogic.noteRefs(m.text) }).subtracting(notes.keys)
+        guard let store, !ids.isEmpty else { return }
+        guard let d = try? await store.api("api/chat/notes?ids=" + ids.map(String.init).joined(separator: ",")), let j = ShareJSON.obj(d)?["notes"] as? [String: Any] else { return }
+        for id in ids {
+            if let n = j[String(id)] as? [String: Any] { notes[id] = (n["title"] as? String ?? "", n["icon"] as? String ?? "") }
+            else { notes[id] = (String(localized: "Seite (kein Zugriff)"), "🔒") }
+        }
+    }
+
+    func markRead() async {
+        guard let store, let last = messages.last?.seq, last > lastReadSent else { return }
+        lastReadSent = last
+        _ = try? await store.api("api/chats/\(chatID)/read", method: "POST", body: ["seq": last])
+        Task { await model.loadList() }
+    }
+
+    func live(_ type: String, _ d: [String: Any]) {
+        switch type {
+        case "chat.message": Task { await fetchNew() }
+        case "chat.deleted": if let id = d["id"] as? String { messages.removeAll { $0.id == id } }
+        case "chat.changed": recipients = nil; Task { await load() }
+        case "chat.typing":
+            if let u = d["user"] as? [String: Any], let n = u["username"] as? String, n != me {
+                typing[n] = (u["name"] as? String ?? n, Date())
+                Task { try? await Task.sleep(for: .seconds(5.5)); typing = typing.filter { Date().timeIntervalSince($0.value.at) < 5 } }
+            }
+        default: break
+        }
+    }
+
+    // MARK: Senden
+
+    func loadRecipients() async {
+        guard let store, let d = try? await store.api("api/chats/\(chatID)/recipients") else { return }
+        recipients = ShareJSON.obj(d)?["recipients"] as? [[String: Any]]
+    }
+
+    /// Empfaenger pruefen und Schluessel versiegeln -> keys-Map; wirft bei ungueltigen Schluesseln
+    private func sealKeys(_ K: Data, _ rc: [[String: Any]], ackChanged: Bool) throws -> (keys: [String: String], notReady: [String]) {
+        guard let k = model.keys else { throw APIError.other(String(localized: "Deine Schlüssel auf dem Server passen nicht zu diesem Gerät.")) }
+        var out: [String: String] = [:], notReady: [String] = []
+        for r in rc {
+            let uid = r["username"] as? String ?? "", name = r["name"] as? String ?? uid
+            guard ShareJSON.bool(r["ready"]) else { notReady.append(name); continue }
+            guard let ipk = ChatCrypto.unb64(r["ident_pub"] as? String, 32), let bpk = ChatCrypto.unb64(r["backup_pub"] as? String, 32),
+                  ChatCrypto.verify(ChatCrypto.unb64(r["backup_sig"] as? String), ChatCrypto.backupMsg(uid: uid, backupPK: bpk), pk: ipk) else {
+                throw APIError.other(String(localized: "Ungültige Schlüssel von \(name) – Senden abgebrochen."))
+            }
+            if uid == me {
+                guard ipk == k.identPK else { throw APIError.other(String(localized: "Deine Schlüssel auf dem Server passen nicht zu diesem Gerät.")) }
+            } else {
+                let t = ChatTrustStore.observe(me, uid, pk: ChatCrypto.b64(ipk))
+                if (t == .changed || ChatTrustStore.known(me, uid)?.changed == true) && !ackChanged {
+                    if !changedPeers.contains(uid) { changedPeers.append(uid) }
+                    throw APIError.other(String(localized: "Die Sicherheitsnummer von \(name) hat sich geändert – erst prüfen oder „Verstanden“ wählen."))
+                }
+            }
+            guard let sb = ChatCrypto.seal(K, pk: bpk) else { throw APIError.other(String(localized: "Ungültige Schlüssel von \(name) – Senden abgebrochen.")) }
+            out["backup:" + uid] = ChatCrypto.b64(sb)
+            for case let dv as [String: Any] in (r["devices"] as? [Any] ?? []) {
+                guard let did = dv["id"] as? String, let enc = ChatCrypto.unb64(dv["enc_pub"] as? String, 32), let sg = ChatCrypto.unb64(dv["sign_pub"] as? String, 32),
+                      ChatCrypto.verify(ChatCrypto.unb64(dv["sig"] as? String), ChatCrypto.deviceMsg(uid: uid, deviceID: did, encPK: enc, signPK: sg), pk: ipk),
+                      let s = ChatCrypto.seal(K, pk: enc) else {
+                    throw APIError.other(String(localized: "Ungültige Schlüssel von \(name) – Senden abgebrochen."))
+                }
+                out[did] = ChatCrypto.b64(s)
+            }
+        }
+        return (out, notReady)
+    }
+
+    /// Text (+ Anhaenge, Antwort) senden; true = gesendet
+    @discardableResult
+    func send(text: String, replyTo: String?, files: [ChatPendingFile], kind: String = "msg", title: String? = nil) async -> Bool {
+        guard let store, let k = model.keys else { return false }
+        sending = true; sendError = nil; defer { sending = false }
+        do {
+            // Anhaenge zuerst (verschluesselter Blob, Server sieht nur Bytes)
+            var refs: [ChatFileRef] = []
+            for f in files {
+                guard f.data.count <= model.me.fileMax else {
+                    throw APIError.other(String(localized: "„\(f.name)“ ist zu groß (höchstens \(model.me.fileMax / 1_048_576) MB)."))
+                }
+                guard let e = ChatCrypto.encryptFile(chatID: String(chatID), data: f.data) else { throw APIError.other(String(localized: "Upload fehlgeschlagen")) }
+                let d = try await store.apiRaw("api/chats/\(chatID)/files", data: e.blob)
+                guard let fid = ShareJSON.obj(d)?["id"] as? String else { throw APIError.other(String(localized: "Upload fehlgeschlagen")) }
+                refs.append(ChatFileRef(id: fid, key: ChatCrypto.b64(e.key), name: f.name, mime: f.mime, size: f.data.count))
+            }
+            var content = ChatContent(type: kind == "title" ? "title" : "text", text: text, title: title, files: refs, notes: ChatLogic.noteRefs(text))
+            if kind == "title" { content.text = "" }
+            let plain = content.json()
+            if recipients == nil { await loadRecipients() }
+            for attempt in 0..<2 {
+                guard let rc = recipients else { throw APIError.other(String(localized: "Keine Antwort vom Server")) }
+                let mid = ChatCrypto.hexID(), ts = Int64(Date().timeIntervalSince1970 * 1000)
+                guard let sealed = ChatCrypto.encryptMessage(chatID: String(chatID), msgID: mid, sender: me, device: k.deviceID, signSK: k.sign.sk,
+                                                             ts: ts, replyTo: replyTo, plain: plain) else { throw APIError.other(String(localized: "Nicht gesendet")) }
+                let (keys, notReady) = try sealKeys(sealed.key, rc, ackChanged: false)
+                var body: [String: Any] = ["id": mid, "ts": ts, "sender_device": k.deviceID, "body_ct": sealed.bodyCT, "sig": sealed.sig,
+                                           "keys": keys, "files": refs.map(\.id), "kind": kind]
+                if let replyTo { body["reply_to"] = replyTo }
+                let (d, code) = try await store.apiResponse("api/chats/\(chatID)/messages", method: "POST", body: body)
+                if code == 409, attempt == 0, let r = ShareJSON.obj(d)?["recipients"] as? [[String: Any]] { recipients = r; continue }   // neu versiegeln
+                if code == 403 { await model.load() }
+                guard (200..<300).contains(code) else { throw APIError.http(code, ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "") }
+                if !notReady.isEmpty { sendError = String(localized: "\(notReady.joined(separator: ", ")) hat Chats noch nicht eingerichtet und kann diese Nachricht nicht lesen.") }
+                if kind == "title" { await load(); await model.loadList() } else { await fetchNew() }
+                return true
+            }
+        } catch { sendError = String(localized: "Nicht gesendet: \(error.localizedDescription)") }
+        return false
+    }
+
+    /// "tippt …" hoechstens alle 2,5 s
+    func typed() {
+        guard Date().timeIntervalSince(lastTyping) > 2.5, let store else { return }
+        lastTyping = Date()
+        Task { _ = try? await store.apiResponse("api/chats/\(chatID)/typing", method: "POST", body: [:]) }
+    }
+
+    func delete(_ m: ChatMessage) async {
+        guard let store else { return }
+        do { _ = try await store.api("api/chats/\(chatID)/messages/\(m.id)", method: "DELETE"); messages.removeAll { $0.id == m.id } }
+        catch { sendError = error.localizedDescription }
+    }
+
+    /// Anhang laden + entschluesseln
+    func file(_ f: ChatFileRef) async throws -> Data {
+        guard let store, let key = ChatCrypto.unb64(f.key, 32) else { throw APIError.other(String(localized: "nicht geladen")) }
+        let blob = try await store.api("api/chat/files/\(f.id)")
+        guard let d = ChatCrypto.decryptFile(chatID: String(chatID), blob: blob, key: key) else { throw APIError.other(String(localized: "Nicht entschlüsselbar")) }
+        return d
+    }
+
+    // MARK: Einstellungen des Chats
+
+    func patch(_ body: [String: Any]) async {
+        guard let store else { return }
+        if let d = try? await store.api("api/chats/\(chatID)", method: "PATCH", body: body), let c = ShareJSON.obj(d)?["chat"] {
+            var s = ChatSummary(c); if s?.kind == "free", let x = s { s?.decryptedTitle = model.decryptTitle(x) ?? info?.decryptedTitle }
+            info = s
+        }
+        await model.loadList()
+    }
+    func leave() async -> Bool {
+        guard let store else { return false }
+        do { _ = try await store.api("api/chats/\(chatID)/members/\(me)", method: "DELETE"); await model.loadList(); return true }
+        catch { sendError = error.localizedDescription; return false }
+    }
+    func addMember(_ user: String) async {
+        guard let store else { return }
+        do { _ = try await store.api("api/chats/\(chatID)/members", method: "POST", body: ["user": user]); recipients = nil; await load() }
+        catch { sendError = error.localizedDescription }
+    }
+    /// Identitaetsschluessel eines Mitglieds (fuer die Sicherheitsnummer)
+    func identity(of uid: String) async -> Data? {
+        if let r = recipients?.first(where: { $0["username"] as? String == uid }), let p = ChatCrypto.unb64(r["ident_pub"] as? String, 32) { return p }
+        guard let store, let d = try? await store.api("api/chat/keys?users=\(uid)"),
+              let u = (ShareJSON.obj(d)?["users"] as? [String: Any])?[uid] as? [String: Any] else { return nil }
+        return ChatCrypto.unb64(u["ident_pub"] as? String, 32)
+    }
+    func acknowledge(_ uid: String) { ChatTrustStore.acknowledge(me, uid); changedPeers.removeAll { $0 == uid } }
+}

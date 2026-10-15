@@ -20,4 +20,9 @@ SAGA_DEFAULT_SERVER =
 // Optional: umgezogene Server-Adressen "alt=neu" (mehrere durch Leerzeichen getrennt)
 SAGA_MOVED_SERVERS =
 
+// Mitteilungen (APNs) in der Mac-App: braucht ein Bereitstellungsprofil mit Push-Berechtigung (also nicht fuer
+// ad-hoc signierte DMG-Builds). Zum Einschalten in Config/Local.xcconfig: SAGA_MAC_PUSH_SUFFIX = -push
+// (nutzt dann App/App-macOS-push.entitlements). iOS/iPadOS haben die Berechtigung immer (App-iOS.entitlements).
+SAGA_MAC_PUSH_SUFFIX =
+
 #include? "Local.xcconfig"

@@ -19,8 +19,8 @@ struct SettingsView: View {
             form
             #if DEBUG
             .task {                                                      // nur fuer Tests: zum Konto-Block (Startparameter -hkSettings konto)
-                guard UserDefaults.standard.string(forKey: "hkSettings") == "konto" else { return }
-                try? await Task.sleep(for: .seconds(2)); proxy.scrollTo("konto", anchor: .center)
+                guard let v = UserDefaults.standard.string(forKey: "hkSettings"), v != "YES" else { return }
+                try? await Task.sleep(for: .seconds(2)); proxy.scrollTo(v, anchor: v == "konto" ? .center : .top)
             }
             #endif
         }
@@ -68,6 +68,9 @@ struct SettingsView: View {
                 }
             }
             PublicNameSection()                           // Konto: oeffentlicher Name (Veroeffentlichen)
+            NotificationSettingsSection()                 // Benachrichtigungen (Glocke, 1.4)
+            PushSettingsSection(push: store.push)         // Mitteilungen aufs Geraet (1.7)
+            ChatDevicesSection(chat: store.chat)          // Chats & Geraete (2.0)
             ImmichSettingsSection()                       // wie im Web: 👤 → Einstellungen
             CalendarSettingsSection()
             AppsDevicesSection()
@@ -76,6 +79,7 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Einstellungen")
+        .task { if store.chat.state == .loading { await store.chat.load() } }
         .confirmationDialog("Server wechseln?", isPresented: Binding(get: { askSwitch != nil }, set: { if !$0 { askSwitch = nil } }), titleVisibility: .visible) {
             Button("Abmelden und wechseln", role: .destructive) {
                 if let u = askSwitch { askSwitch = nil; Task { await store.switchServer(to: u); server = AppConfig.serverString; dismiss() } }

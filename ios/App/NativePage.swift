@@ -77,7 +77,8 @@ func inlineText(_ raw: String) -> AttributedString {
 }
 
 func linkURL(_ href: String) -> URL? {
-    if let r = href.range(of: #"^/notes#(\d+)$"#, options: .regularExpression) { return URL(string: "hkpage://" + href[r].split(separator: "#").last!) }
+    // auch Seiten anderer Saga-Instanzen (Foederation: negative IDs, z. B. hkpage://-2049)
+    if let id = FedLogic.noteID(href: href) { return URL(string: "hkpage://\(id)") }
     if href.hasPrefix("http://") || href.hasPrefix("https://") || href.hasPrefix("mailto:") { return URL(string: href) }
     return nil
 }
@@ -168,7 +169,7 @@ struct AnimatedImage: NSViewRepresentable {
 /// Bild vom Server (/files/...) mit der Sitzung laden und (animiert) anzeigen.
 struct RemoteImage: View {
     static func sized(_ path: String, _ w: Int?) -> String {
-        guard let w, path.hasPrefix("/files/"), !path.contains("?") else { return path }
+        guard let w, FedLogic.isImagePath(path), !path.contains("?") else { return path }
         return "\(path)?w=\(w)"
     }
     let path: String
@@ -270,7 +271,16 @@ final class PageDoc: ObservableObject {
     /// ungespeicherte Eingaben -> nicht durch Neuladen ueberschreiben
     var dirty: Bool { tracker.dirty }
     /// Jede Eingabe/Strukturaenderung zaehlt (gespeichert ist nur, was wirklich gesendet wurde)
-    func markEdited() { tracker.edit() }
+    func markEdited() { tracker.edit(); lastInput = Date() }
+    /// Live (1.4): letzte Eingabe ("bearbeitet gerade"), Revision fuer fremde Aenderungen
+    private(set) var lastInput: Date?
+    var currentRev: Int { rev }
+    /// Foederation (2.0): Problem mit der anderen Saga-Instanz (nicht erreichbar, oeffentlicher Name fehlt)
+    @Published var fedProblem: FedLogic.Problem?
+    /// Live (1.4): jemand anderes hat die Seite geaendert, waehrend hier ungespeicherte Eingaben liegen
+    @Published var changedBy: String?
+    /// Statuszeile nach stillem Neuladen: "Aktualisiert – geaendert von {name}"
+    @Published var updatedBy: String?
     /// Laeuft noch eine Speicherung oder ist etwas offen? (Beenden abwarten)
     var hasUnsaved: Bool { fetched && (dirty || queue.pending > 0) }
 
@@ -290,12 +300,22 @@ final class PageDoc: ObservableObject {
         if !loaded, let c = store.cachedData("api/notes/\(id)") { await apply(c, store) }     // sofort anzeigen
         do {
             let d = try await store.get("api/notes/\(id)")
-            offline = nil
+            offline = nil; fedProblem = nil
             if dirty && loaded && !force { return }                // eigene Eingaben schuetzen - aber nur, wenn schon etwas angezeigt wird
             if force { tracker.discard() }
             await apply(d, store)
             checkDraft()
         } catch {
+            // Seite einer anderen Saga-Instanz: Server nicht erreichbar (502) / oeffentlicher Name fehlt (403) -> Hinweis statt "Kein Zugriff"
+            if case APIError.http(let c, let msg) = error, FedLogic.isRemote(id) {
+                let p = FedLogic.problem(code: c, message: msg)
+                if p == .unreachable || p == .needsPublicName {
+                    fedProblem = p
+                    if !fetched { self.error = msg.isEmpty ? error.localizedDescription : msg; loaded = true }
+                    else { offline = msg }
+                    return
+                }
+            }
             if case APIError.http(let c, _) = error, c == 404 || c == 403, !dirty || !fetched {
                 // Seite geloescht oder nicht (mehr) geteilt: nichts Bearbeitbares zeigen, nie speichern;
                 // zwischengespeicherten Inhalt verwerfen (sonst offline weiter lesbar)
@@ -539,6 +559,10 @@ struct NativePageScreen: View {
     @State private var commentsTarget: CommentsTarget?   // Kommentare (alle bzw. eines Blocks)
     @State private var scrolled = false                  // grosser Titel weggescrollt -> kleiner Titel + Leiste
     @State private var topInset: CGFloat = 0
+    @State private var presence: [PresenceUser] = []     // Live (1.4): andere auf dieser Seite
+    @State private var presenceOff = false               // 404/aelterer Server: nicht mehr senden
+    @State private var assistant: AssistantLaunch?       // KI-Assistent (1.6)
+    @Environment(\.scenePhase) private var phase
     init(id: Int, inPeek: Bool = false) {
         self.id = id; self.inPeek = inPeek
         let d = PageDoc(id: id)
@@ -581,6 +605,19 @@ struct NativePageScreen: View {
                     if a.foreign && a.allows(.addSubpage) && !doc.isDatabase {
                         Button { Task { await ed.flush(); if let n = await store.newPage(parent: id) { nav.push(PageRoute(id: n)) } } } label: { Label("Unterseite hinzufügen", systemImage: "doc.badge.plus") }
                     }
+                    if store.aiEnabled && doc.fetched {                // KI-Assistent (1.6): nur, wenn der Server ihn fuer mich anbietet
+                        Menu {
+                            if !a.remote && !doc.isDatabase {
+                                Button { launchAssistant(tab: 1, action: "summarize") } label: { Label("Zusammenfassen", systemImage: "text.alignleft") }
+                                Button { launchAssistant(tab: 1, action: "tasks") } label: { Label("Aufgaben vorschlagen", systemImage: "checklist") }
+                                Button { launchAssistant(tab: 1, action: nil) } label: { Label("Markierten Text verbessern", systemImage: "wand.and.stars") }
+                            }
+                            Button { launchAssistant(tab: 0, action: nil) } label: { Label("Frag deine Seiten", systemImage: "text.magnifyingglass") }
+                        } label: { Label("KI-Assistent", systemImage: "sparkles") }
+                    }
+                    if store.chat.state == .ready && !a.remote && doc.fetched {   // Chat (2.0): Seiten-Chat fuer alle mit Zugriff
+                        Button { Task { await openPageChat() } } label: { Label("Chat zu dieser Seite", systemImage: "bubble.left.and.bubble.right") }
+                    }
                     if a.commentsSupported {                          // Server 1.3: Kommentare (mit "n erledigt") und Teilen
                         Button { commentsTarget = CommentsTarget(block: nil) } label: {
                             Label("Kommentare", systemImage: "bubble.left")
@@ -594,12 +631,12 @@ struct NativePageScreen: View {
                     if a.allows(.move) { Button { moving = true } label: { Label("Verschieben nach …", systemImage: "arrow.turn.up.right") } }
                     if a.allows(.versions) { Button { Task { await ed.flush(); showVersions = true } } label: { Label("Versionsverlauf …", systemImage: "clock.arrow.circlepath") } }
                     #if os(macOS)
-                    Menu {
+                    if a.allows(.export) { Menu {
                         Button("Als Markdown (.md)") { Task { await ed.flush(); if let e = await exportPage(id, title: doc.title, withSub: false, store: store) { doc.error = e } } }
                         if !store.children(of: id).isEmpty || !store.sharedChildren(of: id).isEmpty {
                             Button("Mit Unterseiten (.zip)") { Task { await ed.flush(); if let e = await exportPage(id, title: doc.title, withSub: true, store: store) { doc.error = e } } }
                         }
-                    } label: { Label("Exportieren", systemImage: "square.and.arrow.down") }
+                    } label: { Label("Exportieren", systemImage: "square.and.arrow.down") } }
                     #endif
                     if a.allows(.template) {
                         Toggle(isOn: Binding(get: { doc.page["template"] as? Bool ?? false },
@@ -630,6 +667,99 @@ struct NativePageScreen: View {
                         Button(role: .destructive) { Task { await ed.flush(); if await store.trash(id) { if inPeek { nav.peek = nil } else { dismiss() } } } } label: { Label("In den Papierkorb", systemImage: "trash") }   // im Peek: nur den Peek schliessen
                     }
     }
+    /// "✦ Assistent" in der Kopfzeile (nur, wenn der Server ihn fuer mich anbietet)
+    @ViewBuilder private var assistantButton: some View {
+        if store.aiEnabled && doc.fetched {
+            Button { launchAssistant(tab: doc.access.remote || doc.isDatabase ? 0 : 1, action: nil) } label: { Image(systemName: "sparkles") }
+                .help("KI-Assistent").accessibilityLabel(Text("KI-Assistent"))
+        }
+    }
+    private func launchAssistant(tab: Int, action: String?) {
+        let sel = ed.focusedBlock.map { [$0] } ?? []                     // markiert = Block mit dem Cursor (vor dem Blatt merken)
+        Task { await ed.flush() }
+        assistant = AssistantLaunch(tab: tab, action: action, selected: sel)
+    }
+    /// Seiten-Chat oeffnen (idempotent: gibt es ihn schon, kommt er zurueck)
+    private func openPageChat() async {
+        guard let d = try? await store.api("api/chats", method: "POST", body: ["kind": "page", "note_id": id, "device": store.chat.deviceID ?? ""]),
+              let cid = ShareJSON.int((ShareJSON.obj(d)?["chat"] as? [String: Any])?["id"]) else { return }
+        NotificationCenter.default.post(name: .hkOpenTarget, object: NotifTarget.chat(id: cid))
+    }
+    private var assistantActions: AssistantPageActions {
+        AssistantPageActions(canEdit: !doc.access.readOnly, locked: pageLocked, remote: doc.access.remote, selected: assistant?.selected ?? [],
+                             flush: { await ed.flush() },
+                             replace: { ids, segs in
+                                 for (bid, t) in zip(ids, segs) {
+                                     guard let (arr, i) = ed.locate(bid), let b = arr[i] as? NSMutableDictionary, let d = b["data"] as? NSMutableDictionary else { continue }
+                                     if d["text"] != nil { d["text"] = htmlText(t) } else if d["title"] != nil { d["title"] = htmlText(t) }
+                                 }
+                                 ed.changed(); Task { await ed.flush() }
+                             },
+                             insertBelow: { t in
+                                 let after = assistant?.selected.last ?? (doc.root.lastObject as? NSMutableDictionary)?.blockID
+                                 ed.insert(PageEditor.make("paragraph", text: htmlText(t)), after: after); ed.focus = nil
+                                 Task { await ed.flush() }
+                             },
+                             insertChecklist: { tasks in
+                                 let b = PageEditor.make("checklist")
+                                 (b["data"] as? NSMutableDictionary)?["items"] = NSMutableArray(array: tasks.map { NSMutableDictionary(dictionary: ["content": htmlText($0), "meta": NSMutableDictionary(dictionary: ["checked": false]), "items": NSMutableArray()]) })
+                                 ed.insert(b, after: (doc.root.lastObject as? NSMutableDictionary)?.blockID); ed.focus = nil
+                                 Task { await ed.flush() }
+                             })
+    }
+
+    // MARK: Live (1.4): Anwesenheit, fremde Aenderungen
+
+    /// alle ~20 s, solange die Seite offen und die App vorne ist; nicht fuer Seiten anderer Saga-Instanzen
+    private func presenceLoop() async {
+        guard !FedLogic.isRemote(id) else { return }
+        for _ in 0..<40 where !doc.fetched { try? await Task.sleep(for: .milliseconds(250)) }   // gleich nach dem Laden melden (sonst kein note.changed)
+        while !Task.isCancelled && !presenceOff {
+            if phase == .active && doc.fetched && !doc.noAccess { await sendPresence(leave: false) }
+            try? await Task.sleep(for: .seconds(20))
+        }
+    }
+    private func sendPresence(leave: Bool) async {
+        guard !FedLogic.isRemote(id), !presenceOff else { return }
+        let body: [String: Any] = leave ? ["note_id": id, "leave": true]
+            : ["note_id": id, "editing": LiveLogic.editing(lastInput: doc.lastInput, canEdit: !doc.access.readOnly && !pageLocked)]
+        guard let (d, code) = try? await store.apiResponse("api/presence", method: "POST", body: body) else { return }
+        if code == 404 || code == 405 { presenceOff = code == 405; return }
+        guard !leave, code == 200, let j = ShareJSON.obj(d), !ShareJSON.bool(j["skipped"]) else { return }
+        let others = PresenceUser.others(j["users"] as? [Any])
+        if others != presence { presence = others }
+        pageChanged(rev: ShareJSON.int(j["rev"]), by: SharePerson(j["by"]), gone: false)
+    }
+    /// note.changed / presence-rev: still neu laden oder Hinweis "{name} hat diese Seite geaendert"
+    private func pageChanged(rev: Int?, by: SharePerson?, gone: Bool) {
+        guard doc.fetched else { return }
+        let who = by.flatMap { $0.me ? nil : ($0.name.isEmpty ? nil : $0.name) }
+        switch LiveLogic.pageChange(eventRev: rev, ownRev: doc.currentRev, dirty: doc.dirty || ed.focus != nil && doc.dirty, gone: gone) {
+        case .ignore: break
+        case .reloadSilently: Task { await doc.load(store); doc.updatedBy = who }
+        case .ask: doc.changedBy = who ?? String(localized: "Jemand")
+        case .gone: Task { doc.loaded = false; await doc.load(store) }
+        }
+    }
+    private func liveEvent(_ e: LiveEvent) {
+        switch e.type {
+        case "note.changed" where ShareJSON.int(e.data["id"]) == id:
+            pageChanged(rev: ShareJSON.int(e.data["rev"]), by: SharePerson(e.data["by"]), gone: ShareJSON.bool(e.data["gone"]))
+        case "presence" where ShareJSON.int(e.data["note_id"]) == id:
+            let o = PresenceUser.others(e.data["users"] as? [Any]); if o != presence { presence = o }
+        case "comments.changed" where ShareJSON.int(e.data["note_id"]) == id:
+            Task {
+                guard let d = try? await store.api("api/notes/\(id)/comments"), let s = CommentsState(data: d) else { return }
+                let (counts, unread) = ShareLogic.blockCounts(s.threads)
+                var a = doc.access
+                a.commentCounts = counts; a.commentsOpen = s.open.count; a.commentsUnread = s.open.filter(\.unread).count; a.commentsResolved = s.resolvedCount
+                if a != doc.access { doc.access = a }
+                if ed.commentUnread != unread { ed.commentUnread = unread }
+            }
+        default: break
+        }
+    }
+
     /// Seite vom Eigentuemer gesperrt (unabhaengig von der Rolle)
     private var pageLocked: Bool { doc.page["locked"] as? Bool ?? false }
     /// Seite sperren/entsperren (wie im Web): erst speichern, dann sperren
@@ -654,6 +784,7 @@ struct NativePageScreen: View {
             if !doc.noAccess { Text(doc.title).font(.headline).lineLimit(1).foregroundStyle(.secondary) }
             Spacer()
             if !doc.noAccess {
+                assistantButton
                 commentsButton
                 favButton
                 Menu { pageMenuItems } label: { Image(systemName: "ellipsis.circle") }.menuIndicator(.hidden).fixedSize().accessibilityLabel("Seitenmenü")
@@ -679,9 +810,9 @@ struct NativePageScreen: View {
             VStack(alignment: .leading, spacing: 0) {
                 if !doc.noAccess {                                   // Kein Zugriff: weder Titelbild noch Symbol der Seite
                     #if os(iOS)
-                    CoverView(doc: doc, extendTop: topInset, readOnly: doc.access.readOnly || pageLocked)          // Titelbild bis ganz nach oben (wie Notion)
+                    CoverView(doc: doc, extendTop: topInset, readOnly: doc.access.readOnly || pageLocked || doc.access.remote)          // Titelbild bis ganz nach oben (wie Notion)
                     #else
-                    CoverView(doc: doc, readOnly: doc.access.readOnly || pageLocked)
+                    CoverView(doc: doc, readOnly: doc.access.readOnly || pageLocked || doc.access.remote)
                     #endif
                 }
                 VStack(alignment: .leading, spacing: 10) {
@@ -689,11 +820,15 @@ struct NativePageScreen: View {
                         NoAccessView(retry: { Task { doc.loaded = false; await doc.load(store); await store.refresh(quiet: true) } },
                                      toShared: { nav.toShared() })
                     } else {
-                    IconRow(doc: doc, readOnly: doc.access.readOnly || pageLocked)
+                    IconRow(doc: doc, readOnly: doc.access.readOnly || pageLocked || doc.access.remote)
                     TextField("Unbenannt", text: Binding(get: { doc.titleRaw }, set: { v in if v != doc.titleRaw { doc.page["title"] = v; ed.textChanged() } }), axis: .vertical)   // nur echte Aenderung
                         .font(.largeTitle.bold()).textFieldStyle(.plain).disabled(ed.locked || !doc.fetched)
                     if let by = doc.access.sharedBy { SharedByLabel(owner: by, role: doc.access.role) }      // fremde Seite (1.3)
                     PageMetaLine(access: doc.access, updated: doc.page["updated"] as? Double)
+                    if let host = doc.access.remoteHost { RemotePageBanner(host: host) }                    // Foederation (2.0)
+                    if !presence.isEmpty { PresenceBar(users: presence) }                                 // Live (1.4)
+                    if let by = doc.changedBy { ChangedBanner(name: by) { doc.changedBy = nil; ed.focus = nil; Task { await doc.loadNewVersion(store) } } }
+                    if let by = doc.updatedBy { Label("Aktualisiert – geändert von \(by)", systemImage: "arrow.triangle.2.circlepath").font(.caption).foregroundStyle(.secondary) }
                     if pageLocked {
                         if doc.access.allows(.lock) {
                             Button { Task { await setLocked(false) } } label: { Label("Gesperrt – tippen zum Entsperren", systemImage: "lock.fill").font(.caption) }
@@ -711,7 +846,7 @@ struct NativePageScreen: View {
                             .font(.footnote).buttonStyle(.bordered).tint(.orange)
                     }
                     if let dr = doc.draft, !doc.access.readOnly { DraftBanner(draft: dr, doc: doc, ed: ed) }   // nur lesen: nichts wiederherzustellen
-                    if doc.fetched && !doc.isDatabase { TagsRow(doc: doc) }
+                    if doc.fetched && !doc.isDatabase && !doc.access.remote { TagsRow(doc: doc) }   // fremde Instanz: nur Titel/Inhalt
                     if let schema = doc.parentSchema { EditableProps(doc: doc, schema: schema).padding(.bottom, 8).disabled(doc.access.readOnly) }
                     if doc.isDatabase {
                         DatabaseView(dbID: id, viewID: nil, localViews: nil, pageLocked: pageLocked)
@@ -722,6 +857,10 @@ struct NativePageScreen: View {
                         BacklinksView(id: id)
                     }
                     if let e = doc.error { Text(e).font(.footnote).foregroundStyle(.orange) }
+                    if doc.fedProblem == .needsPublicName {                       // Foederation: oeffentlicher Name fehlt
+                        Button { NotificationCenter.default.post(name: .hkOpenSettings, object: "konto") } label: { Label("Einstellungen", systemImage: "gearshape") }
+                            .buttonStyle(.bordered)
+                    }
                     if doc.loaded && !doc.fetched {                              // Laden fehlgeschlagen: nichts Bearbeitbares zeigen
                         Button { Task { doc.loaded = false; await doc.load(store) } } label: { Label("Erneut versuchen", systemImage: "arrow.clockwise") }
                             .prominentGold().padding(.top, 4)
@@ -794,6 +933,7 @@ struct NativePageScreen: View {
         }
         .toolbar {
             if !inPeek && !doc.noAccess {                    // im Peek: eigene Kopfzeile statt Fensterleiste (sonst Layout-Kreislauf am Mac); Kein Zugriff: nichts
+                ToolbarItem(placement: .primaryAction) { assistantButton }
                 ToolbarItem(placement: .primaryAction) { commentsButton }
                 ToolbarItem(placement: .primaryAction) { favButton }
                 ToolbarItem(placement: .primaryAction) { Menu { pageMenuItems } label: { Image(systemName: "ellipsis.circle") }.accessibilityLabel("Seitenmenü") }
@@ -818,6 +958,10 @@ struct NativePageScreen: View {
         }
         .task {
             ed.store = store; await doc.load(store); store.visited(id)
+            if let p = nav.pendingComments, p.id == id, doc.fetched { nav.pendingComments = nil; commentsTarget = CommentsTarget(block: p.block) }
+            #if DEBUG
+            if UserDefaults.standard.bool(forKey: "hkAssistantPage"), doc.fetched { try? await Task.sleep(for: .seconds(1)); launchAssistant(tab: 1, action: UserDefaults.standard.string(forKey: "hkAssistantAction")) }   // nur fuer Tests
+            #endif
             #if DEBUG
             if let ty = UserDefaults.standard.string(forKey: "hkHoverType") {              // nur fuer Tests: Griffe erzwingen
                 func find(_ a: NSMutableArray, inColumn: Bool) -> String? {
@@ -863,6 +1007,14 @@ struct NativePageScreen: View {
             #endif
         }
         .refreshable { await ed.flush(); await doc.load(store); store.refreshEvents() }
+        .task(id: "presence-\(id)") { await presenceLoop() }
+        .onReceive(store.live.events) { liveEvent($0) }
+        .onChange(of: doc.updatedBy) { _, v in if v != nil { Task { try? await Task.sleep(for: .seconds(6)); doc.updatedBy = nil } } }
+        .sheet(item: $assistant) { l in
+            AssistantSheet(pageID: id, actions: assistantActions, initialTab: l.tab, initialAction: l.action,
+                           openPage: { pid in nav.peek = nil; nav.push(PageRoute(id: pid)) })
+                .environmentObject(store)
+        }
         .modifier(SaveGuard(doc: doc, ed: ed))
         // gesperrt (Eigentuemer) oder Rolle Lesen/Kommentieren: schreibgeschuetzt, ohne Platzhalter und Griffe
         .onChange(of: pageLocked || doc.access.readOnly, initial: true) { _, v in ed.locked = v; if v { ed.focus = nil } }
@@ -876,7 +1028,7 @@ struct NativePageScreen: View {
             .environmentObject(store)
         }
         .onAppear { if doc.loaded && ed.focus == nil { Task { await ed.flush(); await doc.load(store) } } }   // zurueck aus dem Web-Editor
-        .onDisappear { Task { await ed.flush() } }
+        .onDisappear { Task { await ed.flush(); await sendPresence(leave: true) } }
         .onChange(of: store.needsLogin) { _, v in                          // wieder angemeldet -> neu laden
             if !v && doc.fetched && doc.staleSession(store) { ed.focus = nil; Task { await doc.resetForNewSession(store) } }   // anderes Konto/neue Sitzung
             else if !v && !doc.fetched { Task { await doc.load(store) } }

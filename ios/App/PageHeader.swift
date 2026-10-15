@@ -138,7 +138,7 @@ struct IconRow: View {
             if let ic = doc.icon, !ic.isEmpty {
                 Button { if !readOnly { picker = true } } label: {             // nur lesen: nicht abblenden, nur nichts tun
                     Group {
-                        if ic.hasPrefix("/files/") { RemoteImage(path: ic, w: 320).frame(width: 78, height: 78).clipShape(RoundedRectangle(cornerRadius: 10)) }
+                        if FedLogic.isImagePath(ic) { RemoteImage(path: ic, w: 320).frame(width: 78, height: 78).clipShape(RoundedRectangle(cornerRadius: 10)) }
                         else { Text(ic).font(.system(size: 64)) }
                     }
                 }

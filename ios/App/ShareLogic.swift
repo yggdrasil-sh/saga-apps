@@ -63,9 +63,12 @@ struct PageAccess: Equatable {
     var createdBy: SharePerson?
     /// Server kennt Kommentare (1.3)
     var commentsSupported = false
+    /// Seite einer anderen Saga-Instanz (Foederation 2.0): nur Titel/Inhalt aenderbar, kein Upload, keine Anwesenheit
+    var remoteHost: String?
 
     init() {}
     init(page p: [String: Any]) {
+        remoteHost = (p["remote"] as? [String: Any])?["host"] as? String ?? ((ShareJSON.int(p["id"]) ?? 0) < 0 ? "" : nil)
         role = ShareRole.parse(p["role"]) ?? .owner
         owner = SharePerson(p["owner"])
         shared = ShareJSON.bool(p["shared"])
@@ -87,7 +90,12 @@ struct PageAccess: Equatable {
     /// Kopfzeile fremder Seiten: "Geteilt von {name}" (nil auf eigenen Seiten)
     var sharedBy: String? { foreign ? (owner?.name ?? "") : nil }
 
-    func allows(_ a: PageAction) -> Bool { ShareLogic.allows(role, a) }
+    func allows(_ a: PageAction) -> Bool {
+        // Seiten anderer Saga-Instanzen: Unterseiten, Volle Breite, Symbol/Titelbild, Export gibt es dort nicht
+        if remote && [.wide, .addSubpage, .export, .editIcon].contains(a) { return false }
+        return ShareLogic.allows(role, a)
+    }
+    var remote: Bool { remoteHost != nil }
 
     /// "Angelegt von {name}" - nur, wenn es jemand anderes war
     var createdByOther: String? { createdBy.flatMap { $0.me || $0.name.isEmpty ? nil : $0.name } }
@@ -137,7 +145,9 @@ struct ShareEntry: Identifiable, Equatable {
     var via: [ShareVia]
     var members: Int?
     var id: String { type + ":" + target }
-    var isGroup: Bool { type == "group" }
+    var isGroup: Bool { type == "group" || type == "remote_group" }
+    /// Person/Gruppe auf einer anderen Saga-Instanz (Foederation 2.0)
+    var isRemote: Bool { type == "remote" || type == "remote_group" }
 
     init(type: String, target: String, name: String, role: ShareRole, effective: ShareRole? = nil, via: [ShareVia] = [], members: Int? = nil) {
         self.type = type; self.target = target; self.name = name; self.role = role; self.effective = effective ?? role; self.via = via; self.members = members
@@ -180,9 +190,12 @@ struct ShareState: Equatable {
     var shares: [ShareEntry] = []
     var inherited: [InheritedShare] = []
     var groups: [String] = []
+    /// Teilen mit anderen Saga-Instanzen moeglich (Eingabe name@server anbieten)
+    var federation = false
 
     init() {}
     init(json j: [String: Any]) {
+        federation = ShareJSON.bool(j["federation"])
         enabled = j["enabled"].map(ShareJSON.bool) ?? true
         scope = ShareJSON.bool(j["scope"])
         max = ShareJSON.int(j["max"]) ?? 200
@@ -208,8 +221,11 @@ struct ShareTarget: Identifiable, Equatable {
     var name: String
     /// Benutzername (Personen) - Gruppen zeigen "Gruppe"
     var username: String?
+    /// Server bei Personen/Gruppen anderer Saga-Instanzen
+    var host: String? = nil
     var id: String { type + ":" + target }
-    var isGroup: Bool { type == "group" }
+    var isGroup: Bool { type == "group" || type == "remote_group" }
+    var isRemote: Bool { type == "remote" || type == "remote_group" }
 }
 
 /// Was das Entfernen einer Freigabe bewirkt (Text der Rueckfrage)
@@ -365,7 +381,7 @@ enum ShareLogic {
         var out = html
         for t in noAccessTexts {
             let esc = NSRegularExpression.escapedPattern(for: t)
-            guard let re = try? NSRegularExpression(pattern: #"<a\s[^>]*href="/notes#([0-9]+)"[^>]*>"# + esc + "</a>") else { continue }
+            guard let re = try? NSRegularExpression(pattern: #"<a\s[^>]*href="/notes#(-?[0-9]+)"[^>]*>"# + esc + "</a>") else { continue }
             let open = keepRef ? #"<na href="/notes#$1">"# : "<na>"
             out = re.stringByReplacingMatches(in: out, range: NSRange(out.startIndex..., in: out), withTemplate: open + noAccessPrefix + NSRegularExpression.escapedTemplate(for: t) + "</na>")
         }
@@ -394,7 +410,12 @@ enum ShareLogic {
             guard let n = ShareJSON.str(g["name"]) else { return nil }
             return ShareTarget(type: "group", target: n, name: n, username: nil)
         }
-        return users + groups
+        // Foederation (2.0): nur genaue Adressen verbundener Server (name@server)
+        let remote = (j["remote"] as? [[String: Any]] ?? []).compactMap { r -> ShareTarget? in
+            guard let t = ShareJSON.str(r["type"]), t == "remote" || t == "remote_group", let tg = ShareJSON.str(r["target"]) else { return nil }
+            return ShareTarget(type: t, target: tg, name: ShareJSON.str(r["name"]) ?? tg, username: nil, host: ShareJSON.str(r["host"]))
+        }
+        return users + groups + remote
     }
 
     /// Rueckfrage beim Entfernen: nennt den verbleibenden Zugriff (ueber Gruppe oder Elternseite)

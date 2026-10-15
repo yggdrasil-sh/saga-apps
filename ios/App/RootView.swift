@@ -21,9 +21,19 @@ struct RootView: View {
     @AppStorage("hk.peekWidth") private var peekWidth: Double = 520
     @FocusState private var searchFocused: Bool
     @State private var newAsk: URL?                                  // fremder Link "neuen Eintrag anlegen": erst nach Rueckfrage
+    @State private var openChat: Int?                                // Chats (2.0): geoeffnete Unterhaltung
+    @State private var showNotifs = false                            // Glocke (1.4)
+    @State private var showAssistant = false                         // KI-Assistent ohne Seite (1.6)
+
+    @State private var columns: NavigationSplitViewVisibility = {
+        #if DEBUG && os(macOS)
+        if UserDefaults.standard.bool(forKey: "hkDetailOnly") { return .detailOnly }    // nur fuer Test-Bilder (Seitenleiste ist "vibrant")
+        #endif
+        return .automatic
+    }()
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columns) {
             Sidebar(store: store, selection: $selection, query: query, results: results, sharedJump: nav.sharedJump)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 380)      // wie Notion, nicht abgeschnitten
                 .navigationTitle("Saga")
@@ -38,6 +48,9 @@ struct RootView: View {
                     ToolbarItem(placement: .primaryAction) {
                         Button { Task { if let id = await store.newPage() { selection = id } } } label: { Label("Neue Seite", systemImage: "square.and.pencil") }
                     }
+                    ToolbarItem(placement: .primaryAction) {
+                        if store.notifs.supported { BellButton(notifs: store.notifs) { showNotifs = true } }
+                    }
                     #if os(iOS)
                     ToolbarItem(placement: .topBarLeading) {
                         Button { showSettings = true } label: { Label("Einstellungen", systemImage: "gearshape") }
@@ -49,7 +62,8 @@ struct RootView: View {
                 NavigationStack(path: $nav.path) {
                     Group {
                         if selection == -1 { TasksScreen() } else if selection == -2 { EventsScreen() } else if selection == -3 { ServicesScreen() }
-                    else if let id = selection { NativePageScreen(id: id).id(id) } else { TodayScreen(store: store) }
+                    else if selection == FedLogic.chatsTag { ChatsScreen(chat: store.chat, openChat: $openChat) }
+                    else if let id = selection, FedLogic.isPageID(id) { NativePageScreen(id: id).id(id) } else { TodayScreen(store: store) }
                     }
                     .navigationDestination(for: PageRoute.self) { r in
                         if r.web { PageScreen(id: r.id, store: store) } else { NativePageScreen(id: r.id).id(r.id) }
@@ -69,7 +83,7 @@ struct RootView: View {
             }
             .animation(.snappy(duration: 0.25), value: nav.peek)
         }
-        .onChange(of: selection) { _, _ in nav.path = []; nav.peek = nil }
+        .onChange(of: selection) { _, v in nav.path = []; nav.peek = nil; if v != FedLogic.chatsTag { openChat = nil } }
         .onChange(of: nav.sharedJump) { _, _ in nav.peek = nil; nav.path = []; selection = nil }   // "Zu „Mit mir geteilt“" (Kein Zugriff)
         .onChange(of: nav.peek) { old, new in if old != nil && new == nil { store.dataChanged() } }   // Peek zu -> Ansichten auffrischen
         // Peek mittig als Fenster (rechts: eigene Seitenleiste im detail-Bereich)
@@ -110,8 +124,32 @@ struct RootView: View {
             if let id = SpotlightIndex.pageID(a) { nav.peek = nil; nav.path = []; selection = id }
         }
         .onChange(of: phase) { _, p in
-            if p == .active { Task { await store.refresh() } }                     // im Web angelegte Seiten
-            if p == .background { WidgetCenter.shared.reloadAllTimelines() }      // Widgets zeigen sofort den neuen Stand
+            if p == .active { Task { await store.refresh(); store.live.start() } }       // im Web angelegte Seiten; Live nur im Vordergrund
+            if p == .background { WidgetCenter.shared.reloadAllTimelines(); store.live.stop() }   // Widgets zeigen sofort den neuen Stand
+        }
+        .onChange(of: store.needsLogin) { _, v in
+            if v { store.live.stop() } else { store.live.start(); store.push.appStarted(); Task { await store.chat.load() } }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .hkOpenTarget)) { n in if let t = n.object as? NotifTarget { PushModel.pending = nil; openTarget(t) } }
+        .onReceive(NotificationCenter.default.publisher(for: .hkOpenSettings)) { _ in
+            #if os(macOS)
+            openSettings()
+            #else
+            showSettings = true
+            #endif
+        }
+        .modifier(ChatApprovalPresenter(chat: store.chat))
+        .sheet(isPresented: $showNotifs) {
+            NotificationsSheet(notifs: store.notifs, open: { t in openTarget(t) }, settings: {
+                #if os(macOS)
+                openSettings()
+                #else
+                showSettings = true
+                #endif
+            })
+        }
+        .sheet(isPresented: $showAssistant) {
+            AssistantSheet(pageID: nil, openPage: { id in nav.peek = nil; nav.push(PageRoute(id: id)) }).environmentObject(store)
         }
         .task {                                                          // alle 60 s, solange die App vorne ist (ein Takt fuer alle Fenster)
             while !Task.isCancelled {
@@ -122,10 +160,18 @@ struct RootView: View {
         .task {
             if selection == nil, let home = store.homePage { selection = home }        // Startseite sofort (aus dem Zwischenspeicher)
             await store.refresh()
+            if !store.needsLogin { store.live.start(); store.push.appStarted(); Task { await store.chat.load() } }
+            if let t = PushModel.pending { PushModel.pending = nil; openTarget(t) }   // Kaltstart per Mitteilung
             if let home = store.homePage, !store.pages.isEmpty, store.page(home) == nil { store.setHome(nil); if selection == home { selection = nil } }   // geloescht -> vergessen
             #if DEBUG
-            if let v = UserDefaults.standard.string(forKey: "hkOpen"), let id = Int(v) { selection = id }   // nur fuer Tests (Startparameter -hkOpen <id>)
+            if let v = UserDefaults.standard.string(forKey: "hkOpen"), let id = Int(v.replacingOccurrences(of: "m", with: "-")) { selection = id }   // nur fuer Tests (Startparameter -hkOpen <id>, m2049 = -2049)
             if UserDefaults.standard.string(forKey: "hkSettings") != nil { showSettings = true }            // nur fuer Tests: Einstellungen oeffnen
+            if UserDefaults.standard.bool(forKey: "hkChats") { selection = FedLogic.chatsTag }             // nur fuer Tests: Chats
+            if let c = UserDefaults.standard.string(forKey: "hkChat"), let cid = Int(c) { selection = FedLogic.chatsTag; try? await Task.sleep(for: .seconds(2)); openChat = cid }
+            if UserDefaults.standard.bool(forKey: "hkNotifs") { try? await Task.sleep(for: .seconds(2)); showNotifs = true }
+            if UserDefaults.standard.bool(forKey: "hkAssistant") { try? await Task.sleep(for: .seconds(2)); showAssistant = true }
+            if let l = UserDefaults.standard.string(forKey: "hkPairLink"), store.needsLogin || !AppConfig.hasServer,   // nur fuer Tests: ohne Rueckfrage koppeln
+               let (srv, code) = Store.parsePairLink(l) { AppConfig.server = srv; try? await store.pair(server: srv, code: code) }   // gleicher Server: kein Abmelden vorher
             if let v = UserDefaults.standard.string(forKey: "hkPeek"), let id = Int(v) {                 // nur fuer Tests: Peek oeffnen
                 try? await Task.sleep(for: .seconds(2)); nav.open(id, mode: UserDefaults.standard.string(forKey: "hkPeekMode") ?? "side")
             }
@@ -176,12 +222,15 @@ extension RootView {
             .init(id: "events", icon: "calendar", title: String(localized: "Termine")) { selection = -2 },
             .init(id: "trash", icon: "trash", title: String(localized: "Papierkorb")) { showTrash = true },
             .init(id: "services", icon: "square.grid.3x3", title: String(localized: "Dienste")) { selection = -3 },
+            .init(id: "chats", icon: "bubble.left.and.bubble.right", title: String(localized: "Chats")) { selection = FedLogic.chatsTag },
+            .init(id: "notifs", icon: "bell", title: String(localized: "Benachrichtigungen")) { showNotifs = true },
             .init(id: "refresh", icon: "arrow.clockwise", title: String(localized: "Aktualisieren")) { Task { await store.refresh() } },
             .init(id: "back", icon: "chevron.left", title: String(localized: "Zurück")) { nav.peek = nil; nav.back() },
             .init(id: "fwd", icon: "chevron.right", title: String(localized: "Vor")) { nav.goForward() },
             .init(id: "search", icon: "sidebar.left", title: String(localized: "In der Seitenleiste suchen")) { searchFocused = true },
         ]
         if let id = currentPageID { a.append(.init(id: "link", icon: "link", title: String(localized: "Link zur Seite kopieren")) { copyPageLink(id) }) }
+        if store.aiEnabled { a.append(.init(id: "ai", icon: "sparkles", title: String(localized: "Frag deine Seiten")) { showAssistant = true }) }
         #if os(macOS)
         a.append(.init(id: "settings", icon: "gearshape", title: String(localized: "Einstellungen")) { openSettings() })
         #else
@@ -191,7 +240,19 @@ extension RootView {
     }
 
     /// Seite, die gerade vorne ist: Peek, sonst oberste im Stapel, sonst die gewaehlte
-    var currentPageID: Int? { nav.peek?.id ?? nav.path.last?.id ?? (selection.flatMap { $0 > 0 ? $0 : nil }) }
+    var currentPageID: Int? { nav.peek?.id ?? nav.path.last?.id ?? (selection.flatMap { FedLogic.isPageID($0) ? $0 : nil }) }
+
+    /// Benachrichtigung/Mitteilung/Seiten-Chat: Ziel oeffnen
+    func openTarget(_ t: NotifTarget) {
+        switch t {
+        case .chat(let id): nav.peek = nil; nav.path = []; selection = FedLogic.chatsTag; openChat = id
+        case .page(let id, let block):
+            nav.peek = nil
+            if let b = block { nav.pendingComments = (id, b) }
+            if selection == id { nav.path = [] } else { selection = id }
+        case .none: break
+        }
+    }
     func copyPageLink(_ id: Int) { HlidskjalfApp_copyPageLink(id) }
     /// hlidskjalf:// bzw. saga:// - page/12 · today · tasks · events · new-task · new?db=7&view=tab · new?parent=12 · pair?u=…&c=…
     func openLink(_ url: URL) {
@@ -203,6 +264,7 @@ extension RootView {
             if let (srv, code) = Store.parsePairLink(url.absoluteString) { store.pendingPair = PairRequest(server: srv, code: code) }
             else { store.error = String(localized: "Das ist kein Saga-QR-Code.") }
         case "page": if let id = Int(arg ?? "") { selection = id }
+        case "chats": selection = FedLogic.chatsTag
         case "tasks": selection = -1
         case "events": selection = -2
         case "new-task": selection = -1; nav.wantQuickAdd = true
@@ -331,6 +393,7 @@ struct Sidebar: View {
                     Label("Aufgaben", systemImage: "checklist").badge(store.tasks.count).tag(-1)
                     Label("Termine", systemImage: "calendar").tag(-2)
                     Label("Dienste", systemImage: "square.grid.3x3").tag(-3)
+                    ChatsSidebarRow(chat: store.chat).tag(FedLogic.chatsTag)
                 }
                 TodaySection(store: store)
                 if !store.favorites.isEmpty {
@@ -357,12 +420,15 @@ struct Sidebar: View {
                     Text("Seiten").frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                         .dropDestination(for: String.self) { ids, _ in dropPages(ids, into: nil) }        // auf "Seiten" = oberste Ebene
                 }
-                if !store.shared.isEmpty || store.shareOffHint || sharedJump > 0 {     // Mit mir geteilt (1.3)
+                if !store.shared.isEmpty || !store.fedShared.isEmpty || store.shareOffHint || sharedJump > 0 {     // Mit mir geteilt (1.3, 2.0: auch andere Saga-Instanzen)
                     Section {
                         if store.shareOffHint {
                             Text("Teilen ist auf diesem Server zurzeit abgeschaltet – mit dir geteilte Seiten sind nicht erreichbar.").font(.caption).foregroundStyle(.secondary)
-                        } else if store.shared.isEmpty {
+                        } else if store.shared.isEmpty && store.fedShared.isEmpty {
                             Text("Zurzeit ist nichts mit dir geteilt.").foregroundStyle(.secondary)
+                        }
+                        ForEach(store.fedUnreachable, id: \.self) { h in                  // dezent, kein Fehler
+                            Label("\(h) gerade nicht erreichbar", systemImage: "wifi.exclamationmark").font(.caption).foregroundStyle(.secondary)
                         }
                         OutlineGroup(sharedTree(nil), children: \.children) { n in
                             PageRow(page: n.page, store: store, ownerLine: n.page.root == true).tag(n.page.id)
@@ -455,14 +521,14 @@ struct PageIcon: View {
     @State private var data: Data?
     var body: some View {
         Group {
-            if let icon, icon.hasPrefix("/files/") {
+            if let icon, FedLogic.isImagePath(icon) {
                 if let data, let img = platformImage(data) { img.resizable().scaledToFill() } else { Color.secondary.opacity(0.2) }
             } else {
                 Text(icon?.isEmpty == false ? icon! : fallback)
             }
         }
         .frame(width: 22, height: 22).clipShape(RoundedRectangle(cornerRadius: 4))
-        .task(id: icon) { if let icon, icon.hasPrefix("/files/") { data = await store.imageData(RemoteImage.sized(icon, 160)) } }
+        .task(id: icon) { if let icon, FedLogic.isImagePath(icon) { data = await store.imageData(RemoteImage.sized(icon, 160)) } }
     }
     private func platformImage(_ d: Data) -> Image? {
         #if os(iOS)

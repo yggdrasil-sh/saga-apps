@@ -24,3 +24,6 @@ linux/dist/
 .flatpak-builder/
 .DS_Store
 linux/build/
+
+# Chat-Testvektoren (SwiftPM)
+ios/Tests/ChatVectors/.build/

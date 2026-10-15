@@ -301,6 +301,7 @@ struct ShareSheet: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
                     if s.scope { Text("Nur Personen aus deinen Gruppen.") }
+                    if s.federation { Text("Andere Saga-Instanzen: name@server eingeben.") }
                     Text(RoleText.help(role))
                 }
             }
@@ -366,8 +367,9 @@ struct ShareSheet: View {
             HStack(spacing: 10) {
                 ShareAvatar(name: h.name, group: h.isGroup)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(verbatim: h.name)
-                    Text(h.username.map { String($0) } ?? String(localized: "Gruppe")).font(.caption).foregroundStyle(.secondary)
+                    Text(verbatim: h.name).lineLimit(1).truncationMode(.middle)
+                    Text(h.isRemote ? (h.isGroup ? String(localized: "Gruppe auf einer anderen Saga-Instanz") : String(localized: "Andere Saga-Instanz"))
+                         : h.username.map { String($0) } ?? String(localized: "Gruppe")).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Text(has ? String(localized: "hat Zugriff") : String(localized: "als \(RoleText.name(role)) hinzufügen")).font(.caption).foregroundStyle(.secondary)
@@ -405,6 +407,7 @@ struct ShareSheet: View {
     }
 
     private func sub(_ e: ShareEntry) -> String {
+        if e.isRemote { return e.isGroup ? String(localized: "Gruppe auf einer anderen Saga-Instanz") : String(localized: "Andere Saga-Instanz") }
         guard e.isGroup else { return e.target }
         guard let m = e.members else { return String(localized: "Gruppe") }
         return m == 1 ? String(localized: "Gruppe · 1 Person") : String(localized: "Gruppe · \(m) Personen")

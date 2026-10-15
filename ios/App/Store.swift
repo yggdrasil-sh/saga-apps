@@ -30,10 +30,13 @@ struct Page: Decodable, Identifiable, Hashable {
     var role: String?
     var root: Bool?
     var owner: PageOwner?
+    /// Seite einer anderen Saga-Instanz (Foederation, 2.0): {peer, host, name}; die ID ist dann negativ
+    var remote: RemoteRef?
     var label: String { title.isEmpty ? String(localized: "Unbenannt") : title }
     var isDatabase: Bool { kind == "database" }
+    var isRemote: Bool { remote != nil || id < 0 }
 }
-struct PageOwner: Decodable, Hashable { var name: String?; var username: String? }
+struct PageOwner: Decodable, Hashable { var name: String?; var username: String?; var handle: String?; var remote: Bool? }
 
 struct OpenTask: Decodable, Identifiable, Hashable {
     let id: Int; var text: String; var due: String?; var prio: Int?; var rep: String?; var done: Bool?
@@ -90,10 +93,62 @@ final class Store: ObservableObject {
         return d
     }()
 
+    // Saga 2.0: Live-Kanal + Benachrichtigungen, Chat, Mitteilungen (Push) - eigene Modelle, die den Store benutzen
+    let live = LiveHub()
+    let notifs = NotificationsModel()
+    let chat = ChatModel()
+    let push = PushModel()
+
     init() {                                                        // sofort aus dem Zwischenspeicher
         // einmalig nach dem Update: alte Entwuerfe (nur je Server) gehoeren zur aktuell bestehenden Anmeldung
         DraftOwner.app.migrate(origin: AppConfig.serverOrigin, signedIn: DeviceKey.get() != nil || AppConfig.hasToken)
         if let d = cachedData("api/notes"), let p = try? JSONDecoder().decode([Page].self, from: d) { setPages(p) }
+        live.store = self; notifs.store = self; chat.store = self; push.store = self
+    }
+
+    /// Anfrage mit Sitzung fuer Stroeme (SSE: Live-Kanal, KI-Assistent). Abgelaufene Sitzung (401): einmal still mit dem
+    /// Geraete-Schluessel erneuern und wiederholen. Status != 2xx: Antwort-Text (JSON {error}) mitliefern.
+    func openStream(_ path: String, method: String = "GET", body: [String: Any]? = nil, headers: [String: String] = [:],
+                    session: URLSession) async throws -> (URLSession.AsyncBytes, Int, Data?) {
+        guard AppConfig.hasServer, let url = URL(string: AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/" + path)
+        else { throw APIError.other(String(localized: "Ungültige Adresse")) }
+        for attempt in 0..<2 {
+            var req = URLRequest(url: url, timeoutInterval: 90)
+            req.httpMethod = method; req.httpShouldHandleCookies = false
+            req.setValue("1", forHTTPHeaderField: "X-Hlidskjalf"); req.setValue("1", forHTTPHeaderField: "X-Saga")
+            req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+            req.setValue(AppConfig.appLanguage, forHTTPHeaderField: "Accept-Language")
+            for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
+            if let body { req.setValue("application/json", forHTTPHeaderField: "Content-Type"); req.httpBody = try JSONSerialization.data(withJSONObject: body) }
+            for (k, v) in await cookies(for: url) { req.setValue(v, forHTTPHeaderField: k) }
+            let (bytes, resp) = try await session.bytes(for: req)
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            if code == 401 && attempt == 0 {
+                cookieHeader = nil
+                if await resumeSession() == .ok { continue }
+            }
+            guard (200..<300).contains(code) else {
+                var d = Data()
+                for try await b in bytes { d.append(b); if d.count > 65_536 { break } }
+                return (bytes, code, d)
+            }
+            return (bytes, code, nil)
+        }
+        throw APIError.http(401, String(localized: "Bitte anmelden"))
+    }
+
+    /// Rohdaten senden (verschluesselte Chat-Anhaenge: application/octet-stream)
+    func apiRaw(_ path: String, method: String = "POST", data: Data, contentType: String = "application/octet-stream") async throws -> Data {
+        guard AppConfig.hasServer, let url = URL(string: AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/" + path)
+        else { throw APIError.other(String(localized: "Ungültige Adresse")) }
+        var req = URLRequest(url: url, timeoutInterval: 120)
+        req.httpMethod = method; req.httpShouldHandleCookies = false
+        req.setValue("1", forHTTPHeaderField: "X-Hlidskjalf"); req.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        let (d, code) = try await send(req) { try await URLSession.shared.upload(for: $0, from: data) }
+        guard (200..<300).contains(code) else {
+            throw APIError.http(code, (try? JSONSerialization.jsonObject(with: d) as? [String: Any])?["error"] as? String ?? "")
+        }
+        return d
     }
 
     private func cacheURL(_ path: String) -> URL { cacheDir.appendingPathComponent(path.replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "?", with: "_")) }
@@ -229,6 +284,8 @@ final class Store: ObservableObject {
             setPages(try JSONDecoder().decode([Page].self, from: try await get("api/notes")))
             if needsLogin { needsLogin = false }
             await loadShared()
+            Task { await loadFedShared() }                        // fremde Server koennen dauern: nicht darauf warten
+            Task { await notifs.loadCount(); await chat.refreshUnread(); await loadAIStatus() }
             if error != nil { error = nil }
             if serverVersion == nil { await checkVersion() }
             await loadToday()
@@ -363,15 +420,37 @@ final class Store: ObservableObject {
         }
         if hint != shareOffHint { shareOffHint = hint }
     }
-    /// Oberste geteilte Seiten bzw. Unterseiten einer geteilten Seite (ohne Datenbank-Eintraege, wie im eigenen Baum)
+    /// Oberste geteilte Seiten bzw. Unterseiten einer geteilten Seite (ohne Datenbank-Eintraege, wie im eigenen Baum);
+    /// enthaelt Seiten anderer Saga-Instanzen (Foederation, negative IDs)
     func sharedChildren(of id: Int?) -> [Page] {
-        guard let id else { return shared.filter { $0.root == true } }
-        if shared.first(where: { $0.id == id })?.isDatabase == true { return [] }
-        return shared.filter { $0.parent_id == id && $0.root != true }
+        let all = shared + fedShared
+        guard let id else { return all.filter { $0.root == true } }
+        if all.first(where: { $0.id == id })?.isDatabase == true { return [] }
+        return all.filter { $0.parent_id == id && $0.root != true }
+    }
+
+    // MARK: Foederation (2.0): mit mir geteilte Seiten anderer Saga-Instanzen
+    @Published var fedShared: [Page] = []
+    /// KI-Assistent fuer dieses Konto eingeschaltet (1.6)
+    @Published var aiEnabled = false
+    /// Server, die gerade nicht erreichbar sind (dezent anzeigen, kein Fehler)
+    @Published var fedUnreachable: [String] = []
+    private var fedLoading = false
+    /// Getrennt laden (bis ~4 s je fremdem Server) - die Seitenleiste wartet nicht darauf
+    func loadFedShared() async {
+        guard !fedLoading else { return }
+        fedLoading = true; defer { fedLoading = false }
+        guard let (d, code) = try? await apiResponse("api/fed/shared") else { return }
+        guard code == 200 else { if code == 404 || code == 405 { if !fedShared.isEmpty { fedShared = [] }; fedUnreachable = [] }; return }
+        let r = FedLogic.parseShared(d, as: Page.self)
+        let gone = Set(fedShared.map(\.id)).subtracting(r.items.map(\.id))
+        for g in gone { dropCache("api/notes/\(g)") }
+        if r.items != fedShared { fedShared = r.items }
+        if r.unreachable != fedUnreachable { fedUnreachable = r.unreachable }
     }
 
     // Seitenbaum: oberste Ebene + Kinder (Datenbank-Zeilen erscheinen nicht im Baum, wie im Web)
-    func page(_ id: Int) -> Page? { pages.first { $0.id == id } ?? shared.first { $0.id == id } }
+    func page(_ id: Int) -> Page? { pages.first { $0.id == id } ?? shared.first { $0.id == id } ?? fedShared.first { $0.id == id } }
     func children(of id: Int?) -> [Page] {
         pages.filter { p in
             p.parent_id == id && !(p.parent_id.map { page($0)?.isDatabase ?? false } ?? false)
@@ -638,7 +717,8 @@ final class Store: ObservableObject {
         try? FileManager.default.removeItem(at: cacheDir)
         try? FileManager.default.createDirectory(at: cacheDir.appendingPathComponent("files"), withIntermediateDirectories: true)
         images.removeAllObjects(); cookieHeader = nil
-        pages = []; archivedPages = []; lastAll = nil; shared = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
+        live.stop(); notifs.reset(); chat.signedOut(); push.signedOut()   // 2.0: Live, Glocke, Chat-Schluessel im Speicher, Push-Abo
+        pages = []; archivedPages = []; lastAll = nil; shared = []; fedShared = []; aiEnabled = false; fedUnreachable = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
         if switchingServer { setHome(nil); serverVersion = nil; minApp = nil }
         SpotlightIndex.clear()                                            // abgemeldet: nichts mehr in der Systemsuche
         needsLogin = true
