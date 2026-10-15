@@ -23281,6 +23281,28 @@
           }
         }
       }
+    },
+    "Bild einsetzen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bild einsetzen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paste Image"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pegar imagen"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
