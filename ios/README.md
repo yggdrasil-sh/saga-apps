@@ -9,7 +9,7 @@ Native App (SwiftUI) für einen [Saga](https://github.com/yggdrasil-sh/saga)-Ser
 - **Befehlspalette** (⌘K) zum Suchen nach Seitennamen und Inhalt
 - **Seiten veröffentlichen** (Server ab 1.2): Seitenmenü „Veröffentlichen …“ mit öffentlichem Namen, Adresse,
   Unterseiten, Suchmaschinen, Profilseite und Link; Hinweis „Öffentlich“ im Seitenkopf; Name unter Einstellungen → Konto
-- **Live** (Server ab 1.4): Glocke mit Benachrichtigungen, „… ist auch hier“/„… bearbeitet gerade“ auf Seiten,
+- **Live** (Server 2.0): Glocke mit Benachrichtigungen, „… ist auch hier“/„… bearbeitet gerade“ auf Seiten,
   fremde Änderungen werden still nachgeladen (oder mit Hinweis, wenn eigene Eingaben offen sind)
 - **Chats mit Ende-zu-Ende-Verschlüsselung** (Server 2.0): Direkt-, Gruppen-, Seiten-Chats und freie Gruppen,
   Anhänge, Antworten, Seitenverweise; Einrichtung mit Wiederherstellungsschlüssel, neue Geräte per Code bestätigen,
@@ -63,7 +63,7 @@ cd ios/Tests/ChatVectors && swift run -c release ChatVectors /pfad/zu/saga/tests
 ```
 
 ### Mitteilungen (APNs)
-iOS/iPadOS haben die Berechtigung `aps-environment` immer (`App/App-iOS.entitlements`); das App-ID braucht dafür die
+iOS/iPadOS haben die Berechtigung `aps-environment` immer (`App/App-iOS.entitlements`); die App-ID braucht dafür die
 Fähigkeit „Push Notifications“ (automatische Signierung richtet sie ein). Am Mac braucht Push ein
 Bereitstellungsprofil und ist deshalb abschaltbar: `SAGA_MAC_PUSH_SUFFIX = -push` in `Config/Local.xcconfig`
 nutzt `App/App-macOS-push.entitlements` (für ad-hoc signierte DMG-Builds leer lassen). Den APNs-Schlüssel trägt der

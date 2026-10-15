@@ -69,6 +69,19 @@ kopierst oder öffnest den Link oder wählst **Veröffentlichung beenden**. Öff
 **Öffentlich**; den öffentlichen Namen änderst du unter **Einstellungen → Konto**. Bei älteren Servern fehlt der
 Menüpunkt.
 
+## Neu mit Saga-Server 2.0
+
+- **Benachrichtigungen:** Glocke mit allem, was dich betrifft; auf Seiten siehst du, wer auch hier ist oder bearbeitet.
+- **Chats** mit Ende-zu-Ende-Verschlüsselung: Direkt-, Gruppen- und Seiten-Chats. Beim ersten Mal bekommst du einen
+  **Wiederherstellungsschlüssel**; neue Geräte bestätigst du per Code, die **Sicherheitsnummer** vergleichst du mit
+  deinem Gegenüber.
+- **Mitteilungen** (nie mit Inhalten): iOS/iPadOS über Apple Push (der Admin trägt einen APNs-Schlüssel ein), Android
+  und Linux über [UnifiedPush](https://unifiedpush.org), z. B. mit ntfy – ohne Google-Dienste.
+- **KI-Assistent** (wenn der Admin ihn einschaltet): **Frag deine Seiten** und **Diese Seite**.
+- **Föderation:** Seiten anderer Saga-Instanzen erscheinen unter **Mit mir geteilt**; Teilen an `name@server`.
+
+Alles ist optional – mit älteren Servern arbeiten die Apps wie bisher.
+
 ## Selbst bauen
 
 Persönliche Einstellungen (Entwickler-Team, App-ID, Testgeräte, Verteil-Befehle) stehen **nie** im Repository,

@@ -12,19 +12,19 @@ mit dem Funktionsumfang der Mac-App:
 - Seiten veröffentlichen (Server ab 1.2): Seitenmenü „Veröffentlichen …“ – öffentlicher Name, Adresse, Unterseiten,
   Suchmaschinen, Profilseite, Link kopieren/öffnen, beenden; Hinweis „Öffentlich“ in der Kopfleiste;
   Einstellungen → Konto → „Öffentlicher Name“
-- Teilen und Kommentare (Server ab 1.3): „Teilen …“ (Personen ab 3 Zeichen, eigene Gruppen, Rollen Lesen/Kommentieren/
+- Teilen und Kommentare (Server 2.0): „Teilen …“ (Personen ab 3 Zeichen, eigene Gruppen, Rollen Lesen/Kommentieren/
   Bearbeiten, Freigaben der Elternseiten), Bereich „Mit mir geteilt“ in der Seitenleiste, fremde Seiten mit Etikett
   „Geteilt von … · Du kannst …“ (Lesen/Kommentieren schreibgeschützt), Kommentare als Seitenleiste rechts (Zahl am
   Block, Antworten, Erledigt, Erledigte zeigen), Konflikt „… hat diese Seite gerade geändert“, Zugriff verloren
-- Live (Server ab 1.4): Glocke mit Benachrichtigungen (live, „Alle gelesen“, Einstellungen je Art), Anwesenheit im
+- Live (Server 2.0): Glocke mit Benachrichtigungen (live, „Alle gelesen“, Einstellungen je Art), Anwesenheit im
   Seitenkopf („… bearbeitet gerade“), fremde Änderungen still nachladen bzw. Hinweis „… hat diese Seite geändert“
-- Chats mit Ende-zu-Ende-Verschlüsselung (Server ab 1.5, PyNaCl/libsodium): Direkt-, Gruppen-, Seiten-Chats und freie
+- Chats mit Ende-zu-Ende-Verschlüsselung (Server 2.0, PyNaCl/libsodium): Direkt-, Gruppen-, Seiten-Chats und freie
   Gruppen, Antworten, Anhänge (verschlüsselt), Seitenverweise, „tippt …“, Sicherheitsnummer mit QR-Code, Einrichtung mit
   Wiederherstellungsschlüssel, neues Gerät per Code bestätigen oder wiederherstellen, „Chats & Geräte“; private Schlüssel
   nur im Schlüsselbund. Geprüft gegen `tests/chat_vectors.json` aus dem Server
-- Mitteilungen (Server ab 1.7): solange Saga läuft als GNOME-Mitteilung, sonst über UnifiedPush (D-Bus-Verteiler, z. B.
+- Mitteilungen (Server 2.0): solange Saga läuft als GNOME-Mitteilung, sonst über UnifiedPush (D-Bus-Verteiler, z. B.
   KUnifiedPush mit ntfy) – Einstellungen „Worüber?“, Namen, Ruhezeiten, Test, Geräte
-- KI-Assistent (Server ab 1.6): „Frag deine Seiten“ mit Quellen und „Diese Seite“ (Zusammenfassen, Aufgaben vorschlagen,
+- KI-Assistent (Server 2.0): „Frag deine Seiten“ mit Quellen und „Diese Seite“ (Zusammenfassen, Aufgaben vorschlagen,
   Verbessern, Übersetzen; Übernehmen nur per Klick), Verlauf
 - Föderation (Server 2.0): Seiten anderer Saga-Instanzen unter „Mit mir geteilt“ (lesen, kommentieren, Titel und Inhalt
   bearbeiten), Teilen mit name@server

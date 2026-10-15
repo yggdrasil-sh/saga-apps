@@ -67,6 +67,18 @@ the address, **Also publish subpages**, **Allow search engines** and **As profil
 or **Stop publishing**. Public pages show **Public** in the page header; you can change your public name under
 **Settings → Account**. On older servers the menu item does not appear.
 
+## New with Saga server 2.0
+
+- **Notifications:** a bell with everything that concerns you; on pages you see who is also here or editing.
+- **Chats** with end-to-end encryption: direct, group and page chats. On first use you get a **recovery key**;
+  confirm new devices with a code and compare the **safety number** with the other person.
+- **Push notifications** (never with content): iOS/iPadOS via Apple Push (the server admin enters an APNs key),
+  Android and Linux via [UnifiedPush](https://unifiedpush.org), e.g. with ntfy – no Google services needed.
+- **AI assistant** (if the admin turns it on): **Ask your pages** and **This page**.
+- **Federation:** pages from other Saga instances appear under **Shared with me**; share with `name@server`.
+
+All of this is optional – with older servers the apps work as before.
+
 ## Building it yourself
 
 Personal settings (developer team, app ID, test devices, deployment commands) are **never** stored in the

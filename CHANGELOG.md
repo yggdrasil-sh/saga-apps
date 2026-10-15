@@ -6,6 +6,17 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu (iOS, iPadOS, macOS, passt zu Saga-Server 2.0; alles optional, ältere Server unverändert)
+- **Live-Kanal und Benachrichtigungen:** Glocke mit Liste und Einstellungen je Art, „… ist auch hier“/„… bearbeitet
+  gerade“ auf Seiten, fremde Änderungen werden still nachgeladen (sonst Hinweis mit „Neu laden“).
+- **Chats mit Ende-zu-Ende-Verschlüsselung** (libsodium über swift-sodium, geprüft mit den Testvektoren des Servers):
+  Einrichtung mit Wiederherstellungsschlüssel, neues Gerät per Code bestätigen oder wiederherstellen,
+  Sicherheitsnummer mit QR-Code, Direkt-, Gruppen-, Seiten-Chats und freie Gruppen, Anhänge, Antworten,
+  „Chats & Geräte“. Private Schlüssel nur im Schlüsselbund.
+- **Mitteilungen** über APNs (iOS/iPadOS; am Mac optional, braucht ein Bereitstellungsprofil mit Push), nie mit Inhalten.
+- **KI-Assistent** („Frag deine Seiten“, „Diese Seite“) und **Föderation** (Seiten anderer Saga-Instanzen unter
+  „Mit mir geteilt“, Teilen an `name@server`).
+
 ### Neu (Android, passt zu Saga-Server 2.0; alles optional, ältere Server unverändert)
 - **Live-Kanal und Benachrichtigungen:** Glocke mit Zähler und Liste (gelesen, „Alle gelesen“, „Ältere laden“),
   Einstellungen je Art unter Einstellungen → Benachrichtigungen. Auf Seiten: wer gerade da ist bzw. bearbeitet,

@@ -69,6 +69,20 @@ nombre de usuario). Después defines la dirección, **Publicar también las subp
 **Pública** en la cabecera; tu nombre público se cambia en **Ajustes → Cuenta**. En servidores más antiguos no
 aparece la opción del menú.
 
+## Novedades con el servidor de Saga 2.0
+
+- **Notificaciones:** una campana con todo lo que te afecta; en las páginas ves quién también está aquí o editando.
+- **Chats** con cifrado de extremo a extremo: chats directos, de grupo y de página. La primera vez recibes una
+  **clave de recuperación**; los dispositivos nuevos se confirman con un código y el **número de seguridad** lo
+  comparas con la otra persona.
+- **Notificaciones push** (nunca con contenido): iOS/iPadOS mediante Apple Push (el administrador introduce una clave
+  APNs), Android y Linux mediante [UnifiedPush](https://unifiedpush.org), p. ej. con ntfy, sin servicios de Google.
+- **Asistente de IA** (si el administrador lo activa): **Pregunta a tus páginas** y **Esta página**.
+- **Federación:** las páginas de otras instancias de Saga aparecen en **Compartido conmigo**; compartir con
+  `nombre@servidor`.
+
+Todo es opcional: con servidores más antiguos las apps funcionan como antes.
+
 ## Compilarlas tú
 
 Los ajustes personales (equipo de desarrollo, ID de la app, dispositivos de prueba, comandos de distribución)
