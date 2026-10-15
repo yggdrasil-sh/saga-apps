@@ -130,6 +130,12 @@ def _section_row(text, drop_cb=None, badge=None, badge_tip=None):
     return row
 
 
+def _chat_sig():
+    """(Chats in der Seitenleiste zeigen?, Ungelesen) - ab Server 1.5, solange der Server Chats nicht abgeschaltet hat"""
+    from .chat import chat
+    return (chat.status in ("setup", "device", "ready", "nocrypto"), chat.unread)
+
+
 class Sidebar(Gtk.Box):
     __gtype_name__ = "HKSidebar"
 
@@ -158,6 +164,8 @@ class Sidebar(Gtk.Box):
         self.append(sw)
         watch(self, "pages-changed", lambda: self.fill(force=False))
         watch(self, "today-changed", self._today_changed)
+        from .chatview import watch_chat
+        watch_chat(self, "changed", lambda: self.fill(force=False))
         self.fill(force=True)
 
     def _key(self, c, kv, code, state):
@@ -194,7 +202,7 @@ class Sidebar(Gtk.Box):
                 tuple((p["id"], p.get("title"), p.get("icon"), p.get("parent_id"), p.get("kind"), p.get("root"), p.get("unread"),
                        p.get("role"), (p.get("owner") or {}).get("name")) for p in store.shared), store.share_off,
                 tuple(p["id"] for p in store.archived), tuple(store.recent[:5]), len(store.tasks), self.query, len(self.results),
-                tuple(sorted(self.expanded)), self.show_archive)
+                tuple(sorted(self.expanded)), self.show_archive, tuple(store.fed_unreachable), _chat_sig())
 
     def _today_changed(self):
         self.fill(force=False)                       # nur neu, wenn sich die Anzahl der Aufgaben geaendert hat
@@ -235,6 +243,12 @@ class Sidebar(Gtk.Box):
             r = SidebarRow(w, title, Gtk.Image.new_from_icon_name(icon), key=(key,), badge=badge)
             self.rows[(key,)] = r
             self.box.append(r)
+        if _chat_sig()[0]:                                     # Chats (1.5): mit Ungelesen-Zahl
+            from .chat import chat
+            from .chatview import chat_icon
+            r = SidebarRow(w, _("Chats"), Gtk.Image.new_from_icon_name(chat_icon()), key=("chats",), badge=chat.unread or None)
+            self.rows[("chats",)] = r
+            self.box.append(r)
         self.rows["tasks_badge"] = True
         self.header(_("Today"))
         from .agenda import TodayBox
@@ -257,7 +271,7 @@ class Sidebar(Gtk.Box):
             lb.add_css_class("dim-label")
             self.box.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=lb))
         roots = store.shared_roots()
-        if roots or store.share_off:                           # Teilen (1.3): "Mit mir geteilt"
+        if roots or store.share_off or store.fed_unreachable:                           # Teilen (1.3): "Mit mir geteilt"
             n = store.shared_unread()
             self.box.append(_section_row(_("Shared with me"), badge=n or None,
                                          badge_tip=ngettext("{n} page with new comments", "{n} pages with new comments", n).format(n=n)))
@@ -269,6 +283,12 @@ class Sidebar(Gtk.Box):
                 self.box.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=lb))
             for p in roots:
                 self._shared_tree(p, 0)
+        for host in store.fed_unreachable:                       # Foederation: Server gerade nicht erreichbar (kein Fehler)
+            lb = Gtk.Label(label=_("{host} can't be reached right now").format(host=host), xalign=0, wrap=True, margin_start=6,
+                           margin_end=6)
+            lb.add_css_class("caption")
+            lb.add_css_class("dim-label")
+            self.box.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=lb))
         if store.archived:
             ic = Gtk.Image.new_from_icon_name("pan-down-symbolic" if self.show_archive else "pan-end-symbolic")
             ar = SidebarRow(w, "📦 " + _("Archive ({count})").format(count=len(store.archived)), ic, action=self._toggle_archive)
@@ -392,6 +412,13 @@ class MainWindow(Adw.ApplicationWindow):
         store.connect("undo", lambda s, pid, t: self._undo_toast(pid, t))
         store.connect("task-deleted", lambda s, tid, t: self._task_undo_toast(tid, t))
         store.connect("server-changed", lambda *_: self._server_changed())
+        from .chat import chat
+        from .live import live
+        hs = [(live, live.connect("event", lambda o, t, d: self._live_event(t, d))),
+              (chat, chat.connect("link-request", lambda o, ln: self._link_request(ln))),
+              (store, store.connect("logged-in", lambda *_: self._session_started())),
+              (store, store.connect("need-login", lambda *_: self._session_ended()))]
+        self.connect("destroy", lambda *_: [o.disconnect(h) for o, h in hs])
         self.connect("notify::is-active", lambda *_: self.is_active() and self._activated())
         self.connect("close-request", self._closing)
         GLib.timeout_add_seconds(60, self._tick)
@@ -422,6 +449,8 @@ class MainWindow(Adw.ApplicationWindow):
         home = store.home_page
         if home and store.pages and home not in store.by_id:
             store.set_home(None)
+        if not store.needs_login:
+            self._session_started()
 
     def _flush_all(self):
         """alle offenen Seiten sofort speichern"""
@@ -522,6 +551,7 @@ class MainWindow(Adw.ApplicationWindow):
         (self.add_css_class if on else self.remove_css_class)("hk-dark")
 
     def _server_changed(self):
+        self._session_ended()
         self.history, self.fwd = [], []
         self.close_peek()
         if hasattr(self, "sidebar"):
@@ -536,10 +566,25 @@ class MainWindow(Adw.ApplicationWindow):
     def _activated(self):
         if not store.needs_login:
             store.refresh_if_stale(20)                     # Fokuswechsel: nicht jedes Mal alles neu laden
+            from .chat import chat
+            from .live import live
+            from .notifications import notifications
+            live.poke()
+            if not live.connected:                         # ohne Live-Kanal: Zahlen beim Zurueckkommen neu
+                notifications.count()
+                chat.load_unread()
+            if isinstance(self.current, PageView):
+                self.current.window_active()
 
     def _tick(self):
         if self.is_active() and not store.needs_login:
             store.refresh()
+            from .chat import chat
+            from .live import live
+            from .notifications import notifications
+            if not live.connected:                         # ohne Live-Kanal regelmaessig fragen
+                notifications.count()
+                chat.load_unread()
         return True
 
     # --- Aufbau ----------------------------------------------------------------------------
@@ -563,6 +608,9 @@ class MainWindow(Adw.ApplicationWindow):
         m.append(_("About Saga"), "win.about")
         menu.set_menu_model(m)
         hb.pack_end(menu)
+        from .notifications import BellButton
+        self.bell = BellButton(self)                        # Benachrichtigungen (1.4): Glocke mit Zahl
+        hb.pack_end(self.bell)
         sb.add_top_bar(hb)
         self.sidebar = Sidebar(self)
         sb.set_content(self.sidebar)
@@ -580,7 +628,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.wtitle = Adw.WindowTitle(title="")
         self.chb.set_title_widget(self.wtitle)
         self.menu_btn = flat_button(icon="view-more-symbolic", tooltip=_("Page menu"))
-        self.menu_btn.connect("clicked", lambda b: isinstance(self.current, PageView) and self.current.page_menu(b))
+        self.menu_btn.connect("clicked", lambda b: hasattr(self.current, "page_menu") and self.current.page_menu(b))
         self.star_btn = flat_button(icon="non-starred-symbolic", tooltip=_("Add to favorites"), cb=lambda: isinstance(self.current, PageView) and self.current.toggle_fav())
         self.chb.pack_end(self.menu_btn)
         self.chb.pack_end(self.star_btn)
@@ -604,6 +652,19 @@ class MainWindow(Adw.ApplicationWindow):
         self.cm_btn.add_css_class("flat")
         self.cm_btn.connect("clicked", lambda *_: isinstance(self.current, PageView) and self.current.toggle_comments())
         self.chb.pack_end(self.cm_btn)
+        # KI-Assistent (1.6): "✦ Assistent" (nur wenn der Server ihn fuer mich anbietet)
+        from .assistant import assistant_icon
+        self.ai_content = Adw.ButtonContent(icon_name=assistant_icon(), label=_("Assistant"))
+        if hasattr(self.ai_content, "set_can_shrink"):
+            self.ai_content.set_can_shrink(True)
+        self.ai_btn = Gtk.Button(child=self.ai_content, visible=False, tooltip_text=_("AI assistant"))
+        self.ai_btn.add_css_class("flat")
+        self.ai_btn.connect("clicked", lambda *_: self.assistant())
+        self.chb.pack_end(self.ai_btn)
+        # Anwesenheit (1.4): wer ist gerade auf dieser Seite (Anfangsbuchstaben)
+        self.presence_box = Gtk.Box(spacing=0, visible=False, valign=Gtk.Align.CENTER)
+        self.presence_box.add_css_class("hk-presence")
+        self.chb.pack_end(self.presence_box)
         ct.add_top_bar(self.chb)
         self.old_banner = Adw.Banner(title="", revealed=False)      # Server ist neuer, als diese App kann
         ct.add_top_bar(self.old_banner)
@@ -617,6 +678,14 @@ class MainWindow(Adw.ApplicationWindow):
         bp = Adw.Breakpoint.new(Adw.BreakpointCondition.parse("max-width: 1000sp"))
         bp.add_setter(self.split, "collapsed", True)
         self.add_breakpoint(bp)
+        # sehr schmal (Telefon-Breite): Nebensachen aus der Kopfleiste nehmen (Vor, Favorit, Teilen, Anwesenheit; Assistent
+        # nur als Symbol) - alles bleibt ueber das Seitenmenue bzw. die Befehlspalette erreichbar
+        self.very_narrow = False
+        bp2 = Adw.Breakpoint.new(Adw.BreakpointCondition.parse("max-width: 560sp"))
+        bp2.add_setter(self.split, "collapsed", True)        # es gilt immer nur ein Breakpoint: Einklappen wiederholen
+        bp2.connect("apply", lambda *_: (setattr(self, "very_narrow", True), self.update_header()))
+        bp2.connect("unapply", lambda *_: (setattr(self, "very_narrow", False), self.update_header()))
+        self.add_breakpoint(bp2)
         self.split.set_show_sidebar(bool(settings.get("sidebar_shown", True)))
         self.split.connect("notify::show-sidebar", self._sidebar_changed)
         self.split.connect("notify::collapsed", self._collapsed_changed)
@@ -673,7 +742,7 @@ class MainWindow(Adw.ApplicationWindow):
         if not settings.server:
             self.login_msg.set_label(_("Enter the server address or sign in with a pairing link"))
         box.append(self.login_msg)
-        px = Gtk.Expander(label=_("Sign in with a pairing link (QR code from the web)"))
+        px = Gtk.Expander(label_widget=Gtk.Label(label=_("Sign in with a pairing link (QR code from the web)"), wrap=True, xalign=0))
         pb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=6)
         pb.append(Gtk.Label(label=_("In the browser: 👤 → Settings → “Apps & devices” → “Sign in with QR code”. "
                                     "Paste the link below the QR code (…/app/pair?c=…) here:"), wrap=True, xalign=0))
@@ -682,7 +751,7 @@ class MainWindow(Adw.ApplicationWindow):
         pb.append(pe)
         px.set_child(pb)
         box.append(px)
-        ex = Gtk.Expander(label=_("Browser doesn't return to the app?"))
+        ex = Gtk.Expander(label_widget=Gtk.Label(label=_("Browser doesn't return to the app?"), wrap=True, xalign=0))
         eb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=6)
         eb.append(Gtk.Label(label=_("Paste the address from the browser's error message (hlidskjalf://auth?code=…) here:"), wrap=True, xalign=0))
         en = Gtk.Entry(placeholder_text="hlidskjalf://auth?code=…")
@@ -788,7 +857,9 @@ class MainWindow(Adw.ApplicationWindow):
         self.present()
         self.toast(_("Signed in as {name} – stays signed in on “{device}”").format(name=j.get("name") or "", device=device_name()))
 
-    def start_login(self):
+    def start_login(self, server=None):
+        if server:                                        # erneut anmelden (z. B. "Neu beginnen" bei Chats)
+            self.login_server.set_text(server)
         srv = self._entered_server()
         if not srv:
             return
@@ -833,6 +904,9 @@ class MainWindow(Adw.ApplicationWindow):
         if k == "services":
             from .dialogs import services_screen
             return services_screen(self)
+        if k in ("chats", "chat"):
+            from .chatview import ChatsScreen
+            return ChatsScreen(self, route[1] if k == "chat" and len(route) > 1 else None)
         from .agenda import today_screen
         return today_screen(self)
 
@@ -873,6 +947,20 @@ class MainWindow(Adw.ApplicationWindow):
         self.fwd = []
         self._show(r)
 
+    def show_route(self, route):
+        """Bereich zeigen und im Verlauf merken (Zurueck fuehrt dorthin zurueck)"""
+        if self.route == route:
+            return
+        if route[0] == "chat" and self.route and self.route[0] in ("chats", "chat"):
+            if self.history and self.history[-1][0] == "chat":   # Chat zu Chat: ersetzen statt stapeln
+                self.history[-1] = route
+                self.fwd = []
+                self._show(route)
+                return
+        self.history.append(route)
+        self.fwd = []
+        self._show(route)
+
     def show_shared(self):
         """Knopf "Zu „Mit mir geteilt“" (Ansicht "Kein Zugriff"): Seitenleiste zeigen, Liste neu laden, dort die mit mir
         geteilten Seiten fokussieren"""
@@ -902,11 +990,22 @@ class MainWindow(Adw.ApplicationWindow):
 
     def mark_active(self):
         rows = getattr(getattr(self, "sidebar", None), "rows", {})
+        cur = ("chats",) if self.route and self.route[0] == "chat" else self.route
         for k, r in rows.items():
             if isinstance(r, Gtk.Widget):
-                (r.add_css_class if k == self.route else r.remove_css_class)("hk-active")
+                (r.add_css_class if k == cur else r.remove_css_class)("hk-active")
 
     def update_header(self):
+        self._update_header()
+        n = getattr(self, "very_narrow", False)
+        self.ai_content.set_label("" if n else _("Assistant"))
+        if n:
+            for w in (self.fwd_btn, self.star_btn, self.share_btn, self.presence_box, self.pub_btn):
+                w.set_visible(False)
+        else:
+            self.fwd_btn.set_visible(True)
+
+    def _update_header(self):
         self.back_btn.set_sensitive(len(self.history) > 1)
         self.fwd_btn.set_sensitive(bool(self.fwd))
         is_page = isinstance(self.current, PageView)
@@ -941,6 +1040,9 @@ class MainWindow(Adw.ApplicationWindow):
                 self.share_btn.set_tooltip_text(sh["tooltip"])
                 self.share_btn.update_property([Gtk.AccessibleProperty.LABEL], [sh["tooltip"]])
                 (self.share_btn.add_css_class if sh["on"] else self.share_btn.remove_css_class)("hk-shared-on")
+            from .assistant import ai
+            from .sharing import is_remote
+            self.ai_btn.set_visible(ai.enabled and bool(p) and not is_remote(p))
             n, un = int(p.get("comments_open") or 0), int(p.get("comments_unread") or 0)
             self.cm_btn.set_visible("role" in p and (n > 0 or self.current.comments_open))
             self.cm_content.set_label(str(n) if n else "")
@@ -952,10 +1054,173 @@ class MainWindow(Adw.ApplicationWindow):
             self.pub_btn.set_visible(False)
             self.share_btn.set_visible(False)
             self.cm_btn.set_visible(False)
+            self.ai_btn.set_visible(False)
+            self.set_presence([])
+            if hasattr(self.current, "header"):                 # Chats: Name des Chats, "tippt …" bzw. Art
+                t, sub = self.current.header()
+                self.wtitle.set_title(t)
+                self.wtitle.set_subtitle(sub)
+                self.menu_btn.set_visible(self.current.has_menu())
+                self.set_title(f"{t} – Saga")
+                return
             t = {"today": _("Today"), "tasks": _("Tasks"), "events": _("Events"), "services": _("Services")}.get((self.route or ("today",))[0], "")
             self.wtitle.set_title(t)
             self.wtitle.set_subtitle("")
             self.set_title("Saga")
+
+    # --- Live-Kanal, Benachrichtigungen, Chats, Assistent (Server 1.4 - 2.0) ------------------------------------
+    def _session_started(self):
+        """angemeldet (bzw. Start mit Sitzung): Live-Kanal, Glocke, Chats, Assistent"""
+        from .assistant import ai
+        from .chat import chat
+        from .live import live
+        from .notifications import notifications
+        live.start()
+        notifications.load()
+        chat.refresh()
+        ai.refresh(lambda: self.update_header())
+
+    def _session_ended(self):
+        from .assistant import ai
+        from .chat import chat
+        from .live import live
+        from .notifications import notifications
+        live.reset()
+        notifications.reset()
+        notifications.emit("changed")
+        chat.reset()
+        ai.reset()
+        self.set_presence([])
+
+    def _views(self):
+        out = [self.current] if isinstance(self.current, PageView) else []
+        if self.peek:
+            out.append(self.peek[1])
+        return out
+
+    def _live_event(self, typ, d):
+        from .chat import chat
+        from .notifications import notifications, show_desktop
+        if typ == "notification":
+            new = notifications.on_event(d)
+            if new is not None and not new.get("read") and not self.is_active():
+                show_desktop(self.get_application(), new)
+            return
+        if typ.startswith("chat."):
+            chat.on_live(typ, d)
+            return
+        if typ == "reset":
+            store.refresh()
+            notifications.load()
+            chat.on_live(typ, d)
+            for v in self._views():
+                v.live_reset()
+            return
+        if typ == "shared.changed":
+            store.refresh()
+            return
+        nid = d.get("id") if typ == "note.changed" else d.get("note_id")
+        if typ == "comments.changed":
+            counts = d.get("counts") if isinstance(d.get("counts"), dict) else {}
+            store.set_unread(nid, int(counts.get("unread") or 0) > 0)
+        for v in self._views():
+            if v.id != nid:
+                continue
+            if typ == "note.changed":
+                v.live_changed(d)
+            elif typ == "comments.changed":
+                v.live_comments(d.get("counts") or {})
+            elif typ == "presence":
+                v.live_presence(d.get("users") or [])
+
+    def set_presence(self, users):
+        """Kopfleiste: Anfangsbuchstaben der anderen Personen auf dieser Seite (bearbeitet gerade: farbiger Ring)"""
+        box = self.presence_box
+        while (c := box.get_first_child()):
+            box.remove(c)
+        others = [u for u in users or [] if isinstance(u, dict) and not u.get("me")]
+        box.set_visible(bool(others) and not getattr(self, "very_narrow", False))
+        if not others:
+            return
+        tips = []
+        for u in others[:4]:
+            name = u.get("name") or u.get("username") or "?"
+            tip = (_("{name} is editing") if u.get("editing") else _("{name} is also here")).format(name=name)
+            tips.append(tip)
+            a = Adw.Avatar(size=24, text=name, show_initials=True, tooltip_text=tip)
+            a.add_css_class("hk-pres-av")
+            if u.get("editing"):
+                a.add_css_class("hk-pres-editing")
+            box.append(a)
+        if len(others) > 4:
+            more = Gtk.Label(label=f"+{len(others) - 4}")
+            more.add_css_class("caption")
+            box.append(more)
+            tips += [(_("{name} is editing") if u.get("editing") else _("{name} is also here")).format(name=u.get("name") or "")
+                     for u in others[4:]]
+        acc = _("On this page right now") + ": " + "; ".join(tips)
+        box.set_tooltip_text("\n".join(tips))
+        box.update_property([Gtk.AccessibleProperty.LABEL], [acc])
+
+    def open_notification(self, it):
+        """Benachrichtigung angeklickt: Seite (ggf. mit Unterhaltung/Block) bzw. Chat oeffnen"""
+        if it.get("access") is False:
+            return
+        ch = it.get("chat") if isinstance(it.get("chat"), dict) else None
+        if it.get("kind") == "chat.message" and ch and ch.get("id") is not None:
+            self.show_route(("chat", int(ch["id"])))
+            self.present()
+            return
+        self.open_url(it.get("url") or "", thread=it.get("thread_id"), block=it.get("block_id"))
+
+    def open_url(self, url, thread=None, block=None, mark=False):
+        """'/notes#12:block' bzw. '/chats#c5' (Mitteilungen, Benachrichtigungen) zeigen"""
+        from .notifications import notifications, parse_url
+        t = parse_url(url)
+        self.present()
+        if mark:                                          # Mitteilung angeklickt: passende Benachrichtigung gelesen
+            ids = [x.get("id") for x in notifications.items if not x.get("read") and x.get("url") == url]
+            if ids:
+                notifications.mark_read(ids)
+        if t is None:
+            return
+        kind, nid, blk = t
+        if kind == "chat":
+            self.show_route(("chat", nid))
+            return
+        if kind == "chats":
+            self.show_route(("chats",))
+            return
+        self.show_page(nid)
+        cur = self.current
+        if isinstance(cur, PageView) and cur.id == nid and (thread is not None or block or blk):
+            b = block or blk
+
+            def go():
+                if cur.doc.fetched and "role" in cur.doc.page:
+                    cur.show_comments(b or None)
+                    if b:
+                        cur.show_block(b)
+                    return False
+                return not cur.doc.loaded
+            GLib.timeout_add(150, go)
+
+    def assistant(self, tab=None, action=None):
+        from .assistant import AssistantDialog, ai
+        if not ai.enabled:
+            return
+        v = None
+        if self.peek:
+            v = self.peek[1]
+        elif isinstance(self.current, PageView):
+            v = self.current
+        if v is not None and not v.doc.fetched:
+            v = None
+        AssistantDialog(self, v, tab=tab or ("page" if v is not None and action else "ask"), action=action).present(self)
+
+    def _link_request(self, ln):
+        from .chatview import approve_link
+        approve_link(self, ln)
 
     # --- Peek --------------------------------------------------------------------------------
     def open_entry(self, pid, mode="side", lst=None):
@@ -1069,6 +1334,16 @@ class MainWindow(Adw.ApplicationWindow):
              ("go-next-symbolic", _("Forward"), self.go_forward), ("system-search-symbolic", _("Search in the sidebar"), self.search_sidebar),
              ("sidebar-show-symbolic", _("Show/hide sidebar"), self.toggle_sidebar),
              ("emblem-system-symbolic", _("Settings"), self.settings_dialog)]
+        from .chat import chat
+        if chat.status in ("setup", "device", "ready"):
+            from .chatview import chat_icon
+            a.append((chat_icon(), _("Chats"), lambda: self.show_route(("chats",))))
+        from .notifications import bell_icon, notifications
+        if notifications.supported is not False:
+            a.append((bell_icon(), _("Notifications"), lambda: (self.split.set_show_sidebar(True), self.bell.popup())))
+        from .assistant import ai, assistant_icon
+        if ai.enabled:
+            a.append((assistant_icon(), _("AI assistant"), lambda: self.assistant()))
         if self.page_id():
             from .sharing import allowed, comment_icon, people_icon
             a.append(("insert-link-symbolic", _("Copy link to page"), self.copy_link))
@@ -1109,9 +1384,12 @@ class MainWindow(Adw.ApplicationWindow):
         from .sharing import open_share
         open_share(self, pid, on_change=self.update_header)
 
-    def settings_dialog(self):
+    def settings_dialog(self, page=None):
         from .settings import SettingsDialog
-        SettingsDialog(self).present(self)
+        d = SettingsDialog(self)
+        if page:
+            d.show_page(page)
+        d.present(self)
 
     def trash_dialog(self):
         from .dialogs import TrashDialog
@@ -1351,7 +1629,7 @@ class MainWindow(Adw.ApplicationWindow):
         arg = (u.get_path() or "").strip("/")
         if host == "page" and arg.isdigit():
             self.show_page(int(arg), root=True)
-        elif host in ("tasks", "events", "services"):
+        elif host in ("tasks", "events", "services", "chats"):
             self.show_root((host,))
         elif host == "new-task":                              # Schnellaktion im Dock: Aufgabe gleich eintippen
             self.show_root(("tasks",))

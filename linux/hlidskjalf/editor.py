@@ -665,6 +665,9 @@ class PageEditor:
 
     def text_changed(self):
         self.doc.mark_dirty()
+        typed = getattr(self.view, "on_typed", None)            # Anwesenheit: "bearbeitet gerade"
+        if typed:
+            typed()
         if self._save_src:
             GLib.source_remove(self._save_src)
         self._save_src = GLib.timeout_add(700, self._save_now)

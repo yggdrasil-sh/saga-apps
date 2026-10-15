@@ -53,7 +53,7 @@ class CoverView(Gtk.Overlay):
         self.add_css_class("hk-reveal-zone")
         self.add_overlay(self.bar)
         self._normal_bar()
-        ro = view.editor.locked                     # gesperrt bzw. nur lesen: Titelbild nicht aendern
+        ro = view.editor.locked or view.remote      # gesperrt, nur lesen, andere Saga-Instanz: Titelbild nicht aendern
         self.bar.set_visible(not ro)
         dr = Gtk.GestureDrag()
         dr.connect("drag-begin", lambda g, x, y: setattr(self, "_start", self.pos))
@@ -235,6 +235,8 @@ class PageView(Gtk.Box):
         # Kommentare (1.3): Zahl je Block (offene Unterhaltungen), Bloecke mit ungelesenen, hervorgehobener Block
         self.cm_counts, self.cm_unread, self.cm_block = {}, set(), None
         self.cm_loaded = False
+        self.ai_marked = set()                  # KI-Assistent: markierte Bloecke ("Verbessern", "Uebersetzen")
+        self.presence = None                    # Anwesenheit (live.Presence), nur Hauptansicht, nur Seiten dieser Instanz
         if in_peek:
             self.append(self._peek_header())
             self.append(Gtk.Separator())
@@ -273,6 +275,7 @@ class PageView(Gtk.Box):
         watch(self, "pages-changed", self._pages_changed)
         self.connect("unmap", lambda *_: self.suggest.hide())
         self.connect("unmap", lambda *_: self.editor.flush())
+        self.connect("unmap", lambda *_: self._stop_presence())
         self.doc.load()
         store.visited(pid)
 
@@ -356,7 +359,16 @@ class PageView(Gtk.Box):
             again.add_css_class("pill")
             again.add_css_class("suggested-action")
             again.connect("clicked", lambda *_: (self.spinner.set_visible(True), self.doc.load(force=True)))
-            box.set_child(again)
+            if self.id < 0 and doc.error_code == 403:          # Foederation: oeffentlicher Name fehlt -> Einstellungen
+                bx = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, halign=Gtk.Align.CENTER)
+                st = Gtk.Button(label=_("Settings"))
+                st.add_css_class("pill")
+                st.connect("clicked", lambda *_: self.win.settings_dialog(page="account"))
+                bx.append(again)
+                bx.append(st)
+                box.set_child(bx)
+            else:
+                box.set_child(again)
             self.scroll.set_child(box)
             return
         self.editor.locked = bool(doc.page.get("locked")) or doc.read_only     # gesperrt oder nur Lesen/Kommentieren
@@ -393,6 +405,13 @@ class PageView(Gtk.Box):
         sb = shared_by_box(doc.page)
         if sb is not None:
             info.append(sb)
+        if self.remote:                                      # Foederation: Seite liegt auf einem anderen Server
+            from .sharing import remote_host
+            rl = Gtk.Label(label=_("This page is on {host}. Here you can read and comment on it and – with edit access – change the "
+                                   "title and content.").format(host=remote_host(doc.page) or "?"), xalign=0, wrap=True)
+            rl.add_css_class("hk-pagemeta")
+            rl.add_css_class("dim-label")
+            info.append(rl)
         meta = meta_lines(doc.page)
         if meta:
             ml = Gtk.Label(label=" · ".join(meta), xalign=0, wrap=True)
@@ -413,7 +432,7 @@ class PageView(Gtk.Box):
             lk.add_css_class("dim-label")
             lk.add_css_class("hk-small")
             ind.append(lk)
-        if not doc.is_database and (not self.editor.locked or doc.page.get("tags")):
+        if not doc.is_database and (not self.editor.locked or doc.page.get("tags")) and not self.remote:
             ind.append(self._tags_row())
         if doc.parent_schema is not None:
             from .database import EditableProps
@@ -457,6 +476,7 @@ class PageView(Gtk.Box):
         self.apply_focus()
         self.update_banners()
         self.update_bubbles()
+        self._start_presence()
         if not self._built_once and self.cpanel is not None and (doc.page.get("comments_open") or 0) > 0:
             self.cpanel.reload()                              # Zahlen und ungelesen-Punkte am Block
         if not self._built_once:
@@ -596,6 +616,128 @@ class PageView(Gtk.Box):
             return True
         return not doc.fetched and doc.error_code == 404 and bool(store.share_api or store.is_foreign(self.id))
 
+    @property
+    def remote(self):
+        """Seite einer anderen Saga-Instanz (Foederation, negative ID)"""
+        from .sharing import is_remote
+        return self.id < 0 or is_remote(self.doc.page)
+
+    # --- Live: Anwesenheit, fremde Aenderungen, Kommentare -------------------------------------------------------------
+    def _start_presence(self):
+        if self.presence is not None or self.in_peek or self.remote or not self.doc.fetched or self.no_access:
+            return
+        from .live import Presence
+        from .sharing import can_edit
+        self.presence = Presence(self.id, lambda: can_edit(self.doc.page) and not self.editor.locked,
+                                 lambda: self.win.is_active() and self.win.current is self, self._presence_users,
+                                 lambda rev, by: self.live_changed({"id": self.id, "rev": rev, "by": by}), lambda: self.doc.rev)
+        self.presence.start()
+
+    def _stop_presence(self):
+        if self.presence is not None:
+            self.presence.stop()
+            self.presence = None
+        if self.win.current is self:
+            self.win.set_presence([])
+
+    def _presence_users(self, users):
+        if self.win.current is self:
+            self.win.set_presence(users)
+
+    def on_typed(self):
+        if self.presence is not None:
+            self.presence.typed()
+
+    def window_active(self):
+        if self.presence is not None:
+            self.presence.beat()
+
+    def live_presence(self, users):
+        if self.presence is not None:
+            self.presence.live_update(users)
+
+    def live_changed(self, d):
+        """note.changed (live) bzw. neuere Revision aus der Anwesenheit: ohne eigene ungespeicherte Eingaben still neu laden
+        ("Aktualisiert – geaendert von …"), sonst Hinweis "{name} hat diese Seite geaendert" mit "Neu laden"."""
+        doc = self.doc
+        if not doc.fetched or self.no_access:
+            return
+        if d.get("gone"):
+            doc.load(force=True)
+            return
+        rev = d.get("rev")
+        if not isinstance(rev, int) or rev <= (doc.rev or 0):
+            return
+        by = d.get("by") if isinstance(d.get("by"), dict) else {}
+        name = by.get("name") or by.get("username") or ""
+        if doc.saving:                                       # eigenes Speichern laeuft: danach neu pruefen
+            GLib.timeout_add(1500, lambda: (self.live_changed(d), False)[1])
+            return
+        if not doc.dirty and doc.conflict is None:
+            old = self.doc.on_loaded
+
+            def loaded(dd):
+                self.doc.on_loaded = old
+                if old:
+                    old(dd)
+                if name:
+                    self.win.toast(_("Updated – changed by {name}").format(name=name))
+            self.doc.on_loaded = loaded
+            doc.load(force=True)
+            return
+        self.changed_banner.set_title(GLib.markup_escape_text(_("{name} changed this page").format(name=name or _("Someone"))))
+        self.changed_banner.set_revealed(True)
+
+    def _reload_from_banner(self):
+        self.changed_banner.set_revealed(False)
+        self.editor.flush()
+        self.doc.load(force=True)                            # eigene Eingaben: der Konflikt-Dialog entscheidet
+
+    def live_comments(self, counts):
+        p = self.doc.page
+        if not self.doc.fetched:
+            return
+        p["comments_open"] = int(counts.get("open") or 0)
+        p["comments_unread"] = int(counts.get("unread") or 0)
+        if isinstance(counts.get("blocks"), dict):
+            p["comment_counts"] = dict(counts["blocks"])
+            if not self.cm_loaded:
+                self.cm_counts = dict(counts["blocks"])
+        if self.cpanel is not None and (self.comments_open or self.cm_loaded):
+            self.cpanel.reload()
+        self.update_bubbles()
+        if self.header_changed:
+            self.header_changed()
+
+    def live_reset(self):
+        if self.doc.fetched and not self.doc.dirty and self.doc.conflict is None:
+            self.doc.load(force=True)
+
+    # --- KI-Assistent ----------------------------------------------------------------------------------------------
+    def ai_on(self):
+        from .assistant import ai
+        return ai.enabled and not self.remote and self.doc.fetched
+
+    def ai_toggle(self, bid):
+        if bid in self.ai_marked:
+            self.ai_marked.discard(bid)
+        else:
+            self.ai_marked.add(bid)
+        for r in self.kit.rows():
+            (r.add_css_class if r.bid in self.ai_marked else r.remove_css_class)("hk-ai-marked")
+
+    def editor_order(self):
+        return [b.get("id") for b in self.editor.flat_blocks() if isinstance(b, dict)]
+
+    def top_block(self, bid):
+        """oberster Block, der bid enthaelt (bid selbst, wenn er oben steht)"""
+        for b in self.doc.root:
+            if b.get("id") == bid:
+                return bid
+            if any(x.get("id") == bid for x in _walk_blocks(b)):
+                return b.get("id")
+        return bid
+
     # --- Kommentare ------------------------------------------------------------------------------------------------
     @property
     def comments_open(self):
@@ -657,6 +799,8 @@ class PageView(Gtk.Box):
 
     def update_bubbles(self):
         """Kleine Zahl am rechten Rand der Bloecke mit offenen Unterhaltungen; sonst (beim Ueberfahren) 💬+"""
+        for r in self.kit.rows():                              # KI-Assistent: markierte Bloecke
+            (r.add_css_class if r.bid in self.ai_marked else r.remove_css_class)("hk-ai-marked")
         if self.cpanel is None or not self.doc.fetched:
             return
         can = can_comment(self.doc.page) and "role" in self.doc.page      # aeltere Server (ohne 'role'): keine Kommentare
@@ -694,6 +838,10 @@ class PageView(Gtk.Box):
         self.conflict_banner = Adw.Banner(title=_("Page changed elsewhere"), button_label=_("Choose version"), revealed=False)
         self.conflict_banner.connect("button-clicked", lambda *_: self._conflict(self.doc, self.doc.conflict))
         box.append(self.conflict_banner)
+        # Live (1.4): jemand anderes hat gespeichert, hier gibt es ungespeicherte Eingaben -> Hinweis + "Neu laden"
+        self.changed_banner = Adw.Banner(title="", button_label=_("Reload"), revealed=False)
+        self.changed_banner.connect("button-clicked", lambda *_: self._reload_from_banner())
+        box.append(self.changed_banner)
         # Entwurf-Banner: zwei Knoepfe (Wiederherstellen / Verwerfen) - Adw.Banner kann nur einen; gezeichnet wie
         # Adw.Banner (CSS-Namen banner > revealer > widget: Farben von libadwaita, hell wie dunkel), "Verwerfen" flach
         self.copy_rev = Gtk.Revealer(transition_type=Gtk.RevealerTransitionType.SLIDE_DOWN)
@@ -790,10 +938,10 @@ class PageView(Gtk.Box):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=44)
         ic = doc.page.get("icon")
         if ic:
-            w = images.page_icon(ic, size=78 if ic.startswith("/files/") else 64)
-            if not ic.startswith("/files/"):
+            w = images.page_icon(ic, size=78 if images.is_file_url(ic) else 64)
+            if not images.is_file_url(ic):
                 w.add_css_class("hk-page-emoji")
-            if self.editor.locked:                            # gesperrt bzw. nur lesen: Symbol nur zeigen
+            if self.editor.locked or self.remote:             # gesperrt, nur lesen, andere Instanz: Symbol nur zeigen
                 b = Gtk.Box(halign=Gtk.Align.START, margin_start=4)
                 b.append(w)
             else:
@@ -819,7 +967,7 @@ class PageView(Gtk.Box):
                 row.append(mb)
             row.add_css_class("hk-reveal")
             box.add_css_class("hk-reveal-zone")
-            if self.editor.locked:
+            if self.editor.locked or self.remote:
                 row.set_visible(False)
             box.append(row)
             if not ic and not doc.page.get("cover"):
@@ -1020,14 +1168,25 @@ class PageView(Gtk.Box):
             ents.append((cm_label, lambda: self.show_comments()))
             if ok("share"):
                 ents.append((("✓ " if p.get("shared") else "") + _("Share …"), lambda: win.share_dialog(self.id)))
+        from .chat import chat
+        if self.doc.fetched and ok("chat") and "role" in p and (p.get("shared") or self.foreign) and \
+                chat.status in ("setup", "device", "ready"):          # Seiten-Chat (1.5): nur geteilte Seiten dieser Instanz
+            from .chatview import open_page_chat
+            ents.append((_("Page chat"), lambda: open_page_chat(win, self.id)))
+        if self.ai_on() and ok("ai"):                                  # KI-Assistent (1.6)
+            ents.append((_("AI assistant"), [(_("Summarize"), lambda: win.assistant("page", "summarize")),
+                                             (_("Suggest tasks"), lambda: win.assistant("page", "tasks")),
+                                             (_("Improve selected text"), lambda: win.assistant("page", "improve")),
+                                             (_("Ask your pages"), lambda: win.assistant("ask"))]))
         ents.append(None)
         if ok("move"):
             ents.append((_("Move to …"), lambda: win.move_dialog(self.id)))
         if ok("versions"):
             ents.append((_("Version history …"), lambda: ed.flush(lambda: win.versions_dialog(self.id, lambda: self.doc.load(force=True)))))
-        ents.append((_("Export"), [(_("As Markdown (.md)"), lambda: ed.flush(lambda: win.export_page(self.id, self.doc.title, False)))] +
-                     ([(_("With subpages (.zip)"), lambda: ed.flush(lambda: win.export_page(self.id, self.doc.title, True)))]
-                      if store.has_children(self.id) or store.shared_children(self.id) else [])))
+        if ok("export"):                                         # Seiten anderer Saga-Instanzen: kein Export
+            ents.append((_("Export"), [(_("As Markdown (.md)"), lambda: ed.flush(lambda: win.export_page(self.id, self.doc.title, False)))] +
+                         ([(_("With subpages (.zip)"), lambda: ed.flush(lambda: win.export_page(self.id, self.doc.title, True)))]
+                          if store.has_children(self.id) or store.shared_children(self.id) else [])))
         if ok("template"):
             ents.append((("✓ " if p.get("template") else "") + _("As template"),
                          lambda: (p.__setitem__("template", not p.get("template")), store.patch(self.id, {"template": p["template"]}, refresh=True))))
@@ -1092,7 +1251,16 @@ class PageView(Gtk.Box):
         dlg.connect("response", resp)
         dlg.present(self.win)
 
+    def remote_blocked(self):
+        """Seite einer anderen Saga-Instanz: keine Uploads (Bilder, Dateien) - Hinweis statt Dateiauswahl"""
+        if self.remote:
+            self.win.toast(_("Not available for pages from other Saga instances."))
+            return True
+        return False
+
     def choose_image_file(self, cb, multiple=False):
+        if self.remote_blocked():
+            return
         fd = Gtk.FileDialog(title=_("Choose image"))
         f = Gtk.FileFilter(name=_("Images"))
         f.add_mime_type("image/*")
@@ -1140,6 +1308,8 @@ class PageView(Gtk.Box):
             after = self.editor.insert_image_url(url, after=after)
 
     def pick_immich(self, after=None):
+        if self.remote_blocked():
+            return
         from .dialogs import ImmichPicker
         ImmichPicker(self.win, lambda url: self.editor.insert_image_url(url, after=after)).present(self.win)
 
@@ -1176,6 +1346,8 @@ class PageView(Gtk.Box):
         dlg.present(self.win)
 
     def pick_file(self, bid):
+        if self.remote_blocked():
+            return
         fd = Gtk.FileDialog(title=_("Attach file"))
 
         def done(d, res):
@@ -1213,7 +1385,7 @@ class PageView(Gtk.Box):
         foc = self.win.get_focus() if self.win is not None else None
         if self.cpanel is not None and foc is not None and foc.is_ancestor(self.cpanel):
             return False                                      # Eingabe im Kommentarfeld: nichts in die Seite einfuegen
-        if kv in (Gdk.KEY_v, Gdk.KEY_V) and state & Gdk.ModifierType.CONTROL_MASK and not self.editor.locked:
+        if kv in (Gdk.KEY_v, Gdk.KEY_V) and state & Gdk.ModifierType.CONTROL_MASK and not self.editor.locked and not self.remote:
             cb = self.get_clipboard()
             fm = cb.get_formats()
             if fm.contain_gtype(Gdk.Texture) and not fm.contain_mime_type("text/plain") and not fm.contain_mime_type("text/plain;charset=utf-8"):
@@ -1234,7 +1406,7 @@ class PageView(Gtk.Box):
         return False
 
     def _drop_files(self, t, value, x, y):
-        if self.editor.locked or self.doc.is_database:
+        if self.editor.locked or self.doc.is_database or self.remote_blocked():
             return False
         files = list(value.get_files()) if hasattr(value, "get_files") else []
         after = self.editor.focused_block
@@ -1263,6 +1435,19 @@ class PageView(Gtk.Box):
         if files:
             bg(work, done=fin, media=True)
         return True
+
+
+def _walk_blocks(b):
+    out = []
+    d = b.get("data") or {}
+    for x in d.get("blocks") or []:
+        if isinstance(x, dict):
+            out += [x] + _walk_blocks(x)
+    for c in d.get("cols") or []:
+        for x in (c.get("blocks") or []) if isinstance(c, dict) else []:
+            if isinstance(x, dict):
+                out += [x] + _walk_blocks(x)
+    return out
 
 
 def _point(x, y):

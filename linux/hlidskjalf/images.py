@@ -48,8 +48,13 @@ class Decoded:
         return len(self.textures) > 1
 
 
+def is_file_url(path):
+    """eigene Datei (/files/...) oder Datei einer Seite anderer Saga-Instanzen (/api/fed/files/...)"""
+    return isinstance(path, str) and path.startswith(("/files/", "/api/fed/files/"))
+
+
 def sized(path, w):
-    if w and path.startswith("/files/") and "?" not in path:
+    if w and is_file_url(path) and "?" not in path:
         return f"{path}?w={w}"
     return path
 
@@ -341,7 +346,7 @@ class ImageView(Gtk.Widget):
 
 def page_icon(icon, size=22, fallback="📄"):
     """Seiten-Symbol: Emoji oder eigenes Bild (/files/...)"""
-    if icon and icon.startswith("/files/"):
+    if icon and is_file_url(icon):
         v = ImageView(icon, mode="cover", w=160 if size <= 40 else 320, radius=4 if size < 40 else 10)
         v.set_size_request(size, size)
         v.set_valign(Gtk.Align.CENTER)

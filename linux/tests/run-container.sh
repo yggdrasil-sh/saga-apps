@@ -21,10 +21,11 @@ case " $PARTS " in *" all "*) PARTS="lint unit ui lang shots" ;; esac
 
 # --- Pakete (nur wenn etwas fehlt) ------------------------------------------------------------------------
 # google-noto-color-emoji-fonts: wie im RPM (Requires) - Seitensymbole und Hinweise sind Emoji
-if ! python3 -c "import gi, pytest, pyflakes; gi.require_version('Adw', '1')" 2>/dev/null || ! command -v Xvfb >/dev/null \
+#   python3-pynacl: Chat-Kryptografie (libsodium), wie im RPM (Requires)
+if ! python3 -c "import gi, pytest, pyflakes, nacl; gi.require_version('Adw', '1')" 2>/dev/null || ! command -v Xvfb >/dev/null \
     || ! fc-list 2>/dev/null | grep -qi "color emoji"; then
   echo "== Pakete installieren"
-  dnf -y -q install python3-gobject gtk4 libadwaita libsecret python3-pillow xorg-x11-server-Xvfb dbus-daemon dbus-tools \
+  dnf -y -q install python3-gobject gtk4 libadwaita libsecret python3-pillow python3-pynacl xorg-x11-server-Xvfb dbus-daemon dbus-tools \
     glibc-langpack-de glibc-langpack-es glibc-langpack-en gettext python3-pyflakes python3-pytest appstream desktop-file-utils adwaita-icon-theme \
     google-noto-color-emoji-fonts >/dev/null
 fi
@@ -85,6 +86,11 @@ for part in $PARTS; do
     lang)
       for l in de_DE.UTF-8 en_US.UTF-8 es_ES.UTF-8; do app_test sprachen.py "$l"; done
       ;;
+    v2shots)                                             # nur die Saga-2.0-Bildschirmfotos
+      mkdir -p "$SRC/build/shots"
+      HK_OUT="$SRC/build/shots" app_test v2shots.py
+      HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test v2shots.py es_ES.UTF-8
+      ;;
     shots)
       mkdir -p "$SRC/build/shots"
       HK_OUT="$SRC/build/shots" app_test shots.py
@@ -93,7 +99,10 @@ for part in $PARTS; do
       HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test pubshots.py es_ES.UTF-8
       HK_OUT="$SRC/build/shots" app_test shareshots.py
       HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test shareshots.py es_ES.UTF-8
+      HK_OUT="$SRC/build/shots" app_test v2shots.py
+      HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test v2shots.py es_ES.UTF-8
       ;;
+    app:*) app_test "${part#app:}" "${HK_LANG:-de_DE.UTF-8}" ;;                  # ein einzelnes HK_TEST-Skript, z. B. app:v2shots.py
     *) echo "unbekannter Teil: $part" >&2; FAIL=$((FAIL + 1)) ;;
   esac
 done

@@ -21,6 +21,8 @@ finish-args:
   # haben ihren Schluessel dort abgelegt und wuerden ohne diese Freigabe abgemeldet (neue landeten sonst in einer
   # Ersatzdatei). Darum bleibt die Freigabe, obwohl sie dort Zugriff auf den ganzen Schluesselbund gibt.
   - --talk-name=org.freedesktop.secrets
+  # Mitteilungen (Push) bei geschlossener App: UnifiedPush-Verteiler auf dem Sitzungs-Bus (z. B. KUnifiedPush)
+  - --talk-name=org.unifiedpush.Distributor.*
   # Kein Dateisystem-Zugriff: Anhaenge speichern, Bild waehlen, Anhaengen und Exportieren laufen ueber Gtk.FileDialog (Portal)
 # Uebersetzungen bleiben in der App (/app/share/locale): ein Locale-Erweiterungspaket fehlte sonst im Einzeldatei-Bundle
 separate-locales: false
@@ -42,6 +44,30 @@ modules:
         only-arches: [aarch64]
         url: https://files.pythonhosted.org/packages/1f/01/e18aff37cb0b4aac47ac90f016d347a49aca667ef97f190b06ac2aabc928/pillow-12.3.0-cp313-cp313-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl
         sha256: f7401aebd7f581d7f83a439d87d474999317ee099218e5ad25d125290990ba65
+
+  # Chat-Verschluesselung (libsodium): PyNaCl 1.6.x mit cffi als fertige Wheels von PyPI
+  - name: python3-pynacl
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} --no-build-isolation --no-deps cffi pynacl
+    sources:
+      - type: file
+        only-arches: [x86_64]
+        url: https://files.pythonhosted.org/packages/98/df/0a1755e750013a2081e863e7cd37e0cdd02664372c754e5560099eb7aa44/cffi-2.0.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+        sha256: c8d3b5532fc71b7a77c09192b4a5a200ea992702734a2e9279a37f2478236f26
+      - type: file
+        only-arches: [aarch64]
+        url: https://files.pythonhosted.org/packages/a9/f5/a2c23eb03b61a0b8747f211eb716446c826ad66818ddc7810cc2cc19b3f2/cffi-2.0.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.whl
+        sha256: d48a880098c96020b02d5a1f7d9251308510ce8858940e6fa99ece33f610838b
+      - type: file
+        only-arches: [x86_64]
+        url: https://files.pythonhosted.org/packages/7f/81/d60984052df5c97b1d24365bc1e30024379b42c4edcd79d2436b1b9806f2/pynacl-1.6.2-cp38-abi3-manylinux2014_x86_64.manylinux_2_17_x86_64.whl
+        sha256: 22de65bb9010a725b0dac248f353bb072969c94fa8d6b1f34b87d7953cf7bbe4
+      - type: file
+        only-arches: [aarch64]
+        url: https://files.pythonhosted.org/packages/1e/b4/e927e0653ba63b02a4ca5b4d852a8d1d678afbf69b3dbf9c4d0785ac905c/pynacl-1.6.2-cp38-abi3-manylinux2014_aarch64.manylinux_2_17_aarch64.whl
+        sha256: 8845c0631c0be43abdd865511c41eab235e0be69c81dc66a50911594198679b0
 
   - name: saga
     buildsystem: simple
@@ -65,6 +91,9 @@ modules:
       - install -Dm644 data/${FLATPAK_ID}.SearchProvider.ini ${FLATPAK_DEST}/share/gnome-shell/search-providers/${FLATPAK_ID}.SearchProvider.ini
       - sed -e 's|^Exec=.*|Exec=/app/bin/saga --search-provider|' data/${FLATPAK_ID}.SearchProvider.service > ${FLATPAK_ID}.SearchProvider.service
       - install -Dm644 ${FLATPAK_ID}.SearchProvider.service ${FLATPAK_DEST}/share/dbus-1/services/${FLATPAK_ID}.SearchProvider.service
+      # Mitteilungen (UnifiedPush): D-Bus-Aktivierung der App ohne Fenster
+      - sed -e 's|^Exec=.*|Exec=/app/bin/saga --gapplication-service|' data/${FLATPAK_ID}.service > ${FLATPAK_ID}.service
+      - install -Dm644 ${FLATPAK_ID}.service ${FLATPAK_DEST}/share/dbus-1/services/${FLATPAK_ID}.service
     sources:
       - type: dir
         path: ..

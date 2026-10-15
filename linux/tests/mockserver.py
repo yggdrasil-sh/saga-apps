@@ -12,6 +12,8 @@ import threading
 import time
 import urllib.parse
 
+import mockv2
+
 SERVER = "https://saga.test"
 
 
@@ -118,6 +120,31 @@ class MockServer:
                           "category": "Werkzeuge"},
                          {"name": "Ohne Symbol mit sehr langem Namen", "host": "lang.example.org", "url": "https://lang.example.org",
                           "category": "Medien"}]
+        mockv2.init(self)                    # Saga 2.0: Live, Benachrichtigungen, Chat, Push, KI, Foederation
+
+    # --- Saga 2.0 (mockv2.py) --------------------------------------------------------------------------
+    def push_event(self, ev, data):
+        mockv2.push_event(self, ev, data)
+
+    def chat_peer(self, uid, name=None, ready=True):
+        return mockv2.chat_peer(self, uid, name, ready)
+
+    def new_chat(self, kind, members, **kw):
+        return mockv2.new_chat(self, kind, members, **kw)
+
+    def peer_send(self, cid, uid, text, **kw):
+        return mockv2.peer_send(self, cid, uid, text, **kw)
+
+    def add_fed(self, nid, title, **kw):
+        return mockv2.add_fed(self, nid, title, **kw)
+
+    def add_notif(self, kind, **kw):
+        nid = 9000 + len(self.notifs)
+        it = dict({"id": nid, "kind": kind, "created": time.time(), "read": False, "actor": {"name": "Anna Beispiel", "username": "anna"},
+                   "count": 1, "access": True, "note": {"id": 1, "title": "Startseite", "icon": "📘"}, "title": "Startseite",
+                   "text": "", "url": "/notes#1"}, **kw)
+        self.notifs.insert(0, it)
+        return it
 
     # --- Hilfen ------------------------------------------------------------------------------------
     def note_meta(self, n):
@@ -179,10 +206,14 @@ class MockServer:
         if path == "api/account":
             return self._reply(200, {"username": self.users.get(base, "test"), "name": "Test"})
         with self.lock:
+            self._raw = data
             return self._api(method, path, q, body)
 
     def _api(self, method, path, q, body):
         parts = path.split("/")
+        r = mockv2.handle(self, method, path, parts, q, body if isinstance(body, dict) else {}, getattr(self, "_raw", None))
+        if r is not None:
+            return r
         r = self._share_api(method, path, parts, q, body if isinstance(body, dict) else {})
         if r is not None:
             return r
@@ -734,6 +765,7 @@ def install(server=SERVER, logged_in=True):
 
     client._send = send
     send.mock = srv
+    client._open_stream = lambda method, url, data, headers, timeout: mockv2.open_stream(srv, method, url, data, headers)
     if logged_in:
         config.settings.server = server
         if hasattr(client, "set_cookies"):

@@ -20,6 +20,26 @@ GAP = 8                         # Abstand Feld -> Hinweis/Chips im Teilen-Dialog
 # Aktionen, die nur der Eigentuemer hat (Seitenmenue, Seitenleiste, Befehlspalette)
 OWNER_ONLY = frozenset({"move", "trash", "archive", "publish", "share", "versions", "template", "favorite", "lock",
                         "duplicate", "home"})
+# Seiten anderer Saga-Instanzen (Foederation, negative IDs): nur Titel/Inhalt bearbeiten und kommentieren
+REMOTE_OFF = frozenset({"move", "trash", "archive", "publish", "share", "versions", "template", "favorite", "lock",
+                        "duplicate", "home", "wide", "subpage", "upload", "export", "icon", "cover", "presence", "ai", "chat"})
+
+
+def is_remote(page):
+    """Seite einer anderen Saga-Instanz? (negative ID bzw. Feld remote)"""
+    if not isinstance(page, dict):
+        return False
+    try:
+        if int(page.get("id") or 0) < 0:
+            return True
+    except (TypeError, ValueError):
+        pass
+    return isinstance(page.get("remote"), dict)
+
+
+def remote_host(page):
+    r = (page or {}).get("remote") if isinstance(page, dict) else None
+    return (r.get("host") or r.get("name") or "") if isinstance(r, dict) else ""
 
 
 # =====================================================================================================
@@ -54,7 +74,10 @@ def read_only(page):
 
 def allowed(page, action):
     """Darf die Rolle diese Aktion? Nur-Eigentuemer: Loeschen, Verschieben, Archiv, Veroeffentlichen, Teilen, Versionen,
-    Vorlage, Favorit, Sperren, Duplizieren, Startseite. 'wide' (volle Breite) und 'subpage' ab Bearbeiten, Rest alle."""
+    Vorlage, Favorit, Sperren, Duplizieren, Startseite. 'wide' (volle Breite) und 'subpage' ab Bearbeiten, Rest alle.
+    Seiten anderer Saga-Instanzen: nie die Aktionen aus REMOTE_OFF."""
+    if action in REMOTE_OFF and is_remote(page):
+        return False
     r = role_of(page)
     if r == "owner":
         return True
@@ -142,7 +165,8 @@ def share_rows(st):
     out = []
     for x in (st or {}).get("shares") or []:
         typ, name = x.get("type"), x.get("name") or x.get("target") or ""
-        sub = group_sub(x.get("members")) if typ == "group" else (x.get("target") or "")
+        sub = group_sub(x.get("members")) if typ == "group" else remote_sub(typ) if typ in ("remote", "remote_group") else \
+            (x.get("target") or "")
         vias = (x.get("via") or []) if typ == "user" else []
         top = vias[0] if vias else None
         via = None
@@ -150,7 +174,7 @@ def share_rows(st):
             via = _("(via {via}: {role})").format(via=via_label(top), role=role_name(top.get("role")))
         if top:
             body = _("{name} keeps the role {role} via {via}.").format(name=name, role=role_name(top.get("role")), via=via_label(top))
-        elif typ == "group":
+        elif typ in ("group", "remote_group"):
             body = _("The group {name} immediately loses access to this page and its subpages.").format(name=name)
         else:
             body = _("{name} immediately loses access to this page and its subpages.").format(name=name)
@@ -189,7 +213,17 @@ def hit_rows(d, st, role):
         n = g.get("name") or ""
         out.append({"type": "group", "target": n, "name": n, "sub": _("Group"),
                     "has": _("has access") if f"group:{n}" in tk else add_as})
+    for r in (d or {}).get("remote") or []:                   # Foederation: genaue Adresse name@server
+        typ, t = r.get("type") or "remote", r.get("target") or ""
+        if typ not in ("remote", "remote_group") or not t:
+            continue
+        out.append({"type": typ, "target": t, "name": r.get("name") or t, "sub": remote_sub(typ),
+                    "has": _("has access") if f"{typ}:{t}" in tk else add_as})
     return out
+
+
+def remote_sub(typ):
+    return _("Group on another Saga instance") if typ == "remote_group" else _("Other Saga instance")
 
 
 def chip_rows(st, role):
@@ -209,9 +243,10 @@ def short_query(q):
 
 
 def search_hint(st):
+    fed = " " + _("Other Saga instances: enter name@server.") if (st or {}).get("federation") else ""
     if (st or {}).get("scope"):
-        return _("Only people from your groups. At least 3 characters.")
-    return _("At least 3 characters.")
+        return _("Only people from your groups. At least 3 characters.") + fed
+    return _("At least 3 characters.") + fed
 
 
 def dialog_notes(st):
@@ -380,8 +415,10 @@ def shared_by_box(page):
 
 
 def avatar(typ, name, size=32):
-    a = Adw.Avatar(size=size, text=name or "?", show_initials=typ != "group")
-    if typ == "group":
+    grp = typ in ("group", "remote_group")
+    text = (name or "?").split(" (")[0] or "?"                # "Bert (bert@b.example)" -> Initialen "B", nicht "B("
+    a = Adw.Avatar(size=size, text=text, show_initials=not grp)
+    if grp:
         a.set_icon_name(people_icon())
     return a
 
@@ -573,6 +610,8 @@ class ShareDialog(Adw.Dialog):
         if text is None:
             text = search_hint(self.st) if short_query(self.q.get_text()) else ""
             error = bool(text)
+            if not text and not self.q.get_text().strip() and self.st.get("federation") and can_add(self.st):
+                text = _("Other Saga instances: enter name@server.")       # Foederation: Hinweis bei leerem Feld
         self._set_status(self.status, text, False if error else None)
         (self.status.remove_css_class if error else self.status.add_css_class)("dim-label")
         mark_error(self.q, error)

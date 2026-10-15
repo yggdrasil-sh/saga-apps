@@ -49,9 +49,21 @@ def srv():
     store._task_deletes = {}
     store.docs = weakref.WeakSet()
     store.server_version = None
+    store.fed_shared, store.fed_unreachable = [], []
+    store._set_shared([])
+    from hlidskjalf.assistant import ai
+    from hlidskjalf.chat import _mem, chat
+    from hlidskjalf.live import live
+    from hlidskjalf.notifications import notifications
+    live.reset()
+    chat.clear()
+    _mem.clear()
+    notifications.reset()
+    ai.status, ai.known = {}, False
     client.set_cookies("", {})
     s = mockserver.install()
     yield s
+    live.reset()
     idle()
 
 

@@ -826,7 +826,16 @@ class BlockKit:
         ents = [(_("Copy link to block"), lambda: self.view.win.copy_text(f"{settings.server}/notes#{ed.doc.id}:{bid}"))]
         if getattr(self.view, "cpanel", None) is not None and "role" in ed.doc.page:
             ents.append((_("Comment"), lambda: self.view.show_comments(bid)))
+        ents += self._ai_entries(bid)
         menu_popover(parent, ents).popup()
+
+    def _ai_entries(self, bid):
+        """KI-Assistent: Block fuer "Verbessern"/"Uebersetzen" markieren (nur wenn der Assistent an ist)"""
+        v = self.view
+        if not getattr(v, "ai_on", lambda: False)():
+            return []
+        on = bid in v.ai_marked
+        return [(("✓ " if on else "") + _("Mark for the assistant"), lambda: v.ai_toggle(bid))]
 
     def block_menu(self, parent, bid):
         ed = self.editor
@@ -851,6 +860,7 @@ class BlockKit:
                                  [(_("Column {n}").format(n=ci + 1), (lambda ci=ci: ed.move_into_column(bid, above, ci))) for ci in range(ed.col_count(above))]))
         if ed.columns_below(bid) is not None and ed.is_columns(bid):
             ents.append((_("Merge with the columns below"), lambda: ed.merge_columns(bid)))
+        ents += self._ai_entries(bid)
         ents += [(_("Duplicate"), lambda: ed.duplicate(bid)), (_("Move up"), lambda: ed.move(bid, -1)),
                  (_("Move down"), lambda: ed.move(bid, 1)), None, (_("Delete"), lambda: ed.delete(bid), True)]
         menu_popover(parent, ents).popup()
