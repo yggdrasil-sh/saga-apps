@@ -247,18 +247,25 @@ class SagaRepository(
     private suspend inline fun <reified T> decode(s: String): T = withContext(Dispatchers.Default) { json.decodeFromString<T>(s) }
 
     /** Fehler als Text fuer die Oberflaeche (uebersetzt; Meldungen des Servers/Systems unveraendert) */
-    override fun friendly(e: Throwable): UiText = when {
-        e is ApiException -> e.text
-        e is UiTextException -> e.text
-        isCertificateProblem(e) -> UiText.Res(R.string.error_certificate)
-        e is SSLException -> UiText.Res(R.string.error_no_https)
-        e is UnknownHostException || e is ConnectException || e is ServerUnreachableException -> UiText.Res(R.string.error_server_unreachable)
-        e is SocketTimeoutException -> UiText.Res(R.string.error_timeout)
-        e is IOException -> e.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) } ?: UiText.Res(R.string.error_network)
-        else -> e.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) } ?: UiText.Res(R.string.error_generic)
-    }
+    override fun friendly(e: Throwable): UiText = friendlyText(e)
 
-    private fun isCertificateProblem(e: Throwable): Boolean {
+    companion object {
+        /**
+         * Fehlertext fuer die Oberflaeche. Sonstige Netzfehler (OkHttp: "unexpected end of stream on http://...")
+         * nie als rohen englischen Text mit interner Adresse, sondern "Netzwerkfehler" (BUG-071).
+         */
+        fun friendlyText(e: Throwable): UiText = when {
+            e is ApiException -> e.text
+            e is UiTextException -> e.text
+            isCertificateProblem(e) -> UiText.Res(R.string.error_certificate)
+            e is SSLException -> UiText.Res(R.string.error_no_https)
+            e is UnknownHostException || e is ConnectException || e is ServerUnreachableException -> UiText.Res(R.string.error_server_unreachable)
+            e is SocketTimeoutException -> UiText.Res(R.string.error_timeout)
+            e is IOException -> UiText.Res(R.string.error_network)
+            else -> e.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) } ?: UiText.Res(R.string.error_generic)
+        }
+
+        private fun isCertificateProblem(e: Throwable): Boolean {
         var c: Throwable? = e
         var n = 0
         while (c != null && n++ < 8) {
@@ -266,6 +273,18 @@ class SagaRepository(
             c = c.cause
         }
         return false
+    }
+
+        /**
+         * Inhalt fuer POST api/app/capture. Text immer mitsenden: bei einer Aufgabe ohne Titel nimmt der Server die
+         * erste Zeile (vorher leer -> "nothing to save", BUG-024).
+         */
+        fun captureBody(kind: String, title: String, text: String, url: String?): JsonObject = buildJsonObject {
+            put("kind", kind)
+            put("title", title)
+            put("text", text)
+            if (!url.isNullOrEmpty()) put("url", url)
+        }
     }
 
     private fun today(): String = LocalDate.now().toString()
@@ -831,19 +850,6 @@ class SagaRepository(
         }
         val body = BlockDoc.serialize(JsonObject(mapOf("blocks" to JsonArray(blocks))))
         return createPageWith(title.ifBlank { (url ?: text).take(80) }, body)
-    }
-
-    companion object {
-        /**
-         * Inhalt fuer POST api/app/capture. Text immer mitsenden: bei einer Aufgabe ohne Titel nimmt der Server die
-         * erste Zeile (vorher leer -> "nothing to save", BUG-024).
-         */
-        fun captureBody(kind: String, title: String, text: String, url: String?): JsonObject = buildJsonObject {
-            put("kind", kind)
-            put("title", title)
-            put("text", text)
-            if (!url.isNullOrEmpty()) put("url", url)
-        }
     }
 
     // ---------------------------------------------------------------- Termine
