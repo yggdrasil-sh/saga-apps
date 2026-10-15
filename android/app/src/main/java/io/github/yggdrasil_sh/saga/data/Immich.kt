@@ -27,7 +27,7 @@ data class ImmichAlbums(val albums: List<ImmichAlbum> = emptyList())
 
 /**
  * Immich ueber die bestehenden Server-Endpunkte (wie die Bild-Auswahl der Seiten im Web/iOS): Status, Alben,
- * Zeitleiste/Inhaltssuche, Vorschaubilder. Der Server reicht nur durch; Svens Immich-Schluessel bleibt auf dem Server.
+ * Zeitleiste/Inhaltssuche, Vorschaubilder. Der Server reicht nur durch; der Immich-Schluessel der Person bleibt auf dem Server.
  */
 class ImmichApi(private val api: ApiClient, private val json: Json) {
     /** Fuer diese Person eingerichtet (Server kennt Immich und ein Schluessel ist hinterlegt)? */
