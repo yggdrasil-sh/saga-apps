@@ -666,6 +666,7 @@ struct LoginScreen: View {
             }.frame(maxWidth: 420)
             #endif
             if !error.isEmpty { Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center) }
+            else if store.error == Store.keychainFailedText { Text(Store.keychainFailedText).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center) }   // BUG-104
             Spacer()
         }
         .padding(30)

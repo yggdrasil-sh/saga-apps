@@ -256,10 +256,18 @@ final class Store: ObservableObject {
     }
 
     /// Antwort der Anmeldung: Geraete-Schluessel sichern, App-Schluessel (Widget/Teilen) uebernehmen, falls noch keiner da ist
-    private func adoptKeys(_ d: Data) {
+    /// Rueckgabe false: Geraete-Schluessel kam, liess sich aber nicht im Schluesselbund speichern (BUG-104)
+    @discardableResult
+    private func adoptKeys(_ d: Data) -> Bool {
         let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any]
-        if let t = j?["device_token"] as? String, t.hasPrefix("hkd_") { DeviceKey.set(t) }
+        var ok = true
+        if let t = j?["device_token"] as? String, t.hasPrefix("hkd_") { DeviceKey.set(t); ok = DeviceKey.stored() == t }
         if let k = j?["app_key"] as? String, k.hasPrefix("hk_"), !AppConfig.hasToken { AppConfig.token = k; reloadWidgets() }
+        return ok
+    }
+    /// Text, wenn der Geraete-Schluessel nach Anmeldung/Kopplung nicht gespeichert werden konnte
+    static var keychainFailedText: String {
+        String(localized: "Der Geräte-Schlüssel konnte nicht im Schlüsselbund gespeichert werden. Die Anmeldung hält deshalb nur einige Stunden.")
     }
     private func reloadWidgets() {
         #if canImport(WidgetKit)
@@ -286,7 +294,7 @@ final class Store: ObservableObject {
             await loadShared()
             Task { await loadFedShared() }                        // fremde Server koennen dauern: nicht darauf warten
             Task { await notifs.loadCount(); await chat.refreshUnread(); await loadAIStatus() }
-            if error != nil { error = nil }
+            if error != nil, error != Store.keychainFailedText { error = nil }   // Schluesselbund-Problem bleibt sichtbar (BUG-104)
             if serverVersion == nil { await checkVersion() }
             await loadToday()
             await ensureDeviceKey()
@@ -651,9 +659,10 @@ final class Store: ObservableObject {
         if switching || signOut { await logout(switchingServer: true) }  // alter Server/altes Konto: Schluessel, Cookies, Zwischenspeicher weg
         AppConfig.server = server; cookieHeader = nil; serverVersion = nil; minApp = nil
         await storeCookies(http, url)
-        adoptKeys(d); deviceKeyTried = true
+        let keyOK = adoptKeys(d); deviceKeyTried = true
         await identifyAccount()                                           // Entwuerfe gehoeren zu Server + Konto
         needsLogin = false
+        if !keyOK { error = Store.keychainFailedText }                    // nicht still: sonst spaeter unerklaert abgemeldet
     }
 
     /// Anmeldung per QR-Code (Kopplungs-Code aus dem Web). Der Server wird erst nach erfolgreicher Kopplung
@@ -747,6 +756,7 @@ final class Store: ObservableObject {
             _ = try? await URLSession.shared.data(for: req)
         }
         DeviceKey.set(nil); deviceKeyTried = false
+        if error == Store.keychainFailedText { error = nil }
         DraftOwner.app.signedOut(); accountChecked = false; accountName = nil // Entwuerfe bleiben liegen, aber nur fuer ihr Konto lesbar
         AppConfig.token = ""; reloadWidgets()                           // der Server loescht den Widget-Schluessel dieses Geraets mit
         let ds = WKWebsiteDataStore.default()
