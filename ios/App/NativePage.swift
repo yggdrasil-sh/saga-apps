@@ -1658,10 +1658,17 @@ struct CommentsPresenter: ViewModifier {
     @ObservedObject var doc: PageDoc
     let ed: PageEditor
     let store: Store
+    #if os(iOS)
+    @Environment(\.dynamicTypeSize) private var typeSize
+    /// iPad und grosse Schrift: gleich ganze Hoehe - halbhoch zeigte dort kaum einen Kommentar (BUG-064)
+    private var detents: Set<PresentationDetent> {
+        UIDevice.current.userInterfaceIdiom == .pad || typeSize.isAccessibilitySize ? [.large] : [.medium, .large]
+    }
+    #endif
     func body(content: Content) -> some View {
         #if os(iOS)
         content.sheet(item: $target) { _ in
-            panel.presentationDetents([.medium, .large]).presentationContentInteraction(.scrolls)
+            panel.presentationDetents(detents).presentationContentInteraction(.scrolls)
                 .presentationBackground(.background)              // deckend (iPad: links schien die Seitenleiste durch)
         }
         #else

@@ -132,6 +132,7 @@ struct IconRow: View {
     @State private var coverImmich = false
     @State private var choosingCover = false
     @State private var hover = false
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -148,13 +149,18 @@ struct IconRow: View {
             }
             // Fehlt Icon oder Titelbild: dezent anbieten (Mac beim Ueberfahren, iPhone immer leicht sichtbar)
             if !readOnly && (doc.icon?.isEmpty != false || doc.cover == nil) {
-                HStack(spacing: 14) {
+                // Bedienungshilfen-Schriftgroessen: untereinander und ohne feste Breite - sonst wurde die Zeile breiter als
+                // der Bildschirm und zog die ganze Seitenspalte mit (Text links/rechts abgeschnitten, BUG-019)
+                let ax = typeSize.isAccessibilitySize
+                let layout = ax ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8)) : AnyLayout(HStackLayout(spacing: 14))
+                layout {
                     if doc.icon?.isEmpty != false { Button { picker = true } label: { Label("Symbol hinzufügen", systemImage: "face.smiling") } }
                     if doc.cover == nil {
                         Menu {
                             Button { choosingCover = true } label: { Label("Fotos …", systemImage: "photo") }
                             Button { coverImmich = true } label: { Label("Aus Immich …", systemImage: "photo.on.rectangle.angled") }
-                        } label: { Label("Titelbild hinzufügen", systemImage: "photo") }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+                        } label: { Label("Titelbild hinzufügen", systemImage: "photo") }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
+                            .fixedSize(horizontal: !ax, vertical: true)
                     }
                 }
                 .buttonStyle(.plain).font(.subheadline).foregroundStyle(.secondary)
