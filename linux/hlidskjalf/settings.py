@@ -63,10 +63,26 @@ class SettingsDialog(Adw.PreferencesDialog):
         acc = Adw.PreferencesPage(title=_("Account"), icon_name="avatar-default-symbolic")
         from .publish import PublicNameGroup
         acc.add(PublicNameGroup(self))             # oeffentlicher Name (Veroeffentlichen); aeltere Server: unsichtbar
+        from .notifications import NotificationSettingsGroup
+        acc.add(NotificationSettingsGroup(self))   # Benachrichtigungen je Art (Server ab 1.4); sonst unsichtbar
         acc.add(ImmichGroup(self))
         acc.add(CalendarGroup(self))
         acc.add(AppsGroup(self))
         self.add(acc)
+        self.pages = {"general": page, "account": acc}
+        from .push import PushPage                 # Mitteilungen (Server ab 1.7)
+        self.pages["push"] = PushPage(self)
+        self.add(self.pages["push"])
+        from .chat import chat
+        if chat.status in ("setup", "device", "ready"):
+            from .chatview import ChatDevicesPage  # Chats & Geraete (Server ab 1.5)
+            self.pages["chats"] = ChatDevicesPage(self)
+            self.add(self.pages["chats"])
+
+    def show_page(self, name):
+        p = self.pages.get(name)
+        if p is not None:
+            self.set_visible_page(p)
 
     def _apply_server(self, row):
         u = row.get_text().strip().rstrip("/")

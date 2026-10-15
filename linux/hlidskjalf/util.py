@@ -105,6 +105,24 @@ class Debounce:
             self._fire()
 
 
+def watch_obj(widget, obj, signal, cb):
+    """Signal eines langlebigen Objekts nur verbinden, solange das Widget sichtbar ist (GTK4 raeumt sonst nicht auf)"""
+    st = {"h": None}
+
+    def on_map(*_):
+        if st["h"] is None:
+            st["h"] = obj.connect(signal, lambda *a: cb(*a[1:]))
+
+    def on_unmap(*_):
+        if st["h"] is not None:
+            obj.disconnect(st["h"])
+            st["h"] = None
+    widget.connect("map", on_map)
+    widget.connect("unmap", on_unmap)
+    if widget.get_mapped():
+        on_map()
+
+
 def placeholder(row, text):
     """Platzhalter im Eingabefeld einer Adw.EntryRow (sichtbar, solange leer und ausgewaehlt)"""
     try:
@@ -323,8 +341,8 @@ NA_TEXTS = frozenset({"Seite ohne Zugriff", "Page without access", "Página sin 
 
 
 def link_target(href):
-    """'/notes#12' -> ('page', 12); http(s)/mailto -> ('url', href); sonst None"""
-    m = re.fullmatch(r"/notes#(\d+)(?::.*)?", href or "")
+    """'/notes#12' -> ('page', 12) (Seiten anderer Saga-Instanzen: negative IDs); http(s)/mailto -> ('url', href); sonst None"""
+    m = re.fullmatch(r"/notes#(-?\d+)(?::.*)?", href or "")
     if m:
         return ("page", int(m.group(1)))
     if (href or "").startswith(("http://", "https://", "mailto:")):

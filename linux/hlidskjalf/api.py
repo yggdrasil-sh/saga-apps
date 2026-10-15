@@ -400,6 +400,111 @@ class Client:
         """Datei/Bild mit Sitzung laden (Bytes)"""
         return self.request("GET", path, timeout=timeout)
 
+    # --- Ereignis-Stroeme (text/event-stream): Live-Kanal, KI-Assistent ------------------------------------
+    def _open_stream(self, method, url, data, headers, timeout):
+        """-> (status, Antwort mit readline()/close()) - die Tests ersetzen diese Methode"""
+        req = urllib.request.Request(url, data=data, method=method)
+        for k, v in headers.items():
+            req.add_header(k, v)
+        try:
+            r = _opener.open(req, timeout=timeout)
+            return r.status, r
+        except urllib.error.HTTPError as e:
+            return e.code, e
+        except (urllib.error.URLError, OSError, TimeoutError) as e:
+            raise APIError(0, _("Server not reachable: {error}").format(error=getattr(e, "reason", e))) from e
+
+    def stream(self, method, path, body=None, headers=None, timeout=75):
+        """SSE-Anfrage (Sitzung + X-Saga) -> offene Antwort (Zeilen mit readline). Fehler vor dem Strom: APIError mit
+        der Meldung des Servers (JSON {error}); 401 einmal still erneuern. timeout = Lesezeit ohne jede Zeile (Ping)."""
+        data = json.dumps(body).encode() if body is not None else None
+        for attempt in range(2):
+            url = self.url(path)
+            hd = {"X-Saga": "1", "X-Hlidskjalf": "1", "User-Agent": "Hlidskjalf-Linux/1.0", "Accept-Language": ACCEPT_LANGUAGE,
+                  "Accept": "text/event-stream", "Cache-Control": "no-cache"}
+            if data is not None:
+                hd["Content-Type"] = "application/json"
+            hd.update(headers or {})
+            ch = self.cookie_header_for(url)
+            if ch:
+                hd["Cookie"] = ch
+            code, r = self._open_stream(method, url, data, hd, timeout)
+            if code == 401 and attempt == 0:
+                _close(r)
+                res = self.resume()
+                if res == "ok":
+                    continue
+                if res == "offline":
+                    raise APIError(0, _("Server not reachable"))
+                if self.on_need_login:
+                    self.on_need_login()
+                raise APIError(401)
+            if not 200 <= code < 300:
+                out = b""
+                try:
+                    out = r.read() or b""
+                except (OSError, AttributeError, ValueError):
+                    pass
+                _close(r)
+                try:
+                    j = json.loads(out)
+                except ValueError:
+                    j = None
+                j = j if isinstance(j, dict) else None
+                e = APIError(code, str((j or {}).get("error") or ""))
+                e.data = j
+                if code == 401 and self.on_need_login:
+                    self.on_need_login()
+                raise e
+            hdrs = getattr(r, "headers", None)
+            if hdrs is not None and hasattr(hdrs, "get_all"):
+                self.take_cookies_for(url, hdrs)
+            return r
+        raise APIError(401)
+
+
+def _close(r):
+    try:
+        r.close()
+    except (OSError, AttributeError):
+        pass
+
+
+def sse_events(resp, stop=None, on_line=None):
+    """Zeilen eines text/event-stream -> (event, data, id). Kommentarzeilen (': ping') und Leerlauf ignorieren;
+    on_line() bei JEDER Zeile (Lebenszeichen). stop() -> True beendet. Kaputtes JSON: data = None."""
+    ev, buf, eid = None, [], None
+    while True:
+        if stop and stop():
+            return
+        line = resp.readline()
+        if not line:
+            return
+        if on_line:
+            on_line()
+        line = line.decode("utf-8", "replace") if isinstance(line, bytes) else line
+        line = line.rstrip("\r\n")
+        if not line:
+            if ev is not None or buf:
+                raw = "\n".join(buf)
+                try:
+                    data = json.loads(raw) if raw else {}
+                except ValueError:
+                    data = None
+                yield ev or "message", data, eid
+            ev, buf, eid = None, [], None
+            continue
+        if line.startswith(":"):
+            continue
+        k, _sep, v = line.partition(":")
+        v = v[1:] if v.startswith(" ") else v
+        if k == "event":
+            ev = v
+        elif k == "data":
+            buf.append(v)
+        elif k == "id":
+            eid = v
+
 
 def pkce():
     def b64(d):

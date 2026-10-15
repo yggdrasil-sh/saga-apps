@@ -50,6 +50,10 @@ class Store(GObject.Object):
         self.shared_by_id = {}
         self.share_api = None             # Server kennt Teilen? None = noch unbekannt, False = aelterer Server (404)
         self.share_off = False            # Teilen abgeschaltet, obwohl mir etwas freigegeben ist -> Hinweis
+        # Foederation (2.0): Seiten anderer Saga-Instanzen (negative IDs), getrennt geladen (GET api/fed/shared, langsam)
+        self.fed_shared = []
+        self.fed_unreachable = []         # Hosts, die gerade nicht erreichbar sind (dezenter Hinweis)
+        self._fed_loading = False
         self.tasks = []
         self.done_tasks = []
         self.events = []
@@ -67,6 +71,9 @@ class Store(GObject.Object):
         c = self.cached("api/notes")
         if isinstance(c, list):
             self._set_pages(c)
+        c = self.cached("api/fed/shared")
+        if isinstance(c, dict):
+            self.fed_shared = [p for p in c.get("items") or [] if isinstance(p, dict) and p.get("id") is not None]
         c = self.cached("api/shared")
         if isinstance(c, list):
             self._set_shared(c)
@@ -125,6 +132,7 @@ class Store(GObject.Object):
             bg(client.forget_server, old, tok, True, error=lambda e: None)
         self.clear_cache()
         self.pages, self.archived, self.by_id, self.tasks, self.done_tasks, self.events = [], [], {}, [], [], []
+        self.fed_shared, self.fed_unreachable = [], []
         self._set_shared([])
         self.share_api, self.share_off = None, False
         self.recent = []
@@ -180,6 +188,7 @@ class Store(GObject.Object):
         def fin(_):
             self.clear_cache()
             self.pages, self.archived, self.by_id, self.tasks, self.done_tasks, self.events = [], [], {}, [], [], []
+            self.fed_shared, self.fed_unreachable = [], []
             self._set_shared([])
             self.share_api, self.share_off = None, False
             self.recent = []
@@ -201,8 +210,43 @@ class Store(GObject.Object):
 
     def _set_shared(self, lst):
         lst = [p for p in (lst or []) if isinstance(p, dict) and p.get("id") is not None]
+        self._local_shared = lst
+        lst = lst + [p for p in self.fed_shared if p["id"] not in {x["id"] for x in lst}]
         self.shared = lst
         self.shared_by_id = {p["id"]: p for p in lst}
+
+    def load_fed_shared(self):
+        """Foederation: "Mit mir geteilt" von anderen Saga-Instanzen (kann je Server ~4 s dauern - eigene Anfrage,
+        die Seitenleiste wartet nicht darauf). Aeltere Server/ohne Foederation: 404 bzw. leer."""
+        if self._fed_loading:
+            return
+        self._fed_loading = True
+        srv = config.settings.server
+
+        def fin(j):
+            self._fed_loading = False
+            if srv != config.settings.server:
+                return
+            j = j if isinstance(j, dict) else {}
+            items = [p for p in j.get("items") or [] if isinstance(p, dict) and p.get("id") is not None]
+            unr = [h for h in j.get("unreachable") or [] if isinstance(h, str)]
+            if items != self.fed_shared or unr != self.fed_unreachable:
+                keep = {p["id"] for p in items}
+                for p in self.fed_shared:
+                    if p["id"] not in keep:
+                        self.drop_cache(f"api/notes/{p['id']}")
+                self.fed_shared, self.fed_unreachable = items, unr
+                self._set_shared(getattr(self, "_local_shared", []))
+                self.emit("pages-changed")
+
+        def err(e):
+            self._fed_loading = False
+            if isinstance(e, APIError) and e.code == 404 and self.fed_shared:
+                self.fed_shared, self.fed_unreachable = [], []
+                self.drop_cache("api/fed/shared")
+                self._set_shared(getattr(self, "_local_shared", []))
+                self.emit("pages-changed")
+        bg(self.get_cached, "api/fed/shared", done=fin, error=err)
 
     def meta(self, pid):
         """Seiten-Eintrag (eigene oder mit mir geteilte Seite) oder None"""
@@ -326,7 +370,7 @@ class Store(GObject.Object):
                 self._set_pages(pages)
                 if sh is not None:
                     # nicht mehr mit mir geteilt: zwischengespeicherte Inhalte verwerfen (offline nicht mehr lesbar)
-                    keep = {p.get("id") for p in sh if isinstance(p, dict)} | set(self.by_id)
+                    keep = {p.get("id") for p in sh if isinstance(p, dict)} | set(self.by_id) | {p["id"] for p in self.fed_shared}
                     for gid in set(self.shared_by_id) - keep:
                         self.drop_cache(f"api/notes/{gid}")
                         self.drop_cache(f"api/notes/{gid}/rows")
@@ -339,6 +383,8 @@ class Store(GObject.Object):
                 self.emit("pages-changed")
                 self.emit("today-changed")
                 self.load_events()
+                if sh_api is not False:
+                    self.load_fed_shared()
                 bg(client.ensure_device_token, error=lambda e: None)
                 if self.server_version is None:
                     self.check_version()

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Saga: Symbol "Benachrichtigungen (Glocke)" im Stil der Adwaita-Symbole, 16x16, nur Flaechen (GTK faerbt sie ein) -->
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <g fill="#222222">
+    <path fill-rule="evenodd" d="M 8 1 C 7.45 1 7 1.45 7 2 L 7 2.14 C 4.99 2.59 3.5 4.38 3.5 6.5 L 3.5 9.5 L 2.15 11.3 C 1.9 11.63 2.14 12.1 2.55 12.1 L 13.45 12.1 C 13.86 12.1 14.1 11.63 13.85 11.3 L 12.5 9.5 L 12.5 6.5 C 12.5 4.38 11.01 2.59 9 2.14 L 9 2 C 9 1.45 8.55 1 8 1 Z M 8 3.5 C 9.66 3.5 11 4.84 11 6.5 L 11 10 L 11.5 10.6 L 4.5 10.6 L 5 10 L 5 6.5 C 5 4.84 6.34 3.5 8 3.5 Z"/>
+    <path d="M 6.27 13.1 C 6.5 14.19 7.17 15 8 15 C 8.83 15 9.5 14.19 9.73 13.1 Z"/>
+  </g>
+</svg>

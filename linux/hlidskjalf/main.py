@@ -53,6 +53,15 @@ class App(Adw.Application):
         q.connect("activate", lambda *_: self.win.close() if self.win else self.quit())   # close: wartet aufs Speichern
         self.add_action(q)
         self.set_accels_for_action("app.quit", ["<Control>q"])
+        # Klick auf eine Mitteilung (Live-Kanal oder UnifiedPush): Seite bzw. Chat zeigen
+        ou = Gio.SimpleAction.new("open-url", GLib.VariantType.new("s"))
+        ou.connect("activate", lambda a, v: (self.do_activate(), self.win and self.win.open_url(v.get_string(), mark=True)))
+        self.add_action(ou)
+        try:                                                  # UnifiedPush-Connector auf dem Sitzungs-Bus (push.py)
+            from .push import up
+            up.export(self)
+        except Exception as e:  # noqa: BLE001
+            print("hk: UnifiedPush nicht verfuegbar:", e, file=sys.stderr)
         for name, fn in (("new-page", lambda: self.win and self.win.new_page()),
                          ("new-task", lambda: self.win and self.win.open_link("hlidskjalf://new-task"))):
             a = Gio.SimpleAction.new(name, None)
@@ -101,6 +110,8 @@ def main():
         from .searchprovider import Provider
         return Provider().run()
     app = App()
+    if "--gapplication-service" in sys.argv:             # per D-Bus geweckt (UnifiedPush): Mitteilung zeigen, dann beenden
+        app.set_inactivity_timeout(10000)
     return app.run(sys.argv)
 
 

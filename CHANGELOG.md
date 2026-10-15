@@ -6,6 +6,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu (Linux, Saga-Server 2.0)
+- **Live-Kanal und Benachrichtigungen:** Glocke mit Ungelesen-Zahl, Anwesenheit im Seitenkopf, fremde Änderungen an der
+  offenen Seite werden still nachgeladen (bzw. Hinweis mit „Neu laden“), Desktop-Mitteilung solange Saga offen ist.
+- **Chats mit Ende-zu-Ende-Verschlüsselung** (PyNaCl/libsodium, Format v1, geprüft mit den Testvektoren des Servers):
+  Einrichtung mit Wiederherstellungsschlüssel, neues Gerät bestätigen (20-stelliger Code) oder wiederherstellen,
+  Sicherheitsnummer mit QR-Code, Anhänge, Antworten, „Chats & Geräte“. Private Schlüssel nur im Schlüsselbund.
+- **Mitteilungen** über UnifiedPush (D-Bus, z. B. KUnifiedPush mit ntfy) – auch bei geschlossener App.
+- **KI-Assistent** („Frag deine Seiten“, „Diese Seite“) und **Föderation** (Seiten anderer Saga-Instanzen, Teilen
+  mit name@server).
+
 ## [1.2.0] – 2026-10-14
 
 Passt zu Saga-Server 1.2. Enthält auch alles, was für 1.1.0 vorgesehen war (1.1.0 wurde nicht separat veröffentlicht).

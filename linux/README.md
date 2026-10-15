@@ -16,6 +16,18 @@ mit dem Funktionsumfang der Mac-App:
   Bearbeiten, Freigaben der Elternseiten), Bereich „Mit mir geteilt“ in der Seitenleiste, fremde Seiten mit Etikett
   „Geteilt von … · Du kannst …“ (Lesen/Kommentieren schreibgeschützt), Kommentare als Seitenleiste rechts (Zahl am
   Block, Antworten, Erledigt, Erledigte zeigen), Konflikt „… hat diese Seite gerade geändert“, Zugriff verloren
+- Live (Server ab 1.4): Glocke mit Benachrichtigungen (live, „Alle gelesen“, Einstellungen je Art), Anwesenheit im
+  Seitenkopf („… bearbeitet gerade“), fremde Änderungen still nachladen bzw. Hinweis „… hat diese Seite geändert“
+- Chats mit Ende-zu-Ende-Verschlüsselung (Server ab 1.5, PyNaCl/libsodium): Direkt-, Gruppen-, Seiten-Chats und freie
+  Gruppen, Antworten, Anhänge (verschlüsselt), Seitenverweise, „tippt …“, Sicherheitsnummer mit QR-Code, Einrichtung mit
+  Wiederherstellungsschlüssel, neues Gerät per Code bestätigen oder wiederherstellen, „Chats & Geräte“; private Schlüssel
+  nur im Schlüsselbund. Geprüft gegen `tests/chat_vectors.json` aus dem Server
+- Mitteilungen (Server ab 1.7): solange Saga läuft als GNOME-Mitteilung, sonst über UnifiedPush (D-Bus-Verteiler, z. B.
+  KUnifiedPush mit ntfy) – Einstellungen „Worüber?“, Namen, Ruhezeiten, Test, Geräte
+- KI-Assistent (Server ab 1.6): „Frag deine Seiten“ mit Quellen und „Diese Seite“ (Zusammenfassen, Aufgaben vorschlagen,
+  Verbessern, Übersetzen; Übernehmen nur per Klick), Verlauf
+- Föderation (Server 2.0): Seiten anderer Saga-Instanzen unter „Mit mir geteilt“ (lesen, kommentieren, Titel und Inhalt
+  bearbeiten), Teilen mit name@server
 - Aufgaben, Termine (CalDAV), Dienste, Befehlspalette (Strg+K), Einstellungen
 - Bleibt angemeldet: Geräte-Schlüssel im GNOME-Schlüsselbund (libsecret), Sitzung wird still erneuert
 - GNOME-Suche (Seiten in der Aktivitäten-Übersicht), Dock-Aktionen „Neue Seite“ / „Neue Aufgabe“
@@ -32,6 +44,7 @@ sudo dnf install ./dist/saga-*.noarch.rpm
 ```
 
 Benötigt: gtk4 ≥ 4.14, libadwaita ≥ 1.6, python3-gobject, libsecret, python3-pillow (auf AlmaLinux/RHEL 10 aus EPEL),
+python3-pynacl ≥ 1.6 (Chats),
 google-noto-color-emoji-fonts (Seitensymbole sind Emoji; fehlt die Schrift, zeigt die App ein einfarbiges Ersatzsymbol).
 `HK_RELEASE=2 sh build-rpm.sh` setzt die Release-Nummer (Standard 1). Die Version steht in `hlidskjalf/__init__.py`
 und wird für alle Apps mit `tools/set-version.sh` gesetzt. Das Paket heißt im RPM `hlidskjalf` (Befehl `hlidskjalf`),
