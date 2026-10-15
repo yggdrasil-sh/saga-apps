@@ -626,7 +626,9 @@ extension PageEditor {
 
     func insertImages(from providers: [NSItemProvider]) {
         for p in providers where p.hasItemConformingToTypeIdentifier(UTType.image.identifier) {
-            p.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
+            // konkreten Bildtyp laden (public.png, public.jpeg, ...): "public.image" liefert nicht jede Quelle
+            let t = p.registeredTypeIdentifiers.first { UTType($0)?.conforms(to: .image) == true } ?? UTType.image.identifier
+            p.loadDataRepresentation(forTypeIdentifier: t) { data, _ in
                 guard let data else { return }
                 Task { @MainActor in await self.insertImage(data) }
             }

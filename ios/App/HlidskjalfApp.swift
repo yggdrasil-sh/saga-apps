@@ -38,6 +38,7 @@ struct HlidskjalfApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = PushCenterDelegate.shared       // Mitteilungen: Antippen, Anzeige im Vordergrund
+        ImagePaste.install()                                                         // Bilder aus der Zwischenablage (Seite, Chat)
         #if DEBUG
         SnapshotHelper.setUp()                                                       // nur fuer Tests: Fenster unsichtbar abbilden
         #endif

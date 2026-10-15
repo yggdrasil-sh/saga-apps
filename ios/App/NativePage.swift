@@ -974,9 +974,10 @@ struct NativePageScreen: View {
         .onChange(of: ed.picked) { _, items in
             Task { for it in items { if let d = try? await it.loadTransferable(type: Data.self) { await ed.insertImage(d) } }; ed.picked = [] }
         }
-        #if os(macOS)
-        .onPasteCommand(of: [.image]) { providers in ed.insertImages(from: providers) }     // Mac: Cmd+V mit Bild
-        #endif
+        // Cmd-V / Einsetzen mit Bild in der Zwischenablage -> Bildblock (wie "Bild einfuegen"); Text wird normal eingesetzt
+        .imagePasteTarget(enabled: { [weak e = ed, weak d = doc] in e.map { !$0.locked } == true && d?.fetched == true && d?.isDatabase == false }) { [weak e = ed] imgs in
+            Task { for i in imgs { await e?.insertImage(i.data) } }
+        }
         .environmentObject(ed)
         .overlay { if !doc.loaded { ProgressView() } }
         #if os(iOS)
@@ -1029,6 +1030,10 @@ struct NativePageScreen: View {
                     return nil
                 }
                 if let hid = find(doc.root, inColumn: false) { try? await Task.sleep(for: .seconds(1)); ed.hover.hovered = hid; ed.hover.overHandle = true }
+            }
+            if UserDefaults.standard.bool(forKey: "hkFocusLast"), doc.fetched, !inPeek,     // nur fuer Tests: letzten Absatz bearbeiten (Einsetzen)
+               let b = doc.root.compactMap({ $0 as? NSMutableDictionary }).last(where: { $0["type"] as? String == "paragraph" }) {
+                try? await Task.sleep(for: .seconds(1)); ed.focus = b.blockID
             }
             if UserDefaults.standard.bool(forKey: "hkPublish"), doc.fetched {             // nur fuer Tests: Dialog "Veroeffentlichen" oeffnen
                 try? await Task.sleep(for: .seconds(1)); publishing = true

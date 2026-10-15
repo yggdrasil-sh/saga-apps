@@ -376,7 +376,10 @@ struct ChatNewDeviceView: View {
         VStack(alignment: .leading, spacing: 14) {
             Label("Chats auf diesem Gerät", systemImage: "lock.shield").font(.title2.bold())
                 #if DEBUG
-                .task { if UserDefaults.standard.integer(forKey: "hkChatNewDeviceMode") == 2 { mode = 2 } }      // nur fuer Bilder
+                .task {
+                    if UserDefaults.standard.integer(forKey: "hkChatNewDeviceMode") == 2 { mode = 2 }       // nur fuer Bilder
+                    if UserDefaults.standard.bool(forKey: "hkChatStartLink") { mode = 1; await chat.startLink() }   // nur fuer Tests: Kopplung anfragen
+                }
                 #endif
             switch chat.linking != nil && mode == 0 ? 1 : mode {          // Kopplung laeuft (auch von aussen gestartet)
             case 1: linkView
