@@ -105,9 +105,10 @@ fun ChatDevicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                                     stringResource(R.string.chat_device_info, epochDay(d.created), d.lastSeen?.let { relativeTime(it) } ?: "–"),
                                 )
                             },
-                            trailingContent = {
+                            // dieses Geraet nicht hier entfernen (dafuer: abmelden bzw. "Neu beginnen")
+                            trailingContent = if (current) null else ({
                                 TextButton(onClick = { drop = d }) { Text(stringResource(R.string.chat_device_remove), color = MaterialTheme.colorScheme.error) }
-                            },
+                            }),
                         )
                     }
                     item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
@@ -118,9 +119,7 @@ fun ChatDevicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                                 stringResource(R.string.chat_new_recovery_text), style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
                             )
-                            TextButton(onClick = { restart = true }, modifier = Modifier.padding(top = 12.dp)) {
-                                Text(stringResource(R.string.chat_start_over), color = MaterialTheme.colorScheme.error)
-                            }
+                            StartOverButton(Modifier.padding(top = 12.dp), start = true) { restart = true }
                         }
                     }
                 }

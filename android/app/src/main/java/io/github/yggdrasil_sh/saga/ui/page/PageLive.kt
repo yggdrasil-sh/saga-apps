@@ -235,12 +235,16 @@ fun PresenceLine(st: PageLiveState) {
             val editing = others.firstOrNull { it.editing }
             val u = editing ?: others.first()
             val more = others.size - 1
-            Text(
-                (if (editing != null) stringResource(R.string.presence_editing, u.name) else stringResource(R.string.presence_here, u.name)) +
-                    if (more > 0) " (+$more)" else "",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary,
-                modifier = Modifier.padding(top = 4.dp).semantics { liveRegion = LiveRegionMode.Polite },
-            )
+            // wie Apple: kleiner Avatar + Sekundaerfarbe (Palette), kein Blau
+            Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                io.github.yggdrasil_sh.saga.ui.notifications.Avatar(u.name, size = 20)
+                Text(
+                    (if (editing != null) stringResource(R.string.presence_editing, u.name) else stringResource(R.string.presence_here, u.name)) +
+                        if (more > 0) " (+$more)" else "",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 6.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                )
+            }
         }
         st.updatedBy?.let {
             Text(

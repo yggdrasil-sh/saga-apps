@@ -177,11 +177,17 @@ private fun SourceChips(sources: List<AiSource>, onOpenPage: (Long) -> Unit) {
         return
     }
     Text(stringResource(R.string.ai_sources), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
-    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    // je Quelle ein eigener Chip; Chips brechen um (kein waagrechtes Scrollen, nichts abgeschnitten)
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         sources.forEach { src ->
             AssistChip(
                 onClick = { src.id?.let(onOpenPage) }, enabled = src.id != null,
-                label = { Text("${src.n} · " + src.title + (src.owner?.let { " · $it" } ?: ""), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                label = {
+                    Text(
+                        "[${src.n}] " + src.title + (src.owner?.let { " · $it" } ?: ""), maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    )
+                },
+                modifier = Modifier.widthIn(max = 520.dp),
             )
         }
     }

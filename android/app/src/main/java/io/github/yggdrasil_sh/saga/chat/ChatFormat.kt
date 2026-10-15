@@ -95,4 +95,56 @@ object ChatFormat {
 
     /** QR-Inhalt der Sicherheitsnummer */
     fun safetyQr(number: String): String = "saga-safety:1:" + number.filter { it.isDigit() }
+
+    // ---------------------------------------------------------------- Anzeige (auf allen Plattformen gleich)
+
+    private fun groups(s: String) = s.split(' ', '\n').filter { it.isNotEmpty() }
+
+    /** Sicherheitsnummer (12 Gruppen a 5 Ziffern): 3 Zeilen x 4 Gruppen - Menschen vergleichen zeilenweise */
+    fun safetyRows(number: String): List<List<String>> = groups(number).chunked(4)
+
+    /** Kopplungs-Code (4 Gruppen a 5 Ziffern): eine Zeile; nur wenn sie nicht passt 2 Zeilen a 2 Gruppen */
+    fun linkCodeRows(code: String, oneLine: Boolean): List<List<String>> = groups(code).chunked(if (oneLine) 4 else 2)
+
+    /** Wiederherstellungsschluessel (8 Gruppen a 4 Zeichen): 2 Zeilen a 4 Gruppen, nie mitten in einer Gruppe umbrechen */
+    fun recoveryRows(key: String): List<String> = formatRecovery(key).split('-').chunked(4).map { it.joinToString("-") }
+
+    /** Grenzen fuer das Oeffnen des Schluessel-Buendels (Argon2id13): mehr wuerde schwache Geraete lahmlegen */
+    const val BUNDLE_OPS_MAX = 10L
+    const val BUNDLE_MEM_MAX = 256L shl 20
+    const val BUNDLE_MEM_MIN = 8L shl 20
+
+    fun bundleKdfOk(ops: Long, mem: Long): Boolean = ops in 1..BUNDLE_OPS_MAX && mem in BUNDLE_MEM_MIN..BUNDLE_MEM_MAX
+
+    /** Kopf des Buendels pruefen ({"v":1,"kdf":"argon2id13","ops","mem",…}) -> (ops, mem); sonst BundleFormatException */
+    fun bundleKdf(bundle: String): Pair<Long, Long> {
+        val d = try {
+            kotlinx.serialization.json.Json.parseToJsonElement(bundle) as? kotlinx.serialization.json.JsonObject
+        } catch (_: Exception) {
+            null
+        } ?: throw BundleFormatException()
+        fun prim(k: String) = d[k] as? kotlinx.serialization.json.JsonPrimitive
+        if (prim("v")?.content != "1" || prim("kdf")?.content != "argon2id13") throw BundleFormatException()
+        val ops = prim("ops")?.content?.toLongOrNull() ?: throw BundleFormatException()
+        val mem = prim("mem")?.content?.toLongOrNull() ?: throw BundleFormatException()
+        if (!bundleKdfOk(ops, mem)) throw BundleFormatException()
+        return ops to mem
+    }
+}
+
+/** Menschlicher Geraetename fuer neue Registrierungen (Chats, Mitteilungen, Anmeldung) */
+object DeviceNames {
+    private val TECH = Regex("^[a-z0-9]+(_[a-z0-9]+)+$")
+
+    /** [setName] = Settings.Global.DEVICE_NAME (kann "sdk_gphone64_arm64" o. ae. sein) */
+    fun pretty(setName: String?, manufacturer: String, model: String): String {
+        val n = setName?.replace(Regex("\\s+"), " ")?.trim().orEmpty()
+        if (n.isNotEmpty() && !TECH.matches(n) && !n.equals(model, true)) return n.take(60)
+        val m = model.trim()
+        if (m.startsWith("sdk_") || m.contains("emulator", true) || m.startsWith("google_sdk")) return "Android Emulator"
+        val maker = manufacturer.trim().replaceFirstChar { it.titlecase() }
+        val nice = m.replace('_', ' ')
+        val full = if (maker.isEmpty() || nice.startsWith(maker, true)) nice else "$maker $nice"
+        return full.replace(Regex("\\s+"), " ").trim().take(60).ifEmpty { "Android" }
+    }
 }

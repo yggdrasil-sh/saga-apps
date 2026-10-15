@@ -100,7 +100,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 // Mit welchem Konto auf welchem Server angemeldet (Schutz vor unbemerktem Kontowechsel)
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.settings_signed_in_as, account.ifEmpty { "–" })) },
-                    supportingContent = { Text(stringResource(R.string.settings_on_server, PairLink.displayHost(server).ifEmpty { "–" })) },
+                    supportingContent = { Text(stringResource(R.string.settings_on_server, io.github.yggdrasil_sh.saga.util.ShotMode.host(PairLink.displayHost(server)).ifEmpty { "–" })) },
                     leadingContent = { Icon(Icons.Filled.Person, null) },
                     modifier = w,
                 )
@@ -143,7 +143,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             }
 
             item { SectionHeader(stringResource(R.string.settings_about), w) }
-            item { ListItem(headlineContent = { Text(stringResource(R.string.settings_app)) }, trailingContent = { Text("Saga ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})") }, modifier = w) }
+            item { ListItem(headlineContent = { Text(stringResource(R.string.settings_app)) }, trailingContent = { Text(io.github.yggdrasil_sh.saga.util.ShotMode.version("Saga ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")) }, modifier = w) }
             item { ListItem(headlineContent = { Text(stringResource(R.string.settings_server)) }, trailingContent = { Text(serverVersion?.let { "Saga $it" } ?: "–") }, modifier = w) }
             if (minApp != null && repo.appTooOld) {
                 item {

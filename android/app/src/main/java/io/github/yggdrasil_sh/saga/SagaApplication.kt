@@ -24,6 +24,14 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        // nur Debug: Bildschirmfotos mit Beispieladresse/-version (adb shell settings put global saga_screenshot_mode 1)
+        if (BuildConfig.DEBUG) {
+            io.github.yggdrasil_sh.saga.util.ShotMode.on = try {
+                Settings.Global.getString(contentResolver, "saga_screenshot_mode") == "1"
+            } catch (_: Exception) {
+                false
+            }
+        }
         repo = SagaRepository(
             settings = AppSettings(this),
             secure = SecureStore(this),
@@ -57,7 +65,6 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
         } catch (_: Exception) {
             null
         }
-        val model = if (Build.MODEL.startsWith(Build.MANUFACTURER, ignoreCase = true)) Build.MODEL else "${Build.MANUFACTURER} ${Build.MODEL}"
-        return (n?.takeIf { it.isNotBlank() } ?: model).replace(Regex("\\s+"), " ").trim().take(60).ifEmpty { "Android" }
+        return io.github.yggdrasil_sh.saga.chat.DeviceNames.pretty(n, Build.MANUFACTURER.orEmpty(), Build.MODEL.orEmpty())
     }
 }

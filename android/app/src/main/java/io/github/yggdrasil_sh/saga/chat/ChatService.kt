@@ -266,6 +266,8 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
         val (ident, dev) = withContext(Dispatchers.Default) {
             val ident = try {
                 crypto.openBundle(m.uid, rk, idn.bundle)
+            } catch (_: BundleFormatException) {
+                throw UiTextException(UiText.Res(R.string.chat_bundle_format))
             } catch (_: Exception) {
                 throw UiTextException(UiText.Res(R.string.chat_recovery_wrong))
             }

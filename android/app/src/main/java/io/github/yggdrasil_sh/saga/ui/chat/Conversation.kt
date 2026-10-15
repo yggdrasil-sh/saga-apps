@@ -68,9 +68,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -122,6 +124,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     var menu by remember { mutableStateOf(false) }
     var search by remember { mutableStateOf<String?>(null) }
     var dialog by remember { mutableStateOf<String?>(null) }
+    var unverifiedOf by remember { mutableStateOf<String?>(null) }
+    var safetyFor by remember { mutableStateOf<String?>(null) }
     var input by remember(chatId) { mutableStateOf("") }
     val files = remember(chatId) { mutableStateListOf<PendingFile>() }
     val noteIds = remember(chatId) { mutableStateListOf<ChatNoteRef>() }
@@ -227,6 +231,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                         onDelete = { repo.launchAction { s.delete(m) } },
                         onOpenNote = { id -> nav.push(Dest.Page(id)) },
                         onOpenFile = { f -> scope.launch { openFile(context, s, f) { repo.notify(it) } } },
+                        onUnverified = { unverifiedOf = m.sender?.username ?: "" },
                     )
                 }
                 if (s.more && search == null) {
@@ -326,8 +331,22 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         }
     }
 
+    unverifiedOf?.let { who ->
+        AlertDialog(
+            onDismissRequest = { unverifiedOf = null },
+            icon = { Icon(Icons.Filled.Warning, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text(stringResource(R.string.chat_unverified)) },
+            text = { Text(stringResource(R.string.chat_unverified_explain)) },
+            confirmButton = {
+                TextButton(onClick = { unverifiedOf = null; safetyFor = who.ifEmpty { null }; dialog = "safety" }) {
+                    Text(stringResource(R.string.chat_check_safety))
+                }
+            },
+            dismissButton = { TextButton(onClick = { unverifiedOf = null }) { Text(stringResource(R.string.action_close)) } },
+        )
+    }
     when (dialog) {
-        "safety" -> SafetyDialog(s) { dialog = null }
+        "safety" -> SafetyDialog(s, safetyFor) { dialog = null; safetyFor = null }
         "members" -> MembersDialog(repo, s) { dialog = null }
         "retention" -> RetentionDialog(repo, s) { dialog = null }
         "rename" -> RenameDialog(repo, s) { dialog = null }
@@ -405,15 +424,30 @@ private fun messageText(text: String, notes: Map<Long, ChatNoteRef?>, onOpen: (L
     }
 }
 
+/** Farben der Blasen und der Markierung "Echtheit nicht bestätigt" (Kontrast im Test geprueft) */
+object ChatUi {
+    fun bubble(c: ColorScheme, mine: Boolean): Color = if (mine) c.primaryContainer else c.surfaceContainerHigh
+    fun unverifiedText(c: ColorScheme, mine: Boolean): Color = if (mine) c.onPrimaryContainer else c.onSurfaceVariant
+    fun unverifiedIcon(c: ColorScheme, mine: Boolean): Color = if (mine) c.onPrimaryContainer else c.error
+
+    /** WCAG-Kontrastverhaeltnis */
+    fun contrast(a: Color, b: Color): Double {
+        val la = a.luminance() + 0.05
+        val lb = b.luminance() + 0.05
+        return maxOf(la, lb) / minOf(la, lb)
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Bubble(
     m: ChatMessage, s: ChatSession, group: Boolean, images: MutableMap<String, ImageBitmap?>,
     onReply: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit, onOpenNote: (Long) -> Unit, onOpenFile: (ChatFile) -> Unit,
+    onUnverified: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val bg = if (m.mine) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh
+    val bg = ChatUi.bubble(MaterialTheme.colorScheme, m.mine)
     val fg = if (m.mine) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
     val time = remember(m.ts) {
         Instant.ofEpochMilli(m.ts).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
@@ -426,7 +460,8 @@ private fun Bubble(
             Surface(
                 color = bg, contentColor = fg,
                 shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = if (m.mine) 18.dp else 4.dp, bottomEnd = if (m.mine) 4.dp else 18.dp),
-                modifier = Modifier.widthIn(max = 520.dp).alpha(if (m.verified) 1f else 0.6f)
+                // voll deckend - auch bei "Echtheit nicht bestätigt" (kein Abdunkeln des Inhalts)
+                modifier = Modifier.widthIn(max = 520.dp)
                     .combinedClickable(onClick = {}, onLongClick = { menu = true }, onLongClickLabel = stringResource(R.string.chat_message_actions)),
             ) {
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
@@ -434,11 +469,17 @@ private fun Bubble(
                         Text(m.sender?.name.orEmpty(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     }
                     if (!m.verified) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.Warning, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
+                        // Symbol in Warnfarbe, Text in Sekundaerfarbe (>= 4,5:1), antippbar -> Erklaerung + "Sicherheitsnummer prüfen"
+                        val scheme = MaterialTheme.colorScheme
+                        Row(
+                            Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = androidx.compose.ui.semantics.Role.Button, onClick = onUnverified)
+                                .heightIn(min = 32.dp).padding(end = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Filled.Warning, null, Modifier.size(16.dp), tint = ChatUi.unverifiedIcon(scheme, m.mine))
                             Text(
-                                stringResource(R.string.chat_unverified), style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(start = 4.dp),
+                                stringResource(R.string.chat_unverified) + " ⓘ", style = MaterialTheme.typography.labelMedium,
+                                color = ChatUi.unverifiedText(scheme, m.mine), modifier = Modifier.padding(start = 4.dp),
                             )
                         }
                     }

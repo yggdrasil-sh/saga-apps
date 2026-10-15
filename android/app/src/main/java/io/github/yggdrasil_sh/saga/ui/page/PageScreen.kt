@@ -249,7 +249,8 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 }
             }
             // Kommentare dezent: "💬 n" nur bei offenen Unterhaltungen, Punkt bei ungelesenen
-            if (ed.fetched && caps.showComments && comments.openCount > 0) {
+            // fremde (foederierte) Seite: Kommentar-Knopf immer, wenn die Rolle Kommentieren erlaubt (der Hinweis verspricht es)
+            if (ed.fetched && caps.showComments && (comments.openCount > 0 || (ed.isRemote && caps.canComment))) {
                 CommentsButton(comments.openCount, comments.unreadCount) { comments.openAll() }
             }
             if (ed.fetched && caps.canFavorite) {
@@ -614,7 +615,8 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
         // Foederation (2.0): Seite liegt auf einer anderen Saga-Instanz
         ed.remoteHost?.takeIf { ed.fetched }?.let { host ->
             Text(
-                stringResource(R.string.fed_page_hint, host.ifEmpty { "?" }), style = MaterialTheme.typography.bodySmall,
+                stringResource(if (ed.caps.canComment) R.string.fed_page_hint else R.string.fed_page_hint_read, host.ifEmpty { "?" }),
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
             )
         }
@@ -925,7 +927,7 @@ private fun ConflictBanner(by: String?, onChoose: () -> Unit) {
 @Composable
 private fun CommentsButton(open: Int, unread: Int, onClick: () -> Unit) {
     val res = LocalResources.current
-    val desc = res.getQuantityString(R.plurals.comments_open_threads, open, open) +
+    val desc = (if (open == 0) res.getString(R.string.comments_add) else res.getQuantityString(R.plurals.comments_open_threads, open, open)) +
         if (unread > 0) " · " + res.getQuantityString(R.plurals.comments_unread, unread, unread) else ""
     Row(
         Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(24.dp)).clickable(onClick = onClick).padding(horizontal = 10.dp)
@@ -933,7 +935,7 @@ private fun CommentsButton(open: Int, unread: Int, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(painterResource(R.drawable.ic_comment), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("$open", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
+        if (open > 0) Text("$open", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp))
         if (unread > 0) Box(Modifier.padding(start = 4.dp).size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
     }
 }
