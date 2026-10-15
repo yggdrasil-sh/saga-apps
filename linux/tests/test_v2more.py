@@ -263,3 +263,43 @@ def test_share_with_remote_person(win, srv):
                                                               "host": "b.example"}]}, st, "view")
     assert hits[0]["type"] == "remote" and hits[0]["has"] == "has access" and hits[0]["sub"] == "Other Saga instance"
     assert S.search_hint(st).endswith("Other Saga instances: enter name@server.")
+
+
+def test_push_switch_off_when_server_rejects_endpoint(win, srv):
+    """BUG-078: lehnt der Server die UnifiedPush-Adresse ab, bleibt das Geraet nicht "an" (Schalter aus, Fehler sichtbar)"""
+    from hlidskjalf.push import _save_state, _state, subscribed, up
+    _save_state({"token": "t-ablehnen", "distributor": "org.unifiedpush.Distributor.fake"})
+    assert subscribed()
+    srv.fail["POST api/push/subscriptions"] = 400
+    try:
+        up.new_endpoint("t-ablehnen", "https://push.example/abc")
+        assert pump(lambda: not subscribed(), 4)
+        assert up.last_error and not _state().get("sub")
+    finally:
+        srv.fail.pop("POST api/push/subscriptions", None)
+        up.last_error = None
+        _save_state({})
+
+
+def test_notification_switch_reverts_on_error(win, srv):
+    """BUG-078: Thema ausschalten, Server nicht erreichbar -> Schalter springt zurueck, Meldung"""
+    from hlidskjalf.notifications import NotificationSettingsGroup
+
+    class Dlg:
+        toasts = []
+
+        def add_toast(self, t):
+            self.toasts.append(t.get_title())
+    dlg = Dlg()
+    g = NotificationSettingsGroup(dlg)
+    assert pump(lambda: g.rows, 4)
+    row = g.rows[0]
+    was = row.get_active()
+    srv.fail["PUT api/notifications/settings"] = 0
+    try:
+        row.set_active(not was)
+        assert pump(lambda: dlg.toasts, 4)
+        pump(None, 0.2)
+        assert row.get_active() == was
+    finally:
+        srv.fail.pop("PUT api/notifications/settings", None)

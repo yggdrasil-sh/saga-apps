@@ -127,6 +127,30 @@ def test_trash_delete_asks(win, srv):
     d.force_close()
 
 
+def test_esc_closes_search_dialogs_and_empty_trash(win, srv):
+    """BUG-077: Esc in der Suchzeile (stop-search) schliesst Befehlspalette, Seitenauswahl und Neuer Chat; im leeren
+    Papierkorb bleibt ein Fokus im Dialog, damit Esc ankommt"""
+    from hlidskjalf.chatview import NewChatDialog
+    from hlidskjalf.dialogs import CommandPalette, PagePicker, TrashDialog
+    for d, entry in ((lambda d: (d, d.entry))(CommandPalette(win, [])),
+                     (lambda d: (d, d.entry))(PagePicker(win, "Move to", [], lambda *a: None)),
+                     (lambda d: (d, d.search))(NewChatDialog(win))):
+        d.present(win)
+        pump(lambda: entry.has_focus(), 2)
+        closed = []
+        d.connect("closed", lambda *_: closed.append(1))
+        entry.emit("stop-search")
+        assert pump(lambda: closed, 2), type(d).__name__
+    srv.trash.clear()
+    d = TrashDialog(win)
+    d.present(win)
+    d.empty_btn.grab_focus()                                     # wie beim Oeffnen: erster fokussierbarer Knopf
+    assert pump(lambda: not d.empty_btn.get_sensitive(), 3)
+    pump(None, 0.3)
+    assert d.get_focus() is not None
+    d.force_close()
+
+
 def test_task_delete_undo(win, srv):
     """M12: Aufgabe loeschen mit Rueckgaengig - vor Ablauf der Frist geht nichts an den Server"""
     from hlidskjalf.store import store
