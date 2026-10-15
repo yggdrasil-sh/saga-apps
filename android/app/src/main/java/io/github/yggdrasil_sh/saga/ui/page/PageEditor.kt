@@ -708,6 +708,7 @@ class PageEditor(
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
+            offline = false                                  // Server hat geantwortet: kein Offline-Hinweis mehr (BUG-107)
             when (e.code) {
                 409 -> {
                     conflictBy = conflictAuthor(e.body)
