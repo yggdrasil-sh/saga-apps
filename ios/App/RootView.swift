@@ -173,26 +173,7 @@ struct RootView: View {
                 if phase == .active { await store.periodicRefresh() }
             }
         }
-        .task {
-            if selection == nil, let home = store.homePage { selection = home }        // Startseite sofort (aus dem Zwischenspeicher)
-            await store.refresh()
-            if !store.needsLogin { store.live.start(); store.push.appStarted(); Task { await store.chat.load() } }
-            if let t = PushModel.pending { PushModel.pending = nil; openTarget(t) }   // Kaltstart per Mitteilung
-            if let home = store.homePage, !store.pages.isEmpty, store.page(home) == nil { store.setHome(nil); if selection == home { selection = nil } }   // geloescht -> vergessen
-            #if DEBUG
-            if let v = UserDefaults.standard.string(forKey: "hkOpen"), let id = Int(v.replacingOccurrences(of: "m", with: "-")) { selection = id }   // nur fuer Tests (Startparameter -hkOpen <id>, m2049 = -2049)
-            if UserDefaults.standard.string(forKey: "hkSettings") != nil { showSettings = true }            // nur fuer Tests: Einstellungen oeffnen
-            if UserDefaults.standard.bool(forKey: "hkChats") { selection = FedLogic.chatsTag }             // nur fuer Tests: Chats
-            if let c = UserDefaults.standard.string(forKey: "hkChat"), let cid = Int(c) { selection = FedLogic.chatsTag; try? await Task.sleep(for: .seconds(2)); openChat = cid }
-            if UserDefaults.standard.bool(forKey: "hkNotifs") { try? await Task.sleep(for: .seconds(2)); showNotifs = true }
-            if UserDefaults.standard.bool(forKey: "hkAssistant") { try? await Task.sleep(for: .seconds(2)); showAssistant = true }
-            if let l = UserDefaults.standard.string(forKey: "hkPairLink"), store.needsLogin || !AppConfig.hasServer,   // nur fuer Tests: ohne Rueckfrage koppeln
-               let (srv, code) = Store.parsePairLink(l) { AppConfig.server = srv; try? await store.pair(server: srv, code: code) }   // gleicher Server: kein Abmelden vorher
-            if let v = UserDefaults.standard.string(forKey: "hkPeek"), let id = Int(v) {                 // nur fuer Tests: Peek oeffnen
-                try? await Task.sleep(for: .seconds(2)); nav.open(id, mode: UserDefaults.standard.string(forKey: "hkPeekMode") ?? "side")
-            }
-            #endif
-        }
+        .task { await startup() }                                        // Start: laden, Live/Push/Chat, Testparameter
         .sheet(isPresented: $showPalette) { CommandPalette(actions: paletteActions) { id in nav.peek = nil; nav.path = []; selection = id }.environmentObject(store) }
         .safeAreaInset(edge: .top, spacing: 0) {                         // Server ist neuer, als diese App kann
             if store.appTooOld, let m = store.minApp {
@@ -234,6 +215,28 @@ func HlidskjalfApp_copyPageLink(_ id: Int) {
 }
 
 extension RootView {
+    /// Startablauf (ausgelagert: ein grosser .task-Block sprengt sonst die Typpruefung im CI-Xcode)
+    @MainActor func startup() async {
+        if selection == nil, let home = store.homePage { selection = home }        // Startseite sofort (aus dem Zwischenspeicher)
+        await store.refresh()
+        if !store.needsLogin { store.live.start(); store.push.appStarted(); Task { await store.chat.load() } }
+        if let t = PushModel.pending { PushModel.pending = nil; openTarget(t) }   // Kaltstart per Mitteilung
+        if let home = store.homePage, !store.pages.isEmpty, store.page(home) == nil { store.setHome(nil); if selection == home { selection = nil } }   // geloescht -> vergessen
+        #if DEBUG
+        if let v = UserDefaults.standard.string(forKey: "hkOpen"), let id = Int(v.replacingOccurrences(of: "m", with: "-")) { selection = id }   // nur fuer Tests (Startparameter -hkOpen <id>, m2049 = -2049)
+        if UserDefaults.standard.string(forKey: "hkSettings") != nil { showSettings = true }            // nur fuer Tests: Einstellungen oeffnen
+        if UserDefaults.standard.bool(forKey: "hkChats") { selection = FedLogic.chatsTag }             // nur fuer Tests: Chats
+        if let c = UserDefaults.standard.string(forKey: "hkChat"), let cid = Int(c) { selection = FedLogic.chatsTag; try? await Task.sleep(for: .seconds(2)); openChat = cid }
+        if UserDefaults.standard.bool(forKey: "hkNotifs") { try? await Task.sleep(for: .seconds(2)); showNotifs = true }
+        if UserDefaults.standard.bool(forKey: "hkAssistant") { try? await Task.sleep(for: .seconds(2)); showAssistant = true }
+        if let l = UserDefaults.standard.string(forKey: "hkPairLink"), store.needsLogin || !AppConfig.hasServer,   // nur fuer Tests: ohne Rueckfrage koppeln
+           let (srv, code) = Store.parsePairLink(l) { AppConfig.server = srv; try? await store.pair(server: srv, code: code) }   // gleicher Server: kein Abmelden vorher
+        if let v = UserDefaults.standard.string(forKey: "hkPeek"), let id = Int(v) {                 // nur fuer Tests: Peek oeffnen
+            try? await Task.sleep(for: .seconds(2)); nav.open(id, mode: UserDefaults.standard.string(forKey: "hkPeekMode") ?? "side")
+    }
+    #endif
+    }
+
     /// Befehle der Palette (⌘K, mit ">" nur Befehle) - wie im Web
     var paletteActions: [CommandPalette.Action] {
         var a: [CommandPalette.Action] = [
