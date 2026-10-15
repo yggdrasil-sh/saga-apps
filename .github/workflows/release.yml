@@ -4,7 +4,7 @@
 #   - Android: Saga-<v>.apk                  (signiert)
 # Ausloeser: Aenderung an VERSION auf main (tools/set-version.sh x.y.z) -> Tag v<x.y.z> + Release.
 # Ebenso ein Push auf main, dessen Commit-Nachricht "[release]" enthaelt (z. B. fuer eine Version ohne Sprung).
-# Jeder Push auf testing baut alle Pakete als Probelauf (Workflow-Artefakte, kein Release).
+# Jeder Push auf testing baut alle Pakete und ersetzt die Vorabversion "v<Version>-testing" (Pre-release, nie "Latest").
 # Von Hand (Actions -> Release -> Run workflow): nur bauen (Downloads als Workflow-Artefakte)
 # oder mit "release" auch veroeffentlichen. Gibt es den Tag schon, wird nur gebaut.
 #
@@ -281,3 +281,45 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           V: ${{ needs.version.outputs.version }}
         run: gh release create "v$V" dist/* --target "$GITHUB_SHA" --title "Saga-Apps $V" --notes-file notes.md
+
+  # Jeder Push auf testing aktualisiert EINE Vorabversion "v<Version>-testing" (Pre-release, nie "Latest").
+  # Aeltere *-testing-Vorabversionen werden dabei entfernt; echte Releases bleiben unberuehrt.
+  testing:
+    name: Vorabversion (testing)
+    needs: [version, android, rpm, flatpak, macos]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/testing' && !cancelled() && needs.android.result == 'success' && needs.rpm.result == 'success' && needs.macos.result == 'success'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: testing-prerelease
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Notizen
+        run: |
+          ls -l dist
+          (cd dist && sha256sum * > SHA256SUMS)
+          {
+            echo "**Testversion – nicht für den Alltag gedacht.** Stand von \`testing\`, Commit ${GITHUB_SHA::7}, gebaut $(date -u '+%Y-%m-%d %H:%M') UTC."
+            echo "Wird bei jeder Änderung auf \`testing\` ersetzt. Stabile Version: siehe „Latest“."
+            echo
+            awk '/^## \[/ { p = index($0, "[Unveröffentlicht]") > 0; next } p' CHANGELOG.md
+            echo
+            echo "Prüfsummen (SHA-256) stehen in \`SHA256SUMS\`."
+          } > notes.md
+      - name: Vorabversion ersetzen
+        env:
+          GH_TOKEN: ${{ github.token }}
+          V: ${{ needs.version.outputs.version }}
+        run: |
+          for t in $(gh release list --limit 100 --json tagName,isPrerelease --jq '.[] | select(.isPrerelease) | .tagName' | grep -- '-testing$' || true); do
+            gh release delete "$t" --cleanup-tag --yes
+          done
+          git push -q origin ":refs/tags/v$V-testing" 2>/dev/null || true
+          gh release create "v$V-testing" dist/* --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "Saga-Apps $V (Testversion)" --notes-file notes.md
