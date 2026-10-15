@@ -3,6 +3,8 @@
 <resources>
     <string name="chat_link_denied">The request was declined on the other device.</string>
     <string name="chat_start_over_done">Started over – your new recovery key is now valid.</string>
+    <!-- Compose-Text der Blatt-Abdunkelung (TalkBack); de ueberschrieben, weil dort "Tabelle schließen" (BUG-111) -->
+    <string name="close_sheet">Close sheet</string>
     <string name="chat_safety_send_blocked">%1$s\'s safety number has changed – please review it before sending.</string>
     <string name="push_permission_revoked">Notifications are blocked for Saga in the system settings – nothing will be shown.</string>
 </resources>
