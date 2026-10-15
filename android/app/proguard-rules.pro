@@ -12,3 +12,10 @@
 -dontwarn org.conscrypt.**
 -dontwarn org.bouncycastle.**
 -dontwarn org.openjsse.**
+
+# Chat: lazysodium/JNA (Aufrufe ueber Reflection/JNI)
+-keep class com.sun.jna.** { *; }
+-keep class * implements com.sun.jna.** { *; }
+-keep class com.goterl.lazysodium.** { *; }
+-dontwarn java.awt.**
+-dontwarn com.sun.jna.**

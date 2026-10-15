@@ -179,6 +179,19 @@ class PageEditor(
     var active by mutableStateOf<ActiveField?>(null)
 
     private var rev: Int? = null
+    /** Revision des geladenen bzw. zuletzt gespeicherten Stands (Live-Kanal: fremde Aenderung erkennen) */
+    val currentRev: Int? get() = rev
+    /** letzte Eingabe (ms) - Anwesenheit "bearbeitet gerade" in den ersten 30 s danach */
+    var lastInputAt = 0L
+        private set
+    /** Foederation (2.0): Seite liegt auf dieser anderen Saga-Instanz (sonst null) */
+    var remoteHost by mutableStateOf<String?>(null)
+        private set
+    /** 403 bei einer Seite einer anderen Instanz: oeffentlicher Name fehlt (Weg zu den Einstellungen anbieten) */
+    var needsPublicName by mutableStateOf(false)
+        private set
+    /** Seite einer anderen Saga-Instanz (negative ID) */
+    val isRemote: Boolean get() = id < 0
     // als State: "Gespeichert"/"Ungespeichert" in der Titelleiste folgt sofort
     private var version by mutableIntStateOf(0)
     private var savedVersion by mutableIntStateOf(0)
@@ -224,7 +237,10 @@ class PageEditor(
                     fetched = false
                     error = null
                 }
-                !fetched -> error = repo.friendly(e)
+                !fetched -> {
+                    error = repo.friendly(e)
+                    needsPublicName = isRemote && e is ApiException && e.code == 403
+                }
                 repo.isOffline(e) -> offline = true
                 else -> info = UiText.Res(R.string.page_reload_failed, repo.friendly(e))
             }
@@ -253,6 +269,9 @@ class PageEditor(
         publicUrl = BlockDoc.str(p, "public_url").ifEmpty { null }
         publishedVia = Publish.via(p)
         share = PageShareInfo.of(p)
+        remoteHost = ((p["remote"] as? JsonObject)?.get("host") as? JsonPrimitive)?.content?.takeIf { it.isNotBlank() }
+            ?: if (isRemote) "" else null
+        needsPublicName = false
         noAccess = false
         rev = BlockDoc.int(p, "rev")
         converted = parsed.converted && !body.isNullOrBlank()
@@ -329,6 +348,7 @@ class PageEditor(
     // ---------------------------------------------------------------- Aendern
 
     private fun touched() {
+        lastInputAt = clock()
         version++
         if (error != null && retryJob?.isActive != true) error = null
         scheduleSave()
@@ -391,6 +411,82 @@ class PageEditor(
     }
 
     fun block(path: JsonPath): JsonObject? = JsonTree.get(doc, path) as? JsonObject
+
+    // ---------------------------------------------------------------- KI-Assistent: Vorschlaege uebernehmen (nach Klick)
+
+    /** Pfad eines Blocks mit dieser ID (auch verschachtelt, z. B. in Aufklappern) */
+    fun pathOfBlock(blockId: String): JsonPath? {
+        fun walk(e: kotlinx.serialization.json.JsonElement, path: JsonPath): JsonPath? {
+            when (e) {
+                is JsonObject -> {
+                    if (BlockDoc.id(e) == blockId && e["type"] != null) return path
+                    for ((k, v) in e) walk(v, path + k)?.let { return it }
+                }
+                is JsonArray -> e.forEachIndexed { i, v -> walk(v, path + i)?.let { return it } }
+                else -> {}
+            }
+            return null
+        }
+        return walk(doc, emptyList())
+    }
+
+    /** Bloecke der obersten Ebene mit Text (Auswahl "Markiert: n Blöcke") -> (ID, Klartext) */
+    fun textBlocks(): List<Pair<String, String>> = BlockDoc.blocks(doc).mapNotNull { b ->
+        val bid = BlockDoc.id(b) ?: return@mapNotNull null
+        val t = BlockDoc.mainText(b)?.let { InlineHtml.plain(it) }?.trim().orEmpty()
+        if (t.isEmpty()) null else bid to t
+    }
+
+    /** "Ersetzen": Text jedes Blocks durch den Vorschlag (Formatierung geht verloren); danach normal speichern */
+    fun replaceBlockTexts(texts: Map<String, String>): Boolean {
+        if (!editable) return false
+        var d: JsonObject = doc
+        for ((bid, text) in texts) {
+            val p = pathOfBlock(bid) ?: continue
+            val b = JsonTree.get(d, p) as? JsonObject ?: continue
+            val html = InlineHtml.escape(text.trim()).replace("\n", "<br>")
+            val nb: JsonObject = when (BlockDoc.type(b)) {
+                "paragraph", "header", "quote", "callout" -> JsonTree.set(b, listOf("data", "text"), JsonPrimitive(html)) as JsonObject
+                "toggle" -> JsonTree.set(b, listOf("data", "title"), JsonPrimitive(html)) as JsonObject
+                "code" -> JsonTree.set(b, listOf("data", "code"), JsonPrimitive(text)) as JsonObject
+                "list" -> {
+                    val check = BlockDoc.str(BlockDoc.data(b), "style") == "checklist"
+                    val items = text.lines().map { it.trim().removePrefix("- ").removePrefix("• ") }.filter { it.isNotEmpty() }
+                        .map { BlockDoc.newListItem(InlineHtml.escape(it), check) }
+                    JsonTree.set(b, listOf("data", "items"), JsonArray(items)) as JsonObject
+                }
+                else -> continue
+            }
+            d = JsonTree.set(d, p, nb) as JsonObject
+        }
+        if (d == doc) return false
+        change(d)
+        return true
+    }
+
+    /** "Darunter einfügen": Absaetze nach dem Block (oder am Ende) */
+    fun insertParagraphsAfter(blockId: String?, text: String): Boolean {
+        if (!editable) return false
+        val paras = text.split(Regex("\n\\s*\n")).map { it.trim() }.filter { it.isNotEmpty() }
+        if (paras.isEmpty()) return false
+        val p = blockId?.let { pathOfBlock(it) }
+        val (arr, idx) = if (p != null && p.last() is Int) p.dropLast(1) to (p.last() as Int) else listOf<Any>("blocks") to BlockDoc.blocks(doc).size - 1
+        var d: JsonObject = doc
+        paras.forEachIndexed { i, t ->
+            d = JsonTree.insert(d, arr, idx + 1 + i, BlockDoc.newBlock("paragraph", InlineHtml.escape(t).replace("\n", "<br>"))) as JsonObject
+        }
+        change(d)
+        return true
+    }
+
+    /** "Als Checkliste einfügen": Checkliste ans Seitenende */
+    fun appendChecklist(items: List<String>): Boolean {
+        if (!editable || items.isEmpty()) return false
+        val b = BlockDoc.newBlock("checklist")
+        val withItems = JsonTree.set(b, listOf("data", "items"), JsonArray(items.map { BlockDoc.newListItem(InlineHtml.escape(it), true) })) as JsonObject
+        change(JsonTree.insert(doc, listOf("blocks"), BlockDoc.blocks(doc).size, withItems) as JsonObject)
+        return true
+    }
 
     /** Stabiler Schluessel eines Blocks (ID; ohne ID: Position) */
     fun blockKey(block: JsonObject, path: JsonPath): String = "b:" + (BlockDoc.id(block) ?: path.joinToString("."))

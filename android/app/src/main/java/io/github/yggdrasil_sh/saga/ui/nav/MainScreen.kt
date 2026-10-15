@@ -71,6 +71,13 @@ import io.github.yggdrasil_sh.saga.ui.services.ServicesScreen
 import io.github.yggdrasil_sh.saga.ui.settings.SettingsScreen
 import io.github.yggdrasil_sh.saga.ui.tasks.TasksScreen
 import io.github.yggdrasil_sh.saga.ui.today.TodayScreen
+import io.github.yggdrasil_sh.saga.ui.notifications.NotificationsScreen
+import io.github.yggdrasil_sh.saga.ui.chat.ChatsScreen
+import io.github.yggdrasil_sh.saga.ui.chat.ChatDevicesScreen
+import io.github.yggdrasil_sh.saga.ui.chat.ChatLinkApproval
+import io.github.yggdrasil_sh.saga.ui.push.PushScreen
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -148,6 +155,14 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
     LaunchedEffect(openRequest) {
         openRequest?.let { nav.top(Dest.Page(it)); repo.openPageRequest.value = null }
     }
+    val openChat by repo.openChatRequest.collectAsState()
+    LaunchedEffect(openChat) {
+        openChat?.let {
+            nav.top(Dest.Chats)
+            nav.push(Dest.Chat(it))
+            repo.openChatRequest.value = null
+        }
+    }
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -200,6 +215,25 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
                                     icon = { Icon(it.icon, null) }, label = { Text(stringResource(it.label)) },
                                 )
                             }
+                            // Saga 2.0: Chats (Ende-zu-Ende) und Benachrichtigungen mit Zaehler
+                            val chatOn by repo.live.chatEnabled.collectAsState()
+                            val chatUnread by repo.live.chatUnread.collectAsState()
+                            val notifOn by repo.live.supported.collectAsState()
+                            val notifUnread by repo.live.unread.collectAsState()
+                            if (chatOn) {
+                                NavigationRailItem(
+                                    selected = nav.root == Dest.Chats || nav.root is Dest.Chat, onClick = { nav.top(Dest.Chats) },
+                                    icon = { BadgeIcon(chatUnread) { Icon(painterResource(R.drawable.ic_chat), null) } },
+                                    label = { Text(stringResource(R.string.chats)) },
+                                )
+                            }
+                            if (notifOn) {
+                                NavigationRailItem(
+                                    selected = nav.root == Dest.Notifications, onClick = { nav.top(Dest.Notifications) },
+                                    icon = { BadgeIcon(notifUnread) { Icon(Icons.Filled.Notifications, null) } },
+                                    label = { Text(stringResource(R.string.notifications), maxLines = 1) },
+                                )
+                            }
                             Spacer(Modifier.weight(1f))
                             NavigationRailItem(
                                 selected = nav.root == Dest.Settings, onClick = { nav.top(Dest.Settings) },
@@ -239,7 +273,22 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
                 Dest.Search -> SearchScreen(repo, nav, chrome)
                 Dest.Settings -> SettingsScreen(repo, nav, chrome)
                 is Dest.Page -> key(d.id) { PageScreen(d.id, repo, nav, chrome, appScope) }
+                Dest.Notifications -> NotificationsScreen(repo, nav, chrome)
+                Dest.Chats -> ChatsScreen(repo, nav, chrome, null)
+                is Dest.Chat -> ChatsScreen(repo, nav, chrome, d.id)
+                Dest.Push -> PushScreen(repo, nav, chrome)
+                Dest.ChatDevices -> ChatDevicesScreen(repo, nav, chrome)
             }
         }
+        // Kopplungsanfrage eines neuen Chat-Geraets (Live chat.link): hier bestaetigen (Code vergleichen)
+        ChatLinkApproval(repo)
+    }
+}
+
+/** Symbol mit Zaehler (Badge), 0 = ohne */
+@Composable
+fun BadgeIcon(count: Int, icon: @Composable () -> Unit) {
+    if (count <= 0) icon() else {
+        androidx.compose.material3.BadgedBox(badge = { androidx.compose.material3.Badge { Text(if (count > 99) "99+" else "$count") } }) { icon() }
     }
 }

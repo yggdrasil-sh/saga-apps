@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Badge
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -84,7 +85,15 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
-    val shared by repo.sharedPages.collectAsState()
+    val sharedLocal by repo.sharedPages.collectAsState()
+    val fedShared by repo.fedShared.collectAsState()
+    val fedUnreachable by repo.fedUnreachable.collectAsState()
+    // "Mit mir geteilt": Seiten dieser und anderer Saga-Instanzen (Foederation, negative IDs)
+    val shared = remember(sharedLocal, fedShared) { sharedLocal + fedShared }
+    val chatOn by repo.live.chatEnabled.collectAsState()
+    val chatUnread by repo.live.chatUnread.collectAsState()
+    val notifOn by repo.live.supported.collectAsState()
+    val notifUnread by repo.live.unread.collectAsState()
     val shareOff by repo.shareOff.collectAsState()
     var sharedExpanded by rememberSaveable { mutableStateOf(setOf<Long>()) }
     val favorites = pages.filter { it.pinned }
@@ -133,6 +142,8 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
         if (showShared == seenShared) return@LaunchedEffect
         seenShared = showShared
         var i = 1 + 5                                                   // Kopf + Heute/Aufgaben/Termine/Dienste/Suchen
+        if (chatOn) i++                                                 // Chats
+        if (notifOn) i++                                                // Benachrichtigungen
         if (favorites.isNotEmpty()) i += 1 + favorites.size
         if (recent.isNotEmpty()) i += 1 + recent.size
         i += 1 + (if (tree.isEmpty()) 1 else tree.size)                 // "Seiten" + Baum bzw. "Noch keine Seiten"
@@ -155,6 +166,21 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
         item { NavItem(stringResource(R.string.nav_events), Icons.Filled.DateRange, nav.root == Dest.Events) { nav.top(Dest.Events); onNavigate() } }
         item { NavItem(stringResource(R.string.nav_services), Icons.Filled.Build, nav.root == Dest.Services) { nav.top(Dest.Services); onNavigate() } }
         item { NavItem(stringResource(R.string.nav_search_pages), Icons.Filled.Search, nav.root == Dest.Search) { nav.top(Dest.Search); onNavigate() } }
+        if (chatOn) {
+            item {
+                NavItem(
+                    stringResource(R.string.chats), null, nav.root == Dest.Chats || nav.root is Dest.Chat, badge = chatUnread.takeIf { it > 0 },
+                    painter = R.drawable.ic_chat,
+                ) { nav.top(Dest.Chats); onNavigate() }
+            }
+        }
+        if (notifOn) {
+            item {
+                NavItem(stringResource(R.string.notifications), Icons.Filled.Notifications, nav.root == Dest.Notifications, badge = notifUnread.takeIf { it > 0 }) {
+                    nav.top(Dest.Notifications); onNavigate()
+                }
+            }
+        }
 
         if (favorites.isNotEmpty()) {
             item { SectionHeader(stringResource(R.string.sidebar_favorites)) }
@@ -185,7 +211,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 { newPage(it) }, scope,
             )
         }
-        if (sharedTree.isNotEmpty() || shareOff) {
+        if (sharedTree.isNotEmpty() || shareOff || fedUnreachable.isNotEmpty()) {
             item(key = "shared-head") {
                 val res = LocalResources.current
                 Row(Modifier.fillMaxWidth().padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -204,6 +230,15 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                             containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary,
                         ) { Text("$sharedUnread") }
                     }
+                }
+            }
+            if (fedUnreachable.isNotEmpty()) {
+                item(key = "shared-unreachable") {
+                    val res = LocalResources.current
+                    Text(
+                        fedUnreachable.joinToString("\n") { res.getString(R.string.fed_unreachable, it) }, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                    )
                 }
             }
             if (shareOff) {
@@ -233,10 +268,10 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
 }
 
 @Composable
-private fun NavItem(label: String, icon: ImageVector, selected: Boolean, badge: Int? = null, onClick: () -> Unit) {
+private fun NavItem(label: String, icon: ImageVector?, selected: Boolean, badge: Int? = null, painter: Int? = null, onClick: () -> Unit) {
     NavigationDrawerItem(
         label = { Text(label) },
-        icon = { Icon(icon, null) },
+        icon = { if (painter != null) Icon(painterResource(painter), null) else if (icon != null) Icon(icon, null) },
         selected = selected,
         onClick = onClick,
         badge = badge?.let { { Badge { Text("$it") } } },
@@ -257,7 +292,8 @@ private fun PageRowItem(
     val foreign = p.owner != null && !p.owner.me
     // fremde Seiten: keine Favoriten (die gehoeren dem Eigentuemer); Unterseite nur mit "Bearbeiten"
     val canFavorite = !foreign
-    val canSub = !p.isDatabase && (!foreign || p.role == "edit")
+    // Seiten anderer Saga-Instanzen: keine Unterseiten (nur Titel und Inhalt aenderbar)
+    val canSub = !p.isDatabase && !p.isRemote && (!foreign || p.role == "edit")
     Box {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(RoundedCornerShape(24.dp))

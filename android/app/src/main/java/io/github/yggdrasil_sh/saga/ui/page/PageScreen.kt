@@ -192,6 +192,30 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     // Teilen + Kommentare (Server 1.3)
     val caps = ed.caps
     val comments = remember(ed) { CommentsModel(id, repo, PageShareInfo()) }
+    // Live-Kanal (1.4): Anwesenheit, fremde Aenderungen, neue Kommentare
+    val liveSt = rememberPageLive(id, repo, ed, comments, appScope)
+    // KI-Assistent: null = zu, 0 = "Frag deine Seiten", 1 = "Diese Seite"
+    val aiStatus by repo.ai.status.collectAsState()
+    val aiOn = aiStatus?.enabled == true
+    var assistant by remember { mutableStateOf<Int?>(null) }
+    // aus einer Benachrichtigung/Mitteilung: Kommentare (Unterhaltung am Block) gleich zeigen
+    val openComments by repo.openCommentsFor.collectAsState()
+    LaunchedEffect(openComments, ed.fetched) {
+        val oc = openComments
+        if (oc != null && oc.first == id && ed.fetched) {
+            repo.openCommentsFor.value = null
+            if (ed.caps.showComments) {
+                try {
+                    comments.load()
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                }
+                val b = oc.second
+                if (b != null) comments.openBlock(b) else comments.openAll()
+            }
+        }
+    }
     LaunchedEffect(comments, ed.share) {
         comments.update(ed.share)
         if (ed.share.commentsOpen > 0 && ed.share.supported) comments.load()     // Punkte an den Bloecken (ungelesen)
@@ -214,7 +238,12 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
         // G4: "Kein Zugriff": Kopfzeile ohne Titel/Symbol der Seite
         SagaTopBar(if (ed.noAccess) "" else ed.title.ifEmpty { if (ed.fetched) stringResource(R.string.page_untitled) else "" }, nav, chrome) {
+            PresenceAvatars(liveSt)
             SaveState(ed)
+            // KI-Assistent (1.6): nur sichtbar, wenn der Server ihn fuer diese Person anbietet
+            if (aiOn && ed.fetched && !ed.isDatabase) {
+                IconButton(onClick = { assistant = 0 }) { Text("✦", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary) }
+            }
             // Kommentare dezent: "💬 n" nur bei offenen Unterhaltungen, Punkt bei ungelesenen
             if (ed.fetched && caps.showComments && comments.openCount > 0) {
                 CommentsButton(comments.openCount, comments.unreadCount) { comments.openAll() }
@@ -230,7 +259,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             Box {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more)) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                    if (ed.fetched && caps.canShare) {
+                    if (ed.fetched && caps.canShare && !ed.isRemote) {
                         DropdownMenuItem(text = { Text(stringResource(R.string.share_menu)) }, onClick = {
                             menu = false
                             shareModel = ShareModel(id, repo)
@@ -249,17 +278,23 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                             },
                         )
                     }
-                    if (ed.fetched && !ed.isDatabase && caps.canLock) {
+                    if (ed.fetched && !ed.isDatabase && caps.canLock && !ed.isRemote) {
                         DropdownMenuItem(text = { Text(stringResource(if (ed.locked) R.string.page_unlock else R.string.page_lock)) }, onClick = {
                             menu = false
                             repo.launchAction { ed.setLocked(!ed.locked) }
+                        })
+                    }
+                    if (aiOn && ed.fetched && !ed.isDatabase) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.ai_title)) }, onClick = {
+                            menu = false
+                            assistant = 1
                         })
                     }
                     DropdownMenuItem(text = { Text(stringResource(R.string.page_reload)) }, onClick = {
                         menu = false
                         scope.launch { ed.save(); ed.load() }
                     })
-                    if (ed.fetched && ed.publishSupported && !ed.template && !publishHidden && caps.canPublish) {
+                    if (ed.fetched && ed.publishSupported && !ed.template && !publishHidden && caps.canPublish && !ed.isRemote) {
                         // Menue einheitlich ohne Symbole (der Zustand "Öffentlich" steht im Seitenkopf)
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.publish_menu)) },
@@ -280,7 +315,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                         ed.flush()
                         openUrl(context, repo.absoluteUrl("notes") + "#$id")
                     })
-                    if (ed.fetched && caps.canArchive && caps.canTrash) {
+                    if (ed.fetched && caps.canArchive && caps.canTrash && !ed.isRemote) {
                         HorizontalDivider()
                         DropdownMenuItem(text = { Text(stringResource(R.string.page_archive)) }, onClick = {
                             menu = false
@@ -304,6 +339,13 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
         if (ed.conflict && !conflictDialog) {
             ConflictBanner(ed.conflictBy) { conflictDialog = true }
         }
+        PageLiveBanner(liveSt) {
+            scope.launch {
+                ed.saveAndWait()
+                ed.load()
+                liveSt.changedBy = null
+            }
+        }
 
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             val blocks = BlockDoc.blocks(ed.doc)
@@ -315,7 +357,12 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 }
             }
             LazyColumn(Modifier.widthIn(max = 820.dp).fillMaxSize().padding(horizontal = 18.dp), state = listState) {
-                item(key = "header") { PageHeader(ed, repo, onPublish = if (ed.template || publishHidden || !caps.canPublish) null else openPublish) }
+                item(key = "header") {
+                    PageHeader(
+                        ed, repo, onPublish = if (ed.template || publishHidden || !caps.canPublish || ed.isRemote) null else openPublish,
+                        live = liveSt, onSettings = { nav.top(Dest.Settings) },
+                    )
+                }
                 if (ed.fetched && !ed.isDatabase) {
                     val counts = if (caps.showComments) comments.blockCounts else emptyMap()
                     val unread = comments.unreadBlocks
@@ -376,6 +423,12 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
 
         val active = ed.active
         if (active != null && ed.editable) EditorToolbar(ed, active, onLink)
+    }
+
+    assistant?.let { t ->
+        io.github.yggdrasil_sh.saga.ui.ai.AssistantSheet(
+            repo, ed, t, onOpenPage = { pid -> assistant = null; nav.push(Dest.Page(pid)) }, onDismiss = { assistant = null },
+        )
     }
 
     publishModel?.let { m ->
@@ -512,7 +565,7 @@ private fun copy(context: Context, text: String) {
 }
 
 @Composable
-private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> Unit)?) {
+private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> Unit)?, live: PageLiveState? = null, onSettings: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)) {
@@ -547,6 +600,14 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
         // geaendert/angelegt hat - beide gleich gross (Sekundaertext)
         if (ed.fetched && ed.caps.foreign) SharedByLabel(ed.share)
         if (ed.fetched) MetaLine(ed.share)
+        // Foederation (2.0): Seite liegt auf einer anderen Saga-Instanz
+        ed.remoteHost?.takeIf { ed.fetched }?.let { host ->
+            Text(
+                stringResource(R.string.fed_page_hint, host.ifEmpty { "?" }), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
+            )
+        }
+        if (ed.fetched && live != null) PresenceLine(live)
         val via = if (!ed.published) ed.publishedVia else null
         if (ed.locked || ed.published || via != null) {
             Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -583,7 +644,11 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
         if (ed.noAccess && !ed.loading) {
             NoAccess(onRetry = { scope.launch { ed.load() } }, onShared = { repo.showSharedRequest.value++ })
         } else if (!ed.loading && !ed.fetched) {                   // Laden fehlgeschlagen: nichts Bearbeitbares zeigen
-            Button(onClick = { scope.launch { ed.load() } }, modifier = Modifier.padding(top = 12.dp)) { Text(stringResource(R.string.action_retry)) }
+            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { scope.launch { ed.load() } }) { Text(stringResource(R.string.action_retry)) }
+                // 403 "oeffentlicher Name fehlt" (Seite einer anderen Instanz): Weg zu den Einstellungen
+                if (ed.needsPublicName) OutlinedButton(onClick = onSettings) { Text(stringResource(R.string.nav_settings)) }
+            }
         }
     }
 }

@@ -11,7 +11,18 @@ import kotlinx.serialization.json.booleanOrNull
 
 /** Eigentuemer, Verfasser, "zuletzt geaendert von": {name, username, me}; username null = geloeschtes Konto */
 @Serializable
-data class Person(val name: String = "", val username: String? = null, val me: Boolean = false)
+data class Person(
+    val name: String = "",
+    val username: String? = null,
+    val me: Boolean = false,
+    /** Foederation (2.0): Person einer anderen Saga-Instanz; name enthaelt schon die Herkunft, handle = "name@server" */
+    val remote: Boolean = false,
+    val handle: String? = null,
+)
+
+/** Foederation (2.0): Seite liegt auf einer anderen Saga-Instanz */
+@Serializable
+data class RemoteRef(val host: String = "", val name: String? = null)
 
 /** GET /api/share/info - fuer Empfaenger: Teilen an? Wie viele Freigaben an mich? */
 @Serializable
@@ -64,6 +75,8 @@ data class ShareState(
     val inherited: List<InheritedShare> = emptyList(),
     /** eigene Gruppen (Chips bei leerem Suchfeld) */
     val groups: List<String> = emptyList(),
+    /** Foederation (2.0): Personen/Gruppen anderer Saga-Instanzen als name@server moeglich */
+    val federation: Boolean = false,
 )
 
 @Serializable
@@ -72,9 +85,18 @@ data class TargetUser(val username: String = "", val name: String = "")
 @Serializable
 data class TargetGroup(val name: String = "")
 
+/** Foederation: Person ("remote") oder Gruppe ("remote_group") auf einer anderen Saga-Instanz */
+@Serializable
+data class TargetRemote(val type: String = "remote", val target: String = "", val name: String = "", val host: String = "")
+
 /** GET /api/share/targets?q= (ab 3 Zeichen) */
 @Serializable
-data class ShareTargets(val users: List<TargetUser> = emptyList(), val groups: List<TargetGroup> = emptyList())
+data class ShareTargets(
+    val users: List<TargetUser> = emptyList(),
+    val groups: List<TargetGroup> = emptyList(),
+    /** nur genaue Adressen verbundener Server (name@server) */
+    val remote: List<TargetRemote> = emptyList(),
+)
 
 @Serializable
 data class Comment(
@@ -176,6 +198,8 @@ data class PageShareInfo(
                 name = (o["name"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
                 username = (o["username"] as? JsonPrimitive)?.contentOrNull,
                 me = (o["me"] as? JsonPrimitive)?.booleanOrNull ?: false,
+                remote = (o["remote"] as? JsonPrimitive)?.booleanOrNull ?: false,
+                handle = (o["handle"] as? JsonPrimitive)?.contentOrNull,
             )
         }
 

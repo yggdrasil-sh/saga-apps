@@ -64,6 +64,10 @@ data class SharedContent(val title: String, val text: String, val url: String?) 
     }
 }
 
+/** GET /api/fed/shared */
+@kotlinx.serialization.Serializable
+data class FedShared(val items: List<PageMeta> = emptyList(), val unreachable: List<String> = emptyList())
+
 @kotlinx.serialization.Serializable
 data class CaptureResult(val ok: Boolean = false, val kind: String? = null, val id: Long? = null)
 
@@ -88,12 +92,15 @@ class SagaRepository(
     val settings: AppSettings,
     val secure: SecureStore,
     private val scope: CoroutineScope,
-    private val deviceName: String,
+    /** Name dieses Geraets (Apps & Geraete, Chat-Geraete, Mitteilungen) */
+    val deviceName: String,
     userAgent: String,
     val appVersion: String,
     private val filesDir: File,
     /** Sprache der App-Oberflaeche fuer Accept-Language */
     language: () -> String = { "" },
+    /** App-Kontext (Mitteilungen: UnifiedPush-Verteiler, Benachrichtigungen des Systems) */
+    private val appContext: android.content.Context? = null,
 ) : PageBackend, PublishBackend, ShareBackend, CommentBackend {
     val json = Json {
         ignoreUnknownKeys = true
@@ -172,6 +179,39 @@ class SagaRepository(
 
     val auth = AuthSession(settings, secure, authApi, deviceName, BuildConfig.DEBUG, clearLocal = { clearLocalData() })
 
+    /** Live-Kanal und Benachrichtigungen (Server 1.4) */
+    val live = io.github.yggdrasil_sh.saga.live.LiveCenter(this, scope)
+
+    /** Chats mit Ende-zu-Ende-Verschluesselung (Server 1.5) */
+    val chat = io.github.yggdrasil_sh.saga.chat.ChatService(this, scope)
+
+    /** Mitteilungen aufs Geraet (Server 1.7, UnifiedPush) */
+    val push: io.github.yggdrasil_sh.saga.push.PushService by lazy {
+        io.github.yggdrasil_sh.saga.push.PushService(this, requireNotNull(appContext), scope)
+    }
+
+    /** KI-Assistent (Server 1.6) */
+    val ai = io.github.yggdrasil_sh.saga.ai.AiService(this)
+
+    /** Chat oeffnen (aus einer Mitteilung) */
+    val openChatRequest = MutableStateFlow<Long?>(null)
+
+    /** Link aus einer Mitteilung/Benachrichtigung ("/notes#12:block", "/chats#c5") oeffnen und als gelesen markieren */
+    fun openUrl(url: String) {
+        when (val t = io.github.yggdrasil_sh.saga.live.NotifLogic.target(url)) {
+            is io.github.yggdrasil_sh.saga.live.NotifLogic.Target.Page -> {
+                if (t.block != null) openCommentsFor.value = t.id to t.block
+                openPageRequest.value = t.id
+            }
+            is io.github.yggdrasil_sh.saga.live.NotifLogic.Target.Chat -> openChatRequest.value = t.id
+            null -> {}
+        }
+        scope.launch {
+            awaitReady()
+            if (!needsLogin.value) live.markReadForUrl(url)
+        }
+    }
+
     init {
         scope.launch {
             withContext(Dispatchers.IO) {
@@ -187,6 +227,7 @@ class SagaRepository(
             if (auth.signedIn && settings.accountKey.value.isEmpty()) settings.setAccountKey(AccountKey.legacy(settings.account.value))
             needsLogin.value = !auth.signedIn
             ready.value = true
+            live.restart()
             refresh()                                        // erster Abgleich (auch liegengebliebene Entwuerfe speichern)
         }
     }
@@ -239,6 +280,9 @@ class SagaRepository(
             setPages(decode<List<PageMeta>>(api.get("api/notes")))
             error.value = null
             loadShared()
+            scope.launch { loadFedShared() }                 // fremde Server koennen dauern: nicht darauf warten
+            if (ai.status.value == null) scope.launch { ai.loadStatus() }
+            if (chat.state.value == io.github.yggdrasil_sh.saga.chat.ChatSetup.LOADING) scope.launch { chat.refresh() }
             if (serverVersion.value == null) checkVersion()
             loadTasks()
             loadTodayEvents()
@@ -372,6 +416,9 @@ class SagaRepository(
     /** Teilen-Dialog nach dem Oeffnen dieser Seite zeigen ("über „Elternseite“" im Dialog) */
     val openShareFor = MutableStateFlow<Long?>(null)
 
+    /** Kommentare beim Oeffnen dieser Seite zeigen (Benachrichtigung/Mitteilung): Seite + Block (null = alle) */
+    val openCommentsFor = MutableStateFlow<Pair<Long, String?>?>(null)
+
     /** "Zu „Mit mir geteilt“" (Seite ohne Zugriff): Zaehler - Seitenleiste oeffnen und zum Bereich scrollen */
     val showSharedRequest = MutableStateFlow(0)
 
@@ -399,6 +446,39 @@ class SagaRepository(
         }
     }
 
+    // ---------------------------------------------------------------- Foederation (Server 2.0)
+
+    /** "Mit mir geteilt" von anderen Saga-Instanzen (GET /api/fed/shared, negative IDs) */
+    val fedShared = MutableStateFlow<List<PageMeta>>(emptyList())
+
+    /** Andere Saga-Instanzen, die gerade nicht erreichbar sind (dezent anzeigen) */
+    val fedUnreachable = MutableStateFlow<List<String>>(emptyList())
+
+    private val fedLock = Mutex()
+
+    suspend fun loadFedShared() {
+        if (needsLogin.value || !fedLock.tryLock()) return
+        try {
+            val r = decode<FedShared>(api.get("api/fed/shared"))
+            fedShared.value = r.items.filter { !it.archived }
+            fedUnreachable.value = r.unreachable
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ApiException) {
+            if (e.code == 404) {                             // Server ohne Foederation
+                fedShared.value = emptyList()
+                fedUnreachable.value = emptyList()
+            }
+        } catch (_: Exception) {
+            // offline: bisherigen Stand behalten
+        } finally {
+            fedLock.unlock()
+        }
+    }
+
+    /** Alle fremden Seiten (dieser und anderer Instanzen) fuer "Mit mir geteilt" */
+    fun sharedAll(): List<PageMeta> = sharedPages.value + fedShared.value
+
     /** Eigene Seite ist (nicht mehr) freigegeben -> Personen-Symbol im Baum */
     fun markShared(id: Long, shared: Boolean) {
         pages.value = pages.value.map { if (it.id == id && it.shared != shared) it.copy(shared = shared) else it }
@@ -408,6 +488,7 @@ class SagaRepository(
     fun markUnread(id: Long, unread: Boolean) {
         pages.value = pages.value.map { if (it.id == id && it.unread != unread) it.copy(unread = unread) else it }
         sharedPages.value = sharedPages.value.map { if (it.id == id && it.unread != unread) it.copy(unread = unread) else it }
+        fedShared.value = fedShared.value.map { if (it.id == id && it.unread != unread) it.copy(unread = unread) else it }
     }
 
     private fun q(s: String): String = java.net.URLEncoder.encode(s, "UTF-8")
@@ -919,6 +1000,8 @@ class SagaRepository(
         loginHint.value = null
         signInCount.value++                                  // Geraeteliste, Konto usw. neu laden
         message?.let { notify(it) }
+        live.clear()
+        live.restart()
         refresh()
     }
 
@@ -928,6 +1011,12 @@ class SagaRepository(
         pages.value = emptyList()
         ownIds = null
         sharedPages.value = emptyList()
+        fedShared.value = emptyList()
+        fedUnreachable.value = emptyList()
+        live.clear()
+        chat.reset()
+        ai.clear()
+        if (appContext != null) push.clear()
         shareSupported.value = false
         shareOff.value = false
         tasks.value = emptyList()

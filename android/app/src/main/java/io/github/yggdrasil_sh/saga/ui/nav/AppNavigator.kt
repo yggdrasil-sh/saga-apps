@@ -13,6 +13,15 @@ sealed interface Dest {
     data object Search : Dest
     data object Settings : Dest
     data class Page(val id: Long) : Dest
+    /** Benachrichtigungen (Glocke, Server 1.4) */
+    data object Notifications : Dest
+    /** Chats (Server 1.5): Liste; Chat(id) = eine Unterhaltung */
+    data object Chats : Dest
+    data class Chat(val id: Long) : Dest
+    /** Einstellungen -> Mitteilungen (Push, 1.7) */
+    data object Push : Dest
+    /** Einstellungen -> Chats & Geraete */
+    data object ChatDevices : Dest
 
     companion object {
         /** Als Text (zum Sichern nach Prozess-Tod) */
@@ -24,6 +33,11 @@ sealed interface Dest {
             Search -> "search"
             Settings -> "settings"
             is Page -> "page:${d.id}"
+            Notifications -> "notifications"
+            Chats -> "chats"
+            is Chat -> "chat:${d.id}"
+            Push -> "push"
+            ChatDevices -> "chat-devices"
         }
 
         fun decode(s: String): Dest? = when {
@@ -34,6 +48,11 @@ sealed interface Dest {
             s == "search" -> Search
             s == "settings" -> Settings
             s.startsWith("page:") -> s.removePrefix("page:").toLongOrNull()?.let { Page(it) }
+            s == "notifications" -> Notifications
+            s == "chats" -> Chats
+            s.startsWith("chat:") -> s.removePrefix("chat:").toLongOrNull()?.let { Chat(it) }
+            s == "push" -> Push
+            s == "chat-devices" -> ChatDevices
             else -> null
         }
     }

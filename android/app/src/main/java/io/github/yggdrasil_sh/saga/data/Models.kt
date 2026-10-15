@@ -26,8 +26,12 @@ data class PageMeta(
     val role: String? = null,
     val owner: Person? = null,
     val root: Boolean = false,
+    /** Foederation (2.0): Seite einer anderen Saga-Instanz (id < 0) */
+    val remote: RemoteRef? = null,
 ) {
     val isDatabase: Boolean get() = kind == "database"
+    /** Seite einer anderen Saga-Instanz (negative ID oder Feld remote) */
+    val isRemote: Boolean get() = id < 0 || remote != null
     val foreign: Boolean get() = owner != null && !owner.me
 }
 

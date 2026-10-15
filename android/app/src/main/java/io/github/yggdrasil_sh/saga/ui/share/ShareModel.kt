@@ -85,8 +85,10 @@ object ShareLogic {
     fun viaLabel(v: ShareVia): UiText =
         if (v.type == "group") UiText.Raw(v.name) else UiText.Res(R.string.share_quoted, v.title?.ifBlank { null } ?: "…")
 
-    /** Zweite Zeile: Benutzername bzw. "Gruppe · n Personen" */
+    /** Zweite Zeile: Benutzername bzw. "Gruppe · n Personen"; andere Saga-Instanz (Foederation) */
     fun entrySub(type: String, target: String, members: Int?): UiText = when {
+        type == "remote" -> UiText.Res(R.string.fed_other_instance)
+        type == "remote_group" -> UiText.Res(R.string.fed_other_group)
         type != "group" -> UiText.Raw(target)
         members == null -> UiText.Res(R.string.share_group)
         else -> UiText.Plural(R.plurals.share_group_members, members)
