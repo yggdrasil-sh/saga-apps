@@ -139,7 +139,7 @@ private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Uni
             .then(if (tap) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Avatar(n.actor?.name ?: "", icon = if (n.kind.startsWith("chat.")) R.drawable.ic_chat else null)
+        Avatar(n.actor?.name ?: "", icon = if (n.kind.startsWith("chat.")) R.drawable.ic_chat else null, avatar = n.actor?.avatar)
         Column(Modifier.weight(1f)) {
             Text(
                 n.text, style = MaterialTheme.typography.bodyMedium,
@@ -167,13 +167,25 @@ private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Uni
     }
 }
 
-/** Anfangsbuchstabe im Kreis (oder ein einfarbiges Symbol / Emoji) */
+/**
+ * Anfangsbuchstabe im Kreis (oder ein einfarbiges Symbol / Emoji); avatar (2.1) = Profilbild vom eigenen Server, liegt
+ * ueber den Initialen (die bleiben Platzhalter bzw. Rueckfall bei null/404).
+ */
 @Composable
-fun Avatar(name: String, symbol: String? = null, size: Int = 36, icon: Int? = null) {
+fun Avatar(name: String, symbol: String? = null, size: Int = 36, icon: Int? = null, avatar: String? = null) {
     Box(
         Modifier.size(size.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
         contentAlignment = Alignment.Center,
     ) {
+        if (icon == null && symbol == null && avatar != null) {
+            Text(
+                name.trim().firstOrNull()?.uppercase() ?: "?",
+                style = when { size >= 72 -> MaterialTheme.typography.headlineMedium; size >= 36 -> MaterialTheme.typography.titleSmall; else -> MaterialTheme.typography.labelSmall },
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
+            io.github.yggdrasil_sh.saga.ui.common.AvatarOverlay(avatar, size.dp)
+            return@Box
+        }
         if (icon != null) {
             androidx.compose.material3.Icon(
                 androidx.compose.ui.res.painterResource(icon), null, Modifier.size((size * 0.55f).dp),
@@ -183,7 +195,7 @@ fun Avatar(name: String, symbol: String? = null, size: Int = 36, icon: Int? = nu
         }
         Text(
             symbol ?: name.trim().firstOrNull()?.uppercase() ?: "?",
-            style = if (size >= 36) MaterialTheme.typography.titleSmall else MaterialTheme.typography.labelSmall,
+            style = when { size >= 72 -> MaterialTheme.typography.headlineMedium; size >= 36 -> MaterialTheme.typography.titleSmall; else -> MaterialTheme.typography.labelSmall },
             color = MaterialTheme.colorScheme.onSecondaryContainer,
         )
     }

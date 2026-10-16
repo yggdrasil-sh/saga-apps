@@ -24,6 +24,23 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 - **Bilder einfügen:** im Chat aus der Zwischenablage (Einfügen-Menü des Felds, „Anhängen → Bild einfügen“), per
   Tastatur (GBoard: Sticker, GIFs, kopierte Bilder) und per Ziehen; auf Seiten per Tastatur und mit dem Knopf
   „Bild einfügen“ in der Werkzeugleiste (lädt hoch und setzt einen Bild-Block hinter den aktuellen Block).
+- **Anrufe (Saga-Server 2.1):** Audio- und Videoanrufe aus dem Direkt-Chat (Hörer/Kamera oben im Chat), Ende-zu-Ende
+  verschlüsselt mit WebRTC (DTLS-SRTP). Jedes Signal ist mit dem Chat-Geräteschlüssel signiert und für das Zielgerät
+  versiegelt (`saga-call/v1`, geprüft mit den Testvektoren des Servers); „Ende-zu-Ende verschlüsselt ✓“ erst, wenn der
+  DTLS-Fingerabdruck der Gegenseite zur signierten Beschreibung passt. Klingeln als Vollbild-Anruf (auch auf dem
+  Sperrbildschirm) über den Live-Kanal bzw. UnifiedPush-Mitteilung der Art „Anruf“; Annehmen mit oder ohne Video,
+  Ablehnen, Stumm, Kamera an/aus und wechseln, Lautsprecher, Weg (direkt/Relais) und Qualität; laufender Anruf als
+  Vordergrund-Dienst. Anruf-Einträge im Chat („Videoanruf · 3:12“, „Verpasster Anruf“ mit „Zurückrufen“). Geänderte
+  Sicherheitsnummer des Gegenübers verhindert den Anruf, bis sie im Chat geprüft ist.
+- **Profilbilder (Saga-Server 2.1):** überall statt bzw. über den Initialen – Kopfzeile der Einstellungen, Kommentare,
+  Anwesenheit, Benachrichtigungen, Teilen und Personensuche, Chat-Liste, Gruppen-Chats, Mitglieder, Anrufe. Bilder
+  kommen nur vom eigenen Saga-Server (mit der App-Anmeldung, WebP, zwischengespeichert je Version). Eigenes Bild unter
+  Einstellungen → Konto hochladen (Foto-Auswahl, runder Zuschnitt mit Verschieben/Zoomen), entfernen, Gravatar und
+  „auf veröffentlichten Seiten zeigen“ schalten.
+- **Anmeldung & Sicherheit (Saga-Server 2.1):** Status in den Einstellungen (zweiter Faktor an/aus, Passkeys,
+  Authenticator-App, übrige Wiederherstellungscodes, Hinweis bei Pflicht durch den Admin) und „Im Browser verwalten“.
+  Die Anmeldung mit Passkey oder Code läuft im Browserfenster wie bisher; „Neu beginnen“ im Chat nimmt jetzt auch den
+  6-stelligen Code der Authenticator-App.
 
 ### Neu (Linux)
 - **Immich im Chat:** Büroklammer → „Aus Immich …“ (nur wenn Immich verbunden ist), gleiche Auswahl wie auf Seiten;

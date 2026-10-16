@@ -47,8 +47,11 @@ class PendingSetup(val ident: Identity, val dev: DeviceKeys, val recoveryKey: St
 /** Neues Geraet wartet auf Bestaetigung durch ein vorhandenes */
 class LinkSession(val id: String, val code: String, val dev: DeviceKeys, val expires: Double?)
 
-/** Neu beginnen braucht eine frische Anmeldung: Passwort (Feld) oder neu anmelden (SSO) */
-class ReauthNeeded(val kind: String, message: UiText) : UiTextException(message)
+/**
+ * Neu beginnen braucht eine frische Anmeldung: Passwort bzw. Code der Authenticator-App (Feld) oder neu anmelden (SSO).
+ * methods = reauth_methods des Servers (2.1), leer bei aelteren Servern.
+ */
+class ReauthNeeded(val kind: String, message: UiText, val methods: List<String> = emptyList()) : UiTextException(message)
 
 /** Reine Hilfen fuer Anzeige und Pruefung (Tests) */
 object ChatLogic {
@@ -86,6 +89,19 @@ object ChatLogic {
         })
         if (notes.isNotEmpty()) put("notes", buildJsonArray { notes.forEach { add(JsonPrimitive(it)) } })
     }.toString()
+
+    /**
+     * Bestaetigung fuer "Neu beginnen" (2FA, Server 2.1): Hat das Konto eine Authenticator-App ("totp" in reauth_methods),
+     * gehen genau 6 Ziffern als {code}, alles andere als {password} - wie die Web-Oberflaeche. Passkeys nur im Browser.
+     */
+    fun reauthField(input: String, methods: List<String>): Pair<String, String>? {
+        val v = input.trim().takeIf { it.isNotEmpty() } ?: return null
+        val digits = v.replace(" ", "")
+        return if ("totp" in methods && digits.length == 6 && digits.all { it in '0'..'9' }) "code" to digits else "password" to input
+    }
+
+    /** Beschriftung des Feldes: "Passwort oder Code" nur, wenn das Konto eine Authenticator-App hat */
+    fun reauthWithCode(methods: List<String>): Boolean = "totp" in methods
 
     fun titleContent(title: String): String = buildJsonObject {
         put("v", 1)
@@ -242,7 +258,7 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
                     put("sig", b64(crypto.deviceSig(uid, p.ident.identSk, p.dev)))
                 }
                 if (reset) put("reset", true)
-                if (!password.isNullOrEmpty()) put("password", password)
+                ChatLogic.reauthField(password.orEmpty(), m.reauthMethods)?.let { (k, v) -> put(k, v) }
             }
         }
         try {
@@ -255,7 +271,10 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
                     null
                 }
                 val kind = (o?.get("reauth") as? JsonPrimitive)?.content
-                if (kind != null) throw ReauthNeeded(kind, e.text)
+                val methods = (o?.get("reauth_methods") as? kotlinx.serialization.json.JsonArray)
+                    ?.mapNotNull { (it as? JsonPrimitive)?.content }
+                if (methods != null) me.value = me.value?.copy(reauthMethods = methods)
+                if (kind != null) throw ReauthNeeded(kind, e.text, methods ?: m.reauthMethods)
             }
             throw e
         }

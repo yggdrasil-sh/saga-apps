@@ -152,6 +152,12 @@ fun LoginScreen(repo: SagaRepository) {
                     style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // 2.1: Zwei-Faktor-Anmeldung laeuft im Browserfenster (Passkey/Code) - die App braucht dafuer nichts
+                Text(
+                    stringResource(R.string.login_2fa_hint),
+                    style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 if (busy) CircularProgressIndicator(Modifier.size(28.dp))
                 (localError ?: loginError)?.let {
                     Text(it.resolve(), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)

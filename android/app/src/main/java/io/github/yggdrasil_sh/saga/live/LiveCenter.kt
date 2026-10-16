@@ -23,7 +23,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
 @Serializable
-data class NotifActor(val name: String = "", val username: String? = null)
+data class NotifActor(val name: String = "", val username: String? = null, val avatar: String? = null)
 
 @Serializable
 data class NotifNote(val id: Long = 0, val title: String = "", val icon: String = "", val host: String? = null)

@@ -190,6 +190,11 @@ class SagaRepository(
         io.github.yggdrasil_sh.saga.push.PushService(this, requireNotNull(appContext), scope)
     }
 
+    /** Anrufe 1:1 (Server 2.1, WebRTC) - braucht den App-Kontext; SagaApplication legt es beim Start an */
+    val calls: io.github.yggdrasil_sh.saga.call.CallManager by lazy {
+        io.github.yggdrasil_sh.saga.call.CallManager(this, requireNotNull(appContext), scope)
+    }
+
     /** KI-Assistent (Server 1.6) */
     val ai = io.github.yggdrasil_sh.saga.ai.AiService(this)
 
@@ -1040,6 +1045,8 @@ class SagaRepository(
         appContext?.cacheDir?.let { c -> withContext(Dispatchers.IO) { io.github.yggdrasil_sh.saga.chat.ChatFiles.purge(c) } }
         ai.clear()
         if (appContext != null) push.clear()
+        if (appContext != null) calls.reset()
+        io.github.yggdrasil_sh.saga.ui.common.AvatarLogic.reset()
         pushChecked = false
         shareSupported.value = false
         shareOff.value = false

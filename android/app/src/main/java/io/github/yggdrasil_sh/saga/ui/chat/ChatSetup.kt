@@ -72,6 +72,7 @@ import io.github.yggdrasil_sh.saga.chat.ChatSetup
 import io.github.yggdrasil_sh.saga.chat.LinkSession
 import io.github.yggdrasil_sh.saga.chat.PendingSetup
 import io.github.yggdrasil_sh.saga.chat.ReauthNeeded
+import io.github.yggdrasil_sh.saga.chat.ChatLogic
 import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.util.resolve
 import kotlinx.coroutines.CancellationException
@@ -411,6 +412,7 @@ fun StartOver(svc: ChatService, onBack: () -> Unit) {
     var password by remember { mutableStateOf("") }
     var needPassword by remember { mutableStateOf(svc.me.value?.reauth == "password") }
     var needLogin by remember { mutableStateOf(svc.me.value?.reauth == "login") }
+    var methods by remember { mutableStateOf(svc.me.value?.reauthMethods.orEmpty()) }
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf<UiText?>(null) }
     val scope = rememberCoroutineScope()
@@ -455,11 +457,18 @@ fun StartOver(svc: ChatService, onBack: () -> Unit) {
     if (needPassword) {
         OutlinedTextField(
             value = password, onValueChange = { password = it }, singleLine = true,
-            label = { Text(stringResource(R.string.chat_reauth_password)) },
+            // 2FA (2.1): mit Authenticator-App auch der 6-stellige Code (geht als {code}); Passkeys nur im Browser
+            label = { Text(stringResource(if (ChatLogic.reauthWithCode(methods)) R.string.chat_reauth_password_or_code else R.string.chat_reauth_password)) },
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            modifier = Modifier.padding(top = 12.dp, bottom = 16.dp).fillMaxWidth(),
+            modifier = Modifier.padding(top = 12.dp, bottom = if ("passkey" in methods) 4.dp else 16.dp).fillMaxWidth(),
         )
+        if ("passkey" in methods) {
+            Text(
+                stringResource(R.string.chat_reauth_passkey_browser), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 16.dp),
+            )
+        }
     }
     RecoveryKeyConfirm(p.recoveryKey, busy, err, onCancel = { svc.discardPending(); onBack() }) {
         busy = true
@@ -475,6 +484,7 @@ fun StartOver(svc: ChatService, onBack: () -> Unit) {
                 throw e
             } catch (e: ReauthNeeded) {
                 if (e.kind == "login") needLogin = true else needPassword = true
+                if (e.methods.isNotEmpty()) methods = e.methods
                 err = e.text
             } catch (e: Exception) {
                 err = svc.repo.friendly(e)

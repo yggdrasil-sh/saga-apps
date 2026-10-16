@@ -19,3 +19,10 @@
 -keep class com.goterl.lazysodium.** { *; }
 -dontwarn java.awt.**
 -dontwarn com.sun.jna.**
+
+# Anrufe (2.1): WebRTC (stream-webrtc-android) ruft Java-Klassen aus nativem Code (JNI) auf - nichts umbenennen/entfernen
+-keep class org.webrtc.** { *; }
+-keepclassmembers class org.webrtc.** { native <methods>; }
+-dontwarn org.webrtc.**
+-keep class io.getstream.webrtc.** { *; }
+-dontwarn io.getstream.webrtc.**

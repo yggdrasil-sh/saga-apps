@@ -49,10 +49,19 @@ data class ChatMe(
     val limits: ChatLimits = ChatLimits(),
     /** null = Sitzung frisch genug fuer "Neu beginnen"; sonst "password" | "login" */
     val reauth: String? = null,
+    /** 2.1: womit sich bestaetigen laesst (Teilmenge von password, passkey, totp) */
+    @SerialName("reauth_methods") val reauthMethods: List<String> = emptyList(),
 )
 
 @Serializable
-data class ChatPerson(val username: String = "", val name: String = "", val me: Boolean = false, val ready: Boolean = false)
+data class ChatPerson(
+    val username: String = "",
+    val name: String = "",
+    val me: Boolean = false,
+    val ready: Boolean = false,
+    /** 2.1: Profilbild (relative Adresse /api/avatar/...?v=...) oder null = Initialen */
+    val avatar: String? = null,
+)
 
 /** Absender-Geraet (auch entfernte) zur Pruefung der Signaturen */
 @Serializable

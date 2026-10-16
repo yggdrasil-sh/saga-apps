@@ -18,6 +18,8 @@ data class Person(
     /** Foederation (2.0): Person einer anderen Saga-Instanz; name enthaelt schon die Herkunft, handle = "name@server" */
     val remote: Boolean = false,
     val handle: String? = null,
+    /** 2.1: Profilbild (relative Adresse /api/avatar/...) oder null = Initialen */
+    val avatar: String? = null,
 )
 
 /** Foederation (2.0): Seite liegt auf einer anderen Saga-Instanz */
@@ -50,6 +52,8 @@ data class ShareEntry(
     val via: List<ShareVia> = emptyList(),
     /** Gruppen: Anzahl Mitglieder */
     val members: Int? = null,
+    /** 2.1: Profilbild (Personen) */
+    val avatar: String? = null,
 )
 
 /** Freigabe einer Elternseite - gilt hier mit, aendern nur dort */
@@ -80,7 +84,7 @@ data class ShareState(
 )
 
 @Serializable
-data class TargetUser(val username: String = "", val name: String = "")
+data class TargetUser(val username: String = "", val name: String = "", val avatar: String? = null)
 
 @Serializable
 data class TargetGroup(val name: String = "")
@@ -200,6 +204,7 @@ data class PageShareInfo(
                 me = (o["me"] as? JsonPrimitive)?.booleanOrNull ?: false,
                 remote = (o["remote"] as? JsonPrimitive)?.booleanOrNull ?: false,
                 handle = (o["handle"] as? JsonPrimitive)?.contentOrNull,
+                avatar = (o["avatar"] as? JsonPrimitive)?.contentOrNull,
             )
         }
 

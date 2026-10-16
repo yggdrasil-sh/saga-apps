@@ -47,6 +47,9 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
             language = { resources.getString(R.string.app_language) },
             appContext = this,
         )
+        // Profilbilder nur vom eingestellten Server; Anrufe hoeren ab jetzt auf den Live-Kanal (Klingeln, Signale)
+        io.github.yggdrasil_sh.saga.ui.common.AvatarLogic.server = { repo.settings.server.value }
+        repo.calls
         // Live-Kanal nur im Vordergrund (hoechstens eine Verbindung); im Hintergrund kommen Mitteilungen (Push)
         androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
             override fun onStart(owner: androidx.lifecycle.LifecycleOwner) = repo.live.foreground(true)
