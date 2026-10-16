@@ -211,13 +211,7 @@ fun PageScreen(id: Int, repo: SagaRepository, nav: AppNavigator, chrome: Chrome,
                 }
                 if (ed.fetched && ed.isDatabase) {
                     item(key = "db") {
-                        Column(Modifier.padding(vertical = 16.dp)) {
-                            Text(
-                                "Datenbanken mit Ansichten (Tabelle, Board, Kalender …) kommen in einer der nächsten Versionen.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            TextButton(onClick = { openUrl(context, repo.absoluteUrl("notes") + "#$id") }) { Text("Im Browser öffnen") }
-                        }
+                        Box(Modifier.padding(vertical = 12.dp)) { DatabaseView(id, repo, env.openPage) }
                     }
                 }
             }

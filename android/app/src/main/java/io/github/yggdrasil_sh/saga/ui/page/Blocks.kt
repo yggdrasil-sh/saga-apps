@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import io.github.yggdrasil_sh.saga.blocks.BlockDoc
+import io.github.yggdrasil_sh.saga.blocks.DbView
 import io.github.yggdrasil_sh.saga.blocks.InlineHtml
 import io.github.yggdrasil_sh.saga.blocks.JsonPath
 import io.github.yggdrasil_sh.saga.blocks.JsonTree
@@ -56,7 +57,10 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 /** Gemeinsames fuer alle Bloecke einer Seite */
-class BlockEnv(val editor: PageEditor, val repo: SagaRepository, val onLink: (String) -> Unit)
+class BlockEnv(val editor: PageEditor, val repo: SagaRepository, val onLink: (String) -> Unit) {
+    /** Seite in der App oeffnen (wie ein Link auf /notes#id) */
+    val openPage: (Int) -> Unit = { id -> onLink("/notes#$id") }
+}
 
 @Composable
 fun headerStyle(level: Int): TextStyle {
@@ -143,7 +147,20 @@ fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
         "image" -> Selectable(key, path, env) { ImageBlock(d, env) }
         "toggle" -> ToggleBlock(block, path, key, env)
         "columns" -> ColumnsBlock(d, path, env)
-        else -> Selectable(key, path, env) { Unsupported(type, d, env) }
+        "database" -> {
+            val db = BlockDoc.int(d, "db")
+            if (db != null) Selectable(key, path, env) {
+                val views = (d["views"] as? JsonArray)?.mapNotNull { (it as? JsonObject)?.let(::DbView) }
+                DatabaseView(db, env.repo, env.openPage, viewId = BlockDoc.str(d, "view").ifEmpty { null }, localViews = views, embedded = true)
+            }
+        }
+        "tasks" -> Selectable(key, path, env) { TasksBlock(env.repo) }
+        "calendar" -> Selectable(key, path, env) { CalendarBlock(env.repo) }
+        "buttons" -> Selectable(key, path, env) { ButtonsBlock(d, env.repo, env.openPage) }
+        "embed" -> Selectable(key, path, env) { EmbedCard(d, env.onLink) }
+        "attaches" -> Selectable(key, path, env) { AttachCard(d, env.onLink) }
+        "table" -> Selectable(key, path, env) { TableView(d) }
+        else -> Selectable(key, path, env) { Unsupported(type) }
     }
 }
 
@@ -185,7 +202,7 @@ private fun ImageBlock(d: JsonObject, env: BlockEnv) {
 
 /** Platzhalter fuer Bloecke, die die App noch nicht kann - der Block bleibt unveraendert gespeichert */
 @Composable
-private fun Unsupported(type: String, d: JsonObject, env: BlockEnv) {
+private fun Unsupported(type: String) {
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(12.dp),
     ) {
@@ -193,25 +210,6 @@ private fun Unsupported(type: String, d: JsonObject, env: BlockEnv) {
             "${BlockDoc.typeLabel(type)} – wird hier noch nicht unterstützt",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        // kleine Vorschau, wo es einfach geht
-        when (type) {
-            "attaches" -> {
-                val f = d["file"] as? JsonObject
-                val name = BlockDoc.str(f, "name").ifEmpty { BlockDoc.str(d, "title") }
-                val u = BlockDoc.str(f, "url")
-                if (name.isNotEmpty()) Text("📎 $name", style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp).clickable(enabled = u.isNotEmpty()) { env.onLink(u) })
-            }
-            "embed" -> {
-                val u = InlineHtml.decodeEntities(BlockDoc.str(d, "url"))
-                if (u.isNotEmpty()) Text(u, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 4.dp).clickable { env.onLink(u) })
-            }
-            "table" -> {
-                val rows = (d["content"] as? JsonArray)?.size ?: 0
-                if (rows > 0) Text("$rows Zeilen", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
     }
 }
 

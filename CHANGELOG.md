@@ -4,6 +4,16 @@ Alle nennenswerten Änderungen an den Saga-Apps. Format nach [Keep a Changelog](
 Versionen nach [Semantic Versioning](https://semver.org/lang/de/). Neue Version: `tools/set-version.sh x.y.z`,
 Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht dann alle Downloads.
 
+## [Unveröffentlicht]
+
+### Neu
+- **Android:** Datenbanken werden jetzt nativ angezeigt, als ganze Seite und als Block auf einer Seite.
+  Unterstützt werden die Ansichten Liste/Tabelle, Board, Galerie und Kalender mit Filtern, Sortierung und
+  bedingten Farben wie im Web. Haken lassen sich direkt setzen, neue Einträge werden passend zum Filter
+  angelegt, auch aus Vorlagen.
+- **Android:** Die Blöcke Aufgaben, Kalender, Schaltflächen, Einbetten, Anhang und Tabelle werden angezeigt
+  statt „wird hier noch nicht unterstützt“.
+
 ## [1.0.0] – 2026-10-13
 
 Erste öffentliche Version der nativen Apps für einen eigenen [Saga](https://github.com/yggdrasil-sh/saga)-Server.

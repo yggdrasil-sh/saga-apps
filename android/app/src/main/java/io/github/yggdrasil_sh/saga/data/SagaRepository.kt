@@ -3,6 +3,7 @@ package io.github.yggdrasil_sh.saga.data
 import io.github.yggdrasil_sh.saga.BuildConfig
 import io.github.yggdrasil_sh.saga.auth.PairTarget
 import io.github.yggdrasil_sh.saga.auth.Pkce
+import io.github.yggdrasil_sh.saga.blocks.DbQuery
 import io.github.yggdrasil_sh.saga.util.ServerUrl
 import io.github.yggdrasil_sh.saga.util.Versions
 import kotlinx.coroutines.CoroutineScope
@@ -13,6 +14,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -167,6 +169,47 @@ class SagaRepository(
             if (rev != null) put("rev", rev)
         }
         return json.decodeFromString<SaveResult>(api.patch("api/notes/$id", b)).rev
+    }
+
+    // ---------------------------------------------------------------- Datenbanken
+
+    /** Zaehler: steigt, wenn sich Eintraege geaendert haben (z. B. per Schaltflaeche angelegt) -> Ansichten neu laden */
+    val dataTick = MutableStateFlow(0)
+
+    fun dataChanged() {
+        dataTick.value++
+    }
+
+    /** Schema, Ansichten, Eintraege und Vorlagen einer Datenbank */
+    suspend fun dbRows(id: Int): DbQuery =
+        DbQuery.parse(api.get("api/notes/$id/rows")) ?: throw ApiException(0, "Datenbank konnte nicht gelesen werden")
+
+    /** Wert einer Eigenschaft setzen (der Server fuehrt die Eigenschaften zusammen) */
+    suspend fun setRowProp(row: Int, pid: String, value: JsonElement) {
+        api.patch("api/notes/$row", buildJsonObject { put("props", buildJsonObject { put(pid, value) }) })
+    }
+
+    /** Neuer Eintrag in einer Datenbank (optional mit Werten, z. B. passend zum Filter der Ansicht) -> id */
+    suspend fun addRow(db: Int, props: Map<String, JsonElement> = emptyMap(), title: String = ""): Int {
+        val id = json.decodeFromString<NewId>(api.post("api/notes", buildJsonObject {
+            put("parent_id", db)
+            put("title", title)
+            if (props.isNotEmpty()) put("props", JsonObject(props))
+        })).id
+        refresh()
+        dataChanged()
+        return id
+    }
+
+    /** Neuer Eintrag aus einer Vorlage (Seite duplizieren) -> id */
+    suspend fun addRowFromTemplate(db: Int, template: Int, title: String = ""): Int {
+        val id = json.decodeFromString<NewId>(api.post("api/notes/$template/duplicate", buildJsonObject {
+            put("parent_id", db)
+            if (title.isNotEmpty()) put("title", title)
+        })).id
+        refresh()
+        dataChanged()
+        return id
     }
 
     // ---------------------------------------------------------------- Aufgaben
