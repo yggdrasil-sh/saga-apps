@@ -93,6 +93,8 @@ struct ChatMe: Equatable {
     var devices: [ChatDeviceInfo] = []
     var links = 0
     var reauth: String?
+    /// 2.1: womit "Neu beginnen" bestaetigt werden kann (password, passkey, totp)
+    var reauthMethods: [String] = []
     var msgMax = 65_536
     var fileMax = 20 * 1_048_576
     var filesPerMsg = 10
@@ -110,6 +112,7 @@ struct ChatMe: Equatable {
         devices = (j["devices"] as? [Any] ?? []).compactMap(ChatDeviceInfo.init)
         links = ShareJSON.int(j["links"]) ?? 0
         reauth = ShareJSON.str(j["reauth"])
+        reauthMethods = (j["reauth_methods"] as? [Any] ?? []).compactMap { $0 as? String }
         if let l = j["limits"] as? [String: Any] {
             msgMax = ShareJSON.int(l["msg_max"]) ?? msgMax; fileMax = ShareJSON.int(l["file_max"]) ?? fileMax
             filesPerMsg = ShareJSON.int(l["files_per_msg"]) ?? filesPerMsg; membersMax = ShareJSON.int(l["members_max"]) ?? membersMax
@@ -120,7 +123,12 @@ struct ChatMe: Equatable {
     var hasIdentity: Bool { identPub != nil }
 }
 
-struct ChatMember: Equatable, Identifiable { var username: String; var name: String; var me: Bool; var id: String { username } }
+struct ChatMember: Equatable, Identifiable {
+    var username: String; var name: String; var me: Bool
+    /// Profilbild (2.1): relative Adresse /api/avatar/... oder nil
+    var avatar: String? = nil
+    var id: String { username }
+}
 
 struct ChatSummary: Identifiable, Equatable {
     var id: Int; var kind: String; var name: String?; var group: String?; var noteID: Int?
@@ -138,12 +146,12 @@ struct ChatSummary: Identifiable, Equatable {
         id = i; kind = d["kind"] as? String ?? "dm"; name = ShareJSON.str(d["name"]); group = ShareJSON.str(d["group"]); noteID = ShareJSON.int(d["note_id"])
         members = (d["members"] as? [Any] ?? []).compactMap { v in
             guard let m = v as? [String: Any], let u = m["username"] as? String else { return nil }
-            return ChatMember(username: u, name: m["name"] as? String ?? u, me: ShareJSON.bool(m["me"]))
+            return ChatMember(username: u, name: m["name"] as? String ?? u, me: ShareJSON.bool(m["me"]), avatar: ShareJSON.str(m["avatar"]))
         }
         memberCount = ShareJSON.int(d["member_count"]) ?? members.count
         unread = ShareJSON.int(d["unread"]) ?? 0; muted = ShareJSON.bool(d["muted"]); retention = ShareJSON.int(d["retention_s"]) ?? 0
         role = d["role"] as? String ?? "member"; lastAt = ShareJSON.num(d["last_at"]) ?? 0; lastSeq = ShareJSON.int(d["last_seq"]) ?? 0
-        if let p = d["peer"] as? [String: Any], let u = p["username"] as? String { peer = ChatMember(username: u, name: p["name"] as? String ?? u, me: false) }
+        if let p = d["peer"] as? [String: Any], let u = p["username"] as? String { peer = ChatMember(username: u, name: p["name"] as? String ?? u, me: false, avatar: ShareJSON.str(p["avatar"])) }
         titleMsg = d["title_msg"] as? [String: Any]
     }
     var title: String {
@@ -256,7 +264,7 @@ final class ChatModel: ObservableObject {
     // MARK: Einrichtung
 
     /// Erstes Geraet: Identitaet, Backup-Schluessel, Geraet, Buendel mit dem Wiederherstellungsschluessel
-    func setup(recoveryKey rk: String, reset: Bool = false, password: String? = nil) async throws {
+    func setup(recoveryKey rk: String, reset: Bool = false, auth: [String: String]? = nil) async throws {
         guard let store else { return }
         guard ChatKeyStore.probe() else { throw APIError.other(String(localized: "Schlüssel konnten nicht im Schlüsselbund gespeichert werden.")) }
         let uid = me.uid
@@ -273,11 +281,14 @@ final class ChatModel: ObservableObject {
             "device": ["id": did, "name": DeviceKey.deviceName, "enc_pub": ChatCrypto.b64(enc.pk), "sign_pub": ChatCrypto.b64(sign.pk), "sig": ChatCrypto.b64(cert)],
         ]
         if reset { body["reset"] = true }
-        if let password { body["password"] = password }
+        for (k, v) in auth ?? [:] { body[k] = v }                       // {password} oder {code} (2.1)
         let (d, code) = try await store.apiResponse("api/chat/identity", method: "PUT", body: body)
         guard (200..<300).contains(code) else {
             let j = ShareJSON.obj(d)
-            if code == 403, let r = ShareJSON.str(j?["reauth"]) { throw ChatReauth(kind: r, message: ShareJSON.str(j?["error"]) ?? "") }
+            if code == 403, let r = ShareJSON.str(j?["reauth"]) {
+                if let m = j?["reauth_methods"] as? [Any] { me.reauthMethods = m.compactMap { $0 as? String } }
+                throw ChatReauth(kind: r, message: ShareJSON.str(j?["error"]) ?? "")
+            }
             throw APIError.http(code, ShareJSON.str(j?["error"]) ?? "")
         }
         let k = ChatKeys(uid: uid, deviceID: did, encPK: ChatCrypto.b64(enc.pk), encSK: ChatCrypto.b64(enc.sk), signPK: ChatCrypto.b64(sign.pk),

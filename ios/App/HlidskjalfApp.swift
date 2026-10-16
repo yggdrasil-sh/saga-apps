@@ -24,6 +24,9 @@ struct HlidskjalfApp: App {
                 HKEditorCommands()
             }
         Settings { SettingsView().environmentObject(store).frame(width: 600, height: 720) }
+        Window("Anruf", id: "call") { CallWindowContent().environmentObject(store) }      // Anrufe (2.1): eigenes Fenster statt CallKit
+            .windowResizability(.contentMinSize)
+            .defaultSize(width: 460, height: 640)
         MenuBarExtra("Saga", systemImage: "book", isInserted: .constant(!SnapshotHelper.active)) { QuickCaptureView() }     // Schnellerfassung in der Menueleiste (nicht bei Test-Bildern)
             .menuBarExtraStyle(.window)
         #else
@@ -39,6 +42,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         UNUserNotificationCenter.current().delegate = PushCenterDelegate.shared       // Mitteilungen: Antippen, Anzeige im Vordergrund
         ImagePaste.install()                                                         // Bilder aus der Zwischenablage (Seite, Chat)
+        CallSystem.shared.setup()                                                    // Anrufe: Mitteilungs-Aktionen Annehmen/Ablehnen
         #if DEBUG
         SnapshotHelper.setUp()                                                       // nur fuer Tests: Fenster unsichtbar abbilden
         #endif

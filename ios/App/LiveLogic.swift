@@ -75,12 +75,15 @@ enum LiveReconnect: Equatable {
 /// Person auf derselben Seite (POST /api/presence, SSE presence)
 struct PresenceUser: Equatable, Identifiable {
     var username: String; var name: String; var editing: Bool; var me: Bool
+    var avatar: String? = nil
     var id: String { username }
-    init(username: String, name: String, editing: Bool, me: Bool) { self.username = username; self.name = name; self.editing = editing; self.me = me }
+    init(username: String, name: String, editing: Bool, me: Bool, avatar: String? = nil) {
+        self.username = username; self.name = name; self.editing = editing; self.me = me; self.avatar = avatar
+    }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let u = d["username"] as? String else { return nil }
         self.init(username: u, name: (d["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? u,
-                  editing: (d["editing"] as? Bool) ?? false, me: (d["me"] as? Bool) ?? false)
+                  editing: (d["editing"] as? Bool) ?? false, me: (d["me"] as? Bool) ?? false, avatar: d["avatar"] as? String)
     }
     static func others(_ list: [Any]?) -> [PresenceUser] { (list ?? []).compactMap(PresenceUser.init).filter { !$0.me } }
 }
@@ -121,6 +124,7 @@ struct NotifItem: Identifiable, Equatable {
     var created: Double
     var read: Bool
     var actorName: String?
+    var actorAvatar: String?
     var count: Int
     var access: Bool
     var noteID: Int?
@@ -140,6 +144,7 @@ struct NotifItem: Identifiable, Equatable {
         guard let d = v as? [String: Any], let i = ShareJSON.int(d["id"]) else { return nil }
         id = i; kind = d["kind"] as? String ?? ""; created = ShareJSON.num(d["created"]) ?? 0; read = ShareJSON.bool(d["read"])
         actorName = ShareJSON.str((d["actor"] as? [String: Any])?["name"])
+        actorAvatar = ShareJSON.str((d["actor"] as? [String: Any])?["avatar"])
         count = ShareJSON.int(d["count"]) ?? 1
         access = d["access"].map(ShareJSON.bool) ?? true
         let n = d["note"] as? [String: Any]

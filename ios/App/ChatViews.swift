@@ -144,7 +144,7 @@ struct ChatAvatar: View {
         ZStack {
             Circle().fill(Color.gold.opacity(0.16))
             switch c.kind {
-            case "dm": Text(verbatim: LiveLogic.initials(c.title)).font(.subheadline.weight(.semibold))
+            case "dm": AvatarView(name: c.title, avatar: c.peer?.avatar, size: 36)
             case "page": Image(systemName: "doc.text").font(.subheadline)
             default: Image(systemName: "person.2.fill").font(.caption)
             }
@@ -161,7 +161,7 @@ struct NewChatSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var store: Store
     @State private var q = ""
-    @State private var users: [(username: String, name: String, ready: Bool)] = []
+    @State private var users: [(username: String, name: String, ready: Bool, avatar: String?)] = []
     @State private var groups: [String] = []
     @State private var multi = false
     @State private var picked: [(username: String, name: String)] = []
@@ -181,7 +181,7 @@ struct NewChatSheet: View {
                     ForEach(users, id: \.username) { u in
                         Button { pick(u) } label: {
                             HStack {
-                                ShareAvatar(name: u.name, group: false)
+                                ShareAvatar(name: u.name, group: false, avatar: u.avatar)
                                 VStack(alignment: .leading) {
                                     Text(verbatim: u.name)
                                     Text(verbatim: u.ready ? u.username : u.username + " · " + String(localized: "hat Chats noch nicht eingerichtet")).font(.caption).foregroundStyle(.secondary)
@@ -229,11 +229,11 @@ struct NewChatSheet: View {
               let d = try? await store.api("api/chat/people?q=\(enc)"), let j = ShareJSON.obj(d) else { return }
         users = (j["users"] as? [Any] ?? []).compactMap { v in
             guard let u = v as? [String: Any], let n = u["username"] as? String else { return nil }
-            return (n, u["name"] as? String ?? n, ShareJSON.bool(u["ready"]))
+            return (n, u["name"] as? String ?? n, ShareJSON.bool(u["ready"]), ShareJSON.str(u["avatar"]))
         }
         groups = (j["groups"] as? [Any] ?? []).compactMap { ($0 as? [String: Any])?["name"] as? String }
     }
-    private func pick(_ u: (username: String, name: String, ready: Bool)) {
+    private func pick(_ u: (username: String, name: String, ready: Bool, avatar: String?)) {
         if multi {
             if let i = picked.firstIndex(where: { $0.username == u.username }) { picked.remove(at: i) } else { picked.append((u.username, u.name)) }
         } else { Task { await create(["kind": "dm", "user": u.username]) } }
@@ -326,11 +326,19 @@ struct ChatSetupView: View {
                     #if os(iOS)
                     .textInputAutocapitalization(.characters)
                     #endif
-                if reauth == "password" {
-                    SecureField("Zur Sicherheit: dein Passwort", text: $password).textFieldStyle(.roundedBorder).frame(maxWidth: 320)
-                } else if reauth == "login" {
-                    Text("Zur Sicherheit bitte zuerst neu anmelden. Danach hast du 5 Minuten Zeit, um neu zu beginnen.").foregroundStyle(.orange)
-                    Button("Neu anmelden") { store.needsLogin = true }.buttonStyle(.bordered)
+                if reauth == "password" && ReauthLogic.nativeInput(methods: chat.me.reauthMethods) {
+                    // 2.1: mit Authenticator-App geht auch der 6-stellige Code; Passkey nur im Browser (keine Associated Domains)
+                    let totp = chat.me.reauthMethods.contains("totp")
+                    if totp { Text("Zur Sicherheit: Passwort oder Code aus der Authenticator-App").font(.callout) }
+                    SecureField(totp ? String(localized: "Passwort oder Code") : String(localized: "Zur Sicherheit: dein Passwort"), text: $password)
+                        .textFieldStyle(.roundedBorder).frame(maxWidth: 320)
+                    if chat.me.reauthMethods.contains("passkey") {
+                        Text("Mit Passkey bestätigen geht nur im Browser.").font(.footnote).foregroundStyle(.secondary)
+                    }
+                } else if reauth == "login" || reauth == "password" {
+                    // SSO- bzw. reine Passkey-Konten: "Neu beginnen" im Browser (die Browser-Sitzung bekommt die 5 Minuten, nicht die App)
+                    Text("Zur Sicherheit bestätigst du das im Browser: Dort „Chats“ öffnen und neu beginnen.").foregroundStyle(.orange)
+                    if let u = URL(string: AppConfig.server.absoluteString + "/chats") { Link(destination: u) { Label("Im Browser öffnen", systemImage: "safari") }.buttonStyle(.bordered) }
                 }
                 HStack {
                     Button("Zurück") { step = .show }.buttonStyle(.bordered)
@@ -355,7 +363,7 @@ struct ChatSetupView: View {
         guard ChatLogic.confirmLast4(last4, key: key) else { err = String(localized: "Das passt nicht – bitte genau die letzten vier Zeichen."); return }
         busy = true; err = nil; defer { busy = false }
         do {
-            try await chat.setup(recoveryKey: key, reset: reset, password: reset && !password.isEmpty ? password : nil)
+            try await chat.setup(recoveryKey: key, reset: reset, auth: reset && !password.isEmpty ? ReauthLogic.body(password, methods: chat.me.reauthMethods) : nil)
             chat.toast = String(localized: "Chats sind eingerichtet.")
             done?()
         } catch let r as ChatReauth { reauth = r.kind; err = r.message }
@@ -377,7 +385,7 @@ struct ChatNewDeviceView: View {
             Label("Chats auf diesem Gerät", systemImage: "lock.shield").font(.title2.bold())
                 #if DEBUG
                 .task {
-                    if UserDefaults.standard.integer(forKey: "hkChatNewDeviceMode") == 2 { mode = 2 }       // nur fuer Bilder
+                    let m = UserDefaults.standard.integer(forKey: "hkChatNewDeviceMode"); if m == 2 || m == 3 { mode = m }   // nur fuer Bilder
                     if UserDefaults.standard.bool(forKey: "hkChatStartLink") { mode = 1; await chat.startLink() }   // nur fuer Tests: Kopplung anfragen
                 }
                 #endif

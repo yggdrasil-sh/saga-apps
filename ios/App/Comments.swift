@@ -225,6 +225,7 @@ struct CommentsPanel: View {
         let acts = ShareLogic.actions(c, in: t, first: first, role: role)
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
+                AvatarView(name: c.author.name.isEmpty ? "?" : c.author.name, avatar: c.author.avatar, size: 22)
                 Text(c.author.me ? String(localized: "Du") : (c.author.name.isEmpty ? String(localized: "Gelöschtes Konto") : c.author.name)).font(.subheadline.weight(.semibold))
                 if dot { Circle().fill(Color.accentColor).frame(width: 6, height: 6).accessibilityLabel(Text("Neu")) }
                 Text(Date(timeIntervalSince1970: c.created).formatted(.relative(presentation: .named))).font(.caption).foregroundStyle(.secondary)

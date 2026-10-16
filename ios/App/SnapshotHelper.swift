@@ -174,8 +174,10 @@ enum SnapshotHelper {
     }
     /// Hauptfenster + ggf. Blatt (mittig oben darueber) als PNG
     @MainActor static func shoot(to path: String) {
-        guard let main = NSApp.windows.filter({ $0.contentViewController != nil && $0.sheetParent == nil && $0.className != "NSStatusBarWindow" })
-                .max(by: { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }) else { return }
+        let all = NSApp.windows.filter({ $0.contentViewController != nil && $0.sheetParent == nil && $0.className != "NSStatusBarWindow" })
+        let want = UserDefaults.standard.string(forKey: "hkSnapWindow")         // bestimmtes Fenster (z. B. "call")
+        guard let main = all.first(where: { w in want.map { w.identifier?.rawValue.contains($0) == true } ?? false })
+                ?? all.max(by: { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }) else { return }
         let mainFrame = main.frame
         let pops = NSApp.windows.filter { $0.isVisible && $0.className.contains("Popover") }.map { ($0, $0.frame) }
         if UserDefaults.standard.bool(forKey: "hkSnapDump") { for w in NSApp.windows { print("FENSTER", w.className, w.isVisible, NSStringFromRect(w.frame)) } }

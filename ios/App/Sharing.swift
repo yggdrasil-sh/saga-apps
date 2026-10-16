@@ -193,17 +193,12 @@ extension Store {
     }
 }
 
-/// Kreis mit Anfangsbuchstabe bzw. Gruppen-Symbol
+/// Profilbild (2.1) bzw. Initialen oder Gruppen-Symbol
 struct ShareAvatar: View {
     let name: String
     let group: Bool
-    var body: some View {
-        ZStack {
-            Circle().fill(Color.accentColor.opacity(0.16))
-            if group { Image(systemName: "person.2.fill").font(.caption) } else { Text(verbatim: String(name.prefix(1)).uppercased()).font(.subheadline.weight(.semibold)) }
-        }
-        .frame(width: 32, height: 32).accessibilityHidden(true)
-    }
+    var avatar: String? = nil
+    var body: some View { AvatarView(name: name, avatar: avatar, size: 32, group: group) }
 }
 
 struct ShareSheet: View {
@@ -309,7 +304,7 @@ struct ShareSheet: View {
             Section {
                 Text("Unterseiten und Einträge kommen mit.").font(.footnote).foregroundStyle(.secondary)
                 HStack(spacing: 10) {
-                    ShareAvatar(name: ownerName ?? String(localized: "Du"), group: false)
+                    ShareAvatar(name: ownerName ?? String(localized: "Du"), group: false, avatar: store.myAvatar)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(ownerName.map { String(localized: "\($0) (du)") } ?? String(localized: "Du"))
                         Text("Eigentümer").font(.caption).foregroundStyle(.secondary)
@@ -369,7 +364,7 @@ struct ShareSheet: View {
             Task { q = ""; hits = []; await put(h.type, h.target, role, done: String(localized: "✓ Geteilt mit \(h.name) (\(RoleText.name(role)))")) }
         } label: {
             HStack(spacing: 10) {
-                ShareAvatar(name: h.name, group: h.isGroup)
+                ShareAvatar(name: h.name, group: h.isGroup, avatar: h.avatar)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(verbatim: h.name).lineLimit(3)          // umbrechen: der Server-Teil (an wen man teilt) muss lesbar bleiben
                     Text(h.isRemote ? (h.isGroup ? String(localized: "Gruppe auf einer anderen Saga-Instanz") : String(localized: "Andere Saga-Instanz"))
@@ -385,7 +380,7 @@ struct ShareSheet: View {
 
     private func entryRow(_ e: ShareEntry, _ s: ShareState) -> some View {
         let who = HStack(spacing: 10) {
-            ShareAvatar(name: e.name, group: e.isGroup)
+            ShareAvatar(name: e.name, group: e.isGroup, avatar: e.avatar)
             VStack(alignment: .leading, spacing: 1) {
                 Text(verbatim: e.name)
                 Text(sub(e)).font(.caption).foregroundStyle(.secondary)

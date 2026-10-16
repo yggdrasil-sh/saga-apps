@@ -29,10 +29,9 @@ struct PresenceBar: View {
         HStack(spacing: 8) {
             HStack(spacing: -6) {
                 ForEach(users.prefix(4)) { u in
-                    Text(verbatim: LiveLogic.initials(u.name)).font(.caption2.weight(.semibold))
-                        .frame(width: 24, height: 24)
-                        .background(Circle().fill(u.editing ? Color.gold.opacity(0.35) : Color.secondary.opacity(0.2)))
-                        .overlay(Circle().strokeBorder(.background, lineWidth: 1.5))
+                    AvatarView(name: u.name, avatar: u.avatar, size: 24)
+                        .overlay(Circle().strokeBorder(u.editing ? Color.gold : Color.clear, lineWidth: 2))   // bearbeitet: goldener Ring
+                        .overlay(Circle().strokeBorder(.background, lineWidth: 1.5).padding(-1.5))
                 }
             }
             .accessibilityHidden(true)

@@ -36,7 +36,7 @@ struct Page: Decodable, Identifiable, Hashable {
     var isDatabase: Bool { kind == "database" }
     var isRemote: Bool { remote != nil || id < 0 }
 }
-struct PageOwner: Decodable, Hashable { var name: String?; var username: String?; var handle: String?; var remote: Bool? }
+struct PageOwner: Decodable, Hashable { var name: String?; var username: String?; var handle: String?; var remote: Bool?; var avatar: String? }
 
 struct OpenTask: Decodable, Identifiable, Hashable {
     let id: Int; var text: String; var due: String?; var prio: Int?; var rep: String?; var done: Bool?
@@ -79,6 +79,8 @@ final class Store: ObservableObject {
         serverVersion = j["version"] as? String; minApp = j["min_app"] as? String
     }
     @Published var loading = false
+    /// Eigenes Profilbild (2.1, aus /api/account): relative Adresse oder nil
+    @Published var myAvatar: String?
     @Published var error: String?
     @Published var tasks: [OpenTask] = []
     @Published var doneTasks: [OpenTask] = []
@@ -98,12 +100,15 @@ final class Store: ObservableObject {
     let notifs = NotificationsModel()
     let chat = ChatModel()
     let push = PushModel()
+    let calls = CallManager()                                        // Anrufe (2.1)
 
     init() {                                                        // sofort aus dem Zwischenspeicher
         // einmalig nach dem Update: alte Entwuerfe (nur je Server) gehoeren zur aktuell bestehenden Anmeldung
         DraftOwner.app.migrate(origin: AppConfig.serverOrigin, signedIn: DeviceKey.get() != nil || AppConfig.hasToken)
         if let d = cachedData("api/notes"), let p = try? JSONDecoder().decode([Page].self, from: d) { setPages(p) }
         live.store = self; notifs.store = self; chat.store = self; push.store = self
+        AvatarCache.shared.store = self
+        calls.store = self; CallSystem.shared.manager = calls
     }
 
     /// Anfrage mit Sitzung fuer Stroeme (SSE: Live-Kanal, KI-Assistent). Abgelaufene Sitzung (401): einmal still mit dem
@@ -218,6 +223,9 @@ final class Store: ObservableObject {
         needsLogin = true
         throw APIError.http(401, String(localized: "Bitte anmelden"))
     }
+
+    /// Anfrage mit Sitzung (z. B. Profilbilder): wie api, aber ohne JSON und mit eigenem URLRequest
+    func sendQuiet(_ req: URLRequest) async throws -> (Data, Int) { try await send(req) { try await URLSession.shared.data(for: $0) } }
 
     enum ResumeResult { case ok, rejected, offline }
     private var resuming: Task<ResumeResult, Never>?
@@ -709,6 +717,8 @@ final class Store: ObservableObject {
         checkHomeOwner(origin: o, account: u)
         let n = (j["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         accountName = n.isEmpty ? u : n
+        let av = ShareJSON.str(j["avatar"])
+        if av != myAvatar { myAvatar = av }
     }
 
     /// Anderen Server eintragen (Einstellungen): anderer Server = vom alten sauber abmelden
@@ -764,8 +774,8 @@ final class Store: ObservableObject {
         await ds.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), for: recs)
         try? FileManager.default.removeItem(at: cacheDir)
         try? FileManager.default.createDirectory(at: cacheDir.appendingPathComponent("files"), withIntermediateDirectories: true)
-        images.removeAllObjects(); cookieHeader = nil
-        live.stop(); notifs.reset(); chat.signedOut(); push.signedOut()   // 2.0: Live, Glocke, Chat-Schluessel im Speicher, Push-Abo
+        images.removeAllObjects(); cookieHeader = nil; myAvatar = nil; AvatarCache.shared.reset()
+        live.stop(); notifs.reset(); calls.signedOut(); chat.signedOut(); push.signedOut()   // 2.0: Live, Glocke, Chat-Schluessel im Speicher, Push-Abo
         pages = []; archivedPages = []; lastAll = nil; shared = []; fedShared = []; aiEnabled = false; fedUnreachable = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
         // Startseite immer vergessen: die naechste Anmeldung kann ein anderes Konto sein - dessen Start sonst die
         // Seiten-ID des alten Kontos an den Server schickte (BUG-060)

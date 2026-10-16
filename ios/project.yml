@@ -15,6 +15,10 @@ packages:
   Sodium:
     url: https://github.com/jedisct1/swift-sodium.git
     exactVersion: 0.9.1
+  # Anrufe (Saga 2.1): vorgebautes Google-libwebrtc (BSD) fuer iOS + macOS, Version fest (Lizenzhinweis in "Ueber")
+  WebRTC:
+    url: https://github.com/stasel/WebRTC.git
+    exactVersion: 154.0.0
 settings:
   base:
     CODE_SIGN_STYLE: Automatic
@@ -45,7 +49,9 @@ targets:
         ITSAppUsesNonExemptEncryption: false                 # nur HTTPS/System-Krypto -> keine Exportfrage bei jedem TestFlight-Build
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight, UIInterfaceOrientationPortraitUpsideDown]
-        NSCameraUsageDescription: Take photos for notes and scan QR codes to sign in      # uebersetzt: App/InfoPlist.xcstrings
+        NSCameraUsageDescription: Take photos for notes, scan QR codes to sign in and make video calls      # uebersetzt: App/InfoPlist.xcstrings
+        NSMicrophoneUsageDescription: Talk in audio and video calls
+        UIBackgroundModes: [voip, audio, remote-notification]   # Anrufe: PushKit/CallKit, Ton im Hintergrund (nur iOS)
         NSPhotoLibraryAddUsageDescription: Save images from notes
         CFBundleURLTypes:
           - CFBundleURLName: $(SAGA_BUNDLE_ID)
@@ -59,9 +65,13 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor     # Gold wie Web/Android (Assets.xcassets)
         ENABLE_HARDENED_RUNTIME: YES
+        # WebRTC.framework liegt am Mac in Contents/Frameworks (Vorgabe des Mehrplattform-Ziels ist die iOS-Struktur)
+        "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "$(inherited) @executable_path/../Frameworks"
     dependencies:
       - package: Sodium
         product: Clibsodium
+      - package: WebRTC
+        product: WebRTC
       - target: HlidskjalfWidget
       - target: HlidskjalfShare
         destinationFilters: [iOS]

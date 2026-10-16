@@ -1,0 +1,293 @@
+import SwiftUI
+import PhotosUI
+import UniformTypeIdentifiers
+import ImageIO
+#if os(iOS)
+import UIKit
+#else
+import AppKit
+#endif
+
+// Profilbilder (Saga 2.1): Personen-Objekte haben ein Feld `avatar` (relative Adresse auf dem EIGENEN Server oder nil).
+// Bild nur von Saga laden (nie Gravatar/Anmeldedienst/andere Instanzen), mit Sitzung, WebP bevorzugt; 404 = Initialen.
+// Zwischenspeicher: Speicher je Adresse (inkl. ?v=) + URLCache (ETag/Cache-Control vom Server). Logik: AccountLogic.swift.
+
+extension Image {
+    init(platformImage i: PlatformImage) {
+        #if os(iOS)
+        self.init(uiImage: i)
+        #else
+        self.init(nsImage: i)
+        #endif
+    }
+}
+
+@MainActor
+final class AvatarCache {
+    static let shared = AvatarCache()
+    weak var store: Store?
+    private let mem = NSCache<NSString, PlatformImage>()
+    /// 404/kein Bild: nicht erneut versuchen, bis sich die Adresse (v) aendert
+    private var missing = Set<String>()
+    private var inflight: [String: Task<PlatformImage?, Never>] = [:]
+
+    func cached(_ avatar: String?, px: Int) -> PlatformImage? {
+        guard let u = AvatarLogic.url(server: AppConfig.serverString, avatar: avatar, px: px) else { return nil }
+        return mem.object(forKey: u.absoluteString as NSString)
+    }
+    func image(_ avatar: String?, px: Int) async -> PlatformImage? {
+        guard AppConfig.hasServer, let store, let u = AvatarLogic.url(server: AppConfig.serverString, avatar: avatar, px: px) else { return nil }
+        let key = u.absoluteString
+        if let m = mem.object(forKey: key as NSString) { return m }
+        if missing.contains(key) { return nil }
+        if let t = inflight[key] { return await t.value }
+        let t = Task { () -> PlatformImage? in
+            guard let (d, code) = await store.avatarData(u) else { return nil }          // offline: spaeter erneut
+            guard code == 200, let img = PlatformImage(data: d) else { self.missing.insert(key); return nil }
+            self.mem.setObject(img, forKey: key as NSString)
+            return img
+        }
+        inflight[key] = t
+        let r = await t.value
+        inflight[key] = nil
+        return r
+    }
+    /// eigenes Bild geaendert/abgemeldet
+    func reset() { mem.removeAllObjects(); missing = []; inflight = [:] }
+}
+
+/// Rundes Profilbild mit Initialen (bzw. Gruppen-Symbol) als Platzhalter
+struct AvatarView: View {
+    let name: String
+    var avatar: String?
+    var size: CGFloat = 32
+    var group = false
+    @Environment(\.displayScale) private var scale
+    @State private var img: PlatformImage?
+    var body: some View {
+        ZStack {
+            Circle().fill(Color.accentColor.opacity(0.16))
+            if group { Image(systemName: "person.2.fill").font(.system(size: size * 0.36)) }
+            else { Text(verbatim: LiveLogic.initials(name)).font(.system(size: size * 0.4, weight: .semibold)).minimumScaleFactor(0.5) }
+            if let img { Image(platformImage: img).resizable().scaledToFill() }
+        }
+        .frame(width: size, height: size).clipShape(Circle())
+        .accessibilityHidden(true)
+        .task(id: group ? nil : avatar) {
+            let px = AvatarLogic.step(points: Double(size), scale: Double(scale))
+            img = group ? nil : AvatarCache.shared.cached(avatar, px: px)
+            if !group, img == nil { img = await AvatarCache.shared.image(avatar, px: px) }
+        }
+    }
+}
+
+extension Store {
+    /// Profilbild laden (Sitzung bzw. still erneuert); nil = offline
+    func avatarData(_ url: URL) async -> (Data, Int)? {
+        var req = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 20)
+        req.httpShouldHandleCookies = false
+        req.setValue("image/webp,image/*;q=0.8", forHTTPHeaderField: "Accept")
+        return try? await sendQuiet(req)
+    }
+}
+
+// MARK: - Einstellungen → Konto: eigenes Profilbild
+
+struct AvatarInfo: Equatable {
+    var url: String?; var source: AvatarLogic.Source; var gravatar: Bool; var gravatarEnabled: Bool; var hasEmail: Bool; var isPublic: Bool; var maxMB: Int
+    init?(data: Data) {
+        guard let j = ShareJSON.obj(data) else { return nil }
+        url = ShareJSON.str(j["url"]); source = AvatarLogic.source(ShareJSON.str(j["source"]))
+        gravatar = ShareJSON.bool(j["gravatar"]); gravatarEnabled = ShareJSON.bool(j["gravatar_enabled"]); hasEmail = ShareJSON.bool(j["has_email"])
+        isPublic = ShareJSON.bool(j["public"]); maxMB = ShareJSON.int(j["max_mb"]) ?? 5
+    }
+}
+
+struct AvatarSettingsSection: View {
+    @EnvironmentObject var store: Store
+    /// Zuschnitt: Blatt haengt am Formular (SettingsView) - Blaetter an Zeilen eines Formulars sind unzuverlaessig
+    @Binding var crop: CropSource?
+    /// Ergebnis des Zuschnitts (vom Formular gesetzt) -> hochladen
+    @Binding var cropped: Data?
+    @State private var info: AvatarInfo?
+    @State private var supported = true
+    @State private var pick: PhotosPickerItem?
+    @State private var pickFile = false
+    @State private var busy = false
+    @State private var msg: String?
+    @State private var askRemove = false
+    var body: some View {
+        if supported {
+            Section {
+                if let info {
+                    HStack(spacing: 14) {
+                        AvatarView(name: store.accountName ?? "?", avatar: info.url, size: 72).id(info.url ?? "-")
+                        Text(sourceText(info)).font(.callout).foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                    #if os(iOS)
+                    PhotosPicker(selection: $pick, matching: .images) { Label("Bild hochladen …", systemImage: "person.crop.circle.badge.plus") }
+                        .disabled(busy)
+                    #else
+                    Button { pickFile = true } label: { Label("Bild hochladen …", systemImage: "person.crop.circle.badge.plus") }.disabled(busy)
+                    #endif
+                    if info.source == .upload {
+                        Button(role: .destructive) { askRemove = true } label: { Label("Eigenes Bild entfernen", systemImage: "trash").foregroundStyle(.red) }.disabled(busy)
+                    }
+                    if info.gravatarEnabled {
+                        Toggle("Gravatar verwenden, wenn ich kein eigenes Bild habe", isOn: Binding(get: { info.gravatar }, set: { v in Task { await patch(["gravatar": v]) } }))
+                    }
+                    Toggle("Auch auf meinen veröffentlichten Seiten zeigen", isOn: Binding(get: { info.isPublic }, set: { v in Task { await patch(["public": v]) } }))
+                    if let msg { Text(verbatim: msg).font(.footnote).foregroundStyle(.secondary) }
+                } else { ProgressView() }
+            } header: { Text("Profilbild").id("avatar") } footer: {
+                Text("Andere sehen dein Bild bei Kommentaren, im Chat und beim Teilen. Saga lädt Bilder nur vom eigenen Server.")
+            }
+            .task { await load() }
+            .onChange(of: pick) { _, it in
+                guard let it else { return }
+                Task { if let d = try? await it.loadTransferable(type: Data.self), let c = CropSource(data: d) { crop = c }; pick = nil }
+            }
+            .fileImporter(isPresented: $pickFile, allowedContentTypes: [.image]) { r in
+                guard let u = try? r.get() else { return }
+                let ok = u.startAccessingSecurityScopedResource(); defer { if ok { u.stopAccessingSecurityScopedResource() } }
+                if let d = try? Data(contentsOf: u), let c = CropSource(data: d) { crop = c }
+            }
+            .onChange(of: cropped) { _, d in if let d { cropped = nil; Task { await upload(d) } } }
+            .alert("Eigenes Bild entfernen?", isPresented: $askRemove) {
+                Button("Entfernen", role: .destructive) { Task { await remove() } }
+                Button("Abbrechen", role: .cancel) {}
+            }
+        }
+    }
+    private func sourceText(_ i: AvatarInfo) -> String {
+        switch i.source {
+        case .upload: return String(localized: "Angezeigt wird: Eigenes Bild")
+        case .sso: return String(localized: "Angezeigt wird: Bild vom Anmeldedienst")
+        case .gravatar: return String(localized: "Angezeigt wird: Gravatar")
+        case .none: return String(localized: "Kein Bild – es werden deine Initialen angezeigt.")
+        }
+    }
+    private func apply(_ d: Data) {
+        guard let i = AvatarInfo(data: d) else { return }
+        info = i; store.myAvatar = i.url; AvatarCache.shared.reset()
+    }
+    private func load() async {
+        guard let (d, code) = try? await store.apiResponse("api/account/avatar") else { return }
+        if code == 404 || code == 405 { supported = false; return }
+        if code == 200 { apply(d) }
+        #if DEBUG
+        if let p = UserDefaults.standard.string(forKey: "hkAvatarCropTest"), let d = FileManager.default.contents(atPath: p) {   // nur fuer Tests
+            try? await Task.sleep(for: .seconds(1.5)); crop = CropSource(data: d)
+        }
+        #endif
+    }
+    private func patch(_ body: [String: Any]) async {
+        busy = true; defer { busy = false }
+        do { apply(try await store.api("api/account/avatar", method: "PATCH", body: body)); msg = nil } catch { msg = error.localizedDescription }
+    }
+    private func upload(_ jpeg: Data) async {
+        busy = true; msg = String(localized: "Wird hochgeladen …"); defer { busy = false }
+        do {
+            if jpeg.count > (info?.maxMB ?? 5) * 1_048_576 { throw APIError.other(String(localized: "Das Bild ist zu groß.")) }
+            apply(try await store.apiRaw("api/account/avatar", method: "PUT", data: jpeg, contentType: "image/jpeg"))
+            msg = String(localized: "✓ Gespeichert")
+        } catch { msg = error.localizedDescription }
+    }
+    private func remove() async {
+        busy = true; defer { busy = false }
+        do { apply(try await store.api("api/account/avatar", method: "DELETE")); msg = nil } catch { msg = error.localizedDescription }
+    }
+}
+
+/// Bild fuer den Zuschnitt: EXIF-Ausrichtung angewendet, hoechstens 3000 px (ImageIO)
+struct CropSource: Identifiable {
+    let id = UUID()
+    let image: CGImage
+    init?(data: Data) {
+        guard let src = CGImageSourceCreateWithData(data as CFData, nil),
+              let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
+                                                                    kCGImageSourceThumbnailMaxPixelSize: 3000] as CFDictionary) else { return nil }
+        image = cg
+    }
+}
+
+/// Quadratischer Zuschnitt mit Kreis-Vorschau: ziehen = verschieben, Regler/Pinch = zoomen
+struct AvatarCropSheet: View {
+    let source: CropSource
+    let done: (Data) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var zoom: Double = 1
+    @State private var offset: (x: Double, y: Double) = (0, 0)
+    @State private var dragStart: (x: Double, y: Double)?
+    @State private var zoomStart: Double?
+    private let side: Double = 280
+    private var pixelSize: (w: Double, h: Double) { (Double(source.image.width), Double(source.image.height)) }
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 18) {
+                let p = pixelSize, s = AvatarLogic.coverScale(image: p.w, p.h, side: side) * zoom
+                let o = AvatarLogic.clamp(offset: offset, image: p.w, p.h, side: side, zoom: zoom)
+                ZStack {
+                    Image(decorative: source.image, scale: 1).resizable().interpolation(.high)
+                        .frame(width: p.w * s, height: p.h * s)
+                        .offset(x: o.x, y: o.y)
+                    Rectangle().fill(.black.opacity(0.45)).reverseMask { Circle().frame(width: side, height: side) }
+                    Circle().strokeBorder(.white.opacity(0.9), lineWidth: 2).frame(width: side, height: side)
+                }
+                .frame(width: side, height: side).clipped().contentShape(Rectangle())
+                .gesture(DragGesture()
+                    .onChanged { g in let b = dragStart ?? o; if dragStart == nil { dragStart = o }; offset = (b.x + g.translation.width, b.y + g.translation.height) }
+                    .onEnded { _ in dragStart = nil; offset = AvatarLogic.clamp(offset: offset, image: p.w, p.h, side: side, zoom: zoom) })
+                .simultaneousGesture(MagnifyGesture()
+                    .onChanged { g in let b = zoomStart ?? zoom; if zoomStart == nil { zoomStart = zoom }; zoom = min(4, max(1, b * g.magnification)) }
+                    .onEnded { _ in zoomStart = nil })
+                .accessibilityLabel(Text("Bildausschnitt"))
+                HStack {
+                    Image(systemName: "minus.magnifyingglass").accessibilityHidden(true)
+                    Slider(value: $zoom, in: 1...4) { Text("Zoom") }
+                    Image(systemName: "plus.magnifyingglass").accessibilityHidden(true)
+                }.frame(maxWidth: 320)
+                Text("Ziehen zum Verschieben, Zoom zum Vergrößern.").font(.footnote).foregroundStyle(.secondary)
+            }
+            .padding()
+            .navigationTitle("Ausschnitt")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) { Button("Übernehmen") { if let j = render() { done(j) }; dismiss() } }
+            }
+            #if DEBUG
+            .task { if UserDefaults.standard.bool(forKey: "hkAvatarCropAuto") { try? await Task.sleep(for: .seconds(3)); zoom = 1.6; try? await Task.sleep(for: .seconds(2)); if let j = render() { done(j) }; dismiss() } }
+            #endif
+        }
+        .macFrame(minWidth: 420, idealWidth: 460, minHeight: 500)
+    }
+    /// Ausschnitt -> JPEG 512...1024 px (EXIF entfernt der Server)
+    private func render() -> Data? {
+        let p = pixelSize
+        let r = AvatarLogic.cropRect(image: p.w, p.h, side: side, zoom: zoom, offset: offset)
+        let out = AvatarLogic.outputSide(r.size)
+        let cg = source.image
+        guard let piece = cg.cropping(to: CGRect(x: r.x, y: r.y, width: r.size, height: r.size).integral),
+              let ctx = CGContext(data: nil, width: out, height: out, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                  bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        ctx.interpolationQuality = .high
+        ctx.draw(piece, in: CGRect(x: 0, y: 0, width: out, height: out))
+        guard let img = ctx.makeImage() else { return nil }
+        #if os(iOS)
+        return UIImage(cgImage: img).jpegData(compressionQuality: 0.88)
+        #else
+        return NSBitmapImageRep(cgImage: img).representation(using: .jpeg, properties: [.compressionFactor: 0.88])
+        #endif
+    }
+}
+
+private extension View {
+    /// Abdunkeln ausserhalb des Kreises
+    func reverseMask<M: View>(@ViewBuilder _ mask: () -> M) -> some View {
+        self.mask { Rectangle().overlay { mask().blendMode(.destinationOut) }.compositingGroup() }
+    }
+}

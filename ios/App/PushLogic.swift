@@ -46,6 +46,8 @@ struct PushState: Equatable {
     }
     /// Abo dieses Geraets (gehoert zur Geraete-Anmeldung der App)
     var thisDevice: PushDevice? { devices.first { $0.thisDevice && $0.type == "apns" } }
+    /// VoIP-Abo dieses Geraets (2.1, nur klingelnde Anrufe)
+    var thisVoip: PushDevice? { devices.first { $0.thisDevice && $0.type == "apns-voip" } }
 }
 
 enum PushLogic {
@@ -56,8 +58,8 @@ enum PushLogic {
     static func hex(_ token: Data) -> String { token.map { String(format: "%02x", $0) }.joined() }
     /// Debug-Builds: sandbox, sonst production
     static func env(debug: Bool) -> String { debug ? "sandbox" : "production" }
-    static func subscription(token: String, env: String, name: String) -> [String: Any] {
-        ["type": "apns", "token": token, "env": env, "name": String(name.prefix(80))]
+    static func subscription(token: String, env: String, name: String, type: String = "apns") -> [String: Any] {
+        ["type": type, "token": token, "env": env, "name": String(name.prefix(80))]
     }
     /// Schalter: bedienbar oder warum nicht
     enum Availability: Equatable { case ok, serverOff, appleMissing, unsupported }
@@ -79,13 +81,15 @@ enum PushLogic {
     }
 
     /// Bezeichnung des Dienstes in der Geraeteliste: Apple-Abos menschlich ("Saga-App", Entwicklungsbuild als Testversion)
-    enum Service: Equatable { case sagaApp(test: Bool), other(String) }
+    enum Service: Equatable { case sagaApp(test: Bool), sagaCalls(test: Bool), other(String) }
     static func service(type: String, whereText: String) -> Service {
+        let test = whereText.lowercased().contains("sandbox")
+        if type == "apns-voip" { return .sagaCalls(test: test) }
         guard type == "apns" else { return .other(whereText) }
-        return .sagaApp(test: whereText.lowercased().contains("sandbox"))
+        return .sagaApp(test: test)
     }
     /// Doppelte Abos desselben App-Geraets (z. B. nach neuem Token): alle ausser dem aktuellen entfernen
-    static func duplicates(_ devices: [PushDevice], keep: Int?) -> [Int] {
-        devices.filter { $0.thisDevice && $0.type == "apns" && $0.id != keep }.map(\.id)
+    static func duplicates(_ devices: [PushDevice], keep: Int?, type: String = "apns") -> [Int] {
+        devices.filter { $0.thisDevice && $0.type == type && $0.id != keep }.map(\.id)
     }
 }

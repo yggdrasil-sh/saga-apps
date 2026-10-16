@@ -8,19 +8,19 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Take photos for notes and scan QR codes to sign in"
+            "value" : "Take photos for notes, scan QR codes to sign in and make video calls"
           }
         },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Fotos für Notizen aufnehmen und QR-Codes zum Anmelden scannen"
+            "value" : "Fotos für Notizen aufnehmen, QR-Codes zum Anmelden scannen und Videoanrufe führen"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hacer fotos para notas y escanear códigos QR para iniciar sesión"
+            "value" : "Hacer fotos para notas, escanear códigos QR para iniciar sesión y hacer videollamadas"
           }
         }
       }
@@ -45,6 +45,30 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Guardar imágenes de las notas"
+          }
+        }
+      }
+    },
+    "NSMicrophoneUsageDescription" : {
+      "comment" : "Info.plist",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Talk in audio and video calls"
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Audio- und Videoanrufen sprechen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hablar en llamadas de audio y vídeo"
           }
         }
       }

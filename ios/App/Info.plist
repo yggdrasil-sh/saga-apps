@@ -39,7 +39,9 @@
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Take photos for notes and scan QR codes to sign in</string>
+	<string>Take photos for notes, scan QR codes to sign in and make video calls</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Talk in audio and video calls</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save images from notes</string>
 	<key>SagaAppGroup</key>
@@ -50,6 +52,12 @@
 	<string>$(SAGA_KEYCHAIN_GROUP)</string>
 	<key>SagaMovedServers</key>
 	<string>$(SAGA_MOVED_SERVERS)</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>voip</string>
+		<string>audio</string>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>
