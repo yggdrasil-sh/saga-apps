@@ -25,7 +25,8 @@ def kind_label(kind):
             "comment.reply": _("Replies in threads I'm part of"),
             "comment.mention": _("Someone mentions me"),
             "publish.withdrawn": _("An admin withdraws one of my published pages"),
-            "chat.message": _("New chat messages (without content; never for muted chats)")}.get(kind, kind)
+            "chat.message": _("New chat messages (without content; never for muted chats)"),
+            "call.missed": _("Missed calls")}.get(kind, kind)
 
 
 def item_text(it):
@@ -54,13 +55,15 @@ def item_text(it):
         if n <= 1:
             return _("New message from {name}").format(name=name)
         return ngettext("{n} new message", "{n} new messages", n).format(n=n)
+    if k == "call.missed":
+        return _("Missed call from {name}").format(name=name)
     return it.get("text") or ""
 
 
 def item_title(it):
     if it.get("access") is False:
         return _("No access anymore")
-    if it.get("kind") == "chat.message":
+    if it.get("kind") in ("chat.message", "call.missed"):
         return it.get("title") or _("Chat")
     note = it.get("note") if isinstance(it.get("note"), dict) else None
     if note:
@@ -219,13 +222,13 @@ def show_desktop(app, it):
     if app is None or not desktop_enabled() or not isinstance(it, dict):
         return False
     n = Gio.Notification.new(item_text(it) or "Saga")
-    body = item_title(it) if it.get("kind") != "chat.message" else ""
+    body = item_title(it) if it.get("kind") not in ("chat.message", "call.missed") else ""
     if body:
         n.set_body(body)
     url = it.get("url") or ("/chats#c%s" % it["chat"]["id"] if isinstance(it.get("chat"), dict) else "")
     if url and it.get("access") is not False:
         n.set_default_action_and_target("app.open-url", GLib.Variant("s", url))
-    n.set_category("im.received" if it.get("kind") == "chat.message" else "presence")
+    n.set_category({"chat.message": "im.received", "call.missed": "call.unanswered"}.get(it.get("kind"), "presence"))
     try:
         app.send_notification(item_tag(it), n)
     except GLib.Error:
@@ -330,6 +333,9 @@ class NotificationList(Gtk.Box):
         av = Adw.Avatar(size=32, text=(actor or {}).get("name") or "Saga", show_initials=actor is not None, valign=Gtk.Align.START)
         if actor is None:
             av.set_icon_name(bell_icon())
+        else:
+            from . import avatars
+            avatars.attach(av, actor.get("avatar"), 32)          # Profilbild (2.1), sonst Initialen
         box.append(av)
         col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, hexpand=True)
         txt = item_text(it)

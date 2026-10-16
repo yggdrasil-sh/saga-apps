@@ -179,7 +179,7 @@ def share_rows(st):
         else:
             body = _("{name} immediately loses access to this page and its subpages.").format(name=name)
         out.append({"type": typ, "target": x.get("target") or "", "name": name, "sub": sub, "role": x.get("role") or "view",
-                    "via": via, "remove_body": body, "a11y_role": _("Role of {name}").format(name=name),
+                    "avatar": x.get("avatar"), "via": via, "remove_body": body, "a11y_role": _("Role of {name}").format(name=name),
                     "a11y_remove": _("Remove access for {name}").format(name=name)})
     return out
 
@@ -207,7 +207,7 @@ def hit_rows(d, st, role):
     add_as = _("Add ({role})").format(role=role_name(role))
     for u in (d or {}).get("users") or []:
         t = u.get("username") or ""
-        out.append({"type": "user", "target": t, "name": u.get("name") or t, "sub": t,
+        out.append({"type": "user", "target": t, "name": u.get("name") or t, "sub": t, "avatar": u.get("avatar"),
                     "has": _("has access") if f"user:{t}" in tk else add_as})
     for g in (d or {}).get("groups") or []:
         n = g.get("name") or ""
@@ -217,7 +217,7 @@ def hit_rows(d, st, role):
         typ, t = r.get("type") or "remote", r.get("target") or ""
         if typ not in ("remote", "remote_group") or not t:
             continue
-        out.append({"type": typ, "target": t, "name": r.get("name") or t, "sub": remote_sub(typ),
+        out.append({"type": typ, "target": t, "name": r.get("name") or t, "sub": remote_sub(typ), "avatar": r.get("avatar"),
                     "has": _("has access") if f"{typ}:{t}" in tk else add_as})
     return out
 
@@ -426,12 +426,16 @@ def shared_by_box(page):
     return box
 
 
-def avatar(typ, name, size=32):
+def avatar(typ, name, size=32, url=None):
+    """Kreis fuer Person/Gruppe; url: Profilbild (Feld "avatar", Server ab 2.1) ueber die Initialen"""
     grp = typ in ("group", "remote_group")
     text = (name or "?").split(" (")[0] or "?"                # "Bert (bert@b.example)" -> Initialen "B", nicht "B("
     a = Adw.Avatar(size=size, text=text, show_initials=not grp)
     if grp:
         a.set_icon_name(people_icon())
+    elif url:
+        from . import avatars
+        avatars.attach(a, url, size)
     return a
 
 
@@ -657,12 +661,12 @@ class ShareDialog(Adw.Dialog):
         doc = next((d for d in list(store.docs) if d.id == self.pid and d.fetched), None)
         oname = owner_name(doc.page) if doc is not None else ""
         me = self._add(g, _row(_("{name} (you)").format(name=oname) if oname else _("You"), _("Owner")))
-        me.add_prefix(avatar("user", oname or _("You")))
+        me.add_prefix(avatar("user", oname or _("You"), url=((doc.page if doc is not None else {}).get("owner") or {}).get("avatar")))
         rows = share_rows(self.st)
         for x in rows:
             r = self._add(g, _row(x["name"], x["sub"] + (("\n" + x["via"]) if x["via"] else "")))
             r.set_subtitle_lines(3)
-            r.add_prefix(avatar(x["type"], x["name"]))
+            r.add_prefix(avatar(x["type"], x["name"], url=x.get("avatar")))
             dd = Gtk.DropDown.new_from_strings([role_name(k) for k in ROLES])
             dd.set_valign(Gtk.Align.CENTER)
             dd.set_selected(ROLES.index(x["role"]) if x["role"] in ROLES else 0)
@@ -686,7 +690,7 @@ class ShareDialog(Adw.Dialog):
         g.set_visible(bool(rows))
         for x in rows:
             r = self._add(g, _row(x["name"], x["sub"]))
-            r.add_prefix(avatar(x["type"], x["name"]))
+            r.add_prefix(avatar(x["type"], x["name"], url=x.get("avatar")))
             lb = Gtk.Label(label=x["role"], valign=Gtk.Align.CENTER)
             lb.add_css_class("hk-role-pill")
             r.add_suffix(lb)
@@ -727,7 +731,7 @@ class ShareDialog(Adw.Dialog):
         g.set_visible(bool(hits))
         for h in hits:
             r = self._add(g, _row(h["name"], h["sub"], activatable=True))
-            r.add_prefix(avatar(h["type"], h["name"]))
+            r.add_prefix(avatar(h["type"], h["name"], url=h.get("avatar")))
             lb = Gtk.Label(label=h["has"], valign=Gtk.Align.CENTER)
             lb.add_css_class("dim-label")
             r.add_suffix(lb)

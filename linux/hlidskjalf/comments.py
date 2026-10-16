@@ -555,6 +555,9 @@ class CommentsPanel(Gtk.Box):
     def _comment(self, t, cm, first, dot):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         h = Gtk.Box(spacing=6)
+        from . import avatars
+        av = avatars.person((cm or {}).get("author") or {}, 24, text=author(cm) or "?", valign=Gtk.Align.CENTER)
+        h.append(av)                                               # Profilbild (2.1) bzw. Initialen
         a = _label(author(cm), "heading", wrap=False)
         a.set_ellipsize(Pango.EllipsizeMode.END)
         h.append(a)

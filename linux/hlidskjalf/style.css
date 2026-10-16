@@ -225,3 +225,10 @@ flowbox.hk-codeview > flowboxchild { padding: 0; }
 .hk-ai-a { line-height: 1.35; }
 .hk-block-row.hk-ai-marked { background: alpha(var(--accent-bg-color), 0.12); border-radius: 6px;
   box-shadow: inset 3px 0 0 0 var(--accent-color); }
+/* Saga 2.1: Anrufe, Profilbilder, Anmeldung & Sicherheit */
+.hk-callbar { background: alpha(var(--accent-bg-color), 0.14); border-radius: 12px; padding: 6px 10px; }
+.hk-call-entry { background: alpha(currentColor, 0.05); border-radius: 999px; padding: 4px 12px; }
+.hk-call-entry:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 1px; }
+.hk-call-entry.hk-call-missed image, .hk-call-entry.hk-call-missed .hk-call-text { color: var(--error-color); }
+.hk-warn-row image { color: var(--warning-color); }
+button.hk-acct-btn { padding: 2px; min-width: 0; min-height: 0; border-radius: 999px; }

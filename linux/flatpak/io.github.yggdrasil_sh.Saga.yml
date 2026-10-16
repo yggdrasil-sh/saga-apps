@@ -23,6 +23,8 @@ finish-args:
   - --talk-name=org.freedesktop.secrets
   # Mitteilungen (Push) bei geschlossener App: UnifiedPush-Verteiler auf dem Sitzungs-Bus (z. B. KUnifiedPush)
   - --talk-name=org.unifiedpush.Distributor.*
+  # Klingelton bei eingehenden Anrufen (2.1; nur Wiedergabe - das Gespraech selbst laeuft im Browser, kein Mikrofon hier)
+  - --socket=pulseaudio
   # Kein Dateisystem-Zugriff: Anhaenge speichern, Bild waehlen, Anhaengen und Exportieren laufen ueber Gtk.FileDialog (Portal)
 # Uebersetzungen bleiben in der App (/app/share/locale): ein Locale-Erweiterungspaket fehlte sonst im Einzeldatei-Bundle
 separate-locales: false

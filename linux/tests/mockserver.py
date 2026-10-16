@@ -13,6 +13,7 @@ import time
 import urllib.parse
 
 import mockv2
+import mockv21
 
 SERVER = "https://saga.test"
 
@@ -121,6 +122,7 @@ class MockServer:
                          {"name": "Ohne Symbol mit sehr langem Namen", "host": "lang.example.org", "url": "https://lang.example.org",
                           "category": "Medien"}]
         mockv2.init(self)                    # Saga 2.0: Live, Benachrichtigungen, Chat, Push, KI, Foederation
+        mockv21.init(self)                   # Saga 2.1: Profilbilder, 2FA-Stand, Anrufe
 
     # --- Saga 2.0 (mockv2.py) --------------------------------------------------------------------------
     def push_event(self, ev, data):
@@ -204,10 +206,14 @@ class MockServer:
         if not cookie or want is None or f"hk_session={want}" not in cookie:
             return self._reply(401, {"error": "unauthorized"})
         if path == "api/account":
-            return self._reply(200, {"username": self.users.get(base, "test"), "name": "Test"})
+            return mockv21.decorate(self, path, self._reply(200, {"username": self.users.get(base, "test"), "name": "Test"}))
         with self.lock:
             self._raw = data
-            return self._api(method, path, q, body)
+            bd = body if isinstance(body, dict) else {}
+            r = mockv21.handle(self, method, path, path.split("/"), q, bd, data, lambda: self._api(method, path, q, bd))
+            if r is None:
+                r = self._api(method, path, q, bd if isinstance(body, dict) else body)
+            return mockv21.decorate(self, path, r)
 
     def _api(self, method, path, q, body):
         parts = path.split("/")

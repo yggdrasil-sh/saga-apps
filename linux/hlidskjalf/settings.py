@@ -61,6 +61,10 @@ class SettingsDialog(Adw.PreferencesDialog):
         page.add(g3)
         self.add(page)
         acc = Adw.PreferencesPage(title=_("Account"), icon_name="avatar-default-symbolic")
+        from .profile import AvatarGroup
+        acc.add(AvatarGroup(self))                 # Profilbild (Server ab 2.1); sonst unsichtbar
+        from .security import SecurityGroup
+        acc.add(SecurityGroup(self))               # Anmeldung & Sicherheit (2FA, Server ab 2.1): Stand + Browser
         from .publish import PublicNameGroup
         acc.add(PublicNameGroup(self))             # oeffentlicher Name (Veroeffentlichen); aeltere Server: unsichtbar
         from .notifications import NotificationSettingsGroup

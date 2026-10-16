@@ -33,6 +33,22 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Dateimanager kommen im Chat als Anhang mit Vorschau, auf Seiten als Bild- bzw. Dateiblock; Text wie bisher.
   Zu große Bilder werden im Chat automatisch verkleinert.
 
+### Linux
+- **Anmeldung & Sicherheit (Server 2.1):** Einstellungen → Konto zeigt den Stand des zweiten Faktors (Passkeys,
+  Authenticator-App, verbleibende Wiederherstellungscodes, Hinweis, wenn der Admin ihn verlangt) und öffnet die
+  Verwaltung mit „Im Browser verwalten“. Die Anmeldung mit Passkey bzw. Code läuft wie bisher im Browser; der
+  Anmeldebildschirm weist darauf hin.
+- **Chats neu beginnen mit Code:** zur Bestätigung geht neben dem Passwort auch der 6-stellige Code der
+  Authenticator-App; Konten nur mit Passkey werden in den Browser geleitet.
+- **Profilbilder:** überall, wo Personen erscheinen (Chats, Unterhaltungen, Mitglieder, Personensuche, Glocke,
+  Anwesenheit, Kommentare, Teilen, eigenes Konto in der Seitenleiste) – geladen nur von Saga, zwischengespeichert, mit
+  Initialen als Rückfall. Eigenes Bild hochladen mit rundem Zuschnitt (verschieben, zoomen), entfernen, Gravatar und
+  „auf veröffentlichten Seiten zeigen“ schalten.
+- **Anrufe:** eingehende Audio- und Videoanrufe klingeln in der App (Leiste im Fenster, Desktop-Mitteilung mit
+  „Ablehnen“/„Annehmen“, auch über UnifiedPush) – genau einmal je Anruf, und nicht mehr, sobald er anderswo
+  angenommen oder beendet wurde. Annehmen und Anrufen öffnen das Gespräch im Standardbrowser. Verpasste, abgelehnte
+  und beendete Anrufe stehen im Chat, „Verpasster Anruf“ auch in der Glocke.
+
 ## [2.0.0] – 2026-10-15
 
 Passt zu Saga-Server 2.0. **Die neuen Funktionen brauchen Saga-Server 2.0; ältere Server funktionieren weiter**

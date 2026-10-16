@@ -303,3 +303,48 @@ def safety_number(uid_a, ident_a, uid_b, ident_b):
     if a[0] > b[0]:
         a, b = b, a
     return _digits(gh(lp(V + "safety", a[0], a[1], b[0], b[1]), 64), 12)
+
+
+# --- Anrufe (saga-call/v1, Server 2.1) ----------------------------------------------------------------------------
+# Die Linux-App nimmt Anrufe (v1) im Browser an; Signale kann sie trotzdem pruefen/erzeugen (Grundlage fuer einen
+# spaeteren eigenen Anruf mit GStreamer webrtcbin). Geprueft gegen tests/call_vectors.json (tests/test_call_vectors.py).
+VC = "saga-call/v1/"
+
+
+def signal_msg(call_id, from_uid, from_device, to_uid, to_device, body):
+    """LP("saga-call/v1/signal", call_id, from_uid, from_device, to_uid, to_device, body)"""
+    return lp(VC + "signal", call_id, from_uid, from_device, to_uid, to_device, body)
+
+
+def signal_inner(body, sig):
+    return json.dumps({"v": 1, "body": body, "sig": b64(sig)}, separators=(",", ":"))
+
+
+def seal_signal(call_id, from_uid, dev, to_uid, to_device, to_pk, body):
+    """Signal (JSON-Text body) mit dem Geraete-Signaturschluessel signieren und fuer das Zielgeraet versiegeln -> B64"""
+    sig = sign(signal_msg(call_id, from_uid, dev["id"], to_uid, to_device, body), dev["sign_sk"])
+    return b64(nb.crypto_box_seal(signal_inner(body, sig).encode(), bytes(to_pk)))
+
+
+def open_signal(sealed_b64, pk, sk):
+    """Versiegeltes Signal mit dem eigenen Geraet oeffnen -> (body, sig). CryptoError bei kaputtem Inhalt."""
+    raw = unseal(sealed_b64, pk, sk)
+    try:
+        d = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as e:
+        raise CryptoError("signal") from e
+    if not isinstance(d, dict) or d.get("v") != 1 or not isinstance(d.get("body"), str):
+        raise CryptoError("signal version")
+    return d["body"], unb64(d.get("sig"), 64)
+
+
+def verify_signal(call_id, from_uid, from_device, to_uid, to_device, body, sig, sign_pk):
+    """Signatur pruefen - mit MEINEM uid/Geraet als Ziel (verhindert Umleiten an andere Geraete/Anrufe)"""
+    return verify(sig, signal_msg(call_id, from_uid, from_device, to_uid, to_device, body), sign_pk)
+
+
+def sdp_fingerprints(sdp):
+    """sortierte Liste "<alg-klein> <HEX-GROSS>" aus allen a=fingerprint-Zeilen einer SDP"""
+    import re
+    return sorted({m.group(1).lower() + " " + m.group(2).upper()
+                   for m in re.finditer(r"^a=fingerprint:(\S+) ([0-9A-Fa-f:]+)\s*$", str(sdp or ""), re.M)})
