@@ -15,6 +15,12 @@ Native App (SwiftUI) für einen [Saga](https://github.com/yggdrasil-sh/saga)-Ser
   Anhänge, Antworten, Seitenverweise; Einrichtung mit Wiederherstellungsschlüssel, neue Geräte per Code bestätigen,
   Sicherheitsnummer (mit QR-Code). Kryptografie nur über libsodium (swift-sodium), private Schlüssel nur im
   Schlüsselbund dieses Geräts. Prüfung gegen die Testvektoren des Servers: `Tests/ChatVectors` (siehe unten)
+- **Anrufe** (Server 2.1): Audio und Video im Direkt-Chat über WebRTC, Signalisierung signiert und versiegelt
+  (saga-call/v1), DTLS-Fingerabdruck geprüft; iPhone/iPad klingeln über CallKit + PushKit-VoIP, der Mac mit eigenem
+  Fenster „Anruf“
+- **Profilbilder** (Server 2.1) überall, wo Personen erscheinen; eigenes Bild mit Zuschnitt unter Einstellungen
+- **Anmeldung & Sicherheit** (Server 2.1): Status des zweiten Faktors, verwaltet im Browser; der 2FA-Schritt der
+  Anmeldung erscheint im System-Anmeldefenster
 - **Mitteilungen** (Push über APNs, Server 2.0): Einstellungen → Mitteilungen; nie mit Inhalten
 - **KI-Assistent** (Server 2.0, wenn der Admin ihn einschaltet): „Frag deine Seiten“ und „Diese Seite“
 - **Föderation** (Server 2.0): Seiten anderer Saga-Instanzen unter „Mit mir geteilt“, Teilen an `name@server`
@@ -62,6 +68,17 @@ bestehen:
 cd ios/Tests/ChatVectors && swift run -c release ChatVectors /pfad/zu/saga/tests/chat_vectors.json
 ```
 
+Die Anruf-Signalisierung (`App/CallCrypto.swift`, `App/CallLogic.swift`) prüft dasselbe Programm gegen
+`tests/call_vectors.json` (neben `chat_vectors.json` oder als zweites Argument).
+
+### Anrufe (WebRTC, CallKit, PushKit)
+- WebRTC kommt als vorgebautes Google-libwebrtc über SPM (`stasel/WebRTC`, Version fest in `project.yml`).
+- iPhone/iPad: Hintergrundmodi `voip` und `audio` (Info.plist), CallKit für das Klingeln, PushKit-Token als eigenes
+  Mitteilungs-Abo `apns-voip`. Zusätzliche Berechtigungen braucht die App-ID nicht: die Fähigkeit „Push
+  Notifications“ reicht, der Server schickt mit demselben APNs-Schlüssel (.p8) an das Thema `<App-ID>.voip`.
+- Mac: Kamera/Mikrofon und eingehende Verbindungen sind in `App/App-macOS*.entitlements` freigegeben (Sandbox).
+- Tests ohne Kamera/Mikrofon (Simulator, Debug): Startparameter `-hkFakeMedia YES` (Testbild + Testton, kein CallKit).
+
 ### Mitteilungen (APNs)
 iOS/iPadOS haben die Berechtigung `aps-environment` immer (`App/App-iOS.entitlements`); die App-ID braucht dafür die
 Fähigkeit „Push Notifications“ (automatische Signierung richtet sie ein). Am Mac braucht Push ein
@@ -72,7 +89,7 @@ Admin im Saga-Admin-Bereich ein; Debug-Builds melden sich als `sandbox`, alle an
 ## Sprachen
 Alle Texte stehen in String Catalogs (Quellsprache Englisch = Rückfall für andere Systemsprachen):
 `Shared/Localizable.xcstrings` (App, Widget, Teilen-Erweiterungen), `App/AppShortcuts.xcstrings` (Siri-Sätze),
-`App/InfoPlist.xcstrings` (Kamera/Fotos-Hinweise). Die Schlüssel sind die deutschen Texte aus dem Code; neue Texte
+`App/InfoPlist.xcstrings` (Kamera/Mikrofon/Fotos-Hinweise). Die Schlüssel sind die deutschen Texte aus dem Code; neue Texte
 in SwiftUI (`Text("…")`, `Button("…")` …) übernimmt Xcode beim Bauen automatisch in den Catalog, Texte in Variablen
 und Fehlermeldungen mit `String(localized: "…")` schreiben. Datum und Zahlen immer über `.formatted()`/Formatter
 der Systemsprache. `xcodebuild` kompiliert die Catalogs auch auf der Kommandozeile.

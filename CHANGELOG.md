@@ -17,6 +17,25 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Vorschau vor dem Senden. Vorher geschah am Mac nichts, auf iPhone/iPad landete ein leeres Ersatzzeichen im Text.
   Text einsetzen bleibt unverändert.
 
+### iOS, iPadOS, macOS
+- **Anrufe (Audio und Video) im Direkt-Chat:** Knöpfe „Anrufen“/„Videoanruf“ im Kopf des Chats, WebRTC direkt
+  zwischen den Geräten (bei Bedarf über den TURN-Server des Admins). Jede Signalisierung ist mit dem Chat-Geräteschlüssel
+  signiert und für das Zielgerät versiegelt (saga-call/v1, Testvektoren grün); nach dem Verbinden wird der
+  DTLS-Fingerabdruck gegen die signierte SDP geprüft – erst dann steht „Ende-zu-Ende verschlüsselt“ da. Geänderte
+  Sicherheitsnummer: kein Anruf, bis sie bestätigt ist. Stumm, Kamera an/aus, Lautsprecher und Kamera wechseln
+  (iPhone/iPad), Anruf-Einträge im Chat (Dauer, verpasst, abgelehnt; Tippen = zurückrufen).
+- **Klingeln:** iPhone/iPad über CallKit (Sperrbildschirm, Anrufliste) und PushKit-VoIP-Mitteilungen (eigenes Abo
+  „Saga-App: Anrufe“, nur für klingelnde Anrufe); Mac mit eigenem Fenster „Anruf“, Klingelton und Mitteilung mit
+  „Annehmen“/„Ablehnen“.
+- **Profilbilder** überall, wo Personen erscheinen (Chats, Mitglieder, Absender in Gruppen, Kommentare, Anwesenheit,
+  Benachrichtigungen, Teilen, Versionen, eigenes Bild oben links auf iPhone/iPad) – nur vom eigenen Server geladen,
+  mit Zwischenspeicher; Initialen als Ersatz. Eigenes Bild in den Einstellungen hochladen (runder Zuschnitt mit Zoom),
+  entfernen, Gravatar und „auf veröffentlichten Seiten zeigen“ schalten.
+- **Anmeldung & Sicherheit** in den Einstellungen: Status des zweiten Faktors (Passkeys, Authenticator-App, Warnung bei
+  wenigen Wiederherstellungscodes, Hinweis bei Admin-Pflicht), verwaltet wird im Browser. Hinweis im Anmeldebildschirm,
+  dass das Browserfenster nach Passkey oder Code fragt. Chat „Neu beginnen“ nimmt Passwort oder Code der
+  Authenticator-App; reine Passkey- bzw. SSO-Konten werden in den Browser geleitet.
+
 ### Android
 - **Immich im Chat:** „Anhängen → Aus Immich“ (nur wenn Immich für dich eingerichtet ist) mit Zuletzt, Alben und
   Inhaltssuche. Das Foto wird über den Immich-Proxy des Servers geladen (Original, sonst große Vorschau; zu groß →

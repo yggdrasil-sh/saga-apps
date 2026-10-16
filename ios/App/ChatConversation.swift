@@ -15,6 +15,10 @@ struct ChatMessage: Identifiable, Equatable {
     var content: ChatContent?
     var verified: Bool
     var mine: Bool
+    /// Profilbild des Absenders (2.1)
+    var senderAvatar: String? = nil
+    /// Anruf-Eintrag (kind "call", 2.1): unverschluesselte Metadaten statt Inhalt
+    var call: CallLogic.Entry? = nil
     var date: Date { Date(timeIntervalSince1970: created > 0 ? created : ts / 1000) }
     var text: String { content?.text ?? "" }
 }
@@ -58,7 +62,7 @@ final class ConversationModel: ObservableObject {
             var s = ChatSummary(c)
             if s?.kind == "free", let x = s { s?.decryptedTitle = model.decryptTitle(x) }
             info = s
-            let m = try await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&limit=50")
+            let m = try await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&limit=50&calls=1")
             messages = []; ingest(m, prepend: false)
             error = nil
             await markRead()
@@ -67,12 +71,12 @@ final class ConversationModel: ObservableObject {
     }
     func loadOlder() async {
         guard let store, more, let first = messages.first else { return }
-        if let d = try? await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&before=\(first.seq)&limit=50") { ingest(d, prepend: true) }
+        if let d = try? await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&before=\(first.seq)&limit=50&calls=1") { ingest(d, prepend: true) }
     }
     func fetchNew() async {
         guard let store else { return }
         let after = messages.last?.seq ?? 0
-        if let d = try? await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&after=\(after)&limit=200") { ingest(d, prepend: false, onlyMore: false) }
+        if let d = try? await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&after=\(after)&limit=200&calls=1") { ingest(d, prepend: false, onlyMore: false) }
         await markRead()
     }
 
@@ -83,13 +87,22 @@ final class ConversationModel: ObservableObject {
         for case let m as [String: Any] in (j["messages"] as? [Any] ?? []) {
             let sender = (m["sender"] as? [String: Any])?["username"] as? String ?? ""
             let name = (m["sender"] as? [String: Any])?["name"] as? String ?? String(localized: "Gelöschtes Konto")
+            let avatar = ShareJSON.str((m["sender"] as? [String: Any])?["avatar"])
+            if (m["kind"] as? String) == "call" {                         // Anruf-Eintrag: Klartext-Metadaten, keine Krypto
+                guard let e = (m["body_ct"] as? String).flatMap({ CallLogic.Entry(json: Data($0.utf8)) }) else { continue }
+                list.append(ChatMessage(seq: ShareJSON.int(m["seq"]) ?? 0, id: m["id"] as? String ?? "", sender: sender, senderName: name,
+                                        ts: ShareJSON.num(m["ts"]) ?? 0, created: ShareJSON.num(m["created"]) ?? 0, expiresAt: ShareJSON.num(m["expires_at"]),
+                                        replyTo: nil, content: nil, verified: true, mine: e.outgoing(me: me), senderAvatar: avatar, call: e))
+                continue
+            }
             let r = model.decrypt(chatID: chatID, raw: m, devices: devs, idents: ids)
             if sender != me, let ip = ids?[sender] as? String, ChatTrustStore.observe(me, sender, pk: ip) == .changed || ChatTrustStore.known(me, sender)?.changed == true {
                 if !changedPeers.contains(sender) { changedPeers.append(sender) }
             }
             list.append(ChatMessage(seq: ShareJSON.int(m["seq"]) ?? 0, id: m["id"] as? String ?? "", sender: sender, senderName: name,
                                     ts: ShareJSON.num(m["ts"]) ?? 0, created: ShareJSON.num(m["created"]) ?? 0, expiresAt: ShareJSON.num(m["expires_at"]),
-                                    replyTo: ShareJSON.str(m["reply_to"]), content: r?.content, verified: r?.verified ?? false, mine: sender == me))
+                                    replyTo: ShareJSON.str(m["reply_to"]), content: r?.content, verified: r?.verified ?? false, mine: sender == me,
+                                    senderAvatar: avatar))
         }
         let known = Set(messages.map(\.id))
         list.removeAll { known.contains($0.id) }

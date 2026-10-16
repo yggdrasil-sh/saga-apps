@@ -1,6 +1,7 @@
 import Foundation
 
-// Prueft App/ChatCrypto.swift gegen tests/chat_vectors.json (dieselben Punkte wie tools/chat_vectors.py check).
+// Prueft App/ChatCrypto.swift gegen tests/chat_vectors.json (wie tools/chat_vectors.py check) und App/CallCrypto.swift +
+// App/CallLogic.swift gegen tests/call_vectors.json (wie tools/call_vectors.py check; Datei neben chat_vectors.json oder 2. Argument).
 let C = ChatCrypto.self
 let path = CommandLine.arguments.dropFirst().first ?? (NSHomeDirectory() + "/src/saga/tests/chat_vectors.json")
 guard let raw = FileManager.default.contents(atPath: path), let v = (try? JSONSerialization.jsonObject(with: raw)) as? [String: Any] else {
@@ -74,6 +75,43 @@ ok("bundle limits", C.bundleFormatOK(s(r, "bundle")) && C.bundleFormatOK(atLimit
 let kp = C.boxKeypair(), k = C.aeadKey()
 ok("seal roundtrip", C.seal(k, pk: kp.pk).flatMap { C.sealOpen($0, pk: kp.pk, sk: kp.sk) } == k && C.seal(k, pk: kp.pk)?.count == 80)
 ok("recovery key format", { let x = C.newRecoveryKey(); return x.count == 39 && C.normRecovery(x) != nil && x.split(separator: "-").count == 8 }())
+
+// Anrufe (saga-call/v1): tests/call_vectors.json - dieselben Punkte wie tools/call_vectors.py check
+let cpath = CommandLine.arguments.dropFirst(2).first ?? ((path as NSString).deletingLastPathComponent + "/call_vectors.json")
+if let craw = FileManager.default.contents(atPath: cpath), let cv = (try? JSONSerialization.jsonObject(with: craw)) as? [String: Any] {
+    func co(_ k: String) -> [String: Any] { cv[k] as? [String: Any] ?? [:] }
+    let ca = co("caller"), ce = co("callee"), cid = cv["call_id"] as? String ?? "", off = co("offer"), ice = co("ice"), forged = co("forged")
+    let aSign = C.signKeypair(seed: h(ca, "sign_seed_hex")), bEnc = C.boxKeypair(seed: h(ce, "enc_seed_hex"))
+    ok("call device keys", C.b64(aSign.pk) == s(ca, "sign_pk") && C.b64(bEnc.pk) == s(ce, "enc_pk")
+       && C.b64(C.boxKeypair(seed: h(ca, "enc_seed_hex")).pk) == s(ca, "enc_pk") && C.b64(C.signKeypair(seed: h(ce, "sign_seed_hex")).pk) == s(ce, "sign_pk"))
+    let msg = C.signalMsg(callID: cid, fromUID: s(ca, "uid"), fromDevice: s(ca, "device"), toUID: s(ce, "uid"), toDevice: s(ce, "device"), body: s(off, "body"))
+    ok("call signal_msg", C.hex(msg) == s(off, "signal_msg_hex"))
+    ok("call sig (Ed25519, deterministisch)", C.b64(C.sign(msg, sk: aSign.sk)) == s(off, "sig"))
+    ok("call inner", C.signalInner(body: s(off, "body"), sig: b(off, "sig")) == s(off, "inner"))
+    let offerSDP: String = { if case .offer(let sdp, _, _)? = CallLogic.parse(s(off, "body")) { return sdp }; return "" }()
+    let offerFP: [String] = { if case .offer(_, _, let fp)? = CallLogic.parse(s(off, "body")) { return fp }; return [] }()
+    ok("call sdp fingerprints", CallLogic.sdpFingerprints(offerSDP) == (off["fingerprints"] as? [String] ?? ["x"]) && offerFP == CallLogic.sdpFingerprints(offerSDP)
+       && CallLogic.fingerprintsMatch(sdp: offerSDP, fp: offerFP) && !CallLogic.fingerprintsMatch(sdp: offerSDP, fp: []))
+    func verifyFrom(_ o: (body: String, sig: Data)?, call: String = cid) -> Bool {
+        guard let o else { return false }
+        return C.verifySignal(callID: call, fromUID: s(ca, "uid"), fromDevice: s(ca, "device"), toUID: s(ce, "uid"), toDevice: s(ce, "device"),
+                              body: o.body, sig: o.sig, signPK: aSign.pk)
+    }
+    let oo = C.openSignal(s(off, "sealed"), pk: bEnc.pk, sk: bEnc.sk)
+    ok("call open offer", oo?.body == s(off, "body") && oo.map { C.b64($0.sig) } == s(off, "sig"))
+    ok("call verify offer", verifyFrom(oo))
+    ok("call verify fails for other call", !verifyFrom(oo, call: String(repeating: "0", count: 32)))
+    let io = C.openSignal(s(ice, "sealed"), pk: bEnc.pk, sk: bEnc.sk)
+    ok("call open+verify ice", io?.body == s(ice, "body") && io.map { C.b64($0.sig) } == s(ice, "sig") && verifyFrom(io))
+    if case .ice(let cands)? = io.flatMap({ CallLogic.parse($0.body) }) { ok("call ice parse", cands.count == 1 && cands[0].sdpMid == "0") } else { ok("call ice parse", false) }
+    let fo = C.openSignal(s(forged, "sealed"), pk: bEnc.pk, sk: bEnc.sk)
+    ok("call forged (other target device) rejected", fo != nil && !verifyFrom(fo))
+    // eigene Rundreise: versiegeln -> oeffnen -> pruefen; falsches Geraet kann nicht oeffnen
+    let sealed = C.sealSignal(callID: cid, fromUID: s(ca, "uid"), fromDevice: s(ca, "device"), signSK: aSign.sk, toUID: s(ce, "uid"),
+                              toDevice: s(ce, "device"), toPK: bEnc.pk, body: s(off, "body")) ?? ""
+    let other = C.boxKeypair()
+    ok("call seal roundtrip", verifyFrom(C.openSignal(sealed, pk: bEnc.pk, sk: bEnc.sk)) && C.openSignal(sealed, pk: other.pk, sk: other.sk) == nil)
+} else { ok("call vectors lesbar (\(cpath))", false) }
 
 for (n, g) in res { print(g ? "OK  " : "FAIL", n) }
 let good = res.filter { $0.1 }.count

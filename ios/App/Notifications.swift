@@ -151,7 +151,7 @@ struct NotifRow: View {
             ZStack {
                 Circle().fill(Color.gold.opacity(0.16))
                 if n.kind == "publish.withdrawn" { Text(verbatim: "🛡") }
-                else if let a = n.actorName { Text(verbatim: LiveLogic.initials(a)).font(.caption.weight(.semibold)) }
+                else if let a = n.actorName { AvatarView(name: a, avatar: n.actorAvatar, size: 34) }
                 else { Image(systemName: "person.fill.questionmark").font(.caption) }
             }
             .frame(width: 34, height: 34).accessibilityHidden(true)

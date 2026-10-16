@@ -96,7 +96,7 @@ final class LiveHub: ObservableObject {
         if let id = e.id, !id.isEmpty { lastID = id }
         let d = e.json
         switch e.event {
-        case "hello": connected = true; fails = 0
+        case "hello": connected = true; fails = 0; Task { await store?.calls.checkActive() }   // verpasstes Klingeln nachholen
         case "bye": return LiveReconnect.after(bye: d["reason"] as? String ?? "closed")
         case "reset":
             lastID = nil
@@ -108,6 +108,7 @@ final class LiveHub: ObservableObject {
         default: break
         }
         if e.event.hasPrefix("chat.") { store?.chat.live(e.event, d) }
+        if e.event.hasPrefix("call.") { store?.calls.live(e.event, d) }     // Anrufe (2.1)
         events.send(LiveEvent(type: e.event, data: d))
         return nil
     }

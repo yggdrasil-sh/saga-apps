@@ -61,6 +61,7 @@ final class PushModel: ObservableObject {
         guard wanted else { return }
         Task {
             if let t = await requestToken() { await subscribe(t) }
+            await subscribeVoIP()
         }
     }
 
@@ -81,9 +82,11 @@ final class PushModel: ObservableObject {
             }
             wanted = true
             await subscribe(t)
+            await subscribeVoIP()
         } else {
             wanted = false
             if let id = state?.thisDevice?.id { _ = try? await store?.api("api/push/subscriptions/\(id)", method: "DELETE") }
+            if let id = state?.thisVoip?.id { _ = try? await store?.api("api/push/subscriptions/\(id)", method: "DELETE") }
             await load()
         }
     }
@@ -135,6 +138,22 @@ final class PushModel: ObservableObject {
         await load()
     }
 
+    /// Anrufe (2.1, iOS): PushKit-Token als eigenes Abo "apns-voip" - der Server schickt dorthin nur klingelnde Anrufe
+    func voipTokenChanged(_ hex: String) { if wanted { Task { await subscribeVoIP() } } }
+    private func subscribeVoIP() async {
+        #if os(iOS)
+        guard CallEnv.callKit, let t = CallSystem.shared.voipToken, let store, AppConfig.hasServer, !store.needsLogin else { return }
+        let body = PushLogic.subscription(token: t, env: Self.env, name: DeviceKey.deviceName, type: "apns-voip")
+        guard let (d, code) = try? await store.apiResponse("api/push/subscriptions", method: "POST", body: body), (200..<300).contains(code) else { return }
+        await load()
+        if let keep = ShareJSON.obj(d).flatMap({ ShareJSON.int($0["id"]) }), let s = state {
+            let dup = PushLogic.duplicates(s.devices, keep: keep, type: "apns-voip")
+            for id in dup { _ = try? await store.api("api/push/subscriptions/\(id)", method: "DELETE") }
+            if !dup.isEmpty { await load() }
+        }
+        #endif
+    }
+
     func save(_ body: [String: Any]) async {
         guard let store else { return }
         do {
@@ -154,7 +173,13 @@ final class PushModel: ObservableObject {
     }
 
     /// Mitteilung angetippt: `url` relativ zu BASE_URL -> Ziel oeffnen, Benachrichtigung als gelesen markieren
-    nonisolated static func handleTap(_ userInfo: [AnyHashable: Any]) {
+    nonisolated static func handleTap(_ userInfo: [AnyHashable: Any], action: String = UNNotificationDefaultActionIdentifier) {
+        if (userInfo["kind"] as? String) == "call" || CallLogic.callFromURL(userInfo["url"] as? String) != nil {   // Anruf (2.1): klingeln/annehmen
+            let info = userInfo.reduce(into: [AnyHashable: Any]()) { r, kv in if kv.value is String || kv.value is NSNumber { r[kv.key] = kv.value } }
+            let a = action
+            Task { @MainActor in CallSystem.shared.notificationAction(a, info: info) }
+            return
+        }
         let t = NotifLogic.target(url: userInfo["url"] as? String)
         Task { @MainActor in
             PushModel.pending = t                                   // Kaltstart: RootView holt es beim Erscheinen ab
@@ -171,7 +196,7 @@ final class PushCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
         [.banner, .list, .sound]
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        PushModel.handleTap(response.notification.request.content.userInfo)
+        PushModel.handleTap(response.notification.request.content.userInfo, action: response.actionIdentifier)
     }
 }
 
@@ -180,6 +205,7 @@ final class IOSAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         UNUserNotificationCenter.current().delegate = PushCenterDelegate.shared
         ImagePaste.install()                                                         // Bilder aus der Zwischenablage (Seite, Chat)
+        MainActor.assumeIsolated { CallSystem.shared.setup() }                       // Anrufe: PushKit (VoIP) + Mitteilungs-Aktionen
         return true
     }
     func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
@@ -270,8 +296,10 @@ struct PushSettingsSection: View {
                             }.font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button("Test") { Task { tests[d.id] = String(localized: "Sende …"); tests[d.id] = Self.testText(await push.test(d.id)) } }
-                            .buttonStyle(.bordered).controlSize(.small).help("Testmitteilung an dieses Gerät senden")
+                        if d.type != "apns-voip" {                       // VoIP-Abo: Test nur per Anruf (CallKit-Pflicht)
+                            Button("Test") { Task { tests[d.id] = String(localized: "Sende …"); tests[d.id] = Self.testText(await push.test(d.id)) } }
+                                .buttonStyle(.bordered).controlSize(.small).help("Testmitteilung an dieses Gerät senden")
+                        }
                         if !d.thisDevice {                                   // dieses Geraet: ueber den Schalter oben
                             Button(role: .destructive) { askRemove = d } label: { Image(systemName: "trash") }
                                 .buttonStyle(.borderless).help(Text("Entfernen")).accessibilityLabel(Text("Entfernen"))
@@ -290,6 +318,7 @@ struct PushSettingsSection: View {
     static func serviceText(_ d: PushDevice) -> String {
         switch PushLogic.service(type: d.type, whereText: d.whereText) {
         case .sagaApp(let test): return test ? String(localized: "Saga-App (Testversion)") : String(localized: "Saga-App")
+        case .sagaCalls(let test): return test ? String(localized: "Saga-App: Anrufe (Testversion)") : String(localized: "Saga-App: Anrufe")
         case .other(let w): return w
         }
     }

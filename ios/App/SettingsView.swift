@@ -10,6 +10,8 @@ struct SettingsView: View {
     @State private var status = ""
     @State private var busy = false
     @State private var askSwitch: URL?                    // anderer Server: erst nach Rueckfrage (meldet vom alten ab)
+    @State private var crop: CropSource?                  // Profilbild zuschneiden (2.1)
+    @State private var cropped: Data?
     #if os(macOS)
     @AppStorage("hk.coverHeight") private var coverHeight: Double = 200
     #endif
@@ -64,11 +66,15 @@ struct SettingsView: View {
             Section("Über") {
                 LabeledContent("App", value: "Saga \(Store.appVersion) (\(Store.appBuild))")
                 LabeledContent("Server", value: store.serverVersion.map { "Saga \($0)" } ?? "–")
+                Text("Anrufe nutzen WebRTC (libwebrtc, © The WebRTC project authors, BSD-Lizenz) und libsodium (ISC-Lizenz).")
+                    .font(.footnote).foregroundStyle(.secondary)
                 if store.appTooOld, let m = store.minApp {
                     Text("Diese App ist älter als der Server erwartet (ab \(m)). Bitte die App aktualisieren.").font(.footnote).foregroundStyle(.orange)
                 }
             }
             PublicNameSection()                           // Konto: oeffentlicher Name (Veroeffentlichen)
+            AvatarSettingsSection(crop: $crop, cropped: $cropped)   // Profilbild (2.1)
+            SecuritySettingsSection()                     // Anmeldung & Sicherheit (2.1, verwaltet im Browser)
             NotificationSettingsSection()                 // Benachrichtigungen (Glocke, 1.4)
             PushSettingsSection(push: store.push)         // Mitteilungen aufs Geraet (1.7)
             ChatDevicesSection(chat: store.chat)          // Chats & Geraete (2.0)
@@ -80,6 +86,7 @@ struct SettingsView: View {
             }
         }
         .navigationTitle("Einstellungen")
+        .sheet(item: $crop) { c in AvatarCropSheet(source: c) { jpeg in cropped = jpeg } }
         .task { if store.chat.state == .loading { await store.chat.load() } }
         .confirmationDialog("Server wechseln?", isPresented: Binding(get: { askSwitch != nil }, set: { if !$0 { askSwitch = nil } }), titleVisibility: .visible) {
             Button("Abmelden und wechseln", role: .destructive) {

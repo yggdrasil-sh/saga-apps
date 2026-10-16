@@ -31,10 +31,13 @@ struct SharePerson: Equatable {
     var name: String
     var username: String?
     var me: Bool
-    init(name: String, username: String? = nil, me: Bool = false) { self.name = name; self.username = username; self.me = me }
+    /// Profilbild (2.1): relative Adresse /api/avatar/... oder nil
+    var avatar: String? = nil
+    init(name: String, username: String? = nil, me: Bool = false, avatar: String? = nil) { self.name = name; self.username = username; self.me = me; self.avatar = avatar }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any] else { return nil }
-        self.init(name: ShareJSON.str(d["name"]) ?? ShareJSON.str(d["username"]) ?? "", username: ShareJSON.str(d["username"]), me: ShareJSON.bool(d["me"]))
+        self.init(name: ShareJSON.str(d["name"]) ?? ShareJSON.str(d["username"]) ?? "", username: ShareJSON.str(d["username"]), me: ShareJSON.bool(d["me"]),
+                  avatar: ShareJSON.str(d["avatar"]))
     }
 }
 
@@ -144,19 +147,21 @@ struct ShareEntry: Identifiable, Equatable {
     var effective: ShareRole
     var via: [ShareVia]
     var members: Int?
+    var avatar: String? = nil
     var id: String { type + ":" + target }
     var isGroup: Bool { type == "group" || type == "remote_group" }
     /// Person/Gruppe auf einer anderen Saga-Instanz (Foederation 2.0)
     var isRemote: Bool { type == "remote" || type == "remote_group" }
 
-    init(type: String, target: String, name: String, role: ShareRole, effective: ShareRole? = nil, via: [ShareVia] = [], members: Int? = nil) {
+    init(type: String, target: String, name: String, role: ShareRole, effective: ShareRole? = nil, via: [ShareVia] = [], members: Int? = nil, avatar: String? = nil) {
         self.type = type; self.target = target; self.name = name; self.role = role; self.effective = effective ?? role; self.via = via; self.members = members
+        self.avatar = avatar
     }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let r = ShareRole.parse(d["role"]), let tg = ShareJSON.str(d["target"]) else { return nil }
         self.init(type: ShareJSON.str(d["type"]) ?? "user", target: tg, name: ShareJSON.str(d["name"]) ?? tg, role: r,
                   effective: ShareRole.parse(d["effective"]), via: (d["via"] as? [Any] ?? []).compactMap(ShareVia.init),
-                  members: ShareJSON.int(d["members"]))
+                  members: ShareJSON.int(d["members"]), avatar: ShareJSON.str(d["avatar"]))
     }
     /// Ueber eine Gruppe/Elternseite mehr Rechte als hier eingestellt -> Hinweis "(ueber X: Rolle)"
     var stronger: ShareVia? {
@@ -223,6 +228,7 @@ struct ShareTarget: Identifiable, Equatable {
     var username: String?
     /// Server bei Personen/Gruppen anderer Saga-Instanzen
     var host: String? = nil
+    var avatar: String? = nil
     var id: String { type + ":" + target }
     var isGroup: Bool { type == "group" || type == "remote_group" }
     var isRemote: Bool { type == "remote" || type == "remote_group" }
@@ -404,7 +410,7 @@ enum ShareLogic {
         guard let j = ShareJSON.obj(d) else { return [] }
         let users = (j["users"] as? [[String: Any]] ?? []).compactMap { u -> ShareTarget? in
             guard let n = ShareJSON.str(u["username"]) else { return nil }
-            return ShareTarget(type: "user", target: n, name: ShareJSON.str(u["name"]) ?? n, username: n)
+            return ShareTarget(type: "user", target: n, name: ShareJSON.str(u["name"]) ?? n, username: n, avatar: ShareJSON.str(u["avatar"]))
         }
         let groups = (j["groups"] as? [[String: Any]] ?? []).compactMap { g -> ShareTarget? in
             guard let n = ShareJSON.str(g["name"]) else { return nil }
@@ -413,7 +419,7 @@ enum ShareLogic {
         // Foederation (2.0): nur genaue Adressen verbundener Server (name@server)
         let remote = (j["remote"] as? [[String: Any]] ?? []).compactMap { r -> ShareTarget? in
             guard let t = ShareJSON.str(r["type"]), t == "remote" || t == "remote_group", let tg = ShareJSON.str(r["target"]) else { return nil }
-            return ShareTarget(type: t, target: tg, name: ShareJSON.str(r["name"]) ?? tg, username: nil, host: ShareJSON.str(r["host"]))
+            return ShareTarget(type: t, target: tg, name: ShareJSON.str(r["name"]) ?? tg, username: nil, host: ShareJSON.str(r["host"]), avatar: ShareJSON.str(r["avatar"]))
         }
         return users + groups + remote
     }

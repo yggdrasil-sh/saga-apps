@@ -53,6 +53,15 @@ struct ConversationView: View {
         .navigationSubtitle(conv.info.map { $0.kind == "dm" ? $0.kindLabel : "\($0.kindLabel) · \(String(localized: "\($0.memberCount) Personen"))" } ?? "")
         #endif
         .toolbar {
+            // Anrufen (2.1): nur im Direkt-Chat
+            ToolbarItemGroup(placement: .primaryAction) {
+                if let i = conv.info, i.kind == "dm", let p = i.peer, store.calls.enabled {
+                    Button { store.calls.start(chatID: chatID, peer: p, video: false) } label: { Label("Anrufen", systemImage: "phone") }
+                        .help(Text("Anrufen"))
+                    Button { store.calls.start(chatID: chatID, peer: p, video: true) } label: { Label("Videoanruf", systemImage: "video") }
+                        .help(Text("Videoanruf"))
+                }
+            }
             // Suche im Chat steckt im Menue (Befehl-F): eine zweite Lupe neben dem Suchfeld der Liste/Seitenleiste verwirrt
             ToolbarItem(placement: .primaryAction) { menu }
         }
@@ -159,13 +168,19 @@ struct ConversationView: View {
                         if i == 0 || !Calendar.current.isDate(shown[i - 1].date, inSameDayAs: m.date) {
                             Text(m.date.formatted(date: .complete, time: .omitted)).font(.caption2.weight(.semibold)).foregroundStyle(.secondary).padding(.top, 8)
                         }
-                        MessageBubble(m: m, showName: conv.info?.kind != "dm" && !m.mine && (i == 0 || shown[i - 1].sender != m.sender),
+                        if let e = m.call {
+                            CallEntryRow(entry: e, mine: m.mine, date: m.date) {
+                                if let p = conv.info?.peer { store.calls.start(chatID: chatID, peer: p, video: e.media == "video") }
+                            }.id(m.id)
+                        } else {
+                        MessageBubble(m: m, showName: conv.info?.kind != "dm" && !m.mine && (i == 0 || shown[i - 1].sender != m.sender || shown[i - 1].call != nil),
                                       quoted: m.replyTo.flatMap { r in conv.messages.first { $0.id == r } }, hasReply: m.replyTo != nil,
                                       conv: conv, highlight: !search.isEmpty && ChatLogic.matches(m.text, search),
                                       reply: { replyTo = m; focused = true }, delete: { askDelete = m },
                                       openPage: { id in nav.push(PageRoute(id: id)) },
                                       checkSafety: { safetyPeer = ChatMember(username: m.sender, name: m.senderName, me: false) })
                             .id(m.id)
+                        }
                     }
                     if let e = conv.error { Text("Nachrichten nicht geladen: \(e)").font(.footnote).foregroundStyle(.orange) }
                     Color.clear.frame(height: 4).id("end")
@@ -322,6 +337,50 @@ struct ConversationView: View {
     }
 }
 
+// MARK: - Anruf-Eintrag (2.1)
+
+/// Mittig, dezent: Art, Ergebnis, Dauer; Tippen = zurueckrufen
+struct CallEntryRow: View {
+    let entry: CallLogic.Entry
+    let mine: Bool
+    let date: Date
+    var callBack: () -> Void
+    var body: some View {
+        Button(action: callBack) {
+            HStack(spacing: 8) {
+                Image(systemName: icon).foregroundStyle(missed ? Color.red : Color.secondary).accessibilityHidden(true)
+                Text(verbatim: text).font(.caption.weight(.medium))
+                Text(date, format: .dateTime.hour().minute()).font(.caption2).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 6)
+            .background(Color.secondary.opacity(0.1), in: Capsule())
+        }
+        .buttonStyle(.plain).frame(maxWidth: .infinity).padding(.vertical, 2)
+        .help(Text("Zurückrufen"))
+        .accessibilityHint(Text("Zurückrufen"))
+    }
+    private var video: Bool { entry.media == "video" }
+    private var missed: Bool { entry.kind() == .missed && !mine }
+    private var icon: String {
+        switch entry.kind() {
+        case .missed, .declined, .busy, .failed: return video ? "video.slash" : "phone.down"
+        case .ended: return video ? "video" : (mine ? "phone.arrow.up.right" : "phone.arrow.down.left")
+        }
+    }
+    private var text: String {
+        switch entry.kind() {
+        case .ended(let d):
+            let base = video ? (mine ? String(localized: "Ausgehender Videoanruf") : String(localized: "Eingehender Videoanruf"))
+                             : (mine ? String(localized: "Ausgehender Anruf") : String(localized: "Eingehender Anruf"))
+            return d.map { base + " · " + $0 } ?? base
+        case .missed: return mine ? String(localized: "Nicht angenommen") : (video ? String(localized: "Verpasster Videoanruf") : String(localized: "Verpasster Anruf"))
+        case .declined: return String(localized: "Anruf abgelehnt")
+        case .busy: return String(localized: "Besetzt")
+        case .failed: return String(localized: "Anruf fehlgeschlagen")
+        }
+    }
+}
+
 // MARK: - Blase
 
 struct MessageBubble: View {
@@ -343,7 +402,12 @@ struct MessageBubble: View {
         HStack {
             if m.mine { Spacer(minLength: 48) }
             VStack(alignment: m.mine ? .trailing : .leading, spacing: 3) {
-                if showName { Text(verbatim: m.senderName).font(.caption.weight(.semibold)).foregroundStyle(.secondary) }
+                if showName {
+                    HStack(spacing: 5) {
+                        AvatarView(name: m.senderName, avatar: m.senderAvatar, size: 18)
+                        Text(verbatim: m.senderName).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    }
+                }
                 VStack(alignment: .leading, spacing: 6) {
                     if hasReply { quote }
                     if let c = m.content {
@@ -511,7 +575,7 @@ struct MembersSheet: View {
                     Section {
                         ForEach(i.members) { m in
                             HStack {
-                                ShareAvatar(name: m.name, group: false)
+                                ShareAvatar(name: m.name, group: false, avatar: m.avatar)
                                 VStack(alignment: .leading) {
                                     Text(verbatim: m.me ? m.name + " (" + String(localized: "du") + ")" : m.name)
                                     Text(verbatim: m.username).font(.caption).foregroundStyle(.secondary)

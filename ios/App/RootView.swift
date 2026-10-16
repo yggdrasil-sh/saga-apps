@@ -57,7 +57,11 @@ struct RootView: View {
                         if store.notifs.supported { BellButton(notifs: store.notifs) { showNotifs = true } }
                     }
                     ToolbarItem(placement: .topBarLeading) {
-                        Button { showSettings = true } label: { Label("Einstellungen", systemImage: "gearshape") }
+                        Button { showSettings = true } label: {
+                            if store.myAvatar != nil { AvatarView(name: store.accountName ?? "", avatar: store.myAvatar, size: 28) }   // eigenes Profilbild (2.1)
+                            else { Label("Einstellungen", systemImage: "gearshape") }
+                        }
+                        .accessibilityLabel(Text("Einstellungen"))
                     }
                     #endif
                 }
@@ -140,7 +144,7 @@ struct RootView: View {
             if let id = SpotlightIndex.pageID(a) { nav.peek = nil; nav.path = []; selection = id }
         }
         .onChange(of: phase) { _, p in
-            if p == .active { Task { await store.refresh(); store.live.start() } }       // im Web angelegte Seiten; Live nur im Vordergrund
+            if p == .active { Task { await store.refresh(); store.live.start(); await store.calls.checkActive() } }       // im Web angelegte Seiten; Live nur im Vordergrund
             if p == .background { WidgetCenter.shared.reloadAllTimelines(); store.live.stop() }   // Widgets zeigen sofort den neuen Stand
         }
         .onChange(of: store.needsLogin) { _, v in
@@ -155,6 +159,7 @@ struct RootView: View {
             #endif
         }
         .modifier(ChatApprovalPresenter(chat: store.chat))
+        .modifier(CallPresenter(calls: store.calls))                     // Anrufe (2.1)
         .sheet(isPresented: $showNotifs) {
             NotificationsSheet(notifs: store.notifs, open: { t in openTarget(t) }, settings: {
                 #if os(macOS)
@@ -647,6 +652,8 @@ struct LoginScreen: View {
                 .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous)).accessibilityHidden(true)
             Text("Saga").font(.largeTitle.bold())
             Text("Anmelden mit Passkey, Face ID oder Passwort").foregroundStyle(.secondary).multilineTextAlignment(.center)
+            Text("Bei aktivierter Zwei-Faktor-Anmeldung fragt Saga im Browserfenster nach Passkey oder Code.")
+                .font(.footnote).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 360)
             VStack(alignment: .leading, spacing: 4) {
                 Text("Server").font(.caption).foregroundStyle(.secondary)
                 TextField("https://saga.example.org", text: $server)
