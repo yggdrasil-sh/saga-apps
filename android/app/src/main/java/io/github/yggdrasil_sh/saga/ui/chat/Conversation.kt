@@ -83,6 +83,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -241,6 +242,32 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         }
     }
 
+    // Anrufe (2.1): Knoepfe im Direkt-Chat, wenn der Server Anrufe kann; vorher Mikrofon (+ Kamera) erlauben lassen
+    val callsOn by repo.calls.enabled.collectAsState()
+    LaunchedEffect(Unit) { if (repo.calls.enabled.value == null) repo.calls.checkEnabled() }
+    var callVideo by remember { mutableStateOf<Boolean?>(null) }
+    fun callNow(video: Boolean) {
+        val p = s.summary?.peer ?: return
+        repo.calls.start(chatId, io.github.yggdrasil_sh.saga.call.CallPeer(p.username, p.name, p.avatar), video)
+    }
+    val callPerms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
+        val v = callVideo ?: return@rememberLauncherForActivityResult
+        callVideo = null
+        if (io.github.yggdrasil_sh.saga.call.CallPermissions.missing(context, false).contains(android.Manifest.permission.RECORD_AUDIO)) {
+            repo.notify(UiText.Res(R.string.call_mic_denied))
+        } else {
+            callNow(v && !io.github.yggdrasil_sh.saga.call.CallPermissions.missing(context, true).contains(android.Manifest.permission.CAMERA))
+        }
+    }
+    val startCall: (Boolean) -> Unit = { video ->
+        val need = io.github.yggdrasil_sh.saga.call.CallPermissions.missing(context, video)
+        if (need.isEmpty()) callNow(video) else {
+            callVideo = video
+            callPerms.launch(need.toTypedArray())
+        }
+    }
+    val canCall = callsOn == true && s.summary?.kind == "dm" && s.summary?.peer != null
+
     // Surface: Inhaltsfarbe onSurface fuer alle Symbole ohne eigene Farbe ("+" im Dunkelmodus war schwarz, BUG-072)
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
@@ -266,6 +293,10 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 if (!twoPane && nav.canGoBack) IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) }
             },
             actions = {
+                if (canCall) {
+                    IconButton(onClick = { startCall(false) }) { Icon(painterResource(R.drawable.ic_call), stringResource(R.string.call_audio)) }
+                    IconButton(onClick = { startCall(true) }) { Icon(painterResource(R.drawable.ic_videocam), stringResource(R.string.call_video)) }
+                }
                 IconButton(onClick = { search = if (search == null) "" else null }) { Icon(Icons.Filled.Search, stringResource(R.string.chat_search)) }
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more)) }
@@ -320,6 +351,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             LazyColumn(Modifier.fillMaxSize().widthIn(max = 900.dp), state = list, reverseLayout = true) {
                 items(shown, key = { it.id }) { m ->
+                    val call = m.call
+                    if (call != null) {
+                        CallEntryRow(m, call, s.me, canCall) { startCall(it) }
+                        return@items
+                    }
                     Bubble(
                         m, s, group = s.summary?.kind != "dm", images = images,
                         onReply = { s.replyTo = m },
@@ -633,7 +669,14 @@ private fun Bubble(
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
         horizontalArrangement = if (m.mine) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom,
     ) {
+        if (group && !m.mine) {
+            // 2.1: Profilbild des Absenders (Gruppen-Chats)
+            Box(Modifier.padding(end = 6.dp, bottom = 2.dp)) {
+                io.github.yggdrasil_sh.saga.ui.notifications.Avatar(m.sender?.name.orEmpty(), size = 28, avatar = m.sender?.avatar)
+            }
+        }
         Box {
             Surface(
                 color = bg, contentColor = fg,
@@ -741,5 +784,39 @@ private fun Attachment(f: ChatFile, s: ChatSession, images: MutableMap<String, I
     }
     TextButton(onClick = { onOpen(f) }) {
         Text("📎 " + f.n + " · " + android.text.format.Formatter.formatShortFileSize(LocalContext.current, f.s), maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+
+/** Anruf-Eintrag (2.1): mittig, Richtung, Ergebnis, Uhrzeit; verpasst -> "Zurückrufen" */
+@Composable
+private fun CallEntryRow(
+    m: ChatMessage, e: io.github.yggdrasil_sh.saga.call.CallEntry, me: String, canCall: Boolean, onCall: (Boolean) -> Unit,
+) {
+    val missed = io.github.yggdrasil_sh.saga.call.CallLogic.missed(e, me)
+    val time = remember(m.ts) {
+        Instant.ofEpochMilli(m.ts).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
+    }
+    val text = io.github.yggdrasil_sh.saga.call.CallLogic.entryText(e, me).resolve()
+    val color = if (missed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+    Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), contentAlignment = Alignment.Center) {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(16.dp)) {
+            Row(
+                Modifier.padding(start = 12.dp, end = 4.dp).heightIn(min = 40.dp).semantics(mergeDescendants = true) {},
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    painterResource(if (e.media == "video") R.drawable.ic_videocam else R.drawable.ic_call), null,
+                    Modifier.size(16.dp), tint = color,
+                )
+                Text(
+                    (if (e.from == me) "↗ " else "↙ ") + text + " · " + time, style = MaterialTheme.typography.labelMedium, color = color,
+                    modifier = Modifier.padding(start = 6.dp, end = 8.dp),
+                )
+                if (missed && canCall) {
+                    TextButton(onClick = { onCall(e.media == "video") }) { Text(stringResource(R.string.call_back)) }
+                }
+            }
+        }
     }
 }

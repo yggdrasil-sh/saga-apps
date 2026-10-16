@@ -183,8 +183,14 @@ dependencies {
     implementation(libs.lazysodium.android) { artifact { type = "aar" }; isTransitive = false }
     implementation(libs.jna) { artifact { type = "aar" } }
 
+    // Anrufe (2.1): WebRTC nach Vorgabe der Anruf-Spezifikation (aktueller Google-libwebrtc-Stand, Maven Central)
+    implementation(libs.stream.webrtc.android)
+
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Anruf-Testvektoren (tests/call_vectors.json) als Unit-Test mit der echten libsodium der JVM (bringt sie fuer
+    // macOS/Linux/Windows mit) - nur im Test, nicht in der App
+    testImplementation(libs.lazysodium.java)
 
     // Chat-Testvektoren laufen mit der echten libsodium auf dem Geraet/Emulator (connectedDebugAndroidTest)
     androidTestImplementation(libs.junit)

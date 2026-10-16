@@ -326,6 +326,10 @@ private fun CommentView(
     var menu by remember { mutableStateOf(false) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Row(Modifier.weight(1f).heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (!c.deleted) {
+                // 2.1: Profilbild (bzw. Initialen) der Verfasserin/des Verfassers
+                Box(Modifier.padding(end = 8.dp)) { io.github.yggdrasil_sh.saga.ui.notifications.Avatar(c.author.name, size = 24, avatar = c.author.avatar) }
+            }
             Text(
                 if (c.author.me) stringResource(R.string.share_you) else c.author.name,
                 style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,

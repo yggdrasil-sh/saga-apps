@@ -217,6 +217,14 @@ class ApiClient(
         return text
     }
 
+    /** Rohinhalt mit eigenem Typ (PUT, z. B. Profilbild image/jpeg) */
+    suspend fun putBytes(path: String, data: ByteArray, mime: String): String {
+        val req = Request.Builder().url(url(path)).put(data.toRequestBody(mime.toMediaType())).header("X-Saga", "1").build()
+        val (code, text) = execute(client, req)
+        if (code !in 200..299) throw ApiException(code, errorText(code, text), text)
+        return text
+    }
+
     /**
      * Datei als Formular hochladen (POST api/files, Feld "image" bzw. "file" wie im Web-Editor).
      * note = fremde Seite (Rolle Bearbeiten): die Datei gehoert deren Eigentuemer (Kopfzeile X-Saga-Note).

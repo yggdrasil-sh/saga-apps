@@ -153,7 +153,7 @@ fun PageShareSheet(
                         Surface(shape = RoundedCornerShape(12.dp), tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
                             Column {
                                 h.users.forEach { u ->
-                                    HitRow("user", u.name.ifEmpty { u.username }, UiText.Raw(u.username), taken[ShareLogic.key("user", u.username)], roleName) {
+                                    HitRow("user", u.name.ifEmpty { u.username }, UiText.Raw(u.username), taken[ShareLogic.key("user", u.username)], roleName, u.avatar) {
                                         scope.launch { model.add("user", u.username, u.name.ifEmpty { u.username }) }
                                     }
                                 }
@@ -272,7 +272,7 @@ private fun Warn(text: String) {
 
 /** Rund: Anfangsbuchstabe bzw. einfarbiges Gruppen-Symbol (G9, kein 👥-Emoji) */
 @Composable
-private fun Avatar(type: String, name: String) {
+private fun Avatar(type: String, name: String, avatar: String? = null) {
     Box(
         Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
         contentAlignment = Alignment.Center,
@@ -284,15 +284,16 @@ private fun Avatar(type: String, name: String) {
                 name.trim().take(1).uppercase().ifEmpty { "?" },
                 color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.titleSmall,
             )
+            io.github.yggdrasil_sh.saga.ui.common.AvatarOverlay(avatar, 36.dp)     // 2.1: Profilbild ueber den Initialen
         }
     }
 }
 
 /** extra = "(über {Gruppe}: {Rolle})" - G6: eigene Zeile unter dem Namen, Sekundaerfarbe, nicht kursiv */
 @Composable
-private fun PersonRow(type: String, name: String, sub: String, extra: String? = null) {
+private fun PersonRow(type: String, name: String, sub: String, extra: String? = null, avatar: String? = null) {
     Row(Modifier.heightIn(min = 48.dp).padding(vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Avatar(type, name)
+        Avatar(type, name, avatar)
         Column(Modifier.padding(start = 12.dp)) {
             Text(name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -303,20 +304,20 @@ private fun PersonRow(type: String, name: String, sub: String, extra: String? = 
 
 /** Treffer der Suche: antippen fuegt mit der gewaehlten Rolle hinzu */
 @Composable
-private fun HitRow(type: String, name: String, sub: UiText, has: Role?, roleName: String, onClick: () -> Unit) {
+private fun HitRow(type: String, name: String, sub: UiText, has: Role?, roleName: String, avatar: String? = null, onClick: () -> Unit) {
     val trailing = if (has != null) stringResource(R.string.share_has) else stringResource(R.string.share_add_as, roleName)
     val mod = Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 56.dp).padding(horizontal = 12.dp, vertical = 6.dp)
         .semantics(mergeDescendants = true) { role = SemRole.Button }
     if (LocalDensity.current.fontScale >= 1.5f) {
         // grosse Schrift: Hinweis unter den Namen, sonst bleibt fuer Name/Benutzer kaum Platz ("hu…", BUG-070)
         Column(mod) {
-            PersonRow(type, name, sub.resolve())
+            PersonRow(type, name, sub.resolve(), avatar = avatar)
             Text(trailing, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 52.dp))
         }
         return
     }
     Row(mod, verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.weight(1f)) { PersonRow(type, name, sub.resolve()) }
+        Box(Modifier.weight(1f)) { PersonRow(type, name, sub.resolve(), avatar = avatar) }
         // hoechstens 40 % der Breite, damit Name und Benutzer lesbar bleiben
         Text(
             trailing, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -332,7 +333,7 @@ private fun EntryRow(e: ShareEntry, model: ShareModel, scope: CoroutineScope, on
     val via = top?.let { stringResource(R.string.share_via, ShareLogic.viaLabel(it).resolve(), stringResource(ShareLogic.roleName(Role.of(it.role)))) }
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.weight(1f)) { PersonRow(e.type, e.name.ifEmpty { e.target }, ShareLogic.entrySub(e.type, e.target, e.members).resolve(), via) }
+            Box(Modifier.weight(1f)) { PersonRow(e.type, e.name.ifEmpty { e.target }, ShareLogic.entrySub(e.type, e.target, e.members).resolve(), via, e.avatar) }
             RolePicker(Role.of(e.role), stringResource(R.string.share_role_of, e.name)) { r -> scope.launch { model.changeRole(e, r) } }
             IconButton(onClick = onRemove) { Icon(Icons.Filled.Close, stringResource(R.string.share_remove_for, e.name)) }
         }

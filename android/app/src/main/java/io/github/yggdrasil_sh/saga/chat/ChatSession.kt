@@ -37,6 +37,8 @@ data class ChatMessage(
     /** Geraet + Zertifikat + Signatur gueltig; false -> "Echtheit nicht bestätigt" (ausgegraut, nicht verworfen) */
     val verified: Boolean,
     val mine: Boolean,
+    /** 2.1: Anruf-Eintrag (kind "call", Klartext-Metadaten vom Server) statt einer Nachricht */
+    val call: io.github.yggdrasil_sh.saga.call.CallEntry? = null,
 )
 
 /** Ergebnis des Oeffnens einer Nachricht */
@@ -136,7 +138,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         loading = true
         try {
             loadSummary()
-            val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&limit=50"))
+            val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&limit=50&calls=1"))
             messages.clear()
             messages.addAll(decryptAll(r))
             more = r.more
@@ -162,7 +164,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
 
     suspend fun loadOlder() {
         val first = messages.firstOrNull()?.seq ?: return
-        val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&before=$first&limit=50"))
+        val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&before=$first&limit=50&calls=1"))
         val older = decryptAll(r).filter { o -> messages.none { it.id == o.id } }
         messages.addAll(0, older)
         more = r.more
@@ -180,7 +182,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
 
     suspend fun loadNewer() {
         val after = messages.lastOrNull()?.seq ?: lastSeq
-        val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&after=$after&limit=200"))
+        val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&after=$after&limit=200&calls=1"))
         val newer = decryptAll(r).filter { n -> messages.none { it.id == n.id } }
         messages.addAll(newer)
         lastSeq = maxOf(lastSeq, r.lastSeq)
@@ -203,6 +205,11 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         val opener = MessageOpener(svc, k)
         return withContext(Dispatchers.Default) {
             r.messages.map { m ->
+                if (m.kind == "call") {
+                    // Anruf-Eintrag: nicht verschluesselt, nur Metadaten (wer/wann/wie lange) - nichts zu pruefen
+                    val e = io.github.yggdrasil_sh.saga.call.CallLogic.parseEntry(m.bodyCt)
+                    return@map ChatMessage(m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, null, null, true, e?.from == me, e)
+                }
                 val o = opener.open(chatId, m, r.devices, r.idents)
                 ChatMessage(m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, m.replyTo, o.content, o.verified, m.sender?.username == me)
             }

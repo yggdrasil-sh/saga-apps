@@ -50,7 +50,7 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 
 /** Anwesende einer Seite (POST /api/presence, Live "presence") */
-data class PresenceUser(val username: String, val name: String, val editing: Boolean, val me: Boolean)
+data class PresenceUser(val username: String, val name: String, val editing: Boolean, val me: Boolean, val avatar: String? = null)
 
 /** Reine Regeln fuer fremde Aenderungen an der offenen Seite (Tests) */
 object PageLiveLogic {
@@ -74,6 +74,7 @@ object PageLiveLogic {
             name = (o["name"] as? JsonPrimitive)?.contentOrNull.orEmpty(),
             editing = (o["editing"] as? JsonPrimitive)?.booleanOrNull ?: false,
             me = (o["me"] as? JsonPrimitive)?.booleanOrNull ?: false,
+            avatar = (o["avatar"] as? JsonPrimitive)?.contentOrNull,
         )
     }.orEmpty()
 }
@@ -202,7 +203,7 @@ fun PresenceAvatars(st: PageLiveState) {
     val desc = stringResource(R.string.presence_group) + ": " + others.joinToString(", ") { it.name }
     Row(Modifier.padding(end = 4.dp).semantics(mergeDescendants = true) { contentDescription = desc }, verticalAlignment = Alignment.CenterVertically) {
         others.take(3).forEachIndexed { i, u ->
-            Box(Modifier.offset(x = (-6 * i).dp)) { Avatar(u.name, size = 26) }
+            Box(Modifier.offset(x = (-6 * i).dp)) { Avatar(u.name, size = 26, avatar = u.avatar) }
         }
         if (others.size > 3) Text("+${others.size - 3}", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(start = 2.dp))
     }
@@ -237,7 +238,7 @@ fun PresenceLine(st: PageLiveState) {
             val more = others.size - 1
             // wie Apple: kleiner Avatar + Sekundaerfarbe (Palette), kein Blau
             Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                io.github.yggdrasil_sh.saga.ui.notifications.Avatar(u.name, size = 20)
+                io.github.yggdrasil_sh.saga.ui.notifications.Avatar(u.name, size = 20, avatar = u.avatar)
                 Text(
                     (if (editing != null) stringResource(R.string.presence_editing, u.name) else stringResource(R.string.presence_here, u.name)) +
                         if (more > 0) " (+$more)" else "",

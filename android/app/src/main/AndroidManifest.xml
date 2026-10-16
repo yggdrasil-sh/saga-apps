@@ -9,6 +9,19 @@
     <!-- Kamera nur fuer die QR-Anmeldung: Geraete ohne Kamera bleiben unterstuetzt -->
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
+    <!-- Anrufe (2.1, WebRTC): Mikrofon/Kamera nur waehrend eines Anrufs; Klingeln als Vollbild-Benachrichtigung;
+         laufender Anruf als Vordergrund-Dienst (Typ phoneCall, selbstverwaltet ueber MANAGE_OWN_CALLS) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
     <queries>
         <!-- Custom Tabs (Anmeldung im Browser) -->
         <intent>
@@ -85,6 +98,27 @@
                 <action android:name="org.unifiedpush.android.connector.REGISTRATION_FAILED" />
             </intent-filter>
         </receiver>
+
+        <!-- Anrufe: Vollbild (auch auf dem Sperrbildschirm), Vordergrund-Dienst, Aktionen aus der Mitteilung -->
+        <activity
+            android:name=".call.CallActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:taskAffinity="io.github.yggdrasil_sh.saga.call"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|uiMode|locale|layoutDirection|fontScale"
+            tools:targetApi="27" />
+
+        <service
+            android:name=".call.CallService"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall|microphone|camera" />
+
+        <receiver
+            android:name=".call.CallActionReceiver"
+            android:exported="false" />
 
         <!-- Chat-Anhaenge (entschluesselt im Cache) an andere Apps weitergeben -->
         <provider

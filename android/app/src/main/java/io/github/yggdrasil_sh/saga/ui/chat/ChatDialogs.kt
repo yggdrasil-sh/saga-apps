@@ -119,7 +119,7 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                         ListItem(
                             headlineContent = { Text(u.name.ifEmpty { u.username }) },
                             supportingContent = { Text(if (u.ready) u.username else stringResource(R.string.chat_not_ready, u.username)) },
-                            leadingContent = { Avatar(u.name, size = 32) },
+                            leadingContent = { Avatar(u.name, size = 32, avatar = u.avatar) },
                             trailingContent = if (multi) ({ Checkbox(checked = on, onCheckedChange = null) }) else null,
                             modifier = Modifier.clickable {
                                 if (multi) picked = if (on) picked.filter { it.username != u.username } else picked + u
@@ -230,7 +230,7 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
                     ListItem(
                         headlineContent = { Text(m.name.ifEmpty { m.username } + if (m.me) " (" + stringResource(R.string.chat_you) + ")" else "") },
                         supportingContent = { Text(m.username) },
-                        leadingContent = { Avatar(m.name, size = 32) },
+                        leadingContent = { Avatar(m.name, size = 32, avatar = m.avatar) },
                     )
                 }
                 if (sum?.kind == "free" && sum.role == "admin") {

@@ -43,7 +43,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
 import io.github.yggdrasil_sh.saga.auth.PairLink
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.foundation.clickable
 import io.github.yggdrasil_sh.saga.chat.ChatSetup
@@ -64,6 +63,8 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     var notifKinds by remember { mutableStateOf<List<io.github.yggdrasil_sh.saga.live.NotifKind>>(emptyList()) }
     val pushSupported by repo.push.supported.collectAsState()
     val chatState by repo.chat.state.collectAsState()
+    var ownAvatar by remember { mutableStateOf<String?>(null) }
+    val callsOn by repo.calls.enabled.collectAsState()
     LaunchedEffect(Unit) {
         try {
             notifKinds = repo.live.settings().kinds
@@ -73,6 +74,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         }
         repo.push.load()
         repo.chat.refresh()
+        if (repo.calls.enabled.value == null) repo.calls.checkEnabled()
     }
 
     suspend fun loadApps() {
@@ -101,7 +103,10 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 ListItem(
                     headlineContent = { Text(stringResource(R.string.settings_signed_in_as, account.ifEmpty { "–" })) },
                     supportingContent = { Text(stringResource(R.string.settings_on_server, io.github.yggdrasil_sh.saga.util.ShotMode.host(PairLink.displayHost(server)).ifEmpty { "–" })) },
-                    leadingContent = { Icon(Icons.Filled.Person, null) },
+                    leadingContent = {
+                        // 2.1: eigenes Profilbild (sonst Initialen)
+                        io.github.yggdrasil_sh.saga.ui.notifications.Avatar(account.ifEmpty { "?" }, size = 40, avatar = ownAvatar)
+                    },
                     modifier = w,
                 )
             }
@@ -111,6 +116,9 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = w.padding(horizontal = 16.dp),
                 )
             }
+            // 2.1: Profilbild (hochladen mit Zuschnitt) und "Anmeldung & Sicherheit" (Verwalten im Browser)
+            item { ProfilePictureBlock(repo, account, w.padding(top = 8.dp), reloadKey = signIns) { ownAvatar = it?.url } }
+            item { SecurityBlock(repo, w, reloadKey = signIns) }
             // Veroeffentlichen: oeffentlicher Name als eigener Block im Konto (nach Kopplung neu laden)
             item { PublicNameBlock(repo, w.padding(top = 8.dp), reloadKey = signIns) }
 
@@ -141,6 +149,8 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     )
                 }
             }
+
+            if (callsOn == true) item { CallsFullScreenHint(w) }
 
             item { SectionHeader(stringResource(R.string.settings_about), w) }
             item { ListItem(headlineContent = { Text(stringResource(R.string.settings_app)) }, trailingContent = { Text(io.github.yggdrasil_sh.saga.util.ShotMode.version("Saga ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")) }, modifier = w) }
@@ -245,5 +255,6 @@ fun notifKindLabel(kind: String): Int = when (kind) {
     "comment.reply" -> R.string.notify_kind_comment_reply
     "publish.withdrawn" -> R.string.notify_kind_publish_withdrawn
     "chat.message" -> R.string.notify_kind_chat_message
+    "call", "call.missed" -> R.string.notify_kind_call_missed
     else -> R.string.notifications
 }

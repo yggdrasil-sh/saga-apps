@@ -81,7 +81,18 @@ data class PushTest(val ok: Boolean = false, val result: String = "", val error:
 
 /** Inhalt einer Mitteilung (nie Seitentitel/Inhalte - nur ein Satz und der Link) */
 @Serializable
-data class PushMessage(val title: String = "", val body: String = "", val url: String = "/", val tag: String = "", val kind: String = "", val ts: Long = 0)
+data class PushMessage(
+    val title: String = "",
+    val body: String = "",
+    val url: String = "/",
+    val tag: String = "",
+    val kind: String = "",
+    val ts: Long = 0,
+    /** 2.1, Art "call": Kennungen des klingelnden Anrufs (nie Inhalte) */
+    val call: String? = null,
+    val chat: Long? = null,
+    val media: String? = null,
+)
 
 /** Anmeldung dieses Geraets beim Verteiler (je Server + Konto) */
 @Serializable
@@ -243,12 +254,18 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
         }
     }
 
-    /** Mitteilung vom Verteiler: entschluesseln (aes128gcm) bzw. Klartext-JSON, dann anzeigen */
-    fun onMessage(token: String, bytes: ByteArray) {
-        val l = local() ?: return
-        if (l.token != token) return
-        val msg = PushParse.parse(bytes, keysOf(l)) ?: return
+    /**
+     * Mitteilung vom Verteiler: entschluesseln (aes128gcm) bzw. Klartext-JSON, dann anzeigen.
+     * -> laufende Arbeit (Anruf: Zustand holen), auf die der Empfaenger warten soll, sonst null
+     */
+    fun onMessage(token: String, bytes: ByteArray): kotlinx.coroutines.Job? {
+        val l = local() ?: return null
+        if (l.token != token) return null
+        val msg = PushParse.parse(bytes, keysOf(l)) ?: return null
+        // Anruf: nicht als normale Mitteilung - Zustand holen und als Vollbild-Anruf klingeln (nur solange er klingelt)
+        if (msg.kind == "call" && msg.call != null) return repo.calls.onRing(msg.call)
         Notifier.show(context, msg)
+        return null
     }
 
     // ---------------------------------------------------------------- Einstellungen, Geraete, Test
@@ -382,8 +399,19 @@ class PushReceiver : BroadcastReceiver() {
             }
             UnifiedPush.ACTION_MESSAGE -> {
                 val bytes = intent.getByteArrayExtra(UnifiedPush.EXTRA_BYTES) ?: intent.getStringExtra(UnifiedPush.EXTRA_MESSAGE)?.toByteArray() ?: return
-                push.onMessage(token, bytes)
+                val work = push.onMessage(token, bytes)
                 push.local()?.let { UnifiedPush.ack(context, it.distributor, token, intent.getStringExtra(UnifiedPush.EXTRA_ID)) }
+                if (work != null) {
+                    // Anruf: Prozess wach halten, bis der Zustand geholt ist und es klingelt (hoechstens ~9 s)
+                    val pending = goAsync()
+                    app.appScope.launch {
+                        try {
+                            kotlinx.coroutines.withTimeoutOrNull(9_000) { work.join() }
+                        } finally {
+                            pending.finish()
+                        }
+                    }
+                }
             }
             UnifiedPush.ACTION_REGISTRATION_FAILED -> push.onFailed(token)
             UnifiedPush.ACTION_UNREGISTERED -> push.onUnregistered(token)
