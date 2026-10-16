@@ -57,6 +57,8 @@ class App(Adw.Application):
         ou = Gio.SimpleAction.new("open-url", GLib.VariantType.new("s"))
         ou.connect("activate", lambda a, v: (self.do_activate(), self.win and self.win.open_url(v.get_string(), mark=True)))
         self.add_action(ou)
+        from .calls import install_actions                    # Anrufe: Annehmen/Ablehnen aus der Desktop-Mitteilung
+        install_actions(self)
         try:                                                  # UnifiedPush-Connector auf dem Sitzungs-Bus (push.py)
             from .push import up
             up.export(self)

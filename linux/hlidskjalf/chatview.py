@@ -8,7 +8,7 @@ import re
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango
 
 from . import chatcrypto as C
-from . import clipimg, config, images
+from . import avatars, clipimg, config, images
 from .api import APIError, client
 from .blocks import flat_button, menu_popover
 from .chat import (NOTE_RX, RETENTIONS, ChatError, SafetyChanged, chat, fmt_recovery, keys_persistent, recovery_lines, retention_label,
@@ -170,6 +170,9 @@ def snippet(m, n=80):
         return _("Message no longer available")
     if m.get("state") == "undecryptable":
         return _("Can't be decrypted")
+    if m.get("state") == "call":
+        from .calls import entry_text
+        return "📞 " + entry_text(m.get("call") or {}, chat.uid)
     t = NOTE_RX.sub("📄", m.get("text") or "").strip()
     if not t and m.get("files"):
         t = "📎 " + (m["files"][0].get("n") or _("File"))
@@ -336,6 +339,12 @@ class ChatsScreen(Gtk.Box):
     def has_menu(self):
         return self.conv is not None and chat.chat(self.cid) is not None
 
+    def call_chat(self):
+        """Direkt-Chat mit eingeschalteten Anrufen -> Chat-ID (Knopf "Anrufen" in der Kopfleiste), sonst None"""
+        from .calls import calls
+        c = chat.chat(self.cid) if self.cid is not None and self.conv is not None else None
+        return self.cid if c and c.get("kind") == "dm" and calls.enabled else None
+
     def page_menu(self, parent):
         if self.conv is not None:
             self.conv.menu(parent)
@@ -394,6 +403,8 @@ class ChatList(Gtk.Box):
         box = Gtk.Box(spacing=10, margin_top=4, margin_bottom=4)
         title = chat.title(c)
         av = Adw.Avatar(size=36, text=title, show_initials=c.get("kind") in ("dm", "free"))
+        if c.get("kind") == "dm":
+            avatars.attach(av, (chat.peer(c) or {}).get("avatar"), 36)     # Profilbild des Gegenuebers (2.1)
         if c.get("kind") == "group":
             from .sharing import people_icon
             av.set_icon_name(people_icon())
@@ -654,7 +665,30 @@ class Conversation(Gtk.Box):
         self.typing_label.set_visible(bool(names))
         self.screen._header()
 
+    def _call_row(self, m):
+        """Anruf-Eintrag (2.1, nur Metadaten): mittig, Symbol + Text wie im Web; verpasst = hervorgehoben"""
+        from .calls import entry_missed, entry_text
+        k = m.get("call") or {}
+        me = chat.uid
+        missed = entry_missed(k, me)
+        box = Gtk.Box(spacing=8, halign=Gtk.Align.CENTER, margin_top=6, margin_bottom=6)
+        box.add_css_class("hk-call-entry")
+        if missed:
+            box.add_css_class("hk-call-missed")
+        icon = "call-missed-symbolic" if missed else ("camera-video-symbolic" if k.get("media") == "video" else "call-start-symbolic")
+        img = Gtk.Image.new_from_icon_name(icon)
+        box.append(img)
+        text = entry_text(k, me)
+        box.append(_lbl(text, ("hk-call-text",), wrap=False))
+        tm = _lbl(_time(m.get("created") or (m.get("ts") or 0) / 1000), ("caption", "dim-label"), wrap=False)
+        box.append(tm)
+        box.update_property([Gtk.AccessibleProperty.LABEL], [text + " – " + tm.get_label()])
+        box.set_focusable(True)
+        return box
+
     def _bubble(self, m, by_id, group, first):
+        if m.get("state") == "call":
+            return self._call_row(m)
         mine = m.get("mine")
         row = Gtk.Box(spacing=6, halign=Gtk.Align.END if mine else Gtk.Align.START, margin_top=6 if first else 0)
         sender = m.get("sender") or {}
@@ -662,6 +696,7 @@ class Conversation(Gtk.Box):
         if group and not mine:
             if first:
                 av = Adw.Avatar(size=28, text=sname, show_initials=True, valign=Gtk.Align.END)
+                avatars.attach(av, sender.get("avatar"), 28)
                 row.append(av)
             else:
                 row.append(Gtk.Box(width_request=28))
@@ -1109,6 +1144,8 @@ class Conversation(Gtk.Box):
         ents = []
         peer = chat.peer(c)
         if c.get("kind") == "dm" and peer:
+            if self.screen.call_chat():
+                ents.append((_("Call in browser"), self.win.call_current))
             ents.append((_("Safety number"), lambda: open_safety(self.win, self.cid, peer.get("username"))))
         ents.append((_("Members") + " …", lambda: ChatInfoDialog(self.win, self.cid).present(self.win)))
         if c.get("kind") == "page" and c.get("note_id"):
@@ -1271,7 +1308,7 @@ class ChatInfoDialog(Adw.Dialog):
             if r and not r.get("ready"):
                 sub.append(_("hasn't set up chats yet"))
             row = Adw.ActionRow(title=GLib.markup_escape_text(m.get("name") or u or ""), subtitle=GLib.markup_escape_text(" · ".join(sub)))
-            row.add_prefix(Adw.Avatar(size=32, text=m.get("name") or u or "?", show_initials=True))
+            row.add_prefix(avatars.person(m, 32, text=m.get("name") or u or "?"))
             if u != me and r.get("ready"):
                 row.add_suffix(_button(_("Safety number"), ("flat",), lambda u=u: open_safety(self.win, self.cid, u), valign=Gtk.Align.CENTER))
             if admin and u != me:
@@ -1411,7 +1448,7 @@ class NewChatDialog(Adw.Dialog):
             r = Adw.ActionRow(title=GLib.markup_escape_text(u.get("name") or u["username"]),
                               subtitle=GLib.markup_escape_text(u["username"] + ("" if u.get("ready") else " · " + _("hasn't set up chats yet"))),
                               activatable=True)
-            r.add_prefix(Adw.Avatar(size=32, text=u.get("name") or u["username"], show_initials=True))
+            r.add_prefix(avatars.person(u, 32, text=u.get("name") or u["username"]))
             r.connect("activated", lambda *_, u=u: self._pick_user(u))
             self.results.append(r)
         for g in groups:
@@ -1578,25 +1615,61 @@ class SetupDialog(Adw.Dialog):
         b.append(self.relogin)
         self.relogin_btn = _button(_("Sign in again"), ("pill",), self._relogin, halign=Gtk.Align.CENTER, visible=False)
         b.append(self.relogin_btn)
+        # nur Passkey (kein Passwort, keine Authenticator-App): Passkeys gehen in der App nicht - "Neu beginnen" im Browser
+        self.passkey_note = _lbl(_("Your account confirms with a passkey only – that works in the browser. Start over there under "
+                                   "Chats."), ("hk-warn-text",), visible=False)
+        b.append(self.passkey_note)
+        self.passkey_btn = _button(_("Open chats in browser"), ("pill",), self._in_browser, halign=Gtk.Align.CENTER, visible=False)
+        b.append(self.passkey_btn)
+        self.methods = []
         self.err = _lbl("", ("error",), visible=False)
         b.append(self.err)
         b.append(_button(_("Create keys"), ("pill", "suggested-action"), self._create, halign=Gtk.Align.CENTER))
         tv.set_content(b)
         self.nav.add(Adw.NavigationPage(title=self.get_title(), child=tv, tag="intro"))
         if reset:
-            self._need((chat.me or {}).get("reauth"))
+            self._need((chat.me or {}).get("reauth"), (chat.me or {}).get("reauth_methods"))
 
     def add_toast(self, t):
         self.toasts.add_toast(t)
 
-    def _need(self, need):
-        self.pw_box.set_visible(need == "password")
+    def _need(self, need, methods=None):
+        """Bestaetigung vor "Neu beginnen" (2.1): Passwort und/oder 6-stelliger Code der Authenticator-App im selben Feld;
+        Passkey nur im Browser; SSO: neu anmelden"""
+        if isinstance(methods, list):
+            self.methods = [m for m in methods if isinstance(m, str)]
+        m = self.methods
+        typed = need == "password" and (not m or "password" in m or "totp" in m)
+        only_passkey = need == "password" and not typed
+        if "password" in m and "totp" in m:
+            title = _("For your security: your password or a code from the authenticator app")
+        elif "totp" in m and "password" not in m:
+            title = _("For your security: a code from the authenticator app")
+        else:
+            title = _("For your security: your password")
+        self.pw.set_title(title)
+        self.pw_box.set_visible(typed)
+        self.passkey_note.set_visible(only_passkey)
+        self.passkey_btn.set_visible(only_passkey)
         self.relogin.set_visible(need == "login")
         self.relogin_btn.set_visible(need == "login")
+
+    def secret(self):
+        """-> (passwort, code): 6 Ziffern gelten als Code, wenn die Authenticator-App eingerichtet ist (wie im Web)"""
+        s = self.pw.get_text()
+        digits = re.sub(r"\s", "", s)
+        if "totp" in self.methods and re.fullmatch(r"\d{6}", digits):
+            return None, digits
+        return s or None, None
 
     def _relogin(self):
         self.close()
         self.win.start_login(config.settings.server)
+
+    def _in_browser(self):
+        from .calls import open_in_browser
+        self.close()
+        open_in_browser(config.settings.server.rstrip("/") + "/chats", self.win)
 
     def _create(self):
         self.err.set_visible(False)
@@ -1605,7 +1678,7 @@ class SetupDialog(Adw.Dialog):
         self.nav.push(self.keys_pages.p1)
 
     def _go(self, rk, pages):
-        pw = self.pw.get_text() if self.reset else None
+        pw, code = self.secret() if self.reset else (None, None)
 
         def fin(k):
             chat.adopt_keys(k)
@@ -1614,14 +1687,14 @@ class SetupDialog(Adw.Dialog):
 
         def err(e):
             if isinstance(e, ChatError) and e.code == 403 and isinstance(e.data, dict) and e.data.get("reauth"):
-                self._need(e.data["reauth"])
+                self._need(e.data["reauth"], e.data.get("reauth_methods"))
                 self.nav.pop_to_tag("intro")
                 self.err.set_label(str(e))
                 self.err.set_visible(True)
                 pages.failed("")
                 return
             pages.failed(str(e))
-        bg(chat.setup, rk, pw, self.reset, done=fin, error=err)
+        bg(chat.setup, rk, pw, self.reset, code, done=fin, error=err)
 
 
 def ask_start_over(win):

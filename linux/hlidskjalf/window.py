@@ -6,7 +6,7 @@ import time
 
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
 
-from . import APP_ID, PROJECT_URL, config, images
+from . import APP_ID, PROJECT_URL, avatars, config, images
 from .api import Cancelled, client, pkce
 from .blocks import context_menu, flat_button, menu_popover
 from .config import device_name, get_device_token, settings
@@ -444,6 +444,7 @@ class MainWindow(Adw.ApplicationWindow):
             self.show_root(("today",))
         store.refresh(done=self._after_first_refresh)
         bg(images.prune_disk_cache, error=lambda e: None, media=True)      # Bilder-Zwischenspeicher begrenzen
+        bg(avatars.prune, error=lambda e: None, media=True)                # alte Profilbilder
 
     def _after_first_refresh(self):
         home = store.home_page
@@ -616,6 +617,13 @@ class MainWindow(Adw.ApplicationWindow):
         from .notifications import BellButton
         self.bell = BellButton(self)                        # Benachrichtigungen (1.4): Glocke mit Zahl
         hb.pack_end(self.bell)
+        # eigenes Konto (2.1: mit Profilbild) -> Einstellungen, Seite Konto
+        self.acct_av = Adw.Avatar(size=24, text="?", show_initials=True)
+        self.acct_btn = Gtk.Button(child=self.acct_av, visible=False, valign=Gtk.Align.CENTER)
+        self.acct_btn.add_css_class("flat")
+        self.acct_btn.add_css_class("hk-acct-btn")
+        self.acct_btn.connect("clicked", lambda *_: self.settings_dialog(page="account"))
+        hb.pack_end(self.acct_btn)
         sb.add_top_bar(hb)
         self.sidebar = Sidebar(self)
         sb.set_content(self.sidebar)
@@ -666,6 +674,11 @@ class MainWindow(Adw.ApplicationWindow):
         self.ai_btn.add_css_class("flat")
         self.ai_btn.connect("clicked", lambda *_: self.assistant())
         self.chb.pack_end(self.ai_btn)
+        # Anrufen (2.1, Direkt-Chat): oeffnet den Chat im Browser, dort "Anruf"/"Videoanruf" (Linux v1 ohne eigenes WebRTC)
+        self.call_btn = flat_button(icon="call-start-symbolic", tooltip=_("Call – opens the chat in your browser"),
+                                    cb=lambda: self.call_current())
+        self.call_btn.set_visible(False)
+        self.chb.pack_end(self.call_btn)
         # Anwesenheit (1.4): wer ist gerade auf dieser Seite (Anfangsbuchstaben)
         self.presence_box = Gtk.Box(spacing=0, visible=False, valign=Gtk.Align.CENTER)
         self.presence_box.add_css_class("hk-presence")
@@ -673,6 +686,9 @@ class MainWindow(Adw.ApplicationWindow):
         ct.add_top_bar(self.chb)
         self.old_banner = Adw.Banner(title="", revealed=False)      # Server ist neuer, als diese App kann
         ct.add_top_bar(self.old_banner)
+        from .calls import CallBar
+        self.callbar = CallBar(self)                                # eingehender Anruf (2.1): Ablehnen / Annehmen
+        ct.add_top_bar(self.callbar)
         store.connect("version-changed", lambda *_: self._version_banner())
         self.overlay = Gtk.Overlay()
         self.slot = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, vexpand=True, hexpand=True)
@@ -688,8 +704,8 @@ class MainWindow(Adw.ApplicationWindow):
         self.very_narrow = False
         bp2 = Adw.Breakpoint.new(Adw.BreakpointCondition.parse("max-width: 560sp"))
         bp2.add_setter(self.split, "collapsed", True)        # es gilt immer nur ein Breakpoint: Einklappen wiederholen
-        bp2.connect("apply", lambda *_: (setattr(self, "very_narrow", True), self.update_header()))
-        bp2.connect("unapply", lambda *_: (setattr(self, "very_narrow", False), self.update_header()))
+        bp2.connect("apply", lambda *_: (setattr(self, "very_narrow", True), self.update_header(), self.callbar.set_compact(True)))
+        bp2.connect("unapply", lambda *_: (setattr(self, "very_narrow", False), self.update_header(), self.callbar.set_compact(False)))
         self.add_breakpoint(bp2)
         self.split.set_show_sidebar(bool(settings.get("sidebar_shown", True)))
         self.split.connect("notify::show-sidebar", self._sidebar_changed)
@@ -747,6 +763,11 @@ class MainWindow(Adw.ApplicationWindow):
         if not settings.server:
             self.login_msg.set_label(_("Enter the server address or sign in with a pairing link"))
         box.append(self.login_msg)
+        tfa = Gtk.Label(label=_("With two-factor sign-in, the browser then asks for your passkey or a code from your authenticator app."),
+                        wrap=True, justify=Gtk.Justification.CENTER, max_width_chars=48)
+        tfa.add_css_class("dim-label")
+        tfa.add_css_class("caption")
+        box.append(tfa)
         px = Gtk.Expander(label_widget=Gtk.Label(label=_("Sign in with a pairing link (QR code from the web)"), wrap=True, xalign=0))
         pb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=6)
         pb.append(Gtk.Label(label=_("In the browser: 👤 → Settings → “Apps & devices” → “Sign in with QR code”. "
@@ -1022,6 +1043,7 @@ class MainWindow(Adw.ApplicationWindow):
         is_page = isinstance(self.current, PageView)
         self.menu_btn.set_visible(is_page)
         self.star_btn.set_visible(is_page)
+        self.call_btn.set_visible(False)
         if is_page:
             from .comments import count_tooltip
             from .sharing import allowed, can_comment, header_button
@@ -1074,6 +1096,7 @@ class MainWindow(Adw.ApplicationWindow):
                 self.wtitle.set_title(t)
                 self.wtitle.set_subtitle(sub)
                 self.menu_btn.set_visible(self.current.has_menu())
+                self.call_btn.set_visible(bool(getattr(self.current, "call_chat", lambda: None)()))
                 self.set_title(f"{t} – Saga")
                 return
             t = {"today": _("Today"), "tasks": _("Tasks"), "events": _("Events"), "services": _("Services")}.get((self.route or ("today",))[0], "")
@@ -1088,13 +1111,27 @@ class MainWindow(Adw.ApplicationWindow):
         from .chat import chat
         from .live import live
         from .notifications import notifications
+        from .calls import calls
         live.start()
         notifications.load()
         chat.refresh()
         ai.refresh(lambda: self.update_header())
+        calls.load_config(lambda on: self.update_header())
+        calls.check_active()                               # klingelt es gerade schon (App eben gestartet)?
+        self.load_account()
+
+    def call_current(self):
+        """Direkt-Chat: Anrufen im Browser (Web-Oberflaeche mit WebRTC)"""
+        cid = getattr(self.current, "call_chat", lambda: None)()
+        if not cid:
+            return
+        from .calls import chat_url, open_in_browser
+        open_in_browser(chat_url(cid), self)
+        self.toast(_("The chat opens in your browser – start the call there."))
 
     def _session_ended(self):
         from .assistant import ai
+        from .calls import calls
         from .chat import chat
         from .live import live
         from .notifications import notifications
@@ -1103,7 +1140,42 @@ class MainWindow(Adw.ApplicationWindow):
         notifications.emit("changed")
         chat.reset()
         ai.reset()
+        calls.reset()
+        avatars.reset()
+        self.me = {}
+        self._account_button()
         self.set_presence([])
+
+    # --- eigenes Konto (Name, Profilbild) ---------------------------------------------------------------------
+    def load_account(self):
+        srv = settings.server
+
+        def fin(j):
+            if srv == settings.server and isinstance(j, dict):
+                self.me = j
+                self._account_button()
+        bg(client.get, "api/account", done=fin, error=lambda e: None)
+
+    def account_name(self):
+        m = getattr(self, "me", None) or {}
+        return m.get("name") or m.get("username") or ""
+
+    def account_changed(self):
+        """eigenes Profilbild geaendert (Einstellungen): Konto neu laden, Kopfleiste und offene Ansichten neu zeichnen"""
+        self.load_account()
+
+    def _account_button(self):
+        b = getattr(self, "acct_btn", None)
+        if b is None:
+            return
+        m = getattr(self, "me", None) or {}
+        name = self.account_name()
+        b.set_visible(bool(name))
+        self.acct_av.set_text(name or "?")
+        avatars.attach(self.acct_av, m.get("avatar"), 24)
+        tip = _("Account: {name}").format(name=name) if name else _("Account")
+        b.set_tooltip_text(tip)
+        b.update_property([Gtk.AccessibleProperty.LABEL], [tip])
 
     def _views(self):
         out = [self.current] if isinstance(self.current, PageView) else []
@@ -1121,6 +1193,13 @@ class MainWindow(Adw.ApplicationWindow):
             return
         if typ.startswith("chat."):
             chat.on_live(typ, d)
+            return
+        if typ.startswith("call.") or typ in ("hello", "reset"):    # Anrufe: klingeln, anderswo angenommen/beendet
+            from .calls import calls
+            calls.on_live(typ, d)
+            if typ.startswith("call."):
+                return
+        if typ == "hello":
             return
         if typ == "reset":
             store.refresh()
@@ -1162,6 +1241,7 @@ class MainWindow(Adw.ApplicationWindow):
             tip = (_("{name} is editing") if u.get("editing") else _("{name} is also here")).format(name=name)
             tips.append(tip)
             a = Adw.Avatar(size=24, text=name, show_initials=True, tooltip_text=tip)
+            avatars.attach(a, u.get("avatar"), 24)                  # Profilbild (2.1), sonst Initialen
             a.add_css_class("hk-pres-av")
             if u.get("editing"):
                 a.add_css_class("hk-pres-editing")

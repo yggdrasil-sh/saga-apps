@@ -31,6 +31,11 @@ Requires:       google-noto-color-emoji-fonts
 # Funktionen, die es seit PyNaCl 1.5 gibt (Testvektoren tests/test_chat_vectors.py laufen mit 1.5.0); EPEL 10 hat nur 1.5.0
 # (BUG-026). Die Krypto selbst kommt aus der System-libsodium, nicht aus PyNaCl.
 Requires:       python3dist(pynacl) >= 1.5
+# Anrufe (2.1): Klingelton als WAV ueber GStreamer (playbin; gstreamer1 samt Gst-Typelib kommt mit gtk4, WAV lesen kann
+# erst wavparse aus plugins-good). Ohne das Paket klingelt es still (Mitteilung + Leiste bleiben) - daher nur empfohlen.
+# Das Gespraech selbst laeuft im Standardbrowser (Linux v1, keine WebRTC-Bibliothek noetig).
+Recommends:     gstreamer1-plugins-good
+# Profilbilder (2.1): kann gdk-pixbuf WebP lesen (Fedora: glycin), fragt die App WebP an, sonst PNG/JPEG - kein Paket noetig
 
 %description
 Saga is a native GNOME app (GTK4 and libadwaita) for a self-hosted
@@ -103,6 +108,11 @@ test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-chat-symbolic.s
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-assistant-symbolic.svg
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-send-symbolic.svg
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/chatcrypto.py
+# 2.1: Profilbilder, Anmeldung & Sicherheit, Anrufe
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/avatars.py
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/profile.py
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/security.py
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/calls.py
 
 # Desktop-Datenbank und Symbol-Zwischenspeicher aktualisieren Fedora/RHEL selbst (Datei-Trigger) - keine Scriptlets noetig
 

@@ -230,6 +230,10 @@ class UnifiedPush(GObject.Object):
             from .live import live
             if live.connected:                                       # sichtbar und live verbunden: steht schon in der Glocke
                 return
+        if d.get("kind") == "call":                                  # Anruf: klingelt ueber calls (gleiche ID, kein Doppel)
+            from .calls import calls
+            if calls.on_push(d):
+                return
         n = Gio.Notification.new(str(d.get("title") or "Saga")[:200])
         if d.get("body"):
             n.set_body(str(d["body"])[:500])
@@ -264,7 +268,8 @@ def subscribed():
 CATS = [("share", lambda: _("Sharing: someone shares a page with me or changes my role")),
         ("comment", lambda: _("Comments and replies")),
         ("chat", lambda: _("Chat messages")),
-        ("publish", lambda: _("Publishing: an admin withdraws something"))]
+        ("publish", lambda: _("Publishing: an admin withdraws something")),
+        ("call", lambda: _("Calls: ringing, missed calls"))]                # Server ab 2.1 (sonst fehlt "call" in cats)
 
 
 class PushPage(Adw.PreferencesPage):

@@ -343,8 +343,9 @@ class ChatState(GObject.Object):
         bg(work, done=fin, error=err)
 
     # --- Einrichtung ---------------------------------------------------------------------------------------------
-    def setup(self, rk, password=None, reset=False):
-        """Hintergrund: neue Identitaet + dieses Geraet anmelden (reset = neu beginnen). -> Schluessel"""
+    def setup(self, rk, password=None, reset=False, code=None):
+        """Hintergrund: neue Identitaet + dieses Geraet anmelden (reset = neu beginnen; Bestaetigung mit Passwort oder -
+        Server ab 2.1 - mit dem 6-stelligen Code der Authenticator-App). -> Schluessel"""
         uid = self.uid
         ident, dev = C.identity(), C.device()
         body = {"ident_pub": C.b64(ident["ident_pk"]), "backup_pub": C.b64(ident["backup_pk"]),
@@ -355,6 +356,8 @@ class ChatState(GObject.Object):
             body["reset"] = True
             if password:
                 body["password"] = password
+            elif code:
+                body["code"] = code
         try:
             client.json("PUT", "api/chat/identity", body)
         except APIError as e:
@@ -588,6 +591,11 @@ class ChatState(GObject.Object):
         out = {"seq": m.get("seq"), "id": m.get("id"), "sender": sender, "mine": uname == self.uid and bool(uname),
                "ts": m.get("ts"), "created": m.get("created"), "expires_at": m.get("expires_at"), "reply_to": m.get("reply_to"),
                "sender_device": m.get("sender_device"), "body": None, "state": "ok", "text": "", "files": [], "notes": []}
+        if m.get("kind") == "call":                       # Anruf-Eintrag (2.1): Klartext-Metadaten vom Server, nichts zu pruefen
+            from .calls import parse_entry
+            k = parse_entry(m)
+            out["state"], out["call"] = ("call", k) if k else ("undecryptable", None)
+            return out
         dev = (devices or {}).get(m.get("sender_device"))
         ident_pub = (idents or {}).get(uname)
         try:
@@ -611,7 +619,7 @@ class ChatState(GObject.Object):
         if not self.ready:
             return
         c = self.cache.setdefault(cid, {"msgs": [], "more": False, "last_seq": 0, "loaded": False})
-        q = f"api/chats/{cid}/messages?device={self.device_id}&limit=50"
+        q = f"api/chats/{cid}/messages?device={self.device_id}&limit=50&calls=1"     # calls=1: Anruf-Eintraege (2.1)
         if older and c["msgs"]:
             q += f"&before={c['msgs'][0]['seq']}"
         elif c["loaded"] and c["msgs"]:

@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: saga\n"
 "Report-Msgid-Bugs-To: https://github.com/yggdrasil-sh/saga-apps/issues\n"
-"POT-Creation-Date: 2026-10-15 10:19+0000\n"
+"POT-Creation-Date: 2026-10-16 02:21+0000\n"
 "PO-Revision-Date: 2026-10-14 14:30+0200\n"
 "Last-Translator: Saga-Projekt\n"
 "Language-Team: Deutsch\n"
@@ -43,7 +43,7 @@ msgstr "Jährlich"
 msgid "Mark done"
 msgstr "Erledigt"
 
-#: hlidskjalf/agenda.py:31 hlidskjalf/agenda.py:60 hlidskjalf/comments.py:521
+#: hlidskjalf/agenda.py:31 hlidskjalf/agenda.py:60 hlidskjalf/comments.py:549
 msgid "Reopen"
 msgstr "Wieder öffnen"
 
@@ -51,9 +51,9 @@ msgstr "Wieder öffnen"
 msgid "Edit …"
 msgstr "Bearbeiten …"
 
-#: hlidskjalf/agenda.py:62 hlidskjalf/assistant.py:706 hlidskjalf/blocks.py:865
-#: hlidskjalf/chatview.py:761 hlidskjalf/comments.py:555
-#: hlidskjalf/comments.py:614
+#: hlidskjalf/agenda.py:62 hlidskjalf/assistant.py:709 hlidskjalf/blocks.py:865
+#: hlidskjalf/chatview.py:798 hlidskjalf/comments.py:586
+#: hlidskjalf/comments.py:645
 msgid "Delete"
 msgstr "Löschen"
 
@@ -69,10 +69,10 @@ msgstr "Neue Aufgabe …"
 msgid "Overdue"
 msgstr "Überfällig"
 
-#: hlidskjalf/agenda.py:107 hlidskjalf/agenda.py:549 hlidskjalf/chatview.py:184
-#: hlidskjalf/database.py:533 hlidskjalf/database.py:1062
+#: hlidskjalf/agenda.py:107 hlidskjalf/agenda.py:549 hlidskjalf/chatview.py:187
+#: hlidskjalf/database.py:540 hlidskjalf/database.py:1069
 #: hlidskjalf/richtext.py:312 hlidskjalf/window.py:253
-#: hlidskjalf/window.py:1068 hlidskjalf/window.py:1332
+#: hlidskjalf/window.py:1102 hlidskjalf/window.py:1423
 msgid "Today"
 msgstr "Heute"
 
@@ -104,19 +104,19 @@ msgid "Task"
 msgstr "Aufgabe"
 
 #: hlidskjalf/agenda.py:216 hlidskjalf/agenda.py:366
-#: hlidskjalf/chatview.py:1137 hlidskjalf/chatview.py:1584
-#: hlidskjalf/comments.py:242 hlidskjalf/dbedit.py:162
-#: hlidskjalf/dialogs.py:184 hlidskjalf/dialogs.py:194
-#: hlidskjalf/dialogs.py:525 hlidskjalf/page.py:118 hlidskjalf/page.py:1237
-#: hlidskjalf/page.py:1332 hlidskjalf/publish.py:217 hlidskjalf/settings.py:103
-#: hlidskjalf/settings.py:136 hlidskjalf/settings.py:299
-#: hlidskjalf/settings.py:445 hlidskjalf/window.py:827
-#: hlidskjalf/window.py:1567 hlidskjalf/window.py:1648
+#: hlidskjalf/chatview.py:1233 hlidskjalf/chatview.py:1725
+#: hlidskjalf/comments.py:243 hlidskjalf/dbedit.py:162
+#: hlidskjalf/dialogs.py:187 hlidskjalf/dialogs.py:197
+#: hlidskjalf/dialogs.py:543 hlidskjalf/page.py:118 hlidskjalf/page.py:1295
+#: hlidskjalf/page.py:1390 hlidskjalf/profile.py:162 hlidskjalf/publish.py:217
+#: hlidskjalf/settings.py:107 hlidskjalf/settings.py:140
+#: hlidskjalf/settings.py:305 hlidskjalf/settings.py:451
+#: hlidskjalf/window.py:853 hlidskjalf/window.py:1658 hlidskjalf/window.py:1739
 msgid "Cancel"
 msgstr "Abbrechen"
 
 #: hlidskjalf/agenda.py:219 hlidskjalf/agenda.py:370
-#: hlidskjalf/chatview.py:1138 hlidskjalf/comments.py:572
+#: hlidskjalf/chatview.py:1234 hlidskjalf/comments.py:603
 #: hlidskjalf/dbedit.py:163 hlidskjalf/page.py:114
 msgid "Save"
 msgstr "Speichern"
@@ -182,11 +182,11 @@ msgid "New event"
 msgstr "Neuer Termin"
 
 #: hlidskjalf/agenda.py:366 hlidskjalf/chatview.py:118
-#: hlidskjalf/chatview.py:1686 hlidskjalf/sharing.py:469
+#: hlidskjalf/chatview.py:1827 hlidskjalf/sharing.py:473
 msgid "Close"
 msgstr "Schließen"
 
-#: hlidskjalf/agenda.py:370 hlidskjalf/chatview.py:1793
+#: hlidskjalf/agenda.py:370 hlidskjalf/chatview.py:1938
 msgid "Create"
 msgstr "Anlegen"
 
@@ -207,12 +207,12 @@ msgid "Start"
 msgstr "Beginn"
 
 #: hlidskjalf/agenda.py:391 hlidskjalf/agenda.py:395 hlidskjalf/blocks.py:552
-#: hlidskjalf/dbedit.py:17 hlidskjalf/editor.py:36 hlidskjalf/settings.py:225
-#: hlidskjalf/settings.py:255
+#: hlidskjalf/dbedit.py:17 hlidskjalf/editor.py:36 hlidskjalf/settings.py:231
+#: hlidskjalf/settings.py:261
 msgid "Calendar"
 msgstr "Kalender"
 
-#: hlidskjalf/agenda.py:391 hlidskjalf/dialogs.py:440 hlidskjalf/dialogs.py:481
+#: hlidskjalf/agenda.py:391 hlidskjalf/dialogs.py:446 hlidskjalf/dialogs.py:487
 msgid "Loading …"
 msgstr "Lade …"
 
@@ -225,8 +225,12 @@ msgid "Description"
 msgstr "Beschreibung"
 
 #: hlidskjalf/agenda.py:411
-msgid "Recurring event – please edit it directly in mailcow/Nextcloud so the series is kept."
-msgstr "Serientermin – bitte direkt in mailcow/Nextcloud bearbeiten, damit die Serie erhalten bleibt."
+msgid ""
+"Recurring event – please edit it directly in mailcow/Nextcloud so the series "
+"is kept."
+msgstr ""
+"Serientermin – bitte direkt in mailcow/Nextcloud bearbeiten, damit die Serie "
+"erhalten bleibt."
 
 #: hlidskjalf/agenda.py:412
 msgid "This calendar is read-only."
@@ -241,12 +245,12 @@ msgid "No writable calendar connected (Settings → Calendar)."
 msgstr "Kein beschreibbarer Kalender verbunden (Einstellungen → Kalender)."
 
 #: hlidskjalf/agenda.py:507 hlidskjalf/blocks.py:552 hlidskjalf/editor.py:35
-#: hlidskjalf/window.py:240 hlidskjalf/window.py:1068 hlidskjalf/window.py:1333
+#: hlidskjalf/window.py:240 hlidskjalf/window.py:1102 hlidskjalf/window.py:1424
 msgid "Tasks"
 msgstr "Aufgaben"
 
-#: hlidskjalf/agenda.py:514 hlidskjalf/window.py:241 hlidskjalf/window.py:1068
-#: hlidskjalf/window.py:1334
+#: hlidskjalf/agenda.py:514 hlidskjalf/window.py:241 hlidskjalf/window.py:1102
+#: hlidskjalf/window.py:1425
 msgid "Events"
 msgstr "Termine"
 
@@ -254,38 +258,38 @@ msgstr "Termine"
 msgid "Nothing planned 🎉"
 msgstr "Nichts geplant 🎉"
 
-#: hlidskjalf/api.py:34
-msgid "Please sign in"
-msgstr "Bitte anmelden"
-
-#: hlidskjalf/api.py:36 hlidskjalf/api.py:217 hlidskjalf/api.py:438
-#: hlidskjalf/assistant.py:109
-msgid "Server not reachable"
-msgstr "Server nicht erreichbar"
-
-#: hlidskjalf/api.py:37
-#, python-brace-format
-msgid "Error {code}"
-msgstr "Fehler {code}"
-
-#: hlidskjalf/api.py:153
-msgid "This address belongs to another server."
-msgstr "Diese Adresse gehört zu einem anderen Server."
-
-#: hlidskjalf/api.py:160
-msgid "No server address set"
-msgstr "Keine Server-Adresse eingetragen"
-
-#: hlidskjalf/api.py:185 hlidskjalf/api.py:367 hlidskjalf/api.py:415
+#: hlidskjalf/api.py:30
 #, python-brace-format
 msgid "Server not reachable: {error}"
 msgstr "Server nicht erreichbar: {error}"
 
-#: hlidskjalf/api.py:277
+#: hlidskjalf/api.py:31 hlidskjalf/api.py:46 hlidskjalf/api.py:227
+#: hlidskjalf/api.py:448 hlidskjalf/assistant.py:109
+msgid "Server not reachable"
+msgstr "Server nicht erreichbar"
+
+#: hlidskjalf/api.py:44
+msgid "Please sign in"
+msgstr "Bitte anmelden"
+
+#: hlidskjalf/api.py:47
+#, python-brace-format
+msgid "Error {code}"
+msgstr "Fehler {code}"
+
+#: hlidskjalf/api.py:163
+msgid "This address belongs to another server."
+msgstr "Diese Adresse gehört zu einem anderen Server."
+
+#: hlidskjalf/api.py:170
+msgid "No server address set"
+msgstr "Keine Server-Adresse eingetragen"
+
+#: hlidskjalf/api.py:287
 msgid "Sign-in failed"
 msgstr "Anmeldung fehlgeschlagen"
 
-#: hlidskjalf/api.py:396
+#: hlidskjalf/api.py:406
 msgid "Upload failed"
 msgstr "Upload fehlgeschlagen"
 
@@ -293,17 +297,17 @@ msgstr "Upload fehlgeschlagen"
 msgid "Error"
 msgstr "Fehler"
 
-#: hlidskjalf/assistant.py:153 hlidskjalf/page.py:1176 hlidskjalf/window.py:660
-#: hlidskjalf/window.py:1349
+#: hlidskjalf/assistant.py:153 hlidskjalf/page.py:1234 hlidskjalf/window.py:673
+#: hlidskjalf/window.py:1440
 msgid "AI assistant"
 msgstr "KI-Assistent"
 
-#: hlidskjalf/assistant.py:165 hlidskjalf/assistant.py:666
+#: hlidskjalf/assistant.py:165 hlidskjalf/assistant.py:669
 msgid "History"
 msgstr "Verlauf"
 
 #: hlidskjalf/assistant.py:170 hlidskjalf/assistant.py:214
-#: hlidskjalf/page.py:1179
+#: hlidskjalf/page.py:1237
 msgid "Ask your pages"
 msgstr "Frag deine Seiten"
 
@@ -317,12 +321,20 @@ msgid "{n} of {m} requests left today"
 msgstr "Heute noch {n} von {m} Anfragen"
 
 #: hlidskjalf/assistant.py:215
-msgid "Ask something – the assistant searches the pages you're allowed to see and names its sources."
-msgstr "Frag etwas – der Assistent sucht in den Seiten, die du sehen darfst, und nennt seine Quellen."
+msgid ""
+"Ask something – the assistant searches the pages you're allowed to see and "
+"names its sources."
+msgstr ""
+"Frag etwas – der Assistent sucht in den Seiten, die du sehen darfst, und "
+"nennt seine Quellen."
 
 #: hlidskjalf/assistant.py:217
-msgid "It can't change anything: you apply suggestions yourself. It never reads chats; tasks and calendar only when you turn them on."
-msgstr "Er kann nichts ändern: Vorschläge übernimmst du selbst. Chats liest er nie; Aufgaben und Kalender nur, wenn du sie einschaltest."
+msgid ""
+"It can't change anything: you apply suggestions yourself. It never reads "
+"chats; tasks and calendar only when you turn them on."
+msgstr ""
+"Er kann nichts ändern: Vorschläge übernimmst du selbst. Chats liest er nie; "
+"Aufgaben und Kalender nur, wenn du sie einschaltest."
 
 #: hlidskjalf/assistant.py:228
 msgid "Question to your pages"
@@ -352,22 +364,22 @@ msgstr "Stopp"
 msgid "The assistant does not work on pages from other Saga instances."
 msgstr "Seiten anderer Saga-Instanzen bearbeitet der Assistent nicht."
 
-#: hlidskjalf/assistant.py:339 hlidskjalf/assistant.py:408
-#: hlidskjalf/page.py:1178
+#: hlidskjalf/assistant.py:339 hlidskjalf/assistant.py:409
+#: hlidskjalf/page.py:1236
 msgid "Improve selected text"
 msgstr "Markierten Text verbessern"
 
-#: hlidskjalf/assistant.py:339 hlidskjalf/assistant.py:408
-#: hlidskjalf/page.py:1177
+#: hlidskjalf/assistant.py:339 hlidskjalf/assistant.py:409
+#: hlidskjalf/page.py:1235
 msgid "Suggest tasks"
 msgstr "Aufgaben vorschlagen"
 
-#: hlidskjalf/assistant.py:339 hlidskjalf/assistant.py:408
-#: hlidskjalf/page.py:1176
+#: hlidskjalf/assistant.py:339 hlidskjalf/assistant.py:409
+#: hlidskjalf/page.py:1234
 msgid "Summarize"
 msgstr "Zusammenfassen"
 
-#: hlidskjalf/assistant.py:345 hlidskjalf/assistant.py:409
+#: hlidskjalf/assistant.py:345 hlidskjalf/assistant.py:410
 msgid "Translate to"
 msgstr "Übersetzen nach"
 
@@ -383,250 +395,265 @@ msgstr[0] "Markiert: {n} Block"
 msgstr[1] "Markiert: {n} Blöcke"
 
 #: hlidskjalf/assistant.py:387
-msgid "For “Improve” and “Translate”, mark blocks in the block menu (⋮⋮ → “Mark for the assistant”) or place the cursor in a block first."
-msgstr "Für „Verbessern“ und „Übersetzen“ zuerst Blöcke im Block-Menü markieren (⋮⋮ → „Für den Assistenten markieren“) oder den Cursor in einen Block setzen."
+msgid ""
+"For “Improve” and “Translate”, mark blocks in the block menu (⋮⋮ → “Mark for "
+"the assistant”) or place the cursor in a block first."
+msgstr ""
+"Für „Verbessern“ und „Übersetzen“ zuerst Blöcke im Block-Menü markieren (⋮⋮ "
+"→ „Für den Assistenten markieren“) oder den Cursor in einen Block setzen."
 
-#: hlidskjalf/assistant.py:399
+#: hlidskjalf/assistant.py:400
 msgid "For “Improve” and “Translate”, select text on the page first."
 msgstr "Für „Verbessern“ und „Übersetzen“ zuerst Text auf der Seite markieren."
 
-#: hlidskjalf/assistant.py:419
+#: hlidskjalf/assistant.py:422
 msgid "Dutch"
 msgstr "Niederländisch"
 
-#: hlidskjalf/assistant.py:419
+#: hlidskjalf/assistant.py:422
 msgid "English"
 msgstr "Englisch"
 
-#: hlidskjalf/assistant.py:419
+#: hlidskjalf/assistant.py:422
 msgid "French"
 msgstr "Französisch"
 
-#: hlidskjalf/assistant.py:419
+#: hlidskjalf/assistant.py:422
 msgid "German"
 msgstr "Deutsch"
 
-#: hlidskjalf/assistant.py:419
+#: hlidskjalf/assistant.py:422
 msgid "Italian"
 msgstr "Italienisch"
 
-#: hlidskjalf/assistant.py:419
+#: hlidskjalf/assistant.py:422
 msgid "Spanish"
 msgstr "Spanisch"
 
-#: hlidskjalf/assistant.py:420
+#: hlidskjalf/assistant.py:423
 msgid "Danish"
 msgstr "Dänisch"
 
-#: hlidskjalf/assistant.py:420
+#: hlidskjalf/assistant.py:423
 msgid "Finnish"
 msgstr "Finnisch"
 
-#: hlidskjalf/assistant.py:420
+#: hlidskjalf/assistant.py:423
 msgid "Norwegian"
 msgstr "Norwegisch"
 
-#: hlidskjalf/assistant.py:420
+#: hlidskjalf/assistant.py:423
 msgid "Polish"
 msgstr "Polnisch"
 
-#: hlidskjalf/assistant.py:420
+#: hlidskjalf/assistant.py:423
 msgid "Portuguese"
 msgstr "Portugiesisch"
 
-#: hlidskjalf/assistant.py:420
+#: hlidskjalf/assistant.py:423
 msgid "Swedish"
 msgstr "Schwedisch"
 
-#: hlidskjalf/assistant.py:421
+#: hlidskjalf/assistant.py:424
 msgid "Chinese"
 msgstr "Chinesisch"
 
-#: hlidskjalf/assistant.py:421
+#: hlidskjalf/assistant.py:424
 msgid "Czech"
 msgstr "Tschechisch"
 
-#: hlidskjalf/assistant.py:421
+#: hlidskjalf/assistant.py:424
 msgid "Japanese"
 msgstr "Japanisch"
 
-#: hlidskjalf/assistant.py:421
+#: hlidskjalf/assistant.py:424
 msgid "Russian"
 msgstr "Russisch"
 
-#: hlidskjalf/assistant.py:421
+#: hlidskjalf/assistant.py:424
 msgid "Turkish"
 msgstr "Türkisch"
 
-#: hlidskjalf/assistant.py:421
+#: hlidskjalf/assistant.py:424
 msgid "Ukrainian"
 msgstr "Ukrainisch"
 
-#: hlidskjalf/assistant.py:422
+#: hlidskjalf/assistant.py:425
 msgid "Korean"
 msgstr "Koreanisch"
 
-#: hlidskjalf/assistant.py:447
+#: hlidskjalf/assistant.py:450
 msgid "Thinking …"
 msgstr "Denkt nach …"
 
-#: hlidskjalf/assistant.py:485
+#: hlidskjalf/assistant.py:488
 msgid "The page is long – only the beginning was used."
 msgstr "Die Seite ist lang – nur der Anfang wurde verwendet."
 
-#: hlidskjalf/assistant.py:501
+#: hlidskjalf/assistant.py:504
 msgid "No matching pages found."
 msgstr "Keine passenden Seiten gefunden."
 
-#: hlidskjalf/assistant.py:503
+#: hlidskjalf/assistant.py:506
 msgid "Sources:"
 msgstr "Quellen:"
 
-#: hlidskjalf/assistant.py:505 hlidskjalf/chatview.py:154
-#: hlidskjalf/chatview.py:976 hlidskjalf/chatview.py:991
-#: hlidskjalf/database.py:642 hlidskjalf/database.py:862
-#: hlidskjalf/database.py:916 hlidskjalf/database.py:954
-#: hlidskjalf/database.py:1095 hlidskjalf/dialogs.py:175
-#: hlidskjalf/dialogs.py:180 hlidskjalf/dialogs.py:303
-#: hlidskjalf/dialogs.py:315 hlidskjalf/editor.py:182 hlidskjalf/editor.py:602
-#: hlidskjalf/editor.py:1040 hlidskjalf/notifications.py:67
-#: hlidskjalf/page.py:394 hlidskjalf/page.py:931
+#: hlidskjalf/assistant.py:508 hlidskjalf/chatview.py:154
+#: hlidskjalf/chatview.py:1070 hlidskjalf/chatview.py:1085
+#: hlidskjalf/database.py:649 hlidskjalf/database.py:869
+#: hlidskjalf/database.py:923 hlidskjalf/database.py:961
+#: hlidskjalf/database.py:1102 hlidskjalf/dialogs.py:178
+#: hlidskjalf/dialogs.py:183 hlidskjalf/dialogs.py:307
+#: hlidskjalf/dialogs.py:319 hlidskjalf/editor.py:183 hlidskjalf/editor.py:614
+#: hlidskjalf/editor.py:1052 hlidskjalf/notifications.py:70
+#: hlidskjalf/page.py:396 hlidskjalf/page.py:989
 #: hlidskjalf/searchprovider.py:48 hlidskjalf/searchprovider.py:85
 #: hlidskjalf/sharing.py:153 hlidskjalf/sharing.py:194 hlidskjalf/store.py:20
+#: hlidskjalf/window.py:523
 msgid "Untitled"
 msgstr "Unbenannt"
 
-#: hlidskjalf/assistant.py:514 hlidskjalf/chatview.py:1415
-#: hlidskjalf/settings.py:434 hlidskjalf/sharing.py:470
+#: hlidskjalf/assistant.py:517 hlidskjalf/chatview.py:1520
+#: hlidskjalf/settings.py:440 hlidskjalf/sharing.py:474
 msgid "Copy"
 msgstr "Kopieren"
 
-#: hlidskjalf/assistant.py:515 hlidskjalf/chatview.py:751
-#: hlidskjalf/chatview.py:1448
+#: hlidskjalf/assistant.py:518 hlidskjalf/chatview.py:788
+#: hlidskjalf/chatview.py:1553
 msgid "Copied."
 msgstr "Kopiert."
 
-#: hlidskjalf/assistant.py:521
+#: hlidskjalf/assistant.py:524
 msgid "No tasks found."
 msgstr "Keine Aufgaben gefunden."
 
-#: hlidskjalf/assistant.py:537
+#: hlidskjalf/assistant.py:540
 msgid "Add to tasks"
 msgstr "In Aufgaben übernehmen"
 
-#: hlidskjalf/assistant.py:543
+#: hlidskjalf/assistant.py:546
 msgid "Insert as checklist"
 msgstr "Als Checkliste einfügen"
 
-#: hlidskjalf/assistant.py:563
+#: hlidskjalf/assistant.py:566
 #, python-brace-format
 msgid "{n} task added."
 msgid_plural "{n} tasks added."
 msgstr[0] "{n} Aufgabe übernommen."
 msgstr[1] "{n} Aufgaben übernommen."
 
-#: hlidskjalf/assistant.py:567
+#: hlidskjalf/assistant.py:570
 #, python-brace-format
 msgid "Not imported: {err}"
 msgstr "Nicht übernommen: {err}"
 
-#: hlidskjalf/assistant.py:578 hlidskjalf/assistant.py:628
+#: hlidskjalf/assistant.py:581 hlidskjalf/assistant.py:631
 msgid "Inserted."
 msgstr "Eingefügt."
 
-#: hlidskjalf/assistant.py:590 hlidskjalf/assistant.py:603
+#: hlidskjalf/assistant.py:593 hlidskjalf/assistant.py:606
 msgid "Replace"
 msgstr "Ersetzen"
 
-#: hlidskjalf/assistant.py:590
+#: hlidskjalf/assistant.py:593
 #, python-brace-format
 msgid "Replace {n} block"
 msgid_plural "Replace {n} blocks"
 msgstr[0] "{n} Block ersetzen"
 msgstr[1] "{n} Blöcke ersetzen"
 
-#: hlidskjalf/assistant.py:594
+#: hlidskjalf/assistant.py:597
 msgid "Insert below"
 msgstr "Darunter einfügen"
 
-#: hlidskjalf/assistant.py:601
+#: hlidskjalf/assistant.py:604
 msgid "Replace selected text?"
 msgstr "Markierten Text ersetzen?"
 
-#: hlidskjalf/assistant.py:602
-msgid "The text of the selected blocks will be replaced by the suggestion (formatting is lost). You'll find earlier versions in the version history."
-msgstr "Der Text der markierten Blöcke wird durch den Vorschlag ersetzt (Formatierungen gehen dabei verloren). Frühere Fassungen findest du im Versionsverlauf."
+#: hlidskjalf/assistant.py:605
+msgid ""
+"The text of the selected blocks will be replaced by the suggestion "
+"(formatting is lost). You'll find earlier versions in the version history."
+msgstr ""
+"Der Text der markierten Blöcke wird durch den Vorschlag ersetzt "
+"(Formatierungen gehen dabei verloren). Frühere Fassungen findest du im "
+"Versionsverlauf."
 
-#: hlidskjalf/assistant.py:618
+#: hlidskjalf/assistant.py:621
 msgid "Only partly replaced – page changed in the meantime?"
 msgstr "Nur teilweise ersetzt – Seite inzwischen geändert?"
 
-#: hlidskjalf/assistant.py:618
+#: hlidskjalf/assistant.py:621
 msgid "Replaced."
 msgstr "Ersetzt."
 
-#: hlidskjalf/assistant.py:619
+#: hlidskjalf/assistant.py:622
 msgid "Not replaced."
 msgstr "Nicht ersetzt."
 
-#: hlidskjalf/assistant.py:635
+#: hlidskjalf/assistant.py:638
 msgid "Assistant history"
 msgstr "Verlauf des Assistenten"
 
-#: hlidskjalf/assistant.py:656
+#: hlidskjalf/assistant.py:659
 msgid "Save history"
 msgstr "Verlauf speichern"
 
-#: hlidskjalf/assistant.py:657
-msgid "Questions, answers and source pages are saved. Sources you no longer have access to don't show a title."
-msgstr "Gespeichert werden Fragen, Antworten und die Quellseiten. Quellen ohne Zugriff zeigen keinen Titel mehr."
+#: hlidskjalf/assistant.py:660
+msgid ""
+"Questions, answers and source pages are saved. Sources you no longer have "
+"access to don't show a title."
+msgstr ""
+"Gespeichert werden Fragen, Antworten und die Quellseiten. Quellen ohne "
+"Zugriff zeigen keinen Titel mehr."
 
-#: hlidskjalf/assistant.py:658
+#: hlidskjalf/assistant.py:661
 msgid "Off: questions and answers aren't saved."
 msgstr "Aus: Fragen und Antworten werden nicht gespeichert."
 
-#: hlidskjalf/assistant.py:664
+#: hlidskjalf/assistant.py:667
 #, python-brace-format
 msgid "History not loaded: {err}"
 msgstr "Verlauf nicht geladen: {err}"
 
-#: hlidskjalf/assistant.py:668
+#: hlidskjalf/assistant.py:671
 msgid "Delete all"
 msgstr "Alles löschen"
 
-#: hlidskjalf/assistant.py:672
+#: hlidskjalf/assistant.py:675
 msgid "Nothing saved yet."
 msgstr "Noch nichts gespeichert."
 
-#: hlidskjalf/assistant.py:682
+#: hlidskjalf/assistant.py:685
 msgid "Delete entry"
 msgstr "Eintrag löschen"
 
-#: hlidskjalf/assistant.py:699
+#: hlidskjalf/assistant.py:702
 msgid "The saved history will be deleted."
 msgstr "Der gespeicherte Verlauf wird dabei gelöscht."
 
-#: hlidskjalf/assistant.py:699
+#: hlidskjalf/assistant.py:702
 msgid "Turn off"
 msgstr "Ausschalten"
 
-#: hlidskjalf/assistant.py:699
+#: hlidskjalf/assistant.py:702
 msgid "Turn off history?"
 msgstr "Verlauf ausschalten?"
 
-#: hlidskjalf/assistant.py:706
+#: hlidskjalf/assistant.py:709
 msgid "All saved questions and answers will be deleted."
 msgstr "Alle gespeicherten Fragen und Antworten werden gelöscht."
 
-#: hlidskjalf/assistant.py:706
+#: hlidskjalf/assistant.py:709
 msgid "Delete history?"
 msgstr "Verlauf löschen?"
 
-#: hlidskjalf/blocks.py:74 hlidskjalf/blocks.py:78
+#: hlidskjalf/blocks.py:74 hlidskjalf/blocks.py:78 hlidskjalf/dbedit.py:422
+#: hlidskjalf/dbedit.py:425
 msgid "More"
 msgstr "Mehr"
 
-#: hlidskjalf/blocks.py:91 hlidskjalf/window.py:1336
+#: hlidskjalf/blocks.py:91 hlidskjalf/window.py:1427
 msgid "Back"
 msgstr "Zurück"
 
@@ -636,10 +663,12 @@ msgstr "Block darunter einfügen"
 
 #: hlidskjalf/blocks.py:264
 msgid "Drag to move · Click for the menu (keyboard: Menu key or Shift+F10)"
-msgstr "Ziehen zum Verschieben · Klicken für das Menü (Tastatur: Menü-Taste oder Umschalt+F10)"
+msgstr ""
+"Ziehen zum Verschieben · Klicken für das Menü (Tastatur: Menü-Taste oder "
+"Umschalt+F10)"
 
 #: hlidskjalf/blocks.py:334 hlidskjalf/blocks.py:337 hlidskjalf/blocks.py:828
-#: hlidskjalf/blocks.py:846 hlidskjalf/comments.py:440
+#: hlidskjalf/blocks.py:846 hlidskjalf/comments.py:468
 msgid "Comment"
 msgstr "Kommentieren"
 
@@ -664,7 +693,7 @@ msgstr "Zitat"
 msgid "Callout"
 msgstr "Hinweis"
 
-#: hlidskjalf/blocks.py:529 hlidskjalf/editor.py:28 hlidskjalf/window.py:1417
+#: hlidskjalf/blocks.py:529 hlidskjalf/editor.py:28 hlidskjalf/window.py:1508
 msgid "Code"
 msgstr "Code"
 
@@ -672,7 +701,7 @@ msgstr "Code"
 msgid "No database selected"
 msgstr "Keine Datenbank gewählt"
 
-#: hlidskjalf/blocks.py:554 hlidskjalf/page.py:1216
+#: hlidskjalf/blocks.py:554 hlidskjalf/page.py:1274
 msgid "Page without access"
 msgstr "Seite ohne Zugriff"
 
@@ -688,12 +717,12 @@ msgstr "Toggle"
 msgid "Empty toggle – click to write"
 msgstr "Leerer Toggle – klicken zum Schreiben"
 
-#: hlidskjalf/blocks.py:675 hlidskjalf/page.py:819
+#: hlidskjalf/blocks.py:675 hlidskjalf/page.py:869
 msgid "Block"
 msgstr "Block"
 
-#: hlidskjalf/blocks.py:703 hlidskjalf/chatview.py:175
-#: hlidskjalf/chatview.py:702 hlidskjalf/chatview.py:766
+#: hlidskjalf/blocks.py:703 hlidskjalf/chatview.py:178
+#: hlidskjalf/chatview.py:739 hlidskjalf/chatview.py:803
 #: hlidskjalf/editor.py:41
 msgid "File"
 msgstr "Datei"
@@ -730,7 +759,7 @@ msgstr "Spalte rechts einfügen"
 msgid "Delete row"
 msgstr "Zeile löschen"
 
-#: hlidskjalf/blocks.py:784 hlidskjalf/dbedit.py:451
+#: hlidskjalf/blocks.py:784 hlidskjalf/dbedit.py:453
 msgid "Delete column"
 msgstr "Spalte löschen"
 
@@ -792,8 +821,8 @@ msgstr "In Spalte darüber verschieben"
 msgid "Merge with the columns below"
 msgstr "Mit Spalten darunter zusammenführen"
 
-#: hlidskjalf/blocks.py:864 hlidskjalf/database.py:667 hlidskjalf/dbedit.py:176
-#: hlidskjalf/page.py:1193 hlidskjalf/window.py:1473
+#: hlidskjalf/blocks.py:864 hlidskjalf/database.py:674 hlidskjalf/dbedit.py:176
+#: hlidskjalf/page.py:1251 hlidskjalf/window.py:1564
 msgid "Duplicate"
 msgstr "Duplizieren"
 
@@ -819,11 +848,96 @@ msgstr "Erinnerung"
 msgid "Reminder: {date}"
 msgstr "Erinnerung: {date}"
 
-#: hlidskjalf/blocks.py:953 hlidskjalf/chat.py:506 hlidskjalf/dialogs.py:568
-#: hlidskjalf/dialogs.py:571 hlidskjalf/editor.py:32 hlidskjalf/window.py:676
-#: hlidskjalf/window.py:1604
+#: hlidskjalf/blocks.py:953 hlidskjalf/chat.py:563 hlidskjalf/dialogs.py:586
+#: hlidskjalf/dialogs.py:589 hlidskjalf/editor.py:32 hlidskjalf/window.py:697
+#: hlidskjalf/window.py:1695
 msgid "Page"
 msgstr "Seite"
+
+#: hlidskjalf/calls.py:43
+#, python-brace-format
+msgid "Call from {name}"
+msgstr "Anruf von {name}"
+
+#: hlidskjalf/calls.py:43
+#, python-brace-format
+msgid "Video call from {name}"
+msgstr "Videoanruf von {name}"
+
+#: hlidskjalf/calls.py:44
+msgid "Incoming call"
+msgstr "Eingehender Anruf"
+
+#: hlidskjalf/calls.py:44
+msgid "Incoming video call"
+msgstr "Eingehender Videoanruf"
+
+#: hlidskjalf/calls.py:75
+msgid "Call"
+msgstr "Anruf"
+
+#: hlidskjalf/calls.py:75
+msgid "Video call"
+msgstr "Videoanruf"
+
+#: hlidskjalf/calls.py:80
+#, python-brace-format
+msgid "{what} declined"
+msgstr "{what} abgelehnt"
+
+#: hlidskjalf/calls.py:82
+msgid "Busy"
+msgstr "Besetzt"
+
+#: hlidskjalf/calls.py:82
+msgid "Missed call (you were on another call)"
+msgstr "Verpasster Anruf (du hast telefoniert)"
+
+#: hlidskjalf/calls.py:84
+#, python-brace-format
+msgid "{what} – no connection"
+msgstr "{what} – keine Verbindung"
+
+#: hlidskjalf/calls.py:86
+#, python-brace-format
+msgid "{what} – not answered"
+msgstr "{what} – nicht angenommen"
+
+#: hlidskjalf/calls.py:87
+msgid "Missed call"
+msgstr "Verpasster Anruf"
+
+#: hlidskjalf/calls.py:87
+msgid "Missed video call"
+msgstr "Verpasster Videoanruf"
+
+#: hlidskjalf/calls.py:231
+msgid "The call was answered on another device."
+msgstr "Der Anruf wurde auf einem anderen Gerät angenommen."
+
+#: hlidskjalf/calls.py:326
+msgid "The call opens in your browser …"
+msgstr "Der Anruf öffnet sich im Browser …"
+
+#: hlidskjalf/calls.py:376 hlidskjalf/calls.py:434
+msgid "Answering opens the call in your browser."
+msgstr "Annehmen öffnet den Anruf im Browser."
+
+#: hlidskjalf/calls.py:382 hlidskjalf/calls.py:439 hlidskjalf/chatview.py:1849
+msgid "Decline"
+msgstr "Ablehnen"
+
+#: hlidskjalf/calls.py:383 hlidskjalf/calls.py:441 hlidskjalf/calls.py:486
+msgid "Answer"
+msgstr "Annehmen"
+
+#: hlidskjalf/calls.py:443
+msgid "Answer with video"
+msgstr "Mit Video annehmen"
+
+#: hlidskjalf/calls.py:486
+msgid "Answer with audio only"
+msgstr "Nur mit Ton annehmen"
 
 #: hlidskjalf/chat.py:29
 msgid "1 day"
@@ -856,86 +970,98 @@ msgstr "90 Tage"
 #: hlidskjalf/chat.py:54
 #, python-brace-format
 msgid "{name}'s safety number has changed – check it first or choose “Got it”."
-msgstr "Die Sicherheitsnummer von {name} hat sich geändert – erst prüfen oder „Verstanden“ wählen."
+msgstr ""
+"Die Sicherheitsnummer von {name} hat sich geändert – erst prüfen oder "
+"„Verstanden“ wählen."
 
-#: hlidskjalf/chat.py:116
+#: hlidskjalf/chat.py:130
 msgid "Saga – chat keys of this device"
 msgstr "Saga – Chat-Schlüssel dieses Geräts"
 
-#: hlidskjalf/chat.py:120
-msgid "The keys could not be stored in the keyring."
-msgstr "Die Schlüssel ließen sich nicht im Schlüsselbund speichern."
-
-#: hlidskjalf/chat.py:341 hlidskjalf/chatview.py:1665
+#: hlidskjalf/chat.py:386 hlidskjalf/chatview.py:1806
 msgid "A recovery key has 32 characters (A–Z, 2–7)."
 msgstr "Ein Wiederherstellungsschlüssel hat 32 Zeichen (A–Z, 2–7)."
 
-#: hlidskjalf/chat.py:346
+#: hlidskjalf/chat.py:391
 msgid "Unknown key format."
 msgstr "Unbekanntes Schlüsselformat."
 
-#: hlidskjalf/chat.py:347 hlidskjalf/chat.py:349
+#: hlidskjalf/chat.py:392 hlidskjalf/chat.py:394
 msgid "This key doesn't match."
 msgstr "Dieser Schlüssel passt nicht."
 
-#: hlidskjalf/chat.py:382 hlidskjalf/chat.py:385
+#: hlidskjalf/chat.py:427 hlidskjalf/chat.py:430
 msgid "The transferred keys don't match your account."
 msgstr "Die übertragenen Schlüssel passen nicht zu deinem Konto."
 
-#: hlidskjalf/chat.py:505 hlidskjalf/sharing.py:158 hlidskjalf/sharing.py:214
+#: hlidskjalf/chat.py:562 hlidskjalf/sharing.py:158 hlidskjalf/sharing.py:214
 msgid "Group"
 msgstr "Gruppe"
 
-#: hlidskjalf/chat.py:506 hlidskjalf/chat.py:510 hlidskjalf/notifications.py:64
+#: hlidskjalf/chat.py:563 hlidskjalf/chat.py:567 hlidskjalf/notifications.py:67
 msgid "Chat"
 msgstr "Chat"
 
-#: hlidskjalf/chat.py:509
+#: hlidskjalf/chat.py:566
 msgid "Custom group"
 msgstr "Freie Gruppe"
 
-#: hlidskjalf/chat.py:509
+#: hlidskjalf/chat.py:566
 msgid "Direct chat"
 msgstr "Direkt-Chat"
 
-#: hlidskjalf/chat.py:509
+#: hlidskjalf/chat.py:566
 msgid "Group chat"
 msgstr "Gruppen-Chat"
 
-#: hlidskjalf/chat.py:509 hlidskjalf/page.py:1174
+#: hlidskjalf/chat.py:566 hlidskjalf/page.py:1232
 msgid "Page chat"
 msgstr "Seiten-Chat"
 
-#: hlidskjalf/chat.py:657 hlidskjalf/chat.py:666
+#: hlidskjalf/chat.py:719 hlidskjalf/chat.py:728
 #, python-brace-format
 msgid "Invalid keys from {name} – sending cancelled."
 msgstr "Ungültige Schlüssel von {name} – Senden abgebrochen."
 
-#: hlidskjalf/chat.py:660
+#: hlidskjalf/chat.py:722
 msgid "Your keys on the server don't match this device."
 msgstr "Deine Schlüssel auf dem Server passen nicht zu diesem Gerät."
 
-#: hlidskjalf/chat.py:688 hlidskjalf/chatview.py:298
+#: hlidskjalf/chat.py:759 hlidskjalf/chatview.py:301
 msgid "Chats on this device"
 msgstr "Chats auf diesem Gerät"
 
-#: hlidskjalf/chat.py:710
+#: hlidskjalf/chat.py:781
 msgid "The members or their devices have changed – please send again."
-msgstr "Die Mitglieder oder ihre Geräte haben sich geändert – bitte erneut senden."
+msgstr ""
+"Die Mitglieder oder ihre Geräte haben sich geändert – bitte erneut senden."
 
 #: hlidskjalf/chatview.py:113
 msgid "No keyring available"
 msgstr "Kein Schlüsselbund verfügbar"
 
 #: hlidskjalf/chatview.py:114
-msgid "Saga keeps the chat keys of this device in the system keyring (Secret Service). Install and unlock a keyring – e.g. GNOME Keyring (package gnome-keyring) or KWallet – and start Saga again. Until then the keys are only kept until Saga is closed; after that, this device needs the recovery key or another device again."
-msgstr "Saga bewahrt die Chat-Schlüssel dieses Geräts im Schlüsselbund des Systems auf (Secret Service). Installiere und entsperre einen Schlüsselbund – z. B. GNOME Keyring (Paket gnome-keyring) oder KWallet – und starte Saga neu. Bis dahin gelten die Schlüssel nur, bis Saga geschlossen wird; danach braucht dieses Gerät wieder den Wiederherstellungsschlüssel oder ein anderes Gerät."
+msgid ""
+"Saga keeps the chat keys of this device in the system keyring (Secret "
+"Service). Install and unlock a keyring – e.g. GNOME Keyring (package gnome-"
+"keyring) or KWallet – and start Saga again. Until then the keys are only "
+"kept until Saga is closed; after that, this device needs the recovery key or "
+"another device again."
+msgstr ""
+"Saga bewahrt die Chat-Schlüssel dieses Geräts im Schlüsselbund des Systems "
+"auf (Secret Service). Installiere und entsperre einen Schlüsselbund – z. B. "
+"GNOME Keyring (Paket gnome-keyring) oder KWallet – und starte Saga neu. Bis "
+"dahin gelten die Schlüssel nur, bis Saga geschlossen wird; danach braucht "
+"dieses Gerät wieder den Wiederherstellungsschlüssel oder ein anderes Gerät."
 
-#: hlidskjalf/chatview.py:124 hlidskjalf/chatview.py:1744
-msgid "No keyring available – the chat keys are only kept until Saga is closed."
-msgstr "Kein Schlüsselbund verfügbar – die Chat-Schlüssel gelten nur, bis Saga geschlossen wird."
+#: hlidskjalf/chatview.py:124 hlidskjalf/chatview.py:1889
+msgid ""
+"No keyring available – the chat keys are only kept until Saga is closed."
+msgstr ""
+"Kein Schlüsselbund verfügbar – die Chat-Schlüssel gelten nur, bis Saga "
+"geschlossen wird."
 
-#: hlidskjalf/chatview.py:125 hlidskjalf/chatview.py:1745
+#: hlidskjalf/chatview.py:125 hlidskjalf/chatview.py:1890
 msgid "What to do?"
 msgstr "Was tun?"
 
@@ -947,660 +1073,792 @@ msgstr "Seite (kein Zugriff)"
 msgid "Message no longer available"
 msgstr "Nachricht nicht mehr da"
 
-#: hlidskjalf/chatview.py:172 hlidskjalf/chatview.py:687
-#: hlidskjalf/chatview.py:690
+#: hlidskjalf/chatview.py:172 hlidskjalf/chatview.py:724
+#: hlidskjalf/chatview.py:727
 msgid "Can't be decrypted"
 msgstr "Nicht entschlüsselbar"
 
-#: hlidskjalf/chatview.py:186 hlidskjalf/richtext.py:312
+#: hlidskjalf/chatview.py:189 hlidskjalf/richtext.py:312
 msgid "Yesterday"
 msgstr "Gestern"
 
-#: hlidskjalf/chatview.py:263 hlidskjalf/chatview.py:283
-#: hlidskjalf/chatview.py:286 hlidskjalf/chatview.py:330
-#: hlidskjalf/chatview.py:368 hlidskjalf/window.py:249
-#: hlidskjalf/window.py:1343
+#: hlidskjalf/chatview.py:266 hlidskjalf/chatview.py:286
+#: hlidskjalf/chatview.py:289 hlidskjalf/chatview.py:333
+#: hlidskjalf/chatview.py:377 hlidskjalf/window.py:249
+#: hlidskjalf/window.py:1434
 msgid "Chats"
 msgstr "Chats"
 
-#: hlidskjalf/chatview.py:264
-msgid "Choose a chat or start a new conversation. Messages are end-to-end encrypted."
-msgstr "Wähle einen Chat oder beginne eine neue Unterhaltung. Nachrichten sind Ende-zu-Ende-verschlüsselt."
+#: hlidskjalf/chatview.py:267
+msgid ""
+"Choose a chat or start a new conversation. Messages are end-to-end encrypted."
+msgstr ""
+"Wähle einen Chat oder beginne eine neue Unterhaltung. Nachrichten sind Ende-"
+"zu-Ende-verschlüsselt."
 
-#: hlidskjalf/chatview.py:266 hlidskjalf/chatview.py:360
-#: hlidskjalf/chatview.py:361 hlidskjalf/chatview.py:1272
+#: hlidskjalf/chatview.py:269 hlidskjalf/chatview.py:369
+#: hlidskjalf/chatview.py:370 hlidskjalf/chatview.py:1372
 msgid "New conversation"
 msgstr "Neue Unterhaltung"
 
-#: hlidskjalf/chatview.py:284 hlidskjalf/chatview.py:1751
+#: hlidskjalf/chatview.py:287 hlidskjalf/chatview.py:1896
 msgid "Chats are turned off on this server."
 msgstr "Chats sind auf diesem Server abgeschaltet."
 
-#: hlidskjalf/chatview.py:287
+#: hlidskjalf/chatview.py:290
 msgid "Chats need the encryption library PyNaCl (package python3-pynacl)."
-msgstr "Chats brauchen die Verschlüsselungs-Bibliothek PyNaCl (Paket python3-pynacl)."
+msgstr ""
+"Chats brauchen die Verschlüsselungs-Bibliothek PyNaCl (Paket python3-pynacl)."
 
-#: hlidskjalf/chatview.py:289 hlidskjalf/chatview.py:1486
+#: hlidskjalf/chatview.py:292 hlidskjalf/chatview.py:1591
 msgid "Set up chats"
 msgstr "Chats einrichten"
 
-#: hlidskjalf/chatview.py:291 hlidskjalf/chatview.py:1494
-msgid "Saga chats are end-to-end encrypted: messages and attachments are encrypted and decrypted on your devices. The server – including the admin – only sees encrypted data."
-msgstr "Saga-Chats sind Ende-zu-Ende-verschlüsselt: Nachrichten und Anhänge werden auf deinen Geräten ver- und entschlüsselt. Der Server – auch der Admin – sieht nur verschlüsselte Daten."
+#: hlidskjalf/chatview.py:294 hlidskjalf/chatview.py:1599
+msgid ""
+"Saga chats are end-to-end encrypted: messages and attachments are encrypted "
+"and decrypted on your devices. The server – including the admin – only sees "
+"encrypted data."
+msgstr ""
+"Saga-Chats sind Ende-zu-Ende-verschlüsselt: Nachrichten und Anhänge werden "
+"auf deinen Geräten ver- und entschlüsselt. Der Server – auch der Admin – "
+"sieht nur verschlüsselte Daten."
 
-#: hlidskjalf/chatview.py:293 hlidskjalf/chatview.py:1496
-msgid "You'll get a recovery key in a moment. With it you can bring your chats to a new device when no other device is left."
-msgstr "Dafür bekommst du gleich einen Wiederherstellungsschlüssel. Damit holst du deine Chats auf ein neues Gerät, wenn kein anderes mehr da ist."
+#: hlidskjalf/chatview.py:296 hlidskjalf/chatview.py:1601
+msgid ""
+"You'll get a recovery key in a moment. With it you can bring your chats to a "
+"new device when no other device is left."
+msgstr ""
+"Dafür bekommst du gleich einen Wiederherstellungsschlüssel. Damit holst du "
+"deine Chats auf ein neues Gerät, wenn kein anderes mehr da ist."
 
-#: hlidskjalf/chatview.py:295 hlidskjalf/chatview.py:1515
+#: hlidskjalf/chatview.py:298 hlidskjalf/chatview.py:1627
 msgid "Create keys"
 msgstr "Schlüssel erzeugen"
 
-#: hlidskjalf/chatview.py:299
-msgid "Your chats are end-to-end encrypted. For this device to read them it needs your keys – choose a way:"
-msgstr "Deine Chats sind Ende-zu-Ende-verschlüsselt. Damit dieses Gerät sie lesen kann, braucht es deine Schlüssel – wähle einen Weg:"
-
 #: hlidskjalf/chatview.py:302
-msgid "Confirm a code on a device where your chats already work."
-msgstr "Auf einem Gerät, auf dem deine Chats schon laufen, einen Code bestätigen."
+msgid ""
+"Your chats are end-to-end encrypted. For this device to read them it needs "
+"your keys – choose a way:"
+msgstr ""
+"Deine Chats sind Ende-zu-Ende-verschlüsselt. Damit dieses Gerät sie lesen "
+"kann, braucht es deine Schlüssel – wähle einen Weg:"
 
-#: hlidskjalf/chatview.py:302 hlidskjalf/chatview.py:1570
+#: hlidskjalf/chatview.py:305
+msgid "Confirm a code on a device where your chats already work."
+msgstr ""
+"Auf einem Gerät, auf dem deine Chats schon laufen, einen Code bestätigen."
+
+#: hlidskjalf/chatview.py:305 hlidskjalf/chatview.py:1711
 msgid "Confirm with another device"
 msgstr "Mit anderem Gerät bestätigen"
 
-#: hlidskjalf/chatview.py:304 hlidskjalf/chatview.py:1643
+#: hlidskjalf/chatview.py:307 hlidskjalf/chatview.py:1784
 msgid "Enter recovery key"
 msgstr "Wiederherstellungsschlüssel eingeben"
 
-#: hlidskjalf/chatview.py:304 hlidskjalf/chatview.py:1648
+#: hlidskjalf/chatview.py:307 hlidskjalf/chatview.py:1789
 msgid "The key you got during setup."
 msgstr "Der Schlüssel, den du bei der Einrichtung bekommen hast."
 
-#: hlidskjalf/chatview.py:306
+#: hlidskjalf/chatview.py:309
 msgid "New keys – older messages can't be read afterwards."
 msgstr "Neue Schlüssel – ältere Nachrichten sind danach nicht mehr lesbar."
 
-#: hlidskjalf/chatview.py:306 hlidskjalf/chatview.py:1563
+#: hlidskjalf/chatview.py:309 hlidskjalf/chatview.py:1704
 msgid "Start over"
 msgstr "Neu beginnen"
 
-#: hlidskjalf/chatview.py:315 hlidskjalf/chatview.py:1418
-#: hlidskjalf/chatview.py:1498
-msgid "Without it your messages are lost – the admin can't restore them either."
-msgstr "Ohne ihn sind deine Nachrichten verloren – auch der Admin kann sie nicht wiederherstellen."
+#: hlidskjalf/chatview.py:318 hlidskjalf/chatview.py:1523
+#: hlidskjalf/chatview.py:1603
+msgid ""
+"Without it your messages are lost – the admin can't restore them either."
+msgstr ""
+"Ohne ihn sind deine Nachrichten verloren – auch der Admin kann sie nicht "
+"wiederherstellen."
 
-#: hlidskjalf/chatview.py:332
+#: hlidskjalf/chatview.py:335
 msgid "End-to-end encrypted"
 msgstr "Ende-zu-Ende-verschlüsselt"
 
-#: hlidskjalf/chatview.py:334 hlidskjalf/chatview.py:411
+#: hlidskjalf/chatview.py:337 hlidskjalf/chatview.py:422
 #, python-brace-format
 msgid "{n} person"
 msgid_plural "{n} people"
 msgstr[0] "{n} Person"
 msgstr[1] "{n} Personen"
 
-#: hlidskjalf/chatview.py:357 hlidskjalf/dbedit.py:73
+#: hlidskjalf/chatview.py:366 hlidskjalf/dbedit.py:73
 msgid "Search"
 msgstr "Suchen"
 
-#: hlidskjalf/chatview.py:383
+#: hlidskjalf/chatview.py:392
 msgid "No chats yet."
 msgstr "Noch keine Chats."
 
-#: hlidskjalf/chatview.py:383 hlidskjalf/chatview.py:1359
+#: hlidskjalf/chatview.py:392 hlidskjalf/chatview.py:1464
 msgid "No matches."
 msgstr "Keine Treffer."
 
-#: hlidskjalf/chatview.py:426
+#: hlidskjalf/chatview.py:437
 msgid "Muted"
 msgstr "Stummgeschaltet"
 
-#: hlidskjalf/chatview.py:436 hlidskjalf/comments.py:68
-#: hlidskjalf/notifications.py:270
+#: hlidskjalf/chatview.py:447 hlidskjalf/comments.py:68
+#: hlidskjalf/notifications.py:273
 #, python-brace-format
 msgid "{n} unread"
 msgid_plural "{n} unread"
 msgstr[0] "{n} ungelesen"
 msgstr[1] "{n} ungelesen"
 
-#: hlidskjalf/chatview.py:471 hlidskjalf/chatview.py:1053
-#: hlidskjalf/chatview.py:1090 hlidskjalf/chatview.py:1104
-#: hlidskjalf/chatview.py:1213
+#: hlidskjalf/chatview.py:482 hlidskjalf/chatview.py:1149
+#: hlidskjalf/chatview.py:1186 hlidskjalf/chatview.py:1200
+#: hlidskjalf/chatview.py:1313
 msgid "Safety number"
 msgstr "Sicherheitsnummer"
 
-#: hlidskjalf/chatview.py:473
+#: hlidskjalf/chatview.py:484
 msgid "Got it"
 msgstr "Verstanden"
 
-#: hlidskjalf/chatview.py:482 hlidskjalf/chatview.py:1057
+#: hlidskjalf/chatview.py:493 hlidskjalf/chatview.py:1153
 msgid "Search in this chat"
 msgstr "In diesem Chat suchen"
 
-#: hlidskjalf/chatview.py:496
+#: hlidskjalf/chatview.py:507
 msgid "Messages"
 msgstr "Nachrichten"
 
-#: hlidskjalf/chatview.py:520
+#: hlidskjalf/chatview.py:531
 msgid "This chat doesn't exist (any more) or you're no longer part of it."
 msgstr "Diesen Chat gibt es nicht (mehr) oder du gehörst nicht mehr dazu."
 
-#: hlidskjalf/chatview.py:552
+#: hlidskjalf/chatview.py:565
 #, python-brace-format
-msgid "{name}'s safety number has changed – e.g. after “Start over” or with a new account. Check it before you write anything confidential."
-msgstr "Die Sicherheitsnummer von {name} hat sich geändert – z. B. nach „Neu beginnen“ oder bei einem neuen Konto. Prüfe sie, bevor du Vertrauliches schreibst."
+msgid ""
+"{name}'s safety number has changed – e.g. after “Start over” or with a new "
+"account. Check it before you write anything confidential."
+msgstr ""
+"Die Sicherheitsnummer von {name} hat sich geändert – z. B. nach „Neu "
+"beginnen“ oder bei einem neuen Konto. Prüfe sie, bevor du Vertrauliches "
+"schreibst."
 
-#: hlidskjalf/chatview.py:591
+#: hlidskjalf/chatview.py:604
 msgid "Load older messages"
 msgstr "Ältere Nachrichten laden"
 
-#: hlidskjalf/chatview.py:597
+#: hlidskjalf/chatview.py:610
 msgid "Messages in this chat are end-to-end encrypted."
 msgstr "Nachrichten in diesem Chat sind Ende-zu-Ende-verschlüsselt."
 
-#: hlidskjalf/chatview.py:600
+#: hlidskjalf/chatview.py:613
 msgid "New members only see messages from when they joined."
 msgstr "Wer neu dazukommt, sieht nur Nachrichten ab dem Beitritt."
 
-#: hlidskjalf/chatview.py:605
+#: hlidskjalf/chatview.py:618
 #, python-brace-format
 msgid "Messages not loaded: {err}"
 msgstr "Nachrichten nicht geladen: {err}"
 
-#: hlidskjalf/chatview.py:619
+#: hlidskjalf/chatview.py:632
 #, python-brace-format
 msgid "{n} match"
 msgid_plural "{n} matches"
 msgstr[0] "{n} Treffer"
 msgstr[1] "{n} Treffer"
 
-#: hlidskjalf/chatview.py:651
+#: hlidskjalf/chatview.py:664
 #, python-brace-format
 msgid "{names} is typing …"
 msgstr "{names} tippt …"
 
-#: hlidskjalf/chatview.py:659 hlidskjalf/notifications.py:35
+#: hlidskjalf/chatview.py:695 hlidskjalf/notifications.py:36
 msgid "Deleted account"
 msgstr "Gelöschtes Konto"
 
-#: hlidskjalf/chatview.py:685 hlidskjalf/chatview.py:1204
+#: hlidskjalf/chatview.py:722 hlidskjalf/chatview.py:1304
 #: hlidskjalf/comments.py:80
 msgid "you"
 msgstr "dir"
 
-#: hlidskjalf/chatview.py:688
+#: hlidskjalf/chatview.py:725
 msgid "This message can't be decrypted on this device."
 msgstr "Diese Nachricht lässt sich auf diesem Gerät nicht entschlüsseln."
 
-#: hlidskjalf/chatview.py:706 hlidskjalf/chatview.py:731
-#: hlidskjalf/chatview.py:1683
+#: hlidskjalf/chatview.py:743 hlidskjalf/chatview.py:768
+#: hlidskjalf/chatview.py:1824
 msgid "Authenticity not confirmed"
 msgstr "Echtheit nicht bestätigt"
 
-#: hlidskjalf/chatview.py:732
+#: hlidskjalf/chatview.py:769
 msgid "What does this mean?"
 msgstr "Was bedeutet das?"
 
-#: hlidskjalf/chatview.py:749 hlidskjalf/comments.py:514
-#: hlidskjalf/comments.py:519
+#: hlidskjalf/chatview.py:786 hlidskjalf/comments.py:542
+#: hlidskjalf/comments.py:547
 msgid "Reply"
 msgstr "Antworten"
 
-#: hlidskjalf/chatview.py:751
+#: hlidskjalf/chatview.py:788
 msgid "Copy text"
 msgstr "Text kopieren"
 
-#: hlidskjalf/chatview.py:753
+#: hlidskjalf/chatview.py:790
 msgid "Delete for everyone"
 msgstr "Für alle löschen"
 
-#: hlidskjalf/chatview.py:759
+#: hlidskjalf/chatview.py:796
 msgid "Delete message for everyone?"
 msgstr "Nachricht für alle löschen?"
 
-#: hlidskjalf/chatview.py:760
-msgid "The message and its attachments will be deleted from the server. Anyone who already read it may have a copy."
-msgstr "Die Nachricht und ihre Anhänge werden vom Server gelöscht. Wer sie schon gelesen hat, kann eine Kopie haben."
+#: hlidskjalf/chatview.py:797
+msgid ""
+"The message and its attachments will be deleted from the server. Anyone who "
+"already read it may have a copy."
+msgstr ""
+"Die Nachricht und ihre Anhänge werden vom Server gelöscht. Wer sie schon "
+"gelesen hat, kann eine Kopie haben."
 
-#: hlidskjalf/chatview.py:787
+#: hlidskjalf/chatview.py:824
 msgid "not loaded"
 msgstr "nicht geladen"
 
-#: hlidskjalf/chatview.py:800 hlidskjalf/chatview.py:815
-#: hlidskjalf/window.py:1554
+#: hlidskjalf/chatview.py:837 hlidskjalf/chatview.py:852
+#: hlidskjalf/window.py:1645
 msgid "Save attachment"
 msgstr "Anhang speichern"
 
-#: hlidskjalf/chatview.py:829 hlidskjalf/chatview.py:1462
-#: hlidskjalf/window.py:1588
+#: hlidskjalf/chatview.py:866 hlidskjalf/chatview.py:1567
+#: hlidskjalf/window.py:1679
 #, python-brace-format
 msgid "Saved: {name}"
 msgstr "Gespeichert: {name}"
 
-#: hlidskjalf/chatview.py:830
+#: hlidskjalf/chatview.py:867
 #, python-brace-format
 msgid "Attachment not loaded: {err}"
 msgstr "Anhang nicht geladen: {err}"
 
-#: hlidskjalf/chatview.py:841
+#: hlidskjalf/chatview.py:878
 msgid "Cancel reply"
 msgstr "Antwort abbrechen"
 
-#: hlidskjalf/chatview.py:848 hlidskjalf/chatview.py:850
-#: hlidskjalf/chatview.py:910 hlidskjalf/page.py:1350
+#: hlidskjalf/chatview.py:885 hlidskjalf/chatview.py:887
+#: hlidskjalf/chatview.py:991 hlidskjalf/page.py:1408
 msgid "Attach file"
 msgstr "Datei anhängen"
 
-#: hlidskjalf/chatview.py:853
+#: hlidskjalf/chatview.py:893
 msgid "Link a page"
 msgstr "Seite verlinken"
 
-#: hlidskjalf/chatview.py:863 hlidskjalf/chatview.py:864
+#: hlidskjalf/chatview.py:903 hlidskjalf/chatview.py:904
 msgid "Message …"
 msgstr "Nachricht …"
 
-#: hlidskjalf/chatview.py:875 hlidskjalf/chatview.py:878
+#: hlidskjalf/chatview.py:915 hlidskjalf/chatview.py:918
 msgid "Send"
 msgstr "Senden"
 
-#: hlidskjalf/chatview.py:905
+#: hlidskjalf/chatview.py:947
 #, python-brace-format
 msgid "Reply to {name}"
 msgstr "Antwort an {name}"
 
-#: hlidskjalf/chatview.py:932
+#: hlidskjalf/chatview.py:972 hlidskjalf/page.py:90 hlidskjalf/page.py:1023
+msgid "File …"
+msgstr "Datei …"
+
+#: hlidskjalf/chatview.py:972 hlidskjalf/page.py:90 hlidskjalf/page.py:1023
+msgid "From Immich …"
+msgstr "Aus Immich …"
+
+#: hlidskjalf/chatview.py:984
+#, python-brace-format
+msgid "At most {n} file per message."
+msgid_plural "At most {n} files per message."
+msgstr[0] "Höchstens {n} Datei pro Nachricht."
+msgstr[1] "Höchstens {n} Dateien pro Nachricht."
+
+#: hlidskjalf/chatview.py:1021
 #, python-brace-format
 msgid "“{name}” is too large (at most {n} MB)."
 msgstr "„{name}“ ist zu groß (höchstens {n} MB)."
 
-#: hlidskjalf/chatview.py:954 hlidskjalf/chatview.py:1215
-#: hlidskjalf/chatview.py:1322 hlidskjalf/chatview.py:1763
-#: hlidskjalf/chatview.py:1788 hlidskjalf/page.py:107 hlidskjalf/push.py:432
-#: hlidskjalf/push.py:434 hlidskjalf/push.py:464 hlidskjalf/settings.py:283
-#: hlidskjalf/settings.py:300 hlidskjalf/sharing.py:811
+#: hlidskjalf/chatview.py:1048 hlidskjalf/chatview.py:1315
+#: hlidskjalf/chatview.py:1427 hlidskjalf/chatview.py:1908
+#: hlidskjalf/chatview.py:1933 hlidskjalf/page.py:107 hlidskjalf/push.py:441
+#: hlidskjalf/push.py:443 hlidskjalf/push.py:473 hlidskjalf/settings.py:289
+#: hlidskjalf/settings.py:306 hlidskjalf/sharing.py:815
 msgid "Remove"
 msgstr "Entfernen"
 
-#: hlidskjalf/chatview.py:963 hlidskjalf/window.py:151
+#: hlidskjalf/chatview.py:1057 hlidskjalf/window.py:151
 msgid "Search pages"
 msgstr "Seiten durchsuchen"
 
-#: hlidskjalf/chatview.py:1035
+#: hlidskjalf/chatview.py:1129
 #, python-brace-format
 msgid "{names} hasn't set up chats yet and can't read this message."
-msgstr "{names} hat Chats noch nicht eingerichtet und kann diese Nachricht nicht lesen."
+msgstr ""
+"{names} hat Chats noch nicht eingerichtet und kann diese Nachricht nicht "
+"lesen."
 
-#: hlidskjalf/chatview.py:1042 hlidskjalf/chatview.py:1148
-#: hlidskjalf/chatview.py:1385 hlidskjalf/comments.py:438
-#: hlidskjalf/comments.py:512
+#: hlidskjalf/chatview.py:1136 hlidskjalf/chatview.py:1244
+#: hlidskjalf/chatview.py:1490 hlidskjalf/comments.py:466
+#: hlidskjalf/comments.py:540
 #, python-brace-format
 msgid "Not sent: {err}"
 msgstr "Nicht gesendet: {err}"
 
-#: hlidskjalf/chatview.py:1054 hlidskjalf/chatview.py:1171
+#: hlidskjalf/chatview.py:1148
+msgid "Call in browser"
+msgstr "Im Browser anrufen"
+
+#: hlidskjalf/chatview.py:1150 hlidskjalf/chatview.py:1267
 msgid "Members"
 msgstr "Mitglieder"
 
-#: hlidskjalf/chatview.py:1056 hlidskjalf/dialogs.py:553
+#: hlidskjalf/chatview.py:1152 hlidskjalf/dialogs.py:571
 msgid "Open page"
 msgstr "Seite öffnen"
 
-#: hlidskjalf/chatview.py:1059
+#: hlidskjalf/chatview.py:1155
 msgid "Mute"
 msgstr "Stummschalten"
 
-#: hlidskjalf/chatview.py:1059
+#: hlidskjalf/chatview.py:1155
 msgid "Unmute"
 msgstr "Benachrichtigungen an"
 
-#: hlidskjalf/chatview.py:1065
+#: hlidskjalf/chatview.py:1161
 msgid "Delete messages automatically after"
 msgstr "Nachrichten automatisch löschen nach"
 
-#: hlidskjalf/chatview.py:1068
+#: hlidskjalf/chatview.py:1164
 msgid "Rename …"
 msgstr "Umbenennen …"
 
-#: hlidskjalf/chatview.py:1069
+#: hlidskjalf/chatview.py:1165
 msgid "Leave group"
 msgstr "Gruppe verlassen"
 
-#: hlidskjalf/chatview.py:1095
+#: hlidskjalf/chatview.py:1191
 #, python-brace-format
 msgid "Safety number with {name}"
 msgstr "Sicherheitsnummer mit {name}"
 
-#: hlidskjalf/chatview.py:1097
+#: hlidskjalf/chatview.py:1193
 #, python-brace-format
 msgid "{name} hasn't set up chats yet."
 msgstr "{name} hat Chats noch nicht eingerichtet."
 
-#: hlidskjalf/chatview.py:1110
+#: hlidskjalf/chatview.py:1206
 msgid "QR code of the safety number"
 msgstr "QR-Code der Sicherheitsnummer"
 
-#: hlidskjalf/chatview.py:1112
+#: hlidskjalf/chatview.py:1208
 #, python-brace-format
-msgid "Compare this number with {name} – in person, by phone or on their device. If it matches, nobody is reading along. It's the same on both sides."
-msgstr "Vergleiche diese Nummer mit {name} – persönlich, per Anruf oder auf deren Gerät. Stimmt sie überein, liest niemand mit. Sie ist auf beiden Seiten gleich."
+msgid ""
+"Compare this number with {name} – in person, by phone or on their device. If "
+"it matches, nobody is reading along. It's the same on both sides."
+msgstr ""
+"Vergleiche diese Nummer mit {name} – persönlich, per Anruf oder auf deren "
+"Gerät. Stimmt sie überein, liest niemand mit. Sie ist auf beiden Seiten "
+"gleich."
 
-#: hlidskjalf/chatview.py:1117
+#: hlidskjalf/chatview.py:1213
 msgid "Mark as verified"
 msgstr "Als überprüft markieren"
 
-#: hlidskjalf/chatview.py:1117 hlidskjalf/chatview.py:1126
-#: hlidskjalf/chatview.py:1207
+#: hlidskjalf/chatview.py:1213 hlidskjalf/chatview.py:1222
+#: hlidskjalf/chatview.py:1307
 msgid "verified"
 msgstr "überprüft"
 
-#: hlidskjalf/chatview.py:1129
+#: hlidskjalf/chatview.py:1225
 msgid "Marked as verified."
 msgstr "Als überprüft markiert."
 
-#: hlidskjalf/chatview.py:1134
+#: hlidskjalf/chatview.py:1230
 msgid "Rename group"
 msgstr "Gruppe umbenennen"
 
-#: hlidskjalf/chatview.py:1134
+#: hlidskjalf/chatview.py:1230
 msgid "The name is encrypted like a message."
 msgstr "Der Name wird wie eine Nachricht verschlüsselt."
 
-#: hlidskjalf/chatview.py:1135 hlidskjalf/chatview.py:1287
+#: hlidskjalf/chatview.py:1231 hlidskjalf/chatview.py:1388
 msgid "Group name"
 msgstr "Name der Gruppe"
 
-#: hlidskjalf/chatview.py:1164
+#: hlidskjalf/chatview.py:1260
 msgid "Leave"
 msgstr "Verlassen"
 
-#: hlidskjalf/chatview.py:1164
+#: hlidskjalf/chatview.py:1260
 msgid "Leave group?"
 msgstr "Gruppe verlassen?"
 
-#: hlidskjalf/chatview.py:1164
+#: hlidskjalf/chatview.py:1260
 msgid "You won't receive new messages any more."
 msgstr "Du bekommst keine neuen Nachrichten mehr."
 
-#: hlidskjalf/chatview.py:1194
+#: hlidskjalf/chatview.py:1294
 #, python-brace-format
 msgid "All members of the group “{g}” – changes with the group."
 msgstr "Alle Mitglieder der Gruppe „{g}“ – ändert sich mit der Gruppe."
 
-#: hlidskjalf/chatview.py:1195
+#: hlidskjalf/chatview.py:1295
 msgid "Everyone who can see the page – changes with its shares."
 msgstr "Alle, die die Seite sehen dürfen – ändert sich mit den Freigaben."
 
-#: hlidskjalf/chatview.py:1209 hlidskjalf/chatview.py:1245
-#: hlidskjalf/chatview.py:1344
+#: hlidskjalf/chatview.py:1309 hlidskjalf/chatview.py:1345
+#: hlidskjalf/chatview.py:1449
 msgid "hasn't set up chats yet"
 msgstr "hat Chats noch nicht eingerichtet"
 
-#: hlidskjalf/chatview.py:1223
+#: hlidskjalf/chatview.py:1323
 msgid "Add person"
 msgstr "Person hinzufügen"
 
-#: hlidskjalf/chatview.py:1224
+#: hlidskjalf/chatview.py:1324
 msgid "Add person (3+ characters)"
 msgstr "Person hinzufügen (ab 3 Zeichen)"
 
-#: hlidskjalf/chatview.py:1280
+#: hlidskjalf/chatview.py:1380
 msgid "Search person or group (3+ characters)"
 msgstr "Person oder Gruppe suchen (ab 3 Zeichen)"
 
-#: hlidskjalf/chatview.py:1284
+#: hlidskjalf/chatview.py:1385
 msgid "Custom group: selected people; the name is encrypted."
 msgstr "Freie Gruppe: ausgewählte Personen, der Name wird verschlüsselt."
 
-#: hlidskjalf/chatview.py:1292
+#: hlidskjalf/chatview.py:1393
 msgid "Create group"
 msgstr "Gruppe anlegen"
 
-#: hlidskjalf/chatview.py:1301
+#: hlidskjalf/chatview.py:1402
 msgid "+ Group with several people …"
 msgstr "+ Gruppe mit mehreren Personen …"
 
-#: hlidskjalf/chatview.py:1351
+#: hlidskjalf/chatview.py:1456
 msgid "Group chat for everyone in the group"
 msgstr "Gruppen-Chat für alle in der Gruppe"
 
-#: hlidskjalf/chatview.py:1409
-msgid "Write it down or store it somewhere safe (e.g. in a password manager). Saga only shows it now."
-msgstr "Schreibe ihn ab oder speichere ihn an einem sicheren Ort (z. B. im Passwort-Manager). Saga zeigt ihn nur jetzt."
+#: hlidskjalf/chatview.py:1514
+msgid ""
+"Write it down or store it somewhere safe (e.g. in a password manager). Saga "
+"only shows it now."
+msgstr ""
+"Schreibe ihn ab oder speichere ihn an einem sicheren Ort (z. B. im Passwort-"
+"Manager). Saga zeigt ihn nur jetzt."
 
-#: hlidskjalf/chatview.py:1412 hlidskjalf/chatview.py:1651
-#: hlidskjalf/chatview.py:1770
+#: hlidskjalf/chatview.py:1517 hlidskjalf/chatview.py:1792
+#: hlidskjalf/chatview.py:1915
 msgid "Recovery key"
 msgstr "Wiederherstellungsschlüssel"
 
-#: hlidskjalf/chatview.py:1416 hlidskjalf/chatview.py:1451
+#: hlidskjalf/chatview.py:1521 hlidskjalf/chatview.py:1556
 msgid "Save as file"
 msgstr "Als Datei speichern"
 
-#: hlidskjalf/chatview.py:1419
+#: hlidskjalf/chatview.py:1524
 msgid "I've stored the key safely"
 msgstr "Ich habe den Schlüssel sicher aufbewahrt"
 
-#: hlidskjalf/chatview.py:1421 hlidskjalf/publish.py:428
+#: hlidskjalf/chatview.py:1526 hlidskjalf/publish.py:428
 msgid "Continue"
 msgstr "Weiter"
 
-#: hlidskjalf/chatview.py:1432
+#: hlidskjalf/chatview.py:1537
 msgid "To confirm, enter the last four characters of your recovery key."
-msgstr "Gib zur Bestätigung die letzten vier Zeichen deines Wiederherstellungsschlüssels ein."
+msgstr ""
+"Gib zur Bestätigung die letzten vier Zeichen deines "
+"Wiederherstellungsschlüssels ein."
 
-#: hlidskjalf/chatview.py:1435
+#: hlidskjalf/chatview.py:1540
 msgid "Last four characters"
 msgstr "Letzte vier Zeichen"
 
-#: hlidskjalf/chatview.py:1444
+#: hlidskjalf/chatview.py:1549
 msgid "Confirm recovery key"
 msgstr "Wiederherstellungsschlüssel bestätigen"
 
-#: hlidskjalf/chatview.py:1452
+#: hlidskjalf/chatview.py:1557 hlidskjalf/window.py:1176
 #, python-brace-format
 msgid "Account: {name}"
 msgstr "Konto: {name}"
 
-#: hlidskjalf/chatview.py:1452
+#: hlidskjalf/chatview.py:1557
 msgid "Saga – recovery key for chats"
 msgstr "Saga – Wiederherstellungsschlüssel für Chats"
 
-#: hlidskjalf/chatview.py:1468
+#: hlidskjalf/chatview.py:1573
 msgid "That doesn't match – please enter exactly the last four characters."
 msgstr "Das passt nicht – bitte genau die letzten vier Zeichen."
 
-#: hlidskjalf/chatview.py:1472
+#: hlidskjalf/chatview.py:1577
 msgid "Securing keys …"
 msgstr "Schlüssel werden gesichert …"
 
-#: hlidskjalf/chatview.py:1486
+#: hlidskjalf/chatview.py:1591
 msgid "Start chats over"
 msgstr "Chats neu beginnen"
 
-#: hlidskjalf/chatview.py:1500
-msgid "Note: starting over creates new keys. You won't be able to read earlier messages, and your contacts will see a changed safety number."
-msgstr "Achtung: Neu beginnen erzeugt neue Schlüssel. Bisherige Nachrichten sind dann für dich nicht mehr lesbar, deine Gesprächspartner sehen eine geänderte Sicherheitsnummer."
+#: hlidskjalf/chatview.py:1605
+msgid ""
+"Note: starting over creates new keys. You won't be able to read earlier "
+"messages, and your contacts will see a changed safety number."
+msgstr ""
+"Achtung: Neu beginnen erzeugt neue Schlüssel. Bisherige Nachrichten sind "
+"dann für dich nicht mehr lesbar, deine Gesprächspartner sehen eine geänderte "
+"Sicherheitsnummer."
 
-#: hlidskjalf/chatview.py:1505
+#: hlidskjalf/chatview.py:1610 hlidskjalf/chatview.py:1649
 msgid "For your security: your password"
 msgstr "Zur Sicherheit: dein Passwort"
 
-#: hlidskjalf/chatview.py:1508
-msgid "For your security, please sign in again first. You then have 5 minutes to start over."
-msgstr "Zur Sicherheit bitte zuerst neu anmelden. Danach hast du 5 Minuten Zeit, um neu zu beginnen."
+#: hlidskjalf/chatview.py:1613
+msgid ""
+"For your security, please sign in again first. You then have 5 minutes to "
+"start over."
+msgstr ""
+"Zur Sicherheit bitte zuerst neu anmelden. Danach hast du 5 Minuten Zeit, um "
+"neu zu beginnen."
 
-#: hlidskjalf/chatview.py:1511
+#: hlidskjalf/chatview.py:1616
 msgid "Sign in again"
 msgstr "Neu anmelden"
 
-#: hlidskjalf/chatview.py:1536
+#: hlidskjalf/chatview.py:1619
+msgid ""
+"Your account confirms with a passkey only – that works in the browser. Start "
+"over there under Chats."
+msgstr ""
+"Dein Konto bestätigt nur mit Passkey – das geht im Browser. Beginne dort "
+"unter „Chats“ neu."
+
+#: hlidskjalf/chatview.py:1622
+msgid "Open chats in browser"
+msgstr "Chats im Browser öffnen"
+
+#: hlidskjalf/chatview.py:1645
+msgid "For your security: your password or a code from the authenticator app"
+msgstr "Zur Sicherheit: dein Passwort oder ein Code aus der Authenticator-App"
+
+#: hlidskjalf/chatview.py:1647
+msgid "For your security: a code from the authenticator app"
+msgstr "Zur Sicherheit: ein Code aus der Authenticator-App"
+
+#: hlidskjalf/chatview.py:1677
 msgid "Set up"
 msgstr "Einrichten"
 
-#: hlidskjalf/chatview.py:1536
+#: hlidskjalf/chatview.py:1677
 msgid "Your recovery key"
 msgstr "Dein Wiederherstellungsschlüssel"
 
-#: hlidskjalf/chatview.py:1545
+#: hlidskjalf/chatview.py:1686
 msgid "Chats are set up."
 msgstr "Chats sind eingerichtet."
 
-#: hlidskjalf/chatview.py:1561
+#: hlidskjalf/chatview.py:1702
 msgid "Start chats over?"
 msgstr "Chats neu beginnen?"
 
-#: hlidskjalf/chatview.py:1562
-msgid "New keys: you won't be able to read earlier messages, your other devices will be signed out and your contacts will see a changed safety number."
-msgstr "Neue Schlüssel: Bisherige Nachrichten sind dann für dich nicht mehr lesbar, deine anderen Geräte werden abgemeldet und deine Gesprächspartner sehen eine geänderte Sicherheitsnummer."
+#: hlidskjalf/chatview.py:1703
+msgid ""
+"New keys: you won't be able to read earlier messages, your other devices "
+"will be signed out and your contacts will see a changed safety number."
+msgstr ""
+"Neue Schlüssel: Bisherige Nachrichten sind dann für dich nicht mehr lesbar, "
+"deine anderen Geräte werden abgemeldet und deine Gesprächspartner sehen eine "
+"geänderte Sicherheitsnummer."
 
-#: hlidskjalf/chatview.py:1578
+#: hlidskjalf/chatview.py:1719
 msgid "Sending request …"
 msgstr "Anfrage wird gesendet …"
 
-#: hlidskjalf/chatview.py:1593
-msgid "On a device where your chats already work, open “Chats”. This request appears there – confirm it if the same code is shown:"
-msgstr "Öffne auf einem Gerät, auf dem deine Chats schon laufen, die Seite „Chats“. Dort erscheint diese Anfrage – bestätige sie, wenn derselbe Code angezeigt wird:"
+#: hlidskjalf/chatview.py:1734
+msgid ""
+"On a device where your chats already work, open “Chats”. This request "
+"appears there – confirm it if the same code is shown:"
+msgstr ""
+"Öffne auf einem Gerät, auf dem deine Chats schon laufen, die Seite „Chats“. "
+"Dort erscheint diese Anfrage – bestätige sie, wenn derselbe Code angezeigt "
+"wird:"
 
-#: hlidskjalf/chatview.py:1596
+#: hlidskjalf/chatview.py:1737
 msgid "The request is valid for 10 minutes."
 msgstr "Die Anfrage gilt 10 Minuten."
 
-#: hlidskjalf/chatview.py:1610 hlidskjalf/chatview.py:1672
+#: hlidskjalf/chatview.py:1751 hlidskjalf/chatview.py:1813
 msgid "This device is now set up for chats."
 msgstr "Dieses Gerät ist jetzt für Chats eingerichtet."
 
-#: hlidskjalf/chatview.py:1613
+#: hlidskjalf/chatview.py:1754
 msgid "The request has expired or was declined."
 msgstr "Die Anfrage ist abgelaufen oder wurde abgelehnt."
 
-#: hlidskjalf/chatview.py:1657
+#: hlidskjalf/chatview.py:1798
 msgid "Unlock"
 msgstr "Entsperren"
 
-#: hlidskjalf/chatview.py:1667 hlidskjalf/dialogs.py:391
-#: hlidskjalf/settings.py:125 hlidskjalf/settings.py:176
+#: hlidskjalf/chatview.py:1808 hlidskjalf/dialogs.py:396
+#: hlidskjalf/settings.py:129 hlidskjalf/settings.py:182
 msgid "Checking …"
 msgstr "Prüfe …"
 
-#: hlidskjalf/chatview.py:1684
-msgid "This message couldn't be matched to a confirmed device of the sender – e.g. because the device has since been removed. If in doubt, compare the safety number."
-msgstr "Diese Nachricht konnte keinem bestätigten Gerät des Absenders zugeordnet werden – z. B. weil das Gerät inzwischen entfernt wurde. Vergleiche im Zweifel die Sicherheitsnummer."
+#: hlidskjalf/chatview.py:1825
+msgid ""
+"This message couldn't be matched to a confirmed device of the sender – e.g. "
+"because the device has since been removed. If in doubt, compare the safety "
+"number."
+msgstr ""
+"Diese Nachricht konnte keinem bestätigten Gerät des Absenders zugeordnet "
+"werden – z. B. weil das Gerät inzwischen entfernt wurde. Vergleiche im "
+"Zweifel die Sicherheitsnummer."
 
-#: hlidskjalf/chatview.py:1688
+#: hlidskjalf/chatview.py:1829
 msgid "Check safety number"
 msgstr "Sicherheitsnummer prüfen"
 
-#: hlidskjalf/chatview.py:1702
+#: hlidskjalf/chatview.py:1843
 msgid "Confirm new device"
 msgstr "Neues Gerät bestätigen"
 
-#: hlidskjalf/chatview.py:1703
+#: hlidskjalf/chatview.py:1844
 msgid "Unknown device"
 msgstr "Unbekanntes Gerät"
 
-#: hlidskjalf/chatview.py:1703
+#: hlidskjalf/chatview.py:1844
 #, python-brace-format
 msgid "“{name}” wants to access your chats."
 msgstr "„{name}“ möchte auf deine Chats zugreifen."
 
-#: hlidskjalf/chatview.py:1704
+#: hlidskjalf/chatview.py:1845
 msgid "Only confirm if the new device shows exactly this code:"
 msgstr "Bestätige nur, wenn auf dem neuen Gerät genau dieser Code steht:"
 
-#: hlidskjalf/chatview.py:1706
-msgid "Decline"
-msgstr "Ablehnen"
-
-#: hlidskjalf/chatview.py:1707
+#: hlidskjalf/chatview.py:1850
 msgid "Code matches – confirm"
 msgstr "Code stimmt – bestätigen"
 
-#: hlidskjalf/chatview.py:1715
+#: hlidskjalf/chatview.py:1858
 msgid "Device confirmed."
 msgstr "Gerät bestätigt."
 
-#: hlidskjalf/chatview.py:1726
+#: hlidskjalf/chatview.py:1871
 msgctxt "settings tab"
 msgid "Chats"
 msgstr "Chats"
 
-#: hlidskjalf/chatview.py:1749
+#: hlidskjalf/chatview.py:1894
 msgid "Devices with access to your chats"
 msgstr "Geräte mit Zugriff auf deine Chats"
 
-#: hlidskjalf/chatview.py:1753
+#: hlidskjalf/chatview.py:1898
 msgid "Chats are not set up yet – open “Chats” in the sidebar."
-msgstr "Chats sind noch nicht eingerichtet – öffne „Chats“ in der Seitenleiste."
+msgstr ""
+"Chats sind noch nicht eingerichtet – öffne „Chats“ in der Seitenleiste."
 
-#: hlidskjalf/chatview.py:1758
+#: hlidskjalf/chatview.py:1903
 #, python-brace-format
 msgid "added {when}"
 msgstr "angemeldet {when}"
 
-#: hlidskjalf/chatview.py:1758 hlidskjalf/push.py:417
+#: hlidskjalf/chatview.py:1903 hlidskjalf/push.py:426
 msgid "this device"
 msgstr "dieses Gerät"
 
-#: hlidskjalf/chatview.py:1760
+#: hlidskjalf/chatview.py:1905
 #, python-brace-format
 msgid "last seen {when}"
 msgstr "zuletzt {when}"
 
-#: hlidskjalf/chatview.py:1763
+#: hlidskjalf/chatview.py:1908
 msgid "Remove from this device"
 msgstr "Von diesem Gerät entfernen"
 
-#: hlidskjalf/chatview.py:1771
-msgid "Lost it or someone may have seen it? Create a new one – the old one stops working. Your keys and messages stay the same."
-msgstr "Verloren oder womöglich gesehen? Erzeuge einen neuen – der alte gilt dann nicht mehr. Deine Schlüssel und Nachrichten bleiben gleich."
+#: hlidskjalf/chatview.py:1916
+msgid ""
+"Lost it or someone may have seen it? Create a new one – the old one stops "
+"working. Your keys and messages stay the same."
+msgstr ""
+"Verloren oder womöglich gesehen? Erzeuge einen neuen – der alte gilt dann "
+"nicht mehr. Deine Schlüssel und Nachrichten bleiben gleich."
 
-#: hlidskjalf/chatview.py:1774
+#: hlidskjalf/chatview.py:1919
 msgid "Create new recovery key"
 msgstr "Neuen Wiederherstellungsschlüssel erzeugen"
 
-#: hlidskjalf/chatview.py:1777
+#: hlidskjalf/chatview.py:1922
 msgid "Security"
 msgstr "Sicherheit"
 
-#: hlidskjalf/chatview.py:1778
-msgid "Private keys never leave this device unencrypted. The server only holds public keys, encrypted messages and your key bundle encrypted with the recovery key. Compare safety numbers to make sure nobody is in between."
-msgstr "Private Schlüssel verlassen dieses Gerät nie unverschlüsselt. Auf dem Server liegen nur öffentliche Schlüssel, verschlüsselte Nachrichten und dein mit dem Wiederherstellungsschlüssel verschlüsseltes Schlüssel-Bündel. Vergleiche Sicherheitsnummern, um sicherzugehen, dass niemand dazwischen sitzt."
+#: hlidskjalf/chatview.py:1923
+msgid ""
+"Private keys never leave this device unencrypted. The server only holds "
+"public keys, encrypted messages and your key bundle encrypted with the "
+"recovery key. Compare safety numbers to make sure nobody is in between."
+msgstr ""
+"Private Schlüssel verlassen dieses Gerät nie unverschlüsselt. Auf dem Server "
+"liegen nur öffentliche Schlüssel, verschlüsselte Nachrichten und dein mit "
+"dem Wiederherstellungsschlüssel verschlüsseltes Schlüssel-Bündel. Vergleiche "
+"Sicherheitsnummern, um sicherzugehen, dass niemand dazwischen sitzt."
 
-#: hlidskjalf/chatview.py:1786
-msgid "The keys will be deleted from this device. Afterwards you'll need another device or the recovery key."
-msgstr "Die Schlüssel werden von diesem Gerät gelöscht. Danach brauchst du ein anderes Gerät oder den Wiederherstellungsschlüssel."
+#: hlidskjalf/chatview.py:1931
+msgid ""
+"The keys will be deleted from this device. Afterwards you'll need another "
+"device or the recovery key."
+msgstr ""
+"Die Schlüssel werden von diesem Gerät gelöscht. Danach brauchst du ein "
+"anderes Gerät oder den Wiederherstellungsschlüssel."
 
-#: hlidskjalf/chatview.py:1787
-msgid "The device will no longer receive new messages and can't fetch existing ones."
-msgstr "Das Gerät bekommt keine neuen Nachrichten mehr und kann vorhandene nicht mehr abrufen."
+#: hlidskjalf/chatview.py:1932
+msgid ""
+"The device will no longer receive new messages and can't fetch existing ones."
+msgstr ""
+"Das Gerät bekommt keine neuen Nachrichten mehr und kann vorhandene nicht "
+"mehr abrufen."
 
-#: hlidskjalf/chatview.py:1788 hlidskjalf/push.py:463
+#: hlidskjalf/chatview.py:1933 hlidskjalf/push.py:472
 msgid "Remove device?"
 msgstr "Gerät entfernen?"
 
-#: hlidskjalf/chatview.py:1793
+#: hlidskjalf/chatview.py:1938
 msgid "Create a new recovery key?"
 msgstr "Neuen Wiederherstellungsschlüssel erzeugen?"
 
-#: hlidskjalf/chatview.py:1793
+#: hlidskjalf/chatview.py:1938
 msgid "The previous key will stop working."
 msgstr "Der bisherige Schlüssel funktioniert danach nicht mehr."
 
-#: hlidskjalf/chatview.py:1799 hlidskjalf/chatview.py:1804
+#: hlidskjalf/chatview.py:1944 hlidskjalf/chatview.py:1949
 msgid "New recovery key"
 msgstr "Neuer Wiederherstellungsschlüssel"
 
-#: hlidskjalf/chatview.py:1804
+#: hlidskjalf/chatview.py:1949
 msgid "Apply"
 msgstr "Übernehmen"
 
-#: hlidskjalf/chatview.py:1811
+#: hlidskjalf/chatview.py:1956
 msgid "The new recovery key is valid from now on."
 msgstr "Neuer Wiederherstellungsschlüssel gilt ab jetzt."
 
-#: hlidskjalf/comments.py:44 hlidskjalf/sharing.py:659
-#: hlidskjalf/sharing.py:660
+#: hlidskjalf/clipimg.py:72
+msgid "Image too large."
+msgstr "Bild zu groß."
+
+#: hlidskjalf/clipimg.py:76 hlidskjalf/editor.py:30 hlidskjalf/page.py:151
+#: hlidskjalf/page.py:869
+msgid "Image"
+msgstr "Bild"
+
+#: hlidskjalf/comments.py:44 hlidskjalf/sharing.py:663
+#: hlidskjalf/sharing.py:664
 msgid "You"
 msgstr "Du"
 
@@ -1639,8 +1897,12 @@ msgid "Delete thread?"
 msgstr "Unterhaltung löschen?"
 
 #: hlidskjalf/comments.py:124
-msgid "The first comment and all replies will be deleted – including those from others."
-msgstr "Der erste Kommentar und alle Antworten werden gelöscht – auch die von anderen."
+msgid ""
+"The first comment and all replies will be deleted – including those from "
+"others."
+msgstr ""
+"Der erste Kommentar und alle Antworten werden gelöscht – auch die von "
+"anderen."
 
 #: hlidskjalf/comments.py:127
 msgid "The first comment and all replies will be deleted."
@@ -1690,121 +1952,125 @@ msgid "No comments yet."
 msgstr "Noch keine Kommentare."
 
 #: hlidskjalf/comments.py:186
-msgid "No comments yet. Comment on a paragraph with 💬 in the right margin, or write a comment on the whole page below."
-msgstr "Noch keine Kommentare. Kommentiere einen Absatz über 💬 am rechten Rand oder schreibe unten einen Kommentar zur ganzen Seite."
+msgid ""
+"No comments yet. Comment on a paragraph with 💬 in the right margin, or "
+"write a comment on the whole page below."
+msgstr ""
+"Noch keine Kommentare. Kommentiere einen Absatz über 💬 am rechten Rand oder "
+"schreibe unten einen Kommentar zur ganzen Seite."
 
-#: hlidskjalf/comments.py:263
+#: hlidskjalf/comments.py:267
 #, python-brace-format
 msgid "{n} of {max}"
 msgstr "{n} von {max}"
 
-#: hlidskjalf/comments.py:310 hlidskjalf/comments.py:339
-#: hlidskjalf/page.py:1159 hlidskjalf/window.py:1360
+#: hlidskjalf/comments.py:323 hlidskjalf/comments.py:352
+#: hlidskjalf/page.py:1217 hlidskjalf/window.py:1451
 msgid "Comments"
 msgstr "Kommentare"
 
-#: hlidskjalf/comments.py:316 hlidskjalf/comments.py:318
+#: hlidskjalf/comments.py:329 hlidskjalf/comments.py:331
 msgid "Close comments"
 msgstr "Kommentare schließen"
 
-#: hlidskjalf/comments.py:323
+#: hlidskjalf/comments.py:336
 msgid "All threads"
 msgstr "Alle Unterhaltungen"
 
-#: hlidskjalf/comments.py:371
+#: hlidskjalf/comments.py:389
 #, python-brace-format
 msgid "Comments not loaded: {err}"
 msgstr "Kommentare nicht geladen: {err}"
 
-#: hlidskjalf/comments.py:409 hlidskjalf/comments.py:411
+#: hlidskjalf/comments.py:433 hlidskjalf/comments.py:435
 msgid "Show resolved"
 msgstr "Erledigte zeigen"
 
-#: hlidskjalf/comments.py:412 hlidskjalf/page.py:1160
+#: hlidskjalf/comments.py:436 hlidskjalf/page.py:1218
 #, python-brace-format
 msgid "{n} resolved"
 msgid_plural "{n} resolved"
 msgstr[0] "{n} erledigt"
 msgstr[1] "{n} erledigt"
 
-#: hlidskjalf/comments.py:426
+#: hlidskjalf/comments.py:454
 msgid "You can read comments but not write them."
 msgstr "Du kannst Kommentare lesen, aber nicht schreiben."
 
-#: hlidskjalf/comments.py:466 hlidskjalf/dbedit.py:237
+#: hlidskjalf/comments.py:494 hlidskjalf/dbedit.py:237
 msgid "Full page"
 msgstr "Ganze Seite"
 
-#: hlidskjalf/comments.py:471
+#: hlidskjalf/comments.py:499
 msgid "Block removed"
 msgstr "Block entfernt"
 
-#: hlidskjalf/comments.py:477
+#: hlidskjalf/comments.py:505
 msgid "Go to block"
 msgstr "Zum Block springen"
 
-#: hlidskjalf/comments.py:521
+#: hlidskjalf/comments.py:549
 msgid "✓ Resolve"
 msgstr "✓ Erledigt"
 
-#: hlidskjalf/comments.py:522
+#: hlidskjalf/comments.py:550
 msgid "Mark as resolved – the thread is collapsed"
 msgstr "Als erledigt markieren – die Unterhaltung wird zugeklappt"
 
-#: hlidskjalf/comments.py:522
+#: hlidskjalf/comments.py:550
 msgid "Reopen thread"
 msgstr "Unterhaltung wieder öffnen"
 
-#: hlidskjalf/comments.py:535 hlidskjalf/comments.py:536
-#: hlidskjalf/database.py:799 hlidskjalf/database.py:1005
-#: hlidskjalf/dbedit.py:131 hlidskjalf/dbedit.py:142 hlidskjalf/dialogs.py:581
-#: hlidskjalf/editor.py:1005
+#: hlidskjalf/comments.py:566 hlidskjalf/comments.py:567
+#: hlidskjalf/database.py:806 hlidskjalf/database.py:1012
+#: hlidskjalf/dbedit.py:131 hlidskjalf/dbedit.py:142 hlidskjalf/dialogs.py:599
+#: hlidskjalf/editor.py:1017
 msgid "New"
 msgstr "Neu"
 
-#: hlidskjalf/comments.py:542
+#: hlidskjalf/comments.py:573
 msgid "edited"
 msgstr "bearbeitet"
 
-#: hlidskjalf/comments.py:546
+#: hlidskjalf/comments.py:577
 msgid "Actions"
 msgstr "Aktionen"
 
-#: hlidskjalf/comments.py:549
+#: hlidskjalf/comments.py:580
 msgid "Actions for this comment"
 msgstr "Aktionen für diesen Kommentar"
 
-#: hlidskjalf/comments.py:553
+#: hlidskjalf/comments.py:584
 msgid "Edit"
 msgstr "Bearbeiten"
 
-#: hlidskjalf/comments.py:557
+#: hlidskjalf/comments.py:588
 msgid "Delete conversation"
 msgstr "Unterhaltung löschen"
 
-#: hlidskjalf/comments.py:570 hlidskjalf/comments.py:608
+#: hlidskjalf/comments.py:601 hlidskjalf/comments.py:639
 #, python-brace-format
 msgid "Not saved: {err}"
 msgstr "Nicht gespeichert: {err}"
 
-#: hlidskjalf/comments.py:572
+#: hlidskjalf/comments.py:603
 msgid "Edit comment"
 msgstr "Kommentar bearbeiten"
 
-#: hlidskjalf/comments.py:578
+#: hlidskjalf/comments.py:609
 msgid "Comment deleted"
 msgstr "Kommentar gelöscht"
 
-#: hlidskjalf/comments.py:601
+#: hlidskjalf/comments.py:632
 msgid "Thread resolved"
 msgstr "Unterhaltung erledigt"
 
-#: hlidskjalf/comments.py:601 hlidskjalf/window.py:1516
-#: hlidskjalf/window.py:1521
+#: hlidskjalf/comments.py:632 hlidskjalf/window.py:1607
+#: hlidskjalf/window.py:1612
 msgid "Undo"
 msgstr "Rückgängig"
 
-#: hlidskjalf/comments.py:616
+#: hlidskjalf/comments.py:647
 #, python-brace-format
 msgid "Not deleted: {err}"
 msgstr "Nicht gelöscht: {err}"
@@ -1813,89 +2079,89 @@ msgstr "Nicht gelöscht: {err}"
 msgid "Saga – sign-in of this device"
 msgstr "Saga – Anmeldung dieses Geräts"
 
-#: hlidskjalf/database.py:378 hlidskjalf/dbedit.py:16 hlidskjalf/editor.py:37
+#: hlidskjalf/database.py:385 hlidskjalf/dbedit.py:16 hlidskjalf/editor.py:37
 msgid "Table"
 msgstr "Tabelle"
 
-#: hlidskjalf/database.py:477 hlidskjalf/database.py:535
+#: hlidskjalf/database.py:484 hlidskjalf/database.py:542
 msgid "Clear"
 msgstr "Leeren"
 
-#: hlidskjalf/database.py:479
+#: hlidskjalf/database.py:486
 msgid "New option …"
 msgstr "Neue Option …"
 
-#: hlidskjalf/database.py:480 hlidskjalf/database.py:509
+#: hlidskjalf/database.py:487 hlidskjalf/database.py:516
 msgid "No options"
 msgstr "Keine Optionen"
 
-#: hlidskjalf/database.py:555 hlidskjalf/database.py:595
+#: hlidskjalf/database.py:562 hlidskjalf/database.py:602
 #: hlidskjalf/dbedit.py:18
 msgid "Empty"
 msgstr "Leer"
 
-#: hlidskjalf/database.py:588 hlidskjalf/database.py:666
-#: hlidskjalf/database.py:876 hlidskjalf/publish.py:529
-#: hlidskjalf/window.py:1588
+#: hlidskjalf/database.py:595 hlidskjalf/database.py:673
+#: hlidskjalf/database.py:883 hlidskjalf/publish.py:529
+#: hlidskjalf/window.py:1679
 msgid "Open"
 msgstr "Öffnen"
 
-#: hlidskjalf/database.py:603 hlidskjalf/dbedit.py:432
+#: hlidskjalf/database.py:610 hlidskjalf/dbedit.py:434
 msgid "New option"
 msgstr "Neue Option"
 
-#: hlidskjalf/database.py:625
+#: hlidskjalf/database.py:632
 msgid "Search entries"
 msgstr "Eintrag suchen"
 
-#: hlidskjalf/database.py:668 hlidskjalf/page.py:1194 hlidskjalf/publish.py:513
+#: hlidskjalf/database.py:675 hlidskjalf/page.py:1252 hlidskjalf/publish.py:513
 #: hlidskjalf/publish.py:528 hlidskjalf/publish.py:533
-#: hlidskjalf/sharing.py:576 hlidskjalf/window.py:1464
-#: hlidskjalf/window.py:1474
+#: hlidskjalf/sharing.py:580 hlidskjalf/window.py:1555
+#: hlidskjalf/window.py:1565
 msgid "Copy link"
 msgstr "Link kopieren"
 
-#: hlidskjalf/database.py:669 hlidskjalf/page.py:1206 hlidskjalf/window.py:1476
+#: hlidskjalf/database.py:676 hlidskjalf/page.py:1264 hlidskjalf/window.py:1567
 msgid "Move to trash"
 msgstr "In den Papierkorb"
 
-#: hlidskjalf/database.py:680
+#: hlidskjalf/database.py:687
 msgid "Entry actions"
 msgstr "Aktionen für den Eintrag"
 
-#: hlidskjalf/database.py:767 hlidskjalf/dbedit.py:221 hlidskjalf/dbedit.py:258
+#: hlidskjalf/database.py:774 hlidskjalf/dbedit.py:221 hlidskjalf/dbedit.py:258
 #: hlidskjalf/dbedit.py:287 hlidskjalf/publish.py:766
 msgid "Name"
 msgstr "Name"
 
-#: hlidskjalf/database.py:788
+#: hlidskjalf/database.py:795
 #, python-brace-format
 msgid "Load {n} more"
 msgstr "{n} weitere laden"
 
-#: hlidskjalf/database.py:793 hlidskjalf/database.py:935
+#: hlidskjalf/database.py:800 hlidskjalf/database.py:942
 msgid "No entries"
 msgstr "Keine Einträge"
 
-#: hlidskjalf/database.py:823 hlidskjalf/database.py:982
+#: hlidskjalf/database.py:830 hlidskjalf/database.py:989
 #, python-brace-format
 msgid "Without {name}"
 msgstr "Ohne {name}"
 
-#: hlidskjalf/database.py:980
+#: hlidskjalf/database.py:987
 msgid "A board needs a select property"
 msgstr "Board braucht eine Auswahl-Eigenschaft"
 
-#: hlidskjalf/database.py:1065
+#: hlidskjalf/database.py:1072
 msgid "A calendar needs a date property"
 msgstr "Kalender braucht eine Datums-Eigenschaft"
 
-#: hlidskjalf/database.py:1156 hlidskjalf/dialogs.py:556
+#: hlidskjalf/database.py:1180 hlidskjalf/dialogs.py:574
 #: hlidskjalf/editor.py:33
 msgid "Database"
 msgstr "Datenbank"
 
-#: hlidskjalf/database.py:1163 hlidskjalf/page.py:303
+#: hlidskjalf/database.py:1187 hlidskjalf/page.py:305
 msgid "Open as full page"
 msgstr "Als ganze Seite öffnen"
 
@@ -1903,7 +2169,7 @@ msgstr "Als ganze Seite öffnen"
 msgid "Multi-select"
 msgstr "Mehrfachauswahl"
 
-#: hlidskjalf/dbedit.py:12 hlidskjalf/dbedit.py:442 hlidskjalf/dbedit.py:444
+#: hlidskjalf/dbedit.py:12 hlidskjalf/dbedit.py:444 hlidskjalf/dbedit.py:446
 msgid "Number"
 msgstr "Zahl"
 
@@ -1911,7 +2177,7 @@ msgstr "Zahl"
 msgid "Select"
 msgstr "Auswahl"
 
-#: hlidskjalf/dbedit.py:12 hlidskjalf/editor.py:17 hlidskjalf/window.py:1416
+#: hlidskjalf/dbedit.py:12 hlidskjalf/editor.py:17 hlidskjalf/window.py:1507
 msgid "Text"
 msgstr "Text"
 
@@ -1935,7 +2201,7 @@ msgstr "Bearbeitet"
 msgid "URL"
 msgstr "URL"
 
-#: hlidskjalf/dbedit.py:14 hlidskjalf/dbedit.py:483 hlidskjalf/dbedit.py:499
+#: hlidskjalf/dbedit.py:14 hlidskjalf/dbedit.py:485 hlidskjalf/dbedit.py:501
 msgid "Relation"
 msgstr "Relation"
 
@@ -2100,7 +2366,7 @@ msgstr "Nur lesen – Änderungen an der Ansicht werden nicht gespeichert."
 msgid "Empty entry"
 msgstr "Leerer Eintrag"
 
-#: hlidskjalf/dbedit.py:137 hlidskjalf/dialogs.py:558
+#: hlidskjalf/dbedit.py:137 hlidskjalf/dialogs.py:576
 msgid "Template"
 msgstr "Vorlage"
 
@@ -2153,7 +2419,7 @@ msgstr "Mittel"
 msgid "Small"
 msgstr "Klein"
 
-#: hlidskjalf/dbedit.py:237 hlidskjalf/dialogs.py:571
+#: hlidskjalf/dbedit.py:237 hlidskjalf/dialogs.py:589
 msgid "Center"
 msgstr "Mitte"
 
@@ -2161,7 +2427,7 @@ msgstr "Mitte"
 msgid "Open entries"
 msgstr "Einträge öffnen"
 
-#: hlidskjalf/dbedit.py:237 hlidskjalf/dialogs.py:571
+#: hlidskjalf/dbedit.py:237 hlidskjalf/dialogs.py:589
 msgid "Side peek"
 msgstr "Seitenansicht"
 
@@ -2193,7 +2459,7 @@ msgstr "Filter (alle müssen zutreffen)"
 msgid "Add filter"
 msgstr "Filter hinzufügen"
 
-#: hlidskjalf/dbedit.py:299 hlidskjalf/dialogs.py:556 hlidskjalf/dialogs.py:568
+#: hlidskjalf/dbedit.py:299 hlidskjalf/dialogs.py:574 hlidskjalf/dialogs.py:586
 msgid "– choose –"
 msgstr "– wählen –"
 
@@ -2209,71 +2475,71 @@ msgstr "Typ"
 msgid "Options"
 msgstr "Optionen"
 
-#: hlidskjalf/dbedit.py:427
+#: hlidskjalf/dbedit.py:429
 msgid "Delete option"
 msgstr "Option löschen"
 
-#: hlidskjalf/dbedit.py:442
+#: hlidskjalf/dbedit.py:444
 msgid "Euro"
 msgstr "Euro"
 
-#: hlidskjalf/dbedit.py:442
+#: hlidskjalf/dbedit.py:444
 msgid "Format"
 msgstr "Format"
 
-#: hlidskjalf/dbedit.py:442
+#: hlidskjalf/dbedit.py:444
 msgid "Percent"
 msgstr "Prozent"
 
-#: hlidskjalf/dbedit.py:444
+#: hlidskjalf/dbedit.py:446
 msgid "Bar"
 msgstr "Balken"
 
-#: hlidskjalf/dbedit.py:444
+#: hlidskjalf/dbedit.py:446
 msgid "Ring"
 msgstr "Ring"
 
-#: hlidskjalf/dbedit.py:444
+#: hlidskjalf/dbedit.py:446
 msgid "Show as"
 msgstr "Anzeigen als"
 
-#: hlidskjalf/dbedit.py:448
+#: hlidskjalf/dbedit.py:450
 msgid "Calculation"
 msgstr "Rechnung"
 
-#: hlidskjalf/dbedit.py:449
+#: hlidskjalf/dbedit.py:451
 msgid "Number A"
 msgstr "Zahl A"
 
-#: hlidskjalf/dbedit.py:450
+#: hlidskjalf/dbedit.py:452
 msgid "Number B"
 msgstr "Zahl B"
 
-#: hlidskjalf/dbedit.py:476
+#: hlidskjalf/dbedit.py:478
 msgid "Add column"
 msgstr "Spalte hinzufügen"
 
-#: hlidskjalf/dbedit.py:483
+#: hlidskjalf/dbedit.py:485
 msgid "No databases"
 msgstr "Keine Datenbanken"
 
-#: hlidskjalf/dbedit.py:488
+#: hlidskjalf/dbedit.py:490
 msgid "Property"
 msgstr "Eigenschaft"
 
-#: hlidskjalf/dbedit.py:493
+#: hlidskjalf/dbedit.py:495
 msgid "Progress"
 msgstr "Fortschritt"
 
-#: hlidskjalf/dbedit.py:521
+#: hlidskjalf/dbedit.py:523
 msgid "Calculate"
 msgstr "Berechnen"
 
-#: hlidskjalf/dbedit.py:528
+#: hlidskjalf/dbedit.py:530
 msgid "None"
 msgstr "Keine"
 
-#: hlidskjalf/dbedit.py:577 hlidskjalf/util.py:289 hlidskjalf/util.py:291
+#: hlidskjalf/dbedit.py:579 hlidskjalf/util.py:289 hlidskjalf/util.py:291
 #, python-brace-format
 msgid "{value}%"
 msgstr "{value} %"
@@ -2282,251 +2548,272 @@ msgstr "{value} %"
 msgid "Search pages … (> for commands)"
 msgstr "Seite suchen … (> für Befehle)"
 
-#: hlidskjalf/dialogs.py:112
+#: hlidskjalf/dialogs.py:113
 msgid "Command"
 msgstr "Befehl"
 
-#: hlidskjalf/dialogs.py:118
+#: hlidskjalf/dialogs.py:119
 msgid "Nothing found"
 msgstr "Nichts gefunden"
 
-#: hlidskjalf/dialogs.py:136 hlidskjalf/window.py:302 hlidskjalf/window.py:604
-#: hlidskjalf/window.py:1335
+#: hlidskjalf/dialogs.py:137 hlidskjalf/window.py:302 hlidskjalf/window.py:610
+#: hlidskjalf/window.py:1426
 msgid "Trash"
 msgstr "Papierkorb"
 
-#: hlidskjalf/dialogs.py:140
+#: hlidskjalf/dialogs.py:141
 msgid "Empty trash"
 msgstr "Papierkorb leeren"
 
-#: hlidskjalf/dialogs.py:160
+#: hlidskjalf/dialogs.py:163
 msgid "The trash is empty."
 msgstr "Der Papierkorb ist leer."
 
-#: hlidskjalf/dialogs.py:165
+#: hlidskjalf/dialogs.py:168
 #, python-brace-format
 msgid "with {n} subpage"
 msgid_plural "with {n} subpages"
 msgstr[0] "mit {n} Unterseite"
 msgstr[1] "mit {n} Unterseiten"
 
-#: hlidskjalf/dialogs.py:166
+#: hlidskjalf/dialogs.py:169
 #, python-brace-format
 msgid "will be deleted on {date}"
 msgstr "wird gelöscht am {date}"
 
-#: hlidskjalf/dialogs.py:168 hlidskjalf/window.py:1468
+#: hlidskjalf/dialogs.py:171 hlidskjalf/window.py:1559
 msgid "Restore"
 msgstr "Zurückholen"
 
-#: hlidskjalf/dialogs.py:171 hlidskjalf/dialogs.py:185
-#: hlidskjalf/dialogs.py:195
+#: hlidskjalf/dialogs.py:174 hlidskjalf/dialogs.py:188
+#: hlidskjalf/dialogs.py:198
 msgid "Delete permanently"
 msgstr "Endgültig löschen"
 
-#: hlidskjalf/dialogs.py:180
+#: hlidskjalf/dialogs.py:183
 #, python-brace-format
 msgid "“{title}” will be deleted permanently. This cannot be undone."
-msgstr "„{title}“ wird endgültig gelöscht. Das lässt sich nicht rückgängig machen."
+msgstr ""
+"„{title}“ wird endgültig gelöscht. Das lässt sich nicht rückgängig machen."
 
-#: hlidskjalf/dialogs.py:182
+#: hlidskjalf/dialogs.py:185
 #, python-brace-format
 msgid "Its {n} subpage is deleted too."
 msgid_plural "Its {n} subpages are deleted too."
 msgstr[0] "{n} Unterseite wird mitgelöscht."
 msgstr[1] "{n} Unterseiten werden mitgelöscht."
 
-#: hlidskjalf/dialogs.py:183
+#: hlidskjalf/dialogs.py:186
 msgid "Delete permanently?"
 msgstr "Endgültig löschen?"
 
-#: hlidskjalf/dialogs.py:193
+#: hlidskjalf/dialogs.py:196
 msgid "All pages in the trash will be deleted permanently."
 msgstr "Alle Seiten im Papierkorb werden endgültig gelöscht."
 
-#: hlidskjalf/dialogs.py:193
+#: hlidskjalf/dialogs.py:196
 msgid "Empty trash?"
 msgstr "Papierkorb leeren?"
 
-#: hlidskjalf/dialogs.py:210
+#: hlidskjalf/dialogs.py:213
 msgid "Find page"
 msgstr "Seite suchen"
 
-#: hlidskjalf/dialogs.py:259
+#: hlidskjalf/dialogs.py:263
 msgid "Move to"
 msgstr "Verschieben nach"
 
-#: hlidskjalf/dialogs.py:259
+#: hlidskjalf/dialogs.py:263
 msgid "Top level"
 msgstr "Oberste Ebene"
 
-#: hlidskjalf/dialogs.py:264
+#: hlidskjalf/dialogs.py:268
 msgid "Version history"
 msgstr "Versionsverlauf"
 
-#: hlidskjalf/dialogs.py:269
+#: hlidskjalf/dialogs.py:273
 msgid "Restore this version"
 msgstr "Diese Version wiederherstellen"
 
-#: hlidskjalf/dialogs.py:288
+#: hlidskjalf/dialogs.py:292
 msgid "Select a version to view it."
 msgstr "Version auswählen, um sie anzusehen."
 
-#: hlidskjalf/dialogs.py:301
-msgid "No earlier versions yet. While you edit, a version is saved at most every 10 minutes (up to 50 per page)."
-msgstr "Noch keine früheren Versionen. Beim Bearbeiten wird höchstens alle 10 Minuten ein Stand gesichert (bis zu 50 pro Seite)."
+#: hlidskjalf/dialogs.py:305
+msgid ""
+"No earlier versions yet. While you edit, a version is saved at most every 10 "
+"minutes (up to 50 per page)."
+msgstr ""
+"Noch keine früheren Versionen. Beim Bearbeiten wird höchstens alle 10 "
+"Minuten ein Stand gesichert (bis zu 50 pro Seite)."
 
-#: hlidskjalf/dialogs.py:318
+#: hlidskjalf/dialogs.py:322
 msgid "(empty)"
 msgstr "(leer)"
 
-#: hlidskjalf/dialogs.py:346 hlidskjalf/dialogs.py:404
+#: hlidskjalf/dialogs.py:351 hlidskjalf/dialogs.py:409
 msgid "Albums"
 msgstr "Alben"
 
-#: hlidskjalf/dialogs.py:355
+#: hlidskjalf/dialogs.py:360
 #, python-brace-format
 msgid "Not reachable: {error}"
 msgstr "Nicht erreichbar: {error}"
 
-#: hlidskjalf/dialogs.py:369
+#: hlidskjalf/dialogs.py:374
 msgid "Immich is not set up on this server."
 msgstr "Immich ist auf diesem Server nicht eingerichtet."
 
-#: hlidskjalf/dialogs.py:377
-msgid "Enter the address of your Immich and an API key. In Immich, create a new key under Account Settings → API Keys (permissions: album.read, asset.read, asset.view, asset.download, user.read)."
-msgstr "Adresse deines Immich und einen API-Schlüssel eintragen. In Immich unter Kontoeinstellungen → API-Schlüssel einen neuen Schlüssel anlegen (Rechte: album.read, asset.read, asset.view, asset.download, user.read)."
+#: hlidskjalf/dialogs.py:382
+msgid ""
+"Enter the address of your Immich and an API key. In Immich, create a new key "
+"under Account Settings → API Keys (permissions: album.read, asset.read, "
+"asset.view, asset.download, user.read)."
+msgstr ""
+"Adresse deines Immich und einen API-Schlüssel eintragen. In Immich unter "
+"Kontoeinstellungen → API-Schlüssel einen neuen Schlüssel anlegen (Rechte: "
+"album.read, asset.read, asset.view, asset.download, user.read)."
 
-#: hlidskjalf/dialogs.py:381
+#: hlidskjalf/dialogs.py:386
 msgid "Immich address (https://…)"
 msgstr "Immich-Adresse (https://…)"
 
-#: hlidskjalf/dialogs.py:382 hlidskjalf/settings.py:172
+#: hlidskjalf/dialogs.py:387 hlidskjalf/settings.py:178
 msgid "API key"
 msgstr "API-Schlüssel"
 
-#: hlidskjalf/dialogs.py:385 hlidskjalf/settings.py:173
-#: hlidskjalf/settings.py:179 hlidskjalf/settings.py:245
+#: hlidskjalf/dialogs.py:390 hlidskjalf/settings.py:179
+#: hlidskjalf/settings.py:185 hlidskjalf/settings.py:251
 msgid "Connect"
 msgstr "Verbinden"
 
-#: hlidskjalf/dialogs.py:403 hlidskjalf/window.py:263
+#: hlidskjalf/dialogs.py:408 hlidskjalf/window.py:263
 msgid "Recent"
 msgstr "Zuletzt"
 
-#: hlidskjalf/dialogs.py:409
+#: hlidskjalf/dialogs.py:414
 msgid "Search … (e.g. “beach”, “cat”)"
 msgstr "Suchen … (z. B. „Strand“, „Katze“)"
 
-#: hlidskjalf/dialogs.py:417
+#: hlidskjalf/dialogs.py:423
 msgid "Load more"
 msgstr "Mehr laden"
 
-#: hlidskjalf/dialogs.py:447
+#: hlidskjalf/dialogs.py:453
 msgid "No albums."
 msgstr "Keine Alben."
 
-#: hlidskjalf/dialogs.py:456
+#: hlidskjalf/dialogs.py:462
 #, python-brace-format
 msgid "{n} photo"
 msgid_plural "{n} photos"
 msgstr[0] "{n} Foto"
 msgstr[1] "{n} Fotos"
 
-#: hlidskjalf/dialogs.py:462
+#: hlidskjalf/dialogs.py:468
 msgid "Could not read albums"
 msgstr "Alben nicht lesbar"
 
-#: hlidskjalf/dialogs.py:466
+#: hlidskjalf/dialogs.py:472
 msgid "Album"
 msgstr "Album"
 
-#: hlidskjalf/dialogs.py:497
+#: hlidskjalf/dialogs.py:503
 msgid "No photos found."
 msgstr "Keine Fotos gefunden."
 
-#: hlidskjalf/dialogs.py:498
+#: hlidskjalf/dialogs.py:504
 msgid "Immich: search failed"
 msgstr "Immich: Suche fehlgeschlagen"
 
-#: hlidskjalf/dialogs.py:504
+#: hlidskjalf/dialogs.py:511
+#, python-brace-format
+msgid "Loading “{name}” …"
+msgstr "Lade „{name}“ …"
+
+#: hlidskjalf/dialogs.py:519
+#, python-brace-format
+msgid "Not loaded: {error}"
+msgstr "Nicht geladen: {error}"
+
+#: hlidskjalf/dialogs.py:522
 #, python-brace-format
 msgid "Importing “{name}” …"
 msgstr "Übernehme „{name}“ …"
 
-#: hlidskjalf/dialogs.py:512
+#: hlidskjalf/dialogs.py:530
 #, python-brace-format
 msgid "Not imported: {error}"
 msgstr "Nicht übernommen: {error}"
 
-#: hlidskjalf/dialogs.py:520
+#: hlidskjalf/dialogs.py:538
 msgid "Buttons"
 msgstr "Schaltflächen"
 
-#: hlidskjalf/dialogs.py:528
+#: hlidskjalf/dialogs.py:546
 msgid "Done"
 msgstr "Fertig"
 
-#: hlidskjalf/dialogs.py:546
+#: hlidskjalf/dialogs.py:564
 #, python-brace-format
 msgid "Button {n}"
 msgstr "Schaltfläche {n}"
 
-#: hlidskjalf/dialogs.py:547
+#: hlidskjalf/dialogs.py:565
 msgid "Label"
 msgstr "Beschriftung"
 
-#: hlidskjalf/dialogs.py:550
+#: hlidskjalf/dialogs.py:568
 msgid "Icon (emoji)"
 msgstr "Symbol (Emoji)"
 
-#: hlidskjalf/dialogs.py:553
+#: hlidskjalf/dialogs.py:571
 msgid "New database entry"
 msgstr "Neuer Eintrag in Datenbank"
 
-#: hlidskjalf/dialogs.py:553 hlidskjalf/window.py:1507
+#: hlidskjalf/dialogs.py:571 hlidskjalf/window.py:1598
 msgid "New task"
 msgstr "Neue Aufgabe"
 
-#: hlidskjalf/dialogs.py:553
+#: hlidskjalf/dialogs.py:571
 msgid "none"
 msgstr "keine"
 
-#: hlidskjalf/dialogs.py:554
+#: hlidskjalf/dialogs.py:572
 msgid "Action"
 msgstr "Aktion"
 
-#: hlidskjalf/dialogs.py:558
+#: hlidskjalf/dialogs.py:576
 msgid "none (empty page)"
 msgstr "keine (leere Seite)"
 
-#: hlidskjalf/dialogs.py:560
+#: hlidskjalf/dialogs.py:578
 #, python-brace-format
 msgid "Title ({datum} = today)"
 msgstr "Titel ({datum} = heute)"
 
-#: hlidskjalf/dialogs.py:564
+#: hlidskjalf/dialogs.py:582
 msgid "Task text"
 msgstr "Text der Aufgabe"
 
-#: hlidskjalf/dialogs.py:571
+#: hlidskjalf/dialogs.py:589
 msgid "Open as"
 msgstr "Öffnen als"
 
-#: hlidskjalf/dialogs.py:573
+#: hlidskjalf/dialogs.py:591
 msgid "Remove button"
 msgstr "Schaltfläche entfernen"
 
-#: hlidskjalf/dialogs.py:580
+#: hlidskjalf/dialogs.py:598
 msgid "Add button"
 msgstr "Schaltfläche hinzufügen"
 
-#: hlidskjalf/dialogs.py:637 hlidskjalf/window.py:242 hlidskjalf/window.py:1068
-#: hlidskjalf/window.py:1335
+#: hlidskjalf/dialogs.py:655 hlidskjalf/window.py:242 hlidskjalf/window.py:1102
+#: hlidskjalf/window.py:1426
 msgid "Services"
 msgstr "Dienste"
 
-#: hlidskjalf/dialogs.py:640
+#: hlidskjalf/dialogs.py:658
 msgid "Search services"
 msgstr "Dienst suchen"
 
@@ -2562,10 +2849,6 @@ msgstr "Nummeriert"
 msgid "Divider"
 msgstr "Trenner"
 
-#: hlidskjalf/editor.py:30 hlidskjalf/page.py:151 hlidskjalf/page.py:819
-msgid "Image"
-msgstr "Bild"
-
 #: hlidskjalf/editor.py:31
 msgid "Image from Immich"
 msgstr "Bild aus Immich"
@@ -2582,42 +2865,53 @@ msgstr "Spalten"
 msgid "Button"
 msgstr "Schaltfläche"
 
-#: hlidskjalf/editor.py:40 hlidskjalf/page.py:1329 hlidskjalf/page.py:1333
+#: hlidskjalf/editor.py:40 hlidskjalf/page.py:1387 hlidskjalf/page.py:1391
 msgid "Embed"
 msgstr "Einbetten"
 
-#: hlidskjalf/editor.py:351
+#: hlidskjalf/editor.py:352
 msgid "Unsaved changes from last time were restored."
 msgstr "Ungespeicherte Änderungen vom letzten Mal wurden wiederhergestellt."
 
-#: hlidskjalf/editor.py:515
-msgid "Offline – changes will be saved as soon as the server is reachable."
-msgstr "Offline – Änderungen werden gespeichert, sobald der Server erreichbar ist."
+#: hlidskjalf/editor.py:520 hlidskjalf/page.py:892
+msgid ""
+"This page is too large to save. Shorten it or split it into several pages – "
+"until then your changes are only kept on this device."
+msgstr ""
+"Diese Seite ist zu groß zum Speichern. Kürze sie oder teile sie auf mehrere "
+"Seiten auf – bis dahin bleiben deine Änderungen nur auf diesem Gerät."
 
-#: hlidskjalf/editor.py:520
+#: hlidskjalf/editor.py:527
+msgid "Offline – changes will be saved as soon as the server is reachable."
+msgstr ""
+"Offline – Änderungen werden gespeichert, sobald der Server erreichbar ist."
+
+#: hlidskjalf/editor.py:532
 #, python-brace-format
 msgid "Not saved: {error}"
 msgstr "Nicht gespeichert: {error}"
 
-#: hlidskjalf/editor.py:598 hlidskjalf/editor.py:621
+#: hlidskjalf/editor.py:610 hlidskjalf/editor.py:633
 msgid "Your version could not be saved as a copy. Nothing was discarded."
-msgstr "Deine Fassung konnte nicht als Kopie gesichert werden. Es wurde nichts verworfen."
+msgstr ""
+"Deine Fassung konnte nicht als Kopie gesichert werden. Es wurde nichts "
+"verworfen."
 
-#: hlidskjalf/editor.py:602
+#: hlidskjalf/editor.py:614
 msgid "(conflict copy)"
 msgstr "(Konfliktkopie)"
 
-#: hlidskjalf/editor.py:626
+#: hlidskjalf/editor.py:638
 #, python-brace-format
 msgid "Your version was saved as “{title}”."
 msgstr "Deine Fassung wurde als „{title}“ gespeichert."
 
-#: hlidskjalf/editor.py:633
+#: hlidskjalf/editor.py:645
 #, python-brace-format
 msgid "Conflict copy not created: {error}"
 msgstr "Konfliktkopie nicht angelegt: {error}"
 
-#: hlidskjalf/editor.py:1029
+#: hlidskjalf/editor.py:1041
 msgid "New database"
 msgstr "Neue Datenbank"
 
@@ -2668,110 +2962,123 @@ msgstr "Ein Admin zieht eine Veröffentlichung von mir zurück"
 msgid "New chat messages (without content; never for muted chats)"
 msgstr "Neue Chat-Nachrichten (ohne Inhalt; stummgeschaltete Chats nie)"
 
-#: hlidskjalf/notifications.py:38
+#: hlidskjalf/notifications.py:29
+msgid "Missed calls"
+msgstr "Verpasste Anrufe"
+
+#: hlidskjalf/notifications.py:39
 #, python-brace-format
 msgid "{name} shared a page with you ({role})"
 msgstr "{name} hat eine Seite mit dir geteilt ({role})"
 
-#: hlidskjalf/notifications.py:40
+#: hlidskjalf/notifications.py:41
 #, python-brace-format
 msgid "{name} changed your role: {role}"
 msgstr "{name} hat deine Rolle geändert: {role}"
 
-#: hlidskjalf/notifications.py:43
+#: hlidskjalf/notifications.py:44
 #, python-brace-format
 msgid "{name} commented on your page"
 msgstr "{name} hat deine Seite kommentiert"
 
-#: hlidskjalf/notifications.py:44
+#: hlidskjalf/notifications.py:45
 #, python-brace-format
 msgid "{n} new comment on your page"
 msgid_plural "{n} new comments on your page"
 msgstr[0] "{n} neuer Kommentar auf deiner Seite"
 msgstr[1] "{n} neue Kommentare auf deiner Seite"
 
-#: hlidskjalf/notifications.py:47
+#: hlidskjalf/notifications.py:48
 #, python-brace-format
 msgid "{name} replied in a thread"
 msgstr "{name} hat in einer Unterhaltung geantwortet"
 
-#: hlidskjalf/notifications.py:48
+#: hlidskjalf/notifications.py:49
 #, python-brace-format
 msgid "{n} new reply in a thread"
 msgid_plural "{n} new replies in a thread"
 msgstr[0] "{n} neue Antwort in einer Unterhaltung"
 msgstr[1] "{n} neue Antworten in einer Unterhaltung"
 
-#: hlidskjalf/notifications.py:50
+#: hlidskjalf/notifications.py:51
 #, python-brace-format
 msgid "{name} mentioned you"
 msgstr "{name} hat dich erwähnt"
 
-#: hlidskjalf/notifications.py:52
+#: hlidskjalf/notifications.py:53
 msgid "An admin withdrew your published page"
 msgstr "Ein Admin hat deine Veröffentlichung zurückgezogen"
 
-#: hlidskjalf/notifications.py:55
+#: hlidskjalf/notifications.py:56
 #, python-brace-format
 msgid "New message from {name}"
 msgstr "Neue Nachricht von {name}"
 
-#: hlidskjalf/notifications.py:56
+#: hlidskjalf/notifications.py:57
 #, python-brace-format
 msgid "{n} new message"
 msgid_plural "{n} new messages"
 msgstr[0] "{n} neue Nachricht"
 msgstr[1] "{n} neue Nachrichten"
 
-#: hlidskjalf/notifications.py:62 hlidskjalf/sharing.py:306
+#: hlidskjalf/notifications.py:59
+#, python-brace-format
+msgid "Missed call from {name}"
+msgstr "Verpasster Anruf von {name}"
+
+#: hlidskjalf/notifications.py:65 hlidskjalf/sharing.py:306
 msgid "No access anymore"
 msgstr "Kein Zugriff mehr"
 
-#: hlidskjalf/notifications.py:270 hlidskjalf/notifications.py:283
-#: hlidskjalf/notifications.py:299 hlidskjalf/notifications.py:381
-#: hlidskjalf/window.py:1346
+#: hlidskjalf/notifications.py:273 hlidskjalf/notifications.py:286
+#: hlidskjalf/notifications.py:302 hlidskjalf/notifications.py:387
+#: hlidskjalf/window.py:1437
 msgid "Notifications"
 msgstr "Benachrichtigungen"
 
-#: hlidskjalf/notifications.py:286
+#: hlidskjalf/notifications.py:289
 msgid "Mark all as read"
 msgstr "Alle gelesen"
 
-#: hlidskjalf/notifications.py:290
+#: hlidskjalf/notifications.py:293
 msgid "Notification settings"
 msgstr "Benachrichtigungen einstellen"
 
-#: hlidskjalf/notifications.py:309
+#: hlidskjalf/notifications.py:312
 msgid "No notifications"
 msgstr "Keine Benachrichtigungen"
 
-#: hlidskjalf/notifications.py:310
-msgid "This is where you'll see when someone shares something with you or comments on your pages."
-msgstr "Hier erscheint, wenn jemand etwas mit dir teilt oder auf deinen Seiten kommentiert."
+#: hlidskjalf/notifications.py:313
+msgid ""
+"This is where you'll see when someone shares something with you or comments "
+"on your pages."
+msgstr ""
+"Hier erscheint, wenn jemand etwas mit dir teilt oder auf deinen Seiten "
+"kommentiert."
 
-#: hlidskjalf/notifications.py:318
+#: hlidskjalf/notifications.py:321
 msgid "Load older"
 msgstr "Ältere laden"
 
 #. Translators: quoted excerpt of a comment (typographic quotes of your language)
-#: hlidskjalf/notifications.py:349
+#: hlidskjalf/notifications.py:355
 #, python-brace-format
 msgid "“{text}”"
 msgstr "„{text}“"
 
-#: hlidskjalf/notifications.py:360 hlidskjalf/notifications.py:364
+#: hlidskjalf/notifications.py:366 hlidskjalf/notifications.py:370
 msgid "Unread"
 msgstr "Ungelesen"
 
-#: hlidskjalf/notifications.py:382
+#: hlidskjalf/notifications.py:388
 msgid "Shown in Saga under the bell – instantly while Saga is open."
 msgstr "Erscheinen in Saga unter der Glocke – sofort, solange Saga offen ist."
 
-#: hlidskjalf/notifications.py:398
+#: hlidskjalf/notifications.py:405
 msgid "Desktop notifications while Saga is open"
 msgstr "Desktop-Mitteilungen, solange Saga offen ist"
 
-#: hlidskjalf/notifications.py:399
+#: hlidskjalf/notifications.py:406
 msgid "Without page, comment or chat content."
 msgstr "Ohne Inhalte von Seiten, Kommentaren oder Chats."
 
@@ -2782,14 +3089,6 @@ msgstr "Ziehen: Höhe des Titelbilds ändern"
 #: hlidskjalf/page.py:87 hlidskjalf/publish.py:827
 msgid "Change"
 msgstr "Ändern"
-
-#: hlidskjalf/page.py:90 hlidskjalf/page.py:965
-msgid "File …"
-msgstr "Datei …"
-
-#: hlidskjalf/page.py:90 hlidskjalf/page.py:965
-msgid "From Immich …"
-msgstr "Aus Immich …"
 
 #: hlidskjalf/page.py:92
 msgid "Reposition"
@@ -2823,250 +3122,332 @@ msgstr "Emoji wählen …"
 msgid "Remove icon"
 msgstr "Symbol entfernen"
 
-#: hlidskjalf/page.py:302
+#: hlidskjalf/page.py:304
 msgid "Close (Esc)"
 msgstr "Schließen (Esc)"
 
-#: hlidskjalf/page.py:308
+#: hlidskjalf/page.py:310
 msgid "Previous entry (Ctrl+Shift+K)"
 msgstr "Vorheriger Eintrag (Strg+Umschalt+K)"
 
-#: hlidskjalf/page.py:309
+#: hlidskjalf/page.py:311
 msgid "Next entry (Ctrl+Shift+J)"
 msgstr "Nächster Eintrag (Strg+Umschalt+J)"
 
-#: hlidskjalf/page.py:318 hlidskjalf/window.py:632 hlidskjalf/window.py:1029
-#: hlidskjalf/window.py:1470
+#: hlidskjalf/page.py:320 hlidskjalf/window.py:645 hlidskjalf/window.py:1062
+#: hlidskjalf/window.py:1561
 msgid "Add to favorites"
 msgstr "Zu Favoriten"
 
-#: hlidskjalf/page.py:320 hlidskjalf/window.py:630
+#: hlidskjalf/page.py:322 hlidskjalf/window.py:643
 msgid "Page menu"
 msgstr "Seitenmenü"
 
-#: hlidskjalf/page.py:335
+#: hlidskjalf/page.py:337
 msgid "No access to this page"
 msgstr "Kein Zugriff auf diese Seite"
 
-#: hlidskjalf/page.py:337
-msgid "The page doesn’t exist (anymore), or it is not (or no longer) shared with you."
-msgstr "Die Seite gibt es nicht (mehr), oder sie ist nicht (mehr) mit dir geteilt."
+#: hlidskjalf/page.py:339
+msgid ""
+"The page doesn’t exist (anymore), or it is not (or no longer) shared with "
+"you."
+msgstr ""
+"Die Seite gibt es nicht (mehr), oder sie ist nicht (mehr) mit dir geteilt."
 
-#: hlidskjalf/page.py:340 hlidskjalf/page.py:358
+#: hlidskjalf/page.py:342 hlidskjalf/page.py:360
 msgid "Try again"
 msgstr "Erneut versuchen"
 
-#: hlidskjalf/page.py:345
+#: hlidskjalf/page.py:347
 msgid "Go to “Shared with me”"
 msgstr "Zu „Mit mir geteilt“"
 
-#: hlidskjalf/page.py:356
+#: hlidskjalf/page.py:358
 msgid "Page could not be loaded"
 msgstr "Seite konnte nicht geladen werden"
 
-#: hlidskjalf/page.py:364 hlidskjalf/settings.py:29 hlidskjalf/window.py:606
-#: hlidskjalf/window.py:1339 hlidskjalf/window.py:1411
+#: hlidskjalf/page.py:366 hlidskjalf/settings.py:29 hlidskjalf/window.py:612
+#: hlidskjalf/window.py:1430 hlidskjalf/window.py:1502
 msgid "Settings"
 msgstr "Einstellungen"
 
-#: hlidskjalf/page.py:424
+#: hlidskjalf/page.py:426
 msgid "Locked – click to unlock"
 msgstr "Gesperrt – klicken zum Entsperren"
 
-#: hlidskjalf/page.py:430 hlidskjalf/sharing.py:114
+#: hlidskjalf/page.py:432 hlidskjalf/sharing.py:114
 msgid "🔒 The owner locked this page."
 msgstr "🔒 Der Eigentümer hat diese Seite gesperrt."
 
-#: hlidskjalf/page.py:518 hlidskjalf/page.py:837 hlidskjalf/page.py:872
+#: hlidskjalf/page.py:565 hlidskjalf/page.py:887 hlidskjalf/page.py:927
 msgid "Page changed elsewhere"
 msgstr "Seite wurde woanders geändert"
 
-#: hlidskjalf/page.py:519
-msgid "This page was changed on another device in the meantime. Your changes won't be lost."
-msgstr "Diese Seite wurde inzwischen auf einem anderen Gerät geändert. Deine Änderungen gehen nicht verloren."
+#: hlidskjalf/page.py:566
+msgid ""
+"This page was changed on another device in the meantime. Your changes won't "
+"be lost."
+msgstr ""
+"Diese Seite wurde inzwischen auf einem anderen Gerät geändert. Deine "
+"Änderungen gehen nicht verloren."
 
-#: hlidskjalf/page.py:520
+#: hlidskjalf/page.py:567
 msgid "Keep my version"
 msgstr "Meine Fassung behalten"
 
-#: hlidskjalf/page.py:521
+#: hlidskjalf/page.py:568
 msgid "Load server version (save mine as a copy)"
 msgstr "Server-Fassung laden (meine als Kopie sichern)"
 
-#: hlidskjalf/page.py:683
+#: hlidskjalf/page.py:725
 #, python-brace-format
 msgid "Updated – changed by {name}"
 msgstr "Aktualisiert – geändert von {name}"
 
-#: hlidskjalf/page.py:687
+#: hlidskjalf/page.py:733
 msgid "Someone"
 msgstr "Jemand"
 
-#: hlidskjalf/page.py:687
+#: hlidskjalf/page.py:733
 #, python-brace-format
 msgid "{name} changed this page"
 msgstr "{name} hat diese Seite geändert"
 
-#: hlidskjalf/page.py:837
+#: hlidskjalf/page.py:887
 msgid "Choose version"
 msgstr "Fassung wählen"
 
-#: hlidskjalf/page.py:841 hlidskjalf/page.py:1198
+#: hlidskjalf/page.py:896 hlidskjalf/page.py:1256
 msgid "Reload"
 msgstr "Neu laden"
 
-#: hlidskjalf/page.py:851
+#: hlidskjalf/page.py:906
 msgctxt "draft"
 msgid "Restore"
 msgstr "Wiederherstellen"
 
-#: hlidskjalf/page.py:854
+#: hlidskjalf/page.py:909
 msgctxt "draft"
 msgid "Discard"
 msgstr "Verwerfen"
 
-#: hlidskjalf/page.py:870
+#: hlidskjalf/page.py:925
 #, python-brace-format
 msgid "⚠ {name} just changed this page. Your latest changes are not saved yet."
-msgstr "⚠ {name} hat diese Seite gerade geändert. Deine letzten Änderungen sind noch nicht gespeichert."
+msgstr ""
+"⚠ {name} hat diese Seite gerade geändert. Deine letzten Änderungen sind noch "
+"nicht gespeichert."
 
-#: hlidskjalf/page.py:881
+#: hlidskjalf/page.py:939
 #, python-brace-format
 msgid "Unsaved changes from {time}"
 msgstr "Nicht gespeicherte Änderungen vom {time}"
 
-#: hlidskjalf/page.py:957
+#: hlidskjalf/page.py:1015
 msgid "Add icon"
 msgstr "Symbol hinzufügen"
 
-#: hlidskjalf/page.py:961
+#: hlidskjalf/page.py:1019
 msgid "Add cover image"
 msgstr "Titelbild hinzufügen"
 
-#: hlidskjalf/page.py:988 hlidskjalf/page.py:994
+#: hlidskjalf/page.py:1046 hlidskjalf/page.py:1052
 msgid "Tag"
 msgstr "Tag"
 
-#: hlidskjalf/page.py:1031
+#: hlidskjalf/page.py:1089
 msgid "Linked from"
 msgstr "Verlinkt von"
 
-#: hlidskjalf/page.py:1069
+#: hlidskjalf/page.py:1127
 msgid "Contents"
 msgstr "Inhalt"
 
-#: hlidskjalf/page.py:1163
+#: hlidskjalf/page.py:1221
 msgid "Full width"
 msgstr "Volle Breite"
 
-#: hlidskjalf/page.py:1165
+#: hlidskjalf/page.py:1223
 msgid "Remove as home page"
 msgstr "Nicht mehr Startseite"
 
-#: hlidskjalf/page.py:1165
+#: hlidskjalf/page.py:1223
 msgid "Set as home page"
 msgstr "Als Startseite festlegen"
 
-#: hlidskjalf/page.py:1169 hlidskjalf/window.py:1358
+#: hlidskjalf/page.py:1227 hlidskjalf/window.py:1449
 msgid "Share …"
 msgstr "Teilen …"
 
-#: hlidskjalf/page.py:1182 hlidskjalf/window.py:1473
+#: hlidskjalf/page.py:1240 hlidskjalf/window.py:1564
 msgid "Move to …"
 msgstr "Verschieben nach …"
 
-#: hlidskjalf/page.py:1184
+#: hlidskjalf/page.py:1242
 msgid "Version history …"
 msgstr "Versionsverlauf …"
 
-#: hlidskjalf/page.py:1186
+#: hlidskjalf/page.py:1244
 msgid "As Markdown (.md)"
 msgstr "Als Markdown (.md)"
 
-#: hlidskjalf/page.py:1186 hlidskjalf/window.py:1605
+#: hlidskjalf/page.py:1244 hlidskjalf/window.py:1696
 msgid "Export"
 msgstr "Exportieren"
 
-#: hlidskjalf/page.py:1187
+#: hlidskjalf/page.py:1245
 msgid "With subpages (.zip)"
 msgstr "Mit Unterseiten (.zip)"
 
-#: hlidskjalf/page.py:1190
+#: hlidskjalf/page.py:1248
 msgid "As template"
 msgstr "Als Vorlage"
 
-#: hlidskjalf/page.py:1195
+#: hlidskjalf/page.py:1253
 msgid "Open in browser"
 msgstr "Im Browser öffnen"
 
-#: hlidskjalf/page.py:1197 hlidskjalf/window.py:1355
+#: hlidskjalf/page.py:1255 hlidskjalf/window.py:1446
 msgid "Publish …"
 msgstr "Veröffentlichen …"
 
-#: hlidskjalf/page.py:1201
+#: hlidskjalf/page.py:1259
 msgid "Lock page"
 msgstr "Seite sperren"
 
-#: hlidskjalf/page.py:1201
+#: hlidskjalf/page.py:1259
 msgid "Unlock page"
 msgstr "Seite entsperren"
 
-#: hlidskjalf/page.py:1203 hlidskjalf/window.py:1475
+#: hlidskjalf/page.py:1261 hlidskjalf/window.py:1566
 msgid "Archive"
 msgstr "Archivieren"
 
-#: hlidskjalf/page.py:1203
+#: hlidskjalf/page.py:1261
 msgid "Restore from archive"
 msgstr "Aus dem Archiv holen"
 
-#: hlidskjalf/page.py:1234
+#: hlidskjalf/page.py:1292
 msgid "Address or page reference (/notes#12)"
 msgstr "Adresse oder Seitenverweis (/notes#12)"
 
-#: hlidskjalf/page.py:1234 hlidskjalf/publish.py:512 hlidskjalf/publish.py:527
-#: hlidskjalf/sharing.py:575
+#: hlidskjalf/page.py:1292 hlidskjalf/publish.py:512 hlidskjalf/publish.py:527
+#: hlidskjalf/sharing.py:579
 msgid "Link"
 msgstr "Link"
 
-#: hlidskjalf/page.py:1235
+#: hlidskjalf/page.py:1293
 msgid "https://… or /notes#12"
 msgstr "https://… oder /notes#12"
 
-#: hlidskjalf/page.py:1238
+#: hlidskjalf/page.py:1296
 msgid "Remove link"
 msgstr "Link entfernen"
 
-#: hlidskjalf/page.py:1239
+#: hlidskjalf/page.py:1297
 msgid "Set"
 msgstr "Setzen"
 
-#: hlidskjalf/page.py:1256
+#: hlidskjalf/page.py:1314
 msgid "Not available for pages from other Saga instances."
 msgstr "Für Seiten anderer Saga-Instanzen nicht verfügbar."
 
-#: hlidskjalf/page.py:1263
+#: hlidskjalf/page.py:1321
 msgid "Choose image"
 msgstr "Bild wählen"
 
-#: hlidskjalf/page.py:1264
+#: hlidskjalf/page.py:1322 hlidskjalf/profile.py:325
 msgid "Images"
 msgstr "Bilder"
 
-#: hlidskjalf/page.py:1274 hlidskjalf/page.py:1290 hlidskjalf/page.py:1402
+#: hlidskjalf/page.py:1332 hlidskjalf/page.py:1348 hlidskjalf/page.py:1462
 #, python-brace-format
 msgid "Image not uploaded: {error}"
 msgstr "Bild nicht hochgeladen: {error}"
 
-#: hlidskjalf/page.py:1329
+#: hlidskjalf/page.py:1387
 msgid "YouTube video or any link (shown as a card)"
 msgstr "YouTube-Video oder beliebiger Link (wird als Karte gezeigt)"
 
-#: hlidskjalf/page.py:1377
+#: hlidskjalf/page.py:1435
 msgid "Link database"
 msgstr "Datenbank verknüpfen"
 
+#: hlidskjalf/profile.py:24
+msgid "This image can't be opened."
+msgstr "Dieses Bild lässt sich nicht öffnen."
+
+#: hlidskjalf/profile.py:73 hlidskjalf/profile.py:158
+msgid "Crop profile picture"
+msgstr "Profilbild zuschneiden"
+
+#: hlidskjalf/profile.py:165
+msgid "Upload"
+msgstr "Hochladen"
+
+#: hlidskjalf/profile.py:181
+msgid "Zoom"
+msgstr "Zoom"
+
+#: hlidskjalf/profile.py:188
+msgid "Drag to move the circle; scroll or use the slider to zoom."
+msgstr "Ziehen verschiebt den Kreis; Mausrad oder Regler vergrößern."
+
+#: hlidskjalf/profile.py:212
+msgid "Shown: your own picture"
+msgstr "Angezeigt wird: eigenes Bild"
+
+#: hlidskjalf/profile.py:214
+msgid "Shown: picture from your identity provider"
+msgstr "Angezeigt wird: Bild vom Anmeldedienst"
+
+#: hlidskjalf/profile.py:216
+msgid "Shown: Gravatar"
+msgstr "Angezeigt wird: Gravatar"
+
+#: hlidskjalf/profile.py:217
+msgid "No picture – your initials are shown."
+msgstr "Kein Bild – es werden deine Initialen angezeigt."
+
+#: hlidskjalf/profile.py:224 hlidskjalf/profile.py:252
+msgid "Profile picture"
+msgstr "Profilbild"
+
+#: hlidskjalf/profile.py:237 hlidskjalf/profile.py:324
+msgid "Upload picture …"
+msgstr "Bild hochladen …"
+
+#: hlidskjalf/profile.py:240
+msgid "Remove my picture"
+msgstr "Eigenes Bild entfernen"
+
+#: hlidskjalf/profile.py:254
+msgid "Use Gravatar if I have no picture of my own"
+msgstr "Gravatar verwenden, wenn ich kein eigenes Bild habe"
+
+#: hlidskjalf/profile.py:255
+msgid ""
+"The server fetches and caches Gravatar pictures – your browser and the apps "
+"never contact Gravatar directly."
+msgstr ""
+"Gravatar-Bilder holt der Server ab und speichert sie zwischen – dein Browser "
+"und die Apps fragen nie direkt bei Gravatar."
+
+#: hlidskjalf/profile.py:259
+msgid "Also show on my published pages"
+msgstr "Auch auf meinen veröffentlichten Seiten zeigen"
+
+#: hlidskjalf/profile.py:290
+#, python-brace-format
+msgid "The picture is too large (at most {n} MB)."
+msgstr "Das Bild ist zu groß (höchstens {n} MB)."
+
+#: hlidskjalf/profile.py:292
+msgid "Too many uploads – please try again later."
+msgstr "Zu viele Uploads – bitte später noch einmal versuchen."
+
 #: hlidskjalf/publish.py:67 hlidskjalf/publish.py:71 hlidskjalf/publish.py:117
-#: hlidskjalf/publish.py:505 hlidskjalf/window.py:637
+#: hlidskjalf/publish.py:505 hlidskjalf/window.py:650
 msgid "Public"
 msgstr "Öffentlich"
 
@@ -3081,17 +3462,29 @@ msgstr "Öffentlich als Unterseite von „{title}“ – klicken für Einzelheit
 
 #: hlidskjalf/publish.py:105
 #, python-brace-format
-msgid "Withdrawn by the admin on {when}. Address and settings are kept – you can publish the page again."
-msgstr "Vom Admin zurückgezogen am {when}. Adresse und Einstellungen sind gemerkt – du kannst die Seite wieder veröffentlichen."
+msgid ""
+"Withdrawn by the admin on {when}. Address and settings are kept – you can "
+"publish the page again."
+msgstr ""
+"Vom Admin zurückgezogen am {when}. Adresse und Einstellungen sind gemerkt – "
+"du kannst die Seite wieder veröffentlichen."
 
 #: hlidskjalf/publish.py:108
 #, python-brace-format
-msgid "Stopped publishing on {when}. Address and settings are kept and apply again when you publish again."
-msgstr "Veröffentlichung beendet am {when}. Adresse und Einstellungen sind gemerkt und gelten beim erneuten Veröffentlichen wieder."
+msgid ""
+"Stopped publishing on {when}. Address and settings are kept and apply again "
+"when you publish again."
+msgstr ""
+"Veröffentlichung beendet am {when}. Adresse und Einstellungen sind gemerkt "
+"und gelten beim erneuten Veröffentlichen wieder."
 
 #: hlidskjalf/publish.py:115
-msgid "The admin has turned off publishing on this server – public addresses currently return “Not found”."
-msgstr "Der Admin hat das Veröffentlichen auf diesem Server abgeschaltet – öffentliche Adressen liefern zurzeit „Nicht gefunden“."
+msgid ""
+"The admin has turned off publishing on this server – public addresses "
+"currently return “Not found”."
+msgstr ""
+"Der Admin hat das Veröffentlichen auf diesem Server abgeschaltet – "
+"öffentliche Adressen liefern zurzeit „Nicht gefunden“."
 
 #: hlidskjalf/publish.py:117
 msgid "Also publish at its own address"
@@ -3099,8 +3492,12 @@ msgstr "Zusätzlich unter eigener Adresse veröffentlichen"
 
 #: hlidskjalf/publish.py:121
 #, python-brace-format
-msgid "This page is already public: “{title}” is published together with its subpages."
-msgstr "Diese Seite ist bereits öffentlich: „{title}“ ist mit Unterseiten veröffentlicht."
+msgid ""
+"This page is already public: “{title}” is published together with its "
+"subpages."
+msgstr ""
+"Diese Seite ist bereits öffentlich: „{title}“ ist mit Unterseiten "
+"veröffentlicht."
 
 #: hlidskjalf/publish.py:135
 msgid "Takes effect only when you tap “Change address”."
@@ -3146,8 +3543,12 @@ msgid "Publish"
 msgstr "Veröffentlichen"
 
 #: hlidskjalf/publish.py:411
-msgid "First choose your public name. It appears in every address of your public pages and is visible to everyone."
-msgstr "Wähle zuerst deinen öffentlichen Namen. Er steht in jeder Adresse deiner öffentlichen Seiten und ist für alle sichtbar."
+msgid ""
+"First choose your public name. It appears in every address of your public "
+"pages and is visible to everyone."
+msgstr ""
+"Wähle zuerst deinen öffentlichen Namen. Er steht in jeder Adresse deiner "
+"öffentlichen Seiten und ist für alle sichtbar."
 
 #: hlidskjalf/publish.py:416 hlidskjalf/publish.py:440
 #: hlidskjalf/publish.py:762
@@ -3155,16 +3556,24 @@ msgid "Public name"
 msgstr "Öffentlicher Name"
 
 #: hlidskjalf/publish.py:422
-msgid "Not your username: pick something everyone may see. 2–32 characters, a–z, 0–9, - and _."
-msgstr "Nicht dein Anmeldename: wähle etwas, das alle sehen dürfen. 2–32 Zeichen, a–z, 0–9, - und _."
+msgid ""
+"Not your username: pick something everyone may see. 2–32 characters, a–z, 0–"
+"9, - and _."
+msgstr ""
+"Nicht dein Anmeldename: wähle etwas, das alle sehen dürfen. 2–32 Zeichen, a–"
+"z, 0–9, - und _."
 
 #: hlidskjalf/publish.py:505
 msgid "Anyone with the link can read this page without signing in."
 msgstr "Jeder mit dem Link kann diese Seite ohne Anmeldung lesen."
 
 #: hlidskjalf/publish.py:521
-msgid "It only becomes private when “Also publish subpages” is turned off there or the page is moved."
-msgstr "Privat wird sie erst, wenn dort „Unterseiten mit veröffentlichen“ aus ist oder die Seite verschoben wird."
+msgid ""
+"It only becomes private when “Also publish subpages” is turned off there or "
+"the page is moved."
+msgstr ""
+"Privat wird sie erst, wenn dort „Unterseiten mit veröffentlichen“ aus ist "
+"oder die Seite verschoben wird."
 
 #: hlidskjalf/publish.py:532
 msgid "Profile address"
@@ -3184,7 +3593,9 @@ msgstr "Unterseiten mit veröffentlichen"
 
 #: hlidskjalf/publish.py:555
 msgid "Subpages (and database entries) of this page will then be public too."
-msgstr "Unterseiten (und Einträge von Datenbanken) dieser Seite sind dann ebenfalls öffentlich."
+msgstr ""
+"Unterseiten (und Einträge von Datenbanken) dieser Seite sind dann ebenfalls "
+"öffentlich."
 
 #: hlidskjalf/publish.py:556
 msgid "Allow search engines"
@@ -3242,8 +3653,8 @@ msgstr "Der bisherige Link {url} funktioniert danach nicht mehr."
 msgid "✓ New address saved"
 msgstr "✓ Neue Adresse gespeichert"
 
-#: hlidskjalf/publish.py:736 hlidskjalf/sharing.py:616
-#: hlidskjalf/window.py:1381
+#: hlidskjalf/publish.py:736 hlidskjalf/sharing.py:620
+#: hlidskjalf/window.py:1472
 msgid "Link copied"
 msgstr "Link kopiert"
 
@@ -3258,12 +3669,21 @@ msgstr "Namen speichern"
 
 #: hlidskjalf/publish.py:808
 #, python-brace-format
-msgid "Appears in the addresses of your public pages ({url}). If you change it, old links stop working."
-msgstr "Steht in den Adressen deiner öffentlichen Seiten ({url}). Beim Ändern funktionieren alte Links nicht mehr."
+msgid ""
+"Appears in the addresses of your public pages ({url}). If you change it, old "
+"links stop working."
+msgstr ""
+"Steht in den Adressen deiner öffentlichen Seiten ({url}). Beim Ändern "
+"funktionieren alte Links nicht mehr."
 
 #: hlidskjalf/publish.py:811
-msgid "Appears in the addresses of your public pages (…/@name/…) and is visible to everyone – not your username. Set when you first publish."
-msgstr "Steht in den Adressen deiner öffentlichen Seiten (…/@name/…) und ist für alle sichtbar – nicht dein Anmeldename. Wird beim ersten Veröffentlichen festgelegt."
+msgid ""
+"Appears in the addresses of your public pages (…/@name/…) and is visible to "
+"everyone – not your username. Set when you first publish."
+msgstr ""
+"Steht in den Adressen deiner öffentlichen Seiten (…/@name/…) und ist für "
+"alle sichtbar – nicht dein Anmeldename. Wird beim ersten Veröffentlichen "
+"festgelegt."
 
 #: hlidskjalf/publish.py:826
 msgid "Change public name?"
@@ -3271,159 +3691,190 @@ msgstr "Öffentlichen Namen ändern?"
 
 #: hlidskjalf/publish.py:826
 msgid "Links to your published pages will change. Old links will stop working."
-msgstr "Links auf deine veröffentlichten Seiten ändern sich. Alte Links funktionieren nicht mehr."
+msgstr ""
+"Links auf deine veröffentlichten Seiten ändern sich. Alte Links "
+"funktionieren nicht mehr."
 
-#: hlidskjalf/push.py:260
+#: hlidskjalf/push.py:268
 msgid "Sharing: someone shares a page with me or changes my role"
 msgstr "Teilen: jemand teilt eine Seite mit mir oder ändert meine Rolle"
 
-#: hlidskjalf/push.py:261
+#: hlidskjalf/push.py:269
 msgid "Comments and replies"
 msgstr "Kommentare und Antworten"
 
-#: hlidskjalf/push.py:262
+#: hlidskjalf/push.py:270
 msgid "Chat messages"
 msgstr "Chat-Nachrichten"
 
-#: hlidskjalf/push.py:263
+#: hlidskjalf/push.py:271
 msgid "Publishing: an admin withdraws something"
 msgstr "Veröffentlichung: ein Admin zieht etwas zurück"
 
-#: hlidskjalf/push.py:271
+#: hlidskjalf/push.py:272
+msgid "Calls: ringing, missed calls"
+msgstr "Anrufe: es klingelt, verpasste Anrufe"
+
+#: hlidskjalf/push.py:280
 msgctxt "settings tab"
 msgid "Push"
 msgstr "Mitteilungen"
 
-#: hlidskjalf/push.py:277
-msgid "Push notifications to your phone or computer – even when Saga is closed. Content of pages, comments and chats is never included."
-msgstr "Mitteilungen aufs Handy oder den Computer – auch wenn Saga geschlossen ist. Inhalte von Seiten, Kommentaren und Chats werden nie mitgeschickt."
+#: hlidskjalf/push.py:286
+msgid ""
+"Push notifications to your phone or computer – even when Saga is closed. "
+"Content of pages, comments and chats is never included."
+msgstr ""
+"Mitteilungen aufs Handy oder den Computer – auch wenn Saga geschlossen ist. "
+"Inhalte von Seiten, Kommentaren und Chats werden nie mitgeschickt."
 
-#: hlidskjalf/push.py:326
+#: hlidskjalf/push.py:335
 msgid "This server doesn't support push notifications yet."
 msgstr "Dieser Server unterstützt Mitteilungen noch nicht."
 
-#: hlidskjalf/push.py:327 hlidskjalf/sharing.py:500
+#: hlidskjalf/push.py:336 hlidskjalf/sharing.py:504
 #, python-brace-format
 msgid "Not loaded: {err}"
 msgstr "Nicht geladen: {err}"
 
-#: hlidskjalf/push.py:334
+#: hlidskjalf/push.py:343
 msgid "This device"
 msgstr "Dieses Gerät"
 
-#: hlidskjalf/push.py:335
-msgid "While Saga is open, notifications appear directly (live connection). For push notifications while Saga is closed, Saga uses UnifiedPush – e.g. KUnifiedPush with ntfy."
-msgstr "Solange Saga offen ist, erscheinen Benachrichtigungen direkt (Live-Verbindung). Für Mitteilungen bei geschlossenem Saga nutzt Saga UnifiedPush – z. B. KUnifiedPush mit ntfy."
+#: hlidskjalf/push.py:344
+msgid ""
+"While Saga is open, notifications appear directly (live connection). For "
+"push notifications while Saga is closed, Saga uses UnifiedPush – e.g. "
+"KUnifiedPush with ntfy."
+msgstr ""
+"Solange Saga offen ist, erscheinen Benachrichtigungen direkt (Live-"
+"Verbindung). Für Mitteilungen bei geschlossenem Saga nutzt Saga UnifiedPush "
+"– z. B. KUnifiedPush mit ntfy."
 
-#: hlidskjalf/push.py:337
+#: hlidskjalf/push.py:346
 msgid "Push notifications on this device"
 msgstr "Mitteilungen auf diesem Gerät"
 
-#: hlidskjalf/push.py:343 hlidskjalf/push.py:368
+#: hlidskjalf/push.py:352 hlidskjalf/push.py:377
 msgid "Push notifications are turned off on this server."
 msgstr "Mitteilungen sind auf diesem Server abgeschaltet."
 
-#: hlidskjalf/push.py:346
-msgid "No UnifiedPush distributor found on this computer. Install one (e.g. KUnifiedPush with ntfy) – until then notifications only come while Saga is open."
-msgstr "Auf diesem Computer wurde kein UnifiedPush-Verteiler gefunden. Installiere einen (z. B. KUnifiedPush mit ntfy) – bis dahin kommen Benachrichtigungen nur, solange Saga offen ist."
+#: hlidskjalf/push.py:355
+msgid ""
+"No UnifiedPush distributor found on this computer. Install one (e.g. "
+"KUnifiedPush with ntfy) – until then notifications only come while Saga is "
+"open."
+msgstr ""
+"Auf diesem Computer wurde kein UnifiedPush-Verteiler gefunden. Installiere "
+"einen (z. B. KUnifiedPush mit ntfy) – bis dahin kommen Benachrichtigungen "
+"nur, solange Saga offen ist."
 
-#: hlidskjalf/push.py:351
+#: hlidskjalf/push.py:360
 msgid "One moment …"
 msgstr "Einen Moment …"
 
-#: hlidskjalf/push.py:353
+#: hlidskjalf/push.py:362
 msgid "✓ On – this device receives push notifications."
 msgstr "✓ Eingeschaltet – dieses Gerät bekommt Mitteilungen."
 
-#: hlidskjalf/push.py:359 hlidskjalf/push.py:440
+#: hlidskjalf/push.py:368 hlidskjalf/push.py:449
 msgid "Send a test notification to this device"
 msgstr "Testmitteilung an dieses Gerät senden"
 
-#: hlidskjalf/push.py:359 hlidskjalf/push.py:440 hlidskjalf/settings.py:44
+#: hlidskjalf/push.py:368 hlidskjalf/push.py:449 hlidskjalf/settings.py:44
 msgid "Test"
 msgstr "Testen"
 
-#: hlidskjalf/push.py:366
+#: hlidskjalf/push.py:375
 msgid "About what?"
 msgstr "Worüber?"
 
-#: hlidskjalf/push.py:369
+#: hlidskjalf/push.py:378
 msgid "Turn on push notifications on a device first."
 msgstr "Schalte zuerst auf einem Gerät Mitteilungen ein."
 
-#: hlidskjalf/push.py:377
+#: hlidskjalf/push.py:386
 msgid "Show names (e.g. “Jonas shared a page with you”)"
 msgstr "Namen zeigen (z. B. „Jonas hat eine Seite mit dir geteilt“)"
 
-#: hlidskjalf/push.py:378
-msgid "Not for UnifiedPush without encryption and ntfy – there the server never sends names."
-msgstr "Nicht für UnifiedPush ohne Verschlüsselung und ntfy – dorthin schickt der Server nie Namen."
+#: hlidskjalf/push.py:387
+msgid ""
+"Not for UnifiedPush without encryption and ntfy – there the server never "
+"sends names."
+msgstr ""
+"Nicht für UnifiedPush ohne Verschlüsselung und ntfy – dorthin schickt der "
+"Server nie Namen."
 
-#: hlidskjalf/push.py:385 hlidskjalf/push.py:386
+#: hlidskjalf/push.py:394 hlidskjalf/push.py:395
 msgid "Quiet hours"
 msgstr "Ruhezeiten"
 
-#: hlidskjalf/push.py:386
-msgid "No push notifications during this time (the bell in Saga shows everything)"
+#: hlidskjalf/push.py:395
+msgid ""
+"No push notifications during this time (the bell in Saga shows everything)"
 msgstr "In dieser Zeit keine Mitteilungen (die Glocke in Saga zeigt alles)"
 
-#: hlidskjalf/push.py:390
+#: hlidskjalf/push.py:399
 msgid "Quiet hours from"
 msgstr "Ruhezeit von"
 
-#: hlidskjalf/push.py:390
+#: hlidskjalf/push.py:399
 msgid "Quiet hours until"
 msgstr "Ruhezeit bis"
 
-#: hlidskjalf/push.py:406
+#: hlidskjalf/push.py:415
 msgid "Devices"
 msgstr "Geräte"
 
-#: hlidskjalf/push.py:409
-msgid "No device yet. Turn on push notifications in this browser, add ntfy or sign in with an app."
-msgstr "Noch kein Gerät. Schalte Mitteilungen in diesem Browser ein, trage ntfy ein oder melde eine App an."
+#: hlidskjalf/push.py:418
+msgid ""
+"No device yet. Turn on push notifications in this browser, add ntfy or sign "
+"in with an app."
+msgstr ""
+"Noch kein Gerät. Schalte Mitteilungen in diesem Browser ein, trage ntfy ein "
+"oder melde eine App an."
 
-#: hlidskjalf/push.py:422
+#: hlidskjalf/push.py:431
 #, python-brace-format
 msgid "Last error: {err}"
 msgstr "Letzter Fehler: {err}"
 
-#: hlidskjalf/push.py:424
+#: hlidskjalf/push.py:433
 #, python-brace-format
 msgid "Last delivered {when}"
 msgstr "Zuletzt zugestellt {when}"
 
-#: hlidskjalf/push.py:426
+#: hlidskjalf/push.py:435
 msgid "Nothing delivered yet"
 msgstr "Noch nichts zugestellt"
 
-#: hlidskjalf/push.py:428
+#: hlidskjalf/push.py:437
 msgid "without names (server sees the text)"
 msgstr "ohne Namen (Server sieht den Text)"
 
-#: hlidskjalf/push.py:443
+#: hlidskjalf/push.py:452
 msgid "Sending …"
 msgstr "Sende …"
 
-#: hlidskjalf/push.py:447
+#: hlidskjalf/push.py:456
 msgid "✓ Delivered"
 msgstr "✓ Zugestellt"
 
-#: hlidskjalf/push.py:448 hlidskjalf/push.py:450
+#: hlidskjalf/push.py:457 hlidskjalf/push.py:459
 #, python-brace-format
 msgid "Not delivered: {err}"
 msgstr "Nicht zugestellt: {err}"
 
-#: hlidskjalf/push.py:463
+#: hlidskjalf/push.py:472
 #, python-brace-format
 msgid "“{name}” will no longer receive push notifications."
 msgstr "„{name}“ bekommt dann keine Mitteilungen mehr."
 
-#: hlidskjalf/push.py:479
+#: hlidskjalf/push.py:488
 msgid "Not allowed."
 msgstr "Nicht erlaubt."
 
-#: hlidskjalf/push.py:494
+#: hlidskjalf/push.py:503
 msgid "Please enter a time as HH:MM."
 msgstr "Bitte eine Uhrzeit als HH:MM eingeben."
 
@@ -3436,7 +3887,70 @@ msgstr "%d.%m.%Y"
 msgid "Day after tomorrow"
 msgstr "Übermorgen"
 
-#: hlidskjalf/settings.py:31 hlidskjalf/window.py:1410
+#: hlidskjalf/security.py:19
+msgid "Two-factor sign-in is handled by your sign-in service (SSO)."
+msgstr "Zwei-Faktor-Anmeldung regelt dein Anmeldedienst (SSO)."
+
+#: hlidskjalf/security.py:21
+msgid "Second factor is off."
+msgstr "Zweiter Faktor ist aus."
+
+#: hlidskjalf/security.py:21
+msgid "Second factor is on."
+msgstr "Zweiter Faktor ist eingeschaltet."
+
+#: hlidskjalf/security.py:25
+#, python-brace-format
+msgid "{n} passkey"
+msgid_plural "{n} passkeys"
+msgstr[0] "{n} Passkey"
+msgstr[1] "{n} Passkeys"
+
+#: hlidskjalf/security.py:27
+msgid "Authenticator app"
+msgstr "Authenticator-App"
+
+#: hlidskjalf/security.py:30
+#, python-brace-format
+msgid "{n} recovery code left"
+msgid_plural "{n} recovery codes left"
+msgstr[0] "noch {n} Wiederherstellungscode"
+msgstr[1] "noch {n} Wiederherstellungscodes"
+
+#: hlidskjalf/security.py:33
+msgid "Your admin requires a second factor – please set it up in the browser."
+msgstr ""
+"Dein Admin verlangt einen zweiten Faktor – bitte im Browser einrichten."
+
+#: hlidskjalf/security.py:35
+msgid "Only a few recovery codes left – create new ones in the browser."
+msgstr "Nur noch wenige Wiederherstellungscodes – erstelle im Browser neue."
+
+#: hlidskjalf/security.py:38
+msgid "No second factor set up."
+msgstr "Kein zweiter Faktor eingerichtet."
+
+#. Translators: the title is markup - write "&" as "&amp;"
+#: hlidskjalf/security.py:44
+msgid "Sign-in &amp; security"
+msgstr "Anmeldung &amp; Sicherheit"
+
+#: hlidskjalf/security.py:45
+msgid ""
+"Passkeys, authenticator app and recovery codes are managed in the browser."
+msgstr ""
+"Passkeys, Authenticator-App und Wiederherstellungscodes verwaltest du im "
+"Browser."
+
+#: hlidskjalf/security.py:55
+msgid "Manage in browser"
+msgstr "Im Browser verwalten"
+
+#: hlidskjalf/security.py:91
+msgid "Opened in your browser – sign in there if asked."
+msgstr "Im Browser geöffnet – melde dich dort an, falls gefragt."
+
+#: hlidskjalf/settings.py:31 hlidskjalf/window.py:1501
 msgid "General"
 msgstr "Allgemein"
 
@@ -3458,7 +3972,7 @@ msgstr "Version"
 msgid "app too old (version {version} or later needed), please update"
 msgstr "App zu alt (ab {version}), bitte aktualisieren"
 
-#: hlidskjalf/settings.py:43 hlidskjalf/settings.py:338
+#: hlidskjalf/settings.py:43 hlidskjalf/settings.py:344
 msgid "Test connection"
 msgstr "Verbindung testen"
 
@@ -3471,11 +3985,14 @@ msgid "Cover image height"
 msgstr "Höhe der Titelbilder"
 
 #: hlidskjalf/settings.py:50
-msgid "Applies to all pages on this computer. You can also drag the image to change it."
-msgstr "Gilt für alle Seiten auf diesem Rechner. Auch per Ziehen am Bild änderbar."
+msgid ""
+"Applies to all pages on this computer. You can also drag the image to change "
+"it."
+msgstr ""
+"Gilt für alle Seiten auf diesem Rechner. Auch per Ziehen am Bild änderbar."
 
-#: hlidskjalf/settings.py:56 hlidskjalf/settings.py:137
-#: hlidskjalf/settings.py:407 hlidskjalf/settings.py:456
+#: hlidskjalf/settings.py:56 hlidskjalf/settings.py:141
+#: hlidskjalf/settings.py:413 hlidskjalf/settings.py:462
 msgid "Sign out"
 msgstr "Abmelden"
 
@@ -3483,254 +4000,278 @@ msgstr "Abmelden"
 msgid "Removes the sign-in and the cache on this device."
 msgstr "Löscht die Anmeldung und den Zwischenspeicher auf diesem Gerät."
 
-#: hlidskjalf/settings.py:63
+#: hlidskjalf/settings.py:63 hlidskjalf/window.py:1176
 msgid "Account"
 msgstr "Konto"
 
-#: hlidskjalf/settings.py:92
+#: hlidskjalf/settings.py:96
 msgid "Please enter an https address"
 msgstr "Bitte eine https-Adresse eingeben"
 
-#: hlidskjalf/settings.py:99
+#: hlidskjalf/settings.py:103
 #, python-brace-format
 msgid "Switch to {host}?"
 msgstr "Zu {host} wechseln?"
 
-#: hlidskjalf/settings.py:100
-msgid "This device is signed out of the current server, and its session, cache, recent pages and home page are removed from this device. Unsaved changes are saved first. Then sign in to the new server."
-msgstr "Dieses Gerät wird beim bisherigen Server abgemeldet; Sitzung, Zwischenspeicher, zuletzt geöffnete Seiten und Startseite werden von diesem Gerät entfernt. Ungespeicherte Änderungen werden vorher gespeichert. Danach meldest du dich beim neuen Server an."
-
 #: hlidskjalf/settings.py:104
+msgid ""
+"This device is signed out of the current server, and its session, cache, "
+"recent pages and home page are removed from this device. Unsaved changes are "
+"saved first. Then sign in to the new server."
+msgstr ""
+"Dieses Gerät wird beim bisherigen Server abgemeldet; Sitzung, "
+"Zwischenspeicher, zuletzt geöffnete Seiten und Startseite werden von diesem "
+"Gerät entfernt. Ungespeicherte Änderungen werden vorher gespeichert. Danach "
+"meldest du dich beim neuen Server an."
+
+#: hlidskjalf/settings.py:108
 msgid "Switch server"
 msgstr "Server wechseln"
 
-#: hlidskjalf/settings.py:130
+#: hlidskjalf/settings.py:134
 #, python-brace-format
 msgid "Connected – {pages}, {events} today"
 msgstr "Verbunden – {pages}, heute {events}"
 
-#: hlidskjalf/settings.py:131
+#: hlidskjalf/settings.py:135
 #, python-brace-format
 msgid "{n} event"
 msgid_plural "{n} events"
 msgstr[0] "{n} Termin"
 msgstr[1] "{n} Termine"
 
-#: hlidskjalf/settings.py:131
+#: hlidskjalf/settings.py:135
 #, python-brace-format
 msgid "{n} page"
 msgid_plural "{n} pages"
 msgstr[0] "{n} Seite"
 msgstr[1] "{n} Seiten"
 
-#: hlidskjalf/settings.py:135
+#: hlidskjalf/settings.py:139
 msgid "Sign out?"
 msgstr "Abmelden?"
 
-#: hlidskjalf/settings.py:135
+#: hlidskjalf/settings.py:139
 msgid "The sign-in and the cache on this device will be removed."
-msgstr "Die Anmeldung und der Zwischenspeicher auf diesem Gerät werden gelöscht."
+msgstr ""
+"Die Anmeldung und der Zwischenspeicher auf diesem Gerät werden gelöscht."
 
-#: hlidskjalf/settings.py:163
+#: hlidskjalf/settings.py:169
 msgid "Connected"
 msgstr "Verbunden"
 
-#: hlidskjalf/settings.py:163
+#: hlidskjalf/settings.py:169
 #, python-brace-format
 msgid "Connected as {name}"
 msgstr "Verbunden als {name}"
 
-#: hlidskjalf/settings.py:165
+#: hlidskjalf/settings.py:171
 msgid "Disconnect"
 msgstr "Trennen"
 
-#: hlidskjalf/settings.py:169
-msgid "In Immich, create a key with album.read, asset.read, asset.view, asset.download and user.read under Account Settings → API Keys and paste it here."
-msgstr "In Immich unter Kontoeinstellungen → API-Schlüssel einen Schlüssel mit album.read, asset.read, asset.view, asset.download und user.read anlegen und hier einfügen."
+#: hlidskjalf/settings.py:175
+msgid ""
+"In Immich, create a key with album.read, asset.read, asset.view, "
+"asset.download and user.read under Account Settings → API Keys and paste it "
+"here."
+msgstr ""
+"In Immich unter Kontoeinstellungen → API-Schlüssel einen Schlüssel mit "
+"album.read, asset.read, asset.view, asset.download und user.read anlegen und "
+"hier einfügen."
 
-#: hlidskjalf/settings.py:171
+#: hlidskjalf/settings.py:177
 msgid "Immich address"
 msgstr "Immich-Adresse"
 
-#: hlidskjalf/settings.py:214
+#: hlidskjalf/settings.py:220
 msgid "read-only"
 msgstr "nur lesen"
 
-#: hlidskjalf/settings.py:225
-msgid "Connect external calendars (CalDAV) such as mailcow or Nextcloud. Tip: in mailcow, create a separate app password just for “DAV”."
-msgstr "Externe Kalender (CalDAV) wie mailcow oder Nextcloud verbinden. Tipp: In mailcow ein eigenes App-Passwort nur für „DAV“ anlegen."
+#: hlidskjalf/settings.py:231
+msgid ""
+"Connect external calendars (CalDAV) such as mailcow or Nextcloud. Tip: in "
+"mailcow, create a separate app password just for “DAV”."
+msgstr ""
+"Externe Kalender (CalDAV) wie mailcow oder Nextcloud verbinden. Tipp: In "
+"mailcow ein eigenes App-Passwort nur für „DAV“ anlegen."
 
-#: hlidskjalf/settings.py:240
+#: hlidskjalf/settings.py:246
 msgid "No calendar connected yet."
 msgstr "Noch kein Kalender verbunden."
 
-#: hlidskjalf/settings.py:244 hlidskjalf/settings.py:311
+#: hlidskjalf/settings.py:250 hlidskjalf/settings.py:317
 msgid "Connect calendar"
 msgstr "Kalender verbinden"
 
-#: hlidskjalf/settings.py:256
+#: hlidskjalf/settings.py:262
 msgid "password saved"
 msgstr "Passwort gespeichert"
 
-#: hlidskjalf/settings.py:267
+#: hlidskjalf/settings.py:273
 msgid "Save selection"
 msgstr "Auswahl speichern"
 
-#: hlidskjalf/settings.py:267
+#: hlidskjalf/settings.py:273
 msgid "Saved"
 msgstr "Gespeichert"
 
-#: hlidskjalf/settings.py:278
+#: hlidskjalf/settings.py:284
 #, python-brace-format
 msgid "{n} calendar – remember to save the selection."
 msgid_plural "{n} calendars – remember to save the selection."
 msgstr[0] "{n} Kalender – Auswahl speichern nicht vergessen."
 msgstr[1] "{n} Kalender – Auswahl speichern nicht vergessen."
 
-#: hlidskjalf/settings.py:281
+#: hlidskjalf/settings.py:287
 msgid "Rescan"
 msgstr "Neu einlesen"
 
-#: hlidskjalf/settings.py:282
+#: hlidskjalf/settings.py:288
 msgid "New app password"
 msgstr "Neues App-Passwort"
 
-#: hlidskjalf/settings.py:287
+#: hlidskjalf/settings.py:293
 msgid "Check & save password"
 msgstr "Passwort prüfen & speichern"
 
-#: hlidskjalf/settings.py:288
+#: hlidskjalf/settings.py:294
 msgid "New password saved"
 msgstr "Neues Passwort gespeichert"
 
-#: hlidskjalf/settings.py:298
+#: hlidskjalf/settings.py:304
 msgid "Remove calendar account?"
 msgstr "Kalender-Zugang entfernen?"
 
-#: hlidskjalf/settings.py:298
+#: hlidskjalf/settings.py:304
 msgid "The events in the calendar itself are kept."
 msgstr "Die Termine im Kalender selbst bleiben erhalten."
 
-#: hlidskjalf/settings.py:317
+#: hlidskjalf/settings.py:323
 msgid "Other CalDAV address"
 msgstr "Andere CalDAV-Adresse"
 
-#: hlidskjalf/settings.py:318
+#: hlidskjalf/settings.py:324
 msgid "Provider"
 msgstr "Anbieter"
 
-#: hlidskjalf/settings.py:321
+#: hlidskjalf/settings.py:327
 msgid "CalDAV address"
 msgstr "CalDAV-Adresse"
 
-#: hlidskjalf/settings.py:328
+#: hlidskjalf/settings.py:334
 msgid "User (e.g. name@example.org)"
 msgstr "Benutzer (z. B. name@example.org)"
 
-#: hlidskjalf/settings.py:329
+#: hlidskjalf/settings.py:335
 msgid "App password"
 msgstr "App-Passwort"
 
-#: hlidskjalf/settings.py:330
+#: hlidskjalf/settings.py:336
 msgid "Label (optional, e.g. “Personal”)"
 msgstr "Bezeichnung (optional, z. B. „Privat“)"
 
-#: hlidskjalf/settings.py:333
+#: hlidskjalf/settings.py:339
 #, python-brace-format
 msgid "Allowed servers: {list}"
 msgstr "Erlaubte Server: {list}"
 
-#: hlidskjalf/settings.py:351
+#: hlidskjalf/settings.py:357
 msgid "Connecting …"
 msgstr "Verbinde …"
 
-#: hlidskjalf/settings.py:355
+#: hlidskjalf/settings.py:361
 #, python-brace-format
 msgid "Connected – {n} calendar found. Select and save:"
 msgid_plural "Connected – {n} calendars found. Select and save:"
 msgstr[0] "Verbunden – {n} Kalender gefunden. Auswählen und speichern:"
 msgstr[1] "Verbunden – {n} Kalender gefunden. Auswählen und speichern:"
 
-#: hlidskjalf/settings.py:361
+#: hlidskjalf/settings.py:367
 msgid "Connect & save"
 msgstr "Verbinden & speichern"
 
 #. Translators: the title is markup - write "&" as "&amp;"
-#: hlidskjalf/settings.py:385
+#: hlidskjalf/settings.py:391
 msgid "Apps &amp; devices"
 msgstr "Apps &amp; Geräte"
 
-#: hlidskjalf/settings.py:386
-msgid "Signed-in apps stay signed in. Each one has a small key for widgets, sharing and shortcuts. Lost a device? Sign it out and both are gone."
-msgstr "Angemeldete Apps bleiben angemeldet. Zu jeder gehört ein kleiner Schlüssel für Widget, Teilen und Kurzbefehle. Verlorenes Gerät → abmelden, dann ist beides weg."
+#: hlidskjalf/settings.py:392
+msgid ""
+"Signed-in apps stay signed in. Each one has a small key for widgets, sharing "
+"and shortcuts. Lost a device? Sign it out and both are gone."
+msgstr ""
+"Angemeldete Apps bleiben angemeldet. Zu jeder gehört ein kleiner Schlüssel "
+"für Widget, Teilen und Kurzbefehle. Verlorenes Gerät → abmelden, dann ist "
+"beides weg."
 
-#: hlidskjalf/settings.py:401
+#: hlidskjalf/settings.py:407
 msgid "No app signed in."
 msgstr "Keine App angemeldet."
 
-#: hlidskjalf/settings.py:403
+#: hlidskjalf/settings.py:409
 #, python-brace-format
 msgid "signed in {date} · last used {last}"
 msgstr "angemeldet {date} · zuletzt {last}"
 
-#: hlidskjalf/settings.py:405
+#: hlidskjalf/settings.py:411
 msgid "with widget key"
 msgstr "mit Widget-Schlüssel"
 
-#: hlidskjalf/settings.py:409
+#: hlidskjalf/settings.py:415
 msgid "More keys"
 msgstr "Weitere Schlüssel"
 
-#: hlidskjalf/settings.py:410
+#: hlidskjalf/settings.py:416
 msgid "Created manually, e.g. for shortcuts or scripts"
 msgstr "Von Hand erzeugt, z. B. für Kurzbefehle oder Skripte"
 
-#: hlidskjalf/settings.py:413
+#: hlidskjalf/settings.py:419
 msgid "None."
 msgstr "Keine."
 
-#: hlidskjalf/settings.py:415
+#: hlidskjalf/settings.py:421
 #, python-brace-format
 msgid "last used {date}"
 msgstr "zuletzt {date}"
 
-#: hlidskjalf/settings.py:415
+#: hlidskjalf/settings.py:421
 msgid "never used"
 msgstr "noch nie benutzt"
 
-#: hlidskjalf/settings.py:417
+#: hlidskjalf/settings.py:423
 #, python-brace-format
 msgid "created {date}"
 msgstr "erstellt {date}"
 
-#: hlidskjalf/settings.py:418 hlidskjalf/settings.py:452
+#: hlidskjalf/settings.py:424 hlidskjalf/settings.py:458
 msgid "Revoke"
 msgstr "Widerrufen"
 
-#: hlidskjalf/settings.py:420
+#: hlidskjalf/settings.py:426
 msgid "Name, e.g. “Shortcuts”"
 msgstr "Name, z. B. „Kurzbefehle“"
 
-#: hlidskjalf/settings.py:431
+#: hlidskjalf/settings.py:437
 #, python-brace-format
 msgid "New key for “{name}” – visible only now!"
 msgstr "Neuer Schlüssel für „{name}“ – nur jetzt sichtbar!"
 
-#: hlidskjalf/settings.py:452
+#: hlidskjalf/settings.py:458
 msgid "Revoke key?"
 msgstr "Schlüssel widerrufen?"
 
-#: hlidskjalf/settings.py:452
+#: hlidskjalf/settings.py:458
 msgid "Whoever uses it can no longer save anything."
 msgstr "Wer ihn benutzt, kann dann nichts mehr ablegen."
 
-#: hlidskjalf/settings.py:456
+#: hlidskjalf/settings.py:462
 msgid "Sign out this device?"
 msgstr "Dieses Gerät abmelden?"
 
-#: hlidskjalf/settings.py:456
+#: hlidskjalf/settings.py:462
 msgid "The app has to sign in again; widget and sharing lose access."
-msgstr "Die App muss sich neu anmelden; Widget und Teilen verlieren den Zugang."
+msgstr ""
+"Die App muss sich neu anmelden; Widget und Teilen verlieren den Zugang."
 
 #: hlidskjalf/sharing.py:93
 msgid "Can comment"
@@ -3744,7 +4285,7 @@ msgstr "Bearbeiten"
 msgid "Can view"
 msgstr "Lesen"
 
-#: hlidskjalf/sharing.py:93 hlidskjalf/sharing.py:659
+#: hlidskjalf/sharing.py:93 hlidskjalf/sharing.py:663
 msgid "Owner"
 msgstr "Eigentümer"
 
@@ -3769,8 +4310,12 @@ msgid "Can comment: view and write comments."
 msgstr "Kommentieren: lesen und Kommentare schreiben."
 
 #: hlidskjalf/sharing.py:103
-msgid "Can edit: change content and create subpages. Deleting, moving and sharing stay with you."
-msgstr "Bearbeiten: Inhalte ändern und Unterseiten anlegen. Löschen, Verschieben und Teilen bleibt bei dir."
+msgid ""
+"Can edit: change content and create subpages. Deleting, moving and sharing "
+"stay with you."
+msgstr ""
+"Bearbeiten: Inhalte ändern und Unterseiten anlegen. Löschen, Verschieben und "
+"Teilen bleibt bei dir."
 
 #: hlidskjalf/sharing.py:110
 msgid "👁 You can only view this page."
@@ -3778,7 +4323,8 @@ msgstr "👁 Du kannst diese Seite nur lesen."
 
 #: hlidskjalf/sharing.py:112
 msgid "💬 You can view and comment on this page, but not edit it."
-msgstr "💬 Du kannst diese Seite lesen und kommentieren, aber nicht bearbeiten."
+msgstr ""
+"💬 Du kannst diese Seite lesen und kommentieren, aber nicht bearbeiten."
 
 #: hlidskjalf/sharing.py:127
 #, python-brace-format
@@ -3824,13 +4370,17 @@ msgstr "{name} behält über {via} die Rolle {role}."
 
 #: hlidskjalf/sharing.py:178
 #, python-brace-format
-msgid "The group {name} immediately loses access to this page and its subpages."
-msgstr "Die Gruppe {name} verliert sofort den Zugriff auf diese Seite und ihre Unterseiten."
+msgid ""
+"The group {name} immediately loses access to this page and its subpages."
+msgstr ""
+"Die Gruppe {name} verliert sofort den Zugriff auf diese Seite und ihre "
+"Unterseiten."
 
 #: hlidskjalf/sharing.py:180
 #, python-brace-format
 msgid "{name} immediately loses access to this page and its subpages."
-msgstr "{name} verliert sofort den Zugriff auf diese Seite und ihre Unterseiten."
+msgstr ""
+"{name} verliert sofort den Zugriff auf diese Seite und ihre Unterseiten."
 
 #: hlidskjalf/sharing.py:182
 #, python-brace-format
@@ -3859,13 +4409,18 @@ msgstr "hat Zugriff"
 
 #: hlidskjalf/sharing.py:230
 #, python-brace-format
-msgid "This page is on {host}. Here you can read and comment on it and – with edit access – change the title and content."
-msgstr "Diese Seite liegt auf {host}. Hier kannst du sie lesen, kommentieren und – mit Bearbeiten – Titel und Inhalt ändern."
+msgid ""
+"This page is on {host}. Here you can read and comment on it and – with edit "
+"access – change the title and content."
+msgstr ""
+"Diese Seite liegt auf {host}. Hier kannst du sie lesen, kommentieren und – "
+"mit Bearbeiten – Titel und Inhalt ändern."
 
 #: hlidskjalf/sharing.py:233
 #, python-brace-format
 msgid "This page is on {host}. Here you can read and comment on it."
-msgstr "Diese Seite liegt auf {host}. Hier kannst du sie lesen und kommentieren."
+msgstr ""
+"Diese Seite liegt auf {host}. Hier kannst du sie lesen und kommentieren."
 
 #: hlidskjalf/sharing.py:234
 #, python-brace-format
@@ -3885,7 +4440,7 @@ msgstr "Andere Saga-Instanz"
 msgid "has access: {role}"
 msgstr "hat Zugriff: {role}"
 
-#: hlidskjalf/sharing.py:258 hlidskjalf/sharing.py:626
+#: hlidskjalf/sharing.py:258 hlidskjalf/sharing.py:630
 msgid "Other Saga instances: enter name@server."
 msgstr "Andere Saga-Instanzen: name@server eingeben."
 
@@ -3898,8 +4453,12 @@ msgid "At least 3 characters."
 msgstr "Mindestens 3 Zeichen."
 
 #: hlidskjalf/sharing.py:268
-msgid "The admin has turned off sharing on this server – shares currently have no effect."
-msgstr "Der Admin hat das Teilen auf diesem Server abgeschaltet – Freigaben wirken zurzeit nicht."
+msgid ""
+"The admin has turned off sharing on this server – shares currently have no "
+"effect."
+msgstr ""
+"Der Admin hat das Teilen auf diesem Server abgeschaltet – Freigaben wirken "
+"zurzeit nicht."
 
 #: hlidskjalf/sharing.py:270
 msgid "Archived pages and templates can't be shared."
@@ -3947,8 +4506,12 @@ msgid "Overwrite"
 msgstr "Überschreiben"
 
 #: hlidskjalf/sharing.py:299
-msgid "The new version is loaded. Your unsaved text is below – copy whatever you want to keep."
-msgstr "Die neue Version ist geladen. Dein nicht gespeicherter Text steht unten – kopiere, was du behalten willst."
+msgid ""
+"The new version is loaded. Your unsaved text is below – copy whatever you "
+"want to keep."
+msgstr ""
+"Die neue Version ist geladen. Dein nicht gespeicherter Text steht unten – "
+"kopiere, was du behalten willst."
 
 #: hlidskjalf/sharing.py:299
 msgid "Your draft"
@@ -3959,96 +4522,106 @@ msgid "View only now"
 msgstr "Nur noch lesen"
 
 #: hlidskjalf/sharing.py:305
-msgid "You can no longer edit this page. Your latest text is below – copy it if you want to keep it."
-msgstr "Du darfst diese Seite nicht mehr bearbeiten. Dein letzter Text ist unten – kopiere ihn, wenn du ihn behalten willst."
+msgid ""
+"You can no longer edit this page. Your latest text is below – copy it if you "
+"want to keep it."
+msgstr ""
+"Du darfst diese Seite nicht mehr bearbeiten. Dein letzter Text ist unten – "
+"kopiere ihn, wenn du ihn behalten willst."
 
 #: hlidskjalf/sharing.py:306
-msgid "You no longer have access to this page. Your latest text is below – copy it if you want to keep it."
-msgstr "Du hast keinen Zugriff mehr auf diese Seite. Dein letzter Text ist unten – kopiere ihn, wenn du ihn behalten willst."
+msgid ""
+"You no longer have access to this page. Your latest text is below – copy it "
+"if you want to keep it."
+msgstr ""
+"Du hast keinen Zugriff mehr auf diese Seite. Dein letzter Text ist unten – "
+"kopiere ihn, wenn du ihn behalten willst."
 
-#: hlidskjalf/sharing.py:466
+#: hlidskjalf/sharing.py:470
 msgid "Your text"
 msgstr "Dein Text"
 
-#: hlidskjalf/sharing.py:491
+#: hlidskjalf/sharing.py:495
 msgid "Text copied"
 msgstr "Text kopiert"
 
-#: hlidskjalf/sharing.py:508
+#: hlidskjalf/sharing.py:512
 msgid "Share"
 msgstr "Teilen"
 
-#: hlidskjalf/sharing.py:531
+#: hlidskjalf/sharing.py:535
 msgid "Search for a person or group"
 msgstr "Person oder Gruppe suchen"
 
-#: hlidskjalf/sharing.py:547
+#: hlidskjalf/sharing.py:551
 msgid "Role for new share"
 msgstr "Rolle für neue Freigabe"
 
-#: hlidskjalf/sharing.py:559
+#: hlidskjalf/sharing.py:563
 msgid "Your groups:"
 msgstr "Deine Gruppen:"
 
-#: hlidskjalf/sharing.py:566
+#: hlidskjalf/sharing.py:570
 msgid "Access"
 msgstr "Zugriff"
 
-#: hlidskjalf/sharing.py:566
+#: hlidskjalf/sharing.py:570
 msgid "Subpages and entries are included."
 msgstr "Unterseiten und Einträge kommen mit."
 
-#: hlidskjalf/sharing.py:569
+#: hlidskjalf/sharing.py:573
 msgid "Through parent pages"
 msgstr "Über übergeordnete Seiten"
 
-#: hlidskjalf/sharing.py:570
+#: hlidskjalf/sharing.py:574
 msgid "These shares also apply here. You can change them on the parent page."
-msgstr "Diese Freigaben gelten auch hier. Ändern kannst du sie auf der übergeordneten Seite."
+msgstr ""
+"Diese Freigaben gelten auch hier. Ändern kannst du sie auf der "
+"übergeordneten Seite."
 
-#: hlidskjalf/sharing.py:578
+#: hlidskjalf/sharing.py:582
 msgid "The link opens the page for everyone who has access."
 msgstr "Der Link öffnet die Seite für alle, die Zugriff haben."
 
-#: hlidskjalf/sharing.py:659
+#: hlidskjalf/sharing.py:663
 #, python-brace-format
 msgid "{name} (you)"
 msgstr "{name} (du)"
 
-#: hlidskjalf/sharing.py:673
+#: hlidskjalf/sharing.py:677
 msgid "Remove access"
 msgstr "Freigabe entfernen"
 
-#: hlidskjalf/sharing.py:679
+#: hlidskjalf/sharing.py:683
 msgid "Not shared with anyone yet. Search for a person or group above."
 msgstr "Noch mit niemandem geteilt. Suche oben nach einer Person oder Gruppe."
 
-#: hlidskjalf/sharing.py:693
+#: hlidskjalf/sharing.py:697
 msgid "Go to the parent page"
 msgstr "Zur übergeordneten Seite"
 
-#: hlidskjalf/sharing.py:736
+#: hlidskjalf/sharing.py:740
 msgid "No one found."
 msgstr "Niemand gefunden."
 
-#: hlidskjalf/sharing.py:797
+#: hlidskjalf/sharing.py:801
 #, python-brace-format
 msgid "✓ Shared with {name} ({role})"
 msgstr "✓ Geteilt mit {name} ({role})"
 
-#: hlidskjalf/sharing.py:807
+#: hlidskjalf/sharing.py:811
 msgid "✓ Role changed"
 msgstr "✓ Rolle geändert"
 
-#: hlidskjalf/sharing.py:811
+#: hlidskjalf/sharing.py:815
 msgid "Remove access?"
 msgstr "Freigabe entfernen?"
 
-#: hlidskjalf/sharing.py:816
+#: hlidskjalf/sharing.py:820
 msgid "✓ Access removed"
 msgstr "✓ Freigabe entfernt"
 
-#: hlidskjalf/store.py:505
+#: hlidskjalf/store.py:510
 msgid "The page was changed elsewhere in the meantime."
 msgstr "Die Seite wurde inzwischen woanders geändert."
 
@@ -4225,8 +4798,12 @@ msgstr[0] "{n} Seite mit neuen Kommentaren"
 msgstr[1] "{n} Seiten mit neuen Kommentaren"
 
 #: hlidskjalf/window.py:279
-msgid "Sharing is currently turned off on this server – pages shared with you are not available."
-msgstr "Teilen ist auf diesem Server zurzeit abgeschaltet – mit dir geteilte Seiten sind nicht erreichbar."
+msgid ""
+"Sharing is currently turned off on this server – pages shared with you are "
+"not available."
+msgstr ""
+"Teilen ist auf diesem Server zurzeit abgeschaltet – mit dir geteilte Seiten "
+"sind nicht erreichbar."
 
 #: hlidskjalf/window.py:287
 #, python-brace-format
@@ -4246,379 +4823,403 @@ msgstr "Zuklappen"
 msgid "Expand"
 msgstr "Aufklappen"
 
-#: hlidskjalf/window.py:501
+#: hlidskjalf/window.py:502
 msgid "Saving changes …"
 msgstr "Speichere Änderungen …"
 
-#: hlidskjalf/window.py:519
+#: hlidskjalf/window.py:522
+#, python-brace-format
+msgid ""
+"“{title}” is too large to save. Your changes are kept on this device, but "
+"they can only be saved once the page is shorter or split up."
+msgstr ""
+"„{title}“ ist zu groß zum Speichern. Deine Änderungen bleiben auf diesem "
+"Gerät, lassen sich aber erst speichern, wenn die Seite kürzer oder "
+"aufgeteilt ist."
+
+#: hlidskjalf/window.py:525
+msgid ""
+"Some changes have not reached the server yet (no connection or a conflict). "
+"They are kept on this device and restored the next time you open the page."
+msgstr ""
+"Einige Änderungen sind noch nicht auf dem Server (keine Verbindung oder ein "
+"Konflikt). Sie bleiben auf diesem Gerät und werden beim nächsten Öffnen der "
+"Seite wiederhergestellt."
+
+#: hlidskjalf/window.py:527
 msgid "Not everything could be saved"
 msgstr "Nicht alles konnte gespeichert werden"
 
-#: hlidskjalf/window.py:520
-msgid "Some changes have not reached the server yet (no connection or a conflict). They are kept on this device and restored the next time you open the page."
-msgstr "Einige Änderungen sind noch nicht auf dem Server (keine Verbindung oder ein Konflikt). Sie bleiben auf diesem Gerät und werden beim nächsten Öffnen der Seite wiederhergestellt."
-
-#: hlidskjalf/window.py:522
+#: hlidskjalf/window.py:528
 msgid "Keep open"
 msgstr "Offen lassen"
 
-#: hlidskjalf/window.py:523
+#: hlidskjalf/window.py:529
 msgid "Close anyway"
 msgstr "Trotzdem schließen"
 
-#: hlidskjalf/window.py:563
+#: hlidskjalf/window.py:569
 #, python-brace-format
-msgid "This app is too old for the server (version {version} or later needed) – please update."
-msgstr "Diese App ist zu alt für den Server (ab {version}) – bitte aktualisieren."
+msgid ""
+"This app is too old for the server (version {version} or later needed) – "
+"please update."
+msgstr ""
+"Diese App ist zu alt für den Server (ab {version}) – bitte aktualisieren."
 
-#: hlidskjalf/window.py:599
+#: hlidskjalf/window.py:605
 msgid "New page (Ctrl+N)"
 msgstr "Neue Seite (Strg+N)"
 
-#: hlidskjalf/window.py:601 hlidskjalf/window.py:716
+#: hlidskjalf/window.py:607 hlidskjalf/window.py:737
 msgid "Menu"
 msgstr "Menü"
 
-#: hlidskjalf/window.py:603 hlidskjalf/window.py:1410
+#: hlidskjalf/window.py:609 hlidskjalf/window.py:1501
 msgid "Command palette"
 msgstr "Befehlspalette"
 
-#: hlidskjalf/window.py:605 hlidskjalf/window.py:1336 hlidskjalf/window.py:1411
+#: hlidskjalf/window.py:611 hlidskjalf/window.py:1427 hlidskjalf/window.py:1502
 msgid "Refresh"
 msgstr "Aktualisieren"
 
-#: hlidskjalf/window.py:607 hlidskjalf/window.py:718 hlidskjalf/window.py:1415
-#: hlidskjalf/window.py:1444
+#: hlidskjalf/window.py:613 hlidskjalf/window.py:739 hlidskjalf/window.py:1506
+#: hlidskjalf/window.py:1535
 msgid "Keyboard shortcuts"
 msgstr "Tastenkürzel"
 
-#: hlidskjalf/window.py:608 hlidskjalf/window.py:719
+#: hlidskjalf/window.py:614 hlidskjalf/window.py:740
 msgid "About Saga"
 msgstr "Über Saga"
 
-#: hlidskjalf/window.py:621
+#: hlidskjalf/window.py:634
 msgid "Show/hide sidebar (F9)"
 msgstr "Seitenleiste ein-/ausblenden (F9)"
 
-#: hlidskjalf/window.py:624
+#: hlidskjalf/window.py:637
 msgid "Back (Alt+←)"
 msgstr "Zurück (Alt+←)"
 
-#: hlidskjalf/window.py:625
+#: hlidskjalf/window.py:638
 msgid "Forward (Alt+→)"
 msgstr "Vor (Alt+→)"
 
-#: hlidskjalf/window.py:657 hlidskjalf/window.py:1001
+#: hlidskjalf/window.py:670 hlidskjalf/window.py:1031
 msgid "Assistant"
 msgstr "Assistent"
 
-#: hlidskjalf/window.py:720 hlidskjalf/window.py:1415
+#: hlidskjalf/window.py:678
+msgid "Call – opens the chat in your browser"
+msgstr "Anrufen – öffnet den Chat im Browser"
+
+#: hlidskjalf/window.py:741 hlidskjalf/window.py:1506
 msgid "Quit"
 msgstr "Beenden"
 
-#: hlidskjalf/window.py:724
-msgid "Sign in with a passkey, security key or password.\nSign-in opens in your browser."
-msgstr "Anmelden mit Passkey, Sicherheitsschlüssel oder Passwort.\nDie Anmeldung öffnet sich im Browser."
+#: hlidskjalf/window.py:745
+msgid ""
+"Sign in with a passkey, security key or password.\n"
+"Sign-in opens in your browser."
+msgstr ""
+"Anmelden mit Passkey, Sicherheitsschlüssel oder Passwort.\n"
+"Die Anmeldung öffnet sich im Browser."
 
-#: hlidskjalf/window.py:730
+#: hlidskjalf/window.py:751
 msgid "Server address"
 msgstr "Server-Adresse"
 
-#: hlidskjalf/window.py:735
+#: hlidskjalf/window.py:756
 msgid "Sign in"
 msgstr "Anmelden"
 
-#: hlidskjalf/window.py:743
+#: hlidskjalf/window.py:764
 msgid "Enter the server address or sign in with a pairing link"
 msgstr "Server-Adresse eingeben oder per Kopplungslink anmelden"
 
-#: hlidskjalf/window.py:745
+#: hlidskjalf/window.py:766
+msgid ""
+"With two-factor sign-in, the browser then asks for your passkey or a code "
+"from your authenticator app."
+msgstr ""
+"Mit Zwei-Faktor-Anmeldung fragt der Browser anschließend nach deinem Passkey "
+"oder einem Code aus der Authenticator-App."
+
+#: hlidskjalf/window.py:771
 msgid "Sign in with a pairing link (QR code from the web)"
 msgstr "Mit Kopplungslink anmelden (QR-Code aus dem Web)"
 
-#: hlidskjalf/window.py:747
-msgid "In the browser: 👤 → Settings → “Apps & devices” → “Sign in with QR code”. Paste the link below the QR code (…/app/pair?c=…) here:"
-msgstr "Im Browser: 👤 → Einstellungen → „Apps & Geräte“ → „App per QR-Code anmelden“. Den Link unter dem QR-Code (…/app/pair?c=…) hier einfügen:"
+#: hlidskjalf/window.py:773
+msgid ""
+"In the browser: 👤 → Settings → “Apps & devices” → “Sign in with QR code”. "
+"Paste the link below the QR code (…/app/pair?c=…) here:"
+msgstr ""
+"Im Browser: 👤 → Einstellungen → „Apps & Geräte“ → „App per QR-Code "
+"anmelden“. Den Link unter dem QR-Code (…/app/pair?c=…) hier einfügen:"
 
-#: hlidskjalf/window.py:754
+#: hlidskjalf/window.py:780
 msgid "Browser doesn't return to the app?"
 msgstr "Browser leitet nicht zurück?"
 
-#: hlidskjalf/window.py:756
-msgid "Paste the address from the browser's error message (hlidskjalf://auth?code=…) here:"
-msgstr "Adresse aus der Fehlermeldung des Browsers (hlidskjalf://auth?code=…) hier einfügen:"
+#: hlidskjalf/window.py:782
+msgid ""
+"Paste the address from the browser's error message (hlidskjalf://auth?"
+"code=…) here:"
+msgstr ""
+"Adresse aus der Fehlermeldung des Browsers (hlidskjalf://auth?code=…) hier "
+"einfügen:"
 
-#: hlidskjalf/window.py:779
+#: hlidskjalf/window.py:805
 msgid "Please enter an https address, e.g. https://saga.example.org"
 msgstr "Bitte eine https-Adresse eingeben, z. B. https://saga.example.org"
 
-#: hlidskjalf/window.py:806
+#: hlidskjalf/window.py:832
 msgid "This is not a valid pairing link."
 msgstr "Das ist kein gültiger Kopplungslink."
 
-#: hlidskjalf/window.py:809
+#: hlidskjalf/window.py:835
 msgid "Pairing links must use https."
 msgstr "Kopplungslinks müssen https verwenden."
 
-#: hlidskjalf/window.py:822
+#: hlidskjalf/window.py:848
 #, python-brace-format
 msgid "Saga will sign in to {host}."
 msgstr "Saga meldet sich bei {host} an."
 
-#: hlidskjalf/window.py:823
-msgid "Only continue if you created this QR code or link yourself in Saga (Settings → Apps & devices)."
-msgstr "Fahre nur fort, wenn du diesen QR-Code oder Link selbst in Saga erzeugt hast (Einstellungen → Apps & Geräte)."
+#: hlidskjalf/window.py:849
+msgid ""
+"Only continue if you created this QR code or link yourself in Saga (Settings "
+"→ Apps & devices)."
+msgstr ""
+"Fahre nur fort, wenn du diesen QR-Code oder Link selbst in Saga erzeugt hast "
+"(Einstellungen → Apps & Geräte)."
 
-#: hlidskjalf/window.py:825
+#: hlidskjalf/window.py:851
 #, python-brace-format
 msgid "You're currently signed in to {alt} and will be signed out there."
 msgstr "Du bist gerade bei {alt} angemeldet und wirst dort abgemeldet."
 
-#: hlidskjalf/window.py:826
+#: hlidskjalf/window.py:852
 msgid "Pair with this server?"
 msgstr "Mit diesem Server koppeln?"
 
-#: hlidskjalf/window.py:828
+#: hlidskjalf/window.py:854
 msgid "Pair"
 msgstr "Koppeln"
 
-#: hlidskjalf/window.py:837 hlidskjalf/window.py:886
+#: hlidskjalf/window.py:863 hlidskjalf/window.py:916
 msgid "Signing in …"
 msgstr "Melde an …"
 
-#: hlidskjalf/window.py:858
+#: hlidskjalf/window.py:888
 #, python-brace-format
 msgid "Signed in as {name} – stays signed in on “{device}”"
 msgstr "Angemeldet als {name} – bleibt auf „{device}“ angemeldet"
 
-#: hlidskjalf/window.py:868
+#: hlidskjalf/window.py:898
 msgid "Please sign in in your browser …"
 msgstr "Bitte im Browser anmelden …"
 
-#: hlidskjalf/window.py:884
+#: hlidskjalf/window.py:914
 msgid "Please start signing in here in the app."
 msgstr "Anmeldung bitte hier in der App starten."
 
-#: hlidskjalf/window.py:1029 hlidskjalf/window.py:1470
+#: hlidskjalf/window.py:1062 hlidskjalf/window.py:1561
 msgid "Remove from favorites"
 msgstr "Aus Favoriten entfernen"
 
-#: hlidskjalf/window.py:1031
+#: hlidskjalf/window.py:1064
 msgid "No access"
 msgstr "Kein Zugriff"
 
-#: hlidskjalf/window.py:1151 hlidskjalf/window.py:1162
+#: hlidskjalf/window.py:1130
+msgid "The chat opens in your browser – start the call there."
+msgstr "Der Chat öffnet sich im Browser – starte den Anruf dort."
+
+#: hlidskjalf/window.py:1241 hlidskjalf/window.py:1253
 #, python-brace-format
 msgid "{name} is also here"
 msgstr "{name} ist auch hier"
 
-#: hlidskjalf/window.py:1151 hlidskjalf/window.py:1162
+#: hlidskjalf/window.py:1241 hlidskjalf/window.py:1253
 #, python-brace-format
 msgid "{name} is editing"
 msgstr "{name} bearbeitet gerade"
 
-#: hlidskjalf/window.py:1164
+#: hlidskjalf/window.py:1255
 msgid "On this page right now"
 msgstr "Gerade auf dieser Seite"
 
-#: hlidskjalf/window.py:1332 hlidskjalf/window.py:1410
+#: hlidskjalf/window.py:1423 hlidskjalf/window.py:1501
 msgid "New page"
 msgstr "Neue Seite"
 
-#: hlidskjalf/window.py:1337
+#: hlidskjalf/window.py:1428
 msgid "Forward"
 msgstr "Vor"
 
-#: hlidskjalf/window.py:1337
+#: hlidskjalf/window.py:1428
 msgid "Search in the sidebar"
 msgstr "In der Seitenleiste suchen"
 
-#: hlidskjalf/window.py:1338 hlidskjalf/window.py:1413
+#: hlidskjalf/window.py:1429 hlidskjalf/window.py:1504
 msgid "Show/hide sidebar"
 msgstr "Seitenleiste ein-/ausblenden"
 
-#: hlidskjalf/window.py:1352 hlidskjalf/window.py:1412
+#: hlidskjalf/window.py:1443 hlidskjalf/window.py:1503
 msgid "Copy link to page"
 msgstr "Link zur Seite kopieren"
 
-#: hlidskjalf/window.py:1411
+#: hlidskjalf/window.py:1502
 msgid "Back / Forward"
 msgstr "Zurück / Vor"
 
-#: hlidskjalf/window.py:1412
+#: hlidskjalf/window.py:1503
 msgid "Search the sidebar"
 msgstr "In der Seitenleiste suchen"
 
-#: hlidskjalf/window.py:1413
+#: hlidskjalf/window.py:1504
 msgid "Today / Tasks / Events"
 msgstr "Heute / Aufgaben / Termine"
 
-#: hlidskjalf/window.py:1414
+#: hlidskjalf/window.py:1505
 msgid "Browse in peek"
 msgstr "In der Seitenansicht blättern"
 
-#: hlidskjalf/window.py:1414
+#: hlidskjalf/window.py:1505
 msgid "Close peek"
 msgstr "Seitenansicht schließen"
 
-#: hlidskjalf/window.py:1415
+#: hlidskjalf/window.py:1506
 msgid "Context menu"
 msgstr "Kontextmenü"
 
-#: hlidskjalf/window.py:1416
+#: hlidskjalf/window.py:1507
 msgid "Bold, italic, underline"
 msgstr "Fett, kursiv, unterstrichen"
 
-#: hlidskjalf/window.py:1416
+#: hlidskjalf/window.py:1507
 msgid "Strikethrough"
 msgstr "Durchgestrichen"
 
-#: hlidskjalf/window.py:1417
+#: hlidskjalf/window.py:1508
 msgid "Highlight"
 msgstr "Hervorheben"
 
-#: hlidskjalf/window.py:1417
+#: hlidskjalf/window.py:1508
 msgid "Link (with a selection)"
 msgstr "Link (mit Auswahl)"
 
-#: hlidskjalf/window.py:1418
+#: hlidskjalf/window.py:1509
 msgid "Block types"
 msgstr "Blocktypen"
 
-#: hlidskjalf/window.py:1418
+#: hlidskjalf/window.py:1509
 msgid "Date, reminder, page"
 msgstr "Datum, Erinnerung, Seite"
 
-#: hlidskjalf/window.py:1418
+#: hlidskjalf/window.py:1509
 msgid "Emoji"
 msgstr "Emoji"
 
-#: hlidskjalf/window.py:1419
+#: hlidskjalf/window.py:1510
 msgid "Blocks"
 msgstr "Blöcke"
 
-#: hlidskjalf/window.py:1419
+#: hlidskjalf/window.py:1510
 msgid "Text, Heading 1–3"
 msgstr "Text, Überschrift 1–3"
 
-#: hlidskjalf/window.py:1420
+#: hlidskjalf/window.py:1511
 msgid "Checklist, bulleted list, numbered list"
 msgstr "Checkliste, Aufzählung, nummerierte Liste"
 
-#: hlidskjalf/window.py:1421
+#: hlidskjalf/window.py:1512
 msgid "Move block"
 msgstr "Block verschieben"
 
-#: hlidskjalf/window.py:1421
+#: hlidskjalf/window.py:1512
 msgid "Toggle, code"
 msgstr "Toggle, Code"
 
-#: hlidskjalf/window.py:1422
+#: hlidskjalf/window.py:1513
 msgid "Duplicate block"
 msgstr "Block duplizieren"
 
-#: hlidskjalf/window.py:1422
+#: hlidskjalf/window.py:1513
 msgid "New block below"
 msgstr "Neuer Block darunter"
 
-#: hlidskjalf/window.py:1423
+#: hlidskjalf/window.py:1514
 msgid "Block menu"
 msgstr "Blockmenü"
 
-#: hlidskjalf/window.py:1423
+#: hlidskjalf/window.py:1514
 msgid "Indent/outdent list item"
 msgstr "Listenpunkt ein-/ausrücken"
 
-#: hlidskjalf/window.py:1445
+#: hlidskjalf/window.py:1536
 msgid "OK"
 msgstr "OK"
 
-#: hlidskjalf/window.py:1451
+#: hlidskjalf/window.py:1542
 msgid "Notes, databases, tasks and events – self-hosted."
 msgstr "Notizen, Datenbanken, Aufgaben und Termine – selbst gehostet."
 
-#: hlidskjalf/window.py:1451
+#: hlidskjalf/window.py:1542
 msgid "Saga project"
 msgstr "Saga-Projekt"
 
-#: hlidskjalf/window.py:1452
+#: hlidskjalf/window.py:1543
 msgid "translator-credits"
 msgstr "Saga-Projekt"
 
-#: hlidskjalf/window.py:1463 hlidskjalf/window.py:1472
+#: hlidskjalf/window.py:1554 hlidskjalf/window.py:1563
 msgid "New subpage"
 msgstr "Neue Unterseite"
 
-#: hlidskjalf/window.py:1508
+#: hlidskjalf/window.py:1599
 msgid "Task created"
 msgstr "Aufgabe angelegt"
 
-#: hlidskjalf/window.py:1516
+#: hlidskjalf/window.py:1607
 #, python-brace-format
 msgid "“{title}” moved to trash"
 msgstr "„{title}“ in den Papierkorb verschoben"
 
-#: hlidskjalf/window.py:1521
+#: hlidskjalf/window.py:1612
 #, python-brace-format
 msgid "Task “{title}” deleted"
 msgstr "Aufgabe „{title}“ gelöscht"
 
-#: hlidskjalf/window.py:1567
+#: hlidskjalf/window.py:1658
 #, python-brace-format
 msgid "Downloading “{name}” …"
 msgstr "Lade „{name}“ herunter …"
 
-#: hlidskjalf/window.py:1600
+#: hlidskjalf/window.py:1691
 #, python-brace-format
 msgid "Download failed: {error}"
 msgstr "Download fehlgeschlagen: {error}"
 
-#: hlidskjalf/window.py:1616
+#: hlidskjalf/window.py:1707
 #, python-brace-format
 msgid "Export failed: {error}"
 msgstr "Export fehlgeschlagen: {error}"
 
-#: hlidskjalf/window.py:1616
+#: hlidskjalf/window.py:1707
 msgid "Exported"
 msgstr "Exportiert"
 
-#: hlidskjalf/window.py:1646
+#: hlidskjalf/window.py:1737
 msgid "Create a new page?"
 msgstr "Neue Seite anlegen?"
 
-#: hlidskjalf/window.py:1647
+#: hlidskjalf/window.py:1738
 msgid "A link wants to create a new page in Saga."
 msgstr "Ein Link möchte in Saga eine neue Seite anlegen."
 
-#: hlidskjalf/window.py:1649
+#: hlidskjalf/window.py:1740
 msgid "Create page"
 msgstr "Seite anlegen"
 
-#: hlidskjalf/editor.py hlidskjalf/page.py
-msgid "This page is too large to save. Shorten it or split it into several pages – until then your changes are only kept on this device."
-msgstr "Diese Seite ist zu groß zum Speichern. Kürze sie oder teile sie auf mehrere Seiten auf – bis dahin bleiben deine Änderungen nur auf diesem Gerät."
-
-#: hlidskjalf/window.py
-msgid "“{title}” is too large to save. Your changes are kept on this device, but they can only be saved once the page is shorter or split up."
-msgstr "„{title}“ ist zu groß zum Speichern. Deine Änderungen bleiben auf diesem Gerät, lassen sich aber erst speichern, wenn die Seite kürzer oder aufgeteilt ist."
-
-#: hlidskjalf/clipimg.py
-msgid "Image too large."
-msgstr "Bild zu groß."
-
-#: hlidskjalf/dialogs.py
-#, python-brace-format
-msgid "Loading “{name}” …"
-msgstr "Lade „{name}“ …"
-
-#: hlidskjalf/dialogs.py
-#, python-brace-format
-msgid "Not loaded: {error}"
-msgstr "Nicht geladen: {error}"
-
-#: hlidskjalf/chatview.py
-#, python-brace-format
-msgid "At most {n} file per message."
-msgid_plural "At most {n} files per message."
-msgstr[0] "Höchstens {n} Datei pro Nachricht."
-msgstr[1] "Höchstens {n} Dateien pro Nachricht."
+#~ msgid "The keys could not be stored in the keyring."
+#~ msgstr "Die Schlüssel ließen sich nicht im Schlüsselbund speichern."
