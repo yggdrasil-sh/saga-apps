@@ -591,6 +591,7 @@ class MainWindow(Adw.ApplicationWindow):
             if not live.connected:                         # ohne Live-Kanal regelmaessig fragen
                 notifications.count()
                 chat.load_unread()
+            self._session_catch_up()
         return True
 
     # --- Aufbau ----------------------------------------------------------------------------
@@ -1112,6 +1113,7 @@ class MainWindow(Adw.ApplicationWindow):
         from .live import live
         from .notifications import notifications
         from .calls import calls
+        self._session_t = time.monotonic()
         live.start()
         notifications.load()
         chat.refresh()
@@ -1119,6 +1121,35 @@ class MainWindow(Adw.ApplicationWindow):
         calls.load_config(lambda on: self.update_header())
         calls.check_active()                               # klingelt es gerade schon (App eben gestartet)?
         self.load_account()
+
+    def _session_catch_up(self):
+        """Start ohne Netz: was beim Sitzungsbeginn nicht geladen werden konnte (Assistent, Anrufe, Konto, Glocke, Chats),
+        nachholen, sobald der Server wieder antwortet (Live-Kanal "hello", Takt). Bereits Geladenes bleibt unberuehrt."""
+        if store.needs_login or not (client.has_session or get_device_token()):
+            return
+        wait = getattr(self, "_session_t", 0) + 10 - time.monotonic()
+        if wait > 0:                                       # Anfragen vom Sitzungsbeginn laufen evtl. noch: danach pruefen
+            if not getattr(self, "_catch_up_soon", 0):
+                def later():
+                    self._catch_up_soon = 0
+                    self._session_catch_up()
+                    return False
+                self._catch_up_soon = GLib.timeout_add(int(wait * 1000) + 50, later)
+            return
+        from .assistant import ai
+        from .calls import calls
+        from .chat import chat
+        from .notifications import notifications
+        if not ai.known:
+            ai.refresh(lambda: self.update_header())
+        if calls.config is None:
+            calls.load_config(lambda on: self.update_header())
+        if not getattr(self, "me", None):
+            self.load_account()
+        if not notifications.loaded and notifications.supported is not False:
+            notifications.load()
+        if chat.status == "unknown":
+            chat.refresh()
 
     def call_current(self):
         """Direkt-Chat: Anrufen im Browser (Web-Oberflaeche mit WebRTC)"""
@@ -1200,6 +1231,7 @@ class MainWindow(Adw.ApplicationWindow):
             if typ.startswith("call."):
                 return
         if typ == "hello":
+            self._session_catch_up()                       # Start ohne Netz: Fehlendes jetzt laden
             return
         if typ == "reset":
             store.refresh()
