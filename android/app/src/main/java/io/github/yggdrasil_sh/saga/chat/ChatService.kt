@@ -77,6 +77,9 @@ object ChatLogic {
         return out
     }
 
+    /** Datei-Kennungen fuer POST .../messages: je Anhang das Original, bei Bildern danach das Vorschaubild */
+    fun sendFileIds(files: List<ChatFile>): List<String> = files.flatMap { f -> listOfNotNull(f.id, f.th?.id?.takeIf { it.isNotEmpty() }) }
+
     /** Inhalt einer Textnachricht als JSON-Text (unbekannte Felder liest die Gegenseite nicht) */
     fun content(text: String, files: List<ChatFile>, notes: List<Long>): String = buildJsonObject {
         put("v", 1)
@@ -84,7 +87,14 @@ object ChatLogic {
         put("text", text)
         if (files.isNotEmpty()) put("files", buildJsonArray {
             files.forEach { f ->
-                add(buildJsonObject { put("id", f.id); put("k", f.k); put("n", f.n); put("m", f.m); put("s", f.s) })
+                add(buildJsonObject {
+                    put("id", f.id); put("k", f.k); put("n", f.n); put("m", f.m); put("s", f.s)
+                    f.w?.let { put("w", it) }
+                    f.h?.let { put("h", it) }
+                    f.th?.let { t ->
+                        put("th", buildJsonObject { put("id", t.id); put("k", t.k); put("m", t.m); put("w", t.w); put("h", t.h); put("s", t.s) })
+                    }
+                })
             }
         })
         if (notes.isNotEmpty()) put("notes", buildJsonArray { notes.forEach { add(JsonPrimitive(it)) } })
@@ -144,8 +154,26 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
         scope.launch { repo.live.events.collect { onEvent(it) } }
     }
 
+    /** Anhaenge: Plattencache (nur Ciphertext) + Vorschaubilder im Speicher (2.1-c) */
+    val blobs: ChatBlobCache by lazy { ChatBlobCache(java.io.File(repo.chatCacheDir, ChatBlobCache.DIR)) }
+    val thumbs: ChatThumbs by lazy {
+        ChatThumbs(
+            blobs,
+            fetch = { id -> repo.api.getBytes("api/chat/files/$id") },
+            decrypt = { cid, blob, key -> crypto.decryptFile(cid, blob, key) },
+            encrypt = { cid, data, key -> crypto.encryptFile(cid, data, key).first },
+        )
+    }
+
+    /** Abmelden, "Neu beginnen", Geraet entfernt: zwischengespeicherte Anhaenge weg */
+    fun clearMedia() {
+        thumbs.clearMemory()
+        scope.launch(Dispatchers.IO) { blobs.clear() }
+    }
+
     /** Abmelden/Kontowechsel */
     fun reset() {
+        clearMedia()
         cached = null
         state.value = ChatSetup.LOADING
         me.value = null
@@ -242,6 +270,7 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
      */
     suspend fun completeSetup(p: PendingSetup, reset: Boolean = false, password: String? = null) {
         val m = me.value ?: throw UiTextException(UiText.Res(R.string.error_generic))
+        if (reset) clearMedia()                              // "Neu beginnen": alte Anhaenge sind nicht mehr lesbar
         val uid = m.uid
         val body = withContext(Dispatchers.Default) {
             val bundle = crypto.sealBundle(uid, p.recoveryKey, p.ident)
@@ -473,6 +502,7 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
             "chat.device" -> if (ev.bool("revoked") && ev.str("id") == deviceId) {
                 // dieses Geraet wurde entfernt: Schluessel loeschen, Einrichtung "neues Geraet"
                 withContext(Dispatchers.IO) { store.clearKeys() }
+                clearMedia()
                 cached = null
                 refresh()
             }

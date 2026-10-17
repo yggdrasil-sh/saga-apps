@@ -212,7 +212,6 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         }
     }
     val list = rememberLazyListState()
-    val images = remember(chatId) { mutableStateMapOf<String, ImageBitmap?>() }
 
     LaunchedEffect(s) { s.open() }
     // eine Ausnahme hier wuerde den Prozess beenden (BUG-003): jedes Ereignis einzeln abfangen
@@ -357,7 +356,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                         return@items
                     }
                     Bubble(
-                        m, s, group = s.summary?.kind != "dm", images = images,
+                        m, s, group = s.summary?.kind != "dm",
                         onReply = { s.replyTo = m },
                         onCopy = { copyText(context, m.content?.text.orEmpty()) },
                         onDelete = { repo.launchAction { s.delete(m) } },
@@ -655,7 +654,7 @@ object ChatUi {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Bubble(
-    m: ChatMessage, s: ChatSession, group: Boolean, images: MutableMap<String, ImageBitmap?>,
+    m: ChatMessage, s: ChatSession, group: Boolean,
     onReply: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit, onOpenNote: (Long) -> Unit, onOpenFile: (ChatFile) -> Unit,
     onUnverified: () -> Unit,
 ) {
@@ -720,7 +719,7 @@ private fun Bubble(
                     if (c == null) {
                         Text(stringResource(R.string.chat_undecryptable), fontStyle = FontStyle.Italic, style = MaterialTheme.typography.bodyMedium)
                     } else {
-                        c.files.forEach { f -> Attachment(f, s, images, onOpenFile) }
+                        c.files.forEach { f -> Attachment(f, s, onOpenFile) }
                         if (c.text.isNotEmpty()) Text(messageText(c.text, s.notes, onOpenNote), style = MaterialTheme.typography.bodyLarge)
                         c.notes.filter { id -> !c.text.contains("[[note:$id]]") }.forEach { id ->
                             val ref = s.notes[id]
@@ -752,33 +751,42 @@ private fun Bubble(
     }
 }
 
-/** Bilder inline (entschluesselt im Speicher), sonst Datei mit Name/Groesse zum Oeffnen/Teilen */
+/**
+ * Bilder (2.1-c): im Verlauf nur das Vorschaubild, Platz sofort in richtiger Groesse (w/h, kein Springen); geladen nur,
+ * solange die Nachricht sichtbar ist (Abbruch beim Wegscrollen). Antippen oeffnet das Original. Sonst Datei mit
+ * Name/Groesse zum Oeffnen/Teilen.
+ */
 @Composable
-private fun Attachment(f: ChatFile, s: ChatSession, images: MutableMap<String, ImageBitmap?>, onOpen: (ChatFile) -> Unit) {
-    if (f.m.startsWith("image/") && f.s <= 8 * 1048576) {
-        LaunchedEffect(f.id) {
-            if (!images.containsKey(f.id)) {
-                images[f.id] = try {
-                    val data = s.download(f)
-                    withContext(Dispatchers.Default) { BitmapFactory.decodeByteArray(data, 0, data.size)?.asImageBitmap() }
+private fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit) {
+    if (f.isImage) {
+        var img by remember(f.id) { mutableStateOf(s.cachedThumb(f)) }
+        var failed by remember(f.id) { mutableStateOf(false) }
+        if (img == null && !failed) {
+            LaunchedEffect(f.id) {
+                img = try {
+                    s.thumb(f)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (_: Exception) {
                     null
                 }
+                failed = img == null
             }
         }
-        val img = images[f.id]
-        if (img != null) {
-            Image(
-                img, f.n, contentScale = ContentScale.Fit,
-                modifier = Modifier.padding(vertical = 4.dp).widthIn(max = 320.dp).heightIn(max = 320.dp).clip(RoundedCornerShape(10.dp))
-                    .clickable { onOpen(f) },
-            )
-            return
-        }
-        if (!images.containsKey(f.id)) {
-            CircularProgressIndicator(Modifier.padding(8.dp).size(24.dp), strokeWidth = 2.dp)
+        val loaded = img
+        if (!failed) {
+            // Groesse: aus w/h der Nachricht (bzw. des Vorschaubilds), sonst aus dem geladenen Bild, sonst Platzhalter
+            val dims = io.github.yggdrasil_sh.saga.chat.ChatImages.displaySize(f.w ?: f.th?.w, f.h ?: f.th?.h)
+                ?: loaded?.let { io.github.yggdrasil_sh.saga.chat.ChatImages.displaySize(it.width, it.height) }
+                ?: (200 to 150)
+            Box(
+                Modifier.padding(vertical = 4.dp).size(dims.first.dp, dims.second.dp).clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest).clickable { onOpen(f) },
+                contentAlignment = Alignment.Center,
+            ) {
+                if (loaded != null) Image(loaded, f.n, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                else CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+            }
             return
         }
     }
