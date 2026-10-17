@@ -94,6 +94,8 @@
     <string name="call_cam_on">Encender cámara</string>
     <string name="call_switch_camera">Cambiar de cámara</string>
     <string name="call_speaker">Altavoz</string>
+    <string name="call_audio_ok">sonido: recibiendo</string>
+    <string name="call_audio_none">no llega sonido</string>
     <string name="call_hangup">Colgar</string>
     <string name="call_settings_title">Llamadas</string>
     <string name="call_fullscreen_hint">Para que las llamadas suenen a pantalla completa con el móvil bloqueado, permite a Saga las notificaciones a pantalla completa.</string>

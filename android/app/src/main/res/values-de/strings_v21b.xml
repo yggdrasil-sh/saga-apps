@@ -94,6 +94,8 @@
     <string name="call_cam_on">Kamera an</string>
     <string name="call_switch_camera">Kamera wechseln</string>
     <string name="call_speaker">Lautsprecher</string>
+    <string name="call_audio_ok">Ton: empfangen</string>
+    <string name="call_audio_none">Ton: kein Ton</string>
     <string name="call_hangup">Auflegen</string>
     <string name="call_settings_title">Anrufe</string>
     <string name="call_fullscreen_hint">Damit Anrufe bei gesperrtem Handy im Vollbild klingeln, erlaube Saga Vollbild-Benachrichtigungen.</string>

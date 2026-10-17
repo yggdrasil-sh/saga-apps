@@ -223,6 +223,11 @@ private fun InfoLine(st: CallUiState, onDark: Boolean) {
             "mid" -> add(stringResource(R.string.call_q_mid))
             "bad" -> add(stringResource(R.string.call_q_bad))
         }
+        // Ton-Diagnose (getStats): kommen Audio-Pakete des Gegenuebers an?
+        if (st.phase == CallPhase.CONNECTED) when (st.audioIn) {
+            "ok" -> add(stringResource(R.string.call_audio_ok))
+            "none" -> add(stringResource(R.string.call_audio_none))
+        }
     }
     Surface(color = if (onDark) Color(0x99101114) else Color.Transparent, shape = RoundedCornerShape(12.dp)) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
