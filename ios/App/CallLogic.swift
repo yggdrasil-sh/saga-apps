@@ -130,6 +130,13 @@ enum CallLogic {
     /// (ending / Phase nicht mehr "preparing") oder inzwischen ein anderer Anruf laeuft - dann nicht klingeln lassen.
     static func dialStillWanted(ending: Bool, preparing: Bool, sameCall: Bool) -> Bool { !ending && preparing && sameCall }
 
+    /// Grund fuer das System (CallKit-Anrufliste): auf anderem Geraet angenommen ist kein "Gegenueber hat aufgelegt"
+    enum SystemEnd: Equatable { case failed, remoteEnded, answeredElsewhere }
+    static func systemEnd(_ note: EndNote?, failed: Bool) -> SystemEnd {
+        if failed { return .failed }
+        return note == .elsewhere ? .answeredElsewhere : .remoteEnded
+    }
+
     /// 65 -> "1:05", 3725 -> "1:02:05"
     static func duration(_ s: Int) -> String {
         let v = max(0, s)

@@ -663,7 +663,15 @@ final class CallManager: NSObject, ObservableObject {
         #if os(iOS)
         CallAudio.releaseManual()
         #endif
-        if let cid { CallSystem.shared.endReported(cid, reason: failed ? .failed : .remoteEnded, local: true) }
+        if let cid {
+            let r: CallSystem.EndReason
+            switch CallLogic.systemEnd(note, failed: failed) {
+            case .failed: r = .failed
+            case .answeredElsewhere: r = .answeredElsewhere
+            case .remoteEnded: r = .remoteEnded
+            }
+            CallSystem.shared.endReported(cid, reason: r, local: true)
+        }
         incoming = nil
         status = message ?? note.map(Self.text) ?? String(localized: "Anruf beendet")
         CallEnv.log("ended \(status.prefix(40))")
