@@ -11,6 +11,7 @@ import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -118,6 +119,10 @@ fun rememberClipboardHasImage(): Boolean {
         cm?.addPrimaryClipChangedListener(l)
         onDispose { cm?.removePrimaryClipChangedListener(l) }
     }
+    // Android 10+: Apps im Hintergrund bekommen keine Zwischenablage-Ereignisse und duerfen sie erst mit Fensterfokus
+    // lesen. Bild in einer anderen App kopiert -> beim Zurueckkommen (Fokus) neu pruefen.
+    val focused = androidx.compose.ui.platform.LocalWindowInfo.current.isWindowFocused
+    LaunchedEffect(focused) { if (focused) has = check() }
     return has
 }
 
