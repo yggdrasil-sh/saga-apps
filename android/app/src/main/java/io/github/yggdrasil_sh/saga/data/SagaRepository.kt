@@ -1105,6 +1105,17 @@ class SagaRepository(
         chat.reset()
         // entschluesselte Chat-Anhaenge (Klartext im Cache) beim Abmelden/Kontowechsel loeschen (BUG-023)
         appContext?.cacheDir?.let { c -> withContext(Dispatchers.IO) { io.github.yggdrasil_sh.saga.chat.ChatFiles.purge(c) } }
+        // Bild-Cache (Coil): private Immich-Vorschaubilder, Profilbilder, Seitenbilder des bisherigen Kontos
+        appContext?.let { ctx ->
+            withContext(Dispatchers.IO) {
+                try {
+                    val loader = coil3.SingletonImageLoader.get(ctx)
+                    loader.memoryCache?.clear()
+                    loader.diskCache?.clear()
+                } catch (_: Exception) {
+                }
+            }
+        }
         ai.clear()
         if (appContext != null) push.clear()
         if (appContext != null) calls.reset()
