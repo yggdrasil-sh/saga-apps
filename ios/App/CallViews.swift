@@ -23,11 +23,22 @@ struct CallScreen: View {
             .padding(.horizontal, 20).padding(.vertical, 24)
             if calls.cam, let t = calls.localVideo, calls.phase != .incoming, calls.phase != .ended {
                 RTCVideoBox(track: t, mirror: true)
+                    .accessibilityLabel(Text("Eigenes Kamerabild"))
                     .frame(width: 110, height: 160).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.3)))
+                    #if os(iOS)
+                    .overlay(alignment: .bottomTrailing) {                    // Kamera wechseln am eigenen Bild (Platz fuer den Lautsprecher-Knopf)
+                        if calls.canSwitchCamera {
+                            Button { calls.switchCamera() } label: {
+                                Image(systemName: "arrow.triangle.2.circlepath.camera").font(.footnote).frame(width: 34, height: 34)
+                                    .background(.black.opacity(0.45), in: Circle())
+                            }
+                            .buttonStyle(.plain).padding(6).accessibilityLabel(Text("Kamera wechseln"))
+                        }
+                    }
+                    #endif
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(.top, 70).padding(.trailing, 16)
-                    .accessibilityLabel(Text("Eigenes Kamerabild"))
             }
         }
         .foregroundStyle(.white)
@@ -48,8 +59,34 @@ struct CallScreen: View {
                 if calls.relay { Text(verbatim: "·"); Text("über Relais") }
             }
             .font(.caption).foregroundStyle(.white.opacity(0.85)).shadow(radius: 2)
+            if calls.phase == .active, let d = audioLine {
+                Label(d.text, systemImage: d.ok ? "speaker.wave.2" : "speaker.slash")
+                    .font(.caption2).foregroundStyle(.white.opacity(d.ok ? 0.6 : 0.85)).shadow(radius: 2)
+                    .accessibilityLabel(Text(verbatim: d.text))
+            }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    /// Ton-Diagnose (dezent): "Ton: empfangen · Mikro: ok" bzw. warum nichts zu hoeren ist
+    private var audioLine: (text: String, ok: Bool)? {
+        var parts: [String] = [], ok = true
+        switch calls.audioIn {
+        case .unknown: return nil
+        case .receiving: parts.append(String(localized: "Ton: empfangen"))
+        case .silent:
+            if calls.remote.mic { parts.append(String(localized: "Ton: kommt an, aber still")) } else { parts.append(String(localized: "Ton: Gegenüber stumm")) }
+        case .noPlayout: parts.append(String(localized: "Ton: kein Ton (Wiedergabe aus)")); ok = false
+        case .nothing:
+            if calls.remote.mic { parts.append(String(localized: "Ton: kein Ton")); ok = false } else { parts.append(String(localized: "Ton: Gegenüber stumm")) }
+        }
+        switch calls.audioMic {
+        case .ok: parts.append(String(localized: "Mikro: ok"))
+        case .silent: parts.append(String(localized: "Mikro: kein Signal")); ok = false
+        case .none: parts.append(String(localized: "Mikro: aus")); ok = false
+        case .unknown: break
+        }
+        return (parts.joined(separator: " · "), ok)
     }
 
     private var peerBlock: some View {
@@ -89,8 +126,9 @@ struct CallScreen: View {
                 toggle(calls.mic ? "mic.fill" : "mic.slash.fill", calls.mic ? String(localized: "Stumm") : String(localized: "Ton an"), on: !calls.mic) { calls.toggleMic() }
                 toggle(calls.cam ? "video.fill" : "video.slash.fill", calls.cam ? String(localized: "Kamera aus") : String(localized: "Kamera an"), on: !calls.cam) { calls.toggleCam() }
                 #if os(iOS)
-                if !calls.cam { toggle("speaker.wave.2.fill", String(localized: "Lautsprecher"), on: calls.speaker) { calls.toggleSpeaker() } }
-                if calls.cam && calls.canSwitchCamera { toggle("arrow.triangle.2.circlepath.camera", String(localized: "Kamera wechseln"), on: false) { calls.switchCamera() } }
+                if UIDevice.current.userInterfaceIdiom == .phone {           // nur iPhone hat eine Hoermuschel; auch bei Video umschaltbar
+                    toggle("speaker.wave.2.fill", String(localized: "Lautsprecher"), on: calls.speaker) { calls.toggleSpeaker() }
+                }
                 #endif
                 round("phone.down.fill", String(localized: "Auflegen"), .red) { calls.hangup() }
             }

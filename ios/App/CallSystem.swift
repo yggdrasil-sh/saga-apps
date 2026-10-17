@@ -38,6 +38,7 @@ final class CallSystem: NSObject {
             c.setNotificationCategories(have.filter { $0.identifier != CallSystem.category }.union([cat]))
         }
         #if os(iOS)
+        CallAudio.prepare()                                                  // vor jedem CallKit-Anruf (VoIP-Kaltstart)
         if CallEnv.callKit { registerVoIP() }
         #endif
     }
@@ -58,6 +59,9 @@ final class CallSystem: NSObject {
         switch action {
         case Self.declineAction: if m.incoming?.id == cid { m.decline() }
         case Self.answerAction:
+            #if os(iOS)
+            if requestAnswer(cid) { return }                                 // CallKit-Anruf: ueber CallKit annehmen (Audio-Session!)
+            #endif
             if m.incoming?.id == cid { m.answer(video: video) }
             else { pendingAnswer = (cid, video); Task { await m.ringing(callID: cid); drainPending() } }
         default: Task { await m.ringing(callID: cid) }                   // Mitteilung angetippt: klingeln lassen (Fenster)
@@ -94,12 +98,19 @@ final class CallSystem: NSObject {
         u.hasVideo = video; u.supportsHolding = false; u.supportsGrouping = false; u.supportsUngrouping = false; u.supportsDTMF = false
         return u
     }
-    private func configureAudio(video: Bool) {
-        let s = RTCAudioSession.sharedInstance()
-        s.lockForConfiguration()
-        try? s.setCategory(.playAndRecord, with: [.allowBluetooth, .allowBluetoothA2DP])
-        try? s.setMode(video ? .videoChat : .voiceChat)
-        s.unlockForConfiguration()
+    private func configureAudio(video: Bool) { CallAudio.configure(video: video) }
+    /// Bei CallKit gemeldeter Anruf: Annehmen als CXAnswerCallAction anfordern (nur so aktiviert CallKit die
+    /// Audio-Session); true = angefordert, CallManager.answer kommt dann aus provider(_:perform:)
+    func requestAnswer(_ id: String) -> Bool {
+        guard CallEnv.callKit, let u = CallLogic.uuid(id), reported.contains(u) else { return false }
+        controller.request(CXTransaction(action: CXAnswerCallAction(call: u))) { [weak self] e in
+            guard e != nil else { return }
+            Task { @MainActor in                                             // abgelehnt: selbst annehmen, Ton per Rueckfall
+                guard let self, let m = self.manager, m.incoming?.id == id else { return }
+                m.answer(video: m.media == "video")
+            }
+        }
+        return true
     }
     #endif
 
@@ -111,8 +122,12 @@ final class CallSystem: NSObject {
         let a = CXStartCallAction(call: u, handle: CXHandle(type: .generic, value: "saga-call"))
         a.isVideo = video; a.contactIdentifier = name
         outgoing.insert(u); reported.insert(u)
-        controller.request(CXTransaction(action: a)) { [weak self] _ in
-            Task { @MainActor in self?.provider.reportCall(with: u, updated: self?.update(name: name, video: video, chat: nil) ?? CXCallUpdate()) }
+        configureAudio(video: video)
+        controller.request(CXTransaction(action: a)) { [weak self] e in
+            Task { @MainActor in
+                if e != nil { CallAudio.ensureActive(); return }               // CallKit lehnt ab: Ton selbst einschalten
+                self?.provider.reportCall(with: u, updated: self?.update(name: name, video: video, chat: nil) ?? CXCallUpdate())
+            }
         }
         #endif
     }
@@ -137,14 +152,20 @@ final class CallSystem: NSObject {
         }
         #endif
     }
-    func answering(_ id: String) {
+    func answering(_ id: String, video: Bool) {
         UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["call-" + id])
         #if os(iOS)
-        if CallEnv.callKit, let u = CallLogic.uuid(id) { configureAudio(video: manager?.media == "video"); _ = u }
+        if CallEnv.callKit { configureAudio(video: video) }
         #endif
     }
     func connected(_ m: CallManager) {
         #if os(iOS)
+        if CallEnv.callKit {                                                 // Rueckfall: CallKit hat die Session nicht aktiviert
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(1500))
+                if m.busy, !CallAudio.enabled { CallEnv.log("audio fallback"); CallAudio.ensureActive() }
+            }
+        }
         if CallEnv.callKit, let id = m.callID, let u = CallLogic.uuid(id), outgoing.contains(u) { provider.reportOutgoingCall(with: u, connectedAt: Date()) }
         #endif
     }
@@ -207,12 +228,10 @@ extension CallSystem: CXProviderDelegate {
         action.fulfill()
     }
     nonisolated func provider(_ provider: CXProvider, didActivate audioSession: AVAudioSession) {
-        let s = RTCAudioSession.sharedInstance()
-        s.audioSessionDidActivate(audioSession); s.isAudioEnabled = true
+        CallAudio.activated(audioSession)
     }
     nonisolated func provider(_ provider: CXProvider, didDeactivate audioSession: AVAudioSession) {
-        let s = RTCAudioSession.sharedInstance()
-        s.audioSessionDidDeactivate(audioSession); s.isAudioEnabled = false
+        CallAudio.deactivated(audioSession)
     }
 }
 

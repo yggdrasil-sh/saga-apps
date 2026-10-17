@@ -40,9 +40,10 @@ enum CallRTC {
         #if os(iOS)
         if CallEnv.fakeMedia { f = RTCPeerConnectionFactory(encoderFactory: enc, decoderFactory: dec, audioDevice: FakeAudioDevice.shared) }
         else {
-            // CallKit besitzt die Audio-Session: erst in provider(_:didActivate:) einschalten
-            RTCAudioSession.sharedInstance().useManualAudio = CallEnv.callKit
-            RTCAudioSession.sharedInstance().isAudioEnabled = !CallEnv.callKit
+            // Audio-Session-Modus steht schon seit dem App-Start fest (CallAudio.prepare) - hier NICHT erneut setzen:
+            // die Fabrik entsteht beim ersten eingehenden Anruf erst NACH provider(_:didActivate:), ein
+            // isAudioEnabled = false an dieser Stelle schaltete den Ton fuer den ganzen Anruf ab.
+            CallAudio.prepare()
             f = RTCPeerConnectionFactory(encoderFactory: enc, decoderFactory: dec)
         }
         #else
@@ -53,6 +54,87 @@ enum CallRTC {
     }
     static let constraints = RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: ["DtlsSrtpKeyAgreement": "true"])
 }
+
+#if os(iOS)
+/// Audio-Session fuer Anrufe (iPhone/iPad). Mit CallKit gehoert die Aktivierung dem System: WebRTC laeuft mit
+/// useManualAudio und bekommt den Ton erst in provider(_:didActivate:). Ohne CallKit (Simulator) steuert WebRTC selbst.
+/// Kategorie/Modus gehen ueber RTCAudioSessionConfiguration.webRTC - sonst stellt WebRTC beim Start der Wiedergabe
+/// wieder auf voiceChat ohne Lautsprecher (Video lief dann leise ueber die Hoermuschel).
+enum CallAudio {
+    nonisolated(unsafe) private static var prepared = false
+    /// Einmal beim App-Start (vor jedem CallKit-Anruf) und vor dem Bau der Fabrik; danach nie wieder zuruecksetzen
+    static func prepare() {
+        guard !prepared, !CallEnv.fakeMedia else { return }
+        prepared = true
+        let s = RTCAudioSession.sharedInstance()
+        s.useManualAudio = CallEnv.callKit
+        s.isAudioEnabled = !CallEnv.callKit
+        s.ignoresPreferredAttributeConfigurationErrors = true
+    }
+    static func options(speaker: Bool) -> AVAudioSession.CategoryOptions {
+        speaker ? [.allowBluetoothHFP, .defaultToSpeaker] : [.allowBluetoothHFP]
+    }
+    /// Vor dem Annehmen/Anrufen: Kategorie playAndRecord, Modus voiceChat bzw. videoChat (+ Lautsprecher)
+    static func configure(video: Bool) {
+        guard !CallEnv.fakeMedia else { return }
+        prepare()
+        let c = RTCAudioSessionConfiguration.webRTC()
+        c.category = AVAudioSession.Category.playAndRecord.rawValue
+        c.mode = (video ? AVAudioSession.Mode.videoChat : .voiceChat).rawValue
+        c.categoryOptions = options(speaker: video)
+        RTCAudioSessionConfiguration.setWebRTC(c)
+        let s = RTCAudioSession.sharedInstance()
+        s.lockForConfiguration()
+        do { try s.setConfiguration(c) } catch { CallEnv.log("audio config: \(error.localizedDescription)") }
+        s.unlockForConfiguration()
+    }
+    /// CallKit hat die Session aktiviert
+    static func activated(_ session: AVAudioSession) {
+        let s = RTCAudioSession.sharedInstance()
+        s.audioSessionDidActivate(session)
+        s.isAudioEnabled = true
+    }
+    static func deactivated(_ session: AVAudioSession) {
+        let s = RTCAudioSession.sharedInstance()
+        s.audioSessionDidDeactivate(session)
+        s.isAudioEnabled = false
+    }
+    /// Rueckfall: CallKit hat (noch) nicht aktiviert, obwohl der Anruf verbunden ist (z. B. angenommen ohne
+    /// CXAnswerCallAction) - Session selbst aktivieren, sonst bleibt der Anruf stumm
+    static var enabled: Bool { RTCAudioSession.sharedInstance().isAudioEnabled }
+    static func ensureActive() {
+        guard !CallEnv.fakeMedia else { return }
+        let s = RTCAudioSession.sharedInstance()
+        guard !s.isAudioEnabled || !s.isActive else { return }
+        s.lockForConfiguration()
+        do { try s.setConfiguration(RTCAudioSessionConfiguration.webRTC(), active: true); manual = true } catch { CallEnv.log("audio activate: \(error.localizedDescription)") }
+        s.unlockForConfiguration()
+        s.isAudioEnabled = true
+    }
+    nonisolated(unsafe) private static var manual = false
+    /// Anrufende: selbst aktivierte Session wieder freigeben (andere Apps duerfen wieder spielen)
+    static func releaseManual() {
+        guard manual else { return }
+        manual = false
+        let s = RTCAudioSession.sharedInstance()
+        s.lockForConfiguration(); try? s.setActive(false); s.unlockForConfiguration()
+        if CallEnv.callKit { s.isAudioEnabled = false }
+    }
+    /// Lautsprecher an/aus (Knopf): Optionen der Konfiguration mitziehen, damit WebRTC es nicht zuruecksetzt
+    static func route(speaker: Bool, video: Bool) {
+        guard !CallEnv.fakeMedia else { return }
+        let c = RTCAudioSessionConfiguration.webRTC()
+        c.mode = (speaker && video ? AVAudioSession.Mode.videoChat : .voiceChat).rawValue
+        c.categoryOptions = options(speaker: speaker)
+        RTCAudioSessionConfiguration.setWebRTC(c)
+        let s = RTCAudioSession.sharedInstance()
+        s.lockForConfiguration()
+        try? s.setCategory(.playAndRecord, mode: AVAudioSession.Mode(rawValue: c.mode), options: c.categoryOptions)
+        try? s.overrideOutputAudioPort(speaker ? .speaker : .none)
+        s.unlockForConfiguration()
+    }
+}
+#endif
 
 // MARK: - Bildquelle
 
@@ -150,7 +232,8 @@ final class FakeAudioDevice: NSObject, RTCAudioDevice, @unchecked Sendable {
     var isPlayoutInitialized: Bool { delegate != nil }
     func initializePlayout() -> Bool { true }
     var isPlaying: Bool { playing }
-    func startPlayout() -> Bool { playing = true; startTimer(); return true }
+    /// -hkFakeNoPlayout YES: Wiedergabe startet nie (nachgestellt: Audio-Session nicht aktiv) - prueft die Ton-Diagnose
+    func startPlayout() -> Bool { playing = !UserDefaults.standard.bool(forKey: "hkFakeNoPlayout"); startTimer(); return true }
     func stopPlayout() -> Bool { playing = false; return true }
     var isRecordingInitialized: Bool { delegate != nil }
     func initializeRecording() -> Bool { true }
