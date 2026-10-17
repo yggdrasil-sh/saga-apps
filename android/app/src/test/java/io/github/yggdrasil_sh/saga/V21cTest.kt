@@ -18,7 +18,7 @@ class V21cTest {
     private fun ip(s: String) = InetAddress.getByName(s)
 
     @Test fun localAddresses() {
-        listOf("192.168.1.12", "10.0.2.2", "172.16.0.1", "172.31.255.1", "169.254.1.1", "100.64.0.1", "100.127.0.1",
+        listOf("192.168.0.20", "10.0.2.2", "172.16.0.1", "172.31.255.1", "169.254.1.1", "100.64.0.1", "100.127.0.1",
             "fe80::1", "fd12:3456::1", "fc00::1").forEach { assertTrue(it, LocalNetwork.isLocalAddress(ip(it))) }
         listOf("127.0.0.1", "::1", "8.8.8.8", "172.32.0.1", "100.128.0.1", "2001:db8::1", "0.0.0.0").forEach {
             assertFalse(it, LocalNetwork.isLocalAddress(ip(it)))
@@ -26,7 +26,7 @@ class V21cTest {
     }
 
     @Test fun localServer() {
-        val split = { _: String -> arrayOf(ip("192.168.1.12")) }        // Split-DNS: oeffentlicher Name -> Heimnetz
+        val split = { _: String -> arrayOf(ip("192.168.0.20")) }        // Split-DNS: oeffentlicher Name -> Heimnetz
         val public = { _: String -> arrayOf(ip("203.0.113.5")) }
         assertTrue(LocalNetwork.isLocalServer("https://saga.example.org", split))
         assertFalse(LocalNetwork.isLocalServer("https://saga.example.org", public))
