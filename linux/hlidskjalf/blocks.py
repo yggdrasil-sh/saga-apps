@@ -485,6 +485,16 @@ class BlockKit:
             p = p.get_parent()
         self.view.hover.focus(p)
 
+    def _sel_focused(self, w):
+        self.editor.focus = w.hk_sel_bid
+        self.editor.focus_where = "end"
+        if self.view.suggest.rt is not None:
+            self.view.suggest.hide()
+        p = w.get_parent()
+        while p is not None and not isinstance(p, BlockRow):
+            p = p.get_parent()
+        self.view.hover.focus(p)
+
     def build(self, b, depth):
         t = b.get("type") or ""
         d = b.get("data")
@@ -684,6 +694,18 @@ class BlockKit:
     def _image(self, b, d):
         url = (d.get("file") or {}).get("url")
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        # Anklicken waehlt den Bildblock aus (Rahmen): Strg+C/Strg+X/Entf wirken dann auf den ganzen Block (2.1-c)
+        box.hk_sel_bid = b.get("id")
+        box.set_focusable(True)
+        box.set_halign(Gtk.Align.START)                       # Auswahlrahmen eng um das Bild
+        box.add_css_class("hk-img-block")
+        box.update_property([Gtk.AccessibleProperty.LABEL], [_("Image block")])
+        gc = Gtk.GestureClick()
+        gc.connect("pressed", lambda *_: box.grab_focus())
+        box.add_controller(gc)
+        fc = Gtk.EventControllerFocus()
+        fc.connect("enter", lambda *_: self._sel_focused(box))
+        box.add_controller(fc)
         if url:
             img = images.ImageView(url, mode="fit", w=2000, max_height=900, radius=8)
             img.set_halign(Gtk.Align.START)
@@ -824,6 +846,8 @@ class BlockKit:
         """Menue-Taste in einer schreibgeschuetzten Seite: Link zum Block, Kommentieren"""
         ed = self.editor
         ents = [(_("Copy link to block"), lambda: self.view.win.copy_text(f"{settings.server}/notes#{ed.doc.id}:{bid}"))]
+        if hasattr(self.view, "copy_block"):
+            ents.insert(0, (_("Copy block"), lambda: self.view.copy_block(bid)))
         if getattr(self.view, "cpanel", None) is not None and "role" in ed.doc.page:
             ents.append((_("Comment"), lambda: self.view.show_comments(bid)))
         ents += self._ai_entries(bid)
@@ -861,6 +885,8 @@ class BlockKit:
         if ed.columns_below(bid) is not None and ed.is_columns(bid):
             ents.append((_("Merge with the columns below"), lambda: ed.merge_columns(bid)))
         ents += self._ai_entries(bid)
+        if hasattr(self.view, "copy_block"):
+            ents += [(_("Copy block"), lambda: self.view.copy_block(bid)), (_("Cut block"), lambda: self.view.copy_block(bid, cut=True))]
         ents += [(_("Duplicate"), lambda: ed.duplicate(bid)), (_("Move up"), lambda: ed.move(bid, -1)),
                  (_("Move down"), lambda: ed.move(bid, 1)), None, (_("Delete"), lambda: ed.delete(bid), True)]
         menu_popover(parent, ents).popup()

@@ -15,7 +15,7 @@ import urllib.parse
 
 from gi.repository import GLib, GObject
 
-from . import APP_ID, config
+from . import APP_ID, chatmedia, config
 from . import chatcrypto as C
 from .api import APIError, client
 from .i18n import _
@@ -281,6 +281,7 @@ class ChatState(GObject.Object):
     def reset(self):
         """anderer Server / abgemeldet"""
         self.clear()
+        chatmedia.clear()
         self.emit("changed")
 
     def refresh(self, done=None):
@@ -496,6 +497,7 @@ class ChatState(GObject.Object):
 
     def forget_local(self):
         delete_keys(config.settings.server, self.uid)
+        chatmedia.clear()
         self.keys = None
         self.cache = {}
         self.chats = []
@@ -749,7 +751,32 @@ class ChatState(GObject.Object):
         """Hintergrund: Datei verschluesseln und hochladen -> Eintrag fuer den Inhalt"""
         blob, key = C.encrypt_file(cid, data)
         j = client.json("POST", f"api/chats/{cid}/files", raw=blob, ctype="application/octet-stream", timeout=180)
+        chatmedia.put_blob(j["id"], blob)                  # eigene Anhaenge nicht gleich wieder herunterladen
         return {"id": j["id"], "k": C.b64(key), "n": name, "m": mime or "application/octet-stream", "s": len(data)}
+
+    def upload_attachments(self, cid, files):
+        """Hintergrund: Anhaenge [(name, mime, bytes)] hochladen; Bilder bekommen w/h und ein Vorschaubild ("th", 2.1-c),
+        solange die Anhang-Grenze je Nachricht reicht. -> (Eintraege fuer den Inhalt, alle Datei-IDs)"""
+        nmax = int((self.limits or {}).get("files_per_msg") or 10)
+        out, ids = [], []
+        for name, mime, data in files:
+            e = self.upload_file(cid, data, name, mime)
+            ids.append(e["id"])
+            out.append(e)
+        for e, (name, mime, data) in zip(out, files):
+            if not chatmedia.is_image(e):
+                continue
+            t = chatmedia.make_thumb(data)
+            if t is None:
+                continue
+            tb, (w, h), (tw, th) = t
+            e["w"], e["h"] = w, h
+            if len(ids) >= nmax:
+                continue                                 # kein Platz mehr: Empfaenger erzeugen das Vorschaubild selbst
+            te = self.upload_file(cid, tb, "thumb.jpg", "image/jpeg")
+            e["th"] = {"id": te["id"], "k": te["k"], "m": "image/jpeg", "w": tw, "h": th, "s": len(tb)}
+            ids.append(te["id"])
+        return out, ids
 
     def send(self, cid, body, reply_to=None, kind="msg", file_ids=None):
         """Hintergrund: verschluesseln, signieren, an alle aktuellen Empfaenger versiegeln, senden. 409 (Mitglieder/Geraete
@@ -782,8 +809,7 @@ class ChatState(GObject.Object):
 
     def fetch_file(self, cid, f):
         """Hintergrund: Anhang laden und entschluesseln -> Bytes"""
-        blob = client.request("GET", f"api/chat/files/{urllib.parse.quote(f['id'])}", timeout=180)
-        return C.decrypt_file(cid, blob, C.unb64(f.get("k"), 32))
+        return chatmedia.original(cid, f)
 
     def delete_message(self, cid, mid, done=None, error=None):
         def fin(_r):

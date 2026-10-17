@@ -85,6 +85,21 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   angenommen oder beendet wurde. Annehmen und Anrufen öffnen das Gespräch im Standardbrowser. Verpasste, abgelehnte
   und beendete Anrufe stehen im Chat, „Verpasster Anruf“ auch in der Glocke.
 
+### Linux (2.1-c)
+- **Bilder im Chat schnell, auch in großen Chats:** beim Senden entsteht ein kleines Vorschaubild (320 px, eigener
+  verschlüsselter Anhang, dazu Bildgröße im Nachrichteninhalt – gemeinsames Format aller Apps). Im Verlauf wird nur das
+  Vorschaubild geladen, und nur für sichtbare Nachrichten; der Platz ist schon vorher richtig groß, nichts springt.
+  Das Original lädt erst beim Anklicken (Ansicht mit „Speichern“). Laden, Entschlüsseln und Dekodieren laufen im
+  Hintergrund, Weggescrolltes wird nicht mehr geladen. Ältere Bildnachrichten ohne Vorschaubild bekommen einmalig eines
+  auf dem Gerät. Zwischenspeicher: Vorschaubilder im Speicher, verschlüsselte Anhänge (nur Ciphertext) bis 200 MB
+  unter `~/.cache/hlidskjalf/chat-blobs` – geleert beim Abmelden und bei „Neu beginnen“. Gemessen mit 300
+  Bildnachrichten (3,7 MB je Foto): erster Bildschirm nach 0,3 s statt 5 s, Scrollen ohne Ruckeln, Speicher 240 MB
+  statt über 2,3 GB (vorher brach die App nach 150 Bildern ab).
+- **Bildblöcke kopieren, ausschneiden, einfügen:** Bildblock anklicken (Rahmen), dann Strg+C/Strg+X; Strg+V fügt
+  ihn in derselben oder einer anderen Seite ein (auch Blöcke aus dem Web-Editor), in anderen Programmen und im Chat
+  kommt er als Bild an. Im Blockmenü „Block kopieren“/„Block ausschneiden“; Entf löscht den gewählten Bildblock.
+  In Seiten anderer Personen wird das Bild für deren Eigentümer neu hochgeladen.
+
 ## [2.0.0] – 2026-10-15
 
 Passt zu Saga-Server 2.0. **Die neuen Funktionen brauchen Saga-Server 2.0; ältere Server funktionieren weiter**

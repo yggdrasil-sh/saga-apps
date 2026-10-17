@@ -166,6 +166,11 @@ def _remember(key, dec):
         _mem_size -= old.cost
 
 
+def cached(path, w=None):
+    """schon dekodiertes Bild (Speicher-Zwischenspeicher) oder None"""
+    return _MEM.get(sized(path, w))
+
+
 def load(path, cb, w=None, max_px=1600):
     """cb(Decoded|None) im Hauptthread - bei Animationen zweimal: erst das erste Bild, dann die ganze Animation.
     Gleiche Anfragen werden zusammengelegt."""

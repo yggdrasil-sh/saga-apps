@@ -5029,3 +5029,20 @@ msgstr ""
 #: hlidskjalf/window.py:1740
 msgid "Create page"
 msgstr ""
+
+#: hlidskjalf/blocks.py:701
+msgid "Image block"
+msgstr ""
+
+#: hlidskjalf/blocks.py:849 hlidskjalf/blocks.py:888
+msgid "Copy block"
+msgstr ""
+
+#: hlidskjalf/blocks.py:888
+msgid "Cut block"
+msgstr ""
+
+#: hlidskjalf/chatview.py:858
+#, python-brace-format
+msgid "Open image: {name}"
+msgstr ""

@@ -1444,7 +1444,96 @@ class PageView(Gtk.Box):
             return False                                      # Eingabe im Kommentarfeld: nichts in die Seite einfuegen
         if clipimg.is_ctrl_v(kv, state) and not self.editor.locked and not self.remote and not self.doc.is_database:
             return self.paste()
+        sel = _selected_block(foc)
+        if sel and not self.doc.is_database:                   # ausgewaehlter Bildblock (2.1-c)
+            ctrl = bool(state & Gdk.ModifierType.CONTROL_MASK) and not state & (Gdk.ModifierType.ALT_MASK | Gdk.ModifierType.SHIFT_MASK)
+            if ctrl and kv in (Gdk.KEY_c, Gdk.KEY_C, Gdk.KEY_Insert):
+                self.copy_block(sel)
+                return True
+            if ctrl and kv in (Gdk.KEY_x, Gdk.KEY_X) and not self.editor.locked:
+                self.copy_block(sel, cut=True)
+                return True
+            if kv in (Gdk.KEY_Delete, Gdk.KEY_BackSpace) and not state & Gdk.ModifierType.CONTROL_MASK and not self.editor.locked:
+                self.editor.delete(sel)
+                return True
         return False
+
+    # --- Bloecke kopieren / ausschneiden / einfuegen (2.1-c) ----------------------------------------------------------
+    def _clip_owner(self):
+        """Eigentuemer-Kennung fuer die Zwischenablage: "" = eigene Seite"""
+        if self.remote:
+            return "fed:" + str(self.id)
+        if self.doc.foreign:
+            return (self.doc.page.get("owner") or {}).get("username") or "?"
+        return ""
+
+    def copy_block(self, bid, cut=False):
+        """Block in die Zwischenablage (Bildbloecke zusaetzlich als Bild fuer andere Programme); cut: danach entfernen"""
+        import copy as _copy
+        from . import blockclip
+        r = self.editor.locate(bid)
+        if not r:
+            return
+        b = _copy.deepcopy(r[0][r[1]])
+        server, owner = settings.server, self._clip_owner()
+        cb = self.get_clipboard()
+
+        mine = []
+
+        def put(tex):
+            if mine and cb.get_content() is not mine[-1]:
+                return                                            # inzwischen etwas anderes kopiert
+            mine.append(blockclip.provider([b], server, owner, texture=tex))
+            cb.set_content(mine[-1])
+        if b.get("type") == "image":
+            url = ((b.get("data") or {}).get("file") or {}).get("url")
+            dec = images.cached(url, 2000) if url else None
+            if dec is not None:
+                put(dec.textures[0])
+            elif url:
+                put(None)                                         # sofort einfuegbar (Bloecke); Bild folgt
+
+                def tex():
+                    return Gdk.Texture.new_from_bytes(GLib.Bytes.new(images.fetch_bytes(url)))
+                bg(tex, done=put, error=lambda e: None, media=True)
+            else:
+                put(None)
+        else:
+            put(None)
+        if cut and not self.editor.locked:
+            self.editor.delete(bid)
+
+    def _paste_blocks(self, items, after):
+        """Bloecke aus der Zwischenablage unter after einfuegen; Bild-/Dateibloecke eines anderen Eigentuemers oder
+        Servers werden neu hochgeladen (die Datei gehoert dann dem Eigentuemer dieser Seite)"""
+        from . import blockclip
+        server, owner = settings.server, self._clip_owner()
+        need = [(b, hk) for b, hk in items if b["type"] in ("image", "attaches") and not blockclip.reuse_ok(hk, server, owner)
+                and images.is_file_url(((b["data"].get("file") or {}).get("url")))]
+        if need and self.remote:
+            self.remote_blocked()
+            items = [x for x in items if x not in need]
+            need = []
+
+        def work():
+            for b, _hk in need:
+                f = b["data"].get("file") or {}
+                data = images.fetch_bytes(f["url"])
+                if b["type"] == "image":
+                    b["data"]["file"] = dict(f, url=self.win.upload_image(data, "bild.png", note=self.upload_note))
+                else:
+                    info = client.upload(data, f.get("name") or "datei", field="file", note=self.upload_note)
+                    b["data"]["file"] = info
+            return [b for b, _hk in items]
+
+        def fin(blocks):
+            a = after
+            for b in blocks:
+                a = self.editor.insert(b, after=a) or a
+        if need:
+            bg(work, done=fin, error=lambda e: self.win.toast(_("Image not uploaded: {error}").format(error=e)), media=True)
+        else:
+            fin([b for b, _hk in items])
 
     def paste(self, clipboard=None):
         """Strg+V: Bild -> Bildblock, Dateien -> Bild- bzw. Dateibloecke unter dem Block mit dem Fokus; Text wie gewohnt.
@@ -1460,6 +1549,16 @@ class PageView(Gtk.Box):
         def image(data):
             bg(self.win.upload_image, data, "bild.png", self.upload_note, done=lambda url: self.editor.insert_image_url(url, after=after),
                error=lambda e: self.win.toast(_("Image not uploaded: {error}").format(error=e)), media=True)
+
+        from . import blockclip
+        if blockclip.has_blocks(cb.get_formats()):            # kopierte Bloecke (diese App oder Web-Editor)
+            def got(items):
+                if items:
+                    self._paste_blocks(items, after)
+                elif not clipimg.read_paste(cb, lambda files: self._insert_files(files, after), image, text):
+                    text()
+            blockclip.read(cb, got)
+            return True
         return clipimg.read_paste(cb, lambda files: self._insert_files(files, after), image, text)
 
     def _drop_files(self, t, value, x, y):
@@ -1499,6 +1598,18 @@ class PageView(Gtk.Box):
         if files:
             bg(work, done=fin, media=True)
         return True
+
+
+def _selected_block(w):
+    """Block-ID, wenn der Fokus auf einem auswaehlbaren Block (Bild) liegt"""
+    while w is not None:
+        bid = getattr(w, "hk_sel_bid", None)
+        if bid:
+            return bid
+        if isinstance(w, RichText):
+            return None
+        w = w.get_parent()
+    return None
 
 
 def _walk_blocks(b):
