@@ -61,6 +61,25 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Die Anmeldung mit Passkey oder Code läuft im Browserfenster wie bisher; „Neu beginnen“ im Chat nimmt jetzt auch den
   6-stelligen Code der Authenticator-App.
 
+### Android – Behoben (2.1-c)
+- **Server im Heimnetz unter Android 17:** Seit Android 17 erreichen Apps Adressen im lokalen Netz (z. B. eine Domain,
+  die zu Hause auf 192.168.x.x zeigt, `*.local`, 10.x, fd00::) nur mit der Berechtigung „Geräte in der Nähe“ – vorher
+  liefen alle Anfragen still in eine Zeitüberschreitung, keine Seite ließ sich öffnen. Die App erkennt das jetzt
+  (Anmelden, Koppeln, Start, Fehler beim Laden), erklärt es und fragt nach der Berechtigung (abgelehnt → Weg in die
+  App-Einstellungen); Fehlermeldungen sagen „Kein Zugriff aufs lokale Netzwerk“ statt „Zeitüberschreitung“.
+- **Seiten aus einem Notion-Import:** Datenbanken zeigen ihre Einträge (antippen öffnet sie), Einträge zeigen ihre
+  Eigenschaften (Auswahl, Mehrfachauswahl, Datum, Zahl/Prozent/Euro, Checkbox, Link, Text, Relation, erstellt/geändert,
+  berechnet) – bisher waren Datenbank-Zeilen in der App gar nicht erreichbar. Eingebettete Datenbanken, Schaltflächen
+  und Einbettungen erscheinen lesbar statt als „noch nicht unterstützt“; nummerierte Listen beginnen bei `start`.
+  Unbekannte oder beschädigte Blöcke bleiben Platzhalter, die übrige Seite wird immer angezeigt.
+- **Chat-Bilder schnell:** Beim Senden entsteht ein Vorschaubild (320 px, JPEG, ohne Metadaten, eigener Schlüssel,
+  `w`/`h`/`th` im Anhang); im Verlauf wird nur das Vorschaubild geladen – Platz in richtiger Größe sofort, höchstens
+  4 gleichzeitig, Abbruch beim Wegscrollen, Entschlüsseln/Dekodieren im Hintergrund. Original erst beim Antippen. Alte
+  Nachrichten ohne Vorschaubild: einmal verkleinert und verschlüsselt zwischengespeichert. Cache: Bitmaps im Speicher
+  (LRU, 32 MB) und nur Ciphertext auf der Platte (LRU, 200 MB), geleert bei Abmelden, „Neu beginnen“ und entferntem Gerät.
+- **APK halb so groß:** Das Release-APK enthält nur noch arm64-v8a und armeabi-v7a (echte Telefone/Tablets, auch
+  32-Bit); 23 statt 50 MB. Emulator-/Chromebook-Builds mit `-PsagaAllAbis=true`.
+
 ### Neu (Linux)
 - **Immich im Chat:** Büroklammer → „Aus Immich …“ (nur wenn Immich verbunden ist), gleiche Auswahl wie auf Seiten;
   das Bild wird über den Immich-Proxy des Servers geladen (Original bzw. große Vorschau, bei Bedarf verkleinert) und
