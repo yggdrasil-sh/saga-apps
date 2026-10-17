@@ -570,9 +570,16 @@ private suspend fun readFile(context: Context, u: Uri, max: Long): ChatAttach.Re
                 if (!c.isNull(1)) size = c.getLong(1)
             }
         }
+        val mime = cr.getType(u) ?: "application/octet-stream"
+        // Zu grosses Bild: wie beim Einfuegen verkleinern statt ablehnen (bis zum Vierfachen der Grenze einlesen)
+        if (mime.startsWith("image/") && !ChatAttach.tooBig(size, 4 * max) && (size == null || size!! > max)) {
+            val raw = cr.openInputStream(u)?.use { ChatAttach.readLimited(it, 4 * max) } ?: return@withContext ChatAttach.Read.TooBig
+            if (raw.size <= max) return@withContext ChatAttach.Read.Ok(PendingFile(name.take(200), mime, raw))
+            val (data, type) = prepareImage(raw, max) ?: return@withContext ChatAttach.Read.TooBig
+            return@withContext ChatAttach.Read.Ok(PendingFile(ImageData.nameFor(name.take(200), type), type, data))
+        }
         // Groesse vor dem Lesen pruefen, dann begrenzt lesen (BUG-005: 600 MB -> OutOfMemoryError)
         if (ChatAttach.tooBig(size, max)) return@withContext ChatAttach.Read.TooBig
-        val mime = cr.getType(u) ?: "application/octet-stream"
         val data = cr.openInputStream(u)?.use { ChatAttach.readLimited(it, max) ?: return@withContext ChatAttach.Read.TooBig }
             ?: return@withContext ChatAttach.Read.Failed
         ChatAttach.Read.Ok(PendingFile(name.take(200), mime, data))

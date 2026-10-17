@@ -100,6 +100,17 @@ class Bughunt2Test {
         assertEquals("kaputt", D.localDay(de)("kaputt"))
     }
 
+    @Test fun reencodedImageKeepsExifOrientation() {
+        val t = { o: Int -> io.github.yggdrasil_sh.saga.ui.common.exifTransform(o) }
+        assertEquals(90 to false, t(6))                            // typisches Hochkant-Handyfoto
+        assertEquals(270 to false, t(8))
+        assertEquals(180 to false, t(3))
+        assertEquals(0 to true, t(2))
+        assertEquals(90 to true, t(5))
+        assertEquals(0 to false, t(1))
+        assertEquals(0 to false, t(0))                             // unbekannt -> unveraendert
+    }
+
     @Test fun lanPromptSettingsOnlyWhenSystemStopsAsking() {
         // erste Ablehnung: System fragt noch einmal -> Knopf "Erlauben"; danach gesperrt -> "Einstellungen oeffnen"
         assertFalse(io.github.yggdrasil_sh.saga.ui.common.LocalNetworkFlow.openSettingsNext(systemMayAskAgain = true))

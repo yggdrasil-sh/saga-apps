@@ -151,14 +151,21 @@ suspend fun prepareImage(data: ByteArray, max: Long): Pair<ByteArray, String>? =
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return@withContext null
+        val orientation = try {
+            android.media.ExifInterface(java.io.ByteArrayInputStream(data)).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, 1)
+        } catch (_: Exception) {
+            1
+        }
         var edge = 2560
         var quality = 85
         repeat(6) {
             val longest = maxOf(bounds.outWidth, bounds.outHeight)
             var sample = 1
             while (longest / (sample * 2) >= edge) sample *= 2
-            val bmp = BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sample })
+            val decoded = BitmapFactory.decodeByteArray(data, 0, data.size, BitmapFactory.Options().apply { inSampleSize = sample })
                 ?: return@withContext null
+            // Neukodierung verliert die EXIF-Daten: Ausrichtung vorher auf die Pixel anwenden (Handyfotos sonst quer)
+            val bmp = applyExif(decoded, orientation)
             val scale = minOf(1f, edge.toFloat() / maxOf(bmp.width, bmp.height))
             val scaled = if (scale < 1f) Bitmap.createScaledBitmap(bmp, (bmp.width * scale).toInt().coerceAtLeast(1), (bmp.height * scale).toInt().coerceAtLeast(1), true) else bmp
             val out = ByteArrayOutputStream()
@@ -176,4 +183,28 @@ suspend fun prepareImage(data: ByteArray, max: Long): Pair<ByteArray, String>? =
     } catch (_: Exception) {
         null
     }
+}
+
+/** EXIF-Ausrichtung (1..8) -> Drehung in Grad und ob danach waagerecht gespiegelt wird (wie Glide TransformationUtils) */
+fun exifTransform(orientation: Int): Pair<Int, Boolean> = when (orientation) {
+    2 -> 0 to true
+    3 -> 180 to false
+    4 -> 180 to true
+    5 -> 90 to true
+    6 -> 90 to false
+    7 -> 270 to true
+    8 -> 270 to false
+    else -> 0 to false
+}
+
+private fun applyExif(b: Bitmap, orientation: Int): Bitmap {
+    val (deg, flip) = exifTransform(orientation)
+    if (deg == 0 && !flip) return b
+    val m = android.graphics.Matrix().apply {
+        setRotate(deg.toFloat())
+        if (flip) postScale(-1f, 1f)
+    }
+    val r = Bitmap.createBitmap(b, 0, 0, b.width, b.height, m, true)
+    if (r !== b) b.recycle()
+    return r
 }
