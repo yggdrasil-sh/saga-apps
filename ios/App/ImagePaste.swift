@@ -26,8 +26,11 @@ enum ImagePaste {
         var enabled: () -> Bool
         var maxBytes: () -> Int?
         var accept: ([PastedImage]) -> Void
-        init(enabled: @escaping () -> Bool, maxBytes: @escaping () -> Int?, accept: @escaping ([PastedImage]) -> Void) {
-            self.enabled = enabled; self.maxBytes = maxBytes; self.accept = accept
+        /// kopierter Bildblock (2.1-c, nur Seiten): true = uebernommen
+        var acceptBlocks: ((BlockClipLogic.Payload) -> Bool)?
+        init(enabled: @escaping () -> Bool, maxBytes: @escaping () -> Int?, accept: @escaping ([PastedImage]) -> Void,
+             acceptBlocks: ((BlockClipLogic.Payload) -> Bool)? = nil) {
+            self.enabled = enabled; self.maxBytes = maxBytes; self.accept = accept; self.acceptBlocks = acceptBlocks
         }
     }
     private(set) static var targets: [Target] = []
@@ -70,11 +73,17 @@ enum ImagePaste {
 
     /// Bild(er) aus der Zwischenablage an das Ziel des Textfelds geben. false = nichts getan (Text einsetzen wie bisher)
     static func handle(from v: PlatformView) -> Bool {
-        guard looksLikeImage(), let t = target(for: v), let imgs = read(maxBytes: t.maxBytes()), !imgs.isEmpty else { return false }
+        guard looksLikeImage() || BlockClipboard.hasPayload(), let t = target(for: v) else { return false }
+        return deliver(to: t)
+    }
+    /// Erst ein kopierter Bildblock (Seite), sonst Bilder
+    static func deliver(to t: Target) -> Bool {
+        if let ab = t.acceptBlocks, let p = BlockClipboard.payload(), ab(p) { return true }
+        guard looksLikeImage(), let imgs = read(maxBytes: t.maxBytes()), !imgs.isEmpty else { return false }
         t.accept(imgs); return true
     }
     /// Schnelle Pruefung ohne Inhalt zu lesen (Menue "Einsetzen" freigeben)
-    static func canHandle(from v: PlatformView) -> Bool { looksLikeImage() && target(for: v) != nil }
+    static func canHandle(from v: PlatformView) -> Bool { (looksLikeImage() || BlockClipboard.hasPayload()) && target(for: v) != nil }
 
     #if os(macOS)
     static var board: NSPasteboard { .general }
@@ -198,13 +207,12 @@ extension ImagePaste {
         NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
             guard e.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command, e.charactersIgnoringModifiers?.lowercased() == "v",
                   let w = e.window ?? NSApp.keyWindow, !(w.firstResponder is NSText),
-                  NSApp.target(forAction: #selector(NSText.paste(_:))) == nil, looksLikeImage() else { return e }
+                  NSApp.target(forAction: #selector(NSText.paste(_:))) == nil, looksLikeImage() || BlockClipboard.hasPayload() else { return e }
             let mouse = w.mouseLocationOutsideOfEventStream
             let mine = targets.filter { $0.anchor?.window === w && $0.enabled() }
             guard let t = mine.filter({ $0.anchor.map { $0.convert($0.bounds, to: nil).contains(mouse) } ?? false }).min(by: { area($0) < area($1) })
-                    ?? mine.max(by: { area($0) < area($1) }),
-                  let imgs = read(maxBytes: t.maxBytes()), !imgs.isEmpty else { return e }
-            t.accept(imgs); return nil
+                    ?? mine.max(by: { area($0) < area($1) }), deliver(to: t) else { return e }
+            return nil
         }
         #else
         for c in [UITextView.self, UITextField.self] as [AnyClass] {
@@ -258,16 +266,17 @@ struct ImagePasteAnchor {
     var enabled: () -> Bool
     var maxBytes: () -> Int?
     var accept: ([PastedImage]) -> Void
+    var acceptBlocks: ((BlockClipLogic.Payload) -> Bool)? = nil
     final class Coordinator { var target: ImagePaste.Target? }
     func makeCoordinator() -> Coordinator { Coordinator() }
     @MainActor fileprivate func make(_ c: Coordinator) -> PlatformView {
         let v = AnchorView()
-        let t = ImagePaste.Target(enabled: enabled, maxBytes: maxBytes, accept: accept)
+        let t = ImagePaste.Target(enabled: enabled, maxBytes: maxBytes, accept: accept, acceptBlocks: acceptBlocks)
         t.anchor = v; c.target = t; ImagePaste.add(t)
         return v
     }
     @MainActor fileprivate func update(_ c: Coordinator) {
-        c.target?.enabled = enabled; c.target?.maxBytes = maxBytes; c.target?.accept = accept
+        c.target?.enabled = enabled; c.target?.maxBytes = maxBytes; c.target?.accept = accept; c.target?.acceptBlocks = acceptBlocks
     }
     #if os(macOS)
     final class AnchorView: NSView { override func hitTest(_ point: NSPoint) -> NSView? { nil } }
@@ -295,8 +304,9 @@ extension ImagePasteAnchor: UIViewRepresentable {
 extension View {
     /// Bilder aus der Zwischenablage hierher (Textfelder in dieser Ansicht, Cmd-V/Einsetzen)
     func imagePasteTarget(enabled: @escaping () -> Bool = { true }, maxBytes: @escaping () -> Int? = { nil },
+                          acceptBlocks: ((BlockClipLogic.Payload) -> Bool)? = nil,
                           accept: @escaping ([PastedImage]) -> Void) -> some View {
-        background(ImagePasteAnchor(enabled: enabled, maxBytes: maxBytes, accept: accept).allowsHitTesting(false).accessibilityHidden(true))
+        background(ImagePasteAnchor(enabled: enabled, maxBytes: maxBytes, accept: accept, acceptBlocks: acceptBlocks).allowsHitTesting(false).accessibilityHidden(true))
     }
 }
 

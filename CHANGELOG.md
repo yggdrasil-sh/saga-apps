@@ -36,6 +36,21 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   dass das Browserfenster nach Passkey oder Code fragt. Chat „Neu beginnen“ nimmt Passwort oder Code der
   Authenticator-App; reine Passkey- bzw. SSO-Konten werden in den Browser geleitet.
 
+### iOS, iPadOS, macOS – Chat-Bilder und Bildblöcke (2.1-c)
+- **Chat-Bilder schnell:** Beim Senden entsteht ein Vorschaubild (320 px, JPEG, ohne Metadaten, im Hintergrund),
+  das wie jeder Anhang Ende-zu-Ende-verschlüsselt mitgeht (`w`/`h`/`th` im Anhang, Format wie Web/Android/Linux).
+  Im Verlauf erscheint nur das Vorschaubild in fester Größe (nichts springt), das Original erst beim Antippen
+  (Vollbild, Teilen/Sichern). Alte Nachrichten ohne Vorschaubild: einmal aus dem Original erzeugt und verschlüsselt
+  zwischengespeichert. Speicher-Cache (300 Bilder/30 MB) und Platten-Cache nur mit Ciphertext (200 MB, älteste
+  zuerst; geleert beim Abmelden, „Neu beginnen“ und Entfernen des Geräts). Geladen wird nur, was sichtbar ist
+  (höchstens 4 gleichzeitig, Abbruch beim Wegscrollen), Entschlüsseln/Dekodieren nie im UI-Thread.
+  Gemessen am Mac mit 300 Bildnachrichten (je 3–5 MB): erster Bildschirm 3,3 s → 0,6 s, beim schnellen Scrollen
+  2 von 307 → 291 von 293 Bildern sofort da, danach 19,5 s → 0 s Warten, Speicher-Spitze 164 MB → 96 MB.
+- **Bildblöcke kopieren und ausschneiden:** Bild auf einer Seite anklicken/antippen (Rahmen), dann ⌘C/⌘X, Entf oder
+  Bearbeiten → Kopieren/Ausschneiden; auf dem iPhone über das Kontextmenü (lange drücken). In der Zwischenablage liegen
+  das Bild (für andere Programme) und der Block: in derselben Seite einsetzen verschiebt ihn, in einer anderen Seite
+  wird das Bild neu hochgeladen (mit Bildunterschrift). Vorher gab es für Bildblöcke keinen Empfänger für ⌘C/⌘X.
+
 ### Android
 - **Immich im Chat:** „Anhängen → Aus Immich“ (nur wenn Immich für dich eingerichtet ist) mit Zuletzt, Alben und
   Inhaltssuche. Das Foto wird über den Immich-Proxy des Servers geladen (Original, sonst große Vorschau; zu groß →

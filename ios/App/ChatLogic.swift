@@ -3,15 +3,38 @@ import Foundation
 // Chat (Saga 2.0): reine Logik ohne Krypto und UI (mit swiftc pruefbar) - Inhalt der Nachrichten, Seitenverweise,
 // Aufbewahrung, Bestaetigung des Wiederherstellungsschluessels, TOFU der Identitaetsschluessel.
 
-/// Anhang im verschluesselten Inhalt: {"id","k":B64(Kf),"n":name,"m":mime,"s":groesse}
+/// Vorschaubild eines Bild-Anhangs (2.1-c): {"id","k":B64(Kf_thumb),"m":"image/jpeg","w","h","s"}
+struct ChatThumbRef: Equatable {
+    var id: String; var key: String; var mime = "image/jpeg"; var w: Int; var h: Int; var size: Int
+    var dict: [String: Any] { ["id": id, "k": key, "m": mime, "w": w, "h": h, "s": size] }
+    init(id: String, key: String, mime: String = "image/jpeg", w: Int, h: Int, size: Int) { self.id = id; self.key = key; self.mime = mime; self.w = w; self.h = h; self.size = size }
+    init?(_ v: Any?) {
+        guard let d = v as? [String: Any], let i = d["id"] as? String, !i.isEmpty, let k = d["k"] as? String, !k.isEmpty else { return nil }
+        self.init(id: i, key: k, mime: (d["m"] as? String) ?? "image/jpeg", w: ShareJSON.int(d["w"]) ?? 0, h: ShareJSON.int(d["h"]) ?? 0, size: ShareJSON.int(d["s"]) ?? 0)
+    }
+}
+
+/// Anhang im verschluesselten Inhalt: {"id","k":B64(Kf),"n":name,"m":mime,"s":groesse} + bei Bildern (2.1-c)
+/// "w","h" (Pixel des Originals) und "th" (Vorschaubild). Alte Clients ignorieren die neuen Felder.
 struct ChatFileRef: Equatable, Identifiable {
     var id: String; var key: String; var name: String; var mime: String; var size: Int
-    var isImage: Bool { ["image/jpeg", "image/png", "image/gif", "image/webp", "image/heic"].contains(mime.lowercased()) }
-    var dict: [String: Any] { ["id": id, "k": key, "n": name, "m": mime, "s": size] }
-    init(id: String, key: String, name: String, mime: String, size: Int) { self.id = id; self.key = key; self.name = name; self.mime = mime; self.size = size }
+    var w: Int?; var h: Int?
+    var thumb: ChatThumbRef?
+    var isImage: Bool { ["image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"].contains(mime.lowercased()) }
+    var dict: [String: Any] {
+        var d: [String: Any] = ["id": id, "k": key, "n": name, "m": mime, "s": size]
+        if let w, let h, w > 0, h > 0 { d["w"] = w; d["h"] = h }
+        if let thumb { d["th"] = thumb.dict }
+        return d
+    }
+    init(id: String, key: String, name: String, mime: String, size: Int, w: Int? = nil, h: Int? = nil, thumb: ChatThumbRef? = nil) {
+        self.id = id; self.key = key; self.name = name; self.mime = mime; self.size = size; self.w = w; self.h = h; self.thumb = thumb
+    }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let i = d["id"] as? String, let k = d["k"] as? String else { return nil }
-        self.init(id: i, key: k, name: (d["n"] as? String) ?? "", mime: (d["m"] as? String) ?? "application/octet-stream", size: ShareJSON.int(d["s"]) ?? 0)
+        let w = ShareJSON.int(d["w"]), h = ShareJSON.int(d["h"])
+        self.init(id: i, key: k, name: (d["n"] as? String) ?? "", mime: (d["m"] as? String) ?? "application/octet-stream", size: ShareJSON.int(d["s"]) ?? 0,
+                  w: (w ?? 0) > 0 && (h ?? 0) > 0 ? w : nil, h: (w ?? 0) > 0 && (h ?? 0) > 0 ? h : nil, thumb: ChatThumbRef(d["th"]))
     }
 }
 

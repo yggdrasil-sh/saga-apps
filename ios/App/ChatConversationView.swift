@@ -29,6 +29,7 @@ struct ConversationView: View {
     @State private var newName = ""
     @State private var search = ""
     @State private var searching = false
+    @State private var perfScroll: String?                // nur fuer Tests (-hkChatPerf): automatisch scrollen
     @FocusState private var focused: Bool
 
     init(chatID: Int, chat: ChatModel) {
@@ -67,8 +68,12 @@ struct ConversationView: View {
         }
         .task {
             chat.open = conv
+            #if DEBUG
+            ChatPerf.begin()                                                                // nur fuer Tests: Messung
+            #endif
             await conv.load()
             #if DEBUG
+            if ChatPerf.on { await perfRun() }
             if UserDefaults.standard.bool(forKey: "hkChatSafety"), let p = conv.info?.peer { try? await Task.sleep(for: .seconds(2.5)); safetyPeer = p }   // nur fuer Tests
             if UserDefaults.standard.bool(forKey: "hkChatMembers") { try? await Task.sleep(for: .seconds(2.5)); showMembers = true }
             if let t = UserDefaults.standard.string(forKey: "hkChatSend") {                 // nur fuer Tests: Nachricht (+ Bild) senden
@@ -191,6 +196,7 @@ struct ConversationView: View {
             .defaultScrollAnchor(.bottom)
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: conv.messages.last?.id) { _, _ in withAnimation { proxy.scrollTo("end", anchor: .bottom) } }
+            .onChange(of: perfScroll) { _, id in if let id { proxy.scrollTo(id, anchor: .center) } }
             .overlay { if conv.loading && conv.messages.isEmpty { ProgressView() } }
         }
     }
@@ -307,6 +313,28 @@ struct ConversationView: View {
         }
     }
     #if DEBUG
+    /// nur fuer Tests (-hkChatPerf): erster Bildschirm, ganzer Verlauf, hoch- und runterscrollen (je eine Nachricht alle 60 ms)
+    private func perfRun() async {
+        ChatPerf.report("geladen", extra: "nachrichten=\(conv.messages.count)")
+        await ChatPerf.settle()
+        ChatPerf.report("erster-bildschirm")
+        ChatPerf.phase()
+        while conv.more { let n = conv.messages.count; await conv.loadOlder(); if conv.messages.count == n { break } }
+        try? await Task.sleep(for: .milliseconds(500))
+        ChatPerf.report("verlauf-geladen", extra: "nachrichten=\(conv.messages.count)")
+        let ids = conv.messages.map(\.id)
+        let step = max(1, UserDefaults.standard.integer(forKey: "hkChatPerfStep"))
+        let ms = UserDefaults.standard.integer(forKey: "hkChatPerfMs") > 0 ? UserDefaults.standard.integer(forKey: "hkChatPerfMs") : 100
+        for (name, list) in [("hoch-gescrollt", Array(ids.reversed())), ("runter-gescrollt", ids)] {
+            ChatPerf.phase()
+            for id in list.enumerated().filter({ $0.offset % step == 0 }).map(\.element) { perfScroll = id; try? await Task.sleep(for: .milliseconds(ms)) }
+            perfScroll = list.last
+            let end = Date()
+            await ChatPerf.settle()
+            ChatPerf.report(name, extra: "nachladen_nach_scroll=\(Int(Date().timeIntervalSince(end) * 1000) - 700)ms")
+        }
+        if UserDefaults.standard.bool(forKey: "hkChatPerfQuit") { ChatPerf.log("ende"); exit(0) }
+    }
     /// nur fuer Tests: kleines Bild (Farbverlauf) als Anhang
     static func testImage() -> Data? {
         let w = 240, h = 160
@@ -513,49 +541,185 @@ struct MessageBubble: View {
     }
 }
 
-/// Anhang: Bild inline (nach dem Entschluesseln), sonst Datei zum Teilen/Sichern
+/// Anhang: Bild als Vorschaubild (Platzhalter in fester Groesse aus w/h, Original erst beim Antippen), sonst Datei zum Teilen/Sichern
 struct ChatAttachmentView: View {
     let file: ChatFileRef
     @ObservedObject var conv: ConversationModel
-    @State private var data: Data?
+    var body: some View {
+        if file.isImage || file.thumb != nil { ChatImageThumb(file: file, conv: conv) } else { ChatFileRow(file: file, conv: conv) }
+    }
+}
+
+/// Bild im Verlauf: nur das Vorschaubild (im Hintergrund geladen/entschluesselt/dekodiert, Abbruch beim Wegscrollen)
+struct ChatImageThumb: View {
+    let file: ChatFileRef
+    @ObservedObject var conv: ConversationModel
+    @State private var img: ChatImage?
+    @State private var err: String?
+    @State private var open = false
+    var body: some View {
+        let a = aspect
+        let sz = ChatMediaLogic.displaySize(w: a.w, h: a.h)
+        Button { open = true } label: {
+            ZStack {
+                Rectangle().fill(Color.secondary.opacity(0.12))
+                if let cg = (img ?? ChatMedia.cached(file.id))?.cg {
+                    Image(decorative: cg, scale: 1).resizable().interpolation(.medium).scaledToFill()
+                } else if err != nil {
+                    Image(systemName: "photo.badge.exclamationmark").font(.title2).foregroundStyle(.secondary)
+                } else {
+                    Image(systemName: "photo").font(.title2).foregroundStyle(.tertiary)
+                }
+            }
+            .frame(width: sz.w, height: sz.h).clipShape(RoundedRectangle(cornerRadius: 10)).contentShape(RoundedRectangle(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(verbatim: file.name.isEmpty ? String(localized: "Bild") : file.name))
+        .accessibilityHint(Text("Öffnen"))
+        .help(Text("Öffnen"))
+        .overlay(alignment: .bottomLeading) {
+            if let err {
+                Text("Anhang nicht geladen: \(err)").font(.caption2).foregroundStyle(.orange).lineLimit(2)
+                    .padding(6).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 6)).padding(6)
+            }
+        }
+        .task(id: file.id) { await load() }
+        .sheet(isPresented: $open) { ChatImageViewer(file: file, conv: conv) }
+    }
+    /// Seitenverhaeltnis: w/h der Nachricht, sonst Vorschaubild, sonst schon einmal geladen (alte Nachrichten)
+    private var aspect: (w: Int?, h: Int?) {
+        if let w = file.w, let h = file.h { return (w, h) }
+        if let t = file.thumb, t.w > 0, t.h > 0 { return (t.w, t.h) }
+        if let k = ChatMedia.knownAspect(file.id) { return (k.w, k.h) }
+        if let i = img { return (i.w, i.h) }
+        return (nil, nil)
+    }
+    private func load() async {
+        if let m = ChatMedia.cached(file.id) { if img !== m { img = m }; return }
+        #if DEBUG
+        ChatPerf.imgStart()
+        #endif
+        do {
+            let m = try await conv.thumbnail(file)
+            img = m; err = nil
+            #if DEBUG
+            ChatPerf.imgDone()
+            #endif
+        } catch {
+            #if DEBUG
+            if Task.isCancelled || error is CancellationError { ChatPerf.imgCancel() } else { ChatPerf.imgDone(ok: false); if ChatPerf.on { ChatPerf.log("fehler \(error)") } }
+            #endif
+            if !Task.isCancelled && !(error is CancellationError) { err = error.localizedDescription }
+        }
+    }
+}
+
+/// Bild oeffnen: Original (verkleinert auf Bildschirmgroesse dekodiert), Teilen/Sichern
+struct ChatImageViewer: View {
+    let file: ChatFileRef
+    @ObservedObject var conv: ConversationModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var img: CGImage?
+    @State private var url: URL?
+    @State private var err: String?
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.black.ignoresSafeArea()
+                if let img {
+                    Image(decorative: img, scale: 1).resizable().scaledToFit()
+                        .accessibilityLabel(Text(verbatim: file.name.isEmpty ? String(localized: "Bild") : file.name))
+                } else if let err {
+                    Text("Anhang nicht geladen: \(err)").foregroundStyle(.white).padding()
+                } else {
+                    ZStack {
+                        if let t = ChatMedia.cached(file.id)?.cg { Image(decorative: t, scale: 1).resizable().scaledToFit().blur(radius: 6).opacity(0.7) }
+                        ProgressView().tint(.white)
+                    }
+                }
+            }
+            .navigationTitle(Text(verbatim: file.name))
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Schließen") { dismiss() }.keyboardShortcut(.cancelAction) }
+                ToolbarItem(placement: .primaryAction) {
+                    if let url { ShareLink(item: url) { Label("Teilen", systemImage: "square.and.arrow.up") } }
+                }
+            }
+        }
+        #if os(macOS)
+        .frame(minWidth: 640, idealWidth: 900, minHeight: 480, idealHeight: 700)
+        #endif
+        .task(id: file.id) { await load() }
+    }
+    private func load() async {
+        do {
+            let d = try await conv.original(file)
+            let name = file.name.isEmpty ? "bild" : file.name.replacingOccurrences(of: "/", with: "_")
+            let fid = file.id
+            // Dekodieren (verkleinert) und die Kopie fuer "Teilen/Sichern" im Hintergrund
+            let r = await Task.detached(priority: .userInitiated) { () -> (CGImage?, URL?) in
+                let cg = ChatImageIO.decode(d, maxPixel: 4096)
+                let dir = FileManager.default.temporaryDirectory.appendingPathComponent("chat-\(fid)", isDirectory: true)
+                try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                let u = dir.appendingPathComponent(name)
+                #if os(iOS)
+                let ok = (try? d.write(to: u, options: [.atomic, .completeFileProtection])) != nil
+                #else
+                let ok = (try? d.write(to: u, options: [.atomic])) != nil
+                #endif
+                return (cg, ok ? u : nil)
+            }.value
+            guard let cg = r.0 else { throw ChatMediaError.undecodable }
+            img = cg; url = r.1
+        } catch { if !(error is CancellationError) { err = error.localizedDescription } }
+    }
+}
+
+/// Datei (kein Bild): Name, Groesse, Laden -> Teilen/Sichern
+struct ChatFileRow: View {
+    let file: ChatFileRef
+    @ObservedObject var conv: ConversationModel
     @State private var err: String?
     @State private var url: URL?
+    @State private var loading = false
     var body: some View {
-        Group {
-            if file.isImage, let data, let img = PlatformImage(data: data) {
-                #if os(iOS)
-                Image(uiImage: img).resizable().scaledToFit().frame(maxWidth: 280, maxHeight: 320).clipShape(RoundedRectangle(cornerRadius: 10))
-                #else
-                Image(nsImage: img).resizable().scaledToFit().frame(maxWidth: 280, maxHeight: 320).clipShape(RoundedRectangle(cornerRadius: 10))
-                #endif
-            } else {
-                HStack(spacing: 8) {
-                    Image(systemName: "doc.fill").foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(verbatim: file.name.isEmpty ? String(localized: "Datei") : file.name).font(.callout).lineLimit(1)
-                        Text(ByteCountFormatter.string(fromByteCount: Int64(file.size), countStyle: .file)).font(.caption2).foregroundStyle(.secondary)
-                    }
-                    if let url { ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }.accessibilityLabel(Text("Teilen")) }
-                    else if err == nil && !file.isImage { Button { Task { await fetch() } } label: { Image(systemName: "arrow.down.circle") }.buttonStyle(.plain).accessibilityLabel(Text("Laden")) }
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: "doc.fill").foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(verbatim: file.name.isEmpty ? String(localized: "Datei") : file.name).font(.callout).lineLimit(1)
+                    Text(ByteCountFormatter.string(fromByteCount: Int64(file.size), countStyle: .file)).font(.caption2).foregroundStyle(.secondary)
                 }
+                if let url { ShareLink(item: url) { Image(systemName: "square.and.arrow.up") }.accessibilityLabel(Text("Teilen")) }
+                else if loading { ProgressView().controlSize(.small) }
+                else { Button { Task { await fetch() } } label: { Image(systemName: "arrow.down.circle") }.buttonStyle(.plain).accessibilityLabel(Text("Laden")) }
             }
             if let err { Text("Anhang nicht geladen: \(err)").font(.caption).foregroundStyle(.orange) }
         }
-        .task { if file.isImage { await fetch() } }
     }
     private func fetch() async {
+        loading = true; defer { loading = false }
         do {
             let d = try await conv.file(file)
-            data = d
-            if !file.isImage {
-                // nur fuer "Teilen/Sichern": entschluesselte Kopie im temporaeren Ordner (wird vom System aufgeraeumt)
-                let dir = FileManager.default.temporaryDirectory.appendingPathComponent("chat-\(file.id)", isDirectory: true)
+            let name = file.name.isEmpty ? "datei" : file.name.replacingOccurrences(of: "/", with: "_")
+            let fid = file.id
+            // nur fuer "Teilen/Sichern": entschluesselte Kopie im temporaeren Ordner (wird vom System aufgeraeumt)
+            url = try await Task.detached(priority: .userInitiated) { () -> URL in
+                let dir = FileManager.default.temporaryDirectory.appendingPathComponent("chat-\(fid)", isDirectory: true)
                 try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-                let u = dir.appendingPathComponent(file.name.isEmpty ? "datei" : file.name.replacingOccurrences(of: "/", with: "_"))
+                let u = dir.appendingPathComponent(name)
+                #if os(iOS)
                 try d.write(to: u, options: [.atomic, .completeFileProtection])
-                url = u
-            }
-        } catch { err = error.localizedDescription }
+                #else
+                try d.write(to: u, options: [.atomic])
+                #endif
+                return u
+            }.value
+            err = nil
+        } catch { if !(error is CancellationError) { err = error.localizedDescription } }
     }
 }
 

@@ -76,6 +76,29 @@ let kp = C.boxKeypair(), k = C.aeadKey()
 ok("seal roundtrip", C.seal(k, pk: kp.pk).flatMap { C.sealOpen($0, pk: kp.pk, sk: kp.sk) } == k && C.seal(k, pk: kp.pk)?.count == 80)
 ok("recovery key format", { let x = C.newRecoveryKey(); return x.count == 39 && C.normRecovery(x) != nil && x.split(separator: "-").count == 8 }())
 
+// Chat-Bilder mit Vorschaubild (2.1-c, Abschnitt "image"; aeltere Vektordateien ohne ihn: uebersprungen)
+let im = o("image")
+if !im.isEmpty {
+    let ic = s(im, "chat_id"), its = (im["ts"] as? NSNumber)?.int64Value ?? 0
+    let iem = C.encryptMessage(chatID: ic, msgID: s(im, "id"), sender: s(im, "sender"), device: s(im, "device"), signSK: sgn.sk, ts: its, replyTo: nil,
+                               plain: Data(s(im, "body_json").utf8), key: b(im, "key"), nonce: b(im, "nonce"))
+    ok("image message encrypt", iem?.bodyCT == s(im, "body_ct"))
+    ok("image message sig", iem?.sig == s(im, "sig")
+       && C.verifyMessage(chatID: ic, msgID: s(im, "id"), sender: s(im, "sender"), device: s(im, "device"), ts: its, replyTo: nil, bodyCT: s(im, "body_ct"), sig: s(im, "sig"), signPK: sgn.pk))
+    let content = ChatContent(json: Data(s(im, "body_json").utf8))
+    let f0 = content?.files.first, th = f0?.thumb
+    ok("image files[0] w/h/th", f0 != nil && (f0?.w ?? 0) > 0 && (f0?.h ?? 0) > 0 && th != nil && max(th?.w ?? 999, th?.h ?? 999) <= 320 && th?.mime == "image/jpeg")
+    ok("image send_files", ChatMediaLogic.sendIDs(content?.files ?? [], maxIDs: 20).ids == (im["send_files"] as? [String] ?? ["?"]))
+    ok("image files[] roundtrip", content.flatMap { ChatContent(json: $0.json()) } == content)
+    for (n, k) in [("orig", f0?.key), ("thumb", th?.key)] {
+        let x = im[n] as? [String: Any] ?? [:]
+        let eb = C.encryptFile(chatID: ic, data: b(x, "plain_b64"), key: b(x, "key"), nonce: b(x, "nonce"))
+        ok("image \(n) blob", eb.map { C.b64($0.blob) } == s(x, "blob") && C.decryptFile(chatID: ic, blob: b(x, "blob"), key: b(x, "key")) == b(x, "plain_b64") && s(x, "key") == k)
+    }
+    let tp = b(im["thumb"] as? [String: Any] ?? [:], "plain_b64")
+    ok("image thumb jpeg", tp.prefix(3) == Data([0xFF, 0xD8, 0xFF]) && tp.count == th?.size)
+} else { print("(chat_vectors.json ohne Abschnitt image - uebersprungen)") }
+
 // Anrufe (saga-call/v1): tests/call_vectors.json - dieselben Punkte wie tools/call_vectors.py check
 let cpath = CommandLine.arguments.dropFirst(2).first ?? ((path as NSString).deletingLastPathComponent + "/call_vectors.json")
 if let craw = FileManager.default.contents(atPath: cpath), let cv = (try? JSONSerialization.jsonObject(with: craw)) as? [String: Any] {

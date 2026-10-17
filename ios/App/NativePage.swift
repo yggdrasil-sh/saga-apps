@@ -975,7 +975,8 @@ struct NativePageScreen: View {
             Task { for it in items { if let d = try? await it.loadTransferable(type: Data.self) { await ed.insertImage(d) } }; ed.picked = [] }
         }
         // Cmd-V / Einsetzen mit Bild in der Zwischenablage -> Bildblock (wie "Bild einfuegen"); Text wird normal eingesetzt
-        .imagePasteTarget(enabled: { [weak e = ed, weak d = doc] in e.map { !$0.locked } == true && d?.fetched == true && d?.isDatabase == false }) { [weak e = ed] imgs in
+        .imagePasteTarget(enabled: { [weak e = ed, weak d = doc] in e.map { !$0.locked } == true && d?.fetched == true && d?.isDatabase == false },
+                          acceptBlocks: { [weak e = ed] p in e?.pasteBlocks(p) ?? false }) { [weak e = ed] imgs in
             Task { for i in imgs { await e?.insertImage(i.data) } }
         }
         .environmentObject(ed)
@@ -1035,6 +1036,7 @@ struct NativePageScreen: View {
                let b = doc.root.compactMap({ $0 as? NSMutableDictionary }).last(where: { $0["type"] as? String == "paragraph" }) {
                 try? await Task.sleep(for: .seconds(1)); ed.focus = b.blockID
             }
+            if UserDefaults.standard.bool(forKey: "hkBlockCopyTest"), !inPeek { await BlockClipboard.debugTest(ed) }   // nur fuer Tests: Bildblock kopieren
             if UserDefaults.standard.bool(forKey: "hkPublish"), doc.fetched {             // nur fuer Tests: Dialog "Veroeffentlichen" oeffnen
                 try? await Task.sleep(for: .seconds(1)); publishing = true
             }
@@ -1171,6 +1173,11 @@ struct BlockView: View {
             if let url = (data["file"] as? NSDictionary)?["url"] as? String {
                 VStack(alignment: .leading, spacing: 4) {
                     RemoteImage(path: url, w: 2000).frame(maxWidth: .infinity, maxHeight: 900).clipShape(RoundedRectangle(cornerRadius: 8))   // ganzes Bild wie im Web
+                        .overlay { RoundedRectangle(cornerRadius: 8).strokeBorder(Color.accentColor, lineWidth: 3).opacity(ed.selected == id ? 1 : 0) }
+                        .background(BlockClipResponder(id: id, active: ed.selected == id, ed: ed))   // Cmd-C/X, Entf, Menue (2.1-c)
+                        .contentShape(Rectangle())
+                        .onTapGesture { ed.select(ed.selected == id ? nil : id) }
+                        .accessibilityAddTraits(ed.selected == id ? [.isImage, .isSelected] : .isImage)
                     if !s("caption").isEmpty { Text(plain(s("caption"))).font(.caption).foregroundStyle(.secondary) }
                 }
             }
@@ -1468,9 +1475,17 @@ struct BlockHandles: View {
 struct BlockMenuItems: View {
     let id: String
     @EnvironmentObject var ed: PageEditor
+    private var isImage: Bool {
+        guard let (arr, i) = ed.locate(id), let b = arr[i] as? NSDictionary else { return false }
+        return (b["type"] as? String) == "image" && ((b["data"] as? NSDictionary)?["file"] as? NSDictionary)?["url"] is String
+    }
     var body: some View {
         if ed.canComment {
             Button { ed.commentBlock = id } label: { Label("Kommentieren", systemImage: "bubble.left") }
+        }
+        if isImage {                                                    // Bildblock (2.1-c): Bild + Block in die Zwischenablage
+            Button { ed.copyBlock(id, cut: false) } label: { Label("Kopieren", systemImage: "doc.on.doc") }
+            if !ed.locked { Button { ed.copyBlock(id, cut: true) } label: { Label("Ausschneiden", systemImage: "scissors") } }
         }
         if ed.locked {                                                  // schreibgeschuetzt: nur Link (und Kommentieren)
             Button { copyText(AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/notes#\(ed.doc.id):\(id)") } label: { Label("Link zum Block kopieren", systemImage: "link") }
