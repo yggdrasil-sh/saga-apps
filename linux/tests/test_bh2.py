@@ -53,3 +53,18 @@ def test_offline_start_catches_up(app, srv):
         w._close_ok = True
         w.destroy()
         pump(None, 0.1)
+
+
+# --- [S3] Vorschaubilder: file_ids_per_msg ----------------------------------------------------------------------------
+def test_thumbs_use_file_ids_per_msg(win, srv):
+    from hlidskjalf.chat import chat
+    cid, conv = _conv(win, srv)
+    big = _img(900, 600, fmt="JPEG")
+    files = [(f"b{i}.jpg", "image/jpeg", big) for i in range(10)]
+    chat.limits = dict(chat.limits or {}, files_per_msg=10, file_ids_per_msg=20)
+    out, ids = chat.upload_attachments(cid, files)
+    assert len(ids) == 20 and all("th" in e for e in out)
+    # aelterer Server ohne file_ids_per_msg: Rueckfall auf files_per_msg
+    chat.limits.pop("file_ids_per_msg")
+    out, ids = chat.upload_attachments(cid, files[:6])
+    assert len(ids) == 10 and sum("th" in e for e in out) == 4

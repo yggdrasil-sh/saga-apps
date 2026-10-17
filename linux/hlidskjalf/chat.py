@@ -757,7 +757,10 @@ class ChatState(GObject.Object):
     def upload_attachments(self, cid, files):
         """Hintergrund: Anhaenge [(name, mime, bytes)] hochladen; Bilder bekommen w/h und ein Vorschaubild ("th", 2.1-c),
         solange die Anhang-Grenze je Nachricht reicht. -> (Eintraege fuer den Inhalt, alle Datei-IDs)"""
-        nmax = int((self.limits or {}).get("files_per_msg") or 10)
+        lim = self.limits or {}
+        # Grenze fuer Datei-Kennungen je Nachricht (Anhaenge + Vorschaubilder): neuer Server "file_ids_per_msg" (20),
+        # aeltere Server ohne das Feld zaehlen nur "files_per_msg" (10)
+        nmax = int(lim.get("file_ids_per_msg") or lim.get("files_per_msg") or 10)
         out, ids = [], []
         for name, mime, data in files:
             e = self.upload_file(cid, data, name, mime)
