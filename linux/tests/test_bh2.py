@@ -93,3 +93,53 @@ def test_callbar_shows_caller_name(win, srv, app, monkeypatch):
     bar.set_compact(False)
     assert bar.acc_v.get_child().get_label() == "Answer"
     M.calls.decline(call)
+
+
+# --- [S4] Push-Mitteilung ohne Netz: Knoepfe, Klick nimmt nicht an ----------------------------------------------------
+def test_push_fallback_has_buttons(win, srv, app, monkeypatch):
+    from hlidskjalf import calls as M
+
+    class FakeN:
+        made = []
+
+        def __init__(self, title):
+            self.title, self.buttons, self.default = title, [], None
+            FakeN.made.append(self)
+
+        @classmethod
+        def new(cls, title):
+            return cls(title)
+
+        def set_body(self, b):
+            self.body = b
+
+        def set_priority(self, p):
+            pass
+
+        def set_category(self, c):
+            self.category = c
+
+        def set_default_action_and_target(self, a, v):
+            self.default = (a, v.get_string())
+
+        def add_button_with_target(self, label, a, v):
+            self.buttons.append((label, a, v.get_string()))
+
+    class FakeGio:
+        Notification = FakeN
+        NotificationPriority = M.Gio.NotificationPriority
+        Application = M.Gio.Application
+    sent = []
+    monkeypatch.setattr(M, "Gio", FakeGio)
+    monkeypatch.setattr(app, "send_notification", lambda i, n: sent.append((i, n)))
+    M.calls.app = app
+    cid = "e" * 32
+    M.calls._push[cid] = {"title": "Saga", "body": "Videoanruf", "media": "video", "url": "/chats#call-" + cid + "-video"}
+    M.calls._push_fallback(cid)
+    n = FakeN.made[-1]
+    assert sent and n.default == ("app.call-show", cid) and n.category == "call.incoming"
+    assert [(a, t) for _l, a, t in n.buttons] == [("app.call-decline", cid), ("app.call-accept", cid)]
+    opened = []
+    monkeypatch.setattr(M, "open_in_browser", lambda u, p=None: opened.append(u))
+    M.calls.accept(cid)
+    assert opened == [f"https://saga.test/chats#call-{cid}-video"]      # Art aus der Push-Mitteilung

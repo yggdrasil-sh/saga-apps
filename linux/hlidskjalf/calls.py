@@ -194,6 +194,7 @@ class Calls(GObject.Object):
         self.done = {}                  # call_id -> Zeitpunkt: erledigt, klingelt nicht wieder
         self.checking = set()           # gerade per GET geprueft (Live + Push gleichzeitig)
         self._push = {}                 # call_id -> Push-Mitteilung (Rueckfall, wenn das Pruefen scheitert)
+        self._push_media = {}           # call_id -> "audio"/"video" der Rueckfall-Mitteilung (Annehmen-Knopf)
         self.config = None              # GET /api/calls/config (enabled ...), None = unbekannt
         self.ringer = Ringer()
         self._timer = 0
@@ -203,6 +204,7 @@ class Calls(GObject.Object):
         self._stop(withdraw=True)
         self.done.clear()
         self.checking.clear()
+        self._push_media.clear()
         self.config = None
 
     # --- Server-Einstellung (Anrufe an?) ---------------------------------------------------------------------------
@@ -258,8 +260,15 @@ class Calls(GObject.Object):
         n.set_body(str(d.get("body") or ring_title({"media": d.get("media")}))[:300])
         n.set_priority(Gio.NotificationPriority.URGENT)
         url = d.get("url") if isinstance(d.get("url"), str) and d["url"].startswith("/chats#call-") else None
+        if hasattr(n, "set_category"):
+            n.set_category("call.incoming")
+        # wie die normale Mitteilung: Klick zeigt das Fenster, Annehmen/Ablehnen als Knoepfe (nie sofort annehmen)
+        n.set_default_action_and_target("app.call-show", GLib.Variant("s", cid))
+        n.add_button_with_target(_("Decline"), "app.call-decline", GLib.Variant("s", cid))
         if url:
-            n.set_default_action_and_target("app.call-accept", GLib.Variant("s", cid))
+            if d.get("media") in ("audio", "video"):
+                self._push_media[cid] = d["media"]
+            n.add_button_with_target(_("Answer"), "app.call-accept", GLib.Variant("s", cid))
         try:
             app.send_notification("call-" + cid, n)
         except GLib.Error:
@@ -329,7 +338,7 @@ class Calls(GObject.Object):
         if not valid_id(cid):
             return
         r = self.ringing if self.ringing and self.ringing["id"] == cid else None
-        media = media or (r or {}).get("media") or "audio"
+        media = media or (r or {}).get("media") or self._push_media.pop(cid, None) or "audio"
         self._done(cid)
         open_in_browser(call_url(cid, media), parent)
         self.emit("info", _("The call opens in your browser …"))
