@@ -174,6 +174,32 @@ def test_peer_avatar_change_revalidates(win, srv, monkeypatch):
     assert pump(lambda: not chat.peer(chat.chat(cid)).get("avatar"), 4)
 
 
+def test_avatar_changed_live_event(win, srv):
+    """Server ab 2.1: Live "avatar.changed" {user, avatar} -> Chat-Liste, Absender im Verlauf und eigenes Konto sofort"""
+    from hlidskjalf.chat import chat
+    _ready()
+    srv.chat_peer("anna", "Anna Beispiel")
+    cid = srv.new_chat("dm", ["test", "anna"])
+    cid, conv = _conv(win, srv, cid)
+    srv.peer_send(cid, "anna", "Hallo")
+    chat.load_messages(cid)
+    assert pump(lambda: any((m.get("sender") or {}).get("username") == "anna" for m in chat.cache[cid]["msgs"]), 4)
+    n0 = len(srv.log)
+    new = "/api/avatar/anna?v=9"
+    win._live_event("avatar.changed", {"user": "anna", "avatar": new})
+    assert chat.peer(chat.chat(cid))["avatar"] == new
+    assert all(m["sender"]["avatar"] == new for m in chat.cache[cid]["msgs"] if (m.get("sender") or {}).get("username") == "anna")
+    assert not [u for m, u, b, c in srv.log[n0:] if "api/chats?" in u]             # nichts neu geladen
+    win._live_event("avatar.changed", {"user": "anna", "avatar": None})            # entfernt -> Initialen
+    assert chat.peer(chat.chat(cid))["avatar"] is None
+    win.load_account()
+    pump(lambda: (win.me or {}).get("username"), 3)
+    n1 = len(srv.log)
+    win._live_event("avatar.changed", {"user": "test", "avatar": "/api/avatar/test?v=2"})   # eigenes Bild (anderes Geraet)
+    assert pump(lambda: any(u.endswith("api/account") for m, u, b, c in srv.log[n1:]), 3)
+    win._live_event("avatar.changed", {"user": 5, "avatar": []})                    # Unsinn: ignoriert
+
+
 # --- [S4] HEIC nur, wenn Pillow es oeffnen kann -----------------------------------------------------------------------
 def test_heic_only_with_decoder(monkeypatch):
     from gi.repository import Gio

@@ -877,6 +877,27 @@ class ChatState(GObject.Object):
         bg(client.json, "POST", "api/chats", dict(body, device=self.device_id), done=fin, error=error)
 
     # --- Live ---------------------------------------------------------------------------------------------------------------
+    def _avatar_changed(self, d):
+        """Live "avatar.changed" {user, avatar} (Server 2.1): neue Bildadresse (bzw. None = Initialen) in Chat-Liste und
+        geladenen Nachrichten eintragen, ohne Listen neu zu laden"""
+        user, url = d.get("user"), d.get("avatar")
+        if not isinstance(user, str) or not user or not (url is None or isinstance(url, str)):
+            return
+
+        def fix(p):
+            if isinstance(p, dict) and p.get("username") == user and p.get("avatar") != url:
+                p["avatar"] = url
+                return True
+            return False
+        hit = False
+        for c in self.chats:
+            hit = fix(c.get("peer")) or hit
+        if hit:
+            self.emit("changed")
+        for cid, cc in list(self.cache.items()):
+            if any([fix(m.get("sender")) for m in cc.get("msgs") or []]):
+                self.emit("messages", cid)
+
     def on_live(self, typ, d):
         if not isinstance(d, dict):
             return
@@ -899,6 +920,8 @@ class ChatState(GObject.Object):
                 self.typing.setdefault(cid, {})[u["username"]] = (u.get("name") or u["username"], time.monotonic() + 6)
                 self.emit("typing", cid)
                 GLib.timeout_add(6200, lambda: (self.emit("typing", cid), False)[1])
+        elif typ == "avatar.changed":
+            self._avatar_changed(d)
         elif typ == "chat.changed":
             c = self.cache.get(cid)
             if c:

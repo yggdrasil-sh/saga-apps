@@ -1240,6 +1240,11 @@ class MainWindow(Adw.ApplicationWindow):
         if typ.startswith("chat."):
             chat.on_live(typ, d)
             return
+        if typ == "avatar.changed":                        # Profilbild einer Person (Server 2.1): Chats, eigenes Konto
+            chat.on_live(typ, d)
+            if isinstance(d, dict) and d.get("user") and d.get("user") == (getattr(self, "me", None) or {}).get("username"):
+                self.load_account()
+            return
         if typ.startswith("call.") or typ in ("hello", "reset"):    # Anrufe: klingeln, anderswo angenommen/beendet
             from .calls import calls
             calls.on_live(typ, d)

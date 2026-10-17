@@ -141,8 +141,9 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   bei älteren Servern wie bisher `files_per_msg`).
 - **Klingel-Leiste:** der Name der anrufenden Person steht allein in der Titelzeile und bleibt auch im schmalen Fenster
   lesbar; „Videoanruf“ darunter, kürzere Knopftexte („Annehmen“, „Nur Ton“).
-- **Profilbilder anderer** werden beim erneuten Öffnen der Chats und bei offenen Chats alle zwei Minuten aktualisiert
-  (Wechsel und Entfernen), nicht erst nach einem Neustart.
+- **Profilbilder anderer** (Wechsel und Entfernen) erscheinen sofort über das Live-Ereignis `avatar.changed`
+  (Server 2.1); bei Servern ohne dieses Ereignis beim erneuten Öffnen der Chats bzw. bei offenen Chats alle zwei
+  Minuten – nicht erst nach einem Neustart.
 - HEIC/HEIF wird nur angeboten, wenn die Bildbibliothek es öffnen kann (z. B. mit installiertem `pillow-heif`);
   sonst werden solche Dateien als gewöhnlicher Anhang behandelt.
 - Push-Mitteilung eines Anrufs ohne Verbindung: mit „Ablehnen“/„Annehmen“, ein Klick zeigt das Fenster statt sofort
