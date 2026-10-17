@@ -69,6 +69,19 @@ nombre de usuario). Después defines la dirección, **Publicar también las subp
 **Pública** en la cabecera; tu nombre público se cambia en **Ajustes → Cuenta**. En servidores más antiguos no
 aparece la opción del menú.
 
+## Novedades de 2.1 (con el servidor de Saga 2.1)
+
+- **Llamadas de audio y vídeo** en el chat directo, cifradas de extremo a extremo. iPhone/iPad suenan mediante
+  CallKit (requiere una clave APNs en el servidor), Android como llamada a pantalla completa (en segundo plano con un
+  distribuidor UnifiedPush), el Mac con su propia ventana de llamada; en Linux la app suena y la llamada se abre en el
+  navegador.
+- **Fotos de perfil** allí donde aparecen personas; foto propia con recorte en los ajustes.
+- **Inicio de sesión y seguridad:** estado de las passkeys y de la app de autenticación en los ajustes; el inicio de
+  sesión con segundo factor se hace en la ventana del navegador.
+- **Imágenes de chat rápidas** con miniaturas, **Immich en el chat**, pegar imágenes y copiar bloques de imagen.
+
+Las funciones nuevas necesitan el servidor de Saga 2.1; con servidores más antiguos las apps funcionan como antes.
+
 ## Novedades de 2.0 (con el servidor de Saga 2.0)
 
 - **Compartir y comentar:** comparte páginas con personas y grupos (ver, comentar, editar), comentarios en los
@@ -96,7 +109,7 @@ plantilla:
 - `ios/Config/local.env.example` → `ios/Config/local.env`
 - `tools/local.env.example` → `tools/local.env` (equipos para las pruebas de Linux)
 
-Versión de todas las apps: `tools/set-version.sh 2.0.0` (una sola fuente: `VERSION`). Cuando un cambio en
+Versión de todas las apps: `tools/set-version.sh 2.1.0` (una sola fuente: `VERSION`). Cuando un cambio en
 `VERSION` llega a `main`, GitHub compila todos los paquetes y los publica como release
 (`.github/workflows/release.yml`). Lo nuevo llega primero a la rama `testing`: cada push allí compila todos los
 paquetes y reemplaza la versión preliminar `v<versión>-testing` (pre-release, nunca «Latest»).

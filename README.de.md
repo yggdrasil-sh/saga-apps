@@ -69,6 +69,18 @@ kopierst oder öffnest den Link oder wählst **Veröffentlichung beenden**. Öff
 **Öffentlich**; den öffentlichen Namen änderst du unter **Einstellungen → Konto**. Bei älteren Servern fehlt der
 Menüpunkt.
 
+## Neu in 2.1 (mit Saga-Server 2.1)
+
+- **Audio- und Videoanrufe** im Direkt-Chat, Ende-zu-Ende verschlüsselt. iPhone/iPad klingeln über CallKit (braucht
+  einen APNs-Schlüssel am Server), Android als Vollbild-Anruf (im Hintergrund mit einem UnifiedPush-Verteiler), der Mac
+  mit eigenem Anruf-Fenster; unter Linux klingelt die App und das Gespräch läuft im Browser.
+- **Profilbilder** überall, wo Personen erscheinen; eigenes Bild mit Zuschnitt in den Einstellungen.
+- **Anmeldung & Sicherheit:** Stand von Passkeys und Authenticator-App in den Einstellungen; die Anmeldung mit
+  zweitem Faktor läuft im Browserfenster.
+- **Schnelle Chat-Bilder** mit Vorschaubildern, **Immich im Chat**, Bilder einfügen und Bildblöcke kopieren.
+
+Die neuen Funktionen brauchen Saga-Server 2.1; mit älteren Servern arbeiten die Apps wie bisher.
+
 ## Neu in 2.0 (mit Saga-Server 2.0)
 
 - **Teilen und Kommentare:** Seiten mit Personen und Gruppen teilen (Lesen, Kommentieren, Bearbeiten), Kommentare
@@ -93,7 +105,7 @@ sondern in lokalen Dateien, die git ignoriert. Vorlagen liegen jeweils daneben:
 - `ios/Config/local.env.example` → `ios/Config/local.env`
 - `tools/local.env.example` → `tools/local.env` (Rechner für die Linux-Tests)
 
-Version aller Apps setzen: `tools/set-version.sh 2.0.0` (eine Quelle: `VERSION`). Landet die Änderung an
+Version aller Apps setzen: `tools/set-version.sh 2.1.0` (eine Quelle: `VERSION`). Landet die Änderung an
 `VERSION` auf `main`, baut GitHub alle Pakete und veröffentlicht sie als Release (`.github/workflows/release.yml`).
 Neues landet zuerst auf dem Branch `testing`: Jeder Push dort baut alle Pakete und ersetzt die
 Vorabversion `v<Version>-testing` (Pre-release, nie „Latest“).

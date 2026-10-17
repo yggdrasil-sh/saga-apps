@@ -67,6 +67,18 @@ the address, **Also publish subpages**, **Allow search engines** and **As profil
 or **Stop publishing**. Public pages show **Public** in the page header; you can change your public name under
 **Settings → Account**. On older servers the menu item does not appear.
 
+## New in 2.1 (with Saga server 2.1)
+
+- **Audio and video calls** in direct chats, end-to-end encrypted. iPhone/iPad ring via CallKit (needs an APNs key
+  on the server), Android as a full-screen call (in the background with a UnifiedPush distributor), the Mac with its
+  own call window; on Linux the app rings and the call runs in the browser.
+- **Profile pictures** wherever people appear; upload your own (with cropping) in the settings.
+- **Sign-in & security:** status of passkeys and authenticator app in the settings; two-factor sign-in runs in the
+  browser window.
+- **Fast chat images** with previews, **Immich in chats**, pasting images and copying image blocks.
+
+The new features need Saga server 2.1; with older servers the apps work as before.
+
 ## New in 2.0 (with Saga server 2.0)
 
 - **Sharing and comments:** share pages with people and groups (view, comment, edit), comments on blocks with
@@ -90,7 +102,7 @@ repository, but in local files that git ignores. Templates sit right next to the
 - `ios/Config/local.env.example` → `ios/Config/local.env`
 - `tools/local.env.example` → `tools/local.env` (machines for the Linux tests)
 
-Set the version of all apps: `tools/set-version.sh 2.0.0` (single source: `VERSION`). When a change to
+Set the version of all apps: `tools/set-version.sh 2.1.0` (single source: `VERSION`). When a change to
 `VERSION` lands on `main`, GitHub builds all packages and publishes them as a release
 (`.github/workflows/release.yml`). New work lands on the `testing` branch first: every push there builds all
 packages and replaces the pre-release `v<version>-testing` (never "Latest").

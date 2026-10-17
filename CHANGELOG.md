@@ -6,191 +6,65 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
-### Neu
-- **iOS, iPadOS, macOS:** Chat – „Aus Immich“ beim Anhängen (wenn Immich eingerichtet ist): dieselbe Auswahl wie auf
-  Seiten; das Foto wird über den Server geladen (Original, sonst große Vorschau; zu groß → verkleinert) und wie jeder
-  Anhang Ende-zu-Ende-verschlüsselt gesendet.
+## [2.1.0] – 2026-10-17
 
-### Behoben
-- **iOS, iPadOS, macOS:** Bilder aus der Zwischenablage (Bildschirmfoto, „Bild kopieren“, Bilddatei aus dem Finder)
-  lassen sich mit ⌘V bzw. „Einsetzen“ einfügen – auf Seiten als Bildblock, im Chat als verschlüsselter Anhang mit
-  Vorschau vor dem Senden. Vorher geschah am Mac nichts, auf iPhone/iPad landete ein leeres Ersatzzeichen im Text.
-  Text einsetzen bleibt unverändert.
+Passt zu Saga-Server 2.1. **Die neuen Funktionen brauchen Saga-Server 2.1; ältere Server funktionieren weiter**
+(dort arbeiten die Apps wie bisher, ohne Anrufe und Profilbilder).
+
+### Neu (alle Apps)
+- **Audio- und Videoanrufe im Direkt-Chat:** WebRTC direkt zwischen den Geräten, jede Signalisierung mit dem
+  Chat-Geräteschlüssel signiert und für das Zielgerät versiegelt (`saga-call/v1`, geprüft mit den Testvektoren des
+  Servers); „Ende-zu-Ende verschlüsselt“ erst, wenn der DTLS-Fingerabdruck zur signierten Beschreibung passt.
+  Geänderte Sicherheitsnummer: kein Anruf, bis sie geprüft ist. Anruf-Einträge im Chat (Dauer, verpasst, abgelehnt).
+- **Profilbilder** überall, wo Personen erscheinen (Chats, Mitglieder, Kommentare, Anwesenheit, Glocke, Teilen,
+  Versionen) – nur vom eigenen Server geladen, zwischengespeichert, Initialen als Ersatz; Wechsel erscheinen sofort.
+  Eigenes Bild hochladen (runder Zuschnitt mit Zoom), entfernen, Gravatar und „auf veröffentlichten Seiten zeigen“.
+- **Anmeldung & Sicherheit:** Stand des zweiten Faktors in den Einstellungen (Passkeys, Authenticator-App, übrige
+  Wiederherstellungscodes, Hinweis bei Pflicht durch den Admin), Verwaltung im Browser. Passkey oder Code fragt das
+  Browserfenster der Anmeldung ab; Chat „Neu beginnen“ nimmt auch den Code der Authenticator-App.
+- **Schnelle Chat-Bilder:** Vorschaubild beim Senden (gemeinsames Format aller Apps und des Webs), im Verlauf nur
+  Vorschaubilder in fester Größe, Original erst beim Antippen; Laden und Entschlüsseln im Hintergrund, Cache nur mit
+  Ciphertext (200 MB, geleert beim Abmelden). Gemessen mit 300 Bildnachrichten: erster Bildschirm in unter einer
+  Sekunde statt 3–5 s, deutlich weniger Speicher.
+- **Immich im Chat:** „Anhängen → Aus Immich“ (wenn Immich eingerichtet ist), verschlüsselt gesendet wie jeder Anhang.
+- **Bilder einfügen und kopieren:** Bilder aus der Zwischenablage im Chat (als Anhang) und auf Seiten (als Bildblock);
+  Bildblöcke kopieren, ausschneiden und in andere Seiten einsetzen (iOS/iPadOS/macOS, Linux).
 
 ### iOS, iPadOS, macOS
-- **Anrufe (Audio und Video) im Direkt-Chat:** Knöpfe „Anrufen“/„Videoanruf“ im Kopf des Chats, WebRTC direkt
-  zwischen den Geräten (bei Bedarf über den TURN-Server des Admins). Jede Signalisierung ist mit dem Chat-Geräteschlüssel
-  signiert und für das Zielgerät versiegelt (saga-call/v1, Testvektoren grün); nach dem Verbinden wird der
-  DTLS-Fingerabdruck gegen die signierte SDP geprüft – erst dann steht „Ende-zu-Ende verschlüsselt“ da. Geänderte
-  Sicherheitsnummer: kein Anruf, bis sie bestätigt ist. Stumm, Kamera an/aus, Lautsprecher und Kamera wechseln
-  (iPhone/iPad), Anruf-Einträge im Chat (Dauer, verpasst, abgelehnt; Tippen = zurückrufen).
-- **Klingeln:** iPhone/iPad über CallKit (Sperrbildschirm, Anrufliste) und PushKit-VoIP-Mitteilungen (eigenes Abo
-  „Saga-App: Anrufe“, nur für klingelnde Anrufe); Mac mit eigenem Fenster „Anruf“, Klingelton und Mitteilung mit
-  „Annehmen“/„Ablehnen“.
-- **Profilbilder** überall, wo Personen erscheinen (Chats, Mitglieder, Absender in Gruppen, Kommentare, Anwesenheit,
-  Benachrichtigungen, Teilen, Versionen, eigenes Bild oben links auf iPhone/iPad) – nur vom eigenen Server geladen,
-  mit Zwischenspeicher; Initialen als Ersatz. Eigenes Bild in den Einstellungen hochladen (runder Zuschnitt mit Zoom),
-  entfernen, Gravatar und „auf veröffentlichten Seiten zeigen“ schalten.
-- **Anmeldung & Sicherheit** in den Einstellungen: Status des zweiten Faktors (Passkeys, Authenticator-App, Warnung bei
-  wenigen Wiederherstellungscodes, Hinweis bei Admin-Pflicht), verwaltet wird im Browser. Hinweis im Anmeldebildschirm,
-  dass das Browserfenster nach Passkey oder Code fragt. Chat „Neu beginnen“ nimmt Passwort oder Code der
-  Authenticator-App; reine Passkey- bzw. SSO-Konten werden in den Browser geleitet.
-
-### iOS, iPadOS, macOS – Chat-Bilder und Bildblöcke (2.1-c)
-- **Chat-Bilder schnell:** Beim Senden entsteht ein Vorschaubild (320 px, JPEG, ohne Metadaten, im Hintergrund),
-  das wie jeder Anhang Ende-zu-Ende-verschlüsselt mitgeht (`w`/`h`/`th` im Anhang, Format wie Web/Android/Linux).
-  Im Verlauf erscheint nur das Vorschaubild in fester Größe (nichts springt), das Original erst beim Antippen
-  (Vollbild, Teilen/Sichern). Alte Nachrichten ohne Vorschaubild: einmal aus dem Original erzeugt und verschlüsselt
-  zwischengespeichert. Speicher-Cache (300 Bilder/30 MB) und Platten-Cache nur mit Ciphertext (200 MB, älteste
-  zuerst; geleert beim Abmelden, „Neu beginnen“ und Entfernen des Geräts). Geladen wird nur, was sichtbar ist
-  (höchstens 4 gleichzeitig, Abbruch beim Wegscrollen), Entschlüsseln/Dekodieren nie im UI-Thread.
-  Gemessen am Mac mit 300 Bildnachrichten (je 3–5 MB): erster Bildschirm 3,3 s → 0,6 s, beim schnellen Scrollen
-  2 von 307 → 291 von 293 Bildern sofort da, danach 19,5 s → 0 s Warten, Speicher-Spitze 164 MB → 96 MB.
-- **Bildblöcke kopieren und ausschneiden:** Bild auf einer Seite anklicken/antippen (Rahmen), dann ⌘C/⌘X, Entf oder
-  Bearbeiten → Kopieren/Ausschneiden; auf dem iPhone über das Kontextmenü (lange drücken). In der Zwischenablage liegen
-  das Bild (für andere Programme) und der Block: in derselben Seite einsetzen verschiebt ihn, in einer anderen Seite
-  wird das Bild neu hochgeladen (mit Bildunterschrift). Vorher gab es für Bildblöcke keinen Empfänger für ⌘C/⌘X.
-
-### iOS, iPadOS, macOS – Behoben (Bughunt 2)
-- **Anrufe:** Auflegen, während noch „Verbinde …“ steht, bricht den Anruf jetzt wirklich ab. Vorher klingelte es beim
-  Gegenüber trotzdem, die App hing auf „Klingelt …“ und lehnte bis zum Neustart jeden weiteren Anruf als „Besetzt“
-  ab. Ebenso lehnt die App einen Anruf nicht mehr als „Besetzt“ ab, wenn er beim Start gleichzeitig über den
-  Live-Kanal und das Nachholen gemeldet wird.
-- **Anrufe – Bedienung:** Bei Bedienungshilfen-Schriftgrößen bleiben alle Knöpfe (Stumm, Kamera, Lautsprecher,
-  Auflegen, Ablehnen/Annehmen) im Bild. Das eigene Kamerabild verdeckt die Ton-Diagnose nicht mehr und ist mit der
-  Rückkamera nicht mehr spiegelverkehrt; „… ist stummgeschaltet“ erscheint auch, wenn das Video des Gegenübers
-  läuft. iPhone/iPad: auf einem anderen Gerät angenommene Anrufe stehen in der Anrufliste nicht mehr als verpasst.
-- **Mac – Anrufe:** Saga drängt sich nicht mehr bei jedem Zustandswechsel eines Anrufs in den Vordergrund (Eingaben
-  in anderen Apps landeten sonst in Saga). Das Anruf-Fenster öffnet sich beim Beginn und beim Annehmen; klingelt es,
-  während du in einer anderen App bist, meldet sich Saga mit einer Mitteilung (Annehmen/Ablehnen) und einmal im Dock.
-- **Profilbilder:** Transparente PNGs bekommen einen weißen statt schwarzen Hintergrund. Ein kurzer Serverfehler lässt
-  nicht mehr für die ganze Sitzung Initialen stehen; Bilder werden nach 10 Minuten beim nächsten Anzeigen (z. B.
-  Seitenwechsel) mit dem Server abgeglichen. Abmelden leert auch den Zwischenspeicher der Profilbilder. Mit einem
-  Server, der das Live-Ereignis `avatar.changed` sendet, erscheint ein neues oder entferntes Profilbild sofort.
-- **Chat:** „Neu beginnen“ mit dem Code der Authenticator-App bietet nicht mehr an, den Code als Passwort zu sichern.
-  Ein ausgewählter, noch nicht gesendeter Anhang verdeckt nicht mehr die neueste Nachricht.
+- Klingeln auf iPhone/iPad über **CallKit** (Sperrbildschirm, Anrufliste) und PushKit-VoIP; Mac mit eigenem
+  Anruf-Fenster, Klingelton und Mitteilung „Annehmen“/„Ablehnen“. Lautsprecher und Kamera wechseln.
+- Bilder aus der Zwischenablage mit ⌘V bzw. „Einsetzen“ (vorher geschah am Mac nichts, auf iPhone/iPad landete ein
+  Ersatzzeichen).
+- Behoben: Auflegen während „Verbinde …“ bricht wirklich ab (vorher „Besetzt“ bis zum Neustart); Knöpfe bei großer
+  Schrift; Saga drängt sich am Mac nicht mehr in den Vordergrund; transparente Profilbilder mit weißem Hintergrund.
 
 ### Android
-- **Immich im Chat:** „Anhängen → Aus Immich“ (nur wenn Immich für dich eingerichtet ist) mit Zuletzt, Alben und
-  Inhaltssuche. Das Foto wird über den Immich-Proxy des Servers geladen (Original, sonst große Vorschau; zu groß →
-  verkleinert) und wie jeder Anhang Ende-zu-Ende-verschlüsselt gesendet.
-- **Bilder einfügen:** im Chat aus der Zwischenablage (Einfügen-Menü des Felds, „Anhängen → Bild einfügen“), per
-  Tastatur (GBoard: Sticker, GIFs, kopierte Bilder) und per Ziehen; auf Seiten per Tastatur und mit dem Knopf
-  „Bild einfügen“ in der Werkzeugleiste (lädt hoch und setzt einen Bild-Block hinter den aktuellen Block).
-- **Anrufe (Saga-Server 2.1):** Audio- und Videoanrufe aus dem Direkt-Chat (Hörer/Kamera oben im Chat), Ende-zu-Ende
-  verschlüsselt mit WebRTC (DTLS-SRTP). Jedes Signal ist mit dem Chat-Geräteschlüssel signiert und für das Zielgerät
-  versiegelt (`saga-call/v1`, geprüft mit den Testvektoren des Servers); „Ende-zu-Ende verschlüsselt ✓“ erst, wenn der
-  DTLS-Fingerabdruck der Gegenseite zur signierten Beschreibung passt. Klingeln als Vollbild-Anruf (auch auf dem
-  Sperrbildschirm) über den Live-Kanal bzw. UnifiedPush-Mitteilung der Art „Anruf“; Annehmen mit oder ohne Video,
-  Ablehnen, Stumm, Kamera an/aus und wechseln, Lautsprecher, Weg (direkt/Relais) und Qualität; laufender Anruf als
-  Vordergrund-Dienst. Anruf-Einträge im Chat („Videoanruf · 3:12“, „Verpasster Anruf“ mit „Zurückrufen“). Geänderte
-  Sicherheitsnummer des Gegenübers verhindert den Anruf, bis sie im Chat geprüft ist.
-- **Profilbilder (Saga-Server 2.1):** überall statt bzw. über den Initialen – Kopfzeile der Einstellungen, Kommentare,
-  Anwesenheit, Benachrichtigungen, Teilen und Personensuche, Chat-Liste, Gruppen-Chats, Mitglieder, Anrufe. Bilder
-  kommen nur vom eigenen Saga-Server (mit der App-Anmeldung, WebP, zwischengespeichert je Version). Eigenes Bild unter
-  Einstellungen → Konto hochladen (Foto-Auswahl, runder Zuschnitt mit Verschieben/Zoomen), entfernen, Gravatar und
-  „auf veröffentlichten Seiten zeigen“ schalten.
-- **Anmeldung & Sicherheit (Saga-Server 2.1):** Status in den Einstellungen (zweiter Faktor an/aus, Passkeys,
-  Authenticator-App, übrige Wiederherstellungscodes, Hinweis bei Pflicht durch den Admin) und „Im Browser verwalten“.
-  Die Anmeldung mit Passkey oder Code läuft im Browserfenster wie bisher; „Neu beginnen“ im Chat nimmt jetzt auch den
-  6-stelligen Code der Authenticator-App.
-
-### Android – Behoben (2.1-c)
-- **Server im Heimnetz unter Android 17:** Seit Android 17 erreichen Apps Adressen im lokalen Netz (z. B. eine Domain,
-  die zu Hause auf 192.168.x.x zeigt, `*.local`, 10.x, fd00::) nur mit der Berechtigung „Geräte in der Nähe“ – vorher
-  liefen alle Anfragen still in eine Zeitüberschreitung, keine Seite ließ sich öffnen. Die App erkennt das jetzt
-  (Anmelden, Koppeln, Start, Fehler beim Laden), erklärt es und fragt nach der Berechtigung (abgelehnt → Weg in die
-  App-Einstellungen); Fehlermeldungen sagen „Kein Zugriff aufs lokale Netzwerk“ statt „Zeitüberschreitung“.
-- **Seiten aus einem Notion-Import:** Datenbanken zeigen ihre Einträge (antippen öffnet sie), Einträge zeigen ihre
-  Eigenschaften (Auswahl, Mehrfachauswahl, Datum, Zahl/Prozent/Euro, Checkbox, Link, Text, Relation, erstellt/geändert,
-  berechnet) – bisher waren Datenbank-Zeilen in der App gar nicht erreichbar. Eingebettete Datenbanken, Schaltflächen
-  und Einbettungen erscheinen lesbar statt als „noch nicht unterstützt“; nummerierte Listen beginnen bei `start`.
-  Unbekannte oder beschädigte Blöcke bleiben Platzhalter, die übrige Seite wird immer angezeigt.
-- **Chat-Bilder schnell:** Beim Senden entsteht ein Vorschaubild (320 px, JPEG, ohne Metadaten, eigener Schlüssel,
-  `w`/`h`/`th` im Anhang); im Verlauf wird nur das Vorschaubild geladen – Platz in richtiger Größe sofort, höchstens
-  4 gleichzeitig, Abbruch beim Wegscrollen, Entschlüsseln/Dekodieren im Hintergrund. Original erst beim Antippen. Alte
-  Nachrichten ohne Vorschaubild: einmal verkleinert und verschlüsselt zwischengespeichert. Cache: Bitmaps im Speicher
-  (LRU, 32 MB) und nur Ciphertext auf der Platte (LRU, 200 MB), geleert bei Abmelden, „Neu beginnen“ und entferntem Gerät.
-- **APK halb so groß:** Das Release-APK enthält nur noch arm64-v8a und armeabi-v7a (echte Telefone/Tablets, auch
-  32-Bit); 23 statt 50 MB. Emulator-/Chromebook-Builds mit `-PsagaAllAbis=true`.
-
-### Android – Behoben (Fehlerrunde nach Bughunt 2)
-- **Dunkelmodus:** Datenbank-Blöcke, Zeilen, Eigenschaftswerte und Einbettungen waren schwarz auf fast schwarz – die
-  Grund-Textfarbe folgt jetzt dem Farbschema.
-- **Videoanruf:** Das Bild des Gegenübers wird ganz gezeigt (eingepasst, Rand schwarz) statt hochkant auf einen
-  schmalen Streifen beschnitten. Die eigene Vorschau rutscht bei großer Schrift unter die Statuszeile; verweigerte
-  Kamera im Anruf wird erklärt; der Lautsprecher-Knopf zeigt die tatsächliche Ausgabe (Geräte ohne Hörer); die
-  Mitteilung „Laufender (Video-)Anruf“ nennt den Namen nur einmal und zeigt die Dauer.
-- **Anrufe ohne UnifiedPush:** Hinweis in den Einstellungen und nach dem ersten Anruf: „Ohne Mitteilungs-Verteiler
-  klingelt Saga nur, wenn die App offen ist“ – mit „Einrichten“.
-- **Anmelden im Heimnetz (Android 17):** Die Meldung „Kein Zugriff aufs lokale Netzwerk“ kommt erst nach einer
-  Ablehnung; nach „Erlauben“ (auch über die App-Einstellungen) geht die Anmeldung von selbst weiter. Nach der ersten
-  Ablehnung fragt der Knopf „Erlauben“ das System erneut, erst danach „Einstellungen öffnen“.
-- **Konto im Browser:** „Im Browser verwalten“ nennt das Konto der App und gibt es der Seite mit (`?user=`). Nach dem
-  Abmelden in der App startet die nächste Anmeldung in einem privaten Browser-Tab (ohne die Sitzung des alten Kontos,
-  `prompt=login`) – ein anderes Konto ist so wählbar.
-- **Abmelden** leert auch den Bild-Cache (Immich-Vorschaubilder, Profilbilder).
-- **„Bild einfügen“** erscheint auch, wenn das Bild in einer anderen App kopiert wurde (Prüfung beim Zurückkommen).
-- **Chat:** Datumstrenner zwischen den Tagen; zu große Bilder aus „Datei oder Bild“ werden verkleinert statt
-  abgelehnt; beim Verkleinern bleibt die EXIF-Ausrichtung erhalten.
-- **Seiten:** Datum und Zahlen in Datenbank-Zeilen in der Schreibweise der Sprache, Link-Eigenschaft antippbar,
-  Zitat-Unterschrift sichtbar, Checklisten-Kästchen an der ersten Zeile.
-- **Profilbild** mit Transparenz bleibt transparent (PNG statt JPEG mit schwarzen Ecken).
-
-### Neu (Linux)
-- **Immich im Chat:** Büroklammer → „Aus Immich …“ (nur wenn Immich verbunden ist), gleiche Auswahl wie auf Seiten;
-  das Bild wird über den Immich-Proxy des Servers geladen (Original bzw. große Vorschau, bei Bedarf verkleinert) und
-  wie jeder Anhang Ende-zu-Ende verschlüsselt hochgeladen.
-- **Einfügen aus der Zwischenablage (Strg+V):** Bilder (Bildschirmfotos, kopierte Bilder) und Dateien aus dem
-  Dateimanager kommen im Chat als Anhang mit Vorschau, auf Seiten als Bild- bzw. Dateiblock; Text wie bisher.
-  Zu große Bilder werden im Chat automatisch verkleinert.
+- Klingeln als **Vollbild-Anruf** (auch auf dem Sperrbildschirm) über den Live-Kanal bzw. UnifiedPush; laufender
+  Anruf als Vordergrund-Dienst; Weg (direkt/Relais) und Qualität sichtbar.
+- **Android 17 im Heimnetz:** Die App erkennt die neue Berechtigung „Geräte in der Nähe“ für Adressen im lokalen Netz,
+  erklärt sie und fragt danach (vorher liefen alle Anfragen still in eine Zeitüberschreitung).
+- **Notion-Importe:** Datenbank-Zeilen und ihre Eigenschaften sind in der App erreichbar, eingebettete Datenbanken
+  und Schaltflächen lesbar.
+- Bilder einfügen aus Zwischenablage, Tastatur (GBoard) und per Ziehen; Knopf „Bild einfügen“ auf Seiten.
+- APK halb so groß (nur arm64-v8a und armeabi-v7a, 23 statt 50 MB).
+- Behoben: Dunkelmodus in Datenbank-Blöcken, Videobild nicht mehr beschnitten, Kontowechsel im Browser, Datumstrenner
+  im Chat, Profilbilder mit Transparenz.
 
 ### Linux
-- **Anmeldung & Sicherheit (Server 2.1):** Einstellungen → Konto zeigt den Stand des zweiten Faktors (Passkeys,
-  Authenticator-App, verbleibende Wiederherstellungscodes, Hinweis, wenn der Admin ihn verlangt) und öffnet die
-  Verwaltung mit „Im Browser verwalten“. Die Anmeldung mit Passkey bzw. Code läuft wie bisher im Browser; der
-  Anmeldebildschirm weist darauf hin.
-- **Chats neu beginnen mit Code:** zur Bestätigung geht neben dem Passwort auch der 6-stellige Code der
-  Authenticator-App; Konten nur mit Passkey werden in den Browser geleitet.
-- **Profilbilder:** überall, wo Personen erscheinen (Chats, Unterhaltungen, Mitglieder, Personensuche, Glocke,
-  Anwesenheit, Kommentare, Teilen, eigenes Konto in der Seitenleiste) – geladen nur von Saga, zwischengespeichert, mit
-  Initialen als Rückfall. Eigenes Bild hochladen mit rundem Zuschnitt (verschieben, zoomen), entfernen, Gravatar und
-  „auf veröffentlichten Seiten zeigen“ schalten.
-- **Anrufe:** eingehende Audio- und Videoanrufe klingeln in der App (Leiste im Fenster, Desktop-Mitteilung mit
-  „Ablehnen“/„Annehmen“, auch über UnifiedPush) – genau einmal je Anruf, und nicht mehr, sobald er anderswo
-  angenommen oder beendet wurde. Annehmen und Anrufen öffnen das Gespräch im Standardbrowser. Verpasste, abgelehnte
-  und beendete Anrufe stehen im Chat, „Verpasster Anruf“ auch in der Glocke.
+- Eingehende Anrufe klingeln in der App (Leiste im Fenster, Desktop-Mitteilung, auch über UnifiedPush);
+  **Annehmen und Anrufen öffnen das Gespräch im Standardbrowser**.
+- Chat-Bilder: 300 Bildnachrichten nach 0,3 s statt 5 s, Speicher 240 MB statt über 2,3 GB (vorher brach die App
+  nach 150 Bildern ab).
+- Einfügen aus der Zwischenablage (Strg+V): Bilder und Dateien im Chat und auf Seiten.
+- Behoben: Start ohne Netz lädt KI, Anrufen, Konto und Glocke nach; Klingel-Leiste im schmalen Fenster lesbar;
+  HEIC nur mit passender Bildbibliothek.
 
-### Linux (2.1-c)
-- **Bilder im Chat schnell, auch in großen Chats:** beim Senden entsteht ein kleines Vorschaubild (320 px, eigener
-  verschlüsselter Anhang, dazu Bildgröße im Nachrichteninhalt – gemeinsames Format aller Apps). Im Verlauf wird nur das
-  Vorschaubild geladen, und nur für sichtbare Nachrichten; der Platz ist schon vorher richtig groß, nichts springt.
-  Das Original lädt erst beim Anklicken (Ansicht mit „Speichern“). Laden, Entschlüsseln und Dekodieren laufen im
-  Hintergrund, Weggescrolltes wird nicht mehr geladen. Ältere Bildnachrichten ohne Vorschaubild bekommen einmalig eines
-  auf dem Gerät. Zwischenspeicher: Vorschaubilder im Speicher, verschlüsselte Anhänge (nur Ciphertext) bis 200 MB
-  unter `~/.cache/hlidskjalf/chat-blobs` – geleert beim Abmelden und bei „Neu beginnen“. Gemessen mit 300
-  Bildnachrichten (3,7 MB je Foto): erster Bildschirm nach 0,3 s statt 5 s, Scrollen ohne Ruckeln, Speicher 240 MB
-  statt über 2,3 GB (vorher brach die App nach 150 Bildern ab).
-- **Bildblöcke kopieren, ausschneiden, einfügen:** Bildblock anklicken (Rahmen), dann Strg+C/Strg+X; Strg+V fügt
-  ihn in derselben oder einer anderen Seite ein (auch Blöcke aus dem Web-Editor), in anderen Programmen und im Chat
-  kommt er als Bild an. Im Blockmenü „Block kopieren“/„Block ausschneiden“; Entf löscht den gewählten Bildblock.
-  In Seiten anderer Personen wird das Bild für deren Eigentümer neu hochgeladen.
-
-### Linux – Behoben (Bughunt 2)
-- **Start ohne Netz:** KI-Assistent, „Anrufen“, Konto-Knopf und Glocke werden nachgeladen, sobald der Server erreichbar
-  ist (vorher fehlten sie bis zum Neustart).
-- **Viele Bilder in einer Nachricht:** jedes Bild bekommt ein Vorschaubild (Grenze `file_ids_per_msg` des Servers,
-  bei älteren Servern wie bisher `files_per_msg`).
-- **Klingel-Leiste:** der Name der anrufenden Person steht allein in der Titelzeile und bleibt auch im schmalen Fenster
-  lesbar; „Videoanruf“ darunter, kürzere Knopftexte („Annehmen“, „Nur Ton“).
-- **Profilbilder anderer** (Wechsel und Entfernen) erscheinen sofort über das Live-Ereignis `avatar.changed`
-  (Server 2.1); bei Servern ohne dieses Ereignis beim erneuten Öffnen der Chats bzw. bei offenen Chats alle zwei
-  Minuten – nicht erst nach einem Neustart.
-- HEIC/HEIF wird nur angeboten, wenn die Bildbibliothek es öffnen kann (z. B. mit installiertem `pillow-heif`);
-  sonst werden solche Dateien als gewöhnlicher Anhang behandelt.
-- Push-Mitteilung eines Anrufs ohne Verbindung: mit „Ablehnen“/„Annehmen“, ein Klick zeigt das Fenster statt sofort
-  anzunehmen. Gravatar-Schalter ohne E-Mail-Adresse: aus und mit Hinweis. Immich-Fotos ohne Namen: „Lade …“ und
-  eindeutiger Dateiname. Keine Gtk-Warnungen mehr bei Bildblöcken; Mindestbreite 360 px (Dialoge passen).
+### Bekannte Grenzen
+- **Linux:** Anrufe laufen im Browser (die App klingelt und öffnet das Gespräch dort).
+- **Android:** Im Hintergrund klingelt Saga nur mit einem UnifiedPush-Verteiler (z. B. ntfy); ohne nur bei offener App.
+- **iPhone/iPad:** Klingeln über CallKit/VoIP braucht einen APNs-Schlüssel am Server (Admin → Mitteilungen); ohne
+  klingelt es nur bei offener App.
+- Anrufe nur zu zweit (keine Gruppenanrufe), ohne TURN-Server am Saga-Server nicht in allen Netzen.
 
 ## [2.0.0] – 2026-10-15
 
