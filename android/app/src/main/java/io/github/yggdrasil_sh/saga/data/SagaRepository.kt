@@ -3,6 +3,7 @@ package io.github.yggdrasil_sh.saga.data
 import io.github.yggdrasil_sh.saga.BuildConfig
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.auth.BrowserReturn
+import io.github.yggdrasil_sh.saga.auth.LoginFlow
 import io.github.yggdrasil_sh.saga.auth.PairLink
 import io.github.yggdrasil_sh.saga.auth.PairTarget
 import io.github.yggdrasil_sh.saga.auth.Pkce
@@ -274,6 +275,9 @@ class SagaRepository(
     /** Rueckfrage in dieser Sitzung abgelehnt ("Spaeter") - nicht bei jedem Neuladen wieder fragen */
     @Volatile private var localNetworkDeclined = false
 
+    /** Anmelden wartet auf die Antwort der Rueckfrage (statt sofort "kein Zugriff" zu melden) */
+    private val localGate = io.github.yggdrasil_sh.saga.util.LocalNetworkGate()
+
     /**
      * Braucht der Server (Standard: der angemeldete) die Berechtigung "lokales Netzwerk"? true = ja und sie fehlt;
      * dann erscheint die Rueckfrage (force: auch nach "Spaeter", z. B. beim ausdruecklichen Anmelden).
@@ -286,13 +290,17 @@ class SagaRepository(
         }
         val local = withContext(Dispatchers.IO) { LocalNetwork.isLocalServer(server) }
         localBlocked = local
-        if (local && (force || !localNetworkDeclined)) localNetworkNeeded.value = LocalNetwork.hostOf(server) ?: server
+        if (local && (force || !localNetworkDeclined)) {
+            localGate.ask()
+            localNetworkNeeded.value = LocalNetwork.hostOf(server) ?: server
+        }
         return local
     }
 
     /** Antwort auf die Rueckfrage: erlaubt -> sofort neu laden; abgelehnt/spaeter -> in dieser Sitzung nicht mehr fragen */
     fun localNetworkAnswered(granted: Boolean) {
         localNetworkNeeded.value = null
+        localGate.answer(granted)
         if (granted) {
             localBlocked = false
             if (!needsLogin.value) scope.launch {
@@ -949,14 +957,20 @@ class SagaRepository(
     suspend fun prepareBrowserLogin(serverInput: String): String {
         val server = ServerUrl.normalize(serverInput, BuildConfig.DEBUG)
             ?: throw UiTextException(UiText.Res(R.string.login_https_required))
-        if (checkLocalNetwork(server, force = true)) throw UiTextException(UiText.Res(R.string.error_local_network))
+        // Android 17: Rueckfrage zeigen und auf die Antwort warten - nach "Erlauben" geht es direkt weiter,
+        // die Meldung "kein Zugriff" erst nach Ablehnung/"Spaeter"
+        if (checkLocalNetwork(server, force = true)) {
+            val ok = localGate.await()
+            if (!ok && appContext?.let { LocalNetwork.granted(it) } != true) throw UiTextException(UiText.Res(R.string.error_local_network))
+            localBlocked = false
+        }
         probe(server)
         val p = Pkce.create()
         withContext(Dispatchers.IO) {
             secure.pkceVerifier = p.verifier
             secure.pkceServer = server
         }
-        return "$server/app/login?challenge=${p.challenge}&scheme=saga"
+        return LoginFlow.loginUrl(server, p.challenge, fresh = freshLogin)
     }
 
     /** Laeuft dort ein Saga-Server? Klare Meldung statt Browser-Fehler (kein https, Zertifikat, falsche Adresse) */
@@ -1080,6 +1094,7 @@ class SagaRepository(
     }
 
     private suspend fun onSignedIn(message: UiText? = null) {
+        freshLogin = false
         adoptNamedDrafts()
         serverVersion.value = null
         minApp.value = null
@@ -1105,6 +1120,17 @@ class SagaRepository(
         chat.reset()
         // entschluesselte Chat-Anhaenge (Klartext im Cache) beim Abmelden/Kontowechsel loeschen (BUG-023)
         appContext?.cacheDir?.let { c -> withContext(Dispatchers.IO) { io.github.yggdrasil_sh.saga.chat.ChatFiles.purge(c) } }
+        // Bild-Cache (Coil): private Immich-Vorschaubilder, Profilbilder, Seitenbilder des bisherigen Kontos
+        appContext?.let { ctx ->
+            withContext(Dispatchers.IO) {
+                try {
+                    val loader = coil3.SingletonImageLoader.get(ctx)
+                    loader.memoryCache?.clear()
+                    loader.diskCache?.clear()
+                } catch (_: Exception) {
+                }
+            }
+        }
         ai.clear()
         if (appContext != null) push.clear()
         if (appContext != null) calls.reset()
@@ -1124,8 +1150,19 @@ class SagaRepository(
     suspend fun logout() {
         flushEditors()
         auth.signOutLocal(forgetRemote = true)
+        freshLogin = true
         needsLogin.value = true
     }
+
+    /**
+     * Nach dem Abmelden in der App (Kontowechsel): die naechste Browser-Anmeldung startet ohne die Sitzung des
+     * bisherigen Kontos (privater Custom Tab, prompt=login) - sonst bietet die Seite nur "Anmelden als <alt>".
+     */
+    var freshLogin: Boolean
+        get() = appContext?.getSharedPreferences("saga_ui", android.content.Context.MODE_PRIVATE)?.getBoolean("fresh_login", false) == true
+        set(v) {
+            appContext?.getSharedPreferences("saga_ui", android.content.Context.MODE_PRIVATE)?.edit()?.putBoolean("fresh_login", v)?.apply()
+        }
 
     /** Bild-/Datei-Adresse (/files/...) auf dem Server */
     fun absoluteUrl(path: String): String = ServerUrl.absolute(settings.server.value, path)

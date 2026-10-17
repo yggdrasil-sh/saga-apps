@@ -605,6 +605,16 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     // ---------------------------------------------------------------- Anrufen
 
+    /** Erster Anruf ohne UnifiedPush: nach dem Anruf einmal darauf hinweisen, dass Saga nur bei offener App klingelt */
+    private fun pushHint() {
+        scope.launch(Dispatchers.IO) {
+            try {
+                repo.push.maybeCallHint()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     /** Aus dem Direkt-Chat anrufen (Berechtigungen hat die Oberflaeche schon geholt) */
     fun start(chatId: Long, peer: CallPeer, video: Boolean) {
         if (cur != null || ring != null) {
@@ -615,6 +625,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         cur = c
         _ui.value = CallUiState(CallPhase.PREPARING, null, chatId, true, video, peer, cam = video, speaker = video, message = UiText.Res(R.string.call_media))
         CallActivity.open(app)
+        pushHint()
         scope.launch {
             try {
                 keys()
@@ -783,6 +794,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         cur = c
         _ui.value = CallUiState(CallPhase.CONNECTING, r.id, r.chatId, false, r.media == "video", r.peer, cam = video, speaker = video,
             message = UiText.Res(R.string.call_connecting))
+        pushHint()
         scope.launch {
             try {
                 val k = keys()
@@ -1054,8 +1066,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     fun toggleSpeaker() {
         val st = _ui.value ?: return
-        setSpeaker(!st.speaker)
-        _ui.value = st.copy(speaker = !st.speaker)
+        // Tatsaechliche Ausgabe anzeigen: ohne Hoerer (Tablet) bleibt der Ton auf dem Lautsprecher
+        _ui.value = st.copy(speaker = setSpeaker(!st.speaker))
     }
 
     fun hangup() {
@@ -1217,8 +1229,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         scope.launch {
             if (!audioActive) return@launch
             val st = _ui.value ?: return@launch
-            val sp = headset() == null && (st.cam || st.video)
-            setSpeaker(sp)
+            val sp = setSpeaker(headset() == null && (st.cam || st.video))
             _ui.value = _ui.value?.copy(speaker = sp)
         }
     }
@@ -1250,8 +1261,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             }
         }
         audioActive = true
-        val sp = speaker && headset() == null
-        setSpeaker(sp)
+        val sp = setSpeaker(speaker && headset() == null)
         _ui.value = _ui.value?.copy(speaker = sp)
     }
 
@@ -1277,8 +1287,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
     }
 
-    private fun setSpeaker(on: Boolean) {
-        val a = am ?: return
+    /** Ausgabe waehlen; Ergebnis: laeuft der Ton tatsaechlich ueber den Lautsprecher? */
+    private fun setSpeaker(on: Boolean): Boolean {
+        val a = am ?: return on
         try {
             if (Build.VERSION.SDK_INT >= 31) {
                 val devs = a.availableCommunicationDevices
@@ -1291,6 +1302,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     audioError("setCommunicationDevice(${d?.type}) failed")
                 }
                 log("audio route ${a.communicationDevice?.type} (speaker=$on)")
+                return CallLogic.speakerActive(on, a.communicationDevice?.type)
             } else {
                 @Suppress("DEPRECATION")
                 run {
@@ -1310,6 +1322,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         } catch (e: Exception) {
             audioError("setSpeaker: ${e.message}")
         }
+        return on
     }
 
     private fun tone(kind: Int, ms: Int = -1) {

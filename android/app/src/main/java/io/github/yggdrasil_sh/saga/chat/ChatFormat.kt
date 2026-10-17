@@ -11,6 +11,16 @@ object ChatFormat {
     const val V = "saga-chat/v1/"
     private const val A32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
 
+    /** Tag (lokal) einer Nachricht */
+    fun dayOf(ts: Long, zone: java.time.ZoneId): java.time.LocalDate = java.time.Instant.ofEpochMilli(ts).atZone(zone).toLocalDate()
+
+    /**
+     * Datumstrenner ueber einer Nachricht: wenn die naechstaeltere (older) an einem anderen Tag liegt bzw. es keine gibt
+     * (wie im Web: "Sa., 17.10.2026" zwischen den Tagen)
+     */
+    fun dayStarts(ts: Long, olderTs: Long?, zone: java.time.ZoneId): Boolean =
+        olderTs == null || dayOf(ts, zone) != dayOf(olderTs, zone)
+
     /** LP(f1..fn) = je Feld uint32_be(laenge) || bytes (Strings UTF-8) */
     fun lp(vararg fields: Any): ByteArray {
         val out = ByteArrayOutputStream()

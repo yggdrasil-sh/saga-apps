@@ -73,7 +73,6 @@ import io.github.yggdrasil_sh.saga.data.uploadAvatar
 import io.github.yggdrasil_sh.saga.ui.common.openUrl
 import io.github.yggdrasil_sh.saga.ui.notifications.Avatar
 import io.github.yggdrasil_sh.saga.ui.push.SwitchRow
-import io.github.yggdrasil_sh.saga.util.ServerUrl
 import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.util.resolve
 import kotlinx.coroutines.CancellationException
@@ -132,8 +131,17 @@ fun SecurityBlock(repo: SagaRepository, modifier: Modifier, reloadKey: Any?) {
             },
         )
         Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
-            OutlinedButton(onClick = { openUrl(context, ServerUrl.absolute(repo.server.value, "security")) }) {
+            // Der Browser zeigt die Seite des DORT angemeldeten Kontos - Konto der App nennen und mitgeben (user=),
+            // damit der Server bei einem anderen Konto warnen kann
+            val account = repo.account.value.trim()
+            OutlinedButton(onClick = { openUrl(context, io.github.yggdrasil_sh.saga.auth.LoginFlow.securityUrl(repo.server.value, account)) }) {
                 Text(stringResource(R.string.security_manage))
+            }
+            if (account.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.security_account_check, account), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp),
+                )
             }
             Text(
                 stringResource(R.string.security_hint), style = MaterialTheme.typography.bodySmall,
@@ -167,6 +175,42 @@ fun CallsFullScreenHint(modifier: Modifier) {
             }) { Text(stringResource(R.string.call_fullscreen_allow)) }
         },
         modifier = modifier,
+    )
+}
+
+// ------------------------------------------------------------------------------------------- Anrufe: ohne UnifiedPush
+
+/**
+ * Ohne Mitteilungs-Verteiler (UnifiedPush) gibt es im Hintergrund keinen Weg zum Geraet: Anrufe klingeln nur bei
+ * geoeffneter App. Hinweis + "Einrichten" (Mitteilungen); nach Rueckkehr aus der Einrichtung neu pruefen.
+ */
+@Composable
+fun CallsPushHint(push: io.github.yggdrasil_sh.saga.push.PushService, modifier: Modifier, onSetup: () -> Unit) {
+    var ready by remember { mutableStateOf(true) }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    LaunchedEffect(lifecycle) {
+        lifecycle.lifecycle.currentStateFlow.collect {
+            if (it == androidx.lifecycle.Lifecycle.State.RESUMED) ready = withContext(Dispatchers.IO) { push.backgroundReady() }
+        }
+    }
+    if (ready) return
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.call_push_title)) },
+        supportingContent = { Text(stringResource(R.string.call_push_hint)) },
+        trailingContent = { TextButton(onClick = onSetup) { Text(stringResource(R.string.call_push_setup)) } },
+        modifier = modifier,
+    )
+}
+
+/** Einmaliger Hinweis nach dem ersten Anruf ohne UnifiedPush */
+@Composable
+fun CallPushHintDialog(onSetup: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.call_push_title)) },
+        text = { Text(stringResource(R.string.call_push_hint)) },
+        confirmButton = { TextButton(onClick = onSetup) { Text(stringResource(R.string.call_push_setup)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.call_push_later)) } },
     )
 }
 
@@ -258,9 +302,9 @@ fun ProfilePictureBlock(repo: SagaRepository, account: String, modifier: Modifie
         SwitchRow(stringResource(R.string.avatar_public), s.public, Modifier, enabled = !busy) { on -> run({ repo.patchAvatar(public = on) }) }
     }
     crop?.let { b ->
-        AvatarCropDialog(b, onCancel = { crop = null }) { jpeg ->
+        AvatarCropDialog(b, onCancel = { crop = null }) { (data, mime) ->
             crop = null
-            run({ repo.uploadAvatar(jpeg) }, UiText.Res(R.string.avatar_saved))
+            run({ repo.uploadAvatar(data, mime) }, UiText.Res(R.string.avatar_saved))
         }
     }
 }
@@ -315,19 +359,24 @@ object AvatarCrop {
     fun clamp(offset: Offset, imgW: Int, imgH: Int, view: Float, scale: Float): Offset =
         Offset(offset.x.coerceIn(min(0f, view - imgW * scale), 0f), offset.y.coerceIn(min(0f, view - imgH * scale), 0f))
 
-    fun jpeg(b: Bitmap, l: Int, t: Int, side: Int): ByteArray {
+    /** Bild mit Transparenz als PNG (der Server behaelt Alpha), sonst JPEG - JPEG machte transparente Ecken schwarz */
+    fun mimeFor(hasAlpha: Boolean): String = if (hasAlpha) "image/png" else "image/jpeg"
+
+    /** Zuschnitt kodieren -> (Bytes, MIME-Typ) */
+    fun encode(b: Bitmap, l: Int, t: Int, side: Int): Pair<ByteArray, String> {
         val sq = Bitmap.createBitmap(b, l, t, side, side)
         val out = if (side == OUT) sq else Bitmap.createScaledBitmap(sq, min(OUT, side).coerceAtLeast(64), min(OUT, side).coerceAtLeast(64), true)
+        val mime = mimeFor(out.hasAlpha())
         return ByteArrayOutputStream().use {
-            out.compress(Bitmap.CompressFormat.JPEG, 90, it)
+            out.compress(if (mime == "image/png") Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG, 90, it)
             it.toByteArray()
-        }
+        } to mime
     }
 }
 
-/** Kreis-Zuschnitt: verschieben und zoomen (zwei Finger oder Regler), Speichern -> JPEG */
+/** Kreis-Zuschnitt: verschieben und zoomen (zwei Finger oder Regler), Speichern -> JPEG bzw. PNG (Transparenz) */
 @Composable
-private fun AvatarCropDialog(bmp: Bitmap, onCancel: () -> Unit, onDone: (ByteArray) -> Unit) {
+private fun AvatarCropDialog(bmp: Bitmap, onCancel: () -> Unit, onDone: (Pair<ByteArray, String>) -> Unit) {
     val img: ImageBitmap = remember(bmp) { bmp.asImageBitmap() }
     var view by remember { mutableFloatStateOf(0f) }
     var zoom by remember { mutableFloatStateOf(1f) }
@@ -395,7 +444,7 @@ private fun AvatarCropDialog(bmp: Bitmap, onCancel: () -> Unit, onDone: (ByteArr
             TextButton(onClick = {
                 if (view <= 0f) return@TextButton
                 val (l, t, side) = AvatarCrop.cropRect(bmp.width, bmp.height, view, scale, offset)
-                onDone(AvatarCrop.jpeg(bmp, l, t, side))
+                onDone(AvatarCrop.encode(bmp, l, t, side))
             }) { Text(stringResource(R.string.action_save)) }
         },
         dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) } },

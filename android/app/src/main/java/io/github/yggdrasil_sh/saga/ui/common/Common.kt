@@ -94,10 +94,23 @@ fun PageIcon(icon: String?, repo: SagaRepository, isDatabase: Boolean = false, s
     }
 }
 
-/** Link im Browser oeffnen (Custom Tab, sonst beliebiger Browser) */
-fun openUrl(context: Context, url: String) {
+/** Unterstuetzt der Standard-Browser private ("ephemere") Custom Tabs ohne gemeinsame Cookies? */
+fun ephemeralTabsSupported(context: Context): Boolean = try {
+    val pkg = androidx.browser.customtabs.CustomTabsClient.getPackageName(context, null)
+    pkg != null && androidx.browser.customtabs.CustomTabsClient.isEphemeralBrowsingSupported(context, pkg)
+} catch (_: Throwable) {
+    false
+}
+
+/**
+ * Link im Browser oeffnen (Custom Tab, sonst beliebiger Browser). ephemeral: privater Tab ohne die Browser-Sitzung
+ * (Kontowechsel bei der Anmeldung), falls der Browser das kann.
+ */
+fun openUrl(context: Context, url: String, ephemeral: Boolean = false) {
     try {
-        CustomTabsIntent.Builder().setShowTitle(true).build().launchUrl(context, url.toUri())
+        val b = CustomTabsIntent.Builder().setShowTitle(true)
+        if (ephemeral && ephemeralTabsSupported(context)) b.setEphemeralBrowsingEnabled(true)
+        b.build().launchUrl(context, url.toUri())
     } catch (_: Exception) {
         try {
             context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))

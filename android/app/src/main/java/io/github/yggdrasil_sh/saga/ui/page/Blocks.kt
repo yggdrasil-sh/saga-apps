@@ -121,11 +121,18 @@ fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
         "list" -> ListItems(block, path, d["items"] as? JsonArray ?: JsonArray(emptyList()), BlockDoc.str(d, "style").ifEmpty { "unordered" }, path + listOf("data", "items"), emptyList(), env)
         "quote" -> Row(Modifier.height(IntrinsicSize.Min)) {
             Box(Modifier.width(3.dp).fillMaxHeight().background(MaterialTheme.colorScheme.outline))
-            RichField(
-                BlockDoc.str(d, "text"), key, ed, path, body.copy(fontStyle = FontStyle.Italic), { ed.setString(path + listOf("data", "text"), it) },
-                modifier = Modifier.padding(start = 12.dp), placeholder = stringResource(R.string.block_quote),
-                onEnter = splitToParagraph, onBackspaceAtStart = removeIfEmpty, onLink = env.onLink,
-            )
+            Column(Modifier.padding(start = 12.dp)) {
+                RichField(
+                    BlockDoc.str(d, "text"), key, ed, path, body.copy(fontStyle = FontStyle.Italic), { ed.setString(path + listOf("data", "text"), it) },
+                    placeholder = stringResource(R.string.block_quote),
+                    onEnter = splitToParagraph, onBackspaceAtStart = removeIfEmpty, onLink = env.onLink,
+                )
+                // Unterschrift (Autor/Quelle) wie im Web: "— Autor"
+                val caption = InlineHtml.plain(BlockDoc.str(d, "caption")).trim()
+                if (caption.isNotEmpty()) {
+                    Text("— $caption", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 2.dp))
+                }
+            }
         }
         "callout" -> Row(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(12.dp),
@@ -264,7 +271,12 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
             val checked = BlockDoc.bool(obj?.get("meta") as? JsonObject, "checked")
             val myIdx = indices + i
             val fieldKey = prefix + "/" + myIdx.joinToString("/")
-            Row(verticalAlignment = if (style == "checklist") Alignment.CenterVertically else Alignment.Top) {
+            // Kaestchen an der ersten Zeile ausrichten (nicht mittig ueber Text + Unterpunkte): Text um die halbe
+            // Differenz zwischen 48-dp-Kaestchen und Zeilenhoehe nach unten
+            val checkPad = if (style == "checklist") {
+                with(androidx.compose.ui.platform.LocalDensity.current) { ((48.dp - MaterialTheme.typography.bodyLarge.lineHeight.toDp()) / 2).coerceAtLeast(0.dp) }
+            } else 0.dp
+            Row(verticalAlignment = Alignment.Top) {
                 when (style) {
                     "checklist" -> {
                         val label = InlineHtml.plain(content).ifBlank { stringResource(R.string.placeholder_list_item) }
@@ -287,6 +299,7 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
                                 if (checked) it.copy(color = MaterialTheme.colorScheme.onSurfaceVariant, textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough) else it
                             },
                             { ed.setString(contentPath, it) },
+                            modifier = Modifier.padding(top = checkPad),
                             itemPath = itemPath,
                             placeholder = stringResource(R.string.placeholder_list_item),
                             onEnter = { left, right ->

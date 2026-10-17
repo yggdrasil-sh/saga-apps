@@ -108,6 +108,12 @@ data class PushLocal(
 
 enum class PushState { OFF, REGISTERING, ON, ERROR }
 
+object PushLogic {
+    /** Im Hintergrund erreichbar: Anmeldung mit Adresse und der gewaehlte Verteiler ist noch installiert */
+    fun backgroundReady(local: PushLocal?, installed: List<String>): Boolean =
+        local != null && local.endpoint != null && local.distributor in installed
+}
+
 /**
  * Mitteilungen aufs Geraet (Server 1.7) ueber UnifiedPush (z. B. ntfy als Verteiler) mit Web-Push-Verschluesselung.
  * Kein Google FCM. Einstellungen und Geraeteliste wie im Web.
@@ -134,6 +140,29 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
     private fun keysOf(l: PushLocal): PushKeys = PushKeys(WebPushCrypto.unb64u(l.priv), WebPushCrypto.unb64u(l.pub), WebPushCrypto.unb64u(l.auth))
 
     fun distributors(): List<Distributor> = UnifiedPush.distributors(context)
+
+    /**
+     * Kann Saga im Hintergrund klingeln/benachrichtigen? Nur mit eingerichtetem UnifiedPush (Adresse vorhanden, Verteiler
+     * noch installiert) - sonst laufen Anrufe nur ueber den Live-Kanal der geoeffneten App.
+     */
+    fun backgroundReady(): Boolean = PushLogic.backgroundReady(local(), distributors().map { it.pkg })
+
+    // ---------------------------------------------------------------- Hinweis "ohne Verteiler"
+
+    private val uiPrefs get() = context.getSharedPreferences("saga_ui", Context.MODE_PRIVATE)
+
+    /** Hinweis beim ersten Anruf ohne Verteiler (einmal je Installation) */
+    val callHint = MutableStateFlow(false)
+
+    fun maybeCallHint() {
+        if (uiPrefs.getBoolean("call_push_hint_shown", false) || backgroundReady()) return
+        callHint.value = true
+    }
+
+    fun callHintDone() {
+        callHint.value = false
+        uiPrefs.edit().putBoolean("call_push_hint_shown", true).apply()
+    }
 
     // ---------------------------------------------------------------- Stand
 

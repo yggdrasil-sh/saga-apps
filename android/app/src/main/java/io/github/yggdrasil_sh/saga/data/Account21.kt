@@ -47,9 +47,9 @@ suspend fun SagaRepository.securityStatus(): SecurityStatus = json.decodeFromStr
 
 suspend fun SagaRepository.avatarState(): AvatarState = json.decodeFromString(AvatarState.serializer(), api.get("api/account/avatar"))
 
-/** Rohinhalt hochladen (JPEG aus dem Zuschnitt); 413 zu gross, 415 kein Bild, 429 zu oft */
-suspend fun SagaRepository.uploadAvatar(jpeg: ByteArray): AvatarState =
-    json.decodeFromString(AvatarState.serializer(), api.putBytes("api/account/avatar", jpeg, "image/jpeg"))
+/** Rohinhalt hochladen (JPEG/PNG aus dem Zuschnitt); 413 zu gross, 415 kein Bild, 429 zu oft */
+suspend fun SagaRepository.uploadAvatar(data: ByteArray, mime: String = "image/jpeg"): AvatarState =
+    json.decodeFromString(AvatarState.serializer(), api.putBytes("api/account/avatar", data, mime))
 
 /** Antwort wie GET - sonst (z. B. nur {ok}) den Stand neu holen */
 private suspend fun SagaRepository.stateFrom(text: String): AvatarState =

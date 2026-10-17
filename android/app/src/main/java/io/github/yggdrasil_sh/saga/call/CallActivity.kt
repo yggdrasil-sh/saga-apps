@@ -15,6 +15,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -42,6 +43,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +52,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -143,7 +147,11 @@ private fun CallScreen(calls: CallManager, st: CallUiState, answerRequest: Int) 
             perms.launch(need.toTypedArray())
         }
     }
-    val camPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> if (ok) calls.toggleCam() }
+    var camDenied by remember { mutableStateOf(false) }      // Hinweis, wenn die Kamera im Anruf verweigert wurde
+    LaunchedEffect(camDenied) { if (camDenied) { delay(6000); camDenied = false } }
+    val camPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) calls.toggleCam() else camDenied = true
+    }
     val onCam = {
         if (!st.cam && ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             camPerm.launch(Manifest.permission.CAMERA)
@@ -154,13 +162,23 @@ private fun CallScreen(calls: CallManager, st: CallUiState, answerRequest: Int) 
     }
 
     val dark = Color(0xFF101114)
+    var infoHeight by remember { mutableIntStateOf(0) }
     val showVideo = st.remoteVideo && st.phase == CallPhase.CONNECTED
     Box(Modifier.fillMaxSize().background(if (showVideo) Color.Black else MaterialTheme.colorScheme.surface)) {
         if (st.phase != CallPhase.INCOMING && st.phase != CallPhase.ENDED) {
-            VideoView(calls, remote = true, visible = showVideo, modifier = Modifier.fillMaxSize())
+            // Bild des Gegenuebers eingepasst (ganzes Bild, Rand schwarz): SurfaceViewRenderer schneidet bei fester
+            // Groesse auf das Seitenverhaeltnis der Ansicht zu - daher die Ansicht selbst auf das Videoformat begrenzen.
+            var aspect by remember { mutableStateOf<Float?>(null) }
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                VideoView(
+                    calls, remote = true, visible = showVideo,
+                    modifier = aspect?.let { Modifier.aspectRatio(it) } ?: Modifier.fillMaxSize(),
+                    onAspect = { aspect = it },
+                )
+            }
         }
         Column(Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            InfoLine(st, onDark = showVideo)
+            InfoLine(st, onDark = showVideo, modifier = Modifier.onSizeChanged { infoHeight = it.height })
             Spacer(Modifier.weight(1f))
             if (!showVideo) {
                 Avatar(st.peer.name.ifEmpty { st.peer.username }, size = 112, avatar = st.peer.avatar)
@@ -173,6 +191,7 @@ private fun CallScreen(calls: CallManager, st: CallUiState, answerRequest: Int) 
             val status = when {
                 st.phase == CallPhase.INCOMING -> stringResource(if (st.video) R.string.call_incoming_video else R.string.call_incoming)
                 st.message != null -> st.message.resolve()
+                camDenied -> stringResource(R.string.call_cam_denied)
                 st.phase == CallPhase.CONNECTED && !st.remoteMic -> stringResource(R.string.call_peer_muted, st.peer.name)
                 else -> null
             }
@@ -197,7 +216,9 @@ private fun CallScreen(calls: CallManager, st: CallUiState, answerRequest: Int) 
             Controls(calls, st, ::answer, onCam)
         }
         if (st.cam && st.phase != CallPhase.ENDED && st.phase != CallPhase.INCOMING) {
-            Box(Modifier.fillMaxSize().safeDrawingPadding().padding(top = 56.dp, end = 16.dp), contentAlignment = Alignment.TopEnd) {
+            // Eigene Vorschau unter der Status-Zeile (die bei grosser Schrift mitwaechst)
+            val top = with(LocalDensity.current) { infoHeight.toDp() } + 24.dp
+            Box(Modifier.fillMaxSize().safeDrawingPadding().padding(top = maxOf(top, 56.dp), end = 16.dp), contentAlignment = Alignment.TopEnd) {
                 VideoView(calls, remote = false, visible = true, modifier = Modifier.width(108.dp).height(156.dp).clip(RoundedCornerShape(12.dp)))
             }
         }
@@ -205,7 +226,7 @@ private fun CallScreen(calls: CallManager, st: CallUiState, answerRequest: Int) 
 }
 
 @Composable
-private fun InfoLine(st: CallUiState, onDark: Boolean) {
+private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modifier) {
     if (st.phase != CallPhase.CONNECTED && st.phase != CallPhase.CONNECTING && st.phase != CallPhase.RINGING) return
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(st.connectedAt) {
@@ -229,7 +250,7 @@ private fun InfoLine(st: CallUiState, onDark: Boolean) {
             "none" -> add(stringResource(R.string.call_audio_none))
         }
     }
-    Surface(color = if (onDark) Color(0x99101114) else Color.Transparent, shape = RoundedCornerShape(12.dp)) {
+    Surface(color = if (onDark) Color(0x99101114) else Color.Transparent, shape = RoundedCornerShape(12.dp), modifier = modifier) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             val e2e = stringResource(if (st.verified) R.string.call_e2e else R.string.call_encrypted)
             val info = stringResource(R.string.call_e2e_info)
@@ -298,9 +319,19 @@ private fun RoundButton(icon: Int, label: String, bg: Color, fg: Color, big: Boo
 
 /** WebRTC-Bild (SurfaceViewRenderer) - haengt sich an die ProxySink des Managers und loest sich beim Verlassen */
 @Composable
-private fun VideoView(calls: CallManager, remote: Boolean, visible: Boolean, modifier: Modifier) {
+private fun VideoView(calls: CallManager, remote: Boolean, visible: Boolean, modifier: Modifier, onAspect: ((Float?) -> Unit)? = null) {
     val sink = if (remote) calls.remoteSink else calls.localSink
     var view by remember { mutableStateOf<SurfaceViewRenderer?>(null) }
+    val aspectCb = androidx.compose.runtime.rememberUpdatedState(onAspect)
+    val events = remember {
+        object : RendererCommon.RendererEvents {
+            override fun onFirstFrameRendered() {}
+            override fun onFrameResolutionChanged(videoWidth: Int, videoHeight: Int, rotation: Int) {
+                val a = CallLogic.videoAspect(videoWidth, videoHeight, rotation)
+                view?.post { aspectCb.value?.invoke(a) }       // kommt vom Render-Thread
+            }
+        }
+    }
     DisposableEffect(Unit) {
         onDispose {
             view?.let { v ->
@@ -312,7 +343,7 @@ private fun VideoView(calls: CallManager, remote: Boolean, visible: Boolean, mod
     AndroidView(
         factory = { ctx ->
             SurfaceViewRenderer(ctx).apply {
-                init(calls.egl.eglBaseContext, null)
+                init(calls.egl.eglBaseContext, if (remote) events else null)
                 setScalingType(if (remote) RendererCommon.ScalingType.SCALE_ASPECT_FIT else RendererCommon.ScalingType.SCALE_ASPECT_FILL)
                 setEnableHardwareScaler(true)
                 if (!remote) {

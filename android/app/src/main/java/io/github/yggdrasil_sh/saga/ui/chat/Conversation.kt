@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -82,6 +83,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
@@ -349,21 +351,27 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         }
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             LazyColumn(Modifier.fillMaxSize().widthIn(max = 900.dp), state = list, reverseLayout = true) {
-                items(shown, key = { it.id }) { m ->
+                itemsIndexed(shown, key = { _, it -> it.id }) { i, m ->
+                  Column {
+                    // Datumstrenner ueber der ersten Nachricht eines Tages (Liste neueste zuerst, umgekehrt angezeigt)
+                    if (io.github.yggdrasil_sh.saga.chat.ChatFormat.dayStarts(m.ts, shown.getOrNull(i + 1)?.ts, ZoneId.systemDefault())) {
+                        ChatDayDivider(io.github.yggdrasil_sh.saga.chat.ChatFormat.dayOf(m.ts, ZoneId.systemDefault()))
+                    }
                     val call = m.call
                     if (call != null) {
                         CallEntryRow(m, call, s.me, canCall) { startCall(it) }
-                        return@items
+                    } else {
+                        Bubble(
+                            m, s, group = s.summary?.kind != "dm",
+                            onReply = { s.replyTo = m },
+                            onCopy = { copyText(context, m.content?.text.orEmpty()) },
+                            onDelete = { repo.launchAction { s.delete(m) } },
+                            onOpenNote = { id -> nav.push(Dest.Page(id)) },
+                            onOpenFile = { f -> scope.launch { openFile(context, s, f) { repo.notify(it) } } },
+                            onUnverified = { unverifiedOf = m.sender?.username ?: "" },
+                        )
                     }
-                    Bubble(
-                        m, s, group = s.summary?.kind != "dm",
-                        onReply = { s.replyTo = m },
-                        onCopy = { copyText(context, m.content?.text.orEmpty()) },
-                        onDelete = { repo.launchAction { s.delete(m) } },
-                        onOpenNote = { id -> nav.push(Dest.Page(id)) },
-                        onOpenFile = { f -> scope.launch { openFile(context, s, f) { repo.notify(it) } } },
-                        onUnverified = { unverifiedOf = m.sender?.username ?: "" },
-                    )
+                  }
                 }
                 if (s.more && search == null) {
                     item {
@@ -562,9 +570,16 @@ private suspend fun readFile(context: Context, u: Uri, max: Long): ChatAttach.Re
                 if (!c.isNull(1)) size = c.getLong(1)
             }
         }
+        val mime = cr.getType(u) ?: "application/octet-stream"
+        // Zu grosses Bild: wie beim Einfuegen verkleinern statt ablehnen (bis zum Vierfachen der Grenze einlesen)
+        if (mime.startsWith("image/") && !ChatAttach.tooBig(size, 4 * max) && (size == null || size!! > max)) {
+            val raw = cr.openInputStream(u)?.use { ChatAttach.readLimited(it, 4 * max) } ?: return@withContext ChatAttach.Read.TooBig
+            if (raw.size <= max) return@withContext ChatAttach.Read.Ok(PendingFile(name.take(200), mime, raw))
+            val (data, type) = prepareImage(raw, max) ?: return@withContext ChatAttach.Read.TooBig
+            return@withContext ChatAttach.Read.Ok(PendingFile(ImageData.nameFor(name.take(200), type), type, data))
+        }
         // Groesse vor dem Lesen pruefen, dann begrenzt lesen (BUG-005: 600 MB -> OutOfMemoryError)
         if (ChatAttach.tooBig(size, max)) return@withContext ChatAttach.Read.TooBig
-        val mime = cr.getType(u) ?: "application/octet-stream"
         val data = cr.openInputStream(u)?.use { ChatAttach.readLimited(it, max) ?: return@withContext ChatAttach.Read.TooBig }
             ?: return@withContext ChatAttach.Read.Failed
         ChatAttach.Read.Ok(PendingFile(name.take(200), mime, data))
@@ -825,6 +840,21 @@ private fun CallEntryRow(
                     TextButton(onClick = { onCall(e.media == "video") }) { Text(stringResource(R.string.call_back)) }
                 }
             }
+        }
+    }
+}
+
+/** Datumstrenner im Chat: "Heute", "Gestern", sonst kurzes Datum mit Wochentag */
+@Composable
+private fun ChatDayDivider(d: java.time.LocalDate) {
+    Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+        Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(12.dp)) {
+            Text(
+                // "heute"/"gestern" stehen klein (fuer Faelligkeiten im Satz) - als Ueberschrift gross
+                io.github.yggdrasil_sh.saga.ui.common.dueText(d.toString()).replaceFirstChar { it.titlecase(java.util.Locale.getDefault()) },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp).semantics { heading() },
+            )
         }
     }
 }

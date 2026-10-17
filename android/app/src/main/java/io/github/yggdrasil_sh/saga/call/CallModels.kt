@@ -121,6 +121,17 @@ object CallLogic {
         return if (h > 0) "%d:%02d:%02d".format(h, m, s % 60) else "%d:%02d".format(m, s % 60)
     }
 
+    /** Seitenverhaeltnis (Breite/Hoehe) des angezeigten Bildes unter Beruecksichtigung der Drehung; null = unbekannt */
+    fun videoAspect(width: Int, height: Int, rotation: Int): Float? {
+        if (width <= 0 || height <= 0) return null
+        val turned = (rotation % 180 + 180) % 180 == 90
+        return if (turned) height.toFloat() / width else width.toFloat() / height
+    }
+
+    /** Laeuft der Ton ueber den Lautsprecher? device = Typ des Kommunikationsgeraets (null = unbekannt -> gewuenscht) */
+    fun speakerActive(wanted: Boolean, device: Int?): Boolean =
+        if (device == null) wanted else device == android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+
     /** Text eines Chat-Eintrags (wie static/chat.js callText): me = eigenes Konto */
     fun entryText(e: CallEntry, me: String): UiText {
         val out = e.from == me

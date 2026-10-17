@@ -24,6 +24,8 @@ object DbProps {
         updated: Double? = null,
         titleOf: (Long) -> String? = { null },
         time: (Double) -> String = { it.toLong().toString() },
+        day: (String) -> String = { it },
+        number: (Double) -> String = ::num,
     ): List<Field> {
         val defs = (schema?.get("props") as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
         val values = props ?: JsonObject(emptyMap())
@@ -36,8 +38,8 @@ object DbProps {
             val v = when (type) {
                 "created" -> created?.let(time)
                 "edited" -> updated?.let(time)
-                "calc" -> calc(p, values)?.let { num(it) }
-                else -> format(p, type, values[id], titleOf)
+                "calc" -> calc(p, values)?.let(number)
+                else -> format(p, type, values[id], titleOf, day, number)
             }
             if (!v.isNullOrBlank()) out.add(Field(id, name, type, v))
         }
@@ -56,7 +58,10 @@ object DbProps {
 
     private fun prim(v: JsonElement?): String? = (v as? JsonPrimitive)?.contentOrNull
 
-    fun format(p: JsonObject, type: String, v: JsonElement?, titleOf: (Long) -> String? = { null }): String? {
+    fun format(
+        p: JsonObject, type: String, v: JsonElement?, titleOf: (Long) -> String? = { null },
+        day: (String) -> String = { it }, number: (Double) -> String = ::num,
+    ): String? {
         if (v == null || v is JsonNull) return null
         return when (type) {
             "select" -> prim(v)?.let { option(p, it) }
@@ -64,15 +69,15 @@ object DbProps {
             "checkbox" -> if ((v as? JsonPrimitive)?.booleanOrNull == true || prim(v) == "1") "☑" else "☐"
             "number" -> (v as? JsonPrimitive)?.doubleOrNull?.let { n ->
                 when (BlockDoc.str(p, "fmt").ifEmpty { BlockDoc.str(p, "format") }) {   // wie numText() im Web
-                    "percent" -> num(n) + " %"
+                    "percent" -> number(n) + " %"
                     "euro" -> java.text.NumberFormat.getCurrencyInstance().apply { currency = java.util.Currency.getInstance("EUR") }.format(n)
-                    else -> num(n)
+                    else -> number(n)
                 }
             } ?: prim(v)
             "relation" -> list(v).mapNotNull { e -> prim(e)?.let { s -> s.toLongOrNull()?.let { titleOf(it) } ?: s } }.joinToString(", ")
             "date" -> when (v) {
-                is JsonObject -> listOfNotNull(prim(v["start"]), prim(v["end"])).joinToString(" – ")
-                else -> prim(v)
+                is JsonObject -> listOfNotNull(prim(v["start"]), prim(v["end"])).map(day).joinToString(" – ")
+                else -> prim(v)?.let(day)
             }
             "text", "url" -> prim(v)?.let { InlineHtml.plain(it) }
             else -> when (v) {
@@ -101,6 +106,26 @@ object DbProps {
             else -> a - b
         }
         return Math.round(r * 10000) / 10000.0
+    }
+
+    /** Zahl in der Schreibweise der Sprache (1,7857 statt 1.7857), hoechstens 4 Nachkommastellen */
+    fun localNum(locale: java.util.Locale): (Double) -> String {
+        val f = java.text.NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 4 }
+        return { n -> if (n.isNaN() || n.isInfinite()) num(n) else f.format(n) }
+    }
+
+    /** Datum (ISO "2026-10-04", auch mit Uhrzeit) in der Schreibweise der Sprache; Unlesbares bleibt wie es ist */
+    fun localDay(locale: java.util.Locale): (String) -> String = { iso ->
+        try {
+            if (iso.length > 10) {
+                java.time.LocalDateTime.parse(iso.take(16))
+                    .format(java.time.format.DateTimeFormatter.ofLocalizedDateTime(java.time.format.FormatStyle.MEDIUM, java.time.format.FormatStyle.SHORT).withLocale(locale))
+            } else {
+                java.time.LocalDate.parse(iso).format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(locale))
+            }
+        } catch (_: Exception) {
+            iso
+        }
     }
 
     fun num(n: Double): String = if (n == Math.floor(n) && !n.isInfinite() && Math.abs(n) < 1e15) n.toLong().toString() else n.toString()

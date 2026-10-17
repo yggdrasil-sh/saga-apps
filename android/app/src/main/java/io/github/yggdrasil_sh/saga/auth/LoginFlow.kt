@@ -67,3 +67,20 @@ sealed interface BrowserReturn {
         }
     }
 }
+
+/** Adressen der Browser-Anmeldung und der Sicherheitsseite */
+object LoginFlow {
+    /**
+     * /app/login mit PKCE. fresh = nach dem Abmelden in der App (Kontowechsel): prompt=login bittet den Server,
+     * nicht still das im Browser angemeldete Konto zu nehmen.
+     */
+    fun loginUrl(server: String, challenge: String, fresh: Boolean): String =
+        "$server/app/login?challenge=$challenge&scheme=saga" + if (fresh) "&prompt=login" else ""
+
+    /** "Anmeldung & Sicherheit" im Browser fuer das Konto der App (user = Kontoname; der Server warnt bei Abweichung) */
+    fun securityUrl(server: String, account: String): String {
+        val base = server.trimEnd('/') + "/security"
+        val a = account.trim()
+        return if (a.isEmpty()) base else base + "?user=" + java.net.URLEncoder.encode(a, "UTF-8").replace("+", "%20")
+    }
+}

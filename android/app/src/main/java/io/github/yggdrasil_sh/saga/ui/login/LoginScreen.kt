@@ -97,12 +97,24 @@ fun LoginScreen(repo: SagaRepository) {
             try {
                 val url = repo.prepareBrowserLogin(server)
                 repo.browserLoginStarted()                  // Rueckkehr ohne Code -> "Anmeldung abgebrochen"
-                openUrl(context, url)
+                // nach dem Abmelden in der App (Kontowechsel): privater Tab ohne die Sitzung des bisherigen Kontos
+                openUrl(context, url, ephemeral = repo.freshLogin)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 localError = repo.friendly(e)
             }
+        }
+    }
+
+    // Lokales Netz in den App-Einstellungen erlaubt: beim Zurueckkommen Meldung weg und Anmeldung fortsetzen
+    val lanError = UiText.Res(R.string.error_local_network)
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.LaunchedEffect(lifecycle) {
+        lifecycle.lifecycle.currentStateFlow.collect {
+            if (it == androidx.lifecycle.Lifecycle.State.RESUMED && localError == lanError &&
+                io.github.yggdrasil_sh.saga.util.LocalNetwork.granted(context) && !busy && server.isNotBlank()
+            ) login()
         }
     }
 
@@ -158,6 +170,15 @@ fun LoginScreen(repo: SagaRepository) {
                     style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                // Kontowechsel ohne privaten Tab (Browser kann es nicht): der Browser bleibt beim bisherigen Konto angemeldet
+                val switchHint = remember { repo.freshLogin && !io.github.yggdrasil_sh.saga.ui.common.ephemeralTabsSupported(context) }
+                if (switchHint) {
+                    Text(
+                        stringResource(R.string.login_switch_hint),
+                        style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 if (busy) CircularProgressIndicator(Modifier.size(28.dp))
                 (localError ?: loginError)?.let {
                     Text(it.resolve(), color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)

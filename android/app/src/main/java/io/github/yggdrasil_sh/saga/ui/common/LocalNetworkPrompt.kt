@@ -35,8 +35,15 @@ fun LocalNetworkPrompt(repo: SagaRepository) {
     val h = host ?: return
     val context = LocalContext.current
     var denied by remember(h) { mutableStateOf(false) }
+    // Nach der ersten Ablehnung fragt das System noch einmal (Begruendung erlaubt) - erst danach ist die Frage gesperrt
+    // und nur die App-Einstellungen helfen. Knopf und Ziel danach waehlen.
+    var toSettings by remember(h) { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
-        if (ok) repo.localNetworkAnswered(true) else denied = true
+        if (ok) repo.localNetworkAnswered(true) else {
+            denied = true
+            val act = context.findActivity()
+            toSettings = LocalNetworkFlow.openSettingsNext(act != null && ActivityCompat.shouldShowRequestPermissionRationale(act, LocalNetwork.PERMISSION))
+        }
     }
     AlertDialog(
         onDismissRequest = { repo.localNetworkAnswered(false) },
@@ -44,18 +51,22 @@ fun LocalNetworkPrompt(repo: SagaRepository) {
         text = { Text(stringResource(if (denied) R.string.local_network_denied else R.string.local_network_text, h)) },
         confirmButton = {
             TextButton(onClick = {
-                val act = context.findActivity()
-                // Nach einer Ablehnung zeigt das System die Frage evtl. nicht mehr -> Einstellungen der App
-                if (denied && act != null && !ActivityCompat.shouldShowRequestPermissionRationale(act, LocalNetwork.PERMISSION)) {
+                if (toSettings) {
                     openAppSettings(context)
                     repo.localNetworkAnswered(false)
                 } else {
                     launcher.launch(LocalNetwork.PERMISSION)
                 }
-            }) { Text(stringResource(if (denied) R.string.local_network_settings else R.string.local_network_allow)) }
+            }) { Text(stringResource(if (toSettings) R.string.local_network_settings else R.string.local_network_allow)) }
         },
         dismissButton = { TextButton(onClick = { repo.localNetworkAnswered(false) }) { Text(stringResource(R.string.action_later)) } },
     )
+}
+
+/** Ablauf der Rueckfrage (rein, testbar) */
+object LocalNetworkFlow {
+    /** Nach einer Ablehnung: darf das System noch fragen (Begruendung)? Sonst fuehrt der Knopf zu den Einstellungen */
+    fun openSettingsNext(systemMayAskAgain: Boolean): Boolean = !systemMayAskAgain
 }
 
 private fun Context.findActivity(): Activity? {

@@ -114,6 +114,29 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 - **APK halb so groß:** Das Release-APK enthält nur noch arm64-v8a und armeabi-v7a (echte Telefone/Tablets, auch
   32-Bit); 23 statt 50 MB. Emulator-/Chromebook-Builds mit `-PsagaAllAbis=true`.
 
+### Android – Behoben (Fehlerrunde nach Bughunt 2)
+- **Dunkelmodus:** Datenbank-Blöcke, Zeilen, Eigenschaftswerte und Einbettungen waren schwarz auf fast schwarz – die
+  Grund-Textfarbe folgt jetzt dem Farbschema.
+- **Videoanruf:** Das Bild des Gegenübers wird ganz gezeigt (eingepasst, Rand schwarz) statt hochkant auf einen
+  schmalen Streifen beschnitten. Die eigene Vorschau rutscht bei großer Schrift unter die Statuszeile; verweigerte
+  Kamera im Anruf wird erklärt; der Lautsprecher-Knopf zeigt die tatsächliche Ausgabe (Geräte ohne Hörer); die
+  Mitteilung „Laufender (Video-)Anruf“ nennt den Namen nur einmal und zeigt die Dauer.
+- **Anrufe ohne UnifiedPush:** Hinweis in den Einstellungen und nach dem ersten Anruf: „Ohne Mitteilungs-Verteiler
+  klingelt Saga nur, wenn die App offen ist“ – mit „Einrichten“.
+- **Anmelden im Heimnetz (Android 17):** Die Meldung „Kein Zugriff aufs lokale Netzwerk“ kommt erst nach einer
+  Ablehnung; nach „Erlauben“ (auch über die App-Einstellungen) geht die Anmeldung von selbst weiter. Nach der ersten
+  Ablehnung fragt der Knopf „Erlauben“ das System erneut, erst danach „Einstellungen öffnen“.
+- **Konto im Browser:** „Im Browser verwalten“ nennt das Konto der App und gibt es der Seite mit (`?user=`). Nach dem
+  Abmelden in der App startet die nächste Anmeldung in einem privaten Browser-Tab (ohne die Sitzung des alten Kontos,
+  `prompt=login`) – ein anderes Konto ist so wählbar.
+- **Abmelden** leert auch den Bild-Cache (Immich-Vorschaubilder, Profilbilder).
+- **„Bild einfügen“** erscheint auch, wenn das Bild in einer anderen App kopiert wurde (Prüfung beim Zurückkommen).
+- **Chat:** Datumstrenner zwischen den Tagen; zu große Bilder aus „Datei oder Bild“ werden verkleinert statt
+  abgelehnt; beim Verkleinern bleibt die EXIF-Ausrichtung erhalten.
+- **Seiten:** Datum und Zahlen in Datenbank-Zeilen in der Schreibweise der Sprache, Link-Eigenschaft antippbar,
+  Zitat-Unterschrift sichtbar, Checklisten-Kästchen an der ersten Zeile.
+- **Profilbild** mit Transparenz bleibt transparent (PNG statt JPEG mit schwarzen Ecken).
+
 ### Neu (Linux)
 - **Immich im Chat:** Büroklammer → „Aus Immich …“ (nur wenn Immich verbunden ist), gleiche Auswahl wie auf Seiten;
   das Bild wird über den Immich-Proxy des Servers geladen (Original bzw. große Vorschau, bei Bedarf verkleinert) und

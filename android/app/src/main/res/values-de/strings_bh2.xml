@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fehlerrunde nach Bughunt 2 -->
+<resources>
+    <string name="call_cam_denied">Kamera nicht erlaubt – bitte in den Android-Einstellungen für Saga erlauben.</string>
+    <string name="call_ongoing_video">Laufender Videoanruf</string>
+    <string name="call_push_title">Anrufe im Hintergrund</string>
+    <string name="call_push_hint">Ohne Mitteilungs-Verteiler klingelt Saga nur, wenn die App offen ist. Richte UnifiedPush (z. B. ntfy) ein, damit Anrufe auch im Hintergrund klingeln.</string>
+    <string name="call_push_setup">Einrichten</string>
+    <string name="call_push_later">Später</string>
+    <string name="security_account_check">Dein Konto in der App ist „%1$s“. Der Browser zeigt das dort angemeldete Konto – prüfe, dass dort „%1$s“ steht, bevor du etwas änderst.</string>
+    <string name="login_switch_hint">Mit einem anderen Konto anmelden? Ist im Browser noch das bisherige Konto angemeldet, dort zuerst bei Saga abmelden.</string>
+</resources>
