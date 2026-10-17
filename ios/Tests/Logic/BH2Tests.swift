@@ -15,4 +15,14 @@ func bh2Tests() {
     check(L.systemEnd(L.endNote(reason: "timeout", role: "callee", connectedFor: nil), failed: false) == .remoteEnded, "verpasst bleibt remoteEnded")
     check(L.systemEnd(.ended(dur: 12), failed: false) == .remoteEnded, "normal beendet")
     check(L.systemEnd(nil, failed: true) == .failed && L.systemEnd(.elsewhere, failed: true) == .failed, "Fehler hat Vorrang")
+
+    // [S3] Mac: Anruf-Fenster nicht bei jedem Zustandswechsel nach vorn
+    check(L.macOpensCallWindow(from: "idle", to: "preparing"), "eigener Anruf: Fenster auf")
+    check(L.macOpensCallWindow(from: "idle", to: "incoming"), "es klingelt: Fenster auf")
+    check(L.macOpensCallWindow(from: "ended", to: "incoming"), "klingelt kurz nach dem Ende: Fenster auf")
+    check(L.macOpensCallWindow(from: "incoming", to: "connecting"), "angenommen: Fenster nach vorn")
+    for (a, b) in [("preparing", "ringingOut"), ("ringingOut", "connecting"), ("connecting", "active"), ("active", "ended"),
+                   ("ended", "idle"), ("incoming", "ended"), ("incoming", "idle"), ("idle", "idle")] {
+        check(!L.macOpensCallWindow(from: a, to: b), "kein Fenster bei \(a) -> \(b)")
+    }
 }

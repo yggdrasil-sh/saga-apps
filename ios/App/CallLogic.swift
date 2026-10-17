@@ -137,6 +137,14 @@ enum CallLogic {
         return note == .elsewhere ? .answeredElsewhere : .remoteEnded
     }
 
+    /// Mac: Anruf-Fenster oeffnen nur beim Beginn eines Anrufs (aus idle/ended) und beim Annehmen (incoming -> connecting),
+    /// nicht bei jedem Zustandswechsel. Phasen wie CallManager.Phase (rawValue).
+    static func macOpensCallWindow(from old: String, to new: String) -> Bool {
+        if new == "idle" || new == old { return false }
+        if old == "idle" || old == "ended" { return true }
+        return old == "incoming" && new == "connecting"
+    }
+
     /// 65 -> "1:05", 3725 -> "1:02:05"
     static func duration(_ s: Int) -> String {
         let v = max(0, s)

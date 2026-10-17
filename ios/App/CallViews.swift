@@ -177,7 +177,12 @@ struct CallPresenter: ViewModifier {
             #if os(iOS)
             .fullScreenCover(isPresented: Binding(get: { show }, set: { if !$0 { calls.dismissEnded() } })) { CallScreen(calls: calls) }
             #else
-            .onChange(of: calls.phase) { _, p in if p != .idle { openWindow(id: "call"); NSApp.activate() } }
+            // Fenster nur beim Beginn (eigener Anruf / es klingelt) und beim Annehmen oeffnen, nie die App aktivieren:
+            // eingehend meldet sich CallSystem.reportIncoming dezent per Mitteilung + Dock (kein Fokus-Klau beim Tippen
+            // in einer anderen App); Annehmen ueber die Mitteilung holt Saga selbst nach vorn (Aktion .foreground).
+            .onChange(of: calls.phase) { old, p in
+                if CallLogic.macOpensCallWindow(from: old.rawValue, to: p.rawValue) { openWindow(id: "call") }
+            }
             #endif
             #if DEBUG
             .task { if let s = calls.store { await CallTestHook.run(s) } }

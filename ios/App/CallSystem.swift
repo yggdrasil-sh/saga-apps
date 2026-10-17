@@ -143,7 +143,7 @@ final class CallSystem: NSObject {
         CallTones.shared.play(.ring)
         #if os(macOS)
         if !NSApp.isActive {
-            NSApp.requestUserAttention(.criticalRequest)
+            NSApp.requestUserAttention(.informationalRequest)               // dezent: Dock einmal, dazu die Mitteilung
             let c = UNMutableNotificationContent()
             c.title = inc.media == "video" ? String(localized: "Videoanruf") : String(localized: "Anruf")
             c.body = inc.name; c.categoryIdentifier = Self.category; c.interruptionLevel = .timeSensitive

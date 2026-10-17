@@ -19,7 +19,7 @@ struct IncomingCall: Identifiable, Equatable {
 @MainActor
 final class CallManager: NSObject, ObservableObject {
     weak var store: Store?
-    enum Phase: Equatable { case idle, preparing, ringingOut, incoming, connecting, active, ended }
+    enum Phase: String, Equatable { case idle, preparing, ringingOut, incoming, connecting, active, ended }
     @Published private(set) var phase: Phase = .idle
     @Published var status = ""
     @Published private(set) var peerName = ""
