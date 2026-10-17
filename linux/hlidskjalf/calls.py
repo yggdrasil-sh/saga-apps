@@ -9,6 +9,7 @@ angenommen) klingeln nie wieder - auch nicht nach nachgeholten Ereignissen (Last
 GET /api/calls/<id>: nur bei state == "ringing" und Rolle "callee"."""
 import math
 import os
+import re
 import struct
 import time
 import wave
@@ -21,6 +22,12 @@ from .i18n import _
 from .util import bg
 
 RING_FALLBACK_S = 45
+_ID_RE = re.compile(r"[0-9a-f]{32}")
+
+
+def valid_id(cid):
+    """Anruf-Kennung: genau 32 Hex-Zeichen (klein) - landet in API-Pfaden und Adressen"""
+    return isinstance(cid, str) and _ID_RE.fullmatch(cid) is not None
 
 
 def call_url(cid, media):
@@ -267,7 +274,7 @@ class Calls(GObject.Object):
         bg(client.get, "api/calls/active", done=fin, error=lambda e: None)
 
     def check(self, cid):
-        if not cid or len(cid) != 32 or cid in self.done or cid in self.checking or (self.ringing and self.ringing["id"] == cid):
+        if not valid_id(cid) or cid in self.done or cid in self.checking or (self.ringing and self.ringing["id"] == cid):
             return
         self.checking.add(cid)
         self._hold(True)
@@ -319,6 +326,8 @@ class Calls(GObject.Object):
     # --- Aktionen ------------------------------------------------------------------------------------------------------
     def accept(self, cid, media=None, parent=None):
         """Annehmen: im Standardbrowser (Web-Oberflaeche nimmt an). Hier nicht mehr klingeln."""
+        if not valid_id(cid):
+            return
         r = self.ringing if self.ringing and self.ringing["id"] == cid else None
         media = media or (r or {}).get("media") or "audio"
         self._done(cid)
@@ -326,6 +335,8 @@ class Calls(GObject.Object):
         self.emit("info", _("The call opens in your browser …"))
 
     def decline(self, cid):
+        if not valid_id(cid):
+            return
         self._done(cid)
 
         def err(e):
