@@ -210,3 +210,26 @@ def test_window_min_width_fits_dialogs(win):
     win.set_default_size(300, 700)                       # kleiner als erlaubt
     pump(None, 0.6)
     assert win.get_width() >= 360                        # auch ohne Compositor (Rand "solid-csd" innerhalb der Mindestbreite)
+
+
+# --- [S4] Gravatar ohne E-Mail ----------------------------------------------------------------------------------------
+def test_gravatar_switch_without_email(win, srv):
+    from hlidskjalf.profile import AvatarGroup
+    from hlidskjalf.settings import SettingsDialog
+    srv.my_avatar["has_email"] = False
+    srv.my_avatar["gravatar"] = True
+    win.load_account()
+    pump(lambda: win.account_name(), 3)
+    dlg = SettingsDialog(win)
+    dlg.present(win)
+    g = AvatarGroup(dlg)
+    assert pump(lambda: g.get_visible(), 4)
+    assert not g.grav.get_active() and not g.grav.get_sensitive()
+    assert "email" in g.grav.get_subtitle().lower()
+    pump(None, 0.3)
+    assert srv.my_avatar["gravatar"] is True                             # Anzeige aendert die Einstellung nicht
+    srv.my_avatar["has_email"] = True
+    g.load()
+    assert pump(lambda: g.grav.get_active() and g.grav.get_sensitive(), 3)
+    assert "Gravatar directly" in g.grav.get_subtitle()
+    dlg.force_close()
