@@ -7,4 +7,6 @@
     <string name="call_push_hint">Sin un distribuidor de notificaciones, Saga solo suena cuando la app está abierta. Configura UnifiedPush (p. ej. ntfy) para que las llamadas suenen también en segundo plano.</string>
     <string name="call_push_setup">Configurar</string>
     <string name="call_push_later">Más tarde</string>
+    <string name="security_account_check">Tu cuenta en la app es «%1$s». El navegador muestra la cuenta con la sesión iniciada allí: comprueba que ponga «%1$s» antes de cambiar nada.</string>
+    <string name="login_switch_hint">¿Iniciar sesión con otra cuenta? Si el navegador sigue con la cuenta anterior, cierra primero la sesión de Saga allí.</string>
 </resources>

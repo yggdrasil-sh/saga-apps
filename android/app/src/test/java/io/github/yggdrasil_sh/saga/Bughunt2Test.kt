@@ -54,6 +54,24 @@ class Bughunt2Test {
         assertFalse(d.await())
     }
 
+    @Test fun securityPageNamesAppAccount() {
+        val L = io.github.yggdrasil_sh.saga.auth.LoginFlow
+        assertEquals("https://s.example/security?user=app-user", L.securityUrl("https://s.example/", "app-user"))
+        assertEquals("https://s.example/security?user=a%20b%26c", L.securityUrl("https://s.example", " a b&c "))
+        assertEquals("https://s.example/security", L.securityUrl("https://s.example", ""))
+    }
+
+    @Test fun loginAfterSignOutAsksForAccount() {
+        val L = io.github.yggdrasil_sh.saga.auth.LoginFlow
+        assertEquals("https://s.example/app/login?challenge=abc&scheme=saga", L.loginUrl("https://s.example", "abc", fresh = false))
+        assertEquals("https://s.example/app/login?challenge=abc&scheme=saga&prompt=login", L.loginUrl("https://s.example", "abc", fresh = true))
+    }
+
+    @Test fun transparentAvatarStaysPng() {
+        assertEquals("image/png", io.github.yggdrasil_sh.saga.ui.settings.AvatarCrop.mimeFor(hasAlpha = true))
+        assertEquals("image/jpeg", io.github.yggdrasil_sh.saga.ui.settings.AvatarCrop.mimeFor(hasAlpha = false))
+    }
+
     @Test fun lanPromptSettingsOnlyWhenSystemStopsAsking() {
         // erste Ablehnung: System fragt noch einmal -> Knopf "Erlauben"; danach gesperrt -> "Einstellungen oeffnen"
         assertFalse(io.github.yggdrasil_sh.saga.ui.common.LocalNetworkFlow.openSettingsNext(systemMayAskAgain = true))

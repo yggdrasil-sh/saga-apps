@@ -73,7 +73,6 @@ import io.github.yggdrasil_sh.saga.data.uploadAvatar
 import io.github.yggdrasil_sh.saga.ui.common.openUrl
 import io.github.yggdrasil_sh.saga.ui.notifications.Avatar
 import io.github.yggdrasil_sh.saga.ui.push.SwitchRow
-import io.github.yggdrasil_sh.saga.util.ServerUrl
 import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.util.resolve
 import kotlinx.coroutines.CancellationException
@@ -132,8 +131,17 @@ fun SecurityBlock(repo: SagaRepository, modifier: Modifier, reloadKey: Any?) {
             },
         )
         Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
-            OutlinedButton(onClick = { openUrl(context, ServerUrl.absolute(repo.server.value, "security")) }) {
+            // Der Browser zeigt die Seite des DORT angemeldeten Kontos - Konto der App nennen und mitgeben (user=),
+            // damit der Server bei einem anderen Konto warnen kann
+            val account = repo.account.value.trim()
+            OutlinedButton(onClick = { openUrl(context, io.github.yggdrasil_sh.saga.auth.LoginFlow.securityUrl(repo.server.value, account)) }) {
                 Text(stringResource(R.string.security_manage))
+            }
+            if (account.isNotEmpty()) {
+                Text(
+                    stringResource(R.string.security_account_check, account), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp),
+                )
             }
             Text(
                 stringResource(R.string.security_hint), style = MaterialTheme.typography.bodySmall,

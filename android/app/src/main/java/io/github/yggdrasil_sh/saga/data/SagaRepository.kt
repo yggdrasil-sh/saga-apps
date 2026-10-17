@@ -3,6 +3,7 @@ package io.github.yggdrasil_sh.saga.data
 import io.github.yggdrasil_sh.saga.BuildConfig
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.auth.BrowserReturn
+import io.github.yggdrasil_sh.saga.auth.LoginFlow
 import io.github.yggdrasil_sh.saga.auth.PairLink
 import io.github.yggdrasil_sh.saga.auth.PairTarget
 import io.github.yggdrasil_sh.saga.auth.Pkce
@@ -969,7 +970,7 @@ class SagaRepository(
             secure.pkceVerifier = p.verifier
             secure.pkceServer = server
         }
-        return "$server/app/login?challenge=${p.challenge}&scheme=saga"
+        return LoginFlow.loginUrl(server, p.challenge, fresh = freshLogin)
     }
 
     /** Laeuft dort ein Saga-Server? Klare Meldung statt Browser-Fehler (kein https, Zertifikat, falsche Adresse) */
@@ -1093,6 +1094,7 @@ class SagaRepository(
     }
 
     private suspend fun onSignedIn(message: UiText? = null) {
+        freshLogin = false
         adoptNamedDrafts()
         serverVersion.value = null
         minApp.value = null
@@ -1148,8 +1150,19 @@ class SagaRepository(
     suspend fun logout() {
         flushEditors()
         auth.signOutLocal(forgetRemote = true)
+        freshLogin = true
         needsLogin.value = true
     }
+
+    /**
+     * Nach dem Abmelden in der App (Kontowechsel): die naechste Browser-Anmeldung startet ohne die Sitzung des
+     * bisherigen Kontos (privater Custom Tab, prompt=login) - sonst bietet die Seite nur "Anmelden als <alt>".
+     */
+    var freshLogin: Boolean
+        get() = appContext?.getSharedPreferences("saga_ui", android.content.Context.MODE_PRIVATE)?.getBoolean("fresh_login", false) == true
+        set(v) {
+            appContext?.getSharedPreferences("saga_ui", android.content.Context.MODE_PRIVATE)?.edit()?.putBoolean("fresh_login", v)?.apply()
+        }
 
     /** Bild-/Datei-Adresse (/files/...) auf dem Server */
     fun absoluteUrl(path: String): String = ServerUrl.absolute(settings.server.value, path)

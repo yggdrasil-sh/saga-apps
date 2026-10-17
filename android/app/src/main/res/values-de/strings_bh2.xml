@@ -7,4 +7,6 @@
     <string name="call_push_hint">Ohne Mitteilungs-Verteiler klingelt Saga nur, wenn die App offen ist. Richte UnifiedPush (z. B. ntfy) ein, damit Anrufe auch im Hintergrund klingeln.</string>
     <string name="call_push_setup">Einrichten</string>
     <string name="call_push_later">Später</string>
+    <string name="security_account_check">Dein Konto in der App ist „%1$s“. Der Browser zeigt das dort angemeldete Konto – prüfe, dass dort „%1$s“ steht, bevor du etwas änderst.</string>
+    <string name="login_switch_hint">Mit einem anderen Konto anmelden? Ist im Browser noch das bisherige Konto angemeldet, dort zuerst bei Saga abmelden.</string>
 </resources>
