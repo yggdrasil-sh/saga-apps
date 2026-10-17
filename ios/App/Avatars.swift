@@ -27,25 +27,46 @@ final class AvatarCache {
     static let shared = AvatarCache()
     weak var store: Store?
     private let mem = NSCache<NSString, PlatformImage>()
-    /// 404/kein Bild: nicht erneut versuchen, bis sich die Adresse (v) aendert
+    /// 404/kein Bild: nicht erneut versuchen, bis sich die Adresse (v) aendert oder revalidiert wird
     private var missing = Set<String>()
+    /// letzter Abgleich mit dem Server bzw. naechster Versuch nach einem voruebergehenden Fehler (je Adresse)
+    private var checked: [String: Date] = [:]
+    private var retry: [String: Date] = [:]
     private var inflight: [String: Task<PlatformImage?, Never>] = [:]
 
     func cached(_ avatar: String?, px: Int) -> PlatformImage? {
         guard let u = AvatarLogic.url(server: AppConfig.serverString, avatar: avatar, px: px) else { return nil }
         return mem.object(forKey: u.absoluteString as NSString)
     }
+    /// Frisch (Bild oder "fehlt" juenger als 10 min)? Sonst beim Anzeigen still beim Server nachfragen.
+    func isFresh(_ avatar: String?, px: Int) -> Bool {
+        guard let u = AvatarLogic.url(server: AppConfig.serverString, avatar: avatar, px: px) else { return true }
+        let k = u.absoluteString
+        return AvatarLogic.fresh(checked: checked[k], retry: retry[k], now: Date())
+    }
     func image(_ avatar: String?, px: Int) async -> PlatformImage? {
         guard AppConfig.hasServer, let store, let u = AvatarLogic.url(server: AppConfig.serverString, avatar: avatar, px: px) else { return nil }
         let key = u.absoluteString
-        if let m = mem.object(forKey: key as NSString) { return m }
-        if missing.contains(key) { return nil }
+        let old = mem.object(forKey: key as NSString)
+        if AvatarLogic.fresh(checked: checked[key], retry: retry[key], now: Date()) { return missing.contains(key) ? nil : old }
         if let t = inflight[key] { return await t.value }
+        let revalidate = old != nil || missing.contains(key) || checked[key] != nil
         let t = Task { () -> PlatformImage? in
-            guard let (d, code) = await store.avatarData(u) else { return nil }          // offline: spaeter erneut
-            guard code == 200, let img = PlatformImage(data: d) else { self.missing.insert(key); return nil }
-            self.mem.setObject(img, forKey: key as NSString)
-            return img
+            let r = await store.avatarData(u, revalidate: revalidate)
+            let img = r.flatMap { PlatformImage(data: $0.0) }
+            switch AvatarLogic.fetchResult(code: r?.1, decoded: img != nil) {
+            case .image:
+                self.mem.setObject(img!, forKey: key as NSString); self.missing.remove(key)
+                self.checked[key] = Date(); self.retry[key] = nil
+                return img
+            case .missing:
+                self.mem.removeObject(forKey: key as NSString); self.missing.insert(key)
+                self.checked[key] = Date(); self.retry[key] = nil
+                return nil
+            case .transient:                                               // offline/Serverfehler: altes Bild behalten, spaeter erneut
+                self.retry[key] = Date().addingTimeInterval(AvatarLogic.retryAfterError)
+                return old
+            }
         }
         inflight[key] = t
         let r = await t.value
@@ -53,7 +74,7 @@ final class AvatarCache {
         return r
     }
     /// eigenes Bild geaendert/abgemeldet
-    func reset() { mem.removeAllObjects(); missing = []; inflight = [:] }
+    func reset() { mem.removeAllObjects(); missing = []; checked = [:]; retry = [:]; inflight = [:] }
 }
 
 /// Rundes Profilbild mit Initialen (bzw. Gruppen-Symbol) als Platzhalter
@@ -76,15 +97,17 @@ struct AvatarView: View {
         .task(id: group ? nil : avatar) {
             let px = AvatarLogic.step(points: Double(size), scale: Double(scale))
             img = group ? nil : AvatarCache.shared.cached(avatar, px: px)
-            if !group, img == nil { img = await AvatarCache.shared.image(avatar, px: px) }
+            // fehlt oder aelter als 10 min (z. B. beim Seitenwechsel wieder angezeigt): beim Server nachfragen (ETag -> 304)
+            if !group, img == nil || !AvatarCache.shared.isFresh(avatar, px: px) { img = await AvatarCache.shared.image(avatar, px: px) }
         }
     }
 }
 
 extension Store {
     /// Profilbild laden (Sitzung bzw. still erneuert); nil = offline
-    func avatarData(_ url: URL) async -> (Data, Int)? {
-        var req = URLRequest(url: url, cachePolicy: .useProtocolCachePolicy, timeoutInterval: 20)
+    /// revalidate: am URLCache vorbei beim Server nachfragen (If-None-Match -> 304, sonst neues Bild)
+    func avatarData(_ url: URL, revalidate: Bool = false) async -> (Data, Int)? {
+        var req = URLRequest(url: url, cachePolicy: revalidate ? .reloadRevalidatingCacheData : .useProtocolCachePolicy, timeoutInterval: 20)
         req.httpShouldHandleCookies = false
         req.setValue("image/webp,image/*;q=0.8", forHTTPHeaderField: "Accept")
         return try? await sendQuiet(req)

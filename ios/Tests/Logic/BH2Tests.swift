@@ -49,3 +49,19 @@ private func pixels(_ img: CGImage) -> [UInt8]? {
     c.draw(img, in: CGRect(x: 0, y: 0, width: img.width, height: img.height))
     return buf
 }
+
+// [S4] Profilbilder: nur 404 heisst "fehlt"; Fehler sperren nicht fuer die Sitzung; nach 10 min revalidieren
+func bh2AvatarCacheTests() {
+    typealias A = AvatarLogic
+    check(A.fetchResult(code: 200, decoded: true) == .image, "200 + Bild")
+    check(A.fetchResult(code: 404, decoded: false) == .missing, "404 = kein Bild")
+    for c in [401, 403, 429, 500, 502, 503] { check(A.fetchResult(code: c, decoded: false) == .transient, "\(c) ist voruebergehend") }
+    check(A.fetchResult(code: nil, decoded: false) == .transient, "offline: voruebergehend")
+    check(A.fetchResult(code: 200, decoded: false) == .missing, "kaputtes Bild: wie fehlt")
+    let t0 = Date(timeIntervalSince1970: 1_000_000)
+    check(!A.fresh(checked: nil, retry: nil, now: t0), "nie geladen: nicht frisch")
+    check(A.fresh(checked: t0, retry: nil, now: t0.addingTimeInterval(599)), "unter 10 min: frisch")
+    check(!A.fresh(checked: t0, retry: nil, now: t0.addingTimeInterval(601)), "nach 10 min: revalidieren")
+    check(A.fresh(checked: nil, retry: t0.addingTimeInterval(60), now: t0.addingTimeInterval(30)), "nach Fehler: kurz warten")
+    check(!A.fresh(checked: t0, retry: t0.addingTimeInterval(60), now: t0.addingTimeInterval(61)), "nach Fehler: nach 60 s erneut")
+}

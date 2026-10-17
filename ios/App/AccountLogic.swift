@@ -70,6 +70,25 @@ enum AvatarLogic {
     }
     /// Kantenlaenge des hochgeladenen Bildes: 512...1024 px (kleine Bilder werden auf 512 vergroessert)
     static func outputSide(_ crop: Double) -> Int { Int(min(1024, max(512, crop.rounded()))) }
+    /// Zwischenspeicher: nach so vielen Sekunden beim naechsten Anzeigen (Seitenwechsel, Liste) beim Server nachfragen
+    /// (bedingt per ETag -> meist 304); nach einem voruebergehenden Fehler frueher erneut versuchen
+    static let revalidateAfter: TimeInterval = 600
+    static let retryAfterError: TimeInterval = 60
+    /// Antwort des Servers -> was der Zwischenspeicher tut. Nur 404 heisst "kein Bild" (Initialen, bis zur
+    /// Revalidierung); 401/429/5xx usw. sind voruebergehend und duerfen das Bild nicht fuer die Sitzung sperren.
+    enum Fetch: Equatable { case image, missing, transient }
+    static func fetchResult(code: Int?, decoded: Bool) -> Fetch {
+        guard let code else { return .transient }                        // offline
+        if code == 200 || code == 304 { return decoded ? .image : .missing }
+        if code == 404 || code == 410 { return .missing }
+        return .transient
+    }
+    /// Eintrag (Bild oder "fehlt") noch frisch? checked = letzter Abgleich, retry = naechster Versuch nach Fehler
+    static func fresh(checked: Date?, retry: Date?, now: Date) -> Bool {
+        if let retry { return now < retry }
+        guard let checked else { return false }
+        return now.timeIntervalSince(checked) < revalidateAfter
+    }
     /// Ausschnitt auf side x side Pixel zeichnen, transparente Flaechen weiss (JPEG kennt kein Alpha - sonst schwarz,
     /// wie die Chat-Vorschaubilder)
     static func flatten(_ piece: CGImage, side: Int) -> CGImage? {
