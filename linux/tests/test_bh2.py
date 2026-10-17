@@ -143,3 +143,32 @@ def test_push_fallback_has_buttons(win, srv, app, monkeypatch):
     monkeypatch.setattr(M, "open_in_browser", lambda u, p=None: opened.append(u))
     M.calls.accept(cid)
     assert opened == [f"https://saga.test/chats#call-{cid}-video"]      # Art aus der Push-Mitteilung
+
+
+# --- [S4] Profilbild des Gegenuebers ----------------------------------------------------------------------------------
+def test_peer_avatar_change_revalidates(win, srv, monkeypatch):
+    from hlidskjalf import avatars
+    from hlidskjalf.chat import chat
+    avatars.reset()
+    mockv21.set_avatar(srv, "anna", mockv21.face((200, 60, 60)))
+    _ready()
+    srv.chat_peer("anna", "Anna Beispiel")
+    cid = srv.new_chat("dm", ["test", "anna"])
+    win.show_root(("chats",))
+    assert pump(lambda: chat.chat(cid) is not None, 4)
+    v1 = chat.peer(chat.chat(cid))["avatar"]
+    mockv21.set_avatar(srv, "anna", mockv21.face((60, 90, 200)))         # anderswo geaendert, kein Live-Ereignis
+    chat.revalidate(60)
+    pump(None, 0.3)
+    assert chat.peer(chat.chat(cid))["avatar"] == v1                     # frisch geladen: nicht gleich wieder
+    chat._chats_at -= 30
+    win.show_root(("today",))
+    win.show_root(("chats",))                                            # Chats wieder geoeffnet
+    assert pump(lambda: chat.peer(chat.chat(cid))["avatar"] == mockv21.av_url(srv, "anna") != v1, 4)
+    avs = [w for w in _walk(win.current.list) if w.__class__.__name__ == "Avatar"]
+    assert any(getattr(a, "_hk_avatar", None) == mockv21.av_url(srv, "anna") for a in avs)
+    srv.avatars.pop("anna")                                              # entfernt -> Initialen
+    chat._chats_at -= 300
+    monkeypatch.setattr(win, "is_active", lambda: True)
+    win._tick()                                                          # Takt, waehrend die Chats offen sind
+    assert pump(lambda: not chat.peer(chat.chat(cid)).get("avatar"), 4)

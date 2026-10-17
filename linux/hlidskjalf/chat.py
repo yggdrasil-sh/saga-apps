@@ -235,6 +235,7 @@ class ChatState(GObject.Object):
         self.me = None
         self.keys = None
         self.chats = []
+        self._chats_at = 0.0       # letzte geladene Chat-Liste (monotonic)
         self.unread = 0
         self.cache = {}            # chat-id -> {"msgs": [...], "more", "last_seq", "loaded", "rc": recipients}
         self.typing = {}           # chat-id -> {uid: (name, bis)}
@@ -520,6 +521,7 @@ class ChatState(GObject.Object):
                 if c.get("kind") == "free" and isinstance(tm, dict):
                     c["_title"] = self._title_of(c["id"], tm)
             self.unread = int(j.get("unread") or 0)
+            self._chats_at = time.monotonic()
             self.emit("changed")
             if done:
                 done()
@@ -528,6 +530,13 @@ class ChatState(GObject.Object):
             if done:
                 done()
         bg(client.get, f"api/chats?device={self.device_id}", done=fin, error=err)
+
+    def revalidate(self, age=60):
+        """Chat-Liste neu laden, wenn sie aelter als age Sekunden ist - Profilbilder (Adresse mit Version) und Namen der
+        Gegenueber aendern sich ohne Live-Ereignis"""
+        if self.ready and time.monotonic() - getattr(self, "_chats_at", 0) > age:
+            self._chats_at = time.monotonic()             # nicht mehrfach gleichzeitig
+            self.load_chats()
 
     def load_unread(self):
         """nur die Zahl fuer die Seitenleiste (auch ohne Schluessel auf diesem Geraet)"""

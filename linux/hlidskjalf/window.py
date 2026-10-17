@@ -592,6 +592,8 @@ class MainWindow(Adw.ApplicationWindow):
                 notifications.count()
                 chat.load_unread()
             self._session_catch_up()
+            if type(self.current).__name__ == "ChatsScreen":
+                chat.revalidate(120)                       # Profilbilder der Gegenueber (kein Live-Ereignis)
         return True
 
     # --- Aufbau ----------------------------------------------------------------------------
