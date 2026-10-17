@@ -49,7 +49,11 @@ func newBlockID() -> String { String((0..<10).map { _ in "abcdefghijklmnopqrstuv
 
 @MainActor
 final class PageEditor: ObservableObject {
-    @Published var focus: String?                  // "blockID" oder "blockID/0/2" (Listenpunkt)
+    @Published var focus: String? {                // "blockID" oder "blockID/0/2" (Listenpunkt)
+        didSet { if focus != nil && selected != nil { selected = nil } }      // Schreiben hebt die Bild-Auswahl auf
+    }
+    /// ausgewaehlter Bildblock (2.1-c): Kopieren, Ausschneiden, Loeschen ueber Tastatur/Menue (BlockClipboard)
+    @Published var selected: String?
     @Published var locked = false                    // Seite gesperrt: nur lesen (wie im Web)
     let hover = HoverModel()                         // eigenes Modell: nur die Griffleiste hoert darauf
     @Published var pickImage = false                 // "/Bild" -> Fotos-Auswahl
@@ -593,9 +597,61 @@ import UniformTypeIdentifiers
 import PhotosUI
 
 extension PageEditor {
+    // MARK: Bildblock auswaehlen, kopieren, ausschneiden, einsetzen (2.1-c)
+
+    func select(_ id: String?) {
+        if id != nil { focus = nil }
+        if selected != id { selected = id }
+    }
+    /// Bildblock in die Zwischenablage (Bild + Block); Ausschneiden loescht ihn erst, wenn das Kopieren geklappt hat
+    func copyBlock(_ id: String, cut: Bool) {
+        guard let store, let (arr, i) = locate(id), let b = arr[i] as? NSDictionary, let plain = BlockClipboard.plain(b),
+              BlockClipLogic.isImage(plain) else { return }
+        let note = doc.id
+        Task {
+            guard await BlockClipboard.copy(plain, note: note, store: store) else { doc.error = String(localized: "Bild konnte nicht kopiert werden."); return }
+            if cut, !locked, doc.fetched, locate(id) != nil { delete(id); selected = nil }
+        }
+    }
+    func deleteSelected() {
+        guard !locked, let s = selected, locate(s) != nil else { return }
+        selected = nil; delete(s)
+    }
+    /// Block aus der Zwischenablage: gleiche Seite -> Block uebernehmen (Verschieben per Ausschneiden/Einsetzen),
+    /// andere Seite -> Bild neu hochladen (der Server laesst nur Dateien des Seiten-Eigentuemers zu). false = nicht fuer mich
+    func pasteBlocks(_ p: BlockClipLogic.Payload) -> Bool {
+        guard !locked, doc.fetched, p.blocks.allSatisfy(BlockClipLogic.isImage) else { return false }
+        let anchor = focusedBlock ?? selected ?? imageAnchor
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "hkBlockCopyTest") { BlockClipboard.log("einsetzen plan=\(BlockClipLogic.plan(p, server: AppConfig.serverString, note: doc.id)) anker=\(anchor ?? "-")") }
+        #endif
+        switch BlockClipLogic.plan(p, server: AppConfig.serverString, note: doc.id) {
+        case .reuse:
+            var after = anchor
+            for b in p.blocks {
+                let x = BlockClipLogic.renewed(b, newID: newBlockID)
+                guard let d = try? JSONSerialization.data(withJSONObject: x),
+                      let m = try? JSONSerialization.jsonObject(with: d, options: .mutableContainers) as? NSMutableDictionary else { continue }
+                if let a = after, let (arr, i) = locate(a) { arr.insert(m, at: i + 1) } else { doc.root.add(m) }
+                after = m.blockID
+            }
+            imageAnchor = after; focus = nil; selected = after; changed()
+            return true
+        case .upload:
+            guard let data = BlockClipboard.image(mime: p.mime) else { return false }
+            let cap = p.blocks.first.map(BlockClipLogic.caption) ?? ""
+            imageAnchor = anchor
+            Task { await insertImage(data, caption: cap) }
+            return true
+        }
+    }
+
     /// Bilddaten -> PNG/JPEG (Server nimmt PNG, JPEG, GIF, WebP) -> hochladen -> Bild-Block nach dem aktuellen Block
-    func insertImage(_ raw: Data) async {
+    func insertImage(_ raw: Data, caption: String = "") async {
         guard let store else { return }
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "hkBlockCopyTest") { BlockClipboard.log("insertImage bytes=\(raw.count)") }
+        #endif
         var data = raw, name = "bild.png"
         let head = [UInt8](raw.prefix(4))
         let known = head.starts(with: [0x89, 0x50, 0x4E, 0x47]) || head.starts(with: [0xFF, 0xD8]) || head.starts(with: [0x47, 0x49, 0x46]) || (raw.count > 12 && raw[8..<12] == Data("WEBP".utf8))
@@ -610,13 +666,13 @@ extension PageEditor {
         }
         do {
             let url = try await store.upload(data, name: name, note: doc.uploadNote)
-            insertImageURL(url)
+            insertImageURL(url, caption: caption)
         } catch { doc.error = String(localized: "Bild nicht hochgeladen: \(error.localizedDescription)") }
     }
     /// Bild-Block mit einer schon hochgeladenen Datei (/files/...) nach dem aktuellen Block (z. B. aus Immich)
-    func insertImageURL(_ url: String) {
+    func insertImageURL(_ url: String, caption: String = "") {
         let b = NSMutableDictionary(dictionary: ["id": newBlockID(), "type": "image",
-            "data": NSMutableDictionary(dictionary: ["file": NSMutableDictionary(dictionary: ["url": url]), "caption": "", "withBorder": false, "stretched": false, "withBackground": false])])
+            "data": NSMutableDictionary(dictionary: ["file": NSMutableDictionary(dictionary: ["url": url]), "caption": caption, "withBorder": false, "stretched": false, "withBackground": false])])
         imageAnchor = insert(b, after: focusedBlock ?? imageAnchor)    // ohne Fokus (Sheet war offen): gemerkter Block; fehlt er, ans Ende
         focus = nil
     }

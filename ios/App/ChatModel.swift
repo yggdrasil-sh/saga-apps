@@ -98,6 +98,9 @@ struct ChatMe: Equatable {
     var msgMax = 65_536
     var fileMax = 20 * 1_048_576
     var filesPerMsg = 10
+    /// 2.1-c: Kennungen je Nachricht (Original + Vorschaubild); aeltere Server: files_per_msg
+    var fileIDsPerMsgServer: Int?
+    var fileIDsPerMsg: Int { fileIDsPerMsgServer ?? filesPerMsg }
     var membersMax = 50
     var retentionMax: Int?
     var retentions: [Int] = [0, 3600, 86_400, 604_800, 2_592_000, 7_776_000, 31_536_000]
@@ -116,6 +119,7 @@ struct ChatMe: Equatable {
         if let l = j["limits"] as? [String: Any] {
             msgMax = ShareJSON.int(l["msg_max"]) ?? msgMax; fileMax = ShareJSON.int(l["file_max"]) ?? fileMax
             filesPerMsg = ShareJSON.int(l["files_per_msg"]) ?? filesPerMsg; membersMax = ShareJSON.int(l["members_max"]) ?? membersMax
+            fileIDsPerMsgServer = ShareJSON.int(l["file_ids_per_msg"])
             retentionMax = ShareJSON.int(l["retention_max"]).flatMap { $0 > 0 ? $0 : nil }
             if let r = l["retentions"] as? [Any] { retentions = r.compactMap(ShareJSON.int) }
         }
@@ -209,6 +213,7 @@ final class ChatModel: ObservableObject {
     func signedOut() {
         keys = nil; me = ChatMe(); chats = []; unread = 0; state = .loading; approval = nil; linking = nil
         linkPoll?.cancel(); pendingDevice = nil; handledLinks = []
+        ChatMedia.clearAll()                                            // Bild-Caches (Speicher + Ciphertext auf der Platte)
     }
 
     // MARK: Laden
@@ -229,7 +234,7 @@ final class ChatModel: ObservableObject {
             if let kk = k {
                 let dev = m.devices.first { $0.id == kk.deviceID }
                 if ChatCrypto.b64(kk.identPK) != m.identPub || dev == nil || dev?.revoked == true {
-                    ChatKeyStore.delete(uid: m.uid); k = nil                      // Neu begonnen/entfernt: alte Schluessel weg
+                    ChatKeyStore.delete(uid: m.uid); k = nil; ChatMedia.clearAll()   // Neu begonnen/entfernt: alte Schluessel + Bild-Caches weg
                 }
             }
             keys = k
@@ -280,7 +285,7 @@ final class ChatModel: ObservableObject {
             "bundle": bundle,
             "device": ["id": did, "name": DeviceKey.deviceName, "enc_pub": ChatCrypto.b64(enc.pk), "sign_pub": ChatCrypto.b64(sign.pk), "sig": ChatCrypto.b64(cert)],
         ]
-        if reset { body["reset"] = true }
+        if reset { body["reset"] = true; ChatMedia.clearAll() }       // Neu beginnen: alte Bilder sind danach ohnehin nicht mehr lesbar
         for (k, v) in auth ?? [:] { body[k] = v }                       // {password} oder {code} (2.1)
         let (d, code) = try await store.apiResponse("api/chat/identity", method: "PUT", body: body)
         guard (200..<300).contains(code) else {
@@ -408,7 +413,7 @@ final class ChatModel: ObservableObject {
     func removeDevice(_ id: String) async throws {
         guard let store else { return }
         _ = try await store.api("api/chat/devices/\(id)", method: "DELETE")
-        if id == keys?.deviceID { ChatKeyStore.delete(uid: me.uid); keys = nil }
+        if id == keys?.deviceID { ChatKeyStore.delete(uid: me.uid); keys = nil; ChatMedia.clearAll() }
         await load()
     }
     /// Neuen Wiederherstellungsschluessel setzen (Buendel neu verschluesselt, signiert)
@@ -440,7 +445,7 @@ final class ChatModel: ObservableObject {
             else if keys != nil { Task { await checkLinks() } }
         case "chat.device":
             if let id = d["id"] as? String, id == keys?.deviceID, ShareJSON.bool(d["revoked"]) {
-                ChatKeyStore.delete(uid: me.uid); keys = nil; state = .newDevice; chats = []
+                ChatKeyStore.delete(uid: me.uid); keys = nil; state = .newDevice; chats = []; ChatMedia.clearAll()
             }
         default: break
         }

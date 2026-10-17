@@ -192,15 +192,36 @@ final class ConversationModel: ObservableObject {
         do {
             // Anhaenge zuerst (verschluesselter Blob, Server sieht nur Bytes)
             var refs: [ChatFileRef] = []
+            var primes: [(ChatFileRef, CGImage?, Data, Data?)] = []
+            let cid = String(chatID)
             for f in files {
                 guard f.data.count <= model.me.fileMax else {
                     throw APIError.other(String(localized: "„\(f.name)“ ist zu groß (höchstens \(model.me.fileMax / 1_048_576) MB)."))
                 }
-                guard let e = ChatCrypto.encryptFile(chatID: String(chatID), data: f.data) else { throw APIError.other(String(localized: "Upload fehlgeschlagen")) }
+                // Verschluesseln und Vorschaubild (2.1-c) im Hintergrund - nie im UI-Thread
+                let data = f.data, image = ChatMediaLogic.canThumb(f.mime)
+                async let enc = Task.detached(priority: .userInitiated) { ChatCrypto.encryptFile(chatID: cid, data: data) }.value
+                async let th = ChatThumbUpload.make(data, chatID: cid, enabled: image)
+                guard let e = await enc else { throw APIError.other(String(localized: "Upload fehlgeschlagen")) }
+                let t = await th
                 let d = try await store.apiRaw("api/chats/\(chatID)/files", data: e.blob)
                 guard let fid = ShareJSON.obj(d)?["id"] as? String else { throw APIError.other(String(localized: "Upload fehlgeschlagen")) }
-                refs.append(ChatFileRef(id: fid, key: ChatCrypto.b64(e.key), name: f.name, mime: f.mime, size: f.data.count))
+                var ref = ChatFileRef(id: fid, key: ChatCrypto.b64(e.key), name: f.name, mime: f.mime, size: f.data.count, w: t?.ow, h: t?.oh)
+                if let t {
+                    // Vorschaubild ist nur eine Zugabe: scheitert sein Upload, geht das Bild ohne "th" raus
+                    if let td = try? await store.apiRaw("api/chats/\(chatID)/files", data: t.blob), let tid = ShareJSON.obj(td)?["id"] as? String {
+                        ref.thumb = ChatThumbRef(id: tid, key: ChatCrypto.b64(t.key), w: t.w, h: t.h, size: t.jpegCount)
+                    }
+                }
+                refs.append(ref)
+                primes.append((ref, t?.image, e.blob, t?.blob))
             }
+            let fit = ChatMediaLogic.sendIDs(refs, maxIDs: model.me.fileIDsPerMsg)
+            refs = fit.refs
+            let primed = primes.map { p in (refs.first { $0.id == p.0.id } ?? p.0, p.1, p.2, p.3) }
+            await Task.detached(priority: .utility) {                     // Platte nicht im UI-Thread beschreiben
+                for p in primed { ChatMedia.prime(p.0, image: p.1, origBlob: p.2, thumbBlob: p.3) }
+            }.value
             var content = ChatContent(type: kind == "title" ? "title" : "text", text: text, title: title, files: refs, notes: ChatLogic.noteRefs(text))
             if kind == "title" { content.text = "" }
             let plain = content.json()
@@ -212,7 +233,7 @@ final class ConversationModel: ObservableObject {
                                                              ts: ts, replyTo: replyTo, plain: plain) else { throw APIError.other(String(localized: "Nicht gesendet")) }
                 let (keys, notReady) = try sealKeys(sealed.key, rc, ackChanged: false)
                 var body: [String: Any] = ["id": mid, "ts": ts, "sender_device": k.deviceID, "body_ct": sealed.bodyCT, "sig": sealed.sig,
-                                           "keys": keys, "files": refs.map(\.id), "kind": kind]
+                                           "keys": keys, "files": fit.ids, "kind": kind]   // Original- und Vorschaubild-IDs
                 if let replyTo { body["reply_to"] = replyTo }
                 let (d, code) = try await store.apiResponse("api/chats/\(chatID)/messages", method: "POST", body: body)
                 if code == 409, attempt == 0, let r = ShareJSON.obj(d)?["recipients"] as? [[String: Any]] { recipients = r; continue }   // neu versiegeln
@@ -239,13 +260,27 @@ final class ConversationModel: ObservableObject {
         catch { sendError = error.localizedDescription }
     }
 
-    /// Anhang laden + entschluesseln
-    func file(_ f: ChatFileRef) async throws -> Data {
-        guard let store, let key = ChatCrypto.unb64(f.key, 32) else { throw APIError.other(String(localized: "nicht geladen")) }
-        let blob = try await store.api("api/chat/files/\(f.id)")
-        guard let d = ChatCrypto.decryptFile(chatID: String(chatID), blob: blob, key: key) else { throw APIError.other(String(localized: "Nicht entschlüsselbar")) }
-        return d
+    /// Blob vom Server (Ciphertext; Platten-Cache und Entschluesseln in ChatMedia, im Hintergrund)
+    private var fetcher: ChatBlobFetch {
+        let s = store
+        return { [weak s] id in
+            guard let s else { throw APIError.other(String(localized: "nicht geladen")) }
+            return try await s.api("api/chat/files/\(id)")
+        }
     }
+    /// Vorschaubild eines Bild-Anhangs (2.1-c)
+    func thumbnail(_ f: ChatFileRef) async throws -> ChatImage {
+        var f = f
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "hkChatNoThumb") { f.thumb = nil }     // nur fuer Tests: wie alte Nachrichten ohne "th"
+        #endif
+        return try await ChatMedia.shared.thumbnail(f, chatID: String(chatID), fetch: fetcher)
+    }
+    /// Original (Bild beim Oeffnen, Datei zum Teilen) laden + entschluesseln
+    func original(_ f: ChatFileRef) async throws -> Data {
+        try await ChatMedia.shared.original(f, chatID: String(chatID), fetch: fetcher)
+    }
+    func file(_ f: ChatFileRef) async throws -> Data { try await original(f) }
 
     // MARK: Einstellungen des Chats
 
