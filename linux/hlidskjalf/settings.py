@@ -27,6 +27,9 @@ def _btn(label, css=None, cb=None):
 class SettingsDialog(Adw.PreferencesDialog):
     def __init__(self, win):
         super().__init__(title=_("Settings"), search_enabled=False)
+        if (Adw.get_major_version(), Adw.get_minor_version()) < (1, 7):
+            # libadwaita 1.6 (AlmaLinux 10): bei 640 px kuerzt die Reiterleiste "Mitteilungen" - etwas breiter
+            self.set_content_width(720)
         self.win = win
         page = Adw.PreferencesPage(title=_("General"), icon_name="emblem-system-symbolic")
         g = Adw.PreferencesGroup(title=_("Server"))
