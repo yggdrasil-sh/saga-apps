@@ -19,7 +19,7 @@ struct IncomingCall: Identifiable, Equatable {
 @MainActor
 final class CallManager: NSObject, ObservableObject {
     weak var store: Store?
-    enum Phase: Equatable { case idle, preparing, ringingOut, incoming, connecting, active, ended }
+    enum Phase: String, Equatable { case idle, preparing, ringingOut, incoming, connecting, active, ended }
     @Published private(set) var phase: Phase = .idle
     @Published var status = ""
     @Published private(set) var peerName = ""
@@ -33,6 +33,8 @@ final class CallManager: NSObject, ObservableObject {
     @Published private(set) var relay = false
     @Published private(set) var connectedAt: Date?
     @Published private(set) var localVideo: RTCVideoTrack?
+    /// Eigenes Bild nur bei der Frontkamera spiegeln (Rueckkamera: Schrift lesbar)
+    @Published private(set) var frontCamera = true
     @Published private(set) var remoteVideo: RTCVideoTrack?
     @Published private(set) var incoming: IncomingCall?
     @Published private(set) var failed = false
@@ -183,10 +185,19 @@ final class CallManager: NSObject, ObservableObject {
         }
     }
     private func dial(again: Bool) async throws {
-        guard let store, let id, let dev = myDevice, let sdp = pc?.localDescription?.sdp else { return }
+        guard let store, let id, let dev = myDevice, let sdp = pc?.localDescription?.sdp, !ending, phase == .preparing else { return }
         status = String(localized: "Verbinde …")
         let body = CallLogic.offerBody(sdp: sdp, media: media)
         let (d, code) = try await store.apiResponse("api/calls", method: "POST", body: ["id": id, "chat_id": chatID, "media": media, "device": dev, "signals": sealAll(Array(peerDevs.keys), body)])
+        // Waehrend des POST aufgelegt (oder schon ein neuer Anruf): nicht klingeln lassen, sondern den eben angelegten
+        // Anruf beim Server beenden - das /end aus hangup() kam ggf. vor dem Anlegen an und ging ins Leere.
+        guard CallLogic.dialStillWanted(ending: ending, preparing: phase == .preparing, sameCall: self.id == id) else {
+            CallEnv.log("dial: aufgelegt waehrend Verbinde")
+            if (200..<300).contains(code) {
+                _ = try? await store.apiResponse("api/calls/\(id)/end", method: "POST", body: ["reason": "hangup", "connected": false])
+            }
+            return
+        }
         let j = ShareJSON.obj(d)
         if code == 409, j?["devices"] != nil, !again { try await loadPeerKeys(peer, name: peerName); try await dial(again: true); return }
         if code == 409, ShareJSON.bool(j?["busy"]) { finish(.busy); return }
@@ -210,9 +221,14 @@ final class CallManager: NSObject, ObservableObject {
               let c = ShareJSON.obj(d)?["call"] as? [String: Any] else { CallSystem.shared.endReported(cid, reason: .failed); return }
         let st = c["state"] as? String, r = c["role"] as? String
         guard st == "ringing", r == "callee" else { CallSystem.shared.endReported(cid, reason: st == "active" ? .answeredElsewhere : .remoteEnded); return }
-        if busy {                                                           // schon im Gespraech: besetzt
+        // Live-Kanal (call.ring) und Nachholen (checkActive/Push) koennen gleichzeitig fragen: klingelt derselbe Anruf
+        // inzwischen schon, ist das kein "besetzt" (sonst lehnte das zweite ringing() den eigenen Anruf ab)
+        switch CallLogic.ringDecision(sameCallActive: incoming?.id == cid || id == cid || done.contains(cid), busy: busy) {
+        case .ignore: return
+        case .busy:                                                         // schon im Gespraech: besetzt
             _ = try? await store.apiResponse("api/calls/\(cid)/decline", method: "POST", body: ["reason": "busy"])
             CallSystem.shared.endReported(cid, reason: .unanswered); return
+        case .ring: break
         }
         let p = c["peer"] as? [String: Any] ?? [:]
         let inc = IncomingCall(id: cid, chatID: ShareJSON.int(c["chat_id"]) ?? 0, media: (c["media"] as? String) == "video" ? "video" : "audio",
@@ -341,7 +357,7 @@ final class CallManager: NSObject, ObservableObject {
         }
         if video {
             let allowed = CallEnv.fakeMedia ? true : await AVCaptureDevice.requestAccess(for: .video)
-            if allowed, let c = CallCamera(factory: f) { camera = c; localVideo = c.track; cam = true }
+            if allowed, let c = CallCamera(factory: f) { camera = c; localVideo = c.track; cam = true; frontCamera = c.front }
             else { toast = String(localized: "Keine Kamera verfügbar – Anruf nur mit Ton."); media = role == "caller" ? "audio" : media }
         }
     }
@@ -596,13 +612,13 @@ final class CallManager: NSObject, ObservableObject {
         Task {
             if !CallEnv.fakeMedia { guard await AVCaptureDevice.requestAccess(for: .video) else { toast = String(localized: "Kamera nicht erlaubt."); return } }
             guard busy, let c = CallCamera(factory: CallRTC.factory) else { toast = String(localized: "Keine Kamera verfügbar."); return }
-            camera = c; localVideo = c.track; cam = true
+            camera = c; localVideo = c.track; cam = true; frontCamera = c.front
             videoSender?.track = c.track
             stateOut()
         }
     }
     #if os(iOS)
-    func switchCamera() { camera?.switchCamera() }
+    func switchCamera() { camera?.switchCamera(); frontCamera = camera?.front ?? true }
     var canSwitchCamera: Bool { camera?.canSwitch ?? false }
     func toggleSpeaker() {
         speaker.toggle()
@@ -654,7 +670,15 @@ final class CallManager: NSObject, ObservableObject {
         #if os(iOS)
         CallAudio.releaseManual()
         #endif
-        if let cid { CallSystem.shared.endReported(cid, reason: failed ? .failed : .remoteEnded, local: true) }
+        if let cid {
+            let r: CallSystem.EndReason
+            switch CallLogic.systemEnd(note, failed: failed) {
+            case .failed: r = .failed
+            case .answeredElsewhere: r = .answeredElsewhere
+            case .remoteEnded: r = .remoteEnded
+            }
+            CallSystem.shared.endReported(cid, reason: r, local: true)
+        }
         incoming = nil
         status = message ?? note.map(Self.text) ?? String(localized: "Anruf beendet")
         CallEnv.log("ended \(status.prefix(40))")

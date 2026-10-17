@@ -126,6 +126,30 @@ enum CallLogic {
         default: return .ended(dur: connectedFor)
         }
     }
+    /// Nach der POST-Antwort von /api/calls: Anruf noch gewollt? Nein, wenn waehrend "Verbinde ..." aufgelegt wurde
+    /// (ending / Phase nicht mehr "preparing") oder inzwischen ein anderer Anruf laeuft - dann nicht klingeln lassen.
+    static func dialStillWanted(ending: Bool, preparing: Bool, sameCall: Bool) -> Bool { !ending && preparing && sameCall }
+
+    /// Eingehender Anruf nach dem Abfragen seines Zustands: derselbe Anruf klingelt/laeuft schon (doppelte Meldung
+    /// Live + Nachholen) -> nichts tun; sonst im Gespraech -> besetzt; sonst klingeln
+    enum RingDecision: Equatable { case ignore, busy, ring }
+    static func ringDecision(sameCallActive: Bool, busy: Bool) -> RingDecision { sameCallActive ? .ignore : busy ? .busy : .ring }
+
+    /// Grund fuer das System (CallKit-Anrufliste): auf anderem Geraet angenommen ist kein "Gegenueber hat aufgelegt"
+    enum SystemEnd: Equatable { case failed, remoteEnded, answeredElsewhere }
+    static func systemEnd(_ note: EndNote?, failed: Bool) -> SystemEnd {
+        if failed { return .failed }
+        return note == .elsewhere ? .answeredElsewhere : .remoteEnded
+    }
+
+    /// Mac: Anruf-Fenster oeffnen nur beim Beginn eines Anrufs (aus idle/ended) und beim Annehmen (incoming -> connecting),
+    /// nicht bei jedem Zustandswechsel. Phasen wie CallManager.Phase (rawValue).
+    static func macOpensCallWindow(from old: String, to new: String) -> Bool {
+        if new == "idle" || new == old { return false }
+        if old == "idle" || old == "ended" { return true }
+        return old == "incoming" && new == "connecting"
+    }
+
     /// 65 -> "1:05", 3725 -> "1:02:05"
     static func duration(_ s: Int) -> String {
         let v = max(0, s)

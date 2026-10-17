@@ -103,6 +103,12 @@ final class LiveHub: ObservableObject {
             Task { await store?.refresh(quiet: true); await store?.notifs.load() }
         case "notification": store?.notifs.apply(d)
         case "shared.changed": Task { await store?.loadShared(); await store?.loadFedShared() }
+        case "avatar.changed":                                            // 2.1: Profilbild einer Person (auch meins) geaendert
+            if let c = AvatarLogic.change(d) {
+                AvatarCache.shared.changed(path: c.path, avatar: c.avatar)
+                if let store, (d["user"] as? String) == store.chat.me.uid || AvatarLogic.path(store.myAvatar) == c.path { store.myAvatar = c.avatar }
+                Task { await store?.chat.loadList() }                    // Personen ohne bisheriges Bild: Adresse neu aus der Liste
+            }
         case "comments.changed":
             if let nid = ShareJSON.int(d["note_id"]), let c = d["counts"] as? [String: Any] { store?.setUnread(nid, (ShareJSON.int(c["unread"]) ?? 0) > 0) }
         default: break

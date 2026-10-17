@@ -51,6 +51,25 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   das Bild (für andere Programme) und der Block: in derselben Seite einsetzen verschiebt ihn, in einer anderen Seite
   wird das Bild neu hochgeladen (mit Bildunterschrift). Vorher gab es für Bildblöcke keinen Empfänger für ⌘C/⌘X.
 
+### iOS, iPadOS, macOS – Behoben (Bughunt 2)
+- **Anrufe:** Auflegen, während noch „Verbinde …“ steht, bricht den Anruf jetzt wirklich ab. Vorher klingelte es beim
+  Gegenüber trotzdem, die App hing auf „Klingelt …“ und lehnte bis zum Neustart jeden weiteren Anruf als „Besetzt“
+  ab. Ebenso lehnt die App einen Anruf nicht mehr als „Besetzt“ ab, wenn er beim Start gleichzeitig über den
+  Live-Kanal und das Nachholen gemeldet wird.
+- **Anrufe – Bedienung:** Bei Bedienungshilfen-Schriftgrößen bleiben alle Knöpfe (Stumm, Kamera, Lautsprecher,
+  Auflegen, Ablehnen/Annehmen) im Bild. Das eigene Kamerabild verdeckt die Ton-Diagnose nicht mehr und ist mit der
+  Rückkamera nicht mehr spiegelverkehrt; „… ist stummgeschaltet“ erscheint auch, wenn das Video des Gegenübers
+  läuft. iPhone/iPad: auf einem anderen Gerät angenommene Anrufe stehen in der Anrufliste nicht mehr als verpasst.
+- **Mac – Anrufe:** Saga drängt sich nicht mehr bei jedem Zustandswechsel eines Anrufs in den Vordergrund (Eingaben
+  in anderen Apps landeten sonst in Saga). Das Anruf-Fenster öffnet sich beim Beginn und beim Annehmen; klingelt es,
+  während du in einer anderen App bist, meldet sich Saga mit einer Mitteilung (Annehmen/Ablehnen) und einmal im Dock.
+- **Profilbilder:** Transparente PNGs bekommen einen weißen statt schwarzen Hintergrund. Ein kurzer Serverfehler lässt
+  nicht mehr für die ganze Sitzung Initialen stehen; Bilder werden nach 10 Minuten beim nächsten Anzeigen (z. B.
+  Seitenwechsel) mit dem Server abgeglichen. Abmelden leert auch den Zwischenspeicher der Profilbilder. Mit einem
+  Server, der das Live-Ereignis `avatar.changed` sendet, erscheint ein neues oder entferntes Profilbild sofort.
+- **Chat:** „Neu beginnen“ mit dem Code der Authenticator-App bietet nicht mehr an, den Code als Passwort zu sichern.
+  Ein ausgewählter, noch nicht gesendeter Anhang verdeckt nicht mehr die neueste Nachricht.
+
 ### Android
 - **Immich im Chat:** „Anhängen → Aus Immich“ (nur wenn Immich für dich eingerichtet ist) mit Zuletzt, Alben und
   Inhaltssuche. Das Foto wird über den Immich-Proxy des Servers geladen (Original, sonst große Vorschau; zu groß →

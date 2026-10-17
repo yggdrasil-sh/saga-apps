@@ -332,6 +332,7 @@ struct ChatSetupView: View {
                     if totp { Text("Zur Sicherheit: Passwort oder Code aus der Authenticator-App").font(.callout) }
                     SecureField(totp ? String(localized: "Passwort oder Code") : String(localized: "Zur Sicherheit: dein Passwort"), text: $password)
                         .textFieldStyle(.roundedBorder).frame(maxWidth: 320)
+                        .textContentType(ReauthLogic.oneTimeCodeField(methods: chat.me.reauthMethods) ? .oneTimeCode : .password)   // Code nicht als Passwort sichern
                     if chat.me.reauthMethods.contains("passkey") {
                         Text("Mit Passkey bestätigen geht nur im Browser.").font(.footnote).foregroundStyle(.secondary)
                     }
