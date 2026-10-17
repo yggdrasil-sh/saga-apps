@@ -508,7 +508,8 @@ class ImmichPicker(Adw.Dialog):
             return
         self.busy = True
         if self.fetch is not None:
-            self.info.set_label(_("Loading “{name}” …").format(name=it.get("name") or ""))
+            name = it.get("name")
+            self.info.set_label(_("Loading “{name}” …").format(name=name) if name else _("Loading …"))
 
             def got(r):
                 self.close()

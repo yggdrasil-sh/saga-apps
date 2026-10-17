@@ -233,3 +233,20 @@ def test_gravatar_switch_without_email(win, srv):
     assert pump(lambda: g.grav.get_active() and g.grav.get_sensitive(), 3)
     assert "Gravatar directly" in g.grav.get_subtitle()
     dlg.force_close()
+
+
+# --- [S4] Immich ohne Namen ---------------------------------------------------------------------------------------
+def test_immich_without_name(win, srv, monkeypatch):
+    from hlidskjalf import clipimg
+    from hlidskjalf.dialogs import ImmichPicker
+    picked = []
+    p = ImmichPicker(win, picked.append, fetch=lambda it: time.sleep(0.3) or ("x.png", "image/png", b""))
+    p.present(win)
+    p._choose({"id": "abc-123"})
+    assert p.info.get_label() == "Loading …"
+    assert pump(lambda: picked, 3)
+    png = _img(40, 30)
+    monkeypatch.setattr(clipimg.client, "fetch", lambda path, timeout=0: png)
+    name, mime, data = clipimg.immich_for_chat({"id": "abc-123-def", "mime": "image/png"}, 10 ** 6)
+    assert name == "immich-abc123de.png" and mime == "image/png"
+    idle()

@@ -171,4 +171,6 @@ def immich_for_chat(item, limit):
                 continue
             raise
     data, mime = shrink(data, limit)
-    return with_ext(item.get("name") or "immich", mime), mime, data
+    # ohne Dateinamen: unterscheidbarer Name statt immer "immich.png"
+    name = item.get("name") or "immich-" + "".join(c for c in aid if c.isalnum())[:8]
+    return with_ext(name, mime), mime, data
