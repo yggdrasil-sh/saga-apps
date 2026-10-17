@@ -850,7 +850,9 @@ private fun ChatDayDivider(d: java.time.LocalDate) {
     Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
         Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh, shape = RoundedCornerShape(12.dp)) {
             Text(
-                io.github.yggdrasil_sh.saga.ui.common.dueText(d.toString()), style = MaterialTheme.typography.labelMedium,
+                // "heute"/"gestern" stehen klein (fuer Faelligkeiten im Satz) - als Ueberschrift gross
+                io.github.yggdrasil_sh.saga.ui.common.dueText(d.toString()).replaceFirstChar { it.titlecase(java.util.Locale.getDefault()) },
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 10.dp, vertical = 3.dp).semantics { heading() },
             )
         }
