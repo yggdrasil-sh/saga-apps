@@ -251,9 +251,9 @@ class AvatarGroup(Adw.PreferencesGroup):
         hr = Adw.PreferencesRow(activatable=False, focusable=False, child=head)    # in der Liste, ueber den Schaltern
         hr.set_title(_("Profile picture"))
         self.add(hr)
-        self.grav = Adw.SwitchRow(title=_("Use Gravatar if I have no picture of my own"),
-                                  subtitle=_("The server fetches and caches Gravatar pictures – your browser and the apps never contact "
-                                             "Gravatar directly."))
+        self._grav_sub = _("The server fetches and caches Gravatar pictures – your browser and the apps never contact "
+                           "Gravatar directly.")
+        self.grav = Adw.SwitchRow(title=_("Use Gravatar if I have no picture of my own"), subtitle=self._grav_sub)
         self.grav.connect("notify::active", lambda r, _p: self._patch("gravatar", r))
         self.add(self.grav)
         self.pub = Adw.SwitchRow(title=_("Also show on my published pages"))
@@ -276,8 +276,11 @@ class AvatarGroup(Adw.PreferencesGroup):
         self.src.set_label(_source_text(info))
         self.rm.set_visible(bool(info.get("upload")))
         self.grav.set_visible(bool(info.get("gravatar_enabled")))
-        self.grav.set_active(bool(info.get("gravatar")))
-        self.grav.set_sensitive(bool(info.get("has_email")))
+        has_email = bool(info.get("has_email"))
+        # ohne E-Mail-Adresse wirkungslos: aus zeigen (Einstellung auf dem Server bleibt) und sagen, warum
+        self.grav.set_active(bool(info.get("gravatar")) and has_email)
+        self.grav.set_sensitive(has_email)
+        self.grav.set_subtitle(self._grav_sub if has_email else _("No email address on file – Gravatar needs one."))
         self.pub.set_active(bool(info.get("public")))
         self._busy = False
         self.set_visible(True)
@@ -323,8 +326,10 @@ class AvatarGroup(Adw.PreferencesGroup):
     def _pick(self):
         fd = Gtk.FileDialog(title=_("Upload picture …"))
         flt = Gtk.FileFilter(name=_("Images"))
+        from . import images
         for m in ("image/png", "image/jpeg", "image/gif", "image/webp", "image/heic", "image/heif"):
-            flt.add_mime_type(m)
+            if images.can_open(m.split("/")[1]):           # HEIC/HEIF nur mit Dekoder (pillow-heif)
+                flt.add_mime_type(m)
         ls = Gio.ListStore.new(Gtk.FileFilter)
         ls.append(flt)
         fd.set_filters(ls)

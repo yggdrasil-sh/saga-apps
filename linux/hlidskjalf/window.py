@@ -388,6 +388,7 @@ class MainWindow(Adw.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title="Saga")
         self.set_default_size(settings.get("win_w", 1280), settings.get("win_h", 820))
+        self.connect("map", lambda *_: GLib.idle_add(self._fit_min_width))
         if settings.get("win_max"):
             self.maximize()
         self.history, self.fwd = [], []
@@ -452,6 +453,18 @@ class MainWindow(Adw.ApplicationWindow):
             store.set_home(None)
         if not store.needs_login:
             self._session_started()
+
+    def _fit_min_width(self):
+        """Ohne Compositor (X11, Klasse "solid-csd") liegt der Fensterrand innerhalb der Mindestbreite (360 px von
+        libadwaita): der Inhalt waere nur ~350 px breit, Dialoge als Bottom-Sheet brauchen aber 360 -> Rand dazugeben"""
+        surf = self.get_surface()
+        if surf is None or not self.has_css_class("solid-csd"):
+            return False
+        extra = surf.get_width() - self.get_width()
+        req_w, req_h = self.get_size_request()
+        if 0 < extra <= 40 and req_w < 360 + extra:
+            self.set_size_request(360 + extra, req_h)
+        return False
 
     def _flush_all(self):
         """alle offenen Seiten sofort speichern"""
@@ -591,6 +604,9 @@ class MainWindow(Adw.ApplicationWindow):
             if not live.connected:                         # ohne Live-Kanal regelmaessig fragen
                 notifications.count()
                 chat.load_unread()
+            self._session_catch_up()
+            if type(self.current).__name__ == "ChatsScreen":
+                chat.revalidate(120)                       # Profilbilder der Gegenueber (kein Live-Ereignis)
         return True
 
     # --- Aufbau ----------------------------------------------------------------------------
@@ -1112,6 +1128,7 @@ class MainWindow(Adw.ApplicationWindow):
         from .live import live
         from .notifications import notifications
         from .calls import calls
+        self._session_t = time.monotonic()
         live.start()
         notifications.load()
         chat.refresh()
@@ -1119,6 +1136,35 @@ class MainWindow(Adw.ApplicationWindow):
         calls.load_config(lambda on: self.update_header())
         calls.check_active()                               # klingelt es gerade schon (App eben gestartet)?
         self.load_account()
+
+    def _session_catch_up(self):
+        """Start ohne Netz: was beim Sitzungsbeginn nicht geladen werden konnte (Assistent, Anrufe, Konto, Glocke, Chats),
+        nachholen, sobald der Server wieder antwortet (Live-Kanal "hello", Takt). Bereits Geladenes bleibt unberuehrt."""
+        if store.needs_login or not (client.has_session or get_device_token()):
+            return
+        wait = getattr(self, "_session_t", 0) + 10 - time.monotonic()
+        if wait > 0:                                       # Anfragen vom Sitzungsbeginn laufen evtl. noch: danach pruefen
+            if not getattr(self, "_catch_up_soon", 0):
+                def later():
+                    self._catch_up_soon = 0
+                    self._session_catch_up()
+                    return False
+                self._catch_up_soon = GLib.timeout_add(int(wait * 1000) + 50, later)
+            return
+        from .assistant import ai
+        from .calls import calls
+        from .chat import chat
+        from .notifications import notifications
+        if not ai.known:
+            ai.refresh(lambda: self.update_header())
+        if calls.config is None:
+            calls.load_config(lambda on: self.update_header())
+        if not getattr(self, "me", None):
+            self.load_account()
+        if not notifications.loaded and notifications.supported is not False:
+            notifications.load()
+        if chat.status == "unknown":
+            chat.refresh()
 
     def call_current(self):
         """Direkt-Chat: Anrufen im Browser (Web-Oberflaeche mit WebRTC)"""
@@ -1194,12 +1240,18 @@ class MainWindow(Adw.ApplicationWindow):
         if typ.startswith("chat."):
             chat.on_live(typ, d)
             return
+        if typ == "avatar.changed":                        # Profilbild einer Person (Server 2.1): Chats, eigenes Konto
+            chat.on_live(typ, d)
+            if isinstance(d, dict) and d.get("user") and d.get("user") == (getattr(self, "me", None) or {}).get("username"):
+                self.load_account()
+            return
         if typ.startswith("call.") or typ in ("hello", "reset"):    # Anrufe: klingeln, anderswo angenommen/beendet
             from .calls import calls
             calls.on_live(typ, d)
             if typ.startswith("call."):
                 return
         if typ == "hello":
+            self._session_catch_up()                       # Start ohne Netz: Fehlendes jetzt laden
             return
         if typ == "reset":
             store.refresh()

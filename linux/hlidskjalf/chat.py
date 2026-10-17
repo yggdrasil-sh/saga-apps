@@ -235,6 +235,7 @@ class ChatState(GObject.Object):
         self.me = None
         self.keys = None
         self.chats = []
+        self._chats_at = 0.0       # letzte geladene Chat-Liste (monotonic)
         self.unread = 0
         self.cache = {}            # chat-id -> {"msgs": [...], "more", "last_seq", "loaded", "rc": recipients}
         self.typing = {}           # chat-id -> {uid: (name, bis)}
@@ -520,6 +521,7 @@ class ChatState(GObject.Object):
                 if c.get("kind") == "free" and isinstance(tm, dict):
                     c["_title"] = self._title_of(c["id"], tm)
             self.unread = int(j.get("unread") or 0)
+            self._chats_at = time.monotonic()
             self.emit("changed")
             if done:
                 done()
@@ -528,6 +530,13 @@ class ChatState(GObject.Object):
             if done:
                 done()
         bg(client.get, f"api/chats?device={self.device_id}", done=fin, error=err)
+
+    def revalidate(self, age=60):
+        """Chat-Liste neu laden, wenn sie aelter als age Sekunden ist - Profilbilder (Adresse mit Version) und Namen der
+        Gegenueber aendern sich ohne Live-Ereignis"""
+        if self.ready and time.monotonic() - getattr(self, "_chats_at", 0) > age:
+            self._chats_at = time.monotonic()             # nicht mehrfach gleichzeitig
+            self.load_chats()
 
     def load_unread(self):
         """nur die Zahl fuer die Seitenleiste (auch ohne Schluessel auf diesem Geraet)"""
@@ -757,7 +766,10 @@ class ChatState(GObject.Object):
     def upload_attachments(self, cid, files):
         """Hintergrund: Anhaenge [(name, mime, bytes)] hochladen; Bilder bekommen w/h und ein Vorschaubild ("th", 2.1-c),
         solange die Anhang-Grenze je Nachricht reicht. -> (Eintraege fuer den Inhalt, alle Datei-IDs)"""
-        nmax = int((self.limits or {}).get("files_per_msg") or 10)
+        lim = self.limits or {}
+        # Grenze fuer Datei-Kennungen je Nachricht (Anhaenge + Vorschaubilder): neuer Server "file_ids_per_msg" (20),
+        # aeltere Server ohne das Feld zaehlen nur "files_per_msg" (10)
+        nmax = int(lim.get("file_ids_per_msg") or lim.get("files_per_msg") or 10)
         out, ids = [], []
         for name, mime, data in files:
             e = self.upload_file(cid, data, name, mime)
@@ -865,6 +877,27 @@ class ChatState(GObject.Object):
         bg(client.json, "POST", "api/chats", dict(body, device=self.device_id), done=fin, error=error)
 
     # --- Live ---------------------------------------------------------------------------------------------------------------
+    def _avatar_changed(self, d):
+        """Live "avatar.changed" {user, avatar} (Server 2.1): neue Bildadresse (bzw. None = Initialen) in Chat-Liste und
+        geladenen Nachrichten eintragen, ohne Listen neu zu laden"""
+        user, url = d.get("user"), d.get("avatar")
+        if not isinstance(user, str) or not user or not (url is None or isinstance(url, str)):
+            return
+
+        def fix(p):
+            if isinstance(p, dict) and p.get("username") == user and p.get("avatar") != url:
+                p["avatar"] = url
+                return True
+            return False
+        hit = False
+        for c in self.chats:
+            hit = fix(c.get("peer")) or hit
+        if hit:
+            self.emit("changed")
+        for cid, cc in list(self.cache.items()):
+            if any([fix(m.get("sender")) for m in cc.get("msgs") or []]):
+                self.emit("messages", cid)
+
     def on_live(self, typ, d):
         if not isinstance(d, dict):
             return
@@ -887,6 +920,8 @@ class ChatState(GObject.Object):
                 self.typing.setdefault(cid, {})[u["username"]] = (u.get("name") or u["username"], time.monotonic() + 6)
                 self.emit("typing", cid)
                 GLib.timeout_add(6200, lambda: (self.emit("typing", cid), False)[1])
+        elif typ == "avatar.changed":
+            self._avatar_changed(d)
         elif typ == "chat.changed":
             c = self.cache.get(cid)
             if c:

@@ -236,6 +236,8 @@ class ChatsScreen(Gtk.Box):
         self.render(force=True)
         if chat.status in ("unknown",) or chat.status == "ready" and not chat.chats:
             chat.refresh()
+        else:
+            chat.revalidate(20)                    # Chats wieder geoeffnet: neue Profilbilder/Namen der Gegenueber
 
     # --- Aufbau ------------------------------------------------------------------------------------------------
     def render(self, force=False):
@@ -383,7 +385,8 @@ class ChatList(Gtk.Box):
     def fill(self):
         q = self.search.get_text().strip().lower()
         lst = [c for c in chat.chats if not q or q in chat.title(c).lower()]
-        sig = (q, self.screen.cid, tuple((c.get("id"), chat.title(c), c.get("unread"), c.get("muted"), c.get("last_at")) for c in lst))
+        sig = (q, self.screen.cid, tuple((c.get("id"), chat.title(c), c.get("unread"), c.get("muted"), c.get("last_at"),
+                                          (chat.peer(c) or {}).get("avatar") if c.get("kind") == "dm" else None) for c in lst))
         if sig == self.sig:
             return
         self.sig = sig

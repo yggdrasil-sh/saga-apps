@@ -124,7 +124,10 @@ def read_paste(clipboard, on_files, on_image, fallback):
 
 
 def file_is_image(f):
-    return (f.get_basename() or "").lower().rsplit(".", 1)[-1] in IMAGE_EXT
+    """Bilddatei, die sich hier auch oeffnen laesst (HEIC ohne Dekoder: gewoehnliche Datei statt kaputtem Bild)"""
+    from . import images
+    ext = (f.get_basename() or "").lower().rsplit(".", 1)[-1]
+    return ext in IMAGE_EXT and images.can_open(ext)
 
 
 # --- Immich -> Chat ---------------------------------------------------------------------------------------------------
@@ -168,4 +171,6 @@ def immich_for_chat(item, limit):
                 continue
             raise
     data, mime = shrink(data, limit)
-    return with_ext(item.get("name") or "immich", mime), mime, data
+    # ohne Dateinamen: unterscheidbarer Name statt immer "immich.png"
+    name = item.get("name") or "immich-" + "".join(c for c in aid if c.isalnum())[:8]
+    return with_ext(name, mime), mime, data
