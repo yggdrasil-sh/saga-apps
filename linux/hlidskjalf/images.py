@@ -338,6 +338,10 @@ class ImageView(Gtk.Widget):
         h = int(min(self.max_height, w / ratio)) if ratio else 0
         if not self.dec:
             h = min(h, 160)
+        if for_size < 0:
+            # Hoehe fuer unbekannte Breite (Hoehe-fuer-Breite): Mindesthoehe ist die bei Mindestbreite (0), sonst meldet GTK
+            # "natural size must be >= min size", sobald die echte Breite kleiner als die natuerliche ist
+            return 0, h, -1, -1
         return h, h, -1, -1
 
     def do_snapshot(self, snap):

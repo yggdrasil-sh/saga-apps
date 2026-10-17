@@ -185,3 +185,21 @@ def test_heic_only_with_decoder(monkeypatch):
     assert not clipimg.file_is_image(f) and clipimg.file_is_image(Gio.File.new_for_path("/tmp/a.png"))
     monkeypatch.setattr(images, "can_open", lambda e: True)
     assert clipimg.file_is_image(f)
+
+
+# --- [S4] Bildblock: Mindesthoehe <= natuerliche Hoehe ----------------------------------------------------------------
+def test_image_view_height_for_width():
+    from hlidskjalf import images
+    from PIL import Image
+    buf = io.BytesIO()
+    Image.new("RGB", (800, 500), (10, 20, 30)).save(buf, "PNG")
+    iv = images.ImageView(mode="fit", max_height=900)
+    got = []
+    images.load_local(buf.getvalue(), got.append)
+    assert pump(lambda: got, 4) and got[0] is not None
+    iv.set_decoded(got[0])
+    mn, nat, _a, _b = iv.measure(Gtk.Orientation.VERTICAL, -1)
+    assert nat == 500 and mn == 0
+    mn2, nat2, _a, _b = iv.measure(Gtk.Orientation.VERTICAL, 660)
+    assert mn2 == nat2 == 412 and mn <= nat2
+    assert iv.get_request_mode() == Gtk.SizeRequestMode.HEIGHT_FOR_WIDTH
