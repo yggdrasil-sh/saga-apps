@@ -112,4 +112,7 @@ enum ReauthLogic {
     }
     /// Eingabefeld zeigen? Nur Passkey (ohne Passwort/Code) -> nur im Browser moeglich
     static func nativeInput(methods: [String]) -> Bool { methods.isEmpty || methods.contains("password") || methods.contains("totp") }
+    /// Feld als Einmal-Code kennzeichnen (textContentType .oneTimeCode), sobald ein Code moeglich ist: sonst bietet
+    /// iOS an, den 6-stelligen Code als Passwort fuer den Server zu sichern (und ersetzt ggf. das echte Passwort)
+    static func oneTimeCodeField(methods: [String]) -> Bool { methods.contains("totp") }
 }

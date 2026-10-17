@@ -65,3 +65,11 @@ func bh2AvatarCacheTests() {
     check(A.fresh(checked: nil, retry: t0.addingTimeInterval(60), now: t0.addingTimeInterval(30)), "nach Fehler: kurz warten")
     check(!A.fresh(checked: t0, retry: t0.addingTimeInterval(60), now: t0.addingTimeInterval(61)), "nach Fehler: nach 60 s erneut")
 }
+
+// [S4] Chat "Neu beginnen" mit Authenticator-Code: Feld als Einmal-Code kennzeichnen
+func bh2ReauthTests() {
+    check(ReauthLogic.oneTimeCodeField(methods: ["password", "totp"]), "Passwort + TOTP: Einmal-Code-Feld")
+    check(ReauthLogic.oneTimeCodeField(methods: ["totp", "passkey"]), "TOTP + Passkey: Einmal-Code-Feld")
+    check(!ReauthLogic.oneTimeCodeField(methods: ["password"]), "nur Passwort: Passwort-Feld")
+    check(!ReauthLogic.oneTimeCodeField(methods: []), "alte Server: Passwort-Feld")
+}
