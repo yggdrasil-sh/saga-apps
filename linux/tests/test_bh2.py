@@ -203,3 +203,10 @@ def test_image_view_height_for_width():
     mn2, nat2, _a, _b = iv.measure(Gtk.Orientation.VERTICAL, 660)
     assert mn2 == nat2 == 412 and mn <= nat2
     assert iv.get_request_mode() == Gtk.SizeRequestMode.HEIGHT_FOR_WIDTH
+
+
+# --- [S4] Mindestbreite des Fensters ----------------------------------------------------------------------------------
+def test_window_min_width_fits_dialogs(win):
+    win.set_default_size(300, 700)                       # kleiner als erlaubt
+    pump(None, 0.6)
+    assert win.get_width() >= 360                        # auch ohne Compositor (Rand "solid-csd" innerhalb der Mindestbreite)

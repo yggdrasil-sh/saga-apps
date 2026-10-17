@@ -388,6 +388,7 @@ class MainWindow(Adw.ApplicationWindow):
     def __init__(self, app):
         super().__init__(application=app, title="Saga")
         self.set_default_size(settings.get("win_w", 1280), settings.get("win_h", 820))
+        self.connect("map", lambda *_: GLib.idle_add(self._fit_min_width))
         if settings.get("win_max"):
             self.maximize()
         self.history, self.fwd = [], []
@@ -452,6 +453,18 @@ class MainWindow(Adw.ApplicationWindow):
             store.set_home(None)
         if not store.needs_login:
             self._session_started()
+
+    def _fit_min_width(self):
+        """Ohne Compositor (X11, Klasse "solid-csd") liegt der Fensterrand innerhalb der Mindestbreite (360 px von
+        libadwaita): der Inhalt waere nur ~350 px breit, Dialoge als Bottom-Sheet brauchen aber 360 -> Rand dazugeben"""
+        surf = self.get_surface()
+        if surf is None or not self.has_css_class("solid-csd"):
+            return False
+        extra = surf.get_width() - self.get_width()
+        req_w, req_h = self.get_size_request()
+        if 0 < extra <= 40 and req_w < 360 + extra:
+            self.set_size_request(360 + extra, req_h)
+        return False
 
     def _flush_all(self):
         """alle offenen Seiten sofort speichern"""
