@@ -189,4 +189,59 @@ enum CallLogic {
 
     /// Signale nach seq deduplizieren (Live + Nachholen per GET koennen dasselbe liefern)
     static func fresh(_ seq: Int, seen: inout Set<Int>) -> Bool { seen.insert(seq).inserted }
+
+    // MARK: Ton-Diagnose (getStats, alle 2 s)
+
+    /// Ton-Zahlen aus einem getStats-Bericht: inbound-rtp/outbound-rtp (kind audio) und media-source (kind audio)
+    struct AudioSample: Equatable {
+        var bytesIn = 0, samplesIn = 0, bytesOut = 0
+        var energyIn = 0.0, levelIn = 0.0
+        var energyMic = 0.0, levelMic = 0.0
+        var hasMic = false
+        /// getStats-Eintraege (type, values) -> Summen; Werte als NSNumber wie in RTCStatistics
+        static func from(_ stats: [(type: String, values: [String: Any])]) -> AudioSample {
+            var s = AudioSample()
+            func num(_ v: Any?) -> Double { (v as? NSNumber)?.doubleValue ?? (v as? Double) ?? Double(v as? Int ?? 0) }
+            for (t, v) in stats where (v["kind"] as? String ?? v["mediaType"] as? String) == "audio" {
+                switch t {
+                case "inbound-rtp":
+                    s.bytesIn += Int(num(v["bytesReceived"])); s.samplesIn += Int(num(v["totalSamplesReceived"]))
+                    s.energyIn += num(v["totalAudioEnergy"]); s.levelIn = max(s.levelIn, num(v["audioLevel"]))
+                case "outbound-rtp": s.bytesOut += Int(num(v["bytesSent"]))
+                case "media-source":
+                    s.hasMic = true; s.energyMic += num(v["totalAudioEnergy"]); s.levelMic = max(s.levelMic, num(v["audioLevel"]))
+                default: break
+                }
+            }
+            return s
+        }
+    }
+    enum AudioIn: Equatable { case unknown, receiving, silent, noPlayout, nothing }
+    enum AudioMic: Equatable { case unknown, ok, silent, none }
+    /// Bewertung ueber die letzten Messungen (Pausen beim Sprechen: "empfangen" haelt 3 Takte = 6 s)
+    struct AudioMeter {
+        private var last: AudioSample?
+        private var heardAgo = Int.max, micAgo = Int.max, ticks = 0
+        private(set) var input = AudioIn.unknown
+        private(set) var mic = AudioMic.unknown
+        static let hold = 3
+        /// Pegel 0...1 (audioLevel) bzw. Energie-Zuwachs; ab hier gilt es als Ton (Rauschen eines stummen Kanals liegt darunter)
+        static let level = 0.003, energy = 1e-6
+        mutating func update(_ s: AudioSample, micOn: Bool) {
+            defer { last = s; ticks += 1 }
+            guard let p = last else { return }
+            let dBytes = s.bytesIn - p.bytesIn, dSamples = s.samplesIn - p.samplesIn
+            let heard = s.levelIn > Self.level || s.energyIn - p.energyIn > Self.energy
+            heardAgo = heard ? 0 : (heardAgo == Int.max ? Int.max : heardAgo + 1)
+            if heardAgo <= Self.hold { input = .receiving }
+            else if dBytes <= 0 { input = .nothing }                          // keine Pakete (Weg/Gegenueber)
+            else if dSamples <= 0 { input = .noPlayout }                     // Pakete kommen, Wiedergabe laeuft nicht (Audio-Session)
+            else { input = .silent }                                         // Wiedergabe laeuft, aber nur Stille
+            let spoke = s.levelMic > Self.level || s.energyMic - p.energyMic > Self.energy
+            micAgo = spoke ? 0 : (micAgo == Int.max ? Int.max : micAgo + 1)
+            if !s.hasMic || !micOn { mic = s.hasMic ? .unknown : .none }
+            else if micAgo <= Self.hold { mic = .ok }
+            else if ticks >= 4 { mic = .silent }                            // erst nach ein paar Takten melden
+        }
+    }
 }

@@ -37,6 +37,10 @@ final class CallManager: NSObject, ObservableObject {
     @Published private(set) var incoming: IncomingCall?
     @Published private(set) var failed = false
     @Published var speaker = false
+    /// Ton-Diagnose (getStats, alle 2 s): kommt Ton an, liefert das Mikrofon etwas - fuer den Handtest im Anruffenster
+    @Published private(set) var audioIn = CallLogic.AudioIn.unknown
+    @Published private(set) var audioMic = CallLogic.AudioMic.unknown
+    private var meter = CallLogic.AudioMeter()
     /// Server kann Anrufe (aus /api/calls/config); unbekannt = an (Knopf zeigen, Fehler beim Anrufen)
     @Published private(set) var enabled = true
     /// Hinweis ausserhalb eines Anrufs ("Du telefonierst gerade schon.")
@@ -156,6 +160,7 @@ final class CallManager: NSObject, ObservableObject {
         if busy { toast = String(localized: "Du telefonierst gerade schon."); return }
         reset()
         chatID = cid; peer = p.username; peerName = p.name; peerAvatar = p.avatar; role = "caller"; media = video ? "video" : "audio"
+        speaker = video                                                     // Video: Lautsprecher (wie FaceTime), Audio: Hoermuschel
         phase = .preparing; status = String(localized: "Kamera und Mikrofon …")
         CallEnv.log("start \(media)")
         Task {
@@ -248,9 +253,10 @@ final class CallManager: NSObject, ObservableObject {
         guard let inc = incoming, phase == .incoming else { return }
         incoming = nil
         id = inc.id; phase = .connecting; status = String(localized: "Verbinde …"); answered = true
+        speaker = video
         aliveTask?.cancel()
         CallTones.shared.stop()
-        CallSystem.shared.answering(inc.id)
+        CallSystem.shared.answering(inc.id, video: video)
         CallEnv.log("answer \(video ? "video" : "audio")")
         Task {
             do {
@@ -374,6 +380,7 @@ final class CallManager: NSObject, ObservableObject {
     private var videoSender: RTCRtpSender? { pc?.transceivers.first { $0.mediaType == .video }?.sender }
     private func findRemoteVideo() {
         if let t = pc?.transceivers.first(where: { $0.mediaType == .video })?.receiver.track as? RTCVideoTrack, remoteVideo !== t { remoteVideo = t }
+        for t in pc?.transceivers ?? [] where t.mediaType == .audio { if let a = t.receiver.track, !a.isEnabled { a.isEnabled = true } }   // Ton des Gegenuebers immer an
         #if os(macOS)
         if CallEnv.fakeMedia, let a = pc?.transceivers.first(where: { $0.mediaType == .audio })?.receiver.track as? RTCAudioTrack { a.source.volume = 0 }   // Tests: still
         #endif
@@ -531,19 +538,22 @@ final class CallManager: NSObject, ObservableObject {
                         self.relay = (l?.values["candidateType"] as? String) == "relay" || (r?.values["candidateType"] as? String) == "relay"
                     }
                 }
+                let au = CallLogic.AudioSample.from(rep.statistics.values.map { (type: $0.type, values: $0.values as [String: Any]) })
+                self.meter.update(au, micOn: self.mic)
+                if self.audioIn != self.meter.input { self.audioIn = self.meter.input }
+                if self.audioMic != self.meter.mic { self.audioMic = self.meter.mic }
                 #if DEBUG
                 if CallEnv.fakeMedia {
-                    var a = 0, v = 0, fr = 0
-                    for s in rep.statistics.values where s.type == "inbound-rtp" {
-                        let b = (s.values["bytesReceived"] as? NSNumber)?.intValue ?? 0
-                        if (s.values["kind"] as? String) == "video" { v += b; fr += (s.values["framesDecoded"] as? NSNumber)?.intValue ?? 0 } else { a += b }
+                    var v = 0, fr = 0
+                    for s in rep.statistics.values where s.type == "inbound-rtp" && (s.values["kind"] as? String) == "video" {
+                        v += (s.values["bytesReceived"] as? NSNumber)?.intValue ?? 0; fr += (s.values["framesDecoded"] as? NSNumber)?.intValue ?? 0
                     }
                     #if os(iOS)
                     let peak = FakeAudioDevice.shared.takePeak()
                     #else
                     let peak = 0.0
                     #endif
-                    CallEnv.log("stats audioIn=\(a) videoIn=\(v) framesDecoded=\(fr) playoutPeak=\(String(format: "%.3f", peak)) verified=\(self.verified) relay=\(self.relay)")
+                    CallEnv.log("stats audioIn=\(au.bytesIn) samplesIn=\(au.samplesIn) levelIn=\(String(format: "%.4f", au.levelIn)) energyIn=\(String(format: "%.5f", au.energyIn)) audioOut=\(au.bytesOut) micLevel=\(String(format: "%.4f", au.levelMic)) ton=\(self.meter.input) mikro=\(self.meter.mic) videoIn=\(v) framesDecoded=\(fr) playoutPeak=\(String(format: "%.3f", peak)) verified=\(self.verified) relay=\(self.relay)")
                     let ud = UserDefaults.standard, el = self.connectedAt.map { Date().timeIntervalSince($0) } ?? 0
                     if !toggled, let t = Double(ud.string(forKey: "hkCallToggleAt") ?? ""), el > t {   // nur fuer Tests: Stumm + Kamera aus
                         toggled = true; self.toggleMic(); if self.cam { self.toggleCam() }; CallEnv.log("toggled mic=\(self.mic) cam=\(self.cam)")
@@ -596,8 +606,7 @@ final class CallManager: NSObject, ObservableObject {
     var canSwitchCamera: Bool { camera?.canSwitch ?? false }
     func toggleSpeaker() {
         speaker.toggle()
-        let s = RTCAudioSession.sharedInstance()
-        s.lockForConfiguration(); try? s.overrideOutputAudioPort(speaker ? .speaker : .none); s.unlockForConfiguration()
+        CallAudio.route(speaker: speaker, video: media == "video")
     }
     #endif
 
@@ -642,6 +651,9 @@ final class CallManager: NSObject, ObservableObject {
         camera?.stop(); camera = nil
         pc?.close(); pc = nil
         audioTrack = nil; localVideo = nil; remoteVideo = nil
+        #if os(iOS)
+        CallAudio.releaseManual()
+        #endif
         if let cid { CallSystem.shared.endReported(cid, reason: failed ? .failed : .remoteEnded, local: true) }
         incoming = nil
         status = message ?? note.map(Self.text) ?? String(localized: "Anruf beendet")
@@ -675,6 +687,7 @@ final class CallManager: NSObject, ObservableObject {
         id = nil; chatID = 0; peer = ""; peerDevs = [:]; peerDevice = nil; fps = []; seen = []; early = []; remoteIce = []; outIce = []
         ready = false; connected = false; ending = false; answered = false; keysRefreshed = false; failed = false
         mic = true; cam = false; remote = CallRemoteState(); verified = false; relay = false; connectedAt = nil; speaker = false
+        meter = CallLogic.AudioMeter(); audioIn = .unknown; audioMic = .unknown
         localVideo = nil; remoteVideo = nil; incoming = nil
     }
     func signedOut() { if busy { hangup() }; enabled = true; done = [] }
