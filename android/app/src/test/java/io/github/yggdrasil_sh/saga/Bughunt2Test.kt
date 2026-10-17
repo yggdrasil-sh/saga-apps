@@ -72,6 +72,34 @@ class Bughunt2Test {
         assertEquals("image/jpeg", io.github.yggdrasil_sh.saga.ui.settings.AvatarCrop.mimeFor(hasAlpha = false))
     }
 
+    @Test fun chatDayDividers() {
+        val z = java.time.ZoneId.of("Europe/Berlin")
+        fun ms(s: String) = java.time.ZonedDateTime.parse(s).toInstant().toEpochMilli()
+        val F = io.github.yggdrasil_sh.saga.chat.ChatFormat
+        // Anruf vom 15.10. direkt vor einer Nachricht vom 17.10. -> Trenner; gleicher Tag -> keiner; aelteste -> immer
+        assertTrue(F.dayStarts(ms("2026-10-17T09:00:00+02:00[Europe/Berlin]"), ms("2026-10-15T04:24:00+02:00[Europe/Berlin]"), z))
+        assertFalse(F.dayStarts(ms("2026-10-17T23:59:00+02:00[Europe/Berlin]"), ms("2026-10-17T00:01:00+02:00[Europe/Berlin]"), z))
+        assertTrue(F.dayStarts(ms("2026-10-17T09:00:00+02:00[Europe/Berlin]"), null, z))
+        // lokaler Tag zaehlt, nicht UTC (00:30 Ortszeit ist in UTC noch der Vortag)
+        assertTrue(F.dayStarts(ms("2026-10-17T00:30:00+02:00[Europe/Berlin]"), ms("2026-10-16T23:30:00+02:00[Europe/Berlin]"), z))
+    }
+
+    @Test fun dbValuesLocalized() {
+        val D = io.github.yggdrasil_sh.saga.blocks.DbProps
+        val es = java.util.Locale.forLanguageTag("es-ES")
+        val de = java.util.Locale.GERMANY
+        assertEquals("1,7857", D.localNum(es)(1.7857))
+        assertEquals("12", D.localNum(de)(12.0))
+        val schema = kotlinx.serialization.json.Json.parseToJsonElement(
+            """{"props":[{"id":"d","name":"Datum","type":"date"},{"id":"q","name":"Quote","type":"calc","a":"x","b":"y","op":"div"}]}""",
+        ) as kotlinx.serialization.json.JsonObject
+        val props = kotlinx.serialization.json.Json.parseToJsonElement("""{"d":"2026-10-04","x":25,"y":14}""") as kotlinx.serialization.json.JsonObject
+        val f = D.fields(schema, props, day = D.localDay(de), number = D.localNum(de)).associate { it.name to it.value }
+        assertEquals("04.10.2026", f["Datum"])                     // nicht mehr ISO "2026-10-04"
+        assertEquals("1,7857", f["Quote"])
+        assertEquals("kaputt", D.localDay(de)("kaputt"))
+    }
+
     @Test fun lanPromptSettingsOnlyWhenSystemStopsAsking() {
         // erste Ablehnung: System fragt noch einmal -> Knopf "Erlauben"; danach gesperrt -> "Einstellungen oeffnen"
         assertFalse(io.github.yggdrasil_sh.saga.ui.common.LocalNetworkFlow.openSettingsNext(systemMayAskAgain = true))

@@ -104,9 +104,13 @@ fun RowProperties(ed: PageEditor, repo: SagaRepository) {
     }
     val all = knownPages(repo)
     val fmt = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
-    val fields = remember(schema, props, all) {
+    val locale = io.github.yggdrasil_sh.saga.ui.common.appLocale()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val fields = remember(schema, props, all, locale) {
+        // Datum und Zahlen in der Schreibweise der App-Sprache (wie Erstellt/Geaendert)
         DbProps.fields(schema, props, ed.created, ed.updatedAt,
-            titleOf = { id -> all.firstOrNull { it.id == id }?.title }, time = { fmt.format(Date((it * 1000).toLong())) })
+            titleOf = { id -> all.firstOrNull { it.id == id }?.title }, time = { fmt.format(Date((it * 1000).toLong())) },
+            day = DbProps.localDay(locale), number = DbProps.localNum(locale))
     }
     if (fields.isEmpty()) return
     Column(
@@ -118,7 +122,12 @@ fun RowProperties(ed: PageEditor, repo: SagaRepository) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(f.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.widthIn(min = 90.dp, max = 140.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(f.value, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                val link = f.type == "url" && (f.value.startsWith("https://") || f.value.startsWith("http://"))
+                Text(
+                    f.value, style = MaterialTheme.typography.bodyMedium,
+                    color = if (link) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Unspecified,
+                    modifier = Modifier.weight(1f).then(if (link) Modifier.clickable { io.github.yggdrasil_sh.saga.ui.common.openUrl(context, f.value) } else Modifier),
+                )
             }
         }
     }
