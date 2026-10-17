@@ -438,10 +438,15 @@ class CallBar(Gtk.Revealer):
         box.add_css_class("hk-callbar")
         self.av = Adw.Avatar(size=40, text="?", show_initials=True)
         box.append(self.av)
+        # Wer anruft, ist das Wichtigste: der Name steht allein im Titel (mit Mindestbreite), die Art des Anrufs darunter;
+        # Knopftexte sind kurz (voller Text als Tooltip/Screenreader), damit der Name nicht abgeschnitten wird
         col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, hexpand=True, valign=Gtk.Align.CENTER)
         self.title = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
         self.title.add_css_class("heading")
         col.append(self.title)
+        self.kind = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self.kind.add_css_class("caption")
+        col.append(self.kind)
         self.sub = Gtk.Label(label=_("Answering opens the call in your browser."), xalign=0, ellipsize=Pango.EllipsizeMode.END)
         self.sub.add_css_class("dim-label")
         self.sub.add_css_class("caption")
@@ -452,7 +457,7 @@ class CallBar(Gtk.Revealer):
         self.acc_a = self._btn("call-start-symbolic", _("Answer"), "suggested-action", lambda: calls.accept(self.cid, "audio", self.win))
         box.append(self.acc_a)
         self.acc_v = self._btn("camera-video-symbolic", _("Answer with video"), "suggested-action",
-                               lambda: calls.accept(self.cid, "video", self.win))
+                               lambda: calls.accept(self.cid, "video", self.win), short=_("Answer"))
         box.append(self.acc_v)
         self.set_child(box)
         self._h = [calls.connect("ring", lambda o, r: self.show(r)), calls.connect("info", lambda o, t: self.win.toast(t))]
@@ -460,9 +465,10 @@ class CallBar(Gtk.Revealer):
         if calls.ringing:
             self.show(calls.ringing)
 
-    def _btn(self, icon, label, css, cb):
+    def _btn(self, icon, label, css, cb, short=None):
         b = Gtk.Button(valign=Gtk.Align.CENTER, tooltip_text=label)
-        bc = Adw.ButtonContent(icon_name=icon, label=label)
+        b.short = short or label                     # sichtbarer (kurzer) Text; der volle steht im Tooltip
+        bc = Adw.ButtonContent(icon_name=icon, label=b.short)
         if hasattr(bc, "set_can_shrink"):
             bc.set_can_shrink(True)
         b.set_child(bc)
@@ -475,8 +481,9 @@ class CallBar(Gtk.Revealer):
     def set_compact(self, on):
         """schmales Fenster: runde Knoepfe nur mit Symbol (Beschriftung bleibt als Tooltip und fuer Screenreader)"""
         self.compact = on
+        self.get_child().set_spacing(8 if on else 12)
         for b in (self.dec, self.acc_a, self.acc_v):
-            b.get_child().set_label("" if on else b.get_tooltip_text() or "")
+            b.get_child().set_label("" if on else b.short)
             (b.add_css_class if on else b.remove_css_class)("circular")
             (b.remove_css_class if on else b.add_css_class)("pill")
         self.sub.set_visible(not on)
@@ -492,11 +499,20 @@ class CallBar(Gtk.Revealer):
         p = r.get("peer") or {}
         self.av.set_text(p.get("name") or p.get("username") or "?")
         avatars.attach(self.av, p.get("avatar"), 40)
-        self.title.set_label(ring_title({"peer": p, "media": r.get("media")}))
         video = r.get("media") == "video"
-        lbl = _("Answer with audio only") if video else _("Answer")
-        self.acc_a.get_child().set_label("" if getattr(self, "compact", False) else lbl)
-        self.acc_a.set_tooltip_text(lbl)
-        self.acc_a.update_property([Gtk.AccessibleProperty.LABEL], [lbl])
+        name = caller_name({"peer": p})
+        kind = _("Incoming video call") if video else _("Incoming call")
+        self.title.set_label(name or kind)
+        self.title.set_width_chars(min(len(name or kind), 12))     # Name bleibt lesbar, Knoepfe geben nach
+        self.kind.set_label(kind if name else "")
+        self.kind.set_visible(bool(name))
+        self.update_property([Gtk.AccessibleProperty.LABEL], [ring_title({"peer": p, "media": r.get("media")})])
+        # Videoanruf: "Annehmen" (mit Video) ist die Hauptaktion, daneben kurz "Nur Ton"
+        full = _("Answer with audio only") if video else _("Answer")
+        short = _("Audio only") if video else _("Answer")
+        self.acc_a.short = short
+        self.acc_a.get_child().set_label("" if getattr(self, "compact", False) else short)
+        self.acc_a.set_tooltip_text(full)
+        self.acc_a.update_property([Gtk.AccessibleProperty.LABEL], [full])
         self.acc_v.set_visible(video)
         self.set_reveal_child(True)

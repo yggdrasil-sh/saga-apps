@@ -68,3 +68,28 @@ def test_thumbs_use_file_ids_per_msg(win, srv):
     chat.limits.pop("file_ids_per_msg")
     out, ids = chat.upload_attachments(cid, files[:6])
     assert len(ids) == 10 and sum("th" in e for e in out) == 4
+
+
+# --- [S3] Klingel-Leiste: Name lesbar -----------------------------------------------------------------------------
+def test_callbar_shows_caller_name(win, srv, app, monkeypatch):
+    M, notes, opened, cid = _calls_setup(win, srv, app, monkeypatch)
+    srv.names["anna"] = "Annabelle Beispielname"
+    call = mockv21.ring(srv, "anna", cid, "video", push=False)
+    M.calls.on_live("call.ring", {"call_id": call})
+    assert pump(lambda: M.calls.ringing is not None, 4)
+    bar = win.callbar
+    assert bar.title.get_label() == "Annabelle Beispielname" and bar.kind.get_label() == "Incoming video call"
+    assert bar.acc_v.get_child().get_label() == "Answer" and bar.acc_v.get_tooltip_text() == "Answer with video"
+    assert bar.acc_a.get_child().get_label() == "Audio only" and bar.acc_a.get_tooltip_text() == "Answer with audio only"
+    # schmal (nur Symbole): Name bekommt trotzdem Platz
+    bar.set_compact(True)
+    assert bar.acc_v.get_child().get_label() == "" and bar.acc_a.get_tooltip_text() == "Answer with audio only"
+    box = bar.get_child()
+    mw, nw, _a, _b = box.measure(Gtk.Orientation.HORIZONTAL, -1)
+    assert mw <= 340                                  # passt ins kleinste Fenster (360 px)
+    tm = bar.title.measure(Gtk.Orientation.HORIZONTAL, -1)[0]
+    lay = bar.title.create_pango_layout("Annabelle B")
+    assert tm >= lay.get_pixel_size()[0] - 2          # gut ein Dutzend Zeichen des Namens sind immer sichtbar
+    bar.set_compact(False)
+    assert bar.acc_v.get_child().get_label() == "Answer"
+    M.calls.decline(call)
