@@ -165,6 +165,15 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
             repo.openChatRequest.value = null
         }
     }
+    // Nach dem ersten Anruf ohne UnifiedPush: Hinweis "klingelt nur bei offener App" + Einrichten
+    val callPushHint by repo.push.callHint.collectAsState()
+    val inCall by repo.calls.ui.collectAsState()
+    if (callPushHint && inCall == null) {
+        io.github.yggdrasil_sh.saga.ui.settings.CallPushHintDialog(
+            onSetup = { repo.push.callHintDone(); nav.push(Dest.Push) },
+            onDismiss = { repo.push.callHintDone() },
+        )
+    }
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val lifecycle = LocalLifecycleOwner.current.lifecycle

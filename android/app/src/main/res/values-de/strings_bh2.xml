@@ -3,4 +3,8 @@
 <resources>
     <string name="call_cam_denied">Kamera nicht erlaubt – bitte in den Android-Einstellungen für Saga erlauben.</string>
     <string name="call_ongoing_video">Laufender Videoanruf</string>
+    <string name="call_push_title">Anrufe im Hintergrund</string>
+    <string name="call_push_hint">Ohne Mitteilungs-Verteiler klingelt Saga nur, wenn die App offen ist. Richte UnifiedPush (z. B. ntfy) ein, damit Anrufe auch im Hintergrund klingeln.</string>
+    <string name="call_push_setup">Einrichten</string>
+    <string name="call_push_later">Später</string>
 </resources>

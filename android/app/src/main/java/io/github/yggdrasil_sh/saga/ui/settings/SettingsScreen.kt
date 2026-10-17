@@ -151,6 +151,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             }
 
             if (callsOn == true) item { CallsFullScreenHint(w) }
+            if (callsOn == true) item { CallsPushHint(repo.push, w) { nav.push(Dest.Push) } }
 
             item { SectionHeader(stringResource(R.string.settings_about), w) }
             item { ListItem(headlineContent = { Text(stringResource(R.string.settings_app)) }, trailingContent = { Text(io.github.yggdrasil_sh.saga.util.ShotMode.version("Saga ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")) }, modifier = w) }

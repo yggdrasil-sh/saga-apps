@@ -27,4 +27,14 @@ class Bughunt2Test {
         assertTrue(CallLogic.speakerActive(true, speaker))
         assertTrue(CallLogic.speakerActive(true, null))
     }
+
+    @Test fun backgroundRingingNeedsDistributor() {
+        val ok = io.github.yggdrasil_sh.saga.push.PushLocal(distributor = "org.example.ntfy", token = "t", endpoint = "https://push.example/x")
+        val inst = listOf("org.example.ntfy")
+        assertTrue(io.github.yggdrasil_sh.saga.push.PushLogic.backgroundReady(ok, inst))
+        // kein Verteiler eingerichtet / noch ohne Adresse / Verteiler deinstalliert -> Hinweis "klingelt nur bei offener App"
+        assertFalse(io.github.yggdrasil_sh.saga.push.PushLogic.backgroundReady(null, inst))
+        assertFalse(io.github.yggdrasil_sh.saga.push.PushLogic.backgroundReady(ok.copy(endpoint = null), inst))
+        assertFalse(io.github.yggdrasil_sh.saga.push.PushLogic.backgroundReady(ok, emptyList()))
+    }
 }

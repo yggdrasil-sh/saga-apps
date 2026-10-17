@@ -170,6 +170,42 @@ fun CallsFullScreenHint(modifier: Modifier) {
     )
 }
 
+// ------------------------------------------------------------------------------------------- Anrufe: ohne UnifiedPush
+
+/**
+ * Ohne Mitteilungs-Verteiler (UnifiedPush) gibt es im Hintergrund keinen Weg zum Geraet: Anrufe klingeln nur bei
+ * geoeffneter App. Hinweis + "Einrichten" (Mitteilungen); nach Rueckkehr aus der Einrichtung neu pruefen.
+ */
+@Composable
+fun CallsPushHint(push: io.github.yggdrasil_sh.saga.push.PushService, modifier: Modifier, onSetup: () -> Unit) {
+    var ready by remember { mutableStateOf(true) }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    LaunchedEffect(lifecycle) {
+        lifecycle.lifecycle.currentStateFlow.collect {
+            if (it == androidx.lifecycle.Lifecycle.State.RESUMED) ready = withContext(Dispatchers.IO) { push.backgroundReady() }
+        }
+    }
+    if (ready) return
+    ListItem(
+        headlineContent = { Text(stringResource(R.string.call_push_title)) },
+        supportingContent = { Text(stringResource(R.string.call_push_hint)) },
+        trailingContent = { TextButton(onClick = onSetup) { Text(stringResource(R.string.call_push_setup)) } },
+        modifier = modifier,
+    )
+}
+
+/** Einmaliger Hinweis nach dem ersten Anruf ohne UnifiedPush */
+@Composable
+fun CallPushHintDialog(onSetup: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.call_push_title)) },
+        text = { Text(stringResource(R.string.call_push_hint)) },
+        confirmButton = { TextButton(onClick = onSetup) { Text(stringResource(R.string.call_push_setup)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.call_push_later)) } },
+    )
+}
+
 // ------------------------------------------------------------------------------------------- Profilbild
 
 /**

@@ -605,6 +605,16 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     // ---------------------------------------------------------------- Anrufen
 
+    /** Erster Anruf ohne UnifiedPush: nach dem Anruf einmal darauf hinweisen, dass Saga nur bei offener App klingelt */
+    private fun pushHint() {
+        scope.launch(Dispatchers.IO) {
+            try {
+                repo.push.maybeCallHint()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
     /** Aus dem Direkt-Chat anrufen (Berechtigungen hat die Oberflaeche schon geholt) */
     fun start(chatId: Long, peer: CallPeer, video: Boolean) {
         if (cur != null || ring != null) {
@@ -615,6 +625,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         cur = c
         _ui.value = CallUiState(CallPhase.PREPARING, null, chatId, true, video, peer, cam = video, speaker = video, message = UiText.Res(R.string.call_media))
         CallActivity.open(app)
+        pushHint()
         scope.launch {
             try {
                 keys()
@@ -783,6 +794,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         cur = c
         _ui.value = CallUiState(CallPhase.CONNECTING, r.id, r.chatId, false, r.media == "video", r.peer, cam = video, speaker = video,
             message = UiText.Res(R.string.call_connecting))
+        pushHint()
         scope.launch {
             try {
                 val k = keys()
