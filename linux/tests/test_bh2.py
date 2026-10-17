@@ -172,3 +172,16 @@ def test_peer_avatar_change_revalidates(win, srv, monkeypatch):
     monkeypatch.setattr(win, "is_active", lambda: True)
     win._tick()                                                          # Takt, waehrend die Chats offen sind
     assert pump(lambda: not chat.peer(chat.chat(cid)).get("avatar"), 4)
+
+
+# --- [S4] HEIC nur, wenn Pillow es oeffnen kann -----------------------------------------------------------------------
+def test_heic_only_with_decoder(monkeypatch):
+    from gi.repository import Gio
+
+    from hlidskjalf import clipimg, images
+    assert images.can_open("png") and images.can_open("JPG") and not images.can_open("xyz")
+    f = Gio.File.new_for_path("/tmp/foto.HEIC")
+    monkeypatch.setattr(images, "can_open", lambda e: e != "heic")
+    assert not clipimg.file_is_image(f) and clipimg.file_is_image(Gio.File.new_for_path("/tmp/a.png"))
+    monkeypatch.setattr(images, "can_open", lambda e: True)
+    assert clipimg.file_is_image(f)

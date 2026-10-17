@@ -124,7 +124,10 @@ def read_paste(clipboard, on_files, on_image, fallback):
 
 
 def file_is_image(f):
-    return (f.get_basename() or "").lower().rsplit(".", 1)[-1] in IMAGE_EXT
+    """Bilddatei, die sich hier auch oeffnen laesst (HEIC ohne Dekoder: gewoehnliche Datei statt kaputtem Bild)"""
+    from . import images
+    ext = (f.get_basename() or "").lower().rsplit(".", 1)[-1]
+    return ext in IMAGE_EXT and images.can_open(ext)
 
 
 # --- Immich -> Chat ---------------------------------------------------------------------------------------------------

@@ -22,6 +22,25 @@ try:
 except ImportError:  # pragma: no cover
     Image = None
 
+if Image is not None:
+    try:                                              # optional: pillow-heif (falls installiert) -> HEIC/HEIF oeffnen
+        import pillow_heif
+        pillow_heif.register_heif_opener()
+    except Exception:  # noqa: BLE001 - fehlt (Fedora/AlmaLinux-Pakete) oder zu alt
+        pass
+
+
+def can_open(ext):
+    """Kann Pillow Dateien dieser Endung lesen? (HEIC/HEIF/AVIF nur mit passendem Dekoder - sonst nicht anbieten)"""
+    if Image is None:
+        return False
+    try:
+        Image.init()
+        return "." + ext.lower().lstrip(".") in Image.registered_extensions()
+    except Exception:  # noqa: BLE001
+        return False
+
+
 _MEM = OrderedDict()            # key -> Decoded
 _MEM_LIMIT = 300 * 1024 * 1024  # Speicher-Zwischenspeicher insgesamt
 _ENTRY_LIMIT = 64 * 1024 * 1024  # hoechstens so viel je Bild (Animationen: danach keine weiteren Einzelbilder)

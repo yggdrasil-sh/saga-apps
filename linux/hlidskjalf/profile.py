@@ -323,8 +323,10 @@ class AvatarGroup(Adw.PreferencesGroup):
     def _pick(self):
         fd = Gtk.FileDialog(title=_("Upload picture …"))
         flt = Gtk.FileFilter(name=_("Images"))
+        from . import images
         for m in ("image/png", "image/jpeg", "image/gif", "image/webp", "image/heic", "image/heif"):
-            flt.add_mime_type(m)
+            if images.can_open(m.split("/")[1]):           # HEIC/HEIF nur mit Dekoder (pillow-heif)
+                flt.add_mime_type(m)
         ls = Gio.ListStore.new(Gtk.FileFilter)
         ls.append(flt)
         fd.set_filters(ls)
