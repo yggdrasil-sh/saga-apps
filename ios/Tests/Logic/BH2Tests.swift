@@ -77,3 +77,25 @@ func bh2ReauthTests() {
     check(!ReauthLogic.oneTimeCodeField(methods: ["password"]), "nur Passwort: Passwort-Feld")
     check(!ReauthLogic.oneTimeCodeField(methods: []), "alte Server: Passwort-Feld")
 }
+
+// Live-Ereignis avatar.changed {user, avatar, path} (Server-Fehlerrunde): Bilder der Person sofort tauschen
+func bh2AvatarLiveTests() {
+    typealias A = AvatarLogic
+    check(A.path("/api/avatar/k1?v=3") == "/api/avatar/k1", "Pfad ohne Version")
+    check(A.path("/api/avatar/k1") == "/api/avatar/k1", "Pfad ohne Query")
+    check(A.path(nil) == nil && A.path("https://x/api/avatar/k1") == nil, "nur Saga-Pfade")
+    let c = A.change(["user": "u", "avatar": "/api/avatar/k1?v=4", "path": "/api/avatar/k1"])
+    check(c?.path == "/api/avatar/k1" && c?.avatar == "/api/avatar/k1?v=4", "Ereignis mit neuem Bild")
+    let r = A.change(["user": "u", "avatar": NSNull(), "path": "/api/avatar/k1"])
+    check(r != nil && r?.avatar == nil, "Ereignis: Bild entfernt")
+    check(A.change(["avatar": "/api/avatar/k2?v=1", "path": "/api/avatar/k1"]) == nil, "fremde Adresse zum Pfad: ignorieren")
+    check(A.change(["avatar": "/api/avatar/k1?v=1", "path": "https://evil/api/avatar/k1"]) == nil, "kein fremder Server")
+    check(A.change(["user": "u"]) == nil, "alter Server ohne path: ignorieren")
+    var ch: [String: String?] = [:]
+    check(A.current("/api/avatar/k1?v=3", changes: ch) == "/api/avatar/k1?v=3", "ohne Aenderung: Adresse aus dem Objekt")
+    ch["/api/avatar/k1"] = .some("/api/avatar/k1?v=4")
+    check(A.current("/api/avatar/k1?v=3", changes: ch) == "/api/avatar/k1?v=4", "neues Bild sofort")
+    check(A.current("/api/avatar/k9?v=1", changes: ch) == "/api/avatar/k9?v=1", "andere Person unberuehrt")
+    ch["/api/avatar/k1"] = .some(nil)
+    check(A.current("/api/avatar/k1?v=3", changes: ch) == nil, "Bild entfernt: Initialen")
+}

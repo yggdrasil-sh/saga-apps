@@ -65,7 +65,8 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   während du in einer anderen App bist, meldet sich Saga mit einer Mitteilung (Annehmen/Ablehnen) und einmal im Dock.
 - **Profilbilder:** Transparente PNGs bekommen einen weißen statt schwarzen Hintergrund. Ein kurzer Serverfehler lässt
   nicht mehr für die ganze Sitzung Initialen stehen; Bilder werden nach 10 Minuten beim nächsten Anzeigen (z. B.
-  Seitenwechsel) mit dem Server abgeglichen. Abmelden leert auch den Zwischenspeicher der Profilbilder.
+  Seitenwechsel) mit dem Server abgeglichen. Abmelden leert auch den Zwischenspeicher der Profilbilder. Mit einem
+  Server, der das Live-Ereignis `avatar.changed` sendet, erscheint ein neues oder entferntes Profilbild sofort.
 - **Chat:** „Neu beginnen“ mit dem Code der Authenticator-App bietet nicht mehr an, den Code als Passwort zu sichern.
   Ein ausgewählter, noch nicht gesendeter Anhang verdeckt nicht mehr die neueste Nachricht.
 

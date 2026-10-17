@@ -23,8 +23,10 @@ extension Image {
 }
 
 @MainActor
-final class AvatarCache {
+final class AvatarCache: ObservableObject {
     static let shared = AvatarCache()
+    /// Live-Ereignis avatar.changed: fester Pfad -> neue Adresse (nil = Bild entfernt); AvatarView zeigt sofort das neue Bild
+    @Published private(set) var changes: [String: String?] = [:]
     weak var store: Store?
     private let mem = NSCache<NSString, PlatformImage>()
     /// 404/kein Bild: nicht erneut versuchen, bis sich die Adresse (v) aendert oder revalidiert wird
@@ -73,8 +75,15 @@ final class AvatarCache {
         inflight[key] = nil
         return r
     }
+    /// avatar.changed: neue Adresse merken, alles zum alten Bild dieser Person verwerfen
+    func changed(path: String, avatar: String?) {
+        changes[path] = .some(avatar)
+        for k in Set(checked.keys).union(retry.keys).union(missing) where URL(string: k)?.path == path {
+            mem.removeObject(forKey: k as NSString); missing.remove(k); checked[k] = nil; retry[k] = nil
+        }
+    }
     /// eigenes Bild geaendert/abgemeldet
-    func reset() { mem.removeAllObjects(); missing = []; checked = [:]; retry = [:]; inflight = [:] }
+    func reset() { mem.removeAllObjects(); missing = []; checked = [:]; retry = [:]; inflight = [:]; changes = [:] }
 }
 
 /// Rundes Profilbild mit Initialen (bzw. Gruppen-Symbol) als Platzhalter
@@ -85,6 +94,9 @@ struct AvatarView: View {
     var group = false
     @Environment(\.displayScale) private var scale
     @State private var img: PlatformImage?
+    @ObservedObject private var cache = AvatarCache.shared
+    /// Adresse nach Live-Aenderungen (avatar.changed) - sonst die aus dem Personen-Objekt
+    private var shown: String? { AvatarLogic.current(avatar, changes: cache.changes) }
     var body: some View {
         ZStack {
             Circle().fill(Color.accentColor.opacity(0.16))
@@ -94,8 +106,8 @@ struct AvatarView: View {
         }
         .frame(width: size, height: size).clipShape(Circle())
         .accessibilityHidden(true)
-        .task(id: group ? nil : avatar) {
-            let px = AvatarLogic.step(points: Double(size), scale: Double(scale))
+        .task(id: group ? nil : shown) {
+            let px = AvatarLogic.step(points: Double(size), scale: Double(scale)), avatar = shown
             img = group ? nil : AvatarCache.shared.cached(avatar, px: px)
             // fehlt oder aelter als 10 min (z. B. beim Seitenwechsel wieder angezeigt): beim Server nachfragen (ETag -> 304)
             if !group, img == nil || !AvatarCache.shared.isFresh(avatar, px: px) { img = await AvatarCache.shared.image(avatar, px: px) }
