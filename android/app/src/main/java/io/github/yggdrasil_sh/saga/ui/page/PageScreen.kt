@@ -422,8 +422,9 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             val blocks = BlockDoc.blocks(ed.doc)
             val keys = remember(blocks) {
                 val seen = HashSet<String>()
+                // Praefix: eine Block-ID wie "header"/"footer" darf nie mit den festen Eintraegen kollidieren
                 blocks.mapIndexed { i, b ->
-                    val k = BlockDoc.id(b) ?: "i$i"
+                    val k = "b:" + (BlockDoc.id(b) ?: "i$i")
                     if (seen.add(k)) k else "dup-$i-$k"
                 }
             }
@@ -481,9 +482,12 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 if (ed.fetched && ed.isDatabase) {
                     item(key = "db") {
                         Column(Modifier.padding(vertical = 16.dp)) {
+                            // Zeilen (Unterseiten) zum Oeffnen - bei Notion-Importen stecken hier die meisten Seiten
+                            DatabaseRows(id, repo, onOpen = { pid -> nav.push(Dest.Page(pid)) })
                             Text(
                                 stringResource(R.string.page_database_soon),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp),
                             )
                             TextButton(onClick = { openUrl(context, repo.absoluteUrl("notes") + "#$id") }) { Text(stringResource(R.string.action_open_in_browser)) }
                         }
@@ -677,6 +681,7 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
         // geaendert/angelegt hat - beide gleich gross (Sekundaertext)
         if (ed.fetched && ed.caps.foreign) SharedByLabel(ed.share)
         if (ed.fetched) MetaLine(ed.share)
+        if (ed.fetched) RowProperties(ed, repo)                 // Datenbank-Zeile: Eigenschaften (nur lesen)
         // Foederation (2.0): Seite liegt auf einer anderen Saga-Instanz
         ed.remoteHost?.takeIf { ed.fetched }?.let { host ->
             Text(

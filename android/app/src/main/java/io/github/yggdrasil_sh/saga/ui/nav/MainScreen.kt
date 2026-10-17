@@ -126,6 +126,7 @@ fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
             if (everLoggedIn) key(server) { MainScreen(repo, appScope) }
             if (needsLogin) LoginScreen(repo)
             pendingPair?.let { PairConfirmDialog(repo, it, appScope) }
+            io.github.yggdrasil_sh.saga.ui.common.LocalNetworkPrompt(repo)     // Android 17: Server im lokalen Netz
             pendingShare?.let { sc ->
                 if (needsLogin) LaunchedEffect(sc) { repo.notify(UiText.Res(R.string.share_sign_in_first)) }   // nach Anmeldung erscheint der Dialog
                 else ShareDialog(repo, sc) { id -> repo.openPageRequest.value = id }

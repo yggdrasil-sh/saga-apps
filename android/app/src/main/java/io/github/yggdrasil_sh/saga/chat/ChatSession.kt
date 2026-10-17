@@ -274,15 +274,41 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         try {
             val limits = svc.me.value?.limits ?: ChatLimits()
             if (files.size > limits.filesPerMsg) throw UiTextException(UiText.Res(R.string.chat_too_many_files, limits.filesPerMsg))
-            val uploaded = files.map { f ->
+            files.forEach { f ->
                 if (f.data.size > limits.fileMax) throw UiTextException(UiText.Res(R.string.chat_file_too_big, limits.fileMax / 1048576))
-                val (blob, key) = withContext(Dispatchers.Default) { svc.crypto.encryptFile(chatId.toString(), f.data) }
+            }
+            // 2.1-c: je Bild ein Vorschaubild (eigene Datei, eigener Schluessel) - so viele, wie Datei-Kennungen erlaubt sind
+            var thumbsLeft = ChatImages.thumbBudget(files.size, files.count { it.mime.startsWith("image/") }, limits.filesPerMsg, limits.fileIdsPerMsg)
+            val cid = chatId.toString()
+            val uploaded = files.map { f ->
+                val (blob, key) = withContext(Dispatchers.Default) { svc.crypto.encryptFile(cid, f.data) }
                 val id = decode<FileUploaded>(api.postBytes("api/chats/$chatId/files", blob)).id
-                ChatFile(id, b64(key), f.name, f.mime, f.data.size.toLong())
+                var file = ChatFile(id, b64(key), f.name, f.mime, f.data.size.toLong())
+                if (f.mime.startsWith("image/")) {
+                    val t = withContext(Dispatchers.Default) {
+                        try {
+                            ChatImages.makeThumb(f.data)
+                        } catch (_: Throwable) {
+                            null                                 // Format unbekannt/zu gross: ohne Vorschaubild senden
+                        }
+                    }
+                    if (t != null) {
+                        file = file.copy(w = t.origW, h = t.origH)
+                        if (thumbsLeft > 0) {
+                            thumbsLeft--
+                            val (tblob, tkey) = withContext(Dispatchers.Default) { svc.crypto.encryptFile(cid, t.jpeg) }
+                            val tid = decode<FileUploaded>(api.postBytes("api/chats/$chatId/files", tblob)).id
+                            file = file.copy(th = ChatThumb(tid, b64(tkey), "image/jpeg", t.w, t.h, t.jpeg.size.toLong()))
+                            withContext(Dispatchers.IO) { svc.blobs.put(tid, tblob) }      // eigenes Bild sofort aus dem Cache
+                        }
+                    }
+                }
+                file
             }
             val notesAll = (noteIds + ChatFormat.noteRefs(text)).distinct()
             val plain = ChatLogic.content(text, uploaded, notesAll)
-            postEncrypted(k, plain, replyTo?.id, "msg", uploaded.map { it.id })
+            // alle Kennungen (Original + Vorschaubild), sonst raeumt der Server das Vorschaubild als verwaist weg
+            postEncrypted(k, plain, replyTo?.id, "msg", ChatLogic.sendFileIds(uploaded))
             replyTo = null
             // gesendet ist gesendet: scheitert nur das Nachladen, holt catchUp() es nach (BUG-066, kein Doppelversand)
             behind = !quietly { loadNewer() }
@@ -404,6 +430,12 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
     }
 
     // ---------------------------------------------------------------- Anhaenge
+
+    /** Vorschaubild eines Bild-Anhangs (2.1-c): Speicher, Plattencache (Ciphertext), Server; ohne th selbst erzeugt */
+    suspend fun thumb(f: ChatFile): androidx.compose.ui.graphics.ImageBitmap? =
+        svc.thumbs.load(chatId, f, (svc.me.value?.limits ?: ChatLimits()).fileMax)
+
+    fun cachedThumb(f: ChatFile): androidx.compose.ui.graphics.ImageBitmap? = svc.thumbs.cached(f)
 
     suspend fun download(f: ChatFile): ByteArray {
         val blob = api.getBytes("api/chat/files/${f.id}")

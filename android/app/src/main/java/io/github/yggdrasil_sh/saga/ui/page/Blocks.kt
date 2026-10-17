@@ -153,6 +153,10 @@ fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
         "image" -> Selectable(key, path, env) { ImageBlock(d, env) }
         "toggle" -> ToggleBlock(block, path, key, env)
         "columns" -> ColumnsBlock(d, path, env)
+        // Notion-Import: eingebettete Datenbank, Schaltflaechen, Einbettungen - lesbar statt Platzhalter
+        "database" -> Selectable(key, path, env) { DatabaseBlock(d, env) }
+        "buttons" -> Selectable(key, path, env) { ButtonsBlock(d, env) }
+        "embed" -> Selectable(key, path, env) { EmbedBlock(d, env) }
         // Aufgaben, Kalender, Immich gehoeren dem Eigentuemer: auf fremden Seiten nur ein neutraler Platzhalter
         // (der Block bleibt beim Speichern unveraendert)
         else -> if (ed.caps.ownerOnlyBlock(type)) Selectable(key, path, env) { OwnerOnly(type) }
@@ -249,6 +253,8 @@ private fun Unsupported(type: String, d: JsonObject, env: BlockEnv) {
 private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, style: String, arrayPath: JsonPath, indices: List<Int>, env: BlockEnv) {
     val ed = env.editor
     val prefix = ed.blockKey(block, blockPath)
+    // Editor.js-List v2: nummerierte Liste kann bei meta.start beginnen (oberste Ebene)
+    val start = if (indices.isEmpty()) (BlockDoc.int(BlockDoc.data(block)["meta"] as? JsonObject, "start") ?: 1) else 1
     Column(Modifier.padding(start = if (indices.isEmpty()) 0.dp else 22.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         items.forEachIndexed { i, raw ->
             val itemPath = arrayPath + i
@@ -270,7 +276,7 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
                             modifier = Modifier.semantics { contentDescription = label },
                         )
                     }
-                    "ordered" -> Text("${i + 1}.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.widthIn(min = 24.dp).padding(end = 6.dp))
+                    "ordered" -> Text("${i + start}.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.widthIn(min = 24.dp).padding(end = 6.dp))
                     else -> Text("•", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.widthIn(min = 16.dp).padding(end = 6.dp))
                 }
                 Column(Modifier.weight(1f)) {

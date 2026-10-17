@@ -33,6 +33,8 @@ data class ChatLimits(
     @SerialName("members_max") val membersMax: Int = 50,
     @SerialName("devices_max") val devicesMax: Int = 10,
     @SerialName("files_per_msg") val filesPerMsg: Int = 4,
+    /** 2.1-c: Datei-Kennungen je Nachricht (Original + Vorschaubild); aeltere Server: fehlt -> files_per_msg */
+    @SerialName("file_ids_per_msg") val fileIdsPerMsg: Int? = null,
     @SerialName("retention_max") val retentionMax: Long = 0,
     val retentions: List<Long> = emptyList(),
 )
@@ -195,9 +197,21 @@ data class FileUploaded(val id: String = "", val size: Long = 0)
 @Serializable
 data class SendResult(val ok: Boolean = false, val seq: Long = 0, val created: Double? = null)
 
-/** Anhang im (verschluesselten) Inhalt: Schluessel k, Name n, Typ m, Groesse s */
+/** Vorschaubild eines Bild-Anhangs (2.1-c): eigene Datei mit eigenem Schluessel, JPEG, laengste Seite <= 320 px */
 @Serializable
-data class ChatFile(val id: String = "", val k: String = "", val n: String = "", val m: String = "", val s: Long = 0)
+data class ChatThumb(val id: String = "", val k: String = "", val m: String = "image/jpeg", val w: Int = 0, val h: Int = 0, val s: Long = 0)
+
+/**
+ * Anhang im (verschluesselten) Inhalt: Schluessel k, Name n, Typ m, Groesse s; Bilder (2.1-c) zusaetzlich Breite w und
+ * Hoehe h des Originals und das Vorschaubild th (alte Nachrichten: fehlen)
+ */
+@Serializable
+data class ChatFile(
+    val id: String = "", val k: String = "", val n: String = "", val m: String = "", val s: Long = 0,
+    val w: Int? = null, val h: Int? = null, val th: ChatThumb? = null,
+) {
+    val isImage: Boolean get() = m.startsWith("image/")
+}
 
 /** Entschluesselter Inhalt einer Nachricht ({"v":1,"type":"text"|"title", ...}); unbekannte Felder werden ignoriert */
 @Serializable

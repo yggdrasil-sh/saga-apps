@@ -3,6 +3,9 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Android 17 (targetSdk 37): Server im lokalen Netz (Heimnetz, Split-DNS, *.local) nur mit dieser Berechtigung
+         ("Geraete in der Naehe"); die App fragt erst, wenn der Server tatsaechlich auf eine lokale Adresse zeigt -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <uses-permission android:name="android.permission.CAMERA" />
     <!-- Mitteilungen (Push ueber UnifiedPush, Android 13+ fragt nach) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

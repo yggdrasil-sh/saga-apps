@@ -147,7 +147,7 @@
     <string name="page_copy_link">App-Link kopieren</string>
     <string name="page_open_web_editor">Im Web-Editor öffnen</string>
     <string name="page_link_copied">Link kopiert</string>
-    <string name="page_database_soon">Datenbanken mit Ansichten (Tabelle, Board, Kalender …) kommen in einer der nächsten Versionen.</string>
+    <string name="page_database_soon">Ansichten, Filter und Eigenschaften bearbeiten: im Browser.</string>
     <string name="page_locked_chip">Gesperrt – tippen zum Entsperren</string>
     <string name="page_converted">Alte Textnotiz – wird beim Bearbeiten als Blöcke gespeichert.</string>
     <string name="page_reload_failed">Neu laden fehlgeschlagen: %1$s</string>
@@ -492,4 +492,20 @@
     </plurals>
     <string name="conflict_choose">Version wählen</string>
     <string name="no_access_to_shared">Zu „Mit mir geteilt“</string>
+    <string name="action_later">Später</string>
+    <string name="error_local_network">Kein Zugriff aufs lokale Netzwerk – „Geräte in der Nähe“ für Saga in den App-Berechtigungen erlauben</string>
+    <string name="local_network_title">Zugriff aufs lokale Netzwerk</string>
+    <string name="local_network_text">Dein Saga-Server (%1$s) liegt im lokalen Netzwerk. Seit Android 17 erreicht Saga ihn nur mit der Berechtigung „Geräte in der Nähe“.</string>
+    <string name="local_network_denied">Ohne diese Berechtigung erreicht Saga %1$s nicht. Du kannst sie in den App-Einstellungen unter Berechtigungen → Geräte in der Nähe erlauben.</string>
+    <string name="local_network_allow">Erlauben</string>
+    <string name="local_network_settings">Einstellungen öffnen</string>
+    <string name="db_empty">Noch keine Einträge</string>
+    <string name="db_missing">Die eingebettete Datenbank gibt es nicht mehr oder sie ist nicht für dich freigegeben.</string>
+    <string name="db_more">Alle anzeigen (%1$d)</string>
+    <string name="db_properties">Eigenschaften</string>
+    <string name="block_broken">Dieser Block konnte nicht angezeigt werden (%1$s)</string>
+    <plurals name="db_rows">
+        <item quantity="one">%d Eintrag</item>
+        <item quantity="other">%d Einträge</item>
+    </plurals>
 </resources>

@@ -87,6 +87,12 @@ android {
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfigs.findByName("release")?.let { signingConfig = it }
+            // APK-Groesse (2.1-c): WebRTC bringt je ABI ~7-13 MB mit. Eine universelle APK nur fuer echte Telefone/Tablets:
+            // arm64-v8a + armeabi-v7a (32-Bit-Geraete/Android Go). x86/x86_64 gibt es praktisch nur als Emulator bzw.
+            // Chromebook - fuer Sonderfaelle: -PsagaAllAbis=true. Eine Datei bleibt (Release-Workflow, F-Droid, Obtainium).
+            if ((findProperty("sagaAllAbis") as String?) != "true") {
+                ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
+            }
         }
         debug {
             applicationIdSuffix = ".debug"
