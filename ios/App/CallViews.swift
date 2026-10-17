@@ -262,6 +262,8 @@ enum CallTestHook {
         guard let d = try? await store.api("api/chats/\(cid)?\(store.chat.deviceParam)"), let c = ShareJSON.obj(d)?["chat"],
               let s = ChatSummary(c), let peer = s.peer else { CallEnv.log("start: chat not found"); return }
         store.calls.start(chatID: cid, peer: peer, video: video)
+        let at = UserDefaults.standard.double(forKey: "hkCallHangupAt")        // Auflegen n s nach dem Start (z. B. waehrend "Verbinde ...")
+        if at > 0 { try? await Task.sleep(for: .seconds(at)); CallEnv.log("test hangup in \(store.calls.phase.rawValue)"); store.calls.hangup() }
     }
 }
 private extension Double { var nonZero: Double? { self == 0 ? nil : self } }
