@@ -5,10 +5,10 @@ Nachrichtentexte werden nie als Markup interpretiert (escape; nur eigene Links f
 import datetime as _dt
 import re
 
-from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango
+from gi.repository import Adw, Gdk, Gio, GLib, Graphene, Gsk, Gtk, Pango
 
 from . import chatcrypto as C
-from . import avatars, clipimg, config, images
+from . import avatars, chatmedia, clipimg, config, images
 from .api import APIError, client
 from .blocks import flat_button, menu_popover
 from .chat import (NOTE_RX, RETENTIONS, ChatError, SafetyChanged, chat, fmt_recovery, keys_persistent, recovery_lines, retention_label,
@@ -471,7 +471,11 @@ class Conversation(Gtk.Box):
         self.query = ""
         self.sig = None
         self.at_bottom = True
-        self.images = {}             # Datei-ID -> Gdk.Texture (entschluesselt, nur im Speicher)
+        self.bubbles = {}            # Schluessel (ID, Zustand, Darstellung) -> fertige Zeile (wiederverwendet beim Neuzeichnen)
+        self.img_widgets = []        # ChatImage aller angezeigten Zeilen, in Reihenfolge
+        self._imgs_building = None
+        self._vis_pending = 0
+        self._pinned = 0
         # Hinweise oben: Sicherheitsnummer geaendert / nicht eingerichtet
         self.warn_rev = Gtk.Revealer(transition_type=Gtk.RevealerTransitionType.SLIDE_DOWN)
         from .page import BannerBox, BannerRow
@@ -507,7 +511,9 @@ class Conversation(Gtk.Box):
         self.msgs.update_property([Gtk.AccessibleProperty.LABEL], [_("Messages")])
         clamp.set_child(self.msgs)
         self.scroll.set_child(clamp)
+        self.clamp = clamp
         self.scroll.get_vadjustment().connect("value-changed", self._scrolled)
+        self.scroll.get_vadjustment().connect("changed", self._vis_soon)
         self.append(self.scroll)
         self.typing_label = _lbl("", ("caption", "dim-label"), margin_start=16, margin_bottom=2, visible=False)
         self.append(self.typing_label)
@@ -516,6 +522,7 @@ class Conversation(Gtk.Box):
         watch_chat(self, "typing", lambda cid: cid == self.cid and self._typing())
         watch_chat(self, "chat-changed", lambda cid: cid == self.cid and self._chat_changed())
         self.connect("map", lambda *_: self._mapped())
+        self.connect("map", self._vis_soon)
         self.loaded = False
         self.render()
         if not chat.cache.get(cid, {}).get("loaded"):
@@ -578,22 +585,61 @@ class Conversation(Gtk.Box):
     # --- Nachrichten ---------------------------------------------------------------------------------------------
     def _scrolled(self, adj):
         self.at_bottom = adj.get_value() + adj.get_page_size() >= adj.get_upper() - 40
+        self._vis_soon()
+
+    # --- Bilder nur fuer sichtbare Zeilen (2.1-c) ---------------------------------------------------------------------
+    def _vis_soon(self, *_a):
+        if not self._vis_pending:
+            self._vis_pending = GLib.timeout_add(40, self._update_visible)
+
+    def _update_visible(self):
+        """sichtbar (+ eine Bildschirmhoehe davor/danach): Vorschaubild laden; weit weg (> 4 Hoehen): Textur freigeben"""
+        self._vis_pending = 0
+        if self.get_root() is None or not self.loaded or self._pinned:
+            return False
+        adj = self.scroll.get_vadjustment()
+        top, page = adj.get_value(), adj.get_page_size() or 600
+        near, inview, missed = [], [], False
+        for w in self.img_widgets:
+            # Lage im Inhalt (haengt nicht davon ab, ob nach dem Scrollen schon neu angeordnet wurde) minus Scrollstand
+            ok, r = w.compute_bounds(self.clamp)
+            if not ok or w.get_height() <= 0:
+                missed = True                             # noch nicht angeordnet (langsamer Rechner): gleich noch einmal
+                continue
+            y0 = r.get_y() - top
+            y1 = y0 + r.get_height()
+            if y1 >= 0 and y0 <= page:
+                inview.append(w)
+            elif y1 > -page and y0 < 2 * page:
+                near.append(w)
+            elif y1 < -4 * page or y0 > 5 * page:
+                w.drop()
+        for w in near:
+            w.want()
+        for w in reversed(inview):                        # zuletzt angefragt = zuerst geladen (sichtbare zuerst)
+            w.want(bump=True)
+        if missed and self.get_mapped():
+            self._vis_soon()
+        return False
 
     def _to_bottom(self):
-        def go():
+        def go(last=False):
             adj = self.scroll.get_vadjustment()
             adj.set_value(adj.get_upper() - adj.get_page_size())
+            if last:
+                self._pinned -= 1
+                self._vis_soon()
             return False
+        self._pinned += 1                                 # bis zum Ende nach unten: keine Bilder fuer Zwischenstaende laden
         GLib.idle_add(go)
-        GLib.timeout_add(120, go)
+        GLib.timeout_add(120, go, True)
 
     def render(self):
         c = chat.cache.get(self.cid) or {}
         msgs = c.get("msgs") or []
         q = self.query.lower()
         shown = [m for m in msgs if not q or q in (m.get("text") or "").lower()]
-        sig = (tuple((m["id"], m.get("state")) for m in shown), c.get("more"), q, len(chat.notes), len(self.images),
-               c.get("error"), self.loaded)
+        sig = (tuple((m["id"], m.get("state")) for m in shown), c.get("more"), q, len(chat.notes), c.get("error"), self.loaded)
         if sig == self.sig:
             return
         stick = self.at_bottom
@@ -619,6 +665,7 @@ class Conversation(Gtk.Box):
         by_id = {m["id"]: m for m in msgs}
         group = (chat.chat(self.cid) or {}).get("kind") != "dm"
         prev = None
+        old, keep, imgs = self.bubbles, {}, []
         for m in shown:
             day = _day_label(m.get("created") or (m.get("ts") or 0) / 1000)
             if prev is None or _day_label(prev.get("created") or (prev.get("ts") or 0) / 1000) != day:
@@ -626,8 +673,22 @@ class Conversation(Gtk.Box):
                 self.msgs.append(d)
             first = prev is None or (prev.get("sender") or {}).get("username") != (m.get("sender") or {}).get("username") or \
                 (m.get("created") or 0) - (prev.get("created") or 0) > 600
-            self.msgs.append(self._bubble(m, by_id, group, first))
+            key = (m["id"], m.get("state"), first, group, bool(m.get("reply_to") and m["reply_to"] in by_id), len(chat.notes))
+            row = old.pop(key, None) or keep.get(key)
+            if row is None:
+                self._imgs_building = []
+                row = self._bubble(m, by_id, group, first)
+                row.hk_imgs = self._imgs_building
+                self._imgs_building = None
+            keep[key] = row
+            imgs += row.hk_imgs
+            self.msgs.append(row)
             prev = m
+        for row in old.values():                          # nicht mehr angezeigt: wartende Bilder verwerfen
+            for w in row.hk_imgs:
+                w.drop()
+        self.bubbles, self.img_widgets = keep, imgs
+        self._vis_soon()
         if q:
             self.search_count.set_label(ngettext("{n} match", "{n} matches", len(shown)).format(n=len(shown)))
         if stick or not self.loaded:
@@ -799,32 +860,17 @@ class Conversation(Gtk.Box):
 
     # --- Anhaenge ------------------------------------------------------------------------------------------------------
     def _file(self, f):
-        mime = f.get("m") or ""
         name = f.get("n") or _("File")
-        if mime.startswith("image/") and mime != "image/svg+xml":
-            tex = self.images.get(f["id"])
-            if tex is not None:
-                pic = Gtk.Picture.new_for_paintable(tex)
-                pic.set_can_shrink(True)
-                pic.set_content_fit(Gtk.ContentFit.CONTAIN)
-                w, h = tex.get_width(), tex.get_height()
-                sc = min(1.0, 240 / max(1, w), 280 / max(1, h))          # 240: passt auch ins schmale Fenster
-                pic.set_size_request(int(w * sc), int(h * sc))
-                pic.add_css_class("hk-bubble-img")
-                btn = Gtk.Button(child=pic, tooltip_text=name)
-                btn.add_css_class("flat")
-                btn.add_css_class("hk-img-btn")
-                btn.connect("clicked", lambda *_: self._save_file(f))
-                return btn
-            if f["id"] not in self.images:
-                self.images[f["id"]] = None
-                bg(self._load_image, f, done=lambda tex: self._image_loaded(f, tex), error=lambda e: self._image_loaded(f, False),
-                   media=True)
-            elif self.images[f["id"]] is False:
-                return _lbl("🖼 " + name + " – " + _("not loaded"), ("caption", "dim-label"))
-            sp = Gtk.Box(width_request=200, height_request=120)
-            sp.add_css_class("hk-img-wait")
-            return sp
+        if chatmedia.is_image(f):
+            img = ChatImage(self.cid, f)
+            if self._imgs_building is not None:
+                self._imgs_building.append(img)
+            btn = Gtk.Button(child=img, tooltip_text=name, halign=Gtk.Align.START)
+            btn.add_css_class("flat")
+            btn.add_css_class("hk-img-btn")
+            btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Open image: {name}").format(name=name)])
+            btn.connect("clicked", lambda *_: ImageViewer(self, f).present(self.win))
+            return btn
         btn = Gtk.Button()
         bx = Gtk.Box(spacing=8)
         bx.append(Gtk.Image.new_from_icon_name("mail-attachment-symbolic"))
@@ -837,15 +883,6 @@ class Conversation(Gtk.Box):
         btn.set_tooltip_text(_("Save attachment"))
         btn.connect("clicked", lambda *_: self._save_file(f))
         return btn
-
-    def _load_image(self, f):
-        data = chat.fetch_file(self.cid, f)
-        return Gdk.Texture.new_from_bytes(GLib.Bytes.new(data))
-
-    def _image_loaded(self, f, tex):
-        self.images[f["id"]] = tex if tex else False
-        self.sig = None
-        self.render()
 
     def _save_file(self, f):
         name = re.sub(r"[/\\\x00-\x1f]", "-", f.get("n") or "datei").strip(". ") or "datei"
@@ -1106,13 +1143,13 @@ class Conversation(Gtk.Box):
         self.entry.set_sensitive(False)
 
         def work():
-            fobjs = [chat.upload_file(cid, data, name, mime) for name, mime, data in files]
+            fobjs, fids = chat.upload_attachments(cid, files)
             body = {"v": 1, "type": "text", "text": text}
             if fobjs:
                 body["files"] = fobjs
             if notes:
                 body["notes"] = notes
-            return chat.send(cid, body, reply_to=reply, file_ids=[f["id"] for f in fobjs])
+            return chat.send(cid, body, reply_to=reply, file_ids=fids)
 
         def fin(r):
             _resp, missing = r
@@ -1167,6 +1204,138 @@ class Conversation(Gtk.Box):
 
 
 # --- Dialoge: Chat -------------------------------------------------------------------------------------------------
+class ChatImage(Gtk.Widget):
+    """Bild im Verlauf: Platzhalter in der richtigen Groesse (w/h aus der Nachricht), Vorschaubild erst wenn sichtbar"""
+    __gtype_name__ = "HKChatImage"
+
+    def __init__(self, cid, f):
+        super().__init__()
+        self.cid, self.f = cid, f
+        self.tex = None
+        self.state = "idle"                                # idle | wait | ok | fail
+        self.bw, self.bh = chatmedia.box_size(chatmedia.size_of(f))
+        self._cb = self._got                               # feste Referenz (cancel vergleicht mit "is")
+        self.set_overflow(Gtk.Overflow.HIDDEN)
+        self.add_css_class("hk-bubble-img")
+        self.add_css_class("hk-img-wait")
+
+    def want(self, bump=False):
+        if self.state == "wait" and bump:
+            chatmedia.bump(self.f["id"])
+        if self.state != "idle":
+            return
+        self.state = "wait"
+        chatmedia.request(self.cid, self.f, self._cb)
+
+    def drop(self):
+        if self.state == "wait":
+            chatmedia.cancel(self.f["id"], self._cb)
+        elif self.state == "ok":
+            self.tex = None
+            self.add_css_class("hk-img-wait")
+            self.queue_draw()
+        elif self.state == "fail":
+            return
+        self.state = "idle"
+
+    def _got(self, tex, wh):
+        if self.state != "wait":
+            return
+        if tex is None:
+            self.state = "fail"
+            self.remove_css_class("hk-img-wait")
+            self.add_css_class("hk-img-fail")
+            self.set_tooltip_text(_("not loaded"))
+            self.queue_draw()
+            return
+        self.tex, self.state = tex, "ok"
+        self.remove_css_class("hk-img-wait")
+        if chatmedia.size_of(self.f) is None:              # alte Nachricht ohne w/h: Groesse jetzt bekannt
+            bw, bh = chatmedia.box_size(wh or (tex.get_width(), tex.get_height()))
+            if (bw, bh) != (self.bw, self.bh):
+                self.bw, self.bh = bw, bh
+                self.queue_resize()
+        self.queue_draw()
+
+    def do_get_request_mode(self):
+        return Gtk.SizeRequestMode.CONSTANT_SIZE
+
+    def do_measure(self, orientation, for_size):
+        v = self.bw if orientation == Gtk.Orientation.HORIZONTAL else self.bh
+        return v, v, -1, -1
+
+    def do_snapshot(self, snap):
+        W, H = self.get_width(), self.get_height()
+        if W <= 0 or H <= 0:
+            return
+        if self.tex is None:
+            if self.state == "fail":
+                c = Gdk.RGBA()
+                c.parse("rgba(127,127,127,0.5)")
+                lay = self.create_pango_layout("🖼")
+                lw, lh = lay.get_pixel_size()
+                snap.save()
+                p = Graphene.Point()
+                p.x, p.y = (W - lw) / 2, (H - lh) / 2
+                snap.translate(p)
+                snap.append_layout(lay, c)
+                snap.restore()
+            return
+        tw, th = self.tex.get_width(), self.tex.get_height()
+        sc = max(W / max(1, tw), H / max(1, th))           # fuellen (Seitenverhaeltnis ist gleich, Rundung egal)
+        sw, sh = tw * sc, th * sc
+        snap.push_clip(Graphene.Rect().init(0, 0, W, H))
+        snap.append_scaled_texture(self.tex, Gsk.ScalingFilter.LINEAR, Graphene.Rect().init((W - sw) / 2, (H - sh) / 2, sw, sh))
+        snap.pop()
+
+
+class ImageViewer(Adw.Dialog):
+    """Original eines Chat-Bildes (erst beim Oeffnen geladen, Entschluesseln und Dekodieren im Hintergrund)"""
+    def __init__(self, conv, f):
+        super().__init__(title=f.get("n") or _("Image"), content_width=960, content_height=720)
+        self.conv, self.f = conv, f
+        tv = Adw.ToolbarView()
+        hb = Adw.HeaderBar()
+        save = Gtk.Button(icon_name="document-save-symbolic", tooltip_text=_("Save attachment"))
+        save.connect("clicked", lambda *_: conv._save_file(f))
+        hb.pack_start(save)
+        tv.add_top_bar(hb)
+        self.stack = Gtk.Stack()
+        sp = Adw.Spinner() if hasattr(Adw, "Spinner") else Gtk.Spinner(spinning=True)
+        sp.set_size_request(32, 32)
+        sp.set_halign(Gtk.Align.CENTER)
+        sp.set_valign(Gtk.Align.CENTER)
+        self.stack.add_named(sp, "wait")
+        self.view = images.ImageView(mode="fit", max_height=640)
+        self.view.set_halign(Gtk.Align.CENTER)
+        self.view.set_valign(Gtk.Align.CENTER)
+        sc = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, vexpand=True, hexpand=True)
+        box = Gtk.Box(margin_start=12, margin_end=12, margin_top=12, margin_bottom=12, valign=Gtk.Align.CENTER, halign=Gtk.Align.CENTER)
+        box.append(self.view)
+        sc.set_child(box)
+        self.stack.add_named(sc, "img")
+        self.err = _lbl("", ("dim-label",), xalign=0.5, valign=Gtk.Align.CENTER)
+        self.stack.add_named(self.err, "err")
+        tv.set_content(self.stack)
+        self.set_child(tv)
+        bg(chatmedia.original, conv.cid, f, done=self._data, error=self._fail, media=True)
+
+    def _data(self, data):
+        images.load_local(data, self._dec, max_px=2560)
+
+    def _dec(self, dec):
+        if dec is None:
+            self._fail(None)
+            return
+        self.view.natural = dec.w
+        self.view.set_decoded(dec)
+        self.stack.set_visible_child_name("img")
+
+    def _fail(self, e):
+        self.err.set_label(_("Attachment not loaded: {err}").format(err=e or _("not loaded")))
+        self.stack.set_visible_child_name("err")
+
+
 def open_safety(win, cid, uid):
     """Sicherheitsnummer mit einem Mitglied (Schluessel aus den Empfaengern dieses Chats)"""
     def work():

@@ -152,7 +152,7 @@ def test_chat_paste_image_files_text(win, srv):
     pump(lambda: any(m["sender"] == "test" for m in srv.chats[cid]["msgs"]), 6)
     idle()
     blobs = [v[2] for v in srv.cfiles.values()]
-    assert len(blobs) == 3 and not any(data in b or b"Hallo Datei" in b for b in blobs)
+    assert len(blobs) == 5 and not any(data in b or b"Hallo Datei" in b for b in blobs)      # 3 Anhaenge + 2 Vorschaubilder (2.1-c)
     assert conv.files == []
 
 
@@ -186,8 +186,8 @@ def test_chat_attach_from_immich(win, srv):
     conv.send()
     pump(lambda: any(m["sender"] == "test" for m in srv.chats[cid]["msgs"]), 6)
     idle()
-    blob = list(srv.cfiles.values())[-1][2]
-    assert orig not in blob and len(blob) == len(orig) + 40
+    blobs = [v[2] for v in srv.cfiles.values()]                       # Original + Vorschaubild (2.1-c)
+    assert len(blobs) == 2 and not any(orig in b for b in blobs) and len(blobs[0]) == len(orig) + 40
 
 
 # --- Seiten ---------------------------------------------------------------------------------------------------------

@@ -5221,3 +5221,20 @@ msgstr "Crear página"
 
 #~ msgid "The keys could not be stored in the keyring."
 #~ msgstr "No se pudieron guardar las claves en el llavero."
+
+#: hlidskjalf/blocks.py:701
+msgid "Image block"
+msgstr "Bloque de imagen"
+
+#: hlidskjalf/blocks.py:849 hlidskjalf/blocks.py:888
+msgid "Copy block"
+msgstr "Copiar bloque"
+
+#: hlidskjalf/blocks.py:888
+msgid "Cut block"
+msgstr "Cortar bloque"
+
+#: hlidskjalf/chatview.py:858
+#, python-brace-format
+msgid "Open image: {name}"
+msgstr "Abrir imagen: {name}"
