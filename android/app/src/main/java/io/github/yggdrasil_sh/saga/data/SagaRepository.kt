@@ -274,6 +274,9 @@ class SagaRepository(
     /** Rueckfrage in dieser Sitzung abgelehnt ("Spaeter") - nicht bei jedem Neuladen wieder fragen */
     @Volatile private var localNetworkDeclined = false
 
+    /** Anmelden wartet auf die Antwort der Rueckfrage (statt sofort "kein Zugriff" zu melden) */
+    private val localGate = io.github.yggdrasil_sh.saga.util.LocalNetworkGate()
+
     /**
      * Braucht der Server (Standard: der angemeldete) die Berechtigung "lokales Netzwerk"? true = ja und sie fehlt;
      * dann erscheint die Rueckfrage (force: auch nach "Spaeter", z. B. beim ausdruecklichen Anmelden).
@@ -286,13 +289,17 @@ class SagaRepository(
         }
         val local = withContext(Dispatchers.IO) { LocalNetwork.isLocalServer(server) }
         localBlocked = local
-        if (local && (force || !localNetworkDeclined)) localNetworkNeeded.value = LocalNetwork.hostOf(server) ?: server
+        if (local && (force || !localNetworkDeclined)) {
+            localGate.ask()
+            localNetworkNeeded.value = LocalNetwork.hostOf(server) ?: server
+        }
         return local
     }
 
     /** Antwort auf die Rueckfrage: erlaubt -> sofort neu laden; abgelehnt/spaeter -> in dieser Sitzung nicht mehr fragen */
     fun localNetworkAnswered(granted: Boolean) {
         localNetworkNeeded.value = null
+        localGate.answer(granted)
         if (granted) {
             localBlocked = false
             if (!needsLogin.value) scope.launch {
@@ -949,7 +956,13 @@ class SagaRepository(
     suspend fun prepareBrowserLogin(serverInput: String): String {
         val server = ServerUrl.normalize(serverInput, BuildConfig.DEBUG)
             ?: throw UiTextException(UiText.Res(R.string.login_https_required))
-        if (checkLocalNetwork(server, force = true)) throw UiTextException(UiText.Res(R.string.error_local_network))
+        // Android 17: Rueckfrage zeigen und auf die Antwort warten - nach "Erlauben" geht es direkt weiter,
+        // die Meldung "kein Zugriff" erst nach Ablehnung/"Spaeter"
+        if (checkLocalNetwork(server, force = true)) {
+            val ok = localGate.await()
+            if (!ok && appContext?.let { LocalNetwork.granted(it) } != true) throw UiTextException(UiText.Res(R.string.error_local_network))
+            localBlocked = false
+        }
         probe(server)
         val p = Pkce.create()
         withContext(Dispatchers.IO) {

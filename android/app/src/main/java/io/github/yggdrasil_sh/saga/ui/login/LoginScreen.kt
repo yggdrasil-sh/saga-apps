@@ -106,6 +106,17 @@ fun LoginScreen(repo: SagaRepository) {
         }
     }
 
+    // Lokales Netz in den App-Einstellungen erlaubt: beim Zurueckkommen Meldung weg und Anmeldung fortsetzen
+    val lanError = UiText.Res(R.string.error_local_network)
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    androidx.compose.runtime.LaunchedEffect(lifecycle) {
+        lifecycle.lifecycle.currentStateFlow.collect {
+            if (it == androidx.lifecycle.Lifecycle.State.RESUMED && localError == lanError &&
+                io.github.yggdrasil_sh.saga.util.LocalNetwork.granted(context) && !busy && server.isNotBlank()
+            ) login()
+        }
+    }
+
     fun startScan() {
         localError = null
         repo.loginError.value = null

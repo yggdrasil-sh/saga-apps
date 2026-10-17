@@ -8,6 +8,7 @@ import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.URI
+import kotlinx.coroutines.flow.first
 
 /**
  * Android 17 "Local network protection": Apps mit targetSdk 37 erreichen Adressen im lokalen Netz (192.168.x.x,
@@ -61,4 +62,22 @@ object LocalNetwork {
             false
         }
     }
+}
+
+/**
+ * Anmelden mit Server im lokalen Netz: auf die Antwort der Rueckfrage warten, statt sofort einen Fehler zu zeigen.
+ * ask() vor dem Zeigen der Rueckfrage, answer() aus der Rueckfrage; await() liefert true = erlaubt.
+ */
+class LocalNetworkGate {
+    private val answer = kotlinx.coroutines.flow.MutableStateFlow<Boolean?>(null)
+
+    fun ask() {
+        answer.value = null
+    }
+
+    fun answer(granted: Boolean) {
+        answer.value = granted
+    }
+
+    suspend fun await(): Boolean = answer.first { it != null } == true
 }

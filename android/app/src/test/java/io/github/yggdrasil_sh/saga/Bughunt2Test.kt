@@ -1,6 +1,7 @@
 package io.github.yggdrasil_sh.saga
 
 import io.github.yggdrasil_sh.saga.call.CallLogic
+import kotlinx.coroutines.async
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -36,5 +37,26 @@ class Bughunt2Test {
         assertFalse(io.github.yggdrasil_sh.saga.push.PushLogic.backgroundReady(null, inst))
         assertFalse(io.github.yggdrasil_sh.saga.push.PushLogic.backgroundReady(ok.copy(endpoint = null), inst))
         assertFalse(io.github.yggdrasil_sh.saga.push.PushLogic.backgroundReady(ok, emptyList()))
+    }
+
+    @Test fun loginWaitsForLocalNetworkAnswer() = kotlinx.coroutines.test.runTest {
+        val gate = io.github.yggdrasil_sh.saga.util.LocalNetworkGate()
+        gate.answer(false)                                   // alte Antwort einer frueheren Rueckfrage
+        gate.ask()
+        val r = async { gate.await() }
+        testScheduler.runCurrent()
+        assertFalse("waehrend die Rueckfrage offen ist, keine Meldung", r.isCompleted)
+        gate.answer(true)                                    // "Erlauben" -> Anmeldung laeuft weiter
+        assertTrue(r.await())
+        gate.ask()
+        val d = async { gate.await() }
+        gate.answer(false)                                   // "Spaeter"/abgelehnt -> erst jetzt die Meldung
+        assertFalse(d.await())
+    }
+
+    @Test fun lanPromptSettingsOnlyWhenSystemStopsAsking() {
+        // erste Ablehnung: System fragt noch einmal -> Knopf "Erlauben"; danach gesperrt -> "Einstellungen oeffnen"
+        assertFalse(io.github.yggdrasil_sh.saga.ui.common.LocalNetworkFlow.openSettingsNext(systemMayAskAgain = true))
+        assertTrue(io.github.yggdrasil_sh.saga.ui.common.LocalNetworkFlow.openSettingsNext(systemMayAskAgain = false))
     }
 }
