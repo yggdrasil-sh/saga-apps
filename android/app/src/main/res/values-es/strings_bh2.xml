@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fehlerrunde nach Bughunt 2 -->
+<resources>
+    <string name="call_cam_denied">Cámara no permitida: permítela para Saga en los ajustes de Android.</string>
+    <string name="call_ongoing_video">Videollamada en curso</string>
+</resources>

@@ -110,12 +110,17 @@ object CallNotify {
         NotificationManagerCompat.from(context).cancel(ID_RING)
     }
 
-    fun ongoing(context: Context, peer: CallPeer, video: Boolean): Notification {
+    fun ongoing(context: Context, peer: CallPeer, video: Boolean, since: Long = 0L): Notification {
         channels(context)
+        // CallStyle zeigt den Namen der Person als Titel - der Text nennt darum die Art ("Laufender Anruf") statt
+        // den Namen ein zweites Mal; dazu die Dauer als Stoppuhr.
         return NotificationCompat.Builder(context, CH_CALL)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(context.getString(R.string.call_ongoing))
-            .setContentText(peer.name.ifEmpty { peer.username })
+            .setContentTitle(peer.name.ifEmpty { peer.username })
+            .setContentText(context.getString(if (video) R.string.call_ongoing_video else R.string.call_ongoing))
+            .setWhen(if (since > 0) since else System.currentTimeMillis())
+            .setUsesChronometer(true)
+            .setShowWhen(true)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setOngoing(true)
             .setContentIntent(activityIntent(context, null, 4))
@@ -161,7 +166,7 @@ class CallService : Service() {
         val calls = (applicationContext as? SagaApplication)?.repo?.calls
         val st = calls?.ui?.value
         val video = intent?.getBooleanExtra(EXTRA_VIDEO, false) == true
-        val n = CallNotify.ongoing(this, st?.peer ?: CallPeer(), video)
+        val n = CallNotify.ongoing(this, st?.peer ?: CallPeer(), video, st?.connectedAt ?: 0L)
         // Typ "microphone" ist entscheidend: ohne ihn liefert Android (11+) im Hintergrund/bei gesperrtem Bildschirm nur
         // Stille vom Mikrofon - das Gegenueber hoert dann nichts. Darum bei Fehlschlag zuerst OHNE phoneCall versuchen
         // (phoneCall verlangt MANAGE_OWN_CALLS bzw. Telefon-App-Rolle), erst zuletzt phoneCall allein.

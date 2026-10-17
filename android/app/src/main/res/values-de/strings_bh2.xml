@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fehlerrunde nach Bughunt 2 -->
+<resources>
+    <string name="call_cam_denied">Kamera nicht erlaubt – bitte in den Android-Einstellungen für Saga erlauben.</string>
+    <string name="call_ongoing_video">Laufender Videoanruf</string>
+</resources>
