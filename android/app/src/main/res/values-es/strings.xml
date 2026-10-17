@@ -148,7 +148,7 @@
     <string name="page_copy_link">Copiar enlace de la app</string>
     <string name="page_open_web_editor">Abrir en el editor web</string>
     <string name="page_link_copied">Enlace copiado</string>
-    <string name="page_database_soon">Las bases de datos con vistas (tabla, tablero, calendario…) llegarán en una próxima versión.</string>
+    <string name="page_database_soon">Vistas, filtros y edición de propiedades: en el navegador.</string>
     <string name="page_locked_chip">Bloqueada: toca para desbloquear</string>
     <string name="page_converted">Nota de texto antigua: se guardará como bloques al editarla.</string>
     <string name="page_reload_failed">Error al recargar: %1$s</string>
@@ -503,4 +503,20 @@
     </plurals>
     <string name="conflict_choose">Elegir versión</string>
     <string name="no_access_to_shared">Ir a «Compartido conmigo»</string>
+    <string name="action_later">Más tarde</string>
+    <string name="error_local_network">Sin acceso a la red local: permite «Dispositivos cercanos» para Saga en los permisos de la app</string>
+    <string name="local_network_title">Acceso a la red local</string>
+    <string name="local_network_text">Tu servidor Saga (%1$s) está en tu red local. Desde Android 17, Saga solo puede acceder a él con el permiso «Dispositivos cercanos».</string>
+    <string name="local_network_denied">Sin este permiso Saga no puede acceder a %1$s. Puedes permitirlo en los ajustes de la app, en Permisos → Dispositivos cercanos.</string>
+    <string name="local_network_allow">Permitir</string>
+    <string name="local_network_settings">Abrir ajustes</string>
+    <string name="db_empty">Aún no hay entradas</string>
+    <string name="db_missing">La base de datos incrustada ya no existe o no está compartida contigo.</string>
+    <string name="db_more">Mostrar todo (%1$d)</string>
+    <string name="db_properties">Propiedades</string>
+    <string name="block_broken">No se pudo mostrar este bloque (%1$s)</string>
+    <plurals name="db_rows">
+        <item quantity="one">%d entrada</item>
+        <item quantity="other">%d entradas</item>
+    </plurals>
 </resources>

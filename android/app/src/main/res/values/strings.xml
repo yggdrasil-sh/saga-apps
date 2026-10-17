@@ -151,7 +151,7 @@
     <string name="page_copy_link">Copy app link</string>
     <string name="page_open_web_editor">Open in web editor</string>
     <string name="page_link_copied">Link copied</string>
-    <string name="page_database_soon">Databases with views (table, board, calendar…) are coming in an upcoming version.</string>
+    <string name="page_database_soon">Views, filters and editing properties: in the browser.</string>
     <string name="page_locked_chip">Locked – tap to unlock</string>
     <string name="page_converted">Old text note – will be saved as blocks when you edit it.</string>
     <string name="page_reload_failed">Reload failed: %1$s</string>
@@ -495,4 +495,20 @@
     </plurals>
     <string name="conflict_choose">Choose version</string>
     <string name="no_access_to_shared">Go to “Shared with me”</string>
+    <string name="action_later">Later</string>
+    <string name="error_local_network">No access to the local network – allow “Nearby devices” for Saga in the app permissions</string>
+    <string name="local_network_title">Access to the local network</string>
+    <string name="local_network_text">Your Saga server (%1$s) is in your local network. Since Android 17, Saga can only reach it with the permission “Nearby devices”.</string>
+    <string name="local_network_denied">Without this permission Saga can’t reach %1$s. You can allow it in the app settings under Permissions → Nearby devices.</string>
+    <string name="local_network_allow">Allow</string>
+    <string name="local_network_settings">Open settings</string>
+    <string name="db_empty">No entries yet</string>
+    <string name="db_missing">The embedded database no longer exists or isn’t shared with you.</string>
+    <string name="db_more">Show all (%1$d)</string>
+    <string name="db_properties">Properties</string>
+    <string name="block_broken">This block couldn’t be displayed (%1$s)</string>
+    <plurals name="db_rows">
+        <item quantity="one">%d entry</item>
+        <item quantity="other">%d entries</item>
+    </plurals>
 </resources>

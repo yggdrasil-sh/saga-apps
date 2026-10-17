@@ -11,6 +11,7 @@ import io.github.yggdrasil_sh.saga.ui.page.PageEditor
 import io.github.yggdrasil_sh.saga.ui.publish.PublishBackend
 import io.github.yggdrasil_sh.saga.ui.comments.CommentBackend
 import io.github.yggdrasil_sh.saga.ui.share.ShareBackend
+import io.github.yggdrasil_sh.saga.util.LocalNetwork
 import io.github.yggdrasil_sh.saga.util.ServerUrl
 import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.util.UiTextException
@@ -102,6 +103,9 @@ class SagaRepository(
     /** App-Kontext (Mitteilungen: UnifiedPush-Verteiler, Benachrichtigungen des Systems) */
     private val appContext: android.content.Context? = null,
 ) : PageBackend, PublishBackend, ShareBackend, CommentBackend {
+    /** Cache-Ordner (Chat-Anhaenge als Ciphertext); ohne App-Kontext (Tests) unter filesDir */
+    val chatCacheDir: File get() = appContext?.cacheDir ?: File(filesDir, "cache")
+
     val json = Json {
         ignoreUnknownKeys = true
         coerceInputValues = true
@@ -233,6 +237,7 @@ class SagaRepository(
             // Erneuerung den Namen aendert; ensureAccountKey() holt die Kennung und verschiebt die Entwuerfe
             if (auth.signedIn && settings.accountKey.value.isEmpty()) settings.setAccountKey(AccountKey.legacy(settings.account.value))
             needsLogin.value = !auth.signedIn
+            if (auth.signedIn) checkLocalNetwork()           // Android 17: Server im Heimnetz -> vorher fragen
             ready.value = true
             live.restart()
             refresh()                                        // erster Abgleich (auch liegengebliebene Entwuerfe speichern)
@@ -251,8 +256,56 @@ class SagaRepository(
 
     private suspend inline fun <reified T> decode(s: String): T = withContext(Dispatchers.Default) { json.decodeFromString<T>(s) }
 
-    /** Fehler als Text fuer die Oberflaeche (uebersetzt; Meldungen des Servers/Systems unveraendert) */
-    override fun friendly(e: Throwable): UiText = friendlyText(e)
+    /**
+     * Fehler als Text fuer die Oberflaeche (uebersetzt; Meldungen des Servers/Systems unveraendert). Android 17 sperrt
+     * den Server im lokalen Netz (Berechtigung fehlt): Netzwerkfehler dann als genau diesen Hinweis statt "Zeitueberschreitung".
+     */
+    override fun friendly(e: Throwable): UiText =
+        if (localBlocked && isNetworkFailure(e)) UiText.Res(R.string.error_local_network) else friendlyText(e)
+
+    // ---------------------------------------------------------------- Lokales Netz (Android 17)
+
+    /** Server liegt im lokalen Netz und die Berechtigung fehlt: Host fuer die Rueckfrage (null = nichts zu tun) */
+    val localNetworkNeeded = MutableStateFlow<String?>(null)
+
+    /** zuletzt geprueft: Server im lokalen Netz, Berechtigung fehlt */
+    @Volatile private var localBlocked = false
+
+    /** Rueckfrage in dieser Sitzung abgelehnt ("Spaeter") - nicht bei jedem Neuladen wieder fragen */
+    @Volatile private var localNetworkDeclined = false
+
+    /**
+     * Braucht der Server (Standard: der angemeldete) die Berechtigung "lokales Netzwerk"? true = ja und sie fehlt;
+     * dann erscheint die Rueckfrage (force: auch nach "Spaeter", z. B. beim ausdruecklichen Anmelden).
+     */
+    suspend fun checkLocalNetwork(server: String? = settings.server.value, force: Boolean = false): Boolean {
+        val ctx = appContext ?: return false
+        if (server.isNullOrEmpty() || LocalNetwork.granted(ctx)) {
+            localBlocked = false
+            return false
+        }
+        val local = withContext(Dispatchers.IO) { LocalNetwork.isLocalServer(server) }
+        localBlocked = local
+        if (local && (force || !localNetworkDeclined)) localNetworkNeeded.value = LocalNetwork.hostOf(server) ?: server
+        return local
+    }
+
+    /** Antwort auf die Rueckfrage: erlaubt -> sofort neu laden; abgelehnt/spaeter -> in dieser Sitzung nicht mehr fragen */
+    fun localNetworkAnswered(granted: Boolean) {
+        localNetworkNeeded.value = null
+        if (granted) {
+            localBlocked = false
+            if (!needsLogin.value) scope.launch {
+                refresh()
+                live.restart()
+            }
+        } else {
+            localNetworkDeclined = true
+        }
+    }
+
+    private fun isNetworkFailure(e: Throwable): Boolean =
+        e !is ApiException && e !is UiTextException && (e is IOException || e.cause is IOException)
 
     companion object {
         /**
@@ -322,7 +375,10 @@ class SagaRepository(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            if (!needsLogin.value) error.value = friendly(e)
+            if (!needsLogin.value) {
+                if (isNetworkFailure(e)) checkLocalNetwork()     // Zeitueberschreitung im Heimnetz: Berechtigung fehlt?
+                error.value = friendly(e)
+            }
         } finally {
             loading.value = false
             refreshLock.unlock()
@@ -893,6 +949,7 @@ class SagaRepository(
     suspend fun prepareBrowserLogin(serverInput: String): String {
         val server = ServerUrl.normalize(serverInput, BuildConfig.DEBUG)
             ?: throw UiTextException(UiText.Res(R.string.login_https_required))
+        if (checkLocalNetwork(server, force = true)) throw UiTextException(UiText.Res(R.string.error_local_network))
         probe(server)
         val p = Pkce.create()
         withContext(Dispatchers.IO) {
@@ -999,6 +1056,11 @@ class SagaRepository(
         pairError.value = null
         loginError.value = null
         try {
+            // Android 17: Server im lokalen Netz ohne Berechtigung -> erst fragen (Kopplung bleibt offen, danach erneut)
+            if (checkLocalNetwork(t.server, force = true)) {
+                pairError.value = UiText.Res(R.string.error_local_network)
+                return
+            }
             flushEditors()
             auth.pair(t)
             pendingPair.value = null

@@ -119,6 +119,15 @@ class PageEditor(
         private set
     var kind by mutableStateOf("page")
         private set
+    /** Datenbank-Zeile: Werte der Eigenschaften (null = keine) */
+    var props by mutableStateOf<JsonObject?>(null)
+        private set
+    var parentId by mutableStateOf<Long?>(null)
+        private set
+    var created: Double? = null
+        private set
+    var updatedAt: Double? = null
+        private set
     var locked by mutableStateOf(false)
         private set
     var pinned by mutableStateOf(false)
@@ -274,6 +283,11 @@ class PageEditor(
         needsPublicName = false
         noAccess = false
         rev = BlockDoc.int(p, "rev")
+        // Datenbank-Zeile (Notion-Stil): Eigenschaften + Elternseite, nur zum Anzeigen (bearbeiten im Browser)
+        props = (p["props"] as? JsonObject)?.takeIf { it.isNotEmpty() }
+        parentId = (p["parent_id"] as? JsonPrimitive)?.content?.toLongOrNull()
+        created = (p["created"] as? JsonPrimitive)?.content?.toDoubleOrNull()
+        updatedAt = (p["updated"] as? JsonPrimitive)?.content?.toDoubleOrNull()
         converted = parsed.converted && !body.isNullOrBlank()
         doc = withStarter(parsed.doc)
         version = 0
