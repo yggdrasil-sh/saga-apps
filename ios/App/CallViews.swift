@@ -24,7 +24,7 @@ struct CallScreen: View {
             }
             .padding(.horizontal, 20).padding(.vertical, 24)
             if calls.cam, let t = calls.localVideo, calls.phase != .incoming, calls.phase != .ended {
-                RTCVideoBox(track: t, mirror: true)
+                RTCVideoBox(track: t, mirror: calls.frontCamera)                 // Rueckkamera nicht spiegeln (Schrift lesbar)
                     .accessibilityLabel(Text("Eigenes Kamerabild"))
                     .frame(width: 110, height: 160).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.3)))

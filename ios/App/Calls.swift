@@ -33,6 +33,8 @@ final class CallManager: NSObject, ObservableObject {
     @Published private(set) var relay = false
     @Published private(set) var connectedAt: Date?
     @Published private(set) var localVideo: RTCVideoTrack?
+    /// Eigenes Bild nur bei der Frontkamera spiegeln (Rueckkamera: Schrift lesbar)
+    @Published private(set) var frontCamera = true
     @Published private(set) var remoteVideo: RTCVideoTrack?
     @Published private(set) var incoming: IncomingCall?
     @Published private(set) var failed = false
@@ -355,7 +357,7 @@ final class CallManager: NSObject, ObservableObject {
         }
         if video {
             let allowed = CallEnv.fakeMedia ? true : await AVCaptureDevice.requestAccess(for: .video)
-            if allowed, let c = CallCamera(factory: f) { camera = c; localVideo = c.track; cam = true }
+            if allowed, let c = CallCamera(factory: f) { camera = c; localVideo = c.track; cam = true; frontCamera = c.front }
             else { toast = String(localized: "Keine Kamera verfügbar – Anruf nur mit Ton."); media = role == "caller" ? "audio" : media }
         }
     }
@@ -610,13 +612,13 @@ final class CallManager: NSObject, ObservableObject {
         Task {
             if !CallEnv.fakeMedia { guard await AVCaptureDevice.requestAccess(for: .video) else { toast = String(localized: "Kamera nicht erlaubt."); return } }
             guard busy, let c = CallCamera(factory: CallRTC.factory) else { toast = String(localized: "Keine Kamera verfügbar."); return }
-            camera = c; localVideo = c.track; cam = true
+            camera = c; localVideo = c.track; cam = true; frontCamera = c.front
             videoSender?.track = c.track
             stateOut()
         }
     }
     #if os(iOS)
-    func switchCamera() { camera?.switchCamera() }
+    func switchCamera() { camera?.switchCamera(); frontCamera = camera?.front ?? true }
     var canSwitchCamera: Bool { camera?.canSwitch ?? false }
     func toggleSpeaker() {
         speaker.toggle()
