@@ -8,6 +8,8 @@ import WebRTC
 struct CallScreen: View {
     @ObservedObject var calls: CallManager
     var close: () -> Void = {}
+    /// Hoehe der Kopfzeile (Verschluesselung, Ton-Diagnose): das eigene Kamerabild beginnt darunter
+    @State private var headerHeight: CGFloat = 0
     var body: some View {
         ZStack {
             LinearGradient(colors: [Color(red: 0.10, green: 0.09, blue: 0.07), Color(red: 0.04, green: 0.04, blue: 0.05)], startPoint: .top, endPoint: .bottom)
@@ -16,7 +18,7 @@ struct CallScreen: View {
                 RTCVideoBox(track: calls.remoteVideo, fill: !calls.remote.screen).ignoresSafeArea()
             }
             VStack(spacing: 14) {
-                header
+                header.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
                 if !showRemoteVideo { Spacer(); peerBlock; Spacer() } else { Spacer() }
                 if calls.phase == .incoming { incomingButtons } else if calls.phase == .ended { endedBlock } else { controls }
             }
@@ -38,11 +40,12 @@ struct CallScreen: View {
                     }
                     #endif
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(.top, 70).padding(.trailing, 16)
+                    .padding(.top, 24 + headerHeight + 10).padding(.trailing, 16)   // unter der Kopfzeile (Ton-Diagnose bleibt lesbar)
             }
         }
         .foregroundStyle(.white)
         .environment(\.colorScheme, .dark)
+        .dynamicTypeSize(...DynamicTypeSize.accessibility3)                 // groesste Stufen: Name/Status passen noch neben die Knoepfe
     }
 
     private var showRemoteVideo: Bool { calls.remoteVideo != nil && (calls.remote.cam || calls.remote.screen) && (calls.phase == .active || calls.phase == .connecting) }
@@ -111,29 +114,47 @@ struct CallScreen: View {
     }
 
     private var incomingButtons: some View {
-        HStack(spacing: 40) {
+        ViewThatFits(in: .horizontal) {
+            incomingRow(spacing: 40)
+            incomingRow(spacing: 12)
+        }
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)                       // Bedienungshilfen-Groessen: Knoepfe bleiben im Bild
+        .padding(.bottom, 10)
+    }
+    private func incomingRow(spacing: CGFloat) -> some View {
+        HStack(spacing: spacing) {
             round("phone.down.fill", String(localized: "Ablehnen"), .red) { calls.decline() }
             round("phone.fill", String(localized: "Annehmen"), .green) { calls.answer(video: false) }
             if calls.media == "video" { round("video.fill", String(localized: "Mit Video"), .green) { calls.answer(video: true) } }
         }
-        .padding(.bottom, 10)
     }
 
     private var controls: some View {
         VStack(spacing: 10) {
-            if showRemoteVideo || calls.phase != .active { if showRemoteVideo { statusLine } }
-            HStack(spacing: 22) {
-                toggle(calls.mic ? "mic.fill" : "mic.slash.fill", calls.mic ? String(localized: "Stumm") : String(localized: "Ton an"), on: !calls.mic) { calls.toggleMic() }
-                toggle(calls.cam ? "video.fill" : "video.slash.fill", calls.cam ? String(localized: "Kamera aus") : String(localized: "Kamera an"), on: !calls.cam) { calls.toggleCam() }
-                #if os(iOS)
-                if UIDevice.current.userInterfaceIdiom == .phone {           // nur iPhone hat eine Hoermuschel; auch bei Video umschaltbar
-                    toggle("speaker.wave.2.fill", String(localized: "Lautsprecher"), on: calls.speaker) { calls.toggleSpeaker() }
-                }
-                #endif
-                round("phone.down.fill", String(localized: "Auflegen"), .red) { calls.hangup() }
+            if showRemoteVideo { statusLine }
+            if showRemoteVideo && calls.phase == .active && !calls.remote.mic {        // sonst nur im (ausgeblendeten) Profilbild-Block
+                Label("\(calls.peerName) ist stummgeschaltet", systemImage: "mic.slash.fill").font(.footnote).shadow(radius: 2)
+                    .padding(.horizontal, 12).padding(.vertical, 6).background(.black.opacity(0.45), in: Capsule())
             }
+            ViewThatFits(in: .horizontal) {
+                controlRow(spacing: 18)
+                controlRow(spacing: 6)
+            }
+            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)                   // Bedienungshilfen-Groessen: Auflegen bleibt erreichbar
         }
         .padding(.bottom, 6)
+    }
+    private func controlRow(spacing: CGFloat) -> some View {
+        HStack(spacing: spacing) {
+            toggle(calls.mic ? "mic.fill" : "mic.slash.fill", calls.mic ? String(localized: "Stumm") : String(localized: "Ton an"), on: !calls.mic) { calls.toggleMic() }
+            toggle(calls.cam ? "video.fill" : "video.slash.fill", calls.cam ? String(localized: "Kamera aus") : String(localized: "Kamera an"), on: !calls.cam) { calls.toggleCam() }
+            #if os(iOS)
+            if UIDevice.current.userInterfaceIdiom == .phone {           // nur iPhone hat eine Hoermuschel; auch bei Video umschaltbar
+                toggle("speaker.wave.2.fill", String(localized: "Lautsprecher"), on: calls.speaker) { calls.toggleSpeaker() }
+            }
+            #endif
+            round("phone.down.fill", String(localized: "Auflegen"), .red) { calls.hangup() }
+        }
     }
 
     private var endedBlock: some View {
@@ -148,10 +169,11 @@ struct CallScreen: View {
         Button(action: a) {
             VStack(spacing: 6) {
                 Image(systemName: icon).font(.title2).frame(width: 60, height: 60).background(color, in: Circle()).foregroundStyle(.white)
-                Text(verbatim: label).font(.caption2).lineLimit(1).fixedSize()
+                buttonLabel(label)
             }
         }
         .buttonStyle(.plain).accessibilityLabel(Text(verbatim: label))
+        .accessibilityShowsLargeContentViewer { Label(label, systemImage: icon) }
     }
     private func toggle(_ icon: String, _ label: String, on: Bool, _ a: @escaping () -> Void) -> some View {
         Button(action: a) {
@@ -159,10 +181,15 @@ struct CallScreen: View {
                 Image(systemName: icon).font(.title3).frame(width: 60, height: 60)
                     .background(on ? Color.white : Color.white.opacity(0.18), in: Circle())
                     .foregroundStyle(on ? Color.black : Color.white)
-                Text(verbatim: label).font(.caption2).lineLimit(1).fixedSize()
+                buttonLabel(label)
             }
         }
         .buttonStyle(.plain).accessibilityLabel(Text(verbatim: label)).accessibilityAddTraits(on ? .isSelected : [])
+        .accessibilityShowsLargeContentViewer { Label(label, systemImage: icon) }
+    }
+    /// Feste Breite je Knopf: lange Beschriftungen (es/de, grosse Schrift) werden kleiner statt die Zeile zu sprengen
+    private func buttonLabel(_ label: String) -> some View {
+        Text(verbatim: label).font(.caption2).lineLimit(1).minimumScaleFactor(0.6).frame(width: 72)
     }
 }
 
