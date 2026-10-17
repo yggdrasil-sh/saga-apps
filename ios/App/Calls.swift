@@ -183,10 +183,19 @@ final class CallManager: NSObject, ObservableObject {
         }
     }
     private func dial(again: Bool) async throws {
-        guard let store, let id, let dev = myDevice, let sdp = pc?.localDescription?.sdp else { return }
+        guard let store, let id, let dev = myDevice, let sdp = pc?.localDescription?.sdp, !ending, phase == .preparing else { return }
         status = String(localized: "Verbinde …")
         let body = CallLogic.offerBody(sdp: sdp, media: media)
         let (d, code) = try await store.apiResponse("api/calls", method: "POST", body: ["id": id, "chat_id": chatID, "media": media, "device": dev, "signals": sealAll(Array(peerDevs.keys), body)])
+        // Waehrend des POST aufgelegt (oder schon ein neuer Anruf): nicht klingeln lassen, sondern den eben angelegten
+        // Anruf beim Server beenden - das /end aus hangup() kam ggf. vor dem Anlegen an und ging ins Leere.
+        guard CallLogic.dialStillWanted(ending: ending, preparing: phase == .preparing, sameCall: self.id == id) else {
+            CallEnv.log("dial: aufgelegt waehrend Verbinde")
+            if (200..<300).contains(code) {
+                _ = try? await store.apiResponse("api/calls/\(id)/end", method: "POST", body: ["reason": "hangup", "connected": false])
+            }
+            return
+        }
         let j = ShareJSON.obj(d)
         if code == 409, j?["devices"] != nil, !again { try await loadPeerKeys(peer, name: peerName); try await dial(again: true); return }
         if code == 409, ShareJSON.bool(j?["busy"]) { finish(.busy); return }

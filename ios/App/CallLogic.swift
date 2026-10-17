@@ -126,6 +126,10 @@ enum CallLogic {
         default: return .ended(dur: connectedFor)
         }
     }
+    /// Nach der POST-Antwort von /api/calls: Anruf noch gewollt? Nein, wenn waehrend "Verbinde ..." aufgelegt wurde
+    /// (ending / Phase nicht mehr "preparing") oder inzwischen ein anderer Anruf laeuft - dann nicht klingeln lassen.
+    static func dialStillWanted(ending: Bool, preparing: Bool, sameCall: Bool) -> Bool { !ending && preparing && sameCall }
+
     /// 65 -> "1:05", 3725 -> "1:02:05"
     static func duration(_ s: Int) -> String {
         let v = max(0, s)
