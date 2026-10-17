@@ -162,21 +162,33 @@ class CallService : Service() {
         val st = calls?.ui?.value
         val video = intent?.getBooleanExtra(EXTRA_VIDEO, false) == true
         val n = CallNotify.ongoing(this, st?.peer ?: CallPeer(), video)
-        var type = 0
+        // Typ "microphone" ist entscheidend: ohne ihn liefert Android (11+) im Hintergrund/bei gesperrtem Bildschirm nur
+        // Stille vom Mikrofon - das Gegenueber hoert dann nichts. Darum bei Fehlschlag zuerst OHNE phoneCall versuchen
+        // (phoneCall verlangt MANAGE_OWN_CALLS bzw. Telefon-App-Rolle), erst zuletzt phoneCall allein.
+        val tries = ArrayList<Int>()
         if (Build.VERSION.SDK_INT >= 30) {
-            type = ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
-            if (granted(Manifest.permission.RECORD_AUDIO)) type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-            if (video && granted(Manifest.permission.CAMERA)) type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
-        }
-        try {
-            ServiceCompat.startForeground(this, CallNotify.ID_CALL, n, type)
-        } catch (_: Exception) {
+            var media = 0
+            if (granted(Manifest.permission.RECORD_AUDIO)) media = media or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            if (video && granted(Manifest.permission.CAMERA)) media = media or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+            tries += ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL or media
+            if (media != 0) {
+                tries += media
+                if (media != ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE && granted(Manifest.permission.RECORD_AUDIO)) {
+                    tries += ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                }
+            }
+            tries += ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
+        } else tries += 0
+        val ok = tries.any { type ->
             try {
-                ServiceCompat.startForeground(this, CallNotify.ID_CALL, n, if (Build.VERSION.SDK_INT >= 30) ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL else 0)
-            } catch (_: Exception) {
-                stopSelf()
+                ServiceCompat.startForeground(this, CallNotify.ID_CALL, n, type)
+                true
+            } catch (e: Exception) {
+                android.util.Log.w("SagaCall", "startForeground($type): ${e.message}")
+                false
             }
         }
+        if (!ok) stopSelf()
         if (st == null || st.phase == CallPhase.ENDED) stopSelf()
         return START_NOT_STICKY
     }

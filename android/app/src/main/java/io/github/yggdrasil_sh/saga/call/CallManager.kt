@@ -1,7 +1,10 @@
 package io.github.yggdrasil_sh.saga.call
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioDeviceCallback
 import android.media.AudioDeviceInfo
+import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Build
@@ -87,6 +90,8 @@ data class CallUiState(
     val quality: String = "",
     val connectedAt: Long = 0,
     val bytesIn: Long = 0,
+    /** Ton-Diagnose aus getStats: "ok" = Audio-Pakete kommen an, "none" = seit Sekunden keine, "" = noch unbekannt */
+    val audioIn: String = "",
     val reconnecting: Boolean = false,
     val message: UiText? = null,
     val error: Boolean = false,
@@ -122,6 +127,11 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     val egl: EglBase by lazy { EglBase.create() }
     private var factory: PeerConnectionFactory? = null
+    private var adm: JavaAudioDeviceModule? = null
+
+    private fun audioError(msg: String) {
+        Log.w("SagaCall", "audio $msg")
+    }
     private val crypto by lazy { CallCrypto(repo.chat.crypto) }
 
     private var cur: Call? = null
@@ -145,6 +155,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         var capturer: CameraVideoCapturer? = null
         var surface: SurfaceTextureHelper? = null
         var remoteVideo: VideoTrack? = null
+        var remoteAudio: AudioTrack? = null
+        var audioPk = 0L
+        var audioIdle = 0
         val seen = HashSet<Long>()
         val early = ArrayList<CallSignalDto>()
         val remoteIce = ArrayList<IceCandidate>()
@@ -266,10 +279,27 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     private fun factory(): PeerConnectionFactory {
         factory?.let { return it }
         PeerConnectionFactory.initialize(PeerConnectionFactory.InitializationOptions.builder(app).createInitializationOptions())
+        // Ton-Ein-/Ausgabe: Sprach-Attribute (Hoerer/Lautsprecher/Headset folgen setCommunicationDevice), Fehler der
+        // Aufnahme/Wiedergabe protokollieren statt still zu schlucken (Diagnose "kein Ton")
         val adm = JavaAudioDeviceModule.builder(app)
             .setUseHardwareAcousticEchoCanceler(Build.VERSION.SDK_INT >= 29)
             .setUseHardwareNoiseSuppressor(Build.VERSION.SDK_INT >= 29)
+            .setAudioAttributes(
+                AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build(),
+            )
+            .setAudioRecordErrorCallback(object : JavaAudioDeviceModule.AudioRecordErrorCallback {
+                override fun onWebRtcAudioRecordInitError(msg: String?) = audioError("record init: $msg")
+                override fun onWebRtcAudioRecordStartError(code: JavaAudioDeviceModule.AudioRecordStartErrorCode?, msg: String?) = audioError("record start $code: $msg")
+                override fun onWebRtcAudioRecordError(msg: String?) = audioError("record: $msg")
+            })
+            .setAudioTrackErrorCallback(object : JavaAudioDeviceModule.AudioTrackErrorCallback {
+                override fun onWebRtcAudioTrackInitError(msg: String?) = audioError("track init: $msg")
+                override fun onWebRtcAudioTrackStartError(code: JavaAudioDeviceModule.AudioTrackStartErrorCode?, msg: String?) = audioError("track start $code: $msg")
+                override fun onWebRtcAudioTrackError(msg: String?) = audioError("track: $msg")
+            })
             .createAudioDeviceModule()
+        this.adm = adm
         val f = PeerConnectionFactory.builder()
             .setAudioDeviceModule(adm)
             .setVideoEncoderFactory(DefaultVideoEncoderFactory(egl.eglBaseContext, true, true))
@@ -311,7 +341,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val f = factory()
         val src = f.createAudioSource(MediaConstraints())
         c.audioSource = src
-        c.audioTrack = f.createAudioTrack("saga-a", src)
+        c.audioTrack = f.createAudioTrack("saga-a", src).also { it.setEnabled(true) }
+        // ADM lebt ueber Anrufe hinweg: Stumm-Zustaende eines frueheren Anrufs duerfen nicht haengen bleiben
+        adm?.setMicrophoneMute(false)
+        adm?.setSpeakerMute(false)
         if (video && !startCamera(c)) repo.notify(UiText.Res(R.string.call_no_camera))
         audioOn(c.videoTrack != null)
     }
@@ -345,12 +378,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
             override fun onTrack(transceiver: RtpTransceiver) {
                 val t = transceiver.receiver.track()
-                scope.launch { if (cur === c && t is VideoTrack) attachRemote(c, t) }
+                scope.launch { if (cur === c) attachTrack(c, t) }
             }
 
             override fun onAddTrack(receiver: RtpReceiver, streams: Array<out MediaStream>) {
                 val t = receiver.track()
-                scope.launch { if (cur === c && t is VideoTrack) attachRemote(c, t) }
+                scope.launch { if (cur === c) attachTrack(c, t) }
             }
 
             override fun onConnectionChange(newState: PeerConnection.PeerConnectionState) {
@@ -368,6 +401,23 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             override fun onRenegotiationNeeded() {}
         }
         return factory().createPeerConnection(rtc, obs) ?: throw UiTextException(UiText.Res(R.string.call_failed))
+    }
+
+    private fun attachTrack(c: Call, t: MediaStreamTrack?) {
+        when (t) {
+            is VideoTrack -> attachRemote(c, t)
+            // Ton des Gegenuebers: spielt das ADM ab, solange die Spur aktiv ist - ausdruecklich einschalten
+            is AudioTrack -> if (c.remoteAudio !== t) {
+                c.remoteAudio = t
+                try {
+                    t.setEnabled(true)
+                    t.setVolume(1.0)
+                } catch (_: Exception) {
+                }
+                log("remote audio track ${t.id()}")
+            }
+            else -> {}
+        }
     }
 
     private fun attachRemote(c: Call, t: VideoTrack) {
@@ -876,11 +926,32 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         var lost = 0L
         var recv = 0L
         var bytes = 0L
-        for (s in byId.values) if (s.type == "inbound-rtp") {
-            lost += s.members["packetsLost"].num()
-            recv += s.members["packetsReceived"].num()
-            bytes += s.members["bytesReceived"].num()
+        var aPk = 0L
+        var aSamples = 0L
+        var aLevel: Double? = null
+        var aOut = 0L
+        for (s in byId.values) {
+            val kind = (s.members["kind"] ?: s.members["mediaType"]) as? String
+            if (s.type == "inbound-rtp") {
+                lost += s.members["packetsLost"].num()
+                recv += s.members["packetsReceived"].num()
+                bytes += s.members["bytesReceived"].num()
+                if (kind == "audio") {
+                    aPk = s.members["packetsReceived"].num()
+                    aSamples = s.members["totalSamplesReceived"].num()
+                    aLevel = (s.members["audioLevel"] as? Number)?.toDouble()
+                }
+            } else if (s.type == "outbound-rtp" && kind == "audio") aOut = s.members["bytesSent"].num()
         }
+        // Ton-Diagnose: kommen Audio-Pakete an? (2 Abfragen = 4 s ohne neue Pakete -> "kein Ton")
+        c.audioIdle = if (aPk > c.audioPk) 0 else c.audioIdle + 1
+        val audioIn = when {
+            aPk > c.audioPk -> "ok"
+            c.audioIdle >= 2 -> "none"
+            else -> _ui.value?.audioIn.orEmpty()
+        }
+        c.audioPk = aPk
+        log("audio in pk=$aPk samples=$aSamples level=$aLevel out bytes=$aOut")
         val dl = lost - c.lastLost
         val dr = recv - c.lastRecv
         c.lastLost = lost
@@ -888,7 +959,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val loss = if (dr + dl > 0) dl.toDouble() / (dr + dl) else 0.0
         val st = _ui.value ?: return
         _ui.value = st.copy(
-            verified = st.verified || ok == true, path = path, quality = CallLogic.quality(loss, rtt, dr), bytesIn = bytes,
+            verified = st.verified || ok == true, path = path, quality = CallLogic.quality(loss, rtt, dr), bytesIn = bytes, audioIn = audioIn,
             remoteVideo = c.remoteVideo != null && (if (c.gotState) st.remoteVideo else c.media == "video"),
         )
         log("stats verified=${st.verified || ok == true} path=$path bytesIn=$bytes")
@@ -1111,20 +1182,97 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     private val am: AudioManager? get() = app.getSystemService(AudioManager::class.java)
 
-    private fun audioOn(speaker: Boolean) {
-        try {
-            am?.mode = AudioManager.MODE_IN_COMMUNICATION
+    private var focus: AudioFocusRequest? = null
+    private var audioActive = false
+    private var savedMicMute = false
+    private var scoOn = false
+
+    /** Kopfhoerer/Headset (kabelgebunden, USB, Bluetooth, Hoergeraet): hat Vorrang vor Hoerer und Lautsprecher */
+    private val headsetTypes = buildSet {
+        add(AudioDeviceInfo.TYPE_WIRED_HEADSET)
+        add(AudioDeviceInfo.TYPE_WIRED_HEADPHONES)
+        add(AudioDeviceInfo.TYPE_BLUETOOTH_SCO)
+        add(AudioDeviceInfo.TYPE_USB_HEADSET)
+        if (Build.VERSION.SDK_INT >= 28) add(AudioDeviceInfo.TYPE_HEARING_AID)
+        if (Build.VERSION.SDK_INT >= 31) add(AudioDeviceInfo.TYPE_BLE_HEADSET)
+    }
+
+    private fun headset(): AudioDeviceInfo? {
+        val a = am ?: return null
+        return try {
+            if (Build.VERSION.SDK_INT >= 31) a.availableCommunicationDevices.firstOrNull { it.type in headsetTypes }
+            else a.getDevices(AudioManager.GET_DEVICES_OUTPUTS).firstOrNull { it.type in headsetTypes }
         } catch (_: Exception) {
+            null
         }
-        setSpeaker(speaker)
-        _ui.value = _ui.value?.copy(speaker = speaker)
+    }
+
+    /** Neues/entferntes Headset waehrend des Anrufs: Ton dorthin bzw. zurueck auf Lautsprecher (Video) / Hoerer */
+    private val deviceCb = object : AudioDeviceCallback() {
+        override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) = reroute()
+        override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) = reroute()
+    }
+
+    private fun reroute() {
+        scope.launch {
+            if (!audioActive) return@launch
+            val st = _ui.value ?: return@launch
+            val sp = headset() == null && (st.cam || st.video)
+            setSpeaker(sp)
+            _ui.value = _ui.value?.copy(speaker = sp)
+        }
+    }
+
+    /**
+     * Anruf-Ton an: Audio-Fokus (andere Wiedergabe pausiert, Lautstaerketasten regeln den Anruf), MODE_IN_COMMUNICATION,
+     * Mikrofon nicht stumm, Ausgabe: Headset > Lautsprecher (Video) > Hoerer (Audio).
+     */
+    private fun audioOn(speaker: Boolean) {
+        val a = am
+        if (a != null) {
+            try {
+                if (!audioActive) {
+                    focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                        .setAudioAttributes(
+                            AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build(),
+                        )
+                        .setOnAudioFocusChangeListener { }
+                        .build()
+                        .also { a.requestAudioFocus(it) }
+                    savedMicMute = a.isMicrophoneMute
+                    a.registerAudioDeviceCallback(deviceCb, null)
+                }
+                a.mode = AudioManager.MODE_IN_COMMUNICATION
+                if (a.isMicrophoneMute) a.isMicrophoneMute = false
+            } catch (e: Exception) {
+                audioError("audioOn: ${e.message}")
+            }
+        }
+        audioActive = true
+        val sp = speaker && headset() == null
+        setSpeaker(sp)
+        _ui.value = _ui.value?.copy(speaker = sp)
     }
 
     private fun audioOff() {
         val a = am ?: return
+        if (!audioActive) return
+        audioActive = false
         try {
-            if (Build.VERSION.SDK_INT >= 31) a.clearCommunicationDevice() else @Suppress("DEPRECATION") run { a.isSpeakerphoneOn = false }
+            a.unregisterAudioDeviceCallback(deviceCb)
+            if (Build.VERSION.SDK_INT >= 31) a.clearCommunicationDevice() else @Suppress("DEPRECATION") run {
+                a.isSpeakerphoneOn = false
+                if (scoOn) {
+                    a.stopBluetoothSco()
+                    a.isBluetoothScoOn = false
+                }
+            }
+            scoOn = false
+            a.isMicrophoneMute = savedMicMute
             a.mode = AudioManager.MODE_NORMAL
+            focus?.let { a.abandonAudioFocusRequest(it) }
+            focus = null
         } catch (_: Exception) {
         }
     }
@@ -1133,14 +1281,34 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val a = am ?: return
         try {
             if (Build.VERSION.SDK_INT >= 31) {
-                val want = if (on) AudioDeviceInfo.TYPE_BUILTIN_SPEAKER else AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
-                val d = a.availableCommunicationDevices.firstOrNull { it.type == want }
-                if (d != null) a.setCommunicationDevice(d) else if (!on) a.clearCommunicationDevice()
+                val devs = a.availableCommunicationDevices
+                val d = if (on) devs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+                else devs.firstOrNull { it.type in headsetTypes }
+                    ?: devs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE }
+                    ?: devs.firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }     // Tablet ohne Hoerer
+                if (d == null || !a.setCommunicationDevice(d)) {
+                    a.clearCommunicationDevice()
+                    audioError("setCommunicationDevice(${d?.type}) failed")
+                }
+                log("audio route ${a.communicationDevice?.type} (speaker=$on)")
             } else {
                 @Suppress("DEPRECATION")
-                a.isSpeakerphoneOn = on
+                run {
+                    val bt = !on && a.getDevices(AudioManager.GET_DEVICES_OUTPUTS).any { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO }
+                    if (bt && !scoOn) {
+                        a.startBluetoothSco()
+                        a.isBluetoothScoOn = true
+                        scoOn = true
+                    } else if (!bt && scoOn) {
+                        a.stopBluetoothSco()
+                        a.isBluetoothScoOn = false
+                        scoOn = false
+                    }
+                    a.isSpeakerphoneOn = on
+                }
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            audioError("setSpeaker: ${e.message}")
         }
     }
 
@@ -1183,5 +1351,5 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     /** Fuer Tests/Pruefung (nur Debug-Ausgabe): laufender Anruf verbunden + empfangene Bytes */
     val debugState: String
-        get() = _ui.value?.let { "phase=${it.phase} verified=${it.verified} path=${it.path} bytesIn=${it.bytesIn}" } ?: "idle"
+        get() = _ui.value?.let { "phase=${it.phase} verified=${it.verified} path=${it.path} bytesIn=${it.bytesIn} audioIn=${it.audioIn}" } ?: "idle"
 }

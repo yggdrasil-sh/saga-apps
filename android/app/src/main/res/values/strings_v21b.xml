@@ -94,6 +94,8 @@
     <string name="call_cam_on">Camera on</string>
     <string name="call_switch_camera">Switch camera</string>
     <string name="call_speaker">Speaker</string>
+    <string name="call_audio_ok">sound: receiving</string>
+    <string name="call_audio_none">no sound received</string>
     <string name="call_hangup">Hang up</string>
     <string name="call_settings_title">Calls</string>
     <string name="call_fullscreen_hint">So that calls ring full-screen when your phone is locked, allow full-screen notifications for Saga.</string>
