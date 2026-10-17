@@ -272,11 +272,7 @@ struct AvatarCropSheet: View {
         let out = AvatarLogic.outputSide(r.size)
         let cg = source.image
         guard let piece = cg.cropping(to: CGRect(x: r.x, y: r.y, width: r.size, height: r.size).integral),
-              let ctx = CGContext(data: nil, width: out, height: out, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
-                                  bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
-        ctx.interpolationQuality = .high
-        ctx.draw(piece, in: CGRect(x: 0, y: 0, width: out, height: out))
-        guard let img = ctx.makeImage() else { return nil }
+              let img = AvatarLogic.flatten(piece, side: out) else { return nil }          // transparent -> weiss
         #if os(iOS)
         return UIImage(cgImage: img).jpegData(compressionQuality: 0.88)
         #else

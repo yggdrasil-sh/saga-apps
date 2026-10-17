@@ -1,4 +1,5 @@
 import Foundation
+import CoreGraphics
 
 // Saga 2.1, Konto: "Anmeldung & Sicherheit" (Status aus GET /api/account/security, verwaltet wird im Browser) und
 // Profilbilder (Feld `avatar` in Personen-Objekten, eigenes Bild hochladen mit Zuschnitt). Reine Logik ohne UI (swiftc).
@@ -69,6 +70,17 @@ enum AvatarLogic {
     }
     /// Kantenlaenge des hochgeladenen Bildes: 512...1024 px (kleine Bilder werden auf 512 vergroessert)
     static func outputSide(_ crop: Double) -> Int { Int(min(1024, max(512, crop.rounded()))) }
+    /// Ausschnitt auf side x side Pixel zeichnen, transparente Flaechen weiss (JPEG kennt kein Alpha - sonst schwarz,
+    /// wie die Chat-Vorschaubilder)
+    static func flatten(_ piece: CGImage, side: Int) -> CGImage? {
+        guard side > 0, let ctx = CGContext(data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(),
+                                            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        ctx.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: side, height: side))
+        ctx.interpolationQuality = .high
+        ctx.draw(piece, in: CGRect(x: 0, y: 0, width: side, height: side))
+        return ctx.makeImage()
+    }
 }
 
 enum ReauthLogic {
