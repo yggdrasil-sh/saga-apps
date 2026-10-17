@@ -134,6 +134,21 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   kommt er als Bild an. Im Blockmenü „Block kopieren“/„Block ausschneiden“; Entf löscht den gewählten Bildblock.
   In Seiten anderer Personen wird das Bild für deren Eigentümer neu hochgeladen.
 
+### Linux – Behoben (Bughunt 2)
+- **Start ohne Netz:** KI-Assistent, „Anrufen“, Konto-Knopf und Glocke werden nachgeladen, sobald der Server erreichbar
+  ist (vorher fehlten sie bis zum Neustart).
+- **Viele Bilder in einer Nachricht:** jedes Bild bekommt ein Vorschaubild (Grenze `file_ids_per_msg` des Servers,
+  bei älteren Servern wie bisher `files_per_msg`).
+- **Klingel-Leiste:** der Name der anrufenden Person steht allein in der Titelzeile und bleibt auch im schmalen Fenster
+  lesbar; „Videoanruf“ darunter, kürzere Knopftexte („Annehmen“, „Nur Ton“).
+- **Profilbilder anderer** werden beim erneuten Öffnen der Chats und bei offenen Chats alle zwei Minuten aktualisiert
+  (Wechsel und Entfernen), nicht erst nach einem Neustart.
+- HEIC/HEIF wird nur angeboten, wenn die Bildbibliothek es öffnen kann (z. B. mit installiertem `pillow-heif`);
+  sonst werden solche Dateien als gewöhnlicher Anhang behandelt.
+- Push-Mitteilung eines Anrufs ohne Verbindung: mit „Ablehnen“/„Annehmen“, ein Klick zeigt das Fenster statt sofort
+  anzunehmen. Gravatar-Schalter ohne E-Mail-Adresse: aus und mit Hinweis. Immich-Fotos ohne Namen: „Lade …“ und
+  eindeutiger Dateiname. Keine Gtk-Warnungen mehr bei Bildblöcken; Mindestbreite 360 px (Dialoge passen).
+
 ## [2.0.0] – 2026-10-15
 
 Passt zu Saga-Server 2.0. **Die neuen Funktionen brauchen Saga-Server 2.0; ältere Server funktionieren weiter**
