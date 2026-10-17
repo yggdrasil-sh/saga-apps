@@ -130,6 +130,11 @@ enum CallLogic {
     /// (ending / Phase nicht mehr "preparing") oder inzwischen ein anderer Anruf laeuft - dann nicht klingeln lassen.
     static func dialStillWanted(ending: Bool, preparing: Bool, sameCall: Bool) -> Bool { !ending && preparing && sameCall }
 
+    /// Eingehender Anruf nach dem Abfragen seines Zustands: derselbe Anruf klingelt/laeuft schon (doppelte Meldung
+    /// Live + Nachholen) -> nichts tun; sonst im Gespraech -> besetzt; sonst klingeln
+    enum RingDecision: Equatable { case ignore, busy, ring }
+    static func ringDecision(sameCallActive: Bool, busy: Bool) -> RingDecision { sameCallActive ? .ignore : busy ? .busy : .ring }
+
     /// Grund fuer das System (CallKit-Anrufliste): auf anderem Geraet angenommen ist kein "Gegenueber hat aufgelegt"
     enum SystemEnd: Equatable { case failed, remoteEnded, answeredElsewhere }
     static func systemEnd(_ note: EndNote?, failed: Bool) -> SystemEnd {

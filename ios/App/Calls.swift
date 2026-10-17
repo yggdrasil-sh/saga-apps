@@ -219,9 +219,14 @@ final class CallManager: NSObject, ObservableObject {
               let c = ShareJSON.obj(d)?["call"] as? [String: Any] else { CallSystem.shared.endReported(cid, reason: .failed); return }
         let st = c["state"] as? String, r = c["role"] as? String
         guard st == "ringing", r == "callee" else { CallSystem.shared.endReported(cid, reason: st == "active" ? .answeredElsewhere : .remoteEnded); return }
-        if busy {                                                           // schon im Gespraech: besetzt
+        // Live-Kanal (call.ring) und Nachholen (checkActive/Push) koennen gleichzeitig fragen: klingelt derselbe Anruf
+        // inzwischen schon, ist das kein "besetzt" (sonst lehnte das zweite ringing() den eigenen Anruf ab)
+        switch CallLogic.ringDecision(sameCallActive: incoming?.id == cid || id == cid || done.contains(cid), busy: busy) {
+        case .ignore: return
+        case .busy:                                                         // schon im Gespraech: besetzt
             _ = try? await store.apiResponse("api/calls/\(cid)/decline", method: "POST", body: ["reason": "busy"])
             CallSystem.shared.endReported(cid, reason: .unanswered); return
+        case .ring: break
         }
         let p = c["peer"] as? [String: Any] ?? [:]
         let inc = IncomingCall(id: cid, chatID: ShareJSON.int(c["chat_id"]) ?? 0, media: (c["media"] as? String) == "video" ? "video" : "audio",

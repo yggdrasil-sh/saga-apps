@@ -10,6 +10,10 @@ func bh2Tests() {
     check(!L.dialStillWanted(ending: true, preparing: true, sameCall: true), "ending allein reicht")
     check(!L.dialStillWanted(ending: false, preparing: false, sameCall: true), "Phase schon idle (nach Ende): kein Klingeln")
     check(!L.dialStillWanted(ending: false, preparing: true, sameCall: false), "inzwischen neuer Anruf: alten nicht klingeln lassen")
+    // dabei gefunden: call.ring + Nachholen gleichzeitig -> derselbe Anruf darf sich nicht selbst "besetzt" ablehnen
+    check(L.ringDecision(sameCallActive: true, busy: true) == .ignore, "derselbe Anruf klingelt schon: ignorieren statt besetzt")
+    check(L.ringDecision(sameCallActive: false, busy: true) == .busy, "anderer Anruf laeuft: besetzt")
+    check(L.ringDecision(sameCallActive: false, busy: false) == .ring, "frei: klingeln")
 
     // [S4] CallKit: auf anderem Geraet angenommen -> answeredElsewhere (nicht remoteEnded = "verpasst")
     check(L.systemEnd(.elsewhere, failed: false) == .answeredElsewhere, "anderswo angenommen")
