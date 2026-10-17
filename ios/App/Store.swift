@@ -775,6 +775,7 @@ final class Store: ObservableObject {
         try? FileManager.default.removeItem(at: cacheDir)
         try? FileManager.default.createDirectory(at: cacheDir.appendingPathComponent("files"), withIntermediateDirectories: true)
         images.removeAllObjects(); cookieHeader = nil; myAvatar = nil; AvatarCache.shared.reset()
+        URLCache.shared.removeAllCachedResponses()                      // Profilbilder (private, max-age) u. a. nicht liegen lassen
         live.stop(); notifs.reset(); calls.signedOut(); chat.signedOut(); push.signedOut()   // 2.0: Live, Glocke, Chat-Schluessel im Speicher, Push-Abo
         pages = []; archivedPages = []; lastAll = nil; shared = []; fedShared = []; aiEnabled = false; fedUnreachable = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
         // Startseite immer vergessen: die naechste Anmeldung kann ein anderes Konto sein - dessen Start sonst die
