@@ -294,9 +294,9 @@ fun ProfilePictureBlock(repo: SagaRepository, account: String, modifier: Modifie
         SwitchRow(stringResource(R.string.avatar_public), s.public, Modifier, enabled = !busy) { on -> run({ repo.patchAvatar(public = on) }) }
     }
     crop?.let { b ->
-        AvatarCropDialog(b, onCancel = { crop = null }) { jpeg ->
+        AvatarCropDialog(b, onCancel = { crop = null }) { (data, mime) ->
             crop = null
-            run({ repo.uploadAvatar(jpeg) }, UiText.Res(R.string.avatar_saved))
+            run({ repo.uploadAvatar(data, mime) }, UiText.Res(R.string.avatar_saved))
         }
     }
 }
@@ -351,19 +351,24 @@ object AvatarCrop {
     fun clamp(offset: Offset, imgW: Int, imgH: Int, view: Float, scale: Float): Offset =
         Offset(offset.x.coerceIn(min(0f, view - imgW * scale), 0f), offset.y.coerceIn(min(0f, view - imgH * scale), 0f))
 
-    fun jpeg(b: Bitmap, l: Int, t: Int, side: Int): ByteArray {
+    /** Bild mit Transparenz als PNG (der Server behaelt Alpha), sonst JPEG - JPEG machte transparente Ecken schwarz */
+    fun mimeFor(hasAlpha: Boolean): String = if (hasAlpha) "image/png" else "image/jpeg"
+
+    /** Zuschnitt kodieren -> (Bytes, MIME-Typ) */
+    fun encode(b: Bitmap, l: Int, t: Int, side: Int): Pair<ByteArray, String> {
         val sq = Bitmap.createBitmap(b, l, t, side, side)
         val out = if (side == OUT) sq else Bitmap.createScaledBitmap(sq, min(OUT, side).coerceAtLeast(64), min(OUT, side).coerceAtLeast(64), true)
+        val mime = mimeFor(out.hasAlpha())
         return ByteArrayOutputStream().use {
-            out.compress(Bitmap.CompressFormat.JPEG, 90, it)
+            out.compress(if (mime == "image/png") Bitmap.CompressFormat.PNG else Bitmap.CompressFormat.JPEG, 90, it)
             it.toByteArray()
-        }
+        } to mime
     }
 }
 
-/** Kreis-Zuschnitt: verschieben und zoomen (zwei Finger oder Regler), Speichern -> JPEG */
+/** Kreis-Zuschnitt: verschieben und zoomen (zwei Finger oder Regler), Speichern -> JPEG bzw. PNG (Transparenz) */
 @Composable
-private fun AvatarCropDialog(bmp: Bitmap, onCancel: () -> Unit, onDone: (ByteArray) -> Unit) {
+private fun AvatarCropDialog(bmp: Bitmap, onCancel: () -> Unit, onDone: (Pair<ByteArray, String>) -> Unit) {
     val img: ImageBitmap = remember(bmp) { bmp.asImageBitmap() }
     var view by remember { mutableFloatStateOf(0f) }
     var zoom by remember { mutableFloatStateOf(1f) }
@@ -431,7 +436,7 @@ private fun AvatarCropDialog(bmp: Bitmap, onCancel: () -> Unit, onDone: (ByteArr
             TextButton(onClick = {
                 if (view <= 0f) return@TextButton
                 val (l, t, side) = AvatarCrop.cropRect(bmp.width, bmp.height, view, scale, offset)
-                onDone(AvatarCrop.jpeg(bmp, l, t, side))
+                onDone(AvatarCrop.encode(bmp, l, t, side))
             }) { Text(stringResource(R.string.action_save)) }
         },
         dismissButton = { TextButton(onClick = onCancel) { Text(stringResource(R.string.action_cancel)) } },
