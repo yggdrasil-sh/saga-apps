@@ -84,6 +84,9 @@ struct ConversationView: View {
             }
             if let q = UserDefaults.standard.string(forKey: "hkChatSearch") { searching = true; search = q }
             if UserDefaults.standard.bool(forKey: "hkChatFocus") { try? await Task.sleep(for: .seconds(1)); focused = true }   // nur fuer Tests: Einsetzen
+            if UserDefaults.standard.bool(forKey: "hkChatPendingImage"), let png = Self.testImage() {   // nur fuer Tests: Anhang vorbereiten, nicht senden
+                try? await Task.sleep(for: .seconds(2)); files.append(ChatPendingFile(name: "garten.png", mime: "image/png", data: png))
+            }
             if UserDefaults.standard.bool(forKey: "hkChatImmich") { try? await Task.sleep(for: .seconds(2)); pickImmich = true }   // nur fuer Tests: Immich-Auswahl
             let after = UserDefaults.standard.double(forKey: "hkChatSendPendingAfter")        // nur fuer Tests: Anhaenge nach n s senden
             if after > 0 { try? await Task.sleep(for: .seconds(after)); if text.isEmpty { text = "Eingesetzt" }; sendNow() }
@@ -194,8 +197,14 @@ struct ConversationView: View {
                 .frame(maxWidth: 820).frame(maxWidth: .infinity)
             }
             .defaultScrollAnchor(.bottom)
+            // Anhang-/Antwort-Leiste, Tastatur, "tippt ...": Verlauf bleibt unten verankert statt unter der Leiste zu verschwinden
+            .defaultScrollAnchor(.bottom, for: .sizeChanges)
             .scrollDismissesKeyboard(.interactively)
             .onChange(of: conv.messages.last?.id) { _, _ in withAnimation { proxy.scrollTo("end", anchor: .bottom) } }
+            .onChange(of: files.count) { old, new in                        // Anhang gewaehlt: Leiste schiebt sich ueber den Verlauf -> ans Ende
+                guard new > old else { return }
+                Task { try? await Task.sleep(for: .milliseconds(80)); withAnimation { proxy.scrollTo("end", anchor: .bottom) } }
+            }
             .onChange(of: perfScroll) { _, id in if let id { proxy.scrollTo(id, anchor: .center) } }
             .overlay { if conv.loading && conv.messages.isEmpty { ProgressView() } }
         }
