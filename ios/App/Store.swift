@@ -699,7 +699,13 @@ final class Store: ObservableObject {
     func editPage(_ id: Int, _ f: (inout Page) -> Void) {
         if let i = pageIndex(id) {
             var p = pages[i]; f(&p)
-            if p != pages[i] { pages[i] = p }
+            if p != pages[i] {
+                // Titel/Symbol: auch in die Systemsuche - der naechste Abgleich ist danach "unveraendert" (nil) und
+                // wuerde Spotlight sonst nicht mehr anfassen (bisher: neuer Titel kam mit dem naechsten Abgleich hinein)
+                let spot = p.title != pages[i].title || p.icon != pages[i].icon
+                pages[i] = p
+                if spot { SpotlightIndex.update(pages) }
+            }
             if i < list.visible.count, list.visible[i].id == id { list.visible[i] = p }
         }
         if let j = list.all.firstIndex(where: { $0.id == id }) { f(&list.all[j]) }
