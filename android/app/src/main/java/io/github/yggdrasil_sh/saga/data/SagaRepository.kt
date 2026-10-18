@@ -278,6 +278,17 @@ class SagaRepository(
     /** Anmelden wartet auf die Antwort der Rueckfrage (statt sofort "kein Zugriff" zu melden) */
     private val localGate = io.github.yggdrasil_sh.saga.util.LocalNetworkGate()
 
+    /** Chat geloescht/geleert (2.1): seine System-Mitteilungen (Tag "chat-<id>") und geoeffnete Anhaenge entfernen */
+    fun dropChatLocal(chatId: Long) {
+        val ctx = appContext ?: return
+        try {
+            androidx.core.app.NotificationManagerCompat.from(ctx).cancel(io.github.yggdrasil_sh.saga.chat.ChatDeleteLogic.notificationTag(chatId), 1)
+        } catch (_: Exception) {
+        }
+        // entschluesselte Kopien zum Ansehen/Teilen (nur kurz gueltig) - keinem Chat zugeordnet, daher alle
+        io.github.yggdrasil_sh.saga.chat.ChatFiles.purge(ctx.cacheDir)
+    }
+
     /**
      * Braucht der Server (Standard: der angemeldete) die Berechtigung "lokales Netzwerk"? true = ja und sie fehlt;
      * dann erscheint die Rueckfrage (force: auch nach "Spaeter", z. B. beim ausdruecklichen Anmelden).

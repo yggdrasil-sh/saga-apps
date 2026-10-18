@@ -510,6 +510,53 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
         return r.notes.mapNotNull { (k, v) -> k.toLongOrNull()?.let { it to v } }.toMap()
     }
 
+    // ---------------------------------------------------------------- Archiv und Loeschen (2.1)
+
+    /** PATCH /api/chats/{cid} {"archived"} (nur fuer mich) -> neue Zusammenfassung; Liste neu laden */
+    suspend fun archive(cid: Long, archived: Boolean): ChatSummary {
+        val c = decode<ChatWrap>(repo.api.patch("api/chats/$cid", buildJsonObject { put("archived", archived) })).chat
+        chats.value = chats.value.map { if (it.id == cid) c.copy(unread = it.unread) else it }
+        loadChats()
+        return c
+    }
+
+    /**
+     * DELETE /api/chats/{cid}?scope=me|all; danach optional die freie Gruppe verlassen. Lokale Daten des Chats
+     * (Vorschaubilder, Anhaenge, Mitteilungen) sofort weg - nicht erst beim Live-Ereignis.
+     */
+    suspend fun deleteChat(cid: Long, forAll: Boolean, leave: Boolean): ChatDeleteResult {
+        val r = decode<ChatDeleteResult>(repo.api.delete("api/chats/$cid?scope=" + if (forAll) "all" else "me"))
+        wipeLocal(cid, removeFromList = r.removed || r.hidden)
+        if (leave) me.value?.uid?.takeIf { it.isNotEmpty() }?.let { u -> repo.api.delete("api/chats/$cid/members/$u") }
+        loadChats()
+        return r
+    }
+
+    /** Zwischenspeicher eines Chats leeren: Vorschaubilder (Speicher + Platte), Anhaenge, System-Mitteilungen */
+    fun wipeLocal(cid: Long, removeFromList: Boolean) {
+        thumbs.clearMemory(cid)
+        scope.launch(Dispatchers.IO) {
+            blobs.clearChat(ChatDeleteLogic.blobPrefix(cid))
+            repo.dropChatLocal(cid)
+        }
+        if (removeFromList) {
+            chats.value = chats.value.filter { it.id != cid }
+            freeTitles.value = freeTitles.value - cid
+        }
+    }
+
+    private fun onWipe(w: ChatWipe) {
+        val gone = w is ChatWipe.Removed || (w is ChatWipe.Cleared && !w.forAll && chats.value.firstOrNull { it.id == w.chatId }?.kind == "dm")
+        wipeLocal(w.chatId, removeFromList = gone)
+        ChatDeleteLogic.noticeFor(w)?.let { res ->
+            val who = when (w) {
+                is ChatWipe.Removed -> w.byName
+                is ChatWipe.Cleared -> w.byName
+            }
+            repo.notify(UiText.Res(res, who ?: "?"))
+        }
+    }
+
     // ---------------------------------------------------------------- Live
 
     private suspend fun onEvent(ev: LiveEvent) {
@@ -522,6 +569,10 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
                 clearMedia()
                 cached = null
                 refresh()
+            }
+            "chat.removed", "chat.cleared" -> {
+                ChatDeleteLogic.parse(ev.type, ev.data, me.value?.uid.orEmpty())?.let { onWipe(it) }
+                if (chatsLoaded.value) loadChats()
             }
             "chat.message", "chat.changed", "chat.deleted", "chat.read" -> if (chatsLoaded.value) loadChats()
             "reset" -> {

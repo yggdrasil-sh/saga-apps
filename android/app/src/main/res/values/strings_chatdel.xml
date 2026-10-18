@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.1: Chats archivieren und loeschen (Texte wie die Web-Oberflaeche, saga/i18n) -->
+<resources>
+    <string name="chatdel_archive">Archive</string>
+    <string name="chatdel_unarchive">Unarchive</string>
+    <string name="chatdel_archived_n">Archived (%1$d)</string>
+    <string name="chatdel_archived_done">Chat archived – it comes back with the next message.</string>
+    <string name="chatdel_unarchived_done">Chat unarchived.</string>
+    <string name="chatdel_undo">Undo</string>
+    <string name="chatdel_delete">Delete chat …</string>
+    <string name="chatdel_title">Delete “%1$s”?</string>
+    <string name="chatdel_for_whom">Delete for whom?</string>
+    <string name="chatdel_just_me">Just for me</string>
+    <string name="chatdel_for_all">For everyone</string>
+    <string name="chatdel_for_all_history">Delete history for everyone</string>
+    <string name="chatdel_also_leave">Also leave the group</string>
+    <string name="chatdel_me_dm">The history disappears only for you, on all your devices. %1$s keeps it. The chat reappears as soon as a new message arrives.</string>
+    <string name="chatdel_me_other">The history disappears only for you, on all your devices; the chat is archived. The others keep it.</string>
+    <string name="chatdel_all_dm">The chat is deleted for %1$s and you – with all messages, attachments and calls.</string>
+    <string name="chatdel_all_free">The group is deleted for all members – with all messages, attachments and calls.</string>
+    <string name="chatdel_all_history">All messages and attachments are deleted for all members. The chat itself stays as long as the group or page exists.</string>
+    <string name="chatdel_warning">This can\'t be undone. Anyone who has already seen messages may have copies of them.</string>
+    <string name="chatdel_recovery_note">Your recovery key can\'t bring it back either.</string>
+    <string name="chatdel_reason_group">Only Saga admins can delete the history for everyone.</string>
+    <string name="chatdel_reason_page">Only the page owner can delete the history for everyone.</string>
+    <string name="chatdel_reason_free">Only admins of this group can delete it for everyone.</string>
+    <string name="chatdel_reason_other">You can\'t delete this chat for everyone.</string>
+    <string name="chatdel_confirm_me">Delete for me</string>
+    <string name="chatdel_confirm_all">Delete for everyone</string>
+    <string name="chatdel_done_me">Chat deleted for you.</string>
+    <string name="chatdel_done_me_archived">History deleted for you, chat archived.</string>
+    <string name="chatdel_done_left">History deleted, group left.</string>
+    <string name="chatdel_done_all">Chat deleted for everyone.</string>
+    <string name="chatdel_done_all_history">History deleted for everyone.</string>
+    <string name="chatdel_by_chat">%1$s deleted the chat.</string>
+    <string name="chatdel_by_history">%1$s deleted the history.</string>
+    <string name="chatdel_history_cleared">The earlier history was deleted.</string>
+    <string name="chatdel_actions">Chat actions</string>
+    <string name="chatdel_this_person">the other person</string>
+</resources>

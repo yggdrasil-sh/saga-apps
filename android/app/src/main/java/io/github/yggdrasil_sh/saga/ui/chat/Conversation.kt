@@ -37,6 +37,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
@@ -259,8 +260,21 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     LaunchedEffect(s.messages.size) { if (s.messages.isNotEmpty() && list.firstVisibleItemIndex <= 2) list.animateScrollToItem(0) }
     // laufende KI-Antwort erscheint ganz unten: dorthin rollen (die Liste haelt sonst die bisherige Position)
     LaunchedEffect(s.aiPending) { if (s.aiPending != null && list.firstVisibleItemIndex <= 2) list.animateScrollToItem(0) }
+    // 2.1: Entwurf verwerfen, wenn der Chat geloescht/geleert wurde (Eingabe, Anhaenge, Seitenverweise)
+    LaunchedEffect(s.draftReset) {
+        if (s.draftReset > 0) {
+            input.clearText()
+            files.clear()
+            noteIds.clear()
+        }
+    }
     if (s.notFound) {
         LaunchedEffect(Unit) { nav.pop() }
+        return
+    }
+    // Chat fuer alle geloescht bzw. Direkt-Chat auf einem anderen eigenen Geraet geleert: schliessen
+    if (s.closed) {
+        LaunchedEffect(Unit) { nav.top(Dest.Chats) }
         return
     }
 
@@ -361,6 +375,29 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                                 DropdownMenuItem(text = { Text(stringResource(R.string.chat_rename)) }, onClick = { menu = false; dialog = "rename" })
                                 DropdownMenuItem(text = { Text(stringResource(R.string.chat_leave), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; dialog = "leave" })
                             }
+                            // 2.1: Archiv und Loeschen (nur wenn der Server es kann)
+                            if (s.canArchive) {
+                                val arch = sum.archived == true
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(if (arch) R.string.chatdel_unarchive else R.string.chatdel_archive)) },
+                                    leadingIcon = { Icon(painterResource(if (arch) R.drawable.ic_unarchive else R.drawable.ic_archive), null) },
+                                    onClick = {
+                                        menu = false
+                                        repo.launchAction {
+                                            s.setArchived(!arch)
+                                            repo.notify(
+                                                UiText.Res(if (arch) R.string.chatdel_unarchived_done else R.string.chatdel_archived_done),
+                                                UiText.Res(R.string.chatdel_undo),
+                                            ) { repo.launchAction { s.setArchived(arch) } }
+                                        }
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.chatdel_delete), color = MaterialTheme.colorScheme.error) },
+                                    leadingIcon = { Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                                    onClick = { menu = false; dialog = "delete" },
+                                )
+                            }
                         }
                     }
                 }
@@ -450,6 +487,17 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                             stringResource(R.string.chat_empty), color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(24.dp),
                         )
+                    }
+                }
+                // 2.1: "Der bisherige Verlauf wurde gelöscht." am Anfang des Verlaufs (umgekehrte Liste: zuletzt = oben)
+                if ((s.summary?.clearedSeq ?: 0) > 0 && !s.more && search == null) {
+                    item(key = "history-cleared") {
+                        Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                            Text(
+                                stringResource(R.string.chatdel_history_cleared), style = MaterialTheme.typography.labelMedium,
+                                fontStyle = FontStyle.Italic, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
@@ -598,6 +646,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         "members" -> MembersDialog(repo, s) { dialog = null }
         "retention" -> RetentionDialog(repo, s) { dialog = null }
         "rename" -> RenameDialog(repo, s) { dialog = null }
+        "delete" -> s.summary?.let { sum ->
+            DeleteChatDialog(repo, sum, s.name, onDismiss = { dialog = null }, onDone = { dialog = null; nav.top(Dest.Chats) }) { all, leave ->
+                s.deleteChat(all, leave)
+            }
+        }
         "immich" -> ImmichPicker(repo, onDismiss = { dialog = null }) { a ->
             dialog = null
             scope.launch {
