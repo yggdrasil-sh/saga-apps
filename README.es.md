@@ -120,7 +120,11 @@ plantilla:
 Versión de todas las apps: `tools/set-version.sh 2.1.0` (una sola fuente: `VERSION`). Cuando un cambio en
 `VERSION` llega a `main`, GitHub compila todos los paquetes y los publica como release
 (`.github/workflows/release.yml`). Lo nuevo llega primero a la rama `testing`: cada push allí compila todos los
-paquetes y reemplaza la versión preliminar `v<versión>-testing` (pre-release, nunca «Latest»).
+paquetes y reemplaza la versión preliminar `v<versión>-rc.<N>` (release candidate, nunca «Latest»; N = commits
+desde la última versión). Solo la versión oficial muestra su número sin más (p. ej. `2.2.0`); todas las demás
+compilaciones – versiones preliminares de `testing`, compilaciones ad hoc para MDM, compilaciones locales – muestran
+`2.2.0-rc.<N>` en sus ajustes, así las versiones de prueba siempre se reconocen como más nuevas que la estable
+(`tools/version-label.sh`).
 
 ## Versiones
 

@@ -6,6 +6,8 @@ options:
     iOS: "26.0"
     macOS: "26.0"
   createIntermediateGroups: true
+  # Angezeigte Version + Build-Nummer bei jedem Erzeugen frisch setzen (Config/Version.xcconfig, nicht versioniert)
+  preGenCommand: sh ../tools/version-label.sh --xcconfig Config/Version.xcconfig
 # App-ID, App-Gruppe und Team kommen aus Config/Base.xcconfig (+ optional Config/Local.xcconfig, nicht versioniert)
 configFiles:
   Debug: Config/Base.xcconfig
@@ -23,7 +25,7 @@ settings:
   base:
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "2.2.0"
-    CURRENT_PROJECT_VERSION: "1"
+    # CURRENT_PROJECT_VERSION (Build-Nummer) und SAGA_VERSION_LABEL ("2.2.0-rc.N"): Config/Base.xcconfig + Config/Version.xcconfig
     SWIFT_VERSION: "5.0"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
     SWIFT_EMIT_LOC_STRINGS: YES                    # Texte aus dem Code fuer die String Catalogs (Xcode gleicht beim Bauen ab)
@@ -38,6 +40,7 @@ targets:
       properties:
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        SagaVersionLabel: "$(SAGA_VERSION_LABEL)"          # angezeigte Version, z. B. 2.2.0-rc.3 (Store.appVersionLabel)
         CFBundleDisplayName: Saga
         SagaAppGroup: $(SAGA_APP_GROUP)                    # gelesen von AppConfig.appGroup
         SagaKeychainGroup: $(SAGA_KEYCHAIN_GROUP)          # gemeinsamer Schluesselbund (App-Schluessel)

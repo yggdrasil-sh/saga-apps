@@ -9,7 +9,9 @@ TEAM=${SAGA_TEAM_ID:-$(xcv DEVELOPMENT_TEAM)}
 BUNDLE_ID=${SAGA_BUNDLE_ID:-$(xcv SAGA_BUNDLE_ID)}; BUNDLE_ID=${BUNDLE_ID:-io.github.yggdrasil-sh.saga}
 D=${SAGA_DEVICE_ID:-}
 BN=$(date +%Y%m%d%H%M)   # neue Build-Nummer: sonst haelt macOS die alte Widget-Liste fuer aktuell
-b() { out=$(xcodebuild "$@" CURRENT_PROJECT_VERSION=$BN 2>&1); echo "$out" | grep -E "error:" | sort -u | head -8; echo "$out" | grep -q "BUILD SUCCEEDED"; }
+VL=$(sh ../tools/version-label.sh)   # angezeigte Version: 2.2.0-rc.N (lokale Builds sind nie das offizielle Release)
+echo "Saga $VL ($BN)"
+b() { out=$(xcodebuild "$@" CURRENT_PROJECT_VERSION=$BN SAGA_VERSION_LABEL="$VL" 2>&1); echo "$out" | grep -E "error:" | sort -u | head -8; echo "$out" | grep -q "BUILD SUCCEEDED"; }
 if [ -n "$D" ] && xcrun devicectl list devices 2>/dev/null | grep "$D" | grep -qE "connected|available"; then   # auch per WLAN (gekoppelt)
   if b -project Hlidskjalf.xcodeproj -scheme Hlidskjalf -destination "id=$D" -derivedDataPath /tmp/hk-dd-dev -allowProvisioningUpdates build; then
     xcrun devicectl device install app --device "$D" /tmp/hk-dd-dev/Build/Products/Debug-iphoneos/Hlidskjalf.app 2>&1 | grep -q "App installed" && echo "iPhone: aufgespielt" || echo "iPhone: Installation fehlgeschlagen"

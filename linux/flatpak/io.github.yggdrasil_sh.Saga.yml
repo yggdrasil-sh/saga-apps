@@ -74,6 +74,8 @@ modules:
   - name: saga
     buildsystem: simple
     build-commands:
+      # angezeigte Version (z. B. 2.2.0-rc.3) und Metainfo-Eintrag fuer Vorabversionen - .version-stamp schreibt build-flatpak.sh
+      - sh stamp-version.sh . $(cat .version-stamp 2>/dev/null || true)
       - install -d ${FLATPAK_DEST}/share/hlidskjalf/hlidskjalf
       - cp -a hlidskjalf/*.py hlidskjalf/style.css ${FLATPAK_DEST}/share/hlidskjalf/hlidskjalf/
       # eigene Symbole (z. B. saga-globe-symbolic): App-eigener Suchpfad, siehe main.py
@@ -105,4 +107,5 @@ modules:
           - .flatpak-builder
           - build-rpm.sh
           - hlidskjalf.spec
+          - hlidskjalf/_buildinfo.py
           - README.md

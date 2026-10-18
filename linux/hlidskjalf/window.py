@@ -1618,8 +1618,8 @@ class MainWindow(Adw.ApplicationWindow):
         d.present(self)
 
     def about(self):
-        from . import VERSION
-        a = Adw.AboutDialog(application_name="Saga", application_icon=APP_ID, version=VERSION,
+        from . import version_label
+        a = Adw.AboutDialog(application_name="Saga", application_icon=APP_ID, version=version_label(),
                             developer_name=_("Saga project"), comments=_("Notes, databases, tasks and events – self-hosted."),
                             translator_credits=_("translator-credits"),
                             website=PROJECT_URL, issue_url=PROJECT_URL + "/issues", license_type=Gtk.License.AGPL_3_0_ONLY)

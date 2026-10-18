@@ -111,7 +111,13 @@ Die Skripte lesen optional `Config/local.env` (nicht versioniert, Vorlage `Confi
 | `./build-install.sh` | Baut für iPhone (`SAGA_DEVICE_ID`, falls verbunden) bzw. prüft den Simulator-Build und baut die Mac-App nach `/Applications/Saga.app` |
 | `./build-testflight.sh` | App-Store-Build, Upload zu TestFlight |
 | `./build-adhoc.sh` | Ad-hoc-`.ipa` (registrierte Geräte, 1 Jahr gültig) nach `dist/`; ruft danach optional `SAGA_PUBLISH_CMD <ipa>` auf (z. B. Upload ins MDM) |
-| `./build-dmg.sh` | Mac-App als signierte, notarisierte DMG für GitHub-Releases nach `dist/Saga-<VERSION>-macOS.dmg` (Developer ID, ohne Profile; Optionen im Skriptkopf) |
+| `./build-dmg.sh` | Mac-App als signierte, notarisierte DMG für GitHub-Releases nach `dist/Saga-<Label>-macOS.dmg` (Developer ID, ohne Profile; Optionen im Skriptkopf) |
+
+**Angezeigte Version:** Alle Builds außer dem offiziellen Release zeigen in Einstellungen/„Über“ `2.2.0-rc.N`
+(Info.plist-Schlüssel `SagaVersionLabel`; `CFBundleShortVersionString` bleibt `2.2.0`), die Build-Nummer
+(`CFBundleVersion`) ist Datum/Uhrzeit. Beides kommt aus `../tools/version-label.sh` – die Skripte setzen es direkt,
+`xcodegen generate` schreibt es nach `Config/Version.xcconfig` (nicht versioniert; auch für Builds aus Xcode).
+Für das offizielle Release bzw. den App Store: `SAGA_RELEASE=1` (oder vom Release-Tag aus bauen).
 
 TestFlight und Ad-hoc signieren über einen **App-Store-Connect-API-Schlüssel**, übergeben in
 `ASC_KEY_PATH`, `ASC_KEY_ID` und `ASC_ISSUER`; `build-dmg.sh` nutzt ihn zum Notarisieren.

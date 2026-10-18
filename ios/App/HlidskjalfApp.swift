@@ -19,6 +19,12 @@ struct HlidskjalfApp: App {
         }
             .handlesExternalEvents(matching: ["*"])
             .commands {
+                // "Über Saga" mit der angezeigten Version (2.2.0-rc.N in Testbuilds) statt der nackten CFBundleShortVersionString
+                CommandGroup(replacing: .appInfo) {
+                    Button("Über Saga") {
+                        NSApp.orderFrontStandardAboutPanel(options: [.applicationVersion: Store.appVersionLabel, .version: Store.appBuild])
+                    }
+                }
                 CommandGroup(after: .toolbar) { Button("Aktualisieren") { Task { await store.refresh() } }.keyboardShortcut("r") }
                 CommandGroup(after: .appSettings) { Button("Abmelden") { Task { await store.logout() } } }
                 HKMenuCommands()

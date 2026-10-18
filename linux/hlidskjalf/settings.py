@@ -37,9 +37,9 @@ class SettingsDialog(Adw.PreferencesDialog):
         placeholder(self.server, "https://saga.example.org")
         self.server.connect("apply", self._apply_server)
         g.add(self.server)
-        from . import VERSION
+        from . import version_label
         srv = f"Saga {store.server_version}" if store.server_version else "–"
-        about = Adw.ActionRow(title=_("Version"), subtitle=_("App: Saga {version} · Server: {server}").format(version=VERSION, server=srv))
+        about = Adw.ActionRow(title=_("Version"), subtitle=_("App: Saga {version} · Server: {server}").format(version=version_label(), server=srv))
         if store.app_too_old:
             about.set_subtitle(about.get_subtitle() + " · " + _("app too old (version {version} or later needed), please update").format(version=store.min_app))
         g.add(about)

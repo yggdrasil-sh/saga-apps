@@ -117,7 +117,10 @@ sondern in lokalen Dateien, die git ignoriert. Vorlagen liegen jeweils daneben:
 Version aller Apps setzen: `tools/set-version.sh 2.1.0` (eine Quelle: `VERSION`). Landet die Änderung an
 `VERSION` auf `main`, baut GitHub alle Pakete und veröffentlicht sie als Release (`.github/workflows/release.yml`).
 Neues landet zuerst auf dem Branch `testing`: Jeder Push dort baut alle Pakete und ersetzt die
-Vorabversion `v<Version>-testing` (Pre-release, nie „Latest“).
+Vorabversion `v<Version>-rc.<N>` (Release Candidate, Pre-release, nie „Latest“; N = Commits seit dem letzten
+Release). Nur das offizielle Release zeigt die reine Version (z. B. `2.2.0`); alle anderen Builds – Vorabversionen
+von `testing`, Ad-hoc-Builds fürs MDM, lokale Builds – zeigen in den Einstellungen `2.2.0-rc.<N>`, damit Testversionen
+immer erkennbar neuer sind als die stabile (`tools/version-label.sh`).
 
 ## Versionen
 

@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+# beim Paketbau erzeugt (stamp-version.sh, build-flatpak.sh)
+hlidskjalf/_buildinfo.py
+.version-stamp

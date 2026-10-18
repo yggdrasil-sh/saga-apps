@@ -7,3 +7,5 @@ dist/
 # persoenliche Einstellungen - nie einchecken
 Config/Local.xcconfig
 Config/local.env
+# erzeugt von tools/version-label.sh (angezeigte Version, Build-Nummer)
+Config/Version.xcconfig

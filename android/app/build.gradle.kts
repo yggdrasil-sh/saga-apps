@@ -20,6 +20,24 @@ val sagaVersionCode: Int = run {
     p[0] * 1_000_000 + p[1] * 10_000 + p[2] * 100 + build.coerceIn(0, 99)
 }
 
+// Angezeigte Version (versionName): "2.2.0" nur im offiziellen Release, sonst "2.2.0-rc.N" (N = Commits seit dem letzten
+// Release-Tag) - aus ../tools/version-label.sh (beachtet SAGA_VERSION_LABEL und SAGA_RELEASE=1; -PsagaRelease=true wirkt
+// wie SAGA_RELEASE=1, z. B. fuer F-Droid). versionCode bleibt aus der numerischen Version gebildet (s. o.).
+val sagaVersionLabel: String = run {
+    val script = rootProject.file("../tools/version-label.sh")
+    if (!script.isFile) return@run sagaVersion
+    val release = (findProperty("sagaRelease") as String?) == "true"
+    runCatching {
+        providers.exec {
+            commandLine("sh", script.absolutePath)
+            if (release) environment("SAGA_RELEASE", "1")
+        }.standardOutput.asText.get().trim()
+    }.getOrNull()?.ifEmpty { null } ?: run {
+        logger.warn("WARNUNG: tools/version-label.sh lief nicht - versionName $sagaVersion-rc.0")
+        "$sagaVersion-rc.0"
+    }
+}
+
 // Signierschluessel fuer Release - nie im Repo:
 //  1. Umgebungsvariablen (CI): SAGA_KEYSTORE_FILE, SAGA_KEYSTORE_PASSWORD, SAGA_KEY_ALIAS, SAGA_KEY_PASSWORD
 //  2. sonst lokale Datei android/keystore.properties (ignoriert) mit storeFile, storePassword, keyAlias, keyPassword
@@ -63,7 +81,7 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = sagaVersionCode
-        versionName = sagaVersion
+        versionName = sagaVersionLabel
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -128,7 +146,7 @@ android {
     }
 }
 
-// Fertige APKs zusaetzlich als android/dist/Saga-<version>.apk ablegen (dist/ ist ignoriert).
+// Fertige APKs zusaetzlich als android/dist/Saga-<versionName>.apk ablegen (z. B. Saga-2.2.0-rc.3.apk) (dist/ ist ignoriert).
 // Unsignierte Release-Builds heissen Saga-<version>-unsigned.apk, damit sie nicht verwechselt werden.
 val sagaDistDir = rootProject.layout.projectDirectory.dir("dist")
 androidComponents {

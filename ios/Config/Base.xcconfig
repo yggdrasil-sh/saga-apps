@@ -25,4 +25,13 @@ SAGA_MOVED_SERVERS =
 // (nutzt dann App/App-macOS-push.entitlements). iOS/iPadOS haben die Berechtigung immer (App-iOS.entitlements).
 SAGA_MAC_PUSH_SUFFIX =
 
+// Angezeigte Version (Einstellungen -> Ueber): nur das offizielle Release zeigt MARKETING_VERSION ("2.2.0"),
+// alle anderen Builds "2.2.0-rc.N" (siehe tools/version-label.sh). CFBundleShortVersionString bleibt numerisch.
+// Werte fuer SAGA_VERSION_LABEL und CURRENT_PROJECT_VERSION (Build-Nummer JJJJMMTTHHMM) schreibt
+// tools/version-label.sh --xcconfig nach Config/Version.xcconfig (nicht versioniert) - bei jedem "xcodegen generate"
+// (preGenCommand in project.yml); die Bauskripte setzen beide zusaetzlich direkt. Rueckfall ohne die Datei:
+SAGA_VERSION_LABEL = $(MARKETING_VERSION)-rc.0
+CURRENT_PROJECT_VERSION = 1
+#include? "Version.xcconfig"
+
 #include? "Local.xcconfig"

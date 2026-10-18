@@ -1,6 +1,7 @@
 #!/bin/sh
 # Flatpak-Bundle bauen (lokal oder in CI). Voraussetzung: flatpak und flatpak-builder.
-#   sh flatpak/build-flatpak.sh     -> dist/saga-<version>-<arch>.flatpak
+#   sh flatpak/build-flatpak.sh     -> dist/saga-<label>-<arch>.flatpak (Label: 2.2.0 im offiziellen Release mit
+#                                      SAGA_RELEASE=1, sonst z. B. 2.2.0-rc.3 - siehe ../tools/version-label.sh)
 # GNOME-Laufzeit und SDK werden bei Bedarf von Flathub installiert (Nutzer-Installation).
 # Umgebung: HK_FLATPAK_ARCH (z. B. aarch64, Standard: Architektur dieses Rechners),
 #           HK_FLATPAK_BRANCH (Standard: stable)
@@ -14,12 +15,15 @@ for c in flatpak flatpak-builder; do
 done
 V=$(sed -n 's/^VERSION = "\([^"]*\)".*/\1/p' hlidskjalf/__init__.py)
 [ -n "$V" ] || { echo "VERSION in hlidskjalf/__init__.py nicht gefunden" >&2; exit 1; }
+LABEL=$(sh ../tools/version-label.sh)
+# Label fuer den Bau (stamp-version.sh im Manifest liest .version-stamp); danach wieder entfernen
+printf '%s %s\n' "$LABEL" "$(sh ../tools/version-label.sh --appstream)" > .version-stamp
 ARCH=${HK_FLATPAK_ARCH:-$(flatpak --default-arch)}
 BRANCH=${HK_FLATPAK_BRANCH:-stable}
 flatpak --user remote-add --if-not-exists flathub "$FLATHUB"
 # Arbeitsordner ausserhalb des Quelltexts (die Quelle "dir" kopiert linux/ in den Bau)
 W=$(mktemp -d "${TMPDIR:-/tmp}/saga-flatpak.XXXXXX")
-trap 'rm -rf "$W"' EXIT
+trap 'rm -rf "$W" .version-stamp' EXIT
 flatpak-builder --user --arch="$ARCH" --default-branch="$BRANCH" --install-deps-from=flathub \
   --force-clean --disable-rofiles-fuse --state-dir="$W/state" --repo="$W/repo" "$W/build" "$MANIFEST"
 # Farb-Emoji-Schrift: Seitensymbole, Callouts und Hinweise sind Emoji. Die GNOME-Laufzeit bringt Noto Color Emoji mit
@@ -32,6 +36,6 @@ ls "$RT"/files/share/fonts/*/*olor*moji*.ttf >/dev/null 2>&1 || {
   exit 1
 }
 mkdir -p dist
-OUT=dist/saga-$V-$ARCH.flatpak
+OUT=dist/saga-$LABEL-$ARCH.flatpak
 flatpak build-bundle --arch="$ARCH" --runtime-repo="$FLATHUB" "$W/repo" "$OUT" "$ID" "$BRANCH"
 echo "$(pwd)/$OUT"

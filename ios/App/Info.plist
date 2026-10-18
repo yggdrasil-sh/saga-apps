@@ -60,6 +60,8 @@
 	<string>$(SAGA_KEYCHAIN_GROUP)</string>
 	<key>SagaMovedServers</key>
 	<string>$(SAGA_MOVED_SERVERS)</string>
+	<key>SagaVersionLabel</key>
+	<string>$(SAGA_VERSION_LABEL)</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>voip</string>

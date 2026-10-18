@@ -65,7 +65,7 @@ struct SettingsView: View {
                 if !status.isEmpty { Text(status).font(.footnote) }
             }
             Section("Über") {
-                LabeledContent("App", value: "Saga \(Store.appVersion) (\(Store.appBuild))")
+                LabeledContent("App", value: "Saga \(Store.appVersionLabel) (\(Store.appBuild))")
                 LabeledContent("Server", value: store.serverVersion.map { "Saga \($0)" } ?? "–")
                 Text("Anrufe nutzen WebRTC (libwebrtc, © The WebRTC project authors, BSD-Lizenz) und libsodium (ISC-Lizenz).")
                     .font(.footnote).foregroundStyle(.secondary)

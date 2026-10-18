@@ -4,7 +4,8 @@
 # (die App-Gruppe hat dafuer das Team-Praefix: <TEAM>.<App-ID>). Beglaubigung ueber einen
 # App-Store-Connect-API-Schluessel:
 #   ASC_KEY_PATH=.../AuthKey_XXX.p8 ASC_KEY_ID=XXX ASC_ISSUER=... sh ios/build-dmg.sh
-# Ergebnis: ios/dist/Saga-<VERSION>-macOS.dmg (VERSION aus ../VERSION)
+# Ergebnis: ios/dist/Saga-<LABEL>-macOS.dmg - LABEL = VERSION (aus ../VERSION) im offiziellen Release (SAGA_RELEASE=1),
+# sonst z. B. 2.2.0-rc.3 (tools/version-label.sh); die App zeigt das Label in Einstellungen/Ueber
 #
 # Umgebung (alles optional, ausser Team und - beim Beglaubigen - dem ASC-Schluessel):
 #   SAGA_TEAM_ID         Apple-Team (Vorgabe: DEVELOPMENT_TEAM aus Config/Local.xcconfig)
@@ -17,6 +18,8 @@
 #   SAGA_NOTARIZE=0      Beglaubigen und Stapeln ueberspringen (nur zum Testen - Gatekeeper lehnt die DMG dann ab)
 #   SAGA_VERSION         Version (Vorgabe: Inhalt von ../VERSION)
 #   SAGA_BUILD_NUMBER    CFBundleVersion (Vorgabe: JJJJMMTTHHMM)
+#   SAGA_RELEASE=1       offizielles Release: Label = VERSION ohne -rc.N
+#   SAGA_VERSION_LABEL   angezeigte Version vorgeben (Vorgabe: tools/version-label.sh)
 # Config/local.env wird absichtlich nicht gelesen.
 set -eu
 cd "$(dirname "$0")"
@@ -37,6 +40,7 @@ fi
 
 VERSION=${SAGA_VERSION:-$(tr -d ' \t\r\n' < ../VERSION)}
 [ -n "$VERSION" ] || die "Version fehlt (../VERSION oder SAGA_VERSION)"
+if [ -n "${SAGA_VERSION:-}" ] && [ -z "${SAGA_VERSION_LABEL:-}" ]; then LABEL=$VERSION; else LABEL=$(sh ../tools/version-label.sh) || die "Versionslabel"; fi
 TEAM=${SAGA_TEAM_ID:-$(xcv DEVELOPMENT_TEAM)}
 [ -n "$TEAM" ] || die "Team-ID fehlt: SAGA_TEAM_ID setzen oder DEVELOPMENT_TEAM in Config/Local.xcconfig"
 BUNDLE_ID=${SAGA_BUNDLE_ID:-io.github.yggdrasil-sh.saga}
@@ -65,18 +69,18 @@ WORK=$(mktemp -d "${TMPDIR:-/tmp}/saga-dmg.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 trap 'exit 130' INT TERM
 mkdir -p dist
-DMG="dist/Saga-$VERSION-macOS.dmg"
+DMG="dist/Saga-$LABEL-macOS.dmg"
 
 # 1. Projekt erzeugen (nicht versioniert) und Archiv bauen - zunaechst nur ad hoc signiert;
 #    Xcode setzt dabei die Entitlements ($(SAGA_APP_GROUP) usw.) ein, die echte Signatur folgt unten.
 if command -v xcodegen >/dev/null 2>&1; then xcodegen generate --quiet
 elif [ ! -d Hlidskjalf.xcodeproj ]; then die "xcodegen fehlt (brew install xcodegen)"; fi
-echo "baue Saga $VERSION ($BN) fuer macOS: $BUNDLE_ID, Gruppe $GROUP, Team $TEAM"
+echo "baue Saga $LABEL ($BN) fuer macOS: $BUNDLE_ID, Gruppe $GROUP, Team $TEAM"
 if ! xcodebuild -project Hlidskjalf.xcodeproj -scheme Hlidskjalf -configuration Release \
       -destination 'generic/platform=macOS' -archivePath "$WORK/Saga.xcarchive" -derivedDataPath "$WORK/dd" \
       SAGA_BUNDLE_ID="$BUNDLE_ID" SAGA_APP_GROUP="$GROUP" \
       SAGA_DEFAULT_SERVER="${SAGA_DEFAULT_SERVER:-}" SAGA_MOVED_SERVERS="${SAGA_MOVED_SERVERS:-}" \
-      DEVELOPMENT_TEAM="$TEAM" MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BN" \
+      DEVELOPMENT_TEAM="$TEAM" MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BN" SAGA_VERSION_LABEL="$LABEL" \
       CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- PROVISIONING_PROFILE_SPECIFIER= PROVISIONING_PROFILE= \
       CODE_SIGN_INJECT_BASE_ENTITLEMENTS=NO ENABLE_HARDENED_RUNTIME=YES \
       archive > "$WORK/build.log" 2>&1; then
@@ -113,6 +117,9 @@ for b in "$APP" "$APP"/Contents/PlugIns/*.appex; do
   [ "$eg" = "$GROUP" ] && [ "$ig" = "$GROUP" ] || die "$(basename "$b"): App-Gruppe passt nicht (Entitlements: $eg, Info.plist: $ig)"
   [ "$(plist "$WORK/check.plist" com.apple.security.get-task-allow)" != true ] || die "$(basename "$b"): get-task-allow gesetzt"
 done
+vl=$(plist "$APP/Contents/Info.plist" SagaVersionLabel)
+echo "  Version: $(plist "$APP/Contents/Info.plist" CFBundleShortVersionString), angezeigt $vl, Build $(plist "$APP/Contents/Info.plist" CFBundleVersion)"
+[ "$vl" = "$LABEL" ] || die "SagaVersionLabel ist \"$vl\", erwartet $LABEL"
 
 notarize() { # $1 = zip oder dmg
   xcrun notarytool submit "$1" --key "$ASC_KEY_PATH" --key-id "$ASC_KEY_ID" --issuer "$ASC_ISSUER" \
@@ -137,7 +144,7 @@ fi
 # 4. DMG: App + Verknuepfung zu /Applications, signieren, beglaubigen, Ticket anheften
 ln -s /Applications "$STAGE/Applications"
 rm -f "$DMG"
-hdiutil create -quiet -volname "Saga $VERSION" -srcfolder "$STAGE" -fs HFS+ -format UDZO \
+hdiutil create -quiet -volname "Saga $LABEL" -srcfolder "$STAGE" -fs HFS+ -format UDZO \
         -imagekey zlib-level=9 -ov "$DMG"
 codesign --force --timestamp --sign "$IDENT" ${KC:+--keychain "$KC"} "$DMG"
 if [ "$NOTARIZE" != 0 ]; then

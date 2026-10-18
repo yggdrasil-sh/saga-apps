@@ -63,6 +63,12 @@ final class Store: ObservableObject {
     @Published var minApp: String?                       // aelteste App-Version, die der Server voll unterstuetzt
     var appTooOld: Bool { minApp.map { Store.versionLess(Store.appVersion, $0) } ?? false }
     nonisolated static var appVersion: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0" }
+    /// Angezeigte Version: "2.2.0" im offiziellen Release, sonst "2.2.0-rc.N" (Info.plist SagaVersionLabel, tools/version-label.sh).
+    /// Vergleiche (minApp) laufen weiter ueber die numerische appVersion.
+    nonisolated static var appVersionLabel: String {
+        let l = (Bundle.main.infoDictionary?["SagaVersionLabel"] as? String ?? "").trimmingCharacters(in: .whitespaces)
+        return l.isEmpty || l.hasPrefix("$(") ? appVersion : l
+    }
     nonisolated static var appBuild: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "" }
     /// "1.2.0" < "1.10.0" (SemVer, Zusaetze wie -beta werden ignoriert)
     nonisolated static func versionLess(_ a: String, _ b: String) -> Bool {

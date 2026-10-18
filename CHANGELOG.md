@@ -6,6 +6,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Geändert (alle Apps)
+- **Testversionen als Release Candidate erkennbar:** Alles, was nicht das offizielle Release ist (Vorabversion von
+  `testing`, Ad-hoc-Builds fürs MDM, lokale Builds), zeigt in Einstellungen/„Über“ jetzt `2.2.0-rc.N` statt nur
+  `2.2.0` (N = Commits seit dem letzten Release) – nur das Release selbst zeigt `2.2.0`. Die Vorabversion auf GitHub
+  heißt entsprechend `v2.2.0-rc.N` („Release Candidate“) statt `v2.2.0-testing`. Technisch bleiben App-Store-Version
+  (iOS/macOS), versionCode (Android) und RPM-Version numerisch; das RPM einer Vorabversion heißt
+  `saga-2.2.0-0.rcN` und wird vom Release `2.2.0-1` sauber ersetzt, Flatpak-Vorabversionen tragen einen
+  „development“-Eintrag in den Metadaten. Der lokale Mac-Build bekommt eine echte Build-Nummer (Datum/Uhrzeit)
+  statt „1“. Mac: „Über Saga“ im App-Menü zeigt dieselbe Version.
+
 ## [2.1.0] – 2026-10-18
 
 Passt zu Saga-Server 2.1. **Die neuen Funktionen brauchen Saga-Server 2.1; ältere Server funktionieren weiter**

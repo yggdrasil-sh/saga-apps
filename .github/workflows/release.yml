@@ -2,9 +2,13 @@
 #   - macOS:   Saga-<v>-macOS.dmg            (Developer ID, von Apple beglaubigt)
 #   - Linux:   saga-<v>-1.noarch.rpm, saga-<v>-<arch>.flatpak
 #   - Android: Saga-<v>.apk                  (signiert)
+#   Vorabversionen: <v> = <Version>-rc.<N> (RPM: saga-<Version>-0.rc<N>.noarch.rpm)
 # Ausloeser: Aenderung an VERSION auf main (tools/set-version.sh x.y.z) -> Tag v<x.y.z> + Release.
 # Ebenso ein Push auf main, dessen Commit-Nachricht "[release]" enthaelt (z. B. fuer eine Version ohne Sprung).
-# Jeder Push auf testing baut alle Pakete und ersetzt die Vorabversion "v<Version>-testing" (Pre-release, nie "Latest").
+# Jeder Push auf testing baut alle Pakete und ersetzt die Vorabversion "v<Version>-rc.<N>" (Release Candidate,
+# Pre-release, nie "Latest"; N = Commits seit dem letzten Release-Tag).
+# Angezeigte Version: nur das offizielle Release zeigt "<Version>", alle anderen Builds "<Version>-rc.<N>"
+# (tools/version-label.sh; der Job "version" legt das Label einmal fest, alle Bau-Jobs uebernehmen es).
 # Von Hand (Actions -> Release -> Run workflow): nur bauen (Downloads als Workflow-Artefakte)
 # oder mit "release" auch veroeffentlichen. Gibt es den Tag schon, wird nur gebaut.
 #
@@ -41,8 +45,11 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
       release: ${{ steps.v.outputs.release }}
+      label: ${{ steps.v.outputs.label }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # Tags + Historie fuer das Versionslabel (Commits seit dem letzten Release-Tag)
       - id: v
         env:
           WANT: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') || inputs.release == true }}
@@ -55,7 +62,8 @@ jobs:
           echo "version=$V" >> "$GITHUB_OUTPUT"
           # Push auf main loest nur aus, wenn sich VERSION geaendert hat oder die Commit-Nachricht [release] enthaelt
           if [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ] && ! printf '%s' "$MSG" | grep -qF '[release]'; then
-            git fetch -q --depth=1 origin "$BEFORE" 2>/dev/null || true
+            # volle Historie ist da (fetch-depth 0); nicht mit --depth nachladen, das machte den Clone flach (Label rc.0)
+            git cat-file -e "$BEFORE" 2>/dev/null || git fetch -q origin "$BEFORE" 2>/dev/null || true
             if git cat-file -e "$BEFORE" 2>/dev/null && git diff --quiet "$BEFORE" HEAD -- VERSION; then
               echo "::notice::VERSION unveraendert - es wird nur gebaut"
               WANT=false
@@ -68,7 +76,10 @@ jobs:
             R=$WANT
           fi
           echo "release=$R" >> "$GITHUB_OUTPUT"
-          echo "Saga-Apps $V, Release: $R"
+          # Angezeigte Version: im Release ohne Zusatz, sonst z. B. 2.2.0-rc.3
+          if [ "$R" = true ]; then L=$(SAGA_RELEASE=1 sh tools/version-label.sh); else L=$(sh tools/version-label.sh); fi
+          echo "label=$L" >> "$GITHUB_OUTPUT"
+          echo "Saga-Apps $V, Release: $R, angezeigt: $L"
 
   android:
     name: Android (APK)
@@ -107,6 +118,7 @@ jobs:
       - name: Bauen und testen
         working-directory: android
         env:
+          SAGA_VERSION_LABEL: ${{ needs.version.outputs.label }}
           SAGA_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           SAGA_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           SAGA_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
@@ -138,7 +150,9 @@ jobs:
     steps:
       - run: dnf install -y rpm-build python3 gettext git tar
       - uses: actions/checkout@v5
-      - run: HK_RELEASE=1 sh linux/build-rpm.sh
+      - run: sh linux/build-rpm.sh
+        env:
+          SAGA_VERSION_LABEL: ${{ needs.version.outputs.label }}   # Release -> saga-x.y.z-1, sonst saga-x.y.z-0.rcN
       - run: rpm -qip linux/dist/saga-*.noarch.rpm
       - uses: actions/upload-artifact@v4
         with:
@@ -168,6 +182,7 @@ jobs:
       - run: sh linux/flatpak/build-flatpak.sh
         env:
           HK_FLATPAK_ARCH: ${{ matrix.arch }}
+          SAGA_VERSION_LABEL: ${{ needs.version.outputs.label }}
       - uses: actions/upload-artifact@v4
         with:
           name: flatpak-${{ matrix.arch }}
@@ -221,6 +236,7 @@ jobs:
           SAGA_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER: ${{ secrets.ASC_ISSUER_ID }}
+          SAGA_VERSION_LABEL: ${{ needs.version.outputs.label }}
         run: sh ios/build-dmg.sh
       - if: steps.keys.outputs.skip != '1'
         uses: actions/upload-artifact@v4
@@ -288,10 +304,10 @@ jobs:
           V: ${{ needs.version.outputs.version }}
         run: gh release create "v$V" dist/* --target "$GITHUB_SHA" --title "Saga-Apps $V" --notes-file notes.md
 
-  # Jeder Push auf testing aktualisiert EINE Vorabversion "v<Version>-testing" (Pre-release, nie "Latest").
-  # Aeltere *-testing-Vorabversionen werden dabei entfernt; echte Releases bleiben unberuehrt.
+  # Jeder Push auf testing aktualisiert EINE Vorabversion "v<Version>-rc.<N>" (Release Candidate, Pre-release, nie "Latest").
+  # Aeltere Vorabversionen (*-rc.N, *+dev.N und die frueheren *-testing) werden dabei entfernt; echte Releases bleiben.
   testing:
-    name: Vorabversion (testing)
+    name: Vorabversion (Release Candidate)
     needs: [version, android, rpm, flatpak, macos]
     if: github.event_name == 'push' && github.ref == 'refs/heads/testing' && !cancelled() && needs.android.result == 'success' && needs.rpm.result == 'success' && needs.macos.result == 'success'
     runs-on: ubuntu-latest
@@ -307,6 +323,8 @@ jobs:
           path: dist
           merge-multiple: true
       - name: Notizen
+        env:
+          L: ${{ needs.version.outputs.label }}
         run: |
           ls -l dist
           (cd dist && sha256sum * > SHA256SUMS)
@@ -316,7 +334,7 @@ jobs:
             N="Noch keine Änderungen seit der letzten Version."
           fi
           {
-            echo "**Testversion – nicht für den Alltag gedacht.** Stand von \`testing\`, Commit ${GITHUB_SHA::7}, gebaut $(date -u '+%Y-%m-%d %H:%M') UTC."
+            echo "**Testversion $L – nicht für den Alltag gedacht.** Stand von \`testing\`, Commit ${GITHUB_SHA::7}, gebaut $(date -u '+%Y-%m-%d %H:%M') UTC."
             echo "Wird bei jeder Änderung auf \`testing\` ersetzt. Stabile Version: siehe „Latest“."
             echo
             printf '%s\n' "$N"
@@ -326,11 +344,21 @@ jobs:
       - name: Vorabversion ersetzen
         env:
           GH_TOKEN: ${{ github.token }}
-          V: ${{ needs.version.outputs.version }}
+          L: ${{ needs.version.outputs.label }}
         run: |
-          for t in $(gh release list --limit 100 --json tagName,isPrerelease --jq '.[] | select(.isPrerelease) | .tagName' | grep -- '-testing$' || true); do
+          case "$L" in
+            *-rc.*) TITLE="Saga-Apps $L (Release Candidate)" ;;
+            *) TITLE="Saga-Apps $L (Testversion)" ;;
+          esac
+          # nur Vorabversionen dieses Workflows (v*-rc.N, v*+dev.N, frueher v*-testing) - nie echte Releases
+          for t in $(gh release list --limit 100 --json tagName,isPrerelease --jq '.[] | select(.isPrerelease) | .tagName' \
+                     | grep -E -- '^v[0-9]+\.[0-9]+\.[0-9]+(-testing|-rc\.[0-9]+|\+dev\.[0-9]+)$' || true); do
             gh release delete "$t" --cleanup-tag --yes
           done
-          git push -q origin ":refs/tags/v$V-testing" 2>/dev/null || true
-          gh release create "v$V-testing" dist/* --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title "Saga-Apps $V (Testversion)" --notes-file notes.md
+          # verwaiste Tags alter Vorabversionen (Release schon geloescht) und den eigenen Tag entfernen
+          for t in $(git ls-remote --tags --refs origin | sed -n 's|.*refs/tags/||p' \
+                     | grep -E -- '^v[0-9]+\.[0-9]+\.[0-9]+(-testing|-rc\.[0-9]+|\+dev\.[0-9]+)$' || true); do
+            git push -q origin ":refs/tags/$t" 2>/dev/null || true
+          done
+          gh release create "v$L" dist/* --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "$TITLE" --notes-file notes.md

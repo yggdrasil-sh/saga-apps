@@ -14,6 +14,10 @@ BUNDLE_ID=${SAGA_BUNDLE_ID:-$(xcv SAGA_BUNDLE_ID)}; BUNDLE_ID=${BUNDLE_ID:-io.gi
 : "${ASC_KEY_PATH:?App-Store-Connect-API-Schluessel in ASC_KEY_PATH/ASC_KEY_ID/ASC_ISSUER setzen}"
 : "${TEAM:?Team-ID fehlt: DEVELOPMENT_TEAM in Config/Local.xcconfig oder SAGA_TEAM_ID in Config/local.env}"
 BN=$(date +%Y%m%d%H%M)
+# angezeigte Version: 2.2.0-rc.N - fuer die App-Store-Version des offiziellen Releases mit SAGA_RELEASE=1 bauen
+# (oder vom Release-Tag aus, dann ohne Zusatz)
+VL=$(sh ../tools/version-label.sh)
+echo "Saga $VL ($BN)"
 W=/tmp/hk-testflight
 AR=$W/Hlidskjalf.xcarchive
 rm -rf $W && mkdir -p $W
@@ -35,7 +39,7 @@ XML
 xcodegen generate --quiet
 out=$(xcodebuild -project Hlidskjalf.xcodeproj -scheme Hlidskjalf -configuration Release \
       -destination 'generic/platform=iOS' -archivePath "$AR" -derivedDataPath $W/dd \
-      CURRENT_PROJECT_VERSION=$BN "${AUTH[@]}" archive 2>&1) || { echo "$out" | grep -E "error:" | sort -u | head -15; echo "ARCHIV FEHLGESCHLAGEN"; exit 1; }
+      CURRENT_PROJECT_VERSION=$BN SAGA_VERSION_LABEL="$VL" "${AUTH[@]}" archive 2>&1) || { echo "$out" | grep -E "error:" | sort -u | head -15; echo "ARCHIV FEHLGESCHLAGEN"; exit 1; }
 out=$(xcodebuild -exportArchive -archivePath "$AR" -exportPath $W/export \
       -exportOptionsPlist $W/ExportOptions.plist "${AUTH[@]}" 2>&1) || { echo "$out" | grep -iE "error|fail" | sort -u | head -20; echo "UPLOAD FEHLGESCHLAGEN"; exit 1; }
 echo "$out" | grep -iE "upload|succeeded" | tail -3

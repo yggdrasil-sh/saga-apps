@@ -16,6 +16,9 @@ BUNDLE_ID=${SAGA_BUNDLE_ID:-$(xcv SAGA_BUNDLE_ID)}; BUNDLE_ID=${BUNDLE_ID:-io.gi
 : "${ASC_KEY_PATH:?App-Store-Connect-API-Schluessel in ASC_KEY_PATH/ASC_KEY_ID/ASC_ISSUER setzen}"
 : "${TEAM:?Team-ID fehlt: DEVELOPMENT_TEAM in Config/Local.xcconfig oder SAGA_TEAM_ID in Config/local.env}"
 BN=$(date +%Y%m%d%H%M)
+# angezeigte Version: 2.2.0-rc.N (Ad-hoc/MDM ist nie das offizielle Release; SAGA_VERSION_LABEL ueberschreibt)
+VL=$(sh ../tools/version-label.sh)
+echo "Saga $VL ($BN)"
 AR=/tmp/hk-adhoc/Hlidskjalf.xcarchive
 rm -rf /tmp/hk-adhoc && mkdir -p /tmp/hk-adhoc dist
 AUTH=(-allowProvisioningUpdates -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID"
@@ -33,7 +36,7 @@ cat > /tmp/hk-adhoc/ExportOptions.plist <<XML
 XML
 out=$(xcodebuild -project Hlidskjalf.xcodeproj -scheme Hlidskjalf -configuration Release \
       -destination 'generic/platform=iOS' -archivePath "$AR" -derivedDataPath /tmp/hk-adhoc/dd \
-      CURRENT_PROJECT_VERSION=$BN "${AUTH[@]}" archive 2>&1) || { echo "$out" | grep -E "error:" | sort -u | head -15; echo "ARCHIV FEHLGESCHLAGEN"; exit 1; }
+      CURRENT_PROJECT_VERSION=$BN SAGA_VERSION_LABEL="$VL" "${AUTH[@]}" archive 2>&1) || { echo "$out" | grep -E "error:" | sort -u | head -15; echo "ARCHIV FEHLGESCHLAGEN"; exit 1; }
 out=$(xcodebuild -exportArchive -archivePath "$AR" -exportPath /tmp/hk-adhoc/export \
       -exportOptionsPlist /tmp/hk-adhoc/ExportOptions.plist "${AUTH[@]}" 2>&1) || { echo "$out" | grep -E "error" | sort -u | head -15; echo "EXPORT FEHLGESCHLAGEN"; exit 1; }
 cp /tmp/hk-adhoc/export/*.ipa dist/Hlidskjalf.ipa
