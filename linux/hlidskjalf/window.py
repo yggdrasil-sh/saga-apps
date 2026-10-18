@@ -7,7 +7,7 @@ import time
 from gi.repository import Adw, Gdk, Gio, GLib, GObject, Gtk, Pango
 
 from . import APP_ID, PROJECT_URL, avatars, config, images
-from .api import Cancelled, client, pkce
+from .api import APIError, Cancelled, client, pkce
 from .blocks import context_menu, flat_button, menu_popover
 from .config import device_name, get_device_token, settings
 from .i18n import _, ngettext
@@ -600,10 +600,11 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _tick(self):
         if self.is_active() and not store.needs_login:
-            store.refresh()
             from .chat import chat
             from .live import live
             from .notifications import notifications
+            if store.refresh_due(live.connected):          # ohne Live-Kanal jede Minute, mit Live-Kanal alle 5 min
+                store.refresh()
             if not live.connected:                         # ohne Live-Kanal regelmaessig fragen
                 notifications.count()
                 chat.load_unread()
@@ -1267,6 +1268,8 @@ class MainWindow(Adw.ApplicationWindow):
                 return
         if typ == "hello":
             self._session_catch_up()                       # Start ohne Netz: Fehlendes jetzt laden
+            if not store.needs_login:                      # wieder verbunden (Netzwechsel, Aufwachen): Verpasstes holen
+                store.refresh_if_stale(store.POLL_S)
             return
         if typ == "reset":
             store.refresh()
@@ -1661,7 +1664,9 @@ class MainWindow(Adw.ApplicationWindow):
         store.move(pid, parent, error=lambda e: self.toast(str(e)))
         return True
 
-    def run_button(self, b):
+    def run_button(self, b, busy=None):
+        """Schaltflaechen-Block. busy(on): Knopf sperren/Fortschritt zeigen, solange "Neuer Eintrag" laeuft - mehrfaches
+        Klicken legt nichts doppelt an (der Server kennt keinen Idempotenz-Schluessel)."""
         tgt = b.get("target")
         act = b.get("action")
         mode = b.get("open") or ""
@@ -1674,7 +1679,27 @@ class MainWindow(Adw.ApplicationWindow):
             if title or not tpl:
                 body["title"] = title
             path = f"api/notes/{tpl}/duplicate" if tpl else "api/notes"
-            store.run("POST", path, body, done=lambda r: (store.refresh(), store.changed_data(), self.open_entry(r["id"], mode)))
+            if busy:
+                busy(True)
+
+            def release():
+                if busy:
+                    GLib.timeout_add(800, lambda: (busy(False), False)[1])    # waehrend der Eintrag aufgeht: kein zweites Mal
+
+            def fin(r):
+                if tpl:
+                    store.refresh()                        # Vorlage kann Unterseiten mitbringen: Liste vom Server
+                else:
+                    store.page_added(r["id"], tgt)         # neuer Eintrag lokal in die Seitenliste
+                store.changed_data()
+                self.open_entry(r["id"], mode)
+                release()
+
+            def err(e):
+                release()
+                if not (isinstance(e, APIError) and e.code == 401):
+                    self.toast(str(e))
+            store.run("POST", path, body, done=fin, error=err)
         elif act == "task":
             store.add_task(b.get("title") or _("New task"))
             self.toast(_("Task created"))

@@ -1051,7 +1051,7 @@ class PageEditor:
                 else:
                     aa[j]["data"] = {"text": f'📄 <a href="/notes#{res["id"]}">{esc(_("Untitled"))}</a>'}
                 self.changed()
-                self.flush(lambda: store.refresh(done=lambda: btype == "page" and v.open_page(res["id"])))
+                self.flush(lambda: store.page_added(res["id"], self.doc.id, done=lambda: btype == "page" and v.open_page(res["id"])))
             store.run("POST", "api/notes", body, done=fin)
             return
         if btype == "delimiter":

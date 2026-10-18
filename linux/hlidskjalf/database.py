@@ -327,7 +327,7 @@ class DBModel(GObject.Object):
 
         def fin(r):
             self.load()
-            store.refresh()
+            store.page_added(r["id"], self.db_id)           # neuer Eintrag lokal in die Seitenliste (nicht alles neu laden)
             if done:
                 done(r["id"])
         store.run("POST", "api/notes", b, done=fin)

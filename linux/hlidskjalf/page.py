@@ -1436,8 +1436,8 @@ class PageView(Gtk.Box):
             dbs = [p for p in store.pages if is_db(p)]
         PagePicker(self.win, _("Link database"), dbs, lambda pid: self.editor.link_database(pid, bid)).present(self.win)
 
-    def run_button(self, cfg):
-        self.win.run_button(cfg)
+    def run_button(self, cfg, busy=None):
+        self.win.run_button(cfg, busy=busy)
 
     # --- Tastatur / Einfuegen / Ziehen ---------------------------------------------------------------
     def _page_key(self, ctrl, kv, code, state):

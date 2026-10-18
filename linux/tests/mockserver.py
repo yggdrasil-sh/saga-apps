@@ -151,6 +151,16 @@ class MockServer:
         return it
 
     # --- Hilfen ------------------------------------------------------------------------------------
+    def _subtree(self, nid):
+        """nid und alle (nicht geloeschten) Nachfahren - wie WITH RECURSIVE im Server"""
+        out, stack = [], [nid]
+        while stack:
+            i = stack.pop()
+            if i in self.notes and i not in out:
+                out.append(i)
+                stack.extend(x["id"] for x in self.notes.values() if x.get("parent_id") == i)
+        return out
+
     def note_meta(self, n):
         return {k: n.get(k) for k in ("id", "title", "icon", "parent_id", "kind", "pinned", "updated", "archived", "template", "tags")}
 
@@ -288,9 +298,11 @@ class MockServer:
                     n["rev"] += 1
                 n["updated"] = time.time()
                 return self._reply(200, {"ok": True, "updated": n["updated"], "rev": n["rev"]})
-            if not rest and method == "DELETE":
-                self.trash.append(self.notes.pop(nid))
-                return self._reply(200, {"ok": True})
+            if not rest and method == "DELETE":                  # wie der Server: samt Unterseiten in den Papierkorb
+                ids = self._subtree(nid)
+                for i in ids:
+                    self.trash.append(self.notes.pop(i))
+                return self._reply(200, {"deleted": len(ids), "trash": True})
             if rest == ["rows"]:
                 rows = [{"id": r["id"], "title": r["title"], "icon": r.get("icon") or "", "props": r.get("props") or {},
                          "updated": r["updated"], "created": r["created"]} for r in self.notes.values() if r.get("parent_id") == nid]
@@ -307,8 +319,11 @@ class MockServer:
             if rest == ["move"]:
                 n["parent_id"] = body.get("parent_id")
                 return self._reply(200, {"ok": True})
-            if rest == ["archive"]:
-                n["archived"] = bool(body.get("archived"))
+            if rest == ["archive"]:                              # wie der Server: samt aktiver Unterseiten
+                on = bool(body.get("archived"))
+                for i in self._subtree(nid):
+                    if i == nid or bool(self.notes[i].get("archived")) != on:
+                        self.notes[i]["archived"] = on
                 return self._reply(200, {"ok": True})
         if path == "api/tasks" and method == "GET":
             return self._reply(200, {"open": self.tasks, "done": self.done_tasks})

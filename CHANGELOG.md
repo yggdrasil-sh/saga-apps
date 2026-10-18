@@ -48,6 +48,22 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Titel-Platzhalter `{date}`/`{fecha}` funktionieren wie im Web. Schaltflächen bleiben auf gesperrten Seiten
   bedienbar (wie im Web); mit Leserecht (Lesen/Kommentieren) sind sie deaktiviert.
 
+### Geändert (Linux)
+- **Weniger Datenvolumen und schnellere Reaktion bei großen Konten:** Die App lädt die komplette Seitenliste (bei
+  vielen Datenbank-Einträgen mehrere MB) nicht mehr nach jeder Aktion neu. Neue eigene Seiten und
+  Datenbank-Einträge (Seitenleiste, „Neue Unterseite“, Block „Seite“/„Neue Datenbank“, „+ Neu“ in Datenbanken,
+  Schaltflächen ohne Vorlage) werden gezielt geholt und direkt eingefügt; „In den Papierkorb“ und „Archivieren“
+  entfernen die Seite samt Unterseiten sofort aus der Liste; Verschieben zeigt die neue Stelle sofort – jeweils mit
+  denselben Daten wie nach einem Neuladen. Der regelmäßige Abgleich bei aktivem Fenster läuft wie bisher jede
+  Minute, solange der Live-Kanal nicht verbunden ist; mit Live-Kanal (Freigaben, Kommentare, Benachrichtigungen
+  kommen dort sofort) alle 5 Minuten. Beim Zurückkehren ins Fenster und nach einer Unterbrechung des Live-Kanals
+  (Netzwechsel, Aufwachen) wird wie bisher abgeglichen. Seitenbaum und Liste werden im Hintergrund aufbereitet,
+  der Baum entsteht linear statt durch Suchen über alle Seiten (spürbar bei Tausenden Seiten). Die App fragt
+  Antworten komprimiert an (gzip) – sobald der Server Kompression anbietet, sinkt das Datenvolumen um rund 90 %.
+- **Schaltflächen „+ Neuer Eintrag“ reagieren sofort und legen nichts doppelt an:** Der Knopf zeigt sofort einen
+  Fortschritt und ist gesperrt, bis der Eintrag angelegt ist – mehrfaches Klicken erzeugt keine weiteren Einträge
+  (wie in iOS/macOS). Fehler erscheinen als Hinweis.
+
 ## [2.1.0] – 2026-10-18
 
 Passt zu Saga-Server 2.1. **Die neuen Funktionen brauchen Saga-Server 2.1; ältere Server funktionieren weiter**
