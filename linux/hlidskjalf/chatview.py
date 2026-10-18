@@ -232,6 +232,7 @@ class ChatsScreen(Gtk.Box):
         self.stack.add_named(bpb, "main")
         watch_chat(self, "changed", lambda: self.render())
         watch_chat(self, "chat-changed", lambda cid: cid == self.cid and self._header())
+        watch_chat(self, "chat-gone", self._chat_gone)
         self.connect("unmap", lambda *_: setattr(chat, "open_chat", None))
         self._state = None
         self.render(force=True)
@@ -325,6 +326,11 @@ class ChatsScreen(Gtk.Box):
             self.status_box.append(keyring_banner(self.win))
         self.status_box.append(page)
 
+    def _chat_gone(self, cid, how, _name):
+        """(2.1) offener Chat fuer alle geloescht bzw. Direkt-Chat fuer mich geloescht: Unterhaltung schliessen"""
+        if cid == self.cid and how in ("removed", "hidden"):
+            GLib.idle_add(lambda: (self.win.show_root(("chats",)), False)[1])
+
     def _header(self):
         if self.win.current is self:
             self.win.update_header()
@@ -334,10 +340,11 @@ class ChatsScreen(Gtk.Box):
         c = chat.chat(self.cid) if self.cid is not None else None
         if c is None:
             return _("Chats"), ""
+        arch = " · " + _("Archived") if c.get("archived") else ""
         if c.get("kind") == "dm":
-            return chat.title(c), _("End-to-end encrypted")
+            return chat.title(c), _("End-to-end encrypted") + arch
         n = int(c.get("member_count") or len(c.get("members") or []))
-        return chat.title(c), chat.kind_label(c) + " · " + ngettext("{n} person", "{n} people", n).format(n=n)
+        return chat.title(c), chat.kind_label(c) + " · " + ngettext("{n} person", "{n} people", n).format(n=n) + arch
 
     def has_menu(self):
         return self.conv is not None and chat.chat(self.cid) is not None
@@ -378,26 +385,86 @@ class ChatList(Gtk.Box):
         self.box = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
         self.box.add_css_class("navigation-sidebar")
         self.box.update_property([Gtk.AccessibleProperty.LABEL], [_("Chats")])
-        self.box.connect("row-activated", lambda lb, row: getattr(row, "cid", None) is not None and screen.open(row.cid))
+        self.box.connect("row-activated", lambda lb, row: self._activated(row))
         sw.set_child(self.box)
         self.append(sw)
         self.sig = None
 
+    arch_open = False            # Bereich "Archiviert" aufgeklappt (fuer die Sitzung, ueber Neuaufbauten hinweg)
+
+    def _activated(self, row):
+        if getattr(row, "arch_toggle", False):
+            ChatList.arch_open = not ChatList.arch_open
+            self.fill()
+            for r in _walk_rows(self.box):                  # Fokus bleibt auf dem Kopf des Bereichs
+                if getattr(r, "arch_toggle", False):
+                    r.grab_focus()
+            return
+        if getattr(row, "cid", None) is not None:
+            self.screen.open(row.cid)
+
     def fill(self):
         q = self.search.get_text().strip().lower()
         lst = [c for c in chat.chats if not q or q in chat.title(c).lower()]
-        sig = (q, self.screen.cid, tuple((c.get("id"), chat.title(c), c.get("unread"), c.get("muted"), c.get("last_at"),
-                                          (chat.peer(c) or {}).get("avatar") if c.get("kind") == "dm" else None) for c in lst))
+        act = [c for c in lst if not c.get("archived")]
+        arch = [c for c in lst if c.get("archived")]       # (2.1) eigener Bereich unten, bei einer Suche aufgeklappt
+        show_arch = ChatList.arch_open or bool(q)
+        sig = (q, self.screen.cid, show_arch, tuple((c.get("id"), chat.title(c), c.get("unread"), c.get("muted"), c.get("last_at"),
+                                                     c.get("archived"), (chat.peer(c) or {}).get("avatar") if c.get("kind") == "dm" else None)
+                                                    for c in lst))
         if sig == self.sig:
             return
         self.sig = sig
         self.box.remove_all()
-        if not lst:
+        if not act and not arch:
             lb = _lbl(_("No matches.") if q else _("No chats yet."), ("dim-label",), margin_start=10, margin_top=10)
             self.box.append(Gtk.ListBoxRow(activatable=False, selectable=False, child=lb))
-            return
-        for c in lst:
+        for c in act:
             self.box.append(self._row(c))
+        if arch:
+            self.box.append(self._arch_head(arch, show_arch))
+            if show_arch:
+                for c in arch:
+                    self.box.append(self._row(c))
+
+    def _arch_head(self, arch, shown):
+        """Kopf des Bereichs "Archiviert (n)": aufklappen/zuklappen, Ungelesen dort als eigene Zahl"""
+        row = Gtk.ListBoxRow()
+        row.arch_toggle = True
+        row.add_css_class("hk-arch-head")
+        box = Gtk.Box(spacing=8, margin_top=6, margin_bottom=6, margin_start=4)
+        box.append(Gtk.Image.new_from_icon_name("pan-down-symbolic" if shown else "pan-end-symbolic"))
+        t = _lbl(_("Archived ({n})").format(n=len(arch)), ("heading",), hexpand=True, wrap=False)
+        box.append(t)
+        un = sum(int(c.get("unread") or 0) for c in arch)
+        if un:
+            b = Gtk.Label(label=str(un))
+            b.add_css_class("hk-badge")
+            box.append(b)
+        row.set_child(box)
+        acc = _("Archived ({n})").format(n=len(arch)) + (" – " + ngettext("{n} unread", "{n} unread", un).format(n=un) if un else "")
+        row.update_property([Gtk.AccessibleProperty.LABEL], [acc])
+        from .window import set_expanded_state
+        set_expanded_state(row, shown)
+        return row
+
+    def _menu(self, row, c, x=None, y=None):
+        """Kontextmenue eines Chats (Rechtsklick, Langdruck, Menue-Taste/Umschalt+F10): Oeffnen, Stumm, Archiv, Loeschen"""
+        win = self.screen.win
+        cid = c["id"]
+        ents = [(_("Open"), lambda: self.screen.open(cid)),
+                (_("Unmute") if c.get("muted") else _("Mute"),
+                 lambda: chat.patch(cid, {"muted": not c.get("muted")}, done=lambda _c: chat.load_chats(),
+                                    error=lambda e: _toast(win, str(e))))]
+        ents += manage_entries(win, c)
+        pop = menu_popover(self.box, ents)
+        ok, pt = row.compute_point(self.box, Graphene.Point().init(x if x is not None else 24, y if y is not None else row.get_height() / 2))
+        if ok:
+            r = Gdk.Rectangle()
+            r.x, r.y, r.width, r.height = int(pt.x), int(pt.y), 1, 1
+            pop.set_pointing_to(r)
+        pop.popup()
+        return pop
 
     def _row(self, c):
         row = Gtk.ListBoxRow()
@@ -450,7 +517,38 @@ class ChatList(Gtk.Box):
         row.set_child(box)
         acc = title + " – " + sub + (" – " + ngettext("{n} unread", "{n} unread", un).format(n=un) if un else "")
         row.update_property([Gtk.AccessibleProperty.LABEL], [acc])
+        # Kontextmenue (2.1): Rechtsklick, Langdruck (Touch), Menue-Taste bzw. Umschalt+F10
+        rc = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)
+
+        def on_right(g, _n, x, y):
+            g.set_state(Gtk.EventSequenceState.CLAIMED)
+            self._menu(row, c, x, y)
+        rc.connect("pressed", on_right)
+        row.add_controller(rc)
+        lp = Gtk.GestureLongPress(touch_only=True)
+
+        def longp(g, x, y):
+            g.set_state(Gtk.EventSequenceState.CLAIMED)
+            self._menu(row, c, x, y)
+        lp.connect("pressed", longp)
+        row.add_controller(lp)
+        kc = Gtk.EventControllerKey()
+
+        def key(_k, kv, _code, state):
+            if kv == Gdk.KEY_Menu or (kv == Gdk.KEY_F10 and state & Gdk.ModifierType.SHIFT_MASK):
+                self._menu(row, c)
+                return True
+            return False
+        kc.connect("key-pressed", key)
+        row.add_controller(kc)
         return row
+
+
+def _walk_rows(lb):
+    r = lb.get_first_child()
+    while r is not None:
+        yield r
+        r = r.get_next_sibling()
 
 
 def _short_when(ts):
@@ -541,6 +639,7 @@ class Conversation(Gtk.Box):
         watch_chat(self, "typing", lambda cid: cid == self.cid and self._typing())
         watch_chat(self, "chat-changed", lambda cid: cid == self.cid and self._chat_changed())
         watch_chat(self, "ai-pending", lambda cid: cid == self.cid and self._pending_changed())
+        watch_chat(self, "chat-gone", lambda cid, how, _n: cid == self.cid and self._wiped())
         from .assistant import ai
         watch_chat(self, "changed", lambda: self._ai_changed(), obj=ai)
         self.connect("map", lambda *_: self._mapped())
@@ -575,11 +674,23 @@ class Conversation(Gtk.Box):
     def _mapped(self):
         chat.open_chat = self.cid
 
+    def _wiped(self):
+        """(2.1) Verlauf geleert bzw. Chat geloescht: Entwurf (Text, Antwort, Anhaenge) verwerfen, Ansicht neu"""
+        self.reply = None
+        self.reply_bar.set_visible(False)
+        self.files = []
+        self._files_bar()
+        self.entry.get_buffer().set_text("")
+        self.mentions = {}
+        self.sig = None
+        self.render()
+
     def _chat_changed(self):
         self._check_trust()
         self.screen._header()
         self._ai_note()
         self._ai_typing()
+        self.render()                                     # z. B. neue Grenze cleared_seq (2.1)
 
     # --- KI im Chat (2.1): nur auf Zuruf ---------------------------------------------------------------------------
     def _ai_on(self):
@@ -815,8 +926,10 @@ class Conversation(Gtk.Box):
         msgs = c.get("msgs") or []
         q = self.query.lower()
         shown = [m for m in msgs if not q or q in (m.get("text") or "").lower()]
+        # (2.1) Verlauf geloescht (fuer mich oder fuer alle): Hinweis am Anfang statt "nicht lesbar"
+        cleared = bool(int((chat.chat(self.cid) or {}).get("cleared_seq") or 0) or c.get("floor"))
         sig = (tuple((m["id"], m.get("state"), m.get("ai_state")) for m in shown), c.get("more"), q, len(chat.notes), c.get("error"),
-               self.loaded)
+               self.loaded, cleared)
         if sig == self.sig:
             return
         stick = self.at_bottom
@@ -837,6 +950,10 @@ class Conversation(Gtk.Box):
             info.append(_lbl(t, ("caption", "dim-label"), max_width_chars=60, justify=Gtk.Justification.CENTER))
             info.add_css_class("hk-e2e-note")
             self.msgs.append(info)
+            if cleared:
+                cl = _lbl(_("The earlier history was deleted."), ("caption", "dim-label", "hk-cleared"), xalign=0.5,
+                          justify=Gtk.Justification.CENTER, margin_bottom=8)
+                self.msgs.append(cl)
         if c.get("error") and not msgs:
             self.msgs.append(_lbl(_("Messages not loaded: {err}").format(err=c["error"]), ("error",), xalign=0.5))
         by_id = {m["id"]: m for m in msgs}
@@ -1443,7 +1560,128 @@ class Conversation(Gtk.Box):
             ents.append(None)
             ents.append((_("Rename …"), lambda: rename_group(self.win, self.cid)))
             ents.append((_("Leave group"), lambda: leave_group(self.win, self.cid), True))
+        ents += manage_entries(self.win, c)                # (2.1) Archivieren, Chat loeschen …
         menu_popover(parent, ents).popup()
+
+
+# --- Archivieren und Loeschen (2.1) -------------------------------------------------------------------------------
+def manage_entries(win, c):
+    """Menue-Eintraege "Archivieren"/"Aus Archiv holen" und "Chat loeschen …" - nur, wenn der Server sie kennt"""
+    out = []
+    if chat.can_archive(c):
+        on = not c.get("archived")
+        out.append((_("Archive") if on else _("Unarchive"), lambda: archive_chat(win, c["id"], on)))
+    if chat.can_delete(c):
+        out.append((_("Delete chat …"), lambda: DeleteChatDialog(win, c["id"]).present(win), True))
+    return [None] + out if out else []
+
+
+def archive_chat(win, cid, on):
+    def done(_ch):
+        _toast(win, _("Chat archived – it comes back with the next message.") if on else _("Chat unarchived."))
+    chat.set_archived(cid, on, done=done, error=lambda e: _toast(win, str(e)))
+
+
+def gone_text(how, name):
+    """Hinweis, wenn jemand anderes einen Chat bzw. dessen Verlauf fuer alle geloescht hat (Live)"""
+    if not name:
+        return ""
+    if how == "removed":
+        return _("{name} deleted the chat.").format(name=name)
+    return _("{name} deleted the history.").format(name=name)
+
+
+class DeleteChatDialog(Adw.AlertDialog):
+    """"Chat loeschen …": Nur fuer mich (jede Chat-Art) oder Fuer alle (je nach delete_for_all, sonst ausgegraut mit
+    Begruendung); freie Gruppe: "Gruppe ausserdem verlassen"; deutliche Warnung"""
+    __gtype_name__ = "HKDeleteChatDialog"
+
+    def __init__(self, win, cid):
+        c = chat.chat(cid) or {}
+        name = chat.title(c)
+        super().__init__(heading=_("Delete “{name}”?").format(name=name))
+        self.win, self.cid, self.c = win, cid, c
+        kind, allow = c.get("kind"), c.get("delete_for_all")
+        self.allow = allow if allow in ("chat", "history") else None
+        peer = (chat.peer(c) or {}).get("name") or name
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        box.append(_lbl(_("Delete for whom?"), ("heading",)))
+        lb = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        lb.add_css_class("boxed-list")
+        lb.update_property([Gtk.AccessibleProperty.LABEL], [_("Delete for whom?")])
+        me_text = (_("The history disappears only for you, on all your devices. {name} keeps it. The chat reappears as soon as a "
+                     "new message arrives.").format(name=peer) if kind == "dm" else
+                   _("The history disappears only for you, on all your devices; the chat is archived. The others keep it."))
+        self.r_me = Gtk.CheckButton(active=True, valign=Gtk.Align.CENTER)
+        self.row_me = self._row(_("Just for me"), me_text, self.r_me)
+        lb.append(self.row_me)
+        self.leave = None
+        if kind == "free":
+            self.leave = Gtk.CheckButton(valign=Gtk.Align.CENTER)
+            self.row_leave = Adw.ActionRow(title=GLib.markup_escape_text(_("Also leave the group")), activatable_widget=self.leave)
+            self.row_leave.add_prefix(self.leave)
+            self.row_leave.add_css_class("hk-del-sub")
+            lb.append(self.row_leave)
+        if self.allow == "history":
+            all_text = _("All messages and attachments are deleted for all members. The chat itself stays as long as the group "
+                         "or page exists.")
+        elif kind == "dm":
+            all_text = _("The chat is deleted for {name} and you – with all messages, attachments and calls.").format(name=peer)
+        else:
+            all_text = _("The group is deleted for all members – with all messages, attachments and calls.")
+        why = {"free": _("Only admins of this group can delete it for everyone."),
+               "group": _("Only Saga admins can delete the history for everyone."),
+               "page": _("Only the page owner can delete the history for everyone.")}.get(kind, "")
+        self.r_all = Gtk.CheckButton(group=self.r_me, valign=Gtk.Align.CENTER)
+        self.row_all = self._row(_("For everyone"), all_text if self.allow else why, self.r_all)
+        if not self.allow:
+            self.row_all.set_sensitive(False)              # ausgegraut, Begruendung im Untertitel
+        lb.append(self.row_all)
+        box.append(lb)
+        box.append(warn_label(_("This can't be undone. Anyone who has already seen messages may have copies of them.")))
+        self.set_extra_child(box)
+        self.add_response("cancel", _("Cancel"))
+        self.add_response("delete", _("Delete for me"))
+        self.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+        self.set_default_response("cancel")
+        self.set_close_response("cancel")
+        self.r_me.connect("toggled", lambda *_: self._sync())
+        self.r_all.connect("toggled", lambda *_: self._sync())
+        self.connect("response", lambda _d, r: r == "delete" and self._go())
+        self._sync()
+
+    @staticmethod
+    def _row(title, sub, check):
+        r = Adw.ActionRow(title=GLib.markup_escape_text(title), subtitle=GLib.markup_escape_text(sub), activatable_widget=check)
+        r.add_prefix(check)
+        return r
+
+    @property
+    def scope(self):
+        return "all" if self.allow and self.r_all.get_active() else "me"
+
+    def _sync(self):
+        if self.leave is not None:
+            self.row_leave.set_sensitive(self.scope == "me")
+        if self.scope == "all":
+            label = _("Delete history for everyone") if self.allow == "history" else _("Delete for everyone")
+        else:
+            label = _("Delete for me")
+        self.set_response_label("delete", label)
+
+    def _go(self):
+        scope, win, kind = self.scope, self.win, self.c.get("kind")
+        quit_ = scope == "me" and self.leave is not None and self.leave.get_active()
+
+        def done(r):
+            if r.get("left"):
+                t = _("History deleted, group left.")
+            elif scope == "all":
+                t = _("Chat deleted for everyone.") if r.get("removed") else _("History deleted for everyone.")
+            else:
+                t = _("Chat deleted for you.") if kind == "dm" else _("History deleted for you, chat archived.")
+            _toast(win, t)
+        chat.delete_chat(self.cid, scope, leave=quit_, done=done, error=lambda e: _toast(win, str(e)))
 
 
 # --- Dialoge: Chat -------------------------------------------------------------------------------------------------

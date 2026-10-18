@@ -117,6 +117,13 @@ for part in $PARTS; do
       HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test v21shots.py es_ES.UTF-8
       HK_OUT="$SRC/build/shots" app_test v21bshots.py
       HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test v21bshots.py es_ES.UTF-8
+      HK_OUT="$SRC/build/shots" app_test chatdelshots.py
+      HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test chatdelshots.py es_ES.UTF-8
+      ;;
+    chatdelshots)                                        # nur die Bilder zu "Chats archivieren und loeschen" (2.1)
+      mkdir -p "$SRC/build/shots"
+      HK_OUT="$SRC/build/shots" app_test chatdelshots.py
+      HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test chatdelshots.py es_ES.UTF-8
       ;;
     v21bshots)                                           # nur die Bilder zu 2.1-b (Profilbilder, 2FA, Anrufe)
       mkdir -p "$SRC/build/shots"

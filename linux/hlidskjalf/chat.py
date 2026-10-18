@@ -224,6 +224,9 @@ class ChatState(GObject.Object):
         "link-request": (GObject.SignalFlags.RUN_FIRST, None, (object,)),   # anderes Geraet moechte Schluessel
         "link-done": (GObject.SignalFlags.RUN_FIRST, None, (str,)),         # Kopplung (dieses neue Geraet): approved|expired|gone
         "ai-pending": (GObject.SignalFlags.RUN_FIRST, None, (int,)),        # KI-Antwort in einem Chat laeuft/geaendert/fertig
+        # Chat geloescht/geleert (2.1): (chat, wie, Name) - wie: "removed" (fuer alle weg) | "hidden" (Direkt-Chat fuer mich
+        # geloescht) | "cleared" (Verlauf geleert, Chat bleibt); Name: wer es getan hat ("" = ich bzw. unbekannt)
+        "chat-gone": (GObject.SignalFlags.RUN_FIRST, None, (int, str, str)),
     }
 
     def __init__(self):
@@ -520,6 +523,7 @@ class ChatState(GObject.Object):
 
         def fin(j):
             j = j if isinstance(j, dict) else {}
+            before = {c.get("id") for c in self.chats}
             self.chats = [c for c in j.get("chats") or [] if isinstance(c, dict)]
             for c in self.chats:
                 tm = c.get("title_msg")
@@ -527,6 +531,7 @@ class ChatState(GObject.Object):
                     c["_title"] = self._title_of(c["id"], tm)
             self.unread = int(j.get("unread") or 0)
             self._chats_at = time.monotonic()
+            self._sync_cleared(before)
             self.emit("changed")
             if done:
                 done()
@@ -535,6 +540,21 @@ class ChatState(GObject.Object):
             if done:
                 done()
         bg(client.get, f"api/chats?device={self.device_id}", done=fin, error=err)
+
+    def _sync_cleared(self, before):
+        """Nach dem Laden der Liste (2.1): verpasste Loeschungen nachholen - Grenze cleared_seq ueber dem Zwischenspeicher
+        -> bis dorthin leeren; frueher gelistete Chats, die fehlen (fuer alle geloescht, Direkt-Chat fuer mich geloescht,
+        Gruppe verlassen) -> lokale Daten weg (nicht beim gerade offenen Chat: der meldet sich selbst per 404/Live)"""
+        now = {c.get("id") for c in self.chats}
+        for c in self.chats:
+            cs = c.get("cleared_seq")
+            cc = self.cache.get(c.get("id"))
+            if isinstance(cs, int) and cs > 0 and cc is not None and int(cc.get("floor") or 0) < cs \
+                    and any((m.get("seq") or 0) <= cs for m in cc.get("msgs") or []):
+                self.purge(c["id"], upto=cs)
+        for cid in before - now:
+            if isinstance(cid, int) and cid in self.cache and cid != self.open_chat:
+                self.purge(cid, drop=True)
 
     def revalidate(self, age=60):
         """Chat-Liste neu laden, wenn sie aelter als age Sekunden ist - Profilbilder (Adresse mit Version) und Namen der
@@ -650,6 +670,9 @@ class ChatState(GObject.Object):
 
         def fin(r):
             j, msgs = r
+            floor = int(c.get("floor") or 0)                 # inzwischen geloescht (2.1): nichts unter der Grenze zurueckholen
+            if floor:
+                msgs = [m for m in msgs if (m.get("seq") or 0) > floor]
             have = {m["id"] for m in c["msgs"]}
             new = [m for m in msgs if m["id"] not in have]
             if older:
@@ -696,7 +719,8 @@ class ChatState(GObject.Object):
             return
         seq = max(m.get("seq") or 0 for m in c["msgs"])
         if ch is not None and ch.get("unread"):
-            self.unread = max(0, self.unread - (0 if ch.get("muted") else int(ch.get("unread") or 0)))
+            # stummgeschaltete und archivierte (2.1) Chats zaehlen nicht zur Gesamtzahl
+            self.unread = max(0, self.unread - (0 if ch.get("muted") or ch.get("archived") else int(ch.get("unread") or 0)))
             ch["unread"] = 0
             self.emit("changed")
         if c.get("read_seq") == seq:
@@ -768,7 +792,7 @@ class ChatState(GObject.Object):
         """Hintergrund: Datei verschluesseln und hochladen -> Eintrag fuer den Inhalt"""
         blob, key = C.encrypt_file(cid, data)
         j = client.json("POST", f"api/chats/{cid}/files", raw=blob, ctype="application/octet-stream", timeout=180)
-        chatmedia.put_blob(j["id"], blob)                  # eigene Anhaenge nicht gleich wieder herunterladen
+        chatmedia.put_blob(j["id"], blob, cid)             # eigene Anhaenge nicht gleich wieder herunterladen
         return {"id": j["id"], "k": C.b64(key), "n": name, "m": mime or "application/octet-stream", "s": len(data)}
 
     def upload_attachments(self, cid, files):
@@ -890,6 +914,153 @@ class ChatState(GObject.Object):
             done(ch)
         bg(client.json, "POST", "api/chats", dict(body, device=self.device_id), done=fin, error=error)
 
+    # --- Archivieren und Loeschen (2.1, docs/APP-API-CHAT.md) -----------------------------------------------------------
+    @staticmethod
+    def can_archive(c):
+        """Server kann archivieren (Feld "archived" in der Chat-Liste) - aeltere Server: Funktion ausblenden"""
+        return isinstance(c, dict) and "archived" in c
+
+    @staticmethod
+    def can_delete(c):
+        """Server kann Chats loeschen (Feld "delete_for_all", auch wenn es null ist)"""
+        return isinstance(c, dict) and "delete_for_all" in c
+
+    def set_archived(self, cid, on, done=None, error=None):
+        """PATCH /api/chats/{cid} {archived} (nur fuer mich); danach Liste und Ungelesen-Zahl (ohne Archiv) neu"""
+        def fin(ch):
+            self.load_chats()
+            if done:
+                done(ch)
+        self.patch(cid, {"archived": bool(on)}, done=fin, error=error)
+
+    def delete_chat(self, cid, scope="me", leave=False, done=None, error=None):
+        """DELETE /api/chats/{cid}?scope=me|all; leave (freie Gruppe, nur mit "me"): danach austreten.
+        Lokal: Zwischenspeicher bis zur Grenze leeren, Direkt-Chat bzw. geloeschten Chat aus der Liste. done(antwort)"""
+        scope = "all" if scope == "all" else "me"
+        c0 = self.chat(cid) or {}
+        me = self.uid
+
+        def work():
+            r = client.json("DELETE", f"api/chats/{cid}?scope={scope}") or {}
+            if leave and scope == "me" and not r.get("removed"):
+                client.request("DELETE", f"api/chats/{cid}/members/{urllib.parse.quote(me, safe='')}")
+                r = dict(r, left=True)
+            return r
+
+        def fin(r):
+            r = r if isinstance(r, dict) else {}
+            if r.get("removed") or r.get("left") or r.get("hidden") or (scope == "me" and c0.get("kind") == "dm"):
+                self.purge(cid, drop=True)
+                self.emit("chat-gone", cid, "removed" if r.get("removed") or r.get("left") else "hidden", "")
+            else:
+                upto = r.get("cleared_seq") if scope == "me" else None
+                self.purge(cid, upto=upto if isinstance(upto, int) else None)
+                c = self.chat(cid)
+                if c is not None:
+                    if isinstance(upto, int):
+                        c["cleared_seq"] = max(int(c.get("cleared_seq") or 0), upto)
+                    if r.get("archived"):
+                        c["archived"] = True
+                self.emit("chat-gone", cid, "cleared", "")
+                self.emit("changed")
+            self.load_chats()
+            if done:
+                done(r)
+        bg(work, done=fin, error=error)
+
+    @staticmethod
+    def _file_ids(msgs):
+        out = set()
+        for m in msgs:
+            for f in m.get("files") or []:
+                if isinstance(f, dict):
+                    out.add(f.get("id"))
+                    th = chatmedia.thumb_ref(f)
+                    if th:
+                        out.add(th.get("id"))
+        return {x for x in out if isinstance(x, str) and x}
+
+    def purge(self, cid, upto=None, drop=False):
+        """Lokale Daten eines Chats wirklich loeschen (2.1): entschluesselte Nachrichten bis upto (None = alles Bekannte),
+        Anhaenge/Vorschaubilder im Speicher und auf der Platte, Tipp-Anzeige, laufende KI-Antwort, Benachrichtigungen
+        (Glocke + Desktop-Mitteilung). drop: der Chat ist ganz weg (aus Liste und Zwischenspeicher)."""
+        c = self.cache.get(cid) or {}
+        msgs = c.get("msgs") or []
+        if upto is None or drop:
+            ch = self.chat(cid) or {}
+            upto = max([m.get("seq") or 0 for m in msgs] + [int(ch.get("last_seq") or 0), int(c.get("last_seq") or 0),
+                                                              int(upto or 0)])
+        gone = [m for m in msgs if (m.get("seq") or 0) <= upto]
+        kept = [] if drop else [m for m in msgs if (m.get("seq") or 0) > upto]
+        chatmedia.purge_chat(cid, fids=self._file_ids(gone), keep=self._file_ids(kept))
+        for m in gone:
+            m.clear()                                     # Klartext nicht ueber andere Verweise weiter halten
+        if drop:
+            self.cache.pop(cid, None)
+            self.chats = [x for x in self.chats if x.get("id") != cid]
+        elif c:
+            c["msgs"] = kept
+            c["floor"] = max(int(c.get("floor") or 0), upto)
+            c["more"] = False if not kept else c.get("more")
+            c.pop("error", None)
+        self.typing.pop(cid, None)
+        p = self.ai_pending.pop(cid, None)
+        if p and p.get("stream"):
+            p["stream"].cancel()
+        from .notifications import notifications
+        notifications.drop_chat(cid)
+        from gi.repository import Gio
+        app = Gio.Application.get_default()
+        if app is not None:
+            app.withdraw_notification(f"chat-{cid}")
+        if p:
+            self.emit("ai-pending", cid)
+        self.emit("messages", cid)
+        if drop:
+            self.emit("changed")
+
+    def _cleared_live(self, d):
+        """Live chat.cleared: scope "me" (anderes eigenes Geraet oder dieses) bzw. "all" (jemand hat den Verlauf fuer alle
+        geloescht)"""
+        cid = d.get("chat_id")
+        if not isinstance(cid, int):
+            return
+        c = self.chat(cid)
+        if d.get("scope") == "me":
+            upto = d.get("cleared_seq") if isinstance(d.get("cleared_seq"), int) else None
+            if (c or {}).get("kind") == "dm":
+                self.purge(cid, upto=upto, drop=True)
+                self.emit("chat-gone", cid, "hidden", "")
+            else:
+                self.purge(cid, upto=upto)
+                if c is not None:
+                    c["archived"] = True
+                    if upto is not None:
+                        c["cleared_seq"] = max(int(c.get("cleared_seq") or 0), upto)
+                self.emit("chat-gone", cid, "cleared", "")
+            self._list_soon()
+            return
+        by = d.get("by") if isinstance(d.get("by"), dict) else {}
+        name = "" if by.get("username") == self.uid else str(by.get("name") or by.get("username") or "")
+        self.purge(cid)
+        self.emit("chat-gone", cid, "cleared", name)
+        if self.ready:
+            self.load_chat(cid, error=lambda e: self._gone(cid, e))   # neue Grenze cleared_seq
+            if (self.cache.get(cid) or {}).get("loaded"):
+                self.load_messages(cid)
+        self._list_soon()
+
+    def _removed_live(self, d):
+        """Live chat.removed: Chat fuer alle geloescht - schliessen, aus Liste und Zwischenspeicher"""
+        cid = d.get("chat_id")
+        if not isinstance(cid, int):
+            return
+        by = d.get("by") if isinstance(d.get("by"), dict) else {}
+        name = "" if by.get("username") == self.uid else str(by.get("name") or by.get("username") or "")
+        self.purge(cid, drop=True)
+        self.emit("chat-gone", cid, "removed", name)
+        self._list_soon()
+
     # --- KI im Chat (2.1): nur auf Zuruf ------------------------------------------------------------------------------
     def ai_on(self, c):
         """Ist die KI in diesem Chat erlaubt (Chat-Schalter) und bietet der Server sie mir an?"""
@@ -1006,6 +1177,18 @@ class ChatState(GObject.Object):
                 GLib.timeout_add(6200, lambda: (self.emit("typing", cid), False)[1])
         elif typ == "avatar.changed":
             self._avatar_changed(d)
+        elif typ == "chat.cleared":                       # (2.1) Verlauf fuer mich (anderes Geraet) bzw. fuer alle geloescht
+            self._cleared_live(d)
+        elif typ == "chat.removed":                       # (2.1) Chat fuer alle geloescht
+            self._removed_live(d)
+        elif typ == "chat.changed" and "archived" in d:   # (2.1) archiviert/aus dem Archiv - auf einem meiner Geraete
+            c = self.chat(cid)
+            if c is not None and isinstance(d.get("archived"), bool) and c.get("archived") != d["archived"]:
+                c["archived"] = d["archived"]
+                self.emit("chat-changed", cid)
+                self.emit("changed")
+            if self.ready:
+                self.load_chats()                         # Ungelesen-Zahl ohne Archiv; ausgeblendete Direkt-Chats bleiben weg
         elif typ == "chat.changed":
             c = self.cache.get(cid)
             if c:
@@ -1029,8 +1212,7 @@ class ChatState(GObject.Object):
 
     def _gone(self, cid, e):
         if isinstance(e, APIError) and e.code == 404:
-            self.chats = [c for c in self.chats if c.get("id") != cid]
-            self.cache.pop(cid, None)
+            self.purge(cid, drop=True)                    # samt Anhaengen/Vorschaubildern (2.1)
             self.emit("chat-changed", cid)
             self.emit("changed")
 

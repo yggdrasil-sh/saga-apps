@@ -6,6 +6,25 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Chats archivieren und löschen – Linux (Server 2.1)
+- **Archivieren / Aus Archiv holen** (nur für mich): im Chat-Menü und im Kontextmenü der Chatliste (Rechtsklick,
+  Langdruck, Menü-Taste bzw. Umschalt+F10). Archivierte Chats stehen unten im aufklappbaren Bereich
+  „Archiviert (n)“ (mit eigener Ungelesen-Zahl) und zählen nicht zur Ungelesen-Zahl in der Seitenleiste. Eine neue
+  Nachricht holt einen Chat von selbst zurück – stummgeschaltet und archiviert bleibt archiviert.
+- **„Chat löschen …“:** Dialog mit „Nur für mich“ (jede Chat-Art; Direkt-Chat verschwindet, bis etwas Neues kommt,
+  andere Chats werden archiviert) und „Für alle“ – nur wenn der Server es erlaubt (`delete_for_all`: Direkt-Chat,
+  Admins freier Gruppen; Verlauf von Gruppen-/Seiten-Chats für Saga-Admins bzw. Seiten-Eigentümer), sonst ausgegraut
+  mit Begründung. Bei freien Gruppen zusätzlich „Gruppe außerdem verlassen“; deutliche Warnung, dass es sich nicht
+  rückgängig machen lässt.
+- **Lokaler Zwischenspeicher wird wirklich geleert** (bis zur Grenze `cleared_seq` bzw. ganz): entschlüsselte
+  Nachrichten, Anhänge und Vorschaubilder im Speicher und auf der Platte (Platten-Einträge jetzt mit Chat-Kennung),
+  Entwurf im Eingabefeld, Benachrichtigungen in der Glocke und Desktop-Mitteilungen des Chats. Auch live:
+  `chat.cleared` (anderes eigenes Gerät oder „für alle“), `chat.removed` (Chat schließt sich, Hinweis
+  „<Name> hat den Chat gelöscht.“ bzw. „… den Verlauf gelöscht.“), `chat.changed` (Archiv auf einem anderen Gerät);
+  verpasste Löschungen werden beim Laden der Liste nachgeholt. Am Anfang eines geleerten Verlaufs:
+  „Der bisherige Verlauf wurde gelöscht.“
+- Ältere Server ohne diese Felder: Archiv und Löschen sind ausgeblendet, alles andere wie bisher.
+
 ### KI-Persona und „KI im Chat – nur auf Zuruf“ – iOS, iPadOS, macOS
 - **Name und Profilbild der KI** überall, wo die App KI-Funktionen anbietet: „Frage Marin“ im Seitenmenü und in der
   Befehlspalette, Bild der KI als Knopf in der Kopfzeile, Antworten mit Bild und Namen, „Marin denkt nach …“.
