@@ -50,7 +50,7 @@ google-noto-color-emoji-fonts (Seitensymbole sind Emoji; fehlt die Schrift, zeig
 empfohlen für Thai: eine Thai-Schrift (`font(notosansthai)`, Fedora/AlmaLinux: Noto Sans Thai).
 Release-Nummer und angezeigte Version kommen aus `../tools/version-label.sh`: das offizielle Release
 (`SAGA_RELEASE=1`) wird `saga-2.2.0-1`, alle anderen Builds `saga-2.2.0-0.rcN` (zeigt `2.2.0-rc.N`, sortiert vor
-`2.2.0-1`); `HK_RELEASE=2 sh build-rpm.sh` erzwingt eine Release-Nummer. Die Version steht in `hlidskjalf/__init__.py`
+`2.2.0-1`; steht `VERSION` noch auf dem letzten Release, z. B. `saga-2.1.1-0.rcN`); `HK_RELEASE=2 sh build-rpm.sh` erzwingt eine Release-Nummer. Die Version steht in `hlidskjalf/__init__.py`
 und wird für alle Apps mit `tools/set-version.sh` gesetzt. Das Paket heißt im RPM `hlidskjalf` (Befehl `hlidskjalf`),
 die Datei in `dist/` trägt zur Orientierung den Namen `saga`. In CI genügt ein Container `almalinux:10` oder
 `fedora:latest` mit `dnf install -y rpm-build python3 gettext`.

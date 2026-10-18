@@ -15,6 +15,9 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   `saga-2.2.0-0.rcN` und wird vom Release `2.2.0-1` sauber ersetzt, Flatpak-Vorabversionen tragen einen
   „development“-Eintrag in den Metadaten. Der lokale Mac-Build bekommt eine echte Build-Nummer (Datum/Uhrzeit)
   statt „1“. Mac: „Über Saga“ im App-Menü zeigt dieselbe Version.
+  Steht `VERSION` noch auf der gerade veröffentlichten Version (z. B. 2.1.0), zählt eine Testversion wie beim
+  Server zur nächsten Patch-Version (`2.1.1-rc.N`, RPM `saga-2.1.1-0.rcN`) – Testversionen sind so immer erkennbar
+  neuer als das Release.
 
 ## [2.1.0] – 2026-10-18
 

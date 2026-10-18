@@ -346,18 +346,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           L: ${{ needs.version.outputs.label }}
         run: |
-          case "$L" in
-            *-rc.*) TITLE="Saga-Apps $L (Release Candidate)" ;;
-            *) TITLE="Saga-Apps $L (Testversion)" ;;
-          esac
+          # Sicherung: eine Vorabversion traegt immer -rc.N - nie einen echten Release-Tag v<x.y.z> anlegen/belegen
+          # (z. B. steht testing genau auf dem Release-Commit: Label = x.y.z -> keine Vorabversion, nichts aufraeumen)
+          if ! printf '%s' "$L" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$'; then
+            echo "::notice::Label '$L' ist keine Vorabversion (x.y.z-rc.N) - es wird keine Vorabversion angelegt"
+            exit 0
+          fi
+          TITLE="Saga-Apps $L (Release Candidate)"
           # nur Vorabversionen dieses Workflows (v*-rc.N, v*+dev.N, frueher v*-testing) - nie echte Releases
           for t in $(gh release list --limit 100 --json tagName,isPrerelease --jq '.[] | select(.isPrerelease) | .tagName' \
                      | grep -E -- '^v[0-9]+\.[0-9]+\.[0-9]+(-testing|-rc\.[0-9]+|\+dev\.[0-9]+)$' || true); do
             gh release delete "$t" --cleanup-tag --yes
           done
-          # verwaiste Tags alter Vorabversionen (Release schon geloescht) und den eigenen Tag entfernen
+          # verwaiste Tags alter Vorabversionen (Release schon geloescht) und den eigenen Tag entfernen -
+          # Tags, an denen noch ein (von Hand angelegtes) Release haengt, bleiben
+          REL=$(gh release list --limit 200 --json tagName --jq '.[].tagName')
           for t in $(git ls-remote --tags --refs origin | sed -n 's|.*refs/tags/||p' \
                      | grep -E -- '^v[0-9]+\.[0-9]+\.[0-9]+(-testing|-rc\.[0-9]+|\+dev\.[0-9]+)$' || true); do
+            if printf '%s\n' "$REL" | grep -qxF -- "$t"; then continue; fi
             git push -q origin ":refs/tags/$t" 2>/dev/null || true
           done
           gh release create "v$L" dist/* --target "$GITHUB_SHA" --prerelease --latest=false \
