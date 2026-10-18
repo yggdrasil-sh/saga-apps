@@ -11,32 +11,7 @@ import UIKit
 import AppKit
 #endif
 
-struct Page: Decodable, Identifiable, Hashable {
-    let id: Int
-    var title: String
-    var icon: String?
-    var parent_id: Int?
-    var kind: String?
-    var pinned: Bool?
-    var updated: Double?
-    var snippet: String?
-    var archived: Bool?
-    var template: Bool?
-    var tags: [String]?
-    // Teilen (1.3): eigene Seiten mit Freigaben (shared), neue Kommentare (unread); in "Mit mir geteilt" dazu
-    // Rolle, Eigentuemer und root (oberste geteilte Seite)
-    var shared: Bool?
-    var unread: Bool?
-    var role: String?
-    var root: Bool?
-    var owner: PageOwner?
-    /// Seite einer anderen Saga-Instanz (Foederation, 2.0): {peer, host, name}; die ID ist dann negativ
-    var remote: RemoteRef?
-    var label: String { title.isEmpty ? String(localized: "Unbenannt") : title }
-    var isDatabase: Bool { kind == "database" }
-    var isRemote: Bool { remote != nil || id < 0 }
-}
-struct PageOwner: Decodable, Hashable { var name: String?; var username: String?; var handle: String?; var remote: Bool?; var avatar: String? }
+// Page/PageOwner: PageListLogic.swift (Seitenliste im Hintergrund aufbereiten)
 
 struct OpenTask: Decodable, Identifiable, Hashable {
     let id: Int; var text: String; var due: String?; var prio: Int?; var rep: String?; var done: Bool?
@@ -113,7 +88,20 @@ final class Store: ObservableObject {
     init() {                                                        // sofort aus dem Zwischenspeicher
         // einmalig nach dem Update: alte Entwuerfe (nur je Server) gehoeren zur aktuell bestehenden Anmeldung
         DraftOwner.app.migrate(origin: AppConfig.serverOrigin, signedIn: DeviceKey.get() != nil || AppConfig.hasToken)
-        if let d = cachedData("api/notes"), let p = try? JSONDecoder().decode([Page].self, from: d) { setPages(p) }
+        // Zwischenspeicher der Seitenliste: kleine Listen sofort (erstes Bild wie bisher mit Seitenleiste), grosse im
+        // Hintergrund aufbereiten - der Start blockiert dann nicht (60.000 Notizen: ~0,4 s auf dem Main-Thread)
+        if let d = cachedData("api/notes") {
+            if d.count < Store.syncCacheLimit {
+                if let p = try? PageList.decode(d), let u = PageList.update(p, previous: nil) { applyList(u) }
+            } else {
+                let gen = listGen
+                Task { [weak self] in
+                    let u = await Task.detached(priority: .userInitiated) { (try? PageList.decode(d)).flatMap { PageList.update($0, previous: nil) } }.value
+                    guard let self, let u, self.listGen == gen else { return }   // schon frisch vom Server: Zwischenstand nicht mehr zeigen
+                    self.applyList(u)
+                }
+            }
+        }
         live.store = self; notifs.store = self; chat.store = self; push.store = self
         AvatarCache.shared.store = self
         calls.store = self; CallSystem.shared.manager = calls
@@ -300,12 +288,51 @@ final class Store: ObservableObject {
     }
 
     private var lastRefresh = Date.distantPast
+    /// Laufender Abgleich und ggf. ein danach geplanter: gleichzeitige Aufrufe (Aktion + Takt + Fenster) teilen sich
+    /// einen Lauf. Wer waehrend eines Laufs kommt, bekommt genau EINEN weiteren Lauf danach (sieht also sicher den
+    /// Stand nach seiner Aktion) - statt jeder Aufruf einen eigenen vollen Abgleich.
+    private var refreshRun: (token: Int, task: Task<Void, Never>)?
+    private var refreshFollow: Task<Void, Never>?
+    private var refreshToken = 0
     func refresh(quiet: Bool = false) async {
         if !quiet { loading = true }
         defer { if !quiet { loading = false } }
+        if let f = refreshFollow { await f.value; return }
+        if let r = refreshRun?.task {
+            let f = Task { await r.value; await self.runRefresh() }
+            refreshFollow = f
+            await f.value
+            return
+        }
+        await runRefresh()
+    }
+    private func runRefresh() async {
+        refreshFollow = nil
+        refreshToken += 1
+        let tok = refreshToken
+        let t = Task { await self.doRefresh() }
+        refreshRun = (tok, t)
+        await t.value
+        if refreshRun?.token == tok { refreshRun = nil }
+    }
+    private func doRefresh() async {
         lastRefresh = Date()
         do {
-            setPages(try JSONDecoder().decode([Page].self, from: try await get("api/notes")))
+            let gen = sessionGen, ins = localInserts
+            let d = try await api("api/notes")
+            // Dekodieren, Vergleich und Index im Hintergrund; auf dem Main-Thread nur noch zuweisen
+            let prev = list
+            let u = try await Task.detached(priority: .userInitiated) { PageList.update(try PageList.decode(d), previous: prev) }.value
+            guard gen == sessionGen else { return }                      // inzwischen abgemeldet/anderes Konto
+            // waehrend der Anfrage lokal eine Seite angelegt: diese Antwort kennt sie evtl. noch nicht - nicht uebernehmen
+            // (sonst verschwaende sie kurz), sondern gleich danach noch einmal abgleichen
+            if localInserts != ins { Task { await self.refresh(quiet: true) }; return }
+            if let u {
+                applyList(u)
+                // Zwischenspeicher nur bei Aenderung schreiben (bisher jede Minute die ganze Antwort), nicht auf dem Main-Thread
+                let url = cacheURL("api/notes")
+                Store.cacheQueue.async { try? d.write(to: url, options: .atomic) }
+            }
             if needsLogin { needsLogin = false }
             if loginPostponed { loginPostponed = false }          // Sitzung wieder da (z. B. still erneuert)
             await loadShared()
@@ -346,9 +373,36 @@ final class Store: ObservableObject {
         }
     }
     /// 60-s-Abgleich: still, hoechstens einmal pro Takt fuer alle Fenster, und nur Geaendertes neu setzen
-    /// (sonst zeichnen alle Ansichten mit dem Store jede Minute neu)
+    /// (sonst zeichnen alle Ansichten mit dem Store jede Minute neu). Bei verbundenem Live-Kanal seltener (RefreshPolicy).
     func periodicRefresh() async {
-        guard Date().timeIntervalSince(lastRefresh) > 50 else { return }
+        let now = Date()
+        if RefreshPolicy.due(last: lastRefresh, now: now, liveConnected: live.connected, treeEvents: live.treeEvents) { await refresh(quiet: true); return }
+        // Live-Kanal verbunden, Seitenbaum noch nicht wieder dran: alles andere (klein) weiter jede Minute wie bisher -
+        // Mit mir geteilt, andere Server, Glocke, Chats, KI, Heute (Aufgaben/Termine), liegengebliebene Entwuerfe
+        guard RefreshPolicy.due(last: max(lastRefresh, lastLight), now: now, liveConnected: false), !needsLogin else { return }
+        lastLight = now
+        await loadShared()
+        Task { await loadFedShared() }
+        Task { await notifs.loadCount(); await chat.refreshUnread(); await loadAIStatus() }
+        await loadToday()
+        Task { await resendDrafts() }
+    }
+    private var lastLight = Date.distantPast
+    /// Live: Seitenbaum geaendert (notes.tree - neu/geaendert/verschoben/Papierkorb/Archiv, auch aus Web und von
+    /// anderen Geraeten). Kurz entprellt, dann EIN Abgleich (Inhalt des Ereignisses wird bewusst nicht ausgewertet:
+    /// Zusatzfelder/neue Arten schaden nicht, der Abgleich bringt den Stand des Servers)
+    private var treeDebounce: Task<Void, Never>?
+    func treeChanged() {
+        treeDebounce?.cancel()
+        treeDebounce = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(1200))
+            guard !Task.isCancelled, let self else { return }
+            await self.refresh(quiet: true)
+        }
+    }
+    /// Live-Kanal (wieder) verbunden: Verpasstes nachholen (Netzwechsel, Aufwachen, Server-Neustart)
+    func liveConnected() async {
+        guard RefreshPolicy.catchUp(last: lastRefresh, now: Date()) else { return }
         await refresh(quiet: true)
     }
 
@@ -369,13 +423,31 @@ final class Store: ObservableObject {
     }
 
     func newPage(parent: Int? = nil) async -> Int? {
-        struct R: Decodable { let id: Int }
+        struct R: Decodable { let id: Int; let updated: Double? }
         var b: [String: Any] = ["title": ""]
         if let parent { b["parent_id"] = parent }
         guard let d = try? await api("api/notes", method: "POST", body: b), let r = try? JSONDecoder().decode(R.self, from: d) else { return nil }
-        await refresh()
+        await insertCreated(.created(id: r.id, parent: parent, updated: r.updated ?? Date().timeIntervalSince1970))
         return r.id
     }
+
+    /// Gerade angelegte Seite/Eintrag lokal in die Liste (statt die ganze Seitenliste neu zu laden). Gehoert die
+    /// Elternseite nicht zum eigenen Baum (Unterseite einer geteilten Seite), wie bisher neu laden.
+    func insertCreated(_ p: Page) async {
+        for _ in 0..<3 {
+            if list.ids.contains(p.id) { return }                               // ein Abgleich war schneller
+            // noch keine Liste (offline gestartet, nichts zwischengespeichert) oder fremder Baum: wie bisher neu laden
+            guard !list.all.isEmpty, let all = PageList.inserting(p, into: list.all, ids: list.ids) else { await refresh(); return }
+            let prev = list, gen = listGen
+            let u = await Task.detached(priority: .userInitiated) { PageList.update(all, previous: prev) }.value
+            guard listGen == gen else { continue }                              // Liste hat sich inzwischen geaendert: neu einfuegen
+            if let u { applyList(u); localInserts += 1 }
+            return
+        }
+        await refresh()
+    }
+    /// zaehlt lokal eingefuegte Seiten (ein gleichzeitig laufender Abgleich mit aelterem Stand wird dann wiederholt)
+    private var localInserts = 0
 
     // MARK: Aufgaben (wie das Web: /api/tasks; Wiederholungen legt der Server beim Abhaken an)
     func addTask(_ text: String, due: String? = nil, prio: Int = 2, rep: String? = nil) async {
@@ -517,11 +589,15 @@ final class Store: ObservableObject {
     }
 
     // Seitenbaum: oberste Ebene + Kinder (Datenbank-Zeilen erscheinen nicht im Baum, wie im Web)
-    func page(_ id: Int) -> Page? { pages.first { $0.id == id } ?? shared.first { $0.id == id } ?? fedShared.first { $0.id == id } }
+    // Nachschlagen ueber den im Hintergrund gebauten Index (bisher lineare Suche ueber alle Notizen je Aufruf)
+    func page(_ id: Int) -> Page? { pageIndex(id).map { pages[$0] } ?? shared.first { $0.id == id } ?? fedShared.first { $0.id == id } }
     func children(of id: Int?) -> [Page] {
-        pages.filter { p in
-            p.parent_id == id && !(p.parent_id.map { page($0)?.isDatabase ?? false } ?? false)
-        }
+        if let id, page(id)?.isDatabase == true { return [] }             // Datenbank-Eintraege nicht im Baum
+        if pages.count == list.visible.count, let pos = list.kids[id] {
+            let out = pos.compactMap { $0 < pages.count && pages[$0].parent_id == id ? pages[$0] : nil }
+            if out.count == pos.count { return out }
+        } else if pages.count == list.visible.count && list.kids[id] == nil { return [] }
+        return pages.filter { $0.parent_id == id }                        // Index passt nicht: wie bisher suchen
     }
     var favorites: [Page] { pages.filter { $0.pinned == true } }
 
@@ -592,23 +668,53 @@ final class Store: ObservableObject {
     func patch(_ id: Int, _ fields: [String: Any]) async throws {
         _ = try await api("api/notes/\(id)", method: "PATCH", body: fields)
         try? FileManager.default.removeItem(at: cacheURL("api/notes/\(id)"))
-        if let i = pages.firstIndex(where: { $0.id == id }) {
-            if let v = fields["icon"] { pages[i].icon = v as? String }
-            if let v = fields["pinned"] as? Bool { pages[i].pinned = v }
+        if fields["icon"] != nil || fields["pinned"] is Bool {
+            editPage(id) { p in
+                if let v = fields["icon"] { p.icon = v as? String }
+                if let v = fields["pinned"] as? Bool { p.pinned = v }
+            }
         }
     }
     /// Archiv: nicht im Baum/Suche, aber per Link erreichbar (wie im Web)
     @Published var archivedPages: [Page] = []
-    private var lastAll: [Page]?
-    private func setPages(_ all: [Page]) {
-        guard all != lastAll else { return }                              // unveraendert: nichts neu zeichnen, Spotlight nicht neu bauen
-        lastAll = all
-        let vis = all.filter { $0.archived != true }
-        if vis != pages { pages = vis }
-        SpotlightIndex.update(pages)                                      // Seiten in der Systemsuche
-        let ids = Set(all.filter { $0.archived == true }.map(\.id))
-        let arch = all.filter { $0.archived == true && !($0.parent_id.map { ids.contains($0) } ?? false) }   // nur oberste
-        if arch != archivedPages { archivedPages = arch }
+    /// Aufbereitete Seitenliste (im Hintergrund gebaut, PageListLogic.swift) - Quelle fuer pages/archivedPages und den Index
+    private var list = PageList()
+    /// zaehlt jede Uebernahme einer Liste (veraltete Hintergrund-Ergebnisse erkennen)
+    private var listGen = 0
+    /// Zwischenspeicher bis zu dieser Groesse beim Start sofort lesen (kleine Konten: wie bisher), groesser im Hintergrund
+    static let syncCacheLimit = 1_000_000
+    /// Zwischenspeicher-Dateien der Seitenliste schreiben (nacheinander, nicht auf dem Main-Thread; Abmelden wartet darauf)
+    static let cacheQueue = DispatchQueue(label: "saga.cache", qos: .utility)
+    /// Fertig aufbereitete Liste uebernehmen: nur noch Zuweisungen auf dem Main-Thread
+    private func applyList(_ u: PageList.Update) {
+        list = u.list; listGen += 1
+        if u.visibleChanged {
+            pages = u.list.visible
+            SpotlightIndex.update(u.list.visible)                         // Systemsuche: im Hintergrund, nur Geaendertes
+        }
+        if u.archivedChanged { archivedPages = u.list.archivedTop }
+    }
+    /// Eine Seite lokal aendern (Titel, Symbol, Favorit, Ungelesen) - in der Anzeige UND in der aufbereiteten Liste,
+    /// damit spaetere lokale Uebernahmen (neue Seite) die Aenderung nicht zuruecknehmen
+    func editPage(_ id: Int, _ f: (inout Page) -> Void) {
+        if let i = pageIndex(id) {
+            var p = pages[i]; f(&p)
+            if p != pages[i] {
+                // Titel/Symbol: auch in die Systemsuche - der naechste Abgleich ist danach "unveraendert" (nil) und
+                // wuerde Spotlight sonst nicht mehr anfassen (bisher: neuer Titel kam mit dem naechsten Abgleich hinein)
+                let spot = p.title != pages[i].title || p.icon != pages[i].icon
+                pages[i] = p
+                if spot { SpotlightIndex.update(pages) }
+            }
+            if i < list.visible.count, list.visible[i].id == id { list.visible[i] = p }
+        }
+        if let j = list.all.firstIndex(where: { $0.id == id }) { f(&list.all[j]) }
+    }
+    /// Position in `pages` ueber den Index (Index passt nicht mehr: wie bisher suchen)
+    private func pageIndex(_ id: Int) -> Int? {
+        if let i = list.index[id], i < pages.count, pages[i].id == id { return i }
+        if pages.count == list.visible.count && list.index[id] == nil { return nil }   // Index aktuell: nicht vorhanden
+        return pages.firstIndex { $0.id == id }
     }
     func setArchived(_ id: Int, _ on: Bool) async {
         _ = try? await api("api/notes/\(id)/archive", method: "POST", body: ["archived": on])
@@ -657,7 +763,7 @@ final class Store: ObservableObject {
         return try await upload(j, name: "bild.jpg", note: note)
     }
 
-    func updateTitle(_ id: Int, _ title: String) { if let i = pages.firstIndex(where: { $0.id == id }), pages[i].title != title { pages[i].title = title } }
+    func updateTitle(_ id: Int, _ title: String) { if page(id)?.title != title { editPage(id) { $0.title = title } } }
 
     /// Anmeldung ueber das System-Anmeldefenster: Code + Geheimnis -> Sitzung (auch fuer die Web-Ansichten).
     /// `server` ist der beim Start der Anmeldung vorgemerkte Server. Er wird erst nach Erfolg uebernommen
@@ -793,12 +899,13 @@ final class Store: ObservableObject {
         let ds = WKWebsiteDataStore.default()
         let recs = await ds.dataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes())
         await ds.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), for: recs)
+        Store.cacheQueue.sync {}                                          // laufende Schreibvorgaenge abwarten, dann loeschen
         try? FileManager.default.removeItem(at: cacheDir)
         try? FileManager.default.createDirectory(at: cacheDir.appendingPathComponent("files"), withIntermediateDirectories: true)
         images.removeAllObjects(); cookieHeader = nil; myAvatar = nil; AvatarCache.shared.reset()
         URLCache.shared.removeAllCachedResponses()                      // Profilbilder (private, max-age) u. a. nicht liegen lassen
-        live.stop(); notifs.reset(); calls.signedOut(); chat.signedOut(); push.signedOut()   // 2.0: Live, Glocke, Chat-Schluessel im Speicher, Push-Abo
-        pages = []; archivedPages = []; lastAll = nil; shared = []; fedShared = []; aiEnabled = false; aiPersona = nil; aiChat = false; aiHost = ""; fedUnreachable = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
+        live.stop(); live.forgetServer(); notifs.reset(); calls.signedOut(); chat.signedOut(); push.signedOut()   // 2.0: Live, Glocke, Chat-Schluessel im Speicher, Push-Abo
+        pages = []; archivedPages = []; list = PageList(); listGen += 1; shared = []; fedShared = []; aiEnabled = false; aiPersona = nil; aiChat = false; aiHost = ""; fedUnreachable = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
         // Startseite immer vergessen: die naechste Anmeldung kann ein anderes Konto sein - dessen Start sonst die
         // Seiten-ID des alten Kontos an den Server schickte (BUG-060)
         setHome(nil)

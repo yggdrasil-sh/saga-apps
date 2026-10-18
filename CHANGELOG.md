@@ -19,6 +19,27 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Server zur nächsten Patch-Version (`2.1.1-rc.N`, RPM `saga-2.1.1-0.rcN`) – Testversionen sind so immer erkennbar
   neuer als das Release.
 
+### Schneller (iOS/iPadOS/macOS)
+- **Keine Hänger mehr beim Abgleich großer Konten:** Die Seitenliste wird jetzt im Hintergrund gelesen, verglichen
+  und für Baum und Suche aufbereitet; die Oberfläche übernimmt nur noch das fertige Ergebnis. Bei 25.000 Notizen
+  blockierte jeder Abgleich den Main-Thread bisher ~0,1 s (unverändert) bzw. ~0,2 s (mit Änderung), jetzt praktisch
+  gar nicht. Seiten nachschlagen und Unterseiten im Baum gehen über einen Index statt jedes Mal alle Notizen zu
+  durchsuchen.
+- **Spotlight im Hintergrund und nur mit Änderungen:** Die Systemsuche wird nicht mehr nach jeder Änderung komplett
+  gelöscht und neu aufgebaut, sondern bekommt nur geänderte, neue und gelöschte Einträge – gebündelt und nie auf dem
+  Main-Thread. Gefunden wird dasselbe wie bisher (Seiten, Datenbanken und Datenbank-Einträge; Einträge werden nach
+  den Seiten indiziert).
+- **Weniger Datenverkehr:** Neue Seiten, Unterseiten, Datenbank-Einträge („Neu“, Schaltflächen, Widget-Link) und
+  umbenannte Einträge erscheinen sofort lokal in der Liste, statt dass die App die komplette Seitenliste neu lädt.
+  Gleichzeitige Abgleiche (Aktion, Minutentakt, mehrere Fenster) werden zusammengefasst. Meldet der Server
+  Änderungen am Seitenbaum live (`notes.tree`), lädt die App die Liste sofort (kurz entprellt) nach und der
+  Minutentakt lädt sie nur noch alle 5 Minuten als Sicherheitsnetz; bei älteren Servern mit Live-Kanal alle 2 Minuten.
+  Alles andere (Mit mir geteilt, Glocke, Chats, Heute, Entwürfe) weiter jede Minute; ohne Live-Kanal wie bisher alles
+  jede Minute, beim Wiederverbinden (Netzwechsel, Aufwachen) wird sofort nachgeholt. Die Seitenliste wird nur noch
+  bei Änderungen in den Zwischenspeicher geschrieben (bisher jede Minute komplett).
+- **Minutentakt zuverlässig:** Der Takt prüfte „App im Vordergrund?“ mit dem Stand vom Öffnen des Fensters – war die
+  App da noch nicht aktiv, fiel der Abgleich im Vordergrund ganz aus. Jetzt gilt der aktuelle Zustand.
+
 ### Behoben (iOS/iPadOS/macOS)
 - **Titelbild erscheint sofort:** Ein neu gewähltes Titelbild (Fotos) steht jetzt sofort da, noch während es
   hochgeladen wird – vorher blieb der Bereich oben leer, bis das verkleinerte Bild vom Server kam (bei langsamer

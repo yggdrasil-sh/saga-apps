@@ -139,7 +139,8 @@ extension DBModel {
     func rename(_ store: Store, row: Int, _ title: String) async {
         guard !readOnly else { return }                           // nur lesen (1.3)
         if let i = rows.firstIndex(where: { $0.id == row }) { rows[i].title = title }
-        do { _ = try await store.api("api/notes/\(row)", method: "PATCH", body: ["title": title]); await store.refresh() }
+        // Titel lokal in die Seitenliste (wie der Server ihn speichert: ohne Leerraum am Rand) statt alles neu zu laden
+        do { _ = try await store.api("api/notes/\(row)", method: "PATCH", body: ["title": title]); store.updateTitle(row, title.trimmingCharacters(in: .whitespacesAndNewlines)) }
         catch { self.error = error.localizedDescription }
     }
 }

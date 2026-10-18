@@ -1460,7 +1460,7 @@ struct ButtonsBlock: View {
         case "db":
             guard let t = target else { return }
             let title = ButtonLogic.title(b["title"] as? String ?? "", today: Date.now.sagaFormatted(date: .numeric, time: .omitted))
-            struct R: Decodable { let id: Int }
+            struct R: Decodable { let id: Int; let updated: Double? }
             let tpl = b["tpl"] as? Int
             var body: [String: Any] = ["parent_id": t]; if !title.isEmpty || tpl == nil { body["title"] = title }
             do {
@@ -1472,7 +1472,12 @@ struct ButtonsBlock: View {
                 store.dataChanged()
                 if title.isEmpty { nav.focusTitle = r.id }
                 nav.open(r.id, mode: b["open"] as? String ?? "")
-                Task { await store.refresh(quiet: true); store.dataChanged() }
+                if tpl == nil {                                     // neuer leerer Eintrag: lokal in die Seitenliste statt alles neu laden
+                    let p = Page.created(id: r.id, parent: t, title: title.trimmingCharacters(in: .whitespacesAndNewlines), updated: r.updated ?? Date().timeIntervalSince1970)
+                    Task { await store.insertCreated(p) }
+                } else {                                            // Vorlage (Inhalt/Symbol/Unterseiten kopiert): wie bisher neu laden
+                    Task { await store.refresh(quiet: true); store.dataChanged() }
+                }
             } catch {
                 problem = String(localized: "Eintrag nicht angelegt: \(error.localizedDescription)")
             }

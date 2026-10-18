@@ -18,6 +18,14 @@ struct RootView: View {
     #endif
     @StateObject private var nav = NavModel()
     @Environment(\.scenePhase) private var phase
+    /// Vordergrund fuer den Minutentakt: als @State, damit die lang laufende .task den AKTUELLEN Stand liest
+    /// (`phase` wird dort beim Start der Aufgabe eingefroren - war die App da noch nicht aktiv, fiel der Takt aus)
+    @State private var foreground = false
+    #if DEBUG
+    static let forceActive = UserDefaults.standard.bool(forKey: "hkForceActive")   // nur fuer Messungen: headless Simulator wird nie "aktiv"
+    #else
+    static let forceActive = false
+    #endif
     @AppStorage("hk.peekWidth") private var peekWidth: Double = 520
     @FocusState private var searchFocused: Bool
     @State private var newAsk: URL?                                  // fremder Link "neuen Eintrag anlegen": erst nach Rueckfrage
@@ -143,6 +151,7 @@ struct RootView: View {
         .onContinueUserActivity(CSSearchableItemActionType) { a in        // Spotlight-Treffer
             if let id = SpotlightIndex.pageID(a) { nav.peek = nil; nav.path = []; selection = id }
         }
+        .onChange(of: phase, initial: true) { _, p in foreground = p == .active || RootView.forceActive }
         .onChange(of: phase) { _, p in
             if p == .active { Task { await store.refresh(); store.live.start(); await store.calls.checkActive() } }       // im Web angelegte Seiten; Live nur im Vordergrund
             if p == .background { WidgetCenter.shared.reloadAllTimelines(); store.live.stop() }   // Widgets zeigen sofort den neuen Stand
@@ -175,7 +184,7 @@ struct RootView: View {
         .task {                                                          // alle 60 s, solange die App vorne ist (ein Takt fuer alle Fenster)
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(60))
-                if phase == .active { await store.periodicRefresh() }
+                if foreground { await store.periodicRefresh() }
             }
         }
         .task { await startup() }                                        // Start: laden, Live/Push/Chat, Testparameter
@@ -249,6 +258,10 @@ extension RootView {
         if UserDefaults.standard.bool(forKey: "hkAssistant") { try? await Task.sleep(for: .seconds(2)); showAssistant = true }
         if let l = UserDefaults.standard.string(forKey: "hkPairLink"), store.needsLogin || !AppConfig.hasServer,   // nur fuer Tests: ohne Rueckfrage koppeln
            let (srv, code) = Store.parsePairLink(l) { AppConfig.server = srv; try? await store.pair(server: srv, code: code) }   // gleicher Server: kein Abmelden vorher
+        if let l = UserDefaults.standard.string(forKey: "hkNewLink"), let u = URL(string: l) {    // nur fuer Messungen: Eintrag wie per
+            let wait = UserDefaults.standard.double(forKey: "hkNewLinkDelay")                          // Widget-Link anlegen (nach N s)
+            Task { try? await Task.sleep(for: .seconds(wait)); createFromLink(u) }
+        }
         if let v = UserDefaults.standard.string(forKey: "hkPeek"), let id = Int(v) {                 // nur fuer Tests: Peek oeffnen
             try? await Task.sleep(for: .seconds(2)); nav.open(id, mode: UserDefaults.standard.string(forKey: "hkPeekMode") ?? "side")
     }
