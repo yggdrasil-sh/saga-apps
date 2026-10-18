@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.1: Chats archivieren und loeschen (Texte wie die Web-Oberflaeche, saga/i18n) -->
+<resources>
+    <string name="chatdel_archive">Archivar</string>
+    <string name="chatdel_unarchive">Desarchivar</string>
+    <string name="chatdel_archived_n">Archivados (%1$d)</string>
+    <string name="chatdel_archived_done">Chat archivado: vuelve con el próximo mensaje.</string>
+    <string name="chatdel_unarchived_done">Chat desarchivado.</string>
+    <string name="chatdel_undo">Deshacer</string>
+    <string name="chatdel_delete">Eliminar chat …</string>
+    <string name="chatdel_title">¿Eliminar «%1$s»?</string>
+    <string name="chatdel_for_whom">¿Para quién eliminar?</string>
+    <string name="chatdel_just_me">Solo para mí</string>
+    <string name="chatdel_for_all">Para todos</string>
+    <string name="chatdel_for_all_history">Eliminar historial para todos</string>
+    <string name="chatdel_also_leave">Salir también del grupo</string>
+    <string name="chatdel_me_dm">El historial desaparece solo para ti, en todos tus dispositivos. %1$s lo conserva. El chat vuelve a aparecer en cuanto llegue un mensaje nuevo.</string>
+    <string name="chatdel_me_other">El historial desaparece solo para ti, en todos tus dispositivos; el chat se archiva. Los demás lo conservan.</string>
+    <string name="chatdel_all_dm">El chat se elimina para %1$s y para ti, con todos los mensajes, adjuntos y llamadas.</string>
+    <string name="chatdel_all_free">El grupo se elimina para todos los miembros, con todos los mensajes, adjuntos y llamadas.</string>
+    <string name="chatdel_all_history">Se eliminan todos los mensajes y adjuntos para todos los miembros. El chat en sí se mantiene mientras exista el grupo o la página.</string>
+    <string name="chatdel_warning">No se puede deshacer. Quien ya haya visto los mensajes puede tener copias.</string>
+    <string name="chatdel_recovery_note">Tampoco la clave de recuperación lo recupera.</string>
+    <string name="chatdel_reason_group">Solo los administradores de Saga pueden eliminar el historial para todos.</string>
+    <string name="chatdel_reason_page">Solo el propietario de la página puede eliminar el historial para todos.</string>
+    <string name="chatdel_reason_free">Solo los administradores de este grupo pueden eliminarlo para todos.</string>
+    <string name="chatdel_reason_other">No puedes eliminar este chat para todos.</string>
+    <string name="chatdel_confirm_me">Eliminar para mí</string>
+    <string name="chatdel_confirm_all">Eliminar para todos</string>
+    <string name="chatdel_done_me">Chat eliminado para ti.</string>
+    <string name="chatdel_done_me_archived">Historial eliminado para ti, chat archivado.</string>
+    <string name="chatdel_done_left">Historial eliminado, has salido del grupo.</string>
+    <string name="chatdel_done_all">Chat eliminado para todos.</string>
+    <string name="chatdel_done_all_history">Historial eliminado para todos.</string>
+    <string name="chatdel_by_chat">%1$s eliminó el chat.</string>
+    <string name="chatdel_by_history">%1$s eliminó el historial.</string>
+    <string name="chatdel_history_cleared">El historial anterior se eliminó.</string>
+    <string name="chatdel_actions">Acciones del chat</string>
+    <string name="chatdel_this_person">la otra persona</string>
+</resources>

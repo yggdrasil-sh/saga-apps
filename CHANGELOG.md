@@ -24,6 +24,22 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   wurde gelöscht.“ Archiv-Änderungen anderer Geräte erscheinen sofort.
 - Ältere Server ohne diese Funktionen: Archiv und Löschen sind ausgeblendet. Texte de/en/es, Logiktests.
 
+### Chats archivieren und löschen – Android
+- **Archivieren:** Wischen nach links, langes Drücken oder Chat-Menü → „Archivieren“ / „Aus Archiv holen“ (mit
+  „Rückgängig“). Archivierte Chats stehen im aufklappbaren Bereich „Archiviert (n)“ unten in der Liste, mit Zähler
+  der ungelesenen Nachrichten darin; der Ungelesen-Zähler in Navigation und Seitenleiste zählt sie nicht mit. Eine
+  neue Nachricht holt den Chat zurück (Server).
+- **„Chat löschen …“** (Chat-Menü, langes Drücken): „Nur für mich“ oder „Für alle“ – je nach Recht (`delete_for_all`)
+  der ganze Chat bzw. nur der Verlauf; ohne Recht ausgegraut mit Begründung. Bei freien Gruppen zusätzlich
+  „Gruppe außerdem verlassen“. Deutliche Warnung (nicht rückgängig, auch nicht mit dem Wiederherstellungsschlüssel).
+- **Lokale Daten wirklich weg:** Nach dem eigenen Löschen und bei `chat.removed` / `chat.cleared` (auch von einem
+  anderen eigenen Gerät) leert die App für den Chat bzw. bis `cleared_seq` die Nachrichten im Speicher,
+  entschlüsselte Vorschaubilder, den Plattencache (jetzt je Chat abgelegt), geöffnete Anhänge, Entwurf und
+  Antwort-Bezug sowie die System-Mitteilungen des Chats. Ein geöffneter Chat schließt sich, wenn er für alle bzw.
+  (Direkt-Chat) für mich gelöscht wurde; Hinweis „<Name> hat den Chat gelöscht.“ / „… den Verlauf gelöscht.“
+  (nicht bei eigenen Aktionen). Am Anfang des Verlaufs: „Der bisherige Verlauf wurde gelöscht.“
+- Ältere Server ohne diese Funktion: Einträge ausgeblendet, Liste wie bisher. Texte de/en/es wie im Web.
+
 ### KI-Persona und „KI im Chat – nur auf Zuruf“ – iOS, iPadOS, macOS
 - **Name und Profilbild der KI** überall, wo die App KI-Funktionen anbietet: „Frage Marin“ im Seitenmenü und in der
   Befehlspalette, Bild der KI als Knopf in der Kopfzeile, Antworten mit Bild und Namen, „Marin denkt nach …“.

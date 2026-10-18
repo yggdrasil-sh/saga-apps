@@ -130,6 +130,13 @@ data class ChatSummary(
     @SerialName("max_members") val maxMembers: Int? = null,
     /** 2.1: KI ist in diesem Chat erlaubt (nur auf Zuruf) */
     val ai: Boolean = false,
+    /** 2.1 Archiv: von mir archiviert; null = Server kennt Archiv/Loeschen nicht (Funktionen ausblenden) */
+    val archived: Boolean? = null,
+    @SerialName("archived_at") val archivedAt: Double? = null,
+    /** 2.1: "Verlauf gelöscht bis" - aeltere Nachrichten liefert der Server nicht mehr aus */
+    @SerialName("cleared_seq") val clearedSeq: Long = 0,
+    /** 2.1: was ich fuer alle loeschen darf: "chat" | "history" | null (nicht erlaubt) */
+    @SerialName("delete_for_all") val deleteForAll: String? = null,
 )
 
 @Serializable

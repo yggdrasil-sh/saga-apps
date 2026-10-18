@@ -1,7 +1,10 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -16,8 +19,17 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Badge
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -29,10 +41,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +61,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.chat.ChatDeleteLogic
 import io.github.yggdrasil_sh.saga.chat.ChatSetup
 import io.github.yggdrasil_sh.saga.chat.ChatSummary
 import io.github.yggdrasil_sh.saga.data.SagaRepository
@@ -56,6 +71,7 @@ import io.github.yggdrasil_sh.saga.ui.common.relativeTime
 import io.github.yggdrasil_sh.saga.ui.nav.AppNavigator
 import io.github.yggdrasil_sh.saga.ui.nav.Dest
 import io.github.yggdrasil_sh.saga.ui.notifications.Avatar
+import io.github.yggdrasil_sh.saga.util.UiText
 import kotlinx.coroutines.launch
 
 /**
@@ -110,6 +126,7 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
     val titles by svc.freeTitles.collectAsState()
     val loaded by svc.chatsLoaded.collectAsState()
     var newChat by remember { mutableStateOf(false) }
+    var showArchived by rememberSaveable { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val noBack = remember { AppNavigator() }                 // breite Ansicht: Liste ohne Zurueck-Pfeil
@@ -135,11 +152,22 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
                         )
                     }
                 }
-                if (loaded && chats.isEmpty()) {
+                // 2.1: archivierte Chats in einem eigenen, aufklappbaren Bereich unten (aeltere Server: alles wie bisher)
+                val (active, archived) = ChatDeleteLogic.split(chats)
+                if (loaded && active.isEmpty() && archived.isEmpty()) {
                     item { Text(stringResource(R.string.chat_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
                 }
-                items(chats, key = { it.id }) { c ->
-                    ChatRow(c, titles[c.id]?.takeIf { c.kind == "free" } ?: svc.displayName(c), c.id == selected) { onOpen(c.id) }
+                val nameOf = { c: ChatSummary -> titles[c.id]?.takeIf { c.kind == "free" } ?: svc.displayName(c) }
+                items(active, key = { it.id }) { c ->
+                    ChatListEntry(repo, c, nameOf(c), c.id == selected, onOpen, onDeleted = { if (c.id == selected) nav.top(Dest.Chats) })
+                }
+                if (archived.isNotEmpty()) {
+                    item(key = "archived-header") {
+                        ArchivedHeader(archived.size, ChatDeleteLogic.archivedUnread(archived), showArchived) { showArchived = !showArchived }
+                    }
+                    if (showArchived) items(archived, key = { it.id }) { c ->
+                        ChatListEntry(repo, c, nameOf(c), c.id == selected, onOpen, onDeleted = { if (c.id == selected) nav.top(Dest.Chats) })
+                    }
                 }
                 item { Box(Modifier.size(88.dp)) }
             }
@@ -148,8 +176,114 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
     if (newChat) NewChatDialog(repo, onDismiss = { newChat = false }) { id -> newChat = false; onOpen(id) }
 }
 
+/** Bereich "Archiviert (n)": aufklappbar, Zaehler der ungelesenen Nachrichten darin */
 @Composable
-private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, onClick: () -> Unit) {
+private fun ArchivedHeader(count: Int, unread: Int, open: Boolean, onToggle: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp).clip(RoundedCornerShape(16.dp))
+            .clickable(onClickLabel = stringResource(if (open) R.string.action_close else R.string.action_open), onClick = onToggle)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(painterResource(R.drawable.ic_archive), null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            stringResource(R.string.chatdel_archived_n, count), style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.weight(1f).padding(start = 16.dp),
+        )
+        if (unread > 0) {
+            val d = stringResource(R.string.notifications_unread_n, unread)
+            Badge(Modifier.semantics { contentDescription = d }, containerColor = MaterialTheme.colorScheme.outline, contentColor = MaterialTheme.colorScheme.onPrimary) {
+                Text(if (unread > 99) "99+" else "$unread")
+            }
+        }
+        Icon(
+            if (open) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown, null,
+            Modifier.padding(start = 8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * Eintrag der Chatliste mit Aktionen (2.1): Wischen nach links archiviert bzw. holt aus dem Archiv, langes Druecken
+ * oeffnet das Menue (Archivieren, Chat löschen …). Aeltere Server: nur Antippen.
+ */
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@Composable
+private fun ChatListEntry(repo: SagaRepository, c: ChatSummary, name: String, selected: Boolean, onOpen: (Long) -> Unit, onDeleted: () -> Unit) {
+    val svc = repo.chat
+    val supported = ChatDeleteLogic.supported(c)
+    var menu by remember { mutableStateOf(false) }
+    var delete by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val toggleArchive: () -> Unit = {
+        val to = c.archived != true
+        repo.launchAction {
+            svc.archive(c.id, to)
+            repo.notify(
+                UiText.Res(if (to) R.string.chatdel_archived_done else R.string.chatdel_unarchived_done),
+                UiText.Res(R.string.chatdel_undo),
+            ) { repo.launchAction { svc.archive(c.id, !to) } }
+        }
+    }
+    val row = @Composable {
+        Box {
+            ChatRow(c, name, selected, onClick = { onOpen(c.id) }, onLongClick = if (supported) ({ menu = true }) else null)
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(if (c.archived == true) R.string.chatdel_unarchive else R.string.chatdel_archive)) },
+                    leadingIcon = { Icon(painterResource(if (c.archived == true) R.drawable.ic_unarchive else R.drawable.ic_archive), null) },
+                    onClick = { menu = false; toggleArchive() },
+                )
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.chatdel_delete), color = MaterialTheme.colorScheme.error) },
+                    leadingIcon = { Icon(Icons.Filled.Delete, null, tint = MaterialTheme.colorScheme.error) },
+                    onClick = { menu = false; delete = true },
+                )
+            }
+        }
+    }
+    if (!supported) {
+        row()
+    } else {
+        // je Archiv-Zustand ein eigener Wisch-Zustand: der Eintrag wechselt danach den Bereich (anderer Platz in der
+        // Liste); ein gespeicherter "weggewischt"-Zustand darf beim Wiederauftauchen nicht erneut ausloesen
+        val state = key(c.archived == true) { rememberSwipeToDismissBoxState() }
+        SwipeToDismissBox(
+            state = state,
+            enableDismissFromStartToEnd = false,
+            onDismiss = {
+                // sofort zurueckschnappen (vor der Antwort des Servers, die den Eintrag verschiebt), dann ausfuehren
+                scope.launch { state.snapTo(SwipeToDismissBoxValue.Settled) }
+                toggleArchive()
+            },
+            backgroundContent = {
+                Row(
+                    Modifier.fillMaxSize().padding(horizontal = 8.dp).clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.secondaryContainer).padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End,
+                ) {
+                    Text(
+                        stringResource(if (c.archived == true) R.string.chatdel_unarchive else R.string.chatdel_archive),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.labelLarge,
+                    )
+                    Icon(
+                        painterResource(if (c.archived == true) R.drawable.ic_unarchive else R.drawable.ic_archive), null,
+                        Modifier.padding(start = 8.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                }
+            },
+        ) { Box(Modifier.background(MaterialTheme.colorScheme.surface)) { row() } }
+    }
+    if (delete) {
+        DeleteChatDialog(repo, c, name, onDismiss = { delete = false }, onDone = { delete = false; onDeleted() }) { all, leave ->
+            svc.deleteChat(c.id, all, leave)
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
     val kindLabel = when (c.kind) {
         "group" -> stringResource(R.string.chat_kind_group)
         "page" -> stringResource(R.string.chat_kind_page)
@@ -159,7 +293,10 @@ private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, onClick: ()
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 8.dp).clip(RoundedCornerShape(16.dp))
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)
-            .clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 10.dp),
+            .combinedClickable(
+                onClick = onClick, onLongClick = onLongClick,
+                onLongClickLabel = if (onLongClick != null) stringResource(R.string.chatdel_actions) else null,
+            ).padding(horizontal = 8.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Avatar(name, symbol = if (c.kind == "page") "📄" else null, size = 40, icon = if (c.kind == "group" || c.kind == "free") R.drawable.ic_group else null, avatar = if (c.kind == "dm") c.peer?.avatar else null)

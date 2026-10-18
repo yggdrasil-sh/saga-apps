@@ -148,7 +148,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             loadSummary()
             val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&limit=50&calls=1"))
             messages.clear()
-            messages.addAll(decryptAll(r))
+            messages.addAll(ChatDeleteLogic.keepAfter(decryptAll(r), summary?.clearedSeq ?: 0) { it.seq })
             more = r.more
             lastSeq = maxOf(r.lastSeq, messages.maxOfOrNull { it.seq } ?: 0)
             loadIdents()
@@ -173,7 +173,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
     suspend fun loadOlder() {
         val first = messages.firstOrNull()?.seq ?: return
         val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&before=$first&limit=50&calls=1"))
-        val older = decryptAll(r).filter { o -> messages.none { it.id == o.id } }
+        val older = ChatDeleteLogic.keepAfter(decryptAll(r), summary?.clearedSeq ?: 0) { it.seq }.filter { o -> messages.none { it.id == o.id } }
         messages.addAll(0, older)
         more = r.more
         resolveNotes()
@@ -191,7 +191,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
     suspend fun loadNewer() {
         val after = messages.lastOrNull()?.seq ?: lastSeq
         val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&after=$after&limit=200&calls=1"))
-        val newer = decryptAll(r).filter { n -> messages.none { it.id == n.id } }
+        val newer = ChatDeleteLogic.keepAfter(decryptAll(r), summary?.clearedSeq ?: 0) { it.seq }.filter { n -> messages.none { it.id == n.id } }
         messages.addAll(newer)
         lastSeq = maxOf(lastSeq, r.lastSeq)
         if (newer.isNotEmpty()) {
@@ -310,7 +310,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                             val (tblob, tkey) = withContext(Dispatchers.Default) { svc.crypto.encryptFile(cid, t.jpeg) }
                             val tid = decode<FileUploaded>(api.postBytes("api/chats/$chatId/files", tblob)).id
                             file = file.copy(th = ChatThumb(tid, b64(tkey), "image/jpeg", t.w, t.h, t.jpeg.size.toLong()))
-                            withContext(Dispatchers.IO) { svc.blobs.put(tid, tblob) }      // eigenes Bild sofort aus dem Cache
+                            withContext(Dispatchers.IO) { svc.blobs.put(ChatBlobCache.key(chatId, tid), tblob) }      // eigenes Bild sofort aus dem Cache
                         }
                     }
                 }
@@ -523,6 +523,39 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         loadSummary()
     }
 
+    // ---------------------------------------------------------------- Archiv und Loeschen (2.1)
+
+    /** Server kann Archiv/Loeschen (sonst Menue-Eintraege ausblenden) */
+    val canArchive: Boolean get() = ChatDeleteLogic.supported(summary)
+
+    /** Chat wurde fuer alle geloescht bzw. (Direkt-Chat) fuer mich geleert: Ansicht schliessen */
+    var closed by mutableStateOf(false)
+        private set
+
+    /** hochgezaehlt, wenn der Entwurf (Eingabe, Anhaenge) verworfen werden soll */
+    var draftReset by mutableStateOf(0)
+        private set
+
+    suspend fun setArchived(archived: Boolean) {
+        summary = svc.archive(chatId, archived)
+    }
+
+    /** "Chat löschen …" -> Ergebnis; danach ist der lokale Zwischenspeicher dieses Chats geleert */
+    suspend fun deleteChat(forAll: Boolean, leave: Boolean): ChatDeleteResult {
+        val sum = summary
+        val r = svc.deleteChat(chatId, forAll, leave && sum?.kind == "free" && !forAll)
+        wipe(Long.MAX_VALUE, draft = true)                  // die Ansicht schliesst danach; nichts Geloeschtes bleibt
+        return r
+    }
+
+    /** Lokale Nachrichten bis upTo verwerfen (inkl. Antwort-Bezug), optional den Entwurf */
+    fun wipe(upTo: Long, draft: Boolean) {
+        messages.removeAll { it.seq <= upTo }
+        if (replyTo?.let { it.seq <= upTo } == true) replyTo = null
+        if (messages.isEmpty()) more = false
+        if (draft) draftReset++
+    }
+
     suspend fun leave() {
         api.delete("api/chats/$chatId/members/$me")
         svc.loadChats()
@@ -539,7 +572,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
     suspend fun thumb(f: ChatFile): androidx.compose.ui.graphics.ImageBitmap? =
         svc.thumbs.load(chatId, f, (svc.me.value?.limits ?: ChatLimits()).fileMax)
 
-    fun cachedThumb(f: ChatFile): androidx.compose.ui.graphics.ImageBitmap? = svc.thumbs.cached(f)
+    fun cachedThumb(f: ChatFile): androidx.compose.ui.graphics.ImageBitmap? = svc.thumbs.cached(chatId, f)
 
     suspend fun download(f: ChatFile): ByteArray {
         val blob = api.getBytes("api/chat/files/${f.id}")
@@ -578,6 +611,18 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                 val user = (u?.get("username") as? JsonPrimitive)?.content ?: return
                 val name = (u["name"] as? JsonPrimitive)?.content ?: user
                 if (user != me) typing = typing + (user to (name to System.currentTimeMillis() + 6_000))
+            }
+            "chat.removed", "chat.cleared" -> {
+                val w = ChatDeleteLogic.parse(ev.type, ev.data, me) ?: return
+                if (ChatDeleteLogic.closes(w, summary?.kind)) {
+                    wipe(Long.MAX_VALUE, draft = true)
+                    closed = true
+                    return
+                }
+                val c = w as ChatWipe.Cleared
+                // "Für alle": alles weg, eigener Entwurf bleibt; "nur für mich" (anderes Geraet): auch der Entwurf
+                wipe(c.upTo, draft = !c.forAll)
+                quietly { loadSummary() }
             }
             "chat.changed" -> {
                 try {

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.1: Chats archivieren und loeschen (Texte wie die Web-Oberflaeche, saga/i18n) -->
+<resources>
+    <string name="chatdel_archive">Archivieren</string>
+    <string name="chatdel_unarchive">Aus Archiv holen</string>
+    <string name="chatdel_archived_n">Archiviert (%1$d)</string>
+    <string name="chatdel_archived_done">Chat archiviert – er kommt mit der nächsten Nachricht zurück.</string>
+    <string name="chatdel_unarchived_done">Chat aus dem Archiv geholt.</string>
+    <string name="chatdel_undo">Rückgängig</string>
+    <string name="chatdel_delete">Chat löschen …</string>
+    <string name="chatdel_title">„%1$s“ löschen?</string>
+    <string name="chatdel_for_whom">Für wen löschen?</string>
+    <string name="chatdel_just_me">Nur für mich</string>
+    <string name="chatdel_for_all">Für alle</string>
+    <string name="chatdel_for_all_history">Verlauf für alle löschen</string>
+    <string name="chatdel_also_leave">Gruppe außerdem verlassen</string>
+    <string name="chatdel_me_dm">Der Verlauf verschwindet nur bei dir, auf allen deinen Geräten. %1$s behält ihn. Der Chat erscheint wieder, sobald eine neue Nachricht kommt.</string>
+    <string name="chatdel_me_other">Der Verlauf verschwindet nur bei dir, auf allen deinen Geräten; der Chat wird archiviert. Die anderen behalten ihn.</string>
+    <string name="chatdel_all_dm">Der Chat wird für %1$s und dich gelöscht – mit allen Nachrichten, Anhängen und Anrufen.</string>
+    <string name="chatdel_all_free">Die Gruppe wird für alle Mitglieder gelöscht – mit allen Nachrichten, Anhängen und Anrufen.</string>
+    <string name="chatdel_all_history">Alle Nachrichten und Anhänge werden für alle Mitglieder gelöscht. Der Chat selbst bleibt, solange es die Gruppe bzw. Seite gibt.</string>
+    <string name="chatdel_warning">Das lässt sich nicht rückgängig machen. Wer Nachrichten schon gesehen hat, kann Kopien davon haben.</string>
+    <string name="chatdel_recovery_note">Auch der Wiederherstellungsschlüssel holt ihn nicht zurück.</string>
+    <string name="chatdel_reason_group">Den Verlauf für alle löschen können nur Saga-Admins.</string>
+    <string name="chatdel_reason_page">Den Verlauf für alle löschen kann nur, wem die Seite gehört.</string>
+    <string name="chatdel_reason_free">Nur Admins dieser Gruppe können sie für alle löschen.</string>
+    <string name="chatdel_reason_other">Diesen Chat kannst du nicht für alle löschen.</string>
+    <string name="chatdel_confirm_me">Für mich löschen</string>
+    <string name="chatdel_confirm_all">Für alle löschen</string>
+    <string name="chatdel_done_me">Chat für dich gelöscht.</string>
+    <string name="chatdel_done_me_archived">Verlauf für dich gelöscht, Chat archiviert.</string>
+    <string name="chatdel_done_left">Verlauf gelöscht, Gruppe verlassen.</string>
+    <string name="chatdel_done_all">Chat für alle gelöscht.</string>
+    <string name="chatdel_done_all_history">Verlauf für alle gelöscht.</string>
+    <string name="chatdel_by_chat">%1$s hat den Chat gelöscht.</string>
+    <string name="chatdel_by_history">%1$s hat den Verlauf gelöscht.</string>
+    <string name="chatdel_history_cleared">Der bisherige Verlauf wurde gelöscht.</string>
+    <string name="chatdel_actions">Aktionen für den Chat</string>
+    <string name="chatdel_this_person">die andere Person</string>
+</resources>
