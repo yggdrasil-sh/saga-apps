@@ -31,7 +31,8 @@ mit dem Funktionsumfang der Mac-App:
 - Aufgaben, Termine (CalDAV), Dienste, Befehlspalette (Strg+K), Einstellungen
 - Bleibt angemeldet: Geräte-Schlüssel im GNOME-Schlüsselbund (libsecret), Sitzung wird still erneuert
 - GNOME-Suche (Seiten in der Aktivitäten-Übersicht), Dock-Aktionen „Neue Seite“ / „Neue Aufgabe“
-- Sprachen: Deutsch, Englisch, Spanisch – nach der Systemsprache, sonst Englisch
+- Sprachen: Deutsch, Englisch, Spanisch, Russisch, Thai – nach der Systemsprache oder in den Einstellungen gewählt, sonst Englisch
+  (Russisch und Thai maschinell übersetzt, Gegenlesen willkommen; Thai braucht eine Thai-Schrift, z. B. Noto Sans Thai)
 
 App-ID: `io.github.yggdrasil_sh.Saga` · Paket und Befehl: `hlidskjalf` · Lizenz: AGPL-3.0
 
@@ -45,7 +46,8 @@ sudo dnf install ./dist/saga-*.noarch.rpm
 
 Benötigt: gtk4 ≥ 4.16, libadwaita ≥ 1.6, python3-gobject, gobject-introspection, libsecret, python3-pillow (auf AlmaLinux/RHEL 10 aus EPEL),
 python3-pynacl ≥ 1.5 (Chats; AlmaLinux/RHEL 10 aus EPEL),
-google-noto-color-emoji-fonts (Seitensymbole sind Emoji; fehlt die Schrift, zeigt die App ein einfarbiges Ersatzsymbol).
+google-noto-color-emoji-fonts (Seitensymbole sind Emoji; fehlt die Schrift, zeigt die App ein einfarbiges Ersatzsymbol);
+empfohlen für Thai: eine Thai-Schrift (`font(notosansthai)`, Fedora/AlmaLinux: Noto Sans Thai).
 `HK_RELEASE=2 sh build-rpm.sh` setzt die Release-Nummer (Standard 1). Die Version steht in `hlidskjalf/__init__.py`
 und wird für alle Apps mit `tools/set-version.sh` gesetzt. Das Paket heißt im RPM `hlidskjalf` (Befehl `hlidskjalf`),
 die Datei in `dist/` trägt zur Orientierung den Namen `saga`. In CI genügt ein Container `almalinux:10` oder
@@ -78,7 +80,7 @@ sie beim Start aus dem Quellordner findet. Andere Sprache zum Ausprobieren: `LAN
 
 Standard-gettext, Domain `io.github.yggdrasil_sh.Saga`. Die Texte im Quellcode sind englisch (`_("…")`,
 `ngettext("…", "…", n)`, Platzhalter als `{name}` mit `str.format`); die Kataloge liegen in `po/`
-(`saga.pot`, `de.po`, `es.po`, Sprachen in `po/LINGUAS`). Datum und Zahlen kommen aus der Systemsprache
+(`saga.pot`, `de.po`, `es.po`, `ru.po`, `th.po`, Sprachen in `po/LINGUAS`). Datum und Zahlen kommen aus der Systemsprache
 (`GLib.DateTime.format`, `locale`), die Formate selbst sind übersetzbar (`util.py`).
 
 ```sh
@@ -161,5 +163,5 @@ Die Tests laufen standardmäßig deutsch (`HK_LANG`, Standard `de_DE.UTF-8`; die
 `sprachen.py` prüft die Sprache des Anmeldebildschirms und der Startseite:
 
 ```sh
-for l in en_US de_DE es_ES; do HK_LANG=$l.UTF-8 sh tools/linux-test.sh linux/tests/sprachen.py; done
+for l in en_US de_DE es_ES ru_RU th_TH; do HK_LANG=$l.UTF-8 sh tools/linux-test.sh linux/tests/sprachen.py; done
 ```

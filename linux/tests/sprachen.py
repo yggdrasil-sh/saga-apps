@@ -1,5 +1,5 @@
-# Sprachen: die App zeigt die Sprache aus LANG (de, es, sonst Englisch). Einmal je Sprache laufen lassen:
-#   for l in en_US de_DE es_ES; do HK_LANG=$l.UTF-8 sh tools/linux-test.sh linux/tests/sprachen.py; done
+# Sprachen: die App zeigt die Sprache aus LANG (de, es, ru, th, sonst Englisch). Einmal je Sprache laufen lassen:
+#   for l in en_US de_DE es_ES ru_RU th_TH; do HK_LANG=$l.UTF-8 sh tools/linux-test.sh linux/tests/sprachen.py; done
 # Stichprobe: Anmeldebildschirm (Titel, Knopf, Feld, Hinweise), Seitenleiste, Fenstertitel, Datum und Zahl.
 import os
 
@@ -15,8 +15,14 @@ EXPECT = {
     "de": {"button": "Anmelden", "server": "Server-Adresse", "today": "Heute", "desc": "Anmelden mit Passkey", "search": "Seiten durchsuchen"},
     "es": {"button": "Iniciar sesión", "server": "Dirección del servidor", "today": "Hoy", "desc": "Inicia sesión con una llave",
            "search": "Buscar páginas"},
+    "ru": {"button": "Войти", "server": "Адрес сервера", "today": "Сегодня", "desc": "Войди с помощью ключа доступа",
+           "search": "Поиск страниц"},
+    "th": {"button": "เข้าสู่ระบบ", "server": "ที่อยู่เซิร์ฟเวอร์", "today": "วันนี้", "desc": "เข้าสู่ระบบด้วยพาสคีย์",
+           "search": "ค้นหาหน้า"},
 }.get(LANG) or {}
-WRONG = {"en": ("Anmelden", "Iniciar sesión"), "de": ("Sign in", "Iniciar sesión"), "es": ("Sign in", "Anmelden")}.get(LANG, ())
+BUTTONS = {"en": "Sign in", "de": "Anmelden", "es": "Iniciar sesión", "ru": "Войти", "th": "เข้าสู่ระบบ"}
+WRONG = tuple(v for k, v in BUTTONS.items() if k != LANG) if LANG in BUTTONS else ()
+CATALOGS = ("de", "es", "ru", "th")                  # Sprachen mit Katalog (po/LINGUAS)
 S = {"err": []}
 
 
@@ -41,11 +47,11 @@ def s1(g):
     print("LANG:", os.environ.get("LANG"), "App-Sprache:", APP_LANG or "-", "LANGUAGE:", os.environ.get("LANGUAGE"),
           "Katalog:", i18n.LOCALEDIR, "Sprache:", i18n.ui_language(), flush=True)
     from hlidskjalf import api
-    check("Accept-Language", api.ACCEPT_LANGUAGE, LANG if LANG in ("de", "es") else "en")
+    check("Accept-Language", api.ACCEPT_LANGUAGE, LANG if LANG in CATALOGS else "en")
     if APP_LANG:
         check("LANGUAGE (GTK)", os.environ.get("LANGUAGE"), APP_LANG)
         check("Einstellung", i18n.chosen_language(), APP_LANG)
-    if LANG in ("de", "es") and not i18n.LOCALEDIR:
+    if LANG in CATALOGS and not i18n.LOCALEDIR:
         S["err"].append("kein Katalog gefunden")
         print("FEHLER kein Katalog (.mo) gefunden", flush=True)
     win.stack.set_visible_child_name("login")
@@ -72,6 +78,9 @@ def s2(g):
     check("Suche Seitenleiste", win.sidebar.search.get_placeholder_text(), EXPECT.get("search"))
     print("Datum 2026-10-12:", day_text("2026-10-12"), "· Wochentage:", weekday_names(), "· Zahl:", num_text(1234.5),
           "· Prozent:", num_text(42, "percent"), "· Euro:", num_text(12.5, "euro"), flush=True)
+    # Datum mit Jahr: immer gregorianisch (Thai: 2025, nicht 2568 nach buddhistischer Zeitrechnung)
+    d = day_text("2025-10-12")
+    check("Jahr gregorianisch", "2025" in d and "2568" not in d, True)
 
 
 def s3(g):

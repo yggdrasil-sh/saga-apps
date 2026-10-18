@@ -4,7 +4,7 @@
 #   sh tests/run-container.sh                 -> startet fedora:44 (podman oder docker) und laeuft dort alles
 #   sh tests/run-container.sh lint unit       -> nur diese Teile (lint | unit | ui | lang | shots | all)
 #     lint: pyflakes, compileall, msgfmt, desktop-file-validate, appstreamcli   unit: pytest (tests/test_*.py)
-#     ui: App startet (smoke.py)   lang: sprachen.py fuer de/en/es   shots: Bildschirmfotos (shots.py, dialoge.py, pubshots.py, ...)
+#     ui: App startet (smoke.py)   lang: sprachen.py fuer de/en/es/ru/th   shots: Bildschirmfotos (shots.py, dialoge.py, pubshots.py, ...)
 #   sh tests/run-container.sh --inside ...    -> direkt hier laufen (im Container oder auf einem Fedora-Rechner mit den Paketen)
 #   PYTEST_ADDOPTS="-k konflikt" ...           -> nur passende pytest-Tests
 # Bildschirmfotos (Teil "shots"): build/shots/ im Linux-Ordner. Bild: HK_IMAGE (Standard fedora:44).
@@ -23,12 +23,13 @@ case " $PARTS " in *" all "*) PARTS="lint unit ui lang shots" ;; esac
 # google-noto-color-emoji-fonts: wie im RPM (Requires) - Seitensymbole und Hinweise sind Emoji
 #   python3-pynacl: Chat-Kryptografie (libsodium), wie im RPM (Requires)
 #   gstreamer1-plugins-good: Klingelton bei Anrufen (WAV), wie im RPM (Recommends)
+#   font(notosansthai): Thai-Schrift, wie im RPM (Recommends) - sonst Ersatzkaestchen in den Thai-Bildern
 if ! python3 -c "import gi, pytest, pyflakes, nacl; gi.require_version('Adw', '1')" 2>/dev/null || ! command -v Xvfb >/dev/null \
-    || ! fc-list 2>/dev/null | grep -qi "color emoji"; then
+    || ! fc-list 2>/dev/null | grep -qi "color emoji" || ! fc-list :lang=th 2>/dev/null | grep -q . || ! locale -a | grep -q th_TH; then
   echo "== Pakete installieren"
   dnf -y -q install python3-gobject gtk4 libadwaita libsecret python3-pillow python3-pynacl xorg-x11-server-Xvfb dbus-daemon dbus-tools \
-    glibc-langpack-de glibc-langpack-es glibc-langpack-en gettext python3-pyflakes python3-pytest appstream desktop-file-utils adwaita-icon-theme \
-    google-noto-color-emoji-fonts gstreamer1-plugins-good >/dev/null
+    glibc-langpack-de glibc-langpack-es glibc-langpack-en glibc-langpack-ru glibc-langpack-th gettext python3-pyflakes python3-pytest appstream desktop-file-utils adwaita-icon-theme \
+    google-noto-color-emoji-fonts 'font(notosansthai)' gstreamer1-plugins-good >/dev/null
 fi
 
 # Arbeitskopie: der Quellordner bleibt sauber (nur build/shots wird zurueckgeschrieben)
@@ -89,11 +90,13 @@ for part in $PARTS; do
       app_test smoke.py
       ;;
     lang)
-      for l in de_DE.UTF-8 en_US.UTF-8 es_ES.UTF-8; do app_test sprachen.py "$l"; done
+      for l in de_DE.UTF-8 en_US.UTF-8 es_ES.UTF-8 ru_RU.UTF-8 th_TH.UTF-8; do app_test sprachen.py "$l"; done
       # In der App gewaehlte Sprache hat Vorrang vor der Systemsprache (fremder Rechner)
       HK_APP_LANGUAGE=es app_test sprachen.py de_DE.UTF-8
       HK_APP_LANGUAGE=en app_test sprachen.py de_DE.UTF-8
       HK_APP_LANGUAGE=de app_test sprachen.py es_ES.UTF-8
+      HK_APP_LANGUAGE=th app_test sprachen.py de_DE.UTF-8
+      HK_APP_LANGUAGE=ru app_test sprachen.py th_TH.UTF-8
       app_test sprachwahl.py de_DE.UTF-8                 # Einstellungen -> Sprache: Auswahl, Neustart-Hinweis
       ;;
     v2shots)                                             # nur die Saga-2.0-Bildschirmfotos
@@ -119,6 +122,11 @@ for part in $PARTS; do
       HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test v21bshots.py es_ES.UTF-8
       HK_OUT="$SRC/build/shots" app_test chatdelshots.py
       HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test chatdelshots.py es_ES.UTF-8
+      for l in th_TH.UTF-8 ru_RU.UTF-8; do HK_OUT="$SRC/build/shots" app_test thrushots.py "$l"; done
+      ;;
+    thrushots)                                           # nur die Bilder zu Thai und Russisch (Schrift, Umbruch, Laenge)
+      mkdir -p "$SRC/build/shots"
+      for l in th_TH.UTF-8 ru_RU.UTF-8; do HK_OUT="$SRC/build/shots" app_test thrushots.py "$l"; done
       ;;
     chatdelshots)                                        # nur die Bilder zu "Chats archivieren und loeschen" (2.1)
       mkdir -p "$SRC/build/shots"

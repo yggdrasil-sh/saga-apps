@@ -6,6 +6,21 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Thai und Russisch – Linux
+- **Neue App-Sprachen:** Thai (ไทย) und Russisch (Русский) – alle 1192 Texte, Pluralformen nach gettext-Standard
+  (Russisch drei Formen, Thai eine), informelles „ты“ im Russischen, neutral-höfliches Thai. Maschinell übersetzt –
+  Gegenlesen durch Muttersprachler empfohlen.
+- **Sprachwahl:** Einstellungen → Allgemein → App-Sprache bietet zusätzlich „Русский“ und „ไทย“; Anfragen an den Server
+  schicken die gewählte Sprache als `Accept-Language` mit. Desktop-Datei und AppStream-Metadaten (Name, Beschreibung,
+  Stichwörter, Dock-Aktionen) auch auf Thai und Russisch; RPM und Flatpak bauen die neuen Kataloge automatisch mit.
+- **Datum:** Thai immer gregorianisch (2026, nicht 2569 nach buddhistischer Zeitrechnung), Tag vor Monat; Russisch mit
+  Monatsnamen im Nominativ über dem Kalender („Октябрь 2026“). Datumswörter im Editor verstehen jetzt auch
+  „сегодня/завтра/послезавтра/вчера“, „в пятницу“, „завтра в 9:00“ und „วันนี้/พรุ่งนี้/มะรืนนี้/เมื่อวาน“, „วันศุกร์“.
+- **Schrift:** Das RPM empfiehlt eine Thai-Schrift (`font(notosansthai)`, Noto Sans Thai) – ohne sie erschienen
+  Ersatzkästchen. Tests: Sprachprüfung für th/ru (auch als in der App gewählte Sprache), Bildschirmfotos
+  (`tests/thrushots.py`: Anmelden, Editor, Einstellungen, Chatliste, Chat, KI, Löschen – breit und schmal) mit Prüfung,
+  dass Thai ohne fehlende Glyphen gesetzt wird.
+
 ### Chats archivieren und löschen – iOS, iPadOS, macOS
 - **Archivieren / Aus Archiv holen** (nur für mich): Wischgeste in der Chatliste (iPhone/iPad), Kontextmenü (Mac, iPad,
   langes Drücken) und im Chat-Menü „⋯“. Archivierte Chats stehen im aufklappbaren Bereich „Archiviert (n)“ unten in

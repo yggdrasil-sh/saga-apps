@@ -15,7 +15,7 @@ from . import config
 from .i18n import _, ui_language
 
 COOKIE_FILE = os.path.join(config.DATA_DIR, "cookies.json")
-ACCEPT_LANGUAGE = {"de": "de, en;q=0.5", "es": "es, en;q=0.5"}.get(ui_language(), "en")
+ACCEPT_LANGUAGE = {"de": "de, en;q=0.5", "es": "es, en;q=0.5", "ru": "ru, en;q=0.5", "th": "th, en;q=0.5"}.get(ui_language(), "en")
 
 
 SWITCHED = -1      # APIError.code: inzwischen anderer Server/anderes Konto - nichts gesendet (Entwurf bleibt)

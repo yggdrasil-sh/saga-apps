@@ -1,4 +1,4 @@
-# Einstellungen -> Allgemein -> Sprache: Auswahl Automatisch/Deutsch/English/Español, Neustart-Hinweis, Speichern in settings.json
+# Einstellungen -> Allgemein -> Sprache: Auswahl Automatisch/Deutsch/English/Español/Русский/ไทย, Neustart-Hinweis, Speichern in settings.json
 #   im Container: sh tests/run-container.sh lang   (Bildschirmfotos im Teil "shots")
 import os
 import sys
@@ -41,6 +41,8 @@ def opened(g):
     check("Titel", d.lang.get_title(), i18n._("App language"))
     if LANG == "de":
         check("Titel uebersetzt", d.lang.get_title(), "App-Sprache")
+    m = d.lang.get_model()
+    check("Auswahl", [m.get_string(i) for i in range(1, m.get_n_items())], ["Deutsch", "English", "Español", "Русский", "ไทย"])
     shoot(g, "60-sprache-einstellung")
     d.lang.set_selected(3)                                   # Español
 
