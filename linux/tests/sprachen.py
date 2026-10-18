@@ -16,7 +16,7 @@ EXPECT = {
     "es": {"button": "Iniciar sesión", "server": "Dirección del servidor", "today": "Hoy", "desc": "Inicia sesión con una llave",
            "search": "Buscar páginas"},
     "ru": {"button": "Войти", "server": "Адрес сервера", "today": "Сегодня", "desc": "Войди с помощью ключа доступа",
-           "search": "Поиск страниц"},
+           "search": "Поиск по страницам"},
     "th": {"button": "เข้าสู่ระบบ", "server": "ที่อยู่เซิร์ฟเวอร์", "today": "วันนี้", "desc": "เข้าสู่ระบบด้วยพาสคีย์",
            "search": "ค้นหาหน้า"},
 }.get(LANG) or {}

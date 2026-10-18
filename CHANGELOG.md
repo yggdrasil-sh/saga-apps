@@ -7,6 +7,10 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 ## [Unveröffentlicht]
 
 ### Thai und Russisch – Linux
+- **Begriffe wie im Web:** Thai und Russisch verwenden dieselben Fachbegriffe wie Web und Server (z. B. Koppeln
+  „связать“, Profilbild „изображение профиля“, Löschen „у меня“/„у всех“; Thai „การสนทนา“ für Threads,
+  „เก็บเข้าคลัง“ für Archiv, „เข้าสู่ระบบ“ für Anmelden); Sätze, die es auch im Web gibt, lauten gleich. Russisch ohne
+  männliche Formen für Personen. Gegenlesen durch Muttersprachler weiterhin empfohlen.
 - **Neue App-Sprachen:** Thai (ไทย) und Russisch (Русский) – alle 1192 Texte, Pluralformen nach gettext-Standard
   (Russisch drei Formen, Thai eine), informelles „ты“ im Russischen, neutral-höfliches Thai. Maschinell übersetzt –
   Gegenlesen durch Muttersprachler empfohlen.
