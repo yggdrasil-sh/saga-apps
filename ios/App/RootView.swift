@@ -602,7 +602,7 @@ struct TodaySection: View {
         let today = isoToday()
         return Array(store.tasks.filter { t -> Bool in let d = t.due ?? ""; return d.isEmpty || d <= today }.prefix(5))
     }
-    private func isoToday() -> String { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: .now) }
+    private func isoToday() -> String { let f = DateFormatter.isoDay(); return f.string(from: .now) }
 }
 
 /// Eine Seite: Editor als Web-Ansicht im schlanken Einbettungsmodus (ohne Web-Kopfzeile/-Seitenleiste)

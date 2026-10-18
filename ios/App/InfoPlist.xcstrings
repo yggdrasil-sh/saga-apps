@@ -5,22 +5,34 @@
       "comment" : "Info.plist",
       "extractionState" : "manual",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Take photos for notes, scan QR codes to sign in and make video calls"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Fotos für Notizen aufnehmen, QR-Codes zum Anmelden scannen und Videoanrufe führen"
           }
         },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take photos for notes, scan QR codes to sign in and make video calls"
+          }
+        },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hacer fotos para notas, escanear códigos QR para iniciar sesión y hacer videollamadas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Фото для заметок, сканирование QR-кодов для входа и видеозвонки"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ถ่ายรูปสำหรับโน้ต สแกนคิวอาร์โค้ดเพื่อเข้าสู่ระบบ และวิดีโอคอล"
           }
         }
       }
@@ -29,22 +41,34 @@
       "comment" : "Info.plist",
       "extractionState" : "manual",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Save images from notes"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bilder aus Notizen sichern"
           }
         },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save images from notes"
+          }
+        },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Guardar imágenes de las notas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сохранение изображений из заметок"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บันทึกรูปภาพจากโน้ต"
           }
         }
       }
@@ -53,22 +77,34 @@
       "comment" : "Info.plist",
       "extractionState" : "manual",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Talk in audio and video calls"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "In Audio- und Videoanrufen sprechen"
           }
         },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Talk in audio and video calls"
+          }
+        },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Hablar en llamadas de audio y vídeo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Разговор в аудио- и видеозвонках"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พูดคุยในการโทรด้วยเสียงและวิดีโอ"
           }
         }
       }

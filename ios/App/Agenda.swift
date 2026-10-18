@@ -1,6 +1,6 @@
 import SwiftUI
 
-private let isoDayF: DateFormatter = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f }()
+private let isoDayF: DateFormatter = DateFormatter.isoDay()
 private func dayKey(_ d: Date) -> String { isoDayF.string(from: d) }
 let repeatNames: [(String?, String)] = [(nil, String(localized: "Nie")), ("daily", String(localized: "Täglich")), ("weekdays", String(localized: "Werktags")), ("weekly", String(localized: "Wöchentlich")), ("monthly", String(localized: "Monatlich")), ("yearly", String(localized: "Jährlich"))]
 
@@ -154,10 +154,10 @@ struct EventRow: View {
         }.contentShape(Rectangle())
     }
     private var when: String {
-        let day = Date.FormatStyle.dateTime.weekday(.abbreviated).day().month(.abbreviated)      // Format der Systemsprache
+        let day = SagaDate.dateTime().weekday(.abbreviated).day().month(.abbreviated)      // Format der App-Sprache, gregorianisch
         var s: String
         if e.allday { s = (showDay ? (isoDayF.date(from: e.start).map { $0.formatted(day) + " · " } ?? "") : "") + String(localized: "ganztägig") }
-        else { s = Self.iso.date(from: e.start).map { showDay ? $0.formatted(day.hour().minute()) : $0.formatted(date: .omitted, time: .shortened) } ?? e.start }
+        else { s = Self.iso.date(from: e.start).map { showDay ? $0.formatted(day.hour().minute()) : $0.sagaFormatted(date: .omitted, time: .shortened) } ?? e.start }
         if let l = e.location, !l.isEmpty { s += " · " + l }
         return s
     }

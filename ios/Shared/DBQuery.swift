@@ -82,7 +82,7 @@ struct DBQuery {
         if p.type == "edited" { return isoDay(r.updated) }
         return r.props[p.id]?.base
     }
-    private func isoDay(_ ts: Double) -> String { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: Date(timeIntervalSince1970: ts)) }
+    private func isoDay(_ ts: Double) -> String { let f = DateFormatter.isoDay(); return f.string(from: Date(timeIntervalSince1970: ts)) }
 
     func rows(for view: [String: Any]?) -> [DBRow] {
         let filters = view?["filters"] as? [[String: Any]] ?? []
@@ -136,7 +136,7 @@ struct DBQuery {
     static func relDate(_ op: String, _ v: Any?) -> Bool {
         var day: Date?
         if let s = v as? String, s.count >= 10 {
-            let f = DateFormatter(); f.calendar = Calendar(identifier: .gregorian); f.dateFormat = "yyyy-MM-dd"; f.timeZone = .current
+            let f = DateFormatter.isoDay(); f.timeZone = .current
             day = f.date(from: String(s.prefix(10)))
         } else if let t = v as? Double { day = Date(timeIntervalSince1970: t) }
         else if let t = v as? Int { day = Date(timeIntervalSince1970: Double(t)) }

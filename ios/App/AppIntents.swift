@@ -18,7 +18,7 @@ struct AddTaskIntent: AppIntent {
     func perform() async throws -> some IntentResult & ProvidesDialog {
         try await API.capture(kind: "task", title: text, text: "", url: nil, due: due)
         if let due {
-            let when = due.formatted(.dateTime.weekday(.wide).day().month(.wide))
+            let when = due.formatted(SagaDate.dateTime().weekday(.wide).day().month(.wide))
             return .result(dialog: "Aufgabe „\(text)“ angelegt – fällig \(when).")
         }
         return .result(dialog: "Aufgabe „\(text)“ angelegt.")

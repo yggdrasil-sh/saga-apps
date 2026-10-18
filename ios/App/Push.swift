@@ -291,7 +291,7 @@ struct PushSettingsSection: View {
                             Text(verbatim: Self.serviceText(d) + (d.encrypted ? "" : " · " + String(localized: "ohne Namen (Server sieht den Text)"))).font(.caption).foregroundStyle(.secondary)
                             Group {
                                 if let e = d.lastError { Text("Letzter Fehler: \(e)") }
-                                else if let ok = d.lastOK { Text("Zuletzt zugestellt \(Date(timeIntervalSince1970: ok).formatted(.relative(presentation: .named)))") }
+                                else if let ok = d.lastOK { Text("Zuletzt zugestellt \(Date(timeIntervalSince1970: ok).sagaRelative)") }
                                 else { Text("Noch nichts zugestellt") }
                             }.font(.caption).foregroundStyle(.secondary)
                         }

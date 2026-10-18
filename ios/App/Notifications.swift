@@ -166,7 +166,7 @@ struct NotifRow: View {
                 Text(verbatim: page).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
                 if let x = n.excerpt { Text(verbatim: "„\(x)“").font(.footnote).foregroundStyle(.secondary).lineLimit(2) }
                 HStack(spacing: 6) {
-                    Text(Date(timeIntervalSince1970: n.created), format: .relative(presentation: .named))
+                    Text(Date(timeIntervalSince1970: n.created), format: SagaDate.relative)
                     if let h = n.host { Text(verbatim: "· \(h)") }
                 }.font(.caption).foregroundStyle(.secondary)
             }

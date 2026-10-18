@@ -203,7 +203,7 @@ struct ConversationView: View {
                     }
                     ForEach(Array(shown.enumerated()), id: \.element.id) { i, m in
                         if i == 0 || !Calendar.current.isDate(shown[i - 1].date, inSameDayAs: m.date) {
-                            Text(m.date.formatted(date: .complete, time: .omitted)).font(.caption2.weight(.semibold)).foregroundStyle(.secondary).padding(.top, 8)
+                            Text(m.date.sagaFormatted(date: .complete, time: .omitted)).font(.caption2.weight(.semibold)).foregroundStyle(.secondary).padding(.top, 8)
                         }
                         if let e = m.call {
                             CallEntryRow(entry: e, mine: m.mine, date: m.date) {

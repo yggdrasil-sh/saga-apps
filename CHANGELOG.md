@@ -6,6 +6,19 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Thai und Russisch – iOS, iPadOS, macOS (Widget, Teilen)
+- Neue App-Sprachen **ไทย (Thai)** und **Русский (Russisch)**: alle Texte der App, des Widgets und der
+  Teilen-Erweiterungen, Kurzbefehle/Siri-Sätze und Berechtigungstexte. Russisch duzt („ты“), Thai neutral-höflich;
+  Russisch mit allen Pluralformen (one/few/many/other) für Zahlentexte. Maschinell übersetzt – Gegenlesen durch
+  Muttersprachler empfohlen.
+- Sprachwahl: Mac-Auswahl und Anmelde-Umschalter um „ไทย“ und „Русский“ erweitert; iOS/iPadOS über
+  Einstellungen-App → Saga → Sprache (`CFBundleLocalizations` um th, ru ergänzt). `Accept-Language` und `&lang=`
+  des Anmeldefensters folgen der App-Sprache auch für th/ru.
+- Datum immer im gregorianischen Kalender (Thai: 2026 statt buddhistisch 2569), Monats-/Wochentagsnamen in der
+  App-Sprache; technische Tagesangaben (`yyyy-MM-dd` an Server/Datenbank/Widget) jetzt fest gregorianisch + POSIX –
+  vorher hätte ein Gerät mit buddhistischem Kalender „2569-10-18“ gesendet.
+- Logiktests: alle Schlüssel in de/en/es/th/ru, Platzhalter gleich, russische Pluralformen, Datumsformate.
+
 ### Chats archivieren und löschen – iOS, iPadOS, macOS
 - **Archivieren / Aus Archiv holen** (nur für mich): Wischgeste in der Chatliste (iPhone/iPad), Kontextmenü (Mac, iPad,
   langes Drücken) und im Chat-Menü „⋯“. Archivierte Chats stehen im aufklappbaren Bereich „Archiviert (n)“ unten in

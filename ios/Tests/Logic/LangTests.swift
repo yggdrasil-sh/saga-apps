@@ -11,15 +11,19 @@ func langTests() {
     check(C.from(appleLanguages: ["es-419"]) == .es, "es-419 -> es")
     check(C.from(appleLanguages: ["ES_es"]) == .es, "Grossschreibung egal")
     check(C.from(appleLanguages: ["fr"]) == .system, "nicht unterstuetzt -> Automatisch")
+    check(C.from(appleLanguages: ["th-TH"]) == .th, "th-TH -> th")
+    check(C.from(appleLanguages: ["ru-RU", "de"]) == .ru, "ru-RU -> ru")
     // Wahl -> gespeicherter Wert (Hin und zurueck)
     check(C.system.appleLanguages == nil, "Automatisch entfernt den Eintrag")
     for c in C.allCases { check(C.from(appleLanguages: c.appleLanguages) == c, "Rundweg \(c)") }
-    check(C.allCases.count == 4 && C.allCases.first == .system, "Reihenfolge: Automatisch zuerst")
-    check(C.allCases.compactMap(\.nativeName) == ["Deutsch", "English", "Español"], "Eigennamen")
+    check(C.allCases.count == 6 && C.allCases.first == .system, "Reihenfolge: Automatisch zuerst")
+    check(C.allCases.compactMap(\.nativeName) == ["Deutsch", "English", "Español", "ไทย", "Русский"], "Eigennamen")
     // tatsaechliche Sprache
     check(C.system.effective(system: ["de-DE", "en"]) == "de", "System de")
     check(C.system.effective(system: ["fr-FR", "es-ES", "de"]) == "es", "erste unterstuetzte Systemsprache")
     check(C.system.effective(system: ["fr", "it"]) == "en", "nichts Unterstuetztes -> en")
+    check(C.system.effective(system: ["th-TH", "en"]) == "th", "System Thai")
+    check(C.system.effective(system: ["uk-UA", "ru-RU"]) == "ru", "Ukrainisch nicht da -> Russisch")
     check(C.system.effective(system: []) == "en", "leer -> en")
     check(C.en.effective(system: ["de-DE"]) == "en", "feste Wahl schlaegt System")
     // Neustart-Hinweis
@@ -28,4 +32,7 @@ func langTests() {
     check(!C.en.needsRestart(system: ["de-DE"], running: "en"), "en gewaehlt, laeuft en")
     check(C.system.needsRestart(system: ["de-DE"], running: "es"), "zurueck auf Automatisch -> Neustart")
     check(!C.es.needsRestart(system: ["de"], running: "es-419"), "Region egal")
+    check(C.ru.needsRestart(system: ["de"], running: "de"), "ru gewaehlt, laeuft de -> Neustart")
+    check(!C.th.needsRestart(system: ["de"], running: "th"), "th gewaehlt, laeuft th")
+    check(C.supported == C.allCases.filter { $0 != .system }.map(\.rawValue), "supported = alle festen Sprachen")
 }

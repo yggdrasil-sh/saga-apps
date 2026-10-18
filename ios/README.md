@@ -30,7 +30,7 @@ Native App (SwiftUI) für einen [Saga](https://github.com/yggdrasil-sh/saga)-Ser
 - **Kurzbefehle/Siri**: Aufgabe anlegen, Notiz ablegen, Seite öffnen, Aufgabe abhaken
 - Anmeldung mit Passkey, Face ID/Touch ID oder Passwort; die Sitzung erneuert sich über einen Geräte-Schlüssel
   im Schlüsselbund ohne erneutes Anmeldefenster
-- **Sprachen:** Deutsch, Englisch, Spanisch – die App folgt der Systemsprache, sonst Englisch
+- **Sprachen:** Deutsch, Englisch, Spanisch, Thai, Russisch – die App folgt der Systemsprache, sonst Englisch
 
 ## Voraussetzungen
 - macOS mit **Xcode 26** (iOS/macOS 26 SDK) und [XcodeGen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)

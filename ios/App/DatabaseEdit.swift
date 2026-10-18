@@ -538,5 +538,5 @@ struct FilterRow: View {
     }
 }
 
-func dayString(_ d: Date) -> String { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: d) }
-func dayDate(_ s: String?) -> Date? { guard let s else { return nil }; let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.date(from: String(s.prefix(10))) }
+func dayString(_ d: Date) -> String { let f = DateFormatter.isoDay(); return f.string(from: d) }
+func dayDate(_ s: String?) -> Date? { guard let s else { return nil }; let f = DateFormatter.isoDay(); return f.date(from: String(s.prefix(10))) }
