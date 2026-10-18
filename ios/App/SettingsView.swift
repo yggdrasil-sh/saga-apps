@@ -47,6 +47,7 @@ struct SettingsView: View {
                 Text("Den Schlüssel erzeugst du im Web unter 👤 → Einstellungen → „Apps & Geräte“. In der App genügt dort „In dieser App verwenden“.")
                     .font(.footnote).foregroundStyle(.secondary)
             } header: { Text("App-Schlüssel (Widget & Teilen)") }
+            LanguageSettingsSection()                     // Sprache der App (Automatisch/de/en/es)
             #if os(macOS)
             Section("Darstellung") {
                 LabeledContent("Titelbild-Höhe") {

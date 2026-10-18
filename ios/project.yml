@@ -45,6 +45,8 @@ targets:
         SagaMovedServers: $(SAGA_MOVED_SERVERS)
         CFBundleName: Saga                                   # Menueleiste/Dock/Finder auf dem Mac
         CFBundleSpokenName: Saga                       # fuer VoiceOver/Siri lesbar
+        CFBundleLocalizations: [de, en, es]                  # Sprachen der App (Einstellungen-App -> Saga -> Sprache)
+        UIPrefersShowingLanguageSettings: true               # Sprachwahl je App auf iOS/iPadOS immer anzeigen
         LSApplicationCategoryType: public.app-category.productivity
         ITSAppUsesNonExemptEncryption: false                 # nur HTTPS/System-Krypto -> keine Exportfrage bei jedem TestFlight-Build
         UILaunchScreen: {}

@@ -56,6 +56,8 @@ struct CalTarget: Identifiable, Hashable { let account: Int; let cal: String; le
 final class Store: ObservableObject {
     @Published var pages: [Page] = []
     @Published var needsLogin = false
+    /// Anmeldebildschirm abgebrochen (Server bekannt): Zwischenspeicher zeigen, Anmelden ueber den Hinweis oben
+    @Published var loginPostponed = false
     @Published var pendingPair: PairRequest?               // Kopplungslink wartet auf Bestaetigung
     @Published var serverVersion: String?                // aus /api/version
     @Published var minApp: String?                       // aelteste App-Version, die der Server voll unterstuetzt
@@ -220,7 +222,7 @@ final class Store: ObservableObject {
             if r == .offline { throw APIError.other(String(localized: "Server nicht erreichbar")) }
             if r == .rejected { break }
         }
-        needsLogin = true
+        if !loginPostponed { needsLogin = true }                          // abgebrochen: nicht bei jeder Anfrage wieder aufdraengen
         throw APIError.http(401, String(localized: "Bitte anmelden"))
     }
 
@@ -299,6 +301,7 @@ final class Store: ObservableObject {
         do {
             setPages(try JSONDecoder().decode([Page].self, from: try await get("api/notes")))
             if needsLogin { needsLogin = false }
+            if loginPostponed { loginPostponed = false }          // Sitzung wieder da (z. B. still erneuert)
             await loadShared()
             Task { await loadFedShared() }                        // fremde Server koennen dauern: nicht darauf warten
             Task { await notifs.loadCount(); await chat.refreshUnread(); await loadAIStatus() }
@@ -669,7 +672,7 @@ final class Store: ObservableObject {
         await storeCookies(http, url)
         let keyOK = adoptKeys(d); deviceKeyTried = true
         await identifyAccount()                                           // Entwuerfe gehoeren zu Server + Konto
-        needsLogin = false
+        needsLogin = false; loginPostponed = false
         if !keyOK { error = Store.keychainFailedText }                    // nicht still: sonst spaeter unerklaert abgemeldet
     }
 

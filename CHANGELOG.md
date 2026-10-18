@@ -6,6 +6,17 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Sprache wählbar – iOS, iPadOS, macOS
+- **Einstellungen → „Sprache“:** Automatisch (Systemsprache), Deutsch, English oder Español – unabhängig von der
+  Sprache des Geräts. iPhone/iPad nutzen die Systemfunktion je App (Eintrag zeigt die aktuelle Sprache und öffnet
+  Einstellungen-App → Saga → Sprache); am Mac Auswahl direkt in der App mit Hinweis und Knopf „Jetzt neu starten“.
+- **Schon vor der Anmeldung:** kleiner Sprachumschalter unten im Anmeldebildschirm (fremdes Gerät); das
+  Anmeldefenster des Servers bekommt die App-Sprache mit (`lang=`).
+- Fehlertexte des Servers folgen der gewählten Sprache (Accept-Language der App-Anfragen).
+- **Anmeldebildschirm:** scrollt bei kleinen Fenstern, Sprachwahl bleibt unten sichtbar; „Abbrechen“ (auch Esc),
+  sobald ein Server bekannt ist – danach zeigt Saga den Zwischenspeicher mit Hinweis „Nicht angemeldet · Anmelden“
+  statt das Fenster bei jeder Anfrage erneut zu öffnen. Am Mac lässt sich das Anmeldeblatt in der Größe ändern.
+
 ## [2.1.0] – 2026-10-17
 
 Passt zu Saga-Server 2.1. **Die neuen Funktionen brauchen Saga-Server 2.1; ältere Server funktionieren weiter**

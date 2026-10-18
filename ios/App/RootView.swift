@@ -185,6 +185,13 @@ struct RootView: View {
                 Label("Diese App ist zu alt für den Server (ab \(m)) – bitte aktualisieren.", systemImage: "arrow.down.app")
                     .font(.footnote).padding(.vertical, 6).frame(maxWidth: .infinity).background(.orange.opacity(0.25))
             }
+            if store.loginPostponed && !store.needsLogin {              // Anmeldung abgebrochen: Zwischenspeicher, Anmelden jederzeit
+                HStack {
+                    Label("Nicht angemeldet", systemImage: "person.crop.circle.badge.exclamationmark")
+                    Button("Anmelden") { store.loginPostponed = false; store.needsLogin = true }
+                }
+                .font(.footnote).padding(.vertical, 6).frame(maxWidth: .infinity).background(.yellow.opacity(0.25))
+            }
         }
         .sheet(isPresented: $showTrash) { TrashSheet().environmentObject(store) }
         // Kopplungslink: Rueckfrage hier - oder im Anmeldebildschirm, solange der vorne liegt
@@ -204,7 +211,11 @@ struct RootView: View {
         #if os(iOS)
         .fullScreenCover(isPresented: $store.needsLogin) { LoginScreen(store: store) { Task { await store.refresh() } } }
         #else
-        .sheet(isPresented: $store.needsLogin) { LoginScreen(store: store) { Task { await store.refresh() } }.frame(minWidth: 420, minHeight: 420) }
+        .sheet(isPresented: $store.needsLogin) {                 // Blatt in der Groesse veraenderbar, Inhalt scrollt
+            LoginScreen(store: store) { Task { await store.refresh() } }
+                .frame(minWidth: 420, idealWidth: 480, maxWidth: .infinity, minHeight: 360, idealHeight: 560, maxHeight: .infinity)
+                .presentationSizing(.fitted)
+        }
         #endif
     }
 }
@@ -645,7 +656,11 @@ struct LoginScreen: View {
     @State private var showScanner = false
     @State private var pairLink = ""
     @State private var askSwitch: URL?                     // anderer Server vorgemerkt, bisherige Anmeldung vorhanden
+    /// Abbrechen erlaubt, sobald ein Server bekannt ist (Zwischenspeicher bleibt lesbar); beim allerersten Start nicht
+    private var canCancel: Bool { AppConfig.hasServer }
     var body: some View {
+        // scrollbar: kleine Fenster/Blaetter schneiden sonst den unteren Teil (Sprachwahl) ab
+        GeometryReader { geo in ScrollView {
         VStack(spacing: 18) {
             Spacer()
             Image("AppLogo").resizable().scaledToFit().frame(width: 88, height: 88)
@@ -679,8 +694,21 @@ struct LoginScreen: View {
             else if store.error == Store.keychainFailedText { Text(Store.keychainFailedText).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center) }   // BUG-104
             Spacer()
         }
-        .padding(30)
-        .interactiveDismissDisabled()
+        .padding(.horizontal, 30).padding(.vertical, 16)
+        .frame(maxWidth: .infinity, minHeight: geo.size.height)
+        }.scrollBounceBehavior(.basedOnSize) }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if canCancel {                                       // schliessbar, ausser beim allerersten Start (noch kein Server)
+                HStack {
+                    Button("Abbrechen") { store.loginPostponed = true; store.needsLogin = false }.keyboardShortcut(.cancelAction).disabled(busy)
+                    Spacer()
+                }.padding(.horizontal, 16).padding(.top, 12)
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {             // immer sichtbar, auch wenn der Inhalt scrollt
+            LanguageQuickSwitch().padding(.vertical, 12)         // Sprache schon vor der Anmeldung waehlbar (fremder Rechner)
+        }
+        .interactiveDismissDisabled(!canCancel)
         .modifier(PairConfirm(ask: $store.pendingPair, store: store))
         .confirmationDialog("Server wechseln?", isPresented: Binding(get: { askSwitch != nil }, set: { if !$0 { askSwitch = nil } }), titleVisibility: .visible) {
             // abgemeldet wird erst, wenn die Anmeldung beim neuen Server geklappt hat
@@ -723,7 +751,8 @@ struct LoginScreen: View {
         case .ok: break
         }
         let (verifier, challenge) = Store.pkce()
-        guard let url = URL(string: target.absoluteString + "/app/login?challenge=" + challenge) else { return }
+        guard let url = URL(string: target.absoluteString + "/app/login?challenge=" + challenge
+                                 + "&lang=" + AppConfig.appLanguage) else { return }   // Anmeldefenster in der App-Sprache (Server ohne lang: ignoriert)
         do {
             let cb = try await webAuth.authenticate(using: url, callbackURLScheme: "hlidskjalf", preferredBrowserSession: .shared)
             let items = URLComponents(url: cb, resolvingAgainstBaseURL: false)?.queryItems ?? []

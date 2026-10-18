@@ -180,7 +180,7 @@ enum SnapshotHelper {
                 ?? all.max(by: { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }) else { return }
         let mainFrame = main.frame
         let pops = NSApp.windows.filter { $0.isVisible && $0.className.contains("Popover") }.map { ($0, $0.frame) }
-        if UserDefaults.standard.bool(forKey: "hkSnapDump") { for w in NSApp.windows { print("FENSTER", w.className, w.isVisible, NSStringFromRect(w.frame)) } }
+        if UserDefaults.standard.bool(forKey: "hkSnapDump") { for w in NSApp.windows { print("FENSTER", w.className, w.isVisible, NSStringFromRect(w.frame), w.styleMask.contains(.resizable) ? "groessenveraenderbar" : "fest") } }
         guard let base = (UserDefaults.standard.bool(forKey: "hkSnapServer") ? serverImage(main) : nil) ?? image(main) else { return }
         let W = base.pixelsWide, H = base.pixelsHigh
         guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: W, pixelsHigh: H, bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,

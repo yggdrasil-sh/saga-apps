@@ -1859,6 +1859,28 @@
         }
       }
     },
+    "Automatisch (System)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatisch (System)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatic (system)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automático (sistema)"
+          }
+        }
+      }
+    },
     "Balken" : {
       "localizations" : {
         "de" : {
@@ -4037,6 +4059,28 @@
         }
       }
     },
+    "Gilt nur für Saga auf diesem Mac. „Automatisch“ folgt der Systemsprache." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gilt nur für Saga auf diesem Mac. „Automatisch“ folgt der Systemsprache."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Applies only to Saga on this Mac. “Automatic” follows the system language."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo se aplica a Saga en este Mac. «Automático» sigue el idioma del sistema."
+          }
+        }
+      }
+    },
     "Grau" : {
       "localizations" : {
         "de" : {
@@ -5045,6 +5089,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "no está vacío"
+          }
+        }
+      }
+    },
+    "Jetzt neu starten" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jetzt neu starten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart now"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reiniciar ahora"
           }
         }
       }
@@ -7065,6 +7131,28 @@
         }
       }
     },
+    "Nicht angemeldet" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht angemeldet"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not signed in"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin sesión iniciada"
+          }
+        }
+      }
+    },
     "Nicht erreichbar" : {
       "localizations" : {
         "de" : {
@@ -8165,6 +8253,72 @@
         }
       }
     },
+    "Saga folgt der Systemsprache. Eine eigene Sprache nur für Saga wählst du in der Einstellungen-App unter Saga → Sprache." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga folgt der Systemsprache. Eine eigene Sprache nur für Saga wählst du in der Einstellungen-App unter Saga → Sprache."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga follows the system language. To choose a language just for Saga, open the Settings app and go to Saga → Language."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga usa el idioma del sistema. Para elegir un idioma solo para Saga, abre la app Ajustes y ve a Saga → Idioma."
+          }
+        }
+      }
+    },
+    "Saga neu starten, um die Sprache zu wechseln" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga neu starten, um die Sprache zu wechseln"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart Saga to change the language"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reiniciar Saga para cambiar el idioma"
+          }
+        }
+      }
+    },
+    "Saga neu starten, um die Sprache zu wechseln." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga neu starten, um die Sprache zu wechseln."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restart Saga to change the language."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reinicia Saga para cambiar el idioma."
+          }
+        }
+      }
+    },
     "Schaltfläche" : {
       "localizations" : {
         "de" : {
@@ -9019,6 +9173,50 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Guardar"
+          }
+        }
+      }
+    },
+    "Sprache" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sprache"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Language"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Idioma"
+          }
+        }
+      }
+    },
+    "Sprache: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sprache: %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Language: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Idioma: %@"
           }
         }
       }
