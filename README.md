@@ -16,8 +16,10 @@
 ---
 
 The apps connect to your own Saga server. Pages, databases, tasks and events are shown and edited
-**natively** – not in a wrapped website. They follow your system language: English, German or Spanish
-(any other language falls back to English).
+**natively** – not in a wrapped website. They speak **five languages**: English, German, Spanish, Thai and
+Russian. They follow your system language (any other language falls back to English), or you pick one under
+**Settings → Language** – even before signing in, which helps on a shared or borrowed device. Thai and Russian
+are machine-translated; corrections by native speakers are welcome.
 
 | Platform | Technology | Folder | Instructions |
 |---|---|---|---|
@@ -76,6 +78,12 @@ or **Stop publishing**. Public pages show **Public** in the page header; you can
 - **Sign-in & security:** status of passkeys and authenticator app in the settings; two-factor sign-in runs in the
   browser window.
 - **Fast chat images** with previews, **Immich in chats**, pasting images and copying image blocks.
+- **AI with a name and picture:** if the admin gives the AI a name and picture (e.g. "Marin"), the apps show it
+  everywhere; in chats where it is allowed you ask it with **@Marin** – only those messages (plus up to 12 before
+  them) go to the AI, everything else stays end-to-end encrypted.
+- **Archive and delete chats:** archived chats move to a collapsible "Archived" section; **Delete chat …** for
+  yourself or – if the server allows it – for everyone, including the local cache on all your devices.
+- **Choose the language** in the app, plus **Thai and Russian** as new languages (these work with any server).
 
 The new features need Saga server 2.1; with older servers the apps work as before.
 

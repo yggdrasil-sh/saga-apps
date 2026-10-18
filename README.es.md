@@ -16,8 +16,10 @@
 ---
 
 Las apps se conectan a tu propio servidor de Saga. Páginas, bases de datos, tareas y eventos se muestran y
-editan de forma **nativa**, no en una web incrustada. Siguen el idioma del sistema: español, inglés o alemán
-(cualquier otro idioma usa el inglés).
+editan de forma **nativa**, no en una web incrustada. Hablan **cinco idiomas**: español, inglés,
+alemán, tailandés y ruso. Siguen el idioma del sistema (cualquier otro idioma usa el inglés), o eliges uno en
+**Ajustes → Idioma**, incluso antes de iniciar sesión, algo útil en un dispositivo ajeno o compartido. El tailandés
+y el ruso están traducidos automáticamente; las correcciones de hablantes nativos son bienvenidas.
 
 | Plataforma | Tecnología | Carpeta | Instrucciones |
 |---|---|---|---|
@@ -79,6 +81,12 @@ aparece la opción del menú.
 - **Inicio de sesión y seguridad:** estado de las llaves de acceso y de la app de autenticación en los ajustes; el inicio de
   sesión con segundo factor se hace en la ventana del navegador.
 - **Imágenes de chat rápidas** con miniaturas, **Immich en el chat**, pegar imágenes y copiar bloques de imagen.
+- **IA con nombre y foto:** si el administrador le da a la IA un nombre y una foto (p. ej. «Marin»), las apps la
+  muestran en todas partes; en los chats donde está permitida le preguntas con **@Marin**: solo esos mensajes (y hasta
+  12 anteriores) van a la IA, todo lo demás sigue cifrado de extremo a extremo.
+- **Archivar y eliminar chats:** los chats archivados pasan a una sección plegable «Archivados»; **Eliminar chat…**
+  solo para ti o, si el servidor lo permite, para todos, incluida la caché local de todos tus dispositivos.
+- **Elegir el idioma** en la app y, como novedad, **tailandés y ruso** (funcionan con cualquier servidor).
 
 Las funciones nuevas necesitan el servidor de Saga 2.1; con servidores más antiguos las apps funcionan como antes.
 

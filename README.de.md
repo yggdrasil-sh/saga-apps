@@ -16,8 +16,10 @@
 ---
 
 Die Apps verbinden sich mit deinem eigenen Saga-Server. Seiten, Datenbanken, Aufgaben und Termine werden
-**nativ** angezeigt und bearbeitet – keine eingebettete Webseite. Sie folgen der Systemsprache: Deutsch,
-Englisch oder Spanisch (alle anderen Sprachen: Englisch).
+**nativ** angezeigt und bearbeitet – keine eingebettete Webseite. Sie sprechen **fünf Sprachen** – Deutsch,
+Englisch, Spanisch, Thai und Russisch. Sie folgen der Systemsprache (alle anderen Sprachen: Englisch), oder du
+wählst die Sprache unter **Einstellungen → Sprache** – auch schon vor der Anmeldung, praktisch an einem fremden
+oder geteilten Gerät. Thai und Russisch sind maschinell übersetzt; Verbesserungen von Muttersprachlern sind willkommen.
 
 | Plattform | Technik | Ordner | Anleitung |
 |---|---|---|---|
@@ -78,6 +80,13 @@ Menüpunkt.
 - **Anmeldung & Sicherheit:** Stand von Passkeys und Authenticator-App in den Einstellungen; die Anmeldung mit
   zweitem Faktor läuft im Browserfenster.
 - **Schnelle Chat-Bilder** mit Vorschaubildern, **Immich im Chat**, Bilder einfügen und Bildblöcke kopieren.
+- **KI mit Namen und Profilbild:** Gibt der Admin der KI einen Namen und ein Bild (z. B. „Marin“), zeigen die Apps sie
+  überall; in Chats, in denen sie erlaubt ist, fragst du sie mit **@Marin** – nur diese Nachrichten (und bis zu 12
+  davor) gehen an die KI, alles andere bleibt Ende-zu-Ende-verschlüsselt.
+- **Chats archivieren und löschen:** Archivierte Chats wandern in einen aufklappbaren Bereich „Archiviert“;
+  **Chat löschen …** nur für dich oder – wenn der Server es erlaubt – für alle, samt Zwischenspeicher auf allen
+  eigenen Geräten.
+- **Sprache in der App wählen** und neu **Thai und Russisch** (funktioniert mit jedem Server).
 
 Die neuen Funktionen brauchen Saga-Server 2.1; mit älteren Servern arbeiten die Apps wie bisher.
 

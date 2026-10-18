@@ -252,8 +252,14 @@ jobs:
           V: ${{ needs.version.outputs.version }}
         run: |
           ls -l dist
+          # Abschnitt "## [x.y.z] – Datum" aus CHANGELOG.md; fehlt er, lieber abbrechen als ohne Notizen veroeffentlichen
+          N=$(awk -v v="[$V]" '/^## \[/ { p = index($0, v) > 0; next } p' CHANGELOG.md)
+          if [ -z "$(printf '%s' "$N" | tr -d '[:space:]')" ]; then
+            echo "::error::CHANGELOG.md hat keinen (oder einen leeren) Abschnitt [$V]"
+            exit 1
+          fi
           {
-            awk -v v="[$V]" '/^## \[/ { p = index($0, v) > 0; next } p' CHANGELOG.md
+            printf '%s\n' "$N"
             echo
             echo "### Downloads"
             echo
@@ -304,11 +310,16 @@ jobs:
         run: |
           ls -l dist
           (cd dist && sha256sum * > SHA256SUMS)
+          # Abschnitt [Unveröffentlicht]; direkt nach einem Release ist er leer -> kurzer Satz statt leerer Notizen
+          N=$(awk '/^## \[/ { p = index($0, "[Unveröffentlicht]") > 0; next } p' CHANGELOG.md)
+          if [ -z "$(printf '%s' "$N" | tr -d '[:space:]')" ]; then
+            N="Noch keine Änderungen seit der letzten Version."
+          fi
           {
             echo "**Testversion – nicht für den Alltag gedacht.** Stand von \`testing\`, Commit ${GITHUB_SHA::7}, gebaut $(date -u '+%Y-%m-%d %H:%M') UTC."
             echo "Wird bei jeder Änderung auf \`testing\` ersetzt. Stabile Version: siehe „Latest“."
             echo
-            awk '/^## \[/ { p = index($0, "[Unveröffentlicht]") > 0; next } p' CHANGELOG.md
+            printf '%s\n' "$N"
             echo
             echo "Prüfsummen (SHA-256) stehen in \`SHA256SUMS\`."
           } > notes.md

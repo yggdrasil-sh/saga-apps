@@ -6,181 +6,37 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
-### Thai und Russisch – alle Apps
-- **Begriffe wie im Web:** Thai und Russisch verwenden dieselben Fachbegriffe wie Web und Server (z. B. Koppeln
-  „связать“, Profilbild „изображение профиля“, Löschen „у меня“/„у всех“; Thai „การสนทนา“ für Threads,
-  „เก็บเข้าคลัง“ für Archiv, „เข้าสู่ระบบ“ für Anmelden); Sätze, die es auch im Web gibt, lauten gleich. Russisch ohne
-  männliche Formen für Personen. Gegenlesen durch Muttersprachler weiterhin empfohlen.
-
-#### iOS, iPadOS, macOS (Widget, Teilen)
-- Neue App-Sprachen **ไทย (Thai)** und **Русский (Russisch)**: alle Texte der App, des Widgets und der
-  Teilen-Erweiterungen, Kurzbefehle/Siri-Sätze und Berechtigungstexte. Russisch duzt („ты“), Thai neutral-höflich;
-  Russisch mit allen Pluralformen (one/few/many/other) für Zahlentexte. Maschinell übersetzt – Gegenlesen durch
-  Muttersprachler empfohlen.
-- Sprachwahl: Mac-Auswahl und Anmelde-Umschalter um „ไทย“ und „Русский“ erweitert; iOS/iPadOS über
-  Einstellungen-App → Saga → Sprache (`CFBundleLocalizations` um th, ru ergänzt). `Accept-Language` und `&lang=`
-  des Anmeldefensters folgen der App-Sprache auch für th/ru.
-- Datum immer im gregorianischen Kalender (Thai: 2026 statt buddhistisch 2569), Monats-/Wochentagsnamen in der
-  App-Sprache; technische Tagesangaben (`yyyy-MM-dd` an Server/Datenbank/Widget) jetzt fest gregorianisch + POSIX –
-  vorher hätte ein Gerät mit buddhistischem Kalender „2569-10-18“ gesendet.
-- Logiktests: alle Schlüssel in de/en/es/th/ru, Platzhalter gleich, russische Pluralformen, Datumsformate.
-
-#### Android
-- **Neue App-Sprachen „ไทย“ (Thai) und „Русский“ (Russisch):** vollständige Übersetzung aller Texte (maschinell
-  erstellt, Gegenlesen durch Muttersprachler empfohlen). Russisch in der Du-Form (ты), Thai neutral-höflich.
-  Auswahl in den Einstellungen („Sprache“) und im Sprachumschalter der Anmeldung; Android 13+ auch unter
-  Einstellungen → Apps → Saga → Sprache (`locales_config.xml`). Anfragen schicken `Accept-Language: ru` bzw. `th`.
-- **Russische Mehrzahl:** alle Mengen-Texte als `<plurals>` mit one/few/many/other („1 час“, „3 часа“, „5 часов“).
-  „%d ungelesen“, „Markiert: %d Blöcke“ und „Höchstens %d Anhänge je Nachricht“ sind jetzt auch in de/en/es Plurals.
-- **Thai-Datumsangaben im gregorianischen Kalender** (2026, nicht buddhistisch 2569) – wie Web und iOS; gilt für
-  alle Datums-/Zeitangaben der App (Entwurfs-Hinweis und „Zurückgezogen am …“ jetzt ebenfalls in der App-Sprache).
-- Sprachnamen im KI-Übersetzen-Menü und Tagesüberschriften im Chat folgen der App-Sprache (Lint `NonObservableLocale`).
-- Standard-Kategorien der Dienste erkennen auch „Сервисы“/„Закладки“ und „บริการ“/„บุ๊กมาร์ก“.
-
-#### Linux
-- **Neue App-Sprachen:** Thai (ไทย) und Russisch (Русский) – alle 1192 Texte, Pluralformen nach gettext-Standard
-  (Russisch drei Formen, Thai eine), informelles „ты“ im Russischen, neutral-höfliches Thai. Maschinell übersetzt –
-  Gegenlesen durch Muttersprachler empfohlen.
-- **Sprachwahl:** Einstellungen → Allgemein → App-Sprache bietet zusätzlich „Русский“ und „ไทย“; Anfragen an den Server
-  schicken die gewählte Sprache als `Accept-Language` mit. Desktop-Datei und AppStream-Metadaten (Name, Beschreibung,
-  Stichwörter, Dock-Aktionen) auch auf Thai und Russisch; RPM und Flatpak bauen die neuen Kataloge automatisch mit.
-- **Datum:** Thai immer gregorianisch (2026, nicht 2569 nach buddhistischer Zeitrechnung), Tag vor Monat; Russisch mit
-  Monatsnamen im Nominativ über dem Kalender („Октябрь 2026“). Datumswörter im Editor verstehen jetzt auch
-  „сегодня/завтра/послезавтра/вчера“, „в пятницу“, „завтра в 9:00“ und „วันนี้/พรุ่งนี้/มะรืนนี้/เมื่อวาน“, „วันศุกร์“.
-- **Schrift:** Das RPM empfiehlt eine Thai-Schrift (`font(notosansthai)`, Noto Sans Thai) – ohne sie erschienen
-  Ersatzkästchen. Tests: Sprachprüfung für th/ru (auch als in der App gewählte Sprache), Bildschirmfotos
-  (`tests/thrushots.py`: Anmelden, Editor, Einstellungen, Chatliste, Chat, KI, Löschen – breit und schmal) mit Prüfung,
-  dass Thai ohne fehlende Glyphen gesetzt wird.
-
-### Chats archivieren und löschen – iOS, iPadOS, macOS
-- **Archivieren / Aus Archiv holen** (nur für mich): Wischgeste in der Chatliste (iPhone/iPad), Kontextmenü (Mac, iPad,
-  langes Drücken) und im Chat-Menü „⋯“. Archivierte Chats stehen im aufklappbaren Bereich „Archiviert (n)“ unten in
-  der Liste (mit eigenem Ungelesen-Zähler) und zählen nicht zur Ungelesen-Zahl bzw. Kennzahl von „Chats“. Eine neue
-  Nachricht holt den Chat automatisch zurück (außer stummgeschaltet).
-- **„Chat löschen …“** mit Auswahl „Nur für mich“ (Verlauf bis jetzt auf allen eigenen Geräten weg, auch mit dem
-  Wiederherstellungsschlüssel nicht mehr lesbar; Direkt-Chat verschwindet, andere Chats wandern ins Archiv) oder
-  „Für alle“ (Direkt-Chat/freie Gruppe: ganzer Chat; Gruppen-/Seiten-Chat: „Verlauf für alle löschen“) – nur, wenn
-  der Server es erlaubt (`delete_for_all`), sonst ausgegraut mit Begründung. Bei freien Gruppen zusätzlich „Gruppe
-  außerdem verlassen“. Klare Warnung, dass es sich nicht rückgängig machen lässt.
-- **Live:** Löscht jemand den Chat oder Verlauf (`chat.removed`, `chat.cleared`) oder ein eigenes anderes Gerät,
-  leert die App ihren Zwischenspeicher für diesen Chat wirklich – Nachrichten und entschlüsselte Inhalte im
-  Speicher, Bilder/Vorschaubilder (Speicher und Platte, Zuordnung je Chat), Entwurf, Benachrichtigungen in der
-  Glocke und in der Mitteilungszentrale –, schließt den geöffneten Chat (bzw. lädt ihn neu) und zeigt
-  „<Name> hat den Chat gelöscht.“ bzw. „… den Verlauf gelöscht.“; im Verlauf steht danach „Der bisherige Verlauf
-  wurde gelöscht.“ Archiv-Änderungen anderer Geräte erscheinen sofort.
-- Ältere Server ohne diese Funktionen: Archiv und Löschen sind ausgeblendet. Texte de/en/es, Logiktests.
-
-### Chats archivieren und löschen – Android
-- **Archivieren:** Wischen nach links, langes Drücken oder Chat-Menü → „Archivieren“ / „Aus Archiv holen“ (mit
-  „Rückgängig“). Archivierte Chats stehen im aufklappbaren Bereich „Archiviert (n)“ unten in der Liste, mit Zähler
-  der ungelesenen Nachrichten darin; der Ungelesen-Zähler in Navigation und Seitenleiste zählt sie nicht mit. Eine
-  neue Nachricht holt den Chat zurück (Server).
-- **„Chat löschen …“** (Chat-Menü, langes Drücken): „Nur für mich“ oder „Für alle“ – je nach Recht (`delete_for_all`)
-  der ganze Chat bzw. nur der Verlauf; ohne Recht ausgegraut mit Begründung. Bei freien Gruppen zusätzlich
-  „Gruppe außerdem verlassen“. Deutliche Warnung (nicht rückgängig, auch nicht mit dem Wiederherstellungsschlüssel).
-- **Lokale Daten wirklich weg:** Nach dem eigenen Löschen und bei `chat.removed` / `chat.cleared` (auch von einem
-  anderen eigenen Gerät) leert die App für den Chat bzw. bis `cleared_seq` die Nachrichten im Speicher,
-  entschlüsselte Vorschaubilder, den Plattencache (jetzt je Chat abgelegt), geöffnete Anhänge, Entwurf und
-  Antwort-Bezug sowie die System-Mitteilungen des Chats. Ein geöffneter Chat schließt sich, wenn er für alle bzw.
-  (Direkt-Chat) für mich gelöscht wurde; Hinweis „<Name> hat den Chat gelöscht.“ / „… den Verlauf gelöscht.“
-  (nicht bei eigenen Aktionen). Am Anfang des Verlaufs: „Der bisherige Verlauf wurde gelöscht.“
-- Ältere Server ohne diese Funktion: Einträge ausgeblendet, Liste wie bisher. Texte de/en/es wie im Web.
-
-### Chats archivieren und löschen – Linux (Server 2.1)
-- **Archivieren / Aus Archiv holen** (nur für mich): im Chat-Menü und im Kontextmenü der Chatliste (Rechtsklick,
-  Langdruck, Menü-Taste bzw. Umschalt+F10). Archivierte Chats stehen unten im aufklappbaren Bereich
-  „Archiviert (n)“ (mit eigener Ungelesen-Zahl) und zählen nicht zur Ungelesen-Zahl in der Seitenleiste. Eine neue
-  Nachricht holt einen Chat von selbst zurück – stummgeschaltet und archiviert bleibt archiviert.
-- **„Chat löschen …“:** Dialog mit „Nur für mich“ (jede Chat-Art; Direkt-Chat verschwindet, bis etwas Neues kommt,
-  andere Chats werden archiviert) und „Für alle“ – nur wenn der Server es erlaubt (`delete_for_all`: Direkt-Chat,
-  Admins freier Gruppen; Verlauf von Gruppen-/Seiten-Chats für Saga-Admins bzw. Seiten-Eigentümer), sonst ausgegraut
-  mit Begründung. Bei freien Gruppen zusätzlich „Gruppe außerdem verlassen“; deutliche Warnung, dass es sich nicht
-  rückgängig machen lässt.
-- **Lokaler Zwischenspeicher wird wirklich geleert** (bis zur Grenze `cleared_seq` bzw. ganz): entschlüsselte
-  Nachrichten, Anhänge und Vorschaubilder im Speicher und auf der Platte (Platten-Einträge jetzt mit Chat-Kennung),
-  Entwurf im Eingabefeld, Benachrichtigungen in der Glocke und Desktop-Mitteilungen des Chats. Auch live:
-  `chat.cleared` (anderes eigenes Gerät oder „für alle“), `chat.removed` (Chat schließt sich, Hinweis
-  „<Name> hat den Chat gelöscht.“ bzw. „… den Verlauf gelöscht.“), `chat.changed` (Archiv auf einem anderen Gerät);
-  verpasste Löschungen werden beim Laden der Liste nachgeholt. Am Anfang eines geleerten Verlaufs:
-  „Der bisherige Verlauf wurde gelöscht.“
-- Ältere Server ohne diese Felder: Archiv und Löschen sind ausgeblendet, alles andere wie bisher.
-
-### KI-Persona und „KI im Chat – nur auf Zuruf“ – iOS, iPadOS, macOS
-- **Name und Profilbild der KI** überall, wo die App KI-Funktionen anbietet: „Frage Marin“ im Seitenmenü und in der
-  Befehlspalette, Bild der KI als Knopf in der Kopfzeile, Antworten mit Bild und Namen, „Marin denkt nach …“.
-  Ohne Bild ein neutrales Symbol (✦ auf Gold). Bild über `/api/ai/avatar` (wie Profilbilder zwischengespeichert,
-  ETag); Änderungen durch den Admin kommen live (`ai.persona.changed`). Ältere Server ohne Persona: wie bisher.
-- **KI im Chat, nur auf Zuruf:** Ist die KI in einem Chat erlaubt, zeigt der Chat dauerhaft, was an die KI geht
-  (Nachrichten mit @Name und bis zu 12 davor, im Klartext an den KI-Dienst). Berechtigte schalten sie im Chat-Menü
-  ein oder aus (mit Rückfrage). Bei „@“ steht die KI als erster Vorschlag; beim Schreiben von „@Marin …“ ein kurzer
-  Hinweis. Nach dem Senden fragt die App die KI mit höchstens 12 Nachrichten Verlauf, zeigt die Antwort mitlaufend
-  und verschlüsselt sie danach wie jede Nachricht Ende-zu-Ende für alle (mit Beleg des Servers).
-- **Empfangene KI-Antworten** erscheinen mit Bild und Namen der KI und „gefragt von …“ – nur, wenn der SHA-256 des
-  entschlüsselten Textes und die Beleg-Kennung zum Server-Beleg passen; sonst als normale Nachricht mit Warnung
-  „Als KI-Antwort ausgegeben, aber nicht bestätigt“.
-
-### Sprache wählbar – iOS, iPadOS, macOS
-- **Einstellungen → „Sprache“:** Automatisch (Systemsprache), Deutsch, English oder Español – unabhängig von der
-  Sprache des Geräts. iPhone/iPad nutzen die Systemfunktion je App (Eintrag zeigt die aktuelle Sprache und öffnet
-  Einstellungen-App → Saga → Sprache); am Mac Auswahl direkt in der App mit Hinweis und Knopf „Jetzt neu starten“.
-- **Schon vor der Anmeldung:** kleiner Sprachumschalter unten im Anmeldebildschirm (fremdes Gerät); das
-  Anmeldefenster des Servers bekommt die App-Sprache mit (`lang=`).
-- Fehlertexte des Servers folgen der gewählten Sprache (Accept-Language der App-Anfragen).
-- **Anmeldebildschirm:** scrollt bei kleinen Fenstern, Sprachwahl bleibt unten sichtbar; „Abbrechen“ (auch Esc),
-  sobald ein Server bekannt ist – danach zeigt Saga den Zwischenspeicher mit Hinweis „Nicht angemeldet · Anmelden“
-  statt das Fenster bei jeder Anfrage erneut zu öffnen. Am Mac lässt sich das Anmeldeblatt in der Größe ändern.
-
-### Neu – Android: Sprache der App wählbar
-- **Einstellungen → Sprache** (ganz oben): Automatisch (Gerätesprache), Deutsch, English, Español – gilt nur für Saga,
-  die Gerätesprache bleibt unverändert (z. B. auf einem fremden oder geteilten Gerät). Sofort wirksam, ohne Neustart.
-- **Auch vor dem Anmelden:** kleiner Umschalter (Globus) unten auf dem Anmeldebildschirm.
-- Android 13+: über die Sprache pro App des Systems (auch unter Einstellungen → Apps → Saga → Sprache, beide Wege
-  bleiben gleich); Android 8–12: eigene Einstellung der App. Die Anfragen an den Server (`Accept-Language`) folgen
-  der gewählten Sprache.
-
-### Neu – Android: KI mit Namen und Profilbild, KI im Chat nur auf Zuruf
-- **Persona:** Hat der Admin der KI einen Namen und ein Profilbild gegeben (z. B. „Marin“), zeigt die App sie
-  überall, wo es KI-Funktionen gibt: „Frage Marin“ statt „KI-Assistent“, Antworten mit Profilbild und Namen,
-  „Marin denkt nach …“. Ohne Bild ein neutrales ✦-Symbol. Änderungen des Admins kommen live an
-  (`ai.persona.changed`); das Bild wird je Kennung (`avatar_etag`) zwischengespeichert. Ältere Server: wie bisher.
-- **KI im Chat – nur auf Zuruf:** Ist die KI in einem Chat erlaubt, steht oben ein Hinweis, was an die KI geht
-  (Nachrichten mit @Name und bis zu 12 davor, im Klartext an den KI-Anbieter); alles andere bleibt
-  Ende-zu-Ende-verschlüsselt. Berechtigte schalten das im Chat-Menü um („Marin in diesem Chat erlauben“, mit
-  Rückfrage). Bei „@“ wird die KI als erster Vorschlag angeboten, beim Schreiben von „@Marin“ erscheint ein kurzer
-  Hinweis. Nach dem Senden fragt die App die KI (Frage + höchstens 12 Nachrichten Verlauf), zeigt die Antwort
-  mitlaufend und sendet sie verschlüsselt an alle – mit Beleg des Servers.
-- **Echtheit:** Empfangene KI-Antworten erscheinen nur dann mit Profilbild, Namen und „gefragt von …“, wenn Beleg
-  und SHA-256 des Textes passen; sonst als normale Nachricht mit der Warnung „Als KI-Antwort ausgegeben, aber nicht
-  bestätigt“.
-- Der Hinweis im Assistenten sagt jetzt, dass die KI Chats nur liest, wenn man sie dort mit @Name fragt.
-
-### Sprachwahl (Linux)
-- **Sprache in der App wählbar:** Einstellungen → Allgemein → Sprache: „Automatisch (Systemsprache)“, Deutsch,
-  English oder Español – hilfreich an einem fremden Rechner. Gespeichert in den App-Einstellungen
-  (`~/.config/hlidskjalf/settings.json`), gilt ab dem nächsten Start (setzt `LANGUAGE`, auch für GTK/libadwaita);
-  Rückfrage „Saga neu starten, um die Sprache zu wechseln“ mit Knopf „Jetzt neu starten“ (speichert vorher).
-  Fehlermeldungen des Servers folgen der gewählten Sprache (`Accept-Language`).
-
-### KI-Persona und „KI im Chat – nur auf Zuruf“ (Linux)
-- **Name und Profilbild der KI** (Saga-Server 2.1, vom Admin festgelegt) überall, wo die App KI anbietet: Knopf und
-  Menüs „Frage Marin“, Antworten im Assistenten mit Bild und Namen, „Marin denkt nach …“. Ohne Bild: neutrales Symbol
-  auf Akzentfarbe. Das Bild wird nach seiner Kennung (`avatar_etag`) zwischengespeichert; Änderungen des Admins kommen
-  live an (`ai.persona.changed`). Ältere Server: wie bisher „Assistent“.
-- **KI im Chat, nur auf Zuruf:** Ist die KI in einem Chat erlaubt, zeigt der Chat oben einen Hinweis, was an die KI
-  geht. Berechtigte schalten sie im Chat-Menü ein oder aus („Marin in diesem Chat erlauben“). Beim Tippen von „@“ ist
-  die KI der erste Vorschlag (Tab übernimmt), eine Nachricht mit „@Marin“ zeigt kurz „Geht an Marin …“. Gesendet wird
-  die Nachricht wie immer Ende-zu-Ende-verschlüsselt; danach gehen nur sie und höchstens 12 Nachrichten davor im
-  Klartext an die KI. Die Antwort läuft sichtbar mit und wird mit dem Beleg des Servers für alle verschlüsselt gesendet.
-- **Echtheit von KI-Antworten:** Als KI-Antwort (Bild + Name, „gefragt von Ben“) erscheint eine Nachricht nur, wenn
-  Beleg-Kennung und SHA-256 des Textes passen – sonst als Nachricht des Absenders mit Warnung „Als KI-Antwort
-  ausgegeben, aber nicht bestätigt“.
-
-## [2.1.0] – 2026-10-17
+## [2.1.0] – 2026-10-18
 
 Passt zu Saga-Server 2.1. **Die neuen Funktionen brauchen Saga-Server 2.1; ältere Server funktionieren weiter**
-(dort arbeiten die Apps wie bisher, ohne Anrufe und Profilbilder).
+(dort arbeiten die Apps wie bisher – ohne Anrufe, Profilbilder, KI-Persona, KI im Chat, Archiv und Löschen von Chats).
+Sprachwahl sowie Thai und Russisch in den Apps funktionieren auch mit älteren Servern.
 
 ### Neu (alle Apps)
+- **Sprache wählbar:** Einstellungen → „Sprache“: Automatisch (Systemsprache), Deutsch, English, Español, ไทย (Thai)
+  oder Русский (Russisch) – nur für Saga, die Sprache des Geräts bleibt unverändert. Praktisch an einem fremden
+  oder geteilten Gerät: Ein kleiner Sprachumschalter steht schon **vor der Anmeldung** unten im Anmeldebildschirm,
+  und das Anmeldefenster des Servers erscheint in derselben Sprache. Fehlermeldungen des Servers folgen der gewählten
+  Sprache.
+- **Neue Sprachen Thai und Russisch** in allen Apps, mit denselben Begriffen wie Web und Server, richtigen
+  Mehrzahlformen im Russischen und Datum im Thai immer nach gregorianischem Kalender (2026 statt 2569).
+  **Maschinell übersetzt – Gegenlesen durch Muttersprachler ist sehr willkommen** (gern als Issue).
+- **KI mit Namen und Profilbild:** Hat der Admin der KI einen Namen und ein Bild gegeben (z. B. „Marin“), zeigen die
+  Apps sie überall, wo es KI-Funktionen gibt: „Frage Marin“, Antworten mit Bild und Namen, „Marin denkt nach …“.
+  Ohne Bild erscheint ein neutrales ✦-Symbol; Änderungen des Admins kommen sofort an.
+- **KI im Chat – nur auf Zuruf:** Ist die KI in einem Chat erlaubt, steht dort dauerhaft ein Hinweis, was an die KI
+  geht: nur Nachrichten mit „@Marin“ und höchstens 12 Nachrichten davor, im Klartext an den KI-Dienst – alles andere
+  bleibt Ende-zu-Ende-verschlüsselt. Berechtigte schalten das im Chat-Menü ein oder aus. Bei „@“ ist die KI der erste
+  Vorschlag; ihre Antwort läuft sichtbar mit und geht danach verschlüsselt an alle. Als KI-Antwort (mit Bild, Name und
+  „gefragt von …“) erscheint eine Nachricht nur, wenn der Beleg des Servers passt – sonst mit der Warnung „Als
+  KI-Antwort ausgegeben, aber nicht bestätigt“.
+- **Chats archivieren und löschen:** „Archivieren“ / „Aus Archiv holen“ (nur für mich) – archivierte Chats stehen
+  unten im aufklappbaren Bereich „Archiviert (n)“ und zählen nicht zu den ungelesenen; eine neue Nachricht holt den
+  Chat zurück (stummgeschaltete bleiben im Archiv). **„Chat löschen …“** mit „Nur für mich“ oder „Für alle“ (wenn der
+  Server es erlaubt, sonst ausgegraut mit Begründung), bei freien Gruppen auf Wunsch zusätzlich „Gruppe verlassen“.
+  Gelöscht wird wirklich: Nachrichten, Bilder, Anhänge, Entwurf und Mitteilungen des Chats verschwinden auch aus dem
+  Zwischenspeicher – auf allen eigenen Geräten und auch mit dem Wiederherstellungsschlüssel nicht mehr lesbar. Löscht
+  jemand anderes den Chat, schließt er sich mit dem Hinweis „<Name> hat den Chat gelöscht.“
 - **Audio- und Videoanrufe im Direkt-Chat:** WebRTC direkt zwischen den Geräten, jede Signalisierung mit dem
   Chat-Geräteschlüssel signiert und für das Zielgerät versiegelt (`saga-call/v1`, geprüft mit den Testvektoren des
   Servers); „Ende-zu-Ende verschlüsselt“ erst, wenn der DTLS-Fingerabdruck zur signierten Beschreibung passt.
@@ -200,14 +56,29 @@ Passt zu Saga-Server 2.1. **Die neuen Funktionen brauchen Saga-Server 2.1; älte
   Bildblöcke kopieren, ausschneiden und in andere Seiten einsetzen (iOS/iPadOS/macOS, Linux).
 
 ### iOS, iPadOS, macOS
+- **Sprache:** iPhone/iPad über die Systemfunktion je App – der Eintrag „Sprache“ in den Einstellungen zeigt die
+  aktuelle Sprache und öffnet Einstellungen-App → Saga → Sprache. Am Mac Auswahl direkt in der App, wirksam nach
+  „Jetzt neu starten“. Widget, Teilen-Erweiterungen, Siri-Kurzbefehle und Berechtigungstexte auch auf Thai und Russisch.
+- **Anmeldebildschirm:** scrollt in kleinen Fenstern (Sprachwahl bleibt sichtbar), „Abbrechen“ (auch Esc), sobald ein
+  Server bekannt ist – danach zeigt Saga die gespeicherten Inhalte mit „Nicht angemeldet · Anmelden“, statt das
+  Fenster immer wieder zu öffnen. Am Mac lässt sich das Anmeldeblatt in der Größe ändern.
+- Chats archivieren per Wischgeste (iPhone/iPad), Kontextmenü (Mac, iPad) oder Chat-Menü „⋯“; KI-Bild als Knopf in
+  der Kopfzeile, „Frage Marin“ auch in der Befehlspalette.
 - Klingeln auf iPhone/iPad über **CallKit** (Sperrbildschirm, Anrufliste) und PushKit-VoIP; Mac mit eigenem
   Anruf-Fenster, Klingelton und Mitteilung „Annehmen“/„Ablehnen“. Lautsprecher und Kamera wechseln.
 - Bilder aus der Zwischenablage mit ⌘V bzw. „Einsetzen“ (vorher geschah am Mac nichts, auf iPhone/iPad landete ein
   Ersatzzeichen).
 - Behoben: Auflegen während „Verbinde …“ bricht wirklich ab (vorher „Besetzt“ bis zum Neustart); Knöpfe bei großer
-  Schrift; Saga drängt sich am Mac nicht mehr in den Vordergrund; transparente Profilbilder mit weißem Hintergrund.
+  Schrift; Saga drängt sich am Mac nicht mehr in den Vordergrund; transparente Profilbilder mit weißem Hintergrund;
+  Tagesangaben an Server und Widget immer im gregorianischen Kalender (vorher hätte ein Gerät mit buddhistischem
+  Kalender ein falsches Jahr gesendet).
 
 ### Android
+- **Sprache** wirkt sofort, ohne Neustart; Umschalter (Globus) auf dem Anmeldebildschirm. Ab Android 13 auch unter
+  Einstellungen → Apps → Saga → Sprache (beide Wege bleiben gleich).
+- Chats archivieren per Wischen nach links, langes Drücken oder Chat-Menü – mit „Rückgängig“.
+- Mengenangaben mit richtiger Mehrzahl in allen Sprachen („1 час“, „3 часа“, „5 часов“); Sprachnamen im
+  KI-Übersetzen-Menü und Tagesüberschriften im Chat folgen der App-Sprache.
 - Klingeln als **Vollbild-Anruf** (auch auf dem Sperrbildschirm) über den Live-Kanal bzw. UnifiedPush; laufender
   Anruf als Vordergrund-Dienst; Weg (direkt/Relais) und Qualität sichtbar.
 - **Android 17 im Heimnetz:** Die App erkennt die neue Berechtigung „Geräte in der Nähe“ für Adressen im lokalen Netz,
@@ -220,6 +91,11 @@ Passt zu Saga-Server 2.1. **Die neuen Funktionen brauchen Saga-Server 2.1; älte
   im Chat, Profilbilder mit Transparenz.
 
 ### Linux
+- **Sprache:** Einstellungen → Allgemein → Sprache, wirksam nach „Jetzt neu starten“ (die App speichert vorher).
+  Desktop-Eintrag und Software-Center-Beschreibung auch auf Thai und Russisch; Datumswörter im Editor verstehen
+  „завтра в 9:00“, „в пятницу“, „พรุ่งนี้“ usw. Für Thai empfiehlt das RPM eine Thai-Schrift (Noto Sans Thai).
+- Chats archivieren im Chat-Menü und im Kontextmenü der Chatliste (Rechtsklick, Menü-Taste bzw. Umschalt+F10);
+  bei „@“ übernimmt Tab den KI-Vorschlag.
 - Eingehende Anrufe klingeln in der App (Leiste im Fenster, Desktop-Mitteilung, auch über UnifiedPush);
   **Annehmen und Anrufen öffnen das Gespräch im Standardbrowser**.
 - Chat-Bilder: 300 Bildnachrichten nach 0,3 s statt 5 s, Speicher 240 MB statt über 2,3 GB (vorher brach die App
@@ -229,6 +105,8 @@ Passt zu Saga-Server 2.1. **Die neuen Funktionen brauchen Saga-Server 2.1; älte
   HEIC nur mit passender Bildbibliothek.
 
 ### Bekannte Grenzen
+- **Thai und Russisch** sind maschinell übersetzt – Verbesserungen von Muttersprachlern sind willkommen.
+- **Sprachwechsel** am Mac und unter Linux gilt erst nach einem Neustart der App (die App bietet ihn direkt an).
 - **Linux:** Anrufe laufen im Browser (die App klingelt und öffnet das Gespräch dort).
 - **Android:** Im Hintergrund klingelt Saga nur mit einem UnifiedPush-Verteiler (z. B. ntfy); ohne nur bei offener App.
 - **iPhone/iPad:** Klingeln über CallKit/VoIP braucht einen APNs-Schlüssel am Server (Admin → Mitteilungen); ohne
