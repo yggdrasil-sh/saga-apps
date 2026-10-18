@@ -1,20 +1,25 @@
 package io.github.yggdrasil_sh.saga.data
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.intOrNull
 
 /**
- * Takt fuer den Abgleich der Seitenliste im Vordergrund. Ohne verbundenen Live-Kanal wie bisher jede Minute; mit
- * Live-Kanal kommen Freigaben, Kommentare, Benachrichtigungen und Neustarts ("reset") ohnehin sofort - dann reicht
- * ein seltener Abgleich fuer im Web/auf anderen Geraeten Geaendertes (beim Zurueckholen der App wird immer abgeglichen).
+ * Takt fuer den Abgleich der Seitenliste im Vordergrund. Ohne verbundenen Live-Kanal wie bisher jede Minute. Mit
+ * Live-Kanal nur dann seltener (5 min, Sicherheitsnetz), wenn in dieser Anmeldung schon ein `notes.tree` kam - der Server
+ * meldet Baum-Aenderungen dann selbst (die Serverversion allein reicht nicht: testing-Server melden schon 2.2.0, schicken
+ * aber evtl. noch kein notes.tree). Die kleinen Listen (Mit mir geteilt, andere Server, Glocke, Chats, Heute) werden
+ * unabhaengig davon weiter jede Minute abgeglichen (lightDue) - Gruppenwechsel/Verschieben aus geteilten Baeumen loesen
+ * serverseitig nicht immer Ereignisse aus.
  */
 object RefreshPolicy {
-    /** ohne Live-Kanal (wie bisher) */
+    /** ohne Live-Kanal bzw. noch kein notes.tree (wie bisher) */
     const val POLL_MS = 60_000L
 
-    /** mit verbundenem Live-Kanal UND Server mit notes.tree (Sicherheitsnetz) */
+    /** mit verbundenem Live-Kanal UND schon empfangenem notes.tree (Sicherheitsnetz) */
     const val POLL_LIVE_MS = 300_000L
 
     /** Pruefintervall der Schleife (kostet nichts ausser einem Vergleich) */
@@ -22,27 +27,37 @@ object RefreshPolicy {
 
     fun now(): Long = System.nanoTime() / 1_000_000
 
-    /** Abgleich faellig? sinceMs = Zeit seit dem letzten Abgleich (halber Tick Toleranz, damit 60 s nicht zu 70 s werden) */
-    fun due(sinceMs: Long, liveConnected: Boolean): Boolean =
-        sinceMs >= (if (liveConnected) POLL_LIVE_MS else POLL_MS) - TICK_MS / 2
+    /**
+     * Voller Abgleich faellig? sinceMs = Zeit seit dem letzten Abgleich (halber Tick Toleranz, damit 60 s nicht zu 70 s
+     * werden); treeSeen = in dieser Anmeldung schon ein notes.tree empfangen.
+     */
+    fun due(sinceMs: Long, liveConnected: Boolean, treeSeen: Boolean): Boolean =
+        sinceMs >= (if (liveConnected && treeSeen) POLL_LIVE_MS else POLL_MS) - TICK_MS / 2
+
+    /** Kleine Listen (geteilt, Glocke, Chats, Heute) faellig? sinceMs = seit dem letzten vollen ODER kleinen Abgleich */
+    fun lightDue(sinceMs: Long): Boolean = sinceMs >= POLL_MS - TICK_MS / 2
 
     /** Live-Kanal wieder verbunden (Netzwechsel, Aufwachen): sofort abgleichen, wenn der letzte Abgleich aelter als der 60-s-Takt ist */
     fun staleAfterReconnect(sinceMs: Long): Boolean = sinceMs >= POLL_MS - TICK_MS / 2
 }
 
 /**
- * Live-Ereignis `notes.tree {ids, op}` (Server 2.2): Seiten im Baum angelegt/geaendert/verschoben/geloescht/archiviert.
- * Wenige angelegte/geaenderte Seiten werden gezielt nachgeladen (GET api/notes/{id}); alles andere (Verschieben,
- * Papierkorb, Archiv, unbekannte Arten, viele oder keine IDs) per vollem Abgleich. Ereignisse kurz gesammelt (entprellt).
+ * Live-Ereignis `notes.tree {ids:[int], op, ops:[...], full:bool}` (docs/APP-API-LIVE.md): Seiten im Baum angelegt/
+ * geaendert/verschoben/geloescht/archiviert/geteilt. `full: true` (zu viele Seiten) -> voller Abgleich. Wenige
+ * angelegte/geaenderte Seiten werden gezielt nachgeladen (GET api/notes/{id}); alles andere (moved, trashed, restored,
+ * archived, deleted, shared, mixed mit solchen Arten, unbekannte Arten, viele oder keine IDs) per vollem Abgleich.
+ * Ereignisse kurz gesammelt (entprellt).
  */
 object TreeEvents {
     const val EVENT = "notes.tree"
-    const val MIN_SERVER = "2.2.0"
     const val DEBOUNCE_MS = 400L
     const val MAX_TARGETED = 20
 
     /** Arten, bei denen gezieltes Nachladen der IDs genau den Stand eines Neuladens ergibt */
-    private val TARGETED = setOf("created", "create", "new", "changed", "change", "updated", "update", "renamed")
+    private val TARGETED = setOf("created", "updated")
+
+    /** Pseudo-Art fuer "ganzen Baum neu laden" (full: true, keine IDs) */
+    const val FULL = "*full"
 
     sealed interface Plan {
         data object Full : Plan
@@ -50,15 +65,27 @@ object TreeEvents {
     }
 
     fun plan(ids: Collection<Long>, ops: Collection<String>): Plan =
-        if (ids.isEmpty() || ids.toSet().size > MAX_TARGETED || ops.any { it.lowercase() !in TARGETED }) Plan.Full
+        if (ids.isEmpty() || ids.toSet().size > MAX_TARGETED || ops.isEmpty() || ops.any { it.lowercase() !in TARGETED }) Plan.Full
         else Plan.Targeted(ids.toSet())
 
-    /** {ids: [int], op: "..."} - tolerant: fehlende/fremde Felder, Zahlen als Text, Zusatzfelder werden ignoriert */
-    fun parse(data: JsonObject): Pair<List<Long>, String> {
-        val ids = (data["ids"] as? kotlinx.serialization.json.JsonArray).orEmpty()
+    data class Event(val ids: List<Long>, val ops: Set<String>, val full: Boolean)
+
+    /**
+     * {ids, op, ops, full} - tolerant: fehlende/fremde Felder, Zahlen als Text, Zusatzfelder werden ignoriert.
+     * Arten = ops (falls vorhanden) plus op (ausser "mixed", das nur auf ops verweist); ohne beides -> "" (unbekannt).
+     * full = true -> ops enthaelt FULL.
+     */
+    fun parse(data: JsonObject): Event {
+        val ids = (data["ids"] as? JsonArray).orEmpty()
             .mapNotNull { (it as? JsonPrimitive)?.content?.toDoubleOrNull()?.toLong() }
         val op = (data["op"] as? JsonPrimitive)?.content.orEmpty()
-        return ids to op
+        val list = (data["ops"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.content }
+        val full = (data["full"] as? JsonPrimitive)?.booleanOrNull == true
+        val ops = LinkedHashSet<String>()
+        ops.addAll(list)
+        if (op != "mixed" || list.isEmpty()) ops.add(op)
+        if (full) ops.add(FULL)
+        return Event(ids, ops, full)
     }
 }
 

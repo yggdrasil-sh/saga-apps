@@ -400,10 +400,14 @@ class SagaRepository(
         }
     }
 
+    /** Ende des letzten kleinen Abgleichs (geteilt, Glocke, Chats, Heute; monotone Uhr, ms) */
+    @Volatile private var lastLightMs = 0L
+
     /**
-     * Takt im Vordergrund (MainScreen): ohne verbundenen Live-Kanal wie bisher alle 60 s, mit Live-Kanal seltener
-     * (RefreshPolicy). Kommt der Live-Kanal nach einer Unterbrechung wieder, wird sofort abgeglichen, wenn der letzte
-     * Abgleich laenger als der Takt ohne Live-Kanal her ist.
+     * Takt im Vordergrund (MainScreen): ohne verbundenen Live-Kanal wie bisher alle 60 s. Mit Live-Kanal erst seltener
+     * (5 min), wenn in dieser Anmeldung schon ein notes.tree kam (RefreshPolicy). Die kleinen Listen (Mit mir geteilt,
+     * andere Server, Glocke, Chats, Heute, Entwuerfe) bleiben dabei im Minutentakt (refreshLight). Kommt der Live-Kanal
+     * nach einer Unterbrechung wieder, wird sofort abgeglichen, wenn der letzte Abgleich laenger als 60 s her ist.
      */
     suspend fun pollWhileForeground(): Unit = coroutineScope {
         launch {
@@ -415,7 +419,33 @@ class SagaRepository(
         }
         while (true) {
             delay(RefreshPolicy.TICK_MS)
-            if (RefreshPolicy.due(sinceLastRefresh(), live.connected.value && treeEventsSupported)) refresh()
+            if (RefreshPolicy.due(sinceLastRefresh(), live.connected.value, live.treeSeen)) {
+                refresh()
+                scope.launch { live.loadNotificationCount(); live.loadChatUnread() }
+            } else {
+                val sinceLight = if (lastLightMs == 0L) sinceLastRefresh() else minOf(sinceLastRefresh(), RefreshPolicy.now() - lastLightMs)
+                if (RefreshPolicy.lightDue(sinceLight)) refreshLight()
+            }
+        }
+    }
+
+    /**
+     * Kleiner Abgleich im Minutentakt, solange der Seitenbaum seltener abgeglichen wird: Mit mir geteilt (Gruppenwechsel,
+     * Verschieben aus geteilten Baeumen loesen nicht immer Ereignisse aus), andere Server, Glocke, Chats, Heute, Entwuerfe.
+     */
+    private suspend fun refreshLight() {
+        lastLightMs = RefreshPolicy.now()
+        if (!ready.value || needsLogin.value) return
+        try {
+            loadShared()
+            scope.launch { loadFedShared() }
+            scope.launch { live.loadNotificationCount(); live.loadChatUnread() }
+            loadTasks()
+            loadTodayEvents()
+            syncDrafts()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
         }
     }
 
@@ -506,13 +536,6 @@ class SagaRepository(
 
     // ---------------------------------------------------------------- Live: notes.tree (Server 2.2)
 
-    /**
-     * Server meldet Baum-Aenderungen live (notes.tree, ab 2.2) - nur dann reicht der seltene Takt; aeltere Server
-     * (oder Version noch unbekannt): wie bisher jede Minute, damit Aenderungen von anderswo nicht spaeter erscheinen.
-     */
-    val treeEventsSupported: Boolean
-        get() = serverVersion.value?.let { !Versions.isLess(it, TreeEvents.MIN_SERVER) } ?: false
-
     private val treeLock = Any()
     private val treeIds = LinkedHashSet<Long>()
     private val treeOps = HashSet<String>()
@@ -520,12 +543,13 @@ class SagaRepository(
 
     /**
      * Live-Ereignis notes.tree {ids, op}: Seiten anderswo (Web, anderes Geraet, Freigabe) angelegt/geaendert/
-     * verschoben/geloescht. Kurz sammeln (entprellt), dann gezielt nachladen oder voll abgleichen (TreeEvents.plan).
+     * verschoben/geloescht. Kurz sammeln (entprellt), dann gezielt nachladen oder voll abgleichen (TreeEvents.plan;
+     * full: true steckt als TreeEvents.FULL in ops).
      */
-    fun onTreeEvent(ids: List<Long>, op: String) {
+    fun onTreeEvent(ids: List<Long>, ops: Collection<String>) {
         synchronized(treeLock) {
             treeIds.addAll(ids)
-            treeOps.add(op)
+            treeOps.addAll(ops)
             if (ids.isEmpty()) treeOps.add("")                // ohne IDs: voller Abgleich
             if (treeJob?.isActive == true) return
             treeJob = scope.launch {
