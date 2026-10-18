@@ -25,6 +25,13 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   bleiben gleich); Android 8–12: eigene Einstellung der App. Die Anfragen an den Server (`Accept-Language`) folgen
   der gewählten Sprache.
 
+### Sprachwahl (Linux)
+- **Sprache in der App wählbar:** Einstellungen → Allgemein → Sprache: „Automatisch (Systemsprache)“, Deutsch,
+  English oder Español – hilfreich an einem fremden Rechner. Gespeichert in den App-Einstellungen
+  (`~/.config/hlidskjalf/settings.json`), gilt ab dem nächsten Start (setzt `LANGUAGE`, auch für GTK/libadwaita);
+  Rückfrage „Saga neu starten, um die Sprache zu wechseln“ mit Knopf „Jetzt neu starten“ (speichert vorher).
+  Fehlermeldungen des Servers folgen der gewählten Sprache (`Accept-Language`).
+
 ## [2.1.0] – 2026-10-17
 
 Passt zu Saga-Server 2.1. **Die neuen Funktionen brauchen Saga-Server 2.1; ältere Server funktionieren weiter**

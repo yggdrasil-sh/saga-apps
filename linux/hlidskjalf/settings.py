@@ -55,6 +55,7 @@ class SettingsDialog(Adw.PreferencesDialog):
         ch.connect("notify::value", lambda r, _: settings.set("cover_height", int(r.get_value())))
         g2.add(ch)
         page.add(g2)
+        page.add(self._language_group())
         g3 = Adw.PreferencesGroup()
         out = Adw.ButtonRow(title=_("Sign out")) if hasattr(Adw, "ButtonRow") else Adw.ActionRow(title=_("Sign out"), activatable=True)
         out.add_css_class("destructive-action")
@@ -85,6 +86,55 @@ class SettingsDialog(Adw.PreferencesDialog):
             from .chatview import ChatDevicesPage  # Chats & Geraete (Server ab 1.5)
             self.pages["chats"] = ChatDevicesPage(self)
             self.add(self.pages["chats"])
+
+    # Sprache der App (settings.json "language"; leer = Systemsprache). Gilt ab dem naechsten Start (i18n.py),
+    # auch fuer Accept-Language der Anfragen an den Server.
+    LANG_CODES = ("", "de", "en", "es")
+
+    def _language_group(self):
+        g = Adw.PreferencesGroup(title=_("Language"))
+        names = [_("Automatic"), "Deutsch", "English", "Español"]   # Sprachnamen in der eigenen Sprache
+        self.lang = Adw.ComboRow(title=_("App language"), model=Gtk.StringList.new(names))
+        cur = settings.get("language") or ""
+        self.lang.set_selected(self.LANG_CODES.index(cur) if cur in self.LANG_CODES else 0)
+        self._lang_row_subtitle()
+        self.lang.connect("notify::selected", self._language_changed)
+        g.add(self.lang)
+        return g
+
+    def _lang_row_subtitle(self):
+        from . import i18n
+        want = settings.get("language") or ""
+        if want != i18n.CHOSEN:
+            self.lang.set_subtitle(_("Takes effect after restarting Saga"))
+        else:
+            self.lang.set_subtitle(_("“Automatic” follows the system language"))
+
+    def _language_changed(self, row, _p):
+        i = row.get_selected()
+        code = self.LANG_CODES[i] if 0 <= i < len(self.LANG_CODES) else ""
+        if code == (settings.get("language") or ""):
+            return
+        settings.set("language", code or None)
+        self._lang_row_subtitle()
+        from . import i18n
+        if code == i18n.CHOSEN:                       # zurueck auf die laufende Sprache: kein Neustart noetig
+            return
+        d = Adw.AlertDialog(heading=_("Restart Saga to change the language"),
+                            body=_("The new language is used the next time Saga starts. Unsaved changes are saved first."))
+        d.add_response("later", _("Later"))
+        d.add_response("restart", _("Restart now"))
+        d.set_response_appearance("restart", Adw.ResponseAppearance.SUGGESTED)
+        d.set_default_response("restart")
+        d.set_close_response("later")
+
+        def resp(dd, r):
+            if r == "restart":
+                self.force_close()
+                self.win.get_application().restart()
+        d.connect("response", resp)
+        d.present(self)
+        self.lang_dialog = d                          # fuer Tests
 
     def show_page(self, name):
         p = self.pages.get(name)
