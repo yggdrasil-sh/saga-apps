@@ -46,8 +46,11 @@ label() {
   [ -n "$T" ] || { echo "$V-rc.0"; return; }
   N=$(g rev-list --count "$T..HEAD") || N=0
   B=$V
-  TV=${T#v}
-  if echo "$TV" | grep -Eq "$SEMVER" && le "$V" "$TV"; then B=$(next_patch "$TV"); fi
+  # hoechster Release-Tag ueberhaupt (auch einer, der noch nicht in diesen Branch zurueckgefuehrt ist, z. B. ein
+  # Release auf main vor dem Merge nach testing) - der RC muss neuer sein als jedes veroeffentlichte Release
+  HI=$(g tag --list 'v[0-9]*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1) || HI=
+  [ -n "$HI" ] || HI=${T#v}
+  if echo "$HI" | grep -Eq "$SEMVER" && le "$V" "$HI"; then B=$(next_patch "$HI"); fi
   echo "$B-rc.$N"
 }
 

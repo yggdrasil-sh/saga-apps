@@ -131,3 +131,17 @@ def test_label_vorgabe_wird_geprueft(tmp_path):
     assert _label(r, env, SAGA_VERSION_LABEL="2.0.9-rc.4")[0] != 0
     assert _label(r, env, SAGA_VERSION_LABEL="2.1.0-testing")[0] != 0
     assert _label(r, env, SAGA_VERSION_LABEL="2.1.0-rc.x")[0] != 0
+
+
+def test_label_release_noch_nicht_zurueckgefuehrt(tmp_path):
+    # Release v2.2.0 auf main, testing (VERSION 2.2.0) hat main noch nicht gemerged: RC muss trotzdem neuer sein
+    r, git, env = _repo(tmp_path, "2.1.0")
+    git("tag", "v2.1.0")
+    (r / "VERSION").write_text("2.2.0\n")
+    git("commit", "-qam", "naechste")
+    git("checkout", "-qb", "release-zweig")
+    git("commit", "-q", "--allow-empty", "-m", "release-merge")
+    git("tag", "v2.2.0")
+    git("checkout", "-q", "-")
+    git("commit", "-q", "--allow-empty", "-m", "weiter")
+    assert _label(r, env) == (0, "2.2.1-rc.2")
