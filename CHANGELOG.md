@@ -25,7 +25,9 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   „+“, „+“ an einer Seite, Konfliktkopie) wird gezielt geholt und direkt eingefügt, „In den Papierkorb“ und
   „Archivieren“ entfernen die Seite samt Unterseiten sofort aus der Liste – mit denselben Daten wie nach einem
   Neuladen. Der regelmäßige Abgleich im Vordergrund läuft wie bisher jede Minute, solange der Live-Kanal nicht
-  verbunden ist; mit Live-Kanal (Freigaben, Kommentare, Benachrichtigungen kommen dort sofort) alle 5 Minuten. Beim
+  verbunden ist. Mit Live-Kanal meldet der Server (ab 2.2, Ereignis `notes.tree`) anderswo angelegte, geänderte,
+  verschobene, gelöschte oder archivierte Seiten sofort – die App holt dann nur diese Seiten nach (bei Verschieben,
+  Papierkorb, Archiv oder vielen Seiten die ganze Liste); der Abgleich alle 5 Minuten bleibt als Sicherheitsnetz (ältere Server ohne `notes.tree`: weiter jede Minute). Beim
   Zurückholen der App und nach einer Unterbrechung des Live-Kanals (Netzwechsel, Aufwachen) wird wie bisher sofort
   abgeglichen. Gleichzeitige Anstöße (Start, Takt, Ziehen zum Aktualisieren, Live „reset“) laden die Liste nur
   einmal. Seitenbaum und Datenbank-Zeilen werden im Hintergrund aufbereitet (kein Ruckeln bei großen Listen).

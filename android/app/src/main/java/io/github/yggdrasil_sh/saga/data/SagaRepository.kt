@@ -415,7 +415,7 @@ class SagaRepository(
         }
         while (true) {
             delay(RefreshPolicy.TICK_MS)
-            if (RefreshPolicy.due(sinceLastRefresh(), live.connected.value)) refresh()
+            if (RefreshPolicy.due(sinceLastRefresh(), live.connected.value && treeEventsSupported)) refresh()
         }
     }
 
@@ -502,6 +502,90 @@ class SagaRepository(
         } else {
             archivedOwn = archivedOwn + cur.filter { it.id in gone }.map { it.copy(archived = true) }
         }
+    }
+
+    // ---------------------------------------------------------------- Live: notes.tree (Server 2.2)
+
+    /**
+     * Server meldet Baum-Aenderungen live (notes.tree, ab 2.2) - nur dann reicht der seltene Takt; aeltere Server
+     * (oder Version noch unbekannt): wie bisher jede Minute, damit Aenderungen von anderswo nicht spaeter erscheinen.
+     */
+    val treeEventsSupported: Boolean
+        get() = serverVersion.value?.let { !Versions.isLess(it, TreeEvents.MIN_SERVER) } ?: false
+
+    private val treeLock = Any()
+    private val treeIds = LinkedHashSet<Long>()
+    private val treeOps = HashSet<String>()
+    private var treeJob: kotlinx.coroutines.Job? = null
+
+    /**
+     * Live-Ereignis notes.tree {ids, op}: Seiten anderswo (Web, anderes Geraet, Freigabe) angelegt/geaendert/
+     * verschoben/geloescht. Kurz sammeln (entprellt), dann gezielt nachladen oder voll abgleichen (TreeEvents.plan).
+     */
+    fun onTreeEvent(ids: List<Long>, op: String) {
+        synchronized(treeLock) {
+            treeIds.addAll(ids)
+            treeOps.add(op)
+            if (ids.isEmpty()) treeOps.add("")                // ohne IDs: voller Abgleich
+            if (treeJob?.isActive == true) return
+            treeJob = scope.launch {
+                delay(TreeEvents.DEBOUNCE_MS)
+                val (i, o) = synchronized(treeLock) {
+                    (treeIds.toList() to treeOps.toList()).also { treeIds.clear(); treeOps.clear(); treeJob = null }
+                }
+                applyTree(i, o)
+            }
+        }
+    }
+
+    private suspend fun applyTree(ids: List<Long>, ops: List<String>) {
+        if (!ready.value || needsLogin.value) return
+        when (val p = TreeEvents.plan(ids, ops)) {
+            TreeEvents.Plan.Full -> refresh(join = false)    // ein laufender Abgleich kennt die Aenderung evtl. noch nicht
+            is TreeEvents.Plan.Targeted -> {
+                var shared = false
+                var full = false
+                for (id in p.ids) {
+                    try {
+                        val text = api.get("api/notes/$id")
+                        val o = withContext(Dispatchers.Default) { json.parseToJsonElement(text) as? JsonObject }
+                        val role = (o?.get("role") as? kotlinx.serialization.json.JsonPrimitive)?.content
+                        if (o != null && (role == null || role == "owner") && id > 0) {
+                            upsertOwnPage(withContext(Dispatchers.Default) { PageList.metaFromDetail(json, text) })
+                        } else {
+                            shared = true                    // fremde (geteilte) Seite: "Mit mir geteilt" neu
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: ApiException) {
+                        if (e.code == 404 || e.code == 403) {
+                            if (ownIds?.contains(id) == true) removeSubtreeLocal(id, trashed = true) else shared = true
+                        } else {
+                            full = true
+                        }
+                    } catch (_: Exception) {
+                        full = true                          // offline o. ae.: beim naechsten Abgleich
+                    }
+                }
+                if (full) refresh(join = false) else {
+                    if (shared) loadShared()
+                    afterTreeChange()
+                }
+            }
+        }
+    }
+
+    /** Eigene Seite aus GET api/notes/{id} einpflegen: ersetzen (Stelle bleibt) bzw. ans Ende; archivierte ins Archiv */
+    private fun upsertOwnPage(meta: PageMeta) {
+        treeEpoch++
+        if (meta.archived) {
+            pages.value = pages.value.filter { it.id != meta.id }
+            archivedOwn = PageList.upsert(archivedOwn, meta)
+        } else {
+            pages.value = PageList.upsert(pages.value, meta)
+            archivedOwn = archivedOwn.filter { it.id != meta.id }
+        }
+        ownIds = ownIds?.plus(meta.id)
     }
 
     /** Server-Version (oeffentlich, ohne Anmeldung); aeltere Server ohne /api/version: nichts anzeigen */

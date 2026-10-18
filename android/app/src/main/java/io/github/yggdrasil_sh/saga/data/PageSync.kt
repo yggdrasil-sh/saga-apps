@@ -14,7 +14,7 @@ object RefreshPolicy {
     /** ohne Live-Kanal (wie bisher) */
     const val POLL_MS = 60_000L
 
-    /** mit verbundenem Live-Kanal */
+    /** mit verbundenem Live-Kanal UND Server mit notes.tree (Sicherheitsnetz) */
     const val POLL_LIVE_MS = 300_000L
 
     /** Pruefintervall der Schleife (kostet nichts ausser einem Vergleich) */
@@ -30,8 +30,46 @@ object RefreshPolicy {
     fun staleAfterReconnect(sinceMs: Long): Boolean = sinceMs >= POLL_MS - TICK_MS / 2
 }
 
+/**
+ * Live-Ereignis `notes.tree {ids, op}` (Server 2.2): Seiten im Baum angelegt/geaendert/verschoben/geloescht/archiviert.
+ * Wenige angelegte/geaenderte Seiten werden gezielt nachgeladen (GET api/notes/{id}); alles andere (Verschieben,
+ * Papierkorb, Archiv, unbekannte Arten, viele oder keine IDs) per vollem Abgleich. Ereignisse kurz gesammelt (entprellt).
+ */
+object TreeEvents {
+    const val EVENT = "notes.tree"
+    const val MIN_SERVER = "2.2.0"
+    const val DEBOUNCE_MS = 400L
+    const val MAX_TARGETED = 20
+
+    /** Arten, bei denen gezieltes Nachladen der IDs genau den Stand eines Neuladens ergibt */
+    private val TARGETED = setOf("created", "create", "new", "changed", "change", "updated", "update", "renamed")
+
+    sealed interface Plan {
+        data object Full : Plan
+        data class Targeted(val ids: Set<Long>) : Plan
+    }
+
+    fun plan(ids: Collection<Long>, ops: Collection<String>): Plan =
+        if (ids.isEmpty() || ids.toSet().size > MAX_TARGETED || ops.any { it.lowercase() !in TARGETED }) Plan.Full
+        else Plan.Targeted(ids.toSet())
+
+    /** {ids: [int], op: "..."} - tolerant: fehlende/fremde Felder, Zahlen als Text, Zusatzfelder werden ignoriert */
+    fun parse(data: JsonObject): Pair<List<Long>, String> {
+        val ids = (data["ids"] as? kotlinx.serialization.json.JsonArray).orEmpty()
+            .mapNotNull { (it as? JsonPrimitive)?.content?.toDoubleOrNull()?.toLong() }
+        val op = (data["op"] as? JsonPrimitive)?.content.orEmpty()
+        return ids to op
+    }
+}
+
 /** Seitenliste aufbereiten (reine Funktionen, laufen auf Dispatchers.Default) */
 object PageList {
+    /** Eintrag ersetzen (Stelle bleibt) bzw. neu ans Ende (neue Seiten: sort = Anlegezeit) */
+    fun upsert(list: List<PageMeta>, meta: PageMeta): List<PageMeta> {
+        val i = list.indexOfFirst { it.id == meta.id }
+        return if (i < 0) list + meta else list.toMutableList().also { it[i] = meta }
+    }
+
     class Split(val active: List<PageMeta>, val archived: List<PageMeta>, val ids: Set<Long>)
 
     /** GET api/notes -> sichtbare (nicht archivierte) Seiten, archivierte, alle IDs */

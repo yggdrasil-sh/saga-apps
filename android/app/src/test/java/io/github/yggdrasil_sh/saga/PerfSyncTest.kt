@@ -4,6 +4,7 @@ import io.github.yggdrasil_sh.saga.data.PageList
 import io.github.yggdrasil_sh.saga.data.PageMeta
 import io.github.yggdrasil_sh.saga.data.PageTree
 import io.github.yggdrasil_sh.saga.data.RefreshPolicy
+import io.github.yggdrasil_sh.saga.data.TreeEvents
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -27,6 +28,9 @@ class PerfSyncTest {
         // nach Wiederverbinden: sofort, wenn der letzte Abgleich aelter als der 60-s-Takt ist
         assertFalse(RefreshPolicy.staleAfterReconnect(20_000))
         assertTrue(RefreshPolicy.staleAfterReconnect(120_000))
+        // seltener Takt nur mit Server, der notes.tree meldet (ab 2.2)
+        assertFalse(io.github.yggdrasil_sh.saga.util.Versions.isLess("2.2.0", TreeEvents.MIN_SERVER))
+        assertTrue(io.github.yggdrasil_sh.saga.util.Versions.isLess("2.1.0", TreeEvents.MIN_SERVER))
     }
 
     private fun p(id: Long, parent: Long? = null, archived: Boolean = false, kind: String? = null) =
@@ -70,6 +74,29 @@ class PerfSyncTest {
         assertNull(m.role)
         // ungelesene Kommentare -> Punkt wie in der Liste
         assertTrue(PageList.metaFromDetail(json, detail.replace("\"comments_unread\":0", "\"comments_unread\":2")).unread)
+    }
+
+    @Test
+    fun live_notes_tree() {
+        // tolerant: Zahlen auch als Text/Gleitkomma, Zusatzfelder egal, fehlendes op -> ""
+        val d = json.parseToJsonElement("""{"ids":[5,"7",9.0,"x"],"op":"created","by":{"name":"A"},"neu":1}""")
+            as kotlinx.serialization.json.JsonObject
+        assertEquals(listOf(5L, 7L, 9L) to "created", TreeEvents.parse(d))
+        assertEquals(emptyList<Long>() to "", TreeEvents.parse(json.parseToJsonElement("{}") as kotlinx.serialization.json.JsonObject))
+        // wenige angelegte/geaenderte Seiten: gezielt; sonst voller Abgleich
+        assertEquals(TreeEvents.Plan.Targeted(setOf(5L, 7L)), TreeEvents.plan(listOf(5L, 7L, 5L), listOf("created", "changed")))
+        for (op in listOf("moved", "trashed", "archived", "restored", "", "irgendwas"))
+            assertEquals(op, TreeEvents.Plan.Full, TreeEvents.plan(listOf(5L), listOf("created", op)))
+        assertEquals(TreeEvents.Plan.Full, TreeEvents.plan(emptyList(), listOf("changed")))
+        assertEquals(TreeEvents.Plan.Full, TreeEvents.plan((1L..21L).toList(), listOf("changed")))
+    }
+
+    @Test
+    fun einpflegen_stelle_bleibt() {
+        val l = listOf(p(1), p(2), p(3))
+        assertEquals(listOf(1L, 2L, 3L), PageList.upsert(l, p(2).copy(title = "neu")).map { it.id })
+        assertEquals("neu", PageList.upsert(l, p(2).copy(title = "neu"))[1].title)
+        assertEquals(listOf(1L, 2L, 3L, 4L), PageList.upsert(l, p(4)).map { it.id })
     }
 
     @Test

@@ -278,6 +278,10 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
                 loadNotifications()
                 loadChatUnread()
             }
+            io.github.yggdrasil_sh.saga.data.TreeEvents.EVENT -> {        // (2.2) Seiten im Baum anderswo geaendert
+                val (ids, op) = io.github.yggdrasil_sh.saga.data.TreeEvents.parse(data)
+                repo.onTreeEvent(ids, op)
+            }
             "shared.changed" -> scope.launch {
                 repo.loadShared()
                 repo.loadFedShared()
