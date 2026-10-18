@@ -15,7 +15,7 @@ import urllib.parse
 
 from gi.repository import GLib, GObject
 
-from . import APP_ID, chatmedia, config
+from . import APP_ID, aichat, chatmedia, config
 from . import chatcrypto as C
 from .api import APIError, client
 from .i18n import _
@@ -223,6 +223,7 @@ class ChatState(GObject.Object):
         "typing": (GObject.SignalFlags.RUN_FIRST, None, (int,)),
         "link-request": (GObject.SignalFlags.RUN_FIRST, None, (object,)),   # anderes Geraet moechte Schluessel
         "link-done": (GObject.SignalFlags.RUN_FIRST, None, (str,)),         # Kopplung (dieses neue Geraet): approved|expired|gone
+        "ai-pending": (GObject.SignalFlags.RUN_FIRST, None, (int,)),        # KI-Antwort in einem Chat laeuft/geaendert/fertig
     }
 
     def __init__(self):
@@ -245,6 +246,10 @@ class ChatState(GObject.Object):
         self.link_wait = None      # neues Geraet: {"id", "device", "code", "expires"}
         self.server = config.settings.server
         self._seen_links = set()
+        for p in list((getattr(self, "ai_pending", None) or {}).values()):
+            if p.get("stream"):
+                p["stream"].cancel()
+        self.ai_pending = {}       # chat-id -> {"text", "stream", "q_msg"}: laufende Frage an die KI (2.1)
 
     # --- Grundlagen ---------------------------------------------------------------------------------------------
     @property
@@ -619,6 +624,9 @@ class ChatState(GObject.Object):
             return out
         out["body"] = body
         out["state"] = "ok" if ok else "unverified"
+        out["ai_state"] = aichat.check_reply(body, m.get("ai"))     # KI-Antwort (2.1): nur mit passendem Beleg "ok"
+        if out["ai_state"]:
+            out["ai_by"] = (m.get("ai") or {}).get("by") if isinstance(m.get("ai"), dict) else None
         out["text"] = str(body.get("text") or "")[:20000]
         out["files"] = [f for f in body.get("files") or [] if isinstance(f, dict) and f.get("id")][:10]
         out["notes"] = [int(x) for x in body.get("notes") or [] if isinstance(x, int) or (isinstance(x, str) and x.isdigit())]
@@ -790,9 +798,10 @@ class ChatState(GObject.Object):
             ids.append(te["id"])
         return out, ids
 
-    def send(self, cid, body, reply_to=None, kind="msg", file_ids=None):
+    def send(self, cid, body, reply_to=None, kind="msg", file_ids=None, extra=None):
         """Hintergrund: verschluesseln, signieren, an alle aktuellen Empfaenger versiegeln, senden. 409 (Mitglieder/Geraete
-        geaendert) -> einmal neu versiegeln. -> (Antwort, nicht eingerichtete Namen)"""
+        geaendert) -> einmal neu versiegeln. extra: weitere Felder des Sende-Bodys (nicht signiert, z. B. ai_reply).
+        -> (Antwort mit "id" der Nachricht, nicht eingerichtete Namen)"""
         k = self.keys
         if not k:
             raise ChatError(_("Chats on this device"))
@@ -807,9 +816,14 @@ class ChatState(GObject.Object):
             req["kind"] = kind
         if file_ids:
             req["files"] = list(file_ids)
+        for k2, v2 in (extra or {}).items():
+            req[k2] = v2
         for attempt in range(2):
             try:
-                return client.json("POST", f"api/chats/{cid}/messages", req), missing
+                resp = client.json("POST", f"api/chats/{cid}/messages", req)
+                resp = resp if isinstance(resp, dict) else {}
+                resp.setdefault("id", req["id"])
+                return resp, missing
             except APIError as e:
                 if e.code == 409 and attempt == 0 and isinstance(e.data, dict) and isinstance(e.data.get("recipients"), list):
                     self.cache.setdefault(cid, {})["rc"] = e.data["recipients"]
@@ -875,6 +889,76 @@ class ChatState(GObject.Object):
             self.emit("changed")
             done(ch)
         bg(client.json, "POST", "api/chats", dict(body, device=self.device_id), done=fin, error=error)
+
+    # --- KI im Chat (2.1): nur auf Zuruf ------------------------------------------------------------------------------
+    def ai_on(self, c):
+        """Ist die KI in diesem Chat erlaubt (Chat-Schalter) und bietet der Server sie mir an?"""
+        from .assistant import ai
+        return bool((c or {}).get("ai")) and ai.chat_allowed
+
+    def ask_ai(self, cid, text, qid, on_error=None):
+        """Nach dem Senden einer Nachricht mit @Name: Frage + Verlauf an POST /api/chats/{cid}/ai, Antwort mitlaufend in
+        ai_pending[cid] (Signal "ai-pending"), dann als verschluesselte Nachricht mit Beleg (ai_reply) an alle senden.
+        Die App muss bis "done" offen bleiben - sonst gibt es keine Antwort im Chat. -> gestartet?"""
+        from .assistant import Stream, ai_name
+        if cid in self.ai_pending:
+            return False
+        name = ai_name()
+        hist = aichat.history((self.cache.get(cid) or {}).get("msgs"), qid, name)
+        body = {"q": aichat.question(text), "msg_id": qid, "history": hist}
+        p = {"text": "", "q_msg": qid, "stream": None}
+        self.ai_pending[cid] = p
+
+        def end(err=None):
+            if self.ai_pending.get(cid) is p:
+                self.ai_pending.pop(cid, None)
+            self.emit("ai-pending", cid)
+            if err and on_error:
+                on_error(err)
+
+        def delta(t):
+            p["text"] += t
+            self.emit("ai-pending", cid)
+
+        def reset():
+            p["text"] = ""
+            self.emit("ai-pending", cid)
+
+        def done(d):
+            text_ = str((d or {}).get("text") or "").strip()
+            rep = (d or {}).get("reply") if isinstance((d or {}).get("reply"), dict) else {}
+            if not text_ or not rep.get("id"):
+                end(_("No reply received."))
+                return
+            p["text"], p["sending"] = text_, True
+            self.emit("ai-pending", cid)
+            nm = ((d or {}).get("persona") or {}).get("name") if isinstance((d or {}).get("persona"), dict) else None
+            msg = aichat.reply_body(text_, rep["id"], nm or name)
+
+            def fin(_r):
+                if self.ready and (self.cache.get(cid) or {}).get("loaded"):
+                    self.load_messages(cid, done=end)       # erst die gesendete Antwort zeigen, dann den Platzhalter weg
+                else:
+                    end()
+                self._list_soon()
+            bg(lambda: self.send(cid, msg, reply_to=qid, extra={"ai_reply": rep["id"]}), done=fin, error=lambda e: end(str(e)))
+
+        def error(msg, _partial=False):
+            end(msg)
+        p["stream"] = Stream(f"api/chats/{cid}/ai", body, lambda _s: None, delta, done, error, reset)
+        self.emit("ai-pending", cid)
+        return True
+
+    def set_ai(self, cid, allowed, done=None, error=None):
+        """KI in diesem Chat erlauben/verbieten: PUT /api/chats/{cid}/ai {allowed}"""
+        def fin(j):
+            c = self.chat(cid)
+            if c is not None:
+                c["ai"] = bool((j or {}).get("ai", allowed))
+                self.emit("chat-changed", cid)
+            if done:
+                done()
+        bg(client.json, "PUT", f"api/chats/{cid}/ai", {"allowed": bool(allowed)}, done=fin, error=error)
 
     # --- Live ---------------------------------------------------------------------------------------------------------------
     def _avatar_changed(self, d):

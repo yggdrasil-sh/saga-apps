@@ -226,6 +226,12 @@ flowbox.hk-codeview > flowboxchild { padding: 0; }
 /* KI-Assistent (1.6) */
 .hk-ai-q { background: alpha(var(--accent-bg-color), 0.16); border-radius: 12px; padding: 6px 10px; }
 .hk-ai-a { line-height: 1.35; }
+/* Persona der KI (2.1): neutrales Symbol auf Akzentfarbe, solange kein Bild da ist; KI-Antworten im Chat */
+avatar.hk-ai-avatar { background: var(--accent-bg-color); color: var(--accent-fg-color); }
+.hk-bubble.hk-bubble-ai { background: alpha(var(--accent-bg-color), 0.09); box-shadow: inset 0 0 0 1px alpha(var(--accent-color), 0.30); }
+.hk-ai-note { background: alpha(var(--accent-bg-color), 0.10); border-radius: 10px; padding: 6px 10px; }
+.hk-ai-hint { color: var(--accent-color); }
+button.hk-ai-suggest { padding: 4px 10px; border-radius: 10px; }
 .hk-block-row.hk-ai-marked { background: alpha(var(--accent-bg-color), 0.12); border-radius: 6px;
   box-shadow: inset 3px 0 0 0 var(--accent-color); }
 /* Saga 2.1: Anrufe, Profilbilder, Anmeldung & Sicherheit */
