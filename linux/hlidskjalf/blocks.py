@@ -769,12 +769,31 @@ class BlockKit:
             lab = ((cfg.get("icon") + " ") if cfg.get("icon") else "") + (cfg.get("label") or "")
             bt = Gtk.Button(label=lab)
             bt.add_css_class("hk-action-btn")
-            bt.connect("clicked", lambda *_, c=cfg: self.view.run_button(c))
+            bt.connect("clicked", lambda b_, c=cfg: self._press(b_, c))
             box.append(bt)
         if not self.editor.locked:
             box.append(flat_button(icon="emblem-system-symbolic", tooltip=_("Set up buttons"), css="dim-label",
                                    cb=lambda: self.view.config_buttons(b["id"])))
         return box
+
+    def _press(self, bt, cfg):
+        """Schaltflaeche: sofort Rueckmeldung (Fortschritt im Knopf) und gesperrt, solange die Aktion laeuft"""
+        if getattr(bt, "_hk_busy", False):
+            return
+        lab = bt.get_label()
+
+        def busy(on):
+            bt._hk_busy = on
+            bt.set_sensitive(not on)
+            if on:
+                row = Gtk.Box(spacing=6, halign=Gtk.Align.CENTER)
+                sp = Gtk.Spinner(spinning=True)
+                row.append(sp)
+                row.append(Gtk.Label(label=lab))
+                bt.set_child(row)
+            else:
+                bt.set_label(lab)
+        self.view.run_button(cfg, busy=busy)
 
     def _table(self, b, d):
         rows = [[decode_entities(plain(c)) for c in r] for r in (d.get("content") or [["", ""], ["", ""]])] or [["", ""], ["", ""]]

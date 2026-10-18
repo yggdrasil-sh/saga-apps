@@ -42,13 +42,15 @@ def srv():
     shutil.rmtree(config.DATA_DIR, ignore_errors=True)
     os.makedirs(config.DATA_DIR, mode=0o700, exist_ok=True)
     store.clear_cache()
-    store.pages, store.archived, store.by_id, store.tasks, store.done_tasks, store.events = [], [], {}, [], [], []
+    store._set_pages([])
+    store.tasks, store.done_tasks, store.events = [], [], []
     store.recent = []
     store.needs_login = False
     store._refresh_next = None
     store._task_deletes = {}
     store.docs = weakref.WeakSet()
     store.server_version = None
+    store.tree_seen = False
     store.fed_shared, store.fed_unreachable = [], []
     store._set_shared([])
     from hlidskjalf.assistant import ai

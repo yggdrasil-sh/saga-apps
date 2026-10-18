@@ -44,6 +44,8 @@ class Store(GObject.Object):
         self.pages = []
         self.archived = []
         self.by_id = {}
+        self._all = []                    # alle eigenen Seiten wie GET api/notes (auch archivierte, Server-Reihenfolge)
+        self._kids = {}                   # sichtbare Seiten je parent_id (linearer Baumaufbau)
         # Teilen (Server ab 1.3): fremde Seiten, die ich sehen darf (GET api/shared, flach; root=True = oberste geteilte
         # Seite). Getrennt von den eigenen (by_id), damit Favoriten, Zuletzt, Verschieben ... nur eigene Seiten kennen.
         self.shared = []
@@ -131,7 +133,8 @@ class Store(GObject.Object):
         if old:                                            # erst nach dem Umstellen (forget_server prueft den Server)
             bg(client.forget_server, old, tok, True, error=lambda e: None)
         self.clear_cache()
-        self.pages, self.archived, self.by_id, self.tasks, self.done_tasks, self.events = [], [], {}, [], [], []
+        self._set_pages([])
+        self.tasks, self.done_tasks, self.events = [], [], []
         self.fed_shared, self.fed_unreachable = [], []
         self._set_shared([])
         self.share_api, self.share_off = None, False
@@ -163,6 +166,7 @@ class Store(GObject.Object):
         """Neue Anmeldung (oder Abmeldung): Konto erst wieder bekannt, wenn /api/account geantwortet hat. Bis dahin
         speichern offene Seiten des bisherigen Kontos nur als Entwurf (nie unter einem anderen Konto)."""
         self.session_gen += 1
+        self.tree_seen = False                             # Faehigkeit des Servers (notes.tree) neu lernen
         srv = config.origin(server or config.settings.server)
         for d in list(self.docs):
             if d.account is None and config.origin(d.server) == srv:
@@ -182,8 +186,10 @@ class Store(GObject.Object):
     def forget_account_data(self):
         """Inhalte des bisherigen Kontos weg (Zwischenspeicher, Seitenliste, Zuletzt ...) - Abmelden und Anmelden mit
         einem (moeglicherweise anderen) Konto am selben Server (BUG-031). Entwuerfe bleiben je Konto getrennt liegen."""
+        self.tree_seen = False
         self.clear_cache()
-        self.pages, self.archived, self.by_id, self.tasks, self.done_tasks, self.events = [], [], {}, [], [], []
+        self._set_pages([])
+        self.tasks, self.done_tasks, self.events = [], [], []
         self.fed_shared, self.fed_unreachable = [], []
         self._set_shared([])
         self.share_api, self.share_off = None, False
@@ -207,16 +213,219 @@ class Store(GObject.Object):
         bg(work, done=fin, error=fin)
 
     # --- Seiten -------------------------------------------------------------------------------
-    def _set_pages(self, allp):
-        self.by_id = {p["id"]: p for p in allp}
-        self.pages = [p for p in allp if not p.get("archived")]
+    @staticmethod
+    def split_pages(allp):
+        """GET api/notes -> (alle, by_id, sichtbare, oberste archivierte, Kinder je Elternseite). Reine Funktion, laeuft
+        beim Neuladen im Hintergrund-Thread; Kinder-Index = linearer Baumaufbau statt Suche ueber alle Seiten je Knoten."""
+        allp = [p for p in allp if isinstance(p, dict) and p.get("id") is not None]
+        by_id = {p["id"]: p for p in allp}
+        pages = [p for p in allp if not p.get("archived")]
         arch = {p["id"] for p in allp if p.get("archived")}
-        self.archived = [p for p in allp if p.get("archived") and not (p.get("parent_id") in arch)]
+        archived = [p for p in allp if p.get("archived") and not (p.get("parent_id") in arch)]
+        kids = {}
+        for p in pages:
+            kids.setdefault(p.get("parent_id"), []).append(p)
+        return allp, by_id, pages, archived, kids
+
+    def _set_pages(self, allp, split=None):
+        self._all, self.by_id, self.pages, self.archived, self._kids = split or self.split_pages(allp)
+
+    _local_epoch = 0
+
+    def _local_tree_change(self):
+        """Seitenliste lokal geaendert (neue Seite, Papierkorb, Archiv, Verschieben): eine gerade laufende Auffrischung
+        hat davon evtl. noch nichts gewusst -> ihre Seitenliste nicht uebernehmen, sondern noch einmal laden (refresh)."""
+        self._local_epoch += 1
+
+    @staticmethod
+    def meta_from_detail(d):
+        """Eintrag der Seitenliste aus GET api/notes/{id} einer EIGENEN Seite - dieselben Felder und Werte wie in
+        GET api/notes (unread = ungelesene Kommentare von anderen)."""
+        keys = ("id", "title", "icon", "parent_id", "updated", "tags", "pinned", "template", "kind", "archived", "locked", "shared")
+        m = {k: d.get(k) for k in keys if k in d}
+        m["unread"] = bool(d.get("comments_unread"))
+        return m
+
+    def insert_page(self, meta):
+        """Neue eigene Seite lokal einfuegen (statt die ganze Liste neu zu laden). Neue Seiten bekommen auf dem Server
+        sort = Anlegezeit und stehen damit wie nach einem Neuladen am Ende."""
+        pid = meta["id"]
+        if pid in self.by_id:
+            return
+        self._local_tree_change()
+        self._all = list(getattr(self, "_all", self.pages)) + [meta]
+        self.by_id = dict(self.by_id)
+        self.by_id[pid] = meta
+        if not meta.get("archived"):
+            self.pages = self.pages + [meta]
+            kids = dict(getattr(self, "_kids", None) or {})
+            kids[meta.get("parent_id")] = list(kids.get(meta.get("parent_id"), [])) + [meta]
+            self._kids = kids
+        self.emit("pages-changed")
+
+    def _subtree_all(self, pid):
+        """pid und alle Nachfahren (auch archivierte) - wie der Server beim Papierkorb/Archivieren"""
+        kids = {}
+        for p in getattr(self, "_all", self.pages):
+            kids.setdefault(p.get("parent_id"), []).append(p["id"])
+        out, stack = set(), [pid]
+        while stack:
+            n = stack.pop()
+            if n not in out:
+                out.add(n)
+                stack.extend(kids.get(n, ()))
+        return out
+
+    def remove_subtree_local(self, pid, archived=False):
+        """Papierkorb (archived=False) bzw. Archiv (True) lokal nachziehen: der Server nimmt die Seite samt aktiver
+        Unterseiten mit. Danach dieselbe Liste wie nach einem Neuladen (Reihenfolge bleibt)."""
+        gone = self._subtree_all(pid)
+        self._local_tree_change()
+        allp = getattr(self, "_all", self.pages)
+        if archived:
+            for p in allp:
+                if p["id"] in gone and not p.get("archived"):
+                    p["archived"] = True
+            new = list(allp)
+        else:
+            new = [p for p in allp if p["id"] not in gone]
+        self._set_pages(new)
+        self.emit("pages-changed")
+
+    def _move_local(self, pid, parent):
+        """Verschieben an Position 0 unter parent sofort zeigen (die anschliessende Auffrischung bringt die genaue
+        Reihenfolge des Servers)"""
+        p = self.by_id.get(pid)
+        if p is None:
+            return
+        self._local_tree_change()
+        p["parent_id"] = parent
+        allp = [x for x in getattr(self, "_all", self.pages) if x is not p]
+        allp.insert(0, p)
+        self._set_pages(allp)
+        self.emit("pages-changed")
+
+    # --- Live: notes.tree (Server 2.2) ------------------------------------------------------------
+    # In dieser Anmeldung schon ein notes.tree empfangen? Erst dann reicht mit Live-Kanal der 5-min-Takt - die
+    # Serverversion allein sagt das nicht sicher (testing-Server melden schon 2.2.0, schicken aber evtl. noch kein
+    # notes.tree). Abmelden, Kontowechsel, anderer Server: vergessen (new_session, forget_account_data).
+    tree_seen = False
+
+    TREE_DEBOUNCE_MS = 400
+    TREE_MAX_TARGETED = 20
+    TREE_TARGETED = frozenset(("created", "updated"))
+    TREE_FULL = "*full"                                    # Pseudo-Art: full: true -> ganzen Baum neu laden
+    _tree_src = 0
+
+    @classmethod
+    def tree_plan(cls, ids, ops):
+        """-> IDs zum gezielten Nachladen (GET api/notes/{id}) oder None = voller Abgleich (full, moved, trashed,
+        restored, archived, deleted, shared, unbekannte Art, keine oder viele IDs)"""
+        ids = set(ids)
+        ops = set(ops)
+        if not ids or not ops or len(ids) > cls.TREE_MAX_TARGETED or any(str(o).lower() not in cls.TREE_TARGETED for o in ops):
+            return None
+        return ids
+
+    @classmethod
+    def tree_parse(cls, d):
+        """notes.tree {ids: [int], op: str, ops: [str], full: bool} (docs/APP-API-LIVE.md) -> (ids, Arten, full).
+        Arten = ops plus op (ausser "mixed", das nur auf ops verweist); full: true -> Arten enthalten TREE_FULL.
+        Tolerant: Zahlen als Text, Zusatzfelder, fehlende Felder (-> Art "" = unbekannt = voller Abgleich)."""
+        d = d if isinstance(d, dict) else {}
+        ids = []
+        for x in d.get("ids") if isinstance(d.get("ids"), list) else []:
+            try:
+                ids.append(int(float(x)))
+            except (TypeError, ValueError, OverflowError):
+                pass
+        op = str(d.get("op") or "")
+        lst = [str(o) for o in d.get("ops") or [] if isinstance(o, str)] if isinstance(d.get("ops"), list) else []
+        full = d.get("full") is True
+        ops = set(lst)
+        if op != "mixed" or not lst:
+            ops.add(op)
+        if full:
+            ops.add(cls.TREE_FULL)
+        return ids, ops, full
+
+    def on_tree_event(self, d):
+        """Live-Ereignis notes.tree: Seiten anderswo (Web, anderes Geraet, Freigabe) angelegt/geaendert/verschoben/
+        geloescht. Kurz sammeln (entprellt), dann gezielt nachladen und einpflegen bzw. voll abgleichen."""
+        self.tree_seen = True                              # Server meldet Baum-Aenderungen: seltener Takt reicht
+        ids, ops, _full = self.tree_parse(d)
+        if not hasattr(self, "_tree_ids"):
+            self._tree_ids, self._tree_ops = set(), set()
+        self._tree_ids.update(ids)
+        self._tree_ops.update(ops if ids else ops | {""})
+        if not self._tree_src:
+            self._tree_src = GLib.timeout_add(self.TREE_DEBOUNCE_MS, self._tree_apply)
+
+    def _tree_apply(self):
+        self._tree_src = 0
+        ids, ops = set(self._tree_ids), set(self._tree_ops)
+        self._tree_ids.clear()
+        self._tree_ops.clear()
+        if self.needs_login:
+            return False
+        plan = self.tree_plan(ids, ops)
+        if plan is None:
+            self._local_tree_change()                      # laufende Auffrischung kennt die Aenderung evtl. noch nicht
+            self.refresh()
+            return False
+        srv = config.settings.server
+
+        def work():
+            out = []
+            for i in sorted(plan):
+                try:
+                    out.append((i, self.get_cached(f"api/notes/{i}"), None))
+                except APIError as e:
+                    out.append((i, None, e.code))
+            return out
+
+        def fin(res):
+            if srv != config.settings.server:
+                return
+            full = False
+            for i, d, code in res:
+                if isinstance(d, dict):
+                    if d.get("role") in (None, "owner") and i > 0:
+                        self.upsert_page(self.meta_from_detail(d))
+                    else:
+                        full = True                        # fremde (geteilte) Seite: "Mit mir geteilt" vom Server
+                elif code in (403, 404) and i in self.by_id:
+                    self.remove_subtree_local(i)
+                else:
+                    full = True
+            if full:
+                self._local_tree_change()
+                self.refresh()
+            else:
+                self.load_today()
+
+        bg(work, done=fin, error=lambda e: self.refresh())
+        return False
+
+    def upsert_page(self, meta):
+        """Eigene Seite (Eintrag wie in GET api/notes) einpflegen: ersetzen (Stelle bleibt) bzw. neu ans Ende"""
+        allp = list(getattr(self, "_all", self.pages))
+        i = next((k for k, p in enumerate(allp) if p["id"] == meta["id"]), None)
+        if i is None:
+            allp.append(meta)
+        else:
+            old = allp[i]
+            old.clear()                                    # dasselbe Objekt behalten (offene Ansichten halten es)
+            old.update(meta)
+        self._local_tree_change()
+        self._set_pages(allp)
+        self.emit("pages-changed")
 
     def _set_shared(self, lst):
         lst = [p for p in (lst or []) if isinstance(p, dict) and p.get("id") is not None]
         self._local_shared = lst
-        lst = lst + [p for p in self.fed_shared if p["id"] not in {x["id"] for x in lst}]
+        have = {x["id"] for x in lst}
+        lst = lst + [p for p in self.fed_shared if p["id"] not in have]
         self.shared = lst
         self.shared_by_id = {p["id"]: p for p in lst}
 
@@ -288,20 +497,16 @@ class Store(GObject.Object):
         return p if p and not p.get("archived") else p
 
     def children(self, parent):
-        out = []
-        for p in self.pages:
-            if p.get("parent_id") == parent:
-                par = self.by_id.get(parent) if parent is not None else None
-                if par is not None and is_db(par):
-                    continue
-                out.append(p)
-        return out
+        par = self.by_id.get(parent) if parent is not None else None
+        if par is not None and is_db(par):
+            return []
+        return list(self._kids.get(parent, ()))
 
     def has_children(self, pid):
         p = self.by_id.get(pid)
         if is_db(p):
             return False
-        return any(x.get("parent_id") == pid for x in self.pages)
+        return bool(self._kids.get(pid))
 
     @property
     def favorites(self):
@@ -319,13 +524,13 @@ class Store(GObject.Object):
         return " / ".join(label(p) for p in self.path(pid))
 
     def descendants(self, pid):
-        s, changed = {pid}, True
-        while changed:
-            changed = False
-            for p in self.pages:
-                if p.get("parent_id") in s and p["id"] not in s:
+        """pid und alle sichtbaren Nachfahren (ueber den Kinder-Index, linear)"""
+        s, stack = {pid}, [pid]
+        while stack:
+            for p in self._kids.get(stack.pop(), ()):
+                if p["id"] not in s:
                     s.add(p["id"])
-                    changed = True
+                    stack.append(p["id"])
         return s
 
     def databases(self):
@@ -351,6 +556,7 @@ class Store(GObject.Object):
         waiters = [done] if done else []
         srv = config.settings.server
         session = self.session_gen
+        epoch = self._local_epoch
 
         def work():
             acct = None
@@ -361,26 +567,23 @@ class Store(GObject.Object):
                     if e.code == 401:
                         raise
             pages = self.get_cached("api/notes")
+            split = self.split_pages(pages if isinstance(pages, list) else [])   # Baum im Hintergrund aufbereiten
             t = client.get("api/tasks")
-            return pages, t, acct, self._fetch_shared()
+            return split, t, acct, self._fetch_shared()
 
         def finish(ok, r):
             self._refreshing = False
             self.loading = False
             stale = srv != config.settings.server            # Server gewechselt: Ergebnis gehoert zum alten
             if ok and not stale:
-                pages, t, acct, (sh, sh_api, sh_off) = r
+                split, t, acct, (sh, sh_api, sh_off) = r
                 if acct and isinstance(acct, str) and session == self.session_gen:
                     self.set_account(acct, srv)
-                self._set_pages(pages)
-                if sh is not None:
-                    # nicht mehr mit mir geteilt: zwischengespeicherte Inhalte verwerfen (offline nicht mehr lesbar)
-                    keep = {p.get("id") for p in sh if isinstance(p, dict)} | set(self.by_id) | {p["id"] for p in self.fed_shared}
-                    for gid in set(self.shared_by_id) - keep:
-                        self.drop_cache(f"api/notes/{gid}")
-                        self.drop_cache(f"api/notes/{gid}/rows")
-                    self._set_shared(sh)
-                    self.share_api, self.share_off = sh_api, sh_off
+                if epoch == self._local_epoch:
+                    self._set_pages(None, split)
+                elif self._refresh_next is None:             # waehrend des Ladens lokal geaendert: Liste evtl. veraltet
+                    self._refresh_next = []
+                self._apply_shared(sh, sh_api, sh_off)
                 self.tasks, self.done_tasks = t.get("open", []), t.get("done", []) or []
                 self._drop_pending_deleted()
                 self.needs_login = False
@@ -402,6 +605,41 @@ class Store(GObject.Object):
                 self.refresh(done=(lambda: [cb() for cb in nxt]) if nxt else None)
 
         bg(work, done=lambda r: finish(True, r), error=lambda e: finish(False, e))
+
+    def _apply_shared(self, sh, sh_api, sh_off):
+        """Ergebnis von _fetch_shared uebernehmen (None = unveraendert lassen)"""
+        if sh is None:
+            return
+        # nicht mehr mit mir geteilt: zwischengespeicherte Inhalte verwerfen (offline nicht mehr lesbar)
+        keep = {p.get("id") for p in sh if isinstance(p, dict)} | set(self.by_id) | {p["id"] for p in self.fed_shared}
+        for gid in set(self.shared_by_id) - keep:
+            self.drop_cache(f"api/notes/{gid}")
+            self.drop_cache(f"api/notes/{gid}/rows")
+        self._set_shared(sh)
+        self.share_api, self.share_off = sh_api, sh_off
+
+    def refresh_light(self):
+        """Kleiner Abgleich im Minutentakt, solange der Seitenbaum seltener abgeglichen wird (Live-Kanal + notes.tree):
+        Mit mir geteilt (Gruppenwechsel und Verschieben aus geteilten Baeumen loesen serverseitig nicht immer Ereignisse
+        aus), andere Server, Heute (Aufgaben/Termine). Glocke und Chats fragt der Fenster-Takt selbst ab."""
+        if self.needs_login or self._refreshing:
+            return
+        srv = config.settings.server
+
+        def fin(r):
+            if srv != config.settings.server or self._refreshing:
+                return
+            sh, sh_api, sh_off = r
+            if sh is not None and sh != getattr(self, "_local_shared", None):
+                self._apply_shared(sh, sh_api, sh_off)
+                self.emit("pages-changed")
+            else:
+                self.share_api, self.share_off = sh_api, sh_off
+            if sh_api is not False:
+                self.load_fed_shared()
+
+        bg(self._fetch_shared, done=fin, error=lambda e: None)
+        self.load_today()
 
     def _fetch_shared(self):
         """Hintergrund: "Mit mir geteilt" -> (liste | None = unveraendert lassen, Server kennt Teilen?, Hinweis "abgeschaltet"?).
@@ -430,6 +668,16 @@ class Store(GObject.Object):
         """Fokuswechsel: nur auffrischen, wenn die letzte Auffrischung laenger her ist"""
         if not self._refreshing and time.monotonic() - self._refreshed_at > seconds:
             self.refresh()
+
+    POLL_S = 60          # Takt ohne Live-Kanal bzw. solange kein notes.tree kam (wie bisher)
+    POLL_LIVE_S = 300    # Takt mit Live-Kanal und schon empfangenem notes.tree (Sicherheitsnetz)
+
+    def refresh_due(self, live_connected):
+        """Takt (Fenster aktiv, alle 60 s geprueft): ohne Live-Kanal jedes Mal; mit Live-Kanal erst alle 5 min, wenn in
+        dieser Anmeldung schon ein notes.tree kam (tree_seen), sonst weiter jede Minute. Halbe Minute Toleranz, damit
+        der 60-s-Zeitgeber nicht eine Runde verpasst. Nicht faellig: kleine Listen trotzdem (refresh_light)."""
+        every = self.POLL_LIVE_S if live_connected and self.tree_seen else self.POLL_S
+        return time.monotonic() - self._refreshed_at >= every - 30
 
     server_version = None
     min_app = None
@@ -538,14 +786,41 @@ class Store(GObject.Object):
             b["kind"] = kind
             b["icon"] = "🗃️"
         def fin(r):
-            self.refresh(done=lambda: done and done(r["id"]))
+            self.page_added(r["id"], parent, done=lambda: done and done(r["id"]))
         self.run("POST", "api/notes", b, done=fin)
+
+    def page_added(self, nid, parent, done=None):
+        """Nach dem Anlegen: eigene Seite gezielt holen (GET api/notes/{id}, wenige KB) und lokal einfuegen, statt die
+        ganze Seitenliste neu zu laden. Unter einer fremden (geteilten) Elternseite gehoert die Seite deren Eigentuemer
+        ("Mit mir geteilt") -> wie bisher vollstaendig auffrischen; ebenso, wenn das gezielte Laden scheitert."""
+        if parent is not None and parent not in self.by_id:
+            self.refresh(done=done)
+            return
+        srv = config.settings.server
+
+        def fin(d):
+            if srv != config.settings.server:
+                return
+            if isinstance(d, dict) and d.get("id") == nid:
+                self.insert_page(self.meta_from_detail(d))
+                self.load_today()                            # Aufgaben/Termine (klein) wie bisher mit auffrischen
+                if done:
+                    done()
+            else:
+                self.refresh(done=done)
+        bg(self.get_cached, f"api/notes/{nid}", done=fin, error=lambda e: self.refresh(done=done))
 
     def trash(self, pid, done=None):
         t = label(self.by_id.get(pid))
+        own = pid in self.by_id
+
         def fin(_):
             self.emit("undo", pid, t)
-            self.refresh()
+            if own:
+                self.remove_subtree_local(pid)               # Seite samt Unterseiten weg - wie nach einem Neuladen
+                self.load_today()                            # Aufgaben/Termine aus der Seite
+            else:
+                self.refresh()
             self.changed_data()
             if done:
                 done()
@@ -555,13 +830,26 @@ class Store(GObject.Object):
         self.run("POST", f"api/trash/{pid}/restore", {}, refresh=True, data_changed=True)
 
     def move(self, pid, parent, done=None, error=None):
-        self.run("POST", f"api/notes/{pid}/move", {"parent_id": parent, "index": 0}, done=lambda r: (self.refresh(), done and done()), error=error)
+        def fin(r):
+            if pid in self.by_id:
+                self._move_local(pid, parent)                # sofort zeigen; die Auffrischung bringt die Reihenfolge
+            self.refresh()
+            if done:
+                done()
+        self.run("POST", f"api/notes/{pid}/move", {"parent_id": parent, "index": 0}, done=fin, error=error)
 
     def duplicate(self, pid, done=None):
         self.run("POST", f"api/notes/{pid}/duplicate", {}, done=lambda r: self.refresh(done=lambda: done and done(r["id"])), data_changed=True)
 
     def set_archived(self, pid, on):
-        self.run("POST", f"api/notes/{pid}/archive", {"archived": on}, refresh=True, data_changed=True)
+        if not on or pid not in self.by_id:                  # Zurueckholen: Daten nur vom Server
+            self.run("POST", f"api/notes/{pid}/archive", {"archived": on}, refresh=True, data_changed=True)
+            return
+
+        def fin(_):
+            self.remove_subtree_local(pid, archived=True)    # samt aktiver Unterseiten ins Archiv - wie nach einem Neuladen
+            self.load_today()
+        self.run("POST", f"api/notes/{pid}/archive", {"archived": True}, done=fin, data_changed=True)
 
     def search(self, q, done):
         if len(q.strip()) < 2:

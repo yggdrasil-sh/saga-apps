@@ -1,5 +1,6 @@
 """Server-Zugriff: Sitzungs-Cookie, still erneuern mit dem Geraete-Schluessel (wie die Mac-/iOS-App)."""
 import base64
+import gzip
 import hashlib
 import json
 import os
@@ -9,6 +10,7 @@ import time
 import urllib.error
 import urllib.request
 import uuid
+import zlib
 from http.cookies import SimpleCookie
 
 from . import config
@@ -19,6 +21,14 @@ ACCEPT_LANGUAGE = {"de": "de, en;q=0.5", "es": "es, en;q=0.5", "ru": "ru, en;q=0
 
 
 SWITCHED = -1      # APIError.code: inzwischen anderer Server/anderes Konto - nichts gesendet (Entwurf bleibt)
+
+
+def _decoded(body, headers):
+    """Antwort mit Content-Encoding: gzip entpacken (Anfragen senden Accept-Encoding: gzip; urllib entpackt nicht selbst)"""
+    enc = ((headers.get("Content-Encoding") if headers is not None else None) or "").strip().lower()
+    if enc == "gzip" and body:
+        return gzip.decompress(body)
+    return body
 
 
 def _unreachable(e):
@@ -173,6 +183,7 @@ class Client:
         req.add_header("X-Hlidskjalf", "1")                      # ... und fuer aeltere Server
         req.add_header("User-Agent", "Hlidskjalf-Linux/1.0")
         req.add_header("Accept-Language", ACCEPT_LANGUAGE)       # Fehlermeldungen des Servers in der Sprache der App
+        req.add_header("Accept-Encoding", "gzip")                # grosse JSON-Listen komprimiert (falls der Server es kann)
         if ctype:
             req.add_header("Content-Type", ctype)
         for k, v in (headers or {}).items():                     # z. B. X-Saga-Note (Upload in eine fremde Seite)
@@ -183,15 +194,15 @@ class Client:
                 req.add_header("Cookie", ch)
         try:
             with _opener.open(req, timeout=timeout) as r:
-                body = r.read()
+                body = _decoded(r.read(), r.headers)
                 self.take_cookies_for(url, r.headers, jar)
                 return r.status, body
         except urllib.error.HTTPError as e:
-            body = e.read() or b""
+            body = _decoded(e.read() or b"", e.headers)
             if e.headers:
                 self.take_cookies_for(url, e.headers, jar)
             return e.code, body
-        except (urllib.error.URLError, OSError, TimeoutError) as e:
+        except (urllib.error.URLError, OSError, TimeoutError, EOFError, zlib.error) as e:
             raise APIError(0, _unreachable(e)) from e
 
     def request(self, method, path, body=None, raw=None, ctype=None, timeout=20, server=None, account=None, headers=None):
