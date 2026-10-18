@@ -7,6 +7,10 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 ## [Unveröffentlicht]
 
 ### Thai und Russisch – Android
+- **Begriffe wie im Web:** Thai und Russisch verwenden dieselben Fachbegriffe wie Web und Server (z. B. Koppeln
+  „связать“, Profilbild „изображение профиля“, Löschen „у меня“/„у всех“; Thai „การสนทนา“ für Threads,
+  „เก็บเข้าคลัง“ für Archiv, „เข้าสู่ระบบ“ für Anmelden); Sätze, die es auch im Web gibt, lauten gleich. Russisch ohne
+  männliche Formen für Personen. Gegenlesen durch Muttersprachler weiterhin empfohlen.
 - **Neue App-Sprachen „ไทย“ (Thai) und „Русский“ (Russisch):** vollständige Übersetzung aller Texte (maschinell
   erstellt, Gegenlesen durch Muttersprachler empfohlen). Russisch in der Du-Form (ты), Thai neutral-höflich.
   Auswahl in den Einstellungen („Sprache“) und im Sprachumschalter der Anmeldung; Android 13+ auch unter

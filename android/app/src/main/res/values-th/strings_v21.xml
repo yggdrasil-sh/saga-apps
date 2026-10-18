@@ -6,10 +6,10 @@
     <string name="immich_recent">ล่าสุด</string>
     <string name="immich_albums">อัลบั้ม</string>
     <string name="immich_search_hint">ค้นหา … (เช่น “ชายหาด”, “แมว”)</string>
-    <string name="immich_more">โหลดเพิ่ม</string>
+    <string name="immich_more">โหลดเพิ่มเติม</string>
     <string name="immich_none">ไม่พบรูปภาพ</string>
     <string name="immich_no_albums">ไม่มีอัลบั้ม</string>
-    <string name="immich_failed">Immich: ค้นหาไม่สำเร็จ</string>
+    <string name="immich_failed">Immich: การค้นหาล้มเหลว</string>
     <string name="immich_loading_photo">กำลังโหลดรูปภาพจาก Immich …</string>
     <string name="immich_photo_failed">โหลดรูปภาพจาก Immich ไม่ได้</string>
     <string name="image_upload_failed">อัปโหลดรูปภาพไม่สำเร็จ</string>
