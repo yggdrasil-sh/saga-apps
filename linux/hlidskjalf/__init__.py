@@ -1,5 +1,5 @@
 """Saga – native Linux-App (GTK4 + libadwaita)."""
-VERSION = "2.1.0"
+VERSION = "2.2.0"
 APP_ID = "io.github.yggdrasil_sh.Saga"
 PROJECT_URL = "https://github.com/yggdrasil-sh/saga-apps"
 
