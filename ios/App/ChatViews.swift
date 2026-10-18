@@ -293,7 +293,7 @@ struct ChatRow: View {
             }
             Spacer(minLength: 4)
             VStack(alignment: .trailing, spacing: 4) {
-                if c.lastAt > 0 { Text(Date(timeIntervalSince1970: c.lastAt), format: .relative(presentation: .named)).font(.caption2).foregroundStyle(.secondary) }
+                if c.lastAt > 0 { Text(Date(timeIntervalSince1970: c.lastAt), format: SagaDate.relative).font(.caption2).foregroundStyle(.secondary) }
                 if c.unread > 0 {
                     Text(verbatim: "\(c.unread)").font(.caption2.bold()).foregroundStyle(Color("OnAccent"))
                         .padding(.horizontal, 6).padding(.vertical, 1).background(Color.gold, in: Capsule())
@@ -687,8 +687,8 @@ struct ChatDevicesSection: View {
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(verbatim: d.name + (d.id == chat.deviceID ? " · " + String(localized: "dieses Gerät") : ""))
-                            Text(verbatim: [d.created.map { String(localized: "angemeldet \(Date(timeIntervalSince1970: $0).formatted(date: .numeric, time: .omitted))") },
-                                            d.lastSeen.map { String(localized: "zuletzt \(Date(timeIntervalSince1970: $0).formatted(.relative(presentation: .named)))") }]
+                            Text(verbatim: [d.created.map { String(localized: "angemeldet \(Date(timeIntervalSince1970: $0).sagaFormatted(date: .numeric, time: .omitted))") },
+                                            d.lastSeen.map { String(localized: "zuletzt \(Date(timeIntervalSince1970: $0).sagaRelative)") }]
                                 .compactMap { $0 }.joined(separator: " · ")).font(.caption).foregroundStyle(.secondary)
                         }
                         Spacer()

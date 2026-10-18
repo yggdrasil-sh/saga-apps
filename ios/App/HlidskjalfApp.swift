@@ -14,6 +14,7 @@ struct HlidskjalfApp: App {
         #if os(macOS)
         WindowGroup {
             RootView(store: store)
+                .environment(\.calendar, SagaDate.calendar)                    // Datumswahl gregorianisch (Thai: nicht 2569)
                 .handlesExternalEvents(preferring: ["*"], allowing: ["*"])   // Widget-Links im offenen Fenster, kein zweites
         }
             .handlesExternalEvents(matching: ["*"])
@@ -23,14 +24,14 @@ struct HlidskjalfApp: App {
                 HKMenuCommands()
                 HKEditorCommands()
             }
-        Settings { SettingsView().environmentObject(store).frame(width: 600, height: 720) }
+        Settings { SettingsView().environmentObject(store).environment(\.calendar, SagaDate.calendar).frame(width: 600, height: 720) }
         Window("Anruf", id: "call") { CallWindowContent().environmentObject(store) }      // Anrufe (2.1): eigenes Fenster statt CallKit
             .windowResizability(.contentMinSize)
             .defaultSize(width: 460, height: 640)
         MenuBarExtra("Saga", systemImage: "book", isInserted: .constant(!SnapshotHelper.active)) { QuickCaptureView() }     // Schnellerfassung in der Menueleiste (nicht bei Test-Bildern)
             .menuBarExtraStyle(.window)
         #else
-        WindowGroup { RootView(store: store) }
+        WindowGroup { RootView(store: store).environment(\.calendar, SagaDate.calendar) }     // Datumswahl gregorianisch
             .commands { HKMenuCommands(); HKEditorCommands() }                     // iPad mit Tastatur
         #endif
     }

@@ -5,12 +5,12 @@ import UIKit
 import AppKit
 #endif
 
-/// Sprache der App (Automatisch/Deutsch/English/Español).
+/// Sprache der App (Automatisch/Deutsch/English/Spanisch/Thai/Russisch).
 /// iOS/iPadOS: Systemfunktion je App (Einstellungen-App -> Saga -> Sprache), hier nur Anzeige + Sprung dorthin.
 /// Mac: Auswahl in der App (AppleLanguages der App-Domaene), wirkt nach Neustart.
 /// Accept-Language der Anfragen folgt automatisch (AppConfig.appLanguage = Bundle.preferredLocalizations).
 enum AppLanguage {
-    /// Sprache, in der die App gerade laeuft ("de", "en", "es")
+    /// Sprache, in der die App gerade laeuft ("de", "en", "es", "th", "ru")
     static var running: String { AppLanguageChoice.code(Bundle.main.preferredLocalizations.first ?? "en") }
     static var runningName: String { AppLanguageChoice(rawValue: running)?.nativeName ?? running }
 

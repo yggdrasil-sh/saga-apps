@@ -145,7 +145,7 @@ struct TrashSheet: View {
     }
     private func day(_ v: Any?) -> String {
         guard let t = v as? Double else { return "–" }
-        return Date(timeIntervalSince1970: t).formatted(date: .abbreviated, time: .omitted)
+        return Date(timeIntervalSince1970: t).sagaFormatted(date: .abbreviated, time: .omitted)
     }
 }
 

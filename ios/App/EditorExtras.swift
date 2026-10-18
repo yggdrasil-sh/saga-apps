@@ -65,20 +65,20 @@ func parseHKDate(_ q0: String) -> HKDate? {
         d = x
     } else { return nil }
     guard let d else { return nil }
-    let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+    let f = DateFormatter.isoDay()
     return HKDate(date: f.string(from: d), time: time)
 }
 
 /// Im Text immer das feste Datum (wie im Web: "Fr., 10. Okt." bzw. mit Jahr)
 func hkDateText(_ d: HKDate) -> String {
-    let p = DateFormatter(); p.dateFormat = "yyyy-MM-dd"
+    let p = DateFormatter.isoDay()
     guard let dt = p.date(from: d.date) else { return d.date }
-    var style = Date.FormatStyle.dateTime.weekday(.abbreviated).day().month(.abbreviated)     // Format der Systemsprache
+    var style = SagaDate.dateTime().weekday(.abbreviated).day().month(.abbreviated)     // Format der App-Sprache, gregorianisch
     if !Calendar.current.isDate(dt, equalTo: .now, toGranularity: .year) { style = style.year() }
     return dt.formatted(style) + (d.time.map { ", " + $0 } ?? "")
 }
 func hkRelText(_ d: HKDate) -> String {
-    let p = DateFormatter(); p.dateFormat = "yyyy-MM-dd"
+    let p = DateFormatter.isoDay()
     guard let dt = p.date(from: d.date) else { return hkDateText(d) }
     let diff = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: .now), to: dt).day ?? 99
     let r = [0: String(localized: "Heute"), 1: String(localized: "Morgen"), 2: String(localized: "Übermorgen"), -1: String(localized: "Gestern")][diff]

@@ -63,7 +63,7 @@ enum API {
     /// Titelbild ("cover", sonst erstes Bild im Inhalt) bzw. Symbol-Bild ("icon") einer eigenen Seite - nil, wenn keins
     static func pageImage(_ id: Int, _ which: String) async -> Data? { try? await request("api/app/page-image/\(id)/\(which)?w=\(which == "icon" ? 160 : 640)") }
     static func taskDone(_ id: Int, done: Bool) async throws {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+        let f = DateFormatter.isoDay()
         _ = try await request("api/app/tasks/\(id)/done", method: "POST", body: ["done": done, "today": f.string(from: .now)])
     }
     static func check(row: Int, pid: String, value: Bool) async throws {
@@ -74,7 +74,7 @@ enum API {
     static func capture(kind: String, title: String, text: String, url: String?, due: Date? = nil) async throws {
         var b: [String: Any] = ["kind": kind, "title": title, "text": text]
         if let url, !url.isEmpty { b["url"] = url }
-        if let due { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; b["due"] = f.string(from: due) }
+        if let due { let f = DateFormatter.isoDay(); b["due"] = f.string(from: due) }
         _ = try await request("api/app/capture", method: "POST", body: b)
     }
 }

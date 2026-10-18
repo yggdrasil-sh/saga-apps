@@ -228,7 +228,7 @@ struct CommentsPanel: View {
                 AvatarView(name: c.author.name.isEmpty ? "?" : c.author.name, avatar: c.author.avatar, size: 22)
                 Text(c.author.me ? String(localized: "Du") : (c.author.name.isEmpty ? String(localized: "Gelöschtes Konto") : c.author.name)).font(.subheadline.weight(.semibold))
                 if dot { Circle().fill(Color.accentColor).frame(width: 6, height: 6).accessibilityLabel(Text("Neu")) }
-                Text(Date(timeIntervalSince1970: c.created).formatted(.relative(presentation: .named))).font(.caption).foregroundStyle(.secondary)
+                Text(Date(timeIntervalSince1970: c.created).sagaRelative).font(.caption).foregroundStyle(.secondary)
                 if c.edited != nil && !c.deleted { Text("bearbeitet").font(.caption).foregroundStyle(.secondary) }
                 Spacer(minLength: 0)
             }

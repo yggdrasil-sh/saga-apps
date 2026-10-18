@@ -36,9 +36,11 @@ enum AppConfig {
 
     /// Accept-Language aus der Sprache, in der die App gerade laeuft (Bundle.preferredLocalizations) - damit
     /// Fehlertexte des Servers passen. Unbekannte Sprache -> Englisch.
+    /// Sprachen mit vollstaendigen Texten (Shared/Localizable.xcstrings, CFBundleLocalizations)
+    static let appLanguages = ["de", "en", "es", "th", "ru"]
     static func acceptLanguage(_ preferred: [String]) -> String {
         let l = preferred.first.map { String($0.prefix(2)).lowercased() } ?? "en"
-        return ["de", "en", "es"].contains(l) ? l : "en"
+        return appLanguages.contains(l) ? l : "en"
     }
     static var appLanguage: String { acceptLanguage(Bundle.main.preferredLocalizations) }
 

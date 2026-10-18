@@ -286,7 +286,7 @@ struct MoveSheet: View {
 func editedText(_ ts: Double?) -> String {
     guard let ts else { return "" }
     let d = Date(timeIntervalSince1970: ts)
-    let when = Calendar.current.isDateInToday(d) ? String(localized: "heute, \(d.formatted(date: .omitted, time: .shortened))")
-                                                 : d.formatted(date: .abbreviated, time: .shortened)
+    let when = Calendar.current.isDateInToday(d) ? String(localized: "heute, \(d.sagaFormatted(date: .omitted, time: .shortened))")
+                                                 : d.sagaFormatted(date: .abbreviated, time: .shortened)
     return String(localized: "Bearbeitet \(when)")
 }

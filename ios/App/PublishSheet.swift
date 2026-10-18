@@ -358,7 +358,7 @@ struct PublishSheet: View {
             Label("Veröffentlichung beendet am \(when(t)). Adresse und Einstellungen sind gemerkt und gelten beim erneuten Veröffentlichen wieder.", systemImage: "info.circle")
         }
     }
-    private func when(_ t: Double) -> String { Date(timeIntervalSince1970: t).formatted(date: .abbreviated, time: .shortened) }
+    private func when(_ t: Double) -> String { Date(timeIntervalSince1970: t).sagaFormatted(date: .abbreviated, time: .shortened) }
 
     // MARK: Server
 

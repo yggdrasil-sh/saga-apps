@@ -3,16 +3,6 @@
   "strings" : {
     "New task in ${applicationName}" : {
       "localizations" : {
-        "en" : {
-          "stringSet" : {
-            "state" : "translated",
-            "values" : [
-              "New task in ${applicationName}",
-              "Add a task in ${applicationName}",
-              "${applicationName} task"
-            ]
-          }
-        },
         "de" : {
           "stringSet" : {
             "state" : "translated",
@@ -20,6 +10,16 @@
               "Neue Aufgabe in ${applicationName}",
               "Aufgabe in ${applicationName} anlegen",
               "${applicationName} Aufgabe"
+            ]
+          }
+        },
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "New task in ${applicationName}",
+              "Add a task in ${applicationName}",
+              "${applicationName} task"
             ]
           }
         },
@@ -32,26 +32,46 @@
               "Tarea de ${applicationName}"
             ]
           }
+        },
+        "ru" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Новая задача в ${applicationName}",
+              "Добавить задачу в ${applicationName}",
+              "Задача ${applicationName}"
+            ]
+          }
+        },
+        "th" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "งานใหม่ใน ${applicationName}",
+              "เพิ่มงานใน ${applicationName}",
+              "งาน ${applicationName}"
+            ]
+          }
         }
       }
     },
     "Note in ${applicationName}" : {
       "localizations" : {
-        "en" : {
-          "stringSet" : {
-            "state" : "translated",
-            "values" : [
-              "Note in ${applicationName}",
-              "Save a note in ${applicationName}"
-            ]
-          }
-        },
         "de" : {
           "stringSet" : {
             "state" : "translated",
             "values" : [
               "Notiz in ${applicationName}",
               "${applicationName} Notiz ablegen"
+            ]
+          }
+        },
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Note in ${applicationName}",
+              "Save a note in ${applicationName}"
             ]
           }
         },
@@ -63,26 +83,44 @@
               "Guardar una nota en ${applicationName}"
             ]
           }
+        },
+        "ru" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Заметка в ${applicationName}",
+              "Сохранить заметку в ${applicationName}"
+            ]
+          }
+        },
+        "th" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "โน้ตใน ${applicationName}",
+              "บันทึกโน้ตใน ${applicationName}"
+            ]
+          }
         }
       }
     },
     "Open a page in ${applicationName}" : {
       "localizations" : {
-        "en" : {
-          "stringSet" : {
-            "state" : "translated",
-            "values" : [
-              "Open a page in ${applicationName}",
-              "Open ${page} in ${applicationName}"
-            ]
-          }
-        },
         "de" : {
           "stringSet" : {
             "state" : "translated",
             "values" : [
               "Seite in ${applicationName} öffnen",
               "${applicationName} ${page} öffnen"
+            ]
+          }
+        },
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Open a page in ${applicationName}",
+              "Open ${page} in ${applicationName}"
             ]
           }
         },
@@ -94,20 +132,29 @@
               "Abrir ${page} en ${applicationName}"
             ]
           }
+        },
+        "ru" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Открыть страницу в ${applicationName}",
+              "Открыть ${page} в ${applicationName}"
+            ]
+          }
+        },
+        "th" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "เปิดหน้าใน ${applicationName}",
+              "เปิด ${page} ใน ${applicationName}"
+            ]
+          }
         }
       }
     },
     "Tasks in ${applicationName}" : {
       "localizations" : {
-        "en" : {
-          "stringSet" : {
-            "state" : "translated",
-            "values" : [
-              "Tasks in ${applicationName}",
-              "Show ${applicationName} tasks"
-            ]
-          }
-        },
         "de" : {
           "stringSet" : {
             "state" : "translated",
@@ -117,12 +164,39 @@
             ]
           }
         },
+        "en" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Tasks in ${applicationName}",
+              "Show ${applicationName} tasks"
+            ]
+          }
+        },
         "es" : {
           "stringSet" : {
             "state" : "translated",
             "values" : [
               "Tareas en ${applicationName}",
               "Mostrar tareas de ${applicationName}"
+            ]
+          }
+        },
+        "ru" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "Задачи в ${applicationName}",
+              "Показать задачи ${applicationName}"
+            ]
+          }
+        },
+        "th" : {
+          "stringSet" : {
+            "state" : "translated",
+            "values" : [
+              "งานใน ${applicationName}",
+              "แสดงงานของ ${applicationName}"
             ]
           }
         }

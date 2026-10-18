@@ -375,7 +375,7 @@ final class Store: ObservableObject {
     func addTask(_ text: String, due: String? = nil, prio: Int = 2, rep: String? = nil) async {
         var b: [String: Any] = ["text": text, "prio": prio]
         if let due { b["due"] = due }; if let rep { b["repeat"] = rep }
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; b["today"] = f.string(from: .now)
+        let f = DateFormatter.isoDay(); b["today"] = f.string(from: .now)
         _ = try? await api("api/tasks", method: "POST", body: b); await loadToday()
     }
     func updateTask(_ id: Int, _ fields: [String: Any]) async { _ = try? await api("api/tasks/\(id)", method: "PATCH", body: fields); await loadToday() }
@@ -387,7 +387,7 @@ final class Store: ObservableObject {
     private var evInflight: [String: Task<[CalEvent]?, Never>] = [:]
     private struct EvResp: Decodable { let events: [CalEvent] }
     private func evPath(_ days: Int) -> String {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"
+        let f = DateFormatter.isoDay()
         let t0 = Calendar.current.startOfDay(for: .now), t1 = Calendar.current.date(byAdding: .day, value: days, to: t0)!
         return "api/calendar/events?start=\(f.string(from: t0))&end=\(f.string(from: t1))"
     }

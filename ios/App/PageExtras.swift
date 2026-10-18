@@ -109,7 +109,7 @@ struct VersionsSheet: View {
             (compact ? AnyLayout(VStackLayout(spacing: 0)) : AnyLayout(HStackLayout(spacing: 0))) {     // iPhone: Liste oben, Vorschau darunter
                 List(list, selection: $sel) { v in
                     VStack(alignment: .leading) {
-                        Text(Date(timeIntervalSince1970: v.created).formatted(date: .abbreviated, time: .shortened)).font(.subheadline)
+                        Text(Date(timeIntervalSince1970: v.created).sagaFormatted(date: .abbreviated, time: .shortened)).font(.subheadline)
                         Text(v.title.isEmpty ? String(localized: "Unbenannt") : v.title).font(.caption).foregroundStyle(.secondary)
                         if let n = v.author?.name, !n.isEmpty {
                             HStack(spacing: 4) { AvatarView(name: n, avatar: v.author?.avatar, size: 16); Text("von \(n)").font(.caption).foregroundStyle(.secondary) }

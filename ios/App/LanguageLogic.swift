@@ -1,15 +1,15 @@
 import Foundation
 
-/// Sprachwahl der App: Automatisch (Systemsprache) oder fest Deutsch/English/Español.
+/// Sprachwahl der App: Automatisch (Systemsprache) oder fest Deutsch/English/Spanisch/Thai/Russisch.
 /// Reine Logik ohne SwiftUI - geprueft in Tests/Logic (LangTests.swift).
 /// Gespeichert wird wie bei der Systemfunktion "Sprache je App": AppleLanguages in der eigenen Domaene der App
 /// (iOS: Einstellungen-App -> Saga -> Sprache; Mac: Auswahl in den Einstellungen der App, wirkt nach Neustart).
 enum AppLanguageChoice: String, CaseIterable, Identifiable {
-    case system = "", de, en, es
+    case system = "", de, en, es, th, ru
     var id: String { rawValue }
 
     /// Sprachen mit vollstaendigen Texten (Shared/Localizable.xcstrings)
-    static let supported = ["de", "en", "es"]
+    static let supported = ["de", "en", "es", "th", "ru"]
 
     /// Eigenname der Sprache - bewusst nicht uebersetzt, damit man die eigene Sprache auch in einer fremden Oberflaeche findet
     var nativeName: String? {
@@ -18,6 +18,8 @@ enum AppLanguageChoice: String, CaseIterable, Identifiable {
         case .de: return "Deutsch"
         case .en: return "English"
         case .es: return "Español"
+        case .th: return "ไทย"
+        case .ru: return "Русский"
         }
     }
 

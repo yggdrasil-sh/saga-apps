@@ -65,7 +65,7 @@ struct PageMetaLine: View {
         var p: [String] = []
         if let c = a.createdByOther { p.append(String(localized: "Angelegt von \(c)")) }
         if let u = a.updatedByOther, let t = updated {
-            let when = Date(timeIntervalSince1970: t).formatted(.relative(presentation: .named))
+            let when = Date(timeIntervalSince1970: t).sagaRelative
             p.append(String(localized: "Zuletzt geändert von \(u) · \(when)"))
         }
         return p

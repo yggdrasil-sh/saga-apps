@@ -17,6 +17,8 @@
 		<string>de</string>
 		<string>en</string>
 		<string>es</string>
+		<string>th</string>
+		<string>ru</string>
 	</array>
 	<key>CFBundleName</key>
 	<string>Saga</string>

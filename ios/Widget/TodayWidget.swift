@@ -32,8 +32,8 @@ enum WLink {
 }
 
 private let isoF = ISO8601DateFormatter()
-private let dayF: DateFormatter = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.timeZone = .current; return f }()
-private let timeF: DateFormatter = { let f = DateFormatter(); f.setLocalizedDateFormatFromTemplate("jmm"); return f }()   // 15:30 bzw. 3:30 PM
+private let dayF: DateFormatter = { let f = DateFormatter.isoDay(); f.timeZone = .current; return f }()
+private let timeF: DateFormatter = DateFormatter.saga(template: "jmm")   // 15:30 bzw. 3:30 PM
 /// 12-Stunden-Uhr (en-US): Zeitspalte im kleinen Widget etwas breiter
 private let uses12h = (DateFormatter.dateFormat(fromTemplate: "j", options: 0, locale: .current) ?? "").contains("a")
 /// Kennungen fuer "heute"/"morgen" (Anzeige und Vergleich)
@@ -79,7 +79,7 @@ struct TodayWidgetView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Link(destination: WLink.today) { Text("Heute").font(.headline) }
-                Text(entry.date, format: .dateTime.weekday(.abbreviated).day().month(.abbreviated)).font(.caption).foregroundStyle(.secondary)
+                Text(entry.date, format: SagaDate.dateTime().weekday(.abbreviated).day().month(.abbreviated)).font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if family != .systemSmall {
                     Link(destination: WLink.newTask) {

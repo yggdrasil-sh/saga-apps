@@ -1,6 +1,6 @@
 name: Hlidskjalf
 options:
-  developmentLanguage: en          # Rueckfall fuer unbekannte Systemsprachen; Texte: Shared/Localizable.xcstrings (de, en, es)
+  developmentLanguage: en          # Rueckfall fuer unbekannte Systemsprachen; Texte: Shared/Localizable.xcstrings (de, en, es, th, ru)
                                    # Siri-Saetze: App/AppShortcuts.xcstrings, Info.plist-Texte: App/InfoPlist.xcstrings
   deploymentTarget:
     iOS: "26.0"
@@ -45,7 +45,7 @@ targets:
         SagaMovedServers: $(SAGA_MOVED_SERVERS)
         CFBundleName: Saga                                   # Menueleiste/Dock/Finder auf dem Mac
         CFBundleSpokenName: Saga                       # fuer VoiceOver/Siri lesbar
-        CFBundleLocalizations: [de, en, es]                  # Sprachen der App (Einstellungen-App -> Saga -> Sprache)
+        CFBundleLocalizations: [de, en, es, th, ru]                 # Sprachen der App (Einstellungen-App -> Saga -> Sprache)
         UIPrefersShowingLanguageSettings: true               # Sprachwahl je App auf iOS/iPadOS immer anzeigen
         LSApplicationCategoryType: public.app-category.productivity
         ITSAppUsesNonExemptEncryption: false                 # nur HTTPS/System-Krypto -> keine Exportfrage bei jedem TestFlight-Build
@@ -82,7 +82,7 @@ targets:
   HlidskjalfWidget:
     type: app-extension
     supportedDestinations: [iOS, macOS]
-    sources: [Widget, Shared/AppConfig.swift, Shared/Keychain.swift, Shared/API.swift, Shared/ColorHex.swift, Shared/DBQuery.swift, Shared/Localizable.xcstrings]
+    sources: [Widget, Shared/AppConfig.swift, Shared/Keychain.swift, Shared/API.swift, Shared/ColorHex.swift, Shared/DBQuery.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
     info:
       path: Widget/Info.plist
       properties:
@@ -105,7 +105,7 @@ targets:
   HlidskjalfShare:
     type: app-extension
     platform: iOS
-    sources: [Share, Shared/AppConfig.swift, Shared/Keychain.swift, Shared/API.swift, Shared/ShareView.swift, Shared/Localizable.xcstrings]
+    sources: [Share, Shared/AppConfig.swift, Shared/Keychain.swift, Shared/API.swift, Shared/ShareView.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
     info:
       path: Share/Info.plist
       properties:
@@ -131,7 +131,7 @@ targets:
   HlidskjalfShareMac:
     type: app-extension
     platform: macOS
-    sources: [ShareMac, Shared/AppConfig.swift, Shared/Keychain.swift, Shared/API.swift, Shared/ShareView.swift, Shared/Localizable.xcstrings]
+    sources: [ShareMac, Shared/AppConfig.swift, Shared/Keychain.swift, Shared/API.swift, Shared/ShareView.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
     info:
       path: ShareMac/Info.plist
       properties:

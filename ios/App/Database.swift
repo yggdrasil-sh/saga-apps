@@ -424,7 +424,7 @@ struct TableGrid: View {
                 }
             }
         case "created", "edited":
-            if let ts = v as? Double { Text(Date(timeIntervalSince1970: ts).formatted(date: .abbreviated, time: .omitted)).foregroundStyle(.secondary) }
+            if let ts = v as? Double { Text(Date(timeIntervalSince1970: ts).sagaFormatted(date: .abbreviated, time: .omitted)).foregroundStyle(.secondary) }
             else if let s = v as? String, !s.isEmpty { Text(dayText(s)).foregroundStyle(.secondary) }
         case "relation":
             let ids = (v as? [AnyHashable])?.compactMap { ($0 as? Double).map(Int.init) ?? ($0 as? Int) } ?? []
@@ -606,9 +606,9 @@ struct ValueChip: View {
 }
 
 func dayText(_ s: String) -> String {
-    let p = DateFormatter(); p.dateFormat = "yyyy-MM-dd"
+    let p = DateFormatter.isoDay()
     guard let d = p.date(from: String(s.prefix(10))) else { return s }
-    var style = Date.FormatStyle.dateTime.day().month(.abbreviated)                         // Format der Systemsprache
+    var style = SagaDate.dateTime().day().month(.abbreviated)                         // Format der App-Sprache, gregorianisch
     if !Calendar.current.isDate(d, equalTo: .now, toGranularity: .year) { style = style.year() }
     return d.formatted(style)
 }
@@ -773,8 +773,8 @@ struct DBCalendarView: View {
     @EnvironmentObject var store: Store
     @EnvironmentObject var nav: NavModel
     @State private var month = Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: .now))!
-    static let dayFormat: DateFormatter = { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f }()
-    static let monthFormat: DateFormatter = { let f = DateFormatter(); f.setLocalizedDateFormatFromTemplate("LLLLyyyy"); return f }()
+    static let dayFormat: DateFormatter = DateFormatter.isoDay()
+    static let monthFormat: DateFormatter = DateFormatter.saga(template: "LLLLyyyy")
     /// Wochentage ab Montag in der Systemsprache (Mo., Di. ... / Mon, Tue ... / lun, mar ...)
     static let weekdayHeads: [String] = { let s = Calendar.current.shortStandaloneWeekdaySymbols; return Array(s[1...] + s[..<1]) }()
     var body: some View {
@@ -898,7 +898,7 @@ struct PropEditor: View {
                 }
             }
         case "created", "edited":
-            if let ts = value as? Double { Text(Date(timeIntervalSince1970: ts).formatted(date: .abbreviated, time: .shortened)).font(.subheadline) }
+            if let ts = value as? Double { Text(Date(timeIntervalSince1970: ts).sagaFormatted(date: .abbreviated, time: .shortened)).font(.subheadline) }
         case "relation":
             let n = (value as? [Any])?.count ?? 0
             Text(n == 0 ? "Leer" : "\(n) verknüpft").font(.subheadline).foregroundStyle(n == 0 ? .tertiary : .primary)
@@ -928,8 +928,8 @@ struct PropEditor: View {
             if text.isEmpty { if value != nil { set(nil) } } else if let n, n != (value as? Double) { set(n) }
         } else if text != cur { set(text.isEmpty ? nil : text) }
     }
-    private func isoDay(_ d: Date) -> String { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: d) }
-    private func parse(_ s: String) -> Date? { let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.date(from: String(s.prefix(10))) }
+    private func isoDay(_ d: Date) -> String { let f = DateFormatter.isoDay(); return f.string(from: d) }
+    private func parse(_ s: String) -> Date? { let f = DateFormatter.isoDay(); return f.date(from: String(s.prefix(10))) }
 }
 
 /// Nur Web- und Mail-Links oeffnen (keine App-Schemata wie saga://pair oder file:)

@@ -1383,7 +1383,7 @@ struct ButtonsBlock: View {
         case "page": if let t = target { nav.open(t, mode: b["open"] as? String ?? "") }
         case "db":
             guard let t = target else { return }
-            let title = (b["title"] as? String ?? "").replacingOccurrences(of: "{datum}", with: Date.now.formatted(date: .numeric, time: .omitted))
+            let title = (b["title"] as? String ?? "").replacingOccurrences(of: "{datum}", with: Date.now.sagaFormatted(date: .numeric, time: .omitted))
             struct R: Decodable { let id: Int }
             let tpl = b["tpl"] as? Int
             var body: [String: Any] = ["parent_id": t]; if !title.isEmpty || tpl == nil { body["title"] = title }
@@ -1602,7 +1602,7 @@ struct DraftBanner: View {
     @EnvironmentObject var store: Store
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("Nicht gespeicherte Änderungen vom \(draft.saved.formatted(date: .abbreviated, time: .shortened))", systemImage: "doc.badge.clock")
+            Label("Nicht gespeicherte Änderungen vom \(draft.saved.sagaFormatted(date: .abbreviated, time: .shortened))", systemImage: "doc.badge.clock")
                 .font(.subheadline.weight(.semibold))
             Text("Wiederherstellen ersetzt den angezeigten Stand und speichert deine Fassung.").font(.footnote).foregroundStyle(.secondary)
             HStack {
