@@ -191,7 +191,7 @@ private fun ArchivedHeader(count: Int, unread: Int, open: Boolean, onToggle: () 
             modifier = Modifier.weight(1f).padding(start = 16.dp),
         )
         if (unread > 0) {
-            val d = stringResource(R.string.notifications_unread_n, unread)
+            val d = androidx.compose.ui.res.pluralStringResource(R.plurals.notifications_unread_n, unread, unread)
             Badge(Modifier.semantics { contentDescription = d }, containerColor = MaterialTheme.colorScheme.outline, contentColor = MaterialTheme.colorScheme.onPrimary) {
                 Text(if (unread > 99) "99+" else "$unread")
             }
@@ -321,7 +321,7 @@ private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, onClick: ()
             )
         }
         if (c.unread > 0) {
-            val d = stringResource(R.string.notifications_unread_n, c.unread)
+            val d = androidx.compose.ui.res.pluralStringResource(R.plurals.notifications_unread_n, c.unread, c.unread)
             Badge(
                 Modifier.semantics { contentDescription = d },
                 containerColor = if (c.muted) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,

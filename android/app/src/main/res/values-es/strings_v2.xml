@@ -4,7 +4,10 @@
     <string name="notifications">Notificaciones</string>
     <string name="notifications_mark_all">Marcar todo como leído</string>
     <string name="notifications_settings">Ajustes de notificaciones</string>
-    <string name="notifications_unread_n">%1$d sin leer</string>
+    <plurals name="notifications_unread_n">
+        <item quantity="one">%1$d sin leer</item>
+        <item quantity="other">%1$d sin leer</item>
+    </plurals>
     <string name="notifications_empty">No hay notificaciones</string>
     <string name="notifications_load_older">Cargar anteriores</string>
     <string name="notify_kind_share_added">Alguien comparte una página conmigo</string>
@@ -117,7 +120,10 @@
     <string name="chat_unverified">Autenticidad no confirmada</string>
     <string name="chat_undecryptable">Este mensaje no se puede descifrar en este dispositivo.</string>
     <string name="chat_bad_recipient">No enviado: la clave de un destinatario no es válida. Comprueba el número de seguridad.</string>
-    <string name="chat_too_many_files">Como máximo %1$d adjuntos por mensaje.</string>
+    <plurals name="chat_too_many_files">
+        <item quantity="one">Como máximo %1$d adjunto por mensaje.</item>
+        <item quantity="other">Como máximo %1$d adjuntos por mensaje.</item>
+    </plurals>
     <string name="chat_file_too_big">Archivo demasiado grande (máx. %1$d MB).</string>
     <string name="chat_file_broken">No se pudo abrir el adjunto.</string>
     <string name="chat_people_search">Nombre o usuario</string>
@@ -180,7 +186,10 @@
     <string name="ai_history_off_confirm">¿Desactivar el historial? Se eliminará el historial guardado.</string>
     <string name="ai_quota">Quedan %1$d de %2$d solicitudes hoy</string>
     <string name="ai_no_sources">No se encontraron páginas adecuadas.</string>
-    <string name="ai_selected_blocks">Seleccionados: %1$d bloques</string>
+    <plurals name="ai_selected_blocks">
+        <item quantity="one">Seleccionado: %1$d bloque</item>
+        <item quantity="other">Seleccionados: %1$d bloques</item>
+    </plurals>
     <string name="ai_replace_confirm">¿Reemplazar el texto seleccionado?</string>
     <string name="ai_truncated">La página es larga: solo se ha usado el principio.</string>
     <string name="ai_ask_hint">Pregunta algo…</string>

@@ -103,8 +103,8 @@ fun RowProperties(ed: PageEditor, repo: SagaRepository) {
         }
     }
     val all = knownPages(repo)
-    val fmt = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
     val locale = io.github.yggdrasil_sh.saga.ui.common.appLocale()
+    val fmt = remember(locale) { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val fields = remember(schema, props, all, locale) {
         // Datum und Zahlen in der Schreibweise der App-Sprache (wie Erstellt/Geaendert)

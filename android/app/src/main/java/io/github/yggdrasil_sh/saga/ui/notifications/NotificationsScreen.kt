@@ -83,7 +83,7 @@ fun NotificationsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome)
                 if (unread > 0) {
                     item {
                         Text(
-                            stringResource(R.string.notifications_unread_n, unread), style = MaterialTheme.typography.labelLarge,
+                            androidx.compose.ui.res.pluralStringResource(R.plurals.notifications_unread_n, unread, unread), style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary, modifier = w.padding(horizontal = 16.dp, vertical = 8.dp),
                         )
                     }

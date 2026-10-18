@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Thai zu values/strings_lang.xml (maschinell uebersetzt, Gegenlesen durch Muttersprachler empfohlen) -->
+<resources>
+    <string name="language">ภาษา</string>
+    <string name="language_auto">อัตโนมัติ (ภาษาของอุปกรณ์)</string>
+    <string name="language_hint">มีผลกับ Saga บนอุปกรณ์นี้เท่านั้น ภาษาของอุปกรณ์จะไม่เปลี่ยน</string>
+    <string name="language_change">เปลี่ยนภาษา</string>
+</resources>

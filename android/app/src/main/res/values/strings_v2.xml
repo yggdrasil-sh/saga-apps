@@ -4,7 +4,10 @@
     <string name="notifications">Notifications</string>
     <string name="notifications_mark_all">Mark all as read</string>
     <string name="notifications_settings">Notification settings</string>
-    <string name="notifications_unread_n">%1$d unread</string>
+    <plurals name="notifications_unread_n">
+        <item quantity="one">%1$d unread</item>
+        <item quantity="other">%1$d unread</item>
+    </plurals>
     <string name="notifications_empty">No notifications</string>
     <string name="notifications_load_older">Load older</string>
     <string name="notify_kind_share_added">Someone shares a page with me</string>
@@ -117,7 +120,10 @@
     <string name="chat_unverified">Authenticity not confirmed</string>
     <string name="chat_undecryptable">This message can\'t be decrypted on this device.</string>
     <string name="chat_bad_recipient">Not sent: a recipient\'s key isn\'t valid. Check the safety number.</string>
-    <string name="chat_too_many_files">At most %1$d attachments per message.</string>
+    <plurals name="chat_too_many_files">
+        <item quantity="one">At most %1$d attachment per message.</item>
+        <item quantity="other">At most %1$d attachments per message.</item>
+    </plurals>
     <string name="chat_file_too_big">File too large (max. %1$d MB).</string>
     <string name="chat_file_broken">The attachment couldn\'t be opened.</string>
     <string name="chat_people_search">Name or user</string>
@@ -180,7 +186,10 @@
     <string name="ai_history_off_confirm">Turn off history? The saved history will be deleted.</string>
     <string name="ai_quota">%1$d of %2$d requests left today</string>
     <string name="ai_no_sources">No matching pages found.</string>
-    <string name="ai_selected_blocks">Selected: %1$d blocks</string>
+    <plurals name="ai_selected_blocks">
+        <item quantity="one">Selected: %1$d block</item>
+        <item quantity="other">Selected: %1$d blocks</item>
+    </plurals>
     <string name="ai_replace_confirm">Replace selected text?</string>
     <string name="ai_truncated">The page is long – only the beginning was used.</string>
     <string name="ai_ask_hint">Ask something …</string>

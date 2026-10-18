@@ -6,6 +6,18 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Thai und Russisch – Android
+- **Neue App-Sprachen „ไทย“ (Thai) und „Русский“ (Russisch):** vollständige Übersetzung aller Texte (maschinell
+  erstellt, Gegenlesen durch Muttersprachler empfohlen). Russisch in der Du-Form (ты), Thai neutral-höflich.
+  Auswahl in den Einstellungen („Sprache“) und im Sprachumschalter der Anmeldung; Android 13+ auch unter
+  Einstellungen → Apps → Saga → Sprache (`locales_config.xml`). Anfragen schicken `Accept-Language: ru` bzw. `th`.
+- **Russische Mehrzahl:** alle Mengen-Texte als `<plurals>` mit one/few/many/other („1 час“, „3 часа“, „5 часов“).
+  „%d ungelesen“, „Markiert: %d Blöcke“ und „Höchstens %d Anhänge je Nachricht“ sind jetzt auch in de/en/es Plurals.
+- **Thai-Datumsangaben im gregorianischen Kalender** (2026, nicht buddhistisch 2569) – wie Web und iOS; gilt für
+  alle Datums-/Zeitangaben der App (Entwurfs-Hinweis und „Zurückgezogen am …“ jetzt ebenfalls in der App-Sprache).
+- Sprachnamen im KI-Übersetzen-Menü und Tagesüberschriften im Chat folgen der App-Sprache (Lint `NonObservableLocale`).
+- Standard-Kategorien der Dienste erkennen auch „Сервисы“/„Закладки“ und „บริการ“/„บุ๊กมาร์ก“.
+
 ### Chats archivieren und löschen – iOS, iPadOS, macOS
 - **Archivieren / Aus Archiv holen** (nur für mich): Wischgeste in der Chatliste (iPhone/iPad), Kontextmenü (Mac, iPad,
   langes Drücken) und im Chat-Menü „⋯“. Archivierte Chats stehen im aufklappbaren Bereich „Archiviert (n)“ unten in

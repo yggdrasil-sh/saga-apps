@@ -5,7 +5,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.text.format.DateUtils
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -213,7 +212,7 @@ private fun ColumnScope.MainStep(model: PublishModel, scope: CoroutineScope, onO
     v.via?.let { via -> ViaCard(via.title, via.url, onCopy = { copyLink(context, via.url); model.linkCopied() }, onOpen = { onOpenPage(via.noteId) }) }
     v.withdrawnAt?.let { at ->
         val ms = (at * 1000).toLong()
-        val when_ = remember(ms) { DateUtils.formatDateTime(context, ms, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_SHOW_YEAR) }
+        val when_ = io.github.yggdrasil_sh.saga.ui.common.dateTimeText(ms, withYear = true)
         Text(
             stringResource(if (v.withdrawnByAdmin) R.string.publish_withdrawn_admin else R.string.publish_withdrawn_user, when_),
             style = MaterialTheme.typography.bodySmall,

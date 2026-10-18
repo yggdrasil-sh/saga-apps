@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russisch zu values/strings_fix.xml (maschinell uebersetzt, Gegenlesen durch Muttersprachler empfohlen) -->
+<resources>
+    <string name="chat_link_denied">Запрос отклонён на другом устройстве.</string>
+    <string name="chat_start_over_done">Начато заново – теперь действует твой новый ключ восстановления.</string>
+    <string name="close_sheet">Закрыть панель</string>
+    <string name="chat_safety_send_blocked">Код безопасности пользователя %1$s изменился – проверь его перед отправкой.</string>
+    <string name="push_permission_revoked">Уведомления для Saga заблокированы в настройках системы – ничего не будет показано.</string>
+</resources>
