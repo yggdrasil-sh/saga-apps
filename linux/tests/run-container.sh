@@ -44,7 +44,11 @@ fail() { echo "FEHLER: $*"; FAIL=$((FAIL + 1)); }
 xrun() {
   L=$1; shift
   H=$(mktemp -d /tmp/hk-home.XXXXXX)
-  env -i HOME="$H" PATH=/usr/bin:/bin LANG="$L" HK_OUT="${HK_OUT:-/tmp}" HK_SHOT_PREFIX="${HK_SHOT_PREFIX:-}" \
+  if [ -n "${HK_APP_LANGUAGE:-}" ]; then                 # in der App gewaehlte Sprache (Einstellungen -> Sprache)
+    mkdir -p "$H/.config/hlidskjalf"
+    printf '{"language": "%s"}\n' "$HK_APP_LANGUAGE" >"$H/.config/hlidskjalf/settings.json"
+  fi
+  env -i HOME="$H" PATH=/usr/bin:/bin LANG="$L" HK_OUT="${HK_OUT:-/tmp}" HK_SHOT_PREFIX="${HK_SHOT_PREFIX:-}" HK_APP_LANGUAGE="${HK_APP_LANGUAGE:-}" \
     HK_TEST="${HK_TEST:-}" PYTEST_ADDOPTS="${PYTEST_ADDOPTS:-}" HK_NO_KEYRING=1 PYTHONPATH="$W" GSK_RENDERER=cairo GDK_BACKEND=x11 NO_AT_BRIDGE=1 \
     dbus-run-session -- sh -c '
       D=:$((90 + $$ % 900)); Xvfb $D -screen 0 1400x900x24 -nolisten tcp >/dev/null 2>&1 & X=$!; sleep 1
@@ -86,6 +90,11 @@ for part in $PARTS; do
       ;;
     lang)
       for l in de_DE.UTF-8 en_US.UTF-8 es_ES.UTF-8; do app_test sprachen.py "$l"; done
+      # In der App gewaehlte Sprache hat Vorrang vor der Systemsprache (fremder Rechner)
+      HK_APP_LANGUAGE=es app_test sprachen.py de_DE.UTF-8
+      HK_APP_LANGUAGE=en app_test sprachen.py de_DE.UTF-8
+      HK_APP_LANGUAGE=de app_test sprachen.py es_ES.UTF-8
+      app_test sprachwahl.py de_DE.UTF-8                 # Einstellungen -> Sprache: Auswahl, Neustart-Hinweis
       ;;
     v2shots)                                             # nur die Saga-2.0-Bildschirmfotos
       mkdir -p "$SRC/build/shots"
@@ -96,6 +105,8 @@ for part in $PARTS; do
       mkdir -p "$SRC/build/shots"
       HK_OUT="$SRC/build/shots" app_test shots.py
       HK_OUT="$SRC/build/shots" app_test dialoge.py
+      HK_OUT="$SRC/build/shots" app_test sprachwahl.py
+      HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test sprachwahl.py es_ES.UTF-8
       HK_OUT="$SRC/build/shots" app_test pubshots.py
       HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test pubshots.py es_ES.UTF-8
       HK_OUT="$SRC/build/shots" app_test shareshots.py

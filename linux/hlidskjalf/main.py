@@ -2,7 +2,9 @@
 import os
 import sys
 
-import gi
+from . import i18n                                  # Sprache vor GTK festlegen (LANGUAGE aus den App-Einstellungen)
+
+import gi  # noqa: E402
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
@@ -21,6 +23,7 @@ class App(Adw.Application):
         super().__init__(application_id=APP_ID, flags=flags)
         self.win = None
         self._pending = None
+        self.restart_requested = False
         GLib.set_application_name("Saga")
         # Dock-Aktionen der Desktop-Datei (statt hlidskjalf://new, das eine Webseite ohne Rueckfrage ausloesen koennte)
         self.add_main_option("new-page", 0, GLib.OptionFlags.NONE, GLib.OptionArg.NONE, "New page", None)
@@ -89,6 +92,18 @@ class App(Adw.Application):
             act, self._pending = self._pending, None
             GLib.idle_add(lambda: (self.activate_action(act, None), False)[1])
 
+    def restart(self):
+        """Neu starten (z. B. nach dem Wechsel der Sprache): Fenster schliessen - wartet aufs Speichern -,
+        danach startet main() die App neu. Bricht der Nutzer das Schliessen ab, bleibt alles wie es ist."""
+        if os.environ.get("HK_TEST"):
+            print("HK_TEST: Neustart angefordert (Sprache:", i18n.chosen_language() or "System", ")", flush=True)
+            return
+        self.restart_requested = True
+        if self.win is not None:
+            self.win.close()
+        else:
+            self.quit()
+
     def do_open(self, files, n, hint):
         self.do_activate()
         for f in files:
@@ -114,7 +129,14 @@ def main():
     app = App()
     if "--gapplication-service" in sys.argv:             # per D-Bus geweckt (UnifiedPush): Mitteilung zeigen, dann beenden
         app.set_inactivity_timeout(10000)
-    return app.run(sys.argv)
+    r = app.run(sys.argv)
+    if app.restart_requested:
+        argv = list(getattr(sys, "orig_argv", None) or [sys.executable] + sys.argv)
+        argv = [a for a in argv if a not in ("--gapplication-service", "--new-page", "--new-task") and not a.startswith("hlidskjalf:")]
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os.execv(sys.executable, argv)              # gleiche Kommandozeile, neue Sprache (i18n liest settings.json)
+    return r
 
 
 if __name__ == "__main__":

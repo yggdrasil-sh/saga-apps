@@ -6,7 +6,10 @@ import os
 from hlidskjalf import i18n
 from hlidskjalf.util import day_text, num_text, weekday_names
 
-LANG = (os.environ.get("LANG") or "C")[:2]
+# HK_APP_LANGUAGE: in den App-Einstellungen gewaehlte Sprache (run-container.sh legt settings.json an) - hat Vorrang vor LANG
+APP_LANG = os.environ.get("HK_APP_LANGUAGE") or ""
+LANG = APP_LANG or (os.environ.get("LANG") or "C")[:2]
+TAG = f"{LANG}-app" if APP_LANG else LANG
 EXPECT = {
     "en": {"button": "Sign in", "server": "Server address", "today": "Today", "desc": "Sign in with a passkey", "search": "Search pages"},
     "de": {"button": "Anmelden", "server": "Server-Adresse", "today": "Heute", "desc": "Anmelden mit Passkey", "search": "Seiten durchsuchen"},
@@ -35,7 +38,13 @@ def check(name, got, want):
 
 def s1(g):
     win = g["win"]
-    print("LANG:", os.environ.get("LANG"), "Katalog:", i18n.LOCALEDIR, "Sprache:", i18n.ui_language(), flush=True)
+    print("LANG:", os.environ.get("LANG"), "App-Sprache:", APP_LANG or "-", "LANGUAGE:", os.environ.get("LANGUAGE"),
+          "Katalog:", i18n.LOCALEDIR, "Sprache:", i18n.ui_language(), flush=True)
+    from hlidskjalf import api
+    check("Accept-Language", api.ACCEPT_LANGUAGE, LANG if LANG in ("de", "es") else "en")
+    if APP_LANG:
+        check("LANGUAGE (GTK)", os.environ.get("LANGUAGE"), APP_LANG)
+        check("Einstellung", i18n.chosen_language(), APP_LANG)
     if LANG in ("de", "es") and not i18n.LOCALEDIR:
         S["err"].append("kein Katalog gefunden")
         print("FEHLER kein Katalog (.mo) gefunden", flush=True)
@@ -52,7 +61,7 @@ def s1(g):
     if bad:
         S["err"].append("falsche Sprache")
         print("FEHLER falsche Sprache:", bad, flush=True)
-    g["shot"](g["out"] + f"/sprache-{LANG}-1-anmeldung.png")
+    g["shot"](g["out"] + f"/sprache-{TAG}-1-anmeldung.png")
 
 
 def s2(g):
@@ -66,7 +75,7 @@ def s2(g):
 
 
 def s3(g):
-    g["shot"](g["out"] + f"/sprache-{LANG}-2-heute.png")
+    g["shot"](g["out"] + f"/sprache-{TAG}-2-heute.png")
     print("SPRACHE", LANG, "OK" if not S["err"] else "FEHLER " + ", ".join(S["err"]), flush=True)
 
 
