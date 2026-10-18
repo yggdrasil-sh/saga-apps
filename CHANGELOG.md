@@ -19,6 +19,20 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Server zur nächsten Patch-Version (`2.1.1-rc.N`, RPM `saga-2.1.1-0.rcN`) – Testversionen sind so immer erkennbar
   neuer als das Release.
 
+### Behoben (iOS/iPadOS/macOS)
+- **Titelbild erscheint sofort:** Ein neu gewähltes Titelbild (Fotos) steht jetzt sofort da, noch während es
+  hochgeladen wird – vorher blieb der Bereich oben leer, bis das verkleinerte Bild vom Server kam (bei langsamer
+  Verbindung oder großen Fotos sekundenlang; brach der Abruf ab, sogar bis zum erneuten Öffnen der Seite). Bilder aus
+  Immich oder von anderen Geräten zeigen beim Laden einen Fortschritt, beim Wechseln bleibt das alte Bild bis zum
+  neuen stehen, ein abgebrochener Abruf wird wiederholt. Entfernen und „Neu positionieren“ wirken sofort (bei einem
+  Fehler kommt der alte Stand zurück).
+- **Symbol lässt sich wieder ändern:** Bei Seiten mit Titelbild landete ein Tippen auf den oberen Teil des Symbols
+  (der über dem Titelbild liegt) im Titelbild – statt der Symbol-Auswahl erschien nur die Leiste „Ändern |
+  Neu positionieren | Entfernen“. Jetzt öffnet das ganze Symbol (Emoji oder Bild) die Auswahl; neu sind dort und im
+  Kontextmenü (lange drücken bzw. Rechtsklick) „Zufällig“ und „Symbol entfernen“ wie im Web. Ein neues Bild-Symbol
+  erscheint sofort. Auf gesperrten Seiten erscheint beim Antippen von Symbol oder Titelbild ein kurzer Hinweis
+  („Die Seite ist gesperrt …“) statt stillem Nichtstun.
+
 ## [2.1.0] – 2026-10-18
 
 Passt zu Saga-Server 2.1. **Die neuen Funktionen brauchen Saga-Server 2.1; ältere Server funktionieren weiter**

@@ -42319,6 +42319,74 @@
           }
         }
       }
+    },
+    "Die Seite ist gesperrt – Symbol und Titelbild lassen sich erst nach dem Entsperren ändern." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Seite ist gesperrt – Symbol und Titelbild lassen sich erst nach dem Entsperren ändern."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This page is locked – unlock it to change the icon or cover."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La página está bloqueada: desbloquéala para cambiar el icono o la portada."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Страница заблокирована – разблокируй её, чтобы изменить значок или обложку."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "หน้านี้ถูกล็อกอยู่ – ปลดล็อกก่อนจึงจะเปลี่ยนไอคอนหรือภาพปกได้"
+          }
+        }
+      }
+    },
+    "Zufällig" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zufällig"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Random"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aleatorio"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Случайно"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สุ่ม"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -177,35 +177,68 @@ struct RemoteImage: View {
     var fill = false
     var vAlign: Double = 50                               // Titelbild-Position 0 (oben) ... 100 (unten)
     var w: Int? = nil                                     // verkleinert laden (?w=, Server rechnet einmal und merkt es sich)
+    var spinner = false                                   // waehrend des Ladens Fortschritt zeigen (Titelbild)
     @State private var img: PlatformImage?
-    @State private var ratio: CGFloat?
+    @State private var loadedKey: String?
+    private var key: String { Self.sized(path, w) }
     var body: some View {
+        let key = key
+        // Zwischenspeicher schon beim ersten Zeichnen nutzen (z. B. eben gewaehltes Bild): kein Aufblitzen des Platzhalters.
+        // Waehrend ein neues Bild laedt, bleibt das bisherige stehen (kein leerer Kasten beim Wechseln).
+        let cached = loadedKey == key ? nil : ImageStore.cache.object(forKey: key as NSString)
+        let shown = cached ?? img
         Group {
-            if let img, let ratio {
+            if let shown {
+                let ratio = shown.size.height > 0 ? shown.size.width / shown.size.height : 1
                 if fill {
-                    // wie CSS object-fit: cover -> Flaeche ganz bedecken, Seitenverhaeltnis behalten, Rest abschneiden
-                    GeometryReader { g in
-                        let W = g.size.width, H = max(g.size.height, 1)
-                        let s = W / H > ratio ? CGSize(width: W, height: W / ratio) : CGSize(width: H * ratio, height: H)
-                        let y = s.height / 2 - (s.height - H) * CGFloat(min(100, max(0, vAlign)) / 100)   // stufenlos wie im Web
-                        AnimatedImage(image: img, fill: true).frame(width: s.width, height: s.height).position(x: W / 2, y: y)
-                    }
-                    .clipped()
+                    CoverFill(image: shown, ratio: ratio, vAlign: vAlign)
                 } else {
-                    AnimatedImage(image: img, fill: false).aspectRatio(ratio, contentMode: .fit)
+                    AnimatedImage(image: shown, fill: false).aspectRatio(ratio, contentMode: .fit)
                 }
             } else { Rectangle().fill(.secondary.opacity(0.12)) }
         }
-        .task(id: path) {
-            let path = Self.sized(path, w)
-            if let c = ImageStore.cache.object(forKey: path as NSString) { ratio = c.size.height > 0 ? c.size.width / c.size.height : 1; img = c; return }
-            guard let d = await store.imageData(path) else { return }
-            let decoded = await Task.detached(priority: .userInitiated) { ImageStore.decode(d) }.value      // im Hintergrund entpacken
-            guard let decoded else { return }
-            ImageStore.cache.setObject(decoded, forKey: path as NSString, cost: d.count * 4)
-            ratio = decoded.size.height > 0 ? decoded.size.width / decoded.size.height : 1
-            img = decoded
+        .overlay {
+            if spinner && cached == nil && loadedKey != key && failedKey != key { ProgressView().padding(10).background(.regularMaterial, in: Circle()) }
         }
+        .task(id: key) { await load(key) }
+    }
+    @State private var failedKey: String?
+    private func load(_ key: String) async {
+        if let c = ImageStore.cache.object(forKey: key as NSString) { img = c; loadedKey = key; return }
+        defer { if loadedKey != key && !Task.isCancelled { failedKey = key } }
+        for wait in HeaderLogic.retryDelays {
+            if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+            if Task.isCancelled { return }
+            guard let d = await store.imageData(key) else { continue }
+            let decoded = await Task.detached(priority: .userInitiated) { ImageStore.decode(d) }.value      // im Hintergrund entpacken
+            guard let decoded else { return }                                                               // kein Bild: nicht wiederholen
+            ImageStore.cache.setObject(decoded, forKey: key as NSString, cost: d.count * 4)
+            img = decoded; loadedKey = key
+            return
+        }
+    }
+}
+
+/// Wie CSS object-fit: cover -> Flaeche ganz bedecken, Seitenverhaeltnis behalten, Rest abschneiden
+struct CoverFill: View {
+    let image: PlatformImage
+    let ratio: CGFloat
+    var vAlign: Double = 50
+    var body: some View {
+        GeometryReader { g in
+            let W = g.size.width, H = max(g.size.height, 1)
+            let s = W / H > ratio ? CGSize(width: W, height: W / ratio) : CGSize(width: H * ratio, height: H)
+            let y = s.height / 2 - (s.height - H) * CGFloat(min(100, max(0, vAlign)) / 100)   // stufenlos wie im Web
+            AnimatedImage(image: image, fill: true).frame(width: s.width, height: s.height).position(x: W / 2, y: y)
+        }
+        .clipped()
+    }
+}
+
+extension ImageStore {
+    /// Eben gewaehltes eigenes Bild unter der Server-Adresse vormerken: es erscheint sofort, ohne erneuten Abruf
+    static func prime(_ path: String, w: Int?, _ img: PlatformImage) {
+        cache.setObject(img, forKey: RemoteImage.sized(path, w) as NSString, cost: Int(img.size.width * img.size.height * 4))
     }
 }
 
@@ -215,6 +248,12 @@ struct RemoteImage: View {
 final class PageDoc: ObservableObject {
     let id: Int
     @Published var page: [String: Any] = [:]
+    /// Eben gewaehltes Titelbild (lokal), bis Hochladen + Speichern durch sind: sofort sichtbar statt leerem Kasten
+    @Published var coverPreview: PlatformImage?
+    /// Titelbild wird hochgeladen/gespeichert (Fortschritt im Titelbild)
+    @Published var coverBusy = false
+    /// Gesperrte Seite: Symbol/Titelbild angetippt -> kurzer Hinweis (zaehlt hoch)
+    @Published var lockHint = 0
     @Published var parentSchema: [String: Any]?
     @Published var error: String?
     @Published var loaded = false
@@ -261,6 +300,8 @@ final class PageDoc: ObservableObject {
     var title: String { titleRaw.isEmpty ? String(localized: "Unbenannt") : titleRaw }
     var icon: String? { page["icon"] as? String }
     var cover: String? { (page["cover"] as? String).flatMap { $0.isEmpty ? nil : $0 } }
+    /// Titelbild sichtbar (gespeichert oder eben gewaehlt und noch beim Hochladen)
+    var hasCover: Bool { cover != nil || coverPreview != nil }
     var props: [String: Any] { page["props"] as? [String: Any] ?? [:] }
     var isDatabase: Bool { page["kind"] as? String == "database" }
     /// Uploads in eine fremde Seite (Rolle Bearbeiten): Datei gehoert dem Eigentuemer (X-Saga-Note)
@@ -818,6 +859,10 @@ struct NativePageScreen: View {
     /// Symbol/Titelbild nicht aenderbar: Rolle, Sperre, fremde Instanz - und solange die Seite nie geladen wurde
     /// (sonst ueberschriebe ein PATCH ein unbekanntes vorhandenes Symbol/Titelbild, BUG-061)
     private var headerReadOnly: Bool { doc.access.readOnly || pageLocked || doc.access.remote || !doc.fetched }
+    /// Tippen auf Symbol/Titelbild der gesperrten (eigenen bzw. bearbeitbaren) Seite: Hinweis statt Nichtstun
+    private var headerLocked: Bool {
+        HeaderLogic.tap(readOnlyRole: doc.access.readOnly, remote: doc.access.remote, fetched: doc.fetched, locked: pageLocked) == .lockedHint
+    }
     /// Seite sperren/entsperren (wie im Web): erst speichern, dann sperren
     private func setLocked(_ on: Bool) async {
         if on { await ed.flush(); ed.focus = nil }
@@ -868,9 +913,9 @@ struct NativePageScreen: View {
             VStack(alignment: .leading, spacing: 0) {
                 if !doc.noAccess {                                   // Kein Zugriff: weder Titelbild noch Symbol der Seite
                     #if os(iOS)
-                    CoverView(doc: doc, extendTop: topInset, readOnly: headerReadOnly)          // Titelbild bis ganz nach oben (wie Notion)
+                    CoverView(doc: doc, extendTop: topInset, readOnly: headerReadOnly, locked: headerLocked)          // Titelbild bis ganz nach oben (wie Notion)
                     #else
-                    CoverView(doc: doc, readOnly: headerReadOnly)
+                    CoverView(doc: doc, readOnly: headerReadOnly, locked: headerLocked)
                     #endif
                 }
                 VStack(alignment: .leading, spacing: 10) {
@@ -878,7 +923,7 @@ struct NativePageScreen: View {
                         NoAccessView(retry: { Task { doc.loaded = false; await doc.load(store); await store.refresh(quiet: true) } },
                                      toShared: { nav.toShared() })
                     } else {
-                    IconRow(doc: doc, readOnly: headerReadOnly)
+                    IconRow(doc: doc, readOnly: headerReadOnly, locked: headerLocked)
                     PageTitleField(doc: doc, ed: ed, fallback: store.page(id)?.title)
                     if let by = doc.access.sharedBy { SharedByLabel(owner: by, role: doc.access.role) }      // fremde Seite (1.3)
                     PageMetaLine(access: doc.access, updated: doc.page["updated"] as? Double)
@@ -942,11 +987,11 @@ struct NativePageScreen: View {
         }
         .scrollDismissesKeyboard(.interactively)
         #if os(iOS)
-        .scrollEdgeEffectHidden(!scrolled && doc.cover != nil, for: .top)    // iOS 26: Titelbild unter der Leiste nicht abdunkeln
+        .scrollEdgeEffectHidden(!scrolled && doc.hasCover, for: .top)    // iOS 26: Titelbild unter der Leiste nicht abdunkeln
         .background {                                                          // Hoehe von Statusleiste + Navigation am aeusseren Rahmen messen
             GeometryReader { g in Color.clear.onAppear { topInset = g.safeAreaInsets.top }.onChange(of: g.safeAreaInsets.top) { _, v in topInset = v } }
         }
-        .onScrollGeometryChange(for: Bool.self) { g in g.contentOffset.y + g.contentInsets.top > (doc.cover != nil ? 250 : 70) } action: { _, v in
+        .onScrollGeometryChange(for: Bool.self) { g in g.contentOffset.y + g.contentInsets.top > (doc.hasCover ? 250 : 70) } action: { _, v in
             withAnimation(.easeInOut(duration: 0.2)) { scrolled = v }
         }
         .toolbarBackground(scrolled ? .visible : .hidden, for: .navigationBar)
