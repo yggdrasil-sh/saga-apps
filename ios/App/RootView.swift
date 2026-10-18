@@ -40,7 +40,8 @@ struct RootView: View {
         return .automatic
     }()
 
-    var body: some View {
+    /// Oberflaeche ohne Ereignisse und Blaetter (body ist dreigeteilt: eine lange Kette sprengt die Typpruefung im CI-Xcode)
+    private var core: some View {
         NavigationSplitView(columnVisibility: $columns) {
             Sidebar(store: store, selection: $selection, query: query, results: results, sharedJump: nav.sharedJump)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 380)      // wie Notion, nicht abgeschnitten
@@ -146,6 +147,11 @@ struct RootView: View {
             search: { showPalette = true },
             copyLink: { if let id = currentPageID { copyPageLink(id) } }, hasPage: currentPageID != nil,
             today: { selection = nil }, tasks: { selection = -1 }, events: { selection = -2 }))
+    }
+
+    /// Ereignisse, Takt und Hinweisleisten
+    private var withEvents: some View {
+        core
         .onReceive(NotificationCenter.default.publisher(for: .hkCaptured)) { _ in Task { await store.refresh() } }   // Menueleiste
         .onOpenURL { url in openLink(url) }                              // Links aus den Widgets / Kurzbefehlen
         .onContinueUserActivity(CSSearchableItemActionType) { a in        // Spotlight-Treffer
@@ -202,6 +208,10 @@ struct RootView: View {
                 .font(.footnote).padding(.vertical, 6).frame(maxWidth: .infinity).background(.yellow.opacity(0.25))
             }
         }
+    }
+
+    var body: some View {
+        withEvents
         .sheet(isPresented: $showTrash) { TrashSheet().environmentObject(store) }
         // Kopplungslink: Rueckfrage hier - oder im Anmeldebildschirm, solange der vorne liegt
         // (nur hier zuruecksetzen, solange die Rueckfrage hier liegt: sonst loescht das Ausblenden beim Wechsel zum
