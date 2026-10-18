@@ -7,6 +7,10 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 ## [Unveröffentlicht]
 
 ### Thai und Russisch – iOS, iPadOS, macOS (Widget, Teilen)
+- **Begriffe wie im Web:** Thai und Russisch verwenden dieselben Fachbegriffe wie Web und Server (z. B. Koppeln
+  „связать“, Profilbild „изображение профиля“, Löschen „у меня“/„у всех“; Thai „การสนทนา“ für Threads,
+  „เก็บเข้าคลัง“ für Archiv, „เข้าสู่ระบบ“ für Anmelden); Sätze, die es auch im Web gibt, lauten gleich. Russisch ohne
+  männliche Formen für Personen. Gegenlesen durch Muttersprachler weiterhin empfohlen.
 - Neue App-Sprachen **ไทย (Thai)** und **Русский (Russisch)**: alle Texte der App, des Widgets und der
   Teilen-Erweiterungen, Kurzbefehle/Siri-Sätze und Berechtigungstexte. Russisch duzt („ты“), Thai neutral-höflich;
   Russisch mit allen Pluralformen (one/few/many/other) für Zahlentexte. Maschinell übersetzt – Gegenlesen durch
