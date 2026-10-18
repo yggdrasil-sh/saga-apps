@@ -40,6 +40,22 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 - **Minutentakt zuverlässig:** Der Takt prüfte „App im Vordergrund?“ mit dem Stand vom Öffnen des Fensters – war die
   App da noch nicht aktiv, fiel der Abgleich im Vordergrund ganz aus. Jetzt gilt der aktuelle Zustand.
 
+### Geändert (Android)
+- **Weniger Datenvolumen und schnellere Reaktion bei großen Konten:** Die App lädt die komplette Seitenliste (bei
+  vielen Datenbank-Einträgen mehrere MB) nicht mehr nach jeder Aktion neu. Eine neue eigene Seite (Seitenleiste
+  „+“, „+“ an einer Seite, Konfliktkopie) wird gezielt geholt und direkt eingefügt, „In den Papierkorb“ und
+  „Archivieren“ entfernen die Seite samt Unterseiten sofort aus der Liste – mit denselben Daten wie nach einem
+  Neuladen. Der regelmäßige Abgleich im Vordergrund läuft wie bisher jede Minute, solange der Live-Kanal nicht
+  verbunden ist. Mit Live-Kanal meldet der Server (ab 2.2, Ereignis `notes.tree`) anderswo angelegte, geänderte,
+  verschobene, gelöschte oder archivierte Seiten sofort – die App holt dann nur diese Seiten nach (bei Verschieben,
+  Papierkorb, Archiv oder vielen Seiten die ganze Liste); der Abgleich alle 5 Minuten bleibt als Sicherheitsnetz. Der seltene Takt gilt erst, nachdem in dieser Anmeldung tatsächlich ein `notes.tree` angekommen ist (nicht anhand der Serverversion – Testserver melden schon 2.2.0, schicken das Ereignis aber evtl. noch nicht); bis dahin und nach Abmelden oder Serverwechsel weiter jede Minute. „Mit mir geteilt“, Glocke, Chats und Heute werden unabhängig davon weiter jede Minute abgeglichen (Gruppenwechsel oder Verschieben aus geteilten Bäumen lösen nicht immer ein Ereignis aus). `notes.tree` mit `full: true` lädt die ganze Liste; `mixed` wird anhand von `ops` ausgewertet, unbekannte Arten wie eine Änderung (ganze Liste). Beim
+  Zurückholen der App und nach einer Unterbrechung des Live-Kanals (Netzwechsel, Aufwachen) wird wie bisher sofort
+  abgeglichen. Gleichzeitige Anstöße (Start, Takt, Ziehen zum Aktualisieren, Live „reset“) laden die Liste nur
+  einmal. Seitenbaum und Datenbank-Zeilen werden im Hintergrund aufbereitet (kein Ruckeln bei großen Listen).
+  Antworten kommen komprimiert an, sobald der Server Kompression anbietet.
+- **„+“ (Neue Seite) legt nichts doppelt an:** Während die Seite angelegt wird, zeigt der Knopf einen Fortschritt
+  und ist gesperrt – mehrfaches Tippen erzeugt keine weiteren Seiten.
+
 ### Behoben (iOS/iPadOS/macOS)
 - **Titelbild erscheint sofort:** Ein neu gewähltes Titelbild (Fotos) steht jetzt sofort da, noch während es
   hochgeladen wird – vorher blieb der Bereich oben leer, bis das verkleinerte Bild vom Server kam (bei langsamer

@@ -121,6 +121,13 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
     val chatEnabled = MutableStateFlow(false)
     val connected = MutableStateFlow(false)
 
+    /**
+     * In dieser Anmeldung schon ein notes.tree empfangen? Erst dann reicht mit Live-Kanal der 5-min-Takt
+     * (RefreshPolicy) - die Serverversion allein sagt das nicht sicher. Abmelden/Kontowechsel/anderer Server: vergessen.
+     */
+    @Volatile var treeSeen = false
+        private set
+
     private val _events = MutableSharedFlow<LiveEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<LiveEvent> = _events
 
@@ -170,6 +177,7 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
         supported.value = false
         chatUnread.value = 0
         chatEnabled.value = false
+        treeSeen = false
     }
 
     // ---------------------------------------------------------------- Benachrichtigungen
@@ -191,6 +199,25 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
         } catch (_: Exception) {
         } finally {
             loading.value = false
+        }
+    }
+
+    /**
+     * Minutentakt: nur die Zahl (limit=0) - die Liste wird nur neu geladen, wenn sich die Zahl geaendert hat (sonst
+     * wuerden nachgeladene Seiten der Liste jede Minute verworfen).
+     */
+    suspend fun loadNotificationCount() {
+        if (repo.needsLogin.value) return
+        try {
+            val o = json.parseToJsonElement(repo.api.get("api/notifications?limit=0")) as? JsonObject ?: return
+            val n = (o["unread"] as? JsonPrimitive)?.intOrNull ?: return
+            supported.value = true
+            if (n != unread.value) loadNotifications()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ApiException) {
+            if (e.code == 404) supported.value = false
+        } catch (_: Exception) {
         }
     }
 
@@ -277,6 +304,11 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
                 repo.loadFedShared()
                 loadNotifications()
                 loadChatUnread()
+            }
+            io.github.yggdrasil_sh.saga.data.TreeEvents.EVENT -> {        // (2.2) Seiten im Baum anderswo geaendert
+                treeSeen = true                                           // Server meldet Baum-Aenderungen: seltener Takt
+                val e = io.github.yggdrasil_sh.saga.data.TreeEvents.parse(data)
+                repo.onTreeEvent(e.ids, e.ops)
             }
             "shared.changed" -> scope.launch {
                 repo.loadShared()

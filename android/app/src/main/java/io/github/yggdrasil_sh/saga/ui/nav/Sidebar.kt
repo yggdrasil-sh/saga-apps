@@ -101,7 +101,11 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
     // "Mit mir geteilt": oberste geteilte Seiten (mit Eigentuemer), darunter aufklappbar ihre Unterseiten
     val sharedTree = remember(shared, sharedExpanded) { SharedTree.rows(shared, sharedExpanded) }
     val sharedUnread = shared.count { it.unread }
-    val pageTree = remember(pages) { PageTree(pages) }                // einmal gruppiert statt O(n²)
+    // einmal gruppiert statt O(n²), im Hintergrund (grosse Listen blockieren sonst den Haupt-Thread); bis dahin
+    // bleibt der bisherige Baum stehen
+    val pageTree by androidx.compose.runtime.produceState(remember { PageTree(pages) }, pages) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { PageTree(pages) }
+    }
     val tree = remember(pageTree, expanded) {
         val out = ArrayList<TreeRow>()
         fun walk(parent: Long?, depth: Int) {
@@ -120,7 +124,11 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
         onNavigate()
     }
 
+    // Neue Seite: waehrend des Anlegens gesperrt (kein Doppel-Anlegen durch mehrfaches Tippen), "+" zeigt sofort Fortschritt
+    var creating by remember { mutableStateOf(false) }
     fun newPage(parent: Long?) {
+        if (creating) return
+        creating = true
         scope.launch {
             try {
                 val id = repo.newPage(parent)
@@ -130,6 +138,8 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 throw e
             } catch (e: Exception) {
                 repo.notify(repo.friendly(e))
+            } finally {
+                creating = false
             }
         }
     }
@@ -154,7 +164,13 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
         item {
             Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                IconButton(onClick = { newPage(null) }) { Icon(Icons.Filled.Add, stringResource(R.string.sidebar_new_page)) }
+                IconButton(onClick = { newPage(null) }, enabled = !creating) {
+                    if (creating) {
+                        androidx.compose.material3.CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    } else {
+                        Icon(Icons.Filled.Add, stringResource(R.string.sidebar_new_page))
+                    }
+                }
             }
         }
         item { NavItem(stringResource(R.string.nav_today), Icons.Filled.Home, nav.root == Dest.Today) { nav.top(Dest.Today); onNavigate() } }
