@@ -468,7 +468,7 @@ struct ShareSheet: View {
             let d = try await store.api("api/share/targets?q=\(enc)")
             guard !Task.isCancelled else { return }
             hits = ShareLogic.parseTargets(d)
-            if hits.isEmpty { searchError = String(localized: "Niemand gefunden.") }
+            if hits.isEmpty { searchError = ShareLogic.remoteHint(d) ?? String(localized: "Niemand gefunden.") }   // name@server: Grund vom Server
         } catch { if !Task.isCancelled { searchError = error.localizedDescription } }
     }
 }

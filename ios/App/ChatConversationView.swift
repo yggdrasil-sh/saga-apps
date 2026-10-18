@@ -904,6 +904,7 @@ struct MembersSheet: View {
                     if i.kind == "free" && i.role == "admin" {
                         Section("Person hinzufügen") {
                             TextField("Person hinzufügen (ab 3 Zeichen)", text: $q).autocorrectionDisabled()
+                            if ChatFedHint.show(q, hits: hits.count) { FedChatHint() }
                             ForEach(hits, id: \.0) { h in
                                 Button { Task { await conv.addMember(h.0); q = "" } } label: { Text(verbatim: "\(h.1) · \(h.0)") }
                             }

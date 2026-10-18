@@ -322,6 +322,18 @@ struct ChatAvatar: View {
 
 // MARK: - Neue Unterhaltung
 
+/// Hinweis statt "Keine Treffer." bei name@server oder E-Mail (ChatFedHint): Chats ueber Servergrenzen gibt es noch nicht
+struct FedChatHint: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Chats mit Personen anderer Saga-Server gibt es noch nicht. Seiten kannst du mit name@server teilen (über den öffentlichen Namen der Person).")
+            Text("Personen auf diesem Server findest du über Namen oder Benutzernamen, nicht über die E-Mail-Adresse.")
+            Link("Anleitung: Föderation", destination: ChatFedHint.guideURL(lang: Bundle.main.preferredLocalizations.first ?? "en"))
+        }
+        .font(.footnote).foregroundStyle(.secondary)
+    }
+}
+
 struct NewChatSheet: View {
     @ObservedObject var chat: ChatModel
     var opened: (Int) -> Void
@@ -344,7 +356,9 @@ struct NewChatSheet: View {
                         #if os(iOS)
                         .textInputAutocapitalization(.never)
                         #endif
-                    if ShareLogic.searchReady(q) && users.isEmpty && groups.isEmpty { Text("Keine Treffer.").foregroundStyle(.secondary) }
+                    if ShareLogic.searchReady(q) && users.isEmpty && groups.isEmpty {
+                        if ChatFedHint.isAddress(q) { FedChatHint() } else { Text("Keine Treffer.").foregroundStyle(.secondary) }
+                    }
                     ForEach(users, id: \.username) { u in
                         Button { pick(u) } label: {
                             HStack {

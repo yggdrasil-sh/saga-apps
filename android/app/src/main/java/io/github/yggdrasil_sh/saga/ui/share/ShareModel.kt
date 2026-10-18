@@ -27,6 +27,9 @@ interface ShareBackend {
 
 /** Reine Regeln des Teilen-Dialogs (wie static/pages.js shareMain) - Unit-Tests */
 object ShareLogic {
+    /** Suche ohne Treffer: remote_hint des Servers (name@server), sonst "Niemand gefunden." */
+    fun nobodyText(r: ShareTargets): UiText = r.remoteHint?.trim()?.takeIf { it.isNotEmpty() }?.let { UiText.Raw(it) } ?: UiText.Res(R.string.share_nobody)
+
     /** waehlbare Rollen fuer Freigaben */
     val ROLES = listOf(Role.VIEW, Role.COMMENT, Role.EDIT)
     const val MIN_QUERY = 3
@@ -168,7 +171,8 @@ class ShareModel(val id: Long, private val backend: ShareBackend) {
             if (n != seq || query.trim() != q) return
             hits = r
             // Treffer auf anderen Instanzen zaehlen mit (sonst "Niemand gefunden" ueber dem Treffer, BUG-112)
-            searchError = if (r.users.isEmpty() && r.groups.isEmpty() && r.remote.isEmpty()) UiText.Res(R.string.share_nobody) else null
+            // name@server ohne Treffer: Grund vom Server (remote_hint) statt "Niemand gefunden" - aeltere Server: wie bisher
+            searchError = if (r.users.isEmpty() && r.groups.isEmpty() && r.remote.isEmpty()) ShareLogic.nobodyText(r) else null
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

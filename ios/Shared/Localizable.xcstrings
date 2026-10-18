@@ -1773,6 +1773,40 @@
         }
       }
     },
+    "Anleitung: Föderation" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anleitung: Föderation"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guide: federation"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guía: federación"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Руководство: федерация"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คู่มือ: การเชื่อมต่อระหว่างเซิร์ฟเวอร์"
+          }
+        }
+      }
+    },
     "Anmelden" : {
       "localizations" : {
         "de" : {
@@ -3911,6 +3945,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ที่อยู่ CalDAV"
+          }
+        }
+      }
+    },
+    "Chats mit Personen anderer Saga-Server gibt es noch nicht. Seiten kannst du mit name@server teilen (über den öffentlichen Namen der Person)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chats mit Personen anderer Saga-Server gibt es noch nicht. Seiten kannst du mit name@server teilen (über den öffentlichen Namen der Person)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chats with people on other Saga servers aren't available yet. You can share pages with name@server (using the person's public name)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todavía no hay chats con personas de otros servidores Saga. Puedes compartir páginas con nombre@servidor (con el nombre público de la persona)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Чатов с людьми с других серверов Saga пока нет. Страницами можно делиться через имя@сервер (по публичному имени человека)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังแชทกับผู้คนบนเซิร์ฟเวอร์ Saga อื่นไม่ได้ คุณแชร์หน้าได้ด้วย name@server (ใช้ชื่อสาธารณะของบุคคลนั้น)"
           }
         }
       }
@@ -12335,6 +12403,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เปลี่ยนรหัสผ่าน"
+          }
+        }
+      }
+    },
+    "Personen auf diesem Server findest du über Namen oder Benutzernamen, nicht über die E-Mail-Adresse." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personen auf diesem Server findest du über Namen oder Benutzernamen, nicht über die E-Mail-Adresse."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find people on this server by name or username, not by email address."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A las personas de este servidor las encuentras por nombre o nombre de usuario, no por correo electrónico."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Людей на этом сервере ищите по имени или имени пользователя, а не по адресу эл. почты."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค้นหาผู้คนบนเซิร์ฟเวอร์นี้ด้วยชื่อหรือชื่อผู้ใช้ ไม่ใช่ด้วยที่อยู่อีเมล"
           }
         }
       }

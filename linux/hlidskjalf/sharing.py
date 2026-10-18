@@ -249,6 +249,13 @@ def chip_rows(st, role):
     return out
 
 
+def nobody_text(d):
+    """Suche ohne Treffer: Grund vom Server bei name@server (remote_hint, Server 2.2), sonst "Niemand gefunden."
+    (aeltere Server ohne Feld: wie bisher)"""
+    h = (d or {}).get("remote_hint")
+    return h.strip() if isinstance(h, str) and h.strip() else _("No one found.")
+
+
 def short_query(q):
     """"Mindestens 3 Zeichen." nur bei 1-2 eingegebenen Zeichen (leer: kein Hinweis, ab 3: Suche)"""
     return 0 < len((q or "").strip()) < SEARCH_MIN
@@ -737,7 +744,7 @@ class ShareDialog(Adw.Dialog):
             r.add_suffix(lb)
             r.connect("activated", lambda *_, h=h: self._pick(h))
         if not hits and len(self.q.get_text().strip()) >= SEARCH_MIN:
-            self._hint(_("No one found."), True)
+            self._hint(nobody_text(d), True)
 
     # --- Suchen -----------------------------------------------------------------------------------------
     def _search(self):

@@ -12,8 +12,8 @@ from . import aichat, avatars, chatmedia, clipimg, config, images
 from .api import APIError, client
 from .blocks import flat_button, menu_popover
 from .chat import (NOTE_RX, RETENTIONS, ChatError, SafetyChanged, chat, fmt_recovery, keys_persistent, recovery_lines, retention_label,
-                   safety_for, safety_qr_text, trust_accept, trust_get, trust_verified)
-from .i18n import _, ngettext, pgettext
+                   fed_guide_url, fed_hint_show, fed_hint_texts, safety_for, safety_qr_text, trust_accept, trust_get, trust_verified)
+from .i18n import _, ngettext, pgettext, ui_language
 from .util import bg, date_short, esc, human_size, rel_time, time_text, weekday_day_text
 
 URL_RX = re.compile(r"https?://[^\s<>\"']+[^\s<>\"'.,;:!?)\]]")
@@ -96,6 +96,16 @@ def _lbl(text="", css=(), xalign=0, wrap=True, **kw):
     for c in css:
         lb.add_css_class(c)
     return lb
+
+
+def fed_hint():
+    """Hinweis statt "Keine Treffer" bei name@server oder E-Mail: Text + Link zur Anleitung (Foederation)"""
+    text, link = fed_hint_texts()
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin_top=8, margin_bottom=8, margin_start=12, margin_end=12)
+    box.add_css_class("hk-fed-hint")
+    box.append(_lbl(text, ("dim-label",)))
+    box.append(Gtk.LinkButton(uri=fed_guide_url(ui_language()), label=link, halign=Gtk.Align.START))
+    return box
 
 
 def warn_label(text):
@@ -1988,6 +1998,10 @@ class ChatInfoDialog(Adw.Dialog):
                 if en.get_text().strip() != q:
                     return
                 have = {m.get("username") for m in c.get("members") or []}
+                if fed_hint_show(q, len((j or {}).get("users") or [])):
+                    h = fed_hint()
+                    self.add_group.add(h)
+                    self.hits.append(h)
                 for p in ((j or {}).get("users") or [])[:8]:
                     if p.get("username") in have:
                         continue
@@ -2111,7 +2125,11 @@ class NewChatDialog(Adw.Dialog):
             r.connect("activated", lambda *_, g=g: self._open({"kind": "group", "group": g["name"]}))
             self.results.append(r)
         if not users and not groups:
-            self.results.append(Adw.ActionRow(title=GLib.markup_escape_text((j or {}).get("error") or _("No matches."))))
+            if not (j or {}).get("error") and fed_hint_show(q, 0):      # name@server/E-Mail: Hinweis statt "Keine Treffer"
+                row = Gtk.ListBoxRow(activatable=False, selectable=False, child=fed_hint())
+                self.results.append(row)
+            else:
+                self.results.append(Adw.ActionRow(title=GLib.markup_escape_text((j or {}).get("error") or _("No matches."))))
 
     def _pick_user(self, u):
         if self.multi:

@@ -5312,3 +5312,15 @@ msgstr "ลิงก์ต้องการสร้างหน้าใหม
 #: hlidskjalf/window.py:1826
 msgid "Create page"
 msgstr "สร้างหน้า"
+
+#: hlidskjalf/chat.py:59
+msgid "Chats with people on other Saga servers aren't available yet. You can share pages with name@server (using the person's public name)."
+msgstr "ยังแชทกับผู้คนบนเซิร์ฟเวอร์ Saga อื่นไม่ได้ คุณแชร์หน้าได้ด้วย name@server (ใช้ชื่อสาธารณะของบุคคลนั้น)"
+
+#: hlidskjalf/chat.py:60
+msgid "Find people on this server by name or username, not by email address."
+msgstr "ค้นหาผู้คนบนเซิร์ฟเวอร์นี้ด้วยชื่อหรือชื่อผู้ใช้ ไม่ใช่ด้วยที่อยู่อีเมล"
+
+#: hlidskjalf/chat.py:60
+msgid "Guide: federation"
+msgstr "คู่มือ: การเชื่อมต่อระหว่างเซิร์ฟเวอร์"

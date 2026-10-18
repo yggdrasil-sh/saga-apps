@@ -423,6 +423,12 @@ enum ShareLogic {
         }
         return users + groups + remote
     }
+    /// Grund, warum die Suche nach name@server nichts fand (GET /api/share/targets, Feld remote_hint ab Server 2.2);
+    /// aeltere Server ohne Feld -> nil (dann wie bisher "Niemand gefunden.")
+    static func remoteHint(_ d: Data) -> String? {
+        guard let h = ShareJSON.obj(d).flatMap({ ShareJSON.str($0["remote_hint"]) })?.trimmingCharacters(in: .whitespacesAndNewlines), !h.isEmpty else { return nil }
+        return h
+    }
 
     /// Rueckfrage beim Entfernen: nennt den verbleibenden Zugriff (ueber Gruppe oder Elternseite)
     static func removeEffect(_ e: ShareEntry) -> RemoveEffect {

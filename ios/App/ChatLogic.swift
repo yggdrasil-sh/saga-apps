@@ -284,3 +284,24 @@ enum ChatDeleteLogic {
         return (m, a)
     }
 }
+
+/// Chat-Personensuche ohne Treffer: Eingaben wie name@server, @name@server oder eine E-Mail-Adresse bekommen einen
+/// Hinweis statt "Keine Treffer." - Chats ueber Servergrenzen gibt es (noch) nicht, Seiten lassen sich aber per
+/// name@server teilen (wie im Web: static/chat.js fedAddr/fedHint). Lokale Treffer haben immer Vorrang.
+enum ChatFedHint {
+    /// name@host, @name@host, vorname.name@firma.de; der Server-Teil braucht einen Punkt oder Doppelpunkt (Port)
+    static func isAddress(_ q: String) -> Bool {
+        q.trimmingCharacters(in: .whitespacesAndNewlines).range(of: #"^@?[^@\s]+@[^@\s]+[.:][^@\s]+$"#, options: .regularExpression) != nil
+    }
+    /// Hinweis zeigen? Nur bei 0 Treffern und einer Eingabe wie oben (ab 3 Zeichen)
+    static func show(_ q: String, hits: Int) -> Bool { hits == 0 && ShareLogic.searchReady(q) && isAddress(q) }
+    /// Anleitung, Abschnitt Foederation, in der Sprache der App (de/es eigene Anleitung, sonst englisch)
+    static func guideURL(lang: String) -> URL {
+        let base = "https://github.com/yggdrasil-sh/saga/blob/main/docs/"
+        switch AppLanguageChoice.code(lang) {
+        case "de": return URL(string: base + "ANLEITUNG.md#mit-anderen-saga-instanzen-teilen-f%C3%B6deration")!
+        case "es": return URL(string: base + "es/GUIA.md#compartir-con-otras-instancias-de-saga-federaci%C3%B3n")!
+        default: return URL(string: base + "en/GUIDE.md#sharing-with-other-saga-instances-federation")!
+        }
+    }
+}

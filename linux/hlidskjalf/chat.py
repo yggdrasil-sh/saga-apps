@@ -30,6 +30,36 @@ def retention_label(s):
             7776000: _("90 days"), 31536000: _("1 year")}.get(s, str(s))
 
 
+# Chat-Personensuche ohne Treffer: name@server, @name@server oder E-Mail -> Hinweis statt "Keine Treffer" (Chats ueber
+# Servergrenzen gibt es noch nicht, Seiten aber per name@server teilbar; wie im Web: static/chat.js fedAddr/fedHint)
+FED_RX = re.compile(r"@?[^@\s]+@[^@\s]+[.:][^@\s]+")
+FED_GUIDE = {
+    "de": "https://github.com/yggdrasil-sh/saga/blob/main/docs/ANLEITUNG.md#mit-anderen-saga-instanzen-teilen-f%C3%B6deration",
+    "es": "https://github.com/yggdrasil-sh/saga/blob/main/docs/es/GUIA.md#compartir-con-otras-instancias-de-saga-federaci%C3%B3n",
+    "en": "https://github.com/yggdrasil-sh/saga/blob/main/docs/en/GUIDE.md#sharing-with-other-saga-instances-federation",
+}
+
+
+def fed_address(q):
+    """name@host, @name@host, vorname.name@firma.de (Server-Teil mit Punkt oder Doppelpunkt/Port)"""
+    return bool(FED_RX.fullmatch((q or "").strip()))
+
+
+def fed_hint_show(q, hits):
+    """Hinweis nur ohne lokale Treffer (die haben Vorrang) und ab 3 Zeichen"""
+    return hits == 0 and len((q or "").strip()) >= 3 and fed_address(q)
+
+
+def fed_guide_url(lang):
+    """Anleitung, Abschnitt Foederation: de/es eigene Anleitung, sonst englisch"""
+    return FED_GUIDE.get((lang or "")[:2].lower(), FED_GUIDE["en"])
+
+
+def fed_hint_texts():
+    return (_("Chats with people on other Saga servers aren't available yet. You can share pages with name@server (using the person's public name).")
+            + " " + _("Find people on this server by name or username, not by email address."), _("Guide: federation"))
+
+
 def fmt_recovery(rk):
     n = C.norm_recovery(rk) or ""
     return "-".join(n[i:i + 4] for i in range(0, len(n), 4))

@@ -216,4 +216,8 @@
         <item quantity="one">1 task added</item>
         <item quantity="other">%d tasks added</item>
     </plurals>
+    <!-- Chat-Personensuche: name@server/E-Mail (Hinweis statt "Keine Treffer") -->
+    <string name="chat_fed_hint">Chats with people on other Saga servers aren\'t available yet. You can share pages with name@server (using the person\'s public name).</string>
+    <string name="chat_fed_hint_local">Find people on this server by name or username, not by email address.</string>
+    <string name="chat_fed_guide">Guide: federation</string>
 </resources>

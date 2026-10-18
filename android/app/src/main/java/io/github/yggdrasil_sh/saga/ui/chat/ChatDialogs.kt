@@ -40,6 +40,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -51,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.chat.ChatFedHint
 import io.github.yggdrasil_sh.saga.chat.ChatFormat
 import io.github.yggdrasil_sh.saga.chat.ChatNoteRef
 import io.github.yggdrasil_sh.saga.chat.ChatPerson
@@ -58,6 +61,7 @@ import io.github.yggdrasil_sh.saga.chat.ChatSession
 import io.github.yggdrasil_sh.saga.chat.ChatSetup
 import io.github.yggdrasil_sh.saga.chat.PeopleGroup
 import io.github.yggdrasil_sh.saga.data.SagaRepository
+import io.github.yggdrasil_sh.saga.ui.common.openUrl
 import io.github.yggdrasil_sh.saga.ui.notifications.Avatar
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -80,6 +84,19 @@ fun retentionLabel(sec: Long): String {
     }
 }
 
+/** Hinweis statt "Keine Treffer" bei name@server oder E-Mail (ChatFedHint): Chats ueber Servergrenzen gibt es noch nicht */
+@Composable
+fun FedChatHint() {
+    val ctx = LocalContext.current
+    val lang = LocalConfiguration.current.locales[0].language
+    Column(Modifier.padding(vertical = 4.dp)) {
+        Text(stringResource(R.string.chat_fed_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.chat_fed_hint_local), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp))
+        TextButton(onClick = { openUrl(ctx, ChatFedHint.guideUrl(lang)) }) { Text(stringResource(R.string.chat_fed_guide)) }
+    }
+}
+
 /** Neuer Chat: Person (Direkt-Chat), eigene Gruppe (Gruppen-Chat) oder mehrere Personen (freie Gruppe) */
 @Composable
 fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) -> Unit) {
@@ -89,12 +106,14 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
     var groups by remember { mutableStateOf<List<PeopleGroup>>(emptyList()) }
     var multi by remember { mutableStateOf(false) }
     var picked by remember { mutableStateOf<List<ChatPerson>>(emptyList()) }
+    var fedFor by remember { mutableStateOf("") }        // Suche, fuer die der name@server-Hinweis gilt
     LaunchedEffect(q) {
         delay(250)
         try {
             val r = svc.people(q)
             users = r.users
             groups = r.groups
+            fedFor = if (ChatFedHint.show(q, r.users.size + r.groups.size)) q else ""
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -114,6 +133,7 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                     Text(picked.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 }
                 LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                    if (fedFor.isNotEmpty() && fedFor == q) item { FedChatHint() }
                     items(users, key = { "u-" + it.username }) { u ->
                         val on = picked.any { it.username == u.username }
                         ListItem(
@@ -212,10 +232,13 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
     var add by remember { mutableStateOf(false) }
     var q by remember { mutableStateOf("") }
     var found by remember { mutableStateOf<List<ChatPerson>>(emptyList()) }
+    var fedFor by remember { mutableStateOf("") }
     LaunchedEffect(q) {
         delay(250)
         try {
-            found = repo.chat.people(q).users.filter { u -> sum?.members?.none { it.username == u.username } ?: true }
+            val all = repo.chat.people(q).users
+            found = all.filter { u -> sum?.members?.none { it.username == u.username } ?: true }
+            fedFor = if (ChatFedHint.show(q, all.size)) q else ""
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -244,6 +267,7 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
                                 modifier = Modifier.fillMaxWidth(),
                             )
                         }
+                        if (fedFor.isNotEmpty() && fedFor == q) item { FedChatHint() }
                         items(found, key = { "f-" + it.username }) { u ->
                             ListItem(
                                 headlineContent = { Text(u.name) }, supportingContent = { Text(u.username) },

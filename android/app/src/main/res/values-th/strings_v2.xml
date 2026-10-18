@@ -210,4 +210,8 @@
     <plurals name="ai_tasks_added">
         <item quantity="other">เพิ่ม %d งานแล้ว</item>
     </plurals>
+    <!-- Chat-Personensuche: name@server/E-Mail (Hinweis statt "Keine Treffer") -->
+    <string name="chat_fed_hint">ยังแชทกับผู้คนบนเซิร์ฟเวอร์ Saga อื่นไม่ได้ คุณแชร์หน้าได้ด้วย name@server (ใช้ชื่อสาธารณะของบุคคลนั้น)</string>
+    <string name="chat_fed_hint_local">ค้นหาผู้คนบนเซิร์ฟเวอร์นี้ด้วยชื่อหรือชื่อผู้ใช้ ไม่ใช่ด้วยที่อยู่อีเมล</string>
+    <string name="chat_fed_guide">คู่มือ: การเชื่อมต่อระหว่างเซิร์ฟเวอร์</string>
 </resources>

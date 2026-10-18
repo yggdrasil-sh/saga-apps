@@ -216,4 +216,8 @@
         <item quantity="one">1 Aufgabe übernommen</item>
         <item quantity="other">%d Aufgaben übernommen</item>
     </plurals>
+    <!-- Chat-Personensuche: name@server/E-Mail (Hinweis statt "Keine Treffer") -->
+    <string name="chat_fed_hint">Chats mit Personen anderer Saga-Server gibt es noch nicht. Seiten kannst du mit name@server teilen (über den öffentlichen Namen der Person).</string>
+    <string name="chat_fed_hint_local">Personen auf diesem Server findest du über Namen oder Benutzernamen, nicht über die E-Mail-Adresse.</string>
+    <string name="chat_fed_guide">Anleitung: Föderation</string>
 </resources>

@@ -158,3 +158,28 @@ object DeviceNames {
         return full.replace(Regex("\\s+"), " ").trim().take(60).ifEmpty { "Android" }
     }
 }
+
+/**
+ * Chat-Personensuche ohne Treffer: Eingaben wie name@server, @name@server oder eine E-Mail-Adresse bekommen einen
+ * Hinweis statt "Keine Treffer" - Chats ueber Servergrenzen gibt es (noch) nicht, Seiten lassen sich aber per
+ * name@server teilen (wie im Web: static/chat.js fedAddr/fedHint). Lokale Treffer haben immer Vorrang.
+ */
+object ChatFedHint {
+    private val ADDR = Regex("^@?[^@\\s]+@[^@\\s]+[.:][^@\\s]+$")
+
+    /** name@host, @name@host, vorname.name@firma.de; der Server-Teil braucht einen Punkt oder Doppelpunkt (Port) */
+    fun isAddress(q: String): Boolean = ADDR.matches(q.trim())
+
+    /** Hinweis zeigen? Nur bei 0 Treffern und einer Eingabe wie oben (ab 3 Zeichen) */
+    fun show(q: String, hits: Int): Boolean = hits == 0 && q.trim().length >= 3 && isAddress(q)
+
+    /** Anleitung, Abschnitt Foederation, in der Sprache der App (de/es eigene Anleitung, sonst englisch) */
+    fun guideUrl(lang: String): String {
+        val base = "https://github.com/yggdrasil-sh/saga/blob/main/docs/"
+        return when (lang.take(2).lowercase()) {
+            "de" -> base + "ANLEITUNG.md#mit-anderen-saga-instanzen-teilen-f%C3%B6deration"
+            "es" -> base + "es/GUIA.md#compartir-con-otras-instancias-de-saga-federaci%C3%B3n"
+            else -> base + "en/GUIDE.md#sharing-with-other-saga-instances-federation"
+        }
+    }
+}

@@ -5567,3 +5567,15 @@ msgstr "Crear página"
 
 #~ msgid "The keys could not be stored in the keyring."
 #~ msgstr "No se pudieron guardar las claves en el llavero."
+
+#: hlidskjalf/chat.py:59
+msgid "Chats with people on other Saga servers aren't available yet. You can share pages with name@server (using the person's public name)."
+msgstr "Todavía no hay chats con personas de otros servidores Saga. Puedes compartir páginas con nombre@servidor (con el nombre público de la persona)."
+
+#: hlidskjalf/chat.py:60
+msgid "Find people on this server by name or username, not by email address."
+msgstr "A las personas de este servidor las encuentras por nombre o nombre de usuario, no por correo electrónico."
+
+#: hlidskjalf/chat.py:60
+msgid "Guide: federation"
+msgstr "Guía: federación"

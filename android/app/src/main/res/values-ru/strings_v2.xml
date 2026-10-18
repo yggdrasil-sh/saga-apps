@@ -228,4 +228,8 @@
         <item quantity="many">Добавлено %d задач</item>
         <item quantity="other">Добавлено %d задачи</item>
     </plurals>
+    <!-- Chat-Personensuche: name@server/E-Mail (Hinweis statt "Keine Treffer") -->
+    <string name="chat_fed_hint">Чатов с людьми с других серверов Saga пока нет. Страницами можно делиться через имя@сервер (по публичному имени человека).</string>
+    <string name="chat_fed_hint_local">Людей на этом сервере ищите по имени или имени пользователя, а не по адресу эл. почты.</string>
+    <string name="chat_fed_guide">Руководство: федерация</string>
 </resources>

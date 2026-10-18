@@ -100,6 +100,8 @@ data class ShareTargets(
     val groups: List<TargetGroup> = emptyList(),
     /** nur genaue Adressen verbundener Server (name@server) */
     val remote: List<TargetRemote> = emptyList(),
+    /** ohne Treffer bei name@server: warum nichts gefunden wurde (Server 2.2); aeltere Server ohne Feld -> null */
+    @SerialName("remote_hint") val remoteHint: String? = null,
 )
 
 @Serializable

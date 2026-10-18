@@ -19,6 +19,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Server zur nächsten Patch-Version (`2.1.1-rc.N`, RPM `saga-2.1.1-0.rcN`) – Testversionen sind so immer erkennbar
   neuer als das Release.
 
+### Behoben (alle Apps)
+- **Hinweis statt „Keine Treffer“ bei name@server oder E-Mail:** Wer im Chat („Neue Unterhaltung“, auch Gruppe mit
+  mehreren Personen, und „Person hinzufügen“) `name@server`, `@name@server` oder eine E-Mail-Adresse eingibt, sieht
+  jetzt wie im Web, dass es Chats mit Personen anderer Saga-Server noch nicht gibt, Seiten aber per `name@server`
+  (öffentlicher Name) teilbar sind und Personen hier über Name oder Benutzername gefunden werden – mit Link
+  „Anleitung: Föderation“ (de/es eigene Anleitung, sonst englisch). Lokale Treffer haben Vorrang. Im Teilen-Dialog
+  zeigen die Apps statt „Niemand gefunden.“ den Grund vom Server (`remote_hint` aus `GET /api/share/targets`, z. B.
+  „nicht verbunden“ oder „öffentlicher Name statt E-Mail“); ältere Server ohne das Feld wie bisher.
+
 ### Schneller (iOS/iPadOS/macOS)
 - **Keine Hänger mehr beim Abgleich großer Konten:** Die Seitenliste wird jetzt im Hintergrund gelesen, verglichen
   und für Baum und Suche aufbereitet; die Oberfläche übernimmt nur noch das fertige Ergebnis. Bei 25.000 Notizen
