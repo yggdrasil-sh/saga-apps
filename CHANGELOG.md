@@ -6,15 +6,13 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
-### Thai und Russisch – iOS, iPadOS, macOS (Widget, Teilen)
-
-### Thai und Russisch – Android
-
-### Thai und Russisch – Linux
+### Thai und Russisch – alle Apps
 - **Begriffe wie im Web:** Thai und Russisch verwenden dieselben Fachbegriffe wie Web und Server (z. B. Koppeln
   „связать“, Profilbild „изображение профиля“, Löschen „у меня“/„у всех“; Thai „การสนทนา“ für Threads,
   „เก็บเข้าคลัง“ für Archiv, „เข้าสู่ระบบ“ für Anmelden); Sätze, die es auch im Web gibt, lauten gleich. Russisch ohne
   männliche Formen für Personen. Gegenlesen durch Muttersprachler weiterhin empfohlen.
+
+#### iOS, iPadOS, macOS (Widget, Teilen)
 - Neue App-Sprachen **ไทย (Thai)** und **Русский (Russisch)**: alle Texte der App, des Widgets und der
   Teilen-Erweiterungen, Kurzbefehle/Siri-Sätze und Berechtigungstexte. Russisch duzt („ты“), Thai neutral-höflich;
   Russisch mit allen Pluralformen (one/few/many/other) für Zahlentexte. Maschinell übersetzt – Gegenlesen durch
@@ -27,6 +25,7 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   vorher hätte ein Gerät mit buddhistischem Kalender „2569-10-18“ gesendet.
 - Logiktests: alle Schlüssel in de/en/es/th/ru, Platzhalter gleich, russische Pluralformen, Datumsformate.
 
+#### Android
 - **Neue App-Sprachen „ไทย“ (Thai) und „Русский“ (Russisch):** vollständige Übersetzung aller Texte (maschinell
   erstellt, Gegenlesen durch Muttersprachler empfohlen). Russisch in der Du-Form (ты), Thai neutral-höflich.
   Auswahl in den Einstellungen („Sprache“) und im Sprachumschalter der Anmeldung; Android 13+ auch unter
@@ -38,6 +37,7 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 - Sprachnamen im KI-Übersetzen-Menü und Tagesüberschriften im Chat folgen der App-Sprache (Lint `NonObservableLocale`).
 - Standard-Kategorien der Dienste erkennen auch „Сервисы“/„Закладки“ und „บริการ“/„บุ๊กมาร์ก“.
 
+#### Linux
 - **Neue App-Sprachen:** Thai (ไทย) und Russisch (Русский) – alle 1192 Texte, Pluralformen nach gettext-Standard
   (Russisch drei Formen, Thai eine), informelles „ты“ im Russischen, neutral-höfliches Thai. Maschinell übersetzt –
   Gegenlesen durch Muttersprachler empfohlen.
