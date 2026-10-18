@@ -18,6 +18,10 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity() {
     private val app get() = application as SagaApplication
 
+    // Android 8-12: in der App gewaehlte Sprache (ab 13 erledigt das der LocaleManager)
+    override fun attachBaseContext(newBase: android.content.Context) =
+        super.attachBaseContext(io.github.yggdrasil_sh.saga.util.AppLanguage.wrap(newBase))
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)

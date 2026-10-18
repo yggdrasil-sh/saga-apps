@@ -25,6 +25,7 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        io.github.yggdrasil_sh.saga.util.AppLanguage.applyToApp(this)     // Android 8-12: gewaehlte App-Sprache
         // nur Debug: Bildschirmfotos mit Beispieladresse/-version (adb shell settings put global saga_screenshot_mode 1)
         if (BuildConfig.DEBUG) {
             io.github.yggdrasil_sh.saga.util.ShotMode.on = try {
@@ -43,8 +44,12 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
             userAgent = "Saga-Android/${BuildConfig.VERSION_NAME}",
             appVersion = BuildConfig.VERSION_NAME,
             filesDir = filesDir,
-            // App-Sprache = Sprache der angezeigten Texte (de/en/es; sonst Englisch), nicht die Geraetesprache
-            language = { resources.getString(R.string.app_language) },
+            // App-Sprache: in der App gewaehlte Sprache, sonst die der angezeigten Texte (de/en/es; sonst Englisch)
+            language = {
+                io.github.yggdrasil_sh.saga.util.AppLanguage.headerLanguage(
+                    io.github.yggdrasil_sh.saga.util.AppLanguage.current(this), resources.getString(R.string.app_language),
+                )
+            },
             appContext = this,
         )
         // Profilbilder nur vom eingestellten Server; Anrufe hoeren ab jetzt auf den Live-Kanal (Klingeln, Signale)
