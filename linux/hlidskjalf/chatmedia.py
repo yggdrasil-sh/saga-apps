@@ -10,6 +10,8 @@ Zwischenspeicher:
   * Speicher: entschluesselte, dekodierte Vorschaubilder (LRU, MEM_LIMIT Bytes Pixeldaten)
   * Platte: CACHE_DIR/chat-blobs - nur Ciphertext (wie vom Server), die Schluessel stehen nur in den verschluesselten
     Nachrichten -> "encrypted at rest"; LRU bis BLOB_LIMIT; geleert beim Abmelden, Serverwechsel und "Neu beginnen".
+    Dateiname mit Chat-Kennung (<server>-c<chat>-<datei>), damit "Chat loeschen" (2.1) alles eines Chats findet
+    (purge_chat); aeltere Eintraege ohne Kennung werden weiter gelesen.
 Arbeit (Laden, Entschluesseln, Dekodieren) laeuft in eigenen Threads (begrenzte Parallelitaet, neueste Anfrage zuerst);
 noch wartende Auftraege fuer weggescrollte Bilder werden verworfen."""
 import collections
@@ -40,6 +42,8 @@ _mem_size = 0
 _disk_lock = threading.Lock()
 _disk_writes = 0
 _gen = 0                             # erhoeht bei clear(): spaete Ergebnisse alter Auftraege verwerfen
+_mem_cid = {}                        # Datei-ID -> Chat (Vorschaubilder im Speicher, fuer purge_chat)
+_cgen = {}                           # Chat -> Zaehler, erhoeht bei purge_chat: spaete Ergebnisse dieses Chats verwerfen
 
 
 def is_image(f):
@@ -122,9 +126,24 @@ def make_thumb(data, edge=THUMB_EDGE, quality=THUMB_Q):
 
 
 # --- Platten-Zwischenspeicher (nur Ciphertext) -------------------------------------------------------------------------
-def _path(fid, suffix=""):
-    srv = hashlib.sha256((config.settings.server or "").encode()).hexdigest()[:10]
-    return os.path.join(_DIR, srv + "-" + re.sub(r"[^A-Za-z0-9_-]", "_", fid)[:120] + suffix)
+def _srv():
+    return hashlib.sha256((config.settings.server or "").encode()).hexdigest()[:10]
+
+
+def _safe(fid):
+    return re.sub(r"[^A-Za-z0-9_-]", "_", fid)[:120]
+
+
+def _path(fid, suffix="", cid=None):
+    """Platten-Datei; mit cid: <server>-c<chat>-<datei> (2.1), ohne: altes Format <server>-<datei>"""
+    mid = "" if cid is None else f"c{int(cid)}-"
+    return os.path.join(_DIR, _srv() + "-" + mid + _safe(fid) + suffix)
+
+
+def _read_any(fid, suffix, cid):
+    """neues Format zuerst, dann ein aelterer Eintrag ohne Chat-Kennung"""
+    data = _read(_path(fid, suffix, cid)) if cid is not None else None
+    return data if data is not None else _read(_path(fid, suffix))
 
 
 def _read(p):
@@ -149,19 +168,19 @@ def _write(p, blob):
         prune()
 
 
-def put_blob(fid, blob):
-    _write(_path(fid), blob)
+def put_blob(fid, blob, cid=None):
+    _write(_path(fid, "", cid), blob)
 
 
-def get_blob(fid, keep=True):
+def get_blob(fid, keep=True, cid=None):
     """Hintergrund: Ciphertext aus dem Zwischenspeicher oder vom Server (keep: danach zwischenspeichern)"""
-    p = _path(fid)
-    data = _read(p)
+    data = _read_any(fid, "", cid)
     if data is not None:
         return data
+    g = _cgen.get(cid, 0)
     data = client.request("GET", f"api/chat/files/{urllib.parse.quote(fid)}", timeout=180)
-    if keep:
-        _write(p, data)
+    if keep and _cgen.get(cid, 0) == g:                  # inzwischen geloescht: nicht wieder ablegen
+        _write(_path(fid, "", cid), data)
     return data
 
 
@@ -207,11 +226,53 @@ def clear():
     _gen += 1
     _mem.clear()
     _mem_cost.clear()
+    _mem_cid.clear()
     _mem_size = 0
     with _jobs_lock:
         _jobs.clear()
     with _disk_lock:
         shutil.rmtree(_DIR, ignore_errors=True)
+
+
+def purge_chat(cid, fids=(), keep=()):
+    """Chat geloescht/geleert (2.1, Hauptthread): Vorschaubilder im Speicher, wartende Auftraege und den
+    Platten-Zwischenspeicher dieses Chats entfernen - ausser den Datei-IDs in keep (Nachrichten nach der Grenze).
+    fids: zusaetzlich bekannte Datei-IDs (aeltere Platten-Eintraege ohne Chat-Kennung). -> Anzahl entfernter Dateien"""
+    global _mem_size
+    keep = set(keep)
+    fids = set(fids) - keep
+    _cgen[cid] = _cgen.get(cid, 0) + 1                    # laufende Auftraege dieses Chats: Ergebnis verwerfen
+    for fid in [f for f in _mem if (_mem_cid.get(f) == cid or f in fids) and f not in keep]:
+        _mem.pop(fid, None)
+        _mem_size -= _mem_cost.pop(fid, 0)
+        _mem_cid.pop(fid, None)
+    with _jobs_lock:
+        for fid in [f for f, j in _jobs.items() if j["cid"] == cid and f not in keep]:
+            del _jobs[fid]
+    srv = _srv()
+    pre = f"{srv}-c{int(cid)}-"
+    legacy = {srv + "-" + _safe(f) + s for f in fids for s in ("", ".th")}
+    safe_keep = {_safe(f) for f in keep}
+    n = 0
+    with _disk_lock:
+        try:
+            ents = [e for e in os.scandir(_DIR) if e.is_file(follow_symlinks=False)]
+        except OSError:
+            ents = []
+        for e in ents:
+            name = e.name
+            if name.startswith(pre):
+                rest = name[len(pre):]
+                if (rest[:-3] if rest.endswith(".th") else rest) in safe_keep:
+                    continue
+            elif name not in legacy:
+                continue
+            try:
+                os.remove(e.path)
+                n += 1
+            except OSError:
+                pass
+    return n
 
 
 # --- Speicher-LRU (Hauptthread) ----------------------------------------------------------------------------------------
@@ -234,6 +295,7 @@ def remember(fid, tex):
     while _mem_size > MEM_LIMIT and len(_mem) > 1:
         old, _t = _mem.popitem(last=False)
         _mem_size -= _mem_cost.pop(old, 0)
+        _mem_cid.pop(old, None)
 
 
 def mem_usage():
@@ -283,28 +345,27 @@ def _run(job):
     cid, f, gen = job["cid"], job["f"], job["gen"]
     th = thumb_ref(f)
     if th:
-        blob = get_blob(th["id"])
+        blob = get_blob(th["id"], cid=cid)
         stats["fetched"] += 1
         data = C.decrypt_file(cid, blob, C.unb64(th["k"], 32))
         return th["id"], _decode(data), None
     # alte Nachricht ohne Vorschaubild: eigenes erzeugen und verschluesselt zwischenspeichern
     key = C.unb64(f.get("k"), 32)
-    p = _path(f["id"], ".th")
-    blob = _read(p)
+    blob = _read_any(f["id"], ".th", cid)
     if blob is not None:
         try:
             data = C.decrypt_file(cid, blob, key)
             return f["id"], _decode(data), None
         except C.CryptoError:
             pass
-    orig = C.decrypt_file(cid, get_blob(f["id"], keep=False), key)
+    orig = C.decrypt_file(cid, get_blob(f["id"], keep=False, cid=cid), key)
     stats["fetched"] += 1
     t = make_thumb(orig)
     if t is None:
         raise ValueError("no image")
     stats["generated"] += 1
-    if gen == _gen:
-        _write(p, C.encrypt_file(cid, t[0], key=key)[0])
+    if gen == _gen and job.get("cgen", 0) == _cgen.get(cid, 0):
+        _write(_path(f["id"], ".th", cid), C.encrypt_file(cid, t[0], key=key)[0])
     return f["id"], _decode(t[0]), t[1]
 
 
@@ -313,12 +374,15 @@ def _finish(fid, job, res, err):
         _running.pop(fid, None)
     if job["gen"] != _gen:
         return False
+    if job.get("cgen", 0) != _cgen.get(job["cid"], 0):        # Chat inzwischen geloescht: nichts anzeigen/merken
+        res = None
     tex, wh = None, None
     if res is not None:
         _key, raw, wh = res
         tex = _texture(raw)
         stats["decoded"] += 1
         remember(fid, tex)
+        _mem_cid[fid] = job["cid"]
     for cb in job["cbs"]:
         cb(tex, wh)
     return False
@@ -338,7 +402,7 @@ def request(cid, f, cb):
             return fid
         job = _jobs.pop(fid, None)
         if job is None:
-            job = {"cid": cid, "f": f, "gen": _gen, "cbs": []}
+            job = {"cid": cid, "f": f, "gen": _gen, "cgen": _cgen.get(cid, 0), "cbs": []}
         job["cbs"].append(cb)
         _jobs[fid] = job                                   # (wieder) ans Ende: zuerst dran
         _jobs_lock.notify()
@@ -371,4 +435,4 @@ def cancel(fid, cb):
 
 def original(cid, f):
     """Hintergrund: Original laden (Ciphertext wird zwischengespeichert) und entschluesseln -> Bytes"""
-    return C.decrypt_file(cid, get_blob(f["id"]), C.unb64(f.get("k"), 32))
+    return C.decrypt_file(cid, get_blob(f["id"], cid=cid), C.unb64(f.get("k"), 32))

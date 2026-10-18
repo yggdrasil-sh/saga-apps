@@ -419,6 +419,7 @@ class MainWindow(Adw.ApplicationWindow):
         hs = [(live, live.connect("event", lambda o, t, d: self._live_event(t, d))),
               (ai, ai.connect("changed", lambda *_: self.update_header())),          # Persona/Schalter der KI (2.1)
               (chat, chat.connect("link-request", lambda o, ln: self._link_request(ln))),
+              (chat, chat.connect("chat-gone", lambda o, cid, how, name: self._chat_gone(how, name))),     # (2.1)
               (store, store.connect("logged-in", lambda *_: self._session_started())),
               (store, store.connect("need-login", lambda *_: self._session_ended()))]
         self.connect("destroy", lambda *_: [o.disconnect(h) for o, h in hs])
@@ -1679,6 +1680,11 @@ class MainWindow(Adw.ApplicationWindow):
             self.toast(_("Task created"))
 
     # --- Hilfen ----------------------------------------------------------------------------
+    def _chat_gone(self, how, name):
+        """(2.1) jemand anderes hat einen Chat bzw. dessen Verlauf fuer alle geloescht: Hinweis mit Namen"""
+        from .chatview import gone_text
+        self.toast(gone_text(how, name))
+
     def toast(self, msg):
         if msg:
             self.toasts.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(msg)), timeout=4))

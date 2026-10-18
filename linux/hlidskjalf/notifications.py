@@ -182,6 +182,16 @@ class Notifications(GObject.Object):
                 self.emit("changed")
         bg(client.json, "POST", "api/notifications/read", body, done=fin, error=lambda e: None)
 
+    def drop_chat(self, cid):
+        """Chat geloescht/geleert (2.1): seine Benachrichtigungen aus der Glocke nehmen (der Server hat sie entfernt
+        bzw. gelesen) und die Zahl neu holen"""
+        keep = [x for x in self.items if not (isinstance(x.get("chat"), dict) and x["chat"].get("id") == cid)]
+        if len(keep) == len(self.items):
+            return
+        self.items = keep
+        self.emit("changed")
+        self.count()
+
     def on_event(self, data):
         """Live: {item, unread, replaces} (neu) bzw. {unread, read: [ids] | "all"} (anderswo gelesen) -> neue Benachrichtigung oder None"""
         if not isinstance(data, dict):

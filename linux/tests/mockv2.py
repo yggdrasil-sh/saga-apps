@@ -37,6 +37,8 @@ def init(s):
     s.peers = {}                  # Gegenueber im Test: uid -> {ident, device}
     s.reauth_need = None
     s.chat_seq = 0
+    s.chat_manage_api = True      # (2.1) Archivieren/Loeschen; False wie ein aelterer Server (keine Felder, kein DELETE)
+    s.saga_admins = set()         # Saga-Admins (duerfen den Verlauf eines Gruppen-Chats fuer alle loeschen)
     # Push
     s.push_api = True
     s.push_server = {"enabled": True, "webpush": True, "vapid_public": "BDummy", "ntfy": True, "unifiedpush": True, "apns": False,
@@ -213,8 +215,82 @@ def new_chat(s, kind, members, **kw):
     cid = max(s.chats or [0]) + 1
     s.chats[cid] = {"id": cid, "kind": kind, "members": list(members), "created": time.time() - 3600, "retention_s": 0,
                     "muted": set(), "last_read": {}, "msgs": [], "group": kw.get("group"), "note_id": kw.get("note_id"),
-                    "admin": kw.get("admin") or (members[0] if kind == "free" else None), "title_seq": None}
+                    "admin": kw.get("admin") or (members[0] if kind == "free" else None), "title_seq": None,
+                    "prefs": {}}          # (2.1) uid -> {archived: ts|None, cleared: seq, hidden: bool}
     return cid
+
+
+# --- Archivieren und Loeschen (2.1, wie saga/chat.py) -------------------------------------------------------------------
+def _pref(ch, uid):
+    return ch.setdefault("prefs", {}).setdefault(uid, {"archived": None, "cleared": 0, "hidden": False})
+
+
+def _may_delete_all(s, ch, me):
+    if ch["kind"] == "dm":
+        return "chat"
+    if ch["kind"] == "free":
+        return "chat" if ch.get("admin") == me else None
+    if ch["kind"] == "group":
+        return "history" if me in s.saga_admins else None
+    if ch["kind"] == "page":
+        return "history" if ch.get("note_id") in s.notes else None
+    return None
+
+
+def _floor(ch):
+    return max([m["seq"] for m in ch["msgs"]] + [ch.get("last_seq_seen", 0)])
+
+
+def revive(ch, sender):
+    """neue Nachricht: aus dem Archiv (ausser stumm + archiviert, Absender immer), ausgeblendete Direkt-Chats wieder da"""
+    for u, p in ch.get("prefs", {}).items():
+        if p["archived"] is not None and (u == sender or u not in ch["muted"]):
+            p["archived"] = None
+        p["hidden"] = False
+
+
+def listed(s, ch, me):
+    p = _pref(ch, me)
+    return not (p["hidden"] and _floor(ch) <= p["cleared"])
+
+
+def delete_chat(s, ch, me, scope):
+    by = {"username": me, "name": s.names.get(me, me)}
+    if scope == "me":
+        floor = _floor(ch)
+        for m in ch["msgs"]:
+            if m["seq"] <= floor and m["kind"] != "title":
+                for k in [k for k in m["keys"] if k == "backup:" + me or (s.cdevices.get(k) or {}).get("uid") == me]:
+                    m["keys"].pop(k)
+        p = _pref(ch, me)
+        dm = ch["kind"] == "dm"
+        p.update(archived=None if dm else time.time(), cleared=max(p["cleared"], floor), hidden=dm)
+        ch["last_read"][me] = max(ch["last_read"].get(me, 0), floor)
+        s.notifs = [n for n in s.notifs if (n.get("chat") or {}).get("id") != ch["id"]]
+        push_event(s, "chat.cleared", {"chat_id": ch["id"], "scope": "me", "cleared_seq": floor})
+        return 200, {"ok": True, "scope": "me", "removed": False, "cleared_seq": floor, "archived": not dm, "hidden": dm}
+    mode = _may_delete_all(s, ch, me)
+    if not mode:
+        return 403, {"error": "Dafür fehlt dir die Berechtigung."}
+    s.notifs = [n for n in s.notifs if (n.get("chat") or {}).get("id") != ch["id"]]
+    if mode == "chat":
+        s.chats.pop(ch["id"], None)
+        for f in [f for f, v in s.cfiles.items() if v[0] == ch["id"]]:
+            s.cfiles.pop(f)
+        push_event(s, "chat.removed", {"chat_id": ch["id"], "kind": ch["kind"], "by": by})
+        return 200, {"ok": True, "scope": "all", "removed": True}
+    top = _floor(ch)
+    ch["last_seq_seen"] = top
+    n = len([m for m in ch["msgs"] if m["kind"] != "title"])
+    ch["msgs"] = [m for m in ch["msgs"] if m["kind"] == "title"]
+    for f in [f for f, v in s.cfiles.items() if v[0] == ch["id"] and v[3] is not None]:
+        s.cfiles.pop(f)
+    for u in ch["members"]:
+        p = _pref(ch, u)
+        p["cleared"] = max(p["cleared"], top)
+        ch["last_read"][u] = max(ch["last_read"].get(u, 0), top)
+    push_event(s, "chat.cleared", {"chat_id": ch["id"], "scope": "all", "by": by})
+    return 200, {"ok": True, "scope": "all", "removed": False, "deleted": n}
 
 
 def _recipients(s, mem):
@@ -269,6 +345,8 @@ def _store_msg(s, cid, uid, enc, kind="msg", files=None):
             s.cfiles[f] = (c, u, data, seq)
     if kind == "msg":
         ch["last_read"][uid] = seq
+    if kind in ("msg", "call"):
+        revive(ch, uid)
     return m
 
 
@@ -300,6 +378,10 @@ def _chat_dict(s, ch, me, device=None):
          "retention_s": ch["retention_s"], "muted": me in ch["muted"], "role": "admin" if ch.get("admin") == me else "member",
          "last_read": lr, "unread": sum(1 for m in msgs if m["seq"] > lr and m["sender"] != me),
          "members": [{"username": u, "name": nm(u), "me": u == me} for u in ch["members"]], "member_count": len(ch["members"])}
+    if s.chat_manage_api:                                  # (2.1) Archiv und Loeschen
+        p = _pref(ch, me)
+        d.update(archived=p["archived"] is not None, archived_at=p["archived"], cleared_seq=p["cleared"],
+                 delete_for_all=_may_delete_all(s, ch, me))
     if ch["kind"] == "dm":
         other = next(u for u in ch["members"] if u != me)
         d["name"] = nm(other)
@@ -418,18 +500,19 @@ def _chat_api(s, method, path, parts, q, b, raw):
         return s._reply(200, {"pages": [{"id": n["id"], "title": n.get("title"), "icon": n.get("icon") or ""}
                                         for n in s.notes.values() if qq in (n.get("title") or "").lower()][:10]})
     if path == "api/chats" and method == "GET":
-        lst = [c for c in s.chats.values() if me in c["members"]]
+        lst = [c for c in s.chats.values() if me in c["members"] and (not s.chat_manage_api or listed(s, c, me))]
         lst.sort(key=lambda c: -(c["msgs"][-1]["created"] if c["msgs"] else c["created"]))
         out = [_chat_dict(s, c, me, q.get("device")) for c in lst]
-        return s._reply(200, {"chats": out, "unread": sum(c["unread"] for c in out if not c["muted"])})
+        return s._reply(200, {"chats": out, "unread": sum(c["unread"] for c in out if not c["muted"] and not c.get("archived"))})
     if path == "api/chats/unread":
         out = [_chat_dict(s, c, me) for c in s.chats.values() if me in c["members"]]
-        return s._reply(200, {"enabled": s.chat_enabled, "unread": sum(c["unread"] for c in out if not c["muted"])})
+        return s._reply(200, {"enabled": s.chat_enabled, "unread": sum(c["unread"] for c in out if not c["muted"] and not c.get("archived"))})
     if path == "api/chats" and method == "POST":
         k = b.get("kind")
         if k == "dm":
             ex = next((c for c in s.chats.values() if c["kind"] == "dm" and set(c["members"]) == {me, b["user"]}), None)
             cid = ex["id"] if ex else new_chat(s, "dm", [me, b["user"]])
+            _pref(s.chats[cid], me)["hidden"] = False      # bewusst wieder geoeffnet (2.1)
         elif k == "group":
             ex = next((c for c in s.chats.values() if c["kind"] == "group" and c["group"] == b["group"]), None)
             cid = ex["id"] if ex else new_chat(s, "group", list(s.groups.get(b["group"], [me])), group=b["group"])
@@ -448,7 +531,18 @@ def _chat_api(s, method, path, parts, q, b, raw):
         rest = parts[3:]
         if not rest and method == "GET":
             return s._reply(200, {"chat": _chat_dict(s, ch, me, q.get("device"))})
+        if not rest and method == "DELETE" and s.chat_manage_api:       # (2.1)
+            scope = q.get("scope") or "me"
+            if scope not in ("me", "all"):
+                return s._reply(400, {"error": "ungültige Angabe"})
+            code, obj = delete_chat(s, ch, me, scope)
+            return s._reply(code, obj)
         if not rest and method == "PATCH":
+            if "archived" in b and s.chat_manage_api:                      # (2.1)
+                if not isinstance(b["archived"], bool):
+                    return s._reply(400, {"error": "ungültige Angabe"})
+                _pref(ch, me)["archived"] = time.time() if b["archived"] else None
+                push_event(s, "chat.changed", {"chat_id": cid, "archived": b["archived"]})
             if "muted" in b:
                 (ch["muted"].add if b["muted"] else ch["muted"].discard)(me)
             if "retention_s" in b:
@@ -459,7 +553,8 @@ def _chat_api(s, method, path, parts, q, b, raw):
             return s._reply(200, {"chat_id": cid, "recipients": rc})
         if rest == ["messages"] and method == "GET":
             dev = q.get("device") or "-"
-            msgs = [m for m in ch["msgs"] if m["kind"] == "msg" and (dev in m["keys"] or "backup:" + me in m["keys"])]
+            cl = _pref(ch, me)["cleared"] if s.chat_manage_api else 0
+            msgs = [m for m in ch["msgs"] if m["kind"] == "msg" and m["seq"] > cl and (dev in m["keys"] or "backup:" + me in m["keys"])]
             if q.get("after"):
                 msgs = [m for m in msgs if m["seq"] > int(q["after"])]
             elif q.get("before"):
@@ -499,7 +594,8 @@ def _chat_api(s, method, path, parts, q, b, raw):
         if rest == ["read"]:
             ch["last_read"][me] = max(ch["last_read"].get(me, 0), int(b.get("seq") or 0))
             out = [_chat_dict(s, c, me) for c in s.chats.values() if me in c["members"]]
-            return s._reply(200, {"ok": True, "last_read": ch["last_read"][me], "unread": sum(c["unread"] for c in out if not c["muted"])})
+            return s._reply(200, {"ok": True, "last_read": ch["last_read"][me],
+                                  "unread": sum(c["unread"] for c in out if not c["muted"] and not c.get("archived"))})
         if rest == ["typing"]:
             return s._reply(200, {"ok": True})
         if rest == ["members"] and method == "POST":
@@ -516,6 +612,8 @@ def _chat_api(s, method, path, parts, q, b, raw):
             return s._reply(200, {"id": fid, "size": len(raw or b"")})
     if parts[:3] == ["api", "chat", "files"] and len(parts) == 4:
         f = s.cfiles.get(parts[3])
+        if f and s.chat_manage_api and f[3] is not None and f[0] in s.chats and f[3] <= _pref(s.chats[f[0]], me)["cleared"]:
+            f = None                                       # (2.1) fuer mich geloescht
         if not f:
             return s._reply(404, {"error": "not found"})
         return s._reply(200, f[2])
