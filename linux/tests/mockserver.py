@@ -14,6 +14,7 @@ import urllib.parse
 
 import mockv2
 import mockv21
+import mockki
 
 SERVER = "https://saga.test"
 
@@ -123,6 +124,7 @@ class MockServer:
                           "category": "Medien"}]
         mockv2.init(self)                    # Saga 2.0: Live, Benachrichtigungen, Chat, Push, KI, Foederation
         mockv21.init(self)                   # Saga 2.1: Profilbilder, 2FA-Stand, Anrufe
+        mockki.init(self)                    # Saga 2.1: KI-Persona, KI im Chat
 
     # --- Saga 2.0 (mockv2.py) --------------------------------------------------------------------------
     def push_event(self, ev, data):

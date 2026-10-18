@@ -62,6 +62,20 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Rückfrage „Saga neu starten, um die Sprache zu wechseln“ mit Knopf „Jetzt neu starten“ (speichert vorher).
   Fehlermeldungen des Servers folgen der gewählten Sprache (`Accept-Language`).
 
+### KI-Persona und „KI im Chat – nur auf Zuruf“ (Linux)
+- **Name und Profilbild der KI** (Saga-Server 2.1, vom Admin festgelegt) überall, wo die App KI anbietet: Knopf und
+  Menüs „Frage Marin“, Antworten im Assistenten mit Bild und Namen, „Marin denkt nach …“. Ohne Bild: neutrales Symbol
+  auf Akzentfarbe. Das Bild wird nach seiner Kennung (`avatar_etag`) zwischengespeichert; Änderungen des Admins kommen
+  live an (`ai.persona.changed`). Ältere Server: wie bisher „Assistent“.
+- **KI im Chat, nur auf Zuruf:** Ist die KI in einem Chat erlaubt, zeigt der Chat oben einen Hinweis, was an die KI
+  geht. Berechtigte schalten sie im Chat-Menü ein oder aus („Marin in diesem Chat erlauben“). Beim Tippen von „@“ ist
+  die KI der erste Vorschlag (Tab übernimmt), eine Nachricht mit „@Marin“ zeigt kurz „Geht an Marin …“. Gesendet wird
+  die Nachricht wie immer Ende-zu-Ende-verschlüsselt; danach gehen nur sie und höchstens 12 Nachrichten davor im
+  Klartext an die KI. Die Antwort läuft sichtbar mit und wird mit dem Beleg des Servers für alle verschlüsselt gesendet.
+- **Echtheit von KI-Antworten:** Als KI-Antwort (Bild + Name, „gefragt von Ben“) erscheint eine Nachricht nur, wenn
+  Beleg-Kennung und SHA-256 des Textes passen – sonst als Nachricht des Absenders mit Warnung „Als KI-Antwort
+  ausgegeben, aber nicht bestätigt“.
+
 ## [2.1.0] – 2026-10-17
 
 Passt zu Saga-Server 2.1. **Die neuen Funktionen brauchen Saga-Server 2.1; ältere Server funktionieren weiter**

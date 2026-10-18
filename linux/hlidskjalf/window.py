@@ -415,7 +415,9 @@ class MainWindow(Adw.ApplicationWindow):
         store.connect("server-changed", lambda *_: self._server_changed())
         from .chat import chat
         from .live import live
+        from .assistant import ai
         hs = [(live, live.connect("event", lambda o, t, d: self._live_event(t, d))),
+              (ai, ai.connect("changed", lambda *_: self.update_header())),          # Persona/Schalter der KI (2.1)
               (chat, chat.connect("link-request", lambda o, ln: self._link_request(ln))),
               (store, store.connect("logged-in", lambda *_: self._session_started())),
               (store, store.connect("need-login", lambda *_: self._session_ended()))]
@@ -681,11 +683,15 @@ class MainWindow(Adw.ApplicationWindow):
         self.cm_btn.add_css_class("flat")
         self.cm_btn.connect("clicked", lambda *_: isinstance(self.current, PageView) and self.current.toggle_comments())
         self.chb.pack_end(self.cm_btn)
-        # KI-Assistent (1.6): "✦ Assistent" (nur wenn der Server ihn fuer mich anbietet)
+        # KI-Assistent (1.6): "✦ Assistent" (nur wenn der Server ihn fuer mich anbietet); Server ab 2.1: Profilbild und
+        # "Frage Marin" (Persona)
         from .assistant import assistant_icon
-        self.ai_content = Adw.ButtonContent(icon_name=assistant_icon(), label=_("Assistant"))
-        if hasattr(self.ai_content, "set_can_shrink"):
-            self.ai_content.set_can_shrink(True)
+        self.ai_content = Gtk.Box(spacing=6)
+        self.ai_av = Gtk.Image.new_from_icon_name(assistant_icon())
+        self.ai_content.append(self.ai_av)
+        self.ai_label = Gtk.Label(label=_("Assistant"), ellipsize=Pango.EllipsizeMode.END)
+        self.ai_content.append(self.ai_label)
+        self._ai_sig = None
         self.ai_btn = Gtk.Button(child=self.ai_content, visible=False, tooltip_text=_("AI assistant"))
         self.ai_btn.add_css_class("flat")
         self.ai_btn.connect("clicked", lambda *_: self.assistant())
@@ -1044,7 +1050,9 @@ class MainWindow(Adw.ApplicationWindow):
     def update_header(self):
         self._update_header()
         n = getattr(self, "very_narrow", False)
-        self.ai_content.set_label("" if n else _("Assistant"))
+        from .assistant import ask_label
+        self.ai_label.set_label("" if n else ask_label())
+        self.ai_label.set_visible(not n)
         if n:
             for w in (self.fwd_btn, self.star_btn, self.share_btn, self.pub_btn, self.ai_btn):   # Assistent: im Seitenmenue
                 w.set_visible(False)
@@ -1092,6 +1100,7 @@ class MainWindow(Adw.ApplicationWindow):
             from .assistant import ai
             from .sharing import is_remote
             self.ai_btn.set_visible(ai.enabled and bool(p) and not is_remote(p))
+            self._ai_button()
             n, un = int(p.get("comments_open") or 0), int(p.get("comments_unread") or 0)
             # andere Instanz: Kommentar-Knopf immer, wenn die Rolle Kommentieren erlaubt (der Hinweis verspricht es)
             can_cm = is_remote(p) and can_comment(p)
@@ -1245,6 +1254,11 @@ class MainWindow(Adw.ApplicationWindow):
             if isinstance(d, dict) and d.get("user") and d.get("user") == (getattr(self, "me", None) or {}).get("username"):
                 self.load_account()
             return
+        if typ in ("ai.persona.changed", "reset"):            # KI (2.1): Name/Bild/Schalter geaendert -> neu abfragen
+            from .assistant import ai
+            ai.on_live(typ, d)
+            if typ != "reset":
+                return
         if typ.startswith("call.") or typ in ("hello", "reset"):    # Anrufe: klingeln, anderswo angenommen/beendet
             from .calls import calls
             calls.on_live(typ, d)
@@ -1350,6 +1364,20 @@ class MainWindow(Adw.ApplicationWindow):
                     return False
                 return not cur.doc.loaded
             GLib.timeout_add(150, go)
+
+    def _ai_button(self):
+        """Kopfleisten-Knopf des Assistenten: Server ab 2.1 mit Profilbild und "Frage Marin", sonst "✦ Assistent" """
+        from .assistant import ai, ai_avatar, ask_label, assistant_icon
+        p = ai.persona()
+        sig = (p.get("name"), p.get("avatar"), p.get("avatar_etag")) if p else None
+        if sig == self._ai_sig:
+            return
+        self._ai_sig = sig
+        self.ai_content.remove(self.ai_av)
+        self.ai_av = ai_avatar(18, valign=Gtk.Align.CENTER) if p else Gtk.Image.new_from_icon_name(assistant_icon())
+        self.ai_content.prepend(self.ai_av)
+        self.ai_label.set_label(ask_label())
+        self.ai_btn.set_tooltip_text(ask_label() if p else _("AI assistant"))
 
     def assistant(self, tab=None, action=None):
         from .assistant import AssistantDialog, ai
@@ -1487,9 +1515,9 @@ class MainWindow(Adw.ApplicationWindow):
         from .notifications import bell_icon, notifications
         if notifications.supported is not False:
             a.append((bell_icon(), _("Notifications"), lambda: (self.split.set_show_sidebar(True), self.bell.popup())))
-        from .assistant import ai, assistant_icon
+        from .assistant import ai, ask_label, assistant_icon
         if ai.enabled:
-            a.append((assistant_icon(), _("AI assistant"), lambda: self.assistant()))
+            a.append((assistant_icon(), ask_label() if ai.persona() else _("AI assistant"), lambda: self.assistant()))
         if self.page_id():
             from .sharing import allowed, comment_icon, people_icon
             a.append(("insert-link-symbolic", _("Copy link to page"), self.copy_link))

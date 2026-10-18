@@ -12,6 +12,7 @@ import queue
 import secrets
 import time
 
+import mockki
 from hlidskjalf import chatcrypto as C
 
 
@@ -164,6 +165,8 @@ def open_stream(s, method, url, data, headers):
         for line in _sse("hello", {"boot": "boot", "ping": 25, "presence_ttl": 45}):
             s.events.put(line)
         return 200, st
+    if path.startswith("api/chats/") and path.endswith("/ai"):          # KI im Chat (2.1)
+        return mockki.stream(s, path, json.loads(data or b"{}"), _sse, FakeStream)
     if path.startswith("api/ai/"):
         b = json.loads(data or b"{}")
         s.ai_log.append((path, b))
@@ -283,9 +286,9 @@ def _senders(s, msgs):
 
 def _msg_api(s, m, me, device):
     key, via = (m["keys"].get(device), "device") if device in m["keys"] else (m["keys"].get("backup:" + me), "backup")
-    return {"seq": m["seq"], "id": m["id"], "kind": m["kind"], "sender": {"username": m["sender"], "name": s.names.get(m["sender"], m["sender"])},
+    return mockki.msg_fields(s, m, {"seq": m["seq"], "id": m["id"], "kind": m["kind"], "sender": {"username": m["sender"], "name": s.names.get(m["sender"], m["sender"])},
             "sender_device": m["sender_device"], "ts": m["ts"], "created": m["created"], "expires_at": m["expires_at"],
-            "body_ct": m["body_ct"], "sig": m["sig"], "reply_to": m["reply_to"], "key": key, "key_for": via}
+            "body_ct": m["body_ct"], "sig": m["sig"], "reply_to": m["reply_to"], "key": key, "key_for": via})
 
 
 def _chat_dict(s, ch, me, device=None):
@@ -312,7 +315,7 @@ def _chat_dict(s, ch, me, device=None):
             if tm and (device in tm["keys"] or "backup:" + me in tm["keys"]):
                 devs, ids = _senders(s, [tm])
                 d["title_msg"] = dict(_msg_api(s, tm, me, device), device=devs.get(tm["sender_device"]), ident_pub=ids.get(tm["sender"]))
-    return d
+    return mockki.chat_fields(s, ch, d)
 
 
 def _chat_api(s, method, path, parts, q, b, raw):
@@ -478,7 +481,12 @@ def _chat_api(s, method, path, parts, q, b, raw):
             rc, want = _recipients(s, ch["members"])
             if set(b.get("keys") or {}) != want:
                 return s._reply(409, {"error": "Die Mitglieder oder ihre Geräte haben sich geändert – bitte erneut senden.", "recipients": rc})
+            bad, ai_meta = mockki.on_send(s, cid, b)
+            if bad is not None:
+                return bad
             m = _store_msg(s, cid, me, b, b.get("kind") or "msg", b.get("files"))
+            if ai_meta:
+                m["ai"] = ai_meta
             return s._reply(200, {"ok": True, "seq": m["seq"], "created": m["created"], "expires_at": None})
         if len(rest) == 2 and rest[0] == "messages" and method == "DELETE":
             m = next((x for x in ch["msgs"] if x["id"] == rest[1]), None)
@@ -555,6 +563,9 @@ def handle(s, method, path, parts, q, b, raw):
                                                                   "me": True}]
         return s._reply(200, {"users": users, "rev": s.presence_rev.get(nid, n.get("rev")), "updated": n.get("updated"), "by": None,
                               "ttl": 45, "live": True})
+    r = mockki.handle(s, method, path, parts, q, b)                     # KI-Persona, KI im Chat (2.1)
+    if r is not None:
+        return r
     # Chat
     if (path.startswith("api/chat/") or path == "api/chat" or path.startswith("api/chats")):
         if not s.chat_api:

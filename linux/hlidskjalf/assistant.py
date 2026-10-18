@@ -16,37 +16,75 @@ CITE_RX = re.compile(r"\[(\d{1,3})\]")
 
 
 class AIState(GObject.Object):
+    """Stand des Assistenten fuer dieses Konto (GET /api/ai/status) und - Server ab 2.1 - die Persona der KI (Name,
+    Profilbild). Die Persona steckt in status.persona, solange der Assistent fuer mich an ist; sonst (z. B. nicht in der
+    Gruppe) kommt sie aus GET /api/ai/persona - KI-Antworten anderer im Chat zeigen trotzdem Name und Bild.
+    Aeltere Server ohne Persona: persona() ist None, alles bleibt wie bisher ("Assistent")."""
     __gsignals__ = {"changed": (GObject.SignalFlags.RUN_FIRST, None, ())}
 
     def __init__(self):
         super().__init__()
         self.status = {}
         self.known = False
+        self.persona_only = None        # /api/ai/persona, wenn status keine Persona enthaelt
 
     @property
     def enabled(self):
         return bool(self.status.get("enabled"))
 
+    @property
+    def chat_allowed(self):
+        """Server erlaubt KI in Chats ("KI in Chats erlauben") und der Assistent ist fuer mich an"""
+        return self.enabled and bool(self.status.get("chat"))
+
+    def persona(self):
+        p = self.status.get("persona")
+        if not isinstance(p, dict):
+            p = self.persona_only
+        return p if isinstance(p, dict) and isinstance(p.get("name"), str) else None
+
     def refresh(self, done=None):
-        def fin(j):
-            self.status = j if isinstance(j, dict) else {}
+        def work():
+            try:
+                st = client.get("api/ai/status")
+            except APIError as e:
+                if e.code not in (404, 401, 403):
+                    raise
+                st = {}
+            st = st if isinstance(st, dict) else {}
+            po = None
+            if not isinstance(st.get("persona"), dict):
+                try:
+                    po = client.get("api/ai/persona")             # Server ab 2.1; aeltere: 404
+                except (APIError, ValueError):
+                    po = None
+            return st, po if isinstance(po, dict) else None
+
+        def fin(r):
+            self.status, self.persona_only = r
             self.known = True
             self.emit("changed")
             if done:
                 done()
 
         def err(e):
-            if isinstance(e, APIError) and e.code in (404, 401, 403):
-                self.status = {}
-                self.known = True
-                self.emit("changed")
             if done:
                 done()
-        bg(client.get, "api/ai/status", done=fin, error=err)
+        bg(work, done=fin, error=err)
 
     def reset(self):
-        self.status, self.known = {}, False
+        self.status, self.known, self.persona_only = {}, False, None
         self.emit("changed")
+
+    def on_live(self, typ, d):
+        """ai.persona.changed (Name/Bild/Schalter geaendert) bzw. reset: neu abfragen ("enabled" ist je Person verschieden)"""
+        if typ == "ai.persona.changed" and isinstance(d, dict):
+            p = self.persona()
+            if p is not None and d.get("avatar") != p.get("avatar"):
+                from . import avatars
+                avatars.forget(p.get("avatar"))
+        if typ in ("ai.persona.changed", "reset"):
+            self.refresh()
 
 
 ai = AIState()
@@ -55,6 +93,56 @@ ai = AIState()
 def assistant_icon():
     from .publish import _icon
     return _icon("saga-assistant-symbolic", "starred-symbolic")
+
+
+# --- Persona (Server ab 2.1): Name und Profilbild der KI ueberall, wo die App KI anbietet ------------------------------
+def ai_name():
+    """Anzeigename der KI: vom Server (eigener Name bzw. Standard in der Sprache der Anfrage), sonst "Saga KI\""""
+    p = ai.persona()
+    n = (p or {}).get("name")
+    n = n.strip() if isinstance(n, str) else ""
+    return n[:80] if n else _("Saga AI")
+
+
+def ask_label():
+    """Einstieg: "Frage Marin" - aeltere Server ohne Persona: wie bisher "Assistent\""""
+    return _("Ask {name}").format(name=ai_name()) if ai.persona() else _("Assistant")
+
+
+def assistant_title():
+    return ai_name() if ai.persona() else _("AI assistant")
+
+
+def thinking_text():
+    return _("{name} is thinking …").format(name=ai_name()) if ai.persona() else _("Thinking …")
+
+
+def ai_avatar(size=24, **kw):
+    """Profilbild der KI (rund): Bild vom Server (/api/ai/avatar, Zwischenspeicher nach avatar_etag), sonst - und bis es
+    geladen ist - das neutrale Symbol auf Akzentfarbe"""
+    from . import avatars
+    p = ai.persona() or {}
+    av = Adw.Avatar(size=size, text=ai_name(), show_initials=False, icon_name=assistant_icon(), **kw)
+    av.add_css_class("hk-ai-avatar")
+    av.set_tooltip_text(ai_name())
+    avatars.attach(av, p.get("avatar"), size, etag=p.get("avatar_etag"))
+    return av
+
+
+def ai_head(size=20, extra=None):
+    """Kopf einer KI-Antwort: Profilbild + Name (+ z. B. "gefragt von Ben")"""
+    box = Gtk.Box(spacing=6)
+    box.add_css_class("hk-ai-who")
+    box.append(ai_avatar(size, valign=Gtk.Align.CENTER))
+    nm = Gtk.Label(label=ai_name(), xalign=0, ellipsize=Pango.EllipsizeMode.END)
+    nm.add_css_class("caption-heading")
+    box.append(nm)
+    if extra:
+        ex = Gtk.Label(label=extra, xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        ex.add_css_class("caption")
+        ex.add_css_class("dim-label")
+        box.append(ex)
+    return box
 
 
 def cite_markup(text, sources):
@@ -73,9 +161,9 @@ def cite_markup(text, sources):
 class Stream:
     """Eine laufende Anfrage (Hintergrund-Thread) -> Rueckrufe im Haupt-Thread: on_sources, on_delta, on_done, on_error"""
 
-    def __init__(self, path, body, on_sources, on_delta, on_done, on_error):
+    def __init__(self, path, body, on_sources, on_delta, on_done, on_error, on_reset=None):
         self.path, self.body = path, body
-        self.cb = (on_sources, on_delta, on_done, on_error)
+        self.cb = (on_sources, on_delta, on_done, on_error, on_reset or (lambda: None))
         self.cancelled = False
         self.resp = None
         threading.Thread(target=self._run, daemon=True, name="hk-ai").start()
@@ -99,6 +187,8 @@ class Stream:
                 elif ev == "delta":
                     got = True
                     self._post(1, str(data.get("t") or ""))
+                elif ev == "reset":                          # Server beginnt die Antwort neu (bisherigen Text verwerfen)
+                    self._post(4)
                 elif ev == "done":
                     self._post(2, data)
                     return
@@ -150,7 +240,7 @@ class AssistantDialog(Adw.Dialog):
     """Zwei Reiter: "Frag deine Seiten" und "Diese Seite" (nur mit offener Seite)"""
 
     def __init__(self, win, view=None, tab="ask", action=None):
-        super().__init__(title=_("AI assistant"), content_width=560, content_height=700, width_request=320, height_request=360)
+        super().__init__(title=assistant_title(), content_width=560, content_height=700, width_request=320, height_request=360)
         self.win, self.view = win, view
         self.stream = None
         self.pairs = []                 # Verlauf dieser Sitzung (Frage/Antwort)
@@ -226,7 +316,8 @@ class AssistantDialog(Adw.Dialog):
         self.q = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD_CHAR, top_margin=8, bottom_margin=8, left_margin=10, right_margin=10,
                               accepts_tab=False)
         self.q.update_property([Gtk.AccessibleProperty.LABEL], [_("Question to your pages")])
-        ph = _lbl(_("Ask something about your pages …"), ("dim-label",), can_target=False, margin_start=11, valign=Gtk.Align.CENTER)
+        ph = _lbl(_("Ask {name} something about your pages …").format(name=ai_name()) if ai.persona() else
+                  _("Ask something about your pages …"), ("dim-label",), can_target=False, margin_start=11, valign=Gtk.Align.CENTER)
         ov = Gtk.Overlay(child=self.q)
         ov.add_overlay(ph)
         self.q.get_buffer().connect("changed", lambda b: ph.set_visible(b.get_char_count() == 0))
@@ -288,7 +379,7 @@ class AssistantDialog(Adw.Dialog):
         def error(msg, partial):
             self._end()
             box.error(msg, partial)
-        self.stream = Stream(path, body, box.sources, box.delta, done, error)
+        self.stream = Stream(path, body, box.sources, box.delta, done, error, box.reset)
         box.started()
 
     def _end(self):
@@ -439,6 +530,8 @@ class AnswerBox(Gtk.Box):
             q.set_halign(Gtk.Align.END)
             q.set_xalign(1)
         self.append(q)
+        if ai.persona():                                     # Server ab 2.1: Antwort mit Profilbild und Namen der KI
+            self.append(ai_head(20))
         self.answer = Gtk.Label(xalign=0, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR, selectable=True)
         self.answer.add_css_class("hk-ai-a")
         self.answer.connect("activate-link", self._link)
@@ -447,11 +540,15 @@ class AnswerBox(Gtk.Box):
         self.append(self.extra)
 
     def started(self):
-        self.answer.set_label(_("Thinking …"))
+        self.answer.set_label(thinking_text())
         self.answer.add_css_class("dim-label")
 
     def sources(self, lst):
         self.srcs = lst
+
+    def reset(self):
+        self.text = ""
+        self.started()
 
     def delta(self, t):
         if not self.text:

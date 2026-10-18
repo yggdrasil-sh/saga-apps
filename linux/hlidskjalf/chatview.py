@@ -8,7 +8,7 @@ import re
 from gi.repository import Adw, Gdk, Gio, GLib, Graphene, Gsk, Gtk, Pango
 
 from . import chatcrypto as C
-from . import avatars, chatmedia, clipimg, config, images
+from . import aichat, avatars, chatmedia, clipimg, config, images
 from .api import APIError, client
 from .blocks import flat_button, menu_popover
 from .chat import (NOTE_RX, RETENTIONS, ChatError, SafetyChanged, chat, fmt_recovery, keys_persistent, recovery_lines, retention_label,
@@ -29,17 +29,18 @@ def send_icon():
     return _icon("saga-send-symbolic", "mail-send-symbolic", "go-up-symbolic")
 
 
-def watch_chat(widget, signal, cb):
-    """Signal von chat nur, solange das Widget sichtbar ist"""
+def watch_chat(widget, signal, cb, obj=None):
+    """Signal von chat (bzw. obj) nur, solange das Widget sichtbar ist"""
     st = {"h": None}
+    src = chat if obj is None else obj
 
     def on_map(*_):
         if st["h"] is None:
-            st["h"] = chat.connect(signal, lambda *a: cb(*a[1:]))
+            st["h"] = src.connect(signal, lambda *a: cb(*a[1:]))
 
     def on_unmap(*_):
         if st["h"] is not None:
-            chat.disconnect(st["h"])
+            src.disconnect(st["h"])
             st["h"] = None
     widget.connect("map", on_map)
     widget.connect("unmap", on_unmap)
@@ -461,6 +462,12 @@ def _short_when(ts):
     return date_short(ts)
 
 
+def _who(m):
+    """Absender fuer das Gruppieren von Blasen: bestaetigte KI-Antworten zaehlen als eigener Absender"""
+    u = (m.get("sender") or {}).get("username")
+    return ("\x00ai", u) if m.get("ai_state") == "ok" else u                  # je Fragender ein eigener Kopf ("gefragt von")
+
+
 # --- Unterhaltung -------------------------------------------------------------------------------------------------
 class Conversation(Gtk.Box):
     __gtype_name__ = "HKConversation"
@@ -495,6 +502,15 @@ class Conversation(Gtk.Box):
         frame.append(self.warn_rev)
         self.append(frame)
         self.warn_uid = None
+        # KI im Chat (2.1): sichtbarer Hinweis, solange die KI hier erlaubt ist - was an die KI geht
+        self.ai_note = Gtk.Box(spacing=8, visible=False, margin_start=12, margin_end=12, margin_top=6)
+        self.ai_note.add_css_class("hk-ai-note")
+        self.append(self.ai_note)
+        self._ai_sig = None
+        self.pending_row = None
+        from .assistant import ai
+        p = ai.persona() or {}
+        self._persona_sig = (p.get("name"), p.get("avatar"), p.get("avatar_etag"))   # KI-Antworten neu zeichnen, wenn sie sich aendert
         # Suche (nur lokal)
         self.search_bar = Gtk.SearchBar()
         se = Gtk.SearchEntry(placeholder_text=_("Search in this chat"), hexpand=True)
@@ -524,6 +540,9 @@ class Conversation(Gtk.Box):
         watch_chat(self, "messages", lambda cid: cid == self.cid and self.render())
         watch_chat(self, "typing", lambda cid: cid == self.cid and self._typing())
         watch_chat(self, "chat-changed", lambda cid: cid == self.cid and self._chat_changed())
+        watch_chat(self, "ai-pending", lambda cid: cid == self.cid and self._pending_changed())
+        from .assistant import ai
+        watch_chat(self, "changed", lambda: self._ai_changed(), obj=ai)
         self.connect("map", lambda *_: self._mapped())
         self.connect("map", self._vis_soon)
         self.loaded = False
@@ -535,6 +554,8 @@ class Conversation(Gtk.Box):
             self._first_load()
         if chat.chat(cid) is None:
             chat.load_chat(cid, error=self._load_error)
+        self._ai_note()
+        self._pending_changed()
 
     def _load_error(self, e):
         if isinstance(e, APIError) and e.code == 404:
@@ -557,6 +578,158 @@ class Conversation(Gtk.Box):
     def _chat_changed(self):
         self._check_trust()
         self.screen._header()
+        self._ai_note()
+        self._ai_typing()
+
+    # --- KI im Chat (2.1): nur auf Zuruf ---------------------------------------------------------------------------
+    def _ai_on(self):
+        return chat.ai_on(chat.chat(self.cid))
+
+    def _ai_changed(self):
+        """Persona oder Schalter geaendert (ai.persona.changed): Hinweis, Vorschlag und KI-Antworten neu zeichnen"""
+        from .assistant import ai
+        self._ai_note()
+        self._ai_typing()
+        p = ai.persona() or {}
+        psig = (p.get("name"), p.get("avatar"), p.get("avatar_etag"))
+        if psig == self._persona_sig:
+            return
+        self._persona_sig = psig
+        for row in self.bubbles.values():                 # KI-Antworten mit neuem Namen/Bild neu zeichnen
+            for w in row.hk_imgs:
+                w.drop()
+        self.sig = None
+        self.bubbles = {}
+        self.render()
+
+    def _ai_note(self):
+        """Hinweis oben: KI hier erlaubt, nur auf Zuruf - was im Klartext an wen geht"""
+        from .assistant import ai, ai_avatar, ai_name
+        c = chat.chat(self.cid) or {}
+        on = bool(c.get("ai")) and (ai.chat_allowed or (ai.known and not ai.enabled))
+        p = ai.persona() or {}
+        sig = (on, ai_name(), p.get("avatar"), p.get("avatar_etag"), ai.status.get("host"), ai.enabled)
+        if sig == self._ai_sig:
+            return
+        self._ai_sig = sig
+        while (w := self.ai_note.get_first_child()):
+            self.ai_note.remove(w)
+        self.ai_note.set_visible(on)
+        if not on:
+            return
+        self.ai_note.append(ai_avatar(20, valign=Gtk.Align.START))
+        if ai.enabled:
+            t = _("{name} is allowed in this chat – only when mentioned: messages with @{name} and up to {n} messages before go to "
+                  "the AI ({host}) in plain text. Everything else stays end-to-end encrypted.").format(
+                name=ai_name(), n=aichat.CTX_MAX, host=ai.status.get("host") or "?")
+        else:                                          # Assistent fuer mich aus: trotzdem sagen, was andere tun koennen
+            t = _("{name} is allowed in this chat – only when mentioned: messages with @{name} and up to {n} messages before go to "
+                  "the AI in plain text. Everything else stays end-to-end encrypted.").format(name=ai_name(), n=aichat.CTX_MAX)
+        self.ai_note.append(_lbl(t, ("caption",), hexpand=True))
+
+    def _ai_toggle(self):
+        from .assistant import ai_name
+        c = chat.chat(self.cid) or {}
+        on = not c.get("ai")
+        name = ai_name()
+
+        def go():
+            chat.set_ai(self.cid, on, done=lambda: _toast(self.win, (_("{name} is now allowed in this chat.") if on else
+                                                                       _("{name} is no longer allowed here.")).format(name=name)),
+                        error=lambda e: _toast(self.win, str(e)))
+        if not on:
+            go()
+            return
+        from .assistant import ai
+        from .publish import confirm
+        confirm(self.win, _("Allow {name} in this chat?").format(name=name),
+                _("Everyone in the chat can then ask {name} with @{name}. Only that message and up to {n} messages before go to "
+                  "the AI ({host}) in plain text – the server doesn't store them. All members see a notice.").format(
+                    name=name, n=aichat.CTX_MAX, host=ai.status.get("host") or "?"),
+                _("Allow"), go, destructive=False)
+
+    def _ai_typing(self, buf=None):
+        """Beim Schreiben: "@Ma…" -> Vorschlag der KI; Nachricht mit @Name -> Hinweis, dass sie an die KI geht"""
+        if not hasattr(self, "ai_hint"):
+            return
+        from .assistant import ai, ai_avatar, ai_name
+        buf = buf or self.entry.get_buffer()
+        on = self._ai_on()
+        name = ai_name()
+        text = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), False) if on else ""
+        before = buf.get_text(buf.get_start_iter(), buf.get_iter_at_mark(buf.get_insert()), False) if on else ""
+        pref = aichat.typed_prefix(before) if on else None
+        self.ai_pref = pref if pref and aichat.suggest(pref[1], name) else None
+        self.ai_suggest.set_visible(self.ai_pref is not None)
+        if self.ai_pref is not None and getattr(self, "_sugg_name", None) != name:
+            self._sugg_name = name
+            bx = Gtk.Box(spacing=6)
+            bx.append(ai_avatar(20, valign=Gtk.Align.CENTER))
+            bx.append(_lbl("@" + name, ("heading",), wrap=False))
+            bx.append(_lbl(_("Ask the AI"), ("caption", "dim-label"), wrap=False))
+            self.ai_suggest.set_child(bx)
+            self.ai_suggest.set_tooltip_text(_("Ask {name}").format(name=name) + " (Tab)")
+        show = on and aichat.mentions(text, name)
+        if show and getattr(self, "_hint_name", None) != (name, ai.status.get("host")):
+            self._hint_name = (name, ai.status.get("host"))
+            while (w := self.ai_hint.get_first_child()):
+                self.ai_hint.remove(w)
+            self.ai_hint.append(ai_avatar(16, valign=Gtk.Align.CENTER))
+            self.ai_hint.append(_lbl(_("Goes to {name}: this message and up to {n} before, in plain text to {host}.").format(
+                name=name, n=aichat.CTX_MAX, host=ai.status.get("host") or "?"), ("caption",), hexpand=True))
+        self.ai_hint.set_visible(show)
+
+    def _ai_apply(self):
+        """Vorschlag uebernehmen: "@Ma" -> "@Marin " (mit Leerzeichen)"""
+        from .assistant import ai_name
+        pref = getattr(self, "ai_pref", None)
+        if not pref:
+            return False
+        buf = self.entry.get_buffer()
+        it = buf.get_iter_at_mark(buf.get_insert())
+        start = buf.get_iter_at_offset(it.get_offset() - len(pref[1]) - 1)
+        buf.delete(start, it)
+        buf.insert_at_cursor("@" + ai_name() + " ")
+        self.entry.grab_focus()
+        return True
+
+    def _insert_ai(self):
+        """@-Menue: KI als erster Vorschlag -> "@Marin " an der Schreibmarke"""
+        from .assistant import ai_name
+        buf = self.entry.get_buffer()
+        it = buf.get_iter_at_mark(buf.get_insert())
+        before = buf.get_text(buf.get_start_iter(), it, False)
+        buf.insert_at_cursor(("" if not before or before[-1].isspace() else " ") + "@" + ai_name() + " ")
+        self.entry.grab_focus()
+
+    def _pending_changed(self):
+        """Laufende Antwort der KI (dieses Geraet hat gefragt): "Marin denkt nach …", dann mitlaufender Text"""
+        from .assistant import ai_head, thinking_text
+        p = chat.ai_pending.get(self.cid)
+        if p is None:
+            if self.pending_row is not None:
+                if self.pending_row.get_parent() is not None:
+                    self.msgs.remove(self.pending_row)
+                self.pending_row = None
+            return
+        if self.pending_row is None:
+            row = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3, halign=Gtk.Align.START, margin_top=6)
+            row.append(ai_head(20))
+            b = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            b.add_css_class("hk-bubble")
+            b.add_css_class("hk-bubble-ai")
+            self.pending_label = Gtk.Label(xalign=0, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR, max_width_chars=60, selectable=True)
+            self.pending_label.add_css_class("hk-bubble-text")
+            b.append(self.pending_label)
+            row.append(b)
+            self.pending_row = row
+        if self.pending_row.get_parent() is None:
+            self.msgs.append(self.pending_row)
+        txt = p.get("text") or ""
+        self.pending_label.set_label(txt or thinking_text())
+        (self.pending_label.remove_css_class if txt else self.pending_label.add_css_class)("dim-label")
+        if self.at_bottom:
+            self._to_bottom()
 
     # --- Vertrauen ---------------------------------------------------------------------------------------------
     def _check_trust(self):
@@ -642,7 +815,8 @@ class Conversation(Gtk.Box):
         msgs = c.get("msgs") or []
         q = self.query.lower()
         shown = [m for m in msgs if not q or q in (m.get("text") or "").lower()]
-        sig = (tuple((m["id"], m.get("state")) for m in shown), c.get("more"), q, len(chat.notes), c.get("error"), self.loaded)
+        sig = (tuple((m["id"], m.get("state"), m.get("ai_state")) for m in shown), c.get("more"), q, len(chat.notes), c.get("error"),
+               self.loaded)
         if sig == self.sig:
             return
         stick = self.at_bottom
@@ -674,9 +848,9 @@ class Conversation(Gtk.Box):
             if prev is None or _day_label(prev.get("created") or (prev.get("ts") or 0) / 1000) != day:
                 d = _lbl(day, ("caption", "dim-label", "hk-day"), xalign=0.5, wrap=False, margin_top=8, margin_bottom=4)
                 self.msgs.append(d)
-            first = prev is None or (prev.get("sender") or {}).get("username") != (m.get("sender") or {}).get("username") or \
-                (m.get("created") or 0) - (prev.get("created") or 0) > 600
-            key = (m["id"], m.get("state"), first, group, bool(m.get("reply_to") and m["reply_to"] in by_id), len(chat.notes))
+            first = prev is None or _who(prev) != _who(m) or (m.get("created") or 0) - (prev.get("created") or 0) > 600
+            key = (m["id"], m.get("state"), m.get("ai_state"), first, group, bool(m.get("reply_to") and m["reply_to"] in by_id),
+                   len(chat.notes))
             row = old.pop(key, None) or keep.get(key)
             if row is None:
                 self._imgs_building = []
@@ -690,6 +864,8 @@ class Conversation(Gtk.Box):
         for row in old.values():                          # nicht mehr angezeigt: wartende Bilder verwerfen
             for w in row.hk_imgs:
                 w.drop()
+        if self.pending_row is not None and not q:        # laufende KI-Antwort bleibt unten
+            self.msgs.append(self.pending_row)
         self.bubbles, self.img_widgets = keep, imgs
         self._vis_soon()
         if q:
@@ -753,11 +929,17 @@ class Conversation(Gtk.Box):
     def _bubble(self, m, by_id, group, first):
         if m.get("state") == "call":
             return self._call_row(m)
-        mine = m.get("mine")
+        is_ai = m.get("ai_state") == "ok"                 # KI-Antwort mit passendem Beleg (2.1): Bild + Name der KI
+        mine = m.get("mine") and not is_ai
         row = Gtk.Box(spacing=6, halign=Gtk.Align.END if mine else Gtk.Align.START, margin_top=6 if first else 0)
         sender = m.get("sender") or {}
         sname = sender.get("name") or _("Deleted account")
-        if group and not mine:
+        if is_ai:
+            from .assistant import ai_avatar, ai_name
+            asker = _("asked by you") if m.get("mine") else _("asked by {name}").format(name=sname)
+            sname = ai_name()
+            row.append(ai_avatar(28, valign=Gtk.Align.END) if first else Gtk.Box(width_request=28))
+        elif group and not mine:
             if first:
                 av = Adw.Avatar(size=28, text=sname, show_initials=True, valign=Gtk.Align.END)
                 avatars.attach(av, sender.get("avatar"), 28)
@@ -771,7 +953,14 @@ class Conversation(Gtk.Box):
         st = m.get("state")
         if st != "ok":
             b.add_css_class("hk-bubble-warn")
-        if group and not mine and first:
+        if is_ai:
+            b.add_css_class("hk-bubble-ai")
+            if first:
+                hb = Gtk.Box(spacing=6)
+                hb.append(_lbl(sname, ("caption-heading", "hk-bubble-name"), wrap=False))
+                hb.append(_lbl(asker, ("caption", "dim-label"), wrap=False, ellipsize=Pango.EllipsizeMode.END))
+                b.append(hb)
+        elif group and not mine and first:
             nl = _lbl(sname, ("caption-heading", "hk-bubble-name"), wrap=False)
             b.append(nl)
         if m.get("reply_to"):
@@ -779,11 +968,16 @@ class Conversation(Gtk.Box):
             qb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
             qb.add_css_class("hk-quote")
             qn = ((q or {}).get("sender") or {}).get("name") or ""
+            if (q or {}).get("ai_state") == "ok":
+                from .assistant import ai_name
+                qn = ai_name()
             if qn:
                 qb.append(_lbl(qn, ("caption-heading",), wrap=False))
             qb.append(_lbl(snippet(q), ("caption",), max_width_chars=50, lines=2, ellipsize=Pango.EllipsizeMode.END))
             b.append(qb)
         acc = [sname if not mine else _("you")]
+        if is_ai:
+            acc.append(asker)
         if st == "undecryptable":
             lb = _lbl(_("Can't be decrypted"), ("hk-italic", "dim-label"))
             lb.set_tooltip_text(_("This message can't be decrypted on this device."))
@@ -801,6 +995,17 @@ class Conversation(Gtk.Box):
             for f in m.get("files") or []:
                 b.append(self._file(f))
                 acc.append(f.get("n") or _("File"))
+        if m.get("ai_state") == "bad":                   # gibt sich als KI-Antwort aus, Beleg fehlt oder passt nicht
+            wl = Gtk.Box(spacing=4)
+            ic = Gtk.Label(label="⚠")
+            ic.add_css_class("hk-warn-text")
+            wl.append(ic)
+            wl.append(_lbl(_("Presented as an AI reply, but not confirmed"), ("caption",)))
+            wl.set_tooltip_text(_("This message claims to be an answer from the AI, but the server's receipt doesn't match. It "
+                                  "comes from {name}.").format(name=sname))
+            b.append(wl)
+            b.add_css_class("hk-bubble-warn")
+            acc.append(_("Presented as an AI reply, but not confirmed"))
         meta = Gtk.Box(spacing=4, halign=Gtk.Align.END)
         if st == "unverified":
             meta.append(self._unverified_button(m))
@@ -921,6 +1126,16 @@ class Conversation(Gtk.Box):
         self.files_bar = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, visible=False, margin_start=12, margin_end=12,
                                      max_children_per_line=6, row_spacing=4, column_spacing=4)
         outer.append(self.files_bar)
+        # KI im Chat (2.1): Vorschlag "@Marin" beim Tippen von "@", Hinweis bei einer Nachricht an die KI
+        self.ai_pref = None
+        self.ai_suggest = Gtk.Button(visible=False, halign=Gtk.Align.START, margin_start=12)
+        self.ai_suggest.add_css_class("flat")
+        self.ai_suggest.add_css_class("hk-ai-suggest")
+        self.ai_suggest.connect("clicked", lambda *_: self._ai_apply())
+        outer.append(self.ai_suggest)
+        self.ai_hint = Gtk.Box(spacing=6, visible=False, margin_start=14, margin_end=12, margin_top=4)
+        self.ai_hint.add_css_class("hk-ai-hint")
+        outer.append(self.ai_hint)
         row = Gtk.Box(spacing=6, margin_start=10, margin_end=10, margin_top=6, margin_bottom=10)
         att = Gtk.Button(icon_name="mail-attachment-symbolic", tooltip_text=_("Attach file"), valign=Gtk.Align.END)
         att.add_css_class("flat")
@@ -948,6 +1163,7 @@ class Conversation(Gtk.Box):
         sw.set_child(ov)
         buf = self.entry.get_buffer()
         buf.connect("changed", self._changed)
+        buf.connect("notify::cursor-position", lambda b, _p: self._ai_typing(b))     # KI-Vorschlag folgt der Schreibmarke
         kc = Gtk.EventControllerKey()
         kc.connect("key-pressed", self._key)
         self.entry.add_controller(kc)
@@ -968,8 +1184,11 @@ class Conversation(Gtk.Box):
         self.send_btn.set_sensitive(not empty or bool(self.files))
         if not empty:
             chat.send_typing(self.cid)
+        self._ai_typing(buf)
 
     def _key(self, c, kv, code, state):
+        if kv in (Gdk.KEY_Tab, Gdk.KEY_ISO_Left_Tab) and self.ai_pref and not state & Gdk.ModifierType.SHIFT_MASK:
+            return self._ai_apply()
         if kv in (Gdk.KEY_Return, Gdk.KEY_KP_Enter) and not state & (Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.CONTROL_MASK):
             self.send()
             return True
@@ -1105,12 +1324,18 @@ class Conversation(Gtk.Box):
 
         def show(pages):
             lst.remove_all()
+            if self._ai_on():                              # KI (2.1): erster Vorschlag
+                from .assistant import ai_avatar, ai_name
+                r = Adw.ActionRow(title=GLib.markup_escape_text("@" + ai_name()), subtitle=_("Ask the AI"), activatable=True)
+                r.add_prefix(ai_avatar(24, valign=Gtk.Align.CENTER))
+                r.connect("activated", lambda *_: (pop.popdown(), self._insert_ai()))
+                lst.append(r)
             for p in pages[:10]:
                 r = Adw.ActionRow(title=GLib.markup_escape_text((p.get("icon") + " " if p.get("icon") and not p["icon"].startswith("/") else "📄 ")
                                                                + (p.get("title") or _("Untitled"))), activatable=True)
                 r.connect("activated", lambda *_, p=p: (pop.popdown(), self._insert_page(p)))
                 lst.append(r)
-            lst.set_visible(bool(pages))
+            lst.set_visible(bool(pages) or self._ai_on())
 
         def search(*_):
             q = se.get_text().strip()
@@ -1135,6 +1360,7 @@ class Conversation(Gtk.Box):
         files = list(self.files)
         if not text and not files:
             return
+        raw = text                                         # wie geschrieben (fuer die Frage an die KI)
         notes = []
         for t, nid in sorted(self.mentions.items(), key=lambda x: -len(x[0])):
             if t in text:
@@ -1155,7 +1381,7 @@ class Conversation(Gtk.Box):
             return chat.send(cid, body, reply_to=reply, file_ids=fids)
 
         def fin(r):
-            _resp, missing = r
+            resp, missing = r
             buf.set_text("")
             self.files, self.mentions = [], {}
             self._files_bar()
@@ -1167,6 +1393,7 @@ class Conversation(Gtk.Box):
             chat._list_soon()
             if missing:
                 _toast(self.win, _("{names} hasn't set up chats yet and can't read this message.").format(names=", ".join(missing)))
+            self._ask_ai(cid, raw, (resp or {}).get("id"))
 
         def err(e):
             self.entry.set_sensitive(True)
@@ -1175,6 +1402,15 @@ class Conversation(Gtk.Box):
                 self._check_trust()
             _toast(self.win, _("Not sent: {err}").format(err=e))
         bg(work, done=fin, error=err)
+
+    def _ask_ai(self, cid, raw, qid):
+        """Nachricht mit @Name in einem Chat mit erlaubter KI: Frage stellen (nach dem normalen, verschluesselten Senden)"""
+        from .assistant import ai_name
+        name = ai_name()
+        if not qid or not chat.ai_on(chat.chat(cid)) or not aichat.mentions(raw, name):
+            return
+        if not chat.ask_ai(cid, raw, qid, on_error=lambda e: _toast(self.win, _("{name} couldn't reply: {err}").format(name=name, err=e))):
+            _toast(self.win, _("{name} is still answering – please wait a moment.").format(name=name))
 
     # --- Menue ---------------------------------------------------------------------------------------------------------
     def menu(self, parent):
@@ -1188,6 +1424,10 @@ class Conversation(Gtk.Box):
                 ents.append((_("Call in browser"), self.win.call_current))
             ents.append((_("Safety number"), lambda: open_safety(self.win, self.cid, peer.get("username"))))
         ents.append((_("Members") + " …", lambda: ChatInfoDialog(self.win, self.cid).present(self.win)))
+        from .assistant import ai, ai_name
+        if ai.chat_allowed and aichat.may_toggle(c):     # KI im Chat (2.1): erlauben / nicht mehr erlauben
+            ents.append(((_("Stop allowing {name} here") if c.get("ai") else _("Allow {name} in this chat")).format(
+                name=ai_name()), self._ai_toggle))
         if c.get("kind") == "page" and c.get("note_id"):
             ents.append((_("Open page"), lambda: self.win.show_page(int(c["note_id"]))))
         ents.append((_("Search in this chat"), self.toggle_search))

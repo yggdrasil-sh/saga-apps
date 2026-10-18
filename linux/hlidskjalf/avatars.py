@@ -33,7 +33,8 @@ def tier(px):
 
 def valid(url):
     """nur relative Adressen des eigenen Servers (wie geliefert, nie selbst zusammengebaut)"""
-    return url if isinstance(url, str) and url.startswith("/api/avatar/") and len(url) < 400 and "\n" not in url else None
+    ok = isinstance(url, str) and url.startswith(("/api/avatar/", "/api/ai/avatar?")) and len(url) < 400 and "\n" not in url
+    return url if ok else None
 
 
 def _has_webp():
@@ -51,20 +52,22 @@ def _path(url, t):
     return f"{url}{'&' if '?' in url else '?'}s={t}"
 
 
-def _disk(srv, url, t):
-    h = hashlib.sha256(f"{srv}|{url}|{t}".encode()).hexdigest()[:40]
+def _disk(srv, url, t, etag=None):
+    h = hashlib.sha256(f"{srv}|{url}|{t}".encode() + (f"|{etag}".encode() if etag else b"")).hexdigest()[:40]
     return os.path.join(_DIR, h)
 
 
-def fetch(srv, url, t):
-    """Hintergrund: Bild-Bytes (Platte, sonst Server). APIError(404) = kein Bild. Offline: abgelaufene Datei geht auch."""
-    f = _disk(srv, url, t)
+def fetch(srv, url, t, etag=None):
+    """Hintergrund: Bild-Bytes (Platte, sonst Server). APIError(404) = kein Bild. Offline: abgelaufene Datei geht auch.
+    etag (Profilbild der KI, avatar_etag aus der Persona): Kennung des Bildinhalts - die Datei dazu gilt, solange sie gleich
+    bleibt (kein Ablauf nach einem Tag)."""
+    f = _disk(srv, url, t, etag)
     old = None
     try:
         st = os.stat(f)
         with open(f, "rb") as fh:
             old = fh.read()
-        if time.time() - st.st_mtime < DISK_TTL and old:
+        if old and (etag or time.time() - st.st_mtime < DISK_TTL):
             return old
     except OSError:
         pass
@@ -104,7 +107,8 @@ def _want(key, cb):
         lst.append(cb)
         return
     _waiting[key] = [cb]
-    srv, url, t = key
+    srv, url, t = key[:3]
+    etag = key[3] if len(key) > 3 else None
 
     def done(data):
         tex = _texture(data) if data else None
@@ -120,11 +124,12 @@ def _want(key, cb):
             _missing.add(key)                    # kein Bild (bzw. nicht sichtbar): nicht wiederholen
         for c in _waiting.pop(key, []):
             c(None)
-    bg(fetch, srv, url, t, done=done, error=err, media=True)
+    bg(fetch, srv, url, t, etag, done=done, error=err, media=True)
 
 
-def attach(av, url, size=None):
-    """Bild zur Adresse in ein Adw.Avatar legen (Initialen bleiben bis dahin bzw. bei Fehlern)"""
+def attach(av, url, size=None, etag=None):
+    """Bild zur Adresse in ein Adw.Avatar legen (Initialen bzw. Symbol bleiben bis dahin bzw. bei Fehlern).
+    etag: Kennung des Bildinhalts (Persona der KI) - Teil des Zwischenspeicher-Schluessels"""
     url = valid(url)
     av._hk_avatar = url
     srv = config.origin(config.settings.server)
@@ -132,7 +137,7 @@ def attach(av, url, size=None):
         av.set_custom_image(None)
         return
     scale = max(2, av.get_scale_factor() or 1)                # schon vor dem Zeichnen scharf fuer HiDPI
-    key = (srv, url, tier((size or av.get_size()) * scale))
+    key = (srv, url, tier((size or av.get_size()) * scale)) + ((str(etag)[:80],) if etag else ())
     tex = _mem.get(key)
     if tex is not None:
         av.set_custom_image(tex)

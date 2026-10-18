@@ -59,7 +59,7 @@ def srv():
     chat.clear()
     _mem.clear()
     notifications.reset()
-    ai.status, ai.known = {}, False
+    ai.status, ai.known, ai.persona_only = {}, False, None
     from hlidskjalf.clipimg import forget_immich
     forget_immich()
     client.set_cookies("", {})

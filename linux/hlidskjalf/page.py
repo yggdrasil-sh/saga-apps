@@ -1230,11 +1230,13 @@ class PageView(Gtk.Box):
                 chat.status in ("setup", "device", "ready"):          # Seiten-Chat (1.5): nur geteilte Seiten dieser Instanz
             from .chatview import open_page_chat
             ents.append((_("Page chat"), lambda: open_page_chat(win, self.id)))
-        if self.ai_on() and ok("ai"):                                  # KI-Assistent (1.6)
-            ents.append((_("AI assistant"), [(_("Summarize"), lambda: win.assistant("page", "summarize")),
-                                             (_("Suggest tasks"), lambda: win.assistant("page", "tasks")),
-                                             (_("Improve selected text"), lambda: win.assistant("page", "improve")),
-                                             (_("Ask your pages"), lambda: win.assistant("ask"))]))
+        if self.ai_on() and ok("ai"):                                  # KI-Assistent (1.6), Server ab 2.1: "Frage Marin"
+            from .assistant import ai, ask_label
+            ents.append((ask_label() if ai.persona() else _("AI assistant"),
+                         [(_("Summarize"), lambda: win.assistant("page", "summarize")),
+                          (_("Suggest tasks"), lambda: win.assistant("page", "tasks")),
+                          (_("Improve selected text"), lambda: win.assistant("page", "improve")),
+                          (_("Ask your pages"), lambda: win.assistant("ask"))]))
         ents.append(None)
         if ok("move"):
             ents.append((_("Move to …"), lambda: win.move_dialog(self.id)))
