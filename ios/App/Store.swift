@@ -190,8 +190,8 @@ final class Store: ObservableObject {
         return c.path.isEmpty || c.path == "/" || path == c.path || path.hasPrefix(c.path.hasSuffix("/") ? c.path : c.path + "/")
     }
 
-    func api(_ path: String, method: String = "GET", body: [String: Any]? = nil) async throws -> Data {
-        let (data, code) = try await apiResponse(path, method: method, body: body)
+    func api(_ path: String, method: String = "GET", body: [String: Any]? = nil, timeout: TimeInterval = 20) async throws -> Data {
+        let (data, code) = try await apiResponse(path, method: method, body: body, timeout: timeout)
         guard (200..<300).contains(code) else {
             let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String ?? ""
             throw APIError.http(code, msg)
@@ -201,11 +201,11 @@ final class Store: ObservableObject {
 
     /// Wie `api`, aber Fehlerantworten (4xx/5xx) kommen mit Code zurueck statt als Fehler - fuer Antworten mit
     /// zusaetzlichen Feldern (z. B. 409 need_name beim Veroeffentlichen). Abgelaufene Sitzung wie bei `api`.
-    func apiResponse(_ path: String, method: String = "GET", body: [String: Any]? = nil) async throws -> (Data, Int) {
+    func apiResponse(_ path: String, method: String = "GET", body: [String: Any]? = nil, timeout: TimeInterval = 20) async throws -> (Data, Int) {
         // NICHT appendingPathComponent: das kodiert "?" als %3F und Abfrage-Parameter werden zum Pfad (404)
         guard AppConfig.hasServer else { needsLogin = true; throw APIError.http(401, String(localized: "Bitte Server eintragen")) }   // noch kein Server -> Anmeldebildschirm
         guard let url = URL(string: AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/" + path) else { throw APIError.other(String(localized: "Ungültige Adresse")) }
-        var req = URLRequest(url: url, timeoutInterval: 20)
+        var req = URLRequest(url: url, timeoutInterval: timeout)
         req.httpMethod = method
         req.setValue("1", forHTTPHeaderField: "X-Hlidskjalf"); req.httpShouldHandleCookies = false   // Cookie selbst setzen
         if let body { req.setValue("application/json", forHTTPHeaderField: "Content-Type"); req.httpBody = try JSONSerialization.data(withJSONObject: body) }
@@ -573,9 +573,16 @@ final class Store: ObservableObject {
         if let m = images.object(forKey: path as NSString) { return m as Data }
         let disk = cacheDir.appendingPathComponent("files").appendingPathComponent(path.replacingOccurrences(of: "/", with: "_"))
         if let d = try? Data(contentsOf: disk) { images.setObject(d as NSData, forKey: path as NSString); return d }
-        guard let d = try? await api(String(path.drop(while: { $0 == "/" }))) else { return nil }
+        // Bilder duerfen dauern (Original ohne Vorschau bis 10 MB, Mobilfunk): 20 s reichten sonst nie - das Titelbild
+        // blieb dann bei jedem Oeffnen leer, waehrend der Browser es zeigte
+        guard let d = try? await api(String(path.drop(while: { $0 == "/" })), timeout: 90) else { return nil }
         try? d.write(to: disk, options: .atomic); images.setObject(d as NSData, forKey: path as NSString)
         return d
+    }
+    /// Gespeichertes Bild verwerfen (liess sich nicht entpacken): beim naechsten Mal frisch vom Server
+    func forgetImage(_ path: String) {
+        images.removeObject(forKey: path as NSString)
+        try? FileManager.default.removeItem(at: cacheDir.appendingPathComponent("files").appendingPathComponent(path.replacingOccurrences(of: "/", with: "_")))
     }
 
     // MARK: Seiten organisieren (dieselben Server-Wege wie das Web)

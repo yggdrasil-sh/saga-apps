@@ -198,11 +198,19 @@ struct RemoteImage: View {
             } else { Rectangle().fill(.secondary.opacity(0.12)) }
         }
         .overlay {
-            if spinner && cached == nil && loadedKey != key && failedKey != key { ProgressView().padding(10).background(.regularMaterial, in: Circle()) }
+            if spinner && cached == nil && loadedKey != key {
+                if failedKey == key {                         // endgueltig nicht geladen: nicht still leer lassen
+                    Button { failedKey = nil; attempt += 1 } label: { Label("Erneut versuchen", systemImage: "arrow.clockwise") }
+                        .buttonStyle(.bordered).padding(10).background(.regularMaterial, in: Capsule())
+                } else {
+                    ProgressView().padding(10).background(.regularMaterial, in: Circle())
+                }
+            }
         }
-        .task(id: key) { await load(key) }
+        .task(id: "\(key)#\(attempt)") { await load(key) }
     }
     @State private var failedKey: String?
+    @State private var attempt = 0
     private func load(_ key: String) async {
         if let c = ImageStore.cache.object(forKey: key as NSString) { img = c; loadedKey = key; return }
         defer { if loadedKey != key && !Task.isCancelled { failedKey = key } }
@@ -211,7 +219,8 @@ struct RemoteImage: View {
             if Task.isCancelled { return }
             guard let d = await store.imageData(key) else { continue }
             let decoded = await Task.detached(priority: .userInitiated) { ImageStore.decode(d) }.value      // im Hintergrund entpacken
-            guard let decoded else { return }                                                               // kein Bild: nicht wiederholen
+            // kein Bild (z. B. Fehlerseite eines Proxys gespeichert): verwerfen und frisch holen - sonst bliebe es fuer immer leer
+            guard let decoded else { store.forgetImage(key); continue }
             ImageStore.cache.setObject(decoded, forKey: key as NSString, cost: d.count * 4)
             img = decoded; loadedKey = key
             return

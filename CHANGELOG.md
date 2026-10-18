@@ -26,6 +26,13 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Immich oder von anderen Geräten zeigen beim Laden einen Fortschritt, beim Wechseln bleibt das alte Bild bis zum
   neuen stehen, ein abgebrochener Abruf wird wiederholt. Entfernen und „Neu positionieren“ wirken sofort (bei einem
   Fehler kommt der alte Stand zurück).
+- **Titelbild blieb in der App dauerhaft leer (z. B. aus Immich):** Gespeichert wurde es richtig (das Web zeigte es),
+  aber die App gab das Laden des Bildes nach 20 Sekunden auf – bei langsamer Verbindung, großen Bildern oder wenn
+  der Server die Vorschau erst erzeugen muss, also bei jedem Öffnen erneut. Bilder dürfen jetzt bis 90 Sekunden
+  laden, ein Fehlschlag wird automatisch wiederholt, danach bietet das Titelbild „Erneut versuchen“ an; ein
+  unbrauchbarer Eintrag im Bildspeicher wird verworfen. Eigene Fotos für Titelbild/Symbol werden vor dem Hochladen
+  passend verkleinert (Titelbild höchstens 3000 px, Symbol 640 px, nach EXIF gedreht, HEIC als JPEG) – ein
+  iPhone-Foto mit 24/48 MP musste vorher in voller Größe hoch (Grenze des Servers: 10 MB).
 - **Symbol lässt sich wieder ändern:** Bei Seiten mit Titelbild landete ein Tippen auf den oberen Teil des Symbols
   (der über dem Titelbild liegt) im Titelbild – statt der Symbol-Auswahl erschien nur die Leiste „Ändern |
   Neu positionieren | Entfernen“. Jetzt öffnet das ganze Symbol (Emoji oder Bild) die Auswahl; neu sind dort und im

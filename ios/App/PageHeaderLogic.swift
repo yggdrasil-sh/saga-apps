@@ -1,4 +1,6 @@
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
 
 /// Seitenkopf (Titelbild, Symbol): reine Logik, ohne SwiftUI pruefbar (Tests/Logic/HeaderTests.swift)
 enum HeaderLogic {
@@ -42,6 +44,37 @@ enum HeaderLogic {
     /// Bild vom Server nachladen: Wartezeiten vor dem 1., 2., ... Versuch (die Vorschau ?w= erzeugt der Server beim
     /// ersten Abruf; ein Zeitlimit oder Netzaussetzer darf das Bild nicht bis zum Neuladen der Seite verschwinden lassen)
     static let retryDelays: [Double] = [0, 1, 3, 8]
+}
+
+/// Bild fuer Titelbild/Symbol vor dem Hochladen. Der Server nimmt hoechstens ATTACH_MAX_MB (Standard 10 MB) und nur
+/// PNG/JPEG/GIF/WebP; ein aktuelles iPhone-Foto (HEIC, 24/48 MP) wurde bisher in voller Groesse als JPEG geschickt -
+/// gross, langsam, evtl. abgelehnt, und die Vorschau musste der Server erst aus dem Riesenbild rechnen.
+enum HeaderImage {
+    static let coverMaxPixel = 3000                 // Titelbild: Web und Apps laden hoechstens ?w=2000
+    static let iconMaxPixel = 640                   // Symbol: angezeigt mit hoechstens 78 pt
+    static let maxBytes = 9 * 1024 * 1024           // mit Reserve unter dem Server-Standard (10 MB)
+
+    /// Unveraendert, wenn schon passend (Format, Groesse, Ausrichtung) und GIF immer (Animation); sonst auf maxPixel
+    /// verkleinert, nach EXIF gedreht, als JPEG (mit Transparenz als PNG). nil = kein lesbares Bild.
+    static func prepare(_ data: Data, maxPixel: Int) -> Data? {
+        guard let src = CGImageSourceCreateWithData(data as CFData, nil), let type = CGImageSourceGetType(src) as String? else { return nil }
+        let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] ?? [:]
+        let w = props[kCGImagePropertyPixelWidth] as? Int ?? 0, h = props[kCGImagePropertyPixelHeight] as? Int ?? 0
+        let orient = props[kCGImagePropertyOrientation] as? Int ?? 1
+        if type == UTType.gif.identifier && data.count <= maxBytes { return data }
+        let web = [UTType.png, .jpeg, .webP].map(\.identifier)
+        if web.contains(type) && max(w, h) <= maxPixel && orient == 1 && data.count <= maxBytes { return data }
+        let opts: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+                                     kCGImageSourceCreateThumbnailWithTransform: true]
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else { return nil }
+        // Transparenz nur bei Grafikformaten behalten (Fotos/HEIC melden manchmal einen Alphakanal ohne Inhalt)
+        let alpha = (props[kCGImagePropertyHasAlpha] as? Bool ?? false) && [UTType.png, .webP, .gif].map(\.identifier).contains(type)
+        let out = NSMutableData()
+        guard let dst = CGImageDestinationCreateWithData(out, (alpha ? UTType.png : UTType.jpeg).identifier as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(dst, cg, alpha ? nil : [kCGImageDestinationLossyCompressionQuality: 0.85] as CFDictionary)
+        guard CGImageDestinationFinalize(dst) else { return nil }
+        return out as Data
+    }
 }
 
 /// Schaltflaechen-Bloecke ("+ Neuer Eintrag" usw.)

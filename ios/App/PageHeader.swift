@@ -169,7 +169,8 @@ extension PageDoc {
         let img = await Task.detached(priority: .userInitiated) { ImageStore.decode(data) }.value
         coverPreview = img
         do {
-            let url = try await store.uploadImage(data, note: uploadNote)
+            let up = await Task.detached(priority: .userInitiated) { HeaderImage.prepare(data, maxPixel: HeaderImage.coverMaxPixel) }.value ?? data
+            let url = try await store.uploadImage(up, note: uploadNote)
             if let img { ImageStore.prime(url, w: CoverView.loadWidth, img) }      // ohne erneuten Abruf, ohne Aufblitzen
             await setHeader(["cover": url, "cover_pos": 50.0], store)
         } catch { self.error = error.localizedDescription }
@@ -180,8 +181,9 @@ extension PageDoc {
     @discardableResult
     func setIconImage(data: Data, _ store: Store) async -> Bool {
         do {
-            let url = try await store.uploadImage(data, note: uploadNote)
-            if let img = await Task.detached(priority: .userInitiated, operation: { ImageStore.decode(data) }).value {
+            let up = await Task.detached(priority: .userInitiated) { HeaderImage.prepare(data, maxPixel: HeaderImage.iconMaxPixel) }.value ?? data
+            let url = try await store.uploadImage(up, note: uploadNote)
+            if let img = await Task.detached(priority: .userInitiated, operation: { ImageStore.decode(up) }).value {
                 ImageStore.prime(url, w: IconRow.loadWidth, img)
             }
             return await setHeader(["icon": url], store)
