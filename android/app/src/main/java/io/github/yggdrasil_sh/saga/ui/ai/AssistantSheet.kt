@@ -75,6 +75,8 @@ import io.github.yggdrasil_sh.saga.ai.AiChunk
 import io.github.yggdrasil_sh.saga.ai.AiDone
 import io.github.yggdrasil_sh.saga.ai.AiHistoryItem
 import io.github.yggdrasil_sh.saga.ai.AiLogic
+import io.github.yggdrasil_sh.saga.ai.AiPersona
+import io.github.yggdrasil_sh.saga.ai.AiPersonaLogic
 import io.github.yggdrasil_sh.saga.ai.AiSource
 import io.github.yggdrasil_sh.saga.ai.AiStatus
 import io.github.yggdrasil_sh.saga.data.SagaRepository
@@ -112,7 +114,17 @@ fun AssistantSheet(repo: SagaRepository, editor: PageEditor?, initialTab: Int, o
                 val st = status
                 var history by remember { mutableStateOf(false) }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("✦ " + stringResource(R.string.ai_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    val persona = AiPersonaLogic.effective(st)
+                    if (persona != null) {
+                        // 2.1: Profilbild + "Frage {name}"
+                        AiAvatar(persona, 32)
+                        Text(
+                            stringResource(R.string.ai_ask_name, persona.name), style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.weight(1f).padding(start = 10.dp), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        )
+                    } else {
+                        Text("✦ " + stringResource(R.string.ai_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    }
                     // Verlauf nur, wenn der Admin ihn erlaubt
                     if (st?.enabled == true && st.historyAllowed) TextButton(onClick = { history = true }) { Text(stringResource(R.string.ai_history)) }
                 }
@@ -218,8 +230,10 @@ private fun AskTab(repo: SagaRepository, st: AiStatus?, onOpenPage: (Long) -> Un
                     Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = MaterialTheme.shapes.medium) {
                         Text(t.q, modifier = Modifier.padding(10.dp), color = MaterialTheme.colorScheme.onSecondaryContainer)
                     }
+                    val persona = AiPersonaLogic.effective(st)
+                    if (persona != null && (t.answer.isNotEmpty() || t.running)) Box(Modifier.padding(top = 8.dp)) { AiWho(persona, persona.name) }
                     if (t.answer.isEmpty() && t.running) {
-                        Text(stringResource(R.string.ai_thinking), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Text(thinkingText(persona), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 8.dp).semantics { liveRegion = LiveRegionMode.Polite })
                     }
                     if (t.answer.isNotEmpty()) Box(Modifier.padding(top = 8.dp)) { AnswerText(t.answer, t.sources.orEmpty(), onOpenPage) }
@@ -251,6 +265,7 @@ private fun AskTab(repo: SagaRepository, st: AiStatus?, onOpenPage: (Long) -> Un
                                 when (c) {
                                     is AiChunk.Sources -> t.sources = c.sources
                                     is AiChunk.Delta -> t.answer += c.text
+                                    AiChunk.Reset -> t.answer = ""
                                     is AiChunk.Done -> updateQuota(repo, c.done)
                                     is AiChunk.Failed -> {
                                         t.error = c.error
@@ -268,6 +283,11 @@ private fun AskTab(repo: SagaRepository, st: AiStatus?, onOpenPage: (Long) -> Un
         }
     }
 }
+
+/** "{name} denkt nach …" mit Persona (2.1), sonst wie bisher "Denkt nach …" */
+@Composable
+fun thinkingText(persona: AiPersona?): String =
+    if (persona != null) stringResource(R.string.ai_thinking_name, persona.name) else stringResource(R.string.ai_thinking)
 
 private fun updateQuota(repo: SagaRepository, d: AiDone) {
     val st = repo.ai.status.value ?: return
@@ -314,6 +334,7 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                 flow.collect { c ->
                     when (c) {
                         is AiChunk.Delta -> text += c.text
+                        AiChunk.Reset -> text = ""
                         is AiChunk.Done -> {
                             done = c.done
                             c.done.tasks?.let { ts -> taskOn.clear(); taskOn.addAll(ts.map { true }) }
@@ -371,10 +392,12 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
             }
         }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        val persona = AiPersonaLogic.effective(st)
+        if (persona != null && (running || text.isNotEmpty())) Box(Modifier.padding(bottom = 6.dp)) { AiWho(persona, persona.name) }
         if (running && text.isEmpty()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                Text(stringResource(R.string.ai_thinking), modifier = Modifier.padding(start = 8.dp))
+                Text(thinkingText(persona), modifier = Modifier.padding(start = 8.dp))
             }
         }
         if (running) TextButton(onClick = { job?.cancel(); running = false }) { Text(stringResource(R.string.ai_stop)) }

@@ -113,6 +113,23 @@ object ChatLogic {
     /** Beschriftung des Feldes: "Passwort oder Code" nur, wenn das Konto eine Authenticator-App hat */
     fun reauthWithCode(methods: List<String>): Boolean = "totp" in methods
 
+    /** 2.1 KI-Antwort: {"v":1,"type":"text","text": done.text,"ai":{"reply": beleg,"name": Name der KI}} */
+    fun aiReplyContent(text: String, replyId: String, aiName: String): String = buildJsonObject {
+        put("v", 1)
+        put("type", "text")
+        put("text", text)
+        putJsonObject("ai") {
+            put("reply", replyId)
+            put("name", aiName)
+        }
+    }.toString()
+
+    /** Beleg einer empfangenen Nachricht pruefen (Inhalt entschluesselt, Beleg vom Server) */
+    fun aiCheck(c: ChatContent?, ref: ApiAiRef?): io.github.yggdrasil_sh.saga.ai.AiReplyCheck {
+        val hasAi = c?.ai != null && c.ai !is kotlinx.serialization.json.JsonNull
+        return io.github.yggdrasil_sh.saga.ai.AiChatLogic.check(c?.aiReply, hasAi, c?.text, ref?.ref, ref?.sha256)
+    }
+
     fun titleContent(title: String): String = buildJsonObject {
         put("v", 1)
         put("type", "title")
