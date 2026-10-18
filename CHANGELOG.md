@@ -17,6 +17,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   sobald ein Server bekannt ist – danach zeigt Saga den Zwischenspeicher mit Hinweis „Nicht angemeldet · Anmelden“
   statt das Fenster bei jeder Anfrage erneut zu öffnen. Am Mac lässt sich das Anmeldeblatt in der Größe ändern.
 
+### Neu – Android: Sprache der App wählbar
+- **Einstellungen → Sprache** (ganz oben): Automatisch (Gerätesprache), Deutsch, English, Español – gilt nur für Saga,
+  die Gerätesprache bleibt unverändert (z. B. auf einem fremden oder geteilten Gerät). Sofort wirksam, ohne Neustart.
+- **Auch vor dem Anmelden:** kleiner Umschalter (Globus) unten auf dem Anmeldebildschirm.
+- Android 13+: über die Sprache pro App des Systems (auch unter Einstellungen → Apps → Saga → Sprache, beide Wege
+  bleiben gleich); Android 8–12: eigene Einstellung der App. Die Anfragen an den Server (`Accept-Language`) folgen
+  der gewählten Sprache.
+
 ## [2.1.0] – 2026-10-17
 
 Passt zu Saga-Server 2.1. **Die neuen Funktionen brauchen Saga-Server 2.1; ältere Server funktionieren weiter**

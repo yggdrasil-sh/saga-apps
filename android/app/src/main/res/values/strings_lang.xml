@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sprachwahl in der App (Anmeldung und Einstellungen) -->
+<resources>
+    <string name="language">Language</string>
+    <string name="language_auto">Automatic (device language)</string>
+    <string name="language_hint">Applies to Saga on this device only. Your device language stays unchanged.</string>
+    <string name="language_change">Change language</string>
+</resources>

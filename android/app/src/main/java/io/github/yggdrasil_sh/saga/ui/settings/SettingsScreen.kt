@@ -97,6 +97,8 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_settings), nav, chrome) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
+            // Sprache der App ganz oben (gut auffindbar; auf einem fremden/geteilten Geraet unabhaengig von der Geraetesprache)
+            item { LanguageRow(w.padding(top = 4.dp)) }
             item { SectionHeader(stringResource(R.string.settings_account), w) }
             item {
                 // Mit welchem Konto auf welchem Server angemeldet (Schutz vor unbemerktem Kontowechsel)

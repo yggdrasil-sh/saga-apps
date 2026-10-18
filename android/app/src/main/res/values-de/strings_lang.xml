@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Sprachwahl in der App (Anmeldung und Einstellungen) -->
+<resources>
+    <string name="language">Sprache</string>
+    <string name="language_auto">Automatisch (Gerätesprache)</string>
+    <string name="language_hint">Gilt nur für Saga auf diesem Gerät. Die Gerätesprache bleibt unverändert.</string>
+    <string name="language_change">Sprache ändern</string>
+</resources>

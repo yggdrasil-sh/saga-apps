@@ -200,6 +200,8 @@ fun LoginScreen(repo: SagaRepository) {
                         )
                     }) { Text(stringResource(R.string.login_open_app_settings)) }
                 }
+                // Sprache vor dem Anmelden waehlbar (fremdes Geraet in einer anderen Sprache)
+                io.github.yggdrasil_sh.saga.ui.settings.LanguageMenuButton()
                 Spacer(Modifier.height(8.dp))
             }
         }

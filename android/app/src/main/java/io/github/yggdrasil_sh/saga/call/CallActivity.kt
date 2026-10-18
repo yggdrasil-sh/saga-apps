@@ -81,6 +81,9 @@ import org.webrtc.SurfaceViewRenderer
  * Weg (direkt/Relais) und Qualitaet.
  */
 class CallActivity : ComponentActivity() {
+    override fun attachBaseContext(newBase: android.content.Context) =
+        super.attachBaseContext(io.github.yggdrasil_sh.saga.util.AppLanguage.wrap(newBase))
+
     companion object {
         const val ACTION_ANSWER = "io.github.yggdrasil_sh.saga.call.ANSWER"
 
