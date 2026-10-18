@@ -6,6 +6,20 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### KI-Persona und „KI im Chat – nur auf Zuruf“ – iOS, iPadOS, macOS
+- **Name und Profilbild der KI** überall, wo die App KI-Funktionen anbietet: „Frage Marin“ im Seitenmenü und in der
+  Befehlspalette, Bild der KI als Knopf in der Kopfzeile, Antworten mit Bild und Namen, „Marin denkt nach …“.
+  Ohne Bild ein neutrales Symbol (✦ auf Gold). Bild über `/api/ai/avatar` (wie Profilbilder zwischengespeichert,
+  ETag); Änderungen durch den Admin kommen live (`ai.persona.changed`). Ältere Server ohne Persona: wie bisher.
+- **KI im Chat, nur auf Zuruf:** Ist die KI in einem Chat erlaubt, zeigt der Chat dauerhaft, was an die KI geht
+  (Nachrichten mit @Name und bis zu 12 davor, im Klartext an den KI-Dienst). Berechtigte schalten sie im Chat-Menü
+  ein oder aus (mit Rückfrage). Bei „@“ steht die KI als erster Vorschlag; beim Schreiben von „@Marin …“ ein kurzer
+  Hinweis. Nach dem Senden fragt die App die KI mit höchstens 12 Nachrichten Verlauf, zeigt die Antwort mitlaufend
+  und verschlüsselt sie danach wie jede Nachricht Ende-zu-Ende für alle (mit Beleg des Servers).
+- **Empfangene KI-Antworten** erscheinen mit Bild und Namen der KI und „gefragt von …“ – nur, wenn der SHA-256 des
+  entschlüsselten Textes und die Beleg-Kennung zum Server-Beleg passen; sonst als normale Nachricht mit Warnung
+  „Als KI-Antwort ausgegeben, aber nicht bestätigt“.
+
 ### Sprache wählbar – iOS, iPadOS, macOS
 - **Einstellungen → „Sprache“:** Automatisch (Systemsprache), Deutsch, English oder Español – unabhängig von der
   Sprache des Geräts. iPhone/iPad nutzen die Systemfunktion je App (Eintrag zeigt die aktuelle Sprache und öffnet

@@ -29,6 +29,7 @@ struct ConversationView: View {
     @State private var newName = ""
     @State private var search = ""
     @State private var searching = false
+    @State private var askAIOn = false                    // KI im Chat erlauben? (Rueckfrage)
     @State private var perfScroll: String?                // nur fuer Tests (-hkChatPerf): automatisch scrollen
     @FocusState private var focused: Bool
 
@@ -80,8 +81,12 @@ struct ConversationView: View {
                 var f: [ChatPendingFile] = []
                 if UserDefaults.standard.bool(forKey: "hkChatSendImage"), let png = Self.testImage() { f.append(ChatPendingFile(name: "garten.png", mime: "image/png", data: png)) }
                 let reply = UserDefaults.standard.bool(forKey: "hkChatReply") ? conv.messages.last(where: { !$0.mine })?.id : nil
-                await conv.send(text: t, replyTo: reply, files: f)
+                if await conv.send(text: t, replyTo: reply, files: f), conv.aiAllowed, AIChatLogic.mentions(t, name: conv.aiName), let qid = conv.lastSentID {
+                    conv.askAI(question: t, qid: qid)                                       // wie sendNow: "@Name" fragt die KI
+                }
             }
+            if let t = UserDefaults.standard.string(forKey: "hkChatDraft") { try? await Task.sleep(for: .seconds(1)); text = t }   // nur fuer Tests: Entwurf (@-Vorschlag)
+            if UserDefaults.standard.bool(forKey: "hkChatAIConfirm") { try? await Task.sleep(for: .seconds(2)); askAIOn = true }   // nur fuer Bilder: Rueckfrage zeigen
             if let q = UserDefaults.standard.string(forKey: "hkChatSearch") { searching = true; search = q }
             if UserDefaults.standard.bool(forKey: "hkChatFocus") { try? await Task.sleep(for: .seconds(1)); focused = true }   // nur fuer Tests: Einsetzen
             if UserDefaults.standard.bool(forKey: "hkChatPendingImage"), let png = Self.testImage() {   // nur fuer Tests: Anhang vorbereiten, nicht senden
@@ -122,6 +127,12 @@ struct ConversationView: View {
             Button("Löschen", role: .destructive) { Task { await conv.delete(m) } }
             Button("Abbrechen", role: .cancel) {}
         } message: { _ in Text("Die Nachricht und ihre Anhänge werden vom Server gelöscht. Wer sie schon gelesen hat, kann eine Kopie haben.") }
+        .alert(Text("\(conv.aiName) in diesem Chat erlauben?"), isPresented: $askAIOn) {
+            Button("Erlauben") { Task { await conv.setAI(true) } }
+            Button("Abbrechen", role: .cancel) {}
+        } message: {
+            Text("Dann kann jede Person im Chat \(conv.aiName) mit @\(conv.aiName) fragen. Nur diese Nachricht und bis zu \(AIChatLogic.historyMax) Nachrichten davor gehen im Klartext an die KI (\(aiHost)) – der Server speichert sie nicht. Alle Mitglieder sehen einen Hinweis.")
+        }
         .alert("Gruppe verlassen?", isPresented: $askLeave) {
             Button("Verlassen", role: .destructive) { Task { if await conv.leave() { nav.back() } } }
             Button("Abbrechen", role: .cancel) {}
@@ -146,6 +157,18 @@ struct ConversationView: View {
                     .buttonStyle(.plain).help(Text("Suche schließen")).accessibilityLabel(Text("Suche schließen"))
             }
             .padding(10).background(.bar)
+            Divider()
+        }
+        if conv.aiAllowed {                                                  // KI im Chat (2.1): sichtbar, was an die KI geht
+            HStack(alignment: .top, spacing: 8) {
+                AIAvatarView(persona: store.aiPersona, size: 20)
+                Text("\(conv.aiName) ist in diesem Chat erlaubt – nur auf Zuruf: Nachrichten mit @\(conv.aiName) und bis zu \(AIChatLogic.historyMax) Nachrichten davor gehen im Klartext an die KI (\(aiHost)). Alles andere bleibt Ende-zu-Ende-verschlüsselt.")
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8).frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.gold.opacity(0.10))
+            .accessibilityElement(children: .combine)
             Divider()
         }
         ForEach(conv.changedPeers, id: \.self) { u in
@@ -181,7 +204,7 @@ struct ConversationView: View {
                                 if let p = conv.info?.peer { store.calls.start(chatID: chatID, peer: p, video: e.media == "video") }
                             }.id(m.id)
                         } else {
-                        MessageBubble(m: m, showName: conv.info?.kind != "dm" && !m.mine && (i == 0 || shown[i - 1].sender != m.sender || shown[i - 1].call != nil),
+                        MessageBubble(m: m, showName: conv.info?.kind != "dm" && !m.mine && (i == 0 || shown[i - 1].sender != m.sender || shown[i - 1].call != nil || shown[i - 1].aiState == .ok),
                                       quoted: m.replyTo.flatMap { r in conv.messages.first { $0.id == r } }, hasReply: m.replyTo != nil,
                                       conv: conv, highlight: !search.isEmpty && ChatLogic.matches(m.text, search),
                                       reply: { replyTo = m; focused = true }, delete: { askDelete = m },
@@ -189,6 +212,9 @@ struct ConversationView: View {
                                       checkSafety: { safetyPeer = ChatMember(username: m.sender, name: m.senderName, me: false) })
                             .id(m.id)
                         }
+                    }
+                    if let p = conv.aiPending {                                    // KI antwortet gerade (Strom)
+                        AIPendingBubble(persona: store.aiPersona, name: conv.aiName, text: p).id("aipending")
                     }
                     if let e = conv.error { Text("Nachrichten nicht geladen: \(e)").font(.footnote).foregroundStyle(.orange) }
                     Color.clear.frame(height: 4).id("end")
@@ -200,7 +226,16 @@ struct ConversationView: View {
             // Anhang-/Antwort-Leiste, Tastatur, "tippt ...": Verlauf bleibt unten verankert statt unter der Leiste zu verschwinden
             .defaultScrollAnchor(.bottom, for: .sizeChanges)
             .scrollDismissesKeyboard(.interactively)
-            .onChange(of: conv.messages.last?.id) { _, _ in withAnimation { proxy.scrollTo("end", anchor: .bottom) } }
+            .onChange(of: conv.messages.last?.id) { _, _ in
+                withAnimation { proxy.scrollTo("end", anchor: .bottom) }
+                if conv.aiPending != nil || conv.messages.last?.aiState == .ok {   // KI-Antwort ersetzt die laufende Blase: nach dem Umbau nachziehen
+                    Task { try? await Task.sleep(for: .milliseconds(350)); proxy.scrollTo("end", anchor: .bottom) }
+                }
+            }
+            .onChange(of: conv.aiPending == nil) { _, _ in                  // KI-Blase erscheint/verschwindet: Ende sichtbar halten
+                Task { try? await Task.sleep(for: .milliseconds(120)); proxy.scrollTo("end", anchor: .bottom) }
+            }
+            .onChange(of: conv.aiPending?.count ?? 0) { _, _ in proxy.scrollTo("end", anchor: .bottom) }   // mitlaufender Text
             .onChange(of: files.count) { old, new in                        // Anhang gewaehlt: Leiste schiebt sich ueber den Verlauf -> ans Ende
                 guard new > old else { return }
                 Task { try? await Task.sleep(for: .milliseconds(80)); withAnimation { proxy.scrollTo("end", anchor: .bottom) } }
@@ -219,6 +254,8 @@ struct ConversationView: View {
                 Text("\(conv.typingNames.joined(separator: ", ")) tippt …").font(.caption).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
             }
             if let s = conv.sendError { Text(verbatim: s).font(.footnote).foregroundStyle(.red).frame(maxWidth: .infinity, alignment: .leading) }
+            if let s = conv.aiError { Text(verbatim: s).font(.footnote).foregroundStyle(.red).frame(maxWidth: .infinity, alignment: .leading) }
+            aiComposerHints
             if let r = replyTo {
                 HStack {
                     Rectangle().fill(Color.gold).frame(width: 3)
@@ -278,8 +315,45 @@ struct ConversationView: View {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !t.isEmpty || !files.isEmpty, !conv.sending else { return }
         let f = files, r = replyTo?.id
+        let ask = conv.aiAllowed && AIChatLogic.mentions(t, name: conv.aiName)      // "@Marin …": danach die KI fragen
         Task {
-            if await conv.send(text: t, replyTo: r, files: f) { text = ""; files = []; replyTo = nil }
+            if await conv.send(text: t, replyTo: r, files: f) {
+                text = ""; files = []; replyTo = nil
+                if ask, let qid = conv.lastSentID { conv.askAI(question: t, qid: qid) }
+            }
+        }
+    }
+    private var aiHost: String { store.aiHost.isEmpty ? "?" : store.aiHost }
+
+    /// @-Vorschlag (KI zuerst, dann "Seite verlinken") und Hinweis, dass die Nachricht an die KI geht
+    @ViewBuilder private var aiComposerHints: some View {
+        let q = AIChatLogic.mentionQuery(text)
+        if q != nil {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    if conv.aiAllowed && AIChatLogic.suggests(query: q, name: conv.aiName) {
+                        Button { text = AIChatLogic.complete(text, name: conv.aiName); focused = true } label: {
+                            HStack(spacing: 6) {
+                                AIAvatarView(persona: store.aiPersona, size: 20)
+                                Text(verbatim: conv.aiName).font(.callout.weight(.semibold))
+                                Text("KI fragen").font(.caption).foregroundStyle(.secondary)
+                            }
+                            .padding(.horizontal, 10).padding(.vertical, 5).background(Color.gold.opacity(0.14), in: Capsule())
+                        }.buttonStyle(.plain)
+                    }
+                    Button { text = String(text.dropLast((q ?? "").count + 1)); pickPage = true } label: {
+                        Label("Seite verlinken", systemImage: "doc.text").font(.callout)
+                            .padding(.horizontal, 10).padding(.vertical, 5).background(Color.secondary.opacity(0.12), in: Capsule())
+                    }.buttonStyle(.plain)
+                }
+            }
+        }
+        if conv.aiAllowed && AIChatLogic.mentions(text, name: conv.aiName) {
+            HStack(spacing: 6) {
+                AIAvatarView(persona: store.aiPersona, size: 16)
+                Text("Geht an \(conv.aiName): diese Nachricht und bis zu \(AIChatLogic.historyMax) davor, im Klartext an \(aiHost).")
+                    .font(.caption).foregroundStyle(.secondary)
+            }.frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -303,6 +377,11 @@ struct ConversationView: View {
                     }
                     Text("Gilt für neue Nachrichten.")
                 } label: { Label("Nachrichten automatisch löschen nach", systemImage: "timer") }
+                if store.aiChat, AIChatLogic.mayToggle(kind: i.kind, role: i.role, ownsPage: i.noteID.map { n in store.pages.contains { $0.id == n } } ?? false) {
+                    Button { if i.ai { Task { await conv.setAI(false) } } else { askAIOn = true } } label: {
+                        Label(i.ai ? String(localized: "\(conv.aiName) hier nicht mehr erlauben") : String(localized: "\(conv.aiName) in diesem Chat erlauben"), systemImage: "sparkle")
+                    }
+                }
                 if i.kind == "page", let n = i.noteID { Button { nav.push(PageRoute(id: n)) } label: { Label("Seite öffnen", systemImage: "doc.text") } }
                 if i.kind == "free" {
                     Divider()
@@ -432,20 +511,28 @@ struct MessageBubble: View {
     var openPage: (Int) -> Void
     var checkSafety: () -> Void = {}
     @State private var info = false
+    @EnvironmentObject var store: Store
+    /// bestaetigte KI-Antwort (2.1): links mit Bild + Name der KI, "gefragt von …"
+    private var isAI: Bool { m.aiState == .ok }
+    private var mine: Bool { m.mine && !isAI }
+    private var aiName: String { store.aiName ?? m.content?.aiName ?? String(localized: "Saga KI") }
     #if DEBUG
     @MainActor static var infoShown = false                       // nur fuer Bilder: Erklaerung einmal oeffnen
     #endif
     var body: some View {
         HStack {
-            if m.mine { Spacer(minLength: 48) }
-            VStack(alignment: m.mine ? .trailing : .leading, spacing: 3) {
-                if showName {
+            if mine { Spacer(minLength: 48) }
+            VStack(alignment: mine ? .trailing : .leading, spacing: 3) {
+                if isAI {
+                    AIWhoLine(persona: store.aiPersona, name: aiName, askedBy: m.mine ? String(localized: "dir") : m.senderName)
+                } else if showName {
                     HStack(spacing: 5) {
                         AvatarView(name: m.senderName, avatar: m.senderAvatar, size: 18)
                         Text(verbatim: m.senderName).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     }
                 }
                 VStack(alignment: .leading, spacing: 6) {
+                    if m.aiState == .bad { aiUnconfirmed }
                     if hasReply { quote }
                     if let c = m.content {
                         if !c.text.isEmpty { textView(c.text) }
@@ -458,6 +545,7 @@ struct MessageBubble: View {
                 }
                 .padding(.horizontal, 12).padding(.vertical, 8)
                 .background(bubbleColor, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(isAI ? Color.gold.opacity(0.55) : .clear, lineWidth: 1))
                 .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(highlight ? Color.gold : .clear, lineWidth: 2))
                 HStack(spacing: 4) {
                     Text(m.date, format: .dateTime.hour().minute())
@@ -471,12 +559,12 @@ struct MessageBubble: View {
             }
             .accessibilityElement(children: .combine)
             .accessibilityHint(m.verified ? Text(verbatim: "") : Text("Echtheit nicht bestätigt"))
-            if !m.mine { Spacer(minLength: 48) }
+            if !mine { Spacer(minLength: 48) }
         }
     }
     /// deckende Blasen (eigene golden wie auf iPhone/iPad, auch am Mac mit Graphit-Akzent)
     private var bubbleColor: Color {
-        m.mine ? .adaptive(ChatLogic.Palette.bubbleMine.light, ChatLogic.Palette.bubbleMine.dark)
+        mine ? .adaptive(ChatLogic.Palette.bubbleMine.light, ChatLogic.Palette.bubbleMine.dark)
                : .adaptive(ChatLogic.Palette.bubbleOther.light, ChatLogic.Palette.bubbleOther.dark)
     }
     /// "Echtheit nicht bestaetigt": Inhalt bleibt voll deckend; Symbol orange, Text in lesbarer Sekundaerfarbe (>= 4,5:1),
@@ -517,12 +605,21 @@ struct MessageBubble: View {
             #endif
         }
     }
+    /// Inhalt gibt sich als KI-Antwort aus, der Beleg des Servers passt aber nicht (Hash/Kennung)
+    private var aiUnconfirmed: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Color.adaptive(ChatLogic.Palette.warn.light, ChatLogic.Palette.warn.dark))
+            Text("Als KI-Antwort ausgegeben, aber nicht bestätigt").foregroundStyle(Color.adaptive(ChatLogic.Palette.hint.light, ChatLogic.Palette.hint.dark))
+        }
+        .font(.caption.weight(.semibold))
+        .accessibilityElement(children: .combine)
+    }
     private var quote: some View {
         HStack(spacing: 6) {
             Rectangle().fill(Color.gold).frame(width: 3)
             VStack(alignment: .leading, spacing: 1) {
                 if let q = quoted {
-                    Text(verbatim: q.mine ? String(localized: "du") : q.senderName).font(.caption.weight(.semibold))
+                    Text(verbatim: q.aiState == .ok ? (store.aiName ?? q.content?.aiName ?? String(localized: "Saga KI")) : q.mine ? String(localized: "du") : q.senderName).font(.caption.weight(.semibold))
                     Text(verbatim: q.text.isEmpty ? (q.content?.files.first?.name ?? "") : q.text).font(.caption).lineLimit(2).foregroundStyle(.secondary)
                 } else { Text("Nachricht nicht mehr da").font(.caption.italic()).foregroundStyle(.secondary) }
             }
@@ -547,6 +644,30 @@ struct MessageBubble: View {
                 if u.scheme == "hkchatnote", let id = Int(u.host ?? "") { openPage(id); return .handled }
                 return .discarded
             })
+    }
+}
+
+/// KI antwortet gerade: Bild + Name, "… denkt nach" bzw. der mitlaufende Text
+struct AIPendingBubble: View {
+    var persona: AIPersona?
+    var name: String
+    var text: String
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                AIWhoLine(persona: persona, name: name)
+                Group {
+                    if text.isEmpty {
+                        HStack(spacing: 6) { ProgressView().controlSize(.small); Text("\(name) denkt nach …").foregroundStyle(.secondary) }
+                    } else { Text(verbatim: text).fixedSize(horizontal: false, vertical: true) }
+                }
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .background(Color.adaptive(ChatLogic.Palette.bubbleOther.light, ChatLogic.Palette.bubbleOther.dark), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Color.gold.opacity(0.55), lineWidth: 1))
+            }
+            Spacer(minLength: 48)
+        }
+        .accessibilityElement(children: .combine)
     }
 }
 

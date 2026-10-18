@@ -272,7 +272,7 @@ extension RootView {
             .init(id: "search", icon: "sidebar.left", title: String(localized: "In der Seitenleiste suchen")) { searchFocused = true },
         ]
         if let id = currentPageID { a.append(.init(id: "link", icon: "link", title: String(localized: "Link zur Seite kopieren")) { copyPageLink(id) }) }
-        if store.aiEnabled { a.append(.init(id: "ai", icon: "sparkles", title: String(localized: "Frag deine Seiten")) { showAssistant = true }) }
+        if store.aiEnabled { a.append(.init(id: "ai", icon: "sparkles", title: store.aiAskLabel) { showAssistant = true }) }
         #if os(macOS)
         a.append(.init(id: "settings", icon: "gearshape", title: String(localized: "Einstellungen")) { openSettings() })
         #else

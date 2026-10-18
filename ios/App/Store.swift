@@ -489,6 +489,11 @@ final class Store: ObservableObject {
     @Published var fedShared: [Page] = []
     /// KI-Assistent fuer dieses Konto eingeschaltet (1.6)
     @Published var aiEnabled = false
+    /// Persona der KI (2.1): Name + Profilbild; nil = aelterer Server (bisherige Beschriftung)
+    @Published var aiPersona: AIPersona?
+    /// "KI in Chats erlauben" auf dem Server an (2.1) und Ziel der Inhalte (host)
+    @Published var aiChat = false
+    @Published var aiHost = ""
     /// Server, die gerade nicht erreichbar sind (dezent anzeigen, kein Fehler)
     @Published var fedUnreachable: [String] = []
     private var fedLoading = false
@@ -780,7 +785,7 @@ final class Store: ObservableObject {
         images.removeAllObjects(); cookieHeader = nil; myAvatar = nil; AvatarCache.shared.reset()
         URLCache.shared.removeAllCachedResponses()                      // Profilbilder (private, max-age) u. a. nicht liegen lassen
         live.stop(); notifs.reset(); calls.signedOut(); chat.signedOut(); push.signedOut()   // 2.0: Live, Glocke, Chat-Schluessel im Speicher, Push-Abo
-        pages = []; archivedPages = []; lastAll = nil; shared = []; fedShared = []; aiEnabled = false; fedUnreachable = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
+        pages = []; archivedPages = []; lastAll = nil; shared = []; fedShared = []; aiEnabled = false; aiPersona = nil; aiChat = false; aiHost = ""; fedUnreachable = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
         // Startseite immer vergessen: die naechste Anmeldung kann ein anderes Konto sein - dessen Start sonst die
         // Seiten-ID des alten Kontos an den Server schickte (BUG-060)
         setHome(nil)

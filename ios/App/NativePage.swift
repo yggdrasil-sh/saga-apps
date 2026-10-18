@@ -664,7 +664,7 @@ struct NativePageScreen: View {
                                 Button { launchAssistant(tab: 1, action: nil) } label: { Label("Markierten Text verbessern", systemImage: "wand.and.stars") }
                             }
                             Button { launchAssistant(tab: 0, action: nil) } label: { Label("Frag deine Seiten", systemImage: "text.magnifyingglass") }
-                        } label: { Label("KI-Assistent", systemImage: "sparkles") }
+                        } label: { Label(store.aiMenuLabel, systemImage: "sparkles") }
                     }
                     if store.chat.state == .ready && !a.remote && doc.fetched {   // Chat (2.0): Seiten-Chat fuer alle mit Zugriff
                         Button { Task { await openPageChat() } } label: { Label("Chat zu dieser Seite", systemImage: "bubble.left.and.bubble.right") }
@@ -721,8 +721,10 @@ struct NativePageScreen: View {
     /// "✦ Assistent" in der Kopfzeile (nur, wenn der Server ihn fuer mich anbietet)
     @ViewBuilder private var assistantButton: some View {
         if store.aiEnabled && doc.fetched {
-            Button { launchAssistant(tab: doc.access.remote || doc.isDatabase ? 0 : 1, action: nil) } label: { Image(systemName: "sparkles") }
-                .help("KI-Assistent").accessibilityLabel(Text("KI-Assistent"))
+            Button { launchAssistant(tab: doc.access.remote || doc.isDatabase ? 0 : 1, action: nil) } label: {
+                if store.aiPersona != nil { AIAvatarView(persona: store.aiPersona, size: 22) } else { Image(systemName: "sparkles") }   // 2.1: Bild der KI
+            }
+                .help(Text(verbatim: store.aiMenuLabel)).accessibilityLabel(Text(verbatim: store.aiMenuLabel))
         }
     }
     private func launchAssistant(tab: Int, action: String?) {

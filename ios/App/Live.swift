@@ -109,6 +109,9 @@ final class LiveHub: ObservableObject {
                 if let store, (d["user"] as? String) == store.chat.me.uid || AvatarLogic.path(store.myAvatar) == c.path { store.myAvatar = c.avatar }
                 Task { await store?.chat.loadList() }                    // Personen ohne bisheriges Bild: Adresse neu aus der Liste
             }
+        case "ai.persona.changed":                                        // 2.1: Name/Bild der KI oder Schalter geaendert
+            if let p = AIPersona(d) { store?.setPersona(p) }
+            Task { await store?.loadAIStatus() }                         // "enabled"/"chat" sind je Person verschieden
         case "comments.changed":
             if let nid = ShareJSON.int(d["note_id"]), let c = d["counts"] as? [String: Any] { store?.setUnread(nid, (ShareJSON.int(c["unread"]) ?? 0) > 0) }
         default: break
