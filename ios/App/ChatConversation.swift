@@ -19,6 +19,9 @@ struct ChatMessage: Identifiable, Equatable {
     var senderAvatar: String? = nil
     /// Anruf-Eintrag (kind "call", 2.1): unverschluesselte Metadaten statt Inhalt
     var call: CallLogic.Entry? = nil
+    /// KI-Antwort (2.1): Beleg des Servers und Ergebnis der Pruefung (Hash + Kennung)
+    var aiMeta: AIReplyMeta? = nil
+    var aiState: AIChatLogic.ReplyState = .none
     var date: Date { Date(timeIntervalSince1970: created > 0 ? created : ts / 1000) }
     var text: String { content?.text ?? "" }
 }
@@ -41,6 +44,12 @@ final class ConversationModel: ObservableObject {
     @Published var typing: [String: (name: String, at: Date)] = [:]
     @Published var notes: [Int: (title: String, icon: String)] = [:]
     @Published var changedPeers: [String] = []                      // Sicherheitsnummer geaendert (TOFU)
+    /// KI im Chat (2.1): laufende Antwort (Strom) und Fehler
+    @Published var aiPending: String?
+    @Published var aiError: String?
+    private var aiTask: Task<Void, Never>?
+    /// Kennung der zuletzt gesendeten Nachricht (fuer die Frage an die KI)
+    private(set) var lastSentID: String?
     private var recipients: [[String: Any]]?
     private var lastTyping = Date.distantPast
     private var lastReadSent = 0
@@ -62,6 +71,7 @@ final class ConversationModel: ObservableObject {
             var s = ChatSummary(c)
             if s?.kind == "free", let x = s { s?.decryptedTitle = model.decryptTitle(x) }
             info = s
+            if s?.ai == true && !store.aiChat { await store.loadAIStatus() }   // KI im Chat (2.1): Server-Schalter/Persona aktuell
             let m = try await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&limit=50&calls=1")
             messages = []; ingest(m, prepend: false)
             error = nil
@@ -96,13 +106,15 @@ final class ConversationModel: ObservableObject {
                 continue
             }
             let r = model.decrypt(chatID: chatID, raw: m, devices: devs, idents: ids)
+            let meta = AIReplyMeta(m["ai"])
+            let aiState = AIChatLogic.check(bodyRef: r?.content?.aiReply, text: r?.content?.text, meta: meta)
             if sender != me, let ip = ids?[sender] as? String, ChatTrustStore.observe(me, sender, pk: ip) == .changed || ChatTrustStore.known(me, sender)?.changed == true {
                 if !changedPeers.contains(sender) { changedPeers.append(sender) }
             }
             list.append(ChatMessage(seq: ShareJSON.int(m["seq"]) ?? 0, id: m["id"] as? String ?? "", sender: sender, senderName: name,
                                     ts: ShareJSON.num(m["ts"]) ?? 0, created: ShareJSON.num(m["created"]) ?? 0, expiresAt: ShareJSON.num(m["expires_at"]),
                                     replyTo: ShareJSON.str(m["reply_to"]), content: r?.content, verified: r?.verified ?? false, mine: sender == me,
-                                    senderAvatar: avatar))
+                                    senderAvatar: avatar, aiMeta: meta, aiState: aiState))
         }
         let known = Set(messages.map(\.id))
         list.removeAll { known.contains($0.id) }
@@ -186,7 +198,8 @@ final class ConversationModel: ObservableObject {
 
     /// Text (+ Anhaenge, Antwort) senden; true = gesendet
     @discardableResult
-    func send(text: String, replyTo: String?, files: [ChatPendingFile], kind: String = "msg", title: String? = nil) async -> Bool {
+    func send(text: String, replyTo: String?, files: [ChatPendingFile], kind: String = "msg", title: String? = nil,
+              ai: (reply: String, name: String)? = nil) async -> Bool {
         guard let store, let k = model.keys else { return false }
         sending = true; sendError = nil; defer { sending = false }
         do {
@@ -222,7 +235,8 @@ final class ConversationModel: ObservableObject {
             await Task.detached(priority: .utility) {                     // Platte nicht im UI-Thread beschreiben
                 for p in primed { ChatMedia.prime(p.0, image: p.1, origBlob: p.2, thumbBlob: p.3) }
             }.value
-            var content = ChatContent(type: kind == "title" ? "title" : "text", text: text, title: title, files: refs, notes: ChatLogic.noteRefs(text))
+            var content = ChatContent(type: kind == "title" ? "title" : "text", text: text, title: title, files: refs, notes: ChatLogic.noteRefs(text),
+                                      aiReply: ai?.reply, aiName: ai?.name)
             if kind == "title" { content.text = "" }
             let plain = content.json()
             if recipients == nil { await loadRecipients() }
@@ -235,17 +249,95 @@ final class ConversationModel: ObservableObject {
                 var body: [String: Any] = ["id": mid, "ts": ts, "sender_device": k.deviceID, "body_ct": sealed.bodyCT, "sig": sealed.sig,
                                            "keys": keys, "files": fit.ids, "kind": kind]   // Original- und Vorschaubild-IDs
                 if let replyTo { body["reply_to"] = replyTo }
+                if let ai { body["ai_reply"] = ai.reply }                  // Beleg des Servers (nicht signiert, nur Verweis)
                 let (d, code) = try await store.apiResponse("api/chats/\(chatID)/messages", method: "POST", body: body)
                 if code == 409, attempt == 0, let r = ShareJSON.obj(d)?["recipients"] as? [[String: Any]] { recipients = r; continue }   // neu versiegeln
                 if code == 403 { await model.load() }
                 guard (200..<300).contains(code) else { throw APIError.http(code, ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "") }
                 if !notReady.isEmpty { sendError = String(localized: "\(notReady.joined(separator: ", ")) hat Chats noch nicht eingerichtet und kann diese Nachricht nicht lesen.") }
+                lastSentID = mid
                 if kind == "title" { await load(); await model.loadList() } else { await fetchNew() }
                 return true
             }
         } catch { sendError = String(localized: "Nicht gesendet: \(error.localizedDescription)") }
         return false
     }
+
+    // MARK: KI im Chat (2.1) - nur auf Zuruf
+
+    /// KI in diesem Chat erlaubt (Chat + Server-Schalter + Assistent fuer mich)?
+    var aiAllowed: Bool { (info?.ai ?? false) && (store?.aiChat ?? false) }
+    /// Name der KI (Persona; Rueckfall: Name aus der Antwort)
+    var aiName: String { store?.aiName ?? String(localized: "Saga KI") }
+
+    /// Erlauben/verbieten (PUT /api/chats/{cid}/ai); alle Mitglieder bekommen chat.changed
+    func setAI(_ on: Bool) async {
+        guard let store else { return }
+        do {
+            let (d, code) = try await store.apiResponse("api/chats/\(chatID)/ai", method: "PUT", body: ["allowed": on])
+            guard (200..<300).contains(code) else { throw APIError.http(code, ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "") }
+            info?.ai = ShareJSON.obj(d).map { ShareJSON.bool($0["ai"]) } ?? on
+            await model.loadList()
+        } catch { sendError = error.localizedDescription }
+    }
+
+    /// Verlauf fuer die KI: Text-Nachrichten vor der Frage (KI-Antworten mit dem Namen der KI)
+    func aiHistory(before qid: String) -> [AIChatLine] {
+        let lines = messages.compactMap { m -> AIChatLine? in
+            guard m.call == nil, let c = m.content, c.type == "text" else { return nil }
+            return AIChatLine(id: m.id, name: m.aiState == .ok ? (c.aiName ?? aiName) : m.senderName, text: c.text)
+        }
+        return AIChatLogic.history(lines, before: qid)
+    }
+
+    /// Nach dem Senden einer Nachricht mit @Name: Frage + Verlauf an den Server, Antwort als Strom zeigen, dann wie jede
+    /// Nachricht fuer alle verschluesseln und mit dem Beleg (ai_reply) senden. Laeuft weiter, bis "done" da ist.
+    func askAI(question: String, qid: String) {
+        guard let store, aiTask == nil else { return }
+        let body = AIChatLogic.askBody(q: question, msgID: qid, history: aiHistory(before: qid))
+        let name = aiName
+        aiPending = ""; aiError = nil
+        aiTask = Task { [self] in
+            defer { aiTask = nil; aiPending = nil }
+            do {
+                let (bytes, code, err) = try await store.openStream("api/chats/\(chatID)/ai", method: "POST", body: body, session: Self.aiSession)
+                guard code == 200 else {
+                    throw APIError.other(err.flatMap(ShareJSON.obj).flatMap { ShareJSON.str($0["error"]) } ?? APIError.http(code, "").localizedDescription)
+                }
+                var parser = SSEParser(), buf = Data()
+                var done: [String: Any]?, fail: String?
+                reading: for try await b in bytes {
+                    buf.append(b)
+                    guard b == 0x0A else { continue }
+                    let evs = parser.feed(bytes: buf); buf.removeAll(keepingCapacity: true)
+                    for e in evs {
+                        let d = e.json
+                        switch e.event {
+                        case "delta": aiPending = (aiPending ?? "") + (d["t"] as? String ?? "")
+                        case "reset": aiPending = ""
+                        case "done": done = d; break reading
+                        case "error": fail = ShareJSON.str(d["error"]) ?? String(localized: "Fehler"); break reading
+                        default: break
+                        }
+                    }
+                }
+                if let fail { throw APIError.other(fail) }
+                guard let d = done, let text = (d["text"] as? String).map(AIChatLogic.normalized), !text.isEmpty,
+                      let reply = (d["reply"] as? [String: Any])?["id"] as? String else { throw APIError.other(String(localized: "Keine Antwort bekommen.")) }
+                let pname = ((d["persona"] as? [String: Any])?["name"] as? String) ?? name
+                aiPending = text
+                let ok = await send(text: text, replyTo: qid, files: [], ai: (reply, pname))
+                if !ok { throw APIError.other(sendError ?? String(localized: "Nicht gesendet")) }
+            } catch {
+                aiError = String(localized: "\(name) konnte nicht antworten: \(error.localizedDescription)")
+            }
+        }
+    }
+    private static let aiSession: URLSession = {
+        let c = URLSessionConfiguration.default
+        c.timeoutIntervalForRequest = 90; c.timeoutIntervalForResource = 600
+        return URLSession(configuration: c)
+    }()
 
     /// "tippt …" hoechstens alle 2,5 s
     func typed() {

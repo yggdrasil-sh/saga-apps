@@ -141,9 +141,11 @@ struct ChatSummary: Identifiable, Equatable {
     var titleMsg: [String: Any]?
     /// entschluesselter Name einer freien Gruppe
     var decryptedTitle: String?
+    /// KI im Chat erlaubt (2.1, nur auf Zuruf)
+    var ai = false
     static func == (a: ChatSummary, b: ChatSummary) -> Bool {
         a.id == b.id && a.kind == b.kind && a.name == b.name && a.members == b.members && a.unread == b.unread && a.muted == b.muted
-            && a.retention == b.retention && a.lastAt == b.lastAt && a.lastSeq == b.lastSeq && a.decryptedTitle == b.decryptedTitle && a.role == b.role
+            && a.retention == b.retention && a.lastAt == b.lastAt && a.lastSeq == b.lastSeq && a.decryptedTitle == b.decryptedTitle && a.role == b.role && a.ai == b.ai
     }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let i = ShareJSON.int(d["id"]) else { return nil }
@@ -157,6 +159,7 @@ struct ChatSummary: Identifiable, Equatable {
         role = d["role"] as? String ?? "member"; lastAt = ShareJSON.num(d["last_at"]) ?? 0; lastSeq = ShareJSON.int(d["last_seq"]) ?? 0
         if let p = d["peer"] as? [String: Any], let u = p["username"] as? String { peer = ChatMember(username: u, name: p["name"] as? String ?? u, me: false, avatar: ShareJSON.str(p["avatar"])) }
         titleMsg = d["title_msg"] as? [String: Any]
+        ai = ShareJSON.bool(d["ai"])
     }
     var title: String {
         switch kind {

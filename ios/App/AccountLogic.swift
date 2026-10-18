@@ -39,15 +39,18 @@ enum AvatarLogic {
     }
     /// Adresse zum Laden: nur relative Adressen des eigenen Servers ("/api/avatar/…"), nie fremde Hosts
     static func url(server: String, avatar: String?, px: Int) -> URL? {
-        guard let a = avatar?.trimmingCharacters(in: .whitespaces), a.hasPrefix("/api/avatar/"), !a.contains("://"), !a.hasPrefix("//") else { return nil }
+        guard let a = avatar?.trimmingCharacters(in: .whitespaces), a.hasPrefix("/api/avatar/") || isAI(a), !a.contains("://"), !a.hasPrefix("//") else { return nil }
         let base = server.hasSuffix("/") ? String(server.dropLast()) : server
         return URL(string: base + a + (a.contains("?") ? "&" : "?") + "s=\(px)")
     }
 
+    /// Profilbild der KI (2.1): /api/ai/avatar[?v=…]
+    static func isAI(_ a: String) -> Bool { a == "/api/ai/avatar" || a.hasPrefix("/api/ai/avatar?") }
+
     /// Adresse ohne Version (?v=...): fester Pfad je Person - so findet das Live-Ereignis avatar.changed {user, avatar, path}
     /// alle angezeigten Bilder dieser Person, auch wenn sich v aendert oder das Bild entfernt wird
     static func path(_ avatar: String?) -> String? {
-        guard let a = avatar?.trimmingCharacters(in: .whitespaces), a.hasPrefix("/api/avatar/") else { return nil }
+        guard let a = avatar?.trimmingCharacters(in: .whitespaces), a.hasPrefix("/api/avatar/") || isAI(a) else { return nil }
         return a.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init)
     }
     /// avatar.changed lesen: (Pfad, neue Adresse oder nil = Initialen); nur Saga-Pfade, neue Adresse zum selben Pfad

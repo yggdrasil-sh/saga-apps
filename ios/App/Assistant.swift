@@ -165,7 +165,7 @@ struct AssistantSheet: View {
                 if tab == 0 { askTab } else { pageTab }
                 footer
             }
-            .navigationTitle("KI-Assistent")
+            .navigationTitle(store.aiName ?? String(localized: "KI-Assistent"))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -199,7 +199,8 @@ struct AssistantSheet: View {
                     VStack(alignment: .leading, spacing: 16) {
                         if m.qa.isEmpty {
                             VStack(alignment: .leading, spacing: 8) {
-                                Image(systemName: "sparkles").font(.largeTitle).foregroundStyle(Color.gold)
+                                if store.aiPersona != nil { AIAvatarView(persona: store.aiPersona, size: 44) }
+                                else { Image(systemName: "sparkles").font(.largeTitle).foregroundStyle(Color.gold) }
                                 Text("Frag etwas – der Assistent sucht in den Seiten, die du sehen darfst, und nennt seine Quellen.")
                                 Text("Er kann nichts ändern: Vorschläge übernimmst du selbst. Chats liest er nie; Aufgaben und Kalender nur, wenn du sie einschaltest.")
                                     .font(.callout).foregroundStyle(.secondary)
@@ -209,7 +210,8 @@ struct AssistantSheet: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(verbatim: x.q).padding(10).background(Color.gold.opacity(0.14), in: RoundedRectangle(cornerRadius: 12))
                                     .frame(maxWidth: .infinity, alignment: .trailing)
-                                if x.running && x.answer.isEmpty { HStack { ProgressView().controlSize(.small); Text("Denkt nach …").foregroundStyle(.secondary) } }
+                                if let n = store.aiName, x.running || !x.answer.isEmpty { AIWhoLine(persona: store.aiPersona, name: n) }   // Antwort mit Bild + Name
+                                if x.running && x.answer.isEmpty { HStack { ProgressView().controlSize(.small); Text(verbatim: store.aiThinking).foregroundStyle(.secondary) } }
                                 if !x.answer.isEmpty { AnswerText(text: x.answer + (x.stopped ? " " + String(localized: "(abgebrochen)") : ""), sources: x.sources, openPage: open) }
                                 if let e = x.error { Label(e, systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.orange) }
                                 if !x.running && x.error == nil { SourceChips(sources: x.sources, openPage: open) }
@@ -223,7 +225,7 @@ struct AssistantSheet: View {
             Divider()
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .bottom) {
-                    TextField("Frag etwas zu deinen Seiten …", text: $q, axis: .vertical).lineLimit(1...5).textFieldStyle(.roundedBorder)
+                    TextField(store.aiName.map { String(localized: "Frage \($0) etwas zu deinen Seiten …") } ?? String(localized: "Frag etwas zu deinen Seiten …"), text: $q, axis: .vertical).lineLimit(1...5).textFieldStyle(.roundedBorder)
                         .onSubmit { ask() }
                     if m.running { Button("Stopp") { m.stop() }.buttonStyle(.bordered) }
                     else { Button("Fragen") { ask() }.prominentGold().disabled(!AILogic.validQuestion(q, max: m.status?.qMax ?? 1000)) }
@@ -296,7 +298,8 @@ struct AssistantSheet: View {
         }
     }
     @ViewBuilder private var pageResult: some View {
-        if m.running && m.pageText.isEmpty { HStack { ProgressView().controlSize(.small); Text("Denkt nach …").foregroundStyle(.secondary) } }
+        if let n = store.aiName, m.running || !m.pageText.isEmpty { AIWhoLine(persona: store.aiPersona, name: n) }
+        if m.running && m.pageText.isEmpty { HStack { ProgressView().controlSize(.small); Text(verbatim: store.aiThinking).foregroundStyle(.secondary) } }
         if let e = m.pageError { Label(e, systemImage: "exclamationmark.triangle").foregroundStyle(.orange) }
         if let d = m.pageDone, d.truncated { Label("Die Seite ist lang – nur der Anfang wurde verwendet.", systemImage: "scissors").font(.footnote).foregroundStyle(.secondary) }
         if m.pageAction == "tasks", let d = m.pageDone {

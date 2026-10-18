@@ -25811,6 +25811,358 @@
           }
         }
       }
+    },
+    "Frage %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frage %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pregunta a %@"
+          }
+        }
+      }
+    },
+    "Frage %@ etwas zu deinen Seiten …" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frage %@ etwas zu deinen Seiten …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask %@ something about your pages …"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pregunta a %@ algo sobre tus páginas …"
+          }
+        }
+      }
+    },
+    "%@ denkt nach …" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ denkt nach …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is thinking …"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ está pensando …"
+          }
+        }
+      }
+    },
+    "Als KI-Antwort ausgegeben, aber nicht bestätigt" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als KI-Antwort ausgegeben, aber nicht bestätigt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Presented as an AI reply, but not confirmed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se presenta como respuesta de la IA, pero no está confirmada"
+          }
+        }
+      }
+    },
+    "KI fragen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "KI fragen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask the AI"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preguntar a la IA"
+          }
+        }
+      }
+    },
+    "%@ hier nicht mehr erlauben" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ hier nicht mehr erlauben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Stop allowing %@ here"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dejar de permitir a %@ aquí"
+          }
+        }
+      }
+    },
+    "%@ in diesem Chat erlauben" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ in diesem Chat erlauben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow %@ in this chat"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permitir a %@ en este chat"
+          }
+        }
+      }
+    },
+    "gefragt von %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "gefragt von %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "asked by %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "preguntado por %@"
+          }
+        }
+      }
+    },
+    "%@ ist in diesem Chat erlaubt – nur auf Zuruf: Nachrichten mit @%@ und bis zu %lld Nachrichten davor gehen im Klartext an die KI (%@). Alles andere bleibt Ende-zu-Ende-verschlüsselt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ist in diesem Chat erlaubt – nur auf Zuruf: Nachrichten mit @%@ und bis zu %lld Nachrichten davor gehen im Klartext an die KI (%@). Alles andere bleibt Ende-zu-Ende-verschlüsselt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ is allowed in this chat – only when mentioned: messages with @%2$@ and up to %3$lld messages before go to the AI (%4$@) in plain text. Everything else stays end-to-end encrypted."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ está permitida en este chat, solo si se la menciona: los mensajes con @%2$@ y hasta %3$lld mensajes anteriores se envían a la IA (%4$@) en texto claro. Todo lo demás sigue cifrado de extremo a extremo."
+          }
+        }
+      }
+    },
+    "Geht an %@: diese Nachricht und bis zu %lld davor, im Klartext an %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Geht an %@: diese Nachricht und bis zu %lld davor, im Klartext an %@."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Goes to %1$@: this message and up to %2$lld before, in plain text to %3$@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se envía a %1$@: este mensaje y hasta %2$lld anteriores, en texto claro a %3$@."
+          }
+        }
+      }
+    },
+    "%@ in diesem Chat erlauben?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ in diesem Chat erlauben?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow %@ in this chat?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Permitir a %@ en este chat?"
+          }
+        }
+      }
+    },
+    "Dann kann jede Person im Chat %@ mit @%@ fragen. Nur diese Nachricht und bis zu %lld Nachrichten davor gehen im Klartext an die KI (%@) – der Server speichert sie nicht. Alle Mitglieder sehen einen Hinweis." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dann kann jede Person im Chat %@ mit @%@ fragen. Nur diese Nachricht und bis zu %lld Nachrichten davor gehen im Klartext an die KI (%@) – der Server speichert sie nicht. Alle Mitglieder sehen einen Hinweis."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Everyone in the chat can then ask %1$@ with @%2$@. Only that message and up to %3$lld messages before go to the AI (%4$@) in plain text – the server doesn't store them. All members see a notice."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Así, cualquier persona del chat podrá preguntar a %1$@ con @%2$@. Solo ese mensaje y hasta %3$lld mensajes anteriores se envían a la IA (%4$@) en texto claro; el servidor no los guarda. Todos los miembros ven un aviso."
+          }
+        }
+      }
+    },
+    "Keine Antwort bekommen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine Antwort bekommen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No reply received."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se recibió respuesta."
+          }
+        }
+      }
+    },
+    "%@ konnte nicht antworten: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ konnte nicht antworten: %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ couldn't reply: %2$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ no pudo responder: %2$@"
+          }
+        }
+      }
+    },
+    "Saga KI" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga KI"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga AI"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga IA"
+          }
+        }
+      }
+    },
+    "Erlauben" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erlauben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Permitir"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -87,7 +87,28 @@ extension Store {
     /// KI-Assistent fuer mich an? (GET /api/ai/status; Admin kann umschalten -> beim Aktualisieren neu)
     func loadAIStatus() async {
         guard let (d, code) = try? await apiResponse("api/ai/status") else { return }
-        let on = code == 200 && (AIStatus(data: d)?.enabled ?? false)
+        let st = code == 200 ? AIStatus(data: d) : nil
+        let on = st?.enabled ?? false
         if on != aiEnabled { aiEnabled = on }
+        let chatOn = on && (st?.chat ?? false)
+        if chatOn != aiChat { aiChat = chatOn }
+        if let h = st?.host, h != aiHost { aiHost = h }
+        if let p = st?.persona { setPersona(p) }
+        else if code == 200 || code == 403 {
+            // Assistent fuer mich aus: Persona trotzdem holen (KI-Antworten anderer im Chat mit Bild + Name zeigen)
+            if let (pd, pc) = try? await apiResponse("api/ai/persona") {
+                if pc == 200, let p = AIPersona(ShareJSON.obj(pd)) { setPersona(p) }
+                else if pc == 404 || pc == 405 { if aiPersona != nil { aiPersona = nil } }   // aelterer Server: bisheriges Verhalten
+            }
+        }
+    }
+    /// Persona uebernehmen; neues Bild (Adresse/ETag geaendert) -> Zwischenspeicher der KI verwerfen
+    func setPersona(_ p: AIPersona) {
+        let old = aiPersona
+        let n = old.map { $0.merged(p) } ?? p
+        if old?.avatar != n.avatar || old?.avatarEtag != n.avatarEtag {
+            AvatarCache.shared.changed(path: AIPersona.avatarBase, avatar: n.avatar)
+        }
+        if n != old { aiPersona = n }
     }
 }
