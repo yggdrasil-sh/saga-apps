@@ -35,6 +35,10 @@ Requires:       python3dist(pynacl) >= 1.5
 # erst wavparse aus plugins-good). Ohne das Paket klingelt es still (Mitteilung + Leiste bleiben) - daher nur empfohlen.
 # Das Gespraech selbst laeuft im Standardbrowser (Linux v1, keine WebRTC-Bibliothek noetig).
 Recommends:     gstreamer1-plugins-good
+# Thai-Oberflaeche (po/th.po): ohne Thai-Schrift erscheinen Ersatzkaestchen. Die Standardschriften (Adwaita Sans/Cantarell)
+# haben kein Thai; Fedora und AlmaLinux/RHEL 10 liefern Noto Sans Thai (virtuelles font()-Provide, paketnamenunabhaengig).
+# Kyrillisch (Russisch) ist in den Standardschriften enthalten.
+Recommends:     font(notosansthai)
 # Profilbilder (2.1): kann gdk-pixbuf WebP lesen (Fedora: glycin), fragt die App WebP an, sonst PNG/JPEG - kein Paket noetig
 
 %description
@@ -42,7 +46,8 @@ Saga is a native GNOME app (GTK4 and libadwaita) for a self-hosted
 Saga server. Pages made of blocks can be edited directly, databases show
 up as table, board, list, gallery or calendar, plus tasks, external
 calendars (CalDAV) and GNOME search. The sign-in is kept with a device
-key in the keyring (libsecret). Available in English, German and Spanish.
+key in the keyring (libsecret). Available in English, German, Spanish, Russian
+and Thai.
 
 %description -l de
 Saga ist eine native GNOME-App (GTK4 und libadwaita) für einen selbst

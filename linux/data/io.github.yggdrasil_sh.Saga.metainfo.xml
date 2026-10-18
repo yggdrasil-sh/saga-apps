@@ -5,12 +5,16 @@
   <summary>Notes, databases, tasks and events – self-hosted</summary>
   <summary xml:lang="de">Notizen, Datenbanken, Aufgaben und Termine – selbst gehostet</summary>
   <summary xml:lang="es">Notas, bases de datos, tareas y eventos en tu propio servidor</summary>
+  <summary xml:lang="ru">Заметки, базы данных, задачи и события – на собственном сервере</summary>
+  <summary xml:lang="th">โน้ต ฐานข้อมูล งาน และกิจกรรม – โฮสต์ด้วยตัวเอง</summary>
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>AGPL-3.0-only</project_license>
   <developer id="io.github.yggdrasil_sh">
     <name>Saga project</name>
     <name xml:lang="de">Saga-Projekt</name>
     <name xml:lang="es">Proyecto Saga</name>
+    <name xml:lang="ru">Проект Saga</name>
+    <name xml:lang="th">โครงการ Saga</name>
   </developer>
   <url type="homepage">https://github.com/yggdrasil-sh/saga-apps</url>
   <url type="bugtracker">https://github.com/yggdrasil-sh/saga-apps/issues</url>
@@ -18,12 +22,16 @@
     <p>Native GNOME app for the self-hosted Saga server: pages made of blocks, databases with table, board, list, gallery and calendar views, tasks and external calendars.</p>
     <p xml:lang="de">Native GNOME-App für den selbst gehosteten Saga-Server: Seiten mit Blöcken, Datenbanken mit Tabelle, Board, Liste, Galerie und Kalender, Aufgaben und externe Kalender.</p>
     <p xml:lang="es">App nativa de GNOME para tu propio servidor Saga: páginas de bloques, bases de datos con vistas de tabla, tablero, lista, galería y calendario, tareas y calendarios externos.</p>
+    <p xml:lang="ru">Нативное приложение GNOME для Saga на собственном сервере: страницы из блоков, базы данных с представлениями «таблица», «доска», «список», «галерея» и «календарь», задачи и внешние календари.</p>
+    <p xml:lang="th">แอป GNOME แบบเนทีฟสำหรับเซิร์ฟเวอร์ Saga ที่โฮสต์เอง: หน้าที่สร้างจากบล็อก ฐานข้อมูลพร้อมมุมมองตาราง บอร์ด รายการ แกลเลอรี และปฏิทิน งาน และปฏิทินภายนอก</p>
   </description>
   <launchable type="desktop-id">io.github.yggdrasil_sh.Saga.desktop</launchable>
   <translation type="gettext">io.github.yggdrasil_sh.Saga</translation>
   <languages>
     <lang percentage="100">de</lang>
     <lang percentage="100">es</lang>
+    <lang percentage="100">ru</lang>
+    <lang percentage="100">th</lang>
   </languages>
   <content_rating type="oars-1.1"/>
   <supports>

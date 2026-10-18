@@ -9,6 +9,8 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 ### Thai und Russisch – iOS, iPadOS, macOS (Widget, Teilen)
 
 ### Thai und Russisch – Android
+
+### Thai und Russisch – Linux
 - **Begriffe wie im Web:** Thai und Russisch verwenden dieselben Fachbegriffe wie Web und Server (z. B. Koppeln
   „связать“, Profilbild „изображение профиля“, Löschen „у меня“/„у всех“; Thai „การสนทนา“ für Threads,
   „เก็บเข้าคลัง“ für Archiv, „เข้าสู่ระบบ“ für Anmelden); Sätze, die es auch im Web gibt, lauten gleich. Russisch ohne
@@ -35,6 +37,20 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   alle Datums-/Zeitangaben der App (Entwurfs-Hinweis und „Zurückgezogen am …“ jetzt ebenfalls in der App-Sprache).
 - Sprachnamen im KI-Übersetzen-Menü und Tagesüberschriften im Chat folgen der App-Sprache (Lint `NonObservableLocale`).
 - Standard-Kategorien der Dienste erkennen auch „Сервисы“/„Закладки“ und „บริการ“/„บุ๊กมาร์ก“.
+
+- **Neue App-Sprachen:** Thai (ไทย) und Russisch (Русский) – alle 1192 Texte, Pluralformen nach gettext-Standard
+  (Russisch drei Formen, Thai eine), informelles „ты“ im Russischen, neutral-höfliches Thai. Maschinell übersetzt –
+  Gegenlesen durch Muttersprachler empfohlen.
+- **Sprachwahl:** Einstellungen → Allgemein → App-Sprache bietet zusätzlich „Русский“ und „ไทย“; Anfragen an den Server
+  schicken die gewählte Sprache als `Accept-Language` mit. Desktop-Datei und AppStream-Metadaten (Name, Beschreibung,
+  Stichwörter, Dock-Aktionen) auch auf Thai und Russisch; RPM und Flatpak bauen die neuen Kataloge automatisch mit.
+- **Datum:** Thai immer gregorianisch (2026, nicht 2569 nach buddhistischer Zeitrechnung), Tag vor Monat; Russisch mit
+  Monatsnamen im Nominativ über dem Kalender („Октябрь 2026“). Datumswörter im Editor verstehen jetzt auch
+  „сегодня/завтра/послезавтра/вчера“, „в пятницу“, „завтра в 9:00“ und „วันนี้/พรุ่งนี้/มะรืนนี้/เมื่อวาน“, „วันศุกร์“.
+- **Schrift:** Das RPM empfiehlt eine Thai-Schrift (`font(notosansthai)`, Noto Sans Thai) – ohne sie erschienen
+  Ersatzkästchen. Tests: Sprachprüfung für th/ru (auch als in der App gewählte Sprache), Bildschirmfotos
+  (`tests/thrushots.py`: Anmelden, Editor, Einstellungen, Chatliste, Chat, KI, Löschen – breit und schmal) mit Prüfung,
+  dass Thai ohne fehlende Glyphen gesetzt wird.
 
 ### Chats archivieren und löschen – iOS, iPadOS, macOS
 - **Archivieren / Aus Archiv holen** (nur für mich): Wischgeste in der Chatliste (iPhone/iPad), Kontextmenü (Mac, iPad,

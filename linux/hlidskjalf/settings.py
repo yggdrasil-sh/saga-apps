@@ -89,11 +89,11 @@ class SettingsDialog(Adw.PreferencesDialog):
 
     # Sprache der App (settings.json "language"; leer = Systemsprache). Gilt ab dem naechsten Start (i18n.py),
     # auch fuer Accept-Language der Anfragen an den Server.
-    LANG_CODES = ("", "de", "en", "es")
+    LANG_CODES = ("", "de", "en", "es", "ru", "th")
 
     def _language_group(self):
         g = Adw.PreferencesGroup(title=_("Language"))
-        names = [_("Automatic"), "Deutsch", "English", "Español"]   # Sprachnamen in der eigenen Sprache
+        names = [_("Automatic"), "Deutsch", "English", "Español", "Русский", "ไทย"]   # Sprachnamen in der eigenen Sprache
         self.lang = Adw.ComboRow(title=_("App language"), model=Gtk.StringList.new(names))
         cur = settings.get("language") or ""
         self.lang.set_selected(self.LANG_CODES.index(cur) if cur in self.LANG_CODES else 0)

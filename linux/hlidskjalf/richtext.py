@@ -190,7 +190,7 @@ def html_to_markup(html):
         return GLib.markup_escape_text(re.sub(r"<[^>]+>", "", html or ""))
 
 
-# --- Datum aus Text (wie parseHKDate) - versteht Deutsch, Englisch und Spanisch -----------------------
+# --- Datum aus Text (wie parseHKDate) - versteht Deutsch, Englisch und Spanisch (Russisch/Thai: Grundwoerter) ---
 _WD = ["montag", "dienstag", "mittwoch", "donnerstag", "freitag", "samstag", "sonntag"]
 _WDE = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 _WDES = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"]
@@ -216,11 +216,36 @@ def _weekday(w):
     return None
 
 
+# Russisch und Thai: nur Grundwoerter (heute/morgen/uebermorgen/gestern, Wochentage). Vergleich nach norm(),
+# weil norm() kyrillische und Thai-Zeichen teils zerlegt (й -> и, Thai-Vokalzeichen).
+def _nset(*words):
+    return {norm(w) for w in words}
+
+
+_TODAY_X = _nset("сегодня", "วันนี้")
+_TOMORROW_X = _nset("завтра", "พรุ่งนี้")
+_AFTER_X = _nset("послезавтра", "มะรืนนี้", "มะรืน")
+_YESTERDAY_X = _nset("вчера", "เมื่อวาน", "เมื่อวานนี้")
+_WDX = [_nset("понедельник", "จันทร์"), _nset("вторник", "อังคาร"), _nset("среда", "среду", "พุธ"),
+        _nset("четверг", "พฤหัส", "พฤหัสบดี"), _nset("пятница", "пятницу", "ศุกร์"), _nset("суббота", "субботу", "เสาร์"),
+        _nset("воскресенье", "อาทิตย์")]
+
+
+def _weekday_x(q):
+    """'в пятницу', 'в следующий вторник', 'วันศุกร์', 'วันศุกร์หน้า' -> 0..6 oder None"""
+    w = re.sub(r"^(?:во?\s+)?(?:следующ\w*\s+)?", "", q)
+    for pre in (norm("วัน"),):
+        w = w[len(pre):] if w.startswith(pre) else w
+    for suf in (norm("หน้า"),):
+        w = w[:-len(suf)].strip() if w.endswith(suf) and len(w) > len(suf) else w
+    return next((i for i, names in enumerate(_WDX) if w in names), None)
+
+
 def parse_date(q0):
     q = norm(q0)
     t0 = _dt.date.today()
     time = None
-    m = (re.search(r"(?:^|\s)(?:(?:um|at|a las|a la)\s+)?(\d{1,2})[:.](\d{2})(?:\s*(?:uhr|h))?$", q)
+    m = (re.search(r"(?:^|\s)(?:(?:um|at|a las|a la|в|" + norm("เวลา") + r")\s*)?(\d{1,2})[:.](\d{2})(?:\s*(?:uhr|h))?$", q)
          or re.search(r"(?:^|\s)(?:(?:um|at|a las|a la)\s+)?(\d{1,2})\s*uhr$", q))
     if m and (":" in q or q.endswith("uhr") or q.endswith("h")):
         hh = int(m.group(1))
@@ -238,14 +263,16 @@ def parse_date(q0):
         q = q[:m.start()].strip()
     d = None
     try:
-        if q in ("", "heute", "today", "hoy"):
+        if q in ("", "heute", "today", "hoy") or q in _TODAY_X:
             d = t0
-        elif q in ("morgen", "tomorrow", "manana"):
+        elif q in ("morgen", "tomorrow", "manana") or q in _TOMORROW_X:
             d = t0 + _dt.timedelta(days=1)
-        elif q in ("uebermorgen", "day after tomorrow", "pasado manana"):
+        elif q in ("uebermorgen", "day after tomorrow", "pasado manana") or q in _AFTER_X:
             d = t0 + _dt.timedelta(days=2)
-        elif q in ("gestern", "yesterday", "ayer"):
+        elif q in ("gestern", "yesterday", "ayer") or q in _YESTERDAY_X:
             d = t0 - _dt.timedelta(days=1)
+        elif (wi := _weekday_x(q)) is not None:
+            d = t0 + _dt.timedelta(days=(wi - t0.weekday() + 7) % 7 or 7)
         elif (m := re.fullmatch(r"(?:in|en) (\d{1,3}) (tag|tage|tagen|woche|wochen|monat|monate|monaten|day|days|week|weeks|month|months"
                                 r"|dia|dias|semana|semanas|mes|meses)", q)):
             n = int(m.group(1))
