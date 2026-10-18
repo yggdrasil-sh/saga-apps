@@ -336,12 +336,18 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         private set
 
     /** darf dieses Konto die KI hier erlauben/verbieten (null = noch nicht geprueft) */
-    var aiMayToggle by mutableStateOf<Boolean?>(null)
-        private set
+    val aiMayToggle: Boolean?
+        get() = summary?.let { sum ->
+            // Direkt-Chat/freie Gruppe: sofort aus der Zusammenfassung; Gruppe/Seiten-Chat: nach checkAiToggle()
+            if (sum.kind == "dm" || sum.kind == "free") io.github.yggdrasil_sh.saga.ai.AiChatLogic.mayToggle(sum.kind, sum.role, null, null)
+            else aiToggleChecked
+        }
+    private var aiToggleChecked by mutableStateOf<Boolean?>(null)
 
     /** Berechtigung fuer den Umschalter pruefen (Gruppe: Saga-Admin, Seiten-Chat: Eigentuemer der Seite) */
     suspend fun checkAiToggle() {
         val sum = summary ?: return
+        if (sum.kind == "dm" || sum.kind == "free") return
         val admin = if (sum.kind == "group") svc.repo.ai.isAdmin() else null
         val owner = if (sum.kind == "page" && sum.noteId != null) try {
             val p = svc.repo.loadPage(sum.noteId)
@@ -352,7 +358,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         } catch (_: Exception) {
             null
         } else null
-        aiMayToggle = io.github.yggdrasil_sh.saga.ai.AiChatLogic.mayToggle(sum.kind, sum.role, admin, owner)
+        aiToggleChecked = io.github.yggdrasil_sh.saga.ai.AiChatLogic.mayToggle(sum.kind, sum.role, admin, owner)
     }
 
     /** PUT /api/chats/{cid}/ai {"allowed"} -> {"ai"} */
@@ -364,8 +370,11 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
 
     /** Verlauf fuer die KI: hoechstens 12 Textnachrichten vor der Frage; eigene KI-Antworten mit dem Namen der KI */
     fun aiHistory(questionId: String, aiName: String): List<io.github.yggdrasil_sh.saga.ai.AiChatLogic.Line> =
+        aiHistoryOf(messages.toList(), questionId, aiName)
+
+    private fun aiHistoryOf(msgs: List<ChatMessage>, questionId: String, aiName: String): List<io.github.yggdrasil_sh.saga.ai.AiChatLogic.Line> =
         io.github.yggdrasil_sh.saga.ai.AiChatLogic.history(
-            messages.filter { it.call == null }.map { m ->
+            msgs.filter { it.call == null }.map { m ->
                 val name = if (m.ai == io.github.yggdrasil_sh.saga.ai.AiReplyCheck.OK) aiName else m.sender?.name?.ifBlank { null } ?: m.sender?.username.orEmpty()
                 Triple(m.id, name, m.content?.text)
             },
@@ -384,7 +393,10 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         try {
             var done: io.github.yggdrasil_sh.saga.ai.AiDone? = null
             var err: UiText? = null
-            svc.repo.ai.chatAsk(chatId, io.github.yggdrasil_sh.saga.ai.AiChatLogic.question(question), questionId, aiHistory(questionId, aiName)).collect { c ->
+            // Verlauf abseits des Main-Threads zusammenstellen; der Strom selbst liest auf Dispatchers.IO (AiService.stream)
+            val snapshot = messages.toList()
+            val history = withContext(Dispatchers.Default) { aiHistoryOf(snapshot, questionId, aiName) }
+            svc.repo.ai.chatAsk(chatId, io.github.yggdrasil_sh.saga.ai.AiChatLogic.question(question), questionId, history).collect { c ->
                 when (c) {
                     is io.github.yggdrasil_sh.saga.ai.AiChunk.Delta -> p.text += c.text
                     io.github.yggdrasil_sh.saga.ai.AiChunk.Reset -> p.text = ""

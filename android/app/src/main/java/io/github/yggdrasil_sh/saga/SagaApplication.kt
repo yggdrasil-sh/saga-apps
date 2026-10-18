@@ -26,8 +26,12 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         io.github.yggdrasil_sh.saga.util.AppLanguage.applyToApp(this)     // Android 8-12: gewaehlte App-Sprache
-        // nur Debug: Bildschirmfotos mit Beispieladresse/-version (adb shell settings put global saga_screenshot_mode 1)
         if (BuildConfig.DEBUG) {
+            // nur Debug: Netzwerk auf dem Main-Thread ins Log (StrictMode), z. B. beim Strom der KI-Antwort
+            android.os.StrictMode.setThreadPolicy(
+                android.os.StrictMode.ThreadPolicy.Builder().detectNetwork().detectCustomSlowCalls().penaltyLog().build(),
+            )
+            // nur Debug: Bildschirmfotos mit Beispieladresse/-version (adb shell settings put global saga_screenshot_mode 1)
             io.github.yggdrasil_sh.saga.util.ShotMode.on = try {
                 Settings.Global.getString(contentResolver, "saga_screenshot_mode") == "1"
             } catch (_: Exception) {

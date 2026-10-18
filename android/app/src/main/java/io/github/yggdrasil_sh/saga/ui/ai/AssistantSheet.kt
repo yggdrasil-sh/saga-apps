@@ -221,7 +221,8 @@ private fun AskTab(repo: SagaRepository, st: AiStatus?, onOpenPage: (Long) -> Un
                 item {
                     Column(Modifier.padding(vertical = 12.dp)) {
                         Text(stringResource(R.string.ai_empty_1), style = MaterialTheme.typography.bodyMedium)
-                        Text(stringResource(R.string.ai_empty_2), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                        val p = AiPersonaLogic.effective(st)
+                        Text(if (p != null) stringResource(R.string.ai_empty_2_name, p.name) else stringResource(R.string.ai_empty_2), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
                     }
                 }
             }

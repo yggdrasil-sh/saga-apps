@@ -185,7 +185,7 @@
     <string name="ai_truncated">The page is long – only the beginning was used.</string>
     <string name="ai_ask_hint">Ask something …</string>
     <string name="ai_empty_1">Ask something – the assistant searches the pages you\'re allowed to see and names its sources.</string>
-    <string name="ai_empty_2">It can\'t change anything: you apply suggestions yourself. It never reads chats; tasks and calendar only if you turn them on.</string>
+    <string name="ai_empty_2">Nothing is changed automatically: you apply suggestions yourself. Chats are only read when someone in the chat asks the AI with @name; tasks and calendar only if you turn them on.</string>
     <string name="chat_recovery_warning">Without it your messages are lost – the admin can\'t restore them either.</string>
     <string name="chat_recovery_stored">I\'ve stored the key safely</string>
     <string name="chat_start_over_sub">Earlier messages can no longer be read afterwards</string>

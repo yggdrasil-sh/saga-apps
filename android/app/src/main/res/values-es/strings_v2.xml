@@ -185,7 +185,7 @@
     <string name="ai_truncated">La página es larga: solo se ha usado el principio.</string>
     <string name="ai_ask_hint">Pregunta algo…</string>
     <string name="ai_empty_1">Pregunta algo: el asistente busca en las páginas que puedes ver e indica sus fuentes.</string>
-    <string name="ai_empty_2">No puede cambiar nada: tú aplicas las sugerencias. Nunca lee los chats; las tareas y el calendario solo si los activas.</string>
+    <string name="ai_empty_2">No se cambia nada automáticamente: tú aplicas las sugerencias. Los chats solo se leen cuando alguien en el chat pregunta a la IA con @nombre; las tareas y el calendario solo si los activas.</string>
     <string name="chat_recovery_warning">Sin ella tus mensajes se pierden: tampoco el administrador puede recuperarlos.</string>
     <string name="chat_recovery_stored">He guardado la clave en un lugar seguro</string>
     <string name="chat_start_over_sub">Después ya no podrás leer los mensajes anteriores</string>

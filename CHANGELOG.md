@@ -39,6 +39,7 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 - **Echtheit:** Empfangene KI-Antworten erscheinen nur dann mit Profilbild, Namen und „gefragt von …“, wenn Beleg
   und SHA-256 des Textes passen; sonst als normale Nachricht mit der Warnung „Als KI-Antwort ausgegeben, aber nicht
   bestätigt“.
+- Der Hinweis im Assistenten sagt jetzt, dass die KI Chats nur liest, wenn man sie dort mit @Name fragt.
 
 ### Sprachwahl (Linux)
 - **Sprache in der App wählbar:** Einstellungen → Allgemein → Sprache: „Automatisch (Systemsprache)“, Deutsch,

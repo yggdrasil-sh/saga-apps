@@ -185,7 +185,7 @@
     <string name="ai_truncated">Die Seite ist lang – nur der Anfang wurde verwendet.</string>
     <string name="ai_ask_hint">Frag etwas …</string>
     <string name="ai_empty_1">Frag etwas – der Assistent sucht in den Seiten, die du sehen darfst, und nennt seine Quellen.</string>
-    <string name="ai_empty_2">Er kann nichts ändern: Vorschläge übernimmst du selbst. Chats liest er nie; Aufgaben und Kalender nur, wenn du sie einschaltest.</string>
+    <string name="ai_empty_2">Nichts wird automatisch geändert: Vorschläge übernimmst du selbst. Chats werden nur gelesen, wenn jemand im Chat die KI mit @Name fragt; Aufgaben und Kalender nur, wenn du sie einschaltest.</string>
     <string name="chat_recovery_warning">Ohne ihn sind deine Nachrichten verloren – auch der Admin kann sie nicht wiederherstellen.</string>
     <string name="chat_recovery_stored">Ich habe den Schlüssel sicher aufbewahrt</string>
     <string name="chat_start_over_sub">Ältere Nachrichten sind danach nicht mehr lesbar</string>

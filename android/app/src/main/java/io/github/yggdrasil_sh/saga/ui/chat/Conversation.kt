@@ -228,7 +228,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     val aiHere = aiServer && s.summary?.ai == true
     val aiName = aiPersona?.name.orEmpty()
     val aiHost = aiSt?.host?.ifBlank { null } ?: "?"
-    LaunchedEffect(Unit) { quietly { repo.ai.loadStatus() } }
+    // Stand des Servers (KI an, "KI in Chats", Persona) beim Oeffnen und sobald der Chat geladen ist neu holen
+    LaunchedEffect(s.summary?.id) { quietly { repo.ai.loadStatus() } }
     LaunchedEffect(s.summary?.id, aiServer) { if (aiServer && s.summary != null && s.aiMayToggle == null) quietly { s.checkAiToggle() } }
     /** Frage an die KI stellen (die Nachricht ist schon gesendet); Fehler als Hinweis */
     val askAi: (String, String) -> Unit = { text, qid ->
