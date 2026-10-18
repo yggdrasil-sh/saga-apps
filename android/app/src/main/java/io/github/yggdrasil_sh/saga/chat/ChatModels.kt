@@ -94,6 +94,18 @@ data class ApiMessage(
     /** nur bei title_msg (Chat-Liste): Absender-Geraet und Identitaet */
     val device: ChatDevicePub? = null,
     @SerialName("ident_pub") val identPub: String? = null,
+    /** 2.1: Beleg einer KI-Antwort (nur wenn mit ai_reply gesendet) */
+    val ai: ApiAiRef? = null,
+)
+
+/** 2.1: Beleg des Servers zu einer KI-Antwort im Chat */
+@Serializable
+data class ApiAiRef(
+    val ref: String = "",
+    val sha256: String = "",
+    /** Benutzername des Fragenden */
+    val by: String? = null,
+    @SerialName("q_msg") val qMsg: String? = null,
 )
 
 @Serializable
@@ -116,6 +128,8 @@ data class ChatSummary(
     val peer: ChatPerson? = null,
     @SerialName("title_msg") val titleMsg: ApiMessage? = null,
     @SerialName("max_members") val maxMembers: Int? = null,
+    /** 2.1: KI ist in diesem Chat erlaubt (nur auf Zuruf) */
+    val ai: Boolean = false,
 )
 
 @Serializable
@@ -222,4 +236,19 @@ data class ChatContent(
     val title: String? = null,
     val files: List<ChatFile> = emptyList(),
     val notes: List<Long> = emptyList(),
-)
+    /**
+     * 2.1: als KI-Antwort gesendet {"reply", "name"} (nur mit passendem Beleg als solche anzeigen). Roh gelesen: eine
+     * kaputte Angabe darf die Nachricht nicht unlesbar machen (sie wird dann nur als "nicht bestaetigt" markiert).
+     */
+    val ai: kotlinx.serialization.json.JsonElement? = null,
+) {
+    /** Beleg-Kennung aus ai.reply (null = fehlt/kaputt) */
+    val aiReply: String?
+        get() = ((ai as? kotlinx.serialization.json.JsonObject)?.get("reply") as? kotlinx.serialization.json.JsonPrimitive)
+            ?.takeIf { it.isString }?.content
+
+    /** Name der KI aus ai.name (nur Anzeige-Rueckfall, wenn der Server keine Persona liefert) */
+    val aiName: String?
+        get() = ((ai as? kotlinx.serialization.json.JsonObject)?.get("name") as? kotlinx.serialization.json.JsonPrimitive)
+            ?.takeIf { it.isString }?.content?.trim()?.take(80)?.ifEmpty { null }
+}

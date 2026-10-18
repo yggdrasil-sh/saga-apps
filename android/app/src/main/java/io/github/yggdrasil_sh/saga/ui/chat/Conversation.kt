@@ -98,6 +98,12 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.ai.AiChatLogic
+import io.github.yggdrasil_sh.saga.ai.AiPersona
+import io.github.yggdrasil_sh.saga.ai.AiPersonaLogic
+import io.github.yggdrasil_sh.saga.ai.AiReplyCheck
+import io.github.yggdrasil_sh.saga.ui.ai.AiAvatar
+import androidx.compose.ui.semantics.contentDescription
 import io.github.yggdrasil_sh.saga.chat.ChatAttach
 import io.github.yggdrasil_sh.saga.ui.common.ImmichPicker
 import io.github.yggdrasil_sh.saga.ui.common.IncomingImage
@@ -215,6 +221,30 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     }
     val list = rememberLazyListState()
 
+    // KI im Chat (2.1, nur auf Zuruf): Server-Schalter + Persona aus /api/ai/status, Chat-Schalter aus summary.ai
+    val aiSt by repo.ai.status.collectAsState()
+    val aiPersona = AiPersonaLogic.effective(aiSt)
+    val aiServer = aiPersona != null && aiSt?.chat == true
+    val aiHere = aiServer && s.summary?.ai == true
+    val aiName = aiPersona?.name.orEmpty()
+    val aiHost = aiSt?.host?.ifBlank { null } ?: "?"
+    // Stand des Servers (KI an, "KI in Chats", Persona) beim Oeffnen und sobald der Chat geladen ist neu holen
+    LaunchedEffect(s.summary?.id) { quietly { repo.ai.loadStatus() } }
+    LaunchedEffect(s.summary?.id, aiServer) { if (aiServer && s.summary != null && s.aiMayToggle == null) quietly { s.checkAiToggle() } }
+    /** Frage an die KI stellen (die Nachricht ist schon gesendet); Fehler als Hinweis */
+    val askAi: (String, String) -> Unit = { text, qid ->
+        val name = aiName
+        scope.launch {
+            try {
+                s.askAi(text, qid, name)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                repo.notify(UiText.Res(R.string.chat_ai_failed, name, repo.friendly(e)))
+            }
+        }
+    }
+
     LaunchedEffect(s) { s.open() }
     // eine Ausnahme hier wuerde den Prozess beenden (BUG-003): jedes Ereignis einzeln abfangen
     LaunchedEffect(s) { repo.live.events.collect { ev -> quietly { s.onEvent(ev) } } }
@@ -227,6 +257,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         }
     }
     LaunchedEffect(s.messages.size) { if (s.messages.isNotEmpty() && list.firstVisibleItemIndex <= 2) list.animateScrollToItem(0) }
+    // laufende KI-Antwort erscheint ganz unten: dorthin rollen (die Liste haelt sonst die bisherige Position)
+    LaunchedEffect(s.aiPending) { if (s.aiPending != null && list.firstVisibleItemIndex <= 2) list.animateScrollToItem(0) }
     if (s.notFound) {
         LaunchedEffect(Unit) { nav.pop() }
         return
@@ -311,6 +343,20 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                                 repo.launchAction { s.setMuted(!sum.muted) }
                             })
                             DropdownMenuItem(text = { Text(stringResource(R.string.chat_retention)) }, onClick = { menu = false; dialog = "retention" })
+                            // KI im Chat (2.1): nur fuer Berechtigte; Erlauben mit Rueckfrage (was an die KI geht)
+                            if (aiServer && s.aiMayToggle == true) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(if (sum.ai) R.string.chat_ai_disallow else R.string.chat_ai_allow, aiName)) },
+                                    leadingIcon = { AiAvatar(aiPersona, 22) },
+                                    onClick = {
+                                        menu = false
+                                        if (sum.ai) repo.launchAction {
+                                            s.setAi(false)
+                                            repo.notify(UiText.Res(R.string.chat_ai_disallowed, aiName))
+                                        } else dialog = "ai_allow"
+                                    },
+                                )
+                            }
                             if (sum.kind == "free") {
                                 DropdownMenuItem(text = { Text(stringResource(R.string.chat_rename)) }, onClick = { menu = false; dialog = "rename" })
                                 DropdownMenuItem(text = { Text(stringResource(R.string.chat_leave), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; dialog = "leave" })
@@ -341,6 +387,18 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 }
             }
         }
+        // KI erlaubt (2.1): sichtbarer Hinweis, was an die KI geht
+        if (aiHere) {
+            Surface(color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(horizontal = 16.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    AiAvatar(aiPersona, 20)
+                    Text(
+                        stringResource(R.string.chat_ai_notice, aiName, AiChatLogic.CTX_MAX, aiHost), style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.weight(1f).padding(start = 8.dp),
+                    )
+                }
+            }
+        }
         s.error?.let {
             Text(it.resolve(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         }
@@ -351,6 +409,10 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         }
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             LazyColumn(Modifier.fillMaxSize().widthIn(max = 900.dp), state = list, reverseLayout = true) {
+                // laufende Frage an die KI: "{name} denkt nach …" bzw. mitlaufender Text (unten)
+                s.aiPending?.let { p ->
+                    item(key = "ai-pending") { AiPendingBubble(aiPersona, aiName, p.text) }
+                }
                 itemsIndexed(shown, key = { _, it -> it.id }) { i, m ->
                   Column {
                     // Datumstrenner ueber der ersten Nachricht eines Tages (Liste neueste zuerst, umgekehrt angezeigt)
@@ -362,7 +424,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                         CallEntryRow(m, call, s.me, canCall) { startCall(it) }
                     } else {
                         Bubble(
-                            m, s, group = s.summary?.kind != "dm",
+                            m, s, group = s.summary?.kind != "dm", aiPersona = aiPersona,
                             onReply = { s.replyTo = m },
                             onCopy = { copyText(context, m.content?.text.orEmpty()) },
                             onDelete = { repo.launchAction { s.delete(m) } },
@@ -432,6 +494,35 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 }
             }
         }
+        if (aiHere) {
+            val txt = input.text.toString()
+            // "@" + Anfang des Namens: KI als erster Vorschlag
+            val at = AiChatLogic.atQuery(txt, input.selection.end)
+            if (at != null && AiChatLogic.suggestAi(at.second, aiName) && !AiChatLogic.mentions(txt, aiName)) {
+                val desc = stringResource(R.string.chat_ai_mention, aiName)
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 2.dp)) {
+                    androidx.compose.material3.AssistChip(
+                        onClick = {
+                            val end = input.selection.end.coerceIn(at.first, input.text.length)
+                            input.edit { replace(at.first, end, "@$aiName ") }
+                        },
+                        label = { Text(aiName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        leadingIcon = { AiAvatar(aiPersona, 20) },
+                        modifier = Modifier.semantics { contentDescription = desc },
+                    )
+                }
+            }
+            // Nachricht mit @Name: kurz anzeigen, dass sie (mit Verlauf) an die KI geht
+            if (AiChatLogic.mentions(txt, aiName)) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    AiAvatar(aiPersona, 16)
+                    Text(
+                        stringResource(R.string.chat_ai_send_hint, aiName, AiChatLogic.CTX_MAX, aiHost), style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp),
+                    )
+                }
+            }
+        }
         Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.Bottom) {
             Box {
                 var attach by remember { mutableStateOf(false) }
@@ -465,9 +556,12 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 input.clearText()
                 files.clear()
                 noteIds.clear()
+                // @Name in einem Chat mit erlaubter KI: nach dem normalen (verschluesselten) Senden die KI fragen
+                val toAi = aiHere && AiChatLogic.mentions(text, aiName)
                 scope.launch {
                     try {
-                        s.send(text, fs, ns)
+                        val qid = s.send(text, fs, ns)
+                        if (toAi) askAi(text, qid)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
@@ -526,6 +620,22 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 }
             }
         }
+        "ai_allow" -> AlertDialog(
+            onDismissRequest = { dialog = null },
+            icon = { AiAvatar(aiPersona, 40) },
+            title = { Text(stringResource(R.string.chat_ai_allow_title, aiName)) },
+            text = { Text(stringResource(R.string.chat_ai_allow_text, aiName, AiChatLogic.CTX_MAX, aiHost)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    dialog = null
+                    repo.launchAction {
+                        s.setAi(true)
+                        repo.notify(UiText.Res(R.string.chat_ai_allowed, aiName))
+                    }
+                }) { Text(stringResource(R.string.chat_ai_allow_ok)) }
+            },
+            dismissButton = { TextButton(onClick = { dialog = null }) { Text(stringResource(R.string.action_cancel)) } },
+        )
         "page" -> PagePickDialog(repo, onDismiss = { dialog = null }) { n -> dialog = null; if (noteIds.none { it.id == n.id }) noteIds.add(n) }
         "leave" -> AlertDialog(
             onDismissRequest = { dialog = null },
@@ -669,23 +779,32 @@ object ChatUi {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun Bubble(
-    m: ChatMessage, s: ChatSession, group: Boolean,
+    m: ChatMessage, s: ChatSession, group: Boolean, aiPersona: AiPersona?,
     onReply: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit, onOpenNote: (Long) -> Unit, onOpenFile: (ChatFile) -> Unit,
     onUnverified: () -> Unit,
 ) {
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
-    val bg = ChatUi.bubble(MaterialTheme.colorScheme, m.mine)
-    val fg = if (m.mine) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+    // 2.1: bestaetigte KI-Antwort - links mit Profilbild + Name der KI, "gefragt von …" (auch die eigene)
+    val isAi = m.ai == AiReplyCheck.OK
+    val mineSide = m.mine && !isAi
+    val bg = if (isAi) MaterialTheme.colorScheme.tertiaryContainer else ChatUi.bubble(MaterialTheme.colorScheme, mineSide)
+    val fg = when {
+        isAi -> MaterialTheme.colorScheme.onTertiaryContainer
+        mineSide -> MaterialTheme.colorScheme.onPrimaryContainer
+        else -> MaterialTheme.colorScheme.onSurface
+    }
     val time = remember(m.ts) {
         Instant.ofEpochMilli(m.ts).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
     }
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
-        horizontalArrangement = if (m.mine) Arrangement.End else Arrangement.Start,
+        horizontalArrangement = if (mineSide) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Bottom,
     ) {
-        if (group && !m.mine) {
+        if (isAi) {
+            Box(Modifier.padding(end = 6.dp, bottom = 2.dp)) { AiAvatar(aiPersona, 28) }
+        } else if (group && !m.mine) {
             // 2.1: Profilbild des Absenders (Gruppen-Chats)
             Box(Modifier.padding(end = 6.dp, bottom = 2.dp)) {
                 io.github.yggdrasil_sh.saga.ui.notifications.Avatar(m.sender?.name.orEmpty(), size = 28, avatar = m.sender?.avatar)
@@ -694,14 +813,35 @@ private fun Bubble(
         Box {
             Surface(
                 color = bg, contentColor = fg,
-                shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = if (m.mine) 18.dp else 4.dp, bottomEnd = if (m.mine) 4.dp else 18.dp),
+                shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = if (mineSide) 18.dp else 4.dp, bottomEnd = if (mineSide) 4.dp else 18.dp),
                 // voll deckend - auch bei "Echtheit nicht bestätigt" (kein Abdunkeln des Inhalts)
                 modifier = Modifier.widthIn(max = 520.dp)
                     .combinedClickable(onClick = {}, onLongClick = { menu = true }, onLongClickLabel = stringResource(R.string.chat_message_actions)),
             ) {
                 Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
-                    if (group && !m.mine) {
+                    if (isAi) {
+                        val name = aiPersona?.name ?: m.content?.aiName ?: stringResource(R.string.ai_title)
+                        val by = if (m.mine) stringResource(R.string.chat_ai_asked_by_you)
+                        else stringResource(R.string.chat_ai_asked_by, m.sender?.name?.ifBlank { null } ?: m.sender?.username.orEmpty())
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                name, style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                            )
+                            Text(" · $by", style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = 0.75f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    } else if (group && !m.mine) {
                         Text(m.sender?.name.orEmpty(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    }
+                    if (m.ai == AiReplyCheck.BAD) {
+                        // gibt sich als KI-Antwort aus, Beleg fehlt/passt nicht
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
+                            Icon(Icons.Filled.Warning, null, Modifier.size(16.dp), tint = ChatUi.unverifiedIcon(MaterialTheme.colorScheme, mineSide))
+                            Text(
+                                stringResource(R.string.chat_ai_unconfirmed), style = MaterialTheme.typography.labelMedium,
+                                color = ChatUi.unverifiedText(MaterialTheme.colorScheme, mineSide), modifier = Modifier.padding(start = 4.dp),
+                            )
+                        }
                     }
                     if (!m.verified) {
                         // Symbol in Warnfarbe, Text in Sekundaerfarbe (>= 4,5:1), antippbar -> Erklaerung + "Sicherheitsnummer prüfen"
@@ -711,10 +851,10 @@ private fun Bubble(
                                 .heightIn(min = 32.dp).padding(end = 4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(Icons.Filled.Warning, null, Modifier.size(16.dp), tint = ChatUi.unverifiedIcon(scheme, m.mine))
+                            Icon(Icons.Filled.Warning, null, Modifier.size(16.dp), tint = ChatUi.unverifiedIcon(scheme, mineSide))
                             Text(
                                 stringResource(R.string.chat_unverified) + " ⓘ", style = MaterialTheme.typography.labelMedium,
-                                color = ChatUi.unverifiedText(scheme, m.mine), modifier = Modifier.padding(start = 4.dp),
+                                color = ChatUi.unverifiedText(scheme, mineSide), modifier = Modifier.padding(start = 4.dp),
                             )
                         }
                     }
@@ -722,7 +862,10 @@ private fun Bubble(
                         val q = s.messages.firstOrNull { it.id == rid }
                         Surface(color = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f), shape = RoundedCornerShape(8.dp), modifier = Modifier.padding(vertical = 4.dp)) {
                             Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                                Text(q?.sender?.name.orEmpty(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                                Text(
+                                    if (q?.ai == AiReplyCheck.OK) aiPersona?.name ?: q.content?.aiName.orEmpty() else q?.sender?.name.orEmpty(),
+                                    style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary,
+                                )
                                 Text(
                                     q?.content?.text ?: stringResource(R.string.chat_reply_missing), style = MaterialTheme.typography.bodySmall,
                                     maxLines = 2, overflow = TextOverflow.Ellipsis,
@@ -810,6 +953,34 @@ private fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit) 
     }
 }
 
+
+/** Laufende Antwort der KI (nur auf dem Geraet des Fragenden): "{name} denkt nach …" bzw. mitlaufender Text */
+@Composable
+private fun AiPendingBubble(persona: AiPersona?, name: String, text: String) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp), verticalAlignment = Alignment.Bottom) {
+        Box(Modifier.padding(end = 6.dp, bottom = 2.dp)) { AiAvatar(persona, 28) }
+        Surface(
+            color = MaterialTheme.colorScheme.tertiaryContainer, contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+            shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 4.dp, bottomEnd = 18.dp),
+            modifier = Modifier.widthIn(max = 520.dp),
+        ) {
+            Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite }) {
+                Text(name, style = MaterialTheme.typography.labelMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                if (text.isEmpty()) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                        CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                        Text(
+                            io.github.yggdrasil_sh.saga.ui.ai.thinkingText(persona), style = MaterialTheme.typography.bodyMedium, fontStyle = FontStyle.Italic,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                } else {
+                    Text(text, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+    }
+}
 
 /** Anruf-Eintrag (2.1): mittig, Richtung, Ergebnis, Uhrzeit; verpasst -> "Zurückrufen" */
 @Composable

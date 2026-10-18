@@ -5,6 +5,7 @@ import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.live.SseParser
 import io.github.yggdrasil_sh.saga.util.UiText
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -44,6 +45,22 @@ data class AiStatus(
     val targets: List<String> = emptyList(),
     @SerialName("q_max") val qMax: Int = 1000,
     @SerialName("blocks_max") val blocksMax: Int = 50,
+    /** 2.1: Name + Profilbild der KI (aeltere Server: fehlt -> bisherige Beschriftung) */
+    val persona: AiPersona? = null,
+    /** 2.1: Admin hat "KI in Chats erlauben" eingeschaltet */
+    val chat: Boolean = false,
+)
+
+/** 2.1: Persona der KI (GET /api/ai/persona, status.persona, Live-Ereignis ai.persona.changed) */
+@Serializable
+data class AiPersona(
+    val name: String = "",
+    @SerialName("custom_name") val customName: Boolean = false,
+    /** relativer Pfad (/api/ai/avatar?v=…) oder null = neutrales Symbol */
+    val avatar: String? = null,
+    @SerialName("avatar_etag") val avatarEtag: String? = null,
+    /** nur /api/ai/persona: Assistent fuer dieses Konto an */
+    val enabled: Boolean? = null,
 )
 
 @Serializable
@@ -59,11 +76,17 @@ data class AiDone(
     val blocks: List<AiDoneBlock>?,
     val segments: List<String>?,
     val truncated: Boolean,
+    /** 2.1 KI im Chat: massgeblicher Antworttext und Beleg {id, sha256} */
+    val text: String? = null,
+    val replyId: String? = null,
+    val replySha: String? = null,
 )
 
 sealed interface AiChunk {
     data class Sources(val sources: List<AiSource>) : AiChunk
     data class Delta(val text: String) : AiChunk
+    /** bisher gestreamten Text verwerfen (Server beginnt neu) */
+    data object Reset : AiChunk
     data class Done(val done: AiDone) : AiChunk
     data class Failed(val error: UiText, val partial: Boolean) : AiChunk
 }
@@ -127,8 +150,12 @@ object AiLogic {
                     },
                     segments = (o["segments"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull },
                     truncated = (o["truncated"] as? JsonPrimitive)?.booleanOrNull ?: false,
+                    text = (o["text"] as? JsonPrimitive)?.contentOrNull,
+                    replyId = ((o["reply"] as? JsonObject)?.get("id") as? JsonPrimitive)?.contentOrNull,
+                    replySha = ((o["reply"] as? JsonObject)?.get("sha256") as? JsonPrimitive)?.contentOrNull,
                 ),
             )
+            "reset" -> AiChunk.Reset
             "error" -> AiChunk.Failed(UiText.Raw((o["error"] as? JsonPrimitive)?.contentOrNull.orEmpty()), (o["partial"] as? JsonPrimitive)?.booleanOrNull ?: false)
             else -> null
         }
@@ -139,18 +166,52 @@ object AiLogic {
  * KI-Assistent (Server 1.6): der Server spricht mit dem Modell, die App nie direkt. Antworten als Strom (SSE ueber POST);
  * Abbrechen = Verbindung schliessen. Der Server aendert nie etwas - Uebernehmen macht die App nach einem Klick.
  */
-class AiService(private val repo: SagaRepository) {
+class AiService(private val repo: SagaRepository, scope: CoroutineScope? = null) {
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false; isLenient = true }
     val status = MutableStateFlow<AiStatus?>(null)
+
+    /** 2.1: Persona (null = aelterer Server oder Assistent aus -> bisherige Beschriftung) */
+    val persona = MutableStateFlow<AiPersona?>(null)
+
+    /** Konto ist Saga-Admin (fuer den Umschalter "KI im Gruppen-Chat"); null = unbekannt */
+    @Volatile private var admin: Boolean? = null
+
+    init {
+        scope?.launch {
+            repo.live.events.collect { ev ->
+                when (ev.type) {
+                    // Name/Bild/Schalter geaendert: sofort uebernehmen, "enabled"/"chat" je Person neu abfragen
+                    "ai.persona.changed" -> {
+                        try {
+                            val p = json.decodeFromJsonElement(AiPersona.serializer(), ev.data)
+                            if (persona.value != null && p.name.isNotBlank()) {
+                                persona.value = p
+                                status.value?.let { st -> if (st.persona != null) status.value = st.copy(persona = p) }
+                            }
+                        } catch (_: Exception) {
+                        }
+                        loadStatus()
+                    }
+                    "reset" -> if (status.value != null) loadStatus()
+                }
+            }
+        }
+    }
 
     suspend fun loadStatus(): AiStatus? {
         if (repo.needsLogin.value) return null
         return try {
-            json.decodeFromString(AiStatus.serializer(), repo.api.get("api/ai/status")).also { status.value = it }
+            json.decodeFromString(AiStatus.serializer(), repo.api.get("api/ai/status")).also {
+                status.value = it
+                persona.value = AiPersonaLogic.effective(it)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
-            if (e.code == 404) status.value = AiStatus(enabled = false)
+            if (e.code == 404) {
+                status.value = AiStatus(enabled = false)
+                persona.value = null
+            }
             status.value
         } catch (_: Exception) {
             status.value
@@ -159,7 +220,29 @@ class AiService(private val repo: SagaRepository) {
 
     fun clear() {
         status.value = null
+        persona.value = null
+        admin = null
     }
+
+    /** Saga-Admin? (GET /api/account is_admin) - einmal je Sitzung; Fehler -> null (Server entscheidet) */
+    suspend fun isAdmin(): Boolean? {
+        admin?.let { return it }
+        return try {
+            val o = json.parseToJsonElement(repo.api.get("api/account")) as? JsonObject
+            ((o?.get("is_admin") as? JsonPrimitive)?.booleanOrNull)?.also { admin = it }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** 2.1 KI im Chat: POST /api/chats/{cid}/ai (Frage + Verlauf) -> Strom wie ask */
+    fun chatAsk(chatId: Long, q: String, msgId: String, history: List<AiChatLogic.Line>): Flow<AiChunk> = stream("api/chats/$chatId/ai", buildJsonObject {
+        put("q", q)
+        put("msg_id", msgId)
+        put("history", kotlinx.serialization.json.JsonArray(history.map { h -> buildJsonObject { put("name", h.name); put("text", h.text) } }))
+    })
 
     fun ask(q: String, tasks: Boolean, calendar: Boolean): Flow<AiChunk> = stream("api/ai/ask", buildJsonObject {
         put("q", q)

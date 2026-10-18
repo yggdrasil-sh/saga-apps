@@ -253,6 +253,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     // KI-Assistent: null = zu, 0 = "Frag deine Seiten", 1 = "Diese Seite"
     val aiStatus by repo.ai.status.collectAsState()
     val aiOn = aiStatus?.enabled == true
+    val aiPersona = io.github.yggdrasil_sh.saga.ai.AiPersonaLogic.effective(aiStatus)
     val chatOn = repo.live.chatEnabled.collectAsState().value && repo.chat.state.collectAsState().value == io.github.yggdrasil_sh.saga.chat.ChatSetup.READY
     var assistant by remember { mutableStateOf<Int?>(null) }
     // aus einer Benachrichtigung/Mitteilung: Kommentare (Unterhaltung am Block) gleich zeigen
@@ -302,9 +303,11 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             SaveState(ed)
             // KI-Assistent (1.6): nur sichtbar, wenn der Server ihn fuer diese Person anbietet
             if (aiOn && ed.fetched && !ed.isDatabase) {
-                val aiDesc = stringResource(R.string.ai_title)
+                val aiDesc = aiPersona?.let { stringResource(R.string.ai_ask_name, it.name) } ?: stringResource(R.string.ai_title)
                 IconButton(onClick = { assistant = 0 }, modifier = Modifier.semantics { contentDescription = aiDesc }) {
-                    Text("✦", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clearAndSetSemantics { })
+                    // 2.1: Profilbild der KI (ohne Bild: ✦ auf Akzentfarbe); aeltere Server: bisheriges ✦
+                    if (aiPersona != null) io.github.yggdrasil_sh.saga.ui.ai.AiAvatar(aiPersona, 26)
+                    else Text("✦", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.primary, modifier = Modifier.clearAndSetSemantics { })
                 }
             }
             // Kommentare dezent: "💬 n" nur bei offenen Unterhaltungen, Punkt bei ungelesenen
@@ -356,7 +359,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                         })
                     }
                     if (aiOn && ed.fetched && !ed.isDatabase) {
-                        DropdownMenuItem(text = { Text(stringResource(R.string.ai_title)) }, onClick = {
+                        DropdownMenuItem(text = { Text(aiPersona?.let { stringResource(R.string.ai_ask_name, it.name) } ?: stringResource(R.string.ai_title)) }, onClick = {
                             menu = false
                             assistant = 1
                         })

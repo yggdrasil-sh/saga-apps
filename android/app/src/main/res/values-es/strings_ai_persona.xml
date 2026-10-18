@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.1: Persona der KI und KI im Chat (nur auf Zuruf) -->
+<resources>
+    <string name="ai_ask_name">Pregunta a %1$s</string>
+    <string name="ai_thinking_name">%1$s está pensando…</string>
+    <string name="chat_ai_notice">%1$s está permitida en este chat, solo cuando se la menciona: los mensajes con @%1$s y hasta %2$d mensajes anteriores se envían en texto plano a la IA (%3$s). Todo lo demás sigue cifrado de extremo a extremo.</string>
+    <string name="chat_ai_send_hint">Se envía a %1$s: este mensaje y hasta %2$d anteriores, en texto plano a %3$s.</string>
+    <string name="chat_ai_allow">Permitir a %1$s en este chat</string>
+    <string name="chat_ai_disallow">Dejar de permitir a %1$s aquí</string>
+    <string name="chat_ai_allow_title">¿Permitir a %1$s en este chat?</string>
+    <string name="chat_ai_allow_text">Así cualquier persona del chat puede preguntar a %1$s con @%1$s. Solo ese mensaje y hasta %2$d mensajes anteriores se envían en texto plano a la IA (%3$s); el servidor no los guarda. Todos los miembros ven un aviso.</string>
+    <string name="chat_ai_allow_ok">Permitir</string>
+    <string name="chat_ai_allowed">%1$s está permitida en este chat.</string>
+    <string name="chat_ai_disallowed">%1$s ya no está permitida aquí.</string>
+    <string name="chat_ai_asked_by">preguntado por %1$s</string>
+    <string name="chat_ai_asked_by_you">preguntado por ti</string>
+    <string name="chat_ai_unconfirmed">Presentado como respuesta de IA, pero no confirmado</string>
+    <string name="chat_ai_failed">%1$s no pudo responder: %2$s</string>
+    <string name="chat_ai_no_answer">No se recibió respuesta.</string>
+    <string name="chat_ai_mention">Mencionar a %1$s</string>
+    <string name="ai_empty_2_name">%1$s no puede cambiar nada: tú aplicas las sugerencias. %1$s solo lee los chats cuando alguien en el chat pregunta con @%1$s; las tareas y el calendario solo si los activas.</string>
+</resources>

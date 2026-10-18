@@ -39,7 +39,15 @@ data class ChatMessage(
     val mine: Boolean,
     /** 2.1: Anruf-Eintrag (kind "call", Klartext-Metadaten vom Server) statt einer Nachricht */
     val call: io.github.yggdrasil_sh.saga.call.CallEntry? = null,
+    /** 2.1: KI-Antwort? OK = Beleg passt (Profilbild + Name der KI), BAD = Warnung */
+    val ai: io.github.yggdrasil_sh.saga.ai.AiReplyCheck = io.github.yggdrasil_sh.saga.ai.AiReplyCheck.NONE,
 )
+
+/** 2.1: laufende Frage an die KI (nur auf diesem Geraet sichtbar, bis die Antwort als Nachricht gesendet ist) */
+@Stable
+class AiPending(val questionId: String) {
+    var text by mutableStateOf("")
+}
 
 /** Ergebnis des Oeffnens einer Nachricht */
 class Opened(val content: ChatContent?, val verified: Boolean)
@@ -211,7 +219,10 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                     return@map ChatMessage(m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, null, null, true, e?.from == me, e)
                 }
                 val o = opener.open(chatId, m, r.devices, r.idents)
-                ChatMessage(m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, m.replyTo, o.content, o.verified, m.sender?.username == me)
+                ChatMessage(
+                    m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, m.replyTo, o.content, o.verified, m.sender?.username == me,
+                    ai = ChatLogic.aiCheck(o.content, m.ai),
+                )
             }
         }
     }
@@ -268,7 +279,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
      * Text (+ Anhaenge, Seitenverweise) senden. Vorher jedes Empfaenger-Geraet (Zertifikat) und jeden Backup-Schluessel
      * gegen ident_pub pruefen - ungueltig -> nicht senden. 409 {recipients} -> neu versiegeln und einmal erneut senden.
      */
-    suspend fun send(text: String, files: List<PendingFile> = emptyList(), noteIds: List<Long> = emptyList()) {
+    suspend fun send(text: String, files: List<PendingFile> = emptyList(), noteIds: List<Long> = emptyList()): String {
         val k = keys()
         sending = true
         try {
@@ -308,16 +319,106 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             val notesAll = (noteIds + ChatFormat.noteRefs(text)).distinct()
             val plain = ChatLogic.content(text, uploaded, notesAll)
             // alle Kennungen (Original + Vorschaubild), sonst raeumt der Server das Vorschaubild als verwaist weg
-            postEncrypted(k, plain, replyTo?.id, "msg", ChatLogic.sendFileIds(uploaded))
+            val id = postEncrypted(k, plain, replyTo?.id, "msg", ChatLogic.sendFileIds(uploaded))
             replyTo = null
             // gesendet ist gesendet: scheitert nur das Nachladen, holt catchUp() es nach (BUG-066, kein Doppelversand)
             behind = !quietly { loadNewer() }
+            return id
         } finally {
             sending = false
         }
     }
 
-    private suspend fun postEncrypted(k: LocalChatKeys, plain: String, reply: String?, kind: String, fileIds: List<String>) {
+    // ---------------------------------------------------------------- KI im Chat (2.1, nur auf Zuruf)
+
+    /** laufende Frage an die KI (Anzeige "… denkt nach" bzw. mitlaufender Text) */
+    var aiPending by mutableStateOf<AiPending?>(null)
+        private set
+
+    /** darf dieses Konto die KI hier erlauben/verbieten (null = noch nicht geprueft) */
+    val aiMayToggle: Boolean?
+        get() = summary?.let { sum ->
+            // Direkt-Chat/freie Gruppe: sofort aus der Zusammenfassung; Gruppe/Seiten-Chat: nach checkAiToggle()
+            if (sum.kind == "dm" || sum.kind == "free") io.github.yggdrasil_sh.saga.ai.AiChatLogic.mayToggle(sum.kind, sum.role, null, null)
+            else aiToggleChecked
+        }
+    private var aiToggleChecked by mutableStateOf<Boolean?>(null)
+
+    /** Berechtigung fuer den Umschalter pruefen (Gruppe: Saga-Admin, Seiten-Chat: Eigentuemer der Seite) */
+    suspend fun checkAiToggle() {
+        val sum = summary ?: return
+        if (sum.kind == "dm" || sum.kind == "free") return
+        val admin = if (sum.kind == "group") svc.repo.ai.isAdmin() else null
+        val owner = if (sum.kind == "page" && sum.noteId != null) try {
+            val p = svc.repo.loadPage(sum.noteId)
+            val role = (p["role"] as? JsonPrimitive)?.content
+            role == null || role == "owner"
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        } else null
+        aiToggleChecked = io.github.yggdrasil_sh.saga.ai.AiChatLogic.mayToggle(sum.kind, sum.role, admin, owner)
+    }
+
+    /** PUT /api/chats/{cid}/ai {"allowed"} -> {"ai"} */
+    suspend fun setAi(allowed: Boolean) {
+        val o = Json.parseToJsonElement(api.request("PUT", "api/chats/$chatId/ai", buildJsonObject { put("allowed", allowed) })) as? JsonObject
+        val on = (o?.get("ai") as? JsonPrimitive)?.content?.toBooleanStrictOrNull() ?: allowed
+        summary = summary?.copy(ai = on)
+    }
+
+    /** Verlauf fuer die KI: hoechstens 12 Textnachrichten vor der Frage; eigene KI-Antworten mit dem Namen der KI */
+    fun aiHistory(questionId: String, aiName: String): List<io.github.yggdrasil_sh.saga.ai.AiChatLogic.Line> =
+        aiHistoryOf(messages.toList(), questionId, aiName)
+
+    private fun aiHistoryOf(msgs: List<ChatMessage>, questionId: String, aiName: String): List<io.github.yggdrasil_sh.saga.ai.AiChatLogic.Line> =
+        io.github.yggdrasil_sh.saga.ai.AiChatLogic.history(
+            msgs.filter { it.call == null }.map { m ->
+                val name = if (m.ai == io.github.yggdrasil_sh.saga.ai.AiReplyCheck.OK) aiName else m.sender?.name?.ifBlank { null } ?: m.sender?.username.orEmpty()
+                Triple(m.id, name, m.content?.text)
+            },
+            questionId,
+        )
+
+    /**
+     * Frage an die KI (die Nachricht mit @Name ist schon normal verschluesselt gesendet): Frage + Verlauf an den Server,
+     * Antwort mitlaufend zeigen, dann als normale verschluesselte Nachricht an alle senden (mit ai_reply-Beleg).
+     * Fehler -> UiTextException (Aufrufer meldet).
+     */
+    suspend fun askAi(question: String, questionId: String, aiName: String) {
+        if (aiPending != null) return
+        val p = AiPending(questionId)
+        aiPending = p
+        try {
+            var done: io.github.yggdrasil_sh.saga.ai.AiDone? = null
+            var err: UiText? = null
+            // Verlauf abseits des Main-Threads zusammenstellen; der Strom selbst liest auf Dispatchers.IO (AiService.stream)
+            val snapshot = messages.toList()
+            val history = withContext(Dispatchers.Default) { aiHistoryOf(snapshot, questionId, aiName) }
+            svc.repo.ai.chatAsk(chatId, io.github.yggdrasil_sh.saga.ai.AiChatLogic.question(question), questionId, history).collect { c ->
+                when (c) {
+                    is io.github.yggdrasil_sh.saga.ai.AiChunk.Delta -> p.text += c.text
+                    io.github.yggdrasil_sh.saga.ai.AiChunk.Reset -> p.text = ""
+                    is io.github.yggdrasil_sh.saga.ai.AiChunk.Done -> done = c.done
+                    is io.github.yggdrasil_sh.saga.ai.AiChunk.Failed -> err = c.error
+                    is io.github.yggdrasil_sh.saga.ai.AiChunk.Sources -> {}
+                }
+            }
+            err?.let { throw UiTextException(it) }
+            val d = done
+            val text = d?.text?.trim().orEmpty()
+            val rid = d?.replyId
+            if (d == null || text.isEmpty() || rid.isNullOrEmpty()) throw UiTextException(UiText.Res(R.string.chat_ai_no_answer))
+            d.quotaLeft?.let { q -> svc.repo.ai.status.value?.let { st -> svc.repo.ai.status.value = st.copy(quotaLeft = q) } }
+            postEncrypted(keys(), ChatLogic.aiReplyContent(text, rid, aiName), questionId, "msg", emptyList(), aiReply = rid)
+            behind = !quietly { loadNewer() }
+        } finally {
+            aiPending = null
+        }
+    }
+
+    private suspend fun postEncrypted(k: LocalChatKeys, plain: String, reply: String?, kind: String, fileIds: List<String>, aiReply: String? = null): String {
         var rc = decode<RecipientsResponse>(api.get("api/chats/$chatId/recipients")).recipients
         for (attempt in 0..1) {
             val enc = withContext(Dispatchers.Default) {
@@ -334,10 +435,12 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                 if (kind != "msg") put("kind", kind)
                 putJsonObject("keys") { enc.keys.forEach { (r, v) -> put(r, v) } }
                 put("files", buildJsonArray { fileIds.forEach { add(JsonPrimitive(it)) } })
+                // 2.1: Beleg der KI-Antwort (nicht signiert, nur Verweis; der Server prueft Chat/Konto/Alter/einmalig)
+                if (aiReply != null) put("ai_reply", aiReply)
             }
             try {
                 api.post("api/chats/$chatId/messages", body)
-                return
+                return enc.id
             } catch (e: ApiException) {
                 if (e.code != 409 || attempt == 1) throw e
                 val o = try {
@@ -349,6 +452,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                 rc = o.recipients                            // Mitglieder/Geraete geaendert: neu versiegeln
             }
         }
+        throw IllegalStateException("unreachable")
     }
 
     private fun recipientKeys(rc: List<Recipient>): Map<String, ByteArray>? {

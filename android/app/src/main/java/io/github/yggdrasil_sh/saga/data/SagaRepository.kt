@@ -201,7 +201,7 @@ class SagaRepository(
     }
 
     /** KI-Assistent (Server 1.6) */
-    val ai = io.github.yggdrasil_sh.saga.ai.AiService(this)
+    val ai = io.github.yggdrasil_sh.saga.ai.AiService(this, scope)
 
     @Volatile private var pushChecked = false
 

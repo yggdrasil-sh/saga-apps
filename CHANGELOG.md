@@ -39,6 +39,22 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   bleiben gleich); Android 8–12: eigene Einstellung der App. Die Anfragen an den Server (`Accept-Language`) folgen
   der gewählten Sprache.
 
+### Neu – Android: KI mit Namen und Profilbild, KI im Chat nur auf Zuruf
+- **Persona:** Hat der Admin der KI einen Namen und ein Profilbild gegeben (z. B. „Marin“), zeigt die App sie
+  überall, wo es KI-Funktionen gibt: „Frage Marin“ statt „KI-Assistent“, Antworten mit Profilbild und Namen,
+  „Marin denkt nach …“. Ohne Bild ein neutrales ✦-Symbol. Änderungen des Admins kommen live an
+  (`ai.persona.changed`); das Bild wird je Kennung (`avatar_etag`) zwischengespeichert. Ältere Server: wie bisher.
+- **KI im Chat – nur auf Zuruf:** Ist die KI in einem Chat erlaubt, steht oben ein Hinweis, was an die KI geht
+  (Nachrichten mit @Name und bis zu 12 davor, im Klartext an den KI-Anbieter); alles andere bleibt
+  Ende-zu-Ende-verschlüsselt. Berechtigte schalten das im Chat-Menü um („Marin in diesem Chat erlauben“, mit
+  Rückfrage). Bei „@“ wird die KI als erster Vorschlag angeboten, beim Schreiben von „@Marin“ erscheint ein kurzer
+  Hinweis. Nach dem Senden fragt die App die KI (Frage + höchstens 12 Nachrichten Verlauf), zeigt die Antwort
+  mitlaufend und sendet sie verschlüsselt an alle – mit Beleg des Servers.
+- **Echtheit:** Empfangene KI-Antworten erscheinen nur dann mit Profilbild, Namen und „gefragt von …“, wenn Beleg
+  und SHA-256 des Textes passen; sonst als normale Nachricht mit der Warnung „Als KI-Antwort ausgegeben, aber nicht
+  bestätigt“.
+- Der Hinweis im Assistenten sagt jetzt, dass die KI Chats nur liest, wenn man sie dort mit @Name fragt.
+
 ### Sprachwahl (Linux)
 - **Sprache in der App wählbar:** Einstellungen → Allgemein → Sprache: „Automatisch (Systemsprache)“, Deutsch,
   English oder Español – hilfreich an einem fremden Rechner. Gespeichert in den App-Einstellungen
