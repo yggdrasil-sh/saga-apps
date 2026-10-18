@@ -303,6 +303,113 @@ class Store(GObject.Object):
         self._set_pages(allp)
         self.emit("pages-changed")
 
+    # --- Live: notes.tree (Server 2.2) ------------------------------------------------------------
+    TREE_MIN_SERVER = (2, 2, 0)
+
+    @property
+    def tree_events(self):
+        """Server meldet Baum-Aenderungen live (notes.tree, ab 2.2) - nur dann reicht der seltene Takt; aeltere Server
+        oder Version unbekannt: wie bisher jede Minute"""
+        from . import version_tuple
+        return bool(self.server_version) and version_tuple(self.server_version) >= self.TREE_MIN_SERVER
+
+    TREE_DEBOUNCE_MS = 400
+    TREE_MAX_TARGETED = 20
+    TREE_TARGETED = frozenset(("created", "create", "new", "changed", "change", "updated", "update", "renamed"))
+    _tree_src = 0
+
+    @classmethod
+    def tree_plan(cls, ids, ops):
+        """-> IDs zum gezielten Nachladen (GET api/notes/{id}) oder None = voller Abgleich (Verschieben, Papierkorb,
+        Archiv, unbekannte Art, keine oder viele IDs)"""
+        ids = set(ids)
+        if not ids or len(ids) > cls.TREE_MAX_TARGETED or any(str(o).lower() not in cls.TREE_TARGETED for o in ops):
+            return None
+        return ids
+
+    @staticmethod
+    def tree_parse(d):
+        """notes.tree {ids: [int], op: str} - tolerant (Zahlen als Text, Zusatzfelder, fehlende Felder)"""
+        d = d if isinstance(d, dict) else {}
+        ids = []
+        for x in d.get("ids") or []:
+            try:
+                ids.append(int(float(x)))
+            except (TypeError, ValueError, OverflowError):
+                pass
+        return ids, str(d.get("op") or "")
+
+    def on_tree_event(self, d):
+        """Live-Ereignis notes.tree: Seiten anderswo (Web, anderes Geraet, Freigabe) angelegt/geaendert/verschoben/
+        geloescht. Kurz sammeln (entprellt), dann gezielt nachladen und einpflegen bzw. voll abgleichen."""
+        ids, op = self.tree_parse(d)
+        if not hasattr(self, "_tree_ids"):
+            self._tree_ids, self._tree_ops = set(), set()
+        self._tree_ids.update(ids)
+        self._tree_ops.add(op if ids else "")
+        if not self._tree_src:
+            self._tree_src = GLib.timeout_add(self.TREE_DEBOUNCE_MS, self._tree_apply)
+
+    def _tree_apply(self):
+        self._tree_src = 0
+        ids, ops = set(self._tree_ids), set(self._tree_ops)
+        self._tree_ids.clear()
+        self._tree_ops.clear()
+        if self.needs_login:
+            return False
+        plan = self.tree_plan(ids, ops)
+        if plan is None:
+            self._local_tree_change()                      # laufende Auffrischung kennt die Aenderung evtl. noch nicht
+            self.refresh()
+            return False
+        srv = config.settings.server
+
+        def work():
+            out = []
+            for i in sorted(plan):
+                try:
+                    out.append((i, self.get_cached(f"api/notes/{i}"), None))
+                except APIError as e:
+                    out.append((i, None, e.code))
+            return out
+
+        def fin(res):
+            if srv != config.settings.server:
+                return
+            full = False
+            for i, d, code in res:
+                if isinstance(d, dict):
+                    if d.get("role") in (None, "owner") and i > 0:
+                        self.upsert_page(self.meta_from_detail(d))
+                    else:
+                        full = True                        # fremde (geteilte) Seite: "Mit mir geteilt" vom Server
+                elif code in (403, 404) and i in self.by_id:
+                    self.remove_subtree_local(i)
+                else:
+                    full = True
+            if full:
+                self._local_tree_change()
+                self.refresh()
+            else:
+                self.load_today()
+
+        bg(work, done=fin, error=lambda e: self.refresh())
+        return False
+
+    def upsert_page(self, meta):
+        """Eigene Seite (Eintrag wie in GET api/notes) einpflegen: ersetzen (Stelle bleibt) bzw. neu ans Ende"""
+        allp = list(getattr(self, "_all", self.pages))
+        i = next((k for k, p in enumerate(allp) if p["id"] == meta["id"]), None)
+        if i is None:
+            allp.append(meta)
+        else:
+            old = allp[i]
+            old.clear()                                    # dasselbe Objekt behalten (offene Ansichten halten es)
+            old.update(meta)
+        self._local_tree_change()
+        self._set_pages(allp)
+        self.emit("pages-changed")
+
     def _set_shared(self, lst):
         lst = [p for p in (lst or []) if isinstance(p, dict) and p.get("id") is not None]
         self._local_shared = lst
@@ -524,7 +631,7 @@ class Store(GObject.Object):
             self.refresh()
 
     POLL_S = 60          # Takt ohne Live-Kanal (wie bisher)
-    POLL_LIVE_S = 300    # Takt mit verbundenem Live-Kanal (Freigaben, Kommentare, "reset" kommen dort sofort)
+    POLL_LIVE_S = 300    # Takt mit Live-Kanal und notes.tree (Sicherheitsnetz; Aenderungen kommen dort sofort)
 
     def refresh_due(self, live_connected):
         """Takt (Fenster aktiv, alle 60 s geprueft): ohne Live-Kanal jedes Mal, mit Live-Kanal alle 5 min.

@@ -146,6 +146,11 @@ def test_takt(srv):
     assert not store.refresh_due(True)                             # mit Live-Kanal seltener
     store._refreshed_at = time.monotonic() - 300
     assert store.refresh_due(True)
+    # seltener Takt nur mit Server, der notes.tree meldet (2.2); aeltere/unbekannte: wie bisher jede Minute
+    for v, on in (("2.2.0", True), ("2.3.1", True), ("2.1.0", False), (None, False)):
+        store.server_version = v
+        assert store.tree_events is on, v
+    store.server_version = None
 
 
 def test_gzip_wird_entpackt():
@@ -187,3 +192,58 @@ def test_schaltflaeche_neuer_eintrag_einmal(win, srv):
     idle()
     assert sum(1 for x in srv.log if x[0] == "POST" and x[1].endswith("/api/notes")) == posts0 + 1
     assert bt.get_sensitive() and bt.get_label() == "➕ Neu"
+
+
+def test_notes_tree_vertrag_tolerant():
+    from hlidskjalf.store import Store
+    assert Store.tree_parse({"ids": [5, "7", 9.0, "x", None], "op": "created", "by": {"name": "A"}, "neu": 1}) == ([5, 7, 9], "created")
+    assert Store.tree_parse(None) == ([], "")
+    assert Store.tree_plan([5, 7, 5], {"created", "changed"}) == {5, 7}
+    for op in ("moved", "trashed", "archived", "restored", "", "irgendwas"):
+        assert Store.tree_plan([5], {"created", op}) is None, op
+    assert Store.tree_plan([], {"changed"}) is None
+    assert Store.tree_plan(range(1, 22), {"changed"}) is None
+
+
+def _tree(store, d):
+    store.on_tree_event(d)
+    pump(lambda: not store._tree_src, 3)
+    idle()
+    pump(None, 0.3)
+    idle()
+
+
+def test_notes_tree_gezielt_nachladen(srv):
+    """Anderswo angelegt/umbenannt/geloescht: nur die betroffenen Seiten holen, Ergebnis wie nach einem Neuladen"""
+    from hlidskjalf.store import store
+    store.refresh()
+    idle()
+    n0 = len(_get_notes(srv))
+    nid = srv.next_id
+    srv.next_id += 1
+    srv.notes[nid] = {"id": nid, "title": "Aus dem Web", "parent_id": 1, "format": "blocks", "body": "", "rev": 1,
+                      "icon": "", "updated": time.time(), "created": time.time()}
+    _tree(store, {"ids": [nid], "op": "created", "zusatz": True})
+    assert nid in store.by_id and [p["id"] for p in store.children(1)][-1] == nid
+    srv.notes[3]["title"] = "Umbenannt im Web"
+    _tree(store, {"ids": [3], "op": "changed"})
+    assert store.by_id[3]["title"] == "Umbenannt im Web"
+    srv.trash.append(srv.notes.pop(nid))                       # inzwischen weg -> 404 -> lokal entfernen
+    _tree(store, {"ids": [nid], "op": "changed"})
+    assert nid not in store.by_id
+    assert len(_get_notes(srv)) == n0                          # keine ganze Liste
+    local = _snap(store)
+    assert local == _after_reload(store)
+
+
+def test_notes_tree_verschieben_voller_abgleich(srv):
+    from hlidskjalf.store import store
+    store.refresh()
+    idle()
+    n0 = len(_get_notes(srv))
+    srv.notes[3]["parent_id"] = 1
+    _tree(store, {"ids": [3], "op": "moved"})
+    assert len(_get_notes(srv)) == n0 + 1
+    assert 3 in [p["id"] for p in store.children(1)]
+    _tree(store, {"op": "trashed"})                              # ohne IDs: ebenfalls voller Abgleich
+    assert len(_get_notes(srv)) == n0 + 2

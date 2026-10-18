@@ -55,8 +55,10 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Schaltflächen ohne Vorlage) werden gezielt geholt und direkt eingefügt; „In den Papierkorb“ und „Archivieren“
   entfernen die Seite samt Unterseiten sofort aus der Liste; Verschieben zeigt die neue Stelle sofort – jeweils mit
   denselben Daten wie nach einem Neuladen. Der regelmäßige Abgleich bei aktivem Fenster läuft wie bisher jede
-  Minute, solange der Live-Kanal nicht verbunden ist; mit Live-Kanal (Freigaben, Kommentare, Benachrichtigungen
-  kommen dort sofort) alle 5 Minuten. Beim Zurückkehren ins Fenster und nach einer Unterbrechung des Live-Kanals
+  Minute, solange der Live-Kanal nicht verbunden ist. Mit Live-Kanal meldet der Server (ab 2.2, Ereignis
+  `notes.tree`) anderswo angelegte, geänderte, verschobene, gelöschte oder archivierte Seiten sofort – die App holt
+  dann nur diese Seiten nach (bei Verschieben, Papierkorb, Archiv oder vielen Seiten die ganze Liste); der Abgleich
+  alle 5 Minuten bleibt als Sicherheitsnetz (ältere Server ohne `notes.tree`: weiter jede Minute). Beim Zurückkehren ins Fenster und nach einer Unterbrechung des Live-Kanals
   (Netzwechsel, Aufwachen) wird wie bisher abgeglichen. Seitenbaum und Liste werden im Hintergrund aufbereitet,
   der Baum entsteht linear statt durch Suchen über alle Seiten (spürbar bei Tausenden Seiten). Die App fragt
   Antworten komprimiert an (gzip) – sobald der Server Kompression anbietet, sinkt das Datenvolumen um rund 90 %.

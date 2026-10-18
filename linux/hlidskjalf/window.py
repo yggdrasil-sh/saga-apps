@@ -603,7 +603,7 @@ class MainWindow(Adw.ApplicationWindow):
             from .chat import chat
             from .live import live
             from .notifications import notifications
-            if store.refresh_due(live.connected):          # ohne Live-Kanal jede Minute, mit Live-Kanal alle 5 min
+            if store.refresh_due(live.connected and store.tree_events):   # jede Minute; mit Live + notes.tree alle 5 min
                 store.refresh()
             if not live.connected:                         # ohne Live-Kanal regelmaessig fragen
                 notifications.count()
@@ -1280,6 +1280,9 @@ class MainWindow(Adw.ApplicationWindow):
             return
         if typ == "shared.changed":
             store.refresh()
+            return
+        if typ == "notes.tree":                            # (2.2) Seiten im Baum anderswo geaendert: gezielt nachladen
+            store.on_tree_event(d)
             return
         nid = d.get("id") if typ == "note.changed" else d.get("note_id")
         if typ == "comments.changed":
