@@ -80,7 +80,6 @@ import io.github.yggdrasil_sh.saga.ui.push.PushScreen
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.collectLatest
@@ -179,12 +178,8 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
 
     LaunchedEffect(Unit) {
-        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {      // alle 60 s auffrischen, solange die App vorne ist
-            while (true) {
-                delay(60_000)
-                repo.refresh()
-            }
-        }
+        // solange die App vorne ist: alle 60 s auffrischen, mit verbundenem Live-Kanal seltener (RefreshPolicy)
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { repo.pollWhileForeground() }
     }
 
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize()) {

@@ -52,7 +52,10 @@ import java.util.Date
 private fun knownPages(repo: SagaRepository): List<PageMeta> {
     val own by repo.pages.collectAsState()
     val shared by repo.sharedPages.collectAsState()
-    return remember(own, shared) { own + shared.filter { s -> own.none { it.id == s.id } } }
+    return remember(own, shared) {
+        if (shared.isEmpty()) own
+        else own.mapTo(HashSet(own.size * 2)) { it.id }.let { ids -> own + shared.filter { it.id !in ids } }   // linear statt O(n·m)
+    }
 }
 
 /** Zeilen einer Datenbank (limit: hoechstens so viele, darunter "Alle anzeigen") */

@@ -19,6 +19,20 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Server zur nächsten Patch-Version (`2.1.1-rc.N`, RPM `saga-2.1.1-0.rcN`) – Testversionen sind so immer erkennbar
   neuer als das Release.
 
+### Geändert (Android)
+- **Weniger Datenvolumen und schnellere Reaktion bei großen Konten:** Die App lädt die komplette Seitenliste (bei
+  vielen Datenbank-Einträgen mehrere MB) nicht mehr nach jeder Aktion neu. Eine neue eigene Seite (Seitenleiste
+  „+“, „+“ an einer Seite, Konfliktkopie) wird gezielt geholt und direkt eingefügt, „In den Papierkorb“ und
+  „Archivieren“ entfernen die Seite samt Unterseiten sofort aus der Liste – mit denselben Daten wie nach einem
+  Neuladen. Der regelmäßige Abgleich im Vordergrund läuft wie bisher jede Minute, solange der Live-Kanal nicht
+  verbunden ist; mit Live-Kanal (Freigaben, Kommentare, Benachrichtigungen kommen dort sofort) alle 5 Minuten. Beim
+  Zurückholen der App und nach einer Unterbrechung des Live-Kanals (Netzwechsel, Aufwachen) wird wie bisher sofort
+  abgeglichen. Gleichzeitige Anstöße (Start, Takt, Ziehen zum Aktualisieren, Live „reset“) laden die Liste nur
+  einmal. Seitenbaum und Datenbank-Zeilen werden im Hintergrund aufbereitet (kein Ruckeln bei großen Listen).
+  Antworten kommen komprimiert an, sobald der Server Kompression anbietet.
+- **„+“ (Neue Seite) legt nichts doppelt an:** Während die Seite angelegt wird, zeigt der Knopf einen Fortschritt
+  und ist gesperrt – mehrfaches Tippen erzeugt keine weiteren Seiten.
+
 ### Behoben (iOS/iPadOS/macOS)
 - **Titelbild erscheint sofort:** Ein neu gewähltes Titelbild (Fotos) steht jetzt sofort da, noch während es
   hochgeladen wird – vorher blieb der Bereich oben leer, bis das verkleinerte Bild vom Server kam (bei langsamer

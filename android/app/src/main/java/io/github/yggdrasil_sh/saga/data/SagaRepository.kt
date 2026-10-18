@@ -20,6 +20,8 @@ import io.github.yggdrasil_sh.saga.util.Versions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -315,7 +317,7 @@ class SagaRepository(
         if (granted) {
             localBlocked = false
             if (!needsLogin.value) scope.launch {
-                refresh()
+                refresh(join = false)
                 live.restart()
             }
         } else {
@@ -370,12 +372,57 @@ class SagaRepository(
 
     private val refreshLock = Mutex()
 
-    suspend fun refresh() {
+    /** Abgeschlossene Abgleiche (Zaehler) - wer waehrend eines laufenden Abgleichs fragt, nutzt dessen Ergebnis mit */
+    @Volatile private var refreshDone = 0L
+
+    /** Ende des letzten Abgleichs (monotone Uhr, ms; 0 = noch keiner) - Grundlage fuer den Takt (RefreshPolicy) */
+    @Volatile var lastRefreshMs = 0L
+        private set
+
+    private fun sinceLastRefresh(): Long = if (lastRefreshMs == 0L) Long.MAX_VALUE else RefreshPolicy.now() - lastRefreshMs
+
+    /**
+     * Seitenliste und Zubehoer neu laden. Laeuft schon ein Abgleich (Start, Takt, Ziehen, Live "reset"), wartet der
+     * Aufruf auf dessen Ende und uebernimmt das Ergebnis, statt die (grosse) Liste ein zweites Mal zu laden.
+     */
+    suspend fun refresh(join: Boolean = true) {
         if (!ready.value || needsLogin.value) return
-        if (!refreshLock.tryLock()) return                   // laeuft schon (Start, Timer, Ziehen) - nicht doppelt laden
+        val seen = refreshDone
+        refreshLock.withLock {
+            if (join && refreshDone != seen) return          // waehrend des Wartens fertig geworden: mitbenutzen
+            if (!ready.value || needsLogin.value) return
+            try {
+                refreshNow()
+            } finally {
+                refreshDone++
+                lastRefreshMs = RefreshPolicy.now()
+            }
+        }
+    }
+
+    /**
+     * Takt im Vordergrund (MainScreen): ohne verbundenen Live-Kanal wie bisher alle 60 s, mit Live-Kanal seltener
+     * (RefreshPolicy). Kommt der Live-Kanal nach einer Unterbrechung wieder, wird sofort abgeglichen, wenn der letzte
+     * Abgleich laenger als der Takt ohne Live-Kanal her ist.
+     */
+    suspend fun pollWhileForeground(): Unit = coroutineScope {
+        launch {
+            var was = live.connected.value
+            live.connected.collect { on ->
+                if (on && !was && RefreshPolicy.staleAfterReconnect(sinceLastRefresh())) refresh()
+                was = on
+            }
+        }
+        while (true) {
+            delay(RefreshPolicy.TICK_MS)
+            if (RefreshPolicy.due(sinceLastRefresh(), live.connected.value)) refresh()
+        }
+    }
+
+    private suspend fun refreshNow() {
         loading.value = true
         try {
-            setPages(decode<List<PageMeta>>(api.get("api/notes")))
+            loadPages()
             error.value = null
             loadShared()
             scope.launch { loadFedShared() }                 // fremde Server koennen dauern: nicht darauf warten
@@ -400,17 +447,62 @@ class SagaRepository(
             }
         } finally {
             loading.value = false
-            refreshLock.unlock()
         }
     }
 
-    private fun setPages(all: List<PageMeta>) {
-        pages.value = all.filter { !it.archived }
-        ownIds = all.map { it.id }.toSet()
+    /**
+     * GET api/notes -> Seitenliste. Aufbereiten (Filtern, Mengen) im Hintergrund. Hat sich der Baum waehrend der
+     * Anfrage lokal geaendert (neue Seite, Papierkorb ...), kann die Antwort davon noch nichts wissen: dann einmal
+     * nachladen, statt die lokale Aenderung zu ueberschreiben.
+     */
+    private suspend fun loadPages() {
+        repeat(2) { attempt ->
+            val epoch = treeEpoch
+            val text = api.get("api/notes")
+            val split = withContext(Dispatchers.Default) { PageList.split(json.decodeFromString<List<PageMeta>>(text)) }
+            if (treeEpoch != epoch && attempt == 0) return@repeat
+            pages.value = split.active
+            archivedOwn = split.archived
+            ownIds = split.ids
+            return
+        }
     }
+
+    /** Zaehler lokaler Baum-Aenderungen (loadPages erkennt daran veraltete Antworten) */
+    @Volatile private var treeEpoch = 0L
+
+    /** Eigene archivierte Seiten (fehlen in pages) - nur, um Unterseiten beim Archivieren/Loeschen lokal zu finden */
+    @Volatile private var archivedOwn: List<PageMeta> = emptyList()
 
     /** IDs aller eigenen Seiten (auch archivierte; GET api/notes) - null = noch nicht geladen */
     @Volatile private var ownIds: Set<Long>? = null
+
+    /**
+     * Neue eigene Seite lokal einfuegen - mit genau den Feldern, die GET api/notes liefern wuerde (aus GET
+     * api/notes/{id}, wenige KB statt der ganzen Liste). Neue Seiten bekommen sort = Anlegezeit -> am Ende.
+     */
+    private suspend fun insertOwnPage(id: Long) {
+        val text = api.get("api/notes/$id")
+        val meta = withContext(Dispatchers.Default) { PageList.metaFromDetail(json, text) }
+        treeEpoch++
+        if (!meta.archived) pages.value = pages.value.filter { it.id != id } + meta
+        ownIds = ownIds?.plus(id)
+    }
+
+    /** Seite samt Unterseiten lokal entfernen (Papierkorb/Archiv - der Server nimmt den ganzen aktiven Teilbaum mit) */
+    private suspend fun removeSubtreeLocal(id: Long, trashed: Boolean) {
+        val cur = pages.value
+        val arch = archivedOwn
+        val gone = withContext(Dispatchers.Default) { PageList.subtree(cur + arch, id) }
+        treeEpoch++
+        pages.value = pages.value.filter { it.id !in gone }
+        if (trashed) {
+            archivedOwn = archivedOwn.filter { it.id !in gone }
+            ownIds = ownIds?.minus(gone)
+        } else {
+            archivedOwn = archivedOwn + cur.filter { it.id in gone }.map { it.copy(archived = true) }
+        }
+    }
 
     /** Server-Version (oeffentlich, ohne Anmeldung); aeltere Server ohne /api/version: nichts anzeigen */
     suspend fun checkVersion() {
@@ -439,8 +531,28 @@ class SagaRepository(
             if (parent != null) put("parent_id", parent)
         }
         val id = decode<NewId>(api.post("api/notes", b)).id
-        refresh()
+        pageAdded(id, parent)
         return id
+    }
+
+    /**
+     * Nach dem Anlegen: eigene Seite lokal einfuegen statt die ganze Seitenliste neu zu laden. Unter einer fremden
+     * (geteilten) Elternseite gehoert die neue Seite deren Eigentuemer -> wie bisher vollstaendig abgleichen
+     * ("Mit mir geteilt"). Faellt das gezielte Laden aus, ebenfalls der volle Abgleich.
+     */
+    private suspend fun pageAdded(id: Long, parent: Long?) {
+        val own = parent == null || ownIds?.contains(parent) == true
+        if (own) {
+            try {
+                insertOwnPage(id)
+                afterTreeChange()                            // Aufgaben/Termine (klein) wie bisher mit auffrischen
+                return
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
+        }
+        refresh(join = false)
     }
 
     override suspend fun setPinned(id: Long, pinned: Boolean) {
@@ -456,19 +568,30 @@ class SagaRepository(
     /** Seite (samt Unterseiten) in den Papierkorb; Rueckgaengig ueber den Papierkorb */
     suspend fun trashPage(id: Long) {
         api.delete("api/notes/$id")
-        pages.value = pages.value.filter { it.id != id }
-        refresh()
+        removeSubtreeLocal(id, trashed = true)
+        afterTreeChange()
     }
 
+    /** Zurueckholen: Daten der zurueckgeholten Seiten kennt nur der Server -> voller Abgleich (selten) */
     suspend fun restorePage(id: Long) {
         api.post("api/trash/$id/restore")
-        refresh()
+        refresh(join = false)
     }
 
     suspend fun archivePage(id: Long, archived: Boolean) {
         api.post("api/notes/$id/archive", buildJsonObject { put("archived", archived) })
-        if (archived) pages.value = pages.value.filter { it.id != id }
-        refresh()
+        if (archived) {
+            removeSubtreeLocal(id, trashed = false)
+            afterTreeChange()
+        } else {
+            refresh(join = false)                            // aus dem Archiv holen: Daten nur vom Server
+        }
+    }
+
+    /** Was ausser dem Baum an Seiten haengt (Aufgaben, Termine aus Seiten) - klein, daher wie bisher nachladen */
+    private suspend fun afterTreeChange() {
+        loadTasks()
+        loadTodayEvents()
     }
 
     override fun updateTitleLocal(id: Long, title: String) {
@@ -662,7 +785,7 @@ class SagaRepository(
     override suspend fun createPageWith(title: String, body: String): Long {
         val id = decode<NewId>(api.post("api/notes", buildJsonObject { put("title", title) })).id
         savePage(id, title, body, null)
-        refresh()
+        pageAdded(id, null)
         return id
     }
 
@@ -1116,7 +1239,7 @@ class SagaRepository(
         message?.let { notify(it) }
         live.clear()
         live.restart()
-        refresh()
+        refresh(join = false)
     }
 
     /** Lokale Daten des bisherigen Kontos leeren (Entwuerfe bleiben je Server/Konto auf dem Geraet) */
