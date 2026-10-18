@@ -1279,7 +1279,7 @@ struct BlockView: View {
             EventList(days: 14, compact: true).padding(12).background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
         case "buttons":
             HStack(spacing: 6) {
-                ButtonsBlock(buttons: data["buttons"] as? [[String: Any]] ?? [])
+                ButtonsBlock(buttons: data["buttons"] as? [[String: Any]] ?? [], readOnlyRole: ed.doc.access.readOnly)
                 if !ed.locked { Button { ed.configButtons = id } label: { Image(systemName: "gearshape").foregroundStyle(.tertiary) }.buttonStyle(.plain).help("Schaltflächen einrichten").accessibilityLabel("Schaltflächen einrichten") }
             }
         case "embed":
@@ -1403,23 +1403,45 @@ struct TableBlock: View {
 
 struct ButtonsBlock: View {
     let buttons: [[String: Any]]
+    /// Nur Lesen/Kommentieren: Schaltflaechen nicht ausloesbar. Gesperrte Seite: bedienbar (wie im Web)
+    var readOnlyRole = false
     @EnvironmentObject var store: Store
     @EnvironmentObject var nav: NavModel
+    @State private var gate = ButtonLogic.Gate()
+    @State private var problem: String?
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(Array(buttons.enumerated()), id: \.offset) { _, b in
-                    Button { Task { await run(b) } } label: {
-                        HStack(spacing: 6) {
-                            if let ic = b["icon"] as? String, !ic.isEmpty { Text(ic) } else { Image(systemName: "cursorarrow.click").foregroundStyle(.secondary) }
-                            Text(b["label"] as? String ?? "").foregroundStyle(.primary)
+        VStack(alignment: .leading, spacing: 4) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Array(buttons.enumerated()), id: \.offset) { i, b in
+                        let key = String(i), busy = gate.busy(key)
+                        Button { start(key, b) } label: {
+                            HStack(spacing: 6) {
+                                if busy { ProgressView().controlSize(.small) }          // sofort sichtbar: Aktion laeuft
+                                else if let ic = b["icon"] as? String, !ic.isEmpty { Text(ic) }
+                                else { Image(systemName: "cursorarrow.click").foregroundStyle(.secondary) }
+                                Text(b["label"] as? String ?? "").foregroundStyle(.primary)
+                            }
+                            .font(.subheadline.weight(.medium)).padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+                            .opacity(busy ? 0.7 : 1)
                         }
-                        .font(.subheadline.weight(.medium)).padding(.horizontal, 10).padding(.vertical, 6)
-                        .background(.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+                        .buttonStyle(.plain)
+                        .disabled(busy || !ButtonLogic.enabled(readOnlyRole: readOnlyRole))
                     }
-                    .buttonStyle(.plain)
                 }
             }
+            if let problem { Text(problem).font(.caption).foregroundStyle(.orange) }
+        }
+    }
+    /// Doppeltes Tippen waehrend der Anfrage legt nichts doppelt an (Knopf gesperrt, Tor je Knopf)
+    private func start(_ key: String, _ b: [String: Any]) {
+        guard gate.begin(key) else { return }
+        problem = nil
+        Task {
+            await run(b)
+            try? await Task.sleep(for: .milliseconds(800))      // waehrend die neue Seite hereinfaehrt: kein zweites Mal
+            gate.end(key)
         }
     }
     private func run(_ b: [String: Any]) async {
@@ -1428,15 +1450,28 @@ struct ButtonsBlock: View {
         case "page": if let t = target { nav.open(t, mode: b["open"] as? String ?? "") }
         case "db":
             guard let t = target else { return }
-            let title = (b["title"] as? String ?? "").replacingOccurrences(of: "{datum}", with: Date.now.sagaFormatted(date: .numeric, time: .omitted))
+            let title = ButtonLogic.title(b["title"] as? String ?? "", today: Date.now.sagaFormatted(date: .numeric, time: .omitted))
             struct R: Decodable { let id: Int }
             let tpl = b["tpl"] as? Int
             var body: [String: Any] = ["parent_id": t]; if !title.isEmpty || tpl == nil { body["title"] = title }
-            if let d = try? await store.api(tpl.map { "api/notes/\($0)/duplicate" } ?? "api/notes", method: "POST", body: body),   // Vorlage: alles uebernehmen
-               let r = try? JSONDecoder().decode(R.self, from: d) { await store.refresh(); store.dataChanged(); nav.open(r.id, mode: b["open"] as? String ?? "") }
+            do {
+                let d = try await store.api(tpl.map { "api/notes/\($0)/duplicate" } ?? "api/notes", method: "POST", body: body)   // Vorlage: alles uebernehmen
+                let r = try JSONDecoder().decode(R.self, from: d)
+                // Gleich oeffnen (wie im Web) - die Seitenliste laedt still dahinter. Vorher wartete die App auf das
+                // komplette Neuladen (Seiten, Freigaben, Heute, Konto ...): bei langsamer Verbindung sekundenlang
+                // keine Reaktion, und weiteres Tippen legte weitere Eintraege an.
+                store.dataChanged()
+                if title.isEmpty { nav.focusTitle = r.id }
+                nav.open(r.id, mode: b["open"] as? String ?? "")
+                Task { await store.refresh(quiet: true); store.dataChanged() }
+            } catch {
+                problem = String(localized: "Eintrag nicht angelegt: \(error.localizedDescription)")
+            }
         case "task":
-            _ = try? await store.api("api/tasks", method: "POST", body: ["text": (b["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? String(localized: "Neue Aufgabe")])
-            await store.loadToday()
+            do {
+                _ = try await store.api("api/tasks", method: "POST", body: ["text": (b["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? String(localized: "Neue Aufgabe")])
+                await store.loadToday()
+            } catch { problem = error.localizedDescription }
         default: break
         }
     }

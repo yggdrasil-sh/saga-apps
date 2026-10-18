@@ -43,3 +43,23 @@ enum HeaderLogic {
     /// ersten Abruf; ein Zeitlimit oder Netzaussetzer darf das Bild nicht bis zum Neuladen der Seite verschwinden lassen)
     static let retryDelays: [Double] = [0, 1, 3, 8]
 }
+
+/// Schaltflaechen-Bloecke ("+ Neuer Eintrag" usw.)
+enum ButtonLogic {
+    /// Titel-Vorlage wie im Web: {datum} / {date} / {fecha} -> heutiges Datum
+    static func title(_ template: String, today: String) -> String {
+        var t = template
+        for k in ["{datum}", "{date}", "{fecha}"] { t = t.replacingOccurrences(of: k, with: today) }
+        return t
+    }
+    /// Laufende Aktionen (je Knopf): ein zweites Tippen, waehrend die erste Anfrage laeuft, wird ignoriert -
+    /// sonst legt mehrfaches Tippen bei langsamer Verbindung mehrere Eintraege an
+    struct Gate: Equatable {
+        private(set) var running: Set<String> = []
+        mutating func begin(_ key: String) -> Bool { running.insert(key).inserted }
+        mutating func end(_ key: String) { running.remove(key) }
+        func busy(_ key: String) -> Bool { running.contains(key) }
+    }
+    /// Schaltflaechen bleiben auf gesperrten Seiten bedienbar (wie im Web); nur Lesen/Kommentieren: nicht
+    static func enabled(readOnlyRole: Bool) -> Bool { !readOnlyRole }
+}

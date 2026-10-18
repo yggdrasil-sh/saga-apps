@@ -1,6 +1,6 @@
 import Foundation
 
-// Seitenkopf (Titelbild/Symbol) (App/PageHeaderLogic.swift)
+// Seitenkopf (Titelbild/Symbol) und Schaltflaechen-Bloecke (App/PageHeaderLogic.swift)
 func headerTests() {
     // Optimistisch setzen + zuruecknehmen
     var page: [String: Any] = ["title": "T", "icon": "📝", "cover_pos": 30.0]
@@ -31,4 +31,18 @@ func headerTests() {
     // Nachladen: erster Versuch sofort, dann mit wachsenden Pausen, insgesamt begrenzt
     let r = HeaderLogic.retryDelays
     check(r.first == 0 && r.count >= 3 && zip(r, r.dropFirst()).allSatisfy { $0 < $1 } && r.reduce(0, +) <= 15, "Wiederholungen: \(r)")
+
+    // Schaltflaechen: Titel-Vorlage wie im Web
+    check(ButtonLogic.title("ToDo {datum}", today: "18.10.2026") == "ToDo 18.10.2026", "{datum}")
+    check(ButtonLogic.title("Diary {date} / {fecha}", today: "x") == "Diary x / x", "{date} und {fecha} wie im Web")
+    check(ButtonLogic.title("", today: "x") == "", "leer bleibt leer")
+
+    // Tor gegen doppeltes Ausloesen
+    var g = ButtonLogic.Gate()
+    check(g.begin("0"), "erstes Tippen startet")
+    check(!g.begin("0") && g.busy("0"), "zweites Tippen waehrend der Anfrage: ignoriert")
+    check(g.begin("1"), "anderer Knopf unabhaengig")
+    g.end("0")
+    check(!g.busy("0") && g.begin("0"), "nach dem Ende wieder bereit")
+    check(ButtonLogic.enabled(readOnlyRole: false) && !ButtonLogic.enabled(readOnlyRole: true), "gesperrt ok (wie Web), nur Lesen nicht")
 }

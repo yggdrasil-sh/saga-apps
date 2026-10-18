@@ -32,6 +32,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Kontextmenü (lange drücken bzw. Rechtsklick) „Zufällig“ und „Symbol entfernen“ wie im Web. Ein neues Bild-Symbol
   erscheint sofort. Auf gesperrten Seiten erscheint beim Antippen von Symbol oder Titelbild ein kurzer Hinweis
   („Die Seite ist gesperrt …“) statt stillem Nichtstun.
+- **Schaltflächen „+ Neuer Eintrag“ reagieren sofort und legen nichts doppelt an:** Ein Tippen auf eine
+  Schaltfläche, die einen Datenbank-Eintrag anlegt (z. B. „+ NewToDo“ auf dem Dashboard), zeigte bis zum Öffnen des
+  neuen Eintrags keine Reaktion – die App lud vorher die komplette Seitenliste samt Freigaben neu, was bei langsamer
+  Verbindung Sekunden dauerte. Wer deshalb mehrfach tippte, bekam mehrere Einträge. Jetzt zeigt der Knopf sofort
+  einen Fortschritt und ist gesperrt, bis die Aktion durch ist; der neue Eintrag öffnet direkt (Titel ohne Vorlage
+  wird zum Schreiben fokussiert, wie im Web), die Seitenliste lädt still dahinter. Fehler erscheinen unter dem Knopf.
+  Titel-Platzhalter `{date}`/`{fecha}` funktionieren wie im Web. Schaltflächen bleiben auf gesperrten Seiten
+  bedienbar (wie im Web); mit Leserecht (Lesen/Kommentieren) sind sie deaktiviert.
 
 ## [2.1.0] – 2026-10-18
 
