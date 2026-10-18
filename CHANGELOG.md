@@ -58,7 +58,12 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Minute, solange der Live-Kanal nicht verbunden ist. Mit Live-Kanal meldet der Server (ab 2.2, Ereignis
   `notes.tree`) anderswo angelegte, geänderte, verschobene, gelöschte oder archivierte Seiten sofort – die App holt
   dann nur diese Seiten nach (bei Verschieben, Papierkorb, Archiv oder vielen Seiten die ganze Liste); der Abgleich
-  alle 5 Minuten bleibt als Sicherheitsnetz (ältere Server ohne `notes.tree`: weiter jede Minute). Beim Zurückkehren ins Fenster und nach einer Unterbrechung des Live-Kanals
+  alle 5 Minuten bleibt als Sicherheitsnetz. Der seltene Takt gilt erst, nachdem in dieser Anmeldung tatsächlich ein
+  `notes.tree` angekommen ist (nicht anhand der Serverversion – Testserver melden schon 2.2.0, schicken das Ereignis
+  aber evtl. noch nicht); bis dahin und nach Abmelden oder Serverwechsel weiter jede Minute. „Mit mir geteilt“,
+  Glocke, Chats und Heute werden unabhängig davon weiter jede Minute abgeglichen (Gruppenwechsel oder Verschieben
+  aus geteilten Bäumen lösen nicht immer ein Ereignis aus). `notes.tree` mit `full: true` lädt die ganze Liste;
+  `mixed` wird anhand von `ops` ausgewertet, unbekannte Arten wie eine Änderung (ganze Liste). Beim Zurückkehren ins Fenster und nach einer Unterbrechung des Live-Kanals
   (Netzwechsel, Aufwachen) wird wie bisher abgeglichen. Seitenbaum und Liste werden im Hintergrund aufbereitet,
   der Baum entsteht linear statt durch Suchen über alle Seiten (spürbar bei Tausenden Seiten). Die App fragt
   Antworten komprimiert an (gzip) – sobald der Server Kompression anbietet, sinkt das Datenvolumen um rund 90 %.

@@ -166,6 +166,7 @@ class Store(GObject.Object):
         """Neue Anmeldung (oder Abmeldung): Konto erst wieder bekannt, wenn /api/account geantwortet hat. Bis dahin
         speichern offene Seiten des bisherigen Kontos nur als Entwurf (nie unter einem anderen Konto)."""
         self.session_gen += 1
+        self.tree_seen = False                             # Faehigkeit des Servers (notes.tree) neu lernen
         srv = config.origin(server or config.settings.server)
         for d in list(self.docs):
             if d.account is None and config.origin(d.server) == srv:
@@ -185,6 +186,7 @@ class Store(GObject.Object):
     def forget_account_data(self):
         """Inhalte des bisherigen Kontos weg (Zwischenspeicher, Seitenliste, Zuletzt ...) - Abmelden und Anmelden mit
         einem (moeglicherweise anderen) Konto am selben Server (BUG-031). Entwuerfe bleiben je Konto getrennt liegen."""
+        self.tree_seen = False
         self.clear_cache()
         self._set_pages([])
         self.tasks, self.done_tasks, self.events = [], [], []
@@ -304,49 +306,58 @@ class Store(GObject.Object):
         self.emit("pages-changed")
 
     # --- Live: notes.tree (Server 2.2) ------------------------------------------------------------
-    TREE_MIN_SERVER = (2, 2, 0)
-
-    @property
-    def tree_events(self):
-        """Server meldet Baum-Aenderungen live (notes.tree, ab 2.2) - nur dann reicht der seltene Takt; aeltere Server
-        oder Version unbekannt: wie bisher jede Minute"""
-        from . import version_tuple
-        return bool(self.server_version) and version_tuple(self.server_version) >= self.TREE_MIN_SERVER
+    # In dieser Anmeldung schon ein notes.tree empfangen? Erst dann reicht mit Live-Kanal der 5-min-Takt - die
+    # Serverversion allein sagt das nicht sicher (testing-Server melden schon 2.2.0, schicken aber evtl. noch kein
+    # notes.tree). Abmelden, Kontowechsel, anderer Server: vergessen (new_session, forget_account_data).
+    tree_seen = False
 
     TREE_DEBOUNCE_MS = 400
     TREE_MAX_TARGETED = 20
-    TREE_TARGETED = frozenset(("created", "create", "new", "changed", "change", "updated", "update", "renamed"))
+    TREE_TARGETED = frozenset(("created", "updated"))
+    TREE_FULL = "*full"                                    # Pseudo-Art: full: true -> ganzen Baum neu laden
     _tree_src = 0
 
     @classmethod
     def tree_plan(cls, ids, ops):
-        """-> IDs zum gezielten Nachladen (GET api/notes/{id}) oder None = voller Abgleich (Verschieben, Papierkorb,
-        Archiv, unbekannte Art, keine oder viele IDs)"""
+        """-> IDs zum gezielten Nachladen (GET api/notes/{id}) oder None = voller Abgleich (full, moved, trashed,
+        restored, archived, deleted, shared, unbekannte Art, keine oder viele IDs)"""
         ids = set(ids)
-        if not ids or len(ids) > cls.TREE_MAX_TARGETED or any(str(o).lower() not in cls.TREE_TARGETED for o in ops):
+        ops = set(ops)
+        if not ids or not ops or len(ids) > cls.TREE_MAX_TARGETED or any(str(o).lower() not in cls.TREE_TARGETED for o in ops):
             return None
         return ids
 
-    @staticmethod
-    def tree_parse(d):
-        """notes.tree {ids: [int], op: str} - tolerant (Zahlen als Text, Zusatzfelder, fehlende Felder)"""
+    @classmethod
+    def tree_parse(cls, d):
+        """notes.tree {ids: [int], op: str, ops: [str], full: bool} (docs/APP-API-LIVE.md) -> (ids, Arten, full).
+        Arten = ops plus op (ausser "mixed", das nur auf ops verweist); full: true -> Arten enthalten TREE_FULL.
+        Tolerant: Zahlen als Text, Zusatzfelder, fehlende Felder (-> Art "" = unbekannt = voller Abgleich)."""
         d = d if isinstance(d, dict) else {}
         ids = []
-        for x in d.get("ids") or []:
+        for x in d.get("ids") if isinstance(d.get("ids"), list) else []:
             try:
                 ids.append(int(float(x)))
             except (TypeError, ValueError, OverflowError):
                 pass
-        return ids, str(d.get("op") or "")
+        op = str(d.get("op") or "")
+        lst = [str(o) for o in d.get("ops") or [] if isinstance(o, str)] if isinstance(d.get("ops"), list) else []
+        full = d.get("full") is True
+        ops = set(lst)
+        if op != "mixed" or not lst:
+            ops.add(op)
+        if full:
+            ops.add(cls.TREE_FULL)
+        return ids, ops, full
 
     def on_tree_event(self, d):
         """Live-Ereignis notes.tree: Seiten anderswo (Web, anderes Geraet, Freigabe) angelegt/geaendert/verschoben/
         geloescht. Kurz sammeln (entprellt), dann gezielt nachladen und einpflegen bzw. voll abgleichen."""
-        ids, op = self.tree_parse(d)
+        self.tree_seen = True                              # Server meldet Baum-Aenderungen: seltener Takt reicht
+        ids, ops, _full = self.tree_parse(d)
         if not hasattr(self, "_tree_ids"):
             self._tree_ids, self._tree_ops = set(), set()
         self._tree_ids.update(ids)
-        self._tree_ops.add(op if ids else "")
+        self._tree_ops.update(ops if ids else ops | {""})
         if not self._tree_src:
             self._tree_src = GLib.timeout_add(self.TREE_DEBOUNCE_MS, self._tree_apply)
 
@@ -572,14 +583,7 @@ class Store(GObject.Object):
                     self._set_pages(None, split)
                 elif self._refresh_next is None:             # waehrend des Ladens lokal geaendert: Liste evtl. veraltet
                     self._refresh_next = []
-                if sh is not None:
-                    # nicht mehr mit mir geteilt: zwischengespeicherte Inhalte verwerfen (offline nicht mehr lesbar)
-                    keep = {p.get("id") for p in sh if isinstance(p, dict)} | set(self.by_id) | {p["id"] for p in self.fed_shared}
-                    for gid in set(self.shared_by_id) - keep:
-                        self.drop_cache(f"api/notes/{gid}")
-                        self.drop_cache(f"api/notes/{gid}/rows")
-                    self._set_shared(sh)
-                    self.share_api, self.share_off = sh_api, sh_off
+                self._apply_shared(sh, sh_api, sh_off)
                 self.tasks, self.done_tasks = t.get("open", []), t.get("done", []) or []
                 self._drop_pending_deleted()
                 self.needs_login = False
@@ -601,6 +605,41 @@ class Store(GObject.Object):
                 self.refresh(done=(lambda: [cb() for cb in nxt]) if nxt else None)
 
         bg(work, done=lambda r: finish(True, r), error=lambda e: finish(False, e))
+
+    def _apply_shared(self, sh, sh_api, sh_off):
+        """Ergebnis von _fetch_shared uebernehmen (None = unveraendert lassen)"""
+        if sh is None:
+            return
+        # nicht mehr mit mir geteilt: zwischengespeicherte Inhalte verwerfen (offline nicht mehr lesbar)
+        keep = {p.get("id") for p in sh if isinstance(p, dict)} | set(self.by_id) | {p["id"] for p in self.fed_shared}
+        for gid in set(self.shared_by_id) - keep:
+            self.drop_cache(f"api/notes/{gid}")
+            self.drop_cache(f"api/notes/{gid}/rows")
+        self._set_shared(sh)
+        self.share_api, self.share_off = sh_api, sh_off
+
+    def refresh_light(self):
+        """Kleiner Abgleich im Minutentakt, solange der Seitenbaum seltener abgeglichen wird (Live-Kanal + notes.tree):
+        Mit mir geteilt (Gruppenwechsel und Verschieben aus geteilten Baeumen loesen serverseitig nicht immer Ereignisse
+        aus), andere Server, Heute (Aufgaben/Termine). Glocke und Chats fragt der Fenster-Takt selbst ab."""
+        if self.needs_login or self._refreshing:
+            return
+        srv = config.settings.server
+
+        def fin(r):
+            if srv != config.settings.server or self._refreshing:
+                return
+            sh, sh_api, sh_off = r
+            if sh is not None and sh != getattr(self, "_local_shared", None):
+                self._apply_shared(sh, sh_api, sh_off)
+                self.emit("pages-changed")
+            else:
+                self.share_api, self.share_off = sh_api, sh_off
+            if sh_api is not False:
+                self.load_fed_shared()
+
+        bg(self._fetch_shared, done=fin, error=lambda e: None)
+        self.load_today()
 
     def _fetch_shared(self):
         """Hintergrund: "Mit mir geteilt" -> (liste | None = unveraendert lassen, Server kennt Teilen?, Hinweis "abgeschaltet"?).
@@ -630,13 +669,14 @@ class Store(GObject.Object):
         if not self._refreshing and time.monotonic() - self._refreshed_at > seconds:
             self.refresh()
 
-    POLL_S = 60          # Takt ohne Live-Kanal (wie bisher)
-    POLL_LIVE_S = 300    # Takt mit Live-Kanal und notes.tree (Sicherheitsnetz; Aenderungen kommen dort sofort)
+    POLL_S = 60          # Takt ohne Live-Kanal bzw. solange kein notes.tree kam (wie bisher)
+    POLL_LIVE_S = 300    # Takt mit Live-Kanal und schon empfangenem notes.tree (Sicherheitsnetz)
 
     def refresh_due(self, live_connected):
-        """Takt (Fenster aktiv, alle 60 s geprueft): ohne Live-Kanal jedes Mal, mit Live-Kanal alle 5 min.
-        Halbe Minute Toleranz, damit der 60-s-Zeitgeber nicht eine Runde verpasst."""
-        every = self.POLL_LIVE_S if live_connected else self.POLL_S
+        """Takt (Fenster aktiv, alle 60 s geprueft): ohne Live-Kanal jedes Mal; mit Live-Kanal erst alle 5 min, wenn in
+        dieser Anmeldung schon ein notes.tree kam (tree_seen), sonst weiter jede Minute. Halbe Minute Toleranz, damit
+        der 60-s-Zeitgeber nicht eine Runde verpasst. Nicht faellig: kleine Listen trotzdem (refresh_light)."""
+        every = self.POLL_LIVE_S if live_connected and self.tree_seen else self.POLL_S
         return time.monotonic() - self._refreshed_at >= every - 30
 
     server_version = None

@@ -143,14 +143,87 @@ def test_takt(srv):
     assert not store.refresh_due(False) and not store.refresh_due(True)
     store._refreshed_at = time.monotonic() - 60
     assert store.refresh_due(False)                                # ohne Live-Kanal wie bisher jede Minute
-    assert not store.refresh_due(True)                             # mit Live-Kanal seltener
+    # Live-Kanal verbunden, aber noch kein notes.tree (testing-Server meldet 2.2.0, schickt es aber evtl. nicht):
+    # weiter jede Minute - die Serverversion entscheidet nicht
+    store.server_version = "2.2.0-rc1"
+    assert not store.tree_seen and store.refresh_due(True)
+    store.server_version = None
+    # erst nach dem ersten notes.tree seltener
+    store.tree_seen = True
+    assert not store.refresh_due(True)
+    assert store.refresh_due(False)                                # Live-Kanal weg: wieder jede Minute
     store._refreshed_at = time.monotonic() - 300
     assert store.refresh_due(True)
-    # seltener Takt nur mit Server, der notes.tree meldet (2.2); aeltere/unbekannte: wie bisher jede Minute
-    for v, on in (("2.2.0", True), ("2.3.1", True), ("2.1.0", False), (None, False)):
-        store.server_version = v
-        assert store.tree_events is on, v
-    store.server_version = None
+
+
+def test_takt_erst_nach_notes_tree_und_vergessen(srv):
+    """Gate: tree_seen erst mit einem empfangenen notes.tree; Abmelden, Kontowechsel, Serverwechsel vergessen es"""
+    from hlidskjalf.store import store
+    store.refresh()
+    idle()
+    assert not store.tree_seen
+    _tree(store, {"ids": [3], "op": "updated", "ops": ["updated"], "full": False})
+    assert store.tree_seen
+    store.new_session()                                            # Abmelden / anderer Server
+    assert not store.tree_seen
+    store.tree_seen = True
+    store.forget_account_data()                                    # anderes Konto am selben Server
+    assert not store.tree_seen
+    store.tree_seen = True
+    store.switch_server("https://anders.test")
+    assert not store.tree_seen
+
+
+def test_geteilt_jede_minute_unabhaengig_vom_baum(srv):
+    """Mit Live + notes.tree: Seitenbaum nur alle 5 min, "Mit mir geteilt" und Heute aber weiter jede Minute"""
+    from hlidskjalf.store import store
+    store.refresh()
+    idle()
+    store.tree_seen = True
+    store._refreshed_at = time.monotonic() - 60
+    assert not store.refresh_due(True)
+    n0 = len(_get_notes(srv))
+    sh0 = sum(1 for x in srv.log if x[0] == "GET" and x[1].endswith("/api/shared"))
+    t0 = sum(1 for x in srv.log if x[0] == "GET" and x[1].endswith("/api/tasks"))
+    # Gruppenwechsel: Seite ist jetzt mit mir geteilt, ohne dass ein Ereignis kam
+    srv.add_foreign(300, "Gruppenseite", role="view")
+    store.refresh_light()
+    pump(lambda: store.visible(300), 5)
+    idle()
+    assert store.visible(300) and 300 in [p["id"] for p in store.shared_roots()]
+    assert sum(1 for x in srv.log if x[0] == "GET" and x[1].endswith("/api/shared")) == sh0 + 1
+    assert sum(1 for x in srv.log if x[0] == "GET" and x[1].endswith("/api/tasks")) > t0
+    assert len(_get_notes(srv)) == n0                              # Seitenbaum nicht neu geladen
+    # Freigabe entzogen / aus dem geteilten Baum verschoben: verschwindet ebenso im Minutentakt
+    del srv.grants[300]
+    store.refresh_light()
+    pump(lambda: not store.visible(300), 5)
+    assert not store.visible(300)
+    assert len(_get_notes(srv)) == n0
+
+
+def test_fenstertakt_kleine_listen(win, srv, monkeypatch):
+    """_tick: nicht faellig -> refresh_light + Glocke + Chats; faellig -> voller Abgleich"""
+    from hlidskjalf.chat import chat
+    from hlidskjalf.live import live
+    from hlidskjalf.notifications import notifications
+    from hlidskjalf.store import store
+    calls = []
+    monkeypatch.setattr(win, "is_active", lambda: True)
+    monkeypatch.setattr(store, "refresh", lambda *a, **k: calls.append("full"))
+    monkeypatch.setattr(store, "refresh_light", lambda: calls.append("light"))
+    monkeypatch.setattr(notifications, "count", lambda: calls.append("bell"))
+    monkeypatch.setattr(chat, "load_unread", lambda: calls.append("chats"))
+    monkeypatch.setattr(win, "_session_catch_up", lambda: None)
+    monkeypatch.setattr(live, "connected", True)
+    store.tree_seen = True
+    store._refreshed_at = time.monotonic() - 60
+    win._tick()
+    assert calls == ["light", "bell", "chats"]
+    calls.clear()
+    store.tree_seen = False                                        # noch kein notes.tree: Baum jede Minute
+    win._tick()
+    assert calls == ["full", "bell", "chats"]
 
 
 def test_gzip_wird_entpackt():
@@ -196,13 +269,34 @@ def test_schaltflaeche_neuer_eintrag_einmal(win, srv):
 
 def test_notes_tree_vertrag_tolerant():
     from hlidskjalf.store import Store
-    assert Store.tree_parse({"ids": [5, "7", 9.0, "x", None], "op": "created", "by": {"name": "A"}, "neu": 1}) == ([5, 7, 9], "created")
-    assert Store.tree_parse(None) == ([], "")
-    assert Store.tree_plan([5, 7, 5], {"created", "changed"}) == {5, 7}
-    for op in ("moved", "trashed", "archived", "restored", "", "irgendwas"):
-        assert Store.tree_plan([5], {"created", op}) is None, op
-    assert Store.tree_plan([], {"changed"}) is None
-    assert Store.tree_plan(range(1, 22), {"changed"}) is None
+    assert Store.tree_parse({"ids": [5, "7", 9.0, "x", None], "op": "created", "ops": ["created"], "full": False,
+                             "by": {"name": "A"}, "neu": 1}) == ([5, 7, 9], {"created"}, False)
+    assert Store.tree_parse(None) == ([], {""}, False)
+    assert Store.tree_parse({"ids": "kaputt", "ops": "auch"}) == ([], {""}, False)
+    assert Store.tree_plan([5, 7, 5], {"created", "updated"}) == {5, 7}
+    for op in ("moved", "trashed", "restored", "archived", "deleted", "shared", "mixed", "", "irgendwas", "changed"):
+        ids, ops, _ = Store.tree_parse({"ids": [5], "op": op, "ops": [op], "full": False})
+        assert Store.tree_plan(ids, ops) is None, op
+    assert Store.tree_plan([], {"updated"}) is None
+    assert Store.tree_plan([5], set()) is None
+    assert Store.tree_plan(range(1, 22), {"updated"}) is None
+
+
+def test_notes_tree_full_und_mixed():
+    """full: true -> immer voller Abgleich; mixed: es zaehlen die gesammelten Arten (ops)"""
+    from hlidskjalf.store import Store
+    ids, ops, full = Store.tree_parse({"ids": [], "op": "updated", "ops": ["updated"], "full": True})
+    assert full and Store.tree_plan(ids, ops) is None
+    ids, ops, full = Store.tree_parse({"ids": [1, 2], "op": "created", "ops": ["created"], "full": True})
+    assert full and Store.tree_plan(ids, ops) is None
+    assert Store.tree_parse({"ids": [1], "op": "created", "full": "ja"})[2] is False   # nur echtes true zaehlt
+    ids, ops, _ = Store.tree_parse({"ids": [3, 4], "op": "mixed", "ops": ["created", "updated"], "full": False})
+    assert ops == {"created", "updated"} and Store.tree_plan(ids, ops) == {3, 4}
+    ids, ops, _ = Store.tree_parse({"ids": [3], "op": "mixed", "ops": ["moved", "updated"], "full": False})
+    assert Store.tree_plan(ids, ops) is None
+    ids, ops, _ = Store.tree_parse({"ids": [3], "op": "mixed"})                     # mixed ohne ops: unbekannt
+    assert Store.tree_plan(ids, ops) is None
+    assert Store.tree_plan([1, 2], {"created", Store.TREE_FULL}) is None            # gesammelt: ein full macht alles voll
 
 
 def _tree(store, d):
@@ -226,10 +320,10 @@ def test_notes_tree_gezielt_nachladen(srv):
     _tree(store, {"ids": [nid], "op": "created", "zusatz": True})
     assert nid in store.by_id and [p["id"] for p in store.children(1)][-1] == nid
     srv.notes[3]["title"] = "Umbenannt im Web"
-    _tree(store, {"ids": [3], "op": "changed"})
+    _tree(store, {"ids": [3], "op": "updated", "ops": ["updated"], "full": False})
     assert store.by_id[3]["title"] == "Umbenannt im Web"
     srv.trash.append(srv.notes.pop(nid))                       # inzwischen weg -> 404 -> lokal entfernen
-    _tree(store, {"ids": [nid], "op": "changed"})
+    _tree(store, {"ids": [nid], "op": "updated", "ops": ["updated"], "full": False})
     assert nid not in store.by_id
     assert len(_get_notes(srv)) == n0                          # keine ganze Liste
     local = _snap(store)
@@ -247,3 +341,15 @@ def test_notes_tree_verschieben_voller_abgleich(srv):
     assert 3 in [p["id"] for p in store.children(1)]
     _tree(store, {"op": "trashed"})                              # ohne IDs: ebenfalls voller Abgleich
     assert len(_get_notes(srv)) == n0 + 2
+
+
+def test_notes_tree_full_laedt_alles(srv):
+    """full: true (zu viele Seiten, ids leer) -> ganzer Baum neu, auch bei op "updated" """
+    from hlidskjalf.store import store
+    store.refresh()
+    idle()
+    n0 = len(_get_notes(srv))
+    srv.notes[3]["title"] = "Viele geaendert"
+    _tree(store, {"ids": [], "op": "updated", "ops": ["updated"], "full": True})
+    assert len(_get_notes(srv)) == n0 + 1
+    assert store.by_id[3]["title"] == "Viele geaendert"

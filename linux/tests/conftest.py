@@ -50,6 +50,7 @@ def srv():
     store._task_deletes = {}
     store.docs = weakref.WeakSet()
     store.server_version = None
+    store.tree_seen = False
     store.fed_shared, store.fed_unreachable = [], []
     store._set_shared([])
     from hlidskjalf.assistant import ai

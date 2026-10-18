@@ -603,11 +603,14 @@ class MainWindow(Adw.ApplicationWindow):
             from .chat import chat
             from .live import live
             from .notifications import notifications
-            if store.refresh_due(live.connected and store.tree_events):   # jede Minute; mit Live + notes.tree alle 5 min
+            # Seitenbaum jede Minute; mit Live-Kanal erst nach dem ersten notes.tree alle 5 min (refresh_due). Die kleinen
+            # Listen (Mit mir geteilt, andere Server, Heute, Glocke, Chats) dabei weiter jede Minute.
+            if store.refresh_due(live.connected):
                 store.refresh()
-            if not live.connected:                         # ohne Live-Kanal regelmaessig fragen
-                notifications.count()
-                chat.load_unread()
+            else:
+                store.refresh_light()
+            notifications.count()
+            chat.load_unread()
             self._session_catch_up()
             if type(self.current).__name__ == "ChatsScreen":
                 chat.revalidate(120)                       # Profilbilder der Gegenueber (kein Live-Ereignis)
