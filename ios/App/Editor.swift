@@ -526,7 +526,7 @@ extension PageEditor {
             focus = nil
             Task { @MainActor in
                 guard let store = self.store else { return }
-                struct R: Decodable { let id: Int }
+                struct R: Decodable { let id: Int; let updated: Double? }
                 let body: [String: Any] = type == "db_new" ? ["kind": "database", "title": String(localized: "Neue Datenbank"), "icon": "🗃️", "parent_id": self.doc.id] : ["title": "", "parent_id": self.doc.id]
                 guard let d = try? await store.api("api/notes", method: "POST", body: body), let r = try? JSONDecoder().decode(R.self, from: d),
                       let (a, j) = self.locate(id) else { self.doc.error = String(localized: "Konnte nicht angelegt werden"); return }
@@ -535,7 +535,11 @@ extension PageEditor {
                 } else {   // Unterseite: Verweis-Absatz wie im Web, dann oeffnen
                     (a[j] as? NSMutableDictionary)?["data"] = NSMutableDictionary(dictionary: ["text": "📄 <a href=\"/notes#\(r.id)\">\(String(localized: "Unbenannt"))</a>"])
                 }
-                self.changed(); await self.flush(); await store.refresh()
+                self.changed(); await self.flush()
+                // neue Unterseite/Datenbank lokal in die Seitenliste statt alles neu zu laden (fremder Baum: wie bisher)
+                let up = r.updated ?? Date().timeIntervalSince1970
+                await store.insertCreated(type == "db_new" ? .created(id: r.id, parent: self.doc.id, title: String(localized: "Neue Datenbank"), icon: "🗃️", kind: "database", updated: up)
+                                                           : .created(id: r.id, parent: self.doc.id, updated: up))
                 if type == "page" { self.openPage = r.id }
             }
             return

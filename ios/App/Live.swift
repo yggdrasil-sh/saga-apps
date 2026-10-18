@@ -11,6 +11,8 @@ struct LiveEvent { let type: String; let data: [String: Any] }
 final class LiveHub: ObservableObject {
     weak var store: Store?
     @Published private(set) var connected = false
+    /// Server meldet Baum-Aenderungen (notes.tree schon einmal empfangen): Minutentakt nur noch als Sicherheitsnetz
+    private(set) var treeEvents = false
     /// Alle Ereignisse fuer Ansichten (offene Seite, Chat ...)
     let events = PassthroughSubject<LiveEvent, Never>()
     private var task: Task<Void, Never>?
@@ -31,6 +33,8 @@ final class LiveHub: ObservableObject {
     }
     /// Trennen (Hintergrund, Abmelden)
     func stop() { task?.cancel(); task = nil; if connected { connected = false } }
+    /// Abmelden/anderer Server: Faehigkeit des Servers neu lernen
+    func forgetServer() { treeEvents = false }
 
     private func run() async {
         while !Task.isCancelled {
@@ -96,12 +100,18 @@ final class LiveHub: ObservableObject {
         if let id = e.id, !id.isEmpty { lastID = id }
         let d = e.json
         switch e.event {
-        case "hello": connected = true; fails = 0; Task { await store?.calls.checkActive() }   // verpasstes Klingeln nachholen
+        case "hello":
+            connected = true; fails = 0
+            Task { await store?.calls.checkActive() }                     // verpasstes Klingeln nachholen
+            Task { await store?.liveConnected() }                         // (wieder) verbunden: verpasste Seitenaenderungen nachholen
         case "bye": return LiveReconnect.after(bye: d["reason"] as? String ?? "closed")
         case "reset":
             lastID = nil
             Task { await store?.refresh(quiet: true); await store?.notifs.load() }
         case "notification": store?.notifs.apply(d)
+        case "notes.tree":                                                // Seitenbaum geaendert (neuere Server)
+            treeEvents = true
+            store?.treeChanged()
         case "shared.changed": Task { await store?.loadShared(); await store?.loadFedShared() }
         case "avatar.changed":                                            // 2.1: Profilbild einer Person (auch meins) geaendert
             if let c = AvatarLogic.change(d) {
@@ -127,6 +137,6 @@ extension Store {
     /// Ungelesen-Punkt in Liste/Baum (comments.changed)
     func setUnread(_ id: Int, _ on: Bool) {
         if let i = shared.firstIndex(where: { $0.id == id }), (shared[i].unread ?? false) != on { shared[i].unread = on }
-        if let i = pages.firstIndex(where: { $0.id == id }), (pages[i].unread ?? false) != on { pages[i].unread = on }
+        if let p = page(id), !p.isRemote, (p.unread ?? false) != on { editPage(id) { $0.unread = on } }
     }
 }

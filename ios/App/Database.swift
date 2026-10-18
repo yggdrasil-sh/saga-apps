@@ -77,6 +77,8 @@ final class DBModel: ObservableObject {
     var pendingSchema: [(inout [String: Any]) -> Void] = []
     var schemaDebounce: Task<Void, Never>?
     let schemaQueue = SerialQueue()
+    /// dataTick, den diese Ansicht selbst ausgeloest und schon geladen hat (kein zweites /rows)
+    var ownTick: Int?
     init(dbID: Int) { self.dbID = dbID }
 
     func load(_ store: Store) async {
@@ -109,11 +111,15 @@ final class DBModel: ObservableObject {
     }
     func add(_ store: Store, props: [String: Any] = [:]) async -> Int? {
         guard !readOnly else { return nil }
-        struct R: Decodable { let id: Int }
+        struct R: Decodable { let id: Int; let updated: Double? }
         var b: [String: Any] = ["parent_id": dbID, "title": ""]
         if !props.isEmpty { b["props"] = props }
         guard let d = try? await store.api("api/notes", method: "POST", body: b), let r = try? JSONDecoder().decode(R.self, from: d) else { return nil }
-        await load(store); await store.refresh(); store.dataChanged()
+        // Zeilen dieser Ansicht neu, Eintrag lokal in die Seitenliste (statt die ganze Liste neu zu laden), andere
+        // Ansichten derselben Datenbank ueber dataChanged - diese Ansicht nicht noch einmal (hat gerade geladen)
+        await load(store)
+        await store.insertCreated(.created(id: r.id, parent: dbID, updated: r.updated ?? Date().timeIntervalSince1970))
+        ownTick = store.dataTick + 1; store.dataChanged()
         return r.id
     }
 
@@ -187,7 +193,7 @@ struct DatabaseView: View {
             if let lv = localViews, !lv.isEmpty, m.localViews == nil, let cb = onLocalViews { m.localViews = lv; m.onLocalViews = cb }
             await m.load(store)
         }
-        .onChange(of: store.dataTick) { _, _ in Task { await m.load(store) } }      // z. B. Eintrag per Schaltflaeche angelegt
+        .onChange(of: store.dataTick) { _, t in if m.ownTick != t { Task { await m.load(store) } } }      // z. B. Eintrag per Schaltflaeche angelegt
     }
 
     private var header: some View {

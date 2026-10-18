@@ -87,31 +87,80 @@ struct HKShortcuts: AppShortcutsProvider {
 
 // MARK: - Spotlight: alle Seiten in der Systemsuche (Tippen oeffnet die Seite)
 
+/// Seiten in der Systemsuche. Abgleich im Hintergrund (nie auf dem Main-Thread), gebuendelt (nur der neueste Stand
+/// zaehlt) und inkrementell: nach dem ersten Abgleich je Prozess werden nur geaenderte/neue Eintraege indiziert und
+/// entfernte geloescht (bisher: nach jeder Aenderung alles loeschen und neu). Inhalt der Eintraege unveraendert.
 enum SpotlightIndex {
-    private static var lastHash = 0
-    /// Nach jedem Laden der Seitenliste - indiziert nur neu, wenn sich Titel/Pfade geaendert haben
-    static func update(_ pages: [Page]) {
-        let byId = Dictionary(pages.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
-        func path(_ p: Page) -> String {
-            var out: [String] = [], cur = p.parent_id, guardN = 0
-            while let c = cur, let pp = byId[c], guardN < 20 { out.insert(pp.label, at: 0); cur = pp.parent_id; guardN += 1 }
-            return out.joined(separator: " / ")
-        }
-        let items = pages.map { p -> CSSearchableItem in
-            let a = CSSearchableItemAttributeSet(contentType: .text)
-            a.title = p.label
-            let pth = path(p); a.contentDescription = pth.isEmpty ? (p.isDatabase ? String(localized: "Datenbank") : String(localized: "Seite")) : pth
-            if let ic = p.icon, !ic.isEmpty, ic.count <= 4, !ic.hasPrefix("/") { a.displayName = ic + " " + p.label }
-            return CSSearchableItem(uniqueIdentifier: "page-\(p.id)", domainIdentifier: "pages", attributeSet: a)
-        }
-        var h = Hasher(); for i in items { h.combine(i.uniqueIdentifier); h.combine(i.attributeSet.title); h.combine(i.attributeSet.contentDescription) }
-        let hash = h.finalize(); guard hash != lastHash else { return }; lastHash = hash
-        let idx = CSSearchableIndex.default()
-        idx.deleteSearchableItems(withDomainIdentifiers: ["pages"]) { _ in idx.indexSearchableItems(items) { _ in } }
-    }
-    static func clear() { lastHash = 0; CSSearchableIndex.default().deleteSearchableItems(withDomainIdentifiers: ["pages"]) { _ in } }
+    private static let worker = SpotlightWorker()
+    /// Nach jeder Aenderung der Seitenliste (Aufruf vom Main-Thread kostet nur das Uebergeben des Arrays)
+    static func update(_ pages: [Page]) { worker.submit(pages) }
+    static func clear() { worker.clear() }
     /// "page-12" aus einem Spotlight-Treffer
     static func pageID(_ activity: NSUserActivity) -> Int? {
         (activity.userInfo?[CSSearchableItemActivityIdentifier] as? String).flatMap { $0.hasPrefix("page-") ? Int($0.dropFirst(5)) : nil }
+    }
+}
+
+/// Ein Arbeiter fuer alle Spotlight-Auftraege: nacheinander, im Hintergrund; neue Staende ersetzen noch nicht
+/// begonnene (bei schnellen Aenderungen wird nur der letzte indiziert). Abmelden bricht laufendes Indizieren ab.
+final class SpotlightWorker: @unchecked Sendable {
+    private let lock = NSLock()
+    private var pending: [Page]?
+    private var clearWanted = false
+    private var running = false
+    private var epoch = 0                                   // zaehlt bei jedem clear(): laufender Abgleich hoert auf
+    private var known: [Int: SpotlightEntry]?               // was dieser Prozess indiziert hat (nur im Arbeiter benutzt)
+    private static let chunk = 500
+    private static let domain = "pages"
+
+    func submit(_ pages: [Page]) {
+        lock.lock(); pending = pages; let start = !running; running = true; lock.unlock()
+        if start { Task.detached(priority: .utility) { await self.drain() } }
+    }
+    func clear() {
+        lock.lock(); pending = nil; clearWanted = true; epoch += 1; let start = !running; running = true; lock.unlock()
+        if start { Task.detached(priority: .utility) { await self.drain() } }
+    }
+    private func currentEpoch() -> Int { lock.lock(); defer { lock.unlock() }; return epoch }
+
+    /// Naechsten Auftrag holen (nil: nichts mehr zu tun, Arbeiter endet)
+    private func take() -> (wipe: Bool, next: [Page]?, epoch: Int)? {
+        lock.lock(); defer { lock.unlock() }
+        let wipe = clearWanted, next = pending
+        clearWanted = false; pending = nil
+        if !wipe && next == nil { running = false; return nil }
+        return (wipe, next, epoch)
+    }
+
+    private func drain() async {
+        while let (wipe, next, ep) = take() {
+            let idx = CSSearchableIndex.default()
+            if wipe { known = nil; try? await idx.deleteSearchableItems(withDomainIdentifiers: [Self.domain]) }
+            if let next { await apply(next, epoch: ep, idx) }
+        }
+    }
+
+    private func apply(_ pages: [Page], epoch ep: Int, _ idx: CSSearchableIndex) async {
+        let entries = SpotlightPlan.entries(pages)
+        let d = SpotlightPlan.diff(old: known, new: entries)
+        if d.full { try? await idx.deleteSearchableItems(withDomainIdentifiers: [Self.domain]) }
+        if !d.delete.isEmpty { try? await idx.deleteSearchableItems(withIdentifiers: d.delete.map { "page-\($0)" }) }
+        var i = 0, failed = false
+        while i < d.upsert.count {
+            guard currentEpoch() == ep else { known = nil; return }        // abgemeldet: der folgende clear() raeumt auf
+            let items = d.upsert[i..<min(i + Self.chunk, d.upsert.count)].map(Self.item)
+            do { try await idx.indexSearchableItems(items) } catch { failed = true }
+            i += Self.chunk
+        }
+        // Fehler beim Indizieren: beim naechsten Mal wieder alles (wie bisher), sonst fehlten Eintraege dauerhaft
+        known = currentEpoch() == ep && !failed ? SpotlightPlan.known(entries) : nil
+    }
+
+    private static func item(_ e: SpotlightEntry) -> CSSearchableItem {
+        let a = CSSearchableItemAttributeSet(contentType: .text)
+        a.title = e.title
+        a.contentDescription = e.desc
+        if let dn = e.display { a.displayName = dn }
+        return CSSearchableItem(uniqueIdentifier: "page-\(e.id)", domainIdentifier: domain, attributeSet: a)
     }
 }
