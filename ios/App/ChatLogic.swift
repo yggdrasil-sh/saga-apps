@@ -196,3 +196,91 @@ enum ChatLogic {
         return String("\(n) (\(m))".prefix(80))
     }
 }
+
+// MARK: - Archivieren und Loeschen (2.1, docs/APP-API-CHAT.md im Server)
+
+enum ChatDeleteLogic {
+    /// Was ich fuer alle loeschen darf (delete_for_all): ganzer Chat oder nur der Verlauf; nil = nicht erlaubt
+    enum ForAll: String, Equatable { case chat, history }
+    static func forAll(_ v: Any?) -> ForAll? { (v as? String).flatMap(ForAll.init(rawValue:)) }
+    enum Scope: String, Equatable { case me, all }
+
+    /// Server kennt Archiv/Loeschen? (aeltere Server liefern die Felder nicht -> Funktionen ausblenden)
+    static func supported(_ chat: [String: Any]) -> Bool { chat["archived"] != nil && chat["delete_for_all"] != nil }
+
+    /// DELETE-Adresse
+    static func path(_ cid: Int, _ scope: Scope) -> String { "api/chats/\(cid)?scope=\(scope.rawValue)" }
+    /// PATCH-Koerper
+    static func archiveBody(_ on: Bool) -> [String: Any] { ["archived": on] }
+
+    /// Warum "Fuer alle" ausgegraut ist (Begruendung je Chat-Art)
+    enum Denied: Equatable { case none, groupAdmin, sagaAdmin, pageOwner, other }
+    static func denied(kind: String, forAll: ForAll?) -> Denied {
+        guard forAll == nil else { return .none }
+        switch kind {
+        case "free": return .groupAdmin
+        case "group": return .sagaAdmin
+        case "page": return .pageOwner
+        default: return .other
+        }
+    }
+    /// Was nach dem Loeschen passiert (fuer Warnung und Ablauf)
+    enum Effect: Equatable { case hidden, archived, removed, historyCleared }
+    static func effect(kind: String, scope: Scope, forAll: ForAll?) -> Effect {
+        if scope == .all { return forAll == .chat ? .removed : .historyCleared }
+        return kind == "dm" ? .hidden : .archived
+    }
+    /// "Gruppe ausserdem verlassen": nur freie Gruppe und nur "Nur fuer mich" (fuer alle geloescht = Gruppe weg)
+    static func offerLeave(kind: String, scope: Scope) -> Bool { kind == "free" && scope == .me }
+    /// Danach den geoeffneten Chat schliessen?
+    static func closes(_ e: Effect) -> Bool { e == .hidden || e == .removed }
+
+    /// Liste: aktive und archivierte Chats getrennt (Reihenfolge bleibt)
+    static func split<T>(_ list: [T], archived: (T) -> Bool) -> (active: [T], archived: [T]) {
+        (list.filter { !archived($0) }, list.filter(archived))
+    }
+
+    /// Live-Ereignis -> was die App tun muss
+    enum Notice: Equatable { case chatDeleted(String), historyDeleted(String) }
+    struct LiveAction: Equatable {
+        var chatID: Int
+        /// Zwischenspeicher leeren bis einschliesslich dieser seq (nil = alles)
+        var purgeUpTo: Int?
+        var close: Bool
+        var removeFromList: Bool
+        var notice: Notice?
+    }
+    /// chat.removed / chat.cleared; `kind` = Art des Chats aus der Liste (Ereignis "me" traegt sie nicht)
+    static func live(_ type: String, _ d: [String: Any], me: String, kind: String?) -> LiveAction? {
+        guard let cid = ShareJSON.int(d["chat_id"]) else { return nil }
+        let by = d["by"] as? [String: Any]
+        let byUser = by?["username"] as? String
+        let byName = (by?["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? byUser ?? ""
+        let other = byUser != nil && byUser != me
+        switch type {
+        case "chat.removed":
+            return LiveAction(chatID: cid, purgeUpTo: nil, close: true, removeFromList: true, notice: other ? .chatDeleted(byName) : nil)
+        case "chat.cleared":
+            if (d["scope"] as? String) == "all" {
+                return LiveAction(chatID: cid, purgeUpTo: nil, close: false, removeFromList: false, notice: other ? .historyDeleted(byName) : nil)
+            }
+            let k = kind ?? (d["kind"] as? String)
+            return LiveAction(chatID: cid, purgeUpTo: ShareJSON.int(d["cleared_seq"]), close: k == "dm", removeFromList: k == "dm", notice: nil)
+        default: return nil
+        }
+    }
+    /// Nachrichten nach dem Loeschen: alles bis `upTo` (nil = alles) weg, der Name einer freien Gruppe bleibt
+    static func keep(seq: Int, isTitle: Bool, upTo: Int?) -> Bool {
+        if isTitle { return true }
+        guard let upTo else { return false }
+        return seq > upTo
+    }
+    /// Hinweis am Anfang des Verlaufs ("Der bisherige Verlauf wurde geloescht.") statt "nicht lesbar"
+    static func showCleared(clearedSeq: Int, moreOlder: Bool) -> Bool { clearedSeq > 0 && !moreOlder }
+    /// Ungelesen im Bereich "Archiviert" (der Server zaehlt archivierte Chats in der Summe nicht mit)
+    static func unread<T>(_ list: [T], archived: (T) -> Bool, muted: (T) -> Bool, unread: (T) -> Int) -> (main: Int, archive: Int) {
+        var a = 0, m = 0
+        for c in list where !muted(c) { if archived(c) { a += unread(c) } else { m += unread(c) } }
+        return (m, a)
+    }
+}

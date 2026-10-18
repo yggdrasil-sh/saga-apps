@@ -116,7 +116,38 @@ final class ChatBlobCache: @unchecked Sendable {
     }
     /// Abmelden, "Neu beginnen", Geraet entfernt
     func clear() {
-        q.sync { try? FileManager.default.removeItem(at: dir); total = nil }
+        q.sync { try? FileManager.default.removeItem(at: dir); total = nil; index = ChatCacheIndex(); try? FileManager.default.removeItem(at: indexURL) }
+    }
+
+    // Zuordnung Datei-Kennung -> Chat (2.1: Chat loeschen leert genau diesen Chat)
+    private let indexURL: URL = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("hk", isDirectory: true).appendingPathComponent("chat-blob-index.json", isDirectory: false)
+    private var index: ChatCacheIndex?
+    private func loadIndex() -> ChatCacheIndex {
+        if let index { return index }
+        let i = (try? Data(contentsOf: indexURL)).flatMap { try? JSONDecoder().decode(ChatCacheIndex.self, from: $0) } ?? ChatCacheIndex()
+        index = i; return i
+    }
+    private func saveIndex(_ i: ChatCacheIndex) {
+        index = i
+        try? FileManager.default.createDirectory(at: indexURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if let d = try? JSONEncoder().encode(i) { try? d.write(to: indexURL, options: .atomic) }
+    }
+    /// Kennungen der Anhaenge eines Chats merken (beim Laden/Senden)
+    func note(chatID: Int, ids: [String]) {
+        guard !ids.isEmpty else { return }
+        q.async { [self] in var i = loadIndex(); if i.add(chatID, ids) { saveIndex(i) } }
+    }
+    /// Ciphertext und eigene Vorschaubilder eines Chats von der Platte -> entfernte Kennungen (fuer den Speicher-Cache)
+    @discardableResult func purge(chatID: Int, extra: [String] = []) -> [String] {
+        q.sync {
+            var i = loadIndex()
+            let ids = Array(Set(i.take(chatID) + extra))
+            saveIndex(i)
+            for n in ChatCacheIndex.diskNames(ids) { try? FileManager.default.removeItem(at: url(n)) }
+            total = nil                                                 // beim naechsten Zugriff neu zaehlen
+            return ids
+        }
     }
     #if DEBUG
     var bytes: Int { q.sync { ensure(); return total ?? 0 } }
@@ -161,6 +192,12 @@ actor ChatMedia {
     /// alles vergessen (Abmelden, "Neu beginnen", Geraet entfernt)
     nonisolated static func clearAll() {
         memory.removeAllObjects(); aspects.removeAllObjects(); ChatBlobCache.shared.clear()
+    }
+    /// Chat geloescht (2.1): entschluesselte Vorschaubilder im Speicher und Ciphertext auf der Platte dieses Chats weg
+    nonisolated static func purge(chatID: Int, extra: [String] = []) {
+        for id in ChatBlobCache.shared.purge(chatID: chatID, extra: extra) {
+            memory.removeObject(forKey: id as NSString); aspects.removeObject(forKey: id as NSString)
+        }
     }
 
     // Plaetze (hoechstens 4 Downloads/Entschluesselungen gleichzeitig)

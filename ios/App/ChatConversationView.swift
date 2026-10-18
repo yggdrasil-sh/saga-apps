@@ -30,6 +30,7 @@ struct ConversationView: View {
     @State private var search = ""
     @State private var searching = false
     @State private var askAIOn = false                    // KI im Chat erlauben? (Rueckfrage)
+    @State private var deleting: ChatSummary?             // "Chat loeschen …" (2.1)
     @State private var perfScroll: String?                // nur fuer Tests (-hkChatPerf): automatisch scrollen
     @FocusState private var focused: Bool
 
@@ -99,6 +100,8 @@ struct ConversationView: View {
             #endif
         }
         .onDisappear { if chat.open === conv { chat.open = nil } }
+        .onChange(of: conv.purged) { _, _ in text = ""; files = []; replyTo = nil; askDelete = nil }   // Chat geloescht: Entwurf weg
+        .sheet(item: $deleting) { c in ChatDeleteSheet(chat: chat, c: c) }
         .modifier(ChatMediaInput(files: $files, pickImmich: $pickImmich, immichOn: $immichOn, enabled: !conv.notFound, maxBytes: chat.me.fileMax))
         .sheet(item: $safetyPeer) { p in SafetyNumberSheet(conv: conv, peer: p) }
         .sheet(isPresented: $showMembers) { MembersSheet(conv: conv) { p in showMembers = false; safetyPeer = p } }
@@ -195,6 +198,9 @@ struct ConversationView: View {
                     Label("Nachrichten in diesem Chat sind Ende-zu-Ende-verschlüsselt.", systemImage: "lock.fill")
                         .font(.caption).foregroundStyle(.secondary).padding(.vertical, 8).frame(maxWidth: .infinity)
                     if conv.info?.kind != "dm" { Text("Wer neu dazukommt, sieht nur Nachrichten ab dem Beitritt.").font(.caption2).foregroundStyle(.tertiary) }
+                    if let i = conv.info, ChatDeleteLogic.showCleared(clearedSeq: i.clearedSeq, moreOlder: conv.more) {   // 2.1: statt "nicht lesbar"
+                        Label("Der bisherige Verlauf wurde gelöscht.", systemImage: "trash").font(.caption).foregroundStyle(.secondary).padding(.vertical, 4)
+                    }
                     ForEach(Array(shown.enumerated()), id: \.element.id) { i, m in
                         if i == 0 || !Calendar.current.isDate(shown[i - 1].date, inSameDayAs: m.date) {
                             Text(m.date.formatted(date: .complete, time: .omitted)).font(.caption2.weight(.semibold)).foregroundStyle(.secondary).padding(.top, 8)
@@ -387,6 +393,13 @@ struct ConversationView: View {
                     Divider()
                     Button { newName = i.decryptedTitle ?? ""; rename = true } label: { Label("Umbenennen …", systemImage: "pencil") }
                     Button(role: .destructive) { askLeave = true } label: { Label("Gruppe verlassen", systemImage: "rectangle.portrait.and.arrow.right") }
+                }
+                if i.canArchive {                                            // Archiv und Loeschen (2.1)
+                    Divider()
+                    Button { let on = !i.archived; conv.info?.archived = on; Task { await chat.setArchived(chatID, on) } } label: {
+                        Label(i.archived ? "Aus Archiv holen" : "Archivieren", systemImage: i.archived ? "tray.and.arrow.up" : "archivebox")
+                    }
+                    Button(role: .destructive) { deleting = i } label: { Label("Chat löschen …", systemImage: "trash") }
                 }
             }
         } label: { Image(systemName: "ellipsis.circle") }

@@ -118,6 +118,8 @@ final class ConversationModel: ObservableObject {
         }
         let known = Set(messages.map(\.id))
         list.removeAll { known.contains($0.id) }
+        // Anhaenge diesem Chat zuordnen (Chat loeschen leert dann genau seine Bilder, 2.1)
+        ChatBlobCache.shared.note(chatID: chatID, ids: list.flatMap { m in (m.content?.files ?? []).flatMap { [$0.id] + ($0.thumb.map { [$0.id] } ?? []) } })
         if prepend { messages = list + messages; more = ShareJSON.bool(j["more"]) }
         else { messages += list; if messages.count == list.count { more = ShareJSON.bool(j["more"]) } }
         Task { await resolveNotes(list) }
@@ -139,6 +141,17 @@ final class ConversationModel: ObservableObject {
         lastReadSent = last
         _ = try? await store.api("api/chats/\(chatID)/read", method: "POST", body: ["seq": last])
         Task { await model.loadList() }
+    }
+
+    /// Chat geloescht (2.1): Nachrichten bis upTo (nil = alle) samt entschluesselter Inhalte vergessen; die Ansicht
+    /// verwirft dazu Entwurf, Antwort und Anhaenge (`purged`)
+    @Published private(set) var purged = 0
+    func purge(upTo: Int?) {
+        messages = messages.filter { ChatDeleteLogic.keep(seq: $0.seq, isTitle: $0.content?.type == "title", upTo: upTo) }
+        more = false                                                    // alles Aeltere ist ohnehin weg
+        notes = [:]; typing = [:]; aiTask?.cancel(); aiPending = nil; aiError = nil
+        if let c = upTo { info?.clearedSeq = max(info?.clearedSeq ?? 0, c) } else if let l = info?.lastSeq { info?.clearedSeq = max(info?.clearedSeq ?? 0, max(l, 1)) }
+        purged += 1
     }
 
     func live(_ type: String, _ d: [String: Any]) {
