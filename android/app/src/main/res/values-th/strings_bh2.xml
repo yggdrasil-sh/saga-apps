@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Thai zu values/strings_bh2.xml (maschinell uebersetzt, Gegenlesen durch Muttersprachler empfohlen) -->
+<resources>
+    <string name="call_cam_denied">ไม่ได้อนุญาตให้ใช้กล้อง โปรดอนุญาตให้ Saga ในการตั้งค่า Android</string>
+    <string name="call_ongoing_video">สายวิดีโอที่กำลังดำเนินอยู่</string>
+    <string name="call_push_title">การโทรในเบื้องหลัง</string>
+    <string name="call_push_hint">หากไม่มีตัวกระจายการแจ้งเตือน Saga จะดังเฉพาะเมื่อเปิดแอปอยู่ ตั้งค่า UnifiedPush (เช่น ntfy) เพื่อให้สายเรียกเข้าดังในเบื้องหลังด้วย</string>
+    <string name="call_push_setup">ตั้งค่า</string>
+    <string name="call_push_later">ภายหลัง</string>
+    <string name="security_account_check">บัญชีในแอปของคุณคือ “%1$s” เบราว์เซอร์จะแสดงบัญชีที่เข้าสู่ระบบอยู่ที่นั่น โปรดตรวจสอบว่าแสดง “%1$s” ก่อนเปลี่ยนแปลงสิ่งใด</string>
+    <string name="login_switch_hint">เข้าสู่ระบบด้วยบัญชีอื่นใช่ไหม หากเบราว์เซอร์ยังเข้าสู่ระบบบัญชีเดิมอยู่ ให้ออกจากระบบ Saga ที่นั่นก่อน</string>
+</resources>

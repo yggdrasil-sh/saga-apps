@@ -130,7 +130,7 @@ fun todayIso(): String = LocalDate.now().toString()
 
 /** Sprache der Oberflaeche (folgt auch der Per-App-Sprache ab Android 13) */
 @Composable
-fun appLocale(): Locale = LocalLocale.current.platformLocale
+fun appLocale(): Locale = io.github.yggdrasil_sh.saga.util.AppLanguage.formatLocale(LocalLocale.current.platformLocale)
 
 /** Formatierer aus einem Skelett (z. B. "EEEEdMMMM"): Reihenfolge und Satzzeichen nach Sprache */
 private fun skeleton(locale: Locale, skeleton: String): DateTimeFormatter =
@@ -196,6 +196,14 @@ fun eventTime(start: String, end: String, allday: Boolean): String {
     } catch (_: Exception) {
         start
     }
+}
+
+/** Datum mit Uhrzeit aus Millisekunden ("14. Okt., 09:30"), 24-/12-Stunden nach Systemeinstellung, Thai gregorianisch */
+@Composable
+fun dateTimeText(ms: Long, withYear: Boolean = false): String {
+    val h24 = android.text.format.DateFormat.is24HourFormat(LocalContext.current)
+    val f = skeleton(appLocale(), (if (withYear) "yMMMd" else "MMMd") + if (h24) "Hm" else "hm")
+    return java.time.Instant.ofEpochMilli(ms).atZone(ZoneId.systemDefault()).format(f)
 }
 
 /** Datum aus Sekunden seit 1970 (kurz, nach Sprache: 14.10.2026 / Oct 14, 2026 / 14 oct 2026) */

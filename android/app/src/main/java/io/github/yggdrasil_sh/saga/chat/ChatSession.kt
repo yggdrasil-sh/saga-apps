@@ -284,7 +284,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         sending = true
         try {
             val limits = svc.me.value?.limits ?: ChatLimits()
-            if (files.size > limits.filesPerMsg) throw UiTextException(UiText.Res(R.string.chat_too_many_files, limits.filesPerMsg))
+            if (files.size > limits.filesPerMsg) throw UiTextException(UiText.Plural(R.plurals.chat_too_many_files, limits.filesPerMsg))
             files.forEach { f ->
                 if (f.data.size > limits.fileMax) throw UiTextException(UiText.Res(R.string.chat_file_too_big, limits.fileMax / 1048576))
             }

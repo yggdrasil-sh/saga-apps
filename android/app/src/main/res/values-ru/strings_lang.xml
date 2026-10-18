@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russisch zu values/strings_lang.xml (maschinell uebersetzt, Gegenlesen durch Muttersprachler empfohlen) -->
+<resources>
+    <string name="language">Язык</string>
+    <string name="language_auto">Автоматически (язык устройства)</string>
+    <string name="language_hint">Действует только для Saga на этом устройстве. Язык устройства не меняется.</string>
+    <string name="language_change">Сменить язык</string>
+</resources>

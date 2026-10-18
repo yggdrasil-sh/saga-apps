@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russisch zu values/strings_v21.xml (maschinell uebersetzt, Gegenlesen durch Muttersprachler empfohlen) -->
+<resources>
+    <string name="chat_attach_immich">Из Immich</string>
+    <string name="paste_image">Вставить изображение</string>
+    <string name="immich_recent">Недавние</string>
+    <string name="immich_albums">Альбомы</string>
+    <string name="immich_search_hint">Поиск … (например, «пляж», «кошка»)</string>
+    <string name="immich_more">Загрузить ещё</string>
+    <string name="immich_none">Фото не найдены.</string>
+    <string name="immich_no_albums">Нет альбомов.</string>
+    <string name="immich_failed">Immich: ошибка поиска</string>
+    <string name="immich_loading_photo">Загрузка фото из Immich …</string>
+    <string name="immich_photo_failed">Не удалось загрузить фото из Immich.</string>
+    <string name="image_upload_failed">Изображение не загружено.</string>
+    <string name="image_uploading">Загрузка изображения …</string>
+    <string name="image_unsupported">Формат изображения не поддерживается.</string>
+    <string name="image_remote_page">На страницы другого экземпляра Saga нельзя добавлять изображения.</string>
+    <plurals name="immich_photos_n">
+        <item quantity="one">%1$d фото</item>
+        <item quantity="few">%1$d фото</item>
+        <item quantity="many">%1$d фото</item>
+        <item quantity="other">%1$d фото</item>
+    </plurals>
+</resources>

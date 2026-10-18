@@ -304,7 +304,8 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
     var selected by remember { mutableStateOf(setOfNotNull(activeId)) }
     var pickBlocks by remember { mutableStateOf(false) }
     val targets = st?.targets.orEmpty()
-    var target by remember { mutableStateOf(targets.firstOrNull { it != Locale.getDefault().language } ?: targets.firstOrNull() ?: "en") }
+    val uiLocale = io.github.yggdrasil_sh.saga.ui.common.appLocale()   // Sprachnamen in der App-Sprache (auch ru/th)
+    var target by remember { mutableStateOf(targets.firstOrNull { it != uiLocale.language } ?: targets.firstOrNull() ?: "en") }
     var targetMenu by remember { mutableStateOf(false) }
     var action by remember { mutableStateOf<String?>(null) }
     var text by remember { mutableStateOf("") }
@@ -366,16 +367,16 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                 // Zielsprache (aus status.targets)
                 AssistChip(
                     onClick = { targetMenu = true }, enabled = targets.isNotEmpty(),
-                    label = { Text(Locale.forLanguageTag(target).getDisplayLanguage(Locale.getDefault()).ifEmpty { target } + " ▾") },
+                    label = { Text(Locale.forLanguageTag(target).getDisplayLanguage(uiLocale).ifEmpty { target } + " ▾") },
                 )
                 DropdownMenu(expanded = targetMenu, onDismissRequest = { targetMenu = false }) {
                     targets.forEach { t ->
-                        DropdownMenuItem(text = { Text(Locale.forLanguageTag(t).getDisplayLanguage(Locale.getDefault()).ifEmpty { t } + " ($t)") }, onClick = { target = t; targetMenu = false })
+                        DropdownMenuItem(text = { Text(Locale.forLanguageTag(t).getDisplayLanguage(uiLocale).ifEmpty { t } + " ($t)") }, onClick = { target = t; targetMenu = false })
                     }
                 }
             }
         }
-        TextButton(onClick = { pickBlocks = !pickBlocks }) { Text(stringResource(R.string.ai_selected_blocks, selected.size)) }
+        TextButton(onClick = { pickBlocks = !pickBlocks }) { Text(androidx.compose.ui.res.pluralStringResource(R.plurals.ai_selected_blocks, selected.size, selected.size)) }
         if (pickBlocks) {
             Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
                 blocks.forEach { (bid, t) ->

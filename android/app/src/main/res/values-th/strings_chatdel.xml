@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Thai zu values/strings_chatdel.xml (maschinell uebersetzt, Gegenlesen durch Muttersprachler empfohlen) -->
+<resources>
+    <string name="chatdel_archive">เก็บเข้าคลัง</string>
+    <string name="chatdel_unarchive">นำออกจากคลังเก็บ</string>
+    <string name="chatdel_archived_n">เก็บเข้าคลังแล้ว (%1$d)</string>
+    <string name="chatdel_archived_done">เก็บแชทเข้าคลังแล้ว – จะกลับมาเมื่อมีข้อความถัดไป</string>
+    <string name="chatdel_unarchived_done">นำแชทออกจากคลังเก็บแล้ว</string>
+    <string name="chatdel_undo">เลิกทำ</string>
+    <string name="chatdel_delete">ลบแชท …</string>
+    <string name="chatdel_title">ลบ “%1$s” หรือไม่</string>
+    <string name="chatdel_for_whom">ลบสำหรับใคร</string>
+    <string name="chatdel_just_me">เฉพาะฉัน</string>
+    <string name="chatdel_for_all">สำหรับทุกคน</string>
+    <string name="chatdel_for_all_history">ลบประวัติสำหรับทุกคน</string>
+    <string name="chatdel_also_leave">ออกจากกลุ่มด้วย</string>
+    <string name="chatdel_me_dm">ประวัติจะหายไปเฉพาะของคุณบนทุกอุปกรณ์ %1$s ยังเก็บไว้ แชทจะกลับมาเมื่อมีข้อความใหม่</string>
+    <string name="chatdel_me_other">ประวัติจะหายไปเฉพาะของคุณบนทุกอุปกรณ์ และแชทจะถูกเก็บเข้าคลัง คนอื่นยังเก็บไว้</string>
+    <string name="chatdel_all_dm">แชทจะถูกลบสำหรับ %1$s และคุณ – พร้อมข้อความ ไฟล์แนบ และการโทรทั้งหมด</string>
+    <string name="chatdel_all_free">กลุ่มจะถูกลบสำหรับสมาชิกทุกคน – พร้อมข้อความ ไฟล์แนบ และการโทรทั้งหมด</string>
+    <string name="chatdel_all_history">ข้อความและไฟล์แนบทั้งหมดจะถูกลบสำหรับสมาชิกทุกคน แชทยังคงอยู่ตราบที่กลุ่มหรือหน้ายังอยู่</string>
+    <string name="chatdel_warning">การดำเนินการนี้ย้อนกลับไม่ได้ ผู้ที่เห็นข้อความแล้วอาจมีสำเนาอยู่</string>
+    <string name="chatdel_recovery_note">คีย์กู้คืนของคุณก็นำกลับมาไม่ได้เช่นกัน</string>
+    <string name="chatdel_reason_group">เฉพาะผู้ดูแล Saga เท่านั้นที่ลบประวัติสำหรับทุกคนได้</string>
+    <string name="chatdel_reason_page">เฉพาะเจ้าของหน้าเท่านั้นที่ลบประวัติสำหรับทุกคนได้</string>
+    <string name="chatdel_reason_free">เฉพาะผู้ดูแลกลุ่มนี้เท่านั้นที่ลบสำหรับทุกคนได้</string>
+    <string name="chatdel_reason_other">คุณลบแชทนี้สำหรับทุกคนไม่ได้</string>
+    <string name="chatdel_confirm_me">ลบสำหรับฉัน</string>
+    <string name="chatdel_confirm_all">ลบสำหรับทุกคน</string>
+    <string name="chatdel_done_me">ลบแชทสำหรับคุณแล้ว</string>
+    <string name="chatdel_done_me_archived">ลบประวัติสำหรับคุณแล้ว และเก็บแชทเข้าคลังแล้ว</string>
+    <string name="chatdel_done_left">ลบประวัติและออกจากกลุ่มแล้ว</string>
+    <string name="chatdel_done_all">ลบแชทสำหรับทุกคนแล้ว</string>
+    <string name="chatdel_done_all_history">ลบประวัติสำหรับทุกคนแล้ว</string>
+    <string name="chatdel_by_chat">%1$s ลบแชทแล้ว</string>
+    <string name="chatdel_by_history">%1$s ลบประวัติแล้ว</string>
+    <string name="chatdel_history_cleared">ลบประวัติก่อนหน้าแล้ว</string>
+    <string name="chatdel_actions">การทำงานของแชท</string>
+    <string name="chatdel_this_person">อีกฝ่าย</string>
+</resources>

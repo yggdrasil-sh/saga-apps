@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Thai zu values/strings_ai_persona.xml (maschinell uebersetzt, Gegenlesen durch Muttersprachler empfohlen) -->
+<resources>
+    <string name="ai_ask_name">ถาม %1$s</string>
+    <string name="ai_thinking_name">%1$s กำลังคิด …</string>
+    <string name="chat_ai_notice">อนุญาตให้ใช้ %1$s ในแชทนี้ เฉพาะเมื่อถูกเรียก: ข้อความที่มี @%1$s และข้อความก่อนหน้าสูงสุด %2$d ข้อความจะถูกส่งไปยัง AI (%3$s) เป็นข้อความธรรมดา ส่วนอื่นทั้งหมดยังคงเข้ารหัสตั้งแต่ต้นทางถึงปลายทาง</string>
+    <string name="chat_ai_send_hint">ส่งไปยัง %1$s: ข้อความนี้และข้อความก่อนหน้าสูงสุด %2$d ข้อความ เป็นข้อความธรรมดาไปยัง %3$s</string>
+    <string name="chat_ai_allow">อนุญาต %1$s ในแชทนี้</string>
+    <string name="chat_ai_disallow">ไม่อนุญาต %1$s ที่นี่อีกต่อไป</string>
+    <string name="chat_ai_allow_title">อนุญาต %1$s ในแชทนี้หรือไม่</string>
+    <string name="chat_ai_allow_text">จากนั้นทุกคนในแชทจะถาม %1$s ได้ด้วย @%1$s เฉพาะข้อความนั้นและข้อความก่อนหน้าสูงสุด %2$d ข้อความเท่านั้นที่จะถูกส่งไปยัง AI (%3$s) เป็นข้อความธรรมดา โดยเซิร์ฟเวอร์ไม่จัดเก็บไว้ สมาชิกทุกคนจะเห็นประกาศ</string>
+    <string name="chat_ai_allow_ok">อนุญาต</string>
+    <string name="chat_ai_allowed">อนุญาตให้ใช้ %1$s ในแชทนี้แล้ว</string>
+    <string name="chat_ai_disallowed">ไม่อนุญาต %1$s ที่นี่แล้ว</string>
+    <string name="chat_ai_asked_by">ถามโดย %1$s</string>
+    <string name="chat_ai_asked_by_you">ถามโดยคุณ</string>
+    <string name="chat_ai_unconfirmed">แสดงเป็นคำตอบของ AI แต่ยังไม่ได้รับการยืนยัน</string>
+    <string name="chat_ai_failed">%1$s ตอบไม่ได้: %2$s</string>
+    <string name="chat_ai_no_answer">ไม่ได้รับคำตอบ</string>
+    <string name="chat_ai_mention">กล่าวถึง %1$s</string>
+    <string name="ai_empty_2_name">%1$s เปลี่ยนแปลงอะไรไม่ได้ คุณเป็นผู้นำคำแนะนำไปใช้เอง %1$s จะอ่านแชทเฉพาะเมื่อมีคนในแชทถามด้วย @%1$s ส่วนงานและปฏิทินจะอ่านเฉพาะเมื่อคุณเปิดใช้</string>
+</resources>

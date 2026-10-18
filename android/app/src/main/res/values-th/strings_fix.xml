@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Thai zu values/strings_fix.xml (maschinell uebersetzt, Gegenlesen durch Muttersprachler empfohlen) -->
+<resources>
+    <string name="chat_link_denied">คำขอถูกปฏิเสธบนอุปกรณ์อีกเครื่อง</string>
+    <string name="chat_start_over_done">เริ่มต้นใหม่แล้ว คีย์กู้คืนใหม่ของคุณใช้งานได้แล้ว</string>
+    <string name="close_sheet">ปิดชีต</string>
+    <string name="chat_safety_send_blocked">หมายเลขความปลอดภัยของ %1$s เปลี่ยนไป โปรดตรวจสอบก่อนส่ง</string>
+    <string name="push_permission_revoked">การแจ้งเตือนของ Saga ถูกบล็อกในการตั้งค่าระบบ จะไม่มีการแสดงสิ่งใด</string>
+</resources>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Thai zu values/strings_v21.xml (maschinell uebersetzt, Gegenlesen durch Muttersprachler empfohlen) -->
+<resources>
+    <string name="chat_attach_immich">จาก Immich</string>
+    <string name="paste_image">วางรูปภาพ</string>
+    <string name="immich_recent">ล่าสุด</string>
+    <string name="immich_albums">อัลบั้ม</string>
+    <string name="immich_search_hint">ค้นหา … (เช่น “ชายหาด”, “แมว”)</string>
+    <string name="immich_more">โหลดเพิ่มเติม</string>
+    <string name="immich_none">ไม่พบรูปภาพ</string>
+    <string name="immich_no_albums">ไม่มีอัลบั้ม</string>
+    <string name="immich_failed">Immich: การค้นหาล้มเหลว</string>
+    <string name="immich_loading_photo">กำลังโหลดรูปภาพจาก Immich …</string>
+    <string name="immich_photo_failed">โหลดรูปภาพจาก Immich ไม่ได้</string>
+    <string name="image_upload_failed">อัปโหลดรูปภาพไม่สำเร็จ</string>
+    <string name="image_uploading">กำลังอัปโหลดรูปภาพ …</string>
+    <string name="image_unsupported">ไม่รองรับรูปแบบรูปภาพนี้</string>
+    <string name="image_remote_page">เพิ่มรูปภาพลงในหน้าบน Saga อินสแตนซ์อื่นไม่ได้</string>
+    <plurals name="immich_photos_n">
+        <item quantity="other">%1$d รูป</item>
+    </plurals>
+</resources>

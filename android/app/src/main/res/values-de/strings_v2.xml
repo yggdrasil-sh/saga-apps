@@ -4,7 +4,10 @@
     <string name="notifications">Benachrichtigungen</string>
     <string name="notifications_mark_all">Alle gelesen</string>
     <string name="notifications_settings">Benachrichtigungen einstellen</string>
-    <string name="notifications_unread_n">%1$d ungelesen</string>
+    <plurals name="notifications_unread_n">
+        <item quantity="one">%1$d ungelesen</item>
+        <item quantity="other">%1$d ungelesen</item>
+    </plurals>
     <string name="notifications_empty">Keine Benachrichtigungen</string>
     <string name="notifications_load_older">Ältere laden</string>
     <string name="notify_kind_share_added">Jemand teilt eine Seite mit mir</string>
@@ -117,7 +120,10 @@
     <string name="chat_unverified">Echtheit nicht bestätigt</string>
     <string name="chat_undecryptable">Diese Nachricht lässt sich auf diesem Gerät nicht entschlüsseln.</string>
     <string name="chat_bad_recipient">Nicht gesendet: Ein Schlüssel eines Empfängers ist ungültig. Prüfe die Sicherheitsnummer.</string>
-    <string name="chat_too_many_files">Höchstens %1$d Anhänge je Nachricht.</string>
+    <plurals name="chat_too_many_files">
+        <item quantity="one">Höchstens %1$d Anhang je Nachricht.</item>
+        <item quantity="other">Höchstens %1$d Anhänge je Nachricht.</item>
+    </plurals>
     <string name="chat_file_too_big">Datei zu groß (max. %1$d MB).</string>
     <string name="chat_file_broken">Der Anhang ließ sich nicht öffnen.</string>
     <string name="chat_people_search">Name oder Benutzer</string>
@@ -180,7 +186,10 @@
     <string name="ai_history_off_confirm">Verlauf ausschalten? Der gespeicherte Verlauf wird dabei gelöscht.</string>
     <string name="ai_quota">Heute noch %1$d von %2$d Anfragen</string>
     <string name="ai_no_sources">Keine passenden Seiten gefunden.</string>
-    <string name="ai_selected_blocks">Markiert: %1$d Blöcke</string>
+    <plurals name="ai_selected_blocks">
+        <item quantity="one">Markiert: %1$d Block</item>
+        <item quantity="other">Markiert: %1$d Blöcke</item>
+    </plurals>
     <string name="ai_replace_confirm">Markierten Text ersetzen?</string>
     <string name="ai_truncated">Die Seite ist lang – nur der Anfang wurde verwendet.</string>
     <string name="ai_ask_hint">Frag etwas …</string>

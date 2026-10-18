@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russisch zu values/strings_chatdel.xml (maschinell uebersetzt, Gegenlesen durch Muttersprachler empfohlen) -->
+<resources>
+    <string name="chatdel_archive">Архивировать</string>
+    <string name="chatdel_unarchive">Вернуть из архива</string>
+    <string name="chatdel_archived_n">Архив (%1$d)</string>
+    <string name="chatdel_archived_done">Чат в архиве – он вернётся со следующим сообщением.</string>
+    <string name="chatdel_unarchived_done">Чат возвращён из архива.</string>
+    <string name="chatdel_undo">Отменить</string>
+    <string name="chatdel_delete">Удалить чат …</string>
+    <string name="chatdel_title">Удалить «%1$s»?</string>
+    <string name="chatdel_for_whom">У кого удалить?</string>
+    <string name="chatdel_just_me">Только у меня</string>
+    <string name="chatdel_for_all">У всех</string>
+    <string name="chatdel_for_all_history">Удалить историю у всех</string>
+    <string name="chatdel_also_leave">Также покинуть группу</string>
+    <string name="chatdel_me_dm">История исчезнет только у тебя, на всех твоих устройствах. У %1$s она останется. Чат снова появится, как только придёт новое сообщение.</string>
+    <string name="chatdel_me_other">История исчезнет только у тебя, на всех твоих устройствах; чат будет перемещён в архив. У остальных она останется.</string>
+    <string name="chatdel_all_dm">Чат будет удалён у %1$s и у тебя – со всеми сообщениями, вложениями и звонками.</string>
+    <string name="chatdel_all_free">Группа будет удалена у всех участников – со всеми сообщениями, вложениями и звонками.</string>
+    <string name="chatdel_all_history">Все сообщения и вложения будут удалены у всех участников. Сам чат останется, пока существует группа или страница.</string>
+    <string name="chatdel_warning">Это действие нельзя отменить. У тех, кто уже видел сообщения, могут остаться их копии.</string>
+    <string name="chatdel_recovery_note">Ключ восстановления тоже не поможет их вернуть.</string>
+    <string name="chatdel_reason_group">Удалить историю у всех могут только администраторы Saga.</string>
+    <string name="chatdel_reason_page">Удалить историю у всех может только владелец страницы.</string>
+    <string name="chatdel_reason_free">Удалить её у всех могут только администраторы этой группы.</string>
+    <string name="chatdel_reason_other">Ты не можешь удалить этот чат для всех.</string>
+    <string name="chatdel_confirm_me">Удалить у меня</string>
+    <string name="chatdel_confirm_all">Удалить у всех</string>
+    <string name="chatdel_done_me">Чат удалён у тебя.</string>
+    <string name="chatdel_done_me_archived">История удалена у тебя, чат перемещён в архив.</string>
+    <string name="chatdel_done_left">История удалена, выход из группы выполнен.</string>
+    <string name="chatdel_done_all">Чат удалён у всех.</string>
+    <string name="chatdel_done_all_history">История удалена у всех.</string>
+    <string name="chatdel_by_chat">Чат удалён пользователем %1$s.</string>
+    <string name="chatdel_by_history">История удалена пользователем %1$s.</string>
+    <string name="chatdel_history_cleared">Прежняя история удалена.</string>
+    <string name="chatdel_actions">Действия с чатом</string>
+    <string name="chatdel_this_person">собеседника</string>
+</resources>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russisch zu values/strings_ai_persona.xml (maschinell uebersetzt, Gegenlesen durch Muttersprachler empfohlen) -->
+<resources>
+    <string name="ai_ask_name">Спросить %1$s</string>
+    <string name="ai_thinking_name">%1$s думает …</string>
+    <string name="chat_ai_notice">В этом чате можно обращаться к %1$s – только по вызову: сообщения с @%1$s и предшествующие им сообщения (до %2$d шт.) отправляются ИИ (%3$s) в открытом виде. Всё остальное по-прежнему защищено сквозным шифрованием.</string>
+    <string name="chat_ai_send_hint">Уйдёт к %1$s: это сообщение и предыдущие (до %2$d шт.) – в открытом виде к %3$s.</string>
+    <string name="chat_ai_allow">Разрешить %1$s в этом чате</string>
+    <string name="chat_ai_disallow">Отключить %1$s в этом чате</string>
+    <string name="chat_ai_allow_title">Разрешить %1$s в этом чате?</string>
+    <string name="chat_ai_allow_text">Тогда любой участник чата сможет обратиться к %1$s через @%1$s. К ИИ (%3$s) в открытом виде уйдёт только это сообщение и предыдущие (до %2$d шт.) – сервер их не хранит. Все участники увидят уведомление.</string>
+    <string name="chat_ai_allow_ok">Разрешить</string>
+    <string name="chat_ai_allowed">В этом чате теперь можно обращаться к %1$s.</string>
+    <string name="chat_ai_disallowed">%1$s здесь больше не разрешён.</string>
+    <string name="chat_ai_asked_by">спрашивает: %1$s</string>
+    <string name="chat_ai_asked_by_you">твой вопрос</string>
+    <string name="chat_ai_unconfirmed">Выдано за ответ ИИ, но не подтверждено</string>
+    <string name="chat_ai_failed">Нет ответа от %1$s: %2$s</string>
+    <string name="chat_ai_no_answer">Ответ не получен.</string>
+    <string name="chat_ai_mention">Упомянуть %1$s</string>
+    <string name="ai_empty_2_name">%1$s не может ничего изменить: предложения применяешь ты. %1$s читает чаты, только когда кто-то в чате обращается через @%1$s; задачи и календарь – только если ты их включишь.</string>
+</resources>

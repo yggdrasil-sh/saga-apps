@@ -99,7 +99,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
-import android.text.format.DateUtils
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
@@ -763,10 +762,7 @@ private fun PublicChip(viaTitle: String?, onClick: (() -> Unit)?) {
 /** Entwurf vom letzten Mal (weicht vom Server-Stand ab): Wiederherstellen oder Verwerfen - wie iOS/Linux */
 @Composable
 private fun DraftBanner(stamp: Long, onRestore: () -> Unit, onDiscard: () -> Unit) {
-    val context = LocalContext.current
-    val time = remember(stamp) {
-        DateUtils.formatDateTime(context, stamp, DateUtils.FORMAT_SHOW_DATE or DateUtils.FORMAT_SHOW_TIME or DateUtils.FORMAT_ABBREV_MONTH)
-    }
+    val time = io.github.yggdrasil_sh.saga.ui.common.dateTimeText(stamp)
     Surface(
         color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),

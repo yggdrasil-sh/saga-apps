@@ -11,7 +11,8 @@ import androidx.core.content.edit
 import java.util.Locale
 
 /**
- * Sprache der App unabhaengig von der Geraetesprache (fremdes/geteiltes Geraet): Automatisch, Deutsch, English, Español.
+ * Sprache der App unabhaengig von der Geraetesprache (fremdes/geteiltes Geraet): Automatisch, Deutsch, English, Español,
+ * Русский, ไทย.
  *
  * Android 13+: Sprache pro App ueber den LocaleManager - das System merkt sie sich, zeigt sie auch unter
  * Einstellungen > Apps > Saga > Sprache und wendet sie sofort an (MainActivity behandelt locale-Aenderungen selbst,
@@ -20,8 +21,8 @@ import java.util.Locale
  */
 object AppLanguage {
     /** "" = Automatisch (Systemsprache) */
-    val OPTIONS = listOf("", "de", "en", "es")
-    private val SUPPORTED = setOf("de", "en", "es")
+    val OPTIONS = listOf("", "de", "en", "es", "ru", "th")
+    private val SUPPORTED = setOf("de", "en", "es", "ru", "th")
     private const val PREFS = "saga_ui"
     private const val KEY = "app_lang"
 
@@ -36,8 +37,21 @@ object AppLanguage {
         "de" -> "Deutsch"
         "en" -> "English"
         "es" -> "Español"
+        "ru" -> "Русский"
+        "th" -> "ไทย"
         else -> ""
     }
+
+    /**
+     * Locale zum Formatieren von Datum/Zeit: Thai immer im gregorianischen Kalender (th-TH-u-ca-gregory) wie Web und
+     * iOS - ICU nimmt fuer th-TH sonst den buddhistischen Kalender (Jahr 2569 statt 2026). Andere Sprachen unveraendert.
+     */
+    fun formatLocale(l: Locale): Locale =
+        if (l.language == "th" && l.getUnicodeLocaleType("ca") == null) {
+            Locale.Builder().setLocale(l).setUnicodeLocaleKeyword("ca", "gregory").build()
+        } else {
+            l
+        }
 
     /** Sprache fuer Accept-Language: gewaehlte Sprache, sonst die der angezeigten Texte (uiLanguage) */
     fun headerLanguage(chosen: String, uiLanguage: String): String = normalize(chosen).ifEmpty { uiLanguage }
@@ -73,7 +87,7 @@ object AppLanguage {
         if (Build.VERSION.SDK_INT >= 33) return base
         val t = stored(base)
         val locale = if (t.isEmpty()) systemLocale() else Locale.forLanguageTag(t)
-        Locale.setDefault(locale)
+        Locale.setDefault(formatLocale(locale))
         // auch bei "Automatisch" ausdruecklich setzen: die App-Ressourcen (applyToApp) koennen die vorige Wahl tragen
         val cfg = Configuration(base.resources.configuration)
         if (t.isEmpty()) cfg.setLocales(Resources.getSystem().configuration.locales) else cfg.setLocale(locale)
@@ -87,7 +101,7 @@ object AppLanguage {
         if (Build.VERSION.SDK_INT >= 33) return
         val t = stored(app)
         val locale = if (t.isEmpty()) systemLocale() else Locale.forLanguageTag(t)
-        Locale.setDefault(locale)
+        Locale.setDefault(formatLocale(locale))
         val res = app.resources
         val cfg = Configuration(res.configuration)
         if (t.isEmpty()) cfg.setLocales(Resources.getSystem().configuration.locales) else cfg.setLocale(locale)
