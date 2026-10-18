@@ -59,6 +59,12 @@ final class NotificationsModel: ObservableObject {
         if r.items != items { items = r.items }
         if let n = r.unread, n != unread { unread = n }
     }
+    /// Chat geloescht (2.1): seine Benachrichtigungen verschwinden (der Server hat sie schon entfernt)
+    func dropChat(_ cid: Int) {
+        guard items.contains(where: { $0.chatID == cid }) else { return }
+        items.removeAll { $0.chatID == cid }
+        Task { await loadCount() }
+    }
     /// Mitteilung angetippt (traegt bewusst keine id): passende ungelesene Benachrichtigung finden und markieren
     func markReadFor(target: NotifTarget) async {
         guard let store, let d = try? await store.api("api/notifications?unread=1&limit=30"), let j = ShareJSON.obj(d) else { return }

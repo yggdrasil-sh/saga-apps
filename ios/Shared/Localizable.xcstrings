@@ -26163,6 +26163,732 @@
           }
         }
       }
+    },
+    "Archiviert (%lld)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archiviert (%lld)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archived (%lld)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivados (%lld)"
+          }
+        }
+      }
+    },
+    "Aus Archiv holen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aus Archiv holen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unarchive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desarchivar"
+          }
+        }
+      }
+    },
+    "Chat löschen …" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat löschen …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete chat …"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar chat …"
+          }
+        }
+      }
+    },
+    "Für wen löschen?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Für wen löschen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete for whom?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Para quién eliminar?"
+          }
+        }
+      }
+    },
+    "Nur für mich" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur für mich"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Just for me"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo para mí"
+          }
+        }
+      }
+    },
+    "Für alle" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Für alle"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For everyone"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para todos"
+          }
+        }
+      }
+    },
+    "Verlauf für alle löschen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verlauf für alle löschen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete history for everyone"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar historial para todos"
+          }
+        }
+      }
+    },
+    "Für mich löschen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Für mich löschen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete for me"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar para mí"
+          }
+        }
+      }
+    },
+    "Gruppe außerdem verlassen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gruppe außerdem verlassen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Also leave the group"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Salir también del grupo"
+          }
+        }
+      }
+    },
+    "„%@“ löschen?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ löschen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete “%@”?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Eliminar «%@»?"
+          }
+        }
+      }
+    },
+    "Der Verlauf verschwindet nur bei dir, auf allen deinen Geräten. %@ behält ihn. Der Chat erscheint wieder, sobald eine neue Nachricht kommt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Verlauf verschwindet nur bei dir, auf allen deinen Geräten. %@ behält ihn. Der Chat erscheint wieder, sobald eine neue Nachricht kommt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The history disappears only for you, on all your devices. %@ keeps it. The chat reappears as soon as a new message arrives."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El historial desaparece solo para ti, en todos tus dispositivos. %@ lo conserva. El chat vuelve a aparecer en cuanto llegue un mensaje nuevo."
+          }
+        }
+      }
+    },
+    "Der Verlauf verschwindet nur bei dir, auf allen deinen Geräten; der Chat wird archiviert. Die anderen behalten ihn." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Verlauf verschwindet nur bei dir, auf allen deinen Geräten; der Chat wird archiviert. Die anderen behalten ihn."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The history disappears only for you, on all your devices; the chat is archived. The others keep it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El historial desaparece solo para ti, en todos tus dispositivos; el chat se archiva. Los demás lo conservan."
+          }
+        }
+      }
+    },
+    "Alle Nachrichten und Anhänge werden für alle Mitglieder gelöscht. Der Chat selbst bleibt, solange es die Gruppe bzw. Seite gibt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle Nachrichten und Anhänge werden für alle Mitglieder gelöscht. Der Chat selbst bleibt, solange es die Gruppe bzw. Seite gibt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All messages and attachments are deleted for all members. The chat itself stays as long as the group or page exists."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se eliminan todos los mensajes y adjuntos para todos los miembros. El chat en sí se mantiene mientras exista el grupo o la página."
+          }
+        }
+      }
+    },
+    "Der Chat wird für %@ und dich gelöscht – mit allen Nachrichten, Anhängen und Anrufen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Chat wird für %@ und dich gelöscht – mit allen Nachrichten, Anhängen und Anrufen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The chat is deleted for %@ and you – with all messages, attachments and calls."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El chat se elimina para %@ y para ti, con todos los mensajes, adjuntos y llamadas."
+          }
+        }
+      }
+    },
+    "Die Gruppe wird für alle Mitglieder gelöscht – mit allen Nachrichten, Anhängen und Anrufen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Gruppe wird für alle Mitglieder gelöscht – mit allen Nachrichten, Anhängen und Anrufen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The group is deleted for all members – with all messages, attachments and calls."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El grupo se elimina para todos los miembros, con todos los mensajes, adjuntos y llamadas."
+          }
+        }
+      }
+    },
+    "Nur Admins dieser Gruppe können sie für alle löschen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur Admins dieser Gruppe können sie für alle löschen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only admins of this group can delete it for everyone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo los administradores de este grupo pueden eliminarlo para todos."
+          }
+        }
+      }
+    },
+    "Den Verlauf für alle löschen können nur Saga-Admins." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Den Verlauf für alle löschen können nur Saga-Admins."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only Saga admins can delete the history for everyone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo los administradores de Saga pueden eliminar el historial para todos."
+          }
+        }
+      }
+    },
+    "Den Verlauf für alle löschen kann nur, wem die Seite gehört." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Den Verlauf für alle löschen kann nur, wem die Seite gehört."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only the page owner can delete the history for everyone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo el propietario de la página puede eliminar el historial para todos."
+          }
+        }
+      }
+    },
+    "Das lässt sich nicht rückgängig machen. Wer Nachrichten schon gesehen hat, kann Kopien davon haben." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das lässt sich nicht rückgängig machen. Wer Nachrichten schon gesehen hat, kann Kopien davon haben."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This can't be undone. Anyone who has already seen messages may have copies of them."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede deshacer. Quien ya haya visto los mensajes puede tener copias."
+          }
+        }
+      }
+    },
+    "Chat archiviert – er kommt mit der nächsten Nachricht zurück." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat archiviert – er kommt mit der nächsten Nachricht zurück."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat archived – it comes back with the next message."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat archivado: vuelve con el próximo mensaje."
+          }
+        }
+      }
+    },
+    "Chat aus dem Archiv geholt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat aus dem Archiv geholt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat unarchived."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat desarchivado."
+          }
+        }
+      }
+    },
+    "Chat für alle gelöscht." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat für alle gelöscht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat deleted for everyone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat eliminado para todos."
+          }
+        }
+      }
+    },
+    "Verlauf für alle gelöscht." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verlauf für alle gelöscht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "History deleted for everyone."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historial eliminado para todos."
+          }
+        }
+      }
+    },
+    "Verlauf gelöscht, Gruppe verlassen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verlauf gelöscht, Gruppe verlassen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "History deleted, group left."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historial eliminado, has salido del grupo."
+          }
+        }
+      }
+    },
+    "Verlauf für dich gelöscht, Chat archiviert." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verlauf für dich gelöscht, Chat archiviert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "History deleted for you, chat archived."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historial eliminado para ti, chat archivado."
+          }
+        }
+      }
+    },
+    "Chat für dich gelöscht." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat für dich gelöscht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat deleted for you."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Chat eliminado para ti."
+          }
+        }
+      }
+    },
+    "%@ hat den Chat gelöscht." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ hat den Chat gelöscht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ deleted the chat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ eliminó el chat."
+          }
+        }
+      }
+    },
+    "%@ hat den Verlauf gelöscht." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ hat den Verlauf gelöscht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ deleted the history."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ eliminó el historial."
+          }
+        }
+      }
+    },
+    "Der bisherige Verlauf wurde gelöscht." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der bisherige Verlauf wurde gelöscht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The earlier history was deleted."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El historial anterior se eliminó."
+          }
+        }
+      }
+    },
+    "Für alle löschen ist in diesem Chat nicht möglich." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Für alle löschen ist in diesem Chat nicht möglich."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleting for everyone isn't possible in this chat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En este chat no se puede eliminar para todos."
+          }
+        }
+      }
+    },
+    "Das lässt sich nicht rückgängig machen – auch nicht mit dem Wiederherstellungsschlüssel." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das lässt sich nicht rückgängig machen – auch nicht mit dem Wiederherstellungsschlüssel."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This can't be undone – not even with the recovery key."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se puede deshacer, ni siquiera con la clave de recuperación."
+          }
+        }
+      }
+    },
+    "aufgeklappt" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "aufgeklappt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "expanded"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "desplegado"
+          }
+        }
+      }
+    },
+    "zugeklappt" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "zugeklappt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "collapsed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "plegado"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

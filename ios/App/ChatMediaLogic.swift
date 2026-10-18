@@ -91,3 +91,28 @@ enum ChatMediaLogic {
         return local ? id + ".t" : id
     }
 }
+
+/// Welche Datei-Kennungen (Original + Vorschaubild) zu welchem Chat gehoeren - damit "Chat loeschen" (2.1) den
+/// Zwischenspeicher genau dieses Chats leeren kann (Platte und Speicher). Klein, als JSON neben dem Platten-Cache.
+struct ChatCacheIndex: Codable, Equatable {
+    var chats: [String: [String]] = [:]
+    /// hoechstens so viele Kennungen je Chat (aelteste fallen heraus; ihr Ciphertext verdraengt ohnehin das LRU)
+    static let perChat = 4000
+    /// Kennungen merken -> geaendert?
+    @discardableResult mutating func add(_ chatID: Int, _ ids: [String]) -> Bool {
+        let k = String(chatID)
+        var list = chats[k] ?? []
+        var seen = Set(list), changed = false
+        for id in ids where !id.isEmpty && !seen.contains(id) { list.append(id); seen.insert(id); changed = true }
+        guard changed else { return false }
+        if list.count > Self.perChat { list.removeFirst(list.count - Self.perChat) }
+        chats[k] = list
+        return true
+    }
+    /// Kennungen eines Chats herausnehmen (zum Loeschen)
+    mutating func take(_ chatID: Int) -> [String] { chats.removeValue(forKey: String(chatID)) ?? [] }
+    /// Dateinamen im Platten-Cache zu diesen Kennungen (Blob und eigenes Vorschaubild)
+    static func diskNames(_ ids: [String]) -> [String] {
+        ids.flatMap { id in [ChatMediaLogic.cacheName(id), ChatMediaLogic.cacheName(id, local: true)].compactMap { $0 } }
+    }
+}

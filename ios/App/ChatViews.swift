@@ -41,6 +41,7 @@ struct ChatsScreen: View {
         #if os(iOS)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }   // iPad hochkant: gestapelt
         #endif
+        .onChange(of: chat.closeRequest) { _, r in if let r, openChat == r.id { openChat = nil } }   // geloescht (2.1): schliessen
         .task {
             if chat.state == .loading || chat.state == .ready { await chat.load() }
             #if DEBUG
@@ -78,6 +79,8 @@ struct ChatListView: View {
     @Binding var selection: Int?
     @State private var newChat = false
     @State private var q = ""
+    @State private var showArchive = false                    // Bereich "Archiviert" aufgeklappt
+    @State private var deleting: ChatSummary?
     var body: some View {
         List(selection: $selection) {
             #if os(macOS)
@@ -93,7 +96,30 @@ struct ChatListView: View {
                 }
                 .listRowBackground(Color.clear)
             }
-            ForEach(filtered) { c in ChatRow(c: c).tag(c.id) }
+            let parts = ChatDeleteLogic.split(filtered) { $0.archived }
+            ForEach(parts.active) { c in row(c) }
+            if !parts.archived.isEmpty {                                     // Archiv (2.1): aufklappbar unten
+                let open = showArchive || !q.isEmpty
+                Button { withAnimation { showArchive.toggle() } } label: {
+                    HStack {
+                        Label("Archiviert (\(parts.archived.count))", systemImage: "archivebox")
+                        Spacer()
+                        let n = ChatDeleteLogic.unread(chat.chats, archived: { $0.archived }, muted: { $0.muted }, unread: { $0.unread }).archive
+                        if n > 0 {
+                            Text(verbatim: "\(n)").font(.caption2.bold()).foregroundStyle(.secondary)
+                                .padding(.horizontal, 6).padding(.vertical, 1).background(Color.secondary.opacity(0.18), in: Capsule())
+                                .accessibilityLabel(Text("\(n) ungelesen"))
+                        }
+                        Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(open ? 90 : 0)).accessibilityHidden(true)
+                    }
+                    .foregroundStyle(.secondary).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityValue(Text(open ? "aufgeklappt" : "zugeklappt"))
+                .selectionDisabled()
+                if open { ForEach(parts.archived) { c in row(c) } }
+            }
         }
         #if os(macOS)
         .listStyle(.inset)
@@ -108,8 +134,149 @@ struct ChatListView: View {
             }
         }
         .sheet(isPresented: $newChat) { NewChatSheet(chat: chat) { id in selection = id } }
+        .sheet(item: $deleting) { c in ChatDeleteSheet(chat: chat, c: c) }
+        #if DEBUG
+        .task {                                                              // nur fuer Tests/Bilder (Startparameter)
+            let ud = UserDefaults.standard
+            if ud.bool(forKey: "hkChatArchiveOpen") { showArchive = true }
+            if let s = ud.string(forKey: "hkChatArchive"), let cid = Int(s.dropFirst()) {   // "+12" archivieren, "-12" herausholen
+                try? await Task.sleep(for: .seconds(2)); await chat.setArchived(cid, s.hasPrefix("+"))
+            }
+            if let s = ud.string(forKey: "hkChatDeleteSheet"), let cid = Int(s) {
+                try? await Task.sleep(for: .seconds(2)); deleting = chat.chats.first { $0.id == cid }
+            }
+        }
+        #endif
     }
     private var filtered: [ChatSummary] { q.isEmpty ? chat.chats : chat.chats.filter { ChatLogic.matches($0.title, q) } }
+
+    /// Zeile mit Wischgesten (iPhone/iPad) und Kontextmenue (Mac, iPad, langes Druecken) - nur, wenn der Server es kann
+    @ViewBuilder private func row(_ c: ChatSummary) -> some View {
+        if c.canArchive {
+            ChatRow(c: c).tag(c.id)
+                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                    Button { deleting = c } label: { Label("Löschen", systemImage: "trash") }.tint(.red)
+                    Button { Task { await chat.setArchived(c.id, !c.archived) } } label: {
+                        Label(c.archived ? "Aus Archiv holen" : "Archivieren", systemImage: c.archived ? "tray.and.arrow.up" : "archivebox")
+                    }.tint(.indigo)
+                }
+                .contextMenu {
+                    Button { Task { await chat.setArchived(c.id, !c.archived) } } label: {
+                        Label(c.archived ? "Aus Archiv holen" : "Archivieren", systemImage: c.archived ? "tray.and.arrow.up" : "archivebox")
+                    }
+                    Divider()
+                    Button(role: .destructive) { deleting = c } label: { Label("Chat löschen …", systemImage: "trash") }
+                }
+        } else {
+            ChatRow(c: c).tag(c.id)
+        }
+    }
+}
+
+// MARK: - Chat loeschen (2.1)
+
+/// "Chat loeschen …": Nur fuer mich / Fuer alle (nach delete_for_all, sonst ausgegraut mit Begruendung), bei freien
+/// Gruppen "Gruppe ausserdem verlassen", klare Warnung
+struct ChatDeleteSheet: View {
+    @ObservedObject var chat: ChatModel
+    let c: ChatSummary
+    @Environment(\.dismiss) private var dismiss
+    @State private var scope: ChatDeleteLogic.Scope = .me
+    @State private var leave = false
+    @State private var busy = false
+    @State private var err: String?
+    private var forAllKind: ChatDeleteLogic.ForAll { c.deleteForAll ?? (c.kind == "dm" || c.kind == "free" ? .chat : .history) }
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    option(.me, title: String(localized: "Nur für mich"), detail: meDetail, enabled: true)
+                    option(.all, title: forAllKind == .chat ? String(localized: "Für alle") : String(localized: "Verlauf für alle löschen"), detail: allDetail, enabled: c.deleteForAll != nil)
+                    if c.deleteForAll == nil {
+                        Label(deniedText, systemImage: "lock").font(.footnote).foregroundStyle(.secondary)
+                    }
+                } header: { Text("Für wen löschen?") }
+                if ChatDeleteLogic.offerLeave(kind: c.kind, scope: scope) {
+                    Section {
+                        Toggle("Gruppe außerdem verlassen", isOn: $leave)
+                    } footer: { Text("Du bekommst keine neuen Nachrichten mehr.") }
+                }
+                Section {
+                    Label { Text(warning).fontWeight(.semibold) } icon: { Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange) }
+                    if let err { Label(err, systemImage: "exclamationmark.circle.fill").font(.footnote).foregroundStyle(.red) }
+                }
+            }
+            .formStyle(.grouped)
+            .navigationTitle(Text("„\(c.title)“ löschen?"))
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() }.disabled(busy) }
+                ToolbarItem(placement: .destructiveAction) {
+                    Button(scope == .me ? String(localized: "Für mich löschen") : forAllKind == .chat ? String(localized: "Für alle löschen") : String(localized: "Verlauf für alle löschen"), role: .destructive) { Task { await run() } }
+                        .disabled(busy).foregroundStyle(.red)
+                }
+            }
+            .interactiveDismissDisabled(busy)
+        }
+        .macFrame(minWidth: 440, idealWidth: 500, minHeight: 440, idealHeight: 520)
+        #if DEBUG
+        .task {                                                              // nur fuer Bilder/Tests
+            let ud = UserDefaults.standard
+            if ud.string(forKey: "hkChatDeleteScope") == "all", c.deleteForAll != nil { scope = .all }
+            if ud.bool(forKey: "hkChatDeleteLeave") { leave = true }
+            if ud.bool(forKey: "hkChatDeleteRun") { try? await Task.sleep(for: .seconds(2)); await run() }
+        }
+        #endif
+    }
+    private func option(_ s: ChatDeleteLogic.Scope, title: String, detail: String, enabled: Bool) -> some View {
+        Button { if enabled { scope = s; if s == .all { leave = false } } } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: scope == s ? "largecircle.fill.circle" : "circle").font(.title3)
+                    .foregroundStyle(enabled ? (scope == s ? Color.red : Color.secondary) : Color.secondary.opacity(0.5)).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(verbatim: title).font(.headline)
+                    Text(verbatim: detail).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            .opacity(enabled ? 1 : 0.5).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain).disabled(!enabled || busy)
+        .accessibilityAddTraits(scope == s ? .isSelected : [])
+    }
+    private var peerName: String { c.peer?.name ?? c.title }
+    private var meDetail: String {
+        c.kind == "dm"
+            ? String(localized: "Der Verlauf verschwindet nur bei dir, auf allen deinen Geräten. \(peerName) behält ihn. Der Chat erscheint wieder, sobald eine neue Nachricht kommt.")
+            : String(localized: "Der Verlauf verschwindet nur bei dir, auf allen deinen Geräten; der Chat wird archiviert. Die anderen behalten ihn.")
+    }
+    private var allDetail: String {
+        if forAllKind == .history { return String(localized: "Alle Nachrichten und Anhänge werden für alle Mitglieder gelöscht. Der Chat selbst bleibt, solange es die Gruppe bzw. Seite gibt.") }
+        return c.kind == "dm"
+            ? String(localized: "Der Chat wird für \(peerName) und dich gelöscht – mit allen Nachrichten, Anhängen und Anrufen.")
+            : String(localized: "Die Gruppe wird für alle Mitglieder gelöscht – mit allen Nachrichten, Anhängen und Anrufen.")
+    }
+    private var deniedText: String {
+        switch ChatDeleteLogic.denied(kind: c.kind, forAll: c.deleteForAll) {
+        case .groupAdmin: return String(localized: "Nur Admins dieser Gruppe können sie für alle löschen.")
+        case .sagaAdmin: return String(localized: "Den Verlauf für alle löschen können nur Saga-Admins.")
+        case .pageOwner: return String(localized: "Den Verlauf für alle löschen kann nur, wem die Seite gehört.")
+        default: return String(localized: "Für alle löschen ist in diesem Chat nicht möglich.")
+        }
+    }
+    /// Klare Warnung (wie im Web); "Nur fuer mich": auch der Wiederherstellungsschluessel hilft danach nicht
+    private var warning: String {
+        scope == .all
+            ? String(localized: "Das lässt sich nicht rückgängig machen. Wer Nachrichten schon gesehen hat, kann Kopien davon haben.")
+            : String(localized: "Das lässt sich nicht rückgängig machen – auch nicht mit dem Wiederherstellungsschlüssel.")
+    }
+    private func run() async {
+        busy = true; err = nil; defer { busy = false }
+        do { try await chat.deleteChat(c, scope: scope, leave: leave); dismiss() }
+        catch { err = error.localizedDescription }
+    }
 }
 
 struct ChatRow: View {

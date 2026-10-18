@@ -1,4 +1,5 @@
 import SwiftUI
+import UserNotifications
 
 // Chat mit Ende-zu-Ende-Verschluesselung (Saga 2.0): Zustand, Schluessel, Einrichtung, Kopplung neuer Geraete,
 // Chat-Liste. Private Schluessel nur im Schluesselbund dieses Geraets (ThisDeviceOnly), nie an den Server, nie im
@@ -143,9 +144,15 @@ struct ChatSummary: Identifiable, Equatable {
     var decryptedTitle: String?
     /// KI im Chat erlaubt (2.1, nur auf Zuruf)
     var ai = false
+    /// Archiv und Loeschen (2.1): Server kennt es, von mir archiviert, "Verlauf geloescht bis", was ich fuer alle loeschen darf
+    var canArchive = false
+    var archived = false
+    var clearedSeq = 0
+    var deleteForAll: ChatDeleteLogic.ForAll?
     static func == (a: ChatSummary, b: ChatSummary) -> Bool {
         a.id == b.id && a.kind == b.kind && a.name == b.name && a.members == b.members && a.unread == b.unread && a.muted == b.muted
             && a.retention == b.retention && a.lastAt == b.lastAt && a.lastSeq == b.lastSeq && a.decryptedTitle == b.decryptedTitle && a.role == b.role && a.ai == b.ai
+            && a.canArchive == b.canArchive && a.archived == b.archived && a.clearedSeq == b.clearedSeq && a.deleteForAll == b.deleteForAll
     }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let i = ShareJSON.int(d["id"]) else { return nil }
@@ -160,6 +167,9 @@ struct ChatSummary: Identifiable, Equatable {
         if let p = d["peer"] as? [String: Any], let u = p["username"] as? String { peer = ChatMember(username: u, name: p["name"] as? String ?? u, me: false, avatar: ShareJSON.str(p["avatar"])) }
         titleMsg = d["title_msg"] as? [String: Any]
         ai = ShareJSON.bool(d["ai"])
+        canArchive = ChatDeleteLogic.supported(d)
+        archived = ShareJSON.bool(d["archived"]); clearedSeq = ShareJSON.int(d["cleared_seq"]) ?? 0
+        deleteForAll = ChatDeleteLogic.forAll(d["delete_for_all"])
     }
     var title: String {
         switch kind {
@@ -431,10 +441,76 @@ final class ChatModel: ObservableObject {
         await load()
     }
 
+    // MARK: Archivieren und Loeschen (2.1)
+
+    /// Server kennt Archiv/Loeschen (aeltere Server: Funktionen ausblenden)
+    var archiveSupported: Bool { chats.contains { $0.canArchive } }
+
+    /// Archivieren / aus dem Archiv holen (nur fuer mich)
+    func setArchived(_ cid: Int, _ on: Bool) async {
+        guard let store else { return }
+        do {
+            let (d, code) = try await store.apiResponse("api/chats/\(cid)", method: "PATCH", body: ChatDeleteLogic.archiveBody(on))
+            guard (200..<300).contains(code) else { throw APIError.http(code, ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "") }
+            if let i = chats.firstIndex(where: { $0.id == cid }) { chats[i].archived = on }
+            toast = on ? String(localized: "Chat archiviert – er kommt mit der nächsten Nachricht zurück.") : String(localized: "Chat aus dem Archiv geholt.")
+        } catch { toast = error.localizedDescription }
+        await loadList()
+    }
+
+    /// Chat loeschen: "Nur fuer mich" (Verlauf bis jetzt, ggf. Gruppe verlassen) oder "Fuer alle"
+    func deleteChat(_ c: ChatSummary, scope: ChatDeleteLogic.Scope, leave: Bool) async throws {
+        guard let store else { return }
+        let (d, code) = try await store.apiResponse(ChatDeleteLogic.path(c.id, scope), method: "DELETE")
+        guard (200..<300).contains(code) else { throw APIError.http(code, ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "") }
+        let effect = ChatDeleteLogic.effect(kind: c.kind, scope: scope, forAll: c.deleteForAll)
+        let leaving = leave && ChatDeleteLogic.offerLeave(kind: c.kind, scope: scope)
+        purge(c.id, upTo: scope == .me ? ShareJSON.int(ShareJSON.obj(d)?["cleared_seq"]) : nil, close: true)
+        if leaving { _ = try? await store.apiResponse("api/chats/\(c.id)/members/\(me.uid)", method: "DELETE") }
+        if effect == .removed || effect == .hidden || leaving { chats.removeAll { $0.id == c.id } }
+        switch effect {
+        case .removed: toast = String(localized: "Chat für alle gelöscht.")
+        case .historyCleared: toast = String(localized: "Verlauf für alle gelöscht.")
+        case .archived: toast = leaving ? String(localized: "Verlauf gelöscht, Gruppe verlassen.") : String(localized: "Verlauf für dich gelöscht, Chat archiviert.")
+        case .hidden: toast = String(localized: "Chat für dich gelöscht.")
+        }
+        await loadList()
+    }
+
+    /// Geoeffneter Chat soll zu (geloescht, ausgeblendet) - ChatsScreen beobachtet das
+    struct CloseRequest: Equatable { let id: Int; let token = UUID() }
+    @Published var closeRequest: CloseRequest?
+
+    /// Lokalen Zwischenspeicher eines Chats leeren: Nachrichten (bis upTo, nil = alles), entschluesselte Inhalte,
+    /// Bilder, Entwurf, Benachrichtigungen (Glocke und Mitteilungszentrale); ggf. schliessen
+    func purge(_ cid: Int, upTo: Int?, close: Bool) {
+        var extra: [String] = []
+        if let o = open, o.chatID == cid {
+            extra = o.messages.flatMap { m in (m.content?.files ?? []).flatMap { [$0.id] + ($0.thumb.map { [$0.id] } ?? []) } }
+            o.purge(upTo: upTo)
+        }
+        ChatMedia.purge(chatID: cid, extra: extra)
+        store?.notifs.dropChat(cid)
+        ChatNotifCenter.removeDelivered(chatID: cid)
+        if close { closeRequest = CloseRequest(id: cid) }
+    }
+
     // MARK: Live
 
     func live(_ type: String, _ d: [String: Any]) {
         let cid = ShareJSON.int(d["chat_id"])
+        if let a = ChatDeleteLogic.live(type, d, me: me.uid, kind: chats.first { $0.id == cid }?.kind) {   // geloescht (2.1)
+            purge(a.chatID, upTo: a.purgeUpTo, close: a.close)
+            if a.removeFromList { chats.removeAll { $0.id == a.chatID } }
+            switch a.notice {
+            case .chatDeleted(let n): toast = String(localized: "\(n) hat den Chat gelöscht.")
+            case .historyDeleted(let n): toast = String(localized: "\(n) hat den Verlauf gelöscht.")
+            case nil: break
+            }
+            if !a.close, let o = open, o.chatID == a.chatID { Task { await o.load() } }   // Verlauf neu (Hinweis "geloescht")
+            Task { await loadList(); if keys == nil { await refreshUnread() } }
+            return
+        }
         switch type {
         case "chat.message", "chat.deleted", "chat.read", "chat.changed":
             if let o = open, o.chatID == cid { o.live(type, d) }
@@ -489,4 +565,18 @@ final class ChatModel: ObservableObject {
 struct ChatReauth: Error, LocalizedError {
     let kind: String; let message: String
     var errorDescription: String? { message }
+}
+
+/// Zugestellte Mitteilungen eines Chats aus der Mitteilungszentrale entfernen (Chat geloescht, 2.1)
+enum ChatNotifCenter {
+    static func removeDelivered(chatID: Int) {
+        let c = UNUserNotificationCenter.current()
+        c.getDeliveredNotifications { list in
+            let ids = list.filter { n in
+                let u = n.request.content.userInfo
+                return ShareJSON.int(u["chat_id"]) == chatID || NotifLogic.chatID(fromURL: u["url"] as? String) == chatID
+            }.map(\.request.identifier)
+            if !ids.isEmpty { c.removeDeliveredNotifications(withIdentifiers: ids) }
+        }
+    }
 }
