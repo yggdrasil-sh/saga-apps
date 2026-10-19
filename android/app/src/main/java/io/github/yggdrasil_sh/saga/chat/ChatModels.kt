@@ -204,6 +204,8 @@ data class ChatSummary(
     @SerialName("readonly_reason") val readonlyReason: String? = null,
     /** aeltere Apps: Hinweis "bitte App aktualisieren" (diese App sendet X-Saga-Chat: 2 und bekommt ihn nicht) */
     @SerialName("fed_hint") val fedHint: String? = null,
+    /** 2.3 (E5): Einladung in eine Gruppe eines anderen Servers - wer eingeladen hat ({name, host, label}) */
+    @SerialName("invited_by") val invitedBy: ChatInviter? = null,
 ) {
     /** Chat ueber Servergrenzen (v2) */
     val isFed: Boolean get() = v == 2 && !ref.isNullOrEmpty()
@@ -211,6 +213,10 @@ data class ChatSummary(
     /** Kennung fuer die Verschluesselung (AD von Nachrichten/Anhaengen): v1 chat_id, v2 chat_ref */
     val cryptoId: String get() = if (isFed) ref!! else id.toString()
 }
+
+/** 2.3: wer in eine Gruppe ueber Servergrenzen eingeladen hat */
+@Serializable
+data class ChatInviter(val name: String = "", val host: String? = null, val label: String? = null)
 
 @Serializable
 data class ChatList(
@@ -318,9 +324,38 @@ data class ChatBlock(
 @Serializable
 data class ChatBlocks(val blocks: List<ChatBlock> = emptyList())
 
-/** 2.3: Systemzeile (kind 'sys', Klartext-Metadaten vom Heim), z. B. {"type":"ai","on":true,"by":handle,"name":…} */
+/** 2.3: Person in einer Systemzeile (Mitglieder): Anzeigename, Herkunft (Server), Handle */
 @Serializable
-data class ChatSys(val type: String = "", val on: Boolean = false, val by: String? = null, val name: String? = null)
+data class SysPerson(val name: String? = null, val host: String? = null, val handle: String? = null)
+
+/**
+ * 2.3: Systemzeile (kind 'sys', Klartext-Metadaten vom Heim), z. B. {"type":"ai","on":true,"by":handle,"name":…},
+ * {"type":"members","added":[{name,host,handle}],"removed":[…],"by":{…}|null,"reason":"disconnected"|"gone"|"access"?},
+ * {"type":"fed","on":true,"ai_off":true?}. "by" ist bei "ai" der Handle (Text), bei "members" eine Person (roh gelesen).
+ */
+@Serializable
+data class ChatSys(
+    val type: String = "",
+    val on: Boolean = false,
+    val by: kotlinx.serialization.json.JsonElement? = null,
+    val name: String? = null,
+    val added: List<SysPerson> = emptyList(),
+    val removed: List<SysPerson> = emptyList(),
+    val reason: String? = null,
+    @SerialName("ai_off") val aiOff: Boolean = false,
+) {
+    /** "by" als Handle (Systemzeile "ai") */
+    val byHandle: String?
+        get() = (by as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }?.content
+            ?: (by as? kotlinx.serialization.json.JsonObject)?.get("handle")?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+
+    /** "by" als Person (Systemzeile "members"); null = vom Heim selbst (z. B. Trennen) */
+    val byPerson: SysPerson?
+        get() = (by as? kotlinx.serialization.json.JsonObject)?.let { o ->
+            fun f(k: String) = (o[k] as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }?.content
+            SysPerson(f("name"), f("host"), f("handle"))
+        }
+}
 
 @Serializable
 data class ChatNoteRef(val id: Long = 0, val title: String = "", val icon: String = "")

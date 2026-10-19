@@ -35,7 +35,6 @@
     <string name="fed_unblock">Unblock</string>
     <string name="fed_chat_hint_v2">Find people on other connected Saga servers by their display name or name@server (not by email address).</string>
     <string name="fed_person_sub">Person on %1$s · first message as a request</string>
-    <string name="fed_groups_later">Groups with people from other Saga servers are coming in a later update.</string>
     <string name="fed_requests_n">Message requests (%1$d)</string>
     <string name="fed_other_instance_at">Other Saga instance · %1$s</string>
     <string name="fed_directory_title">Connected Saga servers</string>

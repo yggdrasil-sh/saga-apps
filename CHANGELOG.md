@@ -50,6 +50,28 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Treffer anderer Server im Teilen-Dialog mit „Name · Server“ und Profilbild.
 - Lokale Chats (`saga-chat/v1`), lokale Anrufe und Server 2.1/2.2 bleiben unverändert nutzbar.
 
+### Neu (Android) – Seiten und Gruppen über Servergrenzen (Saga 2.3, Föderation E4–E6)
+- **Seiten anderer Saga-Server je nach Fähigkeit ihres Servers** (`remote.caps`): Unterseiten anlegen (Seitenleiste,
+  Rolle Bearbeiten), Bilder hochladen (die Datei liegt beim Server der Seite), Datenbanken öffnen samt Zeilen (vom
+  Server der Seite gerechnet, auch eingebettete Datenbanken), Versionsverlauf ansehen und wiederherstellen, Export,
+  Anwesenheit und Live-Änderungen, Seiten-Chat. Ältere Gegenstellen (2.1/2.2) bleiben bei Lesen, Kommentieren und
+  Titel/Inhalt bearbeiten.
+- **Versionsverlauf und Export auch für eigene Seiten:** „Versionsverlauf“ (Eigentümer; mit Bearbeiten ab Server 2.3)
+  mit Vorschau und „Diese Version wiederherstellen“; „Als Markdown exportieren“ bzw. „Mit Unterseiten exportieren
+  (.zip)“ über den Speichern-Dialog des Systems.
+- **Gruppen mit Personen anderer Server:** „Eigene Gruppe“ nimmt Personen verbundener Server auf (bei ihnen als
+  Nachrichtenanfrage), „Person hinzufügen“ in Gruppen über Servergrenzen; Einladungen anderer Server erscheinen als
+  Anfrage mit „{Name} ({Server}) hat dich in diese Gruppe eingeladen“. Gruppenname als v2-Nachricht (wird beim
+  Hinzufügen erneut gesendet), Systemzeilen zu Mitgliedern mit Herkunft (hinzugefügt, verlassen, entfernt, getrennt,
+  Konto gelöscht) und „ab jetzt mit Personen anderer Saga-Server“. Chat-Liste zeigt Art, Personenzahl und Heim.
+  Personen dritter Server (Schlüssel über das Heim) werden wie alle selbst geprüft.
+- **Umgestellte Seiten-Chats:** Nachrichten und Anhänge aus der Zeit vor der Umstellung bleiben lesbar (v1), neue
+  Nachrichten gehen in v2; ein offener Chat lädt nach der Umstellung neu.
+- Der Hinweis „Gruppen mit Personen anderer Saga-Server kommen mit einem späteren Update“ ist entfallen.
+- **Kurzsuche nur bei Servern ab 2.3:** Personensuche in Chat und Teilen-Dialog ab 1 Zeichen nur, wenn der Server
+  2.3 oder neuer ist; ältere Server wie bisher ab 3 Zeichen mit Hinweis „Mindestens 3 Zeichen“.
+- Lokale Seiten und Chats sowie ältere Server bleiben unverändert.
+
 ### Behoben (Android)
 - **Absturz, wenn ein Anruf gleich nach dem Annehmen scheiterte** (z. B. ungültiges Angebot): Der Anruf-Dienst wurde
   beendet, bevor er in den Vordergrund kam – Android 14+ beendete dann die App

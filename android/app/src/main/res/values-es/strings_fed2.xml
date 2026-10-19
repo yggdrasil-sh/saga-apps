@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.3: pages on other servers (E4/E6), groups across servers (E5), version history, export -->
+<resources>
+    <string name="share_search_hint_min3">Al menos 3 caracteres.</string>
+    <string name="share_search_hint_scope_min3">Solo personas de tus grupos. Al menos 3 caracteres.</string>
+    <string name="chat_people_hint_min3">A partir de 3 caracteres; toca una persona (chat directo) o un grupo (chat de grupo).</string>
+    <string name="fed_page_hint_full">Esta página está en %1$s. El propietario gestiona la eliminación y el uso compartido.</string>
+    <string name="versions_title">Historial de versiones</string>
+    <string name="versions_none">Aún no hay versiones anteriores. Al editar se guarda una copia como máximo cada 10 minutos (hasta 50 por página).</string>
+    <string name="versions_empty_text">(vacía)</string>
+    <string name="versions_by_me">por ti</string>
+    <string name="versions_by">por %1$s</string>
+    <string name="versions_restore">Restaurar esta versión</string>
+    <string name="versions_back">Atrás</string>
+    <string name="versions_restored">Versión restaurada: el estado anterior queda en el historial.</string>
+    <string name="export_md">Exportar como Markdown</string>
+    <string name="export_zip">Exportar con subpáginas (.zip)</string>
+    <string name="export_done">Exportado.</string>
+    <string name="export_failed">No se pudo exportar: %1$s</string>
+    <string name="fed_sys_you_acc">ti</string>
+    <string name="fed_sys_fed">A partir de ahora con personas de otros servidores Saga (cifrado de extremo a extremo).</string>
+    <string name="fed_sys_fed_ai_off">A partir de ahora con personas de otros servidores Saga (cifrado de extremo a extremo). La IA está ahora desactivada aquí.</string>
+    <string name="fed_sys_you_added">Has añadido a %1$s.</string>
+    <string name="fed_sys_added_by">%1$s ha añadido a %2$s.</string>
+    <string name="fed_sys_joined">%1$s se ha unido.</string>
+    <string name="fed_sys_disconnected">%1$s ya no está – se eliminó la conexión con este servidor Saga.</string>
+    <string name="fed_sys_gone">%1$s ya no está (cuenta eliminada).</string>
+    <string name="fed_sys_you_left">Has salido del grupo.</string>
+    <string name="fed_sys_left">%1$s ha salido del grupo.</string>
+    <string name="fed_sys_you_removed">Has quitado a %1$s.</string>
+    <string name="fed_sys_removed_by">%1$s ha quitado a %2$s.</string>
+    <string name="fed_sys_not_anymore">%1$s ya no está.</string>
+    <string name="fed_request_group">%1$s (%2$s) te ha invitado a este grupo. Hasta que aceptes, no recibirás notificaciones.</string>
+    <string name="fed_person_sub_group">Persona en %1$s · recibe el grupo como solicitud</string>
+    <string name="fed_members_home_self">Este chat está en este servidor; las personas de otros servidores Saga participan a través de su propio servidor.</string>
+    <string name="fed_members_home_other">Este chat está en %1$s. Los miembros se cambian allí (a través de este servidor).</string>
+    <plurals name="fed_people_n">
+        <item quantity="one">1 persona</item>
+        <item quantity="other">%d personas</item>
+    </plurals>
+</resources>

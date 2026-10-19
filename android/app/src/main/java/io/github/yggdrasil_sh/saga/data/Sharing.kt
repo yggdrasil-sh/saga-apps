@@ -22,9 +22,33 @@ data class Person(
     val avatar: String? = null,
 )
 
-/** Foederation (2.0): Seite liegt auf einer anderen Saga-Instanz */
+/**
+ * Foederation (2.0): Seite liegt auf einer anderen Saga-Instanz. caps (2.3): was mit dem Server der Seite geht
+ * (db subpages upload versions export presence live chatgroups) - fehlt das Feld (Server 2.1/2.2), bleibt es bei Lesen,
+ * Kommentieren und Titel/Inhalt bearbeiten.
+ */
 @Serializable
-data class RemoteRef(val host: String = "", val name: String? = null)
+data class RemoteRef(val host: String = "", val name: String? = null, val caps: List<String> = emptyList())
+
+/** 2.3: Faehigkeiten fremder Seiten (remote.caps, docs/APP-API-FED.md Abschnitt 8) - eigene Seiten koennen alles */
+object RemoteCaps {
+    const val DB = "db"
+    const val SUBPAGES = "subpages"
+    const val UPLOAD = "upload"
+    const val VERSIONS = "versions"
+    const val EXPORT = "export"
+    const val PRESENCE = "presence"
+    const val LIVE = "live"
+    const val CHATGROUPS = "chatgroups"
+
+    /** Seite kann das: eigene Seite (nicht remote) immer, fremde nur, wenn ihr Server die Faehigkeit meldet */
+    fun has(remote: Boolean, caps: Collection<String>, cap: String): Boolean = !remote || cap in caps
+
+    /** remote.caps aus einem Seiten-Objekt (GET /api/notes/{id}); defensiv: nur Texte */
+    fun of(p: JsonObject): Set<String> =
+        ((p["remote"] as? JsonObject)?.get("caps") as? kotlinx.serialization.json.JsonArray).orEmpty()
+            .mapNotNull { (it as? JsonPrimitive)?.takeIf { x -> x.isString }?.content }.toSet()
+}
 
 /** GET /api/share/info - fuer Empfaenger: Teilen an? Wie viele Freigaben an mich? */
 @Serializable

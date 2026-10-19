@@ -33,6 +33,8 @@ data class PageMeta(
     /** Seite einer anderen Saga-Instanz (negative ID oder Feld remote) */
     val isRemote: Boolean get() = id < 0 || remote != null
     val foreign: Boolean get() = owner != null && !owner.me
+    /** 2.3: kann der Server dieser Seite das? (eigene Seiten immer) */
+    fun can(cap: String): Boolean = RemoteCaps.has(isRemote, remote?.caps.orEmpty(), cap)
 }
 
 @Serializable

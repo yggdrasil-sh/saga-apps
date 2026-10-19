@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.3: pages on other servers (E4/E6), groups across servers (E5), version history, export -->
+<resources>
+    <string name="share_search_hint_min3">Не менее 3 символов.</string>
+    <string name="share_search_hint_scope_min3">Только люди из твоих групп. Не менее 3 символов.</string>
+    <string name="chat_people_hint_min3">От 3 символов; нажми на человека (личный чат) или группу (групповой чат).</string>
+    <string name="fed_page_hint_full">Эта страница находится на %1$s. Удалением и доступом управляет владелец.</string>
+    <string name="versions_title">История версий</string>
+    <string name="versions_none">Прежних версий пока нет. При редактировании состояние сохраняется не чаще раза в 10 минут (до 50 на страницу).</string>
+    <string name="versions_empty_text">(пусто)</string>
+    <string name="versions_by_me">от тебя</string>
+    <string name="versions_by">от %1$s</string>
+    <string name="versions_restore">Восстановить эту версию</string>
+    <string name="versions_back">Назад</string>
+    <string name="versions_restored">Версия восстановлена – предыдущее состояние остаётся в истории.</string>
+    <string name="export_md">Экспортировать в Markdown</string>
+    <string name="export_zip">Экспортировать с подстраницами (.zip)</string>
+    <string name="export_done">Экспортировано.</string>
+    <string name="export_failed">Не удалось экспортировать: %1$s</string>
+    <string name="fed_sys_you_acc">тебя</string>
+    <string name="fed_sys_fed">Теперь с людьми с других серверов Saga (сквозное шифрование).</string>
+    <string name="fed_sys_fed_ai_off">Теперь с людьми с других серверов Saga (сквозное шифрование). ИИ здесь теперь выключен.</string>
+    <string name="fed_sys_you_added">Ты добавил(а): %1$s.</string>
+    <string name="fed_sys_added_by">%1$s добавил(а): %2$s.</string>
+    <string name="fed_sys_joined">%1$s теперь в чате.</string>
+    <string name="fed_sys_disconnected">%1$s больше нет в чате – соединение с этим сервером Saga было разорвано.</string>
+    <string name="fed_sys_gone">%1$s больше нет в чате (аккаунт удалён).</string>
+    <string name="fed_sys_you_left">Ты покинул(а) группу.</string>
+    <string name="fed_sys_left">%1$s покинул(а) группу.</string>
+    <string name="fed_sys_you_removed">Ты удалил(а): %1$s.</string>
+    <string name="fed_sys_removed_by">%1$s удалил(а): %2$s.</string>
+    <string name="fed_sys_not_anymore">%1$s больше нет в чате.</string>
+    <string name="fed_request_group">%1$s (%2$s) пригласил(а) тебя в эту группу. Пока ты не примешь приглашение, уведомлений не будет.</string>
+    <string name="fed_person_sub_group">Человек на %1$s · получит группу как запрос</string>
+    <string name="fed_members_home_self">Этот чат находится на этом сервере; люди с других серверов Saga участвуют через свой сервер.</string>
+    <string name="fed_members_home_other">Этот чат находится на %1$s. Участников меняют там (через этот сервер).</string>
+    <plurals name="fed_people_n">
+        <item quantity="one">%d человек</item>
+        <item quantity="few">%d человека</item>
+        <item quantity="many">%d человек</item>
+        <item quantity="other">%d человека</item>
+    </plurals>
+</resources>

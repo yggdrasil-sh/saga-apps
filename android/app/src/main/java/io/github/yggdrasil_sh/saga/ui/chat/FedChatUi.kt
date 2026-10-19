@@ -74,7 +74,8 @@ fun fedHeadLine(s: ChatSession): String {
     val p = sum.peer
     // Herkunft und Stand zuerst (die Zeile ist einzeilig und wird sonst abgeschnitten), "Ende-zu-Ende" zuletzt
     val parts = mutableListOf<String>()
-    val host = p?.host ?: sum.home
+    // Gruppe/Seiten-Chat (2.3, E5): Heim nennen, wenn es ein anderer Server ist (sonst die Herkunft der Mitglieder im Mitglieder-Dialog)
+    val host = if (sum.kind == "dm") p?.host ?: sum.home else sum.home?.takeIf { !sum.homeSelf }
     if (!host.isNullOrEmpty()) parts.add(stringResource(R.string.fed_on_host, host))
     val st = p?.handle?.let { s.fk[it] }
     when {
@@ -124,9 +125,13 @@ fun FedStateBar(sum: ChatSummary, request: Boolean, onAnswer: (String, String) -
                 )
                 return@Column
             }
-            val name = p?.name?.ifEmpty { null } ?: "?"
-            val host = p?.host ?: sum.home ?: "?"
-            Text(stringResource(R.string.fed_request_text, name, host), style = MaterialTheme.typography.bodyMedium)
+            // Direkt-Chat: Gegenueber; Gruppe/Seiten-Chat eines anderen Servers (2.3, E5): wer eingeladen hat ("block" sperrt
+            // diese Person bzw. ihren Server)
+            val dm = sum.kind == "dm"
+            val inv = sum.invitedBy
+            val name = (if (dm) p?.name else inv?.name)?.ifEmpty { null } ?: "?"
+            val host = (if (dm) p?.host else inv?.host) ?: sum.home ?: "?"
+            Text(stringResource(if (dm) R.string.fed_request_text else R.string.fed_request_group, name, host), style = MaterialTheme.typography.bodyMedium)
             var menu by remember { mutableStateOf(false) }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                 Box {
@@ -149,17 +154,14 @@ fun FedStateBar(sum: ChatSummary, request: Boolean, onAnswer: (String, String) -
     }
 }
 
-/** Systemzeile (mittig), z. B. "Anna hat die KI in diesem Chat eingeschaltet." */
+/** Systemzeile (mittig), z. B. "Anna hat die KI in diesem Chat eingeschaltet.", "Bert (b.example) hat Dora hinzugefügt." */
 @Composable
 fun SysRow(m: ChatMessage, sys: ChatSys, myHandle: String?) {
     val time = remember(m.ts) {
         Instant.ofEpochMilli(m.ts).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
     }
-    val who = if (sys.by != null && sys.by == myHandle) stringResource(R.string.fed_sys_you) else sys.name?.ifBlank { null } ?: "?"
-    val text = when (sys.type) {
-        "ai" -> stringResource(if (sys.on) R.string.fed_sys_ai_on else R.string.fed_sys_ai_off, who)
-        else -> stringResource(R.string.fed_sys_note)
-    }
+    // KI ein/aus, "ab jetzt ueber Servergrenzen", Mitglieder (mit Herkunft) - FedSysText (wie das Web)
+    val text = io.github.yggdrasil_sh.saga.chat.FedSysText.text(sys, myHandle).resolve()
     Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), contentAlignment = Alignment.Center) {
         Surface(color = MaterialTheme.colorScheme.surfaceContainer, shape = RoundedCornerShape(16.dp)) {
             Text(
@@ -172,11 +174,12 @@ fun SysRow(m: ChatMessage, sys: ChatSys, myHandle: String?) {
 
 /** Treffer einer Person auf einem anderen, verbundenen Saga-Server ("Name · host", Profilbild, Hinweis auf Anfrage) */
 @Composable
-fun FedPersonItem(p: FedPerson, sub: String, onClick: () -> Unit) {
+fun FedPersonItem(p: FedPerson, sub: String, trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(p.shown) },
         supportingContent = { Text(sub) },
         leadingContent = { Avatar(p.name, size = 32, avatar = p.avatar) },
+        trailingContent = trailing,
         modifier = Modifier.clickable(onClick = onClick),
     )
 }

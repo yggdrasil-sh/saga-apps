@@ -168,6 +168,11 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
 
     private var lastSeq = 0L
     private var lastTyping = 0L
+    /** 2.3: Anhaenge aus v1-Nachrichten eines umgestellten Seiten-Chats (AD mit chat_id statt chat_ref) */
+    private val legacyFiles: MutableSet<String> = java.util.Collections.synchronizedSet(HashSet())
+
+    /** Kennung fuer einen Anhang: v1-Anhaenge eines umgestellten Chats weiter mit der chat_id */
+    private fun cryptoIdFor(f: ChatFile): String = if (isFed && f.id in legacyFiles) chatId.toString() else cryptoId
 
     val me: String get() = svc.me.value?.uid.orEmpty()
     val name: String get() = summary?.let { svc.displayName(it) }.orEmpty()
@@ -230,6 +235,14 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         val after = messages.lastOrNull()?.seq ?: lastSeq
         val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&after=$after&limit=200&calls=1"))
         val newer = ChatDeleteLogic.keepAfter(decryptAll(r), summary?.clearedSeq ?: 0) { it.seq }.filter { n -> messages.none { it.id == n.id } }
+        // Systemzeile "ab jetzt ueber Servergrenzen" in einem noch als v1 geladenen Chat (E5): Stand holen und neu oeffnen
+        if (!isFed && newer.any { it.sys?.type == "fed" }) {
+            loadSummary()
+            if (isFed) {
+                open()
+                return
+            }
+        }
         messages.addAll(newer)
         lastSeq = maxOf(lastSeq, r.lastSeq)
         if (newer.isNotEmpty()) {
@@ -264,7 +277,11 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                         "sys" -> ChatMessage(m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, null, null, true, false,
                             sys = ChatLogic.sys(m.bodyCt), senderHandle = m.senderHandle)
                         else -> {
-                            val o = fo.open(ref, m)
+                            // umgestellter Seiten-Chat (E5): Nachrichten ohne sender_handle stammen aus der Zeit davor -
+                            // weiter mit v1 entschluesseln und pruefen (chat_id, Absender-Konto, Geraete aus devices/idents)
+                            val legacy = m.senderHandle.isNullOrEmpty()
+                            val o = if (legacy) opener.open(chatId, m, r.devices, r.idents) else fo.open(ref, m)
+                            if (legacy) o.content?.files?.forEach { f -> legacyFiles.add(f.id); f.th?.id?.let { legacyFiles.add(it) } }
                             ChatMessage(
                                 m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, m.replyTo, o.content, o.verified, mine,
                                 ai = ChatLogic.aiCheck(o.content, m.ai), fstate = m.fstate, senderHandle = m.senderHandle,
@@ -276,6 +293,11 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         }
         return withContext(Dispatchers.Default) {
             r.messages.map { m ->
+                // Systemzeile (2.3): Klartext vom Server - auch, falls der Chat gerade erst umgestellt wurde
+                if (m.kind == "sys") {
+                    return@map ChatMessage(m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, null, null, true, false,
+                        sys = ChatLogic.sys(m.bodyCt), senderHandle = m.senderHandle)
+                }
                 if (m.kind == "call") {
                     // Anruf-Eintrag: nicht verschluesselt, nur Metadaten (wer/wann/wie lange) - nichts zu pruefen
                     val e = io.github.yggdrasil_sh.saga.call.CallLogic.parseEntry(m.bodyCt)
@@ -506,7 +528,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
     private suspend fun postEncrypted(
         k: LocalChatKeys, plain: String, reply: String?, kind: String, fileIds: List<String>, aiReply: String? = null, aiHash: String? = null,
     ): String {
-        if (isFed) return postV2(k, plain, reply, fileIds, aiReply, aiHash)
+        if (isFed) return postV2(k, plain, reply, fileIds, aiReply, aiHash, kind)
         var rc = decode<RecipientsResponse>(api.get("api/chats/$chatId/recipients")).recipients
         for (attempt in 0..1) {
             val enc = withContext(Dispatchers.Default) {
@@ -552,13 +574,17 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
      * geprueften Schluesseln aller Mitglieder; Warnung/Blockade/ungueltig -> nicht senden. 409 {handles} -> Schluessel
      * frisch holen und einmal neu versiegeln; 403 (Geraet noch ohne Zertifikat v2) -> Zertifikate nachziehen, einmal neu.
      */
-    private suspend fun postV2(k: LocalChatKeys, plain: String, reply: String?, fileIds: List<String>, aiReply: String?, aiHash: String?): String {
+    private suspend fun postV2(
+        k: LocalChatKeys, plain: String, reply: String?, fileIds: List<String>, aiReply: String?, aiHash: String?, kind: String = "msg",
+    ): String {
         val sum = summary ?: throw UiTextException(UiText.Res(R.string.error_generic))
         val ref = sum.ref ?: throw UiTextException(UiText.Res(R.string.error_generic))
-        val hs = handles()
         var fresh = false
         var certsTried = false
         for (attempt in 0..2) {
+            // Mitglieder koennen sich geaendert haben (Gruppe/Seiten-Chat, E5): nach 409 erst die aktuelle Liste, dann Schluessel
+            if (fresh) quietly { loadSummary() }
+            val hs = handles()
             val got = loadFedKeys(fresh)
             fedBlock(got)?.let { throw it }
             val myHandle = sum.myHandle ?: svc.fed.myHandle
@@ -584,6 +610,8 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                 put("body_ct", enc.bodyCt)
                 put("sig", enc.sig)
                 if (reply != null) put("reply_to", reply)
+                // Gruppenname (E5): wie v1 als verschluesselte Nachricht kind 'title', in v2 mit denselben Feldern
+                if (kind != "msg") put("kind", kind)
                 if (aiHash != null) put("ai", aiHash)
                 if (aiReply != null) put("ai_reply", aiReply)
                 putJsonObject("keys") { enc.keys.forEach { (r, v) -> put(r, v) } }
@@ -781,23 +809,39 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         svc.loadChats()
     }
 
-    suspend fun addMember(user: String) {
-        summary = decode<ChatWrap>(api.post("api/chats/$chatId/members", buildJsonObject { put("user", user) })).chat
+    suspend fun addMember(user: String) = addMemberBody(buildJsonObject { put("user", user) })
+
+    /** 2.3 (E5): Person eines anderen Servers zur Gruppe hinzufuegen (Handle aus der Adressbuch-Suche; Aenderung ueber das Heim) */
+    suspend fun addMemberHandle(handle: String) = addMemberBody(buildJsonObject { put("handle", handle) })
+
+    private suspend fun addMemberBody(body: JsonObject) {
+        val text = api.post("api/chats/$chatId/members", body)
+        // Gruppen ueber Servergrenzen: Antwort ggf. nur {ok} (Heim ist ein anderer Server) -> Stand neu holen
+        val c = try {
+            decode<ChatWrap>(text).chat
+        } catch (_: Exception) {
+            null
+        }
+        if (c != null) summary = c else loadSummary()
         svc.loadChats()
+        // neue Mitglieder sollen den Gruppennamen sehen: ihn erneut (fuer alle jetzigen Mitglieder) senden
+        if (isFed && summary?.kind == "free") svc.freeTitles.value[chatId]?.takeIf { it.isNotBlank() }?.let { t ->
+            quietly { postEncrypted(keys(), ChatLogic.titleContent(t), null, "title", emptyList()) }
+        }
     }
 
     // ---------------------------------------------------------------- Anhaenge
 
     /** Vorschaubild eines Bild-Anhangs (2.1-c): Speicher, Plattencache (Ciphertext), Server; ohne th selbst erzeugt */
     suspend fun thumb(f: ChatFile): androidx.compose.ui.graphics.ImageBitmap? =
-        svc.thumbs.load(chatId, f, (svc.me.value?.limits ?: ChatLimits()).fileMax, cryptoId)
+        svc.thumbs.load(chatId, f, (svc.me.value?.limits ?: ChatLimits()).fileMax, cryptoIdFor(f))
 
     fun cachedThumb(f: ChatFile): androidx.compose.ui.graphics.ImageBitmap? = svc.thumbs.cached(chatId, f)
 
     suspend fun download(f: ChatFile): ByteArray {
         val blob = api.getBytes("api/chat/files/${f.id}")
         return withContext(Dispatchers.Default) {
-            svc.decryptFileAny(cryptoId, blob, unb64(f.k, 32) ?: throw UiTextException(UiText.Res(R.string.chat_file_broken)))
+            svc.decryptFileAny(cryptoIdFor(f), blob, unb64(f.k, 32) ?: throw UiTextException(UiText.Res(R.string.chat_file_broken)))
         }
     }
 
@@ -882,7 +926,14 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             "chat.keys.changed" -> {}
             "chat.changed" -> {
                 try {
+                    val wasFed = isFed
                     loadSummary()
+                    // Seiten-Chat ueber Servergrenzen umgestellt (E5, v1 -> v2): Verlauf mit der neuen Kennung neu oeffnen
+                    // (Altnachrichten weiter v1, neue v2) - sonst blieben schon geladene Nachrichten falsch entschluesselt
+                    if (!wasFed && isFed) {
+                        open()
+                        return
+                    }
                     loadIdents()
                 } catch (e: CancellationException) {
                     throw e

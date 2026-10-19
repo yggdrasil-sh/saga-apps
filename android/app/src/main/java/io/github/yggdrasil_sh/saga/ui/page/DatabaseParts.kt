@@ -47,12 +47,14 @@ import java.util.Date
 // Datenbanken (Notion-Stil) zum Lesen: Zeilen auflisten und oeffnen, Eigenschaften einer Zeile anzeigen,
 // eingebettete Datenbank-Bloecke. Ansichten/Filter/Bearbeiten der Eigenschaften bleiben im Browser.
 
-/** Alle bekannten Seiten (eigene, mit mir geteilte) - Zeilen einer Datenbank sind ihre Unterseiten */
+/** Alle bekannten Seiten (eigene, mit mir geteilte, 2.3: auch von anderen Servern) - Zeilen einer Datenbank sind ihre Unterseiten */
 @Composable
 private fun knownPages(repo: SagaRepository): List<PageMeta> {
     val own by repo.pages.collectAsState()
-    val shared by repo.sharedPages.collectAsState()
-    return remember(own, shared) {
+    val sharedLocal by repo.sharedPages.collectAsState()
+    val fed by repo.fedShared.collectAsState()
+    return remember(own, sharedLocal, fed) {
+        val shared = sharedLocal + fed
         if (shared.isEmpty()) own
         else own.mapTo(HashSet(own.size * 2)) { it.id }.let { ids -> own + shared.filter { it.id !in ids } }   // linear statt O(n·m)
     }
@@ -62,7 +64,10 @@ private fun knownPages(repo: SagaRepository): List<PageMeta> {
 @Composable
 fun DatabaseRows(dbId: Long, repo: SagaRepository, onOpen: (Long) -> Unit, limit: Int? = null) {
     val all = knownPages(repo)
-    val rows = remember(all, dbId) { all.filter { it.parentId == dbId } }
+    // 2.3: Datenbank eines anderen Servers - Zeilen von dort (GET .../rows); aeltere Gegenstelle: bekannte Seiten wie bisher
+    var remoteRows by remember(dbId) { mutableStateOf<List<PageMeta>?>(null) }
+    if (dbId < 0) LaunchedEffect(dbId) { remoteRows = loadRemoteRows(repo, dbId) }
+    val rows = remember(all, dbId, remoteRows) { remoteRows ?: all.filter { it.parentId == dbId } }
     Column(Modifier.fillMaxWidth()) {
         Text(
             pluralStringResource(R.plurals.db_rows, rows.size, rows.size),
@@ -146,7 +151,7 @@ fun DatabaseBlock(d: JsonObject, env: BlockEnv) {
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(12.dp),
     ) {
-        if (dbId == null || meta == null) {
+        if (dbId == null || (meta == null && dbId >= 0)) {
             Text("🗃️ " + stringResource(R.string.db_missing), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             return@Column
         }
@@ -154,8 +159,10 @@ fun DatabaseBlock(d: JsonObject, env: BlockEnv) {
             Modifier.fillMaxWidth().clickable { env.onLink("/notes#$dbId") }.padding(bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            PageIcon(meta.icon, env.repo, true)
-            Text(meta.title.ifEmpty { stringResource(R.string.page_untitled) }, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
+            // Datenbank eines anderen Servers, die (noch) nicht in "Mit mir geteilt" steht: ohne Titel, Zeilen von dort
+            PageIcon(meta?.icon, env.repo, true)
+            Text(meta?.title?.ifEmpty { null } ?: stringResource(if (meta == null) R.string.blocktype_database else R.string.page_untitled),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
         }
         DatabaseRows(dbId, env.repo, onOpen = { env.onLink("/notes#$it") }, limit = 5)
     }

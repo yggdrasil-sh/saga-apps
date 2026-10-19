@@ -1,6 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
 import io.github.yggdrasil_sh.saga.R
+import io.github.yggdrasil_sh.saga.data.RemoteCaps
 import io.github.yggdrasil_sh.saga.util.UiText
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -201,6 +202,12 @@ class PageEditor(
         private set
     /** Seite einer anderen Saga-Instanz (negative ID) */
     val isRemote: Boolean get() = id < 0
+    /** 2.3: was der Server einer fremden Seite kann (remote.caps); leer bei eigenen Seiten und aelteren Gegenstellen */
+    var remoteCaps by mutableStateOf<Set<String>>(emptySet())
+        private set
+
+    /** 2.3: Seite kann das (eigene Seite immer; fremde nur mit Faehigkeit ihres Servers) */
+    fun can(cap: String): Boolean = RemoteCaps.has(isRemote, remoteCaps, cap)
     // als State: "Gespeichert"/"Ungespeichert" in der Titelleiste folgt sofort
     private var version by mutableIntStateOf(0)
     private var savedVersion by mutableIntStateOf(0)
@@ -280,6 +287,7 @@ class PageEditor(
         share = PageShareInfo.of(p)
         remoteHost = ((p["remote"] as? JsonObject)?.get("host") as? JsonPrimitive)?.content?.takeIf { it.isNotBlank() }
             ?: if (isRemote) "" else null
+        remoteCaps = if (isRemote) RemoteCaps.of(p) else emptySet()
         needsPublicName = false
         noAccess = false
         rev = BlockDoc.int(p, "rev")
