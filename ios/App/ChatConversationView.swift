@@ -45,23 +45,28 @@ struct ConversationView: View {
                 ContentUnavailableView("Chat", systemImage: "bubble.left.and.exclamationmark.bubble.right", description: Text("Diesen Chat gibt es nicht (mehr) oder du gehörst nicht mehr dazu."))
             } else {
                 banners
+                FedChatBanners(conv: conv) { m in safetyPeer = ChatMember(username: m.username, name: m.name, me: false) }   // 2.3: Herkunft, TOFU
                 messagesList
-                composer
+                if let f = conv.fed, f.request || f.readonly {
+                    FedStateBar(conv: conv, fed: f) { nav.back() }               // Nachrichtenanfrage bzw. schreibgeschuetzt
+                } else {
+                    composer
+                }
             }
         }
         .navigationTitle(conv.info?.title ?? "")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #else
-        .navigationSubtitle(conv.info.map { $0.kind == "dm" ? $0.kindLabel : "\($0.kindLabel) · \(String(localized: "\($0.memberCount) Personen"))" } ?? "")
+        .navigationSubtitle(conv.info.map { ChatSubtitle.text($0) } ?? "")
         #endif
         .toolbar {
             // Anrufen (2.1): nur im Direkt-Chat
             ToolbarItemGroup(placement: .primaryAction) {
-                if let i = conv.info, i.kind == "dm", let p = i.peer, store.calls.enabled {
-                    Button { store.calls.start(chatID: chatID, peer: p, video: false) } label: { Label("Anrufen", systemImage: "phone") }
+                if let i = conv.info, i.kind == "dm", let p = i.peer, canCall {
+                    Button { store.calls.start(chatID: chatID, peer: p, video: false, fed: i.fed) } label: { Label("Anrufen", systemImage: "phone") }
                         .help(Text("Anrufen"))
-                    Button { store.calls.start(chatID: chatID, peer: p, video: true) } label: { Label("Videoanruf", systemImage: "video") }
+                    Button { store.calls.start(chatID: chatID, peer: p, video: true, fed: i.fed) } label: { Label("Videoanruf", systemImage: "video") }
                         .help(Text("Videoanruf"))
                 }
             }
@@ -103,7 +108,13 @@ struct ConversationView: View {
         .onChange(of: conv.purged) { _, _ in text = ""; files = []; replyTo = nil; askDelete = nil }   // Chat geloescht: Entwurf weg
         .sheet(item: $deleting) { c in ChatDeleteSheet(chat: chat, c: c) }
         .modifier(ChatMediaInput(files: $files, pickImmich: $pickImmich, immichOn: $immichOn, enabled: !conv.notFound, maxBytes: chat.me.fileMax))
-        .sheet(item: $safetyPeer) { p in SafetyNumberSheet(conv: conv, peer: p) }
+        .sheet(item: $safetyPeer) { p in
+            if let f = conv.fed, let m = f.members.first(where: { $0.username == p.username && !$0.me }) ?? f.peer {
+                FedSafetySheet(conv: conv, member: m)                            // 2.3: Sicherheitsnummer v2 (Handles)
+            } else {
+                SafetyNumberSheet(conv: conv, peer: p)
+            }
+        }
         .sheet(isPresented: $showMembers) { MembersSheet(conv: conv) { p in showMembers = false; safetyPeer = p } }
         .sheet(isPresented: $pickPage) { PagePickSheet { id, title in text += (text.isEmpty || text.hasSuffix(" ") ? "" : " ") + "[[note:\(id)]] "; conv.notes[id] = (title, "") } }
         .photosPicker(isPresented: $pickPhotos, selection: $photoItems, maxSelectionCount: 5, matching: .images)
@@ -207,8 +218,10 @@ struct ConversationView: View {
                         }
                         if let e = m.call {
                             CallEntryRow(entry: e, mine: m.mine, date: m.date) {
-                                if let p = conv.info?.peer { store.calls.start(chatID: chatID, peer: p, video: e.media == "video") }
+                                if let p = conv.info?.peer, canCall { store.calls.start(chatID: chatID, peer: p, video: e.media == "video", fed: conv.info?.fed) }
                             }.id(m.id)
+                        } else if let s = m.sys {
+                            FedSysRow(line: s, date: m.date).id(m.id)            // 2.3: Systemzeile
                         } else {
                         MessageBubble(m: m, showName: conv.info?.kind != "dm" && !m.mine && (i == 0 || shown[i - 1].sender != m.sender || shown[i - 1].call != nil || shown[i - 1].aiState == .ok),
                                       quoted: m.replyTo.flatMap { r in conv.messages.first { $0.id == r } }, hasReply: m.replyTo != nil,
@@ -251,6 +264,8 @@ struct ConversationView: View {
         }
     }
     private var shown: [ChatMessage] { conv.messages }
+    /// Anrufe: Server kann es; ueber Servergrenzen nur aus angenommenen, beschreibbaren Chats (Anfragen klingeln nie)
+    private var canCall: Bool { store.calls.enabled && (conv.fed?.callable ?? true) }
 
     // MARK: Eingabe
 
@@ -561,6 +576,7 @@ struct MessageBubble: View {
                 .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(isAI ? Color.gold.opacity(0.55) : .clear, lineWidth: 1))
                 .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(highlight ? Color.gold : .clear, lineWidth: 2))
                 HStack(spacing: 4) {
+                    FedDeliveryMark(delivery: m.delivery)                       // 2.3: wird zugestellt / nicht zugestellt
                     Text(m.date, format: .dateTime.hour().minute())
                     if m.expiresAt != nil { Image(systemName: "timer") }
                 }.font(.caption2).foregroundStyle(.secondary)
@@ -568,6 +584,9 @@ struct MessageBubble: View {
             .contextMenu {
                 Button { reply() } label: { Label("Antworten", systemImage: "arrowshape.turn.up.left") }
                 if !m.text.isEmpty { Button { copyText(m.text) } label: { Label("Text kopieren", systemImage: "doc.on.doc") } }
+                if m.mine && m.delivery == .failed && m.content != nil {
+                    Button { Task { await conv.resend(m) } } label: { Label("Erneut senden", systemImage: "arrow.clockwise") }
+                }
                 if m.mine { Button(role: .destructive) { delete() } label: { Label("Für alle löschen", systemImage: "trash") } }
             }
             .accessibilityElement(children: .combine)
@@ -885,11 +904,11 @@ struct MembersSheet: View {
                                 ShareAvatar(name: m.name, group: false, avatar: m.avatar)
                                 VStack(alignment: .leading) {
                                     Text(verbatim: m.me ? m.name + " (" + String(localized: "du") + ")" : m.name)
-                                    Text(verbatim: m.username).font(.caption).foregroundStyle(.secondary)
+                                    Text(verbatim: fedMember(m)?.label ?? m.username).font(.caption).foregroundStyle(.secondary)   // 2.3: nie den Handle zeigen
                                 }
                                 Spacer()
                                 if !m.me {
-                                    if ChatTrustStore.known(conv.model.me.uid, m.username)?.verified == true { Image(systemName: "checkmark.seal.fill").foregroundStyle(.green).accessibilityLabel(Text("überprüft")) }
+                                    if verified(m) { Image(systemName: "checkmark.seal.fill").foregroundStyle(.green).accessibilityLabel(Text("überprüft")) }
                                     Button("Sicherheitsnummer") { safety(m) }.buttonStyle(.bordered).controlSize(.small)
                                 }
                             }
@@ -903,7 +922,7 @@ struct MembersSheet: View {
                     }
                     if i.kind == "free" && i.role == "admin" {
                         Section("Person hinzufügen") {
-                            TextField("Person hinzufügen (ab 3 Zeichen)", text: $q).autocorrectionDisabled()
+                            TextField("Person hinzufügen", text: $q).autocorrectionDisabled()
                             if ChatFedHint.show(q, hits: hits.count) { FedChatHint() }
                             ForEach(hits, id: \.0) { h in
                                 Button { Task { await conv.addMember(h.0); q = "" } } label: { Text(verbatim: "\(h.1) · \(h.0)") }
@@ -923,6 +942,11 @@ struct MembersSheet: View {
             }
         }
         .macFrame(minWidth: 420, idealWidth: 460, minHeight: 420)
+    }
+    private func fedMember(_ m: ChatMember) -> FedMember? { conv.fed?.members.first { $0.username == m.username } }
+    private func verified(_ m: ChatMember) -> Bool {
+        if let f = fedMember(m) { return conv.fk[f.handle]?.verified == true }
+        return ChatTrustStore.known(conv.model.me.uid, m.username)?.verified == true
     }
 }
 

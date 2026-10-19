@@ -73,6 +73,20 @@ enum ChatTrustStore {
     }
 }
 
+/// TOFU v2 (Chats ueber Servergrenzen, 2.3): je Handle {ident, verified, changed, old, dver} - getrennt von den v1-Eintraegen
+enum FedTrustStore {
+    private static func key(_ me: String) -> String { "hk.chat.trust2." + (AppConfig.serverOrigin ?? "-") + "|" + me }
+    static func get(_ me: String, _ handle: String) -> FedTrust? {
+        guard let d = UserDefaults.standard.dictionary(forKey: key(me))?[handle] as? Data else { return nil }
+        return try? JSONDecoder().decode(FedTrust.self, from: d)
+    }
+    static func set(_ me: String, _ handle: String, _ t: FedTrust) {
+        var a = UserDefaults.standard.dictionary(forKey: key(me)) ?? [:]
+        a[handle] = try? JSONEncoder().encode(t)
+        UserDefaults.standard.set(a, forKey: key(me))
+    }
+}
+
 struct ChatDeviceInfo: Identifiable, Equatable {
     var id: String; var name: String; var created: Double?; var lastSeen: Double?; var revoked: Bool; var current: Bool
     var encPub: String; var signPub: String; var sig: String
@@ -149,10 +163,15 @@ struct ChatSummary: Identifiable, Equatable {
     var archived = false
     var clearedSeq = 0
     var deleteForAll: ChatDeleteLogic.ForAll?
+    /// Chat ueber Servergrenzen (2.3, v: 2): chat_ref, Heim, eigener Handle, Anfrage, schreibgeschuetzt, Handles
+    var fed: FedChatInfo?
+    var isFed: Bool { fed != nil }
+    /// Kennung fuer Anhaenge: v1 die chat_id, v2 die chat_ref
+    var fileCID: String { fed?.ref ?? String(id) }
     static func == (a: ChatSummary, b: ChatSummary) -> Bool {
         a.id == b.id && a.kind == b.kind && a.name == b.name && a.members == b.members && a.unread == b.unread && a.muted == b.muted
             && a.retention == b.retention && a.lastAt == b.lastAt && a.lastSeq == b.lastSeq && a.decryptedTitle == b.decryptedTitle && a.role == b.role && a.ai == b.ai
-            && a.canArchive == b.canArchive && a.archived == b.archived && a.clearedSeq == b.clearedSeq && a.deleteForAll == b.deleteForAll
+            && a.canArchive == b.canArchive && a.archived == b.archived && a.clearedSeq == b.clearedSeq && a.deleteForAll == b.deleteForAll && a.fed == b.fed
     }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let i = ShareJSON.int(d["id"]) else { return nil }
@@ -170,6 +189,7 @@ struct ChatSummary: Identifiable, Equatable {
         canArchive = ChatDeleteLogic.supported(d)
         archived = ShareJSON.bool(d["archived"]); clearedSeq = ShareJSON.int(d["cleared_seq"]) ?? 0
         deleteForAll = ChatDeleteLogic.forAll(d["delete_for_all"])
+        fed = FedChatInfo(d)
     }
     var title: String {
         switch kind {
@@ -205,6 +225,10 @@ final class ChatModel: ObservableObject {
     @Published var me = ChatMe()
     @Published var chats: [ChatSummary] = []
     @Published var unread = 0
+    /// Nachrichtenanfragen von Personen anderer Server (2.3, zaehlen nicht in unread)
+    @Published var requests = 0
+    /// eigener foederierter Handle (2.3, '~x@host'; erst nach erstem Bedarf)
+    @Published var myHandle: String?
     @Published var listError: String?
     /// Kopplungsanfrage, die hier bestaetigt werden soll (Dialog)
     @Published var approval: ChatLinkRequest?
@@ -219,12 +243,14 @@ final class ChatModel: ObservableObject {
     private var pendingDevice: (id: String, enc: ChatCrypto.KeyPair, sign: ChatCrypto.KeyPair)?
     private var linkPoll: Task<Void, Never>?
     private var handledLinks = Set<String>()
+    /// Zertifikate v2 werden gerade hochgeladen (ChatFed.swift)
+    var fedCertsRunning = false
 
     var deviceID: String? { keys?.deviceID }
     var deviceParam: String { keys.map { "device=" + $0.deviceID } ?? "device=" }
 
     func signedOut() {
-        keys = nil; me = ChatMe(); chats = []; unread = 0; state = .loading; approval = nil; linking = nil
+        keys = nil; me = ChatMe(); chats = []; unread = 0; requests = 0; myHandle = nil; state = .loading; approval = nil; linking = nil
         linkPoll?.cancel(); pendingDevice = nil; handledLinks = []
         ChatMedia.clearAll()                                            // Bild-Caches (Speicher + Ciphertext auf der Platte)
     }
@@ -254,6 +280,7 @@ final class ChatModel: ObservableObject {
             guard let k else { state = .newDevice; return }
             if did.isEmpty { _ = try? await store.apiResponse("api/chat/me?device=\(k.deviceID)") }   // "zuletzt gesehen"
             state = .ready
+            Task { await fedCerts() }                                   // 2.3: Zertifikate v2 (still, nur Server mit Foederation)
             await loadList()
             if m.links > 0 { await checkLinks() }
         } catch { if state == .loading { state = .failed(error.localizedDescription) } }
@@ -268,6 +295,7 @@ final class ChatModel: ObservableObject {
             for i in list.indices where list[i].kind == "free" { list[i].decryptedTitle = decryptTitle(list[i]) }
             if list != chats { chats = list }
             unread = ShareJSON.int(j["unread"]) ?? unread
+            requests = ShareJSON.int(j["requests"]) ?? list.filter { $0.fed?.request == true }.count
             listError = nil
         } catch { listError = error.localizedDescription }
     }
@@ -517,6 +545,11 @@ final class ChatModel: ObservableObject {
             Task { await loadList(); if keys == nil { await refreshUnread() } }
         case "chat.typing":
             if let o = open, o.chatID == cid { o.live(type, d) }
+        case "chat.request":                                            // 2.3: neue Nachrichtenanfrage (still)
+            Task { await loadList() }
+        case "chat.keys.changed":                                       // 2.3: Schluessel einer Person bzw. die eigenen
+            if ShareJSON.bool(d["own"]) { Task { await fedCerts() } }
+            else if let h = d["handle"] as? String, let o = open, o.info?.fed?.handles.contains(h) == true { Task { await o.fedLoad(fresh: true) } }
         case "chat.link":
             let id = d["id"] as? String
             if let l = linking, l.id == id { Task { await pollLink() }; return }

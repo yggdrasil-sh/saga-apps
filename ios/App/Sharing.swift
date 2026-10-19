@@ -297,7 +297,7 @@ struct ShareSheet: View {
             } footer: {
                 VStack(alignment: .leading, spacing: 4) {
                     if s.scope { Text("Nur Personen aus deinen Gruppen.") }
-                    if s.federation { Text("Andere Saga-Instanzen: name@server eingeben.") }
+                    if s.federation { Text("Personen anderer Saga-Server findest du über ihren Namen oder mit name@server.") }
                     Text(RoleText.help(role))
                 }
             }
@@ -367,7 +367,7 @@ struct ShareSheet: View {
                 ShareAvatar(name: h.name, group: h.isGroup, avatar: h.avatar)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(verbatim: h.name).lineLimit(3)          // umbrechen: der Server-Teil (an wen man teilt) muss lesbar bleiben
-                    Text(h.isRemote ? (h.isGroup ? String(localized: "Gruppe auf einer anderen Saga-Instanz") : String(localized: "Andere Saga-Instanz"))
+                    Text(h.isRemote ? (h.isGroup ? String(localized: "Gruppe auf einer anderen Saga-Instanz") : h.remoteLine ?? String(localized: "Andere Saga-Instanz"))
                          : h.username.map { String($0) } ?? String(localized: "Gruppe")).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
