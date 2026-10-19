@@ -48,6 +48,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   bei Änderungen in den Zwischenspeicher geschrieben (bisher jede Minute komplett).
 - **Minutentakt zuverlässig:** Der Takt prüfte „App im Vordergrund?“ mit dem Stand vom Öffnen des Fensters – war die
   App da noch nicht aktiv, fiel der Abgleich im Vordergrund ganz aus. Jetzt gilt der aktuelle Zustand.
+- **Seitenbaum per Abgleich statt immer ganz:** Mit Servern ab 2.2 holt die App nach `notes.tree`, im Takt, beim
+  Wiederverbinden und beim Start (aus dem Zwischenspeicher) nur noch, was sich seit ihrem letzten Stand geändert hat
+  (`GET /api/notes?since=…`), und arbeitet es in die Liste ein – statt jedes Mal den ganzen Baum zu laden. Ohne
+  gültigen Stand (erste Anmeldung, nach Abmelden, Konto- oder Serverwechsel, Live-`reset`, abgelehnter oder
+  abweichender Stand, spätestens einmal am Tag) kommt die ganze Liste mit Stand (`?delta=1`); `full: true` vom
+  Server ersetzt die Liste jederzeit. Ältere Server (Antwort ist eine Liste) laufen unverändert wie bisher. Der
+  Zwischenspeicher hält jetzt die eingearbeitete Liste (gleiches Format wie bisher) und daneben ihren Stand, der nur
+  für denselben Server und dasselbe Konto gilt. Widgets und Teilen-Erweiterung sind nicht betroffen (eigene
+  App-Endpunkte); Spotlight bekommt wie bisher nur die geänderten Einträge.
 
 ### Geändert (Android)
 - **Weniger Datenvolumen und schnellere Reaktion bei großen Konten:** Die App lädt die komplette Seitenliste (bei

@@ -4,7 +4,8 @@ import Foundation
 // der Main-Thread weist nur noch das fertige Ergebnis zu. Dazu der Spotlight-Abgleich (nur Geaendertes) und der
 // Abgleich-Takt. Reine Logik - geprueft mit Tests/Logic/run.sh.
 
-struct Page: Decodable, Identifiable, Hashable {
+/// Codable: der Zwischenspeicher haelt seit dem Abgleich (2.2) die gemergte Liste statt der rohen Antwort
+struct Page: Codable, Identifiable, Hashable {
     let id: Int
     var title: String
     var icon: String?
@@ -36,7 +37,7 @@ struct Page: Decodable, Identifiable, Hashable {
              archived: false, template: false, tags: [], shared: false, unread: false, role: nil, root: nil, owner: nil, remote: nil)
     }
 }
-struct PageOwner: Decodable, Hashable { var name: String?; var username: String?; var handle: String?; var remote: Bool?; var avatar: String? }
+struct PageOwner: Codable, Hashable { var name: String?; var username: String?; var handle: String?; var remote: Bool?; var avatar: String? }
 
 /// Aufbereitete Seitenliste (eigener Baum aus GET /api/notes). Wird im Hintergrund gebaut (`build`), der Store
 /// uebernimmt sie auf dem Main-Thread nur noch per Zuweisung.

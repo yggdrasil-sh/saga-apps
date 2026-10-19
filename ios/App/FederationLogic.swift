@@ -4,7 +4,7 @@ import Foundation
 // NEGATIVE IDs (-(id_dort * 1024 + server_nr)) und laufen ueber die bekannten Endpunkte. Reine Logik (mit swiftc pruefbar).
 
 /// Herkunft einer fremden Seite ({peer, host, name})
-struct RemoteRef: Decodable, Hashable {
+struct RemoteRef: Codable, Hashable {
     var peer: Int?
     var host: String
     var name: String?

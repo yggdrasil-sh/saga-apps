@@ -107,6 +107,7 @@ final class LiveHub: ObservableObject {
         case "bye": return LiveReconnect.after(bye: d["reason"] as? String ?? "closed")
         case "reset":
             lastID = nil
+            store?.forgetNoteCursor()                                     // Server-Vorgabe: nach reset den ganzen Baum laden
             Task { await store?.refresh(quiet: true); await store?.notifs.load() }
         case "notification": store?.notifs.apply(d)
         case "notes.tree":                                                // Seitenbaum geaendert (neuere Server)

@@ -90,15 +90,19 @@ final class Store: ObservableObject {
         DraftOwner.app.migrate(origin: AppConfig.serverOrigin, signedIn: DeviceKey.get() != nil || AppConfig.hasToken)
         // Zwischenspeicher der Seitenliste: kleine Listen sofort (erstes Bild wie bisher mit Seitenleiste), grosse im
         // Hintergrund aufbereiten - der Start blockiert dann nicht (60.000 Notizen: ~0,4 s auf dem Main-Thread)
+        // Abgleich (2.2): der Stand gehoert zur zwischengespeicherten Liste und wird nur zusammen mit ihr uebernommen
         if let d = cachedData("api/notes") {
+            let cur = cachedCursor()
             if d.count < Store.syncCacheLimit {
-                if let p = try? PageList.decode(d), let u = PageList.update(p, previous: nil) { applyList(u) }
+                if let p = try? PageList.decode(d), let u = PageList.update(p, previous: nil) { applyList(u); noteCursor = cur; savedCursor = cur }
             } else {
                 let gen = listGen
-                Task { [weak self] in
+                cacheLoad = Task { [weak self] in
                     let u = await Task.detached(priority: .userInitiated) { (try? PageList.decode(d)).flatMap { PageList.update($0, previous: nil) } }.value
-                    guard let self, let u, self.listGen == gen else { return }   // schon frisch vom Server: Zwischenstand nicht mehr zeigen
-                    self.applyList(u)
+                    guard let self else { return }
+                    self.cacheLoad = nil
+                    guard let u, self.listGen == gen else { return }   // schon frisch vom Server: Zwischenstand nicht mehr zeigen
+                    self.applyList(u); self.noteCursor = cur; self.savedCursor = cur
                 }
             }
         }
@@ -317,22 +321,55 @@ final class Store: ObservableObject {
     }
     private func doRefresh() async {
         lastRefresh = Date()
+        if let c = cacheLoad { await c.value }                           // grosser Zwischenspeicher: erst fertig lesen (Grundlage des Abgleichs)
         do {
-            let gen = sessionGen, ins = localInserts
-            let d = try await api("api/notes")
-            // Dekodieren, Vergleich und Index im Hintergrund; auf dem Main-Thread nur noch zuweisen
+            let gen = sessionGen, ins = localInserts, ep = cursorEpoch
+            // Abgleich (2.2): mit gueltigem Stand nur Geaendertes holen, sonst den ganzen Baum mit Stand.
+            // Aeltere Server ignorieren beides und liefern die Liste wie bisher.
+            let origin = AppConfig.serverOrigin, account = origin.flatMap { DraftOwner.app.account(origin: $0) }
+            let since = noteCursor.flatMap { $0.usable(origin: origin, account: account) ? $0 : nil }
+            let d: Data
+            do { d = try await api(NoteSync.path(since: since?.value)) }
+            catch APIError.http(let code, let msg) where since != nil && code != 401 {
+                if cursorEpoch == ep { noteCursor = nil }                  // Stand abgelehnt (z. B. 400): naechstes Mal ganz laden
+                throw APIError.http(code, msg)
+            }
+            // Dekodieren, Einarbeiten, Vergleich und Index im Hintergrund; auf dem Main-Thread nur noch zuweisen
             let prev = list
-            let u = try await Task.detached(priority: .userInitiated) { PageList.update(try PageList.decode(d), previous: prev) }.value
-            guard gen == sessionGen else { return }                      // inzwischen abgemeldet/anderes Konto
+            let (o, u) = try await Task.detached(priority: .userInitiated) { () throws -> (NoteSync.Outcome, PageList.Update?) in
+                let o = NoteSync.outcome(try NoteSync.parse(d), base: prev.all, sentSince: since != nil)
+                return (o, o.pages.flatMap { PageList.update($0, previous: prev) })
+            }.value
+            guard gen == sessionGen, AppConfig.serverOrigin == origin else { return }   // inzwischen abgemeldet/anderes Konto/anderer Server
             // waehrend der Anfrage lokal eine Seite angelegt: diese Antwort kennt sie evtl. noch nicht - nicht uebernehmen
             // (sonst verschwaende sie kurz), sondern gleich danach noch einmal abgleichen
-            if localInserts != ins { Task { await self.refresh(quiet: true) }; return }
-            if let u {
-                applyList(u)
-                // Zwischenspeicher nur bei Aenderung schreiben (bisher jede Minute die ganze Antwort), nicht auf dem Main-Thread
-                let url = cacheURL("api/notes")
-                Store.cacheQueue.async { try? d.write(to: url, options: .atomic) }
+            // ... oder der Stand wurde inzwischen verworfen (Live "reset", Anmeldung): Antwort verwerfen, neu abgleichen
+            if localInserts != ins || cursorEpoch != ep { Task { await self.refresh(quiet: true) }; return }
+            var cur: NoteCursor?
+            if let c = o.cursor, let og = origin, let a = account {
+                let fullAt: Double = o.full ? Date().timeIntervalSince1970 : (since?.fullAt ?? 0)
+                cur = NoteCursor(value: c, origin: og, account: a, fullAt: fullAt)
             }
+            noteCursor = cur
+            if let u { applyList(u) }
+            // Zwischenspeicher nur bei Aenderung schreiben (bisher jede Minute die ganze Antwort), nicht auf dem Main-Thread:
+            // die Liste (Array wie bisher) und danach ihr Stand. Liste unveraendert: nur den Stand (passt zur Liste auf
+            // der Platte, die ja dieselbe ist).
+            if u != nil || listUnsaved || cur != savedCursor {
+                let all: [Page]? = u != nil || listUnsaved ? list.all : nil
+                let raw = o.legacy && u != nil && !listUnsaved ? d : nil   // alter Server: rohe Antwort wie bisher (= die neue Liste)
+                listUnsaved = false; savedCursor = cur
+                let url = cacheURL("api/notes"), curURL = cacheURL(Store.cursorCache)
+                Store.cacheQueue.async {
+                    if let all {
+                        guard let data = raw ?? NoteSync.encodeCache(all) else { try? FileManager.default.removeItem(at: curURL); return }
+                        try? data.write(to: url, options: .atomic)
+                    }
+                    if let cur, let c = try? JSONEncoder().encode(cur) { try? c.write(to: curURL, options: .atomic) }
+                    else { try? FileManager.default.removeItem(at: curURL) }
+                }
+            }
+            if o.refetch { Task { await self.refresh(quiet: true) } }    // Stand wich ab: gleich die ganze Liste holen
             if needsLogin { needsLogin = false }
             if loginPostponed { loginPostponed = false }          // Sitzung wieder da (z. B. still erneuert)
             await loadShared()
@@ -441,13 +478,34 @@ final class Store: ObservableObject {
             let prev = list, gen = listGen
             let u = await Task.detached(priority: .userInitiated) { PageList.update(all, previous: prev) }.value
             guard listGen == gen else { continue }                              // Liste hat sich inzwischen geaendert: neu einfuegen
-            if let u { applyList(u); localInserts += 1 }
+            if let u { applyList(u); localInserts += 1; listUnsaved = true }
             return
         }
         await refresh()
     }
     /// zaehlt lokal eingefuegte Seiten (ein gleichzeitig laufender Abgleich mit aelterem Stand wird dann wiederholt)
     private var localInserts = 0
+
+    // MARK: Abgleich des Seitenbaums (2.2, NoteSyncLogic.swift)
+    /// Stand der Liste `list` (nur zusammen mit ihr gesetzt); nil = beim naechsten Mal den ganzen Baum (delta=1)
+    private var noteCursor: NoteCursor?
+    /// Stand, der zuletzt in den Zwischenspeicher geschrieben wurde (gehoert zur Liste auf der Platte)
+    private var savedCursor: NoteCursor?
+    /// Liste lokal geaendert (eingefuegt, Titel ...), aber noch nicht in den Zwischenspeicher geschrieben: dann beim
+    /// naechsten Abgleich mitschreiben - sonst passte ein neuerer Stand auf der Platte nicht mehr zur alten Liste
+    private var listUnsaved = false
+    /// grosser Zwischenspeicher wird beim Start im Hintergrund gelesen (der erste Abgleich wartet darauf)
+    private var cacheLoad: Task<Void, Never>?
+    /// zaehlt verworfene Staende (laufender Abgleich mit altem Stand wird dann nicht uebernommen)
+    private var cursorEpoch = 0
+    static let cursorCache = "api/notes.cursor"
+    private func cachedCursor() -> NoteCursor? { cachedData(Store.cursorCache).flatMap { try? JSONDecoder().decode(NoteCursor.self, from: $0) } }
+    /// Stand verwerfen: naechster Abgleich holt den ganzen Baum (Live "reset", Anmeldung, Serverwechsel)
+    func forgetNoteCursor() {
+        cursorEpoch += 1; noteCursor = nil; savedCursor = nil
+        let u = cacheURL(Store.cursorCache)
+        Store.cacheQueue.async { try? FileManager.default.removeItem(at: u) }
+    }
 
     // MARK: Aufgaben (wie das Web: /api/tasks; Wiederholungen legt der Server beim Abhaken an)
     func addTask(_ text: String, due: String? = nil, prio: Int = 2, rep: String? = nil) async {
@@ -708,7 +766,10 @@ final class Store: ObservableObject {
             }
             if i < list.visible.count, list.visible[i].id == id { list.visible[i] = p }
         }
-        if let j = list.all.firstIndex(where: { $0.id == id }) { f(&list.all[j]) }
+        if let j = list.all.firstIndex(where: { $0.id == id }) {
+            let before = list.all[j]; f(&list.all[j])
+            if list.all[j] != before { listUnsaved = true }
+        }
     }
     /// Position in `pages` ueber den Index (Index passt nicht mehr: wie bisher suchen)
     private func pageIndex(_ id: Int) -> Int? {
@@ -792,6 +853,7 @@ final class Store: ObservableObject {
     /// die Startseite wird dabei mit vergessen (Seiten-IDs gehoeren zum alten Konto).
     private func adoptServer(_ server: URL, switching: Bool, signOut: Bool = false, http: HTTPURLResponse, url: URL, data d: Data) async {
         if switching || signOut { await logout(switchingServer: true) }  // alter Server/altes Konto: Schluessel, Cookies, Zwischenspeicher weg
+        forgetNoteCursor()                                                // neue Anmeldung (evtl. anderes Konto): Baum ganz laden
         AppConfig.server = server; cookieHeader = nil; serverVersion = nil; minApp = nil
         await storeCookies(http, url)
         let keyOK = adoptKeys(d); deviceKeyTried = true
@@ -854,6 +916,7 @@ final class Store: ObservableObject {
             AppConfig.server = server; await serverChanged(); return
         }
         if AppConfig.hasServer && (DeviceKey.stored() != nil || !pages.isEmpty) { await logout(switchingServer: true) }
+        forgetNoteCursor()                                                // Stand gilt nur fuer den alten Server
         AppConfig.server = server; cookieHeader = nil; serverVersion = nil; minApp = nil
         needsLogin = true
     }
@@ -905,6 +968,7 @@ final class Store: ObservableObject {
         images.removeAllObjects(); cookieHeader = nil; myAvatar = nil; AvatarCache.shared.reset()
         URLCache.shared.removeAllCachedResponses()                      // Profilbilder (private, max-age) u. a. nicht liegen lassen
         live.stop(); live.forgetServer(); notifs.reset(); calls.signedOut(); chat.signedOut(); push.signedOut()   // 2.0: Live, Glocke, Chat-Schluessel im Speicher, Push-Abo
+        cursorEpoch += 1; noteCursor = nil; savedCursor = nil; listUnsaved = false; cacheLoad?.cancel(); cacheLoad = nil   // Abgleich-Stand gehoert zum Konto
         pages = []; archivedPages = []; list = PageList(); listGen += 1; shared = []; fedShared = []; aiEnabled = false; aiPersona = nil; aiChat = false; aiHost = ""; fedUnreachable = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
         // Startseite immer vergessen: die naechste Anmeldung kann ein anderes Konto sein - dessen Start sonst die
         // Seiten-ID des alten Kontos an den Server schickte (BUG-060)
