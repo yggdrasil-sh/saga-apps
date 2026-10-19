@@ -80,11 +80,13 @@ Die Anruf-Signalisierung (`App/CallCrypto.swift`, `App/CallLogic.swift`) prüft 
   Notifications“ reicht, der Server schickt mit demselben APNs-Schlüssel (.p8) an das Thema `<App-ID>.voip`.
 - Mac: Kamera/Mikrofon und eingehende Verbindungen sind in `App/App-macOS*.entitlements` freigegeben (Sandbox).
 - Tests ohne Kamera/Mikrofon (Simulator, Debug): Startparameter `-hkFakeMedia YES` (Testbild + Testton, kein CallKit).
-- **Saga 2.4 (saga-call v3):** Signal-Bodys tragen zusätzlich `pc`, `caps` (`reneg`, `pip_hint`) und `n`; neu sind
-  `bye` und `state.pip`/`state.want.video`. Neuverhandlung (Perfect Negotiation, höflich = größere device_id) und
-  ICE-Restart (Verbindung weg, Netzwechsel per `NWPathMonitor`) nur, wenn das Gegenüber `reneg` meldet – mit 2.3-Apps
-  bleibt alles wie bisher. Bitrate je Pfad (direkt/Relay-UDP/Relay-TCP, alle 2 s aus getStats) über
-  `RTCRtpSender.parameters`. Logik: `App/CallV3Logic.swift`, Tests: `Tests/Logic/CallV3Tests.swift`.
+- **Saga 2.4 (saga-call v3, Vertrag: `docs/APP-API.md` im Saga-Repo):** Signal-Bodys tragen zusätzlich `pc`
+  (sortiertes Paar der device_ids, vom Anrufer festgelegt), `caps` (`reneg` nur mit Server-Feature `reneg`, dazu `want`,
+  `bye`), `n` und bei ICE-Restart `restart`; ICE-Kandidaten tragen `usernameFragment`; neu sind `bye` und
+  `state.pip`/`want`/`path`. Neuverhandlung (Perfect Negotiation, höflich = größere device_id) und ICE-Restart
+  (`disconnected` > 2,5 s, `failed`, Netzwechsel per `NWPathMonitor`; 3 Versuche, 20 s) nur, wenn beide Seiten `reneg`
+  melden – mit 2.3-Apps bleibt alles wie bisher. Bitrate je Pfad (direkt/Relay-UDP/Relay-TCP, alle 2 s aus getStats; es gilt der
+  schlechtere von eigenem und gemeldetem Weg) über `RTCRtpSender.parameters`. Logik: `App/CallV3Logic.swift`, Tests: `Tests/Logic/CallV3Tests.swift`.
 - **Bild im Bild:** iPhone/iPad über `AVPictureInPictureController` (Videoanruf-Quelle, `AVSampleBufferDisplayLayer`,
   `App/CallPiP.swift`, Bilder ohne Kopie: `App/PiPBuffer.swift`); Mac als schwebendes `NSPanel` (`App/CallPanel.swift`).
   Kamera im PiP nur, wo `AVCaptureSession.isMultitaskingCameraAccessSupported` gilt (sonst pausiert sie, das Gegenüber

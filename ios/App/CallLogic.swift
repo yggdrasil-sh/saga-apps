@@ -68,9 +68,12 @@ enum CallLogic {
 
     struct Candidate: Equatable {
         var candidate: String; var sdpMid: String?; var sdpMLineIndex: Int32
+        /// 2.4 (saga-call v3): ICE-ufrag des Kandidaten (Generation nach ICE-Restart)
+        var usernameFragment: String? = nil
         var dict: [String: Any] {
             var d: [String: Any] = ["candidate": candidate, "sdpMLineIndex": Int(sdpMLineIndex)]
             if let sdpMid { d["sdpMid"] = sdpMid }
+            if let usernameFragment { d["usernameFragment"] = usernameFragment }
             return d
         }
     }
@@ -102,7 +105,8 @@ enum CallLogic {
         case "ice":
             let list = (j["c"] as? [Any] ?? []).prefix(60).compactMap { v -> Candidate? in
                 guard let d = v as? [String: Any], let c = d["candidate"] as? String, !c.isEmpty else { return nil }
-                return Candidate(candidate: c, sdpMid: d["sdpMid"] as? String, sdpMLineIndex: Int32((d["sdpMLineIndex"] as? NSNumber)?.intValue ?? 0))
+                return Candidate(candidate: c, sdpMid: d["sdpMid"] as? String, sdpMLineIndex: Int32((d["sdpMLineIndex"] as? NSNumber)?.intValue ?? 0),
+                                 usernameFragment: (d["usernameFragment"] as? String).flatMap { $0.isEmpty ? nil : $0 })
             }
             return .ice(list)
         case "state":

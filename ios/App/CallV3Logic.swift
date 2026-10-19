@@ -1,15 +1,21 @@
 import Foundation
 
 // Anrufe 2.4 (saga-call v3, Etappe E0) und Bild-im-Bild: reine Logik ohne WebRTC/UI (mit swiftc pruefbar).
-// Konzept 2.4 §1.3/§3: neue Felder im (signierten, versiegelten) Body - pc, caps, n; t-Typen offer/answer/ice/state/bye;
-// state.want.video off|small|large. Neuverhandlung (Perfect Negotiation, ICE-Restart) nur, wenn das Gegenueber
-// "reneg" in caps gemeldet hat - gegenueber 2.3-Apps bleibt das Verhalten exakt wie bisher.
+// Vertrag: Saga-Server docs/APP-API.md, "Anrufe: saga-call v3 (2.4, Etappe E0)". Neue Felder im (signierten,
+// versiegelten) Body - pc, caps, n, restart; t-Typen offer/answer/ice/state/bye; state.pip/want/path.
+// Neuverhandlung (Perfect Negotiation, ICE-Restart) nur, wenn BEIDE Seiten "reneg" melden (eigenes "reneg" nur mit
+// Server-Feature "reneg") - gegenueber 2.3-Apps bleibt das Verhalten exakt wie bisher.
 
 enum CallV3 {
-    /// Faehigkeiten dieses Geraets (gehen in offer/answer mit)
-    static let myCaps = ["reneg", "pip_hint"]
-    /// Neuverhandlung (Angebote waehrend des Gespraechs, ICE-Restart) nur mit einem Gegenueber, das "reneg" meldet
-    static func canReneg(_ peerCaps: [String]?) -> Bool { peerCaps?.contains("reneg") == true }
+    /// Faehigkeiten dieses Geraets (gehen in jedes offer/answer): "reneg" nur, wenn der eigene Server es anbietet
+    /// (GET /api/calls/config features), "want" und "bye" immer
+    static func myCaps(serverFeatures: [String]) -> [String] { (serverFeatures.contains("reneg") ? ["reneg"] : []) + ["want", "bye"] }
+    /// Neuverhandlung (Angebote waehrend des Gespraechs, ICE-Restart) nur, wenn beide Seiten "reneg" melden
+    static func canReneg(mine: [String], peer: [String]?) -> Bool { mine.contains("reneg") && peer?.contains("reneg") == true }
+    /// "bye" nur an eine Gegenstelle, die es meldet
+    static func canBye(_ peer: [String]?) -> Bool { peer?.contains("bye") == true }
+    /// pc-Kennung: der Anrufer legt sie je Zielgeraet fest, sortiertes Paar der device_ids "min:max"
+    static func pairPC(_ a: String, _ b: String) -> String { min(a, b) + ":" + max(a, b) }
 
     enum Want: String, Equatable { case off, small, large }
 
@@ -20,6 +26,8 @@ enum CallV3 {
         var n: Int?
         var pip: Bool?
         var want: Want?
+        var path: Path?
+        var restart: Bool?
     }
     static func meta(_ body: String) -> Meta {
         guard let j = (try? JSONSerialization.jsonObject(with: Data(body.utf8))) as? [String: Any] else { return Meta() }
@@ -29,24 +37,58 @@ enum CallV3 {
         if let n = j["n"] as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() { m.n = n.intValue }
         if let p = j["pip"] as? Bool { m.pip = p }
         if let w = j["want"] as? [String: Any], let v = w["video"] as? String { m.want = Want(rawValue: v) }
+        if let p = j["path"] as? String { m.path = Path(rawValue: p) }
+        if let r = j["restart"] as? Bool { m.restart = r }
         return m
     }
 
     // MARK: Bodys (Felder von 2.3 bleiben gleich, neue kommen dazu - aeltere Apps lesen nur t/sdp/media/fp/c/mic/cam/screen)
 
-    static func offerBody(sdp: String, media: String, pc: String, n: Int) -> String {
-        CallLogic.json(["t": "offer", "sdp": sdp, "media": media, "fp": CallLogic.sdpFingerprints(sdp), "pc": pc, "caps": myCaps, "n": n])
+    static func offerBody(sdp: String, media: String, pc: String, n: Int, caps: [String], restart: Bool = false) -> String {
+        var o: [String: Any] = ["t": "offer", "sdp": sdp, "media": media, "fp": CallLogic.sdpFingerprints(sdp), "pc": pc, "caps": caps, "n": n]
+        if restart { o["restart"] = true }                                  // nur Hinweis
+        return CallLogic.json(o)
     }
-    static func answerBody(sdp: String, pc: String, n: Int) -> String {
-        CallLogic.json(["t": "answer", "sdp": sdp, "fp": CallLogic.sdpFingerprints(sdp), "pc": pc, "caps": myCaps, "n": n])
+    static func answerBody(sdp: String, media: String, pc: String, n: Int, caps: [String]) -> String {
+        CallLogic.json(["t": "answer", "sdp": sdp, "media": media, "fp": CallLogic.sdpFingerprints(sdp), "pc": pc, "caps": caps, "n": n])
     }
     static func iceBody(_ c: [CallLogic.Candidate], pc: String) -> String {
         CallLogic.json(["t": "ice", "c": c.prefix(CallLogic.iceBatch).map(\.dict), "pc": pc])
     }
-    static func stateBody(mic: Bool, cam: Bool, screen: Bool, pip: Bool, want: Want) -> String {
-        CallLogic.json(["t": "state", "mic": mic, "cam": cam, "screen": screen, "pip": pip, "want": ["video": want.rawValue]])
+    /// state immer mit pip/want/path (auch ohne reneg; aeltere Clients ignorieren die Felder); path fehlt = unbekannt
+    static func stateBody(pc: String, mic: Bool, cam: Bool, screen: Bool, pip: Bool, want: Want, path: Path?) -> String {
+        var o: [String: Any] = ["t": "state", "pc": pc, "mic": mic, "cam": cam, "screen": screen, "pip": pip, "want": ["video": want.rawValue]]
+        if let path { o["path"] = path.rawValue }
+        return CallLogic.json(o)
     }
-    static func byeBody(pc: String) -> String { CallLogic.json(["t": "bye", "pc": pc]) }
+    static func byeBody(pc: String, reason: String = "hangup") -> String { CallLogic.json(["t": "bye", "pc": pc, "reason": reason]) }
+
+    // MARK: ICE-Kandidaten je Generation (ufrag)
+
+    /// ufrag eines Kandidaten: Feld usernameFragment, sonst "ufrag <x>" in der candidate-Zeile
+    static func candidateUfrag(_ c: CallLogic.Candidate) -> String? {
+        if let u = c.usernameFragment, !u.isEmpty { return u }
+        let parts = c.candidate.split(separator: " ")
+        if let i = parts.firstIndex(of: "ufrag"), i + 1 < parts.count { return String(parts[i + 1]) }
+        return nil
+    }
+    /// alle a=ice-ufrag-Werte einer SDP
+    static func sdpUfrags(_ sdp: String) -> Set<String> {
+        var out = Set<String>()
+        for raw in sdp.split(whereSeparator: { $0 == "\n" || $0 == "\r\n" }) {
+            let line = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if line.hasPrefix("a=ice-ufrag:") { out.insert(String(line.dropFirst("a=ice-ufrag:".count))) }
+        }
+        return out
+    }
+    enum IceUse: Equatable { case apply, hold, drop }
+    /// Kandidat zur aktuellen Remote-SDP? Passt -> setzen; aeltere Generation -> verwerfen; unbekannt (kommt oft vor der
+    /// Antwort) -> zurueckhalten bis zur passenden SDP. Ohne ufrag (2.3) bzw. ohne ufrag in der SDP: setzen.
+    static func iceUse(_ c: CallLogic.Candidate, current: Set<String>, old: Set<String>) -> IceUse {
+        guard let u = candidateUfrag(c), !current.isEmpty else { return .apply }
+        if current.contains(u) { return .apply }
+        return old.contains(u) ? .drop : .hold
+    }
 
     /// Gehoert ein Signal zu unserer PeerConnection? Ohne pc (2.3) bzw. vor der Festlegung: ja
     static func samePC(_ signal: String?, _ mine: String?) -> Bool { signal == nil || mine == nil || signal == mine }
@@ -109,7 +151,7 @@ enum CallV3 {
     /// Verbindungszustand -> Reaktion. Ohne "reneg" beim Gegenueber wie 2.3 (unterbrochen: warten, fehlgeschlagen: Ende).
     /// Vor der ersten Verbindung bleibt es beim alten Ablauf (Zeitgrenze/Fehler).
     static let maxRestarts = 3
-    static let restartDelay = 3.0
+    static let restartDelay = 2.5
     static let restartTimeout = 20.0
     static func iceAction(state: String, everConnected: Bool, canReneg: Bool, attempts: Int) -> IceAction {
         switch state {
@@ -131,7 +173,14 @@ enum CallV3 {
 
     // MARK: Pfad und Bitrate (Tabelle §1.3)
 
-    enum Path: String, Equatable { case direct, relayUDP, relayTCP }
+    enum Path: String, Equatable { case direct, relayUDP = "relay-udp", relayTCP = "relay-tcp" }
+    /// Es gilt der schlechtere Weg von eigenem und gemeldetem (state.path)
+    static func worse(_ a: Path?, _ b: Path?) -> Path? {
+        guard let a else { return b }
+        guard let b else { return a }
+        let rank: [Path: Int] = [.direct: 0, .relayUDP: 1, .relayTCP: 2]
+        return rank[a]! >= rank[b]! ? a : b
+    }
     /// Gewaehltes Kandidatenpaar (getStats: local-candidate/remote-candidate) -> Pfad. TCP ohne Relais (ICE-TCP) hat
     /// dieselben Probleme wie TURN/TLS (Head-of-Line-Blocking) und bekommt dieselben Grenzen.
     static func path(local: [String: Any]?, remote: [String: Any]?) -> Path? {
@@ -158,13 +207,13 @@ enum CallV3 {
     /// want = Wunsch des Gegenuebers (PiP: small), sourceHeight = kurze Seite der Quelle (Kamera 720, Testbild 360).
     static func videoLimits(path: Path, kind: Kind, streams: Int, want: Want, sourceHeight: Int) -> Limits {
         let src = Double(max(1, sourceHeight))
-        func scale(_ target: Double) -> Double { max(1, (src / target * 100).rounded() / 100) }
+        func scale(_ target: Double) -> Double { max(1, src / target) }    // "<= 720p": Quellhoehe / 720, nur wenn groesser
         let mesh = streams >= 2
         var l: Limits
         switch (kind, path) {
         case (.screen, .direct): l = Limits(maxBitrate: 2_500_000, scaleDown: scale(1080), maxFramerate: 15)
         case (.screen, .relayUDP): l = Limits(maxBitrate: 1_800_000, scaleDown: scale(1080), maxFramerate: 15)
-        case (.screen, .relayTCP): l = Limits(maxBitrate: 1_200_000, scaleDown: scale(1080), maxFramerate: 10, maintainResolution: true)
+        case (.screen, .relayTCP): l = Limits(maxBitrate: 1_200_000, scaleDown: scale(1080), maxFramerate: 8, maintainResolution: true)
         case (.camera, .direct): l = mesh ? Limits(maxBitrate: 600_000, scaleDown: scale(540), maxFramerate: 30) : Limits(maxBitrate: 1_500_000, scaleDown: scale(720), maxFramerate: 30)
         case (.camera, .relayUDP): l = mesh ? Limits(maxBitrate: 500_000, scaleDown: scale(540), maxFramerate: 30) : Limits(maxBitrate: 1_200_000, scaleDown: scale(720), maxFramerate: 30)
         case (.camera, .relayTCP): l = mesh ? Limits(maxBitrate: 350_000, scaleDown: scale(360), maxFramerate: 15) : Limits(maxBitrate: 800_000, scaleDown: scale(540), maxFramerate: 30)
@@ -173,9 +222,9 @@ enum CallV3 {
         guard kind == .camera else { return l }
         switch want {
         case .large: break
-        case .small:                                                        // Gegenstelle im PiP: <= 300 (Mesh 200) kbit/s, 1/2 bzw. 1/3
+        case .small:                                                        // Gegenstelle im PiP: <= 300 (Mesh 200) kbit/s
             l.maxBitrate = min(l.maxBitrate, mesh ? 200_000 : 300_000)
-            l.scaleDown = max(l.scaleDown, path == .relayTCP ? 3 : 2)
+            l.scaleDown = max(2, min(3, src / 240))                         // max(2, min(3, Hoehe/240))
         case .off: l.active = false
         }
         return l
