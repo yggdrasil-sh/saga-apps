@@ -249,12 +249,14 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     LaunchedEffect(s) { s.open() }
     // eine Ausnahme hier wuerde den Prozess beenden (BUG-003): jedes Ereignis einzeln abfangen
     LaunchedEffect(s) { repo.live.events.collect { ev -> quietly { s.onEvent(ev) } } }
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
     LaunchedEffect(s) {
         var tick = 0
         while (true) {
             delay(1_000)
             s.expireTyping()
-            if (++tick % 5 == 0) s.catchUp()                     // gescheitertes Nachladen wiederholen
+            // gescheitertes Nachladen wiederholen; Zustell-Abgleich (2.3) nur bei sichtbarem Chat, nicht im Hintergrund
+            if (++tick % 5 == 0) s.catchUp(lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED))
         }
     }
     LaunchedEffect(s.messages.size) { if (s.messages.isNotEmpty() && list.firstVisibleItemIndex <= 2) list.animateScrollToItem(0) }

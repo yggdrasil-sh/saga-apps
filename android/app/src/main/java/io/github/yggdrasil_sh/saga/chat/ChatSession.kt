@@ -231,9 +231,9 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         private set
 
     /** Liegengebliebenes Nachladen wiederholen (regelmaessig aus der Ansicht), nie mit Ausnahme */
-    suspend fun catchUp() {
+    suspend fun catchUp(foreground: Boolean = true) {
         if (behind) behind = !quietly { loadNewer() }
-        else if (FedDelivery.due(messages, lastDeliveryCheck, System.currentTimeMillis())) quietly { checkDelivery() }
+        else if (foreground && FedDelivery.due(messages, lastDeliveryCheck, System.currentTimeMillis())) quietly { checkDelivery() }
     }
 
     /**
