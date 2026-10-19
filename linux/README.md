@@ -28,6 +28,12 @@ mit dem Funktionsumfang der Mac-App:
   Verbessern, Übersetzen; Übernehmen nur per Klick), Verlauf
 - Föderation (Server 2.0): Seiten anderer Saga-Instanzen unter „Mit mir geteilt“ (lesen, kommentieren, Titel und Inhalt
   bearbeiten), Teilen mit name@server
+- Chats über Servergrenzen (Server 2.3, `saga-chat/v2`): Personen verbundener Saga-Server per Anzeigename finden
+  („Name · host“, ab 1 Zeichen genaue Treffer, auch `name@host`), Direkt-Chats mit Nachrichtenanfragen (Annehmen,
+  Ablehnen, Sperren je Person bzw. Server, Sperrliste), Zustellstand („wird zugestellt“, „nicht zugestellt“ + „Erneut
+  senden“), Systemzeilen, Sicherheitsnummer v2 mit TOFU (Warnung bei Schlüsselwechsel, Blockade nach „überprüft“),
+  Anrufe aus angenommenen Chats (Klingeln in der App, Gespräch im Browser). Geprüft gegen
+  `tests/chat_v2_vectors.json` aus dem Server; Ende-zu-Ende gegen zwei verbundene Server: `tests/realfed.py`
 - Aufgaben, Termine (CalDAV), Dienste, Befehlspalette (Strg+K), Einstellungen
 - Bleibt angemeldet: Geräte-Schlüssel im GNOME-Schlüsselbund (libsecret), Sitzung wird still erneuert
 - GNOME-Suche (Seiten in der Aktivitäten-Übersicht), Dock-Aktionen „Neue Seite“ / „Neue Aufgabe“

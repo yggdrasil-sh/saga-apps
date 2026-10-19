@@ -3,7 +3,7 @@
 
 Rollen: owner (Eigentuemer) > edit (Bearbeiten) > comment (Kommentieren) > view (Lesen). Eine fremde Seite liefert
 role, owner{name, username, me}, created_by/updated_by; ohne Feld 'role' (aeltere Server) ist es die eigene Seite.
-Schnittstelle: GET/PUT/DELETE api/notes/{id}/shares, GET api/share/targets?q= (ab 3 Zeichen).
+Schnittstelle: GET/PUT/DELETE api/notes/{id}/shares, GET api/share/targets?q= (Server ab 2.3 ab 1 Zeichen, sonst ab 3).
 Die Logik (Zustand -> Anzeige, Rolle -> erlaubte Aktionen) steht ohne GTK oben und ist so per pytest pruefbar."""
 from gi.repository import Adw, GLib, Gtk, Pango
 
@@ -14,7 +14,16 @@ from .util import bg, plain, rel_time
 
 RANK = {None: 0, "view": 1, "comment": 2, "edit": 3, "owner": 4}
 ROLES = ("view", "comment", "edit")
-SEARCH_MIN = 3                  # Personensuche ab 3 Zeichen (wie im Web)
+SEARCH_MIN = 3                  # Personensuche ab 3 Zeichen (Server bis 2.2, wie im Web)
+
+
+def search_min():
+    """Personensuche ab wie vielen Zeichen: Server ab 2.3 ab 1 (bei 1-2 Zeichen liefert er nur genaue Treffer, z. B. "hd"),
+    aeltere Server ab 3. Version noch unbekannt: wie bisher ab 3."""
+    from . import version_tuple
+    from .store import store
+    v = store.server_version
+    return 1 if v and version_tuple(v) >= (2, 3, 0) else SEARCH_MIN
 SEARCH_DELAY_MS = 200
 GAP = 8                         # Abstand Feld -> Hinweis/Chips im Teilen-Dialog
 # Aktionen, die nur der Eigentuemer hat (Seitenmenue, Seitenleiste, Befehlspalette)
@@ -213,11 +222,15 @@ def hit_rows(d, st, role):
         n = g.get("name") or ""
         out.append({"type": "group", "target": n, "name": n, "sub": _("Group"),
                     "has": _("has access") if f"group:{n}" in tk else add_as})
-    for r in (d or {}).get("remote") or []:                   # Foederation: genaue Adresse name@server
+    seen = set()
+    for r in (d or {}).get("remote") or []:                   # Foederation: Adressbuch (2.3, "Name · host") und name@server
         typ, t = r.get("type") or "remote", r.get("target") or ""
-        if typ not in ("remote", "remote_group") or not t:
+        if typ not in ("remote", "remote_group") or not t or (typ, t) in seen:
             continue
-        out.append({"type": typ, "target": t, "name": r.get("name") or t, "sub": remote_sub(typ), "avatar": r.get("avatar"),
+        seen.add((typ, t))
+        name = r.get("label") or r.get("name") or t
+        sub = _("Person on {host}").format(host=r["host"]) if r.get("label") and r.get("host") else remote_sub(typ)
+        out.append({"type": typ, "target": t, "name": name, "sub": sub, "avatar": r.get("avatar"),
                     "has": _("has access") if f"{typ}:{t}" in tk else add_as})
     return out
 
@@ -258,7 +271,7 @@ def nobody_text(d):
 
 def short_query(q):
     """"Mindestens 3 Zeichen." nur bei 1-2 eingegebenen Zeichen (leer: kein Hinweis, ab 3: Suche)"""
-    return 0 < len((q or "").strip()) < SEARCH_MIN
+    return 0 < len((q or "").strip()) < search_min()
 
 
 def search_hint(st):
@@ -652,14 +665,14 @@ class ShareDialog(Adw.Dialog):
         self._draw_access()
         self._draw_inherited()
         self._draw_chips()
-        if self.last_hits is not None and len(self.q.get_text().strip()) >= SEARCH_MIN:
+        if self.last_hits is not None and len(self.q.get_text().strip()) >= search_min():
             self._draw_hits(self.last_hits)
 
     def _role_changed(self, redraw=True):
         self.role.set_subtitle(role_help(self.cur_role))
         if redraw:
             self._draw_chips()
-            if self.last_hits is not None and len(self.q.get_text().strip()) >= SEARCH_MIN:
+            if self.last_hits is not None and len(self.q.get_text().strip()) >= search_min():
                 self._draw_hits(self.last_hits)
 
     def _draw_access(self):
@@ -743,7 +756,7 @@ class ShareDialog(Adw.Dialog):
             lb.add_css_class("dim-label")
             r.add_suffix(lb)
             r.connect("activated", lambda *_, h=h: self._pick(h))
-        if not hits and len(self.q.get_text().strip()) >= SEARCH_MIN:
+        if not hits and len(self.q.get_text().strip()) >= search_min():
             self._hint(nobody_text(d), True)
 
     # --- Suchen -----------------------------------------------------------------------------------------
@@ -752,7 +765,7 @@ class ShareDialog(Adw.Dialog):
         self._cancel()
         self._hint()
         self._draw_chips()
-        if len(q) < SEARCH_MIN:
+        if len(q) < search_min():
             self.last_hits = None
             self._clear(self.g_hits)
             self.g_hits.set_visible(False)
@@ -760,7 +773,7 @@ class ShareDialog(Adw.Dialog):
         my = self.seq
 
         def done(d):
-            if my == self.seq and len(self.q.get_text().strip()) >= SEARCH_MIN:
+            if my == self.seq and len(self.q.get_text().strip()) >= search_min():
                 self.last_hits = d
                 self._draw_hits(d)
 
@@ -776,7 +789,7 @@ class ShareDialog(Adw.Dialog):
 
     def _first_hit(self):
         hits = hit_rows(self.last_hits, self.st, self.cur_role) if self.last_hits else []
-        if hits and len(self.q.get_text().strip()) >= SEARCH_MIN:
+        if hits and len(self.q.get_text().strip()) >= search_min():
             self._pick(hits[0])
 
     def _pick(self, h):

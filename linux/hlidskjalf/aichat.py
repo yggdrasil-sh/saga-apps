@@ -48,6 +48,8 @@ def check_reply(body, meta):
     (gibt sich als KI-Antwort aus, Beleg fehlt oder passt nicht)"""
     if not isinstance(body, dict) or not isinstance(body.get("ai"), dict):
         return None
+    if isinstance(meta, str):                         # v2 (2.3): Hash des Antworttexts, mitsigniert (kein Server-Beleg)
+        return "ok" if isinstance(body.get("text"), str) and reply_sha(body["text"]) == meta.strip().lower() else "bad"
     if not isinstance(meta, dict) or not isinstance(body.get("text"), str):
         return "bad"
     ref = meta.get("ref")

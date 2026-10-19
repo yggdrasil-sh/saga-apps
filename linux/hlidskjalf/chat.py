@@ -5,7 +5,12 @@ Diese App = ein Chat-Geraet. Private Schluessel (Geraet + Identitaet + Backup) l
 Speicher, solange die App laeuft. Kryptografie ausschliesslich in chatcrypto.py (PyNaCl/libsodium).
 
 Vertrauen (TOFU): der Identitaetsschluessel jedes Gegenuebers wird beim ersten Mal gemerkt (nicht geheim, Datei im
-Datenordner); aendert er sich, warnt der Chat ("Sicherheitsnummer geaendert") und Senden wartet auf "Verstanden"."""
+Datenordner); aendert er sich, warnt der Chat ("Sicherheitsnummer geaendert") und Senden wartet auf "Verstanden".
+
+Chats ueber Servergrenzen (Server 2.3, docs/APP-API-FED.md): Chat-Objekt mit v == 2, Format saga-chat/v2 (gebunden an den
+foederierten Handle '~x@host' und chat_ref). Schluessel holt die App ueber den EIGENEN Server (GET /api/chat/v2/keys), prueft
+Zertifikate und signierte Geraete-Liste selbst und wendet TOFU je Handle an (eigene Datei chat-trust2.json, getrennt von v1).
+Lokale Chats bleiben v1 - unveraendert."""
 import json
 import os
 import re
@@ -30,8 +35,8 @@ def retention_label(s):
             7776000: _("90 days"), 31536000: _("1 year")}.get(s, str(s))
 
 
-# Chat-Personensuche ohne Treffer: name@server, @name@server oder E-Mail -> Hinweis statt "Keine Treffer" (Chats ueber
-# Servergrenzen gibt es noch nicht, Seiten aber per name@server teilbar; wie im Web: static/chat.js fedAddr/fedHint)
+# Chat-Personensuche ohne Treffer: name@server, @name@server oder E-Mail -> Hinweis statt "Keine Treffer" (Personen anderer,
+# verbundener Server findet die Suche ueber den Anzeigenamen; wie im Web: static/chat.js fedAddr/fedHint)
 FED_RX = re.compile(r"@?[^@\s]+@[^@\s]+[.:][^@\s]+")
 FED_GUIDE = {
     "de": "https://github.com/yggdrasil-sh/saga/blob/main/docs/ANLEITUNG.md#mit-anderen-saga-instanzen-teilen-f%C3%B6deration",
@@ -56,8 +61,19 @@ def fed_guide_url(lang):
 
 
 def fed_hint_texts():
-    return (_("Chats with people on other Saga servers aren't available yet. You can share pages with name@server (using the person's public name).")
+    return (_("Find people on other connected Saga servers by their display name or name@server (not by email address).")
             + " " + _("Find people on this server by name or username, not by email address."), _("Guide: federation"))
+
+
+def is_fed(c):
+    """Chat ueber Servergrenzen (Server 2.3, saga-chat/v2)?"""
+    return isinstance(c, dict) and c.get("v") == 2
+
+
+def remote_label(u):
+    """Treffer der Adressbuch-Suche: fertiger Text "Name · host" (bei gleichen Namen mit Zusatz vom Server)"""
+    u = u if isinstance(u, dict) else {}
+    return str(u.get("label") or ((u.get("name") or "?") + (" · " + u["host"] if u.get("host") else "")))
 
 
 def fmt_recovery(rk):
@@ -83,6 +99,10 @@ class SafetyChanged(ChatError):
     def __init__(self, uid, name):
         super().__init__(_("{name}'s safety number has changed – check it first or choose “Got it”.").format(name=name))
         self.uid, self.name = uid, name
+
+
+class FedNotDelivered(ChatError):
+    """v2: das Heim des Chats hat die Nachricht abgewiesen (409 mit Text, z. B. gesperrt)"""
 
 
 # --- Schluessel im Schluesselbund ---------------------------------------------------------------------------------
@@ -242,6 +262,35 @@ def trust_verified(me, uid, ident_pub):
     trust_set(me, uid, ident_pub=ident_pub, pending=None, verified=True)
 
 
+# --- Vertrauen v2 (Chats ueber Servergrenzen): je Handle {ident, verified, changed?, old?, dver} ------------------------
+TRUST2_FILE = os.path.join(config.DATA_DIR, "chat-trust2.json")
+
+
+def _trust2_all():
+    try:
+        with open(TRUST2_FILE, encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def trust2_get(me, handle):
+    with _tlock:
+        e = (_trust2_all().get(_tkey(me)) or {}).get(handle)
+        return dict(e) if isinstance(e, dict) else None
+
+
+def trust2_set(me, handle, entry):
+    with _tlock:
+        d = _trust2_all()
+        d.setdefault(_tkey(me), {})[handle] = dict(entry)
+        try:
+            config.atomic_write(TRUST2_FILE, json.dumps(d))
+        except OSError:
+            pass
+
+
 # --- Zustand -----------------------------------------------------------------------------------------------------
 class ChatState(GObject.Object):
     """status: 'unknown' | 'off' (Server ohne Chats/abgeschaltet) | 'nocrypto' (PyNaCl fehlt) | 'setup' (noch nicht
@@ -283,6 +332,9 @@ class ChatState(GObject.Object):
             if p.get("stream"):
                 p["stream"].cancel()
         self.ai_pending = {}       # chat-id -> {"text", "stream", "q_msg"}: laufende Frage an die KI (2.1)
+        self.my_handle = None      # eigener foederierter Handle (2.3), sobald bekannt
+        self.fk = {}               # Handle -> {"keys": gepruefte Schluessel | None, "trust", "stale", "stored"} (2.3)
+        self.requests = 0          # Nachrichtenanfragen (2.3)
 
     # --- Grundlagen ---------------------------------------------------------------------------------------------
     @property
@@ -371,6 +423,7 @@ class ChatState(GObject.Object):
                 self.load_chats()
                 if self.me.get("links"):
                     self.check_links()
+                self.fed_certs_soon()
             if done:
                 done()
 
@@ -556,10 +609,12 @@ class ChatState(GObject.Object):
             before = {c.get("id") for c in self.chats}
             self.chats = [c for c in j.get("chats") or [] if isinstance(c, dict)]
             for c in self.chats:
+                self._note_ref(c)
                 tm = c.get("title_msg")
                 if c.get("kind") == "free" and isinstance(tm, dict):
                     c["_title"] = self._title_of(c["id"], tm)
             self.unread = int(j.get("unread") or 0)
+            self.requests = int(j.get("requests") or 0)
             self._chats_at = time.monotonic()
             self._sync_cleared(before)
             self.emit("changed")
@@ -608,6 +663,18 @@ class ChatState(GObject.Object):
     def chat(self, cid):
         return next((c for c in self.chats if c.get("id") == cid), None)
 
+    @staticmethod
+    def _note_ref(c):
+        """v2: chat_ref fuer die Anhaenge merken (AD saga-chat/v2/file)"""
+        if is_fed(c) and isinstance(c.get("ref"), str) and isinstance(c.get("id"), int):
+            chatmedia.REFS[c["id"]] = c["ref"]
+            if c.get("my_handle") and not ChatState._handle_ok(c["my_handle"]):
+                c["my_handle"] = None
+
+    @staticmethod
+    def _handle_ok(h):
+        return isinstance(h, str) and re.fullmatch(C.HANDLE_RX, h) is not None
+
     def _title_of(self, cid, tm):
         try:
             body, ok = self._open(cid, tm, tm.get("device"), tm.get("ident_pub"))
@@ -651,17 +718,33 @@ class ChatState(GObject.Object):
             C.device_ok(sender, ident_pub, dict(dev, id=m.get("sender_device"))) and C.sig_ok(cid, m, dev.get("sign_pub"))
         return body, ok
 
-    def _decode(self, cid, m, devices, idents):
+    def _decode(self, cid, m, devices, idents, ch=None):
         sender = m.get("sender") if isinstance(m.get("sender"), dict) else None
         uname = (sender or {}).get("username") or ""
         out = {"seq": m.get("seq"), "id": m.get("id"), "sender": sender, "mine": uname == self.uid and bool(uname),
                "ts": m.get("ts"), "created": m.get("created"), "expires_at": m.get("expires_at"), "reply_to": m.get("reply_to"),
                "sender_device": m.get("sender_device"), "body": None, "state": "ok", "text": "", "files": [], "notes": []}
+        fed = is_fed(ch)
+        if fed:                                           # 2.3: Reihenfolge des Heims, Zustellstand
+            out["fseq"] = m.get("fseq")
+            out["sender_handle"] = m.get("sender_handle")
+            out["fstate"] = m.get("fstate") if m.get("fstate") in ("pending", "failed") else None
         if m.get("kind") == "call":                       # Anruf-Eintrag (2.1): Klartext-Metadaten vom Server, nichts zu pruefen
             from .calls import parse_entry
             k = parse_entry(m)
             out["state"], out["call"] = ("call", k) if k else ("undecryptable", None)
+            if k and fed and out["mine"]:                 # v2: Anrufer steht als Prinzipal drin - eigener Anruf = ich
+                k["from"] = self.uid
             return out
+        if m.get("kind") == "sys":                        # Systemzeile (2.3): Klartext-Metadaten vom Heim
+            try:
+                d = json.loads(m.get("body_ct") or "")
+            except (TypeError, ValueError):
+                d = None
+            out["state"], out["sys"] = "sys", d if isinstance(d, dict) else {}
+            return out
+        if fed:
+            return self._decode_v2(ch, m, out)
         dev = (devices or {}).get(m.get("sender_device"))
         ident_pub = (idents or {}).get(uname)
         try:
@@ -684,6 +767,47 @@ class ChatState(GObject.Object):
             trust_check(self.uid, uname, ident_pub)
         return out
 
+    def _decode_v2(self, ch, m, out):
+        """v2: Schluessel oeffnen (Geraet, sonst Backup), entschluesseln mit chat_ref; echt nur, wenn das Absender-Geraet in
+        den selbst geprueften Schluessen des Absender-Handles steht (TOFU nicht 'reject') und die Signatur v2 stimmt"""
+        k = self.keys
+        ref = ch.get("ref") or ""
+        try:
+            if not k:
+                raise C.CryptoError("no keys")
+            if m.get("key_for") == "backup":
+                body = C.decrypt_v2(ref, m, k["backup_pk"], k["backup_sk"])
+            else:
+                body = C.decrypt_v2(ref, m, k["device"]["enc_pk"], k["device"]["enc_sk"])
+        except (C.CryptoError, KeyError, TypeError, ValueError):
+            out["state"] = "undecryptable"
+            return out
+        if not isinstance(body, dict):
+            out["state"] = "undecryptable"
+            return out
+        f = self.fk.get(m.get("sender_handle") or "")
+        ok = False
+        if f and f.get("keys") and f.get("trust") != "reject":
+            d = next((x for x in f["keys"]["devices"] if x.get("id") == m.get("sender_device")), None)
+            try:
+                ok = d is not None and C.sig_ok_v2(ref, m, C.unb64(d["sign_pub"], 32))
+            except C.CryptoError:
+                ok = False
+        if m.get("sender_handle") and ch.get("my_handle") and m.get("sender_handle") == ch.get("my_handle"):
+            out["mine"] = True
+        snd = out.get("sender") or {}
+        if not out["mine"] and (not snd.get("name") or str(snd.get("name")).startswith("@~")):
+            mem = next((x for x in ch.get("members") or [] if isinstance(x, dict) and x.get("handle") == m.get("sender_handle")), None)
+            if mem and mem.get("name"):                   # Anzeigename aus dem Chat (nie den Handle zeigen)
+                out["sender"] = dict(snd, name=mem["name"], avatar=snd.get("avatar") or mem.get("avatar"))
+        out["body"] = body
+        out["state"] = "ok" if ok else "unverified"
+        out["ai_state"] = aichat.check_reply(body, m.get("ai"))     # v2: ai = mitsignierter Hash des Antworttexts
+        out["text"] = str(body.get("text") or "")[:20000]
+        out["files"] = [x for x in body.get("files") or [] if isinstance(x, dict) and x.get("id")][:10]
+        out["notes"] = [int(x) for x in body.get("notes") or [] if isinstance(x, int) or (isinstance(x, str) and x.isdigit())]
+        return out
+
     def load_messages(self, cid, older=False, done=None):
         if not self.ready:
             return
@@ -694,9 +818,27 @@ class ChatState(GObject.Object):
         elif c["loaded"] and c["msgs"]:
             q += f"&after={max(x['seq'] or 0 for x in c['msgs'])}"
 
+        ch0 = self.chat(cid)
+
         def work():
+            ch = ch0
+            if ch is None:                                # Liste noch nicht da: Art des Chats (v1/v2) erst erfragen
+                try:
+                    ch = (client.get(f"api/chats/{cid}?device={self.device_id}") or {}).get("chat")
+                except APIError:
+                    ch = None
+                if isinstance(ch, dict):
+                    self._note_ref(ch)
+            if is_fed(ch):                                # v2: Schluessel der Absender (selbst geprueft) vor dem Entschluesseln
+                self._adopt_handle(ch)
+                hs = self.fed_handles(ch)
+                if any(h not in self.fk for h in hs):
+                    try:
+                        self.fed_keys(hs)
+                    except (APIError, ChatError):
+                        pass
             j = client.get(q)
-            return j, [self._decode(cid, m, j.get("devices"), j.get("idents")) for m in j.get("messages") or [] if isinstance(m, dict)]
+            return j, [self._decode(cid, m, j.get("devices"), j.get("idents"), ch) for m in j.get("messages") or [] if isinstance(m, dict)]
 
         def fin(r):
             j, msgs = r
@@ -820,7 +962,7 @@ class ChatState(GObject.Object):
 
     def upload_file(self, cid, data, name, mime):
         """Hintergrund: Datei verschluesseln und hochladen -> Eintrag fuer den Inhalt"""
-        blob, key = C.encrypt_file(cid, data)
+        blob, key = chatmedia.encrypt(cid, data)          # v1: AD mit Chat-ID, v2: mit chat_ref
         j = client.json("POST", f"api/chats/{cid}/files", raw=blob, ctype="application/octet-stream", timeout=180)
         chatmedia.put_blob(j["id"], blob, cid)             # eigene Anhaenge nicht gleich wieder herunterladen
         return {"id": j["id"], "k": C.b64(key), "n": name, "m": mime or "application/octet-stream", "s": len(data)}
@@ -859,6 +1001,9 @@ class ChatState(GObject.Object):
         k = self.keys
         if not k:
             raise ChatError(_("Chats on this device"))
+        ch = self.chat(cid)
+        if is_fed(ch):
+            return self.send_v2(ch, body, reply_to=reply_to, kind=kind, file_ids=file_ids, extra=extra)
         rc = self.recipients(cid)
         rmap, missing = self.check_recipients(rc)
         enc = C.encrypt(cid, self.uid, k["device"], body, rmap, reply_to=reply_to)
@@ -887,6 +1032,243 @@ class ChatState(GObject.Object):
                 raise ChatError(str(e), e.code, e.data) from e
         raise ChatError(_("The members or their devices have changed – please send again."))
 
+    # --- Chats ueber Servergrenzen (2.3, saga-chat/v2) ----------------------------------------------------------------
+    def fed_certs_soon(self):
+        """Zertifikate v2 still im Hintergrund hochladen (nach dem Entsperren, neuem/entferntem Geraet, chat.keys.changed)"""
+        if self.ready:
+            bg(self.fed_certs, error=lambda e: None)
+
+    def fed_certs(self):
+        """Hintergrund (docs/APP-API-FED.md 3.1): Handle-Zertifikat und Geraete-Zertifikate v2 signieren, danach die signierte
+        Liste der aktiven Geraete. Andere eigene Geraete nur, wenn ihr v1-Zertifikat zum eigenen Identitaetsschluessel passt
+        (der Server kann so keine fremden Geraete unterschieben). Aeltere Server (404): nichts zu tun. -> Stand oder None"""
+        k = self.keys
+        if not k:
+            return None
+        try:
+            v = client.get("api/chat/v2/me")
+        except APIError as e:
+            if e.code in (400, 404):
+                return None
+            raise
+        if not isinstance(v, dict) or not self._handle_ok(v.get("handle")):
+            return None                                   # Foederation aus bzw. noch kein Handle: nichts zu signieren
+        self.my_handle = v["handle"]
+        r = v
+        if v.get("need") and self.my_handle:
+            h = self.my_handle
+            body = {}
+            if not v.get("cert_ok"):
+                body["handle_sig"] = C.b64(C.handle_sig(h, k["ident_sk"], k["ident_pk"], k["backup_pk"]))
+            missing = set(v.get("missing") or [])
+            devs = {}
+            if missing:
+                me = client.get(f"api/chat/me?device={self.device_id}") or {}
+                ip = C.b64(k["ident_pk"])
+                if k["device"]["id"] in missing:
+                    devs[k["device"]["id"]] = C.b64(C.device_sig_v2(h, k["ident_sk"], k["device"]))
+                for d in me.get("devices") or []:
+                    if not isinstance(d, dict) or d.get("revoked") or d.get("id") == k["device"]["id"] or d.get("id") not in missing:
+                        continue
+                    if not C.device_ok(self.uid, ip, d):          # nur Geraete mit gueltigem v1-Zertifikat
+                        continue
+                    try:
+                        devs[d["id"]] = C.b64(C.device_sig_v2(h, k["ident_sk"], {"id": d["id"], "enc_pk": C.unb64(d["enc_pub"], 32),
+                                                                                "sign_pk": C.unb64(d["sign_pub"], 32)}))
+                    except C.CryptoError:
+                        continue
+            if devs:
+                body["devices"] = devs
+            if body:
+                r = client.json("PUT", "api/chat/v2/cert", body) or {}
+        if isinstance(r, dict) and r.get("handle") and r.get("cert_ok") and not r.get("device_set_ok") and r.get("device_set_want"):
+            ver = int((r.get("device_set") or {}).get("ver") or 0) + 1
+            r = client.json("PUT", "api/chat/v2/cert", {"device_set": C.devices_sig(r["handle"], k["ident_sk"], ver,
+                                                                                     list(r["device_set_want"]))}) or r
+        return r
+
+    @staticmethod
+    def fed_handles(c):
+        return [m["handle"] for m in (c or {}).get("members") or [] if isinstance(m, dict) and isinstance(m.get("handle"), str)
+                and ChatState._handle_ok(m["handle"])]
+
+    def fed_keys(self, handles, fresh=False):
+        """Hintergrund: Schluessel zu Handles ueber den eigenen Server holen, selbst pruefen, TOFU anwenden.
+        -> {handle: {"keys": gepruefte Schluessel | None, "trust": trust|warn|block|reject|missing, "stale", "stored"}}"""
+        hs = [h for h in dict.fromkeys(handles or []) if self._handle_ok(h)][:20]
+        if not hs:
+            return {}
+        q = urllib.parse.quote(",".join(hs), safe=",~@:")
+        r = client.get(f"api/chat/v2/keys?handles={q}" + ("&fresh=1" if fresh else "")) or {}
+        got = r.get("keys") if isinstance(r.get("keys"), dict) else {}
+        k = self.keys
+        out = {}
+        for h in hs:
+            e = got.get(h)
+            if not e:
+                out[h] = {"keys": None, "trust": "missing"}
+                continue
+            kk = C.check_keys_v2(h, e)
+            if kk is None:
+                out[h] = {"keys": None, "trust": "reject"}
+                continue
+            if h == self.my_handle:                       # eigene Schluessel: muessen zu diesem Geraet passen
+                out[h] = {"keys": kk, "trust": "trust" if k and kk["ident_pk"] == k["ident_pk"] else "reject"}
+                continue
+            st = trust2_get(self.uid, h)
+            res, store = C.tofu_v2(st, kk["ident_pub"], kk["ver"])
+            if store is not None:
+                trust2_set(self.uid, h, store)
+            out[h] = {"keys": kk, "trust": res, "stale": bool(e.get("stale")), "stored": store or st}
+        self.fk.update(out)
+        return out
+
+    def fed_verify(self, handle, ident_pub, verified):
+        """"Ueberprueft" (Sicherheitsnummer verglichen) bzw. Warnung bestaetigen ("Verstanden": nicht ueberprueft, Warnung weg)"""
+        st = trust2_get(self.uid, handle) or {}
+        f = self.fk.get(handle)
+        dver = int(st.get("dver") or 0) if st.get("ident") == ident_pub else 0
+        if f and f.get("keys") and f["keys"].get("ident_pub") == ident_pub:       # gerade gesehene Geraete-Liste gilt als bekannt
+            dver = max(dver, int(f["keys"].get("ver") or 0))
+        trust2_set(self.uid, handle, {"ident": ident_pub, "verified": bool(verified), "dver": dver})
+        if f and f.get("keys") and f["keys"].get("ident_pub") == ident_pub:
+            f["trust"] = "trust"
+            f["stored"] = trust2_get(self.uid, handle)
+
+    def fed_load(self, c, fresh=False):
+        """Hintergrund: Schluessel aller Mitglieder eines v2-Chats (Kopf, Warnung, Echtheit)"""
+        self._adopt_handle(c)
+        return self.fed_keys(self.fed_handles(c), fresh)
+
+    def _adopt_handle(self, c):
+        if not self.my_handle and self._handle_ok((c or {}).get("my_handle")):
+            self.my_handle = c["my_handle"]
+
+    def fed_problems(self, c):
+        """Mitglieder (nicht ich) mit Warnung, Blockade oder ungueltigen Schluesseln -> [(mitglied, trust)]"""
+        out = []
+        for m in (c or {}).get("members") or []:
+            if not isinstance(m, dict) or m.get("me") or not m.get("handle") or m.get("handle") == (c or {}).get("my_handle"):
+                continue
+            f = self.fk.get(m["handle"])
+            if f and f.get("trust") in ("warn", "block", "reject"):
+                out.append((m, f["trust"]))
+        return out
+
+    def fed_verified(self, handle):
+        f = self.fk.get(handle) or {}
+        st = f.get("stored") or {}
+        return bool(f.get("keys") and f.get("trust") == "trust" and st.get("verified") and st.get("ident") == f["keys"].get("ident_pub"))
+
+    def send_v2(self, ch, body, reply_to=None, kind="msg", file_ids=None, extra=None):
+        """Hintergrund (docs/APP-API-FED.md 6.4): Empfaenger = aktive Geraete aus den selbst geprueften Schluesseln aller
+        Mitglieder (+ backup:<handle>); bei Warnung/Blockade/ungueltig nicht senden. 409 mit handles -> einmal frisch.
+        -> (Antwort {ok, seq, fseq, pending?, id}, Namen ohne Schluessel)"""
+        k = self.keys
+        cid = ch["id"]
+        self._adopt_handle(ch)
+        my = ch.get("my_handle") or self.my_handle
+        if not self._handle_ok(my):
+            raise ChatError(_("Your keys for chats across servers aren't ready yet – please try again in a moment."))
+        extra = dict(extra or {})
+        ai = extra.pop("ai", None)
+        ai = ai if isinstance(ai, str) and re.fullmatch(r"[0-9a-f]{64}", ai) else None
+        hs = self.fed_handles(ch)
+        if my not in hs:
+            hs.append(my)
+        for attempt in range(2):
+            fk = self.fed_keys(hs, fresh=attempt > 0)
+            mine = fk.get(my) or {}
+            if not mine.get("keys") or mine.get("trust") != "trust":
+                self.fed_certs()                              # eigene Zertifikate v2 fehlen noch: hochladen, frisch holen
+                fk = self.fed_keys(hs, fresh=True)
+                mine = fk.get(my) or {}
+                if not mine.get("keys") or mine.get("trust") != "trust":
+                    raise ChatError(_("Your keys for chats across servers aren't ready yet – please try again in a moment."))
+            bad = [(m, t) for m, t in self.fed_problems(ch)]
+            if bad:
+                m0 = bad[0][0]
+                if bad[0][1] == "warn":
+                    raise SafetyChanged(m0.get("handle"), m0.get("name") or m0.get("handle"))
+                raise ChatError(_("Sending to {name} is blocked until you compare the safety number again.").format(
+                    name=", ".join(m.get("name") or "?" for m, _t in bad)))
+            ents = [fk[h]["keys"] for h in hs if (fk.get(h) or {}).get("keys")]
+            missing = [m.get("name") or m.get("handle") for m in ch.get("members") or []
+                       if isinstance(m, dict) and not m.get("me") and m.get("handle") != my and not (fk.get(m.get("handle")) or {}).get("keys")]
+            enc = C.encrypt_v2(ch.get("ref") or "", my, k["device"], body, C.recipients_v2(ents), reply_to=reply_to, ai=ai)
+            enc.pop("_key")
+            req = dict(enc)
+            if kind != "msg":
+                req["kind"] = kind
+            if file_ids:
+                req["files"] = list(file_ids)
+            req.update(extra)
+            try:
+                resp = client.json("POST", f"api/chats/{cid}/messages", req)
+            except APIError as e:
+                if e.code == 409 and attempt == 0 and isinstance(e.data, dict) and e.data.get("handles"):
+                    continue
+                if e.code == 409:
+                    raise FedNotDelivered(str(e) or _("Not delivered."), e.code, e.data) from e
+                raise ChatError(str(e), e.code, e.data) from e
+            resp = resp if isinstance(resp, dict) else {}
+            resp.setdefault("id", req["id"])
+            return resp, missing
+        raise ChatError(_("The members or their devices have changed – please send again."))
+
+    def resend(self, cid, m, done=None, error=None):
+        """"Erneut senden" (2.3): nicht zugestellte eigene Nachricht neu verschluesseln und senden, die alte loeschen"""
+        body = m.get("body")
+        if not isinstance(body, dict):
+            return
+
+        def work():
+            fids = []
+            for f in body.get("files") or []:
+                if isinstance(f, dict) and f.get("id"):
+                    fids.append(f["id"])
+                    th = chatmedia.thumb_ref(f)
+                    if th and th.get("id"):
+                        fids.append(th["id"])
+            r = self.send(cid, body, reply_to=m.get("reply_to"), file_ids=fids or None)
+            try:
+                client.request("DELETE", f"api/chats/{cid}/messages/{m['id']}")
+            except APIError:
+                pass
+            return r
+
+        def fin(r):
+            c = self.cache.get(cid)
+            if c:
+                c["msgs"] = [x for x in c["msgs"] if x.get("id") != m.get("id")]
+            self.load_messages(cid)
+            self._list_soon()
+            if done:
+                done(r)
+        bg(work, done=fin, error=error)
+
+    def answer_request(self, cid, action, scope="person", done=None, error=None):
+        """Nachrichtenanfrage: accept | decline | block (scope person | instance) - POST /api/chats/{id}/request"""
+        def fin(j):
+            if action == "accept":
+                self.load_chat(cid)
+            else:
+                self.purge(cid, drop=True)
+                self.emit("chat-gone", cid, "hidden", "")
+            self.load_chats()
+            if done:
+                done(j)
+        bg(client.json, "POST", f"api/chats/{cid}/request", {"action": action, "scope": "instance" if scope == "instance" else "person"},
+           done=fin, error=error)
+
+    def load_blocks(self, done, error=None):
+        """GET /api/chat/blocks -> Liste [{target, kind, name, host, label, created}] (aeltere Server: Fehler -> error)"""
+        bg(client.get, "api/chat/blocks", done=lambda j: done([b for b in (j or {}).get("blocks") or [] if isinstance(b, dict)]),
+           error=error)
+
+    def unblock(self, target, done=None, error=None):
+        bg(client.request, "DELETE", "api/chat/blocks?target=" + urllib.parse.quote(str(target), safe=""), done=done, error=error)
+
     def fetch_file(self, cid, f):
         """Hintergrund: Anhang laden und entschluesseln -> Bytes"""
         return chatmedia.original(cid, f)
@@ -911,6 +1293,7 @@ class ChatState(GObject.Object):
         bg(client.json, "PATCH", f"api/chats/{cid}", fields, done=fin, error=error)
 
     def _merge(self, ch):
+        self._note_ref(ch)
         old = self.chat(ch.get("id"))
         if old is not None and old is not ch:                # eben neu aufgenommen (dasselbe dict): nichts zu mischen,
             t = old.get("_title")                            # clear() wuerde es leeren (BUG-030)
@@ -938,6 +1321,7 @@ class ChatState(GObject.Object):
     def new_chat(self, body, done, error):
         def fin(j):
             ch = (j or {}).get("chat") or {}
+            self._note_ref(ch)
             if self.chat(ch.get("id")) is None and ch:
                 self.chats.insert(0, ch)
             self.emit("changed")
@@ -1142,7 +1526,10 @@ class ChatState(GObject.Object):
                 else:
                     end()
                 self._list_soon()
-            bg(lambda: self.send(cid, msg, reply_to=qid, extra={"ai_reply": rep["id"]}), done=fin, error=lambda e: end(str(e)))
+            ex = {"ai_reply": rep["id"]}
+            if is_fed(self.chat(cid)) and isinstance(rep.get("sha256"), str):
+                ex["ai"] = rep["sha256"]                    # v2: Hash des Antworttexts wird mitsigniert
+            bg(lambda: self.send(cid, msg, reply_to=qid, extra=ex), done=fin, error=lambda e: end(str(e)))
 
         def error(msg, _partial=False):
             end(msg)
@@ -1188,9 +1575,31 @@ class ChatState(GObject.Object):
             return
         cid = d.get("chat_id")
         if typ == "chat.message":
+            c = self.cache.get(cid)
+            if c and d.get("id"):                             # (2.3) eigene wartende Nachricht: zugestellt bzw. abgewiesen
+                for m in c.get("msgs") or []:
+                    if m.get("id") == d.get("id") and m.get("fstate"):
+                        m["fstate"] = "failed" if d.get("failed") else None
+                        self.emit("messages", cid)
             if cid in self.cache and self.cache[cid].get("loaded"):
                 self.load_messages(cid)
             self._list_soon()
+        elif typ == "chat.request":                           # (2.3) neue Nachrichtenanfrage - still, nur die Liste
+            self._list_soon()
+        elif typ == "chat.keys.changed":                      # (2.3) Schluessel einer Person bzw. die eigenen geaendert
+            h = d.get("handle")
+            if d.get("own"):
+                self.fed_certs_soon()
+            elif isinstance(h, str) and self.ready:
+                self.fk.pop(h, None)
+                hit = [c for c in self.chats if is_fed(c) and h in self.fed_handles(c)]
+
+                def fin(_r, hit=hit):
+                    for c in hit:
+                        self.emit("chat-changed", c["id"])
+                        if (self.cache.get(c["id"]) or {}).get("loaded"):
+                            self.load_messages(c["id"])
+                bg(self.fed_keys, [h], True, done=fin, error=lambda e: None)
         elif typ == "chat.deleted":
             c = self.cache.get(cid)
             if c:
