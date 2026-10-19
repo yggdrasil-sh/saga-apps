@@ -106,6 +106,7 @@ import io.github.yggdrasil_sh.saga.blocks.BlockDoc
 import io.github.yggdrasil_sh.saga.blocks.InlineStyle
 import io.github.yggdrasil_sh.saga.blocks.JsonPath
 import io.github.yggdrasil_sh.saga.data.SagaRepository
+import io.github.yggdrasil_sh.saga.data.ncSettings
 import io.github.yggdrasil_sh.saga.ui.common.Chrome
 import io.github.yggdrasil_sh.saga.ui.common.PageIcon
 import io.github.yggdrasil_sh.saga.ui.common.SagaTopBar
@@ -535,8 +536,22 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
 
         val active = ed.active
         val clipHasImage = rememberClipboardHasImage()
+        // 2.3: "Nextcloud-Datei" im Einfuegen-Menue nur mit verknuepfter Nextcloud (aeltere Server: nie)
+        var ncConnected by remember { mutableStateOf(false) }
+        LaunchedEffect(ed.editable, ed.isRemote) {
+            if (ed.editable && !ed.isRemote) ncConnected = try {
+                repo.ncSettings()?.let { it.enabled && it.connected } == true
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                false
+            }
+        }
         if (active != null && ed.editable) {
-            EditorToolbar(ed, active, onLink, onPasteImage = if (clipHasImage && ed.can(io.github.yggdrasil_sh.saga.data.RemoteCaps.UPLOAD)) { { insertImages(clipboardImages(context), active.blockPath()) } } else null)
+            EditorToolbar(
+                ed, active, onLink, onPasteImage = if (clipHasImage && ed.can(io.github.yggdrasil_sh.saga.data.RemoteCaps.UPLOAD)) { { insertImages(clipboardImages(context), active.blockPath()) } } else null,
+                repo = repo, ncInsert = ncConnected && !ed.isRemote,
+            )
         }
     }
 
@@ -824,11 +839,15 @@ private fun DraftBanner(stamp: Long, onRestore: () -> Unit, onDiscard: () -> Uni
 
 /** Werkzeugleiste ueber der Tastatur: Block einfuegen/umwandeln, Formatierung, Link, verschieben, loeschen */
 @Composable
-private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) -> Unit, onPasteImage: (() -> Unit)? = null) {
+private fun EditorToolbar(
+    ed: PageEditor, active: ActiveField, onLink: (String) -> Unit, onPasteImage: (() -> Unit)? = null,
+    repo: io.github.yggdrasil_sh.saga.data.SagaRepository? = null, ncInsert: Boolean = false,
+) {
     val context = LocalContext.current
     val res = LocalResources.current
     val focus = LocalFocusManager.current
     var addMenu by remember { mutableStateOf(false) }
+    var ncPick by remember { mutableStateOf(false) }
     var typeMenu by remember { mutableStateOf(false) }
     var linkDialog by remember { mutableStateOf(false) }
     val blockPath: JsonPath = active.blockPath()
@@ -851,6 +870,8 @@ private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) 
                                 ed.insertBlockAfter(blockPath, BlockDoc.newBlock(type, level = if (level == 0) 2 else level))
                             })
                         }
+                        // 2.3: Datei aus der eigenen Nextcloud (nur eigene Seiten dieses Servers mit verknuepfter Nextcloud)
+                        if (ncInsert) DropdownMenuItem(text = { Text(stringResource(R.string.nc_file_insert)) }, onClick = { addMenu = false; ncPick = true })
                     }
                 }
                 // Bild aus der Zwischenablage (nur sichtbar, wenn dort eins liegt) - das Feld selbst nimmt nur Text an
@@ -901,6 +922,17 @@ private fun EditorToolbar(ed: PageEditor, active: ActiveField, onLink: (String) 
                 }) { Icon(Icons.Filled.Delete, stringResource(R.string.action_delete)) }
                 IconButton(onClick = { focus.clearFocus(); ed.active = null }) { Icon(Icons.Filled.Check, stringResource(R.string.action_done)) }
             }
+        }
+    }
+
+    if (ncPick && repo != null) {
+        NextcloudPickerDialog(repo, onDismiss = { ncPick = false }) { data ->
+            ncPick = false
+            ed.insertBlockAfter(blockPath, kotlinx.serialization.json.buildJsonObject {
+                put("id", kotlinx.serialization.json.JsonPrimitive(BlockDoc.newId()))
+                put("type", kotlinx.serialization.json.JsonPrimitive("nextcloud"))
+                put("data", data)
+            }, focus = false)
         }
     }
 

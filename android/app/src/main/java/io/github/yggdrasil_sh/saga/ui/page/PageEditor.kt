@@ -2,6 +2,7 @@ package io.github.yggdrasil_sh.saga.ui.page
 
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.data.RemoteCaps
+import io.github.yggdrasil_sh.saga.data.NcLogic
 import io.github.yggdrasil_sh.saga.util.UiText
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -83,6 +84,8 @@ interface PageBackend {
     fun friendly(e: Throwable): UiText
     /** Server nicht erreichbar (Netz weg, Zeitueberschreitung) - kein Zertifikats- oder Serverfehler */
     fun isOffline(e: Throwable): Boolean = e is IOException && e !is SSLException
+    /** 2.3: eigenes Konto laut Server (Autor eigener Nextcloud-Bloecke), leer = unbekannt */
+    suspend fun ncMe(): String = ""
     fun register(editor: PageEditor) {}
     fun unregister(editor: PageEditor) {}
 }
@@ -164,6 +167,9 @@ class PageEditor(
         private set
     private var pendingDoc: JsonObject? = null
     var error by mutableStateOf<UiText?>(null)
+
+    /** 2.3: Nextcloud-Bloecke im gespeicherten Stand (Person|Nextcloud|Datei) - neue erkennt der Server als "eingefuegt" */
+    private var ncBase: Set<String> = emptySet()
     var info by mutableStateOf<UiText?>(null)
 
     /** Teilen (1.3): Rolle, Eigentuemer, Kommentar-Zaehler aus GET /api/notes/{id} */
@@ -297,6 +303,7 @@ class PageEditor(
         created = (p["created"] as? JsonPrimitive)?.content?.toDoubleOrNull()
         updatedAt = (p["updated"] as? JsonPrimitive)?.content?.toDoubleOrNull()
         converted = parsed.converted && !body.isNullOrBlank()
+        ncBase = NcLogic.keys(parsed.doc)
         doc = withStarter(parsed.doc)
         version = 0
         savedVersion = 0
@@ -746,6 +753,7 @@ class PageEditor(
             (if (ow) repo.savePage(id, t, body, rev, true) else repo.savePage(id, t, body, rev))?.let { rev = it }
             if (ow) overwriteNext = false
             conflictBy = null
+            ncBase = NcLogic.keys(d)
             savedVersion = v
             error = null
             offline = false
@@ -756,6 +764,12 @@ class PageEditor(
             throw e
         } catch (e: ApiException) {
             offline = false                                  // Server hat geantwortet: kein Offline-Hinweis mehr (BUG-107)
+            // 2.3: neu eingefuegte/kopierte Nextcloud-Datei abgelehnt (z. B. aus dem Nextcloud einer anderen Person) -
+            // verstaendlich melden, nicht als Konflikt oder verlorenen Zugriff behandeln; der Block muss raus
+            if (NcLogic.isRejection(e.code, e.body, NcLogic.newKeys(d, ncBase))) {
+                error = UiText.Res(R.string.nc_save_rejected, e.text)
+                return false
+            }
             when (e.code) {
                 409 -> {
                     conflictBy = conflictAuthor(e.body)
@@ -862,12 +876,14 @@ class PageEditor(
     /** Konflikt: meine Fassung als neue Seite sichern, dann die Server-Fassung laden. -> ID der Kopie oder null */
     suspend fun saveCopyAndLoadServer(copyTitle: String): Long? {
         return try {
-            val body = withContext(cpu) { BlockDoc.serialize(BlockDoc.withTime(doc, clock())) }
+            // neue Seite: Nextcloud-Dateien anderer Personen nimmt der Server dort nicht an (403) - weglassen
+            val (copyDoc, dropped) = NcLogic.stripForeign(doc, repo.ncMe())
+            val body = withContext(cpu) { BlockDoc.serialize(BlockDoc.withTime(copyDoc, clock())) }
             val newId = repo.createPageWith(copyTitle, body)
             savedVersion = version
             conflict = false
             withContext(io) { drafts.delete(id) }
-            info = null
+            info = if (dropped > 0) UiText.Res(R.string.nc_copy_dropped) else null
             fetched = false
             load()
             newId

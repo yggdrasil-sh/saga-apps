@@ -175,8 +175,10 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 val cats = listOf(
                     "share" to R.string.push_cat_share, "comment" to R.string.push_cat_comment,
                     "chat" to R.string.push_cat_chat, "publish" to R.string.push_cat_publish,
+                    // 2.3: nur Admin-Konten (fehlgeschlagene Server-Backups); der Server listet sie nur fuer Admins
+                    "admin" to R.string.push_cat_admin,
                 )
-                items(cats.filter { (c, _) -> info?.categories?.let { c in it } ?: true }, key = { it.first }) { (c, label) ->
+                items(cats.filter { (c, _) -> PushUi.showCategory(c, info?.categories) }, key = { it.first }) { (c, label) ->
                     val v = set.cats[c] ?: true
                     SwitchRow(stringResource(label), v, w, enabled = catsOn) { on ->
                         repo.launchAction { push.putSettings(buildJsonObject { putJsonObject("cats") { put(c, on) } }) }
@@ -300,6 +302,10 @@ object PushUi {
 
     /** "Worüber?", Namen, Ruhezeiten: nur wenn Mitteilungen auf dem Server an sind und hier oder anderswo eingerichtet */
     fun categoriesEnabled(serverOn: Boolean, state: PushState, devices: Int): Boolean = serverOn && (state == PushState.ON || devices > 0)
+
+    /** Kategorie zeigen: wie bisher alle, die der Server nennt; "admin" nur, wenn der Server sie ausdruecklich nennt */
+    fun showCategory(c: String, serverCats: List<String>?): Boolean =
+        if (c == "admin") serverCats?.contains("admin") == true else serverCats?.let { c in it } ?: true
 }
 
 /** Mitteilungs-Einstellungen dieser App im System (nach dauerhaft verweigerter/entzogener Berechtigung, BUG-109) */

@@ -814,6 +814,17 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
     /** 2.3 (E5): Person eines anderen Servers zur Gruppe hinzufuegen (Handle aus der Adressbuch-Suche; Aenderung ueber das Heim) */
     suspend fun addMemberHandle(handle: String) = addMemberBody(buildJsonObject { put("handle", handle) })
 
+    /**
+     * Mitglied entfernen (nur Admins einer freien Gruppe; `who` = members[].username, bei Gruppen ueber Servergrenzen
+     * laeuft die Aenderung ueber das Heim). Danach Stand neu holen - die Person bekommt keine neuen Nachrichten mehr.
+     */
+    suspend fun removeMember(who: String) {
+        if (who.isEmpty() || who == me) return
+        api.delete("api/chats/$chatId/members/" + android.net.Uri.encode(who, "~.-_"))
+        loadSummary()
+        svc.loadChats()
+    }
+
     private suspend fun addMemberBody(body: JsonObject) {
         val text = api.post("api/chats/$chatId/members", body)
         // Gruppen ueber Servergrenzen: Antwort ggf. nur {ok} (Heim ist ein anderer Server) -> Stand neu holen

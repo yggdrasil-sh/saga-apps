@@ -52,6 +52,8 @@ data class NotifItem(
     @SerialName("block_id") val blockId: String? = null,
     val remote: Boolean = false,
     val chat: NotifChat? = null,
+    /** 2.3: Systemmeldung (Backups) - Text und Titel kommen fertig vom Server */
+    val system: Boolean = false,
 )
 
 @Serializable
@@ -82,13 +84,24 @@ object NotifLogic {
     fun markRead(list: List<NotifItem>, ids: Set<Long>?, all: Boolean): List<NotifItem> =
         list.map { if (!it.read && (all || (ids != null && it.id in ids))) it.copy(read = true) else it }
 
-    /** Antippbar nur mit Zugriff */
-    fun tappable(n: NotifItem): Boolean = n.access && (n.note != null || n.chat != null)
+    /** Antippbar nur mit Zugriff; 2.3: Systemmeldungen (Backups) mit Ziel in den Einstellungen bzw. im Admin-Bereich */
+    fun tappable(n: NotifItem): Boolean = n.access && (n.note != null || n.chat != null || target(n.url) is Target.Settings || adminLink(n) != null)
+
+    /**
+     * 2.3: Admin-Meldung "Server-Backup fehlgeschlagen" verweist in den Admin-Bereich (eigene Adresse, ADMIN_URL) -
+     * nur fuer diese Art und nur https; sonst werden absolute Links nie geoeffnet.
+     */
+    fun adminLink(n: NotifItem): String? = n.url?.takeIf { n.kind == "backup.failed" && Regex("^https://[^\\s\"<>]+$").matches(it) }
+
+    /** Systemmeldung ohne Person/Seite (2.3: backup.failed, userbackup.failed) */
+    fun isSystem(n: NotifItem): Boolean = n.system || n.kind == "backup.failed" || n.kind == "userbackup.failed"
 
     /** Ziel einer Benachrichtigung bzw. Mitteilung: "/notes#12[:block]" oder "/chats#c5" */
     sealed interface Target {
         data class Page(val id: Long, val block: String?) : Target
         data class Chat(val id: Long) : Target
+        /** "/?settings=backup" -> Einstellungen -> Mein Backup (2.3) */
+        data class Settings(val section: String) : Target
     }
 
     fun target(url: String?): Target? {
@@ -97,6 +110,7 @@ object NotifLogic {
             return m.groupValues[1].toLongOrNull()?.let { Target.Page(it, m.groupValues[2].ifEmpty { null }) }
         }
         Regex("^/chats#c?(\\d{1,19})$").find(url)?.let { m -> return m.groupValues[1].toLongOrNull()?.let { Target.Chat(it) } }
+        Regex("^/\\?settings=([a-z]{1,20})$").find(url)?.let { m -> return Target.Settings(m.groupValues[1]) }
         return null
     }
 }

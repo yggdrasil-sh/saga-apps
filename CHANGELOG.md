@@ -6,6 +6,34 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu (Android) – Mein Backup, Nextcloud-Dateien und Mitglied entfernen (Saga 2.3, Teil 3)
+- **Einstellungen → „Mein Backup“** (nur bei Servern, die es können): Status mit letztem erfolgreichem Backup, nächstem
+  Lauf, Fehler des letzten Laufs und den letzten Läufen, „Jetzt sichern“ (Fortschritt wird nachgefragt), „Backups im
+  Ziel anzeigen“. Ziel verbinden: Nextcloud per Login Flow v2 (Anmeldung im Browser, die App fragt über den Server nach)
+  oder WebDAV mit Benutzer und Passwort, „Verbindung prüfen“ und „Trennen“. Verschlüsselung: eigenen öffentlichen
+  Schlüssel eintragen oder ein Schlüsselpaar erzeugen lassen – der private Schlüssel erscheint nur einmal (Teilen oder
+  als vertraulich markiert kopieren), wird nie gespeichert und mit den letzten 6 Zeichen bestätigt. „Was gesichert
+  wird“ (Kategorien) und „Seiten nicht sichern“ (Seitenbäume) nur, wenn der Server sie liefert; Zeitplan (aus,
+  wöchentlich mit Wochentag, täglich – „täglich“ gesperrt, wenn der Admin höchstens wöchentlich erlaubt), Uhrzeit und
+  Aufbewahrung. Einspielen: Hinweis und Knopf „Im Browser öffnen“.
+- **Einstellungen → „Nextcloud“:** eigenes Konto verknüpfen (Login Flow v2) bzw. trennen, mit „Verknüpft seit“ und
+  „Zuletzt genutzt“.
+- **Nextcloud-Dateien in Seiten:** Der Block `nextcloud` erscheint als Karte mit Typ-Symbol, Name, Größe und Datum,
+  Bilder und Dateien mit Vorschau über den Saga-Proxy, Ordner mit ihren ersten Einträgen, „Herunterladen“ (über Saga,
+  dann Öffnen/Teilen) und „In Nextcloud öffnen“ (nicht auf Seiten anderer Server); ohne Inhalt eine verständliche
+  Karte. Der Block wird unverändert zurückgespeichert. Einfügen über „+“ → „Nextcloud-Datei …“ (Zuletzt, Ordner,
+  Suche) aus der eigenen verknüpften Nextcloud. Lehnt der Server eine neu eingefügte Datei ab (z. B. aus der Nextcloud
+  einer anderen Person), meldet der Editor das verständlich statt eines Konflikts oder „Zugriff verloren“; „Als Kopie
+  speichern“ lässt Dateien anderer Personen mit Hinweis weg.
+- **Benachrichtigungen:** `userbackup.failed` und `backup.failed` erscheinen lesbar als Systemmeldung; Antippen öffnet
+  „Mein Backup“ bzw. den Admin-Bereich im Browser. Mitteilungen: Kategorie „Admin: fehlgeschlagene Server-Backups“,
+  nur wenn der Server sie für das Konto anbietet.
+- **Gruppen:** Admins freier Gruppen können Mitglieder entfernen (mit Rückfrage), auch in Gruppen über Servergrenzen –
+  wie Web, iOS/macOS und Linux.
+- Ältere Server (2.1/2.2) und lokale Funktionen bleiben unverändert. Texte de/en/es/ru/th. Geprüft mit Unit-Tests
+  (`Apps23cTest`) und Ende-zu-Ende im Emulator gegen einen Server aus 9009d43 mit nachgemachter Nextcloud
+  (`tests/fakedav.py`).
+
 ### Neu (Linux)
 - **Chats über Servergrenzen (Saga 2.3, Föderation E1–E3):** Die Linux-App versteht jetzt das Chat-Format
   `saga-chat/v2` und meldet das dem Server (`X-Saga-Chat: 2`) – Chats mit Personen verbundener Saga-Server erscheinen

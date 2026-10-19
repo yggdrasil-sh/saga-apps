@@ -257,7 +257,7 @@ fun SafetyDialog(s: ChatSession, initial: String? = null, onDismiss: () -> Unit)
     )
 }
 
-/** Mitglieder; freie Gruppe: Person hinzufuegen (Admin) */
+/** Mitglieder; freie Gruppe: Person hinzufuegen und entfernen (Admin) */
 @Composable
 fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
     val sum = s.summary
@@ -268,6 +268,7 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
     var foundRemote by remember { mutableStateOf<List<io.github.yggdrasil_sh.saga.chat.FedPerson>>(emptyList()) }
     val fedV2 by repo.chat.fed.supported.collectAsState()
     var fedFor by remember { mutableStateOf("") }
+    var removing by remember { mutableStateOf<ChatPerson?>(null) }
     LaunchedEffect(q) {
         delay(250)
         try {
@@ -293,12 +294,17 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp),
                     )
                 }
+                val admin = sum?.kind == "free" && sum.role == "admin"
                 items(sum?.members.orEmpty(), key = { it.username }) { m ->
                     ListItem(
                         headlineContent = { Text(m.name.ifEmpty { m.label ?: m.username } + if (m.me) " (" + stringResource(R.string.chat_you) + ")" else "") },
                         // 2.3: Person eines anderen Servers - Herkunft zeigen, nie den Handle
                         supportingContent = { Text(if (m.remote && !m.host.isNullOrEmpty()) stringResource(R.string.fed_on_host, m.host) else m.username) },
                         leadingContent = { Avatar(m.name, size = 32, avatar = m.avatar) },
+                        // Admins einer freien Gruppe: Person entfernen (wie Web, iOS/macOS und Linux)
+                        trailingContent = if (admin && ChatLogic.canRemoveMember(m)) { {
+                            TextButton(onClick = { removing = m }) { Text(stringResource(R.string.chat_member_remove), color = MaterialTheme.colorScheme.error) }
+                        } } else null,
                     )
                 }
                 if (sum?.kind == "free" && sum.role == "admin") {
@@ -330,6 +336,19 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) } },
     )
+    removing?.let { m ->
+        AlertDialog(
+            onDismissRequest = { removing = null },
+            title = { Text(stringResource(R.string.chat_member_remove_title, m.name.ifEmpty { m.label ?: m.username })) },
+            text = { Text(stringResource(R.string.chat_member_remove_text)) },
+            confirmButton = {
+                TextButton(onClick = { removing = null; repo.launchAction { s.removeMember(m.username) } }) {
+                    Text(stringResource(R.string.chat_member_remove), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { removing = null }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
 }
 
 /** Nachrichten automatisch loeschen nach (Werte vom Server; Hoechstwert des Admins beachten) */

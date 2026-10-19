@@ -55,6 +55,9 @@ class ReauthNeeded(val kind: String, message: UiText, val methods: List<String> 
 
 /** Reine Hilfen fuer Anzeige und Pruefung (Tests) */
 object ChatLogic {
+    /** Admin darf diese Person aus einer freien Gruppe entfernen: nicht sich selbst (dafuer "Gruppe verlassen"), nur mit Konto-Kennung */
+    fun canRemoveMember(m: ChatPerson): Boolean = !m.me && m.username.isNotEmpty()
+
     /** Name eines Chats: dm = Gegenueber, group = Gruppe, page = Seitentitel, free = Titel aus der Titel-Nachricht oder Mitglieder */
     /** Personensuche ab wie vielen Zeichen: Server ab 2.3 ab 1, aeltere (oder noch unbekannte Version) wie bisher ab 3 */
     fun peopleMin(serverVersion: String?): Int = if (io.github.yggdrasil_sh.saga.util.Versions.atLeast(serverVersion, "2.3.0")) 1 else 3
