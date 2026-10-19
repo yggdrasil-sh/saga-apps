@@ -9,7 +9,7 @@ FIELDS = ("id", "title", "icon", "parent_id", "kind", "pinned", "archived", "tem
 
 
 def _get_notes(srv):
-    return [x for x in srv.log if x[0] == "GET" and x[1].endswith("/api/notes")]
+    return [x for x in srv.log if x[0] == "GET" and x[1].split("?")[0].endswith("/api/notes")]   # auch ?delta=1/?since=
 
 
 def _snap(store):

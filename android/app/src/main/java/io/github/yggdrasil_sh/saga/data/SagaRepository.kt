@@ -240,6 +240,7 @@ class SagaRepository(
             // Erneuerung den Namen aendert; ensureAccountKey() holt die Kennung und verschiebt die Entwuerfe
             if (auth.signedIn && settings.accountKey.value.isEmpty()) settings.setAccountKey(AccountKey.legacy(settings.account.value))
             needsLogin.value = !auth.signedIn
+            if (auth.signedIn) restoreTreeCache()            // Seitenbaum aus dem Zwischenspeicher (gleicher Server/Konto)
             if (auth.signedIn) checkLocalNetwork()           // Android 17: Server im Heimnetz -> vorher fragen
             ready.value = true
             live.restart()
@@ -488,14 +489,45 @@ class SagaRepository(
     private suspend fun loadPages() {
         repeat(2) { attempt ->
             val epoch = treeEpoch
-            val text = api.get("api/notes")
-            val split = withContext(Dispatchers.Default) { PageList.split(json.decodeFromString<List<PageMeta>>(text)) }
+            val all = loadTree()
+            val split = withContext(Dispatchers.Default) { PageList.split(all) }
             if (treeEpoch != epoch && attempt == 0) return@repeat
             pages.value = split.active
             archivedOwn = split.archived
             ownIds = split.ids
             return
         }
+    }
+
+    /**
+     * Seitenbaum-Abgleich (2.2): mit Stand nur Geaendertes (GET api/notes?since=), sonst ganz mit Stand (?delta=1);
+     * aeltere Server liefern wie bisher die Liste. Grundlage und Stand je Server und Konto, Zwischenspeicher unter
+     * filesDir/notes-cache (eingearbeitete Liste im Format von GET api/notes + Stand-Datei).
+     */
+    val treeSync = TreeSync(json, File(filesDir, "notes-cache")) { path -> api.get(path) }
+
+    /** Konto-Kennung fuer den Stand (stabile Kennung, sonst Name) */
+    private fun treeAccount(): String = settings.accountKey.value.ifEmpty { settings.account.value }
+
+    private suspend fun loadTree(): List<PageMeta> {
+        val srv = settings.server.value
+        val acct = treeAccount()
+        return treeSync.load(srv, acct) { settings.server.value to treeAccount() }
+    }
+
+    private suspend fun restoreTreeCache() {
+        val l = withContext(Dispatchers.IO) { treeSync.restore(settings.server.value, treeAccount()) } ?: return
+        val split = withContext(Dispatchers.Default) { PageList.split(l) }
+        if (pages.value.isEmpty()) {
+            pages.value = split.active
+            archivedOwn = split.archived
+            ownIds = split.ids
+        }
+    }
+
+    /** Stand verwerfen (Live "reset"): naechster Abgleich holt den ganzen Baum */
+    fun dropTreeCursor() {
+        treeSync.dropCursor()
     }
 
     /** Zaehler lokaler Baum-Aenderungen (loadPages erkennt daran veraltete Antworten) */
@@ -565,8 +597,11 @@ class SagaRepository(
     private suspend fun applyTree(ids: List<Long>, ops: List<String>) {
         if (!ready.value || needsLogin.value) return
         when (val p = TreeEvents.plan(ids, ops)) {
-            TreeEvents.Plan.Full -> refresh(join = false)    // ein laufender Abgleich kennt die Aenderung evtl. noch nicht
-            is TreeEvents.Plan.Targeted -> {
+            TreeEvents.Plan.Full -> {
+                if (TreeEvents.FULL in ops) treeSync.dropCursor()   // full: true -> ganzen Baum neu
+                refresh(join = false)                        // ein laufender Abgleich kennt die Aenderung evtl. noch nicht
+            }
+            is TreeEvents.Plan.Targeted -> if (treeSync.cursor != null) syncTree(p.ids) else {
                 var shared = false
                 var full = false
                 for (id in p.ids) {
@@ -596,6 +631,25 @@ class SagaRepository(
                     afterTreeChange()
                 }
             }
+        }
+    }
+
+    /**
+     * notes.tree created/updated mit Abgleich: ein kleines GET api/notes?since= statt je Seite GET api/notes/{id} (mit
+     * Inhalt). Ist eine ID danach keine eigene Seite (geteilte Seite eines anderen), wie bisher "Mit mir geteilt" neu.
+     */
+    private suspend fun syncTree(ids: Set<Long>) {
+        try {
+            refreshLock.withLock {
+                if (!ready.value || needsLogin.value) return
+                loadPages()
+            }
+            if (ids.any { ownIds?.contains(it) != true }) loadShared()
+            afterTreeChange()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            refresh(join = false)                            // offline o. ae.: wie bisher voller Abgleich
         }
     }
 
@@ -1337,6 +1391,7 @@ class SagaRepository(
 
     private suspend fun onSignedIn(message: UiText? = null) {
         freshLogin = false
+        treeSync.clear()                                     // Stand gilt je Konto: neu angemeldet = ganz laden
         adoptNamedDrafts()
         serverVersion.value = null
         minApp.value = null
@@ -1353,6 +1408,7 @@ class SagaRepository(
     /** Lokale Daten des bisherigen Kontos leeren (Entwuerfe bleiben je Server/Konto auf dem Geraet) */
     private suspend fun clearLocalData() {
         api.cookies.clear()
+        withContext(Dispatchers.IO) { treeSync.clear() }     // Seitenbaum-Stand und Zwischenspeicher des Kontos weg
         pages.value = emptyList()
         ownIds = null
         sharedPages.value = emptyList()

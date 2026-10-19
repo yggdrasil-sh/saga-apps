@@ -42,6 +42,7 @@ def srv():
     shutil.rmtree(config.DATA_DIR, ignore_errors=True)
     os.makedirs(config.DATA_DIR, mode=0o700, exist_ok=True)
     store.clear_cache()
+    store._tree_base, store._tree_cursor = [], None    # Seitenbaum-Abgleich: Stand eines frueheren Tests weg
     store._set_pages([])
     store.tasks, store.done_tasks, store.events = [], [], []
     store.recent = []

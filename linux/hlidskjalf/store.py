@@ -7,7 +7,7 @@ import weakref
 
 from gi.repository import GLib, GObject
 
-from . import config
+from . import config, notesync
 from .api import APIError, client
 from .i18n import _
 from .util import Debounce, bg, bg_serial, iso_day, writes_pending
@@ -70,9 +70,19 @@ class Store(GObject.Object):
         self.changed_data = Debounce(350, lambda: self.emit("data-changed"))   # Datenbank-Ansichten neu laden (gebuendelt)
         self.recent = list(config.settings.get("recent", []))
         client.on_need_login = lambda: GLib.idle_add(self._need_login)
+        # Seitenbaum-Abgleich (2.2): _tree_base = Liste genau wie der Server sie zum Stand _tree_cursor kennt (Grundlage
+        # fuers Einarbeiten, nie lokal veraendert); die angezeigte Liste (_all, by_id ...) sind Kopien davon, die lokale
+        # Aenderungen (neue Seite, Papierkorb ...) sofort zeigen und beim naechsten Abgleich ersetzt werden.
+        self._tree_base = []
+        self._tree_cursor = None
+        self.tree_bytes = 0                # Bytes der Antworten von api/notes (Messung/Tests)
         c = self.cached("api/notes")
         if isinstance(c, list):
-            self._set_pages(c)
+            c = [p for p in c if isinstance(p, dict) and p.get("id") is not None]
+            self._tree_base = c
+            self._set_pages([dict(p) for p in c])
+            cur = self.cached(self.CURSOR_CACHE)
+            self._tree_cursor = cur if isinstance(cur, dict) else None
         c = self.cached("api/fed/shared")
         if isinstance(c, dict):
             self.fed_shared = [p for p in c.get("items") or [] if isinstance(p, dict) and p.get("id") is not None]
@@ -102,6 +112,29 @@ class Store(GObject.Object):
             except OSError:
                 pass
         return json.loads(raw)
+
+    CURSOR_CACHE = "api/notes.cursor"      # Stand des Abgleichs zur zwischengespeicherten Liste "api/notes"
+
+    def drop_tree_cursor(self):
+        """Stand verwerfen: der naechste Abgleich holt den ganzen Baum (Abmelden, Kontowechsel, Serverwechsel, Live
+        "reset", notes.tree mit full: true)"""
+        self._tree_cursor = None
+        self.drop_cache(self.CURSOR_CACHE)
+
+    def _write_tree_cache(self, base, cursor):
+        """Zwischenspeicher: eingearbeitete Liste im bisherigen Format (wie die Antwort von GET api/notes) plus
+        Stand-Datei. Erst den Stand loeschen, dann die Liste, dann den Stand - nie ein Stand zu einer fremden Liste."""
+        try:
+            os.remove(self._cache_path(self.CURSOR_CACHE))
+        except OSError:
+            pass
+        try:
+            if base is not None:
+                config.atomic_write(self._cache_path("api/notes"), json.dumps(base, ensure_ascii=False, separators=(",", ":")))
+            if cursor:
+                config.atomic_write(self._cache_path(self.CURSOR_CACHE), json.dumps(cursor))
+        except (OSError, TypeError, ValueError):
+            pass
 
     def drop_cache(self, path):
         try:
@@ -133,6 +166,7 @@ class Store(GObject.Object):
         if old:                                            # erst nach dem Umstellen (forget_server prueft den Server)
             bg(client.forget_server, old, tok, True, error=lambda e: None)
         self.clear_cache()
+        self._tree_base, self._tree_cursor = [], None
         self._set_pages([])
         self.tasks, self.done_tasks, self.events = [], [], []
         self.fed_shared, self.fed_unreachable = [], []
@@ -167,6 +201,7 @@ class Store(GObject.Object):
         speichern offene Seiten des bisherigen Kontos nur als Entwurf (nie unter einem anderen Konto)."""
         self.session_gen += 1
         self.tree_seen = False                             # Faehigkeit des Servers (notes.tree) neu lernen
+        self.drop_tree_cursor()                            # Stand gilt je Konto: neu anmelden = ganz laden
         srv = config.origin(server or config.settings.server)
         for d in list(self.docs):
             if d.account is None and config.origin(d.server) == srv:
@@ -188,6 +223,7 @@ class Store(GObject.Object):
         einem (moeglicherweise anderen) Konto am selben Server (BUG-031). Entwuerfe bleiben je Konto getrennt liegen."""
         self.tree_seen = False
         self.clear_cache()
+        self._tree_base, self._tree_cursor = [], None
         self._set_pages([])
         self.tasks, self.done_tasks, self.events = [], [], []
         self.fed_shared, self.fed_unreachable = [], []
@@ -370,8 +406,15 @@ class Store(GObject.Object):
             return False
         plan = self.tree_plan(ids, ops)
         if plan is None:
+            if self.TREE_FULL in ops:                      # full: true -> ganzen Baum neu (Stand verwerfen)
+                self.drop_tree_cursor()
             self._local_tree_change()                      # laufende Auffrischung kennt die Aenderung evtl. noch nicht
             self.refresh()
+            return False
+        if self._tree_cursor:
+            # Server mit Abgleich: ein kleines GET api/notes?since= statt je Seite GET api/notes/{id} (mit Inhalt)
+            self._local_tree_change()
+            self.refresh(tree_only=plan)
             return False
         srv = config.settings.server
 
@@ -542,9 +585,38 @@ class Store(GObject.Object):
     def all_tags(self):
         return sorted({t for p in self.pages for t in (p.get("tags") or [])})
 
-    def refresh(self, done=None):
+    def _fetch_tree(self, base, cur, srv, account):
+        """Hintergrund: Seitenbaum per Abgleich holen -> (neue Liste | None = unveraendert, neuer Stand | None, voll?).
+        Mit gueltigem Stand nur Geaendertes (?since=), sonst den ganzen Baum mit Stand (?delta=1). Aeltere Server
+        liefern wie bisher die Liste (Array) - dann kein Stand. Passt ein Abgleich nicht (unbekanntes "after") oder
+        lehnt der Server den Stand ab, gleich den ganzen Baum holen."""
+        origin = config.origin(srv)
+        use = cur.get("value") if notesync.cursor_usable(cur, origin, account) else None
+        for attempt in range(3):
+            try:
+                raw = client.request("GET", notesync.path(use))
+            except APIError as e:
+                if use and e.code in (400, 410, 422):
+                    use = None
+                    continue
+                raise
+            self.tree_bytes += len(raw)
+            o = notesync.outcome(notesync.parse(raw), base, bool(use))
+            if o["refetch"] and use:
+                use = None
+                continue
+            break
+        ncur = None
+        if o["cursor"] and account:
+            full_at = time.time() if o["full"] else float((cur or {}).get("full_at") or 0)
+            ncur = {"value": o["cursor"], "server": origin, "account": account, "full_at": full_at}
+        return o["pages"], ncur, o["full"]
+
+    def refresh(self, done=None, tree_only=None):
         """Seitenliste und Aufgaben neu laden. Laeuft schon eine Auffrischung, folgt danach eine weitere
-        (sie koennte begonnen haben, bevor z. B. eine neue Seite angelegt war) - kein Rueckruf geht verloren."""
+        (sie koennte begonnen haben, bevor z. B. eine neue Seite angelegt war) - kein Rueckruf geht verloren.
+        tree_only (IDs aus notes.tree): nur den Seitenbaum abgleichen, danach Heute; sind die IDs danach nicht unter
+        den eigenen Seiten (geteilte Seite, gerade geloescht), wie bisher alles neu laden."""
         if self._refreshing:
             if self._refresh_next is None:
                 self._refresh_next = []
@@ -557,28 +629,51 @@ class Store(GObject.Object):
         srv = config.settings.server
         session = self.session_gen
         epoch = self._local_epoch
+        base, cur = self._tree_base, self._tree_cursor     # Grundlage und Stand gehoeren zusammen (nur hier ersetzt)
 
         def work():
             acct = None
-            if config.account(srv) is None:                  # Konto noch unbekannt (neu angemeldet, App-Update)
+            if not tree_only and config.account(srv) is None:   # Konto noch unbekannt (neu angemeldet, App-Update)
                 try:
                     acct = (client.get("api/account") or {}).get("username")
                 except APIError as e:
                     if e.code == 401:
                         raise
-            pages = self.get_cached("api/notes")
-            split = self.split_pages(pages if isinstance(pages, list) else [])   # Baum im Hintergrund aufbereiten
+            account = config.account(srv) or (acct if isinstance(acct, str) else None)
+            pages, ncur, _full = self._fetch_tree(base, cur, srv, account)
+            nbase = base if pages is None else pages
+            if srv == config.settings.server and session == self.session_gen and (pages is not None or ncur != cur):
+                self._write_tree_cache(pages, ncur)
+            split = self.split_pages([dict(p) for p in nbase])   # Kopien anzeigen; Baum im Hintergrund aufbereiten
+            if tree_only:
+                return nbase, ncur, split, None, None, None
             t = client.get("api/tasks")
-            return split, t, acct, self._fetch_shared()
+            return nbase, ncur, split, t, acct, self._fetch_shared()
 
         def finish(ok, r):
             self._refreshing = False
             self.loading = False
             stale = srv != config.settings.server            # Server gewechselt: Ergebnis gehoert zum alten
-            if ok and not stale:
-                split, t, acct, (sh, sh_api, sh_off) = r
+            if ok and not stale and tree_only:
+                nbase, ncur, split = r[:3]
+                if session == self.session_gen:
+                    self._tree_base, self._tree_cursor = nbase, ncur
+                if epoch == self._local_epoch:
+                    self._set_pages(None, split)
+                    self.emit("pages-changed")
+                    if any(i not in self.by_id for i in tree_only):
+                        if self._refresh_next is None:       # fremde (geteilte) oder geloeschte Seite: alles neu
+                            self._refresh_next = []
+                    else:
+                        self.load_today()
+                elif self._refresh_next is None:
+                    self._refresh_next = []
+            elif ok and not stale:
+                nbase, ncur, split, t, acct, (sh, sh_api, sh_off) = r
                 if acct and isinstance(acct, str) and session == self.session_gen:
                     self.set_account(acct, srv)
+                if session == self.session_gen:              # Server-Stand uebernehmen (auch bei lokaler Aenderung)
+                    self._tree_base, self._tree_cursor = nbase, ncur
                 if epoch == self._local_epoch:
                     self._set_pages(None, split)
                 elif self._refresh_next is None:             # waehrend des Ladens lokal geaendert: Liste evtl. veraltet
@@ -596,6 +691,9 @@ class Store(GObject.Object):
                 bg(client.ensure_device_token, error=lambda e: None)
                 if self.server_version is None:
                     self.check_version()
+            elif not ok and not stale and tree_only:
+                if self._refresh_next is None:               # wie bisher beim gezielten Nachladen: alles neu laden
+                    self._refresh_next = []
             elif not ok and not stale and not (isinstance(r, APIError) and r.code == 401):
                 self.emit("error", str(r))
             nxt, self._refresh_next = self._refresh_next, None

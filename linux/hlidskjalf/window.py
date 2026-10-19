@@ -1275,6 +1275,7 @@ class MainWindow(Adw.ApplicationWindow):
                 store.refresh_if_stale(store.POLL_S)
             return
         if typ == "reset":
+            store.drop_tree_cursor()                       # Verpasstes nicht nachholbar: Seitenbaum ganz laden
             store.refresh()
             notifications.load()
             chat.on_live(typ, d)
