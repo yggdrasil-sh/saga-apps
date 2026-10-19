@@ -204,7 +204,7 @@ class TrashDialog(Adw.Dialog):
 class PagePicker(Adw.Dialog):
     """Seite auswaehlen (Verschieben, Datenbank verknuepfen, ...)"""
 
-    def __init__(self, win, title, pages, on_pick, top_level=None):
+    def __init__(self, win, title, pages, on_pick, top_level=None, hint=None):
         super().__init__(title=title, content_width=440, content_height=520)
         self.pages, self.on_pick, self.top_level = pages, on_pick, top_level
         tv = Adw.ToolbarView()
@@ -223,6 +223,11 @@ class PagePicker(Adw.Dialog):
         self.err = Gtk.Label(xalign=0, wrap=True)
         self.err.add_css_class("error")
         box.append(self.err)
+        if hint:
+            hl = Gtk.Label(label=hint, xalign=0, wrap=True)
+            hl.add_css_class("dim-label")
+            hl.add_css_class("caption")
+            box.append(hl)
         tv.set_content(box)
         self.set_child(tv)
         self.shown = []
@@ -253,6 +258,14 @@ class PagePicker(Adw.Dialog):
 
 
 def move_dialog(win, pid):
+    if store.is_foreign(pid):                     # Bearbeiter (2.3): nur innerhalb des geteilten Bereichs, nie nach oben
+        from .sharing import shared_move_targets
+        tg = shared_move_targets(store.meta(pid), store.shared)
+
+        def go2(parent, dlg):
+            store.move(pid, parent, done=dlg.close, error=lambda e: dlg.err.set_label(str(e)))
+        PagePicker(win, _("Move to"), tg, go2, hint=_("Only within the shared area with the same shares.")).present(win)
+        return
     blocked = store.descendants(pid)
     cur = (store.by_id.get(pid) or {}).get("parent_id")
     targets = [p for p in store.pages if p["id"] not in blocked and not is_db(p) and p["id"] != cur

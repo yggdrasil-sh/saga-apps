@@ -476,12 +476,19 @@ class Store(GObject.Object):
         """Foederation: "Mit mir geteilt" von anderen Saga-Instanzen (kann je Server ~4 s dauern - eigene Anfrage,
         die Seitenleiste wartet nicht darauf). Aeltere Server/ohne Foederation: 404 bzw. leer."""
         if self._fed_loading:
+            self._fed_again = True                           # z. B. Unterseite angelegt (2.3): danach noch einmal laden
             return
         self._fed_loading = True
+        self._fed_again = False
         srv = config.settings.server
+
+        def again():
+            if getattr(self, "_fed_again", False) and srv == config.settings.server:
+                self.load_fed_shared()
 
         def fin(j):
             self._fed_loading = False
+            GLib.idle_add(lambda: (again(), False)[1])
             if srv != config.settings.server:
                 return
             j = j if isinstance(j, dict) else {}
@@ -498,6 +505,7 @@ class Store(GObject.Object):
 
         def err(e):
             self._fed_loading = False
+            self._fed_again = False
             if isinstance(e, APIError) and e.code == 404 and self.fed_shared:
                 self.fed_shared, self.fed_unreachable = [], []
                 self.drop_cache("api/fed/shared")

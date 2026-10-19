@@ -27,13 +27,17 @@ mit dem Funktionsumfang der Mac-App:
 - KI-Assistent (Server 2.0): „Frag deine Seiten“ mit Quellen und „Diese Seite“ (Zusammenfassen, Aufgaben vorschlagen,
   Verbessern, Übersetzen; Übernehmen nur per Klick), Verlauf
 - Föderation (Server 2.0): Seiten anderer Saga-Instanzen unter „Mit mir geteilt“ (lesen, kommentieren, Titel und Inhalt
-  bearbeiten), Teilen mit name@server
+  bearbeiten), Teilen mit name@server. Server ab 2.3 (`remote.caps`): Datenbanken, Unterseiten (anlegen, im geteilten
+  Bereich verschieben), Hochladen, Symbol/Titelbild/Schlagwörter, Versionen, Export, Anwesenheit/Live und Seiten-Chat
+  auch auf Seiten anderer Server – nur, was deren Server kann. Ende-zu-Ende: `tests/realfed23b.py`
 - Chats über Servergrenzen (Server 2.3, `saga-chat/v2`): Personen verbundener Saga-Server per Anzeigename finden
   („Name · host“, ab 1 Zeichen genaue Treffer, auch `name@host`), Direkt-Chats mit Nachrichtenanfragen (Annehmen,
   Ablehnen, Sperren je Person bzw. Server, Sperrliste), Zustellstand („wird zugestellt“, „nicht zugestellt“ + „Erneut
   senden“), Systemzeilen, Sicherheitsnummer v2 mit TOFU (Warnung bei Schlüsselwechsel, Blockade nach „überprüft“),
   Anrufe aus angenommenen Chats (Klingeln in der App, Gespräch im Browser). Geprüft gegen
-  `tests/chat_v2_vectors.json` aus dem Server; Ende-zu-Ende gegen zwei verbundene Server: `tests/realfed.py`
+  `tests/chat_v2_vectors.json` aus dem Server; Ende-zu-Ende gegen zwei verbundene Server: `tests/realfed.py`.
+  Gruppen und Seiten-Chats mit Personen anderer Server (Einladung als Anfrage, Mitglieder per Handle, Systemzeilen mit
+  Herkunft, umgestellte Seiten-Chats lesen alte v1-Nachrichten weiter): `tests/realfed23b_chat.py` (drei Server)
 - Aufgaben, Termine (CalDAV), Dienste, Befehlspalette (Strg+K), Einstellungen
 - Bleibt angemeldet: Geräte-Schlüssel im GNOME-Schlüsselbund (libsecret), Sitzung wird still erneuert
 - GNOME-Suche (Seiten in der Aktivitäten-Übersicht), Dock-Aktionen „Neue Seite“ / „Neue Aufgabe“
