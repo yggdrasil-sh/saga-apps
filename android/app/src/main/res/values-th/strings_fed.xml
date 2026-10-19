@@ -38,4 +38,7 @@
     <string name="fed_groups_later">กลุ่มที่มีบุคคลจากเซิร์ฟเวอร์ Saga อื่นจะมาในการอัปเดตครั้งถัดไป</string>
     <string name="fed_requests_n">คำขอข้อความ (%1$d)</string>
     <string name="fed_other_instance_at">อินสแตนซ์ Saga อื่น · %1$s</string>
+    <string name="fed_directory_title">เซิร์ฟเวอร์ Saga ที่เชื่อมต่อ</string>
+    <string name="fed_directory_switch">แสดงในสมุดที่อยู่ของเซิร์ฟเวอร์ที่เชื่อมต่อ</string>
+    <string name="fed_directory_desc">ผู้คนบนเซิร์ฟเวอร์ Saga ที่เชื่อมต่อสามารถค้นหาคุณจากชื่อที่แสดงและเริ่มแชทได้ – ข้อความแรกจะมาเป็นคำขอ</string>
 </resources>

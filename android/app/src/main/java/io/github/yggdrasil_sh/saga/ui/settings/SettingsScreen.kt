@@ -123,6 +123,8 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             item { SecurityBlock(repo, w, reloadKey = signIns) }
             // Veroeffentlichen: oeffentlicher Name als eigener Block im Konto (nach Kopplung neu laden)
             item { PublicNameBlock(repo, w.padding(top = 8.dp), reloadKey = signIns) }
+            // 2.3: "In Adressbuechern verbundener Server erscheinen" (nur bei verbundenen Servern)
+            item { FederationDirectoryBlock(repo, w, reloadKey = signIns) }
 
             // Saga 2.0: Benachrichtigungen (Glocke) je Art, Mitteilungen (Push), Chats & Geraete
             if (notifKinds.isNotEmpty()) {

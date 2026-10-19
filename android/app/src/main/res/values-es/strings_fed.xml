@@ -38,4 +38,7 @@
     <string name="fed_groups_later">Los grupos con personas de otros servidores Saga llegarán en una actualización posterior.</string>
     <string name="fed_requests_n">Solicitudes de mensajes (%1$d)</string>
     <string name="fed_other_instance_at">Otra instancia de Saga · %1$s</string>
+    <string name="fed_directory_title">Servidores Saga conectados</string>
+    <string name="fed_directory_switch">Aparecer en las libretas de direcciones de los servidores conectados</string>
+    <string name="fed_directory_desc">Las personas de servidores Saga conectados pueden encontrarte por tu nombre visible e iniciar un chat; el primer mensaje llega como solicitud.</string>
 </resources>

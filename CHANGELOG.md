@@ -38,6 +38,8 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 - **Nachrichtenanfragen:** eigener Bereich oben in der Chat-Liste; in der Unterhaltung „Annehmen“, „Ablehnen“ und
   „Sperren …“ (Person oder ganzer Server) statt des Eingabefelds – bis zur Annahme keine Anrufe. Sperrliste mit
   „Entsperren“ über „Gesperrt“ in der Chat-Liste.
+- **Adressbuch-Schalter:** Einstellungen → Konto → „Verbundene Saga-Server“ mit „In Adressbüchern verbundener Server
+  erscheinen“ (wie Web und Linux; nur sichtbar, wenn der eigene Server mit anderen verbunden ist).
 - **Vertrauen (TOFU) je Person eines anderen Servers:** Hinweis bei geändertem Schlüssel mit „Verstanden“, Sperre
   nach „überprüft“ bis zum erneuten Vergleich, Sicherheitsnummer v2, „✓ überprüft“ in der Kopfzeile; Senden und
   Anrufen sind bei Warnung/Sperre blockiert. Live-Ereignisse `chat.keys.changed` und `chat.request` werden ausgewertet.
