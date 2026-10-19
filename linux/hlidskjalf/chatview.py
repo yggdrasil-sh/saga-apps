@@ -11,9 +11,9 @@ from . import chatcrypto as C
 from . import aichat, avatars, chatmedia, clipimg, config, images
 from .api import APIError, client
 from .blocks import flat_button, menu_popover
-from .chat import (NOTE_RX, RETENTIONS, ChatError, FedNotDelivered, SafetyChanged, chat, fmt_recovery, is_fed, keys_persistent,
-                   recovery_lines, remote_label, retention_label, fed_guide_url, fed_hint_show, fed_hint_texts, safety_for, safety_qr_text,
-                   sys_text, chat_home_hint, trust_accept, trust_get, trust_verified)
+from .chat import (FED_CHECK_EVERY_S, NOTE_RX, RETENTIONS, ChatError, FedNotDelivered, SafetyChanged, chat, fmt_recovery, is_fed,
+                   keys_persistent, recovery_lines, remote_label, retention_label, fed_guide_url, fed_hint_show, fed_hint_texts, safety_for,
+                   safety_qr_text, sys_text, chat_home_hint, trust_accept, trust_get, trust_verified)
 from .i18n import _, ngettext, pgettext, ui_language
 from .util import Debounce, bg, date_short, esc, human_size, rel_time, time_text, weekday_day_text
 
@@ -701,6 +701,8 @@ class Conversation(Gtk.Box):
         watch_chat(self, "changed", lambda: self._ai_changed(), obj=ai)
         self.connect("map", lambda *_: self._mapped())
         self.connect("map", self._vis_soon)
+        self._dcheck_src = 0                              # (2.3) Abgleich wartender eigener Nachrichten, solange offen
+        self.connect("unmap", lambda *_: self._dcheck_stop())
         self.loaded = False
         self.render()
         if not chat.cache.get(cid, {}).get("loaded"):
@@ -734,6 +736,19 @@ class Conversation(Gtk.Box):
 
     def _mapped(self):
         chat.open_chat = self.cid
+        if not self._dcheck_src:
+            self._dcheck_src = GLib.timeout_add_seconds(FED_CHECK_EVERY_S, self._dcheck_tick)
+
+    def _dcheck_tick(self):
+        """(2.3) alle 15 s: wartet eine eigene Nachricht ("wird zugestellt"), ihren Stand beim Server nachsehen (Server bis
+        2.3.0 melden die sofortige Bestaetigung des Heims nicht) - ohne wartende Nachricht geht keine Anfrage raus"""
+        chat.check_delivery(self.cid)
+        return True
+
+    def _dcheck_stop(self):
+        if self._dcheck_src:
+            GLib.source_remove(self._dcheck_src)
+            self._dcheck_src = 0
 
     def _wiped(self):
         """(2.1) Verlauf geleert bzw. Chat geloescht: Entwurf (Text, Antwort, Anhaenge) verwerfen, Ansicht neu"""

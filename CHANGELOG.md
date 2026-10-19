@@ -19,6 +19,12 @@ die App sie beim Nachladen und alle 15 Sekunden mit dem Server ab – nur bei si
 Nachrichten heilen so auch mit Servern 2.3.0 von selbst; „nicht zugestellt“ wird übernommen, eine vom Server verworfene
 Kopie verschwindet.
 
+**Linux – eigene Nachricht blieb auf „⏳ wird zugestellt“:** Derselbe Fehler, dieselbe Abhilfe wie unter Android: Eine
+Antwort beim Senden ohne „wartet“ gilt als zugestellt, auch für eine schon mit ⏳ geladene Kopie. Solange eigene
+Nachrichten warten und der Chat offen ist, gleicht die App sie beim Nachladen und alle 15 Sekunden mit dem Server ab –
+ohne wartende Nachricht geht keine zusätzliche Anfrage raus. Hängende Nachrichten heilen so auch mit Servern 2.3.0 von
+selbst; „nicht zugestellt“ wird übernommen, eine vom Server verworfene Kopie verschwindet.
+
 ### Behoben – Anrufe
 **iOS/iPadOS/macOS – Anrufe verkleinern, Mitteilungen während eines Anrufs:**
 - **Zurück in die App während eines Anrufs (iPhone/iPad):** Der Anrufbildschirm hat oben links „Zurück zur App“

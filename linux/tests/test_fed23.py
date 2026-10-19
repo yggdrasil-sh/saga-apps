@@ -321,3 +321,85 @@ def test_old_server_no_fed(win, srv):
     assert chat.cache[cid]["msgs"][0]["state"] == "ok" and not conv.state_box.get_visible() and conv.composer_box.get_visible()
     resp, _m = chat.send(cid, {"v": 1, "type": "text", "text": "v1"})
     assert resp["ok"] and json.loads(json.dumps(resp))
+
+
+# --- "⏳ wird zugestellt" bleibt nicht haengen (eigene Nachricht, Heim = anderer Server; Server bis 2.3.0 ohne Ereignis) -----
+def _fm(seq, mid, fstate, mine=True):
+    return {"seq": seq, "id": mid, "fstate": fstate, "mine": mine}
+
+
+def test_fed_delivery_logic():
+    from hlidskjalf.chat import fed_apply, fed_check_due, fed_gone, fed_oldest_pending, fed_state
+    # per POST bestaetigt: ueber das Live-Ereignis schon mit ⏳ geladene Kopie -> zugestellt
+    ms = [_fm(5, "a", "pending")]
+    assert fed_apply(ms, {}, {"a"}) and ms[0]["fstate"] is None
+    # Abgleich: Serverstand heilt haengende, "nicht zugestellt" wird uebernommen, fremde bleiben
+    ms = [_fm(3, "x", None, mine=False), _fm(5, "a", "pending"), _fm(6, "b", "pending")]
+    assert fed_apply(ms, {"x": None, "a": None, "b": "failed"}, set())
+    assert [m["fstate"] for m in ms] == [None, None, "failed"]
+    # nie zurueck auf "wird zugestellt" (aelterer Serverstand)
+    assert fed_state(None, "pending", True, False) is None
+    assert fed_state("pending", "pending", True, False) == "pending"
+    assert fed_state("pending", "pending", True, True) is None
+    assert fed_state("failed", None, False, True) == "failed"
+    ms = [_fm(5, "a", None)]
+    assert not fed_apply(ms, {"a": "pending"}, set()) and ms[0]["fstate"] is None
+    # Abgleich nur, solange eigene Nachrichten warten, gedrosselt (15 s)
+    w = [_fm(4, "o", "pending", mine=False), _fm(7, "a", "pending"), _fm(9, "b", "pending")]
+    assert fed_oldest_pending(w) == 7
+    assert fed_oldest_pending([_fm(7, "a", None), _fm(8, "c", "failed")]) is None
+    assert fed_check_due(w, 0, 100) and not fed_check_due(w, 95, 100)
+    assert not fed_check_due([_fm(7, "a", None)], 0, 100)
+    # vom Server entfernt: nur im abgeglichenen Bereich werten
+    g = [_fm(7, "a", "pending"), _fm(9, "b", "pending"), _fm(500, "c", "pending")]
+    assert fed_gone(g, {"z": None}, False, 8) == {"a", "b", "c"}
+    assert fed_gone(g, {"b": None}, True, 300) == {"a"}
+
+
+def test_pending_heals_without_event(win, srv):
+    import time
+    from hlidskjalf.chat import chat
+    _ready(srv)
+    h = mockfed.remote_person(srv, "Ella Moor", "e.example")
+    cid = mockfed.new_fed_chat(srv, h)
+    conv = _open(win, cid)
+    c = chat.cache[cid]
+    assert conv._dcheck_src                                   # Abgleich laeuft, solange der Chat offen ist
+    assert not chat.check_delivery(cid, force=True)           # nichts wartet -> keine Anfrage
+
+    def mine(t):
+        return next((m for m in c["msgs"] if m.get("text") == t), None)
+
+    def send(t):
+        conv.entry.get_buffer().set_text(t)
+        conv.send()
+        pump(lambda: mine(t) is not None and conv.entry.get_sensitive(), 5)
+        pump(None, 0.3)
+    # 1) Server speichert noch 'pending', POST antwortet ohne pending (sofort bestaetigt) -> gleich zugestellt
+    srv.fed["stale"] = True
+    send("eins")
+    assert srv.chats[cid]["msgs"][-1]["fstate"] == "pending"
+    pump(lambda: mine("eins")["fstate"] is None, 3)
+    assert mine("eins")["fstate"] is None and "⏳" not in _labels(conv.msgs)
+    srv.chats[cid]["msgs"][-1]["fstate"] = None
+    srv.fed["stale"] = False
+    # 2) haengende: Heim bestaetigt bzw. weist ab bzw. Server verwirft - alles ohne Live-Ereignis
+    srv.fed["offline"] = True
+    for t in ("zwei", "drei", "vier"):
+        send(t)
+    assert [mine(t)["fstate"] for t in ("zwei", "drei", "vier")] == ["pending"] * 3 and "⏳" in _labels(conv.msgs)
+    srv.fed["offline"] = False
+    sm = {m["id"]: m for m in srv.chats[cid]["msgs"]}
+    sm[mine("zwei")["id"]]["fstate"] = None
+    sm[mine("drei")["id"]]["fstate"] = "failed"
+    srv.chats[cid]["msgs"].remove(sm[mine("vier")["id"]])
+    pump(lambda: not c.get("dcheck_run"), 5)
+    c["dcheck"] = time.monotonic()
+    assert not chat.check_delivery(cid)                      # gedrosselt
+    c["dcheck"] = 0
+    assert conv._dcheck_tick()                                # Takt (alle 15 s) startet den Abgleich
+    pump(lambda: mine("vier") is None and mine("zwei")["fstate"] is None, 5)
+    assert mine("zwei")["fstate"] is None and mine("drei")["fstate"] == "failed" and mine("vier") is None
+    pump(lambda: any("not delivered" in (x or "") for x in _labels(conv.msgs)), 5)
+    assert "⏳" not in _labels(conv.msgs) and any("not delivered" in (x or "") for x in _labels(conv.msgs))
+    assert not chat.check_delivery(cid, force=True)           # nichts wartet mehr -> keine Anfrage

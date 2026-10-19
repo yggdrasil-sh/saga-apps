@@ -70,6 +70,56 @@ def is_fed(c):
     return isinstance(c, dict) and c.get("v") == 2
 
 
+# --- Zustellstand eigener Nachrichten (2.3) -------------------------------------------------------------------------------
+# Ist das Heim des Chats ein anderer Server, legt der eigene Server die Nachricht erst als 'pending' an und meldet sie sofort
+# (chat.message) - die App laedt sie mit ⏳. Bestaetigt das Heim gleich (synchron), melden Server bis 2.3.0 das nicht mehr als
+# Ereignis. Daher: (1) Antwort von POST ohne "pending" = zugestellt, auch fuer eine erst danach geladene Kopie; (2) Abgleich:
+# solange eigene Nachrichten warten und der Chat offen ist, ihren Stand beim Nachladen und alle 15 s beim Server nachsehen -
+# so heilen auch schon haengende Nachrichten von selbst (wie Android FedDelivery).
+FED_CHECK_EVERY_S = 15
+
+
+def fed_state(current, server, from_server, confirmed):
+    """Neuer Zustand einer geladenen Nachricht. server: Stand laut Server (nur wenn from_server); confirmed: per POST bestaetigt"""
+    s = (server if server in ("pending", "failed") else None) if from_server else current
+    if s == "pending" and current != "pending":             # nie zurueck auf "wird zugestellt" (aelterer Stand)
+        s = current
+    return None if s == "pending" and confirmed else s
+
+
+def fed_oldest_pending(msgs):
+    """Aelteste noch wartende eigene Nachricht (seq) - Abgleich ab dort; None = nichts wartet"""
+    seqs = [m.get("seq") or 0 for m in msgs or [] if m.get("mine") and m.get("fstate") == "pending"]
+    return min(seqs) if seqs else None
+
+
+def fed_check_due(msgs, last, now):
+    """Abgleich jetzt? (es wartet etwas und der letzte liegt lange genug zurueck)"""
+    return fed_oldest_pending(msgs) is not None and now - (last or 0) >= FED_CHECK_EVERY_S
+
+
+def fed_gone(msgs, server, more, max_seq):
+    """Wartende eigene Nachrichten, die der Server im abgeglichenen Bereich nicht mehr hat (z. B. vom Heim mit "Empfaenger
+    geaendert" abgewiesen und unter neuer Kennung gesendet) -> Kennungen zum Entfernen. Bereich: ab der aeltesten wartenden
+    bis zur letzten gelieferten (more) bzw. bis zum Ende."""
+    return {m["id"] for m in msgs or [] if m.get("mine") and m.get("fstate") == "pending" and m.get("id") not in server
+            and (not more or (m.get("seq") or 0) <= max_seq)}
+
+
+def fed_apply(msgs, server, confirmed):
+    """Stand bekannter Nachrichten aus einer Serverliste (id -> fstate) und per POST bestaetigten Kennungen uebernehmen
+    (aendert die Eintraege) -> True, wenn sich etwas geaendert hat"""
+    hit = False
+    for m in msgs or []:
+        if not m.get("fstate") and m.get("id") not in server:
+            continue
+        n = fed_state(m.get("fstate"), server.get(m.get("id")), m.get("id") in server, m.get("id") in confirmed)
+        if n != m.get("fstate"):
+            m["fstate"] = n
+            hit = True
+    return hit
+
+
 def remote_label(u):
     """Treffer der Adressbuch-Suche: fertiger Text "Name · host" (bei gleichen Namen mit Zusatz vom Server)"""
     u = u if isinstance(u, dict) else {}
@@ -389,6 +439,7 @@ class ChatState(GObject.Object):
         self._chats_at = 0.0       # letzte geladene Chat-Liste (monotonic)
         self.unread = 0
         self.cache = {}            # chat-id -> {"msgs": [...], "more", "last_seq", "loaded", "rc": recipients}
+        self.fed_confirmed = set()  # (2.3) eigene Nachrichten, die das Heim schon bei POST bestaetigt hat
         self.typing = {}           # chat-id -> {uid: (name, bis)}
         self.notes = {}            # Seiten-Titel fuer [[note:ID]]: id -> {title, icon} | None (kein Zugriff)
         self.open_chat = None      # gerade angezeigter Chat (Gelesen-Markierung, keine Zaehler-Erhoehung)
@@ -940,6 +991,7 @@ class ChatState(GObject.Object):
             q += f"&before={c['msgs'][0]['seq']}"
         elif c["loaded"] and c["msgs"]:
             q += f"&after={max(x['seq'] or 0 for x in c['msgs'])}"
+            self.check_delivery(cid)                      # (2.3) wartende eigene Nachrichten (gedrosselt) abgleichen
 
         ch0 = self.chat(cid)
 
@@ -982,6 +1034,8 @@ class ChatState(GObject.Object):
             c["loaded"] = True
             c["last_seq"] = max(int(j.get("last_seq") or 0), c.get("last_seq") or 0)
             c["last_read"] = j.get("last_read")
+            if any(m.get("fstate") == "pending" for m in new):
+                fed_apply(c["msgs"], {}, self.fed_confirmed)   # (2.3) per POST schon bestaetigt
             self._resolve_notes([n for m in new for n in m["notes"]] + [int(x) for m in new for x in NOTE_RX.findall(m["text"])])
             self.emit("messages", cid)
             if done:
@@ -993,6 +1047,45 @@ class ChatState(GObject.Object):
             if done:
                 done()
         bg(work, done=fin, error=err)
+
+    def check_delivery(self, cid, force=False):
+        """(2.3) Stand wartender eigener Nachrichten beim Server nachsehen (ab der aeltesten) - Server bis 2.3.0 melden die
+        sofortige Bestaetigung des Heims nicht als Ereignis; so heilen auch schon haengende "wird zugestellt" von selbst.
+        Nur wenn etwas wartet, hoechstens alle FED_CHECK_EVERY_S Sekunden (force: Drossel aus). -> True, wenn gestartet"""
+        c = self.cache.get(cid)
+        if not self.ready or not c or not c.get("loaded") or c.get("dcheck_run"):
+            return False
+        now = time.monotonic()
+        if not (fed_oldest_pending(c["msgs"]) is not None if force else fed_check_due(c["msgs"], c.get("dcheck"), now)):
+            return False
+        frm = fed_oldest_pending(c["msgs"])
+        c["dcheck"], c["dcheck_run"] = now, True
+
+        def fin(j):
+            c["dcheck_run"] = False
+            if self.cache.get(cid) is not c or not isinstance(j, dict):
+                return
+            got = [m for m in j.get("messages") or [] if isinstance(m, dict) and m.get("id")]
+            server = {m["id"]: m.get("fstate") for m in got}
+            # after=0 liefert die neuesten statt ab Anfang: dann nichts als verschwunden werten
+            gone = set() if frm <= 1 else fed_gone(c["msgs"], server, bool(j.get("more")), max([m.get("seq") or 0 for m in got] or [0]))
+            if gone:
+                c["msgs"] = [m for m in c["msgs"] if m["id"] not in gone]
+            if fed_apply(c["msgs"], server, self.fed_confirmed) or gone:
+                self.emit("messages", cid)
+
+        def err(_e):
+            c["dcheck_run"] = False
+        bg(client.get, f"api/chats/{cid}/messages?device={self.device_id}&after={frm - 1}&limit=200&calls=1", done=fin, error=err)
+        return True
+
+    def _post_confirmed(self, cid, mid):
+        """(2.3) vom Heim bei POST bestaetigt: eine schon (ueber das Live-Ereignis) mit ⏳ geladene Kopie gleich als zugestellt"""
+        self.fed_confirmed.add(mid)
+        c = self.cache.get(cid)
+        if c and fed_apply(c["msgs"], {}, self.fed_confirmed):
+            self.emit("messages", cid)
+        return False
 
     def _resolve_notes(self, ids):
         want = sorted({i for i in ids if i not in self.notes and i > 0})[:100]
@@ -1349,6 +1442,8 @@ class ChatState(GObject.Object):
                 raise ChatError(str(e), e.code, e.data) from e
             resp = resp if isinstance(resp, dict) else {}
             resp.setdefault("id", req["id"])
+            if not resp.get("pending"):                  # ohne pending = vom Heim bestaetigt (Server bis 2.3.0: kein Ereignis)
+                GLib.idle_add(self._post_confirmed, cid, req["id"])
             return resp, missing
         raise ChatError(_("The members or their devices have changed – please send again."))
 

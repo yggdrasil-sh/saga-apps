@@ -22,7 +22,9 @@ def enable(s):
     """Schein-Server kann Foederation 2.3; eigener Handle fuer das Testkonto"""
     s.server_version = "2.3.0"
     s.fed = {"me": _h(1) + "@" + HOST, "certs": {"handle_sig": None, "devices": {}, "dset": None}, "remote": {}, "blocks": [],
-             "offline": False, "reject": None, "seen_headers": []}
+             "offline": False, "reject": None, "seen_headers": [], "stale": False}
+    # stale: wie Server 2.3.0 im Moment des Live-Ereignisses - gespeichert als 'pending', POST antwortet trotzdem ohne pending
+    # (sofort bestaetigt); die spaetere Bestaetigung (fstate -> NULL) kommt ohne Ereignis (Test setzt sie selbst)
     if not getattr(mockv2, "_fed_wrapped", False):
         orig = mockv2._chat_dict
 
@@ -312,7 +314,7 @@ def _api(s, method, path, parts, q, b, raw):
                 return s._reply(409, {"error": s.fed["reject"]})
             f["request"] = False                                    # wer schreibt, nimmt an
             pend = s.fed["offline"]
-            sm = _store(s, cid, me, s.fed["me"], dict(b, sig=b["sig"]), b.get("kind") or "msg", "pending" if pend else None)
+            sm = _store(s, cid, me, s.fed["me"], dict(b, sig=b["sig"]), b.get("kind") or "msg", "pending" if pend or s.fed["stale"] else None)
             out = {"ok": True, "seq": sm["seq"], "fseq": sm["fseq"], "created": sm["created"]}
             if pend:
                 out["pending"] = True
