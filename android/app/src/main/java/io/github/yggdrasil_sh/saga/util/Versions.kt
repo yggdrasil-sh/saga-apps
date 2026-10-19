@@ -17,4 +17,7 @@ object Versions {
         }
         return false
     }
+
+    /** Version v (z. B. vom Server) mindestens min? Unbekannt (null/leer) -> false */
+    fun atLeast(v: String?, min: String): Boolean = !v.isNullOrBlank() && !isLess(v, min)
 }

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.3: pages on other servers (E4/E6), groups across servers (E5), version history, export -->
+<resources>
+    <string name="share_search_hint_min3">อย่างน้อย 3 อักขระ</string>
+    <string name="share_search_hint_scope_min3">เฉพาะบุคคลในกลุ่มของคุณ อย่างน้อย 3 อักขระ</string>
+    <string name="chat_people_hint_min3">ตั้งแต่ 3 อักขระ แตะบุคคล (แชทส่วนตัว) หรือกลุ่ม (แชทกลุ่ม)</string>
+    <string name="fed_page_hint_full">หน้านี้อยู่บน %1$s เจ้าของเป็นผู้จัดการการลบและการแชร์</string>
+    <string name="versions_title">ประวัติเวอร์ชัน</string>
+    <string name="versions_none">ยังไม่มีเวอร์ชันก่อนหน้า ระหว่างแก้ไข ระบบจะบันทึกสถานะไม่เกินทุก 10 นาที (สูงสุด 50 รายการต่อหน้า)</string>
+    <string name="versions_empty_text">(ว่าง)</string>
+    <string name="versions_by_me">โดยคุณ</string>
+    <string name="versions_by">โดย %1$s</string>
+    <string name="versions_restore">กู้คืนเวอร์ชันนี้</string>
+    <string name="versions_back">ย้อนกลับ</string>
+    <string name="versions_restored">กู้คืนเวอร์ชันแล้ว – สถานะก่อนหน้ายังอยู่ในประวัติ</string>
+    <string name="export_md">ส่งออกเป็น Markdown</string>
+    <string name="export_zip">ส่งออกพร้อมหน้าย่อย (.zip)</string>
+    <string name="export_done">ส่งออกแล้ว</string>
+    <string name="export_failed">ส่งออกไม่สำเร็จ: %1$s</string>
+    <string name="fed_sys_you_acc">คุณ</string>
+    <string name="fed_sys_fed">ตั้งแต่นี้มีผู้คนจากเซิร์ฟเวอร์ Saga อื่นด้วย (เข้ารหัสแบบต้นทางถึงปลายทาง)</string>
+    <string name="fed_sys_fed_ai_off">ตั้งแต่นี้มีผู้คนจากเซิร์ฟเวอร์ Saga อื่นด้วย (เข้ารหัสแบบต้นทางถึงปลายทาง) ตอนนี้ปิด AI ที่นี่แล้ว</string>
+    <string name="fed_sys_you_added">คุณเพิ่ม %1$s</string>
+    <string name="fed_sys_added_by">%1$s เพิ่ม %2$s</string>
+    <string name="fed_sys_joined">%1$s เข้าร่วมแล้ว</string>
+    <string name="fed_sys_disconnected">%1$s ไม่อยู่แล้ว – การเชื่อมต่อกับเซิร์ฟเวอร์ Saga นี้ถูกยกเลิก</string>
+    <string name="fed_sys_gone">%1$s ไม่อยู่แล้ว (ลบบัญชีแล้ว)</string>
+    <string name="fed_sys_you_left">คุณออกจากกลุ่มแล้ว</string>
+    <string name="fed_sys_left">%1$s ออกจากกลุ่มแล้ว</string>
+    <string name="fed_sys_you_removed">คุณนำ %1$s ออก</string>
+    <string name="fed_sys_removed_by">%1$s นำ %2$s ออก</string>
+    <string name="fed_sys_not_anymore">%1$s ไม่อยู่แล้ว</string>
+    <string name="fed_request_group">%1$s (%2$s) เชิญคุณเข้ากลุ่มนี้ คุณจะไม่ได้รับการแจ้งเตือนจนกว่าจะยอมรับ</string>
+    <string name="fed_person_sub_group">บุคคลบน %1$s · ได้รับกลุ่มเป็นคำขอ</string>
+    <string name="fed_members_home_self">แชทนี้อยู่บนเซิร์ฟเวอร์นี้ ผู้คนจากเซิร์ฟเวอร์ Saga อื่นเข้าร่วมผ่านเซิร์ฟเวอร์ของตน</string>
+    <string name="fed_members_home_other">แชทนี้อยู่บน %1$s การเปลี่ยนสมาชิกทำที่นั่น (ผ่านเซิร์ฟเวอร์นี้)</string>
+    <plurals name="fed_people_n">
+        <item quantity="other">%d คน</item>
+    </plurals>
+</resources>

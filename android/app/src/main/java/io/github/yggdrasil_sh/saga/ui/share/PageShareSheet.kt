@@ -97,7 +97,7 @@ fun PageShareSheet(
     var confirm by remember { mutableStateOf<ShareEntry?>(null) }
     LaunchedEffect(model) { if (model.state == null) model.load() }
     LaunchedEffect(model.query) {
-        if (ShareLogic.canSearch(model.query)) {
+        if (model.canSearch) {
             delay(300)
             model.search()
         }
@@ -125,7 +125,7 @@ fun PageShareSheet(
                     // Suchen + Rolle: zwei gleich hohe OutlinedTextFields; Fehler/Hinweis direkt am Suchfeld (G5),
                     // Erklaerung der Rolle als supportingText des Rollenfelds
                     val err = model.searchError
-                    val hint = ShareLogic.searchHint(st, model.query)
+                    val hint = model.searchHint(st)
                     OutlinedTextField(
                         value = model.query, onValueChange = model::editQuery, singleLine = true, enabled = st.shareable && !model.busy,
                         label = { Text(stringResource(R.string.share_search)) },
@@ -149,7 +149,7 @@ fun PageShareSheet(
                     val taken = ShareLogic.taken(st)
                     val roleName = stringResource(ShareLogic.roleName(model.newRole))
                     // Treffer
-                    model.hits?.takeIf { ShareLogic.canSearch(model.query) }?.let { h ->
+                    model.hits?.takeIf { model.canSearch }?.let { h ->
                         Surface(shape = RoundedCornerShape(12.dp), tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
                             Column {
                                 h.users.forEach { u ->

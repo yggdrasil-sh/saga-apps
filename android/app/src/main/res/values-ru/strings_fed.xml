@@ -35,7 +35,6 @@
     <string name="fed_unblock">Разблокировать</string>
     <string name="fed_chat_hint_v2">Людей с других подключённых серверов Saga можно найти по отображаемому имени или имя@сервер (не по адресу эл. почты).</string>
     <string name="fed_person_sub">Человек на %1$s · первое сообщение как запрос</string>
-    <string name="fed_groups_later">Группы с людьми с других серверов Saga появятся в одном из следующих обновлений.</string>
     <string name="fed_requests_n">Запросы на переписку (%1$d)</string>
     <string name="fed_other_instance_at">Другой экземпляр Saga · %1$s</string>
     <string name="fed_directory_title">Подключённые серверы Saga</string>

@@ -202,7 +202,8 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     val insertImages: (List<IncomingImage>, JsonPath?) -> Unit = { list, path ->
         when {
             list.isEmpty() || !ed.editable -> list.forEach { it.release() }
-            ed.isRemote -> {
+            // Seite eines anderen Servers: nur, wenn dessen Server Hochladen kann (2.3, Datei liegt dort)
+            !ed.can(io.github.yggdrasil_sh.saga.data.RemoteCaps.UPLOAD) -> {
                 list.forEach { it.release() }
                 repo.notify(UiText.Res(R.string.image_remote_page))
             }
@@ -218,7 +219,8 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                             continue
                         }
                         val (data, mime) = prepared
-                        // fremde Seite (Rolle Bearbeiten): die Datei gehoert dem Eigentuemer (wie Web/iOS)
+                        // fremde Seite (Rolle Bearbeiten): die Datei gehoert dem Eigentuemer (wie Web/iOS); Seite eines anderen
+                        // Servers (negative ID, 2.3): Datei liegt beim Server der Seite (X-Saga-Note negativ)
                         val url = repo.uploadImage(data, ImageData.nameFor("bild", mime), mime, if (ed.caps.foreign) ed.id else null)
                         at = ed.insertImage(at, url) ?: at
                     }
@@ -236,6 +238,15 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     val uploadingDesc = stringResource(R.string.image_uploading)
     var confirmTrash by remember { mutableStateOf(false) }
     var conflictDialog by remember { mutableStateOf(false) }
+    // Versionsverlauf/Export (2.3: auch Bearbeiter und Seiten anderer Server)
+    var showVersions by remember(id) { mutableStateOf(false) }
+    val serverVersion by repo.serverVersion.collectAsState()
+    val server23 = io.github.yggdrasil_sh.saga.util.Versions.atLeast(serverVersion, "2.3.0")
+    val ownPages by repo.pages.collectAsState()
+    val sharedLocal by repo.sharedPages.collectAsState()
+    val fedShared by repo.fedShared.collectAsState()
+    val allPages = remember(ownPages, sharedLocal, fedShared) { ownPages + sharedLocal + fedShared }
+    val export = rememberPageExport(repo, id) { ed.title }
     // Veroeffentlichen: Dialog (Bottom Sheet); aeltere Server ohne /publish -> Menuepunkt ausblenden
     var publishModel by remember(id) { mutableStateOf<PublishModel?>(null) }
     var publishHidden by remember(id) { mutableStateOf(false) }
@@ -350,8 +361,9 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                             repo.launchAction { ed.setLocked(!ed.locked) }
                         })
                     }
-                    // Seiten-Chat (1.5): alle mit Zugriff auf die Seite, Ende-zu-Ende-verschluesselt
-                    if (chatOn && ed.fetched && !ed.isRemote) {
+                    // Seiten-Chat (1.5): alle mit Zugriff auf die Seite, Ende-zu-Ende-verschluesselt; Seiten anderer Server (2.3),
+                    // wenn ihr Server Gruppen-Chats ueber Servergrenzen kann (Heim = Server der Seite)
+                    if (chatOn && ed.fetched && ed.can(io.github.yggdrasil_sh.saga.data.RemoteCaps.CHATGROUPS)) {
                         DropdownMenuItem(text = { Text(stringResource(R.string.chat_page_menu)) }, onClick = {
                             menu = false
                             repo.launchAction { nav.push(Dest.Chat(repo.chat.createPage(id).id)) }
@@ -367,6 +379,26 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                         menu = false
                         scope.launch { ed.save(); ed.load() }
                     })
+                    // Versionsverlauf (Bearbeiten ab Server 2.3) und Export - Seiten anderer Server je nach remote.caps
+                    if (ed.fetched && PageToolsLogic.canVersions(ed.share.role, ed.isRemote, ed.remoteCaps, server23, ed.isDatabase)) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.versions_title)) }, onClick = {
+                            menu = false
+                            ed.flush()
+                            showVersions = true
+                        })
+                    }
+                    if (ed.fetched && PageToolsLogic.canExport(ed.isRemote, ed.remoteCaps)) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.export_md)) }, onClick = {
+                            menu = false
+                            repo.launchAction { ed.saveAndWait(); export(false) }
+                        })
+                        if (PageToolsLogic.hasChildren(id, allPages)) {
+                            DropdownMenuItem(text = { Text(stringResource(R.string.export_zip)) }, onClick = {
+                                menu = false
+                                repo.launchAction { ed.saveAndWait(); export(true) }
+                            })
+                        }
+                    }
                     if (ed.fetched && ed.publishSupported && !ed.template && !publishHidden && caps.canPublish && !ed.isRemote) {
                         // Menue einheitlich ohne Symbole (der Zustand "Öffentlich" steht im Seitenkopf)
                         DropdownMenuItem(
@@ -504,9 +536,11 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
         val active = ed.active
         val clipHasImage = rememberClipboardHasImage()
         if (active != null && ed.editable) {
-            EditorToolbar(ed, active, onLink, onPasteImage = if (clipHasImage && !ed.isRemote) { { insertImages(clipboardImages(context), active.blockPath()) } } else null)
+            EditorToolbar(ed, active, onLink, onPasteImage = if (clipHasImage && ed.can(io.github.yggdrasil_sh.saga.data.RemoteCaps.UPLOAD)) { { insertImages(clipboardImages(context), active.blockPath()) } } else null)
         }
     }
+
+    if (showVersions) VersionsDialog(ed, repo) { showVersions = false }
 
     assistant?.let { t ->
         io.github.yggdrasil_sh.saga.ui.ai.AssistantSheet(
@@ -687,7 +721,15 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
         // Foederation (2.0): Seite liegt auf einer anderen Saga-Instanz
         ed.remoteHost?.takeIf { ed.fetched }?.let { host ->
             Text(
-                stringResource(if (ed.caps.canComment) R.string.fed_page_hint else R.string.fed_page_hint_read, host.ifEmpty { "?" }),
+                stringResource(
+                    when {
+                        !ed.caps.canComment -> R.string.fed_page_hint_read
+                        // 2.3: Server der Seite kann Datenbanken/Unterseiten usw. - nur Loeschen und Freigaben bleiben dort
+                        ed.can(io.github.yggdrasil_sh.saga.data.RemoteCaps.DB) -> R.string.fed_page_hint_full
+                        else -> R.string.fed_page_hint
+                    },
+                    host.ifEmpty { "?" },
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
             )

@@ -35,7 +35,6 @@
     <string name="fed_unblock">เลิกบล็อก</string>
     <string name="fed_chat_hint_v2">ค้นหาบุคคลบนเซิร์ฟเวอร์ Saga อื่นที่เชื่อมต่อได้ด้วยชื่อที่แสดงหรือ ชื่อ@เซิร์ฟเวอร์ (ไม่ใช่ที่อยู่อีเมล)</string>
     <string name="fed_person_sub">บุคคลบน %1$s · ข้อความแรกเป็นคำขอ</string>
-    <string name="fed_groups_later">กลุ่มที่มีบุคคลจากเซิร์ฟเวอร์ Saga อื่นจะมาในการอัปเดตครั้งถัดไป</string>
     <string name="fed_requests_n">คำขอข้อความ (%1$d)</string>
     <string name="fed_other_instance_at">อินสแตนซ์ Saga อื่น · %1$s</string>
     <string name="fed_directory_title">เซิร์ฟเวอร์ Saga ที่เชื่อมต่อ</string>

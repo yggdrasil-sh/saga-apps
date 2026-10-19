@@ -176,6 +176,17 @@ class FedChat(private val svc: ChatService) {
         svc.deviceId?.let { put("device", it) }
     })
 
+    /**
+     * 2.3 (E5): freie Gruppe mit Personen anderer Server (Handles aus der Adressbuch-Suche) und Konten hier - Heim ist
+     * dieser Server; bei den anderen erscheint die Gruppe als Nachrichtenanfrage.
+     */
+    suspend fun createGroup(members: List<String>, handles: List<String>): ChatSummary = svc.create(buildJsonObject {
+        put("kind", "free")
+        putJsonArray("members") { members.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } }
+        putJsonArray("handles") { handles.forEach { add(kotlinx.serialization.json.JsonPrimitive(it)) } }
+        svc.deviceId?.let { put("device", it) }
+    })
+
     companion object {
         /** Live-Ereignis chat.keys.changed -> (handle, own) */
         fun keysChanged(data: JsonObject?): Pair<String?, Boolean> {

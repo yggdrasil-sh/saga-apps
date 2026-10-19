@@ -22,6 +22,8 @@ interface ShareBackend {
     suspend fun shareTargets(query: String): ShareTargets
     /** Personen-Symbol im Seitenbaum nachziehen */
     fun shareChanged(id: Long, shared: Boolean) {}
+    /** Server ab 2.3: Personensuche ab 1 Zeichen (aeltere Server: ab 3) */
+    val shortSearch: Boolean get() = true
     fun friendly(e: Throwable): UiText
 }
 
@@ -34,6 +36,8 @@ object ShareLogic {
     val ROLES = listOf(Role.VIEW, Role.COMMENT, Role.EDIT)
     /** 2.3: Suche ab 1 Zeichen (Server liefert bei 1-2 Zeichen nur genaue Treffer, z. B. kurze Namen wie "hd") */
     const val MIN_QUERY = 1
+    /** Server vor 2.3: wie bisher ab 3 Zeichen (mit Hinweis "Mindestens 3 Zeichen.") */
+    const val MIN_QUERY_OLD = 3
     /** ab hier Teilwort-Suche (darunter Hinweis "nur genaue Namen") */
     const val PARTIAL_QUERY = 3
 
@@ -62,13 +66,18 @@ object ShareLogic {
         else -> R.string.share_help_edit
     }
 
-    fun canSearch(q: String): Boolean = q.trim().length >= MIN_QUERY
+    /** short = Server ab 2.3 (ab 1 Zeichen), sonst ab 3 */
+    fun canSearch(q: String, short: Boolean = true): Boolean = q.trim().length >= if (short) MIN_QUERY else MIN_QUERY_OLD
 
-    /** Hilfetext am Suchfeld - nur bei 1-2 eingegebenen Zeichen (G5), sonst keiner */
+    /**
+     * Hilfetext am Suchfeld - nur bei 1-2 eingegebenen Zeichen (G5), sonst keiner. Server ab 2.3: "nur genaue Namen";
+     * aeltere: wie bisher "Mindestens 3 Zeichen."
+     */
     @StringRes
-    fun searchHint(st: ShareState, query: String): Int? {
+    fun searchHint(st: ShareState, query: String, short: Boolean = true): Int? {
         val n = query.trim().length
         if (n == 0 || n >= PARTIAL_QUERY) return null
+        if (!short) return if (st.scope) R.string.share_search_hint_scope_min3 else R.string.share_search_hint_min3
         return if (st.scope) R.string.share_search_hint_scope else R.string.share_search_hint
     }
 
@@ -154,17 +163,23 @@ class ShareModel(val id: Long, private val backend: ShareBackend) {
         }
     }
 
+    /** Suchtext lang genug? (Server ab 2.3 ab 1 Zeichen, aeltere ab 3) */
+    val canSearch: Boolean get() = ShareLogic.canSearch(query, backend.shortSearch)
+
+    /** Hilfetext am Suchfeld (siehe ShareLogic.searchHint) */
+    fun searchHint(st: ShareState): Int? = ShareLogic.searchHint(st, query, backend.shortSearch)
+
     fun editQuery(q: String) {
         query = q.take(60)
         searchError = null
         status = null
-        if (!ShareLogic.canSearch(query)) hits = null
+        if (!canSearch) hits = null
     }
 
     /** Personen/Gruppen suchen (die Oberflaeche entprellt) */
     suspend fun search() {
         val q = query.trim()
-        if (!ShareLogic.canSearch(q)) {
+        if (!ShareLogic.canSearch(q, backend.shortSearch)) {
             hits = null
             return
         }

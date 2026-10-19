@@ -705,6 +705,11 @@ class SagaRepository(
      * ("Mit mir geteilt"). Faellt das gezielte Laden aus, ebenfalls der volle Abgleich.
      */
     private suspend fun pageAdded(id: Long, parent: Long?) {
+        // 2.3: Unterseite einer Seite eines anderen Servers (negative IDs) - nur "Mit mir geteilt" dieses Servers neu holen
+        if (parent != null && parent < 0) {
+            loadFedShared()
+            return
+        }
         val own = parent == null || ownIds?.contains(parent) == true
         if (own) {
             try {
@@ -887,6 +892,9 @@ class SagaRepository(
     private fun q(s: String): String = java.net.URLEncoder.encode(s, "UTF-8")
 
     override suspend fun shares(id: Long): ShareState = decode(api.get("api/notes/$id/shares"))
+
+    /** Server ab 2.3: Personensuche ab 1 Zeichen (Version unbekannt bzw. aelter: wie bisher ab 3) */
+    override val shortSearch: Boolean get() = io.github.yggdrasil_sh.saga.util.Versions.atLeast(serverVersion.value, "2.3.0")
 
     override suspend fun putShare(id: Long, type: String, target: String, role: String): ShareState =
         decode(api.request("PUT", "api/notes/$id/shares", buildJsonObject {

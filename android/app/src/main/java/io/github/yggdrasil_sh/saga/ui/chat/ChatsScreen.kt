@@ -339,9 +339,12 @@ private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, onClick: ()
                 }
             }
             // 2.3: Person eines anderen Servers - Anfrage/Direkt, Herkunft, schreibgeschuetzt
+            // Gruppe/Seiten-Chat ueber Servergrenzen (E5): Art, Mitgliederzahl, Heim (wenn anderer Server)
             val sub = if (c.isFed) {
                 (if (c.request) stringResource(R.string.fed_request_chip) else kindLabel) +
-                    (c.peer?.host ?: c.home)?.let { " · $it" }.orEmpty() +
+                    (if (c.kind == "dm") (c.peer?.host ?: c.home)?.let { " · $it" }.orEmpty()
+                    else " · " + androidx.compose.ui.res.pluralStringResource(R.plurals.fed_people_n, c.memberCount, c.memberCount) +
+                        (c.home?.takeIf { !c.homeSelf }?.let { " · $it" }.orEmpty())) +
                     (if (c.readonly) " · " + stringResource(R.string.fed_readonly_chip) else "")
             } else kindLabel
             Text(

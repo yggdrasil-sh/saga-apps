@@ -93,14 +93,16 @@ class PageLiveState {
 private fun byName(o: JsonObject?): String = ((o?.get("by") as? JsonObject)?.get("name") as? JsonPrimitive)?.contentOrNull.orEmpty()
 
 /**
- * Anwesenheit senden (alle ~20 s, nur im Vordergrund, nicht fuer Seiten anderer Instanzen) und Live-Ereignisse der Seite
+ * Anwesenheit senden (alle ~20 s, nur im Vordergrund; Seiten anderer Instanzen ab 2.3 mit Faehigkeit "presence") und Live-Ereignisse der Seite
  * verarbeiten (note.changed, presence, comments.changed). Beim Verlassen {leave:true}.
  */
 @Composable
 fun rememberPageLive(id: Long, repo: SagaRepository, ed: PageEditor, comments: CommentsModel, appScope: CoroutineScope): PageLiveState {
     val st = remember(ed) { PageLiveState() }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
-    val sendPresence = id > 0
+    // Seiten anderer Server (negative ID): ab 2.3, wenn ihr Server Anwesenheit kann - die Meldung abonniert dort zugleich
+    // die Live-Ereignisse der Seite (kurzlebig, ~90 s); sonst wie bisher beim Zurueckkehren neu laden
+    val sendPresence = id > 0 || (ed.fetched && ed.can(io.github.yggdrasil_sh.saga.data.RemoteCaps.PRESENCE))
 
     suspend fun reloadSilently(name: String) {
         if (ed.dirty) {

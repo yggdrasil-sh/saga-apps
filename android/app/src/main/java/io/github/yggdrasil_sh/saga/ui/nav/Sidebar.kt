@@ -308,8 +308,8 @@ private fun PageRowItem(
     val foreign = p.owner != null && !p.owner.me
     // fremde Seiten: keine Favoriten (die gehoeren dem Eigentuemer); Unterseite nur mit "Bearbeiten"
     val canFavorite = !foreign
-    // Seiten anderer Saga-Instanzen: keine Unterseiten (nur Titel und Inhalt aenderbar)
-    val canSub = !p.isDatabase && !p.isRemote && (!foreign || p.role == "edit")
+    // Seiten anderer Saga-Instanzen: Unterseiten nur, wenn ihr Server es kann (2.3, Rolle Bearbeiten), sonst nicht
+    val canSub = !p.isDatabase && p.can(io.github.yggdrasil_sh.saga.data.RemoteCaps.SUBPAGES) && (!(foreign || p.isRemote) || p.role == "edit")
     Box {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(RoundedCornerShape(24.dp))

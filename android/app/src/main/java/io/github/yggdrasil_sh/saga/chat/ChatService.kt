@@ -56,6 +56,9 @@ class ReauthNeeded(val kind: String, message: UiText, val methods: List<String> 
 /** Reine Hilfen fuer Anzeige und Pruefung (Tests) */
 object ChatLogic {
     /** Name eines Chats: dm = Gegenueber, group = Gruppe, page = Seitentitel, free = Titel aus der Titel-Nachricht oder Mitglieder */
+    /** Personensuche ab wie vielen Zeichen: Server ab 2.3 ab 1, aeltere (oder noch unbekannte Version) wie bisher ab 3 */
+    fun peopleMin(serverVersion: String?): Int = if (io.github.yggdrasil_sh.saga.util.Versions.atLeast(serverVersion, "2.3.0")) 1 else 3
+
     fun displayName(c: ChatSummary, freeTitle: String?): String = when {
         c.kind == "free" && !freeTitle.isNullOrBlank() -> freeTitle
         !c.name.isNullOrBlank() -> c.name
@@ -285,10 +288,20 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
     private suspend fun decryptTitles(list: List<ChatSummary>) {
         val k = keys() ?: return
         val out = HashMap(freeTitles.value)
+        // 2.3 (E5): Gruppenname in Gruppen ueber Servergrenzen als v2-Nachricht - Schluessel der Absender selbst pruefen (TOFU)
+        val v2 = list.filter { it.isFed && !it.titleMsg?.senderHandle.isNullOrEmpty() }
+        val fk = if (v2.isEmpty()) emptyMap() else try {
+            fed.keys(v2.mapNotNull { it.titleMsg?.senderHandle })
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            emptyMap()                                       // Name bleibt vorerst die Mitgliederliste
+        }
         withContext(Dispatchers.Default) {
             for (c in list) {
                 val m = c.titleMsg ?: continue
-                val dec = MessageOpener(this@ChatService, k).open(c.id, m, m.device?.let { mapOf(m.senderDevice to it) }.orEmpty(),
+                val dec = if (c.isFed && !m.senderHandle.isNullOrEmpty()) FedOpener(this@ChatService, k, fk).open(c.cryptoId, m)
+                else MessageOpener(this@ChatService, k).open(c.id, m, m.device?.let { mapOf(m.senderDevice to it) }.orEmpty(),
                     m.identPub?.let { ip -> mapOf((m.sender?.username ?: "") to ip) }.orEmpty())
                 dec.content?.title?.takeIf { it.isNotBlank() && dec.verified }?.let { out[c.id] = it }
             }
@@ -519,9 +532,12 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
 
     // ---------------------------------------------------------------- Chats anlegen, Personen, Seiten
 
-    /** 2.3: ab 1 Zeichen (Server liefert bei 1-2 Zeichen nur genaue Treffer; aeltere Server: erst ab 3 etwas) */
+    /** Suche ab so vielen Zeichen: Server ab 2.3 ab 1 (bei 1-2 Zeichen nur genaue Treffer), aeltere Server wie bisher ab 3 */
+    val peopleMin: Int get() = ChatLogic.peopleMin(repo.serverVersion.value)
+
+    /** 2.3: ab 1 Zeichen (Server liefert bei 1-2 Zeichen nur genaue Treffer); aeltere Server: erst ab 3 */
     suspend fun people(q: String): PeopleResult =
-        if (q.isBlank()) PeopleResult() else decode(repo.api.get("api/chat/people?q=" + java.net.URLEncoder.encode(q.trim(), "UTF-8")))
+        if (q.trim().length < peopleMin) PeopleResult() else decode(repo.api.get("api/chat/people?q=" + java.net.URLEncoder.encode(q.trim(), "UTF-8")))
 
     suspend fun create(body: JsonObject): ChatSummary {
         val c = decode<ChatWrap>(repo.api.post("api/chats", body)).chat

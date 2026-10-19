@@ -35,7 +35,6 @@
     <string name="fed_unblock">Desbloquear</string>
     <string name="fed_chat_hint_v2">Encuentra a personas de otros servidores Saga conectados por su nombre visible o nombre@servidor (no por la dirección de correo).</string>
     <string name="fed_person_sub">Persona en %1$s · el primer mensaje llega como solicitud</string>
-    <string name="fed_groups_later">Los grupos con personas de otros servidores Saga llegarán en una actualización posterior.</string>
     <string name="fed_requests_n">Solicitudes de mensajes (%1$d)</string>
     <string name="fed_other_instance_at">Otra instancia de Saga · %1$s</string>
     <string name="fed_directory_title">Servidores Saga conectados</string>
