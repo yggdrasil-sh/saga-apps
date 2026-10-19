@@ -91,14 +91,20 @@ class ShareModelTest {
     }
 
     @Test
-    fun searchStartsAtThreeCharacters() = runTest {
+    fun searchStartsAtOneCharacter() = runTest {
         val be = FakeShares()
         val m = ShareModel(1, be)
         m.load()
-        m.editQuery("sc")
+        m.editQuery("  ")
         m.search()
         assertTrue(be.queries.isEmpty())                                   // nie die ganze Liste
         assertNull(m.hits)
+        // 2.3: ab 1 Zeichen (Server: nur genaue Treffer) - ohne Treffer kein "Niemand gefunden"
+        m.editQuery("hd")
+        m.search()
+        assertEquals(listOf("hd"), be.queries)
+        assertNull(m.searchError)
+        be.queries.clear()
         m.editQuery("sc-b")
         m.search()
         assertEquals(listOf("sc-b"), be.queries)

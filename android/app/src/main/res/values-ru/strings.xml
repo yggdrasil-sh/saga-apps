@@ -360,8 +360,8 @@
     <string name="share_not_shareable">Архивными страницами и шаблонами нельзя поделиться.</string>
     <string name="share_search">Найти человека или группу</string>
     <string name="share_new_role">Роль для нового доступа</string>
-    <string name="share_search_hint">Не менее 3 символов.</string>
-    <string name="share_search_hint_scope">Только люди из твоих групп. Не менее 3 символов.</string>
+    <string name="share_search_hint">При 1–2 символах – только точные имена, с 3 символов – также части имён.</string>
+    <string name="share_search_hint_scope">Только люди из твоих групп. При 1–2 символах – только точные имена, с 3 символов – также части имён.</string>
     <string name="share_access">Доступ</string>
     <string name="share_subpages">Подстраницы и записи включаются.</string>
     <string name="share_copy_link">Копировать ссылку</string>

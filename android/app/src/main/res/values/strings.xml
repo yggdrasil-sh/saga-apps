@@ -381,8 +381,8 @@
     <string name="share_not_shareable">Archived pages and templates can’t be shared.</string>
     <string name="share_search">Search for a person or group</string>
     <string name="share_new_role">Role for new share</string>
-    <string name="share_search_hint">At least 3 characters.</string>
-    <string name="share_search_hint_scope">Only people from your groups. At least 3 characters.</string>
+    <string name="share_search_hint">With 1–2 characters only exact names – from 3 characters also parts of names.</string>
+    <string name="share_search_hint_scope">Only people from your groups. With 1–2 characters only exact names – from 3 characters also parts of names.</string>
     <string name="share_access">Access</string>
     <string name="share_subpages">Subpages and entries are included.</string>
     <string name="share_copy_link">Copy link</string>

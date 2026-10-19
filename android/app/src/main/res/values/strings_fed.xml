@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.3: chats and calls across servers (federation) -->
+<resources>
+    <string name="fed_keys_not_ready">Your keys for chats across servers aren\'t ready yet – please try again in a moment.</string>
+    <string name="fed_pending_sent">The other server can\'t be reached right now – the message will be delivered as soon as it\'s back.</string>
+    <string name="fed_msg_pending">being delivered</string>
+    <string name="fed_msg_failed">not delivered</string>
+    <string name="fed_resend">Send again</string>
+    <string name="fed_on_host">on %1$s</string>
+    <string name="fed_blocked_chip">blocked</string>
+    <string name="fed_request_chip">Request</string>
+    <string name="fed_readonly_chip">read-only</string>
+    <string name="fed_warn_changed">%1$s\'s safety number has changed – e.g. after \"Start over\" or with a new account. Check it before you write anything confidential.</string>
+    <string name="fed_warn_blocked">You had marked %1$s as verified – now the server reports a different key. Sending is blocked until you compare the safety number again.</string>
+    <string name="fed_warn_invalid">%1$s\'s keys are invalid (certificate or device list) – sending is blocked.</string>
+    <string name="fed_understood">Got it</string>
+    <string name="fed_readonly">This conversation is read-only.</string>
+    <string name="fed_request_text">%1$s (%2$s) wants to message you. Until you accept, you get no notifications and no calls – and %1$s won\'t know whether you\'ve read the messages.</string>
+    <string name="fed_accept">Accept</string>
+    <string name="fed_decline">Decline</string>
+    <string name="fed_block_menu">Block …</string>
+    <string name="fed_block_person">Block %1$s</string>
+    <string name="fed_block_instance">Block the whole server %1$s</string>
+    <string name="fed_accepted">Request accepted.</string>
+    <string name="fed_declined">Request declined.</string>
+    <string name="fed_blocked_done">Blocked – no more requests will come from there.</string>
+    <string name="fed_sys_you">You</string>
+    <string name="fed_sys_ai_on">%1$s turned on the AI in this chat.</string>
+    <string name="fed_sys_ai_off">%1$s turned off the AI in this chat.</string>
+    <string name="fed_sys_note">Notice</string>
+    <string name="fed_blocks_title">Blocked</string>
+    <string name="fed_blocks_empty">You haven\'t blocked anyone.</string>
+    <string name="fed_blocks_instance">Whole server %1$s</string>
+    <string name="fed_blocks_person">Person</string>
+    <string name="fed_unblock">Unblock</string>
+    <string name="fed_chat_hint_v2">Find people on other connected Saga servers by their display name or name@server (not by email address).</string>
+    <string name="fed_person_sub">Person on %1$s · first message as a request</string>
+    <string name="fed_groups_later">Groups with people from other Saga servers are coming in a later update.</string>
+    <string name="fed_requests_n">Message requests (%1$d)</string>
+    <string name="fed_other_instance_at">Other Saga instance · %1$s</string>
+</resources>

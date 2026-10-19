@@ -87,7 +87,8 @@ class ApiClient(
     private val headers = Interceptor { chain ->
         val req = chain.request()
         if (!isOwn(req.url)) return@Interceptor chain.proceed(req)
-        val b = req.newBuilder().header("X-Saga", "1").header("User-Agent", userAgent)
+        // X-Saga-Chat: 2 - die App versteht Chats ueber Servergrenzen (saga-chat/v2, Saga 2.3); aeltere Server ignorieren es
+        val b = req.newBuilder().header("X-Saga", "1").header("X-Saga-Chat", "2").header("User-Agent", userAgent)
         acceptLanguage(language())?.let { b.header("Accept-Language", it) }
         chain.proceed(b.build())
     }

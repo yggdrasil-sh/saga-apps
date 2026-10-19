@@ -32,7 +32,10 @@ object ShareLogic {
 
     /** waehlbare Rollen fuer Freigaben */
     val ROLES = listOf(Role.VIEW, Role.COMMENT, Role.EDIT)
-    const val MIN_QUERY = 3
+    /** 2.3: Suche ab 1 Zeichen (Server liefert bei 1-2 Zeichen nur genaue Treffer, z. B. kurze Namen wie "hd") */
+    const val MIN_QUERY = 1
+    /** ab hier Teilwort-Suche (darunter Hinweis "nur genaue Namen") */
+    const val PARTIAL_QUERY = 3
 
     /** Rollenname ("Lesen", "Kommentieren", "Bearbeiten", "Eigentümer") */
     @StringRes
@@ -65,7 +68,7 @@ object ShareLogic {
     @StringRes
     fun searchHint(st: ShareState, query: String): Int? {
         val n = query.trim().length
-        if (n == 0 || n >= MIN_QUERY) return null
+        if (n == 0 || n >= PARTIAL_QUERY) return null
         return if (st.scope) R.string.share_search_hint_scope else R.string.share_search_hint
     }
 
@@ -172,7 +175,8 @@ class ShareModel(val id: Long, private val backend: ShareBackend) {
             hits = r
             // Treffer auf anderen Instanzen zaehlen mit (sonst "Niemand gefunden" ueber dem Treffer, BUG-112)
             // name@server ohne Treffer: Grund vom Server (remote_hint) statt "Niemand gefunden" - aeltere Server: wie bisher
-            searchError = if (r.users.isEmpty() && r.groups.isEmpty() && r.remote.isEmpty()) ShareLogic.nobodyText(r) else null
+            // 1-2 Zeichen ohne Treffer: kein "Niemand gefunden" (der Hinweis "nur genaue Namen" steht schon am Feld)
+            searchError = if (r.users.isEmpty() && r.groups.isEmpty() && r.remote.isEmpty() && q.length >= ShareLogic.PARTIAL_QUERY) ShareLogic.nobodyText(r) else null
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

@@ -86,11 +86,12 @@ fun retentionLabel(sec: Long): String {
 
 /** Hinweis statt "Keine Treffer" bei name@server oder E-Mail (ChatFedHint): Chats ueber Servergrenzen gibt es noch nicht */
 @Composable
-fun FedChatHint() {
+fun FedChatHint(v2: Boolean = false) {
     val ctx = LocalContext.current
     val lang = LocalConfiguration.current.locales[0].language
     Column(Modifier.padding(vertical = 4.dp)) {
-        Text(stringResource(R.string.chat_fed_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // 2.3: Server kann Chats ueber Servergrenzen -> Personen ueber Anzeigename oder name@server (Adressbuch)
+        Text(stringResource(if (v2) R.string.fed_chat_hint_v2 else R.string.chat_fed_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(stringResource(R.string.chat_fed_hint_local), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp))
         TextButton(onClick = { openUrl(ctx, ChatFedHint.guideUrl(lang)) }) { Text(stringResource(R.string.chat_fed_guide)) }
@@ -104,6 +105,8 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
     var q by remember { mutableStateOf("") }
     var users by remember { mutableStateOf<List<ChatPerson>>(emptyList()) }
     var groups by remember { mutableStateOf<List<PeopleGroup>>(emptyList()) }
+    var remote by remember { mutableStateOf<List<io.github.yggdrasil_sh.saga.chat.FedPerson>>(emptyList()) }
+    val fedV2 by svc.fed.supported.collectAsState()
     var multi by remember { mutableStateOf(false) }
     var picked by remember { mutableStateOf<List<ChatPerson>>(emptyList()) }
     var fedFor by remember { mutableStateOf("") }        // Suche, fuer die der name@server-Hinweis gilt
@@ -113,7 +116,8 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
             val r = svc.people(q)
             users = r.users
             groups = r.groups
-            fedFor = if (ChatFedHint.show(q, r.users.size + r.groups.size)) q else ""
+            remote = r.remote
+            fedFor = if (ChatFedHint.show(q, r.users.size + r.groups.size + r.remote.size)) q else ""
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -133,7 +137,7 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                     Text(picked.joinToString(", ") { it.name }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                 }
                 LazyColumn(Modifier.heightIn(max = 320.dp)) {
-                    if (fedFor.isNotEmpty() && fedFor == q) item { FedChatHint() }
+                    if (fedFor.isNotEmpty() && fedFor == q) item { FedChatHint(fedV2 == true) }
                     items(users, key = { "u-" + it.username }) { u ->
                         val on = picked.any { it.username == u.username }
                         ListItem(
@@ -155,6 +159,13 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                                 leadingContent = { Avatar(g.name, size = 32, icon = R.drawable.ic_group) },
                                 modifier = Modifier.clickable { repo.launchAction { onOpen(svc.createGroup(g.name).id) } },
                             )
+                        }
+                    }
+                    // 2.3: Personen verbundener Server (Adressbuch) -> Direkt-Chat ueber Servergrenzen (erste Nachricht als Anfrage)
+                    items(remote, key = { "r-" + it.handle }) { u ->
+                        FedPersonItem(u, stringResource(R.string.fed_person_sub, u.host)) {
+                            if (multi) repo.notify(io.github.yggdrasil_sh.saga.util.UiText.Res(R.string.fed_groups_later))
+                            else repo.launchAction { onOpen(svc.fed.createDm(u.handle).id) }
                         }
                     }
                 }
@@ -251,8 +262,9 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
             LazyColumn(Modifier.heightIn(max = 420.dp)) {
                 items(sum?.members.orEmpty(), key = { it.username }) { m ->
                     ListItem(
-                        headlineContent = { Text(m.name.ifEmpty { m.username } + if (m.me) " (" + stringResource(R.string.chat_you) + ")" else "") },
-                        supportingContent = { Text(m.username) },
+                        headlineContent = { Text(m.name.ifEmpty { m.label ?: m.username } + if (m.me) " (" + stringResource(R.string.chat_you) + ")" else "") },
+                        // 2.3: Person eines anderen Servers - Herkunft zeigen, nie den Handle
+                        supportingContent = { Text(if (m.remote && !m.host.isNullOrEmpty()) stringResource(R.string.fed_on_host, m.host) else m.username) },
                         leadingContent = { Avatar(m.name, size = 32, avatar = m.avatar) },
                     )
                 }

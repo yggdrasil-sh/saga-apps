@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.3: แชทและการโทรข้ามเซิร์ฟเวอร์ (เฟเดอเรชัน) -->
+<resources>
+    <string name="fed_keys_not_ready">คีย์ของคุณสำหรับแชทข้ามเซิร์ฟเวอร์ยังไม่พร้อม โปรดลองอีกครั้งในอีกสักครู่</string>
+    <string name="fed_pending_sent">ขณะนี้ไม่สามารถติดต่อเซิร์ฟเวอร์อีกฝั่งได้ ข้อความจะถูกส่งทันทีที่เซิร์ฟเวอร์กลับมา</string>
+    <string name="fed_msg_pending">กำลังส่ง</string>
+    <string name="fed_msg_failed">ส่งไม่สำเร็จ</string>
+    <string name="fed_resend">ส่งอีกครั้ง</string>
+    <string name="fed_on_host">บน %1$s</string>
+    <string name="fed_blocked_chip">ถูกบล็อก</string>
+    <string name="fed_request_chip">คำขอ</string>
+    <string name="fed_readonly_chip">อ่านอย่างเดียว</string>
+    <string name="fed_warn_changed">หมายเลขความปลอดภัยของ %1$s เปลี่ยนไป เช่น หลัง \"เริ่มใหม่\" หรือใช้บัญชีใหม่ โปรดตรวจสอบก่อนเขียนเรื่องที่เป็นความลับ</string>
+    <string name="fed_warn_blocked">คุณเคยทำเครื่องหมายว่า %1$s ตรวจสอบแล้ว แต่ตอนนี้เซิร์ฟเวอร์แจ้งคีย์อื่น การส่งถูกบล็อกจนกว่าคุณจะเปรียบเทียบหมายเลขความปลอดภัยอีกครั้ง</string>
+    <string name="fed_warn_invalid">คีย์ของ %1$s ไม่ถูกต้อง (ใบรับรองหรือรายการอุปกรณ์) การส่งถูกบล็อก</string>
+    <string name="fed_understood">เข้าใจแล้ว</string>
+    <string name="fed_readonly">การสนทนานี้เป็นแบบอ่านอย่างเดียว</string>
+    <string name="fed_request_text">%1$s (%2$s) ต้องการส่งข้อความถึงคุณ จนกว่าคุณจะยอมรับ คุณจะไม่ได้รับการแจ้งเตือนหรือสายโทร และ %1$s จะไม่รู้ว่าคุณอ่านข้อความแล้วหรือไม่</string>
+    <string name="fed_accept">ยอมรับ</string>
+    <string name="fed_decline">ปฏิเสธ</string>
+    <string name="fed_block_menu">บล็อก …</string>
+    <string name="fed_block_person">บล็อก %1$s</string>
+    <string name="fed_block_instance">บล็อกทั้งเซิร์ฟเวอร์ %1$s</string>
+    <string name="fed_accepted">ยอมรับคำขอแล้ว</string>
+    <string name="fed_declined">ปฏิเสธคำขอแล้ว</string>
+    <string name="fed_blocked_done">บล็อกแล้ว จะไม่มีคำขอจากที่นั่นอีก</string>
+    <string name="fed_sys_you">คุณ</string>
+    <string name="fed_sys_ai_on">%1$s เปิด AI ในแชทนี้</string>
+    <string name="fed_sys_ai_off">%1$s ปิด AI ในแชทนี้</string>
+    <string name="fed_sys_note">หมายเหตุ</string>
+    <string name="fed_blocks_title">ที่บล็อกไว้</string>
+    <string name="fed_blocks_empty">คุณยังไม่ได้บล็อกใคร</string>
+    <string name="fed_blocks_instance">ทั้งเซิร์ฟเวอร์ %1$s</string>
+    <string name="fed_blocks_person">บุคคล</string>
+    <string name="fed_unblock">เลิกบล็อก</string>
+    <string name="fed_chat_hint_v2">ค้นหาบุคคลบนเซิร์ฟเวอร์ Saga อื่นที่เชื่อมต่อได้ด้วยชื่อที่แสดงหรือ ชื่อ@เซิร์ฟเวอร์ (ไม่ใช่ที่อยู่อีเมล)</string>
+    <string name="fed_person_sub">บุคคลบน %1$s · ข้อความแรกเป็นคำขอ</string>
+    <string name="fed_groups_later">กลุ่มที่มีบุคคลจากเซิร์ฟเวอร์ Saga อื่นจะมาในการอัปเดตครั้งถัดไป</string>
+    <string name="fed_requests_n">คำขอข้อความ (%1$d)</string>
+    <string name="fed_other_instance_at">อินสแตนซ์ Saga อื่น · %1$s</string>
+</resources>

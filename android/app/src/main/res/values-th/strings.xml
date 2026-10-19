@@ -351,8 +351,8 @@
     <string name="share_not_shareable">แชร์หน้าที่เก็บเข้าคลังและเทมเพลตไม่ได้</string>
     <string name="share_search">ค้นหาบุคคลหรือกลุ่ม</string>
     <string name="share_new_role">บทบาทสำหรับการแชร์ใหม่</string>
-    <string name="share_search_hint">อย่างน้อย 3 อักขระ</string>
-    <string name="share_search_hint_scope">เฉพาะบุคคลในกลุ่มของคุณ อย่างน้อย 3 อักขระ</string>
+    <string name="share_search_hint">1–2 อักขระ ค้นหาเฉพาะชื่อที่ตรงกันทุกตัว ตั้งแต่ 3 อักขระค้นหาบางส่วนของชื่อได้</string>
+    <string name="share_search_hint_scope">เฉพาะบุคคลในกลุ่มของคุณ 1–2 อักขระ ค้นหาเฉพาะชื่อที่ตรงกันทุกตัว ตั้งแต่ 3 อักขระค้นหาบางส่วนของชื่อได้</string>
     <string name="share_access">การเข้าถึง</string>
     <string name="share_subpages">รวมหน้าย่อยและรายการด้วย</string>
     <string name="share_copy_link">คัดลอกลิงก์</string>

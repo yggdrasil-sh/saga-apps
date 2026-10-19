@@ -144,6 +144,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     private class PeerDev(val enc: ByteArray, val sign: ByteArray)
 
     private inner class Call(var id: String?, val chatId: Long, val caller: Boolean, var media: String, var peer: CallPeer) {
+        /** 2.3: saga-call/v2 (Gegenueber auf einem anderen Server, gebunden an die Handles) */
+        var v2: Boolean = caller && !peer.handle.isNullOrEmpty()
+        var myHandle: String? = null
         var peerDevs: Map<String, PeerDev> = emptyMap()
         var peerDevice: String? = null
         var callerDevice: String? = null
@@ -211,6 +214,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     /** Aktive Geraete des Gegenuebers: Zertifikat gueltig, Identitaet wie gemerkt (TOFU - geaendert => nicht anrufen) */
     private suspend fun peerKeys(c: Call) {
+        if (c.v2) return peerKeysV2(c)
         val peer = c.peer.username
         val o = Json.parseToJsonElement(api.get("api/chat/keys?users=" + java.net.URLEncoder.encode(peer, "UTF-8"))) as? JsonObject
         val u = (o?.get("users") as? JsonObject)?.get(peer) as? JsonObject
@@ -236,9 +240,27 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         c.peerDevs = out
     }
 
+    /**
+     * 2.3: Gegenueber auf einem anderen Server - Schluessel ueber den eigenen Server, selbst geprueft (Zertifikate v2,
+     * signierte Geraete-Liste) + TOFU wie beim Senden; Warnung/Blockade -> nicht anrufen.
+     */
+    private suspend fun peerKeysV2(c: Call) {
+        val h = c.peer.handle ?: throw UiTextException(UiText.Res(R.string.call_peer_no_keys, c.peer.name))
+        val fed = repo.chat.fed
+        if (fed.myHandle == null) fed.certs()
+        c.myHandle = fed.myHandle ?: throw UiTextException(UiText.Res(R.string.fed_keys_not_ready))
+        val st = fed.keys(listOf(h), fresh = c.peerDevs.isNotEmpty())[h]
+        val k = st?.keys ?: throw UiTextException(UiText.Res(R.string.call_peer_no_keys, c.peer.name.ifEmpty { h }))
+        if (st.trust != io.github.yggdrasil_sh.saga.chat.TofuV2.TRUST) throw UiTextException(UiText.Res(R.string.call_safety_changed, c.peer.name.ifEmpty { h }))
+        val out = LinkedHashMap<String, PeerDev>()
+        for (d in k.active) out[d.id] = PeerDev(unb64(d.encPub, 32) ?: continue, unb64(d.signPub, 32) ?: continue)
+        c.peerDevs = out
+    }
+
     private fun seal(c: Call, toDev: String, body: String): String {
         val k = keys()
         val pd = c.peerDevs[toDev] ?: throw UiTextException(UiText.Res(R.string.call_devices_changed))
+        if (c.v2) return repo.chat.fed.crypto.sealSignal(c.id!!, c.myHandle!!, k.dev, c.peer.handle!!, toDev, pd.enc, body)
         return crypto.sealSignal(c.id!!, k.uid, k.dev, c.peer.username, toDev, pd.enc, body)
     }
 
@@ -261,8 +283,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val pd = c.peerDevs[s.fromDevice] ?: return null
         return withContext(Dispatchers.Default) {
             try {
-                val o = crypto.openSignal(s.sealed, k.dev.encPk, k.dev.encSk)
-                if (!crypto.verifySignal(c.id!!, c.peer.username, s.fromDevice, k.uid, k.dev.id, o.body, o.sig, pd.sign)) return@withContext null
+                val o = if (c.v2) repo.chat.fed.crypto.openSignal(s.sealed, k.dev.encPk, k.dev.encSk) else crypto.openSignal(s.sealed, k.dev.encPk, k.dev.encSk)
+                val ok = if (c.v2) repo.chat.fed.crypto.verifySignal(c.id!!, c.peer.handle.orEmpty(), s.fromDevice, c.myHandle.orEmpty(), k.dev.id, o.body, o.sig, pd.sign)
+                else crypto.verifySignal(c.id!!, c.peer.username, s.fromDevice, k.uid, k.dev.id, o.body, o.sig, pd.sign)
+                if (!ok) return@withContext null
                 val b = Json.parseToJsonElement(o.body) as? JsonObject ?: return@withContext null
                 JsonObject(b + ("_from" to JsonPrimitive(s.fromDevice)))
             } catch (_: Exception) {
@@ -802,6 +826,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 val st = json.decodeFromString(CallState.serializer(), api.get("api/calls/${r.id}?device=${k.dev.id}"))
                 val info = st.call
                 c.peer = info.peer
+                c.v2 = info.v == 2 && !info.peer.handle.isNullOrEmpty()      // 2.3: Anruf ueber Servergrenzen
                 c.media = info.media
                 c.callerDevice = info.callerDevice
                 if (info.role != "callee" || info.state != "ringing") {

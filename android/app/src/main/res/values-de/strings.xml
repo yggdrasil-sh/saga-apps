@@ -378,8 +378,8 @@
     <string name="share_not_shareable">Archivierte Seiten und Vorlagen lassen sich nicht teilen.</string>
     <string name="share_search">Person oder Gruppe suchen</string>
     <string name="share_new_role">Rolle für neue Freigabe</string>
-    <string name="share_search_hint">Mindestens 3 Zeichen.</string>
-    <string name="share_search_hint_scope">Nur Personen aus deinen Gruppen. Mindestens 3 Zeichen.</string>
+    <string name="share_search_hint">Bei 1–2 Zeichen nur genaue Namen – ab 3 Zeichen auch Teile von Namen.</string>
+    <string name="share_search_hint_scope">Nur Personen aus deinen Gruppen. Bei 1–2 Zeichen nur genaue Namen – ab 3 Zeichen auch Teile von Namen.</string>
     <string name="share_access">Zugriff</string>
     <string name="share_subpages">Unterseiten und Einträge kommen mit.</string>
     <string name="share_copy_link">Link kopieren</string>

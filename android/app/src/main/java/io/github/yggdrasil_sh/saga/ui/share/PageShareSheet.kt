@@ -164,7 +164,13 @@ fun PageShareSheet(
                                 }
                                 // Foederation: name@server auf verbundenen Saga-Instanzen
                                 h.remote.forEach { r ->
-                                    HitRow(r.type, r.name.ifEmpty { r.target }, ShareLogic.entrySub(r.type, r.target, null), taken[ShareLogic.key(r.type, r.target)], roleName) {
+                                    // 2.3 Adressbuch: "Name · host" mit Profilbild (aeltere Server: Name + "Andere Saga-Instanz")
+                                    HitRow(
+                                        r.type, r.label?.ifBlank { null } ?: r.name.ifEmpty { r.target },
+                                        if (!r.label.isNullOrBlank() && r.host.isNotEmpty()) UiText.Res(R.string.fed_other_instance_at, r.host)
+                                        else ShareLogic.entrySub(r.type, r.target, null),
+                                        taken[ShareLogic.key(r.type, r.target)], roleName, r.avatar,
+                                    ) {
                                         scope.launch { model.add(r.type, r.target, r.name.ifEmpty { r.target }) }
                                     }
                                 }

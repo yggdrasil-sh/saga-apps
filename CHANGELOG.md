@@ -28,6 +28,31 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   (`tests/realfed.py`, Gegenprobe mit der Server-Referenz). Der Hinweis bei `name@server` ohne Treffer sagt jetzt,
   dass Personen anderer Server über ihren Anzeigenamen gefunden werden (statt „gibt es noch nicht“).
 
+### Neu (Android) – Chats und Anrufe über Servergrenzen (Saga 2.3, Föderation)
+- **Direkt-Chats mit Personen verbundener Saga-Server:** „Neue Unterhaltung“ findet Personen anderer Server über
+  ihren Anzeigenamen (Adressbuch, Anzeige „Name · Server“ mit Profilbild) bzw. `name@server`; die erste Nachricht
+  kommt beim Gegenüber als Nachrichtenanfrage an. Verschlüsselung im neuen Format `saga-chat/v2` (gebunden an den
+  föderierten Handle und die globale Chat-Kennung, Anhänge und Vorschaubilder inklusive); die App prüft Zertifikate,
+  die signierte Geräte-Liste und die Signaturen selbst. Alle Testvektoren (`tests/vectors/chat_v2.json`) laufen als
+  Unit-Test (JVM) und auf dem Gerät. Die App meldet sich dafür mit `X-Saga-Chat: 2`.
+- **Nachrichtenanfragen:** eigener Bereich oben in der Chat-Liste; in der Unterhaltung „Annehmen“, „Ablehnen“ und
+  „Sperren …“ (Person oder ganzer Server) statt des Eingabefelds – bis zur Annahme keine Anrufe. Sperrliste mit
+  „Entsperren“ über „Gesperrt“ in der Chat-Liste.
+- **Vertrauen (TOFU) je Person eines anderen Servers:** Hinweis bei geändertem Schlüssel mit „Verstanden“, Sperre
+  nach „überprüft“ bis zum erneuten Vergleich, Sicherheitsnummer v2, „✓ überprüft“ in der Kopfzeile; Senden und
+  Anrufen sind bei Warnung/Sperre blockiert. Live-Ereignisse `chat.keys.changed` und `chat.request` werden ausgewertet.
+- **Zustellstand:** „wird zugestellt“, solange der andere Server nicht erreichbar ist, „nicht zugestellt“ mit
+  „Erneut senden“; Systemzeilen (z. B. KI ein-/ausgeschaltet); schreibgeschützte Chats zeigen den Grund.
+- **Anrufe aus angenommenen Chats über Servergrenzen** (`saga-call/v2`, Handles statt Benutzernamen).
+- **Suche ab 1 Zeichen** in Chat und Teilen-Dialog (1–2 Zeichen: nur genaue Namen, z. B. kurze Namen wie „hd“);
+  Treffer anderer Server im Teilen-Dialog mit „Name · Server“ und Profilbild.
+- Lokale Chats (`saga-chat/v1`), lokale Anrufe und Server 2.1/2.2 bleiben unverändert nutzbar.
+
+### Behoben (Android)
+- **Absturz, wenn ein Anruf gleich nach dem Annehmen scheiterte** (z. B. ungültiges Angebot): Der Anruf-Dienst wurde
+  beendet, bevor er in den Vordergrund kam – Android 14+ beendete dann die App
+  (`ForegroundServiceDidNotStartInTimeException`). Jetzt beendet sich der Dienst in diesem Fall selbst.
+
 ### Geändert (alle Apps)
 - **Testversionen als Release Candidate erkennbar:** Alles, was nicht das offizielle Release ist (Vorabversion von
   `testing`, Ad-hoc-Builds fürs MDM, lokale Builds), zeigt in Einstellungen/„Über“ jetzt `2.2.0-rc.N` statt nur
