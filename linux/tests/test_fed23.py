@@ -268,6 +268,7 @@ def test_sys_row_decline_block_and_blocklist(win, srv):
     pump(lambda: any(g.get_title() == "Blocked (other Saga servers)" and g.get_visible() for g in page.groups), 5)
     g = next(x for x in page.groups if x.get_title() == "Blocked (other Saga servers)")
     assert "f.example" in _all_labels(g)
+    pump(lambda: any(x.get_title() == "Connected Saga servers" and x.get_visible() for x in page.groups), 5)   # eigene Anfrage
     assert any(x.get_title() == "Connected Saga servers" and x.get_visible() for x in page.groups)
     _buttons(g)["Unblock"].emit("clicked")
     pump(lambda: not srv.fed["blocks"], 5)

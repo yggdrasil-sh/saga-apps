@@ -1641,8 +1641,10 @@ class MainWindow(Adw.ApplicationWindow):
         if store.is_foreign(pid):                              # mit mir geteilt: nur, was die Rolle darf
             from .sharing import allowed
             ents = []
-            if allowed(p, "subpage") and not is_db(p):
+            if allowed(p, "subpage") and not is_db(p):         # Seiten anderer Server (2.3): nur mit 'subpages'
                 ents.append((_("New subpage"), lambda: store.new_page(pid, done=lambda n: self.show_page(n))))
+            if allowed(p, "move"):                             # Bearbeiter (2.3): innerhalb des geteilten Bereichs
+                ents.append((_("Move to …"), lambda: self.move_dialog(pid)))
             ents.append((_("Copy link"), lambda: self.copy_text(store.page_url(pid))))
             menu_popover(widget, ents).popup()
             return

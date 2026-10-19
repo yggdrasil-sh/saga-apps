@@ -29,9 +29,16 @@ GAP = 8                         # Abstand Feld -> Hinweis/Chips im Teilen-Dialog
 # Aktionen, die nur der Eigentuemer hat (Seitenmenue, Seitenleiste, Befehlspalette)
 OWNER_ONLY = frozenset({"move", "trash", "archive", "publish", "share", "versions", "template", "favorite", "lock",
                         "duplicate", "home"})
-# Seiten anderer Saga-Instanzen (Foederation, negative IDs): nur Titel/Inhalt bearbeiten und kommentieren
-REMOTE_OFF = frozenset({"move", "trash", "archive", "publish", "share", "versions", "template", "favorite", "lock",
-                        "duplicate", "home", "wide", "subpage", "upload", "export", "icon", "cover", "presence", "ai", "chat"})
+# Seiten anderer Saga-Instanzen (Foederation, negative IDs): nie ueber Servergrenzen - Rest je nach remote.caps (2.3)
+REMOTE_NEVER = frozenset({"trash", "archive", "publish", "share", "template", "favorite", "lock", "duplicate", "home", "ai"})
+# Aktion -> Faehigkeit des Servers der Seite (remote.caps, docs/APP-API-FED.md Abschnitt 8). Fehlt sie (Server 2.1/2.2),
+# bleibt es bei Lesen, Kommentieren und Titel/Inhalt bearbeiten.
+CAP_OF = {"move": "subpages", "subpage": "subpages", "upload": "upload", "versions": "versions", "export": "export",
+          "wide": "db", "icon": "db", "cover": "db", "tags": "db", "props": "db", "db": "db", "presence": "presence",
+          "chat": "chatgroups"}
+# frueherer Name (alles aus CAP_OF und REMOTE_NEVER): ohne Faehigkeiten nie
+REMOTE_OFF = REMOTE_NEVER | frozenset(CAP_OF)
+PAGE_CAPS = ("db", "subpages", "upload", "versions", "export", "presence", "live", "chatgroups")
 
 
 def is_remote(page):
@@ -44,6 +51,32 @@ def is_remote(page):
     except (TypeError, ValueError):
         pass
     return isinstance(page.get("remote"), dict)
+
+
+def remote_caps(page):
+    """Was der Server einer fremden Seite kann (remote.caps, 2.3) als Menge; eigene Seiten: None"""
+    if not is_remote(page):
+        return None
+    r = page.get("remote")
+    caps = r.get("caps") if isinstance(r, dict) else None
+    return frozenset(x for x in caps if isinstance(x, str)) if isinstance(caps, list) else frozenset()
+
+
+def remote_can(page, cap):
+    """Kann der Server der Seite das? Eigene Seiten (und Seiten dieses Servers): immer"""
+    caps = remote_caps(page)
+    return caps is None or cap in caps
+
+
+def editor_extras(page):
+    """Versionen und Verschieben (im geteilten Bereich) auch fuer 'Bearbeiten': Server ab 2.3 (lokal) bzw. Seiten anderer
+    Server, deren Server es kann"""
+    if is_remote(page):
+        return True                                       # entscheidet CAP_OF (versions, subpages)
+    from . import version_tuple
+    from .store import store
+    v = store.server_version
+    return bool(v) and version_tuple(v) >= (2, 3, 0)
 
 
 def remote_host(page):
@@ -84,17 +117,54 @@ def read_only(page):
 def allowed(page, action):
     """Darf die Rolle diese Aktion? Nur-Eigentuemer: Loeschen, Verschieben, Archiv, Veroeffentlichen, Teilen, Versionen,
     Vorlage, Favorit, Sperren, Duplizieren, Startseite. 'wide' (volle Breite) und 'subpage' ab Bearbeiten, Rest alle.
-    Seiten anderer Saga-Instanzen: nie die Aktionen aus REMOTE_OFF."""
-    if action in REMOTE_OFF and is_remote(page):
+    Server ab 2.3: Versionen und Verschieben (im geteilten Bereich) auch mit Bearbeiten.
+    Seiten anderer Saga-Instanzen: nie REMOTE_NEVER, sonst nur, was ihr Server kann (CAP_OF/remote.caps)."""
+    rem = is_remote(page)
+    if rem and (action in REMOTE_NEVER or (action in CAP_OF and not remote_can(page, CAP_OF[action]))):
         return False
     r = role_of(page)
     if r == "owner":
         return True
+    if action in ("versions", "move") and editor_extras(page):
+        return RANK[r] >= RANK["edit"]
     if action in OWNER_ONLY:
         return False
+    if rem and action in ("icon", "cover", "tags", "props"):
+        return RANK[r] >= RANK["edit"]
     if action in ("wide", "subpage", "upload"):
         return RANK[r] >= RANK["edit"]
     return True
+
+
+def shared_move_targets(page, shared):
+    """Verschieben fuer Bearbeiter (Server ab 2.3, auch Seiten anderer Server): Ziele im selben geteilten Baum - gleicher
+    Eigentuemer, gleicher Server, Rolle Bearbeiten, keine Datenbanken, nicht unter sich selbst, nicht die jetzige
+    Elternseite. Ob die Freigaben gleich sind, prueft der Server (sonst 403 mit Hinweis)."""
+    if not isinstance(page, dict) or page.get("id") is None:
+        return []
+    pid = page["id"]
+    owner = (page.get("owner") or {}).get("username") if isinstance(page.get("owner"), dict) else None
+    host, rem = remote_host(page) or None, is_remote(page)
+    kids = {}
+    for p in shared:
+        kids.setdefault(p.get("parent_id"), []).append(p["id"])
+    blocked, stack = {pid}, [pid]
+    while stack:
+        for k in kids.get(stack.pop(), ()):
+            if k not in blocked:
+                blocked.add(k)
+                stack.append(k)
+    dbs = {p["id"] for p in shared if p.get("kind") == "database"}
+    out = []
+    for p in shared:
+        if p["id"] in blocked or p["id"] == page.get("parent_id") or p["id"] in dbs or p.get("parent_id") in dbs or p.get("role") != "edit":
+            continue                                       # auch keine Eintraege von Datenbanken
+        if (p.get("owner") or {}).get("username") != owner or is_remote(p) != rem or (remote_host(p) or None) != host:
+            continue
+        if rem and not remote_can(p, "subpages"):
+            continue
+        out.append(p)
+    return out
 
 
 def role_name(r):
@@ -239,6 +309,8 @@ def remote_info(page):
     """Hinweis unter dem Titel einer Seite einer anderen Instanz - verspricht nur, was die Rolle erlaubt"""
     host = remote_host(page) or "?"
     r = role_of(page)
+    if remote_can(page, "db") and RANK.get(r, 0) >= RANK["edit"]:      # Server ab 2.3: fast alles wie lokal
+        return _("This page is on {host}. Deleting and sharing are managed by the owner.").format(host=host)
     if RANK.get(r, 0) >= RANK["edit"]:
         return _("This page is on {host}. Here you can read and comment on it and – with edit access – change the "
                  "title and content.").format(host=host)

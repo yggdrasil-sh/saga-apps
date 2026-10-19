@@ -221,7 +221,8 @@ def watch_live(widget, cb):
 # --- Anwesenheit ------------------------------------------------------------------------------------------
 class Presence:
     """Eine offene Seite: alle ~20 s POST /api/presence {note_id, editing}; editing in den ersten 30 s nach einer Eingabe
-    (nur mit Bearbeiten). Beim Verlassen {leave:true}. on_users(liste), on_rev(rev, by) bei fremder Aenderung."""
+    (nur mit Bearbeiten). Beim Verlassen {leave:true}. Seiten anderer Server (2.3, negative ID): derselbe Aufruf meldet
+    zugleich ein kurzlebiges Abo beim Server der Seite an (Live-Ereignisse kommen dann ueber den eigenen Kanal). on_users(liste), on_rev(rev, by) bei fremder Aenderung."""
     INTERVAL = 20
     EDIT_WINDOW = 30
 
@@ -234,7 +235,7 @@ class Presence:
         self.users = []
 
     def start(self):
-        if self.nid is None or self.nid < 0:                       # Seiten anderer Saga-Instanzen: keine Anwesenheit
+        if self.nid is None:                     # Seiten anderer Server (negativ, 2.3): nur mit 'presence' (PageView.rcan)
             return
         self.beat()
         self.src = GLib.timeout_add_seconds(self.INTERVAL, self._tick)
@@ -282,7 +283,7 @@ class Presence:
         if self.src:
             GLib.source_remove(self.src)
             self.src = 0
-        if not self.off and self.nid is not None and self.nid > 0 and self.users:
+        if not self.off and self.nid is not None and self.users:
             bg(client.json, "POST", "api/presence", {"note_id": self.nid, "leave": True}, error=lambda e: None)
 
     def live_update(self, users):

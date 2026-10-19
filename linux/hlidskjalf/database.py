@@ -552,7 +552,7 @@ def prop_editor(p, v, setv, model=None, compact=False):
         if ids:
             fb = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, row_spacing=3, column_spacing=3, max_children_per_line=8)
             for i in ids:
-                fb.append(chip("↗ " + label(store.by_id.get(i)), None))
+                fb.append(chip("↗ " + label(store.meta(i)), None))       # auch geteilte Seiten und andere Server (2.3)
             mb.set_child(fb)
         else:
             mb.set_child(_leer())
@@ -670,6 +670,8 @@ def _relation_popover(parent, p, ids, setv):
 class RowMenuMixin:
     def row_entries(self, r):
         rows = self.rows
+        if (self.m.db_id or 0) < 0:                        # Datenbank eines anderen Servers (2.3): nicht duplizieren/loeschen
+            return [(_("Open"), lambda: self.open(r, rows)), (_("Copy link"), lambda: self.win.copy_text(store.page_url(r["id"])))]
         return [(_("Open"), lambda: self.open(r, rows)),
                 (_("Duplicate"), lambda: store.duplicate(r["id"], done=lambda n: self.m.load())),
                 (_("Copy link"), lambda: self.win.copy_text(store.page_url(r["id"]))), None,

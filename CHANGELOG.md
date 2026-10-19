@@ -28,6 +28,28 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   (`tests/realfed.py`, Gegenprobe mit der Server-Referenz). Der Hinweis bei `name@server` ohne Treffer sagt jetzt,
   dass Personen anderer Server über ihren Anzeigenamen gefunden werden (statt „gibt es noch nicht“).
 
+### Neu (Linux) – Seiten und Gruppen über Servergrenzen (Saga 2.3, Föderation E4–E6)
+- **Seiten anderer Server vollständig:** Die App wertet `remote.caps` aus und zeigt auf fremden Seiten genau das, was
+  der Server der Seite kann – Datenbanken öffnen und bearbeiten (Zeilen, Werte, Relationen, Spalten, neue Einträge),
+  Unterseiten anlegen und innerhalb des geteilten Bereichs verschieben, Bilder und Dateien hochladen (die Datei liegt
+  beim Eigentümer), Symbol, Titelbild, Schlagwörter und volle Breite, Versionen ansehen und wiederherstellen (ab
+  „Bearbeiten“), Export als Markdown bzw. ZIP, Anwesenheit und Live-Aktualisierung (Abo beim Server der Seite) und der
+  Seiten-Chat. Löschen, Teilen, Veröffentlichen, Duplizieren, Immich und KI bleiben wie bisher beim Eigentümer bzw. dem
+  eigenen Server. Gegenstellen 2.1/2.2 (ohne `caps`) bleiben unverändert bei Lesen, Kommentieren und Titel/Inhalt.
+- **Bearbeiten auf Servern ab 2.3:** Versionsverlauf und „Verschieben nach …“ (nur im geteilten Bereich mit denselben
+  Freigaben, nie auf die oberste Ebene) auch mit der Rolle „Bearbeiten“.
+- **Gruppen mit Personen anderer Server:** „Gruppe mit mehreren Personen“ nimmt Treffer anderer Server auf (Heim ist
+  der eigene Server), Admins fügen Personen per Handle hinzu und entfernen sie; der Gruppenname kommt als
+  verschlüsselte v2-Nachricht und wird mit den selbst geprüften Schlüsseln der absendenden Person entschlüsselt.
+  Einladungen erscheinen als Nachrichtenanfrage („… hat dich in diese Gruppe eingeladen“), Systemzeilen zeigen
+  Mitgliederwechsel mit Herkunft (hinzugefügt, entfernt, verlassen, Verbindung getrennt, Konto gelöscht) und „ab jetzt
+  mit Personen anderer Saga-Server“. Kopfzeile, Chat-Liste und Mitglieder zeigen, auf welchem Server der Chat liegt.
+  Umgestellte Seiten-Chats lesen ältere Nachrichten (ohne `sender_handle`) weiter mit v1; Schlüssel von Personen
+  dritter Server (über das Heim) werden wie immer selbst geprüft. Der Hinweis „Gruppen mit Personen anderer
+  Saga-Server kommen mit einem späteren Update“ entfällt.
+- Geprüft mit `tests/test_fed23b.py` (nachgebauter Server) und Ende-zu-Ende gegen drei verbundene Server
+  (`tests/realfed23b.py` Seiten/Datenbanken, `tests/realfed23b_chat.py` Gruppen und Seiten-Chats).
+
 ### Neu (Android) – Chats und Anrufe über Servergrenzen (Saga 2.3, Föderation)
 - **Direkt-Chats mit Personen verbundener Saga-Server:** „Neue Unterhaltung“ findet Personen anderer Server über
   ihren Anzeigenamen (Adressbuch, Anzeige „Name · Server“ mit Profilbild) bzw. `name@server`; die erste Nachricht

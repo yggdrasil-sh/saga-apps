@@ -13,7 +13,7 @@ from .api import APIError, client
 from .blocks import flat_button, menu_popover
 from .chat import (NOTE_RX, RETENTIONS, ChatError, FedNotDelivered, SafetyChanged, chat, fmt_recovery, is_fed, keys_persistent,
                    recovery_lines, remote_label, retention_label, fed_guide_url, fed_hint_show, fed_hint_texts, safety_for, safety_qr_text,
-                   trust_accept, trust_get, trust_verified)
+                   sys_text, chat_home_hint, trust_accept, trust_get, trust_verified)
 from .i18n import _, ngettext, pgettext, ui_language
 from .util import Debounce, bg, date_short, esc, human_size, rel_time, time_text, weekday_day_text
 
@@ -368,7 +368,11 @@ class ChatsScreen(Gtk.Box):
         if c.get("kind") == "dm":
             return chat.title(c), _("End-to-end encrypted") + arch
         n = int(c.get("member_count") or len(c.get("members") or []))
-        return chat.title(c), chat.kind_label(c) + " · " + ngettext("{n} person", "{n} people", n).format(n=n) + arch
+        sub = chat.kind_label(c) + " · " + ngettext("{n} person", "{n} people", n).format(n=n)
+        if is_fed(c):                                    # 2.3: Gruppe/Seiten-Chat ueber Servergrenzen - Heim, Stand
+            sub += ("" if c.get("home_self") else " · " + _("on {host}").format(host=c.get("home") or "?")) + \
+                (" · " + _("Request") if c.get("request") else "") + (" · " + _("read-only") if c.get("readonly") else "")
+        return chat.title(c), sub + arch
 
     def has_menu(self):
         return self.conv is not None and chat.chat(self.cid) is not None
@@ -526,9 +530,12 @@ class ChatList(Gtk.Box):
             t.add_css_class("heading")
         col.append(t)
         n = int(c.get("member_count") or 0)
-        if is_fed(c):                                    # 2.3: Anfrage bzw. Direkt-Chat · Server der Person
+        if is_fed(c) and c.get("kind") == "dm":          # 2.3: Anfrage bzw. Direkt-Chat · Server der Person
             sub = (_("Request") if c.get("request") else chat.kind_label(c)) + " · " + ((chat.peer(c) or {}).get("host") or c.get("home") or "?") \
                 + (" · " + _("read-only") if c.get("readonly") else "")
+        elif is_fed(c):                                  # Gruppe/Seiten-Chat ueber Servergrenzen: Art · Personen · Heim
+            sub = (_("Request") if c.get("request") else chat.kind_label(c)) + " · " + ngettext("{n} person", "{n} people", n).format(n=n) \
+                + ("" if c.get("home_self") else " · " + (c.get("home") or "?")) + (" · " + _("read-only") if c.get("readonly") else "")
         else:
             sub = chat.kind_label(c) + ("" if c.get("kind") == "dm" else " · " + ngettext("{n} person", "{n} people", n).format(n=n))
         s = Gtk.Label(label=sub, xalign=0, ellipsize=Pango.EllipsizeMode.END)
@@ -969,8 +976,10 @@ class Conversation(Gtk.Box):
         fed = is_fed(c)
         req = fed and bool(c.get("request"))
         ro = fed and bool(c.get("readonly")) and not req
-        p = chat.peer(c) or {}
-        sig = (req, ro, c.get("readonly_reason"), p.get("name"), p.get("host"))
+        dm = c.get("kind") == "dm"
+        p = (chat.peer(c) if dm else c.get("invited_by")) or {}      # Gruppe (2.3): wer eingeladen hat
+        p = p if isinstance(p, dict) else {}
+        sig = (req, ro, c.get("readonly_reason"), p.get("name"), p.get("host"), dm)
         self.composer_box.set_visible(not (req or ro))
         if sig == self._state_sig:
             return
@@ -983,9 +992,13 @@ class Conversation(Gtk.Box):
             return
         if not req:
             return
-        name, host = p.get("name") or "?", p.get("host") or "?"
-        self.state_box.append(_lbl(_("{name} ({host}) wants to write to you. Until you accept, you get no notifications and no calls – "
-                                     "and {name} doesn't learn whether you've read the messages.").format(name=name, host=host)))
+        name, host = p.get("name") or "?", p.get("host") or (c.get("home") if not dm else None) or "?"
+        if dm:
+            self.state_box.append(_lbl(_("{name} ({host}) wants to write to you. Until you accept, you get no notifications and no calls – "
+                                         "and {name} doesn't learn whether you've read the messages.").format(name=name, host=host)))
+        else:
+            self.state_box.append(_lbl(_("{name} ({host}) invited you to this group. Until you accept, you get no notifications.").format(
+                name=name, host=host)))
         bar = Gtk.Box(spacing=6)                           # ohne "pill": passt auch schmal (360 px) nebeneinander
         bar.append(_button(_("Accept"), ("suggested-action",), lambda: self._answer("accept")))
         bar.append(_button(_("Decline"), (), lambda: self._answer("decline")))
@@ -1183,15 +1196,11 @@ class Conversation(Gtk.Box):
         return box
 
     def _sys_row(self, m):
-        """Systemzeile (2.3): mittig, z. B. "Anna hat die KI in diesem Chat eingeschaltet." """
+        """Systemzeile (2.3): mittig, z. B. "Anna hat die KI in diesem Chat eingeschaltet." oder "Bert (b.example) hat
+        Dora (c.example) hinzugefuegt." """
         k = m.get("sys") or {}
         c = chat.chat(self.cid) or {}
-        mine = k.get("by") and k.get("by") == c.get("my_handle")
-        who = _("You") if mine else str(k.get("name") or "?")
-        if k.get("type") == "ai":
-            text = (_("{name} turned on the AI in this chat.") if k.get("on") else _("{name} turned off the AI in this chat.")).format(name=who)
-        else:
-            text = _("Notice")
+        text = sys_text(k, c.get("my_handle"))          # KI an/aus, Mitglieder (mit Herkunft), jetzt ueber Servergrenzen
         box = Gtk.Box(spacing=8, halign=Gtk.Align.CENTER, margin_top=6, margin_bottom=6)
         box.add_css_class("hk-call-entry")
         box.add_css_class("hk-sys-entry")
@@ -2158,7 +2167,11 @@ def leave_group(win, cid):
             chat.chats = [c for c in chat.chats if c.get("id") != cid]
             chat.emit("changed")
             win.show_root(("chats",))
-        bg(client.request, "DELETE", f"api/chats/{cid}/members/{GLib.Uri.escape_string(chat.uid, None, True)}", done=fin,
+        c = chat.chat(cid) or {}
+        me = next((m.get("username") for m in c.get("members") or [] if isinstance(m, dict) and m.get("username") and
+                   (m.get("me") or (m.get("handle") and m.get("handle") == c.get("my_handle")))), None) if is_fed(c) else None
+        who = me or chat.uid                            # 2.3: members[].username von mir (Gruppe ueber Servergrenzen)
+        bg(client.request, "DELETE", f"api/chats/{cid}/members/{GLib.Uri.escape_string(who, None, True)}", done=fin,
            error=lambda e: _toast(win, str(e)))
     confirm(win, _("Leave group?"), _("You won't receive new messages any more."), _("Leave"), go)
 
@@ -2199,6 +2212,8 @@ class ChatInfoDialog(Adw.Dialog):
         kind = c.get("kind")
         desc = {"group": _("All members of the group “{g}” – changes with the group.").format(g=c.get("group") or ""),
                 "page": _("Everyone who can see the page – changes with its shares.")}.get(kind, "")
+        home = chat_home_hint(c)                          # 2.3: wo der Chat liegt (Heim)
+        desc = (desc + "\n" + home).strip() if home else desc
         self.group = Adw.PreferencesGroup(title=GLib.markup_escape_text(chat.title(c)), description=GLib.markup_escape_text(desc))
         admin = c.get("role") == "admin" and kind == "free"
         me = chat.uid
@@ -2206,7 +2221,7 @@ class ChatInfoDialog(Adw.Dialog):
         for m in c.get("members") or []:
             u = m.get("username")
             if fed:                                       # 2.3: Herkunft, Vertrauen v2, Sicherheitsnummer v2
-                self.group.add(self._fed_row(c, m))
+                self.group.add(self._fed_row(c, m, admin))
                 continue
             r = self.rc.get(u) or {}
             sub = []
@@ -2250,6 +2265,7 @@ class ChatInfoDialog(Adw.Dialog):
                 if en.get_text().strip() != q:
                     return
                 have = {m.get("username") for m in c.get("members") or []}
+                have_h = {m.get("handle") for m in c.get("members") or [] if m.get("handle")}
                 if fed_hint_show(q, len((j or {}).get("users") or [])):
                     h = fed_hint()
                     self.add_group.add(h)
@@ -2264,16 +2280,20 @@ class ChatInfoDialog(Adw.Dialog):
                     r.connect("activated", lambda *_, u=p["username"]: self._add(u))
                     self.add_group.add(r)
                     self.hits.append(r)
-                for p in [x for x in (j or {}).get("remote") or [] if isinstance(x, dict)][:5]:      # 2.3: Adressbuch anderer Server
+                rem = [x for x in (j or {}).get("remote") or [] if isinstance(x, dict) and x.get("handle") and x["handle"] not in have_h]
+                for p in rem[:5]:                          # 2.3: Adressbuch anderer Server - per Handle (ueber das Heim)
                     r = Adw.ActionRow(title=GLib.markup_escape_text(remote_label(p)),
-                                      subtitle=_("Groups with people on other Saga servers come with a later update."), sensitive=False)
+                                      subtitle=GLib.markup_escape_text(_("Person on {host}").format(host=p.get("host") or "?")), activatable=True)
                     r.add_prefix(avatars.person(p, 32, text=p.get("name") or "?"))
+                    r.add_suffix(Gtk.Image.new_from_icon_name("list-add-symbolic"))
+                    r.add_css_class("hk-remote-hit")
+                    r.connect("activated", lambda *_, h=p["handle"]: self._add(None, handle=h))
                     self.add_group.add(r)
                     self.hits.append(r)
             en.connect("changed", lambda *_: search_soon())
             self.page.add(self.add_group)
 
-    def _fed_row(self, c, m):
+    def _fed_row(self, c, m, admin=False):
         h = m.get("handle")
         mine = m.get("me") or (h and h == c.get("my_handle"))
         sub = [_("you")] if mine else []
@@ -2290,19 +2310,37 @@ class ChatInfoDialog(Adw.Dialog):
         row.add_prefix(avatars.person(m, 32, text=m.get("name") or "?"))
         if not mine and h and f.get("keys"):
             row.add_suffix(_button(_("Safety number"), ("flat",), lambda m=m: open_safety_v2(self.win, self.cid, m), valign=Gtk.Align.CENTER))
+        if admin and not mine and m.get("username"):     # Gruppe ueber Servergrenzen (2.3): Admins entfernen (ueber das Heim)
+            rm = Gtk.Button(icon_name="user-trash-symbolic", tooltip_text=_("Remove"), valign=Gtk.Align.CENTER)
+            rm.add_css_class("flat")
+            rm.connect("clicked", lambda *_, u=m["username"]: self._remove(u))
+            row.add_suffix(rm)
         return row
 
-    def _add(self, u):
+    def _add(self, u, handle=None):
+        """Person hinzufuegen: Konto hier ({user}) bzw. Person eines anderen Servers ({handle}, 2.3, laeuft ueber das Heim).
+        Gruppe ueber Servergrenzen: danach den Namen neu senden (die neue Person kann den alten nicht lesen)."""
         def fin(j):
             ch = (j or {}).get("chat")
             if isinstance(ch, dict):
                 chat._merge(ch)
-            bg(chat.recipients, self.cid, True, done=self._rc, error=lambda e: None)
-        bg(client.json, "POST", f"api/chats/{self.cid}/members", {"user": u}, done=fin, error=lambda e: self.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(e)))))
+            if is_fed(chat.chat(self.cid) or ch):
+                chat.load_chat(self.cid, done=lambda ch2: (self.fill(), bg(chat.fed_load, ch2 or chat.chat(self.cid), done=lambda _r: self.fill(),
+                                                                          error=lambda e: None), self._resend_title()))
+            else:
+                bg(chat.recipients, self.cid, True, done=self._rc, error=lambda e: None)
+        body = {"handle": handle} if handle else {"user": u}
+        bg(client.json, "POST", f"api/chats/{self.cid}/members", body, done=fin, error=lambda e: self.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(e)))))
+
+    def _resend_title(self):
+        c = chat.chat(self.cid) or {}
+        t = c.get("_title")
+        if c.get("kind") == "free" and t:
+            bg(chat.send, self.cid, {"v": 1, "type": "title", "title": t}, None, "title", done=lambda _r: None, error=lambda e: None)
 
     def _remove(self, u):
         def fin(_r):
-            chat.load_chat(self.cid, done=lambda ch: self.fill())
+            chat.load_chat(self.cid, done=lambda ch: self.fill())     # Gruppe ueber Servergrenzen: neue Liste vom Heim
         bg(client.request, "DELETE", f"api/chats/{self.cid}/members/{GLib.Uri.escape_string(u, None, True)}", done=fin,
            error=lambda e: self.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(e)))))
 
@@ -2314,7 +2352,8 @@ class NewChatDialog(Adw.Dialog):
         super().__init__(title=_("New conversation"), content_width=460, content_height=560)
         self.win = win
         self.multi = False
-        self.picked = {}                 # username -> name (freie Gruppe)
+        self.picked = {}                 # username bzw. Handle (andere Server, 2.3) -> name (freie Gruppe)
+        self.picked_remote = set()       # davon Handles (Personen anderer Server)
         tv = Adw.ToolbarView()
         hb = Adw.HeaderBar()
         tv.add_top_bar(hb)
@@ -2369,7 +2408,7 @@ class NewChatDialog(Adw.Dialog):
             chip.add_css_class("hk-tag")
             chip.append(_lbl(n, wrap=False))
             chip.append(flat_button(icon="window-close-symbolic", css="hk-tiny", tooltip=_("Remove"),
-                                    cb=lambda u=u: (self.picked.pop(u, None), self._update())))
+                                    cb=lambda u=u: (self.picked.pop(u, None), self.picked_remote.discard(u), self._update())))
             self.chips.append(chip)
         self.create.set_sensitive(bool(self.picked))
 
@@ -2430,8 +2469,11 @@ class NewChatDialog(Adw.Dialog):
         self._open({"kind": "dm", "user": u["username"]})
 
     def _pick_remote(self, u):
-        if self.multi:
-            self.add_toast(Adw.Toast(title=_("Groups with people on other Saga servers come with a later update.")))
+        if self.multi:                                     # 2.3: Gruppe mit Personen anderer Server (Heim = dieser Server)
+            self.picked[u["handle"]] = remote_label(u)
+            self.picked_remote.add(u["handle"])
+            self.search.set_text("")
+            self._update()
             return
         self._open({"kind": "dm", "handle": u["handle"]})
 
@@ -2452,7 +2494,9 @@ class NewChatDialog(Adw.Dialog):
                 cid = ch["id"]
                 bg(chat.send, cid, {"v": 1, "type": "title", "title": name}, None, "title", done=lambda _r: chat.load_chat(cid),
                    error=lambda e: _toast(self.win, _("Not sent: {err}").format(err=e)))
-        self._open({"kind": "free", "members": sorted(self.picked)}, then=titled)
+        loc = sorted(u for u in self.picked if u not in self.picked_remote)
+        rem = sorted(self.picked_remote)
+        self._open(dict({"kind": "free", "members": loc}, **({"handles": rem} if rem else {})), then=titled)
 
 
 def open_page_chat(win, nid):

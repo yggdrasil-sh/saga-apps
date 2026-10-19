@@ -654,9 +654,11 @@ def handle(s, method, path, parts, q, b, raw):
         if b.get("leave"):
             return s._reply(200, {"ok": True})
         nid = b.get("note_id")
-        n = s.notes.get(nid) or s.foreign.get(nid)
+        n = s.notes.get(nid) or s.foreign.get(nid) or s.fed.get(nid)
         if n is None:
             return s._reply(404, {"error": "not found"})
+        if nid in s.fed and "presence" not in ((n.get("remote") or {}).get("caps") or []):   # aeltere Gegenstelle (2.3-Vertrag)
+            return s._reply(200, {"users": [{"username": me, "name": s.names.get(me), "me": True}], "live": False})
         users = [dict(u, me=False) for u in s.presence_users] + [{"username": me, "name": s.names.get(me), "editing": bool(b.get("editing")),
                                                                   "me": True}]
         return s._reply(200, {"users": users, "rev": s.presence_rev.get(nid, n.get("rev")), "updated": n.get("updated"), "by": None,
@@ -725,12 +727,13 @@ def handle(s, method, path, parts, q, b, raw):
         if not rest and method == "GET":
             return s._reply(200, {k: v for k, v in n.items() if not k.startswith("_")})
         if not rest and method == "PATCH":
-            bad = [k for k in b if k not in ("title", "body", "format", "rev", "overwrite")]
+            more = ("props", "schema", "icon", "cover", "cover_pos", "tags", "wide") if "db" in ((n.get("remote") or {}).get("caps") or []) else ()
+            bad = [k for k in b if k not in ("title", "body", "format", "rev", "overwrite") + more]
             if bad:
                 return s._reply(403, {"error": "Bei Seiten anderer Saga-Instanzen lassen sich nur Titel und Inhalt ändern."})
             if b.get("rev") is not None and b["rev"] != n["rev"]:
                 return s._reply(409, {"error": "conflict", "rev": n["rev"], "by": "Anna Eigner (anna@b.example)"})
-            for k in ("title", "body"):
+            for k in ("title", "body") + more:
                 if k in b:
                     n[k] = b[k]
             n["rev"] += 1
@@ -753,8 +756,8 @@ def _push_state(s):
             "kinds": {"chat": ["chat.message"]}, "devices": s.push_subs, "limit": 20}
 
 
-def add_fed(s, nid, title, host="b.example", owner="Anna Eigner", role="edit", blocks=None, parent_id=None):
-    """Seite einer anderen Saga-Instanz (negative ID)"""
+def add_fed(s, nid, title, host="b.example", owner="Anna Eigner", role="edit", blocks=None, parent_id=None, caps=None, kind=None):
+    """Seite einer anderen Saga-Instanz (negative ID); caps: remote.caps (Server 2.3, Abschnitt 8) - None = aeltere Gegenstelle"""
     handle_ = f"anna@{host}"
     n = {"id": nid, "title": title, "icon": "🌍", "format": "blocks", "rev": 3, "parent_id": parent_id, "kind": None, "role": role,
          "updated": time.time() - 600, "created": time.time() - 86400,
@@ -763,6 +766,10 @@ def add_fed(s, nid, title, host="b.example", owner="Anna Eigner", role="edit", b
          "updated_by": {"name": f"{owner} ({handle_})", "username": "@" + handle_, "me": False, "remote": True, "handle": handle_},
          "remote": {"peer": 1, "host": host, "name": host}, "comment_counts": {}, "comments_open": 0, "comments_unread": 0,
          "shared": True}
+    if caps is not None:
+        n["remote"]["caps"] = list(caps)
+    if kind:
+        n["kind"] = kind
     s.fed[nid] = n
     return n
 

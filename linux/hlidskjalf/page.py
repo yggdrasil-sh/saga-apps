@@ -53,7 +53,7 @@ class CoverView(Gtk.Overlay):
         self.add_css_class("hk-reveal-zone")
         self.add_overlay(self.bar)
         self._normal_bar()
-        ro = view.editor.locked or view.remote      # gesperrt, nur lesen, andere Saga-Instanz: Titelbild nicht aendern
+        ro = view.editor.locked or not view.rcan("db")   # gesperrt, nur lesen, anderer Server ohne 'db' (2.3): nicht aendern
         self.bar.set_visible(not ro)
         dr = Gtk.GestureDrag()
         dr.connect("drag-begin", lambda g, x, y: setattr(self, "_start", self.pos))
@@ -87,7 +87,8 @@ class CoverView(Gtk.Overlay):
         ch = Gtk.MenuButton(label=_("Change"))
         ch.add_css_class("flat")
         ch.set_create_popup_func(lambda mb: mb.set_popover(menu_popover(None, [
-            (_("File …"), lambda: self.view.pick_cover()), (_("From Immich …"), lambda: self.view.pick_cover_immich())])))
+            (_("File …"), lambda: self.view.pick_cover())] + ([] if self.view.remote else [      # anderer Server: kein Immich
+            (_("From Immich …"), lambda: self.view.pick_cover_immich())]))))
         self.bar.append(ch)
         self.bar.append(flat_button(label=_("Reposition"), cb=self._start_repos))
         hb = Gtk.MenuButton(label=_("Height"))
@@ -148,8 +149,10 @@ class IconPicker(Adw.Dialog):
         em.connect("emoji-picked", lambda c, e: self._set(e))
         ch.set_popover(em)
         row.append(ch)
-        row.append(flat_button(icon="image-x-generic-symbolic", label=_("Image"), cb=self._image))
-        row.append(flat_button(icon="camera-photo-symbolic", label="Immich", cb=self._immich))
+        if view.rcan("upload"):                     # anderer Server (2.3): Bild nur, wenn er Hochladen kann
+            row.append(flat_button(icon="image-x-generic-symbolic", label=_("Image"), cb=self._image))
+        if not view.remote:                         # Immich gehoert dem eigenen Konto
+            row.append(flat_button(icon="camera-photo-symbolic", label="Immich", cb=self._immich))
         box.append(row)
         from .emoji import ICON_EMOJI
         fb = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=8, min_children_per_line=8, homogeneous=True)
@@ -433,7 +436,7 @@ class PageView(Gtk.Box):
             lk.add_css_class("dim-label")
             lk.add_css_class("hk-small")
             ind.append(lk)
-        if not doc.is_database and (not self.editor.locked or doc.page.get("tags")) and not self.remote:
+        if not doc.is_database and (not self.editor.locked or doc.page.get("tags")) and self.rcan("db"):
             ind.append(self._tags_row())
         if doc.parent_schema is not None:
             from .database import EditableProps
@@ -662,9 +665,16 @@ class PageView(Gtk.Box):
         from .sharing import is_remote
         return self.id < 0 or is_remote(self.doc.page)
 
+    def rcan(self, cap):
+        """Kann der Server dieser Seite das (remote.caps, 2.3)? Eigene Seiten und Seiten dieses Servers: immer"""
+        from .sharing import remote_can
+        if not self.remote:
+            return True
+        return remote_can(self.doc.page if self.doc.page else {"id": self.id}, cap)
+
     # --- Live: Anwesenheit, fremde Aenderungen, Kommentare -------------------------------------------------------------
     def _start_presence(self):
-        if self.presence is not None or self.in_peek or self.remote or not self.doc.fetched or self.no_access:
+        if self.presence is not None or self.in_peek or not self.rcan("presence") or not self.doc.fetched or self.no_access:
             return
         from .live import Presence
         from .sharing import can_edit
@@ -998,7 +1008,7 @@ class PageView(Gtk.Box):
             w = images.page_icon(ic, size=78 if images.is_file_url(ic) else 64)
             if not images.is_file_url(ic):
                 w.add_css_class("hk-page-emoji")
-            if self.editor.locked or self.remote:             # gesperrt, nur lesen, andere Instanz: Symbol nur zeigen
+            if self.editor.locked or not self.rcan("db"):    # gesperrt, nur lesen, anderer Server ohne 'db': Symbol nur zeigen
                 b = Gtk.Box(halign=Gtk.Align.START, margin_start=4)
                 b.append(w)
             else:
@@ -1019,12 +1029,12 @@ class PageView(Gtk.Box):
                 mb.set_child(Gtk.Label(label="🖼  " + _("Add cover image")))
                 mb.add_css_class("flat")
                 mb.add_css_class("dim-label")
-                mb.set_create_popup_func(lambda m: m.set_popover(menu_popover(None, [
-                    (_("File …"), self.pick_cover), (_("From Immich …"), self.pick_cover_immich)])))
+                mb.set_create_popup_func(lambda m: m.set_popover(menu_popover(None, [(_("File …"), self.pick_cover)] + (
+                    [] if self.remote else [(_("From Immich …"), self.pick_cover_immich)]))))    # anderer Server: nur Dateien
                 row.append(mb)
             row.add_css_class("hk-reveal")
             box.add_css_class("hk-reveal-zone")
-            if self.editor.locked or self.remote:
+            if self.editor.locked or not self.rcan("db"):
                 row.set_visible(False)
             box.append(row)
             if not ic and not doc.page.get("cover"):
@@ -1311,8 +1321,8 @@ class PageView(Gtk.Box):
         dlg.present(self.win)
 
     def remote_blocked(self):
-        """Seite einer anderen Saga-Instanz: keine Uploads (Bilder, Dateien) - Hinweis statt Dateiauswahl"""
-        if self.remote:
+        """Seite einer anderen Saga-Instanz ohne 'upload' (Server 2.1/2.2): keine Uploads - Hinweis statt Dateiauswahl"""
+        if not self.rcan("upload"):
             self.win.toast(_("Not available for pages from other Saga instances."))
             return True
         return False
@@ -1367,7 +1377,8 @@ class PageView(Gtk.Box):
             after = self.editor.insert_image_url(url, after=after)
 
     def pick_immich(self, after=None):
-        if self.remote_blocked():
+        if self.remote:                                         # Immich gehoert dem eigenen Konto: nie auf anderen Servern
+            self.win.toast(_("Not available for pages from other Saga instances."))
             return
         from .dialogs import ImmichPicker
         ImmichPicker(self.win, lambda url: self.editor.insert_image_url(url, after=after)).present(self.win)
@@ -1444,7 +1455,7 @@ class PageView(Gtk.Box):
         foc = self.win.get_focus() if self.win is not None else None
         if self.cpanel is not None and foc is not None and foc.is_ancestor(self.cpanel):
             return False                                      # Eingabe im Kommentarfeld: nichts in die Seite einfuegen
-        if clipimg.is_ctrl_v(kv, state) and not self.editor.locked and not self.remote and not self.doc.is_database:
+        if clipimg.is_ctrl_v(kv, state) and not self.editor.locked and self.rcan("upload") and not self.doc.is_database:
             return self.paste()
         sel = _selected_block(foc)
         if sel and not self.doc.is_database:                   # ausgewaehlter Bildblock (2.1-c)
@@ -1512,7 +1523,7 @@ class PageView(Gtk.Box):
         server, owner = settings.server, self._clip_owner()
         need = [(b, hk) for b, hk in items if b["type"] in ("image", "attaches") and not blockclip.reuse_ok(hk, server, owner)
                 and images.is_file_url(((b["data"].get("file") or {}).get("url")))]
-        if need and self.remote:
+        if need and not self.rcan("upload"):
             self.remote_blocked()
             items = [x for x in items if x not in need]
             need = []

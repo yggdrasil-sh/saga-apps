@@ -48,6 +48,8 @@ def _menu(win, v):
 # --- Logik ohne GTK ------------------------------------------------------------------------------------------
 def test_roles_and_allowed_actions():
     from hlidskjalf import sharing as s
+    from hlidskjalf.store import store
+    store.server_version = None                    # Server bis 2.2 (ab 2.3: Versionen/Verschieben auch mit Bearbeiten, test_fed23b)
     assert s.role_of({}) == "owner" and s.role_of({"role": "x"}) == "owner" and s.role_of({"role": "view"}) == "view"
     own, edit, com, view = {"role": "owner"}, {"role": "edit"}, {"role": "comment"}, {"role": "view"}
     for a in ("move", "trash", "archive", "publish", "share", "versions", "template", "favorite", "lock", "duplicate", "home"):

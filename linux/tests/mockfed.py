@@ -117,12 +117,13 @@ def _v2me(s):
             "device_set_want": want, "federation": True}
 
 
-def new_fed_chat(s, h, request=False, home_self=True):
-    """Direkt-Chat v2 mit einer fremden Person (request: ich bin angefragt)"""
-    cid = mockv2.new_chat(s, "dm", [s.me, h])
+def new_fed_chat(s, h, request=False, home_self=True, kind="dm", extra=None):
+    """Chat v2 mit einer fremden Person (request: ich bin angefragt); kind 'free'/'page' (2.3, Abschnitt 9) mit extra
+    (z. B. invited_by, weitere members) - Felder ueberschreiben die Antwort"""
+    cid = mockv2.new_chat(s, kind, [s.me, h])
     ch = s.chats[cid]
     ch["fed"] = {"ref": secrets.token_hex(16) + "@" + (HOST if home_self else s.fed["remote"][h]["host"]), "peer": h,
-                 "request": request, "readonly": None, "home_self": home_self}
+                 "request": request, "readonly": None, "home_self": home_self, "extra": extra or {}}
     return cid
 
 
@@ -137,6 +138,11 @@ def _fed_fields(s, ch, me, d):
     d["members"] = [{"username": me, "name": s.names.get(me, me), "me": True, "handle": s.fed["me"], "host": HOST},
                     {"username": "@" + p["handle"], "name": p["name"], "handle": p["handle"], "host": p["host"], "remote": True,
                      "label": lbl}]
+    if ch.get("kind", "dm") != "dm":                       # Gruppe/Seiten-Chat: kein Gegenueber
+        d.pop("peer", None)
+        d["name"] = None
+        d["member_count"] = len(d["members"])
+    d.update(f.get("extra") or {})
     return d
 
 

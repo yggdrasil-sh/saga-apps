@@ -23,7 +23,7 @@ from gi.repository import GLib, GObject
 from . import APP_ID, aichat, chatmedia, config
 from . import chatcrypto as C
 from .api import APIError, client
-from .i18n import _
+from .i18n import _, pgettext
 from .util import Debounce, bg
 
 RETENTIONS = [0, 3600, 86400, 604800, 2592000, 7776000, 31536000]
@@ -74,6 +74,74 @@ def remote_label(u):
     """Treffer der Adressbuch-Suche: fertiger Text "Name · host" (bei gleichen Namen mit Zusatz vom Server)"""
     u = u if isinstance(u, dict) else {}
     return str(u.get("label") or ((u.get("name") or "?") + (" · " + u["host"] if u.get("host") else "")))
+
+
+def _host_of(handle):
+    h = handle if isinstance(handle, str) else ""
+    return h.split("@", 1)[1] if "@" in h else ""
+
+
+def sys_who(x, my_handle, acc=False):
+    """Person in einer Systemzeile (2.3): Name mit Herkunft "(host)", wenn sie auf einem anderen Server ist; ich selbst
+    als "dich" (acc=True, "… hat dich hinzugefuegt")"""
+    if not isinstance(x, dict):
+        return ""
+    if acc and x.get("handle") and x.get("handle") == my_handle:
+        return pgettext("object", "you")
+    mine = _host_of(my_handle)
+    host = x.get("host") or ""
+    return str(x.get("name") or "?") + (f" ({host})" if host and host != mine else "")
+
+
+def sys_text(k, my_handle):
+    """Text einer Systemzeile (kind 'sys', Klartext-Metadaten vom Heim, docs/APP-API-FED.md 9): KI an/aus, Mitglieder
+    hinzugefuegt/entfernt/verlassen (Herkunft immer), Seiten-Chat jetzt ueber Servergrenzen"""
+    k = k if isinstance(k, dict) else {}
+    typ = k.get("type")
+    if typ == "ai":
+        who = _("You") if k.get("by") and k.get("by") == my_handle else str(k.get("name") or "?")
+        return (_("{name} turned on the AI in this chat.") if k.get("on") else _("{name} turned off the AI in this chat.")).format(name=who)
+    if typ == "fed":
+        t = _("From now on with people on other Saga servers (end-to-end encrypted).")
+        return t + (" " + _("The AI is now off here.") if k.get("ai_off") else "")
+    if typ == "members":
+        by = k.get("by") if isinstance(k.get("by"), dict) else None
+        added = [x for x in k.get("added") or [] if isinstance(x, dict)]
+        removed = [x for x in k.get("removed") or [] if isinstance(x, dict)]
+        me_by = bool(by and by.get("handle") and by.get("handle") == my_handle)
+        by_name = sys_who(by, my_handle) if by and not me_by else ""
+        out = []
+        if added:
+            names = ", ".join(sys_who(x, my_handle, acc=bool(by)) for x in added)
+            out.append(_("You added {names}.").format(names=names) if me_by else
+                       _("{by} added {names}.").format(by=by_name, names=names) if by else
+                       _("{names} joined.").format(names=names))
+        if removed:
+            plain = ", ".join(sys_who(x, my_handle) for x in removed)
+            left = by is not None and len(removed) == 1 and removed[0].get("handle") and removed[0].get("handle") == by.get("handle")
+            if k.get("reason") == "disconnected":
+                out.append(_("{names} is no longer here – the connection to that Saga server was removed.").format(names=plain))
+            elif k.get("reason") == "gone":
+                out.append(_("{names} is no longer here (account deleted).").format(names=plain))
+            elif left:
+                out.append(_("You left the group.") if me_by else _("{names} left the group.").format(names=sys_who(removed[0], my_handle)))
+            elif me_by:
+                out.append(_("You removed {names}.").format(names=", ".join(sys_who(x, my_handle, acc=True) for x in removed)))
+            elif by:
+                out.append(_("{by} removed {names}.").format(by=by_name, names=", ".join(sys_who(x, my_handle, acc=True) for x in removed)))
+            else:
+                out.append(_("{names} is no longer here.").format(names=plain))
+        return " ".join(out) or _("Notice")
+    return _("Notice")
+
+
+def chat_home_hint(c):
+    """Gruppe/Seiten-Chat ueber Servergrenzen (2.3): wo der Chat liegt (Heim) - "" fuer andere Chats"""
+    if not is_fed(c) or (c or {}).get("kind") == "dm":
+        return ""
+    if c.get("home_self"):
+        return _("This chat is on this server; people on other Saga servers take part through their server.")
+    return _("This chat is on {host}. Members are changed there (through this server).").format(host=c.get("home") or "?")
 
 
 def fmt_recovery(rk):
@@ -610,9 +678,7 @@ class ChatState(GObject.Object):
             self.chats = [c for c in j.get("chats") or [] if isinstance(c, dict)]
             for c in self.chats:
                 self._note_ref(c)
-                tm = c.get("title_msg")
-                if c.get("kind") == "free" and isinstance(tm, dict):
-                    c["_title"] = self._title_of(c["id"], tm)
+            self._free_titles(self.chats)
             self.unread = int(j.get("unread") or 0)
             self.requests = int(j.get("requests") or 0)
             self._chats_at = time.monotonic()
@@ -682,6 +748,61 @@ class ChatState(GObject.Object):
         except C.CryptoError:
             return None
 
+    def _title_v2(self, ch, tm):
+        """Name einer Gruppe ueber Servergrenzen (2.3): v2-Nachricht kind 'title' - Absender-Geraet aus den selbst
+        geprueften Schluesseln (TOFU nicht 'reject'), Signatur v2 an chat_ref, dann entschluesseln. -> Name | None"""
+        f = self.fk.get(tm.get("sender_handle") or "")
+        k = self.keys
+        if not k or not f or not f.get("keys") or f.get("trust") == "reject":
+            return None
+        ref = ch.get("ref") or ""
+        d = next((x for x in f["keys"]["devices"] if x.get("id") == tm.get("sender_device")), None)
+        try:
+            if d is None or not C.sig_ok_v2(ref, tm, C.unb64(d["sign_pub"], 32)):
+                return None
+            if tm.get("key_for") == "backup":
+                body = C.decrypt_v2(ref, tm, k["backup_pk"], k["backup_sk"])
+            else:
+                body = C.decrypt_v2(ref, tm, k["device"]["enc_pk"], k["device"]["enc_sk"])
+        except (C.CryptoError, KeyError, TypeError, ValueError):
+            return None
+        if isinstance(body, dict) and body.get("type") == "title":
+            return str(body.get("title") or "")[:100] or None
+        return None
+
+    def _free_titles(self, chats):
+        """Namen freier Gruppen: v1 wie bisher; v2 (2.3) mit den Schluesseln der absendenden Person - fehlen sie noch,
+        im Hintergrund holen und danach anzeigen (bis dahin die Mitgliederliste)"""
+        need = []
+        for c in chats:
+            tm = c.get("title_msg")
+            if c.get("kind") != "free" or not isinstance(tm, dict):
+                continue
+            if not is_fed(c) or not tm.get("sender_handle"):
+                c["_title"] = self._title_of(c["id"], tm)
+                continue
+            t = self._title_v2(c, tm)
+            if t:
+                c["_title"] = t
+            elif tm["sender_handle"] not in self.fk and self._handle_ok(tm["sender_handle"]):
+                need.append(tm["sender_handle"])
+        if not need:
+            return
+
+        def fin(_r):
+            hit = False
+            for c in self.chats:
+                tm = c.get("title_msg")
+                if c.get("kind") == "free" and is_fed(c) and isinstance(tm, dict) and tm.get("sender_handle") in need:
+                    t = self._title_v2(c, tm)
+                    if t and t != c.get("_title"):
+                        c["_title"] = t
+                        hit = True
+                        self.emit("chat-changed", c.get("id"))
+            if hit:
+                self.emit("changed")
+        bg(self.fed_keys, need, done=fin, error=lambda e: None)
+
     def title(self, c):
         """Anzeigename: Direkt = Gegenueber, Gruppe = Gruppenname, Seite = Titel, freie Gruppe = entschluesselter Name
         bzw. die Namen der Mitglieder"""
@@ -743,8 +864,10 @@ class ChatState(GObject.Object):
                 d = None
             out["state"], out["sys"] = "sys", d if isinstance(d, dict) else {}
             return out
-        if fed:
+        if fed and m.get("sender_handle"):
             return self._decode_v2(ch, m, out)
+        # v1 - auch in umgestellten Seiten-Chats (2.3): Nachrichten ohne sender_handle stammen aus der Zeit davor
+        # (chat_id, Absender sender.username, Geraete aus devices/idents der Antwort)
         dev = (devices or {}).get(m.get("sender_device"))
         ident_pub = (idents or {}).get(uname)
         try:
@@ -1177,6 +1300,16 @@ class ChatState(GObject.Object):
         if my not in hs:
             hs.append(my)
         for attempt in range(2):
+            if attempt and ch.get("kind") != "dm":           # Gruppe/Seiten-Chat (2.3): erst die aktuelle Mitgliederliste
+                try:
+                    nc = (client.get(f"api/chats/{cid}?device={self.device_id}") or {}).get("chat")
+                except APIError:
+                    nc = None
+                if isinstance(nc, dict) and isinstance(nc.get("members"), list):
+                    ch["members"] = nc["members"]
+                    hs = self.fed_handles(ch)
+                    if my not in hs:
+                        hs.append(my)
             fk = self.fed_keys(hs, fresh=attempt > 0)
             mine = fk.get(my) or {}
             if not mine.get("keys") or mine.get("trust") != "trust":
@@ -1323,9 +1456,8 @@ class ChatState(GObject.Object):
         def fin(j):
             ch = (j or {}).get("chat")
             if isinstance(ch, dict):
-                tm = ch.get("title_msg")
-                if ch.get("kind") == "free" and isinstance(tm, dict):
-                    ch["_title"] = self._title_of(cid, tm)
+                self._note_ref(ch)
+                self._free_titles([ch])
                 if self.chat(cid) is None:
                     self.chats.insert(0, ch)
                 self._merge(ch)
