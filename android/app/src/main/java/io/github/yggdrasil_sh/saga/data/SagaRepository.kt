@@ -1359,6 +1359,9 @@ class SagaRepository(
     fun cancelPair() {
         pendingPair.value = null
         pairError.value = null
+        // Abgebrochen: derselbe Link darf spaeter (auch nach einem Neustart der App) wieder die Rueckfrage zeigen
+        appContext?.getSharedPreferences(io.github.yggdrasil_sh.saga.auth.LinkGate.PREFS, android.content.Context.MODE_PRIVATE)
+            ?.edit()?.remove(io.github.yggdrasil_sh.saga.auth.LinkGate.KEY)?.apply()
     }
 
     /** Bestaetigte Kopplung: offene Seiten speichern, koppeln, erst bei Erfolg wechseln */

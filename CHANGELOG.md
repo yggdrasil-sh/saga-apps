@@ -103,6 +103,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Titel-Platzhalter `{date}`/`{fecha}` funktionieren wie im Web. Schaltflächen bleiben auf gesperrten Seiten
   bedienbar (wie im Web); mit Leserecht (Lesen/Kommentieren) sind sie deaktiviert.
 
+### Behoben (Android)
+- **Kopplungslink bei bestehender Anmeldung fragt immer nach:** Wurde ein `saga://pair`-Link (QR-Code, „In der App
+  öffnen“) erneut geöffnet – etwa nachdem die Rückfrage abgebrochen wurde –, passierte in der angemeldeten App
+  nichts. Jetzt erscheint wie unter iOS jedes Mal „Mit diesem Server koppeln?“ mit dem Hinweis, welches Konto bzw.
+  welcher Server abgemeldet wird (bei laufender App und beim Start per Link). „Koppeln“ wechselt wie ein neuer
+  QR-Code das Konto (Seiten, Seitenbaum-Zwischenspeicher und Abgleich-Stand des alten Kontos werden verworfen),
+  „Abbrechen“ lässt alles, wie es ist. Ein alter Link, den Android nach einem App-Update erneut zustellt, wirkt
+  weiterhin nicht noch einmal; ungültige Links melden wie bisher einen Fehler.
+
 ### Geändert (Linux)
 - **Weniger Datenvolumen und schnellere Reaktion bei großen Konten:** Die App lädt die komplette Seitenliste (bei
   vielen Datenbank-Einträgen mehrere MB) nicht mehr nach jeder Aktion neu. Neue eigene Seiten und
