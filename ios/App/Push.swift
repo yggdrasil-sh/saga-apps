@@ -180,7 +180,7 @@ final class PushModel: ObservableObject {
             Task { @MainActor in CallSystem.shared.notificationAction(a, info: info) }
             return
         }
-        let t = NotifLogic.target(url: userInfo["url"] as? String)
+        let t = NotifLogic.target(url: userInfo["url"] as? String, kind: userInfo["kind"] as? String)
         Task { @MainActor in
             PushModel.pending = t                                   // Kaltstart: RootView holt es beim Erscheinen ab
             NotificationCenter.default.post(name: .hkOpenTarget, object: t)

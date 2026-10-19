@@ -158,7 +158,7 @@ struct NotifItem: Identifiable, Equatable {
     /// Systemmeldung ohne Person/Seite (2.3: backup.failed, userbackup.failed)
     var system = false
     /// antippbar: Seite mit Zugriff oder Chat, Systemmeldung mit Ziel (Einstellungen, Admin-Bereich)
-    var openable: Bool { access && (noteID != nil || chatID != nil || (system && NotifLogic.target(url: url) != .none)) }
+    var openable: Bool { access && (noteID != nil || chatID != nil || (system && NotifLogic.target(url: url, kind: kind) != .none)) }
 }
 
 /// Ziel beim Antippen einer Benachrichtigung bzw. Mitteilung (url relativ zu BASE_URL)
@@ -181,11 +181,12 @@ enum NotifLogic {
         return Int(s.prefix { $0.isNumber })
     }
     /// "/notes#12", "/notes#-2049:block", "/chats#c3", "/" -> Ziel
-    static func target(url: String?) -> NotifTarget {
+    /// `kind`: Art der Meldung - absolute Adressen (Admin-Bereich auf eigenem Port) nur bei `backup.failed` (2.3)
+    static func target(url: String?, kind: String? = nil) -> NotifTarget {
         guard let u = url else { return .none }
         if let c = chatID(fromURL: u) { return .chat(id: c) }
         if let s = settingsSection(u) { return .settings(s) }
-        if u.hasPrefix("http://") || u.hasPrefix("https://"), CloudLogic.httpURL(u) != nil, !u.contains("/notes#") { return .web(u) }
+        if kind == "backup.failed", u.hasPrefix("http://") || u.hasPrefix("https://"), CloudLogic.httpURL(u) != nil, !u.contains("/notes#") { return .web(u) }
         guard let r = u.range(of: "/notes#") else { return .none }
         let frag = u[r.upperBound...]
         let parts = frag.split(separator: ":", maxSplits: 1)
@@ -202,7 +203,7 @@ enum NotifLogic {
         if let c = n.chatID { return .chat(id: c) }
         if !n.access { return .none }
         if let id = n.noteID { return .page(id: id, block: n.blockID) }
-        return target(url: n.url)
+        return target(url: n.url, kind: n.kind)
     }
     /// SSE "notification": neue (ggf. gebuendelte) Benachrichtigung einsortieren bzw. "anderswo gelesen" markieren
     static func apply(_ data: [String: Any], to items: [NotifItem]) -> (items: [NotifItem], unread: Int?) {

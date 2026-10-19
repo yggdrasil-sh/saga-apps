@@ -125,6 +125,10 @@ func cloudTests() {
     check(an?.system == true && an?.openable == false && NotifLogic.target(an!) == .none, "ohne Adresse: nicht antippbar")
     check(NotifLogic.target(url: "/") == .none && NotifLogic.target(url: "/notes#12") == .page(id: 12, block: nil)
           && NotifLogic.target(url: "/?settings=x;y") == .none && NotifLogic.target(url: "javascript:alert(1)") == .none, "Ziele unveraendert/sicher")
+    check(NotifLogic.target(url: "https://example.org/x") == .none && NotifLogic.target(url: "https://example.org/x", kind: "share.added") == .none
+          && NotifLogic.target(url: "https://example.org/backups", kind: "backup.failed") == .web("https://example.org/backups"), "absolute Adressen nur bei backup.failed")
+    let other = NotifItem(["id": 9, "kind": "userbackup.failed", "created": 1, "access": true, "system": true, "url": "https://example.org/x"])
+    check(other?.openable == false && NotifLogic.target(other!) == .none, "userbackup.failed mit absoluter Adresse: nicht oeffnen")
     let share = NotifItem(["id": 8, "kind": "share.added", "created": 1, "access": true, "note": ["id": 3]])
     check(share?.system == false && share?.openable == true, "andere Arten unveraendert")
     check(CloudLogic.systemTitle("backup.failed") == "Backups" && CloudLogic.systemTitle("userbackup.failed") == "Mein Backup", "Titel")
