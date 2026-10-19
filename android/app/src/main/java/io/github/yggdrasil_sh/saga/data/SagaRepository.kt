@@ -512,7 +512,9 @@ class SagaRepository(
     private suspend fun loadTree(): List<PageMeta> {
         val srv = settings.server.value
         val acct = treeAccount()
-        return treeSync.load(srv, acct) { settings.server.value to treeAccount() }
+        // Lesen/Einarbeiten der (grossen) Antwort und Schreiben des Zwischenspeichers nicht auf dem Main-Thread
+        // (bisher wurde die Liste auf Dispatchers.Default dekodiert)
+        return withContext(Dispatchers.IO) { treeSync.load(srv, acct) { settings.server.value to treeAccount() } }
     }
 
     private suspend fun restoreTreeCache() {
