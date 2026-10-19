@@ -1153,6 +1153,9 @@ struct NativePageScreen: View {
             if !v && doc.fetched && doc.staleSession(store) { ed.focus = nil; Task { await doc.resetForNewSession(store) } }   // anderes Konto/neue Sitzung
             else if !v && !doc.fetched { Task { await doc.load(store) } }
         }
+        .onChange(of: store.accountSwitches) { _, _ in                   // anderes Konto ohne Anmeldefenster dazwischen
+            if doc.fetched && doc.staleSession(store) { ed.focus = nil; Task { await doc.resetForNewSession(store) } }
+        }
     }
 }
 

@@ -28,6 +28,21 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   zeigen die Apps statt „Niemand gefunden.“ den Grund vom Server (`remote_hint` aus `GET /api/share/targets`, z. B.
   „nicht verbunden“ oder „öffentlicher Name statt E-Mail“); ältere Server ohne das Feld wie bisher.
 
+### Behoben (iOS/iPadOS/macOS)
+- **Kontowechsel nach abgelaufener Sitzung zeigt keine fremden Seiten mehr:** Lief die Sitzung ab (ohne Abmelden) und
+  wurde danach ein *anderes* Konto angemeldet oder per QR-Code gekoppelt, waren die Seiten des alten Kontos kurz zu
+  sehen, bis der neue Seitenbaum da war. Jetzt werden Liste, „Mit mir geteilt“, Heute und zuletzt geöffnete Seiten
+  sofort ausgeblendet; gehört die neue Anmeldung zu einem anderen (oder nicht feststellbaren) Konto, werden
+  Zwischenspeicher, Abgleich-Stand, Systemsuche (Spotlight), Web-Daten (außer der neuen Sitzung) und der
+  Widget-/Teilen-Schlüssel des alten Kontos verworfen, bevor etwas Neues erscheint; eine offene Seite des alten Kontos
+  lädt neu. Dasselbe Konto wieder angemeldet: nichts wird verworfen, die Liste ist sofort wieder da und es wird nur
+  das Geänderte abgeglichen statt des ganzen Baums. Nach jeder Neuanmeldung gibt es außerdem einen frischen
+  Widget-Schlüssel (der alte ging mit der alten Geräte-Anmeldung verloren).
+- **Seitenbaum beim Anmelden/Koppeln nur noch einmal geladen:** Ein noch laufender Abgleich wurde nach der
+  Neuanmeldung mit dem alten Stand wiederholt und verworfen, danach kam der ganze Baum noch einmal (bei großen Konten
+  zweimal die volle Liste). Laufende Abgleiche werden jetzt beim Anmelden abgebrochen und nicht wiederholt; während
+  die Anmeldung übernommen wird, startet keiner – danach genau ein Abruf.
+
 ### Schneller (iOS/iPadOS/macOS)
 - **Keine Hänger mehr beim Abgleich großer Konten:** Die Seitenliste wird jetzt im Hintergrund gelesen, verglichen
   und für Baum und Suche aufbereitet; die Oberfläche übernimmt nur noch das fertige Ergebnis. Bei 25.000 Notizen

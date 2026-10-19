@@ -182,8 +182,11 @@ final class Store: ObservableObject {
         return c.path.isEmpty || c.path == "/" || path == c.path || path.hasPrefix(c.path.hasSuffix("/") ? c.path : c.path + "/")
     }
 
-    func api(_ path: String, method: String = "GET", body: [String: Any]? = nil, timeout: TimeInterval = 20) async throws -> Data {
-        let (data, code) = try await apiResponse(path, method: method, body: body, timeout: timeout)
+    /// `stale`: Anfrage ist ueberholt (z. B. Abgleich, waehrend eine neue Anmeldung uebernommen wird) - nach einer stillen
+    /// Erneuerung (401) dann nicht wiederholen, sondern abbrechen (CancellationError, kein Anmeldefenster)
+    func api(_ path: String, method: String = "GET", body: [String: Any]? = nil, timeout: TimeInterval = 20,
+             stale: (@MainActor () -> Bool)? = nil) async throws -> Data {
+        let (data, code) = try await apiResponse(path, method: method, body: body, timeout: timeout, stale: stale)
         guard (200..<300).contains(code) else {
             let msg = (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["error"] as? String ?? ""
             throw APIError.http(code, msg)
@@ -193,7 +196,8 @@ final class Store: ObservableObject {
 
     /// Wie `api`, aber Fehlerantworten (4xx/5xx) kommen mit Code zurueck statt als Fehler - fuer Antworten mit
     /// zusaetzlichen Feldern (z. B. 409 need_name beim Veroeffentlichen). Abgelaufene Sitzung wie bei `api`.
-    func apiResponse(_ path: String, method: String = "GET", body: [String: Any]? = nil, timeout: TimeInterval = 20) async throws -> (Data, Int) {
+    func apiResponse(_ path: String, method: String = "GET", body: [String: Any]? = nil, timeout: TimeInterval = 20,
+                     stale: (@MainActor () -> Bool)? = nil) async throws -> (Data, Int) {
         // NICHT appendingPathComponent: das kodiert "?" als %3F und Abfrage-Parameter werden zum Pfad (404)
         guard AppConfig.hasServer else { needsLogin = true; throw APIError.http(401, String(localized: "Bitte Server eintragen")) }   // noch kein Server -> Anmeldebildschirm
         guard let url = URL(string: AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/" + path) else { throw APIError.other(String(localized: "Ungültige Adresse")) }
@@ -201,12 +205,14 @@ final class Store: ObservableObject {
         req.httpMethod = method
         req.setValue("1", forHTTPHeaderField: "X-Hlidskjalf"); req.httpShouldHandleCookies = false   // Cookie selbst setzen
         if let body { req.setValue("application/json", forHTTPHeaderField: "Content-Type"); req.httpBody = try JSONSerialization.data(withJSONObject: body) }
-        return try await send(req) { try await URLSession.shared.data(for: $0) }
+        return try await send(req, stale: stale) { try await URLSession.shared.data(for: $0) }
     }
 
     /// Anfrage mit Sitzungs-Cookie; abgelaufene Sitzung (401) -> einmal still mit dem Geraete-Schluessel erneuern
     /// und wiederholen. Erst wenn das nicht geht, kommt das Anmeldefenster.
-    private func send(_ base: URLRequest, _ run: (URLRequest) async throws -> (Data, URLResponse)) async throws -> (Data, Int) {
+    /// Abgebrochen (Task) oder ueberholt (`stale`): nicht erneuern/wiederholen, sondern CancellationError.
+    private func send(_ base: URLRequest, stale: (@MainActor () -> Bool)? = nil,
+                      _ run: (URLRequest) async throws -> (Data, URLResponse)) async throws -> (Data, Int) {
         for attempt in 0..<2 {
             var req = base
             if let url = req.url { for (k, v) in await cookies(for: url) { req.setValue(v, forHTTPHeaderField: k) } }
@@ -216,9 +222,12 @@ final class Store: ObservableObject {
             guard code == 401 else { return (data, code) }
             cookieHeader = nil
             guard attempt == 0 else { break }
+            if Task.isCancelled || stale?() == true { throw CancellationError() }
             let r = await resumeSession()
             if r == .offline { throw APIError.other(String(localized: "Server nicht erreichbar")) }
             if r == .rejected { break }
+            // inzwischen neu angemeldet (evtl. anderes Konto): nicht mit dem alten Stand wiederholen
+            if Task.isCancelled || stale?() == true { throw CancellationError() }
         }
         if !loginPostponed { needsLogin = true }                          // abgebrochen: nicht bei jeder Anfrage wieder aufdraengen
         throw APIError.http(401, String(localized: "Bitte anmelden"))
@@ -265,13 +274,24 @@ final class Store: ObservableObject {
 
     /// Antwort der Anmeldung: Geraete-Schluessel sichern, App-Schluessel (Widget/Teilen) uebernehmen, falls noch keiner da ist
     /// Rueckgabe false: Geraete-Schluessel kam, liess sich aber nicht im Schluesselbund speichern (BUG-104)
+    /// `takeAppKey: false`: App-Schluessel nicht uebernehmen, nur zurueckgeben (Neuanmeldung: erst Konto pruefen)
     @discardableResult
-    private func adoptKeys(_ d: Data) -> Bool {
+    private func adoptKeys(_ d: Data, takeAppKey: Bool = true) -> (ok: Bool, appKey: String?) {
         let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any]
         var ok = true
         if let t = j?["device_token"] as? String, t.hasPrefix("hkd_") { DeviceKey.set(t); ok = DeviceKey.stored() == t }
-        if let k = j?["app_key"] as? String, k.hasPrefix("hk_"), !AppConfig.hasToken { AppConfig.token = k; reloadWidgets() }
-        return ok
+        let k = (j?["app_key"] as? String).flatMap { $0.hasPrefix("hk_") ? $0 : nil }
+        if takeAppKey, let k, !AppConfig.hasToken { AppConfig.token = k; reloadWidgets() }
+        return (ok, k)
+    }
+    /// Geraete-Anmeldung beim Server loeschen, der sie ausgestellt hat (nie an einen anderen senden)
+    private func forgetDevice(_ tok: String, origin: String?) async {
+        guard let o = origin, let base = URL(string: o), AppConfig.isAllowedServer(base) else { return }
+        var req = URLRequest(url: base.appendingPathComponent("app/forget"), timeoutInterval: 10)
+        req.httpMethod = "POST"; req.httpShouldHandleCookies = false
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: ["device_token": tok])
+        _ = try? await URLSession.shared.data(for: req)
     }
     /// Text, wenn der Geraete-Schluessel nach Anmeldung/Kopplung nicht gespeichert werden konnte
     static var keychainFailedText: String {
@@ -299,11 +319,12 @@ final class Store: ObservableObject {
     private var refreshFollow: Task<Void, Never>?
     private var refreshToken = 0
     func refresh(quiet: Bool = false) async {
+        guard gate.canStart else { return }                               // neue Anmeldung wird uebernommen: danach gleich ein Abgleich
         if !quiet { loading = true }
         defer { if !quiet { loading = false } }
         if let f = refreshFollow { await f.value; return }
         if let r = refreshRun?.task {
-            let f = Task { await r.value; await self.runRefresh() }
+            let f = Task { await r.value; if Task.isCancelled { return }; await self.runRefresh() }   // abgebrochen (Anmeldung): nicht mehr
             refreshFollow = f
             await f.value
             return
@@ -320,8 +341,10 @@ final class Store: ObservableObject {
         if refreshRun?.token == tok { refreshRun = nil }
     }
     private func doRefresh() async {
+        guard gate.canStart, !Task.isCancelled else { return }
         lastRefresh = Date()
         if let c = cacheLoad { await c.value }                           // grosser Zwischenspeicher: erst fertig lesen (Grundlage des Abgleichs)
+        let ge = gate.epoch                                               // neue Anmeldung danach: diesen Lauf verwerfen
         do {
             let gen = sessionGen, ins = localInserts, ep = cursorEpoch
             // Abgleich (2.2): mit gueltigem Stand nur Geaendertes holen, sonst den ganzen Baum mit Stand.
@@ -329,7 +352,7 @@ final class Store: ObservableObject {
             let origin = AppConfig.serverOrigin, account = origin.flatMap { DraftOwner.app.account(origin: $0) }
             let since = noteCursor.flatMap { $0.usable(origin: origin, account: account) ? $0 : nil }
             let d: Data
-            do { d = try await api(NoteSync.path(since: since?.value)) }
+            do { d = try await api(NoteSync.path(since: since?.value), stale: { [unowned self] in self.gate.stale(startedAt: ge) }) }
             catch APIError.http(let code, let msg) where since != nil && code != 401 {
                 if cursorEpoch == ep { noteCursor = nil }                  // Stand abgelehnt (z. B. 400): naechstes Mal ganz laden
                 throw APIError.http(code, msg)
@@ -340,6 +363,7 @@ final class Store: ObservableObject {
                 let o = NoteSync.outcome(try NoteSync.parse(d), base: prev.all, sentSince: since != nil)
                 return (o, o.pages.flatMap { PageList.update($0, previous: prev) })
             }.value
+            guard !Task.isCancelled, !gate.stale(startedAt: ge) else { return }        // neue Anmeldung: die holt selbst ab
             guard gen == sessionGen, AppConfig.serverOrigin == origin else { return }   // inzwischen abgemeldet/anderes Konto/anderer Server
             // waehrend der Anfrage lokal eine Seite angelegt: diese Antwort kennt sie evtl. noch nicht - nicht uebernehmen
             // (sonst verschwaende sie kurz), sondern gleich danach noch einmal abgleichen
@@ -372,6 +396,7 @@ final class Store: ObservableObject {
             if o.refetch { Task { await self.refresh(quiet: true) } }    // Stand wich ab: gleich die ganze Liste holen
             if needsLogin { needsLogin = false }
             if loginPostponed { loginPostponed = false }          // Sitzung wieder da (z. B. still erneuert)
+            if Task.isCancelled || gate.stale(startedAt: ge) { return }       // neue Anmeldung: Rest laedt deren Abgleich
             await loadShared()
             Task { await loadFedShared() }                        // fremde Server koennen dauern: nicht darauf warten
             Task { await notifs.loadCount(); await chat.refreshUnread(); await loadAIStatus() }
@@ -384,8 +409,12 @@ final class Store: ObservableObject {
                 accountChecked = true; await identifyAccount()
             }
             Task { await resendDrafts() }                         // offline Geaendertes nachsenden (BUG-020)
-        } catch { if !needsLogin, self.error != error.localizedDescription { self.error = error.localizedDescription } }
+        } catch {
+            if Store.isCancel(error) || gate.stale(startedAt: ge) { return }      // abgebrochen (neue Anmeldung): keine Meldung
+            if !needsLogin, self.error != error.localizedDescription { self.error = error.localizedDescription }
+        }
     }
+    nonisolated static func isCancel(_ e: Error) -> Bool { e is CancellationError || (e as? URLError)?.code == .cancelled }
     /// Liegengebliebene Entwuerfe (offline geaendert, Seite inzwischen verlassen) senden, sobald der Server wieder
     /// antwortet - mit der Revision, auf der sie beruhen: hat sich die Seite inzwischen geaendert (409), wird nichts
     /// ueberschrieben, der Entwurf wird dann beim Oeffnen angeboten. Offene Seiten senden selbst (BUG-020).
@@ -412,6 +441,7 @@ final class Store: ObservableObject {
     /// 60-s-Abgleich: still, hoechstens einmal pro Takt fuer alle Fenster, und nur Geaendertes neu setzen
     /// (sonst zeichnen alle Ansichten mit dem Store jede Minute neu). Bei verbundenem Live-Kanal seltener (RefreshPolicy).
     func periodicRefresh() async {
+        guard gate.canStart else { return }
         let now = Date()
         if RefreshPolicy.due(last: lastRefresh, now: now, liveConnected: live.connected, treeEvents: live.treeEvents) { await refresh(quiet: true); return }
         // Live-Kanal verbunden, Seitenbaum noch nicht wieder dran: alles andere (klein) weiter jede Minute wie bisher -
@@ -505,6 +535,34 @@ final class Store: ObservableObject {
         cursorEpoch += 1; noteCursor = nil; savedCursor = nil
         let u = cacheURL(Store.cursorCache)
         Store.cacheQueue.async { try? FileManager.default.removeItem(at: u) }
+    }
+
+    // MARK: Neuanmeldung ohne Abmelden (AccountSwitchLogic.swift)
+    /// Waehrend eine neue Anmeldung uebernommen wird: kein Abgleich; laufende werden abgebrochen, nicht wiederholt
+    private var gate = RefreshGate()
+    private func beginAdopt() {
+        gate.beginAdopt()
+        refreshRun?.task.cancel(); refreshFollow?.cancel(); refreshFollow = nil; treeDebounce?.cancel()
+    }
+    /// Ausgeblendeter Stand des bisherigen Kontos (bis feststeht, ob die neue Anmeldung dasselbe Konto ist)
+    private struct HiddenView { var pages, archived, shared, fedShared: [Page]; var tasks, doneTasks: [OpenTask]; var events: [CalEvent]; var recent: [Int] }
+    private var hiddenView: HiddenView?
+    private func hideAccountView() {
+        hiddenView = HiddenView(pages: pages, archived: archivedPages, shared: shared, fedShared: fedShared,
+                                tasks: tasks, doneTasks: doneTasks, events: events, recent: recent)
+        pages = []; archivedPages = []; shared = []; fedShared = []; tasks = []; doneTasks = []; events = []; recent = []
+    }
+    /// Gleiches Konto: alles wie vorher zeigen (Liste und Abgleich-Stand bleiben - kein Neuladen des ganzen Baums)
+    private func restoreAccountView() {
+        guard let h = hiddenView else { return }
+        hiddenView = nil
+        pages = h.pages; archivedPages = h.archived; shared = h.shared; fedShared = h.fedShared
+        tasks = h.tasks; doneTasks = h.doneTasks; events = h.events; recent = h.recent
+    }
+    /// Bisheriges Konto (vor der Neuanmeldung)
+    private func currentOwner() -> AccountSwitch.Owner {
+        let o = AppConfig.serverOrigin
+        return AccountSwitch.owner(origin: o, known: o.flatMap { DraftOwner.app.account(origin: $0) }, cursor: noteCursor ?? savedCursor)
     }
 
     // MARK: Aufgaben (wie das Web: /api/tasks; Wiederholungen legt der Server beim Abhaken an)
@@ -838,7 +896,9 @@ final class Store: ObservableObject {
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(AppConfig.appLanguage, forHTTPHeaderField: "Accept-Language")       // Fehlertexte in der App-Sprache
         // device: Geraete-Anmeldung (bleibt angemeldet); app_key: Schluessel fuer Widget/Teilen, falls (fuer diesen Server) noch keiner da ist
-        let body: [String: Any] = ["code": code, "verifier": verifier, "device": DeviceKey.deviceName, "app_key": switching || !AppConfig.hasToken]
+        // immer: auch auf demselben Server kann es ein anderes Konto sein, und der alte Schluessel ging mit der alten
+        // Geraete-Anmeldung (adoptServer entscheidet nach der Kontopruefung)
+        let body: [String: Any] = ["code": code, "verifier": verifier, "device": DeviceKey.deviceName, "app_key": true]
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (d, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
@@ -851,16 +911,52 @@ final class Store: ObservableObject {
     /// Erfolgreich angemeldet/gekoppelt: erst jetzt den Server uebernehmen. Anderer Server -> vorher sauber vom alten abmelden.
     /// `signOut`: auch auf demselben Server das bisherige Konto abloesen (QR-Code kann zu einem anderen Konto gehoeren);
     /// die Startseite wird dabei mit vergessen (Seiten-IDs gehoeren zum alten Konto).
+    /// Ohne vorheriges Abmelden (Sitzung abgelaufen, gleicher Server): Liste & Co. sofort ausblenden; nach der Kontopruefung
+    /// gleiches Konto -> unveraendert wieder zeigen (Abgleich-Stand bleibt), anderes/unbekanntes Konto -> alles des alten
+    /// Kontos verwerfen (Liste, Zwischenspeicher, Abgleich-Stand, Systemsuche, Widget-Schluessel), bevor etwas Neues kommt.
+    /// Laufende Abgleiche werden abgebrochen und nicht mit dem alten Stand wiederholt (genau ein Abruf danach).
     private func adoptServer(_ server: URL, switching: Bool, signOut: Bool = false, http: HTTPURLResponse, url: URL, data d: Data) async {
-        if switching || signOut { await logout(switchingServer: true) }  // alter Server/altes Konto: Schluessel, Cookies, Zwischenspeicher weg
-        forgetNoteCursor()                                                // neue Anmeldung (evtl. anderes Konto): Baum ganz laden
+        let loggedOut = switching || signOut
+        let before = currentOwner()
+        let oldDevice = DeviceKey.stored(), oldDeviceOrigin = AppConfig.keyOrigin(device: true)
+        beginAdopt()
+        defer { gate.endAdopt() }
+        if AccountSwitch.before(loggedOut: loggedOut).hideNow {
+            if let c = cacheLoad { await c.value }                        // grosser Zwischenspeicher: nicht nach dem Ausblenden einblenden
+            hideAccountView()
+        }
+        if loggedOut {
+            await logout(switchingServer: true)                           // alter Server/altes Konto: Schluessel, Cookies, Zwischenspeicher weg
+            forgetNoteCursor()                                            // neue Anmeldung: Baum ganz laden
+        }
         AppConfig.server = server; cookieHeader = nil; serverVersion = nil; minApp = nil
         await storeCookies(http, url)
-        let keyOK = adoptKeys(d); deviceKeyTried = true
-        await identifyAccount()                                           // Entwuerfe gehoeren zu Server + Konto
+        let keys = adoptKeys(d, takeAppKey: loggedOut); deviceKeyTried = true
+        let me = await identifyAccount()                                  // Entwuerfe gehoeren zu Server + Konto
+        let plan = AccountSwitch.after(loggedOut: loggedOut, AccountSwitch.verdict(before: before, after: .init(origin: AppConfig.serverOrigin, account: me)))
+        if plan.restore {
+            restoreAccountView()
+            if let k = keys.appKey { AppConfig.token = k; reloadWidgets() }   // alter Schluessel ging mit der alten Geraete-Anmeldung
+        }
+        if plan.wipe {
+            hiddenView = nil
+            forgetNoteCursor()                                            // anderes Konto: Baum ganz laden (genau einmal)
+            await clearAccountData(keepWebCookies: true)
+            if me == nil { DraftOwner.app.signedOut(); accountChecked = false; accountName = nil }   // Konto unbekannt: alte Entwuerfe nicht zeigen
+            AppConfig.token = keys.appKey ?? ""; reloadWidgets()          // Widget/Teilen nie mit dem Schluessel des alten Kontos
+            if let t = oldDevice, t != DeviceKey.stored() { await forgetDevice(t, origin: oldDeviceOrigin) }
+        }
+        let wasShown = !needsLogin                                        // z. B. Kopplung aus "Nicht angemeldet" (Zwischenspeicher)
         needsLogin = false; loginPostponed = false
-        if !keyOK { error = Store.keychainFailedText }                    // nicht still: sonst spaeter unerklaert abgemeldet
+        if plan.wipe && wasShown {
+            // kein Anmeldefenster dazwischen: was sonst beim Schliessen startet (RootView/NativePage), hier anstossen
+            live.start(); push.appStarted(); Task { await chat.load() }
+            accountSwitches += 1                                          // offene Seite des alten Kontos neu laden
+        }
+        if !keys.ok { error = Store.keychainFailedText }                  // nicht still: sonst spaeter unerklaert abgemeldet
     }
+    /// zaehlt Kontowechsel ohne Anmeldefenster dazwischen (offene Seiten laden dann neu wie nach dem Anmeldefenster)
+    @Published private(set) var accountSwitches = 0
 
     /// Anmeldung per QR-Code (Kopplungs-Code aus dem Web). Der Server wird erst nach erfolgreicher Kopplung
     /// uebernommen; vorher wird sauber abgemeldet - vom alten Server, und auch auf demselben Server vom bisherigen Konto
@@ -874,7 +970,7 @@ final class Store: ObservableObject {
         req.httpMethod = "POST"; req.httpShouldHandleCookies = false
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.setValue(AppConfig.appLanguage, forHTTPHeaderField: "Accept-Language")       // Fehlertexte in der App-Sprache
-        req.httpBody = try JSONSerialization.data(withJSONObject: ["code": code, "device": DeviceKey.deviceName, "app_key": signOut || !AppConfig.hasToken])
+        req.httpBody = try JSONSerialization.data(withJSONObject: ["code": code, "device": DeviceKey.deviceName, "app_key": true])   // wie exchange
         let (d, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse, http.statusCode == 200 else {
             let msg = (try? JSONSerialization.jsonObject(with: d) as? [String: Any])?["error"] as? String ?? String(localized: "Anmeldung fehlgeschlagen")
@@ -898,16 +994,19 @@ final class Store: ObservableObject {
     private(set) var accountName: String?
     /// Konto beim Server erfragen (Konto-ID = Benutzername aus /api/account) und fuer die Entwuerfe merken.
     /// Fehler (offline, alter Server): bisherigen Stand behalten.
-    func identifyAccount() async {
+    /// Rueckgabe: Benutzername (nil: unbekannt)
+    @discardableResult
+    func identifyAccount() async -> String? {
         guard let o = AppConfig.serverOrigin, let d = try? await api("api/account"),
               let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
-              let u = j["username"] as? String, !u.isEmpty else { return }
+              let u = j["username"] as? String, !u.isEmpty else { return nil }
         DraftOwner.app.signedIn(origin: o, account: u)
         checkHomeOwner(origin: o, account: u)
         let n = (j["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         accountName = n.isEmpty ? u : n
         let av = ShareJSON.str(j["avatar"])
         if av != myAvatar { myAvatar = av }
+        return u
     }
 
     /// Anderen Server eintragen (Einstellungen): anderer Server = vom alten sauber abmelden
@@ -948,34 +1047,40 @@ final class Store: ObservableObject {
     func logout(switchingServer: Bool = false) async {
         sessionGen += 1                                                   // offene Seiten des alten Kontos senden nichts mehr
         // Geraete-Anmeldung beim Server loeschen, der sie ausgestellt hat (nie an einen anderen senden)
-        if let tok = DeviceKey.stored(), let o = AppConfig.keyOrigin(device: true), let base = URL(string: o), AppConfig.isAllowedServer(base) {
-            var req = URLRequest(url: base.appendingPathComponent("app/forget"), timeoutInterval: 10)
-            req.httpMethod = "POST"; req.httpShouldHandleCookies = false
-            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            req.httpBody = try? JSONSerialization.data(withJSONObject: ["device_token": tok])
-            _ = try? await URLSession.shared.data(for: req)
-        }
+        if let tok = DeviceKey.stored() { await forgetDevice(tok, origin: AppConfig.keyOrigin(device: true)) }
         DeviceKey.set(nil); deviceKeyTried = false
         if error == Store.keychainFailedText { error = nil }
         DraftOwner.app.signedOut(); accountChecked = false; accountName = nil // Entwuerfe bleiben liegen, aber nur fuer ihr Konto lesbar
         AppConfig.token = ""; reloadWidgets()                           // der Server loescht den Widget-Schluessel dieses Geraets mit
+        myAvatar = nil
+        await clearAccountData(keepWebCookies: false)
+        if switchingServer { serverVersion = nil; minApp = nil }
+        needsLogin = true
+    }
+
+    /// Alles Lokale eines Kontos verwerfen: Liste, Zwischenspeicher, Abgleich-Stand, Systemsuche, Web-Daten, Live/Glocke/
+    /// Chat/Push im Speicher, Startseite. `keepWebCookies`: Kontowechsel ohne Abmelden - die Sitzung der NEUEN Anmeldung
+    /// (Cookie) bleibt, alles andere der Web-Ansichten (Speicher, Caches) des alten Kontos geht.
+    private func clearAccountData(keepWebCookies: Bool) async {
+        sessionGen += 1                                                   // offene Seiten des alten Kontos senden nichts mehr
         let ds = WKWebsiteDataStore.default()
-        let recs = await ds.dataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes())
-        await ds.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), for: recs)
+        var types = WKWebsiteDataStore.allWebsiteDataTypes()
+        if keepWebCookies { types.remove(WKWebsiteDataTypeCookies) }
+        let recs = await ds.dataRecords(ofTypes: types)
+        await ds.removeData(ofTypes: types, for: recs)
         Store.cacheQueue.sync {}                                          // laufende Schreibvorgaenge abwarten, dann loeschen
         try? FileManager.default.removeItem(at: cacheDir)
         try? FileManager.default.createDirectory(at: cacheDir.appendingPathComponent("files"), withIntermediateDirectories: true)
-        images.removeAllObjects(); cookieHeader = nil; myAvatar = nil; AvatarCache.shared.reset()
+        images.removeAllObjects(); cookieHeader = nil; AvatarCache.shared.reset()
         URLCache.shared.removeAllCachedResponses()                      // Profilbilder (private, max-age) u. a. nicht liegen lassen
         live.stop(); live.forgetServer(); notifs.reset(); calls.signedOut(); chat.signedOut(); push.signedOut()   // 2.0: Live, Glocke, Chat-Schluessel im Speicher, Push-Abo
         cursorEpoch += 1; noteCursor = nil; savedCursor = nil; listUnsaved = false; cacheLoad?.cancel(); cacheLoad = nil   // Abgleich-Stand gehoert zum Konto
         pages = []; archivedPages = []; list = PageList(); listGen += 1; shared = []; fedShared = []; aiEnabled = false; aiPersona = nil; aiChat = false; aiHost = ""; fedUnreachable = []; shareOffHint = false; tasks = []; doneTasks = []; events = []; recent = []; UserDefaults.standard.removeObject(forKey: "recent")
+        AppConfig.store.removeObject(forKey: "w.tasks")                 // Widget: eben abgehakte Aufgaben (IDs des alten Kontos)
         // Startseite immer vergessen: die naechste Anmeldung kann ein anderes Konto sein - dessen Start sonst die
         // Seiten-ID des alten Kontos an den Server schickte (BUG-060)
         setHome(nil)
-        if switchingServer { serverVersion = nil; minApp = nil }
-        SpotlightIndex.clear()                                            // abgemeldet: nichts mehr in der Systemsuche
-        needsLogin = true
+        SpotlightIndex.clear()                                            // abgemeldet/anderes Konto: nichts mehr in der Systemsuche
     }
 
     static func pkce() -> (verifier: String, challenge: String) {
