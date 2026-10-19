@@ -89,6 +89,13 @@ def win(app, srv):
     idle()
     yield w
     w._close_ok = True
+    # Das Fenster bleibt als Objekt leben (u. a. der 60-s-Takt haelt es), "destroy" kommt dann nie und die Live-/Store-Signale
+    # blieben verbunden: ein spaeteres Fenster (z. B. test_bh2) saehe sonst Anfragen dieses alten Fensters.
+    # Gleiches gilt fuer den nachgeholten Sitzungsbeginn ("hello" kurz nach dem Start: Zeitgeber nach ~10 s).
+    w._live_event = lambda *a, **k: None
+    w._session_started = lambda *a, **k: None
+    w._session_ended = lambda *a, **k: None
+    w._session_catch_up = lambda *a, **k: None
     d = w.get_visible_dialog() if hasattr(w, "get_visible_dialog") else None
     if d is not None:
         d.force_close()
