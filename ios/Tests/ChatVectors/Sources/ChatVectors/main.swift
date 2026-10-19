@@ -136,6 +136,11 @@ if let craw = FileManager.default.contents(atPath: cpath), let cv = (try? JSONSe
     ok("call seal roundtrip", verifyFrom(C.openSignal(sealed, pk: bEnc.pk, sk: bEnc.sk)) && C.openSignal(sealed, pk: other.pk, sk: other.sk) == nil)
 } else { ok("call vectors lesbar (\(cpath))", false) }
 
+// saga-chat/v2 (2.3): 3. Argument oder die Kopie im Repo (ios/Tests/vectors/chat_v2.json)
+let v2path = CommandLine.arguments.dropFirst(3).first
+    ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../../vectors/chat_v2.json").standardized.path
+res += v2Vectors(v2path)
+
 for (n, g) in res { print(g ? "OK  " : "FAIL", n) }
 let good = res.filter { $0.1 }.count
 print("VEKTOREN \(good)/\(res.count)", good == res.count ? "- ALLES GRUEN" : "- FEHLER")

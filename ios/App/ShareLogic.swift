@@ -229,9 +229,17 @@ struct ShareTarget: Identifiable, Equatable {
     /// Server bei Personen/Gruppen anderer Saga-Instanzen
     var host: String? = nil
     var avatar: String? = nil
+    /// 2.3 (Adressbuch): fertig zum Anzeigen, "Anna Berg · b.example" (bei gleichen Namen mit Zusatz)
+    var label: String? = nil
     var id: String { type + ":" + target }
     var isGroup: Bool { type == "group" || type == "remote_group" }
     var isRemote: Bool { type == "remote" || type == "remote_group" }
+    /// Zweite Zeile eines Treffers anderer Saga-Server: Name · host (nie nur der Name), sonst wie bisher
+    var remoteLine: String? {
+        guard isRemote else { return nil }
+        if let l = label, !l.isEmpty { return l }
+        return host.map { name + " · " + $0 }
+    }
 }
 
 /// Was das Entfernen einer Freigabe bewirkt (Text der Rueckfrage)
@@ -362,7 +370,7 @@ enum SaveFailure: Equatable {
 
 enum ShareLogic {
     static let commentMax = 2000
-    static let minQuery = 3
+    static let minQuery = 1                                         // 2.3: Server liefert bei 1-2 Zeichen nur genaue Treffer
     /// Bloecke, die auf fremden Seiten nur einen neutralen Platzhalter zeigen (Daten gehoeren dem Konto, das schaut)
     static let ownerOnlyBlocks: Set<String> = ["tasks", "calendar", "immich"]
     /// Text eines Verweises auf eine Seite ohne Zugriff (der Server setzt ihn in der Sprache der Anfrage ein)
@@ -419,7 +427,8 @@ enum ShareLogic {
         // Foederation (2.0): nur genaue Adressen verbundener Server (name@server)
         let remote = (j["remote"] as? [[String: Any]] ?? []).compactMap { r -> ShareTarget? in
             guard let t = ShareJSON.str(r["type"]), t == "remote" || t == "remote_group", let tg = ShareJSON.str(r["target"]) else { return nil }
-            return ShareTarget(type: t, target: tg, name: ShareJSON.str(r["name"]) ?? tg, username: nil, host: ShareJSON.str(r["host"]), avatar: ShareJSON.str(r["avatar"]))
+            return ShareTarget(type: t, target: tg, name: ShareJSON.str(r["name"]) ?? tg, username: nil, host: ShareJSON.str(r["host"]), avatar: ShareJSON.str(r["avatar"]),
+                               label: ShareJSON.str(r["label"]))
         }
         return users + groups + remote
     }

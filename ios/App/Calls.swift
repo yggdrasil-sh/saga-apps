@@ -72,6 +72,8 @@ final class CallManager: NSObject, ObservableObject {
     private var statsTask: Task<Void, Never>?
     private var cfg: [String: Any] = [:]
     private var keysRefreshed = false
+    /// 2.3: Anruf ueber Servergrenzen (saga-call/v2): Handles statt Benutzernamen
+    private var v2: (me: String, peer: String)?
     /// Anrufe, die schon beendet/abgelehnt wurden (spaete call.ring/Push nicht erneut klingeln lassen)
     private var done = Set<String>()
 
@@ -104,6 +106,16 @@ final class CallManager: NSObject, ObservableObject {
     // MARK: Schluessel des Gegenuebers (Zertifikat + TOFU wie im Chat)
 
     private func loadPeerKeys(_ user: String, name: String) async throws {
+        if let v = v2 {                                                 // 2.3: geprueft wie im Chat (signierte Geraete-Liste, TOFU v2)
+            guard let st = try await store?.chat.fedKeys([v.peer], fresh: keysRefreshed, own: v.me)[v.peer], let k = st.keys else {
+                throw APIError.other(String(localized: "\(name) hat Chats noch auf keinem Gerät eingerichtet – Anrufe gehen erst danach."))
+            }
+            guard st.verdict == .trust else {
+                throw APIError.other(String(localized: "Die Sicherheitsnummer von \(name) hat sich geändert – erst im Chat prüfen oder „Verstanden“ wählen."))
+            }
+            peerDevs = Dictionary(k.active.map { ($0.id, CallPeerDevice(enc: $0.enc, sign: $0.sign)) }, uniquingKeysWith: { a, _ in a })
+            return
+        }
         guard let store, let enc = user.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else { return }
         let d = try await store.api("api/chat/keys?users=\(enc)")
         guard let u = (ShareJSON.obj(d)?["users"] as? [String: Any])?[user] as? [String: Any], let ipk = ChatCrypto.unb64(u["ident_pub"] as? String, 32) else {
@@ -127,6 +139,9 @@ final class CallManager: NSObject, ObservableObject {
 
     private func seal(_ to: String, _ body: String) -> String? {
         guard let id, let k = store?.chat.keys, let pd = peerDevs[to] else { return nil }
+        if let v = v2 {
+            return ChatCrypto.sealSignalV2(callID: id, fromHandle: v.me, fromDevice: k.deviceID, signSK: k.sign.sk, toHandle: v.peer, toDevice: to, toPK: pd.enc, body: body)
+        }
         return ChatCrypto.sealSignal(callID: id, fromUID: me, fromDevice: k.deviceID, signSK: k.sign.sk, toUID: peer, toDevice: to, toPK: pd.enc, body: body)
     }
     private func sealAll(_ devs: [String], _ body: String) -> [String: String] {
@@ -138,6 +153,12 @@ final class CallManager: NSObject, ObservableObject {
     private func open(_ s: [String: Any]) async -> CallLogic.Signal? {
         guard let id, let k = store?.chat.keys, let from = s["from_device"] as? String, let sealed = s["sealed"] as? String else { return nil }
         if peerDevs[from] == nil && !keysRefreshed { keysRefreshed = true; try? await loadPeerKeys(peer, name: peerName) }
+        if let v = v2 {                                                 // 2.3: an MEINEN Handle/mein Geraet gebunden
+            guard let pd = peerDevs[from], let o = ChatCrypto.openSignalV2(sealed, pk: k.enc.pk, sk: k.enc.sk),
+                  ChatCrypto.verifySignalV2(callID: id, fromHandle: v.peer, fromDevice: from, toHandle: v.me, toDevice: k.deviceID, body: o.body, sig: o.sig, signPK: pd.sign)
+            else { return nil }
+            return CallLogic.parse(o.body)
+        }
         guard let pd = peerDevs[from], let o = ChatCrypto.openSignal(sealed, pk: k.enc.pk, sk: k.enc.sk),
               ChatCrypto.verifySignal(callID: id, fromUID: peer, fromDevice: from, toUID: me, toDevice: k.deviceID, body: o.body, sig: o.sig, signPK: pd.sign)
         else { return nil }
@@ -158,10 +179,12 @@ final class CallManager: NSObject, ObservableObject {
 
     // MARK: Anrufen
 
-    func start(chatID cid: Int, peer p: ChatMember, video: Bool) {
+    func start(chatID cid: Int, peer p: ChatMember, video: Bool, fed: FedChatInfo? = nil) {
         if busy { toast = String(localized: "Du telefonierst gerade schon."); return }
+        if let f = fed, !f.callable { toast = String(localized: "Anrufe gehen erst, wenn die Anfrage angenommen ist."); return }
         reset()
         chatID = cid; peer = p.username; peerName = p.name; peerAvatar = p.avatar; role = "caller"; media = video ? "video" : "audio"
+        if let f = fed, let h = f.peer?.handle, !f.myHandle.isEmpty { v2 = (f.myHandle, h) }   // 2.3: saga-call/v2
         speaker = video                                                     // Video: Lautsprecher (wie FaceTime), Audio: Hoermuschel
         phase = .preparing; status = String(localized: "Kamera und Mikrofon …")
         CallEnv.log("start \(media)")
@@ -199,7 +222,7 @@ final class CallManager: NSObject, ObservableObject {
             return
         }
         let j = ShareJSON.obj(d)
-        if code == 409, j?["devices"] != nil, !again { try await loadPeerKeys(peer, name: peerName); try await dial(again: true); return }
+        if code == 409, j?["devices"] != nil, !again { keysRefreshed = v2 != nil; try await loadPeerKeys(peer, name: peerName); try await dial(again: true); return }
         if code == 409, ShareJSON.bool(j?["busy"]) { finish(.busy); return }
         guard (200..<300).contains(code) else { throw APIError.http(code, ShareJSON.str(j?["error"]) ?? "") }
         ready = true; phase = .ringingOut; status = String(localized: "Klingelt …")
@@ -231,9 +254,17 @@ final class CallManager: NSObject, ObservableObject {
         case .ring: break
         }
         let p = c["peer"] as? [String: Any] ?? [:]
+        // 2.3: Anruf ueber Servergrenzen (saga-call/v2) - eigener Handle noetig (Signale sind daran gebunden)
+        var fedPair: (String, String)?
+        if ShareJSON.int(c["v"]) == 2 {
+            guard let h = ShareJSON.str(p["handle"]), let mh = await store.chat.fedMyHandle() else { CallSystem.shared.endReported(cid, reason: .failed); return }
+            fedPair = (mh, h)
+            if incoming?.id == cid || id == cid { return }
+        }
         let inc = IncomingCall(id: cid, chatID: ShareJSON.int(c["chat_id"]) ?? 0, media: (c["media"] as? String) == "video" ? "video" : "audio",
                                name: ShareJSON.str(p["name"]) ?? hint?.caller ?? "", username: p["username"] as? String ?? "", avatar: ShareJSON.str(p["avatar"]))
         reset()
+        v2 = fedPair
         incoming = inc; phase = .incoming; role = "callee"; media = inc.media; peerName = inc.name; peerAvatar = inc.avatar; peer = inc.username
         chatID = inc.chatID
         status = inc.media == "video" ? String(localized: "Videoanruf") : String(localized: "Anruf")
@@ -709,6 +740,7 @@ final class CallManager: NSObject, ObservableObject {
 
     private func reset() {
         id = nil; chatID = 0; peer = ""; peerDevs = [:]; peerDevice = nil; fps = []; seen = []; early = []; remoteIce = []; outIce = []
+        v2 = nil
         ready = false; connected = false; ending = false; answered = false; keysRefreshed = false; failed = false
         mic = true; cam = false; remote = CallRemoteState(); verified = false; relay = false; connectedAt = nil; speaker = false
         meter = CallLogic.AudioMeter(); audioIn = .unknown; audioMic = .unknown

@@ -41,6 +41,40 @@
         }
       }
     },
+    "%@ (%@) möchte dir schreiben. Bis du annimmst, bekommst du keine Benachrichtigungen und keine Anrufe – und %@ erfährt nicht, ob du die Nachrichten gelesen hast." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) möchte dir schreiben. Bis du annimmst, bekommst du keine Benachrichtigungen und keine Anrufe – und %3$@ erfährt nicht, ob du die Nachrichten gelesen hast."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) wants to write to you. Until you accept, you won't get notifications or calls – and %3$@ won't know whether you have read the messages."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) quiere escribirte. Hasta que aceptes no recibirás notificaciones ni llamadas, y %3$@ no sabrá si has leído los mensajes."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) хочет тебе написать. Пока ты не примешь, не будет ни уведомлений, ни звонков – и %3$@ не узнает, прочитал(а) ли ты сообщения."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) ต้องการเขียนถึงคุณ จนกว่าคุณจะยอมรับ คุณจะไม่ได้รับการแจ้งเตือนหรือสายเรียก – และ %3$@ จะไม่รู้ว่าคุณอ่านข้อความแล้วหรือไม่"
+          }
+        }
+      }
+    },
     "%@ (Kopie)" : {
       "localizations" : {
         "de" : {
@@ -71,6 +105,176 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ (สำเนา)"
+          }
+        }
+      }
+    },
+    "%@ hat die KI in diesem Chat ausgeschaltet." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ hat die KI in diesem Chat ausgeschaltet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ turned off the AI in this chat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ha desactivado la IA en este chat."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ выключил(а) ИИ в этом чате."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ปิด AI ในแชทนี้"
+          }
+        }
+      }
+    },
+    "%@ hat die KI in diesem Chat eingeschaltet." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ hat die KI in diesem Chat eingeschaltet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ turned on the AI in this chat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ha activado la IA en este chat."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ включил(а) ИИ в этом чате."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ เปิด AI ในแชทนี้"
+          }
+        }
+      }
+    },
+    "%@ ist auf %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ ist auf %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ is on %2$@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ está en %2$@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ на %2$@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ อยู่บน %2$@"
+          }
+        }
+      }
+    },
+    "%@ ist auf %@ – die Nummer gehört zu diesem Server-übergreifenden Chat." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ ist auf %2$@ – die Nummer gehört zu diesem Server-übergreifenden Chat."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ is on %2$@ – the number belongs to this cross-server chat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ está en %2$@: el número pertenece a este chat entre servidores."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ на %2$@ – код относится к этому чату между серверами."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ อยู่บน %2$@ – หมายเลขนี้เป็นของแชทข้ามเซิร์ฟเวอร์นี้"
+          }
+        }
+      }
+    },
+    "%@ sperren" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ sperren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Block %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloquear a %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Заблокировать %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บล็อก %@"
           }
         }
       }
@@ -1501,6 +1705,40 @@
         }
       }
     },
+    "Als überprüft markiert." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als überprüft markiert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marked as verified."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marcado como verificado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отмечено как проверенное."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทำเครื่องหมายว่าตรวจสอบแล้ว"
+          }
+        }
+      }
+    },
     "am" : {
       "localizations" : {
         "de" : {
@@ -1599,6 +1837,142 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ที่อยู่ CalDAV อื่น"
+          }
+        }
+      }
+    },
+    "Anderer Saga-Server" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anderer Saga-Server"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other Saga server"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otro servidor Saga"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Другой сервер Saga"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เซิร์ฟเวอร์ Saga อื่น"
+          }
+        }
+      }
+    },
+    "Anfrage" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anfrage"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Request"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solicitud"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запрос"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำขอ"
+          }
+        }
+      }
+    },
+    "Anfrage abgelehnt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anfrage abgelehnt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Request declined."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solicitud rechazada."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запрос отклонён."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปฏิเสธคำขอแล้ว"
+          }
+        }
+      }
+    },
+    "Anfrage angenommen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anfrage angenommen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Request accepted."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solicitud aceptada."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Запрос принят."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยอมรับคำขอแล้ว"
           }
         }
       }
@@ -1939,6 +2313,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เข้าสู่ระบบไม่สำเร็จ"
+          }
+        }
+      }
+    },
+    "Anrufe gehen erst, wenn die Anfrage angenommen ist." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anrufe gehen erst, wenn die Anfrage angenommen ist."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calls are only possible once the request has been accepted."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las llamadas solo son posibles cuando se acepta la solicitud."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Звонки возможны только после принятия запроса."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โทรได้หลังจากยอมรับคำขอแล้วเท่านั้น"
           }
         }
       }
@@ -2381,6 +2789,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เก็บเข้าคลัง"
+          }
+        }
+      }
+    },
+    "auf %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "auf %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "on %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "en %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "на %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บน %@"
           }
         }
       }
@@ -4289,6 +4731,40 @@
         }
       }
     },
+    "Deine Schlüssel für Chats über Servergrenzen sind noch nicht bereit – bitte gleich noch einmal versuchen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deine Schlüssel für Chats über Servergrenzen sind noch nicht bereit – bitte gleich noch einmal versuchen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your keys for chats across servers aren't ready yet – please try again in a moment."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tus claves para chats entre servidores aún no están listas: inténtalo de nuevo en un momento."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Твои ключи для чатов между серверами ещё не готовы – попробуй ещё раз чуть позже."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กุญแจสำหรับแชทข้ามเซิร์ฟเวอร์ของคุณยังไม่พร้อม – โปรดลองอีกครั้งในอีกสักครู่"
+          }
+        }
+      }
+    },
     "Den QR-Code zeigt Saga im Browser unter 👤 → Einstellungen → „Apps & Geräte“." : {
       "localizations" : {
         "de" : {
@@ -4357,6 +4833,40 @@
         }
       }
     },
+    "Der andere Server ist gerade nicht erreichbar – die Nachricht wird zugestellt, sobald er wieder da ist." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der andere Server ist gerade nicht erreichbar – die Nachricht wird zugestellt, sobald er wieder da ist."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The other server can't be reached right now – the message will be delivered as soon as it's back."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El otro servidor no está disponible ahora: el mensaje se entregará en cuanto vuelva."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Другой сервер сейчас недоступен – сообщение будет доставлено, как только он снова появится."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ขณะนี้ติดต่อเซิร์ฟเวอร์อีกฝั่งไม่ได้ – ข้อความจะถูกส่งเมื่อเซิร์ฟเวอร์กลับมา"
+          }
+        }
+      }
+    },
     "Der Papierkorb ist leer." : {
       "localizations" : {
         "de" : {
@@ -4387,6 +4897,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ถังขยะว่างเปล่า"
+          }
+        }
+      }
+    },
+    "Die Mitglieder oder ihre Geräte haben sich geändert – bitte erneut senden." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Mitglieder oder ihre Geräte haben sich geändert – bitte erneut senden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The members or their devices have changed – please send again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los miembros o sus dispositivos han cambiado: vuelve a enviarlo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Участники или их устройства изменились – отправь ещё раз."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สมาชิกหรืออุปกรณ์ของพวกเขาเปลี่ยนไป – โปรดส่งอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Die Schlüssel von %@ sind ungültig (Zertifikat oder Geräte-Liste) – Senden ist gesperrt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Schlüssel von %@ sind ungültig (Zertifikat oder Geräte-Liste) – Senden ist gesperrt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@'s keys are invalid (certificate or device list) – sending is blocked."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las claves de %@ no son válidas (certificado o lista de dispositivos): el envío está bloqueado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ключи %@ недействительны (сертификат или список устройств) – отправка заблокирована."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กุญแจของ %@ ไม่ถูกต้อง (ใบรับรองหรือรายการอุปกรณ์) – การส่งถูกระงับ"
           }
         }
       }
@@ -4527,6 +5105,40 @@
         }
       }
     },
+    "Diese Unterhaltung ist schreibgeschützt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Unterhaltung ist schreibgeschützt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This conversation is read-only."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta conversación es de solo lectura."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот разговор доступен только для чтения."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การสนทนานี้อ่านได้อย่างเดียว"
+          }
+        }
+      }
+    },
     "Diese Version wiederherstellen" : {
       "localizations" : {
         "de" : {
@@ -4625,6 +5237,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ออกจากระบบอุปกรณ์นี้หรือไม่ แอปจะต้องเข้าสู่ระบบใหม่ วิดเจ็ตและการแชร์จะใช้งานไม่ได้"
+          }
+        }
+      }
+    },
+    "Du hattest %@ als überprüft markiert – jetzt meldet der Server einen anderen Schlüssel. Senden ist gesperrt, bis du die Sicherheitsnummer erneut verglichen hast." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du hattest %@ als überprüft markiert – jetzt meldet der Server einen anderen Schlüssel. Senden ist gesperrt, bis du die Sicherheitsnummer erneut verglichen hast."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You had marked %@ as verified – now the server reports a different key. Sending is blocked until you have compared the safety number again."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Habías marcado a %@ como verificado; ahora el servidor indica otra clave. El envío está bloqueado hasta que vuelvas a comparar el número de seguridad."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ты отметил(а) %@ как проверенного – теперь сервер сообщает другой ключ. Отправка заблокирована, пока ты снова не сравнишь код безопасности."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณเคยทำเครื่องหมายว่า %@ ตรวจสอบแล้ว – ตอนนี้เซิร์ฟเวอร์แจ้งกุญแจอื่น การส่งถูกระงับจนกว่าคุณจะเปรียบเทียบหมายเลขความปลอดภัยอีกครั้ง"
           }
         }
       }
@@ -5339,6 +5985,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เสร็จแล้ว"
+          }
+        }
+      }
+    },
+    "Erneut senden" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erneut senden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send again"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Volver a enviar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отправить снова"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งอีกครั้ง"
           }
         }
       }
@@ -6091,6 +6771,74 @@
         }
       }
     },
+    "Ganzen Server %@ sperren" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ganzen Server %@ sperren"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Block entire server %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloquear todo el servidor %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Заблокировать весь сервер %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บล็อกทั้งเซิร์ฟเวอร์ %@"
+          }
+        }
+      }
+    },
+    "Ganzer Server" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ganzer Server"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entire server"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Servidor completo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Весь сервер"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทั้งเซิร์ฟเวอร์"
+          }
+        }
+      }
+    },
     "Ganztägig" : {
       "localizations" : {
         "de" : {
@@ -6261,6 +7009,40 @@
         }
       }
     },
+    "Gesperrt (andere Saga-Server)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesperrt (andere Saga-Server)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blocked (other Saga servers)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloqueados (otros servidores Saga)"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Заблокированные (другие серверы Saga)"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ที่บล็อก (เซิร์ฟเวอร์ Saga อื่น)"
+          }
+        }
+      }
+    },
     "Gesperrt – tippen zum Entsperren" : {
       "localizations" : {
         "de" : {
@@ -6291,6 +7073,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ล็อกอยู่ – แตะเพื่อปลดล็อก"
+          }
+        }
+      }
+    },
+    "Gesperrt – von dort kommen keine Anfragen mehr." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gesperrt – von dort kommen keine Anfragen mehr."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blocked – no more requests will come from there."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloqueado: ya no llegarán solicitudes desde ahí."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Заблокировано – оттуда больше не будет запросов."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บล็อกแล้ว – จะไม่มีคำขอจากที่นั่นอีก"
           }
         }
       }
@@ -10537,6 +11353,64 @@
         }
       }
     },
+    "Nachrichtenanfragen (%lld)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nachrichtenanfragen (%lld)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Message requests (%lld)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solicitudes de mensajes (%lld)"
+          }
+        },
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Запросы на переписку (%lld)"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Запросы на переписку (%lld)"
+                }
+              },
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Запросы на переписку (%lld)"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Запросы на переписку (%lld)"
+                }
+              }
+            }
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คำขอข้อความ (%lld)"
+          }
+        }
+      }
+    },
     "Name" : {
       "localizations" : {
         "de" : {
@@ -11319,6 +12193,40 @@
         }
       }
     },
+    "nicht zugestellt" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "nicht zugestellt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "not delivered"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "no entregado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "не доставлено"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งไม่สำเร็จ"
+          }
+        }
+      }
+    },
     "Nicht übernommen: %@" : {
       "localizations" : {
         "de" : {
@@ -11485,6 +12393,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ต่ำ"
+          }
+        }
+      }
+    },
+    "Niemand gesperrt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niemand gesperrt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nobody blocked."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nadie bloqueado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Никто не заблокирован."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่ได้บล็อกใคร"
+          }
+        }
+      }
+    },
+    "Niemand mit dieser Adresse gefunden. Personen anderer Saga-Server erscheinen, wenn ihr Server mit diesem verbunden ist und sie im Adressbuch sichtbar sind." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Niemand mit dieser Adresse gefunden. Personen anderer Saga-Server erscheinen, wenn ihr Server mit diesem verbunden ist und sie im Adressbuch sichtbar sind."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nobody found with this address. People on other Saga servers appear when their server is connected to this one and they are visible in the address book."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se encontró a nadie con esta dirección. Las personas de otros servidores Saga aparecen cuando su servidor está conectado con este y son visibles en la libreta de direcciones."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Никого с таким адресом не найдено. Люди с других серверов Saga появляются, если их сервер подключён к этому и они видны в адресной книге."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่พบผู้ใช้ที่อยู่นี้ ผู้ใช้บนเซิร์ฟเวอร์ Saga อื่นจะปรากฏเมื่อเซิร์ฟเวอร์ของพวกเขาเชื่อมต่อกับเซิร์ฟเวอร์นี้และแสดงในสมุดที่อยู่"
           }
         }
       }
@@ -12403,6 +13379,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เปลี่ยนรหัสผ่าน"
+          }
+        }
+      }
+    },
+    "Person" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Person"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Person"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Persona"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Человек"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บุคคล"
+          }
+        }
+      }
+    },
+    "Personen anderer Saga-Server findest du über ihren Namen oder mit name@server." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personen anderer Saga-Server findest du über ihren Namen oder mit name@server."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Find people on other Saga servers by their name or with name@server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encuentra a personas de otros servidores Saga por su nombre o con nombre@servidor."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Людей с других серверов Saga можно найти по имени или по адресу имя@сервер."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค้นหาผู้ใช้บนเซิร์ฟเวอร์ Saga อื่นได้จากชื่อหรือด้วย ชื่อ@เซิร์ฟเวอร์"
           }
         }
       }
@@ -13417,6 +14461,40 @@
         }
       }
     },
+    "schreibgeschützt" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "schreibgeschützt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "read-only"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "solo lectura"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "только чтение"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อ่านอย่างเดียว"
+          }
+        }
+      }
+    },
     "Seite" : {
       "localizations" : {
         "de" : {
@@ -14019,6 +15097,40 @@
         }
       }
     },
+    "Sicherheitsnummer mit %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sicherheitsnummer mit %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Safety number with %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Número de seguridad con %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Код безопасности с %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "หมายเลขความปลอดภัยกับ %@"
+          }
+        }
+      }
+    },
     "Sichern" : {
       "localizations" : {
         "de" : {
@@ -14447,6 +15559,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "บันทึก"
+          }
+        }
+      }
+    },
+    "Sperren …" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sperren …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Block …"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bloquear …"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Заблокировать …"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บล็อก …"
           }
         }
       }
@@ -16277,6 +17423,40 @@
         }
       }
     },
+    "Von gesperrten Personen oder Servern kommen keine Nachrichtenanfragen mehr. Sie erfahren davon nichts." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Von gesperrten Personen oder Servern kommen keine Nachrichtenanfragen mehr. Sie erfahren davon nichts."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blocked people or servers can no longer send you message requests. They are not told about it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las personas o servidores bloqueados ya no pueden enviarte solicitudes de mensajes. No se les informa."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Заблокированные люди или серверы больше не могут присылать запросы на переписку. Они об этом не узнают."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บุคคลหรือเซิร์ฟเวอร์ที่ถูกบล็อกจะส่งคำขอข้อความไม่ได้อีก และจะไม่ได้รับแจ้ง"
+          }
+        }
+      }
+    },
     "Von Hand erzeugte Schlüssel, z. B. für Kurzbefehle oder Skripte." : {
       "localizations" : {
         "de" : {
@@ -16841,6 +18021,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "จะถูกลบในวันที่ %@"
+          }
+        }
+      }
+    },
+    "Wird zugestellt, sobald der andere Server erreichbar ist." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird zugestellt, sobald der andere Server erreichbar ist."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Will be delivered as soon as the other server can be reached."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se entregará en cuanto el otro servidor esté disponible."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Будет доставлено, как только другой сервер станет доступен."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "จะส่งเมื่อติดต่อเซิร์ฟเวอร์อีกฝั่งได้"
           }
         }
       }

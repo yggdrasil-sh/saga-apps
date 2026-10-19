@@ -272,23 +272,23 @@ actor ChatMedia {
     static func loadThumb(_ f: ChatFileRef, chatID: String, fetch: ChatBlobFetch) async throws -> ChatImage {
         if let th = f.thumb, let k = ChatCrypto.unb64(th.key, 32) {
             let b = try await blob(th.id, fetch: fetch)
-            guard let jpg = ChatCrypto.decryptFile(chatID: chatID, blob: b, key: k) else { throw ChatMediaError.undecryptable }
+            guard let jpg = ChatCrypto.decryptChatFile(chatID, blob: b, key: k) else { throw ChatMediaError.undecryptable }
             guard let cg = ChatImageIO.decode(jpg) else { throw ChatMediaError.undecodable }
             let img = ChatImage(cg, w: f.w ?? th.w, h: f.h ?? th.h)
             remember(img, for: f.id); return img
         }
         guard let k = ChatCrypto.unb64(f.key, 32) else { throw ChatMediaError.undecryptable }
         let local = ChatMediaLogic.cacheName(f.id, local: true)
-        if let local, let b = ChatBlobCache.shared.read(local), let jpg = ChatCrypto.decryptFile(chatID: chatID, blob: b, key: k),
+        if let local, let b = ChatBlobCache.shared.read(local), let jpg = ChatCrypto.decryptChatFile(chatID, blob: b, key: k),
            let cg = ChatImageIO.decode(jpg) {
             let img = ChatImage(cg, w: f.w, h: f.h); remember(img, for: f.id); return img
         }
         let b = try await blob(f.id, keep: false, fetch: fetch)
-        guard let data = ChatCrypto.decryptFile(chatID: chatID, blob: b, key: k) else { throw ChatMediaError.undecryptable }
+        guard let data = ChatCrypto.decryptChatFile(chatID, blob: b, key: k) else { throw ChatMediaError.undecryptable }
         try Task.checkCancellation()
         guard let t = ChatImageIO.makeThumb(data) else { throw ChatMediaError.undecodable }
         // eigenes Vorschaubild mit dem Dateischluessel des Originals verschluesselt ablegen (eigene Nonce, gleiche AD)
-        if let local, let e = ChatCrypto.encryptFile(chatID: chatID, data: t.jpeg, key: k) { ChatBlobCache.shared.write(local, e.blob) }
+        if let local, let e = ChatCrypto.encryptChatFile(chatID, data: t.jpeg, key: k) { ChatBlobCache.shared.write(local, e.blob) }
         let img = ChatImage(t.image, w: f.w ?? t.ow, h: f.h ?? t.oh)
         remember(img, for: f.id); return img
     }
@@ -298,7 +298,7 @@ actor ChatMedia {
         try await slot {
             guard let k = ChatCrypto.unb64(f.key, 32) else { throw ChatMediaError.undecryptable }
             let b = try await Self.blob(f.id, keep: f.size <= ChatMediaLogic.diskLimit / 8, fetch: fetch)
-            guard let d = ChatCrypto.decryptFile(chatID: chatID, blob: b, key: k) else { throw ChatMediaError.undecryptable }
+            guard let d = ChatCrypto.decryptChatFile(chatID, blob: b, key: k) else { throw ChatMediaError.undecryptable }
             return d
         }
     }
@@ -318,7 +318,7 @@ struct ChatThumbUpload: Sendable {
     static func make(_ data: Data, chatID: String, enabled: Bool = true) async -> ChatThumbUpload? {
         guard enabled else { return nil }
         return await Task.detached(priority: .userInitiated) { () -> ChatThumbUpload? in
-            guard let t = ChatImageIO.makeThumb(data), let e = ChatCrypto.encryptFile(chatID: chatID, data: t.jpeg) else { return nil }
+            guard let t = ChatImageIO.makeThumb(data), let e = ChatCrypto.encryptChatFile(chatID, data: t.jpeg) else { return nil }
             return ChatThumbUpload(jpegCount: t.jpeg.count, w: t.image.width, h: t.image.height, ow: t.ow, oh: t.oh, blob: e.blob, key: e.key, image: t.image)
         }.value
     }

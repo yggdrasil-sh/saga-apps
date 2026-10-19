@@ -96,7 +96,13 @@ struct ChatListView: View {
                 }
                 .listRowBackground(Color.clear)
             }
-            let parts = ChatDeleteLogic.split(filtered) { $0.archived }
+            let reqs = filtered.filter { $0.fed?.request == true }           // 2.3: Nachrichtenanfragen (still) oben
+            if !reqs.isEmpty {
+                Section {
+                    ForEach(reqs) { c in row(c) }
+                } header: { Text("Nachrichtenanfragen (\(reqs.count))") }
+            }
+            let parts = ChatDeleteLogic.split(filtered.filter { $0.fed?.request != true }) { $0.archived }
             ForEach(parts.active) { c in row(c) }
             if !parts.archived.isEmpty {                                     // Archiv (2.1): aufklappbar unten
                 let open = showArchive || !q.isEmpty
@@ -289,7 +295,7 @@ struct ChatRow: View {
                     Text(verbatim: c.title).font(.body.weight(c.unread > 0 ? .semibold : .regular)).lineLimit(1)
                     if c.muted { Image(systemName: "bell.slash").font(.caption).foregroundStyle(.secondary).accessibilityLabel(Text("Stummschalten")) }
                 }
-                Text(c.kind == "dm" ? c.kindLabel : "\(c.kindLabel) · \(String(localized: "\(c.memberCount) Personen"))").font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                Text(verbatim: ChatSubtitle.text(c)).font(.caption).foregroundStyle(.secondary).lineLimit(1)   // 2.3: "Direkt-Chat · auf host · Anfrage"
             }
             Spacer(minLength: 4)
             VStack(alignment: .trailing, spacing: 4) {
@@ -324,9 +330,15 @@ struct ChatAvatar: View {
 
 /// Hinweis statt "Keine Treffer." bei name@server oder E-Mail (ChatFedHint): Chats ueber Servergrenzen gibt es noch nicht
 struct FedChatHint: View {
+    /// Server kann Chats ueber Servergrenzen (2.3): dann nur "nicht gefunden"
+    var federated = false
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Chats mit Personen anderer Saga-Server gibt es noch nicht. Seiten kannst du mit name@server teilen (über den öffentlichen Namen der Person).")
+            if federated {
+                Text("Niemand mit dieser Adresse gefunden. Personen anderer Saga-Server erscheinen, wenn ihr Server mit diesem verbunden ist und sie im Adressbuch sichtbar sind.")
+            } else {
+                Text("Chats mit Personen anderer Saga-Server gibt es noch nicht. Seiten kannst du mit name@server teilen (über den öffentlichen Namen der Person).")
+            }
             Text("Personen auf diesem Server findest du über Namen oder Benutzernamen, nicht über die E-Mail-Adresse.")
             Link("Anleitung: Föderation", destination: ChatFedHint.guideURL(lang: Bundle.main.preferredLocalizations.first ?? "en"))
         }
@@ -342,6 +354,8 @@ struct NewChatSheet: View {
     @State private var q = ""
     @State private var users: [(username: String, name: String, ready: Bool, avatar: String?)] = []
     @State private var groups: [String] = []
+    @State private var remote: [FedPerson] = []                   // 2.3: Personen anderer Saga-Server
+    @State private var searched = ""                              // Suchtext der angezeigten Treffer
     @State private var multi = false
     @State private var picked: [(username: String, name: String)] = []
     @State private var groupName = ""
@@ -351,13 +365,19 @@ struct NewChatSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField(multi ? "Person hinzufügen (ab 3 Zeichen)" : "Person oder Gruppe suchen (ab 3 Zeichen)", text: $q)
+                    TextField(multi ? "Person hinzufügen" : "Person oder Gruppe suchen", text: $q)
                         .autocorrectionDisabled()
                         #if os(iOS)
                         .textInputAutocapitalization(.never)
                         #endif
-                    if ShareLogic.searchReady(q) && users.isEmpty && groups.isEmpty {
-                        if ChatFedHint.isAddress(q) { FedChatHint() } else { Text("Keine Treffer.").foregroundStyle(.secondary) }
+                    if searched == q && FedChatLogic.searchReady(q) && users.isEmpty && groups.isEmpty && (multi || remote.isEmpty) {
+                        if ChatFedHint.isAddress(q) { FedChatHint(federated: chat.myHandle != nil) } else { Text("Keine Treffer.").foregroundStyle(.secondary) }
+                    }
+                    if !multi {                                                  // 2.3: Personen anderer Saga-Server (Adressbuch)
+                        ForEach(remote) { p in
+                            Button { if let h = p.handle { Task { await create(["kind": "dm", "handle": h]) } } } label: { FedPersonRow(p: p) }
+                                .buttonStyle(.plain).disabled(busy || p.handle == nil)
+                        }
                     }
                     ForEach(users, id: \.username) { u in
                         Button { pick(u) } label: {
@@ -404,7 +424,7 @@ struct NewChatSheet: View {
         .macFrame(minWidth: 420, idealWidth: 460, minHeight: 460, idealHeight: 560)
     }
     private func search() async {
-        guard ShareLogic.searchReady(q) else { users = []; groups = []; return }
+        guard FedChatLogic.searchReady(q) else { users = []; groups = []; remote = []; searched = q; return }   // ab 1 Zeichen (Server: 1-2 nur genau)
         try? await Task.sleep(for: .milliseconds(250))
         guard !Task.isCancelled, let enc = q.trimmingCharacters(in: .whitespaces).addingPercentEncoding(withAllowedCharacters: .alphanumerics),
               let d = try? await store.api("api/chat/people?q=\(enc)"), let j = ShareJSON.obj(d) else { return }
@@ -413,6 +433,8 @@ struct NewChatSheet: View {
             return (n, u["name"] as? String ?? n, ShareJSON.bool(u["ready"]), ShareJSON.str(u["avatar"]))
         }
         groups = (j["groups"] as? [Any] ?? []).compactMap { ($0 as? [String: Any])?["name"] as? String }
+        remote = FedChatLogic.people(j["remote"]).filter { $0.handle != nil }
+        searched = q
     }
     private func pick(_ u: (username: String, name: String, ready: Bool, avatar: String?)) {
         if multi {
@@ -742,6 +764,7 @@ struct ChatDevicesSection: View {
                 Button("Erzeugen") { newKey = ChatCrypto.newRecoveryKey() }
                 Button("Abbrechen", role: .cancel) {}
             } message: { Text("Der bisherige Schlüssel funktioniert danach nicht mehr.") }
+            if chat.state == .ready && chat.myHandle != nil { FedBlocksView() }   // 2.3: gesperrte Personen/Server anderer Saga-Server
         }
     }
 }

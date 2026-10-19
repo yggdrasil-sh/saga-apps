@@ -53,6 +53,33 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   beendet, bevor er in den Vordergrund kam – Android 14+ beendete dann die App
   (`ForegroundServiceDidNotStartInTimeException`). Jetzt beendet sich der Dienst in diesem Fall selbst.
 
+### Neu (iOS/iPadOS/macOS) – Chats und Anrufe über Servergrenzen (Föderation 2.3)
+- **Personen anderer Saga-Server finden:** „Neue Unterhaltung“ zeigt Treffer aus dem Adressbuch verbundener Server
+  mit Profilbild als „Name · Server“ (gleiche Namen bleiben unterscheidbar); `name@server` findet genau diese Person.
+  Gesucht wird ab dem ersten Zeichen (der Server liefert bei 1–2 Zeichen nur genaue Treffer) – auch im Teilen-Dialog,
+  der Personen anderer Server jetzt ebenfalls mit Herkunft zeigt.
+- **Direkt-Chats über Servergrenzen** mit dem Krypto-Format `saga-chat/v2` (an den pseudonymen föderierten Handle und
+  die globale Chat-Kennung gebunden): Die App lädt still ihre Zertifikate v2 und die signierte Geräte-Liste hoch, holt
+  die Schlüssel der anderen Person über den eigenen Server und prüft sie selbst (Handle-Zertifikat, Geräte, signierte
+  Geräte-Liste), verschlüsselt je aktivem Gerät plus Backup-Schlüssel, Anhänge und Vorschaubilder ebenfalls in v2.
+  Zustellstatus („wird zugestellt“ bei nicht erreichbarem Server, „nicht zugestellt“ mit „Erneut senden“),
+  Systemzeilen (z. B. KI ein/aus), KI-Antworten mit mitsigniertem Hash.
+- **Nachrichtenanfragen:** Erstkontakt erscheint oben unter „Nachrichtenanfragen“ – lesbar, aber ohne Benachrichtigung
+  und ohne Klingeln; „Annehmen“, „Ablehnen“ oder „Sperren …“ (Person oder ganzer Server). Gesperrte Personen und
+  Server stehen unter Einstellungen → „Chats & Geräte“ und lassen sich dort entsperren. Schreibgeschützte Chats
+  (Verbindung getrennt, Konto gelöscht) zeigen den Grund statt des Eingabefelds.
+- **Vertrauen (TOFU):** Kopf mit „Name ist auf Server“ und „✓ überprüft“; Sicherheitsnummer v2 (mit QR-Code) und
+  „Als überprüft markieren“. Hat sich der Schlüssel geändert, warnt der Chat bis „Verstanden“; war die Person
+  überprüft, ist Senden bis zum erneuten Vergleich gesperrt; ungültige Zertifikate oder eine ältere Geräte-Liste
+  werden abgelehnt. Live-Ereignisse `chat.keys.changed` und `chat.request` werden ausgewertet.
+- **Anrufe** (`saga-call/v2`) aus angenommenen Direkt-Chats über Servergrenzen, in beide Richtungen; Anfragen klingeln
+  nie.
+- Die App meldet sich mit `X-Saga-Chat: 2`. Lokale Chats (v1) und Anrufe bleiben unverändert; ältere Server (2.1/2.2)
+  sind weiter voll nutzbar (keine Föderations-Funktionen, sonst alles wie bisher).
+- Tests: alle gemeinsamen Testvektoren `chat_v2.json` (Kopie in `ios/Tests/vectors`, Prüfung in `ios/Tests/ChatVectors`,
+  TOFU-Regeln zusätzlich in den Logik-Tests) und ein E2E-Test `ios/Tests/FedE2E` gegen zwei verbundene Server mit der
+  Referenz-App als Gegenseite.
+
 ### Geändert (alle Apps)
 - **Testversionen als Release Candidate erkennbar:** Alles, was nicht das offizielle Release ist (Vorabversion von
   `testing`, Ad-hoc-Builds fürs MDM, lokale Builds), zeigt in Einstellungen/„Über“ jetzt `2.2.0-rc.N` statt nur

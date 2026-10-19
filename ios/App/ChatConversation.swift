@@ -22,6 +22,10 @@ struct ChatMessage: Identifiable, Equatable {
     /// KI-Antwort (2.1): Beleg des Servers und Ergebnis der Pruefung (Hash + Kennung)
     var aiMeta: AIReplyMeta? = nil
     var aiState: AIChatLogic.ReplyState = .none
+    /// Systemzeile (2.3, kind 'sys'): z. B. KI ein-/ausgeschaltet - Metadaten vom Heim
+    var sys: FedChatLogic.SysLine? = nil
+    /// Zustellung in Chats ueber Servergrenzen (2.3): wird zugestellt / nicht zugestellt
+    var delivery: FedChatLogic.Delivery = .delivered
     var date: Date { Date(timeIntervalSince1970: created > 0 ? created : ts / 1000) }
     var text: String { content?.text ?? "" }
 }
@@ -51,6 +55,11 @@ final class ConversationModel: ObservableObject {
     /// Kennung der zuletzt gesendeten Nachricht (fuer die Frage an die KI)
     private(set) var lastSentID: String?
     private var recipients: [[String: Any]]?
+    /// 2.3: selbst gepruefte Schluessel der Mitglieder eines Chats ueber Servergrenzen (Handle -> Stand, TOFU)
+    @Published var fk: [String: FedKeyState] = [:]
+    var fed: FedChatInfo? { info?.fed }
+    /// v2: SHA-256 der KI-Antworten je Beleg (aus "done") - wird in v2 mitsigniert
+    private var aiHashes: [String: String] = [:]
     private var lastTyping = Date.distantPast
     private var lastReadSent = 0
 
@@ -72,11 +81,12 @@ final class ConversationModel: ObservableObject {
             if s?.kind == "free", let x = s { s?.decryptedTitle = model.decryptTitle(x) }
             info = s
             if s?.ai == true && !store.aiChat { await store.loadAIStatus() }   // KI im Chat (2.1): Server-Schalter/Persona aktuell
+            if s?.isFed == true { await fedLoad() }                     // 2.3: Schluessel der Absender vor dem Entschluesseln
             let m = try await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&limit=50&calls=1")
             messages = []; ingest(m, prepend: false)
             error = nil
             await markRead()
-            await loadRecipients()
+            if s?.isFed != true { await loadRecipients() }
         } catch { self.error = error.localizedDescription }
     }
     func loadOlder() async {
@@ -102,19 +112,37 @@ final class ConversationModel: ObservableObject {
                 guard let e = (m["body_ct"] as? String).flatMap({ CallLogic.Entry(json: Data($0.utf8)) }) else { continue }
                 list.append(ChatMessage(seq: ShareJSON.int(m["seq"]) ?? 0, id: m["id"] as? String ?? "", sender: sender, senderName: name,
                                         ts: ShareJSON.num(m["ts"]) ?? 0, created: ShareJSON.num(m["created"]) ?? 0, expiresAt: ShareJSON.num(m["expires_at"]),
-                                        replyTo: nil, content: nil, verified: true, mine: e.outgoing(me: me), senderAvatar: avatar, call: e))
+                                        replyTo: nil, content: nil, verified: true,
+                                        mine: e.outgoing(me: me) || (fed != nil && (sender == me || e.from == fed?.myHandle)),   // v2: Anrufer als Prinzipal/Handle
+                                        senderAvatar: avatar, call: e))
                 continue
             }
-            let r = model.decrypt(chatID: chatID, raw: m, devices: devs, idents: ids)
-            let meta = AIReplyMeta(m["ai"])
-            let aiState = AIChatLogic.check(bodyRef: r?.content?.aiReply, text: r?.content?.text, meta: meta)
-            if sender != me, let ip = ids?[sender] as? String, ChatTrustStore.observe(me, sender, pk: ip) == .changed || ChatTrustStore.known(me, sender)?.changed == true {
-                if !changedPeers.contains(sender) { changedPeers.append(sender) }
+            if (m["kind"] as? String) == "sys" {                          // Systemzeile (2.3): Klartext-Metadaten vom Heim
+                list.append(ChatMessage(seq: ShareJSON.int(m["seq"]) ?? 0, id: m["id"] as? String ?? "", sender: sender, senderName: name,
+                                        ts: ShareJSON.num(m["ts"]) ?? 0, created: ShareJSON.num(m["created"]) ?? 0, expiresAt: ShareJSON.num(m["expires_at"]),
+                                        replyTo: nil, content: nil, verified: true, mine: false,
+                                        sys: FedChatLogic.sysLine(m["body_ct"] as? String, myHandle: fed?.myHandle)))
+                continue
             }
-            list.append(ChatMessage(seq: ShareJSON.int(m["seq"]) ?? 0, id: m["id"] as? String ?? "", sender: sender, senderName: name,
-                                    ts: ShareJSON.num(m["ts"]) ?? 0, created: ShareJSON.num(m["created"]) ?? 0, expiresAt: ShareJSON.num(m["expires_at"]),
-                                    replyTo: ShareJSON.str(m["reply_to"]), content: r?.content, verified: r?.verified ?? false, mine: sender == me,
-                                    senderAvatar: avatar, aiMeta: meta, aiState: aiState))
+            let r: (content: ChatContent?, verified: Bool)?
+            let meta: AIReplyMeta?
+            if let f = fed {                                              // 2.3: saga-chat/v2
+                r = model.decryptV2(ref: f.ref, raw: m, fk: fk)
+                meta = FedChatLogic.aiMeta(m["ai"], bodyRef: r?.content?.aiReply)
+            } else {
+                r = model.decrypt(chatID: chatID, raw: m, devices: devs, idents: ids)
+                meta = AIReplyMeta(m["ai"])
+                if sender != me, let ip = ids?[sender] as? String, ChatTrustStore.observe(me, sender, pk: ip) == .changed || ChatTrustStore.known(me, sender)?.changed == true {
+                    if !changedPeers.contains(sender) { changedPeers.append(sender) }
+                }
+            }
+            let aiState = AIChatLogic.check(bodyRef: r?.content?.aiReply, text: r?.content?.text, meta: meta)
+            var cm = ChatMessage(seq: ShareJSON.int(m["seq"]) ?? 0, id: m["id"] as? String ?? "", sender: sender, senderName: name,
+                                 ts: ShareJSON.num(m["ts"]) ?? 0, created: ShareJSON.num(m["created"]) ?? 0, expiresAt: ShareJSON.num(m["expires_at"]),
+                                 replyTo: ShareJSON.str(m["reply_to"]), content: r?.content, verified: r?.verified ?? false, mine: sender == me,
+                                 senderAvatar: avatar, aiMeta: meta, aiState: aiState)
+            cm.delivery = FedChatLogic.delivery(m["fstate"])
+            list.append(cm)
         }
         let known = Set(messages.map(\.id))
         list.removeAll { known.contains($0.id) }
@@ -156,7 +184,12 @@ final class ConversationModel: ObservableObject {
 
     func live(_ type: String, _ d: [String: Any]) {
         switch type {
-        case "chat.message": Task { await fetchNew() }
+        case "chat.message":
+            // 2.3: eigene wartende Nachricht jetzt zugestellt bzw. abgewiesen
+            if let id = d["id"] as? String, let i = messages.firstIndex(where: { $0.id == id }), messages[i].delivery != .delivered {
+                messages[i].delivery = FedChatLogic.liveDelivery(d)
+            }
+            Task { await fetchNew() }
         case "chat.deleted": if let id = d["id"] as? String { messages.removeAll { $0.id == id } }
         case "chat.changed": recipients = nil; Task { await load() }
         case "chat.typing":
@@ -219,14 +252,14 @@ final class ConversationModel: ObservableObject {
             // Anhaenge zuerst (verschluesselter Blob, Server sieht nur Bytes)
             var refs: [ChatFileRef] = []
             var primes: [(ChatFileRef, CGImage?, Data, Data?)] = []
-            let cid = String(chatID)
+            let cid = info?.fileCID ?? String(chatID)                    // AD der Anhaenge: v1 chat_id, v2 chat_ref
             for f in files {
                 guard f.data.count <= model.me.fileMax else {
                     throw APIError.other(String(localized: "„\(f.name)“ ist zu groß (höchstens \(model.me.fileMax / 1_048_576) MB)."))
                 }
                 // Verschluesseln und Vorschaubild (2.1-c) im Hintergrund - nie im UI-Thread
                 let data = f.data, image = ChatMediaLogic.canThumb(f.mime)
-                async let enc = Task.detached(priority: .userInitiated) { ChatCrypto.encryptFile(chatID: cid, data: data) }.value
+                async let enc = Task.detached(priority: .userInitiated) { ChatCrypto.encryptChatFile(cid, data: data) }.value
                 async let th = ChatThumbUpload.make(data, chatID: cid, enabled: image)
                 guard let e = await enc else { throw APIError.other(String(localized: "Upload fehlgeschlagen")) }
                 let t = await th
@@ -252,6 +285,10 @@ final class ConversationModel: ObservableObject {
                                       aiReply: ai?.reply, aiName: ai?.name)
             if kind == "title" { content.text = "" }
             let plain = content.json()
+            if fed != nil {                                              // 2.3: Chat ueber Servergrenzen (saga-chat/v2)
+                try await sendV2(plain, replyTo: replyTo, fileIDs: fit.ids, ai: ai)
+                return true
+            }
             if recipients == nil { await loadRecipients() }
             for attempt in 0..<2 {
                 guard let rc = recipients else { throw APIError.other(String(localized: "Keine Antwort vom Server")) }
@@ -338,6 +375,7 @@ final class ConversationModel: ObservableObject {
                 guard let d = done, let text = (d["text"] as? String).map(AIChatLogic.normalized), !text.isEmpty,
                       let reply = (d["reply"] as? [String: Any])?["id"] as? String else { throw APIError.other(String(localized: "Keine Antwort bekommen.")) }
                 let pname = ((d["persona"] as? [String: Any])?["name"] as? String) ?? name
+                if let h = (d["reply"] as? [String: Any])?["sha256"] as? String { aiHashes[reply] = h }   // v2: Hash wird mitsigniert
                 aiPending = text
                 let ok = await send(text: text, replyTo: qid, files: [], ai: (reply, pname))
                 if !ok { throw APIError.other(sendError ?? String(localized: "Nicht gesendet")) }
@@ -379,11 +417,11 @@ final class ConversationModel: ObservableObject {
         #if DEBUG
         if UserDefaults.standard.bool(forKey: "hkChatNoThumb") { f.thumb = nil }     // nur fuer Tests: wie alte Nachrichten ohne "th"
         #endif
-        return try await ChatMedia.shared.thumbnail(f, chatID: String(chatID), fetch: fetcher)
+        return try await ChatMedia.shared.thumbnail(f, chatID: info?.fileCID ?? String(chatID), fetch: fetcher)
     }
     /// Original (Bild beim Oeffnen, Datei zum Teilen) laden + entschluesseln
     func original(_ f: ChatFileRef) async throws -> Data {
-        try await ChatMedia.shared.original(f, chatID: String(chatID), fetch: fetcher)
+        try await ChatMedia.shared.original(f, chatID: info?.fileCID ?? String(chatID), fetch: fetcher)
     }
     func file(_ f: ChatFileRef) async throws -> Data { try await original(f) }
 
@@ -415,4 +453,99 @@ final class ConversationModel: ObservableObject {
         return ChatCrypto.unb64(u["ident_pub"] as? String, 32)
     }
     func acknowledge(_ uid: String) { ChatTrustStore.acknowledge(me, uid); changedPeers.removeAll { $0 == uid } }
+}
+
+// MARK: - Chats ueber Servergrenzen (2.3, saga-chat/v2, docs/APP-API-FED.md Abschnitt 6)
+
+extension ConversationModel {
+    /// Schluessel aller Mitglieder ueber den eigenen Server holen, selbst pruefen, TOFU (Warnung/Blockade erscheint sofort)
+    func fedLoad(fresh: Bool = false) async {
+        guard let f = fed else { return }
+        if let r = try? await model.fedKeys(f.handles, fresh: fresh, own: f.myHandle) { fk = r }
+    }
+    /// Personen anderer Server mit Warnung/Blockade/ungueltigen Schluesseln
+    var fedProblems: [(member: FedMember, verdict: FedChatLogic.Verdict)] {
+        (fed?.members ?? []).filter { !$0.me }.compactMap { m in
+            guard let v = fk[m.handle]?.verdict, FedChatLogic.blocksSending(v) else { return nil }
+            return (m, v)
+        }
+    }
+
+    /// Senden v2: Empfaenger = aktive Geraete aus den selbst geprueften Schluesseln aller Mitglieder + backup:<handle>;
+    /// 409 mit handles (Mitglieder/Geraete geaendert) -> einmal frisch holen und neu versiegeln
+    fileprivate func sendV2(_ plain: Data, replyTo: String?, fileIDs: [String], ai: (reply: String, name: String)?) async throws {
+        guard let store, let k = model.keys, let f = fed else { return }
+        let aiHash = ai.map { aiHashes[$0.reply] ?? AIChatLogic.sha256Hex(AIChatLogic.normalized(ChatContent(json: plain)?.text ?? "")) }
+        for attempt in 0..<2 {
+            let keys = try await model.fedKeys(f.handles, fresh: attempt > 0, own: f.myHandle)
+            fk = keys
+            switch FedChatLogic.sendCheck(members: f.members, verdicts: keys.mapValues(\.verdict), myHandle: f.myHandle) {
+            case .blocked(let names):
+                throw APIError.other(String(localized: "Die Sicherheitsnummer von \(names.joined(separator: ", ")) hat sich geändert – erst prüfen oder „Verstanden“ wählen."))
+            case .ownKeys:
+                await model.fedCerts()
+                throw APIError.other(String(localized: "Deine Schlüssel für Chats über Servergrenzen sind noch nicht bereit – bitte gleich noch einmal versuchen."))
+            case .ok: break
+            }
+            guard let (body, mid) = FedFlow.sendBody(info: f, own: k.fedOwn, keys: keys, plain: plain, replyTo: replyTo,
+                                                     ai: aiHash.flatMap { h in ai.map { (h, $0.reply) } }, fileIDs: fileIDs)
+            else { throw APIError.other(String(localized: "Nicht gesendet")) }
+            let (d, code) = try await store.apiResponse("api/chats/\(chatID)/messages", method: "POST", body: body)
+            let j = ShareJSON.obj(d)
+            if FedChatLogic.needsFreshKeys(code: code, body: j), attempt == 0 { continue }
+            if code == 403 { await model.fedCerts() }
+            guard (200..<300).contains(code) else { throw APIError.http(code, j.flatMap { ShareJSON.str($0["error"]) } ?? "") }
+            let missing = (fed?.members ?? []).filter { !$0.me && keys[$0.handle]?.keys == nil }.map(\.name)
+            if !missing.isEmpty { sendError = String(localized: "\(missing.joined(separator: ", ")) hat Chats noch nicht eingerichtet und kann diese Nachricht nicht lesen.") }
+            if ShareJSON.bool(j?["pending"]) { model.toast = String(localized: "Der andere Server ist gerade nicht erreichbar – die Nachricht wird zugestellt, sobald er wieder da ist.") }
+            lastSentID = mid
+            await fetchNew()
+            if info?.fed?.request == true { await load(); await model.loadList() }   // wer schreibt, nimmt an
+            return
+        }
+        throw APIError.other(String(localized: "Die Mitglieder oder ihre Geräte haben sich geändert – bitte erneut senden."))
+    }
+
+    /// "Erneut senden" (nicht zugestellt): neu verschluesseln und senden, alte Nachricht loeschen
+    func resend(_ m: ChatMessage) async {
+        guard let store, let c = m.content, m.mine, m.delivery == .failed else { return }
+        sending = true; sendError = nil; defer { sending = false }
+        do {
+            let ids = ChatMediaLogic.sendIDs(c.files, maxIDs: model.me.fileIDsPerMsg).ids
+            try await sendV2(c.json(), replyTo: m.replyTo, fileIDs: ids, ai: nil)
+            _ = try? await store.apiResponse("api/chats/\(chatID)/messages/\(m.id)", method: "DELETE")
+            messages.removeAll { $0.id == m.id }
+            await fetchNew()
+        } catch { sendError = String(localized: "Nicht gesendet: \(error.localizedDescription)") }
+    }
+
+    /// Nachrichtenanfrage: annehmen, ablehnen, sperren (Person oder ganzer Server). true = Chat schliessen
+    func respond(_ action: String, scope: String = "person") async -> Bool {
+        guard let store else { return false }
+        do {
+            let (d, code) = try await store.apiResponse("api/chats/\(chatID)/request", method: "POST", body: ["action": action, "scope": scope])
+            guard (200..<300).contains(code) else { throw APIError.http(code, ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "") }
+            switch action {
+            case "accept": model.toast = String(localized: "Anfrage angenommen."); await load(); await model.loadList(); return false
+            case "block": model.toast = String(localized: "Gesperrt – von dort kommen keine Anfragen mehr.")
+            default: model.toast = String(localized: "Anfrage abgelehnt.")
+            }
+            await model.loadList()
+            return true
+        } catch { sendError = error.localizedDescription; return false }
+    }
+
+    /// TOFU v2: "Verstanden" bzw. "Als ueberprueft markieren"
+    func fedConfirm(_ handle: String, verified: Bool) async {
+        guard let ip = fk[handle]?.keys?.identPub else { return }
+        model.fedVerify(handle, identPub: ip, verified: verified)
+        await fedLoad()
+    }
+    /// Sicherheitsnummer v2 mit einer Person (nil: noch keine Schluessel)
+    func safetyV2(_ handle: String) async -> (number: String, state: FedKeyState)? {
+        guard let f = fed else { return nil }
+        if let r = try? await model.fedKeys([handle], own: f.myHandle) { fk.merge(r) { $1 } }
+        guard let st = fk[handle], let ip = st.keys?.identPK, let n = model.safetyV2(myHandle: f.myHandle, handle: handle, identPK: ip) else { return nil }
+        return (n, st)
+    }
 }
