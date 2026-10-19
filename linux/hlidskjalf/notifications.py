@@ -26,7 +26,9 @@ def kind_label(kind):
             "comment.mention": _("Someone mentions me"),
             "publish.withdrawn": _("An admin withdraws one of my published pages"),
             "chat.message": _("New chat messages (without content; never for muted chats)"),
-            "call.missed": _("Missed calls")}.get(kind, kind)
+            "call.missed": _("Missed calls"),
+            "backup.failed": _("Admin: backup failed"),
+            "userbackup.failed": _("My backup failed")}.get(kind, kind)
 
 
 def item_text(it):
@@ -57,10 +59,22 @@ def item_text(it):
         return ngettext("{n} new message", "{n} new messages", n).format(n=n)
     if k == "call.missed":
         return _("Missed call from {name}").format(name=name)
+    # Backups (2.3): Text kommt vom Server in der Sprache der App (Accept-Language) - ohne ihn ein eigener Satz
+    if k == "backup.failed":
+        return it.get("text") or _("Backup failed")
+    if k == "userbackup.failed":
+        return it.get("text") or _("My backup failed")
     return it.get("text") or ""
 
 
+SYSTEM_KINDS = ("backup.failed", "userbackup.failed")
+
+
 def item_title(it):
+    if it.get("kind") == "backup.failed":
+        return it.get("title") or _("Backups")
+    if it.get("kind") == "userbackup.failed":
+        return it.get("title") or _("My backup")
     if it.get("access") is False:
         return _("No access anymore")
     if it.get("kind") in ("chat.message", "call.missed"):
@@ -96,6 +110,9 @@ def parse_url(url):
     m = re.fullmatch(r"/notes#(-?\d+)(?::(.+))?", url or "")
     if m:
         return "page", int(m.group(1)), m.group(2)
+    m = re.fullmatch(r"/\?settings=([a-z]+)", url or "")         # z. B. Mein Backup (userbackup.failed)
+    if m:
+        return "settings", m.group(1), None
     m = re.fullmatch(r"/chats#c?(\d+)", url or "")
     if m:
         return "chat", int(m.group(1)), None
@@ -342,7 +359,7 @@ class NotificationList(Gtk.Box):
         actor = it.get("actor") if isinstance(it.get("actor"), dict) else None
         av = Adw.Avatar(size=32, text=(actor or {}).get("name") or "Saga", show_initials=actor is not None, valign=Gtk.Align.START)
         if actor is None:
-            av.set_icon_name(bell_icon())
+            av.set_icon_name("drive-harddisk-symbolic" if it.get("kind") in SYSTEM_KINDS else bell_icon())
         else:
             from . import avatars
             avatars.attach(av, actor.get("avatar"), 32)          # Profilbild (2.1), sonst Initialen

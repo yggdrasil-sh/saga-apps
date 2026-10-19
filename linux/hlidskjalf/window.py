@@ -1342,6 +1342,11 @@ class MainWindow(Adw.ApplicationWindow):
             self.show_route(("chat", int(ch["id"])))
             self.present()
             return
+        if it.get("kind") == "backup.failed":                 # Admin-Bereich (eigener Port): im Browser
+            u = it.get("url") or ""
+            if u.startswith(("https://", "http://")):
+                self.open_uri(u)
+            return
         self.open_url(it.get("url") or "", thread=it.get("thread_id"), block=it.get("block_id"))
 
     def open_url(self, url, thread=None, block=None, mark=False):
@@ -1356,6 +1361,9 @@ class MainWindow(Adw.ApplicationWindow):
         if t is None:
             return
         kind, nid, blk = t
+        if kind == "settings":                                # "/?settings=backup" (Mein Backup fehlgeschlagen)
+            self.settings_dialog(page={"backup": "backup", "nextcloud": "account"}.get(nid, "account"))
+            return
         if kind == "chat":
             self.show_route(("chat", nid))
             return

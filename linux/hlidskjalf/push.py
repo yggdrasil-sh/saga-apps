@@ -269,7 +269,8 @@ CATS = [("share", lambda: _("Sharing: someone shares a page with me or changes m
         ("comment", lambda: _("Comments and replies")),
         ("chat", lambda: _("Chat messages")),
         ("publish", lambda: _("Publishing: an admin withdraws something")),
-        ("call", lambda: _("Calls: ringing, missed calls"))]                # Server ab 2.1 (sonst fehlt "call" in cats)
+        ("call", lambda: _("Calls: ringing, missed calls")),                # Server ab 2.1 (sonst fehlt "call" in cats)
+        ("admin", lambda: _("Admin: backup failed"))]                       # Server ab 2.3, nur Admin-Konten
 
 
 class PushPage(Adw.PreferencesPage):
@@ -377,8 +378,9 @@ class PushPage(Adw.PreferencesPage):
             g2.set_description(_("Push notifications are turned off on this server.") if not server_on else
                                _("Turn on push notifications on a device first."))
         cats = st.get("cats") or {}
+        shown = d.get("categories") if isinstance(d.get("categories"), list) else None   # Server ab 2.3: "admin" nur fuer Admins
         for key, text in CATS:
-            if key not in cats:
+            if key not in cats or (shown is not None and key not in shown):
                 continue
             r = Adw.SwitchRow(title=text(), active=bool(cats.get(key)))
             r.connect("notify::active", lambda rr, _p, key=key: self._put({"cats": {key: rr.get_active()}}))
