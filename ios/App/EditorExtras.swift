@@ -426,6 +426,11 @@ struct PageEditorSheets: ViewModifier {
                 ed.fileFor = nil
             }
         }
+            .sheet(item: Binding(get: { ed.ncFor.map(MoveTarget.init(idString:)) }, set: { if $0 == nil { ed.ncFor = nil } })) { _ in
+                NextcloudPicker(linkAllowed: !FedLogic.isRemote(doc.id), note: doc.uploadNote) { r in
+                    if let b = ed.ncFor { ed.applyNextcloud(r, into: b) } else { ed.ncFor = nil }
+                }.environmentObject(store)
+            }
             .focusedSceneValue(\.pageEditor, ed)
             .focusedSceneValue(\.editorBlock, ed.locked ? nil : ed.focusedBlock)   // Menueleiste nur fuer den bearbeiteten Block
     }

@@ -6,6 +6,33 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu (iOS/iPadOS/macOS) – Mein Backup und Nextcloud-Dateien (Saga 2.3)
+- **Einstellungen → „Mein Backup“:** Status (letztes erfolgreiches Backup, nächster Lauf, laufender Schritt bzw. Fehler
+  des letzten Laufs, letzte Läufe) und „Jetzt sichern“ direkt in den Einstellungen; „Verwalten …“ öffnet alles Weitere:
+  Ziel verbinden (Nextcloud per Login Flow v2 – Link öffnet im Browser, die App fragt den Server ab – oder WebDAV mit
+  Benutzer/Passwort), Verbindung prüfen, Trennen; Schlüsselpaar erzeugen (privater Schlüssel nur einmal angezeigt, zum
+  Kopieren/Teilen bzw. am Mac als Datei an einen selbst gewählten Ort, nie gespeichert; Bestätigung mit den letzten 6
+  Zeichen) oder eigenen öffentlichen Schlüssel eintragen, Schlüssel entfernen; Kategorien und ausgeschlossene
+  Seitenbäume (nur, wenn der Server sie meldet); Zeitplan (aus/wöchentlich/täglich – täglich nur, wenn der Admin es
+  erlaubt), Uhrzeit, Wochentag, Aufbewahrung; Backups im Ziel anzeigen und herunterladen; Einspielen eines Backups aus
+  dem eigenen Ziel ins eigene Konto (privater Schlüssel nur für diesen Vorgang), Backup-Dateien weiter im Web.
+- **Einstellungen → „Nextcloud“:** eigene Nextcloud verknüpfen (Login Flow v2), Status (verbunden als …, seit, zuletzt
+  genutzt), Trennen mit Rückfrage.
+- **Block „Nextcloud-Datei“:** Karte mit Symbol je Art, Name, Größe und Datum; Bilder mit Vorschau über den
+  Saga-Proxy, Ordner mit den ersten Einträgen, „Herunterladen“ (Mac: Sichern-Dialog, iPhone/iPad: Teilen-Blatt) und „In
+  Nextcloud öffnen“; nicht verfügbare Dateien als Karte ohne Inhalt. Der Block wird beim Speichern unverändert
+  zurückgeschrieben (Freigaben ändert die einfügende Person im Web). Einfügen über „/“ → „Nextcloud-Datei“: Auswahl aus
+  der eigenen Nextcloud (Zuletzt, Ordner mit „Diesen Ordner einfügen“, Suche), „Als Verweis einfügen“ oder „Als Kopie
+  übernehmen“ (auf Seiten anderer Saga-Server nur als Kopie). Lehnt der Server einen neuen Nextcloud-Block ab (Datei
+  einer anderen Person kopiert: 403, Nextcloud nicht verbunden: 409), zeigt die Seite die Meldung des Servers samt
+  Hinweis, statt einen Konflikt oder Zugriffsverlust anzunehmen; der Entwurf bleibt erhalten.
+- **Benachrichtigungen:** „Mein Backup fehlgeschlagen“ (`userbackup.failed`) und für Admins `backup.failed` erscheinen
+  mit eigenem Symbol und Titel statt als Seite; Antippen öffnet „Mein Backup“ bzw. den Admin-Bereich im Browser.
+  Mitteilungs-Kategorien „Admin“ und „Anrufe“ sowie „Verpasste Anrufe“ mit lesbarem Text statt Rohschlüssel.
+- Ältere Server (2.1/2.2) blenden die neuen Abschnitte aus; lokale Funktionen bleiben unverändert. Texte de/en/es/ru/th.
+  Geprüft mit Logik-Tests und Ende-zu-Ende gegen einen Server 2.3 mit nachgemachter Nextcloud/WebDAV
+  (`tests/fakedav.py`; `ios/Tests/CloudE2E`).
+
 ### Neu (Linux)
 - **Chats über Servergrenzen (Saga 2.3, Föderation E1–E3):** Die Linux-App versteht jetzt das Chat-Format
   `saga-chat/v2` und meldet das dem Server (`X-Saga-Chat: 2`) – Chats mit Personen verbundener Saga-Server erscheinen

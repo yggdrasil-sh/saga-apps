@@ -157,6 +157,7 @@ struct NotifRow: View {
             ZStack {
                 Circle().fill(Color.gold.opacity(0.16))
                 if n.kind == "publish.withdrawn" { Text(verbatim: "🛡") }
+                else if n.system { Image(systemName: "externaldrive.badge.exclamationmark").font(.callout).foregroundStyle(.red) }   // Backups (2.3)
                 else if let a = n.actorName { AvatarView(name: a, avatar: n.actorAvatar, size: 34) }
                 else { Image(systemName: "person.fill.questionmark").font(.caption) }
             }
@@ -177,6 +178,7 @@ struct NotifRow: View {
         .opacity(n.access ? 1 : 0.7)
     }
     private var page: String {
+        if n.system { return n.title.isEmpty ? CloudLogic.systemTitle(n.kind) : n.title }   // "Mein Backup" / "Backups" statt Seite
         if !n.access { return "🔒 " + String(localized: "Kein Zugriff mehr") }
         if n.chatID != nil { return "💬 " + (n.title.isEmpty ? String(localized: "Chat") : n.title) }
         let icon = n.noteIcon.flatMap { $0.isEmpty || $0.hasPrefix("/") ? nil : $0 } ?? "📄"
@@ -212,6 +214,9 @@ struct NotificationSettingsSection: View {
         case "publish.withdrawn": return String(localized: "Ein Admin zieht eine Veröffentlichung von mir zurück")
         case "comment.mention": return String(localized: "Jemand erwähnt mich")
         case "chat.message": return String(localized: "Neue Chat-Nachrichten (ohne Inhalt; stummgeschaltete Chats nie)")
+        case "call.missed": return String(localized: "Verpasste Anrufe")
+        case "userbackup.failed": return String(localized: "Mein Backup ist fehlgeschlagen")
+        case "backup.failed": return String(localized: "Backups des Servers sind fehlgeschlagen (Admin)")
         default: return k
         }
     }

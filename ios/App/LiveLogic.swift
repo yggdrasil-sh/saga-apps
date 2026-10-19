@@ -153,15 +153,22 @@ struct NotifItem: Identifiable, Equatable {
         role = ShareJSON.str(d["role"]); excerpt = ShareJSON.str(d["excerpt"])
         threadID = ShareJSON.int(d["thread_id"]); blockID = ShareJSON.str(d["block_id"])
         chatID = ShareJSON.int((d["chat"] as? [String: Any])?["id"]) ?? NotifLogic.chatID(fromURL: url)
+        system = ShareJSON.bool(d["system"]) || CloudLogic.isSystemKind(kind)
     }
-    /// antippbar: Seite mit Zugriff oder Chat
-    var openable: Bool { access && (noteID != nil || chatID != nil) }
+    /// Systemmeldung ohne Person/Seite (2.3: backup.failed, userbackup.failed)
+    var system = false
+    /// antippbar: Seite mit Zugriff oder Chat, Systemmeldung mit Ziel (Einstellungen, Admin-Bereich)
+    var openable: Bool { access && (noteID != nil || chatID != nil || (system && NotifLogic.target(url: url) != .none)) }
 }
 
 /// Ziel beim Antippen einer Benachrichtigung bzw. Mitteilung (url relativ zu BASE_URL)
 enum NotifTarget: Equatable {
     case page(id: Int, block: String?)
     case chat(id: Int)
+    /// Einstellungen der App, Abschnitt (2.3: "backup" aus "/?settings=backup")
+    case settings(String)
+    /// Adresse ausserhalb der App (2.3: Admin-Bereich "Backups" auf eigenem Port)
+    case web(String)
     case none
 }
 
@@ -177,11 +184,19 @@ enum NotifLogic {
     static func target(url: String?) -> NotifTarget {
         guard let u = url else { return .none }
         if let c = chatID(fromURL: u) { return .chat(id: c) }
+        if let s = settingsSection(u) { return .settings(s) }
+        if u.hasPrefix("http://") || u.hasPrefix("https://"), CloudLogic.httpURL(u) != nil, !u.contains("/notes#") { return .web(u) }
         guard let r = u.range(of: "/notes#") else { return .none }
         let frag = u[r.upperBound...]
         let parts = frag.split(separator: ":", maxSplits: 1)
         guard let first = parts.first, let id = Int(first) else { return .none }
         return .page(id: id, block: parts.count > 1 ? String(parts[1]) : nil)
+    }
+    /// "/?settings=backup" -> "backup" (nur einfache Namen)
+    static func settingsSection(_ u: String) -> String? {
+        guard u.hasPrefix("/?") || u.hasPrefix("?"), let q = URLComponents(string: u.hasPrefix("/") ? u : "/" + u)?.queryItems,
+              let v = q.first(where: { $0.name == "settings" })?.value, !v.isEmpty, v.allSatisfy({ $0.isLetter || $0 == "-" }) else { return nil }
+        return v
     }
     static func target(_ n: NotifItem) -> NotifTarget {
         if let c = n.chatID { return .chat(id: c) }

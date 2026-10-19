@@ -315,6 +315,22 @@ extension RootView {
             nav.peek = nil
             if let b = block { nav.showComments(id, block: b) }       // Seite schon offen: sie reagiert auf commentsJump
             if selection == id { nav.path = [] } else { selection = id }
+        case .settings(let section):                                    // 2.3: "Mein Backup" fehlgeschlagen -> Einstellungen
+            CloudNav.pendingSection = section
+            #if os(macOS)
+            openSettings()
+            #else
+            showSettings = true
+            #endif
+            NotificationCenter.default.post(name: .hkOpenBackup, object: nil)   // Einstellungen schon offen
+        case .web(let s):                                               // Admin-Bereich (Backups) im Browser
+            if let u = CloudLogic.httpURL(s) {
+                #if os(macOS)
+                NSWorkspace.shared.open(u)
+                #else
+                UIApplication.shared.open(u)
+                #endif
+            }
         case .none: break
         }
     }

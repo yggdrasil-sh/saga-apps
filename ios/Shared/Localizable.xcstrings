@@ -1328,6 +1328,40 @@
         }
       }
     },
+    "(mit Unterseiten)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(mit Unterseiten)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(with subpages)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(con subpáginas)"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(с подстраницами)"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "(รวมหน้าย่อย)"
+          }
+        }
+      }
+    },
     "(ohne Titel)" : {
       "localizations" : {
         "de" : {
@@ -1695,6 +1729,40 @@
         }
       }
     },
+    "Admin: Backups des Servers fehlgeschlagen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admin: Backups des Servers fehlgeschlagen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admin: server backups failed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Admin: fallaron las copias del servidor"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Админ: резервное копирование сервера не удалось"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ผู้ดูแล: การสำรองข้อมูลของเซิร์ฟเวอร์ล้มเหลว"
+          }
+        }
+      }
+    },
     "Adresse deines Immich und einen API-Schlüssel eintragen. In Immich unter Kontoeinstellungen → API-Schlüssel einen neuen Schlüssel anlegen (Rechte: album.read, asset.read, asset.view, asset.download, user.read). Saga sieht nur deine eigenen Fotos." : {
       "localizations" : {
         "de" : {
@@ -1899,6 +1967,74 @@
         }
       }
     },
+    "Alle, die diese Seite sehen, sehen auch diese Datei. Vorschau und Download laufen über dein Nextcloud-Konto, solange es verknüpft ist." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle, die diese Seite sehen, sehen auch diese Datei. Vorschau und Download laufen über dein Nextcloud-Konto, solange es verknüpft ist."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Everyone who can see this page also sees this file. Preview and download go through your Nextcloud account as long as it is linked."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos los que ven esta página también ven este archivo. La vista previa y la descarga pasan por tu cuenta de Nextcloud mientras esté vinculada."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Все, кто видит эту страницу, видят и этот файл. Предпросмотр и скачивание идут через твой аккаунт Nextcloud, пока он подключён."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทุกคนที่เห็นหน้านี้จะเห็นไฟล์นี้ด้วย การแสดงตัวอย่างและดาวน์โหลดผ่านบัญชี Nextcloud ของคุณตราบที่ยังเชื่อมต่ออยู่"
+          }
+        }
+      }
+    },
+    "Alle, die eine Seite sehen, sehen auch die Nextcloud-Dateien, die du dort eingefügt hast. Trennst du die Verknüpfung, zeigen deine eingefügten Dateien nur noch eine Karte ohne Inhalt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alle, die eine Seite sehen, sehen auch die Nextcloud-Dateien, die du dort eingefügt hast. Trennst du die Verknüpfung, zeigen deine eingefügten Dateien nur noch eine Karte ohne Inhalt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Everyone who can see a page also sees the Nextcloud files you inserted there. If you disconnect, your inserted files only show a card without content."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todos los que ven una página también ven los archivos de Nextcloud que insertaste allí. Si desconectas, tus archivos insertados solo mostrarán una tarjeta sin contenido."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Все, кто видит страницу, видят и вставленные тобой файлы Nextcloud. Если отключить связь, вставленные файлы будут показываться только карточкой без содержимого."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทุกคนที่เห็นหน้าจะเห็นไฟล์ Nextcloud ที่คุณแทรกไว้ด้วย หากยกเลิกการเชื่อมต่อ ไฟล์ที่แทรกจะแสดงเป็นการ์ดเปล่าเท่านั้น"
+          }
+        }
+      }
+    },
     "Alles erledigt" : {
       "localizations" : {
         "de" : {
@@ -1967,6 +2103,40 @@
         }
       }
     },
+    "Als Datei sichern …" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als Datei sichern …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save as file …"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar como archivo …"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сохранить как файл …"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บันทึกเป็นไฟล์ …"
+          }
+        }
+      }
+    },
     "Als ganze Seite öffnen" : {
       "localizations" : {
         "de" : {
@@ -1997,6 +2167,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เปิดเป็นหน้าเต็ม"
+          }
+        }
+      }
+    },
+    "Als Kopie übernehmen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als Kopie übernehmen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take over as copy"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adoptar como copia"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Взять как копию"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำมาเป็นสำเนา"
           }
         }
       }
@@ -2065,6 +2269,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ตั้งเป็นหน้าแรก"
+          }
+        }
+      }
+    },
+    "Als Verweis einfügen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Als Verweis einfügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insert as link"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insertar como enlace"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вставить как ссылку"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แทรกเป็นลิงก์"
           }
         }
       }
@@ -2715,6 +2953,40 @@
         }
       }
     },
+    "Anrufe" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anrufe"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calls"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llamadas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Звонки"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การโทร"
+          }
+        }
+      }
+    },
     "Anrufe gehen erst, wenn die Anfrage angenommen ist." : {
       "localizations" : {
         "de" : {
@@ -3123,6 +3395,40 @@
         }
       }
     },
+    "App-Passwort (Login Flow)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App-Passwort (Login Flow)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App password (Login Flow)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contraseña de aplicación (Login Flow)"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пароль приложения (Login Flow)"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รหัสผ่านแอป (Login Flow)"
+          }
+        }
+      }
+    },
     "App-Schlüssel (Widget & Teilen)" : {
       "localizations" : {
         "de" : {
@@ -3153,6 +3459,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "คีย์แอป (วิดเจ็ตและการแชร์)"
+          }
+        }
+      }
+    },
+    "Archiv" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archiv"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archive"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Архив"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คลังเก็บ"
           }
         }
       }
@@ -3221,6 +3561,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "บน %@"
+          }
+        }
+      }
+    },
+    "Auf Seiten anderer Saga-Server lassen sich Nextcloud-Dateien nur als Kopie einfügen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auf Seiten anderer Saga-Server lassen sich Nextcloud-Dateien nur als Kopie einfügen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "On pages of other Saga servers, Nextcloud files can only be inserted as a copy."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En páginas de otros servidores Saga, los archivos de Nextcloud solo se pueden insertar como copia."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "На страницы других серверов Saga файлы Nextcloud можно вставлять только как копию."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ในหน้าของเซิร์ฟเวอร์ Saga อื่น แทรกไฟล์ Nextcloud ได้เฉพาะเป็นสำเนา"
           }
         }
       }
@@ -3531,6 +3905,40 @@
         }
       }
     },
+    "Aufgaben übernehmen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aufgaben übernehmen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take over tasks"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incluir tareas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перенести задачи"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำเข้างาน"
+          }
+        }
+      }
+    },
     "Aufsteigend" : {
       "localizations" : {
         "de" : {
@@ -3599,6 +4007,40 @@
         }
       }
     },
+    "aus" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "aus"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "off"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "desactivado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "выкл."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิด"
+          }
+        }
+      }
+    },
     "Aus dem Archiv holen" : {
       "localizations" : {
         "de" : {
@@ -3629,6 +4071,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "นำออกจากคลังเก็บ"
+          }
+        }
+      }
+    },
+    "Aus dem Ziel" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aus dem Ziel"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From the target"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desde el destino"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Из хранилища"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "จากปลายทาง"
           }
         }
       }
@@ -3803,6 +4279,40 @@
         }
       }
     },
+    "Ausschließen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ausschließen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Exclude"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Excluir"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Исключить"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยกเว้น"
+          }
+        }
+      }
+    },
     "Auswahl" : {
       "localizations" : {
         "de" : {
@@ -3901,6 +4411,278 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "อัตโนมัติ (ระบบ)"
+          }
+        }
+      }
+    },
+    "Automatisch sichern" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Automatisch sichern"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back up automatically"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar automáticamente"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Автоматическое копирование"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สำรองอัตโนมัติ"
+          }
+        }
+      }
+    },
+    "Backup einspielen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup einspielen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore backup"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurar copia"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Восстановить копию"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กู้คืนข้อมูลสำรอง"
+          }
+        }
+      }
+    },
+    "Backup läuft: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup läuft: %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup running: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copia en curso: %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Идёт резервное копирование: %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังสำรอง: %@"
+          }
+        }
+      }
+    },
+    "Backup-Datei im Web einspielen ↗" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backup-Datei im Web einspielen ↗"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore backup file on the web ↗"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurar archivo de copia en la web ↗"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Восстановить файл копии в веб-версии ↗"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กู้คืนไฟล์สำรองบนเว็บ ↗"
+          }
+        }
+      }
+    },
+    "Backups" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backups"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backups"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Copias de seguridad"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Резервные копии"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การสำรองข้อมูล"
+          }
+        }
+      }
+    },
+    "Backups behalten" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backups behalten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep backups"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conservar copias"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Хранить копий"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เก็บข้อมูลสำรอง"
+          }
+        }
+      }
+    },
+    "Backups des Servers sind fehlgeschlagen (Admin)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backups des Servers sind fehlgeschlagen (Admin)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Server backups failed (admin)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las copias del servidor fallaron (admin)"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Резервное копирование сервера не удалось (админ)"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การสำรองข้อมูลของเซิร์ฟเวอร์ล้มเหลว (ผู้ดูแล)"
+          }
+        }
+      }
+    },
+    "Backups im Ziel anzeigen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Backups im Ziel anzeigen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show backups in target"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar copias en el destino"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Показать копии в хранилище"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แสดงข้อมูลสำรองในปลายทาง"
           }
         }
       }
@@ -4959,6 +5741,40 @@
         }
       }
     },
+    "Das ist ein privater Schlüssel – hier nur den öffentlichen (age1…) eintragen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das ist ein privater Schlüssel – hier nur den öffentlichen (age1…) eintragen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "That is a private key – only enter the public one (age1…) here."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esa es una clave privada: aquí solo va la pública (age1…)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Это закрытый ключ – здесь вводи только открытый (age1…)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นี่คือกุญแจส่วนตัว – ใส่เฉพาะกุญแจสาธารณะ (age1…) ที่นี่"
+          }
+        }
+      }
+    },
     "Das ist kein Saga-QR-Code." : {
       "localizations" : {
         "de" : {
@@ -4993,6 +5809,40 @@
         }
       }
     },
+    "Das Ziel ist nicht (mehr) erlaubt – bitte neu verbinden." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Das Ziel ist nicht (mehr) erlaubt – bitte neu verbinden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The target is not (or no longer) allowed – please reconnect."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El destino no está (o ya no está) permitido: vuelve a conectarlo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Хранилище не разрешено (больше) – подключи заново."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปลายทางนี้ไม่ได้รับอนุญาต (อีกต่อไป) – โปรดเชื่อมต่อใหม่"
+          }
+        }
+      }
+    },
     "Datei" : {
       "localizations" : {
         "de" : {
@@ -5023,6 +5873,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ไฟล์"
+          }
+        }
+      }
+    },
+    "Datei aus Nextcloud" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datei aus Nextcloud"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "File from Nextcloud"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivo de Nextcloud"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Файл из Nextcloud"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไฟล์จาก Nextcloud"
+          }
+        }
+      }
+    },
+    "Dateiname suchen …" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dateiname suchen …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search file name …"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buscar nombre de archivo …"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Поиск по имени файла …"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค้นหาชื่อไฟล์ …"
           }
         }
       }
@@ -5333,6 +6251,40 @@
         }
       }
     },
+    "Der private Schlüssel geht nur für diesen Vorgang an den Server und wird nicht gespeichert." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der private Schlüssel geht nur für diesen Vorgang an den Server und wird nicht gespeichert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The private key is sent to the server only for this operation and is not stored."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La clave privada se envía al servidor solo para esta operación y no se guarda."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Закрытый ключ передаётся на сервер только для этой операции и не сохраняется."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กุญแจส่วนตัวถูกส่งไปยังเซิร์ฟเวอร์เฉพาะการดำเนินการนี้และไม่ถูกเก็บไว้"
+          }
+        }
+      }
+    },
     "Der Server dieser Seite nimmt noch keine Bilder oder Dateien an (ältere Saga-Version)." : {
       "localizations" : {
         "de" : {
@@ -5401,6 +6353,40 @@
         }
       }
     },
+    "Die Datei wird nach Saga kopiert und folgt dann den Saga-Rechten (auch offline, im Backup und Export)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Datei wird nach Saga kopiert und folgt dann den Saga-Rechten (auch offline, im Backup und Export)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The file is copied to Saga and then follows Saga's permissions (also offline, in backups and exports)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El archivo se copia a Saga y sigue los permisos de Saga (también sin conexión, en copias y exportaciones)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Файл копируется в Saga и подчиняется правам Saga (в том числе офлайн, в копиях и экспорте)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไฟล์จะถูกคัดลอกไปยัง Saga และใช้สิทธิ์ของ Saga (รวมถึงออฟไลน์ ในข้อมูลสำรองและการส่งออก)"
+          }
+        }
+      }
+    },
     "Die KI ist hier jetzt aus." : {
       "localizations" : {
         "de" : {
@@ -5465,6 +6451,64 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "สมาชิกหรืออุปกรณ์ของพวกเขาเปลี่ยนไป – โปรดส่งอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Die neuesten Backups bleiben im Ziel, ältere löscht Saga. Höchstens %lld MB je Backup." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die neuesten Backups bleiben im Ziel, ältere löscht Saga. Höchstens %lld MB je Backup."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The newest backups stay in the target, Saga deletes older ones. At most %lld MB per backup."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las copias más recientes se quedan en el destino; Saga borra las más antiguas. Como máximo %lld MB por copia."
+          }
+        },
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Новейшие копии остаются в хранилище, более старые Saga удаляет. Не более %lld МБ на копию."
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Новейшие копии остаются в хранилище, более старые Saga удаляет. Не более %lld МБ на копию."
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Новейшие копии остаются в хранилище, более старые Saga удаляет. Не более %lld МБ на копию."
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Новейшие копии остаются в хранилище, более старые Saga удаляет. Не более %lld МБ на копию."
+                }
+              }
+            }
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อมูลสำรองล่าสุดจะอยู่ในปลายทาง Saga จะลบข้อมูลที่เก่ากว่า สูงสุด %lld MB ต่อการสำรอง"
           }
         }
       }
@@ -5673,6 +6717,40 @@
         }
       }
     },
+    "Diese Datei liegt nicht in deinem verbundenen Nextcloud." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Datei liegt nicht in deinem verbundenen Nextcloud."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This file is not in your connected Nextcloud."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este archivo no está en tu Nextcloud conectado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот файл не находится в твоём подключённом Nextcloud."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไฟล์นี้ไม่ได้อยู่ใน Nextcloud ที่คุณเชื่อมต่อ"
+          }
+        }
+      }
+    },
     "Diese Seite liegt auf %@. Hier kannst du sie lesen, kommentieren und bearbeiten." : {
       "localizations" : {
         "de" : {
@@ -5775,6 +6853,40 @@
         }
       }
     },
+    "Diesen Ordner einfügen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diesen Ordner einfügen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insert this folder"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Insertar esta carpeta"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Вставить эту папку"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แทรกโฟลเดอร์นี้"
+          }
+        }
+      }
+    },
     "Dieser Kalender ist nur lesbar." : {
       "localizations" : {
         "de" : {
@@ -5805,6 +6917,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ปฏิทินนี้อ่านได้อย่างเดียว"
+          }
+        }
+      }
+    },
+    "Dieser Server kennt noch keine Nextcloud-Dateien (ab Saga 2.3)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dieser Server kennt noch keine Nextcloud-Dateien (ab Saga 2.3)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This server doesn't support Nextcloud files yet (from Saga 2.3)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este servidor aún no admite archivos de Nextcloud (desde Saga 2.3)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот сервер пока не поддерживает файлы Nextcloud (с Saga 2.3)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เซิร์ฟเวอร์นี้ยังไม่รองรับไฟล์ Nextcloud (ตั้งแต่ Saga 2.3)"
           }
         }
       }
@@ -6149,6 +7295,108 @@
         }
       }
     },
+    "Eigene Dateien und Bilder" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eigene Dateien und Bilder"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Own files and images"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivos e imágenes propios"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Свои файлы и изображения"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไฟล์และรูปภาพของตัวเอง"
+          }
+        }
+      }
+    },
+    "Eigene Kommentare auf eigenen Seiten" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eigene Kommentare auf eigenen Seiten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Own comments on own pages"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentarios propios en páginas propias"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Свои комментарии на своих страницах"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ความคิดเห็นของตัวเองในหน้าของตัวเอง"
+          }
+        }
+      }
+    },
+    "Eigenen öffentlichen Schlüssel eintragen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eigenen öffentlichen Schlüssel eintragen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enter your own public key"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Introducir tu propia clave pública"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ввести свой открытый ключ"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใส่กุญแจสาธารณะของคุณเอง"
+          }
+        }
+      }
+    },
     "Eigenschaft" : {
       "localizations" : {
         "de" : {
@@ -6349,6 +7597,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "หน้าที่มีภาพปกและไอคอน – เหมือนใน Notion แตะเพื่อเปิด"
+          }
+        }
+      }
+    },
+    "Eingespielt: %lld Seiten, %lld Dateien." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eingespielt: %lld Seiten, %lld Dateien."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restored: %lld pages, %lld files."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurado: %lld páginas, %lld archivos."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Восстановлено: страниц – %lld, файлов – %lld."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กู้คืนแล้ว: %lld หน้า, %lld ไฟล์"
+          }
+        }
+      }
+    },
+    "Einspielen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Einspielen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Восстановить"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กู้คืน"
           }
         }
       }
@@ -7781,6 +9097,40 @@
         }
       }
     },
+    "Gespeichert." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gespeichert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сохранено."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บันทึกแล้ว"
+          }
+        }
+      }
+    },
     "Gesperrt (andere Saga-Server)" : {
       "localizations" : {
         "de" : {
@@ -8253,6 +9603,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "แดชบอร์ดหลัก"
+          }
+        }
+      }
+    },
+    "Herunterladen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Herunterladen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Download"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Descargar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Скачать"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ดาวน์โหลด"
           }
         }
       }
@@ -9243,6 +10627,40 @@
         }
       }
     },
+    "In eine neue Seite „Wiederhergestellt <Datum>“" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In eine neue Seite „Wiederhergestellt <Datum>“"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Into a new page “Restored <date>”"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En una página nueva «Restaurado <fecha>»"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В новую страницу «Восстановлено <дата>»"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลงในหน้าใหม่ “กู้คืน <วันที่>”"
+          }
+        }
+      }
+    },
     "In Immich unter Kontoeinstellungen → API-Schlüssel einen Schlüssel mit album.read, asset.read, asset.view, asset.download und user.read anlegen und hier einfügen." : {
       "localizations" : {
         "de" : {
@@ -9273,6 +10691,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ใน Immich ไปที่ การตั้งค่าบัญชี → API Keys สร้างคีย์ที่มี album.read, asset.read, asset.view, asset.download และ user.read แล้ววางที่นี่"
+          }
+        }
+      }
+    },
+    "In Nextcloud anmelden ↗" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Nextcloud anmelden ↗"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in to Nextcloud ↗"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Iniciar sesión en Nextcloud ↗"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Войти в Nextcloud ↗"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลงชื่อเข้าใช้ Nextcloud ↗"
+          }
+        }
+      }
+    },
+    "In Nextcloud öffnen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Nextcloud öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open in Nextcloud"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir en Nextcloud"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открыть в Nextcloud"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดใน Nextcloud"
           }
         }
       }
@@ -9647,6 +11133,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เริ่มใหม่ตอนนี้"
+          }
+        }
+      }
+    },
+    "Jetzt sichern" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Jetzt sichern"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back up now"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guardar ahora"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сохранить сейчас"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สำรองตอนนี้"
           }
         }
       }
@@ -10365,6 +11885,40 @@
         }
       }
     },
+    "Keine – alle eigenen Seiten werden gesichert." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keine – alle eigenen Seiten werden gesichert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None – all your own pages are backed up."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ninguna: se guardan todas tus páginas."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет – сохраняются все свои страницы."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่มี – สำรองหน้าของคุณทั้งหมด"
+          }
+        }
+      }
+    },
     "Keine." : {
       "localizations" : {
         "de" : {
@@ -10463,6 +12017,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "คลิกเพื่อแทรกบล็อกด้านล่าง"
+          }
+        }
+      }
+    },
+    "Kommentare anderer Personen auf meinen Seiten" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kommentare anderer Personen auf meinen Seiten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other people's comments on my pages"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comentarios de otras personas en mis páginas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Комментарии других людей на моих страницах"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ความคิดเห็นของผู้อื่นในหน้าของฉัน"
           }
         }
       }
@@ -10841,6 +12429,40 @@
         }
       }
     },
+    "Leerer Ordner" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leerer Ordner"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Empty folder"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carpeta vacía"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пустая папка"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โฟลเดอร์ว่าง"
+          }
+        }
+      }
+    },
     "Leerer Toggle – tippen zum Schreiben" : {
       "localizations" : {
         "de" : {
@@ -10871,6 +12493,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "บล็อกพับเก็บว่าง – แตะเพื่อเขียน"
+          }
+        }
+      }
+    },
+    "Lege ihn an einem sicheren Ort ab (Passwort-Manager, Ausdruck) – nicht auf diesem Server. Ohne ihn lassen sich deine Backups nicht wiederherstellen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lege ihn an einem sicheren Ort ab (Passwort-Manager, Ausdruck) – nicht auf diesem Server. Ohne ihn lassen sich deine Backups nicht wiederherstellen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep it in a safe place (password manager, printout) – not on this server. Without it your backups can't be restored."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guárdala en un lugar seguro (gestor de contraseñas, copia impresa), no en este servidor. Sin ella no se pueden restaurar tus copias."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сохрани его в надёжном месте (менеджер паролей, распечатка) – не на этом сервере. Без него копии восстановить нельзя."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เก็บไว้ในที่ปลอดภัย (ตัวจัดการรหัสผ่าน, พิมพ์ออกมา) – ไม่ใช่บนเซิร์ฟเวอร์นี้ หากไม่มีกุญแจนี้จะกู้คืนข้อมูลสำรองไม่ได้"
           }
         }
       }
@@ -10939,6 +12595,108 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "บันทึกโน้ตเป็นหน้าใหม่ในกล่องรับ"
+          }
+        }
+      }
+    },
+    "Lesezeichen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lesezeichen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bookmarks"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Marcadores"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Закладки"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บุ๊กมาร์ก"
+          }
+        }
+      }
+    },
+    "Lesezeichen übernehmen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lesezeichen übernehmen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Take over bookmarks"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Incluir marcadores"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Перенести закладки"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำเข้าบุ๊กมาร์ก"
+          }
+        }
+      }
+    },
+    "Letztes erfolgreiches Backup" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Letztes erfolgreiches Backup"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last successful backup"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Última copia correcta"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Последняя успешная копия"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การสำรองที่สำเร็จล่าสุด"
           }
         }
       }
@@ -11585,6 +13343,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ตัวเลือกหลายรายการ"
+          }
+        }
+      }
+    },
+    "Mein Backup" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mein Backup"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My backup"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mi copia de seguridad"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Моя резервная копия"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การสำรองข้อมูลของฉัน"
+          }
+        }
+      }
+    },
+    "Mein Backup ist fehlgeschlagen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mein Backup ist fehlgeschlagen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "My backup failed"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mi copia de seguridad falló"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Моя резервная копия не удалась"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การสำรองข้อมูลของฉันล้มเหลว"
           }
         }
       }
@@ -12523,6 +14349,40 @@
         }
       }
     },
+    "Neue Backups sind dann nicht mehr mit ihm lesbar. Ältere Backups bleiben mit ihm lesbar." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neue Backups sind dann nicht mehr mit ihm lesbar. Ältere Backups bleiben mit ihm lesbar."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New backups can then no longer be read with it. Older backups remain readable with it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las nuevas copias ya no se podrán leer con ella. Las copias anteriores siguen siendo legibles con ella."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новые копии больше нельзя будет прочитать этим ключом. Старые копии останутся читаемыми."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อมูลสำรองใหม่จะอ่านด้วยกุญแจนี้ไม่ได้อีก ข้อมูลสำรองเก่ายังอ่านได้"
+          }
+        }
+      }
+    },
     "Neue Datenbank" : {
       "localizations" : {
         "de" : {
@@ -12727,6 +14587,40 @@
         }
       }
     },
+    "Neuer privater Schlüssel – wird nur jetzt angezeigt und von Saga nicht gespeichert:" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neuer privater Schlüssel – wird nur jetzt angezeigt und von Saga nicht gespeichert:"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "New private key – shown only now and not stored by Saga:"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nueva clave privada: solo se muestra ahora y Saga no la guarda:"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Новый закрытый ключ – показывается только сейчас и не сохраняется в Saga:"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กุญแจส่วนตัวใหม่ – แสดงเฉพาะตอนนี้และ Saga ไม่เก็บไว้:"
+          }
+        }
+      }
+    },
     "Neuer Termin" : {
       "localizations" : {
         "de" : {
@@ -12825,6 +14719,278 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nextcloud"
+          }
+        }
+      }
+    },
+    "Nextcloud gefunden. Melde dich dort an und erlaube den Zugriff – Saga bekommt ein eigenes App-Passwort (dein Passwort sieht Saga nie)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud gefunden. Melde dich dort an und erlaube den Zugriff – Saga bekommt ein eigenes App-Passwort (dein Passwort sieht Saga nie)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud found. Sign in there and allow access – Saga gets its own app password (Saga never sees your password)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud encontrado. Inicia sesión allí y permite el acceso: Saga recibe su propia contraseña de aplicación (Saga nunca ve tu contraseña)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud найден. Войди там и разреши доступ – Saga получит собственный пароль приложения (твой пароль Saga никогда не видит)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "พบ Nextcloud แล้ว ลงชื่อเข้าใช้ที่นั่นและอนุญาตการเข้าถึง – Saga จะได้รหัสผ่านแอปของตัวเอง (Saga ไม่เห็นรหัสผ่านของคุณ)"
+          }
+        }
+      }
+    },
+    "Nextcloud nicht verbunden (Einstellungen → Nextcloud)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud nicht verbunden (Einstellungen → Nextcloud)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud not connected (Settings → Nextcloud)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud no conectado (Ajustes → Nextcloud)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud не подключён (Настройки → Nextcloud)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่ได้เชื่อมต่อ Nextcloud (การตั้งค่า → Nextcloud)"
+          }
+        }
+      }
+    },
+    "Nextcloud trennen?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud trennen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnect Nextcloud?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Desconectar Nextcloud?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отключить Nextcloud?"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยกเลิกการเชื่อมต่อ Nextcloud หรือไม่"
+          }
+        }
+      }
+    },
+    "Nextcloud-Adresse" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud-Adresse"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud address"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dirección de Nextcloud"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Адрес Nextcloud"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ที่อยู่ Nextcloud"
+          }
+        }
+      }
+    },
+    "Nextcloud-Datei" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud-Datei"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud file"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Archivo de Nextcloud"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Файл Nextcloud"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไฟล์ Nextcloud"
+          }
+        }
+      }
+    },
+    "Nextcloud-Dateien anderer Personen lassen sich nicht in andere Seiten kopieren." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud-Dateien anderer Personen lassen sich nicht in andere Seiten kopieren."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other people's Nextcloud files can't be copied to other pages."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los archivos de Nextcloud de otras personas no se pueden copiar a otras páginas."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Файлы Nextcloud других людей нельзя копировать на другие страницы."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่สามารถคัดลอกไฟล์ Nextcloud ของผู้อื่นไปยังหน้าอื่นได้"
+          }
+        }
+      }
+    },
+    "Nextcloud-Dateien sind auf diesem Server abgeschaltet." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud-Dateien sind auf diesem Server abgeschaltet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud files are turned off on this server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los archivos de Nextcloud están desactivados en este servidor."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Файлы Nextcloud на этом сервере отключены."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไฟล์ Nextcloud ถูกปิดบนเซิร์ฟเวอร์นี้"
+          }
+        }
+      }
+    },
+    "Nextcloud: nur die Adresse eingeben – die Anmeldung läuft dann in Nextcloud. Anderes WebDAV: Adresse des Ordners plus Benutzer und Passwort." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud: nur die Adresse eingeben – die Anmeldung läuft dann in Nextcloud. Anderes WebDAV: Adresse des Ordners plus Benutzer und Passwort."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud: just enter the address – you then sign in on Nextcloud. Other WebDAV: folder address plus user and password."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud: introduce solo la dirección; el inicio de sesión se hace en Nextcloud. Otro WebDAV: dirección de la carpeta más usuario y contraseña."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud: введи только адрес – вход выполняется в Nextcloud. Другой WebDAV: адрес папки, пользователь и пароль."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud: ใส่เพียงที่อยู่ – แล้วลงชื่อเข้าใช้ใน Nextcloud WebDAV อื่น: ที่อยู่โฟลเดอร์พร้อมชื่อผู้ใช้และรหัสผ่าน"
           }
         }
       }
@@ -12965,6 +15131,40 @@
         }
       }
     },
+    "Nicht gespeichert: %@ Entferne die Nextcloud-Datei aus der Seite, dann wird wieder gespeichert. Deine Änderungen bleiben auf diesem Gerät als Entwurf erhalten." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht gespeichert: %@ Entferne die Nextcloud-Datei aus der Seite, dann wird wieder gespeichert. Deine Änderungen bleiben auf diesem Gerät als Entwurf erhalten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not saved: %@ Remove the Nextcloud file from the page and saving will resume. Your changes are kept on this device as a draft."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No guardado: %@ Quita el archivo de Nextcloud de la página y se volverá a guardar. Tus cambios se conservan en este dispositivo como borrador."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не сохранено: %@ Удали файл Nextcloud со страницы, и сохранение возобновится. Твои изменения сохранены на этом устройстве как черновик."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่ได้บันทึก: %@ นำไฟล์ Nextcloud ออกจากหน้า แล้วระบบจะบันทึกอีกครั้ง การเปลี่ยนแปลงของคุณถูกเก็บไว้ในอุปกรณ์นี้เป็นฉบับร่าง"
+          }
+        }
+      }
+    },
     "nicht gruppieren" : {
       "localizations" : {
         "de" : {
@@ -13029,6 +15229,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เลิกใช้เป็นหน้าแรก"
+          }
+        }
+      }
+    },
+    "Nicht verfügbar – Verknüpfung getrennt, kein Zugriff mehr oder Datei gelöscht." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht verfügbar – Verknüpfung getrennt, kein Zugriff mehr oder Datei gelöscht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not available – link disconnected, no access anymore or file deleted."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No disponible: vínculo desconectado, sin acceso o archivo eliminado."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Недоступно – связь отключена, доступа больше нет или файл удалён."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่พร้อมใช้งาน – ยกเลิกการเชื่อมต่อ ไม่มีสิทธิ์เข้าถึงแล้ว หรือไฟล์ถูกลบ"
           }
         }
       }
@@ -13135,6 +15369,40 @@
         }
       }
     },
+    "Nichts gefunden." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nichts gefunden."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing found."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se encontró nada."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ничего не найдено."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่พบสิ่งใด"
+          }
+        }
+      }
+    },
     "Nichts geplant 🎉" : {
       "localizations" : {
         "de" : {
@@ -13199,6 +15467,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ไม่เคย"
+          }
+        }
+      }
+    },
+    "Nie enthalten: Seiten und Dateien anderer Personen (auch „Mit mir geteilt“) und Chats – sie sind Ende-zu-Ende-verschlüsselt und gehören allen Beteiligten." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nie enthalten: Seiten und Dateien anderer Personen (auch „Mit mir geteilt“) und Chats – sie sind Ende-zu-Ende-verschlüsselt und gehören allen Beteiligten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Never included: other people's pages and files (including “Shared with me”) and chats – they are end-to-end encrypted and belong to everyone involved."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nunca incluidos: páginas y archivos de otras personas (también «Compartido conmigo») y chats: están cifrados de extremo a extremo y pertenecen a todos los participantes."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Никогда не входят: страницы и файлы других людей (в том числе «Доступно мне») и чаты – они зашифрованы сквозным шифрованием и принадлежат всем участникам."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่รวมเสมอ: หน้าและไฟล์ของผู้อื่น (รวมถึง “แชร์กับฉัน”) และแชท – เข้ารหัสแบบต้นทางถึงปลายทางและเป็นของผู้เกี่ยวข้องทุกคน"
           }
         }
       }
@@ -13373,6 +15675,74 @@
         }
       }
     },
+    "Noch kein Schlüssel – ohne Schlüssel sichert Saga nicht." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch kein Schlüssel – ohne Schlüssel sichert Saga nicht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No key yet – Saga doesn't back up without a key."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay clave: sin clave Saga no guarda copias."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ключа пока нет – без ключа Saga не создаёт копии."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มีกุญแจ – Saga จะไม่สำรองหากไม่มีกุญแจ"
+          }
+        }
+      }
+    },
+    "Noch keine Backups im Ziel." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch keine Backups im Ziel."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No backups in the target yet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay copias en el destino."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В хранилище пока нет резервных копий."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มีข้อมูลสำรองในปลายทาง"
+          }
+        }
+      }
+    },
     "Noch keine früheren Versionen. Beim Bearbeiten wird höchstens alle 10 Minuten ein Stand gesichert (bis zu 50 pro Seite)." : {
       "localizations" : {
         "de" : {
@@ -13403,6 +15773,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ยังไม่มีเวอร์ชันก่อนหน้า ขณะแก้ไข ระบบจะบันทึกเวอร์ชันอย่างมากทุก 10 นาที (สูงสุด 50 เวอร์ชันต่อหน้า)"
+          }
+        }
+      }
+    },
+    "noch keines" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "noch keines"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "none yet"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ninguna aún"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "пока нет"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มี"
+          }
+        }
+      }
+    },
+    "Noch nicht mit Nextcloud verbunden. Verknüpfe sie unter Einstellungen → Nextcloud." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch nicht mit Nextcloud verbunden. Verknüpfe sie unter Einstellungen → Nextcloud."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not connected to Nextcloud yet. Link it under Settings → Nextcloud."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no conectado con Nextcloud. Vincúlalo en Ajustes → Nextcloud."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nextcloud ещё не подключён. Подключи его в Настройки → Nextcloud."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่ได้เชื่อมต่อ Nextcloud เชื่อมต่อได้ที่ การตั้งค่า → Nextcloud"
           }
         }
       }
@@ -13713,6 +16151,40 @@
         }
       }
     },
+    "Nur auf dem Server der Seite sichtbar (Freigabe für verbundene Server ist aus)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nur auf dem Server der Seite sichtbar (Freigabe für verbundene Server ist aus)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only visible on the page's server (sharing with connected servers is off)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo visible en el servidor de la página (compartir con servidores conectados está desactivado)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Видно только на сервере страницы (доступ для подключённых серверов выключен)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "มองเห็นได้เฉพาะบนเซิร์ฟเวอร์ของหน้า (ปิดการแชร์กับเซิร์ฟเวอร์ที่เชื่อมต่อ)"
+          }
+        }
+      }
+    },
     "nur lesen" : {
       "localizations" : {
         "de" : {
@@ -13777,6 +16249,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "รายการถัดไป (⌃⇧J)"
+          }
+        }
+      }
+    },
+    "Nächster Lauf" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nächster Lauf"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Next run"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Próxima ejecución"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Следующий запуск"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รอบถัดไป"
           }
         }
       }
@@ -14087,6 +16593,40 @@
         }
       }
     },
+    "Ordner" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ordner"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folder"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carpeta"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Папка"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โฟลเดอร์"
+          }
+        }
+      }
+    },
     "Ort" : {
       "localizations" : {
         "de" : {
@@ -14185,6 +16725,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ล้างถังขยะ"
+          }
+        }
+      }
+    },
+    "Papierkorb mit einspielen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Papierkorb mit einspielen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore trash too"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurar también la papelera"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Восстановить и корзину"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กู้คืนถังขยะด้วย"
+          }
+        }
+      }
+    },
+    "Passwort" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Passwort"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Password"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Contraseña"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пароль"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รหัสผ่าน"
           }
         }
       }
@@ -14393,6 +17001,40 @@
         }
       }
     },
+    "Persönliche Backups sind auf diesem Server abgeschaltet." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Persönliche Backups sind auf diesem Server abgeschaltet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personal backups are turned off on this server."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las copias de seguridad personales están desactivadas en este servidor."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Личные резервные копии на этом сервере отключены."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การสำรองข้อมูลส่วนตัวถูกปิดบนเซิร์ฟเวอร์นี้"
+          }
+        }
+      }
+    },
     "Priorität" : {
       "localizations" : {
         "de" : {
@@ -14423,6 +17065,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ความสำคัญ"
+          }
+        }
+      }
+    },
+    "Privater Schlüssel" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privater Schlüssel"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Private key"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clave privada"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Закрытый ключ"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กุญแจส่วนตัว"
+          }
+        }
+      }
+    },
+    "Profil und Einstellungen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profil und Einstellungen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Profile and settings"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perfil y ajustes"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Профиль и настройки"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โปรไฟล์และการตั้งค่า"
           }
         }
       }
@@ -15005,6 +17715,40 @@
         }
       }
     },
+    "Saga widerruft das App-Passwort; deine eingefügten Dateien zeigen dann keinen Inhalt mehr." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga widerruft das App-Passwort; deine eingefügten Dateien zeigen dann keinen Inhalt mehr."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga revokes the app password; your inserted files then no longer show content."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga revoca la contraseña de aplicación; tus archivos insertados dejarán de mostrar contenido."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga отзовёт пароль приложения; вставленные файлы больше не будут показывать содержимое."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saga จะเพิกถอนรหัสผ่านแอป ไฟล์ที่คุณแทรกจะไม่แสดงเนื้อหาอีก"
+          }
+        }
+      }
+    },
     "Schaltfläche" : {
       "localizations" : {
         "de" : {
@@ -15301,6 +18045,74 @@
         }
       }
     },
+    "Schlüssel entfernen?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schlüssel entfernen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove key?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Quitar la clave?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить ключ?"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบกุญแจหรือไม่"
+          }
+        }
+      }
+    },
+    "Schlüssel ist sicher abgelegt – eintragen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schlüssel ist sicher abgelegt – eintragen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Key is stored safely – add it"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La clave está guardada a salvo: añadir"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ключ надёжно сохранён – добавить"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เก็บกุญแจไว้อย่างปลอดภัยแล้ว – เพิ่ม"
+          }
+        }
+      }
+    },
     "Schlüssel ungültig oder widerrufen." : {
       "localizations" : {
         "de" : {
@@ -15365,6 +18177,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เพิกถอนคีย์หรือไม่"
+          }
+        }
+      }
+    },
+    "Schlüsselpaar erzeugen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schlüsselpaar erzeugen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generate key pair"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generar par de claves"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Создать пару ключей"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สร้างคู่กุญแจ"
           }
         }
       }
@@ -15811,6 +18657,74 @@
         }
       }
     },
+    "Seiten nicht sichern" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seiten nicht sichern"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Don't back up pages"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No guardar páginas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не сохранять страницы"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่สำรองหน้า"
+          }
+        }
+      }
+    },
+    "Seiten und Unterseiten (inkl. Datenbanken mit Einträgen)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Seiten und Unterseiten (inkl. Datenbanken mit Einträgen)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pages and subpages (incl. databases with entries)"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Páginas y subpáginas (incl. bases de datos con entradas)"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Страницы и подстраницы (включая базы данных с записями)"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "หน้าและหน้าย่อย (รวมฐานข้อมูลพร้อมรายการ)"
+          }
+        }
+      }
+    },
     "Seitenansicht" : {
       "localizations" : {
         "de" : {
@@ -16001,6 +18915,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ตั้งค่า"
+          }
+        }
+      }
+    },
+    "Sichere deinen eigenen Workspace verschlüsselt in deine eigene Nextcloud oder ein anderes WebDAV-Ziel." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sichere deinen eigenen Workspace verschlüsselt in deine eigene Nextcloud oder ein anderes WebDAV-Ziel."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Back up your own workspace, encrypted, to your own Nextcloud or another WebDAV target."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Guarda tu propio espacio de trabajo cifrado en tu propio Nextcloud u otro destino WebDAV."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сохраняй своё рабочее пространство в зашифрованном виде в свой Nextcloud или другое хранилище WebDAV."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สำรองพื้นที่ทำงานของคุณแบบเข้ารหัสไปยัง Nextcloud ของคุณเองหรือปลายทาง WebDAV อื่น"
           }
         }
       }
@@ -16505,6 +19453,74 @@
         }
       }
     },
+    "Spiele ein …" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spiele ein …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restoring …"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaurando …"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Восстановление …"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังกู้คืน …"
+          }
+        }
+      }
+    },
+    "Spielt ein persönliches Backup in DEIN Konto ein – als neue Seiten (Verweise, Datenbanken und Bilder werden angepasst). Bestehende Seiten bleiben unverändert." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Spielt ein persönliches Backup in DEIN Konto ein – als neue Seiten (Verweise, Datenbanken und Bilder werden angepasst). Bestehende Seiten bleiben unverändert."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restores a personal backup into YOUR account – as new pages (links, databases and images are adjusted). Existing pages stay unchanged."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restaura una copia personal en TU cuenta, como páginas nuevas (se ajustan enlaces, bases de datos e imágenes). Las páginas existentes no cambian."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Восстанавливает личную копию в ТВОЙ аккаунт – как новые страницы (ссылки, базы данных и изображения корректируются). Существующие страницы не меняются."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กู้คืนข้อมูลสำรองส่วนตัวเข้าบัญชีของคุณ – เป็นหน้าใหม่ (ปรับลิงก์ ฐานข้อมูล และรูปภาพ) หน้าที่มีอยู่ไม่เปลี่ยนแปลง"
+          }
+        }
+      }
+    },
     "Sprache" : {
       "localizations" : {
         "de" : {
@@ -16671,6 +19687,108 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ค่าเริ่มต้น"
+          }
+        }
+      }
+    },
+    "Standard aus – die Kommentare gehören den Personen, die sie geschrieben haben." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Standard aus – die Kommentare gehören den Personen, die sie geschrieben haben."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off by default – the comments belong to the people who wrote them."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactivado por defecto: los comentarios pertenecen a quienes los escribieron."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "По умолчанию выкл. – комментарии принадлежат тем, кто их написал."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิดเป็นค่าเริ่มต้น – ความคิดเห็นเป็นของผู้ที่เขียน"
+          }
+        }
+      }
+    },
+    "Status" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Status"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Estado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Состояние"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สถานะ"
+          }
+        }
+      }
+    },
+    "Suche" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Suche"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Search"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Búsqueda"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Поиск"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ค้นหา"
           }
         }
       }
@@ -17651,6 +20769,74 @@
         }
       }
     },
+    "täglich" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "täglich"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "daily"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "diario"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ежедневно"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รายวัน"
+          }
+        }
+      }
+    },
+    "Uhrzeit" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Uhrzeit"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hora"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Время"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เวลา"
+          }
+        }
+      }
+    },
     "Umbenennen" : {
       "localizations" : {
         "de" : {
@@ -17719,6 +20905,40 @@
         }
       }
     },
+    "unbekannt" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "unbekannt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "unknown"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "desconocido"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "неизвестно"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่ทราบ"
+          }
+        }
+      }
+    },
     "Unbenannt" : {
       "localizations" : {
         "de" : {
@@ -17749,6 +20969,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ไม่มีชื่อ"
+          }
+        }
+      }
+    },
+    "Unerwartete Antwort des Servers" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unerwartete Antwort des Servers"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unexpected response from the server"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Respuesta inesperada del servidor"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Неожиданный ответ сервера"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง"
           }
         }
       }
@@ -17817,6 +21071,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ขีดเส้นใต้"
+          }
+        }
+      }
+    },
+    "unvollständig" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "unvollständig"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "incomplete"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "incompleta"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "неполная"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่สมบูรณ์"
           }
         }
       }
@@ -17991,6 +21279,74 @@
         }
       }
     },
+    "Verbindung in Ordnung. Frei im Ziel: %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbindung in Ordnung. Frei im Ziel: %@."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection OK. Free in target: %@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conexión correcta. Libre en el destino: %@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Соединение в порядке. Свободно в хранилище: %@."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การเชื่อมต่อปกติ พื้นที่ว่างในปลายทาง: %@"
+          }
+        }
+      }
+    },
+    "Verbindung prüfen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbindung prüfen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check connection"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comprobar conexión"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Проверить соединение"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตรวจสอบการเชื่อมต่อ"
+          }
+        }
+      }
+    },
     "Verbindung testen" : {
       "localizations" : {
         "de" : {
@@ -18021,6 +21377,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ทดสอบการเชื่อมต่อ"
+          }
+        }
+      }
+    },
+    "Verknüpfe deine eigene Nextcloud, um Dateien daraus in Seiten einzufügen. Saga bekommt ein eigenes App-Passwort – dein Passwort sieht Saga nie." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verknüpfe deine eigene Nextcloud, um Dateien daraus in Seiten einzufügen. Saga bekommt ein eigenes App-Passwort – dein Passwort sieht Saga nie."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link your own Nextcloud to insert files from it into pages. Saga gets its own app password – Saga never sees your password."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vincula tu propio Nextcloud para insertar sus archivos en páginas. Saga recibe su propia contraseña de aplicación: nunca ve tu contraseña."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключи свой Nextcloud, чтобы вставлять из него файлы на страницы. Saga получит собственный пароль приложения – твой пароль Saga никогда не видит."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เชื่อม Nextcloud ของคุณเพื่อแทรกไฟล์จากที่นั่นลงในหน้า Saga จะได้รหัสผ่านแอปของตัวเอง – Saga ไม่เห็นรหัสผ่านของคุณ"
+          }
+        }
+      }
+    },
+    "Verknüpft seit" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verknüpft seit"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Linked since"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vinculado desde"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключено с"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เชื่อมต่อตั้งแต่"
           }
         }
       }
@@ -18089,6 +21513,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ลิงก์มาจาก"
+          }
+        }
+      }
+    },
+    "Verpasste Anrufe" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verpasste Anrufe"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Missed calls"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Llamadas perdidas"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пропущенные звонки"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สายที่ไม่ได้รับ"
           }
         }
       }
@@ -18195,6 +21653,40 @@
         }
       }
     },
+    "Verschlüsselung" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verschlüsselung"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Encryption"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cifrado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Шифрование"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การเข้ารหัส"
+          }
+        }
+      }
+    },
     "Version auswählen, um sie anzusehen." : {
       "localizations" : {
         "de" : {
@@ -18225,6 +21717,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เลือกเวอร์ชันเพื่อดู"
+          }
+        }
+      }
+    },
+    "Versionen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versionen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versions"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Versiones"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Версии"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เวอร์ชัน"
           }
         }
       }
@@ -18293,6 +21819,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ประวัติเวอร์ชัน …"
+          }
+        }
+      }
+    },
+    "Verwalten …" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verwalten …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Manage …"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gestionar …"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Управлять …"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "จัดการ …"
           }
         }
       }
@@ -18467,6 +22027,40 @@
         }
       }
     },
+    "Vorhandene Backups im Ziel bleiben erhalten. Ein App-Passwort aus dem Nextcloud-Login wird widerrufen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorhandene Backups im Ziel bleiben erhalten. Ein App-Passwort aus dem Nextcloud-Login wird widerrufen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Existing backups in the target are kept. An app password from the Nextcloud login is revoked."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las copias existentes en el destino se conservan. Se revoca la contraseña de aplicación del inicio de sesión de Nextcloud."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Имеющиеся копии в хранилище сохранятся. Пароль приложения из входа в Nextcloud будет отозван."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อมูลสำรองที่มีอยู่ในปลายทางจะยังอยู่ รหัสผ่านแอปจากการลงชื่อเข้าใช้ Nextcloud จะถูกเพิกถอน"
+          }
+        }
+      }
+    },
     "Vorheriger Eintrag (⌃⇧K)" : {
       "localizations" : {
         "de" : {
@@ -18569,6 +22163,40 @@
         }
       }
     },
+    "Was gesichert wird" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Was gesichert wird"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "What is backed up"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Qué se guarda"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Что сохраняется"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สิ่งที่สำรอง"
+          }
+        }
+      }
+    },
     "Was möchtest du notieren?" : {
       "localizations" : {
         "de" : {
@@ -18633,6 +22261,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "จะใส่อะไรในรายการ"
+          }
+        }
+      }
+    },
+    "WebDAV" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WebDAV"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WebDAV"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WebDAV"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WebDAV"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WebDAV"
           }
         }
       }
@@ -18865,6 +22527,40 @@
         }
       }
     },
+    "Wieder möglich ab %@." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wieder möglich ab %@."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Possible again from %@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Posible de nuevo a partir de %@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Снова возможно с %@."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทำได้อีกครั้งตั้งแต่ %@"
+          }
+        }
+      }
+    },
     "Wiederholen" : {
       "localizations" : {
         "de" : {
@@ -18933,6 +22629,40 @@
         }
       }
     },
+    "Wird nach dem Speichern angezeigt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wird nach dem Speichern angezeigt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shown after saving."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se muestra después de guardar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Будет показано после сохранения."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "จะแสดงหลังบันทึก"
+          }
+        }
+      }
+    },
     "Wird zugestellt, sobald der andere Server erreichbar ist." : {
       "localizations" : {
         "de" : {
@@ -18967,6 +22697,40 @@
         }
       }
     },
+    "Wochentag" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wochentag"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weekday"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Día de la semana"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "День недели"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "วันในสัปดาห์"
+          }
+        }
+      }
+    },
     "Wöchentlich" : {
       "localizations" : {
         "de" : {
@@ -18991,6 +22755,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Еженедельно"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รายสัปดาห์"
+          }
+        }
+      }
+    },
+    "wöchentlich" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "wöchentlich"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "weekly"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "semanal"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "еженедельно"
           }
         },
         "th" : {
@@ -19409,6 +23207,74 @@
         }
       }
     },
+    "Zeitplan aus" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeitplan aus"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schedule off"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Programación desactivada"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Расписание выключено"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิดกำหนดเวลา"
+          }
+        }
+      }
+    },
+    "Zeitplan und Aufbewahrung" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeitplan und Aufbewahrung"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Schedule and retention"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Programación y conservación"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Расписание и хранение"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำหนดเวลาและการเก็บรักษา"
+          }
+        }
+      }
+    },
     "Ziehen: Höhe des Titelbilds ändern" : {
       "localizations" : {
         "de" : {
@@ -19439,6 +23305,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ลากเพื่อเปลี่ยนความสูงภาพปก"
+          }
+        }
+      }
+    },
+    "Ziel" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ziel"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Target"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Destino"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Хранилище"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปลายทาง"
+          }
+        }
+      }
+    },
+    "Ziel trennen?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ziel trennen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Disconnect target?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Desconectar el destino?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отключить хранилище?"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยกเลิกการเชื่อมต่อปลายทางหรือไม่"
           }
         }
       }
@@ -19575,6 +23509,108 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ใช้ล่าสุด %@"
+          }
+        }
+      }
+    },
+    "Zuletzt genutzt" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zuletzt genutzt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last used"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Último uso"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Последнее использование"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ใช้ล่าสุด"
+          }
+        }
+      }
+    },
+    "Zum Sichern fehlt noch: ein Ziel und mindestens ein öffentlicher Schlüssel." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zum Sichern fehlt noch: ein Ziel und mindestens ein öffentlicher Schlüssel."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Still missing for backups: a target and at least one public key."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para guardar aún falta: un destino y al menos una clave pública."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Для резервного копирования ещё нужно: хранилище и хотя бы один открытый ключ."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังขาดสำหรับการสำรอง: ปลายทางและกุญแจสาธารณะอย่างน้อยหนึ่งดอก"
+          }
+        }
+      }
+    },
+    "Zur Bestätigung: die letzten 6 Zeichen des privaten Schlüssels" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zur Bestätigung: die letzten 6 Zeichen des privaten Schlüssels"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To confirm: the last 6 characters of the private key"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Para confirmar: los últimos 6 caracteres de la clave privada"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Для подтверждения: последние 6 символов закрытого ключа"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพื่อยืนยัน: 6 ตัวอักษรสุดท้ายของกุญแจส่วนตัว"
           }
         }
       }
@@ -19987,6 +24023,40 @@
         }
       }
     },
+    "Übergeordneter Ordner" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Übergeordneter Ordner"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Parent folder"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Carpeta superior"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Родительская папка"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โฟลเดอร์หลัก"
+          }
+        }
+      }
+    },
     "Übermorgen" : {
       "localizations" : {
         "de" : {
@@ -20227,6 +24297,74 @@
     },
     "–" : {
       "shouldTranslate" : false
+    },
+    "– Backup wählen –" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "– Backup wählen –"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "– Choose backup –"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "– Elegir copia –"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "– Выбрать копию –"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "– เลือกข้อมูลสำรอง –"
+          }
+        }
+      }
+    },
+    "– Seite wählen –" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "– Seite wählen –"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "– Choose page –"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "– Elegir página –"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "– Выбрать страницу –"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "– เลือกหน้า –"
+          }
+        }
+      }
     },
     "– wählen –" : {
       "localizations" : {

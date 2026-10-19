@@ -28,3 +28,4 @@ linux/build/
 # Chat-Testvektoren (SwiftPM)
 ios/Tests/ChatVectors/.build/
 ios/Tests/FedE2E/.build/
+ios/Tests/CloudE2E/.build/

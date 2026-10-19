@@ -63,6 +63,7 @@ final class PageEditor: ObservableObject {
     @Published var configButtons: String?            // Schaltflaechen-Block einrichten
     @Published var embedFor: String?                 // "/Einbetten" -> Adresse abfragen
     @Published var fileFor: String?                  // "/Datei" -> Datei waehlen und hochladen
+    @Published var ncFor: String?                    // "/Nextcloud-Datei" (2.3) -> Auswahl aus der eigenen Nextcloud
     @Published var picked: [PhotosPickerItem] = []
     // Kommentare (1.3): Zahl am Block (offene Unterhaltungen), ungelesen, Kommentieren erlaubt, Block zum Kommentieren
     @Published var commentCounts: [String: Int] = [:]
@@ -317,6 +318,7 @@ let slashItems: [(String, String, Int, String, String)] = [
     (String(localized: "Schaltfläche"), "buttons", 0, "button.horizontal.top.press", "schaltflaeche button knopf aktion boton accion"),
     (String(localized: "Einbetten"), "embed", 0, "play.rectangle", "einbetten embed video youtube link karte insertar incrustar"),
     (String(localized: "Datei"), "file", 0, "paperclip", "datei anhang file pdf upload archivo adjunto"),
+    (String(localized: "Nextcloud-Datei"), "nextcloud", 0, "cloud", "nextcloud cloud datei ordner file folder archivo carpeta"),
 ]
 
 struct EditText: View {
@@ -518,6 +520,7 @@ extension PageEditor {
         }
         if type == "embed" { focus = nil; embedFor = id; return }
         if type == "file" { focus = nil; fileFor = id; return }
+        if type == "nextcloud" { focus = nil; ncFor = id; return }
         if ["tasks", "calendar"].contains(type) {
             arr.replaceObject(at: i, with: NSMutableDictionary(dictionary: ["id": id, "type": type, "data": NSMutableDictionary()])); focus = nil; changed(); return
         }

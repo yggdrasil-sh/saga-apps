@@ -295,6 +295,9 @@ final class PageDoc: ObservableObject {
     private var loadedOrigin: String?
     private var loadedAcct: String?
     private(set) var root = NSMutableArray()
+    /// Nextcloud-Bloecke (Autor|Nextcloud|Datei) im zuletzt geladenen/gespeicherten Stand: nur NEUE Bloecke kann der
+    /// Server ablehnen (fremde Datei kopiert, nicht verbunden) - dann Meldung statt "kein Zugriff"/Konflikt (2.3)
+    private var ncSaved = Set<String>()
     private var doc: NSMutableDictionary = [:]
     private var rev = 0
     private var tracker = EditTracker()
@@ -405,6 +408,7 @@ final class PageDoc: ObservableObject {
         loadedGen = store.sessionGen; loadedOrigin = AppConfig.serverOrigin
         loadedAcct = loadedOrigin.flatMap { DraftOwner.app.account(origin: $0) }
         setBody(p["body"] as? String ?? "", format: p["format"] as? String)
+        ncSaved = CloudLogic.ncKeys(root)                                  // Nextcloud-Bloecke im gespeicherten Stand (2.3)
         // Eigenschaften nur, wenn die uebergeordnete Seite eine Datenbank ist (spart eine Anfrage); fremde Seite (2.3):
         // Elternseite noch unbekannt (z. B. eben angelegte Zeile) -> nachsehen, ob sie eine Datenbank ist
         if let parent = p["parent_id"] as? Int,
@@ -485,6 +489,9 @@ final class PageDoc: ObservableObject {
             overwriteNext = false
             if let j = try? JSONSerialization.jsonObject(with: r) as? [String: Any], let nr = j["rev"] as? Int { rev = nr }
             tracker.confirm(sent)
+            if let sentDoc = body.data(using: .utf8).flatMap({ try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }) {
+                ncSaved = CloudLogic.ncKeys(sentDoc["blocks"])                 // gesendeter Stand ist jetzt der gespeicherte
+            }
             error = nil; offline = nil; retryCount = 0; retry?.cancel(); retry = nil
             if !dirty { drafts?.remove(id) }
             store.updateTitle(id, title)
@@ -498,6 +505,13 @@ final class PageDoc: ObservableObject {
 
     /// Speichern abgelehnt: Konflikt (auch mit anderer Person), Zugriff verloren, dauerhafter oder voruebergehender Fehler
     private func failed(code: Int, data: Data, store: Store) {
+        // Nextcloud-Block abgelehnt (2.3): weder Konflikt noch Zugriffsverlust - Meldung, Entwurf behalten, nicht wiederholen
+        if let msg = CloudLogic.saveRejection(code: code, data: data, saved: ncSaved, now: CloudLogic.ncKeys(root)) {
+            retry?.cancel(); retry = nil; retryCount = 0
+            writeDraft(conflict: false)
+            self.error = msg
+            return
+        }
         switch ShareLogic.saveFailure(code: code, data: data, foreign: access.foreign) {
         case .conflict(let by):
             writeDraft(conflict: true)                                 // eigene Fassung bleibt in jedem Fall erhalten
@@ -1309,6 +1323,8 @@ struct BlockView: View {
             }
         case "embed":
             EmbedCard(url: decodeEntities(s("url")), title: decodeEntities(s("title")))
+        case "nextcloud":                                            // 2.3: Datei/Ordner aus Nextcloud (Block bleibt unveraendert)
+            NextcloudCard(data: data, note: ed.doc.id, remotePage: FedLogic.isRemote(ed.doc.id))
         default:
             EmptyView()
         }
@@ -1607,7 +1623,7 @@ struct BlockMenuItems: View {
     }
     @ViewBuilder private var editItems: some View {
         Menu {
-            ForEach(slashItems.filter { !["image", "immich_image", "page", "db_new", "db_link", "tasks", "calendar", "table", "columns", "buttons", "embed", "file"].contains($0.1) }, id: \.0) { it in Button { ed.convert(id, to: it.1, level: it.2 == 0 ? 2 : it.2) } label: { Label(it.0, systemImage: it.3) } }
+            ForEach(slashItems.filter { !["image", "immich_image", "page", "db_new", "db_link", "tasks", "calendar", "table", "columns", "buttons", "embed", "file", "nextcloud"].contains($0.1) }, id: \.0) { it in Button { ed.convert(id, to: it.1, level: it.2 == 0 ? 2 : it.2) } label: { Label(it.0, systemImage: it.3) } }
         } label: { Label("Umwandeln in", systemImage: "arrow.triangle.2.circlepath") }
         Button { copyText(AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/notes#\(ed.doc.id):\(id)") } label: { Label("Link zum Block kopieren", systemImage: "link") }
         // Spalten wie Notion: hinein, heraus, zusammenfuehren

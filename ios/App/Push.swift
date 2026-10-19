@@ -328,6 +328,8 @@ struct PushSettingsSection: View {
         case "comment": return String(localized: "Kommentare und Antworten")
         case "chat": return String(localized: "Chat-Nachrichten")
         case "publish": return String(localized: "Veröffentlichung: ein Admin zieht etwas zurück")
+        case "call": return String(localized: "Anrufe")
+        case "admin": return String(localized: "Admin: Backups des Servers fehlgeschlagen")
         default: return c
         }
     }
