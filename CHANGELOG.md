@@ -6,6 +6,19 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+## [2.3.0] – 2026-10-19
+
+Passt zu Saga-Server 2.3. **Die neuen Funktionen brauchen Saga-Server 2.3; ältere Server funktionieren weiter**
+(dort blenden die Apps die neuen Bereiche aus und arbeiten wie bisher).
+
+**Höhepunkte**
+- **Föderation:** Chats, Anrufe, Gruppen, Seiten und Datenbanken über Servergrenzen – in allen Apps, Ende-zu-Ende
+  verschlüsselt, mit Nachrichtenanfragen beim Erstkontakt.
+- **Mein Backup:** das eigene Saga-Konto verschlüsselt in die eigene Nextcloud oder auf ein WebDAV-Ziel sichern,
+  mit Zeitplan und selbst gewählten Ausnahmen.
+- **Nextcloud-Dateien in Seiten:** Bilder, Dokumente und Ordner aus der eigenen Nextcloud einfügen, mit Vorschau.
+- **Schneller:** Delta-Abgleich, virtuelle Listen und schnellerer Start auf allen Plattformen.
+
 ### Neu – Apps Teil 3 (Saga 2.3): Mein Backup, Nextcloud-Dateien, lesbare Backup-Meldungen
 Alle drei Plattformen zeigen „Mein Backup“ und „Nextcloud“ nur bei Servern, die es können (ältere Server 2.1/2.2:
 ausgeblendet), stellen den Block `nextcloud` dar und schreiben ihn unverändert zurück. Android ergänzt zusätzlich
