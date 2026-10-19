@@ -573,10 +573,13 @@ final class PageDoc: ObservableObject {
         if dirty, !isDatabase, let o = loadedOrigin, let a = loadedAcct, let body = serialized() {
             DraftStore(origin: o, account: a).save(id, PageDraft(title: titleRaw, body: body, rev: rev, saved: Date(), conflict: conflict))
         }
+        // Konto der Seite unbekannt (kein Entwurf moeglich): ungesicherten Text nicht still verwerfen -> Kopier-Dialog
+        let orphan = dirty && !isDatabase && loadedAcct == nil ? plainTextNow() : ""
         tracker.discard(); conflict = false; conflictBy = nil; askConflict = false; overwriteNext = false
         draft = nil; copyDialog = nil; lostAccess = false
         fetched = false; loaded = false
         await load(store)
+        if !orphan.isEmpty { copyDialog = CopyTextDialog(kind: .draft, text: orphan) }
     }
     /// Kopier-Dialog nach Zugriffsverlust geschlossen: neu laden (403: jetzt schreibgeschuetzt; 404: "Kein Zugriff")
     func afterLostAccess(_ store: Store) async {

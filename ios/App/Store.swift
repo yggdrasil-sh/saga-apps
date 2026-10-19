@@ -919,6 +919,7 @@ final class Store: ObservableObject {
         let loggedOut = switching || signOut
         let before = currentOwner()
         let oldDevice = DeviceKey.stored(), oldDeviceOrigin = AppConfig.keyOrigin(device: true)
+        let oldToken = AppConfig.hasToken ? AppConfig.token : nil
         beginAdopt()
         defer { gate.endAdopt() }
         if AccountSwitch.before(loggedOut: loggedOut).hideNow {
@@ -932,23 +933,28 @@ final class Store: ObservableObject {
         AppConfig.server = server; cookieHeader = nil; serverVersion = nil; minApp = nil
         await storeCookies(http, url)
         let keys = adoptKeys(d, takeAppKey: loggedOut); deviceKeyTried = true
-        let me = await identifyAccount()                                  // Entwuerfe gehoeren zu Server + Konto
-        let plan = AccountSwitch.after(loggedOut: loggedOut, AccountSwitch.verdict(before: before, after: .init(origin: AppConfig.serverOrigin, account: me)))
-        if plan.restore {
-            restoreAccountView()
-            if let k = keys.appKey { AppConfig.token = k; reloadWidgets() }   // alter Schluessel ging mit der alten Geraete-Anmeldung
+        var me = await identifyAccount()                                  // Entwuerfe gehoeren zu Server + Konto
+        for _ in 0..<2 where me == nil && !loggedOut {                   // kurz nicht erreichbar: nicht vorschnell verwerfen
+            try? await Task.sleep(for: .seconds(1)); me = await identifyAccount()
         }
+        let plan = AccountSwitch.after(loggedOut: loggedOut, AccountSwitch.verdict(before: before, after: .init(origin: AppConfig.serverOrigin, account: me)))
+        if plan.restore { restoreAccountView() }
         if plan.wipe {
             hiddenView = nil
             forgetNoteCursor()                                            // anderes Konto: Baum ganz laden (genau einmal)
-            await clearAccountData(keepWebCookies: true)
+            await clearAccountData(keepWebCookies: true, newSession: !plan.keepOpenPages)
             if me == nil { DraftOwner.app.signedOut(); accountChecked = false; accountName = nil }   // Konto unbekannt: alte Entwuerfe nicht zeigen
+        }
+        if plan.restore || plan.keepOpenPages {
+            // gleiches (oder nicht feststellbares) Konto: alte Geraete-Anmeldung samt Schluessel dieses Kontos abloesen
+            await cleanupOldAppKeys(oldToken: oldToken, oldDevice: oldDevice, newKey: keys.appKey)
+        } else if plan.wipe {
             AppConfig.token = keys.appKey ?? ""; reloadWidgets()          // Widget/Teilen nie mit dem Schluessel des alten Kontos
             if let t = oldDevice, t != DeviceKey.stored() { await forgetDevice(t, origin: oldDeviceOrigin) }
         }
         let wasShown = !needsLogin                                        // z. B. Kopplung aus "Nicht angemeldet" (Zwischenspeicher)
         needsLogin = false; loginPostponed = false
-        if plan.wipe && wasShown {
+        if plan.wipe && !plan.keepOpenPages && wasShown {
             // kein Anmeldefenster dazwischen: was sonst beim Schliessen startet (RootView/NativePage), hier anstossen
             live.start(); push.appStarted(); Task { await chat.load() }
             accountSwitches += 1                                          // offene Seite des alten Kontos neu laden
@@ -957,6 +963,31 @@ final class Store: ObservableObject {
     }
     /// zaehlt Kontowechsel ohne Anmeldefenster dazwischen (offene Seiten laden dann neu wie nach dem Anmeldefenster)
     @Published private(set) var accountSwitches = 0
+
+    /// Neuanmeldung beim gleichen Konto (AppKeyCleanup): alte Geraete-Anmeldung dieses Geraets samt App-Schluessel loeschen,
+    /// sonst sammeln sich je Neuanmeldung Schluessel an (APP_TOKEN_MAX). Nur Eintraege aus der Liste des NEUEN Kontos.
+    private func cleanupOldAppKeys(oldToken: String?, oldDevice: String?, newKey: String?) async {
+        let newDevice = DeviceKey.stored()
+        guard let d = try? await api("api/settings/apps"), let l = AppKeyCleanup.parse(d) else {
+            // alter Server/Fehler: wie bisher - alte Geraete-Anmeldung (falls bekannt) abmelden, neuen Schluessel nehmen
+            if let t = oldDevice, t != newDevice { await forgetDevice(t, origin: AppConfig.serverOrigin) }
+            if let k = newKey { AppConfig.token = k; reloadWidgets() }
+            return
+        }
+        let p = AppKeyCleanup.plan(devices: l.devices, keys: l.keys, oldToken: oldToken, oldDevice: oldDevice == newDevice ? nil : oldDevice, newKey: newKey)
+        for id in p.deleteDevices { _ = try? await api("api/settings/devices/\(id)", method: "DELETE") }
+        if let k = p.deleteKey { _ = try? await api("api/settings/tokens/\(k)", method: "DELETE") }
+        switch p.use {
+        case .new: if let k = newKey { AppConfig.token = k }
+        case .old: if let t = oldToken { AppConfig.token = t }
+        case .mint:                                                       // keiner ausgestellt (Grenze): jetzt, nach dem Aufraeumen
+            let r = try? await api("api/settings/tokens", method: "POST", body: ["name": DeviceKey.deviceName + " (automatisch)"])
+            let k = r.flatMap { (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any] }?["token"] as? String
+            AppConfig.token = k.flatMap { $0.hasPrefix("hk_") ? $0 : nil } ?? ""
+        case .none: break
+        }
+        reloadWidgets()
+    }
 
     /// Anmeldung per QR-Code (Kopplungs-Code aus dem Web). Der Server wird erst nach erfolgreicher Kopplung
     /// uebernommen; vorher wird sauber abgemeldet - vom alten Server, und auch auf demselben Server vom bisherigen Konto
@@ -1061,8 +1092,9 @@ final class Store: ObservableObject {
     /// Alles Lokale eines Kontos verwerfen: Liste, Zwischenspeicher, Abgleich-Stand, Systemsuche, Web-Daten, Live/Glocke/
     /// Chat/Push im Speicher, Startseite. `keepWebCookies`: Kontowechsel ohne Abmelden - die Sitzung der NEUEN Anmeldung
     /// (Cookie) bleibt, alles andere der Web-Ansichten (Speicher, Caches) des alten Kontos geht.
-    private func clearAccountData(keepWebCookies: Bool) async {
-        sessionGen += 1                                                   // offene Seiten des alten Kontos senden nichts mehr
+    /// `newSession: false` (Konto unbekannt): offene Seiten gelten nicht als fremd und senden ungesicherten Text weiter.
+    private func clearAccountData(keepWebCookies: Bool, newSession: Bool = true) async {
+        if newSession { sessionGen += 1 }                                 // offene Seiten des alten Kontos senden nichts mehr
         let ds = WKWebsiteDataStore.default()
         var types = WKWebsiteDataStore.allWebsiteDataTypes()
         if keepWebCookies { types.remove(WKWebsiteDataTypeCookies) }

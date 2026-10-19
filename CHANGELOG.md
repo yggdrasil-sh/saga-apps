@@ -37,7 +37,12 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Widget-/Teilen-Schlüssel des alten Kontos verworfen, bevor etwas Neues erscheint; eine offene Seite des alten Kontos
   lädt neu. Dasselbe Konto wieder angemeldet: nichts wird verworfen, die Liste ist sofort wieder da und es wird nur
   das Geänderte abgeglichen statt des ganzen Baums. Nach jeder Neuanmeldung gibt es außerdem einen frischen
-  Widget-Schlüssel (der alte ging mit der alten Geräte-Anmeldung verloren).
+  Widget-Schlüssel (der alte ging mit der alten Geräte-Anmeldung verloren); eine noch gültige alte Geräte-Anmeldung
+  dieses Geräts (z. B. Schlüsselbund nicht lesbar) wird dabei samt Schlüssel abgemeldet – Geräte und Schlüssel
+  sammeln sich nicht mehr an (bisher war nach ~10 Neuanmeldungen kein Schlüssel mehr frei); ein von Hand angelegter
+  Schlüssel bleibt in Gebrauch. Lässt sich das Konto nicht feststellen (Server kurz nicht erreichbar), wird die
+  Liste zwar ausgeblendet, eine offene Seite sendet ungesicherten Text aber weiter; kann er keinem Konto zugeordnet
+  werden, erscheint er im Kopier-Dialog statt verworfen zu werden.
 - **Seitenbaum beim Anmelden/Koppeln nur noch einmal geladen:** Ein noch laufender Abgleich wurde nach der
   Neuanmeldung mit dem alten Stand wiederholt und verworfen, danach kam der ganze Baum noch einmal (bei großen Konten
   zweimal die volle Liste). Laufende Abgleiche werden jetzt beim Anmelden abgebrochen und nicht wiederholt; während
