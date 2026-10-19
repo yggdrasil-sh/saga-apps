@@ -1222,15 +1222,30 @@ class ChatState(GObject.Object):
         if not isinstance(body, dict):
             return
 
+        def reup(fid):
+            """Anhaenge der alten Nachricht bleiben beim Server an sie gebunden (neue Nachricht: 400 "Anhang nicht gefunden")
+            -> denselben Ciphertext (gleicher Chat, gleicher Schluessel) als neue Datei hochladen"""
+            blob = chatmedia.get_blob(fid, cid=cid)
+            j = client.json("POST", f"api/chats/{cid}/files", raw=blob, ctype="application/octet-stream", timeout=180)
+            chatmedia.put_blob(j["id"], blob, cid)
+            return j["id"]
+
         def work():
             fids = []
+            nb = dict(body)
+            nfiles = []
             for f in body.get("files") or []:
                 if isinstance(f, dict) and f.get("id"):
+                    f = dict(f, id=reup(f["id"]))
                     fids.append(f["id"])
                     th = chatmedia.thumb_ref(f)
                     if th and th.get("id"):
-                        fids.append(th["id"])
-            r = self.send(cid, body, reply_to=m.get("reply_to"), file_ids=fids or None)
+                        f["th"] = dict(th, id=reup(th["id"]))
+                        fids.append(f["th"]["id"])
+                nfiles.append(f)
+            if "files" in body:
+                nb["files"] = nfiles
+            r = self.send(cid, nb, reply_to=m.get("reply_to"), file_ids=fids or None)
             try:
                 client.request("DELETE", f"api/chats/{cid}/messages/{m['id']}")
             except APIError:

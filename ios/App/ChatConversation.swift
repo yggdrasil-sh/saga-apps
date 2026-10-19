@@ -508,15 +508,32 @@ extension ConversationModel {
 
     /// "Erneut senden" (nicht zugestellt): neu verschluesseln und senden, alte Nachricht loeschen
     func resend(_ m: ChatMessage) async {
-        guard let store, let c = m.content, m.mine, m.delivery == .failed else { return }
+        guard let store, var c = m.content, m.mine, m.delivery == .failed else { return }
         sending = true; sendError = nil; defer { sending = false }
         do {
+            // Anhaenge bleiben beim Server an die alte Nachricht gebunden (dieselben IDs -> 400 "Anhang nicht gefunden"):
+            // denselben Ciphertext (gleicher Chat, gleicher Schluessel) als neue Dateien hochladen
+            var files: [ChatFileRef] = []
+            for var f in c.files {
+                f.id = try await reupload(f.id)
+                if var th = f.thumb { th.id = try await reupload(th.id); f.thumb = th }
+                files.append(f)
+            }
+            c.files = files
             let ids = ChatMediaLogic.sendIDs(c.files, maxIDs: model.me.fileIDsPerMsg).ids
             try await sendV2(c.json(), replyTo: m.replyTo, fileIDs: ids, ai: nil)
             _ = try? await store.apiResponse("api/chats/\(chatID)/messages/\(m.id)", method: "DELETE")
             messages.removeAll { $0.id == m.id }
             await fetchNew()
         } catch { sendError = String(localized: "Nicht gesendet: \(error.localizedDescription)") }
+    }
+    /// Ciphertext eines Anhangs (Platten-Cache, sonst Server) als neue Datei hochladen -> neue Datei-ID
+    private func reupload(_ id: String) async throws -> String {
+        guard let store else { throw APIError.other(String(localized: "Upload fehlgeschlagen")) }
+        let blob = try await ChatMedia.blob(id, fetch: fetcher)
+        let d = try await store.apiRaw("api/chats/\(chatID)/files", data: blob)
+        guard let nid = ShareJSON.obj(d)?["id"] as? String else { throw APIError.other(String(localized: "Upload fehlgeschlagen")) }
+        return nid
     }
 
     /// Nachrichtenanfrage: annehmen, ablehnen, sperren (Person oder ganzer Server). true = Chat schliessen

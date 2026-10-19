@@ -631,13 +631,27 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         val k = keys()
         sending = true
         try {
-            postEncrypted(k, ChatLogic.content(c.text, c.files, c.notes), m.replyTo, "msg", ChatLogic.sendFileIds(c.files))
+            // Anhaenge bleiben beim Server an die alte Nachricht gebunden (dieselben IDs -> 400 "Anhang nicht gefunden"):
+            // denselben Ciphertext (gleicher Chat, gleicher Schluessel) als neue Dateien hochladen
+            val files = c.files.map { f ->
+                val th = f.th?.let { t -> if (t.id.isEmpty()) t else t.copy(id = reupload(t.id)) }
+                f.copy(id = reupload(f.id), th = th)
+            }
+            postEncrypted(k, ChatLogic.content(c.text, files, c.notes), m.replyTo, "msg", ChatLogic.sendFileIds(files))
             quietly { api.delete("api/chats/$chatId/messages/${m.id}") }
             messages.removeAll { it.id == m.id }
             behind = !quietly { loadNewer() }
         } finally {
             sending = false
         }
+    }
+
+    /** Ciphertext eines Anhangs (Plattencache, sonst Server) als neue Datei hochladen -> neue Datei-ID */
+    private suspend fun reupload(fid: String): String {
+        val blob = withContext(Dispatchers.IO) { svc.blobs.get(ChatBlobCache.key(chatId, fid)) } ?: api.getBytes("api/chat/files/$fid")
+        val id = decode<FileUploaded>(api.postBytes("api/chats/$chatId/files", blob)).id
+        withContext(Dispatchers.IO) { svc.blobs.put(ChatBlobCache.key(chatId, id), blob) }
+        return id
     }
 
     // ---------------------------------------------------------------- Nachrichtenanfragen (2.3)
