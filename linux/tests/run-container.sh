@@ -122,7 +122,14 @@ for part in $PARTS; do
       HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test v21bshots.py es_ES.UTF-8
       HK_OUT="$SRC/build/shots" app_test chatdelshots.py
       HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test chatdelshots.py es_ES.UTF-8
+      HK_OUT="$SRC/build/shots" app_test fedshots.py
+      HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test fedshots.py es_ES.UTF-8
       for l in th_TH.UTF-8 ru_RU.UTF-8; do HK_OUT="$SRC/build/shots" app_test thrushots.py "$l"; done
+      ;;
+    fedshots)                                            # nur die Bilder zu "Chats ueber Servergrenzen" (2.3)
+      mkdir -p "$SRC/build/shots"
+      HK_OUT="$SRC/build/shots" app_test fedshots.py
+      HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test fedshots.py es_ES.UTF-8
       ;;
     thrushots)                                           # nur die Bilder zu Thai und Russisch (Schrift, Umbruch, Laenge)
       mkdir -p "$SRC/build/shots"

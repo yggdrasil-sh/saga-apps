@@ -18,6 +18,9 @@ from .i18n import _, ui_language
 
 COOKIE_FILE = os.path.join(config.DATA_DIR, "cookies.json")
 ACCEPT_LANGUAGE = {"de": "de, en;q=0.5", "es": "es, en;q=0.5", "ru": "ru, en;q=0.5", "th": "th, en;q=0.5"}.get(ui_language(), "en")
+# Chat-Format, das diese App versteht: "2" = auch Chats ueber Servergrenzen (saga-chat/v2, docs/APP-API-FED.md Abschnitt 6).
+# Aeltere Server ignorieren die Kopfzeile; ohne sie zeigt ein 2.3-Server solche Chats nur mit Hinweis.
+CHAT_V = "2"
 
 
 SWITCHED = -1      # APIError.code: inzwischen anderer Server/anderes Konto - nichts gesendet (Entwurf bleibt)
@@ -183,6 +186,7 @@ class Client:
         req.add_header("X-Hlidskjalf", "1")                      # ... und fuer aeltere Server
         req.add_header("User-Agent", "Hlidskjalf-Linux/1.0")
         req.add_header("Accept-Language", ACCEPT_LANGUAGE)       # Fehlermeldungen des Servers in der Sprache der App
+        req.add_header("X-Saga-Chat", CHAT_V)                    # versteht Chats ueber Servergrenzen (saga-chat/v2, Server 2.3)
         req.add_header("Accept-Encoding", "gzip")                # grosse JSON-Listen komprimiert (falls der Server es kann)
         if ctype:
             req.add_header("Content-Type", ctype)
@@ -375,6 +379,7 @@ class Client:
             req.add_header("X-Hlidskjalf", "1")
             req.add_header("User-Agent", "Hlidskjalf-Linux/1.0")
             req.add_header("Accept-Language", ACCEPT_LANGUAGE)
+            req.add_header("X-Saga-Chat", CHAT_V)
             ch = self.cookie_header_for(url)
             if ch:
                 req.add_header("Cookie", ch)
@@ -442,7 +447,7 @@ class Client:
         for attempt in range(2):
             url = self.url(path)
             hd = {"X-Saga": "1", "X-Hlidskjalf": "1", "User-Agent": "Hlidskjalf-Linux/1.0", "Accept-Language": ACCEPT_LANGUAGE,
-                  "Accept": "text/event-stream", "Cache-Control": "no-cache"}
+                  "X-Saga-Chat": CHAT_V, "Accept": "text/event-stream", "Cache-Control": "no-cache"}
             if data is not None:
                 hd["Content-Type"] = "application/json"
             hd.update(headers or {})

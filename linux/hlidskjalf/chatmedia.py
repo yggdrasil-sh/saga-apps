@@ -44,6 +44,18 @@ _disk_writes = 0
 _gen = 0                             # erhoeht bei clear(): spaete Ergebnisse alter Auftraege verwerfen
 _mem_cid = {}                        # Datei-ID -> Chat (Vorschaubilder im Speicher, fuer purge_chat)
 _cgen = {}                           # Chat -> Zaehler, erhoeht bei purge_chat: spaete Ergebnisse dieses Chats verwerfen
+REFS = {}                            # Chat -> chat_ref (2.3, Chats ueber Servergrenzen: Anhaenge mit AD saga-chat/v2/file)
+
+
+def decrypt(cid, blob, key):
+    """Anhang entschluesseln: v1 mit der Chat-ID, v2 (Chat ueber Servergrenzen) mit chat_ref"""
+    ref = REFS.get(cid)
+    return C.decrypt_file_v2(ref, blob, key) if ref else C.decrypt_file(cid, blob, key)
+
+
+def encrypt(cid, data, key=None):
+    ref = REFS.get(cid)
+    return C.encrypt_file_v2(ref, data, key=key) if ref else C.encrypt_file(cid, data, key=key)
 
 
 def is_image(f):
@@ -227,6 +239,7 @@ def clear():
     _mem.clear()
     _mem_cost.clear()
     _mem_cid.clear()
+    REFS.clear()
     _mem_size = 0
     with _jobs_lock:
         _jobs.clear()
@@ -347,25 +360,25 @@ def _run(job):
     if th:
         blob = get_blob(th["id"], cid=cid)
         stats["fetched"] += 1
-        data = C.decrypt_file(cid, blob, C.unb64(th["k"], 32))
+        data = decrypt(cid, blob, C.unb64(th["k"], 32))
         return th["id"], _decode(data), None
     # alte Nachricht ohne Vorschaubild: eigenes erzeugen und verschluesselt zwischenspeichern
     key = C.unb64(f.get("k"), 32)
     blob = _read_any(f["id"], ".th", cid)
     if blob is not None:
         try:
-            data = C.decrypt_file(cid, blob, key)
+            data = decrypt(cid, blob, key)
             return f["id"], _decode(data), None
         except C.CryptoError:
             pass
-    orig = C.decrypt_file(cid, get_blob(f["id"], keep=False, cid=cid), key)
+    orig = decrypt(cid, get_blob(f["id"], keep=False, cid=cid), key)
     stats["fetched"] += 1
     t = make_thumb(orig)
     if t is None:
         raise ValueError("no image")
     stats["generated"] += 1
     if gen == _gen and job.get("cgen", 0) == _cgen.get(cid, 0):
-        _write(_path(f["id"], ".th", cid), C.encrypt_file(cid, t[0], key=key)[0])
+        _write(_path(f["id"], ".th", cid), encrypt(cid, t[0], key=key)[0])
     return f["id"], _decode(t[0]), t[1]
 
 
@@ -435,4 +448,4 @@ def cancel(fid, cb):
 
 def original(cid, f):
     """Hintergrund: Original laden (Ciphertext wird zwischengespeichert) und entschluesseln -> Bytes"""
-    return C.decrypt_file(cid, get_blob(f["id"], cid=cid), C.unb64(f.get("k"), 32))
+    return decrypt(cid, get_blob(f["id"], cid=cid), C.unb64(f.get("k"), 32))

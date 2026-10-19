@@ -6,6 +6,28 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu (Linux)
+- **Chats über Servergrenzen (Saga 2.3, Föderation E1–E3):** Die Linux-App versteht jetzt das Chat-Format
+  `saga-chat/v2` und meldet das dem Server (`X-Saga-Chat: 2`) – Chats mit Personen verbundener Saga-Server erscheinen
+  damit vollwertig statt nur als Hinweis. Personensuche in „Neue Unterhaltung“, „Person hinzufügen“ und im
+  Teilen-Dialog sucht bei Servern ab 2.3 schon ab 1 Zeichen (bei 1–2 Zeichen nur genaue Treffer, auch `name@host`) und
+  zeigt Personen anderer Server als „Name · host“ mit Profilbild. Ein Direkt-Chat beginnt als Nachrichtenanfrage: eigener
+  Bereich oben in der Chat-Liste, statt des Eingabefelds „Annehmen“, „Ablehnen“ und „Sperren …“ (Person oder ganzer
+  Server; bis zur Annahme keine Benachrichtigungen und kein Klingeln), Sperrliste mit „Entsperren“ und der Schalter „In
+  Adressbüchern verbundener Server erscheinen“ unter Einstellungen → Chats. Nachrichten und Anhänge (mit
+  Vorschaubild) werden mit `saga-chat/v2` verschlüsselt und signiert; Schlüssel der anderen holt die App über den
+  eigenen Server und prüft Zertifikate und signierte Geräte-Liste selbst. Zertifikate v2 für die eigenen Geräte lädt
+  sie still hoch (auch nach `chat.keys.changed`). Vertrauen beim ersten Kontakt je Handle (TOFU): Warnung bei
+  Schlüsselwechsel (Senden und Anrufen erst nach „Verstanden“ oder Prüfen), Blockade, wenn die Person als „überprüft“
+  markiert war, Ablehnung ungültiger Schlüssel oder einer zurückgedrehten Geräte-Liste; Sicherheitsnummer v2 mit
+  Herkunft. Ist der andere Server gerade nicht erreichbar, zeigt die Nachricht „wird zugestellt“ (⏳), abgewiesene
+  Nachrichten „nicht zugestellt“ mit „Erneut senden“; Systemzeilen (z. B. KI ein-/ausgeschaltet) erscheinen mittig.
+  Anrufe gehen nur aus angenommenen Chats (Anfragen klingeln nie), das Klingeln in der App funktioniert auch für
+  Anrufe von anderen Servern. Lokale Chats (v1), lokale Anrufe und ältere Server (2.1/2.2) bleiben unverändert.
+  Geprüft mit allen Testvektoren `chat_v2.json` (Unit-Test) und Ende-zu-Ende gegen zwei verbundene Server
+  (`tests/realfed.py`, Gegenprobe mit der Server-Referenz). Der Hinweis bei `name@server` ohne Treffer sagt jetzt,
+  dass Personen anderer Server über ihren Anzeigenamen gefunden werden (statt „gibt es noch nicht“).
+
 ### Geändert (alle Apps)
 - **Testversionen als Release Candidate erkennbar:** Alles, was nicht das offizielle Release ist (Vorabversion von
   `testing`, Ad-hoc-Builds fürs MDM, lokale Builds), zeigt in Einstellungen/„Über“ jetzt `2.2.0-rc.N` statt nur
