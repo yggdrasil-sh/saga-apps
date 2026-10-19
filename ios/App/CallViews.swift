@@ -43,6 +43,20 @@ struct CallScreen: View {
                     .padding(.top, 24 + headerHeight + 10).padding(.trailing, 16)   // unter der Kopfzeile (Ton-Diagnose bleibt lesbar)
             }
         }
+        #if os(iOS)
+        .overlay(alignment: .topLeading) {                                   // 2.3.1: zurueck in die App, Anruf laeuft weiter
+            if CallLogic.isOngoing(calls.phase.rawValue) {
+                Button { calls.minimize() } label: {
+                    Image(systemName: "chevron.down").font(.body.weight(.semibold)).frame(width: 40, height: 40)
+                        .background(.white.opacity(0.18), in: Circle())
+                }
+                .buttonStyle(.plain).foregroundStyle(.white)
+                .padding(.leading, 16).padding(.top, 8)
+                .accessibilityLabel(Text("Zurück zur App"))
+                .help(Text("Zurück zur App"))
+            }
+        }
+        #endif
         .foregroundStyle(.white)
         .environment(\.colorScheme, .dark)
         .dynamicTypeSize(...DynamicTypeSize.accessibility3)                 // groesste Stufen: Name/Status passen noch neben die Knoepfe
@@ -201,8 +215,20 @@ struct CallPresenter: ViewModifier {
     #endif
     func body(content: Content) -> some View {
         content
+            // 2.3.1: laufender Anruf verkleinert bzw. Mac-Fenster im Hintergrund -> gruene Leiste oben, Tippen kehrt zurueck
+            .safeAreaInset(edge: .top, spacing: 0) {
+                if CallLogic.showsCallBar(phase: calls.phase.rawValue, minimized: calls.minimized, separateWindow: separateWindow) {
+                    CallBar(calls: calls) { returnToCall() }
+                }
+            }
+            .animation(.snappy(duration: 0.25), value: calls.minimized)
             #if os(iOS)
-            .fullScreenCover(isPresented: Binding(get: { show }, set: { if !$0 { calls.dismissEnded() } })) { CallScreen(calls: calls) }
+            // Vollbild nur, solange nicht verkleinert; "Zurueck zur App" schliesst es, der Anruf laeuft weiter
+            .fullScreenCover(isPresented: Binding(get: { calls.showsFullScreen }, set: { if !$0 { calls.minimize() } })) {
+                CallScreen(calls: calls)
+                    .onAppear { calls.coverVisible = true }
+                    .onDisappear { calls.coverVisible = false }
+            }
             #else
             // Fenster nur beim Beginn (eigener Anruf / es klingelt) und beim Annehmen oeffnen, nie die App aktivieren:
             // eingehend meldet sich CallSystem.reportIncoming dezent per Mitteilung + Dock (kein Fokus-Klau beim Tippen
@@ -223,9 +249,90 @@ struct CallPresenter: ViewModifier {
             }
     }
     #if os(iOS)
-    /// Mit CallKit klingelt das System selbst (eigene Oberflaeche erst nach dem Annehmen)
-    private var show: Bool { calls.phase != .idle && !(CallEnv.callKit && calls.phase == .incoming) }
+    private let separateWindow = false
+    private func returnToCall() { calls.expand() }
+    #else
+    private let separateWindow = true                                       // Mac: eigenes Fenster "Anruf"
+    private func returnToCall() { openWindow(id: "call") }                  // holt das (offene) Fenster nach vorn
     #endif
+}
+
+/// Leiste "Anruf laeuft - tippen zum Zurueckkehren" (gruen, mit Dauer) ueber der App
+struct CallBar: View {
+    @ObservedObject var calls: CallManager
+    let action: () -> Void
+    /// etwas dunkler als das System-Gruen: weisse Schrift bleibt gut lesbar
+    static let green = Color(red: 0.13, green: 0.58, blue: 0.27)
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: calls.media == "video" ? "video.fill" : "phone.fill")
+                #if os(iOS)
+                Text("Anruf läuft – tippen zum Zurückkehren").lineLimit(1).minimumScaleFactor(0.75)
+                #else
+                Text("Anruf läuft – klicken zum Zurückkehren").lineLimit(1).minimumScaleFactor(0.75)
+                #endif
+                Spacer(minLength: 4)
+                CallDurationText(calls: calls)
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 16).padding(.vertical, 8)
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .background(Self.green.ignoresSafeArea(edges: .top))
+        .accessibilityLabel(Text("Anruf läuft – zurück zum Anruf mit \(calls.peerName)"))
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+}
+
+/// Dauer des verbundenen Anrufs ("12:03"), sonst der Zustand ("Verbinde …", "Klingelt …")
+struct CallDurationText: View {
+    @ObservedObject var calls: CallManager
+    var body: some View {
+        if calls.phase == .active, let t0 = calls.connectedAt {
+            TimelineView(.periodic(from: t0, by: 1)) { ctx in
+                Text(verbatim: CallLogic.duration(Int(ctx.date.timeIntervalSince(t0)))).monospacedDigit()
+            }
+        } else if !calls.status.isEmpty {
+            Text(verbatim: calls.status).lineLimit(1)
+        }
+    }
+}
+
+/// Hinweis in der Unterhaltung, zu der der laufende Anruf gehoert (2.3.1)
+struct ChatCallBanner: View {
+    @ObservedObject var calls: CallManager
+    let chatID: Int
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
+    var body: some View {
+        if CallLogic.chatHasCall(phase: calls.phase.rawValue, callChat: calls.callChatID, chatID: chatID) {
+            HStack(spacing: 10) {
+                Image(systemName: calls.media == "video" ? "video.fill" : "phone.fill").foregroundStyle(.green)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Anruf läuft in diesem Chat").font(.subheadline.weight(.semibold))
+                    CallDurationText(calls: calls).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Button("Zurück zum Anruf") {
+                    #if os(iOS)
+                    calls.expand()
+                    #else
+                    openWindow(id: "call")
+                    #endif
+                }
+                .buttonStyle(.borderedProminent).tint(.green).controlSize(.small)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color.green.opacity(0.12))
+            Divider()
+        }
+    }
 }
 
 #if os(macOS)

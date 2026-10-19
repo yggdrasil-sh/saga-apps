@@ -150,6 +150,38 @@ enum CallLogic {
         return old == "incoming" && new == "connecting"
     }
 
+    // MARK: Anruf verkleinern (2.3.1): zurueck in die App, Leiste oben, Hinweis im Chat
+
+    /// Phasen, in denen ein Anruf laeuft bzw. aufgebaut wird (verkleinerbar; Leiste "Anruf laeuft")
+    static func isOngoing(_ phase: String) -> Bool { ["preparing", "ringingOut", "connecting", "active"].contains(phase) }
+    /// iPhone/iPad: Vollbild zeigen? Klingeln mit CallKit zeigt das System; verkleinert nur die Leiste. Endet ein
+    /// verkleinerter Anruf, springt das Vollbild nicht mehr auf (Hinweis kommt als Toast).
+    static func showsFullScreen(phase: String, minimized: Bool, callKit: Bool) -> Bool {
+        if phase == "idle" || (callKit && phase == "incoming") { return false }
+        if phase == "incoming" { return true }
+        return !minimized
+    }
+    /// Leiste "Anruf laeuft - tippen zum Zurueckkehren": iPhone/iPad nur verkleinert, Mac immer (eigenes Fenster)
+    static func showsCallBar(phase: String, minimized: Bool, separateWindow: Bool) -> Bool {
+        isOngoing(phase) && (minimized || separateWindow)
+    }
+    /// Hinweis im Chat: der laufende Anruf gehoert zu diesem Chat
+    static func chatHasCall(phase: String, callChat: Int, chatID: Int) -> Bool { isOngoing(phase) && callChat != 0 && callChat == chatID }
+
+    /// Mitteilung angetippt: Anruf-Mitteilung -> Anruf; alles andere -> Ziel oeffnen. Laeuft ein Anruf im Vollbild,
+    /// erst verkleinern (bzw. den Endhinweis schliessen) und DANN navigieren - Navigation unter einem offenen Vollbild
+    /// brachte die App zum Absturz.
+    enum TapRoute: Equatable { case call(String), open(minimizeFirst: Bool) }
+    static func tapRoute(kind: String?, url: String?, call: String?, phase: String, minimized: Bool, callKit: Bool) -> TapRoute {
+        if kind == "call" || callFromURL(url) != nil {
+            if let c = call ?? callFromURL(url), isCallID(c) { return .call(c) }
+        }
+        return .open(minimizeFirst: showsFullScreen(phase: phase, minimized: minimized, callKit: callKit))
+    }
+    /// Ziel "Chat": liegt der Chat-Bereich noch nicht vorne, erst den Bereich wechseln und den Chat danach oeffnen
+    /// (beides in einem Schritt schob zwei Navigationsstapel gleichzeitig)
+    static func chatOpenNeedsTwoSteps(chatsVisible: Bool) -> Bool { !chatsVisible }
+
     /// 65 -> "1:05", 3725 -> "1:02:05"
     static func duration(_ s: Int) -> String {
         let v = max(0, s)

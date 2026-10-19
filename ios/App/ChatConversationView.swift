@@ -44,6 +44,7 @@ struct ConversationView: View {
             if conv.notFound {
                 ContentUnavailableView("Chat", systemImage: "bubble.left.and.exclamationmark.bubble.right", description: Text("Diesen Chat gibt es nicht (mehr) oder du gehörst nicht mehr dazu."))
             } else {
+                ChatCallBanner(calls: store.calls, chatID: chatID)              // 2.3.1: laufender Anruf in diesem Chat
                 banners
                 FedChatBanners(conv: conv) { m in safetyPeer = ChatMember(username: m.username, name: m.name, me: false) }   // 2.3: Herkunft, TOFU
                 messagesList

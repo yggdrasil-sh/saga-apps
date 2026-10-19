@@ -174,7 +174,10 @@ final class PushModel: ObservableObject {
 
     /// Mitteilung angetippt: `url` relativ zu BASE_URL -> Ziel oeffnen, Benachrichtigung als gelesen markieren
     nonisolated static func handleTap(_ userInfo: [AnyHashable: Any], action: String = UNNotificationDefaultActionIdentifier) {
-        if (userInfo["kind"] as? String) == "call" || CallLogic.callFromURL(userInfo["url"] as? String) != nil {   // Anruf (2.1): klingeln/annehmen
+        // Anruf (2.1): klingeln/annehmen. Alles andere (z. B. Chat-Nachricht WAEHREND eines Anrufs) oeffnet nur das Ziel;
+        // RootView verkleinert dafuer zuerst die Anruf-Oberflaeche (2.3.1) - der Anruf selbst bleibt unberuehrt.
+        if case .call = CallLogic.tapRoute(kind: userInfo["kind"] as? String, url: userInfo["url"] as? String, call: userInfo["call"] as? String,
+                                           phase: "idle", minimized: false, callKit: false) {
             let info = userInfo.reduce(into: [AnyHashable: Any]()) { r, kv in if kv.value is String || kv.value is NSNumber { r[kv.key] = kv.value } }
             let a = action
             Task { @MainActor in CallSystem.shared.notificationAction(a, info: info) }
