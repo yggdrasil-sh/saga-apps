@@ -37,6 +37,8 @@ ausgeblendet), stellen den Block `nextcloud` dar und schreiben ihn unverändert 
 - Ältere Server (2.1/2.2) blenden die neuen Abschnitte aus; lokale Funktionen bleiben unverändert. Texte de/en/es/ru/th.
   Geprüft mit Logik-Tests und Ende-zu-Ende gegen einen Server 2.3 mit nachgemachter Nextcloud/WebDAV
   (`tests/fakedav.py`; `ios/Tests/CloudE2E`).
+- Prüfung: absolute Links aus Benachrichtigungen und Mitteilungen öffnet die App nur noch bei `backup.failed`
+  (Admin-Bereich), wie Android und Linux; „Nextcloud-Datei“ im „/“-Menü erscheint nur bei Servern ab 2.3.
 
 #### Android
 - **Einstellungen → „Mein Backup“** (nur bei Servern, die es können): Status mit letztem erfolgreichem Backup, nächstem

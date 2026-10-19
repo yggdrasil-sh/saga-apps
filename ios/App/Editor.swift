@@ -408,7 +408,7 @@ struct EditText: View {
                             }
                             return .handled
                         }
-                    if let q = slashQuery { SlashMenu(query: q) { type, level in ed.slashApply(blockOf(key), type: type, level: level) } }
+                    if let q = slashQuery { SlashMenu(query: q, nextcloud: store.serverVersion.map { !ShareLogic.versionLess($0, "2.3.0") } ?? false) { type, level in ed.slashApply(blockOf(key), type: type, level: level) } }
                     else if !mentions.isEmpty { MentionMenu(items: mentions, selected: min(mSel, mentions.count - 1)) { pickMention($0) } }
                 }
                 .onAppear {
@@ -476,9 +476,11 @@ struct EditText: View {
 /// "/"-Menue: gefilterte Blocktypen unter dem Absatz
 struct SlashMenu: View {
     let query: String
+    /// "Nextcloud-Datei" nur bei Servern ab 2.3 (aeltere kennen den Block nicht)
+    var nextcloud = true
     let pick: (String, Int) -> Void
     var body: some View {
-        let items = slashItems.filter { query.isEmpty || $0.0.lowercased().contains(query) || $0.4.contains(query) }
+        let items = slashItems.filter { (nextcloud || $0.1 != "nextcloud") && (query.isEmpty || $0.0.lowercased().contains(query) || $0.4.contains(query)) }
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
                 if items.isEmpty { Text("Kein Blocktyp für „\(query)“").font(.subheadline).foregroundStyle(.secondary).padding(10) }
