@@ -411,6 +411,9 @@ def check_keys_v2(handle, e):
     try:
         if not isinstance(e, dict) or e.get("handle") != handle or not re.fullmatch(HANDLE_RX, str(handle or "")):
             return None
+        ids = [d.get("id") for d in e.get("devices") or [] if isinstance(d, dict)]
+        if len(set(ids)) != len(ids):                      # doppelte Geraete-IDs: unklar, welcher Schluessel gilt (wie iOS)
+            return None
         ip, bp = unb64(e.get("ident_pub"), 32), unb64(e.get("backup_pub"), 32)
         if not verify(unb64(e.get("sig"), 64), handle_msg(handle, ip, bp), ip):
             return None

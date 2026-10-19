@@ -78,6 +78,8 @@ func fed23bTests() {
     check(FedChatLogic.sysText(.ai(on: true, byMe: true, name: "x"), myHandle: me) == "Du hast die KI in diesem Chat eingeschaltet."
           && FedChatLogic.sysText(.ai(on: false, byMe: false, name: "Bert"), myHandle: me) == "Bert hat die KI in diesem Chat ausgeschaltet.", "Text: KI")
     check(FedChatLogic.sysText(sys(["type": "members"]), myHandle: me) == "Hinweis", "leere Mitgliederzeile")
+    check(FedChatLogic.SysWho(["name": "Eva", "host": "a.example", "handle": "~eeeeeeeeeeeeeeee@e.example"])?.host == "e.example"
+          && FedChatLogic.SysWho(["name": "Eva", "host": "e.example"])?.host == "e.example", "Herkunft aus dem Handle (Feld host nur ohne Handle)")
 
     // Einladung zu einer Gruppe eines anderen Servers
     let grp = FedChatInfo(["id": 9, "kind": "free", "v": 2, "ref": "00112233445566778899aabbccddeeff@b.example", "home": "b.example", "home_self": false,

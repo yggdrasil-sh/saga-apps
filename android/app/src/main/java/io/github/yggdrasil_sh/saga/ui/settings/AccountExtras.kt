@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -133,7 +134,7 @@ fun SecurityBlock(repo: SagaRepository, modifier: Modifier, reloadKey: Any?) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
             // Der Browser zeigt die Seite des DORT angemeldeten Kontos - Konto der App nennen und mitgeben (user=),
             // damit der Server bei einem anderen Konto warnen kann
-            val account = repo.account.value.trim()
+            val account = repo.account.collectAsState().value.trim()
             OutlinedButton(onClick = { openUrl(context, io.github.yggdrasil_sh.saga.auth.LoginFlow.securityUrl(repo.server.value, account)) }) {
                 Text(stringResource(R.string.security_manage))
             }

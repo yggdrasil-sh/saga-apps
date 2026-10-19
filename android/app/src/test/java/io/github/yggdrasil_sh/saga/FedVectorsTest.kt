@@ -108,6 +108,8 @@ class FedVectorsTest {
         assertEquals(1, bad.active.size)
         assertNull(fed.checkKeys("~qrstuvwxyz234567@b.example:8443", e))            // anderer Handle angefragt
         assertNull(fed.checkKeys(handle, e.copy(sig = v.o("device").s("fed_sig"))))  // Handle-Zertifikat ungueltig
+        assertNull(fed.checkKeys(handle, e.copy(devices = listOf(good, good))))       // doppelte Geraete-IDs (wie iOS/Linux)
+        assertNull(fed.checkKeys("bert@b.example", e.copy(handle = "bert@b.example"))) // kein gueltiges Handle-Format
     }
 
     @Test

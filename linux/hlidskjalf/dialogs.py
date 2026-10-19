@@ -277,7 +277,7 @@ def move_dialog(win, pid):
 
 
 class VersionsDialog(Adw.Dialog):
-    def __init__(self, win, pid, restored):
+    def __init__(self, win, pid, restored, can_restore=True):
         super().__init__(title=_("Version history"), content_width=760, content_height=500)
         self.pid, self.restored = pid, restored
         self.sel = None
@@ -286,6 +286,7 @@ class VersionsDialog(Adw.Dialog):
         self.restore_btn = Gtk.Button(label=_("Restore this version"), sensitive=False)
         self.restore_btn.add_css_class("suggested-action")
         self.restore_btn.connect("clicked", lambda *_: self._restore())
+        self.restore_btn.set_visible(can_restore)       # gesperrte Seite, nicht Eigentuemer: nur ansehen
         hb.pack_end(self.restore_btn)
         tv.add_top_bar(hb)
         pane = Gtk.Paned(position=240)

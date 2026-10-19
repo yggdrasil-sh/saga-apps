@@ -47,6 +47,9 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Umgestellte Seiten-Chats lesen ältere Nachrichten (ohne `sender_handle`) weiter mit v1; Schlüssel von Personen
   dritter Server (über das Heim) werden wie immer selbst geprüft. Der Hinweis „Gruppen mit Personen anderer
   Saga-Server kommen mit einem späteren Update“ entfällt.
+- Prüfung: Schlüssel großer Gruppen (mehr als 20 Personen) werden in Teilen geholt (vorher scheiterte das Senden),
+  Schlüssel-Einträge mit doppelten Geräte-IDs werden verworfen, Systemzeilen nennen den Server aus dem Handle, und auf
+  gesperrten Seiten bietet nur der Eigentümer „Diese Version wiederherstellen“ an.
 - Geprüft mit `tests/test_fed23b.py` (nachgebauter Server) und Ende-zu-Ende gegen drei verbundene Server
   (`tests/realfed23b.py` Seiten/Datenbanken, `tests/realfed23b_chat.py` Gruppen und Seiten-Chats).
 
@@ -90,6 +93,9 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 - **Umgestellte Seiten-Chats:** Nachrichten und Anhänge aus der Zeit vor der Umstellung bleiben lesbar (v1), neue
   Nachrichten gehen in v2; ein offener Chat lädt nach der Umstellung neu.
 - Der Hinweis „Gruppen mit Personen anderer Saga-Server kommen mit einem späteren Update“ ist entfallen.
+- Prüfung: Schlüssel-Einträge mit ungültigem Handle oder doppelten Geräte-IDs werden verworfen (wie iOS/Linux),
+  Systemzeilen nennen den Server aus dem Handle, „Diese Version wiederherstellen“ auf gesperrten Seiten nur für den
+  Eigentümer; zwei Lint-Fehler (`StateFlow.value` in der Oberfläche) behoben.
 - **Kurzsuche nur bei Servern ab 2.3:** Personensuche in Chat und Teilen-Dialog ab 1 Zeichen nur, wenn der Server
   2.3 oder neuer ist; ältere Server wie bisher ab 3 Zeichen mit Hinweis „Mindestens 3 Zeichen“.
 - Lokale Seiten und Chats sowie ältere Server bleiben unverändert.
@@ -120,6 +126,8 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 - **Kurzsuche:** Personensuche ab 1 Zeichen nur noch bei Servern ab 2.3, bei älteren wie bisher ab 3 Zeichen mit Hinweis.
 - **Schlüsselprüfung:** `checkKeysV2` verwirft zusätzlich ungültige Handles und Einträge mit doppelten Geräte-IDs
   (wie Linux/Android). Lokale Chats, lokale Seiten und ältere Server bleiben unverändert.
+- Prüfung: Systemzeilen nennen den Server aus dem Handle, „Diese Version wiederherstellen“ auf gesperrten Seiten nur
+  für den Eigentümer, russische Mehrzahl für „%lld Server“ ergänzt.
 - Geprüft mit Logik-Tests (`ios/Tests/Logic`), den Testvektoren (`ios/Tests/ChatVectors`) und Ende-zu-Ende gegen
   drei verbundene Server (`ios/Tests/FedE2E`, `FED_PART=2`).
 

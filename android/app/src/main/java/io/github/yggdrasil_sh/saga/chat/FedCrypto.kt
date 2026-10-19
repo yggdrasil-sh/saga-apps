@@ -177,7 +177,9 @@ class FedCrypto(private val c: ChatCrypto) {
      * Geraete-Liste steht und nicht widerrufen ist; ohne gueltige Liste (Altbestand) gilt revoked vom Server.
      */
     fun checkKeys(handle: String, e: FedKeyEntry?): FedKeys? {
-        if (e == null || e.handle != handle) return null
+        if (e == null || e.handle != handle || !FedFormat.HANDLE_RE.matches(handle)) return null
+        // doppelte Geraete-IDs: unklar, welcher Schluessel gilt - Eintrag verwerfen (wie iOS/Linux)
+        if (e.devices.map { it.id }.toSet().size != e.devices.size) return null
         val ip = unb64(e.identPub, 32) ?: return null
         val bp = unb64(e.backupPub, 32) ?: return null
         if (!c.verify(unb64(e.sig, 64), FedFormat.handleMsg(handle, ip, bp), ip)) return null

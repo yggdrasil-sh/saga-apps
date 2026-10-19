@@ -89,7 +89,7 @@ def sys_who(x, my_handle, acc=False):
     if acc and x.get("handle") and x.get("handle") == my_handle:
         return pgettext("object", "you")
     mine = _host_of(my_handle)
-    host = x.get("host") or ""
+    host = _host_of(x.get("handle")) or str(x.get("host") or "")    # Herkunft aus dem Handle (nicht aus freiem Text)
     return str(x.get("name") or "?") + (f" ({host})" if host and host != mine else "")
 
 
@@ -1218,12 +1218,15 @@ class ChatState(GObject.Object):
     def fed_keys(self, handles, fresh=False):
         """Hintergrund: Schluessel zu Handles ueber den eigenen Server holen, selbst pruefen, TOFU anwenden.
         -> {handle: {"keys": gepruefte Schluessel | None, "trust": trust|warn|block|reject|missing, "stale", "stored"}}"""
-        hs = [h for h in dict.fromkeys(handles or []) if self._handle_ok(h)][:20]
+        hs = [h for h in dict.fromkeys(handles or []) if self._handle_ok(h)]
         if not hs:
             return {}
-        q = urllib.parse.quote(",".join(hs), safe=",~@:")
-        r = client.get(f"api/chat/v2/keys?handles={q}" + ("&fresh=1" if fresh else "")) or {}
-        got = r.get("keys") if isinstance(r.get("keys"), dict) else {}
+        got = {}
+        for i in range(0, len(hs), 20):                   # hoechstens 20 je Abfrage - grosse Gruppen (2.3) in Teilen
+            q = urllib.parse.quote(",".join(hs[i:i + 20]), safe=",~@:")
+            r = client.get(f"api/chat/v2/keys?handles={q}" + ("&fresh=1" if fresh else "")) or {}
+            if isinstance(r.get("keys"), dict):
+                got.update({h: v for h, v in r["keys"].items() if h in hs[i:i + 20]})
         k = self.keys
         out = {}
         for h in hs:

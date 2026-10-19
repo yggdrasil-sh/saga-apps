@@ -95,7 +95,8 @@ enum FedChatLogic {
         init?(_ v: Any?) {
             guard let d = v as? [String: Any] else { return nil }
             name = ShareJSON.str(d["name"]) ?? "?"; handle = ShareJSON.str(d["handle"]) ?? ""
-            host = ShareJSON.str(d["host"]) ?? FedChatLogic.host(of: handle)
+            let hh = FedChatLogic.host(of: handle)                     // Herkunft aus dem Handle (nicht aus freiem Text)
+            host = hh.isEmpty ? (ShareJSON.str(d["host"]) ?? "") : hh
         }
     }
     /// Mitglieder geaendert (E5): hinzugefuegt/entfernt, von wem (nil = ohne Person, z. B. getrennt), Grund

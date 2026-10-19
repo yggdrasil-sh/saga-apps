@@ -16,7 +16,8 @@ object FedSysText {
         if (acc && !p.handle.isNullOrEmpty() && p.handle == myHandle) return UiText.Res(R.string.fed_sys_you_acc)
         val n = p.name?.trim()?.ifEmpty { null } ?: "?"
         val mine = hostOf(myHandle)
-        return UiText.Raw(if (!p.host.isNullOrEmpty() && p.host != mine) "$n (${p.host})" else n)
+        val host = hostOf(p.handle).ifEmpty { p.host.orEmpty() }       // Herkunft aus dem Handle (nicht aus freiem Text)
+        return UiText.Raw(if (host.isNotEmpty() && host != mine) "$n ($host)" else n)
     }
 
     /** Liste "A, B, C" (Teile duerfen uebersetzt sein, z. B. "dich") */

@@ -89,6 +89,10 @@ def test_check_keys_entry():
     # ohne gueltige Liste (Altbestand): revoked vom Server
     assert C.check_keys_v2(H, keys_entry(revoked=True))["devices"][0]["revoked"]
     assert C.check_keys_v2(H, keys_entry(dset={"ver": 9, "ids": DS["ids"], "sig": DS["sig"]}))["ver"] == 0
+    # doppelte Geraete-IDs: Eintrag verwerfen (unklar, welcher Schluessel gilt - wie iOS/Android)
+    dup = keys_entry(dset=dset)
+    dup["devices"] = dup["devices"] * 2
+    assert C.check_keys_v2(H, dup) is None
     # Empfaenger: Geraet mit Host aus dem Handle + Backup
     assert set(C.recipients_v2([k])) == {f"dev:{D['id']}@a.example", "backup:" + H}
     assert set(C.recipients_v2([k2])) == {"backup:" + H}

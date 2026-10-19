@@ -67,6 +67,9 @@ object PageToolsLogic {
         else -> role.canEdit && server23
     }
 
+    /** Wiederherstellen: gesperrte Seite nur durch den Eigentuemer (Server: 423), sonst wie der Versionsverlauf */
+    fun canRestore(role: Role, locked: Boolean): Boolean = role.isOwner || !locked
+
     /** Export (Markdown/ZIP): fuer alle mit Zugriff; Seiten anderer Server nur mit Faehigkeit "export" */
     fun canExport(remote: Boolean, caps: Set<String>): Boolean = RemoteCaps.has(remote, caps, RemoteCaps.EXPORT)
 
@@ -172,7 +175,7 @@ fun VersionsDialog(ed: PageEditor, repo: SagaRepository, onDismiss: () -> Unit) 
         },
         confirmButton = {
             val v = sel
-            if (v != null) {
+            if (v != null && PageToolsLogic.canRestore(ed.share.role, ed.locked)) {
                 TextButton(enabled = !busy && preview != null, onClick = {
                     busy = true
                     scope.launch {

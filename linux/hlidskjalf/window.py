@@ -1584,9 +1584,9 @@ class MainWindow(Adw.ApplicationWindow):
         from .dialogs import move_dialog
         move_dialog(self, pid)
 
-    def versions_dialog(self, pid, restored):
+    def versions_dialog(self, pid, restored, can_restore=True):
         from .dialogs import VersionsDialog
-        VersionsDialog(self, pid, restored).present(self)
+        VersionsDialog(self, pid, restored, can_restore=can_restore).present(self)
 
     SHORTCUTS = [
         (_("General"), [(_("Command palette"), "<Control>k <Control>p"), (_("New page"), "<Control>n"),

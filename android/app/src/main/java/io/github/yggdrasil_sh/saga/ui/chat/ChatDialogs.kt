@@ -335,7 +335,7 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
 /** Nachrichten automatisch loeschen nach (Werte vom Server; Hoechstwert des Admins beachten) */
 @Composable
 fun RetentionDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
-    val limits = repo.chat.me.value?.limits
+    val limits = repo.chat.me.collectAsState().value?.limits
     val opts = limits?.retentions?.ifEmpty { null } ?: listOf(0L, 3600L, 86400L, 604800L, 2592000L)
     val max = limits?.retentionMax ?: 0L
     var sel by remember { mutableStateOf(s.summary?.retentionS ?: 0L) }

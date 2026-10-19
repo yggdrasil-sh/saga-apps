@@ -1251,7 +1251,9 @@ class PageView(Gtk.Box):
         if ok("move"):
             ents.append((_("Move to …"), lambda: win.move_dialog(self.id)))
         if ok("versions"):
-            ents.append((_("Version history …"), lambda: ed.flush(lambda: win.versions_dialog(self.id, lambda: self.doc.load(force=True)))))
+            can_restore = is_owner(p) or not locked              # gesperrte Seite: Wiederherstellen nur Eigentuemer (Server: 423)
+            ents.append((_("Version history …"), lambda: ed.flush(lambda: win.versions_dialog(self.id, lambda: self.doc.load(force=True),
+                                                                                              can_restore=can_restore))))
         if ok("export"):                                         # Seiten anderer Saga-Instanzen: kein Export
             ents.append((_("Export"), [(_("As Markdown (.md)"), lambda: ed.flush(lambda: win.export_page(self.id, self.doc.title, False)))] +
                          ([(_("With subpages (.zip)"), lambda: ed.flush(lambda: win.export_page(self.id, self.doc.title, True)))]

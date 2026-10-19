@@ -115,6 +115,26 @@ def test_sys_text_and_home_hint():
     assert chat_home_hint({"v": 2, "kind": "free", "home_self": False, "home": "b.example"}).startswith("This chat is on b.example.")
     assert chat_home_hint({"v": 2, "kind": "free", "home_self": True}).startswith("This chat is on this server")
     assert chat_home_hint({"v": 2, "kind": "dm"}) == "" and chat_home_hint({"kind": "free"}) == ""
+    # Herkunft aus dem Handle - das freie Feld host gilt nur ohne Handle
+    fake = {"name": "Eva", "host": "a.example", "handle": "~eeeeeeeeeeeeeeee@e.example"}
+    assert sys_text({"type": "members", "added": [fake], "by": None}, me) == "Eva (e.example) joined."
+    assert sys_text({"type": "members", "added": [{"name": "Eva", "host": "e.example"}], "by": None}, me) == "Eva (e.example) joined."
+
+
+def test_fed_keys_in_parts_of_20(monkeypatch):
+    """Gruppen ueber Servergrenzen (2.3) mit mehr als 20 Personen: Schluessel in Teilen zu je 20 holen (vorher fielen alle
+    nach den ersten 20 weg - Senden in grossen Gruppen scheiterte)"""
+    from hlidskjalf import chat as chat_mod
+    calls = []
+    monkeypatch.setattr(chat_mod.client, "get", lambda path, *a, **k: (calls.append(path), {"keys": {}})[1])
+    hs = ["~%s@b.example" % ("a" * 15 + c) for c in "abcdefghijklmnopqrstuvwxyz234567"][:25] + ["~%s@c.example" % ("b" * 16)]
+    fk_before = dict(chat_mod.chat.fk)
+    try:
+        out = chat_mod.chat.fed_keys(hs + hs[:2], fresh=True)
+    finally:
+        chat_mod.chat.fk = fk_before
+    assert len(calls) == 2 and all(c.endswith("&fresh=1") for c in calls)
+    assert sorted(out) == sorted(hs) and all(v["trust"] == "missing" for v in out.values())
 
 
 def test_no_later_update_text():

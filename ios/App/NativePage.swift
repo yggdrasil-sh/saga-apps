@@ -1039,7 +1039,7 @@ struct NativePageScreen: View {
         }
         .onChange(of: ed.openPage) { _, v in if let v { ed.openPage = nil; nav.push(PageRoute(id: v)) } }
         .modifier(PageEditorSheets(ed: ed, doc: doc))
-        .sheet(isPresented: $showVersions) { VersionsSheet(id: id) { Task { await doc.load(store) } }.environmentObject(store) }
+        .sheet(isPresented: $showVersions) { VersionsSheet(id: id, restored: { Task { await doc.load(store) } }, canRestore: doc.access.role == .owner || !pageLocked).environmentObject(store) }
         .onChange(of: ed.picked) { _, items in
             Task { for it in items { if let d = try? await it.loadTransferable(type: Data.self) { await ed.insertImage(d) } }; ed.picked = [] }
         }

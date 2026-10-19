@@ -88,6 +88,8 @@ struct BacklinksView: View {
 struct VersionsSheet: View {
     let id: Int
     let restored: () -> Void
+    /// Wiederherstellen anbieten? Gesperrte Seite: nur der Eigentuemer (Server: 423) - sonst nur ansehen
+    var canRestore = true
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
     struct V: Decodable, Identifiable { let id: Int; let title: String; let created: Double; var author: A? }
@@ -135,7 +137,7 @@ struct VersionsSheet: View {
             .navigationTitle("Versionsverlauf")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Schließen") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
+                if canRestore { ToolbarItem(placement: .confirmationAction) {
                     Button("Diese Version wiederherstellen") {
                         guard let sel else { return }
                         Task {
@@ -143,7 +145,7 @@ struct VersionsSheet: View {
                             catch { err = error.localizedDescription }
                         }
                     }.disabled(sel == nil)
-                }
+                } }
             }
         }
         .macFrame(minWidth: 680, minHeight: 440)

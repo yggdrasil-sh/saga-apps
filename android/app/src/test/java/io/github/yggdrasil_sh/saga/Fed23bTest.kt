@@ -111,6 +111,18 @@ class Fed23bTest {
     private fun list(vararg x: UiText) = FedSysText.list(x.toList())
 
     @Test
+    fun sysHostFromHandleAndRestoreRule() {
+        // Herkunft aus dem Handle, nicht aus dem freien Feld host (Heim koennte es anders schreiben)
+        val fake = SysPerson("Bert Gast", "a.test:8191", "~bbbbbbbbbbbbbbbb@b.test:8193")
+        assertEquals(UiText.Raw("Bert Gast (b.test:8193)"), FedSysText.who(fake, me, false))
+        assertEquals(UiText.Raw("Ohne Handle (c.test)"), FedSysText.who(SysPerson("Ohne Handle", "c.test", null), me, false))
+        // Wiederherstellen: gesperrte Seite nur Eigentuemer
+        assertTrue(PageToolsLogic.canRestore(Role.OWNER, locked = true))
+        assertFalse(PageToolsLogic.canRestore(Role.EDIT, locked = true))
+        assertTrue(PageToolsLogic.canRestore(Role.EDIT, locked = false))
+    }
+
+    @Test
     fun sysLinesParseLeniently() {
         // "by" ist bei "members" eine Person, bei "ai" ein Handle - beides lesbar (vorher: Systemzeile kaputt)
         val m = ChatLogic.sys("""{"type":"members","added":[{"name":"Dora Dritt","host":"c.test:8195","handle":"~cccccccccccccccc@c.test:8195"}],"removed":[],"by":{"name":"Bert Gast","host":"b.test:8193","handle":"~bbbbbbbbbbbbbbbb@b.test:8193"}}""")
