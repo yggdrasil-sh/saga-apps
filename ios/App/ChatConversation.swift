@@ -62,6 +62,10 @@ final class ConversationModel: ObservableObject {
     private var aiHashes: [String: String] = [:]
     private var lastTyping = Date.distantPast
     private var lastReadSent = 0
+    /// 2.3: eigene Nachrichten, die das Heim schon bei POST bestaetigt hat (FedDelivery)
+    private var confirmed: Set<String> = []
+    /// 2.3: letzter Abgleich wartender eigener Nachrichten
+    private var lastDeliveryCheck = Date.distantPast
 
     init(chatID: Int, model: ChatModel) { self.chatID = chatID; self.model = model }
     private var store: Store? { model.store }
@@ -98,6 +102,7 @@ final class ConversationModel: ObservableObject {
     }
     func fetchNew() async {
         guard let store else { return }
+        if deliveryDue() { await checkDelivery() }
         let after = messages.last?.seq ?? 0
         if let d = try? await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&after=\(after)&limit=200&calls=1") { ingest(d, prepend: false, onlyMore: false) }
         await markRead()
@@ -153,6 +158,7 @@ final class ConversationModel: ObservableObject {
         ChatBlobCache.shared.note(chatID: chatID, ids: list.flatMap { m in (m.content?.files ?? []).flatMap { [$0.id] + ($0.thumb.map { [$0.id] } ?? []) } })
         if prepend { messages = list + messages; more = ShareJSON.bool(j["more"]) }
         else { messages += list; if messages.count == list.count { more = ShareJSON.bool(j["more"]) } }
+        if list.contains(where: { $0.delivery == .pending }) { applyDelivery([:]) }   // 2.3: per POST schon bestaetigt
         Task { await resolveNotes(list) }
     }
 
@@ -488,6 +494,42 @@ extension ConversationModel {
         guard let f = fed else { return }
         if let r = try? await model.fedKeys(f.handles, fresh: fresh, own: f.myHandle) { fk = r }
     }
+    // MARK: Zustellstand eigener Nachrichten (FedDelivery)
+
+    private var deliveryItems: [FedDelivery.Item] {
+        messages.map { FedDelivery.Item(seq: $0.seq, id: $0.id, mine: $0.mine, delivery: $0.delivery) }
+    }
+    func deliveryDue() -> Bool { FedDelivery.due(deliveryItems, lastCheck: lastDeliveryCheck, now: Date()) }
+
+    /// Stand wartender eigener Nachrichten beim Server nachsehen (ab der aeltesten) - Server bis 2.3.0 melden die sofortige
+    /// Bestaetigung des Heims nicht als Ereignis; so heilen auch schon haengende "wird zugestellt" von selbst
+    func checkDelivery() async {
+        guard let store, let from = FedDelivery.oldestPending(deliveryItems) else { return }
+        lastDeliveryCheck = Date()
+        guard let d = try? await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&after=\(from - 1)&limit=200&calls=1") else { return }
+        let r = FedDelivery.parse(ShareJSON.obj(d))
+        let gone = FedDelivery.gone(deliveryItems, server: r.server, more: r.more, maxSeq: r.maxSeq, from: from)
+        if !gone.isEmpty { messages.removeAll { gone.contains($0.id) } }
+        applyDelivery(r.server)
+    }
+
+    /// Zustellstand bekannter Nachrichten uebernehmen (Serverliste id -> Stand, dazu per POST bestaetigte)
+    private func applyDelivery(_ server: [String: FedDelivery.State]) {
+        for c in FedDelivery.apply(deliveryItems, server: server, confirmed: confirmed) where c.index < messages.count {
+            messages[c.index].delivery = c.state
+        }
+    }
+
+    /// Solange der Chat sichtbar ist (Aufrufer: .task der Ansicht, nur im Vordergrund): alle 15 s abgleichen,
+    /// aber nur, wenn eigene Nachrichten warten
+    func deliveryLoop() async {
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .seconds(FedDelivery.checkEvery))
+            if Task.isCancelled { return }
+            if deliveryDue() { await checkDelivery() }
+        }
+    }
+
     /// Personen anderer Server mit Warnung/Blockade/ungueltigen Schluesseln
     var fedProblems: [(member: FedMember, verdict: FedChatLogic.Verdict)] {
         (fed?.members ?? []).filter { !$0.me }.compactMap { m in
@@ -523,6 +565,10 @@ extension ConversationModel {
             let missing = (fed?.members ?? []).filter { !$0.me && keys[$0.handle]?.keys == nil }.map(\.name)
             if !missing.isEmpty { sendError = String(localized: "\(missing.joined(separator: ", ")) hat Chats noch nicht eingerichtet und kann diese Nachricht nicht lesen.") }
             if ShareJSON.bool(j?["pending"]) { model.toast = String(localized: "Der andere Server ist gerade nicht erreichbar – die Nachricht wird zugestellt, sobald er wieder da ist.") }
+            if FedDelivery.confirmedByPost(ShareJSON.bool(j?["pending"])) {
+                // vom Heim bestaetigt: eine schon (ueber das Live-Ereignis) wartend geladene Kopie gleich als zugestellt zeigen
+                confirmed.insert(mid); applyDelivery([:])
+            }
             lastSentID = mid
             if kind == "title" { await load(); await model.loadList(); return }   // neuer Gruppenname
             await fetchNew()

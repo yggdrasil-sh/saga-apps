@@ -12,6 +12,7 @@ struct ConversationView: View {
     @StateObject private var conv: ConversationModel
     @EnvironmentObject var store: Store
     @EnvironmentObject var nav: NavModel
+    @Environment(\.scenePhase) private var scenePhase
     @State private var text = ""
     @State private var replyTo: ChatMessage?
     @State private var files: [ChatPendingFile] = []
@@ -104,6 +105,12 @@ struct ConversationView: View {
             if after > 0 { try? await Task.sleep(for: .seconds(after)); if text.isEmpty { text = "Eingesetzt" }; sendNow() }
             if UserDefaults.standard.bool(forKey: "hkChatAck") { for u in conv.changedPeers { conv.acknowledge(u) } }   // nur fuer Tests: "Verstanden"
             #endif
+        }
+        .task(id: scenePhase) {
+            // 2.3: wartende eigene Nachrichten (Chat ueber Servergrenzen) abgleichen - nur bei sichtbarem Chat (Akku)
+            guard scenePhase == .active else { return }
+            if conv.deliveryDue() { await conv.checkDelivery() }
+            await conv.deliveryLoop()
         }
         .onDisappear { if chat.open === conv { chat.open = nil } }
         .onChange(of: conv.purged) { _, _ in text = ""; files = []; replyTo = nil; askDelete = nil }   // Chat geloescht: Entwurf weg

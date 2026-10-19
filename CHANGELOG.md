@@ -13,6 +13,12 @@ Bestätigung nicht als Live-Ereignis). Die App übernimmt die Bestätigung jetzt
 wartende eigene Nachrichten beim Nachladen und alle 15 Sekunden mit dem Server ab – auch schon hängende heilen so von
 selbst, „nicht zugestellt“ erscheint ebenfalls; eine vom Server verworfene Kopie verschwindet.
 
+**iOS/iPadOS/macOS – eigene Nachricht blieb auf „⏳ wird zugestellt“:** Derselbe Fehler, dieselbe Abhilfe wie unter
+Android: Die Bestätigung aus der Antwort beim Senden zählt als zugestellt, und solange eigene Nachrichten warten, gleicht
+die App sie beim Nachladen und alle 15 Sekunden mit dem Server ab – nur bei sichtbarem Chat im Vordergrund. Hängende
+Nachrichten heilen so auch mit Servern 2.3.0 von selbst; „nicht zugestellt“ wird übernommen, eine vom Server verworfene
+Kopie verschwindet.
+
 ### Behoben – Anrufe
 **iOS/iPadOS/macOS – Anrufe verkleinern, Mitteilungen während eines Anrufs:**
 - **Zurück in die App während eines Anrufs (iPhone/iPad):** Der Anrufbildschirm hat oben links „Zurück zur App“
