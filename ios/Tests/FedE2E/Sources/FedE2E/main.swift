@@ -74,6 +74,12 @@ do {
 }
 let bSetup = peer("setup")
 ok("B: Gegenseite eingerichtet", bSetup.contains("dset_ok True"), bSetup)
+if env["FED_PART"] == "2" {                                          // Teil 2 (E4-E6): Seiten, Datenbanken, Gruppen (Part2.swift)
+    await part2()
+    let good = results.filter(\.1).count
+    print("E2E2 \(good)/\(results.count)", good == results.count ? "- ALLES GRUEN" : "- FEHLER")
+    exit(good == results.count ? 0 : 1)
+}
 
 // MARK: 2. Personensuche (Adressbuch): ab 1 Zeichen, "Name · host", name@host
 

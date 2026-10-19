@@ -358,6 +358,7 @@ struct NewChatSheet: View {
     @State private var searched = ""                              // Suchtext der angezeigten Treffer
     @State private var multi = false
     @State private var picked: [(username: String, name: String)] = []
+    @State private var pickedRemote: [FedPerson] = []              // 2.3: Gruppe mit Personen anderer Saga-Server
     @State private var groupName = ""
     @State private var err: String?
     @State private var busy = false
@@ -370,14 +371,17 @@ struct NewChatSheet: View {
                         #if os(iOS)
                         .textInputAutocapitalization(.never)
                         #endif
-                    if searched == q && FedChatLogic.searchReady(q) && users.isEmpty && groups.isEmpty && (multi || remote.isEmpty) {
+                    if searched == q && FedChatLogic.searchReady(q, server: store.serverVersion) && users.isEmpty && groups.isEmpty && remote.isEmpty {
                         if ChatFedHint.isAddress(q) { FedChatHint(federated: chat.myHandle != nil) } else { Text("Keine Treffer.").foregroundStyle(.secondary) }
                     }
-                    if !multi {                                                  // 2.3: Personen anderer Saga-Server (Adressbuch)
-                        ForEach(remote) { p in
-                            Button { if let h = p.handle { Task { await create(["kind": "dm", "handle": h]) } } } label: { FedPersonRow(p: p) }
-                                .buttonStyle(.plain).disabled(busy || p.handle == nil)
+                    ForEach(remote) { p in                                       // 2.3: Personen anderer Saga-Server (Adressbuch)
+                        Button { pickRemote(p) } label: {
+                            HStack {
+                                FedPersonRow(p: p)
+                                if multi && pickedRemote.contains(where: { $0.handle == p.handle }) { Image(systemName: "checkmark").foregroundStyle(Color.gold) }
+                            }.contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain).disabled(busy || p.handle == nil)
                     }
                     ForEach(users, id: \.username) { u in
                         Button { pick(u) } label: {
@@ -407,9 +411,15 @@ struct NewChatSheet: View {
                     Section {
                         TextField("Name der Gruppe", text: $groupName)
                         ForEach(picked, id: \.username) { p in Text(verbatim: p.name) }
+                        ForEach(pickedRemote) { p in Text(verbatim: p.label) }
                         Button("Gruppe anlegen") { Task { await createFree() } }
-                            .disabled(picked.isEmpty || groupName.trimmingCharacters(in: .whitespaces).isEmpty || busy)
-                    } header: { Text("Gruppe anlegen") } footer: { Text("Freie Gruppe: ausgewählte Personen, der Name wird verschlüsselt.") }
+                            .disabled((picked.isEmpty && pickedRemote.isEmpty) || groupName.trimmingCharacters(in: .whitespaces).isEmpty || busy)
+                    } header: { Text("Gruppe anlegen") } footer: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Freie Gruppe: ausgewählte Personen, der Name wird verschlüsselt.")
+                            if !pickedRemote.isEmpty { Text("Personen anderer Saga-Server bekommen die Einladung als Nachrichtenanfrage.") }
+                        }
+                    }
                 }
                 if let err { Text(verbatim: err).font(.footnote).foregroundStyle(.red) }
             }
@@ -424,7 +434,7 @@ struct NewChatSheet: View {
         .macFrame(minWidth: 420, idealWidth: 460, minHeight: 460, idealHeight: 560)
     }
     private func search() async {
-        guard FedChatLogic.searchReady(q) else { users = []; groups = []; remote = []; searched = q; return }   // ab 1 Zeichen (Server: 1-2 nur genau)
+        guard FedChatLogic.searchReady(q, server: store.serverVersion) else { users = []; groups = []; remote = []; searched = q; return }   // 2.3: ab 1 Zeichen (1-2 nur genau), sonst ab 3
         try? await Task.sleep(for: .milliseconds(250))
         guard !Task.isCancelled, let enc = q.trimmingCharacters(in: .whitespaces).addingPercentEncoding(withAllowedCharacters: .alphanumerics),
               let d = try? await store.api("api/chat/people?q=\(enc)"), let j = ShareJSON.obj(d) else { return }
@@ -435,6 +445,13 @@ struct NewChatSheet: View {
         groups = (j["groups"] as? [Any] ?? []).compactMap { ($0 as? [String: Any])?["name"] as? String }
         remote = FedChatLogic.people(j["remote"]).filter { $0.handle != nil }
         searched = q
+    }
+    /// Person eines anderen Servers: Direkt-Chat bzw. (Gruppe) aus-/abwaehlen
+    private func pickRemote(_ p: FedPerson) {
+        guard let h = p.handle else { return }
+        if multi {
+            if let i = pickedRemote.firstIndex(where: { $0.handle == h }) { pickedRemote.remove(at: i) } else { pickedRemote.append(p) }
+        } else { Task { await create(["kind": "dm", "handle": h]) } }
     }
     private func pick(_ u: (username: String, name: String, ready: Bool, avatar: String?)) {
         if multi {
@@ -453,10 +470,17 @@ struct NewChatSheet: View {
     private func createFree() async {
         let name = groupName.trimmingCharacters(in: .whitespaces)
         busy = true
-        guard let d = try? await store.api("api/chats", method: "POST", body: ["kind": "free", "members": picked.map(\.username), "device": chat.deviceID ?? ""]),
-              let id = ShareJSON.int((ShareJSON.obj(d)?["chat"] as? [String: Any])?["id"]) else { busy = false; err = String(localized: "Mit diesem Konto ist kein Chat möglich."); return }
+        var body: [String: Any] = ["kind": "free", "members": picked.map(\.username), "device": chat.deviceID ?? ""]
+        let handles = pickedRemote.compactMap(\.handle)
+        if !handles.isEmpty { body["handles"] = handles }               // 2.3: Heim ist dieser Server, die anderen bekommen eine Anfrage
+        let r = try? await store.apiResponse("api/chats", method: "POST", body: body)
+        guard let (d, code) = r, (200..<300).contains(code), let id = ShareJSON.int((ShareJSON.obj(d)?["chat"] as? [String: Any])?["id"]) else {
+            busy = false
+            err = r.flatMap { ShareJSON.obj($0.0).flatMap { ShareJSON.str($0["error"]) } } ?? String(localized: "Mit diesem Konto ist kein Chat möglich.")
+            return
+        }
         let conv = ConversationModel(chatID: id, model: chat)
-        await conv.loadRecipients()
+        await conv.load()                                                // v1: Empfaenger; v2: Schluessel aller Mitglieder
         _ = await conv.send(text: "", replyTo: nil, files: [], kind: "title", title: name)   // Name verschluesselt wie eine Nachricht
         busy = false
         await chat.loadList(); dismiss(); opened(id)

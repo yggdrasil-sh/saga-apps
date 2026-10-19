@@ -34,11 +34,16 @@ extension ChatModel {
 
     /// Schluessel zu Handles holen (hoechstens 20), selbst pruefen, TOFU anwenden (neue Eintraege werden gespeichert)
     func fedKeys(_ handles: [String], fresh: Bool = false, own: String? = nil) async throws -> [String: FedKeyState] {
-        guard let store, let path = FedFlow.keysPath(handles, fresh: fresh) else { return [:] }
+        let paths = FedFlow.keysPaths(handles, fresh: fresh)
+        guard let store, !paths.isEmpty else { return [:] }
         if let own, !own.isEmpty { myHandle = own }                     // aus dem Chat (my_handle) - nie als fremde Person behandeln
-        let d = try await store.api(path)
+        var all: [String: Any] = [:]
+        for p in paths {                                                // Gruppen mit mehr als 20 Personen: in Teilen
+            let d = try await store.api(p)
+            all.merge(ShareJSON.obj(d)?["keys"] as? [String: Any] ?? [:]) { $1 }
+        }
         let uid = me.uid
-        return FedFlow.evaluate(handles, keys: ShareJSON.obj(d)?["keys"] as? [String: Any] ?? [:], myHandle: myHandle, myIdentPK: keys?.identPK ?? Data(),
+        return FedFlow.evaluate(handles, keys: all, myHandle: myHandle, myIdentPK: keys?.identPK ?? Data(),
                                 stored: { FedTrustStore.get(uid, $0) }, save: { FedTrustStore.set(uid, $0, $1) })
     }
     /// Eigener Handle (fuer eingehende Anrufe ueber Servergrenzen); nil = Server ohne Foederation 2.3
@@ -58,9 +63,29 @@ extension ChatModel {
         return ChatCrypto.safetyNumberV2(handleA: mh, identA: k.identPK, handleB: handle, identB: identPK)
     }
 
+    /// Name einer Gruppe ueber Servergrenzen (title_msg v2): Absender-Schluessel selbst pruefen (TOFU) - nur ein echter,
+    /// nicht abgelehnter Absender gilt (wie im Web). Gemerkt je Nachricht, damit die Liste nicht jedes Mal Schluessel holt.
+    func decryptTitlesV2(_ list: inout [ChatSummary]) async {
+        var need: [Int: (ref: String, msg: [String: Any])] = [:]
+        for c in list where c.kind == "free" {
+            guard let f = c.fed, let m = c.titleMsg, let mid = m["id"] as? String else { continue }
+            if let t = titleMemo[c.id], t.msg == mid, let i = list.firstIndex(where: { $0.id == c.id }) { list[i].decryptedTitle = t.title; continue }
+            need[c.id] = (f.ref, m)
+        }
+        guard !need.isEmpty else { return }
+        let senders = need.values.compactMap { ShareJSON.str($0.msg["sender_handle"]) }
+        guard let fk = try? await fedKeys(senders) else { return }
+        for (cid, x) in need {
+            guard let r = decryptV2(ref: x.ref, raw: x.msg, fk: fk), r.verified, let c = r.content, c.type == "title" else { continue }
+            let t = String((c.title ?? "").prefix(100))
+            titleMemo[cid] = (x.msg["id"] as? String ?? "", t)
+            if let i = list.firstIndex(where: { $0.id == cid }) { list[i].decryptedTitle = t }
+        }
+    }
+
     /// Nachricht v2 oeffnen und pruefen (FedFlow.open)
     func decryptV2(ref: String, raw m: [String: Any], fk: [String: FedKeyState]) -> (content: ChatContent?, verified: Bool)? {
-        guard let k = keys, let r = FedFlow.open(m, ref: ref, own: k.fedOwn, keys: fk) else { return nil }
+        guard let o = own, let r = FedFlow.open(m, ref: ref, own: o, keys: fk) else { return nil }
         return (r.plain.flatMap { ChatContent(json: $0) }, r.verified)
     }
 }

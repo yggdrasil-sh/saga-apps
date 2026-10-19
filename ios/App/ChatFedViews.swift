@@ -12,7 +12,14 @@ enum ChatSubtitle {
             if f.readonly { s += " · " + String(localized: "schreibgeschützt") }
             return s
         }
-        return c.kind == "dm" ? c.kindLabel : "\(c.kindLabel) · \(String(localized: "\(c.memberCount) Personen"))"
+        var s = c.kind == "dm" ? c.kindLabel : "\(c.kindLabel) · \(String(localized: "\(c.memberCount) Personen"))"
+        if let f = c.fed {                                              // 2.3: Gruppe/Seiten-Chat ueber Servergrenzen
+            let hosts = Set(f.members.map(\.host)).count
+            if hosts > 1 { s += " · " + String(localized: "\(hosts) Server") }
+            if f.request { s += " · " + String(localized: "Anfrage") }
+            if f.readonly { s += " · " + String(localized: "schreibgeschützt") }
+        }
+        return s
     }
 }
 
@@ -29,6 +36,16 @@ struct FedChatBanners: View {
                     if conv.fk[p.handle]?.verified == true {
                         Label("überprüft", systemImage: "checkmark.seal.fill").font(.caption.weight(.semibold)).foregroundStyle(.green)
                     }
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, 12).padding(.vertical, 6).frame(maxWidth: .infinity, alignment: .leading)
+                .background(.bar)
+                .accessibilityElement(children: .combine)
+                Divider()
+            } else if let hosts = Self.otherHosts(f) {                           // Gruppe/Seiten-Chat (E5): Herkunft der anderen
+                HStack(spacing: 6) {
+                    Image(systemName: "globe").foregroundStyle(.secondary).accessibilityHidden(true)
+                    Text("Über Servergrenzen: \(hosts)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
                     Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 12).padding(.vertical, 6).frame(maxWidth: .infinity, alignment: .leading)
@@ -52,6 +69,12 @@ struct FedChatBanners: View {
             }
         }
     }
+    /// Server der anderen Mitglieder (ohne den eigenen), sortiert; nil = nur der eigene
+    static func otherHosts(_ f: FedChatInfo) -> String? {
+        let mine = FedChatLogic.host(of: f.myHandle)
+        let hs = Set(f.members.map(\.host)).subtracting([mine, ""]).sorted()
+        return hs.isEmpty ? nil : hs.joined(separator: ", ")
+    }
     static func text(_ v: FedChatLogic.Verdict, name: String) -> String {
         switch v {
         case .block: return String(localized: "Du hattest \(name) als überprüft markiert – jetzt meldet der Server einen anderen Schlüssel. Senden ist gesperrt, bis du die Sicherheitsnummer erneut verglichen hast.")
@@ -70,9 +93,15 @@ struct FedStateBar: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if fed.request {
-                let p = fed.peer
-                Text("\(p?.name ?? "?") (\(p?.host ?? "?")) möchte dir schreiben. Bis du annimmst, bekommst du keine Benachrichtigungen und keine Anrufe – und \(p?.name ?? "?") erfährt nicht, ob du die Nachrichten gelesen hast.")
-                    .font(.callout).fixedSize(horizontal: false, vertical: true)
+                let p = fed.requester
+                Group {
+                    if fed.peer != nil {
+                        Text("\(p.name) (\(p.host)) möchte dir schreiben. Bis du annimmst, bekommst du keine Benachrichtigungen und keine Anrufe – und \(p.name) erfährt nicht, ob du die Nachrichten gelesen hast.")
+                    } else {                                                     // Gruppe eines anderen Servers (E5)
+                        Text("\(p.name) (\(p.host)) hat dich in diese Gruppe eingeladen. Bis du annimmst, bekommst du keine Benachrichtigungen.")
+                    }
+                }
+                .font(.callout).fixedSize(horizontal: false, vertical: true)
                 if let e = conv.sendError { Text(verbatim: e).font(.footnote).foregroundStyle(.red) }
                 ViewThatFits(in: .horizontal) {
                     HStack { buttons }
@@ -91,8 +120,8 @@ struct FedStateBar: View {
         Button("Annehmen") { act("accept") }.prominentGold()
         Button("Ablehnen") { act("decline") }.buttonStyle(.bordered)
         Menu {
-            Button(role: .destructive) { act("block", "person") } label: { Label("\(fed.peer?.name ?? "?") sperren", systemImage: "hand.raised.fill") }
-            Button(role: .destructive) { act("block", "instance") } label: { Label("Ganzen Server \(fed.peer?.host ?? "?") sperren", systemImage: "server.rack") }
+            Button(role: .destructive) { act("block", "person") } label: { Label("\(fed.requester.name) sperren", systemImage: "hand.raised.fill") }
+            Button(role: .destructive) { act("block", "instance") } label: { Label("Ganzen Server \(fed.requester.host) sperren", systemImage: "server.rack") }
         } label: { Label("Sperren …", systemImage: "hand.raised") }
         .menuIndicator(.hidden).fixedSize().foregroundStyle(.red)
     }
@@ -106,10 +135,12 @@ struct FedStateBar: View {
 struct FedSysRow: View {
     let line: FedChatLogic.SysLine
     let date: Date
+    /// eigener Handle: "Du", "dich", eigener Server ohne Herkunft
+    var myHandle: String?
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: "info.circle").foregroundStyle(.secondary).accessibilityHidden(true)
-            Text(verbatim: text).font(.caption.weight(.medium))
+            Text(verbatim: text).font(.caption.weight(.medium)).multilineTextAlignment(.center)
             Text(date, format: .dateTime.hour().minute()).font(.caption2).foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12).padding(.vertical, 6)
@@ -117,14 +148,7 @@ struct FedSysRow: View {
         .frame(maxWidth: .infinity).padding(.vertical, 2)
         .accessibilityElement(children: .combine)
     }
-    private var text: String {
-        switch line {
-        case .ai(let on, let byMe, let name):
-            let who = byMe ? String(localized: "Du") : name
-            return on ? String(localized: "\(who) hat die KI in diesem Chat eingeschaltet.") : String(localized: "\(who) hat die KI in diesem Chat ausgeschaltet.")
-        case .other: return String(localized: "Hinweis")
-        }
-    }
+    private var text: String { FedChatLogic.sysText(line, myHandle: myHandle) }
 }
 
 /// Zustellstatus unter der Blase (nur Chats ueber Servergrenzen)

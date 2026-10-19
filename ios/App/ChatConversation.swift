@@ -82,6 +82,9 @@ final class ConversationModel: ObservableObject {
             info = s
             if s?.ai == true && !store.aiChat { await store.loadAIStatus() }   // KI im Chat (2.1): Server-Schalter/Persona aktuell
             if s?.isFed == true { await fedLoad() }                     // 2.3: Schluessel der Absender vor dem Entschluesseln
+            if s?.isFed == true, s?.kind == "free", let x = s {         // 2.3: Gruppenname v2 (Absender selbst geprueft)
+                var l = [x]; await model.decryptTitlesV2(&l); s = l[0]; info = s
+            }
             let m = try await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&limit=50&calls=1")
             messages = []; ingest(m, prepend: false)
             error = nil
@@ -126,7 +129,7 @@ final class ConversationModel: ObservableObject {
             }
             let r: (content: ChatContent?, verified: Bool)?
             let meta: AIReplyMeta?
-            if let f = fed {                                              // 2.3: saga-chat/v2
+            if let f = fed, !FedFlow.isLegacyV1(m) {                      // 2.3: saga-chat/v2 (alte Nachrichten umgestellter Chats: v1)
                 r = model.decryptV2(ref: f.ref, raw: m, fk: fk)
                 meta = FedChatLogic.aiMeta(m["ai"], bodyRef: r?.content?.aiReply)
             } else {
@@ -286,7 +289,7 @@ final class ConversationModel: ObservableObject {
             if kind == "title" { content.text = "" }
             let plain = content.json()
             if fed != nil {                                              // 2.3: Chat ueber Servergrenzen (saga-chat/v2)
-                try await sendV2(plain, replyTo: replyTo, fileIDs: fit.ids, ai: ai)
+                try await sendV2(plain, replyTo: replyTo, fileIDs: fit.ids, ai: ai, kind: kind)
                 return true
             }
             if recipients == nil { await loadRecipients() }
@@ -440,10 +443,32 @@ final class ConversationModel: ObservableObject {
         do { _ = try await store.api("api/chats/\(chatID)/members/\(me)", method: "DELETE"); await model.loadList(); return true }
         catch { sendError = error.localizedDescription; return false }
     }
-    func addMember(_ user: String) async {
+    /// Person hinzufuegen: Konto hier (`user`) bzw. Person eines anderen Servers (`handle`, nur Gruppen ueber Servergrenzen);
+    /// danach den Gruppennamen erneut senden, damit Neue ihn lesen koennen (sie sehen nur Nachrichten ab dem Beitritt)
+    func addMember(_ user: String) async { await addMember(["user": user]) }
+    func addMember(handle: String) async { await addMember(["handle": handle]) }
+    private func addMember(_ body: [String: Any]) async {
         guard let store else { return }
-        do { _ = try await store.api("api/chats/\(chatID)/members", method: "POST", body: ["user": user]); recipients = nil; await load() }
-        catch { sendError = error.localizedDescription }
+        do {
+            let (d, code) = try await store.apiResponse("api/chats/\(chatID)/members", method: "POST", body: body)
+            guard (200..<300).contains(code) else { throw APIError.http(code, ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "") }
+            recipients = nil; sendError = nil
+            await load()
+            if info?.kind == "free", let t = info?.decryptedTitle, !t.isEmpty {
+                _ = await send(text: "", replyTo: nil, files: [], kind: "title", title: t)
+            }
+        } catch { sendError = error.localizedDescription }
+    }
+    /// Mitglied entfernen (nur Admins einer freien Gruppe); `who` = members[].username
+    func removeMember(_ who: String) async {
+        guard let store else { return }
+        var allowed = CharacterSet.alphanumerics; allowed.insert(charactersIn: "~.-_")
+        do {
+            let (d, code) = try await store.apiResponse("api/chats/\(chatID)/members/" + (who.addingPercentEncoding(withAllowedCharacters: allowed) ?? who), method: "DELETE")
+            guard (200..<300).contains(code) else { throw APIError.http(code, ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "") }
+            recipients = nil; sendError = nil
+            await load(); await model.loadList()
+        } catch { sendError = error.localizedDescription }
     }
     /// Identitaetsschluessel eines Mitglieds (fuer die Sicherheitsnummer)
     func identity(of uid: String) async -> Data? {
@@ -473,7 +498,7 @@ extension ConversationModel {
 
     /// Senden v2: Empfaenger = aktive Geraete aus den selbst geprueften Schluesseln aller Mitglieder + backup:<handle>;
     /// 409 mit handles (Mitglieder/Geraete geaendert) -> einmal frisch holen und neu versiegeln
-    fileprivate func sendV2(_ plain: Data, replyTo: String?, fileIDs: [String], ai: (reply: String, name: String)?) async throws {
+    fileprivate func sendV2(_ plain: Data, replyTo: String?, fileIDs: [String], ai: (reply: String, name: String)?, kind: String = "msg") async throws {
         guard let store, let k = model.keys, let f = fed else { return }
         let aiHash = ai.map { aiHashes[$0.reply] ?? AIChatLogic.sha256Hex(AIChatLogic.normalized(ChatContent(json: plain)?.text ?? "")) }
         for attempt in 0..<2 {
@@ -488,7 +513,7 @@ extension ConversationModel {
             case .ok: break
             }
             guard let (body, mid) = FedFlow.sendBody(info: f, own: k.fedOwn, keys: keys, plain: plain, replyTo: replyTo,
-                                                     ai: aiHash.flatMap { h in ai.map { (h, $0.reply) } }, fileIDs: fileIDs)
+                                                     ai: aiHash.flatMap { h in ai.map { (h, $0.reply) } }, fileIDs: fileIDs, kind: kind)
             else { throw APIError.other(String(localized: "Nicht gesendet")) }
             let (d, code) = try await store.apiResponse("api/chats/\(chatID)/messages", method: "POST", body: body)
             let j = ShareJSON.obj(d)
@@ -499,6 +524,7 @@ extension ConversationModel {
             if !missing.isEmpty { sendError = String(localized: "\(missing.joined(separator: ", ")) hat Chats noch nicht eingerichtet und kann diese Nachricht nicht lesen.") }
             if ShareJSON.bool(j?["pending"]) { model.toast = String(localized: "Der andere Server ist gerade nicht erreichbar – die Nachricht wird zugestellt, sobald er wieder da ist.") }
             lastSentID = mid
+            if kind == "title" { await load(); await model.loadList(); return }   // neuer Gruppenname
             await fetchNew()
             if info?.fed?.request == true { await load(); await model.loadList() }   // wer schreibt, nimmt an
             return

@@ -293,8 +293,8 @@ enum ChatFedHint {
     static func isAddress(_ q: String) -> Bool {
         q.trimmingCharacters(in: .whitespacesAndNewlines).range(of: #"^@?[^@\s]+@[^@\s]+[.:][^@\s]+$"#, options: .regularExpression) != nil
     }
-    /// Hinweis zeigen? Nur bei 0 Treffern und einer Eingabe wie oben (ab 3 Zeichen)
-    static func show(_ q: String, hits: Int) -> Bool { hits == 0 && ShareLogic.searchReady(q) && isAddress(q) }
+    /// Hinweis zeigen? Nur bei 0 Treffern und einer Eingabe wie oben
+    static func show(_ q: String, hits: Int) -> Bool { hits == 0 && isAddress(q) }
     /// Anleitung, Abschnitt Foederation, in der Sprache der App (de/es eigene Anleitung, sonst englisch)
     static func guideURL(lang: String) -> URL {
         let base = "https://github.com/yggdrasil-sh/saga/blob/main/docs/"

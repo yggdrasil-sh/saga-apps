@@ -165,6 +165,7 @@ extension PageDoc {
     /// Titelbild aus eigenen Bilddaten (Fotos): das Bild steht sofort da, Hochladen + Speichern laufen dahinter
     func setCover(data: Data, _ store: Store) async {
         guard !coverBusy else { return }
+        if let e = uploadBlocked { self.error = e; return }
         coverBusy = true
         let img = await Task.detached(priority: .userInitiated) { ImageStore.decode(data) }.value
         coverPreview = img
@@ -180,6 +181,7 @@ extension PageDoc {
     /// Bild als Symbol: hochladen, unter der neuen Adresse vormerken, speichern
     @discardableResult
     func setIconImage(data: Data, _ store: Store) async -> Bool {
+        if let e = uploadBlocked { self.error = e; return false }
         do {
             let up = await Task.detached(priority: .userInitiated) { HeaderImage.prepare(data, maxPixel: HeaderImage.iconMaxPixel) }.value ?? data
             let url = try await store.uploadImage(up, note: uploadNote)
@@ -362,13 +364,14 @@ struct MoveSheet: View {
     @State private var error = ""
     var body: some View {
         NavigationStack {
-            let blocked = store.descendants(id)
             let current = store.page(id)?.parent_id
-            let targets = store.pages.filter { !blocked.contains($0.id) && !$0.isDatabase && $0.id != current &&
-                !($0.parent_id.map { store.page($0)?.isDatabase ?? false } ?? false) &&
-                (q.isEmpty || $0.label.localizedCaseInsensitiveContains(q)) }
+            // geteilte Seite (Rolle Bearbeiten, 2.3): nur innerhalb des geteilten Bereichs, nie auf die oberste Ebene
+            let shared = store.page(id).map { $0.isRemote || ($0.role != nil && $0.role != "owner") } ?? FedLogic.isRemote(id)
+            let targets = (shared ? FedLogic.sharedMoveTargets(id, in: store.shared + store.fedShared) : ownTargets(current))
+                .filter { q.isEmpty || $0.label.localizedCaseInsensitiveContains(q) }
             List {
-                if current != nil && q.isEmpty {
+                if shared && targets.isEmpty && q.isEmpty { Text("Kein anderes Ziel im geteilten Bereich.").foregroundStyle(.secondary) }
+                if current != nil && q.isEmpty && !shared {
                     Button { Task { await go(nil) } } label: { Label("Oberste Ebene", systemImage: "arrow.up.to.line") }
                 }
                 ForEach(targets) { p in
@@ -390,6 +393,11 @@ struct MoveSheet: View {
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Abbrechen") { dismiss() } } }
         }
         .macFrame(minWidth: 380, minHeight: 460)
+    }
+    private func ownTargets(_ current: Int?) -> [Page] {
+        let blocked = store.descendants(id)
+        return store.pages.filter { !blocked.contains($0.id) && !$0.isDatabase && $0.id != current &&
+            !($0.parent_id.map { store.page($0)?.isDatabase ?? false } ?? false) }
     }
     private func go(_ parent: Int?) async {
         do { try await store.move(id, to: parent); dismiss() } catch { self.error = error.localizedDescription }

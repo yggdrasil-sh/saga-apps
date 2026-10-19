@@ -48,6 +48,14 @@ func v2Vectors(_ path: String) -> [(String, Bool)] {
     ok("checkKeysV2 ungueltige Liste -> revoked vom Server", C.checkKeysV2(handle: handle, entry: notInSet).map { $0.signed == false && $0.active.count == 1 } == true)
     var badSig = entry; badSig["sig"] = s(d, "fed_sig")
     ok("checkKeysV2 falsches Handle-Zertifikat", C.checkKeysV2(handle: handle, entry: badSig) == nil)
+    // 2.3 (wie Linux/Android): Handle-Format und eindeutige Geraete-IDs
+    var dup = entry
+    dup["devices"] = [["id": s(d, "id"), "enc_pub": s(d, "enc_pk"), "sign_pub": s(d, "sign_pk"), "fed_sig": s(d, "fed_sig")],
+                      ["id": s(d, "id"), "enc_pub": s(d, "enc_pk"), "sign_pub": s(d, "sign_pk"), "fed_sig": s(d, "fed_sig")]]
+    ok("checkKeysV2 doppelte Geraete-ID -> ungueltig", C.checkKeysV2(handle: handle, entry: dup) == nil)
+    var badHandle = entry; badHandle["handle"] = "anna@a.example"
+    ok("checkKeysV2 Handle-Format", C.checkKeysV2(handle: "anna@a.example", entry: badHandle) == nil
+       && C.checkKeysV2(handle: handle.uppercased(), entry: entry) == nil)
     var revokedBySet = entry
     let only = ["ffffffffffffffffffffffffffffffff"]
     revokedBySet["dset"] = ["ver": dsVer + 1, "ids": only, "sig": C.b64(C.sign(C.deviceSetMsg(handle: handle, ver: dsVer + 1, ids: only), sk: ident.sk))]

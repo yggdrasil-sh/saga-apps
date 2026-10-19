@@ -285,7 +285,7 @@ struct ShareSheet: View {
                 // Fehler bzw. "Mindestens 3 Zeichen." direkt am Feld - der Hinweis nur bei 1-2 Zeichen
                 if let e = searchError {
                     Label(e, systemImage: "exclamationmark.circle.fill").font(.footnote).foregroundStyle(.red)
-                } else if ShareLogic.minHint(q) {
+                } else if ShareLogic.minHint(q, server: store.serverVersion) {
                     Text("Mindestens 3 Zeichen.").font(.footnote).foregroundStyle(.secondary)
                 }
                 Picker("Rolle für neue Freigabe", selection: $role) {
@@ -460,7 +460,7 @@ struct ShareSheet: View {
     private func search() async {
         searchError = nil
         let query = q.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard ShareLogic.searchReady(query) else { hits = []; return }
+        guard ShareLogic.searchReady(query, server: store.serverVersion) else { hits = []; return }
         try? await Task.sleep(for: .milliseconds(200))
         guard !Task.isCancelled else { return }
         let enc = query.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? query

@@ -60,13 +60,9 @@ enum FedFlow {
 
     // MARK: Schluessel anderer Personen
 
-    /// Abfrage fuer GET /api/chat/v2/keys (hoechstens 20, sortiert, ohne Doppelte)
-    static func keysPath(_ handles: [String], fresh: Bool) -> String? {
-        let hs = Array(Set(handles)).sorted().prefix(20)
-        guard !hs.isEmpty else { return nil }
-        var allowed = CharacterSet.alphanumerics; allowed.insert(charactersIn: "~.-_:")
-        return "api/chat/v2/keys?handles=" + hs.map { $0.addingPercentEncoding(withAllowedCharacters: allowed) ?? $0 }.joined(separator: ",") + (fresh ? "&fresh=1" : "")
-    }
+    /// Abfrage(n) fuer GET /api/chat/v2/keys (FedChatLogic, hoechstens 20 Handles je Abfrage)
+    static func keysPath(_ handles: [String], fresh: Bool) -> String? { FedChatLogic.keysPath(handles, fresh: fresh) }
+    static func keysPaths(_ handles: [String], fresh: Bool) -> [String] { FedChatLogic.keysPaths(handles, fresh: fresh) }
     /// Antwort selbst pruefen + TOFU: eigene Schluessel muessen zu diesem Geraet passen; neue Vertrauensstaende ueber `save`
     static func evaluate(_ handles: [String], keys all: [String: Any], myHandle: String?, myIdentPK: Data,
                          stored: (String) -> FedTrust?, save: (String, FedTrust) -> Void) -> [String: FedKeyState] {
@@ -89,8 +85,9 @@ enum FedFlow {
     // MARK: Nachrichten
 
     /// Nachricht v2 fuer POST /api/chats/{id}/messages: verschluesselt, signiert, K je aktivem Geraet + backup:<handle> versiegelt
+    /// `kind`: "msg" bzw. "title" (Name einer freien Gruppe, E5 - wie in v1 eine verschluesselte Nachricht)
     static func sendBody(info: FedChatInfo, own: Own, keys: [String: FedKeyState], plain: Data, replyTo: String?,
-                         ai: (hash: String, reply: String)?, fileIDs: [String]) -> (body: [String: Any], id: String)? {
+                         ai: (hash: String, reply: String)?, fileIDs: [String], kind: String = "msg") -> (body: [String: Any], id: String)? {
         let ents = info.handles.compactMap { keys[$0]?.keys }
         let mid = ChatCrypto.hexID(), ts = Int64(Date().timeIntervalSince1970 * 1000)
         guard let sealed = ChatCrypto.encryptMessageV2(ref: info.ref, msgID: mid, sender: info.myHandle, device: own.deviceID, signSK: own.sign.sk, ts: ts,
@@ -104,8 +101,33 @@ enum FedFlow {
                                    "keys": sk, "files": fileIDs]
         if let replyTo { body["reply_to"] = replyTo }
         if let ai { body["ai"] = ai.hash; body["ai_reply"] = ai.reply }
+        if kind == "title" { body["kind"] = "title" }
         return (body, mid)
     }
+    /// Nachricht v1 oeffnen + Echtheit pruefen (Geraet gehoert dem Absender, Zertifikat gegen dessen Identitaet, Signatur);
+    /// devices/idents aus der Antwort (title_msg: device + ident_pub direkt). Auch fuer alte Nachrichten umgestellter Chats.
+    static func openV1(_ m: [String: Any], chatID: String, own: Own, devices: [String: Any]?, idents: [String: Any]?) -> (plain: Data?, verified: Bool)? {
+        guard let mid = m["id"] as? String, let body = m["body_ct"] as? String, let key = m["key"] as? String else { return nil }
+        let sender = ((m["sender"] as? [String: Any])?["username"] as? String) ?? ""
+        let dev = m["sender_device"] as? String ?? ""
+        let ts = (m["ts"] as? NSNumber)?.int64Value ?? 0
+        let reply = ShareJSON.str(m["reply_to"])
+        let pair = (m["key_for"] as? String) == "backup" ? own.backup : own.enc
+        let pt = ChatCrypto.decryptMessage(chatID: chatID, msgID: mid, sender: sender, device: dev, ts: ts, replyTo: reply,
+                                           bodyCT: body, sealedKey: key, pk: pair.pk, sk: pair.sk)
+        let d = (devices?[dev] as? [String: Any]) ?? (m["device"] as? [String: Any])
+        let ip = (idents?[sender] as? String) ?? (m["ident_pub"] as? String)
+        var ok = false
+        if let d, (d["uid"] as? String ?? sender) == sender, let ipk = ChatCrypto.unb64(ip, 32),
+           let enc = ChatCrypto.unb64(d["enc_pub"] as? String, 32), let sg = ChatCrypto.unb64(d["sign_pub"] as? String, 32),
+           ChatCrypto.verify(ChatCrypto.unb64(d["sig"] as? String), ChatCrypto.deviceMsg(uid: sender, deviceID: dev, encPK: enc, signPK: sg), pk: ipk) {
+            ok = ChatCrypto.verifyMessage(chatID: chatID, msgID: mid, sender: sender, device: dev, ts: ts, replyTo: reply, bodyCT: body,
+                                          sig: m["sig"] as? String ?? "", signPK: sg)
+        }
+        return (pt, ok)
+    }
+    /// Nachricht eines auf v2 umgestellten Seiten-Chats aus der Zeit davor (FedChatLogic.isLegacyV1)
+    static func isLegacyV1(_ m: [String: Any]) -> Bool { FedChatLogic.isLegacyV1(m) }
     /// Nachricht v2 oeffnen; echt = Absender-Geraet aus den selbst geprueften Schluesseln von sender_handle + Signatur v2
     static func open(_ m: [String: Any], ref: String, own: Own, keys fk: [String: FedKeyState]) -> (plain: Data?, verified: Bool)? {
         guard let mid = m["id"] as? String, let body = m["body_ct"] as? String, let key = m["key"] as? String else { return nil }

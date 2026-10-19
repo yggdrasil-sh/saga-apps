@@ -53,6 +53,28 @@ enum PageAction: CaseIterable, Equatable {
     case comments, export, copyLink, reload
 }
 
+/// Faehigkeiten des Servers einer fremden Seite (remote.caps, Saga 2.3, docs/APP-API-FED.md Abschnitt 8). Ohne Angabe
+/// (Server 2.1/2.2) bleibt es bei Lesen, Kommentieren und Titel/Inhalt bearbeiten.
+struct FedCaps: Equatable {
+    static let db = "db", subpages = "subpages", upload = "upload", versions = "versions", export = "export"
+    static let presence = "presence", live = "live", chatgroups = "chatgroups"
+    var set: Set<String> = []
+    init() {}
+    /// remote.caps (Liste von Texten) bzw. RemoteRef.caps
+    init(_ v: Any?) { set = Set(Self.list(v) ?? []) }
+    static func list(_ v: Any?) -> [String]? { (v as? [Any]).map { $0.compactMap { $0 as? String } } }
+    func has(_ c: String) -> Bool { set.contains(c) }
+    /// Datenbanken (Schema, Zeilen) und weitere Felder (props schema icon cover tags wide) bearbeiten
+    var db: Bool { has(Self.db) }
+    var subpages: Bool { has(Self.subpages) }
+    var upload: Bool { has(Self.upload) }
+    var versions: Bool { has(Self.versions) }
+    var export: Bool { has(Self.export) }
+    /// Anwesenheit (und damit das Live-Abo fuer note.changed/presence/comments.changed)
+    var presence: Bool { has(Self.presence) || has(Self.live) }
+    var chatgroups: Bool { has(Self.chatgroups) }
+}
+
 /// Zugriff auf die offene Seite - aus GET /api/notes/{id}. Aeltere Server (ohne "role") = eigene Seite.
 struct PageAccess: Equatable {
     var role: ShareRole = .owner
@@ -66,12 +88,18 @@ struct PageAccess: Equatable {
     var createdBy: SharePerson?
     /// Server kennt Kommentare (1.3)
     var commentsSupported = false
-    /// Seite einer anderen Saga-Instanz (Foederation 2.0): nur Titel/Inhalt aenderbar, kein Upload, keine Anwesenheit
+    /// Seite einer anderen Saga-Instanz (Foederation 2.0): ohne Faehigkeiten nur Titel/Inhalt aenderbar
     var remoteHost: String?
+    /// 2.3: was der Server der fremden Seite kann (remote.caps) - Datenbanken, Unterseiten, Hochladen, Versionen, Export, Anwesenheit
+    var remoteCaps = FedCaps()
+    /// Eigener Server ab 2.3: Versionen und Verschieben (im geteilten Bereich) auch mit Rolle Bearbeiten
+    var server23 = false
 
     init() {}
-    init(page p: [String: Any]) {
+    init(page p: [String: Any], serverVersion: String? = nil) {
         remoteHost = (p["remote"] as? [String: Any])?["host"] as? String ?? ((ShareJSON.int(p["id"]) ?? 0) < 0 ? "" : nil)
+        remoteCaps = FedCaps((p["remote"] as? [String: Any])?["caps"])
+        server23 = serverVersion.map { !ShareLogic.versionLess($0, "2.3.0") } ?? false
         role = ShareRole.parse(p["role"]) ?? .owner
         owner = SharePerson(p["owner"])
         shared = ShareJSON.bool(p["shared"])
@@ -94,11 +122,28 @@ struct PageAccess: Equatable {
     var sharedBy: String? { foreign ? (owner?.name ?? "") : nil }
 
     func allows(_ a: PageAction) -> Bool {
-        // Seiten anderer Saga-Instanzen: Unterseiten, Volle Breite, Symbol/Titelbild, Export gibt es dort nicht
-        if remote && [.wide, .addSubpage, .export, .editIcon].contains(a) { return false }
+        // Seiten anderer Saga-Instanzen: nur, was deren Server kann (remote.caps, 2.3); die Rolle prueft er selbst
+        if remote {
+            switch a {
+            case .addSubpage, .move: return remoteCaps.subpages && role.canEdit
+            case .export: return remoteCaps.export
+            case .versions: return remoteCaps.versions && role.canEdit
+            case .wide: return remoteCaps.db && role.canEdit
+            case .editIcon: return false                                // Symbol/Titelbild: Kopf der Seite (headerEditable)
+            default: break
+            }
+        }
+        // 2.3: Versionen ab Rolle Bearbeiten; Verschieben innerhalb des geteilten Bereichs (gleiche Freigaben prueft der Server)
+        if (a == .versions || a == .move) && server23 && role.canEdit { return true }
         return ShareLogic.allows(role, a)
     }
     var remote: Bool { remoteHost != nil }
+    /// Symbol, Titelbild und Schlagwoerter: fremde Seite nur, wenn deren Server mehr als Titel/Inhalt annimmt (Faehigkeit db)
+    var remoteExtras: Bool { !remote || remoteCaps.db }
+    /// Bilder/Dateien hochladen: fremde Seite nur mit Faehigkeit upload (Datei liegt beim Server der Seite)
+    var canUpload: Bool { !remote || remoteCaps.upload }
+    /// Anwesenheit/Live: fremde Seite nur mit Faehigkeit presence bzw. live
+    var presence: Bool { !remote || remoteCaps.presence }
 
     /// "Angelegt von {name}" - nur, wenn es jemand anderes war
     var createdByOther: String? { createdBy.flatMap { $0.me || $0.name.isEmpty ? nil : $0.name } }
@@ -370,7 +415,18 @@ enum SaveFailure: Equatable {
 
 enum ShareLogic {
     static let commentMax = 2000
-    static let minQuery = 1                                         // 2.3: Server liefert bei 1-2 Zeichen nur genaue Treffer
+    /// Personensuche ab wie vielen Zeichen: Server ab 2.3 ab 1 (bei 1-2 Zeichen liefert er nur genaue Treffer, z. B. "hd"),
+    /// aeltere Server (und Version noch unbekannt) wie bisher ab 3 mit Hinweis
+    static func minQuery(server: String?) -> Int { server.map { !versionLess($0, "2.3.0") } == true ? 1 : 3 }
+    /// "1.2.0" < "1.10.0" (SemVer, Zusaetze wie -beta werden ignoriert) - wie Store.versionLess
+    static func versionLess(_ a: String, _ b: String) -> Bool {
+        func p(_ s: String) -> [Int] {
+            let core = s.trimmingCharacters(in: CharacterSet(charactersIn: "vV ")).split(separator: "-").first.map(String.init) ?? ""
+            let n = core.split(separator: ".").prefix(3).map { Int($0) ?? 0 }
+            return n + Array(repeating: 0, count: max(0, 3 - n.count))
+        }
+        return p(a).lexicographicallyPrecedes(p(b))
+    }
     /// Bloecke, die auf fremden Seiten nur einen neutralen Platzhalter zeigen (Daten gehoeren dem Konto, das schaut)
     static let ownerOnlyBlocks: Set<String> = ["tasks", "calendar", "immich"]
     /// Text eines Verweises auf eine Seite ohne Zugriff (der Server setzt ihn in der Sprache der Anfrage ein)
@@ -410,9 +466,11 @@ enum ShareLogic {
 
     // MARK: Teilen
 
-    static func searchReady(_ q: String) -> Bool { q.trimmingCharacters(in: .whitespacesAndNewlines).count >= minQuery }
-    /// Hinweis "Mindestens 3 Zeichen." nur bei 1-2 eingegebenen Zeichen (leer: kein Hinweis)
-    static func minHint(_ q: String) -> Bool { (1..<minQuery).contains(q.trimmingCharacters(in: .whitespacesAndNewlines).count) }
+    static func searchReady(_ q: String, server: String?) -> Bool { q.trimmingCharacters(in: .whitespacesAndNewlines).count >= minQuery(server: server) }
+    /// Hinweis "Mindestens 3 Zeichen." nur bei 1-2 eingegebenen Zeichen auf Servern vor 2.3 (leer: kein Hinweis)
+    static func minHint(_ q: String, server: String?) -> Bool {
+        (1..<max(1, minQuery(server: server))).contains(q.trimmingCharacters(in: .whitespacesAndNewlines).count)
+    }
 
     static func parseTargets(_ d: Data) -> [ShareTarget] {
         guard let j = ShareJSON.obj(d) else { return [] }

@@ -46,14 +46,7 @@ final class Store: ObservableObject {
     }
     nonisolated static var appBuild: String { Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "" }
     /// "1.2.0" < "1.10.0" (SemVer, Zusaetze wie -beta werden ignoriert)
-    nonisolated static func versionLess(_ a: String, _ b: String) -> Bool {
-        func p(_ s: String) -> [Int] {
-            let core = s.trimmingCharacters(in: CharacterSet(charactersIn: "vV ")).split(separator: "-").first.map(String.init) ?? ""
-            let n = core.split(separator: ".").prefix(3).map { Int($0) ?? 0 }
-            return n + Array(repeating: 0, count: max(0, 3 - n.count))
-        }
-        return p(a).lexicographicallyPrecedes(p(b))
-    }
+    nonisolated static func versionLess(_ a: String, _ b: String) -> Bool { ShareLogic.versionLess(a, b) }
     /// Server-Version abfragen (oeffentlich, keine Anmeldung noetig); aeltere Server ohne /api/version: nichts anzeigen
     func checkVersion() async {
         guard AppConfig.hasServer, let url = URL(string: AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/api/version"),
@@ -503,6 +496,7 @@ final class Store: ObservableObject {
     /// Gerade angelegte Seite/Eintrag lokal in die Liste (statt die ganze Seitenliste neu zu laden). Gehoert die
     /// Elternseite nicht zum eigenen Baum (Unterseite einer geteilten Seite), wie bisher neu laden.
     func insertCreated(_ p: Page) async {
+        if FedLogic.isRemote(p.id) { await loadFedShared(); return }         // Unterseite/Zeile einer fremden Seite (2.3)
         for _ in 0..<3 {
             if list.ids.contains(p.id) { return }                               // ein Abgleich war schneller
             // noch keine Liste (offline gestartet, nichts zwischengespeichert) oder fremder Baum: wie bisher neu laden
@@ -852,6 +846,7 @@ final class Store: ObservableObject {
     func move(_ id: Int, to parent: Int?) async throws {
         _ = try await api("api/notes/\(id)/move", method: "POST", body: ["parent_id": parent.map { $0 as Any } ?? NSNull(), "index": 0])
         await refresh()
+        if FedLogic.isRemote(id) { await loadFedShared() }                 // fremde Seite: "Mit mir geteilt" gleich aktuell
     }
     func duplicate(_ id: Int) async -> Int? {
         struct R: Decodable { let id: Int }

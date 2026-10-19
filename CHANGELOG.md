@@ -55,6 +55,30 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   beendet, bevor er in den Vordergrund kam – Android 14+ beendete dann die App
   (`ForegroundServiceDidNotStartInTimeException`). Jetzt beendet sich der Dienst in diesem Fall selbst.
 
+### Neu (iOS/iPadOS/macOS) – Seiten, Datenbanken und Gruppen über Servergrenzen (Föderation 2.3, E4–E6)
+- **Seiten anderer Server vollständig:** Die App wertet `remote.caps` aus und bietet auf fremden Seiten genau das an,
+  was der Server der Seite kann: Datenbanken öffnen und bearbeiten (Zeilen, Werte, Spalten, Ansichten; Relationen nur
+  auf Datenbanken desselben Servers), Unterseiten und Zeilen anlegen, innerhalb des geteilten Bereichs verschieben,
+  Bilder und Dateien hochladen (die Datei liegt beim Server der Seite), Symbol, Titelbild, Schlagwörter und volle
+  Breite, Versionsverlauf ansehen und wiederherstellen (ab Rolle Bearbeiten), Export (Markdown/ZIP, macOS),
+  Anwesenheit und Live-Aktualisierung sowie der Seiten-Chat. Server 2.1/2.2 bleiben bei Lesen, Kommentieren und
+  Titel/Inhalt; Hochladen dorthin meldet verständlich, dass der Server es noch nicht kann.
+- **Auch lokal ab Server 2.3:** Versionen und Verschieben (im geteilten Bereich) mit Rolle Bearbeiten; Fehler beim
+  Wiederherstellen einer Version werden angezeigt statt verschluckt.
+- **Gruppen mit Personen anderer Server:** „Gruppe mit mehreren Personen“ nimmt Treffer anderer Server auf (`handles`);
+  der Gruppenname geht als verschlüsselte v2-Nachricht (`kind: title`) und wird nur nach eigener Prüfung des
+  Absenders angezeigt. Eingeladene sehen „… (Server) hat dich in diese Gruppe eingeladen“ mit Annehmen/Ablehnen/Sperren.
+  Admins fügen Personen anderer Server per Handle hinzu und entfernen Mitglieder; danach geht der Gruppenname erneut
+  an alle (Neue sehen nur Nachrichten ab dem Beitritt). Systemzeilen zeigen Hinzufügen, Entfernen, Verlassen,
+  Trennen der Server und „ab jetzt über Servergrenzen“ mit Herkunft; im Chat-Kopf stehen die Server der anderen.
+- **Umgestellte Seiten-Chats:** Nachrichten aus der Zeit vor der Umstellung (ohne `sender_handle`) werden weiter mit
+  v1 entschlüsselt und geprüft, neue gehen immer als v2. Schlüssel großer Gruppen holt die App in Teilen zu je 20.
+- **Kurzsuche:** Personensuche ab 1 Zeichen nur noch bei Servern ab 2.3, bei älteren wie bisher ab 3 Zeichen mit Hinweis.
+- **Schlüsselprüfung:** `checkKeysV2` verwirft zusätzlich ungültige Handles und Einträge mit doppelten Geräte-IDs
+  (wie Linux/Android). Lokale Chats, lokale Seiten und ältere Server bleiben unverändert.
+- Geprüft mit Logik-Tests (`ios/Tests/Logic`), den Testvektoren (`ios/Tests/ChatVectors`) und Ende-zu-Ende gegen
+  drei verbundene Server (`ios/Tests/FedE2E`, `FED_PART=2`).
+
 ### Neu (iOS/iPadOS/macOS) – Chats und Anrufe über Servergrenzen (Föderation 2.3)
 - **Personen anderer Saga-Server finden:** „Neue Unterhaltung“ zeigt Treffer aus dem Adressbuch verbundener Server
   mit Profilbild als „Name · Server“ (gleiche Namen bleiben unterscheidbar); `name@server` findet genau diese Person.

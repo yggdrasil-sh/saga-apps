@@ -36,11 +36,14 @@ extension ChatCrypto {
         var identPub: String { b64(identPK) }
         var active: [DeviceV2] { devices.filter { !$0.revoked } }
     }
-    /// Eintrag pruefen (der eigene Server koennte luegen): Handle-Zertifikat gegen ident_pub mit genau dem angefragten
-    /// Handle (sonst nil), jedes Geraet gegen fed_sig (ungueltige fallen weg); aktiv nur, wer in der gueltigen
-    /// signierten Geraete-Liste steht und nicht widerrufen ist (ohne gueltige Liste: revoked vom Server).
+    /// Eintrag pruefen (der eigene Server koennte luegen): Handle-Format ('~' + 16 Zeichen a-z2-7 + '@host') und Handle-
+    /// Zertifikat gegen ident_pub mit genau dem angefragten Handle (sonst nil), Geraete-IDs eindeutig (doppelte IDs = nil:
+    /// sonst waere unklar, welcher Schluessel gilt), jedes Geraet gegen fed_sig (ungueltige fallen weg); aktiv nur, wer in
+    /// der gueltigen signierten Geraete-Liste steht und nicht widerrufen ist (ohne gueltige Liste: revoked vom Server).
     static func checkKeysV2(handle: String, entry e: [String: Any]?) -> KeysV2? {
-        guard let e, e["handle"] as? String == handle, let ip = unb64(e["ident_pub"] as? String, 32), let bp = unb64(e["backup_pub"] as? String, 32),
+        guard let e, FedChatLogic.isHandle(handle), e["handle"] as? String == handle,
+              FedChatLogic.uniqueDeviceIDs(e["devices"]),
+              let ip = unb64(e["ident_pub"] as? String, 32), let bp = unb64(e["backup_pub"] as? String, 32),
               verify(unb64(e["sig"] as? String, 64), handleMsg(handle: handle, identPK: ip, backupPK: bp), pk: ip) else { return nil }
         var set: (ver: Int, ids: [String])?
         if let ds = e["dset"] as? [String: Any], let ver = (ds["ver"] as? NSNumber)?.intValue, let ids = ds["ids"] as? [String],

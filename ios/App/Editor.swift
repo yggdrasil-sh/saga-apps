@@ -668,6 +668,7 @@ extension PageEditor {
             #endif
             data = j; name = "bild.jpg"
         }
+        if let e = doc.uploadBlocked { doc.error = e; return }
         do {
             let url = try await store.upload(data, name: name, note: doc.uploadNote)
             insertImageURL(url, caption: caption)
