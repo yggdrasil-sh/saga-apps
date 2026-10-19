@@ -6,6 +6,13 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Behoben – Chats über Servergrenzen
+**Android – eigene Nachricht blieb auf „⏳ wird zugestellt“:** In einem Direkt-Chat, dessen Heim der andere Server ist,
+zeigte die App eine längst zugestellte eigene Nachricht weiter als ausstehend (Server 2.3.0 melden die sofortige
+Bestätigung nicht als Live-Ereignis). Die App übernimmt die Bestätigung jetzt aus der Antwort beim Senden und gleicht
+wartende eigene Nachrichten beim Nachladen und alle 15 Sekunden mit dem Server ab – auch schon hängende heilen so von
+selbst, „nicht zugestellt“ erscheint ebenfalls; eine vom Server verworfene Kopie verschwindet.
+
 ### Behoben – Anrufe
 **iOS/iPadOS/macOS – Anrufe verkleinern, Mitteilungen während eines Anrufs:**
 - **Zurück in die App während eines Anrufs (iPhone/iPad):** Der Anrufbildschirm hat oben links „Zurück zur App“

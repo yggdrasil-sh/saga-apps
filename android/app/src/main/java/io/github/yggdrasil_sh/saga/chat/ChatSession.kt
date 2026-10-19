@@ -168,6 +168,10 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
 
     private var lastSeq = 0L
     private var lastTyping = 0L
+    /** 2.3: eigene Nachrichten, die das Heim schon bei POST bestaetigt hat (FedDelivery) */
+    private val confirmed: MutableSet<String> = java.util.Collections.synchronizedSet(HashSet())
+    /** 2.3: letzter Abgleich wartender eigener Nachrichten (ms) */
+    private var lastDeliveryCheck = 0L
     /** 2.3: Anhaenge aus v1-Nachrichten eines umgestellten Seiten-Chats (AD mit chat_id statt chat_ref) */
     private val legacyFiles: MutableSet<String> = java.util.Collections.synchronizedSet(HashSet())
 
@@ -229,9 +233,33 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
     /** Liegengebliebenes Nachladen wiederholen (regelmaessig aus der Ansicht), nie mit Ausnahme */
     suspend fun catchUp() {
         if (behind) behind = !quietly { loadNewer() }
+        else if (FedDelivery.due(messages, lastDeliveryCheck, System.currentTimeMillis())) quietly { checkDelivery() }
+    }
+
+    /**
+     * 2.3: Stand wartender eigener Nachrichten beim Server nachsehen (ab der aeltesten) - Server bis 2.3.0 melden die
+     * sofortige Bestaetigung des Heims nicht als Ereignis; so heilen auch schon haengende "wird zugestellt" von selbst.
+     */
+    private suspend fun checkDelivery() {
+        val from = FedDelivery.oldestPending(messages) ?: return
+        lastDeliveryCheck = System.currentTimeMillis()
+        val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&after=${from - 1}&limit=200"))
+        val server = r.messages.associate { it.id to it.fstate }
+        // after=0 liefert die neuesten statt ab Anfang: dann nichts als verschwunden werten
+        val gone = if (from <= 1) emptySet() else FedDelivery.gone(messages.toList(), server, r.more, r.messages.maxOfOrNull { it.seq } ?: 0L)
+        if (gone.isNotEmpty()) messages.removeAll { it.id in gone }
+        applyDelivery(server)
+    }
+
+    /** Zustellstand bekannter Nachrichten uebernehmen (Serverliste id -> fstate, dazu per POST bestaetigte) */
+    private fun applyDelivery(server: Map<String, String?>) {
+        for ((i, m) in FedDelivery.apply(messages.toList(), server, confirmed.toSet())) {
+            if (i < messages.size && messages[i].id == m.id) messages[i] = m
+        }
     }
 
     suspend fun loadNewer() {
+        if (FedDelivery.due(messages, lastDeliveryCheck, System.currentTimeMillis())) quietly { checkDelivery() }
         val after = messages.lastOrNull()?.seq ?: lastSeq
         val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&after=$after&limit=200&calls=1"))
         val newer = ChatDeleteLogic.keepAfter(decryptAll(r), summary?.clearedSeq ?: 0) { it.seq }.filter { n -> messages.none { it.id == n.id } }
@@ -246,6 +274,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         messages.addAll(newer)
         lastSeq = maxOf(lastSeq, r.lastSeq)
         if (newer.isNotEmpty()) {
+            if (newer.any { it.fstate == FedDelivery.PENDING }) applyDelivery(emptyMap())     // per POST schon bestaetigt
             resolveNotes()
             markRead()
         }
@@ -621,6 +650,11 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                 val o = Json.parseToJsonElement(api.post("api/chats/$chatId/messages", body)) as? JsonObject
                 lastPending = (o?.get("pending") as? JsonPrimitive)?.content == "true"
                 if (lastPending) svc.repo.notify(UiText.Res(R.string.fed_pending_sent))
+                if (FedDelivery.confirmedByPost(lastPending)) {
+                    // vom Heim bestaetigt: eine schon (ueber das Live-Ereignis) mit ⏳ geladene Kopie gleich als zugestellt zeigen
+                    confirmed.add(enc.id)
+                    applyDelivery(emptyMap())
+                }
                 return enc.id
             } catch (e: ApiException) {
                 val o = try {
