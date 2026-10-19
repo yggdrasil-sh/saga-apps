@@ -188,3 +188,44 @@ object CallLogic {
     /** ICE-Kandidaten gebuendelt: hoechstens 40 je Signal */
     fun <T> iceBatches(list: List<T>, max: Int = 40): List<List<T>> = list.chunked(max)
 }
+
+/**
+ * Laufender Anruf ausserhalb des Anrufbildschirms (wie WhatsApp/Signal): Leiste "Anruf laeuft" oben in der App,
+ * Hinweis "Zum Anruf zurueckkehren" im betroffenen Chat. Tippen oeffnet nur die Oberflaeche wieder (CallActivity) -
+ * der Anruf selbst (PeerConnection, Medien, Vordergrund-Dienst) lebt im CallManager weiter und wird nicht neu aufgebaut.
+ */
+object CallReturn {
+    /** Was die Anruf-Knoepfe im Chat tun */
+    enum class Dial { START, RETURN, BUSY }
+
+    /** Gibt es einen Anruf, zu dem man zurueckkehren kann? (ein beendeter zaehlt nicht mehr) */
+    fun active(st: CallUiState?): Boolean = st != null && st.phase != CallPhase.ENDED
+
+    /** Laeuft der Anruf in diesem Chat? */
+    fun inChat(st: CallUiState?, chatId: Long): Boolean = active(st) && chatId != 0L && st!!.chatId == chatId
+
+    /** Anruf-Knopf im Chat: im eigenen Chat zurueckkehren, sonst "telefonierst schon" bzw. neu anrufen */
+    fun dial(st: CallUiState?, chatId: Long): Dial = when {
+        inChat(st, chatId) -> Dial.RETURN
+        active(st) -> Dial.BUSY
+        else -> Dial.START
+    }
+
+    /** Text der Leiste; null = keine Leiste. nowMs = aktuelle Zeit fuer die Dauer */
+    fun barText(st: CallUiState?, nowMs: Long): UiText? {
+        if (st == null || !active(st)) return null
+        val who = st.peer.name.ifEmpty { st.peer.username }
+        return when {
+            st.phase == CallPhase.INCOMING -> UiText.Res(R.string.call_bar_incoming, who)
+            st.phase == CallPhase.CONNECTED && st.connectedAt > 0 ->
+                UiText.Res(R.string.call_bar_active, CallLogic.duration((nowMs - st.connectedAt) / 1000))
+            else -> UiText.Res(R.string.call_bar_connecting, who)
+        }
+    }
+
+    /**
+     * Zurueck (Taste/Geste) im Anrufbildschirm: solange der Anruf laeuft bzw. klingelt nur minimieren (nie auflegen),
+     * ein beendeter Anruf wird geschlossen.
+     */
+    fun backMinimizes(st: CallUiState?): Boolean = active(st)
+}

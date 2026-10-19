@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -30,9 +31,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -115,9 +118,26 @@ class CallActivity : ComponentActivity() {
             SagaTheme {
                 val st by calls.ui.collectAsState()
                 LaunchedEffect(st == null) { if (st == null) finish() }
-                st?.let { CallScreen(calls, it, answerRequest) }
+                // Zurueck (Taste/Geste) minimiert nur: Anruf, Medien und Vordergrund-Dienst laufen weiter; zurueck geht
+                // es ueber die Leiste "Anruf laeuft", den Hinweis im Chat oder die Mitteilung (gleiche Activity, keine
+                // zweite PeerConnection). Ein beendeter Anruf wird geschlossen.
+                BackHandler {
+                    if (CallReturn.backMinimizes(calls.ui.value)) minimize() else {
+                        calls.dismiss()
+                        finish()
+                    }
+                }
+                st?.let { CallScreen(calls, it, answerRequest, ::minimize) }
             }
         }
+    }
+
+    /**
+     * Anrufbildschirm in den Hintergrund (eigene Aufgabe, siehe taskAffinity): darunter erscheint wieder die App bzw.
+     * der Startbildschirm. Die Activity bleibt erhalten; spaeter kann hier Bild-im-Bild ansetzen.
+     */
+    private fun minimize() {
+        if (!moveTaskToBack(true)) finish()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -127,7 +147,7 @@ class CallActivity : ComponentActivity() {
 }
 
 @Composable
-private fun CallScreen(calls: CallManager, st: CallUiState, answerRequest: Int) {
+private fun CallScreen(calls: CallManager, st: CallUiState, answerRequest: Int, onMinimize: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var answerVideo by remember { mutableStateOf<Boolean?>(null) }
     val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
@@ -223,6 +243,17 @@ private fun CallScreen(calls: CallManager, st: CallUiState, answerRequest: Int) 
             val top = with(LocalDensity.current) { infoHeight.toDp() } + 24.dp
             Box(Modifier.fillMaxSize().safeDrawingPadding().padding(top = maxOf(top, 56.dp), end = 16.dp), contentAlignment = Alignment.TopEnd) {
                 VideoView(calls, remote = false, visible = true, modifier = Modifier.width(108.dp).height(156.dp).clip(RoundedCornerShape(12.dp)))
+            }
+        }
+        if (st.phase != CallPhase.INCOMING && st.phase != CallPhase.ENDED) {
+            // Minimieren (wie Zurueck): zurueck in die App, der Anruf laeuft weiter
+            Box(Modifier.fillMaxSize().safeDrawingPadding().padding(4.dp), contentAlignment = Alignment.TopStart) {
+                IconButton(onClick = onMinimize) {
+                    Icon(
+                        Icons.Filled.KeyboardArrowDown, stringResource(R.string.call_minimize),
+                        tint = if (showVideo) Color.White else MaterialTheme.colorScheme.onSurface,
+                    )
+                }
             }
         }
     }

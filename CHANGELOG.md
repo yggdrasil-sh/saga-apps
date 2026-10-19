@@ -6,7 +6,8 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
-### Behoben – iOS/iPadOS/macOS: Anrufe verkleinern, Mitteilungen während eines Anrufs
+### Behoben – Anrufe
+**iOS/iPadOS/macOS – Anrufe verkleinern, Mitteilungen während eines Anrufs:**
 - **Zurück in die App während eines Anrufs (iPhone/iPad):** Der Anrufbildschirm hat oben links „Zurück zur App“
   (Pfeil nach unten). Der Anruf läuft weiter – Ton und Video bleiben verbunden –, Chats und Seiten sind bedienbar.
   Oben steht eine grüne Leiste „Anruf läuft – tippen zum Zurückkehren“ mit der Dauer; Tippen öffnet den Anruf wieder.
@@ -21,6 +22,18 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Widgets/Kurzbefehlen.
 - **Mac:** Während eines Anrufs zeigt das Hauptfenster dieselbe Leiste („klicken zum Zurückkehren“ holt das Fenster
   „Anruf“ nach vorn) und den Hinweis im Chat.
+
+**Android – Zurück in den laufenden Anruf:**
+Lief ein Anruf und ging man in der App zurück in den Chat, zeigte nichts mehr, dass der Anruf noch aktiv ist – zurück
+kam man nur über die Mitteilung.
+- **Leiste „Anruf läuft · m:ss – tippen zum Zurückkehren“** oben in der App auf allen Bildschirmen außer dem
+  Anrufbildschirm (beim Aufbau „verbindet“, beim Klingeln „Eingehender Anruf von …“). Tippen öffnet den laufenden
+  Anruf wieder – ohne Neuaufbau, Ton und Bild laufen weiter.
+- **Im betroffenen Chat** zusätzlich „Zum Anruf zurückkehren“; die Anruf-Knöpfe dort führen während des Anrufs
+  ebenfalls zurück statt „Du telefonierst gerade schon“ zu melden.
+- **Zurück (Taste/Geste) im Anrufbildschirm minimiert** nur (neu auch ein Knopf „Anruf minimieren“ oben links);
+  aufgelegt wird ausschließlich mit „Auflegen“. Anrufbildschirm und Vordergrund-Dienst bleiben erhalten, erneutes
+  Öffnen baut keine zweite Verbindung auf.
 
 ## [2.3.0] – 2026-10-19
 

@@ -9,9 +9,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
@@ -279,36 +282,46 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
 @Composable
 private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, appScope: CoroutineScope) {
     val minApp by repo.minApp.collectAsState()
+    // Laufender Anruf: Leiste "Anruf laeuft" ueber allen Bildschirmen; sie nimmt die Statusleiste ein, der Inhalt
+    // darunter rechnet sie daher nicht noch einmal ein (consumeWindowInsets)
+    val call by repo.calls.ui.collectAsState()
+    val callBar = io.github.yggdrasil_sh.saga.call.CallReturn.active(call)
     Column(Modifier.fillMaxSize()) {
-        if (minApp != null && repo.appTooOld) {                 // Server ist neuer, als diese App kann
-            Text(
-                stringResource(R.string.app_too_old_banner, minApp ?: ""),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onTertiaryContainer,
-                modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.tertiaryContainer)
-                    .statusBarsPadding().padding(horizontal = 16.dp, vertical = 6.dp),
-            )
-        }
-        Box(Modifier.weight(1f)) {
-            when (val d = nav.current) {
-                Dest.Today -> TodayScreen(repo, nav, chrome)
-                Dest.Tasks -> TasksScreen(repo, nav, chrome)
-                Dest.Events -> EventsScreen(repo, nav, chrome)
-                Dest.Services -> ServicesScreen(repo, nav, chrome)
-                Dest.Search -> SearchScreen(repo, nav, chrome)
-                Dest.Settings -> SettingsScreen(repo, nav, chrome)
-                is Dest.Page -> key(d.id) { PageScreen(d.id, repo, nav, chrome, appScope) }
-                Dest.Notifications -> NotificationsScreen(repo, nav, chrome)
-                Dest.Chats -> ChatsScreen(repo, nav, chrome, null)
-                is Dest.Chat -> ChatsScreen(repo, nav, chrome, d.id)
-                Dest.Push -> PushScreen(repo, nav, chrome)
-                Dest.ChatDevices -> ChatDevicesScreen(repo, nav, chrome)
-                Dest.Backup -> io.github.yggdrasil_sh.saga.ui.settings.BackupScreen(repo, nav, chrome)
-                Dest.Nextcloud -> io.github.yggdrasil_sh.saga.ui.settings.NextcloudScreen(repo, nav, chrome)
+        io.github.yggdrasil_sh.saga.call.OngoingCallBar(call)
+        Column(
+            Modifier.fillMaxWidth().weight(1f)
+                .then(if (callBar) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier),
+        ) {
+            if (minApp != null && repo.appTooOld) {                 // Server ist neuer, als diese App kann
+                Text(
+                    stringResource(R.string.app_too_old_banner, minApp ?: ""),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
+                    modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.tertiaryContainer)
+                        .statusBarsPadding().padding(horizontal = 16.dp, vertical = 6.dp),
+                )
             }
+            Box(Modifier.weight(1f)) {
+                when (val d = nav.current) {
+                    Dest.Today -> TodayScreen(repo, nav, chrome)
+                    Dest.Tasks -> TasksScreen(repo, nav, chrome)
+                    Dest.Events -> EventsScreen(repo, nav, chrome)
+                    Dest.Services -> ServicesScreen(repo, nav, chrome)
+                    Dest.Search -> SearchScreen(repo, nav, chrome)
+                    Dest.Settings -> SettingsScreen(repo, nav, chrome)
+                    is Dest.Page -> key(d.id) { PageScreen(d.id, repo, nav, chrome, appScope) }
+                    Dest.Notifications -> NotificationsScreen(repo, nav, chrome)
+                    Dest.Chats -> ChatsScreen(repo, nav, chrome, null)
+                    is Dest.Chat -> ChatsScreen(repo, nav, chrome, d.id)
+                    Dest.Push -> PushScreen(repo, nav, chrome)
+                    Dest.ChatDevices -> ChatDevicesScreen(repo, nav, chrome)
+                    Dest.Backup -> io.github.yggdrasil_sh.saga.ui.settings.BackupScreen(repo, nav, chrome)
+                    Dest.Nextcloud -> io.github.yggdrasil_sh.saga.ui.settings.NextcloudScreen(repo, nav, chrome)
+                }
+            }
+            // Kopplungsanfrage eines neuen Chat-Geraets (Live chat.link): hier bestaetigen (Code vergleichen)
+                ChatLinkApproval(repo)
         }
-        // Kopplungsanfrage eines neuen Chat-Geraets (Live chat.link): hier bestaetigen (Code vergleichen)
-        ChatLinkApproval(repo)
     }
 }
 
