@@ -1440,6 +1440,28 @@ class PageView(Gtk.Box):
             bg(work, done=fin, error=lambda e: self.win.toast(str(e)), media=True)
         fd.open(self.win, None, done)
 
+    def pick_nextcloud(self, bid):
+        """"/Nextcloud-Datei" (2.3): Datei aus der EIGENEN Nextcloud als Verweis (Block "nextcloud") oder als Kopie
+        (Bild-/Dateiblock). Seiten anderer Saga-Server: nur als Kopie (der Verweis liefe ueber ein dort unbekanntes Konto)."""
+        from . import nextcloud as nc
+        if self.remote and not self.rcan("upload"):
+            self.remote_blocked()
+            return
+
+        def link(it):
+            rr = self.editor.locate(bid)
+            if not rr:
+                return
+            rr[0][rr[1]] = {"id": bid, "type": "nextcloud", "data": nc.new_block_data(it, nc.me())}
+            nc.drop_status(self.id)
+            self.editor.set_focus(None)
+            self.editor.changed()
+
+        def copy(f):
+            nc.replace_with_copy(self.editor, bid, f)
+        note = self.id if (self.remote or self.doc.foreign) else None
+        nc.NcPicker(self.win, link, copy, link=not self.remote, note=note).present(self.win)
+
     def link_database(self, bid):
         from .dialogs import PagePicker
         if self.doc.foreign:                                  # fremde Seite: nur geteilte Datenbanken desselben Eigentuemers
@@ -1522,7 +1544,19 @@ class PageView(Gtk.Box):
         """Bloecke aus der Zwischenablage unter after einfuegen; Bild-/Dateibloecke eines anderen Eigentuemers oder
         Servers werden neu hochgeladen (die Datei gehoert dann dem Eigentuemer dieser Seite)"""
         from . import blockclip
+        from . import nextcloud as nc
         server, owner = settings.server, self._clip_owner()
+        # Nextcloud-Dateien anderer Personen lassen sich nicht in andere Seiten kopieren (Server: 403) - weglassen, Hinweis
+        known = nc.keys_of(self.doc.root)
+        kept, dropped = [], 0
+        for b, hk in items:
+            rest, n = nc.strip_pasted([b], known, nc.me(), remote=self.remote)
+            dropped += n
+            if rest:
+                kept.append((rest[0], hk))
+        if dropped:
+            self.win.toast(_("Nextcloud files of other people can’t be copied into other pages."))
+        items = kept
         need = [(b, hk) for b, hk in items if b["type"] in ("image", "attaches") and not blockclip.reuse_ok(hk, server, owner)
                 and images.is_file_url(((b["data"].get("file") or {}).get("url")))]
         if need and not self.rcan("upload"):

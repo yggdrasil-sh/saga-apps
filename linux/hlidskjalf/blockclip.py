@@ -14,7 +14,7 @@ from .util import new_block_id, plain
 
 MIME = "application/x-editor-js"
 TYPES = {"paragraph", "header", "list", "quote", "code", "delimiter", "image", "attaches", "embed", "table", "toggle", "columns",
-         "callout", "buttons", "database", "tasks", "calendar", "immich", "warning", "checklist", "raw", "linkTool"}
+         "callout", "buttons", "database", "tasks", "calendar", "immich", "warning", "checklist", "raw", "linkTool", "nextcloud"}
 
 
 def block_text(b):

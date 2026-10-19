@@ -39,9 +39,10 @@ SLASH_ITEMS = [
     (_("Button"), "buttons", 0, "input-mouse-symbolic", "schaltflaeche button knopf aktion boton accion"),
     (_("Embed"), "embed", 0, "video-x-generic-symbolic", "einbetten embed video youtube link karte insertar enlace"),
     (_("File"), "file", 0, "mail-attachment-symbolic", "datei anhang file pdf upload attachment archivo adjunto"),
+    (_("Nextcloud file"), "nextcloud", 0, "folder-remote-symbolic", "nextcloud cloud datei ordner file folder archivo nube"),
 ]
 CONVERTIBLE = [it for it in SLASH_ITEMS if it[1] not in ("image", "immich_image", "page", "db_new", "db_link", "tasks", "calendar",
-                                                          "table", "columns", "buttons", "embed", "file")]
+                                                          "table", "columns", "buttons", "embed", "file", "nextcloud")]
 
 
 def make(btype, text="", level=2):
@@ -142,6 +143,8 @@ class PageDoc:
         self.conflict_by = None        # Name der Person, die zuletzt gespeichert hat (409 'by' bzw. updated_by)
         self.lost = None               # 403/404 beim Speichern einer fremden Seite: danach nicht mehr speichern
         self.on_lost = None            # (doc, code, letzter Text) -> None
+        self.nc_known = set()          # Nextcloud-Bloecke (author|inst|fileid) im zuletzt geladenen/gespeicherten Stand (2.3)
+        self.nc_error = None           # zuletzt gemeldete Ablehnung eines neuen Nextcloud-Blocks
         self._overwrite = False        # "Meine Version behalten": einmal mit overwrite speichern (andere Fassung -> Versionen)
         store.docs.add(self)
 
@@ -299,6 +302,8 @@ class PageDoc:
         self.lost = None                                     # frischer Stand: die Rolle darin entscheidet
         self.loaded = True
         self.fetched = True
+        from .nextcloud import keys_of
+        self.nc_known = keys_of(root)                        # Nextcloud-Bloecke des Server-Stands (fuer abgelehnte Kopien)
 
     # --- Entwuerfe -------------------------------------------------------------------------------
     def _snapshot(self, deep=False):
@@ -459,9 +464,13 @@ class PageDoc:
         title = self.title_raw
         sent = self.gen
         acct = self._acct()
+        from .nextcloud import keys_of
+        sent_nc = keys_of(self.root) if not self.is_database else set()
 
         def fin(r):
             self._saving = False
+            self.nc_known = sent_nc
+            self.nc_error = None
             if isinstance(r, dict) and r.get("rev") is not None:
                 self.rev = r["rev"]
             self.dirty = self.gen != sent             # inzwischen weiter getippt -> gleich noch einmal
@@ -486,6 +495,8 @@ class PageDoc:
 
         def err(e):
             self._saving = False
+            if self._nc_rejected(e, sent_nc):                   # neuer Nextcloud-Block abgelehnt (fremd, nicht verbunden ...)
+                return
             if isinstance(e, APIError) and e.code == 409:
                 by = e.data.get("by") if isinstance(e.data, dict) else None
                 self.conflict_by = by if isinstance(by, str) and by else None
@@ -508,6 +519,26 @@ class PageDoc:
         def send():
             return client.json("PATCH", f"api/notes/{self.id}", b, server=srv, account=acct)
         bg_serial(("note", self.id), send, done=fin, error=err)
+
+    def _nc_rejected(self, e, sent_nc):
+        """Der Server lehnt das Speichern wegen eines NEUEN Nextcloud-Blocks ab (403: Datei einer anderen Person, 400: nicht
+        aus der eigenen Nextcloud, 409 ohne Revision: nicht verbunden). Kein Verlust der Freigabe, kein Konflikt: verstaendlich
+        melden, Stand als Entwurf behalten; jede weitere Aenderung versucht es erneut (z. B. nach Entfernen des Blocks)."""
+        if not isinstance(e, APIError) or e.code not in (400, 403, 409):
+            return False
+        if e.code == 409 and isinstance(e.data, dict) and "rev" in e.data:
+            return False                                     # echter Konflikt
+        if not (sent_nc - getattr(self, "nc_known", set())):
+            return False
+        self._write_draft()
+        self.last_error = e
+        first = getattr(self, "nc_error", None) != str(e)
+        self.nc_error = str(e)
+        if first and self.on_error:
+            self.on_error(_("Not saved: {error}").format(error=e) + " " +
+                          _("Remove the Nextcloud file or insert it from your own Nextcloud (Settings → Account → Nextcloud)."))
+        self._release()
+        return True
 
     def _report(self, e):
         """Fehler beim Speichern melden. Offline (Server nicht erreichbar): einmal der Offline-Hinweis, nicht bei
@@ -1026,6 +1057,10 @@ class PageEditor:
         if btype == "file":
             self.changed()
             v.pick_file(bid)
+            return
+        if btype == "nextcloud":
+            self.changed()
+            v.pick_nextcloud(bid)
             return
         if btype in ("tasks", "calendar"):
             a[i] = {"id": bid, "type": btype, "data": {}}

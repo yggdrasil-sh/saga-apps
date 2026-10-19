@@ -598,6 +598,9 @@ class BlockKit:
             return self._buttons(b, d)
         if t == "embed":
             return self._embed(d)
+        if t == "nextcloud":                                    # Nextcloud-Datei (2.3): Karte; Daten bleiben unveraendert
+            from .nextcloud import block_widget
+            return block_widget(self, b, d)
         lb = Gtk.Label(label=f"[{t}]", xalign=0)
         lb.add_css_class("dim-label")
         return lb
@@ -938,6 +941,9 @@ class BlockKit:
             q = norm(text[1:])
             # fremde Seite: Aufgaben, Kalender und Immich gehoeren dem Konto - dort nicht anbieten
             skip = ("tasks", "calendar", "immich_image") if getattr(self.view, "foreign", False) else ()
+            from .nextcloud import supported as nc_ok
+            if not nc_ok() or not hasattr(self.view, "pick_nextcloud"):    # Nextcloud-Datei: Server ab 2.3
+                skip += ("nextcloud",)
             items = [(it[3], it[0], "", (it[1], it[2])) for it in SLASH_ITEMS
                      if it[1] not in skip and (not q or q in norm(it[0]) or q in it[4])]
             if not items:

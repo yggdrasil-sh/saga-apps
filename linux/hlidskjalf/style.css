@@ -241,3 +241,7 @@ button.hk-ai-suggest { padding: 4px 10px; border-radius: 10px; }
 .hk-call-entry.hk-call-missed image, .hk-call-entry.hk-call-missed .hk-call-text { color: var(--error-color); }
 .hk-warn-row image { color: var(--warning-color); }
 button.hk-acct-btn { padding: 2px; min-width: 0; min-height: 0; border-radius: 999px; }
+
+/* Nextcloud-Datei (2.3): Karte; ohne Inhalt (getrennt, kein Zugriff) gedaempft */
+.hk-nc-card { padding: 10px 12px; }
+.hk-nc-off { opacity: 0.75; }

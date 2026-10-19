@@ -66,6 +66,33 @@ ausgeblendet), stellen den Block `nextcloud` dar und schreiben ihn unverändert 
   (`Apps23cTest`) und Ende-zu-Ende im Emulator gegen einen Server aus 9009d43 mit nachgemachter Nextcloud
   (`tests/fakedav.py`).
 
+#### Linux
+- **Einstellungen → „Mein Backup“** (Server ab 2.3, sonst unsichtbar): Status (letztes erfolgreiches Backup, nächster
+  Lauf, laufendes Backup mit Schritt, Fehler des letzten Laufs, letzte Läufe), „Jetzt sichern“, Backups im Ziel
+  (verschlüsselt herunterladen), Ziel verbinden – Nextcloud per Login Flow v2 (Link öffnet im Browser, die App fragt den
+  Server ab) oder WebDAV mit Benutzer/Passwort –, „Verbindung prüfen“ und „Trennen“. Eigenen öffentlichen Schlüssel
+  eintragen oder ein Schlüsselpaar erzeugen lassen: der private Schlüssel erscheint nur einmal im Dialog (kopieren oder
+  als Datei sichern), wird mit den letzten 6 Zeichen bestätigt und nie gespeichert; Schließen ohne Bestätigung verwirft
+  den Vorgang. Inhalt (Kategorien) und – wenn der Server sie liefert – ausgeschlossene Seitenbäume, Zeitplan (aus,
+  wöchentlich mit Wochentag, täglich, wenn der Server es erlaubt), Uhrzeit und Anzahl der aufbewahrten Backups.
+  Einspielen: Hinweis und Knopf „Im Browser öffnen“.
+- **Einstellungen → Konto → „Nextcloud“:** eigenes Nextcloud-Konto per Login Flow v2 verknüpfen bzw. trennen (Server ab
+  2.3, sonst unsichtbar).
+- **Nextcloud-Dateien in Seiten:** Der Block `nextcloud` erscheint als Karte mit Typ-Symbol, Name, Größe und Datum,
+  Bildvorschau bzw. ersten Ordnereinträgen über den Saga-Proxy, „Herunterladen“ und „In Nextcloud öffnen“; ohne Inhalt
+  (getrennt, kein Zugriff, gelöscht) ein Hinweis. Die Person, die den Block eingefügt hat, kann „Auf veröffentlichter
+  Seite zeigen“, „Über verbundene Server zeigen“ und „Als Kopie übernehmen“; Blöcke bleiben beim Speichern unverändert.
+  Neu im „/“-Menü: „Nextcloud-Datei“ – Auswahl aus der eigenen Nextcloud (Zuletzt, Suche, Ordner, „Diesen Ordner
+  einfügen“) als Verweis oder als Kopie (Seiten anderer Saga-Server: nur als Kopie). Nextcloud-Blöcke anderer Personen
+  lassen sich nicht in andere Seiten einfügen (Hinweis); lehnt der Server das Speichern deswegen ab (403/400/409), sagt
+  die App das verständlich, statt die Seite als „nur noch lesen“ zu behandeln.
+- **Benachrichtigungen und Mitteilungen:** „Mein Backup fehlgeschlagen“ (`userbackup.failed`, Klick öffnet „Mein
+  Backup“) und „Backup fehlgeschlagen“ für Admins (`backup.failed`, öffnet den Admin-Bereich im Browser) erscheinen
+  lesbar mit eigenem Symbol; die Mitteilungs-Kategorie „Admin: Backup fehlgeschlagen“ zeigt die App nur, wenn der
+  Server sie anbietet. Texte in Deutsch, Englisch, Spanisch, Russisch und Thai. Ältere Server (2.1/2.2) und lokale
+  Funktionen bleiben unverändert. Geprüft mit `tests/test_23c.py` und Ende-zu-Ende gegen einen Server mit
+  nachgemachtem Nextcloud/WebDAV-Ziel (`tests/real23c.py`).
+
 ### Neu (Linux)
 - **Chats über Servergrenzen (Saga 2.3, Föderation E1–E3):** Die Linux-App versteht jetzt das Chat-Format
   `saga-chat/v2` und meldet das dem Server (`X-Saga-Chat: 2`) – Chats mit Personen verbundener Saga-Server erscheinen

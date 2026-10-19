@@ -74,10 +74,15 @@ class SettingsDialog(Adw.PreferencesDialog):
         from .notifications import NotificationSettingsGroup
         acc.add(NotificationSettingsGroup(self))   # Benachrichtigungen je Art (Server ab 1.4); sonst unsichtbar
         acc.add(ImmichGroup(self))
+        from .nextcloud import NextcloudGroup
+        acc.add(NextcloudGroup(self))              # Nextcloud-Dateien in Seiten (Server ab 2.3); sonst unsichtbar
         acc.add(CalendarGroup(self))
         acc.add(AppsGroup(self))
         self.add(acc)
         self.pages = {"general": page, "account": acc}
+        from .userbackup import BackupPage         # Mein Backup (Server ab 2.3); sonst unsichtbar
+        self.pages["backup"] = BackupPage(self)
+        self.add(self.pages["backup"])
         from .push import PushPage                 # Mitteilungen (Server ab 1.7)
         self.pages["push"] = PushPage(self)
         self.add(self.pages["push"])
@@ -138,8 +143,12 @@ class SettingsDialog(Adw.PreferencesDialog):
 
     def show_page(self, name):
         p = self.pages.get(name)
-        if p is not None:
+        if p is None:
+            return
+        if p.get_visible():
             self.set_visible_page(p)
+        else:
+            self.want_page = p                    # noch unsichtbar (z. B. "Mein Backup" laedt noch): danach zeigen
 
     def _apply_server(self, row):
         u = row.get_text().strip().rstrip("/")
