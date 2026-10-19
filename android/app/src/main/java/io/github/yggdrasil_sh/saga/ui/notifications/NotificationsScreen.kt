@@ -123,6 +123,11 @@ fun open(repo: SagaRepository, nav: AppNavigator, n: NotifItem) {
     val note = n.note
     when {
         chat != null -> nav.push(Dest.Chat(chat.id))
+        // 2.3: Systemmeldungen (Backups): Einstellungen bzw. Admin-Bereich
+        note == null -> when (val t = NotifLogic.target(n.url)) {
+            is NotifLogic.Target.Settings -> { nav.push(Dest.Settings); if (t.section == "backup") nav.push(Dest.Backup) }
+            else -> NotifLogic.adminLink(n)?.let { repo.openExternalRequest.value = it }
+        }
         note != null -> {
             if (n.threadId != null || n.commentId != null) repo.openCommentsFor.value = note.id to n.blockId?.ifEmpty { null }
             nav.push(Dest.Page(note.id))
@@ -139,7 +144,7 @@ private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Uni
             .then(if (tap) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Avatar(n.actor?.name ?: "", icon = if (n.kind.startsWith("chat.")) R.drawable.ic_chat else null, avatar = n.actor?.avatar)
+        Avatar(n.actor?.name ?: "", icon = if (n.kind.startsWith("chat.")) R.drawable.ic_chat else if (NotifLogic.isSystem(n)) R.drawable.ic_cloud_upload else null, avatar = n.actor?.avatar)
         Column(Modifier.weight(1f)) {
             Text(
                 n.text, style = MaterialTheme.typography.bodyMedium,
@@ -147,7 +152,7 @@ private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Uni
                 color = if (tap) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
-                listOfNotNull(if (n.chat != null) "💬" else n.note?.icon?.takeIf { it.isNotEmpty() && !it.startsWith("/") } ?: "📄", n.title).joinToString(" "),
+                listOfNotNull(if (n.chat != null) "💬" else if (NotifLogic.isSystem(n)) "⚠️" else n.note?.icon?.takeIf { it.isNotEmpty() && !it.startsWith("/") } ?: "📄", n.title).joinToString(" "),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
             )

@@ -125,6 +125,8 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             item { PublicNameBlock(repo, w.padding(top = 8.dp), reloadKey = signIns) }
             // 2.3: "In Adressbuechern verbundener Server erscheinen" (nur bei verbundenen Servern)
             item { FederationDirectoryBlock(repo, w, reloadKey = signIns) }
+            // 2.3: "Mein Backup" und "Nextcloud" (nur Server, die es koennen)
+            item { AccountServicesRows(repo, nav, w, reloadKey = signIns) }
 
             // Saga 2.0: Benachrichtigungen (Glocke) je Art, Mitteilungen (Push), Chats & Geraete
             if (notifKinds.isNotEmpty()) {
@@ -261,5 +263,7 @@ fun notifKindLabel(kind: String): Int = when (kind) {
     "publish.withdrawn" -> R.string.notify_kind_publish_withdrawn
     "chat.message" -> R.string.notify_kind_chat_message
     "call", "call.missed" -> R.string.notify_kind_call_missed
+    "backup.failed" -> R.string.notify_kind_backup_failed
+    "userbackup.failed" -> R.string.notify_kind_userbackup_failed
     else -> R.string.notifications
 }

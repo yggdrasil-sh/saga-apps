@@ -210,6 +210,10 @@ class SagaRepository(
     /** Chat oeffnen (aus einer Mitteilung) */
     val openChatRequest = MutableStateFlow<Long?>(null)
 
+    /** 2.3: Einstellungs-Bereich oeffnen ("backup") bzw. Link im Browser (Admin-Bereich) - aus Mitteilung/Benachrichtigung */
+    val openSettingsRequest = MutableStateFlow<String?>(null)
+    val openExternalRequest = MutableStateFlow<String?>(null)
+
     /** Link aus einer Mitteilung/Benachrichtigung ("/notes#12:block", "/chats#c5") oeffnen und als gelesen markieren */
     fun openUrl(url: String) {
         when (val t = io.github.yggdrasil_sh.saga.live.NotifLogic.target(url)) {
@@ -218,6 +222,7 @@ class SagaRepository(
                 openPageRequest.value = t.id
             }
             is io.github.yggdrasil_sh.saga.live.NotifLogic.Target.Chat -> openChatRequest.value = t.id
+            is io.github.yggdrasil_sh.saga.live.NotifLogic.Target.Settings -> openSettingsRequest.value = t.section
             null -> {}
         }
         scope.launch {
@@ -264,6 +269,22 @@ class SagaRepository(
      * Fehler als Text fuer die Oberflaeche (uebersetzt; Meldungen des Servers/Systems unveraendert). Android 17 sperrt
      * den Server im lokalen Netz (Berechtigung fehlt): Netzwerkfehler dann als genau diesen Hinweis statt "Zeitueberschreitung".
      */
+    /** 2.3: eigenes Konto laut GET /api/settings/nextcloud (me) - Autor eigener Nextcloud-Bloecke */
+    @Volatile private var ncMeValue: Pair<String, String>? = null      // (Konto-Schluessel, me)
+    var ncMeCache: String
+        get() = ncMeValue?.takeIf { it.first == settings.accountKey.value + "@" + settings.server.value }?.second.orEmpty()
+        set(v) { ncMeValue = (settings.accountKey.value + "@" + settings.server.value) to v }
+
+    override suspend fun ncMe(): String = ncMeCache.ifEmpty {
+        try {
+            ncSettings()?.me.orEmpty()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
     override fun friendly(e: Throwable): UiText =
         if (localBlocked && isNetworkFailure(e)) UiText.Res(R.string.error_local_network) else friendlyText(e)
 

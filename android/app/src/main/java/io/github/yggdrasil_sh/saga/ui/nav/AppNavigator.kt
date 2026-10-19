@@ -22,6 +22,9 @@ sealed interface Dest {
     data object Push : Dest
     /** Einstellungen -> Chats & Geraete */
     data object ChatDevices : Dest
+    /** 2.3: Einstellungen -> Mein Backup bzw. Nextcloud */
+    data object Backup : Dest
+    data object Nextcloud : Dest
 
     companion object {
         /** Als Text (zum Sichern nach Prozess-Tod) */
@@ -38,6 +41,8 @@ sealed interface Dest {
             is Chat -> "chat:${d.id}"
             Push -> "push"
             ChatDevices -> "chat-devices"
+            Backup -> "backup"
+            Nextcloud -> "nextcloud"
         }
 
         fun decode(s: String): Dest? = when {
@@ -53,6 +58,8 @@ sealed interface Dest {
             s.startsWith("chat:") -> s.removePrefix("chat:").toLongOrNull()?.let { Chat(it) }
             s == "push" -> Push
             s == "chat-devices" -> ChatDevices
+            s == "backup" -> Backup
+            s == "nextcloud" -> Nextcloud
             else -> null
         }
     }

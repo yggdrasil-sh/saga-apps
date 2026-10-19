@@ -164,6 +164,20 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
             repo.openChatRequest.value = null
         }
     }
+    // 2.3: Mitteilung "Backup fehlgeschlagen" -> Einstellungen -> Mein Backup; Admin-Meldung -> Admin-Bereich im Browser
+    val openSettings by repo.openSettingsRequest.collectAsState()
+    LaunchedEffect(openSettings) {
+        openSettings?.let { sec ->
+            nav.top(Dest.Settings)
+            if (sec == "backup") nav.push(Dest.Backup) else if (sec == "nextcloud") nav.push(Dest.Nextcloud)
+            repo.openSettingsRequest.value = null
+        }
+    }
+    val openExternal by repo.openExternalRequest.collectAsState()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(openExternal) {
+        openExternal?.let { u -> io.github.yggdrasil_sh.saga.ui.common.openUrl(ctx, u); repo.openExternalRequest.value = null }
+    }
     // Nach dem ersten Anruf ohne UnifiedPush: Hinweis "klingelt nur bei offener App" + Einrichten
     val callPushHint by repo.push.callHint.collectAsState()
     val inCall by repo.calls.ui.collectAsState()
@@ -289,6 +303,8 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
                 is Dest.Chat -> ChatsScreen(repo, nav, chrome, d.id)
                 Dest.Push -> PushScreen(repo, nav, chrome)
                 Dest.ChatDevices -> ChatDevicesScreen(repo, nav, chrome)
+                Dest.Backup -> io.github.yggdrasil_sh.saga.ui.settings.BackupScreen(repo, nav, chrome)
+                Dest.Nextcloud -> io.github.yggdrasil_sh.saga.ui.settings.NextcloudScreen(repo, nav, chrome)
             }
         }
         // Kopplungsanfrage eines neuen Chat-Geraets (Live chat.link): hier bestaetigen (Code vergleichen)

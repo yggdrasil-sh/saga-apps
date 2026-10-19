@@ -6,7 +6,12 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
-### Neu (iOS/iPadOS/macOS) – Mein Backup und Nextcloud-Dateien (Saga 2.3)
+### Neu – Apps Teil 3 (Saga 2.3): Mein Backup, Nextcloud-Dateien, lesbare Backup-Meldungen
+Alle drei Plattformen zeigen „Mein Backup“ und „Nextcloud“ nur bei Servern, die es können (ältere Server 2.1/2.2:
+ausgeblendet), stellen den Block `nextcloud` dar und schreiben ihn unverändert zurück. Android ergänzt zusätzlich
+„Mitglied entfernen“ in Gruppen.
+
+#### iOS/iPadOS/macOS
 - **Einstellungen → „Mein Backup“:** Status (letztes erfolgreiches Backup, nächster Lauf, laufender Schritt bzw. Fehler
   des letzten Laufs, letzte Läufe) und „Jetzt sichern“ direkt in den Einstellungen; „Verwalten …“ öffnet alles Weitere:
   Ziel verbinden (Nextcloud per Login Flow v2 – Link öffnet im Browser, die App fragt den Server ab – oder WebDAV mit
@@ -32,6 +37,34 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 - Ältere Server (2.1/2.2) blenden die neuen Abschnitte aus; lokale Funktionen bleiben unverändert. Texte de/en/es/ru/th.
   Geprüft mit Logik-Tests und Ende-zu-Ende gegen einen Server 2.3 mit nachgemachter Nextcloud/WebDAV
   (`tests/fakedav.py`; `ios/Tests/CloudE2E`).
+
+#### Android
+- **Einstellungen → „Mein Backup“** (nur bei Servern, die es können): Status mit letztem erfolgreichem Backup, nächstem
+  Lauf, Fehler des letzten Laufs und den letzten Läufen, „Jetzt sichern“ (Fortschritt wird nachgefragt), „Backups im
+  Ziel anzeigen“. Ziel verbinden: Nextcloud per Login Flow v2 (Anmeldung im Browser, die App fragt über den Server nach)
+  oder WebDAV mit Benutzer und Passwort, „Verbindung prüfen“ und „Trennen“. Verschlüsselung: eigenen öffentlichen
+  Schlüssel eintragen oder ein Schlüsselpaar erzeugen lassen – der private Schlüssel erscheint nur einmal (Teilen oder
+  als vertraulich markiert kopieren), wird nie gespeichert und mit den letzten 6 Zeichen bestätigt. „Was gesichert
+  wird“ (Kategorien) und „Seiten nicht sichern“ (Seitenbäume) nur, wenn der Server sie liefert; Zeitplan (aus,
+  wöchentlich mit Wochentag, täglich – „täglich“ gesperrt, wenn der Admin höchstens wöchentlich erlaubt), Uhrzeit und
+  Aufbewahrung. Einspielen: Hinweis und Knopf „Im Browser öffnen“.
+- **Einstellungen → „Nextcloud“:** eigenes Konto verknüpfen (Login Flow v2) bzw. trennen, mit „Verknüpft seit“ und
+  „Zuletzt genutzt“.
+- **Nextcloud-Dateien in Seiten:** Der Block `nextcloud` erscheint als Karte mit Typ-Symbol, Name, Größe und Datum,
+  Bilder und Dateien mit Vorschau über den Saga-Proxy, Ordner mit ihren ersten Einträgen, „Herunterladen“ (über Saga,
+  dann Öffnen/Teilen) und „In Nextcloud öffnen“ (nicht auf Seiten anderer Server); ohne Inhalt eine verständliche
+  Karte. Der Block wird unverändert zurückgespeichert. Einfügen über „+“ → „Nextcloud-Datei …“ (Zuletzt, Ordner,
+  Suche) aus der eigenen verknüpften Nextcloud. Lehnt der Server eine neu eingefügte Datei ab (z. B. aus der Nextcloud
+  einer anderen Person), meldet der Editor das verständlich statt eines Konflikts oder „Zugriff verloren“; „Als Kopie
+  speichern“ lässt Dateien anderer Personen mit Hinweis weg.
+- **Benachrichtigungen:** `userbackup.failed` und `backup.failed` erscheinen lesbar als Systemmeldung; Antippen öffnet
+  „Mein Backup“ bzw. den Admin-Bereich im Browser. Mitteilungen: Kategorie „Admin: fehlgeschlagene Server-Backups“,
+  nur wenn der Server sie für das Konto anbietet.
+- **Gruppen:** Admins freier Gruppen können Mitglieder entfernen (mit Rückfrage), auch in Gruppen über Servergrenzen –
+  wie Web, iOS/macOS und Linux.
+- Ältere Server (2.1/2.2) und lokale Funktionen bleiben unverändert. Texte de/en/es/ru/th. Geprüft mit Unit-Tests
+  (`Apps23cTest`) und Ende-zu-Ende im Emulator gegen einen Server aus 9009d43 mit nachgemachter Nextcloud
+  (`tests/fakedav.py`).
 
 ### Neu (Linux)
 - **Chats über Servergrenzen (Saga 2.3, Föderation E1–E3):** Die Linux-App versteht jetzt das Chat-Format

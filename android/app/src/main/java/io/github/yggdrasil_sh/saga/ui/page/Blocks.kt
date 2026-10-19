@@ -63,7 +63,10 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 /** Gemeinsames fuer alle Bloecke einer Seite */
-class BlockEnv(val editor: PageEditor, val repo: SagaRepository, val onLink: (String) -> Unit)
+class BlockEnv(val editor: PageEditor, val repo: SagaRepository, val onLink: (String) -> Unit) {
+    /** 2.3: Status der Nextcloud-Bloecke dieser Seite (einmal geholt, fuer alle Karten) */
+    val nc: NcPageCache by lazy { NcPageCache(editor.id, repo) }
+}
 
 @Composable
 fun headerStyle(level: Int): TextStyle {
@@ -164,6 +167,8 @@ fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
         "database" -> Selectable(key, path, env) { DatabaseBlock(d, env) }
         "buttons" -> Selectable(key, path, env) { ButtonsBlock(d, env) }
         "embed" -> Selectable(key, path, env) { EmbedBlock(d, env) }
+        // 2.3: Datei/Ordner aus einer Nextcloud - nur anzeigen, die Daten bleiben beim Speichern unveraendert
+        "nextcloud" -> Selectable(key, path, env) { NextcloudCard(d, env) }
         // Aufgaben, Kalender, Immich gehoeren dem Eigentuemer: auf fremden Seiten nur ein neutraler Platzhalter
         // (der Block bleibt beim Speichern unveraendert)
         else -> if (ed.caps.ownerOnlyBlock(type)) Selectable(key, path, env) { OwnerOnly(type) }
