@@ -6,6 +6,30 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu – Saga 2.4 Android (Teil 1): Bild-im-Bild und stabilere Videoanrufe
+**Bild-im-Bild (PiP):**
+- Läuft ein Videoanruf (eigene Kamera oder Bild des Gegenübers), wird der Anruf beim Verlassen der App (Home,
+  App-Wechsel) automatisch zu einem kleinen, verschiebbaren Fenster über anderen Apps (Android 12+ automatisch,
+  Android 8–11 beim Verlassen). Zurück (Taste/Geste) und „Anruf minimieren“ führen mit Video ebenfalls ins PiP,
+  ohne Video wie bisher in den Hintergrund mit der Leiste „Anruf läuft“.
+- Das Fenster zeigt nur das Bild des Gegenübers (bzw. seinen Namen) im richtigen Seitenverhältnis – keine
+  Chat-Inhalte. Knöpfe „Stummschalten“ und „Auflegen“ direkt im Fenster. Tippen vergrößert wieder zum Anruf.
+- Schont Akku und Datenvolumen: Im PiP bittet die App das Gegenüber, sein Video zu verkleinern (höchstens
+  300 kbit/s); beim Zurückkehren wieder volle Größe. Gegenstellen mit Saga 2.3 ignorieren das, es ändert sich dort nichts.
+- PiP weggewischt: Der Anruf läuft weiter (Leiste „Anruf läuft“), aufgelegt wird nur mit „Auflegen“.
+
+**Anrufe (Grundlage saga-call v3):**
+- **Netzwechsel ohne Abbruch:** Wechselt das Telefon zwischen WLAN und Mobilfunk oder reißt die Verbindung kurz ab,
+  baut die App die Verbindung neu auf (ICE-Restart), statt den Anruf zu beenden. Nur wenn beide Seiten Saga 2.4 nutzen
+  und der Server es anbietet – mit älteren Apps bleibt alles wie bisher.
+- **Bitrate passend zum Weg:** direkt bis 1,5 Mbit/s (720p), über das Relais bis 1,2 Mbit/s, über TURN auf Port 443
+  (TCP/TLS) bis 800 kbit/s mit 540p und schmalerem Ton – weniger Ruckeln auf schwachen Verbindungen.
+- **Kamera mitten im Anruf einschalten:** Der Vordergrund-Dienst bekommt den Typ „Kamera“ jetzt vor dem Kamerastart.
+  Bisher konnte die Kamera stoppen, wenn man nach dem Einschalten die App verließ.
+- Neue Signaltypen späterer Versionen werden ignoriert. Neuverhandlungen tragen weiter den signierten
+  DTLS-Fingerabdruck; ein anderer Fingerabdruck beendet den Anruf wie bisher als Sicherheitsfehler.
+- Akku-Messung im PiP: Anleitung in `docs/android-pip-akku.md`.
+
 ### Behoben – Anrufe
 **iOS/iPadOS/macOS – Anrufe verkleinern, Mitteilungen während eines Anrufs:**
 - **Zurück in die App während eines Anrufs (iPhone/iPad):** Der Anrufbildschirm hat oben links „Zurück zur App“

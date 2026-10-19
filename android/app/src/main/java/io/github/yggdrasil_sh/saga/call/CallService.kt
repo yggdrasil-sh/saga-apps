@@ -35,6 +35,8 @@ object CallNotify {
     const val ID_CALL = 4102
     const val ACTION_DECLINE = "io.github.yggdrasil_sh.saga.call.DECLINE"
     const val ACTION_HANGUP = "io.github.yggdrasil_sh.saga.call.HANGUP"
+    /** 2.4: Stumm an/aus aus dem Bild-im-Bild-Fenster (RemoteAction) */
+    const val ACTION_MUTE = "io.github.yggdrasil_sh.saga.call.MUTE"
 
     fun channels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
@@ -64,7 +66,7 @@ object CallNotify {
         return PendingIntent.getActivity(context, code, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
-    private fun broadcast(context: Context, action: String, code: Int): PendingIntent =
+    fun broadcast(context: Context, action: String, code: Int): PendingIntent =
         PendingIntent.getBroadcast(context, code, Intent(context, CallActionReceiver::class.java).setAction(action),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
@@ -136,13 +138,41 @@ class CallActionReceiver : BroadcastReceiver() {
         when (intent.action) {
             CallNotify.ACTION_DECLINE -> calls.decline()
             CallNotify.ACTION_HANGUP -> calls.hangup()
+            CallNotify.ACTION_MUTE -> calls.toggleMic()
         }
+    }
+}
+
+/** Typen des Vordergrund-Dienstes (reine Regel, Unit-Tests): Reihenfolge der Versuche fuer startForeground */
+object CallServiceTypes {
+    /**
+     * Typ "microphone" ist entscheidend: ohne ihn liefert Android (11+) im Hintergrund/bei gesperrtem Bildschirm nur
+     * Stille vom Mikrofon - das Gegenueber hoert dann nichts. Darum bei Fehlschlag zuerst OHNE phoneCall versuchen
+     * (phoneCall verlangt MANAGE_OWN_CALLS bzw. Telefon-App-Rolle), erst zuletzt phoneCall allein. Mit Video zusaetzlich
+     * "camera" - sonst stoppt die Kamera im Hintergrund bzw. im Bild-im-Bild.
+     * Die Typ-Konstanten (API 29/30) werden erst ab sdk >= 30 verwendet (Pruefung ueber den Parameter, fuer Tests).
+     */
+    @android.annotation.SuppressLint("InlinedApi")
+    fun tries(sdk: Int, video: Boolean, mic: Boolean, cam: Boolean): List<Int> {
+        if (sdk < 30) return listOf(0)
+        val out = ArrayList<Int>()
+        var media = 0
+        if (mic) media = media or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        if (video && cam) media = media or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
+        out += ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL or media
+        if (media != 0) {
+            out += media
+            if (media != ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE && mic) out += ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+        }
+        out += ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
+        return out
     }
 }
 
 /**
  * Laufender Anruf als Vordergrund-Dienst (Typ phoneCall + Mikrofon, bei Video auch Kamera): Ton und Bild laufen weiter,
- * wenn die App in den Hintergrund geht. Gestartet aus der sichtbaren Anruf-Oberflaeche (erlaubt ab Android 14).
+ * wenn die App in den Hintergrund oder ins Bild-im-Bild geht. Gestartet aus der sichtbaren Anruf-Oberflaeche (erlaubt ab
+ * Android 14).
  */
 class CallService : Service() {
     companion object {
@@ -152,6 +182,8 @@ class CallService : Service() {
         @Volatile private var foreground = false
         /** Anruf endete, bevor der Dienst startForeground aufrufen konnte: danach sofort beenden */
         @Volatile private var stopWanted = false
+        /** Laufende Instanz (nur Haupt-Thread), fuer den Typwechsel ohne neuen Start */
+        private var instance: CallService? = null
 
         fun start(context: Context, video: Boolean) {
             stopWanted = false
@@ -159,6 +191,17 @@ class CallService : Service() {
                 ContextCompat.startForegroundService(context, Intent(context, CallService::class.java).putExtra(EXTRA_VIDEO, video))
             } catch (_: Exception) {                                // im Hintergrund nicht erlaubt: Anruf laeuft trotzdem
             }
+        }
+
+        /**
+         * 2.4: Kamera im Anruf an/aus. Laeuft der Dienst schon, wechselt der Typ SOFORT (startForeground auf der laufenden
+         * Instanz, vor dem Start der Kamera) - ein neuer startForegroundService kaeme erst spaeter an, bis dahin lief die
+         * Kamera ohne Typ camera und konnte im Hintergrund stoppen. Sonst normal starten.
+         */
+        fun setVideo(context: Context, video: Boolean) {
+            val s = instance
+            if (s != null && foreground && s.promote(video)) return
+            start(context, video)
         }
 
         /**
@@ -178,29 +221,22 @@ class CallService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val calls = (applicationContext as? SagaApplication)?.repo?.calls
-        val st = calls?.ui?.value
-        val video = intent?.getBooleanExtra(EXTRA_VIDEO, false) == true
+    override fun onCreate() {
+        super.onCreate()
+        instance = this
+    }
+
+    override fun onDestroy() {
+        if (instance === this) instance = null
+        super.onDestroy()
+    }
+
+    /** startForeground mit passenden Typen; true = erfolgreich */
+    private fun promote(video: Boolean): Boolean {
+        val st = (applicationContext as? SagaApplication)?.repo?.calls?.ui?.value
         val n = CallNotify.ongoing(this, st?.peer ?: CallPeer(), video, st?.connectedAt ?: 0L)
-        // Typ "microphone" ist entscheidend: ohne ihn liefert Android (11+) im Hintergrund/bei gesperrtem Bildschirm nur
-        // Stille vom Mikrofon - das Gegenueber hoert dann nichts. Darum bei Fehlschlag zuerst OHNE phoneCall versuchen
-        // (phoneCall verlangt MANAGE_OWN_CALLS bzw. Telefon-App-Rolle), erst zuletzt phoneCall allein.
-        val tries = ArrayList<Int>()
-        if (Build.VERSION.SDK_INT >= 30) {
-            var media = 0
-            if (granted(Manifest.permission.RECORD_AUDIO)) media = media or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-            if (video && granted(Manifest.permission.CAMERA)) media = media or ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
-            tries += ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL or media
-            if (media != 0) {
-                tries += media
-                if (media != ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE && granted(Manifest.permission.RECORD_AUDIO)) {
-                    tries += ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-                }
-            }
-            tries += ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
-        } else tries += 0
-        val ok = tries.any { type ->
+        val tries = CallServiceTypes.tries(Build.VERSION.SDK_INT, video, granted(Manifest.permission.RECORD_AUDIO), granted(Manifest.permission.CAMERA))
+        return tries.any { type ->
             try {
                 ServiceCompat.startForeground(this, CallNotify.ID_CALL, n, type)
                 true
@@ -209,6 +245,11 @@ class CallService : Service() {
                 false
             }
         }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val st = (applicationContext as? SagaApplication)?.repo?.calls?.ui?.value
+        val ok = promote(intent?.getBooleanExtra(EXTRA_VIDEO, false) == true)
         foreground = ok
         if (!ok || stopWanted || st == null || st.phase == CallPhase.ENDED) {
             foreground = false
@@ -221,8 +262,11 @@ class CallService : Service() {
     private fun granted(p: String) = ContextCompat.checkSelfPermission(this, p) == PackageManager.PERMISSION_GRANTED
 
     override fun onTaskRemoved(rootIntent: Intent?) {
-        // App aus der Liste gewischt: auflegen statt eines "Geister-Anrufs"
-        (applicationContext as? SagaApplication)?.repo?.calls?.hangup()
+        // App aus der Liste gewischt: auflegen statt eines "Geister-Anrufs". Nicht beim Schliessen des Anruf-Fensters
+        // (eigene Aufgabe, z. B. Bild-im-Bild weggewischt) - der Anruf laeuft dann mit der Leiste "Anruf laeuft" weiter.
+        if (rootIntent?.component?.className != CallActivity::class.java.name) {
+            (applicationContext as? SagaApplication)?.repo?.calls?.hangup()
+        }
         super.onTaskRemoved(rootIntent)
     }
 }

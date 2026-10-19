@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.4: Bild-im-Bild im Videoanruf, Neuaufbau der Verbindung nach Netzwechsel -->
+<resources>
+    <string name="call_pip_video">Video von %1$s</string>
+    <string name="call_net_restart">Netz gewechselt – Verbindung wird neu aufgebaut …</string>
+</resources>

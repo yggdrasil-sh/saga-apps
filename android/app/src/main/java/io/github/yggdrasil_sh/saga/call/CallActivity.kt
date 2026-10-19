@@ -2,11 +2,16 @@ package io.github.yggdrasil_sh.saga.call
 
 import android.Manifest
 import android.app.KeyguardManager
+import android.app.PictureInPictureParams
+import android.app.RemoteAction
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
+import android.graphics.drawable.Icon
 import android.os.Build
 import android.os.Bundle
+import android.util.Rational
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -100,6 +105,84 @@ class CallActivity : ComponentActivity() {
 
     private var answerRequest by mutableStateOf(0)
 
+    /** 2.4: Bild-im-Bild aktiv (Oberflaeche nur noch Fernbild) */
+    private var inPip by mutableStateOf(false)
+    /** Seitenverhaeltnis des Fernbilds (aus dem vorhandenen Renderer, keine zweite Instanz) */
+    private var remoteAspect by mutableStateOf<Float?>(null)
+    private val calls: CallManager get() = (application as SagaApplication).repo.calls
+
+    private fun pipSupported(): Boolean = packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
+
+    private fun pipParams(st: CallUiState?): PictureInPictureParams {
+        val (w, h) = CallPip.ratio(remoteAspect)
+        val mic = st?.mic != false
+        val muteLabel = getString(if (mic) R.string.call_mute else R.string.call_unmute)
+        val hangLabel = getString(R.string.call_hangup)
+        val actions = listOf(
+            RemoteAction(
+                Icon.createWithResource(this, if (mic) R.drawable.ic_mic else R.drawable.ic_mic_off), muteLabel, muteLabel,
+                CallNotify.broadcast(this, CallNotify.ACTION_MUTE, 6),
+            ),
+            RemoteAction(Icon.createWithResource(this, R.drawable.ic_call_end), hangLabel, hangLabel, CallNotify.broadcast(this, CallNotify.ACTION_HANGUP, 7)),
+        )
+        val b = PictureInPictureParams.Builder().setAspectRatio(Rational(w, h)).setActions(actions)
+        if (Build.VERSION.SDK_INT >= 31) {
+            // Android 12+: beim Verlassen (Startbildschirm, App-Wechsel) automatisch ins PiP, solange Video aktiv ist.
+            // Videoinhalt: kein nahtloses Skalieren (empfohlen fuer Video, vermeidet Flackern)
+            b.setAutoEnterEnabled(CallPip.eligible(st))
+            b.setSeamlessResizeEnabled(false)
+        }
+        return b.build()
+    }
+
+    /** PiP-Parameter aktualisieren (Seitenverhaeltnis, Stumm-Knopf, Auto-Enter) */
+    private fun updatePip(st: CallUiState?) {
+        if (!pipSupported()) return
+        try {
+            setPictureInPictureParams(pipParams(st))
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Ins Bild-im-Bild wechseln, wenn Video aktiv ist; false = nicht moeglich (dann wie bisher minimieren) */
+    private fun enterPip(): Boolean {
+        val st = calls.ui.value
+        if (!pipSupported() || !CallPip.eligible(st) || isInPictureInPictureMode) return false
+        return try {
+            enterPictureInPictureMode(pipParams(st))
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** Zurueck/Minimieren: mit Video ins PiP, sonst in den Hintergrund (Anrufleiste wie in 2.3.1) */
+    private fun minimizeOrPip() {
+        if (!enterPip()) minimize()
+    }
+
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        // Android 8-11: kein Auto-Enter - beim Verlassen (Home/App-Wechsel) selbst ins PiP
+        if (Build.VERSION.SDK_INT < 31) enterPip()
+    }
+
+    override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        inPip = isInPictureInPictureMode
+        calls.setView(pip = isInPictureInPictureMode, visible = true)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        calls.setView(pip = isInPictureInPictureMode, visible = true)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Nicht sichtbar (minimiert, PiP weggewischt, Bildschirm aus): Gegenueber darf sein Video verkleinern
+        calls.setView(pip = false, visible = false)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
@@ -112,29 +195,32 @@ class CallActivity : ComponentActivity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON)
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        val calls = (application as SagaApplication).repo.calls
         if (intent?.action == ACTION_ANSWER) answerRequest++
         setContent {
             SagaTheme {
                 val st by calls.ui.collectAsState()
                 LaunchedEffect(st == null) { if (st == null) finish() }
+                // PiP-Parameter aktuell halten: Seitenverhaeltnis des Fernbilds, Stumm-Knopf, Auto-Enter nur mit Video
+                val eligible = CallPip.eligible(st)
+                LaunchedEffect(eligible, st?.mic, remoteAspect) { updatePip(calls.ui.value) }
                 // Zurueck (Taste/Geste) minimiert nur: Anruf, Medien und Vordergrund-Dienst laufen weiter; zurueck geht
                 // es ueber die Leiste "Anruf laeuft", den Hinweis im Chat oder die Mitteilung (gleiche Activity, keine
                 // zweite PeerConnection). Ein beendeter Anruf wird geschlossen.
+                // 2.4: mit aktivem Video geht es ins Bild-im-Bild statt nur in den Hintergrund.
                 BackHandler {
-                    if (CallReturn.backMinimizes(calls.ui.value)) minimize() else {
+                    if (CallReturn.backMinimizes(calls.ui.value)) minimizeOrPip() else {
                         calls.dismiss()
                         finish()
                     }
                 }
-                st?.let { CallScreen(calls, it, answerRequest, ::minimize) }
+                st?.let { CallScreen(calls, it, answerRequest, ::minimizeOrPip, pip = inPip, onAspect = { a -> remoteAspect = a }) }
             }
         }
     }
 
     /**
      * Anrufbildschirm in den Hintergrund (eigene Aufgabe, siehe taskAffinity): darunter erscheint wieder die App bzw.
-     * der Startbildschirm. Die Activity bleibt erhalten; spaeter kann hier Bild-im-Bild ansetzen.
+     * der Startbildschirm. Die Activity bleibt erhalten (ohne Video; mit Video siehe minimizeOrPip).
      */
     private fun minimize() {
         if (!moveTaskToBack(true)) finish()
@@ -147,7 +233,10 @@ class CallActivity : ComponentActivity() {
 }
 
 @Composable
-private fun CallScreen(calls: CallManager, st: CallUiState, answerRequest: Int, onMinimize: () -> Unit) {
+private fun CallScreen(
+    calls: CallManager, st: CallUiState, answerRequest: Int, onMinimize: () -> Unit,
+    pip: Boolean = false, onAspect: (Float?) -> Unit = {},
+) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var answerVideo by remember { mutableStateOf<Boolean?>(null) }
     val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
@@ -187,19 +276,38 @@ private fun CallScreen(calls: CallManager, st: CallUiState, answerRequest: Int, 
     val dark = Color(0xFF101114)
     var infoHeight by remember { mutableIntStateOf(0) }
     val showVideo = st.remoteVideo && st.phase == CallPhase.CONNECTED
-    Box(Modifier.fillMaxSize().background(if (showVideo) Color.Black else MaterialTheme.colorScheme.surface)) {
+    Box(Modifier.fillMaxSize().background(if (showVideo || pip) Color.Black else MaterialTheme.colorScheme.surface)) {
         if (st.phase != CallPhase.INCOMING && st.phase != CallPhase.ENDED) {
             // Bild des Gegenuebers eingepasst (ganzes Bild, Rand schwarz): SurfaceViewRenderer schneidet bei fester
             // Groesse auf das Seitenverhaeltnis der Ansicht zu - daher die Ansicht selbst auf das Videoformat begrenzen.
+            // Bild-im-Bild nutzt DIESELBE Ansicht (gleiche Stelle im Compose-Baum -> kein zweiter Renderer).
             var aspect by remember { mutableStateOf<Float?>(null) }
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 VideoView(
                     calls, remote = true, visible = showVideo,
                     modifier = aspect?.let { Modifier.aspectRatio(it) } ?: Modifier.fillMaxSize(),
-                    onAspect = { aspect = it },
+                    onAspect = {
+                        aspect = it
+                        onAspect(it)
+                    },
                 )
             }
         }
+        if (pip) {
+            // Bild-im-Bild: nur Fernbild bzw. Name, keine Chat-Inhalte und keine Knoepfe (die kommen als RemoteActions)
+            val name = st.peer.name.ifEmpty { st.peer.username }
+            val pipText = if (st.phase == CallPhase.ENDED) st.message?.resolve() ?: name else name
+            val pipLabel = stringResource(R.string.call_pip_video, name)
+            Box(
+                Modifier.fillMaxSize().semantics { contentDescription = pipLabel },
+                contentAlignment = if (showVideo) Alignment.BottomStart else Alignment.Center,
+            ) {
+                if (!showVideo || st.phase == CallPhase.ENDED) Text(
+                    pipText, color = Color.White, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(6.dp),
+                )
+            }
+        } else {
         Column(Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             InfoLine(st, onDark = showVideo, modifier = Modifier.onSizeChanged { infoHeight = it.height })
             Spacer(Modifier.weight(1f))
@@ -255,6 +363,7 @@ private fun CallScreen(calls: CallManager, st: CallUiState, answerRequest: Int, 
                     )
                 }
             }
+        }
         }
     }
 }

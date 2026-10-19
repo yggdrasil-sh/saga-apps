@@ -38,7 +38,11 @@ data class CallConfig(
     @SerialName("alive_s") val aliveS: Int = 15,
     @SerialName("max_s") val maxS: Int = 0,
     val format: String = "",
+    /** 2.4: Server-Faehigkeiten ("reneg", "pip_hint", ...); fehlt bei 2.1-2.3 */
+    val features: JsonElement? = null,
 ) {
+    val featureSet: Set<String> get() = CallV3.features(features)
+
     /** TURN eingetragen? (Server: true/false bzw. Adresse) */
     val hasTurn: Boolean
         get() = when (val t = turn) {
