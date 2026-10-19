@@ -270,6 +270,8 @@ jobs:
           ls -l dist
           # Abschnitt "## [x.y.z] – Datum" aus CHANGELOG.md; fehlt er, lieber abbrechen als ohne Notizen veroeffentlichen
           N=$(awk -v v="[$V]" '/^## \[/ { p = index($0, v) > 0; next } p' CHANGELOG.md)
+          # @Wort nicht als GitHub-Erwaehnung verlinken (sonst landen fremde Konten unter "Contributors")
+          N=$(printf '%s\n' "$N" | python3 tools/notes-entschaerfen.py)
           if [ -z "$(printf '%s' "$N" | tr -d '[:space:]')" ]; then
             echo "::error::CHANGELOG.md hat keinen (oder einen leeren) Abschnitt [$V]"
             exit 1
@@ -330,6 +332,7 @@ jobs:
           (cd dist && sha256sum * > SHA256SUMS)
           # Abschnitt [Unveröffentlicht]; direkt nach einem Release ist er leer -> kurzer Satz statt leerer Notizen
           N=$(awk '/^## \[/ { p = index($0, "[Unveröffentlicht]") > 0; next } p' CHANGELOG.md)
+          N=$(printf '%s\n' "$N" | python3 tools/notes-entschaerfen.py)
           if [ -z "$(printf '%s' "$N" | tr -d '[:space:]')" ]; then
             N="Noch keine Änderungen seit der letzten Version."
           fi

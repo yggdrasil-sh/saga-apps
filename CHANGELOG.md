@@ -197,7 +197,7 @@ Sprachwahl sowie Thai und Russisch in den Apps funktionieren auch mit älteren S
   Apps sie überall, wo es KI-Funktionen gibt: „Frage Marin“, Antworten mit Bild und Namen, „Marin denkt nach …“.
   Ohne Bild erscheint ein neutrales ✦-Symbol; Änderungen des Admins kommen sofort an.
 - **KI im Chat – nur auf Zuruf:** Ist die KI in einem Chat erlaubt, steht dort dauerhaft ein Hinweis, was an die KI
-  geht: nur Nachrichten mit „@Marin“ und höchstens 12 Nachrichten davor, im Klartext an den KI-Dienst – alles andere
+  geht: nur Nachrichten mit „`@Marin`“ und höchstens 12 Nachrichten davor, im Klartext an den KI-Dienst – alles andere
   bleibt Ende-zu-Ende-verschlüsselt. Berechtigte schalten das im Chat-Menü ein oder aus. Bei „@“ ist die KI der erste
   Vorschlag; ihre Antwort läuft sichtbar mit und geht danach verschlüsselt an alle. Als KI-Antwort (mit Bild, Name und
   „gefragt von …“) erscheint eine Nachricht nur, wenn der Beleg des Servers passt – sonst mit der Warnung „Als
