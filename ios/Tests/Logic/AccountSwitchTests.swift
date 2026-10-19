@@ -85,6 +85,12 @@ func accountSwitchTests() {
     kp = AppKeyCleanup.plan(devices: devs, keys: [], oldToken: nil, oldDevice: oldDev, newKey: newTok)
     check(kp.deleteDevices == [3] && kp.use == .new, "altes Geraet (ueber Geraete-Schluessel) loeschen")
     check(!kp.deleteDevices.contains(4) && !kp.deleteDevices.contains(9), "andere Geraete und das aktuelle bleiben")
+    // Hand-Schluessel auf iPhone UND iPad; der Server hat ihn dem iPad zugeordnet (/app/resume). Neuanmeldung am iPhone
+    // (eigener Geraete-Schluessel bekannt): nur die alte iPhone-Anmeldung loeschen, nie die des iPads
+    let ipad = D(id: 5, prefix: "hkd_IPADxx", keyID: 15, keyPrefix: "hk_OLDxyz", current: false)
+    let iphoneOld = D(id: 6, prefix: "hkd_ALTxyz", keyID: nil, keyPrefix: nil, current: false)
+    kp = AppKeyCleanup.plan(devices: [ipad, iphoneOld, curD], keys: [], oldToken: oldTok, oldDevice: oldDev, newKey: newTok)
+    check(kp.deleteDevices == [6] && kp.use == .new && kp.deleteKey == nil, "geteilter Schluessel: iPad bleibt angemeldet: \(kp)")
     // alter Schluessel von Hand angelegt (keinem Geraet zugeordnet): weiter benutzen, neuen loeschen
     kp = AppKeyCleanup.plan(devices: [curD], keys: [K(id: 7, prefix: "hk_OLDxyz")], oldToken: oldTok, oldDevice: nil, newKey: newTok)
     check(kp.use == .old && kp.deleteKey == 19 && kp.deleteDevices.isEmpty, "eigener Schluessel bleibt, ueberzaehliger neuer weg: \(kp)")

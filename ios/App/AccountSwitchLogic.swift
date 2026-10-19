@@ -99,8 +99,12 @@ enum AppKeyCleanup {
     static func plan(devices: [Device], keys: [Key], oldToken: String?, oldDevice: String?, newKey: String?) -> Plan {
         var p = Plan()
         let tp = oldToken.map { String($0.prefix(keyPrefixLen)) }, dp = oldDevice.map { String($0.prefix(devicePrefixLen)) }
+        // Geraete-Schluessel bekannt: NUR dessen Geraet. Ueber den App-Schluessel nur, wenn er unlesbar ist (BUG-104) -
+        // ein von Hand angelegter Schluessel kann auf mehreren Geraeten stecken und ordnet der Server (/app/resume)
+        // dem Geraet zu, das ihn zuerst nennt: sonst traefe es die Anmeldung eines ANDEREN Geraets (iPhone/iPad/Mac).
         for d in devices where !d.current {
-            if (dp != nil && d.prefix == dp) || (tp != nil && d.keyPrefix == tp) { p.deleteDevices.append(d.id) }
+            if let dp { if d.prefix == dp { p.deleteDevices.append(d.id) } }
+            else if tp != nil && d.keyPrefix == tp { p.deleteDevices.append(d.id) }
         }
         let oldIsDeviceKey = tp != nil && devices.contains { !$0.current && $0.keyPrefix == tp }
         if let tp, !oldIsDeviceKey, keys.contains(where: { $0.prefix == tp }) {
