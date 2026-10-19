@@ -98,6 +98,7 @@ struct VersionsSheet: View {
     @State private var sel: Int?
     @State private var prev: P?
     @State private var loaded = false
+    @State private var err: String?                       // 2.3: Wiederherstellen abgelehnt (gesperrt, Rolle, Server der Seite)
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var hsc
     private var compact: Bool { hsc == .compact }
@@ -120,6 +121,7 @@ struct VersionsSheet: View {
                 Divider()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
+                        if let err { Label(err, systemImage: "exclamationmark.triangle.fill").font(.footnote).foregroundStyle(.red) }
                         if let prev {
                             Text(prev.title.isEmpty ? String(localized: "Unbenannt") : prev.title).font(.title3.bold())
                             Text(prev.text.isEmpty ? String(localized: "(leer)") : prev.text).font(.body).textSelection(.enabled)
@@ -136,7 +138,10 @@ struct VersionsSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Diese Version wiederherstellen") {
                         guard let sel else { return }
-                        Task { _ = try? await store.api("api/notes/\(id)/versions/\(sel)/restore", method: "POST", body: [:]); restored(); dismiss() }
+                        Task {
+                            do { _ = try await store.api("api/notes/\(id)/versions/\(sel)/restore", method: "POST", body: [:]); restored(); dismiss() }
+                            catch { err = error.localizedDescription }
+                        }
                     }.disabled(sel == nil)
                 }
             }

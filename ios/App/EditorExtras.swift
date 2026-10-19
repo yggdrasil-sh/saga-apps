@@ -416,6 +416,7 @@ struct PageEditorSheets: ViewModifier {
             Task {
                 let ok = url.startAccessingSecurityScopedResource(); defer { if ok { url.stopAccessingSecurityScopedResource() } }
                 do {
+                    if let e = doc.uploadBlocked { throw APIError.other(e) }
                     let data = try Data(contentsOf: url)
                     let f = try await store.uploadFile(data, name: url.lastPathComponent, note: doc.uploadNote)
                     if let (arr, i) = ed.locate(b) {

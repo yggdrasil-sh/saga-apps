@@ -221,7 +221,7 @@ struct ConversationView: View {
                                 if let p = conv.info?.peer, canCall { store.calls.start(chatID: chatID, peer: p, video: e.media == "video", fed: conv.info?.fed) }
                             }.id(m.id)
                         } else if let s = m.sys {
-                            FedSysRow(line: s, date: m.date).id(m.id)            // 2.3: Systemzeile
+                            FedSysRow(line: s, date: m.date, myHandle: conv.fed?.myHandle).id(m.id)   // 2.3: Systemzeile
                         } else {
                         MessageBubble(m: m, showName: conv.info?.kind != "dm" && !m.mine && (i == 0 || shown[i - 1].sender != m.sender || shown[i - 1].call != nil || shown[i - 1].aiState == .ok),
                                       quoted: m.replyTo.flatMap { r in conv.messages.first { $0.id == r } }, hasReply: m.replyTo != nil,
@@ -894,25 +894,15 @@ struct MembersSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var q = ""
     @State private var hits: [(String, String)] = []
+    @State private var remoteHits: [FedPerson] = []                  // 2.3: Personen anderer Server (nur Gruppen ueber Servergrenzen)
+    @State private var remoteInLocal = false                         // lokale Gruppe: Treffer anderer Server -> Hinweis "neue Gruppe"
+    @State private var removing: ChatMember?
     var body: some View {
         NavigationStack {
             Form {
                 if let i = conv.info {
                     Section {
-                        ForEach(i.members) { m in
-                            HStack {
-                                ShareAvatar(name: m.name, group: false, avatar: m.avatar)
-                                VStack(alignment: .leading) {
-                                    Text(verbatim: m.me ? m.name + " (" + String(localized: "du") + ")" : m.name)
-                                    Text(verbatim: fedMember(m)?.label ?? m.username).font(.caption).foregroundStyle(.secondary)   // 2.3: nie den Handle zeigen
-                                }
-                                Spacer()
-                                if !m.me {
-                                    if verified(m) { Image(systemName: "checkmark.seal.fill").foregroundStyle(.green).accessibilityLabel(Text("überprüft")) }
-                                    Button("Sicherheitsnummer") { safety(m) }.buttonStyle(.bordered).controlSize(.small)
-                                }
-                            }
-                        }
+                        ForEach(i.members) { m in memberRow(m, admin: i.kind == "free" && i.role == "admin") }
                     } footer: {
                         switch i.kind {
                         case "group": Text("Alle Mitglieder der Gruppe „\(i.group ?? "")“ – ändert sich mit der Gruppe.")
@@ -920,28 +910,71 @@ struct MembersSheet: View {
                         default: EmptyView()
                         }
                     }
-                    if i.kind == "free" && i.role == "admin" {
-                        Section("Person hinzufügen") {
-                            TextField("Person hinzufügen", text: $q).autocorrectionDisabled()
-                            if ChatFedHint.show(q, hits: hits.count) { FedChatHint() }
-                            ForEach(hits, id: \.0) { h in
-                                Button { Task { await conv.addMember(h.0); q = "" } } label: { Text(verbatim: "\(h.1) · \(h.0)") }
-                            }
-                        }
-                    }
+                    if i.kind == "free" && i.role == "admin" { addSection(i) }
+                    if let e = conv.sendError { Text(verbatim: e).font(.footnote).foregroundStyle(.red) }
                 }
             }
             .formStyle(.grouped)
             .navigationTitle("Mitglieder")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { dismiss() } } }
-            .task(id: q) {
-                guard ShareLogic.searchReady(q), let e = q.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else { hits = []; return }
-                try? await Task.sleep(for: .milliseconds(250))
-                guard let d = try? await store.api("api/chat/people?q=\(e)"), let j = ShareJSON.obj(d) else { return }
-                hits = (j["users"] as? [Any] ?? []).compactMap { v in (v as? [String: Any]).flatMap { u in (u["username"] as? String).map { ($0, u["name"] as? String ?? $0) } } }
-            }
+            .task(id: q) { await search() }
+            .alert(Text("\(removing?.name ?? "") aus der Gruppe entfernen?"), isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } }),
+                   presenting: removing) { m in
+                Button("Entfernen", role: .destructive) { Task { await conv.removeMember(m.username) } }
+                Button("Abbrechen", role: .cancel) {}
+            } message: { _ in Text("Die Person bekommt keine neuen Nachrichten mehr.") }
         }
         .macFrame(minWidth: 420, idealWidth: 460, minHeight: 420)
+    }
+    private func memberRow(_ m: ChatMember, admin: Bool) -> some View {
+        HStack {
+            ShareAvatar(name: m.name, group: false, avatar: m.avatar)
+            VStack(alignment: .leading) {
+                Text(verbatim: m.me ? m.name + " (" + String(localized: "du") + ")" : m.name)
+                Text(verbatim: fedMember(m)?.label ?? m.username).font(.caption).foregroundStyle(.secondary)   // 2.3: nie den Handle zeigen
+            }
+            Spacer()
+            if !m.me {
+                if verified(m) { Image(systemName: "checkmark.seal.fill").foregroundStyle(.green).accessibilityLabel(Text("überprüft")) }
+                Button("Sicherheitsnummer") { safety(m) }.buttonStyle(.bordered).controlSize(.small)
+                if admin {
+                    Button { removing = m } label: { Image(systemName: "person.badge.minus") }
+                        .buttonStyle(.borderless).foregroundStyle(.red)
+                        .help(Text("Aus der Gruppe entfernen")).accessibilityLabel(Text("Aus der Gruppe entfernen"))
+                }
+            }
+        }
+    }
+    @ViewBuilder private func addSection(_ i: ChatSummary) -> some View {
+        Section("Person hinzufügen") {
+            TextField("Person hinzufügen", text: $q).autocorrectionDisabled()
+            if remoteInLocal {
+                Text("Personen anderer Saga-Server lassen sich nur zu neuen Gruppen hinzufügen – bitte eine neue Gruppe anlegen.")
+                    .font(.footnote).foregroundStyle(.secondary)
+            } else if ChatFedHint.show(q, hits: hits.count + remoteHits.count) { FedChatHint(federated: conv.model.myHandle != nil) }
+            ForEach(remoteHits) { p in
+                Button { if let h = p.handle { Task { await conv.addMember(handle: h); q = "" } } } label: { FedPersonRow(p: p) }
+                    .buttonStyle(.plain)
+            }
+            ForEach(hits, id: \.0) { h in
+                Button { Task { await conv.addMember(h.0); q = "" } } label: { Text(verbatim: "\(h.1) · \(h.0)") }
+            }
+        }
+    }
+    private func search() async {
+        guard ShareLogic.searchReady(q, server: store.serverVersion), let e = q.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else {
+            hits = []; remoteHits = []; remoteInLocal = false; return
+        }
+        try? await Task.sleep(for: .milliseconds(250))
+        guard !Task.isCancelled, let d = try? await store.api("api/chat/people?q=\(e)"), let j = ShareJSON.obj(d) else { return }
+        let have = Set(conv.info?.members.map(\.username) ?? [])
+        hits = (j["users"] as? [Any] ?? []).compactMap { v in (v as? [String: Any]).flatMap { u in (u["username"] as? String).map { ($0, u["name"] as? String ?? $0) } } }
+            .filter { !have.contains($0.0) }
+        // Personen anderer Server nur in Gruppen ueber Servergrenzen (eine lokale Gruppe bleibt lokal, wie im Web)
+        let handles = Set(conv.fed?.members.map(\.handle) ?? [])
+        let rem = FedChatLogic.people(j["remote"]).filter { $0.handle != nil && !handles.contains($0.handle ?? "") }
+        remoteHits = conv.fed == nil ? [] : rem
+        remoteInLocal = conv.fed == nil && !rem.isEmpty && hits.isEmpty
     }
     private func fedMember(_ m: ChatMember) -> FedMember? { conv.fed?.members.first { $0.username == m.username } }
     private func verified(_ m: ChatMember) -> Bool {

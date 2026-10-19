@@ -49,7 +49,8 @@ func fedChatTests() {
           "people: Treffer + label")
     check(people[1].label == "Anna Berg · b.example" && people[1].pub == nil && people[1].target == "@~qrstuvwxyz234567@b.example", "people: ohne label -> Name · host")
     check(people[2].handle == nil && people[2].id == "@alt@c.example", "people: ohne Handle (2.2)")
-    check(FedChatLogic.searchReady("h") && !FedChatLogic.searchReady(" ") && ShareLogic.searchReady("hd") && !ShareLogic.minHint("h"), "Suche ab 1 Zeichen")
+    check(FedChatLogic.searchReady("h", server: "2.3.0") && !FedChatLogic.searchReady(" ", server: "2.3.0") && ShareLogic.searchReady("hd", server: "2.3.0")
+          && !ShareLogic.minHint("h", server: "2.3.0"), "Suche ab 1 Zeichen (Server 2.3)")
     let st = ShareLogic.parseTargets(try! JSONSerialization.data(withJSONObject: ["users": [], "groups": [], "remote": [
         ["type": "remote", "target": "@~qrstuvwxyz234567@b.example", "name": "Bert", "host": "b.example", "label": "Bert · b.example · ~qrstuv…"],
         ["type": "remote", "target": "@bert@c.example", "name": "Bert", "host": "c.example"]]]))

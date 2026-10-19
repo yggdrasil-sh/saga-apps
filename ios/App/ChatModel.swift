@@ -240,17 +240,26 @@ final class ChatModel: ObservableObject {
     /// geoeffneter Chat (fuer Live-Ereignisse)
     weak var open: ConversationModel?
     private(set) var keys: ChatKeys?
+    /// Schluessel dieses Geraets fuer FedFlow (einmal je Schluessel berechnet statt je Nachricht)
+    private var ownMemo: (keys: ChatKeys, own: FedFlow.Own)?
+    var own: FedFlow.Own? {
+        guard let k = keys else { return nil }
+        if let m = ownMemo, m.keys == k { return m.own }
+        let o = k.fedOwn; ownMemo = (k, o); return o
+    }
     private var pendingDevice: (id: String, enc: ChatCrypto.KeyPair, sign: ChatCrypto.KeyPair)?
     private var linkPoll: Task<Void, Never>?
     private var handledLinks = Set<String>()
     /// Zertifikate v2 werden gerade hochgeladen (ChatFed.swift)
     var fedCertsRunning = false
+    /// Gruppenname v2 je Chat (Nachrichten-ID der title_msg -> geprueft entschluesselter Name)
+    var titleMemo: [Int: (msg: String, title: String)] = [:]
 
     var deviceID: String? { keys?.deviceID }
     var deviceParam: String { keys.map { "device=" + $0.deviceID } ?? "device=" }
 
     func signedOut() {
-        keys = nil; me = ChatMe(); chats = []; unread = 0; requests = 0; myHandle = nil; state = .loading; approval = nil; linking = nil
+        keys = nil; me = ChatMe(); chats = []; unread = 0; requests = 0; myHandle = nil; state = .loading; approval = nil; linking = nil; titleMemo = [:]
         linkPoll?.cancel(); pendingDevice = nil; handledLinks = []
         ChatMedia.clearAll()                                            // Bild-Caches (Speicher + Ciphertext auf der Platte)
     }
@@ -293,6 +302,7 @@ final class ChatModel: ObservableObject {
             guard let j = ShareJSON.obj(d) else { return }
             var list = (j["chats"] as? [Any] ?? []).compactMap(ChatSummary.init)
             for i in list.indices where list[i].kind == "free" { list[i].decryptedTitle = decryptTitle(list[i]) }
+            await decryptTitlesV2(&list)                                // 2.3: Gruppen ueber Servergrenzen (Absender selbst pruefen)
             if list != chats { chats = list }
             unread = ShareJSON.int(j["unread"]) ?? unread
             requests = ShareJSON.int(j["requests"]) ?? list.filter { $0.fed?.request == true }.count
@@ -566,31 +576,18 @@ final class ChatModel: ObservableObject {
     // MARK: Freie Gruppe: verschluesselter Name
 
     func decryptTitle(_ c: ChatSummary) -> String? {
+        if c.isFed {                                                    // v2: geprueft in decryptTitlesV2 (gemerkt je Nachricht)
+            guard let mid = c.titleMsg?["id"] as? String, let t = titleMemo[c.id], t.msg == mid else { return nil }
+            return t.title
+        }
         guard let m = c.titleMsg, let content = decrypt(chatID: c.id, raw: m, devices: nil, idents: nil)?.content, content.type == "title" else { return nil }
         return content.title
     }
 
     /// Nachricht oeffnen + Echtheit pruefen (Geraet gehoert dem Absender, Zertifikat gegen dessen Identitaet, Signatur)
     func decrypt(chatID: Int, raw m: [String: Any], devices: [String: Any]?, idents: [String: Any]?) -> (content: ChatContent?, verified: Bool)? {
-        guard let k = keys, let mid = m["id"] as? String, let body = m["body_ct"] as? String, let key = m["key"] as? String else { return nil }
-        let sender = ((m["sender"] as? [String: Any])?["username"] as? String) ?? ""
-        let dev = m["sender_device"] as? String ?? ""
-        let ts = (m["ts"] as? NSNumber)?.int64Value ?? 0
-        let reply = ShareJSON.str(m["reply_to"])
-        let pair: ChatCrypto.KeyPair = (m["key_for"] as? String) == "backup" ? .init(pk: k.backupPK, sk: k.backupSKData) : k.enc
-        let pt = ChatCrypto.decryptMessage(chatID: String(chatID), msgID: mid, sender: sender, device: dev, ts: ts, replyTo: reply,
-                                           bodyCT: body, sealedKey: key, pk: pair.pk, sk: pair.sk)
-        // Pruefung: devices/idents aus der Antwort (title_msg: device + ident_pub direkt)
-        let d = (devices?[dev] as? [String: Any]) ?? (m["device"] as? [String: Any])
-        let ip = (idents?[sender] as? String) ?? (m["ident_pub"] as? String)
-        var ok = false
-        if let d, (d["uid"] as? String ?? sender) == sender, let ipk = ChatCrypto.unb64(ip, 32),
-           let enc = ChatCrypto.unb64(d["enc_pub"] as? String, 32), let sg = ChatCrypto.unb64(d["sign_pub"] as? String, 32),
-           ChatCrypto.verify(ChatCrypto.unb64(d["sig"] as? String), ChatCrypto.deviceMsg(uid: sender, deviceID: dev, encPK: enc, signPK: sg), pk: ipk) {
-            ok = ChatCrypto.verifyMessage(chatID: String(chatID), msgID: mid, sender: sender, device: dev, ts: ts, replyTo: reply, bodyCT: body,
-                                          sig: m["sig"] as? String ?? "", signPK: sg)
-        }
-        return (pt.flatMap { ChatContent(json: $0) }, ok)
+        guard let o = own, let r = FedFlow.openV1(m, chatID: String(chatID), own: o, devices: devices, idents: idents) else { return nil }
+        return (r.plain.flatMap { ChatContent(json: $0) }, r.verified)
     }
 }
 

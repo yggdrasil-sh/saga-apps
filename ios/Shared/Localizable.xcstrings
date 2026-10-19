@@ -41,6 +41,40 @@
         }
       }
     },
+    "%@ (%@) hat dich in diese Gruppe eingeladen. Bis du annimmst, bekommst du keine Benachrichtigungen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) hat dich in diese Gruppe eingeladen. Bis du annimmst, bekommst du keine Benachrichtigungen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) invited you to this group. Until you accept, you won't get notifications."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) te ha invitado a este grupo. Hasta que aceptes no recibirás notificaciones."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) приглашает тебя в эту группу. Пока ты не примешь приглашение, уведомлений не будет."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ (%2$@) เชิญคุณเข้ากลุ่มนี้ จนกว่าคุณจะยอมรับ คุณจะไม่ได้รับการแจ้งเตือน"
+          }
+        }
+      }
+    },
     "%@ (%@) möchte dir schreiben. Bis du annimmst, bekommst du keine Benachrichtigungen und keine Anrufe – und %@ erfährt nicht, ob du die Nachrichten gelesen hast." : {
       "localizations" : {
         "de" : {
@@ -105,6 +139,142 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ (สำเนา)"
+          }
+        }
+      }
+    },
+    "%@ aus der Gruppe entfernen?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ aus der Gruppe entfernen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove %@ from the group?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Quitar a %@ del grupo?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить %@ из группы?"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำ %@ ออกจากกลุ่มหรือไม่"
+          }
+        }
+      }
+    },
+    "%@ hat %@ entfernt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ hat %2$@ entfernt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ removed %2$@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ ha quitado a %2$@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ удалил(а) %2$@."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ นำ %2$@ ออกแล้ว"
+          }
+        }
+      }
+    },
+    "%@ hat %@ hinzugefügt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ hat %2$@ hinzugefügt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ added %2$@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ ha añadido a %2$@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ добавил(а) %2$@."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ เพิ่ม %2$@ แล้ว"
+          }
+        }
+      }
+    },
+    "%@ hat die Gruppe verlassen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ hat die Gruppe verlassen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ left the group."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ha salido del grupo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ покинул(а) группу."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ออกจากกลุ่มแล้ว"
           }
         }
       }
@@ -241,6 +411,142 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ อยู่บน %2$@ – หมายเลขนี้เป็นของแชทข้ามเซิร์ฟเวอร์นี้"
+          }
+        }
+      }
+    },
+    "%@ ist jetzt dabei." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ist jetzt dabei."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ has joined."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ se ha unido."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ теперь в группе."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ เข้าร่วมแล้ว"
+          }
+        }
+      }
+    },
+    "%@ ist nicht mehr dabei (Konto gelöscht)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ist nicht mehr dabei (Konto gelöscht)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is no longer here (account deleted)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ya no está (cuenta eliminada)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ больше нет в группе (аккаунт удалён)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ไม่อยู่แล้ว (ลบบัญชีแล้ว)"
+          }
+        }
+      }
+    },
+    "%@ ist nicht mehr dabei – die Verbindung zu diesem Saga-Server wurde getrennt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ist nicht mehr dabei – die Verbindung zu diesem Saga-Server wurde getrennt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is no longer here – the connection to this Saga server was removed."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ya no está: se ha desconectado este servidor Saga."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ больше нет в группе – связь с этим сервером Saga разорвана."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ไม่อยู่แล้ว – การเชื่อมต่อกับเซิร์ฟเวอร์ Saga นี้ถูกตัด"
+          }
+        }
+      }
+    },
+    "%@ ist nicht mehr dabei." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ist nicht mehr dabei."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is no longer here."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ya no está."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ больше нет в группе."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ไม่อยู่แล้ว"
           }
         }
       }
@@ -763,6 +1069,40 @@
         }
       }
     },
+    "%lld Server" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld Server"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld servers"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld servidores"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Серверов: %lld"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld เซิร์ฟเวอร์"
+          }
+        }
+      }
+    },
     "%lld verknüpft" : {
       "localizations" : {
         "de" : {
@@ -1191,6 +1531,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "A เป็นเปอร์เซ็นต์ของ B"
+          }
+        }
+      }
+    },
+    "Ab jetzt mit Personen anderer Saga-Server (Ende-zu-Ende verschlüsselt)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ab jetzt mit Personen anderer Saga-Server (Ende-zu-Ende verschlüsselt)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "From now on with people on other Saga servers (end-to-end encrypted)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A partir de ahora con personas de otros servidores Saga (cifrado de extremo a extremo)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Теперь с людьми с других серверов Saga (сквозное шифрование)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ต่อจากนี้รวมผู้ใช้บนเซิร์ฟเวอร์ Saga อื่น (เข้ารหัสต้นทางถึงปลายทาง)"
           }
         }
       }
@@ -3269,6 +3643,40 @@
         }
       }
     },
+    "Aus der Gruppe entfernen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aus der Gruppe entfernen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove from group"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar del grupo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалить из группы"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำออกจากกลุ่ม"
+          }
+        }
+      }
+    },
     "Aus Favoriten entfernen" : {
       "localizations" : {
         "de" : {
@@ -4901,6 +5309,108 @@
         }
       }
     },
+    "Der Server dieser Seite nimmt noch keine Bilder oder Dateien an (ältere Saga-Version)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Der Server dieser Seite nimmt noch keine Bilder oder Dateien an (ältere Saga-Version)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The server of this page doesn't accept images or files yet (older Saga version)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El servidor de esta página aún no acepta imágenes ni archivos (versión anterior de Saga)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сервер этой страницы пока не принимает изображения и файлы (старая версия Saga)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เซิร์ฟเวอร์ของหน้านี้ยังไม่รับรูปภาพหรือไฟล์ (Saga รุ่นเก่า)"
+          }
+        }
+      }
+    },
+    "dich" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "dich"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "you"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ti"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "тебя"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณ"
+          }
+        }
+      }
+    },
+    "Die KI ist hier jetzt aus." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die KI ist hier jetzt aus."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The AI is now off here."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La IA está ahora desactivada aquí."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ИИ здесь теперь выключен."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "AI ปิดอยู่ที่นี่แล้ว"
+          }
+        }
+      }
+    },
     "Die Mitglieder oder ihre Geräte haben sich geändert – bitte erneut senden." : {
       "localizations" : {
         "de" : {
@@ -4931,6 +5441,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "สมาชิกหรืออุปกรณ์ของพวกเขาเปลี่ยนไป – โปรดส่งอีกครั้ง"
+          }
+        }
+      }
+    },
+    "Die Person bekommt keine neuen Nachrichten mehr." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Person bekommt keine neuen Nachrichten mehr."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This person will no longer receive new messages."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta persona ya no recibirá mensajes nuevos."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Этот человек больше не будет получать новые сообщения."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บุคคลนี้จะไม่ได้รับข้อความใหม่อีก"
           }
         }
       }
@@ -5105,6 +5649,40 @@
         }
       }
     },
+    "Diese Seite liegt auf %@. Hier kannst du sie lesen, kommentieren und bearbeiten." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Diese Seite liegt auf %@. Hier kannst du sie lesen, kommentieren und bearbeiten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This page is on %@. Here you can read, comment on and edit it."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta página está en %@. Aquí puedes leerla, comentarla y editarla."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Эта страница находится на %@. Здесь её можно читать, комментировать и редактировать."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "หน้านี้อยู่บน %@ ที่นี่คุณอ่าน แสดงความคิดเห็น และแก้ไขได้"
+          }
+        }
+      }
+    },
     "Diese Unterhaltung ist schreibgeschützt." : {
       "localizations" : {
         "de" : {
@@ -5237,6 +5815,176 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ออกจากระบบอุปกรณ์นี้หรือไม่ แอปจะต้องเข้าสู่ระบบใหม่ วิดเจ็ตและการแชร์จะใช้งานไม่ได้"
+          }
+        }
+      }
+    },
+    "Du hast %@ entfernt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du hast %@ entfernt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You removed %@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Has quitado a %@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ты удалил(а) %@."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณนำ %@ ออกแล้ว"
+          }
+        }
+      }
+    },
+    "Du hast %@ hinzugefügt." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du hast %@ hinzugefügt."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You added %@."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Has añadido a %@."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ты добавил(а) %@."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณเพิ่ม %@ แล้ว"
+          }
+        }
+      }
+    },
+    "Du hast die Gruppe verlassen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du hast die Gruppe verlassen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You left the group."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Has salido del grupo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ты покинул(а) группу."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณออกจากกลุ่มแล้ว"
+          }
+        }
+      }
+    },
+    "Du hast die KI in diesem Chat ausgeschaltet." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du hast die KI in diesem Chat ausgeschaltet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You turned off the AI in this chat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Has desactivado la IA en este chat."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ты выключил(а) ИИ в этом чате."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณปิด AI ในแชทนี้"
+          }
+        }
+      }
+    },
+    "Du hast die KI in diesem Chat eingeschaltet." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Du hast die KI in diesem Chat eingeschaltet."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You turned on the AI in this chat."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Has activado la IA en este chat."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ты включил(а) ИИ в этом чате."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณเปิด AI ในแชทนี้"
           }
         }
       }
@@ -9049,6 +9797,40 @@
         }
       }
     },
+    "Kein anderes Ziel im geteilten Bereich." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein anderes Ziel im geteilten Bereich."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No other destination in the shared area."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay otro destino en el área compartida."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "В общем разделе нет другого места."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่มีปลายทางอื่นในพื้นที่ที่แชร์"
+          }
+        }
+      }
+    },
     "Kein App-Schlüssel – in der App unter Einstellungen eintragen." : {
       "localizations" : {
         "de" : {
@@ -10507,6 +11289,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ลบ"
+          }
+        }
+      }
+    },
+    "Löschen und Freigaben verwaltet der Eigentümer." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Löschen und Freigaben verwaltet der Eigentümer."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleting and sharing are managed by the owner."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La eliminación y el uso compartido los gestiona el propietario."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Удалением и доступом управляет владелец."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เจ้าของเป็นผู้จัดการการลบและการแชร์"
           }
         }
       }
@@ -13417,6 +14233,40 @@
         }
       }
     },
+    "Personen anderer Saga-Server bekommen die Einladung als Nachrichtenanfrage." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personen anderer Saga-Server bekommen die Einladung als Nachrichtenanfrage."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "People on other Saga servers receive the invitation as a message request."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las personas de otros servidores Saga reciben la invitación como solicitud de mensaje."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Люди с других серверов Saga получат приглашение как запрос на переписку."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ผู้ใช้บนเซิร์ฟเวอร์ Saga อื่นจะได้รับคำเชิญเป็นคำขอข้อความ"
+          }
+        }
+      }
+    },
     "Personen anderer Saga-Server findest du über ihren Namen oder mit name@server." : {
       "localizations" : {
         "de" : {
@@ -13447,6 +14297,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ค้นหาผู้ใช้บนเซิร์ฟเวอร์ Saga อื่นได้จากชื่อหรือด้วย ชื่อ@เซิร์ฟเวอร์"
+          }
+        }
+      }
+    },
+    "Personen anderer Saga-Server lassen sich nur zu neuen Gruppen hinzufügen – bitte eine neue Gruppe anlegen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Personen anderer Saga-Server lassen sich nur zu neuen Gruppen hinzufügen – bitte eine neue Gruppe anlegen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "People on other Saga servers can only be added to new groups – please create a new group."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Las personas de otros servidores Saga solo se pueden añadir a grupos nuevos: crea un grupo nuevo."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Людей с других серверов Saga можно добавить только в новые группы – создай новую группу."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เพิ่มผู้ใช้บนเซิร์ฟเวอร์ Saga อื่นได้เฉพาะในกลุ่มใหม่ – โปรดสร้างกลุ่มใหม่"
           }
         }
       }
@@ -18973,6 +19857,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เกี่ยวกับ Saga"
+          }
+        }
+      }
+    },
+    "Über Servergrenzen: %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Über Servergrenzen: %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Across servers: %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entre servidores: %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Между серверами: %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้ามเซิร์ฟเวอร์: %@"
           }
         }
       }

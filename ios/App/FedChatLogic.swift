@@ -47,6 +47,11 @@ enum FedChatLogic {
     static func isHandle(_ h: String) -> Bool {
         h.range(of: #"^~[a-z2-7]{16}@[^@\s/]+$"#, options: .regularExpression) != nil
     }
+    /// Geraete-Liste eines Schluessel-Eintrags: jede Geraete-ID hoechstens einmal (sonst Eintrag verwerfen)
+    static func uniqueDeviceIDs(_ v: Any?) -> Bool {
+        let ids = (v as? [Any] ?? []).compactMap { ($0 as? [String: Any])?["id"] as? String }
+        return Set(ids).count == ids.count
+    }
     /// Host aus Handle bzw. chat_ref (alles nach dem ERSTEN '@')
     static func host(of h: String) -> String {
         guard let i = h.firstIndex(of: "@") else { return "" }
@@ -83,15 +88,76 @@ enum FedChatLogic {
 
     // MARK: Systemzeilen, Zustellstatus, Senden
 
-    /// Systemzeile (kind 'sys', Klartext-Metadaten in body_ct), z. B. {"type":"ai","on":true,"by":handle,"name":…}
-    enum SysLine: Equatable { case ai(on: Bool, byMe: Bool, name: String), other }
+    /// Person in einer Systemzeile ({name, host, handle}) - Herkunft wird immer gezeigt (ausser beim eigenen Server)
+    struct SysWho: Equatable {
+        var name: String; var host: String; var handle: String
+        init(name: String, host: String, handle: String) { self.name = name; self.host = host; self.handle = handle }
+        init?(_ v: Any?) {
+            guard let d = v as? [String: Any] else { return nil }
+            name = ShareJSON.str(d["name"]) ?? "?"; handle = ShareJSON.str(d["handle"]) ?? ""
+            host = ShareJSON.str(d["host"]) ?? FedChatLogic.host(of: handle)
+        }
+    }
+    /// Mitglieder geaendert (E5): hinzugefuegt/entfernt, von wem (nil = ohne Person, z. B. getrennt), Grund
+    struct MembersLine: Equatable {
+        var added: [SysWho]; var removed: [SysWho]; var by: SysWho?; var reason: String?
+    }
+    /// Systemzeile (kind 'sys', Klartext-Metadaten in body_ct): KI ein/aus {"type":"ai",…}, Mitglieder {"type":"members",…},
+    /// ab jetzt ueber Servergrenzen {"type":"fed","on":true,"ai_off":true?}
+    enum SysLine: Equatable { case ai(on: Bool, byMe: Bool, name: String), members(MembersLine), fed(aiOff: Bool), other }
     static func sysLine(_ bodyCT: String?, myHandle: String?) -> SysLine {
         guard let j = bodyCT.flatMap({ ShareJSON.obj(Data($0.utf8)) }) else { return .other }
-        if j["type"] as? String == "ai" {
+        switch j["type"] as? String {
+        case "ai":
             let by = ShareJSON.str(j["by"])
             return .ai(on: ShareJSON.bool(j["on"]), byMe: by != nil && by == myHandle, name: ShareJSON.str(j["name"]) ?? "?")
+        case "members":
+            let list = { (k: String) in (j[k] as? [Any] ?? []).compactMap(SysWho.init) }
+            return .members(MembersLine(added: list("added"), removed: list("removed"), by: SysWho(j["by"]), reason: ShareJSON.str(j["reason"])))
+        case "fed": return .fed(aiOff: ShareJSON.bool(j["ai_off"]))
+        default: return .other
         }
-        return .other
+    }
+    /// Text einer Systemzeile (wie static/chat.js sysText). `myHandle`: eigener Handle ("Du", "dich", Herkunft weglassen)
+    static func sysText(_ line: SysLine, myHandle: String?) -> String {
+        switch line {
+        case .ai(let on, let byMe, let name):
+            if byMe { return on ? String(localized: "Du hast die KI in diesem Chat eingeschaltet.") : String(localized: "Du hast die KI in diesem Chat ausgeschaltet.") }
+            return on ? String(localized: "\(name) hat die KI in diesem Chat eingeschaltet.") : String(localized: "\(name) hat die KI in diesem Chat ausgeschaltet.")
+        case .fed(let aiOff):
+            let t = String(localized: "Ab jetzt mit Personen anderer Saga-Server (Ende-zu-Ende verschlüsselt).")
+            return aiOff ? t + " " + String(localized: "Die KI ist hier jetzt aus.") : t
+        case .members(let m): return membersText(m, myHandle: myHandle)
+        case .other: return String(localized: "Hinweis")
+        }
+    }
+    private static func membersText(_ k: MembersLine, myHandle: String?) -> String {
+        let mine = myHandle.map { host(of: $0) } ?? ""
+        func who(_ x: SysWho, acc: Bool) -> String {
+            if acc, let mh = myHandle, !x.handle.isEmpty, x.handle == mh { return String(localized: "dich") }   // "… hat dich hinzugefuegt"
+            return x.host.isEmpty || x.host == mine ? x.name : x.name + " (" + x.host + ")"
+        }
+        let meBy = k.by.map { !$0.handle.isEmpty && $0.handle == myHandle } ?? false
+        let by = k.by.flatMap { meBy ? nil : who($0, acc: false) }
+        let add = k.added.map { who($0, acc: k.by != nil) }.joined(separator: ", ")
+        let rm = k.removed.map { who($0, acc: k.by != nil) }.joined(separator: ", ")
+        let rmNom = k.removed.map { who($0, acc: false) }.joined(separator: ", ")
+        var out: [String] = []
+        if !add.isEmpty {
+            if meBy { out.append(String(localized: "Du hast \(add) hinzugefügt.")) }
+            else if let by { out.append(String(localized: "\(by) hat \(add) hinzugefügt.")) }
+            else { out.append(String(localized: "\(add) ist jetzt dabei.")) }
+        }
+        if !rm.isEmpty {
+            let left = k.by != nil && k.removed.count == 1 && k.removed[0].handle == k.by?.handle
+            if k.reason == "disconnected" { out.append(String(localized: "\(rmNom) ist nicht mehr dabei – die Verbindung zu diesem Saga-Server wurde getrennt.")) }
+            else if k.reason == "gone" { out.append(String(localized: "\(rmNom) ist nicht mehr dabei (Konto gelöscht).")) }
+            else if left { out.append(meBy ? String(localized: "Du hast die Gruppe verlassen.") : String(localized: "\(rmNom) hat die Gruppe verlassen.")) }
+            else if meBy { out.append(String(localized: "Du hast \(rm) entfernt.")) }
+            else if let by { out.append(String(localized: "\(by) hat \(rm) entfernt.")) }
+            else { out.append(String(localized: "\(rmNom) ist nicht mehr dabei.")) }
+        }
+        return out.isEmpty ? String(localized: "Hinweis") : out.joined(separator: " ")
     }
     /// Zustellstatus einer Nachricht in v2-Chats (fstate)
     enum Delivery: String, Equatable { case delivered, pending, failed }
@@ -116,11 +182,29 @@ enum FedChatLogic {
         return AIReplyMeta(ref: bodyRef ?? "", sha256: h)
     }
 
+    // MARK: Schluessel, alte Nachrichten
+
+    /// Abfrage fuer GET /api/chat/v2/keys (hoechstens 20, sortiert, ohne Doppelte)
+    static func keysPath(_ handles: [String], fresh: Bool) -> String? {
+        let hs = Array(Set(handles)).sorted().prefix(20)
+        guard !hs.isEmpty else { return nil }
+        var allowed = CharacterSet.alphanumerics; allowed.insert(charactersIn: "~.-_:")
+        return "api/chat/v2/keys?handles=" + hs.map { $0.addingPercentEncoding(withAllowedCharacters: allowed) ?? $0 }.joined(separator: ",") + (fresh ? "&fresh=1" : "")
+    }
+    /// Mehr als 20 Handles (grosse Gruppen): mehrere Abfragen zu je hoechstens 20
+    static func keysPaths(_ handles: [String], fresh: Bool) -> [String] {
+        let hs = Array(Set(handles)).sorted()
+        return stride(from: 0, to: hs.count, by: 20).compactMap { keysPath(Array(hs[$0..<min($0 + 20, hs.count)]), fresh: fresh) }
+    }
+    /// Nachricht eines auf v2 umgestellten Seiten-Chats aus der Zeit davor (ohne sender_handle, E5): mit v1 oeffnen
+    static func isLegacyV1(_ m: [String: Any]) -> Bool {
+        (ShareJSON.str(m["sender_handle"]) ?? "").isEmpty && (m["kind"] as? String ?? "msg") != "sys"
+    }
+
     // MARK: Suche
 
-    /// Personensuche: Server liefert bei 1-2 Zeichen nur genaue Treffer (ab 2.3) - die App fragt ab 1 Zeichen
-    static let minQuery = 1
-    static func searchReady(_ q: String) -> Bool { q.trimmingCharacters(in: .whitespacesAndNewlines).count >= minQuery }
+    /// Personensuche: Server ab 2.3 liefert bei 1-2 Zeichen nur genaue Treffer - dann ab 1 Zeichen, sonst wie bisher ab 3
+    static func searchReady(_ q: String, server: String?) -> Bool { ShareLogic.searchReady(q, server: server) }
     static func people(_ v: Any?) -> [FedPerson] { (v as? [Any] ?? []).compactMap(FedPerson.init) }
 }
 
@@ -129,6 +213,9 @@ struct FedMember: Equatable, Identifiable {
     var username: String; var handle: String; var name: String; var host: String; var remote: Bool; var me: Bool; var label: String
     var id: String { handle }
 }
+
+/// Einladende Person einer Gruppe eines anderen Servers (invited_by)
+struct FedInviter: Equatable { var name: String; var host: String; var label: String }
 
 /// Zusatzfelder eines Chats ueber Servergrenzen (v: 2)
 struct FedChatInfo: Equatable {
@@ -142,6 +229,8 @@ struct FedChatInfo: Equatable {
     var peer: FedMember?
     var peerAvatar: String?
     var members: [FedMember]
+    /// Gruppe eines anderen Servers (E5): wer eingeladen hat ({name, host, label}), nur bei Anfragen
+    var invitedBy: FedInviter?
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], ShareJSON.int(d["v"]) == 2, let ref = ShareJSON.str(d["ref"]) else { return nil }
         self.ref = ref
@@ -162,6 +251,15 @@ struct FedChatInfo: Equatable {
                              label: ShareJSON.str(p["label"]) ?? FedChatLogic.label(name: name, host: host))
             peerAvatar = ShareJSON.str(p["avatar"])
         }
+        if let i = d["invited_by"] as? [String: Any] {
+            let name = ShareJSON.str(i["name"]) ?? "?", host = ShareJSON.str(i["host"]) ?? home
+            invitedBy = FedInviter(name: name, host: host, label: ShareJSON.str(i["label"]) ?? FedChatLogic.label(name: name, host: host))
+        }
+    }
+    /// Wer bittet um Annahme: im Direkt-Chat das Gegenueber, in Gruppen die einladende Person (Rueckfall: Heim)
+    var requester: FedInviter {
+        if let p = peer { return FedInviter(name: p.name, host: p.host, label: p.label) }
+        return invitedBy ?? FedInviter(name: "?", host: home, label: home)
     }
     /// Handles aller Mitglieder (auch der eigene) - fuer die Schluessel
     var handles: [String] {

@@ -69,11 +69,14 @@ struct RemotePageBanner: View {
     let host: String
     var canComment = true
     var canEdit = false
+    /// Server der Seite kann mehr als Titel/Inhalt (2.3, Faehigkeit db)
+    var full = false
     var body: some View {
         // nur versprechen, was die Rolle hier erlaubt
         let h = host.isEmpty ? String(localized: "einer anderen Saga-Instanz") : host
         Label {
-            if canEdit { Text("Diese Seite liegt auf \(h). Hier kannst du sie lesen, kommentieren und Titel und Inhalt ändern.") }
+            if canEdit && full { Text("Diese Seite liegt auf \(h). Hier kannst du sie lesen, kommentieren und bearbeiten.") }
+            else if canEdit { Text("Diese Seite liegt auf \(h). Hier kannst du sie lesen, kommentieren und Titel und Inhalt ändern.") }
             else if canComment { Text("Diese Seite liegt auf \(h). Hier kannst du sie lesen und kommentieren.") }
             else { Text("Diese Seite liegt auf \(h). Hier kannst du sie lesen.") }
         } icon: { Image(systemName: "point.3.connected.trianglepath.dotted") }

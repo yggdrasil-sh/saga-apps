@@ -315,6 +315,10 @@ final class PageDoc: ObservableObject {
     var isDatabase: Bool { page["kind"] as? String == "database" }
     /// Uploads in eine fremde Seite (Rolle Bearbeiten): Datei gehoert dem Eigentuemer (X-Saga-Note)
     var uploadNote: Int? { access.foreign ? id : nil }
+    /// Hochladen nicht moeglich: Server der fremden Seite kann es (noch) nicht (2.3: Faehigkeit upload) -> Meldung statt Versuch
+    var uploadBlocked: String? {
+        access.canUpload ? nil : String(localized: "Der Server dieser Seite nimmt noch keine Bilder oder Dateien an (ältere Saga-Version).")
+    }
     /// Seite als Klartext (Titel + Bloecke, wie sie gerade im Editor stehen)
     func plainTextNow() -> String { ShareLogic.plainText(title: titleRaw, blocks: root, strip: plain) }
 
@@ -396,16 +400,20 @@ final class PageDoc: ObservableObject {
     private func apply(_ d: Data, _ store: Store) async {
         guard let p = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return }
         page = p; rev = p["rev"] as? Int ?? 0
-        let a = PageAccess(page: p); if a != access { access = a }
+        let a = PageAccess(page: p, serverVersion: store.serverVersion); if a != access { access = a }
         noAccess = false; lostAccess = false
         loadedGen = store.sessionGen; loadedOrigin = AppConfig.serverOrigin
         loadedAcct = loadedOrigin.flatMap { DraftOwner.app.account(origin: $0) }
         setBody(p["body"] as? String ?? "", format: p["format"] as? String)
-        // Eigenschaften nur, wenn die uebergeordnete Seite eine Datenbank ist (spart eine Anfrage)
-        if let parent = p["parent_id"] as? Int, store.page(parent)?.isDatabase == true {
+        // Eigenschaften nur, wenn die uebergeordnete Seite eine Datenbank ist (spart eine Anfrage); fremde Seite (2.3):
+        // Elternseite noch unbekannt (z. B. eben angelegte Zeile) -> nachsehen, ob sie eine Datenbank ist
+        if let parent = p["parent_id"] as? Int,
+           store.page(parent)?.isDatabase == true || (FedLogic.isRemote(parent) && store.page(parent) == nil && access.remoteCaps.db) {
             let pd = store.cachedData("api/notes/\(parent)")
             let fresh = try? await store.get("api/notes/\(parent)")
-            if let raw = fresh ?? pd, let pp = try? JSONSerialization.jsonObject(with: raw) as? [String: Any] { parentSchema = pp["schema"] as? [String: Any] }
+            if let raw = fresh ?? pd, let pp = try? JSONSerialization.jsonObject(with: raw) as? [String: Any], pp["kind"] as? String == "database" {
+                parentSchema = pp["schema"] as? [String: Any]
+            } else { parentSchema = nil }
         } else { parentSchema = nil }
         error = nil; loaded = true; fetched = true
     }
@@ -706,7 +714,7 @@ struct NativePageScreen: View {
                     Button { store.setHome(store.homePage == id ? nil : id) } label: {
                         Label(store.homePage == id ? "Nicht mehr Startseite" : "Als Startseite festlegen", systemImage: store.homePage == id ? "house.slash" : "house")
                     }
-                    if a.foreign && a.allows(.addSubpage) && !doc.isDatabase {
+                    if a.foreign && a.allows(.addSubpage) && !doc.isDatabase {      // fremde Instanz (2.3): nur mit Faehigkeit subpages
                         Button { Task { await ed.flush(); if let n = await store.newPage(parent: id) { nav.push(PageRoute(id: n)) } } } label: { Label("Unterseite hinzufügen", systemImage: "doc.badge.plus") }
                     }
                     if store.aiEnabled && doc.fetched {                // KI-Assistent (1.6): nur, wenn der Server ihn fuer mich anbietet
@@ -719,7 +727,7 @@ struct NativePageScreen: View {
                             Button { launchAssistant(tab: 0, action: nil) } label: { Label("Frag deine Seiten", systemImage: "text.magnifyingglass") }
                         } label: { Label(store.aiMenuLabel, systemImage: "sparkles") }
                     }
-                    if store.chat.state == .ready && !a.remote && doc.fetched {   // Chat (2.0): Seiten-Chat fuer alle mit Zugriff
+                    if store.chat.state == .ready && (!a.remote || a.remoteCaps.chatgroups) && doc.fetched {   // Chat (2.0): Seiten-Chat fuer alle mit Zugriff; fremde Seite ab 2.3
                         Button { Task { await openPageChat() } } label: { Label("Chat zu dieser Seite", systemImage: "bubble.left.and.bubble.right") }
                     }
                     if a.commentsSupported {                          // Server 1.3: Kommentare (mit "n erledigt") und Teilen
@@ -758,7 +766,8 @@ struct NativePageScreen: View {
                     Button { Task { await ed.flush(); await doc.load(store) } } label: { Label("Neu laden", systemImage: "arrow.clockwise") }
                     if a.foreign {
                         Divider()
-                        Text("Verschieben, Löschen, Versionen und Freigaben verwaltet der Eigentümer.")
+                        if a.allows(.versions) || a.allows(.move) { Text("Löschen und Freigaben verwaltet der Eigentümer.") }   // 2.3: Bearbeiten darf mehr
+                        else { Text("Verschieben, Löschen, Versionen und Freigaben verwaltet der Eigentümer.") }
                     } else {
                         Divider()
                         Button { Task { await setLocked(!pageLocked) } } label: {
@@ -816,17 +825,18 @@ struct NativePageScreen: View {
 
     // MARK: Live (1.4): Anwesenheit, fremde Aenderungen
 
-    /// alle ~20 s, solange die Seite offen und die App vorne ist; nicht fuer Seiten anderer Saga-Instanzen
+    /// alle ~20 s, solange die Seite offen und die App vorne ist; Seiten anderer Saga-Instanzen nur, wenn deren Server
+    /// Anwesenheit kann (2.3: meldet zugleich das Live-Abo beim Server der Seite an, 90 s)
     private func presenceLoop() async {
-        guard !FedLogic.isRemote(id) else { return }
         for _ in 0..<40 where !doc.fetched { try? await Task.sleep(for: .milliseconds(250)) }   // gleich nach dem Laden melden (sonst kein note.changed)
+        guard !FedLogic.isRemote(id) || doc.access.presence else { return }
         while !Task.isCancelled && !presenceOff {
             if phase == .active && doc.fetched && !doc.noAccess { await sendPresence(leave: false) }
             try? await Task.sleep(for: .seconds(20))
         }
     }
     private func sendPresence(leave: Bool) async {
-        guard !FedLogic.isRemote(id), !presenceOff else { return }
+        guard !FedLogic.isRemote(id) || doc.access.presence, !presenceOff else { return }
         let body: [String: Any] = leave ? ["note_id": id, "leave": true]
             : ["note_id": id, "editing": LiveLogic.editing(lastInput: doc.lastInput, canEdit: !doc.access.readOnly && !pageLocked)]
         guard let (d, code) = try? await store.apiResponse("api/presence", method: "POST", body: body) else { return }
@@ -870,10 +880,10 @@ struct NativePageScreen: View {
     private var pageLocked: Bool { doc.page["locked"] as? Bool ?? false }
     /// Symbol/Titelbild nicht aenderbar: Rolle, Sperre, fremde Instanz - und solange die Seite nie geladen wurde
     /// (sonst ueberschriebe ein PATCH ein unbekanntes vorhandenes Symbol/Titelbild, BUG-061)
-    private var headerReadOnly: Bool { doc.access.readOnly || pageLocked || doc.access.remote || !doc.fetched }
+    private var headerReadOnly: Bool { doc.access.readOnly || pageLocked || !doc.access.remoteExtras || !doc.fetched }
     /// Tippen auf Symbol/Titelbild der gesperrten (eigenen bzw. bearbeitbaren) Seite: Hinweis statt Nichtstun
     private var headerLocked: Bool {
-        HeaderLogic.tap(readOnlyRole: doc.access.readOnly, remote: doc.access.remote, fetched: doc.fetched, locked: pageLocked) == .lockedHint
+        HeaderLogic.tap(readOnlyRole: doc.access.readOnly, remote: !doc.access.remoteExtras, fetched: doc.fetched, locked: pageLocked) == .lockedHint
     }
     /// Seite sperren/entsperren (wie im Web): erst speichern, dann sperren
     private func setLocked(_ on: Bool) async {
@@ -939,7 +949,7 @@ struct NativePageScreen: View {
                     PageTitleField(doc: doc, ed: ed, fallback: store.page(id)?.title)
                     if let by = doc.access.sharedBy { SharedByLabel(owner: by, role: doc.access.role) }      // fremde Seite (1.3)
                     PageMetaLine(access: doc.access, updated: doc.page["updated"] as? Double)
-                    if let host = doc.access.remoteHost { RemotePageBanner(host: host, canComment: doc.access.commentsSupported && doc.access.canComment, canEdit: !doc.access.readOnly) }                    // Foederation (2.0)
+                    if let host = doc.access.remoteHost { RemotePageBanner(host: host, canComment: doc.access.commentsSupported && doc.access.canComment, canEdit: !doc.access.readOnly, full: doc.access.remoteCaps.db) }                    // Foederation (2.0)
                     if !presence.isEmpty { PresenceBar(users: presence) }                                 // Live (1.4)
                     if let by = doc.changedBy { ChangedBanner(name: by) { doc.changedBy = nil; ed.focus = nil; Task { await doc.loadNewVersion(store) } } }
                     if let by = doc.updatedBy { Label("Aktualisiert – geändert von \(by)", systemImage: "arrow.triangle.2.circlepath").font(.caption).foregroundStyle(.secondary) }
@@ -960,7 +970,7 @@ struct NativePageScreen: View {
                             .font(.footnote).buttonStyle(.bordered).tint(.orange)
                     }
                     if let dr = doc.draft, !doc.access.readOnly { DraftBanner(draft: dr, doc: doc, ed: ed) }   // nur lesen: nichts wiederherzustellen
-                    if doc.fetched && !doc.isDatabase && !doc.access.remote { TagsRow(doc: doc) }   // fremde Instanz: nur Titel/Inhalt
+                    if doc.fetched && !doc.isDatabase && doc.access.remoteExtras { TagsRow(doc: doc) }   // fremde Instanz: nur mit Faehigkeit db (2.3)
                     if let schema = doc.parentSchema { EditableProps(doc: doc, schema: schema).padding(.bottom, 8).disabled(doc.access.readOnly) }
                     if doc.isDatabase {
                         DatabaseView(dbID: id, viewID: nil, localViews: nil, pageLocked: pageLocked)

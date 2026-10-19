@@ -240,7 +240,7 @@ struct AddColumnMenu: View {
         Menu {
             ForEach(dbTypes.filter { $0.0 != "relation" }, id: \.0) { t in Button(t.1) { m.addProp(store, type: t.0) } }
             Menu("Relation") {
-                ForEach(store.pages.filter(\.isDatabase)) { d in Button(d.label) { m.addProp(store, type: "relation", target: d.id, targetName: d.label) } }
+                ForEach(store.relationTargets(for: m.dbID)) { d in Button(d.label) { m.addProp(store, type: "relation", target: d.id, targetName: d.label) } }
             }
         } label: { Image(systemName: "plus").foregroundStyle(.secondary) }
             .menuIndicator(.hidden).fixedSize().help("Spalte hinzufügen").accessibilityLabel("Spalte hinzufügen")
@@ -541,3 +541,13 @@ struct FilterRow: View {
 
 func dayString(_ d: Date) -> String { let f = DateFormatter.isoDay(); return f.string(from: d) }
 func dayDate(_ s: String?) -> Date? { guard let s else { return nil }; let f = DateFormatter.isoDay(); return f.date(from: String(s.prefix(10))) }
+
+extension Store {
+    /// Ziel-Datenbanken einer Relation: eigene Datenbank -> eigene; Datenbank eines anderen Servers (2.3) -> nur geteilte
+    /// Datenbanken desselben Servers (andere Ziele verwirft dessen Server)
+    func relationTargets(for dbID: Int) -> [Page] {
+        guard FedLogic.isRemote(dbID) else { return pages.filter(\.isDatabase) }
+        let peer = page(dbID)?.remote?.peer
+        return fedShared.filter { $0.isDatabase && $0.remote?.peer == peer }
+    }
+}
