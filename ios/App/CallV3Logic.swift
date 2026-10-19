@@ -204,16 +204,17 @@ enum CallV3 {
         var active = true
     }
     /// Grenzen fuer einen Video-Sender. streams = Gegenstellen, an die dieses Geraet sendet (1:1 = 1, Mesh n>=3 -> >=2),
-    /// want = Wunsch des Gegenuebers (PiP: small), sourceHeight = kurze Seite der Quelle (Kamera 720, Testbild 360).
-    static func videoLimits(path: Path, kind: Kind, streams: Int, want: Want, sourceHeight: Int) -> Limits {
-        let src = Double(max(1, sourceHeight))
-        func scale(_ target: Double) -> Double { max(1, src / target) }    // "<= 720p": Quellhoehe / 720, nur wenn groesser
+    /// want = Wunsch des Gegenuebers (PiP: small), sourceHeight = kurze Seite der Quelle (Kamera 720, Testbild 360;
+    /// nil = unbekannt: keine Skalierung, bei want small 480 angenommen wie im Web).
+    static func videoLimits(path: Path, kind: Kind, streams: Int, want: Want, sourceHeight: Int?) -> Limits {
+        let src = sourceHeight.map { Double(max(1, $0)) }
+        func scale(_ target: Double) -> Double { src.map { max(1, $0 / target) } ?? 1 }   // "<= 720p": Quellhoehe / 720, nur wenn groesser
         let mesh = streams >= 2
         var l: Limits
         switch (kind, path) {
-        case (.screen, .direct): l = Limits(maxBitrate: 2_500_000, scaleDown: scale(1080), maxFramerate: 15)
-        case (.screen, .relayUDP): l = Limits(maxBitrate: 1_800_000, scaleDown: scale(1080), maxFramerate: 15)
-        case (.screen, .relayTCP): l = Limits(maxBitrate: 1_200_000, scaleDown: scale(1080), maxFramerate: 8, maintainResolution: true)
+        case (.screen, .direct): l = Limits(maxBitrate: 2_500_000, scaleDown: 1, maxFramerate: 15)          // Bildschirm: nie skalieren
+        case (.screen, .relayUDP): l = Limits(maxBitrate: 1_800_000, scaleDown: 1, maxFramerate: 15)
+        case (.screen, .relayTCP): l = Limits(maxBitrate: 1_200_000, scaleDown: 1, maxFramerate: 8, maintainResolution: true)
         case (.camera, .direct): l = mesh ? Limits(maxBitrate: 600_000, scaleDown: scale(540), maxFramerate: 30) : Limits(maxBitrate: 1_500_000, scaleDown: scale(720), maxFramerate: 30)
         case (.camera, .relayUDP): l = mesh ? Limits(maxBitrate: 500_000, scaleDown: scale(540), maxFramerate: 30) : Limits(maxBitrate: 1_200_000, scaleDown: scale(720), maxFramerate: 30)
         case (.camera, .relayTCP): l = mesh ? Limits(maxBitrate: 350_000, scaleDown: scale(360), maxFramerate: 15) : Limits(maxBitrate: 800_000, scaleDown: scale(540), maxFramerate: 30)
@@ -224,7 +225,7 @@ enum CallV3 {
         case .large: break
         case .small:                                                        // Gegenstelle im PiP: <= 300 (Mesh 200) kbit/s
             l.maxBitrate = min(l.maxBitrate, mesh ? 200_000 : 300_000)
-            l.scaleDown = max(2, min(3, src / 240))                         // max(2, min(3, Hoehe/240))
+            l.scaleDown = max(2, min(3, (src ?? 480) / 240))                // max(2, min(3, Hoehe/240)), ungerundet
         case .off: l.active = false
         }
         return l

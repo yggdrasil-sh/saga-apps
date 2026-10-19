@@ -768,7 +768,7 @@ final class CallManager: NSObject, ObservableObject {
 
     private func applyLimits() {
         guard let pc, let path = CallV3.worse(path, remotePath) else { return }   // schlechterer von eigenem/gemeldetem Weg
-        let src = camera?.height ?? 720
+        let src = camera?.height                                            // ohne Kamera unbekannt (small: 480)
         let v = CallV3.videoLimits(path: path, kind: .camera, streams: 1, want: remoteWant, sourceHeight: src)
         if v != appliedVideo, let s = pc.transceivers.first(where: { $0.mediaType == .video })?.sender {
             let p = s.parameters
