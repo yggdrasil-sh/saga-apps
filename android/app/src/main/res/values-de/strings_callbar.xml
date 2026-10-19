@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Laufender Anruf: Leiste oben in der App, Rueckkehr aus dem Chat, Minimieren im Anrufbildschirm -->
+<resources>
+    <string name="call_bar_active">Anruf läuft · %1$s</string>
+    <string name="call_bar_incoming">Eingehender Anruf von %1$s</string>
+    <string name="call_bar_connecting">Anruf mit %1$s · verbindet</string>
+    <string name="call_bar_tap">tippen zum Zurückkehren</string>
+    <string name="call_return">Zum Anruf zurückkehren</string>
+    <string name="call_minimize">Anruf minimieren</string>
+</resources>

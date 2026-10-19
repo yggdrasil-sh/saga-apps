@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Laufender Anruf: Leiste oben in der App, Rueckkehr aus dem Chat, Minimieren im Anrufbildschirm -->
+<resources>
+    <string name="call_bar_active">กำลังโทร · %1$s</string>
+    <string name="call_bar_incoming">สายเรียกเข้าจาก %1$s</string>
+    <string name="call_bar_connecting">โทรหา %1$s · กำลังเชื่อมต่อ</string>
+    <string name="call_bar_tap">แตะเพื่อกลับไป</string>
+    <string name="call_return">กลับไปที่สาย</string>
+    <string name="call_minimize">ย่อหน้าจอสาย</string>
+</resources>

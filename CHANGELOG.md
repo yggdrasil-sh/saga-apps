@@ -6,6 +6,18 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Behoben – Android: Zurück in den laufenden Anruf
+Lief ein Anruf und ging man in der App zurück in den Chat, zeigte nichts mehr, dass der Anruf noch aktiv ist – zurück
+kam man nur über die Mitteilung.
+- **Leiste „Anruf läuft · m:ss – tippen zum Zurückkehren“** oben in der App auf allen Bildschirmen außer dem
+  Anrufbildschirm (beim Aufbau „verbindet“, beim Klingeln „Eingehender Anruf von …“). Tippen öffnet den laufenden
+  Anruf wieder – ohne Neuaufbau, Ton und Bild laufen weiter.
+- **Im betroffenen Chat** zusätzlich „Zum Anruf zurückkehren“; die Anruf-Knöpfe dort führen während des Anrufs
+  ebenfalls zurück statt „Du telefonierst gerade schon“ zu melden.
+- **Zurück (Taste/Geste) im Anrufbildschirm minimiert** nur (neu auch ein Knopf „Anruf minimieren“ oben links);
+  aufgelegt wird ausschließlich mit „Auflegen“. Anrufbildschirm und Vordergrund-Dienst bleiben erhalten, erneutes
+  Öffnen baut keine zweite Verbindung auf.
+
 ## [2.3.0] – 2026-10-19
 
 Passt zu Saga-Server 2.3. **Die neuen Funktionen brauchen Saga-Server 2.3; ältere Server funktionieren weiter**

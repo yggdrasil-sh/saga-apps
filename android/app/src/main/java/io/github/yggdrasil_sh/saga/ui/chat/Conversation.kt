@@ -306,7 +306,13 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             callNow(v && !io.github.yggdrasil_sh.saga.call.CallPermissions.missing(context, true).contains(android.Manifest.permission.CAMERA))
         }
     }
-    val startCall: (Boolean) -> Unit = { video ->
+    val callSt by repo.calls.ui.collectAsState()
+    val startCall: (Boolean) -> Unit = start@{ video ->
+        // laeuft hier schon ein Anruf: Anruf-Knoepfe fuehren zu ihm zurueck statt "telefonierst schon"
+        if (io.github.yggdrasil_sh.saga.call.CallReturn.dial(repo.calls.ui.value, chatId) == io.github.yggdrasil_sh.saga.call.CallReturn.Dial.RETURN) {
+            io.github.yggdrasil_sh.saga.call.CallActivity.open(context)
+            return@start
+        }
         val need = io.github.yggdrasil_sh.saga.call.CallPermissions.missing(context, video)
         if (need.isEmpty()) callNow(video) else {
             callVideo = video
@@ -406,6 +412,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 }
             },
         )
+        // Laeuft der Anruf in diesem Chat: zurueck in den Anrufbildschirm (derselbe Anruf, kein neuer Aufbau)
+        io.github.yggdrasil_sh.saga.call.ReturnToCallRow(callSt, chatId)
         search?.let { q ->
             OutlinedTextField(
                 value = q, onValueChange = { search = it }, singleLine = true, placeholder = { Text(stringResource(R.string.chat_search_hint)) },
