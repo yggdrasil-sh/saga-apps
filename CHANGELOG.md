@@ -117,6 +117,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
   Fortschritt und ist gesperrt, bis der Eintrag angelegt ist – mehrfaches Klicken erzeugt keine weiteren Einträge
   (wie in iOS/macOS). Fehler erscheinen als Hinweis.
 
+### Schneller (Android)
+- **Seitenbaum per Abgleich statt immer ganz:** Wie unter Linux holt die App mit Servern ab 2.2 beim Start, im Takt,
+  beim Wiederverbinden und nach Live-Änderungen (`notes.tree`) nur noch das Geänderte (`GET /api/notes?since=…`) und
+  arbeitet es ein – ohne Änderung 67 Bytes statt des ganzen Baums (341 Seiten: 70 KB). `notes.tree` für angelegte/
+  geänderte Seiten braucht eine kleine Anfrage statt je Seite deren Inhalt. Neu: Die eingearbeitete Liste liegt mit
+  ihrem Stand im App-Speicher (`notes-cache`, Format von `GET /api/notes`) – der Seitenbaum steht beim Start sofort da
+  (nur für denselben Server und dasselbe Konto), der erste Abgleich holt nur das seitdem Geänderte. Stand verworfen bei
+  Abmelden, Anmelden/Kontowechsel, Live „reset“, `notes.tree` mit `full: true`, abgelehntem oder unpassendem Stand und
+  spätestens nach einem Tag. Ältere Server (Antwort = Liste) laufen wie bisher (dann kein Zwischenspeicher).
+
 ### Schneller (Linux)
 - **Seitenbaum per Abgleich statt immer ganz:** Nach Änderungen anderswo (Live `notes.tree`), im Takt, beim
   Wiederverbinden und beim Start holt die App mit Servern ab 2.2 nur noch, was sich seit ihrem letzten Stand geändert

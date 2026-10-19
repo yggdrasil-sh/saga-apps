@@ -300,6 +300,7 @@ class LiveCenter(private val repo: SagaRepository, private val scope: CoroutineS
                 }
             }
             "reset" -> scope.launch {
+                repo.dropTreeCursor()                                     // Verpasstes nicht nachholbar: Baum ganz laden
                 repo.refresh()
                 repo.loadFedShared()
                 loadNotifications()
