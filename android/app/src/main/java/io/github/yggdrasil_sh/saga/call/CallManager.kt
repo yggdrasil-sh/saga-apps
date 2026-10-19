@@ -166,7 +166,11 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         var audioIdle = 0
         val seen = HashSet<Long>()
         val early = ArrayList<CallSignalDto>()
-        val remoteIce = ArrayList<IceCandidate>()
+        /** Eingegangene Kandidaten mit ihrer ufrag (ICE-Generation) */
+        val remoteIce = ArrayList<Pair<IceCandidate, String?>>()
+        /** ufrags frueherer Remote-SDPs (Kandidaten dieser Generationen verwerfen) */
+        val oldUfrags = HashSet<String>()
+        var curUfrags: Set<String> = emptySet()
         val outIce = ArrayList<JsonObject>()
         var outJob: Job? = null
         var ready = false
@@ -198,16 +202,33 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         var applied: String? = null
         var restartJob: Job? = null
         var lastRestart = 0L
+        /** ICE-Restarts seit dem letzten "connected" (hoechstens CallV3.MAX_RESTARTS) */
+        var restartTries = 0
+        /** Nach "failed": Frist bis zum Beenden */
+        var failJob: Job? = null
+        /** Vom Gegenueber gemeldeter Weg (`state.path`) */
+        var peerPath: CallV3.Path? = null
         /** Antwort auf ein Neu-Angebot unterwegs: eigene Kandidaten erst danach senden */
         var answering = false
+        /** Server 2.4 (features vorhanden): `caps`-Hinweis in POST /api/calls bzw. /answer mitsenden */
+        var capsHint = false
     }
 
     /** Neuverhandlung (ICE-Restart) nur, wenn beide Geraete `reneg` melden - sonst exakt das Verhalten von 2.3 */
     private fun reneg(c: Call): Boolean = c.peerDevice != null && CallV3.canReneg(c.myCaps, c.peerCaps)
 
+    /** Erstes Angebot (des Anrufers) traegt n=1: Anrufer n=1/remoteN=0, Angerufener n=0/remoteN=1 */
     private fun neg(c: Call): CallV3.Negotiator = c.neg ?: CallV3.Negotiator(
         CallV3.polite(repo.chat.keys()?.dev?.id.orEmpty(), c.peerDevice.orEmpty()),
+        n = if (c.caller) 1 else 0, remoteN = if (c.caller) 0 else 1,
     ).also { c.neg = it }
+
+    /** Remote-SDP wurde gesetzt: aktuelle ufrags merken, fruehere als alte Generation */
+    private fun remoteSet(c: Call) {
+        val now = CallV3.sdpUfrags(c.pc?.remoteDescription?.description)
+        c.oldUfrags.addAll(c.curUfrags - now)
+        c.curUfrags = now
+    }
 
     private fun capsJson(c: Call) = JsonArray(c.myCaps.map { JsonPrimitive(it) })
 
@@ -296,8 +317,13 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         return crypto.sealSignal(c.id!!, k.uid, k.dev, c.peer.username, toDev, pd.enc, body)
     }
 
-    private fun sealAll(c: Call, devs: Collection<String>, body: String): JsonObject = buildJsonObject {
-        for (d in devs) put(d, seal(c, d, body))
+    /** `pc` fuer ein Zielgeraet: die ausgehandelte Kennung, sonst (Anrufer vor der Annahme) das sortierte Geraetepaar */
+    private fun pcFor(c: Call, dev: String): String =
+        if (dev == c.peerDevice && c.pcId.isNotEmpty()) c.pcId else CallV3.pcId(keys().dev.id, dev)
+
+    /** Body je Zielgeraet mit dessen `pc` versiegeln */
+    private fun sealPerDevice(c: Call, devs: Collection<String>, body: JsonObject): JsonObject = buildJsonObject {
+        for (d in devs) put(d, seal(c, d, JsonObject(body + ("pc" to JsonPrimitive(pcFor(c, d)))).toString()))
     }
 
     /** Signal oeffnen und pruefen -> (Absendergeraet, Inhalt) oder null (Sicherheitspruefung fehlgeschlagen) */
@@ -423,6 +449,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                         put("candidate", cand.sdp)
                         put("sdpMid", cand.sdpMid)
                         put("sdpMLineIndex", cand.sdpMLineIndex)
+                        // 2.4: ICE-Generation (ufrag) fuer den Empfaenger (Restart)
+                        val uf = CallV3.candidateUfrag(cand.sdp, null)
+                            ?: CallV3.sdpUfrags(c.pc?.localDescription?.description).firstOrNull()
+                        if (uf != null) put("usernameFragment", uf)
                     })
                     if (c.outJob == null) c.outJob = scope.launch {
                         delay(120)
@@ -447,7 +477,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             }
 
             override fun onSignalingChange(s: PeerConnection.SignalingState) {}
-            override fun onIceConnectionChange(s: PeerConnection.IceConnectionState) {}
+            override fun onIceConnectionChange(s: PeerConnection.IceConnectionState) {
+                scope.launch { onIce(c, s) }
+            }
             override fun onIceConnectionReceivingChange(b: Boolean) {}
             override fun onIceGatheringChange(s: PeerConnection.IceGatheringState) {}
             override fun onIceCandidatesRemoved(cands: Array<out IceCandidate>) {}
@@ -547,14 +579,17 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     private fun applyRemoteIce(c: Call) {
         val pc = c.pc ?: return
-        val remote = pc.remoteDescription ?: return
+        if (pc.remoteDescription == null) return
+        remoteSet(c)
         val list = ArrayList(c.remoteIce)
         c.remoteIce.clear()
-        // 2.4: Kandidaten einer neuen ICE-Generation (Restart), deren Angebot/Antwort noch nicht gesetzt ist, warten
-        val ufrags = CallV3.sdpUfrags(remote.description)
-        val keep = ArrayList<IceCandidate>()
-        for (x in list) {
-            if (CallV3.candidateWaits(x.sdp, ufrags)) keep.add(x) else pc.addIceCandidate(x)
+        // 2.4: Kandidaten einer neuen ICE-Generation (Restart), deren SDP noch nicht gesetzt ist, zurueckhalten;
+        // Kandidaten aelterer Generationen verwerfen
+        val keep = ArrayList<Pair<IceCandidate, String?>>()
+        for (x in list) when (CallV3.candidateAction(x.second, c.curUfrags, c.oldUfrags)) {
+            CallV3.CandAction.APPLY -> pc.addIceCandidate(x.first)
+            CallV3.CandAction.WAIT -> keep.add(x)
+            CallV3.CandAction.DROP -> {}
         }
         c.remoteIce.addAll(keep.takeLast(60))
     }
@@ -563,7 +598,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         for (e in (b["c"] as? JsonArray).orEmpty().take(60)) {
             val x = e as? JsonObject ?: continue
             val cand = x.s("candidate")?.takeIf { it.isNotEmpty() } ?: continue
-            c.remoteIce.add(IceCandidate(x.s("sdpMid") ?: "0", (x["sdpMLineIndex"] as? JsonPrimitive)?.intOrNull ?: 0, cand))
+            val ice = IceCandidate(x.s("sdpMid") ?: "0", (x["sdpMLineIndex"] as? JsonPrimitive)?.intOrNull ?: 0, cand)
+            c.remoteIce.add(ice to CallV3.candidateUfrag(cand, x.s("usernameFragment")))
         }
     }
 
@@ -575,7 +611,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val devs = CallLogic.targets(c.peerDevice, c.peerDevs.keys)
         if (devs.isEmpty()) return
         try {
-            val sig = withContext(Dispatchers.Default) { sealAll(c, devs, body.toString()) }
+            val sig = withContext(Dispatchers.Default) { sealPerDevice(c, devs, body) }
             api.post("api/calls/$id/signal", buildJsonObject {
                 put("device", keys().dev.id)
                 put("signals", sig)
@@ -597,7 +633,6 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             sendSignal(c, buildJsonObject {
                 put("t", "ice")
                 put("c", JsonArray(batch))
-                if (reneg(c)) put("pc", c.pcId)
             })
         }
     }
@@ -612,12 +647,21 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             // 2.4: Bild-im-Bild und gewuenschte Videogroesse (aeltere Gegenstellen ignorieren die Felder)
             put("pip", c.pip)
             putJsonObject("want") { put("video", c.myWant) }
+            // eigener Weg (immer, sobald bekannt); das Gegenueber rechnet mit dem schlechteren
+            c.path?.let { put("path", it.wire) }
         })
     }
 
     private suspend fun handle(c: Call, b: JsonObject?) {
         if (b == null) {
             securityFail(c)
+            return
+        }
+        // Signale einer fremden PeerConnection ignorieren (ohne `pc`: 2.3, die einzige Verbindung)
+        val from = b.s("_from").orEmpty()
+        val expectPc = if (c.peerDevice == null || from == c.peerDevice) pcFor(c, from) else ""
+        if (!CallV3.pcMatches(b.s("pc"), expectPc)) {
+            log("signal for other pc ignored")
             return
         }
         when (CallV3.kind(b.s("t"))) {
@@ -633,7 +677,6 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     return
                 }
                 if (!c.caller) return
-                val from = b.s("_from")
                 if (c.peerDevice != null && from != c.peerDevice) return
                 val sdp = b.s("sdp")
                 if (!CallCrypto.fpMatches(sdp, b.fp())) {
@@ -641,6 +684,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     return
                 }
                 c.peerDevice = from                         // ab jetzt Signale nur an das annehmende Geraet
+                c.pcId = CallV3.pcId(keys().dev.id, from.orEmpty())
                 c.peerCaps = CallV3.caps(b)
                 c.fps = CallCrypto.sdpFingerprints(sdp)
                 try {
@@ -656,8 +700,11 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 c.gotState = true
                 // 2.4: Gegenueber im Bild-im-Bild -> mein Video kleiner (Tabelle Konzept §1.3); fehlt das Feld: "large"
                 val want = CallV3.peerWant(b)
-                if (want != c.peerWant) {
+                // 2.4: gemeldeter Weg des Gegenuebers - es gilt der schlechtere
+                val pp = CallV3.parsePath(b.s("path"))
+                if (want != c.peerWant || pp != c.peerPath) {
                     c.peerWant = want
+                    c.peerPath = pp
                     applyLimits(c)
                 }
                 val st = _ui.value ?: return
@@ -666,8 +713,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     remoteVideo = c.remoteVideo != null && ((b["cam"] as? JsonPrimitive)?.booleanOrNull == true || (b["screen"] as? JsonPrimitive)?.booleanOrNull == true),
                 )
             }
-            // Ein Endgeraet verlaesst den Anruf: im 1:1-Anruf beendet der Server den Anruf ohnehin (call.state)
-            CallV3.Kind.BYE -> log("bye from ${b.s("_from")}")
+            // Gegenueber legt auf (1:1): sofort beenden; /end sendet das Gegenueber selbst
+            CallV3.Kind.BYE -> if (from == c.peerDevice) remoteEnded(c, "hangup")
             CallV3.Kind.UNKNOWN -> {}                       // unbekannte Typen neuerer Versionen ignorieren
         }
     }
@@ -705,9 +752,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 put("t", "answer")
                 put("sdp", asdp)
                 put("fp", buildJsonArray { CallCrypto.sdpFingerprints(asdp).forEach { add(JsonPrimitive(it)) } })
+                put("media", c.media)
                 put("caps", capsJson(c))
-                put("pc", c.pcId)
-                put("n", neg(c).remoteN)
+                put("n", neg(c).remoteN)                    // n des beantworteten Angebots
             })
         } catch (e: CancellationException) {
             throw e
@@ -747,10 +794,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (cur !== c || c.done || !reneg(c)) return false
         val pc = c.pc ?: return false
         val ng = neg(c)
-        val now = System.currentTimeMillis()
-        if (ng.makingOffer || now - c.lastRestart < 4000) return true
-        c.lastRestart = now
-        log("ice restart ($why)")
+        if (ng.makingOffer) return true
+        // hoechstens 3 Versuche je Abbruch (zurueckgesetzt bei "connected")
+        if (c.restartTries >= CallV3.MAX_RESTARTS) return true
+        c.restartTries++
+        c.lastRestart = System.currentTimeMillis()
+        log("ice restart ($why) #${c.restartTries}")
         scope.launch {
             val n = ng.startOffer()
             try {
@@ -765,8 +814,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     put("media", c.media)
                     put("fp", buildJsonArray { CallCrypto.sdpFingerprints(sdp).forEach { add(JsonPrimitive(it)) } })
                     put("caps", capsJson(c))
-                    put("pc", c.pcId)
                     put("n", n)
+                    put("restart", true)                    // nur Hinweis
                 })
             } catch (e: CancellationException) {
                 throw e
@@ -785,7 +834,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     /** Grenzen fuer Video- und Audio-Sender nach Pfad und Wunsch des Gegenuebers setzen (nur bei Aenderung) */
     private fun applyLimits(c: Call) {
         val pc = c.pc ?: return
-        val p = c.path ?: return
+        // es gilt der schlechtere Weg von eigenem und vom Gegenueber gemeldetem
+        val p = CallV3.worse(c.path, c.peerPath) ?: return
         val v = CallV3.videoLimits(p, c.peerWant)
         val a = CallV3.audioMaxBps(p)
         val key = "$v|$a"
@@ -804,7 +854,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO -> {
                         enc.maxBitrateBps = v.maxBps
                         enc.scaleResolutionDownBy = v.scaleDown
-                        enc.maxFramerate = v.maxFps
+                        if (v.maxFps != null) enc.maxFramerate = v.maxFps
                         enc.active = v.active
                         prm.degradationPreference = if (v.degradation == CallV3.Degradation.MAINTAIN_RESOLUTION)
                             RtpParameters.DegradationPreference.MAINTAIN_RESOLUTION else RtpParameters.DegradationPreference.BALANCED
@@ -912,7 +962,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 val cfg = loadConfig()
                 if (!cfg.enabled) throw UiTextException(UiText.Res(R.string.call_disabled))
                 c.myCaps = CallV3.myCaps(cfg.featureSet)
-                c.pcId = ChatFormat.hex(repo.chat.crypto.random(4))
+                c.capsHint = cfg.featureSet.isNotEmpty()
                 peerKeys(c)
                 if (c.peerDevs.isEmpty()) throw UiTextException(UiText.Res(R.string.call_peer_no_keys, peer.name.ifEmpty { peer.username }))
                 if (cur !== c) return@launch
@@ -942,19 +992,21 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             put("sdp", sdp)
             put("media", c.media)
             put("fp", buildJsonArray { CallCrypto.sdpFingerprints(sdp).forEach { add(JsonPrimitive(it)) } })
-            // 2.4: Faehigkeiten und PeerConnection-Kennung (aeltere Apps ignorieren die Felder)
+            // 2.4: Faehigkeiten und erstes Angebot n=1; `pc` je Zielgeraet (sealPerDevice). Aeltere Apps ignorieren das
             put("caps", capsJson(c))
-            put("pc", c.pcId)
-        }.toString()
+            put("n", 1)
+        }
         update(c, UiText.Res(R.string.call_connecting))
         try {
-            val sig = withContext(Dispatchers.Default) { sealAll(c, c.peerDevs.keys, body) }
+            val sig = withContext(Dispatchers.Default) { sealPerDevice(c, c.peerDevs.keys, body) }
             api.post("api/calls", buildJsonObject {
                 put("id", c.id)
                 put("chat_id", c.chatId)
                 put("media", c.media)
                 put("device", keys().dev.id)
                 put("signals", sig)
+                // optionaler Hinweis fuer Server/Oberflaeche (nur an 2.4-Server; massgeblich sind die signierten caps)
+                if (c.capsHint) put("caps", capsJson(c))
             })
         } catch (e: ApiException) {
             val o = try {
@@ -1116,8 +1168,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 c.peerDevice = info.callerDevice
                 c.fps = CallCrypto.sdpFingerprints(sdp)
                 c.myCaps = CallV3.myCaps(cfg.featureSet)
+                c.capsHint = cfg.featureSet.isNotEmpty()
                 c.peerCaps = CallV3.caps(offer)
-                c.pcId = offer.s("pc")?.take(64) ?: ChatFormat.hex(repo.chat.crypto.random(4))
+                // `pc` legt der Anrufer fest; der Angerufene uebernimmt sie (2.3 ohne pc: das Geraetepaar)
+                c.pcId = offer.s("pc")?.take(200) ?: CallV3.pcId(k.dev.id, info.callerDevice.orEmpty())
                 if (cur !== c) return@launch
                 localMedia(c, video)
                 CallService.start(app, c.videoTrack != null)
@@ -1132,13 +1186,17 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     put("t", "answer")
                     put("sdp", asdp)
                     put("fp", buildJsonArray { CallCrypto.sdpFingerprints(asdp).forEach { add(JsonPrimitive(it)) } })
+                    put("media", c.media)
                     put("caps", capsJson(c))
                     put("pc", c.pcId)
+                    // Antwort traegt das n des beantworteten Angebots (2.3-Anrufer ohne n: 1)
+                    put("n", (offer["n"] as? JsonPrimitive)?.intOrNull ?: 1)
                 }.toString()
                 val sig = withContext(Dispatchers.Default) { buildJsonObject { put(c.peerDevice!!, seal(c, c.peerDevice!!, body)) } }
                 api.post("api/calls/${r.id}/answer", buildJsonObject {
                     put("device", k.dev.id)
                     put("signals", sig)
+                    if (c.capsHint) put("caps", capsJson(c))
                 })
                 if (cur !== c) return@launch
                 c.ready = true
@@ -1183,28 +1241,55 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     checkStats(c)
                     watchNetwork(c)
                 }
-                c.restartJob?.cancel()
-                c.restartJob = null
                 update(c, null, reconnecting = false)
             }
-            PeerConnection.PeerConnectionState.DISCONNECTED -> {
-                update(c, UiText.Res(R.string.call_reconnecting), reconnecting = true)
-                // 2.4: bleibt die Verbindung getrennt, ICE neu aushandeln (nur mit beidseitigem `reneg`)
+            PeerConnection.PeerConnectionState.DISCONNECTED -> update(c, UiText.Res(R.string.call_reconnecting), reconnecting = true)
+            PeerConnection.PeerConnectionState.FAILED -> {
+                // 2.4: laufendes Gespraech mit beidseitigem `reneg` -> ICE-Restart (onIce), Frist 20 s; sonst wie bisher
+                if (c.connected && reneg(c)) {
+                    update(c, UiText.Res(R.string.call_reconnecting), reconnecting = true)
+                    failSoon(c)
+                } else iceFailed(c)
+            }
+            else -> {}
+        }
+    }
+
+    /** Kommt die Verbindung nach `failed` nicht binnen 20 s wieder, wie bisher mit reason "failed" beenden */
+    private fun failSoon(c: Call) {
+        if (c.failJob?.isActive == true) return
+        c.failJob = scope.launch {
+            delay(CallV3.FAILED_WAIT_MS)
+            if (cur === c && c.pc?.connectionState() != PeerConnection.PeerConnectionState.CONNECTED) iceFailed(c)
+        }
+    }
+
+    /**
+     * 2.4 ICE-Restart nach Vertrag (nur mit beidseitigem `reneg`): `disconnected` laenger als 2,5 s, sofort bei `failed`;
+     * hoechstens 3 Versuche je Abbruch, zurueckgesetzt bei `connected`.
+     */
+    private fun onIce(c: Call, s: PeerConnection.IceConnectionState) {
+        if (cur !== c || c.pc == null) return
+        when (s) {
+            PeerConnection.IceConnectionState.CONNECTED, PeerConnection.IceConnectionState.COMPLETED -> {
+                c.restartTries = 0
+                c.restartJob?.cancel()
+                c.restartJob = null
+                c.failJob?.cancel()
+                c.failJob = null
+            }
+            PeerConnection.IceConnectionState.DISCONNECTED -> {
                 if (c.connected && reneg(c) && c.restartJob?.isActive != true) c.restartJob = scope.launch {
-                    delay(2500)
-                    if (cur === c && c.pc?.connectionState() != PeerConnection.PeerConnectionState.CONNECTED) restartIce(c, "disconnected")
+                    delay(CallV3.DISCONNECTED_WAIT_MS)
+                    if (cur === c && c.pc?.iceConnectionState() == PeerConnection.IceConnectionState.DISCONNECTED) restartIce(c, "disconnected")
                 }
             }
-            PeerConnection.PeerConnectionState.FAILED -> {
-                // 2.4: gescheiterte Verbindung eines laufenden Gespraechs per ICE-Restart retten, sonst wie bisher beenden
-                if (c.connected && restartIce(c, "failed")) {
-                    update(c, UiText.Res(R.string.call_reconnecting), reconnecting = true)
+            PeerConnection.IceConnectionState.FAILED -> {
+                if (c.connected && reneg(c)) {
                     c.restartJob?.cancel()
-                    c.restartJob = scope.launch {
-                        delay(20_000)
-                        if (cur === c && c.pc?.connectionState() != PeerConnection.PeerConnectionState.CONNECTED) iceFailed(c)
-                    }
-                } else iceFailed(c)
+                    restartIce(c, "failed")
+                    failSoon(c)
+                }
             }
             else -> {}
         }
@@ -1245,12 +1330,16 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             val r = byId[pair.members["remoteCandidateId"] as? String]
             // 2.4: Relais ueber TCP/TLS (turns:…:443) gesondert - eigene Bitrate-Regeln (Konzept §1.3)
             val p = CallV3.path(l?.members?.get("candidateType") as? String, l?.members?.get("relayProtocol") as? String,
-                r?.members?.get("candidateType") as? String)
+                r?.members?.get("candidateType") as? String, l?.members?.get("protocol") as? String)
             if (p != null) {
                 path = CallV3.pathLabel(p)
-                if (p != c.path) log("path $p")
+                val changed = p != c.path
                 c.path = p
                 applyLimits(c)
+                if (changed) {
+                    log("path $p")
+                    scope.launch { if (cur === c) stateOut(c) }   // `state.path` an das Gegenueber
+                }
             }
             rtt = (pair.members["currentRoundTripTime"] as? Number)?.toDouble()
         }
@@ -1401,10 +1490,34 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             if (ring != null) decline() else _ui.value = null
             return
         }
-        if (c.id != null && !c.ending) quietPost("api/calls/${c.id}/end", buildJsonObject {
-            put("reason", "hangup")
-            put("connected", c.connected)
-        })
+        val id = c.id
+        if (id != null && !c.ending) {
+            val end = buildJsonObject {
+                put("reason", "hangup")
+                put("connected", c.connected)
+            }
+            // 2.4: an eine Gegenstelle mit `bye` zuerst {"t":"bye","reason":"hangup"}, dann wie bisher /end
+            val bye = if (c.ready && c.peerDevice != null && CallV3.CAP_BYE in c.peerCaps) try {
+                sealPerDevice(c, listOf(c.peerDevice!!), buildJsonObject {
+                    put("t", "bye")
+                    put("reason", "hangup")
+                })
+            } catch (_: Exception) {
+                null
+            } else null
+            if (bye == null) quietPost("api/calls/$id/end", end) else scope.launch {
+                try {
+                    api.post("api/calls/$id/signal", buildJsonObject {
+                        put("device", keys().dev.id)
+                        put("signals", bye)
+                    })
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                }
+                quietPost("api/calls/$id/end", end)
+            }
+        }
         finish(c, if (c.connected) UiText.Res(R.string.call_ended_dur, CallLogic.duration((System.currentTimeMillis() - c.t0) / 1000)) else UiText.Res(R.string.call_ended), false)
     }
 
@@ -1439,6 +1552,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         c.connJob?.cancel()
         c.outJob?.cancel()
         c.restartJob?.cancel()
+        c.failJob?.cancel()
         unwatchNetwork()
         stopTone()
         if (!error && c.ready) tone(ToneGenerator.TONE_PROP_PROMPT, 400)

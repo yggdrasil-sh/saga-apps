@@ -20,10 +20,13 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 **Anrufe (Grundlage saga-call v3):**
 - **Netzwechsel ohne Abbruch:** Wechselt das Telefon zwischen WLAN und Mobilfunk oder reißt die Verbindung kurz ab,
-  baut die App die Verbindung neu auf (ICE-Restart), statt den Anruf zu beenden. Nur wenn beide Seiten Saga 2.4 nutzen
-  und der Server es anbietet – mit älteren Apps bleibt alles wie bisher.
+  baut die App die Verbindung neu auf (ICE-Restart, höchstens drei Versuche; kommt sie nach einem Abbruch nicht binnen
+  20 s wieder, endet der Anruf wie bisher). Nur wenn beide Seiten Saga 2.4 nutzen und der Server es anbietet – mit
+  älteren Apps bleibt alles wie bisher.
 - **Bitrate passend zum Weg:** direkt bis 1,5 Mbit/s (720p), über das Relais bis 1,2 Mbit/s, über TURN auf Port 443
-  (TCP/TLS) bis 800 kbit/s mit 540p und schmalerem Ton – weniger Ruckeln auf schwachen Verbindungen.
+  (TCP/TLS) bis 800 kbit/s mit 540p und schmalerem Ton – weniger Ruckeln auf schwachen Verbindungen. Beide Seiten
+  teilen sich ihren Weg mit; es gilt der schlechtere.
+- **Auflegen** meldet eine 2.4-Gegenstelle sofort („bye“), ihr Anrufbildschirm schließt ohne Verzögerung.
 - **Kamera mitten im Anruf einschalten:** Der Vordergrund-Dienst bekommt den Typ „Kamera“ jetzt vor dem Kamerastart.
   Bisher konnte die Kamera stoppen, wenn man nach dem Einschalten die App verließ.
 - Neue Signaltypen späterer Versionen werden ignoriert. Neuverhandlungen tragen weiter den signierten
