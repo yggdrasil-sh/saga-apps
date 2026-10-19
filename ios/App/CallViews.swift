@@ -56,6 +56,19 @@ struct CallScreen: View {
                 .help(Text("Zurück zur App"))
             }
         }
+        #else
+        .overlay(alignment: .topLeading) {                                   // 2.4: Schwebefenster (Bild im Bild)
+            if CallLogic.isOngoing(calls.phase.rawValue) && calls.phase != .preparing && (calls.media == "video" || calls.remote.cam) {
+                Button { CallPanel.shared.enter() } label: {
+                    Image(systemName: "pip.enter").font(.body.weight(.semibold)).frame(width: 34, height: 34)
+                        .background(.white.opacity(0.18), in: Circle())
+                }
+                .buttonStyle(.plain).foregroundStyle(.white)
+                .padding(.leading, 14).padding(.top, 10)
+                .accessibilityLabel(Text("Bild im Bild"))
+                .help(Text("Bild im Bild"))
+            }
+        }
         #endif
         .foregroundStyle(.white)
         .environment(\.colorScheme, .dark)
@@ -76,6 +89,10 @@ struct CallScreen: View {
                 if calls.relay { Text(verbatim: "·"); Text("über Relais") }
             }
             .font(.caption).foregroundStyle(.white.opacity(0.85)).shadow(radius: 2)
+            if calls.reconnecting {                                          // 2.4: ICE-Restart laeuft
+                Label("Verbindung wird neu aufgebaut …", systemImage: "arrow.triangle.2.circlepath")
+                    .font(.caption).foregroundStyle(.white.opacity(0.9)).shadow(radius: 2)
+            }
             if calls.phase == .active, let d = audioLine {
                 Label(d.text, systemImage: d.ok ? "speaker.wave.2" : "speaker.slash")
                     .font(.caption2).foregroundStyle(.white.opacity(d.ok ? 0.6 : 0.85)).shadow(radius: 2)
@@ -212,9 +229,16 @@ struct CallPresenter: ViewModifier {
     @ObservedObject var calls: CallManager
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
+    #else
+    @Environment(\.scenePhase) private var scenePhase
     #endif
     func body(content: Content) -> some View {
         content
+            #if os(iOS)
+            // 2.4: Quellansicht fuer Bild-im-Bild (unsichtbar hinter der App) und Szenenwechsel (Hintergrund)
+            .background { PiPSourceHost().allowsHitTesting(false).accessibilityHidden(true) }
+            .onChange(of: scenePhase, initial: true) { _, p in CallPiP.shared.sceneActive(p == .active) }
+            #endif
             // 2.3.1: laufender Anruf verkleinert bzw. Mac-Fenster im Hintergrund -> gruene Leiste oben, Tippen kehrt zurueck
             .safeAreaInset(edge: .top, spacing: 0) {
                 if CallLogic.showsCallBar(phase: calls.phase.rawValue, minimized: calls.minimized, separateWindow: separateWindow) {
@@ -343,6 +367,7 @@ struct CallWindowContent: View {
     var body: some View {
         CallWindowBody(calls: store.calls) { dismissWindow(id: "call") }
             .frame(minWidth: 380, idealWidth: 460, minHeight: 520, idealHeight: 640)
+            .background { WindowReader { CallPanel.shared.attach(window: $0, calls: store.calls) } }   // 2.4: Schwebefenster
     }
 }
 private struct CallWindowBody: View {
@@ -352,7 +377,8 @@ private struct CallWindowBody: View {
         CallScreen(calls: calls, close: close)
             .onChange(of: calls.phase) { _, p in if p == .idle { close() } }
             .onAppear { if calls.phase == .idle { close() } }
-            .onDisappear { if calls.busy { calls.hangup() } }                // Fenster geschlossen = auflegen
+            // Fenster geschlossen = auflegen; ins Dock verkleinert (Schwebefenster uebernimmt) ist KEIN Schliessen
+            .onDisappear { if calls.busy && !CallPanel.shared.miniaturizing && !CallPanel.shared.windowHidden { calls.hangup() } }
     }
 }
 #endif

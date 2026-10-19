@@ -79,6 +79,8 @@ enum CallLogic {
         case answer(sdp: String, fp: [String])
         case ice([Candidate])
         case state(mic: Bool, cam: Bool, screen: Bool)
+        /// 2.4 (saga-call v3): ein Endgeraet verlaesst den Anruf
+        case bye
         case other(String)
     }
     static func offerBody(sdp: String, media: String) -> String { json(["t": "offer", "sdp": sdp, "media": media, "fp": sdpFingerprints(sdp)]) }
@@ -105,7 +107,8 @@ enum CallLogic {
             return .ice(list)
         case "state":
             return .state(mic: (j["mic"] as? Bool) != false, cam: (j["cam"] as? Bool) == true, screen: (j["screen"] as? Bool) == true)
-        default: return .other(t)
+        case "bye": return .bye
+        default: return .other(t)                                        // unbekannte t-Typen: ignorieren (Aufrufer)
         }
     }
 

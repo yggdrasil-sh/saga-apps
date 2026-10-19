@@ -80,6 +80,28 @@ Die Anruf-Signalisierung (`App/CallCrypto.swift`, `App/CallLogic.swift`) prüft 
   Notifications“ reicht, der Server schickt mit demselben APNs-Schlüssel (.p8) an das Thema `<App-ID>.voip`.
 - Mac: Kamera/Mikrofon und eingehende Verbindungen sind in `App/App-macOS*.entitlements` freigegeben (Sandbox).
 - Tests ohne Kamera/Mikrofon (Simulator, Debug): Startparameter `-hkFakeMedia YES` (Testbild + Testton, kein CallKit).
+- **Saga 2.4 (saga-call v3):** Signal-Bodys tragen zusätzlich `pc`, `caps` (`reneg`, `pip_hint`) und `n`; neu sind
+  `bye` und `state.pip`/`state.want.video`. Neuverhandlung (Perfect Negotiation, höflich = größere device_id) und
+  ICE-Restart (Verbindung weg, Netzwechsel per `NWPathMonitor`) nur, wenn das Gegenüber `reneg` meldet – mit 2.3-Apps
+  bleibt alles wie bisher. Bitrate je Pfad (direkt/Relay-UDP/Relay-TCP, alle 2 s aus getStats) über
+  `RTCRtpSender.parameters`. Logik: `App/CallV3Logic.swift`, Tests: `Tests/Logic/CallV3Tests.swift`.
+- **Bild im Bild:** iPhone/iPad über `AVPictureInPictureController` (Videoanruf-Quelle, `AVSampleBufferDisplayLayer`,
+  `App/CallPiP.swift`, Bilder ohne Kopie: `App/PiPBuffer.swift`); Mac als schwebendes `NSPanel` (`App/CallPanel.swift`).
+  Kamera im PiP nur, wo `AVCaptureSession.isMultitaskingCameraAccessSupported` gilt (sonst pausiert sie, das Gegenüber
+  sieht „Kamera aus“); eine zusätzliche Berechtigung wird nicht eingetragen.
+
+#### Energie messen: Bild im Bild (Konzept 2.4 §3.5/§8)
+Nur auf echten Geräten (iPhone 12-Klasse und aktuelles iPhone), Debug-Build über Xcode, Gegenüber im selben WLAN,
+Bildschirmhelligkeit fest, Akku über 50 %, kein Ladekabel bei MetricKit-Läufen. Jede Messung dreimal, Median.
+1. **Vollbild (Referenz):** 10 min Videoanruf im Vollbild. In Xcode → Debug-Navigator → *Energy Impact* den
+   Durchschnitt notieren; parallel Instruments → *Time Profiler* + *Thermal State* mitlaufen lassen.
+2. **Bild im Bild:** Gleicher Anruf, nach 30 s „Zurück zur App“ (Pfeil oben links) bzw. Home-Geste – PiP öffnet sich.
+   10 min so lassen, dieselben Werte notieren.
+3. **Gegenseite:** Ist das Gegenüber ein Browser (Saga 2.4), zeigt `chrome://webrtc-internals` → `outbound-rtp`
+   (video) während Schritt 2 die gesendete Rate: erwartet ≤ 300 kbit/s, nach der Rückkehr wieder bis 1,5 Mbit/s.
+4. **Ziel:** Energie im PiP ≤ 90 % des Vollbilds, Wärme keine Stufe höher, Mehr-CPU für die Bildübergabe ≤ 3 %
+   (Time Profiler: `PiPRenderer.renderFrame` + `PiPSampleMaker.wrap`). Werte in die Tabelle des Release-Dokuments.
+5. **MetricKit (optional):** Zwei Läufe an verschiedenen Tagen, `MXCPUMetric`/`MXDisplayMetric` aus dem Tagesbericht.
 
 ### Mitteilungen (APNs)
 iOS/iPadOS haben die Berechtigung `aps-environment` immer (`App/App-iOS.entitlements`); die App-ID braucht dafür die

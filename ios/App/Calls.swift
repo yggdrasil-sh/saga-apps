@@ -1,5 +1,6 @@
 import SwiftUI
 import AVFoundation
+import Network
 import WebRTC
 
 // Anrufe (Saga 2.1): 1:1 aus dem Direkt-Chat, WebRTC Geraet <-> Geraet. Signalisierung ueber /api/calls + Live-Kanal
@@ -20,7 +21,7 @@ struct IncomingCall: Identifiable, Equatable {
 final class CallManager: NSObject, ObservableObject {
     weak var store: Store?
     enum Phase: String, Equatable { case idle, preparing, ringingOut, incoming, connecting, active, ended }
-    @Published private(set) var phase: Phase = .idle
+    @Published private(set) var phase: Phase = .idle { didSet { if phase != oldValue { pipRefresh() } } }
     @Published var status = ""
     @Published private(set) var peerName = ""
     @Published private(set) var peerAvatar: String?
@@ -35,7 +36,7 @@ final class CallManager: NSObject, ObservableObject {
     @Published private(set) var localVideo: RTCVideoTrack?
     /// Eigenes Bild nur bei der Frontkamera spiegeln (Rueckkamera: Schrift lesbar)
     @Published private(set) var frontCamera = true
-    @Published private(set) var remoteVideo: RTCVideoTrack?
+    @Published private(set) var remoteVideo: RTCVideoTrack? { didSet { if remoteVideo !== oldValue { pipRefresh() } } }
     @Published private(set) var incoming: IncomingCall?
     @Published private(set) var failed = false
     @Published var speaker = false
@@ -52,6 +53,12 @@ final class CallManager: NSObject, ObservableObject {
     @Published var minimized = false
     /// Vollbild gerade wirklich auf dem Bildschirm (von der Oberflaeche gesetzt; zum Warten vor dem Navigieren)
     var coverVisible = false
+    /// 2.4: Bild-im-Bild (iOS-PiP bzw. Mac-Schwebefenster) aktiv -> Gegenueber bekommt want small
+    @Published private(set) var pip = false
+    /// 2.4: Pfad des gewaehlten Kandidatenpaars (Bitrate-Regeln, Konzept §1.3)
+    @Published private(set) var path: CallV3.Path?
+    /// 2.4: Verbindung wird per ICE-Restart neu aufgebaut
+    @Published private(set) var reconnecting = false
 
     // Zustand des laufenden Anrufs
     private var id: String?
@@ -81,6 +88,23 @@ final class CallManager: NSObject, ObservableObject {
     private var v2: (me: String, peer: String)?
     /// Anrufe, die schon beendet/abgelehnt wurden (spaete call.ring/Push nicht erneut klingeln lassen)
     private var done = Set<String>()
+    // 2.4 (saga-call v3): Kennung der PeerConnection, Faehigkeiten des Gegenuebers (nil = 2.3), Neuverhandlung
+    private var pcID = "p" + ChatCrypto.hexID().prefix(8)
+    private var peerCaps: [String]?
+    private var neg = CallV3.Negotiator()
+    private var remoteWant = CallV3.Want.large
+    private var wantOut = PiPLogic.WantSender()
+    private var appliedVideo: CallV3.Limits?
+    private var appliedAudio: Int?
+    private var restarts = 0
+    private var restartTask: Task<Void, Never>?
+    private var net: NWPathMonitor?
+    private var lastNet: CallV3.NetPath?
+    /// eigene Kamera vom System pausiert (PiP/Hintergrund ohne Kamera-Multitasking) -> state.cam = false
+    private var camPaused = false
+    /// Signale nacheinander verarbeiten (Neuverhandlung darf sich nicht mit ICE/Antworten ueberholen)
+    private var chain: Task<Void, Never>?
+    private var canReneg: Bool { CallV3.canReneg(peerCaps) }
 
     var busy: Bool { phase != .idle && phase != .ended }
     var callID: String? { id }
@@ -94,9 +118,30 @@ final class CallManager: NSObject, ObservableObject {
     /// Zurueck in die App: Vollbild schliessen, Anruf laeuft weiter; Endhinweis gleich zu
     func minimize() {
         if phase == .ended { dismissEnded(); return }
-        if CallLogic.isOngoing(phase.rawValue) { minimized = true }
+        if CallLogic.isOngoing(phase.rawValue) { minimized = true; pipRefresh() }
     }
-    func expand() { if CallLogic.isOngoing(phase.rawValue) { minimized = false } }
+    func expand() { if CallLogic.isOngoing(phase.rawValue) { minimized = false; pipRefresh() } }
+
+    // MARK: Bild-im-Bild (2.4)
+
+    /// iOS: PiP-Steuerung nachziehen (Phase, Fernbild, verkleinert); Mac: Schwebefenster
+    func pipRefresh() {
+        #if os(iOS)
+        CallPiP.shared.update(self)
+        #else
+        CallPanel.shared.refresh()
+        #endif
+    }
+    /// PiP bzw. Schwebefenster an/aus -> Gegenueber um kleines/grosses Bild bitten (ein state-Signal je Wechsel)
+    func pipChanged(_ on: Bool) {
+        if pip != on { pip = on }
+        if wantOut.update(PiPLogic.want(pip: on)) { stateOut() }
+    }
+    /// Kamera vom System unterbrochen (Hintergrund ohne Multitasking-Freigabe) bzw. wieder frei
+    func cameraInterrupted(_ on: Bool) {
+        guard camPaused != on else { return }
+        camPaused = on; stateOut()
+    }
     /// Vor dem Navigieren (Mitteilung, Link): Vollbild schliessen und warten, bis es wirklich weg ist
     func minimizeUI() async {
         #if os(iOS)
@@ -176,20 +221,20 @@ final class CallManager: NSObject, ObservableObject {
         for d in devs { if let s = seal(d, body) { out[d] = s } }
         return out
     }
-    /// Oeffnen + pruefen -> Inhalt; nil = Pruefung fehlgeschlagen. Unbekanntes Geraet: Schluessel einmal neu holen.
-    private func open(_ s: [String: Any]) async -> CallLogic.Signal? {
+    /// Oeffnen + pruefen -> Inhalt (+ 2.4-Zusatzfelder); nil = Pruefung fehlgeschlagen. Unbekanntes Geraet: Schluessel einmal neu holen.
+    private func open(_ s: [String: Any]) async -> (sig: CallLogic.Signal, meta: CallV3.Meta)? {
         guard let id, let k = store?.chat.keys, let from = s["from_device"] as? String, let sealed = s["sealed"] as? String else { return nil }
         if peerDevs[from] == nil && !keysRefreshed { keysRefreshed = true; try? await loadPeerKeys(peer, name: peerName) }
         if let v = v2 {                                                 // 2.3: an MEINEN Handle/mein Geraet gebunden
             guard let pd = peerDevs[from], let o = ChatCrypto.openSignalV2(sealed, pk: k.enc.pk, sk: k.enc.sk),
                   ChatCrypto.verifySignalV2(callID: id, fromHandle: v.peer, fromDevice: from, toHandle: v.me, toDevice: k.deviceID, body: o.body, sig: o.sig, signPK: pd.sign)
             else { return nil }
-            return CallLogic.parse(o.body)
+            return CallLogic.parse(o.body).map { ($0, CallV3.meta(o.body)) }
         }
         guard let pd = peerDevs[from], let o = ChatCrypto.openSignal(sealed, pk: k.enc.pk, sk: k.enc.sk),
               ChatCrypto.verifySignal(callID: id, fromUID: peer, fromDevice: from, toUID: me, toDevice: k.deviceID, body: o.body, sig: o.sig, signPK: pd.sign)
         else { return nil }
-        return CallLogic.parse(o.body)
+        return CallLogic.parse(o.body).map { ($0, CallV3.meta(o.body)) }
     }
     private var targets: [String] { peerDevice.map { [$0] } ?? Array(peerDevs.keys) }
     private func sendSignal(_ body: String) async {
@@ -200,7 +245,8 @@ final class CallManager: NSObject, ObservableObject {
     }
     private func stateOut() {
         guard ready else { return }
-        let b = CallLogic.stateBody(mic: mic, cam: cam, screen: false)
+        // 2.4: pip + want (aeltere Gegenueber lesen nur mic/cam/screen)
+        let b = CallV3.stateBody(mic: mic, cam: cam && !camPaused, screen: false, pip: pip, want: PiPLogic.want(pip: pip))
         Task { await sendSignal(b) }
     }
 
@@ -237,7 +283,8 @@ final class CallManager: NSObject, ObservableObject {
     private func dial(again: Bool) async throws {
         guard let store, let id, let dev = myDevice, let sdp = pc?.localDescription?.sdp, !ending, phase == .preparing else { return }
         status = String(localized: "Verbinde …")
-        let body = CallLogic.offerBody(sdp: sdp, media: media)
+        let n = neg.localN > 0 ? neg.localN : neg.initialOffer()       // 2.4: pc, caps, n (aeltere Apps lesen sdp/media/fp)
+        let body = CallV3.offerBody(sdp: sdp, media: media, pc: pcID, n: n)
         let (d, code) = try await store.apiResponse("api/calls", method: "POST", body: ["id": id, "chat_id": chatID, "media": media, "device": dev, "signals": sealAll(Array(peerDevs.keys), body)])
         // Waehrend des POST aufgelegt (oder schon ein neuer Anruf): nicht klingeln lassen, sondern den eben angelegten
         // Anruf beim Server beenden - das /end aus hangup() kam ggf. vor dem Anlegen an und ging ins Leere.
@@ -344,19 +391,21 @@ final class CallManager: NSObject, ObservableObject {
                 }
                 let callerDev = c["caller_device"] as? String ?? ""
                 try await loadPeerKeys(peer, name: peerName)
-                var offer: (sdp: String, fp: [String])?
+                var offer: (sdp: String, fp: [String], meta: CallV3.Meta)?
                 for s in j["signals"] as? [[String: Any]] ?? [] {
                     if let q = ShareJSON.int(s["seq"]) { _ = CallLogic.fresh(q, seen: &seen) }
-                    guard let sg = await open(s) else { securityFail(); return }
+                    guard let (sg, m) = await open(s) else { securityFail(); return }
                     guard (s["from_device"] as? String) == callerDev else { continue }
                     switch sg {
-                    case .offer(let sdp, _, let fp): if offer == nil { offer = (sdp, fp) }
+                    case .offer(let sdp, _, let fp): if offer == nil { offer = (sdp, fp, m) }
                     case .ice(let c): remoteIce += c
                     default: break
                     }
                 }
                 guard let offer, CallLogic.fingerprintsMatch(sdp: offer.sdp, fp: offer.fp) else { securityFail(); return }
                 peerDevice = callerDev; fps = CallLogic.sdpFingerprints(offer.sdp)
+                adoptPeer(offer.meta, device: callerDev)
+                neg.initialRemote(offer.meta.n)
                 try await prepareMedia(video: video)
                 guard phase == .connecting else { return }
                 makePC()
@@ -366,7 +415,7 @@ final class CallManager: NSObject, ObservableObject {
                 findRemoteVideo()
                 let ans = try await pc.answerAsync(CallRTC.constraints)
                 try await pc.setLocalAsync(ans)
-                guard let sdp = pc.localDescription?.sdp, let sealed = seal(callerDev, CallLogic.answerBody(sdp: sdp)) else { throw APIError.other("–") }
+                guard let sdp = pc.localDescription?.sdp, let sealed = seal(callerDev, CallV3.answerBody(sdp: sdp, pc: pcID, n: offer.meta.n ?? 1)) else { throw APIError.other("–") }
                 let (ad, ac) = try await store.apiResponse("api/calls/\(inc.id)/answer", method: "POST", body: ["device": dev, "signals": [callerDev: sealed]])
                 if ac == 409 { throw APIError.other(String(localized: "Der Anruf ist schon beendet oder wurde auf einem anderen Gerät angenommen.")) }
                 guard (200..<300).contains(ac) else { throw APIError.http(ac, ShareJSON.obj(ad).flatMap { ShareJSON.str($0["error"]) } ?? "") }
@@ -415,7 +464,7 @@ final class CallManager: NSObject, ObservableObject {
         }
         if video {
             let allowed = CallEnv.fakeMedia ? true : await AVCaptureDevice.requestAccess(for: .video)
-            if allowed, let c = CallCamera(factory: f) { camera = c; localVideo = c.track; cam = true; frontCamera = c.front }
+            if allowed, let c = CallCamera(factory: f) { camera = c; localVideo = c.track; cam = true; frontCamera = c.front; wire(c) }
             else { toast = String(localized: "Keine Kamera verfügbar – Anruf nur mit Ton."); media = role == "caller" ? "audio" : media }
         }
     }
@@ -468,7 +517,7 @@ final class CallManager: NSObject, ObservableObject {
         while !outIce.isEmpty {
             let n = min(CallLogic.iceBatch, outIce.count)
             let list = Array(outIce.prefix(n)); outIce.removeFirst(n)
-            let b = CallLogic.iceBody(list)
+            let b = CallV3.iceBody(list, pc: pcID)
             Task { await sendSignal(b) }
         }
     }
@@ -503,7 +552,8 @@ final class CallManager: NSObject, ObservableObject {
         case "call.signal":
             guard cid != nil, cid == id, (d["to_device"] as? String) == myDevice, let seq = ShareJSON.int(d["seq"]), CallLogic.fresh(seq, seen: &seen) else { return }
             if !ready { early.append(d); return }
-            Task { await handleRaw(d) }
+            let prev = chain
+            chain = Task { await prev?.value; await self.handleRaw(d) }   // der Reihe nach (Neuverhandlung)
         case "call.state":
             guard let cid else { return }
             let st = d["state"] as? String
@@ -537,15 +587,20 @@ final class CallManager: NSObject, ObservableObject {
 
     private func handleRaw(_ s: [String: Any]) async {
         let from = s["from_device"] as? String
-        guard let sg = await open(s) else { securityFail(); return }
+        guard let (sg, m) = await open(s) else { securityFail(); return }
+        guard CallV3.samePC(m.pc, pcID) else { return }                // 2.4: andere PeerConnection (spaeter Mesh) - nicht unsere
         switch sg {
         case .ice(let c):
             remoteIce += c; applyRemoteIce()
         case .answer(let sdp, let fp):
-            guard role == "caller", let pc, pc.remoteDescription == nil else { return }
+            guard let pc else { return }
+            if pc.remoteDescription != nil { await renegAnswer(sdp: sdp, fp: fp, meta: m, from: from); return }
+            guard role == "caller" else { return }
             if let pd = peerDevice, from != pd { return }
             guard CallLogic.fingerprintsMatch(sdp: sdp, fp: fp) else { securityFail(); return }
             peerDevice = from; fps = CallLogic.sdpFingerprints(sdp)
+            if let from { adoptPeer(m, device: from) }
+            _ = neg.remoteAnswer(n: m.n, haveLocalOffer: true)
             CallTones.shared.stop()
             phase = .connecting; status = String(localized: "Verbinde …")
             do {
@@ -557,9 +612,148 @@ final class CallManager: NSObject, ObservableObject {
                     if let self, !self.connected, self.ready { self.iceFailed() }
                 }
             } catch { fail(String(localized: "Verbindung nicht aufgebaut: \(error.localizedDescription)")) }
-        case .state(let m, let c, let sc):
-            remote = CallRemoteState(mic: m, cam: c, screen: sc); findRemoteVideo()
-        case .offer, .other: break
+        case .offer(let sdp, _, let fp):
+            await renegOffer(sdp: sdp, fp: fp, meta: m, from: from)       // erstes Angebot kommt ueber answer(), nicht hier
+        case .state(let mi, let c, let sc):
+            remote = CallRemoteState(mic: mi, cam: c, screen: sc); findRemoteVideo()
+            let w = m.want ?? .large                                       // 2.3-Gegenueber: immer grosses Bild
+            if w != remoteWant { remoteWant = w; applyLimits() }
+            pipRefresh()
+        case .bye:
+            if let pd = peerDevice, from == pd { remoteEnded(reason: nil) }
+        case .other: break                                                 // unbekannte t-Typen: ignorieren
+        }
+    }
+
+    // MARK: Neuverhandlung (2.4, saga-call v3) - nur mit Gegenuebern, die "reneg" melden
+
+    /// Faehigkeiten des Gegenuebers uebernehmen; die pc-Kennung legt der Anrufer fest (Angerufener uebernimmt sie);
+    /// hoeflich = groessere device_id
+    private func adoptPeer(_ m: CallV3.Meta, device: String) {
+        if let c = m.caps { peerCaps = c }
+        if role == "callee", let p = m.pc { pcID = p }
+        if let mine = myDevice { neg.polite = CallV3.polite(me: mine, peer: device) }
+    }
+    /// SDP waehrend des Gespraechs: gleiches Geraet, Fingerabdruecke passen und sind dieselben wie beim Aufbau
+    /// (DTLS-Zertifikat aendert sich bei einer Neuverhandlung nicht - sonst Abbruch wie bei jeder Pruefung)
+    private func renegTrusted(sdp: String, fp: [String], from: String?) -> Bool? {
+        guard let pd = peerDevice, from == pd else { return nil }
+        guard CallLogic.fingerprintsMatch(sdp: sdp, fp: fp), Set(CallLogic.sdpFingerprints(sdp)) == Set(fps) else { return false }
+        return true
+    }
+    private func renegOffer(sdp: String, fp: [String], meta: CallV3.Meta, from: String?) async {
+        guard ready, canReneg, let pc, pc.remoteDescription != nil, !ending else { return }
+        guard let ok = renegTrusted(sdp: sdp, fp: fp, from: from) else { return }
+        guard ok else { securityFail(); return }
+        switch neg.remoteOffer(n: meta.n, stable: pc.signalingState == .stable) {
+        case .ignore, .stale:
+            CallEnv.log("reneg: Angebot verworfen (Zusammenstoss/alt)")
+            return
+        case .accept(let rollback):
+            do {
+                if rollback { try await pc.setLocalAsync(RTCSessionDescription(type: .rollback, sdp: "")) }
+                try await pc.setRemoteAsync(RTCSessionDescription(type: .offer, sdp: sdp))
+                applyRemoteIce()
+                let ans = try await pc.answerAsync(CallRTC.constraints)
+                try await pc.setLocalAsync(ans)
+                guard let out = pc.localDescription?.sdp else { return }
+                findRemoteVideo()
+                CallEnv.log("reneg: Antwort n=\(meta.n ?? 0)")
+                await sendSignal(CallV3.answerBody(sdp: out, pc: pcID, n: meta.n ?? 0))
+            } catch { CallEnv.log("reneg offer: \(error.localizedDescription)") }
+        }
+    }
+    private func renegAnswer(sdp: String, fp: [String], meta: CallV3.Meta, from: String?) async {
+        guard canReneg, let pc else { return }
+        guard let ok = renegTrusted(sdp: sdp, fp: fp, from: from) else { return }
+        guard ok else { securityFail(); return }
+        guard neg.remoteAnswer(n: meta.n, haveLocalOffer: pc.signalingState == .haveLocalOffer) == .apply else { return }
+        do {
+            try await pc.setRemoteAsync(RTCSessionDescription(type: .answer, sdp: sdp))
+            applyRemoteIce(); findRemoteVideo()
+            CallEnv.log("reneg: fertig n=\(meta.n ?? 0)")
+        } catch { CallEnv.log("reneg answer: \(error.localizedDescription)") }
+    }
+    /// Eigenes Angebot waehrend des Gespraechs (ICE-Restart). Zusammenstoss regelt Perfect Negotiation.
+    private func renegotiate(iceRestart: Bool) async {
+        guard ready, canReneg, let pc, pc.remoteDescription != nil, pc.signalingState == .stable, !neg.makingOffer, !ending else { return }
+        let n = neg.beginOffer()
+        do {
+            let c = iceRestart ? RTCMediaConstraints(mandatoryConstraints: ["IceRestart": "true"], optionalConstraints: ["DtlsSrtpKeyAgreement": "true"])
+                               : CallRTC.constraints
+            let o = try await pc.offerAsync(c)
+            guard neg.makingOffer, pc.signalingState == .stable, !ending else { neg.offerFailed(); return }   // inzwischen fremdes Angebot angenommen
+            try await pc.setLocalAsync(o)
+            neg.offerSent(n)
+            guard let sdp = pc.localDescription?.sdp else { return }
+            CallEnv.log("reneg: Angebot n=\(n) restart=\(iceRestart)")
+            await sendSignal(CallV3.offerBody(sdp: sdp, media: media, pc: pcID, n: n))
+        } catch { neg.offerFailed(); CallEnv.log("reneg: \(error.localizedDescription)") }
+    }
+
+    // MARK: ICE-Restart (2.4): Verbindung weg bzw. Netzwechsel WLAN <-> Mobilfunk
+
+    private func iceRestart() {
+        restarts += 1; reconnecting = true
+        status = String(localized: "Verbindung wird neu aufgebaut …")
+        Task { await renegotiate(iceRestart: true) }
+        restartTask?.cancel()
+        restartTask = Task { [weak self] in                               // kommt die Verbindung nicht zurueck: wie bisher beenden
+            try? await Task.sleep(for: .seconds(CallV3.restartTimeout))
+            guard let self, !Task.isCancelled, self.reconnecting, !self.ending else { return }
+            if CallV3.iceAction(state: "failed", everConnected: true, canReneg: self.canReneg, attempts: self.restarts) == .restart { self.iceRestart() }
+            else { self.iceFailed() }
+        }
+    }
+    private func netOn() {
+        guard net == nil else { return }
+        let m = NWPathMonitor()
+        m.pathUpdateHandler = { [weak self] p in
+            let prim: String? = p.usesInterfaceType(.wifi) ? "wifi" : p.usesInterfaceType(.cellular) ? "cellular"
+                : p.usesInterfaceType(.wiredEthernet) ? "wired" : p.availableInterfaces.first.map { _ in "other" }
+            let np = CallV3.NetPath(satisfied: p.status == .satisfied, primary: prim)
+            Task { @MainActor [weak self] in self?.netChanged(np) }
+        }
+        m.start(queue: DispatchQueue(label: "saga.call.net"))
+        net = m
+    }
+    private func netChanged(_ np: CallV3.NetPath) {
+        let old = lastNet; lastNet = np
+        guard connected, !ending, canReneg, CallV3.netChangeNeedsRestart(old: old, new: np) else { return }
+        CallEnv.log("netz gewechselt -> ICE-Restart")
+        restarts = 0
+        iceRestart()
+    }
+
+    // MARK: Bitrate je Pfad (2.4, Tabelle §1.3) - nur bei Aenderung setParameters
+
+    private func applyLimits() {
+        guard let pc, let path else { return }
+        let src = camera?.height ?? 720
+        let v = CallV3.videoLimits(path: path, kind: .camera, streams: 1, want: remoteWant, sourceHeight: src)
+        if v != appliedVideo, let s = pc.transceivers.first(where: { $0.mediaType == .video })?.sender {
+            let p = s.parameters
+            if !p.encodings.isEmpty {
+                for e in p.encodings {
+                    e.maxBitrateBps = NSNumber(value: v.maxBitrate)
+                    e.scaleResolutionDownBy = NSNumber(value: v.scaleDown)
+                    e.maxFramerate = NSNumber(value: v.maxFramerate)
+                    e.isActive = v.active
+                }
+                p.degradationPreference = NSNumber(value: (v.maintainResolution ? RTCDegradationPreference.maintainResolution : .balanced).rawValue)
+                s.parameters = p
+                appliedVideo = v
+                CallEnv.log("limits video \(path.rawValue) \(v.maxBitrate / 1000)k /\(v.scaleDown) want=\(remoteWant.rawValue)")
+            }
+        }
+        let a = CallV3.audioBitrate(path: path)
+        if a != appliedAudio, let s = pc.transceivers.first(where: { $0.mediaType == .audio })?.sender {
+            let p = s.parameters
+            if !p.encodings.isEmpty {
+                for e in p.encodings { e.maxBitrateBps = NSNumber(value: a) }
+                s.parameters = p
+                appliedAudio = a
+            }
         }
     }
 
@@ -574,10 +768,26 @@ final class CallManager: NSObject, ObservableObject {
                 connTask?.cancel(); CallTones.shared.stop()
                 CallSystem.shared.connected(self)
                 CallEnv.log("connected")
-                stateOut(); statsOn()
+                stateOut(); statsOn(); netOn()
+            } else if reconnecting || !status.isEmpty {                      // 2.4: nach ICE-Restart wieder da
+                reconnecting = false; restarts = 0; restartTask?.cancel(); status = ""
+                appliedVideo = nil; appliedAudio = nil                      // Pfad kann sich geaendert haben
+                CallEnv.log("reconnected")
             }
-        case .disconnected: status = String(localized: "Verbindung unterbrochen – versuche es weiter …")
-        case .failed: iceFailed()
+        case .disconnected:
+            status = String(localized: "Verbindung unterbrochen – versuche es weiter …")
+            // 2.4: mit "reneg" nach kurzer Pause ICE-Restart (2.3-Gegenueber: wie bisher abwarten)
+            if CallV3.iceAction(state: "disconnected", everConnected: connected, canReneg: canReneg, attempts: restarts) == .wait, !reconnecting {
+                Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(CallV3.restartDelay))
+                    guard let self, !self.ending, !self.reconnecting, self.pc?.connectionState == .disconnected else { return }
+                    self.iceRestart()
+                }
+            }
+        case .failed:
+            if CallV3.iceAction(state: "failed", everConnected: connected, canReneg: canReneg, attempts: restarts) == .restart {
+                if !reconnecting { iceRestart() }
+            } else { iceFailed() }
         default: break
         }
     }
@@ -607,9 +817,19 @@ final class CallManager: NSObject, ObservableObject {
                         self.verified = true; checked = true
                         CallEnv.log("verified dtls")
                     }
+                }
+                // Pfad bei jedem Takt (Netzwechsel/ICE-Restart waehlt ein neues Paar) -> Relais-Hinweis und Bitrate-Regeln
+                do {
+                    var byID: [String: RTCStatistics] = [:]
+                    for (k, v) in rep.statistics { byID[k] = v }
+                    let tr = rep.statistics.values.first { $0.type == "transport" }
                     if let pid = tr?.values["selectedCandidatePairId"] as? String, let pair = byID[pid] {
                         let l = (pair.values["localCandidateId"] as? String).flatMap { byID[$0] }, r = (pair.values["remoteCandidateId"] as? String).flatMap { byID[$0] }
-                        self.relay = (l?.values["candidateType"] as? String) == "relay" || (r?.values["candidateType"] as? String) == "relay"
+                        let rel = (l?.values["candidateType"] as? String) == "relay" || (r?.values["candidateType"] as? String) == "relay"
+                        if self.relay != rel { self.relay = rel }
+                        let p = CallV3.path(local: l?.values as [String: Any]?, remote: r?.values as [String: Any]?)
+                        if p != self.path { self.path = p; CallEnv.log("pfad \(p?.rawValue ?? "-")") }
+                        self.applyLimits()
                     }
                 }
                 let au = CallLogic.AudioSample.from(rep.statistics.values.map { (type: $0.type, values: $0.values as [String: Any]) })
@@ -670,10 +890,16 @@ final class CallManager: NSObject, ObservableObject {
         Task {
             if !CallEnv.fakeMedia { guard await AVCaptureDevice.requestAccess(for: .video) else { toast = String(localized: "Kamera nicht erlaubt."); return } }
             guard busy, let c = CallCamera(factory: CallRTC.factory) else { toast = String(localized: "Keine Kamera verfügbar."); return }
-            camera = c; localVideo = c.track; cam = true; frontCamera = c.front
+            camera = c; localVideo = c.track; cam = true; frontCamera = c.front; wire(c)
             videoSender?.track = c.track
+            appliedVideo = nil; applyLimits()
             stateOut()
         }
+    }
+    /// Kamera-Unterbrechung (PiP/Hintergrund ohne Multitasking-Freigabe) ans Gegenueber melden
+    private func wire(_ c: CallCamera) {
+        camPaused = false
+        c.onInterrupt = { [weak self] on in self?.cameraInterrupted(on) }
     }
     #if os(iOS)
     func switchCamera() { camera?.switchCamera(); frontCamera = camera?.front ?? true }
@@ -690,7 +916,13 @@ final class CallManager: NSObject, ObservableObject {
         guard busy || phase == .preparing else { return }
         if let id, !ending {
             let c = connected
-            Task { _ = try? await store?.apiResponse("api/calls/\(id)/end", method: "POST", body: ["reason": "hangup", "connected": c]) }
+            // 2.4: "bye" an Gegenueber mit saga-call v3 (vor /end; 2.3-Apps bekommen es nicht)
+            let bye: [String: String]? = ready && canReneg ? sealAll(targets, CallV3.byeBody(pc: pcID)) : nil
+            let dev = myDevice
+            Task {
+                if let bye, !bye.isEmpty, let dev { _ = try? await store?.apiResponse("api/calls/\(id)/signal", method: "POST", body: ["device": dev, "signals": bye]) }
+                _ = try? await store?.apiResponse("api/calls/\(id)/end", method: "POST", body: ["reason": "hangup", "connected": c])
+            }
         }
         finish(.ended(dur: connectedAt.map { Int(Date().timeIntervalSince($0)) }))
     }
@@ -720,7 +952,13 @@ final class CallManager: NSObject, ObservableObject {
         ending = true
         let cid = id ?? incoming?.id
         if let cid { done.insert(cid) }
-        aliveTask?.cancel(); connTask?.cancel(); statsTask?.cancel(); outTask?.cancel()
+        aliveTask?.cancel(); connTask?.cancel(); statsTask?.cancel(); outTask?.cancel(); restartTask?.cancel()
+        net?.cancel(); net = nil
+        #if os(iOS)
+        CallPiP.shared.stop()
+        #else
+        CallPanel.shared.close()
+        #endif
         CallTones.shared.stop()
         camera?.stop(); camera = nil
         pc?.close(); pc = nil
@@ -773,6 +1011,9 @@ final class CallManager: NSObject, ObservableObject {
         mic = true; cam = false; remote = CallRemoteState(); verified = false; relay = false; connectedAt = nil; speaker = false
         meter = CallLogic.AudioMeter(); audioIn = .unknown; audioMic = .unknown
         localVideo = nil; remoteVideo = nil; incoming = nil; minimized = false
+        pcID = "p" + ChatCrypto.hexID().prefix(8); peerCaps = nil; neg = CallV3.Negotiator(); remoteWant = .large; wantOut = PiPLogic.WantSender()
+        appliedVideo = nil; appliedAudio = nil; restarts = 0; restartTask?.cancel(); reconnecting = false; path = nil
+        net?.cancel(); net = nil; lastNet = nil; camPaused = false; chain = nil; pip = false
     }
     func signedOut() { if busy { hangup() }; enabled = true; done = [] }
 }

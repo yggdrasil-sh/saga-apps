@@ -6,6 +6,31 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu – Saga 2.4, Etappe E0/E1: Anruf-Grundlage und Bild im Bild (iOS/iPadOS/macOS)
+**iOS/iPadOS/macOS – Bild im Bild und stabilere Anrufe:**
+- **Bild im Bild (iPhone/iPad):** Ein Videoanruf läuft in einem kleinen, verschiebbaren Fenster weiter – beim
+  Verkleinern („Zurück zur App“) und automatisch beim Wechsel in eine andere App. Gezeigt werden nur Video und Name,
+  keine Chat-Inhalte. „Zurück“ im Fenster öffnet den Anruf wieder im Vollbild. Die eigene Kamera läuft weiter, wo iOS
+  das für Videoanruf-Apps erlaubt; sonst pausiert sie und das Gegenüber sieht „Kamera aus“.
+- **Schwebefenster (Mac):** Wird das Fenster „Anruf“ ins Dock gelegt oder ganz verdeckt – oder per Knopf
+  „Bild im Bild“ oben links –, erscheint ein kleines Fenster über allen anderen (auch auf allen Schreibtischen und neben
+  Vollbild-Apps) mit dem Bild des Gegenübers und den Knöpfen Stumm, Auflegen und „Zurück zum Anruf“. Größe und Ort
+  bleiben erhalten.
+- **Weniger Daten im Bild im Bild:** Das Gegenüber wird gebeten, ein kleineres Bild zu senden (≤ 300 kbit/s, halbe
+  bzw. drittel Auflösung) – das spart Datenvolumen und Akku auf beiden Seiten. Ältere Apps ignorieren den Hinweis.
+- **Bitrate je Verbindungsweg:** Alle 2 s wird der Weg geprüft (direkt, über Relais per UDP oder per TCP/TLS 443) und
+  die Senderate angepasst (z. B. über TCP/TLS ≤ 800 kbit/s und 540p, Ton 24 kbit/s) – weniger Ruckeln und Einfrieren
+  über den TURN-Server.
+- **Netzwechsel ohne Abbruch:** Wechselt das Gerät zwischen WLAN und Mobilfunk oder bricht die Verbindung kurz weg,
+  baut Saga sie per ICE-Restart neu auf („Verbindung wird neu aufgebaut …“) statt aufzulegen – sofern das Gegenüber
+  Saga 2.4 nutzt. Mit Saga 2.3 und älter verhält sich ein Anruf genau wie bisher.
+- **Technik (saga-call v3):** Signale tragen zusätzlich `pc`, `caps` und `n`; Neuverhandlung nach „Perfect
+  Negotiation“ (gleichzeitige Angebote werden sauber aufgelöst) nur mit Gegenübern, die `reneg` melden; unbekannte
+  Signaltypen werden ignoriert. Die Prüfung der Fingerabdrücke gilt auch für jede Neuverhandlung.
+- **Leistung:** Bilder aus dem Hardware-Decoder werden für das PiP-Fenster nicht kopiert (geprüft in den Logik-Tests,
+  rund 13 µs je Bild am Mac). Eine Messanleitung für den Akku steht in `ios/README.md` („Energie messen: Bild im
+  Bild“); die Akku- und Wärmewerte werden auf echten Geräten gemessen.
+
 ### Behoben – Anrufe
 **iOS/iPadOS/macOS – Anrufe verkleinern, Mitteilungen während eines Anrufs:**
 - **Zurück in die App während eines Anrufs (iPhone/iPad):** Der Anrufbildschirm hat oben links „Zurück zur App“
