@@ -127,7 +127,7 @@
     <string name="chat_file_too_big">File too large (max. %1$d MB).</string>
     <string name="chat_file_broken">The attachment couldn\'t be opened.</string>
     <string name="chat_people_search">Name or user</string>
-    <string name="chat_people_hint">From 3 characters; tap a person (direct chat) or a group (group chat).</string>
+    <string name="chat_people_hint">1–2 characters: exact names only, from 3 also parts; tap a person (direct chat) or a group (group chat).</string>
     <string name="chat_not_ready">%1$s hasn\'t set up chats yet</string>
     <string name="chat_create">Create</string>
     <string name="chat_page_menu">Chat about this page</string>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.3: чаты и звонки между серверами (федерация) -->
+<resources>
+    <string name="fed_keys_not_ready">Твои ключи для чатов между серверами ещё не готовы – попробуй ещё раз чуть позже.</string>
+    <string name="fed_pending_sent">Другой сервер сейчас недоступен – сообщение будет доставлено, как только он снова появится.</string>
+    <string name="fed_msg_pending">доставляется</string>
+    <string name="fed_msg_failed">не доставлено</string>
+    <string name="fed_resend">Отправить снова</string>
+    <string name="fed_on_host">на %1$s</string>
+    <string name="fed_blocked_chip">заблокировано</string>
+    <string name="fed_request_chip">Запрос</string>
+    <string name="fed_readonly_chip">только чтение</string>
+    <string name="fed_warn_changed">Код безопасности %1$s изменился – например, после «Начать заново» или с новой учётной записью. Проверь его, прежде чем писать что-то конфиденциальное.</string>
+    <string name="fed_warn_blocked">Ты отметил(а) %1$s как проверенного – теперь сервер сообщает другой ключ. Отправка заблокирована, пока ты снова не сравнишь код безопасности.</string>
+    <string name="fed_warn_invalid">Ключи %1$s недействительны (сертификат или список устройств) – отправка заблокирована.</string>
+    <string name="fed_understood">Понятно</string>
+    <string name="fed_readonly">Этот разговор доступен только для чтения.</string>
+    <string name="fed_request_text">%1$s (%2$s) хочет тебе написать. Пока ты не примешь запрос, уведомлений и звонков не будет – и %1$s не узнает, прочитал(а) ли ты сообщения.</string>
+    <string name="fed_accept">Принять</string>
+    <string name="fed_decline">Отклонить</string>
+    <string name="fed_block_menu">Заблокировать …</string>
+    <string name="fed_block_person">Заблокировать %1$s</string>
+    <string name="fed_block_instance">Заблокировать весь сервер %1$s</string>
+    <string name="fed_accepted">Запрос принят.</string>
+    <string name="fed_declined">Запрос отклонён.</string>
+    <string name="fed_blocked_done">Заблокировано – оттуда больше не будет запросов.</string>
+    <string name="fed_sys_you">Ты</string>
+    <string name="fed_sys_ai_on">%1$s включил(а) ИИ в этом чате.</string>
+    <string name="fed_sys_ai_off">%1$s выключил(а) ИИ в этом чате.</string>
+    <string name="fed_sys_note">Уведомление</string>
+    <string name="fed_blocks_title">Заблокированные</string>
+    <string name="fed_blocks_empty">Ты никого не заблокировал(а).</string>
+    <string name="fed_blocks_instance">Весь сервер %1$s</string>
+    <string name="fed_blocks_person">Человек</string>
+    <string name="fed_unblock">Разблокировать</string>
+    <string name="fed_chat_hint_v2">Людей с других подключённых серверов Saga можно найти по отображаемому имени или имя@сервер (не по адресу эл. почты).</string>
+    <string name="fed_person_sub">Человек на %1$s · первое сообщение как запрос</string>
+    <string name="fed_groups_later">Группы с людьми с других серверов Saga появятся в одном из следующих обновлений.</string>
+    <string name="fed_requests_n">Запросы на переписку (%1$d)</string>
+    <string name="fed_other_instance_at">Другой экземпляр Saga · %1$s</string>
+</resources>

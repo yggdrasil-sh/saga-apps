@@ -381,8 +381,8 @@
     <string name="share_not_shareable">Las páginas archivadas y las plantillas no se pueden compartir.</string>
     <string name="share_search">Buscar una persona o un grupo</string>
     <string name="share_new_role">Rol para el nuevo uso compartido</string>
-    <string name="share_search_hint">Al menos 3 caracteres.</string>
-    <string name="share_search_hint_scope">Solo personas de tus grupos. Al menos 3 caracteres.</string>
+    <string name="share_search_hint">Con 1–2 caracteres solo nombres exactos; desde 3 caracteres también partes de nombres.</string>
+    <string name="share_search_hint_scope">Solo personas de tus grupos. Con 1–2 caracteres solo nombres exactos; desde 3 caracteres también partes de nombres.</string>
     <string name="share_access">Acceso</string>
     <string name="share_subpages">Se incluyen las subpáginas y las entradas.</string>
     <string name="share_copy_link">Copiar enlace</string>

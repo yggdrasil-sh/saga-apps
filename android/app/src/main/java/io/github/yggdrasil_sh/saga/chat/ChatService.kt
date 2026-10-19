@@ -127,7 +127,23 @@ object ChatLogic {
     /** Beleg einer empfangenen Nachricht pruefen (Inhalt entschluesselt, Beleg vom Server) */
     fun aiCheck(c: ChatContent?, ref: ApiAiRef?): io.github.yggdrasil_sh.saga.ai.AiReplyCheck {
         val hasAi = c?.ai != null && c.ai !is kotlinx.serialization.json.JsonNull
+        // 2.3 (v2): der Hash des Antworttextes ist Teil der signierten Nachricht - er muss zum Text passen
+        if (ref?.hashOnly == true) {
+            if (!hasAi) return io.github.yggdrasil_sh.saga.ai.AiReplyCheck.NONE
+            val t = c.text
+            return if (io.github.yggdrasil_sh.saga.ai.AiChatLogic.sha256(t).equals(ref.sha256, ignoreCase = true)) io.github.yggdrasil_sh.saga.ai.AiReplyCheck.OK
+            else io.github.yggdrasil_sh.saga.ai.AiReplyCheck.BAD
+        }
         return io.github.yggdrasil_sh.saga.ai.AiChatLogic.check(c?.aiReply, hasAi, c?.text, ref?.ref, ref?.sha256)
+    }
+
+    /** 2.3: Systemzeile (kind 'sys'): Klartext-JSON vom Heim; kaputt -> leerer Hinweis */
+    private val sysJson = Json { ignoreUnknownKeys = true; coerceInputValues = true; isLenient = true }
+
+    fun sys(body: String): ChatSys = try {
+        sysJson.decodeFromString(ChatSys.serializer(), body)
+    } catch (_: Exception) {
+        ChatSys()
     }
 
     fun titleContent(title: String): String = buildJsonObject {
@@ -177,10 +193,23 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
         ChatThumbs(
             blobs,
             fetch = { id -> repo.api.getBytes("api/chat/files/$id") },
-            decrypt = { cid, blob, key -> crypto.decryptFile(cid, blob, key) },
-            encrypt = { cid, data, key -> crypto.encryptFile(cid, data, key).first },
+            decrypt = { cid, blob, key -> decryptFileAny(cid, blob, key) },
+            encrypt = { cid, data, key -> encryptFileAny(cid, data, key).first },
         )
     }
+
+    /** 2.3: Chats ueber Servergrenzen (saga-chat/v2) - Zertifikate, gepruefte Schluessel, Anfragen, Sperrliste */
+    val fed: FedChat by lazy { FedChat(this) }
+
+    /** Anhang ver-/entschluesseln: v1 mit der lokalen chat_id, v2 mit der chat_ref ('<hex>@<heim>' - enthaelt immer '@') */
+    fun encryptFileAny(cryptoId: String, data: ByteArray, key: ByteArray = crypto.keygen()): Pair<ByteArray, ByteArray> =
+        if ('@' in cryptoId) fed.crypto.encryptFile(cryptoId, data, key) else crypto.encryptFile(cryptoId, data, key)
+
+    fun decryptFileAny(cryptoId: String, blob: ByteArray, key: ByteArray): ByteArray =
+        if ('@' in cryptoId) fed.crypto.decryptFile(cryptoId, blob, key) else crypto.decryptFile(cryptoId, blob, key)
+
+    /** 2.3: offene Nachrichtenanfragen (zaehlen nicht als ungelesen) */
+    val requests = MutableStateFlow(0)
 
     /** Abmelden, "Neu beginnen", Geraet entfernt: zwischengespeicherte Anhaenge weg */
     fun clearMedia() {
@@ -198,6 +227,8 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
         chatsLoaded.value = false
         freeTitles.value = emptyMap()
         pendingLinks.value = emptyList()
+        requests.value = 0
+        fed.reset()
     }
 
     // ---------------------------------------------------------------- Stand
@@ -218,6 +249,8 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
                 else -> ChatSetup.READY
             }
             if (state.value == ChatSetup.READY && m.links > 0) loadLinksLocked()
+            // 2.3: Zertifikate v2 (Handle, Geraete, Geraete-Liste) still nachziehen - Server vor 2.3: 404, nichts passiert
+            if (state.value == ChatSetup.READY) scope.launch { fed.certs() }
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
@@ -240,6 +273,7 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
             chats.value = r.chats
             chatsLoaded.value = true
             repo.live.chatUnread.value = r.unread
+            requests.value = r.requests
             decryptTitles(r.chats)
         } catch (e: CancellationException) {
             throw e
@@ -485,8 +519,9 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
 
     // ---------------------------------------------------------------- Chats anlegen, Personen, Seiten
 
+    /** 2.3: ab 1 Zeichen (Server liefert bei 1-2 Zeichen nur genaue Treffer; aeltere Server: erst ab 3 etwas) */
     suspend fun people(q: String): PeopleResult =
-        if (q.trim().length < 3) PeopleResult() else decode(repo.api.get("api/chat/people?q=" + java.net.URLEncoder.encode(q.trim(), "UTF-8")))
+        if (q.isBlank()) PeopleResult() else decode(repo.api.get("api/chat/people?q=" + java.net.URLEncoder.encode(q.trim(), "UTF-8")))
 
     suspend fun create(body: JsonObject): ChatSummary {
         val c = decode<ChatWrap>(repo.api.post("api/chats", body)).chat
@@ -574,7 +609,9 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
                 ChatDeleteLogic.parse(ev.type, ev.data, me.value?.uid.orEmpty())?.let { onWipe(it) }
                 if (chatsLoaded.value) loadChats()
             }
-            "chat.message", "chat.changed", "chat.deleted", "chat.read" -> if (chatsLoaded.value) loadChats()
+            "chat.message", "chat.changed", "chat.deleted", "chat.read", "chat.request" -> if (chatsLoaded.value) loadChats()
+            // 2.3: eigene Schluessel geaendert (Geraet neu/entfernt): Zertifikate/Geraete-Liste v2 neu signieren
+            "chat.keys.changed" -> if (state.value == ChatSetup.READY && FedChat.keysChanged(ev.data).second) fed.certs()
             "reset" -> {
                 refresh()
                 loadChats()

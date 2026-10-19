@@ -63,7 +63,29 @@ data class ChatPerson(
     val ready: Boolean = false,
     /** 2.1: Profilbild (relative Adresse /api/avatar/...?v=...) oder null = Initialen */
     val avatar: String? = null,
+    /** 2.3 (Chats ueber Servergrenzen): foederierter Handle '~x@host', Server, Anzeige "Name · host", Person eines anderen Servers */
+    val handle: String? = null,
+    val host: String? = null,
+    val label: String? = null,
+    val remote: Boolean = false,
 )
+
+/** 2.3: Treffer im Adressbuch verbundener Server (GET /api/fed/people, Feld remote in /api/chat/people) */
+@Serializable
+data class FedPerson(
+    val type: String = "remote",
+    val name: String = "",
+    val host: String = "",
+    /** fertig zum Anzeigen: "Anna Berg · b.example" (bei gleichen Namen mehr) */
+    val label: String = "",
+    val handle: String = "",
+    /** Ziel zum Teilen: @name@host bzw. @~x@host */
+    val target: String = "",
+    val pub: String? = null,
+    val avatar: String? = null,
+) {
+    val shown: String get() = label.ifBlank { if (host.isNotEmpty()) "$name · $host" else name }
+}
 
 /** Absender-Geraet (auch entfernte) zur Pruefung der Signaturen */
 @Serializable
@@ -94,11 +116,16 @@ data class ApiMessage(
     /** nur bei title_msg (Chat-Liste): Absender-Geraet und Identitaet */
     val device: ChatDevicePub? = null,
     @SerialName("ident_pub") val identPub: String? = null,
-    /** 2.1: Beleg einer KI-Antwort (nur wenn mit ai_reply gesendet) */
+    /** 2.1: Beleg einer KI-Antwort (nur wenn mit ai_reply gesendet); 2.3 (v2): Hex-SHA-256 als Text, mitsigniert */
+    @kotlinx.serialization.Serializable(with = AiRefSerializer::class)
     val ai: ApiAiRef? = null,
+    /** 2.3 (Chats ueber Servergrenzen): Reihenfolge des Heims, Absender-Handle, Zustellstand pending|failed|null */
+    val fseq: Long? = null,
+    @SerialName("sender_handle") val senderHandle: String? = null,
+    val fstate: String? = null,
 )
 
-/** 2.1: Beleg des Servers zu einer KI-Antwort im Chat */
+/** 2.1: Beleg des Servers zu einer KI-Antwort im Chat; v2: nur der mitsignierte Hash (hashOnly) */
 @Serializable
 data class ApiAiRef(
     val ref: String = "",
@@ -106,7 +133,33 @@ data class ApiAiRef(
     /** Benutzername des Fragenden */
     val by: String? = null,
     @SerialName("q_msg") val qMsg: String? = null,
+    @kotlinx.serialization.Transient val hashOnly: Boolean = false,
 )
+
+/** "ai" einer Nachricht: Objekt (Beleg v1) oder Text (Hash v2, Teil der Signatur) */
+object AiRefSerializer : kotlinx.serialization.KSerializer<ApiAiRef?> {
+    override val descriptor = kotlinx.serialization.json.JsonElement.serializer().descriptor
+
+    override fun deserialize(decoder: kotlinx.serialization.encoding.Decoder): ApiAiRef? {
+        val d = decoder as? kotlinx.serialization.json.JsonDecoder ?: return null
+        return when (val e = d.decodeJsonElement()) {
+            is kotlinx.serialization.json.JsonObject -> try {
+                d.json.decodeFromJsonElement(ApiAiRef.serializer(), e)
+            } catch (_: Exception) {
+                null
+            }
+            is kotlinx.serialization.json.JsonPrimitive -> if (e.isString && e.content.isNotEmpty()) ApiAiRef(sha256 = e.content, hashOnly = true) else null
+            else -> null
+        }
+    }
+
+    override fun serialize(encoder: kotlinx.serialization.encoding.Encoder, value: ApiAiRef?) {
+        val e = encoder as kotlinx.serialization.json.JsonEncoder
+        if (value == null) e.encodeJsonElement(kotlinx.serialization.json.JsonNull)
+        else if (value.hashOnly) e.encodeJsonElement(kotlinx.serialization.json.JsonPrimitive(value.sha256))
+        else e.encodeJsonElement(e.json.encodeToJsonElement(ApiAiRef.serializer(), value))
+    }
+}
 
 @Serializable
 data class ChatSummary(
@@ -137,10 +190,35 @@ data class ChatSummary(
     @SerialName("cleared_seq") val clearedSeq: Long = 0,
     /** 2.1: was ich fuer alle loeschen darf: "chat" | "history" | null (nicht erlaubt) */
     @SerialName("delete_for_all") val deleteForAll: String? = null,
-)
+    /** 2.3 Chats ueber Servergrenzen (saga-chat/v2): v 2, globale Kennung ref (<32 hex>@<heim>), Heim-Server */
+    val v: Int = 1,
+    val ref: String? = null,
+    val fed: Boolean = false,
+    val home: String? = null,
+    @SerialName("home_self") val homeSelf: Boolean = false,
+    @SerialName("my_handle") val myHandle: String? = null,
+    val state: String? = null,
+    /** Nachrichtenanfrage, noch nicht angenommen (keine Benachrichtigung, kein Klingeln) */
+    val request: Boolean = false,
+    val readonly: Boolean = false,
+    @SerialName("readonly_reason") val readonlyReason: String? = null,
+    /** aeltere Apps: Hinweis "bitte App aktualisieren" (diese App sendet X-Saga-Chat: 2 und bekommt ihn nicht) */
+    @SerialName("fed_hint") val fedHint: String? = null,
+) {
+    /** Chat ueber Servergrenzen (v2) */
+    val isFed: Boolean get() = v == 2 && !ref.isNullOrEmpty()
+
+    /** Kennung fuer die Verschluesselung (AD von Nachrichten/Anhaengen): v1 chat_id, v2 chat_ref */
+    val cryptoId: String get() = if (isFed) ref!! else id.toString()
+}
 
 @Serializable
-data class ChatList(val chats: List<ChatSummary> = emptyList(), val unread: Int = 0)
+data class ChatList(
+    val chats: List<ChatSummary> = emptyList(),
+    val unread: Int = 0,
+    /** 2.3: Anzahl offener Nachrichtenanfragen (zaehlen nicht in unread) */
+    val requests: Int = 0,
+)
 
 @Serializable
 data class ChatWrap(val chat: ChatSummary)
@@ -201,7 +279,48 @@ data class LinkList(val links: List<LinkRequest> = emptyList())
 data class PeopleGroup(val name: String = "")
 
 @Serializable
-data class PeopleResult(val users: List<ChatPerson> = emptyList(), val groups: List<PeopleGroup> = emptyList())
+data class PeopleResult(
+    val users: List<ChatPerson> = emptyList(),
+    val groups: List<PeopleGroup> = emptyList(),
+    /** 2.3: Personen verbundener Server (Adressbuch) - Direkt-Chat ueber Servergrenzen */
+    val remote: List<FedPerson> = emptyList(),
+)
+
+/** 2.3: GET /api/chat/v2/me (eigener Handle, fehlende Zertifikate v2) */
+@Serializable
+data class FedMeDevice(val id: String = "", @SerialName("fed_sig") val fedSig: String? = null, val ok: Boolean = false)
+
+@Serializable
+data class FedMe(
+    val handle: String? = null,
+    val host: String? = null,
+    @SerialName("cert_ok") val certOk: Boolean = false,
+    val devices: List<FedMeDevice> = emptyList(),
+    val missing: List<String> = emptyList(),
+    val need: Boolean = false,
+    val federation: Boolean = false,
+    @SerialName("device_set") val deviceSet: FedDeviceSet? = null,
+    @SerialName("device_set_ok") val deviceSetOk: Boolean = true,
+    @SerialName("device_set_want") val deviceSetWant: List<String> = emptyList(),
+)
+
+/** 2.3: GET /api/chat/blocks */
+@Serializable
+data class ChatBlock(
+    val target: String = "",
+    val kind: String = "person",
+    val name: String? = null,
+    val host: String? = null,
+    val label: String? = null,
+    val created: Double? = null,
+)
+
+@Serializable
+data class ChatBlocks(val blocks: List<ChatBlock> = emptyList())
+
+/** 2.3: Systemzeile (kind 'sys', Klartext-Metadaten vom Heim), z. B. {"type":"ai","on":true,"by":handle,"name":…} */
+@Serializable
+data class ChatSys(val type: String = "", val on: Boolean = false, val by: String? = null, val name: String? = null)
 
 @Serializable
 data class ChatNoteRef(val id: Long = 0, val title: String = "", val icon: String = "")

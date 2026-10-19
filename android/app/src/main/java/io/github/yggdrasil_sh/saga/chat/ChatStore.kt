@@ -144,6 +144,35 @@ class ChatStore(private val secure: SecureStore, private val scope: () -> String
         }
     }
 
+    // ---------------------------------------------------------------- TOFU v2 (2.3, je foederiertem Handle, getrennt von v1)
+
+    fun trust2(): Map<String, Trust2> = try {
+        secure.get(k("tofu2"))?.let { json.decodeFromString<Map<String, Trust2>>(it) } ?: emptyMap()
+    } catch (_: Exception) {
+        emptyMap()
+    }
+
+    /** Regel FedFormat.tofu anwenden und ggf. speichern -> (Ergebnis, gemerkter Stand danach) */
+    @Synchronized
+    fun observe2(handle: String, identPub: String, ver: Long): Pair<TofuV2, Trust2?> {
+        val m = trust2().toMutableMap()
+        val st = FedFormat.tofu(m[handle], identPub, ver)
+        st.store?.let {
+            m[handle] = it
+            secure.put(k("tofu2"), json.encodeToString(m))
+        }
+        return st.result to (st.store ?: m[handle])
+    }
+
+    /** "Verstanden" (verified=false, Warnung weg) bzw. "Als überprüft markieren" (Sicherheitsnummer v2 verglichen) */
+    @Synchronized
+    fun setTrust2(handle: String, identPub: String, verified: Boolean) {
+        val m = trust2().toMutableMap()
+        val old = m[handle]
+        m[handle] = Trust2(identPub, verified = verified, dver = if (old?.ident == identPub) old.dver else 0)
+        secure.put(k("tofu2"), json.encodeToString(m))
+    }
+
     /** Warnung gesehen (Sicherheitsnummer angezeigt) bzw. "Als überprüft markieren" */
     @Synchronized
     fun acknowledge(uid: String, verified: Boolean) {

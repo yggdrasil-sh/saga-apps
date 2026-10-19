@@ -148,14 +148,30 @@ class CallService : Service() {
     companion object {
         private const val EXTRA_VIDEO = "video"
 
+        /** Dienst laeuft im Vordergrund (startForeground erfolgt) */
+        @Volatile private var foreground = false
+        /** Anruf endete, bevor der Dienst startForeground aufrufen konnte: danach sofort beenden */
+        @Volatile private var stopWanted = false
+
         fun start(context: Context, video: Boolean) {
+            stopWanted = false
             try {
                 ContextCompat.startForegroundService(context, Intent(context, CallService::class.java).putExtra(EXTRA_VIDEO, video))
             } catch (_: Exception) {                                // im Hintergrund nicht erlaubt: Anruf laeuft trotzdem
             }
         }
 
+        /**
+         * Beenden. Noch nicht im Vordergrund (Anruf scheiterte gleich nach dem Start)? Dann NICHT stopService - Android 14+
+         * beendet die App sonst mit ForegroundServiceDidNotStartInTimeException; der Dienst beendet sich nach
+         * startForeground selbst.
+         */
         fun stop(context: Context) {
+            if (!foreground) {
+                stopWanted = true
+                return
+            }
+            foreground = false
             context.stopService(Intent(context, CallService::class.java))
         }
     }
@@ -193,8 +209,12 @@ class CallService : Service() {
                 false
             }
         }
-        if (!ok) stopSelf()
-        if (st == null || st.phase == CallPhase.ENDED) stopSelf()
+        foreground = ok
+        if (!ok || stopWanted || st == null || st.phase == CallPhase.ENDED) {
+            foreground = false
+            stopWanted = false
+            stopSelf()
+        }
         return START_NOT_STICKY
     }
 

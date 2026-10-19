@@ -125,7 +125,7 @@
     <string name="chat_file_too_big">ไฟล์ใหญ่เกินไป (สูงสุด %1$d MB)</string>
     <string name="chat_file_broken">เปิดไฟล์แนบไม่ได้</string>
     <string name="chat_people_search">ชื่อหรือผู้ใช้</string>
-    <string name="chat_people_hint">ตั้งแต่ 3 อักขระ แตะบุคคล (แชทส่วนตัว) หรือกลุ่ม (แชทกลุ่ม)</string>
+    <string name="chat_people_hint">1–2 อักขระ: เฉพาะชื่อที่ตรงกัน ตั้งแต่ 3 อักขระค้นหาบางส่วนได้ แตะบุคคล (แชทส่วนตัว) หรือกลุ่ม (แชทกลุ่ม)</string>
     <string name="chat_not_ready">%1$s ยังไม่ได้ตั้งค่าแชท</string>
     <string name="chat_create">สร้าง</string>
     <string name="chat_page_menu">แชทเกี่ยวกับหน้านี้</string>

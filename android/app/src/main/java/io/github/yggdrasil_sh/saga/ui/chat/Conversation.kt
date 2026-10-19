@@ -295,7 +295,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     var callVideo by remember { mutableStateOf<Boolean?>(null) }
     fun callNow(video: Boolean) {
         val p = s.summary?.peer ?: return
-        repo.calls.start(chatId, io.github.yggdrasil_sh.saga.call.CallPeer(p.username, p.name, p.avatar), video)
+        repo.calls.start(chatId, io.github.yggdrasil_sh.saga.call.CallPeer(p.username, p.name, p.avatar, p.handle.takeIf { s.isFed }, p.host), video)
     }
     val callPerms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ ->
         val v = callVideo ?: return@rememberLauncherForActivityResult
@@ -313,7 +313,10 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             callPerms.launch(need.toTypedArray())
         }
     }
-    val canCall = callsOn == true && s.summary?.kind == "dm" && s.summary?.peer != null
+    // 2.3: aus Chats ueber Servergrenzen nur, wenn angenommen und nicht schreibgeschuetzt (Anfragen klingeln nie)
+    val fedReq = s.isFed && s.summary?.request == true
+    val fedRo = s.isFed && s.summary?.readonly == true && !fedReq
+    val canCall = callsOn == true && s.summary?.kind == "dm" && s.summary?.peer != null && !fedReq && !fedRo
 
     // Surface: Inhaltsfarbe onSurface fuer alle Symbole ohne eigene Farbe ("+" im Dunkelmodus war schwarz, BUG-072)
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -329,7 +332,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                         Icon(Icons.Filled.Lock, null, Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         // eine Zeile: bei 200 % Schrift sonst hoeher als die Kopfzeile (ragt in die Statusleiste, BUG-070)
                         Text(
-                            stringResource(R.string.chat_e2e), style = MaterialTheme.typography.labelSmall,
+                            fedHeadLine(s), style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp),
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
@@ -424,6 +427,9 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 }
             }
         }
+        // 2.3: Personen anderer Server - Schluessel gewechselt (Warnung, "Verstanden"), ueberprueft und gewechselt
+        // (Blockade bis zum erneuten Vergleich) bzw. ungueltig. Senden und Anrufen sind dann gesperrt.
+        s.fedIssues.forEach { (p, st) -> FedTrustBanner(p, st, onSafety = { safetyFor = p.username; dialog = "safety" }) { repo.launchAction { s.trustFed(p, false) } } }
         // KI erlaubt (2.1): sichtbarer Hinweis, was an die KI geht
         if (aiHere) {
             Surface(color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.fillMaxWidth()) {
@@ -457,7 +463,10 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                         ChatDayDivider(io.github.yggdrasil_sh.saga.chat.ChatFormat.dayOf(m.ts, ZoneId.systemDefault()))
                     }
                     val call = m.call
-                    if (call != null) {
+                    val sys = m.sys
+                    if (sys != null) {
+                        SysRow(m, sys, s.summary?.myHandle)
+                    } else if (call != null) {
                         CallEntryRow(m, call, s.me, canCall) { startCall(it) }
                     } else {
                         Bubble(
@@ -468,6 +477,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                             onOpenNote = { id -> nav.push(Dest.Page(id)) },
                             onOpenFile = { f -> scope.launch { openFile(context, s, f) { repo.notify(it) } } },
                             onUnverified = { unverifiedOf = m.sender?.username ?: "" },
+                            onResend = { repo.launchAction { s.resend(m) } },
                         )
                     }
                   }
@@ -512,6 +522,21 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             )
         }
         HorizontalDivider()
+        if (fedReq || fedRo) {
+            s.summary?.let { sum ->
+                FedStateBar(sum, fedReq) { action, scope ->
+                    repo.launchAction {
+                        s.answerRequest(action, scope)
+                        repo.notify(UiText.Res(when (action) {
+                            "accept" -> R.string.fed_accepted
+                            "block" -> R.string.fed_blocked_done
+                            else -> R.string.fed_declined
+                        }))
+                    }
+                }
+            }
+            return@Column
+        }
         s.replyTo?.let { r ->
             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
@@ -591,6 +616,14 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             )
             val canSend = (input.text.isNotBlank() || files.isNotEmpty() || noteIds.isNotEmpty()) && !s.sending && fetching == 0
             IconButton(onClick = {
+                // 2.3: Warnung/Blockade bei einer Person eines anderen Servers sperrt das Senden
+                s.fedIssues.firstOrNull()?.let { (p, _) ->
+                    repo.notify(UiText.Res(R.string.chat_safety_send_blocked, p.name.ifEmpty { p.label ?: p.username }), UiText.Res(R.string.chat_show)) {
+                        safetyFor = p.username
+                        dialog = "safety"
+                    }
+                    return@IconButton
+                }
                 // geaenderte Sicherheitsnummer sperrt das Senden: erklaeren und direkt "Anzeigen" anbieten (BUG-108)
                 s.identChanged.firstOrNull()?.let { uid ->
                     val who = s.summary?.members?.firstOrNull { it.username == uid }?.name?.ifEmpty { null } ?: uid
@@ -834,7 +867,7 @@ object ChatUi {
 private fun Bubble(
     m: ChatMessage, s: ChatSession, group: Boolean, aiPersona: AiPersona?,
     onReply: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit, onOpenNote: (Long) -> Unit, onOpenFile: (ChatFile) -> Unit,
-    onUnverified: () -> Unit,
+    onUnverified: () -> Unit, onResend: () -> Unit = {},
 ) {
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -938,12 +971,27 @@ private fun Bubble(
                             else Text("📄 " + stringResource(R.string.chat_page_no_access), style = MaterialTheme.typography.bodySmall)
                         }
                     }
+                    // 2.3: Zustellstand in Chats ueber Servergrenzen
+                    when (m.fstate) {
+                        "pending" -> Text(
+                            "⏳ " + stringResource(R.string.fed_msg_pending), style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = 0.8f),
+                            modifier = Modifier.align(Alignment.End),
+                        )
+                        "failed" -> Text(
+                            "⚠ " + stringResource(R.string.fed_msg_failed), style = MaterialTheme.typography.labelSmall,
+                            color = ChatUi.unverifiedText(MaterialTheme.colorScheme, mineSide), fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                            modifier = Modifier.align(Alignment.End),
+                        )
+                    }
                     Text(time, style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.End))
                 }
             }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(text = { Text(stringResource(R.string.chat_reply)) }, onClick = { menu = false; onReply() })
                 if (!m.content?.text.isNullOrEmpty()) DropdownMenuItem(text = { Text(stringResource(R.string.text_copy)) }, onClick = { menu = false; onCopy() })
+                if (m.mine && m.fstate == "failed" && m.content != null) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.fed_resend)) }, onClick = { menu = false; onResend() })
+                }
                 if (m.mine) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.chat_delete_all), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; confirmDelete = true })
                 }

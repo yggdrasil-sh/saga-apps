@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.3: Chats und Anrufe über Servergrenzen (Föderation) -->
+<resources>
+    <string name="fed_keys_not_ready">Deine Schlüssel für Chats über Servergrenzen sind noch nicht bereit – bitte gleich noch einmal versuchen.</string>
+    <string name="fed_pending_sent">Der andere Server ist gerade nicht erreichbar – die Nachricht wird zugestellt, sobald er wieder da ist.</string>
+    <string name="fed_msg_pending">wird zugestellt</string>
+    <string name="fed_msg_failed">nicht zugestellt</string>
+    <string name="fed_resend">Erneut senden</string>
+    <string name="fed_on_host">auf %1$s</string>
+    <string name="fed_blocked_chip">gesperrt</string>
+    <string name="fed_request_chip">Anfrage</string>
+    <string name="fed_readonly_chip">schreibgeschützt</string>
+    <string name="fed_warn_changed">Die Sicherheitsnummer von %1$s hat sich geändert – z. B. nach „Neu beginnen“ oder bei einem neuen Konto. Prüfe sie, bevor du Vertrauliches schreibst.</string>
+    <string name="fed_warn_blocked">Du hattest %1$s als überprüft markiert – jetzt meldet der Server einen anderen Schlüssel. Senden ist gesperrt, bis du die Sicherheitsnummer erneut verglichen hast.</string>
+    <string name="fed_warn_invalid">Die Schlüssel von %1$s sind ungültig (Zertifikat oder Geräte-Liste) – Senden ist gesperrt.</string>
+    <string name="fed_understood">Verstanden</string>
+    <string name="fed_readonly">Diese Unterhaltung ist schreibgeschützt.</string>
+    <string name="fed_request_text">%1$s (%2$s) möchte dir schreiben. Bis du annimmst, bekommst du keine Benachrichtigungen und keine Anrufe – und %1$s erfährt nicht, ob du die Nachrichten gelesen hast.</string>
+    <string name="fed_accept">Annehmen</string>
+    <string name="fed_decline">Ablehnen</string>
+    <string name="fed_block_menu">Sperren …</string>
+    <string name="fed_block_person">%1$s sperren</string>
+    <string name="fed_block_instance">Ganzen Server %1$s sperren</string>
+    <string name="fed_accepted">Anfrage angenommen.</string>
+    <string name="fed_declined">Anfrage abgelehnt.</string>
+    <string name="fed_blocked_done">Gesperrt – von dort kommen keine Anfragen mehr.</string>
+    <string name="fed_sys_you">Du</string>
+    <string name="fed_sys_ai_on">%1$s hat die KI in diesem Chat eingeschaltet.</string>
+    <string name="fed_sys_ai_off">%1$s hat die KI in diesem Chat ausgeschaltet.</string>
+    <string name="fed_sys_note">Hinweis</string>
+    <string name="fed_blocks_title">Gesperrt</string>
+    <string name="fed_blocks_empty">Du hast niemanden gesperrt.</string>
+    <string name="fed_blocks_instance">Ganzer Server %1$s</string>
+    <string name="fed_blocks_person">Person</string>
+    <string name="fed_unblock">Entsperren</string>
+    <string name="fed_chat_hint_v2">Personen anderer, verbundener Saga-Server findest du über ihren Anzeigenamen oder name@server (nicht über die E-Mail-Adresse).</string>
+    <string name="fed_person_sub">Person auf %1$s · erste Nachricht als Anfrage</string>
+    <string name="fed_groups_later">Gruppen mit Personen anderer Saga-Server kommen mit einem späteren Update.</string>
+    <string name="fed_requests_n">Nachrichtenanfragen (%1$d)</string>
+    <string name="fed_other_instance_at">Andere Saga-Instanz · %1$s</string>
+</resources>

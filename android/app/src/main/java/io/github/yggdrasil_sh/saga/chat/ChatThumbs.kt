@@ -124,14 +124,14 @@ class ChatThumbs(
     fun cached(chatId: Long, f: ChatFile): ImageBitmap? = mem.get(memKey(chatId, f.id))
 
     /** Vorschaubild laden: th (verschluesselt, Platte/Server) bzw. ohne th selbst erzeugen und verschluesselt cachen */
-    suspend fun load(chatId: Long, f: ChatFile, maxOriginal: Long): ImageBitmap? {
+    suspend fun load(chatId: Long, f: ChatFile, maxOriginal: Long, cryptoId: String = chatId.toString()): ImageBitmap? {
         val mk = memKey(chatId, f.id)
         mem.get(mk)?.let { return it }
         val epoch = epochs[chatId] ?: 0
         fun current() = (epochs[chatId] ?: 0) == epoch
         return gate.withPermit {
             mem.get(mk)?.let { return@withPermit it }
-            val cid = chatId.toString()
+            val cid = cryptoId                                      // v1 chat_id, v2 (2.3) chat_ref
             val th = f.th
             val bmp = if (th != null && th.id.isNotEmpty()) {
                 val key = unb64(th.k, 32) ?: return@withPermit null

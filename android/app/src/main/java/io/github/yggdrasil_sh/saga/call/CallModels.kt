@@ -49,7 +49,14 @@ data class CallConfig(
 }
 
 @Serializable
-data class CallPeer(val username: String = "", val name: String = "", val avatar: String? = null)
+data class CallPeer(
+    val username: String = "",
+    val name: String = "",
+    val avatar: String? = null,
+    /** 2.3: Person eines anderen Servers (saga-call/v2): foederierter Handle und Server */
+    val handle: String? = null,
+    val host: String? = null,
+)
 
 /** Anruf aus Sicht des Abfragenden (calls._dict) */
 @Serializable
@@ -65,6 +72,8 @@ data class CallInfo(
     @SerialName("callee_device") val calleeDevice: String? = null,
     @SerialName("ring_s") val ringS: Int? = null,
     @SerialName("expires_in") val expiresIn: Double? = null,
+    /** 2.3: 2 = Anruf ueber Servergrenzen (saga-call/v2, Handles statt Benutzernamen) */
+    val v: Int = 1,
 )
 
 @Serializable

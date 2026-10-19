@@ -41,6 +41,11 @@ data class ChatMessage(
     val call: io.github.yggdrasil_sh.saga.call.CallEntry? = null,
     /** 2.1: KI-Antwort? OK = Beleg passt (Profilbild + Name der KI), BAD = Warnung */
     val ai: io.github.yggdrasil_sh.saga.ai.AiReplyCheck = io.github.yggdrasil_sh.saga.ai.AiReplyCheck.NONE,
+    /** 2.3: Systemzeile (kind 'sys', z. B. KI ein-/ausgeschaltet) - Klartext-Metadaten vom Heim */
+    val sys: ChatSys? = null,
+    /** 2.3: Zustellstand in Chats ueber Servergrenzen: "pending" (wird zugestellt) | "failed" (nicht zugestellt) | null */
+    val fstate: String? = null,
+    val senderHandle: String? = null,
 )
 
 /** 2.1: laufende Frage an die KI (nur auf diesem Geraet sichtbar, bis die Antwort als Nachricht gesendet ist) */
@@ -74,6 +79,30 @@ class MessageOpener(private val svc: ChatService, private val k: LocalChatKeys) 
         val verified = dev != null && dev.uid == sender && identPk != null &&
             c.verifyDevice(sender, identPk, m.senderDevice, dev.encPub, dev.signPub, dev.sig) &&
             c.verifyMessage(cid, m.id, sender, m.senderDevice, m.ts, m.replyTo, m.bodyCt, m.sig, unb64(dev.signPub, 32))
+        return Opened(content, verified)
+    }
+}
+
+/**
+ * 2.3 (saga-chat/v2): Nachricht eines Chats ueber Servergrenzen oeffnen. Echt nur, wenn das Absender-Geraet in den SELBST
+ * geprueften Schluesseln des Absender-Handles steht (Zertifikat v2, TOFU nicht abgelehnt) und die Signatur v2 passt.
+ */
+class FedOpener(private val svc: ChatService, private val k: LocalChatKeys, private val fk: Map<String, FedKeyState>) {
+    private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false; isLenient = true }
+
+    fun open(chatRef: String, m: ApiMessage): Opened {
+        val sender = m.senderHandle ?: return Opened(null, false)
+        val ai = m.ai?.takeIf { it.hashOnly }?.sha256
+        val c = svc.fed.crypto
+        val content = try {
+            val key = if (m.keyFor == "backup") svc.crypto.openKey(m.key, k.ident.backupPk, k.ident.backupSk) else svc.crypto.openKey(m.key, k.dev.encPk, k.dev.encSk)
+            json.decodeFromString(ChatContent.serializer(), c.decrypt(chatRef, m.id, sender, m.senderDevice, m.ts, m.replyTo, ai, m.bodyCt, key))
+        } catch (_: Exception) {
+            null
+        }
+        val f = fk[sender]
+        val d = f?.keys?.takeIf { f.trust != TofuV2.REJECT }?.device(m.senderDevice)
+        val verified = d != null && c.verifyMessage(chatRef, m.id, sender, m.senderDevice, m.ts, m.replyTo, ai, m.bodyCt, m.sig, unb64(d.signPub, 32))
         return Opened(content, verified)
     }
 }
@@ -129,6 +158,13 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         private set
     var notFound by mutableStateOf(false)
         private set
+    /** 2.3: Schluessel der Mitglieder eines Chats ueber Servergrenzen (selbst geprueft, TOFU) - Handle -> Stand */
+    var fk by mutableStateOf<Map<String, FedKeyState>>(emptyMap())
+        private set
+    /** 2.3: Chat ueber Servergrenzen (saga-chat/v2) */
+    val isFed: Boolean get() = summary?.isFed == true
+    /** Kennung fuer die Verschluesselung: v1 chat_id, v2 chat_ref */
+    private val cryptoId: String get() = summary?.cryptoId ?: chatId.toString()
 
     private var lastSeq = 0L
     private var lastTyping = 0L
@@ -146,6 +182,8 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         loading = true
         try {
             loadSummary()
+            // v2: Schluessel der Absender (selbst geprueft) vor dem Entschluesseln - sonst stuende kurz "Echtheit nicht bestaetigt"
+            if (isFed) quietly { loadFedKeys(false) }
             val r = decode<MessagesResponse>(api.get("api/chats/$chatId/messages?device=${keys().dev.id}&limit=50&calls=1"))
             messages.clear()
             messages.addAll(ChatDeleteLogic.keepAfter(decryptAll(r), summary?.clearedSeq ?: 0) { it.seq })
@@ -211,6 +249,31 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         identChanged = changed
         idents = idents + r.idents
         val opener = MessageOpener(svc, k)
+        val sum = summary
+        if (sum != null && sum.isFed) {
+            val fo = FedOpener(svc, k, fk)
+            val ref = sum.ref!!
+            return withContext(Dispatchers.Default) {
+                r.messages.map { m ->
+                    val mine = m.sender?.username == me
+                    when (m.kind) {
+                        "call" -> ChatMessage(m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, null, null, true, mine,
+                            // v2: Anrufer steht als Prinzipal drin - eigener Anruf (Absender = ich) zaehlt als "von mir"
+                            io.github.yggdrasil_sh.saga.call.CallLogic.parseEntry(m.bodyCt)?.let { e -> if (mine) e.copy(from = me) else e },
+                            senderHandle = m.senderHandle)
+                        "sys" -> ChatMessage(m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, null, null, true, false,
+                            sys = ChatLogic.sys(m.bodyCt), senderHandle = m.senderHandle)
+                        else -> {
+                            val o = fo.open(ref, m)
+                            ChatMessage(
+                                m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, m.replyTo, o.content, o.verified, mine,
+                                ai = ChatLogic.aiCheck(o.content, m.ai), fstate = m.fstate, senderHandle = m.senderHandle,
+                            )
+                        }
+                    }
+                }
+            }
+        }
         return withContext(Dispatchers.Default) {
             r.messages.map { m ->
                 if (m.kind == "call") {
@@ -229,6 +292,10 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
 
     /** Identitaetsschluessel aller Mitglieder (Sicherheitsnummer, TOFU) */
     suspend fun loadIdents() {
+        if (isFed) {
+            quietly { loadFedKeys(false) }
+            return
+        }
         val mem = summary?.members?.map { it.username }.orEmpty().filter { it.isNotEmpty() }
         if (mem.isEmpty()) return
         try {
@@ -248,6 +315,23 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         } catch (_: Exception) {
         }
     }
+
+    /** 2.3: Handles aller Mitglieder (auch der eigene) */
+    private fun handles(): List<String> =
+        (summary?.members.orEmpty().mapNotNull { it.handle } + listOfNotNull(summary?.myHandle)).filter { it.isNotEmpty() }.distinct()
+
+    /** 2.3: Schluessel der Mitglieder holen und selbst pruefen (TOFU) -> Stand fuer Kopf, Warnungen, Senden */
+    suspend fun loadFedKeys(fresh: Boolean): Map<String, FedKeyState> {
+        val r = svc.fed.keys(handles(), fresh)
+        fk = r
+        return r
+    }
+
+    /** 2.3: Personen mit Warnung/Blockade/ungueltigen Schluesseln (Mitglied -> Stand) - Senden und Anrufen gesperrt */
+    val fedIssues: List<Pair<ChatPerson, FedKeyState>>
+        get() = if (!isFed) emptyList() else summary?.members.orEmpty().filter { !it.me && !it.handle.isNullOrEmpty() }.mapNotNull { m ->
+            fk[m.handle]?.takeIf { it.trust == TofuV2.WARN || it.trust == TofuV2.BLOCK || it.trust == TofuV2.REJECT }?.let { m to it }
+        }
 
     private suspend fun resolveNotes() {
         val want = messages.flatMap { m -> (m.content?.notes.orEmpty() + ChatFormat.noteRefs(m.content?.text.orEmpty())) }
@@ -290,9 +374,9 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             }
             // 2.1-c: je Bild ein Vorschaubild (eigene Datei, eigener Schluessel) - so viele, wie Datei-Kennungen erlaubt sind
             var thumbsLeft = ChatImages.thumbBudget(files.size, files.count { it.mime.startsWith("image/") }, limits.filesPerMsg, limits.fileIdsPerMsg)
-            val cid = chatId.toString()
+            val cid = cryptoId                                          // v1 chat_id, v2 chat_ref
             val uploaded = files.map { f ->
-                val (blob, key) = withContext(Dispatchers.Default) { svc.crypto.encryptFile(cid, f.data) }
+                val (blob, key) = withContext(Dispatchers.Default) { svc.encryptFileAny(cid, f.data) }
                 val id = decode<FileUploaded>(api.postBytes("api/chats/$chatId/files", blob)).id
                 var file = ChatFile(id, b64(key), f.name, f.mime, f.data.size.toLong())
                 if (f.mime.startsWith("image/")) {
@@ -307,7 +391,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                         file = file.copy(w = t.origW, h = t.origH)
                         if (thumbsLeft > 0) {
                             thumbsLeft--
-                            val (tblob, tkey) = withContext(Dispatchers.Default) { svc.crypto.encryptFile(cid, t.jpeg) }
+                            val (tblob, tkey) = withContext(Dispatchers.Default) { svc.encryptFileAny(cid, t.jpeg) }
                             val tid = decode<FileUploaded>(api.postBytes("api/chats/$chatId/files", tblob)).id
                             file = file.copy(th = ChatThumb(tid, b64(tkey), "image/jpeg", t.w, t.h, t.jpeg.size.toLong()))
                             withContext(Dispatchers.IO) { svc.blobs.put(ChatBlobCache.key(chatId, tid), tblob) }      // eigenes Bild sofort aus dem Cache
@@ -411,14 +495,18 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             val rid = d?.replyId
             if (d == null || text.isEmpty() || rid.isNullOrEmpty()) throw UiTextException(UiText.Res(R.string.chat_ai_no_answer))
             d.quotaLeft?.let { q -> svc.repo.ai.status.value?.let { st -> svc.repo.ai.status.value = st.copy(quotaLeft = q) } }
-            postEncrypted(keys(), ChatLogic.aiReplyContent(text, rid, aiName), questionId, "msg", emptyList(), aiReply = rid)
+            postEncrypted(keys(), ChatLogic.aiReplyContent(text, rid, aiName), questionId, "msg", emptyList(), aiReply = rid,
+                aiHash = d.replySha?.ifEmpty { null } ?: FedFormat.aiHash(text))
             behind = !quietly { loadNewer() }
         } finally {
             aiPending = null
         }
     }
 
-    private suspend fun postEncrypted(k: LocalChatKeys, plain: String, reply: String?, kind: String, fileIds: List<String>, aiReply: String? = null): String {
+    private suspend fun postEncrypted(
+        k: LocalChatKeys, plain: String, reply: String?, kind: String, fileIds: List<String>, aiReply: String? = null, aiHash: String? = null,
+    ): String {
+        if (isFed) return postV2(k, plain, reply, fileIds, aiReply, aiHash)
         var rc = decode<RecipientsResponse>(api.get("api/chats/$chatId/recipients")).recipients
         for (attempt in 0..1) {
             val enc = withContext(Dispatchers.Default) {
@@ -453,6 +541,124 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             }
         }
         throw IllegalStateException("unreachable")
+    }
+
+    /** 2.3: letzte Sendung wartet beim eigenen Server (anderer Server gerade nicht erreichbar) */
+    var lastPending by mutableStateOf(false)
+        private set
+
+    /**
+     * 2.3 Senden in Chats ueber Servergrenzen (saga-chat/v2): Empfaenger = aktive Geraete + backup:<handle> aus den SELBST
+     * geprueften Schluesseln aller Mitglieder; Warnung/Blockade/ungueltig -> nicht senden. 409 {handles} -> Schluessel
+     * frisch holen und einmal neu versiegeln; 403 (Geraet noch ohne Zertifikat v2) -> Zertifikate nachziehen, einmal neu.
+     */
+    private suspend fun postV2(k: LocalChatKeys, plain: String, reply: String?, fileIds: List<String>, aiReply: String?, aiHash: String?): String {
+        val sum = summary ?: throw UiTextException(UiText.Res(R.string.error_generic))
+        val ref = sum.ref ?: throw UiTextException(UiText.Res(R.string.error_generic))
+        val hs = handles()
+        var fresh = false
+        var certsTried = false
+        for (attempt in 0..2) {
+            val got = loadFedKeys(fresh)
+            fedBlock(got)?.let { throw it }
+            val myHandle = sum.myHandle ?: svc.fed.myHandle
+            val mine = myHandle?.let { got[it] }
+            if (myHandle == null || mine?.keys == null || mine.trust != TofuV2.TRUST) {
+                if (!certsTried) {
+                    certsTried = true
+                    svc.fed.certs()
+                    fresh = true
+                    continue
+                }
+                throw UiTextException(UiText.Res(R.string.fed_keys_not_ready))
+            }
+            val enc = withContext(Dispatchers.Default) {
+                val ents = hs.mapNotNull { got[it]?.keys }
+                svc.fed.crypto.encrypt(ref, myHandle, k.dev, plain, FedFormat.recipients(ents), reply, aiHash)
+            }
+            val body = buildJsonObject {
+                put("v", 2)
+                put("id", enc.id)
+                put("ts", enc.ts)
+                put("sender_device", k.dev.id)
+                put("body_ct", enc.bodyCt)
+                put("sig", enc.sig)
+                if (reply != null) put("reply_to", reply)
+                if (aiHash != null) put("ai", aiHash)
+                if (aiReply != null) put("ai_reply", aiReply)
+                putJsonObject("keys") { enc.keys.forEach { (r, v) -> put(r, v) } }
+                put("files", buildJsonArray { fileIds.forEach { add(JsonPrimitive(it)) } })
+            }
+            try {
+                val o = Json.parseToJsonElement(api.post("api/chats/$chatId/messages", body)) as? JsonObject
+                lastPending = (o?.get("pending") as? JsonPrimitive)?.content == "true"
+                if (lastPending) svc.repo.notify(UiText.Res(R.string.fed_pending_sent))
+                return enc.id
+            } catch (e: ApiException) {
+                val o = try {
+                    Json.parseToJsonElement(e.body) as? JsonObject
+                } catch (_: Exception) {
+                    null
+                }
+                if (e.code == 409 && o?.containsKey("handles") == true && !fresh) {
+                    fresh = true                                     // Mitglieder/Geraete geaendert: frisch holen, neu versiegeln
+                    continue
+                }
+                if (e.code == 403 && !certsTried) {
+                    certsTried = true                                // Geraet ohne Zertifikat v2: nachziehen und einmal neu
+                    svc.fed.certs()
+                    fresh = true
+                    continue
+                }
+                throw e
+            }
+        }
+        throw UiTextException(UiText.Res(R.string.fed_keys_not_ready))
+    }
+
+    /** Warnung/Blockade/ungueltig bei einem Mitglied -> Fehler mit Namen (sonst null) */
+    private fun fedBlock(got: Map<String, FedKeyState>): UiTextException? {
+        val bad = summary?.members.orEmpty().filter { m ->
+            !m.me && m.handle != null && got[m.handle]?.trust.let { it == TofuV2.WARN || it == TofuV2.BLOCK || it == TofuV2.REJECT }
+        }
+        if (bad.isEmpty()) return null
+        return UiTextException(UiText.Res(R.string.chat_safety_send_blocked, bad.joinToString(", ") { it.name.ifEmpty { it.label ?: it.username } }))
+    }
+
+    /** 2.3: nicht zugestellte eigene Nachricht neu verschluesseln und senden, die alte loeschen */
+    suspend fun resend(m: ChatMessage) {
+        val c = m.content ?: return
+        val k = keys()
+        sending = true
+        try {
+            postEncrypted(k, ChatLogic.content(c.text, c.files, c.notes), m.replyTo, "msg", ChatLogic.sendFileIds(c.files))
+            quietly { api.delete("api/chats/$chatId/messages/${m.id}") }
+            messages.removeAll { it.id == m.id }
+            behind = !quietly { loadNewer() }
+        } finally {
+            sending = false
+        }
+    }
+
+    // ---------------------------------------------------------------- Nachrichtenanfragen (2.3)
+
+    /** Annehmen | Ablehnen | Sperren (Person oder ganzer Server); Ablehnen/Sperren schliesst die Unterhaltung */
+    suspend fun answerRequest(action: String, scope: String = "person") {
+        svc.fed.answer(chatId, action, scope)
+        if (action == "accept") {
+            loadSummary()
+            behind = !quietly { loadNewer() }
+        } else {
+            closed = true
+        }
+    }
+
+    /** 2.3: "Verstanden" (Warnung bestaetigen) bzw. "Als überprüft markieren" fuer eine Person eines anderen Servers */
+    suspend fun trustFed(p: ChatPerson, verified: Boolean) {
+        val h = p.handle ?: return
+        val k = fk[h]?.keys ?: return
+        svc.fed.verify(h, k.identPub, verified)
+        quietly { loadFedKeys(false) }
     }
 
     private fun recipientKeys(rc: List<Recipient>): Map<String, ByteArray>? {
@@ -570,39 +776,74 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
 
     /** Vorschaubild eines Bild-Anhangs (2.1-c): Speicher, Plattencache (Ciphertext), Server; ohne th selbst erzeugt */
     suspend fun thumb(f: ChatFile): androidx.compose.ui.graphics.ImageBitmap? =
-        svc.thumbs.load(chatId, f, (svc.me.value?.limits ?: ChatLimits()).fileMax)
+        svc.thumbs.load(chatId, f, (svc.me.value?.limits ?: ChatLimits()).fileMax, cryptoId)
 
     fun cachedThumb(f: ChatFile): androidx.compose.ui.graphics.ImageBitmap? = svc.thumbs.cached(chatId, f)
 
     suspend fun download(f: ChatFile): ByteArray {
         val blob = api.getBytes("api/chat/files/${f.id}")
         return withContext(Dispatchers.Default) {
-            svc.crypto.decryptFile(chatId.toString(), blob, unb64(f.k, 32) ?: throw UiTextException(UiText.Res(R.string.chat_file_broken)))
+            svc.decryptFileAny(cryptoId, blob, unb64(f.k, 32) ?: throw UiTextException(UiText.Res(R.string.chat_file_broken)))
         }
     }
 
     // ---------------------------------------------------------------- Sicherheitsnummer
 
     fun safetyNumber(other: String): String? {
+        if (isFed) {
+            val p = summary?.members?.firstOrNull { it.username == other } ?: return null
+            val h = p.handle ?: return null
+            val my = summary?.myHandle ?: svc.fed.myHandle ?: return null
+            val k = fk[h]?.keys ?: return null
+            return svc.fed.safetyNumber(my, h, k.identPk)
+        }
         val mine = svc.keys() ?: return null
         val theirs = unb64(idents[other], 32) ?: return null
         return svc.crypto.safetyNumber(me, mine.ident.identPk, other, theirs)
     }
 
     fun acknowledge(uid: String, verified: Boolean) {
+        if (isFed) {
+            // v2: Ansehen allein bestaetigt nichts ("Verstanden" im Hinweis); "Als überprüft markieren" speichert den Schluessel
+            val p = summary?.members?.firstOrNull { it.username == uid } ?: return
+            val h = p.handle ?: return
+            val k = fk[h]?.keys ?: return
+            if (verified) {
+                svc.store.setTrust2(h, k.identPub, true)
+                fk = fk + (h to FedKeyState(k, TofuV2.TRUST, fk[h]?.stale == true, Trust2(k.identPub, verified = true, dver = k.ver)))
+            }
+            return
+        }
         svc.store.acknowledge(uid, verified)
         identChanged = identChanged - uid
     }
 
-    fun isVerified(uid: String): Boolean = svc.store.known()[uid]?.verified == true
+    fun isVerified(uid: String): Boolean {
+        if (isFed) {
+            val h = summary?.members?.firstOrNull { it.username == uid }?.handle ?: return false
+            return fk[h]?.verified == true
+        }
+        return svc.store.known()[uid]?.verified == true
+    }
 
     // ---------------------------------------------------------------- Live
 
     suspend fun onEvent(ev: LiveEvent) {
+        // 2.3: Schluessel einer Person dieses Chats geaendert -> frisch holen und TOFU pruefen (Ereignis ohne chat_id)
+        if (ev.type == "chat.keys.changed") {
+            val (h, own) = FedChat.keysChanged(ev.data)
+            if (isFed && (own || (h != null && h in handles()))) quietly { loadFedKeys(true) }
+            return
+        }
         if (ev.long("chat_id") != chatId) return
         when (ev.type) {
             "chat.message" -> {
                 typing = typing - (ev.str("sender") ?: "")
+                // 2.3: eigene wartende Nachricht jetzt zugestellt bzw. abgewiesen
+                ev.str("id")?.let { id ->
+                    val i = messages.indexOfFirst { it.id == id }
+                    if (i >= 0 && messages[i].fstate != null) messages[i] = messages[i].copy(fstate = if (ev.bool("failed")) "failed" else null)
+                }
                 behind = !quietly { loadNewer() }        // Funkloch: kein Absturz (BUG-003), catchUp() holt nach
             }
             "chat.deleted" -> ev.str("id")?.let { id -> messages.removeAll { it.id == id } }
@@ -624,6 +865,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                 wipe(c.upTo, draft = !c.forAll)
                 quietly { loadSummary() }
             }
+            "chat.keys.changed" -> {}
             "chat.changed" -> {
                 try {
                     loadSummary()

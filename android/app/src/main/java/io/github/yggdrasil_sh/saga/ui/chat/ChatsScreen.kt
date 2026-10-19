@@ -55,6 +55,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -126,6 +129,8 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
     val titles by svc.freeTitles.collectAsState()
     val loaded by svc.chatsLoaded.collectAsState()
     var newChat by remember { mutableStateOf(false) }
+    var blocks by remember { mutableStateOf(false) }
+    val fedV2 by svc.fed.supported.collectAsState()
     var showArchived by rememberSaveable { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -148,12 +153,29 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
                         Icon(Icons.Filled.Lock, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
                             stringResource(R.string.chat_e2e), style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp).weight(1f),
                         )
+                        // 2.3: Sperrliste (Personen/Server anderer Instanzen) - nur mit Server ab 2.3
+                        if (fedV2 == true) TextButton(onClick = { blocks = true }) { Text(stringResource(R.string.fed_blocks_title), style = MaterialTheme.typography.labelMedium) }
                     }
                 }
                 // 2.1: archivierte Chats in einem eigenen, aufklappbaren Bereich unten (aeltere Server: alles wie bisher)
-                val (active, archived) = ChatDeleteLogic.split(chats)
+                // 2.3: Nachrichtenanfragen (Personen anderer Server, noch nicht angenommen) oben in eigenem Bereich
+                val (activeAll, archived) = ChatDeleteLogic.split(chats)
+                val requests = activeAll.filter { it.request }
+                val active = activeAll.filter { !it.request }
+                if (requests.isNotEmpty()) {
+                    item(key = "requests-header") {
+                        Text(
+                            stringResource(R.string.fed_requests_n, requests.size), style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp).semantics { heading() },
+                        )
+                    }
+                    items(requests, key = { "q" + it.id }) { c ->
+                        ChatListEntry(repo, c, svc.displayName(c), c.id == selected, onOpen, onDeleted = { if (c.id == selected) nav.top(Dest.Chats) })
+                    }
+                    item(key = "requests-end") { HorizontalDivider(Modifier.padding(vertical = 4.dp)) }
+                }
                 if (loaded && active.isEmpty() && archived.isEmpty()) {
                     item { Text(stringResource(R.string.chat_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
                 }
@@ -174,6 +196,7 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
         }
     }
     if (newChat) NewChatDialog(repo, onDismiss = { newChat = false }) { id -> newChat = false; onOpen(id) }
+    if (blocks) FedBlocksDialog(repo) { blocks = false }
 }
 
 /** Bereich "Archiviert (n)": aufklappbar, Zaehler der ungelesenen Nachrichten darin */
@@ -315,8 +338,14 @@ private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, onClick: ()
                     )
                 }
             }
+            // 2.3: Person eines anderen Servers - Anfrage/Direkt, Herkunft, schreibgeschuetzt
+            val sub = if (c.isFed) {
+                (if (c.request) stringResource(R.string.fed_request_chip) else kindLabel) +
+                    (c.peer?.host ?: c.home)?.let { " · $it" }.orEmpty() +
+                    (if (c.readonly) " · " + stringResource(R.string.fed_readonly_chip) else "")
+            } else kindLabel
             Text(
-                kindLabel + (c.lastAt?.let { " · " + relativeTime(it) } ?: ""), style = MaterialTheme.typography.bodySmall,
+                sub + (c.lastAt?.let { " · " + relativeTime(it) } ?: ""), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
             )
         }

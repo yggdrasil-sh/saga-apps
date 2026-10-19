@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.3: chats y llamadas entre servidores (federación) -->
+<resources>
+    <string name="fed_keys_not_ready">Tus claves para chats entre servidores aún no están listas: inténtalo de nuevo en un momento.</string>
+    <string name="fed_pending_sent">El otro servidor no está disponible ahora mismo: el mensaje se entregará en cuanto vuelva.</string>
+    <string name="fed_msg_pending">entregándose</string>
+    <string name="fed_msg_failed">no entregado</string>
+    <string name="fed_resend">Enviar de nuevo</string>
+    <string name="fed_on_host">en %1$s</string>
+    <string name="fed_blocked_chip">bloqueado</string>
+    <string name="fed_request_chip">Solicitud</string>
+    <string name="fed_readonly_chip">solo lectura</string>
+    <string name="fed_warn_changed">El número de seguridad de %1$s ha cambiado, p. ej. tras «Empezar de nuevo» o con una cuenta nueva. Compruébalo antes de escribir algo confidencial.</string>
+    <string name="fed_warn_blocked">Habías marcado a %1$s como verificado y ahora el servidor indica otra clave. El envío está bloqueado hasta que vuelvas a comparar el número de seguridad.</string>
+    <string name="fed_warn_invalid">Las claves de %1$s no son válidas (certificado o lista de dispositivos): el envío está bloqueado.</string>
+    <string name="fed_understood">Entendido</string>
+    <string name="fed_readonly">Esta conversación es de solo lectura.</string>
+    <string name="fed_request_text">%1$s (%2$s) quiere escribirte. Hasta que aceptes no recibirás notificaciones ni llamadas, y %1$s no sabrá si has leído los mensajes.</string>
+    <string name="fed_accept">Aceptar</string>
+    <string name="fed_decline">Rechazar</string>
+    <string name="fed_block_menu">Bloquear …</string>
+    <string name="fed_block_person">Bloquear a %1$s</string>
+    <string name="fed_block_instance">Bloquear todo el servidor %1$s</string>
+    <string name="fed_accepted">Solicitud aceptada.</string>
+    <string name="fed_declined">Solicitud rechazada.</string>
+    <string name="fed_blocked_done">Bloqueado: no llegarán más solicitudes desde allí.</string>
+    <string name="fed_sys_you">Tú</string>
+    <string name="fed_sys_ai_on">%1$s ha activado la IA en este chat.</string>
+    <string name="fed_sys_ai_off">%1$s ha desactivado la IA en este chat.</string>
+    <string name="fed_sys_note">Aviso</string>
+    <string name="fed_blocks_title">Bloqueados</string>
+    <string name="fed_blocks_empty">No has bloqueado a nadie.</string>
+    <string name="fed_blocks_instance">Todo el servidor %1$s</string>
+    <string name="fed_blocks_person">Persona</string>
+    <string name="fed_unblock">Desbloquear</string>
+    <string name="fed_chat_hint_v2">Encuentra a personas de otros servidores Saga conectados por su nombre visible o nombre@servidor (no por la dirección de correo).</string>
+    <string name="fed_person_sub">Persona en %1$s · el primer mensaje llega como solicitud</string>
+    <string name="fed_groups_later">Los grupos con personas de otros servidores Saga llegarán en una actualización posterior.</string>
+    <string name="fed_requests_n">Solicitudes de mensajes (%1$d)</string>
+    <string name="fed_other_instance_at">Otra instancia de Saga · %1$s</string>
+</resources>

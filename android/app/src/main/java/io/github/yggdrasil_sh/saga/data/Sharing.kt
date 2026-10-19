@@ -91,9 +91,18 @@ data class TargetGroup(val name: String = "")
 
 /** Foederation: Person ("remote") oder Gruppe ("remote_group") auf einer anderen Saga-Instanz */
 @Serializable
-data class TargetRemote(val type: String = "remote", val target: String = "", val name: String = "", val host: String = "")
+data class TargetRemote(
+    val type: String = "remote",
+    val target: String = "",
+    val name: String = "",
+    val host: String = "",
+    /** 2.3 Adressbuch: "Anna Berg · b.example" (bei gleichen Namen mehr), Profilbild, oeffentlicher Name (oder null) */
+    val label: String? = null,
+    val avatar: String? = null,
+    val pub: String? = null,
+)
 
-/** GET /api/share/targets?q= (ab 3 Zeichen) */
+/** GET /api/share/targets?q= (ab 1 Zeichen; Server 2.3: bei 1-2 Zeichen nur genaue Treffer, aeltere erst ab 3) */
 @Serializable
 data class ShareTargets(
     val users: List<TargetUser> = emptyList(),
