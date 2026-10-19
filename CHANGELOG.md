@@ -6,6 +6,22 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Behoben – iOS/iPadOS/macOS: Anrufe verkleinern, Mitteilungen während eines Anrufs
+- **Zurück in die App während eines Anrufs (iPhone/iPad):** Der Anrufbildschirm hat oben links „Zurück zur App“
+  (Pfeil nach unten). Der Anruf läuft weiter – Ton und Video bleiben verbunden –, Chats und Seiten sind bedienbar.
+  Oben steht eine grüne Leiste „Anruf läuft – tippen zum Zurückkehren“ mit der Dauer; Tippen öffnet den Anruf wieder.
+  Endet ein verkleinerter Anruf, erscheint nur ein kurzer Hinweis statt des Vollbilds. Bisher sah man nach dem Öffnen
+  von Saga nur den Anrufbildschirm.
+- **Hinweis im Chat:** In der Unterhaltung, zu der der laufende Anruf gehört, steht oben „Anruf läuft in diesem Chat“
+  mit Dauer und „Zurück zum Anruf“.
+- **Absturz beim Antippen einer Chat-Mitteilung während eines Anrufs behoben:** Bisher baute die App die Navigation
+  (Bereich „Chats“ und Unterhaltung in einem Schritt) unter dem offenen Anruf-Vollbild um; die App stürzte ab, der
+  Anruf brach mit ab. Jetzt wird der Anruf zuerst verkleinert, danach öffnet sich der Chat (Bereich und Unterhaltung
+  nacheinander); der Anruf läuft weiter, die Leiste ist sichtbar. Dasselbe gilt für andere Mitteilungen und Links aus
+  Widgets/Kurzbefehlen.
+- **Mac:** Während eines Anrufs zeigt das Hauptfenster dieselbe Leiste („klicken zum Zurückkehren“ holt das Fenster
+  „Anruf“ nach vorn) und den Hinweis im Chat.
+
 ## [2.3.0] – 2026-10-19
 
 Passt zu Saga-Server 2.3. **Die neuen Funktionen brauchen Saga-Server 2.3; ältere Server funktionieren weiter**

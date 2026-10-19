@@ -47,6 +47,11 @@ final class CallManager: NSObject, ObservableObject {
     @Published private(set) var enabled = true
     /// Hinweis ausserhalb eines Anrufs ("Du telefonierst gerade schon.")
     @Published var toast: String?
+    /// 2.3.1: Anruf-Oberflaeche verkleinert (iPhone/iPad) - zurueck in der App, oben die Leiste "Anruf laeuft".
+    /// Nur die Anzeige: Verbindung, Ton und Video laufen unveraendert weiter (spaeter auch Bild-im-Bild).
+    @Published var minimized = false
+    /// Vollbild gerade wirklich auf dem Bildschirm (von der Oberflaeche gesetzt; zum Warten vor dem Navigieren)
+    var coverVisible = false
 
     // Zustand des laufenden Anrufs
     private var id: String?
@@ -79,6 +84,28 @@ final class CallManager: NSObject, ObservableObject {
 
     var busy: Bool { phase != .idle && phase != .ended }
     var callID: String? { id }
+    /// Chat des laufenden Anrufs (0 = keiner) - fuer den Hinweis in der Unterhaltung
+    var callChatID: Int { chatID }
+
+    // MARK: Verkleinern / Zurueckkehren (2.3.1)
+
+    /// iPhone/iPad: Vollbild gerade sichtbar (sonst Leiste bzw. nichts)
+    var showsFullScreen: Bool { CallLogic.showsFullScreen(phase: phase.rawValue, minimized: minimized, callKit: CallEnv.callKit) }
+    /// Zurueck in die App: Vollbild schliessen, Anruf laeuft weiter; Endhinweis gleich zu
+    func minimize() {
+        if phase == .ended { dismissEnded(); return }
+        if CallLogic.isOngoing(phase.rawValue) { minimized = true }
+    }
+    func expand() { if CallLogic.isOngoing(phase.rawValue) { minimized = false } }
+    /// Vor dem Navigieren (Mitteilung, Link): Vollbild schliessen und warten, bis es wirklich weg ist
+    func minimizeUI() async {
+        #if os(iOS)
+        guard showsFullScreen else { return }
+        minimize()
+        for _ in 0..<30 where coverVisible { try? await Task.sleep(for: .milliseconds(50)) }   // hoechstens 1,5 s
+        try? await Task.sleep(for: .milliseconds(150))                     // Ausblende-Animation fertig
+        #endif
+    }
     private var me: String { store?.chat.me.uid ?? "" }
     private var myDevice: String? { store?.chat.keys?.deviceID }
 
@@ -713,15 +740,16 @@ final class CallManager: NSObject, ObservableObject {
         incoming = nil
         status = message ?? note.map(Self.text) ?? String(localized: "Anruf beendet")
         CallEnv.log("ended \(status.prefix(40))")
+        if minimized { toast = status }                                     // verkleinert: kein Vollbild mehr, nur der Hinweis
         phase = .ended
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(message == nil ? 2 : 6))
             guard let self, self.phase == .ended else { return }
-            self.phase = .idle; self.status = ""; self.failed = false
+            self.phase = .idle; self.status = ""; self.failed = false; self.minimized = false
         }
     }
     /// Fenster sofort schliessen (Knopf "Schliessen" nach Fehlermeldung)
-    func dismissEnded() { if phase == .ended { phase = .idle; status = ""; failed = false } }
+    func dismissEnded() { if phase == .ended { phase = .idle; status = ""; failed = false; minimized = false } }
 
     static func text(_ n: CallLogic.EndNote) -> String {
         switch n {
@@ -744,7 +772,7 @@ final class CallManager: NSObject, ObservableObject {
         ready = false; connected = false; ending = false; answered = false; keysRefreshed = false; failed = false
         mic = true; cam = false; remote = CallRemoteState(); verified = false; relay = false; connectedAt = nil; speaker = false
         meter = CallLogic.AudioMeter(); audioIn = .unknown; audioMic = .unknown
-        localVideo = nil; remoteVideo = nil; incoming = nil
+        localVideo = nil; remoteVideo = nil; incoming = nil; minimized = false
     }
     func signedOut() { if busy { hangup() }; enabled = true; done = [] }
 }

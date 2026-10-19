@@ -153,7 +153,7 @@ struct RootView: View {
     private var withEvents: some View {
         core
         .onReceive(NotificationCenter.default.publisher(for: .hkCaptured)) { _ in Task { await store.refresh() } }   // Menueleiste
-        .onOpenURL { url in openLink(url) }                              // Links aus den Widgets / Kurzbefehlen
+        .onOpenURL { url in openAfterCallUI { openLink(url) } }          // Links aus den Widgets / Kurzbefehlen
         .onContinueUserActivity(CSSearchableItemActionType) { a in        // Spotlight-Treffer
             if let id = SpotlightIndex.pageID(a) { nav.peek = nil; nav.path = []; selection = id }
         }
@@ -165,7 +165,7 @@ struct RootView: View {
         .onChange(of: store.needsLogin) { _, v in
             if v { store.live.stop() } else { store.live.start(); store.push.appStarted(); Task { await store.chat.load() } }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .hkOpenTarget)) { n in if let t = n.object as? NotifTarget { PushModel.pending = nil; openTarget(t) } }
+        .onReceive(NotificationCenter.default.publisher(for: .hkOpenTarget)) { n in if let t = n.object as? NotifTarget { PushModel.pending = nil; openAfterCallUI { openTarget(t) } } }
         .onReceive(NotificationCenter.default.publisher(for: .hkOpenSettings)) { _ in
             #if os(macOS)
             openSettings()
@@ -257,7 +257,7 @@ extension RootView {
         await store.refresh()
         if let h = startHome, store.homePage == nil, selection == h { selection = nil }   // gehoerte einem anderen Konto (BUG-060)
         if !store.needsLogin { store.live.start(); store.push.appStarted(); Task { await store.chat.load() } }
-        if let t = PushModel.pending { PushModel.pending = nil; openTarget(t) }   // Kaltstart per Mitteilung
+        if let t = PushModel.pending { PushModel.pending = nil; openAfterCallUI { openTarget(t) } }   // Kaltstart per Mitteilung
         if let home = store.homePage, !store.pages.isEmpty, store.page(home) == nil { store.setHome(nil); if selection == home { selection = nil } }   // geloescht -> vergessen
         #if DEBUG
         if let v = UserDefaults.standard.string(forKey: "hkOpen"), let id = Int(v.replacingOccurrences(of: "m", with: "-")) { selection = id }   // nur fuer Tests (Startparameter -hkOpen <id>, m2049 = -2049)
@@ -307,10 +307,25 @@ extension RootView {
     /// Seite, die gerade vorne ist: Peek, sonst oberste im Stapel, sonst die gewaehlte
     var currentPageID: Int? { nav.peek?.id ?? nav.path.last?.id ?? (selection.flatMap { FedLogic.isPageID($0) ? $0 : nil }) }
 
+    /// Navigation von aussen (Mitteilung, Link): liegt die Anruf-Oberflaeche im Vollbild darueber, erst verkleinern und
+    /// warten, bis sie weg ist - Navigationsstapel unter einem offenen Vollbild umzubauen brachte die App zum Absturz
+    /// (und mit ihr den Anruf). Der Anruf laeuft weiter, oben steht die Leiste "Anruf laeuft".
+    func openAfterCallUI(_ go: @escaping @MainActor () -> Void) {
+        #if os(iOS)
+        if store.calls.showsFullScreen { Task { await store.calls.minimizeUI(); go() }; return }
+        #endif
+        go()
+    }
+
     /// Benachrichtigung/Mitteilung/Seiten-Chat: Ziel oeffnen
     func openTarget(_ t: NotifTarget) {
         switch t {
-        case .chat(let id): nav.peek = nil; nav.path = []; selection = FedLogic.chatsTag; openChat = id
+        case .chat(let id):
+            nav.peek = nil; nav.path = []
+            if CallLogic.chatOpenNeedsTwoSteps(chatsVisible: selection == FedLogic.chatsTag) {
+                selection = FedLogic.chatsTag                               // erst den Bereich, dann den Chat (eigener Stapel)
+                Task { try? await Task.sleep(for: .milliseconds(350)); if selection == FedLogic.chatsTag { openChat = id } }
+            } else { openChat = id }
         case .page(let id, let block):
             nav.peek = nil
             if let b = block { nav.showComments(id, block: b) }       // Seite schon offen: sie reagiert auf commentsJump
