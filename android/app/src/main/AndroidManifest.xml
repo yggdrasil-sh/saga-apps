@@ -26,6 +26,8 @@
     <!-- 2.4: Bildschirm im Anruf teilen (MediaProjection, Vordergrund-Dienst Typ mediaProjection) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <!-- 2.4 Videos im Chat: Upload im Hintergrund (WorkManager, expedited) als Vordergrund-Arbeit mit Mitteilung -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <queries>
         <!-- Custom Tabs (Anmeldung im Browser) -->
@@ -126,6 +128,12 @@
         <receiver
             android:name=".call.CallActionReceiver"
             android:exported="false" />
+
+        <!-- 2.4: Video-Upload (WorkManager) laeuft als Vordergrund-Arbeit vom Typ dataSync -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
 
         <!-- Chat-Anhaenge (entschluesselt im Cache) an andere Apps weitergeben -->
         <provider

@@ -37,6 +37,17 @@ data class ChatLimits(
     @SerialName("file_ids_per_msg") val fileIdsPerMsg: Int? = null,
     @SerialName("retention_max") val retentionMax: Long = 0,
     val retentions: List<Long> = emptyList(),
+    /** 2.4 Videos im Chat (saga-file/v2): fehlt (Server 2.3) -> nur v1 bis file_max */
+    val file2: Boolean = false,
+    /** groesste Klartext-Groesse eines v2-Videos */
+    @SerialName("video_max") val videoMax: Long = 0,
+    /** hoechstens so viele Bytes je PUT */
+    @SerialName("upload_part") val uploadPart: Long = 8L * 1048576,
+    @SerialName("file2_cs") val file2Cs: Int = 262144,
+    @SerialName("uploads_max") val uploadsMax: Int = 2,
+    /** Chat-Speicher des Kontos (Bytes); 0 = unbekannt */
+    val quota: Long = 0,
+    val used: Long = 0,
 )
 
 /** GET /api/chat/me */
@@ -213,6 +224,8 @@ data class ChatSummary(
     /** 2.4 (nur v2): der andere Server kann Gelesen-Bestaetigungen bzw. Online-Status (false = Saga 2.3); lokal fehlt das Feld */
     @SerialName("receipts_ok") val receiptsOk: Boolean? = null,
     @SerialName("online_ok") val onlineOk: Boolean? = null,
+    /** 2.4: alle beteiligten Server koennen grosse Videos (chatfile2); false = Gegenueber hat Saga 2.3; lokal fehlt das Feld */
+    @SerialName("big_files") val bigFiles: Boolean? = null,
 ) {
     /** Chat ueber Servergrenzen (v2) */
     val isFed: Boolean get() = v == 2 && !ref.isNullOrEmpty()
@@ -391,8 +404,17 @@ data class ChatThumb(val id: String = "", val k: String = "", val m: String = "i
 data class ChatFile(
     val id: String = "", val k: String = "", val n: String = "", val m: String = "", val s: Long = 0,
     val w: Int? = null, val h: Int? = null, val th: ChatThumb? = null,
+    /** 2.4: Format (fehlt/1 = v1 ein Block, 2 = saga-file/v2, groesser = neuere Version), Blockgroesse bei v2 */
+    val x: Int? = null, val cs: Int? = null,
+    /** 2.4 Videos: Dauer (s), Drehung (0/90/180/270), moov vorn (faststart, nur Hinweis) */
+    val dur: Double? = null, val rot: Int? = null, val fs: Boolean? = null,
 ) {
     val isImage: Boolean get() = m.startsWith("image/")
+    val isVideo: Boolean get() = m.startsWith("video/")
+    /** Format: 1 (v1) oder 2 (saga-file/v2); andere Werte kann diese Version nicht oeffnen */
+    val format: Int get() = x ?: 1
+    val isV2: Boolean get() = format == 2
+    val unsupported: Boolean get() = format != 1 && format != 2
 }
 
 /** Entschluesselter Inhalt einer Nachricht ({"v":1,"type":"text"|"title", ...}); unbekannte Felder werden ignoriert */

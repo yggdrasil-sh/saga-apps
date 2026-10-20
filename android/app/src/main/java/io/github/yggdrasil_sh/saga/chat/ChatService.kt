@@ -97,6 +97,12 @@ object ChatLogic {
                     put("id", f.id); put("k", f.k); put("n", f.n); put("m", f.m); put("s", f.s)
                     f.w?.let { put("w", it) }
                     f.h?.let { put("h", it) }
+                    // 2.4 Videos (aeltere Apps ignorieren die Felder): Format v2 + Blockgroesse, Dauer, Drehung, faststart
+                    f.x?.takeIf { it != 1 }?.let { put("x", it) }
+                    f.cs?.let { put("cs", it) }
+                    f.dur?.let { put("dur", it) }
+                    f.rot?.let { put("rot", it) }
+                    f.fs?.let { put("fs", it) }
                     f.th?.let { t ->
                         put("th", buildJsonObject { put("id", t.id); put("k", t.k); put("m", t.m); put("w", t.w); put("h", t.h); put("s", t.s) })
                     }
@@ -253,6 +259,7 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
     fun clearMedia() {
         thumbs.clearMemory()
         scope.launch(Dispatchers.IO) { blobs.clear() }
+        repo.clearVideoCache()
     }
 
     /** Abmelden/Kontowechsel */

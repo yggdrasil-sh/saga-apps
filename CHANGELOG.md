@@ -6,6 +6,31 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu – Saga 2.4 Android (Teil 4): Videos im Chat
+- **Videos senden:** Anhängen → „Video“ (oder jede Datei vom Typ Video). Standard ist **„Optimiert 720p“**
+  (Media3 Transformer, H.264 ~2,5 Mbit/s, lange Seite höchstens 1280 px, nie hochskaliert); „Original“ ist je Video
+  wählbar. Poster (Bild bei 1 s bzw. 10 % der Dauer, ≤ 320 px, ≤ 30 KB), Dauer, Abmessungen und Drehung erzeugt das
+  Handy selbst; das Poster geht wie Vorschaubilder als eigener v1-Anhang mit eigenem Schlüssel hoch.
+- **Hochladen im Hintergrund** (WorkManager, mit Mitteilung „Video wird hochgeladen“, Fortschritt und Abbrechen – auch
+  im Chat über dem Eingabefeld). Jedes Video wird eine eigene Nachricht. Bis 10 MB wie bisher (v1), darüber im neuen
+  Format **saga-file/v2**: blockweise verschlüsselt als Datenstrom, Upload in Teilen, **fortsetzbar** nach Netzabbruch
+  oder App-Neustart (Stand per `HEAD`, auch mitten im Block; Schlüssel und Upload-Kennung bis zum Senden im
+  geschützten Speicher). Höchstens ein Export gleichzeitig, bei Überhitzung wird gewartet.
+- **Abspielen ohne Komplett-Download:** Media3 ExoPlayer mit eigener DataSource – holt nur die nötigen Blöcke per
+  Range mit Medien-Token, entschlüsselt je Block im Speicher (nie Klartext auf der Platte), Spulen sofort. Ein
+  gemeinsamer Player je Unterhaltung, an Ort und Stelle oder im Vollbild; beim Wegscrollen wird er freigegeben.
+  Ciphertext-Cache auf der Platte (512 MB, LRU, getrennt vom Bildcache), geleert beim Abmelden und „Neu beginnen“.
+- **In der Galerie speichern** (Filme/Saga, ab Android 10 ohne Speicherrecht; Android 8/9 „Speichern unter“) –
+  entschlüsselt als Datenstrom, auch für Videos mit mehreren hundert MB.
+- **Chatliste flüssig mit vielen Videos:** nur das Poster (lazy über den vorhandenen Bild-Loader) mit Dauer und
+  Abspiel-Symbol, nie ein Player je Zelle.
+- **Kompatibel:** v1-Anhänge unverändert. Server ohne saga-file/v2 (2.3): Videos über 10 MB werden mit Hinweis
+  abgelehnt; Chats mit einem 2.3-Server (`big_files: false`) nur bis 10 MB. Grenzen (`file_max`, `video_max`,
+  `upload_part`) kommen vom Server. Anhänge in einem neueren Format zeigen „Mit einer neueren Saga-Version öffnen“.
+  Erneut senden (nicht zugestellte Nachricht) kopiert große Videos in Teilen statt ganz im Speicher.
+- Geprüft mit `tests/vectors/file_v2.json` (Kopf, AD/Nonce, Blöcke, SHA-256, Ablehnungen, Bereiche) sowie Tests für
+  Fortsetzen des Uploads, Range-/Blockzuordnung, Cache-Grenze und konstanten Speicher bei 640 MB.
+
 ### Neu – Saga 2.4 Android (Teil 3): Gelesen-Bestätigungen und Online-Status
 - **Haken wie bei WhatsApp** an eigenen Nachrichten: ⏳ wird zugestellt → ✓ zugestellt → ✓✓ gelesen (farbig).
   In Gruppen ✓✓ farbig, wenn alle gelesen haben, sonst ✓✓ mit Zähler; Antippen der Haken bzw. langes Drücken →

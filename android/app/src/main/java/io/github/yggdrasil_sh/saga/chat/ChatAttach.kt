@@ -11,6 +11,8 @@ object ChatAttach {
         /** groesser als das Server-Limit (file_max) */
         data object TooBig : Read
         data object Failed : Read
+        /** 2.4: Video - wird nicht eingelesen, sondern im Hintergrund vorbereitet und gesendet (VideoUploadWorker) */
+        class Video(val uri: String, val name: String, val mime: String, val size: Long?) : Read
     }
 
     /** Angegebene Groesse (OpenableColumns.SIZE) schon ueber dem Limit? Unbekannt (null/negativ) -> beim Lesen pruefen */

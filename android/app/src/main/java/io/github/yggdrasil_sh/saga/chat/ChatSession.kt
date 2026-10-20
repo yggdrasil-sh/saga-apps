@@ -829,7 +829,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             // denselben Ciphertext (gleicher Chat, gleicher Schluessel) als neue Dateien hochladen
             val files = c.files.map { f ->
                 val th = f.th?.let { t -> if (t.id.isEmpty()) t else t.copy(id = reupload(t.id)) }
-                f.copy(id = reupload(f.id), th = th)
+                f.copy(id = if (f.isV2) reuploadV2(f) else reupload(f.id), th = th)
             }
             postEncrypted(k, ChatLogic.content(c.text, files, c.notes), m.replyTo, "msg", ChatLogic.sendFileIds(files))
             quietly { api.delete("api/chats/$chatId/messages/${m.id}") }
@@ -846,6 +846,48 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         val id = decode<FileUploaded>(api.postBytes("api/chats/$chatId/files", blob)).id
         withContext(Dispatchers.IO) { svc.blobs.put(ChatBlobCache.key(chatId, id), blob) }
         return id
+    }
+
+    /**
+     * 2.4: grosses Video (saga-file/v2) neu hochladen - Ciphertext in Teilen vom Server holen (Range) und als neuen
+     * Upload senden (gleicher Schluessel; das Format haengt nicht am Chat). Nie die ganze Datei im Speicher.
+     */
+    private suspend fun reuploadV2(f: ChatFile): String {
+        val total = FileV2.cipherSize(f.s, f.cs ?: FileV2.CS)
+        val http = io.github.yggdrasil_sh.saga.chat.video.ApiUploadHttp(api)
+        val c = http.create(chatId, total)
+        val part = minOf(c.partMax, svc.me.value?.limits?.uploadPart ?: c.partMax).coerceAtLeast(64L * 1024)
+        var off = 0L
+        try {
+            while (off < total) {
+                val want = minOf(off + part, total) - 1
+                val r = api.raw("GET", "api/chat/files/${f.id}", headers = mapOf("Range" to "bytes=$off-$want"))
+                if (r.code != 206) throw ApiException(r.code, UiText.Res(R.string.chat_file_broken), r.text)
+                // kuerzere Antwort moeglich (Anhang eines anderen Servers): nur das Gelieferte senden, Rest neu anfordern
+                val got = r.bytes.takeIf { it.size.toLong() <= want - off + 1 } ?: r.bytes.copyOf((want - off + 1).toInt())
+                if (got.isEmpty()) throw ApiException(r.code, UiText.Res(R.string.chat_file_broken), "")
+                val p = http.put(c.url, off, off + got.size, total) { it.write(got) }
+                when {
+                    p.code in 200..299 && p.done -> return p.id?.ifEmpty { null } ?: c.upload
+                    p.code in 200..299 -> off = p.offset ?: (off + got.size)
+                    p.code == 409 && p.offset != null -> off = p.offset
+                    else -> throw ApiException(p.code, p.error?.let { UiText.Raw(it) } ?: UiText.Res(R.string.chat_file_broken), "")
+                }
+            }
+            return c.upload
+        } catch (e: Exception) {
+            withContext(kotlinx.coroutines.NonCancellable) { http.delete(c.upload) }
+            throw e
+        }
+    }
+
+    /** 2.4: Kennung fuer v1-Anhaenge dieses Chats (Poster, kleine Videos): v1 chat_id, v2 chat_ref */
+    val fileCryptoId: String get() = cryptoId
+
+    /** 2.4: fertig hochgeladene Anhaenge (Video + Poster) als eigene Nachricht senden (Video-Upload im Hintergrund) */
+    suspend fun sendFiles(files: List<ChatFile>): String {
+        val k = keys()
+        return postEncrypted(k, ChatLogic.content("", files, emptyList()), null, "msg", ChatLogic.sendFileIds(files))
     }
 
     // ---------------------------------------------------------------- Nachrichtenanfragen (2.3)

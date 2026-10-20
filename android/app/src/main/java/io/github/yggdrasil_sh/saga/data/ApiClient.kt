@@ -271,6 +271,48 @@ class ApiClient(
         }
     }
 
+    /** Antwort mit Code, Kopfzeilen und Text (Upload in Teilen: Upload-Offset, Content-Range; Fehler werfen nicht) */
+    class RawResponse(val code: Int, val headers: okhttp3.Headers, val bytes: ByteArray) {
+        val text: String get() = String(bytes, Charsets.UTF_8)
+    }
+
+    /** Beliebige Anfrage an den eigenen Server (mit Sitzung und stiller Erneuerung); Netzfehler -> IOException */
+    suspend fun raw(method: String, path: String, body: okhttp3.RequestBody? = null, headers: Map<String, String> = emptyMap()): RawResponse {
+        val rq = Request.Builder().url(url(path)).method(method, body).header("X-Saga", "1")
+        headers.forEach { (k, v) -> rq.header(k, v) }
+        return suspendCancellableCoroutine { cont ->
+            val call = client.newCall(rq.build())
+            cont.invokeOnCancellation { call.cancel() }
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    if (cont.isActive) cont.resumeWithException(e)
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    val r = try {
+                        response.use { RawResponse(it.code, it.headers, it.body.bytes()) }
+                    } catch (e: IOException) {
+                        if (cont.isActive) cont.resumeWithException(e)
+                        return
+                    }
+                    if (cont.isActive) cont.resume(r)
+                }
+            })
+        }
+    }
+
+    /**
+     * Medien-Abruf mit Medien-Token (2.4, Videos): ohne Cookies und ohne Sitzungs-Erneuerung - die Berechtigung steht
+     * im Kopf X-Saga-Media-Token. Nur fuer den eigenen Server verwenden.
+     */
+    val mediaClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .addInterceptor { chain -> chain.proceed(chain.request().newBuilder().header("User-Agent", userAgent).build()) }
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
+
     suspend fun get(path: String) = request("GET", path)
     suspend fun post(path: String, body: JsonElement? = null) = request("POST", path, body)
     suspend fun patch(path: String, body: JsonElement) = request("PATCH", path, body)
