@@ -58,7 +58,7 @@ def _open(win, cid):
 
 
 def test_header_x_saga_chat(srv):
-    """Jede Anfrage traegt X-Saga-Chat: 2 (erst seit v2 vollstaendig umgesetzt ist)"""
+    """Jede Anfrage traegt X-Saga-Chat: 3 (2.5: Chat-Stufe 3; vorher 2 seit v2)"""
     from hlidskjalf import api, config
     seen = []
 
@@ -86,7 +86,7 @@ def test_header_x_saga_chat(srv):
         api.Client._send(api.client, "GET", "api/chats")
     finally:
         api._opener.open = old
-    assert seen and seen[0].get("X-saga-chat") == "2" and seen[0].get("X-saga") == "1"
+    assert seen and seen[0].get("X-saga-chat") == "3" and seen[0].get("X-saga") == "1"
 
 
 def test_certs_request_accept_send_receive(win, srv):
