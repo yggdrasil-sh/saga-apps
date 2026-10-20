@@ -5,7 +5,9 @@ import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.util.resolve
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -53,16 +55,22 @@ import io.github.yggdrasil_sh.saga.ui.common.openUrl
 import io.github.yggdrasil_sh.saga.ui.nav.AppNavigator
 import java.text.Normalizer
 
-/** Dienste (Kacheln wie im Web), nach Kategorie, mit Suche */
+/** Dienste (Kacheln wie im Web), nach Kategorie, mit Suche; eigene Lesezeichen anlegen/bearbeiten (2.4) */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     var list by remember { mutableStateOf<List<ServiceItem>?>(null) }
     var error by remember { mutableStateOf<UiText?>(null) }
     var q by remember { mutableStateOf("") }
     val context = LocalContext.current
-    LaunchedEffect(Unit) {
+    // 2.4: eigene Lesezeichen anlegen/bearbeiten/loeschen (wie im Web); reload zaehlt hoch -> neu laden
+    var reload by remember { mutableStateOf(0) }
+    var bookmark by remember { mutableStateOf<ServiceItem?>(null) }
+    var newBookmark by remember { mutableStateOf(false) }
+    LaunchedEffect(reload) {
         try {
             list = repo.services()
+            error = null
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -75,11 +83,20 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val shown = labeled.filter { (s, cat) -> q.isBlank() || norm("${s.name} ${s.host} $cat ${s.category}").contains(norm(q)) }
     val cats = shown.groupBy({ it.second }, { it.first }).toSortedMap(String.CASE_INSENSITIVE_ORDER)
 
-    Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_services), nav, chrome) }) { pad ->
+    Scaffold(
+        topBar = { SagaTopBar(stringResource(R.string.nav_services), nav, chrome) },
+        floatingActionButton = {
+            androidx.compose.material3.ExtendedFloatingActionButton(
+                onClick = { newBookmark = true },
+                icon = { Icon(androidx.compose.material.icons.Icons.Filled.Add, null) },
+                text = { Text(stringResource(R.string.bm_add_fab)) },
+            )
+        },
+    ) { pad ->
         LazyVerticalGrid(
             columns = GridCells.Adaptive(170.dp),
             modifier = Modifier.padding(pad).fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(12.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 12.dp, top = 12.dp, end = 12.dp, bottom = 96.dp),
         ) {
             item(span = { GridItemSpan(maxLineSpan) }) {
                 OutlinedTextField(
@@ -91,6 +108,11 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             if (list != null && shown.isEmpty()) {
                 item(span = { GridItemSpan(maxLineSpan) }) { Text(stringResource(R.string.services_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp)) }
             }
+            if (list?.any { it.own } == true) {
+                item(span = { GridItemSpan(maxLineSpan) }) {
+                    Text(stringResource(R.string.bm_own_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 6.dp))
+                }
+            }
             cats.forEach { (cat, items) ->
                 item(span = { GridItemSpan(maxLineSpan) }, key = "c-$cat") {
                     Text(cat.ifEmpty { stringResource(R.string.services_other) }, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 6.dp, top = 14.dp, bottom = 4.dp))
@@ -98,7 +120,11 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 itemsIndexed(items, key = { i, s -> "s-$cat-$i-${s.url}" }) { _, s ->
                     Row(
                         Modifier.padding(4.dp).clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                            .clickable { if (s.url.isNotBlank()) openUrl(context, repo.absoluteUrl(s.url)) }.padding(12.dp),
+                            .combinedClickable(
+                                onClick = { if (s.url.isNotBlank()) openUrl(context, repo.absoluteUrl(s.url)) },
+                                onLongClick = if (s.own) ({ bookmark = s }) else null,
+                                onLongClickLabel = if (s.own) stringResource(R.string.bm_edit) else null,
+                            ).padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         ServiceIcon(s, repo)
@@ -110,6 +136,12 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 }
             }
         }
+    }
+    if (newBookmark || bookmark != null) {
+        BookmarkDialog(
+            repo, bookmark, list.orEmpty().firstOrNull { it.own }?.category.orEmpty(),
+            onDismiss = { newBookmark = false; bookmark = null }, onChanged = { reload++ },
+        )
     }
 }
 

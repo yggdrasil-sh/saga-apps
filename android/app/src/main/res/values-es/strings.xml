@@ -230,7 +230,7 @@
     <string name="page_archived">Página archivada</string>
     <string name="page_trash">Mover a la papelera</string>
     <string name="page_trash_confirm">¿Mover la página a la papelera?</string>
-    <string name="page_trash_text">Las subpáginas también. Puedes restaurarlas desde la papelera en la web.</string>
+    <string name="page_trash_text">Las subpáginas también. Puedes restaurarlas desde la papelera (barra lateral).</string>
     <string name="page_trashed">Página movida a la papelera</string>
     <string name="format_bold">Negrita</string>
     <string name="format_italic">Cursiva</string>

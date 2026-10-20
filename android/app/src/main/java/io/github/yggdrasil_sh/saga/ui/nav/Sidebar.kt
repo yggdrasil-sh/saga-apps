@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -97,6 +98,11 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
     val notifUnread by repo.live.unread.collectAsState()
     val shareOff by repo.shareOff.collectAsState()
     var sharedExpanded by rememberSaveable { mutableStateOf(setOf<Long>()) }
+    // 2.4: Papierkorb und Verschieben (Langdruck auf eine Seite)
+    var showTrash by remember { mutableStateOf(false) }
+    var movePage by remember { mutableStateOf<PageMeta?>(null) }
+    val allMeta = remember(pages, sharedLocal) { pages + sharedLocal }
+    val onMove: (PageMeta) -> Unit = { movePage = it }
     val favorites = pages.filter { it.pinned }
     val recent = recentIds.mapNotNull { id -> pages.firstOrNull { it.id == id } ?: shared.firstOrNull { it.id == id } }.take(5)
     // "Mit mir geteilt": oberste geteilte Seiten (mit Eigentuemer), darunter aufklappbar ihre Unterseiten
@@ -202,13 +208,13 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
         if (favorites.isNotEmpty()) {
             item { SectionHeader(stringResource(R.string.sidebar_favorites)) }
             items(favorites, key = { "fav-${it.id}" }) { p ->
-                PageRowItem(p, 0, false, false, nav.root == Dest.Page(p.id), repo, { open(p.id) }, {}, { newPage(it) }, scope)
+                PageRowItem(p, 0, false, false, nav.root == Dest.Page(p.id), repo, { open(p.id) }, {}, { newPage(it) }, scope, allMeta = allMeta, onMove = onMove)
             }
         }
         if (recent.isNotEmpty()) {
             item { SectionHeader(stringResource(R.string.sidebar_recent)) }
             items(recent, key = { "rec-${it.id}" }) { p ->
-                PageRowItem(p, 0, false, false, nav.root == Dest.Page(p.id), repo, { open(p.id) }, {}, { newPage(it) }, scope)
+                PageRowItem(p, 0, false, false, nav.root == Dest.Page(p.id), repo, { open(p.id) }, {}, { newPage(it) }, scope, allMeta = allMeta, onMove = onMove)
             }
         }
         item { SectionHeader(stringResource(R.string.pages)) }
@@ -225,7 +231,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 r.page, r.depth, r.hasChildren, r.page.id in expanded, nav.root == Dest.Page(r.page.id), repo,
                 { open(r.page.id) },
                 { expanded = if (r.page.id in expanded) expanded - r.page.id else expanded + r.page.id },
-                { newPage(it) }, scope,
+                { newPage(it) }, scope, allMeta = allMeta, onMove = onMove,
             )
         }
         if (sharedTree.isNotEmpty() || shareOff || fedUnreachable.isNotEmpty()) {
@@ -271,17 +277,21 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                     r.page, r.depth, r.hasChildren, r.page.id in sharedExpanded, nav.root == Dest.Page(r.page.id), repo,
                     { open(r.page.id) },
                     { sharedExpanded = if (r.page.id in sharedExpanded) sharedExpanded - r.page.id else sharedExpanded + r.page.id },
-                    { newPage(it) }, scope, owner = if (r.page.root) r.page.owner?.name else null,
+                    { newPage(it) }, scope, owner = if (r.page.root) r.page.owner?.name else null, allMeta = allMeta, onMove = onMove,
                 )
             }
         }
         item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+        // 2.4: Papierkorb in der App (ansehen, wiederherstellen, endgueltig loeschen)
+        item { NavItem(stringResource(R.string.tr_nav), Icons.Filled.Delete, false) { showTrash = true } }
         item { NavItem(stringResource(R.string.nav_settings), Icons.Filled.Settings, nav.root == Dest.Settings) { nav.top(Dest.Settings); onNavigate() } }
         error?.let { e ->
             item { Text(e.resolve(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(16.dp)) }
         }
         item { Spacer(Modifier.height(24.dp)) }
     }
+    if (showTrash) io.github.yggdrasil_sh.saga.ui.pages.TrashDialog(repo, onDismiss = { showTrash = false })
+    movePage?.let { p -> io.github.yggdrasil_sh.saga.ui.pages.MovePageDialog(repo, p, onDismiss = { movePage = null }) }
 }
 
 @Composable
@@ -303,6 +313,9 @@ private fun PageRowItem(
     onOpen: () -> Unit, onToggle: () -> Unit, onNewChild: (Long) -> Unit, scope: kotlinx.coroutines.CoroutineScope,
     /** "Mit mir geteilt": Eigentuemer klein unter der obersten geteilten Seite */
     owner: String? = null,
+    /** 2.4: Verschieben im Langdruck-Menue (Regeln: MoveLogic) */
+    allMeta: List<PageMeta> = emptyList(),
+    onMove: ((PageMeta) -> Unit)? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -311,12 +324,13 @@ private fun PageRowItem(
     val canFavorite = !foreign
     // Seiten anderer Saga-Instanzen: Unterseiten nur, wenn ihr Server es kann (2.3, Rolle Bearbeiten), sonst nicht
     val canSub = !p.isDatabase && p.can(io.github.yggdrasil_sh.saga.data.RemoteCaps.SUBPAGES) && (!(foreign || p.isRemote) || p.role == "edit")
+    val canMove = onMove != null && io.github.yggdrasil_sh.saga.data.MoveLogic.canMove(p, allMeta)
     Box {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(RoundedCornerShape(24.dp))
                 .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)
                 .combinedClickable(
-                    onClick = onOpen, onLongClick = if (canFavorite || canSub) ({ menu = true }) else null,
+                    onClick = onOpen, onLongClick = if (canFavorite || canSub || canMove) ({ menu = true }) else null,
                     onLongClickLabel = stringResource(R.string.page_actions),
                 )
                 .padding(start = (16 + depth * 16).dp, end = if (hasChildren) 0.dp else 12.dp).heightIn(min = 48.dp),
@@ -356,6 +370,9 @@ private fun PageRowItem(
             }
             if (canSub) {
                 DropdownMenuItem(text = { Text(stringResource(R.string.new_subpage)) }, onClick = { menu = false; onNewChild(p.id) })
+            }
+            if (canMove) {
+                DropdownMenuItem(text = { Text(stringResource(R.string.mv_menu)) }, onClick = { menu = false; onMove?.invoke(p) })
             }
         }
     }

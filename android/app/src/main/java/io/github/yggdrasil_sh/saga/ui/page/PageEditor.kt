@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.yggdrasil_sh.saga.blocks.BlockDoc
+import io.github.yggdrasil_sh.saga.blocks.BlockOps
 import io.github.yggdrasil_sh.saga.blocks.InlineHtml
 import io.github.yggdrasil_sh.saga.blocks.InlineStyle
 import io.github.yggdrasil_sh.saga.blocks.JsonPath
@@ -540,7 +541,12 @@ class PageEditor(
         if (!editable) return
         val (arr, idx) = if (blockPath.isNullOrEmpty()) listOf<Any>("blocks") to BlockDoc.blocks(doc).size - 1 else arrayAndIndex(blockPath)
         change(JsonTree.insert(doc, arr, idx + 1, block) as JsonObject)
-        if (focus) requestFocus(fieldKeyFor(block, arr + (idx + 1)))
+        if (focus) {
+            val np = arr + (idx + 1)
+            val fk = fieldKeyFor(block, np)
+            // Block ohne Text (Trenner, Tabelle ...): auswaehlen, damit das naechste Einfuegen DAHINTER landet (Test P-17)
+            if (fk == null) active = ActiveField(blockKey(block, np), { np }) else requestFocus(fk)
+        }
     }
 
     /**
@@ -678,6 +684,69 @@ class PageEditor(
         } else {
             insertBlockAfter(null, BlockDoc.newBlock("paragraph"))
         }
+    }
+
+    // ---------------------------------------------------------------- 2.4: "/"-Menue, Tabelle, Spalten, Rueckgaengig
+
+    /** Block an path ersetzen (z. B. "/"-Auswahl); falscher/veralteter Pfad: nichts */
+    fun replaceBlock(path: JsonPath, nb: JsonObject) {
+        if (!editable) return
+        val nd = try {
+            JsonTree.set(doc, path, nb) as? JsonObject
+        } catch (_: IllegalArgumentException) {
+            null
+        } ?: return
+        change(nd)
+    }
+
+    /** Block an path aendern (Tabelle, Spalten, Bild-Optionen) - nur, wenn sich wirklich etwas aendert */
+    fun updateBlock(path: JsonPath, f: (JsonObject) -> JsonObject) {
+        val b = block(path) ?: return
+        val nb = f(b)
+        if (nb != b) replaceBlock(path, nb)
+    }
+
+    /** "/"-Auswahl Textblock: Absatz wird zu diesem Typ (ID bleibt); nach dem Trenner geht es in einem neuen Absatz weiter */
+    fun slashConvert(path: JsonPath, type: String, level: Int) {
+        val b = block(path) ?: return
+        val nb = BlockDoc.newBlock(type, "", level, BlockDoc.id(b) ?: BlockDoc.newId())
+        if (type != "paragraph") replaceBlock(path, nb)
+        if (type == "delimiter") insertBlockAfter(path, BlockDoc.newBlock("paragraph"))
+        else requestFocus(fieldKeyFor(nb, path))
+    }
+
+    /** "+": leerer Absatz hinter dem Block -> dessen Pfad (null = nicht bearbeitbar) */
+    fun insertParagraphAfter(blockPath: JsonPath?): JsonPath? {
+        if (!editable) return null
+        val (arr, idx) = if (blockPath.isNullOrEmpty() || block(blockPath) == null) listOf<Any>("blocks") to BlockDoc.blocks(doc).size - 1 else arrayAndIndex(blockPath)
+        change(JsonTree.insert(doc, arr, idx + 1, BlockDoc.newBlock("paragraph")) as JsonObject)
+        return arr + (idx + 1)
+    }
+
+    /**
+     * Block loeschen mit Rueckgaengig: -> Funktion, die ihn an derselben Stelle zurueckholt (null = nichts geloescht).
+     * War es der letzte Block, steht danach ein leerer Startabsatz - der weicht beim Zurueckholen wieder.
+     */
+    fun deleteBlockUndoable(blockPath: JsonPath): (() -> Unit)? {
+        if (!editable) return null
+        val b = block(blockPath) ?: return null
+        deleteBlock(blockPath)
+        return { restoreBlock(blockPath, b) }
+    }
+
+    fun restoreBlock(blockPath: JsonPath, b: JsonObject) {
+        if (!editable) return
+        val bid = BlockDoc.id(b)
+        if (bid != null && pathOfBlock(bid) != null) return                // schon wieder da
+        val (arr, idx) = arrayAndIndex(blockPath)
+        var d = doc
+        val target = if (JsonTree.get(d, arr) is JsonArray) arr else listOf<Any>("blocks")   // Elternblock weg: oberste Ebene
+        val cur = JsonTree.get(d, target) as? JsonArray ?: return
+        if (target == listOf<Any>("blocks") && cur.size == 1 && BlockOps.isEmptyParagraph(cur[0]) && BlockDoc.id(cur[0]) != bid) {
+            d = JsonTree.set(d, target, JsonArray(emptyList())) as JsonObject
+        }
+        val n = (JsonTree.get(d, target) as? JsonArray)?.size ?: 0
+        change(JsonTree.insert(d, target, if (target == arr) idx.coerceIn(0, n) else n, b) as JsonObject)
     }
 
     // ---------------------------------------------------------------- Speichern
