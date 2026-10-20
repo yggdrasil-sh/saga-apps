@@ -6,6 +6,26 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+## [2.4.0] – 2026-10-20
+
+Passt zu Saga-Server 2.4. **Die neuen Funktionen brauchen Saga-Server 2.4; ältere Server funktionieren weiter**
+(dort und bei Gegenstellen mit Saga 2.3 blenden die Apps die neuen Funktionen aus und arbeiten wie bisher).
+
+**Höhepunkte**
+- **Bild im Bild:** Videoanrufe laufen auf iPhone/iPad im Bild-im-Bild-Fenster und auf dem Mac im Schwebefenster
+  weiter, wenn man die App verlässt.
+- **Bildschirm teilen:** den eigenen Bildschirm im Anruf zeigen, auf Wunsch zusammen mit der Kamera.
+- **Videos im Chat:** Videos senden (optimiert oder im Original), abspielen ohne kompletten Download und speichern –
+  Ende-zu-Ende verschlüsselt.
+- **Gelesen und Online:** Haken für zugestellt/gelesen und Online-Status, beides in Einstellungen → Datenschutz
+  abschaltbar.
+- **Gerät übergeben und hinzufügen:** einen laufenden Anruf ohne Abbruch auf ein anderes eigenes Gerät holen oder ein
+  weiteres Gerät dazunehmen.
+- **Gruppenanrufe:** Anrufe als Raum mit mehreren Personen, mit Kachelansicht.
+- **Android auf dem Stand von iOS und Web:** Datenbanken mit Ansichten, Editor mit „/“-Menü und neuen Blöcken,
+  Papierkorb und Termine.
+- **Zwei kritische Testrunden** auf allen Plattformen, mit vielen Korrekturen (u. a. Papierkorb auf iPhone/iPad).
+
 ### Neu – Saga 2.4: Medien und Mehrgeräte
 Die neuen Funktionen brauchen Saga-Server 2.4. Mit 2.1-/2.3-Servern und Gegenstellen mit Saga 2.3 bleibt alles wie
 bisher: Die Apps handeln die Fähigkeiten aus (Server, Gerät, Partnerserver) und blenden sonst aus.
