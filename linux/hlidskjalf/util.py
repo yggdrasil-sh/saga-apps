@@ -377,4 +377,17 @@ def color_hex(name):
 
 
 def human_size(n):
-    return GLib.format_size(int(n or 0))
+    """Dateigroesse in der Sprache der App (wie GLib.format_size: Dezimal-Einheiten, eine Nachkommastelle) - GLib nimmt
+    die Systemsprache bzw. hat keine Kataloge ("44 bytes" in einer deutschen App, Testbericht 032)"""
+    from .i18n import ngettext, ui_language
+    n = max(0, int(n or 0))
+    if n < 1000:
+        return ngettext("{n} byte", "{n} bytes", n).format(n=n)
+    units = (_("{size} kB"), _("{size} MB"), _("{size} GB"), _("{size} TB"))
+    v, i = n / 1000.0, 0
+    while v >= 999.95 and i < len(units) - 1:
+        v, i = v / 1000.0, i + 1
+    s = f"{v:.1f}"
+    if ui_language() in ("de", "es", "ru"):
+        s = s.replace(".", ",")
+    return units[i].format(size=s)

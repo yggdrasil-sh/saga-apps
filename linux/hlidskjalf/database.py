@@ -1147,6 +1147,7 @@ class DatabaseView(Gtk.Box):
             self.append(self._header())
         from .dbedit import ViewBar
         self.bar = ViewBar(self)
+        self.bar.set_narrow(bool(getattr(win, "very_narrow", False)))   # Breite folgt in do_size_allocate
         self.append(self.bar)
         self.content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.append(self.content)
@@ -1165,6 +1166,8 @@ class DatabaseView(Gtk.Box):
         """Breite ueber die Grenze geaendert (Fenster verkleinert/vergroessert): Tabelle <-> Liste (BUG-082)"""
         Gtk.Box.do_size_allocate(self, width, height, baseline)
         narrow = 0 < width < self.NARROW
+        if self.bar.narrow != narrow:
+            GLib.idle_add(lambda n=narrow: (self.bar.set_narrow(n), False)[1])
         if self._narrow is not None and narrow != self._narrow and not self._narrow_src:
             def later():
                 self._narrow_src = 0

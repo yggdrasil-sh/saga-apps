@@ -208,14 +208,14 @@ def test_globe_icon_packaged():
     """Eigenes Symbol saga-globe-symbolic: gueltiges SVG nur aus Flaechen (GTK faerbt Flaechen ein, keine Linien),
     im RPM (Spec) und im Flatpak (Manifest) mit installiert"""
     from hlidskjalf.publish import GLOBE, ICON_DIR
-    path = os.path.join(ICON_DIR, GLOBE + ".svg")
+    path = os.path.join(ICON_DIR, "hicolor", "scalable", "actions", GLOBE + ".svg")
     root = ET.parse(path).getroot()
     assert root.tag.endswith("svg") and root.get("viewBox") == "0 0 16 16"
     assert not [e for e in root.iter() if e.get("stroke") or "stroke" in (e.get("style") or "")]
     spec = open(os.path.join(LINUX, "hlidskjalf.spec"), encoding="utf-8").read()
     fp = open(os.path.join(LINUX, "flatpak", "io.github.yggdrasil_sh.Saga.yml"), encoding="utf-8").read()
-    assert "hlidskjalf/icons/*.svg" in spec and "icons/saga-globe-symbolic.svg" in spec
-    assert "hlidskjalf/icons/*.svg" in fp
+    assert "hlidskjalf/icons/hicolor/scalable/actions/*.svg" in spec and "actions/saga-globe-symbolic.svg" in spec
+    assert "hlidskjalf/icons/hicolor/scalable/actions/*.svg" in fp
 
 
 def test_globe_icon_in_theme(win):
@@ -225,8 +225,15 @@ def test_globe_icon_in_theme(win):
     assert globe_icon() == GLOBE and win.pub_content.get_icon_name() == GLOBE
     th = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
     ic = th.lookup_icon(GLOBE, None, 16, 1, Gtk.TextDirection.NONE, 0)
-    assert ic.get_file() is not None and ic.get_file().get_path().endswith("icons/saga-globe-symbolic.svg")
+    assert ic.get_file() is not None and ic.get_file().get_path().endswith("actions/saga-globe-symbolic.svg")
     assert ic.is_symbolic()
+    # alle eigenen Symbole: als symbolisch erkannt (sonst bleiben sie im Dunkelmodus dunkelgrau - Testbericht 170-173)
+    d = os.path.join(LINUX, "hlidskjalf", "icons", "hicolor", "scalable", "actions")
+    names = sorted(f[:-4] for f in os.listdir(d) if f.endswith("-symbolic.svg"))
+    assert len(names) >= 10
+    for n in names:
+        i = th.lookup_icon(n, None, 16, 1, Gtk.TextDirection.NONE, 0)
+        assert i.get_file() is not None and i.get_file().get_path().endswith(n + ".svg") and i.is_symbolic(), n
     assert open_icon() == "adw-external-link-symbolic"
 
 

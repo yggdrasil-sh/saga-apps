@@ -167,6 +167,7 @@ class Store(GObject.Object):
             bg(client.forget_server, old, tok, True, error=lambda e: None)
         self.clear_cache()
         self._tree_base, self._tree_cursor = [], None
+        self.trashed_ids = set()
         self._set_pages([])
         self.tasks, self.done_tasks, self.events = [], [], []
         self.fed_shared, self.fed_unreachable = [], []
@@ -224,6 +225,7 @@ class Store(GObject.Object):
         self.tree_seen = False
         self.clear_cache()
         self._tree_base, self._tree_cursor = [], None
+        self.trashed_ids = set()
         self._set_pages([])
         self.tasks, self.done_tasks, self.events = [], [], []
         self.fed_shared, self.fed_unreachable = [], []
@@ -265,6 +267,10 @@ class Store(GObject.Object):
 
     def _set_pages(self, allp, split=None):
         self._all, self.by_id, self.pages, self.archived, self._kids = split or self.split_pages(allp)
+        if self.trashed_ids:                                  # wieder da (zurueckgeholt, auch auf einem anderen Geraet)
+            self.trashed_ids -= set(self.by_id)
+
+    trashed_ids = set()      # eigene Seiten, die hier in den Papierkorb gingen (samt Unterseiten) - nicht mehr bearbeiten
 
     _local_epoch = 0
 
@@ -316,6 +322,8 @@ class Store(GObject.Object):
         """Papierkorb (archived=False) bzw. Archiv (True) lokal nachziehen: der Server nimmt die Seite samt aktiver
         Unterseiten mit. Danach dieselbe Liste wie nach einem Neuladen (Reihenfolge bleibt)."""
         gone = self._subtree_all(pid)
+        if not archived:
+            self.trashed_ids = self.trashed_ids | set(gone)
         self._local_tree_change()
         allp = getattr(self, "_all", self.pages)
         if archived:
@@ -932,8 +940,8 @@ class Store(GObject.Object):
                 done()
         self.run("DELETE", f"api/notes/{pid}", done=fin, key=("note", pid))
 
-    def restore(self, pid):
-        self.run("POST", f"api/trash/{pid}/restore", {}, refresh=True, data_changed=True)
+    def restore(self, pid, done=None, error=None):
+        self.run("POST", f"api/trash/{pid}/restore", {}, refresh=True, data_changed=True, done=done, error=error)
 
     def move(self, pid, parent, done=None, error=None):
         def fin(r):

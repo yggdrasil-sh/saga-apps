@@ -382,6 +382,21 @@ class Sidebar(Gtk.Box):
         self.fill(force=True)
 
 
+def accel_label(accel):
+    """Tastenkuerzel in der Sprache der App, wie in den Tooltips ("Strg+K", "Alt+←") - Gtk.accelerator_get_label nimmt
+    die Sprache von GTK (ohne dessen Kataloge englisch: "Ctrl", "Alt+Left", Testbericht 196)"""
+    names = {"slash": "/", "at": "@", "colon": ":", "comma": ",", "backslash": "\\", "question": "?", "Up": "↑", "Down": "↓",
+             "Left": "←", "Right": "→", "Return": _("Enter"), "Escape": _("Esc"), "Menu": _("Menu key"), "Tab": _("Tab")}
+    mods = []
+    rest = accel
+    for tag, mod in (("<Control>", _("Ctrl")), ("<Shift>", _("Shift")), ("<Alt>", _("Alt"))):
+        if tag in rest:
+            mods.append(mod)
+            rest = rest.replace(tag, "")
+    key = names.get(rest, rest.upper() if len(rest) == 1 else rest)
+    return "+".join(mods + [key])
+
+
 class MainWindow(Adw.ApplicationWindow):
     __gtype_name__ = "HKMainWindow"
 
@@ -456,6 +471,17 @@ class MainWindow(Adw.ApplicationWindow):
             store.set_home(None)
         if not store.needs_login:
             self._session_started()
+
+    def _narrow_views(self):
+        """sehr schmal an/aus: offene Seite mit schmalen Raendern neu aufbauen (Seite, Datenbank-Leiste)"""
+        def go():
+            v = self.current
+            if isinstance(v, PageView):
+                v.check_narrow()
+            if getattr(self, "_hdr_presence", None):
+                self.set_presence(self._hdr_presence)
+            return False
+        GLib.idle_add(go)
 
     def _fit_min_width(self):
         """Ohne Compositor (X11, Klasse "solid-csd") liegt der Fensterrand innerhalb der Mindestbreite (360 px von
@@ -731,8 +757,10 @@ class MainWindow(Adw.ApplicationWindow):
         self.very_narrow = False
         bp2 = Adw.Breakpoint.new(Adw.BreakpointCondition.parse("max-width: 560sp"))
         bp2.add_setter(self.split, "collapsed", True)        # es gilt immer nur ein Breakpoint: Einklappen wiederholen
-        bp2.connect("apply", lambda *_: (setattr(self, "very_narrow", True), self.update_header(), self.callbar.set_compact(True)))
-        bp2.connect("unapply", lambda *_: (setattr(self, "very_narrow", False), self.update_header(), self.callbar.set_compact(False)))
+        bp2.connect("apply", lambda *_: (setattr(self, "very_narrow", True), self.update_header(), self.callbar.set_compact(True),
+                                         self._narrow_views()))
+        bp2.connect("unapply", lambda *_: (setattr(self, "very_narrow", False), self.update_header(), self.callbar.set_compact(False),
+                                           self._narrow_views()))
         self.add_breakpoint(bp2)
         self.split.set_show_sidebar(bool(settings.get("sidebar_shown", True)))
         self.split.connect("notify::show-sidebar", self._sidebar_changed)
@@ -837,7 +865,11 @@ class MainWindow(Adw.ApplicationWindow):
 
     @staticmethod
     def _host(srv):
-        return GLib.Uri.parse(srv, GLib.UriFlags.NONE).get_host() if srv else ""
+        """Host fuer Rueckfragen - mit Port, wenn einer angegeben ist (sonst "localhost" und "localhost" bei zwei Servern)"""
+        if not srv:
+            return ""
+        u = GLib.Uri.parse(srv, GLib.UriFlags.NONE)
+        return u.get_host() + (f":{u.get_port()}" if u.get_port() > 0 else "")
 
     def pair_link(self, text, external=False):
         """https://server/app/pair?c=CODE  oder  <app>://pair?u=https://server&c=CODE.
@@ -1040,6 +1072,11 @@ class MainWindow(Adw.ApplicationWindow):
             self._show(r)
 
     def go_back_or_home(self):
+        """nach "In den Papierkorb": zurueck - aber nie auf eine Seite, die mit in den Papierkorb ging (Unterseite)"""
+        gone = lambda r: bool(r) and r[0] == "page" and r[1] in store.trashed_ids        # noqa: E731
+        self.fwd = [r for r in self.fwd if not gone(r)]
+        while len(self.history) > 1 and gone(self.history[-2]):
+            self.history.pop(-2)
         if len(self.history) > 1:
             self.go_back()
         else:
@@ -1231,7 +1268,7 @@ class MainWindow(Adw.ApplicationWindow):
         m = getattr(self, "me", None) or {}
         name = self.account_name()
         b.set_visible(bool(name))
-        self.acct_av.set_text(name or "?")
+        self.acct_av.set_text(avatars.initials_text(name or "?"))
         avatars.attach(self.acct_av, m.get("avatar"), 24)
         tip = _("Account: {name}").format(name=name) if name else _("Account")
         b.set_tooltip_text(tip)
@@ -1305,6 +1342,7 @@ class MainWindow(Adw.ApplicationWindow):
     def set_presence(self, users):
         """Kopfleiste: Anfangsbuchstaben der anderen Personen auf dieser Seite (bearbeitet gerade: farbiger Ring)"""
         box = self.presence_box
+        self._hdr_presence = users
         while (c := box.get_first_child()):
             box.remove(c)
         others = [u for u in users or [] if isinstance(u, dict) and not u.get("me")]
@@ -1312,12 +1350,12 @@ class MainWindow(Adw.ApplicationWindow):
         if not others:
             return
         tips = []
-        mx = 2 if getattr(self, "very_narrow", False) else 4         # sehr schmal: hoechstens zwei Kreise, Rest als +n
+        mx = 1 if getattr(self, "very_narrow", False) else 4         # sehr schmal: ein Kreis, Rest als +n (360 px)
         for u in others[:mx]:
             name = u.get("name") or u.get("username") or "?"
             tip = (_("{name} is editing") if u.get("editing") else _("{name} is also here")).format(name=name)
             tips.append(tip)
-            a = Adw.Avatar(size=24, text=name, show_initials=True, tooltip_text=tip)
+            a = Adw.Avatar(size=24, text=avatars.initials_text(name), show_initials=True, tooltip_text=tip)
             avatars.attach(a, u.get("avatar"), 24)                  # Profilbild (2.1), sonst Initialen
             a.add_css_class("hk-pres-av")
             if u.get("editing"):
@@ -1605,6 +1643,7 @@ class MainWindow(Adw.ApplicationWindow):
                         (_("Context menu"), "Menu <Shift>F10"), (_("Keyboard shortcuts"), "<Control>question"), (_("Quit"), "<Control>q")]),
         (_("Text"), [(_("Bold, italic, underline"), "<Control>b <Control>i <Control>u"), (_("Strikethrough"), "<Control><Shift>x"),
                      (_("Highlight"), "<Control><Shift>h"), (_("Code"), "<Control>e"), (_("Link (with a selection)"), "<Control>k"),
+                     (_("Undo / redo typing"), "<Control>z <Control><Shift>z"),
                      (_("Block types"), "slash"), (_("Date, reminder, page"), "at"), (_("Emoji"), "colon")]),
         (_("Blocks"), [(_("Text, Heading 1–3"), "<Control><Alt>0 <Control><Alt>1 <Control><Alt>2 <Control><Alt>3"),
                        (_("Checklist, bulleted list, numbered list"), "<Control><Alt>4 <Control><Alt>5 <Control><Alt>6"),
@@ -1627,8 +1666,7 @@ class MainWindow(Adw.ApplicationWindow):
         for title, items in self.SHORTCUTS:
             lines.append(title + ":")
             for name, accel in items:
-                keys = " / ".join(Gtk.accelerator_get_label(*Gtk.accelerator_parse(a)[1:]) if Gtk.accelerator_parse(a)[0] else a
-                                  for a in accel.split())
+                keys = " / ".join(accel_label(a) for a in accel.split())
                 lines.append(f"{keys} – {name}")
             lines.append("")
         d = Adw.AlertDialog(heading=_("Keyboard shortcuts"), body="\n".join(lines).strip())
@@ -1669,8 +1707,8 @@ class MainWindow(Adw.ApplicationWindow):
         menu_popover(widget, ents).popup()
 
     def _leave_if(self, pid):
-        if self.route == ("page", pid):
-            self.show_root(("today",))
+        if self.route and self.route[0] == "page" and (self.route[1] == pid or self.route[1] in store.descendants(pid)):
+            self.show_root(("today",))                    # auch eine offene Unterseite geht mit in den Papierkorb
 
     def drop_pages(self, value, parent):
         if not isinstance(value, str) or not value.startswith("hkpage:"):
@@ -1720,6 +1758,10 @@ class MainWindow(Adw.ApplicationWindow):
         elif act == "task":
             store.add_task(b.get("title") or _("New task"))
             self.toast(_("Task created"))
+        elif act in ("page", "db"):                       # Ziel fehlt (nie gewaehlt bzw. geloescht): sagen statt nichts tun
+            self.toast(_("This button has no target yet – choose one in the button settings."))
+        else:
+            self.toast(_("This button has no action yet – choose one in the button settings."))
 
     # --- Hilfen ----------------------------------------------------------------------------
     def _chat_gone(self, how, name):
@@ -1746,7 +1788,18 @@ class MainWindow(Adw.ApplicationWindow):
         Gdk.Display.get_default().get_clipboard().set(s)
 
     def open_uri(self, uri):
-        Gtk.UriLauncher.new(uri).launch(self, None, None)
+        """im Standardbrowser oeffnen; geht keiner auf (kein Browser, Portal fehlt): Adresse zum Kopieren anbieten"""
+        lau = Gtk.UriLauncher.new(uri)
+
+        def fin(src, res):
+            try:
+                src.launch_finish(res)
+            except GLib.Error:
+                self.copy_text(uri)
+                self.toast(_("No browser could be opened. The address was copied – paste it into a browser."))
+                if self.stack.get_visible_child_name() == "login":
+                    self.login_msg.set_label(_("No browser could be opened. Open this address in a browser: {url}").format(url=uri))
+        lau.launch(self, None, fin)
 
     def upload_image(self, data, name="bild.png", note=None):
         """Hintergrund-Thread: Bild hochladen (HEIC & Co. -> JPEG), -> /files/...

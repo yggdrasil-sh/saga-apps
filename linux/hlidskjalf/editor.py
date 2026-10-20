@@ -45,6 +45,11 @@ CONVERTIBLE = [it for it in SLASH_ITEMS if it[1] not in ("image", "immich_image"
                                                           "table", "columns", "buttons", "embed", "file", "nextcloud")]
 
 
+def cell_key(bid, r, c):
+    """Fokus-Schluessel einer Tabellenzelle ("<block>/#<zeile>,<spalte>"; focused_block bleibt die Block-ID)"""
+    return f"{bid}/#{r},{c}"
+
+
 def make(btype, text="", level=2):
     if btype == "header":
         data = {"text": text, "level": level}
@@ -143,6 +148,8 @@ class PageDoc:
         self.conflict_by = None        # Name der Person, die zuletzt gespeichert hat (409 'by' bzw. updated_by)
         self.lost = None               # 403/404 beim Speichern einer fremden Seite: danach nicht mehr speichern
         self.on_lost = None            # (doc, code, letzter Text) -> None
+        self.trash_hit = False         # 404 beim Speichern der eigenen Seite: im Papierkorb bzw. geloescht (Entwurf bleibt)
+        self.on_trashed = None         # () -> None: Seite liegt (jetzt) im Papierkorb - Ansicht sperren, Hinweis
         self.nc_known = set()          # Nextcloud-Bloecke (author|inst|fileid) im zuletzt geladenen/gespeicherten Stand (2.3)
         self.nc_error = None           # zuletzt gemeldete Ablehnung eines neuen Nextcloud-Blocks
         self._overwrite = False        # "Meine Version behalten": einmal mit overwrite speichern (andere Fassung -> Versionen)
@@ -203,9 +210,14 @@ class PageDoc:
         return self.fetched and self.role != "owner"
 
     @property
+    def in_trash(self):
+        """eigene Seite im Papierkorb (hier hineingelegt, auch als Unterseite) bzw. Speichern meldete 404"""
+        return self.trash_hit or (self.id in store.trashed_ids and not self.foreign)
+
+    @property
     def read_only(self):
-        """Lesen/Kommentieren oder Zugriff verloren: nichts speichern"""
-        return self.fetched and (RANK[self.role] < RANK["edit"] or self.lost is not None)
+        """Lesen/Kommentieren, Zugriff verloren oder im Papierkorb: nichts speichern"""
+        return self.fetched and (RANK[self.role] < RANK["edit"] or self.lost is not None or self.in_trash)
 
     def text_now(self):
         """eigener Text (Titel + Bloecke) als Klartext - zum Kopieren"""
@@ -300,6 +312,7 @@ class PageDoc:
         self.error = None
         self.error_code = None
         self.lost = None                                     # frischer Stand: die Rolle darin entscheidet
+        self.trash_hit = False                               # geladen: die Seite gibt es (wieder)
         self.loaded = True
         self.fetched = True
         from .nextcloud import keys_of
@@ -338,6 +351,9 @@ class PageDoc:
             return
         if self._same_content(d):
             drafts.drop(self.id, self.server, self._acct())               # nichts Neues (war schon gespeichert)
+            return
+        if self.in_trash:                        # im Papierkorb: Entwurf liegen lassen (nach dem Zurueckholen)
+            self._draft_checked = False
             return
         if self.read_only:                       # inzwischen nur noch lesen: Text zum Kopieren anbieten, nicht speichern
             from .sharing import snapshot_text
@@ -431,6 +447,10 @@ class PageDoc:
         if not self.loaded or not self.fetched:
             self._release()
             return
+        if self.in_trash and self.dirty:                     # im Papierkorb: Eingaben als Entwurf behalten, nicht senden
+            self._write_draft()
+            self._release()
+            return
         if self.read_only:                                   # Lesen/Kommentieren, Zugriff verloren: nie speichern
             self.dirty = False
             self._release()
@@ -505,6 +525,9 @@ class PageDoc:
             if isinstance(e, APIError) and e.code in (403, 404) and self.foreign:
                 self._lose(e.code)                           # Freigabe entzogen bzw. nur noch Lesen
                 return
+            if isinstance(e, APIError) and e.code == 404 and self.same_session():
+                self._trashed(e)                             # eigene Seite: im Papierkorb bzw. geloescht - klar melden
+                return
             self._write_draft()
             if isinstance(e, APIError) and e.code == SWITCHED:   # Server/Konto gewechselt: bleibt als Entwurf
                 self._release()
@@ -519,6 +542,29 @@ class PageDoc:
         def send():
             return client.json("PATCH", f"api/notes/{self.id}", b, server=srv, account=acct)
         bg_serial(("note", self.id), send, done=fin, error=err)
+
+    def _trashed(self, e):
+        """Speichern meldet 404 fuer die eigene Seite (anderswo in den Papierkorb gelegt bzw. geloescht): Stand als Entwurf
+        behalten (nach dem Zurueckholen wird er gespeichert), nicht wiederholen, einmal deutlich melden, Ansicht sperren"""
+        self._write_draft()
+        self.last_error = e
+        first = not self.trash_hit
+        self.trash_hit = True
+        if self._retry_src:
+            GLib.source_remove(self._retry_src)
+            self._retry_src = 0
+        self._release()
+        if first and self.on_error:
+            self.on_error(_("Not saved: this page is in the trash or was deleted. Your changes stay on this device – restore "
+                            "the page from the trash to save them."))
+        if first and self.on_trashed:
+            self.on_trashed()
+
+    def untrash(self):
+        """zurueckgeholt: wieder bearbeiten und den Stand von vorher speichern"""
+        self.trash_hit = False
+        if self.dirty and not self.in_trash:
+            self.save()
 
     def _nc_rejected(self, e, sent_nc):
         """Der Server lehnt das Speichern wegen eines NEUEN Nextcloud-Blocks ab (403: Datei einer anderen Person, 400: nicht
@@ -789,17 +835,85 @@ class PageEditor:
         self.changed()
         return block["id"]
 
-    def delete(self, bid):
+    def delete(self, bid, undo=False):
+        """Block entfernen. undo: Hinweis mit "Rueckgaengig" (Menue "Loeschen", Entf auf einem ausgewaehlten Block) - der
+        Block kommt an dieselbe Stelle zurueck, solange es seine Liste noch gibt"""
         r = self.locate(bid)
         if not r:
             return
         a, i = r
         prev = a[i - 1].get("id") if i > 0 else None
-        a.pop(i)
+        b = a.pop(i)
+        filler = None
         if a is self.doc.root and not a:
-            a.append(make("paragraph"))
+            filler = make("paragraph")
+            a.append(filler)
         self.set_focus(prev, "end")
         self.changed()
+        if undo and hasattr(self.view, "block_undo_toast"):
+            doc = self.doc
+
+            def back():
+                if self.doc is not doc or self.locked or self.locate(bid):
+                    return
+                if a is not doc.root and not self._contains_list(a):
+                    return                                    # Liste (Spalte, Toggle) gibt es nicht mehr
+                if filler is not None and len(a) == 1 and a[0] is filler and not (filler.get("data") or {}).get("text"):
+                    a.pop()
+                a.insert(min(i, len(a)), b)
+                self.set_focus(b.get("id"), "end")
+                self.changed()
+            self.view.block_undo_toast(back)
+
+    def toggle_of(self, bid, arr=None):
+        """(Toggle-Block, seine Bloecke) wenn bid direkt in einem Toggle liegt, sonst None"""
+        for x in (self.doc.root if arr is None else arr):
+            if not isinstance(x, dict):
+                continue
+            d = x.get("data") or {}
+            inner = d.get("blocks") if isinstance(d.get("blocks"), list) else None
+            if inner is not None and x.get("type") == "toggle" and any(isinstance(y, dict) and y.get("id") == bid for y in inner):
+                return x, inner
+            subs = ([inner] if inner is not None else []) + \
+                [c["blocks"] for c in d.get("cols") or [] if isinstance(c, dict) and isinstance(c.get("blocks"), list)]
+            for sub in subs:
+                r = self.toggle_of(bid, sub)
+                if r:
+                    return r
+        return None
+
+    def out_of_toggle(self, bid, drop_empty=False):
+        """Block aus dem Toggle heraus direkt hinter den Toggle (Umschalt+Tab; Enter auf leerer letzter Zeile:
+        drop_empty - dann statt des leeren Absatzes ein neuer hinter dem Toggle). -> True, wenn bewegt"""
+        r = self.toggle_of(bid)
+        if not r:
+            return False
+        tg, inner = r
+        i = next(k for k, y in enumerate(inner) if isinstance(y, dict) and y.get("id") == bid)
+        b = inner[i]
+        if drop_empty:
+            if len(inner) > 1:
+                inner.pop(i)
+            b = make("paragraph")
+        else:
+            inner.pop(i)
+            if not inner:
+                inner.append(make("paragraph"))
+        a, j = self.locate(tg["id"])
+        a.insert(j + 1, b)
+        self.set_focus(b["id"], "start")
+        self.changed()
+        return True
+
+    def _contains_list(self, lst, arr=None):
+        for x in (self.doc.root if arr is None else arr):
+            d = (x.get("data") or {}) if isinstance(x, dict) else {}
+            subs = ([d["blocks"]] if isinstance(d.get("blocks"), list) else []) + \
+                [c["blocks"] for c in d.get("cols") or [] if isinstance(c, dict) and isinstance(c.get("blocks"), list)]
+            for sub in subs:
+                if sub is lst or self._contains_list(lst, sub):
+                    return True
+        return False
 
     def move(self, bid, d):
         r = self.locate(bid)
@@ -1036,7 +1150,7 @@ class PageEditor:
             return
         if btype == "table":
             a[i] = {"id": bid, "type": "table", "data": {"withHeadings": True, "content": [["", ""], ["", ""]]}}
-            self.set_focus(None)
+            self.set_focus(cell_key(bid, 0, 0), "start")          # gleich in die erste Zelle tippen (nie an den Seitenanfang)
             self.changed()
             return
         if btype == "columns":
@@ -1046,7 +1160,7 @@ class PageEditor:
             return
         if btype == "buttons":
             a[i] = {"id": bid, "type": "buttons", "data": {"buttons": [{"label": _("New"), "icon": "➕", "action": ""}]}}
-            self.set_focus(None)
+            self._focus_after(a, i)
             self.changed()
             v.config_buttons(bid)
             return
@@ -1064,7 +1178,7 @@ class PageEditor:
             return
         if btype in ("tasks", "calendar"):
             a[i] = {"id": bid, "type": btype, "data": {}}
-            self.set_focus(None)
+            self._focus_after(a, i)
             self.changed()
             return
         if btype == "db_link":
@@ -1072,7 +1186,7 @@ class PageEditor:
             v.link_database(bid)
             return
         if btype in ("db_new", "page"):
-            self.set_focus(None)
+            self.set_focus(bid, "start")                      # bis der Server antwortet: im (leeren) Absatz bleiben
             body = ({"kind": "database", "title": _("New database"), "icon": "🗃️", "parent_id": self.doc.id} if btype == "db_new"
                     else {"title": "", "parent_id": self.doc.id})
 
@@ -1081,10 +1195,22 @@ class PageEditor:
                 if not rr:
                     return
                 aa, j = rr
+                typed = aa[j].get("type") != "paragraph" or bool((aa[j].get("data") or {}).get("text"))
                 if btype == "db_new":
-                    aa[j] = {"id": bid, "type": "database", "data": {"db": res["id"]}}
+                    nb = {"id": bid, "type": "database", "data": {"db": res["id"]}}
+                    if typed:                                     # inzwischen weitergetippt: Text bleibt, Datenbank davor
+                        nb["id"] = new_block_id()
+                        aa.insert(j, nb)
+                    else:
+                        aa[j] = nb
+                        if self.focused_block == bid:             # inzwischen nicht woanders hin gewechselt
+                            self._focus_after(aa, j)
                 else:
-                    aa[j]["data"] = {"text": f'📄 <a href="/notes#{res["id"]}">{esc(_("Untitled"))}</a>'}
+                    link = {"text": f'📄 <a href="/notes#{res["id"]}">{esc(_("Untitled"))}</a>'}
+                    if typed:
+                        aa.insert(j, {"id": new_block_id(), "type": "paragraph", "data": link})
+                    else:
+                        aa[j]["data"] = link
                 self.changed()
                 self.flush(lambda: store.page_added(res["id"], self.doc.id, done=lambda: btype == "page" and v.open_page(res["id"])))
             store.run("POST", "api/notes", body, done=fin)
@@ -1102,7 +1228,17 @@ class PageEditor:
         r = self.locate(bid)
         if r:
             r[0][r[1]] = {"id": bid, "type": "database", "data": {"db": db}}
+            self._focus_after(r[0], r[1])
             self.changed()
+
+    def _focus_after(self, a, i):
+        """Nach einem Block ohne Textfeld (Datenbank, Aufgaben, Kalender, Schaltflaeche, Bild): Schreibmarke in den
+        Absatz danach - ein leerer folgt schon oder wird angelegt. Sonst landete die Eingabe im ersten Feld der Seite."""
+        nxt = a[i + 1] if i + 1 < len(a) else None
+        if not (isinstance(nxt, dict) and nxt.get("type") == "paragraph" and not (nxt.get("data") or {}).get("text")):
+            nxt = make("paragraph")
+            a.insert(i + 1, nxt)
+        self.set_focus(nxt["id"], "start")
 
     def insert_image_url(self, url, after=None):
         b = {"id": new_block_id(), "type": "image",
@@ -1110,7 +1246,7 @@ class PageEditor:
         r = self.locate(after) if after else None
         if r and r[0][r[1]].get("type") == "paragraph" and not (r[0][r[1]].get("data") or {}).get("text"):
             r[0][r[1]] = b                                    # leerer Absatz (vom "/") wird zum Bild
-            self.set_focus(None)
+            self._focus_after(r[0], r[1])
             self.changed()
         else:
             self.insert(b, after)

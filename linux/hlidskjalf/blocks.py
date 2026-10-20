@@ -1,16 +1,17 @@
 """Bloecke als Widgets + Tastatur wie Notion (Enter teilt, Ruecktaste verbindet, Pfeile springen, Tab rueckt ein)."""
 import json
+import re
 
 from gi.repository import Gdk, GLib, GObject, Gtk, Pango
 
 from . import images
 from .config import settings
-from .editor import CONVERTIBLE, SLASH_ITEMS, make
+from .editor import CONVERTIBLE, SLASH_ITEMS, cell_key, make
 from .emoji import EMOJI
 from .i18n import _
 from .richtext import RichText, date_text, find_trigger, parse_date, rel_text
 from .store import is_db, label, store
-from .util import decode_entities, human_size, norm, plain
+from .util import decode_entities, esc, human_size, norm, plain
 
 TEXT_FIELD = {"paragraph": "text", "header": "text", "quote": "text", "callout": "text"}
 HEADER_CSS = {1: "hk-h1", 2: "hk-h2", 3: "hk-h3", 4: "hk-h4"}
@@ -166,6 +167,70 @@ class HoverManager:
         self.rows, self.active, self.focused = [], None, None
 
 
+NOTE_A_RE = re.compile(r'(📄 )?<a href="/notes#(\d+)">(.*?)</a>', re.S)
+
+
+def _link_label(p, doc_icon):
+    ic = p.get("icon") or ""
+    ic = ic if ic and len(ic) <= 4 and not ic.startswith("/") and not doc_icon else ""
+    return (ic + " " if ic else "") + label(p)
+
+
+def fresh_links(html):
+    """Verweise auf eigene Seiten zeigen den aktuellen Titel (wie im Web decorateLinks) - z. B. nach dem Umbenennen
+    einer Unterseite, deren Verweis noch "Unbenannt" hiess. Nur die Anzeige; gespeichert wird es mit der naechsten Eingabe."""
+    if not html or "/notes#" not in html:
+        return html
+
+    def sub(m):
+        p = store.by_id.get(int(m.group(2)))
+        if p is None:
+            return m.group(0)
+        return f'{m.group(1) or ""}<a href="/notes#{m.group(2)}">{esc(_link_label(p, bool(m.group(1))))}</a>'
+    return NOTE_A_RE.sub(sub, html)
+
+
+def linked_titles(blocks):
+    """(Seite, aktueller Titel) aller Verweise auf eigene Seiten in den Bloecken - aendert sich das, neu zeichnen"""
+    try:
+        j = json.dumps(blocks, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return ()
+    out = []
+    for m in re.finditer(r'/notes#(\d+)', j):
+        p = store.by_id.get(int(m.group(1)))
+        if p is not None:
+            out.append((p["id"], label(p), p.get("icon") or ""))
+    return tuple(sorted(set(out)))
+
+
+def slash_matches(query, skip=()):
+    """"/"-Menue: alle Blocktypen (ohne Suchwort in fester Reihenfolge), sonst nach Treffer geordnet - Name vor
+    Stichwort, wie im Web (dort zaehlt der Name): "/tabelle" -> Tabelle (nicht Datenbank), "/kalender" -> Kalender.
+    -> [(Symbol, Titel, Hinweis, (Blocktyp, Stufe))]"""
+    q = norm(query)
+
+    def rank(it):
+        if not q:
+            return 0
+        t, kw = norm(it[0]), it[4].split()
+        if t == q:
+            return 0
+        if t.startswith(q):
+            return 1
+        if any(w.startswith(q) for w in t.split()):
+            return 2
+        if q in t:
+            return 3
+        if q in kw:
+            return 4
+        if any(w.startswith(q) for w in kw):
+            return 5
+        return 6 if q in it[4] else None
+    hits = [(rank(it), n, it) for n, it in enumerate(SLASH_ITEMS) if it[1] not in skip]
+    return [(it[3], it[0], "", (it[1], it[2])) for r, n, it in sorted((h for h in hits if h[0] is not None), key=lambda h: h[:2])]
+
+
 class SuggestPopover:
     """Auswahlliste fuer "/", "@" und ":" - bleibt offen, waehrend man weitertippt"""
 
@@ -177,6 +242,7 @@ class SuggestPopover:
         self.rt = None
         self.kind = None
         self.closed_for = None
+        self.list_box = self.scroller = None
 
     @property
     def visible(self):
@@ -197,7 +263,8 @@ class SuggestPopover:
         self.kind, self.items, self.on_pick = kind, items, on_pick
         self.sel = min(self.sel, len(items) - 1)
         lb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        for i, (ic, title, hint, val) in enumerate(items[:12]):
+        sel_btn = None
+        for i, (ic, title, hint, val) in enumerate(items):         # alle Eintraege, die Liste rollt (frueher nur 12)
             row = Gtk.Box(spacing=8)
             if ic and (ic.endswith("-symbolic")):
                 row.append(Gtk.Image.new_from_icon_name(ic))
@@ -215,18 +282,40 @@ class SuggestPopover:
             b.set_can_focus(False)
             if i == self.sel:
                 b.add_css_class("hk-sel")
+                sel_btn = b
             b.connect("clicked", lambda *_, v=val: self._pick(v))
             lb.append(b)
+        old_sw = self.pop.get_child()
+        top = old_sw.get_vadjustment().get_value() if isinstance(old_sw, Gtk.ScrolledWindow) else 0
         sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER, propagate_natural_height=True, max_content_height=340)
         sw.set_child(lb)
         sw.set_size_request(300, -1)
         self.pop.set_child(sw)
         self.pop.set_pointing_to(rt.cursor_rect())
         self.pop.popup()
+        self.list_box, self.scroller = lb, sw
+
+        def keep_visible(n=0):
+            """Rollstand behalten und die Auswahl (Pfeiltasten) sichtbar halten"""
+            if self.scroller is not sw:
+                return False
+            adj = sw.get_vadjustment()
+            if sel_btn is None or adj.get_page_size() <= 0:
+                if n < 5:
+                    GLib.timeout_add(30, keep_visible, n + 1)
+                return False
+            ok, r = sel_btn.compute_bounds(lb)
+            if not ok:
+                return False
+            y0, y1, page = r.get_y(), r.get_y() + r.get_height(), adj.get_page_size()
+            v = min(max(top, y1 - page), y0) if y1 - y0 < page else y0
+            adj.set_value(max(0, min(v, adj.get_upper() - page)))
+            return False
+        GLib.idle_add(keep_visible)
 
     def move(self, d):
         if self.items:
-            self.sel = (self.sel + d) % min(len(self.items), 12)
+            self.sel = (self.sel + d) % len(self.items)
             self.show(self.rt, self.kind, self.items, self.on_pick)
 
     def pick_current(self):
@@ -244,6 +333,7 @@ class SuggestPopover:
             self.pop.popdown()
             self.pop.unparent()
         self.pop, self.rt, self.items, self.sel = None, None, [], 0
+        self.list_box = self.scroller = None
 
 
 class BlockRow(Gtk.Box):
@@ -257,7 +347,7 @@ class BlockRow(Gtk.Box):
         self.add_css_class("hk-block-row")
         self.handle = Gtk.Box(spacing=0, valign=Gtk.Align.START)
         self.handle.add_css_class("hk-handle")
-        self.handle.set_size_request(44, -1)
+        self.handle.set_size_request(getattr(kit.view, "gut", 44), -1)     # schmales Fenster: 26 (PageView.gut)
         if not kit.view.editor.locked:
             plus = flat_button(icon="list-add-symbolic", tooltip=_("Insert block below"), css="hk-tiny",
                                cb=lambda: kit.editor.insert(make("paragraph"), after=self.bid))
@@ -270,7 +360,8 @@ class BlockRow(Gtk.Box):
             grip.add_controller(ds)
             for b in (plus, grip):
                 b.set_focusable(False)                       # Tastatur: Menue-Taste/Umschalt+F10 im Block
-            self.handle.append(plus)
+            if not getattr(kit.view, "narrow", False):        # schmal: nur der Griff ("+" per Enter bzw. Menue)
+                self.handle.append(plus)
             self.handle.append(grip)
         self.append(self.handle)
         content = kit.build(block, depth)
@@ -280,7 +371,7 @@ class BlockRow(Gtk.Box):
         self.cslot = None
         self._cm_sig = None
         if depth == 0 and getattr(kit.view, "cpanel", None) is not None:
-            self.cslot = Gtk.Box(width_request=36, valign=Gtk.Align.START, halign=Gtk.Align.END)
+            self.cslot = Gtk.Box(width_request=getattr(kit.view, "cslot_w", 36), valign=Gtk.Align.START, halign=Gtk.Align.END)
             self.cslot.add_css_class("hk-cslot")
             self.append(self.cslot)
         mo = Gtk.EventControllerMotion()
@@ -374,15 +465,22 @@ class BlockKit:
         self.by_key = {}
         self.cache = {}          # Block-ID -> BlockRow des letzten Aufbaus (zum Wiederverwenden)
         self._built = []
+        self.cells = {}          # Fokus-Schluessel (editor.cell_key) -> Tabellenzelle (Gtk.TextView)
+        self._cell_regs = []
 
     def reset(self):
         self.order, self.by_key = [], {}
+        self.cells, self._cell_regs = {}, []
         self.cache = {r.bid: r for r in self._built}
         self._built = []
 
     def register(self, key, rt):
         self.order.append((key, rt))
         self.by_key[key] = rt
+
+    def register_cell(self, key, tv):
+        self.cells[key] = tv
+        self._cell_regs.append((key, tv))
 
     def rows(self):
         """alle Blockzeilen des letzten Aufbaus (auch verschachtelte)"""
@@ -418,7 +516,7 @@ class BlockKit:
             j = json.dumps(b, sort_keys=True, ensure_ascii=False, default=str)
         except (TypeError, ValueError):
             j = None
-        extra = (depth, self.editor.locked)
+        extra = (depth, self.editor.locked, linked_titles(b) if j and "/notes#" in j else (), getattr(self.view, "gut", 44))
         t = b.get("type")
         if t == "columns":
             extra += (bool(self.view.get_width() and self.view.get_width() < 700),)
@@ -436,6 +534,8 @@ class BlockKit:
         row.show_handle(False)
         for k, rt in row.regs:
             self.register(k, rt)
+        for k, tv in getattr(row, "cregs", ()):
+            self.register_cell(k, tv)
         self._built.extend(row.sub)
         return row
 
@@ -446,10 +546,11 @@ class BlockKit:
                 continue
             row = self._reuse(b, depth)
             if row is None:
-                n0, o0 = len(self._built), len(self.order)
+                n0, o0, c0 = len(self._built), len(self.order), len(self._cell_regs)
                 row = BlockRow(self, b, depth)
                 row.sub = self._built[n0:]
                 row.regs = self.order[o0:]
+                row.cregs = self._cell_regs[c0:]
                 row.sig = self._sig(b, depth)
             box.append(row)
             self._built.append(row)
@@ -464,6 +565,8 @@ class BlockKit:
             p = p.get_parent()
 
     def _rt(self, key, block, field, html, css="hk-p", placeholder="", base_bold=False, raw=False, item=None):
+        if not raw:
+            html = fresh_links(html)                          # Seitenverweise mit aktuellem Titel
         rt = RichText(html, css=css, placeholder=placeholder, base_bold=base_bold, raw=raw, editable=not self.editor.locked)
         rt.set_hexpand(True)
         rt.hk_key, rt.hk_block, rt.hk_field, rt.hk_item = key, block, field, item
@@ -481,6 +584,16 @@ class BlockKit:
         if self.view.suggest.rt is not None and self.view.suggest.rt is not rt:
             self.view.suggest.hide()
         p = rt.get_parent()
+        while p is not None and not isinstance(p, BlockRow):
+            p = p.get_parent()
+        self.view.hover.focus(p)
+
+    def _cell_focused(self, tv):
+        """Tabellenzelle: Fokus merken - nach dem Neuaufbau (Zeile/Spalte dazu) geht es in derselben Zelle weiter"""
+        self.editor.focus, self.editor.focus_where = tv.hk_key, "end"
+        if self.view.suggest.rt is not None:
+            self.view.suggest.hide()
+        p = tv.get_parent()
         while p is not None and not isinstance(p, BlockRow):
             p = p.get_parent()
         self.view.hover.focus(p)
@@ -532,6 +645,7 @@ class BlockKit:
             box.append(em)
             rt = self._rt(bid, b, "text", d.get("text", ""), placeholder=_("Callout"))
             rt.set_hexpand(True)
+            rt.set_margin_top(6)                              # erste Zeile mittig zum Emoji-Knopf (Testbericht 022)
             box.append(rt)
             return box
         if t == "code":
@@ -844,13 +958,18 @@ class BlockKit:
                     self.synced(tv)
                 tv.get_buffer().connect("changed", ch)
                 fc = Gtk.EventControllerFocus()
-                fc.connect("enter", lambda *_, r=r, c=c: cur.__setitem__("cell", (r, c)))
+                fc.connect("enter", lambda *_, r=r, c=c, tv=tv: (cur.__setitem__("cell", (r, c)), self._cell_focused(tv)))
                 tv.add_controller(fc)
+                tv.hk_key = cell_key(b.get("id"), r, c)
+                self.register_cell(tv.hk_key, tv)
                 if not self.editor.locked:
                     context_menu(tv, lambda w, r=r, c=c: menu_popover(w, cell_entries(r, c)).popup())
                 grid.attach(tv, c, r, 1, 1)
         if not self.editor.locked:
-            bar = Gtk.Box(spacing=12)
+            # bricht im schmalen Fenster um (FlowBox) - sonst waere die Seite breiter als das Fenster (Testbericht 180)
+            bar = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, column_spacing=12, row_spacing=2, homogeneous=False,
+                              max_children_per_line=4, min_children_per_line=1, halign=Gtk.Align.START)
+            bar.add_css_class("hk-table-bar")
             bar.append(flat_button(icon="list-add-symbolic", label=_("Row"), css="dim-label",
                                    cb=lambda: (rows.append([""] * max(1, len(rows[0]) if rows else 2)), save(), rebuild())))
             bar.append(flat_button(icon="list-add-symbolic", label=_("Column"), css="dim-label",
@@ -860,6 +979,10 @@ class BlockKit:
             bar.append(hc)
             bar.append(more_button(lambda: cell_entries(*[min(v, len(rows if i == 0 else rows[0]) - 1) for i, v in enumerate(cur["cell"])]),
                                    _("Row and column of the selected cell")))
+            c = bar.get_first_child()
+            while c is not None:                              # FlowBoxChild: nicht anwaehlbar, Tab geht zum Knopf
+                c.set_focusable(False)
+                c = c.get_next_sibling()
             outer.append(bar)
         return outer
 
@@ -910,7 +1033,7 @@ class BlockKit:
         if hasattr(self.view, "copy_block"):
             ents += [(_("Copy block"), lambda: self.view.copy_block(bid)), (_("Cut block"), lambda: self.view.copy_block(bid, cut=True))]
         ents += [(_("Duplicate"), lambda: ed.duplicate(bid)), (_("Move up"), lambda: ed.move(bid, -1)),
-                 (_("Move down"), lambda: ed.move(bid, 1)), None, (_("Delete"), lambda: ed.delete(bid), True)]
+                 (_("Move down"), lambda: ed.move(bid, 1)), None, (_("Delete"), lambda: ed.delete(bid, undo=True), True)]
         menu_popover(parent, ents).popup()
 
     # --- Tippen -----------------------------------------------------------------------------------
@@ -936,16 +1059,17 @@ class BlockKit:
 
     def _suggest(self, rt, text):
         sg = self.view.suggest
-        if rt.hk_block.get("type") == "paragraph" and rt.hk_item is None and text.startswith("/") and " " not in text \
-                and "\n" not in text and len(text) <= 20 and sg.closed_for != text:
-            q = norm(text[1:])
+        if rt.hk_block.get("type") == "paragraph" and rt.hk_item is None and text.startswith("/") and text.count(" ") <= 1 \
+                and not text.startswith("/ ") and "\n" not in text and len(text) <= 24 and sg.closed_for != text:
             # fremde Seite: Aufgaben, Kalender und Immich gehoeren dem Konto - dort nicht anbieten
             skip = ("tasks", "calendar", "immich_image") if getattr(self.view, "foreign", False) else ()
             from .nextcloud import supported as nc_ok
             if not nc_ok() or not hasattr(self.view, "pick_nextcloud"):    # Nextcloud-Datei: Server ab 2.3
                 skip += ("nextcloud",)
-            items = [(it[3], it[0], "", (it[1], it[2])) for it in SLASH_ITEMS
-                     if it[1] not in skip and (not q or q in norm(it[0]) or q in it[4])]
+            items = slash_matches(text[1:], skip)
+            if not items and " " in text:                     # "/ueberschrift 2" ja, "/x und weiter" ist normaler Text
+                sg.hide()
+                return
             if not items:
                 items = [("", _("No block type for “{query}”").format(query=text[1:]), "", None)]
             sg.show(rt, "slash", items, lambda v: v and self.editor.slash_apply(rt.hk_block["id"], v[0], v[1]))
@@ -1085,6 +1209,9 @@ class BlockKit:
         if kv == Gdk.KEY_ISO_Left_Tab and rt.hk_item is not None and not ctrl:
             self._indent(rt, -1)
             return True
+        if (kv == Gdk.KEY_ISO_Left_Tab or (kv == Gdk.KEY_Tab and shift)) and rt.hk_item is None and not ctrl and not rt.raw \
+                and ed.toggle_of(bid):
+            return ed.out_of_toggle(bid)                      # Umschalt+Tab: aus dem Toggle heraus
         if kv == Gdk.KEY_Tab and rt.raw and not ctrl and not shift:
             rt.get_buffer().insert_at_cursor("\t")          # Code: Tabulator; Strg+Tab verlaesst den Block
             return True
@@ -1133,6 +1260,10 @@ class BlockKit:
             ed.set_focus(inner[0]["id"], "start")
             ed.changed()
             return True
+        if t == "paragraph" and not before and not after:
+            r = ed.toggle_of(bid)                             # leere letzte Zeile im Toggle: Enter fuehrt heraus (wie Notion)
+            if r and r[1] and r[1][-1].get("id") == bid:
+                return ed.out_of_toggle(bid, drop_empty=True)
         rt.hk_block["data"][rt.hk_field] = before
         ed.insert(make("paragraph", after), after=bid)
         return True

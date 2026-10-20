@@ -448,7 +448,7 @@ class EventEditor(Adw.Dialog):
         self.targets = ts
         self.cal.set_model(Gtk.StringList.new([t["name"] for t in ts] or ["–"]))
         if not ts:
-            self.msg.set_label(_("No writable calendar connected (Settings → Calendar)."))
+            self.msg.set_label(_("No writable calendar connected (Settings → Account → Calendar)."))
             if hasattr(self, "save_btn"):
                 self.save_btn.set_sensitive(False)
 

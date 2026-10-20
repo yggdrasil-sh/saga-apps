@@ -7,6 +7,7 @@ aendert sich mit jedem neuen Bild). 404 = kein Bild: nicht wiederholen, bis sich
 (webp-pixbuf-loader) fragt die App kein WebP an, der Server liefert dann PNG/JPEG."""
 import hashlib
 import os
+import re
 import time
 
 from gi.repository import Adw, GLib
@@ -153,11 +154,32 @@ def attach(av, url, size=None, etag=None):
     _want(key, apply)
 
 
+def initials_text(name):
+    """Text fuer die Initialen eines Adw.Avatar: nur Woerter, die mit einem Buchstaben beginnen - ohne Zusatz in Klammern
+    ("Anna Berg (127.0.0.1:8195)" -> "Anna Berg"), Server-Teil ("anna@127.0.0.1:8195" -> "anna") und Ziffern/Zeichen davor.
+    Sonst zeigte libadwaita "A(", "A1" bzw. "B(" (Testbericht 062/067/113)."""
+    s = re.sub(r"\([^)]*\)?|\[[^\]]*\]?", " ", str(name or ""))
+    words = []
+    for w in s.split():
+        w = w.split("@")[0] if not w.startswith("@") else w[1:].split("@")[0]
+        w = re.sub(r"^[^\w]+|^[\d_]+", "", w)
+        while w and not w[0].isalpha():
+            w = w[1:]
+        if w:
+            words.append(w)
+    return " ".join(words) or "?"
+
+
+def avatar_widget(text, size=32, show_initials=True, **kw):
+    """Adw.Avatar mit bereinigten Initialen (initials_text)"""
+    return Adw.Avatar(size=size, text=initials_text(text), show_initials=show_initials, **kw)
+
+
 def person(p, size=32, text=None, **kw):
     """Adw.Avatar fuer ein Personen-Objekt {name, username, avatar}: Initialen + Bild (falls vorhanden)"""
     p = p if isinstance(p, dict) else {}
     name = text or p.get("name") or p.get("username") or "?"
-    av = Adw.Avatar(size=size, text=name, show_initials=True, **kw)
+    av = Adw.Avatar(size=size, text=initials_text(name), show_initials=True, **kw)
     attach(av, p.get("avatar"), size)
     return av
 

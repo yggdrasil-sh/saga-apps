@@ -19,7 +19,7 @@ from .util import bg, bg_serial, date_time_text, placeholder
 CHECK_DELAY_MS = 300        # Pruefung des Namens erst, wenn das Tippen kurz ruht
 MAIN_HEIGHT = 700           # Hoehe der Einstellungsseite; der Namensschritt bleibt natuerlich hoch
 ICON_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons")   # eigene Symbole (RPM, Flatpak)
-GLOBE = "saga-globe-symbolic"                                                  # icons/saga-globe-symbolic.svg
+GLOBE = "saga-globe-symbolic"                                    # icons/hicolor/scalable/actions/saga-globe-symbolic.svg
 ZWSP, WJ = "​", "⁠"
 
 

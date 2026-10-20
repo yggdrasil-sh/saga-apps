@@ -334,11 +334,15 @@ def chip_rows(st, role):
     return out
 
 
-def nobody_text(d):
+def nobody_text(d, q=""):
     """Suche ohne Treffer: Grund vom Server bei name@server (remote_hint, Server 2.2), sonst "Niemand gefunden."
-    (aeltere Server ohne Feld: wie bisher)"""
+    (aeltere Server ohne Feld: wie bisher). Bei 1-2 Zeichen sucht der Server nur genaue Treffer: das dazusagen."""
     h = (d or {}).get("remote_hint")
-    return h.strip() if isinstance(h, str) and h.strip() else _("No one found.")
+    if isinstance(h, str) and h.strip():
+        return h.strip()
+    if 0 < len((q or "").strip()) < SEARCH_MIN:
+        return _("No exact match. Type at least {n} characters to search.").format(n=SEARCH_MIN)
+    return _("No one found.")
 
 
 def short_query(q):
@@ -521,7 +525,8 @@ def shared_by_box(page):
 def avatar(typ, name, size=32, url=None):
     """Kreis fuer Person/Gruppe; url: Profilbild (Feld "avatar", Server ab 2.1) ueber die Initialen"""
     grp = typ in ("group", "remote_group")
-    text = (name or "?").split(" (")[0] or "?"                # "Bert (bert@b.example)" -> Initialen "B", nicht "B("
+    from .avatars import initials_text
+    text = initials_text(name)                                 # "Bert (bert@b.example)" -> Initialen "B", nicht "B("
     a = Adw.Avatar(size=size, text=text, show_initials=not grp)
     if grp:
         a.set_icon_name(people_icon())
@@ -829,7 +834,7 @@ class ShareDialog(Adw.Dialog):
             r.add_suffix(lb)
             r.connect("activated", lambda *_, h=h: self._pick(h))
         if not hits and len(self.q.get_text().strip()) >= search_min():
-            self._hint(nobody_text(d), True)
+            self._hint(nobody_text(d, self.q.get_text()), True)
 
     # --- Suchen -----------------------------------------------------------------------------------------
     def _search(self):

@@ -331,6 +331,49 @@ Speicher beim Hoch- und Herunterladen. Texte in Deutsch, Englisch, Spanisch, Rus
 - **Kompatibel:** mit 2.1/2.3-Servern und -Geräten bleibt alles 1:1 wie bisher (ohne `multi` keine Raumfunktionen).
 - Tests: Teilnehmerliste/rv, Mesh-Paare, Grenzen, Begleitgerät, Übernahme, Bitrate im Mesh, Sprecher, Leiste.
 
+**Linux:**
+- **Gruppenanrufe klingeln:** Die App behandelt `call.invite` (und Push `call.group`): Leiste und Mitteilung „Gruppenanruf
+  in <Gruppe>“ bzw. „<Name> hat einen Gruppenanruf gestartet“ mit **Beitreten (im Browser)** (`/chats#join-<id>-member`,
+  bei Video auch „Nur Ton“) und **Ignorieren**. Große Gruppen (`silent`) klingeln nicht, dort steht nur „Gruppenanruf
+  läuft“. Das Klingeln endet, sobald ein eigenes Gerät in der Teilnehmerliste steht (`call.roster`), die Einladung
+  anderswo abgelehnt wurde (`call.state declined`) oder der Anruf endet; „aktiv“ (zwei sind dabei) beendet es nicht.
+  Ein beim Start laufender Gruppenanruf mit offener Einladung klingelt ebenfalls (`GET /api/calls/active`).
+
+### Behoben – Linux (kritischer Test 2.4)
+- **Fokus nach Tabelle bzw. Datenbank (Datenverlust):** Nach dem Einfügen sprang die Schreibmarke an den Seitenanfang,
+  Getipptes landete in der ersten Überschrift. Jetzt steht sie in der ersten Zelle der Tabelle bzw. in einem (leeren)
+  Absatz nach Datenbank, Aufgaben, Kalender, Schaltfläche und Bild; Tabellenzellen behalten den Fokus auch nach „Zeile“/
+  „Spalte“. Was getippt wird, während der Server die Datenbank anlegt, bleibt erhalten.
+- **„/“-Menü:** zeigt alle Blocktypen (bisher 12 von 26) und rollt mit den Pfeiltasten mit. Der Name zählt vor dem
+  Stichwort wie im Web: „/tabelle“ legt eine Tabelle an, „/kalender“ den Kalender-Block (bisher jeweils eine
+  Datenbank); „/überschrift 2“ mit Leerzeichen geht.
+- **Gelesen ✓✓:** Neue Nachrichten im offenen, sichtbaren Chat werden nach dem Anordnen bestätigt (bisher erst beim
+  Rollen oder Fensterwechsel); meldet die Chat-Liste den offenen Chat noch als ungelesen, wird er gleich wieder gelesen
+  gemeldet (Zähler, Glocke). Nach dem Annehmen einer Anfrage wird der Online-Status abonniert.
+- **Version wiederherstellen** nur nach Rückfrage („Der aktuelle Inhalt der Seite wird durch die Version vom … ersetzt“).
+- **Block löschen** (Menü bzw. Entf auf einem ausgewählten Block) zeigt „Block gelöscht“ mit **Rückgängig**.
+- **Seiten im Papierkorb:** Eine offene Seite, die (auch als Unterseite) in den Papierkorb ging, ist gesperrt und zeigt
+  „Diese Seite liegt im Papierkorb …“ mit **Zurückholen**; „Zurück“ führt nie auf eine solche Seite. Meldet das Speichern
+  404, sagt die App das deutlich, behält die Eingaben als Entwurf und speichert sie nach dem Zurückholen.
+- **Seitenverweise** zeigen den aktuellen Titel (bisher blieb ein Verweis auf eine umbenannte Unterseite „Unbenannt“).
+- **Dunkelmodus:** Eigene Symbole (Chats, Glocke, Kommentare, Teilen, Schloss …) liegen jetzt als Thema „hicolor“ vor
+  und werden wie Systemsymbole eingefärbt (bisher dunkelgrau auf dunklem Grund).
+- **Schmales Fenster (Telefon-Breite):** schmalere Ränder und Griffe, die Leiste unter Tabellen bricht um, die
+  Datenbank-Leiste wird zweizeilig (Reiter oben, darunter Suche, ⚙, Neu) – nichts läuft mehr rechts aus dem Fenster.
+- **Initialen** im Profilkreis nur aus Buchstaben des Namens („AB“ statt „A(“, „A1“); eigene Kommentare mit den
+  Initialen des Kontos statt „D“ von „Du“.
+- **Übersetzungen:** Dateigrößen in der Sprache der App („44 Bytes“), Reiter „Mitteilungen“ in Russisch/Spanisch/Thai
+  übersetzt (bisher „Push“), Tastenkürzel-Übersicht mit „Strg“, „Umschalt“, „←“ wie in den Tooltips.
+- **Kleineres:** Titel neuer Seiten bekommt zuverlässig den Fokus; Enter auf der leeren letzten Zeile bzw.
+  Umschalt+Tab führt aus einem Toggle heraus; Schaltfläche „Neuer Datenbank-Eintrag“/„Seite öffnen“ ohne Ziel lässt sich
+  nicht speichern, ein Klick ohne Ziel sagt es; Hinweis „n Filter“ in gefilterten Datenbank-Ansichten; Leerzustand bei
+  „Dienste“; Kalender ohne Namen zeigen den letzten Teil der Adresse; Hinweis auf den Kalender nennt „Einstellungen →
+  Konto → Kalender“; Personensuche mit 1–2 Zeichen erklärt „mindestens 3 Zeichen“; Adressfeld in den Einstellungen
+  beim Öffnen nicht mehr markiert; Rückfragen beim Koppeln nennen den Port; geht kein Browser auf, wird die Adresse
+  kopiert und angezeigt; Papierkorb-Zeilen werden umbrochen statt abgeschnitten; Videos spulen genau (nicht mehr an
+  das letzte Schlüsselbild); „✓✓“ kräftiger; Hinweistext mittig zum Emoji.
+- Tests: `linux/tests/test_tt24.py`.
+
 ### Behoben – Chats über Servergrenzen
 **Android – eigene Nachricht blieb auf „⏳ wird zugestellt“:** In einem Direkt-Chat, dessen Heim der andere Server ist,
 zeigte die App eine längst zugestellte eigene Nachricht weiter als ausstehend (Server 2.3.0 melden die sofortige

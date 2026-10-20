@@ -230,7 +230,7 @@ class UnifiedPush(GObject.Object):
             from .live import live
             if live.connected:                                       # sichtbar und live verbunden: steht schon in der Glocke
                 return
-        if d.get("kind") == "call":                                  # Anruf: klingelt ueber calls (gleiche ID, kein Doppel)
+        if d.get("kind") in ("call", "call.group"):                  # Anruf (2.4 auch Gruppe): klingelt ueber calls, kein Doppel
             from .calls import calls
             if calls.on_push(d):
                 return

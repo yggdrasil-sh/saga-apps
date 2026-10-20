@@ -139,7 +139,8 @@ class SagaMediaStream(Gtk.MediaStream, Gdk.Paintable):
     def do_seek(self, ts):
         Gst = self.Gst
         self._seeking = True
-        if not self.pipe.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, int(ts) * 1000):
+        # ACCURATE statt KEY_UNIT: bei Videos mit wenigen Schluesselbildern sprang KEY_UNIT an den Anfang (Testbericht 103)
+        if not self.pipe.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.ACCURATE, int(ts) * 1000):
             self._seeking = False
             self.seek_failed()
 
