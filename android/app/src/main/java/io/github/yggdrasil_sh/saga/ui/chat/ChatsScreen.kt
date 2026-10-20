@@ -135,6 +135,14 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val noBack = remember { AppNavigator() }                 // breite Ansicht: Liste ohne Zurueck-Pfeil
+    // 2.4: Online-Status der Direkt-Chats in der Liste (nur solange die Liste sichtbar ist, hoechstens 30 Chats)
+    val chatMe by svc.me.collectAsState()
+    val presence by svc.presence.state.collectAsState()
+    val watch = remember(chats, chatMe) {
+        chats.filter { it.archived != true }.take(30).mapNotNull { io.github.yggdrasil_sh.saga.chat.ReceiptLogic.onlineFor(chatMe, it) }.distinct()
+    }
+    PresenceWatch(svc.presence, "list", watch)
+    val onlineOf = { c: ChatSummary -> io.github.yggdrasil_sh.saga.chat.ReceiptLogic.onlineFor(chatMe, c)?.let { presence[it]?.online } == true }
     Scaffold(
         topBar = { SagaTopBar(stringResource(R.string.chats), if (showBack) nav else noBack, chrome) },
         floatingActionButton = {
@@ -172,7 +180,7 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
                         )
                     }
                     items(requests, key = { "q" + it.id }) { c ->
-                        ChatListEntry(repo, c, svc.displayName(c), c.id == selected, onOpen, onDeleted = { if (c.id == selected) nav.top(Dest.Chats) })
+                        ChatListEntry(repo, c, svc.displayName(c), c.id == selected, onlineOf(c), onOpen, onDeleted = { if (c.id == selected) nav.top(Dest.Chats) })
                     }
                     item(key = "requests-end") { HorizontalDivider(Modifier.padding(vertical = 4.dp)) }
                 }
@@ -181,14 +189,14 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
                 }
                 val nameOf = { c: ChatSummary -> titles[c.id]?.takeIf { c.kind == "free" } ?: svc.displayName(c) }
                 items(active, key = { it.id }) { c ->
-                    ChatListEntry(repo, c, nameOf(c), c.id == selected, onOpen, onDeleted = { if (c.id == selected) nav.top(Dest.Chats) })
+                    ChatListEntry(repo, c, nameOf(c), c.id == selected, onlineOf(c), onOpen, onDeleted = { if (c.id == selected) nav.top(Dest.Chats) })
                 }
                 if (archived.isNotEmpty()) {
                     item(key = "archived-header") {
                         ArchivedHeader(archived.size, ChatDeleteLogic.archivedUnread(archived), showArchived) { showArchived = !showArchived }
                     }
                     if (showArchived) items(archived, key = { it.id }) { c ->
-                        ChatListEntry(repo, c, nameOf(c), c.id == selected, onOpen, onDeleted = { if (c.id == selected) nav.top(Dest.Chats) })
+                        ChatListEntry(repo, c, nameOf(c), c.id == selected, onlineOf(c), onOpen, onDeleted = { if (c.id == selected) nav.top(Dest.Chats) })
                     }
                 }
                 item { Box(Modifier.size(88.dp)) }
@@ -232,7 +240,7 @@ private fun ArchivedHeader(count: Int, unread: Int, open: Boolean, onToggle: () 
  */
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
-private fun ChatListEntry(repo: SagaRepository, c: ChatSummary, name: String, selected: Boolean, onOpen: (Long) -> Unit, onDeleted: () -> Unit) {
+private fun ChatListEntry(repo: SagaRepository, c: ChatSummary, name: String, selected: Boolean, online: Boolean, onOpen: (Long) -> Unit, onDeleted: () -> Unit) {
     val svc = repo.chat
     val supported = ChatDeleteLogic.supported(c)
     var menu by remember { mutableStateOf(false) }
@@ -250,7 +258,7 @@ private fun ChatListEntry(repo: SagaRepository, c: ChatSummary, name: String, se
     }
     val row = @Composable {
         Box {
-            ChatRow(c, name, selected, onClick = { onOpen(c.id) }, onLongClick = if (supported) ({ menu = true }) else null)
+            ChatRow(c, name, selected, online, onClick = { onOpen(c.id) }, onLongClick = if (supported) ({ menu = true }) else null)
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(
                     text = { Text(stringResource(if (c.archived == true) R.string.chatdel_unarchive else R.string.chatdel_archive)) },
@@ -306,7 +314,7 @@ private fun ChatListEntry(repo: SagaRepository, c: ChatSummary, name: String, se
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
+private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, online: Boolean, onClick: () -> Unit, onLongClick: (() -> Unit)? = null) {
     val kindLabel = when (c.kind) {
         "group" -> stringResource(R.string.chat_kind_group)
         "page" -> stringResource(R.string.chat_kind_page)
@@ -322,7 +330,9 @@ private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, onClick: ()
             ).padding(horizontal = 8.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Avatar(name, symbol = if (c.kind == "page") "📄" else null, size = 40, icon = if (c.kind == "group" || c.kind == "free") R.drawable.ic_group else null, avatar = if (c.kind == "dm") c.peer?.avatar else null)
+        WithOnlineDot(online) {
+            Avatar(name, symbol = if (c.kind == "page") "📄" else null, size = 40, icon = if (c.kind == "group" || c.kind == "free") R.drawable.ic_group else null, avatar = if (c.kind == "dm") c.peer?.avatar else null)
+        }
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(

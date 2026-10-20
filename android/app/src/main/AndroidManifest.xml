@@ -23,7 +23,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <!-- 2.4: Bildschirm im Anruf teilen (MediaProjection, Vordergrund-Dienst Typ mediaProjection) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <!-- 2.4 Videos im Chat: Upload im Hintergrund (WorkManager, expedited) als Vordergrund-Arbeit mit Mitteilung -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <queries>
         <!-- Custom Tabs (Anmeldung im Browser) -->
@@ -111,17 +115,25 @@
             android:excludeFromRecents="true"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
+            android:supportsPictureInPicture="true"
+            android:resizeableActivity="true"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|uiMode|locale|layoutDirection|fontScale"
             tools:targetApi="27" />
 
         <service
             android:name=".call.CallService"
             android:exported="false"
-            android:foregroundServiceType="phoneCall|microphone|camera" />
+            android:foregroundServiceType="phoneCall|microphone|camera|mediaProjection" />
 
         <receiver
             android:name=".call.CallActionReceiver"
             android:exported="false" />
+
+        <!-- 2.4: Video-Upload (WorkManager) laeuft als Vordergrund-Arbeit vom Typ dataSync -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
 
         <!-- Chat-Anhaenge (entschluesselt im Cache) an andere Apps weitergeben -->
         <provider

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4 E4/E5: Geraet hinzufuegen/uebergeben, Gruppenanrufe (Mesh) -->
+<resources>
+    <string name="room_block_old">Dafür braucht jemand im Anruf Saga 2.4.</string>
+    <string name="room_block_full">Der Anruf ist voll (Gerätegrenze: %1$d).</string>
+    <string name="room_block_none">Der Anruf ist noch nicht angenommen.</string>
+    <string name="room_block_other">Beitreten geht gerade nicht.</string>
+    <string name="room_unknown_device">Unbekanntes Gerät von %1$s abgelehnt.</string>
+    <string name="room_unknown_abort">Unbekanntes Gerät von %1$s im Anruf – Beitritt abgebrochen.</string>
+    <string name="room_link_failed">Verbindung zu %1$s nicht aufgebaut.</string>
+    <string name="room_joined">%1$s (%2$s) ist hinzugekommen</string>
+    <string name="room_left">%1$s (%2$s) hat den Anruf verlassen</string>
+    <string name="room_left_here">Dieses Gerät ist nicht mehr im Anruf.</string>
+    <string name="room_you_left">Du hast den Anruf verlassen.</string>
+    <string name="room_ringing_others">Klingelt bei den anderen …</string>
+    <string name="room_waiting">Warte auf die anderen …</string>
+    <string name="room_server_old">Dafür braucht dein Server Saga 2.4.</string>
+    <string name="room_takeover_failed">Übernahme hat nicht geklappt – der Anruf läuft auf dem anderen Gerät weiter.</string>
+    <string name="room_taken_over">Anruf auf %1$s übernommen.</string>
+    <string name="room_other_device">anderes Gerät</string>
+    <string name="room_incoming">Eingehender Gruppenanruf</string>
+    <string name="room_incoming_video">Eingehender Gruppen-Videoanruf</string>
+    <string name="room_devices_of">Geräte: %1$d von %2$d</string>
+    <string name="room_companion_hint">Begleitgerät – Mikrofon und Ton aus</string>
+    <string name="room_taking_over">Übernahme läuft …</string>
+    <string name="room_old_people">Braucht Saga 2.4 (nicht eingeladen): %1$s</string>
+    <string name="room_take_over">Hierher übernehmen</string>
+    <string name="room_you">Du</string>
+    <string name="room_speaking">spricht</string>
+    <string name="room_muted">stumm</string>
+    <string name="room_sound_off">Ton aus</string>
+    <string name="room_sound_on">Ton an</string>
+    <string name="room_running_on">Anruf läuft auf %1$s</string>
+    <string name="room_group_running">Gruppenanruf läuft · Geräte: %1$d</string>
+    <string name="room_add_device">Hinzufügen</string>
+    <string name="room_join">Beitreten</string>
+    <string name="room_join_audio">Gruppenanruf beitreten</string>
+    <string name="room_join_video">Gruppen-Videoanruf beitreten</string>
+    <string name="room_group_audio">Gruppenanruf</string>
+    <string name="room_group_video">Gruppen-Videoanruf</string>
+</resources>

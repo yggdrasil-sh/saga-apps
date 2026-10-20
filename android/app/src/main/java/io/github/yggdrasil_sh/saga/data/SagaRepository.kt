@@ -1440,6 +1440,12 @@ class SagaRepository(
     }
 
     /** Lokale Daten des bisherigen Kontos leeren (Entwuerfe bleiben je Server/Konto auf dem Geraet) */
+    /** 2.4: Ciphertext-Cache der Videos leeren ("Neu beginnen", Geraet entfernt) */
+    fun clearVideoCache() {
+        val ctx = appContext ?: return
+        scope.launch(Dispatchers.IO) { io.github.yggdrasil_sh.saga.chat.video.VideoCache.clear(ctx) }
+    }
+
     private suspend fun clearLocalData() {
         api.cookies.clear()
         withContext(Dispatchers.IO) { treeSync.clear() }     // Seitenbaum-Stand und Zwischenspeicher des Kontos weg
@@ -1466,6 +1472,8 @@ class SagaRepository(
         ai.clear()
         if (appContext != null) push.clear()
         if (appContext != null) calls.reset()
+        // 2.4: laufende Video-Uploads verwerfen (Schluessel im geschuetzten Speicher), Zwischendateien und Video-Cache weg
+        appContext?.let { ctx -> withContext(Dispatchers.IO) { io.github.yggdrasil_sh.saga.chat.video.Videos.clearAll(ctx, this@SagaRepository) } }
         io.github.yggdrasil_sh.saga.ui.common.AvatarLogic.reset()
         pushChecked = false
         shareSupported.value = false

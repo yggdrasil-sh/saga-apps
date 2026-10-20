@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4 E4/E5: Geraet hinzufuegen/uebergeben, Gruppenanrufe (Mesh) -->
+<resources>
+    <string name="room_block_old">Someone in the call needs Saga 2.4 for this.</string>
+    <string name="room_block_full">The call is full (device limit: %1$d).</string>
+    <string name="room_block_none">The call has not been answered yet.</string>
+    <string name="room_block_other">Joining is not possible right now.</string>
+    <string name="room_unknown_device">Unknown device of %1$s rejected.</string>
+    <string name="room_unknown_abort">Unknown device of %1$s in the call – joining cancelled.</string>
+    <string name="room_link_failed">Connection to %1$s could not be established.</string>
+    <string name="room_joined">%1$s (%2$s) joined</string>
+    <string name="room_left">%1$s (%2$s) left the call</string>
+    <string name="room_left_here">This device is no longer in the call.</string>
+    <string name="room_you_left">You left the call.</string>
+    <string name="room_ringing_others">Ringing the others …</string>
+    <string name="room_waiting">Waiting for the others …</string>
+    <string name="room_server_old">This needs Saga 2.4 on your server.</string>
+    <string name="room_takeover_failed">Taking over did not work – the call continues on the other device.</string>
+    <string name="room_taken_over">Call taken over on %1$s.</string>
+    <string name="room_other_device">another device</string>
+    <string name="room_incoming">Incoming group call</string>
+    <string name="room_incoming_video">Incoming group video call</string>
+    <string name="room_devices_of">Devices: %1$d of %2$d</string>
+    <string name="room_companion_hint">Companion device – microphone and sound off</string>
+    <string name="room_taking_over">Taking over …</string>
+    <string name="room_old_people">Needs Saga 2.4 (not invited): %1$s</string>
+    <string name="room_take_over">Take over here</string>
+    <string name="room_you">You</string>
+    <string name="room_speaking">speaking</string>
+    <string name="room_muted">muted</string>
+    <string name="room_sound_off">Sound off</string>
+    <string name="room_sound_on">Sound on</string>
+    <string name="room_running_on">Call running on %1$s</string>
+    <string name="room_group_running">Group call running · devices: %1$d</string>
+    <string name="room_add_device">Add this device</string>
+    <string name="room_join">Join</string>
+    <string name="room_join_audio">Join group call</string>
+    <string name="room_join_video">Join group video call</string>
+    <string name="room_group_audio">Group call</string>
+    <string name="room_group_video">Group video call</string>
+</resources>

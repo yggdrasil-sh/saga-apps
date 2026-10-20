@@ -207,6 +207,17 @@ dependencies {
     implementation(libs.lazysodium.android) { artifact { type = "aar" }; isTransitive = false }
     implementation(libs.jna) { artifact { type = "aar" } }
 
+    // Videos im Chat (2.4): Wiedergabe (ExoPlayer, eigene DataSource ueber Ciphertext-Cache), "optimiert 720p"
+    // (Transformer), Upload im Hintergrund (WorkManager)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
+    implementation(libs.media3.transformer)
+    implementation(libs.media3.effect)
+    implementation(libs.media3.datasource)
+    implementation(libs.media3.datasource.okhttp)
+    implementation(libs.media3.database)
+    implementation(libs.androidx.work.runtime)
+
     // Anrufe (2.1): WebRTC nach Vorgabe der Anruf-Spezifikation (aktueller Google-libwebrtc-Stand, Maven Central)
     implementation(libs.stream.webrtc.android)
 

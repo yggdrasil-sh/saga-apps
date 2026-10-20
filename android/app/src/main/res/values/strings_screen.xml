@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4 E3: Bildschirm im Anruf teilen -->
+<resources>
+    <string name="call_screen_share">Share screen</string>
+    <string name="call_screen_stop">Stop sharing</string>
+    <string name="call_screen_you">You are sharing your screen</string>
+    <string name="call_screen_peer">%1$s is sharing their screen</string>
+    <string name="call_screen_swap">Swap view</string>
+    <string name="call_screen_cam_paused">Camera paused (slow connection)</string>
+    <string name="call_screen_failed">Screen sharing is not possible</string>
+    <string name="call_screen_hint_title">Share your screen?</string>
+    <string name="call_screen_hint">Everything visible in your selection can be seen by the other person – including notifications, passwords and other chats. Nothing is recorded or stored on the server.</string>
+    <string name="call_screen_hint_off">Don\'t show again</string>
+    <string name="call_screen_continue">Continue</string>
+    <string name="call_screen_small">Camera of %1$s – tap to swap view</string>
+</resources>

@@ -37,8 +37,21 @@ data class CallConfig(
     @SerialName("ring_s") val ringS: Int = 45,
     @SerialName("alive_s") val aliveS: Int = 15,
     @SerialName("max_s") val maxS: Int = 0,
+    /** 2.4 E4/E5: Grenzen (`endpoints_video`, `endpoints_audio`, `ring_silent`, `handover_s`) */
+    val limits: JsonElement? = null,
     val format: String = "",
+    /** 2.4: Server-Faehigkeiten ("reneg", "pip_hint", ...); fehlt bei 2.1-2.3 */
+    val features: JsonElement? = null,
 ) {
+    val featureSet: Set<String> get() = CallV3.features(features)
+
+    private fun lim(k: String): Int? =
+        ((limits as? kotlinx.serialization.json.JsonObject)?.get(k) as? JsonPrimitive)?.content?.toDoubleOrNull()?.toInt()
+
+    /** 2.4: Geraete je Anruf (Mesh 4 Video / 6 Ton; der Admin kann nur senken) */
+    fun endpoints(media: String): Int = CallRoom.limit(media, lim(if (media == "video") "endpoints_video" else "endpoints_audio"))
+    val handoverS: Int get() = lim("handover_s")?.coerceIn(5, 60) ?: CallRoom.HANDOVER_S
+
     /** TURN eingetragen? (Server: true/false bzw. Adresse) */
     val hasTurn: Boolean
         get() = when (val t = turn) {
@@ -74,6 +87,21 @@ data class CallInfo(
     @SerialName("expires_in") val expiresIn: Double? = null,
     /** 2.3: 2 = Anruf ueber Servergrenzen (saga-call/v2, Handles statt Benutzernamen) */
     val v: Int = 1,
+    // 2.4 E4/E5: Raum (Vertrag "Anrufe: Mehrgeraete und Gruppen")
+    /** dm | group */
+    val kind: String = "dm",
+    /** Hoechstzahl der Geraete im Anruf (Server; der Admin kann nur senken) */
+    val limit: Int? = null,
+    val joinable: Boolean = false,
+    @SerialName("join_block") val joinBlock: String? = null,
+    /** eigene Geraete im Anruf */
+    val mine: List<String> = emptyList(),
+    /** aktive Endpunkte in Beitrittsreihenfolge */
+    val legs: List<CallLeg> = emptyList(),
+    /** Gruppe: Personen ohne Geraet mit Saga 2.4 */
+    val old: List<CallPeer> = emptyList(),
+    /** Gruppe: eigene Einladung (ringing | declined | joined | old | missed) */
+    val invite: String? = null,
 )
 
 @Serializable
@@ -94,7 +122,7 @@ data class CallWrap(val ok: Boolean = false, val call: CallInfo? = null)
 data class CallsActive(val calls: List<CallInfo> = emptyList())
 
 @Serializable
-data class CallAlive(val state: String = "", val reason: String? = null)
+data class CallAlive(val state: String = "", val reason: String? = null, val leg: String? = null)
 
 /** Eintrag im Chat (kind "call", body_ct = Klartext-JSON mit Metadaten, die der Server ohnehin kennt) */
 @Serializable

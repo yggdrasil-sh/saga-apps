@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4 E4/E5: Geraet hinzufuegen/uebergeben, Gruppenanrufe (Mesh) -->
+<resources>
+    <string name="room_block_old">ต้องมีคนในสายที่ใช้ Saga 2.4 จึงจะทำได้</string>
+    <string name="room_block_full">สายเต็มแล้ว (จำกัดอุปกรณ์: %1$d)</string>
+    <string name="room_block_none">ยังไม่มีผู้รับสาย</string>
+    <string name="room_block_other">ยังเข้าร่วมไม่ได้ในขณะนี้</string>
+    <string name="room_unknown_device">ปฏิเสธอุปกรณ์ที่ไม่รู้จักของ %1$s แล้ว</string>
+    <string name="room_unknown_abort">มีอุปกรณ์ที่ไม่รู้จักของ %1$s ในสาย – ยกเลิกการเข้าร่วม</string>
+    <string name="room_link_failed">เชื่อมต่อกับ %1$s ไม่สำเร็จ</string>
+    <string name="room_joined">%1$s (%2$s) เข้าร่วมแล้ว</string>
+    <string name="room_left">%1$s (%2$s) ออกจากสายแล้ว</string>
+    <string name="room_left_here">อุปกรณ์นี้ไม่ได้อยู่ในสายแล้ว</string>
+    <string name="room_you_left">คุณออกจากสายแล้ว</string>
+    <string name="room_ringing_others">กำลังโทรหาคนอื่น …</string>
+    <string name="room_waiting">กำลังรอคนอื่น …</string>
+    <string name="room_server_old">เซิร์ฟเวอร์ของคุณต้องใช้ Saga 2.4</string>
+    <string name="room_takeover_failed">ย้ายสายไม่สำเร็จ – สายยังคงอยู่บนอุปกรณ์อื่น</string>
+    <string name="room_taken_over">ย้ายสายไปที่ %1$s แล้ว</string>
+    <string name="room_other_device">อุปกรณ์อื่น</string>
+    <string name="room_incoming">สายกลุ่มเรียกเข้า</string>
+    <string name="room_incoming_video">วิดีโอคอลกลุ่มเรียกเข้า</string>
+    <string name="room_devices_of">อุปกรณ์: %1$d จาก %2$d</string>
+    <string name="room_companion_hint">อุปกรณ์เสริม – ปิดไมโครโฟนและเสียง</string>
+    <string name="room_taking_over">กำลังย้ายสาย …</string>
+    <string name="room_old_people">ต้องใช้ Saga 2.4 (ไม่ได้รับเชิญ): %1$s</string>
+    <string name="room_take_over">ย้ายสายมาที่นี่</string>
+    <string name="room_you">คุณ</string>
+    <string name="room_speaking">กำลังพูด</string>
+    <string name="room_muted">ปิดเสียงอยู่</string>
+    <string name="room_sound_off">ปิดเสียง</string>
+    <string name="room_sound_on">เปิดเสียง</string>
+    <string name="room_running_on">สายกำลังดำเนินอยู่บน %1$s</string>
+    <string name="room_group_running">สายกลุ่มกำลังดำเนินอยู่ · อุปกรณ์: %1$d</string>
+    <string name="room_add_device">เพิ่มอุปกรณ์นี้</string>
+    <string name="room_join">เข้าร่วม</string>
+    <string name="room_join_audio">เข้าร่วมสายกลุ่ม</string>
+    <string name="room_join_video">เข้าร่วมวิดีโอคอลกลุ่ม</string>
+    <string name="room_group_audio">สายกลุ่ม</string>
+    <string name="room_group_video">วิดีโอคอลกลุ่ม</string>
+</resources>

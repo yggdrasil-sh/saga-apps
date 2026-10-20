@@ -147,6 +147,27 @@ class ChatCrypto(private val s: LazySodium) {
         return out.copyOf(len[0].toInt())
     }
 
+    /**
+     * AEAD mit Laengen und wiederverwendbaren Puffern (saga-file/v2, blockweise ohne neue Arrays je Block):
+     * out muss ptLen + 16 Bytes fassen -> Laenge des Ciphertexts
+     */
+    fun aeadEncryptInto(out: ByteArray, pt: ByteArray, ptLen: Int, ad: ByteArray, nonce: ByteArray, key: ByteArray): Int {
+        if (ptLen < 0 || ptLen > pt.size || out.size < ptLen + ABYTES || nonce.size != 24 || key.size != 32) throw ChatCryptoException("encrypt")
+        val len = LongArray(1)
+        check(s.cryptoAeadXChaCha20Poly1305IetfEncrypt(out, len, pt, ptLen.toLong(), ad, ad.size.toLong(), null, nonce, key))
+        return len[0].toInt()
+    }
+
+    /** Gegenstueck: ctLen Bytes aus ct entschluesseln nach out (>= ctLen - 16) -> Laenge; falsches Tag -> Ausnahme, out bleibt unbrauchbar */
+    fun aeadDecryptInto(out: ByteArray, ct: ByteArray, ctLen: Int, ad: ByteArray, nonce: ByteArray, key: ByteArray): Int {
+        if (ctLen < ABYTES || ctLen > ct.size || out.size < ctLen - ABYTES || nonce.size != 24 || key.size != 32) throw ChatCryptoException("decrypt")
+        val len = LongArray(1)
+        if (!s.cryptoAeadXChaCha20Poly1305IetfDecrypt(out, len, null, ct, ctLen.toLong(), ad, ad.size.toLong(), nonce, key)) {
+            throw ChatCryptoException("decrypt")
+        }
+        return len[0].toInt()
+    }
+
     fun keygen(): ByteArray {
         val k = ByteArray(32)
         s.cryptoAeadXChaCha20Poly1305IetfKeygen(k)

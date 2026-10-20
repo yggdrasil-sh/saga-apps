@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.4: Videos im Chat (saga-file/v2) -->
+<resources>
+    <string name="video_attach">Vídeo</string>
+    <string name="video_opt_720">Optimizado 720p</string>
+    <string name="video_opt_original">Original</string>
+    <string name="video_preparing">Preparando vídeo …</string>
+    <string name="video_uploading">Subiendo vídeo</string>
+    <string name="video_channel">Subidas de vídeo</string>
+    <string name="video_send_failed">No se pudo enviar el vídeo.</string>
+    <string name="video_too_big_server">Este servidor solo acepta vídeos de hasta %1$d MB.</string>
+    <string name="video_peer_old">El servidor del otro lado aún no admite vídeos grandes (máx. %1$d MB).</string>
+    <string name="video_peer_old_short">El servidor del otro lado aún no admite vídeos grandes.</string>
+    <string name="video_quota">El almacenamiento del chat está lleno o el vídeo es demasiado grande.</string>
+    <string name="video_busy">Demasiadas subidas a la vez – se reintentará más tarde.</string>
+    <string name="video_saved">Vídeo guardado.</string>
+    <string name="video_save_failed">No se pudo guardar el vídeo.</string>
+    <string name="video_play">Reproducir vídeo: %1$s</string>
+    <string name="video_fullscreen">Pantalla completa</string>
+    <string name="video_failed">No se pudo cargar el vídeo.</string>
+    <string name="video_save">Guardar</string>
+    <string name="video_newer_version">Abrir con una versión más reciente de Saga</string>
+</resources>

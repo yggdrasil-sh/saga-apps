@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4 E3: Bildschirm im Anruf teilen -->
+<resources>
+    <string name="call_screen_share">แชร์หน้าจอ</string>
+    <string name="call_screen_stop">หยุดแชร์</string>
+    <string name="call_screen_you">คุณกำลังแชร์หน้าจอ</string>
+    <string name="call_screen_peer">%1$s กำลังแชร์หน้าจอ</string>
+    <string name="call_screen_swap">สลับมุมมอง</string>
+    <string name="call_screen_cam_paused">หยุดกล้องชั่วคราว (การเชื่อมต่อช้า)</string>
+    <string name="call_screen_failed">ไม่สามารถแชร์หน้าจอได้</string>
+    <string name="call_screen_hint_title">แชร์หน้าจอหรือไม่</string>
+    <string name="call_screen_hint">ทุกอย่างที่มองเห็นในส่วนที่เลือก อีกฝ่ายจะเห็นด้วย รวมถึงการแจ้งเตือน รหัสผ่าน และแชทอื่นๆ ไม่มีการบันทึกหรือเก็บสิ่งใดไว้บนเซิร์ฟเวอร์</string>
+    <string name="call_screen_hint_off">ไม่ต้องแสดงอีก</string>
+    <string name="call_screen_continue">ดำเนินการต่อ</string>
+    <string name="call_screen_small">กล้องของ %1$s – แตะเพื่อสลับมุมมอง</string>
+</resources>

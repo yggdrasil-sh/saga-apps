@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.4: Videos im Chat (saga-file/v2) -->
+<resources>
+    <string name="video_attach">วิดีโอ</string>
+    <string name="video_opt_720">ปรับให้เหมาะสม 720p</string>
+    <string name="video_opt_original">ต้นฉบับ</string>
+    <string name="video_preparing">กำลังเตรียมวิดีโอ …</string>
+    <string name="video_uploading">กำลังอัปโหลดวิดีโอ</string>
+    <string name="video_channel">การอัปโหลดวิดีโอ</string>
+    <string name="video_send_failed">ส่งวิดีโอไม่สำเร็จ</string>
+    <string name="video_too_big_server">เซิร์ฟเวอร์นี้รับวิดีโอได้ไม่เกิน %1$d MB</string>
+    <string name="video_peer_old">เซิร์ฟเวอร์ของอีกฝ่ายยังไม่รองรับวิดีโอขนาดใหญ่ (สูงสุด %1$d MB)</string>
+    <string name="video_peer_old_short">เซิร์ฟเวอร์ของอีกฝ่ายยังไม่รองรับวิดีโอขนาดใหญ่</string>
+    <string name="video_quota">พื้นที่แชตเต็มหรือวิดีโอใหญ่เกินไป</string>
+    <string name="video_busy">อัปโหลดพร้อมกันมากเกินไป – จะลองใหม่ภายหลัง</string>
+    <string name="video_saved">บันทึกวิดีโอแล้ว</string>
+    <string name="video_save_failed">บันทึกวิดีโอไม่สำเร็จ</string>
+    <string name="video_play">เล่นวิดีโอ: %1$s</string>
+    <string name="video_fullscreen">เต็มจอ</string>
+    <string name="video_failed">โหลดวิดีโอไม่สำเร็จ</string>
+    <string name="video_save">บันทึก</string>
+    <string name="video_newer_version">เปิดด้วย Saga เวอร์ชันใหม่กว่า</string>
+</resources>

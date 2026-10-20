@@ -292,7 +292,8 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
         if (l.token != token) return null
         val msg = PushParse.parse(bytes, keysOf(l)) ?: return null
         // Anruf: nicht als normale Mitteilung - Zustand holen und als Vollbild-Anruf klingeln (nur solange er klingelt)
-        if (msg.kind == "call" && msg.call != null) return repo.calls.onRing(msg.call)
+        // 2.4 E5: "call.group" (Gruppenanruf) ebenso - Zustand holen, klingeln nur, solange die eigene Einladung klingelt
+        if ((msg.kind == "call" || msg.kind == "call.group") && msg.call != null) return repo.calls.onRing(msg.call)
         Notifier.show(context, msg)
         return null
     }

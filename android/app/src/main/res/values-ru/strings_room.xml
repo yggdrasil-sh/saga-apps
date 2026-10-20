@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4 E4/E5: Geraet hinzufuegen/uebergeben, Gruppenanrufe (Mesh) -->
+<resources>
+    <string name="room_block_old">Для этого кому-то в звонке нужна Saga 2.4.</string>
+    <string name="room_block_full">Звонок заполнен (лимит устройств: %1$d).</string>
+    <string name="room_block_none">На звонок ещё не ответили.</string>
+    <string name="room_block_other">Сейчас присоединиться нельзя.</string>
+    <string name="room_unknown_device">Неизвестное устройство %1$s отклонено.</string>
+    <string name="room_unknown_abort">Неизвестное устройство %1$s в звонке – подключение отменено.</string>
+    <string name="room_link_failed">Не удалось установить соединение с %1$s.</string>
+    <string name="room_joined">%1$s (%2$s) присоединяется</string>
+    <string name="room_left">%1$s (%2$s) покидает звонок</string>
+    <string name="room_left_here">Это устройство больше не участвует в звонке.</string>
+    <string name="room_you_left">Вы покинули звонок.</string>
+    <string name="room_ringing_others">Звоним остальным …</string>
+    <string name="room_waiting">Ждём остальных …</string>
+    <string name="room_server_old">Для этого вашему серверу нужна Saga 2.4.</string>
+    <string name="room_takeover_failed">Перенести не удалось – звонок продолжается на другом устройстве.</string>
+    <string name="room_taken_over">Звонок перенесён на %1$s.</string>
+    <string name="room_other_device">другое устройство</string>
+    <string name="room_incoming">Входящий групповой звонок</string>
+    <string name="room_incoming_video">Входящий групповой видеозвонок</string>
+    <string name="room_devices_of">Устройства: %1$d из %2$d</string>
+    <string name="room_companion_hint">Дополнительное устройство – микрофон и звук выключены</string>
+    <string name="room_taking_over">Переносим …</string>
+    <string name="room_old_people">Нужна Saga 2.4 (не приглашены): %1$s</string>
+    <string name="room_take_over">Перенести сюда</string>
+    <string name="room_you">Вы</string>
+    <string name="room_speaking">говорит</string>
+    <string name="room_muted">без звука</string>
+    <string name="room_sound_off">Звук выкл.</string>
+    <string name="room_sound_on">Звук вкл.</string>
+    <string name="room_running_on">Звонок идёт на %1$s</string>
+    <string name="room_group_running">Идёт групповой звонок · устройства: %1$d</string>
+    <string name="room_add_device">Добавить</string>
+    <string name="room_join">Присоединиться</string>
+    <string name="room_join_audio">Присоединиться к групповому звонку</string>
+    <string name="room_join_video">Присоединиться к групповому видеозвонку</string>
+    <string name="room_group_audio">Групповой звонок</string>
+    <string name="room_group_video">Групповой видеозвонок</string>
+</resources>

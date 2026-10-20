@@ -61,6 +61,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -106,6 +107,9 @@ import io.github.yggdrasil_sh.saga.ai.AiReplyCheck
 import io.github.yggdrasil_sh.saga.ui.ai.AiAvatar
 import androidx.compose.ui.semantics.contentDescription
 import io.github.yggdrasil_sh.saga.chat.ChatAttach
+import io.github.yggdrasil_sh.saga.chat.video.VideoLogic
+import androidx.core.net.toUri
+import io.github.yggdrasil_sh.saga.chat.video.Videos
 import io.github.yggdrasil_sh.saga.ui.common.ImmichPicker
 import io.github.yggdrasil_sh.saga.ui.common.IncomingImage
 import io.github.yggdrasil_sh.saga.ui.common.clipboardImages
@@ -169,6 +173,10 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     var unverifiedOf by remember { mutableStateOf<String?>(null) }
     var safetyFor by remember { mutableStateOf<String?>(null) }
     val files = remember(chatId) { mutableStateListOf<PendingFile>() }
+    /** 2.4: gewaehlte Videos (je Video eine eigene Nachricht, gesendet im Hintergrund) */
+    val videos = remember(chatId) { mutableStateListOf<PendingVideo>() }
+    val videoHost = remember(chatId) { VideoPlayerHost(context, repo, scope) }
+    DisposableEffect(videoHost) { onDispose { videoHost.release() } }
     val noteIds = remember(chatId) { mutableStateListOf<ChatNoteRef>() }
     // TextFieldState (statt String): nur damit gehen Bilder aus Zwischenablage/Tastatur/Ziehen (contentReceiver)
     val input = rememberSaveable(chatId, saver = TextFieldState.Saver) { TextFieldState() }   // ueberlebt Prozess-Tod (BUG-067)
@@ -257,8 +265,30 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             s.expireTyping()
             // gescheitertes Nachladen wiederholen; Zustell-Abgleich (2.3) nur bei sichtbarem Chat, nicht im Hintergrund
             if (++tick % 5 == 0) s.catchUp(lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED))
+            if (s.receiptDue()) quietly { s.markRead() }         // 2.4: Gelesen-Bestaetigung nachziehen (gebuendelt, >= 2 s)
         }
     }
+    // 2.4: Gelesen erst, wenn die Nachricht wirklich zu sehen war und die App im Vordergrund ist (RESUMED)
+    val lifecycleState by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+    val resumed = lifecycleState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+    LaunchedEffect(s, resumed) {
+        s.foreground = resumed
+        if (resumed) snapshotFlow { list.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String } }.collect { ids ->
+            s.seen(ids)
+            if (s.receiptDue()) quietly { s.markRead() }
+        }
+    }
+    DisposableEffect(s) { onDispose { s.foreground = false } }
+    // 2.4: eigene Einstellung geaendert (hier oder auf einem anderen Geraet): Bestaetigungen neu holen bzw. verwerfen
+    val privacyRev by svc.privacyRev.collectAsState()
+    LaunchedEffect(s, privacyRev) { if (privacyRev > 0) quietly { s.loadReceipts() } }
+    // 2.4: Online-Status des Gegenuebers (nur Direkt-Chat, nur solange sichtbar)
+    val chatMe by svc.me.collectAsState()
+    val presenceAll by svc.presence.state.collectAsState()
+    val peerOnline = io.github.yggdrasil_sh.saga.chat.ReceiptLogic.onlineFor(chatMe, s.summary)
+    PresenceWatch(svc.presence, "chat:$chatId", listOfNotNull(peerOnline))
+    val presenceLine = presenceText(peerOnline?.let { presenceAll[it] }, chatMe?.statusLimits?.lastRound ?: 300)
+    var readBy by remember { mutableStateOf<ChatMessage?>(null) }
     LaunchedEffect(s.messages.size) { if (s.messages.isNotEmpty() && list.firstVisibleItemIndex <= 2) list.animateScrollToItem(0) }
     // laufende KI-Antwort erscheint ganz unten: dorthin rollen (die Liste haelt sonst die bisherige Position)
     LaunchedEffect(s.aiPending) { if (s.aiPending != null && list.firstVisibleItemIndex <= 2) list.animateScrollToItem(0) }
@@ -285,10 +315,31 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             val max = svc.me.value?.limits?.fileMax ?: ChatLimits().fileMax
             for (u in uris) when (val r = readFile(context, u, max)) {
                 is ChatAttach.Read.Ok -> files.add(r.file)
+                is ChatAttach.Read.Video -> videos.add(PendingVideo(r.uri, r.name, r.mime, r.size))
                 ChatAttach.Read.TooBig -> repo.notify(UiText.Res(R.string.chat_file_too_big, (max / 1048576).toInt()))
                 ChatAttach.Read.Failed -> repo.notify(UiText.Res(R.string.chat_file_broken))
             }
         }
+    }
+
+    // 2.4: nur Videos waehlen (Galerie)
+    val pickVideo = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        scope.launch {
+            val max = svc.me.value?.limits?.fileMax ?: ChatLimits().fileMax
+            for (u in uris) when (val r = readFile(context, u, max)) {
+                is ChatAttach.Read.Video -> videos.add(PendingVideo(r.uri, r.name, r.mime, r.size))
+                is ChatAttach.Read.Ok -> files.add(r.file)
+                ChatAttach.Read.TooBig -> repo.notify(UiText.Res(R.string.chat_file_too_big, (max / 1048576).toInt()))
+                ChatAttach.Read.Failed -> repo.notify(UiText.Res(R.string.chat_file_broken))
+            }
+        }
+    }
+    // Wiedergabe anhalten, wenn die App in den Hintergrund geht
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, videoHost) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_STOP) videoHost.pause() }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
     }
 
     // Anrufe (2.1): Knoepfe im Direkt-Chat, wenn der Server Anrufe kann; vorher Mikrofon (+ Kamera) erlauben lassen
@@ -296,6 +347,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     LaunchedEffect(Unit) { if (repo.calls.enabled.value == null) repo.calls.checkEnabled() }
     var callVideo by remember { mutableStateOf<Boolean?>(null) }
     fun callNow(video: Boolean) {
+        // 2.4 E5: Gruppen-, freie und Seiten-Chats - Gruppenanruf beginnen bzw. dem laufenden beitreten
+        if (s.summary?.kind != "dm") {
+            repo.calls.startGroup(chatId, s.name, video, s.summary?.call?.running)
+            return
+        }
         val p = s.summary?.peer ?: return
         repo.calls.start(chatId, io.github.yggdrasil_sh.saga.call.CallPeer(p.username, p.name, p.avatar, p.handle.takeIf { s.isFed }, p.host), video)
     }
@@ -325,6 +381,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     val fedReq = s.isFed && s.summary?.request == true
     val fedRo = s.isFed && s.summary?.readonly == true && !fedReq
     val canCall = callsOn == true && s.summary?.kind == "dm" && s.summary?.peer != null && !fedReq && !fedRo
+    // 2.4 E5: Gruppenanruf-Knopf nur, wenn der Server ihn fuer diesen Chat anbietet (`chat.call.group`, foederiert: alle calls3)
+    val canGroupCall = callsOn == true && s.summary?.kind != "dm" && s.summary?.call?.group == true && !fedReq && !fedRo
 
     // Surface: Inhaltsfarbe onSurface fuer alle Symbole ohne eigene Farbe ("+" im Dunkelmodus war schwarz, BUG-072)
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -340,7 +398,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                         Icon(Icons.Filled.Lock, null, Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         // eine Zeile: bei 200 % Schrift sonst hoeher als die Kopfzeile (ragt in die Statusleiste, BUG-070)
                         Text(
-                            fedHeadLine(s), style = MaterialTheme.typography.labelSmall,
+                            (presenceLine?.let { "$it · " } ?: "") + fedHeadLine(s), style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp),
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
@@ -354,6 +412,14 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 if (canCall) {
                     IconButton(onClick = { startCall(false) }) { Icon(painterResource(R.drawable.ic_call), stringResource(R.string.call_audio)) }
                     IconButton(onClick = { startCall(true) }) { Icon(painterResource(R.drawable.ic_videocam), stringResource(R.string.call_video)) }
+                } else if (canGroupCall) {
+                    val running = s.summary?.call?.running?.takeIf { it.kind == "group" && it.state != "ended" } != null
+                    IconButton(onClick = { startCall(false) }) {
+                        Icon(painterResource(R.drawable.ic_call), stringResource(if (running) R.string.room_join_audio else R.string.room_group_audio))
+                    }
+                    IconButton(onClick = { startCall(true) }) {
+                        Icon(painterResource(R.drawable.ic_videocam), stringResource(if (running) R.string.room_join_video else R.string.room_group_video))
+                    }
                 }
                 IconButton(onClick = { search = if (search == null) "" else null }) { Icon(Icons.Filled.Search, stringResource(R.string.chat_search)) }
                 Box {
@@ -461,6 +527,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             s.messages.toList().filter { q.isEmpty() || it.content?.text?.lowercase()?.contains(q) == true }.asReversed()
         }
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+          androidx.compose.runtime.CompositionLocalProvider(LocalVideoHost provides videoHost) {
             LazyColumn(Modifier.fillMaxSize().widthIn(max = 900.dp), state = list, reverseLayout = true) {
                 // laufende Frage an die KI: "{name} denkt nach …" bzw. mitlaufender Text (unten)
                 s.aiPending?.let { p ->
@@ -488,6 +555,9 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                             onOpenFile = { f -> scope.launch { openFile(context, s, f) { repo.notify(it) } } },
                             onUnverified = { unverifiedOf = m.sender?.username ?: "" },
                             onResend = { repo.launchAction { s.resend(m) } },
+                            tick = s.tickOf(m),
+                            readAt = if (s.summary?.kind == "dm") s.readersOf(m).firstOrNull()?.second?.ts else null,
+                            onReadBy = if (m.mine && s.summary?.kind != "dm" && s.receiptsOn) ({ readBy = m }) else null,
                         )
                     }
                   }
@@ -521,8 +591,10 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     }
                 }
             }
+          }
             if (s.loading) CircularProgressIndicator(Modifier.padding(top = 48.dp))
         }
+        if (videoHost.fullscreen) VideoFullscreen(videoHost, s)
         // "{name} tippt …"
         s.typing.values.firstOrNull()?.let { (name, _) ->
             Text(
@@ -565,6 +637,9 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 )
             }
         }
+        // 2.4: laufende Video-Uploads (Fortschritt, Abbrechen) und gewaehlte Videos
+        VideoUploadsBar(repo, chatId) { scope.launch { quietly { s.catchUp() } } }
+        PendingVideoChips(videos)
         if (files.isNotEmpty() || noteIds.isNotEmpty()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 files.forEach { f ->
@@ -612,6 +687,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 IconButton(onClick = { attach = true }) { Icon(Icons.Filled.Add, stringResource(R.string.chat_attach)) }
                 DropdownMenu(expanded = attach, onDismissRequest = { attach = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_file)) }, onClick = { attach = false; pick.launch("*/*") })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.video_attach)) }, onClick = { attach = false; pickVideo.launch("video/*") })
                     // gleiche Pruefung wie beim Bild-Einfuegen auf Seiten: nur wenn Immich fuer mich eingerichtet ist
                     if (immichOn) DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_immich)) }, onClick = { attach = false; dialog = "immich" })
                     if (clipHasImage) DropdownMenuItem(text = { Text(stringResource(R.string.paste_image)) }, onClick = { attach = false; addImages(clipboardImages(context)) })
@@ -624,7 +700,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6), shape = RoundedCornerShape(24.dp),
                 modifier = Modifier.weight(1f).heightIn(min = 48.dp).contentReceiver(receiver),
             )
-            val canSend = (input.text.isNotBlank() || files.isNotEmpty() || noteIds.isNotEmpty()) && !s.sending && fetching == 0
+            val canSend = (input.text.isNotBlank() || files.isNotEmpty() || noteIds.isNotEmpty() || videos.isNotEmpty()) && !s.sending && fetching == 0
             IconButton(onClick = {
                 // 2.3: Warnung/Blockade bei einer Person eines anderen Servers sperrt das Senden
                 s.fedIssues.firstOrNull()?.let { (p, _) ->
@@ -640,7 +716,21 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     repo.notify(UiText.Res(R.string.chat_safety_send_blocked, who), UiText.Res(R.string.chat_show)) { dialog = "safety" }
                     return@IconButton
                 }
+                // 2.4: Videos vorab pruefen (Original: Grenzen jetzt schon bekannt), dann je Video eine eigene Nachricht
+                val lim = svc.me.value?.limits ?: ChatLimits()
+                val bad = videos.firstOrNull { v ->
+                    val sz = v.size ?: return@firstOrNull false
+                    !v.optimize && VideoLogic.route(sz, lim, s.summary?.bigFiles).let { it != VideoLogic.Route.V1 && it != VideoLogic.Route.V2 }
+                }
+                if (bad != null) {
+                    repo.notify(videoLimitText(VideoLogic.route(bad.size ?: 0, lim, s.summary?.bigFiles), lim))
+                    return@IconButton
+                }
+                val vs = videos.toList()
+                videos.clear()
+                vs.forEach { v -> Videos.enqueue(context.applicationContext, repo, chatId, v.uri.toUri(), v.name, v.mime, v.optimize) }
                 val text = input.text.toString().trim()
+                if (text.isEmpty() && files.isEmpty() && noteIds.isEmpty()) return@IconButton
                 val fs = files.toList()
                 val ns = noteIds.map { it.id }
                 val refs = noteIds.toList()
@@ -670,6 +760,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     }
     }
 
+    // 2.4: "Gelesen von" einer eigenen Nachricht (Gruppen)
+    readBy?.let { m -> ReadByDialog(s.readersOf(m)) { readBy = null } }
     unverifiedOf?.let { who ->
         AlertDialog(
             onDismissRequest = { unverifiedOf = null },
@@ -777,6 +869,8 @@ private suspend fun readFile(context: Context, u: Uri, max: Long): ChatAttach.Re
             }
         }
         val mime = cr.getType(u) ?: "application/octet-stream"
+        // 2.4: Videos nicht einlesen - Poster, "optimiert 720p" und Upload laufen im Hintergrund (VideoUploadWorker)
+        if (mime.startsWith("video/")) return@withContext ChatAttach.Read.Video(u.toString(), name.take(200), mime, size)
         // Zu grosses Bild: wie beim Einfuegen verkleinern statt ablehnen (bis zum Vierfachen der Grenze einlesen)
         if (mime.startsWith("image/") && !ChatAttach.tooBig(size, 4 * max) && (size == null || size!! > max)) {
             val raw = cr.openInputStream(u)?.use { ChatAttach.readLimited(it, 4 * max) } ?: return@withContext ChatAttach.Read.TooBig
@@ -805,12 +899,28 @@ private val fileCleanup = CoroutineScope(SupervisorJob() + Dispatchers.IO)
  */
 private suspend fun openFile(context: Context, s: ChatSession, f: ChatFile, onError: (io.github.yggdrasil_sh.saga.util.UiText) -> Unit) {
     try {
-        val data = s.download(f)
         val app = context.applicationContext
-        val (out, uri) = withContext(Dispatchers.IO) {
-            ChatFiles.purgeOlderThan(app.cacheDir)
-            val out = ChatFiles.write(app.cacheDir, f.n, data)
-            out to FileProvider.getUriForFile(app, app.packageName + ".files", out)
+        val (out, uri) = if (f.isV2) {
+            // 2.4: saga-file/v2 (kein Video bzw. "Oeffnen mit"): blockweise als Strom in die kurzlebige Kopie
+            val repo = (app as io.github.yggdrasil_sh.saga.SagaApplication).repo
+            withContext(Dispatchers.IO) {
+                ChatFiles.purgeOlderThan(app.cacheDir)
+                val out = ChatFiles.write(app.cacheDir, f.n, ByteArray(0))
+                try {
+                    out.outputStream().use { o -> io.github.yggdrasil_sh.saga.chat.video.VideoSources(app, repo.api, repo.chat.crypto).decryptTo(f, o) {} }
+                } catch (e: Exception) {
+                    ChatFiles.remove(out)
+                    throw e
+                }
+                out to FileProvider.getUriForFile(app, app.packageName + ".files", out)
+            }
+        } else {
+            val data = s.download(f)
+            withContext(Dispatchers.IO) {
+                ChatFiles.purgeOlderThan(app.cacheDir)
+                val out = ChatFiles.write(app.cacheDir, f.n, data)
+                out to FileProvider.getUriForFile(app, app.packageName + ".files", out)
+            }
         }
         fileCleanup.launch {
             delay(ChatFiles.KEEP_MS)
@@ -878,6 +988,8 @@ private fun Bubble(
     m: ChatMessage, s: ChatSession, group: Boolean, aiPersona: AiPersona?,
     onReply: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit, onOpenNote: (Long) -> Unit, onOpenFile: (ChatFile) -> Unit,
     onUnverified: () -> Unit, onResend: () -> Unit = {},
+    tick: io.github.yggdrasil_sh.saga.chat.Tick = io.github.yggdrasil_sh.saga.chat.Tick(io.github.yggdrasil_sh.saga.chat.TickKind.NONE),
+    readAt: Long? = null, onReadBy: (() -> Unit)? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -993,7 +1105,14 @@ private fun Bubble(
                             modifier = Modifier.align(Alignment.End),
                         )
                     }
-                    Text(time, style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.End))
+                    // Uhrzeit + Haken (2.4): ⏳ → ✓ → ✓✓; in Gruppen fuehrt Antippen zu "Gelesen von"
+                    Row(
+                        Modifier.align(Alignment.End).then(if (onReadBy != null) Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onReadBy) else Modifier),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(time, style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = 0.7f))
+                        TickMark(tick, fg, group, readAt)
+                    }
                 }
             }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -1001,6 +1120,10 @@ private fun Bubble(
                 if (!m.content?.text.isNullOrEmpty()) DropdownMenuItem(text = { Text(stringResource(R.string.text_copy)) }, onClick = { menu = false; onCopy() })
                 if (m.mine && m.fstate == "failed" && m.content != null) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.fed_resend)) }, onClick = { menu = false; onResend() })
+                }
+                // 2.4: "Info" - gelesen von … (Gruppen)
+                if (onReadBy != null) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.chat_info)) }, onClick = { menu = false; onReadBy() })
                 }
                 if (m.mine) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.chat_delete_all), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; confirmDelete = true })
@@ -1027,6 +1150,18 @@ private fun Bubble(
  */
 @Composable
 private fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit) {
+    // 2.4: neueres Format (x > 2) nicht still scheitern lassen
+    if (f.unsupported) {
+        TextButton(onClick = {}, enabled = false) {
+            Text("📎 " + f.n + " · " + stringResource(R.string.video_newer_version), maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
+        return
+    }
+    // 2.4: Video - Poster mit Dauer, Abspielen im gemeinsamen Player (v1 und saga-file/v2)
+    if (f.isVideo && LocalVideoHost.current != null) {
+        VideoAttachment(f, s)
+        return
+    }
     if (f.isImage) {
         var img by remember(f.id) { mutableStateOf(s.cachedThumb(f)) }
         var failed by remember(f.id) { mutableStateOf(false) }
@@ -1139,4 +1274,12 @@ private fun ChatDayDivider(d: java.time.LocalDate) {
             )
         }
     }
+}
+
+
+/** Hinweis, warum ein Video nicht gesendet werden kann (Grenzen vom Server) */
+internal fun videoLimitText(r: VideoLogic.Route, l: ChatLimits): UiText = when (r) {
+    VideoLogic.Route.NO_FILE2 -> UiText.Res(R.string.video_too_big_server, l.fileMax / 1048576)
+    VideoLogic.Route.PEER_OLD -> UiText.Res(R.string.video_peer_old, l.fileMax / 1048576)
+    else -> UiText.Res(R.string.chat_file_too_big, maxOf(l.fileMax, l.videoMax) / 1048576)
 }

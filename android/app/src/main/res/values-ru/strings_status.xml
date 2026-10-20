@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.4: Gelesen-Bestaetigungen und Online-Status -->
+<resources>
+    <string name="chat_privacy_title">Конфиденциальность</string>
+    <string name="chat_privacy_receipts">Отправлять отчёты о прочтении</string>
+    <string name="chat_privacy_receipts_hint">Выкл.: другие не видят, прочитали ли вы их сообщения, — и вы тоже этого у них не видите.</string>
+    <string name="chat_privacy_online">Показывать статус «в сети»</string>
+    <string name="chat_privacy_online_hint">Выкл.: собеседники не видят, в сети ли вы и когда были в последний раз, — и вы тоже этого у них не видите.</string>
+    <string name="chat_online">в сети</string>
+    <string name="chat_last_seen">был(а) в сети %1$s</string>
+    <string name="chat_tick_sent">Доставлено</string>
+    <string name="chat_tick_read">Прочитано %1$s</string>
+    <string name="chat_tick_read_all">Прочитали все</string>
+    <string name="chat_read_by">Прочитали</string>
+    <string name="chat_read_by_none">Пока никто не прочитал.</string>
+    <string name="chat_read_by_hint">Те, кто отключил отчёты о прочтении, здесь не отображаются.</string>
+    <string name="chat_info">Сведения</string>
+    <plurals name="chat_tick_read_n">
+        <item quantity="one">Прочитал %1$d</item>
+        <item quantity="few">Прочитали %1$d</item>
+        <item quantity="many">Прочитали %1$d</item>
+        <item quantity="other">Прочитали %1$d</item>
+    </plurals>
+</resources>
