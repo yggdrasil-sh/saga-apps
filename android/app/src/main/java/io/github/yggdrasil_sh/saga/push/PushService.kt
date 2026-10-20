@@ -204,6 +204,7 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
      * beenden; Verteiler weg -> eigene Verbindung; sonst Dienst passend starten/beenden.
      */
     suspend fun ensure() {
+        if (PushStreamService.debugTarget != null) return            // nur Debug-Messung (src/debug)
         val l = withContext(Dispatchers.IO) { local() }
         val ds = distributors()
         when (PushLogic.step(l, ds.map { it.pkg }, streamAllowed(), info.value?.server?.stream)) {

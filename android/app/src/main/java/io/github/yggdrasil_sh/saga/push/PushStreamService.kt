@@ -77,6 +77,9 @@ class PushStreamService : Service() {
 
         val status = MutableStateFlow(StreamStatus())
 
+        /** nur Debug-Build (src/debug, Messung im Emulator): Ziel ohne Anmeldung; in Release-Builds immer null */
+        @Volatile var debugTarget: (() -> PushService.StreamTarget?)? = null
+
         fun start(context: Context) {
             try {
                 ContextCompat.startForegroundService(context, Intent(context, PushStreamService::class.java))
@@ -254,7 +257,7 @@ class PushStreamService : Service() {
         val g = ++gen
         app.appScope.launch {
             app.repo.awaitReady()
-            val target = app.repo.push.streamTarget()
+            val target = debugTarget?.invoke() ?: app.repo.push.streamTarget()
             main.post { if (g == gen) open(g, target) else connecting = false }
         }
     }

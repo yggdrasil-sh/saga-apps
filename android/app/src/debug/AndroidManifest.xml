@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Debug-Build: eigene network_security_config (src/debug/res/xml) ueberschreibt die aus src/main -
      zusaetzlich Klartext zum lokalen Testserver im Emulator. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- 2.5, nur Debug: Messung der eigenen Push-Verbindung im Emulator (push/DebugStream.kt) -->
+        <receiver
+            android:name=".push.DebugStream"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.yggdrasil_sh.saga.DEBUG_STREAM" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
