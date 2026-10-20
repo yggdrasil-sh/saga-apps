@@ -20,7 +20,9 @@ COOKIE_FILE = os.path.join(config.DATA_DIR, "cookies.json")
 ACCEPT_LANGUAGE = {"de": "de, en;q=0.5", "es": "es, en;q=0.5", "ru": "ru, en;q=0.5", "th": "th, en;q=0.5"}.get(ui_language(), "en")
 # Chat-Format, das diese App versteht: "2" = auch Chats ueber Servergrenzen (saga-chat/v2, docs/APP-API-FED.md Abschnitt 6).
 # Aeltere Server ignorieren die Kopfzeile; ohne sie zeigt ein 2.3-Server solche Chats nur mit Hinweis.
-CHAT_V = "2"
+# "3" (2.5) = Chat-Stufe 3: auch lokale Chats an Handles gebunden (v: 3, Format saga-chat/v2); mit ?device= merkt sich der
+# Server dabei die Geraetefaehigkeit "chat3" (Umstellung bestehender Chats). Server 2.3/2.4 behandeln "3" wie "2".
+CHAT_V = "3"
 
 
 SWITCHED = -1      # APIError.code: inzwischen anderer Server/anderes Konto - nichts gesendet (Entwurf bleibt)

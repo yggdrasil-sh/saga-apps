@@ -13,7 +13,9 @@ from . import chatstatus as S
 from . import aichat, avatars, chatmedia, chatvideo, clipimg, config, images
 from .api import APIError, client
 from .blocks import flat_button, menu_popover
+from . import chatx3, voice
 from .chat import (FED_CHECK_EVERY_S, NOTE_RX, RETENTIONS, ChatError, FedNotDelivered, SafetyChanged, chat, fmt_recovery, is_fed,
+                   is_remote, can_edit, can_react, has_feature, rx_groups, voice_file, x3_limits, x3_ok,
                    keys_persistent, recovery_lines, remote_label, retention_label, fed_guide_url, fed_hint_show, fed_hint_texts, safety_for,
                    safety_qr_text, sys_text, chat_home_hint, trust_accept, trust_get, trust_verified)
 from .i18n import _, ngettext, pgettext, ui_language
@@ -387,7 +389,7 @@ class ChatsScreen(Gtk.Box):
         if c is None:
             return _("Chats"), ""
         arch = " · " + _("Archived") if c.get("archived") else ""
-        if c.get("kind") == "dm" and is_fed(c):              # 2.3: Person eines anderen Servers - Herkunft, Vertrauen, Stand
+        if c.get("kind") == "dm" and is_remote(c):           # 2.3: Person eines anderen Servers - Herkunft, Vertrauen, Stand
             p = chat.peer(c) or {}
             parts = [_("on {host}").format(host=p.get("host") or c.get("home") or "?")]
             probs = dict((m.get("handle"), t) for m, t in chat.fed_problems(c))
@@ -403,10 +405,18 @@ class ChatsScreen(Gtk.Box):
             return chat.title(c), " · ".join(([on] if on else []) + parts) + arch
         if c.get("kind") == "dm":
             on = S.presence_text(chat.pres.get(S.presence_user(chat.me, c)))
-            return chat.title(c), (on or _("End-to-end encrypted")) + arch
+            sub = on or _("End-to-end encrypted")
+            if is_fed(c):                                # 2.5 Stufe 3 (lokal): Vertrauen ueber den Handle
+                p = chat.peer(c) or {}
+                probs = dict((m.get("handle"), t) for m, t in chat.fed_problems(c))
+                if chat.fed_verified(p.get("handle")):
+                    sub += " · ✓ " + _("verified")
+                elif probs.get(p.get("handle")) in ("block", "reject"):
+                    sub += " · ⛔ " + _("blocked")
+            return chat.title(c), sub + arch
         n = int(c.get("member_count") or len(c.get("members") or []))
         sub = chat.kind_label(c) + " · " + ngettext("{n} person", "{n} people", n).format(n=n)
-        if is_fed(c):                                    # 2.3: Gruppe/Seiten-Chat ueber Servergrenzen - Heim, Stand
+        if is_remote(c):                                 # 2.3: Gruppe/Seiten-Chat ueber Servergrenzen - Heim, Stand
             sub += ("" if c.get("home_self") else " · " + _("on {host}").format(host=c.get("home") or "?")) + \
                 (" · " + _("Request") if c.get("request") else "") + (" · " + _("read-only") if c.get("readonly") else "")
         return chat.title(c), sub + arch
@@ -586,10 +596,10 @@ class ChatList(Gtk.Box):
             t.add_css_class("heading")
         col.append(t)
         n = int(c.get("member_count") or 0)
-        if is_fed(c) and c.get("kind") == "dm":          # 2.3: Anfrage bzw. Direkt-Chat · Server der Person
+        if is_remote(c) and c.get("kind") == "dm":       # 2.3: Anfrage bzw. Direkt-Chat · Server der Person
             sub = (_("Request") if c.get("request") else chat.kind_label(c)) + " · " + ((chat.peer(c) or {}).get("host") or c.get("home") or "?") \
                 + (" · " + _("read-only") if c.get("readonly") else "")
-        elif is_fed(c):                                  # Gruppe/Seiten-Chat ueber Servergrenzen: Art · Personen · Heim
+        elif is_remote(c):                               # Gruppe/Seiten-Chat ueber Servergrenzen: Art · Personen · Heim
             sub = (_("Request") if c.get("request") else chat.kind_label(c)) + " · " + ngettext("{n} person", "{n} people", n).format(n=n) \
                 + ("" if c.get("home_self") else " · " + (c.get("home") or "?")) + (" · " + _("read-only") if c.get("readonly") else "")
         else:
@@ -653,6 +663,18 @@ def _walk_rows(lb):
     while r is not None:
         yield r
         r = r.get_next_sibling()
+
+
+def _x3sig(m):
+    """(2.5) was eine Blase zusaetzlich neu zeichnen laesst: Bearbeitung (Text, Zeitpunkt) und Reaktionen"""
+    if not m:
+        return None
+    return (m.get("text") if m.get("edited_at") else None, m.get("edited_at"))
+
+
+def _rxsig(m):
+    """(2.5) Reaktionen einer Nachricht - aendern nur die Chips an Ort und Stelle (Conversation._update_rx), nicht die Blase"""
+    return tuple(sorted((x.get("by") or "", x.get("e") or "") for x in (m or {}).get("rx") or []))
 
 
 def _short_when(ts):
@@ -752,6 +774,10 @@ class Conversation(Gtk.Box):
         self.state_box.add_css_class("hk-chat-state")
         self.append(self.state_box)
         self._state_sig = None
+        self.editing = None           # (2.5) Nachricht, die gerade bearbeitet wird
+        self.rec_bar = None           # (2.5) Aufnahme-Leiste einer Sprachnachricht
+        self.voice_views = {}         # (2.5) Datei-ID -> Spieler (bleibt ueber das Neuzeichnen erhalten)
+        self._menu_pop = None
         self.composer_box = self._composer()
         self.append(self.composer_box)
         watch_chat(self, "messages", lambda cid: cid == self.cid and self.render())
@@ -760,6 +786,7 @@ class Conversation(Gtk.Box):
         watch_chat(self, "ai-pending", lambda cid: cid == self.cid and self._pending_changed())
         watch_chat(self, "chat-gone", lambda cid, how, _n: cid == self.cid and self._wiped())
         watch_chat(self, "receipts", lambda cid: cid == self.cid and self._update_ticks())     # (2.4)
+        watch_chat(self, "reactions", lambda cid: cid == self.cid and self._update_rx())       # (2.5)
         watch_chat(self, "changed", lambda: self._unread_check())       # (2.4) Liste neu: offener Chat zaehlt nicht
         watch_presence(self, lambda: [u for u in [S.presence_user(chat.me, chat.chat(self.cid))] if u])
         from .assistant import ai
@@ -769,6 +796,7 @@ class Conversation(Gtk.Box):
         self._dcheck_src = 0                              # (2.3) Abgleich wartender eigener Nachrichten, solange offen
         self.connect("unmap", lambda *_: self._dcheck_stop())
         self.connect("unmap", lambda *_: self._active_watch(False))
+        self.connect("unmap", lambda *_: self._voice_unmap())
         self.loaded = False
         self.render()
         if not chat.cache.get(cid, {}).get("loaded"):
@@ -781,6 +809,13 @@ class Conversation(Gtk.Box):
         self._ai_note()
         self._pending_changed()
         self._state()
+
+    def _voice_unmap(self):
+        """Unterhaltung nicht mehr sichtbar: Wiedergabe anhalten, laufende Aufnahme verwerfen"""
+        for vv in self.voice_views.values():
+            vv.pause()
+        if self.rec_bar is not None and self.rec_bar.state in ("wait", "rec", "stop"):
+            self.rec_bar.cancel()
 
     def _load_error(self, e):
         if isinstance(e, APIError) and e.code == 404:
@@ -828,6 +863,10 @@ class Conversation(Gtk.Box):
 
     def _wiped(self):
         """(2.1) Verlauf geleert bzw. Chat geloescht: Entwurf (Text, Antwort, Anhaenge) verwerfen, Ansicht neu"""
+        self.voice_stop_all()
+        self.voice_views = {}
+        self.editing = None
+        self.edit_bar.set_visible(False)
         self.reply = None
         self.reply_bar.set_visible(False)
         self.files = []
@@ -840,6 +879,7 @@ class Conversation(Gtk.Box):
     def _chat_changed(self):
         self._check_trust()
         self._state()
+        self._mic_update()
         self.screen._header()
         self._ai_note()
         self._ai_typing()
@@ -1173,8 +1213,9 @@ class Conversation(Gtk.Box):
         shown = [m for m in msgs if not q or q in (m.get("text") or "").lower()]
         # (2.1) Verlauf geloescht (fuer mich oder fuer alle): Hinweis am Anfang statt "nicht lesbar"
         cleared = bool(int((chat.chat(self.cid) or {}).get("cleared_seq") or 0) or c.get("floor"))
-        sig = (tuple((m["id"], m.get("state"), m.get("ai_state"), m.get("fstate")) for m in shown), c.get("more"), q, len(chat.notes),
-               c.get("error"), self.loaded, cleared)
+        x3 = x3_ok(chat.chat(self.cid))
+        sig = (tuple((m["id"], m.get("state"), m.get("ai_state"), m.get("fstate"), _x3sig(m)) for m in shown), c.get("more"), q,
+               len(chat.notes), c.get("error"), self.loaded, cleared, x3)
         if sig == self.sig:
             return
         stick = self.at_bottom
@@ -1213,7 +1254,8 @@ class Conversation(Gtk.Box):
                 self.msgs.append(d)
             first = prev is None or _who(prev) != _who(m) or (m.get("created") or 0) - (prev.get("created") or 0) > 600
             key = (m["id"], m.get("state"), m.get("ai_state"), first, group, bool(m.get("reply_to") and m["reply_to"] in by_id),
-                   len(chat.notes), m.get("fstate"))
+                   len(chat.notes), m.get("fstate"), _x3sig(m), x3,
+                   _x3sig(by_id.get(m["reply_to"])) if m.get("reply_to") else None)
             row = old.pop(key, None) or keep.get(key)
             if row is None:
                 self._imgs_building = []
@@ -1237,6 +1279,7 @@ class Conversation(Gtk.Box):
         self.bubbles, self.img_widgets = keep, imgs
         self.rows_by_id, self.ticks = rows, ticks
         self._update_ticks()
+        self._update_rx()
         self._vis_soon()
         if q:
             self.search_count.set_label(ngettext("{n} match", "{n} matches", len(shown)).format(n=len(shown)))
@@ -1462,7 +1505,7 @@ class Conversation(Gtk.Box):
                 acc.append(NOTE_RX.sub("📄", text))
             for f in m.get("files") or []:
                 b.append(self._file(f))
-                acc.append(f.get("n") or _("File"))
+                acc.append(_("Voice message") + " " + voice.fmt(f.get("dur")) if f.get("voice") else f.get("n") or _("File"))
         if m.get("ai_state") == "bad":                   # gibt sich als KI-Antwort aus, Beleg fehlt oder passt nicht
             wl = Gtk.Box(spacing=4)
             ic = Gtk.Label(label="⚠")
@@ -1489,14 +1532,30 @@ class Conversation(Gtk.Box):
             meta.append(fl)
             b.add_css_class("hk-bubble-warn")
             acc.append(_("not delivered"))
+        if m.get("edited_at"):                           # (2.5) bearbeitet - Zeitpunkt im Tooltip
+            ed = _lbl(_("edited"), ("caption", "dim-label", "hk-edited"), wrap=False)
+            et = float(m["edited_at"])
+            ed.set_tooltip_text(_("Edited: {time}").format(time=_day_label(et) + " " + _time(et)))
+            meta.append(ed)
+            acc.append(_("edited"))
         tm = _lbl(_time(m.get("created") or (m.get("ts") or 0) / 1000), ("caption", "dim-label"), wrap=False)
         meta.append(tm)
         if mine:                                         # (2.4) ✓ zugestellt, ✓✓ gelesen - _update_ticks fuellt ihn
             row.hk_tick = Gtk.Box(visible=False)
             meta.append(row.hk_tick)
         b.append(meta)
-        row.append(b)
-        b.update_property([Gtk.AccessibleProperty.LABEL], [" – ".join(acc)])
+        c = chat.chat(self.cid) or {}
+        if m.get("rx") or can_react(c, m):               # (2.5) Platz fuer die Reaktionen unter der Blase
+            col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, halign=Gtk.Align.END if mine else Gtk.Align.START)
+            col.append(b)
+            wrap = Gtk.Box(halign=Gtk.Align.END if mine else Gtk.Align.START, visible=False)   # FlowBox direkt mit halign lief ueber
+            col.append(wrap)
+            row.append(col)
+            row.hk_wrap, row.hk_b, row.hk_acc, row.hk_rxsig = wrap, b, acc, None
+            self._fill_rx(row, m)
+        else:
+            row.append(b)
+            b.update_property([Gtk.AccessibleProperty.LABEL], [" – ".join(acc)])
         b.set_focusable(True)
         gc = Gtk.GestureClick(button=3)
         gc.connect("pressed", lambda g, n, x, y: self._msg_menu(b, m))
@@ -1509,6 +1568,41 @@ class Conversation(Gtk.Box):
                    and (self._msg_menu(b, m), True)[1])
         b.add_controller(kc)
         return row
+
+    def _fill_rx(self, row, m):
+        """Chips einer Zeile neu (nur der Bereich unter der Blase; die Blase bleibt - siehe _update_rx)"""
+        sig = _rxsig(m)
+        if sig == row.hk_rxsig:
+            return
+        row.hk_rxsig = sig
+        c = chat.chat(self.cid) or {}
+        wrap = row.hk_wrap
+        while (w := wrap.get_first_child()):
+            wrap.remove(w)
+        chips = chatx3.reaction_chips(self, c, m) if m.get("rx") else None
+        if chips is not None:
+            wrap.append(chips)
+        wrap.set_visible(chips is not None)
+        acc = list(row.hk_acc)
+        for e, who, _mn in rx_groups(m.get("rx"), c.get("my_handle")):
+            acc.append(_("{emoji} from {names}").format(emoji=e, names=", ".join(chatx3.rx_name(c, h) for h in who)))
+        row.hk_b.update_property([Gtk.AccessibleProperty.LABEL], [" – ".join(acc)])
+
+    def _update_rx(self):
+        """(2.5) Reaktionen geaendert: nur die Chips der betroffenen Zeilen. Die Blasen neu zu bauen, gleich nachdem ein Menue
+        (Schnellleiste) geschlossen wurde, liess GTK 4.14 abstuerzen (gdk_surface_request_motion, Testrunde 2.5)."""
+        for m in (chat.cache.get(self.cid) or {}).get("msgs") or []:
+            row = self.rows_by_id.get(m.get("id"))
+            if row is None:
+                continue
+            if getattr(row, "hk_wrap", None) is None:
+                if m.get("rx"):                          # (selten) Zeile ohne Platz fuer Chips: dann doch neu zeichnen
+                    self.sig = None
+                    self.bubbles = {k: v for k, v in self.bubbles.items() if v is not row}
+                    GLib.idle_add(lambda: (self.render(), False)[1])
+                    return
+                continue
+            self._fill_rx(row, m)
 
     def _unverified_button(self, m):
         """Hinweis "⚠ Echtheit nicht bestaetigt" (Symbol orange, Text in Vordergrundfarbe) - oeffnet die Erklaerung"""
@@ -1533,8 +1627,13 @@ class Conversation(Gtk.Box):
 
     def _msg_menu(self, w, m):
         ents = []
+        c0 = chat.chat(self.cid) or {}
         if m.get("state") != "undecryptable":
             ents.append((_("Reply"), lambda: self.set_reply(m)))
+            if can_edit(c0, m, lim=x3_limits(chat.me)):   # (2.5) eigene Nachricht bearbeiten (24 h, hoechstens 20-mal)
+                ents.append((_("Edit"), lambda: self.edit_start(m)))
+            if m.get("rx"):
+                ents.append((_("Reactions …"), lambda: chatx3.reactions_dialog(self.win, chat.chat(self.cid) or {}, m)))
             if m.get("text"):
                 ents.append((_("Copy text"), lambda: (self.win.copy_text(m["text"]), _toast(self.win, _("Copied.")))))
         if m.get("fstate") == "failed" and m.get("mine") and isinstance(m.get("body"), dict):     # (2.3)
@@ -1545,8 +1644,177 @@ class Conversation(Gtk.Box):
             ents.append((_("Read by …"), lambda: self.read_by(m)))
         if m.get("mine"):
             ents += [None, (_("Delete for everyone"), lambda: self._ask_delete(m), True)]
-        if ents:
-            menu_popover(w, ents).popup()
+        if not ents:
+            return None
+        # (2.5) Das Menue haengt an der Unterhaltung (dauerhaft), nicht an der Blase: die wird bei Reaktionen und Bearbeitungen
+        # neu gebaut - ein Popover an der alten Blase liess GTK beim naechsten Menue abstuerzen (gdk_surface_request_motion)
+        pop = menu_popover(None, ents)
+        chatx3.point_at(pop, w, self)
+        pop.connect("closed", lambda p: GLib.idle_add(lambda: (p.get_parent() is not None and p.unparent(), False)[1]))
+        if can_react(c0, m):                             # (2.5) Schnellleiste oben im Menue
+            mine = c0.get("my_handle")
+            cur = next((x.get("e") for x in m.get("rx") or [] if x.get("by") == mine), "")
+
+            def pick(e):                                  # erst nach dem Schliessen (die Blase wird danach neu gebaut)
+                pop.popdown()
+                GLib.timeout_add(80, lambda: (self.react(m, "" if e == cur else e), False)[1])
+
+            def more():
+                pop.popdown()
+                GLib.timeout_add(80, lambda: (w.get_root() is not None and chatx3.emoji_chooser(
+                    w, lambda e: self.react(m, "" if e == cur else e), host=self), False)[1])
+            main = pop.get_child().get_child_by_name("main")
+            main.prepend(Gtk.Separator(margin_top=3, margin_bottom=3))
+            main.prepend(chatx3.quick_bar(cur, pick, more))
+        pop.popup()
+        self._menu_pop = pop
+        return pop
+
+    # --- Reaktionen und Bearbeiten (2.5) -------------------------------------------------------------------------------
+    def toast(self, text):
+        _toast(self.win, text)
+
+    def react(self, m, e):
+        self._focus_safe()
+        chat.react(self.cid, m.get("id"), e, error=self.toast)
+
+    def _focus_safe(self):
+        """Fokus vor dem Neubau der Blasen ins Eingabefeld: steht er (nach dem Schliessen eines Menues) auf einem Widget, das
+        gleich ersetzt wird, stuerzte GTK 4.14 beim naechsten Menue ab (gdk_surface_request_motion, Testrunde 2.5)"""
+        f = self.win.get_focus() if self.win is not None else None
+        while f is not None and f is not self.msgs and not isinstance(f, Gtk.Popover):
+            f = f.get_parent()
+        if f is self.msgs or isinstance(f, Gtk.Popover):
+            self.entry.grab_focus()
+
+    def edit_start(self, m):
+        """Bearbeiten im Eingabefeld: Leiste "Bearbeiten · Abbrechen" ueber dem Feld, Text der Nachricht"""
+        if not can_edit(chat.chat(self.cid), m, lim=x3_limits(chat.me)):
+            return
+        self.set_reply(None)
+        self.editing = m
+        self.edit_label.set_label(_("Edit message") + "\n" + snippet(m))
+        self.edit_bar.set_visible(True)
+        buf = self.entry.get_buffer()
+        buf.set_text(m.get("text") or "")
+        buf.place_cursor(buf.get_end_iter())
+        self._mic_update()
+        self.entry.grab_focus()
+
+    def edit_cancel(self, clear=True):
+        self.editing = None
+        self.edit_bar.set_visible(False)
+        if clear:
+            self.entry.get_buffer().set_text("")
+        self._mic_update()
+        self.entry.grab_focus()
+
+    def _send_edit(self, text):
+        m = self.editing
+        if text == (m.get("text") or "") or not text.strip():
+            self.edit_cancel()
+            return
+        for t, nid in sorted(self.mentions.items(), key=lambda x: -len(x[0])):
+            if t in text:
+                text = text.replace(t, f"[[note:{nid}]]")
+        self.send_btn.set_sensitive(False)
+        self.entry.set_sensitive(False)
+
+        def done():
+            self.entry.set_sensitive(True)
+            self.mentions = {}
+            self.edit_cancel()
+
+        def err(e):
+            self.entry.set_sensitive(True)
+            self._changed(self.entry.get_buffer())
+            self.toast(_("Not edited: {err}").format(err=e))
+        chat.send_edit(self.cid, m["id"], text, done=done, error=err)
+
+    # --- Sprachnachrichten (2.5) ---------------------------------------------------------------------------------------
+    def _voice_ok(self):
+        c = chat.chat(self.cid)
+        return x3_ok(c) and has_feature(chat.me, "voice") and voice.can_record()
+
+    def _mic_update(self):
+        if not hasattr(self, "mic_btn"):
+            return
+        buf = self.entry.get_buffer()
+        self.mic_btn.set_visible(self._voice_ok() and buf.get_char_count() == 0 and not self.files and self.editing is None
+                                 and self.rec_bar is None)
+        self.send_btn.set_visible(not self.mic_btn.get_visible())
+
+    def record_start(self):
+        if self.rec_bar is not None or not self._voice_ok():
+            return
+        lim = x3_limits(chat.me)
+        self.rec_bar = chatx3.RecordBar(self, max_s=lim["voice_max_s"], kbps=lim["voice_kbps"])
+        self.input_row.set_visible(False)
+        self.composer_box.append(self.rec_bar)
+        self.rec_bar.start()
+
+    def record_ended(self, text):
+        """Aufnahme-Leiste weg (abgebrochen, gesendet, zu kurz, Fehler) - text: Hinweis"""
+        if self.rec_bar is not None:
+            if self.rec_bar.get_parent() is not None:
+                self.composer_box.remove(self.rec_bar)
+            self.rec_bar = None
+        self.input_row.set_visible(True)
+        self._mic_update()
+        if text:
+            self.toast(text)
+        self.entry.grab_focus()
+
+    def send_voice(self, res):
+        cid, reply = self.cid, self.reply["id"] if self.reply else None
+        bar = self.rec_bar
+
+        def work():
+            return chat.send_voice(cid, res["data"], res["dur"], res["wf"], reply_to=reply,
+                                   progress=lambda a, t: GLib.idle_add(lambda: (bar.progress(a / max(1, t)), False)[1]))
+
+        def fin(_r):
+            if bar is self.rec_bar:
+                bar.sent(True)
+            self.set_reply(None)
+            self.at_bottom = True
+            chat.load_messages(cid)
+            chat._list_soon()
+
+        def err(e):
+            if bar is self.rec_bar:
+                bar.sent(False, _("Not sent: {err}").format(err=e))
+        bg(work, done=fin, error=err)
+
+    def _voice_view(self, f):
+        """Spieler einer Sprachnachricht - einer je Anhang, ueber das Neuzeichnen hinweg (laufende Wiedergabe bleibt)"""
+        vv = self.voice_views.get(f["id"])
+        if vv is not None:
+            par = vv.get_parent()
+            if par is not None:
+                par.remove(vv)
+            return vv
+        cid = self.cid
+        vv = chatx3.VoiceView(f, lambda: chatvideo.VideoSource(cid, f), on_ended=self._voice_next)
+        self.voice_views[f["id"]] = vv
+        return vv
+
+    def _voice_next(self, vv):
+        """nach dem Ende die naechste Sprachnachricht im Verlauf abspielen"""
+        msgs = (chat.cache.get(self.cid) or {}).get("msgs") or []
+        ids = [vf["id"] for vf in (voice_file(m) for m in msgs) if vf]
+        try:
+            i = ids.index(vv.f["id"])
+        except ValueError:
+            return
+        if i + 1 < len(ids):
+            nxt = self.voice_views.get(ids[i + 1])
+            if nxt is not None and nxt.get_parent() is not None:
+                nxt.play()
+
+    def voice_stop_all(self):
+        for vv in self.voice_views.values():
+            vv.stop()
 
     def _ask_delete(self, m):
         from .publish import confirm
@@ -1569,6 +1837,8 @@ class Conversation(Gtk.Box):
             btn.set_child(bx)
             btn.add_css_class("hk-file-btn")
             return btn
+        if f.get("voice") and x == 2 and voice.can_play():  # (2.5) Sprachnachricht: Wellenform-Spieler
+            return self._voice_view(f)
         if chatvideo.is_video(f):
             return self._video(f)
         if chatmedia.is_image(f) and x == 1:
@@ -1672,6 +1942,18 @@ class Conversation(Gtk.Box):
         x = flat_button(icon="window-close-symbolic", tooltip=_("Cancel reply"), cb=lambda: self.set_reply(None))
         self.reply_bar.append(x)
         outer.append(self.reply_bar)
+        # (2.5) Bearbeiten: Leiste "Nachricht bearbeiten · Abbrechen" ueber dem Eingabefeld
+        self.edit_bar = Gtk.Box(spacing=8, visible=False, margin_start=12, margin_end=12, margin_top=6)
+        self.edit_bar.add_css_class("hk-quote")
+        self.edit_bar.add_css_class("hk-edit-bar")
+        self.edit_bar.append(Gtk.Image.new_from_icon_name("document-edit-symbolic"))
+        self.edit_label = _lbl("", ("caption",), hexpand=True, lines=2, ellipsize=Pango.EllipsizeMode.END)
+        self.edit_bar.append(self.edit_label)
+        eb = Gtk.Button(label=_("Cancel"), valign=Gtk.Align.CENTER)
+        eb.add_css_class("flat")
+        eb.connect("clicked", lambda *_: self.edit_cancel())
+        self.edit_bar.append(eb)
+        outer.append(self.edit_bar)
         self.files_bar = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, visible=False, margin_start=12, margin_end=12,
                                      max_children_per_line=6, row_spacing=4, column_spacing=4)
         outer.append(self.files_bar)
@@ -1723,6 +2005,15 @@ class Conversation(Gtk.Box):
         self.send_btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Send")])
         self.send_btn.connect("clicked", lambda *_: self.send())
         row.append(self.send_btn)
+        # (2.5) Sprachnachricht: Mikrofon statt Senden, solange das Feld leer ist (Klick startet, Klick stoppt)
+        self.mic_btn = Gtk.Button(icon_name="audio-input-microphone-symbolic", tooltip_text=_("Record voice message"),
+                                  valign=Gtk.Align.END, visible=False)
+        self.mic_btn.add_css_class("circular")
+        self.mic_btn.add_css_class("hk-mic")
+        self.mic_btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Record voice message")])
+        self.mic_btn.connect("clicked", lambda *_: self.record_start())
+        row.append(self.mic_btn)
+        self.input_row = row
         outer.append(row)
         self._changed(buf)
         return outer
@@ -1731,9 +2022,10 @@ class Conversation(Gtk.Box):
         empty = buf.get_char_count() == 0
         self.placeholder.set_visible(empty)
         self.send_btn.set_sensitive(not empty or bool(self.files))
-        if not empty:
+        if not empty and self.editing is None:
             chat.send_typing(self.cid)
         self._ai_typing(buf)
+        self._mic_update()
 
     def _key(self, c, kv, code, state):
         if kv in (Gdk.KEY_Tab, Gdk.KEY_ISO_Left_Tab) and self.ai_pref and not state & Gdk.ModifierType.SHIFT_MASK:
@@ -1743,12 +2035,25 @@ class Conversation(Gtk.Box):
             return True
         if clipimg.is_ctrl_v(kv, state) and self.entry.get_sensitive():
             return self.paste()
+        if kv == Gdk.KEY_Escape and self.editing is not None:
+            self.edit_cancel()
+            return True
         if kv == Gdk.KEY_Escape and self.reply is not None:
             self.set_reply(None)
             return True
+        if kv == Gdk.KEY_Up and self.editing is None and self.entry.get_buffer().get_char_count() == 0 \
+                and not state & (Gdk.ModifierType.SHIFT_MASK | Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.ALT_MASK):
+            c = chat.chat(self.cid)                       # (2.5) Pfeil hoch im leeren Feld: letzte eigene Nachricht bearbeiten
+            lim = x3_limits(chat.me)
+            last = next((m for m in reversed((chat.cache.get(self.cid) or {}).get("msgs") or []) if can_edit(c, m, lim=lim)), None)
+            if last is not None:
+                self.edit_start(last)
+                return True
         return False
 
     def set_reply(self, m):
+        if m is not None and self.editing is not None:
+            self.edit_cancel()
         self.reply = m
         if m is not None:
             nm = (m.get("sender") or {}).get("name") or ""
@@ -1954,6 +2259,9 @@ class Conversation(Gtk.Box):
     def send(self):
         buf = self.entry.get_buffer()
         text = buf.get_text(buf.get_start_iter(), buf.get_end_iter(), False).strip()
+        if self.editing is not None:                       # (2.5) Bearbeitung senden
+            self._send_edit(text)
+            return
         files = list(self.files)
         if not text and not files:
             return
@@ -2528,9 +2836,14 @@ class SafetyDialogV2(Adw.Dialog):
             box.append(_lbl(_("{name} hasn't set up chats yet.").format(name=name), ("dim-label",), xalign=0.5))
         else:
             _safety_number_box(box, name, C.safety_number_v2(my, chat.keys["ident_pk"], m["handle"], keys["ident_pk"]))
-            box.append(_lbl(_("{name} is on {host} – the number belongs to this chat across servers.").format(
-                name=name, host=m.get("host") or C.handle_host(m["handle"])), ("caption", "dim-label"), xalign=0.5,
-                justify=Gtk.Justification.CENTER))
+            if is_remote(c):
+                box.append(_lbl(_("{name} is on {host} – the number belongs to this chat across servers.").format(
+                    name=name, host=m.get("host") or C.handle_host(m["handle"])), ("caption", "dim-label"), xalign=0.5,
+                    justify=Gtk.Justification.CENTER))
+            if (f.get("stored") or {}).get("migrated"):  # (2.5) Vertrauen aus v1 uebernommen (gleicher Schluessel)
+                ml = _lbl(_("New presentation, same key: the number looks different than before, but belongs to the same key you "
+                            "already knew."), ("caption", "hk-migrated"), xalign=0.5, justify=Gtk.Justification.CENTER)
+                box.append(ml)
             done = chat.fed_verified(m["handle"])
             self.vb = _button(("✓ " + _("verified")) if done else _("Mark as verified"), ("pill",) if done else ("pill", "suggested-action"),
                               self._verify, halign=Gtk.Align.CENTER)

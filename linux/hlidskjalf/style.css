@@ -254,3 +254,26 @@ button.hk-acct-btn { padding: 2px; min-width: 0; min-height: 0; border-radius: 9
 /* Nextcloud-Datei (2.3): Karte; ohne Inhalt (getrennt, kein Zugriff) gedaempft */
 .hk-nc-card { padding: 10px 12px; }
 .hk-nc-off { opacity: 0.75; }
+
+/* Chat-Grundlagen (2.5): Reaktionen, Bearbeiten, Sprachnachrichten */
+.hk-rq button.hk-rq-b { min-width: 34px; min-height: 34px; padding: 0; font-size: 1.25em; border-radius: 99px; }
+.hk-rq button.hk-rq-b.hk-rq-on { background: alpha(var(--accent-bg-color), 0.25); box-shadow: inset 0 0 0 1px alpha(var(--accent-color), 0.6); }
+.hk-rq button.hk-rq-more { font-size: 1.1em; font-weight: 700; }
+flowbox.hk-rx > flowboxchild { padding: 0; }
+button.hk-rx-chip { min-height: 0; padding: 1px 8px; border-radius: 99px; background: alpha(currentColor, 0.08);
+  box-shadow: inset 0 0 0 1px alpha(currentColor, 0.12); font-weight: normal; }
+button.hk-rx-chip.hk-rx-mine { background: alpha(var(--accent-bg-color), 0.22); box-shadow: inset 0 0 0 1px alpha(var(--accent-color), 0.65); }
+.hk-rx-n { font-feature-settings: "tnum"; }
+.hk-edited { font-style: italic; }
+.hk-edit-bar { border-left-color: var(--accent-color); }
+.hk-migrated { color: var(--accent-color); }
+.hk-voice { min-width: 230px; padding: 2px 0; }
+button.hk-voice-play { min-width: 34px; min-height: 34px; padding: 0; background: var(--accent-bg-color); color: var(--accent-fg-color); }
+.hk-voice-time { font-feature-settings: "tnum"; min-width: 34px; }
+button.hk-voice-speed { min-height: 0; min-width: 0; padding: 1px 6px; font-size: 0.85em; font-feature-settings: "tnum"; }
+.hk-wave:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; border-radius: 4px; }
+.hk-recbar { border-radius: 18px; background: alpha(currentColor, 0.05); box-shadow: inset 0 0 0 1px alpha(currentColor, 0.15); padding: 4px 6px 4px 12px; }
+.hk-rec-dot { color: var(--error-color); font-size: 1.1em; }
+.hk-rec-time { font-feature-settings: "tnum"; }
+.hk-rec-time.hk-rec-warn { color: var(--warning-color); font-weight: 700; }
+levelbar.hk-rec-level > trough > block.filled { background: var(--accent-bg-color); }
