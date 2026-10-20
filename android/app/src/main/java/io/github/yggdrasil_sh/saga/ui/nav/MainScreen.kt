@@ -104,8 +104,18 @@ fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
     val res = LocalResources.current
     val a11y = LocalAccessibilityManager.current
     LaunchedEffect(Unit) {
-        // collectLatest: eine neue Meldung ersetzt die angezeigte (statt bis zu 8 s in der Schlange zu warten)
-        repo.messages.collectLatest { m ->
+        // Eine neue Meldung ersetzt die angezeigte (statt bis zu 8 s in der Schlange zu warten) - AUSSER die angezeigte
+        // hat eine Aktion ("Block gelöscht · Rückgängig") und die neue nicht: dann kommt die neue danach. Sonst war
+        // "Rückgängig" schon nach ~3 s weg, weil gleich darauf eine andere Meldung kam (TT 2.4 N-12).
+        var job: kotlinx.coroutines.Job? = null
+        var jobHasAction = false
+        repo.messages.collect { m ->
+            val prev = job
+            val keep = SnackPolicy.keepCurrent(prev?.isActive == true, jobHasAction, m.action != null)
+            if (!keep) prev?.cancel()
+            jobHasAction = m.action != null
+            job = launch {
+                if (keep) prev?.join()
             val show = suspend {
                 snackbar.showSnackbar(
                     message = m.text.asString(res), actionLabel = m.actionLabel?.asString(res), withDismissAction = m.action == null,
@@ -119,6 +129,7 @@ fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
                 ?: ACTION_SNACKBAR_MS
             val r = if (m.action != null) withTimeoutOrNull(ms) { show() } else show()
             if (r == SnackbarResult.ActionPerformed) m.action?.invoke()
+            }
         }
     }
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -141,6 +152,13 @@ fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
 
 /** Wie lange eine Meldung mit Aktion (z. B. "Rueckgaengig") stehen bleibt */
 const val ACTION_SNACKBAR_MS = 8_000L
+
+/** Reihenfolge der Meldungen (N-12) */
+object SnackPolicy {
+    /** Laufende Meldung mit Aktion bleibt stehen, wenn eine Meldung ohne Aktion kommt (die kommt danach) */
+    fun keepCurrent(currentActive: Boolean, currentHasAction: Boolean, nextHasAction: Boolean): Boolean =
+        currentActive && currentHasAction && !nextHasAction
+}
 
 private data class MainItem(val dest: Dest, @StringRes val label: Int, val icon: ImageVector)
 

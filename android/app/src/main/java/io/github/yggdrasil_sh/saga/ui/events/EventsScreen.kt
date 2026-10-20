@@ -81,11 +81,7 @@ fun EventsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     Scaffold(
         topBar = { SagaTopBar(stringResource(R.string.nav_events), nav, chrome) },
         floatingActionButton = {
-            androidx.compose.material3.ExtendedFloatingActionButton(
-                onClick = { edit = null to java.time.LocalDate.now() },
-                icon = { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Add, null) },
-                text = { Text(stringResource(R.string.ev_add)) },
-            )
+            io.github.yggdrasil_sh.saga.ui.common.LabeledFab(stringResource(R.string.ev_add), { edit = null to java.time.LocalDate.now() })
         },
     ) { pad ->
         PullToRefreshBox(

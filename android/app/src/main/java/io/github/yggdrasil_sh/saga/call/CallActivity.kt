@@ -247,10 +247,17 @@ private fun CallScreen(
     pip: Boolean = false, onAspect: (Float?) -> Unit = {},
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    var answerVideo by remember { mutableStateOf<Boolean?>(null) }
+    // N-02: ueberlebt das Neuaufsetzen der Activity waehrend der Systemabfrage (sonst ging das Annehmen verloren)
+    var answerVideo by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<Boolean?>(null) }
     val perms = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
+        calls.holdRing(false)
         val v = answerVideo ?: return@rememberLauncherForActivityResult
         answerVideo = null
+        if (!calls.isRinging) {
+            // Waehrend der Abfrage aufgelegt bzw. abgelaufen: sagen, statt still nichts zu tun
+            (context.applicationContext as SagaApplication).repo.notify(io.github.yggdrasil_sh.saga.util.UiText.Res(R.string.call_gone_after_permission))
+            return@rememberLauncherForActivityResult
+        }
         if (res[Manifest.permission.RECORD_AUDIO] == false &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
         ) {
@@ -262,9 +269,13 @@ private fun CallScreen(
     }
 
     fun answer(video: Boolean) {
-        val need = CallPermissions.missing(context, video)
+        // N-02: nur Mikrofon (und Kamera bei Video) - die Mitteilungs-Abfrage kommt nie waehrend eines Anrufs.
+        // Waehrend der Abfrage klingelt es weiter; das lokale Zeitlimit wartet (CallManager.holdRing), angenommen
+        // wird erst nach der Antwort.
+        val need = CallPermissions.missing(context, video, notifications = false)
         if (need.isEmpty()) calls.accept(video) else {
             answerVideo = video
+            calls.holdRing(true)
             perms.launch(need.toTypedArray())
         }
     }
@@ -300,11 +311,16 @@ private fun CallScreen(
     }
     var camDenied by remember { mutableStateOf(false) }      // Hinweis, wenn die Kamera im Anruf verweigert wurde
     LaunchedEffect(camDenied) { if (camDenied) { delay(6000); camDenied = false } }
+    var camMissing by remember { mutableStateOf(false) }     // P-21: Geraet ohne Kamera
+    LaunchedEffect(camMissing) { if (camMissing) { delay(6000); camMissing = false } }
     val camPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) calls.toggleCam() else camDenied = true
     }
     val onCam = {
-        if (!st.cam && ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+        // P-21: Geraet ohne Kamera - sagen statt still nichts zu tun (vorher: Berechtigung, dann keine Reaktion)
+        if (!st.cam && !CallPermissions.hasCamera(context)) {
+            camMissing = true
+        } else if (!st.cam && ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             camPerm.launch(Manifest.permission.CAMERA)
         } else calls.toggleCam()
     }
@@ -384,6 +400,7 @@ private fun CallScreen(
             val status = when {
                 st.phase == CallPhase.INCOMING && st.group -> stringResource(if (st.video) R.string.room_incoming_video else R.string.room_incoming)
                 st.phase == CallPhase.INCOMING -> stringResource(if (st.video) R.string.call_incoming_video else R.string.call_incoming)
+                camMissing -> stringResource(R.string.call_cam_none)
                 st.message != null -> st.message.resolve()
                 camDenied -> stringResource(R.string.call_cam_denied)
                 st.phase == CallPhase.CONNECTED && !st.remoteMic -> stringResource(R.string.call_peer_muted, st.peer.name)
@@ -765,11 +782,29 @@ private fun VideoView(
 
 /** Berechtigungen fuer Anrufe */
 object CallPermissions {
-    fun missing(context: Context, video: Boolean): List<String> = buildList {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.RECORD_AUDIO)
-        if (video && ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) add(Manifest.permission.CAMERA)
-        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            add(Manifest.permission.POST_NOTIFICATIONS)
-        }
+    /** notifications = false beim Annehmen: keine Mitteilungs-Abfrage waehrend eines eingehenden Anrufs (N-02) */
+    fun missing(context: Context, video: Boolean, notifications: Boolean = true): List<String> = pick(
+        mic = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED,
+        cam = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED,
+        notif = Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED,
+        video = video, notifications = notifications,
+    )
+
+    /** Hat das Geraet ueberhaupt eine Kamera (vorn oder hinten, auch extern)? */
+    fun hasCamera(context: Context): Boolean = try {
+        val pm = context.packageManager
+        pm.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY) &&
+            (context.getSystemService(android.hardware.camera2.CameraManager::class.java)?.cameraIdList?.isNotEmpty() ?: true)
+    } catch (_: Exception) {
+        true                                                  // im Zweifel versuchen (wie bisher)
+    }
+
+    // POST_NOTIFICATIONS nur, wenn notif false ist - unter Android 13 ist notif immer true (siehe missing)
+    @android.annotation.SuppressLint("InlinedApi")
+    internal fun pick(mic: Boolean, cam: Boolean, notif: Boolean, video: Boolean, notifications: Boolean): List<String> = buildList {
+        if (!mic) add(Manifest.permission.RECORD_AUDIO)
+        if (video && !cam) add(Manifest.permission.CAMERA)
+        if (notifications && !notif) add(Manifest.permission.POST_NOTIFICATIONS)
     }
 }

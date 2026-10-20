@@ -194,10 +194,13 @@ private fun SortDialog(s: DbSchema, v: DbView, editable: Boolean, onApply: (List
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 ss.forEachIndexed { i, x ->
+                    // N-06: Eigenschaft und Richtung untereinander in voller Breite (nebeneinander abgeschnitten: "Dat…", "Abs…")
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Picker("", choices, x.pid, enabled = editable, onPick = { ss[i] = x.copy(pid = it) }, modifier = Modifier.weight(1f))
-                        Picker("", listOf(false to stringResource(R.string.dbv_asc), true to stringResource(R.string.dbv_desc)), x.desc, enabled = editable,
-                            onPick = { ss[i] = x.copy(desc = it) }, modifier = Modifier.weight(1f))
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Picker("", choices, x.pid, enabled = editable, onPick = { ss[i] = x.copy(pid = it) }, modifier = Modifier.fillMaxWidth())
+                            Picker("", listOf(false to stringResource(R.string.dbv_asc), true to stringResource(R.string.dbv_desc)), x.desc, enabled = editable,
+                                onPick = { ss[i] = x.copy(desc = it) }, modifier = Modifier.fillMaxWidth())
+                        }
                         if (editable) IconButton(onClick = { ss.removeAt(i) }) { Icon(Icons.Filled.Close, stringResource(R.string.dbv_remove)) }
                     }
                 }

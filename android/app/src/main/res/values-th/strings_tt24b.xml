@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Testrunde 2.4, Android Runde 2 -->
+<resources>
+    <string name="call_gone_after_permission">สายสิ้นสุดลงระหว่างการขออนุญาต</string>
+    <string name="call_cam_none">อุปกรณ์นี้ไม่มีกล้อง</string>
+    <string name="task_complete_action">ทำเสร็จ</string>
+    <string name="task_reopen_action">เปิดใหม่</string>
+    <string name="ed24_table_more">การทำงานอื่นของตาราง</string>
+</resources>

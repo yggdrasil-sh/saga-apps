@@ -152,12 +152,7 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
         topBar = { SagaTopBar(stringResource(R.string.chats), if (showBack) nav else noBack, chrome) },
         floatingActionButton = {
             // Bedienungshilfen: Knopf traegt seinen Namen selbst (TalkBack/uiautomator fanden ihn nicht, TT 2.4 P-12)
-            val newLabel = stringResource(R.string.chat_new)
-            ExtendedFloatingActionButton(
-                onClick = { newChat = true }, icon = { Icon(Icons.Filled.Add, null) },
-                text = { Text(newLabel, modifier = Modifier.clearAndSetSemantics {}) },
-                modifier = Modifier.semantics { contentDescription = newLabel; role = Role.Button },
-            )
+            io.github.yggdrasil_sh.saga.ui.common.LabeledFab(stringResource(R.string.chat_new), { newChat = true })
         },
     ) { pad ->
         PullToRefreshBox(

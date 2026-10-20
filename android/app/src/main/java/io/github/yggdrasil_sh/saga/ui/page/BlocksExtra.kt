@@ -9,8 +9,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -39,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -53,6 +57,7 @@ import io.github.yggdrasil_sh.saga.blocks.JsonPath
 import io.github.yggdrasil_sh.saga.blocks.SlashLogic
 import io.github.yggdrasil_sh.saga.data.CalEvent
 import io.github.yggdrasil_sh.saga.ui.events.EventRow
+import io.github.yggdrasil_sh.saga.ui.tasks.taskCheckSemantics
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 
@@ -135,18 +140,27 @@ fun TableBlock(block: JsonObject, path: JsonPath, key: String, env: BlockEnv) {
     val ncols = BlockOps.columnCount(block).coerceAtLeast(1)
     val heads = BlockOps.headings(block)
     val cur = tableCellOf(ed.active?.key, key)
+    val shape = BlockOps.tableShape(block)
     val line = MaterialTheme.colorScheme.outlineVariant
+    /** Nach Zeile/Spalte einfuegen: Cursor bleibt in seiner Zelle (die Felder setzen wegen des neuen Aufbaus neu auf) */
+    fun keepCursor(row: Int? = null, col: Int? = null) {
+        val (r, c) = cur ?: return
+        val (nr, nc) = BlockOps.cellAfterInsert(r, c, row, col)
+        ed.requestFocus("$key/t$nr.$nc", atEnd = true)
+    }
     Column(Modifier.fillMaxWidth()) {
         Box(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
             Column(Modifier.border(1.dp, line, RoundedCornerShape(6.dp)).clip(RoundedCornerShape(6.dp))) {
                 rows.forEachIndexed { r, row ->
-                    Row {
+                    // Alle Zellen einer Zeile gleich hoch - leere Zellen (beim Leser ohne Feld) waren sonst flacher,
+                    // Rahmen und Linien lagen versetzt (N-05)
+                    Row(if (ed.editable) Modifier else Modifier.height(IntrinsicSize.Min)) {
                         for (c in 0 until ncols) {
                             val html = row.getOrNull(c) ?: ""
                             val head = heads && r == 0
                             val style = MaterialTheme.typography.bodyMedium.let { if (head) it.copy(fontWeight = FontWeight.Bold) else it }
                             Box(
-                                Modifier.width(150.dp).border(0.5.dp, line)
+                                Modifier.width(150.dp).fillMaxHeight().heightIn(min = 34.dp).border(0.5.dp, line)
                                     .then(if (head) Modifier.background(MaterialTheme.colorScheme.surfaceContainer) else Modifier)
                                     .padding(horizontal = 8.dp, vertical = 6.dp),
                             ) {
@@ -154,6 +168,7 @@ fun TableBlock(block: JsonObject, path: JsonPath, key: String, env: BlockEnv) {
                                     html, "$key/t$r.$c", ed, path, style,
                                     { h -> ed.updateBlock(path) { BlockOps.setCell(it, r, c, h) } },
                                     onLink = env.onLink,
+                                    generation = shape,
                                 )
                             }
                         }
@@ -164,10 +179,19 @@ fun TableBlock(block: JsonObject, path: JsonPath, key: String, env: BlockEnv) {
         if (ed.editable) {
             var more by remember { mutableStateOf(false) }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { ed.updateBlock(path) { BlockOps.insertRow(it, (cur?.first ?: (rows.size - 1)) + 1) } }) { Text(stringResource(R.string.ed24_row_add)) }
-                TextButton(onClick = { ed.updateBlock(path) { BlockOps.insertColumn(it, (cur?.second ?: (ncols - 1)) + 1) } }) { Text(stringResource(R.string.ed24_col_add)) }
+                TextButton(onClick = {
+                    val at = (cur?.first ?: (rows.size - 1)) + 1
+                    ed.updateBlock(path) { BlockOps.insertRow(it, at) }
+                    keepCursor(row = at)
+                }) { Text(stringResource(R.string.ed24_row_add)) }
+                TextButton(onClick = {
+                    val at = (cur?.second ?: (ncols - 1)) + 1
+                    ed.updateBlock(path) { BlockOps.insertColumn(it, at) }
+                    keepCursor(col = at)
+                }) { Text(stringResource(R.string.ed24_col_add)) }
                 Box {
-                    TextButton(onClick = { more = true }) { Text("⋯") }
+                    val moreLabel = stringResource(R.string.ed24_table_more)
+                    TextButton(onClick = { more = true }, modifier = Modifier.semantics { contentDescription = moreLabel }) { Text("⋯") }
                     DropdownMenu(expanded = more, onDismissRequest = { more = false }) {
                         DropdownMenuItem(text = { Text(stringResource(if (heads) R.string.ed24_headings_off else R.string.ed24_headings_on)) }, onClick = {
                             more = false
@@ -175,11 +199,15 @@ fun TableBlock(block: JsonObject, path: JsonPath, key: String, env: BlockEnv) {
                         })
                         DropdownMenuItem(text = { Text(stringResource(R.string.ed24_row_above)) }, onClick = {
                             more = false
-                            ed.updateBlock(path) { BlockOps.insertRow(it, cur?.first ?: 0) }
+                            val at = cur?.first ?: 0
+                            ed.updateBlock(path) { BlockOps.insertRow(it, at) }
+                            keepCursor(row = at)
                         })
                         DropdownMenuItem(text = { Text(stringResource(R.string.ed24_col_left)) }, onClick = {
                             more = false
-                            ed.updateBlock(path) { BlockOps.insertColumn(it, cur?.second ?: 0) }
+                            val at = cur?.second ?: 0
+                            ed.updateBlock(path) { BlockOps.insertColumn(it, at) }
+                            keepCursor(col = at)
                         })
                         if (rows.size > 1) DropdownMenuItem(text = { Text(stringResource(R.string.ed24_row_remove, (cur?.first ?: (rows.size - 1)) + 1)) }, onClick = {
                             more = false
@@ -262,7 +290,8 @@ fun ImageBlockEdit(block: JsonObject, path: JsonPath, key: String, env: BlockEnv
                 contentAlignment = Alignment.Center,
             ) {
                 AsyncImage(
-                    model = env.repo.absoluteUrl(sized), contentDescription = InlineHtml.plain(BlockDoc.str(d, "caption")).ifEmpty { null },
+                    // N-07: ohne Bildunterschrift wenigstens "Bild" (TalkBack las sonst nichts)
+                    model = env.repo.absoluteUrl(sized), contentDescription = InlineHtml.plain(BlockDoc.str(d, "caption")).ifEmpty { stringResource(R.string.ed24_image) },
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxWidth(if (bg && !wide) 0.6f else 1f).heightIn(min = 60.dp, max = 900.dp).clip(RoundedCornerShape(8.dp))
                         .then(if (border) Modifier.border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(8.dp)) else Modifier),
@@ -330,7 +359,10 @@ fun TasksBlock(env: BlockEnv) {
         if (tasks.isEmpty()) Text(stringResource(R.string.ed24_tasks_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(4.dp))
         tasks.take(30).forEach { t ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(checked = false, onCheckedChange = { env.repo.toggleTask(t, true) })
+                Checkbox(
+                    checked = false, onCheckedChange = { env.repo.toggleTask(t, true) },
+                    modifier = Modifier.taskCheckSemantics(t.text, false) { env.repo.toggleTask(t, true) },
+                )
                 Text(t.text, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }

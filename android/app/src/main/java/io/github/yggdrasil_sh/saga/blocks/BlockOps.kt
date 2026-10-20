@@ -125,6 +125,16 @@ object BlockOps {
         return withData(block, "content", JsonArray(rows))
     }
 
+    /**
+     * Aufbau einer Tabelle ("Zeilen x Spalten"). Die Zellfelder heissen nach ihrer Position (t<r>.<c>); aendert sich
+     * der Aufbau, steht unter derselben Position eine andere Zelle - die Felder muessen dann neu aufsetzen (N-01).
+     */
+    fun tableShape(block: JsonObject): String = "${tableContent(block).size}x${columnCount(block)}"
+
+    /** Position der Zelle (r, c), nachdem bei Zeile row bzw. Spalte col eingefuegt wurde (der Cursor bleibt in seiner Zelle) */
+    fun cellAfterInsert(r: Int, c: Int, row: Int? = null, col: Int? = null): Pair<Int, Int> =
+        (if (row != null && row <= r) r + 1 else r) to (if (col != null && col <= c) c + 1 else c)
+
     fun insertColumn(block: JsonObject, at: Int): JsonObject {
         val rows = tableContent(block).map { row ->
             val l = row.toMutableList()

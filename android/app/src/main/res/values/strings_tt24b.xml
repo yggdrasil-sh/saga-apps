@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Testrunde 2.4, Android Runde 2 -->
+<resources>
+    <string name="call_gone_after_permission">The call ended while the permission was being requested.</string>
+    <string name="call_cam_none">This device has no camera.</string>
+    <string name="task_complete_action">Complete</string>
+    <string name="task_reopen_action">Reopen</string>
+    <string name="ed24_table_more">More table actions</string>
+</resources>

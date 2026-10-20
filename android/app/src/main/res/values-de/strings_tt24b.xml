@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Testrunde 2.4, Android Runde 2 -->
+<resources>
+    <string name="call_gone_after_permission">Der Anruf wurde während der Berechtigungsabfrage beendet.</string>
+    <string name="call_cam_none">Dieses Gerät hat keine Kamera.</string>
+    <string name="task_complete_action">Erledigen</string>
+    <string name="task_reopen_action">Wieder öffnen</string>
+    <string name="ed24_table_more">Weitere Tabellen-Aktionen</string>
+</resources>

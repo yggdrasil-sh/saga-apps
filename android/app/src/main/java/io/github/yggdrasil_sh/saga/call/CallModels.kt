@@ -142,6 +142,9 @@ object CallLogic {
     private val json = Json { ignoreUnknownKeys = true; coerceInputValues = true; explicitNulls = false; isLenient = true }
     private val ID_RE = Regex("^[0-9a-f]{32}$")
 
+    /** N-02: so lange darf die Mikrofon-Abfrage beim Annehmen das lokale Klingel-Zeitlimit hoechstens aufhalten */
+    const val RING_HOLD_MS = 60_000L
+
     fun validId(id: String?): Boolean = id != null && ID_RE.matches(id)
 
     fun parseEntry(bodyCt: String): CallEntry? = try {

@@ -86,11 +86,7 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     Scaffold(
         topBar = { SagaTopBar(stringResource(R.string.nav_services), nav, chrome) },
         floatingActionButton = {
-            androidx.compose.material3.ExtendedFloatingActionButton(
-                onClick = { newBookmark = true },
-                icon = { Icon(androidx.compose.material.icons.Icons.Filled.Add, null) },
-                text = { Text(stringResource(R.string.bm_add_fab)) },
-            )
+            io.github.yggdrasil_sh.saga.ui.common.LabeledFab(stringResource(R.string.bm_add_fab), { newBookmark = true })
         },
     ) { pad ->
         LazyVerticalGrid(

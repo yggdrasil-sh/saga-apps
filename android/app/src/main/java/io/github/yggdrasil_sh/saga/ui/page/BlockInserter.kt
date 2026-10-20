@@ -277,7 +277,11 @@ fun BlockInserterDialogs(ins: BlockInserter, ed: PageEditor, repo: SagaRepositor
             text = {
                 Column {
                     ChoiceRow(stringResource(R.string.ed24_from_gallery)) { close(); ins.launch("image_gallery", bid) }
-                    ChoiceRow(stringResource(R.string.ed24_from_camera)) { close(); ins.launch("image_camera", bid) }
+                    // N-08: auf Geraeten ohne Kamera nicht anbieten
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    if (remember { io.github.yggdrasil_sh.saga.call.CallPermissions.hasCamera(ctx) }) {
+                        ChoiceRow(stringResource(R.string.ed24_from_camera)) { close(); ins.launch("image_camera", bid) }
+                    }
                     if (SlashLogic.Need.IMMICH in ins.needs) ChoiceRow(stringResource(R.string.ed24_immich)) { ins.pending = "immich_image" to bid }
                 }
             },

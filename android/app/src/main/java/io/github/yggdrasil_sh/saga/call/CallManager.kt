@@ -2188,6 +2188,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         ringJob?.cancel()
         ringJob = scope.launch {
             delay(left)
+            waitRingHold()
             unring(info.id, UiText.Res(R.string.call_missed))
         }
     }
@@ -2247,8 +2248,22 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         ringJob?.cancel()
         ringJob = scope.launch {
             delay(left)
+            waitRingHold()
             unring(callId, UiText.Res(R.string.call_missed))
         }
+    }
+
+    /** N-02: Beim Annehmen fragt die Oberflaeche nach dem Mikrofon - so lange wartet das lokale Klingel-Zeitlimit (max. 60 s) */
+    @Volatile private var ringHeldUntil = 0L
+
+    fun holdRing(on: Boolean) {
+        ringHeldUntil = if (on) System.currentTimeMillis() + CallLogic.RING_HOLD_MS else 0L
+    }
+
+    val isRinging: Boolean get() = ring != null
+
+    private suspend fun waitRingHold() {
+        while (System.currentTimeMillis() < ringHeldUntil) delay(500)
     }
 
     private fun unring(id: String, msg: UiText? = null) {
