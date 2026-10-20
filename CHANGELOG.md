@@ -6,6 +6,32 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu – Linux (2.4): Gelesen-Bestätigungen und Online-Status
+**Haken wie bei WhatsApp:** Eigene Nachrichten zeigen ⏳ (wird zugestellt), ✓ (zugestellt) und ✓✓ in Akzentfarbe
+(gelesen). In Gruppen steht neben ✓✓ die Zahl der Lesenden, bis alle gelesen haben; ein Klick auf den Haken (oder
+„Gelesen von …“ im Nachrichtenmenü) zeigt, wer wann gelesen hat – mit dem Hinweis, dass Personen mit abgeschalteten
+Bestätigungen dort nicht erscheinen. Bestätigungen sind Ende-zu-Ende: vom Gerät signiert und je Mitglied für dessen
+Backup-Schlüssel versiegelt (saga-chat v1 lokal, v2 über Servergrenzen); die App prüft jede empfangene Bestätigung
+gegen die geprüften Geräte der lesenden Person und verwirft alles andere. Geprüft gegen `tests/vectors/receipts.json`.
+
+**Nur was du wirklich siehst:** Die App bestätigt eine Nachricht erst, wenn das Fenster aktiv, der Chat offen und die
+Nachricht im sichtbaren Bereich ist (auch nach dem Scrollen oder wenn das Fenster wieder aktiv wird) – gebündelt,
+höchstens eine Bestätigung je Chat und zwei Sekunden, nachgezogen statt verworfen. Nicht bei Nachrichtenanfragen,
+schreibgeschützten Chats oder wenn der andere Server es noch nicht kann.
+
+**Online-Status:** Im Kopf eines Direkt-Chats steht „online“ bzw. „zuletzt online vor 5 Minuten“, in der Chat-Liste
+zeigt ein grüner Punkt am Bild, wer gerade online ist. Abonniert wird nur, was sichtbar ist (offener Direkt-Chat,
+Direkt-Chats der Liste; nicht bei minimiertem Fenster), alle 60 Sekunden erneuert und beim Verlassen abgemeldet.
+
+**Datenschutz-Schalter:** Einstellungen → Chats → „Datenschutz“ mit „Gelesen-Bestätigungen senden“ und „Online-Status
+zeigen“ – standardmäßig an, getrennt schaltbar und gegenseitig: Wer etwas abschaltet, sendet es nicht und sieht es bei
+anderen auch nicht. Änderungen auf anderen Geräten übernimmt die App live. Server vor 2.4: alles bleibt ausgeblendet,
+der Lese-Zeiger funktioniert wie bisher. Texte in Deutsch, Englisch, Spanisch, Russisch und Thai.
+
+**Anrufe (Linux, Etappen E0/E1/E3):** Gespräche laufen weiter im Browser. Mit einem 2.4-Server sagen Klingel-Leiste und
+Mitteilung jetzt, was dort geht – Bild-im-Bild und, sobald der Server Bildschirm v2 kann, auch Bildschirm teilen (die
+Leiste „… teilt den Bildschirm“ zeigt dann der Browser). Ältere Server: Hinweis wie bisher.
+
 ### Behoben – Chats über Servergrenzen
 **Android – eigene Nachricht blieb auf „⏳ wird zugestellt“:** In einem Direkt-Chat, dessen Heim der andere Server ist,
 zeigte die App eine längst zugestellte eigene Nachricht weiter als ausstehend (Server 2.3.0 melden die sofortige

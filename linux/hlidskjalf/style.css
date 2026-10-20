@@ -202,6 +202,11 @@ button.hk-unv { padding: 0 4px; min-height: 0; font-weight: normal; }
 .hk-bubble-name { color: var(--accent-color); }
 .hk-bubble-text { font-size: 1.0em; }
 .hk-warn-text { color: var(--warning-color); }
+/* (2.4) Gelesen-Haken (✓ zugestellt, ✓✓ gelesen: Akzent) und Online-Punkt in der Chat-Liste */
+.hk-tick { opacity: 0.65; font-size: 0.82em; }
+.hk-tick.hk-tick-read { opacity: 1; color: var(--accent-color); }
+button.hk-tick-btn { padding: 0 4px; min-height: 0; min-width: 0; font-weight: normal; }
+.hk-online-dot { background: var(--success-color); border-radius: 999px; box-shadow: 0 0 0 2px var(--window-bg-color); }
 .hk-quote { border-left: 3px solid alpha(currentColor, 0.45); padding: 2px 0 2px 8px; }
 .hk-composer-bar { border-top: 1px solid alpha(currentColor, 0.10); }
 .hk-composer { border-radius: 18px; background: alpha(currentColor, 0.05); box-shadow: inset 0 0 0 1px alpha(currentColor, 0.15); }

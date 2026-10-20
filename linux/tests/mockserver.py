@@ -139,6 +139,10 @@ class MockServer:
     def peer_send(self, cid, uid, text, **kw):
         return mockv2.peer_send(self, cid, uid, text, **kw)
 
+    def peer_receipt(self, cid, uid, m, **kw):
+        import mockv24
+        return mockv24.peer_receipt(self, cid, uid, m, **kw)
+
     def add_fed(self, nid, title, **kw):
         return mockv2.add_fed(self, nid, title, **kw)
 

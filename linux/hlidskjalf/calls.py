@@ -224,6 +224,18 @@ class Calls(GObject.Object):
     def enabled(self):
         return bool((self.config or {}).get("enabled"))
 
+    @property
+    def browser_hint(self):
+        """(2.4) Hinweis, was das Gespraech im Browser kann: Server mit saga-call v3 (features pip_hint/screen2) -> Bild-im-Bild
+        und Bildschirm teilen (die Linux-App fuehrt das Gespraech nicht selbst, Konzept 2.4 §0)"""
+        f = (self.config or {}).get("features")
+        f = set(x for x in f if isinstance(x, str)) if isinstance(f, list) else set()
+        if "screen2" in f:                                   # E3: dort auch "… teilt den Bildschirm" (Leiste im Browser)
+            return _("Answering opens the call in your browser – picture-in-picture and screen sharing work there.")
+        if "pip_hint" in f:
+            return _("Answering opens the call in your browser – picture-in-picture works there.")
+        return _("Answering opens the call in your browser.")
+
     # --- Eingang: Live, Push, Nachholen ----------------------------------------------------------------------------
     def on_live(self, typ, d):
         if not isinstance(d, dict):
@@ -393,7 +405,7 @@ class Calls(GObject.Object):
         if app is None or r is None:
             return
         n = Gio.Notification.new(ring_title({"peer": r["peer"], "media": r["media"]}))
-        n.set_body(_("Answering opens the call in your browser."))
+        n.set_body(self.browser_hint)
         n.set_priority(Gio.NotificationPriority.URGENT)
         if hasattr(n, "set_category"):
             n.set_category("call.incoming")
@@ -515,6 +527,8 @@ class CallBar(Gtk.Revealer):
         self.title.set_width_chars(min(len(name or kind), 12))     # Name bleibt lesbar, Knoepfe geben nach
         self.kind.set_label(kind if name else "")
         self.kind.set_visible(bool(name))
+        self.sub.set_label(calls.browser_hint)                 # (2.4) im Browser: Bild-im-Bild, Bildschirm teilen
+        self.sub.set_tooltip_text(calls.browser_hint)
         self.update_property([Gtk.AccessibleProperty.LABEL], [ring_title({"peer": p, "media": r.get("media")})])
         # Videoanruf: "Annehmen" (mit Video) ist die Hauptaktion, daneben kurz "Nur Ton"
         full = _("Answer with audio only") if video else _("Answer")

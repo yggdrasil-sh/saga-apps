@@ -8,6 +8,7 @@ import re
 from gi.repository import Adw, Gdk, Gio, GLib, Graphene, Gsk, Gtk, Pango
 
 from . import chatcrypto as C
+from . import chatstatus as S
 from . import aichat, avatars, chatmedia, clipimg, config, images
 from .api import APIError, client
 from .blocks import flat_button, menu_popover
@@ -45,6 +46,36 @@ def watch_chat(widget, signal, cb, obj=None):
             st["h"] = None
     widget.connect("map", on_map)
     widget.connect("unmap", on_unmap)
+
+
+def shown(widget):
+    """Widget wirklich zu sehen: abgebildet und das Fenster nicht minimiert bzw. verdeckt (GTK ab 4.12: suspended)"""
+    if not widget.get_mapped():
+        return False
+    root = widget.get_root()
+    return root is not None and not (hasattr(root, "is_suspended") and root.is_suspended())
+
+
+def watch_presence(widget, fn):
+    """(2.4) Online-Status: solange das Widget zu sehen ist, die Personen aus fn() abonnieren (chat.presence_watch)"""
+    key = ("presence", id(widget))
+    st = {"h": None}
+
+    def on_map(*_):
+        chat.presence_watch(key, lambda: fn() if shown(widget) else [])
+        root = widget.get_root()
+        if st["h"] is None and root is not None and hasattr(root, "is_suspended"):
+            st["h"] = (root, root.connect("notify::suspended", lambda *_: chat._pres_soon()))
+
+    def on_unmap(*_):
+        chat.presence_watch(key, None)
+        if st["h"] is not None:
+            st["h"][0].disconnect(st["h"][1])
+            st["h"] = None
+    widget.connect("map", on_map)
+    widget.connect("unmap", on_unmap)
+    if widget.get_mapped():
+        on_map()
 
 
 def code_halves(code):
@@ -244,6 +275,7 @@ class ChatsScreen(Gtk.Box):
         watch_chat(self, "changed", lambda: self.render())
         watch_chat(self, "chat-changed", lambda cid: cid == self.cid and self._header())
         watch_chat(self, "chat-gone", self._chat_gone)
+        watch_chat(self, "presence", lambda: (self._header(), self.list.fill() if chat.status == "ready" else None))
         self.connect("unmap", lambda *_: setattr(chat, "open_chat", None))
         self._state = None
         self.render(force=True)
@@ -364,9 +396,11 @@ class ChatsScreen(Gtk.Box):
                 parts.append(_("Request"))
             if c.get("readonly"):
                 parts.append(_("read-only"))
-            return chat.title(c), " · ".join(parts) + arch
+            on = S.presence_text(chat.pres.get(S.presence_user(chat.me, c)))     # (2.4) online / zuletzt online
+            return chat.title(c), " · ".join(([on] if on else []) + parts) + arch
         if c.get("kind") == "dm":
-            return chat.title(c), _("End-to-end encrypted") + arch
+            on = S.presence_text(chat.pres.get(S.presence_user(chat.me, c)))
+            return chat.title(c), (on or _("End-to-end encrypted")) + arch
         n = int(c.get("member_count") or len(c.get("members") or []))
         sub = chat.kind_label(c) + " · " + ngettext("{n} person", "{n} people", n).format(n=n)
         if is_fed(c):                                    # 2.3: Gruppe/Seiten-Chat ueber Servergrenzen - Heim, Stand
@@ -419,6 +453,16 @@ class ChatList(Gtk.Box):
         sw.set_child(self.box)
         self.append(sw)
         self.sig = None
+        watch_presence(self, self._presence_users)
+
+    def _presence_users(self):
+        """(2.4) Online-Status: Gegenueber der sichtbaren Direkt-Chats (die ersten der Liste, ohne Archiv und Anfragen)"""
+        out = []
+        for c in chat.chats:
+            u = None if c.get("archived") else S.presence_user(chat.me, c)
+            if u and u not in out:
+                out.append(u)
+        return out[:S.PRESENCE_LIST]
 
     arch_open = False            # Bereich "Archiviert" aufgeklappt (fuer die Sitzung, ueber Neuaufbauten hinweg)
 
@@ -443,7 +487,8 @@ class ChatList(Gtk.Box):
         show_arch = ChatList.arch_open or bool(q)
         sig = (q, self.screen.cid, show_arch, tuple((c.get("id"), chat.title(c), c.get("unread"), c.get("muted"), c.get("last_at"),
                                                      c.get("archived"), (chat.peer(c) or {}).get("avatar") if c.get("kind") == "dm" else None,
-                                                     c.get("request"), c.get("readonly"))
+                                                     c.get("request"), c.get("readonly"),
+                                                     bool((chat.pres.get(S.presence_user(chat.me, c)) or {}).get("online")))
                                                     for c in reqs + lst))
         if sig == self.sig:
             return
@@ -522,7 +567,15 @@ class ChatList(Gtk.Box):
         elif c.get("kind") == "page":
             from .publish import _icon
             av.set_icon_name(_icon("saga-page-symbolic", "text-x-generic-symbolic"))
-        box.append(av)
+        online = bool((chat.pres.get(S.presence_user(chat.me, c)) or {}).get("online"))
+        if online:                                       # (2.4) gruener Punkt am Bild: Gegenueber ist online
+            ov = Gtk.Overlay(child=av, valign=Gtk.Align.CENTER)
+            dot = Gtk.Box(halign=Gtk.Align.END, valign=Gtk.Align.END, width_request=12, height_request=12)
+            dot.add_css_class("hk-online-dot")
+            ov.add_overlay(dot)
+            box.append(ov)
+        else:
+            box.append(av)
         col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, valign=Gtk.Align.CENTER)
         t = Gtk.Label(label=title, xalign=0, ellipsize=Pango.EllipsizeMode.END)
         un = int(c.get("unread") or 0)
@@ -562,7 +615,8 @@ class ChatList(Gtk.Box):
         right.append(bx)
         box.append(right)
         row.set_child(box)
-        acc = title + " – " + sub + (" – " + ngettext("{n} unread", "{n} unread", un).format(n=un) if un else "")
+        acc = title + " – " + sub + (" – " + _("online") if online else "") + \
+            (" – " + ngettext("{n} unread", "{n} unread", un).format(n=un) if un else "")
         row.update_property([Gtk.AccessibleProperty.LABEL], [acc])
         # Kontextmenue (2.1): Rechtsklick, Langdruck (Touch), Menue-Taste bzw. Umschalt+F10
         rc = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)
@@ -633,6 +687,10 @@ class Conversation(Gtk.Box):
         self._imgs_building = None
         self._vis_pending = 0
         self._pinned = 0
+        self.rows_by_id = {}         # (2.4) Nachrichten-ID -> Zeile (sichtbar? fuer Gelesen-Bestaetigungen)
+        self.ticks = {}              # (2.4) eigene Nachricht -> (Platz fuer die Haken, Nachricht, Zustand)
+        self._rc_soon = Debounce(300, self._mark_read)
+        self._active_h = None
         # Hinweise oben: Sicherheitsnummer geaendert / nicht eingerichtet
         self.warn_rev = Gtk.Revealer(transition_type=Gtk.RevealerTransitionType.SLIDE_DOWN)
         from .page import BannerBox, BannerRow
@@ -697,12 +755,15 @@ class Conversation(Gtk.Box):
         watch_chat(self, "chat-changed", lambda cid: cid == self.cid and self._chat_changed())
         watch_chat(self, "ai-pending", lambda cid: cid == self.cid and self._pending_changed())
         watch_chat(self, "chat-gone", lambda cid, how, _n: cid == self.cid and self._wiped())
+        watch_chat(self, "receipts", lambda cid: cid == self.cid and self._update_ticks())     # (2.4)
+        watch_presence(self, lambda: [u for u in [S.presence_user(chat.me, chat.chat(self.cid))] if u])
         from .assistant import ai
         watch_chat(self, "changed", lambda: self._ai_changed(), obj=ai)
         self.connect("map", lambda *_: self._mapped())
         self.connect("map", self._vis_soon)
         self._dcheck_src = 0                              # (2.3) Abgleich wartender eigener Nachrichten, solange offen
         self.connect("unmap", lambda *_: self._dcheck_stop())
+        self.connect("unmap", lambda *_: self._active_watch(False))
         self.loaded = False
         self.render()
         if not chat.cache.get(cid, {}).get("loaded"):
@@ -727,6 +788,7 @@ class Conversation(Gtk.Box):
         self._to_bottom()
         self._mark_read()
         self._check_trust()
+        chat.load_receipts(self.cid)                      # (2.4) wer hat was gelesen
         c = chat.chat(self.cid)
         if chat.ready and is_fed(c):                      # 2.3: Schluessel frisch holen, selbst pruefen, TOFU
             bg(chat.fed_load, c, done=lambda _r: (self._check_trust(), self.screen._header()), error=lambda e: None)
@@ -736,8 +798,17 @@ class Conversation(Gtk.Box):
 
     def _mapped(self):
         chat.open_chat = self.cid
+        self._active_watch(True)
         if not self._dcheck_src:
             self._dcheck_src = GLib.timeout_add_seconds(FED_CHECK_EVERY_S, self._dcheck_tick)
+
+    def _active_watch(self, on):
+        """(2.4) Fenster wird wieder aktiv: jetzt Sichtbares bestaetigen"""
+        if self._active_h is not None:
+            self._active_h[0].disconnect(self._active_h[1])
+            self._active_h = None
+        if on and self.win is not None:
+            self._active_h = (self.win, self.win.connect("notify::is-active", lambda w, _p: w.is_active() and self._rc_soon()))
 
     def _dcheck_tick(self):
         """(2.3) alle 15 s: wartet eine eigene Nachricht ("wird zugestellt"), ihren Stand beim Server nachsehen (Server bis
@@ -1040,6 +1111,8 @@ class Conversation(Gtk.Box):
     def _scrolled(self, adj):
         self.at_bottom = adj.get_value() + adj.get_page_size() >= adj.get_upper() - 40
         self._vis_soon()
+        if self.loaded:
+            self._rc_soon()                               # (2.4) neue Nachricht ins Bild gescrollt: bestaetigen
 
     # --- Bilder nur fuer sichtbare Zeilen (2.1-c) ---------------------------------------------------------------------
     def _vis_soon(self, *_a):
@@ -1127,6 +1200,7 @@ class Conversation(Gtk.Box):
         group = (chat.chat(self.cid) or {}).get("kind") != "dm"
         prev = None
         old, keep, imgs = self.bubbles, {}, []
+        rows, ticks = {}, {}
         for m in shown:
             day = _day_label(m.get("created") or (m.get("ts") or 0) / 1000)
             if prev is None or _day_label(prev.get("created") or (prev.get("ts") or 0) / 1000) != day:
@@ -1144,6 +1218,11 @@ class Conversation(Gtk.Box):
             keep[key] = row
             imgs += row.hk_imgs
             self.msgs.append(row)
+            rows[m["id"]] = row
+            slot = getattr(row, "hk_tick", None)
+            if slot is not None:
+                old_t = self.ticks.get(m["id"])
+                ticks[m["id"]] = (slot, m, old_t[2] if old_t and old_t[0] is slot else None)
             prev = m
         for row in old.values():                          # nicht mehr angezeigt: wartende Bilder verwerfen
             for w in row.hk_imgs:
@@ -1151,6 +1230,8 @@ class Conversation(Gtk.Box):
         if self.pending_row is not None and not q:        # laufende KI-Antwort bleibt unten
             self.msgs.append(self.pending_row)
         self.bubbles, self.img_widgets = keep, imgs
+        self.rows_by_id, self.ticks = rows, ticks
+        self._update_ticks()
         self._vis_soon()
         if q:
             self.search_count.set_label(ngettext("{n} match", "{n} matches", len(shown)).format(n=len(shown)))
@@ -1172,8 +1253,77 @@ class Conversation(Gtk.Box):
         chat.load_messages(self.cid, older=True, done=keep)
 
     def _mark_read(self):
-        if chat.open_chat == self.cid:
-            chat.mark_read(self.cid)
+        if chat.open_chat == self.cid and self.loaded:
+            chat.mark_read(self.cid, visible=self._receipt_visible)
+
+    # --- Gelesen-Bestaetigungen (2.4) ----------------------------------------------------------------------------------
+    def _receipt_visible(self):
+        """Bestaetigen nur, was wirklich zu sehen ist: Fenster aktiv, Unterhaltung offen, Zeile der Nachricht im Bild"""
+        if self.win is None or not self.win.is_active() or not shown(self) or chat.open_chat != self.cid:
+            return False
+        w = chat.receipt_want(self.cid)
+        row = self.rows_by_id.get((w or {}).get("id"))
+        if row is None:
+            return False
+        ok, r = row.compute_bounds(self.clamp)
+        if not ok or row.get_height() <= 0:
+            return False
+        adj = self.scroll.get_vadjustment()
+        y0 = r.get_y() - adj.get_value()
+        return y0 + r.get_height() > 0 and y0 < (adj.get_page_size() or 0)
+
+    def _update_ticks(self):
+        """Haken eigener Nachrichten an Ort und Stelle aktualisieren (ohne die Blasen neu zu bauen)"""
+        c = chat.chat(self.cid) or {}
+        rc = chat.rcpts.get(self.cid) or {}
+        for mid, (slot, m, cur) in list(self.ticks.items()):
+            t = S.tick(chat.me, c, m, rc)
+            if t == cur:
+                continue
+            self.ticks[mid] = (slot, m, t)
+            while (w := slot.get_first_child()):
+                slot.remove(w)
+            if isinstance(t, tuple):
+                slot.append(self._tick_widget(c, m, t))
+            slot.set_visible(isinstance(t, tuple))
+
+    def _tick_widget(self, c, m, t):
+        group = c.get("kind") != "dm"
+        mark, text = S.tick_text(t, group)
+        label = mark + (f" {t[1]}" if group and t[0] == "read" and not t[2] else "")
+        if group and t[0] == "read":                     # Gruppen: Tippen zeigt "Gelesen von …"
+            w = Gtk.Button(label=label, valign=Gtk.Align.CENTER)
+            w.add_css_class("flat")
+            w.add_css_class("hk-tick-btn")
+            w.connect("clicked", lambda *_: self.read_by(m))
+        else:
+            w = Gtk.Label(label=label)
+            w.add_css_class("caption")
+        w.add_css_class("hk-tick")
+        if t[0] == "read":
+            w.add_css_class("hk-tick-read")
+        w.set_tooltip_text(text)
+        w.update_property([Gtk.AccessibleProperty.LABEL], [text])
+        return w
+
+    def read_by(self, m):
+        """Gruppe: "Gelesen von" - Name und Zeit je Person, neueste zuerst"""
+        c = chat.chat(self.cid) or {}
+        rd = sorted(S.readers(c, m, chat.rcpts.get(self.cid) or {}) if S.rc_ok(chat.me, c) else [],
+                    key=lambda r: -(r.get("ts") or 0))
+        d = Adw.AlertDialog(heading=_("Read by"), body=_("People who turned off read receipts don't appear here."))
+        lb = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        lb.add_css_class("boxed-list")
+        if not rd:
+            lb.append(Adw.ActionRow(title=_("Nobody has read it yet.")))
+        for r in rd:
+            ts = r.get("ts")
+            sub = (_day_label(ts / 1000) + " " + _time(ts / 1000)) if ts else ""
+            lb.append(Adw.ActionRow(title=GLib.markup_escape_text(r["name"]), subtitle=GLib.markup_escape_text(sub)))
+        d.set_extra_child(lb)
+        d.add_response("close", _("Close"))
+        d.present(self.win)
+        return d
 
     def _search(self, q):
         self.query = q.strip()
@@ -1325,6 +1475,9 @@ class Conversation(Gtk.Box):
             acc.append(_("not delivered"))
         tm = _lbl(_time(m.get("created") or (m.get("ts") or 0) / 1000), ("caption", "dim-label"), wrap=False)
         meta.append(tm)
+        if mine:                                         # (2.4) ✓ zugestellt, ✓✓ gelesen - _update_ticks fuellt ihn
+            row.hk_tick = Gtk.Box(visible=False)
+            meta.append(row.hk_tick)
         b.append(meta)
         row.append(b)
         b.update_property([Gtk.AccessibleProperty.LABEL], [" – ".join(acc)])
@@ -1370,6 +1523,10 @@ class Conversation(Gtk.Box):
                 ents.append((_("Copy text"), lambda: (self.win.copy_text(m["text"]), _toast(self.win, _("Copied.")))))
         if m.get("fstate") == "failed" and m.get("mine") and isinstance(m.get("body"), dict):     # (2.3)
             ents.append((_("Send again"), lambda: chat.resend(self.cid, m, error=lambda e: _toast(self.win, _("Not sent: {err}").format(err=e)))))
+        c = chat.chat(self.cid) or {}
+        if m.get("mine") and c.get("kind") != "dm" and isinstance(S.tick(chat.me, c, m, chat.rcpts.get(self.cid)), tuple) \
+                and S.rc_ok(chat.me, c):                 # (2.4) Gruppe: wer hat gelesen
+            ents.append((_("Read by …"), lambda: self.read_by(m)))
         if m.get("mine"):
             ents += [None, (_("Delete for everyone"), lambda: self._ask_delete(m), True)]
         if ents:
@@ -2935,6 +3092,7 @@ class ChatDevicesPage(Adw.PreferencesPage):
             g.add(r)
         self.add(g)
         self.groups.append(g)
+        self._privacy_group()                                # (2.4) gut auffindbar gleich nach den Geraeten
         if chat.ready:
             g2 = Adw.PreferencesGroup(title=_("Recovery key"),
                                       description=_("Lost it or someone may have seen it? Create a new one – the old one stops working. "
@@ -2977,6 +3135,44 @@ class ChatDevicesPage(Adw.PreferencesPage):
             show(self._fed["blocks"])
         elif not self._fed.get("blocks_off"):                 # aeltere Server: einmal fragen, dann nicht mehr
             chat.load_blocks(show, error=lambda e: self._fed.__setitem__("blocks_off", True))
+
+    def _privacy_group(self):
+        """(2.4) Datenschutz: Gelesen-Bestaetigungen und Online-Status - getrennt, gegenseitig. Nur, wenn der Server es kann
+        (features in GET /api/chat/me); aeltere Server: Bereich bleibt weg."""
+        feats = S.features(chat.me)
+        if chat.status != "ready" or not {"receipts", "online"} & feats:
+            return
+        g = Adw.PreferencesGroup(title=_("Privacy"))
+        self.add(g)
+        self.groups.append(g)
+        p = S.privacy(chat.me)
+        for field, title, sub in (
+                ("receipts", _("Send read receipts"),
+                 _("Off: Others don't see whether you've read their messages – and you don't see it for them either.")),
+                ("online", _("Show online status"),
+                 _("Off: Your chat partners don't see whether or when you were last online – and you don't see it for them "
+                   "either."))):
+            if field not in feats:
+                continue
+            row = Adw.SwitchRow(title=title, subtitle=sub, active=p[field])
+            row.hk_field = field
+            row.connect("notify::active", self._privacy_changed)
+            g.add(row)
+
+    def _privacy_changed(self, row, _p):
+        on = row.get_active()
+        if S.privacy(chat.me).get(row.hk_field) == on:     # Neuaufbau bzw. Rueckstellung nach einem Fehler
+            return
+        row.set_sensitive(False)
+
+        def done(_j):
+            row.set_sensitive(True)
+
+        def err(e):
+            row.set_sensitive(True)
+            row.set_active(not on)
+            self.dlg.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(e))))
+        chat.set_privacy(row.hk_field, on, done=done, error=err)
 
     def _directory_group(self):
         """(2.3) "In Adressbuechern verbundener Server erscheinen" - nur, wenn dieser Server mit anderen verbunden ist

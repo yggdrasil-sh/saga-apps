@@ -575,3 +575,54 @@ def open_signal_v2(sealed_b64, pk, sk):
 
 def verify_signal_v2(call_id, from_handle, from_device, to_handle, to_device, body, sig, sign_pk):
     return verify(sig, signal_msg_v2(call_id, from_handle, from_device, to_handle, to_device, body), sign_pk)
+
+
+# --- Gelesen-Bestaetigungen (Server 2.4) -------------------------------------------------------------------------------
+# "gelesen bis Nachricht id (Position n)": body = JSON-Text {"id","n","ts"} (genau dieser Text wird signiert), signiert mit
+# dem Geraeteschluessel, versiegelt fuer den Backup-Schluessel jedes anderen Mitglieds. v1 (lokal): chat = str(chat_id),
+# reader = Benutzername; v2 (ueber Servergrenzen): chat = chat_ref, reader = Handle. Format: docs/APP-API.md im Server
+# ("Gelesen-Bestaetigungen und Online-Status"), Web static/chat-crypto.js (sealReceipt/openReceipt/verifyReceipt).
+# Geprueft gegen tests/vectors/receipts.json (tests/test_receipts.py).
+def receipt_body(mid, n, ts=None):
+    return json.dumps({"id": str(mid), "n": int(n), "ts": int(ts if ts is not None else time.time() * 1000)},
+                      separators=(",", ":"))
+
+
+def receipt_msg(chat, reader, dev_id, body, v2=False):
+    """LP("saga-chat/v1/receipt" bzw. "saga-chat/v2/receipt", chat, reader, geraet, body)"""
+    return lp((V2 if v2 else V) + "receipt", str(chat), reader, dev_id, body)
+
+
+def seal_receipt(chat, reader, dev, body, to_pk, v2=False):
+    """Bestaetigung signieren (Geraet dev) und fuer den Backup-Schluessel to_pk versiegeln -> B64"""
+    sig = sign(receipt_msg(chat, reader, dev["id"], body, v2), dev["sign_sk"])
+    inner = json.dumps({"v": 1, "dev": dev["id"], "body": body, "sig": b64(sig)}, separators=(",", ":"))
+    return b64(nb.crypto_box_seal(inner.encode(), bytes(to_pk)))
+
+
+def open_receipt(sealed_b64, pk, sk):
+    """mit dem eigenen Backup-Schluessel oeffnen -> (geraet, body, sig); CryptoError bei kaputtem Inhalt"""
+    raw = unseal(sealed_b64, pk, sk)
+    try:
+        d = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as e:
+        raise CryptoError("receipt") from e
+    if not isinstance(d, dict) or d.get("v") != 1 or not isinstance(d.get("body"), str) or not isinstance(d.get("dev"), str):
+        raise CryptoError("receipt version")
+    return d["dev"], d["body"], unb64(d.get("sig"), 64)
+
+
+def verify_receipt(chat, reader, dev_id, body, sig, sign_pk, v2=False):
+    return verify(sig, receipt_msg(chat, reader, dev_id, body, v2), sign_pk)
+
+
+def parse_receipt_body(body):
+    """-> {"id", "n", "ts"} oder None (Form falsch)"""
+    try:
+        d = json.loads(body)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(d, dict) or not isinstance(d.get("n"), int) or isinstance(d.get("n"), bool) or d["n"] < 0:
+        return None
+    ts = d.get("ts") if isinstance(d.get("ts"), (int, float)) and not isinstance(d.get("ts"), bool) else None
+    return {"id": str(d.get("id") or ""), "n": d["n"], "ts": ts}
