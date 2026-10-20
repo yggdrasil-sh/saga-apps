@@ -4,11 +4,13 @@ Geraete, Sicherheitsnummer (+ QR-Code), Mitglieder und Einstellungen eines Chats
 Nachrichtentexte werden nie als Markup interpretiert (escape; nur eigene Links fuer Adressen und [[note:ID]])."""
 import datetime as _dt
 import re
+import threading
 
 from gi.repository import Adw, Gdk, Gio, GLib, Graphene, Gsk, Gtk, Pango
 
 from . import chatcrypto as C
-from . import aichat, avatars, chatmedia, clipimg, config, images
+from . import chatstatus as S
+from . import aichat, avatars, chatmedia, chatvideo, clipimg, config, images
 from .api import APIError, client
 from .blocks import flat_button, menu_popover
 from .chat import (FED_CHECK_EVERY_S, NOTE_RX, RETENTIONS, ChatError, FedNotDelivered, SafetyChanged, chat, fmt_recovery, is_fed,
@@ -45,6 +47,36 @@ def watch_chat(widget, signal, cb, obj=None):
             st["h"] = None
     widget.connect("map", on_map)
     widget.connect("unmap", on_unmap)
+
+
+def shown(widget):
+    """Widget wirklich zu sehen: abgebildet und das Fenster nicht minimiert bzw. verdeckt (GTK ab 4.12: suspended)"""
+    if not widget.get_mapped():
+        return False
+    root = widget.get_root()
+    return root is not None and not (hasattr(root, "is_suspended") and root.is_suspended())
+
+
+def watch_presence(widget, fn):
+    """(2.4) Online-Status: solange das Widget zu sehen ist, die Personen aus fn() abonnieren (chat.presence_watch)"""
+    key = ("presence", id(widget))
+    st = {"h": None}
+
+    def on_map(*_):
+        chat.presence_watch(key, lambda: fn() if shown(widget) else [])
+        root = widget.get_root()
+        if st["h"] is None and root is not None and hasattr(root, "is_suspended"):
+            st["h"] = (root, root.connect("notify::suspended", lambda *_: chat._pres_soon()))
+
+    def on_unmap(*_):
+        chat.presence_watch(key, None)
+        if st["h"] is not None:
+            st["h"][0].disconnect(st["h"][1])
+            st["h"] = None
+    widget.connect("map", on_map)
+    widget.connect("unmap", on_unmap)
+    if widget.get_mapped():
+        on_map()
 
 
 def code_halves(code):
@@ -187,7 +219,8 @@ def snippet(m, n=80):
         return "📞 " + entry_text(m.get("call") or {}, chat.uid)
     t = NOTE_RX.sub("📄", m.get("text") or "").strip()
     if not t and m.get("files"):
-        t = "📎 " + (m["files"][0].get("n") or _("File"))
+        f0 = m["files"][0]
+        t = ("🎬 " if chatvideo.is_video(f0) else "📎 ") + (f0.get("n") or _("File"))
     t = " ".join(t.split())
     return t if len(t) <= n else t[:n - 1] + "…"
 
@@ -244,6 +277,7 @@ class ChatsScreen(Gtk.Box):
         watch_chat(self, "changed", lambda: self.render())
         watch_chat(self, "chat-changed", lambda cid: cid == self.cid and self._header())
         watch_chat(self, "chat-gone", self._chat_gone)
+        watch_chat(self, "presence", lambda: (self._header(), self.list.fill() if chat.status == "ready" else None))
         self.connect("unmap", lambda *_: setattr(chat, "open_chat", None))
         self._state = None
         self.render(force=True)
@@ -364,9 +398,11 @@ class ChatsScreen(Gtk.Box):
                 parts.append(_("Request"))
             if c.get("readonly"):
                 parts.append(_("read-only"))
-            return chat.title(c), " · ".join(parts) + arch
+            on = S.presence_text(chat.pres.get(S.presence_user(chat.me, c)))     # (2.4) online / zuletzt online
+            return chat.title(c), " · ".join(([on] if on else []) + parts) + arch
         if c.get("kind") == "dm":
-            return chat.title(c), _("End-to-end encrypted") + arch
+            on = S.presence_text(chat.pres.get(S.presence_user(chat.me, c)))
+            return chat.title(c), (on or _("End-to-end encrypted")) + arch
         n = int(c.get("member_count") or len(c.get("members") or []))
         sub = chat.kind_label(c) + " · " + ngettext("{n} person", "{n} people", n).format(n=n)
         if is_fed(c):                                    # 2.3: Gruppe/Seiten-Chat ueber Servergrenzen - Heim, Stand
@@ -419,6 +455,16 @@ class ChatList(Gtk.Box):
         sw.set_child(self.box)
         self.append(sw)
         self.sig = None
+        watch_presence(self, self._presence_users)
+
+    def _presence_users(self):
+        """(2.4) Online-Status: Gegenueber der sichtbaren Direkt-Chats (die ersten der Liste, ohne Archiv und Anfragen)"""
+        out = []
+        for c in chat.chats:
+            u = None if c.get("archived") else S.presence_user(chat.me, c)
+            if u and u not in out:
+                out.append(u)
+        return out[:S.PRESENCE_LIST]
 
     arch_open = False            # Bereich "Archiviert" aufgeklappt (fuer die Sitzung, ueber Neuaufbauten hinweg)
 
@@ -443,7 +489,8 @@ class ChatList(Gtk.Box):
         show_arch = ChatList.arch_open or bool(q)
         sig = (q, self.screen.cid, show_arch, tuple((c.get("id"), chat.title(c), c.get("unread"), c.get("muted"), c.get("last_at"),
                                                      c.get("archived"), (chat.peer(c) or {}).get("avatar") if c.get("kind") == "dm" else None,
-                                                     c.get("request"), c.get("readonly"))
+                                                     c.get("request"), c.get("readonly"),
+                                                     bool((chat.pres.get(S.presence_user(chat.me, c)) or {}).get("online")))
                                                     for c in reqs + lst))
         if sig == self.sig:
             return
@@ -522,7 +569,15 @@ class ChatList(Gtk.Box):
         elif c.get("kind") == "page":
             from .publish import _icon
             av.set_icon_name(_icon("saga-page-symbolic", "text-x-generic-symbolic"))
-        box.append(av)
+        online = bool((chat.pres.get(S.presence_user(chat.me, c)) or {}).get("online"))
+        if online:                                       # (2.4) gruener Punkt am Bild: Gegenueber ist online
+            ov = Gtk.Overlay(child=av, valign=Gtk.Align.CENTER)
+            dot = Gtk.Box(halign=Gtk.Align.END, valign=Gtk.Align.END, width_request=12, height_request=12)
+            dot.add_css_class("hk-online-dot")
+            ov.add_overlay(dot)
+            box.append(ov)
+        else:
+            box.append(av)
         col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, valign=Gtk.Align.CENTER)
         t = Gtk.Label(label=title, xalign=0, ellipsize=Pango.EllipsizeMode.END)
         un = int(c.get("unread") or 0)
@@ -562,7 +617,8 @@ class ChatList(Gtk.Box):
         right.append(bx)
         box.append(right)
         row.set_child(box)
-        acc = title + " – " + sub + (" – " + ngettext("{n} unread", "{n} unread", un).format(n=un) if un else "")
+        acc = title + " – " + sub + (" – " + _("online") if online else "") + \
+            (" – " + ngettext("{n} unread", "{n} unread", un).format(n=un) if un else "")
         row.update_property([Gtk.AccessibleProperty.LABEL], [acc])
         # Kontextmenue (2.1): Rechtsklick, Langdruck (Touch), Menue-Taste bzw. Umschalt+F10
         rc = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)
@@ -623,7 +679,8 @@ class Conversation(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, vexpand=True, hexpand=True)
         self.screen, self.win, self.cid = screen, screen.win, cid
         self.reply = None
-        self.files = []              # [(name, mime, bytes)]
+        self.files = []              # [(name, mime, bytes | chatvideo.LocalVideo)]
+        self._sending = None         # threading.Event waehrend des Sendens (Abbrechen)
         self.mentions = {}           # "@Titel" -> Seiten-ID
         self.query = ""
         self.sig = None
@@ -633,6 +690,10 @@ class Conversation(Gtk.Box):
         self._imgs_building = None
         self._vis_pending = 0
         self._pinned = 0
+        self.rows_by_id = {}         # (2.4) Nachrichten-ID -> Zeile (sichtbar? fuer Gelesen-Bestaetigungen)
+        self.ticks = {}              # (2.4) eigene Nachricht -> (Platz fuer die Haken, Nachricht, Zustand)
+        self._rc_soon = Debounce(300, self._mark_read)
+        self._active_h = None
         # Hinweise oben: Sicherheitsnummer geaendert / nicht eingerichtet
         self.warn_rev = Gtk.Revealer(transition_type=Gtk.RevealerTransitionType.SLIDE_DOWN)
         from .page import BannerBox, BannerRow
@@ -697,12 +758,15 @@ class Conversation(Gtk.Box):
         watch_chat(self, "chat-changed", lambda cid: cid == self.cid and self._chat_changed())
         watch_chat(self, "ai-pending", lambda cid: cid == self.cid and self._pending_changed())
         watch_chat(self, "chat-gone", lambda cid, how, _n: cid == self.cid and self._wiped())
+        watch_chat(self, "receipts", lambda cid: cid == self.cid and self._update_ticks())     # (2.4)
+        watch_presence(self, lambda: [u for u in [S.presence_user(chat.me, chat.chat(self.cid))] if u])
         from .assistant import ai
         watch_chat(self, "changed", lambda: self._ai_changed(), obj=ai)
         self.connect("map", lambda *_: self._mapped())
         self.connect("map", self._vis_soon)
         self._dcheck_src = 0                              # (2.3) Abgleich wartender eigener Nachrichten, solange offen
         self.connect("unmap", lambda *_: self._dcheck_stop())
+        self.connect("unmap", lambda *_: self._active_watch(False))
         self.loaded = False
         self.render()
         if not chat.cache.get(cid, {}).get("loaded"):
@@ -727,6 +791,7 @@ class Conversation(Gtk.Box):
         self._to_bottom()
         self._mark_read()
         self._check_trust()
+        chat.load_receipts(self.cid)                      # (2.4) wer hat was gelesen
         c = chat.chat(self.cid)
         if chat.ready and is_fed(c):                      # 2.3: Schluessel frisch holen, selbst pruefen, TOFU
             bg(chat.fed_load, c, done=lambda _r: (self._check_trust(), self.screen._header()), error=lambda e: None)
@@ -736,8 +801,17 @@ class Conversation(Gtk.Box):
 
     def _mapped(self):
         chat.open_chat = self.cid
+        self._active_watch(True)
         if not self._dcheck_src:
             self._dcheck_src = GLib.timeout_add_seconds(FED_CHECK_EVERY_S, self._dcheck_tick)
+
+    def _active_watch(self, on):
+        """(2.4) Fenster wird wieder aktiv: jetzt Sichtbares bestaetigen"""
+        if self._active_h is not None:
+            self._active_h[0].disconnect(self._active_h[1])
+            self._active_h = None
+        if on and self.win is not None:
+            self._active_h = (self.win, self.win.connect("notify::is-active", lambda w, _p: w.is_active() and self._rc_soon()))
 
     def _dcheck_tick(self):
         """(2.3) alle 15 s: wartet eine eigene Nachricht ("wird zugestellt"), ihren Stand beim Server nachsehen (Server bis
@@ -1040,6 +1114,8 @@ class Conversation(Gtk.Box):
     def _scrolled(self, adj):
         self.at_bottom = adj.get_value() + adj.get_page_size() >= adj.get_upper() - 40
         self._vis_soon()
+        if self.loaded:
+            self._rc_soon()                               # (2.4) neue Nachricht ins Bild gescrollt: bestaetigen
 
     # --- Bilder nur fuer sichtbare Zeilen (2.1-c) ---------------------------------------------------------------------
     def _vis_soon(self, *_a):
@@ -1127,6 +1203,7 @@ class Conversation(Gtk.Box):
         group = (chat.chat(self.cid) or {}).get("kind") != "dm"
         prev = None
         old, keep, imgs = self.bubbles, {}, []
+        rows, ticks = {}, {}
         for m in shown:
             day = _day_label(m.get("created") or (m.get("ts") or 0) / 1000)
             if prev is None or _day_label(prev.get("created") or (prev.get("ts") or 0) / 1000) != day:
@@ -1144,6 +1221,11 @@ class Conversation(Gtk.Box):
             keep[key] = row
             imgs += row.hk_imgs
             self.msgs.append(row)
+            rows[m["id"]] = row
+            slot = getattr(row, "hk_tick", None)
+            if slot is not None:
+                old_t = self.ticks.get(m["id"])
+                ticks[m["id"]] = (slot, m, old_t[2] if old_t and old_t[0] is slot else None)
             prev = m
         for row in old.values():                          # nicht mehr angezeigt: wartende Bilder verwerfen
             for w in row.hk_imgs:
@@ -1151,6 +1233,8 @@ class Conversation(Gtk.Box):
         if self.pending_row is not None and not q:        # laufende KI-Antwort bleibt unten
             self.msgs.append(self.pending_row)
         self.bubbles, self.img_widgets = keep, imgs
+        self.rows_by_id, self.ticks = rows, ticks
+        self._update_ticks()
         self._vis_soon()
         if q:
             self.search_count.set_label(ngettext("{n} match", "{n} matches", len(shown)).format(n=len(shown)))
@@ -1172,8 +1256,77 @@ class Conversation(Gtk.Box):
         chat.load_messages(self.cid, older=True, done=keep)
 
     def _mark_read(self):
-        if chat.open_chat == self.cid:
-            chat.mark_read(self.cid)
+        if chat.open_chat == self.cid and self.loaded:
+            chat.mark_read(self.cid, visible=self._receipt_visible)
+
+    # --- Gelesen-Bestaetigungen (2.4) ----------------------------------------------------------------------------------
+    def _receipt_visible(self):
+        """Bestaetigen nur, was wirklich zu sehen ist: Fenster aktiv, Unterhaltung offen, Zeile der Nachricht im Bild"""
+        if self.win is None or not self.win.is_active() or not shown(self) or chat.open_chat != self.cid:
+            return False
+        w = chat.receipt_want(self.cid)
+        row = self.rows_by_id.get((w or {}).get("id"))
+        if row is None:
+            return False
+        ok, r = row.compute_bounds(self.clamp)
+        if not ok or row.get_height() <= 0:
+            return False
+        adj = self.scroll.get_vadjustment()
+        y0 = r.get_y() - adj.get_value()
+        return y0 + r.get_height() > 0 and y0 < (adj.get_page_size() or 0)
+
+    def _update_ticks(self):
+        """Haken eigener Nachrichten an Ort und Stelle aktualisieren (ohne die Blasen neu zu bauen)"""
+        c = chat.chat(self.cid) or {}
+        rc = chat.rcpts.get(self.cid) or {}
+        for mid, (slot, m, cur) in list(self.ticks.items()):
+            t = S.tick(chat.me, c, m, rc)
+            if t == cur:
+                continue
+            self.ticks[mid] = (slot, m, t)
+            while (w := slot.get_first_child()):
+                slot.remove(w)
+            if isinstance(t, tuple):
+                slot.append(self._tick_widget(c, m, t))
+            slot.set_visible(isinstance(t, tuple))
+
+    def _tick_widget(self, c, m, t):
+        group = c.get("kind") != "dm"
+        mark, text = S.tick_text(t, group)
+        label = mark + (f" {t[1]}" if group and t[0] == "read" and not t[2] else "")
+        if group and t[0] == "read":                     # Gruppen: Tippen zeigt "Gelesen von …"
+            w = Gtk.Button(label=label, valign=Gtk.Align.CENTER)
+            w.add_css_class("flat")
+            w.add_css_class("hk-tick-btn")
+            w.connect("clicked", lambda *_: self.read_by(m))
+        else:
+            w = Gtk.Label(label=label)
+            w.add_css_class("caption")
+        w.add_css_class("hk-tick")
+        if t[0] == "read":
+            w.add_css_class("hk-tick-read")
+        w.set_tooltip_text(text)
+        w.update_property([Gtk.AccessibleProperty.LABEL], [text])
+        return w
+
+    def read_by(self, m):
+        """Gruppe: "Gelesen von" - Name und Zeit je Person, neueste zuerst"""
+        c = chat.chat(self.cid) or {}
+        rd = sorted(S.readers(c, m, chat.rcpts.get(self.cid) or {}) if S.rc_ok(chat.me, c) else [],
+                    key=lambda r: -(r.get("ts") or 0))
+        d = Adw.AlertDialog(heading=_("Read by"), body=_("People who turned off read receipts don't appear here."))
+        lb = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        lb.add_css_class("boxed-list")
+        if not rd:
+            lb.append(Adw.ActionRow(title=_("Nobody has read it yet.")))
+        for r in rd:
+            ts = r.get("ts")
+            sub = (_day_label(ts / 1000) + " " + _time(ts / 1000)) if ts else ""
+            lb.append(Adw.ActionRow(title=GLib.markup_escape_text(r["name"]), subtitle=GLib.markup_escape_text(sub)))
+        d.set_extra_child(lb)
+        d.add_response("close", _("Close"))
+        d.present(self.win)
+        return d
 
     def _search(self, q):
         self.query = q.strip()
@@ -1325,6 +1478,9 @@ class Conversation(Gtk.Box):
             acc.append(_("not delivered"))
         tm = _lbl(_time(m.get("created") or (m.get("ts") or 0) / 1000), ("caption", "dim-label"), wrap=False)
         meta.append(tm)
+        if mine:                                         # (2.4) ✓ zugestellt, ✓✓ gelesen - _update_ticks fuellt ihn
+            row.hk_tick = Gtk.Box(visible=False)
+            meta.append(row.hk_tick)
         b.append(meta)
         row.append(b)
         b.update_property([Gtk.AccessibleProperty.LABEL], [" – ".join(acc)])
@@ -1370,6 +1526,10 @@ class Conversation(Gtk.Box):
                 ents.append((_("Copy text"), lambda: (self.win.copy_text(m["text"]), _toast(self.win, _("Copied.")))))
         if m.get("fstate") == "failed" and m.get("mine") and isinstance(m.get("body"), dict):     # (2.3)
             ents.append((_("Send again"), lambda: chat.resend(self.cid, m, error=lambda e: _toast(self.win, _("Not sent: {err}").format(err=e)))))
+        c = chat.chat(self.cid) or {}
+        if m.get("mine") and c.get("kind") != "dm" and isinstance(S.tick(chat.me, c, m, chat.rcpts.get(self.cid)), tuple) \
+                and S.rc_ok(chat.me, c):                 # (2.4) Gruppe: wer hat gelesen
+            ents.append((_("Read by …"), lambda: self.read_by(m)))
         if m.get("mine"):
             ents += [None, (_("Delete for everyone"), lambda: self._ask_delete(m), True)]
         if ents:
@@ -1384,7 +1544,21 @@ class Conversation(Gtk.Box):
     # --- Anhaenge ------------------------------------------------------------------------------------------------------
     def _file(self, f):
         name = f.get("n") or _("File")
-        if chatmedia.is_image(f):
+        x = chatvideo.fmt(f)
+        if x > 2:                                          # neueres Format: nicht still scheitern
+            btn = Gtk.Button(sensitive=False)
+            bx = Gtk.Box(spacing=8)
+            bx.append(Gtk.Image.new_from_icon_name("mail-attachment-symbolic"))
+            col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            col.append(_lbl(name, wrap=False, ellipsize=Pango.EllipsizeMode.MIDDLE, max_width_chars=36))
+            col.append(_lbl(_("Open with a newer Saga version"), ("caption", "dim-label"), wrap=False))
+            bx.append(col)
+            btn.set_child(bx)
+            btn.add_css_class("hk-file-btn")
+            return btn
+        if chatvideo.is_video(f):
+            return self._video(f)
+        if chatmedia.is_image(f) and x == 1:
             img = ChatImage(self.cid, f)
             if self._imgs_building is not None:
                 self._imgs_building.append(img)
@@ -1407,9 +1581,33 @@ class Conversation(Gtk.Box):
         btn.connect("clicked", lambda *_: self._save_file(f))
         return btn
 
-    def _save_file(self, f):
+    def _video(self, f):
+        """Video (2.4) im Verlauf: nur das Poster (lazy wie Vorschaubilder), Dauer und Abspiel-Symbol - nie ein Player"""
+        name = f.get("n") or _("Video")
+        img = ChatImage(self.cid, f, wh=chatvideo.display_size(f), poster=chatmedia.thumb_ref(f) is not None)
+        if self._imgs_building is not None:
+            self._imgs_building.append(img)
+        ov = Gtk.Overlay(child=img)
+        play = Gtk.Image(icon_name="media-playback-start-symbolic", pixel_size=22, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+        play.add_css_class("hk-video-play")
+        ov.add_overlay(play)
+        d = chatvideo.dur_text(f.get("dur")) if f.get("dur") else ""
+        if d:
+            dl = Gtk.Label(label=d, halign=Gtk.Align.END, valign=Gtk.Align.END, margin_end=6, margin_bottom=6)
+            dl.add_css_class("hk-video-dur")
+            ov.add_overlay(dl)
+        btn = Gtk.Button(child=ov, halign=Gtk.Align.START, tooltip_text=f"{name} · {human_size(int(f.get('s') or 0))}")
+        btn.add_css_class("flat")
+        btn.add_css_class("hk-img-btn")
+        btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Play video: {name}").format(name=name)])
+        btn.connect("clicked", lambda *_: VideoViewer(self, f).present(self.win))
+        return btn
+
+    def _save_file(self, f, progress=None, done=None):
+        """Speichern: Gtk.FileDialog, entschluesselt als Strom (v2 Block fuer Block, nie ganz im Speicher)"""
         name = re.sub(r"[/\\\x00-\x1f]", "-", f.get("n") or "datei").strip(". ") or "datei"
         fd = Gtk.FileDialog(title=_("Save attachment"), initial_name=name)
+        cid = self.cid
 
         def chosen(d, res):
             try:
@@ -1419,12 +1617,35 @@ class Conversation(Gtk.Box):
             if gf is None:
                 return
 
+            def prog(n, total):
+                if progress:
+                    GLib.idle_add(progress, n / max(1, total))
+
             def work():
-                data = chat.fetch_file(self.cid, f)
-                gf.replace_contents(data, None, False, Gio.FileCreateFlags.REPLACE_DESTINATION, None)
+                out = gf.replace(None, False, Gio.FileCreateFlags.REPLACE_DESTINATION, None)
+                try:
+                    chat.save_file(cid, f, lambda b: out.write_all(b, None), prog)
+                except BaseException:
+                    c = Gio.Cancellable()
+                    c.cancel()                             # abgebrochen: Ziel bleibt unveraendert (keine halbe Datei)
+                    try:
+                        out.close(c)
+                    except GLib.Error:
+                        pass
+                    raise
+                out.close(None)
                 return gf
-            bg(work, done=lambda g: _toast(self.win, _("Saved: {name}").format(name=g.get_basename() or name)),
-               error=lambda e: _toast(self.win, _("Attachment not loaded: {err}").format(err=e)), media=True)
+
+            def fin(g):
+                _toast(self.win, _("Saved: {name}").format(name=g.get_basename() or name))
+                if done:
+                    done(True)
+
+            def err(e):
+                _toast(self.win, _("Attachment not loaded: {err}").format(err=e))
+                if done:
+                    done(False)
+            bg(work, done=fin, error=err, media=True)
         fd.save(self.win, None, chosen)
 
     # --- Eingabe -----------------------------------------------------------------------------------------------------
@@ -1577,13 +1798,27 @@ class Conversation(Gtk.Box):
         """Dateien (Auswahl, Zwischenablage) als Anhaenge; zu grosse Bilder werden verkleinert, andere abgelehnt"""
         lim = chat.limits or {}
         fmax = int(lim.get("file_max") or 25 * 1048576)
+        ch = chat.chat(self.cid)
 
         def work():
+            from . import videotools
             out = []
             for g in gfiles:
                 info = g.query_info("standard::size,standard::content-type,standard::display-name", Gio.FileQueryInfoFlags.NONE, None)
                 name = info.get_display_name() or g.get_basename() or "datei"
                 mime = Gio.content_type_get_mime_type(info.get_content_type() or "") or "application/octet-stream"
+                if mime.startswith("video/") and g.get_path():
+                    # Video (2.4): nur Pfad merken - bis file_max v1, darueber saga-file/v2; zu gross: nur verkleinert
+                    size = info.get_size()
+                    try:
+                        chatvideo.plan(name, size, lim, ch, is_fed(ch))
+                        out.append((name, mime, chatvideo.LocalVideo(g.get_path(), size)))
+                    except chatvideo.VideoError as e:
+                        if videotools.can_optimize() and size > fmax and (lim.get("file2") or size < 8 * fmax):
+                            out.append((name, mime, chatvideo.LocalVideo(g.get_path(), size, optimize=True, forced=True)))
+                        else:
+                            out.append((name, None, str(e)))
+                    continue
                 if info.get_size() > fmax:
                     if mime.startswith("image/") or clipimg.file_is_image(g):
                         try:
@@ -1605,25 +1840,59 @@ class Conversation(Gtk.Box):
         bg(work, done=fin, error=lambda e: _toast(self.win, str(e)), media=True)
 
     def _files_bar(self):
+        from . import videotools
         self.files_bar.remove_all()
+        sending = bool(self._sending)
         for i, (name, mime, data) in enumerate(self.files):
             chip = Gtk.Box(spacing=6)
             chip.add_css_class("hk-tag")
-            if (mime or "").startswith("image/"):              # Vorschau des Bildes (nur im Speicher)
+            if isinstance(data, chatvideo.LocalVideo):         # Video (2.4): Pfad, Groesse, "optimiert 720p", Fortschritt
+                label = "🎬 " + name + " · " + human_size(len(data))
+                chip.append(_lbl(label, wrap=False, ellipsize=Pango.EllipsizeMode.MIDDLE, max_width_chars=28))
+                if videotools.can_optimize() and not sending:
+                    cb = Gtk.CheckButton(label=_("Optimized 720p"), active=data.optimize, sensitive=not data.forced)
+                    cb.set_tooltip_text(_("Make the video smaller before sending (H.264, 1280×720). Otherwise the original is sent."))
+                    cb.connect("toggled", lambda b, v=data: setattr(v, "optimize", b.get_active()))
+                    chip.append(cb)
+                if data.status:
+                    st = _lbl(data.status, ("caption", "dim-label"), wrap=False)
+                    st.add_css_class("hk-upload-status")
+                    chip.append(st)
+            elif (mime or "").startswith("image/"):              # Vorschau des Bildes (nur im Speicher)
                 pv = images.ImageView(mode="cover", radius=6)
                 pv.set_size_request(40, 40)
                 pv.set_valign(Gtk.Align.CENTER)
                 images.load_local(data, lambda d, pv=pv: d is not None and pv.set_decoded(d), max_px=96)
                 chip.append(pv)
-                label = name + " · " + human_size(len(data))
+                chip.append(_lbl(name + " · " + human_size(len(data)), wrap=False, ellipsize=Pango.EllipsizeMode.MIDDLE, max_width_chars=28))
             else:
-                label = "📎 " + name + " · " + human_size(len(data))
-            chip.append(_lbl(label, wrap=False, ellipsize=Pango.EllipsizeMode.MIDDLE, max_width_chars=28))
-            chip.append(flat_button(icon="window-close-symbolic", css="hk-tiny", tooltip=_("Remove"),
-                                    cb=lambda i=i: (self.files.pop(i), self._files_bar())))
+                chip.append(_lbl("📎 " + name + " · " + human_size(len(data)), wrap=False, ellipsize=Pango.EllipsizeMode.MIDDLE,
+                                 max_width_chars=28))
+            if not sending:
+                chip.append(flat_button(icon="window-close-symbolic", css="hk-tiny", tooltip=_("Remove"),
+                                        cb=lambda i=i: (self.files.pop(i), self._files_bar())))
             self.files_bar.append(chip)
+        if sending and any(isinstance(d, chatvideo.LocalVideo) for _n, _m, d in self.files):
+            self.files_bar.append(_button(_("Cancel upload"), ("destructive-action",), cb=self._cancel_upload))
         self.files_bar.set_visible(bool(self.files))
         self._changed(self.entry.get_buffer())
+
+    def _cancel_upload(self):
+        if self._sending:
+            self._sending.set()
+
+    def _upload_status(self, i, text):
+        """Fortschritt eines Anhangs (Hauptthread)"""
+        if 0 <= i < len(self.files) and isinstance(self.files[i][2], chatvideo.LocalVideo):
+            self.files[i][2].status = text
+            ch = self.files_bar.get_child_at_index(i)
+            box = ch.get_child() if ch else None
+            last = box.get_last_child() if box else None
+            if isinstance(last, Gtk.Label) and last.has_css_class("hk-upload-status"):
+                last.set_label(text)
+            else:
+                self._files_bar()
+        return False
 
     def _page_popover(self):
         pop = Gtk.Popover()
@@ -1685,17 +1954,33 @@ class Conversation(Gtk.Box):
         cid = self.cid
         self.send_btn.set_sensitive(False)
         self.entry.set_sensitive(False)
+        stop = threading.Event()
+        self._sending = stop
+        pending = []
+        if any(isinstance(d, chatvideo.LocalVideo) for _n, _m, d in files):
+            self._files_bar()
 
         def work():
-            fobjs, fids = chat.upload_attachments(cid, files)
+            fobjs, fids = chat.upload_attachments(cid, files, progress=lambda i, t: GLib.idle_add(self._upload_status, i, t),
+                                                  cancelled=stop.is_set, pending=pending)
             body = {"v": 1, "type": "text", "text": text}
             if fobjs:
                 body["files"] = fobjs
             if notes:
                 body["notes"] = notes
-            return chat.send(cid, body, reply_to=reply, file_ids=fids)
+            r = chat.send(cid, body, reply_to=reply, file_ids=fids)
+            for p in pending:                              # gesendet: Fortsetzungsdaten (K, Praefix) vergessen
+                chatvideo.pending_drop(p)
+            return r
+
+        def done_sending():
+            self._sending = None
+            for _n, _m, d in self.files:
+                if isinstance(d, chatvideo.LocalVideo):
+                    d.status = ""
 
         def fin(r):
+            done_sending()
             resp, missing = r
             buf.set_text("")
             self.files, self.mentions = [], {}
@@ -1713,8 +1998,13 @@ class Conversation(Gtk.Box):
             self._ask_ai(cid, raw, (resp or {}).get("id"))
 
         def err(e):
+            done_sending()
+            self._files_bar()
             self.entry.set_sensitive(True)
             self._changed(buf)
+            if isinstance(e, chatvideo.Cancelled):
+                _toast(self.win, _("Upload cancelled."))
+                return
             if isinstance(e, SafetyChanged):
                 self._check_trust()
             if isinstance(e, FedNotDelivered):            # (2.3) vom Heim abgewiesen (z. B. gesperrt)
@@ -1895,12 +2185,12 @@ class ChatImage(Gtk.Widget):
     """Bild im Verlauf: Platzhalter in der richtigen Groesse (w/h aus der Nachricht), Vorschaubild erst wenn sichtbar"""
     __gtype_name__ = "HKChatImage"
 
-    def __init__(self, cid, f):
+    def __init__(self, cid, f, wh=None, poster=True):
         super().__init__()
         self.cid, self.f = cid, f
         self.tex = None
-        self.state = "idle"                                # idle | wait | ok | fail
-        self.bw, self.bh = chatmedia.box_size(chatmedia.size_of(f))
+        self.state = "idle" if poster else "none"          # idle | wait | ok | fail | none (Video ohne Poster: nichts laden)
+        self.bw, self.bh = chatmedia.box_size(wh or chatmedia.size_of(f) or ((1280, 720) if not poster or chatvideo.is_video(f) else None))
         self._cb = self._got                               # feste Referenz (cancel vergleicht mit "is")
         self.set_overflow(Gtk.Overflow.HIDDEN)
         self.add_css_class("hk-bubble-img")
@@ -1921,7 +2211,7 @@ class ChatImage(Gtk.Widget):
             self.tex = None
             self.add_css_class("hk-img-wait")
             self.queue_draw()
-        elif self.state == "fail":
+        elif self.state in ("fail", "none"):
             return
         self.state = "idle"
 
@@ -1937,7 +2227,7 @@ class ChatImage(Gtk.Widget):
             return
         self.tex, self.state = tex, "ok"
         self.remove_css_class("hk-img-wait")
-        if chatmedia.size_of(self.f) is None:              # alte Nachricht ohne w/h: Groesse jetzt bekannt
+        if chatmedia.size_of(self.f) is None and not chatvideo.is_video(self.f):   # alte Nachricht ohne w/h: Groesse jetzt bekannt
             bw, bh = chatmedia.box_size(wh or (tex.get_width(), tex.get_height()))
             if (bw, bh) != (self.bw, self.bh):
                 self.bw, self.bh = bw, bh
@@ -1956,10 +2246,10 @@ class ChatImage(Gtk.Widget):
         if W <= 0 or H <= 0:
             return
         if self.tex is None:
-            if self.state == "fail":
+            if self.state in ("fail", "none"):
                 c = Gdk.RGBA()
                 c.parse("rgba(127,127,127,0.5)")
-                lay = self.create_pango_layout("🖼")
+                lay = self.create_pango_layout("🎬" if chatvideo.is_video(self.f) else "🖼")
                 lw, lh = lay.get_pixel_size()
                 snap.save()
                 p = Graphene.Point()
@@ -2021,6 +2311,98 @@ class ImageViewer(Adw.Dialog):
     def _fail(self, e):
         self.err.set_label(_("Attachment not loaded: {err}").format(err=e or _("not loaded")))
         self.stack.set_visible_child_name("err")
+
+
+class VideoViewer(Adw.Dialog):
+    """Video abspielen (2.4): erst beim Oeffnen; ein Player (GStreamer) ueber den lokalen Proxy (Range, blockweise
+    entschluesselt, Spulen). v1 (bis file_max) wird ganz geladen. Ohne GStreamer/Codec: Hinweis "Herunterladen und extern
+    abspielen" mit Speichern-Knopf."""
+    def __init__(self, conv, f):
+        super().__init__(title=f.get("n") or _("Video"), content_width=960, content_height=640)
+        self.conv, self.f = conv, f
+        self.stream, self.tok = None, None
+        tv = Adw.ToolbarView()
+        hb = Adw.HeaderBar()
+        self.save_btn = Gtk.Button(icon_name="document-save-symbolic", tooltip_text=_("Save attachment"))
+        self.save_btn.connect("clicked", lambda *_: self._save())
+        hb.pack_start(self.save_btn)
+        self.prog = _lbl("", ("caption", "dim-label"), wrap=False)
+        hb.pack_start(self.prog)
+        tv.add_top_bar(hb)
+        self.stack = Gtk.Stack()
+        sp = Adw.Spinner() if hasattr(Adw, "Spinner") else Gtk.Spinner(spinning=True)
+        sp.set_size_request(32, 32)
+        sp.set_halign(Gtk.Align.CENTER)
+        sp.set_valign(Gtk.Align.CENTER)
+        self.stack.add_named(sp, "wait")
+        self.video = Gtk.Video(autoplay=True, vexpand=True, hexpand=True)
+        self.stack.add_named(self.video, "play")
+        self.err = Adw.StatusPage(icon_name="video-x-generic-symbolic")
+        b = Gtk.Button(label=_("Save …"), halign=Gtk.Align.CENTER)
+        b.add_css_class("pill")
+        b.add_css_class("suggested-action")
+        b.connect("clicked", lambda *_: self._save())
+        self.err.set_child(b)
+        self.stack.add_named(self.err, "err")
+        tv.set_content(self.stack)
+        self.set_child(tv)
+        self.connect("closed", lambda *_: self._stop())
+        self._start()
+
+    def _start(self):
+        from . import videotools
+        if not videotools.can_play():
+            self._fail(_("Videos can't be played here (GStreamer is missing)."), hint=True)
+            return
+        if chatvideo.fmt(self.f) == 2:
+            try:
+                self._play(chatvideo.VideoSource(self.conv.cid, self.f))
+            except (C.CryptoError, ValueError) as e:
+                self._fail(_("Attachment not loaded: {err}").format(err=e))
+            return
+        mime = self.f.get("m") or "video/mp4"
+        bg(chatmedia.original, self.conv.cid, self.f, done=lambda d: self._play(chatvideo.MemorySource(d, mime)),
+           error=lambda e: self._fail(_("Attachment not loaded: {err}").format(err=e)), media=True)
+
+    def _play(self, src):
+        if self.stream is False:                           # inzwischen geschlossen
+            return
+        from .videoplayer import SagaMediaStream
+        url, self.tok = chatvideo.proxy.register(src)
+        try:
+            self.stream = SagaMediaStream(url, on_error=self._play_error)
+        except (GLib.Error, TypeError, AttributeError) as e:
+            self._fail(str(e), hint=True)
+            return
+        self.video.set_media_stream(self.stream)
+        self.stack.set_visible_child_name("play")
+
+    def _play_error(self, text, codec):
+        """Player-Fehler (Codec fehlt, unbekanntes Format ...): Hinweis "Herunterladen und extern abspielen" """
+        self._fail(_("This video can't be played here."), hint=True, detail=None if codec else text)
+
+    def _fail(self, text, hint=False, detail=None):
+        self._stop(keep=True)
+        self.err.set_title(text)
+        desc = _("Download it and play it in another app.") if hint else ""
+        if detail:
+            desc += "\n<small>" + GLib.markup_escape_text(detail) + "</small>"
+        self.err.set_description(desc)
+        self.stack.set_visible_child_name("err")
+
+    def _save(self):
+        self.save_btn.set_sensitive(False)
+        self.conv._save_file(self.f, progress=lambda x: self.prog.set_label(f"{int(x * 100)} %"),
+                             done=lambda ok: (self.save_btn.set_sensitive(True), self.prog.set_label("")))
+
+    def _stop(self, keep=False):
+        st, self.stream = self.stream, (None if keep else False)
+        if st:
+            self.video.set_media_stream(None)
+            st.close()
+        if self.tok:
+            chatvideo.proxy.unregister(self.tok)
+            self.tok = None
 
 
 def open_safety(win, cid, uid):
@@ -2935,6 +3317,7 @@ class ChatDevicesPage(Adw.PreferencesPage):
             g.add(r)
         self.add(g)
         self.groups.append(g)
+        self._privacy_group()                                # (2.4) gut auffindbar gleich nach den Geraeten
         if chat.ready:
             g2 = Adw.PreferencesGroup(title=_("Recovery key"),
                                       description=_("Lost it or someone may have seen it? Create a new one – the old one stops working. "
@@ -2977,6 +3360,44 @@ class ChatDevicesPage(Adw.PreferencesPage):
             show(self._fed["blocks"])
         elif not self._fed.get("blocks_off"):                 # aeltere Server: einmal fragen, dann nicht mehr
             chat.load_blocks(show, error=lambda e: self._fed.__setitem__("blocks_off", True))
+
+    def _privacy_group(self):
+        """(2.4) Datenschutz: Gelesen-Bestaetigungen und Online-Status - getrennt, gegenseitig. Nur, wenn der Server es kann
+        (features in GET /api/chat/me); aeltere Server: Bereich bleibt weg."""
+        feats = S.features(chat.me)
+        if chat.status != "ready" or not {"receipts", "online"} & feats:
+            return
+        g = Adw.PreferencesGroup(title=_("Privacy"))
+        self.add(g)
+        self.groups.append(g)
+        p = S.privacy(chat.me)
+        for field, title, sub in (
+                ("receipts", _("Send read receipts"),
+                 _("Off: Others don't see whether you've read their messages – and you don't see it for them either.")),
+                ("online", _("Show online status"),
+                 _("Off: Your chat partners don't see whether or when you were last online – and you don't see it for them "
+                   "either."))):
+            if field not in feats:
+                continue
+            row = Adw.SwitchRow(title=title, subtitle=sub, active=p[field])
+            row.hk_field = field
+            row.connect("notify::active", self._privacy_changed)
+            g.add(row)
+
+    def _privacy_changed(self, row, _p):
+        on = row.get_active()
+        if S.privacy(chat.me).get(row.hk_field) == on:     # Neuaufbau bzw. Rueckstellung nach einem Fehler
+            return
+        row.set_sensitive(False)
+
+        def done(_j):
+            row.set_sensitive(True)
+
+        def err(e):
+            row.set_sensitive(True)
+            row.set_active(not on)
+            self.dlg.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(e))))
+        chat.set_privacy(row.hk_field, on, done=done, error=err)
 
     def _directory_group(self):
         """(2.3) "In Adressbuechern verbundener Server erscheinen" - nur, wenn dieser Server mit anderen verbunden ist

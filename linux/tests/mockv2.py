@@ -13,6 +13,7 @@ import secrets
 import time
 
 import mockki
+import mockv24
 from hlidskjalf import chatcrypto as C
 
 
@@ -57,6 +58,7 @@ def init(s):
     s.fed = {}                    # negative id -> Seite (mit remote)
     s.fed_unreachable = []
     s.fed_api = True
+    mockv24.init(s)               # Saga 2.4: Gelesen-Bestaetigungen, Online-Status
     # Immich (Proxy des Servers): None = nicht verbunden; sonst {id: {name, mime, original, preview, thumb}}
     s.immich = None
     s.immich_albums = []
@@ -407,12 +409,12 @@ def _chat_api(s, method, path, parts, q, b, raw):
         devs = [{"id": i, "name": d["name"], "created": d["created"], "last_seen": d["last_seen"], "revoked": bool(d["revoked"]),
                  "current": i == dev, "enc_pub": d["enc_pub"], "sign_pub": d["sign_pub"], "sig": d["sig"]}
                 for i, d in s.cdevices.items() if d["uid"] == me]
-        return s._reply(200, {"enabled": s.chat_enabled, "uid": me, "name": s.names.get(me, me), "identity": s.idents.get(me),
+        return s._reply(200, mockv24.me_extra(s, {"enabled": s.chat_enabled, "uid": me, "name": s.names.get(me, me), "identity": s.idents.get(me),
                               "devices": devs, "links": sum(1 for x in s.links.values() if not x.get("approved")),
                               "reauth": s.reauth_need,
                               "limits": {"msg_max": 65536, "file_max": 25 * 1048576, "members_max": 100, "devices_max": 10,
                                          "files_per_msg": 10, "retention_max": 0,
-                                         "retentions": [0, 3600, 86400, 604800, 2592000, 7776000, 31536000]}})
+                                         "retentions": [0, 3600, 86400, 604800, 2592000, 7776000, 31536000]}}))
     if path == "api/chat/identity" and method == "PUT":
         if me in s.idents and not b.get("reset"):
             return s._reply(409, {"error": "Chats sind für dieses Konto schon eingerichtet."})
@@ -670,6 +672,9 @@ def handle(s, method, path, parts, q, b, raw):
     if (path.startswith("api/chat/") or path == "api/chat" or path.startswith("api/chats")):
         if not s.chat_api:
             return s._reply(404, {"error": "not found"})
+        r = mockv24.handle(s, method, path, parts, q, b)               # (2.4) Gelesen, Online, Datenschutz
+        if r is not None:
+            return r
         r = _chat_api(s, method, path, parts, q, b, raw)
         if r is not None:
             return r

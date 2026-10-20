@@ -426,6 +426,51 @@ class Client:
         """Datei/Bild mit Sitzung laden (Bytes)"""
         return self.request("GET", path, timeout=timeout)
 
+    # --- Medien (2.4, Videos im Chat): Range, Upload in Teilen, Medien-Token ---------------------------------
+    def _media_send(self, method, url, data, headers, timeout):
+        """-> (status, Kopfzeilen {klein: Wert}, Bytes). data: Bytes oder Folge von Stuecken (mit Content-Length).
+        Die Tests ersetzen diese Methode."""
+        req = urllib.request.Request(url, data=data, method=method)
+        for k, v in headers.items():
+            req.add_header(k, v)
+        try:
+            with _opener.open(req, timeout=timeout) as r:
+                return r.status, {k.lower(): v for k, v in r.headers.items()}, r.read()
+        except urllib.error.HTTPError as e:
+            hd = {k.lower(): v for k, v in (e.headers or {}).items()}
+            try:
+                body = e.read() or b""
+            except OSError:
+                body = b""
+            return e.code, hd, body
+        except (urllib.error.URLError, OSError, TimeoutError) as e:
+            raise APIError(0, _unreachable(e)) from e
+
+    def media(self, method, path, body=None, headers=None, timeout=60, token=None):
+        """Medien-Anfrage -> (status, Kopfzeilen, Bytes); Fehlercodes kommen zurueck statt als APIError (Aufrufer
+        entscheidet: 206/409/416 ...). body: Bytes oder eine Funktion, die eine neue Folge von Stuecken liefert (fuer die
+        Wiederholung nach stillem Erneuern). token: Medien-Token (X-Saga-Media-Token, ohne Cookie) - bei 401 holt der
+        Aufrufer ein neues; ohne token gilt die Sitzung (401: einmal still erneuern)."""
+        for attempt in range(2):
+            url = self.url(path)
+            hd = {"X-Saga": "1", "X-Hlidskjalf": "1", "User-Agent": "Hlidskjalf-Linux/1.0", "Accept-Language": ACCEPT_LANGUAGE,
+                  "X-Saga-Chat": CHAT_V}
+            hd.update(headers or {})
+            if token:
+                hd["X-Saga-Media-Token"] = token
+            else:
+                ch = self.cookie_header_for(url)
+                if ch:
+                    hd["Cookie"] = ch
+            data = body() if callable(body) else body
+            code, rh, out = self._media_send(method, url, data, hd, timeout)
+            if not token:
+                self.take_cookies_for(url, _HeaderList(rh))
+            if code == 401 and not token and attempt == 0 and self.resume() == "ok":
+                continue
+            return code, rh, out
+        return 401, {}, b""
+
     # --- Ereignis-Stroeme (text/event-stream): Live-Kanal, KI-Assistent ------------------------------------
     def _open_stream(self, method, url, data, headers, timeout):
         """-> (status, Antwort mit readline()/close()) - die Tests ersetzen diese Methode"""
@@ -487,6 +532,17 @@ class Client:
                 self.take_cookies_for(url, hdrs)
             return r
         raise APIError(401)
+
+
+class _HeaderList:
+    """Kopfzeilen-Woerterbuch -> get_all() wie http.client (fuer take_cookies_for)"""
+
+    def __init__(self, d):
+        self.d = d or {}
+
+    def get_all(self, k):
+        v = self.d.get(k.lower())
+        return None if v is None else (v if isinstance(v, list) else [v])
 
 
 def _close(r):

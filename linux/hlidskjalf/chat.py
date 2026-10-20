@@ -20,8 +20,9 @@ import urllib.parse
 
 from gi.repository import GLib, GObject
 
-from . import APP_ID, aichat, chatmedia, config
+from . import APP_ID, aichat, chatmedia, chatvideo, config
 from . import chatcrypto as C
+from . import chatstatus as S
 from .api import APIError, client
 from .i18n import _, pgettext
 from .util import Debounce, bg
@@ -424,12 +425,19 @@ class ChatState(GObject.Object):
         # Chat geloescht/geleert (2.1): (chat, wie, Name) - wie: "removed" (fuer alle weg) | "hidden" (Direkt-Chat fuer mich
         # geloescht) | "cleared" (Verlauf geleert, Chat bleibt); Name: wer es getan hat ("" = ich bzw. unbekannt)
         "chat-gone": (GObject.SignalFlags.RUN_FIRST, None, (int, str, str)),
+        "receipts": (GObject.SignalFlags.RUN_FIRST, None, (int,)),          # (2.4) Gelesen-Bestaetigungen eines Chats
+        "presence": (GObject.SignalFlags.RUN_FIRST, None, ()),              # (2.4) Online-Status geaendert
     }
 
     def __init__(self):
         super().__init__()
+        self._pres_src = {}        # (2.4) sichtbare Ansichten -> fn() -> [Benutzername] (Abo des Online-Status)
+        self._pres_timer = 0
+        self._pres_retry = 0
+        self._rc_timer = {}
         self.clear()
         self._list_soon = Debounce(400, self.load_chats)
+        self._pres_soon = Debounce(400, self.presence_sync)
 
     def clear(self):
         self.status = "unknown"
@@ -454,6 +462,20 @@ class ChatState(GObject.Object):
         self.my_handle = None      # eigener foederierter Handle (2.3), sobald bekannt
         self.fk = {}               # Handle -> {"keys": gepruefte Schluessel | None, "trust", "stale", "stored"} (2.3)
         self.requests = 0          # Nachrichtenanfragen (2.3)
+        # (2.4) Gelesen-Bestaetigungen und Online-Status
+        self.rcpts = {}            # chat-id -> {von: {"n", "id", "ts"}} (geprueft, je Person das groesste n)
+        self.rc_sent = {}          # chat-id -> zuletzt bestaetigte Position
+        self.rc_at = {}            # chat-id -> monotonic der letzten gesendeten Bestaetigung
+        for src in list(self._rc_timer.values()):
+            GLib.source_remove(src)
+        self._rc_timer = {}
+        self.pres = {}             # Benutzername/Prinzipal -> {"online", "last"}
+        self._pres_users = []      # gerade abonniert
+        self._pres_at = 0.0
+        self._pres_run = False
+        self._pres_again = False
+        self._pres_miss = 0
+        self._pres_stop()
 
     # --- Grundlagen ---------------------------------------------------------------------------------------------
     @property
@@ -492,6 +514,7 @@ class ChatState(GObject.Object):
         """anderer Server / abgemeldet"""
         self.clear()
         chatmedia.clear()
+        chatvideo.clear()
         self.emit("changed")
 
     def refresh(self, done=None):
@@ -540,6 +563,7 @@ class ChatState(GObject.Object):
             self.emit("changed")
             if self.status == "ready":
                 self.load_chats()
+                self._pres_soon()                         # (2.4) Online-Status der sichtbaren Personen (Server kann es?)
                 if self.me.get("links"):
                     self.check_links()
                 self.fed_certs_soon()
@@ -709,6 +733,7 @@ class ChatState(GObject.Object):
     def forget_local(self):
         delete_keys(config.settings.server, self.uid)
         chatmedia.clear()
+        chatvideo.clear()
         self.keys = None
         self.cache = {}
         self.chats = []
@@ -1100,7 +1125,10 @@ class ChatState(GObject.Object):
                 self.emit("messages", cid)
         bg(client.get, "api/chat/notes?ids=" + ",".join(map(str, want)), done=fin, error=lambda e: None)
 
-    def mark_read(self, cid):
+    def mark_read(self, cid, visible=None):
+        """Lese-Zeiger wie bisher (POST /read mit seq). Dazu (2.4) die Gelesen-Bestaetigung: nur wenn visible() sagt, dass
+        die zu bestaetigende Nachricht wirklich zu sehen ist (Fenster aktiv, Chat offen, Zeile im Bild), hoechstens eine je
+        Chat und receipt_gap Sekunden (spaeter nachziehen statt verwerfen). Ohne Bestaetigung bleibt /read wie bisher."""
         c = self.cache.get(cid)
         ch = self.chat(cid)
         if not c or not c["msgs"]:
@@ -1111,15 +1139,63 @@ class ChatState(GObject.Object):
             self.unread = max(0, self.unread - (0 if ch.get("muted") or ch.get("archived") else int(ch.get("unread") or 0)))
             ch["unread"] = 0
             self.emit("changed")
-        if c.get("read_seq") == seq:
+        w = self.receipt_want(cid) if visible is not None else None
+        if w and not (visible() if callable(visible) else visible):
+            w = None
+        if w:
+            wait = S.gap(self.me) - (time.monotonic() - self.rc_at.get(cid, -1e9))
+            if wait > 0:
+                self._rc_later(cid, visible, wait)
+                w = None
+        if c.get("read_seq") == seq and not w:
             return
         c["read_seq"] = seq
+        body = {"seq": seq}
+        if w:
+            self.rc_at[cid] = time.monotonic()
+
+        def work():
+            if w:
+                try:
+                    keys = self._receipt_keys(cid, ch, w)
+                except (APIError, ChatError, C.CryptoError, KeyError, TypeError, ValueError):
+                    keys = None
+                if keys:
+                    body["receipt"] = {"keys": keys}
+                elif keys is not None:                    # niemand zu benachrichtigen: diese Position ist erledigt
+                    GLib.idle_add(self._rc_done, cid, w["n"])
+            return client.json("POST", f"api/chats/{cid}/read", body)
 
         def fin(j):
             if isinstance(j, dict) and "unread" in j:
                 self.unread = int(j["unread"] or 0)
                 self.emit("changed")
-        bg(client.json, "POST", f"api/chats/{cid}/read", {"seq": seq}, done=fin, error=lambda e: None)
+            if not (w and "receipt" in body and isinstance(j, dict)):
+                return
+            r = j.get("receipt")
+            if r in ("ok", "none"):
+                self._rc_done(cid, w["n"])
+            elif r == "off":                              # anderswo abgeschaltet: gegenseitig - auch nichts mehr anzeigen
+                self._privacy_applied(dict(S.privacy(self.me), receipts=False))
+            elif r == "rate":
+                self._rc_later(cid, visible, 5)
+        bg(work, done=fin, error=lambda e: None)
+
+    def _rc_done(self, cid, n):
+        self.rc_sent[cid] = max(self.rc_sent.get(cid, 0), n)
+        return False
+
+    def _rc_later(self, cid, visible, wait):
+        """Bestaetigung nachziehen (Abstand je Chat, zu viele) - nur, wenn der Chat dann noch offen ist"""
+        if cid in self._rc_timer:
+            return
+
+        def fire():
+            self._rc_timer.pop(cid, None)
+            if self.open_chat == cid:
+                self.mark_read(cid, visible)
+            return False
+        self._rc_timer[cid] = GLib.timeout_add(int(wait * 1000) + 50, fire)
 
     _typing_sent = {}
 
@@ -1134,6 +1210,254 @@ class ChatState(GObject.Object):
         now = time.monotonic()
         t = self.typing.get(cid) or {}
         return [n for u, (n, until) in t.items() if until > now]
+
+    # --- Gelesen-Bestaetigungen und Online-Status (2.4) ------------------------------------------------------------------
+    def receipt_want(self, cid):
+        """zu bestaetigende Nachricht {"id", "n"} oder None (Server/Einstellung/Chat ohne Bestaetigungen, nichts Neues)"""
+        c = self.cache.get(cid)
+        if not c or not self.ready:
+            return None
+        return S.want(self.me, self.chat(cid), c.get("msgs"), self.rc_sent.get(cid))
+
+    def _receipt_keys(self, cid, ch, w):
+        """Hintergrund: Bestaetigung signieren und fuer den Backup-Schluessel jedes anderen Mitglieds versiegeln
+        -> {"backup:<name|handle>": versiegelt}. Schluessel nur geprueft: lokal backup_sig wie beim Senden, v2 selbst geprueft
+        (TOFU reject/block: weglassen)."""
+        k = self.keys
+        if not k or not isinstance(ch, dict):
+            return {}
+        body = C.receipt_body(w["id"], w["n"])
+        keys = {}
+        if is_fed(ch):
+            my = ch.get("my_handle") or self.my_handle
+            if not self._handle_ok(my):
+                return {}
+            hs = [h for h in self.fed_handles(ch) if h != my]
+            if any(h not in self.fk for h in hs):
+                self.fed_keys([h for h in hs if h not in self.fk])
+            for m in ch.get("members") or []:
+                h = m.get("handle") if isinstance(m, dict) else None
+                f = self.fk.get(h) or {}
+                if not h or m.get("me") or h == my or not f.get("keys") or f.get("trust") in ("reject", "block"):
+                    continue
+                keys["backup:" + h] = C.seal_receipt(ch.get("ref") or "", my, k["device"], body, f["keys"]["backup_pk"], True)
+        else:
+            for r in self.recipients(cid):
+                u = r.get("username")
+                if not r.get("ready") or not u or u == self.uid:
+                    continue
+                if not C.backup_ok(u, r.get("ident_pub"), r.get("backup_pub"), r.get("backup_sig")):
+                    continue
+                keys["backup:" + u] = C.seal_receipt(str(cid), self.uid, k["device"], body, C.unb64(r["backup_pub"], 32))
+        return dict(list(keys.items())[:50])
+
+    def _reader_key(self, cid, ch, frm, handle, dev):
+        """Hintergrund: Ed25519-Schluessel des Geraets dev der lesenden Person - nur gepruefte Geraete, sonst None"""
+        if is_fed(ch):
+            if not self._handle_ok(handle):
+                return None
+            if handle not in self.fk:
+                self.fed_keys([handle])
+            f = self.fk.get(handle) or {}
+            if not f.get("keys") or f.get("trust") == "reject":
+                return None
+            d = next((x for x in f["keys"]["devices"] if x.get("id") == dev), None)
+            return C.unb64(d["sign_pub"], 32) if d else None
+        r = next((x for x in self.recipients(cid) if x.get("username") == frm and x.get("ready")), None)
+        if r is None:
+            return None
+        d = next((x for x in r.get("devices") or [] if isinstance(x, dict) and x.get("id") == dev), None)
+        if d is None or not C.device_ok(frm, r.get("ident_pub"), d):
+            return None
+        return C.unb64(d["sign_pub"], 32)
+
+    def _take_receipts(self, cid, ch, lst, base=None):
+        """Hintergrund: versiegelte Bestaetigungen oeffnen und pruefen (Geraet von 'from', Signatur mit chat_id bzw.
+        chat_ref und Benutzername bzw. Handle) -> {von: {n, id, ts}} (je Person das groesste n); Ungueltiges ignorieren"""
+        k = self.keys
+        out = dict(base or {})
+        if not k or not isinstance(ch, dict):
+            return out
+        fed = is_fed(ch)
+        for x in lst or []:
+            if not isinstance(x, dict) or not isinstance(x.get("from"), str) or not isinstance(x.get("sealed"), str):
+                continue
+            try:
+                dev, body, sig = C.open_receipt(x["sealed"], k["backup_pk"], k["backup_sk"])
+                pk = self._reader_key(cid, ch, x["from"], x.get("handle"), dev)
+                ok = pk is not None and C.verify_receipt((ch.get("ref") or "") if fed else str(cid), x.get("handle") if fed else x["from"],
+                                                         dev, body, sig, pk, fed)
+            except (APIError, ChatError, C.CryptoError, KeyError, TypeError, ValueError):
+                continue
+            b = C.parse_receipt_body(body) if ok else None
+            old = out.get(x["from"])
+            if b is None or (old and old["n"] > b["n"]):
+                continue
+            out[x["from"]] = b
+        return out
+
+    def load_receipts(self, cid):
+        """Beim Oeffnen eines Chats (und bei "more"): GET /api/chats/{id}/receipts - neueste Bestaetigung je Mitglied"""
+        ch = self.chat(cid)
+        if not self.ready or not S.receipts_on(self.me) or not isinstance(ch, dict):
+            return
+
+        def work():
+            j = client.get(f"api/chats/{cid}/receipts")
+            if not isinstance(j, dict) or j.get("enabled") is False:
+                return None
+            return self._take_receipts(cid, ch, j.get("receipts") or [])
+
+        def fin(r):
+            if r is None or not S.receipts_on(self.me):
+                return
+            self.rcpts[cid] = r
+            self.emit("receipts", cid)
+        bg(work, done=fin, error=lambda e: None)
+
+    def _receipt_live(self, cid, d):
+        ch = self.chat(cid)
+        if not self.ready or cid != self.open_chat or not S.receipts_on(self.me) or not isinstance(ch, dict):
+            return
+        if d.get("more"):                                 # grosse Gruppe: nur Hinweis, Stand abrufen
+            self.load_receipts(cid)
+            return
+        lst = [x for x in d.get("receipts") or [] if isinstance(x, dict)][:50]
+
+        def fin(r):
+            if S.receipts_on(self.me) and r != self.rcpts.get(cid):
+                self.rcpts[cid] = r
+                self.emit("receipts", cid)
+        bg(self._take_receipts, cid, ch, lst, dict(self.rcpts.get(cid) or {}), done=fin, error=lambda e: None)
+
+    def set_privacy(self, field, on, done=None, error=None):
+        """Einstellungen -> Datenschutz: PUT /api/chat/privacy {receipts|online: bool}"""
+        def fin(j):
+            if isinstance(j, dict):
+                self._privacy_applied(j)
+            if done:
+                done(j)
+        bg(client.json, "PUT", "api/chat/privacy", {field: bool(on)}, done=fin, error=error or (lambda e: None))
+
+    def _privacy_applied(self, p):
+        """neuer Stand (eigene Aenderung, Live-Ereignis chat.privacy, Antwort "off"): gegenseitig - Gesehenes verwerfen"""
+        if not isinstance(self.me, dict):
+            return
+        old = S.privacy(self.me)
+        self.me["privacy"] = {"receipts": p.get("receipts") is not False, "online": p.get("online") is not False}
+        new = S.privacy(self.me)
+        self.rcpts, self.rc_sent = {}, {}
+        if self.open_chat is not None:
+            self.emit("receipts", self.open_chat)
+            if new["receipts"]:
+                self.load_receipts(self.open_chat)
+        if old != new:
+            self.emit("changed")
+        self.presence_sync()
+
+    def presence_watch(self, key, fn):
+        """Ansicht meldet die Personen an, die sie gerade sichtbar zeigt (fn() -> [Benutzername | Prinzipal]); fn=None meldet
+        ab. Abonniert wird nur, was sichtbar ist - erneuert alle 60 s, solange etwas sichtbar ist."""
+        if fn is None:
+            if self._pres_src.pop(key, None) is None:
+                return
+        else:
+            self._pres_src[key] = fn
+        self._pres_soon()
+
+    def presence_want(self):
+        if not self.ready or not S.online_on(self.me):
+            return []
+        out = []
+        for fn in list(self._pres_src.values()):
+            try:
+                us = fn() or []
+            except Exception:  # noqa: BLE001 - Ansicht schon abgebaut
+                us = []
+            out += [u for u in us if isinstance(u, str) and u and u not in out]
+        return out[:S.PRESENCE_MAX]
+
+    def presence_sync(self):
+        """POST /api/chat/presence mit den sichtbaren Personen (ohne: abmelden, Anzeige leeren)"""
+        users = self.presence_want()
+        if not users:
+            old, self._pres_users = self._pres_users, []
+            if old and self.ready and "online" in S.features(self.me):
+                bg(client.json, "POST", "api/chat/presence", {"users": old, "leave": True}, error=lambda e: None)
+            if self.pres:
+                self.pres = {}
+                self.emit("presence")
+            self._pres_stop()
+            return
+        if self._pres_run:
+            self._pres_again = True
+            return
+        self._pres_users, self._pres_at, self._pres_run = users, time.monotonic(), True
+        if not self._pres_timer:
+            self._pres_timer = GLib.timeout_add_seconds(15, self._pres_tick)
+        srv = config.settings.server
+
+        def fin(j):
+            self._pres_run = False
+            if srv != config.settings.server or not isinstance(j, dict) or self._pres_users is not users:
+                if self._pres_again:                      # inzwischen abgemeldet bzw. anderes Abo: Antwort veraltet
+                    self._pres_again = False
+                    self._pres_soon()
+                return
+            if j.get("enabled") is False:                 # eigener Online-Status aus (anderswo geaendert): nichts sehen
+                self._pres_users = []                     # der Server hat das Abo schon verworfen
+                self._privacy_applied(dict(S.privacy(self.me), online=False))
+                return
+            got = j.get("users") if isinstance(j.get("users"), dict) else {}
+            self.pres = {u: {"online": bool(v.get("online")), "last": v.get("last")} for u, v in got.items()
+                         if u in users and isinstance(v, dict)}
+            # Personen anderer Server: der eigene Server fragt dort erst nach - fehlende eine Minute lang alle 10 s erneut
+            miss = any(u.startswith("@") and u not in got for u in users)
+            self._pres_miss = self._pres_miss + 1 if miss else 0
+            if self._pres_retry:
+                GLib.source_remove(self._pres_retry)
+                self._pres_retry = 0
+            if miss and self._pres_miss <= 6:
+                self._pres_retry = GLib.timeout_add_seconds(10, self._pres_retry_fire)
+            self.emit("presence")
+            if self._pres_again:
+                self._pres_again = False
+                self._pres_soon()
+
+        def err(_e):
+            self._pres_run = False
+        bg(client.json, "POST", "api/chat/presence", {"users": users}, done=fin, error=err)
+
+    def _pres_retry_fire(self):
+        self._pres_retry = 0
+        self.presence_sync()
+        return False
+
+    def _pres_tick(self):
+        """alle 15 s: Abo erneuern, wenn es 60 s alt ist; nichts mehr sichtbar -> abmelden"""
+        if not self.presence_want():
+            self._pres_timer = 0
+            self.presence_sync()
+            return False
+        if time.monotonic() - self._pres_at >= S.PRESENCE_RENEW_S:
+            self.presence_sync()
+        return True
+
+    def _pres_stop(self):
+        for a in ("_pres_timer", "_pres_retry"):
+            if getattr(self, a, 0):
+                GLib.source_remove(getattr(self, a))
+                setattr(self, a, 0)
+
+    def _presence_live(self, d):
+        u = d.get("username")
+        if not isinstance(u, str) or u not in self._pres_users or not S.online_on(self.me):
+            return
+        if d.get("online") or d.get("last"):
+            self.pres[u] = {"online": bool(d.get("online")), "last": d.get("last")}
+        elif self.pres.pop(u, None) is None:              # online false + last null: Status nicht mehr verfuegbar
+            return
+        self.emit("presence")
 
     # --- Empfaenger pruefen und senden --------------------------------------------------------------------------------
     def check_recipients(self, rc):
@@ -1183,20 +1507,36 @@ class ChatState(GObject.Object):
         chatmedia.put_blob(j["id"], blob, cid)             # eigene Anhaenge nicht gleich wieder herunterladen
         return {"id": j["id"], "k": C.b64(key), "n": name, "m": mime or "application/octet-stream", "s": len(data)}
 
-    def upload_attachments(self, cid, files):
-        """Hintergrund: Anhaenge [(name, mime, bytes)] hochladen; Bilder bekommen w/h und ein Vorschaubild ("th", 2.1-c),
-        solange die Anhang-Grenze je Nachricht reicht. -> (Eintraege fuer den Inhalt, alle Datei-IDs)"""
+    def upload_attachments(self, cid, files, progress=None, cancelled=None, pending=None):
+        """Hintergrund: Anhaenge [(name, mime, bytes | chatvideo.LocalVideo)] hochladen; Bilder bekommen w/h und ein
+        Vorschaubild ("th", 2.1-c), Videos (2.4) Poster, Dauer und Abmessungen - solange die Anhang-Grenze je Nachricht
+        reicht. Videos ueber limits.file_max gehen als saga-file/v2 (fortsetzbar). progress(index, text) aus diesem
+        Thread; cancelled() -> True bricht ab (chatvideo.Cancelled). pending: Liste, in die laufende v2-Uploads kommen
+        (nach dem Senden chatvideo.pending_drop). -> (Eintraege fuer den Inhalt, alle Datei-IDs)"""
         lim = self.limits or {}
         # Grenze fuer Datei-Kennungen je Nachricht (Anhaenge + Vorschaubilder): neuer Server "file_ids_per_msg" (20),
         # aeltere Server ohne das Feld zaehlen nur "files_per_msg" (10)
         nmax = int(lim.get("file_ids_per_msg") or lim.get("files_per_msg") or 10)
-        out, ids = [], []
-        for name, mime, data in files:
-            e = self.upload_file(cid, data, name, mime)
+        out, ids, posters = [], [], []
+        for idx, (name, mime, data) in enumerate(files):
+            if isinstance(data, chatvideo.LocalVideo):
+                e, poster = self.upload_video(cid, name, mime, data, lambda t, i=idx: progress and progress(i, t), cancelled, pending)
+                posters.append((e, poster))
+            else:
+                if cancelled and cancelled():
+                    raise chatvideo.Cancelled()
+                e = self.upload_file(cid, data, name, mime)
             ids.append(e["id"])
             out.append(e)
+        for e, poster in posters:                         # Poster wie Vorschaubilder (v1, eigener Schluessel)
+            if poster is None or len(ids) >= nmax:
+                continue
+            jpeg, tw, th = poster
+            te = self.upload_file(cid, jpeg, "poster.jpg", "image/jpeg")
+            e["th"] = {"id": te["id"], "k": te["k"], "m": "image/jpeg", "w": tw, "h": th, "s": len(jpeg)}
+            ids.append(te["id"])
         for e, (name, mime, data) in zip(out, files):
-            if not chatmedia.is_image(e):
+            if isinstance(data, chatvideo.LocalVideo) or not chatmedia.is_image(e):
                 continue
             t = chatmedia.make_thumb(data)
             if t is None:
@@ -1209,6 +1549,65 @@ class ChatState(GObject.Object):
             e["th"] = {"id": te["id"], "k": te["k"], "m": "image/jpeg", "w": tw, "h": th, "s": len(tb)}
             ids.append(te["id"])
         return out, ids
+
+    def upload_video(self, cid, name, mime, v, progress=None, cancelled=None, pending=None):
+        """Hintergrund (2.4): Video senden - Metadaten und Poster per GStreamer (falls vorhanden), optional "optimiert"
+        (verkleinerte Kopie), bis file_max als v1, darueber saga-file/v2. -> (Eintrag, (jpeg, w, h) | None)"""
+        from . import videotools
+        ch = self.chat(cid)
+        path, tmp = v.path, None
+        try:
+            meta = videotools.probe(path)
+            if v.optimize and videotools.can_optimize():
+                tmp = chatvideo.tmp_path()
+                if progress:
+                    progress(_("Optimizing …"))
+                videotools.optimize(path, tmp, meta, lambda x: progress and progress(_("Optimizing {pct} %").format(pct=int(x * 100))),
+                                    cancelled)
+                path, mime = tmp, "video/mp4"
+                name = re.sub(r"\.[^.]{1,8}$", "", name) + "-720p.mp4"
+                meta = videotools.probe(path) or meta
+            size = os.path.getsize(path)
+            how = chatvideo.plan(name, size, self.limits, ch, is_fed(ch))
+            e = {"n": name[:200], "m": mime if (mime or "").startswith("video/") else "video/mp4", "s": size}
+            if meta.get("dur"):
+                e["dur"] = meta["dur"]
+            if meta.get("w") and meta.get("h"):
+                e["w"], e["h"] = int(meta["w"]), int(meta["h"])
+                if meta.get("rot"):
+                    e["rot"] = int(meta["rot"])
+            if meta.get("vc"):
+                e["vc"] = meta["vc"]
+            fs = chatvideo.mp4_faststart(path)
+            if fs is not None:
+                e["fs"] = fs
+            poster = None
+            try:
+                poster = videotools.poster(path, meta) if meta.get("video") else None
+            except Exception:  # noqa: BLE001 - ohne Poster senden
+                poster = None
+            if how == "v1":
+                if cancelled and cancelled():
+                    raise chatvideo.Cancelled()
+                with open(path, "rb") as fh:
+                    data = fh.read()
+                e1 = self.upload_file(cid, data, name, e["m"])
+                e["id"], e["k"] = e1["id"], e1["k"]
+            else:
+                def prog(sent, total):
+                    if progress:
+                        progress(_("Uploading {pct} %").format(pct=int(sent * 100 / max(1, total))))
+                r = chatvideo.upload(cid, path, prog, cancelled, self.limits)
+                e["id"], e["k"], e["x"], e["cs"] = r["id"], r["k"], 2, r["cs"]
+                if pending is not None:
+                    pending.append(r["pending"])
+            return e, poster
+        finally:
+            if tmp:
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
 
     def send(self, cid, body, reply_to=None, kind="msg", file_ids=None, extra=None):
         """Hintergrund: verschluesseln, signieren, an alle aktuellen Empfaenger versiegeln, senden. 409 (Mitglieder/Geraete
@@ -1467,7 +1866,7 @@ class ChatState(GObject.Object):
             nfiles = []
             for f in body.get("files") or []:
                 if isinstance(f, dict) and f.get("id"):
-                    f = dict(f, id=reup(f["id"]))
+                    f = dict(f, id=chatvideo.copy_v2(cid, f) if chatvideo.fmt(f) == 2 else reup(f["id"]))
                     fids.append(f["id"])
                     th = chatmedia.thumb_ref(f)
                     if th and th.get("id"):
@@ -1516,8 +1915,21 @@ class ChatState(GObject.Object):
         bg(client.request, "DELETE", "api/chat/blocks?target=" + urllib.parse.quote(str(target), safe=""), done=done, error=error)
 
     def fetch_file(self, cid, f):
-        """Hintergrund: Anhang laden und entschluesseln -> Bytes"""
+        """Hintergrund: Anhang (v1) laden und entschluesseln -> Bytes; v2 nur als Strom (save_file)"""
+        if chatvideo.fmt(f) != 1:
+            raise ChatError(_("Open with a newer Saga version"))
         return chatmedia.original(cid, f)
+
+    def save_file(self, cid, f, write, progress=None, cancelled=None):
+        """Hintergrund: Anhang entschluesselt schreiben (write(bytes)); v2 (2.4) als Strom, Block fuer Block"""
+        x = chatvideo.fmt(f)
+        if x == 2:
+            return chatvideo.save(cid, f, write, progress, cancelled)
+        if x != 1:
+            raise ChatError(_("Open with a newer Saga version"))
+        data = chatmedia.original(cid, f)
+        write(data)
+        return len(data)
 
     def delete_message(self, cid, mid, done=None, error=None):
         def fin(_r):
@@ -1652,6 +2064,7 @@ class ChatState(GObject.Object):
         gone = [m for m in msgs if (m.get("seq") or 0) <= upto]
         kept = [] if drop else [m for m in msgs if (m.get("seq") or 0) > upto]
         chatmedia.purge_chat(cid, fids=self._file_ids(gone), keep=self._file_ids(kept))
+        chatvideo.purge_chat(cid, keep=self._file_ids(kept))
         for m in gone:
             m.clear()                                     # Klartext nicht ueber andere Verweise weiter halten
         if drop:
@@ -1825,6 +2238,8 @@ class ChatState(GObject.Object):
                 for m in c.get("msgs") or []:
                     if m.get("id") == d.get("id") and m.get("fstate"):
                         m["fstate"] = "failed" if d.get("failed") else None
+                        if isinstance(d.get("fseq"), int) and not m.get("fseq"):     # (2.4) Position fuer die Haken
+                            m["fseq"] = d["fseq"]
                         self.emit("messages", cid)
             if cid in self.cache and self.cache[cid].get("loaded"):
                 self.load_messages(cid)
@@ -1853,6 +2268,12 @@ class ChatState(GObject.Object):
             self._list_soon()
         elif typ == "chat.read":
             self._list_soon()
+        elif typ == "chat.receipt":                       # (2.4) Gelesen-Bestaetigungen (gebuendelt bzw. nur Hinweis)
+            self._receipt_live(cid, d)
+        elif typ == "chat.presence":
+            self._presence_live(d)
+        elif typ == "chat.privacy":                       # eigene Einstellung auf einem anderen Geraet geaendert
+            self._privacy_applied(d)
         elif typ == "chat.typing":
             u = d.get("user") if isinstance(d.get("user"), dict) else {}
             if u.get("username") and u.get("username") != self.uid:

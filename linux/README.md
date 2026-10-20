@@ -38,6 +38,10 @@ mit dem Funktionsumfang der Mac-App:
   `tests/chat_v2_vectors.json` aus dem Server; Ende-zu-Ende gegen zwei verbundene Server: `tests/realfed.py`.
   Gruppen und Seiten-Chats mit Personen anderer Server (Einladung als Anfrage, Mitglieder per Handle, Systemzeilen mit
   Herkunft, umgestellte Seiten-Chats lesen alte v1-Nachrichten weiter): `tests/realfed23b_chat.py` (drei Server)
+- Videos im Chat (Server 2.4, `saga-file/v2`): Poster, Dauer und Abmessungen per GStreamer; über 10 MB blockweise
+  verschlüsselt und in Teilen hochgeladen (fortsetzbar, abbrechbar); Abspielen mit Spulen über einen lokalen Proxy
+  (127.0.0.1, Token je Wiedergabe; nur die nötigen Blöcke per Range, Ciphertext-Zwischenspeicher 512 MB); Speichern als
+  Datenstrom; optional „Optimiert 720p“ (x264enc/openh264enc). Geprüft gegen `tests/file_v2_vectors.json`
 - Aufgaben, Termine (CalDAV), Dienste, Befehlspalette (Strg+K), Einstellungen
 - Bleibt angemeldet: Geräte-Schlüssel im GNOME-Schlüsselbund (libsecret), Sitzung wird still erneuert
 - GNOME-Suche (Seiten in der Aktivitäten-Übersicht), Dock-Aktionen „Neue Seite“ / „Neue Aufgabe“

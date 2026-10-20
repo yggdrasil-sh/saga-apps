@@ -139,6 +139,10 @@ class MockServer:
     def peer_send(self, cid, uid, text, **kw):
         return mockv2.peer_send(self, cid, uid, text, **kw)
 
+    def peer_receipt(self, cid, uid, m, **kw):
+        import mockv24
+        return mockv24.peer_receipt(self, cid, uid, m, **kw)
+
     def add_fed(self, nid, title, **kw):
         return mockv2.add_fed(self, nid, title, **kw)
 
@@ -795,6 +799,14 @@ def install(server=SERVER, logged_in=True):
 
     client._send = send
     send.mock = srv
+
+    def media_send(method, url, data, headers, timeout):
+        import mockvideo
+        try:
+            return mockvideo.media(srv, method, url, data, headers)
+        except OSError as e:
+            raise api.APIError(0, str(e)) from e
+    client._media_send = media_send
     client._open_stream = lambda method, url, data, headers, timeout: mockv2.open_stream(srv, method, url, data, headers)
     if logged_in:
         config.settings.server = server
