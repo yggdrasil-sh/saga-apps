@@ -124,10 +124,14 @@ struct ConversationView: View {
         }
         .sheet(isPresented: $showMembers) { MembersSheet(conv: conv) { p in showMembers = false; safetyPeer = p } }
         .sheet(isPresented: $pickPage) { PagePickSheet { id, title in text += (text.isEmpty || text.hasSuffix(" ") ? "" : " ") + "[[note:\(id)]] "; conv.notes[id] = (title, "") } }
-        .photosPicker(isPresented: $pickPhotos, selection: $photoItems, maxSelectionCount: 5, matching: .images)
+        .photosPicker(isPresented: $pickPhotos, selection: $photoItems, maxSelectionCount: 5, matching: .any(of: [.images, .videos]))
         .onChange(of: photoItems) { _, items in
             Task {
                 for it in items {
+                    if it.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {   // 2.4: Video als Datei, nie im Speicher
+                        if let m = try? await it.loadTransferable(type: PickedMovie.self) { files.append(ChatVideoPick.pending(movie: m, index: files.count + 1)) }
+                        continue
+                    }
                     if let d = try? await it.loadTransferable(type: Data.self) {
                         let jpg = Self.jpeg(d)
                         files.append(ChatPendingFile(name: "bild-\(files.count + 1).\(jpg.ext)", mime: jpg.mime, data: jpg.data))
@@ -139,6 +143,7 @@ struct ConversationView: View {
         .fileImporter(isPresented: $pickFile, allowedContentTypes: [.item], allowsMultipleSelection: true) { r in
             for u in (try? r.get()) ?? [] {
                 let ok = u.startAccessingSecurityScopedResource(); defer { if ok { u.stopAccessingSecurityScopedResource() } }
+                if let v = ChatVideoPick.pending(fromFile: u) { files.append(v); continue }      // 2.4: Video als Kopie (Datei)
                 if let d = try? Data(contentsOf: u) {
                     files.append(ChatPendingFile(name: u.lastPathComponent, mime: UTType(filenameExtension: u.pathExtension)?.preferredMIMEType ?? "application/octet-stream", data: d))
                 }
@@ -298,14 +303,16 @@ struct ConversationView: View {
                     Button { replyTo = nil } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Antwort abbrechen")
                 }.frame(height: 36)
             }
+            ChatVideoUploadsBar(chatID: chatID)                              // 2.4: Videos werden hochgeladen
             if !files.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack {
-                        ForEach(files) { f in
+                        ForEach($files) { $f in
                             HStack(spacing: 4) {
                                 PendingFileIcon(file: f)
                                 Text(verbatim: f.name).lineLimit(1)
-                                Button { files.removeAll { $0.id == f.id } } label: { Image(systemName: "xmark") }.buttonStyle(.plain).accessibilityLabel("Entfernen")
+                                if f.isVideo { PendingVideoToggle(file: $f) }
+                                Button { let id = f.id; if f.isVideo { ChatVideoFiles.remove(f.fileURL) }; files.removeAll { $0.id == id } } label: { Image(systemName: "xmark") }.buttonStyle(.plain).accessibilityLabel("Entfernen")
                             }
                             .font(.caption).padding(.horizontal, 8).padding(.vertical, 4).background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
                         }
@@ -724,7 +731,9 @@ struct ChatAttachmentView: View {
     let file: ChatFileRef
     @ObservedObject var conv: ConversationModel
     var body: some View {
-        if file.isImage || file.thumb != nil { ChatImageThumb(file: file, conv: conv) } else { ChatFileRow(file: file, conv: conv) }
+        if file.isVideo || file.isV2 { ChatVideoThumb(file: file, conv: conv) }            // 2.4: Poster, Player erst beim Antippen
+        else if !VideoSendLogic.known(file.x) { ChatNewerFormatRow(file: file) }           // neueres Format: nicht still scheitern
+        else if file.isImage || file.thumb != nil { ChatImageThumb(file: file, conv: conv) } else { ChatFileRow(file: file, conv: conv) }
     }
 }
 
@@ -1063,11 +1072,11 @@ struct PendingFileIcon: View {
     var body: some View {
         Group {
             if let thumb { Image(decorative: thumb, scale: 2).resizable().scaledToFill().frame(width: 36, height: 36).clipShape(RoundedRectangle(cornerRadius: 6)) }
-            else { Image(systemName: file.mime.hasPrefix("image/") ? "photo" : "doc") }
+            else { Image(systemName: file.isVideo ? "film" : file.mime.hasPrefix("image/") ? "photo" : "doc") }
         }
         .accessibilityHidden(true)
         .task(id: file.id) {
-            guard file.mime.hasPrefix("image/") else { return }
+            guard file.mime.hasPrefix("image/"), !file.isVideo else { return }
             let d = file.data
             thumb = await Task.detached(priority: .utility) { () -> CGImage? in
                 guard let src = CGImageSourceCreateWithData(d as CFData, nil) else { return nil }

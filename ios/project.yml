@@ -57,7 +57,7 @@ targets:
         NSCameraUsageDescription: Take photos for notes, scan QR codes to sign in and make video calls      # uebersetzt: App/InfoPlist.xcstrings
         NSMicrophoneUsageDescription: Talk in audio and video calls
         UIBackgroundModes: [voip, audio, remote-notification]   # Anrufe: PushKit/CallKit, Ton im Hintergrund (nur iOS)
-        NSPhotoLibraryAddUsageDescription: Save images from notes
+        NSPhotoLibraryAddUsageDescription: Save images from notes and videos from chats
         CFBundleURLTypes:
           - CFBundleURLName: $(SAGA_BUNDLE_ID)
             CFBundleURLSchemes: [hlidskjalf, saga]

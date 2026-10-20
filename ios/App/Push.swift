@@ -217,6 +217,10 @@ final class IOSAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
         Task { @MainActor in PushModel.current?.didFail(error) }
     }
+    /// 2.4: Video-Uploads im Hintergrund (URLSession background) - das System weckt die App fuer den naechsten Teil
+    func application(_ application: UIApplication, handleEventsForBackgroundURLSession identifier: String, completionHandler: @escaping () -> Void) {
+        MainActor.assumeIsolated { ChatVideoUploads.shared.wake(completionHandler) }
+    }
 }
 #endif
 

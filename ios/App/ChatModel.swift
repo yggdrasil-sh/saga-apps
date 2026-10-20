@@ -121,6 +121,14 @@ struct ChatMe: Equatable {
     var retentions: [Int] = [0, 3600, 86_400, 604_800, 2_592_000, 7_776_000, 31_536_000]
     /// 2.4: Gelesen-Bestaetigungen/Online-Status (features, privacy, status_limits; aeltere Server: nichts)
     var status = ReceiptLogic.Caps()
+    /// 2.4: Videos im Chat (saga-file/v2): Server kann es, groesstes Video (Klartext), Teil je PUT, gleichzeitige Uploads,
+    /// Chat-Speicher des Kontos (Grenze/belegt, Bytes). Aeltere Server: file2 fehlt -> nur v1 bis file_max.
+    var file2 = false
+    var videoMax: Int?
+    var uploadPart: Int?
+    var uploadsMax = 2
+    var quota: Int64?
+    var used: Int64?
     init() {}
     init?(data: Data) {
         guard let j = ShareJSON.obj(data) else { return nil }
@@ -139,6 +147,9 @@ struct ChatMe: Equatable {
             fileIDsPerMsgServer = ShareJSON.int(l["file_ids_per_msg"])
             retentionMax = ShareJSON.int(l["retention_max"]).flatMap { $0 > 0 ? $0 : nil }
             if let r = l["retentions"] as? [Any] { retentions = r.compactMap(ShareJSON.int) }
+            file2 = ShareJSON.bool(l["file2"]); videoMax = ShareJSON.int(l["video_max"]); uploadPart = ShareJSON.int(l["upload_part"])
+            uploadsMax = max(1, ShareJSON.int(l["uploads_max"]) ?? uploadsMax)
+            quota = ShareJSON.num(l["quota"]).map { Int64($0) }; used = ShareJSON.num(l["used"]).map { Int64($0) }
         }
         status = ReceiptLogic.caps(j)
     }
@@ -174,6 +185,8 @@ struct ChatSummary: Identifiable, Equatable {
     /// 2.4: der andere Server kann Gelesen/Online (v2: receipts_ok/online_ok; lokal immer)
     var receiptsOK = true
     var onlineOK = true
+    /// 2.4: alle beteiligten Server koennen grosse Videos (chatfile2); nil = Feld fehlt (lokal bzw. alter Server)
+    var bigFiles: Bool?
     var statusFlags: ReceiptLogic.ChatFlags {
         ReceiptLogic.ChatFlags(kind: kind, fed: isFed, request: fed?.request ?? false, readonly: fed?.readonly ?? false, receiptsOK: receiptsOK, onlineOK: onlineOK)
     }
@@ -181,7 +194,7 @@ struct ChatSummary: Identifiable, Equatable {
         a.id == b.id && a.kind == b.kind && a.name == b.name && a.members == b.members && a.unread == b.unread && a.muted == b.muted
             && a.retention == b.retention && a.lastAt == b.lastAt && a.lastSeq == b.lastSeq && a.decryptedTitle == b.decryptedTitle && a.role == b.role && a.ai == b.ai
             && a.canArchive == b.canArchive && a.archived == b.archived && a.clearedSeq == b.clearedSeq && a.deleteForAll == b.deleteForAll && a.fed == b.fed
-            && a.receiptsOK == b.receiptsOK && a.onlineOK == b.onlineOK
+            && a.receiptsOK == b.receiptsOK && a.onlineOK == b.onlineOK && a.bigFiles == b.bigFiles
     }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let i = ShareJSON.int(d["id"]) else { return nil }
@@ -201,6 +214,7 @@ struct ChatSummary: Identifiable, Equatable {
         deleteForAll = ChatDeleteLogic.forAll(d["delete_for_all"])
         fed = FedChatInfo(d)
         (receiptsOK, onlineOK) = ReceiptLogic.flags(d)
+        bigFiles = d["big_files"] as? Bool
     }
     var title: String {
         switch kind {

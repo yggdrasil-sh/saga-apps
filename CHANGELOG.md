@@ -6,6 +6,34 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu – Saga 2.4, Etappe E2: Videos im Chat (iOS/iPadOS/macOS)
+- **Videos senden:** In der Fotos-Auswahl (jetzt Bilder und Videos) und unter „Datei“ lassen sich Videos anhängen. Sie
+  werden nie ganz in den Speicher geladen, sondern als Datei übernommen. Das Gerät erzeugt Poster (Bild bei 1 s, längste
+  Seite 320 px, JPEG ≤ 30 KB, als Vorschaubild mit eigenem Schlüssel), Dauer und Abmessungen.
+- **„Optimiert (720p)“ oder Original:** Am Anhang wählbar; auf dem iPhone ist „Optimiert (720p)“ Standard
+  (`AVAssetExportSession`, Preset 1280×720, `moov` vorn). Es läuft höchstens ein Export gleichzeitig, bei einem zu warmen
+  Gerät pausiert er.
+- **Große Videos (saga-file/v2):** Bis zur Grenze `file_max` des Servers (Standard 10 MB) bleibt alles wie bisher (v1).
+  Größere Videos werden blockweise verschlüsselt (256 KiB je Block, XChaCha20-Poly1305) und in Teilen zu höchstens
+  8 MiB hochgeladen – per `URLSession` im Hintergrund, mit sichtbarem Fortschritt über dem Eingabefeld und Abbrechen.
+  Nach einem Netzabbruch oder Neustart geht der Upload an der Stelle weiter, an der der Server steht (`HEAD`).
+  Schlüssel, Präfix, Datei und Upload-Kennung liegen bis zum Senden im Schlüsselbund. Der Text der Nachricht reist mit
+  dem ersten Video.
+- **Abspielen:** Im Verlauf steht nur das Poster mit Dauer und Abspiel-Symbol (lazy geladen, kein Player je Zelle).
+  Erst beim Antippen startet ein gemeinsamer Player (`AVPlayer` mit eigenem Schema und Resource-Loader): Er holt nur die
+  Blöcke, die er braucht (Range mit Medien-Token, bei `401` ein neues), entschlüsselt sie einzeln und kann sofort spulen.
+  Der Klartext kommt nie auf die Platte. Der Ciphertext liegt in einem eigenen Cache (512 MB, die am längsten nicht
+  benutzten Teile fallen zuerst heraus). Bild im Bild geht, im Mobilfunk startet ein Video erst auf Tippen.
+- **Speichern:** Auf iPhone/iPad „In Fotos sichern“ (nur Hinzufügen) bzw. „In Dateien sichern“, am Mac „Sichern …“. Die
+  Entschlüsselung läuft als Datenstrom in die Datei, eine temporäre Kopie wird sofort wieder gelöscht.
+- **Kompatibel:** v1-Anhänge (auch kleine Videos) funktionieren wie bisher. Server ohne `file2` (bis 2.3) bzw. Chats mit
+  einem 2.3-Partnerserver (`big_files: false`): Videos über `file_max` werden mit Hinweis abgelehnt. Anhänge in einem
+  neueren Format zeigen „Mit einer neueren Saga-Version öffnen“. „Erneut senden“ (über Servergrenzen) kopiert große
+  Videos als Datenstrom. Texte in Deutsch, Englisch, Spanisch, Russisch und Thai.
+- **Tests:** Testvektoren `tests/vectors/file_v2.json` (Kopie `ios/Tests/vectors/file_v2.json`) in `ios/Tests/ChatVectors`,
+  dazu ein Datenstrom-Test mit 500 MB (Speicher konstant). Logik-Tests (`ios/Tests/Logic/VideoTests.swift`): Kopf/AD/Nonce,
+  Block- und Range-Zuordnung, Upload-Teile und -Fortsetzung, Antworten des Servers, Grenzen, Cache-Grenze, 500-MB-Strom.
+
 ### Neu – Saga 2.4: Gelesen-Bestätigungen und Online-Status (iOS/iPadOS/macOS)
 - **Haken wie gewohnt:** An eigenen Nachrichten ⏳ wird zugestellt (Chats über Servergrenzen) → ✓ zugestellt → ✓✓
   gelesen; haben alle gelesen, sind die Haken blau. In Gruppen steht neben ✓✓ die Zahl der Lesenden, Tippen auf die

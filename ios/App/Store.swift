@@ -102,6 +102,7 @@ final class Store: ObservableObject {
         live.store = self; notifs.store = self; chat.store = self; push.store = self
         AvatarCache.shared.store = self
         calls.store = self; CallSystem.shared.manager = calls
+        ChatVideoUploads.shared.attach(self)                           // 2.4: Video-Uploads (auch nach Neustart fortsetzen)
     }
 
     /// Anfrage mit Sitzung fuer Stroeme (SSE: Live-Kanal, KI-Assistent). Abgelaufene Sitzung (401): einmal still mit dem
@@ -163,6 +164,21 @@ final class Store: ObservableObject {
         if let h = cookieHeader, Date().timeIntervalSince(cookieAt) < 60 { return h }
         let cs = await WKWebsiteDataStore.default().httpCookieStore.allCookies().filter { Store.cookieMatches($0, url) }
         let h = HTTPCookie.requestHeaderFields(with: cs); cookieHeader = h; cookieAt = Date(); return h
+    }
+
+    /// Kopfzeilen einer angemeldeten Anfrage (Sitzungs-Cookie, X-Saga, Sprache) fuer eigene URLSessions - z. B. die
+    /// Hintergrund-Uploads von Videos (2.4). `fresh`: Cookie neu lesen (nach einer stillen Erneuerung)
+    func authHeaders(for url: URL, fresh: Bool = false) async -> [String: String] {
+        if fresh { cookieHeader = nil }
+        var h = await cookies(for: url)
+        h["X-Hlidskjalf"] = "1"; h["X-Saga"] = "1"; h["X-Saga-Chat"] = "2"
+        h["Accept-Language"] = AppConfig.appLanguage
+        return h
+    }
+    /// Volle Adresse eines API-Pfads (nil ohne Server)
+    func apiURL(_ path: String) -> URL? {
+        guard AppConfig.hasServer else { return nil }
+        return URL(string: AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/" + path)
     }
 
     /// Cookie gehoert zu dieser Adresse? Domain nur an Punktgrenzen (evilexample.com passt nicht auf example.com),
@@ -1081,6 +1097,7 @@ final class Store: ObservableObject {
         DraftOwner.app.signedOut(); accountChecked = false; accountName = nil // Entwuerfe bleiben liegen, aber nur fuer ihr Konto lesbar
         AppConfig.token = ""; reloadWidgets()                           // der Server loescht den Widget-Schluessel dieses Geraets mit
         myAvatar = nil
+        ChatVideoUploads.shared.cancelAll()                             // 2.4: laufende Video-Uploads verwerfen
         await clearAccountData(keepWebCookies: false)
         if switchingServer { serverVersion = nil; minApp = nil }
         needsLogin = true
