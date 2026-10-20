@@ -67,6 +67,9 @@ object PageToolsLogic {
         else -> role.canEdit && server23
     }
 
+    /** gewaehlter Stand ohne Inhalt (z. B. leerer Anfangszustand "Unbenannt"): beim Wiederherstellen ausdruecklich warnen */
+    fun versionEmpty(title: String?, text: String?): Boolean = text.isNullOrBlank()
+
     /** Wiederherstellen: gesperrte Seite nur durch den Eigentuemer (Server: 423), sonst wie der Versionsverlauf */
     fun canRestore(role: Role, locked: Boolean): Boolean = role.isOwner || !locked
 
@@ -110,6 +113,8 @@ fun VersionsDialog(ed: PageEditor, repo: SagaRepository, onDismiss: () -> Unit) 
     var sel by remember { mutableStateOf<PageVersion?>(null) }
     var preview by remember { mutableStateOf<VersionText?>(null) }
     var busy by remember { mutableStateOf(false) }
+    // Wiederherstellen nur mit Rueckfrage - mit deutlicher Warnung, wenn der gewaehlte Stand leer ist (TT 2.4 P-10)
+    var confirm by remember { mutableStateOf(false) }
     val locale = appLocale()
     val fmt = remember(locale) { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale) }
     LaunchedEffect(ed.id) {
@@ -176,7 +181,29 @@ fun VersionsDialog(ed: PageEditor, repo: SagaRepository, onDismiss: () -> Unit) 
         confirmButton = {
             val v = sel
             if (v != null && PageToolsLogic.canRestore(ed.share.role, ed.locked)) {
-                TextButton(enabled = !busy && preview != null, onClick = {
+                TextButton(enabled = !busy && preview != null, onClick = { confirm = true }) { Text(stringResource(R.string.versions_restore)) }
+            } else {
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
+            }
+        },
+        dismissButton = if (sel != null) ({ TextButton(onClick = { sel = null }) { Text(stringResource(R.string.versions_back)) } }) else null,
+    )
+    val cv = sel
+    if (confirm && cv != null) {
+        val empty = PageToolsLogic.versionEmpty(preview?.title, preview?.text)
+        AlertDialog(
+            onDismissRequest = { confirm = false },
+            title = { Text(stringResource(R.string.versions_restore_confirm_title)) },
+            text = {
+                Text(
+                    stringResource(R.string.versions_restore_confirm_text, fmt.format(Date((cv.created * 1000).toLong()))) +
+                        (if (empty) "\n\n" + stringResource(R.string.versions_restore_confirm_empty) else ""),
+                )
+            },
+            confirmButton = {
+                TextButton(enabled = !busy, onClick = {
+                    confirm = false
+                    val v = cv
                     busy = true
                     scope.launch {
                         try {
@@ -194,12 +221,10 @@ fun VersionsDialog(ed: PageEditor, repo: SagaRepository, onDismiss: () -> Unit) 
                         }
                     }
                 }) { Text(stringResource(R.string.versions_restore)) }
-            } else {
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_close)) }
-            }
-        },
-        dismissButton = if (sel != null) ({ TextButton(onClick = { sel = null }) { Text(stringResource(R.string.versions_back)) } }) else null,
-    )
+            },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
 }
 
 /**

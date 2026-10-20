@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4: Funde aus dem Android-Test (Video, Mitteilungen, QR ohne Kamera, Kopplungslink) -->
+<resources>
+    <string name="video_waiting_network">Ожидание соединения …</string>
+    <string name="notif_prompt_title">Разрешить уведомления?</string>
+    <string name="notif_prompt_text">Saga показывает новые сообщения, входящие звонки и ход загрузок (например, видео) в уведомлениях. Это можно изменить позже в настройках системы.</string>
+    <string name="notif_prompt_allow">Продолжить</string>
+    <string name="notif_prompt_later">Не сейчас</string>
+    <string name="qr_no_camera_paste">На этом устройстве нет камеры. Скопируйте ссылку для привязки в разделе «Приложения и устройства» в браузере и вставьте её здесь.</string>
+    <string name="qr_camera_unavailable_paste">Камера сейчас недоступна. Вставьте вместо этого ссылку для привязки.</string>
+    <string name="qr_paste_link">Вставить ссылку</string>
+    <string name="qr_paste_empty">Буфер обмена пуст. Сначала скопируйте ссылку для привязки.</string>
+    <string name="qr_paste_not_saga">В буфере обмена нет ссылки для привязки Saga.</string>
+    <string name="pair_rejected_title">Ссылка для привязки отклонена</string>
+    <string name="pair_rejected_http">Ссылка ведёт на сервер без https. Ради вашей безопасности приложение привязывается только к серверам, доступным по https.</string>
+    <string name="pair_rejected_http_debug">Ссылка ведёт на сервер без https за пределами локальной сети. Тестовая сборка допускает http только в частных сетях (например, 192.168.x.x, 10.x.x.x).</string>
+    <string name="versions_restore_confirm_title">Восстановить эту версию?</string>
+    <string name="versions_restore_confirm_text">Страница будет заменена версией от %1$s. Текущее содержимое сохранится как версия.</string>
+    <string name="versions_restore_confirm_empty">Эта версия пуста – после восстановления страница будет пустой.</string>
+</resources>

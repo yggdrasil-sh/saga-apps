@@ -102,7 +102,7 @@ class SagaRepository(
     val appVersion: String,
     private val filesDir: File,
     /** Sprache der App-Oberflaeche fuer Accept-Language */
-    language: () -> String = { "" },
+    private val language: () -> String = { "" },
     /** App-Kontext (Mitteilungen: UnifiedPush-Verteiler, Benachrichtigungen des Systems) */
     private val appContext: android.content.Context? = null,
 ) : PageBackend, PublishBackend, ShareBackend, CommentBackend {
@@ -152,6 +152,8 @@ class SagaRepository(
     /** Kopplungslink (Deep-Link oder QR), der noch bestaetigt werden muss */
     val pendingPair = MutableStateFlow<PairTarget?>(null)
     val pairError = MutableStateFlow<UiText?>(null)
+    /** abgewiesener Kopplungslink: Grund als Dialog (nie still ignorieren, TT 2.4 P-07) */
+    val pairRejected = MutableStateFlow<UiText?>(null)
 
     private val _messages = MutableSharedFlow<UserMessage>(extraBufferCapacity = 8)
     val messages: SharedFlow<UserMessage> = _messages
@@ -1297,7 +1299,7 @@ class SagaRepository(
             secure.pkceVerifier = p.verifier
             secure.pkceServer = server
         }
-        return LoginFlow.loginUrl(server, p.challenge, fresh = freshLogin)
+        return LoginFlow.loginUrl(server, p.challenge, fresh = freshLogin, lang = language())
     }
 
     /** Laeuft dort ein Saga-Server? Klare Meldung statt Browser-Fehler (kein https, Zertifikat, falsche Adresse) */
@@ -1377,8 +1379,8 @@ class SagaRepository(
     fun offerPair(target: PairTarget) {
         val t = auth.check(target)
         if (t == null) {
-            val msg = UiText.Res(R.string.login_server_https)
-            if (needsLogin.value) loginError.value = msg else notify(msg)
+            val msg = UiText.Res(PairLink.rejectReason(target, BuildConfig.DEBUG))
+            if (needsLogin.value) loginError.value = msg else pairRejected.value = msg
             return
         }
         pairError.value = null

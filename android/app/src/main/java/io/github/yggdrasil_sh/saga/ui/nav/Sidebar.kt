@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import io.github.yggdrasil_sh.saga.data.PageTree
 import io.github.yggdrasil_sh.saga.data.SharedTree
 import androidx.compose.foundation.layout.Column
@@ -286,7 +287,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
 @Composable
 private fun NavItem(label: String, icon: ImageVector?, selected: Boolean, badge: Int? = null, painter: Int? = null, onClick: () -> Unit) {
     NavigationDrawerItem(
-        label = { Text(label) },
+        label = { NavLabel(label) },
         icon = { if (painter != null) Icon(painterResource(painter), null) else if (icon != null) Icon(icon, null) },
         selected = selected,
         onClick = onClick,
@@ -358,4 +359,23 @@ private fun PageRowItem(
             }
         }
     }
+}
+
+/**
+ * Beschriftung in Seitenleiste/Navigationsleiste: einzeilig, bei Platzmangel (Querformat, Badge, grosse Schrift)
+ * stufenweise kleiner statt mitten im Wort umzubrechen ("Benachrichtigu-ngen", TT 2.4 P-11); notfalls mit "…".
+ */
+@Composable
+internal fun NavLabel(label: String) {
+    val style = androidx.compose.material3.LocalTextStyle.current
+    val color = androidx.compose.material3.LocalContentColor.current
+    val max = if (style.fontSize.isSp) style.fontSize else 16.sp
+    androidx.compose.foundation.text.BasicText(
+        label,
+        style = style.copy(color = color),
+        maxLines = 1,
+        softWrap = false,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = max, stepSize = 0.5.sp),
+    )
 }

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4: Funde aus dem Android-Test (Video, Mitteilungen, QR ohne Kamera, Kopplungslink) -->
+<resources>
+    <string name="video_waiting_network">Esperando conexión …</string>
+    <string name="notif_prompt_title">¿Permitir notificaciones?</string>
+    <string name="notif_prompt_text">Saga muestra mensajes nuevos, llamadas entrantes y el progreso de las subidas (p. ej., vídeos) como notificaciones. Puedes cambiarlo más tarde en los ajustes del sistema.</string>
+    <string name="notif_prompt_allow">Continuar</string>
+    <string name="notif_prompt_later">Ahora no</string>
+    <string name="qr_no_camera_paste">Este dispositivo no tiene cámara. Copia el enlace de vinculación en «Apps y dispositivos» del navegador y pégalo aquí.</string>
+    <string name="qr_camera_unavailable_paste">Ahora no se puede usar la cámara. Pega en su lugar el enlace de vinculación.</string>
+    <string name="qr_paste_link">Pegar enlace</string>
+    <string name="qr_paste_empty">El portapapeles está vacío. Copia primero el enlace de vinculación.</string>
+    <string name="qr_paste_not_saga">El portapapeles no contiene un enlace de vinculación de Saga.</string>
+    <string name="pair_rejected_title">Enlace de vinculación rechazado</string>
+    <string name="pair_rejected_http">El enlace apunta a un servidor sin https. Por tu seguridad, la app solo se vincula con servidores accesibles por https.</string>
+    <string name="pair_rejected_http_debug">El enlace apunta a un servidor sin https fuera de la red local. La versión de prueba solo permite http en redes privadas (p. ej., 192.168.x.x, 10.x.x.x).</string>
+    <string name="versions_restore_confirm_title">¿Restaurar esta versión?</string>
+    <string name="versions_restore_confirm_text">La página se sustituirá por la versión del %1$s. El contenido actual se conserva como versión.</string>
+    <string name="versions_restore_confirm_empty">Esta versión está vacía: la página quedaría vacía después.</string>
+</resources>

@@ -4,6 +4,9 @@ import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.util.resolve
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
 import androidx.camera.core.CameraSelector
@@ -23,6 +26,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -63,23 +67,37 @@ fun QrScannerDialog(onDismiss: () -> Unit, onResult: (String) -> Boolean) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         val context = LocalContext.current
         val lifecycleOwner = LocalLifecycleOwner.current
-        var hint by remember { mutableStateOf<UiText>(UiText.Res(R.string.qr_frame_hint)) }
+        // Geraet ohne Kamera (Emulator, manche Tablets/Chromebooks): gar nicht erst CameraX starten - sonst rohe
+        // InitializationException im Bild (TT 2.4 P-08). Ausweg immer: Kopplungslink aus der Zwischenablage einfuegen.
+        val hasCamera = remember { QrCamera.available(context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) }
+        var hint by remember { mutableStateOf<UiText>(UiText.Res(if (hasCamera) R.string.qr_frame_hint else R.string.qr_no_camera_paste)) }
         val result by rememberUpdatedState(onResult)
         val executor = remember { Executors.newSingleThreadExecutor() }
         val done = remember { AtomicBoolean(false) }
         val main = remember { Handler(Looper.getMainLooper()) }
+        val paste: () -> Unit = {
+            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+            val text = cm?.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(context)?.toString()?.trim().orEmpty()
+            when {
+                text.isEmpty() -> hint = UiText.Res(R.string.qr_paste_empty)
+                result(text) -> done.set(true)
+                else -> hint = UiText.Res(R.string.qr_paste_not_saga)
+            }
+        }
 
         DisposableEffect(Unit) {
             onDispose {
                 done.set(true)
-                val f = ProcessCameraProvider.getInstance(context)
-                f.addListener({ runCatching { f.get().unbindAll() } }, ContextCompat.getMainExecutor(context))
+                if (hasCamera) {
+                    val f = ProcessCameraProvider.getInstance(context)
+                    f.addListener({ runCatching { f.get().unbindAll() } }, ContextCompat.getMainExecutor(context))
+                }
                 executor.shutdown()
             }
         }
 
         Box(Modifier.fillMaxSize().background(Color.Black)) {
-            AndroidView(
+            if (hasCamera) AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { ctx ->
                     val view = PreviewView(ctx)
@@ -110,7 +128,9 @@ fun QrScannerDialog(onDismiss: () -> Unit, onResult: (String) -> Boolean) {
                                 if (!done.get()) provider.bindToLifecycle(lifecycleOwner, selector, preview, analysis)
                             }
                         } catch (e: Exception) {
-                            hint = UiText.Res(R.string.qr_camera_unavailable, e.message ?: e.javaClass.simpleName)
+                            // keine Ausnahme-Texte (englisch, technisch) zeigen - verstaendliche Meldung mit Ausweg
+                            android.util.Log.w("SagaQr", "Kamera: " + e.javaClass.simpleName)
+                            hint = UiText.Res(QrCamera.errorText(e))
                         }
                     }, ContextCompat.getMainExecutor(ctx))
                     view
@@ -120,16 +140,34 @@ fun QrScannerDialog(onDismiss: () -> Unit, onResult: (String) -> Boolean) {
                 Modifier.align(Alignment.Center).size(240.dp)
                     .border(3.dp, Color.White.copy(alpha = 0.85f), RoundedCornerShape(18.dp)),
             )
-            Column(Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(24.dp)) {
+            Column(
+                Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Text(
                     hint.resolve(), color = Color.White, textAlign = TextAlign.Center,
                     modifier = Modifier.background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(10.dp)).padding(12.dp),
                 )
+                FilledTonalButton(onClick = paste, modifier = Modifier.padding(top = 12.dp)) {
+                    Text(stringResource(R.string.qr_paste_link))
+                }
             }
             IconButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).safeDrawingPadding().padding(8.dp)) {
                 Icon(Icons.Filled.Close, stringResource(R.string.action_close), tint = Color.White)
             }
         }
+    }
+}
+
+/** Reine Regeln (Tests): Kamera vorhanden, welche Meldung bei Fehlern */
+object QrCamera {
+    fun available(featureCameraAny: Boolean): Boolean = featureCameraAny
+
+    /** Fehler beim Start: keine Kamera -> "Keine Kamera gefunden …", sonst "Kamera nicht verfuegbar …" (ohne Ausnahme-Text) */
+    fun errorText(e: Throwable): Int {
+        val m = (e.message.orEmpty() + " " + (e.cause?.message ?: "")).lowercase()
+        return if (m.contains("available cameras: 0") || m.contains("no camera") || m.contains("hassystemfeature"))
+            R.string.qr_no_camera_paste else R.string.qr_camera_unavailable_paste
     }
 }
 

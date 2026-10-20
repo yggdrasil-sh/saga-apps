@@ -114,6 +114,15 @@ class ChatStore(private val secure: SecureStore, private val scope: () -> String
     private fun identOf(d: StoredKeys) = Identity(unb64(d.ident_pk, 32)!!, unb64(d.ident_sk, 64)!!, unb64(d.backup_pk, 32)!!, unb64(d.backup_sk, 32)!!)
     private fun devOf(d: StoredKeys) = DeviceKeys(d.device_id, unb64(d.enc_pk, 32)!!, unb64(d.enc_sk, 32)!!, unb64(d.sign_pk, 32)!!, unb64(d.sign_sk, 64)!!)
 
+    // ---------------------------------------------------------------- Gelesen-Bestaetigungen (2.4)
+    // Nur Positionen und Lesezeiten (keine Inhalte), je Chat: Lesezeiten der anderen (ReceiptHistory) und die zuletzt
+    // selbst bestaetigte Position - beim erneuten Oeffnen entsteht so keine neue Bestaetigung fuer Altes (TT 2.4 P-06).
+
+    fun receiptHistory(chat: Long): Map<String, List<ReadMark>> = ReceiptHistory.decode(secure.get(k("rh_$chat")))
+    fun saveReceiptHistory(chat: Long, all: Map<String, List<ReadMark>>) = secure.put(k("rh_$chat"), ReceiptHistory.encode(all))
+    fun receiptSent(chat: Long): Long = secure.get(k("rs_$chat"))?.toLongOrNull() ?: 0L
+    fun saveReceiptSent(chat: Long, n: Long) = secure.put(k("rs_$chat"), n.toString())
+
     // ---------------------------------------------------------------- TOFU
 
     fun known(): Map<String, KnownIdent> = try {

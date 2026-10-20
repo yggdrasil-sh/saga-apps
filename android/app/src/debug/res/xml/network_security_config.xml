@@ -1,17 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Nur Debug-Build: lokaler Testserver im Emulator (http://10.0.2.2:PORT, per adb reverse auch 127.0.0.1).
-     Sonst wie Release: nur https, System- und Benutzer-CAs. -->
+<!-- Nur Debug-Build: Klartext (http) erlaubt, damit Testserver im privaten Netz (z. B. http://192.168.1.12:8241,
+     Emulator 10.0.2.2, adb reverse 127.0.0.1) erreichbar sind. Welche Adressen die App ueberhaupt annimmt, prueft
+     ServerUrl.isPrivateHost (nur private Netze). Release: src/main/res/xml/network_security_config.xml - nur https. -->
 <network-security-config xmlns:tools="http://schemas.android.com/tools">
-    <base-config cleartextTrafficPermitted="false">
+    <base-config cleartextTrafficPermitted="true" tools:ignore="InsecureBaseConfiguration">
         <trust-anchors>
             <certificates src="system" />
             <!-- bewusst (Review M4): eigene CA selbst gehosteter Server -->
             <certificates src="user" tools:ignore="AcceptsUserCertificates" />
         </trust-anchors>
     </base-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">10.0.2.2</domain>
-        <domain includeSubdomains="false">localhost</domain>
-        <domain includeSubdomains="false">127.0.0.1</domain>
-    </domain-config>
 </network-security-config>

@@ -202,6 +202,11 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             lastSeq = maxOf(r.lastSeq, messages.maxOfOrNull { it.seq } ?: 0)
             loadIdents()
             resolveNotes()
+            // 2.4: zuletzt selbst bestaetigte Position und bekannte Lesezeiten (sonst springt "Gelesen" bei jedem Oeffnen)
+            withContext(Dispatchers.IO) {
+                sentN = maxOf(sentN, svc.store.receiptSent(chatId))
+                if (readHist.isEmpty()) readHist = svc.store.receiptHistory(chatId)
+            }
             markRead()
             quietly { loadReceipts() }
             error = null
@@ -422,9 +427,9 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             }
             val o = Json.parseToJsonElement(api.post("api/chats/$chatId/read", body)) as? JsonObject
             (o?.get("unread") as? JsonPrimitive)?.content?.toIntOrNull()?.let { svc.repo.live.chatUnread.value = it }
-            if (want != null && keys != null && keys.isEmpty()) sentN = maxOf(sentN, want.second)   // niemand zu benachrichtigen
+            if (want != null && keys != null && keys.isEmpty()) setSent(want.second)   // niemand zu benachrichtigen
             if (!keys.isNullOrEmpty() && want != null) when ((o?.get("receipt") as? JsonPrimitive)?.content) {
-                "ok", "none", "bad", null -> sentN = maxOf(sentN, want.second)
+                "ok", "none", "bad", null -> setSent(want.second)
                 "off" -> svc.applyPrivacy((svc.me.value?.privacy ?: ChatPrivacy()).copy(receipts = false))
                 "rate" -> receiptAt = System.currentTimeMillis() + 3_000                   // spaeter erneut (nach ~5 s)
             }
@@ -439,6 +444,31 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
     /** gepruefte Bestaetigungen der anderen: Benutzername (bzw. Prinzipal) -> gelesen bis */
     var reads by mutableStateOf<Map<String, ReadMark>>(emptyMap())
         private set
+    /** alle bekannten Bestaetigungen je Person (Lesezeit einer Nachricht = erste, die sie abdeckt), auf dem Geraet gemerkt */
+    private var readHist by mutableStateOf<Map<String, List<ReadMark>>>(emptyMap())
+    /** zuletzt gemeldete sichtbare Eintraege (Nachrichten-IDs) - neu ausgewertet, wenn Nachrichten nachkommen/sich aendern */
+    private var visible: Set<String> = emptySet()
+
+    /** neue Bestaetigungen uebernehmen und in der Lesezeit-Historie festhalten */
+    private suspend fun applyReads(next: Map<String, ReadMark>) {
+        reads = next
+        var hist = readHist
+        for ((who, mark) in next) {
+            val old = hist[who].orEmpty()
+            val merged = ReceiptHistory.merge(old, mark)
+            if (merged != old) hist = hist + (who to merged)
+        }
+        if (hist != readHist) {
+            readHist = hist
+            withContext(Dispatchers.IO) { svc.store.saveReceiptHistory(chatId, hist) }
+        }
+    }
+
+    private suspend fun setSent(n: Long) {
+        if (n <= sentN) return
+        sentN = n
+        withContext(Dispatchers.IO) { svc.store.saveReceiptSent(chatId, n) }
+    }
     /** App im Vordergrund und dieser Chat sichtbar (aus der Ansicht, Lebenszyklus RESUMED) */
     var foreground = false
     /** Position der neuesten Nachricht anderer, die auf dem Bildschirm zu sehen war */
@@ -455,21 +485,38 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
     /** in diesem Chat senden und anzeigen (gegenseitig) */
     val receiptsOn: Boolean get() = ReceiptLogic.enabled(svc.me.value, summary)
 
-    fun tickOf(m: ChatMessage): Tick = ReceiptLogic.tick(m, receiptsFeature, receiptsOn, isFed, summary?.members.orEmpty(), reads)
+    fun tickOf(m: ChatMessage): Tick = ReceiptLogic.tick(m, receiptsFeature, receiptsOn, isFed, summary?.members.orEmpty(), reads, messages)
 
+    /** Leser einer Nachricht; die Zeit ist die der ERSTEN Bestaetigung, die sie abdeckt (aus der Bestaetigung, nicht die lokale Uhr) */
     fun readersOf(m: ChatMessage): List<Pair<ChatPerson, ReadMark>> =
-        if (!receiptsOn) emptyList() else ReceiptLogic.readers(m, isFed, summary?.members.orEmpty(), reads)
+        if (!receiptsOn) emptyList() else ReceiptLogic.readers(m, isFed, summary?.members.orEmpty(), reads, messages).map { (p, r) ->
+            val n = ReceiptLogic.ord(m, isFed)
+            val ts = readHist[p.username]?.let { ReceiptHistory.readAt(it, n) }
+            p to (if (ts != null) r.copy(ts = ts) else r)
+        }
 
     /** sichtbare Eintraege der Liste (Schluessel = Nachrichten-IDs), nur im Vordergrund gemeldet */
     fun seen(ids: Collection<String>) {
         if (!foreground || ids.isEmpty()) return
-        val set = ids.toHashSet()
-        val n = messages.filter { it.id in set && ReceiptLogic.fromOthers(it) }.maxOfOrNull { ReceiptLogic.ord(it, isFed) } ?: return
+        visible = ids.toHashSet()
+        updateSeen()
+    }
+
+    /**
+     * Sichtbares neu auswerten: Bild/Video/Datei, deren Zeile schon zu sehen ist, aber deren Position erst spaeter
+     * ankommt (Nachladen, fseq), zaehlen sonst nie als gesehen - der Absender bliebe bei ✓ (TT 2.4 P-06)
+     */
+    private fun updateSeen() {
+        if (!foreground || visible.isEmpty()) return
+        val n = messages.filter { it.id in visible && ReceiptLogic.fromOthers(it) }.maxOfOrNull { ReceiptLogic.ord(it, isFed) } ?: return
         if (n > seenN) seenN = n
     }
 
-    private fun receiptWant(): Pair<String, Long>? =
-        if (!foreground || !receiptsOn || svc.keys() == null) null else ReceiptLogic.want(messages, isFed, seenN, sentN)
+    private fun receiptWant(): Pair<String, Long>? {
+        if (!foreground || !receiptsOn || svc.keys() == null) return null
+        updateSeen()
+        return ReceiptLogic.want(messages, isFed, seenN, sentN)
+    }
 
     /** Bestaetigung faellig (sichtbar, neu, Abstand eingehalten) - aus der Ansicht im Sekundentakt */
     fun receiptDue(): Boolean = receiptWant() != null && ReceiptLogic.wait(System.currentTimeMillis(), receiptAt, receiptGapMs) == 0L
@@ -535,7 +582,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             reads = emptyMap()
             return
         }
-        reads = takeReceipts(emptyMap(), ReceiptLogic.parseList(o["receipts"]))
+        applyReads(takeReceipts(reads, ReceiptLogic.parseList(o["receipts"])))
     }
 
     /** Liste oeffnen und pruefen (Geraet gehoert zur Person, Signatur passt); nicht pruefbar -> ignorieren */
@@ -1164,7 +1211,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             // 2.4: Gelesen-Bestaetigungen (gebuendelt; grosse Gruppen nur Hinweis "more" -> abrufen)
             "chat.receipt" -> if (receiptsOn) {
                 if (ev.bool("more")) quietly { loadReceipts() }
-                else reads = takeReceipts(reads, ReceiptLogic.parseList(ev.data["receipts"]))
+                else applyReads(takeReceipts(reads, ReceiptLogic.parseList(ev.data["receipts"])))
             }
             "chat.typing" -> {
                 val u = ev.obj("user")
