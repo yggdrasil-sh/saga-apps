@@ -50,6 +50,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -99,6 +102,8 @@ fun ChatsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, chatId:
     }
     // Drehen wechselt zwischen ein- und zweispaltig: Unterhaltung samt Entwurf mitnehmen statt neu aufbauen (BUG-021)
     val conversation = remember { movableContentOf { id: Long, two: Boolean -> Conversation(repo, nav, id, twoPane = two) } }
+    // Chats eingerichtet: einmal erklaeren und nach Mitteilungen fragen (Nachrichten, Anrufe, Upload-Fortschritt)
+    io.github.yggdrasil_sh.saga.ui.common.NotificationPermissionPrompt()
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val twoPane = maxWidth >= 720.dp
         val open: (Long) -> Unit = { id -> if (chatId == null) nav.push(Dest.Chat(id)) else { nav.pop(); nav.push(Dest.Chat(id)) } }
@@ -146,8 +151,12 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
     Scaffold(
         topBar = { SagaTopBar(stringResource(R.string.chats), if (showBack) nav else noBack, chrome) },
         floatingActionButton = {
+            // Bedienungshilfen: Knopf traegt seinen Namen selbst (TalkBack/uiautomator fanden ihn nicht, TT 2.4 P-12)
+            val newLabel = stringResource(R.string.chat_new)
             ExtendedFloatingActionButton(
-                onClick = { newChat = true }, icon = { Icon(Icons.Filled.Add, null) }, text = { Text(stringResource(R.string.chat_new)) },
+                onClick = { newChat = true }, icon = { Icon(Icons.Filled.Add, null) },
+                text = { Text(newLabel, modifier = Modifier.clearAndSetSemantics {}) },
+                modifier = Modifier.semantics { contentDescription = newLabel; role = Role.Button },
             )
         },
     ) { pad ->

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4: Funde aus dem Android-Test (Video, Mitteilungen, QR ohne Kamera, Kopplungslink) -->
+<resources>
+    <string name="video_waiting_network">กำลังรอการเชื่อมต่อ …</string>
+    <string name="notif_prompt_title">อนุญาตการแจ้งเตือนหรือไม่?</string>
+    <string name="notif_prompt_text">Saga จะแสดงข้อความใหม่ สายเรียกเข้า และความคืบหน้าของการอัปโหลด (เช่น วิดีโอ) เป็นการแจ้งเตือน คุณเปลี่ยนได้ภายหลังในการตั้งค่าระบบ</string>
+    <string name="notif_prompt_allow">ดำเนินการต่อ</string>
+    <string name="notif_prompt_later">ไม่ใช่ตอนนี้</string>
+    <string name="qr_no_camera_paste">อุปกรณ์นี้ไม่มีกล้อง คัดลอกลิงก์จับคู่จาก “แอปและอุปกรณ์” ในเบราว์เซอร์ แล้ววางที่นี่</string>
+    <string name="qr_camera_unavailable_paste">ใช้กล้องไม่ได้ในขณะนี้ ให้วางลิงก์จับคู่แทน</string>
+    <string name="qr_paste_link">วางลิงก์</string>
+    <string name="qr_paste_empty">คลิปบอร์ดว่างเปล่า คัดลอกลิงก์จับคู่ก่อน</string>
+    <string name="qr_paste_not_saga">ในคลิปบอร์ดไม่มีลิงก์จับคู่ของ Saga</string>
+    <string name="pair_rejected_title">ไม่รับลิงก์จับคู่</string>
+    <string name="pair_rejected_http">ลิงก์นี้ชี้ไปยังเซิร์ฟเวอร์ที่ไม่มี https เพื่อความปลอดภัย แอปจะจับคู่เฉพาะกับเซิร์ฟเวอร์ที่เข้าถึงได้ผ่าน https</string>
+    <string name="pair_rejected_http_debug">ลิงก์นี้ชี้ไปยังเซิร์ฟเวอร์ที่ไม่มี https นอกเครือข่ายภายใน เวอร์ชันทดสอบอนุญาต http เฉพาะในเครือข่ายส่วนตัว (เช่น 192.168.x.x, 10.x.x.x)</string>
+    <string name="versions_restore_confirm_title">กู้คืนเวอร์ชันนี้หรือไม่?</string>
+    <string name="versions_restore_confirm_text">หน้านี้จะถูกแทนที่ด้วยเวอร์ชันจาก %1$s เนื้อหาปัจจุบันจะถูกเก็บไว้เป็นเวอร์ชันหนึ่ง</string>
+    <string name="versions_restore_confirm_empty">เวอร์ชันนี้ว่างเปล่า หลังกู้คืนหน้านี้จะว่างเปล่า</string>
+</resources>

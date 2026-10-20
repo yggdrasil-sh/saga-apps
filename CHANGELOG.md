@@ -409,6 +409,40 @@ kam man nur über die Mitteilung.
   aufgelegt wird ausschließlich mit „Auflegen“. Anrufbildschirm und Vordergrund-Dienst bleiben erhalten, erneutes
   Öffnen baut keine zweite Verbindung auf.
 
+### Behoben (Android) – Funde aus dem Test der 2.4
+- **Video im Vollbild speichern:** Schließen, Dateiname und „Speichern“ lagen unter der Statusleiste und ließen sich
+  nicht antippen – Videos konnten in der App gar nicht gespeichert werden. Kopfzeile und Bedienung halten jetzt Abstand
+  zu Statusleiste, Kameraaussparung und Navigationsleiste. Gespeichert wird wie bisher ohne Berechtigung in die Galerie
+  (Filme/Saga, Android 8/9: „Speichern unter“); „Gespeichert“ bzw. der Fehler erscheint jetzt auch im Vollbild.
+- **Mitteilungen früh erlauben:** Beim ersten Öffnen der Chats nach der Anmeldung erklärt Saga einmal kurz, wofür
+  Mitteilungen gebraucht werden (Nachrichten, Anrufe, Upload-Fortschritt), und fragt dann – nicht mehr erst beim ersten
+  Anruf. Ohne Erlaubnis steht der Upload-Fortschritt weiter im Chat; nach einem Verbindungsabbruch heißt es dort
+  „Wartet auf Verbindung …“ statt „Video wird vorbereitet …“.
+- **Gelesen-Bestätigungen:** Bilder, Videos und Dateien zählen als gesehen, sobald ihre Zeile sichtbar war – auch wenn
+  ihre Position erst danach ankommt; eine eigene Nachricht ohne Position zählt als gelesen, wenn die Bestätigung sie
+  oder eine spätere Nachricht nennt (Bild blieb über 60 s bei ✓). Die „Gelesen“-Zeit älterer Nachrichten springt beim
+  Öffnen und bei neuen Bestätigungen nicht mehr weiter: Es gilt die Zeit der ersten Bestätigung, die die Nachricht
+  abdeckt (Zeit aus der signierten Bestätigung, nicht die Uhr des Geräts); die App merkt sich dafür nur Positionen und
+  Zeiten und sendet beim erneuten Öffnen keine neue Bestätigung für schon Bestätigtes.
+- **Version:** Die Apps tragen jetzt 2.4.0 (Vorabversionen „2.4.0-rc.N“ statt „2.3.1-rc.N“). Die Serverzeile zeigt,
+  was der Server unter `/api/version` meldet.
+- **Teilen über Servergrenzen:** `name@server` findet eine Person nur über ihren öffentlichen Namen. Ohne Treffer sucht
+  die App zusätzlich im Adressbuch dieses Servers nach dem Namen und zeigt nur dessen Treffer (z. B. Nora, mit der
+  schon ein Chat läuft).
+- **QR-Anmeldung ohne Kamera:** verständliche Meldung statt Ausnahme-Text und der Knopf „Link einfügen“
+  (Kopplungslink aus der Zwischenablage).
+- **Anzeige und Bedienungshilfen:** „Benachrichtigungen“ in Seiten- und Navigationsleiste wird nicht mehr mitten im
+  Wort umbrochen (Schrift passt sich an, notfalls „…“); das Anmeldefenster im Browser erscheint in der Sprache der App;
+  „Neuer Chat“ hat eine Beschreibung für TalkBack.
+- **Testbuild (Debug):** erlaubt http zu Testservern im privaten Netz (192.168.x.x, 10.x.x.x, 172.16–31.x.x, *.local,
+  localhost/Emulator). Ein abgewiesener Kopplungslink wird nicht mehr still ignoriert, sondern mit Grund gemeldet.
+  Release unverändert: nur https.
+- **Versionsverlauf:** „Diese Version wiederherstellen“ fragt jetzt nach (Datum des Stands) und warnt ausdrücklich,
+  wenn der gewählte Stand leer ist. Die Liste zeigt, was der Server liefert (dass nur der leere Anfangsstand erschien,
+  behebt der Server).
+- Tests: Lesezeit-Historie, Position aus der Reihenfolge, private Netze, Sprache im Anmeldelink, Adressbuch-Ausweichsuche,
+  Mitteilungs-Abfrage, Kamera-Meldung.
+
 ## [2.3.0] – 2026-10-19
 
 Passt zu Saga-Server 2.3. **Die neuen Funktionen brauchen Saga-Server 2.3; ältere Server funktionieren weiter**

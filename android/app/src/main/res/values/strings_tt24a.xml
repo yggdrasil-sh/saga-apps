@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4: Funde aus dem Android-Test (Video, Mitteilungen, QR ohne Kamera, Kopplungslink) -->
+<resources>
+    <string name="video_waiting_network">Waiting for connection …</string>
+    <string name="notif_prompt_title">Allow notifications?</string>
+    <string name="notif_prompt_text">Saga shows new messages, incoming calls and the progress of uploads (e.g. videos) as notifications. You can change this later in the system settings.</string>
+    <string name="notif_prompt_allow">Continue</string>
+    <string name="notif_prompt_later">Not now</string>
+    <string name="qr_no_camera_paste">This device has no camera. Copy the pairing link from “Apps &amp; devices” in the browser and paste it here.</string>
+    <string name="qr_camera_unavailable_paste">The camera can’t be used right now. Paste the pairing link instead.</string>
+    <string name="qr_paste_link">Paste link</string>
+    <string name="qr_paste_empty">The clipboard is empty. Copy the pairing link first.</string>
+    <string name="qr_paste_not_saga">The clipboard doesn’t contain a Saga pairing link.</string>
+    <string name="pair_rejected_title">Pairing link not accepted</string>
+    <string name="pair_rejected_http">This link points to a server without https. For your security the app only pairs with servers that are reachable via https.</string>
+    <string name="pair_rejected_http_debug">This link points to a server without https outside the local network. The test build allows http only for private networks (e.g. 192.168.x.x, 10.x.x.x).</string>
+    <string name="versions_restore_confirm_title">Restore this version?</string>
+    <string name="versions_restore_confirm_text">The page will be replaced by the version from %1$s. The current content is kept as a version.</string>
+    <string name="versions_restore_confirm_empty">This version is empty – the page would be empty afterwards.</string>
+</resources>

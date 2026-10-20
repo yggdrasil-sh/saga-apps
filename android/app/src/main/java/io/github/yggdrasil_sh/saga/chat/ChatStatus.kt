@@ -158,13 +158,28 @@ object ReceiptLogic {
     /** hoechstens eine je Chat und receipt_gap (Standard 2 s): wie lange noch warten (0 = jetzt) */
     fun wait(now: Long, lastAt: Long, gapMs: Long): Long = (lastAt + gapMs - now).coerceAtLeast(0)
 
-    /** neue Bestaetigung uebernehmen: je Person nur das groesste n */
-    fun take(old: ReadMark?, new: ReadMark): Boolean = old == null || new.n >= old.n && new != old
+    /**
+     * neue Bestaetigung uebernehmen: je Person nur das groesste n. Gleiches n erneut (z. B. erneut geoeffnet): die
+     * fruehere Zeit behalten - sonst springt "Gelesen" bei jedem Oeffnen weiter (TT 2.4 P-06)
+     */
+    fun take(old: ReadMark?, new: ReadMark): Boolean =
+        old == null || new.n > old.n || (new.n == old.n && new.ts > 0 && (old.ts <= 0 || new.ts < old.ts))
 
     /** Wer hat m gelesen? (ohne mich) */
-    fun readers(m: ChatMessage, fed: Boolean, members: List<ChatPerson>, reads: Map<String, ReadMark>): List<Pair<ChatPerson, ReadMark>> {
+    fun readers(
+        m: ChatMessage, fed: Boolean, members: List<ChatPerson>, reads: Map<String, ReadMark>, order: List<ChatMessage>? = null,
+    ): List<Pair<ChatPerson, ReadMark>> {
         val n = ord(m, fed)
-        if (n <= 0) return emptyList()
+        if (n <= 0) {
+            // eigene Nachricht ohne Position (fseq kam nicht an, z. B. Bild/Video: Zustellung schneller als das Einfuegen):
+            // gelesen, wenn die Bestaetigung genau diese oder eine spaetere Nachricht im Verlauf nennt (TT 2.4 P-06)
+            val list = order ?: return emptyList()
+            val at = list.indexOfFirst { it.id == m.id }
+            if (at < 0) return emptyList()
+            return members.filter { !it.me }.mapNotNull { p ->
+                reads[p.username]?.takeIf { r -> list.indexOfFirst { it.id == r.id } >= at }?.let { p to it }
+            }
+        }
         return members.filter { !it.me }.mapNotNull { p -> reads[p.username]?.takeIf { it.n >= n }?.let { p to it } }
     }
 
@@ -172,13 +187,16 @@ object ReceiptLogic {
      * Haken an einer eigenen Nachricht: ⏳ wird zugestellt (fstate pending) -> ✓ zugestellt -> ✓✓ gelesen. Direkt-Chat:
      * ✓✓, sobald das Gegenueber bestaetigt hat; Gruppe: ✓✓ "von allen" bzw. mit Zaehler. Server ohne die Funktion: nichts.
      */
-    fun tick(m: ChatMessage, feature: Boolean, enabled: Boolean, fed: Boolean, members: List<ChatPerson>, reads: Map<String, ReadMark>): Tick {
+    fun tick(
+        m: ChatMessage, feature: Boolean, enabled: Boolean, fed: Boolean, members: List<ChatPerson>, reads: Map<String, ReadMark>,
+        order: List<ChatMessage>? = null,
+    ): Tick {
         if (!feature || !m.mine || m.sys != null || m.call != null || m.ai == io.github.yggdrasil_sh.saga.ai.AiReplyCheck.OK) return Tick(TickKind.NONE)
         if (m.fstate == "pending") return Tick(TickKind.PENDING)
         if (m.fstate == "failed") return Tick(TickKind.NONE)
         if (!enabled) return Tick(TickKind.SENT)
         val others = members.count { !it.me }
-        val r = readers(m, fed, members, reads).size
+        val r = readers(m, fed, members, reads, order).size
         return if (r == 0) Tick(TickKind.SENT) else Tick(TickKind.READ, r, others in 1..r)
     }
 

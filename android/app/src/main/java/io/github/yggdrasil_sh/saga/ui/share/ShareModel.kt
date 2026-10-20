@@ -10,6 +10,7 @@ import io.github.yggdrasil_sh.saga.data.Role
 import io.github.yggdrasil_sh.saga.data.ShareEntry
 import io.github.yggdrasil_sh.saga.data.ShareState
 import io.github.yggdrasil_sh.saga.data.ShareTargets
+import io.github.yggdrasil_sh.saga.data.TargetRemote
 import io.github.yggdrasil_sh.saga.data.ShareVia
 import io.github.yggdrasil_sh.saga.util.UiText
 import kotlinx.coroutines.CancellationException
@@ -31,6 +32,22 @@ interface ShareBackend {
 object ShareLogic {
     /** Suche ohne Treffer: remote_hint des Servers (name@server), sonst "Niemand gefunden." */
     fun nobodyText(r: ShareTargets): UiText = r.remoteHint?.trim()?.takeIf { it.isNotEmpty() }?.let { UiText.Raw(it) } ?: UiText.Res(R.string.share_nobody)
+
+    /**
+     * name@server ohne Treffer (TT 2.4 P-13): Der Server loest name@server nur ueber den OEFFENTLICHEN Namen (bzw. den
+     * pseudonymen Handle) der Person auf, nicht ueber den Benutzernamen - "nora@b" findet Nora also nicht, obwohl das
+     * Adressbuch von b sie kennt. Dann zusaetzlich nach "nora" im Adressbuch suchen und nur Treffer von genau diesem
+     * Server zeigen. -> (Name, Server) oder null
+     */
+    fun addressParts(q: String): Pair<String, String>? {
+        val m = Regex("@?([^@\\s]+)@([^@\\s]+)").matchEntire(q.trim()) ?: return null
+        val host = m.groupValues[2].lowercase()
+        if (!host.contains('.') && !host.contains(':') && host != "localhost") return null      // keine Server-Adresse
+        return m.groupValues[1] to host
+    }
+
+    /** Adressbuch-Treffer der zweiten Suche: nur Personen/Gruppen des genannten Servers */
+    fun sameHost(r: ShareTargets, host: String): List<TargetRemote> = r.remote.filter { it.host.lowercase() == host }
 
     /** waehlbare Rollen fuer Freigaben */
     val ROLES = listOf(Role.VIEW, Role.COMMENT, Role.EDIT)
@@ -185,8 +202,20 @@ class ShareModel(val id: Long, private val backend: ShareBackend) {
         }
         val n = ++seq
         try {
-            val r = backend.shareTargets(q)
+            var r = backend.shareTargets(q)
             if (n != seq || query.trim() != q) return
+            val parts = ShareLogic.addressParts(q)
+            if (parts != null && r.users.isEmpty() && r.groups.isEmpty() && r.remote.isEmpty()) {
+                val extra = try {
+                    ShareLogic.sameHost(backend.shareTargets(parts.first), parts.second)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    emptyList()
+                }
+                if (n != seq || query.trim() != q) return
+                if (extra.isNotEmpty()) r = r.copy(remote = extra, remoteHint = null)
+            }
             hits = r
             // Treffer auf anderen Instanzen zaehlen mit (sonst "Niemand gefunden" ueber dem Treffer, BUG-112)
             // name@server ohne Treffer: Grund vom Server (remote_hint) statt "Niemand gefunden" - aeltere Server: wie bisher

@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -115,6 +118,8 @@ class VideoPlayerHost(private val context: Context, private val repo: SagaReposi
         private set
     var saving by mutableStateOf<Float?>(null)
         private set
+    /** Ergebnis des letzten Speicherns fuer die Anzeige im Vollbild (die Snackbar liegt hinter dem Dialog) */
+    var saveResult by mutableStateOf<Boolean?>(null)
     private var session: ChatSession? = null
 
     val sources by lazy { VideoSources(context.applicationContext, repo.api, repo.chat.crypto) }
@@ -182,6 +187,7 @@ class VideoPlayerHost(private val context: Context, private val repo: SagaReposi
     suspend fun save(s: ChatSession, f: ChatFile, target: Uri?) {
         if (saving != null) return
         saving = 0f
+        saveResult = null
         try {
             val plain = if (f.isV2) null else s.download(f)
             val write: (OutputStream) -> Unit = { out ->
@@ -194,10 +200,13 @@ class VideoPlayerHost(private val context: Context, private val repo: SagaReposi
                     else -> throw java.io.IOException("target")
                 }
             }
+            saveResult = true
             repo.notify(UiText.Res(R.string.video_saved))
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            android.util.Log.w("SagaVideo", "Speichern fehlgeschlagen: " + e.javaClass.simpleName)
+            saveResult = false
             repo.notify(UiText.Res(R.string.video_save_failed))
         } finally {
             saving = null
@@ -286,14 +295,16 @@ fun VideoFullscreen(host: VideoPlayerHost, s: ChatSession) {
         if (uri != null) scope.launch { host.save(s, f, uri) }
     }
     Dialog(onDismissRequest = { host.release() }, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
-        Box(Modifier.fillMaxSize().background(Color.Black)) {
+        // Statusleiste/Aussparung/Navigationsleiste liegen ueber dem Dialog (decorFitsSystemWindows = false):
+        // Kopfzeile und Bedienelemente mit safeDrawing einruecken, sonst sind X/Speichern nicht antippbar (TT 2.4 P-01)
+        Box(Modifier.fillMaxSize().background(Color.Black).windowInsetsPadding(WindowInsets.safeDrawing)) {
             AndroidView(
                 factory = { ctx -> PlayerView(ctx).apply { useController = true } },
                 update = { it.player = p },
                 onRelease = { it.player = null },
                 modifier = Modifier.fillMaxSize(),
             )
-            Row(Modifier.fillMaxWidth().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().background(Color(0x66000000), RoundedCornerShape(12.dp)).padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { host.release() }) { Icon(Icons.Filled.Close, stringResource(R.string.action_close), tint = Color.White) }
                 Text(f.n, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 val sv = host.saving
@@ -307,6 +318,17 @@ fun VideoFullscreen(host: VideoPlayerHost, s: ChatSession) {
             }
             if (host.failed) {
                 Text(stringResource(R.string.video_failed), color = Color.White, modifier = Modifier.align(Alignment.Center))
+            }
+            host.saveResult?.let { ok ->
+                LaunchedEffect(ok) {
+                    kotlinx.coroutines.delay(3000)
+                    host.saveResult = null
+                }
+                Text(
+                    stringResource(if (ok) R.string.video_saved else R.string.video_save_failed), color = Color.White,
+                    modifier = Modifier.align(Alignment.TopCenter).padding(top = 64.dp)
+                        .background(Color(0xCC000000), RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 6.dp),
+                )
             }
         }
     }
@@ -367,7 +389,16 @@ fun VideoUploadsBar(repo: SagaRepository, chatId: Long, onDone: () -> Unit) {
                 Row(Modifier.padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
                         Text(
-                            stringResource(if (prep) R.string.video_preparing else R.string.video_uploading) + " · " + Videos.nameOf(w),
+                            stringResource(
+                                when {
+                                    // lief schon und wartet jetzt (Netz weg/Wiederholung): nicht "wird vorbereitet" (TT 2.4 P-21)
+                                    w.state != WorkInfo.State.RUNNING && Videos.seenRunning.contains(w.id) &&
+                                        w.progress.getInt(VideoUploadWorker.KEY_PHASE, -1) != VideoUploadWorker.PHASE_PREPARE -> R.string.video_waiting_network
+                                    w.state == WorkInfo.State.ENQUEUED && w.runAttemptCount > 0 -> R.string.video_waiting_network
+                                    prep -> R.string.video_preparing
+                                    else -> R.string.video_uploading
+                                },
+                            ) + " · " + Videos.nameOf(w),
                             style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                         if (w.state == WorkInfo.State.RUNNING && p > 0f) LinearProgressIndicator(progress = { p }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))

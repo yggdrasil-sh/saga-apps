@@ -74,8 +74,14 @@ object LoginFlow {
      * /app/login mit PKCE. fresh = nach dem Abmelden in der App (Kontowechsel): prompt=login bittet den Server,
      * nicht still das im Browser angemeldete Konto zu nehmen.
      */
-    fun loginUrl(server: String, challenge: String, fresh: Boolean): String =
-        "$server/app/login?challenge=$challenge&scheme=saga" + if (fresh) "&prompt=login" else ""
+    /**
+     * lang = Sprache der App (de/en/es/ru/th): Anmeldefenster im Browser in derselben Sprache (Server: ?lang= gilt fuer
+     * diese Browser-Sitzung, nach einer im Browser selbst gewaehlten Sprache; TT 2.4 P-15). Leer/unbekannt: weglassen.
+     */
+    fun loginUrl(server: String, challenge: String, fresh: Boolean, lang: String = ""): String {
+        val l = io.github.yggdrasil_sh.saga.util.AppLanguage.normalize(lang)
+        return "$server/app/login?challenge=$challenge&scheme=saga" + (if (fresh) "&prompt=login" else "") + (if (l.isNotEmpty()) "&lang=$l" else "")
+    }
 
     /** "Anmeldung & Sicherheit" im Browser fuer das Konto der App (user = Kontoname; der Server warnt bei Abweichung) */
     fun securityUrl(server: String, account: String): String {

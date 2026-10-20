@@ -83,8 +83,9 @@ class MainActivity : ComponentActivity() {
             "pair" -> {
                 val t = PairLink.parse(data.toString())
                 // nie still koppeln: erst Ziel-Host zeigen und bestaetigen lassen (PairConfirmDialog)
-                if (t != null) repo.offerPair(t) else repo.notify(UiText.Res(R.string.login_invalid_pair_link)).also {
-                    repo.loginError.value = UiText.Res(R.string.login_invalid_pair_link)
+                if (t != null) repo.offerPair(t) else {
+                    val msg = UiText.Res(R.string.login_invalid_pair_link)
+                    if (repo.needsLogin.value) repo.loginError.value = msg else repo.pairRejected.value = msg
                 }
             }
         }

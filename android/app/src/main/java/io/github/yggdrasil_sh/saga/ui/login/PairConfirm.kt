@@ -78,3 +78,16 @@ fun PairConfirmDialog(repo: SagaRepository, target: PairTarget, appScope: Corout
         dismissButton = { TextButton(onClick = { repo.cancelPair() }, enabled = !busy) { Text(stringResource(R.string.action_cancel)) } },
     )
 }
+
+/** Abgewiesener Kopplungslink (http, kaputt): Grund zeigen statt still zu ignorieren (TT 2.4 P-07) */
+@Composable
+fun PairRejectedDialog(repo: SagaRepository) {
+    val msg by repo.pairRejected.collectAsState()
+    val m = msg ?: return
+    AlertDialog(
+        onDismissRequest = { repo.pairRejected.value = null },
+        title = { Text(stringResource(R.string.pair_rejected_title)) },
+        text = { Text(m.resolve()) },
+        confirmButton = { TextButton(onClick = { repo.pairRejected.value = null }) { Text(stringResource(android.R.string.ok)) } },
+    )
+}

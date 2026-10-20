@@ -128,6 +128,7 @@ fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
             if (everLoggedIn) key(server) { MainScreen(repo, appScope) }
             if (needsLogin) LoginScreen(repo)
             pendingPair?.let { PairConfirmDialog(repo, it, appScope) }
+            io.github.yggdrasil_sh.saga.ui.login.PairRejectedDialog(repo)
             io.github.yggdrasil_sh.saga.ui.common.LocalNetworkPrompt(repo)     // Android 17: Server im lokalen Netz
             pendingShare?.let { sc ->
                 if (needsLogin) LaunchedEffect(sc) { repo.notify(UiText.Res(R.string.share_sign_in_first)) }   // nach Anmeldung erscheint der Dialog
@@ -259,7 +260,7 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
                                 NavigationRailItem(
                                     selected = nav.root == Dest.Notifications, onClick = { nav.top(Dest.Notifications) },
                                     icon = { BadgeIcon(notifUnread) { Icon(Icons.Filled.Notifications, null) } },
-                                    label = { Text(stringResource(R.string.notifications), maxLines = 1) },
+                                    label = { NavLabel(stringResource(R.string.notifications)) },
                                 )
                             }
                             Spacer(Modifier.weight(1f))

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4: Funde aus dem Android-Test (Video, Mitteilungen, QR ohne Kamera, Kopplungslink) -->
+<resources>
+    <string name="video_waiting_network">Wartet auf Verbindung …</string>
+    <string name="notif_prompt_title">Mitteilungen erlauben?</string>
+    <string name="notif_prompt_text">Saga zeigt neue Nachrichten, eingehende Anrufe und den Fortschritt von Uploads (z. B. Videos) als Mitteilung. Du kannst das später in den Systemeinstellungen ändern.</string>
+    <string name="notif_prompt_allow">Weiter</string>
+    <string name="notif_prompt_later">Nicht jetzt</string>
+    <string name="qr_no_camera_paste">Dieses Gerät hat keine Kamera. Kopiere den Kopplungslink unter „Apps &amp; Geräte“ im Browser und füge ihn hier ein.</string>
+    <string name="qr_camera_unavailable_paste">Die Kamera lässt sich gerade nicht nutzen. Füge stattdessen den Kopplungslink ein.</string>
+    <string name="qr_paste_link">Link einfügen</string>
+    <string name="qr_paste_empty">Die Zwischenablage ist leer. Kopiere zuerst den Kopplungslink.</string>
+    <string name="qr_paste_not_saga">In der Zwischenablage steht kein Saga-Kopplungslink.</string>
+    <string name="pair_rejected_title">Kopplungslink abgewiesen</string>
+    <string name="pair_rejected_http">Der Link zeigt auf einen Server ohne https. Zu deiner Sicherheit koppelt die App nur mit Servern, die über https erreichbar sind.</string>
+    <string name="pair_rejected_http_debug">Der Link zeigt auf einen Server ohne https außerhalb des lokalen Netzes. Der Testbuild erlaubt http nur in privaten Netzen (z. B. 192.168.x.x, 10.x.x.x).</string>
+    <string name="versions_restore_confirm_title">Diese Version wiederherstellen?</string>
+    <string name="versions_restore_confirm_text">Die Seite wird durch den Stand vom %1$s ersetzt. Der aktuelle Inhalt bleibt als Version erhalten.</string>
+    <string name="versions_restore_confirm_empty">Diese Version ist leer – die Seite wäre danach leer.</string>
+</resources>

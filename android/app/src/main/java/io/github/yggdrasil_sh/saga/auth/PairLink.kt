@@ -58,6 +58,17 @@ object PairLink {
         return PairTarget(s, t.code)
     }
 
+    /** Warum check() den Link abweist (Text-Ressource fuer den Dialog) */
+    fun rejectReason(t: PairTarget, allowLocalHttp: Boolean): Int {
+        val scheme = t.server.substringBefore("://", "").lowercase()
+        return when {
+            !t.server.contains("://") || !CODE_RE.matches(t.code) -> io.github.yggdrasil_sh.saga.R.string.login_invalid_pair_link
+            scheme == "http" && allowLocalHttp -> io.github.yggdrasil_sh.saga.R.string.pair_rejected_http_debug
+            scheme == "http" -> io.github.yggdrasil_sh.saga.R.string.pair_rejected_http
+            else -> io.github.yggdrasil_sh.saga.R.string.login_invalid_pair_link
+        }
+    }
+
     /** Host (mit Port) fuer die Anzeige im Bestaetigungsdialog */
     fun displayHost(server: String): String = try {
         val u = URI(server)
