@@ -334,16 +334,17 @@ struct RTCVideoBox: NSViewRepresentable {
     let track: RTCVideoTrack?
     var mirror = false
     var fill = true
-    func makeNSView(context: Context) -> RTCMTLNSVideoView {
-        let v = RTCMTLNSVideoView(frame: .zero)
+    // webrtc-sdk: RTCMTLVideoView ist am Mac selbst ein NSView (RTCMTLNSVideoView steht nur noch im Header, ohne Symbol)
+    func makeNSView(context: Context) -> RTCMTLVideoView {
+        let v = RTCMTLVideoView(frame: .zero)
         v.wantsLayer = true
         return v
     }
-    func updateNSView(_ v: RTCMTLNSVideoView, context: Context) {
+    func updateNSView(_ v: RTCMTLVideoView, context: Context) {
         v.layer?.setAffineTransform(mirror ? CGAffineTransform(scaleX: -1, y: 1) : .identity)
         context.coordinator.attach(track, to: v)
     }
-    static func dismantleNSView(_ v: RTCMTLNSVideoView, coordinator: Coord) { coordinator.attach(nil, to: v) }
+    static func dismantleNSView(_ v: RTCMTLVideoView, coordinator: Coord) { coordinator.attach(nil, to: v) }
     func makeCoordinator() -> Coord { Coord() }
     final class Coord {
         weak var track: RTCVideoTrack?

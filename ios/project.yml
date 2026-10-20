@@ -17,10 +17,12 @@ packages:
   Sodium:
     url: https://github.com/jedisct1/swift-sodium.git
     exactVersion: 0.9.1
-  # Anrufe (Saga 2.1): vorgebautes Google-libwebrtc (BSD) fuer iOS + macOS, Version fest (Lizenzhinweis in "Ueber")
+  # Anrufe: vorgebautes libwebrtc (BSD) fuer iOS + macOS, Version fest (Lizenzhinweis in "Ueber").
+  # Saga 2.5: webrtc-sdk (LiveKit-Zweig) statt stasel - bringt FrameCryptor mit HKDF (saga-horn/v1, docs/HORN-E2E.md).
+  # Modul/Produkt heissen weiter WebRTC, Klassen ohne Praefix. Eingebunden ueber die Huelle Packages/WebRTC (Version und
+  # Pruefsumme dort; das Specs-Manifest selbst laesst sich mit Xcode 27 nicht laden).
   WebRTC:
-    url: https://github.com/stasel/WebRTC.git
-    exactVersion: 154.0.0
+    path: Packages/WebRTC
 settings:
   base:
     CODE_SIGN_STYLE: Automatic
@@ -183,3 +185,24 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).sharemac
         CODE_SIGN_ENTITLEMENTS: ShareMac/ShareMac.entitlements
         ENABLE_HARDENED_RUNTIME: YES
+  # 2.5 Gjallarhorn: Frame-E2E saga-horn/v1 gegen tests/vectors/horn_e2e.json (Kopie in Tests/vectors) und FrameCryptor
+  # im Loopback. Ohne Host-App (kein Fenster), Testbild aus dem Speicher, stilles Audio-Geraet - nie Kamera/Mikrofon.
+  # xcodebuild -scheme HornE2ETests -destination 'platform=macOS' test  (bzw. eine iOS-Simulator-ID)
+  HornE2ETests:
+    type: bundle.unit-test
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - Tests/Horn
+      - App/HornE2E.swift
+      - App/HornCryptor.swift
+      - path: Tests/vectors/horn_e2e.json
+        buildPhase: resources
+    dependencies:
+      - package: WebRTC
+        product: WebRTC
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).horntests
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "$(inherited) @loader_path/../Frameworks"

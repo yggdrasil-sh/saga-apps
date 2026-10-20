@@ -16,9 +16,10 @@ import ReplayKit
 // iPhone/iPad: ReplayKit-Erweiterung (Broadcast/SampleHandler.swift) schickt NV12-Bilder ueber einen Unix-Socket im
 //   Container der App-Gruppe; die App lauscht nur waehrend eines verbundenen Anrufs und reicht sie weiter.
 // Systemton: wird NICHT uebertragen. Laut Vertrag muesste er in die vorhandene Tonspur gemischt werden; die verwendete
-//   WebRTC-Fassung (stasel/WebRTC) bietet am Mac kein eigenes Audio-Geraet (RTCAudioDevice nur iOS) und am iPhone
+//   WebRTC-Fassung bot bis 2.4 (stasel/WebRTC) am Mac kein eigenes Audio-Geraet (RTCAudioDevice nur iOS) und am iPhone
 //   liefe der Ton der Erweiterung ueber denselben Socket in ein eigenes Audio-Geraet - beides zu riskant fuer E3.
-//   Daher screen_audio = false; das Mikrofon bleibt wie es ist.
+//   Daher screen_audio = false; das Mikrofon bleibt wie es ist. Seit 2.5 (webrtc-sdk) gibt es am Mac RTCAudioDevice,
+//   RTCAudioDeviceModule und RTCDesktopCapturer - damit liesse sich die Luecke spaeter schliessen (nicht in diesem Schritt).
 
 /// Empfaenger der Bilder (thread-sicher; Bilder kommen auf Hintergrund-Threads)
 final class ScreenSink: @unchecked Sendable {

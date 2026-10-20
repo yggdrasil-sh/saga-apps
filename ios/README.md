@@ -74,7 +74,16 @@ Die Anruf-Signalisierung (`App/CallCrypto.swift`, `App/CallLogic.swift`) prüft 
 `tests/call_vectors.json` (neben `chat_vectors.json` oder als zweites Argument).
 
 ### Anrufe (WebRTC, CallKit, PushKit)
-- WebRTC kommt als vorgebautes Google-libwebrtc über SPM (`stasel/WebRTC`, Version fest in `project.yml`).
+- WebRTC kommt als vorgebautes libwebrtc über SPM: seit 2.5 `webrtc-sdk` (LiveKit-Zweig, BSD; xcframework aus
+  `webrtc-sdk/Specs`, Version und Prüfsumme in der Hülle `Packages/WebRTC/Package.swift`, weil das Specs-Manifest mit
+  Xcode 27 nicht lädt). Modul `WebRTC`, Klassen ohne Präfix wie bisher; dazu FrameCryptor mit HKDF für Gjallarhorn.
+  Am Mac heißt die Video-Ansicht `RTCMTLVideoView` (ein NSView; `RTCMTLNSVideoView` gibt es dort nicht mehr).
+- **Gjallarhorn-Frame-E2E (2.5, `saga-horn/v1`, Vertrag `docs/HORN-E2E.md` im Saga-Repo):** Logik `App/HornE2E.swift`
+  (CryptoKit: Ableitungen, Rahmenformat, Empfänger mit Wiederholungsschutz, Runensiegel, `fkey`), FrameCryptor-Einstellungen
+  `App/HornCryptor.swift`. Test (XCTest, ohne Host-App) gegen `Tests/vectors/horn_e2e.json` (Kopie aus dem Saga-Repo):
+  `xcodebuild -scheme HornE2ETests -destination 'platform=macOS' test` bzw. mit einer iOS-Simulator-ID. Der Loopback
+  zweier PeerConnections mit FrameCryptor läuft nur im Simulator (stilles Audio-Gerät, Testbild aus dem Speicher; am Mac
+  übersprungen, damit kein Test CoreAudio/Mikrofon berührt).
 - iPhone/iPad: Hintergrundmodi `voip` und `audio` (Info.plist), CallKit für das Klingeln, PushKit-Token als eigenes
   Mitteilungs-Abo `apns-voip`. Zusätzliche Berechtigungen braucht die App-ID nicht: die Fähigkeit „Push
   Notifications“ reicht, der Server schickt mit demselben APNs-Schlüssel (.p8) an das Thema `<App-ID>.voip`.
