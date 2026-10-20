@@ -40,6 +40,7 @@ class ScreenAudioMixer {
     @RequiresApi(29)
     fun start(adm: JavaAudioDeviceModule, projection: MediaProjection): Boolean {
         if (wrapper != null) return true
+        var rec: AudioRecord? = null                        // Systemton-Aufnahme: bei Fehler wieder freigeben (nie verwaist weiter aufnehmen)
         return try {
             val inp = JavaAudioDeviceModule::class.java.getField("audioInput").get(adm) ?: return false
             val f = inp.javaClass.getDeclaredField("audioRecord").apply { isAccessible = true }
@@ -52,7 +53,7 @@ class ScreenAudioMixer {
                 .addMatchingUsage(AudioAttributes.USAGE_UNKNOWN)
                 .build()
             val min = AudioRecord.getMinBufferSize(mic.sampleRate, mask, AudioFormat.ENCODING_PCM_16BIT).coerceAtLeast(4096)
-            val rec = AudioRecord.Builder()
+            rec = AudioRecord.Builder()
                 .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT).setSampleRate(mic.sampleRate).setChannelMask(mask).build())
                 .setBufferSizeInBytes(min * 2)
                 .setAudioPlaybackCaptureConfig(cfg)
@@ -72,6 +73,13 @@ class ScreenAudioMixer {
             true
         } catch (e: Throwable) {
             Log.w("SagaCall", "screen audio: ${e.message}")
+            if (rec != null && rec !== sys) {
+                try {
+                    rec.stop()
+                } catch (_: Exception) {
+                }
+                rec.release()
+            }
             stop()
             false
         }

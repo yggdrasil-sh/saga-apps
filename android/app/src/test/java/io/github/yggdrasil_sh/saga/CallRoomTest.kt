@@ -194,13 +194,13 @@ class CallRoomTest {
 
     @Test
     fun uebernahme() {
-        val legs = listOf(leg("p1", "bert", name = "Bert"), leg("m1", "sven", devName = "Pixel"), leg("m2", "sven", "companion", devName = "Mac"))
+        val legs = listOf(leg("p1", "bert", name = "Bert"), leg("m1", "otto", devName = "Pixel"), leg("m2", "otto", "companion", devName = "Mac"))
         // vom Begleitgeraet m2 aus: Hauptgeraet ist m1
-        assertEquals("m1", CallRoom.mainDevice(legs, "sven", "m2"))
+        assertEquals("m1", CallRoom.mainDevice(legs, "otto", "m2"))
         // dritte eigene Geraet: nimmt das Hauptgeraet, nicht das Begleitgeraet
-        assertEquals("m1", CallRoom.mainDevice(legs, "sven", "m3"))
+        assertEquals("m1", CallRoom.mainDevice(legs, "otto", "m3"))
         // nur Begleitgeraet uebrig -> dieses
-        assertEquals("m2", CallRoom.mainDevice(legs.filter { it.device != "m1" }, "sven", "m3"))
+        assertEquals("m2", CallRoom.mainDevice(legs.filter { it.device != "m1" }, "otto", "m3"))
         assertNull(CallRoom.mainDevice(legs, "anna", "a1"))
         // fertig erst, wenn ALLE Verbindungen zu anderen Personen stehen
         assertFalse(CallRoom.handoverReady(emptyList()))
@@ -254,22 +254,22 @@ class CallRoomTest {
 
     @Test
     fun klingelnEndetMitEigenemGeraet() {
-        assertFalse(CallRoom.stopRinging(listOf(leg("a1", "anna")), "sven"))
-        assertTrue(CallRoom.stopRinging(listOf(leg("a1", "anna"), leg("s2", "sven")), "sven"))
+        assertFalse(CallRoom.stopRinging(listOf(leg("a1", "anna")), "otto"))
+        assertTrue(CallRoom.stopRinging(listOf(leg("a1", "anna"), leg("s2", "otto")), "otto"))
     }
 
     @Test
     fun leisteAnrufLaeuft() {
         val dm = CallInfo(id = "c1", chatId = 5, media = "video", state = "active", kind = "dm", joinable = true, limit = 4,
-            legs = listOf(leg("p1", "bert"), leg("m1", "sven", devName = "Pixel")))
+            legs = listOf(leg("p1", "bert"), leg("m1", "otto", devName = "Pixel")))
         // anderes eigenes Geraet: "Anruf laeuft auf Pixel" mit Hinzufuegen/Uebernehmen
-        val b = CallRoom.runBar(listOf(dm), "sven", "m2", null)!!
+        val b = CallRoom.runBar(listOf(dm), "otto", "m2", null)!!
         assertEquals("Pixel", b.onDevice)
         assertTrue(b.mineRunning)
         assertFalse(b.group)
         // dieses Geraet ist schon dabei bzw. telefoniert hier: keine Leiste
-        assertNull(CallRoom.runBar(listOf(dm), "sven", "m1", null))
-        assertNull(CallRoom.runBar(listOf(dm), "sven", "m2", "c1"))
+        assertNull(CallRoom.runBar(listOf(dm), "otto", "m1", null))
+        assertNull(CallRoom.runBar(listOf(dm), "otto", "m2", "c1"))
         // fremder 1:1-Anruf ohne eigenes Geraet: keine Leiste
         assertNull(CallRoom.runBar(listOf(dm), "carl", "c9", null))
         // Gruppe ohne eigenes Geraet: Beitreten; voll -> Hinweis
