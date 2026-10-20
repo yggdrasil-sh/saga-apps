@@ -612,7 +612,7 @@ class AnswerBox(Gtk.Box):
 
     def _copy_btn(self, text):
         b = Gtk.Button(label=_("Copy"), halign=Gtk.Align.START)
-        b.connect("clicked", lambda *_: (self.dlg.win.copy_text(text), self.dlg.toast(_("Copied."))))
+        b.connect("clicked", lambda *_a: (self.dlg.win.copy_text(text), self.dlg.toast(_("Copied."))))
         return b
 
     def _tasks(self, tasks):

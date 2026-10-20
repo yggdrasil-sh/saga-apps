@@ -577,7 +577,33 @@ Speicher beim Hoch- und Herunterladen. Texte in Deutsch, Englisch, Spanisch, Rus
   beim Öffnen nicht mehr markiert; Rückfragen beim Koppeln nennen den Port; geht kein Browser auf, wird die Adresse
   kopiert und angezeigt; Papierkorb-Zeilen werden umbrochen statt abgeschnitten; Videos spulen genau (nicht mehr an
   das letzte Schlüsselbild); „✓✓“ kräftiger; Hinweistext mittig zum Emoji.
-- Tests: `linux/tests/test_tt24.py`.
+- **Runde 2 – Absturz beim Blockmenü per Tastatur (Datenverlust):** Menütaste bzw. Umschalt+F10 → „Löschen“,
+  „Duplizieren“ oder „Verschieben“ beendete die App (Speicherzugriffsfehler in GTK), die Änderung ging verloren. Das Menü
+  hing am Textfeld des Blocks, das beim Neuaufbau verschwand. Menüs hängen jetzt nie an einem Textfeld (sie zeigen auf
+  die Schreibmarke), und der gewählte Eintrag läuft erst, wenn das Menü zu und abgehängt ist – für alle Menüs der App,
+  unabhängig von der GTK-Version. Löschen über die Tastatur zeigt wie über den Griff „Block gelöscht“ mit Rückgängig.
+- **Runde 2 – Gelesen ✓✓ in Chats über Servergrenzen:** Eigene Nachrichten auf der anderen Instanz als dem Heim des
+  Chats blieben dauerhaft bei ✓ – die schon geladene Kopie bekam ihre Position `fseq` nie. Sie kommt jetzt aus der
+  Antwort beim Senden, dem Live-Ereignis der Zustellung und späteren Serverlisten; die Bestätigung wird wie bei Android
+  über diese Reihenfolge zugeordnet.
+- **Runde 2 – Gruppenanrufe klingeln:** Die App meldet dem Server ihre Fähigkeiten (`PUT /api/calls/caps`, nur `multi`:
+  Einladung und Klingeln, das Gespräch läuft im Browser). Bisher galten reine Linux-Nutzer als „braucht Saga 2.4“ und
+  wurden nicht eingeladen. Server ohne Gruppenanrufe bekommen nichts gemeldet.
+- **Runde 2 – Gleichnamige Personen unterscheidbar:** Teilen (Suche und Zugriff-Liste), neue Unterhaltung, „Person
+  hinzufügen“ und Mitgliederliste zeigen unter dem Namen das Merkmal vom Server (öffentlicher Name bzw. Handle `~…`),
+  nie den Anmeldenamen.
+- **Runde 2 – Datenbank-Eintrag im Peek:** Status, Datum usw., die in der Tabelle (auch hinter dem Peek) oder von einer
+  anderen Person gesetzt werden, erscheinen sofort im offenen Eintrag statt „Leer“; Tabellen laden bei Änderungen an
+  Zeilen durch andere neu.
+- **Runde 2 – Tabellen:** Die Leiste unter einer Tabelle („Zeile“, „Spalte“, „Kopfzeile“, ⋮) lag über den folgenden
+  Blöcken; sie steht jetzt breit in einer Zeile und bricht nur im schmalen Fenster um.
+- **Runde 2 – Kleineres:** „Dienste“ ohne Einträge bzw. ohne Treffer zeigte wegen eines Programmfehlers nichts an (gleicher
+  Fehler beim Kopieren im Assistenten und beim Test-Push behoben, mit Prüfung im Test); Titel neuer Seiten und
+  Unterseiten bekommt den Fokus auch, wenn die Seite erst nach dem Klick aufgebaut wird; Mitgliederliste „du“ statt
+  „dir“, Personen des eigenen Servers „Person auf diesem Server“ statt „auf localhost:8197“; 370 px: Bilder ohne großen
+  Leerraum darüber, Geräte in Einstellungen → Chats mit Symbol-Knopf (Text bricht nicht mehr Wort für Wort um),
+  Datenbank-Seite mit Rand rechts.
+- Tests: `linux/tests/test_tt24.py`, `linux/tests/test_r2.py`, `linux/tests/blockmenu_keys.py` (echte Hauptschleife).
 
 ### Behoben – Chats über Servergrenzen
 **Android – eigene Nachricht blieb auf „⏳ wird zugestellt“:** In einem Direkt-Chat, dessen Heim der andere Server ist,

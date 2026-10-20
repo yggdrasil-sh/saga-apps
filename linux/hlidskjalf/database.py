@@ -306,7 +306,8 @@ class DBModel(GObject.Object):
         self.emit("changed")
         # Warteschlange je Eintrag: schnelles An/Aus kommt in der richtigen Reihenfolge an
         store.run("PATCH", f"api/notes/{row_id}", {"props": {pid: value}}, data_changed=False, key=("note", row_id),
-                  done=lambda _: store.drop_cache(f"api/notes/{row_id}"), error=lambda e: (store.emit("error", str(e)), self.load()))
+                  done=lambda _: (store.drop_cache(f"api/notes/{row_id}"), store.emit("row-changed", int(row_id))),
+                  error=lambda e: (store.emit("error", str(e)), self.load()))
 
     def rename(self, row_id, title):
         """Titel mit Revision speichern (ueber den offenen Peek bzw. die aktuelle Revision) - kein 409 im Peek danach"""

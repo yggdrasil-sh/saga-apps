@@ -334,7 +334,9 @@ class ImageView(Gtk.Widget):
         natw = self.natural or (self.dec.w if self.dec else 400)
         if orientation == Gtk.Orientation.HORIZONTAL:
             return 0, int(natw), -1, -1
-        w = for_size if for_size > 0 else natw
+        # for_size 0 ist eine echte Breite (GTK fragt die Mindesthoehe bei Breite 0 ab): Hoehe 0, nicht die der natuerlichen
+        # Breite - sonst galt die volle Hoehe als Mindesthoehe und im schmalen Fenster blieb grosser Leerraum (N11)
+        w = for_size if for_size >= 0 else natw
         h = int(min(self.max_height, w / ratio)) if ratio else 0
         if not self.dec:
             h = min(h, 160)

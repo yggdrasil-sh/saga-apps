@@ -50,6 +50,17 @@ def group_rings(c):
         and not c.get("mine")
 
 
+def device_caps(cfg):
+    """(2.4, N5) Faehigkeiten dieses Geraets fuer PUT /api/calls/caps (Vertrag: docs/APP-API.md "Mehrgeraete und Gruppen").
+    Die Linux-App fuehrt kein WebRTC-Gespraech selbst - sie klingelt und das Gespraech laeuft im Browser, der dort als
+    eigener Endpunkt mit seinen eigenen caps beitritt. Daher NUR "multi" (an Gruppenanrufen teilnehmen: Einladung,
+    Klingeln, Beitreten ueber den Browser) und das nur, wenn der eigene Server reneg und multi kann. reneg/want/bye/screen2
+    betreffen die Signalisierung einer eigenen PeerConnection und werden nicht behauptet."""
+    f = (cfg or {}).get("features") if isinstance(cfg, dict) else None
+    f = set(x for x in f if isinstance(x, str)) if isinstance(f, list) else set()
+    return ["multi"] if {"reneg", "multi"} <= f and (cfg or {}).get("enabled") else []
+
+
 def chat_url(chat_id):
     return f"{config.settings.server.rstrip('/')}/chats#c{int(chat_id)}"
 
@@ -228,6 +239,7 @@ class Calls(GObject.Object):
         self._invites = {}              # (2.4) call_id -> call.invite (from, silent ...) bis zum Pruefen
         self._push_group = set()        # (2.4) Rueckfall-Mitteilung eines Gruppenanrufs (Push-Art call.group)
         self.config = None              # GET /api/calls/config (enabled ...), None = unbekannt
+        self._caps_sent = None          # (2.4) (Server, Geraet, caps) zuletzt per PUT /api/calls/caps gemeldet
         self.ringer = Ringer()
         self._timer = 0
         self._held = False
@@ -239,6 +251,7 @@ class Calls(GObject.Object):
         self._push_media.clear()
         self._invites.clear()
         self.config = None
+        self._caps_sent = None
 
     @staticmethod
     def _me():
@@ -252,6 +265,7 @@ class Calls(GObject.Object):
     def load_config(self, done=None):
         def fin(j):
             self.config = j if isinstance(j, dict) else {}
+            self.report_caps()
             if done:
                 done(self.enabled)
 
@@ -260,6 +274,27 @@ class Calls(GObject.Object):
             if done:
                 done(self.enabled)
         bg(client.get, "api/calls/config", done=fin, error=err)
+
+    def report_caps(self):
+        """(2.4, N5) Faehigkeiten melden, sobald Server-Einstellung und Chat-Geraet bekannt sind (beim Start bzw. wenn die
+        Chat-Schluessel bereit sind) - sonst laedt der Server reine Linux-Nutzer nie zu Gruppenanrufen ein ("braucht
+        Saga 2.4"), es klingelt nicht. Einmal je Server, Geraet und caps."""
+        try:
+            from .chat import chat
+        except ImportError:
+            return
+        caps = device_caps(self.config)
+        if not caps or not chat.ready or not chat.device_id:
+            return
+        key = (config.settings.server, chat.device_id, tuple(caps))
+        if key == self._caps_sent:
+            return
+        self._caps_sent = key
+
+        def err(e):
+            if self._caps_sent == key:
+                self._caps_sent = None                     # beim naechsten Anlass erneut versuchen
+        bg(client.json, "PUT", "api/calls/caps", {"device": chat.device_id, "caps": caps}, error=err)
 
     @property
     def enabled(self):

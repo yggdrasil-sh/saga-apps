@@ -450,7 +450,7 @@ class PushPage(Adw.PreferencesPage):
     def _test_btn(self, x, row):
         b = Gtk.Button(label=_("Test"), valign=Gtk.Align.CENTER, tooltip_text=_("Send a test notification to this device"))
 
-        def go(*_):
+        def go(*_a):
             row.set_subtitle(_("Sending …"))
 
             def fin(j):

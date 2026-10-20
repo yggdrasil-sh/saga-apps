@@ -88,6 +88,7 @@ for part in $PARTS; do
       ;;
     ui)
       app_test smoke.py
+      app_test blockmenu_keys.py                         # Blockmenue per Tastatur -> Loeschen/Duplizieren (echte Hauptschleife)
       ;;
     lang)
       for l in de_DE.UTF-8 en_US.UTF-8 es_ES.UTF-8 ru_RU.UTF-8 th_TH.UTF-8; do app_test sprachen.py "$l"; done

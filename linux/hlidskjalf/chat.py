@@ -121,6 +121,20 @@ def fed_apply(msgs, server, confirmed):
     return hit
 
 
+def fed_take_fseq(msgs, known):
+    """(2.4, N3) Position fseq eigener Nachrichten in v2-Chats nachtragen: aus der POST-Antwort, dem Live-Ereignis
+    chat.message bzw. einer frischen Serverliste (known: id -> fseq). Eine schon geladene Kopie (zuerst ohne fseq, etwa
+    waehrend sie zugestellt wurde) bekam sie sonst nie - die Lesebestaetigung ordnet aber ueber fseq zu, ✓✓ blieb aus
+    (wie Android ChatSession). Aendert die Eintraege -> True, wenn sich etwas geaendert hat"""
+    hit = False
+    for m in msgs or []:
+        n = known.get(m.get("id")) if isinstance(m, dict) else None
+        if isinstance(n, int) and not isinstance(n, bool) and n > 0 and m.get("fseq") != n:
+            m["fseq"] = n
+            hit = True
+    return hit
+
+
 def remote_label(u):
     """Treffer der Adressbuch-Suche: fertiger Text "Name · host" (bei gleichen Namen mit Zusatz vom Server)"""
     u = u if isinstance(u, dict) else {}
@@ -448,6 +462,7 @@ class ChatState(GObject.Object):
         self.unread = 0
         self.cache = {}            # chat-id -> {"msgs": [...], "more", "last_seq", "loaded", "rc": recipients}
         self.fed_confirmed = set()  # (2.3) eigene Nachrichten, die das Heim schon bei POST bestaetigt hat
+        self.fed_fseq = {}          # (2.4) id -> fseq eigener Nachrichten aus der POST-Antwort (Gelesen-Haken)
         self.typing = {}           # chat-id -> {uid: (name, bis)}
         self.notes = {}            # Seiten-Titel fuer [[note:ID]]: id -> {title, icon} | None (kein Zugriff)
         self.open_chat = None      # gerade angezeigter Chat (Gelesen-Markierung, keine Zaehler-Erhoehung)
@@ -567,6 +582,8 @@ class ChatState(GObject.Object):
                 if self.me.get("links"):
                     self.check_links()
                 self.fed_certs_soon()
+                from .calls import calls
+                calls.report_caps()                       # (2.4) Gruppenanrufe: "multi" fuer dieses Geraet (N5)
             if done:
                 done()
 
@@ -1057,6 +1074,10 @@ class ChatState(GObject.Object):
                 c["msgs"] = msgs
                 c["more"] = bool(j.get("more"))
             c["msgs"].sort(key=lambda m: m.get("seq") or 0)
+            # (2.4) fseq fuer schon geladene Kopien nachtragen (N3; nur v2-Nachrichten haben fseq)
+            known = dict(self.fed_fseq)
+            known.update({m["id"]: m.get("fseq") for m in msgs if isinstance(m.get("fseq"), int)})
+            fed_take_fseq(c["msgs"], known)
             c["loaded"] = True
             c["last_seq"] = max(int(j.get("last_seq") or 0), c.get("last_seq") or 0)
             c["last_read"] = j.get("last_read")
@@ -1097,13 +1118,24 @@ class ChatState(GObject.Object):
             gone = set() if frm <= 1 else fed_gone(c["msgs"], server, bool(j.get("more")), max([m.get("seq") or 0 for m in got] or [0]))
             if gone:
                 c["msgs"] = [m for m in c["msgs"] if m["id"] not in gone]
-            if fed_apply(c["msgs"], server, self.fed_confirmed) or gone:
+            fs = fed_take_fseq(c["msgs"], {m["id"]: m.get("fseq") for m in got})
+            if fed_apply(c["msgs"], server, self.fed_confirmed) or gone or fs:
                 self.emit("messages", cid)
 
         def err(_e):
             c["dcheck_run"] = False
         bg(client.get, f"api/chats/{cid}/messages?device={self.device_id}&after={frm - 1}&limit=200&calls=1", done=fin, error=err)
         return True
+
+    def _post_fseq(self, cid, mid, n):
+        """(2.4) fseq aus der Antwort von POST .../messages: auch an eine schon geladene Kopie"""
+        self.fed_fseq[mid] = n
+        if len(self.fed_fseq) > 500:
+            self.fed_fseq.pop(next(iter(self.fed_fseq)))
+        c = self.cache.get(cid)
+        if c and fed_take_fseq(c.get("msgs"), {mid: n}):
+            self.emit("messages", cid)
+        return False
 
     def _post_confirmed(self, cid, mid):
         """(2.3) vom Heim bei POST bestaetigt: eine schon (ueber das Live-Ereignis) mit ⏳ geladene Kopie gleich als zugestellt"""
@@ -1844,6 +1876,8 @@ class ChatState(GObject.Object):
             resp.setdefault("id", req["id"])
             if not resp.get("pending"):                  # ohne pending = vom Heim bestaetigt (Server bis 2.3.0: kein Ereignis)
                 GLib.idle_add(self._post_confirmed, cid, req["id"])
+            if isinstance(resp.get("fseq"), int) and not isinstance(resp.get("fseq"), bool):
+                GLib.idle_add(self._post_fseq, cid, req["id"], resp["fseq"])
             return resp, missing
         raise ChatError(_("The members or their devices have changed – please send again."))
 
@@ -2244,10 +2278,15 @@ class ChatState(GObject.Object):
             c = self.cache.get(cid)
             if c and d.get("id"):                             # (2.3) eigene wartende Nachricht: zugestellt bzw. abgewiesen
                 for m in c.get("msgs") or []:
-                    if m.get("id") == d.get("id") and m.get("fstate"):
+                    if m.get("id") != d.get("id"):
+                        continue
+                    hit = False
+                    if m.get("fstate"):
                         m["fstate"] = "failed" if d.get("failed") else None
-                        if isinstance(d.get("fseq"), int) and not m.get("fseq"):     # (2.4) Position fuer die Haken
-                            m["fseq"] = d["fseq"]
+                        hit = True
+                    # (2.4) Position fuer die Haken - auch wenn die Kopie nicht (mehr) als wartend markiert ist (N3)
+                    hit = fed_take_fseq([m], {m["id"]: d.get("fseq")}) or hit
+                    if hit:
                         self.emit("messages", cid)
             if cid in self.cache and self.cache[cid].get("loaded"):
                 self.load_messages(cid)

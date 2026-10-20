@@ -251,7 +251,7 @@ def share_rows(st):
     for x in (st or {}).get("shares") or []:
         typ, name = x.get("type"), x.get("name") or x.get("target") or ""
         sub = group_sub(x.get("members")) if typ == "group" else remote_sub(typ) if typ in ("remote", "remote_group") else \
-            _("Person")                                   # 2.4 (W4): nie den Anmeldenamen
+            with_mark(_("Person"), x)                     # 2.4 (W4): nie den Anmeldenamen; N2: Handle fuer Gleichnamige
         vias = (x.get("via") or []) if typ == "user" else []
         top = vias[0] if vias else None
         via = None
@@ -275,7 +275,7 @@ def inherited_rows(st):
     for x in (st or {}).get("inherited") or []:
         typ = x.get("type")
         out.append({"type": typ, "name": x.get("name") or x.get("target") or "",
-                    "sub": group_sub(None) if typ == "group" else _("Person") if typ == "user" else (x.get("target") or ""),
+                    "sub": group_sub(None) if typ == "group" else with_mark(_("Person"), x) if typ == "user" else (x.get("target") or ""),
                     "role": role_name(x.get("role")), "from": _("via “{title}”").format(title=x.get("title") or _("Untitled")),
                     "note_id": x.get("note_id")})
     return out
@@ -292,7 +292,7 @@ def hit_rows(d, st, role):
     add_as = _("Add ({role})").format(role=role_name(role))
     for u in (d or {}).get("users") or []:
         t = u.get("username") or ""                              # 2.4 (W4): Handle '~…' (aeltere Server: Benutzername) - nie zeigen
-        out.append({"type": "user", "target": t, "name": u.get("name") or t, "sub": _("Person on this server"), "avatar": u.get("avatar"),
+        out.append({"type": "user", "target": t, "name": u.get("name") or t, "sub": with_mark(_("Person on this server"), u), "avatar": u.get("avatar"),
                     "has": _("has access") if f"user:{t}" in tk else add_as})
     for g in (d or {}).get("groups") or []:
         n = g.get("name") or ""
@@ -323,6 +323,37 @@ def remote_info(page):
     if RANK.get(r, 0) >= RANK["comment"]:
         return _("This page is on {host}. Here you can read and comment on it.").format(host=host)
     return _("This page is on {host}. Here you can read it.").format(host=host)
+
+
+def person_mark(u):
+    """(2.4, N2) Unterscheidungsmerkmal einer Person auf diesem Server fuer die Unterzeile - gleichnamige Personen sind
+    sonst nicht zu unterscheiden (Teilen, Chat, Mitglieder). Wie Web und Server: "sub" (oeffentlicher Name bzw. Handle,
+    core.subtitles), sonst der pseudonyme Handle "~…" (username/ref/target ab 2.4). Nie der Anmeldename: aeltere
+    Server liefern dort den Benutzernamen - der erscheint nicht."""
+    if not isinstance(u, dict):
+        return ""
+    s = u.get("sub")
+    if isinstance(s, str) and s.strip():
+        return s.strip()
+    for k in ("ref", "username", "target"):
+        h = u.get(k)
+        if isinstance(h, str) and h.startswith("~") and len(h) > 1:
+            return h
+    return ""
+
+
+def same_host(host):
+    """Herkunft host = dieser Server (Adresse der Anmeldung, ohne Gross/Klein)?"""
+    from urllib.parse import urlparse
+    from .config import settings
+    own = urlparse(settings.server or "").netloc
+    return bool(own) and isinstance(host, str) and host.strip().lower() == own.lower()
+
+
+def with_mark(text, u):
+    """"Person auf diesem Server" + " · ~abc…" (falls ein Merkmal da ist)"""
+    m = person_mark(u)
+    return f"{text} · {m}" if m and text else (m or text)
 
 
 def remote_sub(typ):
