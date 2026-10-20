@@ -371,7 +371,7 @@ struct ShareSheet: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(verbatim: h.name).lineLimit(3)          // umbrechen: der Server-Teil (an wen man teilt) muss lesbar bleiben
                     Text(h.isRemote ? (h.isGroup ? String(localized: "Gruppe auf einer anderen Saga-Instanz") : h.remoteLine ?? String(localized: "Andere Saga-Instanz"))
-                         : h.username != nil ? String(localized: "Person auf diesem Server") : String(localized: "Gruppe")).font(.caption).foregroundStyle(.secondary)   // 2.4 (W4)
+                         : h.username != nil ? PersonRef.subline(String(localized: "Person auf diesem Server"), h.sub) ?? "" : String(localized: "Gruppe")).font(.caption).foregroundStyle(.secondary)   // 2.4 (W4); sub fuer Gleichnamige
                 }
                 Spacer()
                 Text(has ? String(localized: "hat Zugriff") : String(localized: "Hinzufügen (\(RoleText.name(role)))")).font(.caption).foregroundStyle(.secondary)

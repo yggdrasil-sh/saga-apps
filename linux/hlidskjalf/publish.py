@@ -745,6 +745,17 @@ class PublishDialog(Adw.Dialog):
 # =====================================================================================================
 # Einstellungen -> Konto: oeffentlicher Name
 # =====================================================================================================
+def login_hint(p, typed):
+    """2.4: Der Server lehnt den Anmeldenamen als oeffentlichen Namen ab (Fehlertext vom Server am Feld); ein frueher so
+    gewaehlter Name bleibt, GET meldet is_login -> Hinweis, solange genau dieser Name im Feld steht."""
+    return bool(isinstance(p, dict) and p.get("is_login") and p.get("name") and norm(typed) == norm(p["name"]))
+
+
+def login_hint_text():
+    return _("Your public name is your login name – it appears in public addresses and is visible to other Saga servers. "
+             "Better choose a different one; old links to published pages will stop working afterwards.")
+
+
 def new_address_text(origin, name, old_url):
     """Live beim Tippen: "Neue Adresse: …/@neu (bisher …/@alt)"; ohne bisherigen Namen nur die neue Adresse"""
     url = f"{origin}/@{name}"
@@ -772,6 +783,11 @@ class PublicNameGroup(Adw.PreferencesGroup):
         self.status = status_label()
         self.status.set_margin_top(6)
         self.add(self.status)
+        self.loginwarn = note_label("warning caption")            # 2.4: frueher gewaehlter Name = Anmeldename
+        self.loginwarn.set_selectable(False)
+        self.loginwarn.set_margin_top(6)
+        self.loginwarn.set_visible(False)
+        self.add(self.loginwarn)
         self.newaddr = note_label("dim-label caption")
         self.newaddr.set_selectable(False)
         self.newaddr.set_margin_top(6)
@@ -791,13 +807,21 @@ class PublicNameGroup(Adw.PreferencesGroup):
         txt = new_address_text(config.origin(config.settings.server), v, self.p.get("url") if old else None) if v and v != old else ""
         self.newaddr.set_label(txt)
         self.newaddr.set_visible(bool(txt))
+        self._login_hint()
         self.check.changed(v, old)
+
+    def _login_hint(self):
+        on = login_hint(self.p, self.row.get_text())
+        if on:
+            self.loginwarn.set_label(login_hint_text())
+        self.loginwarn.set_visible(on)
 
     def fill(self, p):
         self.p = p if isinstance(p, dict) else {}
         self.row.set_text(self.p.get("name") or "")
         placeholder(self.row, self.p.get("suggested") or "")
         self._hint()
+        self._login_hint()
         set_status(self.status, "")
         self.newaddr.set_visible(False)
         self.btn.set_sensitive(False)
@@ -832,6 +856,8 @@ class PublicNameGroup(Adw.PreferencesGroup):
         self.btn.set_sensitive(False)
 
         def fin(d):
+            if norm(d.get("name") or v) != norm(self.p.get("name")):
+                self.p["is_login"] = False                  # neuer Name: der Server nimmt den Anmeldenamen nicht an
             self.p.update(name=d.get("name") or v, url=d.get("url"))
             self.check.cancel()
             self.row.set_text(self.p["name"])

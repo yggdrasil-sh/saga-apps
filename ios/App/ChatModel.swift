@@ -162,6 +162,8 @@ struct ChatMember: Equatable, Identifiable {
     var avatar: String? = nil
     /// 2.4 (W4): Kennung wie in der Personensuche (pseudonymer Handle); username bleibt fuer die Krypto, wird nie gezeigt
     var ref: String? = nil
+    /// 2.4: Unterzeile fuer Gleichnamige (members[].sub: oeffentlicher Name bzw. Handle, nie der Anmeldename)
+    var sub: String? = nil
     var id: String { username }
 }
 
@@ -210,7 +212,7 @@ struct ChatSummary: Identifiable, Equatable {
             guard let m = v as? [String: Any], let u = m["username"] as? String else { return nil }
             let ref = ShareJSON.str(m["ref"])
             return ChatMember(username: u, name: PersonRef.display(name: m["name"] as? String, ref: ref, id: u), me: ShareJSON.bool(m["me"]),
-                              avatar: ShareJSON.str(m["avatar"]), ref: ref)
+                              avatar: ShareJSON.str(m["avatar"]), ref: ref, sub: PersonRef.sub(m["sub"]))
         }
         memberCount = ShareJSON.int(d["member_count"]) ?? members.count
         unread = ShareJSON.int(d["unread"]) ?? 0; muted = ShareJSON.bool(d["muted"]); retention = ShareJSON.int(d["retention_s"]) ?? 0

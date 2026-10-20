@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4 Server-Vertrag Runde 2: oeffentlicher Name = Anmeldename (is_login) -->
+<resources>
+    <string name="publish_name_is_login">ชื่อสาธารณะของคุณคือชื่อเข้าสู่ระบบ – ปรากฏในที่อยู่สาธารณะและเซิร์ฟเวอร์ Saga อื่นมองเห็นได้ ควรเลือกชื่ออื่น หลังจากนั้นลิงก์เก่าไปยังหน้าที่เผยแพร่จะใช้ไม่ได้</string>
+</resources>

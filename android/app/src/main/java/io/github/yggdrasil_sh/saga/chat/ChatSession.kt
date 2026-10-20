@@ -358,12 +358,13 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         val mem = summary?.members?.map { it.username }.orEmpty().filter { it.isNotEmpty() }
         if (mem.isEmpty()) return
         try {
-            val o = Json.parseToJsonElement(api.get("api/chat/keys?users=" + mem.joinToString(","))) as? JsonObject ?: return
-            val users = o["users"] as? JsonObject ?: return
+            // nur Mitglieder (Server 2.4: Schluessel nur fuer Personen mit gemeinsamem Chat, Antwort unter der angefragten Kennung)
+            val q = mem.joinToString(",") { java.net.URLEncoder.encode(it, "UTF-8") }
+            val o = Json.parseToJsonElement(api.get("api/chat/keys?users=$q")) as? JsonObject ?: return
             val out = HashMap(idents)
             val changed = HashSet(identChanged)
-            for ((u, v) in users) {
-                val ip = ((v as? JsonObject)?.get("ident_pub") as? JsonPrimitive)?.content ?: continue
+            for (u in mem) {
+                val ip = (ChatLogic.keyEntry(o, u)?.get("ident_pub") as? JsonPrimitive)?.content ?: continue
                 out[u] = ip
                 if (u != me && withContext(Dispatchers.IO) { svc.store.observe(u, ip) } == TofuResult.CHANGED) changed.add(u)
             }

@@ -288,7 +288,7 @@ final class CallManager: NSObject, ObservableObject {
         } else {
             guard let store, let enc = user.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else { return [:] }
             let d = try await store.api("api/chat/keys?users=\(enc)")
-            guard let u = (ShareJSON.obj(d)?["users"] as? [String: Any])?[user] as? [String: Any], let ipk = ChatCrypto.unb64(u["ident_pub"] as? String, 32) else {
+            guard let u = PersonRef.keyEntry(ShareJSON.obj(d), for: user), let ipk = ChatCrypto.unb64(u["ident_pub"] as? String, 32) else {
                 throw APIError.other(String(localized: "\(name) hat Chats noch auf keinem Gerät eingerichtet – Anrufe gehen erst danach."))
             }
             if user == me {                                                 // eigene Geraete: gegen den eigenen Identitaetsschluessel

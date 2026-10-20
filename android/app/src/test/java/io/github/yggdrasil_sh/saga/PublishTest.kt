@@ -93,13 +93,18 @@ private class FakePublishServer : PublishBackend {
 
     override suspend fun publicName(): PublicNameInfo {
         failGet?.let { throw it }
-        return PublicNameInfo(name = name, url = name?.let { "$BASE/@$it" }, enabled = enabled, published = publicPages, suggested = name ?: "vorschlag")
+        return PublicNameInfo(name = name, url = name?.let { "$BASE/@$it" }, enabled = enabled, published = publicPages, suggested = name ?: "vorschlag",
+                              isLogin = name != null && name == login)
     }
+
+    /** 2.4: Anmeldename des Kontos - als oeffentlicher Name abgelehnt (frueher gewaehlter bleibt, GET meldet is_login) */
+    var login = "anna-login"
 
     override suspend fun checkPublicName(name: String): NameCheck {
         checkGate?.await()
         return when {
             name.length < 2 -> NameCheck(false, name, "2–32 Zeichen")
+            name == login && name != this.name -> NameCheck(false, name, "Bitte nicht den Anmeldenamen verwenden.")
             name in taken -> NameCheck(false, name, "Dieser Name ist schon vergeben.")
             else -> NameCheck(true, name)
         }
@@ -107,6 +112,7 @@ private class FakePublishServer : PublishBackend {
 
     override suspend fun setPublicName(name: String): NameSaved {
         names += name
+        if (name == login && name != this.name) throw ApiException(400, UiText.Raw("Bitte nicht den Anmeldenamen verwenden."), """{"error": "Bitte nicht den Anmeldenamen verwenden."}""")
         if (name in taken) throw ApiException(409, UiText.Raw("Dieser Name ist schon vergeben."), """{"error": "Dieser Name ist schon vergeben."}""")
         this.name = name
         return NameSaved(true, name, "$BASE/@$name")
@@ -533,6 +539,39 @@ class PublicNameModelTest {
         assertEquals(NameStatus.Bad(UiText.Raw("Dieser Name ist schon vergeben.")), m.status)
         m.save()                                         // Server lehnt ab -> Meldung des Servers
         assertEquals(NameStatus.Bad(UiText.Raw("Dieser Name ist schon vergeben.")), m.status)
+    }
+
+    @Test
+    fun loginNameIsRejectedAndOldOneGetsAHint() = runTest {
+        // 2.4: neuer Name = Anmeldename -> Meldung des Servers am Feld (Pruefung und Speichern)
+        val m = PublicNameModel(server)
+        m.load()
+        assertFalse(m.loginHint)
+        m.edit("Anna-Login")
+        m.check()
+        assertEquals(NameStatus.Bad(UiText.Raw("Bitte nicht den Anmeldenamen verwenden.")), m.status)
+        m.save()
+        assertEquals(NameStatus.Bad(UiText.Raw("Bitte nicht den Anmeldenamen verwenden.")), m.status)
+        assertNull(server.name)
+        // frueher gewaehlt: GET meldet is_login -> Hinweis, solange dieser Name im Feld steht
+        server.name = "anna-login"
+        val m2 = PublicNameModel(server)
+        m2.load()
+        assertTrue(m2.info?.isLogin == true)
+        assertTrue(m2.loginHint)
+        m2.edit("anna-b")
+        assertFalse(m2.loginHint)
+        m2.edit("anna-login")
+        assertTrue(m2.loginHint)
+        m2.edit("anna-b")
+        m2.check()
+        m2.save()                                         // neuer Name gespeichert -> kein Hinweis mehr
+        assertEquals("anna-b", server.name)
+        assertFalse(m2.info?.isLogin == true)
+        assertFalse(m2.loginHint)
+        // aeltere Server ohne Feld: kein Hinweis
+        val old = Json { ignoreUnknownKeys = true }.decodeFromString(PublicNameInfo.serializer(), """{"name": "anna-login", "url": null}""")
+        assertFalse(old.isLogin)
     }
 
     @Test

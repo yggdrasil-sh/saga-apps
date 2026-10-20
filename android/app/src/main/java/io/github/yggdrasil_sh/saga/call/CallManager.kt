@@ -500,7 +500,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
         val peer = c.peer.username
         val o = Json.parseToJsonElement(api.get("api/chat/keys?users=" + java.net.URLEncoder.encode(peer, "UTF-8"))) as? JsonObject
-        val u = (o?.get("users") as? JsonObject)?.get(peer) as? JsonObject
+        val u = io.github.yggdrasil_sh.saga.chat.ChatLogic.keyEntry(o, peer)      // 2.4: unter der angefragten Kennung, nur Chat-Partner
             ?: throw UiTextException(UiText.Res(R.string.call_peer_no_keys, c.peer.name.ifEmpty { peer }))
         val ip = (u["ident_pub"] as? JsonPrimitive)?.contentOrNull ?: throw UiTextException(UiText.Res(R.string.call_peer_no_keys, c.peer.name.ifEmpty { peer }))
         val store = repo.chat.store

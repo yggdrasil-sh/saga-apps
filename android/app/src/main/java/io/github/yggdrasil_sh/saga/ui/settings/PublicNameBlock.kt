@@ -69,6 +69,10 @@ fun PublicNameBlock(backend: PublishBackend, modifier: Modifier = Modifier, relo
             keyboardActions = KeyboardActions(onDone = { if (model.canSave) save() }),
             modifier = Modifier.fillMaxWidth(),
         )
+        // 2.4: frueher gewaehlter Name = Anmeldename (Server lehnt ihn fuer neue Namen ab, Fehlertext dann am Feld)
+        if (model.loginHint) {
+            Text(stringResource(R.string.publish_name_is_login), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+        }
         // live beim Tippen: "Neue Adresse: …/@neu (bisher …/@alt)"
         model.newAddress?.let { (new, old) ->
             Text(

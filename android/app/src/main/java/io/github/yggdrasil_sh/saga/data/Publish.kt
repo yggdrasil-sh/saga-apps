@@ -49,6 +49,8 @@ data class PublicNameInfo(
     val enabled: Boolean = true,
     val published: Int = 0,
     val suggested: String? = null,
+    /** 2.4: frueher gewaehlter Name ist der Anmeldename (neu setzen lehnt der Server ab) -> Hinweis zeigen */
+    @SerialName("is_login") val isLogin: Boolean = false,
 )
 
 /** PUT /api/account/public-name {name, check: true} */

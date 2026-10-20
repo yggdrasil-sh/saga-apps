@@ -361,6 +361,10 @@ class PublicNameModel(private val backend: PublishBackend) {
     val needsConfirm: Boolean
         get() = info?.name?.let { it.isNotEmpty() && Publish.norm(input) != it } == true && (info?.published ?: 0) > 0
 
+    /** 2.4: GET meldet is_login (frueher gewaehlter Name = Anmeldename) - Hinweis, solange genau dieser Name im Feld steht */
+    val loginHint: Boolean
+        get() = info?.let { it.isLogin && !it.name.isNullOrEmpty() && Publish.norm(input) == it.name.lowercase() } == true
+
     /**
      * Live beim Tippen "Neue Adresse: …/@neu (bisher …/@alt)": (neu, bisher) - nur wenn schon ein Name gesetzt ist
      * und die Eingabe davon abweicht (nicht bei ungueltigem/vergebenem Namen - dann steht der Fehler am Feld)
@@ -410,7 +414,9 @@ class PublicNameModel(private val backend: PublishBackend) {
         busy = true
         try {
             val r = backend.setPublicName(v)
-            info = (info ?: PublicNameInfo()).copy(name = r.name, url = r.url)
+            val prev = info ?: PublicNameInfo()
+            // neuer Name: der Server nimmt den Anmeldenamen nicht an -> kein Hinweis mehr
+            info = prev.copy(name = r.name, url = r.url, isLogin = prev.isLogin && r.name == prev.name)
             input = r.name
             status = NameStatus.Saved
         } catch (e: CancellationException) {

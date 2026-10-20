@@ -53645,6 +53645,40 @@
           }
         }
       }
+    },
+    "Dein öffentlicher Name ist dein Anmeldename – er steht in öffentlichen Adressen und ist für andere Saga-Server sichtbar. Wähle besser einen anderen; alte Links auf veröffentlichte Seiten funktionieren danach nicht mehr." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein öffentlicher Name ist dein Anmeldename – er steht in öffentlichen Adressen und ist für andere Saga-Server sichtbar. Wähle besser einen anderen; alte Links auf veröffentlichte Seiten funktionieren danach nicht mehr."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your public name is your login name – it appears in public addresses and is visible to other Saga servers. Better choose a different one; old links to published pages will stop working afterwards."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu nombre público es tu nombre de inicio de sesión: aparece en direcciones públicas y es visible para otros servidores Saga. Mejor elige otro; después, los enlaces antiguos a páginas publicadas dejarán de funcionar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ваше публичное имя совпадает с именем входа – оно стоит в публичных адресах и видно другим серверам Saga. Лучше выберите другое; старые ссылки на опубликованные страницы после этого перестанут работать."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ชื่อสาธารณะของคุณคือชื่อเข้าสู่ระบบ – ปรากฏในที่อยู่สาธารณะและเซิร์ฟเวอร์ Saga อื่นมองเห็นได้ ควรเลือกชื่ออื่น หลังจากนั้นลิงก์เก่าไปยังหน้าที่เผยแพร่จะใช้ไม่ได้"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

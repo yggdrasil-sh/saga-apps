@@ -148,8 +148,9 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                         val on = picked.any { it.username == u.username }
                         ListItem(
                             headlineContent = { Text(ChatLogic.shown(u)) },
-                            // 2.4 (W4): nie den Anmeldenamen - nur der Hinweis, falls Chats fehlen
-                            supportingContent = if (u.ready) null else ({ Text(stringResource(R.string.chat_not_ready, ChatLogic.shown(u))) }),
+                            // 2.4 (W4): nie den Anmeldenamen - sub (Gleichnamige) und der Hinweis, falls Chats fehlen
+                            supportingContent = ChatLogic.subline(u.sub, if (u.ready) null else stringResource(R.string.chat_not_ready, ChatLogic.shown(u)))
+                                ?.let { t -> { Text(t) } },
                             leadingContent = { Avatar(u.name, size = 32, avatar = u.avatar) },
                             trailingContent = if (multi) ({ Checkbox(checked = on, onCheckedChange = null) }) else null,
                             modifier = Modifier.clickable {
@@ -300,7 +301,9 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
                     ListItem(
                         headlineContent = { Text(ChatLogic.shown(m) + if (m.me) " (" + stringResource(R.string.chat_you) + ")" else "") },
                         // 2.3: Person eines anderen Servers - Herkunft zeigen, nie den Handle; 2.4 (W4): nie den Anmeldenamen
-                        supportingContent = if (m.remote && !m.host.isNullOrEmpty()) ({ Text(stringResource(R.string.fed_on_host, m.host)) }) else null,
+                        // 2.4: sub unterscheidet Gleichnamige (eigene Zeile ohne)
+                        supportingContent = if (m.remote && !m.host.isNullOrEmpty()) ({ Text(stringResource(R.string.fed_on_host, m.host)) })
+                            else if (!m.me) ChatLogic.subline(m.sub)?.let { t -> { Text(t) } } else null,
                         leadingContent = { Avatar(m.name, size = 32, avatar = m.avatar) },
                         // Admins einer freien Gruppe: Person entfernen (wie Web, iOS/macOS und Linux)
                         trailingContent = if (admin && ChatLogic.canRemoveMember(m)) { {
@@ -322,7 +325,8 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
                         if (fedFor.isNotEmpty() && fedFor == q) item { FedChatHint(fedV2 == true) }
                         items(found, key = { "f-" + it.username }) { u ->
                             ListItem(
-                                headlineContent = { Text(ChatLogic.shown(u)) },                // 2.4 (W4): nur der Name
+                                headlineContent = { Text(ChatLogic.shown(u)) },                // 2.4 (W4): nur der Name, darunter sub
+                                supportingContent = ChatLogic.subline(u.sub)?.let { t -> { Text(t) } },
                                 modifier = Modifier.clickable { repo.launchAction { s.addMember(u.username); add = false; q = "" } },
                             )
                         }

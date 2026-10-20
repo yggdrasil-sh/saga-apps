@@ -108,7 +108,13 @@ data class ShareState(
 )
 
 @Serializable
-data class TargetUser(val username: String = "", val name: String = "", val avatar: String? = null)
+data class TargetUser(
+    val username: String = "",
+    val name: String = "",
+    val avatar: String? = null,
+    /** 2.4: Unterzeile fuer Gleichnamige (oeffentlicher Name bzw. Handle, nie der Anmeldename); aeltere Server: null */
+    val sub: String? = null,
+)
 
 @Serializable
 data class TargetGroup(val name: String = "")

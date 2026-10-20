@@ -541,8 +541,9 @@ final class ConversationModel: ObservableObject {
     /// Identitaetsschluessel eines Mitglieds (fuer die Sicherheitsnummer)
     func identity(of uid: String) async -> Data? {
         if let r = recipients?.first(where: { $0["username"] as? String == uid }), let p = ChatCrypto.unb64(r["ident_pub"] as? String, 32) { return p }
-        guard let store, let d = try? await store.api("api/chat/keys?users=\(uid)"),
-              let u = (ShareJSON.obj(d)?["users"] as? [String: Any])?[uid] as? [String: Any] else { return nil }
+        // nur Mitglieder (Server 2.4: Schluessel nur fuer Personen mit gemeinsamem Chat, Antwort unter der angefragten Kennung)
+        guard let store, let q = uid.addingPercentEncoding(withAllowedCharacters: .alphanumerics),
+              let d = try? await store.api("api/chat/keys?users=\(q)"), let u = PersonRef.keyEntry(ShareJSON.obj(d), for: uid) else { return nil }
         return ChatCrypto.unb64(u["ident_pub"] as? String, 32)
     }
     func acknowledge(_ uid: String) { ChatTrustStore.acknowledge(me, uid); changedPeers.removeAll { $0 == uid } }

@@ -88,6 +88,8 @@ data class ChatPerson(
      * wird aber nie gezeigt; Treffer der Personensuche tragen in `username` den Handle.
      */
     val ref: String? = null,
+    /** 2.4: Unterzeile fuer Gleichnamige (Personensuche und members[]: oeffentlicher Name bzw. Handle, nie der Anmeldename) */
+    val sub: String? = null,
 )
 
 /** 2.3: Treffer im Adressbuch verbundener Server (GET /api/fed/people, Feld remote in /api/chat/people) */

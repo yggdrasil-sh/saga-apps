@@ -480,9 +480,12 @@ class MockServer:
         if method == "GET":
             n = sum(1 for x in self.pubs.values() if x["active"])
             return self._reply(200, {"name": self.public_name, "url": f"{SERVER}/@{self.public_name}" if self.public_name else None,
-                                     "enabled": self.publish_enabled, "published": n, "suggested": self.public_name or "test-autor"})
+                                     "enabled": self.publish_enabled, "published": n, "suggested": self.public_name or "test-autor",
+                                     "is_login": bool(self.public_name) and self.public_name == str(self.me).lower()})
         name = str(b.get("name") or "").strip().lower()
         err = self.name_problem(name)
+        if not err and name == str(self.me).lower() and name != self.public_name:     # 2.4: nicht der Anmeldename
+            err = "Bitte nicht den Anmeldenamen verwenden – der öffentliche Name ist für alle sichtbar, auch für andere Saga-Server."
         if b.get("check"):
             return self._reply(200, {"ok": not err, "available": not err, "name": name, **({"error": err} if err else {})})
         if err:

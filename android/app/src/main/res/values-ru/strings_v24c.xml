@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4 Server-Vertrag Runde 2: oeffentlicher Name = Anmeldename (is_login) -->
+<resources>
+    <string name="publish_name_is_login">Ваше публичное имя совпадает с именем входа – оно стоит в публичных адресах и видно другим серверам Saga. Лучше выберите другое; старые ссылки на опубликованные страницы после этого перестанут работать.</string>
+</resources>

@@ -42,6 +42,10 @@ struct PublicNameSection: View {
                 // Status direkt unter dem Feld, dann live die neue Adresse (alte Links brechen)
                 NameCheckLine(check: check)
                 if let status { PubStatusLine(status: status) }
+                if PublicNameLogic.loginHint(info: info, input: input) {          // 2.4: frueher gewaehlter Name = Anmeldename
+                    Label("Dein öffentlicher Name ist dein Anmeldename – er steht in öffentlichen Adressen und ist für andere Saga-Server sichtbar. Wähle besser einen anderen; alte Links auf veröffentlichte Seiten funktionieren danach nicht mehr.",
+                          systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.orange)
+                }
                 if let p = PublishLogic.nameChangePreview(input: input, current: current, currentURL: PubJSON.str(info["url"]), server: AppConfig.serverString) {
                     Text("Neue Adresse: \(PublishLogic.breakable(p.new)) (bisher \(PublishLogic.breakable(p.old)))")
                         .font(.footnote.monospaced())
@@ -114,6 +118,7 @@ struct PublicNameSection: View {
             guard (200..<300).contains(c), let n = PubJSON.str(j?["name"]) else {
                 status = .err(PubJSON.str(j?["error"]) ?? String(localized: "Server-Fehler \(c)")); return
             }
+            if n != PubJSON.str(info?["name"]) { info?["is_login"] = false }     // neuer Name: Server nimmt den Anmeldenamen nicht an
             info?["name"] = n; info?["url"] = j?["url"]
             input = n; check = .idle
             status = .ok(String(localized: "✓ Gespeichert"))

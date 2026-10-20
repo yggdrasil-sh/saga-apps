@@ -415,6 +415,26 @@ Speicher beim Hoch- und Herunterladen. Texte in Deutsch, Englisch, Spanisch, Rus
   Geräteliste jetzt einmal frisch, prüfen sie und verbinden erst dann – sonst wie bisher ablehnen.
 - Tests: `ios/Tests/Logic/HandlesTests.swift`, `android/…/HandlesTest.kt`, `linux/tests/test_handles.py`.
 
+#### Alle Apps – Server-Vertrag nach der zweiten Runde
+- **Chat-Schlüssel nur für Chat-Partner:** `GET /api/chat/keys` liefert ab Server 2.4 nur noch die eigenen Schlüssel und
+  die von Personen mit gemeinsamem Chat, nimmt auch Handles und antwortet unter der angefragten Kennung. Geprüft: Alle
+  drei Apps legen neue Unterhaltungen, Nachrichtenanfragen und Gruppen zuerst an (`POST /api/chats`) und versiegeln
+  danach mit den Empfängern des angelegten Chats (wie das Web); Schlüssel holen sie nur für Mitglieder
+  (Sicherheitsnummer) und das Anruf-Gegenüber. iOS/iPadOS/macOS und Android lesen die Antwort jetzt ausdrücklich unter
+  der angefragten Kennung (Kennungen URL-kodiert); Linux fragt den Endpunkt nicht ab. Bestehende Chats unverändert.
+- **Gleichnamige unterscheidbar (iOS/iPadOS/macOS und Android, Linux schon in Runde 2):** Personensuche für Chats,
+  „Person hinzufügen“, Mitgliederliste und Teilen zeigen unter dem Namen das Merkmal `sub` vom Server (öffentlicher
+  Name bzw. Handle `~…`), nie den Anmeldenamen; ältere Server ohne Feld wie bisher.
+- **Öffentlicher Name:** Der Server nimmt den eigenen Anmeldenamen nicht mehr an – die Apps zeigen seine Meldung am
+  Feld. Ist ein früher gewählter Name der Anmeldename (`is_login`), steht unter dem Feld ein Hinweis, einen anderen zu
+  wählen (alle drei Apps, de/en/es/ru/th).
+- **Geprüft, ohne Änderung:** Zweiten Faktor entfernen (Bestätigung über `/api/account/security/confirm`) – keine App
+  verwaltet TOTP/Passkeys selbst (nur Anzeige, Verwaltung im Web). Nextcloud-Blöcke: fremde Autoren kommen als Handle;
+  die Apps vergleichen Block und Status über denselben Wert, reichen ihn als `?a=` weiter und erkennen eigene Blöcke
+  am eigenen Namen – passt.
+- Tests: `ios/Tests/Logic/ContractTests.swift`, `android/…/Contract24Test.kt`, `PublishTest.kt`,
+  `linux/tests/test_contract24.py`.
+
 #### iOS/iPadOS/macOS
 - **Papierkorb: „Zurückholen“ löschte die Seite endgültig (iPhone/iPad, seit 1.0):** Zwei Knöpfe in einer Listenzeile
   ohne eigenen Stil lösten bei einem Tipp beide Aktionen aus. Jeder Knopf ist jetzt einzeln tippbar, „Endgültig

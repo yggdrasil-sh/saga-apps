@@ -941,7 +941,7 @@ struct MembersSheet: View {
     @EnvironmentObject var store: Store
     @Environment(\.dismiss) private var dismiss
     @State private var q = ""
-    @State private var hits: [(String, String)] = []
+    @State private var hits: [(String, String, String?)] = []
     @State private var remoteHits: [FedPerson] = []                  // 2.3: Personen anderer Server (nur Gruppen ueber Servergrenzen)
     @State private var remoteInLocal = false                         // lokale Gruppe: Treffer anderer Server -> Hinweis "neue Gruppe"
     @State private var removing: ChatMember?
@@ -979,7 +979,7 @@ struct MembersSheet: View {
             ShareAvatar(name: m.name, group: false, avatar: m.avatar)
             VStack(alignment: .leading) {
                 Text(verbatim: m.me ? m.name + " (" + String(localized: "du") + ")" : m.name)
-                if let l = fedMember(m)?.label { Text(verbatim: l).font(.caption).foregroundStyle(.secondary) }   // 2.3: nie den Handle; 2.4 (W4): nie den Anmeldenamen
+                if let l = fedMember(m)?.label ?? (m.me ? nil : m.sub) { Text(verbatim: l).font(.caption).foregroundStyle(.secondary) }   // 2.3: nie den Handle; 2.4 (W4): nie den Anmeldenamen, sub fuer Gleichnamige
             }
             Spacer()
             if !m.me {
@@ -1005,7 +1005,12 @@ struct MembersSheet: View {
                     .buttonStyle(.plain)
             }
             ForEach(hits, id: \.0) { h in
-                Button { Task { await conv.addMember(h.0); q = "" } } label: { Text(verbatim: h.1) }     // 2.4 (W4): nur der Name
+                Button { Task { await conv.addMember(h.0); q = "" } } label: {     // 2.4 (W4): nur der Name, darunter sub fuer Gleichnamige
+                    VStack(alignment: .leading) {
+                        Text(verbatim: h.1)
+                        if let s = h.2 { Text(verbatim: s).font(.caption).foregroundStyle(.secondary) }
+                    }
+                }
             }
         }
     }
@@ -1016,7 +1021,7 @@ struct MembersSheet: View {
         try? await Task.sleep(for: .milliseconds(250))
         guard !Task.isCancelled, let d = try? await store.api("api/chat/people?q=\(e)"), let j = ShareJSON.obj(d) else { return }
         let have = (conv.info?.members ?? []).map { (username: $0.username, ref: $0.ref) }      // 2.4 (W4): Treffer sind Handles - Abgleich ueber ref
-        hits = (j["users"] as? [Any] ?? []).compactMap { v in (v as? [String: Any]).flatMap { u in (u["username"] as? String).map { ($0, u["name"] as? String ?? $0) } } }
+        hits = (j["users"] as? [Any] ?? []).compactMap { v in (v as? [String: Any]).flatMap { u in (u["username"] as? String).map { ($0, u["name"] as? String ?? $0, PersonRef.sub(u["sub"])) } } }
             .filter { !PersonRef.isMember($0.0, members: have) }
         // Personen anderer Server nur in Gruppen ueber Servergrenzen (eine lokale Gruppe bleibt lokal, wie im Web)
         let handles = Set(conv.fed?.members.map(\.handle) ?? [])

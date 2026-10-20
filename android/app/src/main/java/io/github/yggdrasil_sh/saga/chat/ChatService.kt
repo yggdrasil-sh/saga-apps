@@ -64,6 +64,19 @@ object ChatLogic {
     /** 2.4 (W4): Name zum Zeigen - Anzeigename, Bezeichnung (andere Server) oder Handle; die Kennung nur als letzter Rueckfall */
     fun shown(p: ChatPerson): String = p.name.ifEmpty { p.label?.ifEmpty { null } ?: p.ref?.ifEmpty { null } ?: p.username }
 
+    /**
+     * 2.4 (Server Linux-Runde 2): Unterzeile fuer Gleichnamige - `sub` (oeffentlicher Name bzw. Handle, nie der
+     * Anmeldename) und Hinweise, ohne leere Teile mit " · " verbunden; nichts -> null (aeltere Server ohne Feld).
+     */
+    fun subline(vararg parts: String?): String? = parts.mapNotNull { it?.trim()?.ifEmpty { null } }.joinToString(" · ").ifEmpty { null }
+
+    /**
+     * GET /api/chat/keys?users=: Eintrag steht unter der ANGEFRAGTEN Kennung (Server 2.4: Handle bleibt Handle); fehlt bzw.
+     * null = keine Schluessel (noch keine Chats eingerichtet bzw. ab 2.4 noch kein gemeinsamer Chat). Schluessel gibt es nur
+     * fuer Chat-Mitglieder: neue Chats erst anlegen (POST /api/chats), dann Empfaenger holen und versiegeln.
+     */
+    fun keyEntry(o: JsonObject?, id: String): JsonObject? = (o?.get("users") as? JsonObject)?.get(id) as? JsonObject
+
     /** Name eines Chats: dm = Gegenueber, group = Gruppe, page = Seitentitel, free = Titel aus der Titel-Nachricht oder Mitglieder */
     /** Personensuche ab wie vielen Zeichen: Server ab 2.3 ab 1, aeltere (oder noch unbekannte Version) wie bisher ab 3 */
     fun peopleMin(serverVersion: String?): Int = if (io.github.yggdrasil_sh.saga.util.Versions.atLeast(serverVersion, "2.3.0")) 1 else 3

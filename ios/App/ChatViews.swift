@@ -366,7 +366,7 @@ struct NewChatSheet: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var store: Store
     @State private var q = ""
-    @State private var users: [(username: String, name: String, ready: Bool, avatar: String?)] = []
+    @State private var users: [(username: String, name: String, ready: Bool, avatar: String?, sub: String?)] = []
     @State private var groups: [String] = []
     @State private var remote: [FedPerson] = []                   // 2.3: Personen anderer Saga-Server
     @State private var searched = ""                              // Suchtext der angezeigten Treffer
@@ -403,7 +403,9 @@ struct NewChatSheet: View {
                                 ShareAvatar(name: u.name, group: false, avatar: u.avatar)
                                 VStack(alignment: .leading) {
                                     Text(verbatim: u.name)
-                                    if !u.ready { Text("hat Chats noch nicht eingerichtet").font(.caption).foregroundStyle(.secondary) }   // 2.4 (W4): nie den Anmeldenamen
+                                    if let s = PersonRef.subline(u.sub, u.ready ? nil : String(localized: "hat Chats noch nicht eingerichtet")) {
+                                        Text(verbatim: s).font(.caption).foregroundStyle(.secondary)   // 2.4 (W4): nie den Anmeldenamen; sub fuer Gleichnamige
+                                    }
                                 }
                                 Spacer()
                                 if picked.contains(where: { $0.username == u.username }) { Image(systemName: "checkmark").foregroundStyle(Color.gold) }
@@ -454,7 +456,7 @@ struct NewChatSheet: View {
               let d = try? await store.api("api/chat/people?q=\(enc)"), let j = ShareJSON.obj(d) else { return }
         users = (j["users"] as? [Any] ?? []).compactMap { v in
             guard let u = v as? [String: Any], let n = u["username"] as? String else { return nil }
-            return (n, u["name"] as? String ?? n, ShareJSON.bool(u["ready"]), ShareJSON.str(u["avatar"]))
+            return (n, u["name"] as? String ?? n, ShareJSON.bool(u["ready"]), ShareJSON.str(u["avatar"]), PersonRef.sub(u["sub"]))
         }
         groups = (j["groups"] as? [Any] ?? []).compactMap { ($0 as? [String: Any])?["name"] as? String }
         remote = FedChatLogic.people(j["remote"]).filter { $0.handle != nil }
@@ -467,7 +469,7 @@ struct NewChatSheet: View {
             if let i = pickedRemote.firstIndex(where: { $0.handle == h }) { pickedRemote.remove(at: i) } else { pickedRemote.append(p) }
         } else { Task { await create(["kind": "dm", "handle": h]) } }
     }
-    private func pick(_ u: (username: String, name: String, ready: Bool, avatar: String?)) {
+    private func pick(_ u: (username: String, name: String, ready: Bool, avatar: String?, sub: String?)) {
         if multi {
             if let i = picked.firstIndex(where: { $0.username == u.username }) { picked.remove(at: i) } else { picked.append((u.username, u.name)) }
         } else { Task { await create(["kind": "dm", "user": u.username]) } }

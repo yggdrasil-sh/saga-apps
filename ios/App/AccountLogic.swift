@@ -138,3 +138,13 @@ enum ReauthLogic {
     /// iOS an, den 6-stelligen Code als Passwort fuer den Server zu sichern (und ersetzt ggf. das echte Passwort)
     static func oneTimeCodeField(methods: [String]) -> Bool { methods.contains("totp") }
 }
+
+/// Oeffentlicher Name (2.4, Web-Runde 2 H3): Der Server lehnt den eigenen Anmeldenamen als oeffentlichen Namen ab
+/// (PUT /api/account/public-name: 400 bzw. ok:false bei check, Fehlertext vom Server); ein frueher so gewaehlter Name
+/// bleibt, GET meldet dann is_login: true -> Hinweis, solange genau dieser Name im Feld steht.
+enum PublicNameLogic {
+    static func loginHint(info: [String: Any]?, input: String) -> Bool {
+        guard let info, (info["is_login"] as? Bool) == true, let n = info["name"] as? String, !n.isEmpty else { return false }
+        return n.lowercased() == input.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    }
+}

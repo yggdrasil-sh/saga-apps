@@ -276,6 +276,8 @@ struct ShareTarget: Identifiable, Equatable {
     var avatar: String? = nil
     /// 2.3 (Adressbuch): fertig zum Anzeigen, "Anna Berg · b.example" (bei gleichen Namen mit Zusatz)
     var label: String? = nil
+    /// 2.4: Unterzeile fuer Gleichnamige (oeffentlicher Name bzw. Handle, nie der Anmeldename)
+    var sub: String? = nil
     var id: String { type + ":" + target }
     var isGroup: Bool { type == "group" || type == "remote_group" }
     var isRemote: Bool { type == "remote" || type == "remote_group" }
@@ -476,7 +478,8 @@ enum ShareLogic {
         guard let j = ShareJSON.obj(d) else { return [] }
         let users = (j["users"] as? [[String: Any]] ?? []).compactMap { u -> ShareTarget? in
             guard let n = ShareJSON.str(u["username"]) else { return nil }
-            return ShareTarget(type: "user", target: n, name: ShareJSON.str(u["name"]) ?? n, username: n, avatar: ShareJSON.str(u["avatar"]))
+            return ShareTarget(type: "user", target: n, name: ShareJSON.str(u["name"]) ?? n, username: n, avatar: ShareJSON.str(u["avatar"]),
+                               sub: PersonRef.sub(u["sub"]))
         }
         let groups = (j["groups"] as? [[String: Any]] ?? []).compactMap { g -> ShareTarget? in
             guard let n = ShareJSON.str(g["name"]) else { return nil }
@@ -643,5 +646,22 @@ enum PersonRef {
     /// Treffer der Personensuche (Feld username = Handle oder bei aelteren Servern der Benutzername) schon Mitglied?
     static func isMember(_ hit: String, members: [(username: String, ref: String?)]) -> Bool {
         members.contains { $0.username == hit || ($0.ref ?? "") == hit }
+    }
+    /// 2.4 (Server Linux-Runde 2): Feld `sub` (oeffentlicher Name bzw. Handle, nie der Anmeldename) aus Personensuche,
+    /// Teilen-Treffern und `members[]` - leer bzw. fehlend (aeltere Server) -> nil
+    static func sub(_ v: Any?) -> String? {
+        guard let s = (v as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty else { return nil }
+        return s
+    }
+    /// Unterzeile unter dem Namen: Teile ohne leere, mit " · " verbunden (z. B. sub + "hat Chats noch nicht eingerichtet")
+    static func subline(_ parts: String?...) -> String? {
+        let p = parts.compactMap { $0?.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
+        return p.isEmpty ? nil : p.joined(separator: " · ")
+    }
+    /// GET /api/chat/keys?users=: Eintrag steht unter der ANGEFRAGTEN Kennung (Server 2.4: Handle bleibt Handle);
+    /// fehlt bzw. null = keine Schluessel (noch keine Chats eingerichtet oder - ab 2.4 - noch kein gemeinsamer Chat).
+    /// Schluessel gibt es nur fuer Chat-Mitglieder: erst Chat anlegen, dann Empfaenger holen und versiegeln.
+    static func keyEntry(_ json: Any?, for id: String) -> [String: Any]? {
+        ((json as? [String: Any])?["users"] as? [String: Any])?[id] as? [String: Any]
     }
 }

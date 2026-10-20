@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4 Server-Vertrag Runde 2: oeffentlicher Name = Anmeldename (is_login) -->
+<resources>
+    <string name="publish_name_is_login">Tu nombre público es tu nombre de inicio de sesión: aparece en direcciones públicas y es visible para otros servidores Saga. Mejor elige otro; después, los enlaces antiguos a páginas publicadas dejarán de funcionar.</string>
+</resources>
