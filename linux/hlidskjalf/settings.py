@@ -44,8 +44,11 @@ class SettingsDialog(Adw.PreferencesDialog):
             about.set_subtitle(about.get_subtitle() + " · " + _("app too old (version {version} or later needed), please update").format(version=store.min_app))
         g.add(about)
         self.status = Adw.ActionRow(title=_("Test connection"))
-        self.status.add_suffix(_btn(_("Test"), cb=self._test))
+        self.test_btn = _btn(_("Test"), cb=self._test)
+        self.status.add_suffix(self.test_btn)
         g.add(self.status)
+        # Fokus beim Oeffnen nicht ins Adressfeld (markiert - ein Tastendruck haette die Adresse ersetzt, Testbericht 090)
+        self.connect("map", lambda *_: (GLib.idle_add(self._initial_focus), GLib.timeout_add(250, self._initial_focus)))
         page.add(g)
         g2 = Adw.PreferencesGroup(title=_("Appearance"))
         ch = Adw.SpinRow.new_with_range(100, 600, 10)
@@ -149,6 +152,14 @@ class SettingsDialog(Adw.PreferencesDialog):
             self.set_visible_page(p)
         else:
             self.want_page = p                    # noch unsichtbar (z. B. "Mein Backup" laedt noch): danach zeigen
+
+    def _initial_focus(self):
+        foc = self.get_focus() if hasattr(self, "get_focus") else None
+        if foc is not None and (foc is self.server or foc.is_ancestor(self.server)):
+            self.server.select_region(-1, -1)
+            if self.test_btn.get_mapped():
+                self.test_btn.grab_focus()
+        return False
 
     def _apply_server(self, row):
         u = row.get_text().strip().rstrip("/")
@@ -269,13 +280,18 @@ class CalEntries(Gtk.Box):
         self.cals = [dict(c) for c in cals]
         for c in self.cals:
             r = Gtk.Box(spacing=8)
-            sw = Gtk.CheckButton(active=c.get("show", True) is not False)
+            # Name: Feld (aenderbar); ohne Namen vom Server der letzte Teil der Adresse als Platzhalter (sonst eine leere
+            # Zeile mit Haken, Testbericht 138)
+            fallback = [x for x in str(c.get("href") or "").split("/") if x][-1:] or [_("Calendar")]
+            shown = c.get("name") or fallback[0]
+            sw = Gtk.CheckButton(active=c.get("show", True) is not False, tooltip_text=_("Show “{name}”").format(name=shown))
+            sw.update_property([Gtk.AccessibleProperty.LABEL], [_("Show “{name}”").format(name=shown)])
             sw.connect("toggled", lambda s, c=c: c.__setitem__("show", s.get_active()))
             r.append(sw)
             cb = Gtk.ColorDialogButton(dialog=Gtk.ColorDialog(with_alpha=False), rgba=_rgba(c.get("color")))
             cb.connect("notify::rgba", lambda b, _, c=c: c.__setitem__("color", _hex(b.get_rgba())))
             r.append(cb)
-            en = Gtk.Entry(text=c.get("name") or "", hexpand=True)
+            en = Gtk.Entry(text=c.get("name") or "", hexpand=True, placeholder_text=fallback[0])
             en.connect("changed", lambda e, c=c: c.__setitem__("name", e.get_text().strip()))
             r.append(en)
             if c.get("writable") is False:

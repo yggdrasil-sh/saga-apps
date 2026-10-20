@@ -34,6 +34,22 @@ def call_url(cid, media):
     return f"{config.settings.server.rstrip('/')}/chats#call-{cid}-{'video' if media == 'video' else 'audio'}"
 
 
+def join_url(cid, media):
+    """(2.4) Gruppenanruf beitreten - die Web-Oberflaeche tritt mit role "member" bei (static/calls.js route)"""
+    return f"{config.settings.server.rstrip('/')}/chats#join-{cid}-member{'-video' if media == 'video' else ''}"
+
+
+def is_group(c):
+    return isinstance(c, dict) and (c.get("kind") == "group" or bool(c.get("group")))
+
+
+def group_rings(c):
+    """(2.4) GET /api/calls/<id> eines Gruppenanrufs: klingelt es fuer mich? Einladung offen (invite "ringing" bzw. ohne
+    Feld), Anruf laeuft noch (ringing/active - "active" heisst nur: zwei sind dabei) und keins meiner Geraete ist dabei"""
+    return is_group(c) and c.get("state") in ("ringing", "active") and c.get("invite", "ringing") == "ringing" \
+        and not c.get("mine")
+
+
 def chat_url(chat_id):
     return f"{config.settings.server.rstrip('/')}/chats#c{int(chat_id)}"
 
@@ -43,9 +59,23 @@ def caller_name(call):
     return p.get("name") or p.get("username") or ""
 
 
+def group_name(call):
+    """Name der Gruppe (from.chat des Ereignisses bzw. des Anrufs) oder ein leerer Text"""
+    f = (call or {}).get("from") if isinstance((call or {}).get("from"), dict) else {}
+    ch = f.get("chat")
+    return (ch.get("title") or ch.get("name") or "") if isinstance(ch, dict) else (ch if isinstance(ch, str) else "")
+
+
 def ring_title(call):
     name = caller_name(call)
     video = (call or {}).get("media") == "video"
+    if is_group(call):
+        grp = group_name(call)
+        if grp:
+            return (_("Group video call in {group}") if video else _("Group call in {group}")).format(group=grp)
+        if name:
+            return (_("Group video call from {name}") if video else _("Group call from {name}")).format(name=name)
+        return _("Group video call") if video else _("Group call")
     if name:
         return (_("Video call from {name}") if video else _("Call from {name}")).format(name=name)
     return _("Incoming video call") if video else _("Incoming call")
@@ -195,6 +225,8 @@ class Calls(GObject.Object):
         self.checking = set()           # gerade per GET geprueft (Live + Push gleichzeitig)
         self._push = {}                 # call_id -> Push-Mitteilung (Rueckfall, wenn das Pruefen scheitert)
         self._push_media = {}           # call_id -> "audio"/"video" der Rueckfall-Mitteilung (Annehmen-Knopf)
+        self._invites = {}              # (2.4) call_id -> call.invite (from, silent ...) bis zum Pruefen
+        self._push_group = set()        # (2.4) Rueckfall-Mitteilung eines Gruppenanrufs (Push-Art call.group)
         self.config = None              # GET /api/calls/config (enabled ...), None = unbekannt
         self.ringer = Ringer()
         self._timer = 0
@@ -205,7 +237,16 @@ class Calls(GObject.Object):
         self.done.clear()
         self.checking.clear()
         self._push_media.clear()
+        self._invites.clear()
         self.config = None
+
+    @staticmethod
+    def _me():
+        try:
+            from .chat import chat
+            return chat.uid
+        except (ImportError, AttributeError):
+            return None
 
     # --- Server-Einstellung (Anrufe an?) ---------------------------------------------------------------------------
     def load_config(self, done=None):
@@ -243,9 +284,21 @@ class Calls(GObject.Object):
         cid = str(d.get("call_id") or "")
         if typ == "call.ring":
             self.check(cid)
+        elif typ == "call.invite":                          # (2.4) Gruppenanruf klingelt (grosse Gruppen: still)
+            self._invites[cid] = d
+            self.check(cid)
+        elif typ == "call.roster" and cid:                  # (2.4) eigenes Geraet ist beigetreten: hier aufhoeren
+            me = self._me()
+            r = self.ringing
+            if r and r["id"] == cid and r.get("group") and me and \
+                    any(isinstance(x, dict) and x.get("who") == me for x in d.get("legs") or []):
+                self._done(cid)
         elif typ == "call.state" and cid:
             st = d.get("state")
-            if st in ("active", "ended"):
+            group = d.get("kind") == "group" or bool(self.ringing and self.ringing["id"] == cid and self.ringing.get("group"))
+            if st == "active" and group:
+                return                                      # Gruppe: "zwei sind dabei" - weiter klingeln
+            if st in ("active", "ended", "declined"):
                 was = self.ringing and self.ringing["id"] == cid
                 self._done(cid)
                 if was and st == "active":
@@ -259,6 +312,10 @@ class Calls(GObject.Object):
         if not cid:
             return False
         self._push[cid] = d
+        if (d or {}).get("kind") == "call.group" or (d or {}).get("group"):     # (2.4) Gruppenanruf (Push-Art call.group)
+            self._push_group.add(cid)
+            self._invites.setdefault(cid, {"call_id": cid, "kind": "group", "media": d.get("media"), "chat_id": d.get("chat"),
+                                           "from": {"name": d.get("caller")} if isinstance(d.get("caller"), str) else {}})
         self.check(cid)
         return True
 
@@ -290,7 +347,7 @@ class Calls(GObject.Object):
         """laufende/klingelnde Anrufe (Start, Aufwachen, neuer Live-Kanal) - verpasstes Klingeln nachholen"""
         def fin(j):
             for c in (j or {}).get("calls") or []:
-                if isinstance(c, dict) and c.get("state") == "ringing" and c.get("role") == "callee":
+                if isinstance(c, dict) and ((c.get("state") == "ringing" and c.get("role") == "callee") or group_rings(c)):
                     self._maybe_ring(c)
         bg(client.get, "api/calls/active", done=fin, error=lambda e: None)
 
@@ -304,7 +361,11 @@ class Calls(GObject.Object):
             self.checking.discard(cid)
             self._push.pop(cid, None)
             c = (j or {}).get("call") if isinstance(j, dict) else None
-            if isinstance(c, dict) and c.get("state") == "ringing" and c.get("role") == "callee":
+            inv = self._invites.pop(cid, None)
+            if isinstance(c, dict) and inv and is_group(inv):     # Ereignis bringt Gruppe, Name und "still" mit
+                c = dict(inv, **{k: v for k, v in c.items() if v is not None})
+                c.setdefault("kind", "group")
+            if isinstance(c, dict) and ((c.get("state") == "ringing" and c.get("role") == "callee") or group_rings(c)):
                 self._maybe_ring(c)
             elif isinstance(c, dict):
                 self.done[cid] = time.time()
@@ -313,6 +374,7 @@ class Calls(GObject.Object):
 
         def err(e):
             self.checking.discard(cid)
+            self._invites.pop(cid, None)
             if not (isinstance(e, APIError) and e.code in (403, 404)):
                 self._push_fallback(cid)
             self._push.pop(cid, None)
@@ -328,11 +390,15 @@ class Calls(GObject.Object):
             return
         left = c.get("expires_in")
         left = float(left) if isinstance(left, (int, float)) and left > 0 else float(c.get("ring_s") or RING_FALLBACK_S)
-        self.ringing = {"id": cid, "media": c.get("media") or "audio", "chat_id": c.get("chat_id"), "peer": c.get("peer") or {},
-                        "until": time.monotonic() + left}
+        group = is_group(c)
+        self.ringing = {"id": cid, "media": c.get("media") or "audio", "chat_id": c.get("chat_id"),
+                        "peer": c.get("peer") or (c.get("from") if isinstance(c.get("from"), dict) else {}),
+                        "until": time.monotonic() + left, "group": group, "silent": bool(group and c.get("silent")),
+                        "from": c.get("from") if isinstance(c.get("from"), dict) else {}}
         self._hold(True)
         self._notify()
-        self.ringer.start()
+        if not self.ringing["silent"]:                      # grosse Gruppe (silent): nur Leiste und Mitteilung, kein Ton
+            self.ringer.start()
         self.emit("ring", self.ringing)
         if self._timer:
             GLib.source_remove(self._timer)
@@ -351,8 +417,10 @@ class Calls(GObject.Object):
             return
         r = self.ringing if self.ringing and self.ringing["id"] == cid else None
         media = media or (r or {}).get("media") or self._push_media.pop(cid, None) or "audio"
+        group = bool((r or {}).get("group")) or cid in self._push_group
+        self._push_group.discard(cid)
         self._done(cid)
-        open_in_browser(call_url(cid, media), parent)
+        open_in_browser(join_url(cid, media) if group else call_url(cid, media), parent)
         self.emit("info", _("The call opens in your browser …"))
 
     def decline(self, cid):
@@ -404,15 +472,16 @@ class Calls(GObject.Object):
         app = self.app or Gio.Application.get_default()
         if app is None or r is None:
             return
-        n = Gio.Notification.new(ring_title({"peer": r["peer"], "media": r["media"]}))
-        n.set_body(self.browser_hint)
-        n.set_priority(Gio.NotificationPriority.URGENT)
+        n = Gio.Notification.new(ring_title({"peer": r["peer"], "media": r["media"], "group": r.get("group"), "from": r.get("from")}))
+        n.set_body(_("Joining opens the call in your browser.") if r.get("group") else self.browser_hint)
+        # grosse Gruppe (silent): kein dringendes Klingeln, nur der Hinweis "Anruf laeuft - beitreten"
+        n.set_priority(Gio.NotificationPriority.NORMAL if r.get("silent") else Gio.NotificationPriority.URGENT)
         if hasattr(n, "set_category"):
             n.set_category("call.incoming")
         n.set_icon(Gio.ThemedIcon.new("call-start-symbolic"))
         n.set_default_action_and_target("app.call-show", GLib.Variant("s", r["id"]))
         n.add_button_with_target(_("Decline"), "app.call-decline", GLib.Variant("s", r["id"]))
-        n.add_button_with_target(_("Answer"), "app.call-accept", GLib.Variant("s", r["id"]))
+        n.add_button_with_target(_("Join (in browser)") if r.get("group") else _("Answer"), "app.call-accept", GLib.Variant("s", r["id"]))
         try:
             app.send_notification("call-" + r["id"], n)       # dieselbe ID wie die Push-Mitteilung: ersetzt sie
         except GLib.Error:
@@ -518,21 +587,47 @@ class CallBar(Gtk.Revealer):
         self.set_visible(True)
         self.cid = r["id"]
         p = r.get("peer") or {}
-        self.av.set_text(p.get("name") or p.get("username") or "?")
-        avatars.attach(self.av, p.get("avatar"), 40)
+        group = bool(r.get("group"))
+        grp = group_name(r) if group else ""
+        self.av.set_text(avatars.initials_text(grp or p.get("name") or p.get("username") or "?"))
+        avatars.attach(self.av, None if grp else p.get("avatar"), 40)
         video = r.get("media") == "video"
-        name = caller_name({"peer": p})
-        kind = _("Incoming video call") if video else _("Incoming call")
+        name = grp or caller_name({"peer": p})
+        if group:                                          # (2.4) Gruppenanruf: beitreten im Browser
+            who = caller_name({"peer": p})
+            if r.get("silent"):
+                kind = _("Group call running")
+            elif who and grp:
+                kind = (_("{name} started a group video call") if video else _("{name} started a group call")).format(name=who)
+            else:
+                kind = _("Group video call") if video else _("Group call")
+        else:
+            kind = _("Incoming video call") if video else _("Incoming call")
         self.title.set_label(name or kind)
         self.title.set_width_chars(min(len(name or kind), 12))     # Name bleibt lesbar, Knoepfe geben nach
         self.kind.set_label(kind if name else "")
         self.kind.set_visible(bool(name))
-        self.sub.set_label(calls.browser_hint)                 # (2.4) im Browser: Bild-im-Bild, Bildschirm teilen
-        self.sub.set_tooltip_text(calls.browser_hint)
-        self.update_property([Gtk.AccessibleProperty.LABEL], [ring_title({"peer": p, "media": r.get("media")})])
+        hint = _("Joining opens the call in your browser.") if group else calls.browser_hint
+        self.sub.set_label(hint)                               # (2.4) im Browser: Bild-im-Bild, Bildschirm teilen
+        self.sub.set_tooltip_text(hint)
+        self.update_property([Gtk.AccessibleProperty.LABEL], [ring_title({"peer": p, "media": r.get("media"), "group": group,
+                                                                            "from": r.get("from")})])
+        self.dec.short = _("Ignore") if group else _("Decline")      # Gruppe: nur die eigene Einladung
+        self.dec.get_child().set_label("" if getattr(self, "compact", False) else self.dec.short)
+        self.dec.set_tooltip_text(self.dec.short)
+        self.dec.update_property([Gtk.AccessibleProperty.LABEL], [self.dec.short])
+        v_full = _("Join with video (in browser)") if group else _("Answer with video")
+        self.acc_v.short = _("Join") if group else _("Answer")
+        self.acc_v.get_child().set_label("" if getattr(self, "compact", False) else self.acc_v.short)
+        self.acc_v.set_tooltip_text(v_full)
+        self.acc_v.update_property([Gtk.AccessibleProperty.LABEL], [v_full])
         # Videoanruf: "Annehmen" (mit Video) ist die Hauptaktion, daneben kurz "Nur Ton"
-        full = _("Answer with audio only") if video else _("Answer")
-        short = _("Audio only") if video else _("Answer")
+        if group:
+            full = _("Join with audio only (in browser)") if video else _("Join (in browser)")
+            short = _("Audio only") if video else _("Join (in browser)")
+        else:
+            full = _("Answer with audio only") if video else _("Answer")
+            short = _("Audio only") if video else _("Answer")
         self.acc_a.short = short
         self.acc_a.get_child().set_label("" if getattr(self, "compact", False) else short)
         self.acc_a.set_tooltip_text(full)

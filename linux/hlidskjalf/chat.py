@@ -760,6 +760,7 @@ class ChatState(GObject.Object):
             self._chats_at = time.monotonic()
             self._sync_cleared(before)
             self.emit("changed")
+            self._pres_check()
             if done:
                 done()
 
@@ -1950,6 +1951,12 @@ class ChatState(GObject.Object):
                 done(ch)
         bg(client.json, "PATCH", f"api/chats/{cid}", fields, done=fin, error=error)
 
+    def _pres_check(self):
+        """(2.4) Liste bzw. Chat neu (z. B. Anfrage angenommen): Online-Abo nachziehen, wenn sich die sichtbaren Personen
+        dadurch aendern - sonst bliebe das Gegenueber bis zum naechsten Oeffnen ohne Online-Anzeige"""
+        if self._pres_src and self.presence_want() != self._pres_users:
+            self._pres_soon()
+
     def _merge(self, ch):
         self._note_ref(ch)
         old = self.chat(ch.get("id"))
@@ -1961,6 +1968,7 @@ class ChatState(GObject.Object):
                 old["_title"] = t
         self.emit("chat-changed", ch.get("id"))
         self.emit("changed")
+        self._pres_check()
 
     def load_chat(self, cid, done=None, error=None):
         def fin(j):

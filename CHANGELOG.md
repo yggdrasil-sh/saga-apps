@@ -331,35 +331,15 @@ Speicher beim Hoch- und Herunterladen. Texte in Deutsch, Englisch, Spanisch, Rus
 - **Kompatibel:** mit 2.1/2.3-Servern und -Geräten bleibt alles 1:1 wie bisher (ohne `multi` keine Raumfunktionen).
 - Tests: Teilnehmerliste/rv, Mesh-Paare, Grenzen, Begleitgerät, Übernahme, Bitrate im Mesh, Sprecher, Leiste.
 
-### Behoben – Testrunde 2.4 (iOS/iPadOS/macOS)
-- **Papierkorb: „Zurückholen“ löschte die Seite endgültig (iPhone/iPad, seit 1.0):** Zwei Knöpfe in einer Listenzeile
-  ohne eigenen Stil lösten bei einem Tipp beide Aktionen aus. Jeder Knopf ist jetzt einzeln tippbar, „Endgültig
-  löschen“ fragt vorher nach (mit Titel und Zahl der Unterseiten), die Zeilen sind zweizeilig und nennen die
-  Elternseite. Dasselbe Muster an acht weiteren Stellen behoben (u. a. „Kopieren“/„In dieser App verwenden“ bei
-  App-Schlüsseln, neuer Wiederherstellungsschlüssel „Übernehmen“/„Abbrechen“, Mein Backup, Nextcloud). Eine Prüfung in
-  den Logik-Tests durchsucht alle Ansichten nach diesem Muster.
-- **Datenbank: „Filter, Sortierung, Eigenschaften“ und Spalten-Einstellungen** öffnen auf iPhone/iPad als Blatt mit
-  „Fertig“ (das Popover war 36 pt breit und leer); Filterzeilen sind auf dem iPhone zweizeilig.
-- **Editor auf dem iPhone:** Die Schreibzeile wird über die Tastatur geholt, das „/“-Menü liegt angedockt über der
-  Tastaturleiste. Schnelles Tippen beim Zeilenwechsel (Return in Liste/Checkliste/Absatz) verliert keine Zeichen mehr:
-  Eingaben während des Fokuswechsels landen im neuen Feld.
-- **„Umwandeln in“** gibt es nur noch für Textblöcke (Bild → Text löschte das Bild); geht beim Umwandeln etwas
-  verloren (Unterpunkte, Inhalt eines Aufklapp-Blocks), fragt die App vorher.
-- **Seitenverweise zeigen den aktuellen Titel** (wie im Web) – eine per „/Seite“ angelegte Unterseite blieb sonst
-  „Unbenannt“. Nur aktualisierte Titel lösen kein Speichern aus.
-- **Mein Backup → „Verwalten …“** öffnet die Verwaltung (schloss vorher die Einstellungen).
-- **Gruppenanruf-Knöpfe** erscheinen gleich nach dem Entsperren der Chats, nicht erst nach einem Neustart.
-- **Leiste „Anruf läuft auf …“** verdeckt die Navigationsleiste nicht mehr; der Gerätename darf zweizeilig sein.
-- **Große Schrift:** Datenbank-Spalten wachsen mit (kein silbenweiser Umbruch, keine Überlappung), die Chatliste zeigt
-  Zeit und Zähler unter dem Namen.
-- **Trenner** als waagerechte Linie, **Zitat-Quelle** wird angezeigt, **Dienste** ohne rotes „Abgebrochen“ und mit
-  Leerzustand, Seite nach „In den Papierkorb“ wird geschlossen, Anmeldung: Fehlermeldung direkt unter dem Feld und
-  Sprachknopf bei offener Tastatur ausgeblendet, Nextcloud: ungültige Adresse wird als solche gemeldet, „Los“ auf der
-  Tastatur verbindet.
-- **Suche `name@server`:** Hinweis, dass dabei der öffentliche Name zählt (nicht der Anmeldename).
-- **Entwickler-Builds** (Debug) erlauben http auch zu privaten Netzen (z. B. Testserver im LAN); Release unverändert
-  nur https.
-- Version der Apple-Apps auf 2.4.0; Swift-6-Warnung im Live-Kanal behoben.
+**Linux:**
+- **Gruppenanrufe klingeln:** Die App behandelt `call.invite` (und Push `call.group`): Leiste und Mitteilung „Gruppenanruf
+  in <Gruppe>“ bzw. „<Name> hat einen Gruppenanruf gestartet“ mit **Beitreten (im Browser)** (`/chats#join-<id>-member`,
+  bei Video auch „Nur Ton“) und **Ignorieren**. Große Gruppen (`silent`) klingeln nicht, dort steht nur „Gruppenanruf
+  läuft“. Das Klingeln endet, sobald ein eigenes Gerät in der Teilnehmerliste steht (`call.roster`), die Einladung
+  anderswo abgelehnt wurde (`call.state declined`) oder der Anruf endet; „aktiv“ (zwei sind dabei) beendet es nicht.
+  Ein beim Start laufender Gruppenanruf mit offener Einladung klingelt ebenfalls (`GET /api/calls/active`).
+
+### Neu – Android 2.4: Datenbanken, Editor, Seiten und Termine
 
 #### Datenbanken: Ansichten, Filter und Bearbeiten
 **Android:**
@@ -419,6 +399,107 @@ Speicher beim Hoch- und Herunterladen. Texte in Deutsch, Englisch, Spanisch, Rus
 - **Leistung:** Seiten mit 500 Blöcken bleiben flüssig – beim Tippen wird nur der geänderte Block neu aufgebaut
   (unveränderte Blöcke bleiben dieselben Objekte, geprüft im Unit-Test).
 
+### Behoben – Testrunde 2.4
+
+#### iOS/iPadOS/macOS
+- **Papierkorb: „Zurückholen“ löschte die Seite endgültig (iPhone/iPad, seit 1.0):** Zwei Knöpfe in einer Listenzeile
+  ohne eigenen Stil lösten bei einem Tipp beide Aktionen aus. Jeder Knopf ist jetzt einzeln tippbar, „Endgültig
+  löschen“ fragt vorher nach (mit Titel und Zahl der Unterseiten), die Zeilen sind zweizeilig und nennen die
+  Elternseite. Dasselbe Muster an acht weiteren Stellen behoben (u. a. „Kopieren“/„In dieser App verwenden“ bei
+  App-Schlüsseln, neuer Wiederherstellungsschlüssel „Übernehmen“/„Abbrechen“, Mein Backup, Nextcloud). Eine Prüfung in
+  den Logik-Tests durchsucht alle Ansichten nach diesem Muster.
+- **Datenbank: „Filter, Sortierung, Eigenschaften“ und Spalten-Einstellungen** öffnen auf iPhone/iPad als Blatt mit
+  „Fertig“ (das Popover war 36 pt breit und leer); Filterzeilen sind auf dem iPhone zweizeilig.
+- **Editor auf dem iPhone:** Die Schreibzeile wird über die Tastatur geholt, das „/“-Menü liegt angedockt über der
+  Tastaturleiste. Schnelles Tippen beim Zeilenwechsel (Return in Liste/Checkliste/Absatz) verliert keine Zeichen mehr:
+  Eingaben während des Fokuswechsels landen im neuen Feld.
+- **„Umwandeln in“** gibt es nur noch für Textblöcke (Bild → Text löschte das Bild); geht beim Umwandeln etwas
+  verloren (Unterpunkte, Inhalt eines Aufklapp-Blocks), fragt die App vorher.
+- **Seitenverweise zeigen den aktuellen Titel** (wie im Web) – eine per „/Seite“ angelegte Unterseite blieb sonst
+  „Unbenannt“. Nur aktualisierte Titel lösen kein Speichern aus.
+- **Mein Backup → „Verwalten …“** öffnet die Verwaltung (schloss vorher die Einstellungen).
+- **Gruppenanruf-Knöpfe** erscheinen gleich nach dem Entsperren der Chats, nicht erst nach einem Neustart.
+- **Leiste „Anruf läuft auf …“** verdeckt die Navigationsleiste nicht mehr; der Gerätename darf zweizeilig sein.
+- **Große Schrift:** Datenbank-Spalten wachsen mit (kein silbenweiser Umbruch, keine Überlappung), die Chatliste zeigt
+  Zeit und Zähler unter dem Namen.
+- **Trenner** als waagerechte Linie, **Zitat-Quelle** wird angezeigt, **Dienste** ohne rotes „Abgebrochen“ und mit
+  Leerzustand, Seite nach „In den Papierkorb“ wird geschlossen, Anmeldung: Fehlermeldung direkt unter dem Feld und
+  Sprachknopf bei offener Tastatur ausgeblendet, Nextcloud: ungültige Adresse wird als solche gemeldet, „Los“ auf der
+  Tastatur verbindet.
+- **Suche `name@server`:** Hinweis, dass dabei der öffentliche Name zählt (nicht der Anmeldename).
+- **Entwickler-Builds** (Debug) erlauben http auch zu privaten Netzen (z. B. Testserver im LAN); Release unverändert
+  nur https.
+- Version der Apple-Apps auf 2.4.0; Swift-6-Warnung im Live-Kanal behoben.
+
+#### Android
+- **Video im Vollbild speichern:** Schließen, Dateiname und „Speichern“ lagen unter der Statusleiste und ließen sich
+  nicht antippen – Videos konnten in der App gar nicht gespeichert werden. Kopfzeile und Bedienung halten jetzt Abstand
+  zu Statusleiste, Kameraaussparung und Navigationsleiste. Gespeichert wird wie bisher ohne Berechtigung in die Galerie
+  (Filme/Saga, Android 8/9: „Speichern unter“); „Gespeichert“ bzw. der Fehler erscheint jetzt auch im Vollbild.
+- **Mitteilungen früh erlauben:** Beim ersten Öffnen der Chats nach der Anmeldung erklärt Saga einmal kurz, wofür
+  Mitteilungen gebraucht werden (Nachrichten, Anrufe, Upload-Fortschritt), und fragt dann – nicht mehr erst beim ersten
+  Anruf. Ohne Erlaubnis steht der Upload-Fortschritt weiter im Chat; nach einem Verbindungsabbruch heißt es dort
+  „Wartet auf Verbindung …“ statt „Video wird vorbereitet …“.
+- **Gelesen-Bestätigungen:** Bilder, Videos und Dateien zählen als gesehen, sobald ihre Zeile sichtbar war – auch wenn
+  ihre Position erst danach ankommt; eine eigene Nachricht ohne Position zählt als gelesen, wenn die Bestätigung sie
+  oder eine spätere Nachricht nennt (Bild blieb über 60 s bei ✓). Die „Gelesen“-Zeit älterer Nachrichten springt beim
+  Öffnen und bei neuen Bestätigungen nicht mehr weiter: Es gilt die Zeit der ersten Bestätigung, die die Nachricht
+  abdeckt (Zeit aus der signierten Bestätigung, nicht die Uhr des Geräts); die App merkt sich dafür nur Positionen und
+  Zeiten und sendet beim erneuten Öffnen keine neue Bestätigung für schon Bestätigtes.
+- **Version:** Die Apps tragen jetzt 2.4.0 (Vorabversionen „2.4.0-rc.N“ statt „2.3.1-rc.N“). Die Serverzeile zeigt,
+  was der Server unter `/api/version` meldet.
+- **Teilen über Servergrenzen:** `name@server` findet eine Person nur über ihren öffentlichen Namen. Ohne Treffer sucht
+  die App zusätzlich im Adressbuch dieses Servers nach dem Namen und zeigt nur dessen Treffer (z. B. Nora, mit der
+  schon ein Chat läuft).
+- **QR-Anmeldung ohne Kamera:** verständliche Meldung statt Ausnahme-Text und der Knopf „Link einfügen“
+  (Kopplungslink aus der Zwischenablage).
+- **Anzeige und Bedienungshilfen:** „Benachrichtigungen“ in Seiten- und Navigationsleiste wird nicht mehr mitten im
+  Wort umbrochen (Schrift passt sich an, notfalls „…“); das Anmeldefenster im Browser erscheint in der Sprache der App;
+  „Neuer Chat“ hat eine Beschreibung für TalkBack.
+- **Testbuild (Debug):** erlaubt http zu Testservern im privaten Netz (192.168.x.x, 10.x.x.x, 172.16–31.x.x, *.local,
+  localhost/Emulator). Ein abgewiesener Kopplungslink wird nicht mehr still ignoriert, sondern mit Grund gemeldet.
+  Release unverändert: nur https.
+- **Versionsverlauf:** „Diese Version wiederherstellen“ fragt jetzt nach (Datum des Stands) und warnt ausdrücklich,
+  wenn der gewählte Stand leer ist. Die Liste zeigt, was der Server liefert (dass nur der leere Anfangsstand erschien,
+  behebt der Server).
+- Tests: Lesezeit-Historie, Position aus der Reihenfolge, private Netze, Sprache im Anmeldelink, Adressbuch-Ausweichsuche,
+  Mitteilungs-Abfrage, Kamera-Meldung.
+
+#### Linux
+- **Fokus nach Tabelle bzw. Datenbank (Datenverlust):** Nach dem Einfügen sprang die Schreibmarke an den Seitenanfang,
+  Getipptes landete in der ersten Überschrift. Jetzt steht sie in der ersten Zelle der Tabelle bzw. in einem (leeren)
+  Absatz nach Datenbank, Aufgaben, Kalender, Schaltfläche und Bild; Tabellenzellen behalten den Fokus auch nach „Zeile“/
+  „Spalte“. Was getippt wird, während der Server die Datenbank anlegt, bleibt erhalten.
+- **„/“-Menü:** zeigt alle Blocktypen (bisher 12 von 26) und rollt mit den Pfeiltasten mit. Der Name zählt vor dem
+  Stichwort wie im Web: „/tabelle“ legt eine Tabelle an, „/kalender“ den Kalender-Block (bisher jeweils eine
+  Datenbank); „/überschrift 2“ mit Leerzeichen geht.
+- **Gelesen ✓✓:** Neue Nachrichten im offenen, sichtbaren Chat werden nach dem Anordnen bestätigt (bisher erst beim
+  Rollen oder Fensterwechsel); meldet die Chat-Liste den offenen Chat noch als ungelesen, wird er gleich wieder gelesen
+  gemeldet (Zähler, Glocke). Nach dem Annehmen einer Anfrage wird der Online-Status abonniert.
+- **Version wiederherstellen** nur nach Rückfrage („Der aktuelle Inhalt der Seite wird durch die Version vom … ersetzt“).
+- **Block löschen** (Menü bzw. Entf auf einem ausgewählten Block) zeigt „Block gelöscht“ mit **Rückgängig**.
+- **Seiten im Papierkorb:** Eine offene Seite, die (auch als Unterseite) in den Papierkorb ging, ist gesperrt und zeigt
+  „Diese Seite liegt im Papierkorb …“ mit **Zurückholen**; „Zurück“ führt nie auf eine solche Seite. Meldet das Speichern
+  404, sagt die App das deutlich, behält die Eingaben als Entwurf und speichert sie nach dem Zurückholen.
+- **Seitenverweise** zeigen den aktuellen Titel (bisher blieb ein Verweis auf eine umbenannte Unterseite „Unbenannt“).
+- **Dunkelmodus:** Eigene Symbole (Chats, Glocke, Kommentare, Teilen, Schloss …) liegen jetzt als Thema „hicolor“ vor
+  und werden wie Systemsymbole eingefärbt (bisher dunkelgrau auf dunklem Grund).
+- **Schmales Fenster (Telefon-Breite):** schmalere Ränder und Griffe, die Leiste unter Tabellen bricht um, die
+  Datenbank-Leiste wird zweizeilig (Reiter oben, darunter Suche, ⚙, Neu) – nichts läuft mehr rechts aus dem Fenster.
+- **Initialen** im Profilkreis nur aus Buchstaben des Namens („AB“ statt „A(“, „A1“); eigene Kommentare mit den
+  Initialen des Kontos statt „D“ von „Du“.
+- **Übersetzungen:** Dateigrößen in der Sprache der App („44 Bytes“), Reiter „Mitteilungen“ in Russisch/Spanisch/Thai
+  übersetzt (bisher „Push“), Tastenkürzel-Übersicht mit „Strg“, „Umschalt“, „←“ wie in den Tooltips.
+- **Kleineres:** Titel neuer Seiten bekommt zuverlässig den Fokus; Enter auf der leeren letzten Zeile bzw.
+  Umschalt+Tab führt aus einem Toggle heraus; Schaltfläche „Neuer Datenbank-Eintrag“/„Seite öffnen“ ohne Ziel lässt sich
+  nicht speichern, ein Klick ohne Ziel sagt es; Hinweis „n Filter“ in gefilterten Datenbank-Ansichten; Leerzustand bei
+  „Dienste“; Kalender ohne Namen zeigen den letzten Teil der Adresse; Hinweis auf den Kalender nennt „Einstellungen →
+  Konto → Kalender“; Personensuche mit 1–2 Zeichen erklärt „mindestens 3 Zeichen“; Adressfeld in den Einstellungen
+  beim Öffnen nicht mehr markiert; Rückfragen beim Koppeln nennen den Port; geht kein Browser auf, wird die Adresse
+  kopiert und angezeigt; Papierkorb-Zeilen werden umbrochen statt abgeschnitten; Videos spulen genau (nicht mehr an
+  das letzte Schlüsselbild); „✓✓“ kräftiger; Hinweistext mittig zum Emoji.
+- Tests: `linux/tests/test_tt24.py`.
+
 ### Behoben – Chats über Servergrenzen
 **Android – eigene Nachricht blieb auf „⏳ wird zugestellt“:** In einem Direkt-Chat, dessen Heim der andere Server ist,
 zeigte die App eine längst zugestellte eigene Nachricht weiter als ausstehend (Server 2.3.0 melden die sofortige
@@ -466,40 +547,6 @@ kam man nur über die Mitteilung.
 - **Zurück (Taste/Geste) im Anrufbildschirm minimiert** nur (neu auch ein Knopf „Anruf minimieren“ oben links);
   aufgelegt wird ausschließlich mit „Auflegen“. Anrufbildschirm und Vordergrund-Dienst bleiben erhalten, erneutes
   Öffnen baut keine zweite Verbindung auf.
-
-### Behoben (Android) – Funde aus dem Test der 2.4
-- **Video im Vollbild speichern:** Schließen, Dateiname und „Speichern“ lagen unter der Statusleiste und ließen sich
-  nicht antippen – Videos konnten in der App gar nicht gespeichert werden. Kopfzeile und Bedienung halten jetzt Abstand
-  zu Statusleiste, Kameraaussparung und Navigationsleiste. Gespeichert wird wie bisher ohne Berechtigung in die Galerie
-  (Filme/Saga, Android 8/9: „Speichern unter“); „Gespeichert“ bzw. der Fehler erscheint jetzt auch im Vollbild.
-- **Mitteilungen früh erlauben:** Beim ersten Öffnen der Chats nach der Anmeldung erklärt Saga einmal kurz, wofür
-  Mitteilungen gebraucht werden (Nachrichten, Anrufe, Upload-Fortschritt), und fragt dann – nicht mehr erst beim ersten
-  Anruf. Ohne Erlaubnis steht der Upload-Fortschritt weiter im Chat; nach einem Verbindungsabbruch heißt es dort
-  „Wartet auf Verbindung …“ statt „Video wird vorbereitet …“.
-- **Gelesen-Bestätigungen:** Bilder, Videos und Dateien zählen als gesehen, sobald ihre Zeile sichtbar war – auch wenn
-  ihre Position erst danach ankommt; eine eigene Nachricht ohne Position zählt als gelesen, wenn die Bestätigung sie
-  oder eine spätere Nachricht nennt (Bild blieb über 60 s bei ✓). Die „Gelesen“-Zeit älterer Nachrichten springt beim
-  Öffnen und bei neuen Bestätigungen nicht mehr weiter: Es gilt die Zeit der ersten Bestätigung, die die Nachricht
-  abdeckt (Zeit aus der signierten Bestätigung, nicht die Uhr des Geräts); die App merkt sich dafür nur Positionen und
-  Zeiten und sendet beim erneuten Öffnen keine neue Bestätigung für schon Bestätigtes.
-- **Version:** Die Apps tragen jetzt 2.4.0 (Vorabversionen „2.4.0-rc.N“ statt „2.3.1-rc.N“). Die Serverzeile zeigt,
-  was der Server unter `/api/version` meldet.
-- **Teilen über Servergrenzen:** `name@server` findet eine Person nur über ihren öffentlichen Namen. Ohne Treffer sucht
-  die App zusätzlich im Adressbuch dieses Servers nach dem Namen und zeigt nur dessen Treffer (z. B. Nora, mit der
-  schon ein Chat läuft).
-- **QR-Anmeldung ohne Kamera:** verständliche Meldung statt Ausnahme-Text und der Knopf „Link einfügen“
-  (Kopplungslink aus der Zwischenablage).
-- **Anzeige und Bedienungshilfen:** „Benachrichtigungen“ in Seiten- und Navigationsleiste wird nicht mehr mitten im
-  Wort umbrochen (Schrift passt sich an, notfalls „…“); das Anmeldefenster im Browser erscheint in der Sprache der App;
-  „Neuer Chat“ hat eine Beschreibung für TalkBack.
-- **Testbuild (Debug):** erlaubt http zu Testservern im privaten Netz (192.168.x.x, 10.x.x.x, 172.16–31.x.x, *.local,
-  localhost/Emulator). Ein abgewiesener Kopplungslink wird nicht mehr still ignoriert, sondern mit Grund gemeldet.
-  Release unverändert: nur https.
-- **Versionsverlauf:** „Diese Version wiederherstellen“ fragt jetzt nach (Datum des Stands) und warnt ausdrücklich,
-  wenn der gewählte Stand leer ist. Die Liste zeigt, was der Server liefert (dass nur der leere Anfangsstand erschien,
-  behebt der Server).
-- Tests: Lesezeit-Historie, Position aus der Reihenfolge, private Netze, Sprache im Anmeldelink, Adressbuch-Ausweichsuche,
-  Mitteilungs-Abfrage, Kamera-Meldung.
 
 ## [2.3.0] – 2026-10-19
 

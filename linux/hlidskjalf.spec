@@ -80,8 +80,9 @@ sh po/build-mo.sh build/locale
 install -d %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf
 cp -a hlidskjalf/*.py hlidskjalf/style.css %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/
 # eigene Symbole (z. B. saga-globe-symbolic), App-eigener Suchpfad (main.py), nicht im System-Symbolthema
-install -d %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons
-install -m644 hlidskjalf/icons/*.svg %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/
+# als Thema "hicolor" abgelegt: nur so behandelt GTK sie als symbolisch und faerbt sie ein (Dunkelmodus)
+install -d %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions
+install -m644 hlidskjalf/icons/hicolor/scalable/actions/*.svg %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/
 # Testmodus (HK_TEST, ctypes, fuehrt Skripte aus) gehoert nicht ins Paket
 rm -f %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/testing.py
 install -Dm755 data/hlidskjalf %{buildroot}%{_bindir}/hlidskjalf
@@ -107,16 +108,16 @@ if command -v appstreamcli >/dev/null; then
   appstreamcli validate --no-net %{buildroot}%{_metainfodir}/io.github.yggdrasil_sh.Saga.metainfo.xml
 fi
 test ! -e %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/testing.py
-test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-globe-symbolic.svg
-test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-comment-symbolic.svg
-test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-people-symbolic.svg
-test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-lock-symbolic.svg
-test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-page-symbolic.svg
-test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-database-symbolic.svg
-test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-bell-symbolic.svg
-test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-chat-symbolic.svg
-test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-assistant-symbolic.svg
-test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/saga-send-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/saga-globe-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/saga-comment-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/saga-people-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/saga-lock-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/saga-page-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/saga-database-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/saga-bell-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/saga-chat-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/saga-assistant-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/saga-send-symbolic.svg
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/chatcrypto.py
 # 2.1: Profilbilder, Anmeldung & Sicherheit, Anrufe
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/avatars.py

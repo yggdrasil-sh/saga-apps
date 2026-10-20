@@ -16,6 +16,9 @@ from .util import bg, date_time_text, edited_text, new_block_id, plain
 GUTTER = 60
 CSLOT = 36              # Breite des Platzes fuer die Kommentar-Zahl rechts am Block
 COLLAPSE_COMMENTS = 820  # schmaler: Kommentar-Seitenleiste legt sich ueber die Seite
+NARROW_PAGE = 520        # schmaler (Telefon-Breite, 360-480 px): schmale Raender, Griffe und Kommentar-Platz
+GUT, GUT_NARROW = 44, 26   # linker Rand fuer die Griffe (+ Bloecke, Titel, Tags, Rueckverweise)
+CSLOT_NARROW = 22
 
 
 class BannerBox(Gtk.Box):
@@ -233,6 +236,8 @@ class PageView(Gtk.Box):
         self.doc.on_title = lambda t: self.rebuild()
         self.doc.on_copies = lambda: self.update_banners()
         self.doc.on_lost = self._lost
+        self.doc.on_trashed = lambda: self._trash_state()
+        self._shown_trash = False
         self._conflict_dlg = None
         self._conflict_wait = 0                 # Konflikt-Dialog wartet, bis eine Tipp-Pause ist (BUG-027)
         self._typed_at = 0                      # GLib.get_monotonic_time() der letzten Eingabe
@@ -287,6 +292,40 @@ class PageView(Gtk.Box):
     def _pages_changed(self):
         if self.header_changed:
             self.header_changed()
+        self._trash_state()
+        self._relabel_links()
+
+    def _trash_state(self):
+        """Seite (bzw. ihre Elternseite) ging in den Papierkorb oder kam zurueck: sperren bzw. wieder freigeben (Hinweis
+        oben mit "Zurueckholen"); zurueckgeholt: ungespeicherte Eingaben jetzt speichern"""
+        doc = self.doc
+        now = bool(doc.fetched and doc.in_trash)
+        if now == self._shown_trash:
+            return
+        self._shown_trash = now
+        if doc.fetched:
+            self.rebuild()
+        self.update_banners()
+        if not now:
+            doc.untrash()
+
+    def _restore_from_trash(self):
+        pid, doc = self.id, self.doc
+
+        def done(_r):
+            doc.trash_hit = False
+            store.trashed_ids = store.trashed_ids - {pid}
+            self._trash_state()
+        store.restore(pid, done=done, error=lambda e: self.win.toast(_("Not restored: {error}").format(error=e)))
+
+    def _link_sig(self):
+        """aktuelle Titel der Seiten, auf die diese Seite verweist (Verweise zeigen immer den aktuellen Titel)"""
+        from .blocks import linked_titles
+        return linked_titles(self.doc.root) if self.doc.loaded and not self.doc.is_database else ()
+
+    def _relabel_links(self):
+        if self.blocks_box is not None and self._link_sig() != getattr(self, "_shown_links", ()):
+            self.rebuild_blocks()
 
     @property
     def foreign(self):
@@ -330,6 +369,7 @@ class PageView(Gtk.Box):
     # --- Aufbau ------------------------------------------------------------------------------
     def rebuild(self):
         doc = self.doc
+        self._shown_trash = bool(doc.fetched and doc.in_trash)
         self.spinner.set_visible(not doc.loaded)
         if not doc.loaded:
             return
@@ -391,11 +431,16 @@ class PageView(Gtk.Box):
         wide = bool(doc.page.get("wide"))
         clamp = Adw.Clamp(maximum_size=100000 if wide else 760 + 2 * GUTTER, tightening_threshold=600)
         # rechter Rand: Platz fuer die Kommentar-Zahl am Block (BlockRow.cslot, 36 px) - zusammen wie bisher GUTTER
-        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_start=8,
-                      margin_end=GUTTER if self.cpanel is None else GUTTER - CSLOT, margin_top=12, margin_bottom=40)
+        self.narrow = self._is_narrow()
+        if self.narrow:                                       # schmal: Inhalt muss in ~330 px passen (Testbericht 180)
+            mend = 12
+        else:
+            mend = GUTTER if self.cpanel is None else GUTTER - CSLOT
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_start=4 if self.narrow else 8,
+                      margin_end=mend, margin_top=12, margin_bottom=40)
         col.append(self._icon_row())
         trow = Gtk.Box()
-        trow.append(Gtk.Box(width_request=44))
+        trow.append(Gtk.Box(width_request=self.gut))
         self.title_rt = RichText(doc.title_raw, css="hk-title", placeholder=_("Untitled"), raw=True, editable=not self.editor.locked)
         self.title_rt.set_monospace(False)
         self.title_rt.set_hexpand(True)
@@ -403,7 +448,7 @@ class PageView(Gtk.Box):
         self.title_rt.connect("html-changed", self._title_changed)
         trow.append(self.title_rt)
         col.append(trow)
-        ind = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_start=44)
+        ind = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, margin_start=self.gut)
         # fremde Seite, unter dem Titel: "Geteilt von … · Du kannst …", darunter "Zuletzt geaendert von … / Angelegt
         # von …" - beides gleich gross (Sekundaertext, gut lesbar)
         info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
@@ -446,17 +491,18 @@ class PageView(Gtk.Box):
         if ind.get_first_child():
             col.append(ind)
         if doc.error:
-            er = Gtk.Label(label=doc.error, xalign=0, wrap=True, margin_start=44)
+            er = Gtk.Label(label=doc.error, xalign=0, wrap=True, margin_start=self.gut)
             er.add_css_class("warning")
             col.append(er)
         if doc.is_database:
             from .database import DatabaseView
             dv = DatabaseView(self.win, self.id)
-            dv.set_margin_start(44)
+            dv.set_margin_start(self.gut)
             col.append(dv)
         else:
             self.blocks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
             self.blocks_box.append(self.kit.block_list(doc.root))
+            self._shown_links = self._link_sig()
             col.append(self.blocks_box)
             filler = Gtk.Box(height_request=160)
             g = Gtk.GestureClick()
@@ -485,8 +531,25 @@ class PageView(Gtk.Box):
             self.cpanel.reload()                              # Zahlen und ungelesen-Punkte am Block
         if not self._built_once:
             self._built_once = True
-            if not doc.title_raw and not doc.is_database and len(doc.root) <= 1:
-                GLib.idle_add(lambda: (self.title_rt.focus_at("end"), False)[1])
+            if not doc.title_raw and not doc.is_database and len(doc.root) <= 1 and not self.editor.locked:
+                self._focus_title_when_shown()
+
+    def _focus_title_when_shown(self, n=0):
+        """neue (leere) Seite: Schreibmarke in den Titel - erst wenn er zu sehen ist (der Knopf "Neue Seite" behielt sonst
+        den Fokus, Testbericht 010/031); hoechstens ~1,5 s versuchen, nicht wenn inzwischen woanders getippt wird"""
+        rt = self.title_rt
+        if rt is None or rt.get_root() is None:
+            return False
+        foc = self.win.get_focus() if self.win is not None else None
+        if foc is not None and foc.is_ancestor(self) and foc is not rt:
+            return False                                  # schon in der Seite (z. B. im ersten Block): nicht wegnehmen
+        if rt.get_mapped():
+            rt.focus_at("end")
+            if rt.has_focus() or n >= 30:
+                return False
+        if n < 30:
+            GLib.timeout_add(50, self._focus_title_when_shown, n + 1)
+        return False
 
     def rebuild_blocks(self):
         """Nach Enter, Loeschen, Verschieben ...: nur die Blockliste neu - unveraenderte Bloecke (samt eingebetteter
@@ -501,6 +564,7 @@ class PageView(Gtk.Box):
         self.kit.reset()
         self.suggest.hide()
         lst = self.kit.block_list(doc.root)
+        self._shown_links = self._link_sig()
         old = self.blocks_box.get_first_child()
         if old is not None:
             self.blocks_box.remove(old)
@@ -898,6 +962,12 @@ class PageView(Gtk.Box):
         self.conflict_banner.connect("button-clicked", lambda *_: self._conflict(self.doc, self.doc.conflict, asked=True))
         box.append(self.conflict_banner)
         # Seite ueber der Servergrenze (413): bleibt stehen, bis ein Speichern wieder klappt (BUG-081)
+        # im Papierkorb (Elternseite weg bzw. Speichern meldete 404): nur lesen, Zurueckholen
+        self.trash_banner = Adw.Banner(title=GLib.markup_escape_text(_(
+            "This page is in the trash. Changes are not saved until you restore it.")), button_label=_("Restore"),
+            revealed=False)
+        self.trash_banner.connect("button-clicked", lambda *_: self._restore_from_trash())
+        box.append(self.trash_banner)
         self.large_banner = Adw.Banner(title=GLib.markup_escape_text(_(
             "This page is too large to save. Shorten it or split it into several pages – until then your changes are only "
             "kept on this device.")), revealed=False)
@@ -936,6 +1006,7 @@ class PageView(Gtk.Box):
         else:
             self.conflict_banner.set_title(GLib.markup_escape_text(_("Page changed elsewhere")))
         gone = self.no_access
+        self.trash_banner.set_revealed(bool(doc.fetched and doc.in_trash and not gone))
         self.large_banner.set_revealed(bool(doc.too_large) and not gone)
         self.conflict_banner.set_revealed(doc.conflict is not None and self._conflict_dlg is None and not gone)
         if doc.conflict is not None:                         # ein Hinweis genuegt: "Fassung waehlen" (BUG-079)
@@ -970,6 +1041,17 @@ class PageView(Gtk.Box):
             rt = next((r for k, r in self.kit.order if k.startswith(key + "/")), None)
         if rt is not None:
             GLib.idle_add(lambda: (rt.focus_at(where), False)[1])
+            return
+        tv = self.kit.cells.get(key)                          # Tabellenzelle (editor.cell_key)
+        if tv is None and "/#" in key:                         # Zeile/Spalte geloescht: erste Zelle der Tabelle
+            tv = next((t for k, t in self.kit.cells.items() if k.startswith(key.split("/#")[0] + "/#")), None)
+        if tv is not None:
+            def go():
+                buf = tv.get_buffer()
+                buf.place_cursor(buf.get_start_iter() if where == "start" else buf.get_end_iter())
+                tv.grab_focus()
+                return False
+            GLib.idle_add(go)
 
     def blur(self):
         self.editor.focus = None
@@ -1002,7 +1084,7 @@ class PageView(Gtk.Box):
 
     def _icon_row(self):
         doc = self.doc
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=44)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_start=self.gut)
         ic = doc.page.get("icon")
         if ic:
             w = images.page_icon(ic, size=78 if images.is_file_url(ic) else 64)
@@ -1090,7 +1172,7 @@ class PageView(Gtk.Box):
         self.rebuild()
 
     def _backlinks(self):
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_start=44)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_start=self.gut)
 
         def fin(lst):
             if not lst:
@@ -1161,11 +1243,36 @@ class PageView(Gtk.Box):
         GLib.timeout_add(30, go)
         GLib.timeout_add(250, go)
 
+    def _is_narrow(self, w=None):
+        """schmal: Fenster sehr schmal (Breakpoint, Telefon-Breite) bzw. die Seite selbst (Peek) schmaler als NARROW_PAGE"""
+        w = self.get_width() if w is None else w
+        return bool(getattr(self.win, "very_narrow", False) and not self.in_peek) or 0 < w < NARROW_PAGE
+
+    def check_narrow(self):
+        """vom Fenster (Breakpoint) - Breitenwechsel kommen nicht ueberall als size_allocate an"""
+        if self.doc.loaded and self._is_narrow() != getattr(self, "narrow", False):
+            self.rebuild()
+
+    @property
+    def gut(self):
+        return GUT_NARROW if getattr(self, "narrow", False) else GUT
+
+    @property
+    def cslot_w(self):
+        return CSLOT_NARROW if getattr(self, "narrow", False) else CSLOT
+
     def do_size_allocate(self, w, h, b):
         Gtk.Box.do_size_allocate(self, w, h, b)
         if abs(w - getattr(self, "_last_w", 0)) > 1:
             self._last_w = w
             self._relayout_soon()
+        narrow = self._is_narrow(w)
+        if narrow != getattr(self, "narrow", False) and not getattr(self, "_narrow_src", 0) and self.doc.loaded:
+            def later():                                      # ueber die Grenze: Raender/Griffe neu (Bloecke neu gebaut)
+                self._narrow_src = 0
+                self.check_narrow()
+                return False
+            self._narrow_src = GLib.idle_add(later)
         if self.csplit is not None:
             narrow = w < COLLAPSE_COMMENTS
             if self.csplit.get_collapsed() != narrow:
@@ -1491,9 +1598,16 @@ class PageView(Gtk.Box):
                 self.copy_block(sel, cut=True)
                 return True
             if kv in (Gdk.KEY_Delete, Gdk.KEY_BackSpace) and not state & Gdk.ModifierType.CONTROL_MASK and not self.editor.locked:
-                self.editor.delete(sel)
+                self.editor.delete(sel, undo=True)
                 return True
         return False
+
+    def block_undo_toast(self, undo):
+        """Block geloescht: Hinweis mit "Rueckgaengig" (statt einer Rueckfrage)"""
+        t = Adw.Toast(title=GLib.markup_escape_text(_("Block deleted")), button_label=_("Undo"), timeout=8)
+        t.connect("button-clicked", lambda *_: undo())
+        self.last_undo_toast = t
+        self.win.toasts.add_toast(t)
 
     # --- Bloecke kopieren / ausschneiden / einfuegen (2.1-c) ----------------------------------------------------------
     def _clip_owner(self):

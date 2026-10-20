@@ -15,7 +15,7 @@ def _row(icon_widget, title, subtitle=None, suffix=None):
     col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
     col.append(Gtk.Label(label=title, xalign=0, ellipsize=Pango.EllipsizeMode.END))
     if subtitle:
-        s = Gtk.Label(label=subtitle, xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        s = Gtk.Label(label=subtitle, xalign=0, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR)   # nie abschneiden (Datum)
         s.add_css_class("caption")
         s.add_css_class("dim-label")
         col.append(s)
@@ -338,8 +338,26 @@ class VersionsDialog(Adw.Dialog):
         bg(client.get, f"api/notes/{self.pid}/versions/{v['id']}", done=show, error=lambda e: self._msg(str(e)))
 
     def _restore(self):
-        if self.sel:
-            store.run("POST", f"api/notes/{self.pid}/versions/{self.sel}/restore", {}, done=lambda _: (self.restored(), self.close()))
+        """Wiederherstellen ersetzt den ganzen Inhalt der Seite - nur nach Rueckfrage (der Server sichert ab 2.4 vorher
+        den aktuellen Stand als Version)"""
+        if not self.sel:
+            return
+        sel = self.sel
+        v = next((x for x in self.versions if x.get("id") == sel), {})
+        d = Adw.AlertDialog(heading=_("Restore this version?"),
+                            body=_("The current content of the page will be replaced by the version from {date}.").format(
+                                date=date_time_text(v.get("created"))))
+        d.add_response("cancel", _("Cancel"))
+        d.add_response("ok", _("Restore"))
+        d.set_response_appearance("ok", Adw.ResponseAppearance.DESTRUCTIVE)
+        d.set_default_response("cancel")
+        d.set_close_response("cancel")
+        d.connect("response", lambda dd, r: r == "ok" and self._restore_now(sel))
+        self.confirm = d
+        d.present(self)
+
+    def _restore_now(self, sel):
+        store.run("POST", f"api/notes/{self.pid}/versions/{sel}/restore", {}, done=lambda _: (self.restored(), self.close()))
 
 
 class ImmichThumb(Gtk.Overlay):
@@ -626,6 +644,17 @@ class ButtonsConfig(Adw.Dialog):
         return row
 
     def _done(self):
+        # "Neuer Datenbank-Eintrag" bzw. "Seite oeffnen" ohne Ziel tut beim Klicken nichts - nicht so speichern
+        miss = next((i + 1 for i, b in enumerate(self.buttons) if b.get("action") in ("db", "page") and not b.get("target")), None)
+        if miss is not None:
+            b = self.buttons[miss - 1]
+            d = Adw.AlertDialog(heading=_("Choose a target"),
+                                body=(_("Button {n}: choose the database for new entries.") if b.get("action") == "db"
+                                      else _("Button {n}: choose the page to open.")).format(n=miss))
+            d.add_response("ok", _("OK"))
+            self.missing_dialog = d
+            d.present(self)
+            return
         self.data["buttons"] = self.buttons
         self.changed()
         self.close()
@@ -682,6 +711,12 @@ def services_screen(win):
             holder.remove(c)
         q = norm(se.get_text())
         shown = [s for s in data["list"] if not q or q in norm(f"{s.get('name')} {s.get('host')} {s.get('category')}")]
+        if not shown and data.get("loaded"):                  # Leerzustand erklaeren (Testbericht 190)
+            msg = _("No service matches “{query}”.").format(query=se.get_text().strip()) if q else \
+                _("No services yet. Services and bookmarks are added in the web interface.")
+            lb = Gtk.Label(label=msg, xalign=0, wrap=True)
+            lb.add_css_class("dim-label")
+            holder.append(lb)
         for cat in sorted({s.get("category") or "" for s in shown}):
             hl = Gtk.Label(label=cat, xalign=0)
             hl.add_css_class("heading")
@@ -710,6 +745,7 @@ def services_screen(win):
 
     def got(lst):
         data["list"] = lst or []
+        data["loaded"] = True
         fill()
     bg(client.get, "api/services", done=got, error=lambda e: holder.append(Gtk.Label(label=str(e), css_classes=["error"])))
     return sw

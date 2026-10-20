@@ -560,7 +560,7 @@ class ChatList(Gtk.Box):
             row.add_css_class("hk-active")
         box = Gtk.Box(spacing=10, margin_top=4, margin_bottom=4)
         title = chat.title(c)
-        av = Adw.Avatar(size=36, text=title, show_initials=c.get("kind") in ("dm", "free"))
+        av = Adw.Avatar(size=36, text=avatars.initials_text(title), show_initials=c.get("kind") in ("dm", "free"))
         if c.get("kind") == "dm":
             avatars.attach(av, (chat.peer(c) or {}).get("avatar"), 36)     # Profilbild des Gegenuebers (2.1)
         if c.get("kind") == "group":
@@ -759,6 +759,7 @@ class Conversation(Gtk.Box):
         watch_chat(self, "ai-pending", lambda cid: cid == self.cid and self._pending_changed())
         watch_chat(self, "chat-gone", lambda cid, how, _n: cid == self.cid and self._wiped())
         watch_chat(self, "receipts", lambda cid: cid == self.cid and self._update_ticks())     # (2.4)
+        watch_chat(self, "changed", lambda: self._unread_check())       # (2.4) Liste neu: offener Chat zaehlt nicht
         watch_presence(self, lambda: [u for u in [S.presence_user(chat.me, chat.chat(self.cid))] if u])
         from .assistant import ai
         watch_chat(self, "changed", lambda: self._ai_changed(), obj=ai)
@@ -1242,6 +1243,9 @@ class Conversation(Gtk.Box):
             self._to_bottom()
         if self.loaded and self.win.is_active():
             self._mark_read()
+            # (2.4) die neue Zeile hat jetzt noch keinen Platz (_receipt_visible waere falsch): nach dem Anordnen und
+            # dem Rollen nach unten (_to_bottom, 120 ms) noch einmal - sonst kaeme die Bestaetigung erst beim Rollen
+            self._rc_soon()
 
     def _older(self):
         adj = self.scroll.get_vadjustment()
@@ -1258,6 +1262,14 @@ class Conversation(Gtk.Box):
     def _mark_read(self):
         if chat.open_chat == self.cid and self.loaded:
             chat.mark_read(self.cid, visible=self._receipt_visible)
+
+    def _unread_check(self):
+        """(2.4) Die Chat-Liste kam (Live-Ereignis) nach dem Gelesen-Melden an und zaehlt diesen offenen, sichtbaren Chat
+        noch als ungelesen (Zaehler, Glocke): gleich noch einmal als gelesen melden"""
+        ch = chat.chat(self.cid) or {}
+        if ch.get("unread") and self.loaded and chat.open_chat == self.cid and self.win is not None and self.win.is_active() \
+                and shown(self):
+            self._rc_soon()
 
     # --- Gelesen-Bestaetigungen (2.4) ----------------------------------------------------------------------------------
     def _receipt_visible(self):
@@ -1396,7 +1408,7 @@ class Conversation(Gtk.Box):
             row.append(ai_avatar(28, valign=Gtk.Align.END) if first else Gtk.Box(width_request=28))
         elif group and not mine:
             if first:
-                av = Adw.Avatar(size=28, text=sname, show_initials=True, valign=Gtk.Align.END)
+                av = Adw.Avatar(size=28, text=avatars.initials_text(sname), show_initials=True, valign=Gtk.Align.END)
                 avatars.attach(av, sender.get("avatar"), 28)
                 row.append(av)
             else:

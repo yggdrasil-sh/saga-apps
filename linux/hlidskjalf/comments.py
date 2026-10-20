@@ -8,7 +8,7 @@ POST api/comments/{id}/resolve {resolved}, POST api/comments/{id}/seen.
 Die Logik (Zustand -> Anzeige) steht ohne GTK in Thread-Funktionen und CommentState und ist so per pytest pruefbar."""
 import re
 
-from gi.repository import Adw, Gdk, GLib, Gtk, Pango
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango
 
 from .api import client
 from .i18n import _, ngettext
@@ -556,7 +556,11 @@ class CommentsPanel(Gtk.Box):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
         h = Gtk.Box(spacing=6)
         from . import avatars
-        av = avatars.person((cm or {}).get("author") or {}, 24, text=author(cm) or "?", valign=Gtk.Align.CENTER)
+        a = (cm or {}).get("author") or {}
+        me = a.get("me") and not a.get("name")                   # eigener Kommentar: Initialen des Kontos, nicht "Du"
+        win = Gio.Application.get_default() and getattr(Gio.Application.get_default(), "win", None)
+        own = (win.account_name() if win is not None and hasattr(win, "account_name") else "") if me else ""
+        av = avatars.person(a, 24, text=own or a.get("name") or author(cm) or "?", valign=Gtk.Align.CENTER)
         h.append(av)                                               # Profilbild (2.1) bzw. Initialen
         a = _label(author(cm), "heading", wrap=False)
         a.set_ellipsize(Pango.EllipsizeMode.END)

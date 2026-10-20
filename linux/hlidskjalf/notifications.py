@@ -357,7 +357,9 @@ class NotificationList(Gtk.Box):
             row.add_css_class("hk-notif-unread")
         box = Gtk.Box(spacing=10, margin_start=10, margin_end=10, margin_top=8, margin_bottom=8)
         actor = it.get("actor") if isinstance(it.get("actor"), dict) else None
-        av = Adw.Avatar(size=32, text=(actor or {}).get("name") or "Saga", show_initials=actor is not None, valign=Gtk.Align.START)
+        from .avatars import initials_text
+        av = Adw.Avatar(size=32, text=initials_text((actor or {}).get("name") or "Saga"), show_initials=actor is not None,
+                        valign=Gtk.Align.START)
         if actor is None:
             av.set_icon_name("drive-harddisk-symbolic" if it.get("kind") in SYSTEM_KINDS else bell_icon())
         else:

@@ -305,7 +305,10 @@ class MockServer:
             if not rest and method == "DELETE":                  # wie der Server: samt Unterseiten in den Papierkorb
                 ids = self._subtree(nid)
                 for i in ids:
-                    self.trash.append(self.notes.pop(i))
+                    n2 = self.notes.pop(i)
+                    if i != nid:
+                        n2["_trashed_with"] = nid
+                    self.trash.append(n2)
                 return self._reply(200, {"deleted": len(ids), "trash": True})
             if rest == ["rows"]:
                 rows = [{"id": r["id"], "title": r["title"], "icon": r.get("icon") or "", "props": r.get("props") or {},
@@ -357,6 +360,14 @@ class MockServer:
         if path == "api/trash":
             return self._reply(200, [{"id": n["id"], "title": n.get("title"), "icon": n.get("icon"), "purge_at": time.time() + 86400 * 30}
                                      for n in self.trash])
+        if parts[:2] == ["api", "trash"] and len(parts) == 4 and parts[3] == "restore" and method == "POST":
+            nid = int(parts[2])                                  # samt der mit ihr geloeschten Unterseiten zurueck
+            back = [n for n in self.trash if n["id"] == nid or n.get("_trashed_with") == nid]
+            self.trash = [n for n in self.trash if n not in back]
+            for n in back:
+                n.pop("_trashed_with", None)
+                self.notes[n["id"]] = n
+            return self._reply(200, {"ok": True}) if back else self._reply(404, {"error": "not found"})
         if parts[:2] == ["api", "trash"] and len(parts) == 3 and method == "DELETE":
             self.trash = [n for n in self.trash if n["id"] != int(parts[2])]
             return self._reply(200, {"ok": True})

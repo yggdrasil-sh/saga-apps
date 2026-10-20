@@ -270,7 +270,8 @@ class AvatarGroup(Adw.PreferencesGroup):
         self.info = info
         self._busy = True
         name = (self.dlg.win.account_name() if hasattr(self.dlg.win, "account_name") else "") or "?"
-        self.av.set_text(name)
+        from .avatars import initials_text
+        self.av.set_text(initials_text(name))
         avatars.forget(info.get("url"))
         avatars.attach(self.av, info.get("url"), 72)
         self.src.set_label(_source_text(info))

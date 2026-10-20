@@ -5,7 +5,7 @@ from gi.repository import Adw, GLib, Gtk, Pango
 
 from .blocks import chip, context_menu, flat_button, menu_popover
 from .database import PROP_ICON, has_value
-from .i18n import _
+from .i18n import _, ngettext
 from .store import label, store
 from .util import COLOR_NAMES, COLOR_ORDER, day_text, new_pid, num_text
 
@@ -69,17 +69,36 @@ class ViewBar(Gtk.Box):
         sw = Gtk.ScrolledWindow(vscrollbar_policy=Gtk.PolicyType.NEVER, hexpand=True, propagate_natural_width=True)
         self.tabs = Gtk.Box(spacing=2)
         sw.set_child(self.tabs)
+        self.tab_scroll = sw
         self.append(sw)
+        # Suche, Einstellungen, "Neu": schmal (< 560 px) in einer eigenen Zeile unter den Reitern (set_narrow)
+        self.tools = Gtk.Box(spacing=6)
         self.search = Gtk.SearchEntry(placeholder_text=_("Search"), width_chars=7, max_width_chars=14)   # schmal: passt (BUG-082)
         self.search.connect("search-changed", self._search)
-        self.append(self.search)
+        self.tools.append(self.search)
+        # Hinweis, dass gefiltert wird (sonst fehlen Eintraege scheinbar grundlos, Testbericht 056)
+        self.filter_pill = Gtk.Label(visible=False, valign=Gtk.Align.CENTER)
+        self.filter_pill.add_css_class("hk-role-pill")
+        self.filter_pill.add_css_class("hk-filter-pill")
+        self.tools.append(self.filter_pill)
         self.settings = Gtk.MenuButton(icon_name="emblem-system-symbolic", tooltip_text=_("View: filters, sorting, properties"))
         self.settings.add_css_class("flat")
         self.settings.set_create_popup_func(self._settings_popup)
-        self.append(self.settings)
+        self.tools.append(self.settings)
         self.new_slot = Gtk.Box()
-        self.append(self.new_slot)
+        self.tools.append(self.new_slot)
+        self.append(self.tools)
+        self.narrow = False
         self._sig = None
+
+    def set_narrow(self, on):
+        """schmales Fenster: Reiter oben ueber die ganze Breite, darunter Suche (dehnt sich), Einstellungen, Neu -
+        sonst rutschten die Reiter unter das Suchfeld ("Tab…", Testbericht 183)"""
+        if on == self.narrow:
+            return
+        self.narrow = on
+        self.set_orientation(Gtk.Orientation.VERTICAL if on else Gtk.Orientation.HORIZONTAL)
+        self.search.set_hexpand(on)
 
     def _search(self, e):
         self.m.search = e.get_text()
@@ -117,6 +136,11 @@ class ViewBar(Gtk.Box):
             add.set_create_popup_func(lambda mb: mb.set_popover(menu_popover(None, [(t[1], (lambda t=t[0]: self._add_view(t))) for t in VIEW_TYPES])))
             self.tabs.append(add)
         self.settings.set_visible(self.editable)
+        nf = len((self.dv.view or {}).get("filters") or [])
+        self.filter_pill.set_visible(nf > 0)
+        if nf:
+            self.filter_pill.set_label(ngettext("{n} filter", "{n} filters", nf).format(n=nf))
+            self.filter_pill.set_tooltip_text(_("This view is filtered – change it with ⚙ (view settings)."))
         while (c := self.new_slot.get_first_child()):
             self.new_slot.remove(c)
         if self.m.host_locked:                                 # Block auf gesperrter Seite: kein "Neu"
