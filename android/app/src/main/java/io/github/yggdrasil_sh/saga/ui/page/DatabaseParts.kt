@@ -32,20 +32,30 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.blocks.BlockDoc
-import io.github.yggdrasil_sh.saga.blocks.DbProps
 import io.github.yggdrasil_sh.saga.blocks.InlineHtml
 import io.github.yggdrasil_sh.saga.data.PageMeta
 import io.github.yggdrasil_sh.saga.data.SagaRepository
+import io.github.yggdrasil_sh.saga.db.DbProp
+import io.github.yggdrasil_sh.saga.db.DbQuery
+import io.github.yggdrasil_sh.saga.db.DbRow
+import io.github.yggdrasil_sh.saga.db.DbSchema
+import io.github.yggdrasil_sh.saga.db.DbValues
+import io.github.yggdrasil_sh.saga.db.DbViews
 import io.github.yggdrasil_sh.saga.ui.common.PageIcon
+import io.github.yggdrasil_sh.saga.ui.database.PropRow
+import io.github.yggdrasil_sh.saga.ui.database.PropValueEditor
+import io.github.yggdrasil_sh.saga.ui.database.rememberDbFormat
+import io.github.yggdrasil_sh.saga.util.UiText
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import java.text.DateFormat
-import java.util.Date
 
-// Datenbanken (Notion-Stil) zum Lesen: Zeilen auflisten und oeffnen, Eigenschaften einer Zeile anzeigen,
-// eingebettete Datenbank-Bloecke. Ansichten/Filter/Bearbeiten der Eigenschaften bleiben im Browser.
+// Datenbanken (Notion-Stil): eingebettete Datenbank-Bloecke (Vorschau, antippen oeffnet die Datenbank) und
+// Eigenschaften einer Zeile (bearbeitbar). Die Datenbank als Seite (Ansichten, Filter ...) steht in ui/database.
 
 /** Alle bekannten Seiten (eigene, mit mir geteilte, 2.3: auch von anderen Servern) - Zeilen einer Datenbank sind ihre Unterseiten */
 @Composable
@@ -95,49 +105,84 @@ fun DatabaseRows(dbId: Long, repo: SagaRepository, onOpen: (Long) -> Unit, limit
     }
 }
 
-/** Eigenschaften einer Datenbank-Zeile (nur lesen): Schema der Elternseite laden, Werte aufbereiten */
+/**
+ * Eigenschaften einer Datenbank-Zeile (Eintrag als Seite geoeffnet): 2.4 bearbeitbar wie im Web - alle Typen des
+ * Servers. Werte gelten sofort, offline landen sie in der Warteschlange (DbStore) und werden nachgeholt.
+ */
 @Composable
 fun RowProperties(ed: PageEditor, repo: SagaRepository) {
     val props = ed.props ?: return
     val parent = ed.parentId ?: return
-    var schema by remember(parent) { mutableStateOf<JsonObject?>(null) }
+    var schema by remember(parent) { mutableStateOf<DbSchema?>(null) }
     LaunchedEffect(parent) {
         schema = try {
-            repo.loadPage(parent)["schema"] as? JsonObject
+            (repo.loadPage(parent)["schema"] as? JsonObject)?.let(::DbSchema)
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
             null                                             // Datenbank nicht lesbar: Eigenschaften einfach weglassen
         }
     }
+    val s = schema ?: return
     val all = knownPages(repo)
-    val locale = io.github.yggdrasil_sh.saga.ui.common.appLocale()
-    val fmt = remember(locale) { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale) }
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val fields = remember(schema, props, all, locale) {
-        // Datum und Zahlen in der Schreibweise der App-Sprache (wie Erstellt/Geaendert)
-        DbProps.fields(schema, props, ed.created, ed.updatedAt,
-            titleOf = { id -> all.firstOrNull { it.id == id }?.title }, time = { fmt.format(Date((it * 1000).toLong())) },
-            day = DbProps.localDay(locale), number = DbProps.localNum(locale))
+    val pending by repo.dbStore.pending.collectAsState()
+    // eigene Aenderungen sofort zeigen (bis die Seite neu geladen wird), offline geaenderte Werte darueber
+    var local by remember(props) { mutableStateOf(props) }
+    val row = remember(local, pending, ed.created, ed.updatedAt) {
+        repo.dbStore.overlay(listOf(DbRow(ed.id, ed.title, props = local, created = ed.created ?: 0.0, updated = ed.updatedAt ?: 0.0))).first()
     }
-    if (fields.isEmpty()) return
-    Column(
-        Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(8.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        fields.forEach { f ->
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(f.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.widthIn(min = 90.dp, max = 140.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                val link = f.type == "url" && (f.value.startsWith("https://") || f.value.startsWith("http://"))
-                Text(
-                    f.value, style = MaterialTheme.typography.bodyMedium,
-                    color = if (link) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Unspecified,
-                    modifier = Modifier.weight(1f).then(if (link) Modifier.clickable { io.github.yggdrasil_sh.saga.ui.common.openUrl(context, f.value) } else Modifier),
-                )
+    val fmt = rememberDbFormat { id -> all.firstOrNull { it.id == id }?.title }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    val editable = ed.share.role.canEdit && !ed.isDatabase
+    var editing by remember { mutableStateOf<DbProp?>(null) }
+    val q = remember(s) { DbQuery(s) }
+    val shown = s.props.filter { p -> editable && p.editable || !DbQuery.isEmpty(q.value(p, row)) }
+    if (shown.isEmpty()) return
+
+    fun set(p: DbProp, v: JsonElement?) {
+        local = DbValues.apply(row, p.id, v).props                    // sofort sichtbar
+        scope.launch {
+            try {
+                if (repo.dbStore.setProp(ed.id, p.id, v) == io.github.yggdrasil_sh.saga.db.DbStore.Saved.QUEUED) {
+                    repo.notify(UiText.Res(R.string.dbv_saved_offline))
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                repo.notify(UiText.Res(R.string.dbv_not_saved, if (e is io.github.yggdrasil_sh.saga.data.ApiException) e.text else repo.friendly(e)))
+                ed.load()
             }
         }
+    }
+    Column(
+        Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(8.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 4.dp),
+    ) {
+        shown.forEach { p ->
+            val v = q.value(p, row)
+            PropRow(p, v, fmt, editable, onEdit = { editing = p }, onToggle = { set(p, DbValues.checkbox(!DbQuery.truthy(v))) },
+                onLink = { io.github.yggdrasil_sh.saga.ui.common.openUrl(context, it) })
+        }
+    }
+    editing?.let { p ->
+        PropValueEditor(
+            p, row.props[p.id], onSet = { set(p, it) }, onDismiss = { editing = null },
+            onNewOption = { name ->
+                scope.launch {
+                    try {
+                        val (raw, oid) = DbViews.addOption(s.raw, p.id, name)
+                        schema = DbSchema(repo.dbStore.saveSchema(parent, raw))
+                        set(p, if (p.type == "multi_select") DbValues.toggle(row.props[p.id], oid) else JsonPrimitive(oid))
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        repo.notify(UiText.Res(R.string.dbv_not_saved, if (e is io.github.yggdrasil_sh.saga.data.ApiException) e.text else repo.friendly(e)))
+                    }
+                }
+            },
+            relationRows = p.target?.let { t -> { query: String -> repo.dbStore.search(t, query) } },
+        )
     }
 }
 
