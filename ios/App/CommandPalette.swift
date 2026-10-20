@@ -108,23 +108,33 @@ struct TrashSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var items: [[String: Any]] = []
     @State private var confirmEmpty = false
+    @State private var purge: TrashLogic.Item?                       // Rueckfrage vor "Endgueltig loeschen"
+    @State private var busy = Set<Int>()                              // je Eintrag nur eine Aktion gleichzeitig
     var body: some View {
         NavigationStack {
             List {
                 if items.isEmpty { Text("Der Papierkorb ist leer.").foregroundStyle(.secondary) }
                 ForEach(items.indices, id: \.self) { i in
-                    let it = items[i], id = it["id"] as? Int ?? 0
-                    HStack {
-                        PageIcon(icon: it["icon"] as? String, store: store)
-                        VStack(alignment: .leading) {
-                            Text((it["title"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? String(localized: "Unbenannt"))
-                            let sub = it["subpages"] as? Int ?? 0
-                            Text((sub > 0 ? String(localized: "mit \(sub) Unterseiten") + " · " : "") + String(localized: "wird gelöscht am \(day(it["purge_at"]))"))
-                                .font(.caption).foregroundStyle(.secondary)
+                    let it = TrashLogic.item(items[i]) { store.page($0)?.label }
+                    // Zwei Zeilen statt einer gequetschten (Titel/Datum brachen um): oben Text, unten die Knoepfe
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(alignment: .top) {
+                            PageIcon(icon: it.icon, store: store)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(it.title.isEmpty ? String(localized: "Unbenannt") : it.title).lineLimit(2)
+                                if !it.parent.isEmpty { Text("in „\(it.parent)“").font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                                Text((it.subpages > 0 ? String(localized: "mit \(it.subpages) Unterseiten") + " · " : "") + String(localized: "wird gelöscht am \(day(it.purgeAt))"))
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
                         }
-                        Spacer()
-                        Button("Zurückholen") { Task { _ = try? await store.api("api/trash/\(id)/restore", method: "POST", body: [:]); await load(); await store.refresh() } }
-                        Button("Endgültig löschen", role: .destructive) { Task { _ = try? await store.api("api/trash/\(id)", method: "DELETE"); await load() } }
+                        HStack {
+                            Button("Zurückholen") { act(it.id) { _ = try? await store.api("api/trash/\(it.id)/restore", method: "POST", body: [:]); await store.refresh() } }
+                                .buttonStyle(.bordered)
+                            Spacer()
+                            Button("Endgültig löschen", role: .destructive) { purge = it }
+                        }
+                        .controlSize(.small).disabled(busy.contains(it.id))
+                        .rowButtons()                                 // sonst loest ein Tipp beide Knoepfe aus (Datenverlust)
                     }
                 }
             }
@@ -136,15 +146,25 @@ struct TrashSheet: View {
             .confirmationDialog("Alle Seiten im Papierkorb endgültig löschen?", isPresented: $confirmEmpty) {
                 Button("Endgültig löschen", role: .destructive) { Task { _ = try? await store.api("api/trash/empty", method: "POST", body: [:]); await load() } }
             }
+            .confirmationDialog(Text(verbatim: TrashLogic.purgeQuestion(purge)), isPresented: Binding(get: { purge != nil }, set: { if !$0 { purge = nil } }), titleVisibility: .visible, presenting: purge) { it in
+                Button("Endgültig löschen", role: .destructive) { act(it.id) { _ = try? await store.api("api/trash/\(it.id)", method: "DELETE") } }
+                Button("Abbrechen", role: .cancel) {}
+            } message: { _ in Text("Das lässt sich nicht rückgängig machen.") }
         }
         .macFrame(minWidth: 520, minHeight: 420)
         .task { await load() }
     }
+    /// Aktion je Eintrag; waehrend sie laeuft, sind die Knoepfe dieser Zeile gesperrt (kein Doppel-Tipp)
+    private func act(_ id: Int, _ op: @escaping () async -> Void) {
+        guard !busy.contains(id) else { return }
+        busy.insert(id)
+        Task { await op(); await load(); busy.remove(id) }
+    }
     private func load() async {
         items = (try? await store.api("api/trash")).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] } ?? []
     }
-    private func day(_ v: Any?) -> String {
-        guard let t = v as? Double else { return "–" }
+    private func day(_ v: Double?) -> String {
+        guard let t = v else { return "–" }
         return Date(timeIntervalSince1970: t).sagaFormatted(date: .abbreviated, time: .omitted)
     }
 }
@@ -157,6 +177,7 @@ struct ServicesScreen: View {
     @State private var list: [S] = []
     @State private var q = ""
     @State private var err = ""
+    @State private var loaded = false
     var body: some View {
         let shown = list.filter { q.isEmpty || hkNorm($0.name + " " + $0.host + " " + $0.category).contains(hkNorm(q)) }
         let cats = Array(Set(shown.map(\.category))).sorted()
@@ -164,6 +185,9 @@ struct ServicesScreen: View {
             VStack(alignment: .leading, spacing: 18) {
                 TextField("Dienst suchen", text: $q).textFieldStyle(.roundedBorder).frame(maxWidth: 320)
                 if !err.isEmpty { Text(err).foregroundStyle(.red) }
+                if loaded && err.isEmpty && list.isEmpty {
+                    ContentUnavailableView("Keine Dienste", systemImage: "square.grid.3x3", description: Text("Dienste kommen aus der Verwaltung des Servers (FreeIPA)."))
+                } else if !loaded && err.isEmpty { ProgressView().frame(maxWidth: .infinity) }
                 ForEach(cats, id: \.self) { c in
                     Text(c).font(.headline)
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 10)], spacing: 10) {
@@ -183,8 +207,14 @@ struct ServicesScreen: View {
             }.padding(24)
         }
         .navigationTitle("Dienste")
-        .task {
-            do { list = try JSONDecoder().decode([S].self, from: try await store.api("api/services")) } catch { err = error.localizedDescription }
+        .task { await load(retry: true) }
+    }
+    /// Abgebrochen (Ansicht neu aufgebaut) ist kein Fehler: einmal ausserhalb der abgebrochenen Aufgabe neu laden
+    private func load(retry: Bool) async {
+        do { list = try JSONDecoder().decode([S].self, from: try await store.api("api/services")); err = ""; loaded = true }
+        catch {
+            if !ServiceErrors.isCancel(error) { err = error.localizedDescription; loaded = true }
+            else if retry { Task { await load(retry: false) } }
         }
     }
 }

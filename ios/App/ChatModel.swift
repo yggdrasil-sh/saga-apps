@@ -273,7 +273,11 @@ final class ChatModel: ObservableObject {
     @Published var linkError: String?
     /// geoeffneter Chat (fuer Live-Ereignisse)
     weak var open: ConversationModel?
-    private(set) var keys: ChatKeys?
+    private(set) var keys: ChatKeys? {
+        // Chats gerade entsperrt/eingerichtet: Anruf-Faehigkeiten jetzt melden und laden - sonst fehlten die
+        // Gruppenanruf-Knoepfe bis zum naechsten App-Start (F8)
+        didSet { if oldValue == nil, keys != nil, state != .loading { Task { await store?.calls.chatKeysReady() } } }
+    }
     /// Schluessel dieses Geraets fuer FedFlow (einmal je Schluessel berechnet statt je Nachricht)
     private var ownMemo: (keys: ChatKeys, own: FedFlow.Own)?
     var own: FedFlow.Own? {

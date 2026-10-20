@@ -384,6 +384,44 @@ struct CallPresenter: ViewModifier {
     @ObservedObject var calls: CallManager
     #if os(macOS)
     @Environment(\.openWindow) private var openWindow
+    private let separateWindow = true                                       // Mac: eigenes Fenster "Anruf"
+    private func returnToCall() { openWindow(id: "call") }                  // holt das (offene) Fenster nach vorn
+    #else
+    private let separateWindow = false
+    private func returnToCall() { calls.expand() }
+    #endif
+    /// Gruene Leisten (Anruf laeuft / laeuft auf anderem Geraet / Gruppenanruf)
+    private var bars: some View {
+        VStack(spacing: 0) {
+            if CallLogic.showsCallBar(phase: calls.phase.rawValue, minimized: calls.minimized, separateWindow: separateWindow) {
+                CallBar(calls: calls) { returnToCall() }
+            }
+            CallRunBar(calls: calls)                                   // 2.4: Anruf laeuft auf anderem Geraet / Gruppenanruf
+        }
+    }
+    func body(content: Content) -> some View {
+        #if os(iOS)
+        // iPhone/iPad: Leiste UEBER der App statt safeAreaInset - die Navigationsleiste beachtete den Einschub nicht und
+        // lag unter der Leiste (Zurueck, Einstellungen usw. nicht tippbar, F9). Inhalt darunter bekommt keine Statusleiste.
+        VStack(spacing: 0) {
+            bars
+            content
+        }
+        .modifier(rest)
+        #else
+        content
+            .safeAreaInset(edge: .top, spacing: 0) { bars }
+            .modifier(rest)
+        #endif
+    }
+    private var rest: CallPresenterRest { CallPresenterRest(calls: calls) }
+}
+
+/// Restliche Anruf-Modifikatoren (Vollbild/Fenster, Bild-im-Bild, Hinweise)
+private struct CallPresenterRest: ViewModifier {
+    @ObservedObject var calls: CallManager
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
     #else
     @Environment(\.scenePhase) private var scenePhase
     #endif
@@ -395,14 +433,6 @@ struct CallPresenter: ViewModifier {
             .onChange(of: scenePhase, initial: true) { _, p in CallPiP.shared.sceneActive(p == .active) }
             #endif
             // 2.3.1: laufender Anruf verkleinert bzw. Mac-Fenster im Hintergrund -> gruene Leiste oben, Tippen kehrt zurueck
-            .safeAreaInset(edge: .top, spacing: 0) {
-                VStack(spacing: 0) {
-                    if CallLogic.showsCallBar(phase: calls.phase.rawValue, minimized: calls.minimized, separateWindow: separateWindow) {
-                        CallBar(calls: calls) { returnToCall() }
-                    }
-                    CallRunBar(calls: calls)                                   // 2.4: Anruf laeuft auf anderem Geraet / Gruppenanruf
-                }
-            }
             .animation(.snappy(duration: 0.25), value: calls.runBars)
             .animation(.snappy(duration: 0.25), value: calls.minimized)
             #if os(iOS)
@@ -431,13 +461,6 @@ struct CallPresenter: ViewModifier {
                 }
             }
     }
-    #if os(iOS)
-    private let separateWindow = false
-    private func returnToCall() { calls.expand() }
-    #else
-    private let separateWindow = true                                       // Mac: eigenes Fenster "Anruf"
-    private func returnToCall() { openWindow(id: "call") }                  // holt das (offene) Fenster nach vorn
-    #endif
 }
 
 /// Leiste "Anruf laeuft - tippen zum Zurueckkehren" (gruen, mit Dauer) ueber der App
@@ -648,7 +671,8 @@ struct CallRunBar: View {
                     }
                     if !x.joinable { Text(verbatim: blocked(x)).font(.caption) }
                 }
-                .lineLimit(1).minimumScaleFactor(0.75)
+                .lineLimit(2).minimumScaleFactor(0.8)                     // Geraetename nicht nach drei Zeichen abschneiden
+                .layoutPriority(1)
                 Spacer(minLength: 4)
                 if x.joinable {
                     if case .elsewhere = calls.bar(x) {

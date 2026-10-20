@@ -253,7 +253,8 @@ final class CallManager: NSObject, ObservableObject {
         if code == 404 || code == 405 { enabled = false; return false }
         guard code == 200, let j = ShareJSON.obj(d) else { return false }
         cfg = j
-        serverFeatures = (j["features"] as? [Any] ?? []).compactMap { $0 as? String }
+        let f = (j["features"] as? [Any] ?? []).compactMap { $0 as? String }
+        if f != serverFeatures { serverFeatures = f; store.objectWillChange.send() }   // Chat-Ansicht: Gruppenanruf-Knoepfe neu zeigen
         let on = ShareJSON.bool(j["enabled"])
         if on != enabled { enabled = on }
         return on
@@ -845,6 +846,11 @@ final class CallManager: NSObject, ObservableObject {
             }
         default: break
         }
+    }
+    /// Chat-Schluessel eben eingerichtet (Wiederherstellungsschluessel, Kopplung): Faehigkeiten wie beim Start
+    func chatKeysReady() async {
+        guard capsSent.isEmpty else { return }
+        _ = await loadConfig(); await reportCaps()
     }
     /// Nach dem Start bzw. Zurueckkommen: klingelt gerade etwas fuer mich? (verpasste call.ring); 2.4: Faehigkeiten
     /// melden, Leiste "Anruf laeuft" auffrischen

@@ -10,7 +10,7 @@ let hkCodeColor = Color.gray.opacity(0.22)
 func richText(_ stored: String, base: Font) -> AttributedString {
     // Verweis auf eine Seite ohne Zugriff (1.3): auch beim Bearbeiten mit 🔒, gedaempft und nicht als Link;
     // intern hkna://<id>, beim Speichern wieder genau <a href="/notes#id">Text</a> (richToHTML)
-    let html = ShareLogic.markMasked(stored, keepRef: true)
+    let html = ShareLogic.markMasked(PageLinkTitles.apply(stored), keepRef: true)   // Seitenverweise mit aktuellem Titel
     var out = AttributedString()
     var bold = 0, italic = 0, under = 0, strike = 0, mark = 0, code = 0, na = 0
     var links: [URL?] = []

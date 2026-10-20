@@ -27,7 +27,7 @@ let hkTagRegex = try! NSRegularExpression(pattern: "<(/?)([a-zA-Z]+)([^>]*)>")
 /// Wandelt das gespeicherte, bereinigte Inline-HTML (b/i/u/s/mark/code/a/br) in formatierten Text um.
 /// Verweise auf Seiten (/notes#123) werden zu hkpage://123 (oeffnet nativ), http(s) bleibt extern.
 func inlineText(_ raw: String) -> AttributedString {
-    let html = ShareLogic.markMasked(raw)                    // Verweis auf Seite ohne Zugriff: 🔒 ohne Link (1.3)
+    let html = ShareLogic.markMasked(PageLinkTitles.apply(raw))   // Seitenverweis: aktueller Titel; ohne Zugriff: 🔒 ohne Link (1.3)
     var out = AttributedString()
     var bold = 0, italic = 0, under = 0, strike = 0, mark = 0, code = 0, na = 0
     var links: [URL?] = []
@@ -1019,6 +1019,10 @@ struct NativePageScreen: View {
             let toc = doc.loaded && !inPeek && pageW > 1180 ? tocItems(doc.root) : []
             if toc.count >= 3 { PageTOC(items: toc) { bid in withAnimation { proxy.scrollTo(bid, anchor: .top) } }.padding(.top, 70).padding(.trailing, 16) }
         }
+        #else
+        // Schreibzeile ueber die Tastatur holen: das Textfeld scrollt nicht selbst (scrollDisabled in der Seite)
+        .onChange(of: ed.focus) { _, f in revealFocus(proxy, f, delay: 0.35) }
+        .onChange(of: ed.slashDock) { _, d in if d != nil { revealFocus(proxy, ed.focus, delay: 0.05) } }
         #endif
         }
         .scrollDismissesKeyboard(.interactively)
@@ -1031,11 +1035,33 @@ struct NativePageScreen: View {
             withAnimation(.easeInOut(duration: 0.2)) { scrolled = v }
         }
         .toolbarBackground(scrolled ? .visible : .hidden, for: .navigationBar)
+        // "/"-Menue ueber der Tastatur andocken (inline lag es unter der Tastaturleiste); die Seite wird entsprechend kuerzer
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if editorKeyboard, let d = ed.slashDock, ed.focus == d.key {
+                SlashMenu(query: d.query, nextcloud: store.serverVersion.map { !ShareLogic.versionLess($0, "2.3.0") } ?? false, docked: true) { type, level in
+                    ed.slashApply(String(d.key.split(separator: "/").first ?? ""), type: type, level: level)
+                }
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .frame(maxWidth: .infinity)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+        }
         // die schwebende Editor-Leiste ueber der Tastatur zaehlt nicht zur Tastatur: Platz dafuer lassen, sonst liegt die
         // Schreibzeile unten auf der Seite dahinter (BUG-058)
         .safeAreaPadding(.bottom, editorKeyboard ? editorBarHeight : 0)
         #endif
     }
+    #if os(iOS)
+    /// Fokussierten Block sichtbar machen (kleinster Weg), nachdem die Tastatur da ist
+    private func revealFocus(_ proxy: ScrollViewProxy, _ key: String?, delay: Double) {
+        guard let key else { return }
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(delay))
+            guard ed.focus == key else { return }
+            withAnimation(.easeOut(duration: 0.2)) { proxy.scrollTo(key, anchor: nil) }
+        }
+    }
+    #endif
     private var sheetsPart: some View {
         scrollPart
         .photosPicker(isPresented: $ed.pickImage, selection: $ed.picked, maxSelectionCount: 5, matching: .images)
@@ -1243,7 +1269,12 @@ struct BlockView: View {
         case "quote":
             HStack(alignment: .top, spacing: 10) {
                 Rectangle().fill(.secondary).frame(width: 3)
-                EditText(key: id, html: s("text"), placeholder: String(localized: "Zitat"), setHTML: set("text"), onReturn: split("text")).id(id).italic()
+                VStack(alignment: .leading, spacing: 4) {
+                    EditText(key: id, html: s("text"), placeholder: String(localized: "Zitat"), setHTML: set("text"), onReturn: split("text")).id(id).italic()
+                    if !s("caption").isEmpty {                               // Quelle (wie im Web), bleibt beim Bearbeiten erhalten
+                        Text(verbatim: "— " + plain(s("caption"))).font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
             }
         case "code":
             EditText(key: id, html: s("code"), font: .system(.footnote, design: .monospaced), placeholder: String(localized: "Code"), splitOnReturn: false, raw: true, setHTML: set("code")).id(id)
@@ -1251,8 +1282,9 @@ struct BlockView: View {
                 .overlay(alignment: .topTrailing) {                      // Sprache aus dem Web (Bash, YAML ...) - bleibt beim Bearbeiten erhalten
                     if !s("language").isEmpty { Text(s("language")).font(.caption2.monospaced()).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.top, 4) }
                 }
-        case "delimiter":
-            Divider().padding(.vertical, 6)
+        case "delimiter":                                                // waagerechte Linie (Divider stand in der Block-Zeile senkrecht)
+            Rectangle().fill(Color.secondary.opacity(0.45)).frame(height: 1).frame(maxWidth: .infinity)
+                .padding(.vertical, 12).accessibilityLabel(Text("Trenner"))
         case "table":
             EditableTable(data: data, blockID: id).id(id)
         case "image":
@@ -1621,10 +1653,23 @@ struct BlockMenuItems: View {
             editItems
         }
     }
+    /// Umwandeln nur fuer Textbloecke (Bild -> Text loeschte das Bild); verlustbehaftet nur nach Rueckfrage
+    private var convertMode: BlockConvert.Mode {
+        guard let (arr, i) = ed.locate(id), let b = arr[i] as? NSDictionary else { return .no }
+        return BlockConvert.mode(type: b["type"] as? String ?? "", data: b["data"] as? [String: Any] ?? [:])
+    }
     @ViewBuilder private var editItems: some View {
+        let mode = convertMode
+        if mode != .no {
         Menu {
-            ForEach(slashItems.filter { !["image", "immich_image", "page", "db_new", "db_link", "tasks", "calendar", "table", "columns", "buttons", "embed", "file", "nextcloud"].contains($0.1) }, id: \.0) { it in Button { ed.convert(id, to: it.1, level: it.2 == 0 ? 2 : it.2) } label: { Label(it.0, systemImage: it.3) } }
+            ForEach(slashItems.filter { !["image", "immich_image", "page", "db_new", "db_link", "tasks", "calendar", "table", "columns", "buttons", "embed", "file", "nextcloud", "delimiter"].contains($0.1) }, id: \.0) { it in
+                Button {
+                    let level = it.2 == 0 ? 2 : it.2
+                    if mode == .confirm { ed.askConvert = PageEditor.ConvertAsk(id: id, type: it.1, level: level) } else { ed.convert(id, to: it.1, level: level) }
+                } label: { Label(it.0, systemImage: it.3) }
+            }
         } label: { Label("Umwandeln in", systemImage: "arrow.triangle.2.circlepath") }
+        }
         Button { copyText(AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/notes#\(ed.doc.id):\(id)") } label: { Label("Link zum Block kopieren", systemImage: "link") }
         // Spalten wie Notion: hinein, heraus, zusammenfuehren
         if let c = ed.columnOf(id) {

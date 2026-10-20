@@ -76,6 +76,38 @@ extension View {
         #endif
     }
 
+    /// Mehrere Knoepfe in EINER List-/Form-Zeile: iOS loest bei Knoepfen im Standardstil sonst alle Aktionen der Zeile
+    /// gleichzeitig aus (Papierkorb: "Zurueckholen" loeschte zusaetzlich endgueltig). Borderless macht jeden Knopf
+    /// einzeln tippbar; Knoepfe mit eigenem Stil behalten ihn. Am Mac unveraendert (dort tritt der Fehler nicht auf).
+    /// Pruefung im Quelltext: RowButtonLint (Logik-Tests).
+    @ViewBuilder
+    func rowButtons() -> some View {
+        #if os(iOS)
+        buttonStyle(.borderless)
+        #else
+        self
+        #endif
+    }
+
+    /// Einstellungen zu einem Knopf (Formular): am Mac als Popover, auf iPhone/iPad als Blatt mit "Fertig".
+    /// Ein Form im Popover hat auf iOS keine ideale Groesse (war 36 pt breit und leer).
+    func settingsPopover<C: View>(isPresented: Binding<Bool>, title: LocalizedStringKey, @ViewBuilder content: @escaping () -> C) -> some View {
+        #if os(macOS)
+        popover(isPresented: isPresented, arrowEdge: .bottom) { content() }
+        #else
+        sheet(isPresented: isPresented) {
+            NavigationStack {
+                content()
+                    .navigationTitle(title)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { isPresented.wrappedValue = false } } }
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        #endif
+    }
+
     /// Feste Breite nur am Mac (z. B. Befehlspalette); sonst volle Breite
     @ViewBuilder
     func macWidth(_ w: CGFloat) -> some View {

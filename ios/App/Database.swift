@@ -291,6 +291,10 @@ struct TableGrid: View {
     @EnvironmentObject var nav: NavModel
     @State private var avail: CGFloat = 0
     @State private var dragW: [String: CGFloat] = [:]               // Breite waehrend des Ziehens
+    /// Grosse Schrift: Spalten wachsen mit (gespeicherte Breiten gelten fuer Standardschrift). Sonst brach der Name
+    /// silbenweise um und Status/Datum ueberlappten (F10); die Tabelle scrollt dann waagerecht.
+    @ScaledMetric(relativeTo: .body) private var typeScale: CGFloat = 1
+    private var scale: CGFloat { min(3, max(1, typeScale)) }
     private var vid: String? { view?["id"] as? String }
 
     private var cols: [DBProp] {
@@ -300,7 +304,7 @@ struct TableGrid: View {
     }
     private func widths(_ cols: [DBProp]) -> [String: CGFloat] {
         let saved = view?["widths"] as? [String: Any] ?? [:]
-        func w(_ k: String, _ d: CGFloat) -> CGFloat { (saved[k] as? NSNumber).map { CGFloat($0.doubleValue) } ?? d }
+        func w(_ k: String, _ d: CGFloat) -> CGFloat { ((saved[k] as? NSNumber).map { CGFloat($0.doubleValue) } ?? d) * scale }
         var out: [String: CGFloat] = ["title": dragW["title"] ?? w("title", 260)]
         for p in cols { out[p.id] = dragW[p.id] ?? w(p.id, 170) }
         if !dragW.isEmpty { return out }                             // beim Ziehen nicht anpassen (sonst springt es)
@@ -315,7 +319,7 @@ struct TableGrid: View {
         }
         // Datum: Datumswahl + "x" brauchen ~150 (bei 90 ragte das Datum in die naechste Spalte)
         let dateCols = Set(cols.filter { $0.type == "date" }.map(\.id))
-        shrink(cols.map(\.id)) { dateCols.contains($0) ? 150 : 90 }; shrink(["title"]) { _ in 140 }
+        shrink(cols.map(\.id)) { (dateCols.contains($0) ? 150 : 90) * scale }; shrink(["title"]) { _ in 140 * scale }
         if sum < avail { out["title"] = (out["title"] ?? 0) + avail - sum }
         return out
     }
@@ -392,7 +396,7 @@ struct TableGrid: View {
                         dragW[key] = max(60, min(800, start + g.translation.width))
                     }
                     .onEnded { _ in
-                        let nw = Int(dragW[key] ?? cur); dragW = [:]
+                        let nw = Int((dragW[key] ?? cur) / scale); dragW = [:]
                         m.editView(store, vid) { v in var ws = v["widths"] as? [String: Any] ?? [:]; ws[key] = nw; v["widths"] = ws }
                     })
         }
@@ -576,7 +580,7 @@ struct ColumnHead: View {
                 .padding(.horizontal, 8).padding(.vertical, 7).frame(width: width, alignment: .leading).contentShape(Rectangle())
         }
         .buttonStyle(.plain).help(prop.name)
-        .popover(isPresented: $edit, arrowEdge: .bottom) { ColumnEditor(m: m, pid: prop.id).presentationCompactAdaptation(.popover) }   // iPhone: kein Blatt ohne "Fertig"
+        .settingsPopover(isPresented: $edit, title: "Spalte") { ColumnEditor(m: m, pid: prop.id) }   // iPhone/iPad: Blatt mit "Fertig"
     }
 }
 

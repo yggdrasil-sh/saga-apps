@@ -72,8 +72,10 @@ final class BackupModel: ObservableObject {
 
 struct MyBackupSection: View {
     @EnvironmentObject var store: Store
-    @StateObject private var model = BackupModel()
-    @State private var open = false
+    /// Modell und "Verwalten"-Blatt gehoeren den Einstellungen: ein .sheet an einer Form-Zeile (lazy) oeffnete auf dem
+    /// iPhone nicht, sondern schloss die Einstellungen (F7)
+    @ObservedObject var model: BackupModel
+    @Binding var open: Bool
     @State private var msg: String?
     var body: some View {
         if model.supported {
@@ -85,7 +87,6 @@ struct MyBackupSection: View {
             .id("backup")
             .task { model.store = store; await model.load(); openIfPending() }
             .onReceive(NotificationCenter.default.publisher(for: .hkOpenBackup)) { _ in openIfPending() }
-            .sheet(isPresented: $open) { MyBackupView(model: model).environmentObject(store) }
         }
     }
     @ViewBuilder private var content: some View {
@@ -100,6 +101,7 @@ struct MyBackupSection: View {
                     Spacer()
                     Button("Verwalten …") { open = true }
                 }
+                .rowButtons()
                 if let msg { Text(msg).font(.footnote).foregroundStyle(.red) }
             }
         } else if let e = model.loadError {
@@ -180,6 +182,7 @@ struct BackupOverviewPart: View {
                     .disabled(!state.ready || state.running || model.busy)
                 Button("Backups im Ziel anzeigen") { Task { await loadRemote() } }.disabled(state.target == nil)
             }
+            .rowButtons()
             if let msg { Text(msg).font(.footnote).foregroundStyle(.red) }
             ForEach(state.runs.prefix(5)) { r in BackupRunRow(run: r) }
             if let remote {
@@ -248,6 +251,7 @@ struct BackupTargetPart: View {
                     Button("In Nextcloud anmelden ↗") { openURL(l) }.buttonStyle(.borderedProminent)
                     Button("Abbrechen") { Task { msg = await model.run { try await CloudFlow.backupFlowCancel($0) } } }
                 }
+                .rowButtons()
             } else if let t = state.target {
                 connected(t)
             } else {
@@ -272,6 +276,7 @@ struct BackupTargetPart: View {
             Button("Verbindung prüfen") { Task { await test() } }.disabled(model.busy)
             Button("Trennen", role: .destructive) { askOff = true }.disabled(model.busy)
         }
+        .rowButtons()
     }
     @ViewBuilder private var form: some View {
         Text("Nextcloud: nur die Adresse eingeben – die Anmeldung läuft dann in Nextcloud. Anderes WebDAV: Adresse des Ordners plus Benutzer und Passwort.")
@@ -370,6 +375,7 @@ struct BackupKeyPart: View {
             Button("Schlüssel ist sicher abgelegt – eintragen") { Task { await confirm() } }.buttonStyle(.borderedProminent).disabled(last.count < 6)
             Button("Verwerfen") { Task { newKey = nil; last = ""; msg = await model.run { try await CloudFlow.keyDrop($0) } } }
         }
+        .rowButtons()
     }
     private func generate() async {
         guard let store = model.store else { return }
@@ -589,6 +595,7 @@ struct NextcloudSettingsSection: View {
                     Button("In Nextcloud anmelden ↗") { openURL(l) }.buttonStyle(.borderedProminent)
                     Button("Abbrechen") { Task { await run { try await CloudFlow.ncCancel($0) } } }
                 }
+                .rowButtons()
             } else if s.connected {
                 Text(verbatim: String(localized: "✅ Verbunden als \(s.user ?? "")") + (s.host.isEmpty ? "" : " (\(s.host))"))
                 LabeledContent("Verknüpft seit", value: cloudWhen(s.since))
@@ -603,6 +610,8 @@ struct NextcloudSettingsSection: View {
                     #if os(iOS)
                     .keyboardType(.URL).textInputAutocapitalization(.never)
                     #endif
+                    .submitLabel(.go)
+                    .onSubmit { if !busy { Task { await connect() } } }        // "Los" auf der Tastatur: Knopf lag darunter
                 Button(busy ? "Prüfe …" : "Verbinden") { Task { await connect() } }.disabled(busy || url.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         } else {
@@ -623,6 +632,8 @@ struct NextcloudSettingsSection: View {
         await load()
     }
     private func connect() async {
+        // Offensichtlich keine Adresse: gleich sagen statt "Ziel nicht erreichbar." vom Server (F17)
+        guard CloudURLCheck.plausible(url) else { msg = String(localized: "Bitte eine gültige Adresse eingeben, z. B. https://cloud.example.org"); return }
         busy = true; msg = nil
         do { let flow = try await CloudFlow.ncConnect(store.cloudAPI, url: url); openURL(flow) }
         catch { msg = error.localizedDescription }
