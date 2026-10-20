@@ -2,4 +2,6 @@
 <!-- Chat-Anhaenge: nur entschluesselt im Cache, um sie mit einer anderen App zu oeffnen -->
 <paths>
     <cache-path name="chat" path="chat-files/" />
+    <!-- 2.4: Foto fuer einen Bild-Block (Kamera-App schreibt hierher, danach Hochladen) -->
+    <cache-path name="camera" path="camera/" />
 </paths>

@@ -236,6 +236,14 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
         }
     }
     val imageSink: (IncomingImage, JsonPath) -> Unit = remember(ed) { { img, p -> insertImages(listOf(img), p) } }
+    // 2.4: "/"- und "+"-Menue mit allen Blocktypen (Bild, Datei, Tabelle, Spalten, Einbetten, Verweis ...)
+    val inserter = rememberBlockInserter(ed, repo, insertImages, onOpenPage = { pid -> nav.push(Dest.Page(pid)) })
+    val slashNeeds = inserter.needs
+    androidx.compose.runtime.SideEffect {
+        env.slash = inserter::start
+        env.slashNeeds = slashNeeds
+    }
+    var moveOpen by remember { mutableStateOf(false) }
     val uploadingDesc = stringResource(R.string.image_uploading)
     var confirmTrash by remember { mutableStateOf(false) }
     var conflictDialog by remember { mutableStateOf(false) }
@@ -421,6 +429,15 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                         ed.flush()
                         openUrl(context, repo.absoluteUrl("notes") + "#$id")
                     })
+                    // 2.4: Verschieben (eigene Seiten; geteilte nur innerhalb ihres Bereichs mit Rolle Bearbeiten)
+                    val meta = allPages.firstOrNull { it.id == id }
+                    if (ed.fetched && !ed.isRemote && meta != null && io.github.yggdrasil_sh.saga.data.MoveLogic.canMove(meta, allPages)) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.mv_menu)) }, onClick = {
+                            menu = false
+                            ed.flush()
+                            moveOpen = true
+                        })
+                    }
                     if (ed.fetched && caps.canArchive && caps.canTrash && !ed.isRemote) {
                         HorizontalDivider()
                         DropdownMenuItem(text = { Text(stringResource(R.string.page_archive)) }, onClick = {
@@ -531,7 +548,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             }
             }
             if (ed.loading && !ed.fetched) CircularProgressIndicator(Modifier.padding(top = 80.dp))
-            if (uploading > 0) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter).semantics { contentDescription = uploadingDesc })
+            if (uploading > 0 || inserter.busy > 0) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter).semantics { contentDescription = uploadingDesc })
         }
 
         val active = ed.active
@@ -550,12 +567,18 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
         if (active != null && ed.editable) {
             EditorToolbar(
                 ed, active, onLink, onPasteImage = if (clipHasImage && ed.can(io.github.yggdrasil_sh.saga.data.RemoteCaps.UPLOAD)) { { insertImages(clipboardImages(context), active.blockPath()) } } else null,
-                repo = repo, ncInsert = ncConnected && !ed.isRemote,
+                repo = repo, ncInsert = ncConnected && !ed.isRemote, inserter = inserter,
             )
         }
     }
 
     if (showVersions) VersionsDialog(ed, repo) { showVersions = false }
+    BlockInserterDialogs(inserter, ed, repo)
+    if (moveOpen) {
+        allPages.firstOrNull { it.id == id }?.let { meta ->
+            io.github.yggdrasil_sh.saga.ui.pages.MovePageDialog(repo, meta, onDismiss = { moveOpen = false })
+        } ?: run { moveOpen = false }
+    }
 
     assistant?.let { t ->
         io.github.yggdrasil_sh.saga.ui.ai.AssistantSheet(
@@ -711,7 +734,15 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
                 Text(ed.title.ifEmpty { stringResource(R.string.page_untitled) }, style = titleStyle)
             } else {
                 BasicTextField(
-                    value = ed.title, onValueChange = { ed.editTitle(it) }, textStyle = titleStyle, readOnly = ed.pendingDraft != null,
+                    value = ed.title, textStyle = titleStyle, readOnly = ed.pendingDraft != null,
+                    onValueChange = { v ->
+                        // 2.4 (Test P-17): Return im Titel springt in den ersten Block, statt dort weiterzuschreiben
+                        if ('\n' in v) {
+                            ed.editTitle(v.replace("\n", ""))
+                            val first = BlockDoc.blocks(ed.doc).firstOrNull() as? JsonObject
+                            ed.requestFocus(first?.let { ed.fieldKeyFor(it, listOf("blocks", 0)) })
+                        } else ed.editTitle(v)
+                    },
                     cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(onNext = {
@@ -842,6 +873,8 @@ private fun DraftBanner(stamp: Long, onRestore: () -> Unit, onDiscard: () -> Uni
 private fun EditorToolbar(
     ed: PageEditor, active: ActiveField, onLink: (String) -> Unit, onPasteImage: (() -> Unit)? = null,
     repo: io.github.yggdrasil_sh.saga.data.SagaRepository? = null, ncInsert: Boolean = false,
+    /** 2.4: "+" oeffnet die Auswahl aller Blocktypen (mit Suche) */
+    inserter: BlockInserter? = null,
 ) {
     val context = LocalContext.current
     val res = LocalResources.current
@@ -861,7 +894,7 @@ private fun EditorToolbar(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box {
-                    IconButton(onClick = { addMenu = true }) { Icon(Icons.Filled.Add, stringResource(R.string.block_insert)) }
+                    IconButton(onClick = { if (inserter != null) inserter.pickerAfter = blockPath else addMenu = true }) { Icon(Icons.Filled.Add, stringResource(R.string.block_insert)) }
                     DropdownMenu(expanded = addMenu, onDismissRequest = { addMenu = false }) {
                         BLOCK_TYPES.forEach { choice ->
                             val (_, type, level) = choice
@@ -918,7 +951,11 @@ private fun EditorToolbar(
                 IconButton(onClick = { ed.moveBlock(blockPath, 1) }) { Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.block_move_down)) }
                 IconButton(onClick = {
                     val ip = active.itemPath()
-                    if (ip != null) ed.removeItem(blockPath, ip) else ed.deleteBlock(blockPath)
+                    if (ip != null) ed.removeItem(blockPath, ip) else {
+                        // 2.4: Block loeschen mit "Rueckgaengig" (holt ihn unveraendert an dieselbe Stelle zurueck)
+                        val undo = ed.deleteBlockUndoable(blockPath)
+                        if (undo != null) repo?.notify(UiText.Res(R.string.ed24_block_deleted), UiText.Res(R.string.action_undo)) { undo() }
+                    }
                 }) { Icon(Icons.Filled.Delete, stringResource(R.string.action_delete)) }
                 IconButton(onClick = { focus.clearFocus(); ed.active = null }) { Icon(Icons.Filled.Check, stringResource(R.string.action_done)) }
             }

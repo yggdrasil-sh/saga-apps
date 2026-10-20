@@ -331,6 +331,31 @@ Speicher beim Hoch- und Herunterladen. Texte in Deutsch, Englisch, Spanisch, Rus
 - **Kompatibel:** mit 2.1/2.3-Servern und -Geräten bleibt alles 1:1 wie bisher (ohne `multi` keine Raumfunktionen).
 - Tests: Teilnehmerliste/rv, Mesh-Paare, Grenzen, Begleitgerät, Übernahme, Bitrate im Mesh, Sprecher, Leiste.
 
+#### Editor, Seiten und Termine
+**Android:**
+- **„/“-Menü im Editor:** „/“ am Anfang eines Absatzes öffnet das Block-Menü mit Suche (auch Suchwörter auf
+  Deutsch, Englisch, Spanisch, Russisch und Thai), Return nimmt den ersten Treffer. „+“ in der Werkzeugleiste zeigt
+  dieselbe Liste: Text, Überschrift 1–4, Listen, Zitat, Hinweis, Ausklappbar, Code, Trenner, Bild, Bild aus Immich,
+  Tabelle, 2 oder 3 Spalten, Datei, Einbetten (Video/Link), Verweis auf Seite, Unterseite, Datenbank, verknüpfte
+  Datenbank, Aufgaben, Kalender und Nextcloud-Datei – jeweils nur, wo Server, Rolle und Verbindungen es erlauben.
+- **Neue Blöcke:** Bild aus Galerie oder Kamera (hochladen, Bildunterschrift, „Volle Breite“, „Klein mit
+  Hintergrund“, „Rahmen“), **Tabelle** (Zellen bearbeiten, Zeilen/Spalten einfügen und löschen, Kopfzeile),
+  **Spalten** (2/3, „+ Block“ je Spalte; beim Verringern wandern die Blöcke in die letzte Spalte, nichts geht
+  verloren), Datei als Karte, Aufgaben- und Kalender-Block mit Inhalt auf eigenen Seiten.
+- **Block löschen mit „Rückgängig“:** Der Block kommt unverändert an dieselbe Stelle zurück.
+- Fremde und unbekannte Blöcke bleiben weiter unverändert erhalten (Tests: Round-Trip aller Blocktypen, Tabelle,
+  Spalten, „/“ auf großen Seiten). Nach einem Trenner landet der nächste neue Block dahinter (vorher davor).
+- **Seiten verschieben** (Seitenmenü und Langdruck in der Seitenleiste): Ziel im Baum mit Suche, auch auf die oberste
+  Ebene. Geteilte Seiten mit Rolle „Bearbeiten“ lassen sich innerhalb ihres geteilten Bereichs verschieben; vor dem
+  Verschieben in eine geteilte Seite fragt die App nach (Freigaben ändern sich).
+- **Papierkorb** in der Seitenleiste: gelöschte Seiten ansehen (mit Unterseiten und Frist), wiederherstellen,
+  endgültig löschen und leeren – jeweils mit Rückfrage.
+- **Termine anlegen, bearbeiten und löschen** (CalDAV über den Server wie im Web): Titel, ganztägig, Beginn/Ende,
+  Kalender, Ort, Beschreibung. Serientermine und nur lesbare Kalender bleiben nur lesbar.
+- **Eigene Lesezeichen** unter „Dienste“ anlegen, bearbeiten (lange drücken) und löschen.
+- **Leistung:** Seiten mit 500 Blöcken bleiben flüssig – beim Tippen wird nur der geänderte Block neu aufgebaut
+  (unveränderte Blöcke bleiben dieselben Objekte, geprüft im Unit-Test).
+
 ### Behoben – Chats über Servergrenzen
 **Android – eigene Nachricht blieb auf „⏳ wird zugestellt“:** In einem Direkt-Chat, dessen Heim der andere Server ist,
 zeigte die App eine längst zugestellte eigene Nachricht weiter als ausstehend (Server 2.3.0 melden die sofortige

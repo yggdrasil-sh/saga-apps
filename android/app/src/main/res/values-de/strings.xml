@@ -176,7 +176,7 @@
     <string name="block_quote">Zitat</string>
     <string name="block_callout">Hinweis</string>
     <string name="block_code">Code</string>
-    <string name="block_toggle">Toggle</string>
+    <string name="block_toggle">Ausklappbar</string>
     <string name="block_divider">Trenner</string>
     <string name="placeholder_paragraph">Tippe etwas …</string>
     <string name="placeholder_list_item">Listenpunkt</string>
@@ -228,7 +228,7 @@
     <string name="page_archived">Seite archiviert</string>
     <string name="page_trash">In den Papierkorb</string>
     <string name="page_trash_confirm">Seite in den Papierkorb?</string>
-    <string name="page_trash_text">Unterseiten kommen mit. Im Web kannst du sie aus dem Papierkorb wiederherstellen.</string>
+    <string name="page_trash_text">Unterseiten kommen mit. Du kannst sie aus dem Papierkorb (Seitenleiste) wiederherstellen.</string>
     <string name="page_trashed">Seite im Papierkorb</string>
     <string name="format_bold">Fett</string>
     <string name="format_italic">Kursiv</string>

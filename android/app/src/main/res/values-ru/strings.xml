@@ -211,7 +211,7 @@
     <string name="page_archived">Страница перемещена в архив</string>
     <string name="page_trash">В корзину</string>
     <string name="page_trash_confirm">Переместить страницу в корзину?</string>
-    <string name="page_trash_text">Подстраницы тоже будут перемещены. Восстановить их можно из корзины в веб-версии.</string>
+    <string name="page_trash_text">Подстраницы тоже будут перемещены. Восстановить их можно из корзины (боковая панель).</string>
     <string name="page_trashed">Страница перемещена в корзину</string>
     <string name="format_bold">Жирный</string>
     <string name="format_italic">Курсив</string>

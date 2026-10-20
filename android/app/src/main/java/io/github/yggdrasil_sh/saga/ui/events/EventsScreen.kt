@@ -3,6 +3,8 @@ package io.github.yggdrasil_sh.saga.ui.events
 import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.R
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -57,7 +59,7 @@ fun EventRow(e: CalEvent) {
     }
 }
 
-/** Termine der naechsten 31 Tage, nach Tagen gruppiert (Anlegen/Bearbeiten: Etappe 2) */
+/** Termine der naechsten 31 Tage, nach Tagen gruppiert; 2.4: antippen bearbeitet, "Neuer Termin" legt an */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
@@ -73,8 +75,19 @@ fun EventsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         } else failed = true
     }
     LaunchedEffect(Unit) { load(false) }
+    // 2.4: Termine anlegen/bearbeiten/loeschen (CalDAV ueber den Server, wie Web/iOS). edit: null = zu, Pair(null, Tag) = neu
+    var edit by remember { mutableStateOf<Pair<CalEvent?, java.time.LocalDate>?>(null) }
 
-    Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_events), nav, chrome) }) { pad ->
+    Scaffold(
+        topBar = { SagaTopBar(stringResource(R.string.nav_events), nav, chrome) },
+        floatingActionButton = {
+            androidx.compose.material3.ExtendedFloatingActionButton(
+                onClick = { edit = null to java.time.LocalDate.now() },
+                icon = { androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.Filled.Add, null) },
+                text = { Text(stringResource(R.string.ev_add)) },
+            )
+        },
+    ) { pad ->
         PullToRefreshBox(
             isRefreshing = refreshing,
             onRefresh = { scope.launch { refreshing = true; load(true); refreshing = false } },
@@ -86,9 +99,15 @@ fun EventsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 if (events?.isEmpty() == true) item { Text(stringResource(R.string.events_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
                 byDay.forEach { (day, list) ->
                     item(key = "d-$day") { SectionHeader(day?.let { dayHeader(it) } ?: stringResource(R.string.no_date), Modifier.widthIn(max = 760.dp)) }
-                    itemsIndexed(list, key = { i, _ -> "e-$day-$i" }) { _, e -> Box(Modifier.widthIn(max = 760.dp)) { EventRow(e) } }
+                    itemsIndexed(list, key = { i, _ -> "e-$day-$i" }) { _, e ->
+                        Box(Modifier.widthIn(max = 760.dp).clickable { edit = e to (day ?: java.time.LocalDate.now()) }) { EventRow(e) }
+                    }
                 }
+                item(key = "fab-space") { Box(Modifier.height(88.dp)) }
             }
         }
+    }
+    edit?.let { (e, day) ->
+        EventDialog(repo, e, day, onDismiss = { edit = null }, onChanged = { scope.launch { load(true) } })
     }
 }

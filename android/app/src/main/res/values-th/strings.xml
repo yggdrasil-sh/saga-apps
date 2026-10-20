@@ -205,7 +205,7 @@
     <string name="page_archived">เก็บหน้าเข้าคลังแล้ว</string>
     <string name="page_trash">ย้ายไปถังขยะ</string>
     <string name="page_trash_confirm">ย้ายหน้านี้ไปถังขยะหรือไม่</string>
-    <string name="page_trash_text">หน้าย่อยจะถูกย้ายไปด้วย คุณกู้คืนได้จากถังขยะบนเว็บ</string>
+    <string name="page_trash_text">หน้าย่อยจะถูกย้ายไปด้วย คุณกู้คืนได้จากถังขยะ (แถบด้านข้าง)</string>
     <string name="page_trashed">ย้ายหน้าไปถังขยะแล้ว</string>
     <string name="format_bold">ตัวหนา</string>
     <string name="format_italic">ตัวเอียง</string>

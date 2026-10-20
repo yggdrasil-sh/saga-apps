@@ -66,6 +66,9 @@ import kotlinx.serialization.json.JsonPrimitive
 class BlockEnv(val editor: PageEditor, val repo: SagaRepository, val onLink: (String) -> Unit) {
     /** 2.3: Status der Nextcloud-Bloecke dieser Seite (einmal geholt, fuer alle Karten) */
     val nc: NcPageCache by lazy { NcPageCache(editor.id, repo) }
+    /** 2.4: "/"-Menue - Auswahl auf dem Absatz (PageScreen setzt es) und erfuellte Voraussetzungen der Eintraege */
+    var slash: ((JsonPath, io.github.yggdrasil_sh.saga.blocks.SlashLogic.Item) -> Unit)? = null
+    var slashNeeds by mutableStateOf<Set<io.github.yggdrasil_sh.saga.blocks.SlashLogic.Need>>(emptySet())
 }
 
 @Composable
@@ -109,10 +112,28 @@ fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
     val removeIfEmpty: (Boolean) -> Unit = { empty -> if (empty) ed.deleteBlock(path, focusPrevious = true) else ed.mergeWithPrevious(path) }
 
     when (val type = BlockDoc.type(block)) {
-        "paragraph" -> RichField(
-            BlockDoc.str(d, "text"), key, ed, path, body, { ed.setString(path + listOf("data", "text"), it) },
-            placeholder = stringResource(R.string.placeholder_paragraph), onEnter = splitToParagraph, onBackspaceAtStart = removeIfEmpty, onLink = env.onLink,
-        )
+        "paragraph" -> {
+            // 2.4: "/" am Absatzanfang oeffnet das Block-Menue (wie Web/iOS); Return nimmt den ersten Treffer
+            val text = BlockDoc.str(d, "text")
+            val pick = env.slash
+            val slashQ = if (pick != null && ed.editable && text.startsWith("/")) io.github.yggdrasil_sh.saga.blocks.SlashLogic.query(InlineHtml.plain(text)) else null
+            val slashLabels = if (slashQ != null) slashItems(slashQ, env.slashNeeds) else emptyList()
+            Column {
+                RichField(
+                    text, key, ed, path, body, { ed.setString(path + listOf("data", "text"), it) },
+                    placeholder = stringResource(R.string.placeholder_paragraph),
+                    onEnter = { left, right ->
+                        val first = slashLabels.firstOrNull()
+                        if (pick != null && first != null && io.github.yggdrasil_sh.saga.blocks.SlashLogic.query(left.text) != null && right.text.isEmpty()) pick(path, first)
+                        else splitToParagraph(left, right)
+                    },
+                    onBackspaceAtStart = removeIfEmpty, onLink = env.onLink,
+                )
+                if (slashQ != null && pick != null && ed.active?.key == key) {
+                    SlashMenuCard(slashQ, env.slashNeeds) { pick(path, it) }
+                }
+            }
+        }
         "header" -> {
             val lvl = BlockDoc.int(d, "level") ?: 2
             RichField(
@@ -160,9 +181,14 @@ fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
             }
         }
         "delimiter" -> Selectable(key, path, env) { HorizontalDivider(Modifier.padding(vertical = 10.dp)) }
-        "image" -> Selectable(key, path, env) { ImageBlock(d, env) }
+        "image" -> Selectable(key, path, env) { ImageBlockEdit(block, path, key, env) }
         "toggle" -> ToggleBlock(block, path, key, env)
-        "columns" -> ColumnsBlock(d, path, env)
+        "columns" -> ColumnsBlockEdit(block, path, env)
+        // 2.4: Tabelle bearbeitbar, Datei als Karte; Aufgaben/Kalender auf eigenen Seiten mit Inhalt
+        "table" -> Selectable(key, path, env) { TableBlock(block, path, key, env) }
+        "attaches" -> Selectable(key, path, env) { AttachesBlock(d, env) }
+        "tasks" -> Selectable(key, path, env) { if (ed.caps.ownerOnlyBlock(type)) OwnerOnly(type) else TasksBlock(env) }
+        "calendar" -> Selectable(key, path, env) { if (ed.caps.ownerOnlyBlock(type)) OwnerOnly(type) else CalendarBlock(d, env) }
         // Notion-Import: eingebettete Datenbank, Schaltflaechen, Einbettungen - lesbar statt Platzhalter
         "database" -> Selectable(key, path, env) { DatabaseBlock(d, env) }
         "buttons" -> Selectable(key, path, env) { ButtonsBlock(d, env) }
@@ -190,26 +216,6 @@ private fun Selectable(key: String, path: JsonPath, env: BlockEnv, content: @Com
                 ed.active = if (selected) null else ActiveField(key, { path })
             } else Modifier),
     ) { content() }
-}
-
-@Composable
-private fun ImageBlock(d: JsonObject, env: BlockEnv) {
-    val file = d["file"] as? JsonObject
-    val url = BlockDoc.str(file, "url").ifEmpty { BlockDoc.str(d, "url") }
-    Column(Modifier.fillMaxWidth()) {
-        if (url.isNotEmpty()) {
-            val sized = if ((url.startsWith("/files/") || url.startsWith("/api/fed/files/")) && !url.contains("?")) "$url?w=2000" else url
-            AsyncImage(
-                model = env.repo.absoluteUrl(sized), contentDescription = InlineHtml.plain(BlockDoc.str(d, "caption")).ifEmpty { null },
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp, max = 900.dp).clip(RoundedCornerShape(8.dp)),
-            )
-        }
-        val cap = BlockDoc.str(d, "caption")
-        if (cap.isNotEmpty()) {
-            RichTextView(cap, MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant), env.onLink, Modifier.padding(top = 4.dp))
-        }
-    }
 }
 
 /** "✓ Aufgaben · Nur für den Eigentümer sichtbar" (wie im Web) - nie Daten des Eigentuemers */
@@ -362,26 +368,6 @@ private fun ToggleBlock(block: JsonObject, path: JsonPath, key: String, env: Blo
                 } else {
                     BlockColumn(inner, env)
                 }
-            }
-        }
-    }
-}
-
-/** Spalten: nebeneinander, wenn Platz ist, sonst untereinander (wie iOS auf dem iPhone) */
-@Composable
-private fun ColumnsBlock(d: JsonObject, path: JsonPath, env: BlockEnv) {
-    val cols = (d["cols"] as? JsonArray)?.size ?: 0
-    if (cols == 0) return
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        if (maxWidth >= 600.dp) {
-            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                for (ci in 0 until cols) {
-                    Box(Modifier.weight(1f)) { BlockColumn(path + listOf("data", "cols", ci, "blocks"), env) }
-                }
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                for (ci in 0 until cols) BlockColumn(path + listOf("data", "cols", ci, "blocks"), env)
             }
         }
     }

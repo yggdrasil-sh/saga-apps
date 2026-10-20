@@ -231,7 +231,7 @@
     <string name="page_archived">Page archived</string>
     <string name="page_trash">Move to trash</string>
     <string name="page_trash_confirm">Move page to trash?</string>
-    <string name="page_trash_text">Subpages go too. You can restore them from the trash on the web.</string>
+    <string name="page_trash_text">Subpages go too. You can restore them from the trash (sidebar).</string>
     <string name="page_trashed">Page moved to trash</string>
     <string name="format_bold">Bold</string>
     <string name="format_italic">Italic</string>
