@@ -7,6 +7,7 @@ import io.github.yggdrasil_sh.saga.push.StreamAfter
 import io.github.yggdrasil_sh.saga.push.StreamBackoff
 import io.github.yggdrasil_sh.saga.push.StreamClose
 import io.github.yggdrasil_sh.saga.push.StreamCost
+import io.github.yggdrasil_sh.saga.push.StreamDeath
 import io.github.yggdrasil_sh.saga.push.StreamFrames
 import io.github.yggdrasil_sh.saga.push.StreamMode
 import org.junit.Assert.assertArrayEquals
@@ -67,6 +68,17 @@ class PushStreamTest {
         low.onSilentDeath(0)
         assertEquals("unterste Stufe bleibt", 0, low.level)
         assertTrue(low.low)
+    }
+
+    @Test
+    fun idleDeathOnlyAfterSilence() {
+        val i = 540_000L
+        assertTrue(StreamDeath.idleDeath(true, true, true, true, 600_000, 300_000, i))
+        assertFalse("gerade etwas empfangen (z. B. kaputter Rahmen)", StreamDeath.idleDeath(true, true, true, true, 600_000, 1_000, i))
+        assertFalse("Netzwechsel", StreamDeath.idleDeath(true, true, true, false, 600_000, 300_000, i))
+        assertFalse("offline", StreamDeath.idleDeath(true, true, false, true, 600_000, 300_000, i))
+        assertFalse("sauber geschlossen", StreamDeath.idleDeath(false, true, true, true, 600_000, 300_000, i))
+        assertFalse("kurz nach dem Aufbau", StreamDeath.idleDeath(true, true, true, true, 10_000, 300_000, i))
     }
 
     @Test

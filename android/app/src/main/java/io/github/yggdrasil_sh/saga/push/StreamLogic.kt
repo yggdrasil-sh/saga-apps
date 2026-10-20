@@ -108,6 +108,14 @@ class KeepAlive(var level: Int = START, var ok: Int = 0, var ceil: Int = LEVELS_
     val low: Boolean get() = level < LOW
 }
 
+/** Wann zaehlt ein Abbruch als "ruhende Verbindung von NAT/Proxy gekappt"? (rein, getestet) */
+object StreamDeath {
+    const val MIN_LIVED_MS = 40_000L
+
+    fun idleDeath(failure: Boolean, wasOpen: Boolean, online: Boolean, netCalm: Boolean, livedMs: Long, silentMs: Long, intervalMs: Long): Boolean =
+        failure && wasOpen && online && netCalm && livedMs >= MIN_LIVED_MS && silentMs >= intervalMs / 2
+}
+
 /** Wartezeit vor dem naechsten Aufbau nach Fehlschlaegen (mit Zufall, damit nach einem Neustart nicht alle zugleich) */
 object StreamBackoff {
     const val MAX_MS = 30 * 60_000L

@@ -112,6 +112,7 @@ class PushStreamService : Service() {
     private var connected = false
     private var connecting = false
     private var openedAt = 0L
+    private var lastRx = 0L                    // zuletzt etwas vom Server bekommen (elapsedRealtime)
     private var fails = 0
     private var stopped = false
     private var online = false
@@ -124,6 +125,11 @@ class PushStreamService : Service() {
     private var netCb: ConnectivityManager.NetworkCallback? = null
     private var pkgRx: BroadcastReceiver? = null
     private val pongTimeout = Runnable { onPongTimeout() }
+
+    /** nur Debug-Build: Ablauf ins Log (Messung im Emulator) - nie Inhalte */
+    private fun dbg(s: String) {
+        if (io.github.yggdrasil_sh.saga.BuildConfig.DEBUG) android.util.Log.d("SagaPushStream", s)
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -299,14 +305,17 @@ class PushStreamService : Service() {
                 connected = true
                 connecting = false
                 openedAt = SystemClock.elapsedRealtime()
+                lastRx = openedAt
                 fails = 0
                 scheduleAlarm(keep.alarmDelay)
+                dbg("open, Abstand ${keep.intervalMs / 1000} s")
                 publish()
             }
         }
 
         override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
             if (g != gen) return
+            lastRx = SystemClock.elapsedRealtime()
             when (val f = StreamFrames.parse(bytes.toByteArray())) {
                 is StreamFrames.In.Pong -> main.post { if (g == gen) onPong() }
                 is StreamFrames.In.Message -> onPush(webSocket, f)
@@ -315,17 +324,22 @@ class PushStreamService : Service() {
         }
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+            dbg("closing $code")
             webSocket.close(1000, null)
             main.post { if (g == gen) onEnded(code, false) }
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-            main.post { if (g == gen) onEnded(response?.code?.let { if (it == 401 || it == 403) 4401 else -it } ?: -1, true) }
+            dbg("failure ${t.javaClass.simpleName}: ${t.message} (${response?.code})")
+            // Protokollfehler (Server/Proxy liefert Unsinn) ist kein Tod der ruhenden Verbindung
+            val idle = t !is java.net.ProtocolException
+            main.post { if (g == gen) onEnded(response?.code?.let { if (it == 401 || it == 403) 4401 else -it } ?: -1, true, idle) }
         }
     }
 
     /** Mitteilung (OkHttp-Lesefaden): bestaetigen, kurz wach bleiben, wie UnifiedPush verarbeiten */
     private fun onPush(webSocket: WebSocket, f: StreamFrames.In.Message) {
+        dbg("message ${f.id} (${f.body.size} B)")
         acquireWake()
         webSocket.send(StreamFrames.ack(listOf(f.id)).toByteString())
         val dup = synchronized(seen) {
@@ -353,7 +367,7 @@ class PushStreamService : Service() {
         }
     }
 
-    private fun onEnded(code: Int, failure: Boolean) {
+    private fun onEnded(code: Int, failure: Boolean, idleKind: Boolean = true) {
         if (stopped) return
         val wasOpen = connected
         val lived = if (wasOpen) SystemClock.elapsedRealtime() - openedAt else 0
@@ -361,8 +375,10 @@ class PushStreamService : Service() {
         connected = false
         connecting = false
         main.removeCallbacks(pongTimeout)
-        val netCalm = SystemClock.elapsedRealtime() - netChangedAt > NET_GRACE_MS
-        if (failure && wasOpen && online && netCalm && lived >= MIN_IDLE_DEATH_MS) {
+        val now = SystemClock.elapsedRealtime()
+        val netCalm = now - netChangedAt > NET_GRACE_MS
+        // als "ruhend gestorben" zaehlt nur ein Abbruch nach laengerer Stille (mind. halber Abstand), ohne Netzwechsel
+        if (StreamDeath.idleDeath(failure && idleKind, wasOpen, online, netCalm, lived, now - lastRx, keep.intervalMs)) {
             keep.onSilentDeath(System.currentTimeMillis())       // NAT/Proxy hat die ruhende Verbindung gekappt
             saveKeep()
         }
@@ -417,10 +433,12 @@ class PushStreamService : Service() {
             return
         }
         status.value = status.value.copy(pings = status.value.pings + 1)
+        dbg("ping")
         main.postDelayed(pongTimeout, PONG_TIMEOUT_MS)
     }
 
     private fun onPong() {
+        dbg("pong")
         main.removeCallbacks(pongTimeout)
         if (pingOut) {
             pingOut = false
