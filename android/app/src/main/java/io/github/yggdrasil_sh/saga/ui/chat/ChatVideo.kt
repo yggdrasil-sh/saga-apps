@@ -9,6 +9,7 @@ import androidx.annotation.OptIn
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -214,6 +215,31 @@ class VideoPlayerHost(private val context: Context, private val repo: SagaReposi
     }
 }
 
+/** Video speichern: Android 10+ in die Galerie (Filme/Saga), sonst "Speichern unter" - Vollbild und Langdruck-Menue (P-22) */
+@Composable
+fun rememberVideoSaver(host: VideoPlayerHost, s: ChatSession): (ChatFile) -> Unit {
+    val scope = rememberCoroutineScope()
+    var pending by remember { mutableStateOf<ChatFile?>(null) }
+    val saveAs = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("video/mp4")) { uri ->
+        val f = pending
+        pending = null
+        if (uri != null && f != null) scope.launch { host.save(s, f, uri) }
+    }
+    return { f ->
+        if (Build.VERSION.SDK_INT >= 29) scope.launch { host.save(s, f, null) } else {
+            pending = f
+            saveAs.launch(f.n)
+        }
+    }
+}
+
+/** Einzelnes Video: keine "Zurueck/Weiter"-Knoepfe (es gibt keine Playlist, TT 2.4 N-13) */
+@OptIn(UnstableApi::class)
+private fun singleVideoControls(v: PlayerView) {
+    v.setShowPreviousButton(false)
+    v.setShowNextButton(false)
+}
+
 /** Anzeigegroesse (dp) aus w/h/Drehung bzw. Poster */
 private fun videoBox(f: ChatFile): Pair<Int, Int> {
     val w = f.w
@@ -226,6 +252,7 @@ private fun videoBox(f: ChatFile): Pair<Int, Int> {
  * Video im Verlauf: nur das Poster (lazy, wie Vorschaubilder) mit Dauer und Abspiel-Symbol. Antippen spielt im
  * gemeinsamen Player an Ort und Stelle; Vollbild ueber den Knopf. Wegscrollen gibt den Player frei.
  */
+@kotlin.OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun VideoAttachment(f: ChatFile, s: ChatSession) {
     val host = LocalVideoHost.current ?: return
@@ -245,17 +272,24 @@ fun VideoAttachment(f: ChatFile, s: ChatSession) {
     val playing = host.active?.id == f.id && !host.fullscreen
     DisposableEffect(f.id) { onDispose { host.releaseIf(f.id) } }
     val desc = stringResource(R.string.video_play, f.n)
+    // P-22: Langdruck auf das Video -> Speichern / Vollbild (vorher kam nur der Player bzw. "Antworten")
+    var menu by remember { mutableStateOf(false) }
+    val saver = rememberVideoSaver(host, s)
+    Box {
     Box(
         Modifier.padding(vertical = 4.dp).size(dims.first.dp, dims.second.dp).clip(RoundedCornerShape(10.dp))
             .background(Color.Black)
-            .clickable(enabled = !playing) { host.play(s, f) }
+            .combinedClickable(
+                enabled = !playing, onClick = { host.play(s, f) },
+                onLongClick = { menu = true }, onLongClickLabel = stringResource(R.string.chat_message_actions),
+            )
             .semantics { contentDescription = desc },
         contentAlignment = Alignment.Center,
     ) {
         val p = host.player
         if (playing && p != null && !host.failed) {
             AndroidView(
-                factory = { ctx -> PlayerView(ctx).apply { useController = true } },
+                factory = { ctx -> PlayerView(ctx).apply { useController = true; singleVideoControls(this) } },
                 update = { it.player = p },
                 onRelease = { it.player = null },
                 modifier = Modifier.fillMaxSize(),
@@ -282,6 +316,21 @@ fun VideoAttachment(f: ChatFile, s: ChatSession) {
             }
         }
     }
+    androidx.compose.material3.DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+        androidx.compose.material3.DropdownMenuItem(
+            text = { Text(stringResource(R.string.video_save)) }, enabled = host.saving == null,
+            onClick = { menu = false; saver(f) },
+        )
+        androidx.compose.material3.DropdownMenuItem(
+            text = { Text(stringResource(R.string.video_fullscreen)) },
+            onClick = {
+                menu = false
+                host.play(s, f)
+                host.fullscreen = true
+            },
+        )
+    }
+    }
 }
 
 /** Vollbild mit Speichern (Galerie bzw. Android 8/9 "Speichern unter") */
@@ -299,7 +348,7 @@ fun VideoFullscreen(host: VideoPlayerHost, s: ChatSession) {
         // Kopfzeile und Bedienelemente mit safeDrawing einruecken, sonst sind X/Speichern nicht antippbar (TT 2.4 P-01)
         Box(Modifier.fillMaxSize().background(Color.Black).windowInsetsPadding(WindowInsets.safeDrawing)) {
             AndroidView(
-                factory = { ctx -> PlayerView(ctx).apply { useController = true } },
+                factory = { ctx -> PlayerView(ctx).apply { useController = true; singleVideoControls(this) } },
                 update = { it.player = p },
                 onRelease = { it.player = null },
                 modifier = Modifier.fillMaxSize(),

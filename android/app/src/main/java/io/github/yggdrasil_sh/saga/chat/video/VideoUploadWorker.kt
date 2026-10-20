@@ -170,8 +170,12 @@ class VideoUploadWorker(context: Context, params: WorkerParameters) : CoroutineW
                     val out = File(File(ctx.noBackupFilesDir, OUT_DIR), job.id + ".mp4")
                     try {
                         VideoMedia.optimize(ctx, src, target, out) { p -> progress(p * 0.95f, job.name) }
-                        file = out
-                        info = withContext(Dispatchers.IO) { VideoMedia.probe(ctx, Uri.fromFile(out), withPoster = false) }?.first ?: info
+                        // N-13: "optimiert" darf nie groesser sein als das Original - sonst das Original senden
+                        val orig = withContext(Dispatchers.IO) { ctx.contentResolver.openFileDescriptor(src, "r")?.use { it.statSize }?.takeIf { it >= 0 } }
+                        if (VideoLogic.keepOptimized(out.length(), orig)) {
+                            file = out
+                            info = withContext(Dispatchers.IO) { VideoMedia.probe(ctx, Uri.fromFile(out), withPoster = false) }?.first ?: info
+                        } else out.delete()
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: Exception) {

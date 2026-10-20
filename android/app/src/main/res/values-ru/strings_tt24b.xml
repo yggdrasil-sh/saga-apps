@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Testrunde 2.4, Android Runde 2 -->
+<resources>
+    <string name="call_gone_after_permission">Звонок завершился во время запроса разрешения.</string>
+    <string name="call_cam_none">На этом устройстве нет камеры.</string>
+    <string name="task_complete_action">Выполнить</string>
+    <string name="task_reopen_action">Открыть снова</string>
+    <string name="ed24_table_more">Другие действия с таблицей</string>
+</resources>

@@ -79,7 +79,10 @@ class MainActivity : ComponentActivity() {
         val repo = app.repo
         when (data.host) {
             // Code -> anmelden; error=cancelled bzw. ohne Code -> Hinweis auf dem Startbildschirm (Nachtest P7)
-            "auth" -> repo.onBrowserReturn(BrowserReturn.of(data.getQueryParameter("code"), data.getQueryParameter("error")))
+            "auth" -> {
+                repo.onBrowserReturn(BrowserReturn.of(data.getQueryParameter("code"), data.getQueryParameter("error")))
+                closeBrowserTab()
+            }
             "pair" -> {
                 val t = PairLink.parse(data.toString())
                 // nie still koppeln: erst Ziel-Host zeigen und bestaetigen lassen (PairConfirmDialog)
@@ -90,6 +93,18 @@ class MainActivity : ComponentActivity() {
             }
         }
         intent.data = null                                  // nicht ein zweites Mal verarbeiten
+    }
+
+    /**
+     * N-04: Der Anmelde-Tab (Custom Tab) blieb nach saga://auth ueber bzw. hinter der App liegen; "Zurueck" auf
+     * "Heute" oeffnete wieder die alte Anmeldeseite ("Die Seite war zu lange offen"). Sich selbst mit CLEAR_TOP
+     * nach vorn holen: alles ueber MainActivity in dieser Aufgabe - der Tab - wird geschlossen.
+     */
+    private fun closeBrowserTab() {
+        try {
+            startActivity(Intent(this, MainActivity::class.java).addFlags(BrowserTabFlags.CLOSE_TAB))
+        } catch (_: Exception) {
+        }
     }
 
     /**
@@ -104,4 +119,9 @@ class MainActivity : ComponentActivity() {
         prefs.edit { putString(LinkGate.KEY, h) }
         return false
     }
+}
+
+/** N-04: Flags, mit denen sich MainActivity nach der Browser-Anmeldung nach vorn holt (Tab darueber wird geschlossen) */
+object BrowserTabFlags {
+    const val CLOSE_TAB = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
 }

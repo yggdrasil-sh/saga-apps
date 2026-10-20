@@ -368,6 +368,9 @@ class SagaRepository(
             else -> e.message?.takeIf { it.isNotBlank() }?.let { UiText.Raw(it) } ?: UiText.Res(R.string.error_generic)
         }
 
+        /** Fehler beim Pruefen der Server-Adresse, dessen Text schon "Server nicht erreichbar" ist (ohne Vorsatz zeigen) */
+        fun probeSelfExplaining(e: Throwable): Boolean = e is UnknownHostException || e is ConnectException || e is ServerUnreachableException
+
         private fun isCertificateProblem(e: Throwable): Boolean {
         var c: Throwable? = e
         var n = 0
@@ -1341,7 +1344,9 @@ class SagaRepository(
         } catch (e: ApiException) {
             throw UiTextException(UiText.Res(R.string.login_not_saga))
         } catch (e: Exception) {
-            throw UiTextException(UiText.Res(R.string.login_probe_failed, friendly(e)))
+            // N-09: "Server nicht erreichbar: Server nicht erreichbar" - der Grund sagt es dann schon allein
+            val f = friendly(e)
+            throw UiTextException(if (probeSelfExplaining(e)) f else UiText.Res(R.string.login_probe_failed, f))
         }
         val v = try {
             decode<VersionInfo>(text)

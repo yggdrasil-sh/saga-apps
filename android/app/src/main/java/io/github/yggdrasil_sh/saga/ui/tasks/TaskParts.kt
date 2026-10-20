@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextDecoration
@@ -53,6 +54,16 @@ import io.github.yggdrasil_sh.saga.ui.common.todayIso
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+
+/** Haken einer Aufgabe fuer Bedienungshilfen: Aufgabentext und die Aktion "Erledigen" bzw. "Wieder oeffnen" (N-07) */
+@Composable
+fun Modifier.taskCheckSemantics(text: String, done: Boolean, toggle: () -> Unit): Modifier {
+    val action = stringResource(if (done) R.string.task_reopen_action else R.string.task_complete_action)
+    return this.semantics {
+        contentDescription = text
+        onClick(label = action) { toggle(); true }
+    }
+}
 
 /** Eine Aufgabe: Haken (erledigt/wieder offen), Text, Faelligkeit; antippen = bearbeiten */
 @Composable
@@ -69,7 +80,8 @@ fun TaskRow(t: TaskItem, repo: SagaRepository, onEdit: (TaskItem) -> Unit) {
             // im App-Scope: die Zeile verschwindet sofort aus "Heute" - ihr eigener Scope wuerde das Speichern abbrechen
             onCheckedChange = { v -> repo.toggleTask(t, v) },
             colors = if (t.prio == 1 && !t.done) CheckboxDefaults.colors(uncheckedColor = MaterialTheme.colorScheme.error) else CheckboxDefaults.colors(),
-            modifier = Modifier.semantics { contentDescription = t.text },     // TalkBack: Aufgabentext + Zustand
+            // TalkBack: Aufgabentext + Zustand + Aktion "Erledigen"/"Wieder oeffnen" (N-07)
+            modifier = Modifier.taskCheckSemantics(t.text, t.done) { repo.toggleTask(t, !t.done) },
         )
         Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
             Text(

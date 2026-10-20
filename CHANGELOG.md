@@ -479,6 +479,40 @@ Speicher beim Hoch- und Herunterladen. Texte in Deutsch, Englisch, Spanisch, Rus
 - Tests: Lesezeit-Historie, Position aus der Reihenfolge, private Netze, Sprache im Anmeldelink, Adressbuch-Ausweichsuche,
   Mitteilungs-Abfrage, Kamera-Meldung.
 
+#### Android – zweite Testrunde
+- **Tabelle nach „+ Spalte“ (Datenverlust-Gefahr):** Die Zellfelder waren nur nach ihrer Position gemerkt. Nach dem
+  Einfügen einer Spalte (oder Zeile) behielt das Feld an der alten Position seinen eigenen getippten Text und zeigte ihn
+  weiter an – wer dort weiterschrieb, änderte eine andere Zelle als die angezeigte. Die Felder setzen jetzt neu auf,
+  sobald sich der Aufbau der Tabelle ändert; die Anzeige entspricht immer dem Gespeicherten, die Schreibmarke bleibt in
+  ihrer Zelle.
+- **Erster Anruf auf einem frischen Gerät ging verloren:** Beim Annehmen kamen nacheinander die Abfragen für Mikrofon
+  und Mitteilungen. Während eines Anrufs fragt Saga jetzt nie nach Mitteilungen (auch der Erklär-Dialog wartet bis nach
+  dem Anruf); beim Annehmen nur nach dem Mikrofon (bei Video auch Kamera). Während der Abfrage klingelt es weiter, das
+  Zeitlimit wartet (höchstens 60 s), angenommen wird erst nach der Antwort; war der Anruf inzwischen beendet, sagt die
+  App das.
+- **Zurück nach der Anmeldung** öffnete die alte Anmeldeseite im Browser-Tab („Die Seite war zu lange offen“). Nach der
+  Rückkehr holt sich die App mit CLEAR_TOP nach vorn und schließt so den Anmelde-Tab.
+- **Geteilte Seite beim Leser:** Tabellen mit leeren Zellen waren verschoben (leere Zellen flacher, Linien mitten durch
+  Zellen); alle Zellen einer Zeile sind jetzt gleich hoch.
+- **Videos:** Anhänge ohne echten Namen („1000000020.mp4“ aus der Foto-Auswahl) heißen jetzt nach Art, Datum und Chat,
+  z. B. „VID_20261020_1130_Nora-Vogel.mp4“; echte Dateinamen bleiben. Langdruck auf ein Video bietet „Speichern“ und
+  „Vollbild“, das Nachrichten-Menü „Video speichern“. Der Player zeigt keine „Zurück/Weiter“-Knöpfe mehr; ist die
+  Fassung „optimiert 720p“ größer als das Original, wird das Original gesendet.
+- **Anruf: „Kamera an“ ohne Kamera** meldet „Dieses Gerät hat keine Kamera.“; im Editor wird „Foto aufnehmen“ auf
+  Geräten ohne Kamera nicht angeboten.
+- **Bedienungshilfen:** Alle schwebenden Knöpfe („Neuer Termin“, „Lesezeichen hinzufügen“, „Neuer Chat“) tragen ihren
+  Namen; Bilder im Editor ohne Unterschrift heißen „Bild“; Aufgaben-Haken nennen Text und Aktion („Erledigen“/„Wieder
+  öffnen“); „⋯“ unter Tabellen heißt „Weitere Tabellen-Aktionen“.
+- **Kleineres:** „Block gelöscht · Rückgängig“ wird nicht mehr nach ~3 s von der nächsten Meldung verdrängt (Meldungen
+  ohne Aktion kommen danach); Fehlermeldung beim Prüfen der Server-Adresse nicht mehr doppelt („Server nicht
+  erreichbar: Server nicht erreichbar“); Sortieren-Dialog zeigt Eigenschaft und Richtung untereinander in voller Breite.
+- **Geprüft, ohne Änderung:** Die gespeicherte Ansicht „Offen“ zeigte alle Einträge, weil sie auf dem Teststand ohne
+  Filter gespeichert ist (Demo-Daten; Filter- und Sortierdialog leer). Die App liest Filter und Sortierung gespeicherter
+  Ansichten und schickt sie mit (`view`, `filters`, `sorts` an `/rows`). „Dienste“ sind Einstellungen des Servers;
+  eigene Lesezeichen legt die App wie das Web an.
+- Tests: `android/…/Tt24AndroidR2Test.kt` (Ursache und Behebung des Tabellenfehlers, Berechtigungen beim Annehmen,
+  gespeicherte Filter, Dateinamen, Meldungen).
+
 #### Linux
 - **Fokus nach Tabelle bzw. Datenbank (Datenverlust):** Nach dem Einfügen sprang die Schreibmarke an den Seitenanfang,
   Getipptes landete in der ersten Überschrift. Jetzt steht sie in der ersten Zelle der Tabelle bzw. in einem (leeren)

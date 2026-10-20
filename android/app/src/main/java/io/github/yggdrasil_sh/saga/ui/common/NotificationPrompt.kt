@@ -13,6 +13,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +36,9 @@ object NotifPrompt {
     /** Erklaerung zeigen? Nur ab Android 13, ohne Berechtigung und nur einmal (spaeter: Einstellungen > Mitteilungen) */
     fun shouldAsk(sdk: Int, granted: Boolean, askedBefore: Boolean): Boolean = sdk >= 33 && !granted && !askedBefore
 
+    /** N-02: nie waehrend eines Anrufs (Klingeln, Verbinden, laufend) - die Abfrage verdeckt sonst den Anruf */
+    fun showNow(wanted: Boolean, inCall: Boolean): Boolean = wanted && !inCall
+
     fun granted(context: Context): Boolean = Build.VERSION.SDK_INT < 33 ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
@@ -53,7 +57,8 @@ fun NotificationPermissionPrompt() {
         mutableStateOf(NotifPrompt.shouldAsk(Build.VERSION.SDK_INT, NotifPrompt.granted(context), NotifPrompt.askedBefore(context)))
     }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    if (!show) return
+    val call by (context.applicationContext as io.github.yggdrasil_sh.saga.SagaApplication).repo.calls.ui.collectAsState()
+    if (!NotifPrompt.showNow(show, inCall = call != null)) return
     val close = { later: Boolean ->
         show = false
         NotifPrompt.markAsked(context)

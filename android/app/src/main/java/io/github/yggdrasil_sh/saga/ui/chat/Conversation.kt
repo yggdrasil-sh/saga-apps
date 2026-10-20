@@ -313,7 +313,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     val pick = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         scope.launch {
             val max = svc.me.value?.limits?.fileMax ?: ChatLimits().fileMax
-            for (u in uris) when (val r = readFile(context, u, max)) {
+            for (u in uris) when (val r = readFile(context, u, max, s.name)) {
                 is ChatAttach.Read.Ok -> files.add(r.file)
                 is ChatAttach.Read.Video -> videos.add(PendingVideo(r.uri, r.name, r.mime, r.size))
                 ChatAttach.Read.TooBig -> repo.notify(UiText.Res(R.string.chat_file_too_big, (max / 1048576).toInt()))
@@ -326,7 +326,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     val pickVideo = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         scope.launch {
             val max = svc.me.value?.limits?.fileMax ?: ChatLimits().fileMax
-            for (u in uris) when (val r = readFile(context, u, max)) {
+            for (u in uris) when (val r = readFile(context, u, max, s.name)) {
                 is ChatAttach.Read.Video -> videos.add(PendingVideo(r.uri, r.name, r.mime, r.size))
                 is ChatAttach.Read.Ok -> files.add(r.file)
                 ChatAttach.Read.TooBig -> repo.notify(UiText.Res(R.string.chat_file_too_big, (max / 1048576).toInt()))
@@ -857,7 +857,7 @@ private suspend fun incomingImage(context: Context, img: IncomingImage, max: Lon
 }
 
 /** Datei aus dem Auswahldialog lesen (Name, Typ, Inhalt) */
-private suspend fun readFile(context: Context, u: Uri, max: Long): ChatAttach.Read = withContext(Dispatchers.IO) {
+private suspend fun readFile(context: Context, u: Uri, max: Long, chat: String): ChatAttach.Read = withContext(Dispatchers.IO) {
     try {
         val cr = context.contentResolver
         var name = "datei"
@@ -869,6 +869,8 @@ private suspend fun readFile(context: Context, u: Uri, max: Long): ChatAttach.Re
             }
         }
         val mime = cr.getType(u) ?: "application/octet-stream"
+        // Foto-Auswahl liefert oft nur die Medien-ID ("1000000020.mp4"): Name aus Art, Datum und Chat (P-22)
+        name = ChatAttach.niceName(name, mime, chat, java.time.LocalDateTime.now())
         // 2.4: Videos nicht einlesen - Poster, "optimiert 720p" und Upload laufen im Hintergrund (VideoUploadWorker)
         if (mime.startsWith("video/")) return@withContext ChatAttach.Read.Video(u.toString(), name.take(200), mime, size)
         // Zu grosses Bild: wie beim Einfuegen verkleinern statt ablehnen (bis zum Vierfachen der Grenze einlesen)
@@ -1115,8 +1117,18 @@ private fun Bubble(
                     }
                 }
             }
+            val videoHost = LocalVideoHost.current
+            val videoFiles = m.content?.files.orEmpty().filter { it.isVideo && !it.unsupported }
+            val saveVideo = if (videoHost != null && videoFiles.isNotEmpty()) rememberVideoSaver(videoHost, s) else null
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(text = { Text(stringResource(R.string.chat_reply)) }, onClick = { menu = false; onReply() })
+                // P-22: Videos auch aus dem Nachrichten-Menue speichern
+                if (saveVideo != null) videoFiles.forEach { f ->
+                    DropdownMenuItem(
+                        text = { Text(if (videoFiles.size > 1) stringResource(R.string.video_save) + " · " + f.n else stringResource(R.string.video_save)) },
+                        onClick = { menu = false; saveVideo(f) },
+                    )
+                }
                 if (!m.content?.text.isNullOrEmpty()) DropdownMenuItem(text = { Text(stringResource(R.string.text_copy)) }, onClick = { menu = false; onCopy() })
                 if (m.mine && m.fstate == "failed" && m.content != null) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.fed_resend)) }, onClick = { menu = false; onResend() })

@@ -42,6 +42,9 @@ object VideoLogic {
     fun maxSize(l: ChatLimits, bigFiles: Boolean?): Long =
         if (!l.file2 || bigFiles == false) l.fileMax else maxOf(l.fileMax, l.videoMax.takeIf { it > 0 } ?: l.fileMax)
 
+    /** N-13: verkleinerte Fassung nur nehmen, wenn sie wirklich kleiner ist (Groesse des Originals unbekannt: nehmen) */
+    fun keepOptimized(optimized: Long, original: Long?): Boolean = optimized > 0 && (original == null || optimized < original)
+
     /** Anzeigemasse (nach Drehung) */
     fun shown(w: Int, h: Int, rot: Int): Pair<Int, Int> = if (rot == 90 || rot == 270) h to w else w to h
 

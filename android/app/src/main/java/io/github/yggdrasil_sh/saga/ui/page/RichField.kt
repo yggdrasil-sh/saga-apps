@@ -121,7 +121,7 @@ private const val START = "\n"
  * Zustand eines Feldes: formatierter Text, Eingabewert (mit START) und - ohne State, nur zum Vergleich beim
  * Komponieren - das zuletzt von aussen uebernommene HTML sowie alles, was dieses Feld seitdem selbst gesendet hat.
  */
-private class FieldState(html: String, val raw: Boolean, val pre: String) {
+internal class FieldState(html: String, val raw: Boolean, val pre: String) {
     var rich by mutableStateOf(parseHtml(html, raw))
     var value by mutableStateOf(TextFieldValue(pre + rich.text, TextRange(pre.length)))
     /** zuletzt von aussen uebernommen */
@@ -227,6 +227,12 @@ fun RichField(
     onEnter: ((RichText, RichText) -> Unit)? = null,
     onBackspaceAtStart: ((isEmpty: Boolean) -> Unit)? = null,
     onLink: (String) -> Unit = {},
+    /**
+     * Aendert sich der Aufbau um das Feld (Tabelle: Zeile/Spalte eingefuegt oder entfernt), gehoert derselbe
+     * fieldKey zu einer ANDEREN Zelle. Dann den Feldzustand neu aufsetzen - sonst haelt die Zelle ihr eigenes Echo
+     * ("BBB") und zeigt es weiter an, obwohl dort jetzt eine leere Zelle steht (N-01).
+     */
+    generation: Any? = null,
 ) {
     val c = MaterialTheme.colorScheme
     if (!editor.editable) {
@@ -239,7 +245,7 @@ fun RichField(
     }
     val foreign = editor.caps.foreign
     val pre = if (onBackspaceAtStart != null) START else ""
-    val st = remember(fieldKey, pre) { FieldState(html, raw, pre) }
+    val st = remember(fieldKey, pre, generation) { FieldState(html, raw, pre) }
     val p = pre.length
 
     // Aenderung von aussen (Neu laden, Umwandeln, Zusammenfuehren) -> Feld neu aufsetzen. Eigene Eingaben kommen
