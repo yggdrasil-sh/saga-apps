@@ -1,4 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Debug-Build: eigene network_security_config (src/debug/res/xml) ueberschreibt die aus src/main -
-     zusaetzlich Klartext zum lokalen Testserver im Emulator. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" />
+     zusaetzlich Klartext zum lokalen Testserver im Emulator.
+     2.5: leere ComponentActivity nur im Debug-Build (nicht exportiert) - instrumentierte Tests zeigen dort Compose-Ansichten
+     (Bildschirmfotos der Chat-Grundlagen, Chat25DeviceTest). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="androidx.activity.ComponentActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Saga" />
+    </application>
+</manifest>

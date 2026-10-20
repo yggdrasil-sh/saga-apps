@@ -30,7 +30,7 @@ class VoiceOggTest {
     @Test
     fun muxIsByteEqualToBrowser() {
         val want = javaClass.classLoader!!.getResourceAsStream("vectors/voice_ref.ogg")!!.readBytes()
-        val got = OggOpus.mux(refPackets(), 312, refSerial, "Saga")
+        val got = OggOpus.mux(refPackets(), 312, refSerial, "Saga", webCompat = true)
         assertEquals(want.size, got.size)
         assertArrayEquals(want, got)
     }
@@ -46,11 +46,13 @@ class VoiceOggTest {
         assertTrue(p.eos)
         assertEquals(pk.size, p.packets.size)
         pk.indices.forEach { assertArrayEquals(pk[it], p.packets[it]) }
-        // 108 Pakete a 20 ms (960) + 12 mit zwei Rahmen (1920): Granule = pre-skip + Samples, Dauer ohne pre-skip
+        // 108 Pakete a 20 ms (960) + 12 mit zwei Rahmen (1920): Granule = alle Samples (RFC 7845), Dauer ohne pre-skip
         val samples = pk.sumOf { OggOpus.samples(it).toLong() }
         assertEquals(108 * 960L + 12 * 1920L, samples)
-        assertEquals(312 + samples, p.lastGranule)
-        assertEquals(samples / 48_000.0, p.duration, 1e-9)
+        assertEquals(samples, p.lastGranule)
+        assertEquals((samples - 312) / 48_000.0, p.duration, 1e-9)
+        // Web-kompatibel: Zaehlung ab pre-skip (wie static/chat-voice.js)
+        assertEquals(312 + samples, OggOpus.demux(OggOpus.mux(pk, 312, 7, webCompat = true)).lastGranule)
         // Granule je Seite steigen und passen zu den Paketen der Seite (hoechstens 50 je Seite)
         assertTrue(p.granules.zipWithNext().all { (a, b) -> b > a })
         assertEquals(3, p.granules.size)

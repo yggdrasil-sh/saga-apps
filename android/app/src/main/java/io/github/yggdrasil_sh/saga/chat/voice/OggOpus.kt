@@ -5,8 +5,10 @@ import java.io.ByteArrayOutputStream
 /**
  * Ogg-Kapselung fuer Opus (RFC 3533 / RFC 7845) - genau wie static/chat-voice.js (oggOpus) und ios/App/VoiceOgg.swift:
  * OpusHead (Version 1, mono, pre-skip, 48 kHz), OpusTags (Hersteller), dann Seiten mit bis zu 50 Paketen bzw. 240
- * Segmenten; Granule = pre-skip + Samples (48 kHz) bis zum Ende der Seite, aus dem TOC-Byte jedes Pakets (RFC 6716 3.1),
- * nicht aus Zeitstempeln; letzte Seite mit EOS. Dazu ein kleiner Demuxer (Pruefsumme, Pakete, Granule) fuer Tests und
+ * Segmenten; Granule = alle Samples (48 kHz, einschliesslich pre-skip) bis zum Ende der Seite, aus dem TOC-Byte jedes
+ * Pakets (RFC 6716 3.1), nicht aus Zeitstempeln; letzte Seite mit EOS. Hoerbare Dauer = letzte Granule - pre-skip (RFC 7845
+ * Abschnitt 4). Abweichung: static/chat-voice.js und VoiceOgg.swift beginnen die Zaehlung bei pre-skip (Ende dort um
+ * pre-skip = 6,5 ms zu spaet) - mit webCompat = true entsteht genau deren Datei (Test der Byte-Gleichheit). Dazu ein kleiner Demuxer (Pruefsumme, Pakete, Granule) fuer Tests und
  * die Dauer.
  */
 object OggOpus {
@@ -74,7 +76,10 @@ object OggOpus {
     }
 
     /** Pakete -> Ogg-Datei (serial fest vorgeben fuer reproduzierbare Tests) */
-    fun mux(pkts: List<ByteArray>, preskip: Int, serial: Int = (Math.random() * 0xffffffffL).toLong().toInt(), vendor: String = "Saga"): ByteArray {
+    fun mux(
+        pkts: List<ByteArray>, preskip: Int, serial: Int = (Math.random() * 0xffffffffL).toLong().toInt(), vendor: String = "Saga",
+        webCompat: Boolean = false,
+    ): ByteArray {
         val out = ByteArrayOutputStream(pkts.sumOf { it.size + 2 } + 512)
         var seq = 0
         fun page(packets: List<ByteArray>, granule: Long, flags: Int) {
@@ -99,7 +104,7 @@ object OggOpus {
         }
         page(listOf(head(preskip)), 0, 2)
         page(listOf(tags(vendor)), 0, 0)
-        var g = preskip.toLong()
+        var g = if (webCompat) preskip.toLong() else 0L
         val cur = ArrayList<ByteArray>()
         var size = 0
         for ((i, p) in pkts.withIndex()) {
