@@ -11,7 +11,7 @@ from .publish import available as publish_available
 from .richtext import RichText
 from .sharing import RANK, allowed, can_comment, is_owner, meta_lines, role_of, shared_by_box
 from .store import is_db, label, store, watch
-from .util import bg, date_time_text, edited_text, new_block_id, plain
+from .util import bg, date_time_text, edited_text, new_block_id, plain, watch_obj
 
 GUTTER = 60
 CSLOT = 36              # Breite des Platzes fuer die Kommentar-Zahl rechts am Block
@@ -283,6 +283,8 @@ class PageView(Gtk.Box):
         dt.connect("drop", self._drop_files)
         self.overlay.add_controller(dt)
         watch(self, "pages-changed", self._pages_changed)
+        watch(self, "data-changed", self._row_data_changed)
+        watch_obj(self, store, "row-changed", lambda rid: rid == self.id and self._row_data_changed())
         self.connect("unmap", lambda *_: self.suggest.hide())
         self.connect("unmap", lambda *_: self.editor.flush())
         self.connect("unmap", lambda *_: self._stop_presence())
@@ -498,6 +500,8 @@ class PageView(Gtk.Box):
             from .database import DatabaseView
             dv = DatabaseView(self.win, self.id)
             dv.set_margin_start(self.gut)
+            if self.narrow:                                   # 370 px: "Neu" nicht am Fensterrand, wie die Textbloecke (N11)
+                dv.set_margin_end(8)
             col.append(dv)
         else:
             self.blocks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
@@ -538,15 +542,21 @@ class PageView(Gtk.Box):
         """neue (leere) Seite: Schreibmarke in den Titel - erst wenn er zu sehen ist (der Knopf "Neue Seite" behielt sonst
         den Fokus, Testbericht 010/031); hoechstens ~1,5 s versuchen, nicht wenn inzwischen woanders getippt wird"""
         rt = self.title_rt
-        if rt is None or rt.get_root() is None:
-            return False
+        if rt is None or self.doc is None or self.doc.title_raw:
+            return False                                  # inzwischen getippt bzw. andere Seite
         foc = self.win.get_focus() if self.win is not None else None
         if foc is not None and foc.is_ancestor(self) and foc is not rt:
             return False                                  # schon in der Seite (z. B. im ersten Block): nicht wegnehmen
-        if rt.get_mapped():
+        # Der Titel haengt beim ersten Aufbau oft noch nicht im Fenster (get_root() None): weiter versuchen statt
+        # aufzugeben (N4). Nach dem Treffer noch einige Male pruefen - die Seitenleiste setzt den Fokus beim Abgleich
+        # sonst zurueck auf den Knopf.
+        # Waehrend ~1,5 s zurueckholen, wenn ein Knopf bzw. eine Zeile der Seitenleiste den Fokus nimmt (Abgleich der
+        # Seitenleiste nach dem Anlegen) - nie aus einem Eingabefeld (dort tippt die Person schon).
+        # is_focus: Fokus-Widget des Fensters (has_focus waere zusaetzlich vom aktiven Fenster abhaengig).
+        if n and foc is not None and foc is not rt and isinstance(foc, (Gtk.Editable, Gtk.Text, Gtk.TextView)):
+            return False
+        if rt.get_root() is not None and rt.get_mapped() and not rt.is_focus():
             rt.focus_at("end")
-            if rt.has_focus() or n >= 30:
-                return False
         if n < 30:
             GLib.timeout_add(50, self._focus_title_when_shown, n + 1)
         return False
@@ -770,6 +780,33 @@ class PageView(Gtk.Box):
     def live_presence(self, users):
         if self.presence is not None:
             self.presence.live_update(users)
+
+    def _row_data_changed(self):
+        """Datenbank-Eintrag (Peek oder Seite): Eigenschaften anderswo geaendert (Tabelle, Board, andere Person) -> die
+        angezeigten Werte nachziehen (N9). Nur wenn sich etwas geaendert hat und keine eigenen Eingaben offen sind."""
+        doc = self.doc
+        if doc.parent_schema is None or not doc.fetched or doc.dirty or doc.saving or doc.conflict is not None:
+            return
+        nid, par = doc.id, doc.page.get("parent_id")
+
+        def work():
+            p = client.get(f"api/notes/{nid}")
+            sc = client.get(f"api/notes/{par}").get("schema") if par is not None else None
+            return p, sc
+
+        def fin(r):
+            p, sc = r
+            d = self.doc
+            if d is not doc or d.dirty or d.saving or d.parent_schema is None or not isinstance(p, dict):
+                return
+            props = p.get("props") if isinstance(p.get("props"), dict) else {}
+            if props == d.props and (not isinstance(sc, dict) or sc == d.parent_schema):
+                return
+            d.page["props"] = props
+            if isinstance(sc, dict):
+                d.parent_schema = sc
+            self.rebuild()
+        bg(work, done=fin, error=lambda e: None)
 
     def live_changed(self, d):
         """note.changed (live) bzw. neuere Revision aus der Anwesenheit: ohne eigene ungespeicherte Eingaben still neu laden

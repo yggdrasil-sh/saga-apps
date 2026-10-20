@@ -29,6 +29,7 @@ class Store(GObject.Object):
         "pages-changed": (GObject.SignalFlags.RUN_FIRST, None, ()),
         "today-changed": (GObject.SignalFlags.RUN_FIRST, None, ()),
         "data-changed": (GObject.SignalFlags.RUN_FIRST, None, ()),     # Datenbank-Ansichten neu laden
+        "row-changed": (GObject.SignalFlags.RUN_FIRST, None, (int,)),  # Eigenschaften eines Eintrags in der Tabelle gespeichert (N9)
         "version-changed": (GObject.SignalFlags.RUN_FIRST, None, ()),  # Server-Version bekannt (Hinweis "App zu alt")
         "events-changed": (GObject.SignalFlags.RUN_FIRST, None, ()),
         "need-login": (GObject.SignalFlags.RUN_FIRST, None, ()),

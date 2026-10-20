@@ -211,6 +211,12 @@ class Sidebar(Gtk.Box):
         self.box.append(_section_row(text, (lambda v: self.win.drop_pages(v, None)) if drop else None))
 
     def _focused_key(self):
+        """Zeile mit dem Tastaturfokus (nach dem Neuaufbau wieder dorthin) - nur wenn der Fokus wirklich in der Liste ist:
+        get_focus_child() bleibt sonst auf der zuletzt fokussierten Zeile stehen, und der Neuaufbau nach "Neue Seite"
+        holte den Fokus aus dem Titel der neuen Seite zurueck in die Seitenleiste (N4)"""
+        foc = self.win.get_focus() if self.win is not None else None
+        if foc is None or not (foc is self.box or foc.is_ancestor(self.box)):
+            return None
         row = self.box.get_focus_child()
         return getattr(row, "key", None) if row is not None else None
 
@@ -1326,6 +1332,8 @@ class MainWindow(Adw.ApplicationWindow):
             store.on_tree_event(d)
             return
         nid = d.get("id") if typ == "note.changed" else d.get("note_id")
+        if typ == "note.changed" and d.get("row") is not None:
+            store.changed_data()                           # Zeile einer Datenbank (BUG-049): Tabellen und offener Eintrag (N9)
         if typ == "comments.changed":
             counts = d.get("counts") if isinstance(d.get("counts"), dict) else {}
             store.set_unread(nid, int(counts.get("unread") or 0) > 0)

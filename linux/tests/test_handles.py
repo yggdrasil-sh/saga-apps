@@ -8,7 +8,8 @@ H = "~abcdefghijklmnop"
 def test_hits_never_show_username():
     rows = S.hit_rows({"users": [{"username": H, "name": "Anna Berg"}, {"username": "bert", "name": "bert"}]}, {"shares": []}, "view")
     assert [r["target"] for r in rows] == [H, "bert"]                 # Kennung bleibt undurchsichtig (PUT nimmt Handle)
-    assert all(r["sub"] == "Person on this server" for r in rows)
+    # Testrunde 2 (N2): Merkmal fuer Gleichnamige = Handle (bzw. "sub" vom Server), nie der Anmeldename
+    assert rows[0]["sub"] == "Person on this server · " + H and rows[1]["sub"] == "Person on this server"
     assert rows[0]["name"] == "Anna Berg"
 
 
@@ -17,10 +18,11 @@ def test_share_and_inherited_rows_show_person():
                      {"type": "remote", "target": "@cara@b.example", "name": "Cara · b.example", "role": "view"}],
           "inherited": [{"type": "user", "target": H, "name": "Anna Berg", "role": "view", "note_id": 3, "title": "Oben"}]}
     rows = S.share_rows(st)
-    assert rows[0]["sub"] == "Person" and H not in rows[0]["sub"]
+    assert rows[0]["sub"] == "Person · " + H                          # N2: Handle unterscheidet Gleichnamige
     assert rows[0]["target"] == H                                    # Entfernen/Rolle aendern ueber den Handle
     assert rows[1]["sub"] != "Person"
-    assert S.inherited_rows(st)[0]["sub"] == "Person"
+    assert S.inherited_rows(st)[0]["sub"] == "Person · " + H
+    assert S.share_rows({"shares": [{"type": "user", "target": "anna", "name": "Anna", "role": "view"}]})[0]["sub"] == "Person"
 
 
 def test_member_matches_search_hit_by_ref():

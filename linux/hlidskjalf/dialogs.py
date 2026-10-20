@@ -706,7 +706,7 @@ def services_screen(win):
     sw.set_child(box)
     data = {"list": []}
 
-    def fill(*_):
+    def fill(*_a):                                          # nicht "*_": das verdeckte gettext _ (N6)
         while (c := holder.get_first_child()):
             holder.remove(c)
         q = norm(se.get_text())

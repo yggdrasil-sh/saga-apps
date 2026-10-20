@@ -17,6 +17,7 @@ from .chat import (FED_CHECK_EVERY_S, NOTE_RX, RETENTIONS, ChatError, FedNotDeli
                    keys_persistent, recovery_lines, remote_label, retention_label, fed_guide_url, fed_hint_show, fed_hint_texts, safety_for,
                    safety_qr_text, sys_text, chat_home_hint, trust_accept, trust_get, trust_verified)
 from .i18n import _, ngettext, pgettext, ui_language
+from .sharing import person_mark, same_host
 from .util import Debounce, bg, date_short, esc, human_size, rel_time, time_text, weekday_day_text
 
 URL_RX = re.compile(r"https?://[^\s<>\"']+[^\s<>\"'.,;:!?)\]]")
@@ -1442,7 +1443,7 @@ class Conversation(Gtk.Box):
                 qb.append(_lbl(qn, ("caption-heading",), wrap=False))
             qb.append(_lbl(snippet(q), ("caption",), max_width_chars=50, lines=2, ellipsize=Pango.EllipsizeMode.END))
             b.append(qb)
-        acc = [sname if not mine else _("you")]
+        acc = [sname if not mine else pgettext("subject", "you")]
         if is_ai:
             acc.append(asker)
         if st == "undecryptable":
@@ -2635,7 +2636,9 @@ class ChatInfoDialog(Adw.Dialog):
             r = self.rc.get(u) or {}
             sub = []
             if m.get("me") or u == me:
-                sub.append(_("you"))
+                sub.append(pgettext("subject", "you"))    # Mitgliederliste: "du" (nicht "dir", N10)
+            elif person_mark(m):
+                sub.append(person_mark(m))                # N2: Gleichnamige unterscheiden (Handle bzw. oeffentlicher Name)
             t = trust_get(me, u)
             if t.get("verified") and r.get("ident_pub") and t.get("ident_pub") == r.get("ident_pub"):
                 sub.append("✓ " + _("verified"))
@@ -2682,8 +2685,9 @@ class ChatInfoDialog(Adw.Dialog):
                 for p in ((j or {}).get("users") or [])[:8]:
                     if is_member(p.get("username"), c.get("members")):   # 2.4 (W4): Handle <-> members[].ref
                         continue
+                    sub = [x for x in (person_mark(p), "" if p.get("ready") else _("hasn't set up chats yet")) if x]  # N2
                     r = Adw.ActionRow(title=GLib.markup_escape_text(p.get("name") or p["username"]),
-                                      subtitle="" if p.get("ready") else _("hasn't set up chats yet"), activatable=True)
+                                      subtitle=GLib.markup_escape_text(" · ".join(sub)), activatable=True)
                     r.add_prefix(avatars.person(p, 32, text=p.get("name") or p["username"]))
                     r.add_suffix(Gtk.Image.new_from_icon_name("list-add-symbolic"))
                     r.connect("activated", lambda *_, u=p["username"]: self._add(u))
@@ -2705,9 +2709,14 @@ class ChatInfoDialog(Adw.Dialog):
     def _fed_row(self, c, m, admin=False):
         h = m.get("handle")
         mine = m.get("me") or (h and h == c.get("my_handle"))
-        sub = [_("you")] if mine else []
+        sub = [pgettext("subject", "you")] if mine else []          # "du" (nicht "dir", N10)
         if m.get("host") and not mine:
-            sub.append(_("on {host}").format(host=m["host"]))
+            if same_host(m["host"]):                                # Person auf meinem Server (N10): nicht "auf localhost:8197"
+                sub.append(_("Person on this server"))
+            else:
+                sub.append(_("on {host}").format(host=m["host"]))
+        if not mine and person_mark(m) and not str(person_mark(m)).startswith("@"):
+            sub.append(person_mark(m))                              # N2: Gleichnamige unterscheiden
         f = chat.fk.get(h) or {}
         if not mine and chat.fed_verified(h):
             sub.append("✓ " + _("verified"))
@@ -2839,8 +2848,9 @@ class NewChatDialog(Adw.Dialog):
         groups = [g for g in (j or {}).get("groups") or [] if isinstance(g, dict)] if not self.multi else []
         remote = [u for u in (j or {}).get("remote") or [] if isinstance(u, dict) and u.get("handle")]     # 2.3: andere Server
         for u in users:
+            sub = [x for x in (person_mark(u), "" if u.get("ready") else _("hasn't set up chats yet")) if x]   # N2: Handle
             r = Adw.ActionRow(title=GLib.markup_escape_text(u.get("name") or u["username"]),
-                              subtitle="" if u.get("ready") else _("hasn't set up chats yet"),     # 2.4 (W4): nie den Anmeldenamen
+                              subtitle=GLib.markup_escape_text(" · ".join(sub)),     # 2.4 (W4): nie den Anmeldenamen
                               activatable=True)
             r.add_prefix(avatars.person(u, 32, text=u.get("name") or u["username"]))
             r.connect("activated", lambda *_, u=u: self._pick_user(u))
@@ -3323,8 +3333,15 @@ class ChatDevicesPage(Adw.PreferencesPage):
                 sub.append(_("last seen {when}").format(when=rel_time(d.get("last_seen"))))
             r = Adw.ActionRow(title=GLib.markup_escape_text(d.get("name") or "?"), subtitle=GLib.markup_escape_text(" · ".join(sub)))
             r.add_prefix(Gtk.Image.new_from_icon_name("computer-symbolic" if this else "phone-symbolic"))
-            rm = _button(_("Remove from this device") if this else _("Remove"), ("destructive-action",), lambda d=d, this=this: self._remove(d, this),
-                         valign=Gtk.Align.CENTER)
+            label = _("Remove from this device") if this else _("Remove")
+            if getattr(getattr(self.dlg, "win", None), "very_narrow", False):
+                # 370 px (N11): Knopf mit langem Text liess der Unterzeile kaum Platz ("angemeld-et") - nur das Symbol
+                rm = Gtk.Button(icon_name="user-trash-symbolic", tooltip_text=label, valign=Gtk.Align.CENTER)
+                rm.add_css_class("destructive-action")
+                rm.update_property([Gtk.AccessibleProperty.LABEL], [label])
+                rm.connect("clicked", lambda *_, d=d, this=this: self._remove(d, this))
+            else:
+                rm = _button(label, ("destructive-action",), lambda d=d, this=this: self._remove(d, this), valign=Gtk.Align.CENTER)
             r.add_suffix(rm)
             g.add(r)
         self.add(g)

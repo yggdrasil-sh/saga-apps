@@ -2,7 +2,7 @@
 import json
 import re
 
-from gi.repository import Gdk, GLib, GObject, Gtk, Pango
+from gi.repository import Gdk, GLib, GObject, Graphene, Gtk, Pango
 
 from . import images
 from .config import settings
@@ -81,8 +81,25 @@ def more_button(get_entries, tooltip=None):
 
 
 def menu_popover(parent, entries):
-    """Einfaches Menue: entries = [(Text, Rueckruf, destruktiv?) | None (Trenner) | (Text, [Unter-Eintraege])]"""
+    """Einfaches Menue: entries = [(Text, Rueckruf, destruktiv?) | None (Trenner) | (Text, [Unter-Eintraege])]
+
+    Der Rueckruf laeuft erst, wenn das Menue zu und (freies Menue) abgehaengt ist: Viele Eintraege (Loeschen, Duplizieren,
+    Umwandeln) bauen den Block samt dem Widget neu, an dem das Menue haengt. Ein noch angehaengtes Popover an einem
+    zerstoerten Eltern-Widget liess GTK abstuerzen (SIGSEGV in gdk_surface_request_motion, Blockmenue per Tastatur)."""
     pop = Gtk.Popover()
+    pending = []
+
+    def closed(p):
+        def later():
+            if parent is not None and p.get_parent() is not None:
+                p.unparent()
+            acts = pending[:]
+            pending.clear()
+            for a in acts:
+                a()
+            return False
+        GLib.idle_add(later)
+    pop.connect("closed", closed)
     pop.add_css_class("menu")
     stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.SLIDE_LEFT_RIGHT, vhomogeneous=False, hhomogeneous=False, interpolate_size=True)
 
@@ -113,18 +130,44 @@ def menu_popover(parent, entries):
                     btn.add_css_class("error")
 
                 def run(*_, a=act):
-                    pop.popdown()
-                    GLib.idle_add(lambda: (a(), False)[1])
+                    if pending:
+                        return                                # schon gewaehlt, Menue geht gerade zu
+                    pending.append(a)
+                    if pop.get_visible():
+                        pop.popdown()                         # -> "closed" -> abhaengen, dann a()
+                    else:
+                        closed(pop)
                 btn.connect("clicked", run)
             box.append(btn)
         stack.add_named(box, name)
     page(entries, "main")
     stack.set_visible_child_name("main")
     pop.set_child(stack)
-    if parent is not None:                    # freies Menue: nach dem Schliessen abhaengen; im MenuButton: parent=None
-        pop.set_parent(parent)
-        pop.connect("closed", lambda p: GLib.idle_add(lambda: (p.unparent(), False)[1]))
+    if parent is not None:                    # freies Menue: nach dem Schliessen abhaengen ("closed"); im MenuButton: parent=None
+        anchor_popover(pop, parent)
     return pop
+
+
+def anchor_popover(pop, widget, anchor=None):
+    """Popover an widget zeigen, aber nie an ein Textfeld haengen: Ein Gtk.TextView verwaltet fremde Kinder nicht; wurde
+    es nach dem Schliessen des Menues neu aufgebaut (Block loeschen/duplizieren/verschieben per Menuetaste), stuerzte GTK
+    ab. Das Popover haengt dann am naechsten Vorfahren (bzw. anchor) und zeigt auf die Schreibmarke im Textfeld."""
+    if anchor is None:
+        anchor = widget
+        while isinstance(anchor, Gtk.TextView) and anchor.get_parent() is not None:
+            anchor = anchor.get_parent()
+    pop.set_parent(anchor)
+    if anchor is widget:
+        return
+    x, y, w, h = 0, 0, widget.get_width(), widget.get_height()
+    if isinstance(widget, Gtk.TextView):
+        buf = widget.get_buffer()
+        strong, _weak = widget.get_cursor_locations(buf.get_iter_at_mark(buf.get_insert()))
+        x, y = widget.buffer_to_window_coords(Gtk.TextWindowType.WIDGET, strong.x, strong.y)
+        w, h = max(1, strong.width), max(1, strong.height)
+    ok, pt = widget.compute_point(anchor, Graphene.Point().init(x, y))
+    if ok:
+        pop.set_pointing_to(Gdk.Rectangle(x=int(pt.x), y=int(pt.y), width=int(w), height=int(h)))
 
 
 class HoverManager:
@@ -966,9 +1009,14 @@ class BlockKit:
                     context_menu(tv, lambda w, r=r, c=c: menu_popover(w, cell_entries(r, c)).popup())
                 grid.attach(tv, c, r, 1, 1)
         if not self.editor.locked:
-            # bricht im schmalen Fenster um (FlowBox) - sonst waere die Seite breiter als das Fenster (Testbericht 180)
-            bar = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, column_spacing=12, row_spacing=2, homogeneous=False,
-                              max_children_per_line=4, min_children_per_line=1, halign=Gtk.Align.START)
+            # Schmal: bricht um (FlowBox) - sonst waere die Seite breiter als das Fenster (Testbericht 180). Volle Breite
+            # (halign FILL): mit START bekam die FlowBox nur ihre Mindestbreite (ein Knopf je Zeile), aber die Hoehe fuer
+            # eine Zeile - die Knoepfe lagen ueber den folgenden Bloecken (N8). Breit: eine einfache Zeile links.
+            if getattr(self.view, "narrow", False):
+                bar = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, column_spacing=12, row_spacing=2, homogeneous=False,
+                                  max_children_per_line=4, min_children_per_line=1, halign=Gtk.Align.FILL)
+            else:
+                bar = Gtk.Box(spacing=12, halign=Gtk.Align.START)
             bar.add_css_class("hk-table-bar")
             bar.append(flat_button(icon="list-add-symbolic", label=_("Row"), css="dim-label",
                                    cb=lambda: (rows.append([""] * max(1, len(rows[0]) if rows else 2)), save(), rebuild())))
@@ -979,7 +1027,7 @@ class BlockKit:
             bar.append(hc)
             bar.append(more_button(lambda: cell_entries(*[min(v, len(rows if i == 0 else rows[0]) - 1) for i, v in enumerate(cur["cell"])]),
                                    _("Row and column of the selected cell")))
-            c = bar.get_first_child()
+            c = bar.get_first_child() if isinstance(bar, Gtk.FlowBox) else None
             while c is not None:                              # FlowBoxChild: nicht anwaehlbar, Tab geht zum Knopf
                 c.set_focusable(False)
                 c = c.get_next_sibling()
