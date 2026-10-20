@@ -387,6 +387,7 @@ struct AppsDevicesSection: View {
                             Button("Kopieren") { copyText(f.token) }
                             Button("In dieser App verwenden") { AppConfig.token = f.token; fresh = nil }
                         }
+                        .rowButtons()
                     }
                 }
             } label: { Text(keys.isEmpty ? "Weitere Schlüssel" : "Weitere Schlüssel (\(keys.count))") }

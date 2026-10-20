@@ -6,6 +6,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Behoben – Papierkorb (iOS/iPadOS): Zurückholen löschte die Seite endgültig
+- **Papierkorb: „Zurückholen“ löschte die Seite endgültig (iPhone/iPad, seit 1.0):** Zwei Knöpfe in einer Listenzeile
+  ohne eigenen Stil lösten bei einem Tipp beide Aktionen aus. Jeder Knopf ist jetzt einzeln tippbar, „Endgültig
+  löschen“ fragt vorher nach (mit Titel und Zahl der Unterseiten), die Zeilen sind zweizeilig und nennen die
+  Elternseite. Dasselbe Muster an acht weiteren Stellen behoben (u. a. „Kopieren“/„In dieser App verwenden“ bei
+  App-Schlüsseln, neuer Wiederherstellungsschlüssel „Übernehmen“/„Abbrechen“, Mein Backup, Nextcloud). Eine Prüfung in
+  den Logik-Tests durchsucht alle Ansichten nach diesem Muster.
+
 ### Behoben – Chats über Servergrenzen
 **Android – eigene Nachricht blieb auf „⏳ wird zugestellt“:** In einem Direkt-Chat, dessen Heim der andere Server ist,
 zeigte die App eine längst zugestellte eigene Nachricht weiter als ausstehend (Server 2.3.0 melden die sofortige
