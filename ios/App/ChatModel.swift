@@ -119,6 +119,16 @@ struct ChatMe: Equatable {
     var membersMax = 50
     var retentionMax: Int?
     var retentions: [Int] = [0, 3600, 86_400, 604_800, 2_592_000, 7_776_000, 31_536_000]
+    /// 2.4: Gelesen-Bestaetigungen/Online-Status (features, privacy, status_limits; aeltere Server: nichts)
+    var status = ReceiptLogic.Caps()
+    /// 2.4: Videos im Chat (saga-file/v2): Server kann es, groesstes Video (Klartext), Teil je PUT, gleichzeitige Uploads,
+    /// Chat-Speicher des Kontos (Grenze/belegt, Bytes). Aeltere Server: file2 fehlt -> nur v1 bis file_max.
+    var file2 = false
+    var videoMax: Int?
+    var uploadPart: Int?
+    var uploadsMax = 2
+    var quota: Int64?
+    var used: Int64?
     init() {}
     init?(data: Data) {
         guard let j = ShareJSON.obj(data) else { return nil }
@@ -137,7 +147,11 @@ struct ChatMe: Equatable {
             fileIDsPerMsgServer = ShareJSON.int(l["file_ids_per_msg"])
             retentionMax = ShareJSON.int(l["retention_max"]).flatMap { $0 > 0 ? $0 : nil }
             if let r = l["retentions"] as? [Any] { retentions = r.compactMap(ShareJSON.int) }
+            file2 = ShareJSON.bool(l["file2"]); videoMax = ShareJSON.int(l["video_max"]); uploadPart = ShareJSON.int(l["upload_part"])
+            uploadsMax = max(1, ShareJSON.int(l["uploads_max"]) ?? uploadsMax)
+            quota = ShareJSON.num(l["quota"]).map { Int64($0) }; used = ShareJSON.num(l["used"]).map { Int64($0) }
         }
+        status = ReceiptLogic.caps(j)
     }
     var hasIdentity: Bool { identPub != nil }
 }
@@ -168,10 +182,24 @@ struct ChatSummary: Identifiable, Equatable {
     var isFed: Bool { fed != nil }
     /// Kennung fuer Anhaenge: v1 die chat_id, v2 die chat_ref
     var fileCID: String { fed?.ref ?? String(id) }
+    /// 2.4: der andere Server kann Gelesen/Online (v2: receipts_ok/online_ok; lokal immer)
+    var receiptsOK = true
+    var onlineOK = true
+    /// 2.4: alle beteiligten Server koennen grosse Videos (chatfile2); nil = Feld fehlt (lokal bzw. alter Server)
+    var bigFiles: Bool?
+    /// 2.4 E5 (chat.call): Gruppenanrufe moeglich (alle beteiligten Server calls3), Hinweis, laufender Gruppenanruf
+    var callGroup: Bool?
+    var callGroupBlock: String?
+    var callRunning: String?
+    var statusFlags: ReceiptLogic.ChatFlags {
+        ReceiptLogic.ChatFlags(kind: kind, fed: isFed, request: fed?.request ?? false, readonly: fed?.readonly ?? false, receiptsOK: receiptsOK, onlineOK: onlineOK)
+    }
     static func == (a: ChatSummary, b: ChatSummary) -> Bool {
         a.id == b.id && a.kind == b.kind && a.name == b.name && a.members == b.members && a.unread == b.unread && a.muted == b.muted
             && a.retention == b.retention && a.lastAt == b.lastAt && a.lastSeq == b.lastSeq && a.decryptedTitle == b.decryptedTitle && a.role == b.role && a.ai == b.ai
             && a.canArchive == b.canArchive && a.archived == b.archived && a.clearedSeq == b.clearedSeq && a.deleteForAll == b.deleteForAll && a.fed == b.fed
+            && a.receiptsOK == b.receiptsOK && a.onlineOK == b.onlineOK && a.bigFiles == b.bigFiles
+            && a.callGroup == b.callGroup && a.callGroupBlock == b.callGroupBlock && a.callRunning == b.callRunning
     }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let i = ShareJSON.int(d["id"]) else { return nil }
@@ -190,6 +218,12 @@ struct ChatSummary: Identifiable, Equatable {
         archived = ShareJSON.bool(d["archived"]); clearedSeq = ShareJSON.int(d["cleared_seq"]) ?? 0
         deleteForAll = ChatDeleteLogic.forAll(d["delete_for_all"])
         fed = FedChatInfo(d)
+        (receiptsOK, onlineOK) = ReceiptLogic.flags(d)
+        bigFiles = d["big_files"] as? Bool
+        if let k = d["call"] as? [String: Any] {
+            callGroup = k["group"] as? Bool; callGroupBlock = ShareJSON.str(k["group_block"])
+            if let r = k["running"] as? [String: Any], (r["state"] as? String) != "ended", (r["kind"] as? String) == "group" { callRunning = r["id"] as? String }
+        }
     }
     var title: String {
         switch kind {
@@ -254,6 +288,13 @@ final class ChatModel: ObservableObject {
     var fedCertsRunning = false
     /// Gruppenname v2 je Chat (Nachrichten-ID der title_msg -> geprueft entschluesselter Name)
     var titleMemo: [Int: (msg: String, title: String)] = [:]
+    /// 2.4: Online-Status abonnierter Personen (Benutzername bzw. Prinzipal) und Abo-Zustand (ChatReceipts.swift)
+    @Published var presence: [String: ReceiptLogic.Presence] = [:]
+    var presenceSub = ReceiptLogic.PresenceSub()
+    var presenceLoop: Task<Void, Never>?
+    /// App im Vordergrund (scenePhase) und Chat-Liste sichtbar - nur dann Bestaetigungen und Online-Abo
+    var appActive = true
+    var listVisible = false
 
     var deviceID: String? { keys?.deviceID }
     var deviceParam: String { keys.map { "device=" + $0.deviceID } ?? "device=" }
@@ -261,6 +302,7 @@ final class ChatModel: ObservableObject {
     func signedOut() {
         keys = nil; me = ChatMe(); chats = []; unread = 0; requests = 0; myHandle = nil; state = .loading; approval = nil; linking = nil; titleMemo = [:]
         linkPoll?.cancel(); pendingDevice = nil; handledLinks = []
+        presenceLoop?.cancel(); presenceLoop = nil; presence = [:]; presenceSub = ReceiptLogic.PresenceSub()
         ChatMedia.clearAll()                                            // Bild-Caches (Speicher + Ciphertext auf der Platte)
     }
 
@@ -289,6 +331,7 @@ final class ChatModel: ObservableObject {
             guard let k else { state = .newDevice; return }
             if did.isEmpty { _ = try? await store.apiResponse("api/chat/me?device=\(k.deviceID)") }   // "zuletzt gesehen"
             state = .ready
+            startPresence()                                             // 2.4: Online-Abo (nur Sichtbares, nur vorne)
             Task { await fedCerts() }                                   // 2.3: Zertifikate v2 (still, nur Server mit Foederation)
             await loadList()
             if m.links > 0 { await checkLinks() }
@@ -555,6 +598,8 @@ final class ChatModel: ObservableObject {
             Task { await loadList(); if keys == nil { await refreshUnread() } }
         case "chat.typing":
             if let o = open, o.chatID == cid { o.live(type, d) }
+        case "chat.receipt", "chat.presence", "chat.privacy":           // 2.4: Gelesen-Bestaetigungen, Online-Status
+            statusLive(type, d)
         case "chat.request":                                            // 2.3: neue Nachrichtenanfrage (still)
             Task { await loadList() }
         case "chat.keys.changed":                                       // 2.3: Schluessel einer Person bzw. die eigenen

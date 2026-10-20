@@ -20,21 +20,39 @@ struct ChatFileRef: Equatable, Identifiable {
     var id: String; var key: String; var name: String; var mime: String; var size: Int
     var w: Int?; var h: Int?
     var thumb: ChatThumbRef?
+    /// Videos im Chat (2.4): Format (nil/1 = v1, 2 = saga-file/v2), Blockgroesse, Dauer (s), Drehung, moov vorn
+    var x: Int?
+    var cs: Int?
+    var dur: Double?
+    var rot: Int?
+    var fs: Bool?
     var isImage: Bool { ["image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"].contains(mime.lowercased()) }
+    /// Video, das diese App abspielen kann (v1 oder v2)
+    var isVideo: Bool { VideoSendLogic.isVideo(mime) && VideoSendLogic.known(x) }
+    var isV2: Bool { x == 2 }
     var dict: [String: Any] {
         var d: [String: Any] = ["id": id, "k": key, "n": name, "m": mime, "s": size]
         if let w, let h, w > 0, h > 0 { d["w"] = w; d["h"] = h }
         if let thumb { d["th"] = thumb.dict }
+        if let x, x != 1 { d["x"] = x }
+        if let cs, x == 2 { d["cs"] = cs }
+        if let dur, dur > 0 { d["dur"] = dur }
+        if let rot { d["rot"] = rot }
+        if let fs { d["fs"] = fs }
         return d
     }
-    init(id: String, key: String, name: String, mime: String, size: Int, w: Int? = nil, h: Int? = nil, thumb: ChatThumbRef? = nil) {
+    init(id: String, key: String, name: String, mime: String, size: Int, w: Int? = nil, h: Int? = nil, thumb: ChatThumbRef? = nil,
+         x: Int? = nil, cs: Int? = nil, dur: Double? = nil, rot: Int? = nil, fs: Bool? = nil) {
         self.id = id; self.key = key; self.name = name; self.mime = mime; self.size = size; self.w = w; self.h = h; self.thumb = thumb
+        self.x = x; self.cs = cs; self.dur = dur; self.rot = rot; self.fs = fs
     }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let i = d["id"] as? String, let k = d["k"] as? String else { return nil }
         let w = ShareJSON.int(d["w"]), h = ShareJSON.int(d["h"])
         self.init(id: i, key: k, name: (d["n"] as? String) ?? "", mime: (d["m"] as? String) ?? "application/octet-stream", size: ShareJSON.int(d["s"]) ?? 0,
-                  w: (w ?? 0) > 0 && (h ?? 0) > 0 ? w : nil, h: (w ?? 0) > 0 && (h ?? 0) > 0 ? h : nil, thumb: ChatThumbRef(d["th"]))
+                  w: (w ?? 0) > 0 && (h ?? 0) > 0 ? w : nil, h: (w ?? 0) > 0 && (h ?? 0) > 0 ? h : nil, thumb: ChatThumbRef(d["th"]),
+                  x: ShareJSON.int(d["x"]), cs: ShareJSON.int(d["cs"]), dur: ShareJSON.num(d["dur"]).flatMap { $0.isFinite && $0 > 0 ? $0 : nil },
+                  rot: ShareJSON.int(d["rot"]).flatMap { [0, 90, 180, 270].contains($0) ? $0 : nil }, fs: d["fs"] as? Bool)
     }
 }
 

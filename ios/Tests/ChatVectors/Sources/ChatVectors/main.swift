@@ -141,6 +141,16 @@ let v2path = CommandLine.arguments.dropFirst(3).first
     ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../../vectors/chat_v2.json").standardized.path
 res += v2Vectors(v2path)
 
+// Gelesen-Bestaetigungen (2.4): 4. Argument oder die Kopie im Repo (ios/Tests/vectors/receipts.json)
+let rcpath = CommandLine.arguments.dropFirst(4).first
+    ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../../vectors/receipts.json").standardized.path
+res += receiptVectors(rcpath)
+
+// Videos im Chat, saga-file/v2 (2.4): 5. Argument oder die Kopie im Repo (ios/Tests/vectors/file_v2.json)
+let fvpath = CommandLine.arguments.dropFirst(5).first
+    ?? URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../../vectors/file_v2.json").standardized.path
+res += fileV2Vectors(fvpath)
+
 for (n, g) in res { print(g ? "OK  " : "FAIL", n) }
 let good = res.filter { $0.1 }.count
 print("VEKTOREN \(good)/\(res.count)", good == res.count ? "- ALLES GRUEN" : "- FEHLER")

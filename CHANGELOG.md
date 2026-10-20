@@ -6,6 +6,144 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu – Saga 2.4, Etappen E4/E5: Gerät hinzufügen, übergeben und Gruppenanrufe (iOS/iPadOS/macOS)
+- **Raum statt Paar:** Ein Anruf hat jetzt je anderem Gerät eine eigene Verbindung (Mesh, `pc` = sortiertes Paar der
+  Geräte-IDs). Perfect Negotiation, ICE-Neustart, Bildschirm (Betriebsart A/B je Verbindung, eine später hinzukommende
+  Verbindung bekommt den laufenden Bildschirm), Bitrate und die DTLS-Prüfung gelten je Verbindung. Ein 1:1-Anruf läuft
+  genau wie bisher. Die App meldet `multi` (nur mit einem Server mit `reneg` und `multi`) in den signierten `caps` und
+  per `PUT /api/calls/caps`.
+- **Leiste „Anruf läuft auf <Gerät>“:** Läuft ein Anruf auf einem anderen eigenen Gerät, zeigen die anderen eigenen
+  Geräte oben eine Leiste mit **Hinzufügen** (Begleitgerät: Mikrofon aus, Wiedergabe stumm, Kamera aus – ohne Frage nach
+  dem Mikrofon) und dem eigenen Knopf **Hierher übernehmen**. Kann ein Gerät nicht beitreten, steht dort „Braucht
+  Saga 2.4“ bzw. „Der Anruf ist voll“.
+- **Hierher übernehmen ohne Abbruch:** Das neue Gerät verbindet sich still mit allen, schaltet dann Ton und Mikrofon ein
+  und sagt dem alten Gerät Bescheid (`state.ready` + `replaces`); das alte schaltet sofort ab, verabschiedet sich
+  (`bye`, `handover`) und verlässt den Anruf („Anruf auf <Gerät> übernommen“). Klappt es nicht in 15 s, läuft der Anruf
+  auf dem alten Gerät weiter. Ein Begleitgerät übernimmt mit demselben Knopf im Anruf. Legt man im 1:1 am Hauptgerät
+  auf, endet der Anruf für alle – zum Weitermachen erst übernehmen (Hinweis am Begleitgerät).
+- **CallKit:** Beitreten und Übernehmen erscheinen als laufender Anruf; das abgebende Gerät meldet „anderswo
+  angenommen“. Ein Gruppenanruf klingelt nicht weiter, sobald ein eigenes Gerät beigetreten ist bzw. die Einladung auf
+  einem anderen Gerät abgelehnt wurde (`call.roster`, `call.state declined`). VoIP-Mitteilungen der Art `call.group`
+  klingeln wie Anrufe.
+- **Gruppenanrufe** in Gruppen-, freien und Seiten-Chats (Knöpfe „Gruppenanruf“/„Gruppen-Videoanruf“, nur wenn der
+  Server `chat.call.group` meldet – über Servergrenzen nur, wenn alle beteiligten Server `calls3` können): Erst allein
+  („Klingelt bei den anderen …“), alle anderen klingeln und treten bei bzw. lehnen ab; große Gruppen klingeln nicht,
+  dort steht nur „Gruppenanruf läuft · n Geräte – Beitreten“. Läuft schon einer, tritt der Knopf bei.
+- **Kachelansicht:** 2×2 auf dem iPhone, auf iPad und Mac ab fünf Geräten drei Spalten; der Sprecher (Pegel der
+  empfangenen Tonspur) ist grün umrandet. Ein 1:1 mit stillem Begleitgerät bleibt Einzelansicht. Ton eigener Geräte wird
+  nie abgespielt. Bild im Bild bzw. das Schwebefenster zeigt in Gruppen den aktiven Sprecher.
+- **Mesh-Grenzen und Bitrate:** höchstens 4 Geräte mit Video bzw. 6 nur mit Ton (der Admin kann nur senken); ab drei
+  Endpunkten Mesh-Werte je Strom (600/500/350 kbit/s, ≤ 540p bzw. 360p15). Die Ansicht zeigt „n von höchstens N Geräten“
+  und Personen ohne Saga 2.4.
+- **Sicherheit:** Angebote neuer Geräte werden nur angenommen, wenn das Gerät in der Liste des Servers **und** in der
+  signierten Geräteliste seiner Person steht (eigene Geräte gegen den eigenen Identitätsschlüssel); sonst „Unbekanntes
+  Gerät von <Name> abgelehnt“. Jede Verbindung zeigt Person und Gerät. Teilnehmerlisten mit Stand – eine ältere Liste
+  überschreibt keine neuere.
+- **Tests:** `ios/Tests/Logic/CallRoomTests.swift` (Teilnehmerliste/Stand, Mesh-Paare, Grenzen, Begleitgerät,
+  Übernahme-Zustandsmaschine, Mesh-Bitrate, Leiste, Gruppen-Knopf, Sprecher, Geister-Gerät). Texte in Deutsch,
+  Englisch, Spanisch, Russisch und Thai.
+
+### Neu – Saga 2.4, Etappe E2: Videos im Chat (iOS/iPadOS/macOS)
+- **Videos senden:** In der Fotos-Auswahl (jetzt Bilder und Videos) und unter „Datei“ lassen sich Videos anhängen. Sie
+  werden nie ganz in den Speicher geladen, sondern als Datei übernommen. Das Gerät erzeugt Poster (Bild bei 1 s, längste
+  Seite 320 px, JPEG ≤ 30 KB, als Vorschaubild mit eigenem Schlüssel), Dauer und Abmessungen.
+- **„Optimiert (720p)“ oder Original:** Am Anhang wählbar; auf dem iPhone ist „Optimiert (720p)“ Standard
+  (`AVAssetExportSession`, Preset 1280×720, `moov` vorn). Es läuft höchstens ein Export gleichzeitig, bei einem zu warmen
+  Gerät pausiert er.
+- **Große Videos (saga-file/v2):** Bis zur Grenze `file_max` des Servers (Standard 10 MB) bleibt alles wie bisher (v1).
+  Größere Videos werden blockweise verschlüsselt (256 KiB je Block, XChaCha20-Poly1305) und in Teilen zu höchstens
+  8 MiB hochgeladen – per `URLSession` im Hintergrund, mit sichtbarem Fortschritt über dem Eingabefeld und Abbrechen.
+  Nach einem Netzabbruch oder Neustart geht der Upload an der Stelle weiter, an der der Server steht (`HEAD`).
+  Schlüssel, Präfix, Datei und Upload-Kennung liegen bis zum Senden im Schlüsselbund. Der Text der Nachricht reist mit
+  dem ersten Video.
+- **Abspielen:** Im Verlauf steht nur das Poster mit Dauer und Abspiel-Symbol (lazy geladen, kein Player je Zelle).
+  Erst beim Antippen startet ein gemeinsamer Player (`AVPlayer` mit eigenem Schema und Resource-Loader): Er holt nur die
+  Blöcke, die er braucht (Range mit Medien-Token, bei `401` ein neues), entschlüsselt sie einzeln und kann sofort spulen.
+  Der Klartext kommt nie auf die Platte. Der Ciphertext liegt in einem eigenen Cache (512 MB, die am längsten nicht
+  benutzten Teile fallen zuerst heraus). Bild im Bild geht, im Mobilfunk startet ein Video erst auf Tippen.
+- **Speichern:** Auf iPhone/iPad „In Fotos sichern“ (nur Hinzufügen) bzw. „In Dateien sichern“, am Mac „Sichern …“. Die
+  Entschlüsselung läuft als Datenstrom in die Datei, eine temporäre Kopie wird sofort wieder gelöscht.
+- **Kompatibel:** v1-Anhänge (auch kleine Videos) funktionieren wie bisher. Server ohne `file2` (bis 2.3) bzw. Chats mit
+  einem 2.3-Partnerserver (`big_files: false`): Videos über `file_max` werden mit Hinweis abgelehnt. Anhänge in einem
+  neueren Format zeigen „Mit einer neueren Saga-Version öffnen“. „Erneut senden“ (über Servergrenzen) kopiert große
+  Videos als Datenstrom. Texte in Deutsch, Englisch, Spanisch, Russisch und Thai.
+- **Tests:** Testvektoren `tests/vectors/file_v2.json` (Kopie `ios/Tests/vectors/file_v2.json`) in `ios/Tests/ChatVectors`,
+  dazu ein Datenstrom-Test mit 500 MB (Speicher konstant). Logik-Tests (`ios/Tests/Logic/VideoTests.swift`): Kopf/AD/Nonce,
+  Block- und Range-Zuordnung, Upload-Teile und -Fortsetzung, Antworten des Servers, Grenzen, Cache-Grenze, 500-MB-Strom.
+
+### Neu – Saga 2.4: Gelesen-Bestätigungen und Online-Status (iOS/iPadOS/macOS)
+- **Haken wie gewohnt:** An eigenen Nachrichten ⏳ wird zugestellt (Chats über Servergrenzen) → ✓ zugestellt → ✓✓
+  gelesen; haben alle gelesen, sind die Haken blau. In Gruppen steht neben ✓✓ die Zahl der Lesenden, Tippen auf die
+  Haken bzw. „Gelesen von …“ im Kontextmenü zeigt Namen und Zeit – mit dem Hinweis, dass Personen mit abgeschalteten
+  Bestätigungen dort nicht erscheinen.
+- **Online-Status:** Im Kopf eines Direkt-Chats „online“ bzw. „zuletzt online vor 5 Minuten“ (iPhone/iPad unter dem
+  Namen, Mac als Untertitel), in der Chat-Liste ein grüner Punkt am Bild.
+- **Einstellungen → Datenschutz:** „Gelesen-Bestätigungen senden“ und „Online-Status zeigen“, standardmäßig an, getrennt
+  abschaltbar und gegenseitig (wer etwas abschaltet, sieht es bei anderen auch nicht). Änderungen auf einem Gerät gelten
+  sofort auf allen (`chat.privacy`).
+- **Ende-zu-Ende:** Jede Bestätigung („gelesen bis Nachricht n“) signiert dieses Gerät; sie wird je anderem Mitglied für
+  dessen Backup-Schlüssel versiegelt (saga-chat v1 lokal, v2 über Servergrenzen). Empfangene Bestätigungen werden nur
+  gezählt, wenn sie von einem geprüften Gerät der Person stammen und an Chat und Namen gebunden sind. Der Server sieht
+  nur, dass es eine Bestätigung gibt.
+- **Sparsam:** Bestätigt wird erst, wenn die Nachricht auf dem Bildschirm war, die App vorne ist und der Chat offen –
+  höchstens eine je Chat und 2 s (gebündelt). Der Online-Status wird nur für die sichtbare Liste bzw. den offenen Chat
+  abonniert (alle 60 s erneuert, im Hintergrund abgemeldet); Live-Ereignisse `chat.receipt` (auch gebündelt mit
+  `more`) und `chat.presence` aktualisieren ohne Neuladen.
+- **Kompatibel:** Server ohne diese Funktion (bis 2.3) und Chats mit 2.3-Servern (`receipts_ok`/`online_ok`): alles
+  ausgeblendet, wie bisher. Texte in Deutsch, Englisch, Spanisch, Russisch und Thai.
+- **Tests:** Logik-Tests (`ios/Tests/Logic/ReceiptTests.swift`: Fähigkeiten, Gegenseitigkeit, fällige Bestätigung,
+  Haken-Zustände, „Gelesen von“, Abo-Lebenszyklus) und die Testvektoren `tests/vectors/receipts.json` des Servers
+  (Kopie `ios/Tests/vectors/receipts.json`) in `ios/Tests/ChatVectors`.
+
+### Neu – Saga 2.4, Etappe E3: Bildschirm übertragen (iOS/iPadOS/macOS)
+**iOS/iPadOS/macOS – Bildschirm im Anruf teilen:**
+- **Bildschirm teilen:** Im verbundenen Anruf gibt es den Knopf „Bildschirm teilen“. Am Mac wählt man im
+  Systemfenster einen Bildschirm, ein Fenster oder eine App (Freigabe nur für diese Sitzung, Saga selbst wird nicht
+  mitgeteilt). Auf iPhone/iPad startet die Systemübertragung mit „Saga“ – der ganze Bildschirm, auch wenn man in
+  andere Apps wechselt; das Bild wird dabei verkleinert (lange Kante höchstens 1920, bei Wärme 1280) und auf 10 Bilder
+  je Sekunde begrenzt. Ton des Bildschirms wird nicht übertragen.
+- **Bildschirm und Kamera zugleich:** Melden beide Seiten Saga 2.4 mit `screen2`, läuft der Bildschirm als eigene
+  Videospur und die Kamera daneben weiter (≤ 300 kbit/s; über TCP/TLS-Relais pausiert sie mit Hinweis „Kamera pausiert
+  (langsame Verbindung)“). Mit Saga 2.3 und älter ersetzt der Bildschirm wie bisher im Web das Kamerabild.
+- **Empfang:** Der Bildschirm erscheint groß und ganz (nicht beschnitten), die Kamera klein daneben; Tippen auf das
+  kleine Bild bzw. „Ansicht tauschen“ tauscht. Bild im Bild (iPhone/iPad) und das Schwebefenster (Mac) zeigen den
+  Bildschirm. Bildschirme aus dem Web (2.3 und 2.4) werden erkannt.
+- **Datenschutz:** Vor dem ersten Teilen ein Hinweis (alles in der Auswahl ist sichtbar, auch Mitteilungen und
+  Passwörter; nichts wird aufgezeichnet oder gespeichert) mit „Nicht mehr anzeigen“. Während des Teilens eine rote
+  Leiste „Du teilst deinen Bildschirm“ mit „Teilen beenden“, beim Gegenüber „… teilt den Bildschirm“. Teilen endet
+  beim Auflegen und bei Verlust der Verbindung.
+- **Leistung:** Bildschirm je Weg mit 2,5 / 1,8 / 1,2 Mbit/s und 15 / 15 / 8 Bildern je Sekunde, Auflösung bleibt
+  (Text lesbar). Am Mac gehen die Bilder ohne Kopie an den Encoder; die iPhone-Erweiterung puffert nicht (verwirft
+  statt zu stauen) und bleibt so unter ihrer Speichergrenze.
+- **Technik:** Neue Erweiterung `HlidskjalfBroadcast` (iPhone/iPad, eigene App-ID `<App-ID>.broadcast` mit derselben
+  App-Gruppe, siehe `ios/README.md`). Signale tragen `tracks`/`msid` (Rolle je m-Zeile), `state.screen_mid` und
+  `screen_audio`; die Bildschirm-m-Zeile geht beim Ende auf `recvonly` und wird beim nächsten Teilen wiederverwendet.
+
+### Neu – Saga 2.4, Etappe E0/E1: Anruf-Grundlage und Bild im Bild (iOS/iPadOS/macOS)
+**iOS/iPadOS/macOS – Bild im Bild und stabilere Anrufe:**
+- **Bild im Bild (iPhone/iPad):** Ein Videoanruf läuft in einem kleinen, verschiebbaren Fenster weiter – beim
+  Verkleinern („Zurück zur App“) und automatisch beim Wechsel in eine andere App. Gezeigt werden nur Video und Name,
+  keine Chat-Inhalte. „Zurück“ im Fenster öffnet den Anruf wieder im Vollbild. Die eigene Kamera läuft weiter, wo iOS
+  das für Videoanruf-Apps erlaubt; sonst pausiert sie und das Gegenüber sieht „Kamera aus“.
+- **Schwebefenster (Mac):** Wird das Fenster „Anruf“ ins Dock gelegt oder ganz verdeckt – oder per Knopf
+  „Bild im Bild“ oben links –, erscheint ein kleines Fenster über allen anderen (auch auf allen Schreibtischen und neben
+  Vollbild-Apps) mit dem Bild des Gegenübers und den Knöpfen Stumm, Auflegen und „Zurück zum Anruf“. Größe und Ort
+  bleiben erhalten.
+- **Weniger Daten im Bild im Bild:** Das Gegenüber wird gebeten, ein kleineres Bild zu senden (≤ 300 kbit/s, halbe
+  bzw. drittel Auflösung) – das spart Datenvolumen und Akku auf beiden Seiten. Ältere Apps ignorieren den Hinweis.
+- **Bitrate je Verbindungsweg:** Alle 2 s wird der Weg geprüft (direkt, über Relais per UDP oder per TCP/TLS 443) und
+  die Senderate angepasst (z. B. über TCP/TLS ≤ 800 kbit/s und 540p, Ton 24 kbit/s) – weniger Ruckeln und Einfrieren
+  über den TURN-Server.
+- **Netzwechsel ohne Abbruch:** Wechselt das Gerät zwischen WLAN und Mobilfunk oder bricht die Verbindung kurz weg,
+  baut Saga sie per ICE-Restart neu auf („Verbindung wird neu aufgebaut …“) statt aufzulegen – sofern das Gegenüber
+  Saga 2.4 nutzt. Mit Saga 2.3 und älter verhält sich ein Anruf genau wie bisher.
+- **Technik (saga-call v3):** Signale tragen zusätzlich `pc`, `caps` und `n`; Neuverhandlung nach „Perfect
+  Negotiation“ (gleichzeitige Angebote werden sauber aufgelöst) nur mit Gegenübern, die `reneg` melden; unbekannte
+  Signaltypen werden ignoriert. Die Prüfung der Fingerabdrücke gilt auch für jede Neuverhandlung.
+- **Leistung:** Bilder aus dem Hardware-Decoder werden für das PiP-Fenster nicht kopiert (geprüft in den Logik-Tests,
+  rund 13 µs je Bild am Mac). Eine Messanleitung für den Akku steht in `ios/README.md` („Energie messen: Bild im
+  Bild“); die Akku- und Wärmewerte werden auf echten Geräten gemessen.
+
 ### Behoben – Chats über Servergrenzen
 **Android – eigene Nachricht blieb auf „⏳ wird zugestellt“:** In einem Direkt-Chat, dessen Heim der andere Server ist,
 zeigte die App eine längst zugestellte eigene Nachricht weiter als ausstehend (Server 2.3.0 melden die sofortige

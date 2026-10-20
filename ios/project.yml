@@ -57,7 +57,7 @@ targets:
         NSCameraUsageDescription: Take photos for notes, scan QR codes to sign in and make video calls      # uebersetzt: App/InfoPlist.xcstrings
         NSMicrophoneUsageDescription: Talk in audio and video calls
         UIBackgroundModes: [voip, audio, remote-notification]   # Anrufe: PushKit/CallKit, Ton im Hintergrund (nur iOS)
-        NSPhotoLibraryAddUsageDescription: Save images from notes
+        NSPhotoLibraryAddUsageDescription: Save images from notes and videos from chats
         CFBundleURLTypes:
           - CFBundleURLName: $(SAGA_BUNDLE_ID)
             CFBundleURLSchemes: [hlidskjalf, saga]
@@ -82,6 +82,8 @@ targets:
         destinationFilters: [iOS]
       - target: HlidskjalfShareMac
         destinationFilters: [macOS]
+      - target: HlidskjalfBroadcast                       # 2.4: Bildschirm teilen (ReplayKit), nur iPhone/iPad
+        destinationFilters: [iOS]
   HlidskjalfWidget:
     type: app-extension
     supportedDestinations: [iOS, macOS]
@@ -131,6 +133,30 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).share
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_ENTITLEMENTS: Share/Share.entitlements
+  # 2.4 E3: Bildschirm teilen auf iPhone/iPad. Bilder gehen ueber einen Unix-Socket im Container der App-Gruppe an die
+  # App (Shared/ScreenFrame.swift); keine WebRTC-Bibliothek in der Erweiterung (Speichergrenze ca. 50 MB).
+  # Signierung: eigene App-ID $(SAGA_BUNDLE_ID).broadcast mit derselben App-Gruppe (build-adhoc.sh/-testflight.sh legen
+  # sie mit -allowProvisioningUpdates automatisch an, siehe ios/README.md)
+  HlidskjalfBroadcast:
+    type: app-extension
+    platform: iOS
+    sources: [Broadcast, Shared/ScreenFrame.swift, Shared/Localizable.xcstrings]
+    info:
+      path: Broadcast/Info.plist
+      properties:
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleDisplayName: Saga
+        SagaAppGroup: $(SAGA_APP_GROUP)                    # Socket im Container der App-Gruppe
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.broadcast-services-upload
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SampleHandler
+          RPBroadcastProcessMode: RPBroadcastProcessModeSampleBuffer
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).broadcast
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_ENTITLEMENTS: Broadcast/Broadcast.entitlements
   HlidskjalfShareMac:
     type: app-extension
     platform: macOS

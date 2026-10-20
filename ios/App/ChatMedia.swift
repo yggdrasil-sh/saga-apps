@@ -192,12 +192,15 @@ actor ChatMedia {
     /// alles vergessen (Abmelden, "Neu beginnen", Geraet entfernt)
     nonisolated static func clearAll() {
         memory.removeAllObjects(); aspects.removeAllObjects(); ChatBlobCache.shared.clear()
+        ChatVideoCache.shared.clear()                                  // 2.4: Video-Ciphertext (eigener Cache)
     }
     /// Chat geloescht (2.1): entschluesselte Vorschaubilder im Speicher und Ciphertext auf der Platte dieses Chats weg
     nonisolated static func purge(chatID: Int, extra: [String] = []) {
-        for id in ChatBlobCache.shared.purge(chatID: chatID, extra: extra) {
+        let ids = ChatBlobCache.shared.purge(chatID: chatID, extra: extra)
+        for id in ids {
             memory.removeObject(forKey: id as NSString); aspects.removeObject(forKey: id as NSString)
         }
+        ChatVideoCache.shared.remove(ids)                              // 2.4: Video-Abschnitte dieser Kennungen
     }
 
     // Plaetze (hoechstens 4 Downloads/Entschluesselungen gleichzeitig)

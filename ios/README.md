@@ -80,6 +80,55 @@ Die Anruf-Signalisierung (`App/CallCrypto.swift`, `App/CallLogic.swift`) prüft 
   Notifications“ reicht, der Server schickt mit demselben APNs-Schlüssel (.p8) an das Thema `<App-ID>.voip`.
 - Mac: Kamera/Mikrofon und eingehende Verbindungen sind in `App/App-macOS*.entitlements` freigegeben (Sandbox).
 - Tests ohne Kamera/Mikrofon (Simulator, Debug): Startparameter `-hkFakeMedia YES` (Testbild + Testton, kein CallKit).
+- **Saga 2.4 (saga-call v3, Vertrag: `docs/APP-API.md` im Saga-Repo):** Signal-Bodys tragen zusätzlich `pc`
+  (sortiertes Paar der device_ids, vom Anrufer festgelegt), `caps` (`reneg` nur mit Server-Feature `reneg`, dazu `want`,
+  `bye`), `n` und bei ICE-Restart `restart`; ICE-Kandidaten tragen `usernameFragment`; neu sind `bye` und
+  `state.pip`/`want`/`path`. Neuverhandlung (Perfect Negotiation, höflich = größere device_id) und ICE-Restart
+  (`disconnected` > 2,5 s, `failed`, Netzwechsel per `NWPathMonitor`; 3 Versuche, 20 s) nur, wenn beide Seiten `reneg`
+  melden – mit 2.3-Apps bleibt alles wie bisher. Bitrate je Pfad (direkt/Relay-UDP/Relay-TCP, alle 2 s aus getStats; es gilt der
+  schlechtere von eigenem und gemeldetem Weg) über `RTCRtpSender.parameters`. Logik: `App/CallV3Logic.swift`, Tests: `Tests/Logic/CallV3Tests.swift`.
+- **Bild im Bild:** iPhone/iPad über `AVPictureInPictureController` (Videoanruf-Quelle, `AVSampleBufferDisplayLayer`,
+  `App/CallPiP.swift`, Bilder ohne Kopie: `App/PiPBuffer.swift`); Mac als schwebendes `NSPanel` (`App/CallPanel.swift`).
+  Kamera im PiP nur, wo `AVCaptureSession.isMultitaskingCameraAccessSupported` gilt (sonst pausiert sie, das Gegenüber
+  sieht „Kamera aus“); eine zusätzliche Berechtigung wird nicht eingetragen.
+- **Mehrere Geräte und Gruppen (2.4, Vertrag „Anrufe: Mehrgeräte und Gruppen“):** Ein Anruf ist ein Raum mit je
+  anderem Gerät einer Verbindung (`App/CallLink.swift`, Mesh, `pc` = sortiertes Paar). Begleitgerät, „Hierher
+  übernehmen“, Gruppenanrufe, Leiste „Anruf läuft“ und Teilnehmerliste mit Stand: `App/CallRoom.swift`; Logik
+  `App/CallRoomLogic.swift`, Tests `Tests/Logic/CallRoomTests.swift`. Höchstens 4 Geräte mit Video, 6 nur mit Ton.
+- **Bildschirm teilen (2.4, Vertrag „Anrufe: Bildschirm v2“):** Betriebsart B (eigene Video-m-Zeile über die
+  Neuverhandlung, Kamera daneben ≤ 300 kbit/s bzw. über Relais TCP aus) nur, wenn beide Seiten `reneg` und `screen2`
+  melden; sonst A (Bildschirm statt Kamera auf der Kamera-m-Zeile, wie 2.1/2.3). Beim Ende geht die Bildschirm-m-Zeile
+  auf `recvonly` und wird beim nächsten Teilen wiederverwendet. Empfang: Zuordnung über `state.screen_mid` und die
+  Rollen `tracks` (mid ist auf beiden Seiten gleich). Logik: `App/ScreenShareLogic.swift`, Tests:
+  `Tests/Logic/ScreenShareTests.swift`.
+  - Mac: ScreenCaptureKit mit `SCContentSharingPicker` (Freigabe je Sitzung, keine dauerhafte
+    Bildschirmaufnahme-Berechtigung), Saga selbst ist ausgeschlossen; NV12-Bilder gehen ohne Kopie an WebRTC
+    (`App/ScreenCapture.swift`).
+  - iPhone/iPad: ReplayKit-Erweiterung `HlidskjalfBroadcast` (`Broadcast/SampleHandler.swift`, Bundle-ID
+    `<App-ID>.broadcast`, dieselbe App-Gruppe). Sie verkleinert auf ≤ 1920 (heiß 1280) lange Kante, ≤ 10 fps (heiß 5)
+    und schickt NV12 über einen Unix-Socket im App-Gruppen-Container (`Shared/ScreenFrame.swift`); ist das vorige Bild
+    noch unterwegs, wird das neue verworfen (kein Puffern, Speichergrenze der Erweiterung ca. 50 MB).
+  - Systemton wird nicht übertragen (`screen_audio: false`): die WebRTC-Fassung hat am Mac kein eigenes Audio-Gerät,
+    am iPhone bräuchte der Ton der Erweiterung einen zweiten Weg in die Tonspur.
+  - **Signierung:** Die Erweiterung braucht eine eigene App-ID `<App-ID>.broadcast` mit der Fähigkeit „App Groups“
+    (dieselbe Gruppe wie die App). `build-adhoc.sh`/`build-testflight.sh` legen App-ID und Profil mit
+    `-allowProvisioningUpdates` selbst an, wenn der API-Schlüssel die Rolle „Admin“ oder „App Manager“ hat. Sonst einmal
+    im Developer-Konto: Certificates, Identifiers & Profiles → Identifiers → + → App IDs → App → Bundle ID (explizit)
+    `<App-ID>.broadcast` → App Groups anhaken → Continue/Register; dann den Identifier öffnen → App Groups → Configure →
+    die Gruppe der App wählen → Save. Für MDM/Ad-hoc ein Profil „Ad Hoc“ für diese App-ID mit den registrierten Geräten.
+
+#### Energie messen: Bild im Bild (Konzept 2.4 §3.5/§8)
+Nur auf echten Geräten (iPhone 12-Klasse und aktuelles iPhone), Debug-Build über Xcode, Gegenüber im selben WLAN,
+Bildschirmhelligkeit fest, Akku über 50 %, kein Ladekabel bei MetricKit-Läufen. Jede Messung dreimal, Median.
+1. **Vollbild (Referenz):** 10 min Videoanruf im Vollbild. In Xcode → Debug-Navigator → *Energy Impact* den
+   Durchschnitt notieren; parallel Instruments → *Time Profiler* + *Thermal State* mitlaufen lassen.
+2. **Bild im Bild:** Gleicher Anruf, nach 30 s „Zurück zur App“ (Pfeil oben links) bzw. Home-Geste – PiP öffnet sich.
+   10 min so lassen, dieselben Werte notieren.
+3. **Gegenseite:** Ist das Gegenüber ein Browser (Saga 2.4), zeigt `chrome://webrtc-internals` → `outbound-rtp`
+   (video) während Schritt 2 die gesendete Rate: erwartet ≤ 300 kbit/s, nach der Rückkehr wieder bis 1,5 Mbit/s.
+4. **Ziel:** Energie im PiP ≤ 90 % des Vollbilds, Wärme keine Stufe höher, Mehr-CPU für die Bildübergabe ≤ 3 %
+   (Time Profiler: `PiPRenderer.renderFrame` + `PiPSampleMaker.wrap`). Werte in die Tabelle des Release-Dokuments.
+5. **MetricKit (optional):** Zwei Läufe an verschiedenen Tagen, `MXCPUMetric`/`MXDisplayMetric` aus dem Tagesbericht.
 
 ### Mitteilungen (APNs)
 iOS/iPadOS haben die Berechtigung `aps-environment` immer (`App/App-iOS.entitlements`); die App-ID braucht dafür die

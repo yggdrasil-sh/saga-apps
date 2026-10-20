@@ -60,9 +60,14 @@ struct ConversationView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #else
-        .navigationSubtitle(conv.info.map { ChatSubtitle.text($0) } ?? "")
+        .navigationSubtitle(presenceText ?? conv.info.map { ChatSubtitle.text($0) } ?? "")   // 2.4: online / zuletzt online
         #endif
         .toolbar {
+            #if os(iOS)
+            if let s = presenceText, let t = conv.info?.title {                   // 2.4: Name, darunter online / zuletzt online
+                ToolbarItem(placement: .principal) { ChatTitleWithPresence(title: t, status: s, online: chat.presenceOf(conv.info)?.online == true) }
+            }
+            #endif
             // Anrufen (2.1): nur im Direkt-Chat
             ToolbarItemGroup(placement: .primaryAction) {
                 if let i = conv.info, i.kind == "dm", let p = i.peer, canCall {
@@ -70,6 +75,11 @@ struct ConversationView: View {
                         .help(Text("Anrufen"))
                     Button { store.calls.start(chatID: chatID, peer: p, video: true, fed: i.fed) } label: { Label("Videoanruf", systemImage: "video") }
                         .help(Text("Videoanruf"))
+                } else if let i = conv.info, canGroupCall(i) {               // 2.4 E5: Gruppen-, freie und Seiten-Chats
+                    Button { store.calls.startGroup(i, video: false) } label: { Label("Gruppenanruf", systemImage: "phone") }
+                        .help(Text("Gruppenanruf"))
+                    Button { store.calls.startGroup(i, video: true) } label: { Label("Gruppen-Videoanruf", systemImage: "video") }
+                        .help(Text("Gruppen-Videoanruf"))
                 }
             }
             // Suche im Chat steckt im Menue (Befehl-F): eine zweite Lupe neben dem Suchfeld der Liste/Seitenleiste verwirrt
@@ -81,6 +91,7 @@ struct ConversationView: View {
             ChatPerf.begin()                                                                // nur fuer Tests: Messung
             #endif
             await conv.load()
+            chat.presenceSoon()                                                             // 2.4: Online-Status des Gegenuebers
             #if DEBUG
             if ChatPerf.on { await perfRun() }
             if UserDefaults.standard.bool(forKey: "hkChatSafety"), let p = conv.info?.peer { try? await Task.sleep(for: .seconds(2.5)); safetyPeer = p }   // nur fuer Tests
@@ -112,7 +123,7 @@ struct ConversationView: View {
             if conv.deliveryDue() { await conv.checkDelivery() }
             await conv.deliveryLoop()
         }
-        .onDisappear { if chat.open === conv { chat.open = nil } }
+        .onDisappear { if chat.open === conv { chat.open = nil }; chat.presenceSoon() }   // 2.4: Online-Abo dieses Chats endet
         .onChange(of: conv.purged) { _, _ in text = ""; files = []; replyTo = nil; askDelete = nil }   // Chat geloescht: Entwurf weg
         .sheet(item: $deleting) { c in ChatDeleteSheet(chat: chat, c: c) }
         .modifier(ChatMediaInput(files: $files, pickImmich: $pickImmich, immichOn: $immichOn, enabled: !conv.notFound, maxBytes: chat.me.fileMax))
@@ -125,10 +136,14 @@ struct ConversationView: View {
         }
         .sheet(isPresented: $showMembers) { MembersSheet(conv: conv) { p in showMembers = false; safetyPeer = p } }
         .sheet(isPresented: $pickPage) { PagePickSheet { id, title in text += (text.isEmpty || text.hasSuffix(" ") ? "" : " ") + "[[note:\(id)]] "; conv.notes[id] = (title, "") } }
-        .photosPicker(isPresented: $pickPhotos, selection: $photoItems, maxSelectionCount: 5, matching: .images)
+        .photosPicker(isPresented: $pickPhotos, selection: $photoItems, maxSelectionCount: 5, matching: .any(of: [.images, .videos]))
         .onChange(of: photoItems) { _, items in
             Task {
                 for it in items {
+                    if it.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {   // 2.4: Video als Datei, nie im Speicher
+                        if let m = try? await it.loadTransferable(type: PickedMovie.self) { files.append(ChatVideoPick.pending(movie: m, index: files.count + 1)) }
+                        continue
+                    }
                     if let d = try? await it.loadTransferable(type: Data.self) {
                         let jpg = Self.jpeg(d)
                         files.append(ChatPendingFile(name: "bild-\(files.count + 1).\(jpg.ext)", mime: jpg.mime, data: jpg.data))
@@ -140,6 +155,7 @@ struct ConversationView: View {
         .fileImporter(isPresented: $pickFile, allowedContentTypes: [.item], allowsMultipleSelection: true) { r in
             for u in (try? r.get()) ?? [] {
                 let ok = u.startAccessingSecurityScopedResource(); defer { if ok { u.stopAccessingSecurityScopedResource() } }
+                if let v = ChatVideoPick.pending(fromFile: u) { files.append(v); continue }      // 2.4: Video als Kopie (Datei)
                 if let d = try? Data(contentsOf: u) {
                     files.append(ChatPendingFile(name: u.lastPathComponent, mime: UTType(filenameExtension: u.pathExtension)?.preferredMIMEType ?? "application/octet-stream", data: d))
                 }
@@ -226,7 +242,8 @@ struct ConversationView: View {
                         }
                         if let e = m.call {
                             CallEntryRow(entry: e, mine: m.mine, date: m.date) {
-                                if let p = conv.info?.peer, canCall { store.calls.start(chatID: chatID, peer: p, video: e.media == "video", fed: conv.info?.fed) }
+                                if e.group, let i = conv.info, canGroupCall(i) { store.calls.startGroup(i, video: e.media == "video") }   // 2.4 E5
+                                else if let p = conv.info?.peer, canCall { store.calls.start(chatID: chatID, peer: p, video: e.media == "video", fed: conv.info?.fed) }
                             }.id(m.id)
                         } else if let s = m.sys {
                             FedSysRow(line: s, date: m.date, myHandle: conv.fed?.myHandle).id(m.id)   // 2.3: Systemzeile
@@ -238,6 +255,7 @@ struct ConversationView: View {
                                       openPage: { id in nav.push(PageRoute(id: id)) },
                                       checkSafety: { safetyPeer = ChatMember(username: m.sender, name: m.senderName, me: false) })
                             .id(m.id)
+                            .onAppear { conv.saw(m) }                                   // 2.4: Bestaetigung erst, wenn sichtbar
                         }
                     }
                     if let p = conv.aiPending {                                    // KI antwortet gerade (Strom)
@@ -272,8 +290,14 @@ struct ConversationView: View {
         }
     }
     private var shown: [ChatMessage] { conv.messages }
+    /// 2.4: "online" bzw. "zuletzt online …" im Direkt-Chat (nil = nichts zeigen)
+    private var presenceText: String? { PresenceText.text(chat.presenceOf(conv.info)) }
     /// Anrufe: Server kann es; ueber Servergrenzen nur aus angenommenen, beschreibbaren Chats (Anfragen klingeln nie)
     private var canCall: Bool { store.calls.enabled && (conv.fed?.callable ?? true) }
+    /// 2.4 E5: Gruppenanruf nur, wenn der Server es fuer diesen Chat meldet und dieses Geraet "multi" kann
+    private func canGroupCall(_ i: ChatSummary) -> Bool {
+        CallRoom.groupButton(kind: i.kind, group: i.callGroup, myCaps: store.calls.myCaps, enabled: store.calls.enabled) && !(conv.fed?.request ?? false)
+    }
 
     // MARK: Eingabe
 
@@ -296,14 +320,16 @@ struct ConversationView: View {
                     Button { replyTo = nil } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Antwort abbrechen")
                 }.frame(height: 36)
             }
+            ChatVideoUploadsBar(chatID: chatID)                              // 2.4: Videos werden hochgeladen
             if !files.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack {
-                        ForEach(files) { f in
+                        ForEach($files) { $f in
                             HStack(spacing: 4) {
                                 PendingFileIcon(file: f)
                                 Text(verbatim: f.name).lineLimit(1)
-                                Button { files.removeAll { $0.id == f.id } } label: { Image(systemName: "xmark") }.buttonStyle(.plain).accessibilityLabel("Entfernen")
+                                if f.isVideo { PendingVideoToggle(file: $f) }
+                                Button { let id = f.id; if f.isVideo { ChatVideoFiles.remove(f.fileURL) }; files.removeAll { $0.id == id } } label: { Image(systemName: "xmark") }.buttonStyle(.plain).accessibilityLabel("Entfernen")
                             }
                             .font(.caption).padding(.horizontal, 8).padding(.vertical, 4).background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
                         }
@@ -524,7 +550,13 @@ struct CallEntryRow: View {
         case .ended(let d):
             let base = video ? (mine ? String(localized: "Ausgehender Videoanruf") : String(localized: "Eingehender Videoanruf"))
                              : (mine ? String(localized: "Ausgehender Anruf") : String(localized: "Eingehender Anruf"))
+            if entry.group {                                                // 2.4 E5: Gruppenanruf mit Zahl der Personen
+                let g = video ? String(localized: "Gruppen-Videoanruf") : String(localized: "Gruppenanruf")
+                let n = entry.n.map { String(localized: "\($0) Personen") }
+                return ([g] + [n, d].compactMap { $0 }).joined(separator: " · ")
+            }
             return d.map { base + " · " + $0 } ?? base
+        case .missed where entry.group: return video ? String(localized: "Verpasster Gruppen-Videoanruf") : String(localized: "Verpasster Gruppenanruf")
         case .missed: return mine ? String(localized: "Nicht angenommen") : (video ? String(localized: "Verpasster Videoanruf") : String(localized: "Verpasster Anruf"))
         case .declined: return String(localized: "Anruf abgelehnt")
         case .busy: return String(localized: "Besetzt")
@@ -547,6 +579,7 @@ struct MessageBubble: View {
     var openPage: (Int) -> Void
     var checkSafety: () -> Void = {}
     @State private var info = false
+    @State private var readBy = false                             // 2.4: "Gelesen von" (Gruppen)
     @EnvironmentObject var store: Store
     /// bestaetigte KI-Antwort (2.1): links mit Bild + Name der KI, "gefragt von …"
     private var isAI: Bool { m.aiState == .ok }
@@ -587,6 +620,7 @@ struct MessageBubble: View {
                     FedDeliveryMark(delivery: m.delivery)                       // 2.3: wird zugestellt / nicht zugestellt
                     Text(m.date, format: .dateTime.hour().minute())
                     if m.expiresAt != nil { Image(systemName: "timer") }
+                    ReceiptTickView(tick: conv.tick(m), group: conv.isGroup) { readBy = true }   // 2.4: ✓ zugestellt, ✓✓ gelesen
                 }.font(.caption2).foregroundStyle(.secondary)
             }
             .contextMenu {
@@ -595,8 +629,12 @@ struct MessageBubble: View {
                 if m.mine && m.delivery == .failed && m.content != nil {
                     Button { Task { await conv.resend(m) } } label: { Label("Erneut senden", systemImage: "arrow.clockwise") }
                 }
+                if mine && conv.isGroup && conv.receiptsActive && m.delivery == .delivered {   // 2.4
+                    Button { readBy = true } label: { Label("Gelesen von …", systemImage: "checkmark.circle") }
+                }
                 if m.mine { Button(role: .destructive) { delete() } label: { Label("Für alle löschen", systemImage: "trash") } }
             }
+            .sheet(isPresented: $readBy) { ReadBySheet(conv: conv, message: m) }
             .accessibilityElement(children: .combine)
             .accessibilityHint(m.verified ? Text(verbatim: "") : Text("Echtheit nicht bestätigt"))
             if !mine { Spacer(minLength: 48) }
@@ -716,7 +754,9 @@ struct ChatAttachmentView: View {
     let file: ChatFileRef
     @ObservedObject var conv: ConversationModel
     var body: some View {
-        if file.isImage || file.thumb != nil { ChatImageThumb(file: file, conv: conv) } else { ChatFileRow(file: file, conv: conv) }
+        if file.isVideo || file.isV2 { ChatVideoThumb(file: file, conv: conv) }            // 2.4: Poster, Player erst beim Antippen
+        else if !VideoSendLogic.known(file.x) { ChatNewerFormatRow(file: file) }           // neueres Format: nicht still scheitern
+        else if file.isImage || file.thumb != nil { ChatImageThumb(file: file, conv: conv) } else { ChatFileRow(file: file, conv: conv) }
     }
 }
 
@@ -1055,11 +1095,11 @@ struct PendingFileIcon: View {
     var body: some View {
         Group {
             if let thumb { Image(decorative: thumb, scale: 2).resizable().scaledToFill().frame(width: 36, height: 36).clipShape(RoundedRectangle(cornerRadius: 6)) }
-            else { Image(systemName: file.mime.hasPrefix("image/") ? "photo" : "doc") }
+            else { Image(systemName: file.isVideo ? "film" : file.mime.hasPrefix("image/") ? "photo" : "doc") }
         }
         .accessibilityHidden(true)
         .task(id: file.id) {
-            guard file.mime.hasPrefix("image/") else { return }
+            guard file.mime.hasPrefix("image/"), !file.isVideo else { return }
             let d = file.data
             thumb = await Task.detached(priority: .utility) { () -> CGImage? in
                 guard let src = CGImageSourceCreateWithData(d as CFData, nil) else { return nil }

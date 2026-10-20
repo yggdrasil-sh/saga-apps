@@ -146,15 +146,36 @@ final class CallCamera {
     private var camera: RTCCameraVideoCapturer?
     private var fake: FakeVideoCapturer?
     private(set) var front = true
+    /// kurze Seite des Aufnahmeformats (Bitrate-Regeln: scaleResolutionDownBy relativ dazu)
+    private(set) var height = 720
+    /// 2.4: Kamera vom System unterbrochen (true) bzw. wieder frei (false), z. B. im Bild-im-Bild ohne Multitasking-Freigabe
+    var onInterrupt: ((Bool) -> Void)?
+    private var observers: [NSObjectProtocol] = []
     init?(factory: RTCPeerConnectionFactory) {
         source = factory.videoSource()
         track = factory.videoTrack(with: source, trackId: "v" + ChatCrypto.hexID().prefix(8))
         if CallEnv.fakeMedia {
-            let f = FakeVideoCapturer(delegate: source); fake = f; f.start()
+            let f = FakeVideoCapturer(delegate: source); fake = f; f.start(); height = 360
             return
         }
         guard RTCCameraVideoCapturer.captureDevices().isEmpty == false else { return nil }
-        camera = RTCCameraVideoCapturer(delegate: source)
+        let cap = RTCCameraVideoCapturer(delegate: source)
+        camera = cap
+        #if os(iOS)
+        // Kamera im Bild-im-Bild (Videoanruf-App, iOS 16+): nur wenn das System es fuer diese App erlaubt; sonst
+        // pausiert sie im Hintergrund und das Gegenueber bekommt cam=false (kein Fehler)
+        let session = cap.captureSession
+        if session.isMultitaskingCameraAccessSupported && !session.isMultitaskingCameraAccessEnabled {
+            session.beginConfiguration(); session.isMultitaskingCameraAccessEnabled = true; session.commitConfiguration()
+        }
+        let nc = NotificationCenter.default
+        observers.append(nc.addObserver(forName: AVCaptureSession.wasInterruptedNotification, object: session, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.onInterrupt?(true) }
+        })
+        observers.append(nc.addObserver(forName: AVCaptureSession.interruptionEndedNotification, object: session, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.onInterrupt?(false) }
+        })
+        #endif
         start()
     }
     private func start() {
@@ -168,6 +189,8 @@ final class CallCamera {
             return abs(Int(da.width) - 1280) + abs(Int(da.height) - 720) < abs(Int(db.width) - 1280) + abs(Int(db.height) - 720)
         }) ?? formats.first
         guard let fmt else { return }
+        let dims = CMVideoFormatDescriptionGetDimensions(fmt.formatDescription)
+        height = Int(min(dims.width, dims.height))
         let fps = min(30, Int(fmt.videoSupportedFrameRateRanges.map(\.maxFrameRate).max() ?? 30))
         camera.startCapture(with: dev, format: fmt, fps: fps)
     }
@@ -175,7 +198,11 @@ final class CallCamera {
     func switchCamera() { front.toggle(); camera?.stopCapture(); start() }
     var canSwitch: Bool { camera != nil && RTCCameraVideoCapturer.captureDevices().count > 1 }
     #endif
-    func stop() { camera?.stopCapture(); fake?.stop(); camera = nil; fake = nil; track.isEnabled = false }
+    func stop() {
+        for o in observers { NotificationCenter.default.removeObserver(o) }
+        observers = []; onInterrupt = nil
+        camera?.stopCapture(); fake?.stop(); camera = nil; fake = nil; track.isEnabled = false
+    }
 }
 
 /// Testbild (nur Tests): Farbbalken mit wanderndem Balken, 640x360 bei 15 fps - keine Kamera noetig

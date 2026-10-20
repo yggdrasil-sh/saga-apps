@@ -51,7 +51,7 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Talk in audio and video calls</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Save images from notes</string>
+	<string>Save images from notes and videos from chats</string>
 	<key>SagaAppGroup</key>
 	<string>$(SAGA_APP_GROUP)</string>
 	<key>SagaDefaultServer</key>

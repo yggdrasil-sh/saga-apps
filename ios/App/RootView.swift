@@ -157,7 +157,10 @@ struct RootView: View {
         .onContinueUserActivity(CSSearchableItemActionType) { a in        // Spotlight-Treffer
             if let id = SpotlightIndex.pageID(a) { nav.peek = nil; nav.path = []; selection = id }
         }
-        .onChange(of: phase, initial: true) { _, p in foreground = p == .active || RootView.forceActive }
+        .onChange(of: phase, initial: true) { _, p in
+            foreground = p == .active || RootView.forceActive
+            store.chat.setAppActive(p == .active || RootView.forceActive)  // 2.4: Gelesen/Online nur im Vordergrund
+        }
         .onChange(of: phase) { _, p in
             if p == .active { Task { await store.refresh(); store.live.start(); await store.calls.checkActive() } }       // im Web angelegte Seiten; Live nur im Vordergrund
             if p == .background { WidgetCenter.shared.reloadAllTimelines(); store.live.stop() }   // Widgets zeigen sofort den neuen Stand

@@ -44,31 +44,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bilder aus Notizen sichern"
+            "value" : "Bilder aus Notizen und Videos aus Chats sichern"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Save images from notes"
+            "value" : "Save images from notes and videos from chats"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Guardar imágenes de las notas"
+            "value" : "Guardar imágenes de las notas y vídeos de los chats"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Сохранение изображений из заметок"
+            "value" : "Сохранение изображений из заметок и видео из чатов"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "บันทึกรูปภาพจากโน้ต"
+            "value" : "บันทึกรูปภาพจากโน้ตและวิดีโอจากแชท"
           }
         }
       }

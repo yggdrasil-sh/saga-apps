@@ -79,6 +79,7 @@ struct SettingsView: View {
             NotificationSettingsSection()                 // Benachrichtigungen (Glocke, 1.4)
             PushSettingsSection(push: store.push)         // Mitteilungen aufs Geraet (1.7)
             ChatDevicesSection(chat: store.chat)          // Chats & Geraete (2.0)
+            ChatPrivacySection(chat: store.chat)          // Datenschutz: Gelesen-Bestaetigungen, Online-Status (2.4)
             MyBackupSection()                             // Mein Backup (2.3, nur wenn der Server es kennt)
             NextcloudSettingsSection()                    // Nextcloud-Dateien in Seiten (2.3)
             ImmichSettingsSection()                       // wie im Web: 👤 → Einstellungen

@@ -26,12 +26,22 @@ struct ChatMessage: Identifiable, Equatable {
     var sys: FedChatLogic.SysLine? = nil
     /// Zustellung in Chats ueber Servergrenzen (2.3): wird zugestellt / nicht zugestellt
     var delivery: FedChatLogic.Delivery = .delivered
+    /// 2.4: Position beim Heim (v2-Chats, fseq) - Gelesen-Bestaetigungen zaehlen dort danach; lokal gilt seq
+    var fseq = 0
     var date: Date { Date(timeIntervalSince1970: created > 0 ? created : ts / 1000) }
     var text: String { content?.text ?? "" }
 }
 
 /// Anhang vor dem Senden
-struct ChatPendingFile: Identifiable, Equatable { let id = UUID(); var name: String; var mime: String; var data: Data }
+struct ChatPendingFile: Identifiable, Equatable {
+    let id = UUID(); var name: String; var mime: String; var data: Data
+    /// 2.4: Video als Datei (nie ganz im Speicher) - Kopie im App-Ordner (ChatVideoFiles.pendingDir)
+    var fileURL: URL? = nil
+    /// 2.4: "optimiert 720p" (Standard auf dem iPhone) oder Original
+    var optimize = false
+    var isVideo: Bool { fileURL != nil && VideoSendLogic.isVideo(mime) }
+    var byteCount: Int64 { fileURL.flatMap { (try? $0.resourceValues(forKeys: [.fileSizeKey]).fileSize).map(Int64.init) } ?? Int64(data.count) }
+}
 
 @MainActor
 final class ConversationModel: ObservableObject {
@@ -54,22 +64,28 @@ final class ConversationModel: ObservableObject {
     private var aiTask: Task<Void, Never>?
     /// Kennung der zuletzt gesendeten Nachricht (fuer die Frage an die KI)
     private(set) var lastSentID: String?
-    private var recipients: [[String: Any]]?
+    var recipients: [[String: Any]]?
     /// 2.3: selbst gepruefte Schluessel der Mitglieder eines Chats ueber Servergrenzen (Handle -> Stand, TOFU)
     @Published var fk: [String: FedKeyState] = [:]
     var fed: FedChatInfo? { info?.fed }
     /// v2: SHA-256 der KI-Antworten je Beleg (aus "done") - wird in v2 mitsigniert
     private var aiHashes: [String: String] = [:]
     private var lastTyping = Date.distantPast
-    private var lastReadSent = 0
+    var lastReadSent = 0
     /// 2.3: eigene Nachrichten, die das Heim schon bei POST bestaetigt hat (FedDelivery)
     private var confirmed: Set<String> = []
     /// 2.3: letzter Abgleich wartender eigener Nachrichten
     private var lastDeliveryCheck = Date.distantPast
+    /// 2.4: Gelesen-Bestaetigungen (ChatReceipts.swift): je Person das groesste "gelesen bis", zuletzt gesendet, sichtbar bis
+    @Published var seen: [String: ReceiptLogic.Seen] = [:]
+    var rcSent = 0
+    var rcAt: Double?
+    var rcLater: Task<Void, Never>?
+    var seenUpTo = 0
 
     init(chatID: Int, model: ChatModel) { self.chatID = chatID; self.model = model }
-    private var store: Store? { model.store }
-    private var me: String { model.me.uid }
+    var store: Store? { model.store }
+    var me: String { model.me.uid }
     var typingNames: [String] { ChatLogic.typing(typing) }
 
     // MARK: Laden
@@ -94,6 +110,7 @@ final class ConversationModel: ObservableObject {
             error = nil
             await markRead()
             if s?.isFed != true { await loadRecipients() }
+            await loadReceipts()                                        // 2.4: Haken ✓✓ (nach den Schluesseln der Mitglieder)
         } catch { self.error = error.localizedDescription }
     }
     func loadOlder() async {
@@ -113,6 +130,7 @@ final class ConversationModel: ObservableObject {
         let devs = j["devices"] as? [String: Any], ids = j["idents"] as? [String: Any]
         var list: [ChatMessage] = []
         for case let m as [String: Any] in (j["messages"] as? [Any] ?? []) {
+            let fseq = ShareJSON.int(m["fseq"]) ?? 0                    // 2.4: Position beim Heim (v2)
             let sender = (m["sender"] as? [String: Any])?["username"] as? String ?? ""
             let name = (m["sender"] as? [String: Any])?["name"] as? String ?? String(localized: "Gelöschtes Konto")
             let avatar = ShareJSON.str((m["sender"] as? [String: Any])?["avatar"])
@@ -123,6 +141,7 @@ final class ConversationModel: ObservableObject {
                                         replyTo: nil, content: nil, verified: true,
                                         mine: e.outgoing(me: me) || (fed != nil && (sender == me || e.from == fed?.myHandle)),   // v2: Anrufer als Prinzipal/Handle
                                         senderAvatar: avatar, call: e))
+                list[list.count - 1].fseq = fseq
                 continue
             }
             if (m["kind"] as? String) == "sys" {                          // Systemzeile (2.3): Klartext-Metadaten vom Heim
@@ -130,6 +149,7 @@ final class ConversationModel: ObservableObject {
                                         ts: ShareJSON.num(m["ts"]) ?? 0, created: ShareJSON.num(m["created"]) ?? 0, expiresAt: ShareJSON.num(m["expires_at"]),
                                         replyTo: nil, content: nil, verified: true, mine: false,
                                         sys: FedChatLogic.sysLine(m["body_ct"] as? String, myHandle: fed?.myHandle)))
+                list[list.count - 1].fseq = fseq
                 continue
             }
             let r: (content: ChatContent?, verified: Bool)?
@@ -150,6 +170,7 @@ final class ConversationModel: ObservableObject {
                                  replyTo: ShareJSON.str(m["reply_to"]), content: r?.content, verified: r?.verified ?? false, mine: sender == me,
                                  senderAvatar: avatar, aiMeta: meta, aiState: aiState)
             cm.delivery = FedChatLogic.delivery(m["fstate"])
+            cm.fseq = fseq
             list.append(cm)
         }
         let known = Set(messages.map(\.id))
@@ -178,6 +199,7 @@ final class ConversationModel: ObservableObject {
         lastReadSent = last
         _ = try? await store.api("api/chats/\(chatID)/read", method: "POST", body: ["seq": last])
         Task { await model.loadList() }
+        await sendReceiptIfDue()                                        // 2.4: Gelesen-Bestaetigung (nur wenn sichtbar)
     }
 
     /// Chat geloescht (2.1): Nachrichten bis upTo (nil = alle) samt entschluesselter Inhalte vergessen; die Ansicht
@@ -197,6 +219,9 @@ final class ConversationModel: ObservableObject {
             // 2.3: eigene wartende Nachricht jetzt zugestellt bzw. abgewiesen
             if let id = d["id"] as? String, let i = messages.firstIndex(where: { $0.id == id }), messages[i].delivery != .delivered {
                 messages[i].delivery = FedChatLogic.liveDelivery(d)
+            }
+            if let id = d["id"] as? String, let f = ShareJSON.int(d["fseq"]), f > 0, let i = messages.firstIndex(where: { $0.id == id }) {
+                messages[i].fseq = f                                    // 2.4: Position der zugestellten eigenen Nachricht
             }
             Task { await fetchNew() }
         case "chat.deleted": if let id = d["id"] as? String { messages.removeAll { $0.id == id } }
@@ -255,7 +280,17 @@ final class ConversationModel: ObservableObject {
     @discardableResult
     func send(text: String, replyTo: String?, files: [ChatPendingFile], kind: String = "msg", title: String? = nil,
               ai: (reply: String, name: String)? = nil) async -> Bool {
-        guard let store, let k = model.keys else { return false }
+        guard let store, model.keys != nil else { return false }
+        // 2.4: Videos gehen ueber den Video-Weg (Poster, "optimiert 720p", v1 oder saga-file/v2, Upload im Hintergrund,
+        // Fortschritt ueber dem Eingabefeld). Der Text reist mit dem ersten Video; andere Anhaenge gehen sofort.
+        let vids = files.filter(\.isVideo)
+        if !vids.isEmpty, kind == "msg", ai == nil {
+            for (i, v) in vids.enumerated() {
+                ChatVideoUploads.shared.enqueue(chatID: chatID, file: v, text: i == 0 ? text : "", replyTo: i == 0 ? replyTo : nil)
+            }
+            let rest = files.filter { !$0.isVideo }
+            return rest.isEmpty ? true : await send(text: "", replyTo: nil, files: rest)
+        }
         sending = true; sendError = nil; defer { sending = false }
         do {
             // Anhaenge zuerst (verschluesselter Blob, Server sieht nur Bytes)
@@ -290,7 +325,34 @@ final class ConversationModel: ObservableObject {
             await Task.detached(priority: .utility) {                     // Platte nicht im UI-Thread beschreiben
                 for p in primed { ChatMedia.prime(p.0, image: p.1, origBlob: p.2, thumbBlob: p.3) }
             }.value
-            var content = ChatContent(type: kind == "title" ? "title" : "text", text: text, title: title, files: refs, notes: ChatLogic.noteRefs(text),
+            return try await post(text: text, title: title, refs: refs, ids: fit.ids, replyTo: replyTo, kind: kind, ai: ai)
+        } catch { sendError = String(localized: "Nicht gesendet: \(error.localizedDescription)") }
+        return false
+    }
+
+    /// Video fertig hochgeladen (2.4): Nachricht mit den fertigen Anhaengen senden (wirft bei Fehlern)
+    func sendPrepared(text: String, replyTo: String?, refs: [ChatFileRef]) async throws {
+        if info == nil { await prepareForSend() }
+        let fit = ChatMediaLogic.sendIDs(refs, maxIDs: model.me.fileIDsPerMsg)
+        guard try await post(text: text, title: nil, refs: fit.refs, ids: fit.ids, replyTo: replyTo, kind: "msg", ai: nil) else {
+            throw APIError.other(String(localized: "Nicht gesendet"))
+        }
+    }
+    /// Nur was zum Senden noetig ist (ohne Verlauf/Gelesen): Chat, Schluessel der Mitglieder - fuer Videos, deren Upload
+    /// fertig wurde, waehrend der Chat nicht offen war
+    func prepareForSend() async {
+        guard let store, let d = try? await store.api("api/chats/\(chatID)?\(model.deviceParam)"), let c = ShareJSON.obj(d)?["chat"] else { return }
+        info = ChatSummary(c)
+        if info?.isFed == true { await fedLoad() } else { await loadRecipients() }
+    }
+
+    /// Inhalt verschluesseln und senden (lokal saga-chat/v1, ueber Servergrenzen v2); true = gesendet
+    private func post(text: String, title: String?, refs: [ChatFileRef], ids: [String], replyTo: String?, kind: String,
+                      ai: (reply: String, name: String)?) async throws -> Bool {
+        guard let store, let k = model.keys else { return false }
+        let fit = (refs: refs, ids: ids)
+        do {
+            var content = ChatContent(type: kind == "title" ? "title" : "text", text: text, title: title, files: fit.refs, notes: ChatLogic.noteRefs(text),
                                       aiReply: ai?.reply, aiName: ai?.name)
             if kind == "title" { content.text = "" }
             let plain = content.json()
@@ -318,7 +380,7 @@ final class ConversationModel: ObservableObject {
                 if kind == "title" { await load(); await model.loadList() } else { await fetchNew() }
                 return true
             }
-        } catch { sendError = String(localized: "Nicht gesendet: \(error.localizedDescription)") }
+        }
         return false
     }
 
@@ -587,7 +649,7 @@ extension ConversationModel {
             // denselben Ciphertext (gleicher Chat, gleicher Schluessel) als neue Dateien hochladen
             var files: [ChatFileRef] = []
             for var f in c.files {
-                f.id = try await reupload(f.id)
+                f.id = f.isV2 ? try await ChatVideoUploads.shared.copyV2(f, chatID: chatID) : try await reupload(f.id)   // 2.4: v2 als Strom
                 if var th = f.thumb { th.id = try await reupload(th.id); f.thumb = th }
                 files.append(f)
             }

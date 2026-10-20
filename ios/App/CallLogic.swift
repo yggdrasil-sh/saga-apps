@@ -68,9 +68,12 @@ enum CallLogic {
 
     struct Candidate: Equatable {
         var candidate: String; var sdpMid: String?; var sdpMLineIndex: Int32
+        /// 2.4 (saga-call v3): ICE-ufrag des Kandidaten (Generation nach ICE-Restart)
+        var usernameFragment: String? = nil
         var dict: [String: Any] {
             var d: [String: Any] = ["candidate": candidate, "sdpMLineIndex": Int(sdpMLineIndex)]
             if let sdpMid { d["sdpMid"] = sdpMid }
+            if let usernameFragment { d["usernameFragment"] = usernameFragment }
             return d
         }
     }
@@ -79,6 +82,8 @@ enum CallLogic {
         case answer(sdp: String, fp: [String])
         case ice([Candidate])
         case state(mic: Bool, cam: Bool, screen: Bool)
+        /// 2.4 (saga-call v3): ein Endgeraet verlaesst den Anruf
+        case bye
         case other(String)
     }
     static func offerBody(sdp: String, media: String) -> String { json(["t": "offer", "sdp": sdp, "media": media, "fp": sdpFingerprints(sdp)]) }
@@ -100,12 +105,14 @@ enum CallLogic {
         case "ice":
             let list = (j["c"] as? [Any] ?? []).prefix(60).compactMap { v -> Candidate? in
                 guard let d = v as? [String: Any], let c = d["candidate"] as? String, !c.isEmpty else { return nil }
-                return Candidate(candidate: c, sdpMid: d["sdpMid"] as? String, sdpMLineIndex: Int32((d["sdpMLineIndex"] as? NSNumber)?.intValue ?? 0))
+                return Candidate(candidate: c, sdpMid: d["sdpMid"] as? String, sdpMLineIndex: Int32((d["sdpMLineIndex"] as? NSNumber)?.intValue ?? 0),
+                                 usernameFragment: (d["usernameFragment"] as? String).flatMap { $0.isEmpty ? nil : $0 })
             }
             return .ice(list)
         case "state":
             return .state(mic: (j["mic"] as? Bool) != false, cam: (j["cam"] as? Bool) == true, screen: (j["screen"] as? Bool) == true)
-        default: return .other(t)
+        case "bye": return .bye
+        default: return .other(t)                                        // unbekannte t-Typen: ignorieren (Aufrufer)
         }
     }
 
@@ -173,7 +180,7 @@ enum CallLogic {
     /// brachte die App zum Absturz.
     enum TapRoute: Equatable { case call(String), open(minimizeFirst: Bool) }
     static func tapRoute(kind: String?, url: String?, call: String?, phase: String, minimized: Bool, callKit: Bool) -> TapRoute {
-        if kind == "call" || callFromURL(url) != nil {
+        if kind == "call" || kind == "call.group" || callFromURL(url) != nil {
             if let c = call ?? callFromURL(url), isCallID(c) { return .call(c) }
         }
         return .open(minimizeFirst: showsFullScreen(phase: phase, minimized: minimized, callKit: callKit))
@@ -207,11 +214,14 @@ enum CallLogic {
 
     struct Entry: Equatable {
         var call: String; var media: String; var status: String; var dur: Int?; var from: String; var to: String
+        /// 2.4 E5: Gruppenanruf, Zahl der Personen, die dabei waren
+        var group = false; var n: Int?
         init?(json d: Data) {
             guard let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any], (j["type"] as? String) == "call" else { return nil }
             call = j["call"] as? String ?? ""; media = (j["media"] as? String) == "video" ? "video" : "audio"
             status = j["status"] as? String ?? "ended"; dur = (j["dur"] as? NSNumber)?.intValue
             from = j["from"] as? String ?? ""; to = j["to"] as? String ?? ""
+            group = (j["group"] as? Bool) == true; n = (j["n"] as? NSNumber)?.intValue
         }
         enum Kind: Equatable { case ended(String?), missed, declined, busy, failed }
         /// Aus Sicht von `me`: ausgehend/eingehend + Ergebnis
@@ -229,12 +239,15 @@ enum CallLogic {
 
     // MARK: Mitteilung (VoIP-Push bzw. Art "call")
 
-    struct Push: Equatable { var call: String; var chat: Int?; var media: String; var caller: String? }
+    /// 2.4 E5: Art "call.group" (Gruppenanruf klingelt, group: true) - wie "call" ueber VoIP/CallKit
+    struct Push: Equatable { var call: String; var chat: Int?; var media: String; var caller: String?; var group = false }
     static func push(_ info: [AnyHashable: Any]) -> Push? {
-        guard (info["kind"] as? String) == "call", let c = info["call"] as? String, isCallID(c) else { return nil }
+        let kind = info["kind"] as? String
+        guard kind == "call" || kind == "call.group", let c = info["call"] as? String, isCallID(c) else { return nil }
         let chat = (info["chat"] as? NSNumber)?.intValue ?? (info["chat"] as? String).flatMap { Int($0) }
         let caller = (info["caller"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-        return Push(call: c, chat: chat, media: (info["media"] as? String) == "video" ? "video" : "audio", caller: caller)
+        let group = kind == "call.group" || (info["group"] as? Bool) == true || (info["group"] as? String) == "1"
+        return Push(call: c, chat: chat, media: (info["media"] as? String) == "video" ? "video" : "audio", caller: caller, group: group)
     }
     /// Ziel aus der Web-Adresse einer Anruf-Mitteilung (/chats#call-<id>)
     static func callFromURL(_ url: String?) -> String? {
