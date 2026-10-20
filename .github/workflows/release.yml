@@ -29,6 +29,11 @@ on:
         description: "Auch als GitHub-Release veroeffentlichen"
         type: boolean
         default: false
+      mac_runner:
+        description: "macOS-Build auf: hosted (GitHub) oder self (eigener Mac mit Label saga-mac)"
+        type: choice
+        options: [hosted, self]
+        default: hosted
 
 permissions:
   contents: read
@@ -192,13 +197,16 @@ jobs:
   macos:
     name: macOS (DMG)
     needs: version
-    runs-on: macos-26
+    # Eigener Mac nur von Hand (Run workflow, mac_runner=self); Pushes bauen immer auf GitHub-Runnern
+    runs-on: ${{ inputs.mac_runner == 'self' && fromJSON('["self-hosted","saga-mac"]') || 'macos-26' }}
     steps:
       - uses: actions/checkout@v5
-      - uses: maxim-lobanov/setup-xcode@v1
+      # Xcode-Auswahl nur auf GitHub-Runnern; auf dem eigenen Mac bleibt das System unveraendert
+      - if: runner.environment == 'github-hosted'
+        uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
-      - run: brew install xcodegen
+      - run: command -v xcodegen >/dev/null || brew install xcodegen
       - name: Zertifikat und API-Schluessel
         id: keys
         env:
