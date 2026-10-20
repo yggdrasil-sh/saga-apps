@@ -33,11 +33,15 @@ object CallV3 {
     fun features(el: JsonElement?): Set<String> =
         (el as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }?.toSet().orEmpty()
 
-    /** Eigene `caps`: `reneg` nur, wenn der EIGENE Server es in `features` meldet; `want` und `bye` immer */
-    fun myCaps(serverFeatures: Set<String>): List<String> = buildList {
+    /**
+     * Eigene `caps`: `reneg` nur, wenn der EIGENE Server es in `features` meldet; `want` und `bye` immer; `screen2`
+     * (E3, Bildschirm als eigene Videospur) nur mit `reneg` UND `screen2` vom eigenen Server und wenn der Client B kann.
+     */
+    fun myCaps(serverFeatures: Set<String>, screen2: Boolean = true): List<String> = buildList {
         if (CAP_RENEG in serverFeatures) add(CAP_RENEG)
         add(CAP_WANT)
         add(CAP_BYE)
+        if (screen2 && CAP_RENEG in serverFeatures && CallScreen.CAP in serverFeatures) add(CallScreen.CAP)
     }
 
     /** `caps` aus einem Angebot/einer Antwort; fehlt es (2.1/2.3) -> leer */
@@ -150,7 +154,19 @@ object CallV3 {
      * want = Wunsch des Gegenuebers ("large" | "small" | "off", gilt nur fuer die Kamera), peers = Endgeraete (Mesh ab 3).
      * maxFps null = unveraendert.
      */
-    fun videoLimits(path: Path, want: String = "large", screen: Boolean = false, peers: Int = 2, srcHeight: Int = 720): VideoLimits {
+    fun videoLimits(path: Path, want: String = "large", screen: Boolean = false, peers: Int = 2, srcHeight: Int = 720, shareCam: Boolean = false): VideoLimits {
+        val v = videoLimitsBase(path, want, screen, peers, srcHeight)
+        if (screen || !shareCam) return v
+        // E3 Betriebsart B: Kamera neben dem Bildschirm <= 300 kbit/s und <= 360p, ueber Relais TCP aus
+        // (Summe je Richtung <= 1,6 Mbit/s, Konzept §4.5)
+        return v.copy(
+            maxBps = minOf(v.maxBps, CallScreen.SHARE_CAM_BPS),
+            scaleDown = maxOf(v.scaleDown, if (srcHeight > 360) srcHeight / 360.0 else 1.0),
+            active = v.active && path != Path.RELAY_TCP,
+        )
+    }
+
+    private fun videoLimitsBase(path: Path, want: String, screen: Boolean, peers: Int, srcHeight: Int): VideoLimits {
         if (screen) return when (path) {
             Path.DIRECT -> VideoLimits(2_500_000, 1.0, 15, Degradation.MAINTAIN_RESOLUTION)
             Path.RELAY_UDP -> VideoLimits(1_800_000, 1.0, 15, Degradation.MAINTAIN_RESOLUTION)

@@ -112,14 +112,14 @@ object CallNotify {
         NotificationManagerCompat.from(context).cancel(ID_RING)
     }
 
-    fun ongoing(context: Context, peer: CallPeer, video: Boolean, since: Long = 0L): Notification {
+    fun ongoing(context: Context, peer: CallPeer, video: Boolean, since: Long = 0L, screen: Boolean = false): Notification {
         channels(context)
         // CallStyle zeigt den Namen der Person als Titel - der Text nennt darum die Art ("Laufender Anruf") statt
-        // den Namen ein zweites Mal; dazu die Dauer als Stoppuhr.
+        // den Namen ein zweites Mal; dazu die Dauer als Stoppuhr. Beim Teilen: "Du teilst deinen Bildschirm".
         return NotificationCompat.Builder(context, CH_CALL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(peer.name.ifEmpty { peer.username })
-            .setContentText(context.getString(if (video) R.string.call_ongoing_video else R.string.call_ongoing))
+            .setContentText(context.getString(if (screen) R.string.call_screen_you else if (video) R.string.call_ongoing_video else R.string.call_ongoing))
             .setWhen(if (since > 0) since else System.currentTimeMillis())
             .setUsesChronometer(true)
             .setShowWhen(true)
@@ -153,7 +153,8 @@ object CallServiceTypes {
      * Die Typ-Konstanten (API 29/30) werden erst ab sdk >= 30 verwendet (Pruefung ueber den Parameter, fuer Tests).
      */
     @android.annotation.SuppressLint("InlinedApi")
-    fun tries(sdk: Int, video: Boolean, mic: Boolean, cam: Boolean): List<Int> {
+    fun tries(sdk: Int, video: Boolean, mic: Boolean, cam: Boolean, screen: Boolean = false): List<Int> {
+        if (screen) return screenTries(sdk, video, mic, cam)
         if (sdk < 30) return listOf(0)
         val out = ArrayList<Int>()
         var media = 0
@@ -167,6 +168,26 @@ object CallServiceTypes {
         out += ServiceInfo.FOREGROUND_SERVICE_TYPE_PHONE_CALL
         return out
     }
+
+    /**
+     * 2.4 E3 Bildschirm teilen: MediaProjection verlangt (Android 10+) einen Vordergrund-Dienst mit Typ mediaProjection;
+     * Android 14+ erlaubt ihn erst NACH der Einwilligung - daher wird der Typ erst dann ergaenzt (startForeground auf der
+     * laufenden Instanz), und erst danach die Aufnahme gestartet. Jeder Versuch enthaelt mediaProjection, sonst ginge
+     * das Teilen ohnehin nicht.
+     */
+    @android.annotation.SuppressLint("InlinedApi")
+    private fun screenTries(sdk: Int, video: Boolean, mic: Boolean, cam: Boolean): List<Int> {
+        if (sdk < 29) return listOf(0)
+        val mp = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+        if (sdk < 30) return listOf(mp)
+        val base = tries(sdk, video, mic, cam).map { it or mp }
+        return (base + mp).distinct()
+    }
+
+    /** Laeuft das Teilen mit diesem Typ? (unter Android 10 gibt es den Typ nicht - dort keine Pflicht) */
+    @android.annotation.SuppressLint("InlinedApi")
+    fun screenOk(sdk: Int, type: Int?): Boolean =
+        type != null && (sdk < 29 || (type and ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION) != 0)
 }
 
 /**
@@ -200,8 +221,33 @@ class CallService : Service() {
          */
         fun setVideo(context: Context, video: Boolean) {
             val s = instance
-            if (s != null && foreground && s.promote(video)) return
+            if (s != null && foreground && s.promote(video) != null) return
             start(context, video)
+        }
+
+        /** Bildschirm wird geteilt (Typ mediaProjection gehoert dazu) */
+        @Volatile private var screen = false
+        @Volatile private var lastVideo = false
+
+        /**
+         * 2.4 E3: Bildschirm teilen an/aus. An: NACH der Einwilligung und VOR getMediaProjection aufrufen (Android 14+);
+         * Ergebnis true = Dienst laeuft mit Typ mediaProjection, die Aufnahme darf starten. Aus: Typ wieder entfernen.
+         */
+        fun setScreen(on: Boolean): Boolean {
+            val s = instance
+            screen = on
+            if (s == null || !foreground) {
+                screen = false
+                return !on
+            }
+            val type = s.promote(lastVideo)
+            if (!on) return true
+            val ok = CallServiceTypes.screenOk(Build.VERSION.SDK_INT, type)
+            if (!ok) {
+                screen = false
+                s.promote(lastVideo)
+            }
+            return ok
         }
 
         /**
@@ -215,6 +261,7 @@ class CallService : Service() {
                 return
             }
             foreground = false
+            screen = false
             context.stopService(Intent(context, CallService::class.java))
         }
     }
@@ -231,12 +278,13 @@ class CallService : Service() {
         super.onDestroy()
     }
 
-    /** startForeground mit passenden Typen; true = erfolgreich */
-    private fun promote(video: Boolean): Boolean {
+    /** startForeground mit passenden Typen; Ergebnis = verwendeter Typ, null = gescheitert */
+    private fun promote(video: Boolean): Int? {
+        lastVideo = video
         val st = (applicationContext as? SagaApplication)?.repo?.calls?.ui?.value
-        val n = CallNotify.ongoing(this, st?.peer ?: CallPeer(), video, st?.connectedAt ?: 0L)
-        val tries = CallServiceTypes.tries(Build.VERSION.SDK_INT, video, granted(Manifest.permission.RECORD_AUDIO), granted(Manifest.permission.CAMERA))
-        return tries.any { type ->
+        val n = CallNotify.ongoing(this, st?.peer ?: CallPeer(), video, st?.connectedAt ?: 0L, screen)
+        val tries = CallServiceTypes.tries(Build.VERSION.SDK_INT, video, granted(Manifest.permission.RECORD_AUDIO), granted(Manifest.permission.CAMERA), screen)
+        return tries.firstOrNull { type ->
             try {
                 ServiceCompat.startForeground(this, CallNotify.ID_CALL, n, type)
                 true
@@ -249,7 +297,7 @@ class CallService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val st = (applicationContext as? SagaApplication)?.repo?.calls?.ui?.value
-        val ok = promote(intent?.getBooleanExtra(EXTRA_VIDEO, false) == true)
+        val ok = promote(intent?.getBooleanExtra(EXTRA_VIDEO, false) == true) != null
         foreground = ok
         if (!ok || stopWanted || st == null || st.phase == CallPhase.ENDED) {
             foreground = false

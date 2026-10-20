@@ -9,6 +9,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.drawable.Icon
+import android.media.projection.MediaProjectionConfig
+import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Rational
@@ -20,6 +22,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
@@ -35,9 +38,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,6 +71,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
@@ -74,6 +81,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.SagaApplication
 import io.github.yggdrasil_sh.saga.ui.notifications.Avatar
@@ -259,6 +267,36 @@ private fun CallScreen(
             perms.launch(need.toTypedArray())
         }
     }
+    // 2.4 E3: Bildschirm teilen - Einwilligung des Systems (MediaProjection), davor einmal der Datenschutz-Hinweis
+    val shareLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { res ->
+        val data = res.data
+        if (res.resultCode == android.app.Activity.RESULT_OK && data != null) calls.startScreen(data)
+    }
+    var shareHint by remember { mutableStateOf(false) }
+    val pickScreen: () -> Unit = {
+        val mpm = context.getSystemService(MediaProjectionManager::class.java)
+        if (mpm != null) try {
+            // Android 14+: Auswahl ganzer Bildschirm oder eine einzelne App (Standard des Systems)
+            shareLauncher.launch(
+                if (Build.VERSION.SDK_INT >= 34) mpm.createScreenCaptureIntent(MediaProjectionConfig.createConfigForUserChoice())
+                else mpm.createScreenCaptureIntent(),
+            )
+        } catch (_: Exception) {
+            (context.applicationContext as SagaApplication).repo.notify(io.github.yggdrasil_sh.saga.util.UiText.Res(R.string.call_screen_failed))
+        }
+    }
+    val onShare: () -> Unit = {
+        when {
+            st.sharing -> calls.stopScreen()
+            ScreenHint.off(context) -> pickScreen()
+            else -> shareHint = true
+        }
+    }
+    if (shareHint) ScreenHintDialog(onDismiss = { shareHint = false }) { dontShow ->
+        shareHint = false
+        if (dontShow) ScreenHint.setOff(context)
+        pickScreen()
+    }
     var camDenied by remember { mutableStateOf(false) }      // Hinweis, wenn die Kamera im Anruf verweigert wurde
     LaunchedEffect(camDenied) { if (camDenied) { delay(6000); camDenied = false } }
     val camPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
@@ -309,7 +347,10 @@ private fun CallScreen(
             }
         } else {
         Column(Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            InfoLine(st, onDark = showVideo, modifier = Modifier.onSizeChanged { infoHeight = it.height })
+            Column(Modifier.onSizeChanged { infoHeight = it.height }, horizontalAlignment = Alignment.CenterHorizontally) {
+                InfoLine(st, onDark = showVideo)
+                ShareBar(calls, st)
+            }
             Spacer(Modifier.weight(1f))
             if (!showVideo) {
                 Avatar(st.peer.name.ifEmpty { st.peer.username }, size = 112, avatar = st.peer.avatar)
@@ -344,7 +385,23 @@ private fun CallScreen(
                 }
             }
             Spacer(Modifier.weight(1f))
-            Controls(calls, st, ::answer, onCam)
+            Controls(calls, st, ::answer, onCam, onShare)
+        }
+        if (st.remoteSmall && st.phase == CallPhase.CONNECTED) {
+            // E3: Kamera des Gegenuebers klein neben seinem Bildschirm (bzw. getauscht) - Tippen tauscht die Ansicht
+            val top = with(LocalDensity.current) { infoHeight.toDp() } + 24.dp
+            val label = stringResource(R.string.call_screen_small, st.peer.name.ifEmpty { st.peer.username })
+            Box(Modifier.fillMaxSize().safeDrawingPadding().padding(top = maxOf(top, 56.dp), start = 16.dp), contentAlignment = Alignment.TopStart) {
+                Box(Modifier.width(120.dp).height(160.dp).clip(RoundedCornerShape(12.dp)).background(Color.Black), contentAlignment = Alignment.Center) {
+                    VideoView(calls, remote = true, visible = true, modifier = Modifier.fillMaxSize(), sink = calls.remoteSink2, overlay = true)
+                    // Tippflaeche ueber dem SurfaceView (der selbst keine Beruehrungen auswertet)
+                    Box(
+                        Modifier.matchParentSize()
+                            .clickable(onClickLabel = stringResource(R.string.call_screen_swap)) { calls.swapView() }
+                            .semantics { contentDescription = label },
+                    )
+                }
+            }
         }
         if (st.cam && st.phase != CallPhase.ENDED && st.phase != CallPhase.INCOMING) {
             // Eigene Vorschau unter der Status-Zeile (die bei grosser Schrift mitwaechst)
@@ -409,7 +466,7 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
 }
 
 @Composable
-private fun Controls(calls: CallManager, st: CallUiState, answer: (Boolean) -> Unit, onCam: () -> Unit) {
+private fun Controls(calls: CallManager, st: CallUiState, answer: (Boolean) -> Unit, onCam: () -> Unit, onShare: () -> Unit) {
     when (st.phase) {
         CallPhase.INCOMING -> Row(Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
             RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_decline), MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.onError) { calls.decline() }
@@ -424,46 +481,127 @@ private fun Controls(calls: CallManager, st: CallUiState, answer: (Boolean) -> U
         else -> Row(Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
             val tc = MaterialTheme.colorScheme.secondaryContainer
             val tf = MaterialTheme.colorScheme.onSecondaryContainer
+            // 2.4 E3: "Bildschirm teilen" nur im verbundenen Anruf; bei sechs Knoepfen etwas kleiner (schmale Telefone)
+            val share = st.phase == CallPhase.CONNECTED
+            val compact = share && st.cam
             RoundButton(
                 if (st.mic) R.drawable.ic_mic else R.drawable.ic_mic_off, stringResource(if (st.mic) R.string.call_mute else R.string.call_unmute),
                 if (st.mic) tc else MaterialTheme.colorScheme.inverseSurface, if (st.mic) tf else MaterialTheme.colorScheme.inverseOnSurface,
+                compact = compact,
             ) { calls.toggleMic() }
             RoundButton(
                 if (st.cam) R.drawable.ic_videocam else R.drawable.ic_videocam_off, stringResource(if (st.cam) R.string.call_cam_off else R.string.call_cam_on),
                 if (st.cam) tc else MaterialTheme.colorScheme.inverseSurface, if (st.cam) tf else MaterialTheme.colorScheme.inverseOnSurface,
+                compact = compact,
             ) { onCam() }
-            if (st.cam) RoundButton(R.drawable.ic_cameraswitch, stringResource(R.string.call_switch_camera), tc, tf) { calls.switchCamera() }
+            if (st.cam) RoundButton(R.drawable.ic_cameraswitch, stringResource(R.string.call_switch_camera), tc, tf, compact = compact) { calls.switchCamera() }
+            if (share) RoundButton(
+                R.drawable.ic_screen_share, stringResource(if (st.sharing) R.string.call_screen_stop else R.string.call_screen_share),
+                if (st.sharing) SHARE_RED else tc, if (st.sharing) Color.White else tf, selected = st.sharing, compact = compact,
+            ) { onShare() }
             RoundButton(
                 R.drawable.ic_volume_up, stringResource(R.string.call_speaker),
                 if (st.speaker) MaterialTheme.colorScheme.primary else tc, if (st.speaker) MaterialTheme.colorScheme.onPrimary else tf,
-                selected = st.speaker,
+                selected = st.speaker, compact = compact,
             ) { calls.toggleSpeaker() }
-            RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_hangup), MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.onError) { calls.hangup() }
+            RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_hangup), MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.onError, compact = compact) { calls.hangup() }
         }
     }
 }
 
 private val CALL_GREEN = Color(0xFF1E8E3E)
+/** Rote Leiste/Knopf beim Bildschirm-Teilen */
+private val SHARE_RED = Color(0xFFC62828)
+
+/**
+ * 2.4 E3: Leiste beim Teilen - "Du teilst deinen Bildschirm" mit "Beenden" (und Hinweis, wenn die Kamera ueber eine
+ * langsame Verbindung pausiert) bzw. "<Name> teilt den Bildschirm" mit "Ansicht tauschen", wenn die Kamera daneben laeuft.
+ */
+@Composable
+private fun ShareBar(calls: CallManager, st: CallUiState) {
+    if (st.phase != CallPhase.CONNECTED || (!st.sharing && !st.peerSharing)) return
+    Surface(color = SHARE_RED, contentColor = Color.White, shape = RoundedCornerShape(12.dp), modifier = Modifier.padding(top = 8.dp)) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val text = if (st.sharing) stringResource(R.string.call_screen_you)
+                else stringResource(R.string.call_screen_peer, st.peer.name.ifEmpty { st.peer.username })
+                Icon(painterResource(R.drawable.ic_screen_share), null, Modifier.size(16.dp))
+                Text(
+                    text, style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(start = 6.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                )
+                if (st.sharing) TextButton(onClick = { calls.stopScreen() }) {
+                    Text(stringResource(R.string.call_screen_stop), color = Color.White)
+                } else if (st.remoteSmall) TextButton(onClick = { calls.swapView() }) {
+                    Text(stringResource(R.string.call_screen_swap), color = Color.White)
+                }
+            }
+            if (st.sharing && st.camPaused) Text(stringResource(R.string.call_screen_cam_paused), style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
+/** "Nicht mehr anzeigen" fuer den Hinweis vor dem ersten Teilen (je Geraet) */
+object ScreenHint {
+    private const val PREFS = "saga_call"
+    private const val KEY = "screen_hint_off"
+
+    fun off(context: Context): Boolean = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY, false)
+
+    fun setOff(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY, true) }
+    }
+}
+
+/** Datenschutz-Hinweis vor dem Teilen: alles in der Auswahl ist sichtbar; nichts wird aufgezeichnet */
+@Composable
+private fun ScreenHintDialog(onDismiss: () -> Unit, onContinue: (dontShow: Boolean) -> Unit) {
+    var dontShow by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(painterResource(R.drawable.ic_screen_share), null) },
+        title = { Text(stringResource(R.string.call_screen_hint_title)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.call_screen_hint))
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 12.dp).toggleable(value = dontShow, role = Role.Checkbox) { dontShow = it },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = dontShow, onCheckedChange = null)
+                    Text(stringResource(R.string.call_screen_hint_off), modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onContinue(dontShow) }) { Text(stringResource(R.string.call_screen_continue)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+    )
+}
 
 @Composable
-private fun RoundButton(icon: Int, label: String, bg: Color, fg: Color, big: Boolean = false, selected: Boolean? = null, onClick: () -> Unit) {
+private fun RoundButton(
+    icon: Int, label: String, bg: Color, fg: Color, big: Boolean = false, selected: Boolean? = null, compact: Boolean = false,
+    onClick: () -> Unit,
+) {
     FilledIconButton(
         onClick = onClick,
         colors = IconButtonDefaults.filledIconButtonColors(containerColor = bg, contentColor = fg),
-        modifier = Modifier.size(if (big) 72.dp else 60.dp).semantics {
+        modifier = Modifier.size(if (big) 72.dp else if (compact) 52.dp else 60.dp).semantics {
             contentDescription = label
             if (selected != null) this.selected = selected
         },
         shape = CircleShape,
     ) {
-        Icon(painterResource(icon), null, Modifier.size(if (big) 34.dp else 28.dp))
+        Icon(painterResource(icon), null, Modifier.size(if (big) 34.dp else if (compact) 24.dp else 28.dp))
     }
 }
 
 /** WebRTC-Bild (SurfaceViewRenderer) - haengt sich an die ProxySink des Managers und loest sich beim Verlassen */
 @Composable
-private fun VideoView(calls: CallManager, remote: Boolean, visible: Boolean, modifier: Modifier, onAspect: ((Float?) -> Unit)? = null) {
-    val sink = if (remote) calls.remoteSink else calls.localSink
+private fun VideoView(
+    calls: CallManager, remote: Boolean, visible: Boolean, modifier: Modifier, onAspect: ((Float?) -> Unit)? = null,
+    sink: ProxySink = if (remote) calls.remoteSink else calls.localSink, overlay: Boolean = !remote,
+) {
     var view by remember { mutableStateOf<SurfaceViewRenderer?>(null) }
     val aspectCb = androidx.compose.runtime.rememberUpdatedState(onAspect)
     val events = remember {
@@ -489,10 +627,8 @@ private fun VideoView(calls: CallManager, remote: Boolean, visible: Boolean, mod
                 init(calls.egl.eglBaseContext, if (remote) events else null)
                 setScalingType(if (remote) RendererCommon.ScalingType.SCALE_ASPECT_FIT else RendererCommon.ScalingType.SCALE_ASPECT_FILL)
                 setEnableHardwareScaler(true)
-                if (!remote) {
-                    setMirror(true)
-                    setZOrderMediaOverlay(true)
-                }
+                if (!remote) setMirror(true)
+                if (overlay) setZOrderMediaOverlay(true)        // kleine Bilder ueber dem grossen
                 sink.target = this
                 view = this
             }

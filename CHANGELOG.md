@@ -6,6 +6,29 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu – Saga 2.4 Android (Teil 2): Bildschirm im Anruf teilen
+- **Bildschirm teilen** im laufenden Anruf (neuer Knopf): ganzer Bildschirm oder – ab Android 14 – eine einzelne App.
+  Android fragt jedes Mal selbst nach der Erlaubnis; vorher erklärt Saga einmalig, dass das Gegenüber alles in der
+  Auswahl sieht (auch Mitteilungen, Passwörter, andere Chats) und nichts aufgezeichnet oder auf dem Server gespeichert
+  wird („Nicht mehr anzeigen“ je Gerät).
+- Während des Teilens oben eine rote Leiste „Du teilst deinen Bildschirm“ mit „Teilen beenden“; die Anruf-Mitteilung
+  zeigt es ebenfalls. Das Teilen endet auch über „Teilen beenden“ in der Statusleiste, beim Auflegen und wenn die
+  Verbindung verloren geht.
+- **Mit Saga 2.4 auf beiden Seiten** läuft der Bildschirm als eigene Videospur neben der Kamera: Text bleibt scharf
+  (Auflösung vor Bildrate, höchstens 1080p und 15 fps, über TURN/TCP 8 fps), die Kamera läuft daneben mit höchstens
+  300 kbit/s weiter – über eine langsame TCP-Verbindung pausiert sie („Kamera pausiert (langsame Verbindung)“). Die
+  Bildschirm-Spur wird beim nächsten Teilen wiederverwendet, der Verbindungsaufbau wächst nicht.
+- **Mit älteren Gegenstellen** (Saga 2.1–2.3) ersetzt der Bildschirm wie bisher im Web die Kamera – Teilen
+  funktioniert also mit jeder Gegenstelle.
+- **Systemton** (Android 10+): Ton von Videos/Spielen wird in die vorhandene Tonspur gemischt, wo die App es erlaubt;
+  „Stumm“ schaltet dann nur das Mikrofon. Der Anrufton selbst wird nie erfasst (kein Echo).
+- **Empfang:** Teilt das Gegenüber, ist sein Bildschirm groß und vollständig zu sehen, seine Kamera klein daneben;
+  Tippen auf das kleine Bild bzw. „Ansicht tauschen“ tauscht. Rote Leiste „… teilt den Bildschirm“. Im Bild-im-Bild
+  ist immer der Bildschirm zu sehen. Kamera und Bildschirm werden über die signierte Zuordnung der Spuren (`tracks`,
+  `screen_mid`) erkannt, nicht über die Reihenfolge.
+- Vordergrund-Dienst: Typ „mediaProjection“ wird erst nach der Erlaubnis ergänzt (Pflicht ab Android 14) und nach dem
+  Teilen wieder entfernt. Bei hoher Gerätetemperatur nur noch 5 fps.
+
 ### Neu – Saga 2.4 Android (Teil 1): Bild-im-Bild und stabilere Videoanrufe
 **Bild-im-Bild (PiP):**
 - Läuft ein Videoanruf (eigene Kamera oder Bild des Gegenübers), wird der Anruf beim Verlassen der App (Home,

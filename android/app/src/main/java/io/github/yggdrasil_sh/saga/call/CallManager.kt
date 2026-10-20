@@ -7,6 +7,7 @@ import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.media.projection.MediaProjection
 import android.net.ConnectivityManager
 import android.net.Network
 import android.os.Build
@@ -61,6 +62,7 @@ import org.webrtc.RtpParameters
 import org.webrtc.RtpReceiver
 import org.webrtc.RtpSender
 import org.webrtc.RtpTransceiver
+import org.webrtc.ScreenCapturerAndroid
 import org.webrtc.SdpObserver
 import org.webrtc.SessionDescription
 import org.webrtc.SurfaceTextureHelper
@@ -98,6 +100,17 @@ data class CallUiState(
     val reconnecting: Boolean = false,
     val message: UiText? = null,
     val error: Boolean = false,
+    // 2.4 E3 Bildschirm
+    /** Ich teile meinen Bildschirm */
+    val sharing: Boolean = false,
+    /** Das Gegenueber teilt seinen Bildschirm */
+    val peerSharing: Boolean = false,
+    /** Zweites (kleines) Fernbild vorhanden: Kamera neben dem Bildschirm (bzw. getauscht) */
+    val remoteSmall: Boolean = false,
+    /** Gross laeuft der Bildschirm des Gegenuebers */
+    val bigIsScreen: Boolean = false,
+    /** Meine Kamera pausiert waehrend des Teilens (Relais TCP) */
+    val camPaused: Boolean = false,
 )
 
 /** VideoSink, dessen Ziel (SurfaceViewRenderer der Oberflaeche) wechseln darf */
@@ -106,6 +119,16 @@ class ProxySink : VideoSink {
     override fun onFrame(frame: VideoFrame) {
         target?.onFrame(frame)
     }
+}
+
+/** Merkt sich, wann zuletzt ein Bild einer Fernspur kam (eine Spur ohne Bilder wird nicht gross gezeigt) */
+class FrameWatch : VideoSink {
+    @Volatile var last = 0L
+    override fun onFrame(frame: VideoFrame) {
+        last = System.currentTimeMillis()
+    }
+
+    fun live(now: Long = System.currentTimeMillis()): Boolean = now - last < 2500
 }
 
 /**
@@ -126,7 +149,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     val enabled = MutableStateFlow<Boolean?>(null)
 
     val localSink = ProxySink()
+    /** Grosses Fernbild (Kamera, beim Teilen der Bildschirm) */
     val remoteSink = ProxySink()
+    /** 2.4 E3: kleines Fernbild (Kamera neben dem geteilten Bildschirm, bzw. getauscht) */
+    val remoteSink2 = ProxySink()
 
     val egl: EglBase by lazy { EglBase.create() }
     private var factory: PeerConnectionFactory? = null
@@ -212,7 +238,44 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         var answering = false
         /** Server 2.4 (features vorhanden): `caps`-Hinweis in POST /api/calls bzw. /answer mitsenden */
         var capsHint = false
+
+        // 2.4 E3 Bildschirm (Vertrag "Bildschirm v2"). Transceiver-Objekte von org.webrtc werden bei jedem
+        // getTransceivers() neu erzeugt (alte entsorgt) - darum nur die mids merken, nie die Objekte.
+        var micMid: String? = null
+        var camMid: String? = null
+        /** Eigene Bildschirm-m-Zeile (bleibt nach dem Ende recvonly und wird beim naechsten Teilen wiederverwendet) */
+        var scrMid: String? = null
+        var screen: ScreenShare? = null
+        var scrMode: CallScreen.Mode? = null
+        var mixer: ScreenAudioMixer? = null
+        /** Mikrofon an (getrennt von der Tonspur: beim Mischen bleibt die Spur an, nur das Mikrofon schweigt) */
+        var micOn = true
+        var camPaused = false
+        /** Rollen und Stream-IDs der m-Zeilen des Gegenuebers (letzter Stand aus offer/answer/state) */
+        var peerTracks: Map<String, String> = emptyMap()
+        var peerMsid: Map<String, String> = emptyMap()
+        var rScreen = false
+        var rScreenMid: String? = null
+        var rCam = false
+        /** Fernspuren je mid und wann zuletzt Bilder kamen */
+        val rvid = LinkedHashMap<String, VideoTrack>()
+        val watch = HashMap<String, FrameWatch>()
+        var smallVideo: VideoTrack? = null
+        var view: CallScreen.View? = null
+        var swap = false
+        /** Zustand erst nach dem Angebot senden (screen_mid steht erst nach setLocalDescription fest) */
+        var stateDue = false
+        /** Neuverhandlung noetig: Generation der Aenderung, des laufenden und des beantworteten Angebots */
+        var needGen = 0
+        var offerGen = 0
+        var doneGen = 0
     }
+
+    /** Laufende Bildschirmaufnahme */
+    private class ScreenShare(
+        val capturer: ScreenCapturerAndroid, val source: VideoSource, val track: VideoTrack, val surface: SurfaceTextureHelper,
+        var w: Int, var h: Int, var fps: Int,
+    )
 
     /** Neuverhandlung (ICE-Restart) nur, wenn beide Geraete `reneg` melden - sonst exakt das Verhalten von 2.3 */
     private fun reneg(c: Call): Boolean = c.peerDevice != null && CallV3.canReneg(c.myCaps, c.peerCaps)
@@ -231,6 +294,44 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     }
 
     private fun capsJson(c: Call) = JsonArray(c.myCaps.map { JsonPrimitive(it) })
+
+    // ---------------------------------------------------------------- 2.4 E3: Rollen der m-Zeilen
+
+    private fun screen2(c: Call) = CallScreen.CAP in c.myCaps
+
+    /** mids der eigenen Ton-/Kamera-m-Zeile merken (nach setLocalDescription bzw. setRemoteDescription des Angebots) */
+    private fun noteMids(c: Call) {
+        val trs = c.pc?.transceivers ?: return
+        if (c.micMid == null) c.micMid = trs.firstOrNull { it.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_AUDIO }?.mid
+        if (c.camMid == null) c.camMid = trs.firstOrNull { it.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO }?.mid
+        // neue Bildschirm-m-Zeile: mid steht erst nach setLocalDescription fest (Spur-ID saga-s)
+        if (c.screen != null && c.scrMode == CallScreen.Mode.B && c.scrMid == null) {
+            c.scrMid = trs.firstOrNull { it.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO && it.sender.track()?.id() == CallScreen.TRACK_SCREEN }?.mid
+        }
+    }
+
+    /** Bildschirm-mid fuer `tracks`: die eigene, sonst eine vom Gegenueber als "screen" angelegte (gemeinsame m-Zeile) */
+    private fun screenRoleMid(c: Call, videoMids: List<String>): String? =
+        CallScreen.reuseMid(c.scrMid, c.camMid, videoMids, c.peerTracks)
+
+    /** `tracks` und `msid` (aus der lokalen SDP) - nur wer `screen2` meldet */
+    private fun putTracks(c: Call, o: kotlinx.serialization.json.JsonObjectBuilder) {
+        if (!screen2(c)) return
+        val pc = c.pc ?: return
+        val vids = pc.transceivers.filter { it.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO }.mapNotNull { it.mid }
+        val t = CallScreen.myTracks(c.micMid, c.camMid, screenRoleMid(c, vids))
+        val m = CallScreen.sdpMsids(pc.localDescription?.description)
+        o.put("tracks", JsonObject(t.mapValues { JsonPrimitive(it.value) }))
+        o.put("msid", JsonObject(m.filterKeys { it in t }.mapValues { JsonPrimitive(it.value) }))
+    }
+
+    /** `tracks`/`msid` des Gegenuebers aus offer/answer/state merken (letzter Stand gilt) */
+    private fun peerTracksIn(c: Call, b: JsonObject) {
+        val t = CallScreen.tracksOf(b["tracks"])
+        if (t.isNotEmpty()) c.peerTracks = t
+        val m = CallScreen.msidOf(b["msid"])
+        if (b.containsKey("msid")) c.peerMsid = m
+    }
 
     init {
         scope.launch { repo.live.events.collect { onEvent(it) } }
@@ -464,12 +565,19 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
             override fun onTrack(transceiver: RtpTransceiver) {
                 val t = transceiver.receiver.track()
-                scope.launch { if (cur === c) attachTrack(c, t) }
+                // 2.4 E3: mid der m-Zeile (auf beiden Seiten gleich) - ordnet Kamera und Bildschirm zu
+                val mid = try {
+                    transceiver.mid
+                } catch (_: Exception) {
+                    null
+                }
+                scope.launch { if (cur === c) attachTrack(c, t, mid) }
             }
 
             override fun onAddTrack(receiver: RtpReceiver, streams: Array<out MediaStream>) {
+                // Unified Plan meldet jede Spur auch ueber onTrack (mit mid) - hier nur noch Ton
                 val t = receiver.track()
-                scope.launch { if (cur === c) attachTrack(c, t) }
+                if (t is AudioTrack) scope.launch { if (cur === c) attachTrack(c, t, null) }
             }
 
             override fun onConnectionChange(newState: PeerConnection.PeerConnectionState) {
@@ -491,9 +599,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         return factory().createPeerConnection(rtc, obs) ?: throw UiTextException(UiText.Res(R.string.call_failed))
     }
 
-    private fun attachTrack(c: Call, t: MediaStreamTrack?) {
+    private fun attachTrack(c: Call, t: MediaStreamTrack?, mid: String?) {
         when (t) {
-            is VideoTrack -> attachRemote(c, t)
+            is VideoTrack -> attachRemote(c, t, mid)
             // Ton des Gegenuebers: spielt das ADM ab, solange die Spur aktiv ist - ausdruecklich einschalten
             is AudioTrack -> if (c.remoteAudio !== t) {
                 c.remoteAudio = t
@@ -508,16 +616,67 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
     }
 
-    private fun attachRemote(c: Call, t: VideoTrack) {
-        if (c.remoteVideo === t) return
-        c.remoteVideo?.removeSink(remoteSink)
-        c.remoteVideo = t
-        t.addSink(remoteSink)
+    /** Fernspur je mid merken (mit Bild-Waechter); welche gross/klein laeuft, entscheidet bindRemote */
+    private fun attachRemote(c: Call, t: VideoTrack, mid0: String?) {
+        val mid = mid0 ?: c.camMid ?: "?"
+        val old = c.rvid[mid]
+        if (old === t) return
+        if (old != null) {
+            c.watch[mid]?.let { old.removeSink(it) }
+            if (c.remoteVideo === old) {
+                old.removeSink(remoteSink)
+                c.remoteVideo = null
+            }
+            if (c.smallVideo === old) {
+                old.removeSink(remoteSink2)
+                c.smallVideo = null
+            }
+        }
+        c.rvid[mid] = t
+        val w = c.watch.getOrPut(mid) { FrameWatch() }
+        t.addSink(w)
+        bindRemote(c)
+    }
+
+    /**
+     * Fernspuren auf die Anzeige verteilen (Vertrag "Empfaenger: Kamera und Bildschirm unterscheiden"): Bildschirm gross,
+     * Kamera klein, getauscht auf Wunsch; im Bild-im-Bild immer der Bildschirm.
+     */
+    private fun bindRemote(c: Call) {
+        if (cur !== c) return
+        val now = System.currentTimeMillis()
+        val mids = c.rvid.keys.toList()
+        val live = c.watch.filter { it.value.live(now) }.keys
+        val v = CallScreen.view(c.peerTracks, mids, live, c.rScreen, c.rScreenMid, c.rCam, c.swap, c.pip)
+        c.view = v
+        val big = v.big?.let { c.rvid[it] }
+        val small = v.small?.let { c.rvid[it] }
+        if (c.remoteVideo !== big) {
+            c.remoteVideo?.removeSink(remoteSink)
+            c.remoteVideo = big
+            big?.addSink(remoteSink)
+        }
+        if (c.smallVideo !== small) {
+            c.smallVideo?.removeSink(remoteSink2)
+            c.smallVideo = small
+            small?.addSink(remoteSink2)
+        }
         update(c)
     }
 
-    private fun videoSender(c: Call): RtpSender? =
-        c.pc?.transceivers?.firstOrNull { it.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO }?.sender
+    /** Oberflaeche: Ansicht tauschen (Bildschirm <-> Kamera des Gegenuebers) */
+    fun swapView() {
+        val c = cur ?: return
+        if (!c.rScreen) return
+        c.swap = !c.swap
+        bindRemote(c)
+    }
+
+    /** Sender der Kamera-m-Zeile (in Betriebsart A laeuft dort der Bildschirm) */
+    private fun videoSender(c: Call): RtpSender? {
+        val vids = c.pc?.transceivers?.filter { it.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO } ?: return null
+        return (vids.firstOrNull { c.camMid != null && it.mid == c.camMid } ?: vids.firstOrNull())?.sender
+    }
 
     private fun addLocal(c: Call, pc: PeerConnection, fromOffer: Boolean) {
         val streams = listOf("saga")
@@ -639,16 +798,31 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     private suspend fun stateOut(c: Call) {
         if (!c.ready) return
+        val sharing = c.screen != null
+        if (sharing && c.scrMode == CallScreen.Mode.B && c.scrMid == null) {
+            c.stateDue = true                               // mid steht erst nach dem Angebot fest - dann senden
+            return
+        }
         sendSignal(c, buildJsonObject {
             put("t", "state")
-            put("mic", c.audioTrack?.enabled() ?: false)
-            put("cam", c.videoTrack != null)
-            put("screen", false)
+            put("mic", c.audioTrack != null && c.micOn)
+            // Betriebsart A: auf der Kamera-m-Zeile laeuft der Bildschirm; Kamera ueber Relais TCP pausiert (B)
+            put("cam", c.videoTrack != null && !(sharing && c.scrMode == CallScreen.Mode.A) && !c.camPaused)
+            put("screen", sharing)
             // 2.4: Bild-im-Bild und gewuenschte Videogroesse (aeltere Gegenstellen ignorieren die Felder)
             put("pip", c.pip)
             putJsonObject("want") { put("video", c.myWant) }
             // eigener Weg (immer, sobald bekannt); das Gegenueber rechnet mit dem schlechteren
             c.path?.let { put("path", it.wire) }
+            // 2.4 E3: Rollen der m-Zeilen; screen_mid = mid, auf der JETZT der Bildschirm laeuft (B: eigene, A: Kamera)
+            if (screen2(c)) {
+                putTracks(c, this)
+                if (sharing) {
+                    val sm = if (c.scrMode == CallScreen.Mode.B) c.scrMid else c.camMid
+                    if (sm != null) put("screen_mid", sm)
+                    put("screen_audio", c.mixer?.active == true)
+                }
+            }
         })
     }
 
@@ -686,6 +860,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 c.peerDevice = from                         // ab jetzt Signale nur an das annehmende Geraet
                 c.pcId = CallV3.pcId(keys().dev.id, from.orEmpty())
                 c.peerCaps = CallV3.caps(b)
+                peerTracksIn(c, b)
                 c.fps = CallCrypto.sdpFingerprints(sdp)
                 try {
                     setSdp(pc, false, SessionDescription(SessionDescription.Type.ANSWER, sdp))
@@ -707,11 +882,16 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     c.peerPath = pp
                     applyLimits(c)
                 }
+                // 2.4 E3: Bildschirm des Gegenuebers - welche mid (screen_mid), Rollen (tracks); neues Teilen: gross
+                val scr = (b["screen"] as? JsonPrimitive)?.booleanOrNull == true
+                if (scr && !c.rScreen) c.swap = false
+                c.rScreen = scr
+                c.rScreenMid = CallScreen.screenMid(scr, b["screen_mid"])
+                c.rCam = (b["cam"] as? JsonPrimitive)?.booleanOrNull == true
+                peerTracksIn(c, b)
                 val st = _ui.value ?: return
-                _ui.value = st.copy(
-                    remoteMic = (b["mic"] as? JsonPrimitive)?.booleanOrNull != false,
-                    remoteVideo = c.remoteVideo != null && ((b["cam"] as? JsonPrimitive)?.booleanOrNull == true || (b["screen"] as? JsonPrimitive)?.booleanOrNull == true),
-                )
+                _ui.value = st.copy(remoteMic = (b["mic"] as? JsonPrimitive)?.booleanOrNull != false)
+                bindRemote(c)
             }
             // Gegenueber legt auf (1:1): sofort beenden; /end sendet das Gegenueber selbst
             CallV3.Kind.BYE -> if (from == c.peerDevice) remoteEnded(c, "hangup")
@@ -738,6 +918,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             securityFail(c)
             return
         }
+        peerTracksIn(c, b)
         c.answering = true
         try {
             if (act == CallV3.Negotiator.OfferAction.ROLLBACK_ACCEPT && !stable) {
@@ -747,6 +928,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             applyRemoteIce(c)
             val ans = createSdp(pc, false)
             setSdp(pc, true, ans)
+            noteMids(c)
             val asdp = pc.localDescription?.description ?: ans.description
             sendSignal(c, buildJsonObject {
                 put("t", "answer")
@@ -755,6 +937,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 put("media", c.media)
                 put("caps", capsJson(c))
                 put("n", neg(c).remoteN)                    // n des beantworteten Angebots
+                putTracks(c, this)
             })
         } catch (e: CancellationException) {
             throw e
@@ -762,7 +945,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             log("reneg answer failed: ${e.message}")
         } finally {
             c.answering = false
-            if (cur === c) flushIce(c)
+            if (cur === c) {
+                flushIce(c)
+                bindRemote(c)
+                // eigene Aenderung (Teilen an/aus) noch nicht ausgehandelt (Kollision, Rollback)? Jetzt anbieten
+                if (c.needGen > c.doneGen) offerNow(c)
+            }
         }
     }
 
@@ -776,13 +964,60 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             securityFail(c)
             return
         }
+        peerTracksIn(c, b)
         try {
             setSdp(pc, false, SessionDescription(SessionDescription.Type.ANSWER, sdp))
             applyRemoteIce(c)
+            c.doneGen = maxOf(c.doneGen, c.offerGen)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             log("reneg setRemote(answer) failed: ${e.message}")
+        }
+        bindRemote(c)
+        if (c.needGen > c.doneGen) offerNow(c)
+    }
+
+    /**
+     * 2.4 E3: Neuverhandlung nach einer eigenen Aenderung (Bildschirm-m-Zeile an/aus) - Angebot mit `n` + 1, `tracks` und
+     * `msid`; danach `state` (screen_mid steht erst jetzt fest). Laeuft schon eine Aushandlung, folgt das Angebot danach.
+     */
+    private fun offerNow(c: Call) {
+        if (cur !== c || c.done || !reneg(c)) return
+        val pc = c.pc ?: return
+        val ng = neg(c)
+        if (ng.makingOffer || c.answering || pc.signalingState() != PeerConnection.SignalingState.STABLE) return
+        val gen = c.needGen
+        scope.launch {
+            val n = ng.startOffer()
+            try {
+                val offer = createSdp(pc, true)
+                if (cur !== c || pc.signalingState() != PeerConnection.SignalingState.STABLE || !ng.makingOffer) return@launch
+                setSdp(pc, true, offer)
+                c.offerGen = gen
+                noteMids(c)
+                val sdp = pc.localDescription?.description ?: offer.description
+                sendSignal(c, buildJsonObject {
+                    put("t", "offer")
+                    put("sdp", sdp)
+                    put("media", c.media)
+                    put("fp", buildJsonArray { CallCrypto.sdpFingerprints(sdp).forEach { add(JsonPrimitive(it)) } })
+                    put("caps", capsJson(c))
+                    put("n", n)
+                    putTracks(c, this)
+                })
+                if (c.stateDue) {
+                    c.stateDue = false
+                    stateOut(c)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log("reneg offer failed: ${e.message}")
+            } finally {
+                ng.offerDone()
+                if (cur === c) flushIce(c)
+            }
         }
     }
 
@@ -807,6 +1042,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 val offer = createSdp(pc, true)
                 if (cur !== c || pc.signalingState() != PeerConnection.SignalingState.STABLE || !ng.makingOffer) return@launch
                 setSdp(pc, true, offer)
+                c.offerGen = c.needGen                      // enthaelt auch offene Aenderungen (Bildschirm)
+                noteMids(c)
                 val sdp = pc.localDescription?.description ?: offer.description
                 sendSignal(c, buildJsonObject {
                     put("t", "offer")
@@ -816,7 +1053,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     put("caps", capsJson(c))
                     put("n", n)
                     put("restart", true)                    // nur Hinweis
+                    putTracks(c, this)
                 })
+                if (c.stateDue) {
+                    c.stateDue = false
+                    stateOut(c)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -836,25 +1078,51 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val pc = c.pc ?: return
         // es gilt der schlechtere Weg von eigenem und vom Gegenueber gemeldetem
         val p = CallV3.worse(c.path, c.peerPath) ?: return
-        val v = CallV3.videoLimits(p, c.peerWant)
+        // 2.4 E3: beim Teilen - B: Bildschirm-m-Zeile mit Bildschirm-Regeln, Kamera daneben <= 300 kbit/s (Relais TCP aus);
+        // A: die Kamera-m-Zeile traegt den Bildschirm und bekommt solange die Bildschirm-Regeln
+        val sharing = c.screen != null
+        val modeB = sharing && c.scrMode == CallScreen.Mode.B
+        val cam = if (sharing && !modeB) CallV3.videoLimits(p, screen = true)
+        else CallV3.videoLimits(p, c.peerWant, shareCam = modeB)
+        val scr = CallV3.videoLimits(p, screen = true)
         val a = CallV3.audioMaxBps(p)
-        val key = "$v|$a"
+        val paused = CallScreen.camPaused(c.scrMode.takeIf { sharing }, p, c.videoTrack != null)
+        if (paused != c.camPaused) {
+            c.camPaused = paused
+            update(c)
+            scope.launch { if (cur === c) stateOut(c) }
+        }
+        // Aufnahme: 15 fps, ueber Relais TCP 8 fps (nur bei Aenderung). Ueber die Quelle (verwirft Bilder vor dem
+        // Encoder) - NICHT changeCaptureFormat: das legt das virtuelle Display neu an, was Android 14+ verbietet
+        c.screen?.let { s ->
+            val fps = CallScreen.captureFps(p, hot())
+            if (fps != s.fps) {
+                s.fps = fps
+                s.source.adaptOutputFormat(s.w, s.h, fps)
+            }
+        }
+        val key = "$cam|$scr|$a|${c.scrMode.takeIf { sharing }}|${c.scrMid}|${c.camMid}"
         if (key == c.applied) return
         var ok = true
         for (tr in pc.transceivers) {
             val s = tr.sender
             try {
+                val mid = tr.mid
+                val isScr = modeB && mid != null && mid == c.scrMid
+                val isCam = !isScr && (c.camMid == null || mid == c.camMid)
+                if (tr.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO && !isScr && !isCam) continue
+                val v = if (isScr) scr else cam
                 val prm = s.parameters
                 val enc = prm.encodings.firstOrNull()
                 if (enc == null) {
-                    ok = false
+                    if (tr.mediaType != MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO || s.track() != null) ok = false
                     continue
                 }
                 when (tr.mediaType) {
                     MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO -> {
                         enc.maxBitrateBps = v.maxBps
                         enc.scaleResolutionDownBy = v.scaleDown
-                        if (v.maxFps != null) enc.maxFramerate = v.maxFps
+                        enc.maxFramerate = v.maxFps                // null = ohne Grenze (nach dem Teilen)
                         enc.active = v.active
                         prm.degradationPreference = if (v.degradation == CallV3.Degradation.MAINTAIN_RESOLUTION)
                             RtpParameters.DegradationPreference.MAINTAIN_RESOLUTION else RtpParameters.DegradationPreference.BALANCED
@@ -869,7 +1137,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             }
         }
         if (ok) c.applied = key
-        log("limits path=$p want=${c.peerWant} -> $v audio=$a ok=$ok")
+        log("limits path=$p want=${c.peerWant} -> cam=$cam screen=$scr audio=$a ok=$ok")
+    }
+
+    /** Geraet heiss (THERMAL_STATUS_MODERATE oder mehr): Bildschirm nur mit 5 fps aufnehmen (Konzept §4.5) */
+    private fun hot(): Boolean = Build.VERSION.SDK_INT >= 29 && try {
+        (app.getSystemService(android.os.PowerManager::class.java)?.currentThermalStatus ?: 0) >= android.os.PowerManager.THERMAL_STATUS_MODERATE
+    } catch (_: Exception) {
+        false
     }
 
     /** Oberflaeche: Bild-im-Bild an/aus, Anrufbildschirm sichtbar? -> `want` an das Gegenueber (nur bei Aenderung) */
@@ -877,8 +1152,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val c = cur ?: return
         val want = CallPip.want(pip, visible)
         if (c.pip == pip && c.myWant == want) return
+        val pipChanged = c.pip != pip
         c.pip = pip
         c.myWant = want
+        if (pipChanged) bindRemote(c)                       // im Bild-im-Bild immer der Bildschirm
         scope.launch { if (cur === c) stateOut(c) }
     }
 
@@ -974,6 +1251,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 addLocal(c, pc, false)
                 val offer = createSdp(pc, true)
                 setSdp(pc, true, offer)
+                noteMids(c)
                 update(c)
                 dial(c, false)
             } catch (e: CancellationException) {
@@ -995,6 +1273,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             // 2.4: Faehigkeiten und erstes Angebot n=1; `pc` je Zielgeraet (sealPerDevice). Aeltere Apps ignorieren das
             put("caps", capsJson(c))
             put("n", 1)
+            putTracks(c, this)                              // E3: Rollen der m-Zeilen (nur mit screen2)
         }
         update(c, UiText.Res(R.string.call_connecting))
         try {
@@ -1181,6 +1460,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 addLocal(c, pc, true)
                 val ans = createSdp(pc, false)
                 setSdp(pc, true, ans)
+                noteMids(c)
+                peerTracksIn(c, offer)
                 val asdp = pc.localDescription?.description ?: ans.description
                 val body = buildJsonObject {
                     put("t", "answer")
@@ -1191,6 +1472,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     put("pc", c.pcId)
                     // Antwort traegt das n des beantworteten Angebots (2.3-Anrufer ohne n: 1)
                     put("n", (offer["n"] as? JsonPrimitive)?.intOrNull ?: 1)
+                    putTracks(c, this)                      // E3: Rollen der m-Zeilen (nur mit screen2)
                 }.toString()
                 val sig = withContext(Dispatchers.Default) { buildJsonObject { put(c.peerDevice!!, seal(c, c.peerDevice!!, body)) } }
                 api.post("api/calls/${r.id}/answer", buildJsonObject {
@@ -1380,7 +1662,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val st = _ui.value ?: return
         _ui.value = st.copy(
             verified = st.verified || ok == true, path = path, quality = CallLogic.quality(loss, rtt, dr), bytesIn = bytes, audioIn = audioIn,
-            remoteVideo = c.remoteVideo != null && (if (c.gotState) st.remoteVideo else c.media == "video"),
+            remoteVideo = c.remoteVideo != null && (if (c.gotState) c.rCam || c.rScreen else c.media == "video"),
         )
         log("stats verified=${st.verified || ok == true} path=$path bytesIn=$bytes")
     }
@@ -1424,7 +1706,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             while (cur === c && !c.done) {
                 delay(2000)
                 if (c.connected) checkStats(c)
-                update(c)
+                bindRemote(c)                               // E3: Spuren ohne Bilder nicht gross zeigen (ruft update)
             }
         }
     }
@@ -1444,17 +1726,27 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     fun toggleMic() {
         val c = cur ?: return
-        val t = c.audioTrack ?: return
-        t.setEnabled(!t.enabled())
+        if (c.audioTrack == null) return
+        c.micOn = !c.micOn
+        applyMic(c)
         update(c)
         scope.launch { stateOut(c) }
+    }
+
+    /** Stumm: ohne Systemton die Tonspur aus; mit gemischtem Systemton nur das Mikrofon (die Spur bleibt an) */
+    private fun applyMic(c: Call) {
+        val m = c.mixer?.takeIf { it.active }
+        m?.micMuted = !c.micOn
+        c.audioTrack?.setEnabled(c.micOn || m != null)
     }
 
     fun toggleCam() {
         val c = cur ?: return
         if (c.pc == null) return
+        // Betriebsart A: auf der Kamera-m-Zeile laeuft gerade der Bildschirm - Kamera nur lokal schalten
+        val camSends = !(c.screen != null && c.scrMode == CallScreen.Mode.A)
         if (c.videoTrack != null) {
-            videoSender(c)?.setTrack(null, false)
+            if (camSends) videoSender(c)?.setTrack(null, false)
             stopCamera(c)
             CallService.setVideo(app, false)
         } else {
@@ -1466,7 +1758,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 repo.notify(UiText.Res(R.string.call_no_camera))
                 return
             }
-            videoSender(c)?.setTrack(c.videoTrack, false)
+            if (camSends) videoSender(c)?.setTrack(c.videoTrack, false)
         }
         c.applied = null
         applyLimits(c)
@@ -1476,6 +1768,235 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     fun switchCamera() {
         cur?.capturer?.switchCamera(null)
+    }
+
+    // ---------------------------------------------------------------- 2.4 E3: Bildschirm teilen
+
+    /** Teilen moeglich: Anruf verbunden (Betriebsart A geht mit jeder Gegenstelle) */
+    fun canShare(): Boolean = cur?.let { it.connected && !it.done && it.pc != null } == true
+
+    /** Aufnahmegroesse aus der Bildschirmgroesse: lange Kante <= 1920 */
+    private fun screenSize(): Pair<Int, Int> {
+        val dm = app.resources.displayMetrics
+        var w = dm.widthPixels
+        var h = dm.heightPixels
+        if (Build.VERSION.SDK_INT >= 30) try {
+            app.getSystemService(android.view.WindowManager::class.java)?.maximumWindowMetrics?.bounds?.let {
+                w = it.width()
+                h = it.height()
+            }
+        } catch (_: Exception) {
+        }
+        return CallScreen.captureSize(w, h)
+    }
+
+    /**
+     * Bildschirm teilen, nachdem die Oberflaeche die Einwilligung (MediaProjection) erhalten hat. Reihenfolge fuer
+     * Android 14+: Einwilligung -> Vordergrund-Dienst mit Typ mediaProjection -> Aufnahme (getMediaProjection).
+     * Betriebsart B (beide `reneg` + `screen2`): eigene m-Zeile (vorhandene wiederverwenden) und Neuverhandlung;
+     * sonst A: der Bildschirm ersetzt die Kamera auf ihrer m-Zeile. Ergebnis false = nicht moeglich.
+     */
+    fun startScreen(data: android.content.Intent): Boolean {
+        val c = cur ?: return false
+        val pc = c.pc ?: return false
+        if (c.screen != null || !c.connected || c.done) return false
+        if (!CallService.setScreen(true)) {
+            repo.notify(UiText.Res(R.string.call_screen_failed))
+            return false
+        }
+        val f = factory()
+        val (w, h) = screenSize()
+        val fps = CallScreen.captureFps(CallV3.worse(c.path, c.peerPath), hot())
+        var share: ScreenShare? = null
+        val cb = object : MediaProjection.Callback() {
+            // "Teilen beenden" in der Statusleiste bzw. Projektion vom System beendet
+            override fun onStop() {
+                scope.launch { if (cur === c && share != null && c.screen === share) stopScreen(c) }
+            }
+
+            // Android 14+: einzelne App geteilt - Groesse folgt dem Fenster der App
+            override fun onCapturedContentResize(width: Int, height: Int) {
+                scope.launch {
+                    val s = share ?: return@launch
+                    if (c.screen !== s) return@launch
+                    val (nw, nh) = CallScreen.captureSize(width, height)
+                    if (nw == s.w && nh == s.h) return@launch
+                    if (resizeDisplay(s, nw, nh)) {
+                        s.w = nw
+                        s.h = nh
+                        s.source.adaptOutputFormat(nw, nh, s.fps)
+                    }
+                }
+            }
+        }
+        var cap: ScreenCapturerAndroid? = null
+        var src: VideoSource? = null
+        var sth: SurfaceTextureHelper? = null
+        return try {
+            cap = ScreenCapturerAndroid(data, cb)
+            src = f.createVideoSource(true)                // Bildschirm: Detail/Text statt Bewegung (screencast)
+            sth = SurfaceTextureHelper.create("saga-screen", egl.eglBaseContext)
+            cap.initialize(sth, app, src.capturerObserver)
+            cap.startCapture(w, h, fps)
+            src.adaptOutputFormat(w, h, fps)
+            val track = f.createVideoTrack(CallScreen.TRACK_SCREEN, src)
+            track.setEnabled(true)
+            val s = ScreenShare(cap, src, track, sth, w, h, fps)
+            share = s
+            c.screen = s
+            c.scrMode = CallScreen.mode(c.myCaps, c.peerCaps, c.connected && c.peerDevice != null && pc.remoteDescription != null)
+            log("screen on mode=${c.scrMode} ${w}x$h@$fps")
+            mixOn(c, cap)
+            if (c.scrMode == CallScreen.Mode.B) {
+                // hoechstens eine Bildschirm-m-Zeile je Verbindung: eigene oder vom Gegenueber angelegte wiederverwenden
+                val vids = pc.transceivers.filter { it.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO }
+                val reuse = CallScreen.reuseMid(c.scrMid, c.camMid, vids.mapNotNull { it.mid }, c.peerTracks)
+                val tr = reuse?.let { m -> vids.firstOrNull { it.mid == m } }
+                if (tr != null) {
+                    c.scrMid = reuse
+                    tr.sender.setTrack(track, false)
+                    tr.sender.setStreams(listOf(CallScreen.STREAM_SCREEN))
+                    tr.direction = RtpTransceiver.RtpTransceiverDirection.SEND_RECV
+                } else {
+                    c.scrMid = null
+                    pc.addTransceiver(track, RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.SEND_RECV, listOf(CallScreen.STREAM_SCREEN)))
+                }
+                c.needGen++
+                c.stateDue = true                           // state erst nach dem Angebot (screen_mid)
+                offerNow(c)
+                stateLater(c)
+            } else {
+                videoSender(c)?.setTrack(track, false)
+                scope.launch { if (cur === c) stateOut(c) }
+            }
+            c.applied = null
+            applyLimits(c)
+            update(c)
+            true
+        } catch (e: Exception) {
+            log("screen failed: ${e.message}")
+            if (c.screen != null && c.screen === share) {
+                stopScreen(c)
+            } else {
+                try {
+                    cap?.stopCapture()
+                } catch (_: Exception) {
+                }
+                cap?.dispose()
+                src?.dispose()
+                sth?.dispose()
+                CallService.setScreen(false)
+            }
+            repo.notify(UiText.Res(R.string.call_screen_failed))
+            false
+        }
+    }
+
+    /**
+     * Android 14+ (einzelne App geteilt, Fenster aendert die Groesse): das virtuelle Display der Aufnahme anpassen.
+     * ScreenCapturerAndroid kann das nur durch Neuanlegen (changeCaptureFormat) - das verbietet Android 14+ (eine
+     * Projektion, ein Display). Daher resize() auf dem vorhandenen Display; scheitert das, bleibt die alte Groesse.
+     */
+    private fun resizeDisplay(s: ScreenShare, w: Int, h: Int): Boolean = try {
+        val f = ScreenCapturerAndroid::class.java.getDeclaredField("virtualDisplay").apply { isAccessible = true }
+        val vd = f.get(s.capturer) as? android.hardware.display.VirtualDisplay
+        if (vd == null) false else {
+            org.webrtc.ThreadUtils.invokeAtFrontUninterruptibly(s.surface.handler) {
+                s.surface.setTextureSize(w, h)
+                vd.resize(w, h, app.resources.displayMetrics.densityDpi)
+            }
+            true
+        }
+    } catch (e: Exception) {
+        log("screen resize: ${e.message}")
+        false
+    }
+
+    /** Oberflaeche: "Teilen beenden" */
+    fun stopScreen() {
+        cur?.let { stopScreen(it) }
+    }
+
+    /**
+     * Teilen beenden. B: Spur weg, Richtung recvonly (nicht stoppen, nicht entfernen - die m-Zeile wird beim naechsten
+     * Teilen wiederverwendet) -> Neuverhandlung, danach `state` mit screen: false. A: Kamera zurueck auf ihre m-Zeile.
+     */
+    private fun stopScreen(c: Call) {
+        val s = c.screen ?: return
+        val mode = c.scrMode
+        c.screen = null
+        c.scrMode = null
+        c.camPaused = false
+        mixOff(c)
+        val pc = c.pc
+        if (pc != null && !c.done) try {
+            if (mode == CallScreen.Mode.B) {
+                val vids = pc.transceivers.filter { it.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO }
+                val tr = vids.firstOrNull { c.scrMid != null && it.mid == c.scrMid }
+                    ?: vids.firstOrNull { it.sender.track()?.id() == CallScreen.TRACK_SCREEN }
+                if (tr != null) {
+                    if (c.scrMid == null) c.scrMid = tr.mid
+                    tr.sender.setTrack(null, false)
+                    tr.direction = RtpTransceiver.RtpTransceiverDirection.RECV_ONLY
+                }
+                c.needGen++
+                c.stateDue = true
+                offerNow(c)
+                stateLater(c)
+            } else {
+                videoSender(c)?.setTrack(c.videoTrack, false)
+                scope.launch { if (cur === c) stateOut(c) }
+            }
+        } catch (e: Exception) {
+            log("screen stop: ${e.message}")
+        }
+        try {
+            s.capturer.stopCapture()
+        } catch (_: Exception) {
+        }
+        s.capturer.dispose()
+        s.track.dispose()
+        s.source.dispose()
+        s.surface.dispose()
+        CallService.setScreen(false)
+        log("screen off")
+        c.applied = null
+        applyLimits(c)
+        update(c)
+    }
+
+    /** Zustand spaetestens nach 3 s senden, falls das Angebot ausbleibt (Aushandlung laeuft gerade) */
+    private fun stateLater(c: Call) {
+        scope.launch {
+            delay(3000)
+            if (cur === c && c.stateDue) {
+                c.stateDue = false
+                stateOut(c)
+            }
+        }
+    }
+
+    /** Systemton (Android 10+, AudioPlaybackCapture) in die Tonspur mischen - wo erlaubt; sonst ohne Ton */
+    private fun mixOn(c: Call, cap: ScreenCapturerAndroid) {
+        if (Build.VERSION.SDK_INT < 29) return
+        val a = adm ?: return
+        if (androidx.core.content.ContextCompat.checkSelfPermission(app, android.Manifest.permission.RECORD_AUDIO) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) return
+        val mp = cap.mediaProjection ?: return
+        val m = ScreenAudioMixer()
+        if (m.start(a, mp)) {
+            c.mixer = m
+            applyMic(c)
+        }
+        log("screen audio ${m.active}")
+    }
+
+    private fun mixOff(c: Call) {
+        val m = c.mixer ?: return
+        c.mixer = null
+        m.stop()
+        applyMic(c)
     }
 
     fun toggleSpeaker() {
@@ -1556,7 +2077,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         unwatchNetwork()
         stopTone()
         if (!error && c.ready) tone(ToneGenerator.TONE_PROP_PROMPT, 400)
+        // E3: Teilen endet mit dem Anruf (Auflegen, Uebergabe, Verlust der Verbindung)
+        stopScreen(c)
         c.remoteVideo?.removeSink(remoteSink)
+        c.smallVideo?.removeSink(remoteSink2)
+        for ((m, t) in c.rvid) c.watch[m]?.let { t.removeSink(it) }
+        c.rvid.clear()
+        c.remoteVideo = null
+        c.smallVideo = null
         stopCamera(c)
         try {
             c.pc?.close()
@@ -1594,14 +2122,17 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             c.caller && !c.ready -> CallPhase.PREPARING
             else -> CallPhase.CONNECTING
         }
+        val v = c.view
         _ui.value = st.copy(
             phase = phase, id = c.id, peer = c.peer, video = c.media == "video",
-            mic = c.audioTrack?.enabled() ?: true, cam = c.videoTrack != null,
+            mic = c.micOn, cam = c.videoTrack != null,
+            sharing = c.screen != null, peerSharing = c.rScreen && c.connected, camPaused = c.camPaused,
+            remoteSmall = c.smallVideo != null, bigIsScreen = c.rScreen && v?.bigScreen == true,
             message = if (phase == CallPhase.CONNECTED && reconnecting != true && !st.reconnecting) null
             else if (phase == CallPhase.RINGING) UiText.Res(R.string.call_ringing) else msg,
             connectedAt = if (c.connected) c.t0 else 0,
             reconnecting = reconnecting ?: st.reconnecting,
-            remoteVideo = c.remoteVideo != null && (if (c.gotState) st.remoteVideo else c.media == "video"),
+            remoteVideo = c.remoteVideo != null && (if (c.gotState) c.rCam || c.rScreen else c.media == "video"),
         )
     }
 

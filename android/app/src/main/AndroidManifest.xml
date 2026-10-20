@@ -23,6 +23,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <!-- 2.4: Bildschirm im Anruf teilen (MediaProjection, Vordergrund-Dienst Typ mediaProjection) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
     <queries>
@@ -119,7 +121,7 @@
         <service
             android:name=".call.CallService"
             android:exported="false"
-            android:foregroundServiceType="phoneCall|microphone|camera" />
+            android:foregroundServiceType="phoneCall|microphone|camera|mediaProjection" />
 
         <receiver
             android:name=".call.CallActionReceiver"
