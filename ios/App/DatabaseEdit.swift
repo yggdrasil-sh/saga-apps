@@ -276,11 +276,18 @@ struct DBViewBar: View {
             if compact {
                 // iPhone: Ansicht als Menue (nichts wird abgeschnitten), Suche hinter der Lupe
                 VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 10) {
-                        viewMenu
-                        searchButton
-                        settingsButton
-                        newButton
+                    // grosse Schrift: Ansichtsname in eigener Zeile statt nur "…" (F10)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 10) {
+                            viewMenu
+                            searchButton
+                            settingsButton
+                            newButton
+                        }
+                        VStack(alignment: .leading, spacing: 6) {
+                            viewMenu
+                            HStack(spacing: 10) { searchButton; settingsButton; Spacer(minLength: 0); newButton }
+                        }
                     }
                     if searching || !m.search.isEmpty { searchField.frame(maxWidth: .infinity) }
                 }
@@ -347,7 +354,7 @@ struct DBViewBar: View {
         } label: {
             HStack(spacing: 4) {
                 Label(view?["name"] as? String ?? String(localized: "Ansicht"), systemImage: viewSymbol(view?["type"] as? String))
-                    .font(.subheadline.weight(.semibold)).lineLimit(1)
+                    .font(.subheadline.weight(.semibold)).lineLimit(2)
                 Image(systemName: "chevron.down").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
             }
             .padding(.horizontal, 10).padding(.vertical, 5)
@@ -386,9 +393,21 @@ struct DBViewBar: View {
 
     @ViewBuilder private var settingsButton: some View {
         if canEdit {
-            Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.buttonStyle(.plain).foregroundStyle(.secondary).fixedSize()
+            // aktiver Filter sichtbar (N6): Symbol in Akzentfarbe mit Zahl, sonst "fehlten" Eintraege einfach
+            let nf = DBFilterBadge.count(view)
+            Button { settings = true } label: {
+                Image(systemName: "slider.horizontal.3")
+                    .foregroundStyle(nf > 0 ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(HierarchicalShapeStyle.secondary))
+                    .overlay(alignment: .topTrailing) {
+                        if nf > 0 {
+                            Text(verbatim: "\(nf)").font(.caption2.bold()).foregroundStyle(Color("OnAccent"))
+                                .padding(.horizontal, 4).background(Color.accentColor, in: Capsule()).offset(x: 9, y: -8)
+                        }
+                    }
+            }.buttonStyle(.plain).fixedSize()
                 .help("Ansicht: Filter, Sortierung, Eigenschaften")
                 .accessibilityLabel("Ansicht: Filter, Sortierung, Eigenschaften")
+                .accessibilityValue(nf > 0 ? Text("\(nf) Filter aktiv") : Text(verbatim: ""))
                 .settingsPopover(isPresented: $settings, title: "Ansicht") {
                     if let id = view?["id"] as? String { ViewSettings(m: m, viewID: id) }
                 }

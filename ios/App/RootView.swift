@@ -132,11 +132,16 @@ struct RootView: View {
         .overlay(alignment: .bottom) {
             if let u = store.undo {
                 HStack(spacing: 14) {
-                    Text("„\(u.title)“ in den Papierkorb verschoben").lineLimit(1)
-                    Button("Rückgängig") { Task { await store.restore(u.id) } }.bold()
+                    Text("„\(u.title)“ in den Papierkorb verschoben").lineLimit(2)
+                    Button("Rückgängig") { Task { await store.restore(u.id) } }.bold().fixedSize()
                 }
                 .font(.subheadline).padding(.horizontal, 16).padding(.vertical, 10)
-                .background(.regularMaterial, in: Capsule()).padding(.bottom, 24)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 22)).padding(.horizontal, 16)
+                #if os(iOS)
+                .padding(.bottom, 76)                                     // ueber der Suchleiste unten (iOS 26), nicht darauf
+                #else
+                .padding(.bottom, 24)
+                #endif
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
@@ -564,7 +569,9 @@ struct Sidebar: View {
                     }
                 }
                 Section {
-                    Button { showTrash = true } label: { Label("Papierkorb", systemImage: "trash") }.buttonStyle(.plain).foregroundStyle(.secondary)
+                    Button { showTrash = true } label: {
+                        Label("Papierkorb", systemImage: "trash").frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())   // ganze Zeile (N5)
+                    }.buttonStyle(.plain).foregroundStyle(.secondary)
                 }
             }
             if let e = store.error { Text(e).font(.caption).foregroundStyle(.red) }

@@ -100,27 +100,6 @@ enum RowButtonLint {
     }
 }
 
-/// Schnelles Tippen beim Fokuswechsel (Return in Liste/Absatz): Zeichen, die noch im alten Feld landen, bevor das neue
-/// Feld den Fokus hat, werden weitergereicht statt verworfen (F4 Checkliste)
-enum EditorCarry {
-    /// Rein eingefuegter Text zwischen alt und neu (nil: Loeschen/Ersetzen - dann nichts weiterreichen)
-    static func inserted(old: String, new: String) -> String? {
-        let o = Array(old), n = Array(new)
-        guard n.count > o.count else { return nil }
-        var p = 0
-        while p < o.count && o[p] == n[p] { p += 1 }
-        var s = 0
-        while s < o.count - p && o[o.count - 1 - s] == n[n.count - 1 - s] { s += 1 }
-        guard p + s == o.count else { return nil }
-        return String(n[p..<(n.count - s)])
-    }
-    /// Weitergereichten Text aufteilen: bis zum ersten Zeilenumbruch ins Feld, Rest nach dem Return ins naechste Feld
-    static func split(_ carry: String) -> (head: String, newline: Bool, rest: String) {
-        guard let i = carry.firstIndex(of: "\n") else { return (carry, false, "") }
-        return (String(carry[..<i]), true, String(carry[carry.index(after: i)...]))
-    }
-}
-
 /// "Umwandeln in" (Blockmenue): nur Textbloecke; Bilder, Tabellen, Code usw. verloren dabei ihren Inhalt (F5)
 enum BlockConvert {
     enum Mode: Equatable { case no, free, confirm }

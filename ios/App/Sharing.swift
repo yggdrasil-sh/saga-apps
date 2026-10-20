@@ -217,6 +217,7 @@ struct ShareSheet: View {
     @State private var role: ShareRole = .view
     @State private var hits: [ShareTarget] = []
     @State private var searchError: String?
+    @State private var shortNoHits = false               // 1-2 Zeichen ohne exakten Treffer
     @State private var status: PubStatus?
     @State private var itemError: [String: String] = [:]
     @State private var askRemove: ShareEntry?
@@ -285,6 +286,8 @@ struct ShareSheet: View {
                 // Fehler bzw. "Mindestens 3 Zeichen." direkt am Feld - der Hinweis nur bei 1-2 Zeichen
                 if let e = searchError {
                     Label(e, systemImage: "exclamationmark.circle.fill").font(.footnote).foregroundStyle(.red)
+                } else if shortNoHits {
+                    Text("Kein exakter Treffer – für die Suche nach Namensteilen mindestens 3 Zeichen eingeben.").font(.footnote).foregroundStyle(.secondary)
                 } else if ShareLogic.minHint(q, server: store.serverVersion) {
                     Text("Mindestens 3 Zeichen.").font(.footnote).foregroundStyle(.secondary)
                 }
@@ -459,7 +462,7 @@ struct ShareSheet: View {
         } catch { itemError[e.id] = error.localizedDescription }
     }
     private func search() async {
-        searchError = nil
+        searchError = nil; shortNoHits = false
         let query = q.trimmingCharacters(in: .whitespacesAndNewlines)
         guard ShareLogic.searchReady(query, server: store.serverVersion) else { hits = []; return }
         try? await Task.sleep(for: .milliseconds(200))
@@ -469,7 +472,12 @@ struct ShareSheet: View {
             let d = try await store.api("api/share/targets?q=\(enc)")
             guard !Task.isCancelled else { return }
             hits = ShareLogic.parseTargets(d)
-            if hits.isEmpty { searchError = ShareLogic.remoteHint(d) ?? String(localized: "Niemand gefunden.") }   // name@server: Grund vom Server
+            // name@server: Grund vom Server; 1-2 Zeichen finden nur exakte Treffer -> Hinweis statt "Niemand gefunden." (N7)
+            if hits.isEmpty {
+                if let h = ShareLogic.remoteHint(d) { searchError = h }
+                else if ShareSearchHint.tooShort(query) { shortNoHits = true }
+                else { searchError = String(localized: "Niemand gefunden.") }
+            }
         } catch { if !Task.isCancelled { searchError = error.localizedDescription } }
     }
 }

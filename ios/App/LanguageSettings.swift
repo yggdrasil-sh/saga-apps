@@ -62,10 +62,16 @@ struct LanguageSettingsSection: View {
                 LabeledContent("Sprache") {
                     HStack(spacing: 6) {
                         Text(verbatim: AppLanguage.runningName)
-                        Image(systemName: "arrow.up.forward.app").foregroundStyle(.tint)
+                        Image(systemName: "arrow.up.forward.app").foregroundStyle(.tint).accessibilityHidden(true)
                     }
                 }
             }.tint(.primary)
+            // VoiceOver las "Sprache, Deutsch, Sprache" (N13): eine Bezeichnung, ein Wert, ein Hinweis
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("Sprache"))
+            .accessibilityValue(Text(verbatim: AppLanguage.runningName))
+            .accessibilityHint(Text("Öffnet die Einstellungen-App."))
+            .accessibilityAddTraits(.isButton)
             #else
             Picker("Sprache", selection: $choice) {
                 ForEach(AppLanguageChoice.allCases) { c in

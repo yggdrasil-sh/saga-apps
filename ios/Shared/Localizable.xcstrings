@@ -15497,40 +15497,6 @@
         }
       }
     },
-    "Kein beschreibbarer Kalender verbunden (Einstellungen → Kalender im Web)." : {
-      "localizations" : {
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Kein beschreibbarer Kalender verbunden (Einstellungen → Kalender im Web)."
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No writable calendar connected (Settings → Calendar on the web)."
-          }
-        },
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No hay ningún calendario editable conectado (Ajustes → Calendario en la web)."
-          }
-        },
-        "ru" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Нет подключённого календаря с правом записи (Настройки → Календарь в вебе)."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ไม่ได้เชื่อมต่อปฏิทินที่เขียนได้ (การตั้งค่า → ปฏิทิน บนเว็บ)"
-          }
-        }
-      }
-    },
     "Kein Blocktyp für „%@“" : {
       "localizations" : {
         "de" : {
@@ -53412,6 +53378,270 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "โปรดป้อนที่อยู่ที่ถูกต้อง เช่น https://cloud.example.org"
+          }
+        }
+      }
+    },
+    "Kein exakter Treffer – für die Suche nach Namensteilen mindestens 3 Zeichen eingeben." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein exakter Treffer – für die Suche nach Namensteilen mindestens 3 Zeichen eingeben."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No exact match – enter at least 3 characters to search by part of a name."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ninguna coincidencia exacta: escribe al menos 3 caracteres para buscar por parte del nombre."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Точных совпадений нет – для поиска по части имени введите не менее 3 символов."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่พบชื่อที่ตรงกันทุกตัวอักษร – พิมพ์อย่างน้อย 3 ตัวอักษรเพื่อค้นหาจากบางส่วนของชื่อ"
+          }
+        }
+      }
+    },
+    "Kein beschreibbarer Kalender verbunden. In den Einstellungen unter „Kalender“ → „+ Kalender verbinden“ einrichten." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kein beschreibbarer Kalender verbunden. In den Einstellungen unter „Kalender“ → „+ Kalender verbinden“ einrichten."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No writable calendar connected. Set one up in Settings under “Calendar” → “+ Connect calendar”."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay ningún calendario editable conectado. Configúralo en Ajustes, en «Calendario» → «+ Conectar calendario»."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нет подключённого календаря с правом записи. Подключите его в настройках: «Календарь» → «+ Подключить календарь»."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่ได้เชื่อมต่อปฏิทินที่เขียนได้ ตั้งค่าได้ในการตั้งค่า ที่ “ปฏิทิน” → “+ เชื่อมต่อปฏิทิน”"
+          }
+        }
+      }
+    },
+    "Keiner verbunden" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keiner verbunden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None connected"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ninguno conectado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Не подключён"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่ได้เชื่อมต่อ"
+          }
+        }
+      }
+    },
+    "Kalender verbinden …" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kalender verbinden …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect calendar…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conectar calendario…"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Подключить календарь…"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เชื่อมต่อปฏิทิน…"
+          }
+        }
+      }
+    },
+    "%lld Filter aktiv" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Filter aktiv"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld Filter aktiv"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld filter active"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld filters active"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld filtro activo"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld filtros activos"
+                }
+              }
+            }
+          }
+        },
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld фильтр активен"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld фильтра активны"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld фильтров активно"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld фильтра активно"
+                }
+              }
+            }
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ตัวกรองที่ใช้อยู่ %lld รายการ"
+          }
+        }
+      }
+    },
+    "Öffnet die Einstellungen-App." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Öffnet die Einstellungen-App."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Opens the Settings app."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abre la app Ajustes."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открывает приложение «Настройки»."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิดแอปการตั้งค่า"
           }
         }
       }

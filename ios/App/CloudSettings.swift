@@ -177,12 +177,10 @@ struct BackupOverviewPart: View {
     var body: some View {
         Section("Status") {
             BackupStatusRows(state: state)
-            HStack {
-                Button("Jetzt sichern") { Task { msg = await model.run { try await CloudFlow.backupRun($0) } } }
-                    .disabled(!state.ready || state.running || model.busy)
-                Button("Backups im Ziel anzeigen") { Task { await loadRemote() } }.disabled(state.target == nil)
-            }
-            .rowButtons()
+            // je Knopf eine eigene Zeile (klebten ohne Abstand nebeneinander, N9)
+            Button("Jetzt sichern") { Task { msg = await model.run { try await CloudFlow.backupRun($0) } } }
+                .disabled(!state.ready || state.running || model.busy)
+            Button("Backups im Ziel anzeigen") { Task { await loadRemote() } }.disabled(state.target == nil)
             if let msg { Text(msg).font(.footnote).foregroundStyle(.red) }
             ForEach(state.runs.prefix(5)) { r in BackupRunRow(run: r) }
             if let remote {

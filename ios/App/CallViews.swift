@@ -658,39 +658,22 @@ struct CallRunBar: View {
     var body: some View {
         if !calls.busy, let x = calls.runBars.first(where: { calls.bar($0) != .none }) {
             let video = x.media == "video"
-            HStack(spacing: 8) {
-                Image(systemName: video ? "video.fill" : "phone.fill").accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 1) {
-                    switch calls.bar(x) {
-                    case .elsewhere(let dev, let peer):
-                        Text("Anruf läuft auf \(dev.isEmpty ? String(localized: "anderem Gerät") : dev)").font(.subheadline.weight(.semibold))
-                        if !peer.isEmpty { Text(verbatim: peer).font(.caption) }
-                    case .group(let n):
-                        Text("Gruppenanruf läuft · \(n) Geräte").font(.subheadline.weight(.semibold))
-                    case .none: EmptyView()
-                    }
-                    if !x.joinable { Text(verbatim: blocked(x)).font(.caption) }
+            // Breit: Text und Knoepfe in einer Zeile; schmal/grosse Schrift: Knoepfe darunter. Knoepfe nie umbrechen
+            // (".layoutPriority(1)" am Text quetschte sie silbenweise, F9)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) {
+                    icon(video)
+                    info(x).lineLimit(2)
+                    Spacer(minLength: 4)
+                    buttons(x, video: video)
                 }
-                .lineLimit(2).minimumScaleFactor(0.8)                     // Geraetename nicht nach drei Zeichen abschneiden
-                .layoutPriority(1)
-                Spacer(minLength: 4)
-                if x.joinable {
-                    if case .elsewhere = calls.bar(x) {
-                        Button(String(localized: "Hinzufügen")) { calls.join(x.id, role: "companion", video: false) }
-                            .buttonStyle(.bordered).tint(.white).controlSize(.small)
-                            .help(Text("Dieses Gerät als Begleitgerät hinzufügen (ohne Mikrofon und Ton)"))
-                        Button(String(localized: "Hierher übernehmen")) { calls.join(x.id, role: "handover", video: video) }
-                            .buttonStyle(.borderedProminent).tint(.white).foregroundStyle(.black).controlSize(.small)
-                            .help(Text("Anruf ohne Unterbrechung auf dieses Gerät holen"))
-                    } else {
-                        if video {
-                            Button(String(localized: "Nur mit Ton")) { calls.join(x.id, role: "member", video: false) }
-                                .buttonStyle(.bordered).tint(.white).controlSize(.small)
-                        }
-                        Button(String(localized: "Beitreten")) { calls.join(x.id, role: "member", video: video) }
-                            .buttonStyle(.borderedProminent).tint(.white).foregroundStyle(.black).controlSize(.small)
-                            .help(Text("Dem Gruppenanruf beitreten"))
-                    }
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) { icon(video); info(x) }
+                    HStack(spacing: 8) { Spacer(minLength: 0); buttons(x, video: video) }
+                }
+                VStack(alignment: .leading, spacing: 6) {                 // sehr grosse Schrift: Knoepfe untereinander
+                    HStack(alignment: .firstTextBaseline, spacing: 8) { icon(video); info(x) }
+                    VStack(alignment: .trailing, spacing: 6) { buttons(x, video: video) }.frame(maxWidth: .infinity, alignment: .trailing)
                 }
             }
             .foregroundStyle(.white)
@@ -699,6 +682,43 @@ struct CallRunBar: View {
             .background(CallBar.green.opacity(0.92).ignoresSafeArea(edges: .top))
             .accessibilityElement(children: .contain)
             .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+    private func icon(_ video: Bool) -> some View {
+        Image(systemName: video ? "video.fill" : "phone.fill").accessibilityHidden(true)
+    }
+    @ViewBuilder private func info(_ x: CallRoom.Running) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            switch calls.bar(x) {
+            case .elsewhere(let dev, let peer):
+                Text("Anruf läuft auf \(dev.isEmpty ? String(localized: "anderem Gerät") : dev)").font(.subheadline.weight(.semibold))
+                if !peer.isEmpty { Text(verbatim: peer).font(.caption) }
+            case .group(let n):
+                Text("Gruppenanruf läuft · \(n) Geräte").font(.subheadline.weight(.semibold))
+            case .none: EmptyView()
+            }
+            if !x.joinable { Text(verbatim: blocked(x)).font(.caption) }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    @ViewBuilder private func buttons(_ x: CallRoom.Running, video: Bool) -> some View {
+        if x.joinable {
+            if case .elsewhere = calls.bar(x) {
+                Button(String(localized: "Hinzufügen")) { calls.join(x.id, role: "companion", video: false) }
+                    .buttonStyle(.bordered).tint(.white).controlSize(.small).fixedSize()
+                    .help(Text("Dieses Gerät als Begleitgerät hinzufügen (ohne Mikrofon und Ton)"))
+                Button(String(localized: "Hierher übernehmen")) { calls.join(x.id, role: "handover", video: video) }
+                    .buttonStyle(.borderedProminent).tint(.white).foregroundStyle(.black).controlSize(.small).fixedSize()
+                    .help(Text("Anruf ohne Unterbrechung auf dieses Gerät holen"))
+            } else {
+                if video {
+                    Button(String(localized: "Nur mit Ton")) { calls.join(x.id, role: "member", video: false) }
+                        .buttonStyle(.bordered).tint(.white).controlSize(.small).fixedSize()
+                }
+                Button(String(localized: "Beitreten")) { calls.join(x.id, role: "member", video: video) }
+                    .buttonStyle(.borderedProminent).tint(.white).foregroundStyle(.black).controlSize(.small).fixedSize()
+                    .help(Text("Dem Gruppenanruf beitreten"))
+            }
         }
     }
     private func blocked(_ x: CallRoom.Running) -> String {

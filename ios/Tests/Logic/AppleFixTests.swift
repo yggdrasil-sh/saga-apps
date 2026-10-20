@@ -55,19 +55,6 @@ func appleFixTests() {
     } else { check(false, "SAGA_APP_SRC fehlt") }
 }
 
-func appleFixEditorTests() {
-    // F4: Zeichen beim Fokuswechsel weiterreichen
-    check(EditorCarry.inserted(old: "Punkt A", new: "Punkt AP") == "P", "angehaengt")
-    check(EditorCarry.inserted(old: "ab", new: "aXYb") == "XY", "in der Mitte eingefuegt")
-    check(EditorCarry.inserted(old: "aa", new: "aaa") == "a", "gleiche Zeichen")
-    check(EditorCarry.inserted(old: "abc", new: "ab") == nil && EditorCarry.inserted(old: "abc", new: "xbcd") == nil, "Loeschen/Ersetzen: nichts weiterreichen")
-    check(EditorCarry.inserted(old: "", new: "B\n") == "B\n", "aus leerem Feld")
-    let a = EditorCarry.split("unkt B\n\n")
-    check(a.head == "unkt B" && a.newline && a.rest == "\n", "bis zum Return, Rest weiter")
-    let b = EditorCarry.split("xy")
-    check(b.head == "xy" && !b.newline && b.rest.isEmpty, "ohne Return")
-}
-
 func appleFixConvertTests() {
     // F5: Bild & Co. nicht in Text umwandeln; verlustbehaftet nur mit Rueckfrage
     check(BlockConvert.mode(type: "image", data: ["file": ["url": "x"]]) == .no, "Bild: kein Umwandeln")

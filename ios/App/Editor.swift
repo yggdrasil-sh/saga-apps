@@ -55,8 +55,34 @@ final class PageEditor: ObservableObject {
             if focus == nil { carry = [:] }
         }
     }
-    /// Eingaben waehrend des Fokuswechsels (Return): Ziel-Schluessel -> Text, den das neue Feld uebernimmt (EditorCarry)
+    /// Eingaben waehrend des Fokuswechsels (Return): Ziel-Schluessel -> Text, den das neue Feld uebernimmt (EditorFlow)
     var carry: [String: String] = [:]
+    /// Felder, deren Cursor beim Erscheinen am Anfang steht (neuer Block nach Return: der Rest steht hinter dem Cursor)
+    var caretStart = Set<String>()
+    /// Aktionen, die warten, bis das neue Feld den Fokus hat (z. B. leeren Listenpunkt erst dann entfernen - sonst
+    /// verschwindet das Feld mit der Tastatur, bevor das neue sie hat, F4/N2)
+    private var afterFocus: [(key: String, run: () -> Void)] = []
+
+    /// Eingaben an das Ziel-Feld weiterreichen (Reihenfolge bleibt: alles landet hinten an carry[ziel])
+    func forward(_ text: String, to target: String) {
+        guard !text.isEmpty else { return }
+        carry[target, default: ""] += text
+        NotificationCenter.default.post(name: .hkCarry, object: target)
+    }
+    /// `run` ausfuehren, sobald `key` den Fokus hat - spaetestens nach 0,7 s
+    func whenFocused(_ key: String, _ run: @escaping () -> Void) {
+        afterFocus.append((key, run))
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(700))
+            self?.focusAcquired(key)
+        }
+    }
+    func focusAcquired(_ key: String) {
+        guard afterFocus.contains(where: { $0.key == key }) else { return }
+        let due = afterFocus.filter { $0.key == key }
+        afterFocus.removeAll { $0.key == key }
+        due.forEach { $0.run() }
+    }
     /// ausgewaehlter Bildblock (2.1-c): Kopieren, Ausschneiden, Loeschen ueber Tastatur/Menue (BlockClipboard)
     @Published var selected: String?
     @Published var locked = false                    // Seite gesperrt: nur lesen (wie im Web)
@@ -335,6 +361,17 @@ let slashItems: [(String, String, Int, String, String)] = [
 /// "/"-Eingabe eines Absatzes (Schluessel des Textfelds + Suchtext)
 struct SlashDock: Equatable { var key: String; var query: String }
 
+/// Zustand eines Textfelds, der sofort (nicht erst beim naechsten Zeichnen) gelten muss: Klasse statt @State-Werten
+@MainActor
+final class EditFieldBox {
+    /// zuletzt verbuchter Text (Zeichen): Aenderungen werden dagegen gerechnet (EditorFlow)
+    var shadow = ""
+    /// Fokus abgegeben, Tasten kommen aber noch hier an
+    var handover: EditorFlow.Handover?
+    /// bis dahin gilt ein Fokusverlust als "noch im Aufbau" (erneut holen statt Bearbeiten zu beenden)
+    var acquireUntil = Date.distantPast
+}
+
 struct EditText: View {
     let key: String
     let html: String
@@ -358,7 +395,7 @@ struct EditText: View {
     @State private var mClosed: String?                // Esc: diese Eingabe nicht mehr vorschlagen
     @State private var linkAsk = false
     @State private var linkText = ""
-    @State private var reverting = false               // eigenes Zuruecksetzen nach dem Weiterreichen (kein Speichern)
+    @State private var box = EditFieldBox()
     @EnvironmentObject private var store: Store
 
     /// Cursor als Zeichen-Offset (nil bei markiertem Text)
@@ -384,30 +421,98 @@ struct EditText: View {
         rsel = AttributedTextSelection(insertionPoint: rich.characters.index(rich.startIndex, offsetBy: min(c, rich.characters.count)))
     }
 
-    private var slashQuery: String? {
-        guard slash else { return nil }
-        let s = String(rich.characters)
-        return s.hasPrefix("/") && !s.contains(" ") && !s.contains("\n") && s.count <= 20 ? String(s.dropFirst()).lowercased() : nil
+    private var slashQuery: String? { slash ? SlashFilter.query(String(rich.characters)) : nil }
+    private var nextcloudOK: Bool { store.serverVersion.map { !ShareLogic.versionLess($0, "2.3.0") } ?? false }
+    /// Trennt Return dieses Feld (neuer Block darunter)?
+    private var canSplit: Bool { splitOnReturn && onReturn != nil }
+    /// Fokus schon abgegeben, Tastatur aber noch hier: nur gespeicherten Text zeigen, Editor unsichtbar weiterfuehren
+    private var handingOver: Bool { ed.focus != key && focused }
+
+    /// Return/Weitergereichtes trennt: vorher bleibt hier, nachher kommt in den neuen Block (Cursor dort am Anfang)
+    private func doReturn(_ before: AttributedString, _ after: AttributedString, rest: String) {
+        let bh = richToHTML(before, ctx: fctx, baseBold: boldBase), ah = richToHTML(after, ctx: fctx, baseBold: boldBase)
+        setHTML(bh); onReturn?(bh, ah)
+        if let t = ed.focus, t != key {
+            ed.caretStart.insert(t)
+            ed.forward(rest, to: t)
+        } else {                                                       // Fokus blieb hier: Feld zeigt den Stand vorher
+            rich = before; box.shadow = String(before.characters); box.handover = nil
+        }
     }
 
-    /// Eingaben uebernehmen, die waehrend des Fokuswechsels noch im vorigen Feld ankamen (F4: schnelles Tippen)
+    /// Jede Aenderung des Editors: verbuchen (Ziel), trennen (Return) oder weiterreichen (Feld gibt gerade ab)
+    private func handle(_ new: AttributedString) {
+        let n = String(new.characters)
+        if ed.focus != key, ed.focus != nil, focused || box.handover != nil {
+            var h = box.handover ?? EditorFlow.Handover(base: box.shadow)
+            let out = EditorFlow.handover(&h, new: n)
+            box.handover = h
+            if let t = ed.focus { ed.forward(out, to: t) }
+            return
+        }
+        let pickable = slash && SlashFilter.query(box.shadow).map { !slashMatches($0, nextcloud: nextcloudOK).isEmpty } == true
+        switch EditorFlow.targetStep(shadow: box.shadow, new: n, canSplit: canSplit, slashPick: pickable) {
+        case .none:
+            // nur Formatierung geaendert (gleiche Zeichen): trotzdem speichern
+            let h = richToHTML(new, ctx: fctx, baseBold: boldBase)
+            if h != html && h != PageLinkTitles.apply(html) { setHTML(h) }
+        case .text:
+            box.shadow = n
+            let h = richToHTML(new, ctx: fctx, baseBold: boldBase)
+            // nur echte Aenderungen speichern (aktualisierte Seitentitel in Verweisen allein sind keine)
+            if h != html && h != PageLinkTitles.apply(html) { setHTML(h) }
+        case .split(let at, let from, let rest):
+            box.shadow = n
+            box.handover = EditorFlow.Handover(base: n)                // weitere Tasten hier gehen ans neue Feld
+            let a = new.characters.index(new.startIndex, offsetBy: at), f = new.characters.index(new.startIndex, offsetBy: from)
+            doReturn(AttributedString(new[new.startIndex..<a]), AttributedString(new[f..<new.endIndex]), rest: rest)
+        case .slashPick(let rest):                                     // Return im "/"-Menue: erster Treffer (F3)
+            guard let q = SlashFilter.query(box.shadow), let first = slashMatches(q, nextcloud: nextcloudOK).first else { return }
+            box.shadow = n; box.handover = EditorFlow.Handover(base: n)
+            ed.slashApply(blockOf(key), type: first.1, level: first.2)
+            if let t = ed.focus, t != key || first.1 != "paragraph" { ed.forward(rest, to: t) }
+        }
+    }
+
+    /// Weitergereichte Eingaben uebernehmen (beim Erscheinen, beim Fokus und sobald neue bereitliegen)
     private func takeCarry() {
-        guard !raw, let c = ed.carry.removeValue(forKey: key), !c.isEmpty else { return }
-        let canSplit = splitOnReturn && onReturn != nil
-        let part = canSplit ? EditorCarry.split(c) : (head: c, newline: false, rest: "")
-        let at = min(cursor ?? rich.characters.count, rich.characters.count)
-        var ins = AttributedString(part.head); ins.font = font
-        rich.insert(ins, at: rich.characters.index(rich.startIndex, offsetBy: at))
-        let end = rich.characters.index(rich.startIndex, offsetBy: at + part.head.count)
-        if part.newline, let onReturn {
+        guard !raw, ed.focus == key, let c = ed.carry.removeValue(forKey: key), !c.isEmpty else { return }
+        let count = rich.characters.count
+        let caret = min(cursor ?? count, count)
+        let a = EditorFlow.apply(carry: c, caret: caret, canSplit: canSplit)
+        let start = caret - min(a.removedBefore, caret)
+        var ins = AttributedString(a.inserted); ins.font = font
+        rich.replaceSubrange(rich.characters.index(rich.startIndex, offsetBy: start)..<rich.characters.index(rich.startIndex, offsetBy: caret), with: ins)
+        let end = rich.characters.index(rich.startIndex, offsetBy: start + a.inserted.count)
+        box.shadow = String(rich.characters)
+        if a.split {
             let before = AttributedString(rich[rich.startIndex..<end]), after = AttributedString(rich[end..<rich.endIndex])
-            let bh = richToHTML(before, ctx: fctx, baseBold: boldBase), ah = richToHTML(after, ctx: fctx, baseBold: boldBase)
-            rich = before
-            setHTML(bh); onReturn(bh, ah)
-            if !part.rest.isEmpty, let next = ed.focus, next != key { ed.carry[next] = part.rest + (ed.carry[next] ?? "") }
+            rich = before; box.shadow = String(before.characters)
+            doReturn(before, after, rest: a.rest)
         } else {
             rsel = AttributedTextSelection(insertionPoint: end)
+            let h = richToHTML(rich, ctx: fctx, baseBold: boldBase)
+            if h != html { setHTML(h) }
         }
+    }
+
+    /// Fokus holen - mehrfach: ein eben eingefuegtes Feld (neuer Absatz nach der Liste, "Typ → Text") ist beim ersten
+    /// Versuch oft noch nicht im Fenster; der Fehlschlag beendete bisher das Bearbeiten (Tastatur zu, N2)
+    private func acquireFocus() {
+        box.acquireUntil = Date().addingTimeInterval(0.6)
+        for d in [0.0, 0.08, 0.25, 0.5] {
+            DispatchQueue.main.asyncAfter(deadline: .now() + d) { if ed.focus == key && !focused { focused = true } }
+        }
+    }
+
+    @ViewBuilder private var staticText: some View {
+        Group {
+            if html.isEmpty { Text(placeholder).foregroundStyle(.tertiary) }
+            else if raw { Text(html) }
+            else { Text(inlineText(html)).foregroundStyle(muted ? .secondary : .primary) }
+        }
+        .font(font)
+        .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
     }
 
     var body: some View {
@@ -421,38 +526,48 @@ struct EditText: View {
                     .onChange(of: focused) { _, f in if !f && ed.focus == key { ed.focus = nil } }
             } else {
                 VStack(alignment: .leading, spacing: 6) {
-                    TextEditor(text: $rich, selection: $rsel)
-                        .font(font)
-                        .scrollDisabled(true)
-                        .scrollContentBackground(.hidden)
-                        #if os(iOS)
-                        .padding(.horizontal, -5).padding(.vertical, -8)          // Innenabstand des Editors ausgleichen
-                        #endif
-                        .frame(minHeight: 22)
-                        .focused($focused)
-                        .overlay(alignment: .topLeading) {
-                            if rich.characters.isEmpty { Text(placeholder).font(font).foregroundStyle(.tertiary).allowsHitTesting(false) }
-                        }
-                        .onKeyPress(keys: [.upArrow, .downArrow, .return, .tab, .escape]) { kp in   // @/:-Liste mit Tastatur
-                            let items = mentions
-                            guard !items.isEmpty else { return .ignored }
-                            switch kp.key {
-                            case .upArrow: mSel = (mSel + items.count - 1) % items.count
-                            case .downArrow: mSel = (mSel + 1) % items.count
-                            case .escape: mClosed = mKey
-                            default: pickMention(items[min(mSel, items.count - 1)])
+                    ZStack(alignment: .topLeading) {
+                        TextEditor(text: $rich, selection: $rsel)
+                            .font(font)
+                            .scrollDisabled(true)
+                            .scrollContentBackground(.hidden)
+                            #if os(iOS)
+                            .padding(.horizontal, -5).padding(.vertical, -8)          // Innenabstand des Editors ausgleichen
+                            #endif
+                            .frame(minHeight: 22)
+                            .focused($focused)
+                            .overlay(alignment: .topLeading) {
+                                if rich.characters.isEmpty { Text(placeholder).font(font).foregroundStyle(.tertiary).allowsHitTesting(false) }
                             }
-                            return .handled
-                        }
-                    #if os(macOS)
-                    if let q = slashQuery { SlashMenu(query: q, nextcloud: store.serverVersion.map { !ShareLogic.versionLess($0, "2.3.0") } ?? false) { type, level in ed.slashApply(blockOf(key), type: type, level: level) } }
-                    else if !mentions.isEmpty { MentionMenu(items: mentions, selected: min(mSel, mentions.count - 1)) { pickMention($0) } }
-                    #else
-                    if slashQuery == nil && !mentions.isEmpty { MentionMenu(items: mentions, selected: min(mSel, mentions.count - 1)) { pickMention($0) } }
-                    #endif
+                            .onKeyPress(keys: [.upArrow, .downArrow, .return, .tab, .escape]) { kp in   // @/:-Liste mit Tastatur
+                                let items = mentions
+                                guard !items.isEmpty else { return .ignored }
+                                switch kp.key {
+                                case .upArrow: mSel = (mSel + items.count - 1) % items.count
+                                case .downArrow: mSel = (mSel + 1) % items.count
+                                case .escape: mClosed = mKey
+                                default: pickMention(items[min(mSel, items.count - 1)])
+                                }
+                                return .handled
+                            }
+                            // Abgeben: Editor behaelt die Tastatur unsichtbar, sichtbar ist der gespeicherte Text
+                            .opacity(handingOver ? 0 : 1)
+                            .frame(height: handingOver ? 0 : nil, alignment: .top)
+                            .allowsHitTesting(!handingOver)
+                            .accessibilityHidden(handingOver)
+                        if handingOver { staticText }
+                    }
+                    if !handingOver {
+                        #if os(macOS)
+                        if let q = slashQuery { SlashMenu(query: q, nextcloud: nextcloudOK) { type, level in ed.slashApply(blockOf(key), type: type, level: level) } }
+                        else if !mentions.isEmpty { MentionMenu(items: mentions, selected: min(mSel, mentions.count - 1)) { pickMention($0) } }
+                        #else
+                        if slashQuery == nil && !mentions.isEmpty { MentionMenu(items: mentions, selected: min(mSel, mentions.count - 1)) { pickMention($0) } }
+                        #endif
+                    }
                 }
                 #if os(iOS)
-                .onChange(of: slashQuery, initial: true) { _, q in       // Menue an der Seite andocken (ueber der Tastatur)
+                .onChange(of: handingOver ? nil : slashQuery, initial: true) { _, q in       // Menue an der Seite andocken (ueber der Tastatur)
                     let v = q.map { SlashDock(key: key, query: $0) }
                     if ed.slashDock != v && (v != nil || ed.slashDock?.key == key) { ed.slashDock = v }
                 }
@@ -460,33 +575,14 @@ struct EditText: View {
                 #endif
                 .onAppear {
                     rich = richText(html, base: font)
-                    rsel = AttributedTextSelection(insertionPoint: rich.endIndex)
+                    box.shadow = String(rich.characters); box.handover = nil
+                    let atStart = ed.caretStart.remove(key) != nil
+                    rsel = AttributedTextSelection(insertionPoint: atStart ? rich.startIndex : rich.endIndex)
                     takeCarry()
-                    DispatchQueue.main.async { if ed.focus == key { focused = true } }
+                    if ed.focus == key { acquireFocus() }
                 }
-                .onChange(of: rich) { old, new in
-                    if reverting { reverting = false; return }
-                    let o = String(old.characters), n = String(new.characters)
-                    // Fokus wandert gerade weiter (Return): Eingaben an das neue Feld reichen, dieses bleibt wie gespeichert
-                    if ed.focus != key, let target = ed.focus, let d = EditorCarry.inserted(old: o, new: n), !d.isEmpty {
-                        ed.carry[target, default: ""] += d
-                        reverting = true; rich = old
-                        return
-                    }
-                    if ed.focus == key, splitOnReturn, slashQuery == nil, let onReturn, n.filter({ $0 == "\n" }).count > o.filter({ $0 == "\n" }).count {
-                        let p = o.commonPrefix(with: n).count
-                        let idx = new.characters.index(new.startIndex, offsetBy: min(p, new.characters.count))
-                        let before = AttributedString(new[new.startIndex..<idx])
-                        let after = idx < new.endIndex ? AttributedString(new[new.characters.index(after: idx)..<new.endIndex]) : AttributedString()
-                        let bh = richToHTML(before, ctx: fctx, baseBold: boldBase), ah = richToHTML(after, ctx: fctx, baseBold: boldBase)
-                        setHTML(bh); onReturn(bh, ah)
-                        if ed.focus != key { rich = before }             // bis der Fokus weg ist: ohne den abgetrennten Rest zeigen
-                    } else {
-                        let h = richToHTML(new, ctx: fctx, baseBold: boldBase)
-                        // nur echte Aenderungen speichern (aktualisierte Seitentitel in Verweisen allein sind keine)
-                        if h != html && h != PageLinkTitles.apply(html) { setHTML(h) }
-                    }
-                }
+                .onChange(of: rich) { _, new in handle(new) }
+                .onReceive(NotificationCenter.default.publisher(for: .hkCarry)) { n in if n.object as? String == key { takeCarry() } }
                 .onReceive(NotificationCenter.default.publisher(for: .hkFormat)) { n in   // Leiste: fett, kursiv, ...
                     guard ed.focus == key, let a = n.userInfo?["action"] as? String else { return }
                     rich.transformAttributes(in: &rsel) { c in
@@ -514,25 +610,33 @@ struct EditText: View {
                     Button("Abbrechen", role: .cancel) {}
                 }
                 .onChange(of: focused) { _, f in
-                    if f { takeCarry() }
-                    else if ed.focus == key { ed.focus = nil }
+                    if f {
+                        if ed.focus == key { takeCarry(); ed.focusAcquired(key) }
+                    } else {
+                        box.handover = nil
+                        guard ed.focus == key else { return }
+                        if Date() < box.acquireUntil {                     // Fokus beim Aufbau verloren: erneut holen
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { if ed.focus == key && !focused { focused = true } }
+                        } else { ed.focus = nil }
+                    }
                 }
-                .onChange(of: ed.focus) { _, f in                         // Fokus ging an etwas ohne Textfeld: freigeben
-                    guard f != key, focused else { return }
+                .onChange(of: ed.focus) { _, f in
+                    if f == key {                                          // wieder Ziel, waehrend noch abgegeben wurde
+                        if box.handover != nil {
+                            rich = richText(html, base: font); box.shadow = String(rich.characters); box.handover = nil
+                            rsel = AttributedTextSelection(insertionPoint: rich.endIndex)
+                        }
+                        return
+                    }
+                    guard focused else { return }                          // Fokus ging an etwas ohne Textfeld: freigeben
                     if f == nil { focused = false; return }
-                    Task { @MainActor in try? await Task.sleep(for: .milliseconds(600)); if ed.focus != key && focused { focused = false } }
+                    Task { @MainActor in try? await Task.sleep(for: .milliseconds(900)); if ed.focus != key && focused { focused = false } }
                 }
             }
         } else {
-            Group {
-                if html.isEmpty { Text(placeholder).foregroundStyle(.tertiary) }
-                else if raw { Text(html) }
-                else { Text(inlineText(html)).foregroundStyle(muted ? .secondary : .primary) }
-            }
-            .font(font)
-            .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
-            .contentShape(Rectangle())
-            .onTapGesture { if !ed.locked { ed.focus = key } else if ed.tapToComment { ed.commentBlock = blockOf(key) } }
+            staticText
+                .contentShape(Rectangle())
+                .onTapGesture { if !ed.locked { ed.focus = key } else if ed.tapToComment { ed.commentBlock = blockOf(key) } }
         }
     }
     private func blockOf(_ k: String) -> String { String(k.split(separator: "/").first ?? "") }
@@ -546,20 +650,29 @@ struct SlashMenu: View {
     /// iPhone/iPad: ueber der Tastatur angedockt, volle Breite, niedriger
     var docked = false
     let pick: (String, Int) -> Void
+    /// Zeilenhoehe waechst mit der Schrift; daraus die Hoehe des Menues (fixedSize an der ScrollView meldete bei einem
+    /// Treffer eine falsche Hoehe - der Eintrag lag halb unter der Tastaturleiste, F3)
+    @ScaledMetric(relativeTo: .body) private var rowH: CGFloat = 40
     var body: some View {
-        let items = slashItems.filter { (nextcloud || $0.1 != "nextcloud") && (query.isEmpty || $0.0.lowercased().contains(query) || $0.4.contains(query)) }
+        let items = slashMatches(query, nextcloud: nextcloud)
+        let maxH: CGFloat = docked ? 230 : 320
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
-                if items.isEmpty { Text("Kein Blocktyp für „\(query)“").font(.subheadline).foregroundStyle(.secondary).padding(10) }
-                ForEach(items, id: \.0) { it in
+                if items.isEmpty { Text("Kein Blocktyp für „\(query)“").font(.subheadline).foregroundStyle(.secondary).padding(10).frame(minHeight: rowH) }
+                ForEach(Array(items.enumerated()), id: \.element.0) { n, it in
                     Button { pick(it.1, it.2) } label: {
-                        Label(it.0, systemImage: it.3).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8).padding(.horizontal, 12).contentShape(Rectangle())
+                        HStack {
+                            Label(it.0, systemImage: it.3)
+                            Spacer(minLength: 4)
+                            if n == 0 { Image(systemName: "return").font(.caption).foregroundStyle(.tertiary).accessibilityHidden(true) }   // Return waehlt den ersten
+                        }
+                        .frame(maxWidth: .infinity, minHeight: rowH, alignment: .leading).padding(.horizontal, 12).contentShape(Rectangle())
                     }.buttonStyle(.plain)
                 }
             }
         }
-        .frame(maxHeight: docked ? 230 : 320)
-        .fixedSize(horizontal: false, vertical: items.count <= (docked ? 5 : 7))
+        .frame(height: min(maxH, rowH * CGFloat(max(items.count, 1)) + 4))
+        .scrollBounceBehavior(.basedOnSize)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(.secondary.opacity(0.25)))
         .frame(maxWidth: docked ? 520 : 300)
@@ -627,7 +740,16 @@ extension PageEditor {
     }
     func format(_ action: String) { NotificationCenter.default.post(name: .hkFormat, object: nil, userInfo: ["action": action]) }
 }
-extension Notification.Name { static let hkFormat = Notification.Name("hkFormat") }
+extension Notification.Name {
+    static let hkFormat = Notification.Name("hkFormat")
+    /// Weitergereichte Eingaben fuer ein Feld liegen bereit (object: Schluessel des Felds)
+    static let hkCarry = Notification.Name("hkCarry")
+}
+
+/// Treffer des "/"-Menues (Menue und Return = erster Treffer)
+func slashMatches(_ query: String, nextcloud: Bool) -> [(String, String, Int, String, String)] {
+    slashItems.filter { (nextcloud || $0.1 != "nextcloud") && SlashFilter.matches(name: $0.0, keywords: $0.4, query: query) }
+}
 
 // MARK: - Leiste ueber der Tastatur
 

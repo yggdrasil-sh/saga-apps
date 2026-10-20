@@ -372,7 +372,9 @@ struct MoveSheet: View {
             List {
                 if shared && targets.isEmpty && q.isEmpty { Text("Kein anderes Ziel im geteilten Bereich.").foregroundStyle(.secondary) }
                 if current != nil && q.isEmpty && !shared {
-                    Button { Task { await go(nil) } } label: { Label("Oberste Ebene", systemImage: "arrow.up.to.line") }
+                    Button { Task { await go(nil) } } label: {
+                        Label("Oberste Ebene", systemImage: "arrow.up.to.line").frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                    }
                 }
                 ForEach(targets) { p in
                     Button { Task { await go(p.id) } } label: {
@@ -383,7 +385,9 @@ struct MoveSheet: View {
                                 let path = store.path(p.id).map(\.label).joined(separator: " / ")
                                 if !path.isEmpty { Text(path).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
                             }
+                            Spacer(minLength: 0)
                         }
+                        .contentShape(Rectangle())                        // ganze Zeile antippbar, nicht nur der Text (N5)
                     }.buttonStyle(.plain)
                 }
                 if !error.isEmpty { Text(error).foregroundStyle(.red).font(.footnote) }

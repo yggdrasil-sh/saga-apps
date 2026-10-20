@@ -187,7 +187,14 @@ struct EventEditor: View {
                 DatePicker("Beginn", selection: $start, displayedComponents: allday ? .date : [.date, .hourAndMinute])
                     .onChange(of: start) { o, n in if end <= n { end = allday ? n : n.addingTimeInterval(end.timeIntervalSince(o) > 0 ? end.timeIntervalSince(o) : 3600) } }
                 DatePicker("Ende", selection: $end, in: start..., displayedComponents: allday ? .date : [.date, .hourAndMinute])
-                if event == nil {
+                if event == nil && targets.isEmpty {
+                    // ohne beschreibbaren Kalender: Zeile mit Wert und Weg zur eigenen Einstellung der App (N11)
+                    LabeledContent("Kalender", value: String(localized: "Keiner verbunden"))
+                    Button("Kalender verbinden …") {
+                        dismiss()                                          // erst dieses Blatt schliessen, dann die Einstellungen
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { NotificationCenter.default.post(name: .hkOpenSettings, object: "kalender") }
+                    }
+                } else if event == nil {
                     Picker("Kalender", selection: $target) { ForEach(targets) { Text($0.name).tag(Optional($0)) } }
                 } else { LabeledContent("Kalender", value: event?.calendar ?? "") }
                 TextField("Ort", text: $location)
@@ -216,7 +223,7 @@ struct EventEditor: View {
             let c = Calendar.current, h = c.component(.hour, from: .now) + 1
             start = c.date(bySettingHour: min(h, 22), minute: 0, second: 0, of: day) ?? day; end = start.addingTimeInterval(3600)
             targets = await store.calTargets(); target = targets.first
-            if targets.isEmpty { error = String(localized: "Kein beschreibbarer Kalender verbunden (Einstellungen → Kalender im Web).") }
+            if targets.isEmpty { error = String(localized: "Kein beschreibbarer Kalender verbunden. In den Einstellungen unter „Kalender“ → „+ Kalender verbinden“ einrichten.") }
         }
     }
     private func save() async {
