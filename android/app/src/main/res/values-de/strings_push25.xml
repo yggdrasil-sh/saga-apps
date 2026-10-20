@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: eigene Push-Verbindung ohne Verteiler -->
+<resources>
+    <string name="push_on_stream">An – über eigene Verbindung</string>
+    <string name="push_stream_title">Eigene Verbindung (ohne Verteiler)</string>
+    <string name="push_stream_hint">Kein Verteiler gefunden – Saga hält eine eigene, stromsparende Verbindung. Nutzt du mehrere Apps mit Mitteilungen ohne Google, spart ein gemeinsamer Verteiler wie ntfy Akku.</string>
+    <string name="push_stream_off_hint">Eigene Verbindung ist aus. Für Mitteilungen im Hintergrund einen Verteiler wie ntfy installieren oder die eigene Verbindung wieder einschalten.</string>
+    <string name="push_stream_switch">Eigene Verbindung nutzen</string>
+    <string name="push_stream_status_on">Verbunden · Lebenszeichen etwa alle %1$d Min. (höchstens %2$d Weckungen pro Stunde)</string>
+    <string name="push_stream_status_off">Gerade nicht verbunden – verbindet sich von selbst, sobald es Netz gibt.</string>
+    <string name="push_stream_low">Dein Netz oder der Reverse Proxy des Servers trennt ruhende Verbindungen früh – Saga muss deshalb öfter Lebenszeichen senden. Admins: siehe Anleitung, Abschnitt „Reverse Proxy“.</string>
+    <string name="push_stream_get_ntfy">ntfy holen</string>
+    <string name="push_stream_battery">Optional: Kommen Mitteilungen auf deinem Handy verspätet an (manche Hersteller beenden Hintergrund-Apps), kannst du Saga von der Akku-Optimierung ausnehmen. Reines Android braucht das nicht.</string>
+    <string name="push_stream_battery_button">Ausnahme erlauben …</string>
+    <string name="push_stream_channel">Hintergrund-Verbindung</string>
+    <string name="push_stream_channel_desc">Erscheint, solange Saga eine eigene Verbindung für Mitteilungen hält (kein Verteiler installiert). Du kannst diese Mitteilung ausblenden.</string>
+    <string name="push_stream_notif_title">Mitteilungen über eigene Verbindung</string>
+    <string name="push_stream_notif_text">Saga wartet auf Mitteilungen – stromsparend, ohne Google.</string>
+</resources>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: eigene Push-Verbindung ohne Verteiler -->
+<resources>
+    <string name="push_on_stream">Activadas: mediante la conexión propia de Saga</string>
+    <string name="push_stream_title">Conexión propia (sin distribuidor)</string>
+    <string name="push_stream_hint">No se encontró ningún distribuidor: Saga mantiene su propia conexión de bajo consumo. Si usas varias apps con notificaciones sin Google, un distribuidor compartido como ntfy ahorra batería.</string>
+    <string name="push_stream_off_hint">La conexión propia está desactivada. Para recibir notificaciones en segundo plano, instala un distribuidor como ntfy o vuelve a activar la conexión propia.</string>
+    <string name="push_stream_switch">Usar conexión propia</string>
+    <string name="push_stream_status_on">Conectado · señal de vida aprox. cada %1$d min (como máximo %2$d activaciones por hora)</string>
+    <string name="push_stream_status_off">Ahora mismo sin conexión: se reconecta sola en cuanto haya red.</string>
+    <string name="push_stream_low">Tu red o el proxy inverso del servidor cortan pronto las conexiones inactivas, así que Saga tiene que enviar señales de vida más a menudo. Administradores: ver la guía, sección «Proxy inverso».</string>
+    <string name="push_stream_get_ntfy">Obtener ntfy</string>
+    <string name="push_stream_battery">Opcional: si las notificaciones te llegan con retraso (algunos fabricantes detienen las apps en segundo plano), puedes excluir a Saga de la optimización de batería. Android puro no lo necesita.</string>
+    <string name="push_stream_battery_button">Permitir excepción…</string>
+    <string name="push_stream_channel">Conexión en segundo plano</string>
+    <string name="push_stream_channel_desc">Se muestra mientras Saga mantiene su propia conexión para notificaciones (sin distribuidor instalado). Puedes ocultar esta notificación.</string>
+    <string name="push_stream_notif_title">Notificaciones mediante conexión propia</string>
+    <string name="push_stream_notif_text">Saga espera notificaciones: bajo consumo, sin Google.</string>
+</resources>

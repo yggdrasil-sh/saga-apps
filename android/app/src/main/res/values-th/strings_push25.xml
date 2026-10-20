@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: eigene Push-Verbindung ohne Verteiler -->
+<resources>
+    <string name="push_on_stream">เปิดอยู่ ผ่านการเชื่อมต่อของ Saga เอง</string>
+    <string name="push_stream_title">การเชื่อมต่อของตัวเอง (ไม่มีตัวกระจาย)</string>
+    <string name="push_stream_hint">ไม่พบตัวกระจาย Saga จะคงการเชื่อมต่อแบบประหยัดพลังงานของตัวเองไว้ หากคุณใช้หลายแอปที่แจ้งเตือนโดยไม่ใช้ Google ตัวกระจายที่ใช้ร่วมกันอย่าง ntfy จะช่วยประหยัดแบตเตอรี่</string>
+    <string name="push_stream_off_hint">การเชื่อมต่อของตัวเองปิดอยู่ หากต้องการรับการแจ้งเตือนในเบื้องหลัง ให้ติดตั้งตัวกระจาย เช่น ntfy หรือเปิดการเชื่อมต่อของตัวเองอีกครั้ง</string>
+    <string name="push_stream_switch">ใช้การเชื่อมต่อของตัวเอง</string>
+    <string name="push_stream_status_on">เชื่อมต่อแล้ว · ส่งสัญญาณประมาณทุก %1$d นาที (ปลุกเครื่องไม่เกิน %2$d ครั้งต่อชั่วโมง)</string>
+    <string name="push_stream_status_off">ขณะนี้ไม่ได้เชื่อมต่อ จะเชื่อมต่อเองทันทีที่มีเครือข่าย</string>
+    <string name="push_stream_low">เครือข่ายของคุณหรือ reverse proxy ของเซิร์ฟเวอร์ตัดการเชื่อมต่อที่ไม่มีการใช้งานเร็ว Saga จึงต้องส่งสัญญาณบ่อยขึ้น ผู้ดูแล: ดูคู่มือ หัวข้อ “Reverse proxy”</string>
+    <string name="push_stream_get_ntfy">รับ ntfy</string>
+    <string name="push_stream_battery">ไม่บังคับ: หากการแจ้งเตือนมาช้าบนโทรศัพท์ของคุณ (ผู้ผลิตบางรายหยุดแอปเบื้องหลัง) คุณสามารถยกเว้น Saga จากการเพิ่มประสิทธิภาพแบตเตอรี่ได้ Android ทั่วไปไม่จำเป็นต้องทำ</string>
+    <string name="push_stream_battery_button">อนุญาตข้อยกเว้น…</string>
+    <string name="push_stream_channel">การเชื่อมต่อเบื้องหลัง</string>
+    <string name="push_stream_channel_desc">แสดงขณะที่ Saga คงการเชื่อมต่อของตัวเองสำหรับการแจ้งเตือน (ไม่ได้ติดตั้งตัวกระจาย) คุณซ่อนการแจ้งเตือนนี้ได้</string>
+    <string name="push_stream_notif_title">การแจ้งเตือนผ่านการเชื่อมต่อของตัวเอง</string>
+    <string name="push_stream_notif_text">Saga กำลังรอการแจ้งเตือน ประหยัดพลังงาน ไม่ใช้ Google</string>
+</resources>

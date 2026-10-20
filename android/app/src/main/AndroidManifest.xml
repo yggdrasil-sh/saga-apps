@@ -28,6 +28,13 @@
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <!-- 2.4 Videos im Chat: Upload im Hintergrund (WorkManager, expedited) als Vordergrund-Arbeit mit Mitteilung -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- 2.5: eigene Push-Verbindung ohne Verteiler (nur wenn kein UnifiedPush-Verteiler installiert ist): Vordergrund-Dienst
+         specialUse, kurze Wakelocks beim Empfang/Lebenszeichen, Start nach dem Neustart; Ausnahme von der
+         Akku-Optimierung nur auf ausdruecklichen Wunsch (Erklaerung in den Push-Einstellungen, nie erzwungen) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <queries>
         <!-- Custom Tabs (Anmeldung im Browser) -->
@@ -103,6 +110,25 @@
                 <action android:name="org.unifiedpush.android.connector.UNREGISTERED" />
                 <action android:name="org.unifiedpush.android.connector.NEW_ENDPOINT" />
                 <action android:name="org.unifiedpush.android.connector.REGISTRATION_FAILED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 2.5: eigene Push-Verbindung zum Saga-Server (WebSocket), nur ohne UnifiedPush-Verteiler - kein Google FCM -->
+        <service
+            android:name=".push.PushStreamService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Push notifications from the user's own self-hosted server without Google services: keeps one idle WebSocket connection, only when no UnifiedPush distributor is installed; can be turned off in the app." />
+        </service>
+        <receiver
+            android:name=".push.PushStreamBoot"
+            android:exported="true"
+            tools:ignore="ExportedReceiver">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 

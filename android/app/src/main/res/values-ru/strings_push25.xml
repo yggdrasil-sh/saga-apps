@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: eigene Push-Verbindung ohne Verteiler -->
+<resources>
+    <string name="push_on_stream">Включено – через собственное соединение Saga</string>
+    <string name="push_stream_title">Собственное соединение (без дистрибьютора)</string>
+    <string name="push_stream_hint">Дистрибьютор не найден – Saga поддерживает собственное энергосберегающее соединение. Если ты пользуешься несколькими приложениями с уведомлениями без Google, общий дистрибьютор вроде ntfy экономит заряд.</string>
+    <string name="push_stream_off_hint">Собственное соединение выключено. Чтобы получать уведомления в фоне, установи дистрибьютор, например ntfy, или снова включи собственное соединение.</string>
+    <string name="push_stream_switch">Использовать собственное соединение</string>
+    <string name="push_stream_status_on">Подключено · сигнал примерно каждые %1$d мин (не больше %2$d пробуждений в час)</string>
+    <string name="push_stream_status_off">Сейчас нет соединения – подключится само, как только появится сеть.</string>
+    <string name="push_stream_low">Твоя сеть или обратный прокси сервера рано разрывают неактивные соединения, поэтому Saga приходится чаще отправлять сигналы. Администраторам: см. руководство, раздел «Обратный прокси».</string>
+    <string name="push_stream_get_ntfy">Установить ntfy</string>
+    <string name="push_stream_battery">Необязательно: если уведомления приходят с опозданием (некоторые производители останавливают фоновые приложения), можно исключить Saga из оптимизации батареи. Чистому Android это не нужно.</string>
+    <string name="push_stream_battery_button">Разрешить исключение…</string>
+    <string name="push_stream_channel">Фоновое соединение</string>
+    <string name="push_stream_channel_desc">Показывается, пока Saga поддерживает собственное соединение для уведомлений (дистрибьютор не установлен). Это уведомление можно скрыть.</string>
+    <string name="push_stream_notif_title">Уведомления через собственное соединение</string>
+    <string name="push_stream_notif_text">Saga ждёт уведомлений – экономно, без Google.</string>
+</resources>
