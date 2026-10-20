@@ -177,6 +177,7 @@ struct ServicesScreen: View {
     @State private var list: [S] = []
     @State private var q = ""
     @State private var err = ""
+    @State private var loaded = false
     var body: some View {
         let shown = list.filter { q.isEmpty || hkNorm($0.name + " " + $0.host + " " + $0.category).contains(hkNorm(q)) }
         let cats = Array(Set(shown.map(\.category))).sorted()
@@ -184,6 +185,9 @@ struct ServicesScreen: View {
             VStack(alignment: .leading, spacing: 18) {
                 TextField("Dienst suchen", text: $q).textFieldStyle(.roundedBorder).frame(maxWidth: 320)
                 if !err.isEmpty { Text(err).foregroundStyle(.red) }
+                if loaded && err.isEmpty && list.isEmpty {
+                    ContentUnavailableView("Keine Dienste", systemImage: "square.grid.3x3", description: Text("Dienste kommen aus der Verwaltung des Servers (FreeIPA)."))
+                } else if !loaded && err.isEmpty { ProgressView().frame(maxWidth: .infinity) }
                 ForEach(cats, id: \.self) { c in
                     Text(c).font(.headline)
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 200), spacing: 10)], spacing: 10) {
@@ -203,8 +207,14 @@ struct ServicesScreen: View {
             }.padding(24)
         }
         .navigationTitle("Dienste")
-        .task {
-            do { list = try JSONDecoder().decode([S].self, from: try await store.api("api/services")) } catch { err = error.localizedDescription }
+        .task { await load(retry: true) }
+    }
+    /// Abgebrochen (Ansicht neu aufgebaut) ist kein Fehler: einmal ausserhalb der abgebrochenen Aufgabe neu laden
+    private func load(retry: Bool) async {
+        do { list = try JSONDecoder().decode([S].self, from: try await store.api("api/services")); err = ""; loaded = true }
+        catch {
+            if !ServiceErrors.isCancel(error) { err = error.localizedDescription; loaded = true }
+            else if retry { Task { await load(retry: false) } }
         }
     }
 }

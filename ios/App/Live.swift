@@ -70,7 +70,7 @@ final class LiveHub: ObservableObject {
                     if b == 0x0A {
                         buf.append(b)
                         let evs = parser.feed(bytes: buf); buf.removeAll(keepingCapacity: true)
-                        await MainActor.run { self?.lastLine = Date() }
+                        await MainActor.run { [weak self] in self?.lastLine = Date() }   // eigene Erfassung: Swift 6 erlaubt kein "var self" hier
                         for e in evs { if let r = await self?.handle(e) { return r } }
                     } else { buf.append(b) }
                 }

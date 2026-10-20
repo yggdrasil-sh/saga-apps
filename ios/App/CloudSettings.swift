@@ -72,8 +72,10 @@ final class BackupModel: ObservableObject {
 
 struct MyBackupSection: View {
     @EnvironmentObject var store: Store
-    @StateObject private var model = BackupModel()
-    @State private var open = false
+    /// Modell und "Verwalten"-Blatt gehoeren den Einstellungen: ein .sheet an einer Form-Zeile (lazy) oeffnete auf dem
+    /// iPhone nicht, sondern schloss die Einstellungen (F7)
+    @ObservedObject var model: BackupModel
+    @Binding var open: Bool
     @State private var msg: String?
     var body: some View {
         if model.supported {
@@ -85,7 +87,6 @@ struct MyBackupSection: View {
             .id("backup")
             .task { model.store = store; await model.load(); openIfPending() }
             .onReceive(NotificationCenter.default.publisher(for: .hkOpenBackup)) { _ in openIfPending() }
-            .sheet(isPresented: $open) { MyBackupView(model: model).environmentObject(store) }
         }
     }
     @ViewBuilder private var content: some View {
@@ -609,6 +610,8 @@ struct NextcloudSettingsSection: View {
                     #if os(iOS)
                     .keyboardType(.URL).textInputAutocapitalization(.never)
                     #endif
+                    .submitLabel(.go)
+                    .onSubmit { if !busy { Task { await connect() } } }        // "Los" auf der Tastatur: Knopf lag darunter
                 Button(busy ? "Prüfe …" : "Verbinden") { Task { await connect() } }.disabled(busy || url.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         } else {
@@ -629,6 +632,8 @@ struct NextcloudSettingsSection: View {
         await load()
     }
     private func connect() async {
+        // Offensichtlich keine Adresse: gleich sagen statt "Ziel nicht erreichbar." vom Server (F17)
+        guard CloudURLCheck.plausible(url) else { msg = String(localized: "Bitte eine gültige Adresse eingeben, z. B. https://cloud.example.org"); return }
         busy = true; msg = nil
         do { let flow = try await CloudFlow.ncConnect(store.cloudAPI, url: url); openURL(flow) }
         catch { msg = error.localizedDescription }

@@ -12,6 +12,8 @@ struct SettingsView: View {
     @State private var askSwitch: URL?                    // anderer Server: erst nach Rueckfrage (meldet vom alten ab)
     @State private var crop: CropSource?                  // Profilbild zuschneiden (2.1)
     @State private var cropped: Data?
+    @StateObject private var backup = BackupModel()       // Mein Backup: Blatt "Verwalten" haengt am Formular, nicht an der Zeile
+    @State private var backupOpen = false
     #if os(macOS)
     @AppStorage("hk.coverHeight") private var coverHeight: Double = 200
     #endif
@@ -80,7 +82,7 @@ struct SettingsView: View {
             PushSettingsSection(push: store.push)         // Mitteilungen aufs Geraet (1.7)
             ChatDevicesSection(chat: store.chat)          // Chats & Geraete (2.0)
             ChatPrivacySection(chat: store.chat)          // Datenschutz: Gelesen-Bestaetigungen, Online-Status (2.4)
-            MyBackupSection()                             // Mein Backup (2.3, nur wenn der Server es kennt)
+            MyBackupSection(model: backup, open: $backupOpen)   // Mein Backup (2.3, nur wenn der Server es kennt)
             NextcloudSettingsSection()                    // Nextcloud-Dateien in Seiten (2.3)
             ImmichSettingsSection()                       // wie im Web: 👤 → Einstellungen
             CalendarSettingsSection()
@@ -91,6 +93,7 @@ struct SettingsView: View {
         }
         .navigationTitle("Einstellungen")
         .sheet(item: $crop) { c in AvatarCropSheet(source: c) { jpeg in cropped = jpeg } }
+        .sheet(isPresented: $backupOpen, onDismiss: { Task { await backup.load() } }) { MyBackupView(model: backup).environmentObject(store) }
         .task { if store.chat.state == .loading { await store.chat.load() } }
         .confirmationDialog("Server wechseln?", isPresented: Binding(get: { askSwitch != nil }, set: { if !$0 { askSwitch = nil } }), titleVisibility: .visible) {
             Button("Abmelden und wechseln", role: .destructive) {

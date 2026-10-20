@@ -58,12 +58,13 @@ enum AppConfig {
         let host = h.contains(":") ? "[\(h)]" : h                         // IPv6 in Klammern, sonst ist der Port nicht abgrenzbar
         return u.port.map { "\(host):\($0)" } ?? host
     }
-    /// Erlaubte Server-Adresse: nur https. http nur fuer den eigenen Rechner in Entwickler-Builds (Demo-Server).
+    /// Erlaubte Server-Adresse: nur https. http nur in Entwickler-Builds: eigener Rechner und private Netze
+    /// (Testserver im LAN, z. B. 192.168.x.y); Release unveraendert.
     static func isAllowedServer(_ u: URL) -> Bool {
         guard let h = u.host?.lowercased(), !h.isEmpty, u.user == nil, u.password == nil else { return false }
         if u.scheme?.lowercased() == "https" { return true }
         #if DEBUG
-        if u.scheme?.lowercased() == "http", ["localhost", "127.0.0.1", "::1"].contains(h) { return true }
+        if u.scheme?.lowercased() == "http", PrivateNet.isPrivate(host: h) { return true }
         #endif
         return false
     }

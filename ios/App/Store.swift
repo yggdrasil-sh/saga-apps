@@ -79,6 +79,11 @@ final class Store: ObservableObject {
     let calls = CallManager()                                        // Anrufe (2.1)
 
     init() {                                                        // sofort aus dem Zwischenspeicher
+        // Seitenverweise im Text zeigen den aktuellen Titel (nur auf dem Main-Thread, dort wird gezeichnet)
+        PageLinkTitles.lookup = { [weak self] id in
+            guard Thread.isMainThread else { return nil }
+            return MainActor.assumeIsolated { self?.page(id).map { PageLinkTitles.Target(title: $0.title, icon: $0.icon) } }
+        }
         // einmalig nach dem Update: alte Entwuerfe (nur je Server) gehoeren zur aktuell bestehenden Anmeldung
         DraftOwner.app.migrate(origin: AppConfig.serverOrigin, signedIn: DeviceKey.get() != nil || AppConfig.hasToken)
         // Zwischenspeicher der Seitenliste: kleine Listen sofort (erstes Bild wie bisher mit Seitenleiste), grosse im

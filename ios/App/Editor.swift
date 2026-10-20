@@ -50,8 +50,13 @@ func newBlockID() -> String { String((0..<10).map { _ in "abcdefghijklmnopqrstuv
 @MainActor
 final class PageEditor: ObservableObject {
     @Published var focus: String? {                // "blockID" oder "blockID/0/2" (Listenpunkt)
-        didSet { if focus != nil && selected != nil { selected = nil } }      // Schreiben hebt die Bild-Auswahl auf
+        didSet {
+            if focus != nil && selected != nil { selected = nil }      // Schreiben hebt die Bild-Auswahl auf
+            if focus == nil { carry = [:] }
+        }
     }
+    /// Eingaben waehrend des Fokuswechsels (Return): Ziel-Schluessel -> Text, den das neue Feld uebernimmt (EditorCarry)
+    var carry: [String: String] = [:]
     /// ausgewaehlter Bildblock (2.1-c): Kopieren, Ausschneiden, Loeschen ueber Tastatur/Menue (BlockClipboard)
     @Published var selected: String?
     @Published var locked = false                    // Seite gesperrt: nur lesen (wie im Web)
@@ -74,6 +79,12 @@ final class PageEditor: ObservableObject {
     /// Fremde Seite: Aufgaben/Kalender/Immich nur als Platzhalter
     @Published var foreign = false
     @Published var commentBlock: String?
+    /// iPhone/iPad: "/"-Menue des fokussierten Absatzes, ueber der Tastatur angedockt (inline lag es unter der
+    /// Tastaturleiste und war ab der Bildschirmmitte nicht waehlbar)
+    @Published var slashDock: SlashDock?
+    /// Umwandeln mit Verlust (Unterpunkte, Inhalt eines Aufklapp-Blocks): erst nach Rueckfrage
+    struct ConvertAsk: Identifiable, Equatable { let id: String; let type: String; let level: Int }
+    @Published var askConvert: ConvertAsk?
     /// Block, nach dem Bilder aus einer Auswahl (Fotos/Immich) landen: beim Oeffnen gemerkt, weil das Sheet den
     /// Tastaturfokus nimmt (ed.focus -> nil); nach jedem Bild das Bild selbst (mehrere Fotos in Reihenfolge)
     var imageAnchor: String?
@@ -321,6 +332,9 @@ let slashItems: [(String, String, Int, String, String)] = [
     (String(localized: "Nextcloud-Datei"), "nextcloud", 0, "cloud", "nextcloud cloud datei ordner file folder archivo carpeta"),
 ]
 
+/// "/"-Eingabe eines Absatzes (Schluessel des Textfelds + Suchtext)
+struct SlashDock: Equatable { var key: String; var query: String }
+
 struct EditText: View {
     let key: String
     let html: String
@@ -344,6 +358,7 @@ struct EditText: View {
     @State private var mClosed: String?                // Esc: diese Eingabe nicht mehr vorschlagen
     @State private var linkAsk = false
     @State private var linkText = ""
+    @State private var reverting = false               // eigenes Zuruecksetzen nach dem Weiterreichen (kein Speichern)
     @EnvironmentObject private var store: Store
 
     /// Cursor als Zeichen-Offset (nil bei markiertem Text)
@@ -375,8 +390,29 @@ struct EditText: View {
         return s.hasPrefix("/") && !s.contains(" ") && !s.contains("\n") && s.count <= 20 ? String(s.dropFirst()).lowercased() : nil
     }
 
+    /// Eingaben uebernehmen, die waehrend des Fokuswechsels noch im vorigen Feld ankamen (F4: schnelles Tippen)
+    private func takeCarry() {
+        guard !raw, let c = ed.carry.removeValue(forKey: key), !c.isEmpty else { return }
+        let canSplit = splitOnReturn && onReturn != nil
+        let part = canSplit ? EditorCarry.split(c) : (head: c, newline: false, rest: "")
+        let at = min(cursor ?? rich.characters.count, rich.characters.count)
+        var ins = AttributedString(part.head); ins.font = font
+        rich.insert(ins, at: rich.characters.index(rich.startIndex, offsetBy: at))
+        let end = rich.characters.index(rich.startIndex, offsetBy: at + part.head.count)
+        if part.newline, let onReturn {
+            let before = AttributedString(rich[rich.startIndex..<end]), after = AttributedString(rich[end..<rich.endIndex])
+            let bh = richToHTML(before, ctx: fctx, baseBold: boldBase), ah = richToHTML(after, ctx: fctx, baseBold: boldBase)
+            rich = before
+            setHTML(bh); onReturn(bh, ah)
+            if !part.rest.isEmpty, let next = ed.focus, next != key { ed.carry[next] = part.rest + (ed.carry[next] ?? "") }
+        } else {
+            rsel = AttributedTextSelection(insertionPoint: end)
+        }
+    }
+
     var body: some View {
-        if ed.focus == key {
+        // Nach Return bleibt das alte Feld im Fokus, bis das neue ihn hat: Tastatur und Eingaben gehen nicht verloren
+        if ed.focus == key || focused {
             if raw {
                 TextField(placeholder, text: $text, selection: $sel, axis: .vertical)
                     .font(font).focused($focused)
@@ -408,26 +444,47 @@ struct EditText: View {
                             }
                             return .handled
                         }
+                    #if os(macOS)
                     if let q = slashQuery { SlashMenu(query: q, nextcloud: store.serverVersion.map { !ShareLogic.versionLess($0, "2.3.0") } ?? false) { type, level in ed.slashApply(blockOf(key), type: type, level: level) } }
                     else if !mentions.isEmpty { MentionMenu(items: mentions, selected: min(mSel, mentions.count - 1)) { pickMention($0) } }
+                    #else
+                    if slashQuery == nil && !mentions.isEmpty { MentionMenu(items: mentions, selected: min(mSel, mentions.count - 1)) { pickMention($0) } }
+                    #endif
                 }
+                #if os(iOS)
+                .onChange(of: slashQuery, initial: true) { _, q in       // Menue an der Seite andocken (ueber der Tastatur)
+                    let v = q.map { SlashDock(key: key, query: $0) }
+                    if ed.slashDock != v && (v != nil || ed.slashDock?.key == key) { ed.slashDock = v }
+                }
+                .onDisappear { if ed.slashDock?.key == key { ed.slashDock = nil } }
+                #endif
                 .onAppear {
                     rich = richText(html, base: font)
                     rsel = AttributedTextSelection(insertionPoint: rich.endIndex)
-                    DispatchQueue.main.async { focused = true }
+                    takeCarry()
+                    DispatchQueue.main.async { if ed.focus == key { focused = true } }
                 }
                 .onChange(of: rich) { old, new in
+                    if reverting { reverting = false; return }
                     let o = String(old.characters), n = String(new.characters)
-                    if splitOnReturn, slashQuery == nil, let onReturn, n.filter({ $0 == "\n" }).count > o.filter({ $0 == "\n" }).count {
+                    // Fokus wandert gerade weiter (Return): Eingaben an das neue Feld reichen, dieses bleibt wie gespeichert
+                    if ed.focus != key, let target = ed.focus, let d = EditorCarry.inserted(old: o, new: n), !d.isEmpty {
+                        ed.carry[target, default: ""] += d
+                        reverting = true; rich = old
+                        return
+                    }
+                    if ed.focus == key, splitOnReturn, slashQuery == nil, let onReturn, n.filter({ $0 == "\n" }).count > o.filter({ $0 == "\n" }).count {
                         let p = o.commonPrefix(with: n).count
                         let idx = new.characters.index(new.startIndex, offsetBy: min(p, new.characters.count))
                         let before = AttributedString(new[new.startIndex..<idx])
                         let after = idx < new.endIndex ? AttributedString(new[new.characters.index(after: idx)..<new.endIndex]) : AttributedString()
                         let bh = richToHTML(before, ctx: fctx, baseBold: boldBase), ah = richToHTML(after, ctx: fctx, baseBold: boldBase)
                         setHTML(bh); onReturn(bh, ah)
+                        if ed.focus != key { rich = before }             // bis der Fokus weg ist: ohne den abgetrennten Rest zeigen
                     } else {
                         let h = richToHTML(new, ctx: fctx, baseBold: boldBase)
-                        if h != html { setHTML(h) }                              // nur echte Aenderungen speichern
+                        // nur echte Aenderungen speichern (aktualisierte Seitentitel in Verweisen allein sind keine)
+                        if h != html && h != PageLinkTitles.apply(html) { setHTML(h) }
                     }
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .hkFormat)) { n in   // Leiste: fett, kursiv, ...
@@ -456,7 +513,15 @@ struct EditText: View {
                     Button("Link entfernen", role: .destructive) { rich.transformAttributes(in: &rsel) { c in c.link = nil } }
                     Button("Abbrechen", role: .cancel) {}
                 }
-                .onChange(of: focused) { _, f in if !f && ed.focus == key { ed.focus = nil } }
+                .onChange(of: focused) { _, f in
+                    if f { takeCarry() }
+                    else if ed.focus == key { ed.focus = nil }
+                }
+                .onChange(of: ed.focus) { _, f in                         // Fokus ging an etwas ohne Textfeld: freigeben
+                    guard f != key, focused else { return }
+                    if f == nil { focused = false; return }
+                    Task { @MainActor in try? await Task.sleep(for: .milliseconds(600)); if ed.focus != key && focused { focused = false } }
+                }
             }
         } else {
             Group {
@@ -478,6 +543,8 @@ struct SlashMenu: View {
     let query: String
     /// "Nextcloud-Datei" nur bei Servern ab 2.3 (aeltere kennen den Block nicht)
     var nextcloud = true
+    /// iPhone/iPad: ueber der Tastatur angedockt, volle Breite, niedriger
+    var docked = false
     let pick: (String, Int) -> Void
     var body: some View {
         let items = slashItems.filter { (nextcloud || $0.1 != "nextcloud") && (query.isEmpty || $0.0.lowercased().contains(query) || $0.4.contains(query)) }
@@ -491,11 +558,11 @@ struct SlashMenu: View {
                 }
             }
         }
-        .frame(maxHeight: 320)
-        .fixedSize(horizontal: false, vertical: items.count <= 7)
+        .frame(maxHeight: docked ? 230 : 320)
+        .fixedSize(horizontal: false, vertical: items.count <= (docked ? 5 : 7))
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
         .overlay(RoundedRectangle(cornerRadius: 12).stroke(.secondary.opacity(0.25)))
-        .frame(maxWidth: 300)
+        .frame(maxWidth: docked ? 520 : 300)
     }
 }
 

@@ -89,6 +89,25 @@ extension View {
         #endif
     }
 
+    /// Einstellungen zu einem Knopf (Formular): am Mac als Popover, auf iPhone/iPad als Blatt mit "Fertig".
+    /// Ein Form im Popover hat auf iOS keine ideale Groesse (war 36 pt breit und leer).
+    func settingsPopover<C: View>(isPresented: Binding<Bool>, title: LocalizedStringKey, @ViewBuilder content: @escaping () -> C) -> some View {
+        #if os(macOS)
+        popover(isPresented: isPresented, arrowEdge: .bottom) { content() }
+        #else
+        sheet(isPresented: isPresented) {
+            NavigationStack {
+                content()
+                    .navigationTitle(title)
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Fertig") { isPresented.wrappedValue = false } } }
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        #endif
+    }
+
     /// Feste Breite nur am Mac (z. B. Befehlspalette); sonst volle Breite
     @ViewBuilder
     func macWidth(_ w: CGFloat) -> some View {

@@ -398,6 +398,10 @@ struct PageEditorSheets: ViewModifier {
     @EnvironmentObject var store: Store
     func body(content: Content) -> some View {
         content
+    .confirmationDialog("Block umwandeln?", isPresented: Binding(get: { ed.askConvert != nil }, set: { if !$0 { ed.askConvert = nil } }), titleVisibility: .visible, presenting: ed.askConvert) { a in
+            Button("Umwandeln", role: .destructive) { ed.convert(a.id, to: a.type, level: a.level); ed.askConvert = nil }
+            Button("Abbrechen", role: .cancel) { ed.askConvert = nil }
+        } message: { _ in Text("Unterpunkte bzw. der Inhalt des Aufklapp-Blocks gehen dabei verloren.") }
     .sheet(item: Binding(get: { ed.configButtons.map(MoveTarget.init(idString:)) }, set: { if $0 == nil { ed.configButtons = nil } })) { _ in
             if let b = ed.configButtons, let (arr, i) = ed.locate(b), let blk = arr[i] as? NSMutableDictionary, let d = blk["data"] as? NSMutableDictionary {
                 ButtonsConfig(data: d).environmentObject(ed).environmentObject(store)

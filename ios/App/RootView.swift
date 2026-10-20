@@ -115,6 +115,13 @@ struct RootView: View {
         .onChange(of: selection) { _, v in nav.path = []; nav.peek = nil; if v != FedLogic.chatsTag { openChat = nil } }
         .onChange(of: nav.sharedJump) { _, _ in nav.peek = nil; nav.path = []; selection = nil }   // "Zu „Mit mir geteilt“" (Kein Zugriff)
         .onChange(of: nav.peek) { old, new in if old != nil && new == nil { store.dataChanged() } }   // Peek zu -> Ansichten auffrischen
+        // Seite in den Papierkorb (Seitenmenue): offene Ansicht dieser Seite schliessen - als Hauptseite (Auswahl/Deep-Link)
+        // half dismiss() nicht, sie blieb offen und bearbeitbar (F20)
+        .onChange(of: store.undo?.id) { _, v in
+            guard let v else { return }
+            if selection == v { selection = nil }
+            if nav.path.contains(where: { $0.id == v }) { nav.path.removeAll { $0.id == v } }
+        }
         // Peek mittig als Fenster (rechts: eigene Seitenleiste im detail-Bereich)
         .sheet(item: Binding(get: { nav.peek.flatMap { $0.center ? $0 : nil } }, set: { if $0 == nil { nav.peek = nil } })) { p in
             PeekView(id: p.id).environmentObject(store).environmentObject(nav)
@@ -713,6 +720,7 @@ struct LoginScreen: View {
     @State private var showScanner = false
     @State private var pairLink = ""
     @State private var askSwitch: URL?                     // anderer Server vorgemerkt, bisherige Anmeldung vorhanden
+    @FocusState private var serverFocused: Bool            // Tastatur offen: Sprachknopf ausblenden (lag ueber dem Hinweis, F16)
     /// Abbrechen erlaubt, sobald ein Server bekannt ist (Zwischenspeicher bleibt lesbar); beim allerersten Start nicht
     private var canCancel: Bool { AppConfig.hasServer }
     var body: some View {
@@ -733,7 +741,10 @@ struct LoginScreen: View {
                     .keyboardType(.URL).textInputAutocapitalization(.never)
                     #endif
                     .autocorrectionDisabled().textFieldStyle(.roundedBorder)
+                    .focused($serverFocused)
                     .onSubmit { Task { await login() } }
+                // Fehler direkt unter dem Feld: weiter unten lag er unter der Tastatur (F16)
+                if !error.isEmpty { Text(error).font(.footnote).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true) }
             }.frame(maxWidth: 320)
             Button { Task { await login() } } label: { Text(busy ? "Anmelden …" : "Anmelden").frame(maxWidth: 260) }
                 .prominentGold().controlSize(.large).disabled(busy)
@@ -747,8 +758,7 @@ struct LoginScreen: View {
                 Button("Koppeln") { Task { await pair(pairLink) } }.disabled(pairLink.isEmpty || busy)
             }.frame(maxWidth: 420)
             #endif
-            if !error.isEmpty { Text(error).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center) }
-            else if store.error == Store.keychainFailedText { Text(Store.keychainFailedText).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center) }   // BUG-104
+            if error.isEmpty, store.error == Store.keychainFailedText { Text(Store.keychainFailedText).font(.footnote).foregroundStyle(.red).multilineTextAlignment(.center) }   // BUG-104
             Spacer()
         }
         .padding(.horizontal, 30).padding(.vertical, 16)
@@ -763,7 +773,11 @@ struct LoginScreen: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {             // immer sichtbar, auch wenn der Inhalt scrollt
+            #if os(iOS)
+            if !serverFocused { LanguageQuickSwitch().padding(.vertical, 12) }   // bei offener Tastatur nicht ueber dem Inhalt
+            #else
             LanguageQuickSwitch().padding(.vertical, 12)         // Sprache schon vor der Anmeldung waehlbar (fremder Rechner)
+            #endif
         }
         .interactiveDismissDisabled(!canCancel)
         .modifier(PairConfirm(ask: $store.pendingPair, store: store))

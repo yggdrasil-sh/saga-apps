@@ -54,3 +54,56 @@ func appleFixTests() {
         check(files.count > 50, "App-Quellen gefunden")
     } else { check(false, "SAGA_APP_SRC fehlt") }
 }
+
+func appleFixEditorTests() {
+    // F4: Zeichen beim Fokuswechsel weiterreichen
+    check(EditorCarry.inserted(old: "Punkt A", new: "Punkt AP") == "P", "angehaengt")
+    check(EditorCarry.inserted(old: "ab", new: "aXYb") == "XY", "in der Mitte eingefuegt")
+    check(EditorCarry.inserted(old: "aa", new: "aaa") == "a", "gleiche Zeichen")
+    check(EditorCarry.inserted(old: "abc", new: "ab") == nil && EditorCarry.inserted(old: "abc", new: "xbcd") == nil, "Loeschen/Ersetzen: nichts weiterreichen")
+    check(EditorCarry.inserted(old: "", new: "B\n") == "B\n", "aus leerem Feld")
+    let a = EditorCarry.split("unkt B\n\n")
+    check(a.head == "unkt B" && a.newline && a.rest == "\n", "bis zum Return, Rest weiter")
+    let b = EditorCarry.split("xy")
+    check(b.head == "xy" && !b.newline && b.rest.isEmpty, "ohne Return")
+}
+
+func appleFixConvertTests() {
+    // F5: Bild & Co. nicht in Text umwandeln; verlustbehaftet nur mit Rueckfrage
+    check(BlockConvert.mode(type: "image", data: ["file": ["url": "x"]]) == .no, "Bild: kein Umwandeln")
+    for t in ["table", "code", "embed", "delimiter", "columns", "file", "nextcloud", "database", "buttons"] { check(BlockConvert.mode(type: t, data: [:]) == .no, "\(t): kein Umwandeln") }
+    for t in ["paragraph", "header", "quote", "callout"] { check(BlockConvert.mode(type: t, data: ["text": "a"]) == .free, "\(t): frei") }
+    check(BlockConvert.mode(type: "list", data: ["items": [["content": "a", "items": []]]]) == .free, "flache Liste: frei")
+    check(BlockConvert.mode(type: "list", data: ["items": [["content": "a", "items": [["content": "b"]]]]]) == .confirm, "Unterpunkte: Rueckfrage")
+    check(BlockConvert.mode(type: "toggle", data: ["blocks": [["type": "paragraph"]]]) == .confirm && BlockConvert.mode(type: "toggle", data: [:]) == .free, "Aufklapp-Block mit Inhalt: Rueckfrage")
+}
+
+func appleFixLinkTests() {
+    // F6: Seitenverweis zeigt den aktuellen Titel
+    let pages: [Int: PageLinkTitles.Target] = [15: .init(title: "Reiseplanung", icon: nil), 16: .init(title: "", icon: "🎉"), -7: .init(title: "Fremd <b>", icon: nil)]
+    let look: (Int) -> PageLinkTitles.Target? = { pages[$0] }
+    check(PageLinkTitles.apply("📄 <a href=\"/notes#15\">Unbenannt</a>", lookup: look) == "📄 <a href=\"/notes#15\">Reiseplanung</a>", "Unbenannt -> aktueller Titel")
+    check(PageLinkTitles.apply("<a href=\"/notes#16\">alt</a> und <a href=\"/notes#99\">weg</a>", lookup: look) == "<a href=\"/notes#16\">🎉 \(String(localized: "Unbenannt"))</a> und <a href=\"/notes#99\">weg</a>", "Symbol vorne, unbekannte Seite bleibt")
+    check(PageLinkTitles.apply("<a href=\"/notes#-7\">x</a>", lookup: look) == "<a href=\"/notes#-7\">Fremd &lt;b&gt;</a>", "fremde Seite, Titel maskiert")
+    check(PageLinkTitles.apply("<a href=\"/notes#15\"><b>fett</b></a>", lookup: look) == "<a href=\"/notes#15\"><b>fett</b></a>", "formatierter Link bleibt")
+    check(PageLinkTitles.apply("<a href=\"https://x.org/notes#15\">x</a>", lookup: look).contains(">x<"), "fremde Adresse bleibt")
+    check(PageLinkTitles.apply("ohne Link", lookup: look) == "ohne Link" && PageLinkTitles.apply("<a href=\"/notes#15\">a</a>", lookup: nil) == "<a href=\"/notes#15\">a</a>", "nichts zu tun")
+}
+
+func appleFixNetTests() {
+    // Entwickler-Builds: http nur zu privaten Netzen
+    for h in ["127.0.0.1", "localhost", "::1", "[::1]", "10.1.2.3", "172.16.0.1", "172.31.255.255", "192.168.1.12", "169.254.3.4", "100.64.0.1", "fd12:3456::1", "fe80::1"] {
+        check(PrivateNet.isPrivate(host: h), "privat: \(h)")
+    }
+    for h in ["8.8.8.8", "172.32.0.1", "172.15.0.1", "192.169.1.1", "saga.example.org", "192.168.1", "192.168.1.256", "1.2.3.4.5", "2001:db8::1", "fdomain.org", "evil.192.168.1.12.nip.io"] {
+        check(!PrivateNet.isPrivate(host: h), "nicht privat: \(h)")
+    }
+}
+
+func appleFixMiscTests() {
+    // F17: ungueltige Nextcloud-Adresse frueh erkennen
+    for ok in ["cloud.example.org", "https://cloud.example.org/", "http://192.168.1.5:8080", "nc.local", "localhost:8080", "nextcloud"] { check(CloudURLCheck.plausible(ok), "Adresse ok: \(ok)") }
+    for bad in ["", "kein url", "https://", "ftp://x.org", "a_b?.org", "  "] { check(!CloudURLCheck.plausible(bad), "Adresse ungueltig: \(bad)") }
+    // F14: Abbruch ist kein Fehler
+    check(ServiceErrors.isCancel(CancellationError()) && ServiceErrors.isCancel(URLError(.cancelled)) && !ServiceErrors.isCancel(URLError(.timedOut)), "Abbruch erkannt")
+}

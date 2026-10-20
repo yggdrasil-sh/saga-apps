@@ -389,8 +389,8 @@ struct DBViewBar: View {
             Button { settings = true } label: { Image(systemName: "slider.horizontal.3") }.buttonStyle(.plain).foregroundStyle(.secondary).fixedSize()
                 .help("Ansicht: Filter, Sortierung, Eigenschaften")
                 .accessibilityLabel("Ansicht: Filter, Sortierung, Eigenschaften")
-                .popover(isPresented: $settings, arrowEdge: .bottom) {
-                    if let id = view?["id"] as? String { ViewSettings(m: m, viewID: id).presentationCompactAdaptation(.popover) }   // iPhone: kein Blatt ohne "Fertig"
+                .settingsPopover(isPresented: $settings, title: "Ansicht") {
+                    if let id = view?["id"] as? String { ViewSettings(m: m, viewID: id) }
                 }
         }
     }
@@ -510,14 +510,29 @@ struct FilterRow: View {
         m.editView(store, viewID) { d in var fs = d["filters"] as? [[String: Any]] ?? []; if index < fs.count { fs[index][k] = val }; d["filters"] = fs }
     }
     var body: some View {
-        HStack {
+        #if os(iOS)
+        // Schmal (iPhone): Eigenschaft/Bedingung oben, Wert darunter - in einer Zeile war kein Platz
+        VStack(alignment: .leading, spacing: 8) {
+            HStack { propPicker; opPicker; Spacer(minLength: 0); removeButton }
+            valueField
+        }
+        #else
+        HStack { propPicker; opPicker; valueField; Spacer(minLength: 0); removeButton }
+        #endif
+    }
+    private var propPicker: some View {
             Picker("", selection: Binding(get: { pid }, set: { p in
                 let t = p == "title" ? "text" : (m.prop(p)?.type ?? "text")
                 m.editView(store, viewID) { d in var fs = d["filters"] as? [[String: Any]] ?? []; if index < fs.count { fs[index] = ["pid": p, "op": filterOps(t)[0].0, "value": ""] }; d["filters"] = fs }
             })) { Text("Name").tag("title"); ForEach(m.props) { Text($0.name).tag($0.id) } }.labelsHidden()
+                .accessibilityLabel(Text("Eigenschaft"))
+    }
+    private var opPicker: some View {
             Picker("", selection: Binding(get: { op }, set: { set("op", $0) })) {
                 ForEach(filterOps(prop?.type ?? "text"), id: \.0) { Text($0.1).tag($0.0) }
-            }.labelsHidden().fixedSize()
+            }.labelsHidden().fixedSize().accessibilityLabel(Text("Bedingung"))
+    }
+    @ViewBuilder private var valueField: some View {
             if !filterNoValue.contains(op), let p = prop {
                 switch p.type {
                 case "select", "multi_select":
@@ -529,13 +544,14 @@ struct FilterRow: View {
                 default:
                     TextField("Wert", text: $text).onSubmit { set("value", text) }
                         .onAppear { text = f["value"].map { "\($0)" } ?? "" }.onDisappear { if text != (f["value"].map { "\($0)" } ?? "") { set("value", text) } }
+                        .textFieldStyle(.roundedBorder)
                 }
             }
-            Spacer(minLength: 0)
+    }
+    private var removeButton: some View {
             Button {
                 m.editView(store, viewID) { d in var fs = d["filters"] as? [[String: Any]] ?? []; if index < fs.count { fs.remove(at: index) }; d["filters"] = fs.isEmpty ? nil : fs }
-            } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }.buttonStyle(.plain).accessibilityLabel("Filter entfernen")
-        }
+            } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }.buttonStyle(.borderless).accessibilityLabel("Filter entfernen")
     }
 }
 

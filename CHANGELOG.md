@@ -338,6 +338,28 @@ Speicher beim Hoch- und Herunterladen. Texte in Deutsch, Englisch, Spanisch, Rus
   Elternseite. Dasselbe Muster an acht weiteren Stellen behoben (u. a. „Kopieren“/„In dieser App verwenden“ bei
   App-Schlüsseln, neuer Wiederherstellungsschlüssel „Übernehmen“/„Abbrechen“, Mein Backup, Nextcloud). Eine Prüfung in
   den Logik-Tests durchsucht alle Ansichten nach diesem Muster.
+- **Datenbank: „Filter, Sortierung, Eigenschaften“ und Spalten-Einstellungen** öffnen auf iPhone/iPad als Blatt mit
+  „Fertig“ (das Popover war 36 pt breit und leer); Filterzeilen sind auf dem iPhone zweizeilig.
+- **Editor auf dem iPhone:** Die Schreibzeile wird über die Tastatur geholt, das „/“-Menü liegt angedockt über der
+  Tastaturleiste. Schnelles Tippen beim Zeilenwechsel (Return in Liste/Checkliste/Absatz) verliert keine Zeichen mehr:
+  Eingaben während des Fokuswechsels landen im neuen Feld.
+- **„Umwandeln in“** gibt es nur noch für Textblöcke (Bild → Text löschte das Bild); geht beim Umwandeln etwas
+  verloren (Unterpunkte, Inhalt eines Aufklapp-Blocks), fragt die App vorher.
+- **Seitenverweise zeigen den aktuellen Titel** (wie im Web) – eine per „/Seite“ angelegte Unterseite blieb sonst
+  „Unbenannt“. Nur aktualisierte Titel lösen kein Speichern aus.
+- **Mein Backup → „Verwalten …“** öffnet die Verwaltung (schloss vorher die Einstellungen).
+- **Gruppenanruf-Knöpfe** erscheinen gleich nach dem Entsperren der Chats, nicht erst nach einem Neustart.
+- **Leiste „Anruf läuft auf …“** verdeckt die Navigationsleiste nicht mehr; der Gerätename darf zweizeilig sein.
+- **Große Schrift:** Datenbank-Spalten wachsen mit (kein silbenweiser Umbruch, keine Überlappung), die Chatliste zeigt
+  Zeit und Zähler unter dem Namen.
+- **Trenner** als waagerechte Linie, **Zitat-Quelle** wird angezeigt, **Dienste** ohne rotes „Abgebrochen“ und mit
+  Leerzustand, Seite nach „In den Papierkorb“ wird geschlossen, Anmeldung: Fehlermeldung direkt unter dem Feld und
+  Sprachknopf bei offener Tastatur ausgeblendet, Nextcloud: ungültige Adresse wird als solche gemeldet, „Los“ auf der
+  Tastatur verbindet.
+- **Suche `name@server`:** Hinweis, dass dabei der öffentliche Name zählt (nicht der Anmeldename).
+- **Entwickler-Builds** (Debug) erlauben http auch zu privaten Netzen (z. B. Testserver im LAN); Release unverändert
+  nur https.
+- Version der Apple-Apps auf 2.4.0; Swift-6-Warnung im Live-Kanal behoben.
 
 ### Behoben – Chats über Servergrenzen
 **Android – eigene Nachricht blieb auf „⏳ wird zugestellt“:** In einem Direkt-Chat, dessen Heim der andere Server ist,

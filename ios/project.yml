@@ -24,7 +24,7 @@ packages:
 settings:
   base:
     CODE_SIGN_STYLE: Automatic
-    MARKETING_VERSION: "2.3.0"
+    MARKETING_VERSION: "2.4.0"
     # CURRENT_PROJECT_VERSION (Build-Nummer) und SAGA_VERSION_LABEL ("2.2.0-rc.N"): Config/Base.xcconfig + Config/Version.xcconfig
     SWIFT_VERSION: "5.0"
     ENABLE_USER_SCRIPT_SANDBOXING: YES
@@ -87,7 +87,7 @@ targets:
   HlidskjalfWidget:
     type: app-extension
     supportedDestinations: [iOS, macOS]
-    sources: [Widget, Shared/AppConfig.swift, Shared/Keychain.swift, Shared/API.swift, Shared/ColorHex.swift, Shared/DBQuery.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
+    sources: [Widget, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/ColorHex.swift, Shared/DBQuery.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
     info:
       path: Widget/Info.plist
       properties:
@@ -110,7 +110,7 @@ targets:
   HlidskjalfShare:
     type: app-extension
     platform: iOS
-    sources: [Share, Shared/AppConfig.swift, Shared/Keychain.swift, Shared/API.swift, Shared/ShareView.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
+    sources: [Share, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/ShareView.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
     info:
       path: Share/Info.plist
       properties:
@@ -160,7 +160,7 @@ targets:
   HlidskjalfShareMac:
     type: app-extension
     platform: macOS
-    sources: [ShareMac, Shared/AppConfig.swift, Shared/Keychain.swift, Shared/API.swift, Shared/ShareView.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
+    sources: [ShareMac, Shared/AppConfig.swift, Shared/PrivateNet.swift, Shared/Keychain.swift, Shared/API.swift, Shared/ShareView.swift, Shared/DateFormats.swift, Shared/Localizable.xcstrings]
     info:
       path: ShareMac/Info.plist
       properties:
