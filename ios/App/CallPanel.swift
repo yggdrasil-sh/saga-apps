@@ -40,7 +40,7 @@ final class CallPanel: NSObject {
         observers.append(nc.addObserver(forName: NSWindow.willCloseNotification, object: w, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.window = nil; self?.close() }
         })
-        c.$phase.combineLatest(c.$remote).sink { [weak self] _ in
+        c.$phase.combineLatest(c.$remote, c.$speakerDev, c.$meshView).sink { [weak self] _ in
             DispatchQueue.main.async { MainActor.assumeIsolated { self?.refresh() } }
         }.store(in: &subs)
     }
@@ -61,7 +61,7 @@ final class CallPanel: NSObject {
 
     func refresh() {
         guard let calls else { return }
-        let video = calls.media == "video" || calls.remote.cam || calls.remote.screen
+        let video = calls.media == "video" || calls.focus.video
         let show = window != nil && PiPLogic.macPanelShows(phase: calls.phase.rawValue, video: video, callWindowVisible: !windowHidden)
         if show { open(calls) } else { close() }
     }
@@ -107,12 +107,16 @@ private struct CallPanelView: View {
     var body: some View {
         ZStack(alignment: .bottom) {
             Color.black
-            if calls.remoteVideo != nil && (calls.remote.cam || calls.remote.screen) {
-                RTCVideoBox(track: calls.remoteVideo, fill: !calls.remote.screen)
+            let f = calls.focus                                              // 2.4 E5: in Gruppen der aktive Sprecher
+            if f.video {
+                RTCVideoBox(track: f.track, fill: !f.screen)
+                    .overlay(alignment: .topLeading) {
+                        if calls.meshView { Text(verbatim: f.name).font(.caption.weight(.semibold)).padding(6).shadow(radius: 2) }
+                    }
             } else {
                 VStack(spacing: 6) {
-                    AvatarView(name: calls.peerName, avatar: calls.peerAvatar, size: 56)
-                    Text(verbatim: calls.peerName).font(.headline)
+                    AvatarView(name: f.name, avatar: f.avatar, size: 56)
+                    Text(verbatim: f.name).font(.headline)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             }

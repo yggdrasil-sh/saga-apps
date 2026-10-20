@@ -14,14 +14,18 @@ struct CallScreen: View {
         ZStack {
             LinearGradient(colors: [Color(red: 0.10, green: 0.09, blue: 0.07), Color(red: 0.04, green: 0.04, blue: 0.05)], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
-            if showRemoteVideo {
+            if showTiles {
+                // 2.4 E4/E5: Kachelansicht (Gruppe bzw. mehrere sichtbare Verbindungen), Sprecher hervorgehoben
+                CallTileGrid(calls: calls)
+                    .padding(.top, 24 + headerHeight + 10).padding(.bottom, 170).padding(.horizontal, 10)
+            } else if showRemoteVideo {
                 // 2.4 E3: Bildschirm gross und ganz sichtbar (aspect fit), Kamera klein; "Ansicht tauschen" tauscht
                 RTCVideoBox(track: bigTrack, fill: !bigIsScreen).ignoresSafeArea()
             }
             VStack(spacing: 14) {
                 shareBar
                 header.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
-                if !showRemoteVideo { Spacer(); peerBlock; Spacer() } else { Spacer() }
+                if !showRemoteVideo && !showTiles { Spacer(); peerBlock; Spacer() } else { Spacer() }
                 if calls.phase == .incoming { incomingButtons } else if calls.phase == .ended { endedBlock } else { controls }
             }
             .padding(.horizontal, 20).padding(.vertical, 24)
@@ -94,7 +98,9 @@ struct CallScreen: View {
         .dynamicTypeSize(...DynamicTypeSize.accessibility3)                 // groesste Stufen: Name/Status passen noch neben die Knoepfe
     }
 
-    private var showRemoteVideo: Bool { calls.remoteVideo != nil && (calls.remote.cam || calls.remote.screen) && (calls.phase == .active || calls.phase == .connecting) }
+    private var showRemoteVideo: Bool { !showTiles && calls.remoteVideo != nil && (calls.remote.cam || calls.remote.screen) && (calls.phase == .active || calls.phase == .connecting) }
+    /// 2.4 E4/E5: Kacheln statt Einzelansicht
+    private var showTiles: Bool { calls.meshView && !calls.tiles.isEmpty && (calls.phase == .active || calls.phase == .connecting) }
     // 2.4 E3: remoteVideo = Bildschirm (teilt das Gegenueber) bzw. Kamera, remoteSide = Kamera neben dem Bildschirm
     private var swapped: Bool { calls.swapView && calls.remoteSide != nil }
     private var bigTrack: RTCVideoTrack? { swapped ? calls.remoteSide : calls.remoteVideo }
@@ -136,7 +142,8 @@ struct CallScreen: View {
 
     private var header: some View {
         VStack(spacing: 4) {
-            if showRemoteVideo { Text(verbatim: calls.peerName).font(.headline).shadow(radius: 3) }
+            if showRemoteVideo || showTiles { Text(verbatim: calls.peerName).font(.headline).shadow(radius: 3) }
+            roomInfo
             HStack(spacing: 6) {
                 if calls.verified {
                     Label("Ende-zu-Ende verschlüsselt", systemImage: "lock.fill").labelStyle(.titleAndIcon)
@@ -224,6 +231,7 @@ struct CallScreen: View {
                 Label("\(calls.peerName) ist stummgeschaltet", systemImage: "mic.slash.fill").font(.footnote).shadow(radius: 2)
                     .padding(.horizontal, 12).padding(.vertical, 6).background(.black.opacity(0.45), in: Capsule())
             }
+            companionBlock
             ViewThatFits(in: .horizontal) {
                 controlRow(spacing: 18, width: 72)
                 controlRow(spacing: 6, width: 72)
@@ -241,12 +249,55 @@ struct CallScreen: View {
                 toggle("rectangle.inset.filled.on.rectangle", calls.sharing ? String(localized: "Teilen beenden") : String(localized: "Bildschirm teilen"),
                        on: calls.sharing, width: width) { calls.toggleScreen() }
             }
-            #if os(iOS)
-            if UIDevice.current.userInterfaceIdiom == .phone {           // nur iPhone hat eine Hoermuschel; auch bei Video umschaltbar
-                toggle("speaker.wave.2.fill", String(localized: "Lautsprecher"), on: calls.speaker, width: width) { calls.toggleSpeaker() }
+            if calls.companion || !calls.sound {                              // 2.4: Begleitgeraet - Wiedergabe an/aus (startet stumm)
+                toggle(calls.sound ? "speaker.wave.2.fill" : "speaker.slash.fill", calls.sound ? String(localized: "Ton aus") : String(localized: "Ton an"),
+                       on: !calls.sound, width: width) { calls.toggleSound() }
+            } else {
+                #if os(iOS)
+                if UIDevice.current.userInterfaceIdiom == .phone {           // nur iPhone hat eine Hoermuschel; auch bei Video umschaltbar
+                    toggle("speaker.wave.2.fill", String(localized: "Lautsprecher"), on: calls.speaker, width: width) { calls.toggleSpeaker() }
+                }
+                #endif
             }
-            #endif
             round("phone.down.fill", String(localized: "Auflegen"), .red, width: width) { calls.hangup() }
+        }
+    }
+
+    /// 2.4: Teilnehmer, Grenze, Personen ohne Saga 2.4, Begleitgeraet
+    @ViewBuilder private var roomInfo: some View {
+        if calls.kind == "group" || calls.inRoom || calls.tiles.count > 1 {
+            VStack(spacing: 2) {
+                if calls.phase == .active || calls.phase == .connecting || calls.phase == .ringingOut {
+                    Text("\(calls.links.count + 1) von höchstens \(calls.limit) Geräten").font(.caption2)
+                }
+                if !calls.oldNames.isEmpty {
+                    Text("Braucht Saga 2.4: \(calls.oldNames.joined(separator: ", "))").font(.caption2).multilineTextAlignment(.center)
+                }
+            }
+            .foregroundStyle(.white.opacity(0.8)).shadow(radius: 2)
+        }
+    }
+    /// 2.4: Begleitgeraet - Hinweis und eigener Knopf "Hierher uebernehmen"
+    @ViewBuilder private var companionBlock: some View {
+        if calls.companion && calls.phase != .ended && calls.phase != .incoming {
+            VStack(spacing: 6) {
+                Text(calls.kind == "group" ? String(localized: "Begleitgerät – Mikrofon und Ton sind aus.")
+                     : String(localized: "Begleitgerät – Mikrofon und Ton sind aus. Auflegen am Hauptgerät beendet den Anruf für alle; zum Weitermachen erst hierher übernehmen."))
+                    .font(.caption).multilineTextAlignment(.center).frame(maxWidth: 440)
+                    .padding(.horizontal, 12).padding(.vertical, 6).background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                Button { calls.takeOver() } label: {
+                    HStack(spacing: 6) {
+                        if calls.handingOver { ProgressView().controlSize(.small).tint(.black) } else { Image(systemName: "arrow.down.forward.and.arrow.up.backward") }
+                        Text("Hierher übernehmen")
+                    }
+                    .font(.subheadline.weight(.semibold))
+                }
+                .buttonStyle(.borderedProminent).tint(.white).foregroundStyle(.black).disabled(calls.handingOver || calls.phase != .active)
+                .help(Text("Anruf ohne Unterbrechung auf dieses Gerät holen"))
+            }
+        } else if calls.handingOver {
+            Label("Wird übernommen …", systemImage: "arrow.down.forward.and.arrow.up.backward").font(.caption)
+                .padding(.horizontal, 12).padding(.vertical, 6).background(.black.opacity(0.45), in: Capsule())
         }
     }
 
@@ -345,10 +396,14 @@ struct CallPresenter: ViewModifier {
             #endif
             // 2.3.1: laufender Anruf verkleinert bzw. Mac-Fenster im Hintergrund -> gruene Leiste oben, Tippen kehrt zurueck
             .safeAreaInset(edge: .top, spacing: 0) {
-                if CallLogic.showsCallBar(phase: calls.phase.rawValue, minimized: calls.minimized, separateWindow: separateWindow) {
-                    CallBar(calls: calls) { returnToCall() }
+                VStack(spacing: 0) {
+                    if CallLogic.showsCallBar(phase: calls.phase.rawValue, minimized: calls.minimized, separateWindow: separateWindow) {
+                        CallBar(calls: calls) { returnToCall() }
+                    }
+                    CallRunBar(calls: calls)                                   // 2.4: Anruf laeuft auf anderem Geraet / Gruppenanruf
                 }
             }
+            .animation(.snappy(duration: 0.25), value: calls.runBars)
             .animation(.snappy(duration: 0.25), value: calls.minimized)
             #if os(iOS)
             // Vollbild nur, solange nicht verkleinert; "Zurueck zur App" schliesst es, der Anruf laeuft weiter
@@ -505,3 +560,128 @@ enum CallTestHook {
 }
 private extension Double { var nonZero: Double? { self == 0 ? nil : self } }
 #endif
+
+// MARK: - 2.4 E4/E5: Kachelansicht und Leiste "Anruf laeuft"
+
+/// Kacheln je Verbindung (iPhone 2x2, iPad/Mac ab 5 Kacheln drei Spalten); Sprecher gruen umrandet
+struct CallTileGrid: View {
+    @ObservedObject var calls: CallManager
+    var body: some View {
+        GeometryReader { g in
+            let n = max(1, calls.tiles.count)
+            let cols = CallRoom.columns(n, wide: g.size.width > 600)
+            let rows = (n + cols - 1) / cols
+            let sp: CGFloat = 8
+            let h = max(90, (g.size.height - sp * CGFloat(rows - 1)) / CGFloat(rows))
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: sp), count: cols), spacing: sp) {
+                ForEach(calls.tiles) { t in CallTileView(tile: t) { calls.swapTile(t.id) }.frame(height: h) }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(Text("Teilnehmende"))
+        }
+    }
+}
+struct CallTileView: View {
+    let tile: CallTile
+    var swap: () -> Void = {}
+    var body: some View {
+        ZStack(alignment: .bottomLeading) {
+            Color.white.opacity(0.08)
+            if let v = tile.video {
+                RTCVideoBox(track: v, fill: !tile.screen)
+            } else {
+                AvatarView(name: tile.name, avatar: tile.avatar, size: 64).frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            if let s = tile.side {
+                Button(action: swap) {
+                    ZStack { RTCVideoBox(track: s, fill: true).allowsHitTesting(false); Color.clear }
+                        .frame(width: 76, height: 56).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.white.opacity(0.3)))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain).accessibilityLabel(Text("Ansicht tauschen")).help(Text("Ansicht tauschen"))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing).padding(6)
+            }
+            HStack(spacing: 4) {
+                if !tile.mic { Image(systemName: "mic.slash.fill").accessibilityHidden(true) }
+                Text(verbatim: tile.name).fontWeight(.semibold)
+                if !tile.devName.isEmpty { Text(verbatim: tile.devName).opacity(0.8) }
+                if tile.companion { Text("Begleitgerät").opacity(0.8) }
+            }
+            .font(.caption).lineLimit(1).minimumScaleFactor(0.7)
+            .padding(.horizontal, 8).padding(.vertical, 4).background(.black.opacity(0.5), in: Capsule()).padding(6)
+            if !tile.connected { ProgressView().tint(.white).frame(maxWidth: .infinity, maxHeight: .infinity) }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
+            .strokeBorder(tile.speaking ? Color.green : Color.white.opacity(0.15), lineWidth: tile.speaking ? 3 : 1))
+        .animation(.easeOut(duration: 0.2), value: tile.speaking)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text(verbatim: label))
+    }
+    private var label: String {
+        var p = [tile.name]
+        if !tile.devName.isEmpty { p.append(tile.devName) }
+        if tile.companion { p.append(String(localized: "Begleitgerät")) }
+        if !tile.mic { p.append(String(localized: "stumm")) }
+        if tile.speaking { p.append(String(localized: "spricht")) }
+        return p.joined(separator: ", ")
+    }
+}
+
+/// Leiste "Anruf laeuft auf <Geraet>" (Hinzufuegen / Hierher uebernehmen) bzw. "Gruppenanruf laeuft" (Beitreten)
+struct CallRunBar: View {
+    @ObservedObject var calls: CallManager
+    var body: some View {
+        if !calls.busy, let x = calls.runBars.first(where: { calls.bar($0) != .none }) {
+            let video = x.media == "video"
+            HStack(spacing: 8) {
+                Image(systemName: video ? "video.fill" : "phone.fill").accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 1) {
+                    switch calls.bar(x) {
+                    case .elsewhere(let dev, let peer):
+                        Text("Anruf läuft auf \(dev.isEmpty ? String(localized: "anderem Gerät") : dev)").font(.subheadline.weight(.semibold))
+                        if !peer.isEmpty { Text(verbatim: peer).font(.caption) }
+                    case .group(let n):
+                        Text("Gruppenanruf läuft · \(n) Geräte").font(.subheadline.weight(.semibold))
+                    case .none: EmptyView()
+                    }
+                    if !x.joinable { Text(verbatim: blocked(x)).font(.caption) }
+                }
+                .lineLimit(1).minimumScaleFactor(0.75)
+                Spacer(minLength: 4)
+                if x.joinable {
+                    if case .elsewhere = calls.bar(x) {
+                        Button(String(localized: "Hinzufügen")) { calls.join(x.id, role: "companion", video: false) }
+                            .buttonStyle(.bordered).tint(.white).controlSize(.small)
+                            .help(Text("Dieses Gerät als Begleitgerät hinzufügen (ohne Mikrofon und Ton)"))
+                        Button(String(localized: "Hierher übernehmen")) { calls.join(x.id, role: "handover", video: video) }
+                            .buttonStyle(.borderedProminent).tint(.white).foregroundStyle(.black).controlSize(.small)
+                            .help(Text("Anruf ohne Unterbrechung auf dieses Gerät holen"))
+                    } else {
+                        if video {
+                            Button(String(localized: "Nur mit Ton")) { calls.join(x.id, role: "member", video: false) }
+                                .buttonStyle(.bordered).tint(.white).controlSize(.small)
+                        }
+                        Button(String(localized: "Beitreten")) { calls.join(x.id, role: "member", video: video) }
+                            .buttonStyle(.borderedProminent).tint(.white).foregroundStyle(.black).controlSize(.small)
+                            .help(Text("Dem Gruppenanruf beitreten"))
+                    }
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 14).padding(.vertical, 7)
+            .frame(maxWidth: .infinity)
+            .background(CallBar.green.opacity(0.92).ignoresSafeArea(edges: .top))
+            .accessibilityElement(children: .contain)
+            .transition(.move(edge: .top).combined(with: .opacity))
+        }
+    }
+    private func blocked(_ x: CallRoom.Running) -> String {
+        switch x.block {
+        case .old: return String(localized: "Braucht Saga 2.4")
+        case .full: return String(localized: "Der Anruf ist voll")
+        default: return calls.blockText(x.block, limit: x.limit)
+        }
+    }
+}

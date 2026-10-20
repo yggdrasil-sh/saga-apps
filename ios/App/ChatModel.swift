@@ -187,6 +187,10 @@ struct ChatSummary: Identifiable, Equatable {
     var onlineOK = true
     /// 2.4: alle beteiligten Server koennen grosse Videos (chatfile2); nil = Feld fehlt (lokal bzw. alter Server)
     var bigFiles: Bool?
+    /// 2.4 E5 (chat.call): Gruppenanrufe moeglich (alle beteiligten Server calls3), Hinweis, laufender Gruppenanruf
+    var callGroup: Bool?
+    var callGroupBlock: String?
+    var callRunning: String?
     var statusFlags: ReceiptLogic.ChatFlags {
         ReceiptLogic.ChatFlags(kind: kind, fed: isFed, request: fed?.request ?? false, readonly: fed?.readonly ?? false, receiptsOK: receiptsOK, onlineOK: onlineOK)
     }
@@ -195,6 +199,7 @@ struct ChatSummary: Identifiable, Equatable {
             && a.retention == b.retention && a.lastAt == b.lastAt && a.lastSeq == b.lastSeq && a.decryptedTitle == b.decryptedTitle && a.role == b.role && a.ai == b.ai
             && a.canArchive == b.canArchive && a.archived == b.archived && a.clearedSeq == b.clearedSeq && a.deleteForAll == b.deleteForAll && a.fed == b.fed
             && a.receiptsOK == b.receiptsOK && a.onlineOK == b.onlineOK && a.bigFiles == b.bigFiles
+            && a.callGroup == b.callGroup && a.callGroupBlock == b.callGroupBlock && a.callRunning == b.callRunning
     }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let i = ShareJSON.int(d["id"]) else { return nil }
@@ -215,6 +220,10 @@ struct ChatSummary: Identifiable, Equatable {
         fed = FedChatInfo(d)
         (receiptsOK, onlineOK) = ReceiptLogic.flags(d)
         bigFiles = d["big_files"] as? Bool
+        if let k = d["call"] as? [String: Any] {
+            callGroup = k["group"] as? Bool; callGroupBlock = ShareJSON.str(k["group_block"])
+            if let r = k["running"] as? [String: Any], (r["state"] as? String) != "ended", (r["kind"] as? String) == "group" { callRunning = r["id"] as? String }
+        }
     }
     var title: String {
         switch kind {

@@ -74,6 +74,11 @@ struct ConversationView: View {
                         .help(Text("Anrufen"))
                     Button { store.calls.start(chatID: chatID, peer: p, video: true, fed: i.fed) } label: { Label("Videoanruf", systemImage: "video") }
                         .help(Text("Videoanruf"))
+                } else if let i = conv.info, canGroupCall(i) {               // 2.4 E5: Gruppen-, freie und Seiten-Chats
+                    Button { store.calls.startGroup(i, video: false) } label: { Label("Gruppenanruf", systemImage: "phone") }
+                        .help(Text("Gruppenanruf"))
+                    Button { store.calls.startGroup(i, video: true) } label: { Label("Gruppen-Videoanruf", systemImage: "video") }
+                        .help(Text("Gruppen-Videoanruf"))
                 }
             }
             // Suche im Chat steckt im Menue (Befehl-F): eine zweite Lupe neben dem Suchfeld der Liste/Seitenleiste verwirrt
@@ -230,7 +235,8 @@ struct ConversationView: View {
                         }
                         if let e = m.call {
                             CallEntryRow(entry: e, mine: m.mine, date: m.date) {
-                                if let p = conv.info?.peer, canCall { store.calls.start(chatID: chatID, peer: p, video: e.media == "video", fed: conv.info?.fed) }
+                                if e.group, let i = conv.info, canGroupCall(i) { store.calls.startGroup(i, video: e.media == "video") }   // 2.4 E5
+                                else if let p = conv.info?.peer, canCall { store.calls.start(chatID: chatID, peer: p, video: e.media == "video", fed: conv.info?.fed) }
                             }.id(m.id)
                         } else if let s = m.sys {
                             FedSysRow(line: s, date: m.date, myHandle: conv.fed?.myHandle).id(m.id)   // 2.3: Systemzeile
@@ -281,6 +287,10 @@ struct ConversationView: View {
     private var presenceText: String? { PresenceText.text(chat.presenceOf(conv.info)) }
     /// Anrufe: Server kann es; ueber Servergrenzen nur aus angenommenen, beschreibbaren Chats (Anfragen klingeln nie)
     private var canCall: Bool { store.calls.enabled && (conv.fed?.callable ?? true) }
+    /// 2.4 E5: Gruppenanruf nur, wenn der Server es fuer diesen Chat meldet und dieses Geraet "multi" kann
+    private func canGroupCall(_ i: ChatSummary) -> Bool {
+        CallRoom.groupButton(kind: i.kind, group: i.callGroup, myCaps: store.calls.myCaps, enabled: store.calls.enabled) && !(conv.fed?.request ?? false)
+    }
 
     // MARK: Eingabe
 
@@ -533,7 +543,13 @@ struct CallEntryRow: View {
         case .ended(let d):
             let base = video ? (mine ? String(localized: "Ausgehender Videoanruf") : String(localized: "Eingehender Videoanruf"))
                              : (mine ? String(localized: "Ausgehender Anruf") : String(localized: "Eingehender Anruf"))
+            if entry.group {                                                // 2.4 E5: Gruppenanruf mit Zahl der Personen
+                let g = video ? String(localized: "Gruppen-Videoanruf") : String(localized: "Gruppenanruf")
+                let n = entry.n.map { String(localized: "\($0) Personen") }
+                return ([g] + [n, d].compactMap { $0 }).joined(separator: " · ")
+            }
             return d.map { base + " · " + $0 } ?? base
+        case .missed where entry.group: return video ? String(localized: "Verpasster Gruppen-Videoanruf") : String(localized: "Verpasster Gruppenanruf")
         case .missed: return mine ? String(localized: "Nicht angenommen") : (video ? String(localized: "Verpasster Videoanruf") : String(localized: "Verpasster Anruf"))
         case .declined: return String(localized: "Anruf abgelehnt")
         case .busy: return String(localized: "Besetzt")

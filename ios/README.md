@@ -91,6 +91,10 @@ Die Anruf-Signalisierung (`App/CallCrypto.swift`, `App/CallLogic.swift`) prüft 
   `App/CallPiP.swift`, Bilder ohne Kopie: `App/PiPBuffer.swift`); Mac als schwebendes `NSPanel` (`App/CallPanel.swift`).
   Kamera im PiP nur, wo `AVCaptureSession.isMultitaskingCameraAccessSupported` gilt (sonst pausiert sie, das Gegenüber
   sieht „Kamera aus“); eine zusätzliche Berechtigung wird nicht eingetragen.
+- **Mehrere Geräte und Gruppen (2.4, Vertrag „Anrufe: Mehrgeräte und Gruppen“):** Ein Anruf ist ein Raum mit je
+  anderem Gerät einer Verbindung (`App/CallLink.swift`, Mesh, `pc` = sortiertes Paar). Begleitgerät, „Hierher
+  übernehmen“, Gruppenanrufe, Leiste „Anruf läuft“ und Teilnehmerliste mit Stand: `App/CallRoom.swift`; Logik
+  `App/CallRoomLogic.swift`, Tests `Tests/Logic/CallRoomTests.swift`. Höchstens 4 Geräte mit Video, 6 nur mit Ton.
 - **Bildschirm teilen (2.4, Vertrag „Anrufe: Bildschirm v2“):** Betriebsart B (eigene Video-m-Zeile über die
   Neuverhandlung, Kamera daneben ≤ 300 kbit/s bzw. über Relais TCP aus) nur, wenn beide Seiten `reneg` und `screen2`
   melden; sonst A (Bildschirm statt Kamera auf der Kamera-m-Zeile, wie 2.1/2.3). Beim Ende geht die Bildschirm-m-Zeile

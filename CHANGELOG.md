@@ -6,6 +6,43 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu – Saga 2.4, Etappen E4/E5: Gerät hinzufügen, übergeben und Gruppenanrufe (iOS/iPadOS/macOS)
+- **Raum statt Paar:** Ein Anruf hat jetzt je anderem Gerät eine eigene Verbindung (Mesh, `pc` = sortiertes Paar der
+  Geräte-IDs). Perfect Negotiation, ICE-Neustart, Bildschirm (Betriebsart A/B je Verbindung, eine später hinzukommende
+  Verbindung bekommt den laufenden Bildschirm), Bitrate und die DTLS-Prüfung gelten je Verbindung. Ein 1:1-Anruf läuft
+  genau wie bisher. Die App meldet `multi` (nur mit einem Server mit `reneg` und `multi`) in den signierten `caps` und
+  per `PUT /api/calls/caps`.
+- **Leiste „Anruf läuft auf <Gerät>“:** Läuft ein Anruf auf einem anderen eigenen Gerät, zeigen die anderen eigenen
+  Geräte oben eine Leiste mit **Hinzufügen** (Begleitgerät: Mikrofon aus, Wiedergabe stumm, Kamera aus – ohne Frage nach
+  dem Mikrofon) und dem eigenen Knopf **Hierher übernehmen**. Kann ein Gerät nicht beitreten, steht dort „Braucht
+  Saga 2.4“ bzw. „Der Anruf ist voll“.
+- **Hierher übernehmen ohne Abbruch:** Das neue Gerät verbindet sich still mit allen, schaltet dann Ton und Mikrofon ein
+  und sagt dem alten Gerät Bescheid (`state.ready` + `replaces`); das alte schaltet sofort ab, verabschiedet sich
+  (`bye`, `handover`) und verlässt den Anruf („Anruf auf <Gerät> übernommen“). Klappt es nicht in 15 s, läuft der Anruf
+  auf dem alten Gerät weiter. Ein Begleitgerät übernimmt mit demselben Knopf im Anruf. Legt man im 1:1 am Hauptgerät
+  auf, endet der Anruf für alle – zum Weitermachen erst übernehmen (Hinweis am Begleitgerät).
+- **CallKit:** Beitreten und Übernehmen erscheinen als laufender Anruf; das abgebende Gerät meldet „anderswo
+  angenommen“. Ein Gruppenanruf klingelt nicht weiter, sobald ein eigenes Gerät beigetreten ist bzw. die Einladung auf
+  einem anderen Gerät abgelehnt wurde (`call.roster`, `call.state declined`). VoIP-Mitteilungen der Art `call.group`
+  klingeln wie Anrufe.
+- **Gruppenanrufe** in Gruppen-, freien und Seiten-Chats (Knöpfe „Gruppenanruf“/„Gruppen-Videoanruf“, nur wenn der
+  Server `chat.call.group` meldet – über Servergrenzen nur, wenn alle beteiligten Server `calls3` können): Erst allein
+  („Klingelt bei den anderen …“), alle anderen klingeln und treten bei bzw. lehnen ab; große Gruppen klingeln nicht,
+  dort steht nur „Gruppenanruf läuft · n Geräte – Beitreten“. Läuft schon einer, tritt der Knopf bei.
+- **Kachelansicht:** 2×2 auf dem iPhone, auf iPad und Mac ab fünf Geräten drei Spalten; der Sprecher (Pegel der
+  empfangenen Tonspur) ist grün umrandet. Ein 1:1 mit stillem Begleitgerät bleibt Einzelansicht. Ton eigener Geräte wird
+  nie abgespielt. Bild im Bild bzw. das Schwebefenster zeigt in Gruppen den aktiven Sprecher.
+- **Mesh-Grenzen und Bitrate:** höchstens 4 Geräte mit Video bzw. 6 nur mit Ton (der Admin kann nur senken); ab drei
+  Endpunkten Mesh-Werte je Strom (600/500/350 kbit/s, ≤ 540p bzw. 360p15). Die Ansicht zeigt „n von höchstens N Geräten“
+  und Personen ohne Saga 2.4.
+- **Sicherheit:** Angebote neuer Geräte werden nur angenommen, wenn das Gerät in der Liste des Servers **und** in der
+  signierten Geräteliste seiner Person steht (eigene Geräte gegen den eigenen Identitätsschlüssel); sonst „Unbekanntes
+  Gerät von <Name> abgelehnt“. Jede Verbindung zeigt Person und Gerät. Teilnehmerlisten mit Stand – eine ältere Liste
+  überschreibt keine neuere.
+- **Tests:** `ios/Tests/Logic/CallRoomTests.swift` (Teilnehmerliste/Stand, Mesh-Paare, Grenzen, Begleitgerät,
+  Übernahme-Zustandsmaschine, Mesh-Bitrate, Leiste, Gruppen-Knopf, Sprecher, Geister-Gerät). Texte in Deutsch,
+  Englisch, Spanisch, Russisch und Thai.
+
 ### Neu – Saga 2.4, Etappe E2: Videos im Chat (iOS/iPadOS/macOS)
 - **Videos senden:** In der Fotos-Auswahl (jetzt Bilder und Videos) und unter „Datei“ lassen sich Videos anhängen. Sie
   werden nie ganz in den Speicher geladen, sondern als Datei übernommen. Das Gerät erzeugt Poster (Bild bei 1 s, längste

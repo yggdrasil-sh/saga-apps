@@ -11,9 +11,11 @@ enum CallV3 {
     /// (GET /api/calls/config features), "want" und "bye" immer
     /// 2.4 E3: "screen2" (Bildschirm als eigene Videospur) nur mit Server-Features "reneg" UND "screen2" und wenn der
     /// Client Betriebsart B kann (screen2: false = immer A)
+    /// 2.4 E4/E5: "multi" (Raum: weitere Geraete, Gruppen) nur mit Server-Features "reneg" UND "multi"
     static func myCaps(serverFeatures: [String], screen2: Bool = true) -> [String] {
         let reneg = serverFeatures.contains("reneg")
         return (reneg ? ["reneg"] : []) + ["want", "bye"] + (reneg && screen2 && serverFeatures.contains("screen2") ? ["screen2"] : [])
+            + (reneg && serverFeatures.contains("multi") ? ["multi"] : [])
     }
     /// Neuverhandlung (Angebote waehrend des Gespraechs, ICE-Restart) nur, wenn beide Seiten "reneg" melden
     static func canReneg(mine: [String], peer: [String]?) -> Bool { mine.contains("reneg") && peer?.contains("reneg") == true }
@@ -38,6 +40,10 @@ enum CallV3 {
         var msid: [String: String]?
         var screenMid: String?
         var screenAudio: Bool?
+        // 2.4 E4/E5: Uebernahme fertig (state.ready + replaces), Grund eines bye (hangup | handover)
+        var ready: Bool?
+        var replaces: String?
+        var reason: String?
     }
     /// mid wie im Vertrag: [A-Za-z0-9_-]{1,16}
     static func validMid(_ s: String) -> Bool {
@@ -75,6 +81,9 @@ enum CallV3 {
         if j["msid"] != nil { let s = msidOf(j["msid"]); if !s.isEmpty { m.msid = s } }
         if let s = j["screen_mid"] as? String, validMid(s) { m.screenMid = s }
         if let a = j["screen_audio"] as? Bool { m.screenAudio = a }
+        if let r = j["ready"] as? Bool { m.ready = r }
+        if let r = j["replaces"] as? String, !r.isEmpty, r.count <= 64 { m.replaces = r }
+        if let r = j["reason"] as? String, r == "hangup" || r == "handover" { m.reason = r }
         return m
     }
 
@@ -106,8 +115,9 @@ enum CallV3 {
     /// state immer mit pip/want/path (auch ohne reneg; aeltere Clients ignorieren die Felder); path fehlt = unbekannt
     /// 2.4 E3: screen_mid/screen_audio nur bei screen = true; tracks/msid nur mit roles (eigene "screen2")
     static func stateBody(pc: String, mic: Bool, cam: Bool, screen: Bool, pip: Bool, want: Want, path: Path?,
-                          screenMid: String? = nil, screenAudio: Bool = false, roles: Roles? = nil) -> String {
+                          screenMid: String? = nil, screenAudio: Bool = false, roles: Roles? = nil, replaces: String? = nil) -> String {
         var o: [String: Any] = ["t": "state", "pc": pc, "mic": mic, "cam": cam, "screen": screen, "pip": pip, "want": ["video": want.rawValue]]
+        if let replaces { o["ready"] = true; o["replaces"] = replaces }      // 2.4 E4: Uebernahme fertig (an das alte Geraet)
         if let path { o["path"] = path.rawValue }
         if screen, let screenMid { o["screen_mid"] = screenMid }
         if screen && roles != nil { o["screen_audio"] = screenAudio }

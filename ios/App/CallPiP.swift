@@ -130,7 +130,8 @@ final class CallPiP: NSObject, AVPictureInPictureControllerDelegate {
     func update(_ calls: CallManager) {
         self.calls = calls
         guard AVPictureInPictureController.isPictureInPictureSupported() else { return }
-        let avail = PiPLogic.available(phase: calls.phase.rawValue, hasRemoteVideo: calls.remoteVideo != nil)
+        let f = calls.focus                                                 // 2.4 E5: in Gruppen der aktive Sprecher
+        let avail = PiPLogic.available(phase: calls.phase.rawValue, hasRemoteVideo: f.track != nil)
         guard avail, let src = source, src.window != nil else {
             if active { controller?.stopPictureInPicture() }
             controller?.canStartPictureInPictureAutomaticallyFromInline = false
@@ -139,11 +140,11 @@ final class CallPiP: NSObject, AVPictureInPictureControllerDelegate {
             return
         }
         let c = ensureController(src)
-        attach(calls.remoteVideo)
-        video.name.text = calls.peerName
-        video.showsVideo = calls.remote.cam || calls.remote.screen
+        attach(f.track)
+        video.name.text = f.name
+        video.showsVideo = f.video
         // 2.4 E3: teilt das Gegenueber, zeigt das PiP den Bildschirm (remoteVideo) ganz - Kamera fuellt das Fenster
-        let g: AVLayerVideoGravity = calls.remote.screen ? .resizeAspect : .resizeAspectFill
+        let g: AVLayerVideoGravity = f.screen ? .resizeAspect : .resizeAspectFill
         if video.display.displayLayer.videoGravity != g { video.display.displayLayer.videoGravity = g }
         c.canStartPictureInPictureAutomaticallyFromInline = true          // Wechsel in den Hintergrund
         wanted = PiPLogic.iosWantsPiP(phase: calls.phase.rawValue, hasRemoteVideo: true, minimized: calls.minimized, background: background)
