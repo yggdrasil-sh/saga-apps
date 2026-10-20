@@ -238,6 +238,12 @@ def group_sub(members):
     return ngettext("Group · {n} person", "Group · {n} people", int(members)).format(n=int(members))
 
 
+def is_member(hit, members):
+    """2.4 (W4): Treffer der Personensuche (Handle '~…', aeltere Server: Benutzername) schon Mitglied des Chats?
+    Chat-Mitglieder tragen username (Krypto, nie zeigen) und ref (derselbe Handle wie in der Personensuche)."""
+    return bool(hit) and any(isinstance(m, dict) and hit in (m.get("username"), m.get("ref")) for m in members or [])
+
+
 def share_rows(st):
     """Antwort von .../shares -> Zeilen der Liste "Zugriff":
     [{type, target, name, sub, role, via (Text oder None), remove_body, a11y_role, a11y_remove}]"""
@@ -245,7 +251,7 @@ def share_rows(st):
     for x in (st or {}).get("shares") or []:
         typ, name = x.get("type"), x.get("name") or x.get("target") or ""
         sub = group_sub(x.get("members")) if typ == "group" else remote_sub(typ) if typ in ("remote", "remote_group") else \
-            (x.get("target") or "")
+            _("Person")                                   # 2.4 (W4): nie den Anmeldenamen
         vias = (x.get("via") or []) if typ == "user" else []
         top = vias[0] if vias else None
         via = None
@@ -269,7 +275,7 @@ def inherited_rows(st):
     for x in (st or {}).get("inherited") or []:
         typ = x.get("type")
         out.append({"type": typ, "name": x.get("name") or x.get("target") or "",
-                    "sub": group_sub(None) if typ == "group" else (x.get("target") or ""),
+                    "sub": group_sub(None) if typ == "group" else _("Person") if typ == "user" else (x.get("target") or ""),
                     "role": role_name(x.get("role")), "from": _("via “{title}”").format(title=x.get("title") or _("Untitled")),
                     "note_id": x.get("note_id")})
     return out
@@ -285,8 +291,8 @@ def hit_rows(d, st, role):
     tk, out = taken(st), []
     add_as = _("Add ({role})").format(role=role_name(role))
     for u in (d or {}).get("users") or []:
-        t = u.get("username") or ""
-        out.append({"type": "user", "target": t, "name": u.get("name") or t, "sub": t, "avatar": u.get("avatar"),
+        t = u.get("username") or ""                              # 2.4 (W4): Handle '~…' (aeltere Server: Benutzername) - nie zeigen
+        out.append({"type": "user", "target": t, "name": u.get("name") or t, "sub": _("Person on this server"), "avatar": u.get("avatar"),
                     "has": _("has access") if f"user:{t}" in tk else add_as})
     for g in (d or {}).get("groups") or []:
         n = g.get("name") or ""

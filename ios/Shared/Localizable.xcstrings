@@ -2647,6 +2647,40 @@
         }
       }
     },
+    "Person auf diesem Server" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Person auf diesem Server"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Person on this server"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Persona en este servidor"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Человек на этом сервере"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "บุคคลบนเซิร์ฟเวอร์นี้"
+          }
+        }
+      }
+    },
     "anderem Gerät" : {
       "localizations" : {
         "de" : {

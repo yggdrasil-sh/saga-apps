@@ -121,7 +121,7 @@ object ShareLogic {
     fun entrySub(type: String, target: String, members: Int?): UiText = when {
         type == "remote" -> UiText.Res(R.string.fed_other_instance)
         type == "remote_group" -> UiText.Res(R.string.fed_other_group)
-        type != "group" -> UiText.Raw(target)
+        type != "group" -> UiText.Res(R.string.share_person)        // 2.4 (W4): nie den Anmeldenamen
         members == null -> UiText.Res(R.string.share_group)
         else -> UiText.Plural(R.plurals.share_group_members, members)
     }

@@ -401,6 +401,20 @@ Speicher beim Hoch- und Herunterladen. Texte in Deutsch, Englisch, Spanisch, Rus
 
 ### Behoben – Testrunde 2.4
 
+#### Alle Apps (Server-Änderungen der Testrunde)
+- **Anmeldenamen anderer Konten werden nie mehr gezeigt** (wie im Web, Server 2.4): Personensuche beim Teilen und für
+  Chats, Freigaben (auch geerbte), Mitgliederliste und „Person hinzufügen“ zeigen nur Anzeigename bzw. öffentlichen
+  Namen; die Zeile darunter sagt „Person“, „Person auf diesem Server“ oder „hat Chats noch nicht eingerichtet“. Der
+  Server liefert für andere Konten einen pseudonymen Handle (`~…`), die Apps reichen ihn unverändert weiter
+  (Freigabe ändern/entfernen, Chat anlegen, Mitglied hinzufügen); Mitglieder werden über das neue Feld `members[].ref`
+  mit Suchtreffern abgeglichen. Schlüssel, Signaturen und Sicherheitsnummern bleiben am Anmeldenamen (Chats v1,
+  saga-call v1); ältere Server funktionieren wie bisher.
+- **iOS/iPadOS/macOS und Android: „Hinzufügen“ und „Hierher übernehmen“ mit einem während des Anrufs gekoppelten
+  Gerät:** Die Gegenstelle kannte dessen Schlüssel noch nicht (Schlüssel der Person zwischengespeichert, Android bei
+  Personen anderer Server) und lehnte es als „Unbekanntes Gerät“ ab. Fehlt ein Gerät, holen die Apps die signierte
+  Geräteliste jetzt einmal frisch, prüfen sie und verbinden erst dann – sonst wie bisher ablehnen.
+- Tests: `ios/Tests/Logic/HandlesTests.swift`, `android/…/HandlesTest.kt`, `linux/tests/test_handles.py`.
+
 #### iOS/iPadOS/macOS
 - **Papierkorb: „Zurückholen“ löschte die Seite endgültig (iPhone/iPad, seit 1.0):** Zwei Knöpfe in einer Listenzeile
   ohne eigenen Stil lösten bei einem Tipp beide Aktionen aus. Jeder Knopf ist jetzt einzeln tippbar, „Endgültig

@@ -2673,14 +2673,14 @@ class ChatInfoDialog(Adw.Dialog):
             def show(q, j):
                 if en.get_text().strip() != q:
                     return
-                have = {m.get("username") for m in c.get("members") or []}
+                from .sharing import is_member
                 have_h = {m.get("handle") for m in c.get("members") or [] if m.get("handle")}
                 if fed_hint_show(q, len((j or {}).get("users") or [])):
                     h = fed_hint()
                     self.add_group.add(h)
                     self.hits.append(h)
                 for p in ((j or {}).get("users") or [])[:8]:
-                    if p.get("username") in have:
+                    if is_member(p.get("username"), c.get("members")):   # 2.4 (W4): Handle <-> members[].ref
                         continue
                     r = Adw.ActionRow(title=GLib.markup_escape_text(p.get("name") or p["username"]),
                                       subtitle="" if p.get("ready") else _("hasn't set up chats yet"), activatable=True)
@@ -2840,7 +2840,7 @@ class NewChatDialog(Adw.Dialog):
         remote = [u for u in (j or {}).get("remote") or [] if isinstance(u, dict) and u.get("handle")]     # 2.3: andere Server
         for u in users:
             r = Adw.ActionRow(title=GLib.markup_escape_text(u.get("name") or u["username"]),
-                              subtitle=GLib.markup_escape_text(u["username"] + ("" if u.get("ready") else " · " + _("hasn't set up chats yet"))),
+                              subtitle="" if u.get("ready") else _("hasn't set up chats yet"),     # 2.4 (W4): nie den Anmeldenamen
                               activatable=True)
             r.add_prefix(avatars.person(u, 32, text=u.get("name") or u["username"]))
             r.connect("activated", lambda *_, u=u: self._pick_user(u))

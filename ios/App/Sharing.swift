@@ -368,7 +368,7 @@ struct ShareSheet: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(verbatim: h.name).lineLimit(3)          // umbrechen: der Server-Teil (an wen man teilt) muss lesbar bleiben
                     Text(h.isRemote ? (h.isGroup ? String(localized: "Gruppe auf einer anderen Saga-Instanz") : h.remoteLine ?? String(localized: "Andere Saga-Instanz"))
-                         : h.username.map { String($0) } ?? String(localized: "Gruppe")).font(.caption).foregroundStyle(.secondary)
+                         : h.username != nil ? String(localized: "Person auf diesem Server") : String(localized: "Gruppe")).font(.caption).foregroundStyle(.secondary)   // 2.4 (W4)
                 }
                 Spacer()
                 Text(has ? String(localized: "hat Zugriff") : String(localized: "Hinzufügen (\(RoleText.name(role)))")).font(.caption).foregroundStyle(.secondary)
@@ -407,7 +407,7 @@ struct ShareSheet: View {
 
     private func sub(_ e: ShareEntry) -> String {
         if e.isRemote { return e.isGroup ? String(localized: "Gruppe auf einer anderen Saga-Instanz") : String(localized: "Andere Saga-Instanz") }
-        guard e.isGroup else { return e.target }
+        guard e.isGroup else { return String(localized: "Person") }          // 2.4 (W4): nie den Anmeldenamen
         guard let m = e.members else { return String(localized: "Gruppe") }
         return m == 1 ? String(localized: "Gruppe · 1 Person") : String(localized: "Gruppe · \(m) Personen")
     }
@@ -417,7 +417,8 @@ struct ShareSheet: View {
             ShareAvatar(name: x.name, group: x.isGroup)
             VStack(alignment: .leading, spacing: 1) {
                 Text(verbatim: x.name)
-                Text(x.isGroup ? String(localized: "Gruppe") : x.target).font(.caption).foregroundStyle(.secondary)
+                Text(x.isGroup ? String(localized: "Gruppe") : x.type == "user" ? String(localized: "Person") : x.target)
+                    .font(.caption).foregroundStyle(.secondary)                  // 2.4 (W4): nie den Anmeldenamen
                 Button { dismiss(); openPage(x.noteID) } label: { Text("über „\(x.title)“").font(.caption).underline() }
                     .buttonStyle(.plain).foregroundStyle(.secondary).help("Zur übergeordneten Seite")
             }

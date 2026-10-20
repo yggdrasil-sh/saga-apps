@@ -83,6 +83,11 @@ data class ChatPerson(
     val host: String? = null,
     val label: String? = null,
     val remote: Boolean = false,
+    /**
+     * 2.4 (W4): Kennung wie in der Personensuche (pseudonymer Handle '~…'). `username` bleibt fuer die Krypto (Chats v1),
+     * wird aber nie gezeigt; Treffer der Personensuche tragen in `username` den Handle.
+     */
+    val ref: String? = null,
 )
 
 /** 2.3: Treffer im Adressbuch verbundener Server (GET /api/fed/people, Feld remote in /api/chat/people) */

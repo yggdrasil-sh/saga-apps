@@ -628,3 +628,20 @@ enum ShareLogic {
         return ((tt.isEmpty ? "" : tt + "\n\n") + out.joined(separator: "\n\n")).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
+
+/// 2.4 (Testrunde W4): Server zeigen Anmeldenamen anderer Konten nicht mehr – Personensuche, Freigaben, Kommentare usw.
+/// liefern einen pseudonymen Handle ('~' + 16 Zeichen) als Kennung, `name` ist Anzeigename, oeffentlicher Name oder
+/// derselbe Handle. Chat-Mitglieder behalten `username` (Chats v1 binden Schluessel daran), dazu `ref` (Handle wie in der
+/// Personensuche). Die Apps zeigen den Anmeldenamen anderer nie; Kennungen bleiben undurchsichtig.
+enum PersonRef {
+    /// Name zum Zeigen: name, sonst ref (Handle), zuletzt die Kennung selbst (aeltere Server liefern dort den Namen)
+    static func display(name: String?, ref: String?, id: String) -> String {
+        if let n = name?.trimmingCharacters(in: .whitespaces), !n.isEmpty { return n }
+        if let r = ref, !r.isEmpty { return r }
+        return id
+    }
+    /// Treffer der Personensuche (Feld username = Handle oder bei aelteren Servern der Benutzername) schon Mitglied?
+    static func isMember(_ hit: String, members: [(username: String, ref: String?)]) -> Bool {
+        members.contains { $0.username == hit || ($0.ref ?? "") == hit }
+    }
+}

@@ -265,6 +265,9 @@ enum CallRoom {
         guard legs.contains(where: { $0.device == device }) else { return .unknownLeg }
         return signed.contains(device) ? .accept : .reject
     }
+    /// 2.4 (Testrunde W9): Schluessel sind je Person zwischengespeichert - ein Geraet, das sie WAEHREND des Anrufs gekoppelt
+    /// hat (Hinzufuegen/Hierher uebernehmen), fehlt dort noch: dann die signierte Liste einmal frisch holen, erst danach ablehnen
+    static func needsFreshKeys(device: String, signed: Set<String>) -> Bool { !device.isEmpty && !signed.contains(device) }
 
     /// Faehigkeiten melden (PUT /api/calls/caps): einmal je Geraet und Faehigkeiten
     static func capsKey(device: String, caps: [String]) -> String { device + "|" + caps.joined(separator: ",") }

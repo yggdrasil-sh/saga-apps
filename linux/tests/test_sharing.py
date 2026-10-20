@@ -96,7 +96,7 @@ def test_share_rows_effective_role_and_remove_texts():
     assert rows[3]["via"] is None and rows[3]["remove_body"] == "Dora keeps the role Can view via “Projekt”."
     assert rows[1]["a11y_role"] == "Role of Cora" and rows[1]["a11y_remove"] == "Remove access for Cora"
     inh = s.inherited_rows({"inherited": [{"note_id": 1, "title": "Projekt", "type": "user", "target": "cora", "name": "Cora", "role": "comment"}]})
-    assert inh == [{"type": "user", "name": "Cora", "sub": "cora", "role": "Can comment", "from": "via “Projekt”", "note_id": 1}]
+    assert inh == [{"type": "user", "name": "Cora", "sub": "Person", "role": "Can comment", "from": "via “Projekt”", "note_id": 1}]
     hits = s.hit_rows({"users": [{"username": "cora", "name": "Cora"}, {"username": "emil", "name": "Emil"}], "groups": [{"name": "team"}]},
                       st, "view")
     assert [(h["name"], h["has"]) for h in hits] == [("Cora", "has access"), ("Emil", "Add (Can view)"), ("team", "has access")]

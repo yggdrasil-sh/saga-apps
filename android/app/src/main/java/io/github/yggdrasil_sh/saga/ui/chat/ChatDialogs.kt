@@ -147,8 +147,9 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                     items(users, key = { "u-" + it.username }) { u ->
                         val on = picked.any { it.username == u.username }
                         ListItem(
-                            headlineContent = { Text(u.name.ifEmpty { u.username }) },
-                            supportingContent = { Text(if (u.ready) u.username else stringResource(R.string.chat_not_ready, u.username)) },
+                            headlineContent = { Text(ChatLogic.shown(u)) },
+                            // 2.4 (W4): nie den Anmeldenamen - nur der Hinweis, falls Chats fehlen
+                            supportingContent = if (u.ready) null else ({ Text(stringResource(R.string.chat_not_ready, ChatLogic.shown(u))) }),
                             leadingContent = { Avatar(u.name, size = 32, avatar = u.avatar) },
                             trailingContent = if (multi) ({ Checkbox(checked = on, onCheckedChange = null) }) else null,
                             modifier = Modifier.clickable {
@@ -274,7 +275,7 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
         try {
             val r = repo.chat.people(q)
             val all = r.users
-            found = all.filter { u -> sum?.members?.none { it.username == u.username } ?: true }
+            found = all.filter { u -> !ChatLogic.isMember(u.username, sum?.members.orEmpty()) }     // 2.4 (W4): Handle <-> ref
             foundRemote = if (s.isFed) r.remote.filter { u -> sum?.members?.none { it.handle == u.handle } ?: true } else emptyList()
             fedFor = if (ChatFedHint.show(q, all.size + foundRemote.size)) q else ""
         } catch (e: CancellationException) {
@@ -297,9 +298,9 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
                 val admin = sum?.kind == "free" && sum.role == "admin"
                 items(sum?.members.orEmpty(), key = { it.username }) { m ->
                     ListItem(
-                        headlineContent = { Text(m.name.ifEmpty { m.label ?: m.username } + if (m.me) " (" + stringResource(R.string.chat_you) + ")" else "") },
-                        // 2.3: Person eines anderen Servers - Herkunft zeigen, nie den Handle
-                        supportingContent = { Text(if (m.remote && !m.host.isNullOrEmpty()) stringResource(R.string.fed_on_host, m.host) else m.username) },
+                        headlineContent = { Text(ChatLogic.shown(m) + if (m.me) " (" + stringResource(R.string.chat_you) + ")" else "") },
+                        // 2.3: Person eines anderen Servers - Herkunft zeigen, nie den Handle; 2.4 (W4): nie den Anmeldenamen
+                        supportingContent = if (m.remote && !m.host.isNullOrEmpty()) ({ Text(stringResource(R.string.fed_on_host, m.host)) }) else null,
                         leadingContent = { Avatar(m.name, size = 32, avatar = m.avatar) },
                         // Admins einer freien Gruppe: Person entfernen (wie Web, iOS/macOS und Linux)
                         trailingContent = if (admin && ChatLogic.canRemoveMember(m)) { {
@@ -321,7 +322,7 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
                         if (fedFor.isNotEmpty() && fedFor == q) item { FedChatHint(fedV2 == true) }
                         items(found, key = { "f-" + it.username }) { u ->
                             ListItem(
-                                headlineContent = { Text(u.name) }, supportingContent = { Text(u.username) },
+                                headlineContent = { Text(ChatLogic.shown(u)) },                // 2.4 (W4): nur der Name
                                 modifier = Modifier.clickable { repo.launchAction { s.addMember(u.username); add = false; q = "" } },
                             )
                         }
@@ -339,7 +340,7 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
     removing?.let { m ->
         AlertDialog(
             onDismissRequest = { removing = null },
-            title = { Text(stringResource(R.string.chat_member_remove_title, m.name.ifEmpty { m.label ?: m.username })) },
+            title = { Text(stringResource(R.string.chat_member_remove_title, ChatLogic.shown(m))) },
             text = { Text(stringResource(R.string.chat_member_remove_text)) },
             confirmButton = {
                 TextButton(onClick = { removing = null; repo.launchAction { s.removeMember(m.username) } }) {

@@ -403,7 +403,7 @@ struct NewChatSheet: View {
                                 ShareAvatar(name: u.name, group: false, avatar: u.avatar)
                                 VStack(alignment: .leading) {
                                     Text(verbatim: u.name)
-                                    Text(verbatim: u.ready ? u.username : u.username + " · " + String(localized: "hat Chats noch nicht eingerichtet")).font(.caption).foregroundStyle(.secondary)
+                                    if !u.ready { Text("hat Chats noch nicht eingerichtet").font(.caption).foregroundStyle(.secondary) }   // 2.4 (W4): nie den Anmeldenamen
                                 }
                                 Spacer()
                                 if picked.contains(where: { $0.username == u.username }) { Image(systemName: "checkmark").foregroundStyle(Color.gold) }

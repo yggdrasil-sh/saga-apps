@@ -153,7 +153,7 @@ fun PageShareSheet(
                         Surface(shape = RoundedCornerShape(12.dp), tonalElevation = 2.dp, modifier = Modifier.fillMaxWidth()) {
                             Column {
                                 h.users.forEach { u ->
-                                    HitRow("user", u.name.ifEmpty { u.username }, UiText.Raw(u.username), taken[ShareLogic.key("user", u.username)], roleName, u.avatar) {
+                                    HitRow("user", u.name.ifEmpty { u.username }, UiText.Res(R.string.share_person_here), taken[ShareLogic.key("user", u.username)], roleName, u.avatar) {
                                         scope.launch { model.add("user", u.username, u.name.ifEmpty { u.username }) }
                                     }
                                 }

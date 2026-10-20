@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4 Testrunde W4: Anmeldenamen anderer Konten nie zeigen (Freigaben, Personensuche) -->
+<resources>
+    <string name="share_person">Person</string>
+    <string name="share_person_here">Person on this server</string>
+</resources>

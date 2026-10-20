@@ -313,4 +313,10 @@ object CallRoom {
     fun rvOf(o: JsonObject?): Double? = (o?.get("rv") as? JsonPrimitive)?.doubleOrNull
 
     fun str(o: JsonObject?, k: String): String? = (o?.get(k) as? JsonPrimitive)?.contentOrNull
+
+    /**
+     * 2.4 (Testrunde W9): Geraet fehlt in den (zwischengespeicherten) Schluesseln der Person - z. B. waehrend des Anrufs
+     * gekoppelt (Hinzufuegen/Hierher uebernehmen): die signierte Liste einmal frisch holen, erst danach ablehnen.
+     */
+    fun needsFreshKeys(device: String, signed: Set<String>): Boolean = device.isNotEmpty() && device !in signed
 }

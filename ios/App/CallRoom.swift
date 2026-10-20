@@ -151,6 +151,9 @@ extension CallManager {
         L.own = own; L.devName = x.devName
         if let mh = roomHandle { L.v2 = (mh, own ? mh : (x.handle ?? x.who)) }
         try await linkKeys(L, host: x.host)
+        // 2.4 (Testrunde W9): waehrend des Anrufs gekoppeltes Geraet (Hinzufuegen/Hierher uebernehmen) fehlt in den
+        // zwischengespeicherten Schluesseln der Person - einmal frisch holen und die signierte Liste neu pruefen
+        if CallRoom.needsFreshKeys(device: x.device, signed: Set(L.devs.keys)) { try await linkKeys(L, host: x.host, fresh: true) }
         return L
     }
     /// Je anderem Endpunkt eine PeerConnection mit Angebot, alles in einem POST /join. 409 mit neuer Liste: einmal neu.

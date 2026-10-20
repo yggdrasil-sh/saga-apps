@@ -65,7 +65,7 @@ class ShareModelTest {
 
     @Test
     fun subLinesAndChips() {
-        assertEquals(UiText.Raw("sc-bert"), ShareLogic.entrySub("user", "sc-bert", null))
+        assertEquals(UiText.Res(R.string.share_person), ShareLogic.entrySub("user", "~abcdefghijklmnop", null))   // 2.4 (W4): nie der Anmeldename
         assertEquals(UiText.Res(R.string.share_group), ShareLogic.entrySub("group", "t", null))
         assertEquals(UiText.Plural(R.plurals.share_group_members, 2), ShareLogic.entrySub("group", "t", 2))
         val st = ShareState(groups = listOf("sc-team"))

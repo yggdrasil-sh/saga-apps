@@ -979,7 +979,7 @@ struct MembersSheet: View {
             ShareAvatar(name: m.name, group: false, avatar: m.avatar)
             VStack(alignment: .leading) {
                 Text(verbatim: m.me ? m.name + " (" + String(localized: "du") + ")" : m.name)
-                Text(verbatim: fedMember(m)?.label ?? m.username).font(.caption).foregroundStyle(.secondary)   // 2.3: nie den Handle zeigen
+                if let l = fedMember(m)?.label { Text(verbatim: l).font(.caption).foregroundStyle(.secondary) }   // 2.3: nie den Handle; 2.4 (W4): nie den Anmeldenamen
             }
             Spacer()
             if !m.me {
@@ -1005,7 +1005,7 @@ struct MembersSheet: View {
                     .buttonStyle(.plain)
             }
             ForEach(hits, id: \.0) { h in
-                Button { Task { await conv.addMember(h.0); q = "" } } label: { Text(verbatim: "\(h.1) · \(h.0)") }
+                Button { Task { await conv.addMember(h.0); q = "" } } label: { Text(verbatim: h.1) }     // 2.4 (W4): nur der Name
             }
         }
     }
@@ -1015,9 +1015,9 @@ struct MembersSheet: View {
         }
         try? await Task.sleep(for: .milliseconds(250))
         guard !Task.isCancelled, let d = try? await store.api("api/chat/people?q=\(e)"), let j = ShareJSON.obj(d) else { return }
-        let have = Set(conv.info?.members.map(\.username) ?? [])
+        let have = (conv.info?.members ?? []).map { (username: $0.username, ref: $0.ref) }      // 2.4 (W4): Treffer sind Handles - Abgleich ueber ref
         hits = (j["users"] as? [Any] ?? []).compactMap { v in (v as? [String: Any]).flatMap { u in (u["username"] as? String).map { ($0, u["name"] as? String ?? $0) } } }
-            .filter { !have.contains($0.0) }
+            .filter { !PersonRef.isMember($0.0, members: have) }
         // Personen anderer Server nur in Gruppen ueber Servergrenzen (eine lokale Gruppe bleibt lokal, wie im Web)
         let handles = Set(conv.fed?.members.map(\.handle) ?? [])
         let rem = FedChatLogic.people(j["remote"]).filter { $0.handle != nil && !handles.contains($0.handle ?? "") }

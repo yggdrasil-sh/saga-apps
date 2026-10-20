@@ -160,6 +160,8 @@ struct ChatMember: Equatable, Identifiable {
     var username: String; var name: String; var me: Bool
     /// Profilbild (2.1): relative Adresse /api/avatar/... oder nil
     var avatar: String? = nil
+    /// 2.4 (W4): Kennung wie in der Personensuche (pseudonymer Handle); username bleibt fuer die Krypto, wird nie gezeigt
+    var ref: String? = nil
     var id: String { username }
 }
 
@@ -206,7 +208,9 @@ struct ChatSummary: Identifiable, Equatable {
         id = i; kind = d["kind"] as? String ?? "dm"; name = ShareJSON.str(d["name"]); group = ShareJSON.str(d["group"]); noteID = ShareJSON.int(d["note_id"])
         members = (d["members"] as? [Any] ?? []).compactMap { v in
             guard let m = v as? [String: Any], let u = m["username"] as? String else { return nil }
-            return ChatMember(username: u, name: m["name"] as? String ?? u, me: ShareJSON.bool(m["me"]), avatar: ShareJSON.str(m["avatar"]))
+            let ref = ShareJSON.str(m["ref"])
+            return ChatMember(username: u, name: PersonRef.display(name: m["name"] as? String, ref: ref, id: u), me: ShareJSON.bool(m["me"]),
+                              avatar: ShareJSON.str(m["avatar"]), ref: ref)
         }
         memberCount = ShareJSON.int(d["member_count"]) ?? members.count
         unread = ShareJSON.int(d["unread"]) ?? 0; muted = ShareJSON.bool(d["muted"]); retention = ShareJSON.int(d["retention_s"]) ?? 0

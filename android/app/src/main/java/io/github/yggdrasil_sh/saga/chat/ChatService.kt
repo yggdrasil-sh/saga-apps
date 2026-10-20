@@ -58,6 +58,12 @@ object ChatLogic {
     /** Admin darf diese Person aus einer freien Gruppe entfernen: nicht sich selbst (dafuer "Gruppe verlassen"), nur mit Konto-Kennung */
     fun canRemoveMember(m: ChatPerson): Boolean = !m.me && m.username.isNotEmpty()
 
+    /** 2.4 (W4): Treffer der Personensuche (Handle, bei aelteren Servern der Benutzername) schon Mitglied? Abgleich ueber ref */
+    fun isMember(hit: String, members: List<ChatPerson>): Boolean = hit.isNotEmpty() && members.any { it.username == hit || it.ref == hit }
+
+    /** 2.4 (W4): Name zum Zeigen - Anzeigename, Bezeichnung (andere Server) oder Handle; die Kennung nur als letzter Rueckfall */
+    fun shown(p: ChatPerson): String = p.name.ifEmpty { p.label?.ifEmpty { null } ?: p.ref?.ifEmpty { null } ?: p.username }
+
     /** Name eines Chats: dm = Gegenueber, group = Gruppe, page = Seitentitel, free = Titel aus der Titel-Nachricht oder Mitglieder */
     /** Personensuche ab wie vielen Zeichen: Server ab 2.3 ab 1, aeltere (oder noch unbekannte Version) wie bisher ab 3 */
     fun peopleMin(serverVersion: String?): Int = if (io.github.yggdrasil_sh.saga.util.Versions.atLeast(serverVersion, "2.3.0")) 1 else 3

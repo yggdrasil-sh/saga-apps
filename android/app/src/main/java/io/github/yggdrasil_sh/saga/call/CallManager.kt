@@ -489,10 +489,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     private fun keys(): LocalChatKeys = repo.chat.keys() ?: throw UiTextException(UiText.Res(R.string.call_chats_not_ready))
 
     /** Aktive Geraete des Gegenuebers: Zertifikat gueltig, Identitaet wie gemerkt (TOFU - geaendert => nicht anrufen) */
-    private suspend fun peerKeys(c: Call) {
+    private suspend fun peerKeys(c: Call, fresh: Boolean = false) {
         // 2.4: weitere Verbindungen im foederierten Raum - Personen anderer Server ueber die geprueften v2-Schluessel,
         // eigene und lokale Personen wie im Chat (der Body bleibt saga-call/v2, dafuer braucht es den eigenen Handle)
-        if (c.v2 && (c.room == null || remotePerson(c.peer))) return peerKeysV2(c)
+        if (c.v2 && (c.room == null || remotePerson(c.peer))) return peerKeysV2(c, fresh)
         if (c.v2 && c.myHandle == null) {
             val fed = repo.chat.fed
             if (fed.myHandle == null) fed.certs()
@@ -530,12 +530,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     /** Person eines anderen Servers (Handle und Server bekannt, nicht ich) */
     private fun remotePerson(p: CallPeer): Boolean = !p.handle.isNullOrEmpty() && !p.host.isNullOrEmpty() && p.username != myUser()
 
-    private suspend fun peerKeysV2(c: Call) {
+    private suspend fun peerKeysV2(c: Call, fresh: Boolean = false) {
         val h = c.peer.handle ?: throw UiTextException(UiText.Res(R.string.call_peer_no_keys, c.peer.name))
         val fed = repo.chat.fed
         if (fed.myHandle == null) fed.certs()
         c.myHandle = fed.myHandle ?: throw UiTextException(UiText.Res(R.string.fed_keys_not_ready))
-        val st = fed.keys(listOf(h), fresh = c.peerDevs.isNotEmpty())[h]
+        val st = fed.keys(listOf(h), fresh = fresh || c.peerDevs.isNotEmpty())[h]
         val k = st?.keys ?: throw UiTextException(UiText.Res(R.string.call_peer_no_keys, c.peer.name.ifEmpty { h }))
         if (st.trust != io.github.yggdrasil_sh.saga.chat.TofuV2.TRUST) throw UiTextException(UiText.Res(R.string.call_safety_changed, c.peer.name.ifEmpty { h }))
         val out = LinkedHashMap<String, PeerDev>()
@@ -1475,6 +1475,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 rs.links[dev] = l
                 try {
                     peerKeys(l)
+                    // 2.4 (Testrunde W9): ein Geraet, das die Person WAEHREND des Anrufs gekoppelt hat (Hinzufuegen/Hierher
+                    // uebernehmen), fehlt in zwischengespeicherten Schluesseln - die signierte Liste einmal frisch holen
+                    if (CallRoom.needsFreshKeys(dev, l.peerDevs.keys)) peerKeys(l, fresh = true)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (_: Exception) {
@@ -1897,6 +1900,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             val l = newLink(c, x.device, x, caller = true)
             c.rs.links[x.device] = l
             peerKeys(l)
+            if (CallRoom.needsFreshKeys(x.device, l.peerDevs.keys)) peerKeys(l, fresh = true)   // 2.4 (W9): einmal frisch
             if (l.peerDevs[x.device] == null) throw UiTextException(UiText.Res(R.string.room_unknown_abort, x.name.ifEmpty { x.who }))
             val pc = makePc(l, cfg)
             l.pc = pc
