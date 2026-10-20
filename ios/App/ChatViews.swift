@@ -59,7 +59,7 @@ struct ChatsScreen: View {
                 .navigationDestination(item: $openChat) { id in ConversationView(chatID: id, chat: chat).id(id) }
         } else {
             HStack(spacing: 0) {
-                ChatListView(chat: chat, selection: $openChat).frame(width: 320)
+                ChatListView(chat: chat, selection: $openChat).frame(width: ChatLayout.listWidth(total: width))   // waechst mit dem Fenster (N15)
                 Divider()
                 if let id = openChat { ConversationView(chatID: id, chat: chat).id(id) }
                 else {
@@ -303,7 +303,7 @@ struct ChatRow: View {
                     Text(verbatim: c.title).font(.body.weight(c.unread > 0 ? .semibold : .regular)).lineLimit(big ? 3 : 1)
                     if c.muted { Image(systemName: "bell.slash").font(.caption).foregroundStyle(.secondary).accessibilityLabel(Text("Stummschalten")) }
                 }
-                Text(verbatim: ChatSubtitle.text(c)).font(.caption).foregroundStyle(.secondary).lineLimit(big ? 2 : 1)   // 2.3: "Direkt-Chat · auf host · Anfrage"
+                Text(verbatim: ChatSubtitle.text(c)).font(.caption).foregroundStyle(.secondary).lineLimit(2)   // schmale Liste (iPad quer): umbrechen statt "…" (N15)   // 2.3: "Direkt-Chat · auf host · Anfrage"
                 if big { HStack(spacing: 8) { meta } }
             }
             if !big {
@@ -619,6 +619,7 @@ struct ChatNewDeviceView: View {
     @ObservedObject var chat: ChatModel
     @State private var mode = 0                    // 0 Auswahl, 1 Kopplung, 2 Schluessel, 3 Neu beginnen
     @State private var rk = ""
+    @FocusState private var rkFocus: Bool              // Feld gleich bereit zum Eintippen/Einsetzen (N12)
     @State private var busy = false
     @State private var err: String?
     @State private var askReset = false
@@ -683,6 +684,8 @@ struct ChatNewDeviceView: View {
         Text("Wiederherstellungsschlüssel eingeben").font(.headline)
         TextField(String(localized: "Wiederherstellungsschlüssel"), text: $rk, prompt: Text(verbatim: "XXXX-XXXX-XXXX-XXXX-…"), axis: .vertical).font(.body.monospaced()).textFieldStyle(.roundedBorder)
             .autocorrectionDisabled()
+            .focused($rkFocus)
+            .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { rkFocus = true } }
             #if os(iOS)
             .textInputAutocapitalization(.characters)
             #endif

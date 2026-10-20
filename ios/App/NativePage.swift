@@ -1041,8 +1041,9 @@ struct NativePageScreen: View {
                 SlashMenu(query: d.query, nextcloud: store.serverVersion.map { !ShareLogic.versionLess($0, "2.3.0") } ?? false, docked: true) { type, level in
                     ed.slashApply(String(d.key.split(separator: "/").first ?? ""), type: type, level: level)
                 }
-                .padding(.horizontal, 12).padding(.vertical, 6)
+                .padding(.horizontal, 12).padding(.top, 6).padding(.bottom, 10)
                 .frame(maxWidth: .infinity)
+                .fixedSize(horizontal: false, vertical: true)           // feste Hoehe aus der Trefferzahl (F3)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
@@ -1404,9 +1405,20 @@ struct ListBlock: View {
     /// Return: neuer Punkt darunter; leerer Punkt + Return beendet die Liste (neuer Absatz nach der Liste)
     private func returnIn(_ i: Int, before: String, after: String) {
         if before.isEmpty && after.isEmpty {
-            items.removeObject(at: i)
-            if path.isEmpty && items.count == 0 { ed.convert(blockID, to: "paragraph") }
-            else { ed.insert(PageEditor.make("paragraph"), after: blockID) }
+            // Erst den neuen Absatz fokussieren, den leeren Punkt erst danach entfernen: verschwand das fokussierte Feld
+            // sofort, ging die Tastatur zu und weiter Getipptes verloren (N2)
+            let editor = ed, list = items, item = items[i], lone = path.isEmpty && items.count == 1, bid = blockID
+            let p = PageEditor.make("paragraph")
+            editor.insert(p, after: bid)
+            editor.whenFocused(p.blockID) {
+                if lone {
+                    if let (arr, j) = editor.locate(bid) { arr.removeObject(at: j) }   // einziger Punkt: ganze Liste weg (wie bisher)
+                } else {
+                    let k = list.indexOfObjectIdentical(to: item)
+                    if k != NSNotFound { list.removeObject(at: k) }
+                }
+                editor.changed()
+            }
             return
         }
         let ni = NSMutableDictionary(dictionary: ["content": after, "meta": NSMutableDictionary(dictionary: style == "checklist" ? ["checked": false] : [:]), "items": NSMutableArray()])

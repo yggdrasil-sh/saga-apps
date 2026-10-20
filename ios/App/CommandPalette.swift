@@ -143,10 +143,12 @@ struct TrashSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Schließen") { dismiss() } }
                 ToolbarItem(placement: .destructiveAction) { Button("Papierkorb leeren", role: .destructive) { confirmEmpty = true }.disabled(items.isEmpty) }
             }
-            .confirmationDialog("Alle Seiten im Papierkorb endgültig löschen?", isPresented: $confirmEmpty) {
+            .alert("Alle Seiten im Papierkorb endgültig löschen?", isPresented: $confirmEmpty) {
                 Button("Endgültig löschen", role: .destructive) { Task { _ = try? await store.api("api/trash/empty", method: "POST", body: [:]); await load() } }
+                Button("Abbrechen", role: .cancel) {}
             }
-            .confirmationDialog(Text(verbatim: TrashLogic.purgeQuestion(purge)), isPresented: Binding(get: { purge != nil }, set: { if !$0 { purge = nil } }), titleVisibility: .visible, presenting: purge) { it in
+            // Hinweis statt Aktionsblatt: dort fehlte auf iPhone/iPad ein sichtbarer "Abbrechen"-Knopf (N8)
+            .alert(Text(verbatim: TrashLogic.purgeQuestion(purge)), isPresented: Binding(get: { purge != nil }, set: { if !$0 { purge = nil } }), presenting: purge) { it in
                 Button("Endgültig löschen", role: .destructive) { act(it.id) { _ = try? await store.api("api/trash/\(it.id)", method: "DELETE") } }
                 Button("Abbrechen", role: .cancel) {}
             } message: { _ in Text("Das lässt sich nicht rückgängig machen.") }

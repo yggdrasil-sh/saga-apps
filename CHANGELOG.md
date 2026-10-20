@@ -445,6 +445,37 @@ Speicher beim Hoch- und Herunterladen. Texte in Deutsch, Englisch, Spanisch, Rus
   nur https.
 - Version der Apple-Apps auf 2.4.0; Swift-6-Warnung im Live-Kanal behoben.
 
+#### iOS/iPadOS/macOS – zweite Runde
+- **Editor verliert beim schnellen Tippen keine Zeichen mehr (Datenverlust, iPhone/iPad/Mac):** Nach einem Return
+  gingen Zeichen und Zeilen verloren oder landeten im falschen Punkt („Mittel:⏎“ → „Mitte“ + leere Absätze,
+  „Punkt B“ → „Punk“), und der Server speicherte den kaputten Stand. Ursachen: mehrere Tastendrücke in einer Änderung
+  wurden am falschen Zeichen getrennt; das alte Feld setzte sich nach dem Weiterreichen zurück und verschluckte die
+  nächste Eingabe; spät Weitergereichtes blieb liegen; eigene Änderungen wurden als Eingabe gedeutet. Jetzt rechnet
+  jedes Feld gegen den zuletzt verbuchten Stand (`EditorFlow`), getrennt wird genau am Zeilenumbruch, und ein Feld,
+  das den Fokus schon abgegeben hat, reicht nur noch Neues an das neue Feld weiter (auch Rückschritt). Return mitten
+  im Text setzt den Cursor im neuen Block an den Anfang.
+- **Doppeltes Return am Ende einer Liste bzw. „Typ → Text“:** Die Tastatur ging zu und weiter Getipptes war weg. Der
+  leere Punkt wird erst entfernt, wenn der neue Absatz den Fokus hat; ein eben eingefügtes Feld holt sich den Fokus
+  mehrmals, statt das Bearbeiten beim ersten Fehlschlag zu beenden.
+- **„/“-Menü:** feste Höhe aus der Trefferzahl – ein einzelner Treffer („/Seite“) liegt nicht mehr halb unter der
+  Tastaturleiste. **Return wählt den ersten Treffer** (auch am Mac).
+- **Leiste „Anruf läuft auf …“:** „Hinzufügen“ und „Hierher übernehmen“ werden nie mehr silbenweise umbrochen; ist es
+  zu eng (iPhone, große Schrift), stehen die Knöpfe unter dem Text.
+- **Große Schrift:** Der Ansichtsname einer Datenbank steht in eigener Zeile statt nur „…“.
+- **Datenbank:** Ein aktiver Filter ist am Regler-Symbol zu sehen (Akzentfarbe und Zahl, auch für VoiceOver).
+- **Teilen:** Mit 1–2 Zeichen ohne exakten Treffer erscheint ein Hinweis auf 3 Zeichen statt „Niemand gefunden.“
+- **Termin anlegen ohne Kalender:** Hinweis auf die eigene Kalender-Einstellung der App (nicht mehr „im Web“), Zeile
+  „Kalender“ mit „Keiner verbunden“ und Knopf „Kalender verbinden …“.
+- **Ganze Zeile antippbar:** „Papierkorb“ in der Seitenleiste und die Ziele in „Verschieben nach“.
+- **Papierkorb:** „Endgültig löschen“ und „Papierkorb leeren“ fragen mit sichtbarem „Abbrechen“ nach. Hinweis
+  „… in den Papierkorb verschoben“ zweizeilig und über der Suchleiste.
+- **Mein Backup:** „Jetzt sichern“ und „Backups im Ziel anzeigen“ in eigenen Zeilen.
+- **Chats:** Wiederherstellungsschlüssel-Feld gleich bereit zum Tippen; Chatliste auf dem iPad quer breiter, Unterzeile
+  zweizeilig statt „Direkt-Chat · a…“.
+- **VoiceOver:** Die Zeile „Sprache“ liest „Sprache, Deutsch“ mit Hinweis statt „Sprache, Deutsch, Sprache“.
+- Tests: `ios/Tests/Logic/EditorFlowTests.swift` mit Nachbildung der Tippfolgen aus dem Testbericht (Verzögerung des
+  Fokuswechsels 0–6 Tasten, 1–4 Tasten je Änderung).
+
 #### Android
 - **Video im Vollbild speichern:** Schließen, Dateiname und „Speichern“ lagen unter der Statusleiste und ließen sich
   nicht antippen – Videos konnten in der App gar nicht gespeichert werden. Kopfzeile und Bedienung halten jetzt Abstand
