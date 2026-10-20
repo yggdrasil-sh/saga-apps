@@ -61,6 +61,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -255,8 +256,30 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             delay(1_000)
             s.expireTyping()
             if (++tick % 5 == 0) s.catchUp()                     // gescheitertes Nachladen wiederholen
+            if (s.receiptDue()) quietly { s.markRead() }         // 2.4: Gelesen-Bestaetigung nachziehen (gebuendelt, >= 2 s)
         }
     }
+    // 2.4: Gelesen erst, wenn die Nachricht wirklich zu sehen war und die App im Vordergrund ist (RESUMED)
+    val lifecycleState by androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle.currentStateFlow.collectAsState()
+    val resumed = lifecycleState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)
+    LaunchedEffect(s, resumed) {
+        s.foreground = resumed
+        if (resumed) snapshotFlow { list.layoutInfo.visibleItemsInfo.mapNotNull { it.key as? String } }.collect { ids ->
+            s.seen(ids)
+            if (s.receiptDue()) quietly { s.markRead() }
+        }
+    }
+    DisposableEffect(s) { onDispose { s.foreground = false } }
+    // 2.4: eigene Einstellung geaendert (hier oder auf einem anderen Geraet): Bestaetigungen neu holen bzw. verwerfen
+    val privacyRev by svc.privacyRev.collectAsState()
+    LaunchedEffect(s, privacyRev) { if (privacyRev > 0) quietly { s.loadReceipts() } }
+    // 2.4: Online-Status des Gegenuebers (nur Direkt-Chat, nur solange sichtbar)
+    val chatMe by svc.me.collectAsState()
+    val presenceAll by svc.presence.state.collectAsState()
+    val peerOnline = io.github.yggdrasil_sh.saga.chat.ReceiptLogic.onlineFor(chatMe, s.summary)
+    PresenceWatch(svc.presence, "chat:$chatId", listOfNotNull(peerOnline))
+    val presenceLine = presenceText(peerOnline?.let { presenceAll[it] }, chatMe?.statusLimits?.lastRound ?: 300)
+    var readBy by remember { mutableStateOf<ChatMessage?>(null) }
     LaunchedEffect(s.messages.size) { if (s.messages.isNotEmpty() && list.firstVisibleItemIndex <= 2) list.animateScrollToItem(0) }
     // laufende KI-Antwort erscheint ganz unten: dorthin rollen (die Liste haelt sonst die bisherige Position)
     LaunchedEffect(s.aiPending) { if (s.aiPending != null && list.firstVisibleItemIndex <= 2) list.animateScrollToItem(0) }
@@ -338,7 +361,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                         Icon(Icons.Filled.Lock, null, Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         // eine Zeile: bei 200 % Schrift sonst hoeher als die Kopfzeile (ragt in die Statusleiste, BUG-070)
                         Text(
-                            fedHeadLine(s), style = MaterialTheme.typography.labelSmall,
+                            (presenceLine?.let { "$it · " } ?: "") + fedHeadLine(s), style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp),
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
@@ -486,6 +509,9 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                             onOpenFile = { f -> scope.launch { openFile(context, s, f) { repo.notify(it) } } },
                             onUnverified = { unverifiedOf = m.sender?.username ?: "" },
                             onResend = { repo.launchAction { s.resend(m) } },
+                            tick = s.tickOf(m),
+                            readAt = if (s.summary?.kind == "dm") s.readersOf(m).firstOrNull()?.second?.ts else null,
+                            onReadBy = if (m.mine && s.summary?.kind != "dm" && s.receiptsOn) ({ readBy = m }) else null,
                         )
                     }
                   }
@@ -668,6 +694,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     }
     }
 
+    // 2.4: "Gelesen von" einer eigenen Nachricht (Gruppen)
+    readBy?.let { m -> ReadByDialog(s.readersOf(m)) { readBy = null } }
     unverifiedOf?.let { who ->
         AlertDialog(
             onDismissRequest = { unverifiedOf = null },
@@ -876,6 +904,8 @@ private fun Bubble(
     m: ChatMessage, s: ChatSession, group: Boolean, aiPersona: AiPersona?,
     onReply: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit, onOpenNote: (Long) -> Unit, onOpenFile: (ChatFile) -> Unit,
     onUnverified: () -> Unit, onResend: () -> Unit = {},
+    tick: io.github.yggdrasil_sh.saga.chat.Tick = io.github.yggdrasil_sh.saga.chat.Tick(io.github.yggdrasil_sh.saga.chat.TickKind.NONE),
+    readAt: Long? = null, onReadBy: (() -> Unit)? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -991,7 +1021,14 @@ private fun Bubble(
                             modifier = Modifier.align(Alignment.End),
                         )
                     }
-                    Text(time, style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = 0.7f), modifier = Modifier.align(Alignment.End))
+                    // Uhrzeit + Haken (2.4): ⏳ → ✓ → ✓✓; in Gruppen fuehrt Antippen zu "Gelesen von"
+                    Row(
+                        Modifier.align(Alignment.End).then(if (onReadBy != null) Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onReadBy) else Modifier),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(time, style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = 0.7f))
+                        TickMark(tick, fg, group, readAt)
+                    }
                 }
             }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -999,6 +1036,10 @@ private fun Bubble(
                 if (!m.content?.text.isNullOrEmpty()) DropdownMenuItem(text = { Text(stringResource(R.string.text_copy)) }, onClick = { menu = false; onCopy() })
                 if (m.mine && m.fstate == "failed" && m.content != null) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.fed_resend)) }, onClick = { menu = false; onResend() })
+                }
+                // 2.4: "Info" - gelesen von … (Gruppen)
+                if (onReadBy != null) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.chat_info)) }, onClick = { menu = false; onReadBy() })
                 }
                 if (m.mine) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.chat_delete_all), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; confirmDelete = true })

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.4: Gelesen-Bestaetigungen und Online-Status -->
+<resources>
+    <string name="chat_privacy_title">Datenschutz</string>
+    <string name="chat_privacy_receipts">Gelesen-Bestätigungen senden</string>
+    <string name="chat_privacy_receipts_hint">Aus: Andere sehen nicht, ob du ihre Nachrichten gelesen hast – und du siehst es bei ihnen auch nicht.</string>
+    <string name="chat_privacy_online">Online-Status zeigen</string>
+    <string name="chat_privacy_online_hint">Aus: Deine Chat-Partner sehen nicht, ob und wann du zuletzt online warst – und du siehst es bei ihnen auch nicht.</string>
+    <string name="chat_online">online</string>
+    <string name="chat_last_seen">zuletzt online %1$s</string>
+    <string name="chat_tick_sent">Zugestellt</string>
+    <string name="chat_tick_read">Gelesen %1$s</string>
+    <string name="chat_tick_read_all">Von allen gelesen</string>
+    <string name="chat_read_by">Gelesen von</string>
+    <string name="chat_read_by_none">Noch von niemandem gelesen.</string>
+    <string name="chat_read_by_hint">Wer Gelesen-Bestätigungen abgeschaltet hat, erscheint hier nicht.</string>
+    <string name="chat_info">Info</string>
+    <plurals name="chat_tick_read_n">
+        <item quantity="one">Gelesen von %1$d</item>
+        <item quantity="other">Gelesen von %1$d</item>
+    </plurals>
+</resources>

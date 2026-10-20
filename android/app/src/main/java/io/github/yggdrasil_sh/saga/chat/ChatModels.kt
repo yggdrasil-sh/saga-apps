@@ -53,6 +53,10 @@ data class ChatMe(
     val reauth: String? = null,
     /** 2.1: womit sich bestaetigen laesst (Teilmenge von password, passkey, totp) */
     @SerialName("reauth_methods") val reauthMethods: List<String> = emptyList(),
+    /** 2.4: Gelesen-Bestaetigungen/Online-Status - eigene Einstellung, Faehigkeiten ("receipts", "online"), Grenzen; aeltere Server: fehlen */
+    val privacy: ChatPrivacy? = null,
+    val features: List<String> = emptyList(),
+    @SerialName("status_limits") val statusLimits: StatusLimits? = null,
 )
 
 @Serializable
@@ -206,6 +210,9 @@ data class ChatSummary(
     @SerialName("fed_hint") val fedHint: String? = null,
     /** 2.3 (E5): Einladung in eine Gruppe eines anderen Servers - wer eingeladen hat ({name, host, label}) */
     @SerialName("invited_by") val invitedBy: ChatInviter? = null,
+    /** 2.4 (nur v2): der andere Server kann Gelesen-Bestaetigungen bzw. Online-Status (false = Saga 2.3); lokal fehlt das Feld */
+    @SerialName("receipts_ok") val receiptsOk: Boolean? = null,
+    @SerialName("online_ok") val onlineOk: Boolean? = null,
 ) {
     /** Chat ueber Servergrenzen (v2) */
     val isFed: Boolean get() = v == 2 && !ref.isNullOrEmpty()

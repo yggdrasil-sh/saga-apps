@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.4: Gelesen-Bestaetigungen und Online-Status -->
+<resources>
+    <string name="chat_privacy_title">ความเป็นส่วนตัว</string>
+    <string name="chat_privacy_receipts">ส่งการยืนยันการอ่าน</string>
+    <string name="chat_privacy_receipts_hint">ปิด: คนอื่นจะไม่เห็นว่าคุณอ่านข้อความของเขาแล้วหรือยัง – และคุณก็จะไม่เห็นของเขาเช่นกัน</string>
+    <string name="chat_privacy_online">แสดงสถานะออนไลน์</string>
+    <string name="chat_privacy_online_hint">ปิด: คู่สนทนาจะไม่เห็นว่าคุณออนไลน์อยู่หรือออนไลน์ล่าสุดเมื่อไร – และคุณก็จะไม่เห็นของเขาเช่นกัน</string>
+    <string name="chat_online">ออนไลน์</string>
+    <string name="chat_last_seen">ออนไลน์ล่าสุด %1$s</string>
+    <string name="chat_tick_sent">ส่งถึงแล้ว</string>
+    <string name="chat_tick_read">อ่านแล้ว %1$s</string>
+    <string name="chat_tick_read_all">ทุกคนอ่านแล้ว</string>
+    <string name="chat_read_by">อ่านโดย</string>
+    <string name="chat_read_by_none">ยังไม่มีใครอ่าน</string>
+    <string name="chat_read_by_hint">ผู้ที่ปิดการยืนยันการอ่านจะไม่แสดงที่นี่</string>
+    <string name="chat_info">ข้อมูล</string>
+    <plurals name="chat_tick_read_n">
+        <item quantity="other">อ่านแล้ว %1$d คน</item>
+    </plurals>
+</resources>

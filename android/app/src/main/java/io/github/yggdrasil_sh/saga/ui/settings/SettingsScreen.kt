@@ -63,6 +63,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     var notifKinds by remember { mutableStateOf<List<io.github.yggdrasil_sh.saga.live.NotifKind>>(emptyList()) }
     val pushSupported by repo.push.supported.collectAsState()
     val chatState by repo.chat.state.collectAsState()
+    val chatMe by repo.chat.me.collectAsState()
     var ownAvatar by remember { mutableStateOf<String?>(null) }
     val callsOn by repo.calls.enabled.collectAsState()
     LaunchedEffect(Unit) {
@@ -153,6 +154,24 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                         supportingContent = { Text(stringResource(R.string.chat_devices_hint)) },
                         modifier = w.clickable { nav.push(Dest.ChatDevices) },
                     )
+                }
+            }
+
+            // 2.4: Datenschutz - Gelesen-Bestaetigungen und Online-Status, je getrennt, gegenseitig (aeltere Server: fehlt)
+            val rcFeat = chatState == ChatSetup.READY && io.github.yggdrasil_sh.saga.chat.ReceiptLogic.has(chatMe, "receipts") && chatMe?.privacy != null
+            val onFeat = chatState == ChatSetup.READY && io.github.yggdrasil_sh.saga.chat.ReceiptLogic.has(chatMe, "online") && chatMe?.privacy != null
+            if (rcFeat || onFeat) {
+                val pv = chatMe?.privacy ?: io.github.yggdrasil_sh.saga.chat.ChatPrivacy()
+                item { SectionHeader(stringResource(R.string.chat_privacy_title), w) }
+                if (rcFeat) item(key = "privacy-receipts") {
+                    io.github.yggdrasil_sh.saga.ui.push.SwitchRow(
+                        stringResource(R.string.chat_privacy_receipts), pv.receipts, w, hint = stringResource(R.string.chat_privacy_receipts_hint),
+                    ) { on -> repo.launchAction { repo.chat.setPrivacy(receipts = on) } }
+                }
+                if (onFeat) item(key = "privacy-online") {
+                    io.github.yggdrasil_sh.saga.ui.push.SwitchRow(
+                        stringResource(R.string.chat_privacy_online), pv.online, w, hint = stringResource(R.string.chat_privacy_online_hint),
+                    ) { on -> repo.launchAction { repo.chat.setPrivacy(online = on) } }
                 }
             }
 

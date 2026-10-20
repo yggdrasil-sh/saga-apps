@@ -274,6 +274,7 @@ class ApiClient(
     suspend fun get(path: String) = request("GET", path)
     suspend fun post(path: String, body: JsonElement? = null) = request("POST", path, body)
     suspend fun patch(path: String, body: JsonElement) = request("PATCH", path, body)
+    suspend fun put(path: String, body: JsonElement) = request("PUT", path, body)
     suspend fun delete(path: String) = request("DELETE", path)
 
     private suspend fun execute(client: OkHttpClient, req: Request): kotlin.Pair<Int, String> =

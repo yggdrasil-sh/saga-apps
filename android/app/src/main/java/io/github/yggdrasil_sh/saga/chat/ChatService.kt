@@ -217,6 +217,38 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
     /** 2.3: offene Nachrichtenanfragen (zaehlen nicht als ungelesen) */
     val requests = MutableStateFlow(0)
 
+    /** 2.4: Gelesen-Bestaetigungen (signiert, versiegelt) */
+    val receipts: ReceiptCrypto by lazy { ReceiptCrypto(crypto) }
+
+    /** 2.4: Online-Status - Abo nur fuer sichtbare Ansichten (Chatliste, offener Direkt-Chat), im Hintergrund keins */
+    val presence = PresenceHub(
+        scope,
+        post = { body -> repo.api.post("api/chat/presence", body) },
+        allowed = { state.value == ChatSetup.READY && ReceiptLogic.has(me.value, "online") && ReceiptLogic.privacy(me.value).online },
+        onDisabled = { me.value = me.value?.let { it.copy(privacy = (it.privacy ?: ChatPrivacy()).copy(online = false)) } },
+        maxUsers = { me.value?.statusLimits?.presenceUsers ?: 50 },
+    )
+
+    /** 2.4: Einstellung aendern (gegenseitig) -> neuer Stand; Abo und Haken richten sich danach */
+    suspend fun setPrivacy(receipts: Boolean? = null, online: Boolean? = null) {
+        val body = buildJsonObject {
+            receipts?.let { put("receipts", it) }
+            online?.let { put("online", it) }
+        }
+        val p = decode<ChatPrivacy>(repo.api.put("api/chat/privacy", body))
+        applyPrivacy(p)
+    }
+
+    /** neuer Stand der eigenen Einstellung (Antwort bzw. Live chat.privacy von einem anderen Geraet) */
+    fun applyPrivacy(p: ChatPrivacy) {
+        me.value = me.value?.copy(privacy = p)
+        privacyRev.value++
+        presence.refresh()
+    }
+
+    /** zaehlt bei jeder Aenderung der eigenen Einstellung hoch (offene Unterhaltung laedt Bestaetigungen neu) */
+    val privacyRev = MutableStateFlow(0)
+
     /** Abmelden, "Neu beginnen", Geraet entfernt: zwischengespeicherte Anhaenge weg */
     fun clearMedia() {
         thumbs.clearMemory()
@@ -234,6 +266,7 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
         freeTitles.value = emptyMap()
         pendingLinks.value = emptyList()
         requests.value = 0
+        presence.clearAll()
         fed.reset()
     }
 
@@ -635,6 +668,11 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
                 refresh()
                 loadChats()
             }
+            // 2.4: Online-Status (nur mit laufendem Abo) und eigene Einstellung von einem anderen Geraet
+            "chat.presence" -> ev.str("username")?.let { u ->
+                presence.onEvent(u, ev.bool("online"), (ev.data["last"] as? JsonPrimitive)?.content?.toDoubleOrNull())
+            }
+            "chat.privacy" -> if (me.value?.privacy != null) applyPrivacy(ChatPrivacy(ev.bool("receipts"), ev.bool("online")))
         }
     }
 }

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.4: Gelesen-Bestaetigungen und Online-Status -->
+<resources>
+    <string name="chat_privacy_title">Privacidad</string>
+    <string name="chat_privacy_receipts">Enviar confirmaciones de lectura</string>
+    <string name="chat_privacy_receipts_hint">Desactivado: los demás no ven si has leído sus mensajes, y tú tampoco lo ves en los suyos.</string>
+    <string name="chat_privacy_online">Mostrar estado en línea</string>
+    <string name="chat_privacy_online_hint">Desactivado: tus contactos de chat no ven si estás en línea ni cuándo lo estuviste por última vez, y tú tampoco lo ves en los suyos.</string>
+    <string name="chat_online">en línea</string>
+    <string name="chat_last_seen">en línea por última vez %1$s</string>
+    <string name="chat_tick_sent">Entregado</string>
+    <string name="chat_tick_read">Leído %1$s</string>
+    <string name="chat_tick_read_all">Leído por todos</string>
+    <string name="chat_read_by">Leído por</string>
+    <string name="chat_read_by_none">Todavía nadie lo ha leído.</string>
+    <string name="chat_read_by_hint">Quien haya desactivado las confirmaciones de lectura no aparece aquí.</string>
+    <string name="chat_info">Información</string>
+    <plurals name="chat_tick_read_n">
+        <item quantity="one">Leído por %1$d</item>
+        <item quantity="many">Leído por %1$d</item>
+        <item quantity="other">Leído por %1$d</item>
+    </plurals>
+</resources>

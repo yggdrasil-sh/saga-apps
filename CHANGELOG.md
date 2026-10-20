@@ -6,6 +6,25 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu – Saga 2.4 Android (Teil 3): Gelesen-Bestätigungen und Online-Status
+- **Haken wie bei WhatsApp** an eigenen Nachrichten: ⏳ wird zugestellt → ✓ zugestellt → ✓✓ gelesen (farbig).
+  In Gruppen ✓✓ farbig, wenn alle gelesen haben, sonst ✓✓ mit Zähler; Antippen der Haken bzw. langes Drücken →
+  „Info“ öffnet „Gelesen von“ mit Namen und Zeit (Hinweis: Wer Gelesen-Bestätigungen abgeschaltet hat, erscheint
+  dort nicht).
+- **Online-Status:** Im Kopf eines Direkt-Chats „online“ bzw. „zuletzt online vor …“ (5-Minuten-Raster), in der
+  Chatliste ein grüner Punkt am Profilbild. Nur für Chat-Partner.
+- **Einstellungen → Datenschutz:** „Gelesen-Bestätigungen senden“ und „Online-Status zeigen“, standardmäßig an,
+  getrennt schaltbar und gegenseitig – wer etwas abschaltet, sieht es bei anderen auch nicht. Änderungen auf einem
+  anderen Gerät gelten sofort.
+- **Ende-zu-Ende:** Eine Bestätigung ist vom Gerät signiert und je anderem Mitglied für dessen Backup-Schlüssel
+  versiegelt (lokal saga-chat v1, über Servergrenzen v2); der Server sieht nur, dass es eine gibt. Beim Empfang
+  wird geprüft, dass Gerät und Signatur zur Person gehören. Geprüft mit `tests/vectors/receipts.json`.
+- Gesendet wird erst, wenn die Nachricht wirklich auf dem Bildschirm zu sehen war und die App im Vordergrund ist –
+  gebündelt, höchstens eine je Chat und 2 s.
+- **Akku:** Der Online-Status wird nur für die sichtbare Chatliste bzw. den offenen Direkt-Chat abonniert (alle 60 s
+  erneuert) und im Hintergrund sofort abgemeldet.
+- Ältere Server bzw. Gegenstellen mit Saga 2.3: Haken, Online-Status und Schalter bleiben ausgeblendet.
+
 ### Neu – Saga 2.4 Android (Teil 2): Bildschirm im Anruf teilen
 - **Bildschirm teilen** im laufenden Anruf (neuer Knopf): ganzer Bildschirm oder – ab Android 14 – eine einzelne App.
   Android fragt jedes Mal selbst nach der Erlaubnis; vorher erklärt Saga einmalig, dass das Gegenüber alles in der

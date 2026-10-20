@@ -46,6 +46,8 @@ data class ChatMessage(
     /** 2.3: Zustellstand in Chats ueber Servergrenzen: "pending" (wird zugestellt) | "failed" (nicht zugestellt) | null */
     val fstate: String? = null,
     val senderHandle: String? = null,
+    /** 2.4: Position in Chats ueber Servergrenzen (Reihenfolge des Heims) - fuer die Gelesen-Haken */
+    val fseq: Long? = null,
 )
 
 /** 2.1: laufende Frage an die KI (nur auf diesem Geraet sichtbar, bis die Antwort als Nachricht gesendet ist) */
@@ -197,6 +199,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             loadIdents()
             resolveNotes()
             markRead()
+            quietly { loadReceipts() }
             error = null
         } catch (e: CancellationException) {
             throw e
@@ -284,7 +287,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                             if (legacy) o.content?.files?.forEach { f -> legacyFiles.add(f.id); f.th?.id?.let { legacyFiles.add(it) } }
                             ChatMessage(
                                 m.seq, m.id, m.sender, m.senderDevice, m.ts, m.expiresAt, m.replyTo, o.content, o.verified, mine,
-                                ai = ChatLogic.aiCheck(o.content, m.ai), fstate = m.fstate, senderHandle = m.senderHandle,
+                                ai = ChatLogic.aiCheck(o.content, m.ai), fstate = m.fstate, senderHandle = m.senderHandle, fseq = m.fseq,
                             )
                         }
                     }
@@ -370,12 +373,175 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
 
     suspend fun markRead() {
         val seq = messages.lastOrNull()?.seq ?: return
+        // 2.4: Gelesen-Bestaetigung zusammen mit dem Lese-Zeiger - nur sichtbar gewesene Nachrichten, App im Vordergrund,
+        // hoechstens eine je Chat und receipt_gap (sonst holt receiptTick() sie nach)
+        val want = receiptWant()?.takeIf { ReceiptLogic.wait(System.currentTimeMillis(), receiptAt, receiptGapMs) == 0L }
+        val keys = want?.let {
+            try {
+                receiptKeys(it.first, it.second)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null                                                    // Schluessel nicht ladbar: spaeter erneut
+            }
+        }
+        if (want != null) receiptAt = System.currentTimeMillis()
         try {
-            val o = Json.parseToJsonElement(api.post("api/chats/$chatId/read", buildJsonObject { put("seq", seq) })) as? JsonObject
+            val body = buildJsonObject {
+                put("seq", seq)
+                if (!keys.isNullOrEmpty()) putJsonObject("receipt") { putJsonObject("keys") { keys.forEach { (r, v) -> put(r, v) } } }
+            }
+            val o = Json.parseToJsonElement(api.post("api/chats/$chatId/read", body)) as? JsonObject
             (o?.get("unread") as? JsonPrimitive)?.content?.toIntOrNull()?.let { svc.repo.live.chatUnread.value = it }
+            if (want != null && keys != null && keys.isEmpty()) sentN = maxOf(sentN, want.second)   // niemand zu benachrichtigen
+            if (!keys.isNullOrEmpty() && want != null) when ((o?.get("receipt") as? JsonPrimitive)?.content) {
+                "ok", "none", "bad", null -> sentN = maxOf(sentN, want.second)
+                "off" -> svc.applyPrivacy((svc.me.value?.privacy ?: ChatPrivacy()).copy(receipts = false))
+                "rate" -> receiptAt = System.currentTimeMillis() + 3_000                   // spaeter erneut (nach ~5 s)
+            }
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
+        }
+    }
+
+    // ---------------------------------------------------------------- Gelesen-Bestaetigungen (2.4)
+
+    /** gepruefte Bestaetigungen der anderen: Benutzername (bzw. Prinzipal) -> gelesen bis */
+    var reads by mutableStateOf<Map<String, ReadMark>>(emptyMap())
+        private set
+    /** App im Vordergrund und dieser Chat sichtbar (aus der Ansicht, Lebenszyklus RESUMED) */
+    var foreground = false
+    /** Position der neuesten Nachricht anderer, die auf dem Bildschirm zu sehen war */
+    private var seenN = 0L
+    /** zuletzt bestaetigte Position */
+    private var sentN = 0L
+    private var receiptAt = 0L
+    /** v1: Empfaenger (Backup-Schluessel, Geraete) - fuer Versiegeln und Pruefen */
+    private var rc: List<Recipient>? = null
+    private val receiptGapMs: Long get() = ((svc.me.value?.statusLimits?.receiptGap ?: 2.0) * 1000).toLong()
+
+    /** Server kann Gelesen-Bestaetigungen (Haken ✓ zeigen) */
+    val receiptsFeature: Boolean get() = ReceiptLogic.has(svc.me.value, "receipts")
+    /** in diesem Chat senden und anzeigen (gegenseitig) */
+    val receiptsOn: Boolean get() = ReceiptLogic.enabled(svc.me.value, summary)
+
+    fun tickOf(m: ChatMessage): Tick = ReceiptLogic.tick(m, receiptsFeature, receiptsOn, isFed, summary?.members.orEmpty(), reads)
+
+    fun readersOf(m: ChatMessage): List<Pair<ChatPerson, ReadMark>> =
+        if (!receiptsOn) emptyList() else ReceiptLogic.readers(m, isFed, summary?.members.orEmpty(), reads)
+
+    /** sichtbare Eintraege der Liste (Schluessel = Nachrichten-IDs), nur im Vordergrund gemeldet */
+    fun seen(ids: Collection<String>) {
+        if (!foreground || ids.isEmpty()) return
+        val set = ids.toHashSet()
+        val n = messages.filter { it.id in set && ReceiptLogic.fromOthers(it) }.maxOfOrNull { ReceiptLogic.ord(it, isFed) } ?: return
+        if (n > seenN) seenN = n
+    }
+
+    private fun receiptWant(): Pair<String, Long>? =
+        if (!foreground || !receiptsOn || svc.keys() == null) null else ReceiptLogic.want(messages, isFed, seenN, sentN)
+
+    /** Bestaetigung faellig (sichtbar, neu, Abstand eingehalten) - aus der Ansicht im Sekundentakt */
+    fun receiptDue(): Boolean = receiptWant() != null && ReceiptLogic.wait(System.currentTimeMillis(), receiptAt, receiptGapMs) == 0L
+
+    private suspend fun recipients(fresh: Boolean = false): List<Recipient> {
+        rc?.takeIf { !fresh }?.let { return it }
+        val r = decode<RecipientsResponse>(api.get("api/chats/$chatId/recipients")).recipients
+        rc = r
+        return r
+    }
+
+    /** je anderem Mitglied mit (gepruefen) Schluesseln: "backup:<name bzw. handle>" -> versiegelte Bestaetigung (hoechstens 50) */
+    private suspend fun receiptKeys(id: String, n: Long): Map<String, String> {
+        val k = keys()
+        val sum = summary ?: return emptyMap()
+        val body = ReceiptLogic.body(id, n, System.currentTimeMillis())
+        val rcpt = svc.receipts
+        val out = LinkedHashMap<String, String>()
+        if (sum.isFed) {
+            val reader = sum.myHandle ?: svc.fed.myHandle ?: return emptyMap()
+            val got = if (fk.isEmpty()) loadFedKeys(false) else fk
+            withContext(Dispatchers.Default) {
+                for (m in sum.members) {
+                    val h = m.handle
+                    if (m.me || h.isNullOrEmpty() || h == reader) continue
+                    val st = got[h] ?: continue
+                    val ks = st.keys ?: continue
+                    if (st.trust == TofuV2.REJECT || st.trust == TofuV2.BLOCK) continue
+                    out["backup:$h"] = rcpt.seal(sum.ref!!, reader, k.dev, body, true, ks.backupPk)
+                }
+            }
+        } else {
+            val list = recipients()
+            val known = withContext(Dispatchers.IO) { svc.store.known() }
+            withContext(Dispatchers.Default) {
+                for (r in list) {
+                    val ip = r.identPub
+                    if (!r.ready || r.username == me || ip == null) continue
+                    val kn = known[r.username]
+                    if (kn != null && (kn.k != ip || kn.changed)) continue          // Sicherheitsnummer geaendert: nichts schicken
+                    if (!svc.crypto.verifyBackup(r.username, unb64(ip, 32), r.backupPub, r.backupSig)) continue
+                    val pk = unb64(r.backupPub, 32) ?: continue
+                    out["backup:" + r.username] = rcpt.seal(chatId.toString(), me, k.dev, body, false, pk)
+                }
+            }
+        }
+        return out.entries.take(50).associate { it.key to it.value }
+    }
+
+    /** Beim Oeffnen bzw. nach "more"/Einstellungswechsel: neueste Bestaetigung je anderem Mitglied holen und pruefen */
+    suspend fun loadReceipts() {
+        if (!receiptsOn) {
+            reads = emptyMap()
+            return
+        }
+        if (isFed) {
+            if (fk.isEmpty()) quietly { loadFedKeys(false) }
+        } else {
+            quietly { recipients(fresh = true) }
+        }
+        val o = Json.parseToJsonElement(api.get("api/chats/$chatId/receipts")) as? JsonObject ?: return
+        if ((o["enabled"] as? JsonPrimitive)?.content == "false") {
+            reads = emptyMap()
+            return
+        }
+        reads = takeReceipts(emptyMap(), ReceiptLogic.parseList(o["receipts"]))
+    }
+
+    /** Liste oeffnen und pruefen (Geraet gehoert zur Person, Signatur passt); nicht pruefbar -> ignorieren */
+    private suspend fun takeReceipts(base: Map<String, ReadMark>, list: List<SealedReceipt>): Map<String, ReadMark> {
+        val k = svc.keys() ?: return base
+        val sum = summary ?: return base
+        val rcpt = svc.receipts
+        val people = rc.orEmpty()
+        val keysV2 = fk
+        return withContext(Dispatchers.Default) {
+            val out = HashMap(base)
+            for (x in list) {
+                try {
+                    val r = rcpt.open(x.sealed, k.ident.backupPk, k.ident.backupSk)
+                    val signPk = if (sum.isFed) {
+                        val h = x.handle ?: continue
+                        if (sum.members.none { it.username == x.from && it.handle == h && !it.me }) continue
+                        val st = keysV2[h]?.takeIf { it.trust != TofuV2.REJECT } ?: continue
+                        unb64(st.keys?.device(r.dev)?.signPub, 32)
+                    } else {
+                        val p = people.firstOrNull { it.username == x.from && it.ready } ?: continue
+                        val d = p.devices.firstOrNull { it.id == r.dev } ?: continue
+                        if (!svc.crypto.verifyDevice(p.username, unb64(p.identPub, 32), d.id, d.encPub, d.signPub, d.sig)) continue
+                        unb64(d.signPub, 32)
+                    }
+                    val reader = if (sum.isFed) x.handle!! else x.from
+                    if (!rcpt.verify(sum.cryptoId, reader, r, signPk, sum.isFed)) continue
+                    val mark = ReceiptLogic.parseBody(r.body) ?: continue
+                    if (ReceiptLogic.take(out[x.from], mark)) out[x.from] = mark
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                }
+            }
+            out
         }
     }
 
@@ -912,10 +1078,18 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                 ev.str("id")?.let { id ->
                     val i = messages.indexOfFirst { it.id == id }
                     if (i >= 0 && messages[i].fstate != null) messages[i] = messages[i].copy(fstate = if (ev.bool("failed")) "failed" else null)
+                    // 2.4: Position (fseq) der zugestellten eigenen Nachricht - fuer die Gelesen-Haken
+                    val f = ev.long("fseq")
+                    if (i >= 0 && f != null && messages[i].fseq == null) messages[i] = messages[i].copy(fseq = f)
                 }
                 behind = !quietly { loadNewer() }        // Funkloch: kein Absturz (BUG-003), catchUp() holt nach
             }
             "chat.deleted" -> ev.str("id")?.let { id -> messages.removeAll { it.id == id } }
+            // 2.4: Gelesen-Bestaetigungen (gebuendelt; grosse Gruppen nur Hinweis "more" -> abrufen)
+            "chat.receipt" -> if (receiptsOn) {
+                if (ev.bool("more")) quietly { loadReceipts() }
+                else reads = takeReceipts(reads, ReceiptLogic.parseList(ev.data["receipts"]))
+            }
             "chat.typing" -> {
                 val u = ev.obj("user")
                 val user = (u?.get("username") as? JsonPrimitive)?.content ?: return
@@ -936,6 +1110,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             }
             "chat.keys.changed" -> {}
             "chat.changed" -> {
+                rc = null                                       // Mitglieder/Geraete koennen sich geaendert haben
                 try {
                     val wasFed = isFed
                     loadSummary()
