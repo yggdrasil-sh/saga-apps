@@ -722,6 +722,29 @@ class SagaRepository(
         return id
     }
 
+    // ---------------------------------------------------------------- 2.4: Datenbanken (Ansichten, Werte, Eintraege)
+
+    /** Zeilen laden, Werte setzen (mit Warteschlange fuer offline), Schema speichern - siehe db/DbStore.kt */
+    val dbStore: io.github.yggdrasil_sh.saga.db.DbStore by lazy {
+        io.github.yggdrasil_sh.saga.db.DbStore(File(filesDir, "databases"), { settings.server.value + "|" + treeAccount() }) { m, p, b -> api.request(m, p, b) }
+    }
+
+    /** Gemerkte Ansicht je Datenbank (nur Oberflaeche) */
+    val dbPrefs: android.content.SharedPreferences? get() = appContext?.getSharedPreferences("saga_ui", android.content.Context.MODE_PRIVATE)
+
+    /** Neuer Eintrag in einer Datenbank (Werte z. B. aus dem Filter der Ansicht oder der Board-Spalte) */
+    suspend fun newRow(dbId: Long, props: JsonObject?): Long {
+        val b = buildJsonObject {
+            put("parent_id", dbId)
+            put("title", "")
+            if (props != null && props.isNotEmpty()) put("props", props)
+        }
+        val id = decode<NewId>(api.post("api/notes", b)).id
+        pageAdded(id, dbId)
+        dbStore.changed()
+        return id
+    }
+
     /**
      * Nach dem Anlegen: eigene Seite lokal einfuegen statt die ganze Seitenliste neu zu laden. Unter einer fremden
      * (geteilten) Elternseite gehoert die neue Seite deren Eigentuemer -> wie bisher vollstaendig abgleichen
@@ -1109,6 +1132,13 @@ class SagaRepository(
                     // offline: Entwurf bleibt
                 }
             }
+            // 2.4: offline geaenderte Datenbank-Werte nachholen (wie Entwuerfe)
+            try {
+                dbStore.flush()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
         } finally {
             syncLock.unlock()
         }
@@ -1451,6 +1481,7 @@ class SagaRepository(
     private suspend fun clearLocalData() {
         api.cookies.clear()
         withContext(Dispatchers.IO) { treeSync.clear() }     // Seitenbaum-Stand und Zwischenspeicher des Kontos weg
+        withContext(Dispatchers.IO) { dbStore.clearCache() }  // 2.4: zwischengespeicherte Datenbank-Zeilen
         pages.value = emptyList()
         ownIds = null
         sharedPages.value = emptyList()

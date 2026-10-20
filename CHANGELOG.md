@@ -361,6 +361,39 @@ Speicher beim Hoch- und Herunterladen. Texte in Deutsch, Englisch, Spanisch, Rus
   nur https.
 - Version der Apple-Apps auf 2.4.0; Swift-6-Warnung im Live-Kanal behoben.
 
+#### Datenbanken: Ansichten, Filter und Bearbeiten
+**Android:**
+- **Ansichten wie im Web und auf iOS:** Tabelle (Spalten waagrecht scrollbar, Gruppen), Board (Spalten nach einer
+  Auswahl-Eigenschaft, Karten per Menü oder Bedienungshilfen-Aktion „Verschieben nach …“ in eine andere Spalte),
+  Liste (Häkchen direkt antippbar), Galerie (Titelbild bzw. erstes Bild der Seite) und Kalender (Monat, Tag antippen
+  zeigt seine Einträge, „Neuer Eintrag am …“). Gespeicherte Ansichten wie „Offen“ zeigen genau ihre Filter und ihre
+  Sortierung; die zuletzt gewählte Ansicht bleibt je Datenbank gemerkt.
+- **Ansichten anlegen, umbenennen, löschen, Layout wechseln**, Gruppierung bzw. „Spalten nach“/„Datum aus“ wählen und
+  Eigenschaften ein-/ausblenden. **Filter** (alle Operatoren des Webs: enthält, ist, =, >, <, am/vor/nach, heute,
+  diese Woche, diesen Monat, leer, angehakt …) und **Sortierung** (bis zu drei Stufen) bearbeiten; gespeichert wird im
+  Schema mit `srev`, sodass nichts verloren geht, was jemand anderes inzwischen angelegt hat. Gesperrte Datenbanken und
+  Rolle „Lesen“/„Kommentieren“ zeigen alles, ändern aber nichts.
+- **Neue Einträge** mit „Neuer Eintrag“, in einer Board-Spalte oder an einem Kalendertag; Werte aus dem Filter der
+  Ansicht werden übernommen („Status ist Offen“ → Status = Offen). Der neue Eintrag öffnet sich als Seite.
+- **Eigenschaften bearbeiten**, alle Typen des Servers: Text, Zahl (Eingabe in der Schreibweise der Sprache wie im
+  Web), Auswahl und Mehrfachauswahl (mit Suche und „… anlegen“ für neue Optionen), Datum, Häkchen, URL, Relation
+  (Einträge der Ziel-Datenbank suchen); „Berechnet“, „Erstellt“ und „Zuletzt bearbeitet“ werden angezeigt. Das geht
+  in Tabelle/Liste/Board und auf der Seite eines Eintrags (bisher nur lesbar).
+- **Offline und Konflikte wie bei Seiten:** Werte gelten sofort; ohne Netz bleiben sie in einer Warteschlange auf dem
+  Gerät (je Konto, übersteht Neustarts) und werden nachgeholt, sobald der Server erreichbar ist. Der Server führt
+  Werte je Eigenschaft zusammen – Änderungen anderer an anderen Eigenschaften bleiben erhalten. Lehnt der Server einen
+  Wert ab (z. B. Option inzwischen gelöscht), erscheint eine Meldung und der Stand des Servers. Ohne Netz zeigt jede
+  Ansicht ihren letzten bekannten Stand („Offline – zuletzt bekannter Stand“); der Zwischenspeicher wird beim
+  Abmelden gelöscht. Live-Änderungen anderer Geräte laden die Ansicht neu.
+- **Große Datenbanken:** Filter, Sortierung, Suche und Gruppen wendet der Server an (`/rows` mit `view`, `filters`,
+  `sorts`, `q`, `group`, `limit`/`offset`, `tz`); die App lädt 100 Zeilen je Seite (Board: 50 je Spalte, Kalender: nur
+  der angezeigte Monat) und beim Scrollen nach – nie alle 1000 auf einmal. Die Zeilen stehen direkt in der Liste der
+  Seite (LazyColumn, keine verschachtelten Listen). Ältere Server ohne diese Parameter liefern alle Zeilen; dann
+  filtert und sortiert die App selbst genau wie das Web (1000 Zeilen lokal in wenigen Millisekunden, Unit-Test).
+- **Barrierefreiheit, hell/dunkel, Tablet:** Zellen werden als „Eigenschaft: Wert“ vorgelesen, Häkchen als
+  Kontrollkästchen, Gruppen- und Spaltenköpfe als Überschriften; Datenbank-Seiten nutzen auf Tablets die volle Breite
+  (Galerie mit vier Spalten). Texte in Deutsch, Englisch, Spanisch, Russisch und Thai.
+
 ### Behoben – Chats über Servergrenzen
 **Android – eigene Nachricht blieb auf „⏳ wird zugestellt“:** In einem Direkt-Chat, dessen Heim der andere Server ist,
 zeigte die App eine längst zugestellte eigene Nachricht weiter als ausstehend (Server 2.3.0 melden die sofortige

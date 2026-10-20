@@ -4,6 +4,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.material3.LinearProgressIndicator
 import io.github.yggdrasil_sh.saga.ui.common.IncomingImage
+import io.github.yggdrasil_sh.saga.ui.database.databaseItems
 import io.github.yggdrasil_sh.saga.ui.common.clipboardImages
 import io.github.yggdrasil_sh.saga.ui.common.prepareImage
 import io.github.yggdrasil_sh.saga.ui.common.readImage
@@ -453,6 +454,9 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             }
         }
 
+        // 2.4: Datenbank-Seite - Zustand der Ansicht (bleibt beim Scrollen erhalten)
+        val dbState = if (ed.isDatabase) io.github.yggdrasil_sh.saga.ui.database.rememberDbViewState(id, repo) else null
+        val dbWide = androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 600
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             val blocks = BlockDoc.blocks(ed.doc)
             val keys = remember(blocks) {
@@ -464,7 +468,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 }
             }
             CompositionLocalProvider(LocalPageImageSink provides imageSink) {
-            LazyColumn(Modifier.widthIn(max = 820.dp).fillMaxSize().padding(horizontal = 18.dp), state = listState) {
+            LazyColumn(Modifier.widthIn(max = if (dbState != null) 1400.dp else 820.dp).fillMaxSize().padding(horizontal = 18.dp), state = listState) {
                 item(key = "header") {
                     PageHeader(
                         ed, repo, onPublish = if (ed.template || publishHidden || !caps.canPublish || ed.isRemote) null else openPublish,
@@ -514,22 +518,13 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                         )
                     }
                 }
-                if (ed.fetched && ed.isDatabase) {
-                    item(key = "db") {
-                        Column(Modifier.padding(vertical = 16.dp)) {
-                            // Zeilen (Unterseiten) zum Oeffnen - bei Notion-Importen stecken hier die meisten Seiten
-                            DatabaseRows(id, repo, onOpen = { pid -> nav.push(Dest.Page(pid)) })
-                            Text(
-                                stringResource(R.string.page_database_soon),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp),
-                            )
-                            TextButton(onClick = { openUrl(context, repo.absoluteUrl("notes") + "#$id") }) { Text(stringResource(R.string.action_open_in_browser)) }
-                        }
-                    }
+                if (ed.fetched && ed.isDatabase && dbState != null) {
+                    // 2.4: Ansichten, Filter, Sortierung, neue Eintraege, Werte bearbeiten - Zeilen direkt in dieser Liste
+                    databaseItems(dbState, repo, onOpen = { pid -> nav.push(Dest.Page(pid)) }, wide = dbWide)
                 }
             }
             }
+            if (dbState != null) io.github.yggdrasil_sh.saga.ui.database.DatabaseDialogs(dbState, repo)
             if (ed.loading && !ed.fetched) CircularProgressIndicator(Modifier.padding(top = 80.dp))
             if (uploading > 0) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter).semantics { contentDescription = uploadingDesc })
         }
