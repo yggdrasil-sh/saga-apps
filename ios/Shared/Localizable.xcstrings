@@ -16522,7 +16522,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Leerer Toggle – tippen zum Schreiben"
+            "value" : "Leerer Aufklapp-Block – tippen zum Schreiben"
           }
         },
         "en" : {
@@ -24658,7 +24658,7 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Toggle"
+            "value" : "Aufklapp-Block"
           }
         },
         "en" : {

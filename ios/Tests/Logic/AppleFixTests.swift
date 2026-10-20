@@ -92,17 +92,17 @@ func appleFixLinkTests() {
 
 func appleFixNetTests() {
     // Entwickler-Builds: http nur zu privaten Netzen
-    for h in ["127.0.0.1", "localhost", "::1", "[::1]", "10.1.2.3", "172.16.0.1", "172.31.255.255", "192.168.1.12", "169.254.3.4", "100.64.0.1", "fd12:3456::1", "fe80::1"] {
+    for h in ["127.0.0.1", "localhost", "::1", "[::1]", "10.1.2.3", "172.16.0.1", "172.31.255.255", "192.168.0.20", "169.254.3.4", "100.64.0.1", "fd12:3456::1", "fe80::1"] {
         check(PrivateNet.isPrivate(host: h), "privat: \(h)")
     }
-    for h in ["8.8.8.8", "172.32.0.1", "172.15.0.1", "192.169.1.1", "saga.example.org", "192.168.1", "192.168.1.256", "1.2.3.4.5", "2001:db8::1", "fdomain.org", "evil.192.168.1.12.nip.io"] {
+    for h in ["8.8.8.8", "172.32.0.1", "172.15.0.1", "192.169.1.1", "saga.example.org", "192.168.0", "192.168.0.256", "1.2.3.4.5", "2001:db8::1", "fdomain.org", "evil.192.168.0.20.nip.io"] {
         check(!PrivateNet.isPrivate(host: h), "nicht privat: \(h)")
     }
 }
 
 func appleFixMiscTests() {
     // F17: ungueltige Nextcloud-Adresse frueh erkennen
-    for ok in ["cloud.example.org", "https://cloud.example.org/", "http://192.168.1.5:8080", "nc.local", "localhost:8080", "nextcloud"] { check(CloudURLCheck.plausible(ok), "Adresse ok: \(ok)") }
+    for ok in ["cloud.example.org", "https://cloud.example.org/", "http://192.168.0.5:8080", "nc.local", "localhost:8080", "nextcloud"] { check(CloudURLCheck.plausible(ok), "Adresse ok: \(ok)") }
     for bad in ["", "kein url", "https://", "ftp://x.org", "a_b?.org", "  "] { check(!CloudURLCheck.plausible(bad), "Adresse ungueltig: \(bad)") }
     // F14: Abbruch ist kein Fehler
     check(ServiceErrors.isCancel(CancellationError()) && ServiceErrors.isCancel(URLError(.cancelled)) && !ServiceErrors.isCancel(URLError(.timedOut)), "Abbruch erkannt")

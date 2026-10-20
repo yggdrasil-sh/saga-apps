@@ -74,20 +74,20 @@ class Tt24AndroidTest {
     @Test
     fun debugHttpOnlyPrivateNetworks() {
         // P-07: Debug-Build erlaubt http im privaten Netz, Release nie
-        for (h in listOf("192.168.1.12", "10.0.2.2", "10.1.2.3", "172.16.0.1", "172.31.255.1", "127.0.0.1", "localhost", "nas.local", "fd12::1", "[fe80::1]")) {
+        for (h in listOf("192.168.0.20", "10.0.2.2", "10.1.2.3", "172.16.0.1", "172.31.255.1", "127.0.0.1", "localhost", "nas.local", "fd12::1", "[fe80::1]")) {
             assertTrue(h, ServerUrl.isPrivateHost(h))
         }
         for (h in listOf("8.8.8.8", "172.32.0.1", "192.169.1.1", "evil.example.org", "2001:db8::1", "", "999.1.1.1")) {
             assertFalse(h, ServerUrl.isPrivateHost(h))
         }
-        assertEquals("http://192.168.1.12:8241", ServerUrl.normalize("http://192.168.1.12:8241/", allowLocalHttp = true))
-        assertNull(ServerUrl.normalize("http://192.168.1.12:8241", allowLocalHttp = false))
+        assertEquals("http://192.168.0.20:8241", ServerUrl.normalize("http://192.168.0.20:8241/", allowLocalHttp = true))
+        assertNull(ServerUrl.normalize("http://192.168.0.20:8241", allowLocalHttp = false))
         assertNull(ServerUrl.normalize("http://saga.example.org", allowLocalHttp = true))
         val code = "A".repeat(32)
-        assertEquals("http://192.168.1.12:8241", PairLink.check(PairTarget("http://192.168.1.12:8241", code), allowLocalHttp = true)?.server)
-        assertNull(PairLink.check(PairTarget("http://192.168.1.12:8241", code), allowLocalHttp = false))
+        assertEquals("http://192.168.0.20:8241", PairLink.check(PairTarget("http://192.168.0.20:8241", code), allowLocalHttp = true)?.server)
+        assertNull(PairLink.check(PairTarget("http://192.168.0.20:8241", code), allowLocalHttp = false))
         // abgewiesen: Grund statt stillem Ignorieren
-        assertEquals(R.string.pair_rejected_http, PairLink.rejectReason(PairTarget("http://192.168.1.12:8241", code), false))
+        assertEquals(R.string.pair_rejected_http, PairLink.rejectReason(PairTarget("http://192.168.0.20:8241", code), false))
         assertEquals(R.string.pair_rejected_http_debug, PairLink.rejectReason(PairTarget("http://saga.example.org", code), true))
         assertEquals(R.string.login_invalid_pair_link, PairLink.rejectReason(PairTarget("https://saga.example.org", "kurz"), false))
     }
@@ -103,15 +103,15 @@ class Tt24AndroidTest {
     @Test
     fun federatedShareFallsBackToAddressBook() {
         // P-13: name@server -> zusaetzlich Adressbuch nach "name", nur Treffer dieses Servers
-        assertEquals("nora" to "192.168.1.12:8242", ShareLogic.addressParts("nora@192.168.1.12:8242"))
+        assertEquals("nora" to "192.168.0.20:8242", ShareLogic.addressParts("nora@192.168.0.20:8242"))
         assertEquals("nora" to "b.example", ShareLogic.addressParts(" @nora@B.example "))
         assertNull(ShareLogic.addressParts("nora"))
         assertNull(ShareLogic.addressParts("nora@team"))
         val r = ShareTargets(remote = listOf(
-            TargetRemote(target = "@~x@192.168.1.12:8242", name = "Nora", host = "192.168.1.12:8242"),
+            TargetRemote(target = "@~x@192.168.0.20:8242", name = "Nora", host = "192.168.0.20:8242"),
             TargetRemote(target = "@~y@c.example", name = "Nora C", host = "c.example"),
         ))
-        assertEquals(listOf("@~x@192.168.1.12:8242"), ShareLogic.sameHost(r, "192.168.1.12:8242").map { it.target })
+        assertEquals(listOf("@~x@192.168.0.20:8242"), ShareLogic.sameHost(r, "192.168.0.20:8242").map { it.target })
     }
 
     @Test

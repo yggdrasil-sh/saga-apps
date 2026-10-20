@@ -178,7 +178,8 @@ class DbStore(
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
-            if (e.code == 401 || e.code >= 500) return false            // abgemeldet / Server gestoert: spaeter noch einmal
+            // abgemeldet / Zeitueberschreitung / gebremst / Server gestoert: spaeter noch einmal (nicht verwerfen)
+            if (e.code == 401 || e.code == 408 || e.code == 429 || e.code >= 500) return false
             done(rowId, sent)                                           // abgelehnt (400/403/404/409/423): verwerfen
             throw e
         } catch (_: Exception) {

@@ -176,7 +176,7 @@
     <string name="block_quote">Zitat</string>
     <string name="block_callout">Hinweis</string>
     <string name="block_code">Code</string>
-    <string name="block_toggle">Ausklappbar</string>
+    <string name="block_toggle">Aufklapp-Block</string>
     <string name="block_divider">Trenner</string>
     <string name="placeholder_paragraph">Tippe etwas …</string>
     <string name="placeholder_list_item">Listenpunkt</string>

@@ -295,7 +295,7 @@ Speicher beim Hoch- und Herunterladen. Texte in Deutsch, Englisch, Spanisch, Rus
   und Personen ohne Saga 2.4.
 - **Sicherheit:** Angebote neuer Geräte werden nur angenommen, wenn das Gerät in der Liste des Servers **und** in der
   signierten Geräteliste seiner Person steht (eigene Geräte gegen den eigenen Identitätsschlüssel); sonst „Unbekanntes
-  Gerät von <Name> abgelehnt“. Jede Verbindung zeigt Person und Gerät. Teilnehmerlisten mit Stand – eine ältere Liste
+  Gerät von `<Name>` abgelehnt“. Jede Verbindung zeigt Person und Gerät. Teilnehmerlisten mit Stand – eine ältere Liste
   überschreibt keine neuere.
 - **Tests:** `ios/Tests/Logic/CallRoomTests.swift` (Teilnehmerliste/Stand, Mesh-Paare, Grenzen, Begleitgerät,
   Übernahme-Zustandsmaschine, Mesh-Bitrate, Leiste, Gruppen-Knopf, Sprecher, Geister-Gerät). Texte in Deutsch,
@@ -333,7 +333,7 @@ Speicher beim Hoch- und Herunterladen. Texte in Deutsch, Englisch, Spanisch, Rus
 
 **Linux:**
 - **Gruppenanrufe klingeln:** Die App behandelt `call.invite` (und Push `call.group`): Leiste und Mitteilung „Gruppenanruf
-  in <Gruppe>“ bzw. „<Name> hat einen Gruppenanruf gestartet“ mit **Beitreten (im Browser)** (`/chats#join-<id>-member`,
+  in `<Gruppe>`“ bzw. „`<Name>` hat einen Gruppenanruf gestartet“ mit **Beitreten (im Browser)** (`/chats#join-<id>-member`,
   bei Video auch „Nur Ton“) und **Ignorieren**. Große Gruppen (`silent`) klingeln nicht, dort steht nur „Gruppenanruf
   läuft“. Das Klingeln endet, sobald ein eigenes Gerät in der Teilnehmerliste steht (`call.roster`), die Einladung
   anderswo abgelehnt wurde (`call.state declined`) oder der Anruf endet; „aktiv“ (zwei sind dabei) beendet es nicht.

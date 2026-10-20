@@ -732,11 +732,11 @@ msgstr "Listenpunkt"
 
 #: hlidskjalf/blocks.py:771 hlidskjalf/editor.py:27
 msgid "Toggle"
-msgstr "Toggle"
+msgstr "Aufklapp-Block"
 
 #: hlidskjalf/blocks.py:780
 msgid "Empty toggle – click to write"
-msgstr "Leerer Toggle – klicken zum Schreiben"
+msgstr "Leerer Aufklapp-Block – klicken zum Schreiben"
 
 #: hlidskjalf/blocks.py:802 hlidskjalf/page.py:943
 msgid "Block"
