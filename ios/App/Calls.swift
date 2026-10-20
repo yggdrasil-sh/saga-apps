@@ -49,7 +49,7 @@ struct CallTile: Identifiable, Equatable {
 final class CallManager: NSObject, ObservableObject {
     weak var store: Store?
     enum Phase: String, Equatable { case idle, preparing, ringingOut, incoming, connecting, active, ended }
-    @Published var phase: Phase = .idle { didSet { if phase != oldValue { pipRefresh() } } }
+    @Published var phase: Phase = .idle { didSet { if phase != oldValue { pipRefresh(); if phase != .idle && phase != .ended { VoicePlayer.shared.pauseForCall() } } } }   // 2.5: Sprachnachricht pausiert beim Anruf
     @Published var status = ""
     @Published var peerName = ""
     @Published var peerAvatar: String?

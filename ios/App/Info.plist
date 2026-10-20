@@ -49,7 +49,7 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Take photos for notes, scan QR codes to sign in and make video calls</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>Talk in audio and video calls</string>
+	<string>Talk in audio and video calls and record voice messages</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Save images from notes and videos from chats</string>
 	<key>SagaAppGroup</key>

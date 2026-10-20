@@ -28,6 +28,11 @@ struct ChatMessage: Identifiable, Equatable {
     var delivery: FedChatLogic.Delivery = .delivered
     /// 2.4: Position beim Heim (v2-Chats, fseq) - Gelesen-Bestaetigungen zaehlen dort danach; lokal gilt seq
     var fseq = 0
+    /// 2.5: Absender als Handle (Format v2), Bearbeitung (Zeit, Anzahl), alte v1-Nachricht eines umgestellten Chats
+    var senderHandle: String? = nil
+    var editedAt: Double? = nil
+    var editN = 0
+    var legacy = false
     var date: Date { Date(timeIntervalSince1970: created > 0 ? created : ts / 1000) }
     var text: String { content?.text ?? "" }
 }
@@ -82,6 +87,13 @@ final class ConversationModel: ObservableObject {
     var rcAt: Double?
     var rcLater: Task<Void, Never>?
     var seenUpTo = 0
+    /// 2.5 (ChatX3.swift): geoeffnete Reaktionen je Nachricht, Rohdaten, Nachrichten-Schluessel K, laufendes Senden,
+    /// Anhaenge alter v1-Nachrichten eines umgestellten Chats (AD = chat_id)
+    @Published var reactions: [String: [ChatX3.Opened]] = [:]
+    var rxRaw: [String: [ChatX3.Reaction]] = [:]
+    var msgKeys: [String: Data] = [:]
+    var rxSend: [String: Task<Void, Never>] = [:]
+    var legacyFiles: Set<String> = []
 
     init(chatID: Int, model: ChatModel) { self.chatID = chatID; self.model = model }
     var store: Store? { model.store }
@@ -99,6 +111,7 @@ final class ConversationModel: ObservableObject {
             guard code == 200, let c = ShareJSON.obj(d)?["chat"] else { throw APIError.http(code, ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "") }
             var s = ChatSummary(c)
             if s?.kind == "free", let x = s { s?.decryptedTitle = model.decryptTitle(x) }
+            if let x = s { ChatH2UStore.note(me, [x]) }                  // 2.5: Handles im Chat v1 (Vertrauens-Uebernahme)
             info = s
             if s?.ai == true && !store.aiChat { await store.loadAIStatus() }   // KI im Chat (2.1): Server-Schalter/Persona aktuell
             if s?.isFed == true { await fedLoad() }                     // 2.3: Schluessel der Absender vor dem Entschluesseln
@@ -154,11 +167,17 @@ final class ConversationModel: ObservableObject {
             }
             let r: (content: ChatContent?, verified: Bool)?
             let meta: AIReplyMeta?
-            if let f = fed, !FedFlow.isLegacyV1(m) {                      // 2.3: saga-chat/v2 (alte Nachrichten umgestellter Chats: v1)
-                r = model.decryptV2(ref: f.ref, raw: m, fk: fk)
+            let mid = m["id"] as? String ?? ""
+            let legacy = fed != nil && FedFlow.isLegacyV1(m)
+            if let f = fed, !legacy {                                     // 2.3: saga-chat/v2 (alte Nachrichten umgestellter Chats: v1)
+                if let o = model.own, let x = FedFlow.open(m, ref: f.ref, own: o, keys: fk, key: nil) {
+                    r = (x.plain.flatMap { ChatContent(json: $0) }, x.verified)
+                    if let k = x.key, f.x3OK { msgKeys[mid] = k }            // 2.5: K fuer Reaktionen
+                } else { r = nil }
                 meta = FedChatLogic.aiMeta(m["ai"], bodyRef: r?.content?.aiReply)
             } else {
                 r = model.decrypt(chatID: chatID, raw: m, devices: devs, idents: ids)
+                if let f = fed, f.x3OK, let o = model.own, let k = FedFlow.messageKey(m, own: o) { msgKeys[mid] = k }   // umgestellt: alte Nachrichten
                 meta = AIReplyMeta(m["ai"])
                 if sender != me, let ip = ids?[sender] as? String, ChatTrustStore.observe(me, sender, pk: ip) == .changed || ChatTrustStore.known(me, sender)?.changed == true {
                     if !changedPeers.contains(sender) { changedPeers.append(sender) }
@@ -171,8 +190,16 @@ final class ConversationModel: ObservableObject {
                                  senderAvatar: avatar, aiMeta: meta, aiState: aiState)
             cm.delivery = FedChatLogic.delivery(m["fstate"])
             cm.fseq = fseq
+            cm.senderHandle = ShareJSON.str(m["sender_handle"])          // 2.5: Stufe 3 - Absender als Handle
+            if let h = cm.senderHandle, !h.isEmpty, h == fed?.myHandle { cm.mine = true }
+            cm.legacy = legacy
+            if legacy { legacyFiles.formUnion((r?.content?.files ?? []).flatMap { [$0.id] + ($0.thumb.map { [$0.id] } ?? []) }) }
+            cm.editN = ShareJSON.int(m["edit_n"]) ?? 0                    // 2.5: bearbeitet (neueste Bearbeitung am Original)
+            if m["edit"] != nil { cm = applyEdit(cm, raw: m) }
+            if let rx = m["rx"] as? [Any] { rxRaw[mid] = ChatX3.newest(rx.compactMap(ChatX3.Reaction.init)) }   // 2.5: Reaktionen
             list.append(cm)
         }
+        openReactions(list.map(\.id))                                   // auch schon bekannte: Reaktionen frisch vom Server
         let known = Set(messages.map(\.id))
         list.removeAll { known.contains($0.id) }
         // Anhaenge diesem Chat zuordnen (Chat loeschen leert dann genau seine Bilder, 2.1)
@@ -226,6 +253,8 @@ final class ConversationModel: ObservableObject {
             Task { await fetchNew() }
         case "chat.deleted": if let id = d["id"] as? String { messages.removeAll { $0.id == id } }
         case "chat.changed": recipients = nil; Task { await load() }
+        case "chat.react": liveReactions(d)                              // 2.5
+        case "chat.edited": liveEdited(d)
         case "chat.typing":
             if let u = d["user"] as? [String: Any], let n = u["username"] as? String, n != me {
                 typing[n] = (u["name"] as? String ?? n, Date())
@@ -347,7 +376,7 @@ final class ConversationModel: ObservableObject {
     }
 
     /// Inhalt verschluesseln und senden (lokal saga-chat/v1, ueber Servergrenzen v2); true = gesendet
-    private func post(text: String, title: String?, refs: [ChatFileRef], ids: [String], replyTo: String?, kind: String,
+    func post(text: String, title: String?, refs: [ChatFileRef], ids: [String], replyTo: String?, kind: String,
                       ai: (reply: String, name: String)?) async throws -> Bool {
         guard let store, let k = model.keys else { return false }
         let fit = (refs: refs, ids: ids)
@@ -372,6 +401,14 @@ final class ConversationModel: ObservableObject {
                 if let replyTo { body["reply_to"] = replyTo }
                 if let ai { body["ai_reply"] = ai.reply }                  // Beleg des Servers (nicht signiert, nur Verweis)
                 let (d, code) = try await store.apiResponse("api/chats/\(chatID)/messages", method: "POST", body: body)
+                if code == 409, ShareJSON.bool(ShareJSON.obj(d)?["chat_changed"]) {       // 2.5: gerade auf Stufe 3 umgestellt
+                    await load()
+                    guard fed != nil else { throw APIError.http(code, ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "") }
+                    // Anhaenge sind noch fuer das alte Format verschluesselt (AD chat_id): nicht still kaputt senden
+                    guard fit.ids.isEmpty else { throw APIError.other(String(localized: "Dieser Chat wurde gerade umgestellt – bitte die Anhänge erneut auswählen.")) }
+                    try await sendV2(plain, replyTo: replyTo, fileIDs: fit.ids, ai: ai, kind: kind)
+                    return true
+                }
                 if code == 409, attempt == 0, let r = ShareJSON.obj(d)?["recipients"] as? [[String: Any]] { recipients = r; continue }   // neu versiegeln
                 if code == 403 { await model.load() }
                 guard (200..<300).contains(code) else { throw APIError.http(code, ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "") }
@@ -488,11 +525,15 @@ final class ConversationModel: ObservableObject {
         #if DEBUG
         if UserDefaults.standard.bool(forKey: "hkChatNoThumb") { f.thumb = nil }     // nur fuer Tests: wie alte Nachrichten ohne "th"
         #endif
-        return try await ChatMedia.shared.thumbnail(f, chatID: info?.fileCID ?? String(chatID), fetch: fetcher)
+        return try await ChatMedia.shared.thumbnail(f, chatID: fileCID(f), fetch: fetcher)
     }
     /// Original (Bild beim Oeffnen, Datei zum Teilen) laden + entschluesseln
     func original(_ f: ChatFileRef) async throws -> Data {
-        try await ChatMedia.shared.original(f, chatID: info?.fileCID ?? String(chatID), fetch: fetcher)
+        try await ChatMedia.shared.original(f, chatID: fileCID(f), fetch: fetcher)
+    }
+    /// AD eines Anhangs: v1 chat_id, v2 chat_ref; 2.5: Anhaenge alter v1-Nachrichten eines umgestellten Chats weiter chat_id
+    func fileCID(_ f: ChatFileRef) -> String {
+        legacyFiles.contains(f.id) || f.thumb.map({ legacyFiles.contains($0.id) }) == true ? String(chatID) : (info?.fileCID ?? String(chatID))
     }
     func file(_ f: ChatFileRef) async throws -> Data { try await original(f) }
 
@@ -603,7 +644,8 @@ extension ConversationModel {
 
     /// Senden v2: Empfaenger = aktive Geraete aus den selbst geprueften Schluesseln aller Mitglieder + backup:<handle>;
     /// 409 mit handles (Mitglieder/Geraete geaendert) -> einmal frisch holen und neu versiegeln
-    fileprivate func sendV2(_ plain: Data, replyTo: String?, fileIDs: [String], ai: (reply: String, name: String)?, kind: String = "msg") async throws {
+    func sendV2(_ plain: Data, replyTo: String?, fileIDs: [String], ai: (reply: String, name: String)?, kind: String = "msg",
+                extra: [String: Any] = [:]) async throws {
         guard let store, let k = model.keys, let f = fed else { return }
         let aiHash = ai.map { aiHashes[$0.reply] ?? AIChatLogic.sha256Hex(AIChatLogic.normalized(ChatContent(json: plain)?.text ?? "")) }
         for attempt in 0..<2 {
@@ -618,7 +660,7 @@ extension ConversationModel {
             case .ok: break
             }
             guard let (body, mid) = FedFlow.sendBody(info: f, own: k.fedOwn, keys: keys, plain: plain, replyTo: replyTo,
-                                                     ai: aiHash.flatMap { h in ai.map { (h, $0.reply) } }, fileIDs: fileIDs, kind: kind)
+                                                     ai: aiHash.flatMap { h in ai.map { (h, $0.reply) } }, fileIDs: fileIDs, kind: kind, extra: extra)
             else { throw APIError.other(String(localized: "Nicht gesendet")) }
             let (d, code) = try await store.apiResponse("api/chats/\(chatID)/messages", method: "POST", body: body)
             let j = ShareJSON.obj(d)
@@ -632,7 +674,7 @@ extension ConversationModel {
                 // vom Heim bestaetigt: eine schon (ueber das Live-Ereignis) wartend geladene Kopie gleich als zugestellt zeigen
                 confirmed.insert(mid); applyDelivery([:])
             }
-            lastSentID = mid
+            if kind != "edit" { lastSentID = mid }
             if kind == "title" { await load(); await model.loadList(); return }   // neuer Gruppenname
             await fetchNew()
             if info?.fed?.request == true { await load(); await model.loadList() }   // wer schreibt, nimmt an

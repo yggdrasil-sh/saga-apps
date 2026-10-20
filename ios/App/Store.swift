@@ -122,7 +122,7 @@ final class Store: ObservableObject {
             req.setValue("1", forHTTPHeaderField: "X-Hlidskjalf"); req.setValue("1", forHTTPHeaderField: "X-Saga")
             req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
             req.setValue(AppConfig.appLanguage, forHTTPHeaderField: "Accept-Language")
-            req.setValue("2", forHTTPHeaderField: "X-Saga-Chat")
+            req.setValue("3", forHTTPHeaderField: "X-Saga-Chat")
             for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }
             if let body { req.setValue("application/json", forHTTPHeaderField: "Content-Type"); req.httpBody = try JSONSerialization.data(withJSONObject: body) }
             for (k, v) in await cookies(for: url) { req.setValue(v, forHTTPHeaderField: k) }
@@ -176,7 +176,7 @@ final class Store: ObservableObject {
     func authHeaders(for url: URL, fresh: Bool = false) async -> [String: String] {
         if fresh { cookieHeader = nil }
         var h = await cookies(for: url)
-        h["X-Hlidskjalf"] = "1"; h["X-Saga"] = "1"; h["X-Saga-Chat"] = "2"
+        h["X-Hlidskjalf"] = "1"; h["X-Saga"] = "1"; h["X-Saga-Chat"] = "3"
         h["Accept-Language"] = AppConfig.appLanguage
         return h
     }
@@ -232,7 +232,7 @@ final class Store: ObservableObject {
             var req = base
             if let url = req.url { for (k, v) in await cookies(for: url) { req.setValue(v, forHTTPHeaderField: k) } }
             req.setValue(AppConfig.appLanguage, forHTTPHeaderField: "Accept-Language")   // Fehlertexte des Servers in der App-Sprache
-            req.setValue("2", forHTTPHeaderField: "X-Saga-Chat")          // versteht saga-chat/v2 (Chats ueber Servergrenzen, 2.3)
+            req.setValue("3", forHTTPHeaderField: "X-Saga-Chat")          // 2 = saga-chat/v2 (2.3), 3 = Chat-Stufe 3 (Handles, 2.5)
             let (data, resp) = try await run(req)
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             guard code == 401 else { return (data, code) }

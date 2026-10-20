@@ -6,14 +6,14 @@ import SwiftUI
 /// Untertitel des Chats (macOS): Art, Mitglieder bzw. Server der Person
 enum ChatSubtitle {
     static func text(_ c: ChatSummary) -> String {
-        if let f = c.fed, c.kind == "dm" {
+        if let f = c.fed, f.remote, c.kind == "dm" {                  // 2.5: Stufe 3 ist lokal - ohne Server
             var s = c.kindLabel + " · " + String(localized: "auf \(f.peer?.host ?? f.home)")
             if f.request { s += " · " + String(localized: "Anfrage") }
             if f.readonly { s += " · " + String(localized: "schreibgeschützt") }
             return s
         }
         var s = c.kind == "dm" ? c.kindLabel : "\(c.kindLabel) · \(String(localized: "\(c.memberCount) Personen"))"
-        if let f = c.fed {                                              // 2.3: Gruppe/Seiten-Chat ueber Servergrenzen
+        if let f = c.fed, f.remote {                                    // 2.3: Gruppe/Seiten-Chat ueber Servergrenzen
             let hosts = Set(f.members.map(\.host)).count
             if hosts > 1 { s += " · " + String(localized: "\(hosts) Server") }
             if f.request { s += " · " + String(localized: "Anfrage") }
@@ -29,7 +29,17 @@ struct FedChatBanners: View {
     var safety: (FedMember) -> Void
     var body: some View {
         if let f = conv.fed {
-            if let p = f.peer {
+            if let p = f.peer, !f.remote {                                       // 2.5 Stufe 3 (lokal): nur "ueberprueft"
+                if conv.fk[p.handle]?.verified == true {
+                    HStack(spacing: 6) {
+                        Label("überprüft", systemImage: "checkmark.seal.fill").font(.caption.weight(.semibold)).foregroundStyle(.green)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 6).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.bar)
+                    Divider()
+                }
+            } else if let p = f.peer {
                 HStack(spacing: 6) {
                     Image(systemName: "globe").foregroundStyle(.secondary).accessibilityHidden(true)
                     Text("\(p.name) ist auf \(p.host)").font(.caption).foregroundStyle(.secondary).lineLimit(1)
@@ -196,7 +206,14 @@ struct FedSafetySheet: View {
                         }
                         Text("Vergleiche diese Nummer mit \(member.name) – persönlich, per Anruf oder auf deren Gerät. Stimmt sie überein, liest niemand mit. Sie ist auf beiden Seiten gleich.")
                             .foregroundStyle(.secondary)
-                        Text("\(member.name) ist auf \(member.host) – die Nummer gehört zu diesem Server-übergreifenden Chat.").font(.footnote).foregroundStyle(.secondary)
+                        if conv.fed?.remote ?? true {
+                            Text("\(member.name) ist auf \(member.host) – die Nummer gehört zu diesem Server-übergreifenden Chat.").font(.footnote).foregroundStyle(.secondary)
+                        }
+                        if state?.stored?.migrated == true {             // 2.5: aus v1 uebernommen - die Ziffern sehen anders aus
+                            Label("Neue Darstellung, gleicher Schlüssel: Die Nummer sieht anders aus als früher, gehört aber zum selben Schlüssel, den du schon kanntest.", systemImage: "info.circle")
+                                .font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        }
+                        Text("Saga-Adresse: \(member.handle)").font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)   // 2.5: Handle statt Anmeldename
                         if let ok = scanResult {
                             Label(ok ? String(localized: "Stimmt überein.") : String(localized: "Stimmt nicht überein!"), systemImage: ok ? "checkmark.seal.fill" : "xmark.octagon.fill")
                                 .foregroundStyle(ok ? .green : .red)

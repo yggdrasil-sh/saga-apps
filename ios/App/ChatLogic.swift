@@ -26,6 +26,9 @@ struct ChatFileRef: Equatable, Identifiable {
     var dur: Double?
     var rot: Int?
     var fs: Bool?
+    /// Sprachnachricht (2.5): voice, Wellenform (B64, 64 Werte 0-255); Dauer in dur
+    var voice = false
+    var wf: String?
     var isImage: Bool { ["image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif"].contains(mime.lowercased()) }
     /// Video, das diese App abspielen kann (v1 oder v2)
     var isVideo: Bool { VideoSendLogic.isVideo(mime) && VideoSendLogic.known(x) }
@@ -39,6 +42,7 @@ struct ChatFileRef: Equatable, Identifiable {
         if let dur, dur > 0 { d["dur"] = dur }
         if let rot { d["rot"] = rot }
         if let fs { d["fs"] = fs }
+        if voice { d["voice"] = true; if let wf { d["wf"] = wf } }
         return d
     }
     init(id: String, key: String, name: String, mime: String, size: Int, w: Int? = nil, h: Int? = nil, thumb: ChatThumbRef? = nil,
@@ -53,6 +57,8 @@ struct ChatFileRef: Equatable, Identifiable {
                   w: (w ?? 0) > 0 && (h ?? 0) > 0 ? w : nil, h: (w ?? 0) > 0 && (h ?? 0) > 0 ? h : nil, thumb: ChatThumbRef(d["th"]),
                   x: ShareJSON.int(d["x"]), cs: ShareJSON.int(d["cs"]), dur: ShareJSON.num(d["dur"]).flatMap { $0.isFinite && $0 > 0 ? $0 : nil },
                   rot: ShareJSON.int(d["rot"]).flatMap { [0, 90, 180, 270].contains($0) ? $0 : nil }, fs: d["fs"] as? Bool)
+        voice = (d["voice"] as? Bool) == true && (d["m"] as? String ?? "").lowercased().hasPrefix("audio/")
+        wf = ShareJSON.str(d["wf"])
     }
 }
 
