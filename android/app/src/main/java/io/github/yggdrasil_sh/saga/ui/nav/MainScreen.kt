@@ -285,9 +285,13 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
     // Laufender Anruf: Leiste "Anruf laeuft" ueber allen Bildschirmen; sie nimmt die Statusleiste ein, der Inhalt
     // darunter rechnet sie daher nicht noch einmal ein (consumeWindowInsets)
     val call by repo.calls.ui.collectAsState()
-    val callBar = io.github.yggdrasil_sh.saga.call.CallReturn.active(call)
+    // 2.4 E4/E5: Anruf laeuft auf einem anderen eigenen Geraet bzw. Gruppenanruf ohne mich -> Leiste mit Beitreten
+    val runBar by repo.calls.run.collectAsState()
+    val ongoing = io.github.yggdrasil_sh.saga.call.CallReturn.active(call)
+    val callBar = ongoing || runBar != null
     Column(Modifier.fillMaxSize()) {
         io.github.yggdrasil_sh.saga.call.OngoingCallBar(call)
+        if (!ongoing) io.github.yggdrasil_sh.saga.call.RunningCallBar(repo.calls, call, statusBar = true)
         Column(
             Modifier.fillMaxWidth().weight(1f)
                 .then(if (callBar) Modifier.consumeWindowInsets(WindowInsets.statusBars) else Modifier),

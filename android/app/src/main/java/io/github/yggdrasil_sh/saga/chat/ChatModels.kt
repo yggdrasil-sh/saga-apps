@@ -226,6 +226,8 @@ data class ChatSummary(
     @SerialName("online_ok") val onlineOk: Boolean? = null,
     /** 2.4: alle beteiligten Server koennen grosse Videos (chatfile2); false = Gegenueber hat Saga 2.3; lokal fehlt das Feld */
     @SerialName("big_files") val bigFiles: Boolean? = null,
+    /** 2.4 E5: Gruppenanruf moeglich / laeuft (nur GET /api/chats/{id}); fehlt bei aelteren Servern */
+    val call: io.github.yggdrasil_sh.saga.call.ChatCallInfo? = null,
 ) {
     /** Chat ueber Servergrenzen (v2) */
     val isFed: Boolean get() = v == 2 && !ref.isNullOrEmpty()

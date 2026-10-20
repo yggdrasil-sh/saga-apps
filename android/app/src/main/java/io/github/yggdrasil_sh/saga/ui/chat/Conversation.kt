@@ -345,6 +345,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     LaunchedEffect(Unit) { if (repo.calls.enabled.value == null) repo.calls.checkEnabled() }
     var callVideo by remember { mutableStateOf<Boolean?>(null) }
     fun callNow(video: Boolean) {
+        // 2.4 E5: Gruppen-, freie und Seiten-Chats - Gruppenanruf beginnen bzw. dem laufenden beitreten
+        if (s.summary?.kind != "dm") {
+            repo.calls.startGroup(chatId, s.name, video, s.summary?.call?.running)
+            return
+        }
         val p = s.summary?.peer ?: return
         repo.calls.start(chatId, io.github.yggdrasil_sh.saga.call.CallPeer(p.username, p.name, p.avatar, p.handle.takeIf { s.isFed }, p.host), video)
     }
@@ -374,6 +379,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     val fedReq = s.isFed && s.summary?.request == true
     val fedRo = s.isFed && s.summary?.readonly == true && !fedReq
     val canCall = callsOn == true && s.summary?.kind == "dm" && s.summary?.peer != null && !fedReq && !fedRo
+    // 2.4 E5: Gruppenanruf-Knopf nur, wenn der Server ihn fuer diesen Chat anbietet (`chat.call.group`, foederiert: alle calls3)
+    val canGroupCall = callsOn == true && s.summary?.kind != "dm" && s.summary?.call?.group == true && !fedReq && !fedRo
 
     // Surface: Inhaltsfarbe onSurface fuer alle Symbole ohne eigene Farbe ("+" im Dunkelmodus war schwarz, BUG-072)
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
@@ -403,6 +410,14 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 if (canCall) {
                     IconButton(onClick = { startCall(false) }) { Icon(painterResource(R.drawable.ic_call), stringResource(R.string.call_audio)) }
                     IconButton(onClick = { startCall(true) }) { Icon(painterResource(R.drawable.ic_videocam), stringResource(R.string.call_video)) }
+                } else if (canGroupCall) {
+                    val running = s.summary?.call?.running?.takeIf { it.kind == "group" && it.state != "ended" } != null
+                    IconButton(onClick = { startCall(false) }) {
+                        Icon(painterResource(R.drawable.ic_call), stringResource(if (running) R.string.room_join_audio else R.string.room_group_audio))
+                    }
+                    IconButton(onClick = { startCall(true) }) {
+                        Icon(painterResource(R.drawable.ic_videocam), stringResource(if (running) R.string.room_join_video else R.string.room_group_video))
+                    }
                 }
                 IconButton(onClick = { search = if (search == null) "" else null }) { Icon(Icons.Filled.Search, stringResource(R.string.chat_search)) }
                 Box {

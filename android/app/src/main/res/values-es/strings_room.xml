@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.4 E4/E5: Geraet hinzufuegen/uebergeben, Gruppenanrufe (Mesh) -->
+<resources>
+    <string name="room_block_old">Para esto, alguien en la llamada necesita Saga 2.4.</string>
+    <string name="room_block_full">La llamada está llena (límite de dispositivos: %1$d).</string>
+    <string name="room_block_none">La llamada aún no se ha respondido.</string>
+    <string name="room_block_other">Ahora no es posible unirse.</string>
+    <string name="room_unknown_device">Dispositivo desconocido de %1$s rechazado.</string>
+    <string name="room_unknown_abort">Dispositivo desconocido de %1$s en la llamada: unión cancelada.</string>
+    <string name="room_link_failed">No se pudo establecer la conexión con %1$s.</string>
+    <string name="room_joined">%1$s (%2$s) se ha unido</string>
+    <string name="room_left">%1$s (%2$s) ha salido de la llamada</string>
+    <string name="room_left_here">Este dispositivo ya no está en la llamada.</string>
+    <string name="room_you_left">Has salido de la llamada.</string>
+    <string name="room_ringing_others">Llamando a los demás …</string>
+    <string name="room_waiting">Esperando a los demás …</string>
+    <string name="room_server_old">Para esto, tu servidor necesita Saga 2.4.</string>
+    <string name="room_takeover_failed">No se pudo transferir: la llamada continúa en el otro dispositivo.</string>
+    <string name="room_taken_over">Llamada transferida a %1$s.</string>
+    <string name="room_other_device">otro dispositivo</string>
+    <string name="room_incoming">Llamada grupal entrante</string>
+    <string name="room_incoming_video">Videollamada grupal entrante</string>
+    <string name="room_devices_of">Dispositivos: %1$d de %2$d</string>
+    <string name="room_companion_hint">Dispositivo acompañante: micrófono y sonido desactivados</string>
+    <string name="room_taking_over">Transfiriendo …</string>
+    <string name="room_old_people">Necesita Saga 2.4 (no invitado): %1$s</string>
+    <string name="room_take_over">Continuar aquí</string>
+    <string name="room_you">Tú</string>
+    <string name="room_speaking">hablando</string>
+    <string name="room_muted">silenciado</string>
+    <string name="room_sound_off">Sonido desactivado</string>
+    <string name="room_sound_on">Sonido activado</string>
+    <string name="room_running_on">Llamada en curso en %1$s</string>
+    <string name="room_group_running">Llamada grupal en curso · dispositivos: %1$d</string>
+    <string name="room_add_device">Añadir</string>
+    <string name="room_join">Unirse</string>
+    <string name="room_join_audio">Unirse a la llamada grupal</string>
+    <string name="room_join_video">Unirse a la videollamada grupal</string>
+    <string name="room_group_audio">Llamada grupal</string>
+    <string name="room_group_video">Videollamada grupal</string>
+</resources>

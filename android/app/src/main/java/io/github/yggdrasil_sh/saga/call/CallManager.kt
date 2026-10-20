@@ -111,6 +111,11 @@ data class CallUiState(
     val bigIsScreen: Boolean = false,
     /** Meine Kamera pausiert waehrend des Teilens (Relais TCP) */
     val camPaused: Boolean = false,
+    // 2.4 E4/E5
+    /** Raum (Begleitgeraet, Kacheln, Grenzen); null = 1:1 wie bisher */
+    val room: RoomUi? = null,
+    /** Klingeln: Gruppenanruf (Name = Chat) */
+    val group: Boolean = false,
 )
 
 /** VideoSink, dessen Ziel (SurfaceViewRenderer der Oberflaeche) wechseln darf */
@@ -172,26 +177,90 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     private class PeerDev(val enc: ByteArray, val sign: ByteArray)
 
-    private inner class Call(var id: String?, val chatId: Long, val caller: Boolean, var media: String, var peer: CallPeer) {
-        /** 2.3: saga-call/v2 (Gegenueber auf einem anderen Server, gebunden an die Handles) */
-        var v2: Boolean = caller && !peer.handle.isNullOrEmpty()
+    /**
+     * 2.4 E4/E5: Zustand des Raums, den alle Verbindungen eines Anrufs teilen (lokale Medien, Kennung, Teilnehmerliste …).
+     * Der Raum selbst ist zugleich die erste Verbindung (1:1 laeuft genau wie bisher); weitere Geraete bekommen je eine
+     * eigene Verbindung (`Call` mit `room`), die diese Felder ueber `rs` mitbenutzt - wie static/calls.js (SHARED).
+     */
+    private inner class RoomShared(var id: String?, var media: String) {
+        var v2 = false
         var myHandle: String? = null
-        var peerDevs: Map<String, PeerDev> = emptyMap()
-        var peerDevice: String? = null
-        var callerDevice: String? = null
-        var pc: PeerConnection? = null
         var audioSource: AudioSource? = null
         var audioTrack: AudioTrack? = null
         var videoSource: VideoSource? = null
         var videoTrack: VideoTrack? = null
         var capturer: CameraVideoCapturer? = null
         var surface: SurfaceTextureHelper? = null
+        val seen = HashSet<Long>()
+        val early = ArrayList<CallSignalDto>()
+        var t0 = 0L
+        var jobs = ArrayList<Job>()
+        var done = false
+        var ending = false
+        var ready = false
+        var myCaps: List<String> = emptyList()
+        var capsHint = false
+        var pip = false
+        var myWant = "large"
+        var screen: ScreenShare? = null
+        var mixer: ScreenAudioMixer? = null
+        var micOn = true
+        // Raum
+        var kind = CallRoom.KIND_DM
+        /** Dieses Geraet ist Begleitgeraet (ohne Mikrofon und Ton, bis "Hierher uebernehmen") */
+        var companion = false
+        /** Wiedergabe an (Begleitgeraet/Uebernahme: zunaechst aus, Echo-Schutz) */
+        var playback = true
+        val roster = CallRoom.Roster()
+        /** Weitere Verbindungen: Geraet -> Verbindung */
+        val links = LinkedHashMap<String, Call>()
+        /** Uebernahme laeuft: bisheriges eigenes Geraet und Beginn */
+        var hoRep: String? = null
+        var hoStart = 0L
+        var hoJob: Job? = null
+        /** Dieses Geraet ist (wieder) Hauptgeraet nach einer Uebernahme */
+        var took = false
+        /** Ueber join bzw. als Gruppe begonnen (Raum ohne eigene erste Verbindung) */
+        var inRoom = false
+        /** Gruppenanruf selbst begonnen (klingelt bei den anderen) */
+        var starter = false
+        /** Uebernahme per join (role handover) - scheitert sie, verlaesst dieses Geraet den Anruf */
+        var hoJoin = false
+        /** Signale unbekannter Geraete, bis ihre Verbindung steht */
+        val pend = HashMap<String, ArrayList<CallSignalDto>>()
+        val incoming = HashSet<String>()
+        val bad = HashSet<String>()
+        var limit = 0
+        var old: List<String> = emptyList()
+        /** Pegel der empfangenen Tonspuren je Geraet und aktiver Sprecher */
+        val levels = HashMap<String, Double>()
+        var speaker: String? = null
+        var title = ""
+    }
+
+    private inner class Call(id: String?, val chatId: Long, val caller: Boolean, media: String, var peer: CallPeer, val room: Call? = null) {
+        val rs: RoomShared = room?.rs ?: RoomShared(id, media)
+        var id: String? by rs::id
+        var media: String by rs::media
+        /** 2.3: saga-call/v2 (Gegenueber auf einem anderen Server, gebunden an die Handles) */
+        var v2: Boolean by rs::v2
+        var myHandle: String? by rs::myHandle
+        var peerDevs: Map<String, PeerDev> = emptyMap()
+        var peerDevice: String? = null
+        var callerDevice: String? = null
+        var pc: PeerConnection? = null
+        var audioSource: AudioSource? by rs::audioSource
+        var audioTrack: AudioTrack? by rs::audioTrack
+        var videoSource: VideoSource? by rs::videoSource
+        var videoTrack: VideoTrack? by rs::videoTrack
+        var capturer: CameraVideoCapturer? by rs::capturer
+        var surface: SurfaceTextureHelper? by rs::surface
         var remoteVideo: VideoTrack? = null
         var remoteAudio: AudioTrack? = null
         var audioPk = 0L
         var audioIdle = 0
-        val seen = HashSet<Long>()
-        val early = ArrayList<CallSignalDto>()
+        val seen: HashSet<Long> get() = rs.seen
+        val early: ArrayList<CallSignalDto> get() = rs.early
         /** Eingegangene Kandidaten mit ihrer ufrag (ICE-Generation) */
         val remoteIce = ArrayList<Pair<IceCandidate, String?>>()
         /** ufrags frueherer Remote-SDPs (Kandidaten dieser Generationen verwerfen) */
@@ -199,21 +268,31 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         var curUfrags: Set<String> = emptySet()
         val outIce = ArrayList<JsonObject>()
         var outJob: Job? = null
-        var ready = false
+        var ready: Boolean by rs::ready
         var connected = false
         var fps: List<String> = emptyList()
-        var t0 = 0L
-        var jobs = ArrayList<Job>()
+        var t0: Long by rs::t0
+        val jobs: ArrayList<Job> get() = rs.jobs
         var connJob: Job? = null
-        var done = false
-        var ending = false
+        var done: Boolean by rs::done
+        var ending: Boolean by rs::ending
         var gotState = false
         var lastLost = 0L
         var lastRecv = 0L
+        /** 2.4 E4/E5: diese Verbindung ist getrennt (Geraet hat den Anruf verlassen) */
+        var gone = false
+        /** Angebot/Antwort ausgetauscht (Verbindung ausgehandelt) */
+        var established = false
+        /** Gegenueber dieser Verbindung meldet Mikrofon an */
+        var rMic = true
+        /** Vorgemerkte Signale werden gerade abgearbeitet (neue so lange anhaengen - Reihenfolge) */
+        var draining = false
+        /** DTLS-Zertifikat dieser Verbindung geprueft */
+        var verified = false
 
         // 2.4 saga-call v3 (E0) und Bild-im-Bild
         /** Eigene Faehigkeiten (nach Server-features) und die des Gegenuebers (aus offer/answer) */
-        var myCaps: List<String> = emptyList()
+        var myCaps: List<String> by rs::myCaps
         var peerCaps: Set<String> = emptySet()
         /** Kennung der PeerConnection (`pc`); der Angerufene uebernimmt die des Angebots */
         var pcId: String = ""
@@ -222,8 +301,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         /** Wunsch des Gegenuebers fuer mein Video ("large" | "small" | "off") */
         var peerWant = "large"
         /** Mein Wunsch an das Gegenueber, PiP-Zustand */
-        var myWant = "large"
-        var pip = false
+        var myWant: String by rs::myWant
+        var pip: Boolean by rs::pip
         /** Zuletzt gesetzte Sender-Grenzen (nur bei Aenderung neu setzen) */
         var applied: String? = null
         var restartJob: Job? = null
@@ -237,7 +316,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         /** Antwort auf ein Neu-Angebot unterwegs: eigene Kandidaten erst danach senden */
         var answering = false
         /** Server 2.4 (features vorhanden): `caps`-Hinweis in POST /api/calls bzw. /answer mitsenden */
-        var capsHint = false
+        var capsHint: Boolean by rs::capsHint
 
         // 2.4 E3 Bildschirm (Vertrag "Bildschirm v2"). Transceiver-Objekte von org.webrtc werden bei jedem
         // getTransceivers() neu erzeugt (alte entsorgt) - darum nur die mids merken, nie die Objekte.
@@ -245,11 +324,13 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         var camMid: String? = null
         /** Eigene Bildschirm-m-Zeile (bleibt nach dem Ende recvonly und wird beim naechsten Teilen wiederverwendet) */
         var scrMid: String? = null
-        var screen: ScreenShare? = null
+        /** Laufende Aufnahme (gilt fuer alle Verbindungen des Raums) */
+        var screen: ScreenShare? by rs::screen
+        /** Betriebsart des Teilens auf DIESER Verbindung (null = teilt hier nicht) */
         var scrMode: CallScreen.Mode? = null
-        var mixer: ScreenAudioMixer? = null
+        var mixer: ScreenAudioMixer? by rs::mixer
         /** Mikrofon an (getrennt von der Tonspur: beim Mischen bleibt die Spur an, nur das Mikrofon schweigt) */
-        var micOn = true
+        var micOn: Boolean by rs::micOn
         var camPaused = false
         /** Rollen und Stream-IDs der m-Zeilen des Gegenuebers (letzter Stand aus offer/answer/state) */
         var peerTracks: Map<String, String> = emptyMap()
@@ -269,6 +350,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         var needGen = 0
         var offerGen = 0
         var doneGen = 0
+        /** 2.4 E5: Kachel-Bild dieser Verbindung (Hauptspur des Gegenuebers) */
+        val tile = ProxySink()
+        var tileVideo: VideoTrack? = null
     }
 
     /** Laufende Bildschirmaufnahme */
@@ -276,6 +360,43 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val capturer: ScreenCapturerAndroid, val source: VideoSource, val track: VideoTrack, val surface: SurfaceTextureHelper,
         var w: Int, var h: Int, var fps: Int,
     )
+
+    // ---------------------------------------------------------------- 2.4 E4/E5: Raum und Verbindungen
+
+    /** Raum einer Verbindung (der Raum ist zugleich die erste Verbindung) */
+    private fun roomOf(c: Call): Call = c.room ?: c
+
+    /** Gehoert c (Raum oder Verbindung) zum laufenden Anruf? */
+    private fun live(c: Call): Boolean {
+        val r = cur ?: return false
+        return (c === r || c.room === r) && !c.gone
+    }
+
+    /** Verbindungen des Raums: der Raum selbst (wenn er eine hat) und alle weiteren */
+    private fun links(c: Call): List<Call> {
+        val r = roomOf(c)
+        val out = ArrayList<Call>()
+        if (r.pc != null && !r.gone) out.add(r)
+        r.rs.links.values.filterTo(out) { !it.gone }
+        return out
+    }
+
+    private fun linkOf(c: Call, dev: String): Call? {
+        val r = roomOf(c)
+        return if (r.peerDevice == dev && !r.gone && r.pc != null) r else r.rs.links[dev]?.takeIf { !it.gone }
+    }
+
+    private fun myDevId(): String = repo.chat.keys()?.dev?.id.orEmpty()
+    private fun myUser(): String = repo.chat.keys()?.uid.orEmpty()
+
+    /** Verbindung zu einem eigenen Geraet (dessen Ton nie abspielen) */
+    private fun own(c: Call): Boolean = c.peer.username == myUser() && c.peer.username.isNotEmpty()
+
+    /** Endpunkte fuer die Bitrate (Mesh ab drei) */
+    private fun endpoints(c: Call): Int = CallRoom.endpoints(links(c).size)
+
+    /** Raum-Faehigkeit: eigener Server und dieses Geraet koennen `multi` */
+    private fun multi(c: Call): Boolean = CallRoom.multi(c.myCaps)
 
     /** Neuverhandlung (ICE-Restart) nur, wenn beide Geraete `reneg` melden - sonst exakt das Verhalten von 2.3 */
     private fun reneg(c: Call): Boolean = c.peerDevice != null && CallV3.canReneg(c.myCaps, c.peerCaps)
@@ -355,7 +476,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     /** Anrufknoepfe im Direkt-Chat: Server kann Anrufe (still, ohne Fehler) */
     suspend fun checkEnabled() {
         try {
-            loadConfig()
+            reportCaps(loadConfig())                        // 2.4: Faehigkeiten melden (Einladung zu Gruppenanrufen)
+            refreshRun()
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
@@ -368,7 +490,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     /** Aktive Geraete des Gegenuebers: Zertifikat gueltig, Identitaet wie gemerkt (TOFU - geaendert => nicht anrufen) */
     private suspend fun peerKeys(c: Call) {
-        if (c.v2) return peerKeysV2(c)
+        // 2.4: weitere Verbindungen im foederierten Raum - Personen anderer Server ueber die geprueften v2-Schluessel,
+        // eigene und lokale Personen wie im Chat (der Body bleibt saga-call/v2, dafuer braucht es den eigenen Handle)
+        if (c.v2 && (c.room == null || remotePerson(c.peer))) return peerKeysV2(c)
+        if (c.v2 && c.myHandle == null) {
+            val fed = repo.chat.fed
+            if (fed.myHandle == null) fed.certs()
+            c.myHandle = fed.myHandle ?: throw UiTextException(UiText.Res(R.string.fed_keys_not_ready))
+        }
         val peer = c.peer.username
         val o = Json.parseToJsonElement(api.get("api/chat/keys?users=" + java.net.URLEncoder.encode(peer, "UTF-8"))) as? JsonObject
         val u = (o?.get("users") as? JsonObject)?.get(peer) as? JsonObject
@@ -398,6 +527,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
      * 2.3: Gegenueber auf einem anderen Server - Schluessel ueber den eigenen Server, selbst geprueft (Zertifikate v2,
      * signierte Geraete-Liste) + TOFU wie beim Senden; Warnung/Blockade -> nicht anrufen.
      */
+    /** Person eines anderen Servers (Handle und Server bekannt, nicht ich) */
+    private fun remotePerson(p: CallPeer): Boolean = !p.handle.isNullOrEmpty() && !p.host.isNullOrEmpty() && p.username != myUser()
+
     private suspend fun peerKeysV2(c: Call) {
         val h = c.peer.handle ?: throw UiTextException(UiText.Res(R.string.call_peer_no_keys, c.peer.name))
         val fed = repo.chat.fed
@@ -545,7 +677,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val obs = object : PeerConnection.Observer {
             override fun onIceCandidate(cand: IceCandidate) {
                 scope.launch {
-                    if (cur !== c) return@launch
+                    if (!live(c)) return@launch
                     c.outIce.add(buildJsonObject {
                         put("candidate", cand.sdp)
                         put("sdpMid", cand.sdpMid)
@@ -571,13 +703,13 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 } catch (_: Exception) {
                     null
                 }
-                scope.launch { if (cur === c) attachTrack(c, t, mid) }
+                scope.launch { if (live(c)) attachTrack(c, t, mid) }
             }
 
             override fun onAddTrack(receiver: RtpReceiver, streams: Array<out MediaStream>) {
                 // Unified Plan meldet jede Spur auch ueber onTrack (mit mid) - hier nur noch Ton
                 val t = receiver.track()
-                if (t is AudioTrack) scope.launch { if (cur === c) attachTrack(c, t, null) }
+                if (t is AudioTrack) scope.launch { if (live(c)) attachTrack(c, t, null) }
             }
 
             override fun onConnectionChange(newState: PeerConnection.PeerConnectionState) {
@@ -602,12 +734,13 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     private fun attachTrack(c: Call, t: MediaStreamTrack?, mid: String?) {
         when (t) {
             is VideoTrack -> attachRemote(c, t, mid)
-            // Ton des Gegenuebers: spielt das ADM ab, solange die Spur aktiv ist - ausdruecklich einschalten
+            // Ton des Gegenuebers: spielt das ADM ab, solange die Spur aktiv ist - ausdruecklich einschalten.
+            // 2.4: Ton eigener Geraete (Begleitgeraet, Uebernahme) nie abspielen
             is AudioTrack -> if (c.remoteAudio !== t) {
                 c.remoteAudio = t
                 try {
-                    t.setEnabled(true)
-                    t.setVolume(1.0)
+                    t.setEnabled(!own(c))
+                    t.setVolume(if (own(c)) 0.0 else 1.0)
                 } catch (_: Exception) {
                 }
                 log("remote audio track ${t.id()}")
@@ -623,14 +756,13 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (old === t) return
         if (old != null) {
             c.watch[mid]?.let { old.removeSink(it) }
-            if (c.remoteVideo === old) {
-                old.removeSink(remoteSink)
-                c.remoteVideo = null
+            if (c.tileVideo === old) {
+                old.removeSink(c.tile)
+                c.tileVideo = null
             }
-            if (c.smallVideo === old) {
-                old.removeSink(remoteSink2)
-                c.smallVideo = null
-            }
+            if (c.remoteVideo === old) c.remoteVideo = null
+            if (c.smallVideo === old) c.smallVideo = null
+            unbindMain(old)
         }
         c.rvid[mid] = t
         val w = c.watch.getOrPut(mid) { FrameWatch() }
@@ -640,37 +772,98 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     /**
      * Fernspuren auf die Anzeige verteilen (Vertrag "Empfaenger: Kamera und Bildschirm unterscheiden"): Bildschirm gross,
-     * Kamera klein, getauscht auf Wunsch; im Bild-im-Bild immer der Bildschirm.
+     * Kamera klein, getauscht auf Wunsch; im Bild-im-Bild immer der Bildschirm. 2.4 E5: je Verbindung eine Kachel; das
+     * grosse Bild (und Bild-im-Bild) zeigt die Hauptverbindung - im Mesh den aktiven Sprecher.
      */
     private fun bindRemote(c: Call) {
-        if (cur !== c) return
+        if (!live(c)) return
         val now = System.currentTimeMillis()
         val mids = c.rvid.keys.toList()
         val live = c.watch.filter { it.value.live(now) }.keys
         val v = CallScreen.view(c.peerTracks, mids, live, c.rScreen, c.rScreenMid, c.rCam, c.swap, c.pip)
         c.view = v
         val big = v.big?.let { c.rvid[it] }
-        val small = v.small?.let { c.rvid[it] }
-        if (c.remoteVideo !== big) {
-            c.remoteVideo?.removeSink(remoteSink)
-            c.remoteVideo = big
+        c.remoteVideo = big
+        c.smallVideo = v.small?.let { c.rvid[it] }
+        // Kachel: Bildschirm bzw. Kamera der Verbindung (ohne Tausch)
+        if (c.tileVideo !== big) {
+            c.tileVideo?.removeSink(c.tile)
+            c.tileVideo = big
+            big?.addSink(c.tile)
+        }
+        bindMain(roomOf(c))
+        update(c)
+    }
+
+    /** Spuren, die gerade das grosse bzw. kleine Fernbild speisen */
+    private var mainBig: VideoTrack? = null
+    private var mainSmall: VideoTrack? = null
+
+    private fun unbindMain(t: VideoTrack) {
+        if (mainBig === t) {
+            t.removeSink(remoteSink)
+            mainBig = null
+        }
+        if (mainSmall === t) {
+            t.removeSink(remoteSink2)
+            mainSmall = null
+        }
+    }
+
+    /** Grosses/kleines Fernbild an die Hauptverbindung haengen (nur bei Aenderung) */
+    private fun bindMain(r: Call) {
+        if (!live(r)) return
+        val p = primary(r)
+        val big = p?.remoteVideo
+        val small = if (p != null && !meshView(r)) p.smallVideo else null
+        if (mainBig !== big) {
+            mainBig?.removeSink(remoteSink)
+            mainBig = big
             big?.addSink(remoteSink)
         }
-        if (c.smallVideo !== small) {
-            c.smallVideo?.removeSink(remoteSink2)
-            c.smallVideo = small
+        if (mainSmall !== small) {
+            mainSmall?.removeSink(remoteSink2)
+            mainSmall = small
             small?.addSink(remoteSink2)
         }
-        update(c)
+    }
+
+    private fun unbindAll() {
+        mainBig?.removeSink(remoteSink)
+        mainSmall?.removeSink(remoteSink2)
+        mainBig = null
+        mainSmall = null
+    }
+
+    /** Endpunkt einer Verbindung laut Teilnehmerliste */
+    private fun legOf(c: Call): CallLeg? = c.peerDevice?.let { roomOf(c).rs.roster.of(it) }
+
+    /** Stille Verbindung (eigenes Geraet bzw. Begleitgeraet ohne Ton, Kamera und Bildschirm): keine eigene Kachel */
+    private fun quiet(c: Call): Boolean =
+        CallRoom.quiet(own(c), legOf(c)?.companion == true, c.gotState, c.rMic, c.rCam, c.rScreen)
+
+    private fun shown(r: Call): List<Call> = links(r).filter { !quiet(it) }
+
+    private fun meshView(r: Call): Boolean = CallRoom.meshView(roomOf(r).rs.kind, shown(roomOf(r)).size)
+
+    /** Hauptverbindung: im Mesh der aktive Sprecher, sonst die erste sichtbare Verbindung (1:1 wie bisher) */
+    private fun primary(r0: Call): Call? {
+        val r = roomOf(r0)
+        val sh = shown(r)
+        if (meshView(r)) r.rs.speaker?.let { sp -> sh.firstOrNull { it.peerDevice == sp }?.let { return it } }
+        return sh.firstOrNull() ?: links(r).firstOrNull() ?: r.takeIf { it.pc != null || r.rs.links.isEmpty() }
     }
 
     /** Oberflaeche: Ansicht tauschen (Bildschirm <-> Kamera des Gegenuebers) */
     fun swapView() {
-        val c = cur ?: return
+        val c = cur?.let { primary(it) } ?: return
         if (!c.rScreen) return
         c.swap = !c.swap
         bindRemote(c)
     }
+
+    /** 2.4 E5: Bild einer Kachel (Verbindung zu diesem Geraet) */
+    fun tileSink(device: String): ProxySink? = cur?.let { linkOf(it, device) }?.tile
 
     /** Sender der Kamera-m-Zeile (in Betriebsart A laeuft dort der Bildschirm) */
     private fun videoSender(c: Call): RtpSender? {
@@ -796,9 +989,15 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
     }
 
-    private suspend fun stateOut(c: Call) {
-        if (!c.ready) return
-        val sharing = c.screen != null
+    /** Zustand an alle Verbindungen des Raums (Mikrofon, Kamera, Bild-im-Bild …) */
+    private fun stateAll(c: Call) {
+        for (l in links(c)) scope.launch { if (live(l)) stateOut(l) }
+    }
+
+    /** replaces = Uebernahme fertig: `ready: true` + bisheriges Geraet (nur an dieses) */
+    private suspend fun stateOut(c: Call, replaces: String? = null) {
+        if (!c.ready || c.pc == null) return
+        val sharing = c.screen != null && c.scrMode != null      // 2.4: teilt auf DIESER Verbindung
         if (sharing && c.scrMode == CallScreen.Mode.B && c.scrMid == null) {
             c.stateDue = true                               // mid steht erst nach dem Angebot fest - dann senden
             return
@@ -806,6 +1005,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         sendSignal(c, buildJsonObject {
             put("t", "state")
             put("mic", c.audioTrack != null && c.micOn)
+            if (replaces != null) {
+                put("ready", true)
+                put("replaces", replaces)
+            }
             // Betriebsart A: auf der Kamera-m-Zeile laeuft der Bildschirm; Kamera ueber Relais TCP pausiert (B)
             put("cam", c.videoTrack != null && !(sharing && c.scrMode == CallScreen.Mode.A) && !c.camPaused)
             put("screen", sharing)
@@ -843,7 +1046,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 queueIce(c, b)
                 applyRemoteIce(c)
             }
-            CallV3.Kind.OFFER -> renegOffer(c, b)
+            // 2.4: erstes Angebot eines hinzukommenden Geraets (eigene Verbindung, noch ohne PeerConnection)
+            CallV3.Kind.OFFER -> if (c.room != null && c.pc == null) acceptOffer(c, b) else renegOffer(c, b)
             CallV3.Kind.ANSWER -> {
                 val pc = c.pc ?: return
                 if (pc.remoteDescription != null) {
@@ -864,6 +1068,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 c.fps = CallCrypto.sdpFingerprints(sdp)
                 try {
                     setSdp(pc, false, SessionDescription(SessionDescription.Type.ANSWER, sdp))
+                    c.established = true
                     applyRemoteIce(c)
                 } catch (e: CancellationException) {
                     throw e
@@ -889,12 +1094,22 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 c.rScreenMid = CallScreen.screenMid(scr, b["screen_mid"])
                 c.rCam = (b["cam"] as? JsonPrimitive)?.booleanOrNull == true
                 peerTracksIn(c, b)
-                val st = _ui.value ?: return
-                _ui.value = st.copy(remoteMic = (b["mic"] as? JsonPrimitive)?.booleanOrNull != false)
+                c.rMic = (b["mic"] as? JsonPrimitive)?.booleanOrNull != false
+                // 2.4 E4: ein anderes eigenes Geraet hat uebernommen ("Hierher uebernehmen") -> hier still und raus
+                if ((b["ready"] as? JsonPrimitive)?.booleanOrNull == true && b.s("replaces") == myDevId() && own(c)) {
+                    handoverOut(roomOf(c), from)
+                    return
+                }
                 bindRemote(c)
             }
-            // Gegenueber legt auf (1:1): sofort beenden; /end sendet das Gegenueber selbst
-            CallV3.Kind.BYE -> if (from == c.peerDevice) remoteEnded(c, "hangup")
+            // Gegenueber legt auf: 1:1 (Hauptgeraet) sofort beenden - /end sendet das Gegenueber selbst. 2.4: verlaesst
+            // nur ein Geraet den Raum (Gruppe, Begleitgeraet, Uebernahme), nur diese Verbindung trennen
+            CallV3.Kind.BYE -> if (from == c.peerDevice) {
+                val r = roomOf(c)
+                if (r.rs.kind == CallRoom.KIND_GROUP || b.s("reason") == "handover" || own(c) || legOf(c)?.companion == true) {
+                    dropLink(c, null)
+                } else remoteEnded(c, "hangup")
+            }
             CallV3.Kind.UNKNOWN -> {}                       // unbekannte Typen neuerer Versionen ignorieren
         }
     }
@@ -945,7 +1160,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             log("reneg answer failed: ${e.message}")
         } finally {
             c.answering = false
-            if (cur === c) {
+            if (live(c)) {
                 flushIce(c)
                 bindRemote(c)
                 // eigene Aenderung (Teilen an/aus) noch nicht ausgehandelt (Kollision, Rollback)? Jetzt anbieten
@@ -983,7 +1198,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
      * `msid`; danach `state` (screen_mid steht erst jetzt fest). Laeuft schon eine Aushandlung, folgt das Angebot danach.
      */
     private fun offerNow(c: Call) {
-        if (cur !== c || c.done || !reneg(c)) return
+        if (!live(c) || c.done || !reneg(c)) return
         val pc = c.pc ?: return
         val ng = neg(c)
         if (ng.makingOffer || c.answering || pc.signalingState() != PeerConnection.SignalingState.STABLE) return
@@ -992,7 +1207,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             val n = ng.startOffer()
             try {
                 val offer = createSdp(pc, true)
-                if (cur !== c || pc.signalingState() != PeerConnection.SignalingState.STABLE || !ng.makingOffer) return@launch
+                if (!live(c) || pc.signalingState() != PeerConnection.SignalingState.STABLE || !ng.makingOffer) return@launch
                 setSdp(pc, true, offer)
                 c.offerGen = gen
                 noteMids(c)
@@ -1016,7 +1231,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 log("reneg offer failed: ${e.message}")
             } finally {
                 ng.offerDone()
-                if (cur === c) flushIce(c)
+                if (live(c)) flushIce(c)
             }
         }
     }
@@ -1026,7 +1241,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
      * `reneg`; Ergebnis false = nicht moeglich (2.3-Gegenstelle) -> bisheriges Verhalten.
      */
     private fun restartIce(c: Call, why: String): Boolean {
-        if (cur !== c || c.done || !reneg(c)) return false
+        if (!live(c) || c.done || !reneg(c)) return false
         val pc = c.pc ?: return false
         val ng = neg(c)
         if (ng.makingOffer) return true
@@ -1040,7 +1255,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             try {
                 pc.restartIce()
                 val offer = createSdp(pc, true)
-                if (cur !== c || pc.signalingState() != PeerConnection.SignalingState.STABLE || !ng.makingOffer) return@launch
+                if (!live(c) || pc.signalingState() != PeerConnection.SignalingState.STABLE || !ng.makingOffer) return@launch
                 setSdp(pc, true, offer)
                 c.offerGen = c.needGen                      // enthaelt auch offene Aenderungen (Bildschirm)
                 noteMids(c)
@@ -1065,7 +1280,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 log("ice restart failed: ${e.message}")
             } finally {
                 ng.offerDone()
-                if (cur === c) flushIce(c)
+                if (live(c)) flushIce(c)
             }
         }
         return true
@@ -1080,17 +1295,18 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val p = CallV3.worse(c.path, c.peerPath) ?: return
         // 2.4 E3: beim Teilen - B: Bildschirm-m-Zeile mit Bildschirm-Regeln, Kamera daneben <= 300 kbit/s (Relais TCP aus);
         // A: die Kamera-m-Zeile traegt den Bildschirm und bekommt solange die Bildschirm-Regeln
-        val sharing = c.screen != null
+        val sharing = c.screen != null && c.scrMode != null      // 2.4: teilt auf DIESER Verbindung
         val modeB = sharing && c.scrMode == CallScreen.Mode.B
         val cam = if (sharing && !modeB) CallV3.videoLimits(p, screen = true)
-        else CallV3.videoLimits(p, c.peerWant, shareCam = modeB)
+        // 2.4 E5: ab drei Endpunkten Mesh-Werte je Strom (600/500/350 kbit/s, ≤ 540p bzw. 360p15)
+        else CallV3.videoLimits(p, c.peerWant, peers = endpoints(c), shareCam = modeB)
         val scr = CallV3.videoLimits(p, screen = true)
         val a = CallV3.audioMaxBps(p)
         val paused = CallScreen.camPaused(c.scrMode.takeIf { sharing }, p, c.videoTrack != null)
         if (paused != c.camPaused) {
             c.camPaused = paused
             update(c)
-            scope.launch { if (cur === c) stateOut(c) }
+            scope.launch { if (live(c)) stateOut(c) }
         }
         // Aufnahme: 15 fps, ueber Relais TCP 8 fps (nur bei Aenderung). Ueber die Quelle (verwirft Bilder vor dem
         // Encoder) - NICHT changeCaptureFormat: das legt das virtuelle Display neu an, was Android 14+ verbietet
@@ -1101,7 +1317,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 s.source.adaptOutputFormat(s.w, s.h, fps)
             }
         }
-        val key = "$cam|$scr|$a|${c.scrMode.takeIf { sharing }}|${c.scrMid}|${c.camMid}"
+        val key = "$cam|$scr|$a|${c.scrMode.takeIf { sharing }}|${c.scrMid}|${c.camMid}|${endpoints(c)}"
         if (key == c.applied) return
         var ok = true
         for (tr in pc.transceivers) {
@@ -1155,8 +1371,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val pipChanged = c.pip != pip
         c.pip = pip
         c.myWant = want
-        if (pipChanged) bindRemote(c)                       // im Bild-im-Bild immer der Bildschirm
-        scope.launch { if (cur === c) stateOut(c) }
+        if (pipChanged) links(c).forEach { bindRemote(it) }  // im Bild-im-Bild immer der Bildschirm (Mesh: Sprecher)
+        stateAll(c)
     }
 
     // ---------------------------------------------------------------- Netzwechsel
@@ -1172,10 +1388,11 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 val prev = last
                 last = network
                 scope.launch {
-                    if (cur !== c || c.done) return@launch
-                    if (CallV3.restartOnNetwork(prev?.toString(), network.toString(), c.connected, reneg(c))) {
-                        update(c, UiText.Res(R.string.call_net_restart), reconnecting = true)
-                        restartIce(c, "network")
+                    if (!live(c) || c.done) return@launch
+                    // 2.4: jede Verbindung des Raums neu aufbauen
+                    for (l in links(c)) if (CallV3.restartOnNetwork(prev?.toString(), network.toString(), l.connected, reneg(l))) {
+                        update(l, UiText.Res(R.string.call_net_restart), reconnecting = true)
+                        restartIce(l, "network")
                     }
                 }
             }
@@ -1204,10 +1421,225 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             c.early.add(s)
             return
         }
-        scope.launch {
-            val b = openSig(c, s)
-            if (cur === c) handle(c, b)
+        route(c, s)
+    }
+
+    /**
+     * 2.4: Signal an die passende Verbindung. 1:1, solange es klingelt: Antworten/Kandidaten aller Geraete des Gegenuebers
+     * gehen an den Raum (wie bisher). Unbekanntes Geraet im Raum: merken und pruefen; sein Angebot legt eine Verbindung an.
+     */
+    private fun route(r: Call, s: CallSignalDto) {
+        var l = linkOf(r, s.fromDevice)
+        if (l == null && r.rs.kind == CallRoom.KIND_DM && r.caller && r.pc != null && r.peerDevice == null && !r.established) l = r
+        if (l == null && !multi(r)) l = r                  // 2.3: die einzige Verbindung (wie bisher)
+        if (l == null && s.fromDevice in r.rs.bad) return
+        if (l != null && !l.draining) {
+            val x = l
+            scope.launch {
+                val b = openSig(x, s)
+                if (live(x)) handle(x, b)
+            }
+            return
         }
+        val q = r.rs.pend.getOrPut(s.fromDevice) { ArrayList() }
+        q.add(s)
+        if (q.size > 80) q.removeAt(0)
+        if (l == null) incoming(r, s.fromDevice)
+    }
+
+    /** Neue Verbindung im Raum zu einem Geraet (Person laut Teilnehmerliste) */
+    private fun newLink(r: Call, dev: String, x: CallLeg, caller: Boolean): Call =
+        Call(null, r.chatId, caller, r.media, x.person(), room = r).also {
+            it.peerDevice = dev
+            it.pcId = CallRoom.pairId(myDevId(), dev)
+        }
+
+    /**
+     * Signal eines Geraets ohne Verbindung: gehoert es zum Anruf (Liste des Servers) und zur Person (signierte
+     * Geraeteliste, TOFU)? Dann Verbindung ohne Klingeln anlegen; sonst ablehnen ("Unbekanntes Geraet … abgelehnt").
+     */
+    private fun incoming(r: Call, dev: String) {
+        val rs = r.rs
+        if (dev in rs.incoming || dev in rs.bad || !r.ready || r.done) return
+        rs.incoming.add(dev)
+        scope.launch {
+            try {
+                if (rs.roster.of(dev) == null) fetchRoster(r)
+                val x = rs.roster.of(dev)
+                if (x == null || !live(r) || linkOf(r, dev) != null) {
+                    if (x == null) rs.pend.remove(dev)
+                    return@launch
+                }
+                val l = newLink(r, dev, x, caller = false)
+                l.draining = true
+                rs.links[dev] = l
+                try {
+                    peerKeys(l)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                }
+                if (l.peerDevs[dev] == null) {                 // Geister-Geraet: nicht in der signierten Liste der Person
+                    rs.bad.add(dev)
+                    rs.pend.remove(dev)
+                    dropLink(l, UiText.Res(R.string.room_unknown_device, x.name.ifEmpty { x.who }))
+                    return@launch
+                }
+                while (live(l)) {
+                    val list = rs.pend.remove(dev) ?: break
+                    for (s in list) {
+                        val b = openSig(l, s)
+                        if (live(l)) handle(l, b)
+                    }
+                }
+                l.draining = false
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log("incoming $dev: ${e.message}")
+            } finally {
+                rs.incoming.remove(dev)
+            }
+        }
+    }
+
+    /** Angebot eines hinzukommenden Geraets beantworten (ohne Klingeln: die Person ist schon im Anruf bzw. tritt bei) */
+    private suspend fun acceptOffer(c: Call, b: JsonObject) {
+        val sdp = b.s("sdp")
+        if (!CallCrypto.fpMatches(sdp, b.fp())) {
+            securityFail(c)
+            return
+        }
+        c.fps = CallCrypto.sdpFingerprints(sdp)
+        c.peerCaps = CallV3.caps(b)
+        peerTracksIn(c, b)
+        b.s("pc")?.takeIf { it.length <= 200 }?.let { c.pcId = it }
+        val n = (b["n"] as? JsonPrimitive)?.intOrNull ?: 1
+        c.neg = CallV3.Negotiator(CallV3.polite(myDevId(), c.peerDevice.orEmpty()), n = 0, remoteN = n)
+        c.answering = true                                  // eigene Kandidaten erst nach der Antwort
+        try {
+            val cfg = config ?: loadConfig()
+            val pc = makePc(c, cfg)
+            c.pc = pc
+            setSdp(pc, false, SessionDescription(SessionDescription.Type.OFFER, sdp))
+            addLocal(c, pc, true)
+            val ans = createSdp(pc, false)
+            setSdp(pc, true, ans)
+            noteMids(c)
+            if (!live(c)) return
+            val asdp = pc.localDescription?.description ?: ans.description
+            sendSignal(c, buildJsonObject {
+                put("t", "answer")
+                put("sdp", asdp)
+                put("fp", buildJsonArray { CallCrypto.sdpFingerprints(asdp).forEach { add(JsonPrimitive(it)) } })
+                put("media", c.media)
+                put("caps", capsJson(c))
+                put("n", n)
+                putTracks(c, this)
+            })
+            c.established = true
+            applyRemoteIce(c)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (live(c)) dropLink(c, UiText.Res(R.string.room_link_failed, c.peer.name.ifEmpty { c.peer.username }))
+            return
+        } finally {
+            c.answering = false
+        }
+        flushIce(c)
+        stateOut(c)
+        // laufendes Teilen gilt auch fuer spaeter hinzukommende Verbindungen
+        if (c.screen != null && c.scrMode == null) shareOn(c)
+        c.connJob = scope.launch {
+            delay(30_000)
+            if (live(c) && !c.connected) dropLink(c, UiText.Res(R.string.room_link_failed, c.peer.name.ifEmpty { c.peer.username }))
+        }
+        update(c)
+    }
+
+    /** Verbindung zu einem Geraet trennen (hat den Anruf verlassen bzw. Fehler nur auf dieser Verbindung) */
+    private fun dropLink(c: Call, msg: UiText?) {
+        val r = roomOf(c)
+        c.connJob?.cancel()
+        c.outJob?.cancel()
+        c.restartJob?.cancel()
+        c.failJob?.cancel()
+        c.tileVideo?.removeSink(c.tile)
+        c.tileVideo = null
+        for ((m, t) in c.rvid) {
+            c.watch[m]?.let { t.removeSink(it) }
+            unbindMain(t)
+        }
+        c.rvid.clear()
+        c.remoteVideo = null
+        c.smallVideo = null
+        c.remoteAudio = null
+        try {
+            c.pc?.close()
+            c.pc?.dispose()
+        } catch (_: Exception) {
+        }
+        c.pc = null
+        c.peerDevice?.let { r.rs.levels.remove(it) }
+        if (c === r) {                                      // erste Verbindung (1:1): der Raum selbst bleibt bestehen
+            c.established = false
+            c.connected = false
+            c.gotState = false
+            c.peerDevice = null
+            c.scrMode = null
+            c.scrMid = null
+            c.applied = null
+        } else {
+            c.gone = true
+            c.peerDevice?.let { if (r.rs.links[it] === c) r.rs.links.remove(it) }
+        }
+        if (r.rs.speaker == c.peerDevice) r.rs.speaker = null
+        msg?.let { repo.notify(it) }
+        if (!live(r)) return
+        links(r).forEach { it.applied = null; applyLimits(it) }   // Endpunktzahl geaendert -> Bitrate neu
+        bindMain(r)
+        update(r)
+    }
+
+    /** Teilnehmerliste neu holen (GET /api/calls/{id}) */
+    private suspend fun fetchRoster(r: Call) {
+        val id = r.id ?: return
+        try {
+            val st = json.decodeFromString(CallState.serializer(), api.get("api/calls/$id?device=${myDevId()}"))
+            if (st.call.legs.isNotEmpty()) rosterIn(r, st.call.legs, null, st.call.limit, poll = true)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * Teilnehmerliste uebernehmen (call.roster, GET): Begleitgeraet ja/nein, Hinweise "ist hinzugekommen" / "hat
+     * verlassen", Verbindungen zu Geraeten trennen, die nicht mehr dabei sind. Eine aeltere Liste (rv) ueberschreibt keine
+     * neuere; eine abgefragte (poll) trennt nie - das tun nur call.roster, bye und alive.
+     */
+    private fun rosterIn(r: Call, legs: List<CallLeg>, rv: Double?, limit: Int?, poll: Boolean = false) {
+        if (r.done) return
+        val rs = r.rs
+        val diff = rs.roster.apply(legs, rv) ?: return
+        if (limit != null && limit > 0) rs.limit = CallRoom.limit(r.media, limit)
+        val me = myDevId()
+        rs.roster.of(me)?.let { mine ->
+            if (rs.hoRep == null && !rs.took) rs.companion = mine.companion
+            if (!mine.companion) rs.took = false
+        }
+        if (multi(r) && r.ready) {
+            for (x in diff.joined) if (x.device != me) repo.notify(UiText.Res(R.string.room_joined, x.name.ifEmpty { x.who }, x.devName.ifEmpty { "?" }))
+            if (!poll) for (x in diff.left) if (x.device != me) repo.notify(UiText.Res(R.string.room_left, x.name.ifEmpty { x.who }, x.devName.ifEmpty { "?" }))
+        }
+        if (!poll) {
+            val now = legs.map { it.device }.toSet()
+            for (l in links(r)) if (l.peerDevice != null && l.peerDevice !in now && l.established) dropLink(l, null)
+        }
+        hoCheck(r)
+        bindMain(r)
+        update(r)
     }
 
     // ---------------------------------------------------------------- Anrufen
@@ -1229,6 +1661,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             return
         }
         val c = Call(null, chatId, true, if (video) "video" else "audio", peer)
+        c.v2 = !peer.handle.isNullOrEmpty()                 // 2.3: Gegenueber auf einem anderen Server
         cur = c
         _ui.value = CallUiState(CallPhase.PREPARING, null, chatId, true, video, peer, cam = video, speaker = video, message = UiText.Res(R.string.call_media))
         CallActivity.open(app)
@@ -1238,11 +1671,11 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 keys()
                 val cfg = loadConfig()
                 if (!cfg.enabled) throw UiTextException(UiText.Res(R.string.call_disabled))
-                c.myCaps = CallV3.myCaps(cfg.featureSet)
+                c.myCaps = CallRoom.myCaps(cfg.featureSet)       // 2.4: inkl. `multi` (Raum), wenn der Server es kann
                 c.capsHint = cfg.featureSet.isNotEmpty()
                 peerKeys(c)
                 if (c.peerDevs.isEmpty()) throw UiTextException(UiText.Res(R.string.call_peer_no_keys, peer.name.ifEmpty { peer.username }))
-                if (cur !== c) return@launch
+                if (!live(c)) return@launch
                 localMedia(c, video)
                 c.media = if (c.videoTrack != null) "video" else "audio"
                 CallService.start(app, c.videoTrack != null)
@@ -1257,7 +1690,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                if (cur === c) fail(c, if (e is UiTextException) e.text else repo.friendly(e))
+                if (live(c)) fail(c, if (e is UiTextException) e.text else repo.friendly(e))
             }
         }
     }
@@ -1314,7 +1747,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 }
             }
         }
-        if (cur !== c) {
+        if (!live(c)) {
             quietPost("api/calls/${c.id}/end", buildJsonObject { put("reason", "hangup") })
             return
         }
@@ -1325,6 +1758,436 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         startLoops(c)
     }
 
+    // ---------------------------------------------------------------- 2.4 E4/E5: Beitreten, Begleitgeraet, Uebernahme, Gruppen
+
+    /** Laufender Anruf auf einem anderen eigenen Geraet bzw. Gruppenanruf ohne mich: Leiste mit Hinzufuegen/Uebernehmen/Beitreten */
+    val run = MutableStateFlow<RunBar?>(null)
+    private var runJob: Job? = null
+
+    /** Leiste neu bestimmen (GET /api/calls/active) - nach call.roster/call.state, Verbindungsaufbau des Live-Kanals */
+    fun refreshRun() {
+        if (repo.needsLogin.value || repo.chat.keys() == null) return
+        runJob?.cancel()
+        runJob = scope.launch {
+            delay(400)                                      // mehrere Ereignisse kurz hintereinander zusammenfassen
+            try {
+                val cfg = config ?: loadConfig()
+                if (!CallRoom.multi(CallRoom.myCaps(cfg.featureSet))) {
+                    run.value = null
+                    return@launch
+                }
+                val r = json.decodeFromString(CallsActive.serializer(), api.get("api/calls/active"))
+                run.value = CallRoom.runBar(r.calls, myUser(), myDevId(), cur?.id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private var capsSent: String? = null
+
+    /** Faehigkeiten dieses Geraets melden (PUT /api/calls/caps) - zu Gruppenanrufen wird nur eingeladen, wer `multi` hat */
+    private suspend fun reportCaps(cfg: CallConfig) {
+        val caps = CallRoom.myCaps(cfg.featureSet)
+        if (!CallRoom.multi(caps)) return
+        val dev = repo.chat.keys()?.dev?.id ?: return
+        val key = dev + caps.joinToString(",")
+        if (capsSent == key) return
+        try {
+            api.put("api/calls/caps", buildJsonObject {
+                put("device", dev)
+                put("caps", JsonArray(caps.map { JsonPrimitive(it) }))
+            })
+            capsSent = key
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * Mit diesem Geraet einem laufenden Anruf beitreten. role: member (Gruppe), companion (Begleitgeraet: ohne Mikrofon und
+     * Ton), handover ("Hierher uebernehmen": ersetzt das eigene Hauptgeraet, erst still bis alle Verbindungen stehen).
+     */
+    fun join(callId: String, chatId: Long, role: String, video: Boolean, title: String = "") {
+        if (!CallLogic.validId(callId)) return
+        val cur0 = cur
+        if (cur0 != null) {
+            if (cur0.id != callId) repo.notify(UiText.Res(R.string.call_already)) else CallActivity.open(app)
+            return
+        }
+        if (ring?.id == callId) unring(callId)
+        val st0 = CallRoom.start(role, video)
+        val c = Call(callId, chatId, true, if (video) "video" else "audio", CallPeer(name = title))
+        c.rs.companion = role == CallRoom.ROLE_COMPANION
+        c.rs.inRoom = true
+        c.rs.title = title
+        c.micOn = st0.mic
+        c.rs.playback = st0.playback
+        cur = c
+        run.value = null
+        _ui.value = CallUiState(CallPhase.CONNECTING, callId, chatId, true, video, c.peer, mic = st0.mic, cam = st0.cam, speaker = st0.cam,
+            message = UiText.Res(R.string.call_connecting))
+        CallActivity.open(app)
+        scope.launch {
+            try {
+                keys()
+                val cfg = loadConfig()
+                c.myCaps = CallRoom.myCaps(cfg.featureSet)
+                c.capsHint = true
+                if (!multi(c)) throw UiTextException(UiText.Res(R.string.room_server_old))
+                val st = json.decodeFromString(CallState.serializer(), api.get("api/calls/$callId?device=${myDevId()}"))
+                val k = st.call
+                c.media = k.media
+                c.rs.kind = k.kind
+                c.v2 = k.v == 2
+                c.rs.limit = CallRoom.limit(k.media, k.limit ?: cfg.endpoints(k.media))
+                c.rs.old = k.old.map { it.name.ifEmpty { it.username } }
+                st.signals.forEach { c.seen.add(it.seq) }
+                if (k.state == "ended") throw UiTextException(UiText.Res(R.string.call_already_ended))
+                if (!k.joinable) throw UiTextException(CallRoom.blockText(k.joinBlock, c.rs.limit))
+                c.rs.roster.apply(k.legs)
+                var rl = role
+                var rep: String? = null
+                if (role == CallRoom.ROLE_HANDOVER) {
+                    rep = CallRoom.mainDevice(k.legs, myUser(), myDevId())
+                    if (rep == null) rl = CallRoom.ROLE_MEMBER else {
+                        c.rs.hoRep = rep
+                        c.rs.hoJoin = true
+                    }
+                }
+                // Anzeige: im 1:1 die andere Person, in Gruppen der Chat
+                if (k.kind != CallRoom.KIND_GROUP) k.legs.firstOrNull { it.who != myUser() }?.let { c.peer = it.person() }
+                else if (title.isEmpty()) c.peer = CallPeer(name = k.legs.firstOrNull()?.name.orEmpty())
+                if (!live(c)) return@launch
+                localMedia(c, st0.cam && k.media == "video")
+                applyMic(c)
+                setPlayback(c, c.rs.playback)
+                CallService.start(app, c.videoTrack != null)
+                offerAll(c, rl, rep, cfg, again = false)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (!live(c)) return@launch
+                // nie beigetreten: kein /end (das wuerde einen fremden bzw. laufenden Anruf beenden)
+                if (c.ready) quietPost("api/calls/$callId/leave", buildJsonObject { put("device", myDevId()) })
+                c.ending = true
+                fail(c, if (e is UiTextException) e.text else if (e is ApiException && e.code == 409) UiText.Res(R.string.call_already_ended) else repo.friendly(e))
+            }
+        }
+    }
+
+    /** Je anderem Endpunkt eine PeerConnection mit Angebot, alles in einem POST /join. 409 mit neuer Liste: einmal neu. */
+    private suspend fun offerAll(c: Call, role: String, rep: String?, cfg: CallConfig, again: Boolean) {
+        for (l in c.rs.links.values) {
+            try {
+                l.pc?.close()
+                l.pc?.dispose()
+            } catch (_: Exception) {
+            }
+            l.pc = null
+            l.gone = true
+        }
+        c.rs.links.clear()
+        val me = myDevId()
+        val others = c.rs.roster.legs.filter { it.device != me }
+        val sig = LinkedHashMap<String, JsonPrimitive>()
+        for (x in others) {
+            val l = newLink(c, x.device, x, caller = true)
+            c.rs.links[x.device] = l
+            peerKeys(l)
+            if (l.peerDevs[x.device] == null) throw UiTextException(UiText.Res(R.string.room_unknown_abort, x.name.ifEmpty { x.who }))
+            val pc = makePc(l, cfg)
+            l.pc = pc
+            addLocal(l, pc, false)
+            val o = createSdp(pc, true)
+            setSdp(pc, true, o)
+            noteMids(l)
+            val sdp = pc.localDescription?.description ?: o.description
+            val body = buildJsonObject {
+                put("t", "offer")
+                put("pc", CallRoom.pairId(me, x.device))
+                put("n", 1)
+                put("caps", capsJson(l))
+                put("media", c.media)
+                put("sdp", sdp)
+                put("fp", buildJsonArray { CallCrypto.sdpFingerprints(sdp).forEach { add(JsonPrimitive(it)) } })
+                putTracks(l, this)
+            }
+            sig[x.device] = JsonPrimitive(withContext(Dispatchers.Default) { seal(l, x.device, body.toString()) })
+        }
+        val r = try {
+            json.decodeFromString(CallWrap.serializer(), api.post("api/calls/${c.id}/join", buildJsonObject {
+                put("device", me)
+                put("role", role)
+                put("caps", capsJson(c))
+                put("signals", JsonObject(sig))
+                if (rep != null && role == CallRoom.ROLE_HANDOVER) put("replaces", rep)
+            }))
+        } catch (e: ApiException) {
+            val o = try {
+                Json.parseToJsonElement(e.body) as? JsonObject
+            } catch (_: Exception) {
+                null
+            }
+            val block = CallRoom.str(o, "join_block")
+            if (e.code == 409 && o?.get("legs") is JsonArray && block == null && !again) {
+                c.rs.roster.apply(CallRoom.legsOf(o["legs"]))       // Liste veraltet: einmal neu anbieten
+                return offerAll(c, role, rep, cfg, again = true)
+            }
+            if (e.code == 409 && block != null) {
+                val lim = (o?.get("limit") as? JsonPrimitive)?.intOrNull ?: c.rs.limit
+                throw UiTextException(CallRoom.blockText(block, lim))
+            }
+            if (e.code == 429) throw UiTextException(UiText.Res(R.string.call_rate))
+            throw e
+        }
+        if (!live(c)) {
+            quietPost("api/calls/${c.id}/leave", buildJsonObject { put("device", me) })
+            return
+        }
+        c.ready = true
+        r.call?.let { k ->
+            k.limit?.let { c.rs.limit = CallRoom.limit(c.media, it) }
+            rosterIn(c, k.legs, null, k.limit, poll = true)
+        }
+        startLoops(c)
+        for (l in links(c)) {
+            flushIce(l)
+            l.connJob = scope.launch {
+                delay(30_000)
+                if (live(l) && !l.connected) dropLink(l, UiText.Res(R.string.room_link_failed, l.peer.name.ifEmpty { l.peer.username }))
+            }
+        }
+        if (c.rs.hoRep != null) {
+            c.rs.hoStart = System.currentTimeMillis()
+            c.rs.hoJob = scope.launch {
+                delay((config?.handoverS ?: CallRoom.HANDOVER_S) * 1000L)
+                hoFail(c)
+            }
+        }
+        val early = ArrayList(c.early)
+        c.early.clear()
+        for (s in early) if (live(c)) route(c, s)
+        update(c, UiText.Res(R.string.call_connecting))
+    }
+
+    /**
+     * Uebernahme: sobald alle Verbindungen zu ANDEREN Personen stehen, uebernimmt dieses Geraet Ton und Mikrofon und sagt
+     * dem bisherigen Geraet Bescheid (`state.ready` + `replaces`) - das schaltet im selben Moment ab und verlaesst den Anruf.
+     */
+    private fun hoCheck(r: Call) {
+        val rs = r.rs
+        val rep = rs.hoRep ?: return
+        if (!r.ready || r.done || !live(r)) return
+        val others = links(r).filter { !own(it) }.map { it.connected }
+        if (CallRoom.handoverStep(others, rs.hoStart, System.currentTimeMillis(), Int.MAX_VALUE) != CallRoom.HoStep.READY) return
+        rs.hoRep = null
+        rs.hoJob?.cancel()
+        rs.companion = false
+        rs.took = true
+        r.micOn = true
+        applyMic(r)
+        setPlayback(r, true)
+        CallService.start(app, r.videoTrack != null)       // jetzt mit Mikrofon im Vordergrund-Dienst
+        val a = linkOf(r, rep)
+        if (a != null && a.established) scope.launch { if (live(a)) stateOut(a, replaces = rep) }
+        else quietPost("api/calls/${r.id}/leave", buildJsonObject {        // eigenes Geraet ohne Verbindung
+            put("device", rep)
+            put("reason", "handover")
+        })
+        update(r)
+        stateAll(r)
+    }
+
+    /** Uebernahme hat nicht rechtzeitig geklappt: per join -> dieses Geraet verlaesst den Anruf; als Begleitgeraet -> bleibt still */
+    private fun hoFail(r: Call) {
+        val rs = r.rs
+        if (rs.hoRep == null || !live(r)) return
+        rs.hoRep = null
+        if (rs.hoJoin) {
+            quietPost("api/calls/${r.id}/leave", buildJsonObject { put("device", myDevId()) })
+            r.ending = true
+            finish(r, UiText.Res(R.string.room_takeover_failed), true)
+        } else {
+            repo.notify(UiText.Res(R.string.room_takeover_failed))
+            update(r)
+        }
+    }
+
+    /** Begleitgeraet -> Hauptgeraet ("Hierher uebernehmen" im Anrufbildschirm, ohne neuen Beitritt) */
+    fun takeOver() {
+        val r = cur ?: return
+        if (r.done || r.rs.hoRep != null) return
+        val main = CallRoom.mainDevice(r.rs.roster.legs, myUser(), myDevId())
+        if (main == null) {
+            r.rs.companion = false
+            r.rs.took = true
+            r.micOn = true
+            applyMic(r)
+            setPlayback(r, true)
+            update(r)
+            stateAll(r)
+            return
+        }
+        r.rs.hoRep = main
+        r.rs.hoJoin = false
+        r.rs.hoStart = System.currentTimeMillis()
+        r.rs.hoJob = scope.launch {
+            delay((config?.handoverS ?: CallRoom.HANDOVER_S) * 1000L)
+            hoFail(r)
+        }
+        update(r)
+        hoCheck(r)
+    }
+
+    /** Ein anderes eigenes Geraet hat uebernommen: sofort still, `bye` an die anderen, verlassen, Hinweis */
+    private fun handoverOut(r: Call, from: String) {
+        if (!live(r) || r.done) return
+        r.micOn = false
+        applyMic(r)
+        setPlayback(r, false)
+        val id = r.id
+        val x = r.rs.roster.of(from)
+        val bye = byeSeal(r, "handover", except = from)
+        r.ending = true
+        scope.launch {
+            // erst "bye" an die anderen (danach nimmt der Server keine Signale dieses Geraets mehr an), dann verlassen
+            if (id != null) kotlinx.coroutines.withTimeoutOrNull(1500) { byePost(id, bye) }
+            if (id != null) quietPost("api/calls/$id/leave", buildJsonObject {
+                put("device", myDevId())
+                put("reason", "handover")
+            })
+        }
+        finish(r, UiText.Res(R.string.room_taken_over, x?.devName?.ifEmpty { null } ?: app.getString(R.string.room_other_device)), false)
+    }
+
+    /** Gruppenanruf beginnen (Gruppen-, freie und Seiten-Chats): erst allein, alle anderen klingeln (call.invite) */
+    fun startGroup(chatId: Long, title: String, video: Boolean, running: RunningCall? = null) {
+        if (running != null && running.kind == CallRoom.KIND_GROUP && running.state != "ended" && running.id.isNotEmpty()) {
+            join(running.id, chatId, CallRoom.ROLE_MEMBER, video, title)
+            return
+        }
+        if (cur != null || ring != null) {
+            repo.notify(UiText.Res(R.string.call_already))
+            return
+        }
+        val c = Call(null, chatId, true, if (video) "video" else "audio", CallPeer(name = title))
+        c.rs.kind = CallRoom.KIND_GROUP
+        c.rs.inRoom = true
+        c.rs.starter = true
+        c.rs.title = title
+        cur = c
+        _ui.value = CallUiState(CallPhase.PREPARING, null, chatId, true, video, c.peer, cam = video, speaker = video, message = UiText.Res(R.string.call_media))
+        CallActivity.open(app)
+        scope.launch {
+            try {
+                keys()
+                val cfg = loadConfig()
+                if (!cfg.enabled) throw UiTextException(UiText.Res(R.string.call_disabled))
+                c.myCaps = CallRoom.myCaps(cfg.featureSet)
+                c.capsHint = true
+                if (!CallRoom.groupOk(cfg.featureSet)) throw UiTextException(UiText.Res(R.string.room_server_old))
+                c.rs.limit = cfg.endpoints(c.media)
+                if (!live(c)) return@launch
+                localMedia(c, video)
+                c.media = if (c.videoTrack != null) "video" else "audio"
+                CallService.start(app, c.videoTrack != null)
+                c.id = ChatFormat.hex(repo.chat.crypto.random(16))
+                val r = try {
+                    json.decodeFromString(CallWrap.serializer(), api.post("api/calls", buildJsonObject {
+                        put("id", c.id)
+                        put("chat_id", chatId)
+                        put("media", c.media)
+                        put("device", myDevId())
+                        put("caps", capsJson(c))
+                    }))
+                } catch (e: ApiException) {
+                    val o = try {
+                        Json.parseToJsonElement(e.body) as? JsonObject
+                    } catch (_: Exception) {
+                        null
+                    }
+                    val runId = CallRoom.str(o, "running") ?: CallRoom.str(o?.get("running") as? JsonObject, "id")
+                    c.id = null
+                    if (e.code == 409 && runId != null) {           // laeuft schon -> beitreten
+                        c.ending = true
+                        finish(c, UiText.Res(R.string.call_connecting), false)
+                        _ui.value = null
+                        join(runId, chatId, CallRoom.ROLE_MEMBER, video, title)
+                        return@launch
+                    }
+                    if (e.code == 429) throw UiTextException(UiText.Res(R.string.call_rate))
+                    throw e
+                }
+                if (!live(c)) {
+                    quietPost("api/calls/${c.id}/end", buildJsonObject {
+                        put("reason", "hangup")
+                        put("device", myDevId())
+                    })
+                    return@launch
+                }
+                c.ready = true
+                r.call?.let { k ->
+                    c.rs.old = k.old.map { it.name.ifEmpty { it.username } }
+                    rosterIn(c, k.legs, null, k.limit, poll = true)
+                }
+                tone(ToneGenerator.TONE_SUP_RINGTONE)
+                startLoops(c)
+                val early = ArrayList(c.early)
+                c.early.clear()
+                for (s in early) if (live(c)) route(c, s)
+                update(c)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                if (live(c)) fail(c, if (e is UiTextException) e.text else repo.friendly(e))
+            }
+        }
+    }
+
+    /** call.invite: Gruppenanruf klingelt (still bei grossen Gruppen: nur die Leiste) */
+    private fun onInvite(ev: LiveEvent) {
+        val id = ev.str("call_id") ?: return
+        if (!CallLogic.validId(id) || id in gone || cur?.id == id || ring?.id == id) return
+        if (ev.bool("silent")) {
+            refreshRun()
+            return
+        }
+        val from = ev.obj("from")
+        val peer = CallPeer(
+            CallRoom.str(from, "username").orEmpty(), CallRoom.str(from, "name").orEmpty(), CallRoom.str(from, "avatar"),
+            CallRoom.str(from, "handle"),
+        )
+        CallRoom.str(from, "chat")?.let { titles[id] = it }
+        val info = CallInfo(id = id, chatId = ev.long("chat_id") ?: 0, media = ev.str("media") ?: "audio", state = "ringing", role = "callee",
+            peer = peer, ringS = ev.int("ring_s"), kind = CallRoom.KIND_GROUP)
+        ringGroup(info)
+    }
+
+    /** Chat-Titel klingelnder Gruppenanrufe */
+    private val titles = HashMap<String, String>()
+
+    private fun ringGroup(info: CallInfo) {
+        if (cur != null || ring != null) {
+            refreshRun()                                     // telefoniere schon: nicht ablehnen, nur Leiste
+            return
+        }
+        ring = info
+        _ui.value = CallUiState(CallPhase.INCOMING, info.id, info.chatId, false, info.media == "video", info.peer, group = true)
+        CallNotify.showIncoming(app, info)
+        if (androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
+            CallActivity.open(app)
+        }
+        val left = ((info.expiresIn ?: (info.ringS ?: 45).toDouble()).coerceAtLeast(5.0) * 1000).toLong() + 3000
+        ringJob?.cancel()
+        ringJob = scope.launch {
+            delay(left)
+            unring(info.id, UiText.Res(R.string.call_missed))
+        }
+    }
+
     // ---------------------------------------------------------------- Klingeln, Annehmen
 
     private fun pending() {
@@ -1332,7 +2195,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         scope.launch {
             try {
                 val r = json.decodeFromString(CallsActive.serializer(), api.get("api/calls/active"))
-                for (x in r.calls) if (x.role == "callee" && x.state == "ringing") checkRing(x.id)
+                for (x in r.calls) if (x.role == "callee" && x.state == "ringing" || x.kind == CallRoom.KIND_GROUP && x.invite == "ringing") checkRing(x.id)
+                config?.let { reportCaps(it) }
+                refreshRun()
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -1353,6 +2218,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
+            return
+        }
+        // 2.4 E5: Gruppenanruf (Mitteilung "call.group"): eigene Einladung klingelt und noch kein eigenes Geraet dabei
+        if (info.kind == CallRoom.KIND_GROUP) {
+            if (info.invite == "ringing" && !CallRoom.stopRinging(info.legs, myUser()) && callId !in gone && ring?.id != callId) {
+                val from = info.legs.firstOrNull()?.person() ?: info.peer
+                ringGroup(info.copy(peer = from, state = "ringing", role = "callee"))
+            }
             return
         }
         if (info.state != "ringing" || info.role != "callee" || callId in gone || ring?.id == callId) return
@@ -1402,6 +2275,11 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     fun accept(video: Boolean) {
         val r = ring ?: return
         unring(r.id)
+        // 2.4 E5: Gruppenanruf annehmen = beitreten (Mitglied)
+        if (r.kind == CallRoom.KIND_GROUP) {
+            join(r.id, r.chatId, CallRoom.ROLE_MEMBER, video, titles[r.id].orEmpty())
+            return
+        }
         if (cur != null) {
             repo.notify(UiText.Res(R.string.call_already))
             return
@@ -1446,12 +2324,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 }
                 c.peerDevice = info.callerDevice
                 c.fps = CallCrypto.sdpFingerprints(sdp)
-                c.myCaps = CallV3.myCaps(cfg.featureSet)
+                c.myCaps = CallRoom.myCaps(cfg.featureSet)       // 2.4: inkl. `multi` (Raum), wenn der Server es kann
                 c.capsHint = cfg.featureSet.isNotEmpty()
                 c.peerCaps = CallV3.caps(offer)
                 // `pc` legt der Anrufer fest; der Angerufene uebernimmt sie (2.3 ohne pc: das Geraetepaar)
                 c.pcId = offer.s("pc")?.take(200) ?: CallV3.pcId(k.dev.id, info.callerDevice.orEmpty())
-                if (cur !== c) return@launch
+                if (!live(c)) return@launch
                 localMedia(c, video)
                 CallService.start(app, c.videoTrack != null)
                 val pc = makePc(c, cfg)
@@ -1480,8 +2358,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     put("signals", sig)
                     if (c.capsHint) put("caps", capsJson(c))
                 })
-                if (cur !== c) return@launch
+                if (!live(c)) return@launch
                 c.ready = true
+                c.established = true
                 update(c, UiText.Res(R.string.call_connecting))
                 applyRemoteIce(c)
                 flushIce(c)
@@ -1489,20 +2368,17 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 stateOut(c)
                 val early = ArrayList(c.early)
                 c.early.clear()
-                for (s in early) {
-                    val b = openSig(c, s)
-                    if (cur === c) handle(c, b)
-                }
+                for (s in early) if (live(c)) route(c, s)
                 c.connJob = scope.launch {
                     delay(30_000)
-                    if (cur === c && !c.connected) iceFailed(c)
+                    if (live(c) && !c.connected) iceFailed(c)
                 }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: ApiException) {
-                if (cur === c) fail(c, if (e.code == 409) UiText.Res(R.string.call_gone_or_elsewhere) else repo.friendly(e))
+                if (live(c)) fail(c, if (e.code == 409) UiText.Res(R.string.call_gone_or_elsewhere) else repo.friendly(e))
             } catch (e: Exception) {
-                if (cur === c) fail(c, if (e is UiTextException) e.text else repo.friendly(e))
+                if (live(c)) fail(c, if (e is UiTextException) e.text else repo.friendly(e))
             }
         }
     }
@@ -1510,18 +2386,21 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     // ---------------------------------------------------------------- Verbindung, Pruefung, Qualitaet
 
     private fun onConn(c: Call, st: PeerConnection.PeerConnectionState) {
-        if (cur !== c || c.pc == null) return
+        if (!live(c) || c.pc == null) return
         log("connection $st")
         when (st) {
             PeerConnection.PeerConnectionState.CONNECTED -> {
                 if (!c.connected) {
                     c.connected = true
-                    c.t0 = System.currentTimeMillis()
+                    if (c.t0 == 0L) c.t0 = System.currentTimeMillis()      // Raum: Dauer ab der ersten Verbindung
                     stopTone()
                     c.connJob?.cancel()
                     scope.launch { stateOut(c) }
                     checkStats(c)
-                    watchNetwork(c)
+                    watchNetwork(roomOf(c))
+                    // 2.4: weitere Verbindung -> Mesh-Bitrate fuer alle neu; Uebernahme evtl. fertig
+                    links(c).forEach { if (it !== c) { it.applied = null; applyLimits(it) } }
+                    hoCheck(roomOf(c))
                 }
                 update(c, null, reconnecting = false)
             }
@@ -1542,7 +2421,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (c.failJob?.isActive == true) return
         c.failJob = scope.launch {
             delay(CallV3.FAILED_WAIT_MS)
-            if (cur === c && c.pc?.connectionState() != PeerConnection.PeerConnectionState.CONNECTED) iceFailed(c)
+            if (live(c) && c.pc?.connectionState() != PeerConnection.PeerConnectionState.CONNECTED) iceFailed(c)
         }
     }
 
@@ -1551,7 +2430,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
      * hoechstens 3 Versuche je Abbruch, zurueckgesetzt bei `connected`.
      */
     private fun onIce(c: Call, s: PeerConnection.IceConnectionState) {
-        if (cur !== c || c.pc == null) return
+        if (!live(c) || c.pc == null) return
         when (s) {
             PeerConnection.IceConnectionState.CONNECTED, PeerConnection.IceConnectionState.COMPLETED -> {
                 c.restartTries = 0
@@ -1563,7 +2442,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             PeerConnection.IceConnectionState.DISCONNECTED -> {
                 if (c.connected && reneg(c) && c.restartJob?.isActive != true) c.restartJob = scope.launch {
                     delay(CallV3.DISCONNECTED_WAIT_MS)
-                    if (cur === c && c.pc?.iceConnectionState() == PeerConnection.IceConnectionState.DISCONNECTED) restartIce(c, "disconnected")
+                    if (live(c) && c.pc?.iceConnectionState() == PeerConnection.IceConnectionState.DISCONNECTED) restartIce(c, "disconnected")
                 }
             }
             PeerConnection.IceConnectionState.FAILED -> {
@@ -1587,7 +2466,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     private fun checkStats(c: Call) {
         val pc = c.pc ?: return
         pc.getStats { rep: RTCStatsReport ->
-            scope.launch { if (cur === c && !c.done) onStats(c, rep) }
+            scope.launch { if (live(c) && !c.done) onStats(c, rep) }
         }
     }
 
@@ -1605,7 +2484,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (pair == null) pair = byId.values.firstOrNull {
             it.type == "candidate-pair" && it.members["state"] == "succeeded" && (it.members["nominated"] == true || it.members["selected"] == true)
         }
-        var path = _ui.value?.path.orEmpty()
+        if (ok == true) c.verified = true
+        val r = roomOf(c)
+        val main = primary(r) === c
+        var path = if (main) _ui.value?.path.orEmpty() else ""
         var rtt: Double? = null
         if (pair != null) {
             val l = byId[pair.members["localCandidateId"] as? String]
@@ -1620,7 +2502,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 applyLimits(c)
                 if (changed) {
                     log("path $p")
-                    scope.launch { if (cur === c) stateOut(c) }   // `state.path` an das Gegenueber
+                    scope.launch { if (live(c)) stateOut(c) }   // `state.path` an das Gegenueber
                 }
             }
             rtt = (pair.members["currentRoundTripTime"] as? Number)?.toDouble()
@@ -1654,28 +2536,46 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
         c.audioPk = aPk
         log("audio in pk=$aPk samples=$aSamples level=$aLevel out bytes=$aOut")
+        // 2.4 E5: Pegel der empfangenen Tonspur -> aktiver Sprecher (Kachel hervorheben, Bild-im-Bild)
+        c.peerDevice?.let { d ->
+            if (!own(c) && c.connected) r.rs.levels[d] = if (c.rMic) aLevel ?: 0.0 else 0.0
+            val sp = CallRoom.speaker(r.rs.levels.filterKeys { k -> linkOf(r, k) != null }, r.rs.speaker)
+            if (sp != r.rs.speaker) {
+                r.rs.speaker = sp
+                bindMain(r)
+                update(r)
+            }
+        }
         val dl = lost - c.lastLost
         val dr = recv - c.lastRecv
         c.lastLost = lost
         c.lastRecv = recv
         val loss = if (dr + dl > 0) dl.toDouble() / (dr + dl) else 0.0
         val st = _ui.value ?: return
-        _ui.value = st.copy(
-            verified = st.verified || ok == true, path = path, quality = CallLogic.quality(loss, rtt, dr), bytesIn = bytes, audioIn = audioIn,
+        // "Ende-zu-Ende ✓" erst, wenn JEDE Verbindung des Raums geprueft ist; Weg/Qualitaet der Hauptverbindung
+        val ls = links(r)
+        val verified = ls.isNotEmpty() && ls.all { it.verified || !it.connected } && ls.any { it.verified }
+        _ui.value = if (main) st.copy(
+            verified = verified, path = path, quality = CallLogic.quality(loss, rtt, dr), bytesIn = bytes, audioIn = audioIn,
             remoteVideo = c.remoteVideo != null && (if (c.gotState) c.rCam || c.rScreen else c.media == "video"),
-        )
-        log("stats verified=${st.verified || ok == true} path=$path bytesIn=$bytes")
+        ) else st.copy(verified = verified)
+        log("stats verified=$verified path=$path bytesIn=$bytes")
     }
 
     private fun startLoops(c: Call) {
         val alive = (config?.aliveS ?: 15).coerceIn(5, 60) * 1000L
         c.jobs += scope.launch {
-            while (cur === c && !c.done) {
+            while (live(c) && !c.done) {
                 delay(alive)
                 val id = c.id ?: break
                 try {
-                    val r = json.decodeFromString(CallAlive.serializer(), api.post("api/calls/$id/alive"))
+                    // 2.4: mit Geraet - `leg: "left"` = dieses Geraet ist nicht mehr im Anruf (z. B. uebernommen)
+                    val r = json.decodeFromString(CallAlive.serializer(), api.post("api/calls/$id/alive", buildJsonObject { put("device", myDevId()) }))
                     if (r.state == "ended") remoteEnded(c, r.reason)
+                    else if (r.leg == "left" && c.rs.hoRep == null) {
+                        c.ending = true
+                        finish(c, UiText.Res(R.string.room_left_here), false)
+                    }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (_: Exception) {
@@ -1684,7 +2584,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
         // Abfrage als Rueckfall (Live-Kanal ruht im Hintergrund bzw. Proxy puffert): Signale + Zustand alle 3 s
         c.jobs += scope.launch {
-            while (cur === c && !c.done) {
+            while (live(c) && !c.done) {
                 delay(3000)
                 val id = c.id ?: break
                 val dev = repo.chat.keys()?.dev?.id ?: break
@@ -1692,9 +2592,11 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     val after = c.seen.maxOrNull() ?: 0
                     val st = json.decodeFromString(CallState.serializer(), api.get("api/calls/$id?device=$dev&after=$after"))
                     for (s in st.signals) signalIn(id, s)
+                    if (st.call.legs.isNotEmpty()) rosterIn(c, st.call.legs, null, st.call.limit, poll = true)
                     when {
                         st.call.state == "ended" -> remoteEnded(c, st.call.reason)
-                        st.call.state == "active" && c.caller && c.peerDevice == null -> activeAsCaller(c, st.call.calleeDevice)
+                        st.call.state == "active" && c.caller && c.peerDevice == null && c.pc != null && c.rs.kind == CallRoom.KIND_DM ->
+                            activeAsCaller(c, st.call.calleeDevice)
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -1703,10 +2605,13 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             }
         }
         c.jobs += scope.launch {
-            while (cur === c && !c.done) {
+            while (live(c) && !c.done) {
                 delay(2000)
-                if (c.connected) checkStats(c)
-                bindRemote(c)                               // E3: Spuren ohne Bilder nicht gross zeigen (ruft update)
+                for (l in links(c)) {
+                    if (l.connected) checkStats(l)
+                    bindRemote(l)                           // E3: Spuren ohne Bilder nicht gross zeigen (ruft update)
+                }
+                if (links(c).isEmpty()) update(c)
             }
         }
     }
@@ -1718,7 +2623,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         c.connJob?.cancel()
         c.connJob = scope.launch {
             delay(30_000)
-            if (cur === c && !c.connected) iceFailed(c)
+            if (live(c) && !c.connected) iceFailed(c)
         }
     }
 
@@ -1729,8 +2634,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (c.audioTrack == null) return
         c.micOn = !c.micOn
         applyMic(c)
+        // Begleitgeraet: Mikrofon erst jetzt erlaubt -> Vordergrund-Dienst mit Typ microphone neu melden
+        if (c.micOn && (c.rs.companion || c.rs.took)) CallService.start(app, c.videoTrack != null)
         update(c)
-        scope.launch { stateOut(c) }
+        stateAll(c)
     }
 
     /** Stumm: ohne Systemton die Tonspur aus; mit gemischtem Systemton nur das Mikrofon (die Spur bleibt an) */
@@ -1738,15 +2645,29 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val m = c.mixer?.takeIf { it.active }
         m?.micMuted = !c.micOn
         c.audioTrack?.setEnabled(c.micOn || m != null)
+        // 2.4 E4: Begleitgeraet bzw. Uebernahme vor "bereit" - Mikrofon auch im ADM stumm (kein Ton verlaesst das Geraet)
+        adm?.setMicrophoneMute(!c.micOn && m == null)
+    }
+
+    /** 2.4 E4: Wiedergabe an/aus (Begleitgeraet: standardmaessig aus, Echo-Schutz) */
+    fun togglePlayback() {
+        val c = cur ?: return
+        setPlayback(c, !c.rs.playback)
+        update(c)
+    }
+
+    private fun setPlayback(c: Call, on: Boolean) {
+        c.rs.playback = on
+        adm?.setSpeakerMute(!on)
     }
 
     fun toggleCam() {
         val c = cur ?: return
-        if (c.pc == null) return
-        // Betriebsart A: auf der Kamera-m-Zeile laeuft gerade der Bildschirm - Kamera nur lokal schalten
-        val camSends = !(c.screen != null && c.scrMode == CallScreen.Mode.A)
+        if (c.done) return
+        // Betriebsart A: auf der Kamera-m-Zeile laeuft gerade der Bildschirm - Kamera dort nur lokal schalten
+        val ls = links(c)
         if (c.videoTrack != null) {
-            if (camSends) videoSender(c)?.setTrack(null, false)
+            for (l in ls) if (!(c.screen != null && l.scrMode == CallScreen.Mode.A)) videoSender(l)?.setTrack(null, false)
             stopCamera(c)
             CallService.setVideo(app, false)
         } else {
@@ -1758,12 +2679,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 repo.notify(UiText.Res(R.string.call_no_camera))
                 return
             }
-            if (camSends) videoSender(c)?.setTrack(c.videoTrack, false)
+            for (l in ls) if (!(c.screen != null && l.scrMode == CallScreen.Mode.A)) videoSender(l)?.setTrack(c.videoTrack, false)
         }
-        c.applied = null
-        applyLimits(c)
+        for (l in ls) {
+            l.applied = null
+            applyLimits(l)
+        }
         update(c)
-        scope.launch { stateOut(c) }
+        stateAll(c)
     }
 
     fun switchCamera() {
@@ -1772,8 +2695,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
     // ---------------------------------------------------------------- 2.4 E3: Bildschirm teilen
 
-    /** Teilen moeglich: Anruf verbunden (Betriebsart A geht mit jeder Gegenstelle) */
-    fun canShare(): Boolean = cur?.let { it.connected && !it.done && it.pc != null } == true
+    /** Teilen moeglich: eine Verbindung steht (Betriebsart A geht mit jeder Gegenstelle) */
+    fun canShare(): Boolean = cur?.let { r -> !r.done && links(r).any { it.connected && it.pc != null } } == true
 
     /** Aufnahmegroesse aus der Bildschirmgroesse: lange Kante <= 1920 */
     private fun screenSize(): Pair<Int, Int> {
@@ -1793,25 +2716,24 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     /**
      * Bildschirm teilen, nachdem die Oberflaeche die Einwilligung (MediaProjection) erhalten hat. Reihenfolge fuer
      * Android 14+: Einwilligung -> Vordergrund-Dienst mit Typ mediaProjection -> Aufnahme (getMediaProjection).
-     * Betriebsart B (beide `reneg` + `screen2`): eigene m-Zeile (vorhandene wiederverwenden) und Neuverhandlung;
-     * sonst A: der Bildschirm ersetzt die Kamera auf ihrer m-Zeile. Ergebnis false = nicht moeglich.
+     * 2.4 E5: eine Aufnahme fuer alle Verbindungen; je Verbindung Betriebsart B (beide `reneg` + `screen2`: eigene
+     * m-Zeile, Neuverhandlung) bzw. A (der Bildschirm ersetzt die Kamera auf ihrer m-Zeile). Ergebnis false = nicht moeglich.
      */
     fun startScreen(data: android.content.Intent): Boolean {
         val c = cur ?: return false
-        val pc = c.pc ?: return false
-        if (c.screen != null || !c.connected || c.done) return false
+        if (c.screen != null || !canShare() || c.done) return false
         if (!CallService.setScreen(true)) {
             repo.notify(UiText.Res(R.string.call_screen_failed))
             return false
         }
         val f = factory()
         val (w, h) = screenSize()
-        val fps = CallScreen.captureFps(CallV3.worse(c.path, c.peerPath), hot())
+        val fps = CallScreen.captureFps(primary(c)?.let { CallV3.worse(it.path, it.peerPath) }, hot())
         var share: ScreenShare? = null
         val cb = object : MediaProjection.Callback() {
             // "Teilen beenden" in der Statusleiste bzw. Projektion vom System beendet
             override fun onStop() {
-                scope.launch { if (cur === c && share != null && c.screen === share) stopScreen(c) }
+                scope.launch { if (live(c) && share != null && c.screen === share) stopScreen(c) }
             }
 
             // Android 14+: einzelne App geteilt - Groesse folgt dem Fenster der App
@@ -1844,33 +2766,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             val s = ScreenShare(cap, src, track, sth, w, h, fps)
             share = s
             c.screen = s
-            c.scrMode = CallScreen.mode(c.myCaps, c.peerCaps, c.connected && c.peerDevice != null && pc.remoteDescription != null)
-            log("screen on mode=${c.scrMode} ${w}x$h@$fps")
+            log("screen on ${w}x$h@$fps")
             mixOn(c, cap)
-            if (c.scrMode == CallScreen.Mode.B) {
-                // hoechstens eine Bildschirm-m-Zeile je Verbindung: eigene oder vom Gegenueber angelegte wiederverwenden
-                val vids = pc.transceivers.filter { it.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO }
-                val reuse = CallScreen.reuseMid(c.scrMid, c.camMid, vids.mapNotNull { it.mid }, c.peerTracks)
-                val tr = reuse?.let { m -> vids.firstOrNull { it.mid == m } }
-                if (tr != null) {
-                    c.scrMid = reuse
-                    tr.sender.setTrack(track, false)
-                    tr.sender.setStreams(listOf(CallScreen.STREAM_SCREEN))
-                    tr.direction = RtpTransceiver.RtpTransceiverDirection.SEND_RECV
-                } else {
-                    c.scrMid = null
-                    pc.addTransceiver(track, RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.SEND_RECV, listOf(CallScreen.STREAM_SCREEN)))
-                }
-                c.needGen++
-                c.stateDue = true                           // state erst nach dem Angebot (screen_mid)
-                offerNow(c)
-                stateLater(c)
-            } else {
-                videoSender(c)?.setTrack(track, false)
-                scope.launch { if (cur === c) stateOut(c) }
-            }
-            c.applied = null
-            applyLimits(c)
+            for (l in links(c)) shareOn(l)
             update(c)
             true
         } catch (e: Exception) {
@@ -1890,6 +2788,39 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             repo.notify(UiText.Res(R.string.call_screen_failed))
             false
         }
+    }
+
+    /** Laufenden Bildschirm auf eine Verbindung legen (Betriebsart je Verbindung nach deren `caps`) */
+    private fun shareOn(c: Call) {
+        val s = c.screen ?: return
+        val pc = c.pc ?: return
+        if (c.scrMode != null) return
+        c.scrMode = CallScreen.mode(c.myCaps, c.peerCaps, c.connected && c.peerDevice != null && pc.remoteDescription != null)
+        log("screen link ${c.peerDevice?.take(8)} mode=${c.scrMode}")
+        if (c.scrMode == CallScreen.Mode.B) {
+            // hoechstens eine Bildschirm-m-Zeile je Verbindung: eigene oder vom Gegenueber angelegte wiederverwenden
+            val vids = pc.transceivers.filter { it.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO }
+            val reuse = CallScreen.reuseMid(c.scrMid, c.camMid, vids.mapNotNull { it.mid }, c.peerTracks)
+            val tr = reuse?.let { m -> vids.firstOrNull { it.mid == m } }
+            if (tr != null) {
+                c.scrMid = reuse
+                tr.sender.setTrack(s.track, false)
+                tr.sender.setStreams(listOf(CallScreen.STREAM_SCREEN))
+                tr.direction = RtpTransceiver.RtpTransceiverDirection.SEND_RECV
+            } else {
+                c.scrMid = null
+                pc.addTransceiver(s.track, RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.SEND_RECV, listOf(CallScreen.STREAM_SCREEN)))
+            }
+            c.needGen++
+            c.stateDue = true                               // state erst nach dem Angebot (screen_mid)
+            offerNow(c)
+            stateLater(c)
+        } else {
+            videoSender(c)?.setTrack(s.track, false)
+            scope.launch { if (live(c)) stateOut(c) }
+        }
+        c.applied = null
+        applyLimits(c)
     }
 
     /**
@@ -1917,19 +2848,36 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         cur?.let { stopScreen(it) }
     }
 
-    /**
-     * Teilen beenden. B: Spur weg, Richtung recvonly (nicht stoppen, nicht entfernen - die m-Zeile wird beim naechsten
-     * Teilen wiederverwendet) -> Neuverhandlung, danach `state` mit screen: false. A: Kamera zurueck auf ihre m-Zeile.
-     */
-    private fun stopScreen(c: Call) {
+    /** Teilen beenden: auf allen Verbindungen zuruecknehmen, dann die Aufnahme freigeben */
+    private fun stopScreen(c0: Call) {
+        val c = roomOf(c0)
         val s = c.screen ?: return
-        val mode = c.scrMode
         c.screen = null
+        mixOff(c)
+        for (l in listOf(c) + c.rs.links.values) shareOff(l)
+        try {
+            s.capturer.stopCapture()
+        } catch (_: Exception) {
+        }
+        s.capturer.dispose()
+        s.track.dispose()
+        s.source.dispose()
+        s.surface.dispose()
+        CallService.setScreen(false)
+        log("screen off")
+        update(c)
+    }
+
+    /**
+     * Teilen auf einer Verbindung beenden. B: Spur weg, Richtung recvonly (nicht stoppen, nicht entfernen - die m-Zeile
+     * wird beim naechsten Teilen wiederverwendet) -> Neuverhandlung, danach `state` mit screen: false. A: Kamera zurueck.
+     */
+    private fun shareOff(c: Call) {
+        val mode = c.scrMode ?: return
         c.scrMode = null
         c.camPaused = false
-        mixOff(c)
         val pc = c.pc
-        if (pc != null && !c.done) try {
+        if (pc != null && !c.done && !c.gone) try {
             if (mode == CallScreen.Mode.B) {
                 val vids = pc.transceivers.filter { it.mediaType == MediaStreamTrack.MediaType.MEDIA_TYPE_VIDEO }
                 val tr = vids.firstOrNull { c.scrMid != null && it.mid == c.scrMid }
@@ -1945,31 +2893,20 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 stateLater(c)
             } else {
                 videoSender(c)?.setTrack(c.videoTrack, false)
-                scope.launch { if (cur === c) stateOut(c) }
+                scope.launch { if (live(c)) stateOut(c) }
             }
         } catch (e: Exception) {
             log("screen stop: ${e.message}")
         }
-        try {
-            s.capturer.stopCapture()
-        } catch (_: Exception) {
-        }
-        s.capturer.dispose()
-        s.track.dispose()
-        s.source.dispose()
-        s.surface.dispose()
-        CallService.setScreen(false)
-        log("screen off")
         c.applied = null
         applyLimits(c)
-        update(c)
     }
 
     /** Zustand spaetestens nach 3 s senden, falls das Angebot ausbleibt (Aushandlung laeuft gerade) */
     private fun stateLater(c: Call) {
         scope.launch {
             delay(3000)
-            if (cur === c && c.stateDue) {
+            if (live(c) && c.stateDue) {
                 c.stateDue = false
                 stateOut(c)
             }
@@ -2005,6 +2942,44 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         _ui.value = st.copy(speaker = setSpeaker(!st.speaker))
     }
 
+    /**
+     * Signale `bye` fuer alle Verbindungen mit `bye` (ausser except), versiegelt je Ziel - SOFORT (vor finish, das die
+     * Verbindungen abbaut); gesendet wird danach mit byePost. null = niemand versteht `bye`.
+     */
+    private fun byeSeal(r: Call, reason: String, except: String? = null): JsonObject? {
+        val sig = HashMap<String, JsonPrimitive>()
+        for (l in links(r)) {
+            val d = l.peerDevice ?: continue
+            if (d == except || !l.established || CallV3.CAP_BYE !in l.peerCaps) continue
+            try {
+                val one = sealPerDevice(l, listOf(d), buildJsonObject {
+                    put("t", "bye")
+                    put("reason", reason)
+                })
+                (one[d] as? JsonPrimitive)?.let { sig[d] = it }
+            } catch (_: Exception) {
+            }
+        }
+        return if (sig.isEmpty()) null else JsonObject(sig)
+    }
+
+    private suspend fun byePost(id: String, sig: JsonObject?) {
+        if (sig == null) return
+        try {
+            api.post("api/calls/$id/signal", buildJsonObject {
+                put("device", myDevId())
+                put("signals", sig)
+            })
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * Auflegen. 1:1 am Hauptgeraet: Ende fuer alle (wie bisher). 2.4: als Begleitgeraet bzw. in Gruppen verlaesst nur dieses
+     * Geraet den Anruf - `/end` mit `device` (der Server entscheidet), vorher `bye` an alle Verbindungen.
+     */
     fun hangup() {
         val c = cur
         if (c == null) {
@@ -2012,35 +2987,30 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             return
         }
         val id = c.id
+        val all = CallRoom.hangupEndsAll(c.rs.kind, c.rs.companion)
         if (id != null && !c.ending) {
             val end = buildJsonObject {
                 put("reason", "hangup")
-                put("connected", c.connected)
+                put("connected", links(c).any { it.connected })
+                put("device", myDevId())
             }
-            // 2.4: an eine Gegenstelle mit `bye` zuerst {"t":"bye","reason":"hangup"}, dann wie bisher /end
-            val bye = if (c.ready && c.peerDevice != null && CallV3.CAP_BYE in c.peerCaps) try {
-                sealPerDevice(c, listOf(c.peerDevice!!), buildJsonObject {
-                    put("t", "bye")
-                    put("reason", "hangup")
-                })
-            } catch (_: Exception) {
-                null
-            } else null
+            // 2.4: an Gegenstellen mit `bye` zuerst {"t":"bye","reason":"hangup"}, dann wie bisher /end
+            val bye = if (c.ready) byeSeal(c, "hangup") else null
             if (bye == null) quietPost("api/calls/$id/end", end) else scope.launch {
-                try {
-                    api.post("api/calls/$id/signal", buildJsonObject {
-                        put("device", keys().dev.id)
-                        put("signals", bye)
-                    })
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                }
+                byePost(id, bye)
                 quietPost("api/calls/$id/end", end)
             }
         }
-        finish(c, if (c.connected) UiText.Res(R.string.call_ended_dur, CallLogic.duration((System.currentTimeMillis() - c.t0) / 1000)) else UiText.Res(R.string.call_ended), false)
+        val dur = if (c.t0 > 0) (System.currentTimeMillis() - c.t0) / 1000 else -1
+        val msg = when {
+            !all -> UiText.Res(R.string.room_you_left)
+            dur >= 0 -> UiText.Res(R.string.call_ended_dur, CallLogic.duration(dur))
+            else -> UiText.Res(R.string.call_ended)
+        }
+        finish(c, msg, false)
     }
+
+    fun notifyMicDenied() = repo.notify(UiText.Res(R.string.call_mic_denied))
 
     /** Oberflaeche geschlossen, Anruf vorbei */
     fun dismiss() {
@@ -2050,59 +3020,84 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     private fun securityFail(c: Call) = fail(c, UiText.Res(R.string.call_security_failed), failed = true)
 
     private fun fail(c: Call, msg: UiText, failed: Boolean = false) {
-        if (cur !== c) return
+        if (!live(c)) return
+        // 2.4: Fehler auf einer weiteren Verbindung (bzw. im Raum mit mehreren) trennt nur diese
+        if (c.room != null || c.established && !c.ending && (c.rs.kind == CallRoom.KIND_GROUP || links(c).size > 1)) {
+            dropLink(c, msg)
+            return
+        }
         if (c.id != null && !c.ending) quietPost("api/calls/${c.id}/end", buildJsonObject {
             put("reason", if (failed) "failed" else "hangup")
             put("connected", c.connected)
+            put("device", myDevId())
         })
         finish(c, msg, true)
     }
 
-    private fun remoteEnded(c: Call, reason: String?) {
-        if (cur !== c) return
+    private fun remoteEnded(c0: Call, reason: String?) {
+        if (!live(c0)) return
+        if (c0.room != null && reason == "gone") {          // Signal an ein Geraet, das nicht mehr dabei ist
+            dropLink(c0, null)
+            return
+        }
+        val c = roomOf(c0)
         c.ending = true
         val name = c.peer.name.ifEmpty { c.peer.username }
-        finish(c, CallLogic.endText(reason, c.caller, name, if (c.connected) (System.currentTimeMillis() - c.t0) / 1000 else null), false)
+        finish(c, CallLogic.endText(reason, c.caller && (c.rs.kind == CallRoom.KIND_DM && !c.rs.inRoom || c.rs.starter), name,
+            if (c.t0 > 0) (System.currentTimeMillis() - c.t0) / 1000 else null), false)
     }
 
-    private fun finish(c: Call, msg: UiText, error: Boolean) {
+    private fun finish(c0: Call, msg: UiText, error: Boolean) {
+        if (c0.room != null) {
+            dropLink(c0, msg)
+            return
+        }
+        val c = c0
         if (c.done) return
         c.done = true
         c.ending = true
         c.jobs.forEach { it.cancel() }
-        c.connJob?.cancel()
-        c.outJob?.cancel()
-        c.restartJob?.cancel()
-        c.failJob?.cancel()
+        c.rs.hoJob?.cancel()
         unwatchNetwork()
         stopTone()
         if (!error && c.ready) tone(ToneGenerator.TONE_PROP_PROMPT, 400)
         // E3: Teilen endet mit dem Anruf (Auflegen, Uebergabe, Verlust der Verbindung)
         stopScreen(c)
-        c.remoteVideo?.removeSink(remoteSink)
-        c.smallVideo?.removeSink(remoteSink2)
-        for ((m, t) in c.rvid) c.watch[m]?.let { t.removeSink(it) }
-        c.rvid.clear()
-        c.remoteVideo = null
-        c.smallVideo = null
-        stopCamera(c)
-        try {
-            c.pc?.close()
-            c.pc?.dispose()
-        } catch (_: Exception) {
+        unbindAll()
+        for (l in listOf(c) + c.rs.links.values) {
+            l.connJob?.cancel()
+            l.outJob?.cancel()
+            l.restartJob?.cancel()
+            l.failJob?.cancel()
+            l.tileVideo?.removeSink(l.tile)
+            l.tileVideo = null
+            for ((m, t) in l.rvid) l.watch[m]?.let { t.removeSink(it) }
+            l.rvid.clear()
+            l.remoteVideo = null
+            l.smallVideo = null
+            try {
+                l.pc?.close()
+                l.pc?.dispose()
+            } catch (_: Exception) {
+            }
+            l.pc = null
         }
-        c.pc = null
+        c.rs.links.clear()
+        stopCamera(c)
         c.audioTrack?.dispose()
         c.audioSource?.dispose()
         c.videoSource?.dispose()
         c.surface?.dispose()
         c.audioTrack = null
+        // ADM lebt ueber Anrufe hinweg: Begleitgeraet-Stumm nicht haengen lassen
+        adm?.setSpeakerMute(false)
+        adm?.setMicrophoneMute(false)
         if (cur === c) cur = null
         audioOff()
         CallService.stop(app)
         val st = _ui.value
         _ui.value = (st ?: CallUiState(CallPhase.ENDED, c.id, c.chatId, c.caller, c.media == "video", c.peer))
-            .copy(phase = CallPhase.ENDED, message = msg, error = error, remoteVideo = false, cam = false)
+            .copy(phase = CallPhase.ENDED, message = msg, error = error, remoteVideo = false, cam = false, room = null)
         val id = c.id
         if (id != null) gone.add(id)
         scope.launch {
@@ -2111,28 +3106,68 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             if (now != null && now.phase == CallPhase.ENDED && cur == null && ring == null) _ui.value = null
         }
         repo.chat.chatsLoaded.value.let { if (it) scope.launch { io.github.yggdrasil_sh.saga.chat.quietly { repo.chat.loadChats() } } }
+        refreshRun()
     }
 
-    private fun update(c: Call, msg: UiText? = _ui.value?.message, reconnecting: Boolean? = null) {
-        if (cur !== c) return
+    private fun update(c0: Call, msg: UiText? = _ui.value?.message, reconnecting: Boolean? = null) {
+        if (!live(c0)) return
+        val c = roomOf(c0)
         val st = _ui.value ?: return
+        val ls = links(c)
+        val p = primary(c) ?: c
+        val anyConn = ls.any { it.connected }
+        val group = c.rs.kind == CallRoom.KIND_GROUP
         val phase = when {
-            c.connected -> CallPhase.CONNECTED
+            anyConn -> CallPhase.CONNECTED
+            c.rs.inRoom || group -> CallPhase.CONNECTING
             c.caller && c.ready && c.peerDevice == null -> CallPhase.RINGING
             c.caller && !c.ready -> CallPhase.PREPARING
             else -> CallPhase.CONNECTING
         }
-        val v = c.view
+        val v = p.view
+        val mesh = meshView(c)
+        val waiting = when {
+            phase != CallPhase.CONNECTING || !c.ready -> null
+            group && ls.isEmpty() && c.rs.starter -> UiText.Res(R.string.room_ringing_others)
+            ls.isEmpty() -> UiText.Res(R.string.room_waiting)
+            else -> null
+        }
         _ui.value = st.copy(
-            phase = phase, id = c.id, peer = c.peer, video = c.media == "video",
+            phase = phase, id = c.id, peer = if (group) c.peer else p.peer, video = c.media == "video",
             mic = c.micOn, cam = c.videoTrack != null,
-            sharing = c.screen != null, peerSharing = c.rScreen && c.connected, camPaused = c.camPaused,
-            remoteSmall = c.smallVideo != null, bigIsScreen = c.rScreen && v?.bigScreen == true,
+            sharing = c.screen != null, peerSharing = p.rScreen && p.connected, camPaused = ls.any { it.camPaused },
+            remoteSmall = p.smallVideo != null && !mesh, bigIsScreen = p.rScreen && v?.bigScreen == true,
             message = if (phase == CallPhase.CONNECTED && reconnecting != true && !st.reconnecting) null
-            else if (phase == CallPhase.RINGING) UiText.Res(R.string.call_ringing) else msg,
-            connectedAt = if (c.connected) c.t0 else 0,
+            else if (phase == CallPhase.RINGING) UiText.Res(R.string.call_ringing) else waiting ?: msg,
+            connectedAt = if (anyConn) c.t0 else 0,
             reconnecting = reconnecting ?: st.reconnecting,
-            remoteVideo = c.remoteVideo != null && (if (c.gotState) c.rCam || c.rScreen else c.media == "video"),
+            remoteVideo = p.remoteVideo != null && (if (p.gotState) p.rCam || p.rScreen else c.media == "video"),
+            remoteMic = p.rMic,
+            room = roomUi(c, mesh),
+        )
+    }
+
+    /** Raum-Teil der Oberflaeche: Kacheln, Begleitgeraet, Grenzen; null = einfacher 1:1-Anruf wie bisher */
+    private fun roomUi(c: Call, mesh: Boolean): RoomUi? {
+        val rs = c.rs
+        val ls = links(c)
+        if (!multi(c) && rs.kind == CallRoom.KIND_DM) return null
+        val me = myUser()
+        val tiles = shown(c).map { l ->
+            val x = legOf(l)
+            CallTile(
+                device = l.peerDevice.orEmpty(), name = (x?.name ?: l.peer.name).ifEmpty { l.peer.username }, devName = x?.devName.orEmpty(),
+                video = l.remoteVideo != null && (l.rCam || l.rScreen), mic = l.rMic, speaking = mesh && rs.speaker == l.peerDevice,
+                companion = x?.companion == true, own = own(l), connected = l.connected, screen = l.rScreen,
+            )
+        }
+        val ownOther = rs.roster.legs.any { it.who == me && it.device != myDevId() }
+        val limit = if (rs.limit > 0) rs.limit else config?.endpoints(c.media) ?: CallRoom.limit(c.media, null)
+        return RoomUi(
+            kind = rs.kind, mesh = mesh, tiles = tiles, companion = rs.companion, playback = rs.playback,
+            canTakeOver = rs.companion && ownOther && rs.hoRep == null, takingOver = rs.hoRep != null,
+            endpoints = maxOf(rs.roster.legs.size, ls.size + 1), limit = limit, old = rs.old,
+            speaker = rs.speaker?.let { sp -> ls.firstOrNull { it.peerDevice == sp } }?.let { legOf(it)?.name ?: it.peer.name }.orEmpty(),
         )
     }
 
@@ -2149,16 +3184,37 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             "call.state" -> {
                 val id = ev.str("call_id") ?: return
                 val state = ev.str("state")
-                if (state == "active" || state == "ended") unring(id, if (state == "ended" && ev.str("reason") == "cancelled") UiText.Res(R.string.call_missed) else null)
+                val group = ev.str("kind") == CallRoom.KIND_GROUP
+                // Gruppe: "active" heisst nur "zwei sind dabei" - weiter klingeln; "declined" = auf anderem Geraet abgelehnt
+                if (state == "ended" || state == "declined" || state == "active" && !group) {
+                    unring(id, if (state == "ended" && ev.str("reason") == "cancelled") UiText.Res(R.string.call_missed) else null)
+                }
+                refreshRun()
                 val c = cur ?: return
                 if (c.id != id) return
+                val room = c.rs.inRoom || c.rs.kind == CallRoom.KIND_GROUP
                 when {
                     state == "ended" -> remoteEnded(c, ev.str("reason"))
-                    state == "active" && c.caller -> activeAsCaller(c, ev.str("device"))
+                    // Uebernahme im 1:1 (`moved`): das neue Geraet bietet selbst an - nichts zu tun
+                    ev.str("moved") != null -> {}
+                    state == "active" && c.caller && !room -> activeAsCaller(c, ev.str("device"))
                     state == "active" && !c.caller && !c.ready && ev.str("device") != repo.chat.keys()?.dev?.id ->
                         finish(c, UiText.Res(R.string.call_answered_elsewhere), false)
                 }
             }
+            // 2.4 E4/E5: Teilnehmerliste (laufender Anruf, Leiste auf anderen Geraeten, Klingeln beenden)
+            "call.roster" -> {
+                val id = ev.str("call_id") ?: return
+                val legs = CallRoom.legsOf(ev.data["legs"])
+                if (CallRoom.stopRinging(legs, myUser())) unring(id)          // ein eigenes Geraet ist beigetreten
+                val c = cur
+                if (c != null && c.id == id && c.ready) {
+                    rosterIn(c, legs, CallRoom.rvOf(ev.data), ev.int("limit"))
+                }
+                if (ev.str("state") == "ended") unring(id)
+                refreshRun()
+            }
+            "call.invite" -> onInvite(ev)
         }
     }
 

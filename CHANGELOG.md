@@ -6,6 +6,36 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu – Saga 2.4 Android (Teil 5): Gerät hinzufügen/übergeben und Gruppenanrufe (Mesh)
+- **Anruf als Raum:** je Gerätepaar eine eigene PeerConnection (`pc` = sortiertes Paar der Geräte), DTLS-SRTP je Paar
+  mit signierten Fingerabdrücken – Ende-zu-Ende wie bisher, der Server sieht keine SDP. Neuverhandlung (Perfect
+  Negotiation), ICE-Restart, Bild-im-Bild-Wunsch und Bildschirm (Betriebsart A/B) laufen je Verbindung; eine später
+  hinzukommende Verbindung bekommt den laufenden Bildschirm. Signale gehen wie bisher über den eigenen Server
+  (föderiert sternförmig über den führenden Server). Das Gerät meldet `multi` (nur, wenn der eigene Server `reneg` und
+  `multi` kann) in den signierten `caps` und per `PUT /api/calls/caps`.
+- **Leiste „Anruf läuft auf <Gerät>“** auf anderen eigenen Geräten mit **Hinzufügen** und **Hierher übernehmen**;
+  Gruppenanruf ohne eigenes Gerät: „Gruppenanruf läuft · Geräte: n“ mit **Beitreten**. Geht es nicht, steht der Grund
+  da („braucht Saga 2.4“, „Der Anruf ist voll“).
+- **Begleitgerät:** tritt ohne Mikrofon, ohne Ton und ohne Kamera bei (es fragt nicht nach dem Mikrofon); eigene Knöpfe
+  „Ton an/aus“ und **„Hierher übernehmen“**. Ton eigener Geräte wird nie abgespielt.
+- **Übernahme ohne Abbruch:** das neue Gerät verbindet sich still mit allen, schaltet erst dann Mikrofon und Ton an
+  und meldet `state.ready` an das alte Gerät; das alte schweigt sofort, schickt `bye` (`handover`), verlässt den Anruf
+  und zeigt „Anruf auf <Gerät> übernommen“. Klappt es nicht binnen `handover_s` (15 s), bleibt der Anruf auf dem alten
+  Gerät. Im 1:1 beendet Auflegen am Hauptgerät den Anruf für alle; ein Begleitgerät verlässt ihn nur selbst.
+- **Klingeln:** das zweite eigene Gerät hört auf zu klingeln, sobald eines angenommen hat bzw. (Gruppe) sobald die
+  Teilnehmerliste ein eigenes Gerät zeigt oder die Einladung anderswo abgelehnt wurde.
+- **Gruppenanrufe** in Gruppen-, freien und Seiten-Chats (Knopf nur, wenn der Server `chat.call.group` meldet):
+  Klingeln für alle Mitglieder (`call.invite`, Mitteilung `call.group`; große Gruppen still), Beitreten, Verlassen.
+  **Kachelansicht** mit Name und Gerät, der aktive Sprecher (Pegel der empfangenen Tonspur) ist hervorgehoben; im
+  Bild-im-Bild läuft der aktive Sprecher. Ab drei Geräten Mesh-Bitrate je Strom (600/500/350 kbit/s, ≤ 540p bzw.
+  360p15, `want: small` 200 kbit/s). Anzeige „Geräte: n von m“ und Personen ohne Saga 2.4.
+- **Grenzen:** höchstens 4 Geräte mit Video bzw. 6 nur Ton (eigene Zusatzgeräte zählen mit); der Admin kann nur senken.
+- **Teilnehmerliste mit Stand (`rv`):** eine ältere Liste überschreibt keine neuere; nur Live-Ereignisse, `bye` und
+  `alive` (`leg: "left"`) trennen Verbindungen. Unbekannte Geräte (nicht in der signierten Geräteliste der Person)
+  werden abgelehnt und angezeigt.
+- **Kompatibel:** mit 2.1/2.3-Servern und -Geräten bleibt alles 1:1 wie bisher (ohne `multi` keine Raumfunktionen).
+- Tests: Teilnehmerliste/rv, Mesh-Paare, Grenzen, Begleitgerät, Übernahme, Bitrate im Mesh, Sprecher, Leiste.
+
 ### Neu – Saga 2.4 Android (Teil 4): Videos im Chat
 - **Videos senden:** Anhängen → „Video“ (oder jede Datei vom Typ Video). Standard ist **„Optimiert 720p“**
   (Media3 Transformer, H.264 ~2,5 Mbit/s, lange Seite höchstens 1280 px, nie hochskaliert); „Original“ ist je Video
