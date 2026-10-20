@@ -771,6 +771,7 @@ struct ChatDevicesSection: View {
                                 .prominentGold()
                             Button("Abbrechen") { newKey = nil }
                         }
+                        .rowButtons()
                     } else {
                         Button("Neuen Wiederherstellungsschlüssel erzeugen") { askNewKey = true }
                         Text("Verloren oder womöglich gesehen? Erzeuge einen neuen – der alte gilt dann nicht mehr. Deine Schlüssel und Nachrichten bleiben gleich.")

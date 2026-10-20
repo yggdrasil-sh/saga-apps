@@ -100,6 +100,7 @@ struct MyBackupSection: View {
                     Spacer()
                     Button("Verwalten …") { open = true }
                 }
+                .rowButtons()
                 if let msg { Text(msg).font(.footnote).foregroundStyle(.red) }
             }
         } else if let e = model.loadError {
@@ -180,6 +181,7 @@ struct BackupOverviewPart: View {
                     .disabled(!state.ready || state.running || model.busy)
                 Button("Backups im Ziel anzeigen") { Task { await loadRemote() } }.disabled(state.target == nil)
             }
+            .rowButtons()
             if let msg { Text(msg).font(.footnote).foregroundStyle(.red) }
             ForEach(state.runs.prefix(5)) { r in BackupRunRow(run: r) }
             if let remote {
@@ -248,6 +250,7 @@ struct BackupTargetPart: View {
                     Button("In Nextcloud anmelden ↗") { openURL(l) }.buttonStyle(.borderedProminent)
                     Button("Abbrechen") { Task { msg = await model.run { try await CloudFlow.backupFlowCancel($0) } } }
                 }
+                .rowButtons()
             } else if let t = state.target {
                 connected(t)
             } else {
@@ -272,6 +275,7 @@ struct BackupTargetPart: View {
             Button("Verbindung prüfen") { Task { await test() } }.disabled(model.busy)
             Button("Trennen", role: .destructive) { askOff = true }.disabled(model.busy)
         }
+        .rowButtons()
     }
     @ViewBuilder private var form: some View {
         Text("Nextcloud: nur die Adresse eingeben – die Anmeldung läuft dann in Nextcloud. Anderes WebDAV: Adresse des Ordners plus Benutzer und Passwort.")
@@ -370,6 +374,7 @@ struct BackupKeyPart: View {
             Button("Schlüssel ist sicher abgelegt – eintragen") { Task { await confirm() } }.buttonStyle(.borderedProminent).disabled(last.count < 6)
             Button("Verwerfen") { Task { newKey = nil; last = ""; msg = await model.run { try await CloudFlow.keyDrop($0) } } }
         }
+        .rowButtons()
     }
     private func generate() async {
         guard let store = model.store else { return }
@@ -589,6 +594,7 @@ struct NextcloudSettingsSection: View {
                     Button("In Nextcloud anmelden ↗") { openURL(l) }.buttonStyle(.borderedProminent)
                     Button("Abbrechen") { Task { await run { try await CloudFlow.ncCancel($0) } } }
                 }
+                .rowButtons()
             } else if s.connected {
                 Text(verbatim: String(localized: "✅ Verbunden als \(s.user ?? "")") + (s.host.isEmpty ? "" : " (\(s.host))"))
                 LabeledContent("Verknüpft seit", value: cloudWhen(s.since))

@@ -76,6 +76,19 @@ extension View {
         #endif
     }
 
+    /// Mehrere Knoepfe in EINER List-/Form-Zeile: iOS loest bei Knoepfen im Standardstil sonst alle Aktionen der Zeile
+    /// gleichzeitig aus (Papierkorb: "Zurueckholen" loeschte zusaetzlich endgueltig). Borderless macht jeden Knopf
+    /// einzeln tippbar; Knoepfe mit eigenem Stil behalten ihn. Am Mac unveraendert (dort tritt der Fehler nicht auf).
+    /// Pruefung im Quelltext: RowButtonLint (Logik-Tests).
+    @ViewBuilder
+    func rowButtons() -> some View {
+        #if os(iOS)
+        buttonStyle(.borderless)
+        #else
+        self
+        #endif
+    }
+
     /// Feste Breite nur am Mac (z. B. Befehlspalette); sonst volle Breite
     @ViewBuilder
     func macWidth(_ w: CGFloat) -> some View {
