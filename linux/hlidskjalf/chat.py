@@ -20,7 +20,7 @@ import urllib.parse
 
 from gi.repository import GLib, GObject
 
-from . import APP_ID, aichat, chatmedia, config
+from . import APP_ID, aichat, chatmedia, chatvideo, config
 from . import chatcrypto as C
 from . import chatstatus as S
 from .api import APIError, client
@@ -514,6 +514,7 @@ class ChatState(GObject.Object):
         """anderer Server / abgemeldet"""
         self.clear()
         chatmedia.clear()
+        chatvideo.clear()
         self.emit("changed")
 
     def refresh(self, done=None):
@@ -732,6 +733,7 @@ class ChatState(GObject.Object):
     def forget_local(self):
         delete_keys(config.settings.server, self.uid)
         chatmedia.clear()
+        chatvideo.clear()
         self.keys = None
         self.cache = {}
         self.chats = []
@@ -1505,20 +1507,36 @@ class ChatState(GObject.Object):
         chatmedia.put_blob(j["id"], blob, cid)             # eigene Anhaenge nicht gleich wieder herunterladen
         return {"id": j["id"], "k": C.b64(key), "n": name, "m": mime or "application/octet-stream", "s": len(data)}
 
-    def upload_attachments(self, cid, files):
-        """Hintergrund: Anhaenge [(name, mime, bytes)] hochladen; Bilder bekommen w/h und ein Vorschaubild ("th", 2.1-c),
-        solange die Anhang-Grenze je Nachricht reicht. -> (Eintraege fuer den Inhalt, alle Datei-IDs)"""
+    def upload_attachments(self, cid, files, progress=None, cancelled=None, pending=None):
+        """Hintergrund: Anhaenge [(name, mime, bytes | chatvideo.LocalVideo)] hochladen; Bilder bekommen w/h und ein
+        Vorschaubild ("th", 2.1-c), Videos (2.4) Poster, Dauer und Abmessungen - solange die Anhang-Grenze je Nachricht
+        reicht. Videos ueber limits.file_max gehen als saga-file/v2 (fortsetzbar). progress(index, text) aus diesem
+        Thread; cancelled() -> True bricht ab (chatvideo.Cancelled). pending: Liste, in die laufende v2-Uploads kommen
+        (nach dem Senden chatvideo.pending_drop). -> (Eintraege fuer den Inhalt, alle Datei-IDs)"""
         lim = self.limits or {}
         # Grenze fuer Datei-Kennungen je Nachricht (Anhaenge + Vorschaubilder): neuer Server "file_ids_per_msg" (20),
         # aeltere Server ohne das Feld zaehlen nur "files_per_msg" (10)
         nmax = int(lim.get("file_ids_per_msg") or lim.get("files_per_msg") or 10)
-        out, ids = [], []
-        for name, mime, data in files:
-            e = self.upload_file(cid, data, name, mime)
+        out, ids, posters = [], [], []
+        for idx, (name, mime, data) in enumerate(files):
+            if isinstance(data, chatvideo.LocalVideo):
+                e, poster = self.upload_video(cid, name, mime, data, lambda t, i=idx: progress and progress(i, t), cancelled, pending)
+                posters.append((e, poster))
+            else:
+                if cancelled and cancelled():
+                    raise chatvideo.Cancelled()
+                e = self.upload_file(cid, data, name, mime)
             ids.append(e["id"])
             out.append(e)
+        for e, poster in posters:                         # Poster wie Vorschaubilder (v1, eigener Schluessel)
+            if poster is None or len(ids) >= nmax:
+                continue
+            jpeg, tw, th = poster
+            te = self.upload_file(cid, jpeg, "poster.jpg", "image/jpeg")
+            e["th"] = {"id": te["id"], "k": te["k"], "m": "image/jpeg", "w": tw, "h": th, "s": len(jpeg)}
+            ids.append(te["id"])
         for e, (name, mime, data) in zip(out, files):
-            if not chatmedia.is_image(e):
+            if isinstance(data, chatvideo.LocalVideo) or not chatmedia.is_image(e):
                 continue
             t = chatmedia.make_thumb(data)
             if t is None:
@@ -1531,6 +1549,65 @@ class ChatState(GObject.Object):
             e["th"] = {"id": te["id"], "k": te["k"], "m": "image/jpeg", "w": tw, "h": th, "s": len(tb)}
             ids.append(te["id"])
         return out, ids
+
+    def upload_video(self, cid, name, mime, v, progress=None, cancelled=None, pending=None):
+        """Hintergrund (2.4): Video senden - Metadaten und Poster per GStreamer (falls vorhanden), optional "optimiert"
+        (verkleinerte Kopie), bis file_max als v1, darueber saga-file/v2. -> (Eintrag, (jpeg, w, h) | None)"""
+        from . import videotools
+        ch = self.chat(cid)
+        path, tmp = v.path, None
+        try:
+            meta = videotools.probe(path)
+            if v.optimize and videotools.can_optimize():
+                tmp = chatvideo.tmp_path()
+                if progress:
+                    progress(_("Optimizing …"))
+                videotools.optimize(path, tmp, meta, lambda x: progress and progress(_("Optimizing {pct} %").format(pct=int(x * 100))),
+                                    cancelled)
+                path, mime = tmp, "video/mp4"
+                name = re.sub(r"\.[^.]{1,8}$", "", name) + "-720p.mp4"
+                meta = videotools.probe(path) or meta
+            size = os.path.getsize(path)
+            how = chatvideo.plan(name, size, self.limits, ch, is_fed(ch))
+            e = {"n": name[:200], "m": mime if (mime or "").startswith("video/") else "video/mp4", "s": size}
+            if meta.get("dur"):
+                e["dur"] = meta["dur"]
+            if meta.get("w") and meta.get("h"):
+                e["w"], e["h"] = int(meta["w"]), int(meta["h"])
+                if meta.get("rot"):
+                    e["rot"] = int(meta["rot"])
+            if meta.get("vc"):
+                e["vc"] = meta["vc"]
+            fs = chatvideo.mp4_faststart(path)
+            if fs is not None:
+                e["fs"] = fs
+            poster = None
+            try:
+                poster = videotools.poster(path, meta) if meta.get("video") else None
+            except Exception:  # noqa: BLE001 - ohne Poster senden
+                poster = None
+            if how == "v1":
+                if cancelled and cancelled():
+                    raise chatvideo.Cancelled()
+                with open(path, "rb") as fh:
+                    data = fh.read()
+                e1 = self.upload_file(cid, data, name, e["m"])
+                e["id"], e["k"] = e1["id"], e1["k"]
+            else:
+                def prog(sent, total):
+                    if progress:
+                        progress(_("Uploading {pct} %").format(pct=int(sent * 100 / max(1, total))))
+                r = chatvideo.upload(cid, path, prog, cancelled, self.limits)
+                e["id"], e["k"], e["x"], e["cs"] = r["id"], r["k"], 2, r["cs"]
+                if pending is not None:
+                    pending.append(r["pending"])
+            return e, poster
+        finally:
+            if tmp:
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
 
     def send(self, cid, body, reply_to=None, kind="msg", file_ids=None, extra=None):
         """Hintergrund: verschluesseln, signieren, an alle aktuellen Empfaenger versiegeln, senden. 409 (Mitglieder/Geraete
@@ -1789,7 +1866,7 @@ class ChatState(GObject.Object):
             nfiles = []
             for f in body.get("files") or []:
                 if isinstance(f, dict) and f.get("id"):
-                    f = dict(f, id=reup(f["id"]))
+                    f = dict(f, id=chatvideo.copy_v2(cid, f) if chatvideo.fmt(f) == 2 else reup(f["id"]))
                     fids.append(f["id"])
                     th = chatmedia.thumb_ref(f)
                     if th and th.get("id"):
@@ -1838,8 +1915,21 @@ class ChatState(GObject.Object):
         bg(client.request, "DELETE", "api/chat/blocks?target=" + urllib.parse.quote(str(target), safe=""), done=done, error=error)
 
     def fetch_file(self, cid, f):
-        """Hintergrund: Anhang laden und entschluesseln -> Bytes"""
+        """Hintergrund: Anhang (v1) laden und entschluesseln -> Bytes; v2 nur als Strom (save_file)"""
+        if chatvideo.fmt(f) != 1:
+            raise ChatError(_("Open with a newer Saga version"))
         return chatmedia.original(cid, f)
+
+    def save_file(self, cid, f, write, progress=None, cancelled=None):
+        """Hintergrund: Anhang entschluesselt schreiben (write(bytes)); v2 (2.4) als Strom, Block fuer Block"""
+        x = chatvideo.fmt(f)
+        if x == 2:
+            return chatvideo.save(cid, f, write, progress, cancelled)
+        if x != 1:
+            raise ChatError(_("Open with a newer Saga version"))
+        data = chatmedia.original(cid, f)
+        write(data)
+        return len(data)
 
     def delete_message(self, cid, mid, done=None, error=None):
         def fin(_r):
@@ -1974,6 +2064,7 @@ class ChatState(GObject.Object):
         gone = [m for m in msgs if (m.get("seq") or 0) <= upto]
         kept = [] if drop else [m for m in msgs if (m.get("seq") or 0) > upto]
         chatmedia.purge_chat(cid, fids=self._file_ids(gone), keep=self._file_ids(kept))
+        chatvideo.purge_chat(cid, keep=self._file_ids(kept))
         for m in gone:
             m.clear()                                     # Klartext nicht ueber andere Verweise weiter halten
         if drop:

@@ -34,7 +34,12 @@ Requires:       python3dist(pynacl) >= 1.5
 # Anrufe (2.1): Klingelton als WAV ueber GStreamer (playbin; gstreamer1 samt Gst-Typelib kommt mit gtk4, WAV lesen kann
 # erst wavparse aus plugins-good). Ohne das Paket klingelt es still (Mitteilung + Leiste bleiben) - daher nur empfohlen.
 # Das Gespraech selbst laeuft im Standardbrowser (Linux v1, keine WebRTC-Bibliothek noetig).
+# Videos im Chat (2.4): Poster/Dauer (GstPbutils aus gstreamer1-plugins-base), Abspielen ueber den lokalen Proxy
+# (souphttpsrc, qtdemux, videoflip aus plugins-good). H.264-Decoder/-Encoder (openh264 bzw. libav) nur vorgeschlagen:
+# ohne sie zeigt die App "Herunterladen und extern abspielen" und sendet immer das Original.
 Recommends:     gstreamer1-plugins-good
+Suggests:       gstreamer1-plugin-openh264
+Suggests:       gstreamer1-plugin-libav
 # Thai-Oberflaeche (po/th.po): ohne Thai-Schrift erscheinen Ersatzkaestchen. Die Standardschriften (Adwaita Sans/Cantarell)
 # haben kein Thai; Fedora und AlmaLinux/RHEL 10 liefern Noto Sans Thai (virtuelles font()-Provide, paketnamenunabhaengig).
 # Kyrillisch (Russisch) ist in den Standardschriften enthalten.

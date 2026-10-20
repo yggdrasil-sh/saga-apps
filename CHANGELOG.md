@@ -6,6 +6,32 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu – Linux (2.4, Etappe E2): Videos im Chat
+**Senden in Original-Qualität:** Videos (Dateiauswahl oder Zwischenablage) erscheinen im Verlauf mit Poster, Dauer
+und Abspiel-Symbol. Poster (Bild bei 1 s bzw. 10 %, 320 px, JPEG ≤ 30 KB), Dauer, Abmessungen und Drehung erzeugt die
+App per GStreamer (Discoverer); das Poster geht wie ein Vorschaubild als eigener v1-Anhang hoch, damit es auch ältere
+Apps zeigen. Optional „Optimiert 720p“ (H.264 mit x264enc oder openh264enc, AAC, `moov` vorn) – nur wenn die Encoder
+vorhanden sind; sonst wird immer das Original gesendet. Zu große Videos lassen sich dann nur verkleinert senden.
+
+**Große Videos (saga-file/v2):** Bis zur Anhang-Grenze des Servers (10 MB) wie bisher, darüber nur im neuen Format:
+blockweise verschlüsselt (256 KiB), als Datenstrom aus der Datei erzeugt und in Teilen hochgeladen – mit Fortschritt
+im Anhang und „Hochladen abbrechen“. Nach einem Netzabbruch geht es am Upload-Offset weiter (auch mitten im Block);
+Schlüssel, Präfix, Pfad und Upload-Kennung liegen bis zum Senden im Schlüsselbund (sonst in einer 0600-Datei), sodass
+erneutes Senden derselben Datei auch nach einem Neustart fortsetzt. Grenzen kommen vom Server (`/api/chat/me` →
+`limits`). Server ohne `file2` (2.3) bzw. Gegenüber ohne große Dateien: Videos über 10 MB werden mit Hinweis abgelehnt.
+
+**Abspielen mit Spulen, ohne Komplett-Download:** Antippen öffnet den Player (Gtk.Video mit eigenem GStreamer-Strom,
+ohne GL-Zwang). Er liest über einen lokalen Proxy nur auf 127.0.0.1 (zufälliger Port, 128-Bit-Token je Wiedergabe);
+die App holt dafür nur die benötigten Blöcke per Range mit Medien-Token und entschlüsselt sie einzeln – Klartext
+landet nie auf der Platte. Ciphertext-Zwischenspeicher 512 MB (LRU, getrennt vom Bildspeicher, beim Abmelden und Chat
+löschen geleert). In der Chatliste nur Poster (erst wenn sichtbar), nie ein Player. Fehlt GStreamer oder ein Codec:
+Hinweis „Herunterladen und extern abspielen“ mit Speichern-Knopf.
+
+**Speichern** per Dateidialog, entschlüsselt als Datenstrom (Block für Block, nie ganz im Speicher). Anhänge in einem
+neueren Format zeigen „Mit einer neueren Saga-Version öffnen“. v1-Anhänge funktionieren unverändert. Tests:
+Krypto-Vektoren (`tests/vectors/file_v2.json`), Range und Blockzuordnung, Fortsetzen, Zwischenspeicher, gleichbleibender
+Speicher beim Hoch- und Herunterladen. Texte in Deutsch, Englisch, Spanisch, Russisch und Thai.
+
 ### Neu – Linux (2.4): Gelesen-Bestätigungen und Online-Status
 **Haken wie bei WhatsApp:** Eigene Nachrichten zeigen ⏳ (wird zugestellt), ✓ (zugestellt) und ✓✓ in Akzentfarbe
 (gelesen). In Gruppen steht neben ✓✓ die Zahl der Lesenden, bis alle gelesen haben; ein Klick auf den Haken (oder

@@ -799,6 +799,14 @@ def install(server=SERVER, logged_in=True):
 
     client._send = send
     send.mock = srv
+
+    def media_send(method, url, data, headers, timeout):
+        import mockvideo
+        try:
+            return mockvideo.media(srv, method, url, data, headers)
+        except OSError as e:
+            raise api.APIError(0, str(e)) from e
+    client._media_send = media_send
     client._open_stream = lambda method, url, data, headers, timeout: mockv2.open_stream(srv, method, url, data, headers)
     if logged_in:
         config.settings.server = server

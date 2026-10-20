@@ -4,12 +4,13 @@ Geraete, Sicherheitsnummer (+ QR-Code), Mitglieder und Einstellungen eines Chats
 Nachrichtentexte werden nie als Markup interpretiert (escape; nur eigene Links fuer Adressen und [[note:ID]])."""
 import datetime as _dt
 import re
+import threading
 
 from gi.repository import Adw, Gdk, Gio, GLib, Graphene, Gsk, Gtk, Pango
 
 from . import chatcrypto as C
 from . import chatstatus as S
-from . import aichat, avatars, chatmedia, clipimg, config, images
+from . import aichat, avatars, chatmedia, chatvideo, clipimg, config, images
 from .api import APIError, client
 from .blocks import flat_button, menu_popover
 from .chat import (FED_CHECK_EVERY_S, NOTE_RX, RETENTIONS, ChatError, FedNotDelivered, SafetyChanged, chat, fmt_recovery, is_fed,
@@ -218,7 +219,8 @@ def snippet(m, n=80):
         return "📞 " + entry_text(m.get("call") or {}, chat.uid)
     t = NOTE_RX.sub("📄", m.get("text") or "").strip()
     if not t and m.get("files"):
-        t = "📎 " + (m["files"][0].get("n") or _("File"))
+        f0 = m["files"][0]
+        t = ("🎬 " if chatvideo.is_video(f0) else "📎 ") + (f0.get("n") or _("File"))
     t = " ".join(t.split())
     return t if len(t) <= n else t[:n - 1] + "…"
 
@@ -677,7 +679,8 @@ class Conversation(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, vexpand=True, hexpand=True)
         self.screen, self.win, self.cid = screen, screen.win, cid
         self.reply = None
-        self.files = []              # [(name, mime, bytes)]
+        self.files = []              # [(name, mime, bytes | chatvideo.LocalVideo)]
+        self._sending = None         # threading.Event waehrend des Sendens (Abbrechen)
         self.mentions = {}           # "@Titel" -> Seiten-ID
         self.query = ""
         self.sig = None
@@ -1541,7 +1544,21 @@ class Conversation(Gtk.Box):
     # --- Anhaenge ------------------------------------------------------------------------------------------------------
     def _file(self, f):
         name = f.get("n") or _("File")
-        if chatmedia.is_image(f):
+        x = chatvideo.fmt(f)
+        if x > 2:                                          # neueres Format: nicht still scheitern
+            btn = Gtk.Button(sensitive=False)
+            bx = Gtk.Box(spacing=8)
+            bx.append(Gtk.Image.new_from_icon_name("mail-attachment-symbolic"))
+            col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            col.append(_lbl(name, wrap=False, ellipsize=Pango.EllipsizeMode.MIDDLE, max_width_chars=36))
+            col.append(_lbl(_("Open with a newer Saga version"), ("caption", "dim-label"), wrap=False))
+            bx.append(col)
+            btn.set_child(bx)
+            btn.add_css_class("hk-file-btn")
+            return btn
+        if chatvideo.is_video(f):
+            return self._video(f)
+        if chatmedia.is_image(f) and x == 1:
             img = ChatImage(self.cid, f)
             if self._imgs_building is not None:
                 self._imgs_building.append(img)
@@ -1564,9 +1581,33 @@ class Conversation(Gtk.Box):
         btn.connect("clicked", lambda *_: self._save_file(f))
         return btn
 
-    def _save_file(self, f):
+    def _video(self, f):
+        """Video (2.4) im Verlauf: nur das Poster (lazy wie Vorschaubilder), Dauer und Abspiel-Symbol - nie ein Player"""
+        name = f.get("n") or _("Video")
+        img = ChatImage(self.cid, f, wh=chatvideo.display_size(f), poster=chatmedia.thumb_ref(f) is not None)
+        if self._imgs_building is not None:
+            self._imgs_building.append(img)
+        ov = Gtk.Overlay(child=img)
+        play = Gtk.Image(icon_name="media-playback-start-symbolic", pixel_size=22, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+        play.add_css_class("hk-video-play")
+        ov.add_overlay(play)
+        d = chatvideo.dur_text(f.get("dur")) if f.get("dur") else ""
+        if d:
+            dl = Gtk.Label(label=d, halign=Gtk.Align.END, valign=Gtk.Align.END, margin_end=6, margin_bottom=6)
+            dl.add_css_class("hk-video-dur")
+            ov.add_overlay(dl)
+        btn = Gtk.Button(child=ov, halign=Gtk.Align.START, tooltip_text=f"{name} · {human_size(int(f.get('s') or 0))}")
+        btn.add_css_class("flat")
+        btn.add_css_class("hk-img-btn")
+        btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Play video: {name}").format(name=name)])
+        btn.connect("clicked", lambda *_: VideoViewer(self, f).present(self.win))
+        return btn
+
+    def _save_file(self, f, progress=None, done=None):
+        """Speichern: Gtk.FileDialog, entschluesselt als Strom (v2 Block fuer Block, nie ganz im Speicher)"""
         name = re.sub(r"[/\\\x00-\x1f]", "-", f.get("n") or "datei").strip(". ") or "datei"
         fd = Gtk.FileDialog(title=_("Save attachment"), initial_name=name)
+        cid = self.cid
 
         def chosen(d, res):
             try:
@@ -1576,12 +1617,35 @@ class Conversation(Gtk.Box):
             if gf is None:
                 return
 
+            def prog(n, total):
+                if progress:
+                    GLib.idle_add(progress, n / max(1, total))
+
             def work():
-                data = chat.fetch_file(self.cid, f)
-                gf.replace_contents(data, None, False, Gio.FileCreateFlags.REPLACE_DESTINATION, None)
+                out = gf.replace(None, False, Gio.FileCreateFlags.REPLACE_DESTINATION, None)
+                try:
+                    chat.save_file(cid, f, lambda b: out.write_all(b, None), prog)
+                except BaseException:
+                    c = Gio.Cancellable()
+                    c.cancel()                             # abgebrochen: Ziel bleibt unveraendert (keine halbe Datei)
+                    try:
+                        out.close(c)
+                    except GLib.Error:
+                        pass
+                    raise
+                out.close(None)
                 return gf
-            bg(work, done=lambda g: _toast(self.win, _("Saved: {name}").format(name=g.get_basename() or name)),
-               error=lambda e: _toast(self.win, _("Attachment not loaded: {err}").format(err=e)), media=True)
+
+            def fin(g):
+                _toast(self.win, _("Saved: {name}").format(name=g.get_basename() or name))
+                if done:
+                    done(True)
+
+            def err(e):
+                _toast(self.win, _("Attachment not loaded: {err}").format(err=e))
+                if done:
+                    done(False)
+            bg(work, done=fin, error=err, media=True)
         fd.save(self.win, None, chosen)
 
     # --- Eingabe -----------------------------------------------------------------------------------------------------
@@ -1734,13 +1798,27 @@ class Conversation(Gtk.Box):
         """Dateien (Auswahl, Zwischenablage) als Anhaenge; zu grosse Bilder werden verkleinert, andere abgelehnt"""
         lim = chat.limits or {}
         fmax = int(lim.get("file_max") or 25 * 1048576)
+        ch = chat.chat(self.cid)
 
         def work():
+            from . import videotools
             out = []
             for g in gfiles:
                 info = g.query_info("standard::size,standard::content-type,standard::display-name", Gio.FileQueryInfoFlags.NONE, None)
                 name = info.get_display_name() or g.get_basename() or "datei"
                 mime = Gio.content_type_get_mime_type(info.get_content_type() or "") or "application/octet-stream"
+                if mime.startswith("video/") and g.get_path():
+                    # Video (2.4): nur Pfad merken - bis file_max v1, darueber saga-file/v2; zu gross: nur verkleinert
+                    size = info.get_size()
+                    try:
+                        chatvideo.plan(name, size, lim, ch, is_fed(ch))
+                        out.append((name, mime, chatvideo.LocalVideo(g.get_path(), size)))
+                    except chatvideo.VideoError as e:
+                        if videotools.can_optimize() and size > fmax and (lim.get("file2") or size < 8 * fmax):
+                            out.append((name, mime, chatvideo.LocalVideo(g.get_path(), size, optimize=True, forced=True)))
+                        else:
+                            out.append((name, None, str(e)))
+                    continue
                 if info.get_size() > fmax:
                     if mime.startswith("image/") or clipimg.file_is_image(g):
                         try:
@@ -1762,25 +1840,59 @@ class Conversation(Gtk.Box):
         bg(work, done=fin, error=lambda e: _toast(self.win, str(e)), media=True)
 
     def _files_bar(self):
+        from . import videotools
         self.files_bar.remove_all()
+        sending = bool(self._sending)
         for i, (name, mime, data) in enumerate(self.files):
             chip = Gtk.Box(spacing=6)
             chip.add_css_class("hk-tag")
-            if (mime or "").startswith("image/"):              # Vorschau des Bildes (nur im Speicher)
+            if isinstance(data, chatvideo.LocalVideo):         # Video (2.4): Pfad, Groesse, "optimiert 720p", Fortschritt
+                label = "🎬 " + name + " · " + human_size(len(data))
+                chip.append(_lbl(label, wrap=False, ellipsize=Pango.EllipsizeMode.MIDDLE, max_width_chars=28))
+                if videotools.can_optimize() and not sending:
+                    cb = Gtk.CheckButton(label=_("Optimized 720p"), active=data.optimize, sensitive=not data.forced)
+                    cb.set_tooltip_text(_("Make the video smaller before sending (H.264, 1280×720). Otherwise the original is sent."))
+                    cb.connect("toggled", lambda b, v=data: setattr(v, "optimize", b.get_active()))
+                    chip.append(cb)
+                if data.status:
+                    st = _lbl(data.status, ("caption", "dim-label"), wrap=False)
+                    st.add_css_class("hk-upload-status")
+                    chip.append(st)
+            elif (mime or "").startswith("image/"):              # Vorschau des Bildes (nur im Speicher)
                 pv = images.ImageView(mode="cover", radius=6)
                 pv.set_size_request(40, 40)
                 pv.set_valign(Gtk.Align.CENTER)
                 images.load_local(data, lambda d, pv=pv: d is not None and pv.set_decoded(d), max_px=96)
                 chip.append(pv)
-                label = name + " · " + human_size(len(data))
+                chip.append(_lbl(name + " · " + human_size(len(data)), wrap=False, ellipsize=Pango.EllipsizeMode.MIDDLE, max_width_chars=28))
             else:
-                label = "📎 " + name + " · " + human_size(len(data))
-            chip.append(_lbl(label, wrap=False, ellipsize=Pango.EllipsizeMode.MIDDLE, max_width_chars=28))
-            chip.append(flat_button(icon="window-close-symbolic", css="hk-tiny", tooltip=_("Remove"),
-                                    cb=lambda i=i: (self.files.pop(i), self._files_bar())))
+                chip.append(_lbl("📎 " + name + " · " + human_size(len(data)), wrap=False, ellipsize=Pango.EllipsizeMode.MIDDLE,
+                                 max_width_chars=28))
+            if not sending:
+                chip.append(flat_button(icon="window-close-symbolic", css="hk-tiny", tooltip=_("Remove"),
+                                        cb=lambda i=i: (self.files.pop(i), self._files_bar())))
             self.files_bar.append(chip)
+        if sending and any(isinstance(d, chatvideo.LocalVideo) for _n, _m, d in self.files):
+            self.files_bar.append(_button(_("Cancel upload"), ("destructive-action",), cb=self._cancel_upload))
         self.files_bar.set_visible(bool(self.files))
         self._changed(self.entry.get_buffer())
+
+    def _cancel_upload(self):
+        if self._sending:
+            self._sending.set()
+
+    def _upload_status(self, i, text):
+        """Fortschritt eines Anhangs (Hauptthread)"""
+        if 0 <= i < len(self.files) and isinstance(self.files[i][2], chatvideo.LocalVideo):
+            self.files[i][2].status = text
+            ch = self.files_bar.get_child_at_index(i)
+            box = ch.get_child() if ch else None
+            last = box.get_last_child() if box else None
+            if isinstance(last, Gtk.Label) and last.has_css_class("hk-upload-status"):
+                last.set_label(text)
+            else:
+                self._files_bar()
+        return False
 
     def _page_popover(self):
         pop = Gtk.Popover()
@@ -1842,17 +1954,33 @@ class Conversation(Gtk.Box):
         cid = self.cid
         self.send_btn.set_sensitive(False)
         self.entry.set_sensitive(False)
+        stop = threading.Event()
+        self._sending = stop
+        pending = []
+        if any(isinstance(d, chatvideo.LocalVideo) for _n, _m, d in files):
+            self._files_bar()
 
         def work():
-            fobjs, fids = chat.upload_attachments(cid, files)
+            fobjs, fids = chat.upload_attachments(cid, files, progress=lambda i, t: GLib.idle_add(self._upload_status, i, t),
+                                                  cancelled=stop.is_set, pending=pending)
             body = {"v": 1, "type": "text", "text": text}
             if fobjs:
                 body["files"] = fobjs
             if notes:
                 body["notes"] = notes
-            return chat.send(cid, body, reply_to=reply, file_ids=fids)
+            r = chat.send(cid, body, reply_to=reply, file_ids=fids)
+            for p in pending:                              # gesendet: Fortsetzungsdaten (K, Praefix) vergessen
+                chatvideo.pending_drop(p)
+            return r
+
+        def done_sending():
+            self._sending = None
+            for _n, _m, d in self.files:
+                if isinstance(d, chatvideo.LocalVideo):
+                    d.status = ""
 
         def fin(r):
+            done_sending()
             resp, missing = r
             buf.set_text("")
             self.files, self.mentions = [], {}
@@ -1870,8 +1998,13 @@ class Conversation(Gtk.Box):
             self._ask_ai(cid, raw, (resp or {}).get("id"))
 
         def err(e):
+            done_sending()
+            self._files_bar()
             self.entry.set_sensitive(True)
             self._changed(buf)
+            if isinstance(e, chatvideo.Cancelled):
+                _toast(self.win, _("Upload cancelled."))
+                return
             if isinstance(e, SafetyChanged):
                 self._check_trust()
             if isinstance(e, FedNotDelivered):            # (2.3) vom Heim abgewiesen (z. B. gesperrt)
@@ -2052,12 +2185,12 @@ class ChatImage(Gtk.Widget):
     """Bild im Verlauf: Platzhalter in der richtigen Groesse (w/h aus der Nachricht), Vorschaubild erst wenn sichtbar"""
     __gtype_name__ = "HKChatImage"
 
-    def __init__(self, cid, f):
+    def __init__(self, cid, f, wh=None, poster=True):
         super().__init__()
         self.cid, self.f = cid, f
         self.tex = None
-        self.state = "idle"                                # idle | wait | ok | fail
-        self.bw, self.bh = chatmedia.box_size(chatmedia.size_of(f))
+        self.state = "idle" if poster else "none"          # idle | wait | ok | fail | none (Video ohne Poster: nichts laden)
+        self.bw, self.bh = chatmedia.box_size(wh or chatmedia.size_of(f) or ((1280, 720) if not poster or chatvideo.is_video(f) else None))
         self._cb = self._got                               # feste Referenz (cancel vergleicht mit "is")
         self.set_overflow(Gtk.Overflow.HIDDEN)
         self.add_css_class("hk-bubble-img")
@@ -2078,7 +2211,7 @@ class ChatImage(Gtk.Widget):
             self.tex = None
             self.add_css_class("hk-img-wait")
             self.queue_draw()
-        elif self.state == "fail":
+        elif self.state in ("fail", "none"):
             return
         self.state = "idle"
 
@@ -2094,7 +2227,7 @@ class ChatImage(Gtk.Widget):
             return
         self.tex, self.state = tex, "ok"
         self.remove_css_class("hk-img-wait")
-        if chatmedia.size_of(self.f) is None:              # alte Nachricht ohne w/h: Groesse jetzt bekannt
+        if chatmedia.size_of(self.f) is None and not chatvideo.is_video(self.f):   # alte Nachricht ohne w/h: Groesse jetzt bekannt
             bw, bh = chatmedia.box_size(wh or (tex.get_width(), tex.get_height()))
             if (bw, bh) != (self.bw, self.bh):
                 self.bw, self.bh = bw, bh
@@ -2113,10 +2246,10 @@ class ChatImage(Gtk.Widget):
         if W <= 0 or H <= 0:
             return
         if self.tex is None:
-            if self.state == "fail":
+            if self.state in ("fail", "none"):
                 c = Gdk.RGBA()
                 c.parse("rgba(127,127,127,0.5)")
-                lay = self.create_pango_layout("🖼")
+                lay = self.create_pango_layout("🎬" if chatvideo.is_video(self.f) else "🖼")
                 lw, lh = lay.get_pixel_size()
                 snap.save()
                 p = Graphene.Point()
@@ -2178,6 +2311,98 @@ class ImageViewer(Adw.Dialog):
     def _fail(self, e):
         self.err.set_label(_("Attachment not loaded: {err}").format(err=e or _("not loaded")))
         self.stack.set_visible_child_name("err")
+
+
+class VideoViewer(Adw.Dialog):
+    """Video abspielen (2.4): erst beim Oeffnen; ein Player (GStreamer) ueber den lokalen Proxy (Range, blockweise
+    entschluesselt, Spulen). v1 (bis file_max) wird ganz geladen. Ohne GStreamer/Codec: Hinweis "Herunterladen und extern
+    abspielen" mit Speichern-Knopf."""
+    def __init__(self, conv, f):
+        super().__init__(title=f.get("n") or _("Video"), content_width=960, content_height=640)
+        self.conv, self.f = conv, f
+        self.stream, self.tok = None, None
+        tv = Adw.ToolbarView()
+        hb = Adw.HeaderBar()
+        self.save_btn = Gtk.Button(icon_name="document-save-symbolic", tooltip_text=_("Save attachment"))
+        self.save_btn.connect("clicked", lambda *_: self._save())
+        hb.pack_start(self.save_btn)
+        self.prog = _lbl("", ("caption", "dim-label"), wrap=False)
+        hb.pack_start(self.prog)
+        tv.add_top_bar(hb)
+        self.stack = Gtk.Stack()
+        sp = Adw.Spinner() if hasattr(Adw, "Spinner") else Gtk.Spinner(spinning=True)
+        sp.set_size_request(32, 32)
+        sp.set_halign(Gtk.Align.CENTER)
+        sp.set_valign(Gtk.Align.CENTER)
+        self.stack.add_named(sp, "wait")
+        self.video = Gtk.Video(autoplay=True, vexpand=True, hexpand=True)
+        self.stack.add_named(self.video, "play")
+        self.err = Adw.StatusPage(icon_name="video-x-generic-symbolic")
+        b = Gtk.Button(label=_("Save …"), halign=Gtk.Align.CENTER)
+        b.add_css_class("pill")
+        b.add_css_class("suggested-action")
+        b.connect("clicked", lambda *_: self._save())
+        self.err.set_child(b)
+        self.stack.add_named(self.err, "err")
+        tv.set_content(self.stack)
+        self.set_child(tv)
+        self.connect("closed", lambda *_: self._stop())
+        self._start()
+
+    def _start(self):
+        from . import videotools
+        if not videotools.can_play():
+            self._fail(_("Videos can't be played here (GStreamer is missing)."), hint=True)
+            return
+        if chatvideo.fmt(self.f) == 2:
+            try:
+                self._play(chatvideo.VideoSource(self.conv.cid, self.f))
+            except (C.CryptoError, ValueError) as e:
+                self._fail(_("Attachment not loaded: {err}").format(err=e))
+            return
+        mime = self.f.get("m") or "video/mp4"
+        bg(chatmedia.original, self.conv.cid, self.f, done=lambda d: self._play(chatvideo.MemorySource(d, mime)),
+           error=lambda e: self._fail(_("Attachment not loaded: {err}").format(err=e)), media=True)
+
+    def _play(self, src):
+        if self.stream is False:                           # inzwischen geschlossen
+            return
+        from .videoplayer import SagaMediaStream
+        url, self.tok = chatvideo.proxy.register(src)
+        try:
+            self.stream = SagaMediaStream(url, on_error=self._play_error)
+        except (GLib.Error, TypeError, AttributeError) as e:
+            self._fail(str(e), hint=True)
+            return
+        self.video.set_media_stream(self.stream)
+        self.stack.set_visible_child_name("play")
+
+    def _play_error(self, text, codec):
+        """Player-Fehler (Codec fehlt, unbekanntes Format ...): Hinweis "Herunterladen und extern abspielen" """
+        self._fail(_("This video can't be played here."), hint=True, detail=None if codec else text)
+
+    def _fail(self, text, hint=False, detail=None):
+        self._stop(keep=True)
+        self.err.set_title(text)
+        desc = _("Download it and play it in another app.") if hint else ""
+        if detail:
+            desc += "\n<small>" + GLib.markup_escape_text(detail) + "</small>"
+        self.err.set_description(desc)
+        self.stack.set_visible_child_name("err")
+
+    def _save(self):
+        self.save_btn.set_sensitive(False)
+        self.conv._save_file(self.f, progress=lambda x: self.prog.set_label(f"{int(x * 100)} %"),
+                             done=lambda ok: (self.save_btn.set_sensitive(True), self.prog.set_label("")))
+
+    def _stop(self, keep=False):
+        st, self.stream = self.stream, (None if keep else False)
+        if st:
+            self.video.set_media_stream(None)
+            st.close()
+        if self.tok:
+            chatvideo.proxy.unregister(self.tok)
+            self.tok = None
 
 
 def open_safety(win, cid, uid):

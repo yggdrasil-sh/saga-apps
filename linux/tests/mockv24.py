@@ -12,6 +12,8 @@ from hlidskjalf import chatcrypto as C
 
 
 def init(s):
+    import mockvideo
+    mockvideo.init(s)             # 2.4 E2: Videos im Chat (saga-file/v2)
     s.status_api = True
     s.privacy = {}                # uid -> {"receipts", "online"} (fehlt = beides an)
     s.receipts = {}               # (chat_id, viewer) -> {reader: sealed}
@@ -27,6 +29,9 @@ def prefs(s, uid):
 
 
 def me_extra(s, d):
+    import mockvideo
+    if isinstance(d.get("limits"), dict):
+        mockvideo.limits(s, d["limits"])
     if s.status_api:
         d.update(privacy=prefs(s, s.me), features=["receipts", "online"],
                  status_limits={"receipt_gap": 2.0, "presence_ttl": 90, "presence_users": 50, "last_round": 300})
@@ -58,6 +63,10 @@ def _shared(s, me, u):
 
 def handle(s, method, path, parts, q, b):
     import mockv2
+    import mockvideo
+    r = mockvideo.handle(s, method, path, parts, q, b)
+    if r is not None:
+        return r
     me = s.me
     if path == "api/chat/privacy":
         if not s.status_api:
