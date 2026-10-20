@@ -209,6 +209,13 @@ class ChatCrypto(private val s: LazySodium) {
         return out
     }
 
+    /** crypto_generichash (BLAKE2b) mit Schluessel (2.5: Schluessel einer Reaktion aus dem Schluessel der Nachricht) */
+    fun genericHashKeyed(data: ByteArray, key: ByteArray, n: Int = 32): ByteArray {
+        val out = ByteArray(n)
+        check(s.cryptoGenericHash(out, n, data, data.size.toLong(), key, key.size))
+        return out
+    }
+
     fun sigMsg(chatId: String, id: String, sender: String, device: String, ts: Long, replyTo: String?, bodyCt: String): ByteArray =
         lp(V + "sig", chatId, id, sender, device, ts.toString(), replyTo ?: "", genericHash(unb64(bodyCt) ?: throw ChatCryptoException("body")))
 

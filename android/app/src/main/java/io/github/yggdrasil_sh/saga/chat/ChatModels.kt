@@ -68,6 +68,8 @@ data class ChatMe(
     val privacy: ChatPrivacy? = null,
     val features: List<String> = emptyList(),
     @SerialName("status_limits") val statusLimits: StatusLimits? = null,
+    /** 2.5: Grenzen fuer Reaktionen, Bearbeiten und Sprachnachrichten (features "react", "edit", "voice"); aeltere Server: fehlt */
+    @SerialName("x3_limits") val x3Limits: X3Limits? = null,
 )
 
 @Serializable
@@ -145,6 +147,12 @@ data class ApiMessage(
     val fseq: Long? = null,
     @SerialName("sender_handle") val senderHandle: String? = null,
     val fstate: String? = null,
+    /** 2.5 (x3_ok): Reaktionen (hoechstens 50, je Person die neueste), neueste Bearbeitung (vollstaendige Nachricht mit key) */
+    val rx: List<Reaction> = emptyList(),
+    val edit: ApiMessage? = null,
+    @SerialName("edited_at") val editedAt: Double? = null,
+    @SerialName("edit_n") val editN: Int = 0,
+    @SerialName("edit_of") val editOf: String? = null,
 )
 
 /** 2.1: Beleg des Servers zu einer KI-Antwort im Chat; v2: nur der mitsignierte Hash (hashOnly) */
@@ -235,13 +243,30 @@ data class ChatSummary(
     @SerialName("big_files") val bigFiles: Boolean? = null,
     /** 2.4 E5: Gruppenanruf moeglich / laeuft (nur GET /api/chats/{id}); fehlt bei aelteren Servern */
     val call: io.github.yggdrasil_sh.saga.call.ChatCallInfo? = null,
+    /** 2.5: Reaktionen, Bearbeiten, Sprachnachrichten moeglich (Format v2, angenommen, beschreibbar, alle Server chat3) */
+    @SerialName("x3_ok") val x3Ok: Boolean? = null,
+    /** 2.5: bestehender Chat auf Stufe 3 umgestellt - Nachrichten bis seq (bzw. ohne sender_handle) im Format v1 */
+    val v3: ChatV3Info? = null,
 ) {
-    /** Chat ueber Servergrenzen (v2) */
-    val isFed: Boolean get() = v == 2 && !ref.isNullOrEmpty()
+    /**
+     * Krypto saga-chat/v2 (an Handles und chat_ref gebunden): Chats ueber Servergrenzen (v 2) und seit 2.5 auch lokale
+     * Chats der Stufe 3 (v 3). Nur die Krypto - ob andere Server beteiligt sind, sagt [remote].
+     */
+    val isFed: Boolean get() = (v == 2 || v == 3) && !ref.isNullOrEmpty()
+
+    /** Chat ueber Servergrenzen (Hinweise auf Server, Heim, Zustellung) - nicht bei lokalen Chats der Stufe 3 */
+    val remote: Boolean get() = isFed && v != 3
+
+    /** 2.5: Nachrichten bis hierher (seq) stammen aus der Zeit vor der Umstellung auf Stufe 3 (v1 pruefen) */
+    val v3Seq: Long get() = v3?.seq ?: 0
 
     /** Kennung fuer die Verschluesselung (AD von Nachrichten/Anhaengen): v1 chat_id, v2 chat_ref */
     val cryptoId: String get() = if (isFed) ref!! else id.toString()
 }
+
+/** 2.5: Umstellpunkt eines bestehenden Chats auf Stufe 3 */
+@Serializable
+data class ChatV3Info(val seq: Long = 0, val at: Double? = null, val forced: Boolean = false)
 
 /** 2.3: wer in eine Gruppe ueber Servergrenzen eingeladen hat */
 @Serializable
@@ -372,6 +397,9 @@ data class ChatSys(
     val removed: List<SysPerson> = emptyList(),
     val reason: String? = null,
     @SerialName("ai_off") val aiOff: Boolean = false,
+    /** 2.5 {"type":"crypto","level":3,"verify"?:true}: Chat auf Stufe 3 umgestellt; verify = Sicherheitsnummern neu vergleichen */
+    val level: Int = 0,
+    val verify: Boolean = false,
 ) {
     /** "by" als Handle (Systemzeile "ai") */
     val byHandle: String?
@@ -417,7 +445,12 @@ data class ChatFile(
     val x: Int? = null, val cs: Int? = null,
     /** 2.4 Videos: Dauer (s), Drehung (0/90/180/270), moov vorn (faststart, nur Hinweis) */
     val dur: Double? = null, val rot: Int? = null, val fs: Boolean? = null,
+    /** 2.5 Sprachnachricht: Ogg/Opus, Wellenform (64 Werte 0-255, B64), Dauer in dur */
+    val voice: Boolean? = null, val wf: String? = null,
 ) {
+    /** Sprachnachricht (nur fuer Audio-Anhaenge) */
+    val isVoice: Boolean get() = voice == true && m.startsWith("audio/")
+
     val isImage: Boolean get() = m.startsWith("image/")
     val isVideo: Boolean get() = m.startsWith("video/")
     /** Format: 1 (v1) oder 2 (saga-file/v2); andere Werte kann diese Version nicht oeffnen */

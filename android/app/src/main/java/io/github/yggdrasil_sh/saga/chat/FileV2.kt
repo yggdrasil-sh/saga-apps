@@ -242,3 +242,13 @@ class FileV2Reader(private val crypto: ChatCrypto, private val key: ByteArray, v
         }
     }
 }
+
+/** Klartext im Speicher (2.5: Sprachnachrichten, hoechstens wenige MB) */
+class BytesPlainSource(private val data: ByteArray) : PlainSource {
+    override val size: Long = data.size.toLong()
+
+    override fun readFully(pos: Long, buf: ByteArray, len: Int) {
+        if (pos < 0 || pos + len > data.size) throw EOFException()
+        System.arraycopy(data, pos.toInt(), buf, 0, len)
+    }
+}

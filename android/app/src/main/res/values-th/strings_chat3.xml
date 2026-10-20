@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5: Chat-Stufe 3, Reaktionen, Bearbeiten, Sprachnachrichten -->
+<resources>
+    <string name="x3_sys_crypto">แชทนี้ผูกกับที่อยู่ Saga แบบถาวรแล้ว (ระดับการเข้ารหัสใหม่)</string>
+    <string name="x3_sys_crypto_verify">แชทนี้ผูกกับที่อยู่ Saga แบบถาวรแล้ว (ระดับการเข้ารหัสใหม่) โปรดเปรียบเทียบหมายเลขความปลอดภัยอีกครั้ง – ตอนนี้แสดงผลต่างไปจากเดิม</string>
+    <string name="x3_safety_migrated">รูปแบบใหม่ คีย์เดิม: หมายเลขดูต่างจากเดิม แต่เป็นของคีย์เดียวกับที่คุณรู้จักอยู่แล้ว</string>
+    <string name="x3_react_failed">ส่งการแสดงความรู้สึกไม่สำเร็จ: %1$s</string>
+    <string name="x3_react_remove">เอาการแสดงความรู้สึกออก</string>
+    <string name="x3_react_with">แสดงความรู้สึกด้วย %1$s</string>
+    <string name="x3_react_chip">การแสดงความรู้สึก %1$s: %2$d</string>
+    <string name="x3_more_emojis">อีโมจิเพิ่มเติม</string>
+    <string name="x3_reactions_title">การแสดงความรู้สึก</string>
+    <string name="x3_reactions_none">ยังไม่มีการแสดงความรู้สึก</string>
+    <string name="x3_you">คุณ</string>
+    <string name="x3_former_member">อดีตสมาชิก</string>
+    <string name="x3_edit">แก้ไข</string>
+    <string name="x3_edit_hint">แก้ไขข้อความ</string>
+    <string name="x3_edited">แก้ไขแล้ว</string>
+    <string name="x3_edited_at">แก้ไขเมื่อ %1$s</string>
+    <string name="x3_edit_failed">แก้ไขไม่สำเร็จ: %1$s</string>
+    <string name="x3_edit_not_possible">แก้ไขข้อความนี้ไม่ได้แล้ว</string>
+    <string name="voice_record">บันทึกข้อความเสียง</string>
+    <string name="voice_play">เล่นข้อความเสียง</string>
+    <string name="voice_pause">หยุดชั่วคราว</string>
+    <string name="voice_speed">ความเร็ว</string>
+    <string name="voice_discard">ทิ้ง</string>
+    <string name="voice_slide_cancel">เลื่อนไปทางซ้ายเพื่อทิ้ง</string>
+    <string name="voice_slide_lock">เลื่อนขึ้นเพื่อล็อก</string>
+    <string name="voice_hold_hint">กดค้างไว้เพื่อบันทึก – เลื่อนขึ้นเพื่อล็อก</string>
+    <string name="voice_warn_minute">เหลืออีกหนึ่งนาที – จากนั้นการบันทึกจะสิ้นสุด</string>
+    <string name="voice_limit_stop">สูงสุด 15 นาที – หยุดบันทึกแล้ว</string>
+    <string name="voice_too_short">สั้นเกินไป – การบันทึกที่สั้นกว่า 1 วินาทีจะถูกทิ้ง</string>
+    <string name="voice_too_big">ข้อความเสียงใหญ่เกินไป</string>
+    <string name="voice_record_failed">บันทึกไม่ได้: %1$s</string>
+    <string name="voice_android_old">การบันทึกข้อความเสียงต้องใช้ Android 10 ขึ้นไป แต่ยังเล่นได้ที่นี่</string>
+    <string name="voice_mic_not_allowed">ไม่ได้รับอนุญาตให้ใช้ไมโครโฟน</string>
+    <string name="voice_mic_title">ไมโครโฟน</string>
+    <string name="voice_mic_denied">ไม่อนุญาตให้ใช้ไมโครโฟน – โปรดอนุญาตสำหรับ Saga ในการตั้งค่า (สิทธิ์ → ไมโครโฟน)</string>
+    <string name="voice_open_settings">เปิดการตั้งค่า</string>
+    <string name="voice_channel">ข้อความเสียง</string>
+    <string name="voice_playing">กำลังเล่นข้อความเสียง</string>
+</resources>

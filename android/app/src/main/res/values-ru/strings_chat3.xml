@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5: Chat-Stufe 3, Reaktionen, Bearbeiten, Sprachnachrichten -->
+<resources>
+    <string name="x3_sys_crypto">Теперь этот чат привязан к постоянным адресам Saga (новый уровень шифрования).</string>
+    <string name="x3_sys_crypto_verify">Теперь этот чат привязан к постоянным адресам Saga (новый уровень шифрования). Пожалуйста, сверьте коды безопасности заново – теперь они отображаются иначе.</string>
+    <string name="x3_safety_migrated">Новый вид, тот же ключ: номер выглядит иначе, чем раньше, но относится к тому же ключу, который вы уже знали.</string>
+    <string name="x3_react_failed">Реакция не отправлена: %1$s</string>
+    <string name="x3_react_remove">Убрать реакцию</string>
+    <string name="x3_react_with">Реакция %1$s</string>
+    <string name="x3_react_chip">Реакция %1$s: %2$d</string>
+    <string name="x3_more_emojis">Другие эмодзи</string>
+    <string name="x3_reactions_title">Реакции</string>
+    <string name="x3_reactions_none">Реакций пока нет.</string>
+    <string name="x3_you">вы</string>
+    <string name="x3_former_member">Бывший участник</string>
+    <string name="x3_edit">Изменить</string>
+    <string name="x3_edit_hint">Изменить сообщение</string>
+    <string name="x3_edited">изменено</string>
+    <string name="x3_edited_at">Изменено %1$s</string>
+    <string name="x3_edit_failed">Не изменено: %1$s</string>
+    <string name="x3_edit_not_possible">Это сообщение больше нельзя изменить.</string>
+    <string name="voice_record">Записать голосовое сообщение</string>
+    <string name="voice_play">Воспроизвести голосовое сообщение</string>
+    <string name="voice_pause">Пауза</string>
+    <string name="voice_speed">Скорость</string>
+    <string name="voice_discard">Отбросить</string>
+    <string name="voice_slide_cancel">Влево – удалить</string>
+    <string name="voice_slide_lock">Вверх – закрепить</string>
+    <string name="voice_hold_hint">Удерживайте для записи – сдвиньте вверх, чтобы закрепить.</string>
+    <string name="voice_warn_minute">Осталась одна минута – затем запись остановится.</string>
+    <string name="voice_limit_stop">Не более 15 минут – запись остановлена.</string>
+    <string name="voice_too_short">Слишком коротко – записи короче 1 секунды не сохраняются.</string>
+    <string name="voice_too_big">Голосовое сообщение слишком большое.</string>
+    <string name="voice_record_failed">Запись невозможна: %1$s</string>
+    <string name="voice_android_old">Запись голосовых сообщений доступна с Android 10. Воспроизводить их можно и здесь.</string>
+    <string name="voice_mic_not_allowed">Доступ к микрофону запрещён.</string>
+    <string name="voice_mic_title">Микрофон</string>
+    <string name="voice_mic_denied">Доступ к микрофону не разрешён – разрешите его для Saga в настройках (Разрешения → Микрофон).</string>
+    <string name="voice_open_settings">Открыть настройки</string>
+    <string name="voice_channel">Голосовые сообщения</string>
+    <string name="voice_playing">Воспроизводится голосовое сообщение</string>
+</resources>

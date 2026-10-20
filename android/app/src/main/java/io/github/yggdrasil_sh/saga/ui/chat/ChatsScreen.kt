@@ -354,7 +354,7 @@ private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, online: Boo
             }
             // 2.3: Person eines anderen Servers - Anfrage/Direkt, Herkunft, schreibgeschuetzt
             // Gruppe/Seiten-Chat ueber Servergrenzen (E5): Art, Mitgliederzahl, Heim (wenn anderer Server)
-            val sub = if (c.isFed) {
+            val sub = if (c.remote) {
                 (if (c.request) stringResource(R.string.fed_request_chip) else kindLabel) +
                     (if (c.kind == "dm") (c.peer?.host ?: c.home)?.let { " · $it" }.orEmpty()
                     else " · " + androidx.compose.ui.res.pluralStringResource(R.plurals.fed_people_n, c.memberCount, c.memberCount) +

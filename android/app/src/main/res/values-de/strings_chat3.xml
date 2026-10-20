@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5: Chat-Stufe 3, Reaktionen, Bearbeiten, Sprachnachrichten -->
+<resources>
+    <string name="x3_sys_crypto">Dieser Chat ist jetzt an die stabilen Saga-Adressen gebunden (neue Verschlüsselungsstufe).</string>
+    <string name="x3_sys_crypto_verify">Dieser Chat ist jetzt an die stabilen Saga-Adressen gebunden (neue Verschlüsselungsstufe). Bitte die Sicherheitsnummern neu vergleichen – sie werden jetzt anders angezeigt.</string>
+    <string name="x3_safety_migrated">Neue Darstellung, gleicher Schlüssel: Die Nummer sieht anders aus als früher, gehört aber zum selben Schlüssel, den du schon kanntest.</string>
+    <string name="x3_react_failed">Reaktion nicht gesendet: %1$s</string>
+    <string name="x3_react_remove">Reaktion zurücknehmen</string>
+    <string name="x3_react_with">Mit %1$s reagieren</string>
+    <string name="x3_react_chip">Reaktion %1$s: %2$d</string>
+    <string name="x3_more_emojis">Weitere Emojis</string>
+    <string name="x3_reactions_title">Reaktionen</string>
+    <string name="x3_reactions_none">Noch keine Reaktionen.</string>
+    <string name="x3_you">du</string>
+    <string name="x3_former_member">Ehemaliges Mitglied</string>
+    <string name="x3_edit">Bearbeiten</string>
+    <string name="x3_edit_hint">Nachricht bearbeiten</string>
+    <string name="x3_edited">bearbeitet</string>
+    <string name="x3_edited_at">Bearbeitet am %1$s</string>
+    <string name="x3_edit_failed">Nicht bearbeitet: %1$s</string>
+    <string name="x3_edit_not_possible">Diese Nachricht lässt sich nicht (mehr) bearbeiten.</string>
+    <string name="voice_record">Sprachnachricht aufnehmen</string>
+    <string name="voice_play">Sprachnachricht abspielen</string>
+    <string name="voice_pause">Pause</string>
+    <string name="voice_speed">Tempo</string>
+    <string name="voice_discard">Verwerfen</string>
+    <string name="voice_slide_cancel">Zum Verwerfen nach links</string>
+    <string name="voice_slide_lock">Zum Sperren nach oben</string>
+    <string name="voice_hold_hint">Zum Aufnehmen gedrückt halten – nach oben schieben zum Sperren.</string>
+    <string name="voice_warn_minute">Noch eine Minute – dann endet die Aufnahme.</string>
+    <string name="voice_limit_stop">Höchstens 15 Minuten – Aufnahme beendet.</string>
+    <string name="voice_too_short">Zu kurz – Aufnahmen unter 1 Sekunde werden verworfen.</string>
+    <string name="voice_too_big">Sprachnachricht zu groß.</string>
+    <string name="voice_record_failed">Aufnahme nicht möglich: %1$s</string>
+    <string name="voice_android_old">Sprachnachrichten aufnehmen geht ab Android 10. Abspielen geht auch hier.</string>
+    <string name="voice_mic_not_allowed">Mikrofon nicht erlaubt.</string>
+    <string name="voice_mic_title">Mikrofon</string>
+    <string name="voice_mic_denied">Mikrofon nicht erlaubt – bitte in den Einstellungen für Saga erlauben (Berechtigungen → Mikrofon).</string>
+    <string name="voice_open_settings">Einstellungen öffnen</string>
+    <string name="voice_channel">Sprachnachrichten</string>
+    <string name="voice_playing">Sprachnachricht wird abgespielt</string>
+</resources>

@@ -161,11 +161,15 @@ class ChatStore(private val secure: SecureStore, private val scope: () -> String
         emptyMap()
     }
 
-    /** Regel FedFormat.tofu anwenden und ggf. speichern -> (Ergebnis, gemerkter Stand danach) */
+    /**
+     * Regel FedFormat.tofu anwenden und ggf. speichern -> (Ergebnis, gemerkter Stand danach). 2.5: gibt es noch keinen
+     * Eintrag zu diesem Handle, aber einen v1-Stand der Person (Zuordnung Handle -> Benutzer aus Chats v1), wird er mit
+     * FedFormat.tofuMigrate uebernommen - nur bei gleichem Identitaetsschluessel.
+     */
     @Synchronized
     fun observe2(handle: String, identPub: String, ver: Long): Pair<TofuV2, Trust2?> {
         val m = trust2().toMutableMap()
-        val st = FedFormat.tofu(m[handle], identPub, ver)
+        val st = if (m[handle] == null) FedFormat.tofuMigrate(v1Trust(handle), identPub, ver) else FedFormat.tofu(m[handle], identPub, ver)
         st.store?.let {
             m[handle] = it
             secure.put(k("tofu2"), json.encodeToString(m))
@@ -178,8 +182,39 @@ class ChatStore(private val secure: SecureStore, private val scope: () -> String
     fun setTrust2(handle: String, identPub: String, verified: Boolean) {
         val m = trust2().toMutableMap()
         val old = m[handle]
-        m[handle] = Trust2(identPub, verified = verified, dver = if (old?.ident == identPub) old.dver else 0)
+        m[handle] = Trust2(identPub, verified = verified, dver = if (old?.ident == identPub) old.dver else 0, migrated = old?.ident == identPub && old.migrated)
         secure.put(k("tofu2"), json.encodeToString(m))
+    }
+
+    // ---------------------------------------------------------------- 2.5: Handle -> Benutzer (Vertrauens-Uebernahme)
+    // Aus members[].handle der Chats v1 (der 2.5-Server liefert es Clients der Stufe 3). Nur damit der v1-Stand
+    // trust:<benutzer> beim ersten v2-Kontakt gefunden wird; vertraut wird erst nach dem Vergleich der Identitaeten.
+
+    fun handleUsers(): Map<String, String> = try {
+        secure.get(k("h2u"))?.let { json.decodeFromString<Map<String, String>>(it) } ?: emptyMap()
+    } catch (_: Exception) {
+        emptyMap()
+    }
+
+    /** Zuordnungen merken (nur andere Konten, nur echte Handles); true = etwas geaendert */
+    @Synchronized
+    fun noteHandles(pairs: Map<String, String>): Boolean {
+        if (pairs.isEmpty()) return false
+        val m = handleUsers().toMutableMap()
+        var changed = false
+        for ((h, u) in pairs) if (FedFormat.HANDLE_RE.matches(h) && u.isNotEmpty() && h != u && m[h] != u) {
+            m[h] = u
+            changed = true
+        }
+        if (changed) secure.put(k("h2u"), json.encodeToString(m))
+        return changed
+    }
+
+    /** v1-Vertrauensstand zu einem Handle (falls bekannt) */
+    fun v1Trust(handle: String): V1Trust? {
+        val u = handleUsers()[handle] ?: return null
+        val k = known()[u] ?: return null
+        return V1Trust(k.k, k.verified, k.changed)
     }
 
     /** Warnung gesehen (Sicherheitsnummer angezeigt) bzw. "Als überprüft markieren" */

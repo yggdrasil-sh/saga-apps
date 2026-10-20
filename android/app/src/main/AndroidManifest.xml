@@ -28,6 +28,10 @@
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <!-- 2.4 Videos im Chat: Upload im Hintergrund (WorkManager, expedited) als Vordergrund-Arbeit mit Mitteilung -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- 2.5 Sprachnachrichten: Wiedergabe laeuft im Hintergrund weiter (Vordergrund-Dienst Typ mediaPlayback, nur waehrend
+         der Wiedergabe; WakeLock fuer ExoPlayer). Aufnahme nur im Vordergrund (RECORD_AUDIO oben, Abfrage zur Laufzeit). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <queries>
         <!-- Custom Tabs (Anmeldung im Browser) -->
@@ -128,6 +132,12 @@
         <receiver
             android:name=".call.CallActionReceiver"
             android:exported="false" />
+
+        <!-- 2.5: Sprachnachrichten im Hintergrund weiter abspielen -->
+        <service
+            android:name=".chat.voice.VoicePlaybackService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
 
         <!-- 2.4: Video-Upload (WorkManager) laeuft als Vordergrund-Arbeit vom Typ dataSync -->
         <service

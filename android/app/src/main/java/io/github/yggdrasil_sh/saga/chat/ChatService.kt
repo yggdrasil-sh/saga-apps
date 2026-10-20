@@ -122,6 +122,9 @@ object ChatLogic {
                     f.dur?.let { put("dur", it) }
                     f.rot?.let { put("rot", it) }
                     f.fs?.let { put("fs", it) }
+                    // 2.5 Sprachnachricht: voice, Wellenform (dur steht oben)
+                    if (f.voice == true) put("voice", true)
+                    f.wf?.let { put("wf", it) }
                     f.th?.let { t ->
                         put("th", buildJsonObject { put("id", t.id); put("k", t.k); put("m", t.m); put("w", t.w); put("h", t.h); put("s", t.s) })
                     }
@@ -244,6 +247,29 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
 
     /** 2.4: Gelesen-Bestaetigungen (signiert, versiegelt) */
     val receipts: ReceiptCrypto by lazy { ReceiptCrypto(crypto) }
+    /** 2.5: Reaktionen (saga-chat/v3) */
+    val react: ReactCrypto by lazy { ReactCrypto(crypto) }
+
+    /** 2.5: zuletzt benutzte Emojis (nur Bequemlichkeit, hoechstens 24) */
+    val recentEmojis = kotlinx.coroutines.flow.MutableStateFlow<List<String>>(emptyList())
+
+    fun rememberEmoji(e: String) {
+        val l = (listOf(e) + recentEmojis.value.filter { it != e }).take(24)
+        recentEmojis.value = l
+        try {
+            repo.secure.put("chat_emoji_recent", l.joinToString("\u0001"))
+        } catch (_: Exception) {
+        }
+    }
+
+    fun loadRecentEmojis() {
+        if (recentEmojis.value.isNotEmpty()) return
+        recentEmojis.value = try {
+            repo.secure.get("chat_emoji_recent").orEmpty().split('\u0001').filter { ChatX3.emojiOk(it) }.take(24)
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
 
     /** 2.4: Online-Status - Abo nur fuer sichtbare Ansichten (Chatliste, offener Direkt-Chat), im Hintergrund keins */
     val presence = PresenceHub(
@@ -339,12 +365,37 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
             chatsLoaded.value = true
             repo.live.chatUnread.value = r.unread
             requests.value = r.requests
+            noteHandles(r.chats)
             decryptTitles(r.chats)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             error.value = repo.friendly(e)
         }
+    }
+
+    private var voiceCalls = false
+
+    /** 2.5: Sprachnachricht pausiert, sobald ein Saga-Anruf beginnt (Telefonate: Audio-Fokus) - einmal je Prozess */
+    fun watchCallsForVoice() {
+        if (voiceCalls) return
+        voiceCalls = true
+        scope.launch {
+            repo.calls.ui.collect { st -> if (io.github.yggdrasil_sh.saga.call.CallReturn.active(st)) io.github.yggdrasil_sh.saga.chat.voice.VoicePlayer.onCall() }
+        }
+    }
+
+    /**
+     * 2.5: Zuordnung Handle -> Benutzer aus Chats v1 (members[].handle) merken, damit trust:<benutzer> beim ersten Kontakt
+     * im Format v2 uebernommen werden kann (nur bei gleichem Identitaetsschluessel, ChatStore.observe2)
+     */
+    suspend fun noteHandles(list: List<ChatSummary>) {
+        val pairs = HashMap<String, String>()
+        for (c in list) if (!c.isFed) for (m in c.members) {
+            val h = m.handle ?: continue
+            if (!m.me && m.username.isNotEmpty() && h != m.username) pairs[h] = m.username
+        }
+        if (pairs.isNotEmpty()) withContext(Dispatchers.IO) { store.noteHandles(pairs) }
     }
 
     private suspend fun decryptTitles(list: List<ChatSummary>) {

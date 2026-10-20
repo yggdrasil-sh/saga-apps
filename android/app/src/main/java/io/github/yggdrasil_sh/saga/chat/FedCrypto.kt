@@ -65,7 +65,12 @@ data class Trust2(
     val changed: Boolean = false,
     val old: String? = null,
     val dver: Long = 0,
+    /** 2.5: aus dem v1-Stand (trust:<benutzer>) uebernommen - Hinweis "Neue Darstellung, gleicher Schluessel" */
+    val migrated: Boolean = false,
 )
+
+/** 2.5: gemerkter v1-Stand einer Person (trust:<benutzer>) fuer die Vertrauens-Uebernahme */
+data class V1Trust(val ident: String, val verified: Boolean, val changed: Boolean, val old: String? = null)
 
 enum class TofuV2 { TRUST, WARN, BLOCK, REJECT, MISSING }
 
@@ -129,6 +134,23 @@ object FedFormat {
         }
         if (stored.verified) return TofuStep(TofuV2.BLOCK, null)
         return TofuStep(TofuV2.WARN, Trust2(ident, verified = false, changed = true, old = stored.ident, dver = v))
+    }
+
+    /**
+     * 2.5 Vertrauens-Uebernahme v1 -> v2 (nur solange es keinen Eintrag trust2:<handle> gibt), wie tofu_migrate in
+     * saga/chat_v3.py bzw. static/chat-crypto.js (Vektoren tests/vectors/chat_v3.json "tofu_migrate"): gleicher
+     * Identitaetsschluessel -> "ueberprueft"/"geaendert" uebernehmen; anderer -> Warnung, war er ueberprueft -> Blockade.
+     * Ohne v1-Stand wie der erste Kontakt. Ein Server mit falscher Zuordnung Handle -> Benutzer scheitert am Vergleich.
+     */
+    fun tofuMigrate(v1: V1Trust?, ident: String, ver: Long?): TofuStep {
+        val v = ver ?: 0
+        if (v1 == null) return TofuStep(TofuV2.TRUST, Trust2(ident, verified = false, dver = v))
+        if (v1.ident == ident) {
+            return if (v1.changed) TofuStep(TofuV2.WARN, Trust2(ident, verified = v1.verified, changed = true, old = v1.old, dver = v, migrated = true))
+            else TofuStep(TofuV2.TRUST, Trust2(ident, verified = v1.verified, dver = v, migrated = true))
+        }
+        if (v1.verified) return TofuStep(TofuV2.BLOCK, null)
+        return TofuStep(TofuV2.WARN, Trust2(ident, verified = false, changed = true, old = v1.ident, dver = v))
     }
 
     /** Empfaenger: je Person backup:<handle>, je aktivem Geraet dev:<id>@<host aus dem Handle> */
