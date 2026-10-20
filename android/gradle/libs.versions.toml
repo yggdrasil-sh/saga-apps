@@ -17,7 +17,7 @@ iconsCore = "1.7.8"
 junit = "4.13.2"
 lazysodium = "5.2.0"
 jna = "5.17.0"
-webrtc = "1.3.10"
+webrtc = "150.7871.01"
 androidxTestRunner = "1.7.0"
 androidxTestExtJunit = "1.3.0"
 media3 = "1.10.1"
@@ -52,7 +52,7 @@ junit = { module = "junit:junit", version.ref = "junit" }
 lazysodium-android = { module = "com.goterl:lazysodium-android", version.ref = "lazysodium" }
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 lazysodium-java = { module = "com.goterl:lazysodium-java", version.ref = "lazysodium" }
-stream-webrtc-android = { module = "io.getstream:stream-webrtc-android", version.ref = "webrtc" }
+webrtc-sdk-android = { module = "io.github.webrtc-sdk:android", version.ref = "webrtc" }
 androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidxTestRunner" }
 media3-exoplayer = { module = "androidx.media3:media3-exoplayer", version.ref = "media3" }
 media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
