@@ -59,9 +59,14 @@ struct ConversationView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #else
-        .navigationSubtitle(conv.info.map { ChatSubtitle.text($0) } ?? "")
+        .navigationSubtitle(presenceText ?? conv.info.map { ChatSubtitle.text($0) } ?? "")   // 2.4: online / zuletzt online
         #endif
         .toolbar {
+            #if os(iOS)
+            if let s = presenceText, let t = conv.info?.title {                   // 2.4: Name, darunter online / zuletzt online
+                ToolbarItem(placement: .principal) { ChatTitleWithPresence(title: t, status: s, online: chat.presenceOf(conv.info)?.online == true) }
+            }
+            #endif
             // Anrufen (2.1): nur im Direkt-Chat
             ToolbarItemGroup(placement: .primaryAction) {
                 if let i = conv.info, i.kind == "dm", let p = i.peer, canCall {
@@ -80,6 +85,7 @@ struct ConversationView: View {
             ChatPerf.begin()                                                                // nur fuer Tests: Messung
             #endif
             await conv.load()
+            chat.presenceSoon()                                                             // 2.4: Online-Status des Gegenuebers
             #if DEBUG
             if ChatPerf.on { await perfRun() }
             if UserDefaults.standard.bool(forKey: "hkChatSafety"), let p = conv.info?.peer { try? await Task.sleep(for: .seconds(2.5)); safetyPeer = p }   // nur fuer Tests
@@ -105,7 +111,7 @@ struct ConversationView: View {
             if UserDefaults.standard.bool(forKey: "hkChatAck") { for u in conv.changedPeers { conv.acknowledge(u) } }   // nur fuer Tests: "Verstanden"
             #endif
         }
-        .onDisappear { if chat.open === conv { chat.open = nil } }
+        .onDisappear { if chat.open === conv { chat.open = nil }; chat.presenceSoon() }   // 2.4: Online-Abo dieses Chats endet
         .onChange(of: conv.purged) { _, _ in text = ""; files = []; replyTo = nil; askDelete = nil }   // Chat geloescht: Entwurf weg
         .sheet(item: $deleting) { c in ChatDeleteSheet(chat: chat, c: c) }
         .modifier(ChatMediaInput(files: $files, pickImmich: $pickImmich, immichOn: $immichOn, enabled: !conv.notFound, maxBytes: chat.me.fileMax))
@@ -231,6 +237,7 @@ struct ConversationView: View {
                                       openPage: { id in nav.push(PageRoute(id: id)) },
                                       checkSafety: { safetyPeer = ChatMember(username: m.sender, name: m.senderName, me: false) })
                             .id(m.id)
+                            .onAppear { conv.saw(m) }                                   // 2.4: Bestaetigung erst, wenn sichtbar
                         }
                     }
                     if let p = conv.aiPending {                                    // KI antwortet gerade (Strom)
@@ -265,6 +272,8 @@ struct ConversationView: View {
         }
     }
     private var shown: [ChatMessage] { conv.messages }
+    /// 2.4: "online" bzw. "zuletzt online …" im Direkt-Chat (nil = nichts zeigen)
+    private var presenceText: String? { PresenceText.text(chat.presenceOf(conv.info)) }
     /// Anrufe: Server kann es; ueber Servergrenzen nur aus angenommenen, beschreibbaren Chats (Anfragen klingeln nie)
     private var canCall: Bool { store.calls.enabled && (conv.fed?.callable ?? true) }
 
@@ -540,6 +549,7 @@ struct MessageBubble: View {
     var openPage: (Int) -> Void
     var checkSafety: () -> Void = {}
     @State private var info = false
+    @State private var readBy = false                             // 2.4: "Gelesen von" (Gruppen)
     @EnvironmentObject var store: Store
     /// bestaetigte KI-Antwort (2.1): links mit Bild + Name der KI, "gefragt von …"
     private var isAI: Bool { m.aiState == .ok }
@@ -580,6 +590,7 @@ struct MessageBubble: View {
                     FedDeliveryMark(delivery: m.delivery)                       // 2.3: wird zugestellt / nicht zugestellt
                     Text(m.date, format: .dateTime.hour().minute())
                     if m.expiresAt != nil { Image(systemName: "timer") }
+                    ReceiptTickView(tick: conv.tick(m), group: conv.isGroup) { readBy = true }   // 2.4: ✓ zugestellt, ✓✓ gelesen
                 }.font(.caption2).foregroundStyle(.secondary)
             }
             .contextMenu {
@@ -588,8 +599,12 @@ struct MessageBubble: View {
                 if m.mine && m.delivery == .failed && m.content != nil {
                     Button { Task { await conv.resend(m) } } label: { Label("Erneut senden", systemImage: "arrow.clockwise") }
                 }
+                if mine && conv.isGroup && conv.receiptsActive && m.delivery == .delivered {   // 2.4
+                    Button { readBy = true } label: { Label("Gelesen von …", systemImage: "checkmark.circle") }
+                }
                 if m.mine { Button(role: .destructive) { delete() } label: { Label("Für alle löschen", systemImage: "trash") } }
             }
+            .sheet(isPresented: $readBy) { ReadBySheet(conv: conv, message: m) }
             .accessibilityElement(children: .combine)
             .accessibilityHint(m.verified ? Text(verbatim: "") : Text("Echtheit nicht bestätigt"))
             if !mine { Spacer(minLength: 48) }

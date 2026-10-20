@@ -26,6 +26,8 @@ struct ChatMessage: Identifiable, Equatable {
     var sys: FedChatLogic.SysLine? = nil
     /// Zustellung in Chats ueber Servergrenzen (2.3): wird zugestellt / nicht zugestellt
     var delivery: FedChatLogic.Delivery = .delivered
+    /// 2.4: Position beim Heim (v2-Chats, fseq) - Gelesen-Bestaetigungen zaehlen dort danach; lokal gilt seq
+    var fseq = 0
     var date: Date { Date(timeIntervalSince1970: created > 0 ? created : ts / 1000) }
     var text: String { content?.text ?? "" }
 }
@@ -54,18 +56,24 @@ final class ConversationModel: ObservableObject {
     private var aiTask: Task<Void, Never>?
     /// Kennung der zuletzt gesendeten Nachricht (fuer die Frage an die KI)
     private(set) var lastSentID: String?
-    private var recipients: [[String: Any]]?
+    var recipients: [[String: Any]]?
     /// 2.3: selbst gepruefte Schluessel der Mitglieder eines Chats ueber Servergrenzen (Handle -> Stand, TOFU)
     @Published var fk: [String: FedKeyState] = [:]
     var fed: FedChatInfo? { info?.fed }
     /// v2: SHA-256 der KI-Antworten je Beleg (aus "done") - wird in v2 mitsigniert
     private var aiHashes: [String: String] = [:]
     private var lastTyping = Date.distantPast
-    private var lastReadSent = 0
+    var lastReadSent = 0
+    /// 2.4: Gelesen-Bestaetigungen (ChatReceipts.swift): je Person das groesste "gelesen bis", zuletzt gesendet, sichtbar bis
+    @Published var seen: [String: ReceiptLogic.Seen] = [:]
+    var rcSent = 0
+    var rcAt: Double?
+    var rcLater: Task<Void, Never>?
+    var seenUpTo = 0
 
     init(chatID: Int, model: ChatModel) { self.chatID = chatID; self.model = model }
-    private var store: Store? { model.store }
-    private var me: String { model.me.uid }
+    var store: Store? { model.store }
+    var me: String { model.me.uid }
     var typingNames: [String] { ChatLogic.typing(typing) }
 
     // MARK: Laden
@@ -90,6 +98,7 @@ final class ConversationModel: ObservableObject {
             error = nil
             await markRead()
             if s?.isFed != true { await loadRecipients() }
+            await loadReceipts()                                        // 2.4: Haken ✓✓ (nach den Schluesseln der Mitglieder)
         } catch { self.error = error.localizedDescription }
     }
     func loadOlder() async {
@@ -108,6 +117,7 @@ final class ConversationModel: ObservableObject {
         let devs = j["devices"] as? [String: Any], ids = j["idents"] as? [String: Any]
         var list: [ChatMessage] = []
         for case let m as [String: Any] in (j["messages"] as? [Any] ?? []) {
+            let fseq = ShareJSON.int(m["fseq"]) ?? 0                    // 2.4: Position beim Heim (v2)
             let sender = (m["sender"] as? [String: Any])?["username"] as? String ?? ""
             let name = (m["sender"] as? [String: Any])?["name"] as? String ?? String(localized: "Gelöschtes Konto")
             let avatar = ShareJSON.str((m["sender"] as? [String: Any])?["avatar"])
@@ -118,6 +128,7 @@ final class ConversationModel: ObservableObject {
                                         replyTo: nil, content: nil, verified: true,
                                         mine: e.outgoing(me: me) || (fed != nil && (sender == me || e.from == fed?.myHandle)),   // v2: Anrufer als Prinzipal/Handle
                                         senderAvatar: avatar, call: e))
+                list[list.count - 1].fseq = fseq
                 continue
             }
             if (m["kind"] as? String) == "sys" {                          // Systemzeile (2.3): Klartext-Metadaten vom Heim
@@ -125,6 +136,7 @@ final class ConversationModel: ObservableObject {
                                         ts: ShareJSON.num(m["ts"]) ?? 0, created: ShareJSON.num(m["created"]) ?? 0, expiresAt: ShareJSON.num(m["expires_at"]),
                                         replyTo: nil, content: nil, verified: true, mine: false,
                                         sys: FedChatLogic.sysLine(m["body_ct"] as? String, myHandle: fed?.myHandle)))
+                list[list.count - 1].fseq = fseq
                 continue
             }
             let r: (content: ChatContent?, verified: Bool)?
@@ -145,6 +157,7 @@ final class ConversationModel: ObservableObject {
                                  replyTo: ShareJSON.str(m["reply_to"]), content: r?.content, verified: r?.verified ?? false, mine: sender == me,
                                  senderAvatar: avatar, aiMeta: meta, aiState: aiState)
             cm.delivery = FedChatLogic.delivery(m["fstate"])
+            cm.fseq = fseq
             list.append(cm)
         }
         let known = Set(messages.map(\.id))
@@ -172,6 +185,7 @@ final class ConversationModel: ObservableObject {
         lastReadSent = last
         _ = try? await store.api("api/chats/\(chatID)/read", method: "POST", body: ["seq": last])
         Task { await model.loadList() }
+        await sendReceiptIfDue()                                        // 2.4: Gelesen-Bestaetigung (nur wenn sichtbar)
     }
 
     /// Chat geloescht (2.1): Nachrichten bis upTo (nil = alle) samt entschluesselter Inhalte vergessen; die Ansicht
@@ -191,6 +205,9 @@ final class ConversationModel: ObservableObject {
             // 2.3: eigene wartende Nachricht jetzt zugestellt bzw. abgewiesen
             if let id = d["id"] as? String, let i = messages.firstIndex(where: { $0.id == id }), messages[i].delivery != .delivered {
                 messages[i].delivery = FedChatLogic.liveDelivery(d)
+            }
+            if let id = d["id"] as? String, let f = ShareJSON.int(d["fseq"]), f > 0, let i = messages.firstIndex(where: { $0.id == id }) {
+                messages[i].fseq = f                                    // 2.4: Position der zugestellten eigenen Nachricht
             }
             Task { await fetchNew() }
         case "chat.deleted": if let id = d["id"] as? String { messages.removeAll { $0.id == id } }

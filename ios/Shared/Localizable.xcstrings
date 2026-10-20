@@ -2613,6 +2613,74 @@
         }
       }
     },
+    "Aus: Andere sehen nicht, ob du ihre Nachrichten gelesen hast – und du siehst es bei ihnen auch nicht." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aus: Andere sehen nicht, ob du ihre Nachrichten gelesen hast – und du siehst es bei ihnen auch nicht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off: others don't see whether you have read their messages – and you don't see it for them either."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactivado: los demás no ven si has leído sus mensajes, y tú tampoco lo ves en los suyos."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выкл.: другие не видят, прочитал(а) ли ты их сообщения, — и ты тоже этого у них не видишь."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิด: คนอื่นจะไม่เห็นว่าคุณอ่านข้อความของเขาแล้วหรือยัง – และคุณก็จะไม่เห็นของเขาเช่นกัน"
+          }
+        }
+      }
+    },
+    "Aus: Deine Chat-Partner sehen nicht, ob und wann du zuletzt online warst – und du siehst es bei ihnen auch nicht." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aus: Deine Chat-Partner sehen nicht, ob und wann du zuletzt online warst – und du siehst es bei ihnen auch nicht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Off: your chat partners don't see whether or when you were last online – and you don't see it for them either."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactivado: tus contactos de chat no ven si estás en línea ni cuándo lo estuviste por última vez, y tú tampoco lo ves en los suyos."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выкл.: собеседники не видят, в сети ли ты и когда был(а) в последний раз, — и ты тоже этого у них не видишь."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิด: คู่สนทนาจะไม่เห็นว่าคุณออนไลน์อยู่หรือออนไลน์ล่าสุดเมื่อไร – และคุณก็จะไม่เห็นของเขาเช่นกัน"
+          }
+        }
+      }
+    },
     "Bild im Bild" : {
       "localizations" : {
         "de" : {
@@ -2783,6 +2851,40 @@
         }
       }
     },
+    "Datenschutz" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Datenschutz"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacidad"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Конфиденциальность"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ความเป็นส่วนตัว"
+          }
+        }
+      }
+    },
     "Du teilst deinen Bildschirm" : {
       "localizations" : {
         "de" : {
@@ -2813,6 +2915,176 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "คุณกำลังแชร์หน้าจอ"
+          }
+        }
+      }
+    },
+    "Gelesen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gelesen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leído"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Прочитано"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อ่านแล้ว"
+          }
+        }
+      }
+    },
+    "Gelesen von" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gelesen von"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read by"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leído por"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Прочитали"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อ่านโดย"
+          }
+        }
+      }
+    },
+    "Gelesen von …" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gelesen von …"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read by …"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leído por …"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Кто прочитал …"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "อ่านโดย …"
+          }
+        }
+      }
+    },
+    "Gelesen-Bestätigungen senden" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gelesen-Bestätigungen senden"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Send read receipts"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar confirmaciones de lectura"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Отправлять отчёты о прочтении"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งการยืนยันการอ่าน"
+          }
+        }
+      }
+    },
+    "Gilt gegenseitig: Wer etwas abschaltet, sieht es bei anderen auch nicht." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gilt gegenseitig: Wer etwas abschaltet, sieht es bei anderen auch nicht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Works both ways: if you turn something off, you won't see it for others either."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Funciona en ambos sentidos: si desactivas algo, tampoco lo verás en los demás."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Действует в обе стороны: если ты что-то отключишь, то и у других этого не увидишь."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "มีผลทั้งสองทาง: ถ้าคุณปิดสิ่งใด คุณก็จะไม่เห็นสิ่งนั้นของผู้อื่นเช่นกัน"
           }
         }
       }
@@ -2953,6 +3225,74 @@
         }
       }
     },
+    "Noch von niemandem gelesen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Noch von niemandem gelesen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not read by anyone yet."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todavía nadie lo ha leído."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Пока никто не прочитал."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มีใครอ่าน"
+          }
+        }
+      }
+    },
+    "Online-Status zeigen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Online-Status zeigen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show online status"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mostrar estado en línea"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Показывать статус «в сети»"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แสดงสถานะออนไลน์"
+          }
+        }
+      }
+    },
     "Teile am besten nur ein Fenster. Ton wird nicht übertragen." : {
       "localizations" : {
         "de" : {
@@ -3085,6 +3425,108 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "กำลังเชื่อมต่อใหม่ …"
+          }
+        }
+      }
+    },
+    "Von allen gelesen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Von allen gelesen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read by everyone"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leído por todos"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Прочитали все"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทุกคนอ่านแล้ว"
+          }
+        }
+      }
+    },
+    "Wer Gelesen-Bestätigungen abgeschaltet hat, erscheint hier nicht." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wer Gelesen-Bestätigungen abgeschaltet hat, erscheint hier nicht."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "People who have turned off read receipts don't appear here."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quien haya desactivado las confirmaciones de lectura no aparece aquí."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Те, кто отключил отчёты о прочтении, здесь не отображаются."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ผู้ที่ปิดการยืนยันการอ่านจะไม่แสดงที่นี่"
+          }
+        }
+      }
+    },
+    "Zugestellt" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zugestellt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delivered"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entregado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Доставлено"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งถึงแล้ว"
           }
         }
       }
@@ -17273,6 +17715,40 @@
         }
       }
     },
+    "online" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "online"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "online"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "en línea"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "в сети"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ออนไลน์"
+          }
+        }
+      }
+    },
     "optional, z. B. „Privat“" : {
       "localizations" : {
         "de" : {
@@ -24461,6 +24937,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "นำกลับมา"
+          }
+        }
+      }
+    },
+    "zuletzt online %@" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "zuletzt online %@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "last online %@"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "en línea por última vez %@"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "был(а) в сети %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ออนไลน์ล่าสุด %@"
           }
         }
       }

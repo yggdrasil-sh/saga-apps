@@ -134,6 +134,8 @@ struct ChatListView: View {
         .searchable(text: $q, prompt: Text("Chats durchsuchen"))
         #endif
         .refreshable { await chat.loadList() }
+        .onAppear { chat.setListVisible(true) }                              // 2.4: Online-Abo nur fuer die sichtbare Liste
+        .onDisappear { chat.setListVisible(false) }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { newChat = true } label: { Label("Neue Unterhaltung", systemImage: "square.and.pencil") }
@@ -159,7 +161,7 @@ struct ChatListView: View {
     /// Zeile mit Wischgesten (iPhone/iPad) und Kontextmenue (Mac, iPad, langes Druecken) - nur, wenn der Server es kann
     @ViewBuilder private func row(_ c: ChatSummary) -> some View {
         if c.canArchive {
-            ChatRow(c: c).tag(c.id)
+            ChatRow(c: c, online: chat.presenceOf(c)?.online == true).tag(c.id)
                 .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                     Button { deleting = c } label: { Label("Löschen", systemImage: "trash") }.tint(.red)
                     Button { Task { await chat.setArchived(c.id, !c.archived) } } label: {
@@ -174,7 +176,7 @@ struct ChatListView: View {
                     Button(role: .destructive) { deleting = c } label: { Label("Chat löschen …", systemImage: "trash") }
                 }
         } else {
-            ChatRow(c: c).tag(c.id)
+            ChatRow(c: c, online: chat.presenceOf(c)?.online == true).tag(c.id)
         }
     }
 }
@@ -287,9 +289,11 @@ struct ChatDeleteSheet: View {
 
 struct ChatRow: View {
     let c: ChatSummary
+    /// 2.4: Gegenueber gerade online (gruener Punkt)
+    var online = false
     var body: some View {
         HStack(spacing: 10) {
-            ChatAvatar(c: c)
+            ChatAvatar(c: c).overlay(alignment: .bottomTrailing) { if online { OnlineDot().offset(x: 2, y: 2) } }
             VStack(alignment: .leading, spacing: 2) {
                 HStack {
                     Text(verbatim: c.title).font(.body.weight(c.unread > 0 ? .semibold : .regular)).lineLimit(1)

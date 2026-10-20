@@ -6,6 +6,30 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu – Saga 2.4: Gelesen-Bestätigungen und Online-Status (iOS/iPadOS/macOS)
+- **Haken wie gewohnt:** An eigenen Nachrichten ⏳ wird zugestellt (Chats über Servergrenzen) → ✓ zugestellt → ✓✓
+  gelesen; haben alle gelesen, sind die Haken blau. In Gruppen steht neben ✓✓ die Zahl der Lesenden, Tippen auf die
+  Haken bzw. „Gelesen von …“ im Kontextmenü zeigt Namen und Zeit – mit dem Hinweis, dass Personen mit abgeschalteten
+  Bestätigungen dort nicht erscheinen.
+- **Online-Status:** Im Kopf eines Direkt-Chats „online“ bzw. „zuletzt online vor 5 Minuten“ (iPhone/iPad unter dem
+  Namen, Mac als Untertitel), in der Chat-Liste ein grüner Punkt am Bild.
+- **Einstellungen → Datenschutz:** „Gelesen-Bestätigungen senden“ und „Online-Status zeigen“, standardmäßig an, getrennt
+  abschaltbar und gegenseitig (wer etwas abschaltet, sieht es bei anderen auch nicht). Änderungen auf einem Gerät gelten
+  sofort auf allen (`chat.privacy`).
+- **Ende-zu-Ende:** Jede Bestätigung („gelesen bis Nachricht n“) signiert dieses Gerät; sie wird je anderem Mitglied für
+  dessen Backup-Schlüssel versiegelt (saga-chat v1 lokal, v2 über Servergrenzen). Empfangene Bestätigungen werden nur
+  gezählt, wenn sie von einem geprüften Gerät der Person stammen und an Chat und Namen gebunden sind. Der Server sieht
+  nur, dass es eine Bestätigung gibt.
+- **Sparsam:** Bestätigt wird erst, wenn die Nachricht auf dem Bildschirm war, die App vorne ist und der Chat offen –
+  höchstens eine je Chat und 2 s (gebündelt). Der Online-Status wird nur für die sichtbare Liste bzw. den offenen Chat
+  abonniert (alle 60 s erneuert, im Hintergrund abgemeldet); Live-Ereignisse `chat.receipt` (auch gebündelt mit
+  `more`) und `chat.presence` aktualisieren ohne Neuladen.
+- **Kompatibel:** Server ohne diese Funktion (bis 2.3) und Chats mit 2.3-Servern (`receipts_ok`/`online_ok`): alles
+  ausgeblendet, wie bisher. Texte in Deutsch, Englisch, Spanisch, Russisch und Thai.
+- **Tests:** Logik-Tests (`ios/Tests/Logic/ReceiptTests.swift`: Fähigkeiten, Gegenseitigkeit, fällige Bestätigung,
+  Haken-Zustände, „Gelesen von“, Abo-Lebenszyklus) und die Testvektoren `tests/vectors/receipts.json` des Servers
+  (Kopie `ios/Tests/vectors/receipts.json`) in `ios/Tests/ChatVectors`.
+
 ### Neu – Saga 2.4, Etappe E3: Bildschirm übertragen (iOS/iPadOS/macOS)
 **iOS/iPadOS/macOS – Bildschirm im Anruf teilen:**
 - **Bildschirm teilen:** Im verbundenen Anruf gibt es den Knopf „Bildschirm teilen“. Am Mac wählt man im
