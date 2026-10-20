@@ -6,6 +6,30 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+### Neu – Saga 2.4, Etappe E3: Bildschirm übertragen (iOS/iPadOS/macOS)
+**iOS/iPadOS/macOS – Bildschirm im Anruf teilen:**
+- **Bildschirm teilen:** Im verbundenen Anruf gibt es den Knopf „Bildschirm teilen“. Am Mac wählt man im
+  Systemfenster einen Bildschirm, ein Fenster oder eine App (Freigabe nur für diese Sitzung, Saga selbst wird nicht
+  mitgeteilt). Auf iPhone/iPad startet die Systemübertragung mit „Saga“ – der ganze Bildschirm, auch wenn man in
+  andere Apps wechselt; das Bild wird dabei verkleinert (lange Kante höchstens 1920, bei Wärme 1280) und auf 10 Bilder
+  je Sekunde begrenzt. Ton des Bildschirms wird nicht übertragen.
+- **Bildschirm und Kamera zugleich:** Melden beide Seiten Saga 2.4 mit `screen2`, läuft der Bildschirm als eigene
+  Videospur und die Kamera daneben weiter (≤ 300 kbit/s; über TCP/TLS-Relais pausiert sie mit Hinweis „Kamera pausiert
+  (langsame Verbindung)“). Mit Saga 2.3 und älter ersetzt der Bildschirm wie bisher im Web das Kamerabild.
+- **Empfang:** Der Bildschirm erscheint groß und ganz (nicht beschnitten), die Kamera klein daneben; Tippen auf das
+  kleine Bild bzw. „Ansicht tauschen“ tauscht. Bild im Bild (iPhone/iPad) und das Schwebefenster (Mac) zeigen den
+  Bildschirm. Bildschirme aus dem Web (2.3 und 2.4) werden erkannt.
+- **Datenschutz:** Vor dem ersten Teilen ein Hinweis (alles in der Auswahl ist sichtbar, auch Mitteilungen und
+  Passwörter; nichts wird aufgezeichnet oder gespeichert) mit „Nicht mehr anzeigen“. Während des Teilens eine rote
+  Leiste „Du teilst deinen Bildschirm“ mit „Teilen beenden“, beim Gegenüber „… teilt den Bildschirm“. Teilen endet
+  beim Auflegen und bei Verlust der Verbindung.
+- **Leistung:** Bildschirm je Weg mit 2,5 / 1,8 / 1,2 Mbit/s und 15 / 15 / 8 Bildern je Sekunde, Auflösung bleibt
+  (Text lesbar). Am Mac gehen die Bilder ohne Kopie an den Encoder; die iPhone-Erweiterung puffert nicht (verwirft
+  statt zu stauen) und bleibt so unter ihrer Speichergrenze.
+- **Technik:** Neue Erweiterung `HlidskjalfBroadcast` (iPhone/iPad, eigene App-ID `<App-ID>.broadcast` mit derselben
+  App-Gruppe, siehe `ios/README.md`). Signale tragen `tracks`/`msid` (Rolle je m-Zeile), `state.screen_mid` und
+  `screen_audio`; die Bildschirm-m-Zeile geht beim Ende auf `recvonly` und wird beim nächsten Teilen wiederverwendet.
+
 ### Neu – Saga 2.4, Etappe E0/E1: Anruf-Grundlage und Bild im Bild (iOS/iPadOS/macOS)
 **iOS/iPadOS/macOS – Bild im Bild und stabilere Anrufe:**
 - **Bild im Bild (iPhone/iPad):** Ein Videoanruf läuft in einem kleinen, verschiebbaren Fenster weiter – beim

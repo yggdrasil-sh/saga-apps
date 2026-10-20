@@ -10,7 +10,11 @@ import WebRTC
 // Medien: CallMedia.swift; CallKit/PushKit bzw. Klingeln am Mac: CallSystem.swift; Oberflaeche: CallViews.swift.
 
 struct CallPeerDevice { var enc: Data; var sign: Data }
-struct CallRemoteState: Equatable { var mic = true; var cam = false; var screen = false }
+struct CallRemoteState: Equatable {
+    var mic = true; var cam = false; var screen = false
+    /// 2.4 E3: mid, auf der der Bildschirm des Gegenuebers laeuft (nil = 2.1/2.3/E0: die einzige Videospur), Ton gemischt
+    var screenMid: String? = nil; var screenAudio = false
+}
 
 /// Klingelnder Anruf (Anzeige ohne CallKit bzw. vor dem Annehmen)
 struct IncomingCall: Identifiable, Equatable {
@@ -59,6 +63,18 @@ final class CallManager: NSObject, ObservableObject {
     @Published private(set) var path: CallV3.Path?
     /// 2.4: Verbindung wird per ICE-Restart neu aufgebaut
     @Published private(set) var reconnecting = false
+    // 2.4 E3: Bildschirm teilen (ScreenShareLogic.swift, ScreenCapture.swift)
+    /// Ich teile gerade meinen Bildschirm
+    @Published private(set) var sharing = false
+    /// Kamera des Gegenuebers, waehrend es den Bildschirm teilt (klein; remoteVideo ist dann der Bildschirm)
+    @Published private(set) var remoteSide: RTCVideoTrack?
+    /// Ansicht getauscht (Kamera gross, Bildschirm klein); neues Teilen beginnt wieder mit dem Bildschirm gross
+    @Published var swapView = false
+    /// Kamera beim Teilen pausiert (Relais TCP, Betriebsart B)
+    @Published private(set) var shareCamPaused = false
+    /// Hinweis vor dem ersten Teilen sichtbar
+    @Published var screenHint = false
+    let capture = ScreenCapture()
 
     // Zustand des laufenden Anrufs
     private var id: String?
@@ -111,7 +127,31 @@ final class CallManager: NSObject, ObservableObject {
     private var camPaused = false
     /// Signale nacheinander verarbeiten (Neuverhandlung darf sich nicht mit ICE/Antworten ueberholen)
     private var chain: Task<Void, Never>?
+    // 2.4 E3: Bildschirm - Betriebsart, eigene Bildschirm-m-Zeile (bleibt nach dem Ende fuer das naechste Teilen),
+    // Quelle/Spur, Rollen der m-Zeilen des Gegenuebers, Zustand erst nach dem Angebot senden, Angebot nachholen
+    private var scrMode: ScreenShare.Mode?
+    private var scrTr: RTCRtpTransceiver?
+    private var scrSource: RTCVideoSource?
+    private var scrTrack: RTCVideoTrack?
+    private var scrSid = ""
+    private var peerTracks: [String: String] = [:]
+    private var appliedScreen: CallV3.Limits?
+    private var stateDue = false
+    private var negPending = false
     private var myCaps: [String] { CallV3.myCaps(serverFeatures: serverFeatures) }
+    private var hasScreen2: Bool { myCaps.contains("screen2") }
+    /// Rollen der eigenen m-Zeilen (tracks/msid) - nur an Gegenueber, wenn ich "screen2" melde
+    private var myRoles: CallV3.Roles? {
+        guard hasScreen2, let pc else { return nil }
+        var lines: [ScreenShare.Line] = []
+        if let a = pc.transceivers.first(where: { $0.mediaType == .audio }) { lines.append(.init(mid: a.midOrNil, role: "mic", stream: a.sender.streamIds.first)) }
+        if let v = camTr { lines.append(.init(mid: v.midOrNil, role: "cam", stream: v.sender.streamIds.first)) }
+        if let s = scrTr { lines.append(.init(mid: s.midOrNil, role: "screen", stream: sharing && scrMode == .track ? scrSid : nil)) }
+        return ScreenShare.roles(lines)
+    }
+    private var myScreenMid: String? { ScreenShare.screenMid(sharing: sharing, mode: scrMode, screenLine: scrTr?.midOrNil, camLine: camTr?.midOrNil) }
+    /// Kamera-m-Zeile = erste Video-m-Zeile (2.3 und alle ersten Angebote haben genau eine)
+    private var camTr: RTCRtpTransceiver? { pc?.transceivers.first { $0.mediaType == .video } }
     private var canReneg: Bool { CallV3.canReneg(mine: myCaps, peer: peerCaps) }
     /// pc fuer ein Zielgeraet: festgelegt bzw. (Anrufer vor der Antwort) das Paar mit diesem Geraet
     private func pcFor(_ dev: String) -> String { pcID ?? CallV3.pairPC(myDevice ?? "", dev) }
@@ -261,9 +301,11 @@ final class CallManager: NSObject, ObservableObject {
     }
     private func stateOut() {
         guard ready else { return }
-        // 2.4: pip + want (aeltere Gegenueber lesen nur mic/cam/screen)
-        let (m, c, p, pth) = (mic, cam && !camPaused, pip, path)
-        Task { await sendSignal { d in CallV3.stateBody(pc: self.pcFor(d), mic: m, cam: c, screen: false, pip: p, want: PiPLogic.want(pip: p), path: pth) } }
+        // 2.4: pip + want (aeltere Gegenueber lesen nur mic/cam/screen); E3: screen, screen_mid, tracks/msid
+        let (m, c, p, pth, sc) = (mic, cam && !camPaused && !(sharing && scrMode == .replace), pip, path, sharing)   // A: Kamera pausiert
+        let roles = myRoles, smid = roles == nil ? nil : myScreenMid
+        Task { await sendSignal { d in CallV3.stateBody(pc: self.pcFor(d), mic: m, cam: c, screen: sc, pip: p, want: PiPLogic.want(pip: p), path: pth,
+                                                        screenMid: smid, screenAudio: false, roles: roles) } }
     }
 
     // MARK: Anrufen
@@ -301,7 +343,8 @@ final class CallManager: NSObject, ObservableObject {
         status = String(localized: "Verbinde …")
         let n = neg.localN > 0 ? neg.localN : neg.initialOffer()       // 2.4: pc, caps, n (aeltere Apps lesen sdp/media/fp)
         var sig: [String: String] = [:]                                // pc je Zielgeraet: "min:max" der device_ids
-        for d in peerDevs.keys { if let x = seal(d, CallV3.offerBody(sdp: sdp, media: media, pc: CallV3.pairPC(dev, d), n: n, caps: myCaps)) { sig[d] = x } }
+        let roles = myRoles                                            // E3: Rolle je m-Zeile (nur mit screen2)
+        for d in peerDevs.keys { if let x = seal(d, CallV3.offerBody(sdp: sdp, media: media, pc: CallV3.pairPC(dev, d), n: n, caps: myCaps, roles: roles)) { sig[d] = x } }
         var req: [String: Any] = ["id": id, "chat_id": chatID, "media": media, "device": dev, "signals": sig]
         req.merge(capsHint) { a, _ in a }
         let (d, code) = try await store.apiResponse("api/calls", method: "POST", body: req)
@@ -425,6 +468,7 @@ final class CallManager: NSObject, ObservableObject {
                 peerDevice = callerDev; fps = CallLogic.sdpFingerprints(offer.sdp)
                 pcID = offer.meta.pc ?? CallV3.pairPC(dev, callerDev)       // vom Anrufer uebernehmen
                 adoptPeer(offer.meta, device: callerDev)
+                peerTracksIn(offer.meta)
                 neg.initialRemote(offer.meta.n)
                 try await prepareMedia(video: video)
                 guard phase == .connecting else { return }
@@ -436,7 +480,7 @@ final class CallManager: NSObject, ObservableObject {
                 let ans = try await pc.answerAsync(CallRTC.constraints)
                 try await pc.setLocalAsync(ans)
                 guard let sdp = pc.localDescription?.sdp,
-                      let sealed = seal(callerDev, CallV3.answerBody(sdp: sdp, media: media, pc: pcFor(callerDev), n: offer.meta.n ?? 1, caps: myCaps)) else { throw APIError.other("–") }
+                      let sealed = seal(callerDev, CallV3.answerBody(sdp: sdp, media: media, pc: pcFor(callerDev), n: offer.meta.n ?? 1, caps: myCaps, roles: myRoles)) else { throw APIError.other("–") }
                 var req: [String: Any] = ["device": dev, "signals": [callerDev: sealed]]
                 req.merge(capsHint) { a, _ in a }
                 let (ad, ac) = try await store.apiResponse("api/calls/\(inc.id)/answer", method: "POST", body: req)
@@ -515,17 +559,37 @@ final class CallManager: NSObject, ObservableObject {
             if let v = camera?.track { pc.addTransceiver(with: v, init: vi) } else { pc.addTransceiver(of: .video, init: vi) }
             return
         }
+        // Erstes Angebot: eine Ton- und eine Video-m-Zeile; weitere (z. B. ein Bildschirm einer spaeteren Fassung) nur empfangen
+        var hadAudio = false, hadVideo = false
         for t in pc.transceivers {
             var e: NSError?
+            let first = t.mediaType == .audio ? !hadAudio : t.mediaType == .video ? !hadVideo : false
+            if t.mediaType == .audio { hadAudio = true } else if t.mediaType == .video { hadVideo = true }
+            guard first else { t.setDirection(.recvOnly, error: &e); continue }
             t.setDirection(.sendRecv, error: &e)
             t.sender.streamIds = [sid]
             if t.mediaType == .audio, let a = audioTrack { t.sender.track = a }
             if t.mediaType == .video, let v = camera?.track { t.sender.track = v }
         }
     }
-    private var videoSender: RTCRtpSender? { pc?.transceivers.first { $0.mediaType == .video }?.sender }
+    private var videoSender: RTCRtpSender? { camTr?.sender }
+    /// Fernbilder zuordnen (2.4 E3, Vertrag "Empfaenger: Kamera und Bildschirm unterscheiden"): remoteVideo = Bildschirm,
+    /// wenn das Gegenueber teilt (auch PiP/Schwebefenster zeigen ihn), sonst die Kamera; remoteSide = Kamera daneben
     private func findRemoteVideo() {
-        if let t = pc?.transceivers.first(where: { $0.mediaType == .video })?.receiver.track as? RTCVideoTrack, remoteVideo !== t { remoteVideo = t }
+        let vids = (pc?.transceivers ?? []).filter { $0.mediaType == .video }
+        var byMid: [String: RTCVideoTrack] = [:], order: [String] = [], recv = Set<String>()
+        for t in vids {
+            guard let m = t.midOrNil, let tr = t.receiver.track as? RTCVideoTrack else { continue }
+            byMid[m] = tr; order.append(m)
+            var d = RTCRtpTransceiverDirection.inactive
+            if t.currentDirection(&d) ? (d == .sendRecv || d == .recvOnly) : true { recv.insert(m) }   // vor der Aushandlung: wie bisher
+        }
+        let v = ScreenShare.classify(videoMids: order, receiving: recv, peerTracks: peerTracks, screen: remote.screen, screenMid: remote.screenMid)
+        let fallback = vids.first?.receiver.track as? RTCVideoTrack           // 2.3: erste Videospur, auch ohne mid
+        let main = (v.screen ?? v.cam).flatMap { byMid[$0] } ?? (v.screen == nil ? fallback : nil)
+        let side = v.screen != nil && remote.cam ? v.cam.flatMap { byMid[$0] } : nil
+        if remoteVideo !== main { remoteVideo = main }
+        if remoteSide !== side { remoteSide = side }
         for t in pc?.transceivers ?? [] where t.mediaType == .audio { if let a = t.receiver.track, !a.isEnabled { a.isEnabled = true } }   // Ton des Gegenuebers immer an
         #if os(macOS)
         if CallEnv.fakeMedia, let a = pc?.transceivers.first(where: { $0.mediaType == .audio })?.receiver.track as? RTCAudioTrack { a.source.volume = 0 }   // Tests: still
@@ -638,6 +702,7 @@ final class CallManager: NSObject, ObservableObject {
             guard CallLogic.fingerprintsMatch(sdp: sdp, fp: fp) else { securityFail(); return }
             peerDevice = from; fps = CallLogic.sdpFingerprints(sdp)
             if let from, let dev = myDevice { pcID = m.pc ?? CallV3.pairPC(dev, from); adoptPeer(m, device: from) }
+            peerTracksIn(m)
             _ = neg.remoteAnswer(n: m.n, haveLocalOffer: true)
             CallTones.shared.stop()
             phase = .connecting; status = String(localized: "Verbinde …")
@@ -653,7 +718,11 @@ final class CallManager: NSObject, ObservableObject {
         case .offer(let sdp, _, let fp):
             await renegOffer(sdp: sdp, fp: fp, meta: m, from: from)       // erstes Angebot kommt ueber answer(), nicht hier
         case .state(let mi, let c, let sc):
-            remote = CallRemoteState(mic: mi, cam: c, screen: sc); findRemoteVideo()
+            let was = remote.screen
+            remote = CallRemoteState(mic: mi, cam: c, screen: sc, screenMid: sc ? m.screenMid : nil, screenAudio: sc && m.screenAudio == true)
+            peerTracksIn(m)
+            swapView = ScreenShare.swapAfter(state: was, isScreen: sc, swap: swapView)   // neues Teilen: Bildschirm gross
+            findRemoteVideo()
             let w = m.want ?? .large                                       // 2.3-Gegenueber: immer grosses Bild
             if w != remoteWant || m.path != remotePath { remoteWant = w; remotePath = m.path; applyLimits() }
             pipRefresh()
@@ -671,6 +740,8 @@ final class CallManager: NSObject, ObservableObject {
         peerCaps = m.caps ?? []                                            // fehlt (2.1/2.3): []
         if let mine = myDevice { neg.polite = CallV3.polite(me: mine, peer: device) }
     }
+    /// 2.4 E3: Rollen der m-Zeilen des Gegenuebers (letzter Stand aus offer/answer/state gilt)
+    private func peerTracksIn(_ m: CallV3.Meta) { if let t = m.tracks, !t.isEmpty { peerTracks = t } }
     /// SDP waehrend des Gespraechs: gleiches Geraet, Fingerabdruecke passen und sind dieselben wie beim Aufbau
     /// (DTLS-Zertifikat aendert sich bei einer Neuverhandlung nicht - sonst Abbruch wie bei jeder Pruefung)
     private func renegTrusted(sdp: String, fp: [String], from: String?) -> Bool? {
@@ -688,7 +759,8 @@ final class CallManager: NSObject, ObservableObject {
             return
         case .accept(let rollback):
             do {
-                if rollback { try await pc.setLocalAsync(RTCSessionDescription(type: .rollback, sdp: "")) }
+                if rollback { try await pc.setLocalAsync(RTCSessionDescription(type: .rollback, sdp: "")); negPending = true }   // eigenes Angebot spaeter neu
+                peerTracksIn(meta)
                 try await setRemote(RTCSessionDescription(type: .offer, sdp: sdp))
                 applyRemoteIce()
                 let ans = try await pc.answerAsync(CallRTC.constraints)
@@ -696,10 +768,17 @@ final class CallManager: NSObject, ObservableObject {
                 guard let out = pc.localDescription?.sdp else { return }
                 findRemoteVideo()
                 CallEnv.log("reneg: Antwort n=\(meta.n ?? 0)")
-                let (md, cp) = (media, myCaps)
-                await sendSignal { d in CallV3.answerBody(sdp: out, media: md, pc: self.pcFor(d), n: meta.n ?? 0, caps: cp) }
+                let (md, cp, ro) = (media, myCaps, myRoles)
+                await sendSignal { d in CallV3.answerBody(sdp: out, media: md, pc: self.pcFor(d), n: meta.n ?? 0, caps: cp, roles: ro) }
+                renegLater()
             } catch { CallEnv.log("reneg offer: \(error.localizedDescription)") }
         }
+    }
+    /// Aufgeschobenes eigenes Angebot (Bildschirm an/aus waehrend einer laufenden Aushandlung) nachholen
+    private func renegLater() {
+        guard negPending, let pc, pc.signalingState == .stable, !neg.makingOffer else { return }
+        negPending = false
+        Task { await renegotiate(iceRestart: false) }
     }
     private func renegAnswer(sdp: String, fp: [String], meta: CallV3.Meta, from: String?) async {
         guard canReneg, let pc else { return }
@@ -707,26 +786,34 @@ final class CallManager: NSObject, ObservableObject {
         guard ok else { securityFail(); return }
         guard neg.remoteAnswer(n: meta.n, haveLocalOffer: pc.signalingState == .haveLocalOffer) == .apply else { return }
         do {
+            peerTracksIn(meta)
             try await setRemote(RTCSessionDescription(type: .answer, sdp: sdp))
             applyRemoteIce(); findRemoteVideo()
+            appliedScreen = nil; applyLimits()                             // neue m-Zeile: Sende-Parameter erst jetzt setzbar
             CallEnv.log("reneg: fertig n=\(meta.n ?? 0)")
+            renegLater()
         } catch { CallEnv.log("reneg answer: \(error.localizedDescription)") }
     }
-    /// Eigenes Angebot waehrend des Gespraechs (ICE-Restart). Zusammenstoss regelt Perfect Negotiation.
+    /// Eigenes Angebot waehrend des Gespraechs (ICE-Restart, 2.4 E3: Bildschirm-Spur an/aus). Zusammenstoss regelt
+    /// Perfect Negotiation; laeuft gerade eine Aushandlung, wird das Angebot danach nachgeholt (renegLater).
     private func renegotiate(iceRestart: Bool) async {
-        guard ready, canReneg, let pc, pc.remoteDescription != nil, pc.signalingState == .stable, !neg.makingOffer, !ending else { return }
+        guard ready, canReneg, let pc, pc.remoteDescription != nil, !ending else { return }
+        guard pc.signalingState == .stable, !neg.makingOffer else { if !iceRestart { negPending = true }; return }
         let n = neg.beginOffer()
         do {
             let c = iceRestart ? RTCMediaConstraints(mandatoryConstraints: ["IceRestart": "true"], optionalConstraints: ["DtlsSrtpKeyAgreement": "true"])
                                : CallRTC.constraints
             let o = try await pc.offerAsync(c)
-            guard neg.makingOffer, pc.signalingState == .stable, !ending else { neg.offerFailed(); return }   // inzwischen fremdes Angebot angenommen
+            guard neg.makingOffer, pc.signalingState == .stable, !ending else {   // inzwischen fremdes Angebot angenommen
+                neg.offerFailed(); if !iceRestart { negPending = true; renegLater() }; return
+            }
             try await pc.setLocalAsync(o)
             neg.offerSent(n)
             guard let sdp = pc.localDescription?.sdp else { return }
             CallEnv.log("reneg: Angebot n=\(n) restart=\(iceRestart)")
-            let (md, cp) = (media, myCaps)
-            await sendSignal { d in CallV3.offerBody(sdp: sdp, media: md, pc: self.pcFor(d), n: n, caps: cp, restart: iceRestart) }
+            let (md, cp, ro) = (media, myCaps, myRoles)
+            await sendSignal { d in CallV3.offerBody(sdp: sdp, media: md, pc: self.pcFor(d), n: n, caps: cp, restart: iceRestart, roles: ro) }
+            if stateDue { stateDue = false; stateOut() }                   // E3: screen_mid steht erst jetzt fest
         } catch { neg.offerFailed(); CallEnv.log("reneg: \(error.localizedDescription)") }
     }
 
@@ -769,22 +856,22 @@ final class CallManager: NSObject, ObservableObject {
     private func applyLimits() {
         guard let pc, let path = CallV3.worse(path, remotePath) else { return }   // schlechterer von eigenem/gemeldetem Weg
         let src = camera?.height                                            // ohne Kamera unbekannt (small: 480)
-        let v = CallV3.videoLimits(path: path, kind: .camera, streams: 1, want: remoteWant, sourceHeight: src)
-        if v != appliedVideo, let s = pc.transceivers.first(where: { $0.mediaType == .video })?.sender {
-            let p = s.parameters
-            if !p.encodings.isEmpty {
-                for e in p.encodings {
-                    e.maxBitrateBps = NSNumber(value: v.maxBitrate)
-                    e.scaleResolutionDownBy = NSNumber(value: v.scaleDown)
-                    e.maxFramerate = NSNumber(value: v.maxFramerate)
-                    e.isActive = v.active
-                }
-                p.degradationPreference = NSNumber(value: (v.maintainResolution ? RTCDegradationPreference.maintainResolution : .balanced).rawValue)
-                s.parameters = p
-                appliedVideo = v
-                CallEnv.log("limits video \(path.rawValue) \(v.maxBitrate / 1000)k /\(v.scaleDown) want=\(remoteWant.rawValue)")
-            }
+        // 2.4 E3: Betriebsart A - auf der Kamera-m-Zeile laeuft der Bildschirm (Bildschirm-Regeln); B - Kamera daneben
+        // gedrosselt (<= 300 kbit/s, ueber Relais TCP aus), Bildschirm auf eigener m-Zeile
+        let replace = sharing && scrMode == .replace, beside = sharing && scrMode == .track
+        let v = replace ? CallV3.videoLimits(path: path, kind: .screen, streams: 1, want: remoteWant, sourceHeight: nil)
+                        : CallV3.videoLimits(path: path, kind: .camera, streams: 1, want: remoteWant, sourceHeight: src, sharing: beside)
+        if v != appliedVideo, let s = camTr?.sender, set(s, v) {
+            appliedVideo = v
+            CallEnv.log("limits video \(path.rawValue) \(v.maxBitrate / 1000)k /\(v.scaleDown) want=\(remoteWant.rawValue) share=\(sharing)")
         }
+        let paused = beside && !v.active && camera != nil
+        if shareCamPaused != paused { shareCamPaused = paused }
+        if beside, let s = scrTr?.sender {
+            let l = CallV3.videoLimits(path: path, kind: .screen, streams: 1, want: remoteWant, sourceHeight: nil)
+            if l != appliedScreen, set(s, l) { appliedScreen = l; CallEnv.log("limits screen \(path.rawValue) \(l.maxBitrate / 1000)k \(l.maxFramerate)fps") }
+        }
+        if sharing { capture.setFps(ScreenShare.captureFps(path: path)) }
         let a = CallV3.audioBitrate(path: path)
         if a != appliedAudio, let s = pc.transceivers.first(where: { $0.mediaType == .audio })?.sender {
             let p = s.parameters
@@ -794,6 +881,117 @@ final class CallManager: NSObject, ObservableObject {
                 appliedAudio = a
             }
         }
+    }
+    /// Sende-Parameter setzen; false = noch nicht ausgehandelt (keine Encodings)
+    private func set(_ s: RTCRtpSender, _ v: CallV3.Limits) -> Bool {
+        let p = s.parameters
+        guard !p.encodings.isEmpty else { return false }
+        for e in p.encodings {
+            e.maxBitrateBps = NSNumber(value: v.maxBitrate)
+            e.scaleResolutionDownBy = NSNumber(value: v.scaleDown)
+            e.maxFramerate = NSNumber(value: v.maxFramerate)
+            e.isActive = v.active
+        }
+        p.degradationPreference = NSNumber(value: (v.maintainResolution ? RTCDegradationPreference.maintainResolution : .balanced).rawValue)
+        s.parameters = p
+        return true
+    }
+
+    // MARK: Bildschirm teilen (2.4 E3, Vertrag "Bildschirm v2")
+
+    /// Knopf "Bildschirm teilen" bzw. "Teilen beenden"
+    func toggleScreen() {
+        if sharing { stopScreen(); return }
+        guard phase == .active, pc != nil else { return }
+        if ScreenShare.showHint(.standard) { screenHint = true; return }
+        pickScreen()
+    }
+    /// Hinweis bestaetigt ("Bildschirm waehlen"); dontShow = "Nicht mehr anzeigen" (je Geraet)
+    func screenHintDone(go: Bool, dontShow: Bool) {
+        screenHint = false
+        if dontShow { UserDefaults.standard.set(true, forKey: ScreenShare.hintKey) }
+        if go, phase == .active { pickScreen() }
+    }
+    /// Verbunden: Rueckmeldungen der Aufnahme verdrahten; iPhone/iPad lauscht ab jetzt auf die ReplayKit-Erweiterung
+    /// (auch ein Start ueber das Kontrollzentrum landet so im Anruf)
+    private func screenOn() {
+        capture.onStart = { [weak self] in self?.screenStarted() }
+        capture.onStop = { [weak self] in self?.stopScreen() }
+        capture.onError = { [weak self] m in self?.toast = m }
+        #if os(iOS)
+        capture.listen()
+        #endif
+    }
+    private func pickScreen() {
+        screenOn()
+        capture.pick(fps: ScreenShare.captureFps(path: CallV3.worse(path, remotePath)))
+    }
+    /// Aufnahme laeuft: Spur anlegen, Betriebsart waehlen (B nur, wenn beide reneg + screen2 melden und verbunden)
+    private func screenStarted() {
+        guard let pc, phase == .active, !ending else { capture.stop(); return }
+        if sharing { return }
+        let src = CallRTC.factory.videoSource(forScreenCast: true)          // Detail/Text: Aufloesung vor Bildrate
+        let track = CallRTC.factory.videoTrack(with: src, trackId: "d" + ChatCrypto.hexID().prefix(8))
+        scrSource = src; scrTrack = track
+        if scrSid.isEmpty { scrSid = "k" + ChatCrypto.hexID().prefix(8) }   // eigener Stream fuer den Bildschirm
+        capture.sink.set(src)
+        let mode = ScreenShare.mode(mine: myCaps, peer: peerCaps, established: connected && pc.remoteDescription != nil)
+        scrMode = mode; sharing = true
+        CallEnv.log("screen start mode=\(mode.rawValue)")
+        appliedVideo = nil; appliedScreen = nil
+        if mode == .track {
+            let lines = pc.transceivers.filter { $0.mediaType == .video }.map { ScreenShare.VideoLine(mid: $0.midOrNil, isCam: $0 === camTr) }
+            if let m = ScreenShare.reuseMid(own: scrTr?.midOrNil, lines: lines, peerTracks: peerTracks),
+               let t = pc.transceivers.first(where: { $0.mediaType == .video && $0.midOrNil == m }) {
+                var e: NSError?
+                t.sender.track = track; t.sender.streamIds = [scrSid]
+                t.setDirection(.sendRecv, error: &e)
+                scrTr = t
+            } else {
+                let ini = RTCRtpTransceiverInit(); ini.direction = .sendRecv; ini.streamIds = [scrSid]
+                scrTr = pc.addTransceiver(with: track, init: ini)
+            }
+            stateDue = true                                                 // Zustand nach dem Angebot (mid steht dann fest)
+            Task { await renegotiate(iceRestart: false) }
+            Task { [weak self] in                                           // spaetestens nach 3 s
+                try? await Task.sleep(for: .seconds(3))
+                guard let self, self.stateDue else { return }
+                self.stateDue = false; self.stateOut()
+            }
+        } else {
+            videoSender?.track = track                                      // A: Bildschirm statt Kamera
+            stateOut()
+        }
+        applyLimits()
+    }
+    /// Teilen beenden (Knopf, System, Auflegen): B - Spur weg, m-Zeile "recvonly" (bleibt fuer das naechste Teilen),
+    /// Neuverhandlung; A - Kamera zurueck auf den Sender
+    func stopScreen() {
+        guard sharing || scrSource != nil else { capture.stop(); return }
+        capture.sink.set(nil)
+        capture.stop()
+        let mode = scrMode
+        sharing = false; scrMode = nil; shareCamPaused = false
+        scrTrack?.isEnabled = false; scrTrack = nil; scrSource = nil
+        appliedVideo = nil; appliedScreen = nil
+        CallEnv.log("screen stop")
+        guard let pc, !ending else { return }
+        if mode == .track, let t = scrTr {
+            var e: NSError?
+            t.sender.track = nil
+            t.setDirection(.recvOnly, error: &e)
+            stateDue = true
+            Task { await renegotiate(iceRestart: false) }
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(3))
+                guard let self, self.stateDue else { return }
+                self.stateDue = false; self.stateOut()
+            }
+        } else if pc.connectionState != .closed {
+            videoSender?.track = camera?.track
+            stateOut()
+        }
+        applyLimits()
     }
 
     // MARK: Verbindung, Pruefung
@@ -808,9 +1006,10 @@ final class CallManager: NSObject, ObservableObject {
                 CallSystem.shared.connected(self)
                 CallEnv.log("connected")
                 stateOut(); statsOn(); netOn()
+                screenOn()
             } else if reconnecting || !status.isEmpty {                      // 2.4: nach ICE-Restart wieder da
                 reconnecting = false; restarts = 0; restartTask?.cancel(); status = ""
-                appliedVideo = nil; appliedAudio = nil                      // Pfad kann sich geaendert haben
+                appliedVideo = nil; appliedAudio = nil; appliedScreen = nil  // Pfad kann sich geaendert haben
                 CallEnv.log("reconnected")
             }
         case .disconnected:
@@ -931,14 +1130,14 @@ final class CallManager: NSObject, ObservableObject {
     func toggleCam() {
         if let c = camera {
             c.stop(); camera = nil; localVideo = nil; cam = false
-            videoSender?.track = nil
+            if !(sharing && scrMode == .replace) { videoSender?.track = nil }   // A: dort laeuft gerade der Bildschirm
             stateOut(); return
         }
         Task {
             if !CallEnv.fakeMedia { guard await AVCaptureDevice.requestAccess(for: .video) else { toast = String(localized: "Kamera nicht erlaubt."); return } }
             guard busy, let c = CallCamera(factory: CallRTC.factory) else { toast = String(localized: "Keine Kamera verfügbar."); return }
             camera = c; localVideo = c.track; cam = true; frontCamera = c.front; wire(c)
-            videoSender?.track = c.track
+            if !(sharing && scrMode == .replace) { videoSender?.track = c.track }   // A: Kamera erst nach dem Teilen
             appliedVideo = nil; applyLimits()
             stateOut()
         }
@@ -1012,8 +1211,15 @@ final class CallManager: NSObject, ObservableObject {
         CallPanel.shared.close()
         #endif
         CallTones.shared.stop()
+        // 2.4 E3: Teilen endet mit dem Anruf (auch bei Verlust der Verbindung)
+        capture.sink.set(nil); capture.stop()
+        #if os(iOS)
+        capture.close()
+        #endif
+        sharing = false; scrMode = nil; scrTrack = nil; scrSource = nil; shareCamPaused = false; screenHint = false
         camera?.stop(); camera = nil
-        pc?.close(); pc = nil
+        pc?.close(); pc = nil; scrTr = nil
+        remoteSide = nil
         audioTrack = nil; localVideo = nil; remoteVideo = nil
         #if os(iOS)
         CallAudio.releaseManual()
@@ -1066,6 +1272,8 @@ final class CallManager: NSObject, ObservableObject {
         pcID = nil; remotePath = nil; oldUfrags = []; peerCaps = nil; neg = CallV3.Negotiator(); remoteWant = .large; wantOut = PiPLogic.WantSender()
         appliedVideo = nil; appliedAudio = nil; restarts = 0; restartTask?.cancel(); reconnecting = false; path = nil
         net?.cancel(); net = nil; lastNet = nil; camPaused = false; chain = nil; pip = false
+        sharing = false; scrMode = nil; scrTr = nil; scrSource = nil; scrTrack = nil; scrSid = ""; peerTracks = [:]
+        appliedScreen = nil; stateDue = false; negPending = false; remoteSide = nil; swapView = false; shareCamPaused = false; screenHint = false
     }
     func signedOut() { if busy { hangup() }; enabled = true; done = [] }
 }
@@ -1095,6 +1303,11 @@ extension CallManager: RTCPeerConnectionDelegate {
     nonisolated func peerConnection(_ pc: RTCPeerConnection, didStartReceivingOn transceiver: RTCRtpTransceiver) {
         Task { @MainActor [weak self] in self?.findRemoteVideo() }
     }
+}
+
+extension RTCRtpTransceiver {
+    /// mid erst nach der Aushandlung bekannt (vorher leer)
+    var midOrNil: String? { let m: String? = mid; return m?.isEmpty == false ? m : nil }
 }
 
 // MARK: - async-Huellen

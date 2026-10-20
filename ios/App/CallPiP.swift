@@ -142,6 +142,9 @@ final class CallPiP: NSObject, AVPictureInPictureControllerDelegate {
         attach(calls.remoteVideo)
         video.name.text = calls.peerName
         video.showsVideo = calls.remote.cam || calls.remote.screen
+        // 2.4 E3: teilt das Gegenueber, zeigt das PiP den Bildschirm (remoteVideo) ganz - Kamera fuellt das Fenster
+        let g: AVLayerVideoGravity = calls.remote.screen ? .resizeAspect : .resizeAspectFill
+        if video.display.displayLayer.videoGravity != g { video.display.displayLayer.videoGravity = g }
         c.canStartPictureInPictureAutomaticallyFromInline = true          // Wechsel in den Hintergrund
         wanted = PiPLogic.iosWantsPiP(phase: calls.phase.rawValue, hasRemoteVideo: true, minimized: calls.minimized, background: background)
         if !calls.minimized { suppressed = false }

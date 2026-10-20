@@ -15,9 +15,11 @@ struct CallScreen: View {
             LinearGradient(colors: [Color(red: 0.10, green: 0.09, blue: 0.07), Color(red: 0.04, green: 0.04, blue: 0.05)], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
             if showRemoteVideo {
-                RTCVideoBox(track: calls.remoteVideo, fill: !calls.remote.screen).ignoresSafeArea()
+                // 2.4 E3: Bildschirm gross und ganz sichtbar (aspect fit), Kamera klein; "Ansicht tauschen" tauscht
+                RTCVideoBox(track: bigTrack, fill: !bigIsScreen).ignoresSafeArea()
             }
             VStack(spacing: 14) {
+                shareBar
                 header.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
                 if !showRemoteVideo { Spacer(); peerBlock; Spacer() } else { Spacer() }
                 if calls.phase == .incoming { incomingButtons } else if calls.phase == .ended { endedBlock } else { controls }
@@ -42,7 +44,24 @@ struct CallScreen: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                     .padding(.top, 24 + headerHeight + 10).padding(.trailing, 16)   // unter der Kopfzeile (Ton-Diagnose bleibt lesbar)
             }
+            if showRemoteVideo, let t = smallTrack {                         // 2.4 E3: zweites Fernbild klein (Tippen tauscht)
+                Button { calls.swapView.toggle() } label: {
+                    ZStack { RTCVideoBox(track: t, fill: bigIsScreen).allowsHitTesting(false); Color.clear }
+                        .frame(width: 120, height: bigIsScreen ? 160 : 90).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.3)))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Text("Ansicht tauschen"))
+                .help(Text("Ansicht tauschen"))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .padding(.top, 24 + headerHeight + 10).padding(.leading, 16)
+            }
+            if calls.screenHint { ScreenHintCard(calls: calls) }
         }
+        #if os(iOS)
+        .background { BroadcastPickerHost(capture: calls.capture).frame(width: 1, height: 1).allowsHitTesting(false) }
+        #endif
         #if os(iOS)
         .overlay(alignment: .topLeading) {                                   // 2.3.1: zurueck in die App, Anruf laeuft weiter
             if CallLogic.isOngoing(calls.phase.rawValue) {
@@ -76,6 +95,44 @@ struct CallScreen: View {
     }
 
     private var showRemoteVideo: Bool { calls.remoteVideo != nil && (calls.remote.cam || calls.remote.screen) && (calls.phase == .active || calls.phase == .connecting) }
+    // 2.4 E3: remoteVideo = Bildschirm (teilt das Gegenueber) bzw. Kamera, remoteSide = Kamera neben dem Bildschirm
+    private var swapped: Bool { calls.swapView && calls.remoteSide != nil }
+    private var bigTrack: RTCVideoTrack? { swapped ? calls.remoteSide : calls.remoteVideo }
+    private var smallTrack: RTCVideoTrack? { calls.remoteSide == nil ? nil : swapped ? calls.remoteVideo : calls.remoteSide }
+    private var bigIsScreen: Bool { calls.remote.screen && !swapped }
+
+    /// Rote Leiste: "Du teilst deinen Bildschirm" (mit Beenden) bzw. "<Name> teilt den Bildschirm" (mit Tauschen)
+    @ViewBuilder private var shareBar: some View {
+        if calls.sharing || (calls.remote.screen && calls.phase == .active) {
+            HStack(spacing: 10) {
+                Image(systemName: "rectangle.inset.filled.on.rectangle")
+                VStack(alignment: .leading, spacing: 1) {
+                    if calls.sharing { Text("Du teilst deinen Bildschirm").font(.subheadline.weight(.semibold)) }
+                    else { Text("\(calls.peerName) teilt den Bildschirm").font(.subheadline.weight(.semibold)) }
+                    if calls.sharing && calls.shareCamPaused { Text("Kamera pausiert (langsame Verbindung)").font(.caption) }
+                }
+                .lineLimit(1).minimumScaleFactor(0.75)
+                Spacer(minLength: 4)
+                if calls.sharing {
+                    Button(String(localized: "Teilen beenden")) { calls.stopScreen() }
+                        .buttonStyle(.bordered).tint(.white).controlSize(.small)
+                } else if calls.remoteSide != nil {
+                    Button { calls.swapView.toggle() } label: { Image(systemName: "arrow.left.arrow.right") }
+                        .buttonStyle(.bordered).tint(.white).controlSize(.small)
+                        .accessibilityLabel(Text("Ansicht tauschen")).help(Text("Ansicht tauschen"))
+                }
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(Color(red: 0.78, green: 0.13, blue: 0.13), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            #if os(iOS)
+            .padding(.leading, 48)                                            // Platz fuer "Zurueck zur App"
+            #else
+            .padding(.leading, 40)                                            // Platz fuer "Bild im Bild"
+            #endif
+            .accessibilityElement(children: .combine)
+        }
+    }
 
     private var header: some View {
         VStack(spacing: 4) {
@@ -168,23 +225,28 @@ struct CallScreen: View {
                     .padding(.horizontal, 12).padding(.vertical, 6).background(.black.opacity(0.45), in: Capsule())
             }
             ViewThatFits(in: .horizontal) {
-                controlRow(spacing: 18)
-                controlRow(spacing: 6)
+                controlRow(spacing: 18, width: 72)
+                controlRow(spacing: 6, width: 72)
+                controlRow(spacing: 4, width: 62)                            // 2.4: fuenf Knoepfe auf dem iPhone
             }
             .dynamicTypeSize(...DynamicTypeSize.xxxLarge)                   // Bedienungshilfen-Groessen: Auflegen bleibt erreichbar
         }
         .padding(.bottom, 6)
     }
-    private func controlRow(spacing: CGFloat) -> some View {
+    private func controlRow(spacing: CGFloat, width: CGFloat) -> some View {
         HStack(spacing: spacing) {
-            toggle(calls.mic ? "mic.fill" : "mic.slash.fill", calls.mic ? String(localized: "Stumm") : String(localized: "Ton an"), on: !calls.mic) { calls.toggleMic() }
-            toggle(calls.cam ? "video.fill" : "video.slash.fill", calls.cam ? String(localized: "Kamera aus") : String(localized: "Kamera an"), on: !calls.cam) { calls.toggleCam() }
+            toggle(calls.mic ? "mic.fill" : "mic.slash.fill", calls.mic ? String(localized: "Stumm") : String(localized: "Ton an"), on: !calls.mic, width: width) { calls.toggleMic() }
+            toggle(calls.cam ? "video.fill" : "video.slash.fill", calls.cam ? String(localized: "Kamera aus") : String(localized: "Kamera an"), on: !calls.cam, width: width) { calls.toggleCam() }
+            if calls.phase == .active {                                       // 2.4 E3: Bildschirm teilen
+                toggle("rectangle.inset.filled.on.rectangle", calls.sharing ? String(localized: "Teilen beenden") : String(localized: "Bildschirm teilen"),
+                       on: calls.sharing, width: width) { calls.toggleScreen() }
+            }
             #if os(iOS)
             if UIDevice.current.userInterfaceIdiom == .phone {           // nur iPhone hat eine Hoermuschel; auch bei Video umschaltbar
-                toggle("speaker.wave.2.fill", String(localized: "Lautsprecher"), on: calls.speaker) { calls.toggleSpeaker() }
+                toggle("speaker.wave.2.fill", String(localized: "Lautsprecher"), on: calls.speaker, width: width) { calls.toggleSpeaker() }
             }
             #endif
-            round("phone.down.fill", String(localized: "Auflegen"), .red) { calls.hangup() }
+            round("phone.down.fill", String(localized: "Auflegen"), .red, width: width) { calls.hangup() }
         }
     }
 
@@ -196,31 +258,73 @@ struct CallScreen: View {
         }
     }
 
-    private func round(_ icon: String, _ label: String, _ color: Color, _ a: @escaping () -> Void) -> some View {
+    private func round(_ icon: String, _ label: String, _ color: Color, width: CGFloat = 72, _ a: @escaping () -> Void) -> some View {
         Button(action: a) {
             VStack(spacing: 6) {
                 Image(systemName: icon).font(.title2).frame(width: 60, height: 60).background(color, in: Circle()).foregroundStyle(.white)
-                buttonLabel(label)
+                buttonLabel(label, width: width)
             }
         }
         .buttonStyle(.plain).accessibilityLabel(Text(verbatim: label))
         .accessibilityShowsLargeContentViewer { Label(label, systemImage: icon) }
     }
-    private func toggle(_ icon: String, _ label: String, on: Bool, _ a: @escaping () -> Void) -> some View {
+    private func toggle(_ icon: String, _ label: String, on: Bool, width: CGFloat = 72, _ a: @escaping () -> Void) -> some View {
         Button(action: a) {
             VStack(spacing: 6) {
                 Image(systemName: icon).font(.title3).frame(width: 60, height: 60)
                     .background(on ? Color.white : Color.white.opacity(0.18), in: Circle())
                     .foregroundStyle(on ? Color.black : Color.white)
-                buttonLabel(label)
+                buttonLabel(label, width: width)
             }
         }
         .buttonStyle(.plain).accessibilityLabel(Text(verbatim: label)).accessibilityAddTraits(on ? .isSelected : [])
         .accessibilityShowsLargeContentViewer { Label(label, systemImage: icon) }
     }
     /// Feste Breite je Knopf: lange Beschriftungen (es/de, grosse Schrift) werden kleiner statt die Zeile zu sprengen
-    private func buttonLabel(_ label: String) -> some View {
-        Text(verbatim: label).font(.caption2).lineLimit(1).minimumScaleFactor(0.6).frame(width: 72)
+    private func buttonLabel(_ label: String, width: CGFloat = 72) -> some View {
+        Text(verbatim: label).font(.caption2).lineLimit(1).minimumScaleFactor(0.6).frame(width: width)
+    }
+}
+
+/// 2.4 E3: Hinweis vor dem ersten Teilen (Datenschutz, Konzept §4.4) - "Nicht mehr anzeigen" gilt je Geraet
+struct ScreenHintCard: View {
+    @ObservedObject var calls: CallManager
+    @State private var dontShow = false
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.55).ignoresSafeArea().onTapGesture { calls.screenHintDone(go: false, dontShow: false) }
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Bildschirm teilen", systemImage: "rectangle.inset.filled.on.rectangle").font(.headline)
+                Text("Alles, was in der Auswahl sichtbar ist, sieht dein Gegenüber – auch Mitteilungen, Passwörter und andere Fenster oder Chats.")
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Nichts wird aufgezeichnet oder auf dem Server gespeichert.").font(.footnote).foregroundStyle(.white.opacity(0.8))
+                    .fixedSize(horizontal: false, vertical: true)
+                #if os(iOS)
+                Text("Im nächsten Schritt „Saga“ wählen und „Übertragung starten“ tippen. Ton wird nicht übertragen.")
+                    .font(.footnote).foregroundStyle(.white.opacity(0.8)).fixedSize(horizontal: false, vertical: true)
+                #else
+                Text("Teile am besten nur ein Fenster. Ton wird nicht übertragen.").font(.footnote).foregroundStyle(.white.opacity(0.8))
+                    .fixedSize(horizontal: false, vertical: true)
+                #endif
+                Toggle("Nicht mehr anzeigen", isOn: $dontShow)
+                    #if os(macOS)
+                    .toggleStyle(.checkbox)
+                    #endif
+                HStack {
+                    Spacer()
+                    Button(String(localized: "Abbrechen")) { calls.screenHintDone(go: false, dontShow: false) }
+                        .buttonStyle(.bordered).tint(.white)
+                    Button(String(localized: "Bildschirm wählen")) { calls.screenHintDone(go: true, dontShow: dontShow) }
+                        .buttonStyle(.borderedProminent).tint(.white).foregroundStyle(.black)
+                        .keyboardShortcut(.defaultAction)
+                }
+            }
+            .padding(18)
+            .frame(maxWidth: 380)
+            .background(Color(white: 0.14), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(24)
+            .accessibilityAddTraits(.isModal)
+        }
     }
 }
 

@@ -9,7 +9,12 @@ import Foundation
 enum CallV3 {
     /// Faehigkeiten dieses Geraets (gehen in jedes offer/answer): "reneg" nur, wenn der eigene Server es anbietet
     /// (GET /api/calls/config features), "want" und "bye" immer
-    static func myCaps(serverFeatures: [String]) -> [String] { (serverFeatures.contains("reneg") ? ["reneg"] : []) + ["want", "bye"] }
+    /// 2.4 E3: "screen2" (Bildschirm als eigene Videospur) nur mit Server-Features "reneg" UND "screen2" und wenn der
+    /// Client Betriebsart B kann (screen2: false = immer A)
+    static func myCaps(serverFeatures: [String], screen2: Bool = true) -> [String] {
+        let reneg = serverFeatures.contains("reneg")
+        return (reneg ? ["reneg"] : []) + ["want", "bye"] + (reneg && screen2 && serverFeatures.contains("screen2") ? ["screen2"] : [])
+    }
     /// Neuverhandlung (Angebote waehrend des Gespraechs, ICE-Restart) nur, wenn beide Seiten "reneg" melden
     static func canReneg(mine: [String], peer: [String]?) -> Bool { mine.contains("reneg") && peer?.contains("reneg") == true }
     /// "bye" nur an eine Gegenstelle, die es meldet
@@ -28,6 +33,33 @@ enum CallV3 {
         var want: Want?
         var path: Path?
         var restart: Bool?
+        // 2.4 E3 (Bildschirm v2): Rolle je m-Zeile, Stream-IDs, mid des Bildschirms, Systemton gemischt
+        var tracks: [String: String]?
+        var msid: [String: String]?
+        var screenMid: String?
+        var screenAudio: Bool?
+    }
+    /// mid wie im Vertrag: [A-Za-z0-9_-]{1,16}
+    static func validMid(_ s: String) -> Bool {
+        !s.isEmpty && s.count <= 16 && s.unicodeScalars.allSatisfy { CharacterSet.alphanumerics.contains($0) && $0.isASCII || $0 == "_" || $0 == "-" }
+    }
+    static let roles: Set<String> = ["mic", "cam", "screen"]
+    /// tracks des Gegenuebers: hoechstens 8 Eintraege, gueltige mid, bekannte Rolle - Unbekanntes faellt weg
+    static func tracksOf(_ any: Any?) -> [String: String] {
+        guard let d = any as? [String: Any] else { return [:] }
+        var out: [String: String] = [:]
+        for k in d.keys.sorted() where out.count < 8 {
+            if validMid(k), let r = d[k] as? String, roles.contains(r) { out[k] = r }
+        }
+        return out
+    }
+    static func msidOf(_ any: Any?) -> [String: String] {
+        guard let d = any as? [String: Any] else { return [:] }
+        var out: [String: String] = [:]
+        for k in d.keys.sorted() where out.count < 8 {
+            if validMid(k), let s = d[k] as? String, !s.isEmpty, s.count <= 64 { out[k] = s }
+        }
+        return out
     }
     static func meta(_ body: String) -> Meta {
         guard let j = (try? JSONSerialization.jsonObject(with: Data(body.utf8))) as? [String: Any] else { return Meta() }
@@ -39,26 +71,47 @@ enum CallV3 {
         if let w = j["want"] as? [String: Any], let v = w["video"] as? String { m.want = Want(rawValue: v) }
         if let p = j["path"] as? String { m.path = Path(rawValue: p) }
         if let r = j["restart"] as? Bool { m.restart = r }
+        if j["tracks"] != nil { let t = tracksOf(j["tracks"]); if !t.isEmpty { m.tracks = t } }
+        if j["msid"] != nil { let s = msidOf(j["msid"]); if !s.isEmpty { m.msid = s } }
+        if let s = j["screen_mid"] as? String, validMid(s) { m.screenMid = s }
+        if let a = j["screen_audio"] as? Bool { m.screenAudio = a }
         return m
     }
 
     // MARK: Bodys (Felder von 2.3 bleiben gleich, neue kommen dazu - aeltere Apps lesen nur t/sdp/media/fp/c/mic/cam/screen)
 
-    static func offerBody(sdp: String, media: String, pc: String, n: Int, caps: [String], restart: Bool = false) -> String {
+    /// 2.4 E3: Rolle und Stream-ID je eigener m-Zeile (nur senden, wer "screen2" meldet)
+    struct Roles: Equatable {
+        var tracks: [String: String] = [:]
+        var msid: [String: String] = [:]
+    }
+    private static func put(_ r: Roles?, _ o: inout [String: Any]) {
+        guard let r, !r.tracks.isEmpty else { return }
+        o["tracks"] = r.tracks; o["msid"] = r.msid
+    }
+    static func offerBody(sdp: String, media: String, pc: String, n: Int, caps: [String], restart: Bool = false, roles: Roles? = nil) -> String {
         var o: [String: Any] = ["t": "offer", "sdp": sdp, "media": media, "fp": CallLogic.sdpFingerprints(sdp), "pc": pc, "caps": caps, "n": n]
         if restart { o["restart"] = true }                                  // nur Hinweis
+        put(roles, &o)
         return CallLogic.json(o)
     }
-    static func answerBody(sdp: String, media: String, pc: String, n: Int, caps: [String]) -> String {
-        CallLogic.json(["t": "answer", "sdp": sdp, "media": media, "fp": CallLogic.sdpFingerprints(sdp), "pc": pc, "caps": caps, "n": n])
+    static func answerBody(sdp: String, media: String, pc: String, n: Int, caps: [String], roles: Roles? = nil) -> String {
+        var o: [String: Any] = ["t": "answer", "sdp": sdp, "media": media, "fp": CallLogic.sdpFingerprints(sdp), "pc": pc, "caps": caps, "n": n]
+        put(roles, &o)
+        return CallLogic.json(o)
     }
     static func iceBody(_ c: [CallLogic.Candidate], pc: String) -> String {
         CallLogic.json(["t": "ice", "c": c.prefix(CallLogic.iceBatch).map(\.dict), "pc": pc])
     }
     /// state immer mit pip/want/path (auch ohne reneg; aeltere Clients ignorieren die Felder); path fehlt = unbekannt
-    static func stateBody(pc: String, mic: Bool, cam: Bool, screen: Bool, pip: Bool, want: Want, path: Path?) -> String {
+    /// 2.4 E3: screen_mid/screen_audio nur bei screen = true; tracks/msid nur mit roles (eigene "screen2")
+    static func stateBody(pc: String, mic: Bool, cam: Bool, screen: Bool, pip: Bool, want: Want, path: Path?,
+                          screenMid: String? = nil, screenAudio: Bool = false, roles: Roles? = nil) -> String {
         var o: [String: Any] = ["t": "state", "pc": pc, "mic": mic, "cam": cam, "screen": screen, "pip": pip, "want": ["video": want.rawValue]]
         if let path { o["path"] = path.rawValue }
+        if screen, let screenMid { o["screen_mid"] = screenMid }
+        if screen && roles != nil { o["screen_audio"] = screenAudio }
+        put(roles, &o)
         return CallLogic.json(o)
     }
     static func byeBody(pc: String, reason: String = "hangup") -> String { CallLogic.json(["t": "bye", "pc": pc, "reason": reason]) }
@@ -206,7 +259,18 @@ enum CallV3 {
     /// Grenzen fuer einen Video-Sender. streams = Gegenstellen, an die dieses Geraet sendet (1:1 = 1, Mesh n>=3 -> >=2),
     /// want = Wunsch des Gegenuebers (PiP: small), sourceHeight = kurze Seite der Quelle (Kamera 720, Testbild 360;
     /// nil = unbekannt: keine Skalierung, bei want small 480 angenommen wie im Web).
-    static func videoLimits(path: Path, kind: Kind, streams: Int, want: Want, sourceHeight: Int?) -> Limits {
+    /// 2.4 E3: sharing = ich teile daneben den Bildschirm auf eigener Spur (Betriebsart B): Kamera <= 300 kbit/s,
+    /// hoechstens 360p, ueber Relais TCP aus (Summe je Richtung <= 1,6 Mbit/s, Konzept §4.5)
+    static let shareCamBitrate = 300_000
+    static func videoLimits(path: Path, kind: Kind, streams: Int, want: Want, sourceHeight: Int?, sharing: Bool = false) -> Limits {
+        var l = baseLimits(path: path, kind: kind, streams: streams, want: want, sourceHeight: sourceHeight)
+        guard sharing, kind == .camera else { return l }
+        l.maxBitrate = min(l.maxBitrate, shareCamBitrate)
+        l.scaleDown = max(l.scaleDown, max(1, Double(sourceHeight ?? 480) / 360))
+        if path == .relayTCP { l.active = false }
+        return l
+    }
+    private static func baseLimits(path: Path, kind: Kind, streams: Int, want: Want, sourceHeight: Int?) -> Limits {
         let src = sourceHeight.map { Double(max(1, $0)) }
         func scale(_ target: Double) -> Double { src.map { max(1, $0 / target) } ?? 1 }   // "<= 720p": Quellhoehe / 720, nur wenn groesser
         let mesh = streams >= 2
