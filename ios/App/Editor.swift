@@ -300,6 +300,25 @@ final class PageEditor: ObservableObject {
         let b = arr[i]; arr.removeObject(at: i); arr.insert(b, at: i + d); changed()
     }
 
+    /// "/"-Menue -> Liste aus einem (leeren) Absatz: neue Liste NACH dem Absatz einfuegen und fokussieren, den Absatz
+    /// erst entfernen, wenn der Listenpunkt den Fokus hat. Ersetzt man den Absatz sofort, verschwindet sein Feld mit der
+    /// Tastatur, bevor das neue sie hat - schnell weiter Getipptes ("/Checkliste⏎eins") ging verloren (Tipptest int2).
+    /// Bis dahin reicht das alte Feld Tasten weiter (Handover) wie nach Return.
+    func convertToListKeepingFocus(_ id: String, to type: String) {
+        guard let (arr, i) = locate(id), let b = arr[i] as? NSMutableDictionary, b["type"] as? String == "paragraph" else {
+            convert(id, to: type); return
+        }
+        let nb = Self.make(type, text: ((b["data"] as? NSDictionary)?["text"] as? String) ?? "")
+        let item = nb.blockID + "/0"
+        arr.insert(nb, at: i + 1)
+        focus = item
+        whenFocused(item) { [weak self] in
+            guard let self, let (a, j) = self.locate(id) else { return }
+            a.removeObject(at: j); self.changed()
+        }
+        changed()
+    }
+
     /// Blocktyp aendern; Text bleibt erhalten (Liste -> einzelne Absaetze)
     func convert(_ id: String, to type: String, level: Int = 2) {
         guard let (arr, i) = locate(id), let b = arr[i] as? NSMutableDictionary else { return }
@@ -450,8 +469,7 @@ struct EditText: View {
             if let t = ed.focus { ed.forward(out, to: t) }
             return
         }
-        let pickable = slash && SlashFilter.query(box.shadow).map { !slashMatches($0, nextcloud: nextcloudOK).isEmpty } == true
-        switch EditorFlow.targetStep(shadow: box.shadow, new: n, canSplit: canSplit, slashPick: pickable) {
+        switch EditorFlow.targetStep(shadow: box.shadow, new: n, canSplit: canSplit, slashPick: slashPickable) {
         case .none:
             // nur Formatierung geaendert (gleiche Zeichen): trotzdem speichern
             let h = richToHTML(new, ctx: fctx, baseBold: boldBase)
@@ -466,12 +484,22 @@ struct EditText: View {
             box.handover = EditorFlow.Handover(base: n)                // weitere Tasten hier gehen ans neue Feld
             let a = new.characters.index(new.startIndex, offsetBy: at), f = new.characters.index(new.startIndex, offsetBy: from)
             doReturn(AttributedString(new[new.startIndex..<a]), AttributedString(new[f..<new.endIndex]), rest: rest)
-        case .slashPick(let rest):                                     // Return im "/"-Menue: erster Treffer (F3)
-            guard let q = SlashFilter.query(box.shadow), let first = slashMatches(q, nextcloud: nextcloudOK).first else { return }
+        case .slashPick(let line, let rest):                           // Return im "/"-Menue: erster Treffer (F3)
             box.shadow = n; box.handover = EditorFlow.Handover(base: n)
-            ed.slashApply(blockOf(key), type: first.1, level: first.2)
-            if let t = ed.focus, t != key || first.1 != "paragraph" { ed.forward(rest, to: t) }
+            slashPick(line, rest: rest)
         }
+    }
+
+    /// Zeile ist ein "/"-Befehl mit Treffer (nur Felder mit "/"-Menue)
+    private func slashPickable(_ line: String) -> Bool {
+        slash && SlashFilter.query(line).map { !slashMatches($0, nextcloud: nextcloudOK).isEmpty } == true
+    }
+
+    /// Ersten Treffer zu `line` anwenden; danach Getipptes an das umgewandelte Feld
+    private func slashPick(_ line: String, rest: String) {
+        guard let q = SlashFilter.query(line), let first = slashMatches(q, nextcloud: nextcloudOK).first else { return }
+        ed.slashApply(blockOf(key), type: first.1, level: first.2)
+        if let t = ed.focus, t != key || first.1 != "paragraph" { ed.forward(rest, to: t) }
     }
 
     /// Weitergereichte Eingaben uebernehmen (beim Erscheinen, beim Fokus und sobald neue bereitliegen)
@@ -480,6 +508,13 @@ struct EditText: View {
         let count = rich.characters.count
         let caret = min(cursor ?? count, count)
         let a = EditorFlow.apply(carry: c, caret: caret, canSplit: canSplit)
+        // Weitergereichtes "/Seite⏎": wie Return im Menue waehlen statt "/Seite" als Absatz abzutrennen
+        if let line = EditorFlow.carrySlashLine(text: String(rich.characters), caret: caret, a, slashPick: slashPickable) {
+            var r = AttributedString(line); r.font = font
+            rich = r; box.shadow = line; box.handover = EditorFlow.Handover(base: line)
+            slashPick(line, rest: a.rest)
+            return
+        }
         let start = caret - min(a.removedBefore, caret)
         var ins = AttributedString(a.inserted); ins.font = font
         rich.replaceSubrange(rich.characters.index(rich.startIndex, offsetBy: start)..<rich.characters.index(rich.startIndex, offsetBy: caret), with: ins)
@@ -730,6 +765,7 @@ extension PageEditor {
             return
         }
         if type == "delimiter" { arr.replaceObject(at: i, with: Self.make("delimiter")); insert(Self.make("paragraph"), after: (arr[i] as? NSMutableDictionary)?.blockID); return }
+        if ["checklist", "unordered", "ordered"].contains(type) { convertToListKeepingFocus(id, to: type); return }
         convert(id, to: type, level: level == 0 ? 2 : level)
     }
     /// Vorhandene Datenbank als Block einsetzen (eigene Ansichten legt das Web beim ersten Oeffnen an)

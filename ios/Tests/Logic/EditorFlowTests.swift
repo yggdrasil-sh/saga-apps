@@ -99,7 +99,7 @@ final class SimEditor {
             if let t = focus { forward(out, to: t) }
             return
         }
-        switch EditorFlow.targetStep(shadow: f.shadow, new: n, canSplit: true, slashPick: false) {
+        switch EditorFlow.targetStep(shadow: f.shadow, new: n, canSplit: true, slashPick: { _ in false }) {
         case .none, .slashPick: break
         case .text:
             f.shadow = n; fields[id] = f
@@ -136,13 +136,24 @@ func editorFlowTests() {
     check(EditorFlow.delta("abcdef", "abcXdef") == .init(prefix: 3, removed: 0, inserted: "X", suffix: 3), "Aenderung in der Mitte")
     check(EditorFlow.delta("abc", "ab") == .init(prefix: 2, removed: 1, inserted: "", suffix: 0), "Loeschen")
     // Ursache 1: mehrere Tasten in einem onChange - getrennt wird AM Zeilenumbruch, nicht am Anfang der Aenderung
-    check(EditorFlow.targetStep(shadow: "Mittel", new: "Mittel:\n", canSplit: true, slashPick: false) == .split(at: 7, afterFrom: 8, rest: ""), "\":⏎\" zusammen: Doppelpunkt bleibt")
-    check(EditorFlow.targetStep(shadow: "Punkt", new: "Punkt C\n\n", canSplit: true, slashPick: false) == .split(at: 7, afterFrom: 9, rest: "\n"), "zweites Return geht weiter")
-    check(EditorFlow.targetStep(shadow: "abcdef", new: "abc\nXdef", canSplit: true, slashPick: false) == .split(at: 3, afterFrom: 5, rest: "X"), "Return mitten im Text: Getipptes vor den Rest")
-    check(EditorFlow.targetStep(shadow: "ab", new: "ab\n", canSplit: false, slashPick: false) == .text, "ohne Trennen: Umbruch bleibt im Text")
-    check(EditorFlow.targetStep(shadow: "ab", new: "ab", canSplit: true, slashPick: false) == .none, "eigenes Echo: nichts")
-    check(EditorFlow.targetStep(shadow: "/seite", new: "/seite\n", canSplit: true, slashPick: true) == .slashPick(rest: ""), "Return im \"/\"-Menue waehlt")
-    check(EditorFlow.targetStep(shadow: "/sei", new: "/sei\nX", canSplit: true, slashPick: true) == .slashPick(rest: "X"), "Weitergetipptes nach der Wahl")
+    check(EditorFlow.targetStep(shadow: "Mittel", new: "Mittel:\n", canSplit: true, slashPick: { _ in false }) == .split(at: 7, afterFrom: 8, rest: ""), "\":⏎\" zusammen: Doppelpunkt bleibt")
+    check(EditorFlow.targetStep(shadow: "Punkt", new: "Punkt C\n\n", canSplit: true, slashPick: { _ in false }) == .split(at: 7, afterFrom: 9, rest: "\n"), "zweites Return geht weiter")
+    check(EditorFlow.targetStep(shadow: "abcdef", new: "abc\nXdef", canSplit: true, slashPick: { _ in false }) == .split(at: 3, afterFrom: 5, rest: "X"), "Return mitten im Text: Getipptes vor den Rest")
+    check(EditorFlow.targetStep(shadow: "ab", new: "ab\n", canSplit: false, slashPick: { _ in false }) == .text, "ohne Trennen: Umbruch bleibt im Text")
+    check(EditorFlow.targetStep(shadow: "ab", new: "ab", canSplit: true, slashPick: { _ in false }) == .none, "eigenes Echo: nichts")
+    let cmd: (String) -> Bool = { SlashFilter.query($0).map { ["seite", "sei", "checkliste"].contains($0) } == true }
+    check(EditorFlow.targetStep(shadow: "/seite", new: "/seite\n", canSplit: true, slashPick: cmd) == .slashPick(line: "/seite", rest: ""), "Return im \"/\"-Menue waehlt")
+    check(EditorFlow.targetStep(shadow: "/sei", new: "/sei\nX", canSplit: true, slashPick: cmd) == .slashPick(line: "/sei", rest: "X"), "Weitergetipptes nach der Wahl")
+    // Tipptest int2: "e⏎" schnell in EINER Aenderung - die Zeile vor dem Return zaehlt, nicht der alte Schatten
+    check(EditorFlow.targetStep(shadow: "/Seit", new: "/Seite\n", canSplit: true, slashPick: { $0 == "/Seite" }) == .slashPick(line: "/Seite", rest: ""), "\"e⏎\" zusammen waehlt")
+    check(EditorFlow.targetStep(shadow: "", new: "/Checkliste\neins", canSplit: true, slashPick: { $0 == "/Checkliste" }) == .slashPick(line: "/Checkliste", rest: "eins"), "ganzer Befehl in einem onChange")
+    check(EditorFlow.targetStep(shadow: "abc", new: "abc\n/Seite", canSplit: true, slashPick: cmd) == .split(at: 3, afterFrom: 10, rest: "/Seite"), "Text vor dem Return ist kein Befehl: trennen")
+    check(EditorFlow.targetStep(shadow: "/seite x", new: "/seite x\n", canSplit: true, slashPick: cmd) == .split(at: 8, afterFrom: 9, rest: ""), "mit Leerzeichen kein Befehl")
+    // weitergereichtes "/Seite⏎" (Feld bekam den Fokus erst danach): waehlen statt trennen
+    let apS = EditorFlow.apply(carry: "/Seite\nX", caret: 0, canSplit: true)
+    check(EditorFlow.carrySlashLine(text: "", caret: 0, apS, slashPick: { $0 == "/Seite" }) == "/Seite" && apS.rest == "X", "Weitergereicht: Befehl erkannt, Rest bleibt")
+    check(EditorFlow.carrySlashLine(text: "ab", caret: 2, EditorFlow.apply(carry: "/Seite\n", caret: 2, canSplit: true), slashPick: { _ in true }) == nil, "Text davor: kein Befehl")
+    check(EditorFlow.carrySlashLine(text: "", caret: 0, EditorFlow.apply(carry: "/Seite", caret: 0, canSplit: true), slashPick: { _ in true }) == nil, "ohne Return: nichts waehlen")
     // Ursache 2: Handover rechnet gegen den festen Stand - egal, ob Tasten einzeln oder zusammen ankommen
     var h = EditorFlow.Handover(base: "Punkt A")
     check(EditorFlow.handover(&h, new: "Punkt AP") == "P", "erstes Zeichen")

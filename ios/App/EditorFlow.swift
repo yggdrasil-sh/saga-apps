@@ -45,19 +45,34 @@ enum EditorFlow {
         case text                                            // Text verbuchen (speichern, wenn sich das HTML aendert)
         /// Return: vorher = neu[..<at], nachher = neu[afterFrom...]; `rest` = nach dem Return getippt -> neues Feld
         case split(at: Int, afterFrom: Int, rest: String)
-        /// Return im "/"-Menue: ersten Treffer waehlen; `rest` geht an das umgewandelte Feld
-        case slashPick(rest: String)
+        /// Return im "/"-Menue: ersten Treffer zu `line` (Text vor dem Return, z. B. "/seite") waehlen; `rest` geht an
+        /// das umgewandelte Feld
+        case slashPick(line: String, rest: String)
     }
 
-    /// Ziel-Feld: Aenderung gegenueber dem Schatten einordnen
-    static func targetStep(shadow: String, new: String, canSplit: Bool, slashPick: Bool) -> Step {
+    /// Ziel-Feld: Aenderung gegenueber dem Schatten einordnen. slashPick(line): Text vor dem Return ist ein
+    /// "/"-Befehl mit Treffer. Die Zeile zaehlt mit den in DERSELBEN Aenderung getippten Zeichen - schnell getipptes
+    /// "e⏎" (ein onChange) waehlt sonst nicht, sondern trennt "/Seite" als Absatz ab (Tipptest int2).
+    static func targetStep(shadow: String, new: String, canSplit: Bool, slashPick: (String) -> Bool) -> Step {
         guard shadow != new else { return .none }
         let d = delta(shadow, new)
         guard canSplit, let k = d.inserted.firstIndex(of: "\n") else { return .text }
         let nl = d.inserted.distance(from: d.inserted.startIndex, to: k)
         let rest = String(d.inserted[d.inserted.index(after: k)...])
-        if slashPick && nl == 0 && d.removed == 0 && d.suffix == 0 { return .slashPick(rest: rest) }
+        if d.removed == 0 && d.suffix == 0 {
+            let line = String(Array(new)[0..<(d.prefix + nl)])
+            if slashPick(line) { return .slashPick(line: line, rest: rest) }
+        }
         return .split(at: d.prefix + nl, afterFrom: d.prefix + d.inserted.count, rest: rest)
+    }
+
+    /// Weitergereichtes (`apply`) endet mit Return in einem Feld, das danach nur einen "/"-Befehl enthaelt: dann wie
+    /// Return im Menue waehlen statt trennen. -> Befehlszeile oder nil (Tipptest int2: "abc⏎/Seite⏎" schnell)
+    static func carrySlashLine(text: String, caret: Int, _ a: Applied, slashPick: (String) -> Bool) -> String? {
+        guard a.split else { return nil }
+        let r = result(text, caret: caret, a)
+        guard r.caret == r.text.count, SlashFilter.query(r.text) != nil, slashPick(r.text) else { return nil }
+        return r.text
     }
 
     /// Feld hat den Fokus abgegeben (Return), bekommt aber noch Tasten, bis das neue Feld ihn hat

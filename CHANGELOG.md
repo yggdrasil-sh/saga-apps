@@ -479,6 +479,12 @@ Speicher beim Hoch- und Herunterladen. Texte in Deutsch, Englisch, Spanisch, Rus
   mehrmals, statt das Bearbeiten beim ersten Fehlschlag zu beenden.
 - **„/“-Menü:** feste Höhe aus der Trefferzahl – ein einzelner Treffer („/Seite“) liegt nicht mehr halb unter der
   Tastaturleiste. **Return wählt den ersten Treffer** (auch am Mac).
+- **„/“-Menü bei schnellem Tippen (Tipptest nach dem Zusammenführen):** Kamen „e⏎“ in einer Änderung an oder wurde
+  „/Seite⏎“ direkt nach einem Return getippt (Weiterreichen ans neue Feld), entstand ein Absatz „/Seite“ statt der
+  Unterseite. Gezählt wird jetzt die Zeile vor dem Return, auch bei weitergereichter Eingabe. „/Checkliste⏎eins“ in
+  einem Zug verlor Zeichen („e“ statt „eins“), weil das Feld des Absatzes mit der Tastatur verschwand: Die Liste kommt
+  jetzt hinter den Absatz, der erst geht, wenn der Listenpunkt den Fokus hat. Echter Tipptest im Simulator (XCUITest,
+  200 Zeichen, mehrfaches Return, Checkliste mit Return-Folgen, „/Seite⏎“) speichert und zeigt den Text exakt.
 - **Leiste „Anruf läuft auf …“:** „Hinzufügen“ und „Hierher übernehmen“ werden nie mehr silbenweise umbrochen; ist es
   zu eng (iPhone, große Schrift), stehen die Knöpfe unter dem Text.
 - **Große Schrift:** Der Ansichtsname einer Datenbank steht in eigener Zeile statt nur „…“.
