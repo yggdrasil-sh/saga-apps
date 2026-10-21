@@ -43,9 +43,11 @@ final class OggOpusTests: XCTestCase {
         XCTAssertEqual(f.preSkip, 312)
         XCTAssertEqual(f.channels, 1)
         XCTAssertEqual(f.packets.map(\.data), pkts)
-        XCTAssertEqual(f.packets.last?.end, 312 + 180 * 960)
-        XCTAssertEqual(f.lastGranule, 312 + 180 * 960)
-        XCTAssertEqual(f.duration, 3.6, accuracy: 1e-9)
+        // RFC 7845: Granule zaehlt den pre-skip mit (ab 0), Dauer = (Granule - pre-skip) / 48000
+        XCTAssertEqual(f.packets.first?.end, 960)
+        XCTAssertEqual(f.packets.last?.end, 180 * 960)
+        XCTAssertEqual(f.lastGranule, 180 * 960)
+        XCTAssertEqual(f.duration, Double(180 * 960 - 312) / 48_000, accuracy: 1e-9)
         // Seiten: BOS (Kopf), Tags, je hoechstens 50 Pakete, letzte mit EOS; Granule wachsend
         let pages = parsePages(ogg)
         XCTAssertEqual(pages.first?.flags, 2)
@@ -55,7 +57,7 @@ final class OggOpusTests: XCTestCase {
         XCTAssertTrue(pages.dropFirst(2).allSatisfy { $0.serial == 0xABCD_0001 })
         let g = pages.dropFirst(2).map(\.granule)
         XCTAssertEqual(g, g.sorted())
-        XCTAssertEqual(g.first, 312 + 50 * 960)
+        XCTAssertEqual(g.first, 50 * 960)
     }
 
     func testLargePacketsLacing() throws {
@@ -85,6 +87,7 @@ final class OggOpusTests: XCTestCase {
         // Echte Laenge kuerzer als die Pakete (Polster am Ende): letzte Granule = pre-skip + Samples
         var w = OggOpus.Writer(preSkip: 312, serial: 7)
         for _ in 0..<126 { w.add(pkt(60)) }
+        XCTAssertEqual(w.samples, 126 * 960 - 312)
         let f = try OggOpus.demux(w.finish(samples: 120_000))
         XCTAssertEqual(f.lastGranule, 312 + 120_000)
         XCTAssertEqual(f.duration, 2.5, accuracy: 1e-9)

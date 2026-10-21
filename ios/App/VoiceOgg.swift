@@ -2,7 +2,9 @@ import Foundation
 
 // Sprachnachrichten (Saga 2.5, Konzept Chat B3): Ogg-Kapselung fuer Opus (RFC 3533/7845), ohne Fremdbibliothek.
 // Genau wie static/chat-voice.js (oggOpus): Seite 0 OpusHead (BOS), Seite 1 OpusTags, danach Seiten mit hoechstens 50
-// Paketen bzw. 240 Segmenten, Granule = pre-skip + Samples bis zum Ende der Seite (48 kHz), letzte Seite EOS.
+// Paketen bzw. 240 Segmenten, letzte Seite EOS. Granule nach RFC 7845 (4): Zahl aller dekodierten Samples (48 kHz) bis
+// zum Ende der Seite EINSCHLIESSLICH pre-skip - die ersten Pakete enthalten den pre-skip schon, gezaehlt wird ab 0 (wie
+// Web 6784d1d und Android). Dauer = (letzte Granule - pre-skip) / 48000.
 // Demuxer: Seiten mit CRC pruefen, Pakete ueber Lacing zusammensetzen (auch ueber Seitengrenzen), Dauer aus der letzten
 // Granule, Paket-Index fuer das Spulen. Reine Logik (mit swift/XCTest pruefbar); Codec: VoiceCodec.swift.
 
@@ -94,13 +96,13 @@ enum OggOpus {
         private var segs = 0
         private(set) var packets = 0
         init(preSkip: Int = OggOpus.defaultPreSkip, serial: UInt32 = UInt32.random(in: 1...UInt32.max), vendor: String = "Saga") {
-            self.serial = serial; self.preSkip = preSkip; granule = Int64(preSkip)
+            self.serial = serial; self.preSkip = preSkip; granule = 0
             data.append(OggOpus.page([OggOpus.head(preSkip: preSkip)], granule: 0, flags: 2, serial: serial, seq: 0))
             data.append(OggOpus.page([OggOpus.tags(vendor: vendor)], granule: 0, flags: 0, serial: serial, seq: 1))
             seq = 2
         }
-        /// Samples ohne pre-skip (Dauer der Aufnahme)
-        var samples: Int64 { granule - Int64(preSkip) }
+        /// Samples ohne pre-skip (Dauer der Aufnahme); die Granule zaehlt den pre-skip mit (RFC 7845)
+        var samples: Int64 { max(0, granule - Int64(preSkip)) }
         mutating func add(_ p: Data) {
             if !cur.isEmpty && (cur.count >= 50 || segs + p.count / 255 + 1 > 240) { flush(eos: false) }
             granule += Int64(OggOpus.samples(p)); cur.append(p); segs += p.count / 255 + 1; packets += 1
@@ -128,7 +130,7 @@ enum OggOpus {
 
     struct Packet: Equatable {
         var data: Data
-        /// Granule am Ende dieses Pakets (pre-skip eingerechnet)
+        /// Granule am Ende dieses Pakets (Samples ab dem ersten Paket, pre-skip eingerechnet - RFC 7845)
         var end: Int64
     }
     enum DemuxError: Error, Equatable { case notOgg, crc, noHead, notOpus, serial }
@@ -180,7 +182,7 @@ enum OggOpus {
                     if headers == 0 {
                         guard p.count >= 19, p.prefix(8) == Data("OpusHead".utf8) else { throw DemuxError.notOpus }
                         channels = Int(p[p.startIndex + 9]); preSkip = Int(OggOpus.readLE(p, 10, 2)); headers = 1
-                        pos = Int64(preSkip)
+                        pos = 0                                            // RFC 7845: ab 0, der pre-skip steckt in den ersten Paketen
                     } else if headers == 1 {
                         headers = 2                                        // OpusTags
                     } else {
@@ -188,7 +190,7 @@ enum OggOpus {
                         out.append(Packet(data: p, end: pos))
                     }
                 }
-                if gran >= 0 && headers >= 2 && (!done.isEmpty || flags & 4 != 0) && pos > Int64(preSkip) { lastGranule = gran }
+                if gran >= 0 && headers >= 2 && (!done.isEmpty || flags & 4 != 0) && pos > 0 { lastGranule = gran }
                 if flags & 4 != 0 { eos = true }
                 at += total
             }
