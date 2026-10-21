@@ -102,6 +102,12 @@ data class CallInfo(
     val old: List<CallPeer> = emptyList(),
     /** Gruppe: eigene Einladung (ringing | declined | joined | old | missed) */
     val invite: String? = null,
+    /** 2.5: mesh | horn (Gruppenanruf ueber einen Gjallarhorn-Knoten) */
+    val topo: String = "mesh",
+    /** 2.5: Kandidaten (Knoten mit Medien-Token), nur bei topo horn */
+    val horn: JsonElement? = null,
+    /** 2.5: dieses Konto hat den Gruppenanruf begonnen (Gastgeber: stummschalten, entfernen) */
+    val host: Boolean = false,
 )
 
 @Serializable

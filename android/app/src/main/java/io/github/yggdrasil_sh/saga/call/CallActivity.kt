@@ -345,6 +345,15 @@ private fun CallScreen(
 
     val dark = Color(0xFF101114)
     var infoHeight by remember { mutableIntStateOf(0) }
+    // 2.5 Gjallarhorn: Runensiegel bzw. Teilnehmerliste (Gastgeber: stummschalten, entfernen)
+    var hornPanel by remember { mutableStateOf("") }
+    st.room?.horn?.let { h ->
+        if (st.phase == CallPhase.ENDED) hornPanel = ""
+        when (hornPanel) {
+            "runes" -> HornRunesDialog(h) { hornPanel = "" }
+            "people" -> HornPeopleDialog(h, onMute = { calls.moderate(it, "mute") }, onRemove = { calls.moderate(it, "remove") }) { hornPanel = "" }
+        }
+    }
     val room = st.room
     // 2.4 E5: Kachelansicht (Gruppe bzw. mehrere sichtbare Verbindungen); im Bild-im-Bild der aktive Sprecher gross
     val meshOn = room?.mesh == true && st.phase != CallPhase.INCOMING && st.phase != CallPhase.ENDED && !pip
@@ -386,8 +395,24 @@ private fun CallScreen(
                 InfoLine(st, onDark = showVideo)
                 ShareBar(calls, st)
                 RoomLine(st, onDark = showVideo)
+                // 2.5 Gjallarhorn: Weg mit Qualitaetspunkt, Runensiegel, Teilnehmende, Ansicht
+                room?.horn?.let { h ->
+                    if (st.phase != CallPhase.ENDED) HornBar(h, onDark = showVideo, onRunes = { hornPanel = "runes" }, onPeople = { hornPanel = "people" },
+                        onView = { calls.hornToggleView() })
+                }
             }
-            if (meshOn) TileGrid(calls, st, Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp))
+            val horn = room?.horn
+            if (meshOn && horn != null) {
+                val me = stringResource(R.string.room_you)
+                HornStage(
+                    horn, Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp),
+                    self = if (st.cam) HornTile("self", me, "", video = true, mic = st.mic, speaking = false) else null,
+                    video = { t, m -> calls.tileSink(t.dev)?.let { VideoView(calls, remote = true, visible = true, modifier = m, sink = it, overlay = true) } },
+                    big = { m -> VideoView(calls, remote = true, visible = true, modifier = m, sink = calls.remoteSink, overlay = false) },
+                    selfVideo = { m -> VideoView(calls, remote = false, visible = true, modifier = m) },
+                    onPin = { calls.hornPin(it) },
+                )
+            } else if (meshOn) TileGrid(calls, st, Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp))
             else Spacer(Modifier.weight(1f))
             if (!showVideo && !meshOn) {
                 Avatar(st.peer.name.ifEmpty { st.peer.username }, size = 112, avatar = st.peer.avatar)
@@ -740,7 +765,7 @@ private fun RoundButton(
 
 /** WebRTC-Bild (SurfaceViewRenderer) - haengt sich an die ProxySink des Managers und loest sich beim Verlassen */
 @Composable
-private fun VideoView(
+internal fun VideoView(
     calls: CallManager, remote: Boolean, visible: Boolean, modifier: Modifier, onAspect: ((Float?) -> Unit)? = null,
     sink: ProxySink = if (remote) calls.remoteSink else calls.localSink, overlay: Boolean = !remote,
 ) {

@@ -129,6 +129,16 @@
             android:exported="false"
             android:foregroundServiceType="phoneCall|microphone|camera|mediaProjection" />
 
+        <!-- 2.5 Gjallarhorn: Gruppenanrufe ueber Knoten als selbstverwaltete Anrufe beim System (Telecom, MANAGE_OWN_CALLS) -->
+        <service
+            android:name=".call.SagaConnectionService"
+            android:exported="true"
+            android:permission="android.permission.BIND_TELECOM_CONNECTION_SERVICE">
+            <intent-filter>
+                <action android:name="android.telecom.ConnectionService" />
+            </intent-filter>
+        </service>
+
         <receiver
             android:name=".call.CallActionReceiver"
             android:exported="false" />

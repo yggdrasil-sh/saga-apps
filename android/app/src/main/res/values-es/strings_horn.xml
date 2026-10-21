@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Gjallarhorn (P12): Gruppenanrufe ueber Knoten -->
+<resources>
+    <string name="horn_node_try_next">El nodo %1$s no está accesible – probando %2$s …</string>
+    <string name="horn_lost_switch">Conexión con el nodo %1$s interrumpida – cambiando …</string>
+    <string name="horn_draining_switch">El nodo %1$s está en mantenimiento – cambiando sin interrupción …</string>
+    <string name="horn_lost">Se perdió la conexión con el nodo.</string>
+    <string name="horn_retry">Ningún nodo accesible – nuevo intento en %1$d s …</string>
+    <string name="horn_block_node">Ahora mismo no hay ningún nodo accesible para llamadas grupales grandes – inténtalo de nuevo en un momento.</string>
+    <string name="horn_block_removed">Te han quitado de esta llamada. Podrás volver a unirte cuando te inviten.</string>
+    <string name="horn_path_udp">UDP (camino más rápido)</string>
+    <string name="horn_path_tcp">TCP por el puerto 443</string>
+    <string name="horn_path_tls">TLS por el puerto 443 (alternativa)</string>
+    <string name="horn_path_desc">Camino al nodo %1$s: %2$s · %3$s</string>
+    <string name="horn_loss">pérdida %1$.1f %%</string>
+    <string name="horn_q_good">buena conexión</string>
+    <string name="horn_q_mid">conexión regular</string>
+    <string name="horn_q_bad">conexión débil</string>
+    <string name="horn_switching">cambiando de nodo …</string>
+    <string name="horn_runes">Sello rúnico</string>
+    <string name="horn_runes_cd">Sello rúnico %1$s – para comparar</string>
+    <string name="horn_runes_info">Comparad las seis runas, por ejemplo leyéndolas en voz alta. Si todos ven las mismas, exactamente los dispositivos de la lista de participantes están en la llamada – nadie más puede escuchar, ni el servidor ni el nodo.</string>
+    <string name="horn_runes_change">Las runas cambian en cuanto alguien entra o sale.</string>
+    <string name="horn_runes_unverified">Sin verificar: %1$s</string>
+    <string name="horn_e2e_info">El audio y el vídeo se cifran por fotograma con la clave del dispositivo que envía (saga-horn/v1). El nodo solo reenvía y no puede descifrar nada.</string>
+    <string name="horn_people">Participantes (%1$d)</string>
+    <string name="horn_host">Anfitrión</string>
+    <string name="horn_you">tú</string>
+    <string name="horn_companion">Dispositivo acompañante</string>
+    <string name="horn_unverified">sin verificar</string>
+    <string name="horn_mute">Silenciar</string>
+    <string name="horn_mute_cd">Silenciar a %1$s</string>
+    <string name="horn_remove">Quitar</string>
+    <string name="horn_remove_sure">¿Quitar de verdad?</string>
+    <string name="horn_remove_cd">Quitar a %1$s de la llamada</string>
+    <string name="horn_muted_done">%1$s ha sido silenciado.</string>
+    <string name="horn_removed_done">%1$s ha sido quitado de la llamada.</string>
+    <string name="horn_muted_by">%1$s te ha silenciado. Puedes volver a activar el micrófono tú mismo.</string>
+    <string name="horn_removed_by">%1$s te ha quitado de la llamada.</string>
+    <string name="horn_removed">Te han quitado de la llamada.</string>
+    <string name="horn_view_grid">Vista de mosaico</string>
+    <string name="horn_view_speaker">Vista de orador</string>
+    <string name="horn_more_cd">%1$d participantes más</string>
+    <string name="horn_mesh_limit">Ningún nodo para llamadas grupales grandes está listo – la llamada va directamente entre los dispositivos (como máximo %1$d con vídeo o %2$d solo audio).</string>
+    <string name="horn_ongoing_group">Llamada grupal · %1$d participantes</string>
+    <string name="horn_connecting">Conectando con el nodo …</string>
+</resources>

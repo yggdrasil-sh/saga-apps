@@ -112,14 +112,17 @@ object CallNotify {
         NotificationManagerCompat.from(context).cancel(ID_RING)
     }
 
-    fun ongoing(context: Context, peer: CallPeer, video: Boolean, since: Long = 0L, screen: Boolean = false): Notification {
+    fun ongoing(context: Context, peer: CallPeer, video: Boolean, since: Long = 0L, screen: Boolean = false, group: Int = 0): Notification {
         channels(context)
         // CallStyle zeigt den Namen der Person als Titel - der Text nennt darum die Art ("Laufender Anruf") statt
         // den Namen ein zweites Mal; dazu die Dauer als Stoppuhr. Beim Teilen: "Du teilst deinen Bildschirm".
         return NotificationCompat.Builder(context, CH_CALL)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(peer.name.ifEmpty { peer.username })
-            .setContentText(context.getString(if (screen) R.string.call_screen_you else if (video) R.string.call_ongoing_video else R.string.call_ongoing))
+            .setContentText(
+                if (!screen && group > 0) context.getString(R.string.horn_ongoing_group, group)   // 2.5: Gruppenanruf (Knoten)
+                else context.getString(if (screen) R.string.call_screen_you else if (video) R.string.call_ongoing_video else R.string.call_ongoing),
+            )
             .setWhen(if (since > 0) since else System.currentTimeMillis())
             .setUsesChronometer(true)
             .setShowWhen(true)
@@ -282,7 +285,8 @@ class CallService : Service() {
     private fun promote(video: Boolean): Int? {
         lastVideo = video
         val st = (applicationContext as? SagaApplication)?.repo?.calls?.ui?.value
-        val n = CallNotify.ongoing(this, st?.peer ?: CallPeer(), video, st?.connectedAt ?: 0L, screen)
+        val group = st?.room?.takeIf { it.horn != null }?.endpoints ?: 0
+        val n = CallNotify.ongoing(this, st?.peer ?: CallPeer(), video, st?.connectedAt ?: 0L, screen, group)
         val tries = CallServiceTypes.tries(Build.VERSION.SDK_INT, video, granted(Manifest.permission.RECORD_AUDIO), granted(Manifest.permission.CAMERA), screen)
         return tries.firstOrNull { type ->
             try {

@@ -236,6 +236,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val levels = HashMap<String, Double>()
         var speaker: String? = null
         var title = ""
+        // 2.5 Gjallarhorn: Gruppenanruf ueber einen Knoten
+        var horn: HornSession? = null
+        /** dieses Konto hat den Gruppenanruf begonnen (Moderation) */
+        var hornHost = false
+        /** Konto des Gastgebers (Anzeige "Gastgeber") */
+        var hornHostWho = ""
+        /** Schluessel-Halter je Geraet (versiegeln/oeffnen der fkey-Signale), ohne PeerConnection */
+        val hornKeys = HashMap<String, Call>()
     }
 
     private inner class Call(id: String?, val chatId: Long, val caller: Boolean, media: String, var peer: CallPeer, val room: Call? = null) {
@@ -617,7 +625,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         this.adm = adm
         val f = PeerConnectionFactory.builder()
             .setAudioDeviceModule(adm)
-            .setVideoEncoderFactory(DefaultVideoEncoderFactory(egl.eglBaseContext, true, true))
+            // 2.5: Simulcast (Gjallarhorn: l/m bzw. l/m/h) auch mit Hardware-Kodierern; eine Schicht (1:1, Mesh) unveraendert
+            .setVideoEncoderFactory(org.webrtc.SimulcastVideoEncoderFactory(DefaultVideoEncoderFactory(egl.eglBaseContext, true, true), org.webrtc.SoftwareVideoEncoderFactory()))
             .setVideoDecoderFactory(DefaultVideoDecoderFactory(egl.eglBaseContext))
             .createPeerConnectionFactory()
         factory = f
@@ -863,7 +872,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     }
 
     /** 2.4 E5: Bild einer Kachel (Verbindung zu diesem Geraet) */
-    fun tileSink(device: String): ProxySink? = cur?.let { linkOf(it, device) }?.tile
+    fun tileSink(device: String): ProxySink? = cur?.let { r ->
+        if (r.rs.horn != null) hornSinks.getOrPut(device) { ProxySink() } else linkOf(r, device)?.tile
+    }
+
+    /** 2.5: Kachel-Senken im Knoten-Anruf (je Geraet; die Sitzung haengt die Spur des Platzes an) */
+    private val hornSinks = HashMap<String, ProxySink>()
 
     /** Sender der Kamera-m-Zeile (in Betriebsart A laeuft dort der Bildschirm) */
     private fun videoSender(c: Call): RtpSender? {
@@ -1429,6 +1443,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
      * gehen an den Raum (wie bisher). Unbekanntes Geraet im Raum: merken und pruefen; sein Angebot legt eine Verbindung an.
      */
     private fun route(r: Call, s: CallSignalDto) {
+        if (r.rs.horn != null) {                            // 2.5: Knoten-Anruf - nur fkey/fkey-ack/state
+            hornRoute(r, s)
+            return
+        }
         var l = linkOf(r, s.fromDevice)
         if (l == null && r.rs.kind == CallRoom.KIND_DM && r.caller && r.pc != null && r.peerDevice == null && !r.established) l = r
         if (l == null && !multi(r)) l = r                  // 2.3: die einzige Verbindung (wie bisher)
@@ -1626,7 +1644,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (r.done) return
         val rs = r.rs
         val diff = rs.roster.apply(legs, rv) ?: return
-        if (limit != null && limit > 0) rs.limit = CallRoom.limit(r.media, limit)
+        // 2.5: im Knoten-Anruf gilt die Grenze des Anrufs (12/25 Video, 50/100 Ton), nicht die Mesh-Grenze
+        if (limit != null && limit > 0) rs.limit = if (rs.horn != null) limit else CallRoom.limit(r.media, limit)
         val me = myDevId()
         rs.roster.of(me)?.let { mine ->
             if (rs.hoRep == null && !rs.took) rs.companion = mine.companion
@@ -1635,6 +1654,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (multi(r) && r.ready) {
             for (x in diff.joined) if (x.device != me) repo.notify(UiText.Res(R.string.room_joined, x.name.ifEmpty { x.who }, x.devName.ifEmpty { "?" }))
             if (!poll) for (x in diff.left) if (x.device != me) repo.notify(UiText.Res(R.string.room_left, x.name.ifEmpty { x.who }, x.devName.ifEmpty { "?" }))
+        }
+        rs.horn?.let { h ->
+            h.roster()
+            hornFlush(r)
+            update(r)
+            return
         }
         if (!poll) {
             val now = legs.map { it.device }.toSet()
@@ -1868,7 +1893,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 applyMic(c)
                 setPlayback(c, c.rs.playback)
                 CallService.start(app, c.videoTrack != null)
-                offerAll(c, rl, rep, cfg, again = false)
+                if (k.topo == CallRoom.TOPO_HORN) hornJoin(c, rl, cfg) else offerAll(c, rl, rep, cfg, again = false)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -2136,6 +2161,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 r.call?.let { k ->
                     c.rs.old = k.old.map { it.name.ifEmpty { it.username } }
                     rosterIn(c, k.legs, null, k.limit, poll = true)
+                    if (k.topo == CallRoom.TOPO_HORN) hornStart(c, k)       // 2.5: grosse Gruppe ueber einen Knoten
                 }
                 tone(ToneGenerator.TONE_SUP_RINGTONE)
                 startLoops(c)
@@ -2655,6 +2681,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         applyMic(c)
         // Begleitgeraet: Mikrofon erst jetzt erlaubt -> Vordergrund-Dienst mit Typ microphone neu melden
         if (c.micOn && (c.rs.companion || c.rs.took)) CallService.start(app, c.videoTrack != null)
+        c.rs.horn?.micChanged()
         update(c)
         stateAll(c)
     }
@@ -2687,6 +2714,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val ls = links(c)
         if (c.videoTrack != null) {
             for (l in ls) if (!(c.screen != null && l.scrMode == CallScreen.Mode.A)) videoSender(l)?.setTrack(null, false)
+            c.rs.horn?.camChanged(null)                     // vor dem Freigeben der Spur
             stopCamera(c)
             CallService.setVideo(app, false)
         } else {
@@ -2699,6 +2727,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 return
             }
             for (l in ls) if (!(c.screen != null && l.scrMode == CallScreen.Mode.A)) videoSender(l)?.setTrack(c.videoTrack, false)
+            c.rs.horn?.camChanged(c.videoTrack)
         }
         for (l in ls) {
             l.applied = null
@@ -2715,7 +2744,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     // ---------------------------------------------------------------- 2.4 E3: Bildschirm teilen
 
     /** Teilen moeglich: eine Verbindung steht (Betriebsart A geht mit jeder Gegenstelle) */
-    fun canShare(): Boolean = cur?.let { r -> !r.done && links(r).any { it.connected && it.pc != null } } == true
+    fun canShare(): Boolean = cur?.let { r -> !r.done && (r.rs.horn?.connected == true || links(r).any { it.connected && it.pc != null }) } == true
 
     /** Aufnahmegroesse aus der Bildschirmgroesse: lange Kante <= 1920 */
     private fun screenSize(): Pair<Int, Int> {
@@ -2788,6 +2817,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             log("screen on ${w}x$h@$fps")
             mixOn(c, cap)
             for (l in links(c)) shareOn(l)
+            c.rs.horn?.screenChanged()                      // 2.5: eigener Bildschirm-Sender je Bild-Leitung
             update(c)
             true
         } catch (e: Exception) {
@@ -2873,6 +2903,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val s = c.screen ?: return
         c.screen = null
         mixOff(c)
+        c.rs.horn?.screenChanged()                          // Spur abnehmen, bevor sie freigegeben wird
         for (l in listOf(c) + c.rs.links.values) shareOff(l)
         try {
             s.capturer.stopCapture()
@@ -3010,7 +3041,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (id != null && !c.ending) {
             val end = buildJsonObject {
                 put("reason", "hangup")
-                put("connected", links(c).any { it.connected })
+                put("connected", links(c).any { it.connected } || c.rs.horn?.connected == true)
                 put("device", myDevId())
             }
             // 2.4: an Gegenstellen mit `bye` zuerst {"t":"bye","reason":"hangup"}, dann wie bisher /end
@@ -3076,6 +3107,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         c.done = true
         c.ending = true
         c.jobs.forEach { it.cancel() }
+        c.rs.horn?.let { h ->                               // 2.5: Beine zum Knoten zu, bevor die eigenen Spuren freigegeben werden
+            h.close()
+            c.rs.horn = null
+            CallTelecom.end()
+        }
+        hornSinks.clear()
         c.rs.hoJob?.cancel()
         unwatchNetwork()
         stopTone()
@@ -3134,7 +3171,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val st = _ui.value ?: return
         val ls = links(c)
         val p = primary(c) ?: c
-        val anyConn = ls.any { it.connected }
+        val horn = c.rs.horn
+        val anyConn = ls.any { it.connected } || horn?.connected == true
+        if (horn?.connected == true && c.t0 == 0L) {
+            c.t0 = System.currentTimeMillis()
+            stopTone()
+            watchNetwork(c)
+            CallTelecom.active()
+        }
         val group = c.rs.kind == CallRoom.KIND_GROUP
         val phase = when {
             anyConn -> CallPhase.CONNECTED
@@ -3163,7 +3207,13 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             remoteVideo = p.remoteVideo != null && (if (p.gotState) p.rCam || p.rScreen else c.media == "video"),
             remoteMic = p.rMic,
             room = roomUi(c, mesh),
-        )
+        ).let { u ->
+            if (horn == null) u else u.copy(
+                remoteVideo = horn.bigOn, path = "", quality = "", bytesIn = horn.bytesIn,
+                verified = horn.connected && horn.unverified.isEmpty() && horn.runes != null,
+                message = if (anyConn && horn.note == null && reconnecting != true) null else horn.note ?: u.message,
+            )
+        }
     }
 
     /** Raum-Teil der Oberflaeche: Kacheln, Begleitgeraet, Grenzen; null = einfacher 1:1-Anruf wie bisher */
@@ -3186,8 +3236,326 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             kind = rs.kind, mesh = mesh, tiles = tiles, companion = rs.companion, playback = rs.playback,
             canTakeOver = rs.companion && ownOther && rs.hoRep == null, takingOver = rs.hoRep != null,
             endpoints = maxOf(rs.roster.legs.size, ls.size + 1), limit = limit, old = rs.old,
-            speaker = rs.speaker?.let { sp -> ls.firstOrNull { it.peerDevice == sp } }?.let { legOf(it)?.name ?: it.peer.name }.orEmpty(),
+            speaker = rs.horn?.let { h -> (h.pin ?: h.speaker)?.let { rs.roster.of(it)?.name } }
+                ?: rs.speaker?.let { sp -> ls.firstOrNull { it.peerDevice == sp } }?.let { legOf(it)?.name ?: it.peer.name }.orEmpty(),
+            horn = rs.horn?.let { hornUi(c, it) },
         )
+    }
+
+    // ---------------------------------------------------------------- 2.5 Gjallarhorn: Gruppenanruf ueber Knoten
+
+    /**
+     * Beitritt zu einem Knoten-Anruf: POST /join OHNE Angebote (Fehler 409 mit join_block wie im Mesh), die Antwort
+     * traegt die Kandidaten. Danach misst und verbindet die [HornSession].
+     */
+    private suspend fun hornJoin(c: Call, role: String, cfg: CallConfig) {
+        if (CallRoom.CAP_HORN !in c.myCaps) throw UiTextException(UiText.Res(R.string.room_server_old))
+        c.rs.hoRep = null                                   // Uebernahme gibt es im Knoten-Anruf nicht: Mitglied
+        c.rs.hoJoin = false
+        val me = myDevId()
+        val r = try {
+            json.decodeFromString(CallWrap.serializer(), api.post("api/calls/${c.id}/join", buildJsonObject {
+                put("device", me)
+                put("role", if (role == CallRoom.ROLE_HANDOVER) CallRoom.ROLE_MEMBER else role)
+                put("caps", capsJson(c))
+                put("dev_class", hornClass())
+            }))
+        } catch (e: ApiException) {
+            val o = try {
+                Json.parseToJsonElement(e.body) as? JsonObject
+            } catch (_: Exception) {
+                null
+            }
+            val block = CallRoom.str(o, "join_block")
+            if (e.code == 409 && block != null) {
+                val lim = (o?.get("limit") as? JsonPrimitive)?.intOrNull ?: c.rs.limit
+                throw UiTextException(CallRoom.blockText(block, lim))
+            }
+            if (e.code == 429) throw UiTextException(UiText.Res(R.string.call_rate))
+            throw e
+        }
+        if (!live(c)) {
+            quietPost("api/calls/${c.id}/leave", buildJsonObject { put("device", me) })
+            return
+        }
+        c.ready = true
+        val k = r.call ?: throw UiTextException(UiText.Res(R.string.call_failed))
+        k.limit?.let { c.rs.limit = it }
+        rosterIn(c, k.legs, null, null, poll = true)
+        startLoops(c)
+        hornStart(c, k)
+        val early = ArrayList(c.early)
+        c.early.clear()
+        for (s in early) if (live(c)) route(c, s)
+        update(c, UiText.Res(R.string.horn_connecting))
+    }
+
+    /** Last-N nach Geraeteklasse: Handy 4, Tablet (ab 600 dp) 9 */
+    private fun hornMobile(): Boolean = app.resources.configuration.smallestScreenWidthDp < 600
+    private fun hornClass(): String = if (hornMobile()) "mobile" else "desktop"
+
+    private fun hornStart(c: Call, k: CallInfo) {
+        if (c.rs.horn != null || c.id == null) return
+        c.rs.hornHost = k.host
+        c.rs.hornHostWho = if (k.host) myUser() else k.peer.username
+        k.limit?.let { c.rs.limit = it }                    // Knoten-Anruf: Grenze des Anrufs (12/25 bzw. 50/100)
+        val s = HornSession(hornHostOf(c), c.id!!, HornLogic.parseBlock(k.horn, allowHttp = BuildConfig.DEBUG))
+        c.rs.horn = s
+        log("horn start ${s.callId.take(8)} cands=${HornLogic.parseBlock(k.horn, BuildConfig.DEBUG)?.candidates?.size}")
+        CallTelecom.start(app, c.rs.title.ifEmpty { c.peer.name }, c.id!!, c.media == "video")
+        s.start()
+        update(c)
+    }
+
+    /** Verbindung der Sitzung zum CallManager (Medien, Signale, Kandidaten, Oberflaeche) */
+    private fun hornHostOf(r: Call): HornSession.Host = object : HornSession.Host {
+        override val scope: kotlinx.coroutines.CoroutineScope get() = this@CallManager.scope
+        override val factory: PeerConnectionFactory get() = this@CallManager.factory()
+        override fun myDev(): String = myDevId()
+        override fun mobile(): Boolean = hornMobile()
+        override fun legs(): List<CallLeg> = r.rs.roster.legs
+        override fun audioTrack(): AudioTrack? = r.audioTrack
+        override fun camTrack(): VideoTrack? = r.videoTrack
+        override fun screenTrack(): VideoTrack? = r.screen?.track
+        override fun myState(): Triple<Boolean, Boolean, Boolean> = Triple(r.micOn && !r.rs.companion, r.videoTrack != null, r.screen != null)
+
+        override suspend fun cands(node: String?, avoid: List<String>): List<HornLogic.Cand> {
+            val t = api.post("api/calls/${r.id}/horn", buildJsonObject {
+                put("device", myDevId())
+                put("dev_class", hornClass())
+                if (node != null) put("node", node)
+                put("avoid", JsonArray(avoid.map { JsonPrimitive(it) }))
+            })
+            val o = Json.parseToJsonElement(t) as? JsonObject
+            return HornLogic.parseBlock(o?.get("horn"), BuildConfig.DEBUG)?.candidates.orEmpty()
+        }
+
+        override suspend fun sendSignals(bodies: Map<String, String>) = hornSend(r, bodies)
+
+        override suspend fun signPk(dev: String): ByteArray? {
+            if (dev == myDevId()) return keys().dev.signPk
+            val h = hornHolder(r, dev) ?: return null
+            return try {
+                if (h.peerDevs[dev] == null) peerKeys(h)
+                if (h.peerDevs[dev] == null) peerKeys(h, fresh = true)
+                h.peerDevs[dev]?.sign
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
+        }
+
+        override fun changed() = hornChanged(r)
+        override fun note(text: UiText?) = update(r)
+        override fun lost(text: UiText) = fail(r, text, failed = true)
+        override fun ended() = remoteEnded(r, null)
+        override fun removedHint() {
+            scope.launch {
+                try {
+                    val st = json.decodeFromString(CallState.serializer(), api.get("api/calls/${r.id}?device=${myDevId()}"))
+                    if (!live(r)) return@launch
+                    when {
+                        st.call.state == "ended" -> remoteEnded(r, st.call.reason)
+                        myDevId() !in st.call.mine -> hornRemoved(r, null)
+                        else -> r.rs.horn?.switch("lost")
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    r.rs.horn?.switch("lost")
+                }
+            }
+        }
+
+        override fun refreshRoster() {
+            scope.launch { fetchRoster(r) }
+        }
+
+        override fun tileSink(dev: String): ProxySink = hornSinks.getOrPut(dev) { ProxySink() }
+        override val bigSink: ProxySink get() = remoteSink
+    }
+
+    /** Oberflaeche gebuendelt neu (die Sitzung meldet viele kleine Aenderungen) */
+    private var hornUiJob: Job? = null
+
+    private fun hornChanged(r: Call) {
+        if (hornUiJob != null) return
+        hornUiJob = scope.launch {
+            delay(80)
+            hornUiJob = null
+            if (live(r)) update(r)
+        }
+    }
+
+    /** Schluessel-Halter eines Geraets (Person laut Teilnehmerliste) fuer Versiegeln/Oeffnen - keine Verbindung */
+    private fun hornHolder(r: Call, dev: String): Call? {
+        val x = r.rs.roster.of(dev) ?: return null
+        return r.rs.hornKeys.getOrPut(dev) { newLink(r, dev, x, caller = false) }
+    }
+
+    /** Bodies je Zielgeraet versiegeln (nur Geraete mit gueltigem Geraete-Zertifikat), EIN POST /signal */
+    private suspend fun hornSend(r: Call, bodies: Map<String, String>) {
+        val id = r.id ?: return
+        if (bodies.isEmpty() || r.ending || !live(r)) return
+        val sig = LinkedHashMap<String, JsonPrimitive>()
+        for ((d, b) in bodies) {
+            val h = hornHolder(r, d) ?: continue
+            try {
+                if (h.peerDevs[d] == null) peerKeys(h)
+                if (h.peerDevs[d] == null) peerKeys(h, fresh = true)
+                if (h.peerDevs[d] == null) continue           // Geister-Geraet: bekommt keinen Schluessel
+                sig[d] = JsonPrimitive(withContext(Dispatchers.Default) { seal(h, d, b) })
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                log("horn seal ${d.take(8)}: ${e.message}")
+            }
+        }
+        if (sig.isEmpty() || !live(r)) return
+        try {
+            api.post("api/calls/$id/signal", buildJsonObject {
+                put("device", myDevId())
+                put("signals", JsonObject(sig))
+            })
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log("horn signal: ${e.message}")
+        }
+    }
+
+    /** Signal im Knoten-Anruf oeffnen (Absender laut Teilnehmerliste, signiert) und an die Sitzung */
+    private fun hornRoute(r: Call, s: CallSignalDto) {
+        val h = hornHolder(r, s.fromDevice)
+        if (h == null) {
+            val q = r.rs.pend.getOrPut(s.fromDevice) { ArrayList() }
+            q.add(s)
+            if (q.size > 80) q.removeAt(0)
+            scope.launch {
+                fetchRoster(r)
+                hornFlush(r)
+            }
+            return
+        }
+        scope.launch {
+            val b = openSig(h, s) ?: return@launch
+            if (live(r)) r.rs.horn?.signal(s.fromDevice, b)
+        }
+    }
+
+    /** Wartende Signale von Geraeten, die jetzt in der Teilnehmerliste stehen */
+    private fun hornFlush(r: Call) {
+        if (r.rs.horn == null) return
+        for (d in r.rs.pend.keys.toList()) {
+            if (r.rs.roster.of(d) == null) continue
+            val list = r.rs.pend.remove(d) ?: continue
+            for (s in list) hornRoute(r, s)
+        }
+    }
+
+    private fun hornUi(c: Call, s: HornSession): HornUi {
+        val me = myDevId()
+        val legs = c.rs.roster.legs
+        val byDev = legs.associateBy { it.device }
+        val others = legs.filter { it.device != me }.map { it.device }
+        val pin = s.pin?.takeIf { it in byDev }
+        val lay = HornLogic.tiles(others, s.moving, pin ?: s.speaker, s.view)
+        fun nm(x: CallLeg) = x.name.ifEmpty { x.who }
+        val tiles = lay.list.mapNotNull { t ->
+            val x = byDev[t.dev] ?: return@mapNotNull null
+            HornTile(t.dev, nm(x), x.devName, x.avatar, video = t.moving, mic = s.st[t.dev]?.first != false, speaking = t.dev in s.speaking, big = t.big)
+        }
+        val people = legs.map { x ->
+            val mine = x.device == me
+            HornPerson(
+                x.device, nm(x), x.devName, x.avatar, me = mine, mic = if (mine) c.micOn && !c.rs.companion else s.st[x.device]?.first != false,
+                companion = x.companion, host = x.who.isNotEmpty() && x.who == c.rs.hornHostWho, speaking = x.device in s.speaking,
+                unverified = x.device in s.unverified, moderate = c.rs.hornHost && !mine && x.who != myUser(),
+            )
+        }
+        val net = s.net
+        return HornUi(
+            connected = s.connected, path = s.path, node = s.node, quality = s.q, rtt = net?.rtt?.toInt(), lossPct = (net?.loss ?: 0.0) * 100,
+            changing = s.changing, tiles = tiles, more = lay.more, view = s.view,
+            runes = s.runes?.runes.orEmpty(), runeNames = s.runes?.idx?.map { HornE2E.runeNames[it] }.orEmpty(),
+            unverified = s.unverified.mapNotNull { byDev[it]?.let(::nm) }, people = people, amHost = c.rs.hornHost,
+            screenFrom = s.screenFrom?.let { d -> byDev[d]?.let(::nm) }, note = s.note, bigVideo = s.bigOn,
+        )
+    }
+
+    /** Oberflaeche: Kachel- bzw. Sprecheransicht umschalten */
+    fun hornToggleView() {
+        val c = cur ?: return
+        val h = c.rs.horn ?: return
+        h.view = if (h.view == "speaker") "grid" else "speaker"
+        if (h.view == "grid") h.pin = null
+        h.mapAll()
+    }
+
+    /** Oberflaeche: Kachel antippen -> diese Person gross (Sprecheransicht); nochmal -> zurueck */
+    fun hornPin(dev: String) {
+        val c = cur ?: return
+        val h = c.rs.horn ?: return
+        h.pin = if (h.pin == dev) null else dev
+        h.view = if (h.pin != null) "speaker" else h.view
+        h.mapAll()
+    }
+
+    /** Gastgeber: Geraet stummschalten bzw. Person entfernen (POST /moderate) */
+    fun moderate(target: String, action: String) {
+        val c = cur ?: return
+        val id = c.id ?: return
+        val x = c.rs.roster.of(target) ?: return
+        val name = x.name.ifEmpty { x.who }
+        scope.launch {
+            try {
+                api.post("api/calls/$id/moderate", buildJsonObject {
+                    put("device", myDevId())
+                    put("target", target)
+                    put("action", action)
+                })
+                repo.notify(UiText.Res(if (action == "mute") R.string.horn_muted_done else R.string.horn_removed_done, name))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                repo.notify(repo.friendly(e))
+            }
+        }
+    }
+
+    /** call.mod: Gastgeber hat dieses Geraet stummgeschaltet bzw. diese Person entfernt */
+    private fun hornModIn(ev: LiveEvent) {
+        val c = cur ?: return
+        if (c.id != ev.str("call_id") || c.done) return
+        val by = ev.str("by")
+        val me = myDevId()
+        when (ev.str("action")) {
+            "mute" -> if (ev.str("device") == me) {
+                if (c.micOn) {
+                    c.micOn = false
+                    applyMic(c)
+                    c.rs.horn?.micChanged()
+                    update(c)
+                }
+                repo.notify(UiText.Res(R.string.horn_muted_by, by ?: "?"))
+            }
+            "remove" -> scope.launch {
+                try {
+                    val st = json.decodeFromString(CallState.serializer(), api.get("api/calls/${c.id}?device=$me"))
+                    if (live(c) && me !in st.call.mine) hornRemoved(c, by)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                }
+            }
+        }
+    }
+
+    private fun hornRemoved(c: Call, by: String?) {
+        if (!live(c)) return
+        c.ending = true
+        finish(c, if (by != null) UiText.Res(R.string.horn_removed_by, by) else UiText.Res(R.string.horn_removed), false)
     }
 
     // ---------------------------------------------------------------- Live
@@ -3234,6 +3602,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 refreshRun()
             }
             "call.invite" -> onInvite(ev)
+            // 2.5 Gjallarhorn: Gastgeber hat stummgeschaltet/entfernt; Knoten wird geleert bzw. entfernt (Umzug)
+            "call.mod" -> hornModIn(ev)
+            "call.horn_move" -> {
+                val c = cur ?: return
+                if (c.id == ev.str("call_id")) c.rs.horn?.moveAway()
+            }
         }
     }
 
