@@ -503,7 +503,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         try {
             if (udp) {
                 try {
-                    return connect(cand, "udp", if (m?.udp != null) HornLogic.WAIT_UDP else HornLogic.WAIT_UDP_MAYBE)
+                    return connect(cand, "udp", if (m.udp != null) HornLogic.WAIT_UDP else HornLogic.WAIT_UDP_MAYBE)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: HttpErr) {
