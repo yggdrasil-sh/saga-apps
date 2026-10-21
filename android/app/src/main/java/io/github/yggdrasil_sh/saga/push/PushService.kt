@@ -41,6 +41,9 @@ data class PushServerInfo(
     val ntfy: Boolean = false,
     val unifiedpush: Boolean = false,
     val apns: Boolean = false,
+    /** 2.5: eigene Verbindung ohne Verteiler (GET /api/push/stream) */
+    val stream: Boolean = false,
+    @SerialName("stream_path") val streamPath: String? = null,
 )
 
 @Serializable
@@ -62,6 +65,8 @@ data class PushDevice(
     @SerialName("last_error") val lastError: String? = null,
     val fails: Int = 0,
     val encrypted: Boolean = false,
+    /** 2.5, nur Abo-Art "stream": gerade verbunden */
+    val connected: Boolean? = null,
 )
 
 @Serializable
@@ -74,7 +79,7 @@ data class PushInfo(
 )
 
 @Serializable
-data class PushSubscribed(val id: Long = 0, val active: Boolean = false)
+data class PushSubscribed(val id: Long = 0, val active: Boolean = false, @SerialName("stream_path") val streamPath: String? = null)
 
 @Serializable
 data class PushTest(val ok: Boolean = false, val result: String = "", val error: String? = null)
@@ -104,14 +109,40 @@ data class PushLocal(
     val priv: String = "",
     val pub: String = "",
     val auth: String = "",
+    /** 2.5: Pfad der eigenen Verbindung (distributor == STREAM) */
+    val path: String? = null,
+    /** 2.5: Umstieg auf einen Verteiler - dieses alte "stream"-Abo nach erfolgreicher Anmeldung entfernen */
+    val replaces: Long? = null,
 )
 
 enum class PushState { OFF, REGISTERING, ON, ERROR }
 
 object PushLogic {
-    /** Im Hintergrund erreichbar: Anmeldung mit Adresse und der gewaehlte Verteiler ist noch installiert */
-    fun backgroundReady(local: PushLocal?, installed: List<String>): Boolean =
-        local != null && local.endpoint != null && local.distributor in installed
+    /** "Verteiler" der eigenen Verbindung (Server 2.5) - kein Paketname */
+    const val STREAM = "@saga-stream"
+
+    /** Im Hintergrund erreichbar: Anmeldung mit Adresse und der gewaehlte Verteiler ist noch installiert (oder eigene Verbindung) */
+    fun backgroundReady(local: PushLocal?, installed: List<String>, streamAllowed: Boolean = true): Boolean =
+        local != null && local.endpoint != null &&
+            (local.distributor in installed || (local.distributor == STREAM && streamAllowed && installed.isEmpty()))
+
+    /** Was tun, damit dieses Geraet erreichbar bleibt? (rein, getestet) */
+    enum class Step { NONE, START_STREAM, STOP_STREAM, TO_DISTRIBUTOR, TO_STREAM, DROP }
+
+    /**
+     * @param local Anmeldung dieses Geraets (null = Mitteilungen hier aus)
+     * @param installed installierte Verteiler
+     * @param allowed Schalter "Eigene Verbindung"
+     * @param serverStream Server bietet die eigene Verbindung an (null = unbekannt, z. B. offline/beim Start)
+     */
+    fun step(local: PushLocal?, installed: List<String>, allowed: Boolean, serverStream: Boolean?): Step = when {
+        local == null -> Step.NONE
+        local.distributor == STREAM && installed.isNotEmpty() -> Step.TO_DISTRIBUTOR       // Verteiler neu da: umschalten
+        local.distributor == STREAM && (!allowed || serverStream == false) -> Step.DROP
+        local.distributor == STREAM -> Step.START_STREAM
+        local.distributor !in installed && installed.isEmpty() && allowed && serverStream == true -> Step.TO_STREAM   // Verteiler deinstalliert
+        else -> Step.STOP_STREAM
+    }
 }
 
 /**
@@ -145,7 +176,120 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
      * Kann Saga im Hintergrund klingeln/benachrichtigen? Nur mit eingerichtetem UnifiedPush (Adresse vorhanden, Verteiler
      * noch installiert) - sonst laufen Anrufe nur ueber den Live-Kanal der geoeffneten App.
      */
-    fun backgroundReady(): Boolean = PushLogic.backgroundReady(local(), distributors().map { it.pkg })
+    fun backgroundReady(): Boolean = PushLogic.backgroundReady(local(), distributors().map { it.pkg }, streamAllowed())
+
+    // ---------------------------------------------------------------- 2.5: eigene Verbindung ohne Verteiler
+
+    /** Schalter "Eigene Verbindung" (je Installation, Standard an) */
+    fun streamAllowed(): Boolean = uiPrefs.getBoolean("push_stream_allowed", true)
+
+    val streamAllowedFlow by lazy { MutableStateFlow(streamAllowed()) }
+
+    /** Laeuft die eigene Verbindung fuer dieses Geraet? */
+    fun usesStream(): Boolean = local()?.distributor == PushLogic.STREAM
+
+    class StreamTarget(val server: String, val path: String, val token: String)
+
+    /** Fuer PushStreamService: wohin verbinden (null = nicht mehr verbinden) */
+    fun streamTarget(): StreamTarget? {
+        val l = local() ?: return null
+        if (l.distributor != PushLogic.STREAM || l.subId == null || !streamAllowed()) return null
+        val server = repo.settings.server.value.ifEmpty { return null }
+        val tok = repo.secure.deviceTokenFor(server) ?: return null
+        return StreamTarget(server, l.path ?: "/api/push/stream", tok)
+    }
+
+    /**
+     * Abgleich (App-Start, Einstellungen, Paket installiert, Dienst): Verteiler neu installiert -> umschalten und Dienst
+     * beenden; Verteiler weg -> eigene Verbindung; sonst Dienst passend starten/beenden.
+     */
+    suspend fun ensure() {
+        if (PushStreamService.debugTarget != null) return            // nur Debug-Messung (src/debug)
+        val l = withContext(Dispatchers.IO) { local() }
+        val ds = distributors()
+        when (PushLogic.step(l, ds.map { it.pkg }, streamAllowed(), info.value?.server?.stream)) {
+            PushLogic.Step.NONE, PushLogic.Step.STOP_STREAM -> PushStreamService.stop(context)
+            PushLogic.Step.START_STREAM -> if (!repo.needsLogin.value) PushStreamService.start(context) else PushStreamService.stop(context)
+            PushLogic.Step.TO_DISTRIBUTOR -> {
+                // Dienst laeuft weiter, bis die Adresse des Verteilers angemeldet ist (keine Luecke); der Server bevorzugt
+                // ohnehin das UnifiedPush-Abo desselben Geraets
+                enable(ds[0], replaces = l?.subId)
+            }
+            PushLogic.Step.TO_STREAM -> {
+                withContext(Dispatchers.IO) { saveLocal(null) }
+                enableStream()
+            }
+            PushLogic.Step.DROP -> {
+                PushStreamService.stop(context)
+                l?.subId?.let { id -> quietDelete(id) }
+                withContext(Dispatchers.IO) { saveLocal(null) }
+                state.value = PushState.OFF
+            }
+        }
+    }
+
+    private suspend fun quietDelete(id: Long) {
+        try {
+            repo.api.delete("api/push/subscriptions/$id")
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Ohne Verteiler einschalten: Schluessel erzeugen, Abo "stream" anmelden, Dienst starten */
+    suspend fun enableStream() {
+        error.value = null
+        val k = withContext(Dispatchers.Default) { WebPushCrypto.generate() }
+        try {
+            val r = json.decodeFromString(PushSubscribed.serializer(), repo.api.post("api/push/subscriptions", buildJsonObject {
+                put("type", "stream")
+                putJsonObject("keys") {
+                    put("p256dh", k.p256dh)
+                    put("auth", k.authB64)
+                }
+                put("name", repo.deviceName)
+            }))
+            val l = PushLocal(PushLogic.STREAM, UUID.randomUUID().toString(), "stream", r.id, WebPushCrypto.b64u(k.privatePkcs8), k.p256dh, k.authB64,
+                path = r.streamPath ?: info.value?.server?.streamPath ?: "/api/push/stream")
+            withContext(Dispatchers.IO) { saveLocal(l) }
+            state.value = PushState.ON
+            PushStreamService.start(context)
+            info.value = json.decodeFromString(PushInfo.serializer(), repo.api.get("api/push"))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            state.value = PushState.ERROR
+            error.value = repo.friendly(e)
+        }
+    }
+
+    /** Schalter "Eigene Verbindung" */
+    suspend fun setStreamAllowed(on: Boolean) {
+        uiPrefs.edit().putBoolean("push_stream_allowed", on).apply()
+        streamAllowedFlow.value = on
+        if (!on && usesStream()) {
+            ensure()                          // -> DROP: Abo weg, Dienst aus
+        } else if (on && local() == null && distributors().isEmpty() && info.value?.server?.stream == true) {
+            enableStream()
+        }
+    }
+
+    /** Dienst meldet: Server hat geschlossen (4401 abgemeldet, 4404 Abo weg, 4409 anderes Geraet hat uebernommen) */
+    suspend fun onStreamStopped(code: Int) {
+        when (code) {
+            4404 -> load()                    // Abo verschwunden -> load() meldet neu an; Weg abgeschaltet -> ensure() -> DROP
+            4401 -> PushStreamService.stop(context)       // Sitzung erneuern passiert beim naechsten Start der App
+            else -> PushStreamService.stop(context)
+        }
+    }
+
+    /** Mitteilung ueber die eigene Verbindung: derselbe Weg wie UnifiedPush */
+    fun onStreamMessage(bytes: ByteArray): kotlinx.coroutines.Job? {
+        val l = local() ?: return null
+        if (l.distributor != PushLogic.STREAM) return null
+        return onMessage(l.token, bytes)
+    }
 
     // ---------------------------------------------------------------- Hinweis "ohne Verteiler"
 
@@ -179,7 +323,13 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
                 else -> PushState.ON
             }
             // Abo verschwunden (abgemeldet, Passwortwechsel, anderes Geraet hat es entfernt): neu anmelden
-            if (l?.endpoint != null && i.server.enabled && i.devices.none { it.id == l.subId }) subscribe(l.endpoint)
+            if (l?.distributor == PushLogic.STREAM) {
+                if (i.server.enabled && i.server.stream && i.devices.none { it.id == l.subId }) {
+                    withContext(Dispatchers.IO) { saveLocal(null) }
+                    if (streamAllowed() && distributors().isEmpty()) enableStream() else state.value = PushState.OFF
+                }
+            } else if (l?.endpoint != null && i.server.enabled && i.devices.none { it.id == l.subId }) subscribe(l.endpoint)
+            ensure()
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
@@ -190,6 +340,7 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
     }
 
     fun clear() {
+        PushStreamService.stop(context)
         info.value = null
         state.value = PushState.OFF
         error.value = null
@@ -198,11 +349,11 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
     // ---------------------------------------------------------------- Ein/Aus
 
     /** Einschalten: Schluessel erzeugen, beim Verteiler anmelden; die Adresse kommt per NEW_ENDPOINT (PushReceiver) */
-    suspend fun enable(d: Distributor) {
+    suspend fun enable(d: Distributor, replaces: Long? = null) {
         error.value = null
         val l = withContext(Dispatchers.Default) {
             val k = WebPushCrypto.generate()
-            PushLocal(d.pkg, UUID.randomUUID().toString(), null, null, WebPushCrypto.b64u(k.privatePkcs8), k.p256dh, k.authB64)
+            PushLocal(d.pkg, UUID.randomUUID().toString(), null, null, WebPushCrypto.b64u(k.privatePkcs8), k.p256dh, k.authB64, replaces = replaces)
         }
         withContext(Dispatchers.IO) { saveLocal(l) }
         state.value = PushState.REGISTERING
@@ -220,7 +371,9 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
                 } catch (_: Exception) {
                 }
             }
-            UnifiedPush.unregister(context, l.distributor, l.token)
+            if (l.distributor == PushLogic.STREAM) PushStreamService.stop(context)
+            else UnifiedPush.unregister(context, l.distributor, l.token)
+            l.replaces?.let { quietDelete(it) }
         }
         withContext(Dispatchers.IO) { saveLocal(null) }
         state.value = PushState.OFF
@@ -247,9 +400,12 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
                 }
                 put("name", repo.deviceName)
             }))
-            withContext(Dispatchers.IO) { saveLocal(l.copy(endpoint = endpoint, subId = r.id)) }
+            withContext(Dispatchers.IO) { saveLocal(l.copy(endpoint = endpoint, subId = r.id, replaces = null)) }
             state.value = PushState.ON
             error.value = null
+            // 2.5: Umstieg von der eigenen Verbindung - altes Abo weg, Dienst aus
+            l.replaces?.let { quietDelete(it) }
+            PushStreamService.stop(context)
             info.value = json.decodeFromString(PushInfo.serializer(), repo.api.get("api/push"))
         } catch (e: CancellationException) {
             throw e
@@ -260,7 +416,17 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
     }
 
     fun onFailed(token: String) {
-        if (local()?.token != token) return
+        val l = local() ?: return
+        if (l.token != token) return
+        if (l.replaces != null) {
+            // Umstieg auf den Verteiler gescheitert: bei der eigenen Verbindung bleiben (Abo besteht noch)
+            scope.launch {
+                withContext(Dispatchers.IO) { saveLocal(null) }
+                quietDelete(l.replaces)
+                enableStream()
+            }
+            return
+        }
         state.value = PushState.ERROR
         error.value = UiText.Res(R.string.push_register_failed)
     }
@@ -309,7 +475,7 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
     suspend fun removeDevice(id: Long) {
         repo.api.delete("api/push/subscriptions/$id")
         if (local()?.subId == id) {
-            local()?.let { UnifiedPush.unregister(context, it.distributor, it.token) }
+            local()?.let { if (it.distributor == PushLogic.STREAM) PushStreamService.stop(context) else UnifiedPush.unregister(context, it.distributor, it.token) }
             saveLocal(null)
             state.value = PushState.OFF
         }

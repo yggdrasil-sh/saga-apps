@@ -69,11 +69,14 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     var choose by remember { mutableStateOf<List<Distributor>?>(null) }
     var noDistributor by remember { mutableStateOf(false) }
     var drop by remember { mutableStateOf<PushDevice?>(null) }
+    val streamAllowed by push.streamAllowedFlow.collectAsState()
     LaunchedEffect(Unit) { push.load() }
 
     fun start() {
         val ds = push.distributors()
         when {
+            // 2.5: ohne Verteiler die eigene Verbindung (wenn der Server sie anbietet und der Schalter an ist)
+            ds.isEmpty() && info?.server?.stream == true && push.streamAllowed() -> repo.launchAction { push.enableStream() }
             ds.isEmpty() -> noDistributor = true
             ds.size == 1 -> repo.launchAction { push.enable(ds[0]) }
             else -> choose = ds
@@ -100,7 +103,7 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 return@LazyColumn
             }
             val srv = info?.server
-            val available = srv?.enabled == true && srv.unifiedpush
+            val available = srv?.enabled == true && (srv.unifiedpush || srv.stream)
             item { SectionHeader(stringResource(R.string.push_this_device), w) }
             item {
                 // Hauptschalter und Zustandstext widersprechen sich nie: ohne Server-Unterstuetzung aus und gesperrt
@@ -111,8 +114,9 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                         Text(
                             when {
                                 srv != null && !srv.enabled -> stringResource(R.string.push_server_off)
-                                srv != null && !srv.unifiedpush -> stringResource(R.string.push_up_off)
+                                srv != null && !srv.unifiedpush && !srv.stream -> stringResource(R.string.push_up_off)
                                 state == PushState.REGISTERING -> stringResource(R.string.push_registering)
+                                state == PushState.ON && push.usesStream() -> stringResource(R.string.push_on_stream)
                                 state == PushState.ON -> stringResource(R.string.push_on_via, push.local()?.distributor?.let { p -> push.distributors().firstOrNull { it.pkg == p }?.label ?: p }.orEmpty())
                                 else -> stringResource(R.string.push_hint)
                             },
@@ -139,7 +143,11 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 }
             }
             error?.let { e -> item { Text(e.resolve(), color = MaterialTheme.colorScheme.error, modifier = w.padding(horizontal = 16.dp)) } }
-            if (noDistributor) {
+            // 2.5: eigene Verbindung ohne Verteiler - Stand, Erklaerung, Schalter, ntfy, Akku-Optimierung (nur erklaert)
+            if (srv?.enabled == true && srv.stream && push.distributors().isEmpty()) {
+                item { StreamBlock(repo, w, state, onAllowedOff = { noDistributor = true }) }
+            }
+            if (noDistributor && !(srv?.stream == true && streamAllowed)) {
                 item {
                     Text(
                         stringResource(R.string.push_no_distributor), style = MaterialTheme.typography.bodySmall,
@@ -320,5 +328,77 @@ private fun openNotificationSettings(context: android.content.Context) {
             android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", context.packageName, null))
                 .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
         )
+    }
+}
+
+
+/** 2.5: Block "Eigene Verbindung" (nur sichtbar, wenn kein Verteiler installiert ist und der Server sie anbietet) */
+@Composable
+private fun StreamBlock(repo: SagaRepository, w: Modifier, state: PushState, onAllowedOff: () -> Unit) {
+    val push = repo.push
+    val context = LocalContext.current
+    val allowed by push.streamAllowedFlow.collectAsState()
+    val st by io.github.yggdrasil_sh.saga.push.PushStreamService.status.collectAsState()
+    val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
+    val resumed by lifecycle.currentStateFlow.collectAsState()
+    val exempt = remember(resumed) {
+        context.getSystemService(android.os.PowerManager::class.java)?.isIgnoringBatteryOptimizations(context.packageName) == true
+    }
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Column(w) {
+        SectionHeader(stringResource(R.string.push_stream_title), Modifier)
+        Text(
+            stringResource(if (allowed) R.string.push_stream_hint else R.string.push_stream_off_hint),
+            style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+        SwitchRow(stringResource(R.string.push_stream_switch), allowed, Modifier) { on ->
+            repo.launchAction {
+                push.setStreamAllowed(on)
+                if (!on) onAllowedOff()
+            }
+        }
+        if (allowed && state == PushState.ON && push.usesStream()) {
+            val min = (st.intervalMs / 60_000).coerceAtLeast(1)
+            val perHour = kotlin.math.ceil(io.github.yggdrasil_sh.saga.push.StreamCost.wakeupsPerHour(
+                (st.intervalMs / io.github.yggdrasil_sh.saga.push.KeepAlive.SLACK).toLong())).toInt()
+            Text(
+                if (st.connected) stringResource(R.string.push_stream_status_on, min, perHour) else stringResource(R.string.push_stream_status_off),
+                style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+            if (st.connected && st.low) {
+                Text(stringResource(R.string.push_stream_low), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+            }
+            if (!exempt) {
+                Text(stringResource(R.string.push_stream_battery), style = MaterialTheme.typography.bodySmall, color = muted,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
+                TextButton(onClick = { requestBatteryException(context) }, modifier = Modifier.padding(start = 8.dp)) {
+                    Text(stringResource(R.string.push_stream_battery_button))
+                }
+            }
+        }
+        TextButton(onClick = {
+            try {
+                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://ntfy.sh/"))
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+            } catch (_: Exception) {
+            }
+        }, modifier = Modifier.padding(start = 8.dp)) { Text(stringResource(R.string.push_stream_get_ntfy)) }
+    }
+}
+
+/** Ausnahme von der Akku-Optimierung: nur auf Knopfdruck, mit Erklaerung davor; Android fragt selbst nach */
+@android.annotation.SuppressLint("BatteryLife")
+private fun requestBatteryException(context: android.content.Context) {
+    val i = android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+        android.net.Uri.fromParts("package", context.packageName, null)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+    try {
+        context.startActivity(i)
+    } catch (_: Exception) {
+        try {
+            context.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (_: Exception) {
+        }
     }
 }

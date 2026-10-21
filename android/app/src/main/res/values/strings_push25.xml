@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: eigene Push-Verbindung ohne Verteiler -->
+<resources>
+    <string name="push_on_stream">On – via Saga’s own connection</string>
+    <string name="push_stream_title">Own connection (without distributor)</string>
+    <string name="push_stream_hint">No distributor found – Saga keeps its own power-saving connection. If you use several apps with notifications without Google, a shared distributor such as ntfy saves battery.</string>
+    <string name="push_stream_off_hint">Own connection is off. To get notifications in the background, install a distributor such as ntfy, or turn the own connection back on.</string>
+    <string name="push_stream_switch">Use own connection</string>
+    <string name="push_stream_status_on">Connected · heartbeat about every %1$d min (at most %2$d wake-ups per hour)</string>
+    <string name="push_stream_status_off">Not connected right now – reconnects by itself as soon as there is a network.</string>
+    <string name="push_stream_low">Your network or the server’s reverse proxy drops idle connections early, so Saga has to send heartbeats more often. Admins: see the guide, section “Reverse proxy”.</string>
+    <string name="push_stream_get_ntfy">Get ntfy</string>
+    <string name="push_stream_battery">Optional: if notifications arrive late on your phone (some manufacturers stop background apps), you can exempt Saga from battery optimization. Stock Android doesn’t need this.</string>
+    <string name="push_stream_battery_button">Allow exception…</string>
+    <string name="push_stream_channel">Background connection</string>
+    <string name="push_stream_channel_desc">Shown while Saga keeps its own connection for notifications (no distributor installed). You can hide this notification.</string>
+    <string name="push_stream_notif_title">Notifications via own connection</string>
+    <string name="push_stream_notif_text">Saga is waiting for notifications – power-saving, without Google.</string>
+</resources>

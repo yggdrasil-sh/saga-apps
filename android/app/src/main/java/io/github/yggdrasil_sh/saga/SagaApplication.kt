@@ -59,6 +59,11 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
         // Profilbilder nur vom eingestellten Server; Anrufe hoeren ab jetzt auf den Live-Kanal (Klingeln, Signale)
         io.github.yggdrasil_sh.saga.ui.common.AvatarLogic.server = { repo.settings.server.value }
         repo.calls
+        // 2.5: eigene Push-Verbindung (ohne Verteiler) nach einem Prozess-Neustart wieder aufnehmen bzw. beenden
+        appScope.launch {
+            repo.awaitReady()
+            if (!repo.needsLogin.value) repo.push.ensure()
+        }
         // Live-Kanal nur im Vordergrund (hoechstens eine Verbindung); im Hintergrund kommen Mitteilungen (Push)
         androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {
             override fun onStart(owner: androidx.lifecycle.LifecycleOwner) = repo.live.foreground(true)

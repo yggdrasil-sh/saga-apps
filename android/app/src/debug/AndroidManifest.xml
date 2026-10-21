@@ -9,5 +9,13 @@
             android:name="androidx.activity.ComponentActivity"
             android:exported="false"
             android:theme="@style/Theme.Saga" />
+        <!-- 2.5, nur Debug: Messung der eigenen Push-Verbindung im Emulator (push/DebugStream.kt) -->
+        <receiver
+            android:name=".push.DebugStream"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.yggdrasil_sh.saga.DEBUG_STREAM" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
