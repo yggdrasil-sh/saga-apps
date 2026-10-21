@@ -20,7 +20,8 @@ PRESENCE_LIST = 30         # Direkt-Chats der Liste, die abonniert werden
 
 
 def _fed(c):
-    return isinstance(c, dict) and c.get("v") == 2
+    """Format saga-chat/v2 (2.3 ueber Servergrenzen, 2.5 Stufe 3 auch lokal): Handles, fseq, Bestaetigungen v2"""
+    return isinstance(c, dict) and c.get("v") in (2, 3)
 
 
 def features(me):

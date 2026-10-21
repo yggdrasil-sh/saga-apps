@@ -284,6 +284,9 @@ class Calls(GObject.Object):
         except ImportError:
             return
         caps = device_caps(self.config)
+        f = (chat.me or {}).get("features")
+        if isinstance(f, list) and "chat3" in f:          # (2.5) Chat-Stufe 3 (der Server merkt sie sich auch ueber X-Saga-Chat)
+            caps = caps + ["chat3"]
         if not caps or not chat.ready or not chat.device_id:
             return
         key = (config.settings.server, chat.device_id, tuple(caps))

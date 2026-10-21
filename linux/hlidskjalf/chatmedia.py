@@ -47,14 +47,20 @@ _cgen = {}                           # Chat -> Zaehler, erhoeht bei purge_chat: 
 REFS = {}                            # Chat -> chat_ref (2.3, Chats ueber Servergrenzen: Anhaenge mit AD saga-chat/v2/file)
 
 
-def decrypt(cid, blob, key):
-    """Anhang entschluesseln: v1 mit der Chat-ID, v2 (Chat ueber Servergrenzen) mit chat_ref"""
-    ref = REFS.get(cid)
+def decrypt(cid, blob, key, v1=False):
+    """Anhang entschluesseln: v1 mit der Chat-ID, v2 (Chat ueber Servergrenzen, Stufe 3) mit chat_ref. v1=True: Nachricht
+    von vor der Umstellung des Chats (2.3 Seiten-Chats, 2.5 Stufe 3) - ihre Anhaenge haben weiter die Chat-ID als AD"""
+    ref = None if v1 else REFS.get(cid)
     return C.decrypt_file_v2(ref, blob, key) if ref else C.decrypt_file(cid, blob, key)
 
 
-def encrypt(cid, data, key=None):
-    ref = REFS.get(cid)
+def ad1(f):
+    """Anhang einer Nachricht im alten Format (Markierung aus chat._decode)"""
+    return isinstance(f, dict) and f.get("_ad") == 1
+
+
+def encrypt(cid, data, key=None, v1=False):
+    ref = None if v1 else REFS.get(cid)
     return C.encrypt_file_v2(ref, data, key=key) if ref else C.encrypt_file(cid, data, key=key)
 
 
@@ -360,25 +366,25 @@ def _run(job):
     if th:
         blob = get_blob(th["id"], cid=cid)
         stats["fetched"] += 1
-        data = decrypt(cid, blob, C.unb64(th["k"], 32))
+        data = decrypt(cid, blob, C.unb64(th["k"], 32), ad1(f))
         return th["id"], _decode(data), None
     # alte Nachricht ohne Vorschaubild: eigenes erzeugen und verschluesselt zwischenspeichern
     key = C.unb64(f.get("k"), 32)
     blob = _read_any(f["id"], ".th", cid)
     if blob is not None:
         try:
-            data = decrypt(cid, blob, key)
+            data = decrypt(cid, blob, key, ad1(f))
             return f["id"], _decode(data), None
         except C.CryptoError:
             pass
-    orig = decrypt(cid, get_blob(f["id"], keep=False, cid=cid), key)
+    orig = decrypt(cid, get_blob(f["id"], keep=False, cid=cid), key, ad1(f))
     stats["fetched"] += 1
     t = make_thumb(orig)
     if t is None:
         raise ValueError("no image")
     stats["generated"] += 1
     if gen == _gen and job.get("cgen", 0) == _cgen.get(cid, 0):
-        _write(_path(f["id"], ".th", cid), encrypt(cid, t[0], key=key)[0])
+        _write(_path(f["id"], ".th", cid), encrypt(cid, t[0], key=key, v1=ad1(f))[0])
     return f["id"], _decode(t[0]), t[1]
 
 
@@ -448,4 +454,4 @@ def cancel(fid, cb):
 
 def original(cid, f):
     """Hintergrund: Original laden (Ciphertext wird zwischengespeichert) und entschluesseln -> Bytes"""
-    return decrypt(cid, get_blob(f["id"], cid=cid), C.unb64(f.get("k"), 32))
+    return decrypt(cid, get_blob(f["id"], cid=cid), C.unb64(f.get("k"), 32), ad1(f))

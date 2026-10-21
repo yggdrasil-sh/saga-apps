@@ -626,3 +626,147 @@ def parse_receipt_body(body):
         return None
     ts = d.get("ts") if isinstance(d.get("ts"), (int, float)) and not isinstance(d.get("ts"), bool) else None
     return {"id": str(d.get("id") or ""), "n": d["n"], "ts": ts}
+
+
+# --- Chat-Stufe 3 (Server 2.5, saga/chat_v3.py): Reaktionen, Bearbeiten, Vertrauens-Uebernahme ---------------------------
+# Kein neues Nachrichtenformat: Chats der Stufe 3 sind saga-chat/v2 (an Handle und chat_ref gebunden), auch lokal.
+#   Reaktion  K_r  = crypto_generichash(32, LP(V3+"react-key", chat_ref, msg_id), key = K der Nachricht)
+#             body = {"e": "<ein Emoji>" | "", "ts": <ms>}  (kompaktes JSON; "" = zuruecknehmen; e hoechstens 32 Bytes)
+#             ct   = B64(nonce24 || xchacha20poly1305_ietf(body, AD, nonce, K_r)), AD = LP(V3+"react", chat_ref, msg_id, handle, geraet)
+#             sig  = sign_detached(LP(V3+"react-sig", chat_ref, msg_id, handle, geraet, ts, generichash32(raw(ct))), geraet_sign_sk)
+#   Bearbeitung: normale v2-Nachricht kind "edit" mit edit_of (Klartext) und Inhalt {"edit": <msg_id>, "t": <neuer Text>}.
+# Geprueft gegen tests/chat_v3_vectors.json (Kopie von tests/vectors/chat_v3.json des Servers, tests/test_chat_v3_vectors.py).
+V3 = "saga-chat/v3/"
+EMOJI_MAX = 32                   # Bytes (UTF-8) je Reaktion
+REACT_CT_MAX = 400               # B64-Laenge des Ciphertexts
+EDIT_WINDOW = 24 * 3600          # Sekunden ab dem Original (Serverzeit created)
+EDIT_MAX = 20
+_CTRL = re.compile("[\u0000-\u001f\u007f-\u009f]")
+
+
+def react_key(K, chat_ref, msg_id):
+    return nacl.hash.blake2b(lp(V3 + "react-key", chat_ref, msg_id), digest_size=32, key=bytes(K), encoder=RawEncoder)
+
+
+def react_ad(chat_ref, msg_id, handle, device):
+    return lp(V3 + "react", chat_ref, msg_id, handle, device)
+
+
+def react_sig_msg(chat_ref, msg_id, handle, device, ts, ct):
+    return lp(V3 + "react-sig", chat_ref, msg_id, handle, device, str(int(ts)), gh(unb64(ct)))
+
+
+def react_body(pt, ts):
+    """Entschluesselter Inhalt (Text/Bytes) -> Emoji ('' = zurueckgenommen) oder None (Form, Zeit oder Laenge falsch)"""
+    try:
+        d = json.loads(pt)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(d, dict) or set(d) != {"e", "ts"} or not isinstance(d["e"], str) or isinstance(d["ts"], bool) \
+            or not isinstance(d["ts"], int) or d["ts"] != ts:
+        return None
+    e = d["e"]
+    if len(e.encode("utf-8", "surrogatepass")) > EMOJI_MAX or _CTRL.search(e):
+        return None
+    return e
+
+
+def emoji_ok(e):
+    """Darf als Reaktion gesendet werden: nicht leer, hoechstens 32 Bytes, keine Steuerzeichen"""
+    return isinstance(e, str) and 0 < len(e.encode("utf-8", "surrogatepass")) <= EMOJI_MAX and not _CTRL.search(e)
+
+
+def encrypt_reaction(K, chat_ref, msg_id, handle, dev, emoji, ts=None, nonce=None):
+    """-> {by, dev, ts, ct, sig} (Body fuer PUT .../reaction ohne by)"""
+    ts = int(time.time() * 1000) if ts is None else int(ts)
+    nonce = nonce or rnd(24)
+    pt = json.dumps({"e": emoji, "ts": ts}, ensure_ascii=False, separators=(",", ":")).encode()
+    c = nb.crypto_aead_xchacha20poly1305_ietf_encrypt(pt, react_ad(chat_ref, msg_id, handle, dev["id"]), nonce,
+                                                       react_key(K, chat_ref, msg_id))
+    ct = b64(nonce + c)
+    return {"by": handle, "dev": dev["id"], "ts": ts, "ct": ct,
+            "sig": b64(sign(react_sig_msg(chat_ref, msg_id, handle, dev["id"], ts, ct), dev["sign_sk"]))}
+
+
+def verify_reaction(chat_ref, msg_id, r, sign_pk):
+    try:
+        ct = r.get("ct")
+        if not isinstance(ct, str) or len(ct) > REACT_CT_MAX or len(unb64(ct)) < 24 + 16 + 2:
+            return False
+        return verify(unb64(r.get("sig"), 64), react_sig_msg(chat_ref, msg_id, r.get("by") or "", r.get("dev") or "", r.get("ts") or 0, ct),
+                      bytes(sign_pk))
+    except (CryptoError, TypeError, ValueError, AttributeError):
+        return False
+
+
+def decrypt_reaction(K, chat_ref, msg_id, r):
+    """-> Emoji ('' = zurueckgenommen); CryptoError, wenn Schluessel, Bindung oder Inhalt nicht passen"""
+    raw = unb64(r.get("ct"))
+    if len(raw) < 24 + 16:
+        raise CryptoError("short")
+    try:
+        pt = nb.crypto_aead_xchacha20poly1305_ietf_decrypt(raw[24:], react_ad(chat_ref, msg_id, r.get("by") or "", r.get("dev") or ""),
+                                                            raw[:24], react_key(K, chat_ref, msg_id))
+    except Exception as e:  # noqa: BLE001
+        raise CryptoError("reaction") from e
+    em = react_body(pt.decode("utf-8", "replace"), r.get("ts"))
+    if em is None:
+        raise CryptoError("reaction body")
+    return em
+
+
+def open_reactions(K, chat_ref, msg_id, items, pks):
+    """Reaktionen einer Nachricht pruefen und oeffnen. items = [{by, dev, ts, ct, sig}], pks = {(handle, geraet): sign_pk}.
+    Je Person zaehlt nur die neueste (ts); ist die ungueltig, faellt die Person weg. -> [{by, e, ts}] ohne zurueckgenommene"""
+    newest = {}
+    for r in items or []:
+        if isinstance(r, dict) and isinstance(r.get("by"), str) and isinstance(r.get("ts"), int) \
+                and (r["by"] not in newest or newest[r["by"]]["ts"] < r["ts"]):
+            newest[r["by"]] = r
+    out = []
+    for by, r in newest.items():
+        pk = pks.get((by, r.get("dev")))
+        if pk is None or not K or not verify_reaction(chat_ref, msg_id, r, pk):
+            continue
+        try:
+            e = decrypt_reaction(K, chat_ref, msg_id, r)
+        except CryptoError:
+            continue
+        if e:
+            out.append({"by": by, "e": e, "ts": r["ts"]})
+    return out
+
+
+def edit_check(orig, edit, body, window=EDIT_WINDOW):
+    """Bearbeitung gegen das Original pruefen (orig/edit: Nachrichten der API mit id, sender_handle, ai, created; edit mit
+    edit_of; body = entschluesselter Inhalt der Bearbeitung) -> None (gueltig) oder Grund"""
+    if not isinstance(body, dict) or not isinstance(body.get("t"), str) or body.get("edit") != edit.get("edit_of"):
+        return "edit_of_mismatch"
+    if edit.get("edit_of") != orig.get("id"):
+        return "edit_of_mismatch"
+    if not edit.get("sender_handle") or edit.get("sender_handle") != orig.get("sender_handle"):
+        return "other_sender"
+    if orig.get("ai"):
+        return "ai_original"
+    if (edit.get("created") or 0) - (orig.get("created") or 0) > window:
+        return "window"
+    return None
+
+
+def tofu_migrate(v1, ident, ver=0):
+    """Vertrauens-Uebernahme v1 -> v2 (nur, solange es keinen Eintrag fuer den Handle gibt; tests/chat_v3_vectors.json
+    "tofu_migrate"). v1 = {ident, verified, changed?, old?} | None, ident = selbst gepruefter v2-Identitaetsschluessel (B64),
+    ver = Version der Geraete-Liste. Uebernommen wird nur bei GLEICHEM Schluessel (verified, changed gehen mit) - ein Server,
+    der eine falsche Zuordnung Benutzer -> Handle unterschiebt, scheitert am Vergleich. -> (trust|warn|block, Eintrag | None)"""
+    ver = int(ver or 0)
+    if not v1:
+        return "trust", {"ident": ident, "verified": False, "dver": ver}
+    if v1.get("ident") == ident:
+        st = {"ident": ident, "verified": bool(v1.get("verified")), "dver": ver}
+        if v1.get("changed"):
+            st.update(changed=True, old=v1.get("old"))
+            return "warn", st
+        return "trust", st
+    if v1.get("verified"):
+        return "block", None
+    return "warn", {"ident": ident, "verified": False, "changed": True, "old": v1.get("ident"), "dver": ver}

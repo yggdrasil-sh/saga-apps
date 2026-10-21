@@ -37,7 +37,12 @@ Requires:       python3dist(pynacl) >= 1.5
 # Videos im Chat (2.4): Poster/Dauer (GstPbutils aus gstreamer1-plugins-base), Abspielen ueber den lokalen Proxy
 # (souphttpsrc, qtdemux, videoflip aus plugins-good). H.264-Decoder/-Encoder (openh264 bzw. libav) nur vorgeschlagen:
 # ohne sie zeigt die App "Herunterladen und extern abspielen" und sendet immer das Original.
+# Sprachnachrichten (2.5): Opus/Ogg aufnehmen und abspielen (opusenc, opusdec, oggmux, oggdemux, appsrc/appsink aus
+# gstreamer1-plugins-base, pulsesrc, level und scaletempo aus plugins-good); Mikrofon ueber PipeWire (pipewiresrc) bzw.
+# PulseAudio. Ohne die Pakete fehlt nur der Mikrofon-Knopf bzw. die Wiedergabe.
 Recommends:     gstreamer1-plugins-good
+Recommends:     gstreamer1-plugins-base
+Suggests:       pipewire-gstreamer
 Suggests:       gstreamer1-plugin-openh264
 Suggests:       gstreamer1-plugin-libav
 # Thai-Oberflaeche (po/th.po): ohne Thai-Schrift erscheinen Ersatzkaestchen. Die Standardschriften (Adwaita Sans/Cantarell)

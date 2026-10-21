@@ -67,8 +67,84 @@ def fed_hint_texts():
 
 
 def is_fed(c):
-    """Chat ueber Servergrenzen (Server 2.3, saga-chat/v2)?"""
+    """Krypto saga-chat/v2 (an Handles gebunden)? Chats ueber Servergrenzen (Server 2.3, v 2) und - Server 2.5 - Chats der
+    Stufe 3 (v 3), auch rein lokal. Fuer die Oberflaeche "anderer Server" (Herkunft, Heim) zaehlt is_remote."""
+    return isinstance(c, dict) and c.get("v") in (2, 3)
+
+
+def is_remote(c):
+    """Chat wirklich ueber Servergrenzen (v 2): Herkunft, Heim, Nachrichtenanfragen - nicht bei lokalen Chats der Stufe 3"""
     return isinstance(c, dict) and c.get("v") == 2
+
+
+def is_v3(c):
+    return isinstance(c, dict) and c.get("v") == 3
+
+
+# --- Chat-Grundlagen (2.5): Reaktionen, Bearbeiten, Sprachnachrichten -------------------------------------------------
+QUICK = ("👍", "❤️", "😂", "😮", "😢", "🙏")       # Schnellleiste (wie Web, SagaEmoji.QUICK)
+REACT_DEBOUNCE_MS = 500
+
+
+def x3_ok(c):
+    """Funktionen der Chat-Grundlagen in diesem Chat? Nur, wenn der Server x3_ok meldet (Format v2, angenommen, nicht
+    schreibgeschuetzt, alle Server koennen chat3) - Nachrichtenanfragen und schreibgeschuetzte Chats nie"""
+    return is_fed(c) and c.get("x3_ok") is True and not c.get("request") and not c.get("readonly")
+
+
+def x3_limits(me):
+    lim = (me or {}).get("x3_limits")
+    lim = lim if isinstance(lim, dict) else {}
+    out = {"edit_window": C.EDIT_WINDOW, "edit_max": C.EDIT_MAX, "voice_max_s": 900, "voice_kbps": 24, "voice_max_bytes": 4 << 20}
+    for k in out:
+        v = lim.get(k)
+        if isinstance(v, int) and not isinstance(v, bool) and v > 0:
+            out[k] = v
+    return out
+
+
+def has_feature(me, name):
+    f = (me or {}).get("features")
+    return isinstance(f, list) and name in f
+
+
+def can_react(c, m):
+    """Reaktion auf diese Nachricht: x3_ok, lesbar und echt (Schluessel K bekannt), kein Anruf, keine Systemzeile, zugestellt"""
+    return x3_ok(c) and isinstance(m, dict) and bool(m.get("_k")) and m.get("state") == "ok" and not m.get("fstate") \
+        and bool(m.get("sender_handle"))
+
+
+def can_edit(c, m, now=None, lim=None):
+    """Bearbeiten: nur eigene Textnachrichten (bzw. Bildunterschrift), keine KI-Antwort, keine Sprachnachricht, im Fenster
+    (24 h ab dem Original) und hoechstens edit_max-mal"""
+    lim = lim or x3_limits(None)
+    if not x3_ok(c) or not isinstance(m, dict) or m.get("state") != "ok" or not m.get("mine") or m.get("fstate"):
+        return False
+    if not m.get("sender_handle") or m.get("sender_handle") != (c or {}).get("my_handle") or m.get("ai_mark") or m.get("ai_state"):
+        return False
+    if not (m.get("text") or "").strip() or any(isinstance(f, dict) and f.get("voice") for f in m.get("files") or []):
+        return False
+    now = time.time() if now is None else now
+    return now - float(m.get("created") or 0) < lim["edit_window"] and int(m.get("edit_n") or 0) < lim["edit_max"]
+
+
+def rx_groups(rx, my_handle):
+    """Reaktionen [{by, e, ts}] -> [(emoji, [handles], eigene dabei?)] in der Reihenfolge der ersten Reaktion"""
+    groups, order = {}, []
+    for x in sorted(rx or [], key=lambda r: r.get("ts") or 0):
+        e = x.get("e")
+        if not e:
+            continue
+        if e not in groups:
+            groups[e] = []
+            order.append(e)
+        groups[e].append(x.get("by"))
+    return [(e, groups[e], my_handle in groups[e]) for e in order]
+
+
+def voice_file(m):
+    """Sprachnachricht einer Nachricht (Anhang mit voice: true) oder None"""
+    return next((f for f in (m or {}).get("files") or [] if isinstance(f, dict) and f.get("voice")), None)
 
 
 # --- Zustellstand eigener Nachrichten (2.3) -------------------------------------------------------------------------------
@@ -169,6 +245,9 @@ def sys_text(k, my_handle):
     if typ == "fed":
         t = _("From now on with people on other Saga servers (end-to-end encrypted).")
         return t + (" " + _("The AI is now off here.") if k.get("ai_off") else "")
+    if typ == "crypto":                                   # (2.5) Umstellung auf Stufe 3 (ohne Namen)
+        t = _("This chat is now bound to the stable Saga addresses (new encryption level).")
+        return t + (" " + _("Please compare the safety numbers again – they're shown differently now.") if k.get("verify") else "")
     if typ == "members":
         by = k.get("by") if isinstance(k.get("by"), dict) else None
         added = [x for x in k.get("added") or [] if isinstance(x, dict)]
@@ -202,7 +281,7 @@ def sys_text(k, my_handle):
 
 def chat_home_hint(c):
     """Gruppe/Seiten-Chat ueber Servergrenzen (2.3): wo der Chat liegt (Heim) - "" fuer andere Chats"""
-    if not is_fed(c) or (c or {}).get("kind") == "dm":
+    if not is_remote(c) or (c or {}).get("kind") == "dm":
         return ""
     if c.get("home_self"):
         return _("This chat is on this server; people on other Saga servers take part through their server.")
@@ -424,6 +503,85 @@ def trust2_set(me, handle, entry):
             pass
 
 
+# --- Vertrauens-Uebernahme v1 -> v2 (2.5, Stufe 3) ---------------------------------------------------------------------
+# In Chats v1 liefert ein 2.5-Server Clients der Stufe 3 members[].handle. Die App merkt sich Handle -> Benutzername
+# (chat-h2u.json, nicht geheim) - nach der Umstellung stehen dort nur noch Handles. Beim ersten Kontakt per Handle (noch kein
+# trust2-Eintrag) wird das v1-Vertrauen trust:<benutzer> uebernommen, aber NUR bei gleichem Identitaetsschluessel
+# (chatcrypto.tofu_migrate): ein Server, der eine falsche Zuordnung unterschiebt, scheitert am Vergleich.
+H2U_FILE = os.path.join(config.DATA_DIR, "chat-h2u.json")
+
+
+def _h2u_all():
+    try:
+        with open(H2U_FILE, encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def h2u_get(me, handle):
+    with _tlock:
+        u = (_h2u_all().get(_tkey(me)) or {}).get(handle)
+        return u if isinstance(u, str) and u else None
+
+
+def h2u_note(me, chats):
+    """Handle -> Benutzername aus Chats v1 (nicht Stufe 3, nicht ueber Servergrenzen) merken. -> Anzahl neuer Eintraege"""
+    add = {}
+    for c in chats or []:
+        if not isinstance(c, dict) or is_fed(c):
+            continue
+        for m in c.get("members") or []:
+            if not isinstance(m, dict) or m.get("me"):
+                continue
+            h, u = m.get("handle"), m.get("username")
+            if isinstance(h, str) and isinstance(u, str) and u and u != h and not u.startswith("~") \
+                    and re.fullmatch(C.HANDLE_RX, h) and u != me:
+                add[h] = u
+    if not add:
+        return 0
+    with _tlock:
+        d = _h2u_all()
+        mine = d.setdefault(_tkey(me), {})
+        new = {h: u for h, u in add.items() if mine.get(h) != u}
+        if not new:
+            return 0
+        mine.update(new)
+        try:
+            config.atomic_write(H2U_FILE, json.dumps(d))
+        except OSError:
+            pass
+        return len(new)
+
+
+def trust_v1_entry(me, uid):
+    """v1-Vertrauen im Format der Vektoren ({ident, verified, changed?, old?}) oder None. Ein noch nicht bestaetigter
+    Wechsel (pending) zaehlt als geaendert: neuer Schluessel = ident, alter = old."""
+    if not uid:
+        return None
+    t = trust_get(me, uid)
+    if not t.get("ident_pub"):
+        return None
+    if t.get("pending"):
+        return {"ident": t["pending"], "verified": False, "changed": True, "old": t["ident_pub"]}
+    return {"ident": t["ident_pub"], "verified": bool(t.get("verified")), "changed": False}
+
+
+def tofu_for(me, handle, ident, ver):
+    """TOFU je Handle mit Uebernahme aus v1 -> (ergebnis, eintrag | None, bisheriger Eintrag)"""
+    st = trust2_get(me, handle)
+    if st is None:
+        v1 = trust_v1_entry(me, h2u_get(me, handle))
+        if v1 is not None:
+            res, store = C.tofu_migrate(v1, ident, ver)
+            if store is not None:
+                store["migrated"] = True              # Hinweis "Neue Darstellung, gleicher Schluessel" (Sicherheitsnummer)
+            return res, store, None
+    res, store = C.tofu_v2(st, ident, ver)
+    return res, store, st
+
+
 # --- Zustand -----------------------------------------------------------------------------------------------------
 class ChatState(GObject.Object):
     """status: 'unknown' | 'off' (Server ohne Chats/abgeschaltet) | 'nocrypto' (PyNaCl fehlt) | 'setup' (noch nicht
@@ -440,6 +598,7 @@ class ChatState(GObject.Object):
         # geloescht) | "cleared" (Verlauf geleert, Chat bleibt); Name: wer es getan hat ("" = ich bzw. unbekannt)
         "chat-gone": (GObject.SignalFlags.RUN_FIRST, None, (int, str, str)),
         "receipts": (GObject.SignalFlags.RUN_FIRST, None, (int,)),          # (2.4) Gelesen-Bestaetigungen eines Chats
+        "reactions": (GObject.SignalFlags.RUN_FIRST, None, (int,)),         # (2.5) Reaktionen in einem Chat geaendert
         "presence": (GObject.SignalFlags.RUN_FIRST, None, ()),              # (2.4) Online-Status geaendert
     }
 
@@ -771,6 +930,7 @@ class ChatState(GObject.Object):
             self.chats = [c for c in j.get("chats") or [] if isinstance(c, dict)]
             for c in self.chats:
                 self._note_ref(c)
+            h2u_note(self.uid, self.chats)                 # (2.5) Handle -> Benutzername fuer die Vertrauens-Uebernahme
             self._free_titles(self.chats)
             self.unread = int(j.get("unread") or 0)
             self.requests = int(j.get("requests") or 0)
@@ -978,7 +1138,8 @@ class ChatState(GObject.Object):
         if out["ai_state"]:
             out["ai_by"] = (m.get("ai") or {}).get("by") if isinstance(m.get("ai"), dict) else None
         out["text"] = str(body.get("text") or "")[:20000]
-        out["files"] = [f for f in body.get("files") or [] if isinstance(f, dict) and f.get("id")][:10]
+        # Anhaenge v1 haben immer die Chat-ID als AD - auch in einem spaeter umgestellten Chat (2.3 Seiten-Chats, 2.5 Stufe 3)
+        out["files"] = [dict(f, _ad=1) for f in body.get("files") or [] if isinstance(f, dict) and f.get("id")][:10]
         out["notes"] = [int(x) for x in body.get("notes") or [] if isinstance(x, int) or (isinstance(x, str) and x.isdigit())]
         if uname and ident_pub and not out["mine"]:
             trust_check(self.uid, uname, ident_pub)
@@ -987,29 +1148,13 @@ class ChatState(GObject.Object):
     def _decode_v2(self, ch, m, out):
         """v2: Schluessel oeffnen (Geraet, sonst Backup), entschluesseln mit chat_ref; echt nur, wenn das Absender-Geraet in
         den selbst geprueften Schluessen des Absender-Handles steht (TOFU nicht 'reject') und die Signatur v2 stimmt"""
-        k = self.keys
         ref = ch.get("ref") or ""
-        try:
-            if not k:
-                raise C.CryptoError("no keys")
-            if m.get("key_for") == "backup":
-                body = C.decrypt_v2(ref, m, k["backup_pk"], k["backup_sk"])
-            else:
-                body = C.decrypt_v2(ref, m, k["device"]["enc_pk"], k["device"]["enc_sk"])
-        except (C.CryptoError, KeyError, TypeError, ValueError):
+        body, ok, key = self._open_v2(ref, m)
+        if body is None:
             out["state"] = "undecryptable"
             return out
-        if not isinstance(body, dict):
-            out["state"] = "undecryptable"
-            return out
-        f = self.fk.get(m.get("sender_handle") or "")
-        ok = False
-        if f and f.get("keys") and f.get("trust") != "reject":
-            d = next((x for x in f["keys"]["devices"] if x.get("id") == m.get("sender_device")), None)
-            try:
-                ok = d is not None and C.sig_ok_v2(ref, m, C.unb64(d["sign_pub"], 32))
-            except C.CryptoError:
-                ok = False
+        out["_k"] = key                                   # (2.5) Nachrichtenschluessel: Reaktionen (abgeleiteter Schluessel)
+        out["ai_mark"] = bool(m.get("ai"))
         if m.get("sender_handle") and ch.get("my_handle") and m.get("sender_handle") == ch.get("my_handle"):
             out["mine"] = True
         snd = out.get("sender") or {}
@@ -1023,7 +1168,78 @@ class ChatState(GObject.Object):
         out["text"] = str(body.get("text") or "")[:20000]
         out["files"] = [x for x in body.get("files") or [] if isinstance(x, dict) and x.get("id")][:10]
         out["notes"] = [int(x) for x in body.get("notes") or [] if isinstance(x, int) or (isinstance(x, str) and x.isdigit())]
+        self._apply_edit(ch, m, out)
+        out["rx_raw"] = [x for x in m.get("rx") or [] if isinstance(x, dict)][:200]
+        out["rx"] = self._open_rx(ch, out, out["rx_raw"]) if out["rx_raw"] else []
         return out
+
+    def _open_v2(self, ref, m):
+        """v2-Nachricht oeffnen: Schluessel (Geraet, sonst Backup), Inhalt mit chat_ref; echt nur, wenn das Absender-Geraet in
+        den selbst geprueften Schluesseln des Absender-Handles steht (TOFU nicht 'reject') und die Signatur v2 stimmt.
+        -> (inhalt | None, echt?, K | None)"""
+        k = self.keys
+        try:
+            if not k:
+                raise C.CryptoError("no keys")
+            if m.get("key_for") == "backup":
+                key = C.unseal(m["key"], k["backup_pk"], k["backup_sk"])
+            else:
+                key = C.unseal(m["key"], k["device"]["enc_pk"], k["device"]["enc_sk"])
+            body = C.decrypt_body_v2(ref, m, key)
+        except (C.CryptoError, KeyError, TypeError, ValueError):
+            return None, False, None
+        if not isinstance(body, dict):
+            return None, False, None
+        f = self.fk.get(m.get("sender_handle") or "")
+        ok = False
+        if f and f.get("keys") and f.get("trust") != "reject":
+            d = next((x for x in f["keys"]["devices"] if x.get("id") == m.get("sender_device")), None)
+            try:
+                ok = d is not None and C.sig_ok_v2(ref, m, C.unb64(d["sign_pub"], 32))
+            except C.CryptoError:
+                ok = False
+        return body, ok, key
+
+    def _apply_edit(self, ch, m, out):
+        """(2.5) Bearbeitung am Original (GET .../messages: edit, edited_at, edit_n): entschluesseln, Signatur und Regeln
+        pruefen (gleicher Absender, edit_of, keine KI-Antwort, Fenster) - nur dann den neuesten Text zeigen"""
+        out["edit_n"] = int(m.get("edit_n") or 0) if isinstance(m.get("edit_n"), int) else 0
+        e = m.get("edit")
+        if not isinstance(e, dict) or out.get("state") != "ok":
+            return
+        body, ok, _k = self._open_v2(ch.get("ref") or "", e)
+        lim = x3_limits(self.me)
+        if not ok or body is None or C.edit_check(m, e, body, lim["edit_window"]) is not None:
+            return                                        # nicht bestaetigt: das Original bleibt
+        out["orig_text"] = out["text"]
+        out["text"] = str(body["t"])[:20000]
+        out["edited_at"] = m.get("edited_at") or e.get("created") or 0
+        b = dict(out["body"])
+        b["text"] = out["text"]
+        out["body"] = b
+
+    def rx_pks(self):
+        """Signaturschluessel aller selbst geprueften Geraete: {(handle, geraet): sign_pk}"""
+        out = {}
+        for h, f in self.fk.items():
+            if not f or not f.get("keys") or f.get("trust") == "reject":
+                continue
+            for d in f["keys"].get("devices") or []:
+                if not d.get("revoked"):
+                    try:
+                        out[(h, d["id"])] = C.unb64(d["sign_pub"], 32)
+                    except (C.CryptoError, KeyError):
+                        continue
+        return out
+
+    def _open_rx(self, ch, out, items, pks=None):
+        """(2.5) Reaktionen einer Nachricht pruefen und oeffnen -> [{by, e, ts}] (Hintergrund-Thread)"""
+        if not out.get("_k") or not items:
+            return []
+        try:
+            return C.open_reactions(out["_k"], ch.get("ref") or "", out["id"], items, pks if pks is not None else self.rx_pks())
+        except Exception:  # noqa: BLE001 - Reaktionen bleiben unsichtbar
+            return []
 
     def load_messages(self, cid, older=False, done=None):
         if not self.ready:
@@ -1672,6 +1888,20 @@ class ChatState(GObject.Object):
                 resp.setdefault("id", req["id"])
                 return resp, missing
             except APIError as e:
+                changed = e.code == 409 and isinstance(e.data, dict) and e.data.get("chat_changed")
+                if attempt == 0 and (changed or e.code == 400):
+                    # (2.5) inzwischen auf Stufe 3 umgestellt (409 chat_changed waehrend des Sendens; 400, wenn die eigene
+                    # Liste noch v1 zeigt - z. B. chat.changed verpasst): Chat neu laden, dann im Format v2 senden
+                    try:
+                        nc = (client.get(f"api/chats/{cid}?device={self.device_id}") or {}).get("chat")
+                    except APIError:
+                        nc = None
+                    if isinstance(nc, dict) and is_fed(nc):
+                        self._note_ref(nc)
+                        GLib.idle_add(lambda nc=dict(nc): (self._merge_new(nc), False)[1])
+                        return self.send_v2(nc, body, reply_to=reply_to, kind=kind, file_ids=file_ids, extra=extra)
+                    if changed:
+                        raise ChatError(str(e), e.code, e.data) from e
                 if e.code == 409 and attempt == 0 and isinstance(e.data, dict) and isinstance(e.data.get("recipients"), list):
                     self.cache.setdefault(cid, {})["rc"] = e.data["recipients"]
                     rmap, missing = self.check_recipients(e.data["recipients"])
@@ -1766,8 +1996,7 @@ class ChatState(GObject.Object):
             if h == self.my_handle:                       # eigene Schluessel: muessen zu diesem Geraet passen
                 out[h] = {"keys": kk, "trust": "trust" if k and kk["ident_pk"] == k["ident_pk"] else "reject"}
                 continue
-            st = trust2_get(self.uid, h)
-            res, store = C.tofu_v2(st, kk["ident_pub"], kk["ver"])
+            res, store, st = tofu_for(self.uid, h, kk["ident_pub"], kk["ver"])
             if store is not None:
                 trust2_set(self.uid, h, store)
             out[h] = {"keys": kk, "trust": res, "stale": bool(e.get("stale")), "stored": store or st}
@@ -1993,6 +2222,7 @@ class ChatState(GObject.Object):
 
     def _merge(self, ch):
         self._note_ref(ch)
+        h2u_note(self.uid, [ch])
         old = self.chat(ch.get("id"))
         if old is not None and old is not ch:                # eben neu aufgenommen (dasselbe dict): nichts zu mischen,
             t = old.get("_title")                            # clear() wuerde es leeren (BUG-030)
@@ -2003,6 +2233,177 @@ class ChatState(GObject.Object):
         self.emit("chat-changed", ch.get("id"))
         self.emit("changed")
         self._pres_check()
+
+    def _merge_new(self, ch):
+        if self.chat(ch.get("id")) is None:
+            self.chats.insert(0, ch)
+        self._merge(ch)
+
+    # --- Chat-Grundlagen (2.5): Reaktionen, Bearbeiten, Sprachnachrichten ----------------------------------------------------
+    def _cached(self, cid, mid):
+        return next((m for m in (self.cache.get(cid) or {}).get("msgs") or [] if m.get("id") == mid), None)
+
+    def react(self, cid, mid, emoji, error=None):
+        """Eigene Reaktion setzen ('' = zuruecknehmen): sofort anzeigen, gebuendelt senden (nur die letzte Wahl innerhalb von
+        500 ms geht raus). error(text) im Hauptthread, wenn es nicht geklappt hat"""
+        ch, m = self.chat(cid), self._cached(cid, mid)
+        if not can_react(ch, m) or (emoji and not C.emoji_ok(emoji)):
+            return False
+        me = ch.get("my_handle") or self.my_handle
+        m["rx"] = [x for x in m.get("rx") or [] if x.get("by") != me] + ([{"by": me, "e": emoji, "ts": int(time.time() * 1000)}] if emoji else [])
+        self.emit("reactions", cid)
+        t = self._rx_timers = getattr(self, "_rx_timers", {})
+        if mid in t:
+            GLib.source_remove(t.pop(mid)[0])
+
+        def fire():
+            t.pop(mid, None)
+            k = self.keys
+            if not k:
+                return False
+
+            def work():
+                r = C.encrypt_reaction(m["_k"], ch.get("ref") or "", mid, me, k["device"], emoji)
+                client.json("PUT", f"api/chats/{cid}/messages/{urllib.parse.quote(mid)}/reaction",
+                            {"dev": r["dev"], "ts": r["ts"], "ct": r["ct"], "sig": r["sig"]})
+                return r
+
+            def fin(r):
+                m["rx_raw"] = [x for x in m.get("rx_raw") or [] if x.get("by") != me] + [r]
+
+            def err(e):
+                if error:
+                    error(_("Reaction not sent: {err}").format(err=e))
+                self._rx_reopen(cid, [m])
+            bg(work, done=fin, error=err)
+            return False
+        t[mid] = (GLib.timeout_add(REACT_DEBOUNCE_MS, fire), emoji)
+        return True
+
+    def _rx_reopen(self, cid, msgs):
+        """Reaktionen (rx_raw) dieser Nachrichten neu pruefen und oeffnen (Hintergrund), dann neu zeichnen"""
+        ch = self.chat(cid)
+        if not ch or not msgs:
+            return
+        pend = set(getattr(self, "_rx_timers", {}))
+
+        def work():
+            pks = self.rx_pks()
+            return [(m, self._open_rx(ch, m, m.get("rx_raw") or [], pks)) for m in msgs]
+
+        def fin(res):
+            for m, rx in res:
+                if m.get("id") not in pend:              # eigene, noch nicht gesendete Wahl nicht ueberschreiben
+                    m["rx"] = rx
+            self.emit("reactions", cid)
+        bg(work, done=fin, error=lambda e: None)
+
+    def _react_live(self, cid, d):
+        """chat.react {chat_id, items: [{id, by, dev, ts, ct, sig}]} bzw. {more: true, mids}"""
+        c = self.cache.get(cid)
+        if not c or not c.get("loaded"):
+            return
+        if d.get("more"):
+            mids = [x for x in d.get("mids") or [] if isinstance(x, str) and self._cached(cid, x)][:100]
+            if not mids:
+                return
+
+            def fin(j):
+                hit = []
+                for mid, lst in ((j or {}).get("reactions") or {}).items():
+                    m = self._cached(cid, mid)
+                    if m is not None and isinstance(lst, list):
+                        m["rx_raw"] = [x for x in lst if isinstance(x, dict)]
+                        hit.append(m)
+                self._rx_reopen(cid, hit)
+            bg(client.get, f"api/chats/{cid}/reactions?mids=" + ",".join(urllib.parse.quote(x) for x in mids), done=fin, error=lambda e: None)
+            return
+        per = {}
+        for x in d.get("items") or []:
+            if isinstance(x, dict) and isinstance(x.get("id"), str) and self._cached(cid, x["id"]) is not None:
+                per.setdefault(x["id"], []).append({k: x.get(k) for k in ("by", "dev", "ts", "ct", "sig")})
+        hit = []
+        for mid, items in per.items():
+            m = self._cached(cid, mid)
+            by = {x.get("by"): x for x in m.get("rx_raw") or []}
+            for x in items:
+                if x["by"] not in by or (by[x["by"]].get("ts") or 0) < (x.get("ts") or 0):
+                    by[x["by"]] = x
+            m["rx_raw"] = list(by.values())
+            hit.append(m)
+        self._rx_reopen(cid, hit)
+
+    def _edited_live(self, cid, d):
+        """chat.edited {chat_id, id, seq, edit_seq}: das Original neu holen (mit edit) und neu entschluesseln"""
+        m = self._cached(cid, d.get("id"))
+        if m is None or not isinstance(m.get("seq"), int):
+            return
+        ch = self.chat(cid)
+
+        def work():
+            # before=seq+1 (nicht after=seq-1: after=0 liefert beim Server die neuesten statt ab Anfang - erste Nachricht)
+            j = client.get(f"api/chats/{cid}/messages?device={self.device_id}&calls=1&limit=1&before={m['seq'] + 1}") or {}
+            x = next((y for y in j.get("messages") or [] if isinstance(y, dict) and y.get("id") == m["id"]), None)
+            return self._decode(cid, x, j.get("devices"), j.get("idents"), ch) if x else None
+
+        def fin(n):
+            if n is None or self._cached(cid, m["id"]) is not m:
+                return
+            for k in ("text", "body", "edited_at", "edit_n", "orig_text", "state"):
+                if k in n:
+                    m[k] = n[k]
+            self.emit("messages", cid)
+        bg(work, done=fin, error=lambda e: None)
+
+    def send_edit(self, cid, mid, text, done=None, error=None):
+        """Eigene Nachricht bearbeiten: v2-Nachricht kind 'edit' mit edit_of und Inhalt {edit, t} an die aktuellen
+        Empfaenger (keine Anhaenge, keine Antwort). Danach sofort den neuen Text zeigen."""
+        ch, m = self.chat(cid), self._cached(cid, mid)
+        if not can_edit(ch, m, lim=x3_limits(self.me)):
+            if error:
+                error(_("This message can't be edited (any more)."))
+            return
+
+        def work():
+            return self.send_v2(ch, {"edit": mid, "t": text}, kind="edit", extra={"edit_of": mid})
+
+        def fin(_r):
+            if "orig_text" not in m:
+                m["orig_text"] = m.get("text")
+            m["text"] = text
+            if isinstance(m.get("body"), dict):
+                m["body"] = dict(m["body"], text=text)
+            m["edited_at"] = time.time()
+            m["edit_n"] = int(m.get("edit_n") or 0) + 1
+            self.emit("messages", cid)
+            self._list_soon()
+            if done:
+                done()
+        bg(work, done=fin, error=lambda e: error and error(str(e)))
+
+    def send_voice(self, cid, data, dur, wf, reply_to=None, progress=None, cancelled=None):
+        """Hintergrund: Sprachnachricht (Ogg/Opus) als saga-file/v2 hochladen und als Anhang {voice, dur, wf} senden.
+        -> wie send()"""
+        lim = x3_limits(self.me)
+        if len(data) > lim["voice_max_bytes"]:
+            raise ChatError(_("Voice message too large."))
+        path = chatvideo.tmp_path(".ogg")
+        pend = None
+        try:
+            with open(path, "wb") as fh:
+                fh.write(data)
+            r = chatvideo.upload(cid, path, progress, cancelled, self.limits)
+            pend = r.get("pending")
+            f = {"id": r["id"], "k": r["k"], "n": "voice.ogg", "m": "audio/ogg; codecs=opus", "s": len(data), "x": 2, "cs": r["cs"],
+                 "voice": True, "dur": round(float(dur), 1), "wf": C.b64(bytes(wf))}
+            out = self.send(cid, {"v": 1, "type": "text", "text": "", "files": [f]}, reply_to=reply_to, file_ids=[r["id"]])
+            chatvideo.pending_drop(pend)
+            return out
+        finally:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
 
     def load_chat(self, cid, done=None, error=None):
         def fin(j):
@@ -2291,6 +2692,10 @@ class ChatState(GObject.Object):
             if cid in self.cache and self.cache[cid].get("loaded"):
                 self.load_messages(cid)
             self._list_soon()
+        elif typ == "chat.react":                             # (2.5) Reaktionen (je Chat gebuendelt)
+            self._react_live(cid, d)
+        elif typ == "chat.edited":                            # (2.5) Nachricht bearbeitet
+            self._edited_live(cid, d)
         elif typ == "chat.request":                           # (2.3) neue Nachrichtenanfrage - still, nur die Liste
             self._list_soon()
         elif typ == "chat.keys.changed":                      # (2.3) Schluessel einer Person bzw. die eigenen geaendert
