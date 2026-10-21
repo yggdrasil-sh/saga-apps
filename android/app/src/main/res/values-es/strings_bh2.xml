@@ -4,7 +4,7 @@
     <string name="call_cam_denied">Cámara no permitida: permítela para Saga en los ajustes de Android.</string>
     <string name="call_ongoing_video">Videollamada en curso</string>
     <string name="call_push_title">Llamadas en segundo plano</string>
-    <string name="call_push_hint">Sin un distribuidor de notificaciones, Saga solo suena cuando la app está abierta. Configura UnifiedPush (p. ej. ntfy) para que las llamadas suenen también en segundo plano.</string>
+    <string name="call_push_hint">Mientras las notificaciones estén desactivadas en este dispositivo, Saga solo suena con la app abierta. Activa las notificaciones: Saga usa un distribuidor como ntfy o, si no hay ninguno instalado, una conexión propia.</string>
     <string name="call_push_setup">Configurar</string>
     <string name="call_push_later">Más tarde</string>
     <string name="security_account_check">Tu cuenta en la app es «%1$s». El navegador muestra la cuenta con la sesión iniciada allí: comprueba que ponga «%1$s» antes de cambiar nada.</string>

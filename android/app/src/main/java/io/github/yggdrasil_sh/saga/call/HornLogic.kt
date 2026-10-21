@@ -61,6 +61,38 @@ object HornLogic {
     const val BAD_MS = 60_000L
     /** Kein Knoten erreichbar: nach 2 min aufgeben */
     const val RETRY_MAX = 120_000L
+    /**
+     * TT 67: scheitern ALLE Knoten einer Runde am Zertifikat (z. B. selbst signiert, "Trust anchor not found"), hilft
+     * Warten nicht - nach so vielen Runden aufgeben, mit Grund statt endlos "Kein Knoten erreichbar".
+     */
+    const val CERT_ROUNDS = 2
+
+    /** Fehler beim Aufbau der TLS-Verbindung zum Knoten wegen eines nicht vertrauenswuerdigen Zertifikats? */
+    fun certError(t: Throwable?): Boolean {
+        var e = t
+        var n = 0
+        while (e != null && n++ < 12) {
+            val cls = e.javaClass.name
+            if (cls == "javax.net.ssl.SSLPeerUnverifiedException" || cls == "java.security.cert.CertPathValidatorException" ||
+                cls == "java.security.cert.CertificateException" || cls == "java.security.cert.CertificateExpiredException" ||
+                cls == "java.security.cert.CertificateNotYetValidException" || cls == "sun.security.validator.ValidatorException"
+            ) return true
+            val m = e.message.orEmpty()
+            if (cls == "javax.net.ssl.SSLHandshakeException" &&
+                (m.contains("Trust anchor", true) || m.contains("certificate", true) || m.contains("CertPath", true))
+            ) return true
+            if (m.contains("Trust anchor for certification path not found", true)) return true
+            e = e.cause
+        }
+        return false
+    }
+
+    /**
+     * Nach einer Runde ohne Knoten: weiter versuchen oder mit Zertifikats-Grund aufgeben? certNodes: Knoten, die am
+     * Zertifikat scheiterten; other: mindestens ein anderer Fehler (Netz, Zeitlimit) - dann lohnt Warten.
+     */
+    fun giveUpCert(certNodes: Collection<String>, other: Boolean, rounds: Int): Boolean =
+        certNodes.isNotEmpty() && !other && rounds >= CERT_ROUNDS
     const val CANDS_EVERY = 30_000L
     const val UDP_PROBE_EVERY = 10_000L
     const val PING_EVERY = 2000L

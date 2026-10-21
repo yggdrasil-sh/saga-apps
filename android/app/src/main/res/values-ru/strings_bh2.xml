@@ -4,7 +4,7 @@
     <string name="call_cam_denied">Камера не разрешена – разреши её для Saga в настройках Android.</string>
     <string name="call_ongoing_video">Идёт видеозвонок</string>
     <string name="call_push_title">Звонки в фоне</string>
-    <string name="call_push_hint">Без дистрибьютора уведомлений Saga звонит, только пока приложение открыто. Настрой UnifiedPush (например, ntfy), чтобы звонки поступали и в фоне.</string>
+    <string name="call_push_hint">Пока уведомления на этом устройстве выключены, Saga звонит только при открытом приложении. Включите уведомления — Saga использует дистрибьютор, например ntfy, а если его нет — собственное соединение.</string>
     <string name="call_push_setup">Настроить</string>
     <string name="call_push_later">Позже</string>
     <string name="security_account_check">Твой аккаунт в приложении – «%1$s». Браузер показывает аккаунт, в который выполнен вход там: прежде чем что-то менять, проверь, что там указано «%1$s».</string>

@@ -182,7 +182,7 @@
     <string name="login_not_saga">ไม่พบเซิร์ฟเวอร์ Saga ที่ที่อยู่นี้ โปรดตรวจสอบที่อยู่</string>
     <string name="login_probe_failed">ติดต่อเซิร์ฟเวอร์ไม่ได้: %1$s</string>
     <string name="error_certificate">ใบรับรองของเซิร์ฟเวอร์ไม่น่าเชื่อถือ หากใช้ CA ของคุณเอง ให้ติดตั้งใบรับรองของ CA นั้นในการตั้งค่า Android (ความปลอดภัย → การเข้ารหัสและข้อมูลเข้าสู่ระบบ)</string>
-    <string name="error_no_https">เซิร์ฟเวอร์ไม่ตอบสนองผ่าน https โปรดตรวจสอบที่อยู่และพอร์ต</string>
+    <string name="error_no_https">เซิร์ฟเวอร์ไม่ตอบสนองผ่าน https โปรดตรวจสอบที่อยู่และพอร์ต – สำหรับเซิร์ฟเวอร์ในเครือข่ายภายในที่ไม่มีใบรับรอง ให้พิมพ์ http:// นำหน้า</string>
     <string name="action_undo">เลิกทำ</string>
     <string name="action_open">เปิด</string>
     <string name="task_done_message">งานเสร็จแล้ว</string>

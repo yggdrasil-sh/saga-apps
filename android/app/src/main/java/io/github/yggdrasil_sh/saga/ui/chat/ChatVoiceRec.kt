@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -212,7 +213,8 @@ fun VoiceMicButton(rec: VoiceRecUi, limits: X3Limits, notify: (UiText) -> Unit, 
     val sc = MaterialTheme.colorScheme
     val active = rec.phase == VoiceRecUi.Phase.HOLD
     Box(
-        Modifier.size(48.dp).clip(CircleShape).background(if (active) sc.errorContainer else Color.Transparent)
+        // TT 52: Rand-Gesten (Zurueck) am Knopf ausschliessen; unten haelt SafeBottom ihn aus dem Bereich der Home-Geste
+        Modifier.size(48.dp).systemGestureExclusion().clip(CircleShape).background(if (active) sc.errorContainer else Color.Transparent)
             .semantics {
                 contentDescription = label
                 onClick { notify(UiText.Res(if (supported) R.string.voice_hold_hint else R.string.voice_android_old)); true }

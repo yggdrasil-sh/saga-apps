@@ -178,7 +178,11 @@ private fun BlockChoice.title(): String = if (type == "header") stringResource(R
 fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome, appScope: CoroutineScope) {
     // neu angemeldet/gekoppelt (anderes Konto): Seite neu oeffnen - Rolle, Eigentuemer und Entwuerfe gehoeren zum Konto
     val signIns by repo.signInCount.collectAsState()
-    val ed = remember(id, signIns) { PageEditor(id, repo, appScope) }
+    val ed = remember(id, signIns) {
+        PageEditor(id, repo, appScope).also { e ->
+            e.titleOf = { pid -> repo.pages.value.firstOrNull { it.id == pid }?.title?.takeIf { it.isNotBlank() } }
+        }
+    }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val needsLogin by repo.needsLogin.collectAsState()

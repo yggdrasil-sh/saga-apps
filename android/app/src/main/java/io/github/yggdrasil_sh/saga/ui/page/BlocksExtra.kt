@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -103,9 +106,20 @@ fun slashItems(query: String, needs: Set<SlashLogic.Need>): List<SlashLogic.Item
 @Composable
 fun SlashMenuCard(query: String, needs: Set<SlashLogic.Need>, onPick: (SlashLogic.Item) -> Unit) {
     val items = slashItems(query, needs)
+    // TT 15: am Seitenende lag das Menue unter der Tastatur - beim Oeffnen, beim Tippen und sobald die Tastatur
+    // (ganz) da ist, in den sichtbaren Bereich holen (die Seite rechnet die Tastatur schon heraus)
+    val bring = androidx.compose.runtime.remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    val ime = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current)
+    androidx.compose.runtime.LaunchedEffect(query, items.size, ime) {
+        kotlinx.coroutines.delay(60)                         // erst messen lassen
+        try {
+            bring.bringIntoView()
+        } catch (_: Exception) {
+        }
+    }
     Surface(
         tonalElevation = 4.dp, shadowElevation = 4.dp, shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.padding(top = 4.dp).widthIn(max = 320.dp),
+        modifier = Modifier.padding(top = 4.dp).widthIn(max = 320.dp).bringIntoViewRequester(bring),
     ) {
         Column(Modifier.heightIn(max = 300.dp).verticalScroll(rememberScrollState()).padding(vertical = 4.dp)) {
             if (items.isEmpty()) {

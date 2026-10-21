@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TT 2.5 Android (Live-Test): neue Texte -->
+<resources>
+    <string name="room_connecting_others">กำลังเชื่อมต่อกับคนอื่น …</string>
+    <string name="room_old_people_horn">ไม่ได้รับเชิญ (ไม่มีอุปกรณ์สำหรับการโทรกลุ่ม): %1$s</string>
+    <string name="horn_cert_untrusted">อุปกรณ์นี้ไม่เชื่อถือใบรับรองของโหนด %1$s (เช่น ลงนามเอง) การโทรผ่านโหนดนี้ใช้ไม่ได้ที่นี่ – โปรดแจ้งผู้ดูแล Saga</string>
+    <string name="horn_cert_retry">ใบรับรองของโหนด %1$s ไม่น่าเชื่อถือ – ลองใหม่ใน %2$d วินาที …</string>
+    <string name="push_stream_needs_push">มีผลเมื่อเปิดการแจ้งเตือนด้านบนแล้วเท่านั้น</string>
+    <string name="chat_handle_mark">รหัส %1$s</string>
+</resources>

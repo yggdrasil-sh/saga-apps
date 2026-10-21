@@ -130,7 +130,7 @@
     </plurals>
     <string name="chat_file_too_big">Файл слишком большой (макс. %1$d МБ).</string>
     <string name="chat_file_broken">Не удалось открыть вложение.</string>
-    <string name="chat_people_search">Имя или пользователь</string>
+    <string name="chat_people_search">Найти человека или группу</string>
     <string name="chat_people_hint">1–2 символа: только точные имена, с 3 – и части; нажми на человека (личный чат) или группу (групповой чат).</string>
     <string name="chat_not_ready">У %1$s ещё не настроены чаты</string>
     <string name="chat_create">Создать</string>

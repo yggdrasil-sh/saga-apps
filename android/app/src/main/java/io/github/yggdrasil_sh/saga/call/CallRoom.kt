@@ -255,6 +255,22 @@ object CallRoom {
     /** Hoert ein eigenes Geraet auf zu klingeln? Ja, sobald die Teilnehmerliste ein EIGENES Geraet zeigt */
     fun stopRinging(legs: List<CallLeg>, me: String): Boolean = legs.any { it.who == me }
 
+    /** Statuszeile im Raum, solange keine Verbindung steht (TT 65) */
+    enum class Wait { NONE, RINGING, WAITING, CONNECTING, PROBLEM }
+
+    /**
+     * connecting: Phase CONNECTING; links: bestehende Verbindungen; others: andere Geraete laut Teilnehmerliste;
+     * problem: zu einem davon kam aus einem benannten Grund keine Verbindung zustande (z. B. Sicherheitsnummer).
+     * Sind andere schon da, heisst es nicht mehr "Klingelt bei den anderen", sondern "Verbinde …" bzw. der Grund.
+     */
+    fun waitState(connecting: Boolean, ready: Boolean, group: Boolean, starter: Boolean, links: Int, others: Int, problem: Boolean): Wait = when {
+        !connecting || !ready || links > 0 -> Wait.NONE
+        others > 0 && problem -> Wait.PROBLEM
+        others > 0 -> Wait.CONNECTING
+        group && starter -> Wait.RINGING
+        else -> Wait.WAITING
+    }
+
     /** Hinweis, warum (noch) kein Beitritt geht */
     fun blockText(block: String?, limit: Int): UiText = when (block) {
         "old" -> UiText.Res(R.string.room_block_old)
@@ -270,9 +286,11 @@ object CallRoom {
      * Leiste fuer dieses Geraet aus GET /api/calls/active: eigenes anderes Geraet im Anruf -> "Anruf laeuft auf <Geraet>";
      * Gruppenanruf ohne eigenes Geraet -> "Gruppenanruf laeuft · n Geraete"; dieses Geraet schon dabei -> keine Leiste.
      */
-    fun runBar(calls: List<CallInfo>, me: String, myDevice: String, busy: String?): RunBar? {
+    fun runBar(calls: List<CallInfo>, me: String, myDevice: String, busy: String?, ended: Set<String> = emptySet()): RunBar? {
         for (c in calls) {
-            if (c.state == "ended" || c.id == busy || c.legs.isEmpty()) continue
+            // TT 64: als beendet bekannt (Live-Ereignis, Beitritt "schon beendet") -> keine Leiste, auch wenn die Liste
+            // des Servers noch nachhinkt
+            if (c.state == "ended" || c.id == busy || c.legs.isEmpty() || c.id in ended) continue
             if (c.legs.any { it.device == myDevice }) continue
             val mine = c.legs.filter { it.who == me }
             val on = (mine.firstOrNull { !it.companion } ?: mine.firstOrNull())?.devName?.ifEmpty { "?" }.orEmpty()

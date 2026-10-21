@@ -4,7 +4,7 @@
     <string name="call_cam_denied">Camera not allowed – please allow it for Saga in the Android settings.</string>
     <string name="call_ongoing_video">Ongoing video call</string>
     <string name="call_push_title">Calls in the background</string>
-    <string name="call_push_hint">Without a notification distributor, Saga only rings while the app is open. Set up UnifiedPush (e.g. ntfy) so calls also ring in the background.</string>
+    <string name="call_push_hint">While notifications are off on this device, Saga only rings while the app is open. Turn on notifications – Saga uses a distributor such as ntfy or, if none is installed, its own connection.</string>
     <string name="call_push_setup">Set up</string>
     <string name="call_push_later">Later</string>
     <string name="security_account_check">Your app account is “%1$s”. The browser shows the account signed in there – check that it says “%1$s” before you change anything.</string>

@@ -208,7 +208,7 @@
     <string name="login_not_saga">No Saga server found at this address. Please check the address.</string>
     <string name="login_probe_failed">Can\'t reach the server: %1$s</string>
     <string name="error_certificate">The server\'s certificate isn\'t trusted. With your own CA, install its certificate in Android settings (Security → Encryption &amp; credentials).</string>
-    <string name="error_no_https">The server doesn\'t answer via https. Check the address and port.</string>
+    <string name="error_no_https">The server doesn\'t answer via https. Check the address and port – for a server in your local network without a certificate, type http:// in front.</string>
     <string name="action_undo">Undo</string>
     <string name="action_open">Open</string>
     <string name="task_done_message">Task completed</string>

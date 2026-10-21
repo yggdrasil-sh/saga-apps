@@ -161,6 +161,10 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     private var retryJob: Job? = null
     private var retry0 = 0L
     private var retryN = 0
+    /** TT 67: Knoten, die in dieser Runde am Zertifikat scheiterten; anderer Fehler in dieser Runde; Runden nur Zertifikat */
+    private val certBad = LinkedHashSet<String>()
+    private var otherFail = false
+    private var certRounds = 0
     private var monJob: Job? = null
     private var candAt = 0L
     private var udpProbeAt = 0L
@@ -266,6 +270,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         roster()
         scope.launch {
             try {
+                newRound()
                 begin(blk.candidates, "join")
             } catch (e: CancellationException) {
                 throw e
@@ -488,6 +493,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         } catch (e: Exception) {
             log("knoten ${c.node}: ${e.message}")
             if (e is HttpErr && e.code == 404) throw CallEnded()
+            if (HornLogic.certError(e)) certBad.add(c.node) else otherFail = true
             bad[c.node] = System.currentTimeMillis() + HornLogic.BAD_MS
             list.getOrNull(i + 1)?.let { nx -> setNote(UiText.Res(R.string.horn_node_try_next, c.node, nx.node)) }
             tryList(list, why, i + 1)
@@ -981,6 +987,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         retryJob = null
         retry0 = 0
         retryN = 0
+        certRounds = 0
+        newRound()
         if (since == 0L) since = now
         setNote(null)
         mapAll()
@@ -1051,15 +1059,24 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             host.lost(UiText.Res(R.string.horn_lost))
             return
         }
+        // TT 67: alle Knoten lehnt TLS wegen des Zertifikats ab -> Grund nennen; nach CERT_ROUNDS Runden aufgeben statt
+        // endlos zu wiederholen (selbst signierte Knoten werden bewusst NICHT akzeptiert)
+        val cert = certBad.toList()
+        if (cert.isNotEmpty() && !otherFail) certRounds++ else certRounds = 0
+        if (HornLogic.giveUpCert(cert, otherFail, certRounds)) {
+            host.lost(UiText.Res(R.string.horn_cert_untrusted, cert.joinToString(", ")))
+            return
+        }
         retryN++
         val s = minOf(15, 2 * retryN)
-        setNote(UiText.Res(R.string.horn_retry, s))
+        setNote(if (cert.isNotEmpty() && !otherFail) UiText.Res(R.string.horn_cert_retry, cert.joinToString(", "), s) else UiText.Res(R.string.horn_retry, s))
         retryJob?.cancel()
         retryJob = scope.launch {
             delay(s * 1000L)
             if (closed) return@launch
             bad.clear()
             try {
+                newRound()
                 begin(host.cands(null, emptyList()), if (cur != null) "lost" else if (why == "join") "join" else "retry")
             } catch (e: CancellationException) {
                 throw e
@@ -1071,6 +1088,11 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                 retry(why)
             }
         }
+    }
+
+    private fun newRound() {
+        certBad.clear()
+        otherFail = false
     }
 
     private fun setNote(t: UiText?) {

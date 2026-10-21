@@ -630,8 +630,9 @@ private fun RoomLine(st: CallUiState, onDark: Boolean) {
     }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 4.dp)) {
         if (parts.isNotEmpty()) Text(parts.joinToString(" · "), color = fg, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+        // TT 68: im Knoten-Anruf (2.5) nicht "Braucht Saga 2.4" - dort fehlt diesen Personen ein Geraet, das Gruppenanrufe kann
         if (room.old.isNotEmpty()) Text(
-            stringResource(R.string.room_old_people, room.old.joinToString(", ")), color = fg,
+            stringResource(if (room.horn != null) R.string.room_old_people_horn else R.string.room_old_people, room.old.joinToString(", ")), color = fg,
             style = MaterialTheme.typography.labelSmall, textAlign = TextAlign.Center,
         )
     }

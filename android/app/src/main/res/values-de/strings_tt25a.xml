@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TT 2.5 Android (Live-Test): neue Texte -->
+<resources>
+    <string name="room_connecting_others">Verbinde mit den anderen …</string>
+    <string name="room_old_people_horn">Nicht eingeladen (kein Gerät für Gruppenanrufe): %1$s</string>
+    <string name="horn_cert_untrusted">Dem Zertifikat des Knotens %1$s vertraut dieses Gerät nicht (z. B. selbst signiert). Über diesen Knoten geht der Anruf hier nicht – bitte der Person Bescheid geben, die Saga betreut.</string>
+    <string name="horn_cert_retry">Zertifikat des Knotens %1$s nicht vertrauenswürdig – neuer Versuch in %2$d s …</string>
+    <string name="push_stream_needs_push">Wirkt erst, wenn Mitteilungen oben eingeschaltet sind.</string>
+    <string name="chat_handle_mark">Kennung %1$s</string>
+</resources>

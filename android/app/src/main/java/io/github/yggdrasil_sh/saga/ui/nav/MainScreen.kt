@@ -98,6 +98,8 @@ fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
     val ready by repo.ready.collectAsState()
     val needsLogin by repo.needsLogin.collectAsState()
     val server by repo.server.collectAsState()
+    // TT 8: anderes Konto (gleicher Server) -> frische Navigation, nicht der letzte Bildschirm des alten Kontos
+    val account by repo.account.collectAsState()
     val pendingPair by repo.pendingPair.collectAsState()
     val pendingShare by repo.pendingShare.collectAsState()
     val snackbar = remember { SnackbarHostState() }
@@ -136,7 +138,7 @@ fun SagaRoot(repo: SagaRepository, appScope: CoroutineScope) {
         if (ready) {                                             // erst nach dem Laden der Einstellungen (im Hintergrund)
             var everLoggedIn by remember { mutableStateOf(!needsLogin) }
             LaunchedEffect(needsLogin) { if (!needsLogin) everLoggedIn = true }
-            if (everLoggedIn) key(server) { MainScreen(repo, appScope) }
+            if (everLoggedIn) key(server, account) { MainScreen(repo, appScope) }
             if (needsLogin) LoginScreen(repo)
             pendingPair?.let { PairConfirmDialog(repo, it, appScope) }
             io.github.yggdrasil_sh.saga.ui.login.PairRejectedDialog(repo)

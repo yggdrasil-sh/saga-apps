@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.blocks.NoteLinks
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.data.RemoteCaps
 import io.github.yggdrasil_sh.saga.data.NcLogic
@@ -193,6 +194,14 @@ class PageEditor(
     var focusAtEnd = false
     /** Cursor-Position fuer focusRequest (Zeichen im Klartext), sonst Anfang bzw. Ende (focusAtEnd) */
     var focusOffset: Int? = null
+    /**
+     * TT 10: Zeichen, die nach Return noch im alten Feld ankamen, bevor der Fokus im neuen Block war ("Chritt" statt
+     * "Schritt") - das neue Feld uebernimmt sie, sobald es den Fokus hat.
+     */
+    /** TT 18: aktueller Titel einer Seite (Seitenliste), fuer Verweise im Text; null = unbekannt */
+    var titleOf: (Long) -> String? = { null }
+    var carry: String = ""
+    var carryAt = 0L
     var active by mutableStateOf<ActiveField?>(null)
 
     private var rev: Int? = null
@@ -305,7 +314,8 @@ class PageEditor(
         updatedAt = (p["updated"] as? JsonPrimitive)?.content?.toDoubleOrNull()
         converted = parsed.converted && !body.isNullOrBlank()
         ncBase = NcLogic.keys(parsed.doc)
-        doc = withStarter(parsed.doc)
+        // TT 18: Seitenverweise mit dem aktuellen Titel (Unterseite "Unbenannt" -> spaeter benannt), wie im Web
+        doc = withStarter(NoteLinks.refresh(parsed.doc, titleOf))
         version = 0
         savedVersion = 0
         fetched = true
