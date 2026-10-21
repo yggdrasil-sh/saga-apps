@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
 /**
  * TT 2.5 Nr. 67 auf dem Geraet, ohne Konto: der echte Fehler beim TLS-Aufbau zu einem Knoten mit selbst signiertem
  * Zertifikat (Teststand) wird als Zertifikatsfehler erkannt - Grundlage fuer die Meldung statt endloser Wiederholung.
- * Knoten per Argument: -e hornNode https://192.168.1.12:8245 (ohne Argument uebersprungen).
+ * Knoten per Argument: -e hornNode https://<knoten>:8245 (ohne Argument uebersprungen).
  */
 @RunWith(AndroidJUnit4::class)
 class Tt25HornCertDeviceTest {

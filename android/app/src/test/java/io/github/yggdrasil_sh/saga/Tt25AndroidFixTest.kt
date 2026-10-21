@@ -87,7 +87,7 @@ class Tt25AndroidFixTest {
 
     @Test
     fun t67_giveUpOnlyWhenAllNodesFailOnCertificate() {
-        val nodes = listOf("192.168.1.12")
+        val nodes = listOf("10.0.2.2")
         assertFalse(HornLogic.giveUpCert(nodes, other = false, rounds = 1))         // erste Runde: Grund nennen, noch einmal
         assertTrue(HornLogic.giveUpCert(nodes, other = false, rounds = HornLogic.CERT_ROUNDS))
         assertFalse(HornLogic.giveUpCert(nodes, other = true, rounds = 5))          // anderer Fehler dabei: Warten lohnt
@@ -197,7 +197,7 @@ class Tt25AndroidFixTest {
     fun t55_personDisplay() {
         val mark = { h: String -> "Kennung $h" }
         assertTrue(ChatLogic.opaque("~4wup3msnxxjvemea"))
-        assertTrue(ChatLogic.opaque("~4wup3msnxxjvemea@192.168.1.12:8242"))
+        assertTrue(ChatLogic.opaque("~4wup3msnxxjvemea@10.0.2.2:8242"))
         assertFalse(ChatLogic.opaque("Lea Sommer"))
         assertFalse(ChatLogic.opaque("lea.sommer"))
         assertNull(ChatLogic.personSub("~4wup3msnxxjvemea", sameName = false, mark))
