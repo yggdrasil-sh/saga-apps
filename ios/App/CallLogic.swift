@@ -190,6 +190,16 @@ enum CallLogic {
     static func chatOpenNeedsTwoSteps(chatsVisible: Bool) -> Bool { !chatsVisible }
 
     /// 65 -> "1:05", 3725 -> "1:02:05"
+    /// Knopfreihe im Anruf (2.5): Abstand und Breite je Knopf fuer n Knoepfe in w Punkten. Kreis 60 pt, Beschriftung bis
+    /// zwei Zeilen in der Knopfbreite (72-84 pt, zur Not 60); erst den Abstand verkleinern, dann die Breite
+    static func controlFit(count n: Int, width w: Double) -> (spacing: Double, width: Double) {
+        guard n > 0, w > 0 else { return (18, 72) }
+        for sp in [18.0, 10, 4] {
+            let cw = min(84, ((w - sp * Double(n - 1)) / Double(n)).rounded(.down))
+            if cw >= 72 { return (sp, cw) }
+        }
+        return (0, max(60, min(84, (w / Double(n)).rounded(.down))))   // sehr schmal: ohne Abstand (Kreise bleiben getrennt)
+    }
     static func duration(_ s: Int) -> String {
         let v = max(0, s)
         return v >= 3600 ? String(format: "%d:%02d:%02d", v / 3600, v / 60 % 60, v % 60) : String(format: "%d:%02d", v / 60, v % 60)

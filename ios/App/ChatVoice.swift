@@ -6,6 +6,10 @@ import AVFoundation
 // AVFoundation nativ (iOS/macOS 26: AVURLAsset, AVAudioFile) - daher ein AVPlayer ueber den Medien-Weg der Videos
 // (saga-media://, Range, blockweise entschluesselt) mit Tempo 1x/1,5x/2x. Ansichten: ChatVoiceViews.swift.
 
+/// Uebergabe eines frisch gelesenen Puffers an die Audio-Warteschlange: der Absender benutzt ihn danach nicht mehr,
+/// daher ist die Weitergabe zwischen den Threads sicher
+private struct PCMHandoff: @unchecked Sendable { let buf: AVAudioPCMBuffer }
+
 /// Fertige Aufnahme fuer Vorschau und Senden
 struct VoiceClip: Equatable {
     var data: Data
@@ -93,7 +97,8 @@ final class VoiceRecorder: ObservableObject {
             while !Task.isCancelled {
                 guard let b = AVAudioPCMBuffer(pcmFormat: f.processingFormat, frameCapacity: 4800) else { return }
                 if (try? f.read(into: b)) == nil || b.frameLength == 0 { return }
-                self?.q.async { self?.push(b) }
+                let box = PCMHandoff(buf: b)                                // wird hier nicht mehr angefasst
+                self?.q.async { self?.push(box.buf) }
                 try? await Task.sleep(for: .milliseconds(100))
             }
         }
@@ -145,10 +150,11 @@ final class VoiceRecorder: ObservableObject {
     @discardableResult func stop() async -> Bool {
         guard state == .recording else { return false }
         stopEngine()
+        let limit = maxS                                                    // Wert mitnehmen (nicht vom Main Actor lesen)
         let r: (Data, Double, [Float])? = await withCheckedContinuation { c in
             q.async { [self] in
                 guard let en = enc, let d = try? en.finish() else { c.resume(returning: nil); return }
-                c.resume(returning: (d, min(maxS, en.seconds), en.levels))
+                c.resume(returning: (d, min(limit, en.seconds), en.levels))
             }
         }
         enc = nil; conv = nil
@@ -239,10 +245,13 @@ final class VoicePlayer: ObservableObject {
         let item = AVPlayerItem(asset: asset)
         item.audioTimePitchAlgorithm = .timeDomain                       // schneller ohne Micky-Maus-Stimme
         currentID = id; duration = dur; position = from ?? 0; failed = nil; loading = true
-        statusObs = item.observe(\.status) { [weak self] it, _ in
+        statusObs = item.observe(\.status, options: [.initial, .new]) { [weak self] it, _ in
             Task { @MainActor in
                 guard let self, self.player.currentItem === it else { return }
-                if it.status == .failed { self.failed = String(localized: "Sprachnachricht nicht abspielbar."); self.playing = false; self.loading = false }
+                if it.status == .failed {                                   // nicht als "spielt" stehen lassen
+                    self.player.pause()
+                    self.failed = String(localized: "Sprachnachricht nicht abspielbar."); self.playing = false; self.loading = false
+                }
                 if it.status == .readyToPlay { self.loading = false }
             }
         }

@@ -44,17 +44,19 @@ struct VoiceMessageView: View {
         let dur = file.dur ?? 0
         let current = player.isCurrent(file.id)
         let pos = current ? player.position : 0
+        let failure = err ?? (current ? player.failed : nil)
+        let playing = current && player.playing && failure == nil
         HStack(spacing: 10) {
             Button { toggle() } label: {
                 ZStack {
                     Circle().fill(Color.gold)
                     if current && player.loading { ProgressView().controlSize(.small).tint(.black) }
-                    else { Image(systemName: current && player.playing ? "pause.fill" : "play.fill").foregroundStyle(.black).font(.body.weight(.bold)) }
+                    else { Image(systemName: playing ? "pause.fill" : "play.fill").foregroundStyle(.black).font(.body.weight(.bold)) }
                 }
-                .frame(width: 40, height: 40).contentShape(Circle())
+                .frame(width: 40, height: 40).padding(2).contentShape(Circle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel(current && player.playing ? Text("Pause") : Text("Sprachnachricht abspielen"))
+            .accessibilityLabel(playing ? Text("Pause") : Text("Sprachnachricht abspielen"))
             VStack(alignment: .leading, spacing: 4) {
                 GeometryReader { g in
                     VoiceWave(bars: VoiceLogic.bars(file.wf), played: VoiceLogic.played(position: pos, duration: dur))
@@ -71,16 +73,19 @@ struct VoiceMessageView: View {
                 }
                 HStack(spacing: 6) {
                     Text(verbatim: VoiceLogic.fmt(current && (player.playing || pos > 0) ? pos : dur)).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
-                    if let e = err ?? (current ? player.failed : nil) {
-                        Label(e, systemImage: "exclamationmark.triangle.fill").font(.caption2).foregroundStyle(.orange).lineLimit(1)
-                    }
                     Spacer(minLength: 0)
                     Button { player.cycleRate() } label: {
                         Text(verbatim: VoiceLogic.speedLabel(player.rate)).font(.caption2.weight(.bold).monospacedDigit())
                             .padding(.horizontal, 6).padding(.vertical, 2).background(Color.secondary.opacity(0.15), in: Capsule())
+                            .padding(.horizontal, 8).padding(.vertical, 12).contentShape(Rectangle())   // Trefferflaeche ~44 pt
+                            .padding(.horizontal, -8).padding(.vertical, -12)
                     }
                     .buttonStyle(.plain).help(Text("Tempo")).accessibilityLabel(Text("Tempo"))
                     .accessibilityValue(Text(verbatim: VoiceLogic.speedLabel(player.rate)))
+                }
+                if let e = failure {                                            // eigene Zeile: nicht abgeschnitten
+                    Label(e, systemImage: "exclamationmark.triangle.fill").font(.caption2).foregroundStyle(.orange)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
         }
@@ -105,9 +110,10 @@ extension VoicePlayer {
 enum VoicePlay {
     static func start(_ f: ChatFileRef, conv: ConversationModel, from: Double? = nil, error fail: @escaping (String?) -> Void = { _ in }) {
         fail(nil)
-        Task {
+        Task { [weak conv] in
             do {
-                let src = try await conv.voiceSource(f)
+                guard let c = conv else { return }
+                let src = try await c.voiceSource(f)
                 VoicePlayer.shared.play(id: f.id, source: src, duration: f.dur ?? 0, from: from) { [weak conv] in
                     guard let conv, let n = conv.voiceAfter(f.id) else { return }
                     start(n.1, conv: conv)
@@ -231,7 +237,8 @@ struct VoiceRecordBar: View {
                 }
                 .buttonStyle(.plain).foregroundStyle(Color.gold)
                 .accessibilityLabel(current && player.playing ? Text("Pause") : Text("Vorschau abspielen"))
-                VoiceWave(bars: c.wf, played: current ? VoiceLogic.played(position: player.position, duration: c.dur) : 0).frame(height: 26)
+                VoiceWave(bars: c.wf, played: current ? VoiceLogic.played(position: player.position, duration: c.dur) : 0)
+                    .frame(maxWidth: 280).frame(height: 26)                    // wie die Aufnahmeleiste (Mac: nicht fensterbreit)
                 Text(verbatim: progress.map { "\(Int(($0 * 100).rounded())) %" } ?? VoiceLogic.fmt(current ? player.position : c.dur))
                     .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                 Button(role: .destructive) { rec.cancel() } label: { Image(systemName: "trash") }

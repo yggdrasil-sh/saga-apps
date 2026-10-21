@@ -234,7 +234,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Удалить %@ из звонка"
+            "value" : "Исключить %@ из звонка"
           }
         },
         "th" : {
@@ -819,6 +819,108 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ กำลังแชร์หน้าจอ"
+          }
+        }
+      }
+    },
+    "%@ wird aus dem Anruf entfernt" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ wird aus dem Anruf entfernt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removing %@ from the call"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitando a %@ de la llamada"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ исключается из звонка"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "กำลังนำ %@ ออกจากการโทร"
+          }
+        }
+      }
+    },
+    "%@ wirklich entfernen?" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ wirklich entfernen?"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Really remove %@?"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Quitar de verdad a %@?"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Точно исключить %@?"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำ %@ ออกจริงหรือ?"
+          }
+        }
+      }
+    },
+    "%@ wirklich entfernen? Zum Bestätigen erneut tippen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ wirklich entfernen? Zum Bestätigen erneut tippen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Really remove %@? Tap again to confirm."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Quitar de verdad a %@? Toca de nuevo para confirmar."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Точно исключить %@? Нажмите ещё раз для подтверждения."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำ %@ ออกจริงหรือ? แตะอีกครั้งเพื่อยืนยัน"
           }
         }
       }
@@ -1641,6 +1743,100 @@
         }
       }
     },
+    "%lld weitere Teilnehmende – nach unten blättern" : {
+      "localizations" : {
+        "de" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld weitere Person – nach unten blättern"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld weitere Teilnehmende – nach unten blättern"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld more participant – scroll down"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld more participants – scroll down"
+                }
+              }
+            }
+          }
+        },
+        "es" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld participante más: desplázate hacia abajo"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld participantes más: desplázate hacia abajo"
+                }
+              }
+            }
+          }
+        },
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ещё %lld участник – прокрутите вниз"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ещё %lld участника – прокрутите вниз"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ещё %lld участников – прокрутите вниз"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Ещё %lld участника – прокрутите вниз"
+                }
+              }
+            }
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ผู้เข้าร่วมอีก %lld คน – เลื่อนลง"
+          }
+        }
+      }
+    },
     "%lld überfällig" : {
       "localizations" : {
         "de" : {
@@ -1990,6 +2186,64 @@
     },
     "+%lld" : {
       "shouldTranslate" : false
+    },
+    "+%lld weitere" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld weitere"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld more"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld más"
+          }
+        },
+        "ru" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "ещё %lld"
+                }
+              },
+              "few" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "ещё %lld"
+                }
+              },
+              "many" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "ещё %lld"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "ещё %lld"
+                }
+              }
+            }
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld เพิ่มเติม"
+          }
+        }
+      }
     },
     "A in Prozent von B" : {
       "localizations" : {
@@ -3079,6 +3333,40 @@
         }
       }
     },
+    "Danach folgt eine Rückfrage" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Danach folgt eine Rückfrage"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You will be asked to confirm"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se pedirá confirmación"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Потребуется подтверждение"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "จะมีการขอให้ยืนยัน"
+          }
+        }
+      }
+    },
     "Das ging gerade nicht." : {
       "localizations" : {
         "de" : {
@@ -3453,6 +3741,74 @@
         }
       }
     },
+    "Entfernen (Anruf)" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entfernen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remove"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quitar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Исключить"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นำออก"
+          }
+        }
+      }
+    },
+    "Entfernen abgebrochen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Entfernen abgebrochen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Removal cancelled"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se canceló quitar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Исключение отменено"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยกเลิกการนำออกแล้ว"
+          }
+        }
+      }
+    },
     "Gedrückt halten zum Aufnehmen" : {
       "localizations" : {
         "de" : {
@@ -3521,36 +3877,36 @@
         }
       }
     },
-    "Höchstens 15 Minuten – Aufnahme beendet." : {
+    "Höchstens %@ – Aufnahme beendet." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Höchstens 15 Minuten – Aufnahme beendet."
+            "value" : "Höchstens %@ – Aufnahme beendet."
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "At most 15 minutes – recording stopped."
+            "value" : "At most %@ – recording stopped."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Como máximo 15 minutos: grabación terminada."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "สูงสุด 15 นาที – หยุดบันทึกแล้ว"
+            "value" : "Como máximo %@: grabación terminada."
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Не более 15 минут – запись остановлена."
+            "value" : "Не более %@ – запись остановлена."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สูงสุด %@ – หยุดบันทึกแล้ว"
           }
         }
       }
@@ -3711,6 +4067,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Нет доступа к микрофону – разрешите его в настройках."
+          }
+        }
+      }
+    },
+    "Knoten" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Knoten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Node"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nodo"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Узел"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โหนด"
           }
         }
       }
@@ -4317,6 +4707,40 @@
         }
       }
     },
+    "Verbindung" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verbindung"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Conexión"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Соединение"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การเชื่อมต่อ"
+          }
+        }
+      }
+    },
     "Verbindung zum Knoten %@ unterbrochen – wechsle …" : {
       "localizations" : {
         "de" : {
@@ -4385,12 +4809,12 @@
         }
       }
     },
-    "Vergleicht die sechs Runen, zum Beispiel durch Vorlesen. Sehen alle dieselben, sind genau die Geräte in der Teilnehmerliste im Anruf – niemand sonst kann mithören, auch nicht der Server oder der Knoten." : {
+    "Vergleicht die sechs Runen, zum Beispiel durch Vorlesen. Sehen alle dieselben, sind genau die Geräte unter „Teilnehmende“ im Anruf – niemand sonst kann mithören, auch nicht der Server oder der Knoten." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Vergleicht die sechs Runen, zum Beispiel durch Vorlesen. Sehen alle dieselben, sind genau die Geräte in der Teilnehmerliste im Anruf – niemand sonst kann mithören, auch nicht der Server oder der Knoten."
+            "value" : "Vergleicht die sechs Runen, zum Beispiel durch Vorlesen. Sehen alle dieselben, sind genau die Geräte unter „Teilnehmende“ im Anruf – niemand sonst kann mithören, auch nicht der Server oder der Knoten."
           }
         },
         "en" : {
@@ -4402,7 +4826,7 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Comparad las seis runas, por ejemplo leyéndolas en voz alta. Si todos ven las mismas, en la llamada están exactamente los dispositivos de la lista de participantes – nadie más puede escuchar, ni siquiera el servidor o el nodo."
+            "value" : "Comparen las seis runas, por ejemplo leyéndolas en voz alta. Si todos ven las mismas, en la llamada están exactamente los dispositivos de la lista de participantes – nadie más puede escuchar, ni siquiera el servidor o el nodo."
           }
         },
         "ru" : {
@@ -4415,6 +4839,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "เปรียบเทียบรูนทั้งหกตัว เช่น อ่านออกเสียง ถ้าทุกคนเห็นเหมือนกัน แสดงว่ามีเพียงอุปกรณ์ในรายชื่อผู้เข้าร่วมเท่านั้นที่อยู่ในการโทร – ไม่มีใครแอบฟังได้ แม้แต่เซิร์ฟเวอร์หรือโหนด"
+          }
+        }
+      }
+    },
+    "Verlust" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verlust"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loss"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pérdida"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Потери"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สูญหาย"
           }
         }
       }
@@ -4449,6 +4907,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "สูญหาย %@"
+          }
+        }
+      }
+    },
+    "Weg" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Weg"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Path"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ruta"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Путь"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เส้นทาง"
           }
         }
       }
@@ -4510,7 +5002,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Точно удалить?"
+            "value" : "Точно исключить?"
           }
         },
         "th" : {
@@ -7878,19 +8370,19 @@
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sonido desactivado"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ปิดเสียง"
+            "value" : "Desactivar sonido"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Звук выкл."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิดเสียง"
           }
         }
       }
@@ -8847,6 +9339,40 @@
         }
       }
     },
+    "Zeigt Einzelheiten zur Verbindung" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zeigt Einzelheiten zur Verbindung"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shows connection details"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Muestra detalles de la conexión"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Показывает сведения о соединении"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แสดงรายละเอียดการเชื่อมต่อ"
+          }
+        }
+      }
+    },
     "Zu kurz – nicht gesendet." : {
       "localizations" : {
         "de" : {
@@ -8979,6 +9505,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Удерживайте для записи – сдвиньте вверх, чтобы закрепить."
+          }
+        }
+      }
+    },
+    "Zum Bestätigen erneut tippen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Zum Bestätigen erneut tippen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap again to confirm"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Toca de nuevo para confirmar"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Нажмите ещё раз для подтверждения"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แตะอีกครั้งเพื่อยืนยัน"
           }
         }
       }
@@ -52807,7 +53367,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Выключить микрофон"
+            "value" : "Выключить звук"
           }
         },
         "th" : {
@@ -52841,7 +53401,7 @@
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Включить микрофон"
+            "value" : "Включить звук"
           }
         },
         "th" : {

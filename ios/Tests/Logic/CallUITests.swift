@@ -23,6 +23,13 @@ func callUITests() {
     check(!L.showsCallBar(phase: "ended", minimized: true, separateWindow: false), "Ende: Leiste weg")
     check(!L.showsCallBar(phase: "idle", minimized: true, separateWindow: true), "idle: keine Leiste")
 
+    // 2.5: Knopfreihe - iPhone (378 pt, 5 Knoepfe) 72 pt je Knopf, Mac breit 84 pt, sehr schmal mindestens 60 pt
+    check(L.controlFit(count: 5, width: 378) == (4, 72), "iPhone: fuenf Knoepfe je 72 pt")
+    check(L.controlFit(count: 4, width: 1000) == (18, 84), "Mac: breit, 84 pt")
+    check(L.controlFit(count: 5, width: 300).width == 60, "sehr schmal: mindestens 60 pt")
+    check(L.controlFit(count: 5, width: 0) == (18, 72), "noch nicht gemessen: Vorgabe")
+    for n in 3...5 { let f = L.controlFit(count: n, width: 420); check(f.width * Double(n) + f.spacing * Double(n - 1) <= 420, "\(n) Knoepfe passen in 420 pt") }
+
     // Hinweis im Chat: nur im Chat des laufenden Anrufs
     check(L.chatHasCall(phase: "active", callChat: 7, chatID: 7), "Chat des Anrufs: Hinweis")
     check(!L.chatHasCall(phase: "active", callChat: 7, chatID: 8), "anderer Chat: kein Hinweis")

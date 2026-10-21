@@ -2,7 +2,7 @@
 import SwiftUI
 
 // Nur fuer Bilder (Debug-Build, ohne Server): Chat mit Reaktionen, "bearbeitet", Sprachnachricht, Bearbeiten-Leiste,
-// Aufnahme und Vorschau - mit erfundenem Zustand. Start: -hkX3Preview chat|record|preview|who|bar [-hkX3Dark YES]
+// Aufnahme und Vorschau - mit erfundenem Zustand. Start: -hkX3Preview chat|record|preview|who|bar|menu [-hkX3Menu m3] [-hkX3Dark YES]
 // (Mac zusammen mit -hkSnapshot <pfad.png>; iPhone/iPad: xcrun simctl io <id> screenshot).
 
 enum X3Preview {
@@ -32,7 +32,7 @@ struct X3PreviewView: View {
                                     .overlay(alignment: .top) {
                                         if mode == "bar" && m.id == "m2" {
                                             ReactionBar(current: "👍", pick: { _ in }, more: {})
-                                                .background(.regularMaterial, in: Capsule()).shadow(radius: 8).offset(y: -58)
+                                                .background(.regularMaterial, in: Capsule()).shadow(radius: 8).offset(y: -64)
                                         }
                                     }
                             }

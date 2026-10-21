@@ -58,6 +58,8 @@ final class Store: ObservableObject {
     /// Eigenes Profilbild (2.1, aus /api/account): relative Adresse oder nil
     @Published var myAvatar: String?
     @Published var error: String?
+    /// 2.5: Fehler eines Links von aussen (z. B. kaputter Kopplungslink) - die Anmeldung zeigt ihn unter dem Feld
+    @Published var linkError: String?
     @Published var tasks: [OpenTask] = []
     @Published var doneTasks: [OpenTask] = []
     @Published var events: [CalEvent] = []

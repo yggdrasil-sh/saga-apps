@@ -220,6 +220,13 @@ enum HornLogic {
         }
         return (list, max(0, devs.count - maxTiles))
     }
+    /// Raster: Kacheln, die (noch) nicht ganz sichtbar sind - n Kacheln in cols Spalten, Zeilenhoehe h, Abstand sp,
+    /// seenBottom = unterer Rand des sichtbaren Bereichs (Blaetterstand + Hoehe). Fuer den Hinweis "+n weitere"
+    static func hiddenTiles(_ n: Int, cols: Int, rowHeight h: Double, spacing sp: Double, seenBottom: Double) -> Int {
+        guard n > 0, cols > 0, h > 0 else { return 0 }
+        let rows = max(0, Int(((seenBottom + sp + 0.5) / (h + sp)).rounded(.down)))   // ganz sichtbare Zeilen
+        return max(0, n - rows * cols)
+    }
     static func lastN(mobile: Bool) -> Int { mobile ? lastNMobile : lastNDesktop }
     /// Kachelplaetze je Bild-Leitung (der Sprecherplatz zaehlt bei Last-N mit)
     static func tileSlots(mobile: Bool) -> Int { lastN(mobile: mobile) - 1 }

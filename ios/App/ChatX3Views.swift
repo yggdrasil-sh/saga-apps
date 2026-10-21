@@ -7,9 +7,10 @@ import AppKit
 
 // Reaktionen und Bearbeiten (Saga 2.5): Schnellleiste (6 Emojis + "+" mit der System-Emoji-Auswahl), Chips unter der
 // Blase (Emoji + Zahl, eigene hervorgehoben), "Reaktionen von …", Hinweis "bearbeitet", Leiste "Bearbeiten · Abbrechen".
-// iPhone/iPad: langes Druecken (Leiste oben im Kontextmenue); Mac: Ueberfahren (Knopf neben der Blase) und Rechtsklick.
+// iPhone/iPad: langes Druecken (eigene schwebende Leiste an der Nachricht, darunter die Aktionen); Mac: Ueberfahren (Knopf
+// neben der Blase) und Rechtsklick (Kontextmenue mit Palette).
 
-/// Schnellleiste als Palette im Kontextmenue (oben, waagerecht)
+/// Schnellleiste als Palette im Kontextmenue (Mac, oben, waagerecht)
 struct ReactionMenuPalette: View {
     let current: String?
     var pick: (String) -> Void
@@ -26,25 +27,29 @@ struct ReactionMenuPalette: View {
     }
 }
 
-/// Schnellleiste als eigene Ansicht (Mac: Popover beim Ueberfahren; Vorschau-Bilder)
+/// Schnellleiste als eigene Ansicht (iPhone/iPad: schwebend an der Nachricht; Mac: Popover beim Ueberfahren).
+/// Jeder Knopf 44 pt, Emojis in voller Groesse (wie die Reaktions-Chips, nur groesser)
 struct ReactionBar: View {
     let current: String?
     var pick: (String) -> Void
     var more: () -> Void
+    static let size: CGFloat = 44
     var body: some View {
         HStack(spacing: 2) {
             ForEach(ChatX3.quick, id: \.self) { e in
                 Button { pick(e) } label: {
-                    Text(verbatim: e).font(.title2).frame(width: 40, height: 40)
+                    Text(verbatim: e).font(.system(size: 28)).frame(width: Self.size, height: Self.size)
                         .background(current == e ? Color.gold.opacity(0.28) : .clear, in: Circle())
+                        .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text(verbatim: e))
                 .accessibilityAddTraits(current == e ? .isSelected : [])
             }
             Button { more() } label: {
-                Image(systemName: "plus").font(.body.weight(.semibold)).frame(width: 40, height: 40)
+                Image(systemName: "plus").font(.title3.weight(.semibold)).frame(width: Self.size, height: Self.size)
                     .background(Color.secondary.opacity(0.14), in: Circle())
+                    .contentShape(Circle())
             }
             .buttonStyle(.plain)
             .help(Text("Weitere Emojis")).accessibilityLabel(Text("Weitere Emojis"))
@@ -52,6 +57,64 @@ struct ReactionBar: View {
         .padding(6)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("Reagieren"))
+    }
+}
+
+/// Aktion einer Nachricht (Antworten, Bearbeiten, ...); sheet = oeffnet ein Blatt bzw. eine Rueckfrage
+struct BubbleAction: Identifiable {
+    let id: String
+    let title: LocalizedStringKey
+    let icon: String
+    var destructive = false
+    var sheet = false
+    let run: () -> Void
+}
+
+/// iPhone/iPad: schwebend an der Nachricht - Reaktionsleiste oben (passt sie nicht, seitlich blaetterbar), darunter die Aktionen
+struct BubbleActionsPanel: View {
+    let current: String?
+    let canReact: Bool
+    let actions: [BubbleAction]
+    var pick: (String) -> Void
+    var more: () -> Void
+    var run: (BubbleAction) -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if canReact {
+                ViewThatFits(in: .horizontal) {
+                    bar
+                    ScrollView(.horizontal) { bar }.scrollIndicators(.visible)
+                }
+                Divider()
+            }
+            ForEach(actions) { a in
+                Button { run(a) } label: {
+                    HStack(spacing: 12) {
+                        Text(a.title)
+                        Spacer(minLength: 16)
+                        Image(systemName: a.icon).frame(width: 24)
+                    }
+                    .font(.body)
+                    .padding(.horizontal, 16).frame(minHeight: 46).contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(a.destructive ? Color.red : Color.primary)
+                if a.id != actions.last?.id { Divider().padding(.leading, 16) }
+            }
+        }
+        .frame(minWidth: 260)
+    }
+    private var bar: some View { ReactionBar(current: current, pick: pick, more: more) }
+}
+
+extension View {
+    /// Text auswaehlbar nur am Mac (iPhone/iPad: langes Druecken oeffnet die Aktionen, "Text kopieren" ist dort)
+    @ViewBuilder func selectableOnMac() -> some View {
+        #if os(macOS)
+        self.textSelection(.enabled)
+        #else
+        self
+        #endif
     }
 }
 
@@ -74,6 +137,7 @@ struct ReactionChips: View {
                     .padding(.horizontal, 8).padding(.vertical, 3)
                     .background(c.mine ? Color.gold.opacity(0.24) : Color.secondary.opacity(0.12), in: Capsule())
                     .overlay(Capsule().strokeBorder(c.mine ? Color.gold.opacity(0.8) : .clear, lineWidth: 1))
+                    .padding(.vertical, 8).contentShape(Rectangle()).padding(.vertical, -8)   // Trefferflaeche ~41 pt hoch
                 }
                 .buttonStyle(.plain)
                 .contextMenu { Button { who(c) } label: { Label("Reaktionen von …", systemImage: "person.2") } }

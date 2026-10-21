@@ -138,6 +138,11 @@ final class HornLogicTests: XCTestCase {
         XCTAssertEqual([1, 4, 9, 16, 25, 5, 10, 17].map { H.cols($0, width: 1280) }, [1, 2, 3, 4, 5, 3, 4, 5])
         XCTAssertEqual(H.cols(1, width: 390), 1); XCTAssertEqual(H.cols(12, width: 390), 2)
         XCTAssertEqual(H.lastN(mobile: false), 9); XCTAssertEqual(H.lastN(mobile: true), 4)
+        // "+n weitere": 12 Kacheln, 4 Spalten, Zeile 90 + 8; sichtbar 2 ganze Zeilen -> 4 verborgen; alles gesehen -> 0
+        XCTAssertEqual(H.hiddenTiles(12, cols: 4, rowHeight: 90, spacing: 8, seenBottom: 200), 4)
+        XCTAssertEqual(H.hiddenTiles(12, cols: 4, rowHeight: 90, spacing: 8, seenBottom: 286), 0)
+        XCTAssertEqual(H.hiddenTiles(12, cols: 4, rowHeight: 90, spacing: 8, seenBottom: 280), 4)
+        XCTAssertEqual(H.hiddenTiles(0, cols: 4, rowHeight: 90, spacing: 8, seenBottom: 10), 0)
         XCTAssertEqual(H.tileSlots(mobile: true), 3); XCTAssertEqual(H.tileSlots(mobile: false), 8)
         let devs = (0..<30).map { "d\($0)" }, mv = Set(devs.prefix(9))
         let tl = H.tiles(devs, moving: mv, speaker: "d12", view: "grid")

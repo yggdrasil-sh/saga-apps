@@ -10,6 +10,10 @@ struct CallScreen: View {
     var close: () -> Void = {}
     /// Hoehe der Kopfzeile (Verschluesselung, Ton-Diagnose): das eigene Kamerabild beginnt darunter
     @State private var headerHeight: CGFloat = 0
+    /// Hoehe der Steuerknoepfe samt Dauer (Buehne, Teilnehmerliste und Runensiegel enden darueber)
+    @State private var controlsHeight: CGFloat = 0
+    /// Breite fuer die Knopfreihe (feste Aufteilung statt ViewThatFits: genau eine Reihe im Baum, auch fuer VoiceOver)
+    @State private var rowWidth: CGFloat = 0
     /// Farbschema des Systems (2.5: Teilnehmerliste/Runensiegel folgen hell/dunkel, das Anruf-Fenster bleibt dunkel)
     @Environment(\.colorScheme) private var systemScheme
     var body: some View {
@@ -19,11 +23,11 @@ struct CallScreen: View {
             if let H = calls.horn, showHorn {
                 // 2.5: Gruppenanruf ueber einen Knoten (Kacheln bis 25, Sprecher, Bildschirm)
                 HornStage(calls: calls, horn: H)
-                    .padding(.top, 24 + headerHeight + 10).padding(.bottom, 170).padding(.horizontal, 10)
+                    .padding(.top, 24 + headerHeight + 10).padding(.bottom, bottomInset).padding(.horizontal, 10)
             } else if showTiles {
                 // 2.4 E4/E5: Kachelansicht (Gruppe bzw. mehrere sichtbare Verbindungen), Sprecher hervorgehoben
                 CallTileGrid(calls: calls)
-                    .padding(.top, 24 + headerHeight + 10).padding(.bottom, 170).padding(.horizontal, 10)
+                    .padding(.top, 24 + headerHeight + 10).padding(.bottom, bottomInset).padding(.horizontal, 10)
             } else if showRemoteVideo {
                 // 2.4 E3: Bildschirm gross und ganz sichtbar (aspect fit), Kamera klein; "Ansicht tauschen" tauscht
                 RTCVideoBox(track: bigTrack, fill: !bigIsScreen).ignoresSafeArea()
@@ -35,7 +39,7 @@ struct CallScreen: View {
                 if calls.phase == .incoming { incomingButtons } else if calls.phase == .ended { endedBlock } else { controls }
             }
             .padding(.horizontal, 20).padding(.vertical, 24)
-            if calls.cam, let t = calls.localVideo, calls.phase != .incoming, calls.phase != .ended {
+            if calls.cam, let t = calls.localVideo, calls.phase != .incoming, calls.phase != .ended, !showHorn {   // Knoten: eigene Kachel
                 RTCVideoBox(track: t, mirror: calls.frontCamera)                 // Rueckkamera nicht spiegeln (Schrift lesbar)
                     .accessibilityLabel(Text("Eigenes Kamerabild"))
                     .frame(width: 110, height: 160).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -68,7 +72,7 @@ struct CallScreen: View {
                 .padding(.top, 24 + headerHeight + 10).padding(.leading, 16)
             }
             if calls.screenHint { ScreenHintCard(calls: calls) }
-            if let H = calls.horn { HornOverlays(calls: calls, horn: H, scheme: systemScheme) }
+            if let H = calls.horn { HornOverlays(calls: calls, horn: H, scheme: systemScheme, top: 24 + headerHeight, bottom: bottomInset - 10) }
         }
         #if os(iOS)
         .background { BroadcastPickerHost(capture: calls.capture).frame(width: 1, height: 1).allowsHitTesting(false) }
@@ -105,6 +109,8 @@ struct CallScreen: View {
         .dynamicTypeSize(...DynamicTypeSize.accessibility3)                 // groesste Stufen: Name/Status passen noch neben die Knoepfe
     }
 
+    /// Abstand unten fuer Buehne und Ebenen: Steuerknoepfe samt Dauer (gemessen) plus Rand
+    private var bottomInset: CGFloat { max(170, controlsHeight + 24 + 10) }
     /// 2.5: Knoten-Anruf (Buehne statt Einzelansicht)
     private var showHorn: Bool { calls.horn != nil && (calls.phase == .active || calls.phase == .connecting || calls.phase == .ringingOut) }
     private var showRemoteVideo: Bool { !showHorn && !showTiles && calls.remoteVideo != nil && (calls.remote.cam || calls.remote.screen) && (calls.phase == .active || calls.phase == .connecting) }
@@ -243,17 +249,34 @@ struct CallScreen: View {
                     .padding(.horizontal, 12).padding(.vertical, 6).background(.black.opacity(0.45), in: Capsule())
             }
             companionBlock
-            ViewThatFits(in: .horizontal) {
-                controlRow(spacing: 18, width: 72)
-                controlRow(spacing: 6, width: 72)
-                controlRow(spacing: 4, width: 62)                            // 2.4: fuenf Knoepfe auf dem iPhone
-            }
-            .dynamicTypeSize(...DynamicTypeSize.xxxLarge)                   // Bedienungshilfen-Groessen: Auflegen bleibt erreichbar
+            let fit = CallLogic.controlFit(count: controlCount, width: Double(rowWidth > 0 ? rowWidth : 320))
+            // verfuegbare Breite ueber eine leere Flaeche messen (nicht ueber die Reihe selbst: keine Rueckkopplung)
+            Color.clear.frame(maxWidth: .infinity, maxHeight: 0)
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rowWidth = $0 }
+                .padding(.horizontal, -8)                                     // etwas mehr Breite fuer zweizeilige Beschriftungen
+                .padding(.bottom, -10)                                        // kein zusaetzlicher Abstand im Stapel
+                .accessibilityHidden(true)
+            controlRow(spacing: fit.spacing, width: fit.width)
+                .frame(maxWidth: .infinity)
+                .padding(.horizontal, -8)
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)               // Bedienungshilfen-Groessen: Auflegen bleibt erreichbar
         }
         .padding(.bottom, 6)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { controlsHeight = $0 }
+    }
+    /// Zahl der Knoepfe in der Reihe (wie controlRow)
+    private var controlCount: Int {
+        var n = 3                                                             // Mikrofon, Kamera, Auflegen
+        if calls.phase == .active { n += 1 }
+        if calls.companion || !calls.sound { n += 1 } else {
+            #if os(iOS)
+            if UIDevice.current.userInterfaceIdiom == .phone { n += 1 }
+            #endif
+        }
+        return n
     }
     private func controlRow(spacing: CGFloat, width: CGFloat) -> some View {
-        HStack(spacing: spacing) {
+        HStack(alignment: .top, spacing: spacing) {
             toggle(calls.mic ? "mic.fill" : "mic.slash.fill", calls.mic ? String(localized: "Stumm") : String(localized: "Ton an"), on: !calls.mic, width: width) { calls.toggleMic() }
             toggle(calls.cam ? "video.fill" : "video.slash.fill", calls.cam ? String(localized: "Kamera aus") : String(localized: "Kamera an"), on: !calls.cam, width: width) { calls.toggleCam() }
             if calls.phase == .active {                                       // 2.4 E3: Bildschirm teilen
@@ -344,9 +367,12 @@ struct CallScreen: View {
         .buttonStyle(.plain).accessibilityLabel(Text(verbatim: label)).accessibilityAddTraits(on ? .isSelected : [])
         .accessibilityShowsLargeContentViewer { Label(label, systemImage: icon) }
     }
-    /// Feste Breite je Knopf: lange Beschriftungen (es/de, grosse Schrift) werden kleiner statt die Zeile zu sprengen
+    /// Feste Breite je Knopf, bis zu zwei Zeilen, nie unter 11 pt; alle oben ausgerichtet
     private func buttonLabel(_ label: String, width: CGFloat = 72) -> some View {
-        Text(verbatim: label).font(.caption2).lineLimit(1).minimumScaleFactor(0.6).frame(width: width)
+        // schmal (iPhone, 5 Knoepfe): 11 pt, damit auch "Lautsprecher" ungetrennt passt; breit: 12 pt
+        Text(verbatim: label).font(width >= 80 ? .caption : .caption2).lineLimit(2).multilineTextAlignment(.center)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(width: width, alignment: .top)
     }
 }
 

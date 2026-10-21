@@ -94,7 +94,8 @@ struct ConversationView: View {
             ChatPerf.begin()                                                                // nur fuer Tests: Messung
             #endif
             rec.maxS = chat.me.x3.limits.voiceMaxS; rec.kbps = chat.me.x3.limits.voiceKbps   // 2.5: Grenzen des Servers
-            rec.onLimit = { [weak rec] in Task { await rec?.stop() }; chat.toast = String(localized: "Höchstens 15 Minuten – Aufnahme beendet.") }
+            let r = rec, limit = VoiceLogic.fmt(rec.maxS)                                     // Grenze des Servers im Text
+            rec.onLimit = { [weak r] in Task { await r?.stop() }; chat.toast = String(localized: "Höchstens \(limit) – Aufnahme beendet.") }
             await conv.load()
             chat.presenceSoon()                                                             // 2.4: Online-Status des Gegenuebers
             #if DEBUG
@@ -647,6 +648,7 @@ struct MessageBubble: View {
     @State private var rxWho: RxWho?                              // 2.5: "Reaktionen von …"
     @State private var hover = false                              // 2.5: Mac - Reagieren beim Ueberfahren
     @State private var rxBar = false
+    @State private var actions = false                            // 2.5 iPhone/iPad: langes Druecken -> Leiste + Aktionen
     struct RxWho: Identifiable { var e: String?; var id: String { e ?? "*" } }
     @EnvironmentObject var store: Store
     /// bestaetigte KI-Antwort (2.1): links mit Bild + Name der KI, "gefragt von …"
@@ -700,22 +702,39 @@ struct MessageBubble: View {
             #if os(macOS)
             .onHover { hover = $0 }
             #endif
+            #if os(iOS)
+            // 2.5: eigene schwebende Leiste statt Kontextmenue-Palette (die war auf iPhone/iPad abgeschnitten): Emojis in
+            // voller Groesse (44 pt), darunter die Aktionen; passt auf allen Groessen, zur Not seitlich blaetterbar
+            .onLongPressGesture(minimumDuration: 0.35) { actions = true }
+            .sensoryFeedback(.impact(weight: .medium), trigger: actions) { _, on in on }
+            .popover(isPresented: $actions, attachmentAnchor: .rect(.bounds)) {
+                BubbleActionsPanel(current: conv.myReaction(m), canReact: conv.canReact(m), actions: bubbleActions,
+                                   pick: { e in actions = false; conv.react(m, e) },
+                                   more: { actions = false; later { pickEmoji = true } },
+                                   run: { a in actions = false; if a.sheet { later(a.run) } else { a.run() } })
+                    .presentationCompactAdaptation(.popover)
+            }
+            .accessibilityActions {
+                if conv.canReact(m) { Button { actions = true } label: { Text("Reagieren") } }
+                ForEach(bubbleActions) { a in Button { a.run() } label: { Text(a.title) } }
+            }
+            #if DEBUG
+            .task {                                                           // nur Bilder: -hkX3Preview menu [-hkX3Menu m3]
+                if X3Preview.mode == "menu" && m.id == (UserDefaults.standard.string(forKey: "hkX3Menu") ?? "m2") {
+                    try? await Task.sleep(for: .seconds(1.2)); actions = true
+                }
+            }
+            #endif
+            #else
             .contextMenu {
                 if conv.canReact(m) {                                          // 2.5: Schnellleiste oben im Menue
                     ReactionMenuPalette(current: conv.myReaction(m), pick: { conv.react(m, $0) }, more: { pickEmoji = true })
                 }
-                Button { reply() } label: { Label("Antworten", systemImage: "arrowshape.turn.up.left") }
-                if conv.canEdit(m) { Button { edit() } label: { Label("Bearbeiten", systemImage: "pencil") } }
-                if !conv.chips(m).isEmpty { Button { rxWho = RxWho(e: nil) } label: { Label("Reaktionen von …", systemImage: "face.smiling") } }
-                if !m.text.isEmpty { Button { copyText(m.text) } label: { Label("Text kopieren", systemImage: "doc.on.doc") } }
-                if m.mine && m.delivery == .failed && m.content != nil {
-                    Button { Task { await conv.resend(m) } } label: { Label("Erneut senden", systemImage: "arrow.clockwise") }
+                ForEach(bubbleActions) { a in
+                    Button(role: a.destructive ? .destructive : nil) { a.run() } label: { Label(a.title, systemImage: a.icon) }
                 }
-                if mine && conv.isGroup && conv.receiptsActive && m.delivery == .delivered {   // 2.4
-                    Button { readBy = true } label: { Label("Gelesen von …", systemImage: "checkmark.circle") }
-                }
-                if m.mine { Button(role: .destructive) { delete() } label: { Label("Für alle löschen", systemImage: "trash") } }
             }
+            #endif
             .sheet(isPresented: $readBy) { ReadBySheet(conv: conv, message: m) }
             .sheet(isPresented: $pickEmoji) { EmojiPickSheet { conv.react(m, $0) } }
             .sheet(item: $rxWho) { w in ReactionsWhoSheet(conv: conv, message: m, only: w.e) }
@@ -724,6 +743,23 @@ struct MessageBubble: View {
             if !mine { Spacer(minLength: 48) }
         }
     }
+    /// Aktionen einer Nachricht (Mac: Kontextmenue; iPhone/iPad: unter der Reaktionsleiste und fuer VoiceOver)
+    private var bubbleActions: [BubbleAction] {
+        var a: [BubbleAction] = [BubbleAction(id: "reply", title: "Antworten", icon: "arrowshape.turn.up.left") { reply() }]
+        if conv.canEdit(m) { a.append(BubbleAction(id: "edit", title: "Bearbeiten", icon: "pencil") { edit() }) }
+        if !conv.chips(m).isEmpty { a.append(BubbleAction(id: "who", title: "Reaktionen von …", icon: "face.smiling", sheet: true) { rxWho = RxWho(e: nil) }) }
+        if !m.text.isEmpty { a.append(BubbleAction(id: "copy", title: "Text kopieren", icon: "doc.on.doc") { copyText(m.text) }) }
+        if m.mine && m.delivery == .failed && m.content != nil {
+            a.append(BubbleAction(id: "resend", title: "Erneut senden", icon: "arrow.clockwise") { Task { await conv.resend(m) } })
+        }
+        if mine && conv.isGroup && conv.receiptsActive && m.delivery == .delivered {   // 2.4
+            a.append(BubbleAction(id: "read", title: "Gelesen von …", icon: "checkmark.circle", sheet: true) { readBy = true })
+        }
+        if m.mine { a.append(BubbleAction(id: "delete", title: "Für alle löschen", icon: "trash", destructive: true, sheet: true) { delete() }) }
+        return a
+    }
+    /// Blatt erst oeffnen, wenn die schwebende Leiste zu ist
+    private func later(_ f: @escaping () -> Void) { DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: f) }
     /// Mac: beim Ueberfahren ein kleiner Knopf an der Blase -> Schnellleiste
     @ViewBuilder private var hoverReact: some View {
         #if os(macOS)
@@ -819,7 +855,7 @@ struct MessageBubble: View {
                 a += x
             }
         }
-        return Text(a).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+        return Text(a).selectableOnMac().fixedSize(horizontal: false, vertical: true)
             .environment(\.openURL, OpenURLAction { u in
                 if u.scheme == "hkchatnote", let id = Int(u.host ?? "") { openPage(id); return .handled }
                 return .discarded

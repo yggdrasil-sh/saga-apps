@@ -11,6 +11,8 @@ struct HornStage: View {
     @ObservedObject var calls: CallManager
     @ObservedObject var horn: HornSession
     @Environment(\.hornPreviewFill) private var previewFill
+    /// Raster: unterer Rand des sichtbaren Bereichs (fuer "+n weitere")
+    @State private var seenBottom: CGFloat = 0
     var body: some View {
         GeometryReader { g in
             let big = horn.share != nil || (horn.view == "speaker" && horn.tiles.count > 1)
@@ -25,15 +27,34 @@ struct HornStage: View {
         let sp: CGFloat = 8
         let fit = (size.height - sp * CGFloat(rows - 1)) / CGFloat(rows)
         let h = max(cols == 2 && size.width <= 640 ? 120 : 90, fit)
-        return ScrollView(.vertical, showsIndicators: false) {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: sp), count: cols), spacing: sp) {
-                ForEach(horn.tiles) { t in HornTileView(tile: t).frame(height: h).onTapGesture(count: 2) { calls.hornPin(t.id) } }
-                if horn.more > 0 { moreTile.frame(height: h) }
+        let hidden = HornLogic.hiddenTiles(n, cols: cols, rowHeight: h, spacing: sp, seenBottom: seenBottom > 0 ? seenBottom : size.height)
+        return VStack(spacing: 6) {
+            ScrollView(.vertical, showsIndicators: fit < h) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: sp), count: cols), spacing: sp) {
+                    ForEach(horn.tiles) { t in tile(t).frame(height: h) }
+                    if horn.more > 0 { moreTile.frame(height: h) }
+                }
+            }
+            .scrollDisabled(fit >= h)
+            .onScrollGeometryChange(for: CGFloat.self) { $0.contentOffset.y + $0.containerSize.height } action: { _, v in seenBottom = v }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(Text("Teilnehmende"))
+            if fit < h && hidden > 0 {                                      // nicht still weglassen: "+n weitere" unter dem Raster
+                Text("+\(hidden) weitere").font(.caption.weight(.semibold)).foregroundStyle(.white)
+                    .padding(.horizontal, 10).padding(.vertical, 3).background(Color.white.opacity(0.16), in: Capsule())
+                    .accessibilityLabel(Text("\(hidden) weitere Teilnehmende – nach unten blättern"))
             }
         }
-        .scrollDisabled(fit >= h)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(Text("Teilnehmende"))
+    }
+    /// Kachel mit Doppeltipp (gross anzeigen); VoiceOver: als Aktion
+    @ViewBuilder private func tile(_ t: HornTile, compact: Bool = false) -> some View {
+        if t.mine {
+            HornTileView(tile: t, compact: compact)
+        } else {
+            HornTileView(tile: t, compact: compact).onTapGesture(count: 2) { calls.hornPin(t.id) }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { calls.hornPin(t.id) }
+        }
     }
     private func strip(_ size: CGSize) -> some View {
         let small: CGFloat = size.width <= 640 ? 92 : 120
@@ -49,14 +70,14 @@ struct HornStage: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .accessibilityElement(children: .combine)
                 } else if let t = horn.tiles.first {
-                    HornTileView(tile: t).onTapGesture(count: 2) { calls.hornPin(t.id) }
+                    tile(t)
                 }
             }
             .frame(maxHeight: .infinity)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(horn.share != nil ? horn.tiles : Array(horn.tiles.dropFirst())) { t in
-                        HornTileView(tile: t, compact: true).frame(width: small * 1.4, height: small).onTapGesture(count: 2) { calls.hornPin(t.id) }
+                        tile(t, compact: true).frame(width: small * 1.4, height: small)
                     }
                     if horn.more > 0 { moreTile.frame(width: small, height: small) }
                 }
@@ -94,21 +115,24 @@ struct HornTileView: View {
         ZStack(alignment: .bottomLeading) {
             Color.white.opacity(0.08)
             if let v = tile.video, tile.cam {
-                RTCVideoBox(track: v, fill: true)
+                RTCVideoBox(track: v, mirror: tile.mirror, fill: true)
             } else if previewFill && tile.moving && tile.cam {
-                HornPreviewPicture(seed: tile.id)                             // nur Bilder (Debug)
+                HornPreviewPicture(seed: tile.id).accessibilityHidden(true)   // nur Bilder (Debug)
             } else {
                 AvatarView(name: tile.name, avatar: tile.avatar, size: compact ? 44 : 64).frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .accessibilityHidden(true)
             }
             HStack(spacing: 4) {
                 if !tile.mic { Image(systemName: "mic.slash.fill").accessibilityHidden(true) }
                 if tile.screen { Image(systemName: "rectangle.inset.filled.on.rectangle").accessibilityHidden(true) }
-                Text(verbatim: tile.name).fontWeight(.semibold)
+                Text(verbatim: shownName).fontWeight(.semibold)
                 if !compact && !tile.devName.isEmpty { Text(verbatim: tile.devName).opacity(0.8) }
             }
             .font(.caption).lineLimit(1).minimumScaleFactor(0.7)
             .padding(.horizontal, 8).padding(.vertical, 4).background(.black.opacity(0.5), in: Capsule()).padding(6)
-            if tile.wait { ProgressView().tint(.white).frame(maxWidth: .infinity, maxHeight: .infinity) }
+        }
+        .overlay(alignment: .topLeading) {                                  // verbindet noch: klein in der Ecke, nicht ueber dem Initial
+            if tile.wait { ProgressView().controlSize(.small).tint(.white).padding(8).accessibilityHidden(true) }
         }
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -116,10 +140,11 @@ struct HornTileView: View {
         .animation(.easeOut(duration: 0.2), value: tile.speaking)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(verbatim: label))
-        .accessibilityHint(Text("Doppelt tippen: groß anzeigen"))
+        .accessibilityHint(tile.mine ? Text(verbatim: "") : Text("Doppelt tippen: groß anzeigen"))
     }
+    private var shownName: String { tile.mine ? "\(tile.name) (\(String(localized: "du")))" : tile.name }
     private var label: String {
-        var p = [tile.name]
+        var p = [shownName]
         if !tile.devName.isEmpty { p.append(tile.devName) }
         if !tile.mic { p.append(String(localized: "stumm")) }
         if tile.speaking { p.append(String(localized: "spricht")) }
@@ -135,14 +160,24 @@ struct HornInfoLine: View {
     var body: some View {
         HStack(spacing: 8) {
             if !horn.path.isEmpty {
-                HStack(spacing: 5) {
-                    Circle().fill(dot).frame(width: 8, height: 8)
-                    Text(verbatim: HornLogic.pathName(horn.path)).font(.caption.weight(.semibold).monospaced())
+                Button { horn.ppop.toggle() } label: {
+                    HStack(spacing: 5) {
+                        Circle().fill(dot).frame(width: 8, height: 8)
+                        Text(verbatim: HornLogic.pathName(horn.path)).font(.caption.weight(.semibold).monospaced())
+                    }
+                    .padding(.horizontal, 8).padding(.vertical, 3).background(.black.opacity(0.4), in: Capsule())
+                    .padding(.vertical, 8).contentShape(Rectangle()).padding(.vertical, -8)   // groessere Trefferflaeche
                 }
-                .padding(.horizontal, 8).padding(.vertical, 3).background(.black.opacity(0.4), in: Capsule())
-                .accessibilityElement(children: .ignore)
+                .buttonStyle(.plain)
                 .accessibilityLabel(Text(verbatim: pathText))
+                .accessibilityHint(Text("Zeigt Einzelheiten zur Verbindung"))
                 .help(Text(verbatim: pathText))
+                .popover(isPresented: $horn.ppop) {
+                    HornPathCard(horn: horn, way: way, qualityText: qualityText, dot: dot)
+                        #if os(iOS)
+                        .presentationCompactAdaptation(.popover)
+                        #endif
+                }
             }
             if horn.moving { Text("wechselt den Knoten …").font(.caption2) }
             if let r = horn.runes {
@@ -162,13 +197,46 @@ struct HornInfoLine: View {
         }
     }
     private var dot: Color { horn.quality == .good ? .green : horn.quality == .mid ? .yellow : .red }
+    private var way: String {
+        horn.path == "udp" ? String(localized: "UDP (schnellster Weg)") : horn.path == "turn" ? String(localized: "TLS über Port 443 (Rückfall)") : String(localized: "TCP über Port 443")
+    }
+    private var qualityText: String {
+        horn.quality == .good ? String(localized: "gute Verbindung") : horn.quality == .mid ? String(localized: "mittlere Verbindung") : String(localized: "schwache Verbindung")
+    }
     private var pathText: String {
-        let way = horn.path == "udp" ? String(localized: "UDP (schnellster Weg)") : horn.path == "turn" ? String(localized: "TLS über Port 443 (Rückfall)") : String(localized: "TCP über Port 443")
-        let q = horn.quality == .good ? String(localized: "gute Verbindung") : horn.quality == .mid ? String(localized: "mittlere Verbindung") : String(localized: "schwache Verbindung")
-        var s = String(localized: "Weg zum Knoten \(horn.node): \(way)") + " · " + q
+        var s = String(localized: "Weg zum Knoten \(horn.node): \(way)") + " · " + qualityText
         if let r = horn.rtt { s += " · RTT \(Int(r)) ms" }
         if horn.loss > 0 { let pct = String(format: "%.1f %%", horn.loss * 100); s += " · " + String(localized: "Verlust \(pct)") }
         return s
+    }
+}
+
+/// Feld der Weg-Anzeige: Knoten, Weg, RTT, Verlust, Qualitaet
+struct HornPathCard: View {
+    @ObservedObject var horn: HornSession
+    let way: String
+    let qualityText: String
+    let dot: Color
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Verbindung", systemImage: "point.3.connected.trianglepath.dotted").font(.headline)
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
+                GridRow { Text("Knoten").foregroundStyle(.secondary); Text(verbatim: horn.node.isEmpty ? "–" : horn.node).textSelection(.enabled) }
+                GridRow { Text("Weg").foregroundStyle(.secondary); Text(verbatim: way) }
+                GridRow { Text(verbatim: "RTT").foregroundStyle(.secondary); Text(verbatim: horn.rtt.map { "\(Int($0)) ms" } ?? "–").monospacedDigit() }
+                if horn.loss > 0 {
+                    GridRow { Text("Verlust").foregroundStyle(.secondary); Text(verbatim: String(format: "%.1f %%", horn.loss * 100)).monospacedDigit() }
+                }
+                GridRow {
+                    Text("Qualität").foregroundStyle(.secondary)
+                    HStack(spacing: 6) { Circle().fill(dot).frame(width: 8, height: 8).accessibilityHidden(true); Text(verbatim: qualityText) }
+                }
+            }
+            .font(.callout)
+        }
+        .padding(16)
+        .frame(minWidth: 240, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
     }
 }
 
@@ -181,13 +249,13 @@ struct HornRunesCard: View {
             HStack {
                 Label("Runensiegel", systemImage: "seal").font(.headline)
                 Spacer()
-                Button { horn.rpop = false } label: { Image(systemName: "xmark").frame(width: 30, height: 30) }
-                    .buttonStyle(.plain).accessibilityLabel(Text("Schließen"))
+                Button { horn.rpop = false } label: { Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle()) }
+                    .buttonStyle(.plain).accessibilityLabel(Text("Schließen")).padding(-7)
             }
             Text(verbatim: horn.runes ?? "").font(.system(size: 40)).tracking(6).frame(maxWidth: .infinity)
                 .accessibilityLabel(Text(verbatim: horn.runeNames.joined(separator: " ")))
             Text(verbatim: horn.runeNames.joined(separator: " · ")).font(.footnote.monospaced()).frame(maxWidth: .infinity).multilineTextAlignment(.center)
-            Text("Vergleicht die sechs Runen, zum Beispiel durch Vorlesen. Sehen alle dieselben, sind genau die Geräte in der Teilnehmerliste im Anruf – niemand sonst kann mithören, auch nicht der Server oder der Knoten.")
+            Text("Vergleicht die sechs Runen, zum Beispiel durch Vorlesen. Sehen alle dieselben, sind genau die Geräte unter „Teilnehmende“ im Anruf – niemand sonst kann mithören, auch nicht der Server oder der Knoten.")
                 .font(.callout).fixedSize(horizontal: false, vertical: true)
             Text("Die Runen ändern sich, sobald jemand beitritt oder geht.").font(.footnote).foregroundStyle(.secondary)
             if !horn.unverified.isEmpty {
@@ -213,22 +281,26 @@ struct HornPeoplePanel: View {
             HStack {
                 Text("Teilnehmende (\(horn.people.count))").font(.headline)
                 Spacer()
-                Button { horn.plist = false } label: { Image(systemName: "xmark").frame(width: 30, height: 30) }
-                    .buttonStyle(.plain).accessibilityLabel(Text("Schließen"))
+                Button { horn.plist = false } label: { Image(systemName: "xmark").frame(width: 44, height: 44).contentShape(Rectangle()) }
+                    .buttonStyle(.plain).accessibilityLabel(Text("Schließen")).padding(-7)
             }
             .padding(.horizontal, 14).padding(.vertical, 10)
             Divider()
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(horn.people) { p in row(p); Divider().padding(.leading, 56) }
-                }
+            ViewThatFits(in: .vertical) {
+                rows
+                ScrollView { rows }
             }
         }
-        .frame(maxWidth: 420, maxHeight: 520)
+        .frame(maxWidth: 440)
         .background(HornCardBackground(), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .shadow(radius: 12)
         .padding(16)
         .accessibilityAddTraits(.isModal)
+    }
+    private var rows: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(horn.people) { p in row(p); Divider().padding(.leading, 56) }
+        }
     }
     private func row(_ p: HornPerson) -> some View {
         HStack(spacing: 10) {
@@ -248,14 +320,22 @@ struct HornPeoplePanel: View {
                         .accessibilityLabel(Text("\(p.name) stummschalten"))
                 }
                 let sure = horn.rmSure == p.id
-                Button(sure ? String(localized: "Wirklich entfernen?") : String(localized: "Entfernen"), role: .destructive) {
+                Button(sure ? String(localized: "Wirklich entfernen?") : String(localized: "Entfernen (Anruf)"), role: .destructive) {
                     if horn.rmSure != p.id {
                         horn.rmSure = p.id
-                        Task { try? await Task.sleep(for: .seconds(4)); if horn.rmSure == p.id { horn.rmSure = nil } }
-                    } else { horn.rmSure = nil; calls.hornModerate(p.id, action: "remove") }
+                        AccessibilityNotification.Announcement(String(localized: "\(p.name) wirklich entfernen? Zum Bestätigen erneut tippen.")).post()
+                        Task {
+                            try? await Task.sleep(for: .seconds(4))
+                            if horn.rmSure == p.id { horn.rmSure = nil; AccessibilityNotification.Announcement(String(localized: "Entfernen abgebrochen")).post() }
+                        }
+                    } else {
+                        horn.rmSure = nil; calls.hornModerate(p.id, action: "remove")
+                        AccessibilityNotification.Announcement(String(localized: "\(p.name) wird aus dem Anruf entfernt")).post()
+                    }
                 }
                 .buttonStyle(.bordered).controlSize(.small).tint(.red)
-                .accessibilityLabel(Text("\(p.name) aus dem Anruf entfernen"))
+                .accessibilityLabel(sure ? Text("\(p.name) wirklich entfernen?") : Text("\(p.name) aus dem Anruf entfernen"))
+                .accessibilityHint(sure ? Text("Zum Bestätigen erneut tippen") : Text("Danach folgt eine Rückfrage"))
             }
         }
         .padding(.horizontal, 14).padding(.vertical, 8)
@@ -282,15 +362,20 @@ struct HornOverlays: View {
     @ObservedObject var horn: HornSession
     /// Farbschema des Systems (das Anruf-Fenster selbst ist immer dunkel; Liste und Karte folgen hell/dunkel)
     var scheme: ColorScheme = .dark
+    /// freier Bereich: unter der Kopfzeile, ueber Dauer und Steuerknoepfen
+    var top: CGFloat = 0
+    var bottom: CGFloat = 0
     var body: some View {
         ZStack {
             if horn.plist {
                 Color.black.opacity(0.35).ignoresSafeArea().onTapGesture { horn.plist = false }
                 HornPeoplePanel(calls: calls, horn: horn).environment(\.colorScheme, scheme).foregroundStyle(scheme == .dark ? Color.white : Color.black)
+                    .padding(.top, top).padding(.bottom, bottom)
             }
             if horn.rpop {
                 Color.black.opacity(0.35).ignoresSafeArea().onTapGesture { horn.rpop = false }
                 HornRunesCard(calls: calls, horn: horn).environment(\.colorScheme, scheme).foregroundStyle(scheme == .dark ? Color.white : Color.black)
+                    .padding(.top, top).padding(.bottom, bottom)
             }
         }
     }

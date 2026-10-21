@@ -373,7 +373,7 @@ extension RootView {
         switch url.host {
         case "pair":                                                       // QR-Code mit der Kamera-App gescannt: erst nachfragen
             if let (srv, code) = Store.parsePairLink(url.absoluteString) { store.pendingPair = PairRequest(server: srv, code: code) }
-            else { store.error = String(localized: "Das ist kein Saga-QR-Code.") }
+            else { let t = String(localized: "Das ist kein Saga-QR-Code."); store.error = t; store.linkError = t }   // Anmeldung zeigt linkError
         case "page": if let id = Int(arg ?? "") { selection = id }
         case "chats": selection = FedLogic.chatsTag
         case "tasks": selection = -1
@@ -796,6 +796,13 @@ struct LoginScreen: View {
             Text("Du wirst vom bisherigen Server abgemeldet. Anmeldung, Schlüssel und Zwischenspeicher auf diesem Gerät werden gelöscht.")
         }
         .onChange(of: store.needsLogin) { _, v in if !v { server = AppConfig.serverString } }
+        // 2.5: kaputter Kopplungslink von aussen (saga://pair?...) - sichtbar melden statt still ignorieren
+        .onChange(of: store.linkError, initial: true) { _, e in
+            if let e { error = e; store.linkError = nil; if store.error == e { store.error = nil } }
+        }
+        #if os(iOS)
+        .onChange(of: error) { _, e in if !e.isEmpty { serverFocused = false } }   // Tastatur zu: QR-Knopf und Sprachwahl wieder sichtbar
+        #endif
         #if os(iOS)
         .sheet(isPresented: $showScanner) {
             QRScannerSheet { text in showScanner = false; Task { await pair(text) } }

@@ -70,9 +70,12 @@ extension CallManager {
         if mode == "share", let d = others.dropFirst().first { H.share = HornShare(dev: d.device, name: d.name, track: nil) }
         H.meDevice = legs.first?.device
         horn = H
+        if let o = hornSelfTile(H.meDevice ?? "") { H.tiles.append(o) }   // eigene Kachel wie im echten Anruf
         hornPeople()
-        H.plist = mode == "people"
+        H.plist = mode == "people" || mode == "remove"
         H.rpop = mode == "runes"
+        if mode == "path" { Task { try? await Task.sleep(for: .seconds(1.5)); H.ppop = true } }   // Feld erst, wenn die Ansicht steht
+        if mode == "remove" { H.rmSure = others.dropFirst().first?.device }      // zweite Stufe "Wirklich entfernen?"
     }
 }
 #endif

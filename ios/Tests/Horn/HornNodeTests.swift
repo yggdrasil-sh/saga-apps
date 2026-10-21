@@ -3,7 +3,8 @@ import WebRTC
 
 // Gjallarhorn P11 Stufe 2: Integrationstest gegen einen lokal gestarteten Knoten (gjallarhorn node, HORN_DEV=1, nur
 // 127.0.0.1, selbst signiertes Zertifikat). Nur mit Umgebung SAGA_HORN_NODE=https://127.0.0.1:<port> (xcodebuild:
-// TEST_RUNNER_SAGA_HORN_NODE), sonst uebersprungen. Benutzt den App-Code (HornNet, HornLeg, HornLogic, HornCryptor):
+// TEST_RUNNER_SAGA_HORN_NODE), sonst uebersprungen. Knoten dafuer mit HORN_ICE_IPS=127.0.0.1 starten (sonst bietet er
+// keine Loopback-Kandidaten an und testTwoDevicesOverTCP scheitert mit ICE "failed"; siehe README). Benutzt den App-Code (HornNet, HornLeg, HornLogic, HornCryptor):
 // - Messung ueber /probe (TLS + 5 Pings)
 // - zwei Geraete im Raum ueber ICE-TCP (Ton- und Bild-Leitung getrennt): A sendet ein Testbild (aus dem Speicher) mit
 //   FrameCryptor, B empfaengt ueber den Knoten und entschluesselt mit den vorab gesetzten Plaetzen; Ereigniskanal liefert

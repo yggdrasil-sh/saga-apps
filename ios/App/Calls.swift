@@ -1401,6 +1401,7 @@ final class CallManager: NSObject, ObservableObject {
         mic.toggle(); audioTrack?.isEnabled = mic
         CallSystem.shared.muted(self, !mic)
         stateOut()
+        hornDraw()                                                          // 2.5: eigene Kachel (Stumm-Zeichen)
     }
     /// Mikrofon einschalten (Begleitgeraet bzw. Uebernahme): Erlaubnis, Tonspur anlegen, auf alle Verbindungen
     func micOn() async {
@@ -1445,7 +1446,7 @@ final class CallManager: NSObject, ObservableObject {
         c.onInterrupt = { [weak self] on in self?.cameraInterrupted(on) }
     }
     #if os(iOS)
-    func switchCamera() { camera?.switchCamera(); frontCamera = camera?.front ?? true }
+    func switchCamera() { camera?.switchCamera(); frontCamera = camera?.front ?? true; hornDraw() }
     var canSwitchCamera: Bool { camera?.canSwitch ?? false }
     func toggleSpeaker() {
         speaker.toggle()

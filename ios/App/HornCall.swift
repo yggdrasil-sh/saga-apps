@@ -28,9 +28,13 @@ struct HornTile: Identifiable, Equatable {
     var speaking: Bool
     var screen: Bool
     var wait: Bool
+    /// eigene Kachel (eigenes Kamerabild bzw. Profilbild; nicht anheftbar)
+    var mine = false
+    var mirror = false
     static func == (a: HornTile, b: HornTile) -> Bool {
         a.id == b.id && a.name == b.name && a.devName == b.devName && a.avatar == b.avatar && a.video === b.video && a.moving == b.moving
             && a.big == b.big && a.mic == b.mic && a.cam == b.cam && a.speaking == b.speaking && a.screen == b.screen && a.wait == b.wait
+            && a.mine == b.mine && a.mirror == b.mirror
     }
 }
 struct HornPerson: Identifiable, Equatable {
@@ -117,6 +121,8 @@ final class HornSession: ObservableObject {
     @Published var unverified: [String] = []
     @Published var plist = false
     @Published var rpop = false
+    /// Weg-Anzeige angetippt: kleines Feld mit Knoten, Weg, RTT, Qualitaet
+    @Published var ppop = false
     @Published var people: [HornPerson] = []
     @Published var host = false
     @Published var note = ""
@@ -863,7 +869,7 @@ extension CallManager {
     func hornMic() {
         guard let H = horn else { return }
         for c in H.conns { if let L = c.aLeg, let t = L.tr, t.sender.track !== audioTrack { t.sender.track = audioTrack } }
-        hornStateOut()
+        hornStateOut(); hornDraw()                                         // eigene Kachel: Stumm-Zeichen
     }
     func hornCam() {
         guard let H = horn else { return }
@@ -879,9 +885,17 @@ extension CallManager {
 
     // MARK: Ansicht
 
+    /// Eigene Kachel: eigenes Kamerabild (gespiegelt wie die Vorschau) bzw. Profilbild, eigener Stumm-Zustand
+    func hornSelfTile(_ me: String) -> HornTile? {
+        guard let H = horn, !me.isEmpty else { return nil }
+        let l = roster.leg(me)
+        let v = cam ? localVideo : nil
+        return HornTile(id: me, name: l?.name ?? String(localized: "du"), devName: "", avatar: l?.avatar, video: v, moving: cam, big: false,
+                        mic: mic, cam: cam, speaking: H.speaking.contains(me), screen: sharing, wait: false, mine: true, mirror: frontCamera)
+    }
     func hornDraw() {
         guard let H = horn else { return }
-        let me = myDevice ?? "", now = Self.hornNow()
+        let me = myDevice ?? H.meDevice ?? "", now = Self.hornNow()
         var vid: [String: RTCVideoTrack] = [:], scr: (dev: String, track: RTCVideoTrack?)?, spk: String?
         let conns = H.conns.filter { $0 === H.cur } + H.conns.filter { $0 !== H.cur }
         for c in conns {
@@ -906,12 +920,13 @@ extension CallManager {
         if let s = H.spk, !devs.contains(s) { H.spk = nil }
         if let p = H.pin, !devs.contains(p) { H.pin = nil }
         let lay = HornLogic.tiles(devs, moving: Set(vid.keys), speaker: H.pin ?? H.spk, view: H.view)
-        let t: [HornTile] = lay.list.compactMap { x in
+        var t: [HornTile] = lay.list.compactMap { x in
             guard let l = roster.leg(x.dev) else { return nil }
             let s = H.st[x.dev]                                             // unbekannt (noch kein state) = an
             return HornTile(id: x.dev, name: l.name, devName: l.devName, avatar: l.avatar, video: s?.cam != false ? vid[x.dev] : nil, moving: x.moving, big: x.big,
                             mic: s?.mic ?? true, cam: s?.cam ?? true, speaking: H.speaking.contains(x.dev), screen: scr?.dev == x.dev, wait: H.cur == nil)
         }
+        if let o = hornSelfTile(me) { t.append(o) }                         // eigene Kachel in beiden Ansichten (zuletzt)
         if H.tiles != t { H.tiles = t }
         if H.more != lay.more { H.more = lay.more }
         let sh = scr.map { HornShare(dev: $0.dev, name: roster.leg($0.dev)?.name ?? "?", track: $0.track) }

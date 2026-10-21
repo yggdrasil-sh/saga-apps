@@ -264,7 +264,7 @@ struct ReceiptTickView: View {
     @ViewBuilder private func mark(_ s: String, color: Color, label: String) -> some View {
         let t = Text(verbatim: s).font(.caption2.weight(.bold)).foregroundStyle(color).kerning(-2.5)
         if group {
-            Button(action: open) { t }.buttonStyle(.plain).help(Text(verbatim: label)).accessibilityLabel(Text(verbatim: label))
+            Button(action: open) { t.padding(12).contentShape(Rectangle()).padding(-12) }.buttonStyle(.plain)   // 2.5: groessere Trefferflaeche.help(Text(verbatim: label)).accessibilityLabel(Text(verbatim: label))
                 .accessibilityHint(Text("Gelesen von"))
         } else {
             t.help(Text(verbatim: label)).accessibilityLabel(Text(verbatim: label))
