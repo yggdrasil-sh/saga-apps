@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5: Chat-Stufe 3, Reaktionen, Bearbeiten, Sprachnachrichten -->
+<resources>
+    <string name="x3_sys_crypto">Este chat ahora está vinculado a las direcciones Saga estables (nuevo nivel de cifrado).</string>
+    <string name="x3_sys_crypto_verify">Este chat ahora está vinculado a las direcciones Saga estables (nuevo nivel de cifrado). Vuelve a comparar los números de seguridad: ahora se muestran de otra forma.</string>
+    <string name="x3_safety_migrated">Nuevo formato, misma clave: el número se ve distinto que antes, pero pertenece a la misma clave que ya conocías.</string>
+    <string name="x3_react_failed">Reacción no enviada: %1$s</string>
+    <string name="x3_react_remove">Quitar reacción</string>
+    <string name="x3_react_with">Reaccionar con %1$s</string>
+    <string name="x3_react_chip">Reacción %1$s: %2$d</string>
+    <string name="x3_more_emojis">Más emojis</string>
+    <string name="x3_reactions_title">Reacciones</string>
+    <string name="x3_reactions_none">Aún no hay reacciones.</string>
+    <string name="x3_you">tú</string>
+    <string name="x3_former_member">Antiguo miembro</string>
+    <string name="x3_edit">Editar</string>
+    <string name="x3_edit_hint">Editar mensaje</string>
+    <string name="x3_edited">editado</string>
+    <string name="x3_edited_at">Editado el %1$s</string>
+    <string name="x3_edit_failed">No editado: %1$s</string>
+    <string name="x3_edit_not_possible">Este mensaje ya no se puede editar.</string>
+    <string name="voice_record">Grabar mensaje de voz</string>
+    <string name="voice_play">Reproducir mensaje de voz</string>
+    <string name="voice_pause">Pausa</string>
+    <string name="voice_speed">Velocidad</string>
+    <string name="voice_discard">Descartar</string>
+    <string name="voice_slide_cancel">Desliza a la izquierda para descartar</string>
+    <string name="voice_slide_lock">Desliza hacia arriba para bloquear</string>
+    <string name="voice_hold_hint">Mantén pulsado para grabar; desliza hacia arriba para bloquear.</string>
+    <string name="voice_warn_minute">Queda un minuto; después termina la grabación.</string>
+    <string name="voice_limit_stop">Como máximo 15 minutos: grabación terminada.</string>
+    <string name="voice_too_short">Demasiado corto: las grabaciones de menos de 1 segundo se descartan.</string>
+    <string name="voice_too_big">Mensaje de voz demasiado grande.</string>
+    <string name="voice_record_failed">No se puede grabar: %1$s</string>
+    <string name="voice_android_old">Grabar mensajes de voz requiere Android 10 o posterior. Aquí puedes reproducirlos.</string>
+    <string name="voice_mic_not_allowed">Micrófono no permitido.</string>
+    <string name="voice_mic_title">Micrófono</string>
+    <string name="voice_mic_denied">Micrófono no permitido: permítelo para Saga en Ajustes (Permisos → Micrófono).</string>
+    <string name="voice_open_settings">Abrir ajustes</string>
+    <string name="voice_channel">Mensajes de voz</string>
+    <string name="voice_playing">Reproduciendo mensaje de voz</string>
+</resources>

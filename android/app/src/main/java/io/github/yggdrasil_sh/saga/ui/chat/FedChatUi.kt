@@ -75,7 +75,8 @@ fun fedHeadLine(s: ChatSession): String {
     // Herkunft und Stand zuerst (die Zeile ist einzeilig und wird sonst abgeschnitten), "Ende-zu-Ende" zuletzt
     val parts = mutableListOf<String>()
     // Gruppe/Seiten-Chat (2.3, E5): Heim nennen, wenn es ein anderer Server ist (sonst die Herkunft der Mitglieder im Mitglieder-Dialog)
-    val host = if (sum.kind == "dm") p?.host ?: sum.home else sum.home?.takeIf { !sum.homeSelf }
+    // 2.5: lokale Chats der Stufe 3 (gleiche Krypto, nur dieser Server) nennen keinen Server
+    val host = if (!sum.remote) null else if (sum.kind == "dm") p?.host ?: sum.home else sum.home?.takeIf { !sum.homeSelf }
     if (!host.isNullOrEmpty()) parts.add(stringResource(R.string.fed_on_host, host))
     val st = p?.handle?.let { s.fk[it] }
     when {

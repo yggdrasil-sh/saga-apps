@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Gjallarhorn (P12): Gruppenanrufe ueber Knoten -->
+<resources>
+    <string name="horn_node_try_next">Узел %1$s недоступен – пробую %2$s …</string>
+    <string name="horn_lost_switch">Связь с узлом %1$s прервана – переключаюсь …</string>
+    <string name="horn_draining_switch">Узел %1$s на обслуживании – переключаюсь без прерывания …</string>
+    <string name="horn_lost">Связь с узлом потеряна.</string>
+    <string name="horn_retry">Нет доступных узлов – новая попытка через %1$d с …</string>
+    <string name="horn_block_node">Сейчас нет доступного узла для больших групповых звонков – попробуйте чуть позже.</string>
+    <string name="horn_block_removed">Вас удалили из этого звонка. Присоединиться снова можно после нового приглашения.</string>
+    <string name="horn_path_udp">UDP (самый быстрый путь)</string>
+    <string name="horn_path_tcp">TCP через порт 443</string>
+    <string name="horn_path_tls">TLS через порт 443 (запасной путь)</string>
+    <string name="horn_path_desc">Путь к узлу %1$s: %2$s · %3$s</string>
+    <string name="horn_loss">потери %1$.1f %%</string>
+    <string name="horn_q_good">хорошая связь</string>
+    <string name="horn_q_mid">средняя связь</string>
+    <string name="horn_q_bad">слабая связь</string>
+    <string name="horn_switching">смена узла …</string>
+    <string name="horn_runes">Рунная печать</string>
+    <string name="horn_runes_cd">Рунная печать %1$s – для сравнения</string>
+    <string name="horn_runes_info">Сравните шесть рун, например прочитав их вслух. Если у всех они одинаковые, в звонке ровно устройства из списка участников – никто другой не может подслушать, даже сервер или узел.</string>
+    <string name="horn_runes_change">Руны меняются, как только кто-то входит или выходит.</string>
+    <string name="horn_runes_unverified">Не проверено: %1$s</string>
+    <string name="horn_e2e_info">Звук и видео шифруются покадрово ключом отправляющего устройства (saga-horn/v1). Узел только пересылает и ничего не может расшифровать.</string>
+    <string name="horn_people">Участники (%1$d)</string>
+    <string name="horn_host">Организатор</string>
+    <string name="horn_you">вы</string>
+    <string name="horn_companion">Сопровождающее устройство</string>
+    <string name="horn_unverified">не проверено</string>
+    <string name="horn_mute">Выключить звук</string>
+    <string name="horn_mute_cd">Выключить звук у %1$s</string>
+    <string name="horn_remove">Удалить</string>
+    <string name="horn_remove_sure">Точно удалить?</string>
+    <string name="horn_remove_cd">Удалить %1$s из звонка</string>
+    <string name="horn_muted_done">У %1$s выключен звук.</string>
+    <string name="horn_removed_done">%1$s удалён(а) из звонка.</string>
+    <string name="horn_muted_by">%1$s выключил(а) ваш микрофон. Вы можете снова включить его сами.</string>
+    <string name="horn_removed_by">%1$s удалил(а) вас из звонка.</string>
+    <string name="horn_removed">Вас удалили из звонка.</string>
+    <string name="horn_view_grid">Плитки</string>
+    <string name="horn_view_speaker">Докладчик</string>
+    <string name="horn_more_cd">Ещё участников: %1$d</string>
+    <string name="horn_mesh_limit">Нет готового узла для больших групповых звонков – звонок идёт напрямую между устройствами (не более %1$d с видео или %2$d только со звуком).</string>
+    <string name="horn_ongoing_group">Групповой звонок · участников: %1$d</string>
+    <string name="horn_connecting">Подключение к узлу …</string>
+</resources>

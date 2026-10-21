@@ -217,9 +217,12 @@ dependencies {
     implementation(libs.media3.datasource.okhttp)
     implementation(libs.media3.database)
     implementation(libs.androidx.work.runtime)
+    // 2.5 Reaktionen: volle Emoji-Auswahl ohne Internet (Emoji-Daten in der Bibliothek, kein Download zur Laufzeit)
+    implementation(libs.androidx.emoji2.emojipicker)
 
-    // Anrufe (2.1): WebRTC nach Vorgabe der Anruf-Spezifikation (aktueller Google-libwebrtc-Stand, Maven Central)
-    implementation(libs.stream.webrtc.android)
+    // Anrufe (2.1): WebRTC (Maven Central). Seit 2.5 webrtc-sdk (libwebrtc M150 mit FrameCryptor und HKDF-Ableitung fuer
+    // den Frame-E2E saga-horn/v1, docs/HORN-E2E.md), gleiche Hauptversion wie iOS/macOS; Paket org.webrtc wie bisher
+    implementation(libs.webrtc.sdk.android)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Gjallarhorn (P12): Gruppenanrufe ueber Knoten -->
+<resources>
+    <string name="horn_node_try_next">Knoten %1$s ist nicht erreichbar – versuche %2$s …</string>
+    <string name="horn_lost_switch">Verbindung zum Knoten %1$s unterbrochen – wechsle …</string>
+    <string name="horn_draining_switch">Knoten %1$s wird gewartet – wechsle ohne Unterbrechung …</string>
+    <string name="horn_lost">Verbindung zum Knoten verloren.</string>
+    <string name="horn_retry">Kein Knoten erreichbar – neuer Versuch in %1$d s …</string>
+    <string name="horn_block_node">Gerade ist kein Knoten für große Gruppenanrufe erreichbar – bitte gleich noch einmal.</string>
+    <string name="horn_block_removed">Du wurdest aus diesem Anruf entfernt. Beitreten geht wieder, sobald du eingeladen wirst.</string>
+    <string name="horn_path_udp">UDP (schnellster Weg)</string>
+    <string name="horn_path_tcp">TCP über Port 443</string>
+    <string name="horn_path_tls">TLS über Port 443 (Rückfall)</string>
+    <string name="horn_path_desc">Weg zum Knoten %1$s: %2$s · %3$s</string>
+    <string name="horn_loss">Verlust %1$.1f %%</string>
+    <string name="horn_q_good">gute Verbindung</string>
+    <string name="horn_q_mid">mittlere Verbindung</string>
+    <string name="horn_q_bad">schwache Verbindung</string>
+    <string name="horn_switching">wechselt den Knoten …</string>
+    <string name="horn_runes">Runensiegel</string>
+    <string name="horn_runes_cd">Runensiegel %1$s – zum Vergleichen</string>
+    <string name="horn_runes_info">Vergleicht die sechs Runen, zum Beispiel durch Vorlesen. Sehen alle dieselben, sind genau die Geräte in der Teilnehmerliste im Anruf – niemand sonst kann mithören, auch nicht der Server oder der Knoten.</string>
+    <string name="horn_runes_change">Die Runen ändern sich, sobald jemand beitritt oder geht.</string>
+    <string name="horn_runes_unverified">Nicht geprüft: %1$s</string>
+    <string name="horn_e2e_info">Ton und Bild sind je Rahmen mit dem Schlüssel des sendenden Geräts verschlüsselt (saga-horn/v1). Der Knoten leitet nur weiter und kann nichts entschlüsseln.</string>
+    <string name="horn_people">Teilnehmende (%1$d)</string>
+    <string name="horn_host">Gastgeber</string>
+    <string name="horn_you">du</string>
+    <string name="horn_companion">Begleitgerät</string>
+    <string name="horn_unverified">nicht geprüft</string>
+    <string name="horn_mute">Stummschalten</string>
+    <string name="horn_mute_cd">%1$s stummschalten</string>
+    <string name="horn_remove">Entfernen</string>
+    <string name="horn_remove_sure">Wirklich entfernen?</string>
+    <string name="horn_remove_cd">%1$s aus dem Anruf entfernen</string>
+    <string name="horn_muted_done">%1$s wurde stummgeschaltet.</string>
+    <string name="horn_removed_done">%1$s wurde aus dem Anruf entfernt.</string>
+    <string name="horn_muted_by">%1$s hat dich stummgeschaltet. Du kannst das Mikrofon selbst wieder einschalten.</string>
+    <string name="horn_removed_by">%1$s hat dich aus dem Anruf entfernt.</string>
+    <string name="horn_removed">Du wurdest aus dem Anruf entfernt.</string>
+    <string name="horn_view_grid">Kachelansicht</string>
+    <string name="horn_view_speaker">Sprecheransicht</string>
+    <string name="horn_more_cd">%1$d weitere Teilnehmende</string>
+    <string name="horn_mesh_limit">Kein Knoten für große Gruppenanrufe bereit – der Anruf läuft direkt zwischen den Geräten (höchstens %1$d mit Video bzw. %2$d nur mit Ton).</string>
+    <string name="horn_ongoing_group">Gruppenanruf · %1$d Teilnehmende</string>
+    <string name="horn_connecting">Verbinde mit dem Knoten …</string>
+</resources>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5: Chat-Stufe 3, Reaktionen, Bearbeiten, Sprachnachrichten -->
+<resources>
+    <string name="x3_sys_crypto">This chat is now bound to the stable Saga addresses (new encryption level).</string>
+    <string name="x3_sys_crypto_verify">This chat is now bound to the stable Saga addresses (new encryption level). Please compare the safety numbers again – they are now shown differently.</string>
+    <string name="x3_safety_migrated">New format, same key: the number looks different than before but belongs to the same key you already knew.</string>
+    <string name="x3_react_failed">Reaction not sent: %1$s</string>
+    <string name="x3_react_remove">Remove reaction</string>
+    <string name="x3_react_with">React with %1$s</string>
+    <string name="x3_react_chip">Reaction %1$s: %2$d</string>
+    <string name="x3_more_emojis">More emojis</string>
+    <string name="x3_reactions_title">Reactions</string>
+    <string name="x3_reactions_none">No reactions yet.</string>
+    <string name="x3_you">you</string>
+    <string name="x3_former_member">Former member</string>
+    <string name="x3_edit">Edit</string>
+    <string name="x3_edit_hint">Edit message</string>
+    <string name="x3_edited">edited</string>
+    <string name="x3_edited_at">Edited on %1$s</string>
+    <string name="x3_edit_failed">Not edited: %1$s</string>
+    <string name="x3_edit_not_possible">This message can no longer be edited.</string>
+    <string name="voice_record">Record voice message</string>
+    <string name="voice_play">Play voice message</string>
+    <string name="voice_pause">Pause</string>
+    <string name="voice_speed">Speed</string>
+    <string name="voice_discard">Discard</string>
+    <string name="voice_slide_cancel">Slide left to discard</string>
+    <string name="voice_slide_lock">Slide up to lock</string>
+    <string name="voice_hold_hint">Press and hold to record – slide up to lock.</string>
+    <string name="voice_warn_minute">One minute left – then the recording ends.</string>
+    <string name="voice_limit_stop">At most 15 minutes – recording stopped.</string>
+    <string name="voice_too_short">Too short – recordings under 1 second are discarded.</string>
+    <string name="voice_too_big">Voice message too large.</string>
+    <string name="voice_record_failed">Recording not possible: %1$s</string>
+    <string name="voice_android_old">Recording voice messages needs Android 10 or newer. You can still play them here.</string>
+    <string name="voice_mic_not_allowed">Microphone not allowed.</string>
+    <string name="voice_mic_title">Microphone</string>
+    <string name="voice_mic_denied">Microphone not allowed – please allow it for Saga in Settings (Permissions → Microphone).</string>
+    <string name="voice_open_settings">Open settings</string>
+    <string name="voice_channel">Voice messages</string>
+    <string name="voice_playing">Playing voice message</string>
+</resources>

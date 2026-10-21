@@ -243,6 +243,11 @@ fun SafetyDialog(s: ChatSession, initial: String? = null, onDismiss: () -> Unit)
                     }
                     who?.let { w ->
                         if (s.isVerified(w)) Text("✓ " + stringResource(R.string.chat_verified), color = MaterialTheme.colorScheme.primary, modifier = Modifier.align(Alignment.CenterHorizontally))
+                        // 2.5: Vertrauen aus v1 uebernommen - die Ziffern sehen anders aus, der Schluessel ist derselbe
+                        if (s.isMigrated(w)) Text(
+                            "ⓘ " + stringResource(R.string.x3_safety_migrated), style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
+                        )
                     }
                 }
             }
@@ -290,7 +295,7 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
         text = {
             LazyColumn(Modifier.heightIn(max = 420.dp)) {
                 // Gruppe/Seiten-Chat ueber Servergrenzen: wo der Chat liegt (Heim fuehrt die Mitgliederliste)
-                if (sum != null && s.isFed && sum.kind != "dm") item {
+                if (sum != null && sum.remote && sum.kind != "dm") item {
                     Text(
                         if (sum.homeSelf) stringResource(R.string.fed_members_home_self) else stringResource(R.string.fed_members_home_other, sum.home ?: "?"),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(bottom = 6.dp),

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Gjallarhorn (P12): Gruppenanrufe ueber Knoten -->
+<resources>
+    <string name="horn_node_try_next">Node %1$s is not reachable – trying %2$s …</string>
+    <string name="horn_lost_switch">Connection to node %1$s interrupted – switching …</string>
+    <string name="horn_draining_switch">Node %1$s is being maintained – switching without interruption …</string>
+    <string name="horn_lost">Connection to the node lost.</string>
+    <string name="horn_retry">No node reachable – trying again in %1$d s …</string>
+    <string name="horn_block_node">No node for large group calls is reachable right now – please try again shortly.</string>
+    <string name="horn_block_removed">You were removed from this call. You can join again once you are invited.</string>
+    <string name="horn_path_udp">UDP (fastest path)</string>
+    <string name="horn_path_tcp">TCP via port 443</string>
+    <string name="horn_path_tls">TLS via port 443 (fallback)</string>
+    <string name="horn_path_desc">Path to node %1$s: %2$s · %3$s</string>
+    <string name="horn_loss">loss %1$.1f %%</string>
+    <string name="horn_q_good">good connection</string>
+    <string name="horn_q_mid">fair connection</string>
+    <string name="horn_q_bad">weak connection</string>
+    <string name="horn_switching">switching node …</string>
+    <string name="horn_runes">Rune seal</string>
+    <string name="horn_runes_cd">Rune seal %1$s – to compare</string>
+    <string name="horn_runes_info">Compare the six runes, for example by reading them out loud. If everyone sees the same ones, exactly the devices in the participant list are in the call – nobody else can listen in, not even the server or the node.</string>
+    <string name="horn_runes_change">The runes change as soon as someone joins or leaves.</string>
+    <string name="horn_runes_unverified">Not verified: %1$s</string>
+    <string name="horn_e2e_info">Audio and video are encrypted per frame with the key of the sending device (saga-horn/v1). The node only forwards them and cannot decrypt anything.</string>
+    <string name="horn_people">Participants (%1$d)</string>
+    <string name="horn_host">Host</string>
+    <string name="horn_you">you</string>
+    <string name="horn_companion">Companion device</string>
+    <string name="horn_unverified">not verified</string>
+    <string name="horn_mute">Mute</string>
+    <string name="horn_mute_cd">Mute %1$s</string>
+    <string name="horn_remove">Remove</string>
+    <string name="horn_remove_sure">Really remove?</string>
+    <string name="horn_remove_cd">Remove %1$s from the call</string>
+    <string name="horn_muted_done">%1$s was muted.</string>
+    <string name="horn_removed_done">%1$s was removed from the call.</string>
+    <string name="horn_muted_by">%1$s muted you. You can turn your microphone back on yourself.</string>
+    <string name="horn_removed_by">%1$s removed you from the call.</string>
+    <string name="horn_removed">You were removed from the call.</string>
+    <string name="horn_view_grid">Grid view</string>
+    <string name="horn_view_speaker">Speaker view</string>
+    <string name="horn_more_cd">%1$d more participants</string>
+    <string name="horn_mesh_limit">No node for large group calls is ready – the call runs directly between the devices (at most %1$d with video or %2$d audio only).</string>
+    <string name="horn_ongoing_group">Group call · %1$d participants</string>
+    <string name="horn_connecting">Connecting to the node …</string>
+</resources>

@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Gjallarhorn (P12): Gruppenanrufe ueber Knoten -->
+<resources>
+    <string name="horn_node_try_next">เข้าถึงโหนด %1$s ไม่ได้ – กำลังลอง %2$s …</string>
+    <string name="horn_lost_switch">การเชื่อมต่อกับโหนด %1$s ขาดหาย – กำลังสลับ …</string>
+    <string name="horn_draining_switch">โหนด %1$s กำลังบำรุงรักษา – กำลังสลับโดยไม่ขาดตอน …</string>
+    <string name="horn_lost">ขาดการเชื่อมต่อกับโหนด</string>
+    <string name="horn_retry">เข้าถึงโหนดไม่ได้ – ลองใหม่ใน %1$d วินาที …</string>
+    <string name="horn_block_node">ขณะนี้ไม่มีโหนดสำหรับการโทรกลุ่มขนาดใหญ่ – โปรดลองอีกครั้งในไม่ช้า</string>
+    <string name="horn_block_removed">คุณถูกนำออกจากการโทรนี้ เข้าร่วมได้อีกเมื่อได้รับเชิญ</string>
+    <string name="horn_path_udp">UDP (เส้นทางเร็วที่สุด)</string>
+    <string name="horn_path_tcp">TCP ผ่านพอร์ต 443</string>
+    <string name="horn_path_tls">TLS ผ่านพอร์ต 443 (สำรอง)</string>
+    <string name="horn_path_desc">เส้นทางไปยังโหนด %1$s: %2$s · %3$s</string>
+    <string name="horn_loss">สูญหาย %1$.1f %%</string>
+    <string name="horn_q_good">การเชื่อมต่อดี</string>
+    <string name="horn_q_mid">การเชื่อมต่อปานกลาง</string>
+    <string name="horn_q_bad">การเชื่อมต่ออ่อน</string>
+    <string name="horn_switching">กำลังสลับโหนด …</string>
+    <string name="horn_runes">ตรารูน</string>
+    <string name="horn_runes_cd">ตรารูน %1$s – สำหรับเปรียบเทียบ</string>
+    <string name="horn_runes_info">เปรียบเทียบรูนทั้งหกตัว เช่น อ่านออกเสียง หากทุกคนเห็นเหมือนกัน แสดงว่ามีเพียงอุปกรณ์ในรายชื่อผู้เข้าร่วมเท่านั้นที่อยู่ในการโทร – ไม่มีใครแอบฟังได้ แม้แต่เซิร์ฟเวอร์หรือโหนด</string>
+    <string name="horn_runes_change">รูนจะเปลี่ยนทันทีที่มีคนเข้าร่วมหรือออก</string>
+    <string name="horn_runes_unverified">ยังไม่ได้ตรวจสอบ: %1$s</string>
+    <string name="horn_e2e_info">เสียงและภาพถูกเข้ารหัสทีละเฟรมด้วยกุญแจของอุปกรณ์ที่ส่ง (saga-horn/v1) โหนดทำหน้าที่ส่งต่อเท่านั้นและถอดรหัสอะไรไม่ได้</string>
+    <string name="horn_people">ผู้เข้าร่วม (%1$d)</string>
+    <string name="horn_host">ผู้จัด</string>
+    <string name="horn_you">คุณ</string>
+    <string name="horn_companion">อุปกรณ์เสริม</string>
+    <string name="horn_unverified">ยังไม่ได้ตรวจสอบ</string>
+    <string name="horn_mute">ปิดเสียง</string>
+    <string name="horn_mute_cd">ปิดเสียง %1$s</string>
+    <string name="horn_remove">นำออก</string>
+    <string name="horn_remove_sure">นำออกจริงหรือ?</string>
+    <string name="horn_remove_cd">นำ %1$s ออกจากการโทร</string>
+    <string name="horn_muted_done">ปิดเสียง %1$s แล้ว</string>
+    <string name="horn_removed_done">นำ %1$s ออกจากการโทรแล้ว</string>
+    <string name="horn_muted_by">%1$s ปิดเสียงคุณ คุณเปิดไมโครโฟนเองได้อีกครั้ง</string>
+    <string name="horn_removed_by">%1$s นำคุณออกจากการโทร</string>
+    <string name="horn_removed">คุณถูกนำออกจากการโทร</string>
+    <string name="horn_view_grid">มุมมองตาราง</string>
+    <string name="horn_view_speaker">มุมมองผู้พูด</string>
+    <string name="horn_more_cd">ผู้เข้าร่วมอีก %1$d คน</string>
+    <string name="horn_mesh_limit">ยังไม่มีโหนดสำหรับการโทรกลุ่มขนาดใหญ่ – การโทรจะวิ่งตรงระหว่างอุปกรณ์ (วิดีโอได้สูงสุด %1$d หรือเสียงอย่างเดียว %2$d)</string>
+    <string name="horn_ongoing_group">การโทรกลุ่ม · ผู้เข้าร่วม %1$d คน</string>
+    <string name="horn_connecting">กำลังเชื่อมต่อกับโหนด …</string>
+</resources>

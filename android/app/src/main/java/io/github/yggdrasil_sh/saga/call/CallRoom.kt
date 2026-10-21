@@ -33,6 +33,10 @@ data class CallLeg(
     val joined: Double? = null,
     val me: Boolean = false,
     val replaces: String? = null,
+    /** 2.5 Gjallarhorn: Kennung des Geraets am Knoten des Anrufs (gleich `peer` im eigenen Kandidaten) */
+    val hp: String? = null,
+    /** 2.5: Kennung des Geraets je Knoten, auf dem der Anruf laufen kann (Wechsel: je Verbindung die dieses Knotens) */
+    val hpn: Map<String, String> = emptyMap(),
 ) {
     val companion: Boolean get() = role == CallRoom.ROLE_COMPANION
     val multi: Boolean get() = CallRoom.CAP_MULTI in caps
@@ -115,11 +119,16 @@ data class RoomUi(
     val old: List<String> = emptyList(),
     /** Name des aktiven Sprechers (Bild-im-Bild) */
     val speaker: String = "",
+    /** 2.5: Anruf ueber einen Gjallarhorn-Knoten (Kacheln, Weg, Runensiegel, Teilnehmerliste) */
+    val horn: HornUi? = null,
 )
 
 /** Reine Regeln fuer Raum, Mesh und Mehrgeraete (Unit-Tests) */
 object CallRoom {
     const val CAP_MULTI = "multi"
+    /** 2.5: Gruppenanrufe ueber Gjallarhorn-Knoten (Frame-E2E saga-horn/v1 mit FrameCryptor) */
+    const val CAP_HORN = "horn"
+    const val TOPO_HORN = "horn"
     const val FEATURE_GROUP = "group"
     const val ROLE_MEMBER = "member"
     const val ROLE_COMPANION = "companion"
@@ -141,8 +150,10 @@ object CallRoom {
      * Eigene `caps` inkl. `multi`: nur, wenn der EIGENE Server `reneg` UND `multi` meldet (und der Client den Raum kann).
      * `group` ist nur eine Server-Faehigkeit (Gruppenanruf-Knopf), keine Geraete-Faehigkeit.
      */
-    fun myCaps(serverFeatures: Set<String>, screen2: Boolean = true, multi: Boolean = true): List<String> =
-        CallV3.myCaps(serverFeatures, screen2) + listOfNotNull(CAP_MULTI.takeIf { multi && CallV3.CAP_RENEG in serverFeatures && CAP_MULTI in serverFeatures })
+    fun myCaps(serverFeatures: Set<String>, screen2: Boolean = true, multi: Boolean = true, horn: Boolean = true): List<String> {
+        val m = multi && CallV3.CAP_RENEG in serverFeatures && CAP_MULTI in serverFeatures
+        return CallV3.myCaps(serverFeatures, screen2) + listOfNotNull(CAP_MULTI.takeIf { m }, CAP_HORN.takeIf { m && horn && CAP_HORN in serverFeatures })
+    }
 
     fun multi(caps: Collection<String>): Boolean = CAP_MULTI in caps
 
@@ -244,6 +255,8 @@ object CallRoom {
         "full" -> UiText.Res(R.string.room_block_full, limit)
         "ended" -> UiText.Res(R.string.call_already_ended)
         "none" -> UiText.Res(R.string.room_block_none)
+        "node" -> UiText.Res(R.string.horn_block_node)
+        "removed" -> UiText.Res(R.string.horn_block_removed)
         else -> UiText.Res(R.string.room_block_other)
     }
 

@@ -289,6 +289,16 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     PresenceWatch(svc.presence, "chat:$chatId", listOfNotNull(peerOnline))
     val presenceLine = presenceText(peerOnline?.let { presenceAll[it] }, chatMe?.statusLimits?.lastRound ?: 300)
     var readBy by remember { mutableStateOf<ChatMessage?>(null) }
+    // 2.5: Reaktionen (volle Emoji-Auswahl, "Reaktionen von …") und Sprachnachrichten (Aufnahme, Vorschau)
+    var emojiFor by remember { mutableStateOf<ChatMessage?>(null) }
+    var reactionsFor by remember { mutableStateOf<ChatMessage?>(null) }
+    var micDenied by remember { mutableStateOf(false) }
+    val voiceRec = remember(chatId) { VoiceRecUi(scope) { repo.notify(it) } }
+    LaunchedEffect(Unit) {
+        io.github.yggdrasil_sh.saga.chat.voice.VoicePlayer.init(context)
+        svc.loadRecentEmojis()
+    }
+    DisposableEffect(voiceRec) { onDispose { if (voiceRec.phase == VoiceRecUi.Phase.HOLD || voiceRec.phase == VoiceRecUi.Phase.LOCKED) voiceRec.cancel() } }
     LaunchedEffect(s.messages.size) { if (s.messages.isNotEmpty() && list.firstVisibleItemIndex <= 2) list.animateScrollToItem(0) }
     // laufende KI-Antwort erscheint ganz unten: dorthin rollen (die Liste haelt sonst die bisherige Position)
     LaunchedEffect(s.aiPending) { if (s.aiPending != null && list.firstVisibleItemIndex <= 2) list.animateScrollToItem(0) }
@@ -337,7 +347,13 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     // Wiedergabe anhalten, wenn die App in den Hintergrund geht
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, videoHost) {
-        val obs = androidx.lifecycle.LifecycleEventObserver { _, e -> if (e == androidx.lifecycle.Lifecycle.Event.ON_STOP) videoHost.pause() }
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_STOP) {
+                videoHost.pause()
+                // 2.5: Mikrofon nie im Hintergrund - laufende Aufnahme beenden (bleibt als Vorschau)
+                if (voiceRec.phase == VoiceRecUi.Phase.HOLD || voiceRec.phase == VoiceRecUi.Phase.LOCKED) voiceRec.stop()
+            }
+        }
         lifecycleOwner.lifecycle.addObserver(obs)
         onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
     }
@@ -558,6 +574,14 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                             tick = s.tickOf(m),
                             readAt = if (s.summary?.kind == "dm") s.readersOf(m).firstOrNull()?.second?.ts else null,
                             onReadBy = if (m.mine && s.summary?.kind != "dm" && s.receiptsOn) ({ readBy = m }) else null,
+                            onReact = { e -> s.react(scope, m, e) },
+                            onMoreEmoji = { emojiFor = m },
+                            onShowReactions = { reactionsFor = m },
+                            onEdit = {
+                                s.replyTo = null
+                                s.editing = m
+                                input.setTextAndPlaceCursorAtEnd(m.content?.text.orEmpty())
+                            },
                         )
                     }
                   }
@@ -618,6 +642,13 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 }
             }
             return@Column
+        }
+        // 2.5: im Eingabefeld bearbeiten ("Bearbeiten · Abbrechen")
+        s.editing?.let { e ->
+            EditBar(e.content?.text.orEmpty()) {
+                s.editing = null
+                input.clearText()
+            }
         }
         s.replyTo?.let { r ->
             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -681,8 +712,21 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.Bottom) {
-            Box {
+        if (voiceRec.phase == VoiceRecUi.Phase.PREVIEW) Box(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
+            VoicePreview(voiceRec) { r ->
+                scope.launch {
+                    try {
+                        s.sendVoice(r)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        repo.notify(repo.friendly(e))
+                    }
+                }
+            }
+        } else Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp), verticalAlignment = Alignment.Bottom) {
+            val recording = voiceRec.phase == VoiceRecUi.Phase.HOLD || voiceRec.phase == VoiceRecUi.Phase.LOCKED
+            if (!recording) Box {
                 var attach by remember { mutableStateOf(false) }
                 IconButton(onClick = { attach = true }) { Icon(Icons.Filled.Add, stringResource(R.string.chat_attach)) }
                 DropdownMenu(expanded = attach, onDismissRequest = { attach = false }) {
@@ -694,14 +738,38 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_page)) }, onClick = { attach = false; dialog = "page" })
                 }
             }
-            OutlinedTextField(
+            if (recording) Box(Modifier.weight(1f)) {
+                VoiceRecordingBar(
+                    voiceRec.secs, voiceRec.levels, voiceRec.phase == VoiceRecUi.Phase.LOCKED, voiceRec.warned,
+                    onStop = { voiceRec.stop() }, onCancel = { voiceRec.cancel() },
+                )
+            } else OutlinedTextField(
                 state = input,
-                placeholder = { Text(stringResource(R.string.chat_message_hint)) },
+                placeholder = { Text(stringResource(if (s.editing != null) R.string.x3_edit_hint else R.string.chat_message_hint)) },
                 lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6), shape = RoundedCornerShape(24.dp),
                 modifier = Modifier.weight(1f).heightIn(min = 48.dp).contentReceiver(receiver),
             )
             val canSend = (input.text.isNotBlank() || files.isNotEmpty() || noteIds.isNotEmpty() || videos.isNotEmpty()) && !s.sending && fetching == 0
-            IconButton(onClick = {
+            // 2.5: leeres Eingabefeld -> Mikrofon (halten zum Aufnehmen), sonst Senden
+            val showMic = s.canVoiceHere && s.editing == null && (recording || (input.text.isBlank() && files.isEmpty() && noteIds.isEmpty() && videos.isEmpty()))
+            if (showMic) VoiceMicButton(voiceRec, s.x3Limits, notify = { repo.notify(it) }, onDenied = { micDenied = true })
+            else IconButton(onClick = {
+                // 2.5: Bearbeitung senden (normale v2-Nachricht kind "edit")
+                s.editing?.let { e ->
+                    val text = input.text.toString()
+                    scope.launch {
+                        try {
+                            s.sendEdit(e, text)
+                            s.editing = null
+                            input.clearText()
+                        } catch (x: CancellationException) {
+                            throw x
+                        } catch (x: Exception) {
+                            repo.notify(UiText.Res(R.string.x3_edit_failed, repo.friendly(x)))
+                        }
+                    }
+                    return@IconButton
+                }
                 // 2.3: Warnung/Blockade bei einer Person eines anderen Servers sperrt das Senden
                 s.fedIssues.firstOrNull()?.let { (p, _) ->
                     repo.notify(UiText.Res(R.string.chat_safety_send_blocked, p.name.ifEmpty { p.label ?: p.username }), UiText.Res(R.string.chat_show)) {
@@ -762,6 +830,13 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
 
     // 2.4: "Gelesen von" einer eigenen Nachricht (Gruppen)
     readBy?.let { m -> ReadByDialog(s.readersOf(m)) { readBy = null } }
+    // 2.5: volle Emoji-Auswahl, "Reaktionen von …", Mikrofon dauerhaft abgelehnt
+    emojiFor?.let { m ->
+        val recent by svc.recentEmojis.collectAsState()
+        EmojiPickDialog(recent, onPick = { e -> emojiFor = null; s.react(scope, m, e) }) { emojiFor = null }
+    }
+    reactionsFor?.let { m -> ReactionsSheet(s.chipsOf(m), s.myHandle, { s.nameOfHandle(it) }) { reactionsFor = null } }
+    if (micDenied) MicDeniedDialog { micDenied = false }
     unverifiedOf?.let { who ->
         AlertDialog(
             onDismissRequest = { unverifiedOf = null },
@@ -992,6 +1067,8 @@ private fun Bubble(
     onUnverified: () -> Unit, onResend: () -> Unit = {},
     tick: io.github.yggdrasil_sh.saga.chat.Tick = io.github.yggdrasil_sh.saga.chat.Tick(io.github.yggdrasil_sh.saga.chat.TickKind.NONE),
     readAt: Long? = null, onReadBy: (() -> Unit)? = null,
+    /** 2.5: Reaktion (Emoji; gleiches nochmal nimmt zurueck), volle Auswahl, "Reaktionen", Bearbeiten */
+    onReact: (String) -> Unit = {}, onMoreEmoji: () -> Unit = {}, onShowReactions: () -> Unit = {}, onEdit: () -> Unit = {},
 ) {
     var menu by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
@@ -1020,6 +1097,7 @@ private fun Bubble(
                 io.github.yggdrasil_sh.saga.ui.notifications.Avatar(m.sender?.name.orEmpty(), size = 28, avatar = m.sender?.avatar)
             }
         }
+        Column(horizontalAlignment = if (mineSide) Alignment.End else Alignment.Start) {
         Box {
             Surface(
                 color = bg, contentColor = fg,
@@ -1112,6 +1190,17 @@ private fun Bubble(
                         Modifier.align(Alignment.End).then(if (onReadBy != null) Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onReadBy) else Modifier),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        // 2.5: "bearbeitet" klein neben der Zeit (Zeitpunkt fuer Bildschirmleser)
+                        m.editedAt?.let { at ->
+                            val whenText = remember(at) {
+                                Instant.ofEpochMilli((at * 1000).toLong()).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT))
+                            }
+                            val desc = stringResource(R.string.x3_edited_at, whenText)
+                            Text(
+                                stringResource(R.string.x3_edited) + " · ", style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = 0.7f),
+                                fontStyle = FontStyle.Italic, modifier = Modifier.semantics { contentDescription = desc },
+                            )
+                        }
                         Text(time, style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = 0.7f))
                         TickMark(tick, fg, group, readAt)
                     }
@@ -1121,7 +1210,14 @@ private fun Bubble(
             val videoFiles = m.content?.files.orEmpty().filter { it.isVideo && !it.unsupported }
             val saveVideo = if (videoHost != null && videoFiles.isNotEmpty()) rememberVideoSaver(videoHost, s) else null
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                // 2.5: Schnellleiste (6 Emojis + "+") ueber den Eintraegen
+                if (s.canReact(m)) {
+                    ReactionBar(s.myReaction(m), onPick = { menu = false; onReact(it) }, onMore = { menu = false; onMoreEmoji() })
+                    HorizontalDivider()
+                }
                 DropdownMenuItem(text = { Text(stringResource(R.string.chat_reply)) }, onClick = { menu = false; onReply() })
+                if (s.canEdit(m)) DropdownMenuItem(text = { Text(stringResource(R.string.x3_edit)) }, onClick = { menu = false; onEdit() })
+                if (s.chipsOf(m).isNotEmpty()) DropdownMenuItem(text = { Text(stringResource(R.string.x3_reactions_title)) }, onClick = { menu = false; onShowReactions() })
                 // P-22: Videos auch aus dem Nachrichten-Menue speichern
                 if (saveVideo != null) videoFiles.forEach { f ->
                     DropdownMenuItem(
@@ -1141,6 +1237,9 @@ private fun Bubble(
                     DropdownMenuItem(text = { Text(stringResource(R.string.chat_delete_all), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; confirmDelete = true })
                 }
             }
+        }
+        // 2.5: Reaktionen als Chips unter der Blase
+        ReactionChips(s.chipsOf(m), mineSide, onToggle = if (s.canReact(m)) onReact else null, onShow = onShowReactions)
         }
     }
     if (confirmDelete) {
@@ -1162,6 +1261,11 @@ private fun Bubble(
  */
 @Composable
 private fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit) {
+    // 2.5: Sprachnachricht - Play, Wellenform, Dauer, Tempo (gemeinsamer Player, Quelle wie Videos)
+    if (f.isVoice && !f.unsupported) {
+        VoiceAttachment(f, s, androidx.compose.material3.LocalContentColor.current, LocalVideoHost.current?.sources)
+        return
+    }
     // 2.4: neueres Format (x > 2) nicht still scheitern lassen
     if (f.unsupported) {
         TextButton(onClick = {}, enabled = false) {

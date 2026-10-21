@@ -61,6 +61,9 @@ class MemoryCookieJar : CookieJar {
     fun clear() = store.clear()
 }
 
+/** 2.5: Chat-Stufe dieser App (Kopfzeile X-Saga-Chat) */
+const val CHAT_LEVEL = 3
+
 /**
  * HTTP-Zugang zum Saga-Server.
  *  - Anfragen an den eigenen Server mit "X-Saga: 1" (der Server verlangt die Kopfzeile fuer /api/...)
@@ -87,8 +90,10 @@ class ApiClient(
     private val headers = Interceptor { chain ->
         val req = chain.request()
         if (!isOwn(req.url)) return@Interceptor chain.proceed(req)
-        // X-Saga-Chat: 2 - die App versteht Chats ueber Servergrenzen (saga-chat/v2, Saga 2.3); aeltere Server ignorieren es
-        val b = req.newBuilder().header("X-Saga", "1").header("X-Saga-Chat", "2").header("User-Agent", userAgent)
+        // X-Saga-Chat: hoechste Chat-Stufe der App - 3 (Saga 2.5): lokale Chats der Stufe 3 (saga-chat/v2 ueber Handles),
+        // Reaktionen, Bearbeiten, Sprachnachrichten; mit `device` meldet der Server dieses Geraet als chat3. Server 2.3/2.4
+        // werten es wie 2 (Chats ueber Servergrenzen), aeltere ignorieren es.
+        val b = req.newBuilder().header("X-Saga", "1").header("X-Saga-Chat", CHAT_LEVEL.toString()).header("User-Agent", userAgent)
         acceptLanguage(language())?.let { b.header("Accept-Language", it) }
         chain.proceed(b.build())
     }
