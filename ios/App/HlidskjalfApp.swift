@@ -13,9 +13,17 @@ struct HlidskjalfApp: App {
     var body: some Scene {
         #if os(macOS)
         WindowGroup {
+            #if DEBUG
+            if X3Preview.mode != nil { X3PreviewView(store: store) } else if HornPreview.mode != nil { HornPreviewView(store: store) } else {   // nur fuer Bilder (2.5, ohne Server)
             RootView(store: store)
                 .environment(\.calendar, SagaDate.calendar)                    // Datumswahl gregorianisch (Thai: nicht 2569)
                 .handlesExternalEvents(preferring: ["*"], allowing: ["*"])   // Widget-Links im offenen Fenster, kein zweites
+            }
+            #else
+            RootView(store: store)
+                .environment(\.calendar, SagaDate.calendar)                    // Datumswahl gregorianisch (Thai: nicht 2569)
+                .handlesExternalEvents(preferring: ["*"], allowing: ["*"])   // Widget-Links im offenen Fenster, kein zweites
+            #endif
         }
             .handlesExternalEvents(matching: ["*"])
             .commands {
@@ -37,7 +45,14 @@ struct HlidskjalfApp: App {
         MenuBarExtra("Saga", systemImage: "book", isInserted: .constant(!SnapshotHelper.active)) { QuickCaptureView() }     // Schnellerfassung in der Menueleiste (nicht bei Test-Bildern)
             .menuBarExtraStyle(.window)
         #else
-        WindowGroup { RootView(store: store).environment(\.calendar, SagaDate.calendar) }     // Datumswahl gregorianisch
+        WindowGroup {
+            #if DEBUG
+            if X3Preview.mode != nil { X3PreviewView(store: store) } else if HornPreview.mode != nil { HornPreviewView(store: store) }   // nur fuer Bilder
+            else { RootView(store: store).environment(\.calendar, SagaDate.calendar) }
+            #else
+            RootView(store: store).environment(\.calendar, SagaDate.calendar)     // Datumswahl gregorianisch
+            #endif
+        }
             .commands { HKMenuCommands(); HKEditorCommands() }                     // iPad mit Tastatur
         #endif
     }

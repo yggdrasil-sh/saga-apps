@@ -17,10 +17,12 @@ packages:
   Sodium:
     url: https://github.com/jedisct1/swift-sodium.git
     exactVersion: 0.9.1
-  # Anrufe (Saga 2.1): vorgebautes Google-libwebrtc (BSD) fuer iOS + macOS, Version fest (Lizenzhinweis in "Ueber")
+  # Anrufe: vorgebautes libwebrtc (BSD) fuer iOS + macOS, Version fest (Lizenzhinweis in "Ueber").
+  # Saga 2.5: webrtc-sdk (LiveKit-Zweig) statt stasel - bringt FrameCryptor mit HKDF (saga-horn/v1, docs/HORN-E2E.md).
+  # Modul/Produkt heissen weiter WebRTC, Klassen ohne Praefix. Eingebunden ueber die Huelle Packages/WebRTC (Version und
+  # Pruefsumme dort; das Specs-Manifest selbst laesst sich mit Xcode 27 nicht laden).
   WebRTC:
-    url: https://github.com/stasel/WebRTC.git
-    exactVersion: 154.0.0
+    path: Packages/WebRTC
 settings:
   base:
     CODE_SIGN_STYLE: Automatic
@@ -55,7 +57,7 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait, UIInterfaceOrientationLandscapeLeft, UIInterfaceOrientationLandscapeRight, UIInterfaceOrientationPortraitUpsideDown]
         NSCameraUsageDescription: Take photos for notes, scan QR codes to sign in and make video calls      # uebersetzt: App/InfoPlist.xcstrings
-        NSMicrophoneUsageDescription: Talk in audio and video calls
+        NSMicrophoneUsageDescription: Talk in audio and video calls and record voice messages   # 2.5: auch Sprachnachrichten
         UIBackgroundModes: [voip, audio, remote-notification]   # Anrufe: PushKit/CallKit, Ton im Hintergrund (nur iOS)
         NSPhotoLibraryAddUsageDescription: Save images from notes and videos from chats
         CFBundleURLTypes:
@@ -183,3 +185,65 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).sharemac
         CODE_SIGN_ENTITLEMENTS: ShareMac/ShareMac.entitlements
         ENABLE_HARDENED_RUNTIME: YES
+  # 2.5 Chat-Stufe 3 + Grundlagen: Vektoren tests/vectors/chat_v3.json (Kopie in Tests/vectors), Ogg-Muxer/-Demuxer,
+  # Opus-Codec des Systems (nur synthetischer Eingang: Sinus bzw. Tests/vectors/voice_sine.ogg), Wellenform,
+  # Vertrauens-Uebernahme. Ohne Host-App, ohne Netz - nie Mikrofon, keine AVAudioEngine, kein Audio-Geraet.
+  # xcodebuild -scheme ChatX3Tests -destination 'platform=macOS' test  (bzw. eine iOS-Simulator-ID)
+  ChatX3Tests:
+    type: bundle.unit-test
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - Tests/ChatX3
+      - App/AILogic.swift
+      - App/CallLogic.swift
+      - App/ChatCrypto.swift
+      - App/ChatCryptoV2.swift
+      - App/ChatCryptoV3.swift
+      - App/ChatLogic.swift
+      - App/ChatMediaLogic.swift
+      - App/ChatX3Logic.swift
+      - App/FedChatLogic.swift
+      - App/FedChatFlow.swift
+      - App/FileV2Logic.swift
+      - App/LanguageLogic.swift
+      - App/ShareLogic.swift
+      - App/VoiceOgg.swift
+      - App/VoiceCodec.swift
+      - path: Tests/vectors/chat_v3.json
+        buildPhase: resources
+      - path: Tests/vectors/voice_sine.ogg
+        buildPhase: resources
+    dependencies:
+      - package: Sodium
+        product: Clibsodium
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).chatx3tests
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+  # 2.5 Gjallarhorn: Frame-E2E saga-horn/v1 gegen tests/vectors/horn_e2e.json (Kopie in Tests/vectors) und FrameCryptor
+  # im Loopback. Ohne Host-App (kein Fenster), Testbild aus dem Speicher, stilles Audio-Geraet - nie Kamera/Mikrofon.
+  # Dazu (P11 Stufe 2) die Entscheidungen wie tests/horn_logik.js und ein Integrationstest gegen einen lokalen Knoten
+  # (nur mit TEST_RUNNER_SAGA_HORN_NODE=https://127.0.0.1:<port>, sonst uebersprungen).
+  # xcodebuild -scheme HornE2ETests -destination 'platform=macOS' test  (bzw. eine iOS-Simulator-ID)
+  HornE2ETests:
+    type: bundle.unit-test
+    supportedDestinations: [iOS, macOS]
+    sources:
+      - Tests/Horn
+      - App/HornE2E.swift
+      - App/HornCryptor.swift
+      - App/HornLogic.swift                                # 2.5 P11 Stufe 2: Kandidaten, Umschalter, Kacheln, Schluesselplan
+      - App/HornNode.swift                                 # Gespraech mit dem Knoten (Messung, Bein, Ereigniskanal)
+      - App/HornMedia.swift                                # Bein = PeerConnection mit FrameCryptor
+      - path: Tests/vectors/horn_e2e.json
+        buildPhase: resources
+    dependencies:
+      - package: WebRTC
+        product: WebRTC
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(SAGA_BUNDLE_ID).horntests
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "$(inherited) @loader_path/../Frameworks"

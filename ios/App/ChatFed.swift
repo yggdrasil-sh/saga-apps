@@ -44,7 +44,8 @@ extension ChatModel {
         }
         let uid = me.uid
         return FedFlow.evaluate(handles, keys: all, myHandle: myHandle, myIdentPK: keys?.identPK ?? Data(),
-                                stored: { FedTrustStore.get(uid, $0) }, save: { FedTrustStore.set(uid, $0, $1) })
+                                stored: { FedTrustStore.get(uid, $0) }, save: { FedTrustStore.set(uid, $0, $1) },
+                                v1: { ChatH2UStore.v1Trust(uid, handle: $0) })            // 2.5: Vertrauen aus v1 uebernehmen
     }
     /// Eigener Handle (fuer eingehende Anrufe ueber Servergrenzen); nil = Server ohne Foederation 2.3
     func fedMyHandle() async -> String? {

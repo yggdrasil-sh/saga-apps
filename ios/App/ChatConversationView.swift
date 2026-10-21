@@ -33,6 +33,9 @@ struct ConversationView: View {
     @State private var askAIOn = false                    // KI im Chat erlauben? (Rueckfrage)
     @State private var deleting: ChatSummary?             // "Chat loeschen …" (2.1)
     @State private var perfScroll: String?                // nur fuer Tests (-hkChatPerf): automatisch scrollen
+    @State private var editing: ChatMessage?              // 2.5: Nachricht wird im Eingabefeld bearbeitet
+    @State private var voiceProgress: Double?             // 2.5: Sprachnachricht wird hochgeladen
+    @StateObject private var rec = VoiceRecorder()        // 2.5: Aufnahme einer Sprachnachricht
     @FocusState private var focused: Bool
 
     init(chatID: Int, chat: ChatModel) {
@@ -90,6 +93,8 @@ struct ConversationView: View {
             #if DEBUG
             ChatPerf.begin()                                                                // nur fuer Tests: Messung
             #endif
+            rec.maxS = chat.me.x3.limits.voiceMaxS; rec.kbps = chat.me.x3.limits.voiceKbps   // 2.5: Grenzen des Servers
+            rec.onLimit = { [weak rec] in Task { await rec?.stop() }; chat.toast = String(localized: "Höchstens 15 Minuten – Aufnahme beendet.") }
             await conv.load()
             chat.presenceSoon()                                                             // 2.4: Online-Status des Gegenuebers
             #if DEBUG
@@ -123,8 +128,11 @@ struct ConversationView: View {
             if conv.deliveryDue() { await conv.checkDelivery() }
             await conv.deliveryLoop()
         }
-        .onDisappear { if chat.open === conv { chat.open = nil }; chat.presenceSoon() }   // 2.4: Online-Abo dieses Chats endet
-        .onChange(of: conv.purged) { _, _ in text = ""; files = []; replyTo = nil; askDelete = nil }   // Chat geloescht: Entwurf weg
+        .onDisappear {
+            if chat.open === conv { chat.open = nil }; chat.presenceSoon()             // 2.4: Online-Abo dieses Chats endet
+            if rec.active { rec.cancel() }                                            // 2.5: Aufnahme endet mit dem Chat
+        }
+        .onChange(of: conv.purged) { _, _ in text = ""; files = []; replyTo = nil; askDelete = nil; editing = nil; rec.cancel() }   // Chat geloescht: Entwurf weg
         .sheet(item: $deleting) { c in ChatDeleteSheet(chat: chat, c: c) }
         .modifier(ChatMediaInput(files: $files, pickImmich: $pickImmich, immichOn: $immichOn, enabled: !conv.notFound, maxBytes: chat.me.fileMax))
         .sheet(item: $safetyPeer) { p in
@@ -251,7 +259,8 @@ struct ConversationView: View {
                         MessageBubble(m: m, showName: conv.info?.kind != "dm" && !m.mine && (i == 0 || shown[i - 1].sender != m.sender || shown[i - 1].call != nil || shown[i - 1].aiState == .ok),
                                       quoted: m.replyTo.flatMap { r in conv.messages.first { $0.id == r } }, hasReply: m.replyTo != nil,
                                       conv: conv, highlight: !search.isEmpty && ChatLogic.matches(m.text, search),
-                                      reply: { replyTo = m; focused = true }, delete: { askDelete = m },
+                                      reply: { replyTo = m; editing = nil; focused = true }, delete: { askDelete = m },
+                                      edit: { startEdit(m) },
                                       openPage: { id in nav.push(PageRoute(id: id)) },
                                       checkSafety: { safetyPeer = ChatMember(username: m.sender, name: m.senderName, me: false) })
                             .id(m.id)
@@ -309,6 +318,7 @@ struct ConversationView: View {
             if let s = conv.sendError { Text(verbatim: s).font(.footnote).foregroundStyle(.red).frame(maxWidth: .infinity, alignment: .leading) }
             if let s = conv.aiError { Text(verbatim: s).font(.footnote).foregroundStyle(.red).frame(maxWidth: .infinity, alignment: .leading) }
             aiComposerHints
+            if let e = editing { EditBar(original: e.text) { cancelEdit() } }   // 2.5: "Bearbeiten · Abbrechen"
             if let r = replyTo {
                 HStack {
                     Rectangle().fill(Color.gold).frame(width: 3)
@@ -336,6 +346,12 @@ struct ConversationView: View {
                     }
                 }
             }
+            if rec.active {                                                  // 2.5: Aufnahme bzw. Vorschau
+                VoiceRecordBar(rec: rec, send: { sendVoice() }, progress: voiceProgress)
+            }
+            if let e = rec.error { Text(verbatim: e).font(.footnote).foregroundStyle(.orange).frame(maxWidth: .infinity, alignment: .leading) }
+            // iPhone/iPad: beim Halten bleibt die Zeile mit dem Mikrofon stehen (sonst bricht die Geste ab)
+            if !rec.active || holding {
             HStack(alignment: .bottom, spacing: 8) {
                 Menu {
                     Button { pickPhotos = true } label: { Label("Fotos", systemImage: "photo") }
@@ -354,20 +370,66 @@ struct ConversationView: View {
                     #if os(macOS)
                     .onKeyPress(.return, phases: .down) { k in if k.modifiers.contains(.shift) { return .ignored }; sendNow(); return .handled }
                     #endif
+                    .onKeyPress(.upArrow, phases: .down) { _ in                 // 2.5: Pfeil hoch im leeren Feld bearbeitet die letzte eigene
+                        guard text.isEmpty, editing == nil, let m = conv.messages.last(where: { conv.canEdit($0) }) else { return .ignored }
+                        startEdit(m); return .handled
+                    }
+                    .onKeyPress(.escape, phases: .down) { _ in
+                        if editing == nil { return .ignored }
+                        cancelEdit(); return .handled
+                    }
+                if showMic {
+                    VoiceMicButton(rec: rec) { chat.toast = $0 }                  // 2.5: Sprachnachricht (leeres Feld)
+                } else {
                 Button { sendNow() } label: {
-                    Image(systemName: conv.sending ? "ellipsis.circle" : "arrow.up.circle.fill").font(.title2).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                    Image(systemName: conv.sending ? "ellipsis.circle" : editing != nil ? "checkmark.circle.fill" : "arrow.up.circle.fill").font(.title2).frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                 }
                     .disabled(conv.sending || (text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && files.isEmpty))
                     .keyboardShortcut(.return, modifiers: .command)
-                    .accessibilityLabel("Senden")
+                    .accessibilityLabel(editing != nil ? Text("Speichern") : Text("Senden"))
+                }
             }
             .buttonStyle(.plain).foregroundStyle(Color.gold)
+            }
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .background(.bar)
+        .task(id: rec.error) { if rec.error != nil { try? await Task.sleep(for: .seconds(6)); rec.error = nil } }   // Hinweis nicht ewig zeigen
+    }
+    /// 2.5: Mikrofon statt Senden - leeres Feld, keine Anhaenge, nicht beim Bearbeiten
+    private var showMic: Bool {
+        (conv.voiceOK && text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && files.isEmpty && editing == nil) || holding
+    }
+    /// iPhone/iPad: Aufnahme laeuft, solange der Finger auf dem Mikrofon liegt (noch nicht gesperrt)
+    private var holding: Bool {
+        #if os(iOS)
+        (rec.state == .starting || rec.state == .recording) && !rec.locked
+        #else
+        false
+        #endif
+    }
+    private func startEdit(_ m: ChatMessage) {
+        guard conv.canEdit(m) else { return }
+        replyTo = nil; editing = m; text = m.text; focused = true
+    }
+    private func cancelEdit() { editing = nil; text = ""; focused = true }
+    private func sendVoice() {
+        guard let c = rec.clip else { return }
+        let r = replyTo?.id
+        rec.sending(true); voiceProgress = 0
+        Task {
+            let ok = await conv.sendVoice(c, replyTo: r) { p in Task { @MainActor in voiceProgress = p } }
+            voiceProgress = nil
+            if ok { rec.sent(); replyTo = nil } else { rec.sending(false) }
+        }
     }
     private func sendNow() {
         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let e = editing {                                                  // 2.5: Bearbeitung speichern
+            guard !t.isEmpty, !conv.sending else { return }
+            Task { if await conv.sendEdit(e, text: t) { editing = nil; text = "" } }
+            return
+        }
         guard !t.isEmpty || !files.isEmpty, !conv.sending else { return }
         let f = files, r = replyTo?.id
         let ask = conv.aiAllowed && AIChatLogic.mentions(t, name: conv.aiName)      // "@Marin …": danach die KI fragen
@@ -576,10 +638,16 @@ struct MessageBubble: View {
     var highlight = false
     var reply: () -> Void
     var delete: () -> Void
+    var edit: () -> Void = {}
     var openPage: (Int) -> Void
     var checkSafety: () -> Void = {}
     @State private var info = false
     @State private var readBy = false                             // 2.4: "Gelesen von" (Gruppen)
+    @State private var pickEmoji = false                          // 2.5: "+" (System-Emoji-Auswahl)
+    @State private var rxWho: RxWho?                              // 2.5: "Reaktionen von …"
+    @State private var hover = false                              // 2.5: Mac - Reagieren beim Ueberfahren
+    @State private var rxBar = false
+    struct RxWho: Identifiable { var e: String?; var id: String { e ?? "*" } }
     @EnvironmentObject var store: Store
     /// bestaetigte KI-Antwort (2.1): links mit Bild + Name der KI, "gefragt von …"
     private var isAI: Bool { m.aiState == .ok }
@@ -616,15 +684,29 @@ struct MessageBubble: View {
                 .background(bubbleColor, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(isAI ? Color.gold.opacity(0.55) : .clear, lineWidth: 1))
                 .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(highlight ? Color.gold : .clear, lineWidth: 2))
+                .overlay(alignment: mine ? .topLeading : .topTrailing) { hoverReact }  // 2.5: Mac - Reagieren beim Ueberfahren
+                let chips = conv.chips(m)
+                if !chips.isEmpty {                                             // 2.5: Reaktionen unter der Blase
+                    ReactionChips(chips: chips, enabled: conv.canReact(m), mine: mine, tap: { conv.react(m, $0) }, who: { rxWho = RxWho(e: $0.e) })
+                }
                 HStack(spacing: 4) {
                     FedDeliveryMark(delivery: m.delivery)                       // 2.3: wird zugestellt / nicht zugestellt
+                    if let e = m.editedAt { EditedMark(at: e) }                 // 2.5: "bearbeitet"
                     Text(m.date, format: .dateTime.hour().minute())
                     if m.expiresAt != nil { Image(systemName: "timer") }
                     ReceiptTickView(tick: conv.tick(m), group: conv.isGroup) { readBy = true }   // 2.4: ✓ zugestellt, ✓✓ gelesen
                 }.font(.caption2).foregroundStyle(.secondary)
             }
+            #if os(macOS)
+            .onHover { hover = $0 }
+            #endif
             .contextMenu {
+                if conv.canReact(m) {                                          // 2.5: Schnellleiste oben im Menue
+                    ReactionMenuPalette(current: conv.myReaction(m), pick: { conv.react(m, $0) }, more: { pickEmoji = true })
+                }
                 Button { reply() } label: { Label("Antworten", systemImage: "arrowshape.turn.up.left") }
+                if conv.canEdit(m) { Button { edit() } label: { Label("Bearbeiten", systemImage: "pencil") } }
+                if !conv.chips(m).isEmpty { Button { rxWho = RxWho(e: nil) } label: { Label("Reaktionen von …", systemImage: "face.smiling") } }
                 if !m.text.isEmpty { Button { copyText(m.text) } label: { Label("Text kopieren", systemImage: "doc.on.doc") } }
                 if m.mine && m.delivery == .failed && m.content != nil {
                     Button { Task { await conv.resend(m) } } label: { Label("Erneut senden", systemImage: "arrow.clockwise") }
@@ -635,10 +717,30 @@ struct MessageBubble: View {
                 if m.mine { Button(role: .destructive) { delete() } label: { Label("Für alle löschen", systemImage: "trash") } }
             }
             .sheet(isPresented: $readBy) { ReadBySheet(conv: conv, message: m) }
-            .accessibilityElement(children: .combine)
+            .sheet(isPresented: $pickEmoji) { EmojiPickSheet { conv.react(m, $0) } }
+            .sheet(item: $rxWho) { w in ReactionsWhoSheet(conv: conv, message: m, only: w.e) }
+            .accessibilityElement(children: (m.content?.files.contains { $0.voice } ?? false) || !conv.chips(m).isEmpty ? .contain : .combine)   // Abspielen/Chips bedienbar
             .accessibilityHint(m.verified ? Text(verbatim: "") : Text("Echtheit nicht bestätigt"))
             if !mine { Spacer(minLength: 48) }
         }
+    }
+    /// Mac: beim Ueberfahren ein kleiner Knopf an der Blase -> Schnellleiste
+    @ViewBuilder private var hoverReact: some View {
+        #if os(macOS)
+        if (hover || rxBar) && conv.canReact(m) {
+            Button { rxBar = true } label: {
+                Image(systemName: "face.smiling").font(.callout).padding(5)
+                    .background(.regularMaterial, in: Circle())
+                    .overlay(Circle().strokeBorder(Color.secondary.opacity(0.25), lineWidth: 0.5))
+            }
+            .buttonStyle(.plain)
+            .offset(x: mine ? -30 : 30, y: -6)
+            .help(Text("Reagieren")).accessibilityLabel(Text("Reagieren"))
+            .popover(isPresented: $rxBar, arrowEdge: .top) {
+                ReactionBar(current: conv.myReaction(m), pick: { e in rxBar = false; conv.react(m, e) }, more: { rxBar = false; pickEmoji = true })
+            }
+        }
+        #endif
     }
     /// deckende Blasen (eigene golden wie auf iPhone/iPad, auch am Mac mit Graphit-Akzent)
     private var bubbleColor: Color {
@@ -754,7 +856,8 @@ struct ChatAttachmentView: View {
     let file: ChatFileRef
     @ObservedObject var conv: ConversationModel
     var body: some View {
-        if file.isVideo || file.isV2 { ChatVideoThumb(file: file, conv: conv) }            // 2.4: Poster, Player erst beim Antippen
+        if file.voice { VoiceMessageView(file: file, conv: conv) }                          // 2.5: Sprachnachricht
+        else if file.isVideo || file.isV2 { ChatVideoThumb(file: file, conv: conv) }       // 2.4: Poster, Player erst beim Antippen
         else if !VideoSendLogic.known(file.x) { ChatNewerFormatRow(file: file) }           // neueres Format: nicht still scheitern
         else if file.isImage || file.thumb != nil { ChatImageThumb(file: file, conv: conv) } else { ChatFileRow(file: file, conv: conv) }
     }
@@ -979,7 +1082,7 @@ struct MembersSheet: View {
             ShareAvatar(name: m.name, group: false, avatar: m.avatar)
             VStack(alignment: .leading) {
                 Text(verbatim: m.me ? m.name + " (" + String(localized: "du") + ")" : m.name)
-                if let l = fedMember(m)?.label ?? (m.me ? nil : m.sub) { Text(verbatim: l).font(.caption).foregroundStyle(.secondary) }   // 2.3: nie den Handle; 2.4 (W4): nie den Anmeldenamen, sub fuer Gleichnamige
+                if let l = (conv.fed?.remote == true ? fedMember(m)?.label : nil) ?? (m.me ? nil : m.sub) { Text(verbatim: l).font(.caption).foregroundStyle(.secondary) }   // 2.5 Stufe 3: lokal ohne Server   // 2.3: nie den Handle; 2.4 (W4): nie den Anmeldenamen, sub fuer Gleichnamige
             }
             Spacer()
             if !m.me {

@@ -38,6 +38,8 @@ struct FedTrust: Equatable, Codable {
     var changed: Bool = false
     var old: String? = nil
     var dver: Int = 0
+    /// 2.5: aus dem v1-Stand (trust:<benutzer>) uebernommen - Hinweis "Neue Darstellung, gleicher Schluessel"
+    var migrated: Bool? = nil
 }
 
 enum FedChatLogic {
@@ -76,7 +78,23 @@ enum FedChatLogic {
     }
     /// "Verstanden" (verified false) bzw. "Als ueberprueft markieren" (true): Warnung weg, Stand der Geraete-Liste bleibt
     static func confirm(_ stored: FedTrust?, ident: String, verified: Bool) -> FedTrust {
-        FedTrust(ident: ident, verified: verified, dver: stored?.ident == ident ? (stored?.dver ?? 0) : 0)
+        let same = stored?.ident == ident
+        return FedTrust(ident: ident, verified: verified, dver: same ? (stored?.dver ?? 0) : 0, migrated: same ? stored?.migrated : nil)
+    }
+    /// v1-Vertrauensstand (trust:<benutzer>): {ident, verified, changed, old?}
+    struct V1Trust: Equatable { var ident: String; var verified: Bool; var changed: Bool; var old: String? = nil }
+    /// 2.5 Vertrauens-Uebernahme v1 -> v2 (nur solange es keinen Eintrag trust2:<handle> gibt), wie tofu_migrate in
+    /// saga/chat_v3.py bzw. static/chat-crypto.js (Vektoren tests/vectors/chat_v3.json "tofu_migrate"): gleicher
+    /// Identitaetsschluessel -> verified und changed gehen mit; anderer Schluessel und ueberprueft -> Blockade; sonst Warnung.
+    static func tofuMigrate(_ v1: V1Trust?, ident: String, ver: Int) -> (result: Verdict, store: FedTrust?) {
+        guard let v1 else { return (.trust, FedTrust(ident: ident, verified: false, dver: ver)) }
+        if v1.ident == ident {
+            var st = FedTrust(ident: ident, verified: v1.verified, dver: ver)
+            if v1.changed { st.changed = true; st.old = v1.old; return (.warn, st) }
+            return (.trust, st)
+        }
+        if v1.verified { return (.block, nil) }
+        return (.warn, FedTrust(ident: ident, verified: false, changed: true, old: v1.ident, dver: ver))
     }
     /// "✓ ueberprueft" im Kopf: als ueberprueft markiert, gleicher Schluessel, keine Warnung
     static func isVerified(_ stored: FedTrust?, ident: String?, verdict: Verdict?) -> Bool {
@@ -105,7 +123,8 @@ enum FedChatLogic {
     }
     /// Systemzeile (kind 'sys', Klartext-Metadaten in body_ct): KI ein/aus {"type":"ai",…}, Mitglieder {"type":"members",…},
     /// ab jetzt ueber Servergrenzen {"type":"fed","on":true,"ai_off":true?}
-    enum SysLine: Equatable { case ai(on: Bool, byMe: Bool, name: String), members(MembersLine), fed(aiOff: Bool), other }
+    /// 2.5: {"type":"crypto","level":3,"verify"?:true} - Chat auf Stufe 3 umgestellt (Handles statt Anmeldenamen)
+    enum SysLine: Equatable { case ai(on: Bool, byMe: Bool, name: String), members(MembersLine), fed(aiOff: Bool), crypto(verify: Bool), other }
     static func sysLine(_ bodyCT: String?, myHandle: String?) -> SysLine {
         guard let j = bodyCT.flatMap({ ShareJSON.obj(Data($0.utf8)) }) else { return .other }
         switch j["type"] as? String {
@@ -116,6 +135,7 @@ enum FedChatLogic {
             let list = { (k: String) in (j[k] as? [Any] ?? []).compactMap(SysWho.init) }
             return .members(MembersLine(added: list("added"), removed: list("removed"), by: SysWho(j["by"]), reason: ShareJSON.str(j["reason"])))
         case "fed": return .fed(aiOff: ShareJSON.bool(j["ai_off"]))
+        case "crypto": return .crypto(verify: ShareJSON.bool(j["verify"]))
         default: return .other
         }
     }
@@ -129,6 +149,9 @@ enum FedChatLogic {
             let t = String(localized: "Ab jetzt mit Personen anderer Saga-Server (Ende-zu-Ende verschlüsselt).")
             return aiOff ? t + " " + String(localized: "Die KI ist hier jetzt aus.") : t
         case .members(let m): return membersText(m, myHandle: myHandle)
+        case .crypto(let verify):
+            let t = String(localized: "Dieser Chat ist jetzt an die stabilen Saga-Adressen gebunden (neue Verschlüsselungsstufe).")
+            return verify ? t + " " + String(localized: "Bitte die Sicherheitsnummern neu vergleichen – sie werden jetzt anders angezeigt.") : t
         case .other: return String(localized: "Hinweis")
         }
     }
@@ -197,7 +220,8 @@ enum FedChatLogic {
         let hs = Array(Set(handles)).sorted()
         return stride(from: 0, to: hs.count, by: 20).compactMap { keysPath(Array(hs[$0..<min($0 + 20, hs.count)]), fresh: fresh) }
     }
-    /// Nachricht eines auf v2 umgestellten Seiten-Chats aus der Zeit davor (ohne sender_handle, E5): mit v1 oeffnen
+    /// Nachricht eines auf v2 umgestellten Seiten-Chats aus der Zeit davor (ohne sender_handle, E5): mit v1 oeffnen.
+    /// 2.5: ebenso Nachrichten eines auf Stufe 3 umgestellten Chats bis v3.seq (die haben nie einen sender_handle, A4.4)
     static func isLegacyV1(_ m: [String: Any]) -> Bool {
         (ShareJSON.str(m["sender_handle"]) ?? "").isEmpty && (m["kind"] as? String ?? "msg") != "sys"
     }
@@ -232,9 +256,21 @@ struct FedChatInfo: Equatable {
     var members: [FedMember]
     /// Gruppe eines anderen Servers (E5): wer eingeladen hat ({name, host, label}), nur bei Anfragen
     var invitedBy: FedInviter?
+    /// 2.5: Stufe des Chats - 2 = ueber Servergrenzen (2.3), 3 = lokal im Format v2 (Handles statt Anmeldenamen)
+    var level = 2
+    /// wirklich ueber Servergrenzen (Herkunft zeigen, Anfragen, Heim); Stufe 3 ist ein lokaler Chat
+    var remote: Bool { level == 2 }
+    /// 2.5: auf Stufe 3 umgestellt (v3 {seq, at, forced}): Nachrichten bis seq im Format v1
+    var v3Seq: Int?
+    var v3Forced = false
+    /// 2.5: Reaktionen, Bearbeiten, Sprachnachrichten moeglich (Server meldet x3_ok)
+    var x3OK = false
     init?(_ v: Any?) {
-        guard let d = v as? [String: Any], ShareJSON.int(d["v"]) == 2, let ref = ShareJSON.str(d["ref"]) else { return nil }
+        guard let d = v as? [String: Any], let lv = ShareJSON.int(d["v"]), lv == 2 || lv == 3, let ref = ShareJSON.str(d["ref"]) else { return nil }
         self.ref = ref
+        level = lv
+        if let x = d["v3"] as? [String: Any] { v3Seq = ShareJSON.int(x["seq"]); v3Forced = ShareJSON.bool(x["forced"]) }
+        x3OK = (d["x3_ok"] as? Bool) == true
         home = ShareJSON.str(d["home"]) ?? FedChatLogic.host(of: ref)
         homeSelf = ShareJSON.bool(d["home_self"])
         myHandle = ShareJSON.str(d["my_handle"]) ?? ""

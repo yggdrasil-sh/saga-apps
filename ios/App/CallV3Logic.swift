@@ -12,10 +12,12 @@ enum CallV3 {
     /// 2.4 E3: "screen2" (Bildschirm als eigene Videospur) nur mit Server-Features "reneg" UND "screen2" und wenn der
     /// Client Betriebsart B kann (screen2: false = immer A)
     /// 2.4 E4/E5: "multi" (Raum: weitere Geraete, Gruppen) nur mit Server-Features "reneg" UND "multi"
-    static func myCaps(serverFeatures: [String], screen2: Bool = true) -> [String] {
+    /// 2.5: "horn" (Gruppenanrufe ueber Gjallarhorn-Knoten, Frame-E2E per FrameCryptor) nur mit reneg + multi + horn am Server
+    static func myCaps(serverFeatures: [String], screen2: Bool = true, horn: Bool = true) -> [String] {
         let reneg = serverFeatures.contains("reneg")
+        let multi = reneg && serverFeatures.contains("multi")
         return (reneg ? ["reneg"] : []) + ["want", "bye"] + (reneg && screen2 && serverFeatures.contains("screen2") ? ["screen2"] : [])
-            + (reneg && serverFeatures.contains("multi") ? ["multi"] : [])
+            + (multi ? ["multi"] : []) + (multi && horn && serverFeatures.contains("horn") ? ["horn"] : [])
     }
     /// Neuverhandlung (Angebote waehrend des Gespraechs, ICE-Restart) nur, wenn beide Seiten "reneg" melden
     static func canReneg(mine: [String], peer: [String]?) -> Bool { mine.contains("reneg") && peer?.contains("reneg") == true }

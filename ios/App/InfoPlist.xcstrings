@@ -80,31 +80,31 @@
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "In Audio- und Videoanrufen sprechen"
+            "value" : "In Audio- und Videoanrufen sprechen und Sprachnachrichten aufnehmen"
           }
         },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Talk in audio and video calls"
+            "value" : "Talk in audio and video calls and record voice messages"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hablar en llamadas de audio y vídeo"
+            "value" : "Hablar en llamadas de audio y vídeo y grabar mensajes de voz"
           }
         },
         "ru" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Разговор в аудио- и видеозвонках"
+            "value" : "Разговор в аудио- и видеозвонках и запись голосовых сообщений"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "พูดคุยในการโทรด้วยเสียงและวิดีโอ"
+            "value" : "พูดคุยในการโทรด้วยเสียงและวิดีโอ และบันทึกข้อความเสียง"
           }
         }
       }

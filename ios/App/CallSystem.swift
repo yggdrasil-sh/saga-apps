@@ -131,6 +131,14 @@ final class CallSystem: NSObject {
         }
         #endif
     }
+    /// 2.5: Gruppenanruf (auch ueber einen Knoten) - Name in CallKit mit der Zahl der Geraete nachfuehren
+    func groupInfo(_ m: CallManager, count: Int) {
+        #if os(iOS)
+        guard CallEnv.callKit, m.kind == "group", let id = m.id, let u = CallLogic.uuid(id), reported.contains(u) else { return }
+        let name = m.title.isEmpty ? m.peerName : m.title
+        provider.reportCall(with: u, updated: update(name: count > 1 ? "\(name) · \(count)" : name, video: m.media == "video", chat: m.chatID))
+        #endif
+    }
     func reportIncoming(_ m: CallManager, _ inc: IncomingCall) {
         #if os(iOS)
         if CallEnv.callKit, let u = CallLogic.uuid(inc.id) {

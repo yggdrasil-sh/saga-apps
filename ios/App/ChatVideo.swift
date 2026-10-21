@@ -298,7 +298,10 @@ final class ChatVideoSource: @unchecked Sendable {
         self.fileKey = ChatCrypto.unb64(file.key, 32) ?? Data()
         self.size = plainV1.map { Int64($0.count) } ?? Int64(file.size)
     }
-    var contentType: String { UTType(mimeType: file.mime)?.identifier ?? UTType.mpeg4Movie.identifier }
+    var contentType: String {
+        if file.voice { return UTType(filenameExtension: "ogg")?.identifier ?? "org.xiph.ogg-audio" }   // 2.5: Sprachnachricht (Ogg/Opus)
+        return UTType(mimeType: file.mime)?.identifier ?? UTType.mpeg4Movie.identifier
+    }
 
     /// Ciphertext-Bytes from...to (Medien-Token; kuerzere 206-Antworten werden fortgesetzt)
     func fetch(_ from: Int64, _ to: Int64) async throws -> Data {

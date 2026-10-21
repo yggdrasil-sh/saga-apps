@@ -28,6 +28,10 @@ enum CallRoom {
         var handle: String?
         var host: String?
         var replaces: String?
+        /// 2.5 Gjallarhorn: Kennung des Geraets am Knoten des Anrufs (hp) bzw. je Knoten (hpn), Profilbild
+        var hp: String? = nil
+        var hpn: [String: String] = [:]
+        var avatar: String? = nil
         var companion: Bool { role == "companion" }
         var multi: Bool { caps.contains("multi") }
     }
@@ -46,7 +50,10 @@ enum CallRoom {
                            role: (d["role"] as? String) ?? "member", state: (d["state"] as? String) ?? "active", caps: Array(caps), joined: joined,
                            handle: (d["handle"] as? String).flatMap { $0.isEmpty ? nil : $0 },
                            host: (d["host"] as? String).flatMap { $0.isEmpty ? nil : $0 },
-                           replaces: (d["replaces"] as? String).flatMap { validDevice($0) ? $0 : nil }))
+                           replaces: (d["replaces"] as? String).flatMap { validDevice($0) ? $0 : nil },
+                           hp: (d["hp"] as? String).flatMap { $0.isEmpty || $0.count > 64 ? nil : $0 },
+                           hpn: (d["hpn"] as? [String: Any] ?? [:]).reduce(into: [String: String]()) { r, x in if let v = x.value as? String, !v.isEmpty, v.count <= 64 { r[x.key] = v } },
+                           avatar: (d["avatar"] as? String).flatMap { $0.isEmpty ? nil : $0 }))
         }
         return out
     }
@@ -85,6 +92,12 @@ enum CallRoom {
     /// Wer hinzukommt, bietet allen anderen an (jedem Geraet ein Angebot, in einem POST /join)
     static func offerTargets(_ legs: [Leg], here: String) -> [String] { legs.map(\.device).filter { $0 != here } }
     /// Grenze fuer den Anruf: Server-Wert (limit bzw. limits.endpoints_*) gilt nur, wenn er niedriger ist
+    /// 2.5: Anruf ueber einen Knoten - die Grenze des Anrufs kommt vom Server (TCP 12/50, UDP 25/100)
+    static func limit(media: String, server: Int?, horn: Bool) -> Int {
+        guard horn else { return limit(media: media, server: server) }
+        guard let s = server, s >= 2 else { return media == "video" ? 12 : 50 }
+        return s
+    }
     static func limit(media: String, server: Int?) -> Int {
         let base = media == "video" ? videoMax : audioMax
         guard let s = server, s >= 2 else { return base }

@@ -152,7 +152,10 @@ struct ChatMe: Equatable {
             quota = ShareJSON.num(l["quota"]).map { Int64($0) }; used = ShareJSON.num(l["used"]).map { Int64($0) }
         }
         status = ReceiptLogic.caps(j)
+        x3 = ChatX3.caps(j)
     }
+    /// 2.5: Reaktionen, Bearbeiten, Sprachnachrichten (features, x3_limits; aeltere Server: nichts)
+    var x3 = ChatX3.Caps()
     var hasIdentity: Bool { identPub != nil }
 }
 
@@ -164,6 +167,8 @@ struct ChatMember: Equatable, Identifiable {
     var ref: String? = nil
     /// 2.4: Unterzeile fuer Gleichnamige (members[].sub: oeffentlicher Name bzw. Handle, nie der Anmeldename)
     var sub: String? = nil
+    /// 2.5: Handle '~x@host' (Chats v1 liefern ihn Clients der Stufe 3 fuer die Vertrauens-Uebernahme; Stufe 3: = username)
+    var handle: String? = nil
     var id: String { username }
 }
 
@@ -212,7 +217,8 @@ struct ChatSummary: Identifiable, Equatable {
             guard let m = v as? [String: Any], let u = m["username"] as? String else { return nil }
             let ref = ShareJSON.str(m["ref"])
             return ChatMember(username: u, name: PersonRef.display(name: m["name"] as? String, ref: ref, id: u), me: ShareJSON.bool(m["me"]),
-                              avatar: ShareJSON.str(m["avatar"]), ref: ref, sub: PersonRef.sub(m["sub"]))
+                              avatar: ShareJSON.str(m["avatar"]), ref: ref, sub: PersonRef.sub(m["sub"]),
+                              handle: ShareJSON.str(m["handle"]).flatMap { FedChatLogic.isHandle($0) ? $0 : nil })
         }
         memberCount = ShareJSON.int(d["member_count"]) ?? members.count
         unread = ShareJSON.int(d["unread"]) ?? 0; muted = ShareJSON.bool(d["muted"]); retention = ShareJSON.int(d["retention_s"]) ?? 0
@@ -354,6 +360,7 @@ final class ChatModel: ObservableObject {
             let d = try await store.api("api/chats?\(deviceParam)")
             guard let j = ShareJSON.obj(d) else { return }
             var list = (j["chats"] as? [Any] ?? []).compactMap(ChatSummary.init)
+            ChatH2UStore.note(me.uid, list)                             // 2.5: Handle -> Benutzer aus Chats v1 (Vertrauen)
             for i in list.indices where list[i].kind == "free" { list[i].decryptedTitle = decryptTitle(list[i]) }
             await decryptTitlesV2(&list)                                // 2.3: Gruppen ueber Servergrenzen (Absender selbst pruefen)
             if list != chats { chats = list }
@@ -606,7 +613,7 @@ final class ChatModel: ObservableObject {
         case "chat.message", "chat.deleted", "chat.read", "chat.changed":
             if let o = open, o.chatID == cid { o.live(type, d) }
             Task { await loadList(); if keys == nil { await refreshUnread() } }
-        case "chat.typing":
+        case "chat.typing", "chat.react", "chat.edited":                // 2.5: Reaktionen, Bearbeitungen (kein Push, keine Liste)
             if let o = open, o.chatID == cid { o.live(type, d) }
         case "chat.receipt", "chat.presence", "chat.privacy":           // 2.4: Gelesen-Bestaetigungen, Online-Status
             statusLive(type, d)
