@@ -207,7 +207,7 @@
     <string name="login_not_saga">No hay ningún servidor Saga en esta dirección. Revisa la dirección.</string>
     <string name="login_probe_failed">No se puede acceder al servidor: %1$s</string>
     <string name="error_certificate">El certificado del servidor no es de confianza. Si usas tu propia CA, instala su certificado en los ajustes de Android (Seguridad → Cifrado y credenciales).</string>
-    <string name="error_no_https">El servidor no responde por https. Revisa la dirección y el puerto.</string>
+    <string name="error_no_https">El servidor no responde por https. Revisa la dirección y el puerto; para un servidor de tu red local sin certificado, escribe http:// delante.</string>
     <string name="action_undo">Deshacer</string>
     <string name="action_open">Abrir</string>
     <string name="task_done_message">Tarea completada</string>

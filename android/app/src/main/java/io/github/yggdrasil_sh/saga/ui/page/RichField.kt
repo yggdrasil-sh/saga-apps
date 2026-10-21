@@ -96,6 +96,18 @@ fun RichTextView(html: String, style: TextStyle, onLink: (String) -> Unit, modif
 
 // ---------------------------------------------------------------- Bearbeiten
 
+/** Nur eingefuegter Text (nichts geloescht) zwischen old und new, sonst null (TT 10) */
+internal fun insertedText(old: String, new: String): String? {
+    if (new.length <= old.length) return null
+    var p = 0
+    val maxP = minOf(old.length, new.length)
+    while (p < maxP && old[p] == new[p]) p++
+    var s = 0
+    while (s < old.length - p && s < new.length - p && old[old.length - 1 - s] == new[new.length - 1 - s]) s++
+    if (p + s != old.length) return null
+    return new.substring(p, new.length - s)
+}
+
 /** Index eines neu eingetippten Zeilenumbruchs (Return) oder -1 */
 internal fun newlineInserted(old: String, new: String): Int {
     if (new.length <= old.length) return -1
@@ -126,6 +138,8 @@ internal class FieldState(html: String, val raw: Boolean, val pre: String) {
     var value by mutableStateOf(TextFieldValue(pre + rich.text, TextRange(pre.length)))
     /** zuletzt von aussen uebernommen */
     var external: String = html
+    /** TT 10: gerade per Return geteilt - Eingaben bis zum Fokuswechsel gehen an das neue Feld */
+    var splitPending = false
     /** aktueller Stand dieses Feldes als HTML */
     var current: String = html
     /** seit der letzten Uebernahme von aussen selbst gesendet (eigenes Echo, auch verspaetet, nie als Aenderung werten) */
@@ -336,6 +350,16 @@ fun RichField(
         value = st.value,
         onValueChange = { nv ->
             val old = st.value
+            // TT 10: nach Return getippt, bevor der neue Block den Fokus hat -> dorthin weiterreichen statt verlieren
+            if (st.splitPending) {
+                val ins = insertedText(old.text, nv.text)
+                if (editor.focusRequest != null && editor.focusRequest != fieldKey && ins != null && '\n' !in ins) {
+                    editor.carry += ins
+                    editor.carryAt = System.currentTimeMillis()
+                    return@BasicTextField
+                }
+                st.splitPending = false
+            }
             if (p > 0 && !nv.text.startsWith(pre)) {
                 if (nv.text == old.text.substring(p)) {
                     // START geloescht = Ruecktaste am Feldanfang (Hardware- oder Soft-Keyboard)
@@ -362,8 +386,20 @@ fun RichField(
             .fillMaxWidth()
             .focusRequester(focusRequester)
             .onFocusChanged {
-                if (it.isFocused) editor.active = active
-                else if (editor.active?.key == fieldKey) editor.active = null
+                if (it.isFocused) {
+                    editor.active = active
+                    // TT 10: Zeichen aus dem alten Feld (zwischen Return und Fokuswechsel) hier einsetzen
+                    val c = editor.carry
+                    editor.carry = ""
+                    if (c.isNotEmpty() && System.currentTimeMillis() - editor.carryAt < 3000) {
+                        val v = st.value
+                        val at = v.selection.end.coerceIn(p, v.text.length)
+                        applyChange(st, TextFieldValue(v.text.substring(0, at) + c + v.text.substring(at), TextRange(at + c.length)), p, raw, enter, ::publish)
+                    }
+                } else {
+                    st.splitPending = false
+                    if (editor.active?.key == fieldKey) editor.active = null
+                }
             },
         decorationBox = { inner ->
             Box {
@@ -390,6 +426,7 @@ private fun applyChange(
             val left = InlineHtml.split(updated, nl).first
             val right = InlineHtml.split(updated, nl + 1).second
             st.value = TextFieldValue(st.pre + left.text, TextRange(p + left.text.length))
+            st.splitPending = true
             publish(left)
             enter(left, right)
             return

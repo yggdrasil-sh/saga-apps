@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TT 2.5 Android (Live-Test): neue Texte -->
+<resources>
+    <string name="room_connecting_others">Подключение к остальным …</string>
+    <string name="room_old_people_horn">Не приглашены (нет устройства для групповых звонков): %1$s</string>
+    <string name="horn_cert_untrusted">Это устройство не доверяет сертификату узла %1$s (например, самоподписанному). Звонок через этот узел здесь невозможен — сообщите тому, кто обслуживает Saga.</string>
+    <string name="horn_cert_retry">Сертификат узла %1$s не доверенный — повтор через %2$d с …</string>
+    <string name="push_stream_needs_push">Действует, только когда уведомления выше включены.</string>
+    <string name="chat_handle_mark">ID %1$s</string>
+</resources>

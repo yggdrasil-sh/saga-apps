@@ -30,6 +30,14 @@ class ScreenAudioMixer {
     private var field: Field? = null
     private var original: AudioRecord? = null
     private var wrapper: AudioRecord? = null
+    private var lock: Any? = null
+
+    /** Sperre der libwebrtc-Aufnahme (M150: audioRecordStateLock); aeltere Fassungen ohne: eigenes Objekt */
+    private fun lockOf(inp: Any): Any = try {
+        inp.javaClass.getDeclaredField("audioRecordStateLock").apply { isAccessible = true }.get(inp) ?: this
+    } catch (_: Throwable) {
+        this
+    }
     private var micArr = ShortArray(0)
     private var sysArr = ShortArray(0)
 
@@ -44,7 +52,10 @@ class ScreenAudioMixer {
         return try {
             val inp = JavaAudioDeviceModule::class.java.getField("audioInput").get(adm) ?: return false
             val f = inp.javaClass.getDeclaredField("audioRecord").apply { isAccessible = true }
-            val mic = f.get(inp) as? AudioRecord ?: return false
+            val lk = lockOf(inp)
+            val mic = synchronized(lk) { f.get(inp) as? AudioRecord } ?: return false
+            // nur waehrend laufender Aufnahme (M150 startet sie verzoegert im Aufnahme-Thread)
+            if (mic.recordingState != AudioRecord.RECORDSTATE_RECORDING) return false
             if (mic is MixingAudioRecord) return false
             val mask = if (mic.channelCount == 2) AudioFormat.CHANNEL_IN_STEREO else AudioFormat.CHANNEL_IN_MONO
             val cfg = AudioPlaybackCaptureConfiguration.Builder(projection)
@@ -64,12 +75,24 @@ class ScreenAudioMixer {
             }
             rec.startRecording()
             val w = MixingAudioRecord(mic, this)
+            // Tausch unter der Sperre der Aufnahme (M150: audioRecordStateLock), nur wenn dort noch dasselbe Mikrofon steht
+            val swapped = synchronized(lk) {
+                if (f.get(inp) === mic) {
+                    f.set(inp, w)
+                    true
+                } else false
+            }
+            if (!swapped) {
+                rec.stop()
+                rec.release()
+                return false
+            }
             sys = rec
             input = inp
             field = f
+            lock = lk
             original = mic
             wrapper = w
-            f.set(inp, w)
             true
         } catch (e: Throwable) {
             Log.w("SagaCall", "screen audio: ${e.message}")
@@ -90,9 +113,10 @@ class ScreenAudioMixer {
         try {
             val f = field
             val inp = input
-            if (f != null && inp != null && f.get(inp) === wrapper) f.set(inp, original)
+            if (f != null && inp != null) synchronized(lock ?: this) { if (f.get(inp) === wrapper) f.set(inp, original) }
         } catch (_: Throwable) {
         }
+        lock = null
         val s = sys
         sys = null
         wrapper = null
@@ -133,38 +157,90 @@ class ScreenAudioMixer {
 }
 
 /**
+ * TT 61: Lesen mit Schutz. libwebrtc (webrtc-sdk M150) beendet seinen Aufnahme-Thread beim ersten Lesefehler -3
+ * (ERROR_INVALID_OPERATION) endgueltig - danach kommt fuer den Rest des Anrufs kein Ton mehr an, auch nach dem Teilen.
+ * Daher: gestoppte Aufnahme einmal neu starten; geht es trotzdem nicht, Stille liefern (nie einen Fehler).
+ */
+internal interface PcmSource {
+    fun read(buf: ByteBuffer, size: Int, mode: Int?): Int
+    /** initialisiert, aber nicht (mehr) aufnehmend */
+    fun stopped(): Boolean
+    fun restart()
+}
+
+internal object MicGuard {
+    const val ERROR_INVALID_OPERATION = -3
+    /** Pause, wenn statt Ton Stille geliefert wird (ein 10-ms-Block), damit der Thread nicht leer dreht */
+    const val SILENCE_PAUSE_MS = 10L
+
+    fun read(src: PcmSource, buf: ByteBuffer, size: Int, mode: Int?, onData: (Int) -> Unit, pause: () -> Unit = { Thread.sleep(SILENCE_PAUSE_MS) }): Int {
+        var n = src.read(buf, size, mode)
+        if (n == ERROR_INVALID_OPERATION && src.stopped()) {
+            try {
+                src.restart()
+            } catch (_: Exception) {
+            }
+            n = src.read(buf, size, mode)
+        }
+        if (n < 0) {
+            val d = buf.duplicate()
+            d.clear()
+            val len = minOf(size, d.capacity())
+            for (i in 0 until len) d.put(i, 0)
+            pause()
+            return len
+        }
+        if (n > 0) onData(n)
+        return n
+    }
+}
+
+/**
  * Huelle um die Mikrofon-Aufnahme von libwebrtc: liest das Mikrofon und mischt den Systemton dazu; alles andere geht an
  * die echte Aufnahme. Die eigene (geerbte) Aufnahme wird sofort freigegeben und nie benutzt.
+ *
+ * TT 61: AudioRecord.release() ruft intern stop() - virtuell, also das ueberschriebene stop() dieser Huelle. Frueher
+ * stoppte so schon das Freigeben im Konstruktor das ECHTE Mikrofon: der naechste Lesezugriff lieferte -3, libwebrtc
+ * beendete seinen Aufnahme-Thread, und es kam bis zum Ende des Anrufs kein Ton mehr an. Waehrend der eigenen Freigabe
+ * gehen stop()/release() daher nicht ans Mikrofon.
  */
 @SuppressLint("MissingPermission")
 private class MixingAudioRecord(private val mic: AudioRecord, private val mixer: ScreenAudioMixer) : AudioRecord(
     MediaRecorder.AudioSource.DEFAULT, mic.sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT,
     AudioRecord.getMinBufferSize(mic.sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT).coerceAtLeast(4096),
 ) {
+    /** true, solange der Konstruktor die eigene (nie benutzte) Aufnahme freigibt */
+    @Volatile private var own = true
+
+    private val src = object : PcmSource {
+        override fun read(buf: ByteBuffer, size: Int, mode: Int?): Int = if (mode == null) mic.read(buf, size) else mic.read(buf, size, mode)
+        override fun stopped(): Boolean = mic.state == AudioRecord.STATE_INITIALIZED && mic.recordingState != AudioRecord.RECORDSTATE_RECORDING
+        override fun restart() = mic.startRecording()
+    }
+
     init {
         try {
             super.release()
         } catch (_: Exception) {
         }
+        own = false
     }
 
-    override fun read(audioBuffer: ByteBuffer, sizeInBytes: Int): Int {
-        val n = mic.read(audioBuffer, sizeInBytes)
-        if (n > 0) mixer.mix(audioBuffer, n)
-        return n
-    }
+    override fun read(audioBuffer: ByteBuffer, sizeInBytes: Int): Int =
+        MicGuard.read(src, audioBuffer, sizeInBytes, null, { n -> mixer.mix(audioBuffer, n) })
 
-    override fun read(audioBuffer: ByteBuffer, sizeInBytes: Int, readMode: Int): Int {
-        val n = mic.read(audioBuffer, sizeInBytes, readMode)
-        if (n > 0) mixer.mix(audioBuffer, n)
-        return n
-    }
+    override fun read(audioBuffer: ByteBuffer, sizeInBytes: Int, readMode: Int): Int =
+        MicGuard.read(src, audioBuffer, sizeInBytes, readMode, { n -> mixer.mix(audioBuffer, n) })
 
     override fun getTimestamp(outTimestamp: AudioTimestamp, timebase: Int): Int = mic.getTimestamp(outTimestamp, timebase)
-    override fun stop() = mic.stop()
-    override fun release() = mic.release()
-    override fun getRecordingState(): Int = mic.recordingState
-    override fun getState(): Int = mic.state
+    override fun stop() {
+        if (!own) mic.stop()
+    }
+    override fun release() {
+        if (!own) mic.release()
+    }
+    override fun getRecordingState(): Int = if (own) super.getRecordingState() else mic.recordingState
+    override fun getState(): Int = if (own) super.getState() else mic.state
     override fun getSampleRate(): Int = mic.sampleRate
     override fun getChannelCount(): Int = mic.channelCount
     override fun getAudioFormat(): Int = mic.audioFormat

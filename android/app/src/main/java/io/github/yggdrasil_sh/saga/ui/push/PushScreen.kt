@@ -308,6 +308,9 @@ object PushUi {
     /** Hauptschalter: nur an, wenn der Server UnifiedPush anbietet UND dieses Geraet angemeldet ist/wird */
     fun switchOn(available: Boolean, state: PushState): Boolean = available && (state == PushState.ON || state == PushState.REGISTERING)
 
+    /** TT 35: Schalter "Eigene Verbindung" nur bedienbar (und sichtbar aktiv), wenn Mitteilungen hier an sind */
+    fun streamSwitchEnabled(state: PushState): Boolean = state == PushState.ON || state == PushState.REGISTERING
+
     /** "Worüber?", Namen, Ruhezeiten: nur wenn Mitteilungen auf dem Server an sind und hier oder anderswo eingerichtet */
     fun categoriesEnabled(serverOn: Boolean, state: PushState, devices: Int): Boolean = serverOn && (state == PushState.ON || devices > 0)
 
@@ -351,7 +354,12 @@ private fun StreamBlock(repo: SagaRepository, w: Modifier, state: PushState, onA
             stringResource(if (allowed) R.string.push_stream_hint else R.string.push_stream_off_hint),
             style = MaterialTheme.typography.bodySmall, color = muted, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         )
-        SwitchRow(stringResource(R.string.push_stream_switch), allowed, Modifier) { on ->
+        // TT 35: solange Mitteilungen aus sind, wirkt der Schalter nicht - ausgegraut mit Hinweis statt scheinbar "an"
+        val pushOn = PushUi.streamSwitchEnabled(state)
+        SwitchRow(
+            stringResource(R.string.push_stream_switch), allowed, Modifier,
+            hint = if (pushOn) null else stringResource(R.string.push_stream_needs_push), enabled = pushOn,
+        ) { on ->
             repo.launchAction {
                 push.setStreamAllowed(on)
                 if (!on) onAllowedOff()

@@ -188,7 +188,7 @@
     <string name="login_not_saga">По этому адресу сервер Saga не найден. Проверь адрес.</string>
     <string name="login_probe_failed">Не удаётся связаться с сервером: %1$s</string>
     <string name="error_certificate">Сертификат сервера не является доверенным. Если у тебя собственный центр сертификации, установи его сертификат в настройках Android (Безопасность → Шифрование и учётные данные).</string>
-    <string name="error_no_https">Сервер не отвечает по https. Проверь адрес и порт.</string>
+    <string name="error_no_https">Сервер не отвечает по https. Проверь адрес и порт — для сервера в локальной сети без сертификата укажи http:// в начале.</string>
     <string name="action_undo">Отменить</string>
     <string name="action_open">Открыть</string>
     <string name="task_done_message">Задача выполнена</string>

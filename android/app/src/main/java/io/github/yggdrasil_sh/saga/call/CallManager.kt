@@ -172,6 +172,16 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     private var ring: CallInfo? = null
     private var ringJob: Job? = null
     private val gone = HashSet<String>()
+    /** TT 64: Anrufe, von denen dieses Geraet weiss, dass sie beendet sind (Leiste "Gruppenanruf laeuft" weg) */
+    private val endedIds = LinkedHashSet<String>()
+
+    private fun markEnded(id: String?) {
+        if (id == null) return
+        endedIds.add(id)
+        while (endedIds.size > 200) endedIds.remove(endedIds.first())
+        if (run.value?.callId == id) run.value = null
+    }
+    private var runPoll: Job? = null
     private var config: CallConfig? = null
     private var tone: ToneGenerator? = null
 
@@ -232,6 +242,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val pend = HashMap<String, ArrayList<CallSignalDto>>()
         val incoming = HashSet<String>()
         val bad = HashSet<String>()
+        /** 2.5 (TT 65): warum zu einem Geraet der Liste keine Verbindung zustande kam (z. B. Sicherheitsnummer) */
+        var problem: UiText? = null
+        /** TT 63: Ende mit Grund bleibt stehen, bis es geschlossen wird (Beitritt gescheitert) */
+        var stickyEnd = false
         var limit = 0
         var old: List<String> = emptyList()
         /** Pegel der empfangenen Tonspuren je Geraet und aktiver Sprecher */
@@ -1493,6 +1507,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 val l = newLink(r, dev, x, caller = false)
                 l.draining = true
                 rs.links[dev] = l
+                var why: UiText? = null
                 try {
                     peerKeys(l)
                     // 2.4 (Testrunde W9): ein Geraet, das die Person WAEHREND des Anrufs gekoppelt hat (Hinzufuegen/Hierher
@@ -1500,7 +1515,18 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     if (CallRoom.needsFreshKeys(dev, l.peerDevs.keys)) peerKeys(l, fresh = true)
                 } catch (e: CancellationException) {
                     throw e
-                } catch (_: Exception) {
+                } catch (e: UiTextException) {
+                    why = e.text                                // z. B. Sicherheitsnummer geaendert (TT 65): sagen, nicht "unbekannt"
+                } catch (e: Exception) {
+                    log("incoming keys $dev: ${e.message}")
+                }
+                if (why != null) {
+                    rs.bad.add(dev)
+                    rs.pend.remove(dev)
+                    rs.problem = why
+                    log("incoming $dev abgelehnt: $why")
+                    dropLink(l, why)
+                    return@launch
                 }
                 if (l.peerDevs[dev] == null) {                 // Geister-Geraet: nicht in der signierten Liste der Person
                     rs.bad.add(dev)
@@ -1809,11 +1835,19 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     return@launch
                 }
                 val r = json.decodeFromString(CallsActive.serializer(), api.get("api/calls/active"))
-                run.value = CallRoom.runBar(r.calls, myUser(), myDevId(), cur?.id)
+                for (x in r.calls) if (x.state == "ended") markEnded(x.id)
+                run.value = CallRoom.runBar(r.calls, myUser(), myDevId(), cur?.id, endedIds)
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
             }
+            // TT 64: solange die Leiste steht, gelegentlich nachsehen - das Ende eines Gruppenanrufs, dem dieses Geraet
+            // nie beigetreten ist, kommt nicht immer als Live-Ereignis an
+            runPoll?.cancel()
+            runPoll = if (run.value != null) scope.launch {
+                delay(CallLogic.RUN_POLL_MS)
+                if (run.value != null) refreshRun()
+            } else null
         }
     }
 
@@ -1849,7 +1883,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             if (cur0.id != callId) repo.notify(UiText.Res(R.string.call_already)) else CallActivity.open(app)
             return
         }
-        if (ring?.id == callId) unring(callId)
+        // TT 63: Klingeln beenden, ohne die Oberflaeche zwischendurch zu leeren (sonst schliesst sich CallActivity)
+        if (ring?.id == callId) unring(callId, keepUi = true)
         val st0 = CallRoom.start(role, video)
         val c = Call(callId, chatId, true, if (video) "video" else "audio", CallPeer(name = title))
         c.rs.companion = role == CallRoom.ROLE_COMPANION
@@ -1877,8 +1912,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 c.rs.limit = CallRoom.limit(k.media, k.limit ?: cfg.endpoints(k.media))
                 c.rs.old = k.old.map { it.name.ifEmpty { it.username } }
                 st.signals.forEach { c.seen.add(it.seq) }
-                if (k.state == "ended") throw UiTextException(UiText.Res(R.string.call_already_ended))
-                if (!k.joinable) throw UiTextException(CallRoom.blockText(k.joinBlock, c.rs.limit))
+                if (k.state == "ended") {
+                    markEnded(callId)
+                    throw UiTextException(UiText.Res(R.string.call_already_ended))
+                }
+                if (!k.joinable) {
+                    if (k.joinBlock == "ended") markEnded(callId)
+                    throw UiTextException(CallRoom.blockText(k.joinBlock, c.rs.limit))
+                }
                 c.rs.roster.apply(k.legs)
                 var rl = role
                 var rep: String? = null
@@ -1902,9 +1943,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 throw e
             } catch (e: Exception) {
                 if (!live(c)) return@launch
+                log("join ${callId.take(8)} gescheitert: ${e.message}")
                 // nie beigetreten: kein /end (das wuerde einen fremden bzw. laufenden Anruf beenden)
                 if (c.ready) quietPost("api/calls/$callId/leave", buildJsonObject { put("device", myDevId()) })
                 c.ending = true
+                if (e is ApiException && e.code == 409) markEnded(callId)
+                // TT 63: der Grund (z. B. Sicherheitsnummer geaendert) bleibt stehen, bis er geschlossen wird - vorher
+                // verschwand er nach 6 s und man stand ohne Erklaerung im Chat mit "Beitreten"
+                c.rs.stickyEnd = true
                 fail(c, if (e is UiTextException) e.text else if (e is ApiException && e.code == 409) UiText.Res(R.string.call_already_ended) else repo.friendly(e))
             }
         }
@@ -2296,7 +2342,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         while (System.currentTimeMillis() < ringHeldUntil) delay(500)
     }
 
-    private fun unring(id: String, msg: UiText? = null) {
+    private fun unring(id: String, msg: UiText? = null, keepUi: Boolean = false) {
         gone.add(id)
         if (ring?.id != id) return
         ring = null
@@ -2304,7 +2350,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         ringJob = null
         CallNotify.cancelIncoming(app)
         val st = _ui.value
-        if (st != null && st.phase == CallPhase.INCOMING && st.id == id) {
+        if (!keepUi && st != null && st.phase == CallPhase.INCOMING && st.id == id) {
             _ui.value = if (msg != null) st.copy(phase = CallPhase.ENDED, message = msg) else null
             if (msg != null) scope.launch {
                 delay(2500)
@@ -2323,12 +2369,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     /** Annehmen (Berechtigungen hat die Oberflaeche schon geholt); video = mit Kamera */
     fun accept(video: Boolean) {
         val r = ring ?: return
-        unring(r.id)
-        // 2.4 E5: Gruppenanruf annehmen = beitreten (Mitglied)
+        // 2.4 E5: Gruppenanruf annehmen = beitreten (Mitglied); join beendet das Klingeln selbst und zeigt sofort
+        // "Verbinde …" (TT 63: kein Zwischenzustand ohne Anruf, in dem sich der Anrufbildschirm schliesst)
         if (r.kind == CallRoom.KIND_GROUP) {
+            if (cur != null || !CallLogic.validId(r.id)) unring(r.id)
             join(r.id, r.chatId, CallRoom.ROLE_MEMBER, video, titles[r.id].orEmpty())
             return
         }
+        unring(r.id)
         if (cur != null) {
             repo.notify(UiText.Res(R.string.call_already))
             return
@@ -3160,11 +3208,11 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             .copy(phase = CallPhase.ENDED, message = msg, error = error, remoteVideo = false, cam = false, room = null)
         val id = c.id
         if (id != null) gone.add(id)
-        scope.launch {
-            delay(if (error) 6000 else 3000)
+        CallLogic.endDismissMs(error, c.rs.stickyEnd)?.let { ms -> scope.launch {
+            delay(ms)
             val now = _ui.value
             if (now != null && now.phase == CallPhase.ENDED && cur == null && ring == null) _ui.value = null
-        }
+        } }
         repo.chat.chatsLoaded.value.let { if (it) scope.launch { io.github.yggdrasil_sh.saga.chat.quietly { repo.chat.loadChats() } } }
         refreshRun()
     }
@@ -3193,11 +3241,15 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
         val v = p.view
         val mesh = meshView(c)
-        val waiting = when {
-            phase != CallPhase.CONNECTING || !c.ready -> null
-            group && ls.isEmpty() && c.rs.starter -> UiText.Res(R.string.room_ringing_others)
-            ls.isEmpty() -> UiText.Res(R.string.room_waiting)
-            else -> null
+        // TT 65: sind andere laut Liste schon da, aber ohne Verbindung, nicht weiter "Klingelt bei den anderen"
+        val others = c.rs.roster.legs.count { it.device != myDevId() }
+        val waiting = when (CallRoom.waitState(phase == CallPhase.CONNECTING, c.ready, group, c.rs.starter, ls.size, others,
+            c.rs.problem != null)) {
+            CallRoom.Wait.PROBLEM -> c.rs.problem
+            CallRoom.Wait.CONNECTING -> UiText.Res(R.string.room_connecting_others)
+            CallRoom.Wait.RINGING -> UiText.Res(R.string.room_ringing_others)
+            CallRoom.Wait.WAITING -> UiText.Res(R.string.room_waiting)
+            CallRoom.Wait.NONE -> null
         }
         _ui.value = st.copy(
             phase = phase, id = c.id, peer = if (group) c.peer else p.peer, video = c.media == "video",
@@ -3352,7 +3404,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
 
         override fun changed() = hornChanged(r)
         override fun note(text: UiText?) = update(r)
-        override fun lost(text: UiText) = fail(r, text, failed = true)
+        override fun lost(text: UiText) {
+            r.rs.stickyEnd = true                           // TT 67: Grund (z. B. Zertifikat) bleibt stehen
+            fail(r, text, failed = true)
+        }
         override fun ended() = remoteEnded(r, null)
         override fun removedHint() {
             scope.launch {
@@ -3580,6 +3635,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 if (state == "ended" || state == "declined" || state == "active" && !group) {
                     unring(id, if (state == "ended" && ev.str("reason") == "cancelled") UiText.Res(R.string.call_missed) else null)
                 }
+                if (state == "ended") markEnded(id)
                 refreshRun()
                 val c = cur ?: return
                 if (c.id != id) return
@@ -3602,7 +3658,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 if (c != null && c.id == id && c.ready) {
                     rosterIn(c, legs, CallRoom.rvOf(ev.data), ev.int("limit"), mesh = ev.str("horn_mesh"))
                 }
-                if (ev.str("state") == "ended") unring(id)
+                if (ev.str("state") == "ended") {
+                    unring(id)
+                    markEnded(id)
+                }
                 refreshRun()
             }
             "call.invite" -> onInvite(ev)

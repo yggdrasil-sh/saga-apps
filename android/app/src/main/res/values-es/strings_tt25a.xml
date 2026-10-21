@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TT 2.5 Android (Live-Test): neue Texte -->
+<resources>
+    <string name="room_connecting_others">Conectando con los demás …</string>
+    <string name="room_old_people_horn">No invitados (sin dispositivo para llamadas de grupo): %1$s</string>
+    <string name="horn_cert_untrusted">Este dispositivo no confía en el certificado del nodo %1$s (p. ej. autofirmado). La llamada no puede pasar por este nodo aquí; avisa a quien administra Saga.</string>
+    <string name="horn_cert_retry">Certificado del nodo %1$s no fiable – nuevo intento en %2$d s …</string>
+    <string name="push_stream_needs_push">Solo tiene efecto cuando las notificaciones están activadas arriba.</string>
+    <string name="chat_handle_mark">ID %1$s</string>
+</resources>

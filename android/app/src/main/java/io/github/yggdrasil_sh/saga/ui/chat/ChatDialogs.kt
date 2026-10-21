@@ -146,11 +146,16 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                     if (fedFor.isNotEmpty() && fedFor == q) item { FedChatHint(fedV2 == true) }
                     items(users, key = { "u-" + it.username }) { u ->
                         val on = picked.any { it.username == u.username }
+                        val mark = stringResource(R.string.chat_handle_mark)
+                        val same = users.count { ChatLogic.shown(it) == ChatLogic.shown(u) } > 1
                         ListItem(
-                            headlineContent = { Text(ChatLogic.shown(u)) },
-                            // 2.4 (W4): nie den Anmeldenamen - sub (Gleichnamige) und der Hinweis, falls Chats fehlen
-                            supportingContent = ChatLogic.subline(u.sub, if (u.ready) null else stringResource(R.string.chat_not_ready, ChatLogic.shown(u)))
-                                ?.let { t -> { Text(t) } },
+                            headlineContent = { Text(ChatLogic.shownMarked(u) { mark.format(it) }) },
+                            // 2.4 (W4): nie den Anmeldenamen - sub (Gleichnamige) und der Hinweis, falls Chats fehlen;
+                            // TT 55: maschinelle Kennung nur bei Gleichnamigen, kurz und gekennzeichnet
+                            supportingContent = ChatLogic.subline(
+                                ChatLogic.personSub(u.sub, same) { mark.format(it) },
+                                if (u.ready) null else stringResource(R.string.chat_not_ready, ChatLogic.shownMarked(u) { mark.format(it) }),
+                            )?.let { t -> { Text(t) } },
                             leadingContent = { Avatar(u.name, size = 32, avatar = u.avatar) },
                             trailingContent = if (multi) ({ Checkbox(checked = on, onCheckedChange = null) }) else null,
                             modifier = Modifier.clickable {
@@ -329,9 +334,11 @@ fun MembersDialog(repo: SagaRepository, s: ChatSession, onDismiss: () -> Unit) {
                         }
                         if (fedFor.isNotEmpty() && fedFor == q) item { FedChatHint(fedV2 == true) }
                         items(found, key = { "f-" + it.username }) { u ->
+                            val mark = stringResource(R.string.chat_handle_mark)
+                            val same = found.count { ChatLogic.shown(it) == ChatLogic.shown(u) } > 1
                             ListItem(
-                                headlineContent = { Text(ChatLogic.shown(u)) },                // 2.4 (W4): nur der Name, darunter sub
-                                supportingContent = ChatLogic.subline(u.sub)?.let { t -> { Text(t) } },
+                                headlineContent = { Text(ChatLogic.shownMarked(u) { mark.format(it) }) },   // 2.4 (W4): nur der Name, darunter sub
+                                supportingContent = ChatLogic.personSub(u.sub, same) { mark.format(it) }?.let { t -> { Text(t) } },
                                 modifier = Modifier.clickable { repo.launchAction { s.addMember(u.username); add = false; q = "" } },
                             )
                         }

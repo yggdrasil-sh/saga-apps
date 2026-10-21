@@ -153,6 +153,15 @@ object CallLogic {
     /** N-02: so lange darf die Mikrofon-Abfrage beim Annehmen das lokale Klingel-Zeitlimit hoechstens aufhalten */
     const val RING_HOLD_MS = 60_000L
 
+    /** TT 64: Leiste "Gruppenanruf laeuft" so oft nachpruefen, solange sie steht */
+    const val RUN_POLL_MS = 30_000L
+
+    /**
+     * Wann der Endbildschirm von selbst schliesst: normal 3 s, Fehler 6 s; sticky (TT 63/67: Beitritt gescheitert bzw.
+     * Knoten nicht vertrauenswuerdig - der Grund ist die Antwort auf "warum bin ich nicht im Anruf?") nie.
+     */
+    fun endDismissMs(error: Boolean, sticky: Boolean): Long? = if (sticky) null else if (error) 6000L else 3000L
+
     fun validId(id: String?): Boolean = id != null && ID_RE.matches(id)
 
     fun parseEntry(bodyCt: String): CallEntry? = try {

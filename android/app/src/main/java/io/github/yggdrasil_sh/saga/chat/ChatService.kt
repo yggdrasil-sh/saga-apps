@@ -70,6 +70,31 @@ object ChatLogic {
      */
     fun subline(vararg parts: String?): String? = parts.mapNotNull { it?.trim()?.ifEmpty { null } }.joinToString(" · ").ifEmpty { null }
 
+    private val OPAQUE = Regex("^@?~[A-Za-z0-9]{6,}(@\\S+)?$")
+
+    /** TT 55: maschinelle Kennung (Handle "~4wup3m…") statt eines lesbaren Namens? */
+    fun opaque(s: String?): Boolean = s != null && OPAQUE.matches(s.trim())
+
+    /** Kennung kurz: "~4wup3msnxxjvemea" -> "~4wup3m…" */
+    fun shortHandle(s: String): String = s.trim().let { if (it.length > 9) it.take(7) + "…" else it }
+
+    /**
+     * TT 55: wie im Web der Name; nur ohne Namen die Kennung, gekuerzt und gekennzeichnet (mark("~4wup3m…") ->
+     * "Kennung ~4wup3m…").
+     */
+    fun shownMarked(p: ChatPerson, mark: (String) -> String): String = shown(p).let { if (opaque(it)) mark(shortHandle(it)) else it }
+
+    /**
+     * TT 55: Unterzeile einer Person - lesbares `sub` wie bisher; eine maschinelle Kennung nur, wenn es den Namen in
+     * der Liste mehrfach gibt (dann unterscheidet sie), gekuerzt und gekennzeichnet.
+     */
+    fun personSub(sub: String?, sameName: Boolean, mark: (String) -> String): String? {
+        val t = sub?.trim().orEmpty()
+        if (t.isEmpty()) return null
+        if (!opaque(t)) return t
+        return if (sameName) mark(shortHandle(t)) else null
+    }
+
     /**
      * GET /api/chat/keys?users=: Eintrag steht unter der ANGEFRAGTEN Kennung (Server 2.4: Handle bleibt Handle); fehlt bzw.
      * null = keine Schluessel (noch keine Chats eingerichtet bzw. ab 2.4 noch kein gemeinsamer Chat). Schluessel gibt es nur

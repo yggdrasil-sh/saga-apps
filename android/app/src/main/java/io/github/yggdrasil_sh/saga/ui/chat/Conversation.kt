@@ -16,15 +16,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -402,7 +398,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
 
     // Surface: Inhaltsfarbe onSurface fuer alle Symbole ohne eigene Farbe ("+" im Dunkelmodus war schwarz, BUG-072)
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
+    // TT 52: auch den Bereich der Home-Geste freihalten (sonst startet "nach oben sperren" am Mikrofon die Home-Geste)
+    Column(Modifier.fillMaxSize().windowInsetsPadding(io.github.yggdrasil_sh.saga.ui.common.SafeBottom.insets)) {
         // zweizeiliger Titel: Kopfzeile waechst mit der Schriftgroesse (200 %: sonst unter der Statusleiste, BUG-070)
         val fontScale = LocalDensity.current.fontScale
         TopAppBar(
