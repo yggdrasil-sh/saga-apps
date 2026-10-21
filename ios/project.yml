@@ -223,6 +223,8 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
   # 2.5 Gjallarhorn: Frame-E2E saga-horn/v1 gegen tests/vectors/horn_e2e.json (Kopie in Tests/vectors) und FrameCryptor
   # im Loopback. Ohne Host-App (kein Fenster), Testbild aus dem Speicher, stilles Audio-Geraet - nie Kamera/Mikrofon.
+  # Dazu (P11 Stufe 2) die Entscheidungen wie tests/horn_logik.js und ein Integrationstest gegen einen lokalen Knoten
+  # (nur mit TEST_RUNNER_SAGA_HORN_NODE=https://127.0.0.1:<port>, sonst uebersprungen).
   # xcodebuild -scheme HornE2ETests -destination 'platform=macOS' test  (bzw. eine iOS-Simulator-ID)
   HornE2ETests:
     type: bundle.unit-test
@@ -231,6 +233,9 @@ targets:
       - Tests/Horn
       - App/HornE2E.swift
       - App/HornCryptor.swift
+      - App/HornLogic.swift                                # 2.5 P11 Stufe 2: Kandidaten, Umschalter, Kacheln, Schluesselplan
+      - App/HornNode.swift                                 # Gespraech mit dem Knoten (Messung, Bein, Ereigniskanal)
+      - App/HornMedia.swift                                # Bein = PeerConnection mit FrameCryptor
       - path: Tests/vectors/horn_e2e.json
         buildPhase: resources
     dependencies:

@@ -20,9 +20,11 @@ extension CallManager {
     /// Felder aus GET /api/calls/{id}, POST /api/calls, /join: Art, Grenze, Personen ohne 2.4, Raum ueber Servergrenzen
     func adoptCall(_ c: [String: Any]) {
         if let k = c["kind"] as? String { kind = k == "group" ? "group" : "dm" }
+        if let t = c["topo"] as? String { topo = t }                        // 2.5: "horn" = ueber einen Gjallarhorn-Knoten
+        if let h = c["host"] as? Bool { callHost = h }
         if let m = c["media"] as? String, kind == "group" || !joinRole.isEmpty { media = m == "video" ? "video" : "audio" }
         if chatID == 0, let ch = ShareJSON.int(c["chat_id"]) { chatID = ch }
-        limit = CallRoom.limit(media: media, server: ShareJSON.int(c["limit"]))
+        limit = CallRoom.limit(media: media, server: ShareJSON.int(c["limit"]), horn: topo == "horn")
         oldNames = (c["old"] as? [Any] ?? []).compactMap { ($0 as? [String: Any]).flatMap { ShareJSON.str($0["name"]) ?? ShareJSON.str($0["who"]) } }
         if kind == "group" {
             let from = c["from"] as? [String: Any] ?? c["peer"] as? [String: Any] ?? [:]
@@ -159,6 +161,7 @@ extension CallManager {
     /// Je anderem Endpunkt eine PeerConnection mit Angebot, alles in einem POST /join. 409 mit neuer Liste: einmal neu.
     func offerAll(role r: String, rep: String?, again: Bool) async throws {
         guard let store, let id, let dev = myDevice else { return }
+        if topo == "horn" { try await hornJoin(role: r, rep: rep); return }   // 2.5: Knoten - join ohne Angebote
         for L in links { L.close() }
         links = []
         var sig: [String: String] = [:]
@@ -287,7 +290,7 @@ extension CallManager {
         guard roster.apply(legs, rv: rv) else { CallEnv.log("roster: aeltere Liste verworfen"); return }
         let here = myDevice ?? ""
         if let e = extra {
-            if let n = ShareJSON.int(e["limit"]) { limit = CallRoom.limit(media: media, server: n) }
+            if let n = ShareJSON.int(e["limit"]) { limit = CallRoom.limit(media: media, server: n, horn: topo == "horn") }
         }
         if let mine = roster.leg(here) {
             inRoom = true
@@ -303,6 +306,7 @@ extension CallManager {
             }
         }
         let now = Set(legs.map(\.device))
+        if horn != nil { hornRoster(added: ch.added, removed: ch.removed) }   // 2.5: Schluessel, Siegel, Kacheln
         for L in links where L.dev != nil && !now.contains(L.dev!) && L.established && (roomMode || kind == "group") { dropLink(L, nil) }
         if !ch.added.isEmpty || !ch.removed.isEmpty { relimitAll() }
         for x in legs where pend[x.device] != nil && link(x.device) == nil { admit(x.device) }   // Angebot kam vor der Liste
@@ -340,7 +344,7 @@ extension CallManager {
     /// Bescheid geben (state.ready + replaces) - das schaltet im selben Moment ab und verlaesst den Anruf
     func hoCheck() {
         guard ho.active, ready, !ending else { return }
-        let others = links.filter { !$0.own && !$0.gone }.map(\.connected)
+        let others = horn != nil ? [horn?.cur != nil] : links.filter { !$0.own && !$0.gone }.map(\.connected)   // 2.5: Knoten verbunden
         switch ho.check(others: others, now: Date().timeIntervalSince1970) {
         case .takeOver(let rep):
             hoTask?.cancel()
@@ -408,13 +412,17 @@ extension CallManager {
                 guard let store, await ensureChat(), let dev = myDevice else { throw APIError.other(String(localized: "Chats sind auf diesem Gerät noch nicht bereit.")) }
                 guard await loadConfig() else { throw APIError.other(String(localized: "Anrufe sind auf diesem Server abgeschaltet.")) }
                 guard multi else { throw APIError.other(String(localized: "Gruppenanrufe brauchen Saga 2.4 auf diesem Server.")) }
+                if hornMeshHint(members: max(chat.memberCount, chat.members.count), video: video) {   // 2.5: kein Knoten bereit
+                    toast = String(localized: "Kein Knoten für große Gruppenanrufe bereit – es gilt die Grenze für direkte Anrufe (höchstens 4 Geräte mit Video bzw. 6 nur mit Ton).")
+                }
                 try await prepareMedia(video: video)
                 guard phase == .preparing, !ending else { return }
                 let cid = ChatCrypto.hexID()
                 id = cid
                 CallSystem.shared.startOutgoing(self, id: cid, name: title, video: media == "video")
                 let asked = Date().timeIntervalSince1970
-                let (d, code) = try await store.apiResponse("api/calls", method: "POST", body: ["id": cid, "chat_id": chatID, "media": media, "device": dev, "caps": myCaps])
+                let (d, code) = try await store.apiResponse("api/calls", method: "POST", body: ["id": cid, "chat_id": chatID, "media": media, "device": dev, "caps": myCaps,
+                                                                                                "dev_class": hornDevClass])
                 let j = ShareJSON.obj(d)
                 guard !ending, id == cid else {
                     if (200..<300).contains(code) { _ = try? await store.apiResponse("api/calls/\(cid)/end", method: "POST", body: ["reason": "hangup", "device": dev]) }
@@ -431,6 +439,7 @@ extension CallManager {
                 await adoptV2(c)
                 ready = true; inRoom = true
                 rosterIn(CallRoom.legs(c["legs"]), rv: asked, extra: c)
+                if topo == "horn" { hornGo(c["horn"]) }                       // 2.5: ueber einen Knoten
                 phase = .ringingOut; status = String(localized: "Klingelt bei den anderen …")
                 CallTones.shared.play(.ringback)
                 aliveOn()

@@ -121,6 +121,12 @@ final class CallManager: NSObject, ObservableObject {
     @Published var runBars: [CallRoom.Running] = []
     /// dieses Geraet ist (per join) im Raum
     @Published var inRoom = false
+    /// 2.5 Gjallarhorn: Gruppenanruf ueber einen Knoten (topo=horn, HornCall.swift); nil = Mesh bzw. 1:1
+    @Published var horn: HornSession?
+    /// Aufbau des Anrufs laut Server ("mesh" | "horn"; leer = aelterer Server)
+    var topo = ""
+    /// 2.5: dieses Konto hat den Gruppenanruf begonnen (Gastgeber: stummschalten, entfernen)
+    var callHost = false
 
     // Zustand des laufenden Anrufs
     var id: String?
@@ -211,6 +217,9 @@ final class CallManager: NSObject, ObservableObject {
     /// Was PiP bzw. Schwebefenster zeigen: im Gruppenanruf (Kachelansicht) den aktiven Sprecher, sonst das Gegenueber
     struct Focus { var track: RTCVideoTrack?; var name: String; var avatar: String?; var video: Bool; var screen: Bool }
     var focus: Focus {
+        if let H = horn {                                                    // 2.5: Knoten - Bildschirm bzw. Sprecher
+            return Focus(track: H.focusTrack, name: H.focusName, avatar: nil, video: H.focusTrack != nil, screen: H.share != nil)
+        }
         if meshView, let L = links.first(where: { $0.dev != nil && $0.dev == speakerDev && !$0.gone })
             ?? links.first(where: { !quiet($0) && $0.remoteVideo != nil && ($0.remote.cam || $0.remote.screen) }) ?? primary {
             return Focus(track: L.remoteVideo, name: L.name, avatar: L.avatar, video: L.remoteVideo != nil && (L.remote.cam || L.remote.screen), screen: L.remote.screen)
@@ -332,6 +341,11 @@ final class CallManager: NSObject, ObservableObject {
     }
     /// Oeffnen + pruefen -> Inhalt (+ 2.4-Zusatzfelder); nil = Pruefung fehlgeschlagen. Unbekanntes Geraet: Schluessel einmal neu holen.
     func open(_ L: CallLink, _ s: [String: Any]) async -> (sig: CallLogic.Signal, meta: CallV3.Meta)? {
+        guard let body = await openBody(L, s) else { return nil }
+        return CallLogic.parse(body).map { ($0, CallV3.meta(body)) }
+    }
+    /// Oeffnen + pruefen -> Klartext des Signals (2.5: auch fkey/fkey-ack im Knoten-Anruf); nil = Pruefung fehlgeschlagen
+    func openBody(_ L: CallLink, _ s: [String: Any]) async -> String? {
         guard let id, let k = store?.chat.keys, let from = s["from_device"] as? String, let sealed = s["sealed"] as? String else { return nil }
         if L.devs[from] == nil && !keysRefreshed.contains(L.who) {
             keysRefreshed.insert(L.who)
@@ -341,12 +355,12 @@ final class CallManager: NSObject, ObservableObject {
             guard let pd = L.devs[from], let o = ChatCrypto.openSignalV2(sealed, pk: k.enc.pk, sk: k.enc.sk),
                   ChatCrypto.verifySignalV2(callID: id, fromHandle: v.peer, fromDevice: from, toHandle: v.me, toDevice: k.deviceID, body: o.body, sig: o.sig, signPK: pd.sign)
             else { return nil }
-            return CallLogic.parse(o.body).map { ($0, CallV3.meta(o.body)) }
+            return o.body
         }
         guard let pd = L.devs[from], let o = ChatCrypto.openSignal(sealed, pk: k.enc.pk, sk: k.enc.sk),
               ChatCrypto.verifySignal(callID: id, fromUID: L.who, fromDevice: from, toUID: me, toDevice: k.deviceID, body: o.body, sig: o.sig, signPK: pd.sign)
         else { return nil }
-        return CallLogic.parse(o.body).map { ($0, CallV3.meta(o.body)) }
+        return o.body
     }
     func sendSignal(_ L: CallLink, _ body: String) async { await sendSignal(L) { _ in body } }
     /// Body je Zielgeraet (2.4: pc ist je Geraet verschieden, solange der Anrufer noch keine Antwort hat)
@@ -360,6 +374,7 @@ final class CallManager: NSObject, ObservableObject {
     /// Zustand an alle Verbindungen (bzw. eine)
     func stateOut(_ only: CallLink? = nil) {
         guard ready else { return }
+        if horn != nil { hornStateOut(); return }                           // 2.5: Knoten-Anruf - state an alle Endpunkte
         for L in only.map({ [$0] }) ?? links where !L.gone { stateOne(L) }
     }
     /// 2.4: pip + want (aeltere Gegenueber lesen nur mic/cam/screen); E3: screen, screen_mid, tracks/msid; E4: ready/replaces
@@ -701,6 +716,7 @@ final class CallManager: NSObject, ObservableObject {
             if CallEnv.fakeMedia, let a = L.audioTr?.receiver.track as? RTCAudioTrack { a.source.volume = 0 }   // Tests: still
             #endif
         }
+        if only == nil { hornAudioRoute() }                                 // 2.5: Knoten-Anruf
     }
     /// Veroeffentlichte Werte (Einzelansicht, PiP, Kopfzeile) aus den Verbindungen ziehen
     func syncPrimary() {
@@ -828,6 +844,8 @@ final class CallManager: NSObject, ObservableObject {
             if cid == id, ready { rosterIn(CallRoom.legs(d["legs"]), rv: rv, extra: d) }
             if let inc = incoming, inc.id == cid, inc.group, CallRoom.stopRinging(CallRoom.legs(d["legs"]), me: me) { stopGroupRing(cid, declined: false) }
             runSoon()
+        case "call.horn_move": hornMoveIn(d)                               // 2.5: Knoten wird geleert/aktualisiert/entfernt
+        case "call.mod": hornModIn(d)                                       // 2.5: Gastgeber hat stummgeschaltet/entfernt
         case "call.state":
             guard let cid else { return }
             let st = d["state"] as? String, group = (d["kind"] as? String) == "group"
@@ -872,6 +890,10 @@ final class CallManager: NSObject, ObservableObject {
 
     func handleRaw(_ s: [String: Any]) async {
         guard let from = s["from_device"] as? String, !ending else { return }
+        if horn != nil || topo == "horn" {                                 // 2.5: Knoten-Anruf - nur fkey/fkey-ack/state
+            if horn == nil { horn = HornSession(nil) }
+            await hornSig(s); return
+        }
         var found = link(from)
         if found == nil, let lead = links.first, lead.dev == nil, kind == "dm", lead.devs[from] != nil { found = lead }   // 1:1 vor der Antwort
         guard let L = found else {                                          // 2.4: Geraet ohne Verbindung (Raum) - pruefen, dann annehmen
@@ -1108,7 +1130,7 @@ final class CallManager: NSObject, ObservableObject {
     /// Knopf "Bildschirm teilen" bzw. "Teilen beenden"
     func toggleScreen() {
         if sharing { stopScreen(); return }
-        guard phase == .active, links.contains(where: { $0.pc != nil }) else { return }
+        guard phase == .active, links.contains(where: { $0.pc != nil }) || horn?.cur != nil else { return }
         if ScreenShare.showHint(.standard) { screenHint = true; return }
         pickScreen()
     }
@@ -1145,6 +1167,7 @@ final class CallManager: NSObject, ObservableObject {
         sharing = true
         CallEnv.log("screen start")
         for L in links where !L.gone { screenLink(L) }
+        hornScreen()                                                        // 2.5: ueber den Knoten
     }
     /// Bildschirm auf eine Verbindung (auch: eine spaeter hinzukommende bekommt den laufenden Bildschirm)
     func screenLink(_ L: CallLink) {
@@ -1191,6 +1214,7 @@ final class CallManager: NSObject, ObservableObject {
         sharing = false; shareCamPaused = false
         scrTrack?.isEnabled = false; scrTrack = nil; scrSource = nil
         CallEnv.log("screen stop")
+        hornScreen()
         for L in links {
             let mode = L.scrMode
             L.scrMode = nil; L.paused = false; L.appliedVideo = nil; L.appliedScreen = nil
@@ -1386,6 +1410,7 @@ final class CallManager: NSObject, ObservableObject {
             mic = true
             makeAudioTrack()
             for L in links { if let a = audioTrack, let t = L.audioTr { t.sender.track = a } }
+            hornMic()
         }
         mic = true; audioTrack?.isEnabled = true
         CallSystem.shared.muted(self, false)
@@ -1399,6 +1424,7 @@ final class CallManager: NSObject, ObservableObject {
         if let c = camera {
             c.stop(); camera = nil; localVideo = nil; cam = false
             for L in links where !(sharing && L.scrMode == .replace) { L.camTr?.sender.track = nil }   // A: dort laeuft gerade der Bildschirm
+            hornCam()
             stateOut(); return
         }
         Task {
@@ -1406,6 +1432,7 @@ final class CallManager: NSObject, ObservableObject {
             guard busy, let c = CallCamera(factory: CallRTC.factory) else { toast = String(localized: "Keine Kamera verfügbar."); return }
             camera = c; localVideo = c.track; cam = true; frontCamera = c.front; wire(c)
             for L in links where !(sharing && L.scrMode == .replace) { L.camTr?.sender.track = c.track }   // A: Kamera erst nach dem Teilen
+            hornCam()
             relimitAll()
             stateOut()
         }
@@ -1499,6 +1526,7 @@ final class CallManager: NSObject, ObservableObject {
         sharing = false; scrTrack = nil; scrSource = nil; shareCamPaused = false; screenHint = false
         camera?.stop(); camera = nil
         for L in links { L.close() }
+        hornStop()                                                          // 2.5: Beine am Knoten schliessen
         links = []; tiles = []; meshView = false; speakerDev = nil; handingOver = false
         remoteSide = nil
         audioTrack = nil; localVideo = nil; remoteVideo = nil
@@ -1546,6 +1574,7 @@ final class CallManager: NSObject, ObservableObject {
 
     func reset() {
         for L in links { L.close() }
+        hornStop(); horn = nil; topo = ""; callHost = false
         id = nil; chatID = 0; peer = ""; links = []; seen = []; early = []
         v2 = nil; roomHandle = nil
         ready = false; connected = false; ending = false; answered = false; keysRefreshed = []; failed = false

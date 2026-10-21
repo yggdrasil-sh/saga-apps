@@ -185,6 +185,17 @@ private func roomGroupTests() {
     check(caps == ["reneg", "want", "bye", "screen2", "multi"], "2.4-Server: multi melden")
     check(!CallV3.myCaps(serverFeatures: ["multi"]).contains("multi"), "multi nur mit reneg")
     check(!CallV3.myCaps(serverFeatures: ["reneg", "screen2"]).contains("multi"), "E3-Server: kein multi")
+    // 2.5 Gjallarhorn: horn nur mit reneg + multi + horn am Server
+    check(CallV3.myCaps(serverFeatures: ["reneg", "screen2", "multi", "horn"]).last == "horn", "2.5-Server: horn")
+    check(!CallV3.myCaps(serverFeatures: ["reneg", "horn"]).contains("horn"), "horn nur mit multi")
+    check(!CallV3.myCaps(serverFeatures: ["reneg", "multi", "horn"], horn: false).contains("horn"), "horn abschaltbar")
+    check(!CallV3.myCaps(serverFeatures: ["reneg", "multi"]).contains("horn"), "Server ohne horn")
+    let hl = CallRoom.legs([["device": "dA", "who": "a", "hp": "p1", "hpn": ["horn-0.example.org": "p1", "horn-1.example.org": "q7", "x": 3], "avatar": "av"],
+                            ["device": "dB", "who": "b", "hp": ""]])
+    check(hl[0].hp == "p1" && hl[0].hpn == ["horn-0.example.org": "p1", "horn-1.example.org": "q7"] && hl[0].avatar == "av", "legs: hp, hpn, avatar")
+    check(hl[1].hp == nil && hl[1].hpn.isEmpty && hl[1].avatar == nil, "legs ohne Knoten-Kennung")
+    check(CallRoom.limit(media: "video", server: 12, horn: true) == 12 && CallRoom.limit(media: "video", server: 12, horn: false) == 4, "Grenze: Knoten vs. Mesh")
+    check(CallRoom.limit(media: "audio", server: nil, horn: true) == 50, "Grenze Knoten ohne Angabe")
     check(CallRoom.groupButton(kind: "group", group: true, myCaps: caps, enabled: true), "Gruppenanruf-Knopf")
     check(CallRoom.groupButton(kind: "free", group: true, myCaps: caps, enabled: true) && CallRoom.groupButton(kind: "page", group: true, myCaps: caps, enabled: true), "freie und Seiten-Chats")
     check(!CallRoom.groupButton(kind: "dm", group: true, myCaps: caps, enabled: true), "Direkt-Chat: 1:1")

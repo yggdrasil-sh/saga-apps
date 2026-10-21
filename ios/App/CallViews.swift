@@ -10,11 +10,17 @@ struct CallScreen: View {
     var close: () -> Void = {}
     /// Hoehe der Kopfzeile (Verschluesselung, Ton-Diagnose): das eigene Kamerabild beginnt darunter
     @State private var headerHeight: CGFloat = 0
+    /// Farbschema des Systems (2.5: Teilnehmerliste/Runensiegel folgen hell/dunkel, das Anruf-Fenster bleibt dunkel)
+    @Environment(\.colorScheme) private var systemScheme
     var body: some View {
         ZStack {
             LinearGradient(colors: [Color(red: 0.10, green: 0.09, blue: 0.07), Color(red: 0.04, green: 0.04, blue: 0.05)], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
-            if showTiles {
+            if let H = calls.horn, showHorn {
+                // 2.5: Gruppenanruf ueber einen Knoten (Kacheln bis 25, Sprecher, Bildschirm)
+                HornStage(calls: calls, horn: H)
+                    .padding(.top, 24 + headerHeight + 10).padding(.bottom, 170).padding(.horizontal, 10)
+            } else if showTiles {
                 // 2.4 E4/E5: Kachelansicht (Gruppe bzw. mehrere sichtbare Verbindungen), Sprecher hervorgehoben
                 CallTileGrid(calls: calls)
                     .padding(.top, 24 + headerHeight + 10).padding(.bottom, 170).padding(.horizontal, 10)
@@ -23,9 +29,9 @@ struct CallScreen: View {
                 RTCVideoBox(track: bigTrack, fill: !bigIsScreen).ignoresSafeArea()
             }
             VStack(spacing: 14) {
-                shareBar
-                header.onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
-                if !showRemoteVideo && !showTiles { Spacer(); peerBlock; Spacer() } else { Spacer() }
+                VStack(spacing: 14) { shareBar; header }                      // 2.5: Hoehe inkl. Leiste "teilt den Bildschirm"
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
+                if !showRemoteVideo && !showTiles && !showHorn { Spacer(); peerBlock; Spacer() } else { Spacer() }
                 if calls.phase == .incoming { incomingButtons } else if calls.phase == .ended { endedBlock } else { controls }
             }
             .padding(.horizontal, 20).padding(.vertical, 24)
@@ -62,6 +68,7 @@ struct CallScreen: View {
                 .padding(.top, 24 + headerHeight + 10).padding(.leading, 16)
             }
             if calls.screenHint { ScreenHintCard(calls: calls) }
+            if let H = calls.horn { HornOverlays(calls: calls, horn: H, scheme: systemScheme) }
         }
         #if os(iOS)
         .background { BroadcastPickerHost(capture: calls.capture).frame(width: 1, height: 1).allowsHitTesting(false) }
@@ -98,7 +105,9 @@ struct CallScreen: View {
         .dynamicTypeSize(...DynamicTypeSize.accessibility3)                 // groesste Stufen: Name/Status passen noch neben die Knoepfe
     }
 
-    private var showRemoteVideo: Bool { !showTiles && calls.remoteVideo != nil && (calls.remote.cam || calls.remote.screen) && (calls.phase == .active || calls.phase == .connecting) }
+    /// 2.5: Knoten-Anruf (Buehne statt Einzelansicht)
+    private var showHorn: Bool { calls.horn != nil && (calls.phase == .active || calls.phase == .connecting || calls.phase == .ringingOut) }
+    private var showRemoteVideo: Bool { !showHorn && !showTiles && calls.remoteVideo != nil && (calls.remote.cam || calls.remote.screen) && (calls.phase == .active || calls.phase == .connecting) }
     /// 2.4 E4/E5: Kacheln statt Einzelansicht
     private var showTiles: Bool { calls.meshView && !calls.tiles.isEmpty && (calls.phase == .active || calls.phase == .connecting) }
     // 2.4 E3: remoteVideo = Bildschirm (teilt das Gegenueber) bzw. Kamera, remoteSide = Kamera neben dem Bildschirm
@@ -109,7 +118,8 @@ struct CallScreen: View {
 
     /// Rote Leiste: "Du teilst deinen Bildschirm" (mit Beenden) bzw. "<Name> teilt den Bildschirm" (mit Tauschen)
     @ViewBuilder private var shareBar: some View {
-        if calls.sharing || (calls.remote.screen && calls.phase == .active) {
+        if let H = calls.horn, !calls.sharing { HornShareLine(horn: H) }   // 2.5: "<Name> teilt den Bildschirm"
+        else if calls.sharing || (calls.remote.screen && calls.phase == .active) {
             HStack(spacing: 10) {
                 Image(systemName: "rectangle.inset.filled.on.rectangle")
                 VStack(alignment: .leading, spacing: 1) {
@@ -142,8 +152,9 @@ struct CallScreen: View {
 
     private var header: some View {
         VStack(spacing: 4) {
-            if showRemoteVideo || showTiles { Text(verbatim: calls.peerName).font(.headline).shadow(radius: 3) }
+            if showRemoteVideo || showTiles || showHorn { Text(verbatim: calls.peerName).font(.headline).shadow(radius: 3) }
             roomInfo
+            if let H = calls.horn { HornInfoLine(calls: calls, horn: H) }    // 2.5: Weg, Qualitaet, Runensiegel
             HStack(spacing: 6) {
                 if calls.verified {
                     Label("Ende-zu-Ende verschlüsselt", systemImage: "lock.fill").labelStyle(.titleAndIcon)
@@ -226,7 +237,7 @@ struct CallScreen: View {
 
     private var controls: some View {
         VStack(spacing: 10) {
-            if showRemoteVideo { statusLine }
+            if showRemoteVideo || showHorn { statusLine }
             if showRemoteVideo && calls.phase == .active && !calls.remote.mic {        // sonst nur im (ausgeblendeten) Profilbild-Block
                 Label("\(calls.peerName) ist stummgeschaltet", systemImage: "mic.slash.fill").font(.footnote).shadow(radius: 2)
                     .padding(.horizontal, 12).padding(.vertical, 6).background(.black.opacity(0.45), in: Capsule())
@@ -267,7 +278,9 @@ struct CallScreen: View {
     @ViewBuilder private var roomInfo: some View {
         if calls.kind == "group" || calls.inRoom || calls.tiles.count > 1 {
             VStack(spacing: 2) {
-                if calls.phase == .active || calls.phase == .connecting || calls.phase == .ringingOut {
+                if calls.horn != nil, calls.phase == .active || calls.phase == .connecting || calls.phase == .ringingOut {
+                    Text("\(max(1, calls.roster.legs.count)) von höchstens \(calls.limit) Geräten").font(.caption2)   // 2.5: Knoten
+                } else if calls.phase == .active || calls.phase == .connecting || calls.phase == .ringingOut {
                     Text("\(calls.links.count + 1) von höchstens \(calls.limit) Geräten").font(.caption2)
                 }
                 if !calls.oldNames.isEmpty {

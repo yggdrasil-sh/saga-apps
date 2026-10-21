@@ -84,6 +84,19 @@ Die Anruf-Signalisierung (`App/CallCrypto.swift`, `App/CallLogic.swift`) prüft 
   `xcodebuild -scheme HornE2ETests -destination 'platform=macOS' test` bzw. mit einer iOS-Simulator-ID. Der Loopback
   zweier PeerConnections mit FrameCryptor läuft nur im Simulator (stilles Audio-Gerät, Testbild aus dem Speicher; am Mac
   übersprungen, damit kein Test CoreAudio/Mikrofon berührt).
+- **Gruppenanrufe über Gjallarhorn-Knoten (2.5, P11 Stufe 2; Vertrag `docs/APP-API.md` „Anrufe über
+  Gjallarhorn-Knoten“):** Meldet der Server `topo: "horn"`, misst die App die Kandidaten (TLS + Pings über `/probe`,
+  UDP-Probe; ≤ 800 ms), verbindet je Knoten eine Ton- und eine Bild-Leitung (ICE-TCP, sonst TURN-TLS über den Knoten;
+  auf UDP eine Leitung) und wechselt live make-before-break mit derselben Hysterese wie das Web (`static/horn.js`).
+  Frame-E2E per FrameCryptor mit Saga-Ratsche (Plätze vorab), `fkey`/`fkey-ack` über den versiegelten Signalweg.
+  Dateien: `App/HornLogic.swift` (Entscheidungen, Ereigniskanal, Schlüsselplan), `App/HornNode.swift` (Knoten-API),
+  `App/HornMedia.swift` (Bein = PeerConnection), `App/HornCall.swift` (Ablauf), `App/HornViews.swift` (Kacheln,
+  Sprecher, Teilnehmerliste, Weg, Runensiegel). Gerät meldet `horn` in `caps` (nur mit Server-Feature `horn`).
+  Tests: `HornLogicTests` (Fälle wie `tests/horn_logik.js`) im Ziel `HornE2ETests`; Integrationstest `HornNodeTests`
+  gegen einen lokalen Knoten (nur 127.0.0.1, `HORN_DEV=1 HORN_UDP=0 HORN_TLS_SELF=1 HORN_ICE_IPS=127.0.0.1
+  HORN_LISTEN=127.0.0.1:<port> gjallarhorn node`), Aufruf mit `TEST_RUNNER_SAGA_HORN_NODE=https://127.0.0.1:<port>`
+  und einer eigenen iOS-Simulator-ID (am Mac läuft nur die Messung). Bilder ohne Server: Startparameter
+  `-hkHornPreview grid|speaker|share|people|runes` (Debug, erfundener Zustand).
 - iPhone/iPad: Hintergrundmodi `voip` und `audio` (Info.plist), CallKit für das Klingeln, PushKit-Token als eigenes
   Mitteilungs-Abo `apns-voip`. Zusätzliche Berechtigungen braucht die App-ID nicht: die Fähigkeit „Push
   Notifications“ reicht, der Server schickt mit demselben APNs-Schlüssel (.p8) an das Thema `<App-ID>.voip`.
