@@ -18,7 +18,7 @@ object VoiceLogic {
     /** Pegel je 100 ms (wie im Browser: Takt der Wellenform) */
     const val LEVEL_MS = 100
     const val FILE_NAME = "Sprachnachricht.ogg"
-    /** Aufnahme ab Android 10 (MediaCodec-Opus-Encoder); Android 8/9 nur Abspielen (Entscheidung Sven, Frage 4) */
+    /** Aufnahme ab Android 10 (MediaCodec-Opus-Encoder); Android 8/9 nur Abspielen (Entscheidung zum Konzept, Frage 4) */
     const val RECORD_MIN_SDK = 29
     val SPEEDS = listOf(1f, 1.5f, 2f)
 

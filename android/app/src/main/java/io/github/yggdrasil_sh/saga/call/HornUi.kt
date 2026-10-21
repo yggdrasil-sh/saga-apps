@@ -415,7 +415,7 @@ fun hornPreviewUi(view: String = "grid", screen: Boolean = false): HornUi {
     return HornUi(
         connected = true, path = "tcp", node = "horn-0.example.org", quality = "good", rtt = 38, tiles = lay.list.map { byDev[it.dev]!!.copy(big = it.big) },
         view = view, runes = seal.runes, runeNames = seal.idx.map { HornE2E.runeNames[it] },
-        people = listOf(HornPerson("me", "Sven", "Pixel 9", me = true, host = true)) + tiles.map {
+        people = listOf(HornPerson("me", "Erik", "Pixel 9", me = true, host = true)) + tiles.map {
             HornPerson(it.dev, it.name, it.devName, mic = it.mic, speaking = it.speaking, moderate = true, unverified = it.dev == "d6")
         },
         amHost = true, screenFrom = if (screen) "Freya" else null, bigVideo = true, unverified = listOf("Sigrun"),

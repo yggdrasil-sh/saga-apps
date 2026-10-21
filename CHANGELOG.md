@@ -6,6 +6,44 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 
 ## [Unveröffentlicht]
 
+Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
+abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
+
+### Neu – Saga 2.5: Chat-Stufe 3 und Chat-Grundlagen
+**iOS/iPadOS/macOS, Android, Linux:**
+- **Chat-Stufe 3:** Die Apps melden `X-Saga-Chat: 3`; Chats `v: 3` laufen über den Weg der Chats über Servergrenzen
+  (Handles statt Anmeldenamen), lokal ohne Hinweise auf andere Server. Die Vertrauensstufe „Überprüft“ wird von
+  Anmeldenamen auf Handles übernommen, wenn der Identitätsschlüssel gleich ist („Neue Darstellung, gleicher Schlüssel“).
+  Altbestand bis zum Umstellpunkt bleibt im Format v1 lesbar; wird ein Chat beim Senden umgestellt, sendet die App neu
+  im Format v2.
+- **Reaktionen:** Schnellleiste mit 6 Emojis und Emoji-Auswahl, Chips unter der Nachricht, „Reaktionen von …“ –
+  Ende-zu-Ende verschlüsselt, live.
+- **Nachricht bearbeiten:** eigene Nachrichten bis 24 Stunden, höchstens 20-mal, Hinweis „bearbeitet“, live.
+- **Sprachnachrichten:** Aufnahme als Opus (24 kbit/s) in Ogg, Vorschau, Hinweis nach 14 und Stopp nach 15 Minuten,
+  unter 1 s verworfen (Ogg-Granule nach RFC 7845); Wiedergabe mit Wellenform und Tempo 1×/1,5×/2×.
+- Tests: Vektoren `chat_v3.json` (Reaktionen, Ablehnungen, Bearbeiten, Vertrauens-Übernahme), Ogg/Opus, Wellenform –
+  nie mit dem Mikrofon.
+
+### Neu – Saga 2.5: Gruppenanrufe über Gjallarhorn-Knoten
+**iOS/iPadOS/macOS, Android:**
+- **Große Gruppenanrufe:** Meldet der Server `topo: horn`, messen die Apps die Knoten, verbinden sich mit dem besten
+  (Ton und Bild auf TCP/TLS getrennt, auf UDP gebündelt, sonst TURN-TLS über den Knoten) und wechseln bei Abbruch,
+  Wartung oder deutlich besserem Weg ohne Unterbrechung. Kleine Anrufe bleiben im Mesh.
+- **Ende-zu-Ende verschlüsselt (saga-horn/v1):** Jeder Rahmen wird vor dem Knoten mit FrameCryptor verschlüsselt; die
+  Schlüssel gehen über den versiegelten Signalweg, Runensiegel zum Vergleichen.
+- **Oberfläche:** Kacheln (Handy 4, Tablet/Mac 9 bewegte Bilder), Sprecheransicht, Bildschirm teilen, Weg mit
+  Qualitätspunkt, Teilnehmerliste mit Stummschalten/Entfernen für den Gastgeber, Bild im Bild.
+- **Über Servergrenzen und Kaskade:** Die Apps melden ihre Kennungen an den Knoten im versiegelten Zustand (`state.hp`)
+  und ordnen damit auch Teilnehmende an Knoten anderer Server zu. Bleibt ein Gruppenanruf über Servergrenzen ohne Knoten
+  (`horn_mesh`), zeigen die Apps den Hinweis des Servers einmal an.
+- **Bild über TCP/TLS:** Der Knoten setzt dort `playout-delay`; die Apps handeln die Erweiterung unverändert aus.
+- **WebRTC:** iOS/macOS und Android auf webrtc-sdk 150.7871.01 (FrameCryptor mit HKDF).
+
+### Neu – Android: Push ohne Verteiler
+- Ist kein UnifiedPush-Verteiler installiert, hält die App selbst eine sparsame Verbindung zum eigenen Server
+  (Vordergrund-Dienst, abschaltbar, Lebenszeichen im gelernten Abstand). Wird ein Verteiler installiert, schaltet sie um.
+  Push-Einstellungen zeigen Stand und Erklärung; die Akku-Ausnahme wird nur erklärt, nie erzwungen.
+
 ## [2.4.0] – 2026-10-20
 
 Passt zu Saga-Server 2.4. **Die neuen Funktionen brauchen Saga-Server 2.4; ältere Server funktionieren weiter**

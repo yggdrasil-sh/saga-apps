@@ -30,7 +30,7 @@ struct HornPreviewView: View {
         let people: [(String, String, String)] = [("Bea", "iPhone", "member"), ("Tom", "MacBook", "member"), ("Ana", "iPad", "member"), ("Kai", "Pixel", "member"),
                                                   ("Lena", "Firefox", "member"), ("Mo", "iPhone", "member"), ("Ida", "Chrome", "member"), ("Jon", "Galaxy", "member"),
                                                   ("Eva", "Safari", "member"), ("Ole", "iPhone", "member"), ("Uma", "Mac mini", "member")]
-        var legs: [[String: Any]] = [["device": "me000000000000000000000000000000", "who": "ich", "name": "Sven", "dev_name": "Mac", "hp": "p0"]]
+        var legs: [[String: Any]] = [["device": "me000000000000000000000000000000", "who": "ich", "name": "Max", "dev_name": "Mac", "hp": "p0"]]
         for (i, p) in people.enumerated() {
             legs.append(["device": String(format: "d%031d", i + 1), "who": p.0.lowercased(), "name": p.0, "dev_name": p.1, "role": p.2, "hp": "p\(i + 1)"])
         }

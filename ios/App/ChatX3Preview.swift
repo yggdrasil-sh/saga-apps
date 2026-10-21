@@ -83,7 +83,7 @@ struct X3PreviewView: View {
         let summary: [String: Any] = [
             "id": 1, "kind": "free", "v": 3, "ref": "0123456789abcdef0123456789abcdef@a.example", "my_handle": me, "home_self": true, "x3_ok": true,
             "member_count": 3,
-            "members": [["username": "ich", "handle": me, "name": "Sven", "me": true, "host": "a.example"],
+            "members": [["username": "ich", "handle": me, "name": "Max", "me": true, "host": "a.example"],
                         ["username": bea, "handle": bea, "name": "Bea", "host": "a.example"],
                         ["username": tom, "handle": tom, "name": "Tom", "host": "a.example"]],
         ]
@@ -102,9 +102,9 @@ struct X3PreviewView: View {
         c.messages = [
             msg("m1", bea, "Bea", "Wer bringt den Grill mit?", ago: 3600),
             msg("m2", tom, "Tom", "Ich! Und Kohle für zwei Stunden.", ago: 3400),
-            msg("m3", me, "Sven", "Treffen wir uns um 9?", ago: 3000, edited: true),
+            msg("m3", me, "Max", "Treffen wir uns um 9?", ago: 3000, edited: true),
             msg("m4", bea, "Bea", "", ago: 2400, files: [voice]),
-            msg("m5", me, "Sven", "Klingt gut – bis Samstag!", ago: 60),
+            msg("m5", me, "Max", "Klingt gut – bis Samstag!", ago: 60),
         ]
         c.reactions = [
             "m2": [.init(by: bea, e: "👍", ts: 1), .init(by: me, e: "👍", ts: 2), .init(by: tom, e: "🔥", ts: 3)],
