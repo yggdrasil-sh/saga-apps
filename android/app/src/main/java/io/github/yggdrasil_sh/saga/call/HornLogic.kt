@@ -428,6 +428,19 @@ object HornLogic {
         return out
     }
 
+    /**
+     * P9/P10 state.hp: Kennungen des Absenders an seinen Knoten (Kaskade, Knoten anderer Server). null = Feld fehlt
+     * (aeltere App); nur Texte bis 64 Zeichen, hoechstens 4.
+     */
+    fun parseHp(b: JsonObject): List<String>? {
+        if ((b["t"] as? JsonPrimitive)?.contentOrNull != "state") return null
+        val a = b["hp"] as? JsonArray ?: return null
+        return a.mapNotNull { (it as? JsonPrimitive)?.takeIf { p -> p.isString }?.content }.filter { it.isNotEmpty() && it.length <= 64 }.take(4)
+    }
+
+    /** Eigene Kennungen fuer state.hp: ohne leere und doppelte, Reihenfolge bleibt, hoechstens 4 */
+    fun myRefs(refs: List<String>): List<String> = refs.filter { it.isNotEmpty() }.distinct().take(4)
+
     /** Wer belegt Platz i? Geraet ueber die CSRC des Platzes (bzw. die Kennung) */
     fun slotOwner(s: Slot?, csrc: Map<Long, String>, devOf: (String) -> String?): String? {
         if (s == null || s.paused) return null

@@ -374,10 +374,30 @@ extension HornLogic {
         return Ack(n: n, s: s, ok: ok)
     }
     struct PeerState: Equatable { var mic = true; var cam = false; var screen = false }
-    static func stateBody(mic: Bool, cam: Bool, screen: Bool) -> String { "{\"t\":\"state\",\"mic\":\(mic),\"cam\":\(cam),\"screen\":\(screen)}" }
+    /// hp (P9/P10): eigene Kennungen an den Knoten, mit denen das Geraet gerade verbunden ist (hoechstens 4, alle
+    /// Verbindungen waehrend eines Wechsels) - so ordnen Geraete an anderen Knoten (Kaskade, andere Server) CSRC -> Geraet zu
+    static func stateBody(mic: Bool, cam: Bool, screen: Bool, hp: [String] = []) -> String {
+        var s = "{\"t\":\"state\",\"mic\":\(mic),\"cam\":\(cam),\"screen\":\(screen)"
+        let refs = Array(hp.filter { !$0.isEmpty && $0.count <= 64 }.prefix(4))
+        if !refs.isEmpty, let d = try? JSONSerialization.data(withJSONObject: refs), let a = String(data: d, encoding: .utf8) {
+            s += ",\"hp\":" + a
+        }
+        return s + "}"
+    }
     static func parseState(_ o: Any?) -> PeerState? {
         guard let b = o as? [String: Any], b["t"] as? String == "state" else { return nil }
         return PeerState(mic: (b["mic"] as? Bool) != false, cam: (b["cam"] as? Bool) == true, screen: (b["screen"] as? Bool) == true)
+    }
+    /// Kennungen des Absenders aus state.hp (nil = Feld fehlt, aeltere App); nur Texte bis 64 Zeichen, hoechstens 4
+    static func parseHp(_ o: Any?) -> [String]? {
+        guard let b = o as? [String: Any], b["t"] as? String == "state", let a = b["hp"] as? [Any] else { return nil }
+        return Array(a.compactMap { $0 as? String }.filter { !$0.isEmpty && $0.count <= 64 }.prefix(4))
+    }
+    /// Unique, Reihenfolge bleibt, hoechstens 4
+    static func myRefs(_ refs: [String]) -> [String] {
+        var out: [String] = []
+        for r in refs where !r.isEmpty && !out.contains(r) { out.append(r) }
+        return Array(out.prefix(4))
     }
 
     /// Teilnehmerliste -> wer bekommt meinen Schluessel: neue Geraete (Ratsche bzw. in der ersten Runde der Startschluessel),

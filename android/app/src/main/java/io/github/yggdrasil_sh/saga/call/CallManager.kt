@@ -220,6 +220,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         var hoJob: Job? = null
         /** Dieses Geraet ist (wieder) Hauptgeraet nach einer Uebernahme */
         var took = false
+        /** 2.5 P10: Hinweis horn_mesh schon gezeigt */
+        var meshNoted = false
         /** Ueber join bzw. als Gruppe begonnen (Raum ohne eigene erste Verbindung) */
         var inRoom = false
         /** Gruppenanruf selbst begonnen (klingelt bei den anderen) */
@@ -1628,7 +1630,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val id = r.id ?: return
         try {
             val st = json.decodeFromString(CallState.serializer(), api.get("api/calls/$id?device=${myDevId()}"))
-            if (st.call.legs.isNotEmpty()) rosterIn(r, st.call.legs, null, st.call.limit, poll = true)
+            if (st.call.legs.isNotEmpty()) rosterIn(r, st.call.legs, null, st.call.limit, poll = true, mesh = st.call.hornMesh)
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -1640,10 +1642,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
      * verlassen", Verbindungen zu Geraeten trennen, die nicht mehr dabei sind. Eine aeltere Liste (rv) ueberschreibt keine
      * neuere; eine abgefragte (poll) trennt nie - das tun nur call.roster, bye und alive.
      */
-    private fun rosterIn(r: Call, legs: List<CallLeg>, rv: Double?, limit: Int?, poll: Boolean = false) {
+    private fun rosterIn(r: Call, legs: List<CallLeg>, rv: Double?, limit: Int?, poll: Boolean = false, mesh: String? = null) {
         if (r.done) return
         val rs = r.rs
         val diff = rs.roster.apply(legs, rv) ?: return
+        // 2.5 P10: Gruppenanruf ueber Servergrenzen ohne Knoten (ein Server kann keinen nutzen) - einmal sagen
+        CallRoom.meshNote(mesh)?.let { if (!rs.meshNoted) { rs.meshNoted = true; repo.notify(UiText.Raw(it)) } }
         // 2.5: im Knoten-Anruf gilt die Grenze des Anrufs (12/25 Video, 50/100 Ton), nicht die Mesh-Grenze
         if (limit != null && limit > 0) rs.limit = if (rs.horn != null) limit else CallRoom.limit(r.media, limit)
         val me = myDevId()
@@ -1979,7 +1983,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         c.ready = true
         r.call?.let { k ->
             k.limit?.let { c.rs.limit = CallRoom.limit(c.media, it) }
-            rosterIn(c, k.legs, null, k.limit, poll = true)
+            rosterIn(c, k.legs, null, k.limit, poll = true, mesh = k.hornMesh)
         }
         startLoops(c)
         for (l in links(c)) {
@@ -2160,7 +2164,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 c.ready = true
                 r.call?.let { k ->
                     c.rs.old = k.old.map { it.name.ifEmpty { it.username } }
-                    rosterIn(c, k.legs, null, k.limit, poll = true)
+                    rosterIn(c, k.legs, null, k.limit, poll = true, mesh = k.hornMesh)
                     if (k.topo == CallRoom.TOPO_HORN) hornStart(c, k)       // 2.5: grosse Gruppe ueber einen Knoten
                 }
                 tone(ToneGenerator.TONE_SUP_RINGTONE)
@@ -2637,7 +2641,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     val after = c.seen.maxOrNull() ?: 0
                     val st = json.decodeFromString(CallState.serializer(), api.get("api/calls/$id?device=$dev&after=$after"))
                     for (s in st.signals) signalIn(id, s)
-                    if (st.call.legs.isNotEmpty()) rosterIn(c, st.call.legs, null, st.call.limit, poll = true)
+                    if (st.call.legs.isNotEmpty()) rosterIn(c, st.call.legs, null, st.call.limit, poll = true, mesh = st.call.hornMesh)
                     when {
                         st.call.state == "ended" -> remoteEnded(c, st.call.reason)
                         st.call.state == "active" && c.caller && c.peerDevice == null && c.pc != null && c.rs.kind == CallRoom.KIND_DM ->
@@ -3281,7 +3285,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         c.ready = true
         val k = r.call ?: throw UiTextException(UiText.Res(R.string.call_failed))
         k.limit?.let { c.rs.limit = it }
-        rosterIn(c, k.legs, null, null, poll = true)
+        rosterIn(c, k.legs, null, null, poll = true, mesh = k.hornMesh)
         startLoops(c)
         hornStart(c, k)
         val early = ArrayList(c.early)
@@ -3596,7 +3600,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 if (CallRoom.stopRinging(legs, myUser())) unring(id)          // ein eigenes Geraet ist beigetreten
                 val c = cur
                 if (c != null && c.id == id && c.ready) {
-                    rosterIn(c, legs, CallRoom.rvOf(ev.data), ev.int("limit"))
+                    rosterIn(c, legs, CallRoom.rvOf(ev.data), ev.int("limit"), mesh = ev.str("horn_mesh"))
                 }
                 if (ev.str("state") == "ended") unring(id)
                 refreshRun()

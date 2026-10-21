@@ -225,6 +225,17 @@ final class HornLogicTests: XCTestCase {
         XCTAssertEqual(H.parseState(try? JSONSerialization.jsonObject(with: Data(H.stateBody(mic: false, cam: true, screen: false).utf8))),
                        H.PeerState(mic: false, cam: true, screen: false))
     }
+    func testStateHp() {
+        let plain = try? JSONSerialization.jsonObject(with: Data(H.stateBody(mic: true, cam: false, screen: false).utf8))
+        XCTAssertNil(H.parseHp(plain), "ohne Kennungen kein hp")
+        let b = H.stateBody(mic: true, cam: false, screen: false, hp: ["p1", "p2", "", String(repeating: "x", count: 65), "p3", "p4", "p5"])
+        let o = try? JSONSerialization.jsonObject(with: Data(b.utf8))
+        XCTAssertEqual(H.parseHp(o), ["p1", "p2", "p3", "p4"], "hoechstens 4, leere und zu lange verworfen")
+        XCTAssertEqual(H.parseState(o), H.PeerState(mic: true, cam: false, screen: false))
+        XCTAssertEqual(H.parseHp(["t": "state", "hp": ["a", 3, "b"]]), ["a", "b"])
+        XCTAssertNil(H.parseHp(["t": "fkey", "hp": ["a"]]))
+        XCTAssertEqual(H.myRefs(["a", "b", "a", "", "c", "d", "e"]), ["a", "b", "c", "d"])
+    }
     func testKeyPlan() {
         var p = H.KeyPlan()
         XCTAssertEqual(p.update(["a", "b"]), .init(add: ["a", "b"], gone: [], first: true))

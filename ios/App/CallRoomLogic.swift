@@ -98,6 +98,13 @@ enum CallRoom {
         guard let s = server, s >= 2 else { return media == "video" ? 12 : 50 }
         return s
     }
+    /// 2.5 P10: Hinweis horn_mesh in Teilnehmerliste/Antwort auf join (Gruppenanruf ueber Servergrenzen bleibt im Mesh,
+    /// weil ein Server keinen Knoten nutzen kann) - Text vom Server in der Sprache der Anfrage; leer/kein Text = nichts
+    static func meshNote(_ c: [String: Any]?) -> String? {
+        guard let m = c?["horn_mesh"] as? String else { return nil }
+        let t = m.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : String(t.prefix(300))
+    }
     static func limit(media: String, server: Int?) -> Int {
         let base = media == "video" ? videoMax : audioMax
         guard let s = server, s >= 2 else { return base }

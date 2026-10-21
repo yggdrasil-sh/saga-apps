@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
@@ -141,6 +142,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     private var stateJob: Job? = null
     /** Zustand der anderen: mic, cam, screen */
     val st = HashMap<String, Triple<Boolean, Boolean, Boolean>>()
+    /** P9/P10: Kennungen anderer Geraete an ihren Knoten aus state.hp (Kaskade, Knoten anderer Server) */
+    private val hpx = HashMap<String, List<String>>()
     /** zuletzt "need" je Sender */
     private val needAt = HashMap<String, Long>()
     private val unreadSince = HashMap<String, Long>()
@@ -832,7 +835,20 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
 
     private fun refOf(x: CallLeg, conn: Conn): String? = x.hpn[conn.node] ?: x.hp
     private fun myRef(conn: Conn): String = host.legs().firstOrNull { it.device == host.myDev() }?.let { refOf(it, conn) } ?: conn.cand.peer
-    fun devOf(conn: Conn, ref: String): String? = if (ref.isEmpty()) null else host.legs().firstOrNull { refOf(it, conn) == ref }?.device
+    /**
+     * Kennung am Knoten -> Geraet: Teilnehmerliste (hp bzw. hpn dieses Knotens), dann hpn anderer Knoten dieses Servers
+     * (Kaskade: Teilnehmende behalten die Kennung ihres Knotens), dann state.hp (Knoten anderer Server)
+     */
+    fun devOf(conn: Conn, ref: String): String? {
+        if (ref.isEmpty()) return null
+        val legs = host.legs()
+        legs.firstOrNull { refOf(it, conn) == ref }?.let { return it.device }
+        legs.firstOrNull { ref in it.hpn.values }?.let { return it.device }
+        return hpx.entries.firstOrNull { (d, refs) -> ref in refs && legs.any { it.device == d } }?.key
+    }
+
+    /** Eigene Kennungen an allen Knoten, mit denen das Geraet gerade verbunden ist (state.hp, hoechstens 4) */
+    private fun myRefs(): List<String> = HornLogic.myRefs(conns().map { myRef(it) })
 
     // ---------------------------------------------------------------- Belegung -> Cryptoren, Bilder, Ton
 
@@ -968,6 +984,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         if (since == 0L) since = now
         setNote(null)
         mapAll()
+        stateOut()                                                  // P9/P10: neue Kennung (state.hp) an alle
         runesSoon()
         if (monJob == null) monJob = scope.launch {
             while (isActive && !closed) {
@@ -1089,6 +1106,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         olds.remove(c)
         if (cur === c) cur = null
         if (next === c) next = null
+        if (!closed) stateOut()                                     // state.hp ohne die geschlossene Verbindung
     }
 
     // ---------------------------------------------------------------- Beobachtung (alle 0,5 s)
@@ -1368,6 +1386,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                     (b["cam"] as? JsonPrimitive)?.booleanOrNull == true,
                     (b["screen"] as? JsonPrimitive)?.booleanOrNull == true,
                 )
+                HornLogic.parseHp(b)?.let { hp -> if (hpx[from] != hp) { hpx[from] = hp; mapAll() } }   // P9/P10
                 bind()
             }
         }
@@ -1399,6 +1418,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             put("mic", mic)
             put("cam", cam)
             put("screen", screen)
+            val hp = myRefs()                                       // P9/P10: eigene Kennungen an den Knoten
+            if (hp.isNotEmpty()) put("hp", JsonArray(hp.map { JsonPrimitive(it) }))
         }.toString()
         if (only != null) {
             scope.launch { host.sendSignals(only.filter { it in known }.associateWith { body }) }

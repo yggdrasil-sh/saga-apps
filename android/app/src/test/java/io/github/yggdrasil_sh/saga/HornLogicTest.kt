@@ -7,6 +7,7 @@ import io.github.yggdrasil_sh.saga.call.HornLogic.Measure
 import io.github.yggdrasil_sh.saga.call.HornLogic.Other
 import io.github.yggdrasil_sh.saga.call.HornLogic.Switcher
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -400,6 +401,24 @@ class HornLogicTest {
         assertTrue("horn" in io.github.yggdrasil_sh.saga.call.CallRoom.myCaps(base + "horn"))
         assertFalse("ohne multi kein horn", "horn" in io.github.yggdrasil_sh.saga.call.CallRoom.myCaps(setOf("reneg", "horn")))
         assertTrue("multi" in io.github.yggdrasil_sh.saga.call.CallRoom.myCaps(base + "horn"))
+    }
+
+    @Test
+    fun stateHp() {
+        val o = Json.parseToJsonElement("""{"t":"state","mic":true,"hp":["p1",3,"","p2","p3","p4","p5"]}""").jsonObject
+        assertEquals(listOf("p1", "p2", "p3", "p4"), HornLogic.parseHp(o))
+        assertNull("ohne hp", HornLogic.parseHp(Json.parseToJsonElement("""{"t":"state","mic":true}""").jsonObject))
+        assertNull("nur state", HornLogic.parseHp(Json.parseToJsonElement("""{"t":"fkey","hp":["a"]}""").jsonObject))
+        val long = "x".repeat(65)
+        assertEquals(listOf("a"), HornLogic.parseHp(Json.parseToJsonElement("""{"t":"state","hp":["$long","a"]}""").jsonObject))
+        assertEquals(listOf("a", "b", "c", "d"), HornLogic.myRefs(listOf("a", "b", "a", "", "c", "d", "e")))
+    }
+
+    @Test
+    fun meshNote() {
+        assertEquals("Ohne Knoten", io.github.yggdrasil_sh.saga.call.CallRoom.meshNote(" Ohne Knoten "))
+        assertNull(io.github.yggdrasil_sh.saga.call.CallRoom.meshNote("  "))
+        assertNull(io.github.yggdrasil_sh.saga.call.CallRoom.meshNote(null))
     }
 
     @Test

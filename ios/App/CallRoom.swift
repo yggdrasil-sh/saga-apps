@@ -291,6 +291,8 @@ extension CallManager {
         let here = myDevice ?? ""
         if let e = extra {
             if let n = ShareJSON.int(e["limit"]) { limit = CallRoom.limit(media: media, server: n, horn: topo == "horn") }
+            // 2.5 P10: Gruppenanruf ueber Servergrenzen ohne Knoten (ein Server kann keinen nutzen) - einmal sagen
+            if let m = CallRoom.meshNote(e), !meshNoted { meshNoted = true; toast = m }
         }
         if let mine = roster.leg(here) {
             inRoom = true

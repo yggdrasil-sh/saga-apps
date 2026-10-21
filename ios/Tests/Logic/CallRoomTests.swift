@@ -217,6 +217,8 @@ private func roomGroupTests() {
     check(CallLogic.push(["kind": "call", "call": String(repeating: "b", count: 32)])?.group == false, "Push call: kein Gruppenanruf")
     let e = CallLogic.Entry(json: Data(#"{"type":"call","call":"x","media":"audio","status":"ended","dur":65,"group":true,"n":3}"#.utf8))
     check(e?.group == true && e?.n == 3, "Chat-Eintrag Gruppenanruf mit Zahl der Personen")
+    check(CallRoom.meshNote(["horn_mesh": "Ohne Knoten: ein Server kann keinen nutzen."]) == "Ohne Knoten: ein Server kann keinen nutzen.", "horn_mesh: Hinweis")
+    check(CallRoom.meshNote(["horn_mesh": "  "]) == nil && CallRoom.meshNote(["topo": "mesh"]) == nil && CallRoom.meshNote(nil) == nil, "kein horn_mesh: kein Hinweis")
 }
 
 private func roomBodyTests() {

@@ -169,6 +169,12 @@ object CallRoom {
         return (server?.takeIf { it > 0 } ?: max).coerceIn(2, max)
     }
 
+    /**
+     * 2.5 P10: Hinweis `horn_mesh` (Teilnehmerliste, Antwort auf join): Gruppenanruf ueber Servergrenzen bleibt im Mesh,
+     * weil ein Server keinen Knoten nutzen kann. Text vom Server (Sprache der Anfrage); leer = kein Hinweis.
+     */
+    fun meshNote(s: String?): String? = s?.trim()?.takeIf { it.isNotEmpty() }?.take(300)
+
     /** Kann noch ein Geraet dazukommen? (eigene Zusatzgeraete zaehlen mit) */
     fun hasRoom(endpoints: Int, limit: Int): Boolean = endpoints < limit
 

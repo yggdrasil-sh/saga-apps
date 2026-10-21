@@ -104,6 +104,8 @@ data class CallInfo(
     val invite: String? = null,
     /** 2.5: mesh | horn (Gruppenanruf ueber einen Gjallarhorn-Knoten) */
     val topo: String = "mesh",
+    /** 2.5 P10: Gruppenanruf ueber Servergrenzen ohne Knoten - Hinweis (einmal anzeigen) */
+    @SerialName("horn_mesh") val hornMesh: String? = null,
     /** 2.5: Kandidaten (Knoten mit Medien-Token), nur bei topo horn */
     val horn: JsonElement? = null,
     /** 2.5: dieses Konto hat den Gruppenanruf begonnen (Gastgeber: stummschalten, entfernen) */

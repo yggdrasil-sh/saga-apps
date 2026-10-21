@@ -125,6 +125,8 @@ final class CallManager: NSObject, ObservableObject {
     @Published var horn: HornSession?
     /// Aufbau des Anrufs laut Server ("mesh" | "horn"; leer = aelterer Server)
     var topo = ""
+    /// 2.5 P10: Hinweis horn_mesh (Gruppenanruf ueber Servergrenzen ohne Knoten) schon gezeigt
+    var meshNoted = false
     /// 2.5: dieses Konto hat den Gruppenanruf begonnen (Gastgeber: stummschalten, entfernen)
     var callHost = false
 
@@ -1574,7 +1576,7 @@ final class CallManager: NSObject, ObservableObject {
 
     func reset() {
         for L in links { L.close() }
-        hornStop(); horn = nil; topo = ""; callHost = false
+        hornStop(); horn = nil; topo = ""; meshNoted = false; callHost = false
         id = nil; chatID = 0; peer = ""; links = []; seen = []; early = []
         v2 = nil; roomHandle = nil
         ready = false; connected = false; ending = false; answered = false; keysRefreshed = []; failed = false

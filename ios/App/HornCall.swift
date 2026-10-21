@@ -148,6 +148,8 @@ final class HornSession: ObservableObject {
     var commitTask: Task<Void, Never>?
     var stTask: Task<Void, Never>?
     var st: [String: HornLogic.PeerState] = [:]
+    /// P9/P10: Kennungen anderer Geraete an ihren Knoten aus state.hp (Kaskade, Knoten anderer Server)
+    var hpx: [String: [String]] = [:]
     var links: [String: CallLink] = [:]
     var q: [[String: Any]] = []
     let provider = HornCryptor.keyProvider()
@@ -524,8 +526,19 @@ extension CallManager {
         if let x = roster.leg(myDevice), let r = hornRef(x, conn) { return r }
         return conn.cand.peer
     }
+    /// Kennung am Knoten -> Geraet: Teilnehmerliste (hp bzw. hpn dieses Knotens), dann hpn anderer Knoten dieses Servers
+    /// (Kaskade: Teilnehmende behalten die Kennung ihres Knotens), dann state.hp (Knoten anderer Server)
     func hornDevOf(_ conn: HornConn, _ ref: String) -> String? {
-        roster.legs.first { hornRef($0, conn) == ref }?.device
+        if ref.isEmpty { return nil }
+        if let d = roster.legs.first(where: { hornRef($0, conn) == ref })?.device { return d }
+        if let d = roster.legs.first(where: { $0.hpn.values.contains(ref) })?.device { return d }
+        if let H = horn, let d = H.hpx.first(where: { $0.value.contains(ref) && roster.leg($0.key) != nil })?.key { return d }
+        return nil
+    }
+    /// Eigene Kennungen an allen Knoten, mit denen das Geraet gerade verbunden ist (state.hp, hoechstens 4)
+    func hornMyRefs() -> [String] {
+        guard let H = horn else { return [] }
+        return HornLogic.myRefs(H.conns.map { hornMyRef($0) })
     }
     /// CSRC -> Geraet je Verbindung; Empfangsplaetze ihren Besitzern zuordnen (FrameCryptor je Absender)
     func hornMap() {
@@ -575,6 +588,7 @@ extension CallManager {
         } else { status = "" }
         if phase != .active { phase = .active }
         hornMap(); hornDraw(); hornAudioRoute()
+        hornStateOut()                                                      // P9/P10: neue Kennung (state.hp) an alle
         Task { await hornRunes() }
         if H.monTask == nil {
             H.monTask = Task { [weak self, weak H] in
@@ -661,6 +675,7 @@ extension CallManager {
             if H.cur === conn { H.cur = nil }
             if H.next === conn { H.next = nil }
             H.moving = !H.olds.isEmpty
+            if hornLive(H) { hornStateOut() }                                  // state.hp ohne die geschlossene Verbindung
         }
     }
 
@@ -1037,7 +1052,8 @@ extension CallManager {
     /// Eigener Zustand (Mikrofon, Kamera, Bildschirm) an alle bzw. nur an neue Geraete - gebuendelt
     func hornStateOut(only: [String]? = nil) {
         guard let H = horn, hornLive(H) else { return }
-        let body = HornLogic.stateBody(mic: mic && audioTrack != nil && !companion, cam: cam && camera != nil && !camPaused, screen: sharing)
+        let body = HornLogic.stateBody(mic: mic && audioTrack != nil && !companion, cam: cam && camera != nil && !camPaused, screen: sharing,
+                                       hp: hornMyRefs())
         if let only {
             var b: [String: String] = [:]
             for d in only where H.plan.known.contains(d) { b[d] = body }
@@ -1048,7 +1064,8 @@ extension CallManager {
         H.stTask = Task { [weak self, weak H] in
             try? await Task.sleep(for: .milliseconds(300))
             guard let self, let H, self.hornLive(H), !Task.isCancelled else { return }
-            let body = HornLogic.stateBody(mic: self.mic && self.audioTrack != nil && !self.companion, cam: self.cam && self.camera != nil && !self.camPaused, screen: self.sharing)
+            let body = HornLogic.stateBody(mic: self.mic && self.audioTrack != nil && !self.companion, cam: self.cam && self.camera != nil && !self.camPaused,
+                                           screen: self.sharing, hp: self.hornMyRefs())
             var b: [String: String] = [:]
             for d in H.plan.known { b[d] = body }
             await self.hornSend(b)
@@ -1079,6 +1096,7 @@ extension CallManager {
             if a.ok { H.acked[from] = a.n }
         } else if let st = HornLogic.parseState(o) {
             H.st[from] = st
+            if let hp = HornLogic.parseHp(o), H.hpx[from] != hp { H.hpx[from] = hp; hornMap() }   // P9/P10: Kennungen des Absenders
             let m = CallV3.meta(body)
             if CallRoom.handoverOut(ready: m.ready == true, replaces: m.replaces, here: myDevice ?? "", fromOwn: roster.leg(from)?.who == me) {
                 handoverOut(from: from); return
