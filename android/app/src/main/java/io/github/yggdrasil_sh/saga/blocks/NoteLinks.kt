@@ -48,6 +48,5 @@ object NoteLinks {
             val n = refreshHtml(e.content, titleOf)
             if (n == e.content) e else JsonPrimitive(n)
         } else e
-        else -> e
     }
 }
