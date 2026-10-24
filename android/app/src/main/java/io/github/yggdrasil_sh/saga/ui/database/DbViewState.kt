@@ -208,7 +208,7 @@ class DbViewState(
             "calendar" -> loadMonth(g, sc, cur)
             else -> {
                 // Antwort passt zur Abfrage der Ansicht (sonst war das Schema neu: richtig abfragen)
-                val page = if (first != null || sc.groupProp(cur) == null) p else fetch(baseQuery(cur, sc))
+                val page = if (first != null || !DbViews.needsViewQuery(cur, sc)) p else fetch(baseQuery(cur, sc))
                 if (g != gen) return
                 rows = page.rows
                 matched = page.matched ?: page.rows.size
@@ -386,10 +386,7 @@ class DbViewState(
 
     /** 2.5: Standardvorlage fuer "Neu" (Schema default_tpl), nur wenn es sie noch gibt */
     val defaultTemplate: io.github.yggdrasil_sh.saga.db.DbTemplate?
-        get() {
-            val id = (schema?.raw?.get("default_tpl") as? JsonPrimitive)?.content?.toDoubleOrNull()?.toLong() ?: return null
-            return templates.firstOrNull { it.id == id }
-        }
+        get() = DbViews.defaultTemplate(schema, templates)
     val canManageTemplates: Boolean get() = role == "owner" && dbId > 0
 
     /** Neuer Eintrag aus einer Vorlage -> ID */

@@ -59,10 +59,13 @@ internal fun SelfPip(
     val d = LocalDensity.current
     val moveLabel = stringResource(R.string.call_self_move)
     BoxWithConstraints(modifier.fillMaxSize()) {
-        val w = if (hidden) 44.dp else width
-        val h = if (hidden) 44.dp else height
-        val x = if (corner % 2 == 0) side else maxWidth - w - side
-        val y = if (corner < 2) top else maxOf(top, maxHeight - h - bottom)
+        // A05/A06: nie ueber die Knopfzone (bottom) - bei wenig Hoehe (Querformat, grosse Anzeige) kleiner bzw. nicht zeigen
+        val g = SelfPipGeo.place(maxWidth.value, maxHeight.value, width.value, height.value, top.value, bottom.value, side.value, corner, hidden)
+            ?: return@BoxWithConstraints
+        val w = g.w.dp
+        val h = g.h.dp
+        val x = g.x.dp
+        val y = g.y.dp
         val geo by rememberUpdatedState(listOf(x, y, w, h, maxWidth, maxHeight))
         Box(
             Modifier
@@ -111,3 +114,34 @@ internal fun SelfPip(
 }
 
 private operator fun <T> List<T>.component6(): T = this[5]
+
+/** Reine Lage des eigenen Bilds (Werte in dp, Unit-Tests) */
+internal object SelfPipGeo {
+    /** kleinste sinnvolle Hoehe des Bilds bzw. des Knopfs "Einblenden" */
+    const val MIN = 44f
+    /** Querformat: hoechstens dieser Anteil der Hoehe (Video bleibt sichtbar) */
+    const val LAND_SHARE = 0.45f
+
+    data class Box(val x: Float, val y: Float, val w: Float, val h: Float)
+
+    /**
+     * Lage in der Flaeche maxW x maxH: oben `top` (Kopfzeile) und unten `bottom` (Knopfzone) frei, seitlich `side`.
+     * Die Unterkante liegt nie in der Knopfzone. Reicht die Hoehe nicht, wird das Bild (Seitenverhaeltnis bleibt) kleiner und
+     * der obere Rand notfalls freigegeben; ist selbst dafuer kein Platz, null (nicht zeigen).
+     */
+    fun place(maxW: Float, maxH: Float, w: Float, h: Float, top: Float, bottom: Float, side: Float, corner: Int, hidden: Boolean): Box? {
+        val floor = maxH - bottom                                   // tiefste erlaubte Unterkante
+        if (floor < MIN) return null
+        val t = if (floor - top >= MIN) top else maxOf(0f, floor - MIN)
+        val avail = floor - t
+        val (bw, bh) = if (hidden) MIN to MIN else {
+            val cap = if (maxW > maxH) maxOf(MIN, maxH * LAND_SHARE) else Float.MAX_VALUE
+            val th = minOf(h, avail, cap)
+            val k = th / h
+            w * k to th
+        }
+        val x = if (corner % 2 == 0) side else maxW - bw - side
+        val y = if (corner < 2) t else floor - bh
+        return Box(x, y, bw, bh)
+    }
+}

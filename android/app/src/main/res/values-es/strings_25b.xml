@@ -41,4 +41,6 @@
         <item quantity="one">1 entrada modificada.</item>
         <item quantity="other">%d entradas modificadas.</item>
     </plurals>
+    <string name="tpl_new_from_default">Nueva desde «%1$s»</string>
+    <string name="tpl_more_choices">Entrada vacía y otras plantillas</string>
 </resources>

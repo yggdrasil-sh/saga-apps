@@ -42,6 +42,8 @@ data class CallConfig(
     val format: String = "",
     /** 2.4: Server-Faehigkeiten ("reneg", "pip_hint", ...); fehlt bei 2.1-2.3 */
     val features: JsonElement? = null,
+    /** 2.5 "Alle Anrufe ueber Knoten" (calls.horn_all): 1:1 im Direkt-Chat mit `via: "horn"` anrufen */
+    @SerialName("horn_dm") val hornDm: Boolean = false,
 ) {
     val featureSet: Set<String> get() = CallV3.features(features)
 

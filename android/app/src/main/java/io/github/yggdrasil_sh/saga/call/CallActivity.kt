@@ -352,6 +352,7 @@ private fun CallScreen(
 
     val dark = Color(0xFF101114)
     var infoHeight by remember { mutableIntStateOf(0) }
+    var ctrlHeight by remember { mutableIntStateOf(0) }
     // 2.5 Gjallarhorn: Runensiegel bzw. Teilnehmerliste (Gastgeber: stummschalten, entfernen)
     var hornPanel by remember { mutableStateOf("") }
     st.room?.horn?.let { h ->
@@ -484,8 +485,11 @@ private fun CallScreen(
                     }
                 }
             }
-            RoomActions(calls, st, withMic)
-            Controls(calls, st, ::answer, onCam, onShare, onMic)
+            // A06: Hoehe der Knopfzone messen - das eigene Bild bleibt darueber
+            Column(Modifier.onSizeChanged { ctrlHeight = it.height }, horizontalAlignment = Alignment.CenterHorizontally) {
+                RoomActions(calls, st, withMic)
+                Controls(calls, st, ::answer, onCam, onShare, onMic)
+            }
         }
         if (st.remoteSmall && st.phase == CallPhase.CONNECTED && !meshOn) {
             // E3: Kamera des Gegenuebers klein neben seinem Bildschirm (bzw. getauscht) - Tippen tauscht die Ansicht
@@ -507,7 +511,9 @@ private fun CallScreen(
             // Eigene Vorschau unter der Status-Zeile (die bei grosser Schrift mitwaechst)
             val top = with(LocalDensity.current) { infoHeight.toDp() } + 24.dp
             // 2.5: in eine Ecke ziehen oder ausblenden (unten: ueber den Steuerknoepfen)
-            SelfPip(108.dp, 156.dp, top = maxOf(top, 56.dp), bottom = 190.dp, side = 16.dp, modifier = Modifier.safeDrawingPadding()) { m ->
+            // Knopfzone + Rand der Spalte (16) + Abstand (8); noch nicht gemessen: bisheriger Wert
+            val bottom = if (ctrlHeight > 0) with(LocalDensity.current) { ctrlHeight.toDp() } + 24.dp else 190.dp
+            SelfPip(108.dp, 156.dp, top = maxOf(top, 56.dp), bottom = bottom, side = 16.dp, modifier = Modifier.safeDrawingPadding()) { m ->
                 VideoView(calls, remote = false, visible = true, modifier = m)
             }
         }

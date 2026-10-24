@@ -71,6 +71,9 @@ private fun knownPages(repo: SagaRepository): List<PageMeta> {
     }
 }
 
+/** A03: Eintraege einer Datenbank fuer den eingebetteten Block - Vorlagen sind keine Eintraege (wie die volle Ansicht) */
+internal fun dbBlockRows(all: List<PageMeta>, dbId: Long): List<PageMeta> = all.filter { it.parentId == dbId && !it.template }
+
 /** Zeilen einer Datenbank (limit: hoechstens so viele, darunter "Alle anzeigen") */
 @Composable
 fun DatabaseRows(dbId: Long, repo: SagaRepository, onOpen: (Long) -> Unit, limit: Int? = null) {
@@ -78,7 +81,7 @@ fun DatabaseRows(dbId: Long, repo: SagaRepository, onOpen: (Long) -> Unit, limit
     // 2.3: Datenbank eines anderen Servers - Zeilen von dort (GET .../rows); aeltere Gegenstelle: bekannte Seiten wie bisher
     var remoteRows by remember(dbId) { mutableStateOf<List<PageMeta>?>(null) }
     if (dbId < 0) LaunchedEffect(dbId) { remoteRows = loadRemoteRows(repo, dbId) }
-    val rows = remember(all, dbId, remoteRows) { remoteRows ?: all.filter { it.parentId == dbId } }
+    val rows = remember(all, dbId, remoteRows) { remoteRows?.filter { !it.template } ?: dbBlockRows(all, dbId) }
     Column(Modifier.fillMaxWidth()) {
         Text(
             pluralStringResource(R.plurals.db_rows, rows.size, rows.size),

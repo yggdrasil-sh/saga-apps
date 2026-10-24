@@ -1752,12 +1752,22 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 if (!cfg.enabled) throw UiTextException(UiText.Res(R.string.call_disabled))
                 c.myCaps = CallRoom.myCaps(cfg.featureSet)       // 2.4: inkl. `multi` (Raum), wenn der Server es kann
                 c.capsHint = cfg.featureSet.isNotEmpty()
-                peerKeys(c)
-                if (c.peerDevs.isEmpty()) throw UiTextException(UiText.Res(R.string.call_peer_no_keys, peer.name.ifEmpty { peer.username }))
+                // 2.5 A07: "Alle Anrufe ueber Knoten" (horn_dm) - erst ueber den Knoten, bei 409 fallback direkt wie bisher
+                val viaHorn = CallRoom.dmViaHorn(cfg.hornDm, c.myCaps)
+                if (!viaHorn) {
+                    peerKeys(c)
+                    if (c.peerDevs.isEmpty()) throw UiTextException(UiText.Res(R.string.call_peer_no_keys, peer.name.ifEmpty { peer.username }))
+                }
                 if (!live(c)) return@launch
                 localMedia(c, video)
                 c.media = if (c.videoTrack != null) "video" else "audio"
                 CallService.start(app, c.videoTrack != null)
+                if (viaHorn) {
+                    if (dialHorn(c, cfg)) return@launch
+                    peerKeys(c)                                     // Rueckfall: derselbe Anruf (dieselbe id) direkt
+                    if (c.peerDevs.isEmpty()) throw UiTextException(UiText.Res(R.string.call_peer_no_keys, peer.name.ifEmpty { peer.username }))
+                    if (!live(c)) return@launch
+                }
                 val pc = makePc(c, cfg)
                 c.pc = pc
                 addLocal(c, pc, false)
@@ -1772,6 +1782,79 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 if (live(c)) fail(c, if (e is UiTextException) e.text else repo.friendly(e))
             }
         }
+    }
+
+    /**
+     * 2.5 A07: 1:1 ueber einen Knoten anrufen (APP-API "1:1 ueber Knoten", wie static/calls.js startGroup mit dm):
+     * POST /api/calls mit `via: "horn"` OHNE signals. true = erledigt (Raum-Anruf laeuft bzw. besetzt), false = Server meldet
+     * 409 {fallback: "direct"} - nichts angelegt, der Aufrufer ruft mit derselben id direkt an.
+     */
+    private suspend fun dialHorn(c: Call, cfg: CallConfig): Boolean {
+        c.id = c.id ?: ChatFormat.hex(repo.chat.crypto.random(16))
+        update(c, UiText.Res(R.string.call_connecting))
+        val r = try {
+            json.decodeFromString(CallWrap.serializer(), api.post("api/calls", buildJsonObject {
+                put("id", c.id)
+                put("chat_id", c.chatId)
+                put("media", c.media)
+                put("device", myDevId())
+                put("caps", capsJson(c))
+                put("via", "horn")
+                put("dev_class", hornClass())
+            }))
+        } catch (e: ApiException) {
+            val o = try {
+                Json.parseToJsonElement(e.body) as? JsonObject
+            } catch (_: Exception) {
+                null
+            }
+            when {
+                CallRoom.dmHornFallback(e.code, o) -> {
+                    log("dm via horn: fallback direct (${CallRoom.str(o, "horn_block")})")
+                    return false
+                }
+                e.code == 409 && (o?.get("busy") as? JsonPrimitive)?.booleanOrNull == true -> {
+                    c.id = null
+                    finish(c, UiText.Res(R.string.call_busy_peer, c.peer.name), false)
+                    return true
+                }
+                e.code == 429 -> {
+                    c.id = null
+                    throw UiTextException(UiText.Res(R.string.call_rate))
+                }
+                else -> {
+                    c.id = null
+                    throw e
+                }
+            }
+        }
+        val k = r.call ?: throw UiTextException(UiText.Res(R.string.call_failed))
+        if (!live(c)) {
+            quietPost("api/calls/${c.id}/end", buildJsonObject {
+                put("reason", "hangup")
+                put("device", myDevId())
+            })
+            return true
+        }
+        // ab hier ein Raum-Anruf mit dm (Anzeige wie 1:1: Titel = Gegenueber)
+        c.rs.kind = CallRoom.KIND_GROUP
+        c.rs.inRoom = true
+        c.rs.starter = true
+        c.rs.dm = true
+        c.rs.title = c.peer.name.ifEmpty { c.peer.username }
+        c.rs.limit = cfg.endpoints(c.media)
+        c.v2 = k.v == 2
+        c.ready = true
+        c.rs.old = k.old.map { it.name.ifEmpty { it.username } }
+        rosterIn(c, k.legs, null, k.limit, poll = true, mesh = k.hornMesh)
+        if (k.topo == CallRoom.TOPO_HORN) hornStart(c, k)
+        tone(ToneGenerator.TONE_SUP_RINGTONE)
+        startLoops(c)
+        val early = ArrayList(c.early)
+        c.early.clear()
+        for (s in early) if (live(c)) route(c, s)
+        update(c)
+        return true
     }
 
     private suspend fun dial(c: Call, again: Boolean) {

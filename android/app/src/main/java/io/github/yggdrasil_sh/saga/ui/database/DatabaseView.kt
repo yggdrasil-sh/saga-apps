@@ -43,7 +43,6 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -81,6 +80,7 @@ import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.db.DbProp
 import io.github.yggdrasil_sh.saga.db.DbQuery
 import io.github.yggdrasil_sh.saga.db.DbRow
+import io.github.yggdrasil_sh.saga.db.DbViews
 import io.github.yggdrasil_sh.saga.db.DbValues
 import io.github.yggdrasil_sh.saga.db.DbView
 import io.github.yggdrasil_sh.saga.ui.common.PageIcon
@@ -220,6 +220,7 @@ private fun GroupHeader(st: DbViewState, h: GroupHead) {
 
 // ---------------------------------------------------------------- Werkzeugleiste
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit) {
     if (st.managing) TemplateManager(st, onOpen)
@@ -280,11 +281,33 @@ private fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit) {
                 if (st.canAdd) Box {
                     // 2.5: mit Vorlagen "Neu ▾" (leer, Vorlagen, Vorlagen verwalten); ohne Vorlagen gleich ein neuer Eintrag
                     var newMenu by remember { mutableStateOf(false) }
-                    FilledTonalButton(onClick = { if (st.templates.isEmpty()) scope.launch { st.create()?.let(onOpen) } else newMenu = true },
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp)) {
-                        Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
-                        Text(stringResource(R.string.dbv_new_entry), modifier = Modifier.padding(start = 4.dp), maxLines = 1)
-                        if (st.templates.isNotEmpty()) Icon(Icons.Filled.ArrowDropDown, null, Modifier.size(18.dp))
+                    // A04: mit Standardvorlage legt Tippen direkt aus ihr an; langer Druck oeffnet das Menue (leer, andere Vorlagen)
+                    val dflt = st.defaultTemplate
+                    val action = DbViews.newAction(st.templates, dflt)
+                    val dfltName = dflt?.title?.ifEmpty { null } ?: stringResource(R.string.tpl_template)
+                    Surface(
+                        shape = androidx.compose.material3.ButtonDefaults.filledTonalShape,
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.clip(androidx.compose.material3.ButtonDefaults.filledTonalShape).combinedClickable(
+                            role = Role.Button,
+                            onClickLabel = if (action == DbViews.NewAction.DEFAULT_TEMPLATE) stringResource(R.string.tpl_new_from_default, dfltName) else null,
+                            onLongClickLabel = if (st.templates.isNotEmpty()) stringResource(R.string.tpl_more_choices) else null,
+                            onLongClick = if (st.templates.isNotEmpty()) ({ newMenu = true }) else null,
+                        ) {
+                            when (action) {
+                                DbViews.NewAction.BLANK -> scope.launch { st.create()?.let(onOpen) }
+                                DbViews.NewAction.DEFAULT_TEMPLATE -> dflt?.let { t -> scope.launch { st.createFrom(t)?.let(onOpen) } }
+                                DbViews.NewAction.MENU -> newMenu = true
+                            }
+                        },
+                    ) {
+                        Row(Modifier.heightIn(min = 40.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
+                            Text(stringResource(R.string.dbv_new_entry), modifier = Modifier.padding(start = 4.dp), maxLines = 1,
+                                style = MaterialTheme.typography.labelLarge)
+                            if (st.templates.isNotEmpty()) Icon(Icons.Filled.ArrowDropDown, null, Modifier.size(18.dp))
+                        }
                     }
                     DropdownMenu(expanded = newMenu, onDismissRequest = { newMenu = false }) {
                         DropdownMenuItem(text = { Text(stringResource(R.string.tpl_blank_entry)) }, onClick = { newMenu = false; scope.launch { st.create()?.let(onOpen) } })

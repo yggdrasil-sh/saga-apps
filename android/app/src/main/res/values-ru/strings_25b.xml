@@ -45,4 +45,6 @@
         <item quantity="many">Изменено записей: %d.</item>
         <item quantity="other">Изменено записей: %d.</item>
     </plurals>
+    <string name="tpl_new_from_default">Новая из «%1$s»</string>
+    <string name="tpl_more_choices">Пустая запись и другие шаблоны</string>
 </resources>

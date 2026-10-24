@@ -107,6 +107,27 @@ object DbValues {
 
 /** Ansichten bearbeiten: neues Schema (raw) mit geaenderter Ansicht - alle unbekannten Felder bleiben erhalten */
 object DbViews {
+    /**
+     * A01: Die erste Seite beim Oeffnen fragt ohne Ansichts-Filter (Schema noch unbekannt). Hat die Ansicht Filter,
+     * Sortierung oder Gruppierung, passt die Antwort nicht -> mit der Abfrage der Ansicht neu fragen.
+     */
+    fun needsViewQuery(v: DbView, s: DbSchema): Boolean = v.filters.isNotEmpty() || v.sorts.isNotEmpty() || s.groupProp(v) != null
+
+    /** 2.5: Standardvorlage fuer "Neu" (Schema default_tpl), nur wenn es sie noch gibt (defaultTpl im Web) */
+    fun defaultTemplate(s: DbSchema?, templates: List<DbTemplate>): DbTemplate? {
+        val id = (s?.raw?.get("default_tpl") as? JsonPrimitive)?.content?.toDoubleOrNull()?.toLong() ?: return null
+        return templates.firstOrNull { it.id == id }
+    }
+
+    /** A04: Was "+ Neu" beim Tippen tut. Ohne Vorlagen leer; mit Standardvorlage aus ihr; sonst Menue (leer/Vorlagen) */
+    enum class NewAction { BLANK, DEFAULT_TEMPLATE, MENU }
+
+    fun newAction(templates: List<DbTemplate>, default: DbTemplate?): NewAction = when {
+        templates.isEmpty() -> NewAction.BLANK
+        default != null -> NewAction.DEFAULT_TEMPLATE
+        else -> NewAction.MENU
+    }
+
     private const val CHARS = "abcdefghijklmnopqrstuvwxyz0123456789"
 
     fun newId(rnd: java.util.Random = java.util.Random()): String = String(CharArray(8) { CHARS[rnd.nextInt(CHARS.length)] })

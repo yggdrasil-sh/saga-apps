@@ -163,6 +163,15 @@ object CallRoom {
 
     fun multi(caps: Collection<String>): Boolean = CAP_MULTI in caps
 
+    /**
+     * 2.5 "Alle Anrufe ueber Knoten" (APP-API "1:1 ueber Knoten", wie static/calls.js start): Der Server meldet `horn_dm`
+     * und dieses Geraet hat `horn` + `multi` -> 1:1 zuerst mit `via: "horn"` (ohne signals) anrufen. Sonst direkt wie bisher.
+     */
+    fun dmViaHorn(hornDm: Boolean, myCaps: Collection<String>): Boolean = hornDm && CAP_HORN in myCaps && CAP_MULTI in myCaps
+
+    /** Antwort auf POST /api/calls mit `via: "horn"`: 409 {fallback: "direct"} -> nichts angelegt, mit derselben id direkt anrufen */
+    fun dmHornFallback(code: Int, body: JsonObject?): Boolean = code == 409 && str(body, "fallback") == "direct"
+
     /** Gruppenanrufe: Server kann `group` und dieses Geraet `multi` */
     fun groupOk(serverFeatures: Set<String>): Boolean = FEATURE_GROUP in serverFeatures && CAP_MULTI in myCaps(serverFeatures)
 

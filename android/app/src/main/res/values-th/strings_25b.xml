@@ -39,4 +39,6 @@
     <plurals name="ai_assign_done">
         <item quantity="other">เปลี่ยน %d รายการแล้ว</item>
     </plurals>
+    <string name="tpl_new_from_default">สร้างใหม่จาก “%1$s”</string>
+    <string name="tpl_more_choices">รายการว่างและเทมเพลตอื่น</string>
 </resources>

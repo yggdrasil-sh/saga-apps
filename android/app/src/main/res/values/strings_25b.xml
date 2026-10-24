@@ -41,4 +41,6 @@
         <item quantity="one">1 entry changed.</item>
         <item quantity="other">%d entries changed.</item>
     </plurals>
+    <string name="tpl_new_from_default">New from “%1$s”</string>
+    <string name="tpl_more_choices">Empty entry and other templates</string>
 </resources>
