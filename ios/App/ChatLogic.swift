@@ -97,6 +97,11 @@ struct ChatContent: Equatable {
 }
 
 enum ChatLogic {
+    /// A10: Kontowechsel beim Koppeln - Chat-Schluessel des alten Kontos nur loeschen, wenn das neue sicher ein anderes ist
+    /// (Server oder Benutzer verschieden); gleiches oder unbekanntes Konto: behalten (sonst waeren die Chats weg)
+    static func forgetsOldChat(old: (origin: String, uid: String), new: (origin: String, uid: String)) -> Bool {
+        !old.uid.isEmpty && !new.uid.isEmpty && (old.origin != new.origin || old.uid != new.uid)
+    }
     /// Seitenverweise [[note:<id>]] im Text (Reihenfolge, ohne Doppelte)
     static func noteRefs(_ text: String) -> [Int] {
         var out: [Int] = []

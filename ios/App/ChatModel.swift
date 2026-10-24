@@ -24,7 +24,7 @@ struct ChatKeys: Codable, Equatable {
 /// Schluesselbund: je Server + Konto
 enum ChatKeyStore {
     private static var service: String { (Bundle.main.bundleIdentifier ?? "saga") + ".chat-keys" }
-    private static func account(_ uid: String) -> String { (AppConfig.serverOrigin ?? "-") + "|" + uid }
+    private static func account(_ uid: String, origin: String? = nil) -> String { (origin ?? AppConfig.serverOrigin ?? "-") + "|" + uid }
     static func load(uid: String) -> ChatKeys? {
         guard let s = Keychain.read(service: service, account: account(uid)), let k = try? JSONDecoder().decode(ChatKeys.self, from: Data(s.utf8)) else { return nil }
         return k.uid == uid ? k : nil
@@ -33,12 +33,22 @@ enum ChatKeyStore {
         guard let d = try? JSONEncoder().encode(k), let s = String(data: d, encoding: .utf8) else { return false }
         return Keychain.write(s, service: service, account: account(k.uid)) != .failed
     }
-    static func delete(uid: String) { Keychain.delete(service: service, account: account(uid)) }
+    static func delete(uid: String, origin: String? = nil) { Keychain.delete(service: service, account: account(uid, origin: origin)) }
     /// Schluesselbund benutzbar? (vor der Einrichtung pruefen - sonst haette der Server eine Identitaet ohne Schluessel hier)
     static func probe() -> Bool {
         let acc = account("probe-" + ChatCrypto.hexID())
         defer { Keychain.delete(service: service, account: acc) }
         return Keychain.write("x", service: service, account: acc) != .failed && Keychain.read(service: service, account: acc) == "x"
+    }
+}
+
+/// A10: oeffentliche Chat-Daten eines Kontos in den Einstellungen (Vertrauensstand v1/v2, Handle-Zuordnung)
+enum ChatAccountData {
+    static func keys(origin: String, me: String) -> [String] {
+        ["hk.chat.trust.", "hk.chat.trust2.", "hk.chat.h2u."].map { $0 + origin + "|" + me }
+    }
+    static func clear(me: String, origin: String? = nil, defaults: UserDefaults = .standard) {
+        for k in keys(origin: origin ?? AppConfig.serverOrigin ?? "-", me: me) { defaults.removeObject(forKey: k) }
     }
 }
 
@@ -314,6 +324,30 @@ final class ChatModel: ObservableObject {
 
     var deviceID: String? { keys?.deviceID }
     var deviceParam: String { keys.map { "device=" + $0.deviceID } ?? "device=" }
+
+    /// A10 (wie Android): Abmelden loescht auch die Chat-Daten dieses Kontos auf dem Geraet - Geraet beim Server abmelden
+    /// (solange die Anmeldung noch gilt; offline nur lokal), dann Schluessel (Schluesselbund) und Vertrauensstand.
+    /// Andere Konten auf dem Geraet bleiben unberuehrt.
+    func forgetAccount() async {
+        var uid = me.uid
+        if uid.isEmpty, let store, let (d, code) = try? await store.apiResponse("api/chat/me?device=", timeout: 8), code == 200,
+           let m = ChatMe(data: d) { uid = m.uid }                     // Chats in dieser Sitzung nie geoeffnet
+        guard !uid.isEmpty else { return }
+        if let did = (keys ?? ChatKeyStore.load(uid: uid))?.deviceID, let store {
+            _ = try? await store.api("api/chat/devices/\(did)", method: "DELETE", timeout: 8)
+        }
+        ChatKeyStore.delete(uid: uid)
+        ChatAccountData.clear(me: uid)
+    }
+
+    /// Konto der Chats (Server + Benutzer) - fuer den Kontowechsel, bei dem die Anmeldung schon weg ist
+    struct AccountRef: Equatable { let origin: String; let uid: String }
+    var accountRef: AccountRef? { me.uid.isEmpty ? nil : AccountRef(origin: AppConfig.serverOrigin ?? "-", uid: me.uid) }
+    /// A10: Kontowechsel - nur lokal loeschen (das alte Konto ist am Server schon abgemeldet)
+    static func forgetLocal(_ r: AccountRef) {
+        ChatKeyStore.delete(uid: r.uid, origin: r.origin)
+        ChatAccountData.clear(me: r.uid, origin: r.origin)
+    }
 
     func signedOut() {
         keys = nil; me = ChatMe(); chats = []; unread = 0; requests = 0; myHandle = nil; state = .loading; approval = nil; linking = nil; titleMemo = [:]

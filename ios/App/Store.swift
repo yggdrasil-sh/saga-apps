@@ -946,8 +946,9 @@ final class Store: ObservableObject {
             if let c = cacheLoad { await c.value }                        // grosser Zwischenspeicher: nicht nach dem Ausblenden einblenden
             hideAccountView()
         }
+        let oldChat = chat.accountRef                                     // A10: Chat-Daten des alten Kontos erst nach dem Vergleich
         if loggedOut {
-            await logout(switchingServer: true)                           // alter Server/altes Konto: Schluessel, Cookies, Zwischenspeicher weg
+            await logout(switchingServer: true, forgetChat: false)        // alter Server/altes Konto: Schluessel, Cookies, Zwischenspeicher weg
             forgetNoteCursor()                                            // neue Anmeldung: Baum ganz laden
         }
         AppConfig.server = server; cookieHeader = nil; serverVersion = nil; minApp = nil
@@ -960,6 +961,9 @@ final class Store: ObservableObject {
         let plan = AccountSwitch.after(loggedOut: loggedOut, AccountSwitch.verdict(before: before, after: .init(origin: AppConfig.serverOrigin, account: me)))
         if plan.restore { restoreAccountView() }
         if plan.wipe {
+            if let oc = oldChat, ChatLogic.forgetsOldChat(old: (oc.origin, oc.uid), new: (AppConfig.serverOrigin ?? "-", me ?? "")) {
+                ChatModel.forgetLocal(oc)                                 // A10: anderes Konto - Chat-Schluessel des alten weg
+            }
             hiddenView = nil
             forgetNoteCursor()                                            // anderes Konto: Baum ganz laden (genau einmal)
             await clearAccountData(keepWebCookies: true, newSession: !plan.keepOpenPages)
@@ -1095,8 +1099,11 @@ final class Store: ObservableObject {
 
     /// Auf diesem Geraet abmelden: Sitzung + Zwischenspeicher loeschen. `switchingServer`: auch Startseite vergessen
     /// (Seiten-IDs gehoeren zum alten Server).
-    func logout(switchingServer: Bool = false) async {
+    /// `forgetChat`: Chat-Geraet abmelden und Chat-Schluessel loeschen (A10, wie Android) - beim Koppeln noch offen
+    /// (adoptServer entscheidet erst, wenn feststeht, ob es dasselbe Konto ist)
+    func logout(switchingServer: Bool = false, forgetChat: Bool = true) async {
         sessionGen += 1                                                   // offene Seiten des alten Kontos senden nichts mehr
+        if forgetChat { await chat.forgetAccount() }                      // A10: Chat-Geraet abmelden, Chat-Schluessel weg
         // Geraete-Anmeldung beim Server loeschen, der sie ausgestellt hat (nie an einen anderen senden)
         if let tok = DeviceKey.stored() { await forgetDevice(tok, origin: AppConfig.keyOrigin(device: true)) }
         DeviceKey.set(nil); deviceKeyTried = false
