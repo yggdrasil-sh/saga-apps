@@ -352,6 +352,10 @@ private fun CallScreen(
     val onMic: () -> Unit = { if (st.mic) calls.toggleMic() else withMic { calls.toggleMic() } }
 
     val dark = Color(0xFF101114)
+    // V1: flacher Bildschirm (Telefon quer, grosse Anzeige) - Kopf in einer Zeile, Knoepfe ohne Textzeile, kleinere
+    // Raender: sonst blieb fuer Video/Kacheln nur ein Streifen (A05)
+    val conf = androidx.compose.ui.platform.LocalConfiguration.current
+    val flat = CallLayout.flat(conf.screenWidthDp, conf.screenHeightDp)
     var infoHeight by remember { mutableIntStateOf(0) }
     var ctrlHeight by remember { mutableIntStateOf(0) }
     // 2.5 Gjallarhorn: Runensiegel bzw. Teilnehmerliste (Gastgeber: stummschalten, entfernen)
@@ -399,8 +403,9 @@ private fun CallScreen(
                 )
             }
         } else {
-        Column(Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Column(Modifier.onSizeChanged { infoHeight = it.height }, horizontalAlignment = Alignment.CenterHorizontally) {
+        androidx.compose.runtime.CompositionLocalProvider(LocalFlatCall provides flat) {
+        Column(Modifier.fillMaxSize().safeDrawingPadding().padding(if (flat) 8.dp else 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            CallHeader(flat, Modifier.onSizeChanged { infoHeight = it.height }) {
                 // Anruf-UI-Regeln: Titel (Gegenueber bzw. Gruppe) oben, sobald Bild/Kacheln den Namen sonst verdecken
                 if ((meshOn || showVideo) && st.phase != CallPhase.ENDED) {
                     val title = if (room?.kind == CallRoom.KIND_GROUP && room.dm != true) room.title.ifEmpty { stringResource(R.string.room_group_audio) }
@@ -423,7 +428,7 @@ private fun CallScreen(
             if (meshOn && horn != null) {
                 val me = stringResource(R.string.room_you)
                 HornStage(
-                    horn, Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp),
+                    horn, Modifier.weight(1f).fillMaxWidth().padding(vertical = if (flat) 4.dp else 8.dp),
                     self = if (st.cam) HornTile("self", me, "", video = true, mic = st.mic, speaking = false) else null,
                     // zu zweit (HornStage: Gegenueber gross, eigenes Bild klein darueber): das grosse Bild darf kein
                     // Medien-Overlay sein, sonst liegen beide SurfaceViews auf einer Ebene und das kleine verschwindet
@@ -441,11 +446,11 @@ private fun CallScreen(
                 if (room?.kind == CallRoom.KIND_GROUP && room.dm != true && st.peer.avatar == null) Box(
                     Modifier.size(112.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center,
                 ) { Icon(painterResource(R.drawable.ic_group), null, Modifier.size(52.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-                else Avatar(st.peer.shown, size = 112, avatar = st.peer.avatar)
+                else Avatar(st.peer.shown, size = if (flat) 64 else 112, avatar = st.peer.avatar)
                 Text(
                     st.peer.shown, style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(top = 16.dp).semantics { heading() }, textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = if (flat) 6.dp else 16.dp).semantics { heading() }, textAlign = TextAlign.Center,
                 )
             }
             val status = when {
@@ -491,6 +496,7 @@ private fun CallScreen(
                 RoomActions(calls, st, withMic)
                 Controls(calls, st, ::answer, onCam, onShare, onMic)
             }
+        }
         }
         if (st.remoteSmall && st.phase == CallPhase.CONNECTED && !meshOn) {
             // E3: Kamera des Gegenuebers klein neben seinem Bildschirm (bzw. getauscht) - Tippen tauscht die Ansicht
@@ -578,7 +584,7 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
 @Composable
 private fun Controls(calls: CallManager, st: CallUiState, answer: (Boolean) -> Unit, onCam: () -> Unit, onShare: () -> Unit, onMic: () -> Unit) {
     when (st.phase) {
-        CallPhase.INCOMING -> Row(Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
+        CallPhase.INCOMING -> Row(Modifier.fillMaxWidth().padding(bottom = if (LocalFlatCall.current) 4.dp else 24.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
             RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_decline), CallLabels.HANGUP_BG, Color.White) { calls.decline() }
             if (st.video) {
                 RoundButton(R.drawable.ic_call, stringResource(R.string.call_answer_audio), CALL_GREEN, Color.White) { answer(false) }
@@ -588,7 +594,7 @@ private fun Controls(calls: CallManager, st: CallUiState, answer: (Boolean) -> U
             }
         }
         CallPhase.ENDED -> TextButton(onClick = { calls.dismiss() }, modifier = Modifier.padding(bottom = 24.dp)) { Text(stringResource(R.string.action_close)) }
-        else -> androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+        else -> androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = if (LocalFlatCall.current) 2.dp else 24.dp)) {
           // 2.5: Spaltenbreite aus der tatsaechlichen Breite (bis sechs Knoepfe): mit festen 64 dp passten sie auf schmalen
           // Geraeten bzw. grosser Anzeigegroesse nicht in eine Reihe (abgeschnitten), auch nach dem Drehen
           val n = 3 + (if (st.cam) 1 else 0) + (if (st.phase == CallPhase.CONNECTED) 1 else 0) + 1
@@ -799,7 +805,7 @@ private fun ScreenHintDialog(group: Boolean, onDismiss: () -> Unit, onContinue: 
 }
 
 @Composable
-private fun RoundButton(
+internal fun RoundButton(
     icon: Int, label: String, bg: Color, fg: Color, big: Boolean = false, selected: Boolean? = null, compact: Boolean = false,
     col: androidx.compose.ui.unit.Dp? = null,
     onClick: () -> Unit,
@@ -826,14 +832,20 @@ private fun RoundButton(
         )
         val measurer = androidx.compose.ui.text.rememberTextMeasurer()
         val colW = col ?: maxOf(size, 64.dp)
-        val avail = with(androidx.compose.ui.platform.LocalDensity.current) { (colW - 6.dp).roundToPx() }
-        val fontSp = remember(label, avail, base) {
-            CallLabels.fitFont(base.fontSize.value, 8f) { sp ->
+        val avail = with(androidx.compose.ui.platform.LocalDensity.current) { (colW - 10.dp).roundToPx() }   // Rand 2 x 3 dp + Rundung
+        val fit = remember(label, avail, base) {
+            CallLabels.fit(base.fontSize.value, 9f) { sp ->
                 CallLabels.words(label).all { w -> measurer.measure(w, base.copy(fontSize = sp.sp), maxLines = 1, softWrap = false).size.width <= avail }
             }
         }
-        Text(
-            label, style = base.copy(fontSize = fontSp.sp, lineHeight = (fontSp + 3f).sp), color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center,
+        val fontSp = fit.sp
+        // V1: flach ohne Textzeile (die Beschriftung bleibt am Knopf fuer Bedienungshilfen)
+        if (!LocalFlatCall.current) Text(
+            label, style = base.copy(
+                fontSize = fontSp.sp, lineHeight = (fontSp + 3f).sp,
+                // passt ein Wort auch klein nicht (z. B. "Stummschalten"): nach Silben trennen ("Stumm-schalten")
+                hyphens = if (fit.hyphenate) androidx.compose.ui.text.style.Hyphens.Auto else androidx.compose.ui.text.style.Hyphens.None,
+            ), color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center,
             maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp, start = 3.dp, end = 3.dp).clearAndSetSemantics {},
         )
     }
@@ -917,6 +929,15 @@ internal object CallLabels {
 
     fun words(label: String): List<String> = label.split(' ', '\u00A0', '\n').filter { it.isNotEmpty() }
 
+    /** Ergebnis: Schriftgroesse und ob nach Silben getrennt werden muss */
+    data class Fit(val sp: Float, val hyphenate: Boolean)
+
+    /** Wie fitFont; passt es auch bei min nicht, in normaler Groesse mit Silbentrennung */
+    fun fit(max: Float, min: Float, fits: (Float) -> Boolean): Fit {
+        val sp = fitFont(max, min, fits)
+        return if (fits(sp)) Fit(sp, false) else Fit(max, true)
+    }
+
     /** Groesste Schrift (in 0,5-sp-Schritten) zwischen max und min, bei der fits() gilt; sonst min */
     fun fitFont(max: Float, min: Float, fits: (Float) -> Boolean): Float {
         var sp = max
@@ -925,5 +946,70 @@ internal object CallLabels {
             sp -= 0.5f
         }
         return min
+    }
+}
+
+/** V1: Anruf auf einem flachen Bildschirm (an Controls/RoundButton weitergereicht) */
+internal val LocalFlatCall = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+/** V1: Layout-Regeln des Anrufbildschirms (rein, testbar) */
+internal object CallLayout {
+    /** quer und niedrig (Telefon quer, auch grosse Anzeige) - Tablets quer bleiben beim normalen Layout */
+    fun flat(widthDp: Int, heightDp: Int): Boolean = widthDp > heightDp && heightDp in 1..499
+}
+
+/** V1: Kopf des Anrufs - hoch untereinander, flach nebeneinander (umbrechend) */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+internal fun CallHeader(flat: Boolean, modifier: Modifier, content: @Composable () -> Unit) {
+    if (flat) androidx.compose.foundation.layout.FlowRow(
+        modifier, horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(2.dp), itemVerticalAlignment = Alignment.CenterVertically,
+    ) { content() }
+    else Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) { content() }
+}
+
+/**
+ * V1: Vorschau eines Knoten-Anrufs mit denselben Bausteinen wie CallScreen (Kopf, Kacheln, Knopfreihe), nur fuer
+ * Geraete-Screenshots (keine Medien). onStage/onControls melden die gemessenen Hoehen in px.
+ */
+@Composable
+internal fun CallFlatPreviewContent(onStage: (Int) -> Unit = {}, onControls: (Int) -> Unit = {}) {
+    val conf = androidx.compose.ui.platform.LocalConfiguration.current
+    val flat = CallLayout.flat(conf.screenWidthDp, conf.screenHeightDp)
+    val ui = hornPreviewUi("grid")
+    androidx.compose.runtime.CompositionLocalProvider(LocalFlatCall provides flat) {
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            Column(Modifier.fillMaxSize().safeDrawingPadding().padding(if (flat) 8.dp else 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                CallHeader(flat, Modifier) {
+                    Text("Astrid", color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                    Text(stringResource(R.string.call_e2e) + " · 12:34", color = Color.White, style = MaterialTheme.typography.labelMedium)
+                    HornBar(ui, onDark = true, onRunes = {}, onPeople = {}, onView = {})
+                }
+                HornStage(
+                    ui, Modifier.weight(1f).fillMaxWidth().padding(vertical = if (flat) 4.dp else 8.dp).onSizeChanged { onStage(it.height) },
+                    self = HornTile("self", stringResource(R.string.room_you), "", video = true, mic = true, speaking = false),
+                    video = { t, m -> PreviewVideo(t.dev.drop(1).toIntOrNull() ?: 0, m) },
+                    big = { m -> PreviewVideo(2, m) },
+                    selfVideo = { m -> PreviewVideo(3, m) },
+                    onPin = {},
+                )
+                androidx.compose.foundation.layout.BoxWithConstraints(
+                    Modifier.fillMaxWidth().padding(bottom = if (flat) 2.dp else 24.dp).onSizeChanged { onControls(it.height) },
+                ) {
+                    val col = minOf(72.dp, maxWidth / 6)
+                    val tc = MaterialTheme.colorScheme.secondaryContainer
+                    val tf = MaterialTheme.colorScheme.onSecondaryContainer
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
+                        RoundButton(R.drawable.ic_mic, stringResource(R.string.call_mute), tc, tf, compact = true, col = col) {}
+                        RoundButton(R.drawable.ic_videocam, stringResource(R.string.call_cam_off), tc, tf, compact = true, col = col) {}
+                        RoundButton(R.drawable.ic_cameraswitch, stringResource(R.string.call_switch_camera), tc, tf, compact = true, col = col) {}
+                        RoundButton(R.drawable.ic_screen_share, stringResource(R.string.call_screen_share), tc, tf, compact = true, col = col) {}
+                        RoundButton(R.drawable.ic_volume_up, stringResource(R.string.call_speaker), tc, tf, compact = true, col = col) {}
+                        RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = true, col = col) {}
+                    }
+                }
+            }
+        }
     }
 }

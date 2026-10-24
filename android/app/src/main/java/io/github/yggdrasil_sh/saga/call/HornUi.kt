@@ -448,7 +448,7 @@ fun hornPreviewUi(view: String = "grid", screen: Boolean = false): HornUi {
 
 /** Platzhalter fuer ein bewegtes Bild in der Vorschau */
 @Composable
-private fun PreviewVideo(seed: Int, modifier: Modifier) {
+internal fun PreviewVideo(seed: Int, modifier: Modifier) {
     val c = listOf(Color(0xFF3A6EA5), Color(0xFF7A4E9E), Color(0xFF2F8F6B), Color(0xFFB0643C))
     Box(modifier.background(Brush.linearGradient(listOf(c[seed % 4], c[(seed + 1) % 4]))))
 }

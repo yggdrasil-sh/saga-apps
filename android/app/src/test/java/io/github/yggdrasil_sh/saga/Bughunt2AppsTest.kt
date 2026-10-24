@@ -1,6 +1,7 @@
 package io.github.yggdrasil_sh.saga
 
 import io.github.yggdrasil_sh.saga.call.CallLabels
+import io.github.yggdrasil_sh.saga.call.CallLayout
 import io.github.yggdrasil_sh.saga.chat.ChatOffline
 import io.github.yggdrasil_sh.saga.data.MemorySecretStore
 import io.github.yggdrasil_sh.saga.data.PageMeta
@@ -138,5 +139,16 @@ class Bughunt2AppsTest {
         assertEquals(11f, CallLabels.fitFont(11f, 8f) { true }, 0.001f)
         assertEquals(8f, CallLabels.fitFont(11f, 8f) { false }, 0.001f)
         assertEquals(listOf("Unmute", "microphone"), CallLabels.words("Unmute microphone"))
+        assertEquals(CallLabels.Fit(7.5f, false), CallLabels.fit(11f, 6f, fits))
+        assertEquals(CallLabels.Fit(11f, true), CallLabels.fit(11f, 9f, fits))      // passt nie: Silbentrennung
+    }
+
+    @Test
+    fun v1FlatOnlyForLowLandscape() {
+        assertTrue(CallLayout.flat(914, 411))       // Telefon quer (420 dpi)
+        assertTrue(CallLayout.flat(686, 308))       // Telefon quer, grosse Anzeige (560 dpi)
+        assertFalse(CallLayout.flat(411, 914))      // hoch
+        assertFalse(CallLayout.flat(1280, 800))     // Tablet quer: normales Layout
+        assertFalse(CallLayout.flat(0, 0))
     }
 }
