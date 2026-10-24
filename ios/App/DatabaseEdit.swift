@@ -464,7 +464,7 @@ struct DBViewBar: View {
         } else if m.templates.isEmpty {
             Button("Neu") { onNew(nil) }.prominentGold().controlSize(.small).fixedSize()      // nie zur leeren Pille quetschen
         } else {
-            Menu("Neu") {
+            Menu {
                 Button("Leerer Eintrag") { onNew(0) }
                 Section("Vorlagen") {
                     ForEach(m.templates) { t in
@@ -474,6 +474,9 @@ struct DBViewBar: View {
                     }
                 }
                 if m.role == "owner" { Divider(); Button("Vorlagen verwalten …") { m.managingTemplates = true } }
+            } label: {
+                // I02: iOS zeigt bei Menu mit primaryAction keinen Pfeil - selbst setzen (langer Druck: Vorlagen)
+                HStack(spacing: 3) { Text("Neu"); Image(systemName: "chevron.down").font(.caption2.weight(.semibold)).accessibilityHidden(true) }
             } primaryAction: { onNew(nil) }
             .menuStyle(.button).prominentGold().controlSize(.small).fixedSize()
         }
