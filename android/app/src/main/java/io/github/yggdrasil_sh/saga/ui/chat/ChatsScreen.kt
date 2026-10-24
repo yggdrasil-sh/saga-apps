@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -137,6 +139,7 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
     var blocks by remember { mutableStateOf(false) }
     val fedV2 by svc.fed.supported.collectAsState()
     var showArchived by rememberSaveable { mutableStateOf(false) }
+    var query by rememberSaveable { mutableStateOf("") }               // wie iOS: Chats durchsuchen (Name)
     var refreshing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val noBack = remember { AppNavigator() }                 // breite Ansicht: Liste ohne Zurueck-Pfeil
@@ -173,7 +176,20 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
                 }
                 // 2.1: archivierte Chats in einem eigenen, aufklappbaren Bereich unten (aeltere Server: alles wie bisher)
                 // 2.3: Nachrichtenanfragen (Personen anderer Server, noch nicht angenommen) oben in eigenem Bereich
-                val (activeAll, archived) = ChatDeleteLogic.split(chats)
+                // wie iOS: Suchfeld ueber der Liste (Name des Chats bzw. der Person)
+                if (chats.isNotEmpty() || query.isNotEmpty()) item(key = "search") {
+                    androidx.compose.material3.OutlinedTextField(
+                        value = query, onValueChange = { query = it.take(100) }, singleLine = true,
+                        placeholder = { Text(stringResource(R.string.chat_search_list)) },
+                        leadingIcon = { Icon(Icons.Filled.Search, null) },
+                        trailingIcon = { if (query.isNotEmpty()) androidx.compose.material3.IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Close, stringResource(R.string.action_close)) } },
+                        shape = RoundedCornerShape(28.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                    )
+                }
+                val q = query.trim().lowercase()
+                val nameOf0 = { c: ChatSummary -> titles[c.id]?.takeIf { c.kind == "free" } ?: svc.displayName(c) }
+                val (activeAll, archived) = ChatDeleteLogic.split(if (q.isEmpty()) chats else chats.filter { nameOf0(it).lowercase().contains(q) })
                 val requests = activeAll.filter { it.request }
                 val active = activeAll.filter { !it.request }
                 if (requests.isNotEmpty()) {

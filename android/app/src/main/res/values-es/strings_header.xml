@@ -15,4 +15,8 @@
     <string name="page_tag_remove">Quitar etiqueta</string>
     <string name="page_tag_hint">Etiqueta</string>
     <string name="page_backlinks">Enlazado desde</string>
+    <string name="chat_search_list">Buscar chats</string>
+    <string name="page_cover_reposition">Recolocar</string>
+    <string name="page_cover_drag">Arrastra la imagen para colocarla</string>
+    <string name="page_cover_save">Guardar</string>
 </resources>

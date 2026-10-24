@@ -56,8 +56,12 @@ fun NotificationPermissionPrompt() {
     var show by remember {
         mutableStateOf(NotifPrompt.shouldAsk(Build.VERSION.SDK_INT, NotifPrompt.granted(context), NotifPrompt.askedBefore(context)))
     }
-    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
-    val call by (context.applicationContext as io.github.yggdrasil_sh.saga.SagaApplication).repo.calls.ui.collectAsState()
+    val app = context.applicationContext as io.github.yggdrasil_sh.saga.SagaApplication
+    // erlaubt -> Mitteilungen auf diesem Geraet gleich einschalten (auch bei geschlossener App, wie iOS)
+    val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) app.repo.launchAction { app.repo.push.autoEnable() }
+    }
+    val call by app.repo.calls.ui.collectAsState()
     if (!NotifPrompt.showNow(show, inCall = call != null)) return
     val close = { later: Boolean ->
         show = false

@@ -9,6 +9,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – Android: Mitteilungen bei geschlossener App
+- Die Abfrage „Mitteilungen erlauben?“ erteilte nur die Android-Berechtigung; Mitteilungen auf dem Gerät musste man
+  zusätzlich unter Einstellungen → Mitteilungen einschalten – sonst kam bei geschlossener App nichts an (geöffnet
+  zeigte die App Neues über die Live-Verbindung, deshalb fiel es kaum auf). Jetzt schaltet „Erlauben“ sie gleich ein
+  (eigene Verbindung bzw. der installierte UnifiedPush-Verteiler), und beim App-Start werden sie für alle
+  eingeschaltet, die die Berechtigung schon erteilt, Mitteilungen aber nie bewusst ausgeschaltet haben.
+- Geprüft im Emulator: App im Hintergrund, aus den Letzten gewischt, Prozess beendet, Doze, nach Neustart und nach
+  App-Update – die Mitteilung kommt jeweils, Antippen öffnet den Chat. (Nach „Stoppen erzwingen“ in den
+  System-Einstellungen bleibt Android-bedingt alles aus, bis die App wieder geöffnet wird.)
+
 ### Geändert – Android wie iOS: Seitenkopf, Tags, Datenbanken
 - **Titelbilder auf Seiten** (fehlten bisher ganz): über die volle Breite mit gespeicherter Position; antippen =
   Ändern/Entfernen. Das Symbol (Emoji oder Bild) sitzt halb darüber; antippen öffnet die Auswahl (Emoji, eigenes
@@ -19,6 +29,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Filtern. Galerie-Karten ohne Bild ohne leere Fläche, Symbol vor dem Namen.
 - Eigenes Profilbild oben in der Seitenleiste (tippen = Einstellungen); Favoriten-Stern als Umriss, solange die Seite
   kein Favorit ist.
+- Titelbild **neu positionieren** (senkrecht ziehen, Speichern/Abbrechen) und **Chats durchsuchen** (Name) wie auf iOS.
 
 ### Geändert – Anruf-Oberfläche vereinheitlicht (iOS/iPadOS/macOS, Android, Web)
 Gemeinsame Regeln in `docs/ANRUF-UI.md`:

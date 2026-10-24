@@ -15,4 +15,8 @@
     <string name="page_tag_remove">Remove tag</string>
     <string name="page_tag_hint">Tag</string>
     <string name="page_backlinks">Linked from</string>
+    <string name="chat_search_list">Search chats</string>
+    <string name="page_cover_reposition">Reposition</string>
+    <string name="page_cover_drag">Drag the image to position it</string>
+    <string name="page_cover_save">Save</string>
 </resources>

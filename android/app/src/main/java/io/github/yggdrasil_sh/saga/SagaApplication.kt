@@ -62,7 +62,10 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
         // 2.5: eigene Push-Verbindung (ohne Verteiler) nach einem Prozess-Neustart wieder aufnehmen bzw. beenden
         appScope.launch {
             repo.awaitReady()
-            if (!repo.needsLogin.value) repo.push.ensure()
+            if (!repo.needsLogin.value) {
+                repo.push.ensure()
+                repo.push.autoEnable()        // Mitteilungen erlaubt, aber nie eingeschaltet: jetzt einschalten
+            }
         }
         // Live-Kanal nur im Vordergrund (hoechstens eine Verbindung); im Hintergrund kommen Mitteilungen (Push)
         androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.addObserver(object : androidx.lifecycle.DefaultLifecycleObserver {

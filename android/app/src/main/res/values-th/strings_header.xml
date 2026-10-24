@@ -15,4 +15,8 @@
     <string name="page_tag_remove">นำแท็กออก</string>
     <string name="page_tag_hint">แท็ก</string>
     <string name="page_backlinks">ลิงก์มาจาก</string>
+    <string name="chat_search_list">ค้นหาแชท</string>
+    <string name="page_cover_reposition">จัดตำแหน่งใหม่</string>
+    <string name="page_cover_drag">ลากรูปเพื่อจัดตำแหน่ง</string>
+    <string name="page_cover_save">บันทึก</string>
 </resources>

@@ -240,6 +240,7 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
     /** Ohne Verteiler einschalten: Schluessel erzeugen, Abo "stream" anmelden, Dienst starten */
     suspend fun enableStream() {
         error.value = null
+        setUserOff(false)
         val k = withContext(Dispatchers.Default) { WebPushCrypto.generate() }
         try {
             val r = json.decodeFromString(PushSubscribed.serializer(), repo.api.post("api/push/subscriptions", buildJsonObject {
@@ -351,6 +352,7 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
     /** Einschalten: Schluessel erzeugen, beim Verteiler anmelden; die Adresse kommt per NEW_ENDPOINT (PushReceiver) */
     suspend fun enable(d: Distributor, replaces: Long? = null) {
         error.value = null
+        setUserOff(false)
         val l = withContext(Dispatchers.Default) {
             val k = WebPushCrypto.generate()
             PushLocal(d.pkg, UUID.randomUUID().toString(), null, null, WebPushCrypto.b64u(k.privatePkcs8), k.p256dh, k.authB64, replaces = replaces)
@@ -360,7 +362,34 @@ class PushService(val repo: SagaRepository, private val context: Context, privat
         UnifiedPush.register(context, d.pkg, l.token, info.value?.server?.vapidPublic, context.getString(R.string.app_name))
     }
 
+    /** vom Nutzer ausgeschaltet (Einstellungen > Mitteilungen) - dann nie von selbst wieder einschalten */
+    private fun offKey() = "push_user_off:" + key()
+    fun userTurnedOff(): Boolean = uiPrefs.getBoolean(offKey(), false)
+    private fun setUserOff(on: Boolean) = uiPrefs.edit().putBoolean(offKey(), on).apply()
+
+    /**
+     * Wie iOS: Wer Mitteilungen erlaubt hat, bekommt sie auch bei geschlossener App. Bisher erteilte die Abfrage nur
+     * die Android-Berechtigung - Mitteilungen auf dem Geraet musste man zusaetzlich in den Einstellungen einschalten,
+     * sonst kam bei geschlossener App nichts an. Jetzt: Berechtigung da, noch keine Anmeldung, nicht bewusst
+     * ausgeschaltet -> einschalten (eigene Verbindung bzw. der einzige installierte Verteiler; mehrere: Einstellungen).
+     */
+    suspend fun autoEnable() {
+        if (repo.needsLogin.value || userTurnedOff()) return
+        if (!io.github.yggdrasil_sh.saga.ui.common.NotifPrompt.granted(context)) return
+        if (withContext(Dispatchers.IO) { local() } != null) return
+        if (info.value == null) load()
+        if (withContext(Dispatchers.IO) { local() } != null) return
+        val i = info.value ?: return
+        if (!i.server.enabled) return
+        val ds = distributors()
+        when {
+            ds.isEmpty() && i.server.stream && streamAllowed() -> enableStream()
+            ds.size == 1 -> enable(ds[0])
+        }
+    }
+
     suspend fun disable() {
+        setUserOff(true)
         val l = withContext(Dispatchers.IO) { local() }
         if (l != null) {
             l.subId?.let { id ->

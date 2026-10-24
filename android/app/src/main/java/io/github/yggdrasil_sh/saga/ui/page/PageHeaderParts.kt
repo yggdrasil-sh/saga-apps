@@ -30,6 +30,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.focus.focusRequester
@@ -123,25 +125,50 @@ internal fun PageCover(ed: PageEditor, repo: SagaRepository, url: String, pad: D
     val scope = rememberCoroutineScope()
     var menu by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    // wie iOS: "Neu positionieren" - Bild senkrecht ziehen, dann Speichern/Abbrechen
+    var repositioning by remember { mutableStateOf(false) }
+    var pos by remember { mutableStateOf(ed.coverPos) }
     val editable = headerEditable(ed)
     val pick = rememberHeaderImagePick(ed, repo, { busy = it }) { u ->
         ed.setHeader(buildJsonObject { put("cover", u); put("cover_pos", 50.0) })
     }
     val desc = stringResource(R.string.page_cover)
+    val density = androidx.compose.ui.platform.LocalDensity.current
     Box(
         Modifier.fullBleed(pad).height(COVER_HEIGHT).background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .clickable(enabled = editable || ed.locked, onClickLabel = desc, role = Role.Button) {
-                if (ed.locked) repo.notify(UiText.Res(R.string.page_header_locked)) else menu = true
-            },
+            .then(
+                if (repositioning) Modifier.pointerInput(Unit) {
+                    detectVerticalDragGestures { change, dy ->
+                        change.consume()
+                        pos = (pos - with(density) { dy.toDp().value } / 2.0).coerceIn(0.0, 100.0)
+                    }
+                } else Modifier.clickable(enabled = editable || ed.locked, onClickLabel = desc, role = Role.Button) {
+                    if (ed.locked) repo.notify(UiText.Res(R.string.page_header_locked)) else menu = true
+                },
+            ),
     ) {
         AsyncImage(
             model = repo.absoluteUrl(sizedImage(url, 1600)), contentDescription = desc, contentScale = ContentScale.Crop,
-            alignment = BiasAlignment(0f, (ed.coverPos / 50.0 - 1.0).toFloat()), modifier = Modifier.fillMaxSize(),
+            alignment = BiasAlignment(0f, ((if (repositioning) pos else ed.coverPos) / 50.0 - 1.0).toFloat()), modifier = Modifier.fillMaxSize(),
         )
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.BottomCenter))
+        if (repositioning) Row(
+            Modifier.align(Alignment.BottomCenter).padding(10.dp)
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f), androidx.compose.foundation.shape.RoundedCornerShape(50))
+                .padding(start = 14.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.page_cover_drag), style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f, fill = false))
+            TextButton(onClick = { repositioning = false }) { Text(stringResource(R.string.action_cancel)) }
+            androidx.compose.material3.FilledTonalButton(onClick = {
+                val p = pos; repositioning = false
+                repo.launchAction { ed.setHeader(buildJsonObject { put("cover_pos", Math.round(p * 10) / 10.0) }) }
+            }) { Text(stringResource(R.string.page_cover_save)) }
+        }
         Box(Modifier.align(Alignment.TopEnd).padding(end = pad)) {
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(text = { Text(stringResource(R.string.page_cover_change)) }, onClick = { menu = false; pick() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.page_cover_reposition)) }, onClick = { menu = false; pos = ed.coverPos; repositioning = true })
                 DropdownMenuItem(text = { Text(stringResource(R.string.page_cover_remove)) }, onClick = {
                     menu = false
                     repo.launchAction { ed.setHeader(buildJsonObject { put("cover", JsonNull) }) }

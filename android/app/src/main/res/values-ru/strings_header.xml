@@ -15,4 +15,8 @@
     <string name="page_tag_remove">Удалить тег</string>
     <string name="page_tag_hint">Тег</string>
     <string name="page_backlinks">Ссылки сюда</string>
+    <string name="chat_search_list">Поиск чатов</string>
+    <string name="page_cover_reposition">Изменить положение</string>
+    <string name="page_cover_drag">Перетащите изображение</string>
+    <string name="page_cover_save">Сохранить</string>
 </resources>
