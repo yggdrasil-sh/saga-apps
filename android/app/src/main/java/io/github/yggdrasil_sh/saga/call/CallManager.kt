@@ -1681,6 +1681,17 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         // 2.5: im Knoten-Anruf gilt die Grenze des Anrufs (12/25 Video, 50/100 Ton), nicht die Mesh-Grenze
         if (limit != null && limit > 0) rs.limit = if (rs.horn != null) limit else CallRoom.limit(r.media, limit)
         val me = myDevId()
+        if (r.ready && rs.hoRep == null && diff.left.any { it.device == me }) {
+            val other = legs.firstOrNull { it.who == myUser() && it.device != me }
+            if (other != null) {                               // anderes eigenes Geraet hat uebernommen und dieses abgemeldet
+                r.micOn = false
+                applyMic(r)
+                setPlayback(r, false)
+                r.ending = true
+                finish(r, UiText.Res(R.string.room_taken_over, other.devName.ifEmpty { app.getString(R.string.room_other_device) }), false)
+                return
+            }
+        }
         rs.roster.of(me)?.let { mine ->
             if (rs.hoRep == null && !rs.took) rs.companion = mine.companion
             if (!mine.companion) rs.took = false
@@ -2067,7 +2078,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val rs = r.rs
         val rep = rs.hoRep ?: return
         if (!r.ready || r.done || !live(r)) return
-        val others = links(r).filter { !own(it) }.map { it.connected }
+        val others = rs.horn?.let { listOf(it.connected) } ?: links(r).filter { !own(it) }.map { it.connected }   // 2.5: Knoten verbunden
         if (CallRoom.handoverStep(others, rs.hoStart, System.currentTimeMillis(), Int.MAX_VALUE) != CallRoom.HoStep.READY) return
         rs.hoRep = null
         rs.hoJob?.cancel()
@@ -2078,7 +2089,26 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         setPlayback(r, true)
         CallService.start(app, r.videoTrack != null)       // jetzt mit Mikrofon im Vordergrund-Dienst
         val a = linkOf(r, rep)
-        if (a != null && a.established) scope.launch { if (live(a)) stateOut(a, replaces = rep) }
+        if (rs.horn != null) {
+            // 2.5: ueber einen Knoten keine Direktverbindung zum alten Geraet - Bescheid ueber den Signalweg (state.ready +
+            // replaces) und zur Sicherheit (aeltere App) dessen Platz kurz danach beim Server abmelden
+            val body = buildJsonObject {
+                put("t", "state")
+                put("mic", true)
+                put("cam", r.videoTrack != null)
+                put("screen", false)
+                put("ready", true)
+                put("replaces", rep)
+            }.toString()
+            scope.launch {
+                hornSend(r, mapOf(rep to body))
+                delay(3000)
+                quietPost("api/calls/${r.id}/leave", buildJsonObject {
+                    put("device", rep)
+                    put("reason", "handover")
+                })
+            }
+        } else if (a != null && a.established) scope.launch { if (live(a)) stateOut(a, replaces = rep) }
         else quietPost("api/calls/${r.id}/leave", buildJsonObject {        // eigenes Geraet ohne Verbindung
             put("device", rep)
             put("reason", "handover")
@@ -3328,13 +3358,19 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
      */
     private suspend fun hornJoin(c: Call, role: String, cfg: CallConfig) {
         if (CallRoom.CAP_HORN !in c.myCaps) throw UiTextException(UiText.Res(R.string.room_server_old))
-        c.rs.hoRep = null                                   // Uebernahme gibt es im Knoten-Anruf nicht: Mitglied
-        c.rs.hoJoin = false
+        // "Hierher uebernehmen" auch ueber einen Knoten (wie Web/iOS): join mit replaces; sobald der Knoten verbunden ist,
+        // bekommt das alte Geraet state.ready + replaces ueber den Signalweg (hoCheck)
+        val rep = c.rs.hoRep.takeIf { role == CallRoom.ROLE_HANDOVER }
+        if (rep == null) {
+            c.rs.hoRep = null
+            c.rs.hoJoin = false
+        }
         val me = myDevId()
         val r = try {
             json.decodeFromString(CallWrap.serializer(), api.post("api/calls/${c.id}/join", buildJsonObject {
                 put("device", me)
-                put("role", if (role == CallRoom.ROLE_HANDOVER) CallRoom.ROLE_MEMBER else role)
+                put("role", if (rep != null) CallRoom.ROLE_HANDOVER else if (role == CallRoom.ROLE_HANDOVER) CallRoom.ROLE_MEMBER else role)
+                if (rep != null) put("replaces", rep)
                 put("caps", capsJson(c))
                 put("dev_class", hornClass())
             }))
@@ -3362,6 +3398,18 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         rosterIn(c, k.legs, null, null, poll = true, mesh = k.hornMesh)
         startLoops(c)
         hornStart(c, k)
+        if (c.rs.hoRep != null) {
+            c.rs.hoStart = System.currentTimeMillis()
+            c.rs.hoJob = scope.launch {
+                // bis der Knoten verbunden ist (hornChanged ruft hoCheck), hoechstens handover_s
+                val end = System.currentTimeMillis() + (config?.handoverS ?: CallRoom.HANDOVER_S) * 1000L
+                while (live(c) && c.rs.hoRep != null && System.currentTimeMillis() < end) {
+                    hoCheck(c)
+                    delay(300)
+                }
+                if (c.rs.hoRep != null) hoFail(c)
+            }
+        }
         val early = ArrayList(c.early)
         c.early.clear()
         for (s in early) if (live(c)) route(c, s)
@@ -3521,7 +3569,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
         scope.launch {
             val b = openSig(h, s) ?: return@launch
-            if (live(r)) r.rs.horn?.signal(s.fromDevice, b)
+            if (!live(r)) return@launch
+            // "Hierher uebernehmen" im Knoten-Anruf: das neue eigene Geraet meldet ready + replaces = dieses Geraet
+            if ((b["t"] as? JsonPrimitive)?.contentOrNull == "state" && (b["ready"] as? JsonPrimitive)?.booleanOrNull == true &&
+                (b["replaces"] as? JsonPrimitive)?.contentOrNull == myDevId() && r.rs.roster.of(s.fromDevice)?.who == myUser()) {
+                handoverOut(r, s.fromDevice)
+                return@launch
+            }
+            r.rs.horn?.signal(s.fromDevice, b)
         }
     }
 

@@ -383,8 +383,10 @@ extension HornLogic {
     struct PeerState: Equatable { var mic = true; var cam = false; var screen = false }
     /// hp (P9/P10): eigene Kennungen an den Knoten, mit denen das Geraet gerade verbunden ist (hoechstens 4, alle
     /// Verbindungen waehrend eines Wechsels) - so ordnen Geraete an anderen Knoten (Kaskade, andere Server) CSRC -> Geraet zu
-    static func stateBody(mic: Bool, cam: Bool, screen: Bool, hp: [String] = []) -> String {
+    /// replaces: "Hierher uebernehmen" fertig - ready + bisheriges eigenes Geraet (nur an dieses; wie state im Mesh)
+    static func stateBody(mic: Bool, cam: Bool, screen: Bool, hp: [String] = [], replaces: String? = nil) -> String {
         var s = "{\"t\":\"state\",\"mic\":\(mic),\"cam\":\(cam),\"screen\":\(screen)"
+        if let r = replaces, r.count == 32, r.allSatisfy(\.isHexDigit) { s += ",\"ready\":true,\"replaces\":\"\(r)\"" }
         let refs = Array(hp.filter { !$0.isEmpty && $0.count <= 64 }.prefix(4))
         if !refs.isEmpty, let d = try? JSONSerialization.data(withJSONObject: refs), let a = String(data: d, encoding: .utf8) {
             s += ",\"hp\":" + a

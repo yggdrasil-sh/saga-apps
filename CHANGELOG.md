@@ -47,6 +47,13 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Gruppenanrufe in freien Gruppen zeigen den Gruppennamen statt „Gruppenanruf“ – der Name ist Ende-zu-Ende-
   verschlüsselt, die Apps nehmen ihn jetzt aus der eigenen Chatliste (beim Starten, Beitreten und Klingeln).
 
+### Behoben – „Hierher übernehmen“ bei Anrufen über einen Knoten
+- Mit „Alle Anrufe über Knoten (auch 1:1)“ wurde ein Anruf nicht übernommen (z. B. iPhone → Mac): Das neue Gerät hat
+  keine Direktverbindung zum alten und meldete es nur beim Server ab – das alte telefonierte weiter. Jetzt bekommt
+  das alte Gerät „übernommen“ über den Signalweg des Knotens und beendet den Anruf; verschwindet es aus der
+  Teilnehmerliste, während ein anderes eigenes Gerät dabei ist, beendet es ihn ebenfalls. Android kann jetzt auch
+  über einen Knoten übernehmen (bisher trat es dort nur als Begleitgerät bei).
+
 ### Behoben – Mac: Cursor im Editor versetzt
 - Beim Bearbeiten stand der Cursor ~5 pt rechts neben Platzhalter und Text, und in Listen/Checklisten saß die Zeile
   tiefer als Kästchen bzw. Aufzählungszeichen. Innenrand des Mac-Textfelds ausgeglichen, Grundlinie angegeben.

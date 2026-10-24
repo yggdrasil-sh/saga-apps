@@ -311,6 +311,14 @@ extension CallManager {
             inRoom = true
             if !ho.active { companion = mine.companion }
         }
+        // Dieses Geraet ist nicht mehr in der Liste, ein anderes eigenes aber schon: es hat uebernommen und dieses
+        // abgemeldet - hier beenden (sonst lief der Anruf weiter, Knoten-Anruf "Hierher uebernehmen" iPhone -> Mac)
+        if (inRoom || ready), !ho.active, old?.contains(where: { $0.device == here }) == true, !legs.contains(where: { $0.device == here }),
+           let other = legs.first(where: { $0.who == me && $0.device != here }) {
+            audioTrack?.isEnabled = false; mic = false; sound = false; applyPlayback()
+            finish(.elsewhere, message: String(localized: "Anruf auf \(other.devName.isEmpty ? String(localized: "anderes Gerät") : other.devName) übernommen."))
+            return
+        }
         let ch = CallRoom.diff(old: old, new: legs, here: here)
         if inRoom || ready {
             for x in ch.added where x.who != me || x.device != here {
@@ -367,7 +375,16 @@ extension CallManager {
             CallEnv.log("handover: uebernehme von \(rep.prefix(6))")
             sound = true; applyPlayback()
             Task { await micOn() }
-            if let A = link(rep), A.established { stateOne(A, replaces: rep) }
+            if horn != nil {
+                // 2.5: ueber einen Knoten gibt es keine Direktverbindung zum alten Geraet - Bescheid ueber den Signalweg,
+                // und zur Sicherheit (aeltere App) dessen Platz kurz danach beim Server abmelden
+                let body = HornLogic.stateBody(mic: true, cam: cam && camera != nil && !camPaused, screen: sharing, hp: hornMyRefs(), replaces: rep)
+                Task {
+                    await hornSend([rep: body])
+                    try? await Task.sleep(for: .seconds(3))
+                    if let id, let store { _ = try? await store.apiResponse("api/calls/\(id)/leave", method: "POST", body: ["device": rep, "reason": "handover"]) }
+                }
+            } else if let A = link(rep), A.established { stateOne(A, replaces: rep) }
             else if let id, let store { Task { _ = try? await store.apiResponse("api/calls/\(id)/leave", method: "POST", body: ["device": rep, "reason": "handover"]) } }   // eigenes Geraet ohne Verbindung
             syncPrimary()
         case .fail:
