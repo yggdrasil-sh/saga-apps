@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde Android (Material 3 Expressive): Startseite, Suche, Seiten, Datenbanken -->
+<resources>
+    <string name="greeting_morning">สวัสดีตอนเช้า</string>
+    <string name="greeting_day">สวัสดีตอนบ่าย</string>
+    <string name="greeting_evening">สวัสดีตอนเย็น</string>
+    <string name="greeting_night">ราตรีสวัสดิ์</string>
+    <string name="today_events_empty_hint">ปฏิทินว่าง – ได้เวลาทำสิ่งดี ๆ</string>
+    <string name="today_tasks_empty_hint">เพิ่มงานด้านบน หรือพักผ่อนให้เต็มที่</string>
+    <string name="search_empty_title">ค้นหาทุกหน้า</string>
+    <string name="search_empty_hint">ค้นหาทั้งชื่อเรื่องและข้อความ รวมถึงในฐานข้อมูล</string>
+    <string name="search_no_hits_title">ไม่พบผลลัพธ์</string>
+    <string name="search_no_hits_hint">ลองใช้คำที่สั้นลงหรือคำอื่น</string>
+    <plurals name="today_tasks_open">
+        <item quantity="other">งานค้าง %d รายการ</item>
+    </plurals>
+    <plurals name="today_events_count">
+        <item quantity="other">%d นัดหมาย</item>
+    </plurals>
+</resources>

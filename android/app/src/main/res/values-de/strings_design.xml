@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design-Runde Android (Material 3 Expressive): Startseite, Suche, Seiten, Datenbanken -->
+<resources>
+    <string name="greeting_morning">Guten Morgen</string>
+    <string name="greeting_day">Guten Tag</string>
+    <string name="greeting_evening">Guten Abend</string>
+    <string name="greeting_night">Gute Nacht</string>
+    <string name="today_events_empty_hint">Dein Kalender ist frei – Zeit für etwas Schönes.</string>
+    <string name="today_tasks_empty_hint">Oben eine Aufgabe anlegen oder den freien Tag genießen.</string>
+    <string name="search_empty_title">Alle Seiten durchsuchen</string>
+    <string name="search_empty_hint">Gesucht wird in Titeln und Text, auch in Datenbanken.</string>
+    <string name="search_no_hits_title">Nichts gefunden</string>
+    <string name="search_no_hits_hint">Versuch es mit einem kürzeren oder anderen Wort.</string>
+    <plurals name="today_tasks_open">
+        <item quantity="one">%d offene Aufgabe</item>
+        <item quantity="other">%d offene Aufgaben</item>
+    </plurals>
+    <plurals name="today_events_count">
+        <item quantity="one">%d Termin</item>
+        <item quantity="other">%d Termine</item>
+    </plurals>
+</resources>

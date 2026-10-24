@@ -7,6 +7,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 
 /** Farben des Saga-Symbols: dunkles Blau-Schwarz und Gold */
@@ -99,9 +100,19 @@ internal val Dark = darkColorScheme(
 @Composable
 fun SagaTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     val scheme = if (dark) Dark else Light
-    MaterialTheme(colorScheme = scheme) {
+    // Bewegung: Material 3 Expressive (Federn mit leichtem Nachschwingen). "Animationen entfernen" bzw.
+    // ANIMATOR_DURATION_SCALE = 0 -> ruhige Federn ohne Ueberschwingen (Compose kuerzt die Dauer zusaetzlich selbst).
+    val reduced = rememberReducedMotion()
+    val motion = remember(reduced) { if (reduced) SagaMotion.Calm else SagaMotion.Expressive }
+    MaterialTheme(colorScheme = scheme, shapes = SagaShapes, typography = SagaTypography) {
         // Grund-Textfarbe passend zum Hintergrund: Bildschirme ohne Scaffold/Surface (Seiten, Datenbank-Bloecke,
         // Einbettungen) erben sonst LocalContentColor = Schwarz - im Dunkelmodus schwarz auf schwarz.
-        CompositionLocalProvider(LocalContentColor provides scheme.onBackground, content = content)
+        CompositionLocalProvider(
+            LocalContentColor provides scheme.onBackground,
+            LocalReducedMotion provides reduced,
+            LocalSagaMotion provides motion,
+            LocalSagaAccent provides if (dark) DarkAccent else LightAccent,
+            content = content,
+        )
     }
 }
