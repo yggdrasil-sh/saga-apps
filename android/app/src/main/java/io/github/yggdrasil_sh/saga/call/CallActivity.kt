@@ -506,8 +506,9 @@ private fun CallScreen(
         if (st.cam && st.phase != CallPhase.ENDED && st.phase != CallPhase.INCOMING && !meshOn) {
             // Eigene Vorschau unter der Status-Zeile (die bei grosser Schrift mitwaechst)
             val top = with(LocalDensity.current) { infoHeight.toDp() } + 24.dp
-            Box(Modifier.fillMaxSize().safeDrawingPadding().padding(top = maxOf(top, 56.dp), end = 16.dp), contentAlignment = Alignment.TopEnd) {
-                VideoView(calls, remote = false, visible = true, modifier = Modifier.width(108.dp).height(156.dp).clip(RoundedCornerShape(12.dp)))
+            // 2.5: in eine Ecke ziehen oder ausblenden (unten: ueber den Steuerknoepfen)
+            SelfPip(108.dp, 156.dp, top = maxOf(top, 56.dp), bottom = 190.dp, side = 16.dp, modifier = Modifier.safeDrawingPadding()) { m ->
+                VideoView(calls, remote = false, visible = true, modifier = m)
             }
         }
         if (st.phase != CallPhase.INCOMING && st.phase != CallPhase.ENDED) {
@@ -579,7 +580,12 @@ private fun Controls(calls: CallManager, st: CallUiState, answer: (Boolean) -> U
             }
         }
         CallPhase.ENDED -> TextButton(onClick = { calls.dismiss() }, modifier = Modifier.padding(bottom = 24.dp)) { Text(stringResource(R.string.action_close)) }
-        else -> Row(Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
+        else -> androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
+          // 2.5: Spaltenbreite aus der tatsaechlichen Breite (bis sechs Knoepfe): mit festen 64 dp passten sie auf schmalen
+          // Geraeten bzw. grosser Anzeigegroesse nicht in eine Reihe (abgeschnitten), auch nach dem Drehen
+          val n = 3 + (if (st.cam) 1 else 0) + (if (st.phase == CallPhase.CONNECTED) 1 else 0) + 1
+          val col = minOf(72.dp, maxWidth / n)
+          Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
             val tc = MaterialTheme.colorScheme.secondaryContainer
             val tf = MaterialTheme.colorScheme.onSecondaryContainer
             // 2.4 E3: "Bildschirm teilen" nur im verbundenen Anruf; bei sechs Knoepfen etwas kleiner (schmale Telefone)
@@ -590,30 +596,31 @@ private fun Controls(calls: CallManager, st: CallUiState, answer: (Boolean) -> U
             RoundButton(
                 if (st.mic) R.drawable.ic_mic else R.drawable.ic_mic_off, stringResource(if (st.mic) R.string.call_mute else R.string.call_unmute),
                 if (st.mic) tc else MaterialTheme.colorScheme.inverseSurface, if (st.mic) tf else MaterialTheme.colorScheme.inverseOnSurface,
-                compact = compact,
+                compact = compact, col = col,
             ) { onMic() }
             RoundButton(
                 if (st.cam) R.drawable.ic_videocam else R.drawable.ic_videocam_off, stringResource(if (st.cam) R.string.call_cam_off else R.string.call_cam_on),
                 if (st.cam) tc else MaterialTheme.colorScheme.inverseSurface, if (st.cam) tf else MaterialTheme.colorScheme.inverseOnSurface,
-                compact = compact,
+                compact = compact, col = col,
             ) { onCam() }
-            if (st.cam) RoundButton(R.drawable.ic_cameraswitch, stringResource(R.string.call_switch_camera), tc, tf, compact = compact) { calls.switchCamera() }
+            if (st.cam) RoundButton(R.drawable.ic_cameraswitch, stringResource(R.string.call_switch_camera), tc, tf, compact = compact, col = col) { calls.switchCamera() }
             if (share) RoundButton(
                 R.drawable.ic_screen_share, stringResource(if (st.sharing) R.string.call_screen_stop else R.string.call_screen_share),
-                if (st.sharing) SHARE_RED else tc, if (st.sharing) Color.White else tf, selected = st.sharing, compact = compact,
+                if (st.sharing) SHARE_RED else tc, if (st.sharing) Color.White else tf, selected = st.sharing, compact = compact, col = col,
             ) { onShare() }
             if (room != null && (room.companion || !room.playback)) RoundButton(
                 if (room.playback) R.drawable.ic_volume_up else R.drawable.ic_volume_off,
                 stringResource(if (room.playback) R.string.room_sound_off else R.string.room_sound_on),
                 if (room.playback) tc else MaterialTheme.colorScheme.inverseSurface, if (room.playback) tf else MaterialTheme.colorScheme.inverseOnSurface,
-                selected = room.playback, compact = compact,
+                selected = room.playback, compact = compact, col = col,
             ) { calls.togglePlayback() }
             else RoundButton(
                 R.drawable.ic_volume_up, stringResource(R.string.call_speaker),
                 if (st.speaker) MaterialTheme.colorScheme.primary else tc, if (st.speaker) MaterialTheme.colorScheme.onPrimary else tf,
-                selected = st.speaker, compact = compact,
+                selected = st.speaker, compact = compact, col = col,
             ) { calls.toggleSpeaker() }
-            RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_hangup), MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.onError, compact = compact) { calls.hangup() }
+            RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_hangup), MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.onError, compact = compact, col = col) { calls.hangup() }
+          }
         }
     }
 }
@@ -786,10 +793,13 @@ private fun ScreenHintDialog(group: Boolean, onDismiss: () -> Unit, onContinue: 
 @Composable
 private fun RoundButton(
     icon: Int, label: String, bg: Color, fg: Color, big: Boolean = false, selected: Boolean? = null, compact: Boolean = false,
+    col: androidx.compose.ui.unit.Dp? = null,
     onClick: () -> Unit,
 ) {
-    val size = if (big) 72.dp else if (compact) 52.dp else 60.dp
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(maxOf(size, 64.dp))) {
+    // col: Spaltenbreite der Reihe (2.5) - Kreis passt hinein (mind. 44 dp, Zielgroesse fuer Finger)
+    val want = if (big) 72.dp else if (compact) 52.dp else 60.dp
+    val size = if (col != null) maxOf(44.dp, minOf(want, col - 6.dp)) else want
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(col ?: maxOf(size, 64.dp))) {
         FilledIconButton(
             onClick = onClick,
             colors = IconButtonDefaults.filledIconButtonColors(containerColor = bg, contentColor = fg),
@@ -799,7 +809,7 @@ private fun RoundButton(
             },
             shape = CircleShape,
         ) {
-            Icon(painterResource(icon), null, Modifier.size(if (big) 34.dp else if (compact) 24.dp else 28.dp))
+            Icon(painterResource(icon), null, Modifier.size(if (big) 34.dp else if (compact || size < 56.dp) 24.dp else 28.dp))
         }
         // Anruf-UI-Regeln: Beschriftung wie iOS (bis zwei Zeilen); fuer den Screenreader nur einmal am Knopf
         Text(

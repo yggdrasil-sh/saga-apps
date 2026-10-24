@@ -7,4 +7,7 @@
     <string name="call_bar_tap">แตะเพื่อกลับไป</string>
     <string name="call_return">กลับไปที่สาย</string>
     <string name="call_minimize">ย่อหน้าจอสาย</string>
+    <string name="call_self_show">แสดงวิดีโอของฉัน</string>
+    <string name="call_self_hide">ซ่อนวิดีโอของฉัน</string>
+    <string name="call_self_move">ย้ายวิดีโอของฉัน</string>
 </resources>

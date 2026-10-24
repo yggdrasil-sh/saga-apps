@@ -13,9 +13,6 @@ struct HornStage: View {
     @Environment(\.hornPreviewFill) private var previewFill
     /// Raster: unterer Rand des sichtbaren Bereichs (fuer "+n weitere")
     @State private var seenBottom: CGFloat = 0
-    /// zu zweit: Ecke des eigenen Bilds (0 oben links, 1 oben rechts, 2 unten links, 3 unten rechts) und laufendes Ziehen
-    @State private var duoCorner = 1
-    @State private var duoDrag = CGSize.zero
     var body: some View {
         GeometryReader { g in
             let big = horn.share != nil || (horn.view == "speaker" && horn.tiles.count > 1)
@@ -67,24 +64,13 @@ struct HornStage: View {
     }
     private func duo(other: HornTile, me: HornTile, size: CGSize) -> some View {
         let w: CGFloat = size.width <= 640 ? 110 : 180, h = w * 16 / 11
-        // eigenes Bild in einer Ecke (Start oben rechts unter den Knoepfen); ziehen, rastet an der naechsten Ecke ein
-        let left = duoCorner % 2 == 0, top = duoCorner < 2
-        let x = left ? 8 : size.width - w - 8, y = top ? 50 : size.height - h - 8
+        // eigenes Bild in einer Ecke (Start oben rechts unter den Knoepfen); ziehen rastet ein, ausblendbar (wie 1:1)
         return ZStack(alignment: .topLeading) {
             tile(other).frame(maxWidth: .infinity, maxHeight: .infinity)
-            tile(me, compact: true).frame(width: w, height: h)
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.3)))
-                .shadow(radius: 6)
-                .offset(x: x + duoDrag.width, y: y + duoDrag.height)
-                .gesture(DragGesture()
-                    .onChanged { duoDrag = $0.translation }
-                    .onEnded { g in
-                        let cx = x + g.translation.width + w / 2, cy = y + g.translation.height + h / 2
-                        withAnimation(.spring(duration: 0.25)) {
-                            duoCorner = (cx < size.width / 2 ? 0 : 1) + (cy < size.height / 2 ? 0 : 2); duoDrag = .zero
-                        }
-                    })
-                .accessibilityAction(named: Text("Eigenes Bild verschieben")) { duoCorner = (duoCorner + 1) % 4 }
+            SelfPip(size: CGSize(width: w, height: h), top: 50, bottom: 8, side: 8) {
+                tile(me, compact: true)
+                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.3)))
+            }
         }
     }
     private func trio(_ size: CGSize) -> some View {

@@ -9,6 +9,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu/Behoben – Anrufe: eigenes Bild verschiebbar und ausblendbar, Knöpfe nach dem Drehen
+- Eigenes Kamerabild (1:1 und zu zweit über einen Knoten) in jede Ecke ziehen – rastet ein – oder mit dem kleinen
+  Knopf am Bild ausblenden (bleibt als Knopf in der Ecke, Tippen zeigt es wieder). Das Gerät merkt sich beides.
+  VoiceOver/TalkBack: Aktion „Eigenes Bild verschieben“. iOS/iPadOS/macOS und Android.
+- iOS: Nach dem Drehen (quer → hoch) blieb die Knopfreihe auf der Querformat-Breite – der Anrufbildschirm war breiter
+  als das Gerät, Knöpfe und eigenes Bild links/rechts abgeschnitten. Die Breite kommt jetzt vom Fenster.
+- Android: Bis zu sechs Knöpfe mit festen 64 dp passten auf schmalen Geräten bzw. mit großer Anzeigegröße nicht in
+  die Reihe (z. B. OnePlus). Die Knöpfe richten sich jetzt nach der verfügbaren Breite (Kreis mindestens 44 dp).
+
 ### Behoben – alle Apps: Schaltfläche mit Vorlage auf geteilten Seiten
 - „Neuer Eintrag“ mit Vorlage aus einer nicht geteilten Datenbank des Eigentümers legte für andere Personen nichts an.
   Die Apps (iOS/macOS, Android, Linux) schicken jetzt die Seite mit der Schaltfläche mit (`via`, braucht Server 2.5).

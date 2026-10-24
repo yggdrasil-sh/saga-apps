@@ -7,4 +7,7 @@
     <string name="call_bar_tap">toca para volver</string>
     <string name="call_return">Volver a la llamada</string>
     <string name="call_minimize">Minimizar llamada</string>
+    <string name="call_self_show">Mostrar mi vídeo</string>
+    <string name="call_self_hide">Ocultar mi vídeo</string>
+    <string name="call_self_move">Mover mi vídeo</string>
 </resources>

@@ -229,8 +229,7 @@ fun HornStage(
         val other = tiles[0]
         Box(modifier) {
             Tile(other, Modifier.fillMaxSize(), false, video, selfVideo, onPin)
-            Tile(self, Modifier.align(Alignment.TopEnd).padding(top = 48.dp, end = 8.dp).size(width = 110.dp, height = 160.dp),
-                true, video, selfVideo, onPin)
+            SelfPip(110.dp, 160.dp, top = 48.dp, bottom = 8.dp, side = 8.dp) { m -> Tile(self, m, true, video, selfVideo, onPin) }
         }
         return
     }

@@ -17,6 +17,14 @@ struct CallScreen: View {
     /// Farbschema des Systems (2.5: Teilnehmerliste/Runensiegel folgen hell/dunkel, das Anruf-Fenster bleibt dunkel)
     @Environment(\.colorScheme) private var systemScheme
     var body: some View {
+        // 2.5: Breite vom Fenster, nie vom Inhalt: nach dem Drehen (quer -> hoch) blieb die Knopfreihe sonst auf der
+        // Querformat-Breite stehen und schob den ganzen Bildschirm breiter als das Geraet (Knoepfe/eigenes Bild abgeschnitten)
+        GeometryReader { g in
+            screen.frame(width: g.size.width, height: g.size.height)
+                .onChange(of: g.size.width, initial: true) { _, w in rowWidth = max(0, w - 40 + 16) }   // Rand 20 je Seite, Reihe -8 je Seite
+        }
+    }
+    private var screen: some View {
         ZStack {
             LinearGradient(colors: [Color(red: 0.10, green: 0.09, blue: 0.07), Color(red: 0.04, green: 0.04, blue: 0.05)], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
@@ -40,23 +48,24 @@ struct CallScreen: View {
             }
             .padding(.horizontal, 20).padding(.vertical, 24)
             if calls.cam, let t = calls.localVideo, calls.phase != .incoming, calls.phase != .ended, !showHorn {   // Knoten: eigene Kachel
-                RTCVideoBox(track: t, mirror: calls.frontCamera)                 // Rueckkamera nicht spiegeln (Schrift lesbar)
-                    .accessibilityLabel(Text("Eigenes Kamerabild"))
-                    .frame(width: 110, height: 160).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.3)))
-                    #if os(iOS)
-                    .overlay(alignment: .bottomTrailing) {                    // Kamera wechseln am eigenen Bild (Platz fuer den Lautsprecher-Knopf)
-                        if calls.canSwitchCamera {
-                            Button { calls.switchCamera() } label: {
-                                Image(systemName: "arrow.triangle.2.circlepath.camera").font(.footnote).frame(width: 34, height: 34)
-                                    .background(.black.opacity(0.45), in: Circle())
+                // 2.5: in eine Ecke ziehen (rastet ein) oder ausblenden - unter der Kopfzeile, ueber den Knoepfen
+                SelfPip(size: CGSize(width: 110, height: 160), top: 24 + headerHeight + 10, bottom: bottomInset, side: 16) {
+                    RTCVideoBox(track: t, mirror: calls.frontCamera)             // Rueckkamera nicht spiegeln (Schrift lesbar)
+                        .accessibilityLabel(Text("Eigenes Kamerabild"))
+                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.3)))
+                        #if os(iOS)
+                        .overlay(alignment: .bottomTrailing) {                // Kamera wechseln am eigenen Bild (Platz fuer den Lautsprecher-Knopf)
+                            if calls.canSwitchCamera {
+                                Button { calls.switchCamera() } label: {
+                                    Image(systemName: "arrow.triangle.2.circlepath.camera").font(.footnote).frame(width: 34, height: 34)
+                                        .background(.black.opacity(0.45), in: Circle())
+                                }
+                                .buttonStyle(.plain).padding(6).accessibilityLabel(Text("Kamera wechseln"))
                             }
-                            .buttonStyle(.plain).padding(6).accessibilityLabel(Text("Kamera wechseln"))
                         }
-                    }
-                    #endif
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(.top, 24 + headerHeight + 10).padding(.trailing, 16)   // unter der Kopfzeile (Ton-Diagnose bleibt lesbar)
+                        #endif
+                }
             }
             if showRemoteVideo, let t = smallTrack {                         // 2.4 E3: zweites Fernbild klein (Tippen tauscht)
                 Button { calls.swapView.toggle() } label: {
@@ -260,12 +269,6 @@ struct CallScreen: View {
             }
             companionBlock
             let fit = CallLogic.controlFit(count: controlCount, width: Double(rowWidth > 0 ? rowWidth : 320))
-            // verfuegbare Breite ueber eine leere Flaeche messen (nicht ueber die Reihe selbst: keine Rueckkopplung)
-            Color.clear.frame(maxWidth: .infinity, maxHeight: 0)
-                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rowWidth = $0 }
-                .padding(.horizontal, -8)                                     // etwas mehr Breite fuer zweizeilige Beschriftungen
-                .padding(.bottom, -10)                                        // kein zusaetzlicher Abstand im Stapel
-                .accessibilityHidden(true)
             controlRow(spacing: fit.spacing, width: fit.width)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, -8)
@@ -782,6 +785,60 @@ struct CallRunBar: View {
         case .old: return String(localized: "Braucht Saga 2.4")
         case .full: return String(localized: "Der Anruf ist voll")
         default: return calls.blockText(x.block, limit: x.limit)
+        }
+    }
+}
+
+
+/// 2.5: eigenes Bild im Anruf - in eine Ecke ziehen (rastet an der naechsten ein) oder ausblenden (bleibt als kleiner
+/// Knopf in der Ecke, Tippen zeigt es wieder). Ecke und Ausblenden merkt sich das Geraet fuer alle Anrufe.
+/// top/bottom/side: freier Rand (Kopfzeile oben, Steuerknoepfe unten)
+struct SelfPip<Content: View>: View {
+    var size: CGSize
+    var top: CGFloat
+    var bottom: CGFloat
+    var side: CGFloat = 16
+    @ViewBuilder var content: () -> Content
+    @AppStorage("hkCallSelfCorner") private var corner = 1        // 0 oben links, 1 oben rechts, 2 unten links, 3 unten rechts
+    @AppStorage("hkCallSelfHidden") private var hidden = false
+    @State private var drag = CGSize.zero
+    var body: some View {
+        GeometryReader { g in
+            let w = hidden ? 44 : size.width, h = hidden ? 44 : size.height
+            let x = corner % 2 == 0 ? side : g.size.width - w - side
+            let y = corner < 2 ? top : max(top, g.size.height - h - bottom)
+            Group {
+                if hidden {
+                    Button { withAnimation(.spring(duration: 0.25)) { hidden = false } } label: {
+                        Image(systemName: "person.crop.rectangle").font(.body.weight(.semibold)).frame(width: 44, height: 44)
+                            .background(.black.opacity(0.5), in: Circle()).overlay(Circle().strokeBorder(.white.opacity(0.3)))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text("Eigenes Bild zeigen")).help(Text("Eigenes Bild zeigen"))
+                } else {
+                    content().frame(width: w, height: h)
+                        .overlay(alignment: .topLeading) {
+                            Button { withAnimation(.spring(duration: 0.25)) { hidden = true } } label: {
+                                Image(systemName: "eye.slash").font(.caption.weight(.semibold)).frame(width: 28, height: 28)
+                                    .background(.black.opacity(0.45), in: Circle())
+                                    .frame(width: 40, height: 40).contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel(Text("Eigenes Bild ausblenden")).help(Text("Eigenes Bild ausblenden"))
+                        }
+                        .shadow(radius: 6)
+                }
+            }
+            .position(x: x + w / 2 + drag.width, y: y + h / 2 + drag.height)
+            .gesture(DragGesture(minimumDistance: 6)
+                .onChanged { drag = $0.translation }
+                .onEnded { e in
+                    let cx = x + w / 2 + e.translation.width, cy = y + h / 2 + e.translation.height
+                    withAnimation(.spring(duration: 0.25)) {
+                        corner = (cx < g.size.width / 2 ? 0 : 1) + (cy < (top + g.size.height - bottom) / 2 ? 0 : 2); drag = .zero
+                    }
+                })
+            .accessibilityAction(named: Text("Eigenes Bild verschieben")) { corner = (corner + 1) % 4 }
         }
     }
 }

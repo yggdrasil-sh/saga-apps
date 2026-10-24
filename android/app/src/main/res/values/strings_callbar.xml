@@ -7,4 +7,7 @@
     <string name="call_bar_tap">tap to return</string>
     <string name="call_return">Return to call</string>
     <string name="call_minimize">Minimize call</string>
+    <string name="call_self_show">Show my video</string>
+    <string name="call_self_hide">Hide my video</string>
+    <string name="call_self_move">Move my video</string>
 </resources>

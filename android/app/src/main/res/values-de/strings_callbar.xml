@@ -7,4 +7,7 @@
     <string name="call_bar_tap">tippen zum Zurückkehren</string>
     <string name="call_return">Zum Anruf zurückkehren</string>
     <string name="call_minimize">Anruf minimieren</string>
+    <string name="call_self_show">Eigenes Bild zeigen</string>
+    <string name="call_self_hide">Eigenes Bild ausblenden</string>
+    <string name="call_self_move">Eigenes Bild verschieben</string>
 </resources>

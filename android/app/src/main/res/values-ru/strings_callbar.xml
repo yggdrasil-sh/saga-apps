@@ -7,4 +7,7 @@
     <string name="call_bar_tap">нажми, чтобы вернуться</string>
     <string name="call_return">Вернуться к звонку</string>
     <string name="call_minimize">Свернуть звонок</string>
+    <string name="call_self_show">Показать моё видео</string>
+    <string name="call_self_hide">Скрыть моё видео</string>
+    <string name="call_self_move">Переместить моё видео</string>
 </resources>
