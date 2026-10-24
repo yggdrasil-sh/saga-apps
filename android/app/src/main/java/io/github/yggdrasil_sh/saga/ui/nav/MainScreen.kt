@@ -327,7 +327,19 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
                 )
             }
             Box(Modifier.weight(1f)) {
-                when (val d = nav.current) {
+                // Wechsel zwischen Bildschirmen: vor = leicht von rechts, zurueck = von links, oberste Ebene = Ueberblenden.
+                // contentKey = Ziel: gleicher Bildschirm (z. B. andere Stapeltiefe) bleibt ohne Animation.
+                val reduced = io.github.yggdrasil_sh.saga.ui.theme.LocalReducedMotion.current
+                val spatial = io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.defaultSpatial<androidx.compose.ui.unit.IntOffset>()
+                val fadeIn = io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.defaultEffects<Float>()
+                val fadeOut = io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.fastEffects<Float>()
+                androidx.compose.animation.AnimatedContent(
+                    targetState = nav.current to nav.stack.size,
+                    contentKey = { it.first },
+                    transitionSpec = { screenTransition(initialState.second, targetState.second, reduced, spatial, fadeIn, fadeOut) },
+                    label = "screen",
+                ) { (d, _) ->
+                when (d) {
                     Dest.Today -> TodayScreen(repo, nav, chrome)
                     Dest.Tasks -> TasksScreen(repo, nav, chrome)
                     Dest.Events -> EventsScreen(repo, nav, chrome)
@@ -343,11 +355,29 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
                     Dest.Backup -> io.github.yggdrasil_sh.saga.ui.settings.BackupScreen(repo, nav, chrome)
                     Dest.Nextcloud -> io.github.yggdrasil_sh.saga.ui.settings.NextcloudScreen(repo, nav, chrome)
                 }
+                }
             }
             // Kopplungsanfrage eines neuen Chat-Geraets (Live chat.link): hier bestaetigen (Code vergleichen)
                 ChatLinkApproval(repo)
         }
     }
+}
+
+/** Bildschirmwechsel (dezent): Tiefe waechst = vor, schrumpft = zurueck, gleich = Ueberblenden; reduziert = ohne */
+private fun screenTransition(
+    from: Int, to: Int, reduced: Boolean,
+    spatial: androidx.compose.animation.core.FiniteAnimationSpec<androidx.compose.ui.unit.IntOffset>,
+    fadeIn: androidx.compose.animation.core.FiniteAnimationSpec<Float>,
+    fadeOut: androidx.compose.animation.core.FiniteAnimationSpec<Float>,
+): androidx.compose.animation.ContentTransform {
+    if (reduced) return androidx.compose.animation.ContentTransform(androidx.compose.animation.EnterTransition.None, androidx.compose.animation.ExitTransition.None)
+    val dir = to.compareTo(from)
+    val enter = androidx.compose.animation.fadeIn(fadeIn) + when {
+        dir > 0 -> androidx.compose.animation.slideInHorizontally(spatial) { it / 8 }
+        dir < 0 -> androidx.compose.animation.slideInHorizontally(spatial) { -it / 8 }
+        else -> androidx.compose.animation.scaleIn(androidx.compose.animation.core.tween(220), initialScale = 0.98f)
+    }
+    return androidx.compose.animation.ContentTransform(enter, androidx.compose.animation.fadeOut(fadeOut))
 }
 
 /** Symbol mit Zaehler (Badge), 0 = ohne */

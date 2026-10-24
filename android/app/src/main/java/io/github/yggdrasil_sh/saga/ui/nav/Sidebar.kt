@@ -65,12 +65,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import kotlinx.coroutines.CancellationException
 import androidx.compose.foundation.layout.heightIn
 import io.github.yggdrasil_sh.saga.data.PageMeta
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.ui.common.PageIcon
-import io.github.yggdrasil_sh.saga.ui.common.SectionHeader
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.res.painterResource
@@ -184,8 +184,16 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                     Modifier.padding(end = 10.dp).clip(CircleShape)
                         .clickable(onClickLabel = stringResource(R.string.nav_settings)) { nav.top(Dest.Settings); onNavigate() },
                 ) { io.github.yggdrasil_sh.saga.ui.notifications.Avatar(account, size = 36, avatar = ownAvatar) }
-                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                IconButton(onClick = { newPage(null) }, enabled = !creating) {
+                Text(
+                    stringResource(R.string.app_name), style = MaterialTheme.typography.headlineSmall.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                    modifier = Modifier.weight(1f),
+                )
+                // Neue Seite: deutlich als Hauptaktion (getoente Goldflaeche), 48 dp
+                val accent = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current
+                androidx.compose.material3.FilledTonalIconButton(
+                    onClick = { newPage(null) }, enabled = !creating,
+                    colors = androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(containerColor = accent.goldSoft, contentColor = accent.onGoldSoft),
+                ) {
                     if (creating) {
                         androidx.compose.material3.CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
@@ -220,18 +228,18 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
         }
 
         if (favorites.isNotEmpty()) {
-            item { SectionHeader(stringResource(R.string.sidebar_favorites)) }
+            item { SidebarSection(stringResource(R.string.sidebar_favorites)) }
             items(favorites, key = { "fav-${it.id}" }) { p ->
                 PageRowItem(p, 0, false, false, nav.root == Dest.Page(p.id), repo, { open(p.id) }, {}, { newPage(it) }, scope, allMeta = allMeta, onMove = onMove)
             }
         }
         if (recent.isNotEmpty()) {
-            item { SectionHeader(stringResource(R.string.sidebar_recent)) }
+            item { SidebarSection(stringResource(R.string.sidebar_recent)) }
             items(recent, key = { "rec-${it.id}" }) { p ->
                 PageRowItem(p, 0, false, false, nav.root == Dest.Page(p.id), repo, { open(p.id) }, {}, { newPage(it) }, scope, allMeta = allMeta, onMove = onMove)
             }
         }
-        item { SectionHeader(stringResource(R.string.pages)) }
+        item { SidebarSection(stringResource(R.string.pages)) }
         if (tree.isEmpty()) {
             item {
                 Text(
@@ -253,10 +261,10 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 val res = LocalResources.current
                 Row(Modifier.fillMaxWidth().padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                     // G9: einfarbiges Gruppen-Symbol statt 👥
-                    Row(Modifier.weight(1f).padding(start = 16.dp, top = 18.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.weight(1f).padding(start = 28.dp, top = 20.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(painterResource(R.drawable.ic_group), null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(
-                            stringResource(R.string.shared_with_me), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
+                            stringResource(R.string.shared_with_me), style = MaterialTheme.typography.labelLarge, color = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldText,
                             modifier = Modifier.padding(start = 8.dp),
                         )
                     }
@@ -295,7 +303,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 )
             }
         }
-        item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+        item { HorizontalDivider(Modifier.padding(horizontal = 28.dp, vertical = 8.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)) }
         // 2.4: Papierkorb in der App (ansehen, wiederherstellen, endgueltig loeschen)
         item { NavItem(stringResource(R.string.tr_nav), Icons.Filled.Delete, false) { showTrash = true } }
         item { NavItem(stringResource(R.string.nav_settings), Icons.Filled.Settings, nav.root == Dest.Settings) { nav.top(Dest.Settings); onNavigate() } }
@@ -308,9 +316,29 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
     movePage?.let { p -> io.github.yggdrasil_sh.saga.ui.pages.MovePageDialog(repo, p, onDismiss = { movePage = null }) }
 }
 
+/** Abschnitt der Seitenleiste (Favoriten, Zuletzt, Seiten): Gold, eingerueckt wie die Eintraege */
+@Composable
+private fun SidebarSection(text: String) {
+    Text(
+        text, style = MaterialTheme.typography.labelLarge, color = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldText,
+        modifier = Modifier.fillMaxWidth().padding(start = 28.dp, end = 16.dp, top = 20.dp, bottom = 6.dp)
+            .semantics { heading() },
+    )
+}
+
+/** Gewaehlter Eintrag: zartes Gold (wie die Seitenzeilen), sonst transparent */
+@Composable
+private fun sidebarItemColors() = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.let { a ->
+    androidx.compose.material3.NavigationDrawerItemDefaults.colors(
+        selectedContainerColor = a.goldSoft, selectedTextColor = a.onGoldSoft, selectedIconColor = a.onGoldSoft,
+        selectedBadgeColor = a.onGoldSoft,
+    )
+}
+
 @Composable
 private fun NavItem(label: String, icon: ImageVector?, selected: Boolean, badge: Int? = null, painter: Int? = null, onClick: () -> Unit) {
     NavigationDrawerItem(
+        colors = sidebarItemColors(),
         label = { NavLabel(label) },
         icon = { if (painter != null) Icon(painterResource(painter), null) else if (icon != null) Icon(icon, null) },
         selected = selected,
@@ -341,8 +369,8 @@ private fun PageRowItem(
     val canMove = onMove != null && io.github.yggdrasil_sh.saga.data.MoveLogic.canMove(p, allMeta)
     Box {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(RoundedCornerShape(24.dp))
-                .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(CircleShape)
+                .background(if (selected) io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldSoft else androidx.compose.ui.graphics.Color.Transparent)
                 .combinedClickable(
                     onClick = onOpen, onLongClick = if (canFavorite || canSub || canMove) ({ menu = true }) else null,
                     onLongClickLabel = stringResource(R.string.page_actions),
@@ -353,7 +381,11 @@ private fun PageRowItem(
             // Auf-/Zuklappen rechts: Seiten mit und ohne Unterseiten stehen buendig (kein leerer 48-dp-Platzhalter)
             PageIcon(p.icon, repo, p.isDatabase)
             Column(Modifier.padding(start = 10.dp).weight(1f)) {
-                Text(pageTitle(p), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    pageTitle(p), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    color = if (selected) io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.onGoldSoft else androidx.compose.ui.graphics.Color.Unspecified,
+                    fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.SemiBold else null,
+                )
                 if (owner != null) {
                     Text(owner, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
