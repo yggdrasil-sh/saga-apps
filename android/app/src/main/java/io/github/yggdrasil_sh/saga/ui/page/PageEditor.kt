@@ -646,8 +646,9 @@ class PageEditor(
     }
 
     /** Leerer Punkt + Return: Punkt weg; war es der einzige -> Absatz, sonst neuer Absatz nach der Liste */
-    fun endList(blockPath: JsonPath, itemPath: JsonPath) {
-        if (!editable) return
+    /** Leeren Listenpunkt entfernen und mit einem Absatz hinter der Liste weitermachen -> Pfad des Absatzes */
+    fun endList(blockPath: JsonPath, itemPath: JsonPath): JsonPath? {
+        if (!editable) return null
         val (arr, idx) = arrayAndIndex(itemPath)
         var d = JsonTree.remove(doc, arr, idx) as JsonObject
         val topItems = JsonTree.get(d, blockPath + listOf("data", "items")) as? JsonArray
@@ -656,9 +657,12 @@ class PageEditor(
             d = JsonTree.set(d, blockPath, p) as JsonObject
             change(d)
             requestFocus(fieldKeyFor(p, blockPath))
+            return blockPath
         } else {
             change(d)
             insertBlockAfter(blockPath, BlockDoc.newBlock("paragraph"))
+            val (barr, bidx) = arrayAndIndex(blockPath)
+            return barr + (bidx + 1)
         }
     }
 

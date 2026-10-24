@@ -41,6 +41,12 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Rechtsklick) – wie im Web und auf Android. Felder: Adresse, Name, Kategorie, Symbol (selfh.st). Standard-Kategorien
   („Lesezeichen“, „Dienste“) erscheinen in der App-Sprache statt in der Sprache des Kontos.
 
+### Behoben – Editor und Anrufe (alle Apps)
+- „/“ im letzten Listenpunkt öffnet das Block-Menü wie im Absatz (Android, iOS/iPadOS/macOS): Die Wahl beendet die
+  Liste und setzt den neuen Block dahinter. Mitten in einer Liste bleibt „/“ normaler Text.
+- Gruppenanrufe in freien Gruppen zeigen den Gruppennamen statt „Gruppenanruf“ – der Name ist Ende-zu-Ende-
+  verschlüsselt, die Apps nehmen ihn jetzt aus der eigenen Chatliste (beim Starten, Beitreten und Klingeln).
+
 ### Behoben – Mac: Cursor im Editor versetzt
 - Beim Bearbeiten stand der Cursor ~5 pt rechts neben Platzhalter und Text, und in Listen/Checklisten saß die Zeile
   tiefer als Kästchen bzw. Aufzählungszeichen. Innenrand des Mac-Textfelds ausgeglichen, Grundlinie angegeben.

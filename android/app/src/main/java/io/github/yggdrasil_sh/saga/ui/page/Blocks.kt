@@ -302,6 +302,15 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
                     "ordered" -> Text("${i + start}.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.widthIn(min = 24.dp).padding(end = 6.dp))
                     else -> Text("•", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.widthIn(min = 16.dp).padding(end = 6.dp))
                 }
+                // Nr. 11: "/" im letzten (obersten) Listenpunkt oeffnet das Block-Menue wie im Absatz; die Wahl beendet die
+                // Liste und setzt den Block dahinter (mitten in einer Liste waere das ein Aufteilen - dort bleibt "/" Text)
+                val pick = env.slash
+                val last = indices.isEmpty() && i == items.size - 1 && (obj?.get("items") as? JsonArray).isNullOrEmpty()
+                val slashQ = if (pick != null && ed.editable && last && content.startsWith("/")) io.github.yggdrasil_sh.saga.blocks.SlashLogic.query(InlineHtml.plain(content)) else null
+                val slashLabels = if (slashQ != null) slashItems(slashQ, env.slashNeeds) else emptyList()
+                val slashPick: (io.github.yggdrasil_sh.saga.blocks.SlashLogic.Item) -> Unit = { item ->
+                    ed.endList(blockPath, itemPath)?.let { p -> pick?.invoke(p, item) }
+                }
                 Column(Modifier.weight(1f)) {
                     key(fieldKey) {
                         RichField(
@@ -314,7 +323,10 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
                             itemPath = itemPath,
                             placeholder = stringResource(R.string.placeholder_list_item),
                             onEnter = { left, right ->
-                                if (left.text.isEmpty() && right.text.isEmpty() && obj?.get("items").let { (it as? JsonArray).isNullOrEmpty() } && indices.isEmpty()) {
+                                val first = slashLabels.firstOrNull()
+                                if (first != null && io.github.yggdrasil_sh.saga.blocks.SlashLogic.query(left.text) != null && right.text.isEmpty()) {
+                                    slashPick(first)
+                                } else if (left.text.isEmpty() && right.text.isEmpty() && obj?.get("items").let { (it as? JsonArray).isNullOrEmpty() } && indices.isEmpty()) {
                                     ed.endList(blockPath, itemPath)
                                 } else {
                                     val newKey = prefix + "/" + (indices + (i + 1)).joinToString("/")
@@ -325,6 +337,7 @@ private fun ListItems(block: JsonObject, blockPath: JsonPath, items: JsonArray, 
                             onLink = env.onLink,
                         )
                     }
+                    if (slashQ != null && ed.active?.key == fieldKey) SlashMenuCard(slashQ, env.slashNeeds) { slashPick(it) }
                     val sub = obj?.get("items") as? JsonArray
                     if (sub != null && sub.isNotEmpty()) {
                         ListItems(block, blockPath, sub, style, itemPath + "items", myIdx, env)

@@ -33,6 +33,8 @@ extension CallManager {
         } else if kind == "group" {
             let from = c["from"] as? [String: Any] ?? c["peer"] as? [String: Any] ?? [:]
             if title.isEmpty, let t = ShareJSON.str(from["chat"]) { title = t }
+            // Freie Gruppen: der Name ist Ende-zu-Ende-verschluesselt, der Server kennt ihn nicht - aus der Chatliste
+            if title.isEmpty, chatID != 0, let t = store?.chat.chats.first(where: { $0.id == chatID })?.title, !t.isEmpty { title = t }
             peerName = title.isEmpty ? String(localized: "Gruppenanruf") : title
         } else if !joinRole.isEmpty, let p = c["peer"] as? [String: Any] {
             peerName = ShareJSON.str(p["name"]) ?? peerName; peerAvatar = ShareJSON.str(p["avatar"]) ?? peerAvatar

@@ -1039,7 +1039,7 @@ struct NativePageScreen: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if editorKeyboard, let d = ed.slashDock, ed.focus == d.key {
                 SlashMenu(query: d.query, nextcloud: store.serverVersion.map { !ShareLogic.versionLess($0, "2.3.0") } ?? false, docked: true) { type, level in
-                    ed.slashApply(String(d.key.split(separator: "/").first ?? ""), type: type, level: level)
+                    ed.slashApply(ed.slashTarget(d.key), type: type, level: level)
                 }
                 .padding(.horizontal, 12).padding(.top, 6).padding(.bottom, 10)
                 .frame(maxWidth: .infinity)
@@ -1390,7 +1390,9 @@ struct ListBlock: View {
                             Text(style == "ordered" ? "\(i + 1)." : "•").foregroundStyle(.secondary).frame(minWidth: 16, alignment: .trailing)
                         }
                         VStack(alignment: .leading, spacing: 6) {
+                            // Nr. 11: "/" im letzten Punkt der obersten Ebene oeffnet das Block-Menue (setzt den Block hinter die Liste)
                             EditText(key: key(i), html: it["content"] as? String ?? "", placeholder: String(localized: "Listenpunkt"), muted: checked,
+                                     slash: path.isEmpty && i == items.count - 1 && ((it["items"] as? NSArray)?.count ?? 0) == 0,
                                      setHTML: { v in it["content"] = v; ed.textChanged() },
                                      onReturn: { before, after in returnIn(i, before: before, after: after) }).id(key(i))
                             if let sub = it["items"] as? NSMutableArray, sub.count > 0 { ListBlock(blockID: blockID, items: sub, style: style, path: path + [i]) }

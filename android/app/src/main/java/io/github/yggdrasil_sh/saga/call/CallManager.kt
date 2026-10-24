@@ -1880,8 +1880,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
      * Mit diesem Geraet einem laufenden Anruf beitreten. role: member (Gruppe), companion (Begleitgeraet: ohne Mikrofon und
      * Ton), handover ("Hierher uebernehmen": ersetzt das eigene Hauptgeraet, erst still bis alle Verbindungen stehen).
      */
-    fun join(callId: String, chatId: Long, role: String, video: Boolean, title: String = "") {
+    fun join(callId: String, chatId: Long, role: String, video: Boolean, title0: String = "") {
         if (!CallLogic.validId(callId)) return
+        val title = title0.ifEmpty { chatTitle(chatId) }
         val cur0 = cur
         if (cur0 != null) {
             if (cur0.id != callId) repo.notify(UiText.Res(R.string.call_already)) else CallActivity.open(app)
@@ -2148,6 +2149,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         finish(r, UiText.Res(R.string.room_taken_over, x?.devName?.ifEmpty { null } ?: app.getString(R.string.room_other_device)), false)
     }
 
+    /** Name des Chats aus der Chatliste (freie Gruppen: Ende-zu-Ende-verschluesselter Titel - der Server kennt ihn nicht) */
+    private fun chatTitle(chatId: Long): String {
+        if (chatId == 0L) return ""
+        val svc = repo.chat
+        val c = svc.chats.value.firstOrNull { it.id == chatId } ?: return ""
+        return io.github.yggdrasil_sh.saga.chat.ChatLogic.displayName(c, svc.freeTitles.value[chatId])
+    }
+
     /** Gruppenanruf beginnen (Gruppen-, freie und Seiten-Chats): erst allein, alle anderen klingeln (call.invite) */
     fun startGroup(chatId: Long, title: String, video: Boolean, running: RunningCall? = null) {
         if (running != null && running.kind == CallRoom.KIND_GROUP && running.state != "ended" && running.id.isNotEmpty()) {
@@ -2246,7 +2255,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             CallRoom.str(from, "username").orEmpty(), CallRoom.str(from, "name").orEmpty(), CallRoom.str(from, "avatar"),
             CallRoom.str(from, "handle"),
         )
-        if (!ev.bool("dm")) CallRoom.str(from, "chat")?.let { titles[id] = it }   // 2.5: 1:1 ueber Knoten ohne Chat-Titel
+        if (!ev.bool("dm")) (CallRoom.str(from, "chat")?.takeIf { it.isNotEmpty() } ?: chatTitle(ev.long("chat_id") ?: 0).takeIf { it.isNotEmpty() })
+            ?.let { titles[id] = it }   // 2.5: 1:1 ueber Knoten ohne Chat-Titel; freie Gruppe: Name aus der Chatliste
         val info = CallInfo(id = id, chatId = ev.long("chat_id") ?: 0, media = ev.str("media") ?: "audio", state = "ringing", role = "callee",
             peer = peer, ringS = ev.int("ring_s"), kind = CallRoom.KIND_GROUP, dm = ev.bool("dm"))
         ringGroup(info)

@@ -519,7 +519,7 @@ struct EditText: View {
     /// Ersten Treffer zu `line` anwenden; danach Getipptes an das umgewandelte Feld
     private func slashPick(_ line: String, rest: String) {
         guard let q = SlashFilter.query(line), let first = slashMatches(q, nextcloud: nextcloudOK).first else { return }
-        ed.slashApply(blockOf(key), type: first.1, level: first.2)
+        ed.slashApply(ed.slashTarget(key), type: first.1, level: first.2)
         if let t = ed.focus, t != key || first.1 != "paragraph" { ed.forward(rest, to: t) }
     }
 
@@ -618,7 +618,7 @@ struct EditText: View {
                     }
                     if !handingOver {
                         #if os(macOS)
-                        if let q = slashQuery { SlashMenu(query: q, nextcloud: nextcloudOK) { type, level in ed.slashApply(blockOf(key), type: type, level: level) } }
+                        if let q = slashQuery { SlashMenu(query: q, nextcloud: nextcloudOK) { type, level in ed.slashApply(ed.slashTarget(key), type: type, level: level) } }
                         else if !mentions.isEmpty { MentionMenu(items: mentions, selected: min(mSel, mentions.count - 1)) { pickMention($0) } }
                         #else
                         if slashQuery == nil && !mentions.isEmpty { MentionMenu(items: mentions, selected: min(mSel, mentions.count - 1)) { pickMention($0) } }
@@ -745,6 +745,21 @@ struct SlashMenu: View {
 
 extension PageEditor {
     /// "/"-Auswahl: Absatz leeren und in den Typ verwandeln
+    /// Ziel des "/"-Menues zu einem Feld: Absatz = sein Block. Letzter (oberster) Listenpunkt (Nr. 11): Punkt entfernen,
+    /// Absatz hinter der Liste anlegen (bzw. statt der Liste, wenn sie dann leer ist) und dessen ID liefern.
+    func slashTarget(_ key: String) -> String {
+        let parts = key.split(separator: "/").map(String.init)
+        let bid = parts.first ?? ""
+        guard parts.count == 2, let i = Int(parts[1]), let (arr, bi) = locate(bid), let b = arr[bi] as? NSMutableDictionary,
+              b["type"] as? String == "list", let items = (b["data"] as? NSMutableDictionary)?["items"] as? NSMutableArray,
+              i == items.count - 1 else { return bid }
+        items.removeObject(at: i)
+        let p = Self.make("paragraph")
+        if items.count == 0 { arr.replaceObject(at: bi, with: p) } else { arr.insert(p, at: bi + 1) }
+        changed()
+        return p["id"] as? String ?? bid
+    }
+
     func slashApply(_ id: String, type: String, level: Int) {
         guard let (arr, i) = locate(id), let b = arr[i] as? NSMutableDictionary else { return }
         (b["data"] as? NSMutableDictionary)?["text"] = ""
