@@ -1790,6 +1790,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
      * 409 {fallback: "direct"} - nichts angelegt, der Aufrufer ruft mit derselben id direkt an.
      */
     private suspend fun dialHorn(c: Call, cfg: CallConfig): Boolean {
+        if (!live(c)) return true                           // waehrend Kamera/Mikrofon aufgelegt: gar nicht erst klingeln lassen
         c.id = c.id ?: ChatFormat.hex(repo.chat.crypto.random(16))
         update(c, UiText.Res(R.string.call_connecting))
         val r = try {

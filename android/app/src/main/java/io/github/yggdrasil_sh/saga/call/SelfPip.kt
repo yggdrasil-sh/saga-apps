@@ -131,7 +131,7 @@ internal object SelfPipGeo {
      */
     fun place(maxW: Float, maxH: Float, w: Float, h: Float, top: Float, bottom: Float, side: Float, corner: Int, hidden: Boolean): Box? {
         val floor = maxH - bottom                                   // tiefste erlaubte Unterkante
-        if (floor < MIN) return null
+        if (floor < MIN || w <= 0f || h <= 0f) return null
         val t = if (floor - top >= MIN) top else maxOf(0f, floor - MIN)
         val avail = floor - t
         val (bw, bh) = if (hidden) MIN to MIN else {

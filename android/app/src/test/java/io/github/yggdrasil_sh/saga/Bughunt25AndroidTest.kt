@@ -136,4 +136,11 @@ class Bughunt25AndroidTest {
         assertNull(SelfPipGeo.place(800f, 180f, 110f, 160f, 48f, 150f, 8f, 1, false))     // Knopfzone fuellt fast alles
         assertNotNull(SelfPipGeo.place(800f, 200f, 110f, 160f, 48f, 150f, 8f, 1, false))  // 50 dp frei: klein
     }
+
+    @Test
+    fun a05ZeroSizeNoNaN() {
+        assertNull(SelfPipGeo.place(400f, 800f, 0f, 0f, 48f, 150f, 8f, 3, false))         // keine Division durch 0
+        val g = SelfPipGeo.place(400f, 800f, 108f, 156f, 48f, 150f, 8f, 3, true)!!       // ausgeblendet: Knopf 44
+        assertTrue(g.w == SelfPipGeo.MIN && g.y + g.h <= 800f - 150f + 0.01f)
+    }
 }
