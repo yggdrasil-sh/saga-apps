@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.nav
 
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.clickable
 import io.github.yggdrasil_sh.saga.data.avatarState
 import androidx.compose.ui.res.stringResource
@@ -346,7 +347,7 @@ private fun PageRowItem(
                     onClick = onOpen, onLongClick = if (canFavorite || canSub || canMove) ({ menu = true }) else null,
                     onLongClickLabel = stringResource(R.string.page_actions),
                 )
-                .padding(start = (16 + depth * 16).dp, end = if (hasChildren) 0.dp else 12.dp).heightIn(min = 48.dp),
+                .padding(start = (16 + depth * 16).dp, end = if (hasChildren || p.shared || p.unread) 0.dp else 12.dp).heightIn(min = 48.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Auf-/Zuklappen rechts: Seiten mit und ohne Unterseiten stehen buendig (kein leerer 48-dp-Platzhalter)
@@ -372,6 +373,8 @@ private fun PageRowItem(
                 IconButton(onClick = onToggle) {
                     Icon(if (isExpanded) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(if (isExpanded) R.string.action_collapse else R.string.action_expand))
                 }
+            } else if (p.shared || p.unread) {
+                Spacer(Modifier.width(48.dp))      // Nr. 22: Geteilt-Symbol/Punkt stehen buendig mit denen neben dem Pfeil
             }
         }
         DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {

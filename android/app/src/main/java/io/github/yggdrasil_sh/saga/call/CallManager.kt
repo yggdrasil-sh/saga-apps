@@ -2766,6 +2766,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         adm?.setSpeakerMute(!on)
     }
 
+    /** Nr. 62: Kamera liess sich nicht starten (zaehlt hoch) - die Anrufansicht zeigt dann ihren Hinweis */
+    val camFailed = kotlinx.coroutines.flow.MutableStateFlow(0)
+
     fun toggleCam() {
         val c = cur ?: return
         if (c.done) return
@@ -2783,6 +2786,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             if (!startCamera(c)) {
                 CallService.setVideo(app, false)
                 repo.notify(UiText.Res(R.string.call_no_camera))
+                camFailed.value++
                 return
             }
             for (l in ls) if (!(c.screen != null && l.scrMode == CallScreen.Mode.A)) videoSender(l)?.setTrack(c.videoTrack, false)

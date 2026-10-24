@@ -19,6 +19,19 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   App-Update – die Mitteilung kommt jeweils, Antippen öffnet den Chat. (Nach „Stoppen erzwingen“ in den
   System-Einstellungen bleibt Android-bedingt alles aus, bis die App wieder geöffnet wird.)
 
+### Behoben – Android: Funde aus dem 2.5-Test
+- Seiten-Editor: Einfügen/Formatieren scrollt, Hoch/Runter/Löschen/Fertig bleiben rechts fest sichtbar.
+- Datenbank-Tabelle: Pfeil am rechten Rand, wenn weitere Spalten folgen (antippen scrollt weiter); Filter-Wert mit
+  Beschriftung; Auswahl-Chips im Dunkelmodus gut lesbar.
+- Papierkorb: „noch x Tage“ rundet nicht mehr auf (29,5 Tage = „29“, unter einem Tag „1“).
+- Seitenleiste: Einträge mit Freigabe-/Ungelesen-Hinweis, aber ohne Unterseiten, stehen bündig mit den anderen.
+- Einstellungen: das eigene Gerät ist als „dieses Gerät“ markiert (ohne eigenes Abmelden – dafür gibt es „Abmelden“);
+  nach der Rückkehr aus einer Unterseite steht die Liste wieder an derselben Stelle.
+- Neuer Chat: ausgewählte Personen als Chips mit ×; Kopfzeile eines Föderations-Chats mit Anwesenheit kürzer
+  (Schloss-Symbol statt E2E-Text).
+- Anruf: Hinweis, wenn die Kamera nicht startet; das eigene Bild ist in der Kachelansicht immer dabei.
+- Mitteilungen werden nach einer neuen Anmeldung automatisch eingeschaltet (wie nach dem Erlauben).
+
 ### Geändert – Android wie iOS: Seitenkopf, Tags, Datenbanken
 - **Titelbilder auf Seiten** (fehlten bisher ganz): über die volle Breite mit gespeicherter Position; antippen =
   Ändern/Entfernen. Das Symbol (Emoji oder Bild) sitzt halb darüber; antippen öffnet die Auswahl (Emoji, eigenes

@@ -173,6 +173,7 @@ private fun FilterValue(p: DbProp, f: DbFilter, editable: Boolean, onChange: (St
             var text by remember(f.pid) { mutableStateOf(f.value) }
             OutlinedTextField(
                 value = text, enabled = editable, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.dbv_filter_value)) },          // Nr. 28: Feld beschriften
                 onValueChange = { t ->
                     text = t.take(200)
                     // Zahlenfilter: Eingabe in der Sprache der Oberflaeche, gespeichert als "1200.5" (wie numStore im Web)

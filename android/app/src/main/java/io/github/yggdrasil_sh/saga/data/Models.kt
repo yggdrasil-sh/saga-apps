@@ -109,6 +109,8 @@ data class DeviceInfo(
     val created: Double? = null,
     @SerialName("last_used") val lastUsed: Double? = null,
     val key: KeyInfo? = null,
+    /** Server: das anfragende Geraet (wie iOS "dieses Geraet") */
+    val current: Boolean = false,
 )
 
 @Serializable

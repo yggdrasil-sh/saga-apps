@@ -315,6 +315,11 @@ private fun CallScreen(
     LaunchedEffect(camDenied) { if (camDenied) { delay(6000); camDenied = false } }
     var camMissing by remember { mutableStateOf(false) }     // P-21: Geraet ohne Kamera
     LaunchedEffect(camMissing) { if (camMissing) { delay(6000); camMissing = false } }
+    // Nr. 62: Kamera scheitert beim Start (z. B. Emulator/Geraet ohne nutzbare Kamera) - Meldungen der App sieht man hier nicht
+    val camFails by calls.camFailed.collectAsState()
+    val camFails0 = remember { calls.camFailed.value }
+    var camBroken by remember { mutableStateOf(false) }
+    LaunchedEffect(camFails) { if (camFails > camFails0) { camBroken = true; delay(6000); camBroken = false } }
     val camPerm = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
         if (ok) calls.toggleCam() else camDenied = true
     }
@@ -445,6 +450,7 @@ private fun CallScreen(
                 st.phase == CallPhase.INCOMING && st.group -> stringResource(if (st.video) R.string.room_incoming_video else R.string.room_incoming)
                 st.phase == CallPhase.INCOMING -> stringResource(if (st.video) R.string.call_incoming_video else R.string.call_incoming)
                 camMissing -> stringResource(R.string.call_cam_none)
+                camBroken -> stringResource(R.string.call_no_camera)
                 st.message != null -> st.message.resolve()
                 camDenied -> stringResource(R.string.call_cam_denied)
                 st.phase == CallPhase.CONNECTED && !st.remoteMic -> stringResource(R.string.call_peer_muted, st.peer.name)
@@ -687,7 +693,8 @@ private fun RoomActions(calls: CallManager, st: CallUiState, withMic: (() -> Uni
 private fun TileGrid(calls: CallManager, st: CallUiState, modifier: Modifier) {
     val room = st.room ?: return
     val me = stringResource(R.string.room_you)
-    val all = room.tiles.map { it to false } + (if (st.cam) listOf(CallTile("", me, "", true, st.mic, false, false, true, true) to true) else emptyList())
+    // Nr. 70 / ANRUF-UI: die eigene Kachel immer zeigen (ohne Kamera mit Name), auch waehrend es noch klingelt
+    val all = room.tiles.map { it to false } + listOf(CallTile("", me, "", st.cam, st.mic, false, false, true, true) to true)
     val cols = if (all.size <= 1) 1 else 2
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (all.isEmpty()) Spacer(Modifier.weight(1f))

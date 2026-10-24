@@ -777,7 +777,7 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
         if (ed.fetched && !ed.isDatabase && !ed.noAccess) TagsRow(ed, repo)       // wie iOS/Web: Tags unter dem Titel
         if (ed.fetched && ed.caps.foreign) SharedByLabel(ed.share)
         if (ed.fetched) MetaLine(ed.share)
-        if (ed.fetched) RowProperties(ed, repo)                 // Datenbank-Zeile: Eigenschaften (nur lesen)
+        if (ed.fetched) RowProperties(ed, repo)                 // Datenbank-Zeile: Eigenschaften (bearbeitbar)
         // Foederation (2.0): Seite liegt auf einer anderen Saga-Instanz
         ed.remoteHost?.takeIf { ed.fetched }?.let { host ->
             Text(
@@ -903,8 +903,11 @@ private fun EditorToolbar(
     Surface(tonalElevation = 3.dp, shadowElevation = 3.dp) {
         Column {
             HorizontalDivider()
+            // Nr. 16: Hoch/Runter/Loeschen/Fertig fest rechts, nur Einfuegen und Formate scrollen (vorher lagen die Knoepfe
+            // am Ende der scrollenden Leiste ausserhalb des Bildschirms)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp),
+                Modifier.weight(1f).horizontalScroll(rememberScrollState()).padding(start = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box {
@@ -961,6 +964,9 @@ private fun EditorToolbar(
                         TextButton(onClick = { onLink(href) }) { Text(stringResource(R.string.link_open)) }
                     }
                 }
+            }
+            androidx.compose.material3.VerticalDivider(Modifier.height(28.dp))
+            Row(Modifier.padding(end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { ed.moveBlock(blockPath, -1) }) { Icon(Icons.Filled.KeyboardArrowUp, stringResource(R.string.block_move_up)) }
                 IconButton(onClick = { ed.moveBlock(blockPath, 1) }) { Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.block_move_down)) }
                 IconButton(onClick = {
@@ -972,6 +978,7 @@ private fun EditorToolbar(
                     }
                 }) { Icon(Icons.Filled.Delete, stringResource(R.string.action_delete)) }
                 IconButton(onClick = { focus.clearFocus(); ed.active = null }) { Icon(Icons.Filled.Check, stringResource(R.string.action_done)) }
+            }
             }
         }
     }

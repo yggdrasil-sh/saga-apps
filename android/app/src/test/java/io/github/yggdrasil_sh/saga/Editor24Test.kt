@@ -379,7 +379,9 @@ class Editor24Test {
         assertFalse(f.loading)
         assertNull(f.items)
         val now = 1_000_000.0
-        assertEquals(30, TrashState.daysLeft(TrashItem(1, purgeAt = now + 29.5 * 86400), now))
+        assertEquals(29, TrashState.daysLeft(TrashItem(1, purgeAt = now + 29.5 * 86400), now))
+        assertEquals(29, TrashState.daysLeft(TrashItem(1, purgeAt = now + (30 * 86400 - 22 * 3600.0)), now))   // Nr. 21
+        assertEquals(1, TrashState.daysLeft(TrashItem(1, purgeAt = now + 3600), now))
         assertEquals(0, TrashState.daysLeft(TrashItem(1, purgeAt = now - 5), now))
         assertNull(TrashState.daysLeft(TrashItem(1), now))
     }

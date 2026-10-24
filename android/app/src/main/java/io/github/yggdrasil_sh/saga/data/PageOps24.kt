@@ -58,11 +58,14 @@ data class TrashState(
     fun emptied() = copy(items = emptyList(), busy = emptySet())
 
     companion object {
-        /** Tage bis zum endgueltigen Loeschen (aufgerundet, nie negativ); null = Server nennt keinen Termin */
+        /**
+         * Volle Tage bis zum endgueltigen Loeschen (abgerundet, mindestens 1 solange noch Zeit ist, nie negativ); null =
+         * Server nennt keinen Termin. Nr. 21: aufgerundet stand nach 22 Stunden noch "in 30 Tagen".
+         */
         fun daysLeft(item: TrashItem, nowSec: Double): Int? {
             val p = item.purgeAt ?: return null
             val left = (p - nowSec) / 86400.0
-            return if (left <= 0) 0 else kotlin.math.ceil(left).toInt()
+            return if (left <= 0) 0 else maxOf(1, kotlin.math.floor(left).toInt())
         }
     }
 }

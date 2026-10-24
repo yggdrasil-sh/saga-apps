@@ -487,7 +487,8 @@ class SagaRepository(
             // Mitteilungen: Abo nach erneuter Anmeldung/Passwortwechsel wieder anmelden (einmal je Start)
             if (appContext != null && !pushChecked) {
                 pushChecked = true
-                scope.launch { push.load() }
+                // Nr. 39: nach Kontowechsel/neuer Anmeldung Mitteilungen wieder einschalten (Berechtigung da, nicht bewusst aus)
+                scope.launch { push.load(); push.autoEnable() }
             }
             if (chat.state.value == io.github.yggdrasil_sh.saga.chat.ChatSetup.LOADING) scope.launch { chat.refresh() }
             if (serverVersion.value == null) checkVersion()

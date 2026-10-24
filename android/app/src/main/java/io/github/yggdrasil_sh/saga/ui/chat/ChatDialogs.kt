@@ -1,5 +1,8 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.filled.Close
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
@@ -140,7 +143,25 @@ fun NewChatDialog(repo: SagaRepository, onDismiss: () -> Unit, onOpen: (Long) ->
                 )
                 FilterChip(selected = multi, onClick = { multi = !multi; picked = emptyList(); pickedRemote = emptyList() }, label = { Text(stringResource(R.string.chat_kind_free)) })
                 if (multi && (picked.isNotEmpty() || pickedRemote.isNotEmpty())) {
-                    Text((picked.map { it.name } + pickedRemote.map { it.shown }).joinToString(", "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                    // Nr. 56: gewaehlte Personen als Chips mit x (vorher nur eine Textzeile, Entfernen nur ueber den Suchtreffer)
+                    val rm = stringResource(R.string.chat_remove_picked)
+                    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                    androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        picked.forEach { u ->
+                            androidx.compose.material3.InputChip(
+                                selected = false, onClick = { picked = picked.filter { it.username != u.username } },
+                                label = { Text(u.name.ifEmpty { ChatLogic.shown(u) }, maxLines = 1) },
+                                trailingIcon = { Icon(Icons.Filled.Close, "$rm: ${u.name}", Modifier.size(16.dp)) },
+                            )
+                        }
+                        pickedRemote.forEach { u ->
+                            androidx.compose.material3.InputChip(
+                                selected = false, onClick = { pickedRemote = pickedRemote.filter { it.handle != u.handle } },
+                                label = { Text(u.shown, maxLines = 1) },
+                                trailingIcon = { Icon(Icons.Filled.Close, "$rm: ${u.shown}", Modifier.size(16.dp)) },
+                            )
+                        }
+                    }
                 }
                 LazyColumn(Modifier.heightIn(max = 320.dp)) {
                     if (fedFor.isNotEmpty() && fedFor == q) item { FedChatHint(fedV2 == true) }

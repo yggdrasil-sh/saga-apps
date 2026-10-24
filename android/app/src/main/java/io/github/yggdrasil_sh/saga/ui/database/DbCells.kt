@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -79,11 +80,22 @@ fun optColor(name: String?): Color = when (name) {
     else -> Color(0xFF9B9A97)
 }
 
+/**
+ * Hintergrund eines Options-Chips: hell 35 % Deckkraft; dunkel aufgehellt und deckender (Nr. 42: dunkelgruener Chip
+ * verschwand fast im dunklen Grund). Text bleibt in Vordergrundfarbe (hell bzw. dunkel) und damit gut lesbar.
+ */
+@Composable
+fun optBg(color: String?): Color {
+    val base = optColor(color)
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    return if (dark) androidx.compose.ui.graphics.lerp(base, Color.White, 0.18f).copy(alpha = 0.55f) else base.copy(alpha = 0.35f)
+}
+
 @Composable
 fun OptChip(name: String, color: String?) {
     Text(
         name.ifEmpty { "–" }, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
-        modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(optColor(color).copy(alpha = 0.35f)).padding(horizontal = 6.dp, vertical = 1.dp),
+        modifier = Modifier.clip(RoundedCornerShape(4.dp)).background(optBg(color)).padding(horizontal = 6.dp, vertical = 1.dp),
     )
 }
 

@@ -55,7 +55,8 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val account by repo.account.collectAsState()
     val serverVersion by repo.serverVersion.collectAsState()
     val minApp by repo.minApp.collectAsState()
-    var apps by remember { mutableStateOf<AppsResponse?>(null) }
+    // zuletzt geladene Geraeteliste sofort zeigen (sonst springt die Liste beim Zurueckkehren, Nr. 34)
+    var apps by remember { mutableStateOf(SettingsScroll.apps.takeIf { SettingsScroll.key == repo.signInCount.value }) }
     var appsError by remember { mutableStateOf<UiText?>(null) }
     var drop by remember { mutableStateOf<DeviceInfo?>(null) }
     var confirmLogout by remember { mutableStateOf(false) }
@@ -81,6 +82,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     suspend fun loadApps() {
         try {
             apps = repo.apps()
+            SettingsScroll.apps = apps
             appsError = null
         } catch (e: CancellationException) {
             throw e
@@ -95,8 +97,38 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         loadApps()
     }
 
+    // Nr. 34: nach der Rueckkehr aus einer Unterseite (Mitteilungen, Backup ...) wieder an derselben Stelle.
+    // Viele Eintraege laden erst asynchron (Kontobloecke, Mitteilungsarten, Push, Chat) und aendern dabei ihre Hoehe.
+    // Daher: warten, bis die Liste wieder so viele Eintraege hat, und den ersten beim Verlassen ganz sichtbaren
+    // Eintrag oben hinstellen (nicht weiter zurueck – sonst kommen die noch leeren Kontobloecke ins Bild und schieben
+    // beim Laden alles nach unten). Bis ~2 s nachziehen, falls Nachladen die Liste zuruecksetzt; nie gegen den Nutzer.
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    LaunchedEffect(signIns) {
+        if (SettingsScroll.key != signIns || SettingsScroll.index <= 0) return@LaunchedEffect
+        val idx = SettingsScroll.index
+        val want = SettingsScroll.count
+        for (n in 0 until 30) {
+            if (listState.layoutInfo.totalItemsCount >= want) break
+            kotlinx.coroutines.delay(100)
+        }
+        listState.scrollToItem(idx)
+        repeat(20) {
+            kotlinx.coroutines.delay(100)
+            if (listState.isScrollInProgress) return@LaunchedEffect
+            if (listState.firstVisibleItemIndex < idx && listState.canScrollForward) listState.scrollToItem(idx)
+        }
+    }
+    androidx.compose.runtime.DisposableEffect(signIns) {
+        onDispose {
+            val vis = listState.layoutInfo.visibleItemsInfo
+            val anchor = vis.firstOrNull { it.offset >= 0 } ?: vis.firstOrNull()
+            SettingsScroll.key = signIns
+            SettingsScroll.count = listState.layoutInfo.totalItemsCount
+            SettingsScroll.index = anchor?.index ?: 0
+        }
+    }
     Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_settings), nav, chrome) }) { pad ->
-        LazyColumn(Modifier.padding(pad).fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+        LazyColumn(Modifier.padding(pad).fillMaxSize(), state = listState, horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
             // Sprache der App ganz oben (gut auffindbar; auf einem fremden/geteilten Geraet unabhaengig von der Geraetesprache)
             item { LanguageRow(w.padding(top = 4.dp)) }
@@ -211,7 +243,9 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                                 ).joinToString(" · ")
                             )
                         },
-                        trailingContent = { TextButton(onClick = { drop = d }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) } },
+                        // Nr. 33: dieses Geraet kennzeichnen; Abmelden hier ueber den normalen Weg (Konto oben), nicht per Liste
+                        overlineContent = if (d.current) ({ Text(stringResource(R.string.settings_device_current), color = MaterialTheme.colorScheme.primary) }) else null,
+                        trailingContent = { if (!d.current) TextButton(onClick = { drop = d }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) } },
                         modifier = w,
                     )
                 }
@@ -285,4 +319,12 @@ fun notifKindLabel(kind: String): Int = when (kind) {
     "backup.failed" -> R.string.notify_kind_backup_failed
     "userbackup.failed" -> R.string.notify_kind_userbackup_failed
     else -> R.string.notifications
+}
+
+/** Scrollstand der Einstellungen (nur im Speicher, je Anmeldung) */
+private object SettingsScroll {
+    var key = -1
+    var index = 0
+    var count = 0
+    var apps: AppsResponse? = null
 }

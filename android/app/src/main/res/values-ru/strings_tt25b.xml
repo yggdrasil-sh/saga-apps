@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Testrunden-Funde (Android-Rest) -->
+<resources>
+    <string name="settings_device_current">это устройство</string>
+    <string name="dbv_filter_value">Значение</string>
+    <string name="dbv_more_columns">Ещё столбцы – листайте в сторону</string>
+    <string name="chat_remove_picked">Убрать</string>
+</resources>

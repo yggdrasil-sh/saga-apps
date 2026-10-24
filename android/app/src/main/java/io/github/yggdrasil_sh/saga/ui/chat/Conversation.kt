@@ -407,11 +407,15 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             title = {
                 Column {
                     Text(s.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Nr. 54: mit Online-Stand steht "Ende-zu-Ende verschluesselt" nur noch als Schloss (und fuer Bedienungshilfen),
+                    // sonst schnitt die einzeilige Zeile Server und Hinweis ab
+                    val full = (presenceLine?.let { "$it · " } ?: "") + fedHeadLine(s)
+                    val shown = presenceLine?.let { pl -> fedHeadLine(s, withE2e = false).let { r -> if (r.isEmpty()) pl else "$pl · $r" } } ?: fedHeadLine(s)
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = full }) {
                         Icon(Icons.Filled.Lock, null, Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         // eine Zeile: bei 200 % Schrift sonst hoeher als die Kopfzeile (ragt in die Statusleiste, BUG-070)
                         Text(
-                            (presenceLine?.let { "$it · " } ?: "") + fedHeadLine(s), style = MaterialTheme.typography.labelSmall,
+                            shown, style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp),
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )

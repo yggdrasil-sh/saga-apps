@@ -67,10 +67,10 @@ import java.time.format.FormatStyle
 
 /** Zweite Zeile der Kopfzeile: "Ende-zu-Ende-verschlüsselt", bei Personen anderer Server mit Herkunft und Stand */
 @Composable
-fun fedHeadLine(s: ChatSession): String {
+fun fedHeadLine(s: ChatSession, withE2e: Boolean = true): String {
     val e2e = stringResource(R.string.chat_e2e)
     val sum = s.summary
-    if (sum == null || !s.isFed) return e2e
+    if (sum == null || !s.isFed) return if (withE2e) e2e else ""
     val p = sum.peer
     // Herkunft und Stand zuerst (die Zeile ist einzeilig und wird sonst abgeschnitten), "Ende-zu-Ende" zuletzt
     val parts = mutableListOf<String>()
@@ -85,7 +85,7 @@ fun fedHeadLine(s: ChatSession): String {
     }
     if (sum.request) parts.add(stringResource(R.string.fed_request_chip))
     if (sum.readonly) parts.add("🔒 " + stringResource(R.string.fed_readonly_chip))
-    parts.add(e2e)
+    if (withE2e || parts.isEmpty()) parts.add(e2e)
     return parts.joinToString(" · ")
 }
 

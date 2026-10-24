@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.painterResource
@@ -320,12 +321,26 @@ private fun colWidth(p: DbProp?, wide: Boolean): Dp = when (p?.type) {
 private fun TableHead(st: DbViewState, v: DbView, wide: Boolean) {
     val s = st.schema ?: return
     Column {
-        Row(Modifier.horizontalScroll(st.hScroll).padding(vertical = 6.dp)) {
-            Text(s.titleName ?: stringResource(R.string.dbv_name_col), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(colWidth(null, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            s.visibleProps(v).forEach { p ->
-                Text(p.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.width(colWidth(p, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Box {
+            Row(Modifier.horizontalScroll(st.hScroll).padding(vertical = 6.dp)) {
+                Text(s.titleName ?: stringResource(R.string.dbv_name_col), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.width(colWidth(null, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                s.visibleProps(v).forEach { p ->
+                    Text(p.name, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.width(colWidth(p, wide)).padding(horizontal = 6.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            // Nr. 23: es gibt weitere Spalten rechts - Pfeil mit Verlauf (antippen = ein Stueck weiter)
+            if (st.hScroll.canScrollForward) {
+                val bg = MaterialTheme.colorScheme.background
+                val scope = rememberCoroutineScope()
+                val more = stringResource(R.string.dbv_more_columns)
+                Box(
+                    Modifier.align(Alignment.CenterEnd).width(40.dp).height(32.dp)
+                        .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(bg.copy(alpha = 0f), bg)))
+                        .clickable(onClickLabel = more) { scope.launch { st.hScroll.animateScrollBy(240f) } },
+                    contentAlignment = Alignment.CenterEnd,
+                ) { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, more, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

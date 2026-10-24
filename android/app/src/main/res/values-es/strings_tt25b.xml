@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Testrunden-Funde (Android-Rest) -->
+<resources>
+    <string name="settings_device_current">este dispositivo</string>
+    <string name="dbv_filter_value">Valor</string>
+    <string name="dbv_more_columns">Más columnas: desliza hacia el lado</string>
+    <string name="chat_remove_picked">Quitar</string>
+</resources>
