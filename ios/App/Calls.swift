@@ -102,6 +102,8 @@ final class CallManager: NSObject, ObservableObject {
     // 2.4 E4/E5: Raum (CallRoom.swift)
     /// "dm" (1:1, auch mit Begleitgeraeten) bzw. "group"
     @Published var kind = "dm"
+    /// 2.5: 1:1 ueber einen Knoten (Raum-Anruf mit dm: true) - Anzeige wie 1:1, nicht als Gruppenanruf
+    @Published var dmRoom = false
     /// dieses Geraet ist Begleitgeraet (ohne Mikrofon und Ton gestartet)
     @Published var companion = false
     /// Wiedergabe an (Begleitgeraet: aus, Echo-Schutz)
@@ -729,7 +731,8 @@ final class CallManager: NSObject, ObservableObject {
         if remoteSide !== p?.remoteSide { remoteSide = p?.remoteSide }
         if let p, p.swap != swapView { p.swap = swapView }
         let on = links.filter { $0.connected }
-        let v = !on.isEmpty && on.allSatisfy(\.verified)
+        // 2.5: Knoten-Anruf ohne Mesh-Verbindungen - verschluesselt ist er ab hornGo (Frame-E2E), nicht ueber links
+        let v = horn?.started == true || (!on.isEmpty && on.allSatisfy(\.verified))
         if verified != v { verified = v }
         let rel = links.contains { $0.relay }
         if relay != rel { relay = rel }
@@ -1589,7 +1592,7 @@ final class CallManager: NSObject, ObservableObject {
         sharing = false; scrSource = nil; scrTrack = nil; scrSid = ""
         remoteSide = nil; swapView = false; shareCamPaused = false; screenHint = false
         // 2.4 E4/E5
-        kind = "dm"; companion = false; sound = true; meshView = false; tiles = []; speakerDev = nil; handingOver = false
+        kind = "dm"; dmRoom = false; companion = false; sound = true; meshView = false; tiles = []; speakerDev = nil; handingOver = false
         limit = CallRoom.videoMax; oldNames = []; inRoom = false
         roster.reset(); ho = CallRoom.Handover(); hoTask?.cancel(); hoTask = nil; joinRole = ""; title = ""
         pend = [:]; admitting = []; badDevs = []; keysBy = [:]; speakerState = CallRoom.Speaker()

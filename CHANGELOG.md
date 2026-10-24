@@ -9,6 +9,17 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – Anrufe über Knoten (Test mit echten Servern, 24.10.)
+**iOS/iPadOS/macOS, Android:**
+- **1:1 über Knoten** („Alle Anrufe über Knoten“ am Server) klingelt und läuft jetzt wie ein 1:1-Anruf – vorher
+  „Gruppen-Videoanruf“ beim Klingeln und „Gruppenanruf“ als Titel. Das Anruf-Objekt meldet `dm: true`.
+- **Zu zweit über Knoten** (1:1 bzw. Gruppenanruf mit nur noch einer weiteren Person): Gegenüber groß, eigenes Bild
+  klein in der Ecke wie beim direkten 1:1 – vorher zwei schmale Hochkant-Kacheln, das Bild des Gegenübers stark
+  beschnitten. Android: das große Bild ist dann kein Medien-Overlay mehr, sonst verschwand das eigene Bild dahinter.
+- **iOS: „Verschlüsselung wird geprüft …“** blieb in jedem Anruf über Knoten stehen, obwohl Frame-E2E aktiv war
+  (die Anzeige wurde aus den – im Knoten-Anruf leeren – Mesh-Verbindungen neu berechnet).
+- iOS (nur Debug): Startparameter `-hkCallAutoAnswer` gilt auch für Raum-Anrufe (Tests im Simulator).
+
 ### Neu – Saga 2.5: Chat-Stufe 3 und Chat-Grundlagen
 **iOS/iPadOS/macOS, Android, Linux:**
 - **Chat-Stufe 3:** Die Apps melden `X-Saga-Chat: 3`; Chats `v: 3` laufen über den Weg der Chats über Servergrenzen

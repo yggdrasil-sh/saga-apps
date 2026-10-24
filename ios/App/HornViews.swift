@@ -16,7 +16,11 @@ struct HornStage: View {
     var body: some View {
         GeometryReader { g in
             let big = horn.share != nil || (horn.view == "speaker" && horn.tiles.count > 1)
-            if big { strip(g.size) } else { grid(g.size) }
+            // zu zweit (1:1 ueber Knoten bzw. Raum mit einer weiteren Person): Gegenueber gross, eigenes Bild klein -
+            // wie der direkte 1:1-Anruf, statt zwei schmaler Hochkant-Kacheln
+            if horn.share == nil, horn.tiles.count == 2, let me = horn.tiles.first(where: \.mine), let other = horn.tiles.first(where: { !$0.mine }) {
+                duo(other: other, me: me, size: g.size)
+            } else if big { strip(g.size) } else { grid(g.size) }
         }
         .overlay(alignment: .topTrailing) { buttons }
     }
@@ -54,6 +58,15 @@ struct HornStage: View {
             HornTileView(tile: t, compact: compact).onTapGesture(count: 2) { calls.hornPin(t.id) }
                 .accessibilityAddTraits(.isButton)
                 .accessibilityAction { calls.hornPin(t.id) }
+        }
+    }
+    private func duo(other: HornTile, me: HornTile, size: CGSize) -> some View {
+        let w: CGFloat = size.width <= 640 ? 110 : 180
+        return ZStack(alignment: .topTrailing) {
+            tile(other).frame(maxWidth: .infinity, maxHeight: .infinity)
+            tile(me, compact: true).frame(width: w, height: w * 16 / 11)
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.3)))
+                .shadow(radius: 6).padding(.top, 50).padding(.trailing, 8)    // unter den Knoepfen oben rechts
         }
     }
     private func strip(_ size: CGSize) -> some View {

@@ -219,6 +219,17 @@ fun HornStage(
 ) {
     val tiles = ui.tiles
     val strip = ui.screenFrom != null || (ui.view == "speaker" && tiles.size > 1)
+    // zu zweit (1:1 ueber Knoten bzw. Raum mit einer weiteren Person): Gegenueber gross, eigenes Bild klein in der Ecke -
+    // wie der direkte 1:1-Anruf, statt zwei schmaler Hochkant-Kacheln
+    if (ui.screenFrom == null && tiles.size == 1 && self != null) {
+        val other = tiles[0]
+        Box(modifier) {
+            Tile(other, Modifier.fillMaxSize(), false, video, selfVideo, onPin)
+            Tile(self, Modifier.align(Alignment.TopEnd).padding(top = 48.dp, end = 8.dp).size(width = 110.dp, height = 160.dp),
+                true, video, selfVideo, onPin)
+        }
+        return
+    }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (strip) {
             val bigTile = tiles.firstOrNull { it.big }

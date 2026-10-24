@@ -26,7 +26,11 @@ extension CallManager {
         if chatID == 0, let ch = ShareJSON.int(c["chat_id"]) { chatID = ch }
         limit = CallRoom.limit(media: media, server: ShareJSON.int(c["limit"]), horn: topo == "horn")
         oldNames = (c["old"] as? [Any] ?? []).compactMap { ($0 as? [String: Any]).flatMap { ShareJSON.str($0["name"]) ?? ShareJSON.str($0["who"]) } }
-        if kind == "group" {
+        if let d = c["dm"] as? Bool { dmRoom = d }
+        if kind == "group", dmRoom {                                        // 2.5: 1:1 ueber Knoten - peer = Gegenueber
+            let p = c["peer"] as? [String: Any] ?? [:]
+            peerName = ShareJSON.str(p["name"]) ?? peerName; peerAvatar = ShareJSON.str(p["avatar"]) ?? peerAvatar
+        } else if kind == "group" {
             let from = c["from"] as? [String: Any] ?? c["peer"] as? [String: Any] ?? [:]
             if title.isEmpty, let t = ShareJSON.str(from["chat"]) { title = t }
             peerName = title.isEmpty ? String(localized: "Gruppenanruf") : title
@@ -66,18 +70,25 @@ extension CallManager {
         if incoming?.id == cid || id == cid || done.contains(cid) { return }
         let from = c["from"] as? [String: Any] ?? c["peer"] as? [String: Any] ?? [:]
         let who = ShareJSON.str(from["name"]) ?? hint?.caller ?? ""
-        let chatName = ShareJSON.str(from["chat"])
+        let dm = (c["dm"] as? Bool) == true                                 // 2.5: 1:1 ueber Knoten - klingelt wie 1:1
+        let chatName = dm ? nil : ShareJSON.str(from["chat"])
         let media = (c["media"] as? String) == "video" ? "video" : "audio"
         let inc = IncomingCall(id: cid, chatID: ShareJSON.int(c["chat_id"]) ?? 0, media: media,
                                name: chatName.map { "\(who) · \($0)" } ?? who, username: from["username"] as? String ?? "", avatar: ShareJSON.str(from["avatar"]),
                                group: true, chatName: chatName)
         reset()
-        incoming = inc; phase = .incoming; role = "callee"; kind = "group"; self.media = media; peerName = inc.name; peerAvatar = inc.avatar
+        incoming = inc; phase = .incoming; role = "callee"; kind = "group"; dmRoom = dm; self.media = media; peerName = inc.name; peerAvatar = inc.avatar
         chatID = inc.chatID; title = chatName ?? ""
-        status = media == "video" ? String(localized: "Gruppen-Videoanruf") : String(localized: "Gruppenanruf")
+        status = dm ? (media == "video" ? String(localized: "Videoanruf") : String(localized: "Anruf"))
+            : media == "video" ? String(localized: "Gruppen-Videoanruf") : String(localized: "Gruppenanruf")
         CallEnv.log("incoming group \(cid.prefix(8)) \(media)")
         CallSystem.shared.reportIncoming(self, inc)
         aliveRinging(cid)
+        #if DEBUG
+        if let a = UserDefaults.standard.string(forKey: "hkCallAutoAnswer") {      // nur fuer Tests: annehmen/ablehnen
+            Task { try? await Task.sleep(for: .seconds(4)); if incoming?.id == cid { if a == "decline" { decline() } else { answer(video: a == "video") } } }
+        }
+        #endif
     }
     /// Klingeln beenden: ein eigenes Geraet ist beigetreten bzw. die Einladung wurde (auf einem anderen Geraet) abgelehnt
     func stopGroupRing(_ cid: String, declined: Bool) {

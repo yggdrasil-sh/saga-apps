@@ -2240,9 +2240,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             CallRoom.str(from, "username").orEmpty(), CallRoom.str(from, "name").orEmpty(), CallRoom.str(from, "avatar"),
             CallRoom.str(from, "handle"),
         )
-        CallRoom.str(from, "chat")?.let { titles[id] = it }
+        if (!ev.bool("dm")) CallRoom.str(from, "chat")?.let { titles[id] = it }   // 2.5: 1:1 ueber Knoten ohne Chat-Titel
         val info = CallInfo(id = id, chatId = ev.long("chat_id") ?: 0, media = ev.str("media") ?: "audio", state = "ringing", role = "callee",
-            peer = peer, ringS = ev.int("ring_s"), kind = CallRoom.KIND_GROUP)
+            peer = peer, ringS = ev.int("ring_s"), kind = CallRoom.KIND_GROUP, dm = ev.bool("dm"))
         ringGroup(info)
     }
 
@@ -2255,7 +2255,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             return
         }
         ring = info
-        _ui.value = CallUiState(CallPhase.INCOMING, info.id, info.chatId, false, info.media == "video", info.peer, group = true)
+        _ui.value = CallUiState(CallPhase.INCOMING, info.id, info.chatId, false, info.media == "video", info.peer, group = !info.dm)   // 2.5: dm = Anzeige wie 1:1
         CallNotify.showIncoming(app, info)
         if (androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
             CallActivity.open(app)

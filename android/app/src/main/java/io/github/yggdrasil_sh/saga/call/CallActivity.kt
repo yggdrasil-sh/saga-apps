@@ -407,7 +407,12 @@ private fun CallScreen(
                 HornStage(
                     horn, Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp),
                     self = if (st.cam) HornTile("self", me, "", video = true, mic = st.mic, speaking = false) else null,
-                    video = { t, m -> calls.tileSink(t.dev)?.let { VideoView(calls, remote = true, visible = true, modifier = m, sink = it, overlay = true) } },
+                    // zu zweit (HornStage: Gegenueber gross, eigenes Bild klein darueber): das grosse Bild darf kein
+                    // Medien-Overlay sein, sonst liegen beide SurfaceViews auf einer Ebene und das kleine verschwindet
+                    video = { t, m ->
+                        val duo = horn.screenFrom == null && horn.tiles.size == 1 && st.cam
+                        calls.tileSink(t.dev)?.let { VideoView(calls, remote = true, visible = true, modifier = m, sink = it, overlay = !duo) }
+                    },
                     big = { m -> VideoView(calls, remote = true, visible = true, modifier = m, sink = calls.remoteSink, overlay = false) },
                     selfVideo = { m -> VideoView(calls, remote = false, visible = true, modifier = m) },
                     onPin = { calls.hornPin(it) },

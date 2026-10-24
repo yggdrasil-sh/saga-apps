@@ -90,6 +90,8 @@ data class CallInfo(
     // 2.4 E4/E5: Raum (Vertrag "Anrufe: Mehrgeraete und Gruppen")
     /** dm | group */
     val kind: String = "dm",
+    /** 2.5: 1:1 ueber einen Knoten (Raum-Anruf, Anzeige wie 1:1) */
+    val dm: Boolean = false,
     /** Hoechstzahl der Geraete im Anruf (Server; der Admin kann nur senken) */
     val limit: Int? = null,
     val joinable: Boolean = false,
