@@ -256,6 +256,20 @@ class HornLogicTest {
         assertEquals("L1T2", H.camEncodings("turn")[0].mode)
     }
 
+    @Test
+    fun camActiveAkku() {
+        fun on(p: String, n: Int, low: Boolean) = H.camActive(p, n, low).first.sorted().joinToString(",")
+        assertEquals("", on("udp", 0, false))                    // allein: nichts kodieren
+        assertEquals("h,m", on("udp", 1, false))                 // zu zweit: ohne Kachel-Schicht
+        assertEquals("h,l,m", on("udp", 3, false))               // Gruppe: alle
+        assertEquals("l,m", on("udp", 3, true))                  // Energiesparen: ohne h
+        assertEquals("m", on("udp", 1, true))
+        assertEquals("m", on("tcp", 1, false))
+        assertEquals("m", on("tcp", 1, true))                    // nie ganz leer, solange jemand da ist
+        assertEquals(15, H.camActive("udp", 2, true).second)
+        assertEquals(null, H.camActive("udp", 2, false).second)
+    }
+
     // ---- Formate des Knotens ---------------------------------------------------------------------------------------
 
     @Test

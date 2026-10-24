@@ -3439,6 +3439,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         override val factory: PeerConnectionFactory get() = this@CallManager.factory()
         override fun myDev(): String = myDevId()
         override fun mobile(): Boolean = hornMobile()
+        override fun lowPower(): Boolean = hot() || (app.getSystemService(android.os.PowerManager::class.java)?.isPowerSaveMode == true)
         override fun legs(): List<CallLeg> = r.rs.roster.legs
         override fun audioTrack(): AudioTrack? = r.audioTrack
         override fun camTrack(): VideoTrack? = r.videoTrack

@@ -105,6 +105,8 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         /** Bein vom Knoten beendet mit "entfernt" (Gastgeber) */
         fun removedHint()
         fun refreshRoster()
+        /** 2.5 Akku: Energiesparmodus an oder Geraet heiss -> weniger kodieren */
+        fun lowPower(): Boolean = false
         /** Video-Senke einer Kachel bzw. des grossen Bildes (Sprecher/Bildschirm) */
         fun tileSink(dev: String): ProxySink
         val bigSink: ProxySink
@@ -829,6 +831,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     private fun peersIn(conn: Conn, peers: Map<String, Long>) {
         conn.peers = peers
         mapAll()
+        tune(conn)
         // unbekannte Kennung (Geraet gerade beigetreten): Teilnehmerliste einmal neu holen
         val mine = myRef(conn)
         if (peers.keys.any { devOf(conn, it) == null && it != mine } && System.currentTimeMillis() - rosterAt > 2000) {
@@ -838,6 +841,32 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
     }
 
     private var rosterAt = 0L
+    private var tuneAt = 0L
+
+    /** 2.5 Akku: Kamera-Schichten nach Zahl der anderen und Energiesparen (HornLogic.camActive) - nur bei Aenderung */
+    private fun tune(conn: Conn) {
+        tuneAt = System.currentTimeMillis()
+        val mine = myRefs().toSet() + myRef(conn)                    // auch eigene Kennungen anderer Verbindungen (Wechsel)
+        val others = conn.peers.keys.count { it !in mine }
+        val (on, fps) = HornLogic.camActive(conn.path, others, host.lowPower())
+        val max = HornLogic.camEncodings(conn.path).associate { it.rid to it.maxFps }
+        for (L in conn.legs.values) {
+            val s = L.cam?.sender ?: continue
+            try {
+                val p = s.parameters
+                var diff = false
+                for (e in p.encodings) {
+                    val a = e.rid in on
+                    val f = minOf(max[e.rid] ?: 30, fps ?: 30)
+                    if (e.active != a) { e.active = a; diff = true }
+                    if (e.maxFramerate != f) { e.maxFramerate = f; diff = true }
+                }
+                if (diff) { s.parameters = p; log("schichten ${on.sorted()} fps ${fps ?: "-"} (andere $others)") }
+            } catch (e: Exception) {
+                log("schichten: ${e.message}")
+            }
+        }
+    }
 
     private fun refOf(x: CallLeg, conn: Conn): String? = x.hpn[conn.node] ?: x.hp
     private fun myRef(conn: Conn): String = host.legs().firstOrNull { it.device == host.myDev() }?.let { refOf(it, conn) } ?: conn.cand.peer
@@ -999,6 +1028,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                 delay(500)
                 try {
                     mon()
+                    cur?.let { if (System.currentTimeMillis() - tuneAt > 5000) tune(it) }   // Energiesparen an/aus
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {

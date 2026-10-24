@@ -9,6 +9,12 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Verbessert – Android: weniger Akku in Anrufen über einen Knoten
+- Bisher kodierte die App das eigene Kamerabild immer in allen Schichten (UDP: 1/4, 1/2 und volle Größe), auch wenn
+  niemand sie braucht. Jetzt: allein im Raum (z. B. beim Klingeln) keine; zu zweit ohne die kleine Kachel-Schicht;
+  im Energiesparmodus oder wenn das Gerät heiß wird ohne die volle Größe und höchstens 15 fps. Wer beitritt, bekommt
+  das Bild binnen Sekunden. Gilt für 1:1 über einen Knoten und Gruppenanrufe.
+
 ### Neu/Behoben – Anrufe: eigenes Bild verschiebbar und ausblendbar, Knöpfe nach dem Drehen
 - Eigenes Kamerabild (1:1 und zu zweit über einen Knoten) in jede Ecke ziehen – rastet ein – oder mit dem kleinen
   Knopf am Bild ausblenden (bleibt als Knopf in der Ecke, Tippen zeigt es wieder). Das Gerät merkt sich beides.

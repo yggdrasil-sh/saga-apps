@@ -339,6 +339,22 @@ object HornLogic {
         Enc("m", 1.0, 700, 30, "L1T3"),
     )
 
+    /**
+     * 2.5 Akku: welche Kamera-Schichten wirklich kodiert werden. others = andere Geraete im Raum am Knoten.
+     * - allein (others = 0): keine (niemand empfaengt; wer beitritt, schaltet sie binnen Sekunden wieder ein)
+     * - zu zweit (others = 1): ohne "l" - das Gegenueber zeigt das Bild gross (Kachel-Wunsch faellt auf "m" zurueck)
+     * - Energiesparen/heiss (lowPower): ohne "h", hoechstens 15 fps
+     * -> (aktive rids, fps-Obergrenze oder null)
+     */
+    fun camActive(path: String, others: Int, lowPower: Boolean): Pair<Set<String>, Int?> {
+        var rids = camEncodings(path).map { it.rid }.toMutableSet()
+        if (others <= 0) return emptySet<String>() to null
+        if (others == 1 && rids.size > 1) rids.remove("l")
+        if (lowPower && rids.size > 1) rids.remove("h")
+        if (rids.isEmpty()) rids = mutableSetOf(camEncodings(path).last().rid)
+        return rids to (if (lowPower) 15 else null)
+    }
+
     /** Bildschirm wie 2.4 relay-udp bzw. relay-tcp (kbit/s, fps) */
     fun screenRate(path: String): Pair<Int, Int> = if (path == "udp") 1800 to 15 else 1200 to 10
 
