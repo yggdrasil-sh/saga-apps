@@ -753,10 +753,12 @@ class SagaRepository(
      * Schaltflaeche "Neuer Eintrag" (wie Web/iOS): leer oder als Kopie einer Vorlage (Inhalt, Symbol, Werte, Unterseiten).
      * Ohne Vorlage wird immer ein Titel mitgeschickt (auch leer), mit Vorlage nur ein gesetzter - sonst bleibt deren Titel.
      */
-    suspend fun buttonEntry(dbId: Long, title: String, tpl: Long?): Long {
+    suspend fun buttonEntry(dbId: Long, title: String, tpl: Long?, via: Long? = null): Long {
         val b = buildJsonObject {
             put("parent_id", dbId)
             if (title.isNotEmpty() || tpl == null) put("title", title)
+            // geteilte Seite: der Server prueft die Schaltflaeche auf dieser Seite (Vorlage des Eigentuemers, Server 2.5)
+            if (tpl != null && via != null && via > 0) put("via", via)
         }
         val id = decode<NewId>(api.post(if (tpl != null) "api/notes/$tpl/duplicate" else "api/notes", b)).id
         if (tpl == null) pageAdded(id, dbId) else refresh(join = false)

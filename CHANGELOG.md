@@ -9,6 +9,10 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – alle Apps: Schaltfläche mit Vorlage auf geteilten Seiten
+- „Neuer Eintrag“ mit Vorlage aus einer nicht geteilten Datenbank des Eigentümers legte für andere Personen nichts an.
+  Die Apps (iOS/macOS, Android, Linux) schicken jetzt die Seite mit der Schaltfläche mit (`via`, braucht Server 2.5).
+
 ### Neu – iOS/iPadOS/macOS: Datenbank-Kopf, Vorlagen verwalten, KI ordnet zu (Server 2.5)
 - Eingebettete Datenbank: unter „Ansicht“ → „Dieser Block“ lassen sich Datenbanktitel und Ansichts-Reiter je Block
   ausblenden (wie im Web, im Block gespeichert).

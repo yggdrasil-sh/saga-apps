@@ -1727,7 +1727,7 @@ class MainWindow(Adw.ApplicationWindow):
         store.move(pid, parent, error=lambda e: self.toast(str(e)))
         return True
 
-    def run_button(self, b, busy=None):
+    def run_button(self, b, busy=None, via=None):
         """Schaltflaechen-Block. busy(on): Knopf sperren/Fortschritt zeigen, solange "Neuer Eintrag" laeuft - mehrfaches
         Klicken legt nichts doppelt an (der Server kennt keinen Idempotenz-Schluessel)."""
         tgt = b.get("target")
@@ -1741,6 +1741,8 @@ class MainWindow(Adw.ApplicationWindow):
             body = {"parent_id": tgt}
             if title or not tpl:
                 body["title"] = title
+            if tpl and isinstance(via, int) and via > 0:
+                body["via"] = via          # geteilte Seite: Server prueft die Schaltflaeche auf dieser Seite (Server 2.5)
             path = f"api/notes/{tpl}/duplicate" if tpl else "api/notes"
             if busy:
                 busy(True)

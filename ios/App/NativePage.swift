@@ -1354,7 +1354,7 @@ struct BlockView: View {
             EventList(days: 14, compact: true).padding(12).background(.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
         case "buttons":
             HStack(spacing: 6) {
-                ButtonsBlock(buttons: data["buttons"] as? [[String: Any]] ?? [], readOnlyRole: ed.doc.access.readOnly)
+                ButtonsBlock(buttons: data["buttons"] as? [[String: Any]] ?? [], readOnlyRole: ed.doc.access.readOnly, pageID: ed.doc.id)
                 if !ed.locked { Button { ed.configButtons = id } label: { Image(systemName: "gearshape").foregroundStyle(.tertiary) }.buttonStyle(.plain).help("Schaltflächen einrichten").accessibilityLabel("Schaltflächen einrichten") }
             }
         case "embed":
@@ -1495,6 +1495,8 @@ struct ButtonsBlock: View {
     let buttons: [[String: Any]]
     /// Nur Lesen/Kommentieren: Schaltflaechen nicht ausloesbar. Gesperrte Seite: bedienbar (wie im Web)
     var readOnlyRole = false
+    /// Seite mit diesem Block: geteilte Seite -> der Server prueft die Schaltflaeche dort (Vorlage des Eigentuemers, 2.5)
+    var pageID: Int? = nil
     @EnvironmentObject var store: Store
     @EnvironmentObject var nav: NavModel
     @State private var gate = ButtonLogic.Gate()
@@ -1544,6 +1546,7 @@ struct ButtonsBlock: View {
             struct R: Decodable { let id: Int; let updated: Double? }
             let tpl = b["tpl"] as? Int
             var body: [String: Any] = ["parent_id": t]; if !title.isEmpty || tpl == nil { body["title"] = title }
+            if tpl != nil, let p = pageID, p > 0 { body["via"] = p }
             do {
                 let d = try await store.api(tpl.map { "api/notes/\($0)/duplicate" } ?? "api/notes", method: "POST", body: body)   // Vorlage: alles uebernehmen
                 let r = try JSONDecoder().decode(R.self, from: d)

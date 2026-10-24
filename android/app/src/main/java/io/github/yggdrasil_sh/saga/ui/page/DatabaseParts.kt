@@ -259,7 +259,7 @@ fun ButtonsBlock(d: JsonObject, env: BlockEnv) {
                                             val today = android.text.format.DateFormat.getDateFormat(ctx).format(java.util.Date())
                                             var title = raw
                                             for (k in listOf("{datum}", "{date}", "{fecha}")) title = title.replace(k, today)
-                                            val id = env.repo.buttonEntry(target!!, title, tpl)
+                                            val id = env.repo.buttonEntry(target!!, title, tpl, env.editor.id)
                                             env.onLink("/notes#$id")
                                         }
                                     } catch (e: CancellationException) {
