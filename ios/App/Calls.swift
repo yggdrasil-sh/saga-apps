@@ -104,6 +104,8 @@ final class CallManager: NSObject, ObservableObject {
     @Published var kind = "dm"
     /// 2.5: 1:1 ueber einen Knoten (Raum-Anruf mit dm: true) - Anzeige wie 1:1, nicht als Gruppenanruf
     @Published var dmRoom = false
+    /// 2.5: vom Gastgeber stummgeschaltet (Name) - Hinweis bleibt, bis man das Mikrofon selbst einschaltet
+    @Published var mutedBy: String?
     /// dieses Geraet ist Begleitgeraet (ohne Mikrofon und Ton gestartet)
     @Published var companion = false
     /// Wiedergabe an (Begleitgeraet: aus, Echo-Schutz)
@@ -507,7 +509,7 @@ final class CallManager: NSObject, ObservableObject {
         v2 = fedPair; roomHandle = fedPair?.0                              // 2.4: weitere Geraete im Raum ebenfalls v2
         incoming = inc; phase = .incoming; role = "callee"; media = inc.media; peerName = inc.name; peerAvatar = inc.avatar; peer = inc.username
         chatID = inc.chatID
-        status = inc.media == "video" ? String(localized: "Videoanruf") : String(localized: "Anruf")
+        status = inc.media == "video" ? String(localized: "Eingehender Videoanruf") : String(localized: "Eingehender Anruf")
         CallEnv.log("incoming \(cid.prefix(8)) \(inc.media)")
         CallSystem.shared.reportIncoming(self, inc)
         aliveRinging(cid)
@@ -1592,7 +1594,7 @@ final class CallManager: NSObject, ObservableObject {
         sharing = false; scrSource = nil; scrTrack = nil; scrSid = ""
         remoteSide = nil; swapView = false; shareCamPaused = false; screenHint = false
         // 2.4 E4/E5
-        kind = "dm"; dmRoom = false; companion = false; sound = true; meshView = false; tiles = []; speakerDev = nil; handingOver = false
+        kind = "dm"; dmRoom = false; mutedBy = nil; companion = false; sound = true; meshView = false; tiles = []; speakerDev = nil; handingOver = false
         limit = CallRoom.videoMax; oldNames = []; inRoom = false
         roster.reset(); ho = CallRoom.Handover(); hoTask?.cancel(); hoTask = nil; joinRole = ""; title = ""
         pend = [:]; admitting = []; badDevs = []; keysBy = [:]; speakerState = CallRoom.Speaker()

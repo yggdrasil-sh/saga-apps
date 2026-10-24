@@ -121,6 +121,12 @@ data class RoomUi(
     val speaker: String = "",
     /** 2.5: Anruf ueber einen Gjallarhorn-Knoten (Kacheln, Weg, Runensiegel, Teilnehmerliste) */
     val horn: HornUi? = null,
+    /** 2.5: 1:1 ueber einen Knoten (kein Zaehler, Titel = Gegenueber) */
+    val dm: Boolean = false,
+    /** Chat-Name des Gruppenanrufs (leer: unbekannt) */
+    val title: String = "",
+    /** 2.5: vom Gastgeber stummgeschaltet (Name), bis man das Mikrofon selbst einschaltet */
+    val mutedBy: String? = null,
 )
 
 /** Reine Regeln fuer Raum, Mesh und Mehrgeraete (Unit-Tests) */

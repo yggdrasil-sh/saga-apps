@@ -36,6 +36,7 @@
     <string name="horn_muted_done">%1$s ha sido silenciado.</string>
     <string name="horn_removed_done">%1$s ha sido quitado de la llamada.</string>
     <string name="horn_muted_by">%1$s te ha silenciado. Puedes volver a activar el micrófono tú mismo.</string>
+    <string name="horn_muted_hint">%1$s te ha silenciado</string>
     <string name="horn_removed_by">%1$s te ha quitado de la llamada.</string>
     <string name="horn_removed">Te han quitado de la llamada.</string>
     <string name="horn_view_grid">Vista de mosaico</string>

@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.call
 
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import android.Manifest
 import android.app.KeyguardManager
 import android.app.PictureInPictureParams
@@ -304,7 +306,7 @@ private fun CallScreen(
             else -> shareHint = true
         }
     }
-    if (shareHint) ScreenHintDialog(onDismiss = { shareHint = false }) { dontShow ->
+    if (shareHint) ScreenHintDialog(group = st.room?.let { it.kind == CallRoom.KIND_GROUP && !it.dm } == true, onDismiss = { shareHint = false }) { dontShow ->
         shareHint = false
         if (dontShow) ScreenHint.setOff(context)
         pickScreen()
@@ -392,12 +394,21 @@ private fun CallScreen(
         } else {
         Column(Modifier.fillMaxSize().safeDrawingPadding().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Column(Modifier.onSizeChanged { infoHeight = it.height }, horizontalAlignment = Alignment.CenterHorizontally) {
+                // Anruf-UI-Regeln: Titel (Gegenueber bzw. Gruppe) oben, sobald Bild/Kacheln den Namen sonst verdecken
+                if ((meshOn || showVideo) && st.phase != CallPhase.ENDED) {
+                    val title = if (room?.kind == CallRoom.KIND_GROUP && room.dm != true) room.title.ifEmpty { stringResource(R.string.room_group_audio) }
+                    else st.peer.name.ifEmpty { st.peer.username }
+                    Text(
+                        HornLogic.shortName(title, 28), color = if (showVideo) Color.White else MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.titleMedium, maxLines = 1, modifier = Modifier.semantics { heading() },
+                    )
+                }
                 InfoLine(st, onDark = showVideo)
                 ShareBar(calls, st)
                 RoomLine(st, onDark = showVideo)
                 // 2.5 Gjallarhorn: Weg mit Qualitaetspunkt, Runensiegel, Teilnehmende, Ansicht
                 room?.horn?.let { h ->
-                    if (st.phase != CallPhase.ENDED) HornBar(h, onDark = showVideo, onRunes = { hornPanel = "runes" }, onPeople = { hornPanel = "people" },
+                    if (st.phase != CallPhase.ENDED) HornBar(h, onDark = showVideo, limit = room.limit, dm = room.dm, onRunes = { hornPanel = "runes" }, onPeople = { hornPanel = "people" },
                         onView = { calls.hornToggleView() })
                 }
             }
@@ -420,7 +431,10 @@ private fun CallScreen(
             } else if (meshOn) TileGrid(calls, st, Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp))
             else Spacer(Modifier.weight(1f))
             if (!showVideo && !meshOn) {
-                Avatar(st.peer.name.ifEmpty { st.peer.username }, size = 112, avatar = st.peer.avatar)
+                if (room?.kind == CallRoom.KIND_GROUP && room.dm != true && st.peer.avatar == null) Box(
+                    Modifier.size(112.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center,
+                ) { Icon(painterResource(R.drawable.ic_group), null, Modifier.size(52.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+                else Avatar(st.peer.name.ifEmpty { st.peer.username }, size = 112, avatar = st.peer.avatar)
                 Text(
                     st.peer.name.ifEmpty { st.peer.username }, style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -454,6 +468,16 @@ private fun CallScreen(
                 }
             }
             if (!meshOn) Spacer(Modifier.weight(1f))
+            room?.mutedBy?.let { by ->
+                if (!st.mic && st.phase == CallPhase.CONNECTED) Surface(color = dark.copy(alpha = 0.75f), contentColor = Color.White, shape = RoundedCornerShape(50),
+                    modifier = Modifier.padding(bottom = 10.dp)) {
+                    Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(painterResource(R.drawable.ic_mic_off), null, Modifier.size(16.dp))
+                        Text(stringResource(R.string.horn_muted_hint, by), style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(start = 6.dp).semantics { liveRegion = LiveRegionMode.Polite })
+                    }
+                }
+            }
             RoomActions(calls, st, withMic)
             Controls(calls, st, ::answer, onCam, onShare, onMic)
         }
@@ -524,13 +548,14 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
         Column(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             val e2e = stringResource(if (st.verified) R.string.call_e2e else R.string.call_encrypted)
             val info = stringResource(R.string.call_e2e_info)
+            // ANRUF-UI: Dauer direkt unter dem Titel, dann die Sicherheitszeile
+            if (parts.isNotEmpty()) Text(parts.joinToString(" · "), color = fg, style = MaterialTheme.typography.labelMedium)
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) {
                 if (st.verified) contentDescription = "$e2e. $info"
             }) {
                 Icon(Icons.Filled.Lock, null, Modifier.size(14.dp), tint = if (st.verified) MaterialTheme.colorScheme.primary.takeUnless { onDark } ?: Color(0xFF8BE28B) else fg)
-                Text((if (st.verified) "$e2e ✓" else e2e), color = fg, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 4.dp))
+                Text(e2e, color = fg, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 4.dp))
             }
-            if (parts.isNotEmpty()) Text(parts.joinToString(" · "), color = fg, style = MaterialTheme.typography.labelMedium)
         }
     }
 }
@@ -538,7 +563,7 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
 @Composable
 private fun Controls(calls: CallManager, st: CallUiState, answer: (Boolean) -> Unit, onCam: () -> Unit, onShare: () -> Unit, onMic: () -> Unit) {
     when (st.phase) {
-        CallPhase.INCOMING -> Row(Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+        CallPhase.INCOMING -> Row(Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
             RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_decline), MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.onError) { calls.decline() }
             if (st.video) {
                 RoundButton(R.drawable.ic_call, stringResource(R.string.call_answer_audio), CALL_GREEN, Color.White) { answer(false) }
@@ -548,7 +573,7 @@ private fun Controls(calls: CallManager, st: CallUiState, answer: (Boolean) -> U
             }
         }
         CallPhase.ENDED -> TextButton(onClick = { calls.dismiss() }, modifier = Modifier.padding(bottom = 24.dp)) { Text(stringResource(R.string.action_close)) }
-        else -> Row(Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
+        else -> Row(Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
             val tc = MaterialTheme.colorScheme.secondaryContainer
             val tf = MaterialTheme.colorScheme.onSecondaryContainer
             // 2.4 E3: "Bildschirm teilen" nur im verbundenen Anruf; bei sechs Knoepfen etwas kleiner (schmale Telefone)
@@ -629,7 +654,7 @@ private fun RoomLine(st: CallUiState, onDark: Boolean) {
     if (st.phase == CallPhase.INCOMING || st.phase == CallPhase.ENDED) return
     val fg = if (onDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
     val parts = buildList {
-        if (room.kind == CallRoom.KIND_GROUP || room.endpoints > 2) add(stringResource(R.string.room_devices_of, room.endpoints, room.limit))
+        if (room.horn == null && !room.dm && (room.kind == CallRoom.KIND_GROUP || room.endpoints > 2)) add(stringResource(R.string.room_devices_of, room.endpoints, room.limit))
         if (room.companion) add(stringResource(R.string.room_companion_hint))
         if (room.takingOver) add(stringResource(R.string.room_taking_over))
     }
@@ -728,7 +753,7 @@ object ScreenHint {
 
 /** Datenschutz-Hinweis vor dem Teilen: alles in der Auswahl ist sichtbar; nichts wird aufgezeichnet */
 @Composable
-private fun ScreenHintDialog(onDismiss: () -> Unit, onContinue: (dontShow: Boolean) -> Unit) {
+private fun ScreenHintDialog(group: Boolean, onDismiss: () -> Unit, onContinue: (dontShow: Boolean) -> Unit) {
     var dontShow by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -736,7 +761,7 @@ private fun ScreenHintDialog(onDismiss: () -> Unit, onContinue: (dontShow: Boole
         title = { Text(stringResource(R.string.call_screen_hint_title)) },
         text = {
             Column {
-                Text(stringResource(R.string.call_screen_hint))
+                Text(stringResource(if (group) R.string.call_screen_hint_group else R.string.call_screen_hint))
                 Row(
                     Modifier.fillMaxWidth().padding(top = 12.dp).toggleable(value = dontShow, role = Role.Checkbox) { dontShow = it },
                     verticalAlignment = Alignment.CenterVertically,
@@ -756,16 +781,24 @@ private fun RoundButton(
     icon: Int, label: String, bg: Color, fg: Color, big: Boolean = false, selected: Boolean? = null, compact: Boolean = false,
     onClick: () -> Unit,
 ) {
-    FilledIconButton(
-        onClick = onClick,
-        colors = IconButtonDefaults.filledIconButtonColors(containerColor = bg, contentColor = fg),
-        modifier = Modifier.size(if (big) 72.dp else if (compact) 52.dp else 60.dp).semantics {
-            contentDescription = label
-            if (selected != null) this.selected = selected
-        },
-        shape = CircleShape,
-    ) {
-        Icon(painterResource(icon), null, Modifier.size(if (big) 34.dp else if (compact) 24.dp else 28.dp))
+    val size = if (big) 72.dp else if (compact) 52.dp else 60.dp
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(maxOf(size, 64.dp))) {
+        FilledIconButton(
+            onClick = onClick,
+            colors = IconButtonDefaults.filledIconButtonColors(containerColor = bg, contentColor = fg),
+            modifier = Modifier.size(size).semantics {
+                contentDescription = label
+                if (selected != null) this.selected = selected
+            },
+            shape = CircleShape,
+        ) {
+            Icon(painterResource(icon), null, Modifier.size(if (big) 34.dp else if (compact) 24.dp else 28.dp))
+        }
+        // Anruf-UI-Regeln: Beschriftung wie iOS (bis zwei Zeilen); fuer den Screenreader nur einmal am Knopf
+        Text(
+            label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center,
+            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp).clearAndSetSemantics {},
+        )
     }
 }
 

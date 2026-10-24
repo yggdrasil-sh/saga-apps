@@ -1155,6 +1155,7 @@ extension CallManager {
         let by = ShareJSON.str(d["by"]) ?? "?"
         if (d["action"] as? String) == "mute", (d["device"] as? String) == me {
             if mic { toggleMic() }
+            mutedBy = by
             toast = String(localized: "\(by) hat dich stummgeschaltet. Du kannst das Mikrofon selbst wieder einschalten.")
         } else if (d["action"] as? String) == "remove", let store, let id {
             Task {

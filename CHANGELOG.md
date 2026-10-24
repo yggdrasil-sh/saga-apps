@@ -9,6 +9,19 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Anruf-Oberfläche vereinheitlicht (iOS/iPadOS/macOS, Android, Web)
+Gemeinsame Regeln in `docs/ANRUF-UI.md`:
+- Kopf: Titel (Gegenüber bzw. Gruppe), Dauer direkt darunter, eine Sicherheitszeile; Teilnehmenden-Chip mit Zahl nur
+  in Gruppen (`11/12` erst nahe der Grenze), im 1:1 keiner.
+- Ab drei Geräten ist das eigene Bild eine normale Kachel „Du“; drei Kacheln: zwei oben, die dritte über die volle
+  Breite. Zu zweit: eigenes Bild klein, abgerundet, auf iOS ziehbar.
+- Bildschirm geteilt: ein neutraler Hinweis „… teilt den Bildschirm“ am geteilten Bild statt eines Banners; rot nur
+  für die eigene Freigabe. Der Hinweis vor dem Teilen sagt in Gruppen „sehen alle im Anruf“.
+- Namensleiste: Name vor Gerät, Pseudonym-Handles in der Mitte gekürzt, eigene Kachel nur „Du“, 70 % deckend.
+- „<Gastgeber> hat dich stummgeschaltet“ bleibt über der Bedienleiste stehen, bis man das Mikrofon selbst einschaltet.
+- Android: Knöpfe beschriftet, Chips mit 48-dp-Trefferfläche; iOS: Klingeln als „Eingehender (Video-)Anruf“,
+  Ende-Bildschirm ohne Sicherheitszeile, Gruppen mit Gruppen-Symbol.
+
 ### Behoben – Anrufe über Knoten (Test mit echten Servern, 24.10.)
 **iOS/iPadOS/macOS, Android:**
 - **1:1 über Knoten** („Alle Anrufe über Knoten“ am Server) klingelt und läuft jetzt wie ein 1:1-Anruf – vorher

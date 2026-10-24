@@ -195,6 +195,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     private inner class RoomShared(var id: String?, var media: String) {
         var v2 = false
         var myHandle: String? = null
+        /** 2.5: 1:1 ueber einen Knoten (Raum-Anruf mit dm) - Anzeige wie 1:1 */
+        var dm = false
+        /** 2.5: vom Gastgeber stummgeschaltet (Name) - Hinweis bis zum eigenen Einschalten */
+        var mutedBy: String? = null
         var audioSource: AudioSource? = null
         var audioTrack: AudioTrack? = null
         var videoSource: VideoSource? = null
@@ -1908,6 +1912,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 val k = st.call
                 c.media = k.media
                 c.rs.kind = k.kind
+                c.rs.dm = k.dm
+                if (k.dm && k.peer.name.isNotEmpty()) c.peer = k.peer          // 2.5: 1:1 ueber Knoten - Gegenueber als Titel
                 c.v2 = k.v == 2
                 c.rs.limit = CallRoom.limit(k.media, k.limit ?: cfg.endpoints(k.media))
                 c.rs.old = k.old.map { it.name.ifEmpty { it.username } }
@@ -2730,6 +2736,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val c = cur ?: return
         if (c.audioTrack == null) return
         c.micOn = !c.micOn
+        if (c.micOn) c.rs.mutedBy = null
         applyMic(c)
         // Begleitgeraet: Mikrofon erst jetzt erlaubt -> Vordergrund-Dienst mit Typ microphone neu melden
         if (c.micOn && (c.rs.companion || c.rs.took)) CallService.start(app, c.videoTrack != null)
@@ -3295,6 +3302,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             speaker = rs.horn?.let { h -> (h.pin ?: h.speaker)?.let { rs.roster.of(it)?.name } }
                 ?: rs.speaker?.let { sp -> ls.firstOrNull { it.peerDevice == sp } }?.let { legOf(it)?.name ?: it.peer.name }.orEmpty(),
             horn = rs.horn?.let { hornUi(c, it) },
+            dm = rs.dm, title = rs.title, mutedBy = rs.mutedBy,
         )
     }
 
@@ -3597,6 +3605,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                     c.rs.horn?.micChanged()
                     update(c)
                 }
+                c.rs.mutedBy = by ?: "?"
+                update(c)
                 repo.notify(UiText.Res(R.string.horn_muted_by, by ?: "?"))
             }
             "remove" -> scope.launch {

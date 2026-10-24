@@ -79,7 +79,7 @@ extension CallManager {
         reset()
         incoming = inc; phase = .incoming; role = "callee"; kind = "group"; dmRoom = dm; self.media = media; peerName = inc.name; peerAvatar = inc.avatar
         chatID = inc.chatID; title = chatName ?? ""
-        status = dm ? (media == "video" ? String(localized: "Videoanruf") : String(localized: "Anruf"))
+        status = dm ? (media == "video" ? String(localized: "Eingehender Videoanruf") : String(localized: "Eingehender Anruf"))
             : media == "video" ? String(localized: "Gruppen-Videoanruf") : String(localized: "Gruppenanruf")
         CallEnv.log("incoming group \(cid.prefix(8)) \(media)")
         CallSystem.shared.reportIncoming(self, inc)

@@ -36,6 +36,7 @@
     <string name="horn_muted_done">%1$s was muted.</string>
     <string name="horn_removed_done">%1$s was removed from the call.</string>
     <string name="horn_muted_by">%1$s muted you. You can turn your microphone back on yourself.</string>
+    <string name="horn_muted_hint">%1$s muted you</string>
     <string name="horn_removed_by">%1$s removed you from the call.</string>
     <string name="horn_removed">You were removed from the call.</string>
     <string name="horn_view_grid">Grid view</string>

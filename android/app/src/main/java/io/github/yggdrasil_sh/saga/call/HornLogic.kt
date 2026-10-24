@@ -25,6 +25,13 @@ import kotlin.math.floor
  * FrameCryptor (eigener Schluessel, vorab gesetzte Ratschenstufen der anderen).
  */
 object HornLogic {
+    /** Anruf-UI-Regeln: Pseudonym-Handles (~abc...) in der Mitte kuerzen, sonst am Ende; max Zeichen */
+    fun shortName(name: String, max: Int = 18): String {
+        if (name.length <= max) return name
+        if (!name.startsWith("~")) return name.take(max - 1) + "…"
+        val head = (max - 1) / 2
+        return name.take(head) + "…" + name.takeLast(max - 1 - head)
+    }
     const val PROBE_MS = 800L
     const val PINGS = 5
     const val NO_UDP_MS = 15.0

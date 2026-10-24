@@ -36,6 +36,7 @@
     <string name="horn_muted_done">У %1$s выключен звук.</string>
     <string name="horn_removed_done">%1$s удалён(а) из звонка.</string>
     <string name="horn_muted_by">%1$s выключил(а) ваш микрофон. Вы можете снова включить его сами.</string>
+    <string name="horn_muted_hint">%1$s выключил(а) вам микрофон</string>
     <string name="horn_removed_by">%1$s удалил(а) вас из звонка.</string>
     <string name="horn_removed">Вас удалили из звонка.</string>
     <string name="horn_view_grid">Плитки</string>

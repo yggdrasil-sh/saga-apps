@@ -36,6 +36,7 @@
     <string name="horn_muted_done">ปิดเสียง %1$s แล้ว</string>
     <string name="horn_removed_done">นำ %1$s ออกจากการโทรแล้ว</string>
     <string name="horn_muted_by">%1$s ปิดเสียงคุณ คุณเปิดไมโครโฟนเองได้อีกครั้ง</string>
+    <string name="horn_muted_hint">%1$s ปิดเสียงคุณ</string>
     <string name="horn_removed_by">%1$s นำคุณออกจากการโทร</string>
     <string name="horn_removed">คุณถูกนำออกจากการโทร</string>
     <string name="horn_view_grid">มุมมองตาราง</string>

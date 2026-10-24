@@ -10,6 +10,7 @@
     <string name="call_screen_failed">Bildschirm teilen nicht möglich</string>
     <string name="call_screen_hint_title">Bildschirm teilen?</string>
     <string name="call_screen_hint">Alles, was in der Auswahl sichtbar ist, sieht dein Gegenüber – auch Mitteilungen, Passwörter und andere Chats. Nichts wird aufgezeichnet oder auf dem Server gespeichert.</string>
+    <string name="call_screen_hint_group">Alles, was in der Auswahl sichtbar ist, sehen alle im Anruf – auch Mitteilungen, Passwörter und andere Chats. Nichts wird aufgezeichnet oder auf dem Server gespeichert.</string>
     <string name="call_screen_hint_off">Nicht mehr anzeigen</string>
     <string name="call_screen_continue">Weiter</string>
     <string name="call_screen_small">Kamera von %1$s – tippen, um die Ansicht zu tauschen</string>

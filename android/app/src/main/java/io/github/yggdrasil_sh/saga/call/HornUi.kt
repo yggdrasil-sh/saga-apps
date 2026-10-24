@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.call
 
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -153,7 +154,7 @@ private fun qualityText(q: String): String = when (q) {
  * Teilnehmende, Ansicht (Kacheln / Sprecher).
  */
 @Composable
-fun HornBar(ui: HornUi, onDark: Boolean, onRunes: () -> Unit, onPeople: () -> Unit, onView: () -> Unit) {
+fun HornBar(ui: HornUi, onDark: Boolean, limit: Int = 0, dm: Boolean = false, onRunes: () -> Unit, onPeople: () -> Unit, onView: () -> Unit) {
     val fg = if (onDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
     val chipBg = if (onDark) Color(0x66101114) else MaterialTheme.colorScheme.surfaceContainerHigh
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 6.dp)) {
@@ -172,26 +173,29 @@ fun HornBar(ui: HornUi, onDark: Boolean, onRunes: () -> Unit, onPeople: () -> Un
                 val cd = stringResource(R.string.horn_runes_cd, ui.runeNames.joinToString(" "))
                 Surface(
                     color = chipBg, shape = RoundedCornerShape(50),
-                    modifier = Modifier.clip(RoundedCornerShape(50)).clickable(onClickLabel = stringResource(R.string.horn_runes), role = Role.Button) { onRunes() }
+                    modifier = Modifier.minimumInteractiveComponentSize().clip(RoundedCornerShape(50)).clickable(onClickLabel = stringResource(R.string.horn_runes), role = Role.Button) { onRunes() }
                         .semantics { contentDescription = cd },
                 ) {
                     Text(ui.runes, color = fg, fontSize = 15.sp, letterSpacing = 2.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp))
                 }
             }
             val pl = stringResource(R.string.horn_people, ui.people.size)
-            Surface(
+            // ANRUF-UI: im 1:1 kein Teilnehmenden-Chip (wie iOS und Web)
+            if (!dm) Surface(
                 color = chipBg, shape = RoundedCornerShape(50),
-                modifier = Modifier.clip(RoundedCornerShape(50)).clickable(role = Role.Button) { onPeople() }.semantics { contentDescription = pl },
+                modifier = Modifier.minimumInteractiveComponentSize().clip(RoundedCornerShape(50)).clickable(role = Role.Button) { onPeople() }.semantics { contentDescription = pl },
             ) {
                 Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(painterResource(R.drawable.ic_group), null, Modifier.size(16.dp), tint = fg)
-                    Text(ui.people.size.toString(), color = fg, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 4.dp))
+                    val n = ui.people.size
+                    Text(if (limit > 0 && n >= limit - 2) "$n/$limit" else "$n", color = fg, style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(start = 4.dp))
                 }
             }
             val vl = stringResource(if (ui.view == "speaker") R.string.horn_view_grid else R.string.horn_view_speaker)
             Surface(
                 color = chipBg, shape = RoundedCornerShape(50),
-                modifier = Modifier.clip(RoundedCornerShape(50)).clickable(role = Role.Button) { onView() }.semantics { contentDescription = vl },
+                modifier = Modifier.minimumInteractiveComponentSize().clip(RoundedCornerShape(50)).clickable(role = Role.Button) { onView() }.semantics { contentDescription = vl },
             ) {
                 Icon(painterResource(R.drawable.ic_fullscreen), null, Modifier.padding(horizontal = 10.dp, vertical = 4.dp).size(16.dp), tint = fg)
             }
@@ -252,6 +256,12 @@ fun HornStage(
                 }
                 if (rest.size > 5 || ui.more > 0) MoreTile(rest.size - 5 + ui.more, Modifier.weight(1f).fillMaxSize())
             }
+        } else if (tiles.size + (if (self != null) 1 else 0) == 3 && ui.more == 0) {
+            val all = tiles + listOfNotNull(self)
+            Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                all.take(2).forEach { t -> androidx.compose.runtime.key(t.dev) { Tile(t, Modifier.weight(1f).fillMaxSize(), t === self, video, selfVideo, onPin) } }
+            }
+            androidx.compose.runtime.key(all[2].dev) { Tile(all[2], Modifier.fillMaxWidth().weight(1f), all[2] === self, video, selfVideo, onPin) }
         } else {
             val all = tiles + listOfNotNull(self)
             BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
@@ -305,13 +315,17 @@ private fun Tile(
             if (self) selfVideo(Modifier.fillMaxSize()) else video(t, Modifier.fillMaxSize())
         } else Avatar(t.name, size = 56, avatar = t.avatar)
         Row(
-            Modifier.align(Alignment.BottomStart).padding(6.dp).background(Color(0x99101114), RoundedCornerShape(8.dp))
+            Modifier.align(Alignment.BottomStart).padding(6.dp).background(Color(0xB3101114), RoundedCornerShape(8.dp))
                 .padding(horizontal = 6.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (!t.mic) Icon(painterResource(R.drawable.ic_mic_off), null, Modifier.size(14.dp), tint = Color.White)
-            Text(label, color = Color.White, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 2.dp))
+            Text(HornLogic.shortName(t.name), color = Color.White, style = MaterialTheme.typography.labelMedium, maxLines = 1,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 2.dp))
+            if (t.devName.isNotEmpty() && !self) Text(                   // Geraet wird zuerst gekuerzt
+                t.devName, color = Color.White.copy(alpha = 0.8f), style = MaterialTheme.typography.labelSmall, maxLines = 1,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 4.dp).weight(1f, fill = false),
+            )
         }
     }
 }

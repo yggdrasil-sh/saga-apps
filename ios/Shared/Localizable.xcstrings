@@ -1,6 +1,142 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Alles, was in der Auswahl sichtbar ist, sehen alle im Anruf – auch Mitteilungen, Passwörter und andere Fenster oder Chats." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alles, was in der Auswahl sichtbar ist, sehen alle im Anruf – auch Mitteilungen, Passwörter und andere Fenster oder Chats."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Everyone in the call sees everything visible in your selection – including notifications, passwords and other windows or chats."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Todas las personas de la llamada verán todo lo que sea visible en la selección, también notificaciones, contraseñas y otras ventanas o chats."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Все участники звонка увидят всё, что видно в выбранной области, — в том числе уведомления, пароли и другие окна или чаты."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ทุกคนในสายจะเห็นทุกอย่างที่มองเห็นได้ในส่วนที่เลือก รวมถึงการแจ้งเตือน รหัสผ่าน และหน้าต่างหรือแชตอื่น ๆ"
+          }
+        }
+      }
+    },
+    "Eigenes Bild verschieben" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eigenes Bild verschieben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move your own picture"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mover tu imagen"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Переместить своё изображение"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ย้ายภาพของคุณ"
+          }
+        }
+      }
+    },
+    "%@ hat dich stummgeschaltet" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ hat dich stummgeschaltet"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ muted you"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ te ha silenciado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ выключил(а) вам микрофон"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ ปิดเสียงคุณ"
+          }
+        }
+      }
+    },
+    "an" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "an"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "on"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "activado"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "вкл."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิด"
+          }
+        }
+      }
+    },
     "" : {
       "shouldTranslate" : false
     },

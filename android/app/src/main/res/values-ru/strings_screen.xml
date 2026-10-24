@@ -10,6 +10,7 @@
     <string name="call_screen_failed">Показ экрана невозможен</string>
     <string name="call_screen_hint_title">Показать экран?</string>
     <string name="call_screen_hint">Собеседник увидит всё, что видно в выбранной области, – включая уведомления, пароли и другие чаты. Ничего не записывается и не сохраняется на сервере.</string>
+    <string name="call_screen_hint_group">Все участники звонка увидят всё, что видно в выбранной области, – включая уведомления, пароли и другие чаты. Ничего не записывается и не сохраняется на сервере.</string>
     <string name="call_screen_hint_off">Больше не показывать</string>
     <string name="call_screen_continue">Продолжить</string>
     <string name="call_screen_small">Камера: %1$s – нажмите, чтобы поменять местами</string>

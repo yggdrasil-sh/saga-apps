@@ -124,7 +124,8 @@ struct CallScreen: View {
 
     /// Rote Leiste: "Du teilst deinen Bildschirm" (mit Beenden) bzw. "<Name> teilt den Bildschirm" (mit Tauschen)
     @ViewBuilder private var shareBar: some View {
-        if let H = calls.horn, !calls.sharing { HornShareLine(horn: H) }   // 2.5: "<Name> teilt den Bildschirm"
+        // 2.5 (Anruf-UI-Regeln): fremdes Teilen nur als Bildunterschrift am geteilten Bild - kein Banner ueber dem Kopf
+        if calls.horn != nil, !calls.sharing { EmptyView() }
         else if calls.sharing || (calls.remote.screen && calls.phase == .active) {
             HStack(spacing: 10) {
                 Image(systemName: "rectangle.inset.filled.on.rectangle")
@@ -158,10 +159,11 @@ struct CallScreen: View {
 
     private var header: some View {
         VStack(spacing: 4) {
-            if showRemoteVideo || showTiles || showHorn { Text(verbatim: calls.peerName).font(.headline).shadow(radius: 3) }
-            roomInfo
-            if let H = calls.horn { HornInfoLine(calls: calls, horn: H) }    // 2.5: Weg, Qualitaet, Runensiegel
-            HStack(spacing: 6) {
+            if showRemoteVideo || showTiles || showHorn { Text(verbatim: calls.peerName).font(.headline).lineLimit(1).truncationMode(.middle).shadow(radius: 3) }
+            if showRemoteVideo || showTiles || showHorn { statusLine }      // Dauer direkt unter dem Titel (Anruf-UI-Regeln)
+            if calls.phase != .ended { roomInfo }
+            if let H = calls.horn, calls.phase != .ended { HornInfoLine(calls: calls, horn: H) }    // 2.5: Weg, Runensiegel, Schloss
+            if calls.horn == nil, calls.phase != .ended { HStack(spacing: 6) {
                 if calls.verified {
                     Label("Ende-zu-Ende verschlüsselt", systemImage: "lock.fill").labelStyle(.titleAndIcon)
                 } else if calls.phase == .active {
@@ -169,7 +171,7 @@ struct CallScreen: View {
                 }
                 if calls.relay { Text(verbatim: "·"); Text("über Relais") }
             }
-            .font(.caption).foregroundStyle(.white.opacity(0.85)).shadow(radius: 2)
+            .font(.caption).foregroundStyle(.white.opacity(0.85)).shadow(radius: 2) }
             if calls.reconnecting {                                          // 2.4: ICE-Restart laeuft
                 Label("Verbindung wird neu aufgebaut …", systemImage: "arrow.triangle.2.circlepath")
                     .font(.caption).foregroundStyle(.white.opacity(0.9)).shadow(radius: 2)
@@ -206,7 +208,12 @@ struct CallScreen: View {
 
     private var peerBlock: some View {
         VStack(spacing: 12) {
-            AvatarView(name: calls.peerName, avatar: calls.peerAvatar, size: 120)
+            Group {
+                if calls.kind == "group" && !calls.dmRoom && calls.peerAvatar == nil {          // Gruppe: Symbol statt Initialen
+                    Image(systemName: "person.3.fill").font(.system(size: 44)).frame(width: 120, height: 120)
+                        .background(Color.white.opacity(0.12), in: Circle()).accessibilityHidden(true)
+                } else { AvatarView(name: calls.peerName, avatar: calls.peerAvatar, size: 120) }
+            }
                 .overlay(Circle().strokeBorder(Color.gold.opacity(calls.phase == .incoming || calls.phase == .ringingOut ? 0.8 : 0), lineWidth: 3).padding(-6))
             Text(verbatim: calls.peerName).font(.title.weight(.semibold)).multilineTextAlignment(.center)
             statusLine
@@ -243,10 +250,13 @@ struct CallScreen: View {
 
     private var controls: some View {
         VStack(spacing: 10) {
-            if showRemoteVideo || showHorn { statusLine }
             if showRemoteVideo && calls.phase == .active && !calls.remote.mic {        // sonst nur im (ausgeblendeten) Profilbild-Block
                 Label("\(calls.peerName) ist stummgeschaltet", systemImage: "mic.slash.fill").font(.footnote).shadow(radius: 2)
                     .padding(.horizontal, 12).padding(.vertical, 6).background(.black.opacity(0.45), in: Capsule())
+            }
+            if let by = calls.mutedBy, !calls.mic, calls.phase == .active {
+                Label("\(by) hat dich stummgeschaltet", systemImage: "mic.slash.fill").font(.footnote).shadow(radius: 2)
+                    .padding(.horizontal, 12).padding(.vertical, 6).background(.black.opacity(0.55), in: Capsule())
             }
             companionBlock
             let fit = CallLogic.controlFit(count: controlCount, width: Double(rowWidth > 0 ? rowWidth : 320))
@@ -263,6 +273,7 @@ struct CallScreen: View {
         }
         .padding(.bottom, 6)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { controlsHeight = $0 }
+        .onChange(of: calls.mic) { _, on in if on { calls.mutedBy = nil } }
     }
     /// Zahl der Knoepfe in der Reihe (wie controlRow)
     private var controlCount: Int {
@@ -301,10 +312,12 @@ struct CallScreen: View {
     @ViewBuilder private var roomInfo: some View {
         if calls.kind == "group" || calls.inRoom || calls.tiles.count > 1 {
             VStack(spacing: 2) {
-                if calls.horn != nil, calls.phase == .active || calls.phase == .connecting || calls.phase == .ringingOut {
-                    Text("\(max(1, calls.roster.legs.count)) von höchstens \(calls.limit) Geräten").font(.caption2)   // 2.5: Knoten
-                } else if calls.phase == .active || calls.phase == .connecting || calls.phase == .ringingOut {
-                    Text("\(calls.links.count + 1) von höchstens \(calls.limit) Geräten").font(.caption2)
+                if !calls.dmRoom, calls.phase == .active || calls.phase == .connecting || calls.phase == .ringingOut {
+                    let n = calls.horn != nil ? max(1, calls.roster.legs.count) : calls.links.count + 1
+                    Label(n >= calls.limit - 2 ? "\(n)/\(calls.limit)" : "\(n)", systemImage: "person.2.fill").font(.caption.weight(.semibold))
+                        .padding(.horizontal, 8).padding(.vertical, 2).background(.black.opacity(0.4), in: Capsule())
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(Text("\(n) von höchstens \(calls.limit) Geräten"))
                 }
                 if !calls.oldNames.isEmpty {
                     Text("Braucht Saga 2.4: \(calls.oldNames.joined(separator: ", "))").font(.caption2).multilineTextAlignment(.center)
@@ -365,6 +378,7 @@ struct CallScreen: View {
             }
         }
         .buttonStyle(.plain).accessibilityLabel(Text(verbatim: label)).accessibilityAddTraits(on ? .isSelected : [])
+        .accessibilityValue(on ? Text("an") : Text("aus"))
         .accessibilityShowsLargeContentViewer { Label(label, systemImage: icon) }
     }
     /// Feste Breite je Knopf, bis zu zwei Zeilen, nie unter 11 pt; alle oben ausgerichtet
@@ -385,7 +399,10 @@ struct ScreenHintCard: View {
             Color.black.opacity(0.55).ignoresSafeArea().onTapGesture { calls.screenHintDone(go: false, dontShow: false) }
             VStack(alignment: .leading, spacing: 12) {
                 Label("Bildschirm teilen", systemImage: "rectangle.inset.filled.on.rectangle").font(.headline)
-                Text("Alles, was in der Auswahl sichtbar ist, sieht dein Gegenüber – auch Mitteilungen, Passwörter und andere Fenster oder Chats.")
+                // Gruppe: alle im Anruf sehen es (ANRUF-UI)
+                (calls.kind == "group" && !calls.dmRoom
+                    ? Text("Alles, was in der Auswahl sichtbar ist, sehen alle im Anruf – auch Mitteilungen, Passwörter und andere Fenster oder Chats.")
+                    : Text("Alles, was in der Auswahl sichtbar ist, sieht dein Gegenüber – auch Mitteilungen, Passwörter und andere Fenster oder Chats."))
                     .fixedSize(horizontal: false, vertical: true)
                 Text("Nichts wird aufgezeichnet oder auf dem Server gespeichert.").font(.footnote).foregroundStyle(.white.opacity(0.8))
                     .fixedSize(horizontal: false, vertical: true)

@@ -13,6 +13,9 @@ struct HornStage: View {
     @Environment(\.hornPreviewFill) private var previewFill
     /// Raster: unterer Rand des sichtbaren Bereichs (fuer "+n weitere")
     @State private var seenBottom: CGFloat = 0
+    /// zu zweit: Ecke des eigenen Bilds (0 oben links, 1 oben rechts, 2 unten links, 3 unten rechts) und laufendes Ziehen
+    @State private var duoCorner = 1
+    @State private var duoDrag = CGSize.zero
     var body: some View {
         GeometryReader { g in
             let big = horn.share != nil || (horn.view == "speaker" && horn.tiles.count > 1)
@@ -20,7 +23,9 @@ struct HornStage: View {
             // wie der direkte 1:1-Anruf, statt zwei schmaler Hochkant-Kacheln
             if horn.share == nil, horn.tiles.count == 2, let me = horn.tiles.first(where: \.mine), let other = horn.tiles.first(where: { !$0.mine }) {
                 duo(other: other, me: me, size: g.size)
-            } else if big { strip(g.size) } else { grid(g.size) }
+            } else if big { strip(g.size) }
+            else if horn.tiles.count == 3, horn.more == 0, g.size.width <= 640 { trio(g.size) }   // zwei oben, die dritte breit
+            else { grid(g.size) }
         }
         .overlay(alignment: .topTrailing) { buttons }
     }
@@ -61,16 +66,38 @@ struct HornStage: View {
         }
     }
     private func duo(other: HornTile, me: HornTile, size: CGSize) -> some View {
-        let w: CGFloat = size.width <= 640 ? 110 : 180
-        return ZStack(alignment: .topTrailing) {
+        let w: CGFloat = size.width <= 640 ? 110 : 180, h = w * 16 / 11
+        // eigenes Bild in einer Ecke (Start oben rechts unter den Knoepfen); ziehen, rastet an der naechsten Ecke ein
+        let left = duoCorner % 2 == 0, top = duoCorner < 2
+        let x = left ? 8 : size.width - w - 8, y = top ? 50 : size.height - h - 8
+        return ZStack(alignment: .topLeading) {
             tile(other).frame(maxWidth: .infinity, maxHeight: .infinity)
-            tile(me, compact: true).frame(width: w, height: w * 16 / 11)
+            tile(me, compact: true).frame(width: w, height: h)
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.3)))
-                .shadow(radius: 6).padding(.top, 50).padding(.trailing, 8)    // unter den Knoepfen oben rechts
+                .shadow(radius: 6)
+                .offset(x: x + duoDrag.width, y: y + duoDrag.height)
+                .gesture(DragGesture()
+                    .onChanged { duoDrag = $0.translation }
+                    .onEnded { g in
+                        let cx = x + g.translation.width + w / 2, cy = y + g.translation.height + h / 2
+                        withAnimation(.spring(duration: 0.25)) {
+                            duoCorner = (cx < size.width / 2 ? 0 : 1) + (cy < size.height / 2 ? 0 : 2); duoDrag = .zero
+                        }
+                    })
+                .accessibilityAction(named: Text("Eigenes Bild verschieben")) { duoCorner = (duoCorner + 1) % 4 }
+        }
+    }
+    private func trio(_ size: CGSize) -> some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) { tile(horn.tiles[0]); tile(horn.tiles[1]) }.frame(maxHeight: .infinity)
+            tile(horn.tiles[2]).frame(maxHeight: .infinity)
         }
     }
     private func strip(_ size: CGSize) -> some View {
         let small: CGFloat = size.width <= 640 ? 92 : 120
+        let n = (horn.share != nil ? horn.tiles.count : horn.tiles.count - 1) + (horn.more > 0 ? 1 : 0)
+        // bis 3 Kacheln: passend verteilen (kein Anschnitt am Rand), sonst feste Breite und sichtbar weiterblaettern
+        let w: CGFloat = n > 0 && n <= 3 ? min(small * 1.6, (size.width - 8 * CGFloat(n - 1)) / CGFloat(n)) : small * 1.4
         return VStack(spacing: 8) {
             Group {
                 if let s = horn.share {
@@ -90,7 +117,7 @@ struct HornStage: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(horn.share != nil ? horn.tiles : Array(horn.tiles.dropFirst())) { t in
-                        tile(t, compact: true).frame(width: small * 1.4, height: small)
+                        tile(t, compact: true).frame(width: w, height: small)
                     }
                     if horn.more > 0 { moreTile.frame(width: small, height: small) }
                 }
@@ -108,14 +135,16 @@ struct HornStage: View {
             let sv = horn.view == "speaker"
             Button { calls.hornSetView(sv ? "grid" : "speaker") } label: {
                 Image(systemName: sv ? "square.grid.2x2" : "person.crop.rectangle").frame(width: 36, height: 36).background(.black.opacity(0.45), in: Circle())
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
             }
             .accessibilityLabel(Text(sv ? "Kachelansicht" : "Sprecheransicht")).help(Text(sv ? "Kachelansicht" : "Sprecheransicht"))
             Button { horn.plist.toggle() } label: {
                 Image(systemName: "person.2.fill").frame(width: 36, height: 36).background(horn.plist ? Color.white.opacity(0.35) : Color.black.opacity(0.45), in: Circle())
+                    .frame(width: 44, height: 44).contentShape(Rectangle())
             }
             .accessibilityLabel(Text("Teilnehmende")).accessibilityAddTraits(horn.plist ? .isSelected : []).help(Text("Teilnehmende"))
         }
-        .buttonStyle(.plain).foregroundStyle(.white).padding(6)
+        .buttonStyle(.plain).foregroundStyle(.white).padding(2)
     }
 }
 
@@ -138,11 +167,11 @@ struct HornTileView: View {
             HStack(spacing: 4) {
                 if !tile.mic { Image(systemName: "mic.slash.fill").accessibilityHidden(true) }
                 if tile.screen { Image(systemName: "rectangle.inset.filled.on.rectangle").accessibilityHidden(true) }
-                Text(verbatim: shownName).fontWeight(.semibold)
-                if !compact && !tile.devName.isEmpty { Text(verbatim: tile.devName).opacity(0.8) }
+                Text(verbatim: shownName).fontWeight(.semibold).truncationMode(shownName.hasPrefix("~") ? .middle : .tail).layoutPriority(1)
+                if !compact && !tile.mine && !tile.devName.isEmpty { Text(verbatim: tile.devName).opacity(0.8) }   // wird zuerst gekuerzt
             }
-            .font(.caption).lineLimit(1).minimumScaleFactor(0.7)
-            .padding(.horizontal, 8).padding(.vertical, 4).background(.black.opacity(0.5), in: Capsule()).padding(6)
+            .font(.caption).lineLimit(1)
+            .padding(.horizontal, 8).padding(.vertical, 4).background(.black.opacity(0.7), in: Capsule()).padding(6)
         }
         .overlay(alignment: .topLeading) {                                  // verbindet noch: klein in der Ecke, nicht ueber dem Initial
             if tile.wait { ProgressView().controlSize(.small).tint(.white).padding(8).accessibilityHidden(true) }
@@ -155,7 +184,7 @@ struct HornTileView: View {
         .accessibilityLabel(Text(verbatim: label))
         .accessibilityHint(tile.mine ? Text(verbatim: "") : Text("Doppelt tippen: groß anzeigen"))
     }
-    private var shownName: String { tile.mine ? "\(tile.name) (\(String(localized: "du")))" : tile.name }
+    private var shownName: String { tile.mine ? String(localized: "Du") : tile.name }
     private var label: String {
         var p = [shownName]
         if !tile.devName.isEmpty { p.append(tile.devName) }
@@ -197,11 +226,16 @@ struct HornInfoLine: View {
                 Button { horn.rpop.toggle() } label: {
                     Text(verbatim: r).font(.callout).tracking(2).padding(.horizontal, 8).padding(.vertical, 2)
                         .background(.black.opacity(0.4), in: Capsule())
+                        .padding(.vertical, 10).contentShape(Rectangle()).padding(.vertical, -10)   // Trefferflaeche >= 44 pt
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(Text("Runensiegel – zum Vergleichen"))
                 .accessibilityValue(Text(verbatim: horn.runeNames.joined(separator: " ")))
                 .help(Text("Runensiegel – zum Vergleichen"))
+            }
+            if calls.verified {                                              // eine Sicherheitszeile (Anruf-UI-Regeln)
+                Label("Ende-zu-Ende verschlüsselt", systemImage: "lock.fill").labelStyle(.titleAndIcon).font(.caption)
+                    .foregroundStyle(.white.opacity(0.85))
             }
         }
         .foregroundStyle(.white).shadow(radius: 2)

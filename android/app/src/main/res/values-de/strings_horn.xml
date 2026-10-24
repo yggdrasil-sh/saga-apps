@@ -36,6 +36,7 @@
     <string name="horn_muted_done">%1$s wurde stummgeschaltet.</string>
     <string name="horn_removed_done">%1$s wurde aus dem Anruf entfernt.</string>
     <string name="horn_muted_by">%1$s hat dich stummgeschaltet. Du kannst das Mikrofon selbst wieder einschalten.</string>
+    <string name="horn_muted_hint">%1$s hat dich stummgeschaltet</string>
     <string name="horn_removed_by">%1$s hat dich aus dem Anruf entfernt.</string>
     <string name="horn_removed">Du wurdest aus dem Anruf entfernt.</string>
     <string name="horn_view_grid">Kachelansicht</string>
