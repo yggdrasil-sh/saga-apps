@@ -23,7 +23,7 @@ from gi.repository import GLib, GObject
 from . import APP_ID, aichat, chatmedia, chatvideo, config
 from . import chatcrypto as C
 from . import chatstatus as S
-from .api import APIError, client
+from .api import APIError, client, no_real_name
 from .i18n import _, pgettext
 from .util import Debounce, bg
 
@@ -1158,7 +1158,8 @@ class ChatState(GObject.Object):
         if m.get("sender_handle") and ch.get("my_handle") and m.get("sender_handle") == ch.get("my_handle"):
             out["mine"] = True
         snd = out.get("sender") or {}
-        if not out["mine"] and (not snd.get("name") or str(snd.get("name")).startswith("@~")):
+        # D01: Name vom Server kann schon der lesbare Ersatz sein (api.readable_names) - dann wie bisher den Namen aus dem Chat
+        if not out["mine"] and no_real_name(snd.get("name"), m.get("sender_handle"), snd.get("host") if isinstance(snd.get("host"), str) else None):
             mem = next((x for x in ch.get("members") or [] if isinstance(x, dict) and x.get("handle") == m.get("sender_handle")), None)
             if mem and mem.get("name"):                   # Anzeigename aus dem Chat (nie den Handle zeigen)
                 out["sender"] = dict(snd, name=mem["name"], avatar=snd.get("avatar") or mem.get("avatar"))

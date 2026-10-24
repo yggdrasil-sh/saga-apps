@@ -42,6 +42,15 @@ def person_name(name, ref=None, host=None):
     return str(name or "").strip() or str(ref or "")
 
 
+def no_real_name(name, ref, host=None):
+    """Kein echter Name: leer, selbst eine Kennung oder schon der lesbare Ersatz fuer ref (readable_names) - dann
+    lieber einen bekannten Namen suchen (z. B. aus den Chat-Mitgliedern)"""
+    n = str(name or "").strip()
+    if not n or n.startswith("@~") or _RAW_REF.fullmatch(n):
+        return True
+    return bool(unnamed(None, ref, host)) and n == person_name(None, ref, host)
+
+
 def account_name(j):
     """GET api/account -> (Vorbelegung, aenderbar, E-Mail) oder None. name == username heisst "kein Anzeigename"."""
     if not isinstance(j, dict) or not isinstance(j.get("username"), str):

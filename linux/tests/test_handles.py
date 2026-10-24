@@ -31,3 +31,17 @@ def test_member_matches_search_hit_by_ref():
     assert S.is_member("bert", mem)                                   # aeltere Server: Benutzername
     assert not S.is_member("~bbbbbbbbbbbbbbbb", mem)
     assert not S.is_member("", mem) and not S.is_member(H, None)
+
+
+def test_d01_sender_fallback_after_readable_names():
+    """Bughunt D01: Ersetzt readable_names die Kennung des Absenders durch "Person on … (spqz)", gilt das weiter als
+    'kein Name' - der Chat nimmt dann den Namen aus den Mitgliedern (vorher: Name begann mit '@~')"""
+    from hlidskjalf import api
+    h = "~s545sgsgkkyhspqz@b.example"
+    snd = api.readable_names({"sender": {"name": "@" + h}})["sender"]
+    assert snd["name"] != "@" + h and api.no_real_name(snd["name"], h)
+    assert api.no_real_name("", h) and api.no_real_name("@" + h, h) and api.no_real_name("~s545sgsgkkyhspqz", h)
+    assert not api.no_real_name("Anna", h)                                # echter Name bleibt
+    local = api.readable_names({"name": "~s545sgsgkkyhspqz"})["name"]
+    assert api.no_real_name(local, "~s545sgsgkkyhspqz")
+    assert not api.no_real_name(local, "~aaaaaaaaaaaaaaaa")              # Ersatz einer anderen Person: nicht verwechseln
