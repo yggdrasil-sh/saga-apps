@@ -9,6 +9,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – iOS/iPadOS/macOS: Datenbank-Kopf, Vorlagen verwalten, KI ordnet zu (Server 2.5)
+- Eingebettete Datenbank: unter „Ansicht“ → „Dieser Block“ lassen sich Datenbanktitel und Ansichts-Reiter je Block
+  ausblenden (wie im Web, im Block gespeichert).
+- „Neu ▾“ → „Vorlagen verwalten …“ (auch unter „Ansicht“): umbenennen, bearbeiten, duplizieren, Standard für „Neu“,
+  „Keine Vorlage mehr“, Papierkorb, neue Vorlage. „Neu“ nimmt die Standardvorlage, „Leerer Eintrag“ bleibt leer.
+- KI-Assistent → „Diese Seite“ → „Datenbank zuordnen“: Vorschläge je Eintrag für eine Eigenschaft, abhaken und
+  übernehmen. Android und Linux folgen.
+
 ### Behoben – Android: Mitteilungen bei geschlossener App
 - Die Abfrage „Mitteilungen erlauben?“ erteilte nur die Android-Berechtigung; Mitteilungen auf dem Gerät musste man
   zusätzlich unter Einstellungen → Mitteilungen einschalten – sonst kam bei geschlossener App nichts an (geöffnet

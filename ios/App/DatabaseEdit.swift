@@ -136,6 +136,47 @@ extension DBModel {
         await load(store); await store.refresh(); store.dataChanged()
         return r.id
     }
+    // --- 2.5 Vorlagen verwalten -------------------------------------------------------------------------------------
+    /// Standardvorlage fuer "Neu" (Schema default_tpl) - nur, wenn es die Vorlage noch gibt
+    var defaultTemplate: DBTemplate? {
+        guard let id = (schema["default_tpl"] as? NSNumber)?.intValue else { return nil }
+        return templates.first { $0.id == id }
+    }
+    func setDefaultTemplate(_ store: Store, _ id: Int?) {
+        editSchema(store) { sc in sc["default_tpl"] = id.map { $0 as Any } ?? NSNull() }
+    }
+    private func templateCall(_ store: Store, _ path: String, _ method: String, _ body: [String: Any]?) async -> Data? {
+        do {
+            let d = try await store.api(path, method: method, body: body)
+            await load(store); await store.refresh(); store.dataChanged()
+            return d
+        } catch { self.error = error.localizedDescription; return nil }
+    }
+    func renameTemplate(_ store: Store, _ t: DBTemplate, _ title: String) async {
+        let n = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard n != t.title else { return }
+        _ = await templateCall(store, "api/notes/\(t.id)", "PATCH", ["title": n])
+    }
+    func duplicateTemplate(_ store: Store, _ t: DBTemplate) async {
+        _ = await templateCall(store, "api/notes/\(t.id)/duplicate", "POST",
+                               ["parent_id": dbID, "template": true, "title": String(localized: "\(t.title.isEmpty ? String(localized: "Vorlage") : t.title) (Kopie)")])
+    }
+    func untemplate(_ store: Store, _ t: DBTemplate) async {
+        if defaultTemplate?.id == t.id { setDefaultTemplate(store, nil) }
+        _ = await templateCall(store, "api/notes/\(t.id)", "PATCH", ["template": false])
+    }
+    func deleteTemplate(_ store: Store, _ t: DBTemplate) async {
+        if defaultTemplate?.id == t.id { setDefaultTemplate(store, nil) }
+        _ = await templateCall(store, "api/notes/\(t.id)", "DELETE", nil)
+    }
+    /// Neue, leere Vorlage -> ID (zum Oeffnen und Bearbeiten)
+    func newTemplate(_ store: Store) async -> Int? {
+        struct R: Decodable { let id: Int }
+        guard let d = try? await store.api("api/notes", method: "POST", body: ["parent_id": dbID, "title": String(localized: "Neue Vorlage")]),
+              let r = try? JSONDecoder().decode(R.self, from: d) else { return nil }
+        _ = await templateCall(store, "api/notes/\(r.id)", "PATCH", ["template": true])
+        return r.id
+    }
     func rename(_ store: Store, row: Int, _ title: String) async {
         guard !readOnly else { return }                           // nur lesen (1.3)
         if let i = rows.firstIndex(where: { $0.id == row }) { rows[i].title = title }
@@ -279,13 +320,13 @@ struct DBViewBar: View {
                     // grosse Schrift: Ansichtsname in eigener Zeile statt nur "…" (F10)
                     ViewThatFits(in: .horizontal) {
                         HStack(spacing: 10) {
-                            viewMenu
+                            if m.showTabs { viewMenu } else { Spacer(minLength: 0) }
                             searchButton
                             settingsButton
                             newButton
                         }
                         VStack(alignment: .leading, spacing: 6) {
-                            viewMenu
+                            if m.showTabs { viewMenu }
                             HStack(spacing: 10) { searchButton; settingsButton; Spacer(minLength: 0); newButton }
                         }
                     }
@@ -296,7 +337,7 @@ struct DBViewBar: View {
                 // Suchfeld und "Neu" auf ihre Mindestbreite -> leere schwarze/goldene Pillen, Mac und iPad).
                 // Rechts: feste Breiten; Suchfeld nur, wenn Platz ist, sonst Lupe.
                 HStack(spacing: 6) {
-                    tabs.frame(maxWidth: .infinity, alignment: .leading)
+                    if m.showTabs { tabs.frame(maxWidth: .infinity, alignment: .leading) } else { Spacer(minLength: 0) }   // 2.5: Reiter ausgeblendet
                     ViewThatFits(in: .horizontal) {
                         searchField.frame(width: 160)
                         HStack(spacing: 6) {
@@ -424,11 +465,15 @@ struct DBViewBar: View {
             Button("Neu") { onNew(nil) }.prominentGold().controlSize(.small).fixedSize()      // nie zur leeren Pille quetschen
         } else {
             Menu("Neu") {
-                Button("Leerer Eintrag") { onNew(nil) }
+                Button("Leerer Eintrag") { onNew(0) }
                 Section("Vorlagen") {
-                    ForEach(m.templates) { t in Button((t.icon.count <= 4 && !t.icon.isEmpty ? t.icon + " " : "") + (t.title.isEmpty ? String(localized: "Vorlage") : t.title)) {
-                        Task { if let id = await m.newFromTemplate(store, t) { onNew(id) } } } }
+                    ForEach(m.templates) { t in
+                        let name = (t.icon.count <= 4 && !t.icon.isEmpty ? t.icon + " " : "") + (t.title.isEmpty ? String(localized: "Vorlage") : t.title)
+                        Button(m.defaultTemplate?.id == t.id ? String(localized: "\(name) (Standard)") : name) {
+                            Task { if let id = await m.newFromTemplate(store, t) { onNew(id) } } }
+                    }
                 }
+                if m.role == "owner" { Divider(); Button("Vorlagen verwalten …") { m.managingTemplates = true } }
             } primaryAction: { onNew(nil) }
             .menuStyle(.button).prominentGold().controlSize(.small).fixedSize()
         }
@@ -448,8 +493,22 @@ struct ViewSettings: View {
     private var selects: [DBProp] { m.props.filter { $0.type == "select" } }
     private func set(_ f: @escaping (inout [String: Any]) -> Void) { m.editView(store, viewID, f) }
 
+    @Environment(\.dismiss) private var dismiss
     var body: some View {
         Form {
+            if let head = m.onHead {                                 // 2.5: eingebetteter Block - Kopf ein-/ausblenden
+                Section("Dieser Block") {
+                    Toggle("Datenbanktitel anzeigen", isOn: Binding(get: { m.showTitle }, set: { m.showTitle = $0; head("title", $0) }))
+                    Toggle("Ansichts-Reiter anzeigen", isOn: Binding(get: { m.showTabs }, set: { m.showTabs = $0; head("tabs", $0) }))
+                }
+            }
+            if m.role == "owner" {
+                Section {
+                    Button { dismiss(); Task { try? await Task.sleep(for: .milliseconds(250)); m.managingTemplates = true } } label: {
+                        Label(m.templates.isEmpty ? String(localized: "Vorlagen verwalten …") : String(localized: "Vorlagen verwalten … (\(m.templates.count))"), systemImage: "doc.on.doc")
+                    }
+                }
+            }
             Section("Ansicht") {
                 TextField("Name", text: Binding(get: { v["name"] as? String ?? "" }, set: { n in set { $0["name"] = n } }))
                 Picker("Layout", selection: Binding(get: { type }, set: { t in set { $0["type"] = t } })) {
@@ -584,5 +643,85 @@ extension Store {
         guard FedLogic.isRemote(dbID) else { return pages.filter(\.isDatabase) }
         let peer = page(dbID)?.remote?.peer
         return fedShared.filter { $0.isDatabase && $0.remote?.peer == peer }
+    }
+}
+
+
+// MARK: - Vorlagen verwalten (2.5)
+
+/// Vorlagen einer Datenbank: umbenennen (direkt im Feld), bearbeiten, duplizieren, Standard fuer "Neu", "Keine Vorlage
+/// mehr", Papierkorb - wie im Web (Datenbank -> Neu ▾ -> Vorlagen verwalten). Nur der Eigentuemer.
+struct TemplateManager: View {
+    @ObservedObject var m: DBModel
+    @EnvironmentObject var store: Store
+    @EnvironmentObject var nav: NavModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var names: [Int: String] = [:]
+    @State private var trash: DBTemplate?
+    @State private var busy = false
+
+    private func saveNames() async {
+        for t in m.templates { if let n = names[t.id], n != t.title { await m.renameTemplate(store, t, n) } }
+        names = [:]
+    }
+    private func run(_ f: @escaping () async -> Void) { Task { busy = true; await saveNames(); await f(); busy = false } }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if m.templates.isEmpty {
+                    Text("Diese Datenbank hat noch keine Vorlagen.").foregroundStyle(.secondary)
+                }
+                ForEach(m.templates) { t in
+                    HStack(spacing: 8) {
+                        PageIcon(icon: t.icon.isEmpty ? nil : t.icon, store: store, fallback: "📐")
+                        TextField("Name der Vorlage", text: Binding(get: { names[t.id] ?? t.title }, set: { names[t.id] = $0 }), prompt: Text("Unbenannt"))
+                            .textFieldStyle(.plain)
+                            .onSubmit { run {} }
+                        if m.defaultTemplate?.id == t.id {
+                            Text("Standard").font(.caption2.weight(.semibold)).foregroundStyle(Color.accentColor)
+                                .padding(.horizontal, 6).padding(.vertical, 2).overlay(Capsule().stroke(Color.accentColor.opacity(0.5)))
+                        }
+                        Button("Bearbeiten") { run { dismiss(); nav.push(PageRoute(id: t.id)) } }
+                            .buttonStyle(.bordered).controlSize(.small)
+                        Menu {
+                            Button { run { await m.duplicateTemplate(store, t) } } label: { Label("Duplizieren", systemImage: "plus.square.on.square") }
+                            if m.defaultTemplate?.id == t.id {
+                                Button { m.setDefaultTemplate(store, nil) } label: { Label("Nicht mehr Standard", systemImage: "star.slash") }
+                            } else {
+                                Button { m.setDefaultTemplate(store, t.id) } label: { Label("Als Standard für „Neu“", systemImage: "star") }
+                            }
+                            Button { run { await m.untemplate(store, t) } } label: { Label("Keine Vorlage mehr", systemImage: "doc") }
+                            Divider()
+                            Button(role: .destructive) { trash = t } label: { Label("In den Papierkorb", systemImage: "trash") }
+                        } label: { Image(systemName: "ellipsis.circle") }
+                            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+                            .accessibilityLabel("Weitere Aktionen")
+                    }
+                    .padding(.vertical, 2)
+                }
+                if let e = m.error { Text(e).font(.caption).foregroundStyle(.orange) }
+            }
+            .disabled(busy)
+            .navigationTitle("Vorlagen dieser Datenbank")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) { Button("Fertig") { run { dismiss() } } }
+                ToolbarItem(placement: .primaryAction) {
+                    Button { run { if let id = await m.newTemplate(store) { dismiss(); nav.focusTitle = id; nav.push(PageRoute(id: id)) } } } label: {
+                        Label("Neue Vorlage", systemImage: "plus")
+                    }
+                }
+            }
+            .alert(Text("Vorlage „\(trash?.title ?? "")“ in den Papierkorb?"), isPresented: Binding(get: { trash != nil }, set: { if !$0 { trash = nil } })) {
+                Button("In den Papierkorb", role: .destructive) { if let t = trash { run { await m.deleteTemplate(store, t) } }; trash = nil }
+                Button("Abbrechen", role: .cancel) { trash = nil }
+            } message: { Text("Du kannst sie dort jederzeit wiederherstellen.") }
+        }
+        #if os(macOS)
+        .frame(minWidth: 520, minHeight: 340)
+        #endif
     }
 }

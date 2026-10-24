@@ -1341,7 +1341,10 @@ struct BlockView: View {
             }
         case "database":
             if let db = data["db"] as? Int {
-                DatabaseView(dbID: db, viewID: data["view"] as? String, localViews: data["views"] as? [[String: Any]], embedded: true, pageLocked: ed.locked) { vs in
+                DatabaseView(dbID: db, viewID: data["view"] as? String, localViews: data["views"] as? [[String: Any]], embedded: true, pageLocked: ed.locked,
+                             showTitle: data["hide_title"] as? Bool != true, showTabs: data["hide_tabs"] as? Bool != true,
+                             onHead: ed.locked || ed.doc.access.readOnly ? nil : { k, on in      // 2.5: Kopf des Blocks ein-/ausblenden
+                                 data[k == "title" ? "hide_title" : "hide_tabs"] = on ? nil : true; ed.changed() }) { vs in
                     data["views"] = vs; ed.changed()                // eigene Ansichten des Blocks in der Seite speichern
                 }
             }

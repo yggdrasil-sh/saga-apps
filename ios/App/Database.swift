@@ -73,6 +73,13 @@ final class DBModel: ObservableObject {
     /// Datenbank nicht (mehr) erreichbar (404/403) - verknuepfte Datenbank auf einer fremden Seite
     @Published var noAccess = false
     var onLocalViews: (([[String: Any]]) -> Void)?
+    /// 2.5 eingebetteter Block: Kopf ein-/ausblenden (Datenbanktitel, Ansichts-Reiter) - steht im Block (hide_title/hide_tabs).
+    /// onHead nil = nicht aenderbar (ganze Datenbank-Seite, gesperrte oder fremde Seite)
+    @Published var showTitle = true
+    @Published var showTabs = true
+    var onHead: ((String, Bool) -> Void)?
+    /// "Vorlagen verwalten" offen (Blatt an der DatabaseView)
+    @Published var managingTemplates = false
     /// Schema-Aenderungen, die noch nicht beim Server sind (entprellt, nacheinander gesendet)
     var pendingSchema: [(inout [String: Any]) -> Void] = []
     var schemaDebounce: Task<Void, Never>?
@@ -158,8 +165,12 @@ struct DatabaseView: View {
     var onLocalViews: (([[String: Any]]) -> Void)? = nil
     /// Seite gesperrt: "Neu", Ansichts-Einstellungen, "+" (Ansicht/Spalte) aus, solange die Sperre gilt
     var pageLocked = false
-    init(dbID: Int, viewID: String?, localViews: [[String: Any]]?, embedded: Bool = false, pageLocked: Bool = false, onLocalViews: (([[String: Any]]) -> Void)? = nil) {
+    var showTitle = true, showTabs = true
+    var onHead: ((String, Bool) -> Void)? = nil
+    init(dbID: Int, viewID: String?, localViews: [[String: Any]]?, embedded: Bool = false, pageLocked: Bool = false,
+         showTitle: Bool = true, showTabs: Bool = true, onHead: ((String, Bool) -> Void)? = nil, onLocalViews: (([[String: Any]]) -> Void)? = nil) {
         self.dbID = dbID; self.viewID = viewID; self.localViews = localViews; self.embedded = embedded; self.pageLocked = pageLocked; self.onLocalViews = onLocalViews
+        self.showTitle = showTitle; self.showTabs = showTabs; self.onHead = onHead
         _m = StateObject(wrappedValue: DBModel(dbID: dbID)); _current = State(initialValue: viewID)
     }
     private var views: [[String: Any]] { m.localViews ?? (localViews?.isEmpty == false ? localViews : nil) ?? m.views }
@@ -168,11 +179,14 @@ struct DatabaseView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            if embedded { header }                                   // ganze Datenbank-Seite: Name steht schon als Titel darueber
+            if embedded && m.showTitle { header }                    // ganze Datenbank-Seite: Name steht schon als Titel darueber
             DBViewBar(m: m, views: views, current: $current, editable: localViews?.isEmpty != false || onLocalViews != nil) { id in
                 Task {
-                    if let id { nav.open(id, mode: view?["open"] as? String ?? "side"); return }
-                    if let nid = await m.add(store, props: defaults()) { nav.focusTitle = nid; nav.open(nid, mode: view?["open"] as? String ?? "side") }   // Titel gleich bearbeiten
+                    let mode = view?["open"] as? String ?? "side"
+                    if let id, id > 0 { nav.open(id, mode: mode); return }
+                    // "Neu" (nil): Standardvorlage, wenn gesetzt (2.5); "Leerer Eintrag" (0): immer leer
+                    if id == nil, let t = m.defaultTemplate, let nid = await m.newFromTemplate(store, t) { nav.open(nid, mode: mode); return }
+                    if let nid = await m.add(store, props: defaults()) { nav.focusTitle = nid; nav.open(nid, mode: mode) }   // Titel gleich bearbeiten
                 }
             }
             if !m.loaded { ProgressView().frame(maxWidth: .infinity) }
@@ -189,6 +203,10 @@ struct DatabaseView: View {
             if let e = m.error { Text(e).font(.caption).foregroundStyle(.orange) }
         }
         .onChange(of: pageLocked, initial: true) { _, v in if m.pageLocked != v { m.pageLocked = v } }
+        .onChange(of: "\(showTitle)\(showTabs)\(onHead != nil)", initial: true) { _, _ in
+            if embedded { m.onHead = onHead; if m.showTitle != showTitle { m.showTitle = showTitle }; if m.showTabs != showTabs { m.showTabs = showTabs } }
+        }
+        .sheet(isPresented: $m.managingTemplates) { TemplateManager(m: m).environmentObject(store).environmentObject(nav) }
         .task {
             if let lv = localViews, !lv.isEmpty, m.localViews == nil, let cb = onLocalViews { m.localViews = lv; m.onLocalViews = cb }
             await m.load(store)

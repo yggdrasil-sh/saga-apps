@@ -171,6 +171,39 @@ struct AISource: Identifiable, Equatable {
 /// Block, den "Verbessern"/"Uebersetzen" geliefert hat ({id, type, replaceable})
 struct AIBlock: Equatable { var id: String; var type: String; var replaceable: Bool }
 
+/// 2.5 "Datenbank zuordnen": Vorschlag je Eintrag (value = gueltiger Wert der Eigenschaft, wie ihn der Server prueft)
+struct AIAssignItem: Identifiable, Equatable {
+    var id: Int; var title: String; var label: String; var old: String; var value: Any
+    static func == (a: Self, b: Self) -> Bool { a.id == b.id && a.label == b.label && a.old == b.old }
+}
+struct AIAssign: Equatable {
+    var db: Int; var propID: String; var propName: String; var items: [AIAssignItem]; var unsure: Int
+    init?(_ v: Any?) {
+        guard let d = v as? [String: Any], let db = ShareJSON.int(d["db"]), let p = d["prop"] as? [String: Any], let pid = p["id"] as? String else { return nil }
+        self.db = db; propID = pid; propName = p["name"] as? String ?? ""; unsure = ShareJSON.int(d["unsure"]) ?? 0
+        items = (d["items"] as? [Any] ?? []).compactMap { x -> AIAssignItem? in
+            guard let it = x as? [String: Any], let id = ShareJSON.int(it["id"]), let val = it["value"], !(val is NSNull) else { return nil }
+            return AIAssignItem(id: id, title: it["title"] as? String ?? "", label: it["label"] as? String ?? "", old: it["old"] as? String ?? "", value: val)
+        }
+    }
+}
+/// Datenbank auf der Seite (GET api/ai/page/<id>/dbs)
+struct AIPageDB: Identifiable, Equatable {
+    struct Prop: Identifiable, Equatable { var id: String; var name: String; var type: String }
+    var id: Int; var title: String; var editable: Bool; var rows: Int; var props: [Prop]
+    static func list(_ d: Data) -> [AIPageDB] {
+        guard let j = ShareJSON.obj(d) else { return [] }
+        return (j["dbs"] as? [Any] ?? []).compactMap { v in
+            guard let x = v as? [String: Any], let id = ShareJSON.int(x["id"]) else { return nil }
+            let ps = (x["props"] as? [Any] ?? []).compactMap { q -> Prop? in
+                guard let p = q as? [String: Any], let pid = p["id"] as? String else { return nil }
+                return Prop(id: pid, name: p["name"] as? String ?? "?", type: p["type"] as? String ?? "")
+            }
+            return AIPageDB(id: id, title: x["title"] as? String ?? "", editable: ShareJSON.bool(x["editable"]), rows: ShareJSON.int(x["rows"]) ?? 0, props: ps)
+        }
+    }
+}
+
 /// Ende eines Stroms (done)
 struct AIDone: Equatable {
     var quotaLeft: Int?
@@ -178,7 +211,11 @@ struct AIDone: Equatable {
     var blocks: [AIBlock] = []
     var segments: [String]?
     var truncated = false
+    var assign: AIAssign?
+    var more = 0
+    var message: String?
     init(_ d: [String: Any]) {
+        assign = AIAssign(d["assign"]); more = ShareJSON.int(d["more"]) ?? 0; message = ShareJSON.str(d["message"])
         quotaLeft = ShareJSON.int(d["quota_left"])
         tasks = (d["tasks"] as? [Any] ?? []).compactMap { $0 as? String }
         blocks = (d["blocks"] as? [Any] ?? []).compactMap { v -> AIBlock? in

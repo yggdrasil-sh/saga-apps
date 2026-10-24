@@ -47,10 +47,10 @@ final class AssistantModel: ObservableObject {
             cancelled: { [weak self] in self?.qa[idx].running = false; self?.qa[idx].stopped = true })
     }
 
-    func page(_ id: Int, action: String, blocks: [String]? = nil, target: String? = nil) {
+    func page(_ id: Int, action: String, blocks: [String]? = nil, target: String? = nil, extra: [String: Any] = [:]) {
         guard !running else { return }
         pageText = ""; pageSources = []; pageDone = nil; pageError = nil; pageAction = action
-        var body: [String: Any] = ["action": action]
+        var body: [String: Any] = extra; body["action"] = action
         if let blocks { body["blocks"] = blocks }
         if let target { body["target"] = target }
         run("api/ai/page/\(id)", body,
@@ -151,6 +151,15 @@ struct AssistantSheet: View {
     @State private var picked: Set<Int> = []
     @State private var askReplace = false
     @State private var info: String?
+    // 2.5 Datenbank zuordnen
+    @State private var asgOpen = false
+    @State private var asgDBs: [AIPageDB]?
+    @State private var asgDB = 0
+    @State private var asgProp = ""
+    @State private var asgOnlyEmpty = true
+    @State private var asgHint = ""
+    @State private var asgSkip: Set<Int> = []
+    @State private var asgDone = false
 
     var body: some View {
         NavigationStack {
@@ -265,6 +274,9 @@ struct AssistantSheet: View {
                             }
                         } label: { Label("Übersetzen nach", systemImage: "character.bubble").lineLimit(2).frame(maxWidth: .infinity, minHeight: 42, alignment: .leading) }
                         .menuIndicator(.visible).buttonStyle(.bordered).controlSize(.large).disabled(sel == 0 || m.running)
+                        Button { openAssign() } label: {
+                            Label("Datenbank zuordnen", systemImage: "arrow.right.square").lineLimit(2).multilineTextAlignment(.leading).frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
+                        }.buttonStyle(.bordered).controlSize(.large).disabled(m.running)
                     }
                     if sel == 0 { Text("Für „Verbessern“ und „Übersetzen“ zuerst Text auf der Seite markieren.").font(.caption).foregroundStyle(.secondary) }
                     else { Text(sel == 1 ? String(localized: "Markiert: 1 Block") : String(localized: "Markiert: \(sel) Blöcke")).font(.caption).foregroundStyle(.secondary) }
@@ -285,9 +297,94 @@ struct AssistantSheet: View {
         Button { run(a) } label: { Label(t, systemImage: icon).lineLimit(2).multilineTextAlignment(.leading).frame(maxWidth: .infinity, minHeight: 42, alignment: .leading) }
             .buttonStyle(.bordered).controlSize(.large).disabled(m.running)
     }
+    // MARK: Datenbank zuordnen (2.5) - Vorschlaege je Eintrag, uebernommen per PATCH wie beim Bearbeiten von Hand
+
+    private func openAssign() {
+        guard let id = pageID else { return }
+        info = nil; asgOpen = true; asgDBs = nil; m.pageAction = nil; m.pageDone = nil; m.pageText = ""; m.pageError = nil
+        Task {
+            await actions?.flush()
+            let list = (try? await store.api("api/ai/page/\(id)/dbs")).map(AIPageDB.list) ?? []
+            asgDBs = list.filter { !$0.props.isEmpty }
+            if let d = asgDBs?.first { pickDB(d.id) }
+        }
+    }
+    private func pickDB(_ id: Int) {
+        asgDB = id
+        let ps = asgDBs?.first { $0.id == id }?.props ?? []
+        asgProp = (ps.first { $0.type == "select" } ?? ps.first)?.id ?? ""
+    }
+    private static let asgTypes = ["select": String(localized: "Auswahl"), "multi_select": String(localized: "Mehrfachauswahl"), "checkbox": String(localized: "Häkchen"),
+                                   "text": String(localized: "Text"), "number": String(localized: "Zahl"), "date": String(localized: "Datum"), "url": String(localized: "URL")]
+    @ViewBuilder private var assignForm: some View {
+        if let dbs = asgDBs {
+            if dbs.isEmpty {
+                Text("Auf dieser Seite ist keine Datenbank mit passender Eigenschaft (Auswahl, Häkchen, Text, Zahl, Datum, URL).").foregroundStyle(.secondary)
+            } else {
+                let db = dbs.first { $0.id == asgDB } ?? dbs[0]
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("\(store.aiName ?? String(localized: "Der Assistent")) schlägt für jeden Eintrag einen Wert vor – du entscheidest, was übernommen wird.")
+                        .font(.callout).foregroundStyle(.secondary)
+                    if dbs.count > 1 {
+                        Picker("Datenbank", selection: Binding(get: { asgDB }, set: { pickDB($0) })) {
+                            ForEach(dbs) { d in Text(verbatim: "\(d.title) (\(d.rows))").tag(d.id) }
+                        }
+                    } else { Label(db.title, systemImage: "tablecells").font(.subheadline.weight(.semibold)) }
+                    Picker("Eigenschaft", selection: $asgProp) {
+                        ForEach(db.props) { p in Text(verbatim: "\(p.name) · \(Self.asgTypes[p.type] ?? p.type)").tag(p.id) }
+                    }
+                    Toggle("Nur Einträge ohne Wert", isOn: $asgOnlyEmpty)
+                    TextField("Hinweis (optional)", text: $asgHint, prompt: Text("z. B. „nach Dringlichkeit“")).textFieldStyle(.roundedBorder)
+                    if !db.editable { Text("Du darfst diese Datenbank nur lesen.").font(.caption).foregroundStyle(.secondary) }
+                    Button("Vorschläge holen") { runAssign(db.id) }.prominentGold().disabled(!db.editable || asgProp.isEmpty || m.running)
+                }
+            }
+        } else { ProgressView().controlSize(.small) }
+    }
+    private func runAssign(_ db: Int) {
+        guard let id = pageID else { return }
+        info = nil; asgSkip = []; asgDone = false; asgOpen = false
+        var extra: [String: Any] = ["db": db, "prop": asgProp, "only_empty": asgOnlyEmpty]
+        let h = asgHint.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !h.isEmpty { extra["hint"] = h }
+        m.page(id, action: "assign", extra: extra)
+    }
+    @ViewBuilder private var assignResult: some View {
+        if let d = m.pageDone {
+            if let a = d.assign, !a.items.isEmpty {
+                Text("„\(a.propName)“ für \(a.items.count) Einträge:").font(.subheadline.weight(.semibold))
+                ForEach(a.items) { it in
+                    Toggle(isOn: Binding(get: { !asgSkip.contains(it.id) }, set: { v in if v { asgSkip.remove(it.id) } else { asgSkip.insert(it.id) } })) {
+                        (Text(verbatim: it.title).bold() + Text(verbatim: ": " + (it.old.isEmpty ? "" : it.old + " → ") + it.label))
+                    }.toggleStyle(.checkboxLike).disabled(asgDone)
+                }
+                if a.unsure > 0 {
+                    Text(a.unsure == 1 ? String(localized: "Bei 1 Eintrag war sich \(store.aiName ?? String(localized: "der Assistent")) unsicher.")
+                         : String(localized: "Bei \(a.unsure) Einträgen war sich \(store.aiName ?? String(localized: "der Assistent")) unsicher.")).font(.caption).foregroundStyle(.secondary)
+                }
+                if d.more > 0 { Text("\(d.more) weitere Einträge – nach dem Übernehmen noch einmal starten.").font(.caption).foregroundStyle(.secondary) }
+                HStack {
+                    Button("Übernehmen") { Task { await applyAssign(a) } }.prominentGold().disabled(asgDone || a.items.allSatisfy { asgSkip.contains($0.id) })
+                    Button("Andere Eigenschaft …") { openAssign() }.buttonStyle(.bordered)
+                }
+            } else {
+                Text(verbatim: d.message ?? String(localized: "Keine Vorschläge.")).foregroundStyle(.secondary)
+                Button("Andere Eigenschaft …") { openAssign() }.buttonStyle(.bordered)
+            }
+        }
+    }
+    private func applyAssign(_ a: AIAssign) async {
+        var n = 0
+        for it in a.items where !asgSkip.contains(it.id) {
+            if (try? await store.api("api/notes/\(it.id)", method: "PATCH", body: ["props": [a.propID: it.value]])) != nil { n += 1 }
+        }
+        asgDone = true; store.dataChanged()
+        info = n == 1 ? String(localized: "1 Eintrag geändert.") : String(localized: "\(n) Einträge geändert.")
+    }
+
     private func run(_ a: String) {
         guard let id = pageID else { return }
-        info = nil; picked = []
+        info = nil; picked = []; asgOpen = false
         Task {
             await actions?.flush()                                          // Server liest den gespeicherten Stand
             switch a {
@@ -298,11 +395,15 @@ struct AssistantSheet: View {
         }
     }
     @ViewBuilder private var pageResult: some View {
-        if let n = store.aiName, m.running || !m.pageText.isEmpty { AIWhoLine(persona: store.aiPersona, name: n) }
-        if m.running && m.pageText.isEmpty { HStack { ProgressView().controlSize(.small); Text(verbatim: store.aiThinking).foregroundStyle(.secondary) } }
+        let asg = m.pageAction == "assign"
+        if asgOpen { assignForm }
+        if let n = store.aiName, m.running || (!m.pageText.isEmpty && !asg) || (asg && m.pageDone != nil) { AIWhoLine(persona: store.aiPersona, name: n) }
+        if m.running && (m.pageText.isEmpty || asg) { HStack { ProgressView().controlSize(.small); Text(verbatim: store.aiThinking).foregroundStyle(.secondary) } }
         if let e = m.pageError { Label(e, systemImage: "exclamationmark.triangle").foregroundStyle(.orange) }
-        if let d = m.pageDone, d.truncated { Label("Die Seite ist lang – nur der Anfang wurde verwendet.", systemImage: "scissors").font(.footnote).foregroundStyle(.secondary) }
-        if m.pageAction == "tasks", let d = m.pageDone {
+        if let d = m.pageDone, d.truncated, !asg { Label("Die Seite ist lang – nur der Anfang wurde verwendet.", systemImage: "scissors").font(.footnote).foregroundStyle(.secondary) }
+        if asg {
+            assignResult                                                     // Rohantwort ("3: Offen") nicht zeigen
+        } else if m.pageAction == "tasks", let d = m.pageDone {
             if d.tasks.isEmpty { Text("Keine Aufgaben gefunden.").foregroundStyle(.secondary) }
             ForEach(Array(d.tasks.enumerated()), id: \.offset) { i, t in
                 Toggle(isOn: Binding(get: { !picked.contains(i) }, set: { v in if v { picked.remove(i) } else { picked.insert(i) } })) { Text(verbatim: t) }
