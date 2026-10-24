@@ -1675,6 +1675,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     private fun rosterIn(r: Call, legs: List<CallLeg>, rv: Double?, limit: Int?, poll: Boolean = false, mesh: String? = null) {
         if (r.done) return
         val rs = r.rs
+        val before = rs.roster.legs
         val diff = rs.roster.apply(legs, rv) ?: return
         // 2.5 P10: Gruppenanruf ueber Servergrenzen ohne Knoten (ein Server kann keinen nutzen) - einmal sagen
         CallRoom.meshNote(mesh)?.let { if (!rs.meshNoted) { rs.meshNoted = true; repo.notify(UiText.Raw(it)) } }
@@ -1682,7 +1683,12 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (limit != null && limit > 0) rs.limit = if (rs.horn != null) limit else CallRoom.limit(r.media, limit)
         val me = myDevId()
         if (r.ready && rs.hoRep == null && diff.left.any { it.device == me }) {
-            val other = legs.firstOrNull { it.who == myUser() && it.device != me }
+            // nur wenn das andere Geraet gerade die Fuehrung uebernommen hat (neu bzw. vorher Begleitgeraet) - ein Begleitgeraet,
+            // das Begleitgeraet bleibt, heisst nur: dieses Geraet ist kurz aus der Liste gefallen (Bughunt R09)
+            val other = legs.firstOrNull { x ->
+                x.who == myUser() && x.device != me && x.role != "companion" &&
+                    before.firstOrNull { it.device == x.device }.let { it == null || it.role == "companion" }
+            }
             if (other != null) {                               // anderes eigenes Geraet hat uebernommen und dieses abgemeldet
                 r.micOn = false
                 applyMic(r)

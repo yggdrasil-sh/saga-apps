@@ -373,7 +373,9 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                 asgOpen = true; asgDbs = null; action = null; done = null; text = ""; err = null
                 scope.launch {
                     if (canEdit) ed.saveAndWait()                                   // neu eingebettete Datenbank zuerst speichern
-                    val l = try { repo.ai.pageDbs(ed.id).filter { it.props.isNotEmpty() } } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { emptyList() }
+                    val l = try { repo.ai.pageDbs(ed.id).filter { it.props.isNotEmpty() } } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) {
+                        err = if (e is io.github.yggdrasil_sh.saga.data.ApiException) e.text else repo.friendly(e); asgOpen = false; null   // R14: Fehler zeigen
+                    } ?: return@launch
                     asgDbs = l
                     l.firstOrNull()?.let { d -> asgDb = d.id; asgProp = (d.props.firstOrNull { it.third == "select" } ?: d.props.first()).first }
                 }

@@ -134,8 +134,7 @@ struct CallScreen: View {
     /// Rote Leiste: "Du teilst deinen Bildschirm" (mit Beenden) bzw. "<Name> teilt den Bildschirm" (mit Tauschen)
     @ViewBuilder private var shareBar: some View {
         // 2.5 (Anruf-UI-Regeln): fremdes Teilen nur als Bildunterschrift am geteilten Bild - kein Banner ueber dem Kopf
-        if calls.horn != nil, !calls.sharing { EmptyView() }
-        else if calls.sharing || (calls.remote.screen && calls.phase == .active) {
+        if calls.sharing || (calls.horn == nil && calls.remote.screen && calls.phase == .active) {
             HStack(spacing: 10) {
                 Image(systemName: "rectangle.inset.filled.on.rectangle")
                 VStack(alignment: .leading, spacing: 1) {

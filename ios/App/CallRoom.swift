@@ -314,7 +314,9 @@ extension CallManager {
         // Dieses Geraet ist nicht mehr in der Liste, ein anderes eigenes aber schon: es hat uebernommen und dieses
         // abgemeldet - hier beenden (sonst lief der Anruf weiter, Knoten-Anruf "Hierher uebernehmen" iPhone -> Mac)
         if (inRoom || ready), !ho.active, old?.contains(where: { $0.device == here }) == true, !legs.contains(where: { $0.device == here }),
-           let other = legs.first(where: { $0.who == me && $0.device != here }) {
+           // R09: nur wenn das andere Geraet gerade die Fuehrung uebernommen hat (neu bzw. vorher Begleitgeraet)
+           let other = legs.first(where: { x in x.who == me && x.device != here && !x.companion &&
+               (old?.first(where: { $0.device == x.device }).map { $0.companion } ?? true) }) {
             audioTrack?.isEnabled = false; mic = false; sound = false; applyPlayback()
             finish(.elsewhere, message: String(localized: "Anruf auf \(other.devName.isEmpty ? String(localized: "anderes Gerät") : other.devName) übernommen."))
             return

@@ -374,12 +374,14 @@ struct AssistantSheet: View {
         }
     }
     private func applyAssign(_ a: AIAssign) async {
-        var n = 0
+        var n = 0, failed: String?
         for it in a.items where !asgSkip.contains(it.id) {
-            if (try? await store.api("api/notes/\(it.id)", method: "PATCH", body: ["props": [a.propID: it.value]])) != nil { n += 1 }
+            do { _ = try await store.api("api/notes/\(it.id)", method: "PATCH", body: ["props": [a.propID: it.value]]); n += 1 }
+            catch { failed = error.localizedDescription }
         }
-        asgDone = true; store.dataChanged()
+        asgDone = failed == nil; store.dataChanged()
         info = n == 1 ? String(localized: "1 Eintrag geändert.") : String(localized: "\(n) Einträge geändert.")
+        if let failed { m.pageError = String(localized: "Nicht übernommen: \(failed)") }   // R14: Teilfehler zeigen
     }
 
     private func run(_ a: String) {

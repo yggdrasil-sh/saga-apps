@@ -405,9 +405,6 @@ class DbViewState(
         null
     }
 
-    /** "Neu": Standardvorlage, wenn gesetzt, sonst leer mit den Werten des Filters */
-    suspend fun createDefault(): Long? = defaultTemplate?.let { createFrom(it) } ?: create()
-
     /** Vorlagen-Aktion ausfuehren, danach neu laden; Fehler als Hinweis */
     fun tplOp(op: suspend () -> Unit) {
         scope.launch {

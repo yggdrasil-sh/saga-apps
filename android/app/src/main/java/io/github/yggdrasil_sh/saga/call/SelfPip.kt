@@ -101,7 +101,7 @@ internal fun SelfPip(
                     modifier = Modifier.align(Alignment.TopStart).size(40.dp),
                 ) {
                     Box(Modifier.size(28.dp).clip(CircleShape).background(Color(0x73000000)), contentAlignment = Alignment.Center) {
-                        Icon(painterResource(R.drawable.ic_videocam_off), stringResource(R.string.call_self_hide), tint = Color.White,
+                        Icon(painterResource(R.drawable.ic_visibility_off), stringResource(R.string.call_self_hide), tint = Color.White,
                             modifier = Modifier.size(16.dp))
                     }
                 }

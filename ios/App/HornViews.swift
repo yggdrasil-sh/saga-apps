@@ -376,19 +376,6 @@ struct HornPeoplePanel: View {
     }
 }
 
-/// Leiste "… teilt den Bildschirm" im Knoten-Anruf (eigenes Teilen zeigt CallScreen.shareBar)
-struct HornShareLine: View {
-    @ObservedObject var horn: HornSession
-    var body: some View {
-        if let s = horn.share {
-            Label("\(s.name) teilt den Bildschirm", systemImage: "rectangle.inset.filled.on.rectangle")
-                .font(.subheadline.weight(.semibold)).foregroundStyle(.white)
-                .padding(.horizontal, 12).padding(.vertical, 7)
-                .background(Color(red: 0.78, green: 0.13, blue: 0.13), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        }
-    }
-}
-
 /// Ebenen ueber der Buehne: Teilnehmerliste und Runensiegel
 struct HornOverlays: View {
     @ObservedObject var calls: CallManager

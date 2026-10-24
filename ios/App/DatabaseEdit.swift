@@ -723,5 +723,6 @@ struct TemplateManager: View {
         #if os(macOS)
         .frame(minWidth: 520, minHeight: 340)
         #endif
+        .onDisappear { if !names.isEmpty { let n = names; Task { for t in m.templates { if let x = n[t.id], x != t.title { await m.renameTemplate(store, t, x) } } } } }   // R11: auch beim Wegwischen
     }
 }

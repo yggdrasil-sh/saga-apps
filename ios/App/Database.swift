@@ -178,6 +178,8 @@ struct DatabaseView: View {
     private var type: String { view?["type"] as? String ?? "table" }
 
     var body: some View {
+        // R15: Rueckruf bei jedem Neuzeichnen neu setzen - er haengt am Block der aktuellen Fassung der Seite
+        let _ = { if embedded { m.onHead = onHead } }()
         VStack(alignment: .leading, spacing: 8) {
             if embedded && m.showTitle { header }                    // ganze Datenbank-Seite: Name steht schon als Titel darueber
             DBViewBar(m: m, views: views, current: $current, editable: localViews?.isEmpty != false || onLocalViews != nil) { id in
