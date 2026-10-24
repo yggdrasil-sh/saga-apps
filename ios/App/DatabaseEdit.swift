@@ -677,6 +677,42 @@ struct TemplateManager: View {
         names = [:]
     }
     private func run(_ f: @escaping () async -> Void) { Task { busy = true; await saveNames(); await f(); busy = false } }
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var hsc
+    private var compact: Bool { hsc == .compact }
+    #else
+    private let compact = false
+    #endif
+
+    @ViewBuilder private func nameField(_ t: DBTemplate) -> some View {
+        PageIcon(icon: t.icon.isEmpty ? nil : t.icon, store: store, fallback: "📐")
+        TextField("Name der Vorlage", text: Binding(get: { names[t.id] ?? t.title }, set: { names[t.id] = $0 }), prompt: Text("Unbenannt"))
+            .textFieldStyle(.plain)
+            .onSubmit { run {} }
+    }
+    @ViewBuilder private func badge(_ t: DBTemplate) -> some View {
+        if m.defaultTemplate?.id == t.id {
+            Text("Standard").font(.caption2.weight(.semibold)).foregroundStyle(Color.accentColor)
+                .padding(.horizontal, 6).padding(.vertical, 2).overlay(Capsule().stroke(Color.accentColor.opacity(0.5)))
+        }
+    }
+    @ViewBuilder private func actions(_ t: DBTemplate) -> some View {
+        Button("Bearbeiten") { run { dismiss(); nav.push(PageRoute(id: t.id)) } }
+            .buttonStyle(.bordered).controlSize(.small)
+        Menu {
+            Button { run { await m.duplicateTemplate(store, t) } } label: { Label("Duplizieren", systemImage: "plus.square.on.square") }
+            if m.defaultTemplate?.id == t.id {
+                Button { run { m.setDefaultTemplate(store, nil) } } label: { Label("Nicht mehr Standard", systemImage: "star.slash") }
+            } else {
+                Button { run { m.setDefaultTemplate(store, t.id) } } label: { Label("Als Standard für „Neu“", systemImage: "star") }
+            }
+            Button { run { await m.untemplate(store, t) } } label: { Label("Keine Vorlage mehr", systemImage: "doc") }
+            Divider()
+            Button(role: .destructive) { trash = t } label: { Label("In den Papierkorb", systemImage: "trash") }
+        } label: { Image(systemName: "ellipsis.circle") }
+            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+            .accessibilityLabel("Weitere Aktionen")
+    }
 
     var body: some View {
         NavigationStack {
@@ -685,30 +721,15 @@ struct TemplateManager: View {
                     Text("Diese Datenbank hat noch keine Vorlagen.").foregroundStyle(.secondary)
                 }
                 ForEach(m.templates) { t in
-                    HStack(spacing: 8) {
-                        PageIcon(icon: t.icon.isEmpty ? nil : t.icon, store: store, fallback: "📐")
-                        TextField("Name der Vorlage", text: Binding(get: { names[t.id] ?? t.title }, set: { names[t.id] = $0 }), prompt: Text("Unbenannt"))
-                            .textFieldStyle(.plain)
-                            .onSubmit { run {} }
-                        if m.defaultTemplate?.id == t.id {
-                            Text("Standard").font(.caption2.weight(.semibold)).foregroundStyle(Color.accentColor)
-                                .padding(.horizontal, 6).padding(.vertical, 2).overlay(Capsule().stroke(Color.accentColor.opacity(0.5)))
-                        }
-                        Button("Bearbeiten") { run { dismiss(); nav.push(PageRoute(id: t.id)) } }
-                            .buttonStyle(.bordered).controlSize(.small)
-                        Menu {
-                            Button { run { await m.duplicateTemplate(store, t) } } label: { Label("Duplizieren", systemImage: "plus.square.on.square") }
-                            if m.defaultTemplate?.id == t.id {
-                                Button { run { m.setDefaultTemplate(store, nil) } } label: { Label("Nicht mehr Standard", systemImage: "star.slash") }
-                            } else {
-                                Button { run { m.setDefaultTemplate(store, t.id) } } label: { Label("Als Standard für „Neu“", systemImage: "star") }
+                    Group {
+                        if compact {                                    // I08: iPhone - Name in voller Breite, Knoepfe darunter
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack(spacing: 8) { nameField(t) }
+                                HStack(spacing: 8) { badge(t); Spacer(minLength: 0); actions(t) }
                             }
-                            Button { run { await m.untemplate(store, t) } } label: { Label("Keine Vorlage mehr", systemImage: "doc") }
-                            Divider()
-                            Button(role: .destructive) { trash = t } label: { Label("In den Papierkorb", systemImage: "trash") }
-                        } label: { Image(systemName: "ellipsis.circle") }
-                            .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
-                            .accessibilityLabel("Weitere Aktionen")
+                        } else {
+                            HStack(spacing: 8) { nameField(t); badge(t); actions(t) }
+                        }
                     }
                     .padding(.vertical, 2)
                 }
