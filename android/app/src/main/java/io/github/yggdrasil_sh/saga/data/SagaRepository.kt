@@ -349,7 +349,7 @@ class SagaRepository(
         }
     }
 
-    private fun isNetworkFailure(e: Throwable): Boolean =
+    fun isNetworkFailure(e: Throwable): Boolean =
         e !is ApiException && e !is UiTextException && (e is IOException || e.cause is IOException)
 
     companion object {
@@ -1576,6 +1576,14 @@ class SagaRepository(
     /** Auf diesem Geraet abmelden: Geraete-Anmeldung am Server loeschen, Sitzung + Daten lokal entfernen */
     suspend fun logout() {
         flushEditors()
+        // A10: Chat-Geraet beim Server abmelden (bekommt keine Schluessel mehr), die lokalen Chat-Schluessel loescht
+        // signOutLocal - sonst bliebe ein Geraet ohne Schluessel in der Liste. Offline: nur lokal.
+        try {
+            chat.deviceId?.let { api.delete("api/chat/devices/$it") }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
         auth.signOutLocal(forgetRemote = true)
         freshLogin = true
         needsLogin.value = true

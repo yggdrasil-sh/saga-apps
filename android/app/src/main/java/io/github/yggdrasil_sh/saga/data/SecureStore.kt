@@ -17,6 +17,8 @@ interface SecretStore {
     fun get(name: String): String?
     fun put(name: String, value: String?)
     fun clear()
+    /** Namen aller abgelegten Werte (A10: kontobezogene Chat-Eintraege beim Abmelden finden) */
+    fun names(): Set<String> = emptySet()
 }
 
 /** Nur im Speicher (Unit-Tests) */
@@ -27,6 +29,7 @@ class MemorySecretStore : SecretStore {
         if (value == null) m.remove(name) else m[name] = value
     }
     override fun clear() = m.clear()
+    override fun names(): Set<String> = m.keys.toSet()
 }
 
 /**
@@ -94,6 +97,12 @@ class KeystoreSecretStore(context: Context) : SecretStore {
         absent.clear()
         prefs.edit { clear() }
     }
+
+    override fun names(): Set<String> = try {
+        prefs.all.keys.toSet()
+    } catch (_: Exception) {
+        emptySet()
+    }
 }
 
 /**
@@ -105,6 +114,17 @@ class SecureStore(private val store: SecretStore) {
 
     fun get(name: String): String? = store.get(name)
     fun put(name: String, value: String?) = store.put(name, value)
+
+    /**
+     * A10: alle Chat-Eintraege (Schluessel, TOFU, Lesestand, Einrichtung/Kopplung in Arbeit) eines Kontos loeschen -
+     * scope wie in ChatStore ("<server>|<konto>"); andere Konten bleiben unberuehrt. -> Anzahl geloeschter Eintraege
+     */
+    fun clearChat(scope: String): Int {
+        if (scope.isEmpty() || scope == "|") return 0
+        val doomed = store.names().filter { it.startsWith("chat_") && it.endsWith(":$scope") }
+        doomed.forEach { store.put(it, null) }
+        return doomed.size
+    }
 
     var deviceToken: String?
         get() = get("device_token")?.takeIf { it.startsWith("hkd_") }

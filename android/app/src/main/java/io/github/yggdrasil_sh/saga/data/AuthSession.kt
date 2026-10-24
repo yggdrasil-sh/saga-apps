@@ -68,19 +68,24 @@ class AuthSession(
         } catch (_: Exception) {
             null
         }
-        signOutLocal(forgetRemote = true)
+        // A10: erneut mit demselben Konto am selben Server gekoppelt -> Chat-Schluessel behalten (kein Abmelden)
+        val newKey = if (user != null) AccountKey.uid(user) else AccountKey.name(r.name.orEmpty())
+        val same = SignOutChat.sameAccount(secure.tokenServer.orEmpty(), settings.accountKey.value, server, newKey)
+        signOutLocal(forgetRemote = true, keepChat = same)
         withContext(io) { secure.setCredentials(server, token, r.appKey?.takeIf { it.startsWith("hk_") }) }
         settings.setServer(server)
         settings.setAccount(r.name.orEmpty())
-        settings.setAccountKey(if (user != null) AccountKey.uid(user) else AccountKey.name(r.name.orEmpty()))
+        settings.setAccountKey(newKey)
     }
 
     /**
      * Bisherige Anmeldung beenden: Geraete-Anmeldung beim ALTEN Server loeschen (nur dorthin geht der Schluessel),
      * Schluessel und lokale Daten entfernen. Fehler beim Server werden ignoriert (offline).
      */
-    suspend fun signOutLocal(forgetRemote: Boolean) {
+    suspend fun signOutLocal(forgetRemote: Boolean, keepChat: Boolean = false) {
         val (oldServer, tok) = withContext(io) { secure.tokenServer.orEmpty() to secure.deviceToken }
+        // A10: "Loescht ... die Daten in der App" - auch Chat-Schluessel und Chat-Stand dieses Kontos (wie iOS)
+        val chatScope = SignOutChat.scope(settings.server.value.ifEmpty { oldServer }, settings.accountKey.value)
         if (forgetRemote && tok != null && oldServer.isNotEmpty()) {
             try {
                 api.forget(oldServer, tok)
@@ -90,10 +95,24 @@ class AuthSession(
             }
         }
         val had = tok != null || settings.account.value.isNotEmpty()
-        withContext(io) { secure.clearCredentials() }
+        withContext(io) {
+            secure.clearCredentials()
+            if (!keepChat && chatScope != null) secure.clearChat(chatScope)
+        }
         if (had || oldServer.isNotEmpty()) clearLocal(oldServer.ifEmpty { settings.server.value })
         settings.setAccount("")
         settings.setAccountKey("")
         settings.clearRecent()
     }
+}
+
+/** A10: Chat-Daten beim Abmelden (rein, testbar) */
+object SignOutChat {
+    /** Ablage-Bereich der Chat-Eintraege eines Kontos wie in ChatStore; null = kein Konto bekannt */
+    fun scope(server: String, accountKey: String): String? =
+        if (server.isEmpty() || accountKey.isEmpty()) null else "$server|$accountKey"
+
+    /** Neue Anmeldung gehoert zum selben Konto am selben Server (dann bleiben die Chat-Schluessel) */
+    fun sameAccount(oldServer: String, oldKey: String, newServer: String, newKey: String): Boolean =
+        oldServer.isNotEmpty() && oldKey.isNotEmpty() && oldServer == newServer && oldKey == newKey
 }

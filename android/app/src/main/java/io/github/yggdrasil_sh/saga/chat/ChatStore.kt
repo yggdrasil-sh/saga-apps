@@ -123,6 +123,12 @@ class ChatStore(private val secure: SecureStore, private val scope: () -> String
     fun receiptSent(chat: Long): Long = secure.get(k("rs_$chat"))?.toLongOrNull() ?: 0L
     fun saveReceiptSent(chat: Long, n: Long) = secure.put(k("rs_$chat"), n.toString())
 
+    // ---------------------------------------------------------------- Entwurf je Chat (A09)
+    // Nur verschluesselt im Keystore wie die Schluessel; beim Abmelden mit allen chat_*-Eintraegen geloescht (A10).
+
+    fun draft(chat: Long): String? = secure.get(k("draft_$chat"))
+    fun saveDraft(chat: Long, text: String?) = secure.put(k("draft_$chat"), text)
+
     // ---------------------------------------------------------------- TOFU
 
     fun known(): Map<String, KnownIdent> = try {

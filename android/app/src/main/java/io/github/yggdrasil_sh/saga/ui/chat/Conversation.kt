@@ -128,6 +128,7 @@ import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.collectLatest
 import io.github.yggdrasil_sh.saga.chat.ChatFile
 import io.github.yggdrasil_sh.saga.chat.ChatFiles
 import kotlinx.coroutines.CoroutineScope
@@ -178,6 +179,17 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     val input = rememberSaveable(chatId, saver = TextFieldState.Saver) { TextFieldState() }   // ueberlebt Prozess-Tod (BUG-067)
     LaunchedEffect(input) {
         snapshotFlow { input.text.toString() }.drop(1).collect { if (it.isNotBlank()) scope.launch { s.typingNow() } }
+    }
+    // A09: Entwurf je Chat merken (auch offline geschrieben und beim Verlassen) und beim Oeffnen zurueckholen
+    LaunchedEffect(input, chatId) {
+        if (input.text.isEmpty()) withContext(Dispatchers.IO) { svc.store.draft(chatId) }?.let { if (input.text.isEmpty()) input.setTextAndPlaceCursorAtEnd(it) }
+        snapshotFlow { input.text.toString() }.drop(1).collectLatest { t ->
+            delay(400)
+            if (s.editing == null) withContext(Dispatchers.IO) { svc.store.saveDraft(chatId, io.github.yggdrasil_sh.saga.chat.ChatOffline.draftToStore(t)) }
+        }
+    }
+    DisposableEffect(input, chatId) {
+        onDispose { if (s.editing == null) svc.store.saveDraft(chatId, io.github.yggdrasil_sh.saga.chat.ChatOffline.draftToStore(input.text.toString())) }
     }
     /** Immich fuer diese Person eingerichtet? -> "Aus Immich" beim Anhaengen */
     var immichOn by remember { mutableStateOf(false) }
@@ -818,7 +830,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                         input.setTextAndPlaceCursorAtEnd(text)             // nichts verlieren
                         files.addAll(fs)
                         noteIds.addAll(refs)
-                        repo.notify(repo.friendly(e))
+                        // A09: ohne Verbindung verstaendlich sagen, dass der Entwurf bleibt
+                        repo.notify(if (repo.isNetworkFailure(e)) UiText.Res(R.string.chat_send_offline) else repo.friendly(e))
                     }
                 }
             }, enabled = canSend) {

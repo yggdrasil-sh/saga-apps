@@ -213,8 +213,14 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
 
     // ---------------------------------------------------------------- Laden
 
+    /** A09: Verlauf einmal erfolgreich geladen - sonst versucht catchUp() es erneut (z. B. nach dem Wiederverbinden) */
+    var opened by mutableStateOf(false)
+        private set
+
     suspend fun open() {
         loading = true
+        // A09: Name/Mitglieder aus der (auch offline bekannten) Chat-Liste, bis der Server antwortet
+        if (summary == null) summary = svc.chats.value.firstOrNull { it.id == chatId }
         try {
             loadSummary()
             // v2: Schluessel der Absender (selbst geprueft) vor dem Entschluesseln - sonst stuende kurz "Echtheit nicht bestaetigt"
@@ -235,6 +241,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             markRead()
             quietly { loadReceipts() }
             error = null
+            opened = true
         } catch (e: CancellationException) {
             throw e
         } catch (e: ApiException) {
@@ -266,6 +273,10 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
 
     /** Liegengebliebenes Nachladen wiederholen (regelmaessig aus der Ansicht), nie mit Ausnahme */
     suspend fun catchUp(foreground: Boolean = true) {
+        if (ChatOffline.reopen(opened, loading, notFound)) {
+            open()                                                  // fängt selbst ab und zeigt den Fehler
+            return
+        }
         if (behind) behind = !quietly { loadNewer() }
         else if (foreground && FedDelivery.due(messages, lastDeliveryCheck, System.currentTimeMillis())) quietly { checkDelivery() }
     }
@@ -1550,4 +1561,13 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             }
         }
     }
+}
+
+/** A09: Verhalten ohne Verbindung (rein, testbar) */
+object ChatOffline {
+    /** Erstes Laden gescheitert (offline) -> beim naechsten Abgleich neu oeffnen */
+    fun reopen(opened: Boolean, loading: Boolean, notFound: Boolean): Boolean = !opened && !loading && !notFound
+
+    /** Entwurf merken? Leer/nur Leerzeichen: gemerkten Entwurf loeschen (null) */
+    fun draftToStore(text: String): String? = text.takeIf { it.isNotBlank() }?.take(20_000)
 }
