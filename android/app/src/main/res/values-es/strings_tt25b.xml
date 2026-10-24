@@ -5,4 +5,6 @@
     <string name="dbv_filter_value">Valor</string>
     <string name="dbv_more_columns">Más columnas: desliza hacia el lado</string>
     <string name="chat_remove_picked">Quitar</string>
+    <string name="button_task_default">Nueva tarea</string>
+    <string name="button_entry_failed">No se creó la entrada: %1$s</string>
 </resources>

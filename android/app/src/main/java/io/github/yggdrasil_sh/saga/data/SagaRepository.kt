@@ -750,6 +750,21 @@ class SagaRepository(
     }
 
     /**
+     * Schaltflaeche "Neuer Eintrag" (wie Web/iOS): leer oder als Kopie einer Vorlage (Inhalt, Symbol, Werte, Unterseiten).
+     * Ohne Vorlage wird immer ein Titel mitgeschickt (auch leer), mit Vorlage nur ein gesetzter - sonst bleibt deren Titel.
+     */
+    suspend fun buttonEntry(dbId: Long, title: String, tpl: Long?): Long {
+        val b = buildJsonObject {
+            put("parent_id", dbId)
+            if (title.isNotEmpty() || tpl == null) put("title", title)
+        }
+        val id = decode<NewId>(api.post(if (tpl != null) "api/notes/$tpl/duplicate" else "api/notes", b)).id
+        if (tpl == null) pageAdded(id, dbId) else refresh(join = false)
+        dbStore.changed()
+        return id
+    }
+
+    /**
      * Nach dem Anlegen: eigene Seite lokal einfuegen statt die ganze Seitenliste neu zu laden. Unter einer fremden
      * (geteilten) Elternseite gehoert die neue Seite deren Eigentuemer -> wie bisher vollstaendig abgleichen
      * ("Mit mir geteilt"). Faellt das gezielte Laden aus, ebenfalls der volle Abgleich.

@@ -31,6 +31,14 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   (Schloss-Symbol statt E2E-Text).
 - Anruf: Hinweis, wenn die Kamera nicht startet; das eigene Bild ist in der Kachelansicht immer dabei.
 - Mitteilungen werden nach einer neuen Anmeldung automatisch eingeschaltet (wie nach dem Erlauben).
+- **Schaltflächen** „Neuer Eintrag“ legen jetzt wirklich einen Eintrag in der Datenbank an (leer oder aus der
+  gewählten Vorlage, Titel mit `{datum}`) und öffnen ihn – bisher öffneten sie nur die Datenbank. „Aufgabe“-Knöpfe
+  legen die Aufgabe an; doppeltes Tippen legt nichts doppelt an.
+- **GIFs** laufen animiert (Seiten, Chat, Immich) statt nur das erste Bild zu zeigen.
+
+### Behoben – Mac: Cursor im Editor versetzt
+- Beim Bearbeiten stand der Cursor ~5 pt rechts neben Platzhalter und Text, und in Listen/Checklisten saß die Zeile
+  tiefer als Kästchen bzw. Aufzählungszeichen. Innenrand des Mac-Textfelds ausgeglichen, Grundlinie angegeben.
 
 ### Geändert – Android wie iOS: Seitenkopf, Tags, Datenbanken
 - **Titelbilder auf Seiten** (fehlten bisher ganz): über die volle Breite mit gespeicherter Position; antippen =

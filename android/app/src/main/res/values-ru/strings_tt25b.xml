@@ -5,4 +5,6 @@
     <string name="dbv_filter_value">Значение</string>
     <string name="dbv_more_columns">Ещё столбцы – листайте в сторону</string>
     <string name="chat_remove_picked">Убрать</string>
+    <string name="button_task_default">Новая задача</string>
+    <string name="button_entry_failed">Запись не создана: %1$s</string>
 </resources>

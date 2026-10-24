@@ -77,7 +77,11 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
     /** Bilder: eigener Server (/files/...) mit derselben Sitzung wie die API, fremde Hosts ohne Sitzung/Kopfzeilen */
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)
-            .components { add(OkHttpNetworkFetcherFactory(callFactory = { repo.api.imageCallFactory })) }
+            .components {
+                add(OkHttpNetworkFetcherFactory(callFactory = { repo.api.imageCallFactory }))
+                // Ohne eigenen Decoder zeigt Coil von GIFs nur das erste Bild
+                if (android.os.Build.VERSION.SDK_INT >= 28) add(coil3.gif.AnimatedImageDecoder.Factory()) else add(coil3.gif.GifDecoder.Factory())
+            }
             .crossfade(true)
             .build()
 

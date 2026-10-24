@@ -46,6 +46,7 @@ import io.github.yggdrasil_sh.saga.ui.database.PropRow
 import io.github.yggdrasil_sh.saga.ui.database.PropValueEditor
 import io.github.yggdrasil_sh.saga.ui.database.rememberDbFormat
 import io.github.yggdrasil_sh.saga.util.UiText
+import io.github.yggdrasil_sh.saga.util.resolve
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -213,20 +214,75 @@ fun DatabaseBlock(d: JsonObject, env: BlockEnv) {
     }
 }
 
-/** Schaltflaechen-Leiste (Notion "Buttons"): "Seite oeffnen" und "Neuer Eintrag" fuehren zur Seite bzw. Datenbank */
+/**
+ * Schaltflaechen-Leiste (wie Web/iOS): "Seite oeffnen" fuehrt zur Seite, "Neuer Eintrag" legt einen Eintrag in der
+ * Datenbank an (leer oder aus der gewaehlten Vorlage, Titel mit {datum}) und oeffnet ihn, "Aufgabe" legt eine Aufgabe an.
+ * Waehrend eine Aktion laeuft, ist der Knopf gesperrt (sonst legt doppeltes Tippen zwei Eintraege an).
+ * Auf gesperrten Seiten bedienbar, nur mit Lese-/Kommentarrecht nicht.
+ */
 @Composable
 fun ButtonsBlock(d: JsonObject, env: BlockEnv) {
     val buttons = (d["buttons"] as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        buttons.forEach { b ->
-            val label = InlineHtml.decodeEntities(BlockDoc.str(b, "label")).ifEmpty { stringResource(R.string.blocktype_buttons) }
-            val icon = InlineHtml.decodeEntities(BlockDoc.str(b, "icon"))
-            val target = (b["target"] as? JsonPrimitive)?.content?.toDoubleOrNull()?.toLong()
-            val action = BlockDoc.str(b, "action")
-            val go = target?.takeIf { action == "page" || action == "db" }
-            OutlinedButton(onClick = { go?.let { env.onLink("/notes#$it") } }, enabled = go != null) {
-                Text((if (icon.isNotEmpty()) "$icon " else "") + label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    val scope = rememberCoroutineScope()
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var busy by remember { mutableStateOf<Int?>(null) }
+    var problem by remember { mutableStateOf<UiText?>(null) }
+    val canAct = env.editor.share.role.canEdit
+    Column {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            buttons.forEachIndexed { i, b ->
+                val label = InlineHtml.decodeEntities(BlockDoc.str(b, "label")).ifEmpty { stringResource(R.string.blocktype_buttons) }
+                val icon = InlineHtml.decodeEntities(BlockDoc.str(b, "icon"))
+                val target = (b["target"] as? JsonPrimitive)?.content?.toDoubleOrNull()?.toLong()
+                val tpl = (b["tpl"] as? JsonPrimitive)?.content?.toDoubleOrNull()?.toLong()
+                val action = BlockDoc.str(b, "action")
+                val usable = when (action) {
+                    "page", "db" -> target != null
+                    "task" -> true
+                    else -> false
+                } && (action == "page" || canAct)
+                val taskDefault = stringResource(R.string.button_task_default)
+                OutlinedButton(
+                    onClick = {
+                        if (busy != null) return@OutlinedButton
+                        when (action) {
+                            "page" -> target?.let { env.onLink("/notes#$it") }
+                            "db", "task" -> {
+                                busy = i
+                                problem = null
+                                scope.launch {
+                                    try {
+                                        val raw = InlineHtml.decodeEntities(BlockDoc.str(b, "title"))
+                                        if (action == "task") {
+                                            env.repo.addTask(raw.ifBlank { taskDefault }, null)
+                                        } else {
+                                            val today = android.text.format.DateFormat.getDateFormat(ctx).format(java.util.Date())
+                                            var title = raw
+                                            for (k in listOf("{datum}", "{date}", "{fecha}")) title = title.replace(k, today)
+                                            val id = env.repo.buttonEntry(target!!, title, tpl)
+                                            env.onLink("/notes#$id")
+                                        }
+                                    } catch (e: CancellationException) {
+                                        throw e
+                                    } catch (e: Exception) {
+                                        problem = env.repo.friendly(e)
+                                    } finally {
+                                        kotlinx.coroutines.delay(800)      // waehrend die neue Seite hereinfaehrt: kein zweites Mal
+                                        busy = null
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    enabled = usable && busy != i,
+                ) {
+                    Text((if (icon.isNotEmpty()) "$icon " else "") + label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
             }
+        }
+        problem?.let { p ->
+            Text(stringResource(R.string.button_entry_failed, p.resolve()), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }

@@ -200,6 +200,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
+    implementation(libs.coil.gif)                  // GIFs bewegt anzeigen (Seiten, Chat, Immich)
     implementation(libs.zxing.core)
 
     // Chat-Kryptografie (Ende-zu-Ende): libsodium ueber lazysodium-android (Vorgabe der Chat-Spezifikation);

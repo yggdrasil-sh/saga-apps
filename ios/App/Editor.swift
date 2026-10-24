@@ -391,6 +391,27 @@ final class EditFieldBox {
     var acquireUntil = Date.distantPast
 }
 
+#if os(macOS)
+/// Oberlaenge der Schrift (Abstand Oberkante -> Grundlinie der ersten Zeile) fuer die Ausrichtung neben dem Mac-Textfeld
+enum MacTextMetrics {
+    static func ascent(_ font: Font) -> CGFloat {
+        let style: NSFont.TextStyle
+        switch font {
+        case .title: style = .title1
+        case .title2: style = .title2
+        case .title3: style = .title3
+        case .headline: style = .headline
+        case .subheadline: style = .subheadline
+        case .callout: style = .callout
+        case .footnote: style = .footnote
+        case .caption: style = .caption1
+        default: style = .body
+        }
+        return NSFont.preferredFont(forTextStyle: style).ascender.rounded()
+    }
+}
+#endif
+
 struct EditText: View {
     let key: String
     let html: String
@@ -568,6 +589,9 @@ struct EditText: View {
                             .scrollContentBackground(.hidden)
                             #if os(iOS)
                             .padding(.horizontal, -5).padding(.vertical, -8)          // Innenabstand des Editors ausgleichen
+                            #else
+                            // Mac: Zeilenrand des Textfelds (5 pt) ausgleichen - sonst steht der Cursor neben Platzhalter/Text
+                            .padding(.horizontal, -5)
                             #endif
                             .frame(minHeight: 22)
                             .focused($focused)
@@ -601,6 +625,11 @@ struct EditText: View {
                         #endif
                     }
                 }
+                #if os(macOS)
+                // Das Textfeld meldet keine Text-Grundlinie: ohne diese Angabe richten sich Kaestchen/Aufzaehlungszeichen
+                // davor (HStack .firstTextBaseline) an der Unterkante aus und der Text steht versetzt daneben
+                .alignmentGuide(.firstTextBaseline) { d in d[.top] + MacTextMetrics.ascent(font) }
+                #endif
                 #if os(iOS)
                 .onChange(of: handingOver ? nil : slashQuery, initial: true) { _, q in       // Menue an der Seite andocken (ueber der Tastatur)
                     let v = q.map { SlashDock(key: key, query: $0) }
