@@ -224,4 +224,46 @@ class PairFlowTest {
         assertFalse(sameServer("https://h.example.org/saga", "https://h.example.org/andere/app".toHttpUrl()))
         assertFalse(sameServer("", "https://h.example.org/".toHttpUrl()))
     }
+
+    // ------------------------------------------------------------------ A10 Abmelden loescht Chat-Daten des Kontos
+
+    private fun chatEntries(sec: SecureStore, scope: String) {
+        for (n in listOf("keys", "tofu", "rs_8", "rh_8", "pending", "link")) sec.put("chat_$n:$scope", "x")
+    }
+
+    @Test
+    fun a10SignOutDeletesChatEntriesOfThisAccountOnly() = runTest {
+        val (s, sec, api) = signedInAtA()
+        val mine = "$a|${AccountKey.uid("mia")}"
+        val other = "$a|${AccountKey.uid("tom")}"
+        chatEntries(sec, mine)
+        chatEntries(sec, other)
+        sec.put("draft_x", "bleibt")
+        session(s, sec, api).signOutLocal(forgetRemote = true)
+        assertNull(sec.get("chat_keys:$mine"))
+        assertNull(sec.get("chat_tofu:$mine"))
+        assertNull(sec.get("chat_rs_8:$mine"))
+        assertNull(sec.get("chat_pending:$mine"))
+        assertEquals("x", sec.get("chat_keys:$other"))          // anderes Konto auf dem Geraet: unberuehrt
+        assertEquals("bleibt", sec.get("draft_x"))
+    }
+
+    @Test
+    fun a10SwitchingAccountDeletesOldChatKeys() = runTest {
+        val (s, sec, api) = signedInAtA()
+        val mine = "$a|${AccountKey.uid("mia")}"
+        chatEntries(sec, mine)
+        session(s, sec, api).pair(PairTarget(b, code))
+        assertNull(sec.get("chat_keys:$mine"))
+    }
+
+    @Test
+    fun a10RepairingSameAccountKeepsChatKeys() = runTest {
+        val (s, sec, api) = signedInAtA()
+        s.setAccountKey(AccountKey.uid("u-neu"))                // gleiches Konto, wie es der Server meldet
+        val mine = "$a|${AccountKey.uid("u-neu")}"
+        chatEntries(sec, mine)
+        session(s, sec, api).pair(PairTarget(a, code))
+        assertEquals("x", sec.get("chat_keys:$mine"))
+    }
 }

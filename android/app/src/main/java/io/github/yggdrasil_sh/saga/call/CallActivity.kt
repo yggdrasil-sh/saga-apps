@@ -64,6 +64,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -560,7 +561,8 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
     Surface(color = if (onDark) Color(0x99101114) else Color.Transparent, shape = RoundedCornerShape(12.dp), modifier = modifier) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             val e2e = stringResource(if (st.verified) R.string.call_e2e else R.string.call_encrypted)
-            val info = stringResource(R.string.call_e2e_info)
+            // A13: Sicherheitszeile je Weg - am Knoten gilt Frame-E2E (saga-horn), verglichen wird das Runensiegel
+            val info = stringResource(if (st.room?.horn != null) R.string.call_e2e_info_horn else R.string.call_e2e_info)
             // ANRUF-UI: Dauer direkt unter dem Titel, dann die Sicherheitszeile
             if (parts.isNotEmpty()) Text(parts.joinToString(" · "), color = fg, style = MaterialTheme.typography.labelMedium)
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.semantics(mergeDescendants = true) {
@@ -577,7 +579,7 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
 private fun Controls(calls: CallManager, st: CallUiState, answer: (Boolean) -> Unit, onCam: () -> Unit, onShare: () -> Unit, onMic: () -> Unit) {
     when (st.phase) {
         CallPhase.INCOMING -> Row(Modifier.fillMaxWidth().padding(bottom = 24.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
-            RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_decline), MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.onError) { calls.decline() }
+            RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_decline), CallLabels.HANGUP_BG, Color.White) { calls.decline() }
             if (st.video) {
                 RoundButton(R.drawable.ic_call, stringResource(R.string.call_answer_audio), CALL_GREEN, Color.White) { answer(false) }
                 RoundButton(R.drawable.ic_videocam, stringResource(R.string.call_answer_video), CALL_GREEN, Color.White, big = true) { answer(true) }
@@ -625,7 +627,7 @@ private fun Controls(calls: CallManager, st: CallUiState, answer: (Boolean) -> U
                 if (st.speaker) MaterialTheme.colorScheme.primary else tc, if (st.speaker) MaterialTheme.colorScheme.onPrimary else tf,
                 selected = st.speaker, compact = compact, col = col,
             ) { calls.toggleSpeaker() }
-            RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_hangup), MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.onError, compact = compact, col = col) { calls.hangup() }
+            RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = compact, col = col) { calls.hangup() }
           }
         }
     }
@@ -817,10 +819,22 @@ private fun RoundButton(
         ) {
             Icon(painterResource(icon), null, Modifier.size(if (big) 34.dp else if (compact || size < 56.dp) 24.dp else 28.dp))
         }
-        // Anruf-UI-Regeln: Beschriftung wie iOS (bis zwei Zeilen); fuer den Screenreader nur einmal am Knopf
+        // Anruf-UI-Regeln: Beschriftung wie iOS (bis zwei Zeilen); fuer den Screenreader nur einmal am Knopf.
+        // A18: nie mitten im Wort trennen - passt das laengste Wort nicht in die Spalte, wird die Schrift kleiner
+        val base = MaterialTheme.typography.labelSmall.copy(
+            hyphens = androidx.compose.ui.text.style.Hyphens.None, lineBreak = androidx.compose.ui.text.style.LineBreak.Heading,
+        )
+        val measurer = androidx.compose.ui.text.rememberTextMeasurer()
+        val colW = col ?: maxOf(size, 64.dp)
+        val avail = with(androidx.compose.ui.platform.LocalDensity.current) { (colW - 6.dp).roundToPx() }
+        val fontSp = remember(label, avail, base) {
+            CallLabels.fitFont(base.fontSize.value, 8f) { sp ->
+                CallLabels.words(label).all { w -> measurer.measure(w, base.copy(fontSize = sp.sp), maxLines = 1, softWrap = false).size.width <= avail }
+            }
+        }
         Text(
-            label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center,
-            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp).clearAndSetSemantics {},
+            label, style = base.copy(fontSize = fontSp.sp, lineHeight = (fontSp + 3f).sp), color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center,
+            maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp, start = 3.dp, end = 3.dp).clearAndSetSemantics {},
         )
     }
 }
@@ -893,5 +907,23 @@ object CallPermissions {
         if (!mic) add(Manifest.permission.RECORD_AUDIO)
         if (video && !cam) add(Manifest.permission.CAMERA)
         if (notifications && !notif) add(Manifest.permission.POST_NOTIFICATIONS)
+    }
+}
+
+/** A18: Beschriftungen der Anruf-Knoepfe (rein, testbar) */
+internal object CallLabels {
+    /** Auflegen/Ablehnen kraeftig rot - auch im dunklen Modus (dort ist colorScheme.error blassrosa und wirkt deaktiviert) */
+    val HANGUP_BG = Color(0xFFC62828)
+
+    fun words(label: String): List<String> = label.split(' ', '\u00A0', '\n').filter { it.isNotEmpty() }
+
+    /** Groesste Schrift (in 0,5-sp-Schritten) zwischen max und min, bei der fits() gilt; sonst min */
+    fun fitFont(max: Float, min: Float, fits: (Float) -> Boolean): Float {
+        var sp = max
+        while (sp > min) {
+            if (fits(sp)) return sp
+            sp -= 0.5f
+        }
+        return min
     }
 }
