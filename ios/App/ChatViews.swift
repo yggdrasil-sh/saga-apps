@@ -540,6 +540,9 @@ struct ChatSetupView: View {
     @State private var password = ""
     @State private var reauth: String?
     @State private var stored = false
+    /// Bughunt D01: Anzeigename gleich mit abfragen (optional; nur Konten, deren Namen Saga verwaltet)
+    @State private var acct: (name: String, canEdit: Bool, email: String?)?
+    @State private var displayName = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Label(reset ? "Chats neu beginnen" : "Chats einrichten", systemImage: "lock.shield").font(.title2.bold())
@@ -553,7 +556,16 @@ struct ChatSetupView: View {
                     Label("Achtung: Neu beginnen erzeugt neue Schlüssel. Bisherige Nachrichten sind dann für dich nicht mehr lesbar, deine Gesprächspartner sehen eine geänderte Sicherheitsnummer.", systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.orange)
                 }
-                Button("Schlüssel erzeugen") { key = ChatCrypto.newRecoveryKey(); step = .show }.prominentGold()
+                if !reset, let a = acct, a.canEdit {
+                    VStack(alignment: .leading, spacing: 4) {
+                        TextField("Anzeigename", text: $displayName).textFieldStyle(.roundedBorder).frame(maxWidth: 360)
+                            #if os(iOS)
+                            .textInputAutocapitalization(.words).textContentType(.name)
+                            #endif
+                        Text("Optional – sehen alle, mit denen du chattest.").font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
+                Button("Schlüssel erzeugen") { saveName(); key = ChatCrypto.newRecoveryKey(); step = .show }.prominentGold()
             case .show:
                 Text("Dein Wiederherstellungsschlüssel").font(.headline)
                 RecoveryKeyBox(key: key)
@@ -595,12 +607,25 @@ struct ChatSetupView: View {
         .frame(maxWidth: 560, alignment: .leading).frame(maxWidth: .infinity)
         .task {
             if reset { reauth = chat.me.reauth }
+            if !reset, acct == nil, let d = try? await store.api("api/account"),
+               let a = AccountName.parse(try? JSONSerialization.jsonObject(with: d)) { acct = a; displayName = a.name }
             #if DEBUG
             if let k = UserDefaults.standard.string(forKey: "hkChatSetupKey"), let s = UserDefaults.standard.string(forKey: "hkChatSetupStep") {   // nur fuer Tests
                 key = k; step = s == "confirm" ? .confirm : s == "intro" ? .intro : .show
                 if s == "confirm" { last4 = String(k.suffix(4)) }
             }
             #endif
+        }
+    }
+    /// Anzeigename speichern, wenn geaendert - im Hintergrund, die Einrichtung wartet nicht darauf (Name ist optional)
+    private func saveName() {
+        guard let a = acct, a.canEdit else { return }
+        let v = displayName.trimmingCharacters(in: .whitespaces)
+        guard v != a.name else { return }
+        acct = (v, a.canEdit, a.email)
+        Task {
+            do { _ = try await store.api("api/account", method: "PATCH", body: AccountName.body(name: v, email: a.email)) }
+            catch { err = error.localizedDescription }
         }
     }
     private func run() async {

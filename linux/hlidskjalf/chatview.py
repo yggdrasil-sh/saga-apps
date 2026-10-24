@@ -11,7 +11,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Graphene, Gsk, Gtk, Pango
 from . import chatcrypto as C
 from . import chatstatus as S
 from . import aichat, avatars, chatmedia, chatvideo, clipimg, config, images
-from .api import APIError, client
+from .api import APIError, account_body, account_name, client
 from .blocks import flat_button, menu_popover
 from . import chatx3, voice
 from .chat import (FED_CHECK_EVERY_S, NOTE_RX, RETENTIONS, ChatError, FedNotDelivered, SafetyChanged, chat, fmt_recovery, is_fed,
@@ -3362,6 +3362,17 @@ class SetupDialog(Adw.Dialog):
         self.passkey_btn = _button(_("Open chats in browser"), ("pill",), self._in_browser, halign=Gtk.Align.CENTER, visible=False)
         b.append(self.passkey_btn)
         self.methods = []
+        # Bughunt D01: Anzeigename gleich mit abfragen (optional; nur Konten, deren Namen Saga verwaltet)
+        self.acc = None
+        self.name_box = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE, visible=False)
+        self.name_box.add_css_class("boxed-list")
+        self.name_row = Adw.EntryRow(title=_("Display name"))
+        self.name_box.append(self.name_row)
+        b.append(self.name_box)
+        self.name_hint = _lbl(_("Optional – everyone you chat with can see it."), ("dim-label", "caption"), visible=False)
+        b.append(self.name_hint)
+        if not reset:
+            bg(client.get, "api/account", done=self._acc, error=lambda e: None)
         self.err = _lbl("", ("error",), visible=False)
         b.append(self.err)
         b.append(_button(_("Create keys"), ("pill", "suggested-action"), self._create, halign=Gtk.Align.CENTER))
@@ -3411,7 +3422,26 @@ class SetupDialog(Adw.Dialog):
         self.close()
         open_in_browser(config.settings.server.rstrip("/") + "/chats", self.win)
 
+    def _acc(self, j):
+        self.acc = account_name(j)
+        if self.acc and self.acc[1]:
+            self.name_row.set_text(self.acc[0])
+            self.name_box.set_visible(True)
+            self.name_hint.set_visible(True)
+
+    def _save_name(self):
+        """Anzeigename speichern, wenn geaendert - im Hintergrund, die Einrichtung wartet nicht (Name ist optional)"""
+        if not self.acc or not self.acc[1]:
+            return
+        v = self.name_row.get_text().strip()
+        if v == self.acc[0]:
+            return
+        self.acc = (v, self.acc[1], self.acc[2])
+        bg(client.json, "PATCH", "api/account", account_body(v, self.acc[2]), done=lambda _r: None,
+           error=lambda e: self.add_toast(Adw.Toast(title=GLib.markup_escape_text(_("Display name not saved: {err}").format(err=e)))))
+
     def _create(self):
+        self._save_name()
         self.err.set_visible(False)
         rk = C.recovery_key()
         self.keys_pages = RecoveryKeyPages(self, self.nav, rk, _("Your recovery key"), _("Set up"), self._go)

@@ -338,6 +338,9 @@ def person_mark(u):
     for k in ("ref", "username", "target"):
         h = u.get(k)
         if isinstance(h, str) and h.startswith("~") and len(h) > 1:
+            # D01: steht der Unterscheider schon im Namen ("Unbekannte Person (spqz)"), nicht noch die rohe Kennung
+            if f"({h.split('@')[0][-4:]})" in str(u.get("name") or ""):
+                return ""
             return h
     return ""
 

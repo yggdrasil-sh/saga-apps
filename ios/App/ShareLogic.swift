@@ -636,12 +636,43 @@ enum ShareLogic {
 /// liefern einen pseudonymen Handle ('~' + 16 Zeichen) als Kennung, `name` ist Anzeigename, oeffentlicher Name oder
 /// derselbe Handle. Chat-Mitglieder behalten `username` (Chats v1 binden Schluessel daran), dazu `ref` (Handle wie in der
 /// Personensuche). Die Apps zeigen den Anmeldenamen anderer nie; Kennungen bleiben undurchsichtig.
-enum PersonRef {
-    /// Name zum Zeigen: name, sonst ref (Handle), zuletzt die Kennung selbst (aeltere Server liefern dort den Namen)
-    static func display(name: String?, ref: String?, id: String) -> String {
+/// Bughunt D01: Personen ohne Anzeigenamen nie als rohe Kennung ("~s545sgsgkkyhspqz") zeigen, sondern lesbar:
+/// "Unbekannte Person (spqz)" bzw. bei Personen anderer Server "Person auf b.example (spqz)" - die letzten 4 Zeichen
+/// unterscheiden stabil. Server ab 2.5 liefern Namen schon so; das faengt aeltere Server und reine Kennungen ab.
+enum PersonName {
+    struct Unnamed: Equatable { var tag: String; var host: String? }
+
+    /// Kein brauchbarer Name (leer oder selbst eine Kennung '~x', '~x@host', '@~x@host') und eine Kennung da -> Unnamed
+    static func unnamed(_ name: String?, id: String? = nil, host: String? = nil) -> Unnamed? {
+        let n = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let raw = n.isEmpty ? (id ?? "").trimmingCharacters(in: .whitespacesAndNewlines) : n
+        guard let m = raw.range(of: #"^@?~[a-z2-7]{16}(@[^@\s/]+)?$"#, options: .regularExpression) else { return nil }
+        var s = String(raw[m]); if s.hasPrefix("@") { s.removeFirst() }
+        let parts = s.split(separator: "@", maxSplits: 1).map(String.init)
+        let h = parts.count > 1 ? parts[1] : (host ?? "").trimmingCharacters(in: .whitespaces)
+        return Unnamed(tag: String(parts[0].suffix(4)), host: h.isEmpty ? nil : h)
+    }
+
+    static func format(_ u: Unnamed) -> String {
+        if let h = u.host { return String(localized: "Person auf \(h) (\(u.tag))") }
+        return String(localized: "Unbekannte Person (\(u.tag))")
+    }
+
+    /// Name zum Zeigen: Name, sonst lesbarer Ersatz statt Kennung, sonst die Kennung selbst
+    static func shown(_ name: String?, id: String? = nil, host: String? = nil) -> String {
+        if let u = unnamed(name, id: id, host: host) { return format(u) }
         if let n = name?.trimmingCharacters(in: .whitespaces), !n.isEmpty { return n }
-        if let r = ref, !r.isEmpty { return r }
-        return id
+        return id ?? ""
+    }
+}
+
+enum PersonRef {
+    /// Name zum Zeigen: name, sonst ref (Handle), zuletzt die Kennung selbst (aeltere Server liefern dort den Namen).
+    /// D01: Handle als Name bzw. ohne Namen -> "Unbekannte Person (…)" (PersonName)
+    static func display(name: String?, ref: String?, id: String) -> String {
+        if let n = name?.trimmingCharacters(in: .whitespaces), !n.isEmpty { return PersonName.shown(n) }
+        if let r = ref, !r.isEmpty { return PersonName.shown(nil, id: r) }
+        return PersonName.shown(nil, id: id)
     }
     /// Treffer der Personensuche (Feld username = Handle oder bei aelteren Servern der Benutzername) schon Mitglied?
     static func isMember(_ hit: String, members: [(username: String, ref: String?)]) -> Bool {

@@ -4,6 +4,7 @@ import gzip
 import hashlib
 import json
 import os
+import re
 import secrets
 import threading
 import time
@@ -15,6 +16,63 @@ from http.cookies import SimpleCookie
 
 from . import config
 from .i18n import _, ui_language
+
+# --- Bughunt D01: Personen ohne Namen nie als rohe Kennung zeigen ------------------------------------------------------
+# "~s545sgsgkkyhspqz" (bzw. "~x@host", "@~x@host") als Name -> "Unknown person (spqz)" / "Person on host (spqz)" -
+# die letzten 4 Zeichen unterscheiden stabil. Server ab 2.5 liefern Namen schon so (saga/core.unnamed); das faengt
+# aeltere Server ab. Nur Felder "name" (und "peerName"-artige Anzeigen davon) - Kennungen in username/handle/ref bleiben.
+_RAW_REF = re.compile(r"@?~([a-z2-7]{16})(?:@([^@\s/]+))?")
+
+
+def unnamed(name, ref=None, host=None):
+    """(tag, host) fuer eine Person ohne brauchbaren Namen (leer oder selbst eine Kennung), sonst None"""
+    n = str(name or "").strip()
+    m = _RAW_REF.fullmatch(n) or (None if n else _RAW_REF.fullmatch(str(ref or "").strip()))
+    if not m:
+        return None
+    return m.group(1)[-4:], (m.group(2) or str(host or "").strip() or None)
+
+
+def person_name(name, ref=None, host=None):
+    """Name zum Zeigen: Name, sonst lesbarer Ersatz statt Kennung, sonst ref/''"""
+    u = unnamed(name, ref, host)
+    if u:
+        return (_("Person on {host} ({tag})").format(host=u[1], tag=u[0]) if u[1]
+                else _("Unknown person ({tag})").format(tag=u[0]))
+    return str(name or "").strip() or str(ref or "")
+
+
+def account_name(j):
+    """GET api/account -> (Vorbelegung, aenderbar, E-Mail) oder None. name == username heisst "kein Anzeigename"."""
+    if not isinstance(j, dict) or not isinstance(j.get("username"), str):
+        return None
+    n = str(j.get("name") or "").strip()
+    return ("" if n == j["username"] else n), bool(j.get("can_edit")), (j.get("email") if isinstance(j.get("email"), str) else None)
+
+
+def account_body(name, email):
+    """PATCH api/account: die E-Mail geht unveraendert mit (aeltere Server setzen sonst beide Felder)"""
+    b = {"name": str(name or "").strip()[:120]}
+    if email is not None:
+        b["email"] = email
+    return b
+
+
+def readable_names(obj, _depth=0):
+    """Antworten/Ereignisse des Servers: jedes Feld "name", das eine rohe Kennung ist, durch den Ersatz ersetzen"""
+    if _depth > 40:
+        return obj
+    if isinstance(obj, list):
+        return [readable_names(x, _depth + 1) for x in obj]
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            if isinstance(v, (dict, list)):
+                obj[k] = readable_names(v, _depth + 1)
+            elif k == "name" and isinstance(v, str) and v[:1] in ("~", "@"):
+                h = obj.get("host")
+                if unnamed(v, None, h):
+                    obj[k] = person_name(v, None, h if isinstance(h, str) else None)
+    return obj
 
 COOKIE_FILE = os.path.join(config.DATA_DIR, "cookies.json")
 ACCEPT_LANGUAGE = {"de": "de, en;q=0.5", "es": "es, en;q=0.5", "ru": "ru, en;q=0.5", "th": "th, en;q=0.5"}.get(ui_language(), "en")
@@ -260,7 +318,7 @@ class Client:
 
     def json(self, method, path, body=None, **kw):
         out = self.request(method, path, body, **kw)
-        return json.loads(out) if out else None
+        return readable_names(json.loads(out)) if out else None
 
     def get(self, path):
         return self.json("GET", path)
@@ -572,7 +630,7 @@ def sse_events(resp, stop=None, on_line=None):
             if ev is not None or buf:
                 raw = "\n".join(buf)
                 try:
-                    data = json.loads(raw) if raw else {}
+                    data = readable_names(json.loads(raw)) if raw else {}
                 except ValueError:
                     data = None
                 yield ev or "message", data, eid

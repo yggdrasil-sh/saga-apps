@@ -5,6 +5,48 @@ import SwiftUI
 
 private func json(_ d: Data?) -> Any? { d.flatMap { try? JSONSerialization.jsonObject(with: $0) } }
 
+// MARK: - Konto: Anzeigename (Bughunt D01)
+
+/// Optional, sehen alle, mit denen man chattet. Nur bei Konten, deren Namen Saga selbst verwaltet (LDAP/SSO: ausgeblendet).
+struct DisplayNameSection: View {
+    @EnvironmentObject var store: Store
+    @State private var loaded: (name: String, canEdit: Bool, email: String?)?
+    @State private var input = ""
+    @State private var busy = false
+    @State private var msg: String?
+    @State private var bad = false
+    var body: some View {
+        Group {
+            if let l = loaded, l.canEdit {
+                Section {
+                    TextField("Anzeigename", text: $input).autocorrectionDisabled()
+                        #if os(iOS)
+                        .textInputAutocapitalization(.words).textContentType(.name)
+                        #endif
+                        .onSubmit { Task { await save() } }
+                    Text("Optional – sehen alle, mit denen du chattest.").font(.footnote).foregroundStyle(.secondary)
+                    if let msg { Text(msg).font(.footnote).foregroundStyle(bad ? .red : .green) }
+                    Button("Speichern") { Task { await save() } }
+                        .disabled(busy || input.trimmingCharacters(in: .whitespaces) == l.name)
+                } header: { Text("Anzeigename") }
+            }
+        }
+        .task { await load() }
+    }
+    private func load() async {
+        guard let d = try? await store.api("api/account") else { return }
+        loaded = AccountName.parse(json(d)); input = loaded?.name ?? ""
+    }
+    private func save() async {
+        guard let l = loaded, l.canEdit else { return }
+        busy = true; defer { busy = false }
+        do {
+            _ = try await store.api("api/account", method: "PATCH", body: AccountName.body(name: input, email: l.email))
+            loaded = (input.trimmingCharacters(in: .whitespaces), l.canEdit, l.email); bad = false; msg = String(localized: "✓ Gespeichert")
+        } catch { bad = true; msg = error.localizedDescription }
+    }
+}
+
 // MARK: - Konto: Oeffentlicher Name (Veroeffentlichen)
 
 /// Steht in jeder oeffentlichen Adresse /@name/..., nie der Anmeldename. Pruefung (gueltig + frei) schon beim Tippen,

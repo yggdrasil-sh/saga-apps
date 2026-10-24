@@ -46,7 +46,7 @@ enum CallRoom {
             guard let dev = d["device"] as? String, validDevice(dev), let who = d["who"] as? String, !who.isEmpty, seen.insert(dev).inserted else { continue }
             let caps = (d["caps"] as? [Any] ?? []).compactMap { $0 as? String }.prefix(16)
             let joined = (d["joined"] as? NSNumber)?.doubleValue ?? 0
-            out.append(Leg(who: who, name: (d["name"] as? String) ?? who, device: dev, devName: (d["dev_name"] as? String) ?? "",
+            out.append(Leg(who: who, name: PersonName.shown((d["name"] as? String) ?? who, id: ShareJSON.str(d["handle"]) ?? who, host: ShareJSON.str(d["host"])), device: dev, devName: (d["dev_name"] as? String) ?? "",
                            role: (d["role"] as? String) ?? "member", state: (d["state"] as? String) ?? "active", caps: Array(caps), joined: joined,
                            handle: (d["handle"] as? String).flatMap { $0.isEmpty ? nil : $0 },
                            host: (d["host"] as? String).flatMap { $0.isEmpty ? nil : $0 },

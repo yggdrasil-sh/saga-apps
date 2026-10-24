@@ -124,6 +124,27 @@ enum AvatarLogic {
     }
 }
 
+/// Bughunt D01: eigener Anzeigename (GET/PATCH /api/account) - optional, sehen alle, mit denen man chattet
+enum AccountName {
+    static let max = 120
+    /// name == username heisst "kein Anzeigename"
+    static func prefill(username: String, name: String?) -> String {
+        let n = (name ?? "").trimmingCharacters(in: .whitespaces)
+        return n == username ? "" : n
+    }
+    /// Aus GET /api/account: (Vorbelegung, aenderbar, E-Mail) - nil bei kaputter Antwort
+    static func parse(_ j: Any?) -> (name: String, canEdit: Bool, email: String?)? {
+        guard let d = j as? [String: Any], let u = d["username"] as? String else { return nil }
+        return (prefill(username: u, name: d["name"] as? String), (d["can_edit"] as? Bool) ?? false, d["email"] as? String)
+    }
+    /// PATCH-Koerper: die E-Mail geht unveraendert mit (aeltere Server setzen sonst beide Felder)
+    static func body(name: String, email: String?) -> [String: Any] {
+        var b: [String: Any] = ["name": String(name.trimmingCharacters(in: .whitespaces).prefix(max))]
+        if let email { b["email"] = email }
+        return b
+    }
+}
+
 enum ReauthLogic {
     /// Chat "Neu beginnen": 6 Ziffern bei eingerichteter Authenticator-App = Code, sonst Passwort (wie static/chat.js)
     static func body(_ input: String, methods: [String]) -> [String: String] {

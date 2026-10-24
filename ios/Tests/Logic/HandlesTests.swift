@@ -4,7 +4,21 @@ import Foundation
 func handlesTests() {
     // W4: Name zum Zeigen - nie der Anmeldename, wenn Name oder Handle da sind
     check(PersonRef.display(name: "Anna Berg", ref: "~abcdefghijklmnop", id: "anna") == "Anna Berg", "Anzeigename zuerst")
-    check(PersonRef.display(name: " ", ref: "~abcdefghijklmnop", id: "anna") == "~abcdefghijklmnop", "ohne Namen: Handle statt Anmeldename")
+    check(PersonRef.display(name: " ", ref: "~abcdefghijklmnop", id: "anna") == "Unbekannte Person (mnop)", "ohne Namen: lesbarer Ersatz statt Handle/Anmeldename (D01)")
+    // D01: lesbarer Ersatz
+    check(PersonName.unnamed("~s545sgsgkkyhspqz") == PersonName.Unnamed(tag: "spqz", host: nil), "Kennung -> Unnamed")
+    check(PersonName.unnamed("~s545sgsgkkyhspqz@b.example") == PersonName.Unnamed(tag: "spqz", host: "b.example"), "Kennung mit Server")
+    check(PersonName.unnamed("", id: "@~s545sgsgkkyhspqz@b.example") == PersonName.Unnamed(tag: "spqz", host: "b.example"), "Prinzipal als Kennung")
+    check(PersonName.unnamed("Anna", id: "~s545sgsgkkyhspqz") == nil, "echter Name bleibt")
+    check(PersonName.unnamed("~kurz") == nil && PersonName.unnamed("", id: "anna") == nil, "keine Kennung -> nil")
+    check(PersonName.shown("~s545sgsgkkyhspqz", host: "c.example:8443") == "Person auf c.example:8443 (spqz)", "fremder Server lesbar")
+    check(PersonName.shown("Unbekannte Person (spqz)") == "Unbekannte Person (spqz)", "Ersatz vom Server bleibt")
+    check(AccountName.prefill(username: "anna", name: "anna") == "" && AccountName.prefill(username: "anna", name: " Anna B ") == "Anna B", "Vorbelegung: Anmeldename gilt als leer")
+    let acc = AccountName.parse(["username": "anna", "name": "anna", "email": "a@example.org", "can_edit": true])
+    check(acc?.name == "" && acc?.canEdit == true && acc?.email == "a@example.org", "Konto lesen")
+    let bd = AccountName.body(name: "  Anna  ", email: "a@example.org")
+    check(bd["name"] as? String == "Anna" && bd["email"] as? String == "a@example.org", "PATCH mit unveraenderter E-Mail")
+    check(AccountName.body(name: "x", email: nil)["email"] == nil, "ohne bekannte E-Mail nur der Name")
     check(PersonRef.display(name: nil, ref: nil, id: "anna") == "anna", "aelterer Server: Kennung bleibt Rueckfall")
     // W4: Personensuche liefert Handles, Mitglieder username + ref
     let mem: [(username: String, ref: String?)] = [("anna", "~aaaaaaaaaaaaaaaa"), ("bert", nil)]

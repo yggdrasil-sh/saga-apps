@@ -223,7 +223,7 @@ struct ChatSummary: Identifiable, Equatable {
         memberCount = ShareJSON.int(d["member_count"]) ?? members.count
         unread = ShareJSON.int(d["unread"]) ?? 0; muted = ShareJSON.bool(d["muted"]); retention = ShareJSON.int(d["retention_s"]) ?? 0
         role = d["role"] as? String ?? "member"; lastAt = ShareJSON.num(d["last_at"]) ?? 0; lastSeq = ShareJSON.int(d["last_seq"]) ?? 0
-        if let p = d["peer"] as? [String: Any], let u = p["username"] as? String { peer = ChatMember(username: u, name: p["name"] as? String ?? u, me: false, avatar: ShareJSON.str(p["avatar"])) }
+        if let p = d["peer"] as? [String: Any], let u = p["username"] as? String { peer = ChatMember(username: u, name: PersonName.shown(p["name"] as? String, id: ShareJSON.str(p["handle"]) ?? u, host: ShareJSON.str(p["host"])), me: false, avatar: ShareJSON.str(p["avatar"])) }
         titleMsg = d["title_msg"] as? [String: Any]
         ai = ShareJSON.bool(d["ai"])
         canArchive = ChatDeleteLogic.supported(d)
@@ -240,7 +240,7 @@ struct ChatSummary: Identifiable, Equatable {
     var title: String {
         switch kind {
         case "free": return decryptedTitle ?? members.filter { !$0.me }.map(\.name).joined(separator: ", ")
-        default: return name ?? String(localized: "Chat")
+        default: return name.map { PersonName.shown($0) } ?? String(localized: "Chat")     // D01: Kennung -> lesbar
         }
     }
     var kindLabel: String {

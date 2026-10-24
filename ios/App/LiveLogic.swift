@@ -82,7 +82,7 @@ struct PresenceUser: Equatable, Identifiable {
     }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let u = d["username"] as? String else { return nil }
-        self.init(username: u, name: (d["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? u,
+        self.init(username: u, name: PersonName.shown((d["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? u, id: u),
                   editing: (d["editing"] as? Bool) ?? false, me: (d["me"] as? Bool) ?? false, avatar: d["avatar"] as? String)
     }
     static func others(_ list: [Any]?) -> [PresenceUser] { (list ?? []).compactMap(PresenceUser.init).filter { !$0.me } }
@@ -143,7 +143,7 @@ struct NotifItem: Identifiable, Equatable {
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let i = ShareJSON.int(d["id"]) else { return nil }
         id = i; kind = d["kind"] as? String ?? ""; created = ShareJSON.num(d["created"]) ?? 0; read = ShareJSON.bool(d["read"])
-        actorName = ShareJSON.str((d["actor"] as? [String: Any])?["name"])
+        actorName = ShareJSON.str((d["actor"] as? [String: Any])?["name"]).map { PersonName.shown($0) }     // D01
         actorAvatar = ShareJSON.str((d["actor"] as? [String: Any])?["avatar"])
         count = ShareJSON.int(d["count"]) ?? 1
         access = d["access"].map(ShareJSON.bool) ?? true

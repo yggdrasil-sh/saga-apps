@@ -145,7 +145,7 @@ final class ConversationModel: ObservableObject {
         for case let m as [String: Any] in (j["messages"] as? [Any] ?? []) {
             let fseq = ShareJSON.int(m["fseq"]) ?? 0                    // 2.4: Position beim Heim (v2)
             let sender = (m["sender"] as? [String: Any])?["username"] as? String ?? ""
-            let name = (m["sender"] as? [String: Any])?["name"] as? String ?? String(localized: "Gelöschtes Konto")
+            let name = ((m["sender"] as? [String: Any])?["name"] as? String).map { PersonName.shown($0, id: sender) } ?? String(localized: "Gelöschtes Konto")   // D01
             let avatar = ShareJSON.str((m["sender"] as? [String: Any])?["avatar"])
             if (m["kind"] as? String) == "call" {                         // Anruf-Eintrag: Klartext-Metadaten, keine Krypto
                 guard let e = (m["body_ct"] as? String).flatMap({ CallLogic.Entry(json: Data($0.utf8)) }) else { continue }

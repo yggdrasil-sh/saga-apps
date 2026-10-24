@@ -7273,3 +7273,23 @@ msgid "{n} entry changed."
 msgid_plural "{n} entries changed."
 msgstr[0] "{n} Eintrag geändert."
 msgstr[1] "{n} Einträge geändert."
+
+#: hlidskjalf/api.py
+msgid "Unknown person ({tag})"
+msgstr "Unbekannte Person ({tag})"
+
+#: hlidskjalf/api.py
+msgid "Person on {host} ({tag})"
+msgstr "Person auf {host} ({tag})"
+
+#: hlidskjalf/settings.py
+msgid "Display name"
+msgstr "Anzeigename"
+
+#: hlidskjalf/settings.py
+msgid "Optional – everyone you chat with can see it."
+msgstr "Optional – sehen alle, mit denen du chattest."
+
+#: hlidskjalf/chatview.py
+msgid "Display name not saved: {err}"
+msgstr "Anzeigename nicht gespeichert: {err}"

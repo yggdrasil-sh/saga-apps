@@ -75,6 +75,7 @@ struct SettingsView: View {
                     Text("Diese App ist älter als der Server erwartet (ab \(m)). Bitte die App aktualisieren.").font(.footnote).foregroundStyle(.orange)
                 }
             }
+            DisplayNameSection()                          // Bughunt D01: Anzeigename (optional)
             PublicNameSection()                           // Konto: oeffentlicher Name (Veroeffentlichen)
             AvatarSettingsSection(crop: $crop, cropped: $cropped)   // Profilbild (2.1)
             SecuritySettingsSection()                     // Anmeldung & Sicherheit (2.1, verwaltet im Browser)

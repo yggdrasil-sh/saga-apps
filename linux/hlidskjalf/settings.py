@@ -2,7 +2,7 @@
 from gi.repository import Adw, Gdk, GLib, Gtk
 
 from . import config
-from .api import client
+from .api import account_body, account_name, client
 from .config import settings
 from .i18n import _, ngettext
 from .store import store
@@ -72,6 +72,7 @@ class SettingsDialog(Adw.PreferencesDialog):
         acc.add(AvatarGroup(self))                 # Profilbild (Server ab 2.1); sonst unsichtbar
         from .security import SecurityGroup
         acc.add(SecurityGroup(self))               # Anmeldung & Sicherheit (2FA, Server ab 2.1): Stand + Browser
+        acc.add(DisplayNameGroup(self))            # Bughunt D01: Anzeigename (optional); LDAP/SSO: unsichtbar
         from .publish import PublicNameGroup
         acc.add(PublicNameGroup(self))             # oeffentlicher Name (Veroeffentlichen); aeltere Server: unsichtbar
         from .notifications import NotificationSettingsGroup
@@ -302,6 +303,51 @@ class CalEntries(Gtk.Box):
 
     def dicts(self):
         return [{"href": c.get("href"), "name": c.get("name"), "color": c.get("color") or "#4184e4", "show": c.get("show", True) is not False} for c in self.cals]
+
+
+class DisplayNameGroup(Adw.PreferencesGroup):
+    """Bughunt D01: eigener Anzeigename - optional, sehen alle, mit denen man chattet. Nur Konten, deren Namen Saga
+    selbst verwaltet (can_edit); sonst unsichtbar."""
+
+    def __init__(self, dlg):
+        super().__init__(title=_("Display name"), description=_("Optional – everyone you chat with can see it."))
+        self.set_visible(False)
+        self.acc = None
+        self.row = Adw.EntryRow(title=_("Display name"))
+        self.btn = Gtk.Button(label=_("Save"), valign=Gtk.Align.CENTER, sensitive=False)
+        self.btn.connect("clicked", lambda *_: self.save())
+        self.row.add_suffix(self.btn)
+        self.row.connect("changed", lambda *_: self.btn.set_sensitive(bool(self.acc) and self.row.get_text().strip() != self.acc[0]))
+        self.row.connect("entry-activated", lambda *_: self.save())
+        self.add(self.row)
+        self.st = Gtk.Label(xalign=0, wrap=True, margin_top=6)
+        self.st.add_css_class("dim-label")
+        self.add(self.st)
+        bg(client.get, "api/account", done=self.fill, error=lambda e: None)
+
+    def fill(self, j):
+        self.acc = account_name(j)
+        if not self.acc or not self.acc[1]:
+            return
+        self.row.set_text(self.acc[0])
+        self.btn.set_sensitive(False)
+        self.set_visible(True)
+
+    def save(self):
+        if not self.acc or self.row.get_text().strip() == self.acc[0]:
+            return
+        v = self.row.get_text().strip()
+        self.btn.set_sensitive(False)
+        self.st.set_label("…")
+
+        def fin(_r):
+            self.acc = (v, self.acc[1], self.acc[2])
+            self.st.set_label("✓ " + _("Saved"))
+
+        def err(e):
+            self.btn.set_sensitive(True)
+            self.st.set_label(str(e))
+        bg(client.json, "PATCH", "api/account", account_body(v, self.acc[2]), done=fin, error=err)
 
 
 class CalendarGroup(Adw.PreferencesGroup):

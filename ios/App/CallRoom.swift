@@ -29,7 +29,7 @@ extension CallManager {
         if let d = c["dm"] as? Bool { dmRoom = d }
         if kind == "group", dmRoom {                                        // 2.5: 1:1 ueber Knoten - peer = Gegenueber
             let p = c["peer"] as? [String: Any] ?? [:]
-            peerName = ShareJSON.str(p["name"]) ?? peerName; peerAvatar = ShareJSON.str(p["avatar"]) ?? peerAvatar
+            peerName = ShareJSON.str(p["name"]).map { PersonName.shown($0, id: ShareJSON.str(p["handle"]), host: ShareJSON.str(p["host"])) } ?? peerName; peerAvatar = ShareJSON.str(p["avatar"]) ?? peerAvatar
         } else if kind == "group" {
             let from = c["from"] as? [String: Any] ?? c["peer"] as? [String: Any] ?? [:]
             if title.isEmpty, let t = ShareJSON.str(from["chat"]) { title = t }
@@ -37,7 +37,7 @@ extension CallManager {
             if title.isEmpty, chatID != 0, let t = store?.chat.chats.first(where: { $0.id == chatID })?.title, !t.isEmpty { title = t }
             peerName = title.isEmpty ? String(localized: "Gruppenanruf") : title
         } else if !joinRole.isEmpty, let p = c["peer"] as? [String: Any] {
-            peerName = ShareJSON.str(p["name"]) ?? peerName; peerAvatar = ShareJSON.str(p["avatar"]) ?? peerAvatar
+            peerName = ShareJSON.str(p["name"]).map { PersonName.shown($0, id: ShareJSON.str(p["handle"]), host: ShareJSON.str(p["host"])) } ?? peerName; peerAvatar = ShareJSON.str(p["avatar"]) ?? peerAvatar
         }
     }
     /// Raum ueber Servergrenzen: eigener Handle (Signale sind daran gebunden)
@@ -146,7 +146,7 @@ extension CallManager {
                     rep = CallRoom.mainDevice(roster.legs, me: me, here: dev)?.device
                     if rep == nil { joinRole = "member" }                    // kein eigenes Geraet mehr dabei: normal beitreten
                 }
-                if kind == "dm", let p = c["peer"] as? [String: Any] { peerName = ShareJSON.str(p["name"]) ?? peerName }
+                if kind == "dm", let p = c["peer"] as? [String: Any] { peerName = ShareJSON.str(p["name"]).map { PersonName.shown($0, id: ShareJSON.str(p["handle"]), host: ShareJSON.str(p["host"])) } ?? peerName }
                 if !fromRing { CallSystem.shared.startOutgoing(self, id: cid, name: peerName, video: media == "video") }
                 try await prepareMedia(video: st.cam && media == "video", askMic: st.askMic)
                 if !st.mic { audioTrack?.isEnabled = false; CallSystem.shared.muted(self, true) }

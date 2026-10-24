@@ -412,7 +412,7 @@ final class CallManager: NSObject, ObservableObject {
         if busy { toast = String(localized: "Du telefonierst gerade schon."); return }
         if let f = fed, !f.callable { toast = String(localized: "Anrufe gehen erst, wenn die Anfrage angenommen ist."); return }
         reset()
-        chatID = cid; peer = p.username; peerName = p.name; peerAvatar = p.avatar; role = "caller"; media = video ? "video" : "audio"
+        chatID = cid; peer = p.username; peerName = PersonName.shown(p.name, id: p.ref ?? p.username); peerAvatar = p.avatar; role = "caller"; media = video ? "video" : "audio"
         if let f = fed, let h = f.peer?.handle, !f.myHandle.isEmpty { v2 = (f.myHandle, h); roomHandle = f.myHandle }   // 2.3: saga-call/v2
         let L = CallLink(mgr: self, dev: nil, who: v2?.peer ?? peer, name: peerName)
         L.avatar = peerAvatar; L.v2 = v2; L.role = "caller"
@@ -504,7 +504,7 @@ final class CallManager: NSObject, ObservableObject {
             if incoming?.id == cid || id == cid { return }
         }
         let inc = IncomingCall(id: cid, chatID: ShareJSON.int(c["chat_id"]) ?? 0, media: (c["media"] as? String) == "video" ? "video" : "audio",
-                               name: ShareJSON.str(p["name"]) ?? hint?.caller ?? "", username: p["username"] as? String ?? "", avatar: ShareJSON.str(p["avatar"]))
+                               name: PersonName.shown(ShareJSON.str(p["name"]) ?? hint?.caller ?? "", id: ShareJSON.str(p["handle"]) ?? p["username"] as? String), username: p["username"] as? String ?? "", avatar: ShareJSON.str(p["avatar"]))
         reset()
         v2 = fedPair; roomHandle = fedPair?.0                              // 2.4: weitere Geraete im Raum ebenfalls v2
         incoming = inc; phase = .incoming; role = "callee"; media = inc.media; peerName = inc.name; peerAvatar = inc.avatar; peer = inc.username
