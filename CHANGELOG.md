@@ -36,6 +36,11 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   legen die Aufgabe an; doppeltes Tippen legt nichts doppelt an.
 - **GIFs** laufen animiert (Seiten, Chat, Immich) statt nur das erste Bild zu zeigen.
 
+### Neu – iOS/iPadOS/macOS: eigene Lesezeichen
+- In „Dienste“ lassen sich eigene Lesezeichen jetzt anlegen (+), bearbeiten und löschen (lange drücken bzw.
+  Rechtsklick) – wie im Web und auf Android. Felder: Adresse, Name, Kategorie, Symbol (selfh.st). Standard-Kategorien
+  („Lesezeichen“, „Dienste“) erscheinen in der App-Sprache statt in der Sprache des Kontos.
+
 ### Behoben – Mac: Cursor im Editor versetzt
 - Beim Bearbeiten stand der Cursor ~5 pt rechts neben Platzhalter und Text, und in Listen/Checklisten saß die Zeile
   tiefer als Kästchen bzw. Aufzählungszeichen. Innenrand des Mac-Textfelds ausgeglichen, Grundlinie angegeben.
