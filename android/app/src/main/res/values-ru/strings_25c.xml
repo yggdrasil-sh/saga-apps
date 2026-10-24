@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bughunt D01: Anzeigename abfragen, lesbarer Ersatz fuer Personen ohne Namen -->
+<resources>
+    <string name="person_unknown">Неизвестный пользователь (%1$s)</string>
+    <string name="person_on_host">Пользователь на %1$s (%2$s)</string>
+    <string name="display_name_label">Отображаемое имя</string>
+    <string name="display_name_hint">Необязательно – его видят все, с кем вы переписываетесь.</string>
+    <string name="display_name_saved">Отображаемое имя сохранено</string>
+    <string name="display_name_title">Отображаемое имя</string>
+</resources>

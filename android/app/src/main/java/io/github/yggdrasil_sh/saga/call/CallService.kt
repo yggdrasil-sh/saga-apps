@@ -58,7 +58,7 @@ object CallNotify {
     }
 
     private fun person(context: Context, peer: CallPeer): Person =
-        Person.Builder().setName(peer.name.ifEmpty { peer.username }.ifEmpty { context.getString(R.string.app_name) }).setImportant(true).build()
+        Person.Builder().setName(peer.shown.ifEmpty { context.getString(R.string.app_name) }).setImportant(true).build()
 
     private fun activityIntent(context: Context, action: String?, code: Int): PendingIntent {
         val i = Intent(context, CallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -81,7 +81,7 @@ object CallNotify {
         if (!canNotify(context)) return
         channels(context)
         val video = info.media == "video"
-        val name = info.peer.name.ifEmpty { info.peer.username }
+        val name = info.peer.shown
         val full = activityIntent(context, null, 1)
         val n = NotificationCompat.Builder(context, CH_RING)
             .setSmallIcon(R.drawable.ic_notification)
@@ -118,7 +118,7 @@ object CallNotify {
         // den Namen ein zweites Mal; dazu die Dauer als Stoppuhr. Beim Teilen: "Du teilst deinen Bildschirm".
         return NotificationCompat.Builder(context, CH_CALL)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(peer.name.ifEmpty { peer.username })
+            .setContentTitle(peer.shown)
             .setContentText(
                 if (!screen && group > 0) context.getString(R.string.horn_ongoing_group, group)   // 2.5: Gruppenanruf (Knoten)
                 else context.getString(if (screen) R.string.call_screen_you else if (video) R.string.call_ongoing_video else R.string.call_ongoing),

@@ -144,7 +144,7 @@ private fun NotificationRow(n: NotifItem, modifier: Modifier, onClick: () -> Uni
             .then(if (tap) Modifier.clickable(onClick = onClick) else Modifier).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Avatar(n.actor?.name ?: "", icon = if (n.kind.startsWith("chat.")) R.drawable.ic_chat else if (NotifLogic.isSystem(n)) R.drawable.ic_cloud_upload else null, avatar = n.actor?.avatar)
+        Avatar(io.github.yggdrasil_sh.saga.util.PersonName.shown(n.actor?.name, n.actor?.username), icon = if (n.kind.startsWith("chat.")) R.drawable.ic_chat else if (NotifLogic.isSystem(n)) R.drawable.ic_cloud_upload else null, avatar = n.actor?.avatar)
         Column(Modifier.weight(1f)) {
             Text(
                 n.text, style = MaterialTheme.typography.bodyMedium,

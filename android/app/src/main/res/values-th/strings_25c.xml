@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bughunt D01: Anzeigename abfragen, lesbarer Ersatz fuer Personen ohne Namen -->
+<resources>
+    <string name="person_unknown">ผู้ใช้ที่ไม่รู้จัก (%1$s)</string>
+    <string name="person_on_host">ผู้ใช้บน %1$s (%2$s)</string>
+    <string name="display_name_label">ชื่อที่แสดง</string>
+    <string name="display_name_hint">ไม่บังคับ – ทุกคนที่คุณแชตด้วยจะเห็นชื่อนี้</string>
+    <string name="display_name_saved">บันทึกชื่อที่แสดงแล้ว</string>
+    <string name="display_name_title">ชื่อที่แสดง</string>
+</resources>

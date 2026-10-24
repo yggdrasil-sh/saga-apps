@@ -62,7 +62,15 @@ object ChatLogic {
     fun isMember(hit: String, members: List<ChatPerson>): Boolean = hit.isNotEmpty() && members.any { it.username == hit || it.ref == hit }
 
     /** 2.4 (W4): Name zum Zeigen - Anzeigename, Bezeichnung (andere Server) oder Handle; die Kennung nur als letzter Rueckfall */
-    fun shown(p: ChatPerson): String = p.name.ifEmpty { p.label?.ifEmpty { null } ?: p.ref?.ifEmpty { null } ?: p.username }
+    fun shown(p: ChatPerson): String {
+        // D01: ohne Namen (oder mit einer Kennung als Name) lesbarer Ersatz "Unbekannte Person (spqz)" statt '~…'
+        val raw = p.handle ?: p.ref?.ifEmpty { null } ?: p.username
+        if (io.github.yggdrasil_sh.saga.util.PersonName.unnamed(p.name, raw, p.host) != null) {
+            val s = io.github.yggdrasil_sh.saga.util.PersonName.shown(p.name, raw, p.host)
+            if (!s.startsWith("~")) return s
+        }
+        return p.name.ifEmpty { p.label?.ifEmpty { null } ?: p.ref?.ifEmpty { null } ?: p.username }
+    }
 
     /**
      * 2.4 (Server Linux-Runde 2): Unterzeile fuer Gleichnamige - `sub` (oeffentlicher Name bzw. Handle, nie der
@@ -108,8 +116,8 @@ object ChatLogic {
 
     fun displayName(c: ChatSummary, freeTitle: String?): String = when {
         c.kind == "free" && !freeTitle.isNullOrBlank() -> freeTitle
-        !c.name.isNullOrBlank() -> c.name
-        else -> c.members.filter { !it.me }.joinToString(", ") { it.name.ifEmpty { it.username } }
+        !c.name.isNullOrBlank() -> io.github.yggdrasil_sh.saga.util.PersonName.shown(c.name)       // D01: Kennung -> lesbar
+        else -> c.members.filter { !it.me }.joinToString(", ") { shown(it) }
     }
 
     /** Empfaenger fuer die Versiegelung: jedes Geraet + "backup:<uid>" je Mitglied mit Schluesseln; ungueltige Zertifikate -> Fehler */

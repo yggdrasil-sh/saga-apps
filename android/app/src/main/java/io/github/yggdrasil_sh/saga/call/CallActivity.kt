@@ -386,7 +386,7 @@ private fun CallScreen(
         }
         if (pip) {
             // Bild-im-Bild: nur Fernbild bzw. Name, keine Chat-Inhalte und keine Knoepfe (die kommen als RemoteActions)
-            val name = st.room?.speaker?.takeIf { it.isNotEmpty() } ?: st.peer.name.ifEmpty { st.peer.username }
+            val name = st.room?.speaker?.takeIf { it.isNotEmpty() } ?: st.peer.shown
             val pipText = if (st.phase == CallPhase.ENDED) st.message?.resolve() ?: name else name
             val pipLabel = stringResource(R.string.call_pip_video, name)
             Box(
@@ -404,7 +404,7 @@ private fun CallScreen(
                 // Anruf-UI-Regeln: Titel (Gegenueber bzw. Gruppe) oben, sobald Bild/Kacheln den Namen sonst verdecken
                 if ((meshOn || showVideo) && st.phase != CallPhase.ENDED) {
                     val title = if (room?.kind == CallRoom.KIND_GROUP && room.dm != true) room.title.ifEmpty { stringResource(R.string.room_group_audio) }
-                    else st.peer.name.ifEmpty { st.peer.username }
+                    else st.peer.shown
                     Text(
                         HornLogic.shortName(title, 28), color = if (showVideo) Color.White else MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.titleMedium, maxLines = 1, modifier = Modifier.semantics { heading() },
@@ -441,9 +441,9 @@ private fun CallScreen(
                 if (room?.kind == CallRoom.KIND_GROUP && room.dm != true && st.peer.avatar == null) Box(
                     Modifier.size(112.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center,
                 ) { Icon(painterResource(R.drawable.ic_group), null, Modifier.size(52.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-                else Avatar(st.peer.name.ifEmpty { st.peer.username }, size = 112, avatar = st.peer.avatar)
+                else Avatar(st.peer.shown, size = 112, avatar = st.peer.avatar)
                 Text(
-                    st.peer.name.ifEmpty { st.peer.username }, style = MaterialTheme.typography.headlineSmall,
+                    st.peer.shown, style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.padding(top = 16.dp).semantics { heading() }, textAlign = TextAlign.Center,
                 )
@@ -455,7 +455,7 @@ private fun CallScreen(
                 camBroken -> stringResource(R.string.call_no_camera)
                 st.message != null -> st.message.resolve()
                 camDenied -> stringResource(R.string.call_cam_denied)
-                st.phase == CallPhase.CONNECTED && !st.remoteMic -> stringResource(R.string.call_peer_muted, st.peer.name)
+                st.phase == CallPhase.CONNECTED && !st.remoteMic -> stringResource(R.string.call_peer_muted, st.peer.shown)
                 else -> null
             }
             if (status != null) {
@@ -495,7 +495,7 @@ private fun CallScreen(
         if (st.remoteSmall && st.phase == CallPhase.CONNECTED && !meshOn) {
             // E3: Kamera des Gegenuebers klein neben seinem Bildschirm (bzw. getauscht) - Tippen tauscht die Ansicht
             val top = with(LocalDensity.current) { infoHeight.toDp() } + 24.dp
-            val label = stringResource(R.string.call_screen_small, st.peer.name.ifEmpty { st.peer.username })
+            val label = stringResource(R.string.call_screen_small, st.peer.shown)
             Box(Modifier.fillMaxSize().safeDrawingPadding().padding(top = maxOf(top, 56.dp), start = 16.dp), contentAlignment = Alignment.TopStart) {
                 Box(Modifier.width(120.dp).height(160.dp).clip(RoundedCornerShape(12.dp)).background(Color.Black), contentAlignment = Alignment.Center) {
                     VideoView(calls, remote = true, visible = true, modifier = Modifier.fillMaxSize(), sink = calls.remoteSink2, overlay = true)
@@ -648,7 +648,7 @@ private fun ShareBar(calls: CallManager, st: CallUiState) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val text = if (st.sharing) stringResource(R.string.call_screen_you)
-                else stringResource(R.string.call_screen_peer, st.peer.name.ifEmpty { st.peer.username })
+                else stringResource(R.string.call_screen_peer, st.peer.shown)
                 Icon(painterResource(R.drawable.ic_screen_share), null, Modifier.size(16.dp))
                 Text(
                     text, style = MaterialTheme.typography.labelLarge,

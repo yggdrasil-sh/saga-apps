@@ -128,9 +128,9 @@ fun ReadByDialog(readers: List<Pair<ChatPerson, ReadMark>>, onDismiss: () -> Uni
                     LazyColumn(Modifier.weight(1f, fill = false)) {
                         items(readers.sortedByDescending { it.second.ts }, key = { it.first.username }) { (p, r) ->
                             ListItem(
-                                headlineContent = { Text(p.name.ifEmpty { p.label ?: p.username }) },
+                                headlineContent = { Text(io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(p)) },
                                 supportingContent = if (r.ts > 0) ({ Text(fmtTime(r.ts)) }) else null,
-                                leadingContent = { io.github.yggdrasil_sh.saga.ui.notifications.Avatar(p.name.ifEmpty { p.username }, size = 32, avatar = p.avatar) },
+                                leadingContent = { io.github.yggdrasil_sh.saga.ui.notifications.Avatar(io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(p), size = 32, avatar = p.avatar) },
                             )
                         }
                     }

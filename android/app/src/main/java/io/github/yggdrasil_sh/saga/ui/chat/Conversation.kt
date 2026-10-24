@@ -666,7 +666,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         s.replyTo?.let { r ->
             Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
-                    Text(stringResource(R.string.chat_reply_to, r.sender?.name.orEmpty()), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    Text(stringResource(R.string.chat_reply_to, r.sender?.let { io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(it) }.orEmpty()), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     Text(r.content?.text.orEmpty(), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall)
                 }
                 IconButton(onClick = { s.replyTo = null }) { Icon(Icons.Filled.Close, stringResource(R.string.action_cancel)) }
@@ -785,7 +785,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 }
                 // 2.3: Warnung/Blockade bei einer Person eines anderen Servers sperrt das Senden
                 s.fedIssues.firstOrNull()?.let { (p, _) ->
-                    repo.notify(UiText.Res(R.string.chat_safety_send_blocked, p.name.ifEmpty { p.label ?: p.username }), UiText.Res(R.string.chat_show)) {
+                    repo.notify(UiText.Res(R.string.chat_safety_send_blocked, io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(p)), UiText.Res(R.string.chat_show)) {
                         safetyFor = p.username
                         dialog = "safety"
                     }
@@ -1108,7 +1108,7 @@ private fun Bubble(
         } else if (group && !m.mine) {
             // 2.1: Profilbild des Absenders (Gruppen-Chats)
             Box(Modifier.padding(end = 6.dp, bottom = 2.dp)) {
-                io.github.yggdrasil_sh.saga.ui.notifications.Avatar(m.sender?.name.orEmpty(), size = 28, avatar = m.sender?.avatar)
+                io.github.yggdrasil_sh.saga.ui.notifications.Avatar(m.sender?.let { io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(it) }.orEmpty(), size = 28, avatar = m.sender?.avatar)
             }
         }
         Column(horizontalAlignment = if (mineSide) Alignment.End else Alignment.Start) {
@@ -1124,7 +1124,7 @@ private fun Bubble(
                     if (isAi) {
                         val name = aiPersona?.name ?: m.content?.aiName ?: stringResource(R.string.ai_title)
                         val by = if (m.mine) stringResource(R.string.chat_ai_asked_by_you)
-                        else stringResource(R.string.chat_ai_asked_by, m.sender?.name?.ifBlank { null } ?: m.sender?.username.orEmpty())
+                        else stringResource(R.string.chat_ai_asked_by, m.sender?.let { io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(it) }.orEmpty())
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 name, style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -1133,7 +1133,7 @@ private fun Bubble(
                             Text(" · $by", style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = 0.75f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     } else if (group && !m.mine) {
-                        Text(m.sender?.name.orEmpty(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                        Text(m.sender?.let { io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(it) }.orEmpty(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     }
                     if (m.ai == AiReplyCheck.BAD) {
                         // gibt sich als KI-Antwort aus, Beleg fehlt/passt nicht

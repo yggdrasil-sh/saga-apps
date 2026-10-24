@@ -73,6 +73,9 @@ data class CallPeer(
     val host: String? = null,
 )
 
+/** D01: Name zum Zeigen - ohne Namen lesbarer Ersatz ("Unbekannte Person (spqz)") statt Kennung */
+val CallPeer.shown: String get() = io.github.yggdrasil_sh.saga.util.PersonName.shown(name, handle ?: username, host)
+
 /** Anruf aus Sicht des Abfragenden (calls._dict) */
 @Serializable
 data class CallInfo(
@@ -266,7 +269,7 @@ object CallReturn {
     /** Text der Leiste; null = keine Leiste. nowMs = aktuelle Zeit fuer die Dauer */
     fun barText(st: CallUiState?, nowMs: Long): UiText? {
         if (st == null || !active(st)) return null
-        val who = st.peer.name.ifEmpty { st.peer.username }
+        val who = st.peer.shown
         return when {
             st.phase == CallPhase.INCOMING -> UiText.Res(R.string.call_bar_incoming, who)
             st.phase == CallPhase.CONNECTED && st.connectedAt > 0 ->

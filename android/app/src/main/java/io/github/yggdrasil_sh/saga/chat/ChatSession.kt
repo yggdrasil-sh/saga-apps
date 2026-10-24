@@ -1007,7 +1007,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
     private fun aiHistoryOf(msgs: List<ChatMessage>, questionId: String, aiName: String): List<io.github.yggdrasil_sh.saga.ai.AiChatLogic.Line> =
         io.github.yggdrasil_sh.saga.ai.AiChatLogic.history(
             msgs.filter { it.call == null }.map { m ->
-                val name = if (m.ai == io.github.yggdrasil_sh.saga.ai.AiReplyCheck.OK) aiName else m.sender?.name?.ifBlank { null } ?: m.sender?.username.orEmpty()
+                val name = if (m.ai == io.github.yggdrasil_sh.saga.ai.AiReplyCheck.OK) aiName else m.sender?.let { ChatLogic.shown(it) }.orEmpty()
                 Triple(m.id, name, m.content?.text)
             },
             questionId,
@@ -1191,7 +1191,7 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
             !m.me && m.handle != null && got[m.handle]?.trust.let { it == TofuV2.WARN || it == TofuV2.BLOCK || it == TofuV2.REJECT }
         }
         if (bad.isEmpty()) return null
-        return UiTextException(UiText.Res(R.string.chat_safety_send_blocked, bad.joinToString(", ") { it.name.ifEmpty { it.label ?: it.username } }))
+        return UiTextException(UiText.Res(R.string.chat_safety_send_blocked, bad.joinToString(", ") { ChatLogic.shown(it) }))
     }
 
     /** 2.3: nicht zugestellte eigene Nachricht neu verschluesseln und senden, die alte loeschen */

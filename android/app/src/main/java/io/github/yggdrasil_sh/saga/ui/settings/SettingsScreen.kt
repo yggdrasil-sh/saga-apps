@@ -152,6 +152,8 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 )
             }
             // 2.1: Profilbild (hochladen mit Zuschnitt) und "Anmeldung & Sicherheit" (Verwalten im Browser)
+            // Bughunt D01: Anzeigename (optional, sehen alle, mit denen man chattet)
+            item { DisplayNameBlock(repo, w.padding(top = 8.dp), reloadKey = signIns) }
             item { ProfilePictureBlock(repo, account, w.padding(top = 8.dp), reloadKey = signIns) { ownAvatar = it?.url } }
             item { SecurityBlock(repo, w, reloadKey = signIns) }
             // Veroeffentlichen: oeffentlicher Name als eigener Block im Konto (nach Kopplung neu laden)

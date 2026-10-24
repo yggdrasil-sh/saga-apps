@@ -529,11 +529,11 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val peer = c.peer.username
         val o = Json.parseToJsonElement(api.get("api/chat/keys?users=" + java.net.URLEncoder.encode(peer, "UTF-8"))) as? JsonObject
         val u = io.github.yggdrasil_sh.saga.chat.ChatLogic.keyEntry(o, peer)      // 2.4: unter der angefragten Kennung, nur Chat-Partner
-            ?: throw UiTextException(UiText.Res(R.string.call_peer_no_keys, c.peer.name.ifEmpty { peer }))
-        val ip = (u["ident_pub"] as? JsonPrimitive)?.contentOrNull ?: throw UiTextException(UiText.Res(R.string.call_peer_no_keys, c.peer.name.ifEmpty { peer }))
+            ?: throw UiTextException(UiText.Res(R.string.call_peer_no_keys, c.peer.shown))
+        val ip = (u["ident_pub"] as? JsonPrimitive)?.contentOrNull ?: throw UiTextException(UiText.Res(R.string.call_peer_no_keys, c.peer.shown))
         val store = repo.chat.store
         val changed = withContext(Dispatchers.IO) { store.observe(peer, ip) == TofuResult.CHANGED || store.known()[peer]?.changed == true }
-        if (changed) throw UiTextException(UiText.Res(R.string.call_safety_changed, c.peer.name.ifEmpty { peer }))
+        if (changed) throw UiTextException(UiText.Res(R.string.call_safety_changed, c.peer.shown))
         val ipk = unb64(ip, 32)
         val cc = repo.chat.crypto
         val out = LinkedHashMap<String, PeerDev>()
@@ -559,13 +559,13 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     private fun remotePerson(p: CallPeer): Boolean = !p.handle.isNullOrEmpty() && !p.host.isNullOrEmpty() && p.username != myUser()
 
     private suspend fun peerKeysV2(c: Call, fresh: Boolean = false) {
-        val h = c.peer.handle ?: throw UiTextException(UiText.Res(R.string.call_peer_no_keys, c.peer.name))
+        val h = c.peer.handle ?: throw UiTextException(UiText.Res(R.string.call_peer_no_keys, c.peer.shown))
         val fed = repo.chat.fed
         if (fed.myHandle == null) fed.certs()
         c.myHandle = fed.myHandle ?: throw UiTextException(UiText.Res(R.string.fed_keys_not_ready))
         val st = fed.keys(listOf(h), fresh = fresh || c.peerDevs.isNotEmpty())[h]
-        val k = st?.keys ?: throw UiTextException(UiText.Res(R.string.call_peer_no_keys, c.peer.name.ifEmpty { h }))
-        if (st.trust != io.github.yggdrasil_sh.saga.chat.TofuV2.TRUST) throw UiTextException(UiText.Res(R.string.call_safety_changed, c.peer.name.ifEmpty { h }))
+        val k = st?.keys ?: throw UiTextException(UiText.Res(R.string.call_peer_no_keys, c.peer.shown))
+        if (st.trust != io.github.yggdrasil_sh.saga.chat.TofuV2.TRUST) throw UiTextException(UiText.Res(R.string.call_safety_changed, c.peer.shown))
         val out = LinkedHashMap<String, PeerDev>()
         for (d in k.active) out[d.id] = PeerDev(unb64(d.encPub, 32) ?: continue, unb64(d.signPub, 32) ?: continue)
         c.peerDevs = out
@@ -1595,7 +1595,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            if (live(c)) dropLink(c, UiText.Res(R.string.room_link_failed, c.peer.name.ifEmpty { c.peer.username }))
+            if (live(c)) dropLink(c, UiText.Res(R.string.room_link_failed, c.peer.shown))
             return
         } finally {
             c.answering = false
@@ -1606,7 +1606,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         if (c.screen != null && c.scrMode == null) shareOn(c)
         c.connJob = scope.launch {
             delay(30_000)
-            if (live(c) && !c.connected) dropLink(c, UiText.Res(R.string.room_link_failed, c.peer.name.ifEmpty { c.peer.username }))
+            if (live(c) && !c.connected) dropLink(c, UiText.Res(R.string.room_link_failed, c.peer.shown))
         }
         update(c)
     }
@@ -1756,7 +1756,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 val viaHorn = CallRoom.dmViaHorn(cfg.hornDm, c.myCaps)
                 if (!viaHorn) {
                     peerKeys(c)
-                    if (c.peerDevs.isEmpty()) throw UiTextException(UiText.Res(R.string.call_peer_no_keys, peer.name.ifEmpty { peer.username }))
+                    if (c.peerDevs.isEmpty()) throw UiTextException(UiText.Res(R.string.call_peer_no_keys, peer.shown))
                 }
                 if (!live(c)) return@launch
                 localMedia(c, video)
@@ -1765,7 +1765,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 if (viaHorn) {
                     if (dialHorn(c, cfg)) return@launch
                     peerKeys(c)                                     // Rueckfall: derselbe Anruf (dieselbe id) direkt
-                    if (c.peerDevs.isEmpty()) throw UiTextException(UiText.Res(R.string.call_peer_no_keys, peer.name.ifEmpty { peer.username }))
+                    if (c.peerDevs.isEmpty()) throw UiTextException(UiText.Res(R.string.call_peer_no_keys, peer.shown))
                     if (!live(c)) return@launch
                 }
                 val pc = makePc(c, cfg)
@@ -1816,7 +1816,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 }
                 e.code == 409 && (o?.get("busy") as? JsonPrimitive)?.booleanOrNull == true -> {
                     c.id = null
-                    finish(c, UiText.Res(R.string.call_busy_peer, c.peer.name), false)
+                    finish(c, UiText.Res(R.string.call_busy_peer, c.peer.shown), false)
                     return true
                 }
                 e.code == 429 -> {
@@ -1842,7 +1842,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         c.rs.inRoom = true
         c.rs.starter = true
         c.rs.dm = true
-        c.rs.title = c.peer.name.ifEmpty { c.peer.username }
+        c.rs.title = c.peer.shown
         c.rs.limit = cfg.endpoints(c.media)
         c.v2 = k.v == 2
         c.ready = true
@@ -1897,7 +1897,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 }
                 e.code == 409 && (o?.get("busy") as? JsonPrimitive)?.booleanOrNull == true -> {
                     c.id = null
-                    finish(c, UiText.Res(R.string.call_busy_peer, c.peer.name), false)
+                    finish(c, UiText.Res(R.string.call_busy_peer, c.peer.shown), false)
                     return
                 }
                 e.code == 429 -> {
@@ -2144,7 +2144,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             flushIce(l)
             l.connJob = scope.launch {
                 delay(30_000)
-                if (live(l) && !l.connected) dropLink(l, UiText.Res(R.string.room_link_failed, l.peer.name.ifEmpty { l.peer.username }))
+                if (live(l) && !l.connected) dropLink(l, UiText.Res(R.string.room_link_failed, l.peer.shown))
             }
         }
         if (c.rs.hoRep != null) {
@@ -3285,7 +3285,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
         val c = roomOf(c0)
         c.ending = true
-        val name = c.peer.name.ifEmpty { c.peer.username }
+        val name = c.peer.shown
         finish(c, CallLogic.endText(reason, c.caller && (c.rs.kind == CallRoom.KIND_DM && !c.rs.inRoom || c.rs.starter), name,
             if (c.t0 > 0) (System.currentTimeMillis() - c.t0) / 1000 else null), false)
     }
@@ -3422,7 +3422,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val tiles = shown(c).map { l ->
             val x = legOf(l)
             CallTile(
-                device = l.peerDevice.orEmpty(), name = (x?.name ?: l.peer.name).ifEmpty { l.peer.username }, devName = x?.devName.orEmpty(),
+                device = l.peerDevice.orEmpty(), name = io.github.yggdrasil_sh.saga.util.PersonName.shown(x?.name ?: l.peer.name, l.peer.handle ?: l.peer.username, l.peer.host), devName = x?.devName.orEmpty(),
                 video = l.remoteVideo != null && (l.rCam || l.rScreen), mic = l.rMic, speaking = mesh && rs.speaker == l.peerDevice,
                 companion = x?.companion == true, own = own(l), connected = l.connected, screen = l.rScreen,
             )
@@ -3434,7 +3434,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             canTakeOver = rs.companion && ownOther && rs.hoRep == null, takingOver = rs.hoRep != null,
             endpoints = maxOf(rs.roster.legs.size, ls.size + 1), limit = limit, old = rs.old,
             speaker = rs.horn?.let { h -> (h.pin ?: h.speaker)?.let { rs.roster.of(it)?.name } }
-                ?: rs.speaker?.let { sp -> ls.firstOrNull { it.peerDevice == sp } }?.let { legOf(it)?.name ?: it.peer.name }.orEmpty(),
+                ?: rs.speaker?.let { sp -> ls.firstOrNull { it.peerDevice == sp } }?.let { io.github.yggdrasil_sh.saga.util.PersonName.shown(legOf(it)?.name ?: it.peer.name, it.peer.handle ?: it.peer.username, it.peer.host) }.orEmpty(),
             horn = rs.horn?.let { hornUi(c, it) },
             dm = rs.dm, title = rs.title, mutedBy = rs.mutedBy,
         )
@@ -3518,7 +3518,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val s = HornSession(hornHostOf(c), c.id!!, HornLogic.parseBlock(k.horn, allowHttp = BuildConfig.DEBUG))
         c.rs.horn = s
         log("horn start ${s.callId.take(8)} cands=${HornLogic.parseBlock(k.horn, BuildConfig.DEBUG)?.candidates?.size}")
-        CallTelecom.start(app, c.rs.title.ifEmpty { c.peer.name }, c.id!!, c.media == "video")
+        CallTelecom.start(app, c.rs.title.ifEmpty { c.peer.shown }, c.id!!, c.media == "video")
         s.start()
         update(c)
     }

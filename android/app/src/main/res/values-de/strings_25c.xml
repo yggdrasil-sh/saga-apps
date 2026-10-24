@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bughunt D01: Anzeigename abfragen, lesbarer Ersatz fuer Personen ohne Namen -->
+<resources>
+    <string name="person_unknown">Unbekannte Person (%1$s)</string>
+    <string name="person_on_host">Person auf %1$s (%2$s)</string>
+    <string name="display_name_label">Anzeigename</string>
+    <string name="display_name_hint">Optional – sehen alle, mit denen du chattest.</string>
+    <string name="display_name_saved">Anzeigename gespeichert</string>
+    <string name="display_name_title">Anzeigename</string>
+</resources>

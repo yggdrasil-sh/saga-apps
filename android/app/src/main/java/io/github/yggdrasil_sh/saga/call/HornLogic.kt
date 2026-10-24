@@ -26,7 +26,8 @@ import kotlin.math.floor
  */
 object HornLogic {
     /** Anruf-UI-Regeln: Pseudonym-Handles (~abc...) in der Mitte kuerzen, sonst am Ende; max Zeichen */
-    fun shortName(name: String, max: Int = 18): String {
+    fun shortName(raw: String, max: Int = 18): String {
+        val name = io.github.yggdrasil_sh.saga.util.PersonName.shown(raw)      // D01: Kennung -> "Unbekannte Person (spqz)"
         if (name.length <= max) return name
         if (!name.startsWith("~")) return name.take(max - 1) + "…"
         val head = (max - 1) / 2

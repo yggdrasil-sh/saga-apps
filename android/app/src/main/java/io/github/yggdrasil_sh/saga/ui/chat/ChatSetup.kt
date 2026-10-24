@@ -156,10 +156,38 @@ private fun NewAccount(svc: ChatService) {
             stringResource(R.string.chat_setup_text), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp),
         )
+        // Bughunt D01: Anzeigenamen gleich mit abfragen (optional) - ohne ihn sehen andere "Unbekannte Person (…)"
+        var acct by remember { mutableStateOf<io.github.yggdrasil_sh.saga.ui.settings.DisplayName.Info?>(null) }
+        var dn by rememberSaveable { mutableStateOf<String?>(null) }
+        LaunchedEffect(svc) {
+            acct = try {
+                io.github.yggdrasil_sh.saga.ui.settings.DisplayName.load(svc.repo)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
+            if (dn == null) dn = acct?.name
+        }
+        val a = acct
+        if (a != null && a.canEdit) {
+            io.github.yggdrasil_sh.saga.ui.settings.DisplayNameField(dn.orEmpty(), { dn = it }, enabled = !busy, modifier = Modifier.padding(top = 16.dp))
+        }
         Button(onClick = {
             busy = true
             scope.launch {
                 try {
+                    val v = dn?.trim()
+                    if (a != null && a.canEdit && v != null && v != a.name) {
+                        try {                          // Name ist optional: Fehler zeigen, Einrichtung geht weiter
+                            io.github.yggdrasil_sh.saga.ui.settings.DisplayName.save(svc.repo, v, a)
+                            acct = a.copy(name = v)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            err = svc.repo.friendly(e)
+                        }
+                    }
                     pending = svc.preparePending()
                 } catch (e: CancellationException) {
                     throw e

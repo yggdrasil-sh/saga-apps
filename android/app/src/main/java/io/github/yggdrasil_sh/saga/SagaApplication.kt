@@ -25,6 +25,7 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        io.github.yggdrasil_sh.saga.util.PersonName.ctx = this                // D01: lesbarer Ersatz fuer Personen ohne Namen
         io.github.yggdrasil_sh.saga.util.AppLanguage.applyToApp(this)     // Android 8-12: gewaehlte App-Sprache
         if (BuildConfig.DEBUG) {
             // nur Debug: Netzwerk auf dem Main-Thread ins Log (StrictMode), z. B. beim Strom der KI-Antwort

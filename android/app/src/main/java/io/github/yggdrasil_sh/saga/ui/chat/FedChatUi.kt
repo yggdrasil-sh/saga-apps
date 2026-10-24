@@ -93,7 +93,7 @@ fun fedHeadLine(s: ChatSession, withE2e: Boolean = true): String {
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun FedTrustBanner(p: ChatPerson, st: FedKeyState, onSafety: () -> Unit, onAcknowledge: () -> Unit) {
-    val name = p.name.ifEmpty { p.label ?: p.username }
+    val name = io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(p)
     val text = when (st.trust) {
         TofuV2.WARN -> stringResource(R.string.fed_warn_changed, name)
         TofuV2.BLOCK -> stringResource(R.string.fed_warn_blocked, name)
