@@ -192,6 +192,26 @@ enum CallLogic {
     /// 65 -> "1:05", 3725 -> "1:02:05"
     /// Knopfreihe im Anruf (2.5): Abstand und Breite je Knopf fuer n Knoepfe in w Punkten. Kreis 60 pt, Beschriftung bis
     /// zwei Zeilen in der Knopfbreite (72-84 pt, zur Not 60); erst den Abstand verkleinern, dann die Breite
+    /// I04: Geraetezaehler "n/Grenze" nur im Gruppenanruf - 1:1 (auch ueber den Knoten: dm-Raum bzw. kind "dm") nicht
+    static func showsDeviceCount(kind: String, dmRoom: Bool) -> Bool { kind == "group" && !dmRoom }
+    /// I03: Oberkante der Buehne unter dem Kopf (Rand oben + Kopf + Abstand); flach (iPhone quer) mit weniger Rand
+    static func stageTop(header: Double, flat: Bool) -> Double { (flat ? 6 : 24) + header + (flat ? 4 : 10) }
+    /// I03: Abstand unten fuer Buehne und Ebenen - Knopfzone (gemessen) plus Rand; flach ohne die grosse Mindesthoehe
+    static func stageBottom(controls: Double, flat: Bool) -> Double { flat ? max(56, controls + 6 + 4) : max(170, controls + 24 + 10) }
+
+    /// V5: Groesse des eigenen Bilds - passt es nicht zweimal uebereinander (plus 8 Abstand) in die freie Hoehe,
+    /// wird es im gleichen Seitenverhaeltnis kleiner (hoechstens bis zur Haelfte)
+    static func pipSize(w: Double, h: Double, avail: Double) -> (w: Double, h: Double) {
+        guard w > 0, h > 0, avail > 0 else { return (w, h) }
+        let nh = min(h, max(h / 2, ((avail - 8) / 2).rounded(.down)))
+        return ((w * nh / h).rounded(.down), nh)
+    }
+    /// V5: Ecke aus der Mitte des Bilds nach dem Loslassen (0 oben links, 1 oben rechts, 2 unten links, 3 unten rechts);
+    /// top/bottom = Ober- und Unterkante der erlaubten Flaeche
+    static func pipCorner(x: Double, y: Double, width: Double, top: Double, bottom: Double) -> Int {
+        (x < width / 2 ? 0 : 1) + (y < (top + bottom) / 2 ? 0 : 2)
+    }
+
     static func controlFit(count n: Int, width w: Double) -> (spacing: Double, width: Double) {
         guard n > 0, w > 0 else { return (18, 72) }
         for sp in [18.0, 10, 4] {

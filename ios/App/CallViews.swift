@@ -16,6 +16,15 @@ struct CallScreen: View {
     @State private var rowWidth: CGFloat = 0
     /// Farbschema des Systems (2.5: Teilnehmerliste/Runensiegel folgen hell/dunkel, das Anruf-Fenster bleibt dunkel)
     @Environment(\.colorScheme) private var systemScheme
+    #if os(iOS)
+    /// I03: iPhone quer (niedrig) - Kopf in einer Zeile, kleinere Knoepfe ohne Textzeile, weniger Rand
+    @Environment(\.verticalSizeClass) private var vsc
+    private var flat: Bool { vsc == .compact }
+    #else
+    private let flat = false
+    #endif
+    /// Oberkante fuer Buehne, Kacheln und eigenes Bild: unter dem Kopf
+    private var topInset: CGFloat { CallLogic.stageTop(header: Double(headerHeight), flat: flat) }
     var body: some View {
         // 2.5: Breite vom Fenster, nie vom Inhalt: nach dem Drehen (quer -> hoch) blieb die Knopfreihe sonst auf der
         // Querformat-Breite stehen und schob den ganzen Bildschirm breiter als das Geraet (Knoepfe/eigenes Bild abgeschnitten)
@@ -31,25 +40,25 @@ struct CallScreen: View {
             if let H = calls.horn, showHorn {
                 // 2.5: Gruppenanruf ueber einen Knoten (Kacheln bis 25, Sprecher, Bildschirm)
                 HornStage(calls: calls, horn: H)
-                    .padding(.top, 24 + headerHeight + 10).padding(.bottom, bottomInset).padding(.horizontal, 10)
+                    .padding(.top, topInset).padding(.bottom, bottomInset).padding(.horizontal, 10)
             } else if showTiles {
                 // 2.4 E4/E5: Kachelansicht (Gruppe bzw. mehrere sichtbare Verbindungen), Sprecher hervorgehoben
                 CallTileGrid(calls: calls)
-                    .padding(.top, 24 + headerHeight + 10).padding(.bottom, bottomInset).padding(.horizontal, 10)
+                    .padding(.top, topInset).padding(.bottom, bottomInset).padding(.horizontal, 10)
             } else if showRemoteVideo {
                 // 2.4 E3: Bildschirm gross und ganz sichtbar (aspect fit), Kamera klein; "Ansicht tauschen" tauscht
                 RTCVideoBox(track: bigTrack, fill: !bigIsScreen).ignoresSafeArea()
             }
-            VStack(spacing: 14) {
-                VStack(spacing: 14) { shareBar; header }                      // 2.5: Hoehe inkl. Leiste "teilt den Bildschirm"
+            VStack(spacing: flat ? 6 : 14) {
+                VStack(spacing: flat ? 6 : 14) { shareBar; header }                      // 2.5: Hoehe inkl. Leiste "teilt den Bildschirm"
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
                 if !showRemoteVideo && !showTiles && !showHorn { Spacer(); peerBlock; Spacer() } else { Spacer() }
                 if calls.phase == .incoming { incomingButtons } else if calls.phase == .ended { endedBlock } else { controls }
             }
-            .padding(.horizontal, 20).padding(.vertical, 24)
+            .padding(.horizontal, 20).padding(.vertical, flat ? 6 : 24)
             if calls.cam, let t = calls.localVideo, calls.phase != .incoming, calls.phase != .ended, !showHorn {   // Knoten: eigene Kachel
                 // 2.5: in eine Ecke ziehen (rastet ein) oder ausblenden - unter der Kopfzeile, ueber den Knoepfen
-                SelfPip(size: CGSize(width: 110, height: 160), top: 24 + headerHeight + 10, bottom: bottomInset, side: 16) {
+                SelfPip(size: CGSize(width: 110, height: 160), top: topInset, bottom: bottomInset, side: 16) {
                     RTCVideoBox(track: t, mirror: calls.frontCamera)             // Rueckkamera nicht spiegeln (Schrift lesbar)
                         .accessibilityLabel(Text("Eigenes Kamerabild"))
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -78,10 +87,10 @@ struct CallScreen: View {
                 .accessibilityLabel(Text("Ansicht tauschen"))
                 .help(Text("Ansicht tauschen"))
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.top, 24 + headerHeight + 10).padding(.leading, 16)
+                .padding(.top, topInset).padding(.leading, 16)
             }
             if calls.screenHint { ScreenHintCard(calls: calls) }
-            if let H = calls.horn { HornOverlays(calls: calls, horn: H, scheme: systemScheme, top: 24 + headerHeight, bottom: bottomInset - 10) }
+            if let H = calls.horn { HornOverlays(calls: calls, horn: H, scheme: systemScheme, top: topInset - (flat ? 4 : 10), bottom: bottomInset - 10) }
         }
         #if os(iOS)
         .background { BroadcastPickerHost(capture: calls.capture).frame(width: 1, height: 1).allowsHitTesting(false) }
@@ -119,7 +128,7 @@ struct CallScreen: View {
     }
 
     /// Abstand unten fuer Buehne und Ebenen: Steuerknoepfe samt Dauer (gemessen) plus Rand
-    private var bottomInset: CGFloat { max(170, controlsHeight + 24 + 10) }
+    private var bottomInset: CGFloat { CallLogic.stageBottom(controls: Double(controlsHeight), flat: flat) }
     /// 2.5: Knoten-Anruf (Buehne statt Einzelansicht)
     private var showHorn: Bool { calls.horn != nil && (calls.phase == .active || calls.phase == .connecting || calls.phase == .ringingOut) }
     private var showRemoteVideo: Bool { !showHorn && !showTiles && calls.remoteVideo != nil && (calls.remote.cam || calls.remote.screen) && (calls.phase == .active || calls.phase == .connecting) }
@@ -166,7 +175,24 @@ struct CallScreen: View {
     }
 
     private var header: some View {
-        VStack(spacing: 4) {
+        // I05: auf Video halbtransparente Kapsel hinter den Kopf-Texten (weiss auf hellem Bild sonst kaum lesbar)
+        let onVideo = showRemoteVideo || showTiles || showHorn
+        return Group {
+            if flat {                                                        // I03: quer eine Zeile, sonst untereinander
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 10) { headerItems }
+                    VStack(spacing: 2) { headerItems }
+                }
+            } else {
+                VStack(spacing: 4) { headerItems }
+            }
+        }
+        .padding(.horizontal, onVideo ? 12 : 0).padding(.vertical, onVideo ? 5 : 0)
+        .background { if onVideo { RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.black.opacity(0.38)) } }
+        .frame(maxWidth: .infinity)
+    }
+
+    @ViewBuilder private var headerItems: some View {
             if showRemoteVideo || showTiles || showHorn { Text(verbatim: calls.peerName).font(.headline).lineLimit(1).truncationMode(.middle).shadow(radius: 3) }
             if showRemoteVideo || showTiles || showHorn { statusLine }      // Dauer direkt unter dem Titel (Anruf-UI-Regeln)
             if calls.phase != .ended { roomInfo }
@@ -189,8 +215,6 @@ struct CallScreen: View {
                     .font(.caption2).foregroundStyle(.white.opacity(d.ok ? 0.6 : 0.85)).shadow(radius: 2)
                     .accessibilityLabel(Text(verbatim: d.text))
             }
-        }
-        .frame(maxWidth: .infinity)
     }
 
     /// Ton-Diagnose (dezent): "Ton: empfangen · Mikro: ok" bzw. warum nichts zu hoeren ist
@@ -233,7 +257,7 @@ struct CallScreen: View {
     @ViewBuilder private var statusLine: some View {
         if calls.phase == .active, let t0 = calls.connectedAt {
             TimelineView(.periodic(from: t0, by: 1)) { ctx in
-                Text(verbatim: CallLogic.duration(Int(ctx.date.timeIntervalSince(t0)))).font(.title3.monospacedDigit()).foregroundStyle(.white.opacity(0.85))
+                Text(verbatim: CallLogic.duration(Int(ctx.date.timeIntervalSince(t0)))).font(flat ? .subheadline.monospacedDigit() : .title3.monospacedDigit()).foregroundStyle(.white.opacity(0.85))
             }
         } else if !calls.status.isEmpty {
             Text(verbatim: calls.status).font(.callout).foregroundStyle(.white.opacity(0.85)).multilineTextAlignment(.center).frame(maxWidth: 420)
@@ -314,7 +338,7 @@ struct CallScreen: View {
     @ViewBuilder private var roomInfo: some View {
         if calls.kind == "group" || calls.inRoom || calls.tiles.count > 1 {
             VStack(spacing: 2) {
-                if !calls.dmRoom, calls.phase == .active || calls.phase == .connecting || calls.phase == .ringingOut {
+                if CallLogic.showsDeviceCount(kind: calls.kind, dmRoom: calls.dmRoom), calls.phase == .active || calls.phase == .connecting || calls.phase == .ringingOut {
                     let n = calls.horn != nil ? max(1, calls.roster.legs.count) : calls.links.count + 1
                     Label(n >= calls.limit - 2 ? "\(n)/\(calls.limit)" : "\(n)", systemImage: "person.2.fill").font(.caption.weight(.semibold))
                         .padding(.horizontal, 8).padding(.vertical, 2).background(.black.opacity(0.4), in: Capsule())
@@ -363,8 +387,8 @@ struct CallScreen: View {
     private func round(_ icon: String, _ label: String, _ color: Color, width: CGFloat = 72, _ a: @escaping () -> Void) -> some View {
         Button(action: a) {
             VStack(spacing: 6) {
-                Image(systemName: icon).font(.title2).frame(width: 60, height: 60).background(color, in: Circle()).foregroundStyle(.white)
-                buttonLabel(label, width: width)
+                Image(systemName: icon).font(.title2).frame(width: flat ? 48 : 60, height: flat ? 48 : 60).background(color, in: Circle()).foregroundStyle(.white)
+                if !flat { buttonLabel(label, width: width) }           // I03: quer ohne Textzeile (VoiceOver liest die Beschriftung)
             }
         }
         .buttonStyle(.plain).accessibilityLabel(Text(verbatim: label))
@@ -373,10 +397,10 @@ struct CallScreen: View {
     private func toggle(_ icon: String, _ label: String, on: Bool, width: CGFloat = 72, _ a: @escaping () -> Void) -> some View {
         Button(action: a) {
             VStack(spacing: 6) {
-                Image(systemName: icon).font(.title3).frame(width: 60, height: 60)
+                Image(systemName: icon).font(.title3).frame(width: flat ? 48 : 60, height: flat ? 48 : 60)
                     .background(on ? Color.white : Color.white.opacity(0.18), in: Circle())
                     .foregroundStyle(on ? Color.black : Color.white)
-                buttonLabel(label, width: width)
+                if !flat { buttonLabel(label, width: width) }
             }
         }
         .buttonStyle(.plain).accessibilityLabel(Text(verbatim: label)).accessibilityAddTraits(on ? .isSelected : [])
@@ -803,7 +827,9 @@ struct SelfPip<Content: View>: View {
     @State private var drag = CGSize.zero
     var body: some View {
         GeometryReader { g in
-            let w = hidden ? 44 : size.width, h = hidden ? 44 : size.height
+            // V5: quer (wenig Hoehe) kleiner, damit oben und unten zwei getrennte Ecken bleiben - sonst wirkten die unteren nicht
+            let fit = CallLogic.pipSize(w: Double(size.width), h: Double(size.height), avail: Double(g.size.height - top - bottom))
+            let w = hidden ? 44 : CGFloat(fit.w), h = hidden ? 44 : CGFloat(fit.h)
             let x = corner % 2 == 0 ? side : g.size.width - w - side
             let y = corner < 2 ? top : max(top, g.size.height - h - bottom)
             Group {
@@ -832,9 +858,11 @@ struct SelfPip<Content: View>: View {
             .gesture(DragGesture(minimumDistance: 6)
                 .onChanged { drag = $0.translation }
                 .onEnded { e in
-                    let cx = x + w / 2 + e.translation.width, cy = y + h / 2 + e.translation.height
+                    // V5: Wischen wie FaceTime - Ziel aus der vorhergesagten Endlage (Schwung), nicht aus der Fingerposition
+                    let cx = x + w / 2 + e.predictedEndTranslation.width, cy = y + h / 2 + e.predictedEndTranslation.height
                     withAnimation(.spring(duration: 0.25)) {
-                        corner = (cx < g.size.width / 2 ? 0 : 1) + (cy < (top + g.size.height - bottom) / 2 ? 0 : 2); drag = .zero
+                        corner = CallLogic.pipCorner(x: Double(cx), y: Double(cy), width: Double(g.size.width), top: Double(top),
+                                                     bottom: Double(g.size.height - bottom)); drag = .zero
                     }
                 })
             .accessibilityAction(named: Text("Eigenes Bild verschieben")) { corner = (corner + 1) % 4 }
