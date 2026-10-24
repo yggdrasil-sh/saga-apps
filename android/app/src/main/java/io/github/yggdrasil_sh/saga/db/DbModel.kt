@@ -145,6 +145,8 @@ data class DbSchema(val raw: JsonObject) {
     /** gesperrt: Spalten/Ansichten/Filter geschuetzt, Eintraege frei */
     val locked: Boolean = (raw["locked"] as? JsonPrimitive)?.booleanOrNull == true
     val titleName: String? = raw.str("title_name")
+    /** Zaehler des Servers je Schema-Speichern (aeltere Server: 0) */
+    val srev: Int = (raw["srev"] as? JsonPrimitive)?.content?.toIntOrNull()?.coerceAtLeast(0) ?: 0
 
     fun prop(id: String?): DbProp? = if (id == "title") DbProp.TITLE else props.firstOrNull { it.id == id }
     /** Ansicht mit dieser ID, sonst die erste (curView im Web) */

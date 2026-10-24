@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bughunt-Runde 2, Rolle apps -->
+<resources>
+    <string name="tpl_page_hint">Template – new entries take over its content and values.</string>
+    <string name="chat_send_offline">No connection – the message was not sent. Your draft stays here.</string>
+    <string name="call_e2e_info_horn">End-to-end encrypted via the node: the node only forwards encrypted audio and video. Compare the rune seal to check.</string>
+    <string name="tpl_more_cd">More for “%1$s”</string>
+    <string name="dbv_filter_prop">Property</string>
+    <string name="dbv_filter_cond">Condition</string>
+    <string name="task_added">Task added.</string>
+    <string name="toolbar_more">More formatting</string>
+</resources>

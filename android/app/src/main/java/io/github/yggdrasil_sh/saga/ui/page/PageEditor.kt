@@ -320,9 +320,10 @@ class PageEditor(
         needsPublicName = false
         noAccess = false
         rev = BlockDoc.int(p, "rev")
-        // Datenbank-Zeile (Notion-Stil): Eigenschaften + Elternseite, nur zum Anzeigen (bearbeiten im Browser)
-        props = (p["props"] as? JsonObject)?.takeIf { it.isNotEmpty() }
+        // Datenbank-Zeile (Notion-Stil): Eigenschaften + Elternseite. A02: auch leer (neuer Eintrag, Vorlage) - sonst
+        // lassen sich Status/Datum auf der Seite nie setzen; ob die Elternseite eine Datenbank ist, klaert RowProperties
         parentId = (p["parent_id"] as? JsonPrimitive)?.content?.toLongOrNull()
+        props = rowProps(p, parentId)
         created = (p["created"] as? JsonPrimitive)?.content?.toDoubleOrNull()
         updatedAt = (p["updated"] as? JsonPrimitive)?.content?.toDoubleOrNull()
         converted = parsed.converted && !body.isNullOrBlank()
@@ -1080,3 +1081,10 @@ class PageEditor(
 }
 
 private fun jobj(vararg pairs: Pair<String, kotlinx.serialization.json.JsonElement>) = JsonObject(linkedMapOf(*pairs))
+
+/**
+ * A02: Eigenschaften einer moeglichen Datenbank-Zeile - auch leer, sobald es eine Elternseite gibt (neue Eintraege
+ * und Vorlagen haben noch keine Werte). Ohne Elternseite keine Zeile.
+ */
+internal fun rowProps(p: JsonObject, parentId: Long?): JsonObject? =
+    (p["props"] as? JsonObject) ?: if (parentId != null) JsonObject(emptyMap()) else null

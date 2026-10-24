@@ -22,6 +22,10 @@ import io.github.yggdrasil_sh.saga.util.UiText
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -777,6 +781,13 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
         if (ed.fetched && !ed.isDatabase && !ed.noAccess) TagsRow(ed, repo)       // wie iOS/Web: Tags unter dem Titel
         if (ed.fetched && ed.caps.foreign) SharedByLabel(ed.share)
         if (ed.fetched) MetaLine(ed.share)
+        if (ed.fetched && ed.template && ed.parentId != null) {   // A02: Vorlage einer Datenbank erkennbar machen
+            Text(
+                stringResource(R.string.tpl_page_hint),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
         if (ed.fetched) RowProperties(ed, repo)                 // Datenbank-Zeile: Eigenschaften (bearbeitbar)
         // Foederation (2.0): Seite liegt auf einer anderen Saga-Instanz
         ed.remoteHost?.takeIf { ed.fetched }?.let { host ->
@@ -906,8 +917,13 @@ private fun EditorToolbar(
             // Nr. 16: Hoch/Runter/Loeschen/Fertig fest rechts, nur Einfuegen und Formate scrollen (vorher lagen die Knoepfe
             // am Ende der scrollenden Leiste ausserhalb des Bildschirms)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            // A16: scrollende Formatleiste mit Hinweis am rechten Rand (Verlauf + Pfeil), solange es weiter geht -
+            // sonst wirkt der angeschnittene Knopf (U) kaputt und Durchgestrichen/Link findet man nicht
+            val toolScroll = rememberScrollState()
+            val toolScope = rememberCoroutineScope()
+            Box(Modifier.weight(1f)) {
             Row(
-                Modifier.weight(1f).horizontalScroll(rememberScrollState()).padding(start = 4.dp),
+                Modifier.horizontalScroll(toolScroll).padding(start = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box {
@@ -964,6 +980,21 @@ private fun EditorToolbar(
                         TextButton(onClick = { onLink(href) }) { Text(stringResource(R.string.link_open)) }
                     }
                 }
+                Spacer(Modifier.width(if (toolScroll.maxValue > 0) 36.dp else 0.dp))   // letzter Knopf nicht unter dem Hinweis
+            }
+            if (toolScroll.canScrollForward) {
+                val bg = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+                val px = with(androidx.compose.ui.platform.LocalDensity.current) { 144.dp.toPx() }
+                Box(
+                    Modifier.align(Alignment.CenterEnd).width(40.dp).height(48.dp)
+                        .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(bg.copy(alpha = 0f), bg, bg))),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    IconButton(onClick = { toolScope.launch { toolScroll.animateScrollBy(px) } }, modifier = Modifier.width(32.dp)) {
+                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(R.string.toolbar_more))
+                    }
+                }
+            }
             }
             val dbBlock = ed.block(blockPath)?.takeIf { BlockDoc.type(it) == "database" && active.itemPath() == null }
             if (dbBlock != null) {                                  // 2.5: Datenbanktitel des Blocks ein-/ausblenden (wie Web/iOS)

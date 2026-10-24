@@ -114,6 +114,8 @@ class DbViewState(
     private var pendingSchema: JsonObject? = null
     /** Schema-Speichern nacheinander (immer der neueste Stand, mit der srev der vorigen Antwort) */
     private val saveLock = kotlinx.coroutines.sync.Mutex()
+    /** A11/A12: zaehlt jede eigene Schema-Aenderung und jedes bestaetigte Speichern - aeltere Antworten zaehlen nicht */
+    private var schemaSeq = 0
 
     val view: DbView? get() = schema?.view(viewId)
     val readOnly: Boolean get() = role == "view" || role == "comment"
@@ -171,6 +173,7 @@ class DbViewState(
     }
 
     private suspend fun fetch(q: String): DbPage {
+        val seq = schemaSeq
         val r = store.rows(dbId, q)
         offline = r is DbStore.Loaded.Cached
         val p = when (r) {
@@ -180,8 +183,9 @@ class DbViewState(
         noAccess = false
         role = p.role
         templates = p.templates
-        if (pendingSchema == null) schema = p.schema
-        if (viewId != null && p.schema.views.none { it.id == viewId }) viewId = p.schema.views.first().id
+        if (pendingSchema == null && DbViews.acceptSchema(schema, p.schema, seq, schemaSeq)) schema = p.schema
+        val sc = schema ?: p.schema
+        if (viewId != null && sc.views.none { it.id == viewId }) viewId = sc.views.first().id
         return p
     }
 
@@ -458,6 +462,7 @@ class DbViewState(
         if (raw == s.raw) return
         schema = DbSchema(raw)
         pendingSchema = raw
+        schemaSeq++
         if (viewId != null && schema!!.views.none { it.id == viewId }) viewId = schema!!.views.first().id
         reload()
         scope.launch {
@@ -467,6 +472,7 @@ class DbViewState(
                     val send = pendingSchema ?: return@launch          // schon mit einer spaeteren Aenderung gesendet
                     ownChange = store.changes.value + 1
                     val saved = store.saveSchema(dbId, send)
+                    schemaSeq++
                     if (pendingSchema == send) {                        // srev uebernehmen (keine neuere Aenderung dazwischen)
                         pendingSchema = null
                         schema = DbSchema(saved)
@@ -502,9 +508,11 @@ class DbViewState(
         val (raw, oid) = DbViews.addOption(s.raw, prop.id, name)
         schema = DbSchema(raw)
         pendingSchema = raw
+        schemaSeq++
         scope.launch {
             try {
                 val saved = store.saveSchema(dbId, raw)
+                schemaSeq++
                 if (pendingSchema == raw) pendingSchema = null
                 schema = DbSchema(saved)
                 val p = schema?.prop(prop.id) ?: return@launch

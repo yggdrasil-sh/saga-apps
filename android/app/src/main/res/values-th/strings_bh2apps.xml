@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bughunt-Runde 2, Rolle apps -->
+<resources>
+    <string name="tpl_page_hint">เทมเพลต – รายการใหม่จะได้รับเนื้อหาและค่าจากเทมเพลตนี้</string>
+    <string name="chat_send_offline">ไม่มีการเชื่อมต่อ – ยังไม่ได้ส่งข้อความ ฉบับร่างของคุณยังอยู่</string>
+    <string name="call_e2e_info_horn">เข้ารหัสแบบต้นทางถึงปลายทางผ่านโหนด: โหนดส่งต่อเฉพาะเสียงและภาพที่เข้ารหัสแล้ว เปรียบเทียบตรารูนเพื่อตรวจสอบ</string>
+    <string name="tpl_more_cd">เพิ่มเติมสำหรับ “%1$s”</string>
+    <string name="dbv_filter_prop">คุณสมบัติ</string>
+    <string name="dbv_filter_cond">เงื่อนไข</string>
+    <string name="task_added">เพิ่มงานแล้ว</string>
+    <string name="toolbar_more">รูปแบบเพิ่มเติม</string>
+</resources>

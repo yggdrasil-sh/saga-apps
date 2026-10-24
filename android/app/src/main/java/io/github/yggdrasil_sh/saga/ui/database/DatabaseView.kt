@@ -304,9 +304,18 @@ private fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit) {
                     ) {
                         Row(Modifier.heightIn(min = 40.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
-                            Text(stringResource(R.string.dbv_new_entry), modifier = Modifier.padding(start = 4.dp), maxLines = 1,
-                                style = MaterialTheme.typography.labelLarge)
-                            if (st.templates.isNotEmpty()) Icon(Icons.Filled.ArrowDropDown, null, Modifier.size(18.dp))
+                            // A17: Text darf kuerzen ("Neuer Ein…"), der Pfeil bleibt immer sichtbar - und oeffnet selbst das Menue
+                            Text(stringResource(R.string.dbv_new_entry), modifier = Modifier.padding(start = 4.dp).weight(1f, fill = false), maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, style = MaterialTheme.typography.labelLarge)
+                            if (st.templates.isNotEmpty()) {
+                                val moreLabel = stringResource(R.string.tpl_more_choices)
+                                Box(
+                                    Modifier.padding(start = 2.dp).size(28.dp).clip(androidx.compose.foundation.shape.CircleShape)
+                                        .clickable(role = Role.Button, onClickLabel = moreLabel) { newMenu = true }
+                                        .semantics { contentDescription = moreLabel },
+                                    contentAlignment = Alignment.Center,
+                                ) { Icon(Icons.Filled.ArrowDropDown, null, Modifier.size(20.dp)) }
+                            }
                         }
                     }
                     DropdownMenu(expanded = newMenu, onDismissRequest = { newMenu = false }) {

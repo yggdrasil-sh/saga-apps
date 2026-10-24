@@ -74,6 +74,9 @@ private fun knownPages(repo: SagaRepository): List<PageMeta> {
 /** A03: Eintraege einer Datenbank fuer den eingebetteten Block - Vorlagen sind keine Eintraege (wie die volle Ansicht) */
 internal fun dbBlockRows(all: List<PageMeta>, dbId: Long): List<PageMeta> = all.filter { it.parentId == dbId && !it.template }
 
+/** A02: Elternseite kann eine Datenbank sein (unbekannt, z. B. geteilt/foederiert: ja - RowProperties fragt nach) */
+internal fun rowParentMaybeDb(parent: PageMeta?): Boolean = parent == null || parent.isDatabase
+
 /** Zeilen einer Datenbank (limit: hoechstens so viele, darunter "Alle anzeigen") */
 @Composable
 fun DatabaseRows(dbId: Long, repo: SagaRepository, onOpen: (Long) -> Unit, limit: Int? = null) {
@@ -117,6 +120,9 @@ fun DatabaseRows(dbId: Long, repo: SagaRepository, onOpen: (Long) -> Unit, limit
 fun RowProperties(ed: PageEditor, repo: SagaRepository) {
     val props = ed.props ?: return
     val parent = ed.parentId ?: return
+    val all = knownPages(repo)
+    // A02: auch leere Eigenschaften zeigen - aber nur unter einer Datenbank (bekannte Elternseite, die keine ist: nichts laden)
+    if (!rowParentMaybeDb(all.firstOrNull { it.id == parent })) return
     var schema by remember(parent) { mutableStateOf<DbSchema?>(null) }
     LaunchedEffect(parent) {
         schema = try {
@@ -128,7 +134,6 @@ fun RowProperties(ed: PageEditor, repo: SagaRepository) {
         }
     }
     val s = schema ?: return
-    val all = knownPages(repo)
     val pending by repo.dbStore.pending.collectAsState()
     // eigene Aenderungen sofort zeigen (bis die Seite neu geladen wird), offline geaenderte Werte darueber
     var local by remember(props) { mutableStateOf(props) }
@@ -259,6 +264,7 @@ fun ButtonsBlock(d: JsonObject, env: BlockEnv) {
                                         val raw = InlineHtml.decodeEntities(BlockDoc.str(b, "title"))
                                         if (action == "task") {
                                             env.repo.addTask(raw.ifBlank { taskDefault }, null)
+                                            env.repo.notify(UiText.Res(R.string.task_added))   // A25: Rueckmeldung
                                         } else {
                                             val today = android.text.format.DateFormat.getDateFormat(ctx).format(java.util.Date())
                                             var title = raw

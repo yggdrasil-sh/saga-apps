@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bughunt-Runde 2, Rolle apps -->
+<resources>
+    <string name="tpl_page_hint">Plantilla: las entradas nuevas toman su contenido y sus valores.</string>
+    <string name="chat_send_offline">Sin conexión: el mensaje no se envió. Tu borrador se conserva.</string>
+    <string name="call_e2e_info_horn">Cifrado de extremo a extremo a través del nodo: el nodo solo reenvía audio y vídeo cifrados. Compara el sello de runas para comprobarlo.</string>
+    <string name="tpl_more_cd">Más sobre «%1$s»</string>
+    <string name="dbv_filter_prop">Propiedad</string>
+    <string name="dbv_filter_cond">Condición</string>
+    <string name="task_added">Tarea creada.</string>
+    <string name="toolbar_more">Más formatos</string>
+</resources>

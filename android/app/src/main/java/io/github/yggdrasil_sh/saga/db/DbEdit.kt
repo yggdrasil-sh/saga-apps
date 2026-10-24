@@ -108,6 +108,13 @@ object DbValues {
 /** Ansichten bearbeiten: neues Schema (raw) mit geaenderter Ansicht - alle unbekannten Felder bleiben erhalten */
 object DbViews {
     /**
+     * A11/A12: Schema aus einer Antwort nur uebernehmen, wenn sie nicht aelter ist als der lokale Stand - also keine
+     * kleinere srev hat und vor keiner eigenen Aenderung/Bestaetigung angefragt wurde (asked = Zaehler beim Anfragen).
+     */
+    fun acceptSchema(current: DbSchema?, incoming: DbSchema, asked: Int, now: Int): Boolean =
+        current == null || (asked == now && incoming.srev >= current.srev)
+
+    /**
      * A01: Die erste Seite beim Oeffnen fragt ohne Ansichts-Filter (Schema noch unbekannt). Hat die Ansicht Filter,
      * Sortierung oder Gruppierung, passt die Antwort nicht -> mit der Abfrage der Ansicht neu fragen.
      */

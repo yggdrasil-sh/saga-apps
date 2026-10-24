@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bughunt-Runde 2, Rolle apps -->
+<resources>
+    <string name="tpl_page_hint">Шаблон – новые записи получают его содержимое и значения.</string>
+    <string name="chat_send_offline">Нет соединения – сообщение не отправлено. Черновик сохранён.</string>
+    <string name="call_e2e_info_horn">Сквозное шифрование через узел: узел только пересылает зашифрованные звук и видео. Для проверки сравните рунную печать.</string>
+    <string name="tpl_more_cd">Ещё для «%1$s»</string>
+    <string name="dbv_filter_prop">Свойство</string>
+    <string name="dbv_filter_cond">Условие</string>
+    <string name="task_added">Задача добавлена.</string>
+    <string name="toolbar_more">Другие форматы</string>
+</resources>

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
@@ -38,6 +39,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.yggdrasil_sh.saga.R
@@ -76,17 +79,30 @@ fun DatabaseDialogs(st: DbViewState, repo: SagaRepository) {
 
 /** Auswahlfeld (Dropdown) mit Beschriftung */
 @Composable
-fun <T> Picker(label: String, items: List<Pair<T, String>>, selected: T, onPick: (T) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+fun <T> Picker(
+    label: String, items: List<Pair<T, String>>, selected: T, onPick: (T) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+    role: String = "",
+) {
     var open by remember { mutableStateOf(false) }
+    // A14: Bedienungshilfen lesen den aktuellen Wert (+ wofuer das Feld ist), nicht den Platzhalter des ersten Aufbaus
+    val shown = items.firstOrNull { it.first == selected }?.second ?: label
+    val cd = pickerDescription(role, shown)
     Box(modifier) {
-        OutlinedButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
-            Text(items.firstOrNull { it.first == selected }?.second ?: label, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Icon(Icons.Filled.ArrowDropDown, label)
+        OutlinedButton(onClick = { open = true }, enabled = enabled, modifier = Modifier.fillMaxWidth().semantics { contentDescription = cd }) {
+            Text(shown, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            Icon(Icons.Filled.ArrowDropDown, null)
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             items.forEach { (k, t) -> DropdownMenuItem(text = { Text(t) }, onClick = { open = false; onPick(k) }) }
         }
     }
+}
+
+/** A14: Beschreibung eines Auswahlfelds - "Eigenschaft: Status" bzw. nur der Wert */
+internal fun pickerDescription(role: String, shown: String): String = when {
+    role.isBlank() -> shown
+    shown.isBlank() -> role
+    else -> "$role: $shown"
 }
 
 @Composable
@@ -129,13 +145,13 @@ private fun FilterDialog(s: DbSchema, v: DbView, editable: Boolean, onApply: (Li
                     val p = s.prop(f.pid) ?: DbProp.TITLE
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Picker(stringResource(R.string.dbv_view_name), choices, f.pid, enabled = editable, onPick = { pid ->
+                            Picker(stringResource(R.string.dbv_filter_prop), choices, f.pid, enabled = editable, role = stringResource(R.string.dbv_filter_prop), onPick = { pid ->
                                 val t = s.prop(pid)?.type ?: "text"
                                 fs[i] = DbFilter(pid, DbFilter.ops(t).first(), "")
                             }, modifier = Modifier.weight(1f))
                             if (editable) IconButton(onClick = { fs.removeAt(i) }) { Icon(Icons.Filled.Close, stringResource(R.string.dbv_remove)) }
                         }
-                        Picker("", DbFilter.ops(p.type).map { it to opLabel(it, p.type) }, f.op, enabled = editable, onPick = { op -> fs[i] = f.copy(op = op) }, modifier = Modifier.fillMaxWidth())
+                        Picker("", DbFilter.ops(p.type).map { it to opLabel(it, p.type) }, f.op, enabled = editable, role = stringResource(R.string.dbv_filter_cond), onPick = { op -> fs[i] = f.copy(op = op) }, modifier = Modifier.fillMaxWidth())
                         if (!f.noValue) FilterValue(p, f, editable) { fs[i] = f.copy(value = it) }
                     }
                     HorizontalDivider()
@@ -160,7 +176,7 @@ private fun FilterDialog(s: DbSchema, v: DbView, editable: Boolean, onApply: (Li
 @Composable
 private fun FilterValue(p: DbProp, f: DbFilter, editable: Boolean, onChange: (String) -> Unit) {
     when (p.type) {
-        "select", "multi_select" -> Picker(stringResource(R.string.dbv_value_empty), p.options.map { it.id to it.name }, f.value, enabled = editable, onPick = onChange, modifier = Modifier.fillMaxWidth())
+        "select", "multi_select" -> Picker(stringResource(R.string.dbv_value_empty), p.options.map { it.id to it.name }, f.value, enabled = editable, role = stringResource(R.string.dbv_filter_value), onPick = onChange, modifier = Modifier.fillMaxWidth())
         "date", "created", "edited" -> {
             var pick by remember { mutableStateOf(false) }
             OutlinedButton(onClick = { pick = true }, enabled = editable, modifier = Modifier.fillMaxWidth()) {
@@ -348,7 +364,11 @@ internal fun TemplateManager(st: DbViewState, onOpen: (Long) -> Unit) {
                         )
                         Box {
                             var menu by remember { mutableStateOf(false) }
-                            IconButton(onClick = { menu = true }) { Text("⋯") }
+                            // A15: beschriftet ("Mehr zu <Vorlage>") statt des Zeichens
+                            val moreCd = stringResource(R.string.tpl_more_cd, (names[t.id] ?: t.title).ifEmpty { untitled })
+                            IconButton(onClick = { menu = true }, modifier = Modifier.semantics { contentDescription = moreCd }) {
+                                Icon(Icons.Filled.MoreVert, null)
+                            }
                             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                                 DropdownMenuItem(text = { Text(stringResource(R.string.tpl_edit)) }, onClick = { menu = false; saveNames(); st.managing = false; onOpen(t.id) })
                                 DropdownMenuItem(text = { Text(stringResource(R.string.tpl_duplicate)) }, onClick = {
