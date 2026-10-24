@@ -106,6 +106,21 @@ final class HornLeg: NSObject {
         if path == "udp" { return [enc("l", 4, 150, 20, "L1T2"), enc("m", 2, 500, 30, "L1T3"), enc("h", 1, 1500, 30, "L1T3")] }
         return [enc("l", 4, 150, 20, "L1T2"), enc("m", 1, 700, 30, "L1T3")]
     }
+    /// 2.5 Akku: Kamera-Schichten an/aus und Bildrate (HornLogic.camActive) - setzt nur bei Aenderung; -> geaendert?
+    @discardableResult
+    func tuneCam(on: Set<String>, fps: Int?) -> Bool {
+        guard let s = cam?.sender else { return false }
+        let p = s.parameters
+        var diff = false
+        for e in p.encodings {
+            guard let rid = e.rid else { continue }
+            let a = on.contains(rid), f = min(HornLogic.camMaxFps(rid), fps ?? 30)
+            if e.isActive != a { e.isActive = a; diff = true }
+            if e.maxFramerate?.intValue != f { e.maxFramerate = NSNumber(value: f); diff = true }
+        }
+        if diff { s.parameters = p }
+        return diff
+    }
     private func addRecv(_ t: RTCRtpMediaType) {
         guard let pc else { return }
         let i = RTCRtpTransceiverInit(); i.direction = .recvOnly

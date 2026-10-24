@@ -15,6 +15,20 @@ import Foundation
 // Zeiten in Millisekunden (Double), wie im Web.
 
 enum HornLogic {
+    /// 2.5 Akku: welche Kamera-Schichten wirklich kodiert werden (wie Android HornLogic.camActive). others = andere
+    /// Geraete am Knoten. Allein: keine; zu zweit: ohne "l" (Kachel-Wunsch faellt auf "m" zurueck); Energiesparen/heiss:
+    /// ohne "h", hoechstens 15 fps. Solange jemand da ist, bleibt mindestens eine Schicht an.
+    static func camActive(path: String, others: Int, lowPower: Bool) -> (rids: Set<String>, fps: Int?) {
+        let all = path == "udp" ? ["l", "m", "h"] : ["l", "m"]
+        guard others > 0 else { return ([], nil) }
+        var r = Set(all)
+        if others == 1, r.count > 1 { r.remove("l") }
+        if lowPower, r.count > 1 { r.remove("h") }
+        if r.isEmpty { r = [all.last!] }
+        return (r, lowPower ? 15 : nil)
+    }
+    /// Hoechstrate je Schicht (wie HornLeg.encodings)
+    static func camMaxFps(_ rid: String) -> Int { rid == "l" ? 20 : 30 }
     static let probeMs = 800.0, pings = 5, noUdpMs = 15.0, hereMs = 25.0
     static let loadFrom = 0.7, loadSlope = 200.0, full = 0.9, fullMs = 1000.0
     static let betterRel = 0.25, betterMs = 30.0, betterFor = 20_000.0, dwell = 60_000.0, window = 600_000.0, maxSwitch = 3

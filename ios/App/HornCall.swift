@@ -160,7 +160,7 @@ final class HornSession: ObservableObject {
     var q: [[String: Any]] = []
     let provider = HornCryptor.keyProvider()
     var monTask: Task<Void, Never>?
-    var candT = 0.0, statT = 0.0, udpProbeAt = 0.0, rosterT = 0.0
+    var candT = 0.0, statT = 0.0, udpProbeAt = 0.0, rosterT = 0.0, tuneT = 0.0
     var levels: [String: Double] = [:]
     var speaking = Set<String>()
     var speakAt: [String: Double] = [:]
@@ -514,6 +514,7 @@ extension CallManager {
         guard let H = horn else { return }
         conn.peers = peers
         hornMap()
+        hornTune(conn)
         let mine = hornMyRef(conn)
         if HornLogic.unknownRefs(peers: peers, mine: mine, devOf: { self.hornDevOf(conn, $0) }), Self.hornNow() - H.rosterT > 2000 {
             H.rosterT = Self.hornNow()
@@ -687,9 +688,19 @@ extension CallManager {
 
     // MARK: Laufende Beobachtung (alle 0,5 s)
 
+    /// 2.5 Akku: Kamera-Schichten nach Zahl der anderen und Energiesparen (Stromsparmodus, Geraet heiss)
+    func hornTune(_ conn: HornConn) {
+        horn?.tuneT = Self.hornNow()
+        let mine = Set(hornMyRefs() + [hornMyRef(conn)])
+        let others = conn.peers.keys.filter { !mine.contains($0) }.count
+        let low = ProcessInfo.processInfo.isLowPowerModeEnabled || ProcessInfo.processInfo.thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue
+        let (on, fps) = HornLogic.camActive(path: conn.path, others: others, lowPower: low)
+        for L in conn.legs.values where L.tuneCam(on: on, fps: fps) { horn?.trace("schichten \(on.sorted()) fps \(fps.map(String.init) ?? "-") (andere \(others))") }
+    }
     func hornMon() {
         guard let H = horn, hornLive(H) else { return }
         let now = Self.hornNow(), cur = H.cur
+        if let cur, now - H.tuneT > 5000 { hornTune(cur) }            // Stromsparmodus an/aus
         for c in H.conns { for L in c.all { L.poll(now: now) } }
         if let cur, !H.switching, let d = H.sw?.conn(now, cur.worst()) {
             H.trace("ice \(cur.worst())"); hornSwitch(d.why); return

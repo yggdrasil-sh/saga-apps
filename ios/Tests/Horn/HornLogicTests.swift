@@ -13,6 +13,17 @@ final class HornLogicTests: XCTestCase {
 
     // MARK: Punktzahl (horn_logik.js "Punktzahl")
 
+    func testCamActiveAkku() {
+        func on(_ p: String, _ n: Int, _ low: Bool) -> String { HornLogic.camActive(path: p, others: n, lowPower: low).rids.sorted().joined(separator: ",") }
+        XCTAssertEqual(on("udp", 0, false), "")                     // allein: nichts kodieren
+        XCTAssertEqual(on("udp", 1, false), "h,m")                  // zu zweit: ohne Kachel-Schicht
+        XCTAssertEqual(on("udp", 3, false), "h,l,m")
+        XCTAssertEqual(on("udp", 3, true), "l,m")                   // Energiesparen: ohne h
+        XCTAssertEqual(on("udp", 1, true), "m")
+        XCTAssertEqual(on("tcp", 1, false), "m")
+        XCTAssertEqual(HornLogic.camActive(path: "udp", others: 2, lowPower: true).fps, 15)
+        XCTAssertNil(HornLogic.camActive(path: "udp", others: 2, lowPower: false).fps)
+    }
     func testMedianJitter() {
         XCTAssertEqual(H.median([5, 1, 3]), 3)
         XCTAssertEqual(H.median([1, 2, 3, 4]), 2.5)
