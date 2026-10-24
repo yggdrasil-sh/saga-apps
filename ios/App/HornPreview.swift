@@ -2,7 +2,7 @@
 import SwiftUI
 
 // Nur fuer Bilder (Debug-Build, ohne Server, ohne Kamera/Mikrofon): Gruppenanruf ueber einen Knoten mit erfundenem
-// Zustand. Start: -hkHornPreview grid|speaker|share|people|runes [-hkHornDark YES] [-hkHornPath udp|tcp|turn]
+// Zustand. Start: -hkHornPreview grid|speaker|share|people|runes [-hkHornDark YES] [-hkHornPath udp|tcp|turn] [-hkLandscape YES]
 // (Mac zusammen mit -hkSnapshot <pfad.png>; iPhone/iPad: xcrun simctl io <id> screenshot). Bewegte Bilder sind hier
 // Farbflaechen (kein WebRTC), Namen und Geraete erfunden.
 
@@ -35,6 +35,12 @@ struct HornPreviewView: View {
             legs.append(["device": String(format: "d%031d", i + 1), "who": p.0.lowercased(), "name": p.0, "dev_name": p.1, "role": p.2, "hp": "p\(i + 1)"])
         }
         c.mockHorn(title: "Sommerfest", legs: CallRoom.legs(legs), mode: mode, path: UserDefaults.standard.string(forKey: "hkHornPath") ?? "tcp")
+        #if os(iOS)
+        // -hkLandscape YES: quer starten (Bilder vom iPhone-Querformat ohne Simulator-Bedienung)
+        if UserDefaults.standard.bool(forKey: "hkLandscape"), let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+            scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight)) { _ in }
+        }
+        #endif
         ready = true
     }
 }
