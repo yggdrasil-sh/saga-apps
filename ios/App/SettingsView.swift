@@ -6,6 +6,7 @@ struct SettingsView: View {
     var onLogout: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var server = ShotDisplay.server(AppConfig.serverString)
+    @Environment(\.dynamicTypeSize) private var dts
     @State private var token = AppConfig.token
     @State private var status = ""
     @State private var busy = false
@@ -40,6 +41,10 @@ struct SettingsView: View {
                     #endif
                     .autocorrectionDisabled()
                     .onSubmit { applyServer() }
+                if dts.isAccessibilitySize, !server.isEmpty {              // I07: groesste Schrift - Adresse ganz lesbar
+                    Text(verbatim: server).font(.footnote).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                        .accessibilityHidden(true)
+                }
                 if server.trimmingCharacters(in: .whitespacesAndNewlines) != AppConfig.serverString {
                     Button("Server übernehmen …") { applyServer() }
                 }

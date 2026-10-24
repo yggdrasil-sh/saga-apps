@@ -182,7 +182,7 @@ struct DatabaseView: View {
         let _ = { if embedded { m.onHead = onHead; if m.onLocalViews != nil, let cb = onLocalViews { m.onLocalViews = cb } } }()   // I01: auch eigene Ansichten
         VStack(alignment: .leading, spacing: 8) {
             if embedded && m.showTitle { header }                    // ganze Datenbank-Seite: Name steht schon als Titel darueber
-            DBViewBar(m: m, views: views, current: $current, editable: localViews?.isEmpty != false || onLocalViews != nil) { id in
+            DBViewBar(m: m, views: views, current: $current, editable: localViews?.isEmpty != false || onLocalViews != nil, onNew: { id in
                 Task {
                     let mode = view?["open"] as? String ?? "side"
                     if let id, id > 0 { nav.open(id, mode: mode); return }
@@ -190,7 +190,8 @@ struct DatabaseView: View {
                     if id == nil, let t = m.defaultTemplate, let nid = await m.newFromTemplate(store, t) { nav.open(nid, mode: mode); return }
                     if let nid = await m.add(store, props: defaults()) { nav.focusTitle = nid; nav.open(nid, mode: mode) }   // Titel gleich bearbeiten
                 }
-            }
+            }, onOpenFull: embedded && !m.showTitle ? { nav.push(PageRoute(id: dbID)) } : nil,   // V2
+               dbName: store.page(dbID)?.label ?? "")
             if !m.loaded { ProgressView().frame(maxWidth: .infinity) }
             else if m.noAccess { Text(verbatim: "🗃️ " + String(localized: "Seite ohne Zugriff")).foregroundStyle(.secondary) }
             else {

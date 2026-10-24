@@ -58935,6 +58935,74 @@
           }
         }
       }
+    },
+    "„%@“ als ganze Seite öffnen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "„%@“ als ganze Seite öffnen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open “%@” as full page"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir «%@» como página completa"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Открыть «%@» как полную страницу"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เปิด “%@” เป็นหน้าเต็ม"
+          }
+        }
+      }
+    },
+    "Vorlage – neue Einträge übernehmen Inhalt und Werte" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Vorlage – neue Einträge übernehmen Inhalt und Werte"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Template – new entries take over its content and values"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plantilla: las entradas nuevas toman su contenido y sus valores"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Шаблон – новые записи получают его содержимое и значения"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เทมเพลต – รายการใหม่จะได้รับเนื้อหาและค่าจากเทมเพลตนี้"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

@@ -312,7 +312,7 @@ enum BookmarkLogic {
         guard scheme == "http" || scheme == "https", !host.isEmpty, !host.contains("@") else { return false }
         if host.hasPrefix("[") || !host.contains(":") { return true }
         let port = host.components(separatedBy: ":").last ?? ""
-        return !port.isEmpty && port.allSatisfy(\.isNumber)
+        return !port.isEmpty && port.allSatisfy { $0.isASCII && $0.isNumber }      // V8: nur 0-9 (wie der Server)
     }
     /// Standard-Kategorien kommen in der Sprache des Kontos vom Server (saga/core.py std_name) - in der App-Sprache zeigen
     private static let services: Set<String> = ["Dienste", "Services", "Servicios", "Сервисы", "บริการ"]

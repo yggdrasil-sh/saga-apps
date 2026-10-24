@@ -296,6 +296,9 @@ struct DBViewBar: View {
     @Binding var current: String?
     let editable: Bool
     let onNew: (Int?) -> Void                            // neue Zeile (nil) bzw. aus Vorlage angelegt (id)
+    /// V2: eingebetteter Block ohne Titel - "Als ganze Seite öffnen" neben dem Ansicht-Knopf (sonst kein Weg zur DB-Seite)
+    var onOpenFull: (() -> Void)? = nil
+    var dbName: String = ""
     @EnvironmentObject var store: Store
     @State private var settings = false
     @State private var renaming: String?
@@ -452,6 +455,12 @@ struct DBViewBar: View {
                 .settingsPopover(isPresented: $settings, title: "Ansicht") {
                     if let id = view?["id"] as? String { ViewSettings(m: m, viewID: id) }
                 }
+        }
+        if let onOpenFull {
+            Button(action: onOpenFull) { Image(systemName: "arrow.up.left.and.arrow.down.right") }
+                .buttonStyle(.plain).foregroundStyle(.secondary).fixedSize()
+                .help("Als ganze Seite öffnen")
+                .accessibilityLabel(dbName.isEmpty ? Text("Als ganze Seite öffnen") : Text("„\(dbName)“ als ganze Seite öffnen"))
         }
     }
 
@@ -690,9 +699,9 @@ struct TemplateManager: View {
                         Menu {
                             Button { run { await m.duplicateTemplate(store, t) } } label: { Label("Duplizieren", systemImage: "plus.square.on.square") }
                             if m.defaultTemplate?.id == t.id {
-                                Button { m.setDefaultTemplate(store, nil) } label: { Label("Nicht mehr Standard", systemImage: "star.slash") }
+                                Button { run { m.setDefaultTemplate(store, nil) } } label: { Label("Nicht mehr Standard", systemImage: "star.slash") }
                             } else {
-                                Button { m.setDefaultTemplate(store, t.id) } label: { Label("Als Standard für „Neu“", systemImage: "star") }
+                                Button { run { m.setDefaultTemplate(store, t.id) } } label: { Label("Als Standard für „Neu“", systemImage: "star") }
                             }
                             Button { run { await m.untemplate(store, t) } } label: { Label("Keine Vorlage mehr", systemImage: "doc") }
                             Divider()

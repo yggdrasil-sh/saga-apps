@@ -300,6 +300,9 @@ final class PageDoc: ObservableObject {
     private var ncSaved = Set<String>()
     private var doc: NSMutableDictionary = [:]
     private var rev = 0
+    /// zuletzt bestaetigter Stand (Inhalt, Titel, Revision): unveraendert nicht erneut senden - sonst entstand je erneutem
+    /// Setzen ohne Aenderung (Popover schliessen, Fertig) eine leere Revision (Nachpruefung I01: 3 Revisionen je Zeichen)
+    private var savedState: SavedPageState?
     private var tracker = EditTracker()
     private let queue = SerialQueue()
     private var retry: Task<Void, Never>?
@@ -474,6 +477,9 @@ final class PageDoc: ObservableObject {
         let sent = tracker.snapshot
         guard let body = serialized() else { return }
         let title = titleRaw
+        if !overwriteNext, saveIsNoop(body: body, title: title, rev: rev, saved: savedState) {
+            tracker.confirm(sent); if !dirty { drafts?.remove(id) }; return
+        }
         if !isDatabase { drafts?.save(id, PageDraft(title: title, body: body, rev: rev, saved: Date(), conflict: false)) }   // vor dem Senden lokal sichern
         var b: [String: Any] = ["title": title]
         // "Meine Version behalten": ohne Revision, mit overwrite - der Server sichert die andere Fassung als Version
@@ -488,6 +494,7 @@ final class PageDoc: ObservableObject {
             }
             overwriteNext = false
             if let j = try? JSONSerialization.jsonObject(with: r) as? [String: Any], let nr = j["rev"] as? Int { rev = nr }
+            savedState = SavedPageState(body: body, title: title, rev: rev)
             tracker.confirm(sent)
             if let sentDoc = body.data(using: .utf8).flatMap({ try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }) {
                 ncSaved = CloudLogic.ncKeys(sentDoc["blocks"])                 // gesendeter Stand ist jetzt der gespeicherte
@@ -624,18 +631,24 @@ struct PageTitleField: View {
     var fallback: String?
     @EnvironmentObject private var nav: NavModel
     @FocusState private var focused: Bool
+    /// I10: neue Vorlage - Titel ("Neue Vorlage") markiert, Tippen ersetzt ihn
+    @State private var selection: TextSelection?
     var body: some View {
         if !doc.fetched, doc.titleRaw.isEmpty, let t = fallback, !t.isEmpty {
             Text(t).font(.largeTitle.bold()).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            TextField("Unbenannt", text: Binding(get: { doc.titleRaw }, set: { v in input(v) }), axis: .vertical)
+            TextField("Unbenannt", text: Binding(get: { doc.titleRaw }, set: { v in input(v) }), selection: $selection, axis: .vertical)
                 .font(.largeTitle.bold()).textFieldStyle(.plain).disabled(ed.locked || !doc.fetched)
                 .focused($focused)
                 .onSubmit { ed.enterFromTitle() }                     // Mac: Return ohne Umbruch
                 .onChange(of: doc.fetched, initial: true) { _, f in    // neuer Datenbank-Eintrag: Titel gleich bearbeiten
                     guard f, nav.focusTitle == doc.id, !ed.locked else { return }
                     nav.focusTitle = nil
-                    Task { try? await Task.sleep(for: .milliseconds(400)); focused = true }
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(400)); focused = true
+                        let t = doc.titleRaw
+                        if !t.isEmpty { try? await Task.sleep(for: .milliseconds(100)); selection = TextSelection(range: t.startIndex..<t.endIndex) }
+                    }
                 }
         }
     }
@@ -961,6 +974,10 @@ struct NativePageScreen: View {
                     } else {
                     IconRow(doc: doc, readOnly: headerReadOnly, locked: headerLocked)
                     PageTitleField(doc: doc, ed: ed, fallback: store.page(id)?.title)
+                    if doc.page["template"] as? Bool == true, doc.page["parent_id"] as? Int != nil {     // I10/V7: Vorlage erkennbar
+                        Label("Vorlage – neue Einträge übernehmen Inhalt und Werte", systemImage: "doc.on.doc")
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                     if let by = doc.access.sharedBy { SharedByLabel(owner: by, role: doc.access.role) }      // fremde Seite (1.3)
                     PageMetaLine(access: doc.access, updated: doc.page["updated"] as? Double)
                     if let host = doc.access.remoteHost { RemotePageBanner(host: host, canComment: doc.access.commentsSupported && doc.access.canComment, canEdit: !doc.access.readOnly, full: doc.access.remoteCaps.db) }                    // Foederation (2.0)

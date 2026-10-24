@@ -143,6 +143,16 @@ struct DraftOwner {
 /// 400 ungueltig, 403 kein Recht, 404 Seite weg, 413 zu gross, 423 gesperrt. Erst eine neue Eingabe versucht es erneut.
 func isPermanentSaveError(_ code: Int) -> Bool { [400, 403, 404, 413, 423].contains(code) }
 
+/// Zuletzt bestaetigter Stand einer Seite (gesendeter Inhalt, Titel, Revision danach)
+struct SavedPageState: Equatable { var body: String; var title: String; var rev: Int }
+
+/// Senden ueberfluessig? Gleiche Bloecke und gleicher Titel wie zuletzt bestaetigt und seitdem keine neue Revision
+/// (eine fremde Aenderung haette die Revision erhoeht - dann wird normal gesendet bzw. der Konflikt erkannt)
+func saveIsNoop(body: String, title: String, rev: Int, saved: SavedPageState?) -> Bool {
+    guard let s = saved else { return false }
+    return s.rev == rev && s.title == title && sameBlocks(s.body, body)
+}
+
 /// Gleicher Inhalt? Vergleicht nur die Bloecke (ohne Zeitstempel/Schluessel-Reihenfolge).
 func sameBlocks(_ a: String, _ b: String) -> Bool {
     func blocks(_ s: String) -> NSArray? {
