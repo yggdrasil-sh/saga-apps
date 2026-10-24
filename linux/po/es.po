@@ -7168,3 +7168,98 @@ msgstr "Un enlace quiere crear una página nueva en Saga."
 #: hlidskjalf/window.py:1929
 msgid "Create page"
 msgstr "Crear página"
+
+#. 2.5: Datenbank-Kopf, Vorlagen verwalten, KI zuordnen
+msgid "Assign in database"
+msgstr "Asignar en la base de datos"
+
+msgid "Default for “New”"
+msgstr "Predeterminada para «Nuevo»"
+
+msgid "Default"
+msgstr "Predeterminada"
+
+msgid "Get suggestions"
+msgstr "Obtener sugerencias"
+
+msgid "Hint (optional, e.g. “by urgency”)"
+msgstr "Indicación (opcional, p. ej. «por urgencia»)"
+
+msgid "Manage templates …"
+msgstr "Gestionar plantillas …"
+
+msgid "More actions"
+msgstr "Más acciones"
+
+msgid "Move template “{name}” to the trash?"
+msgstr "¿Mover la plantilla «{name}» a la papelera?"
+
+msgid "New template"
+msgstr "Nueva plantilla"
+
+msgid "No longer a template"
+msgstr "Dejar de ser plantilla"
+
+msgid "No longer default"
+msgstr "Quitar como predeterminada"
+
+msgid "No suggestions."
+msgstr "Sin sugerencias."
+
+msgid "Only entries without a value"
+msgstr "Solo entradas sin valor"
+
+msgid "Other property …"
+msgstr "Otra propiedad …"
+
+msgid "Show database title"
+msgstr "Mostrar el título de la base de datos"
+
+msgid "Show view tabs"
+msgstr "Mostrar pestañas de vistas"
+
+msgid "Suggests a value per entry for a property – you decide what is applied."
+msgstr "Sugiere un valor por entrada para una propiedad; tú decides qué se aplica."
+
+msgid "Templates of this database"
+msgstr "Plantillas de esta base de datos"
+
+msgid "The assistant"
+msgstr "El asistente"
+
+msgid "There is no database with a suitable property (select, checkbox, text, number, date, URL) on this page."
+msgstr "En esta página no hay ninguna base de datos con una propiedad adecuada (selección, casilla, texto, número, fecha, URL)."
+
+msgid "This block"
+msgstr "Este bloque"
+
+msgid "This database has no templates yet."
+msgstr "Esta base de datos aún no tiene plantillas."
+
+msgid "You can only read this database."
+msgstr "Solo puedes leer esta base de datos."
+
+msgid "You can restore it from there at any time."
+msgstr "Puedes restaurarla desde allí en cualquier momento."
+
+msgid "{name} (default)"
+msgstr "{name} (predeterminada)"
+
+msgid "{name} suggests a value for each entry – you decide what is applied."
+msgstr "{name} sugiere un valor para cada entrada; tú decides qué se aplica."
+
+msgid "{n} more entries – run again after applying."
+msgstr "{n} entradas más: vuelve a empezar después de aplicar."
+
+msgid "“{name}” for {n} entries:"
+msgstr "«{name}» para {n} entradas:"
+
+msgid "Unsure about {n} entry."
+msgid_plural "Unsure about {n} entries."
+msgstr[0] "Sin seguridad en {n} entrada."
+msgstr[1] "Sin seguridad en {n} entradas."
+
+msgid "{n} entry changed."
+msgid_plural "{n} entries changed."
+msgstr[0] "{n} entrada modificada."
+msgstr[1] "{n} entradas modificadas."

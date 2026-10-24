@@ -317,9 +317,19 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
     var confirmReplace by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val canEdit = ed.caps.canEditContent && !ed.locked
+    // 2.5 Datenbank zuordnen
+    var asgOpen by remember { mutableStateOf(false) }
+    var asgDbs by remember { mutableStateOf<List<io.github.yggdrasil_sh.saga.ai.AiPageDb>?>(null) }
+    var asgDb by remember { mutableStateOf<Long?>(null) }
+    var asgProp by remember { mutableStateOf<String?>(null) }
+    var asgEmpty by remember { mutableStateOf(true) }
+    var asgHint by remember { mutableStateOf("") }
+    val asgOff = remember { mutableStateListOf<Long>() }
+    var asgApplied by remember { mutableStateOf(false) }
 
-    fun run(a: String) {
+    fun run(a: String, extra: kotlinx.serialization.json.JsonObject? = null) {
         action = a
+        if (a != "assign") asgOpen = false
         text = ""
         err = null
         done = null
@@ -331,7 +341,7 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                 val flow = when (a) {
                     "improve" -> repo.ai.page(ed.id, a, selected.toList())
                     "translate" -> repo.ai.page(ed.id, a, selected.toList(), target)
-                    else -> repo.ai.page(ed.id, a)
+                    else -> repo.ai.page(ed.id, a, extra = extra)
                 }
                 flow.collect { c ->
                     when (c) {
@@ -359,6 +369,15 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
         FlowRow(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             OutlinedButton(onClick = { run("summarize") }, enabled = !running) { Text(stringResource(R.string.ai_summarize)) }
             OutlinedButton(onClick = { run("tasks") }, enabled = !running) { Text(stringResource(R.string.ai_suggest_tasks)) }
+            OutlinedButton(onClick = {
+                asgOpen = true; asgDbs = null; action = null; done = null; text = ""; err = null
+                scope.launch {
+                    if (canEdit) ed.saveAndWait()                                   // neu eingebettete Datenbank zuerst speichern
+                    val l = try { repo.ai.pageDbs(ed.id).filter { it.props.isNotEmpty() } } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { emptyList() }
+                    asgDbs = l
+                    l.firstOrNull()?.let { d -> asgDb = d.id; asgProp = (d.props.firstOrNull { it.third == "select" } ?: d.props.first()).first }
+                }
+            }, enabled = !running) { Text(stringResource(R.string.ai_assign)) }
         }
         FlowRow(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             OutlinedButton(onClick = { run("improve") }, enabled = !running && selected.isNotEmpty()) { Text(stringResource(R.string.ai_improve)) }
@@ -393,10 +412,43 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
                 }
             }
         }
+        if (asgOpen) {
+            val dbs = asgDbs
+            when {
+                dbs == null -> CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                dbs.isEmpty() -> Text(stringResource(R.string.ai_assign_none), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val db = dbs.firstOrNull { it.id == asgDb } ?: dbs.first()
+                    Text(stringResource(R.string.ai_assign_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        dbs.forEach { x -> androidx.compose.material3.FilterChip(selected = x.id == db.id, onClick = {
+                            asgDb = x.id; asgProp = (x.props.firstOrNull { it.third == "select" } ?: x.props.first()).first
+                        }, label = { Text("${x.title} (${x.rows})") }) }
+                    }
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        db.props.forEach { (pid, name, _) -> androidx.compose.material3.FilterChip(selected = pid == asgProp, onClick = { asgProp = pid }, label = { Text(name) }) }
+                    }
+                    Row(Modifier.toggleable(value = asgEmpty, role = Role.Checkbox) { asgEmpty = it }, verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = asgEmpty, onCheckedChange = null); Text(stringResource(R.string.ai_assign_only_empty), modifier = Modifier.padding(start = 8.dp))
+                    }
+                    androidx.compose.material3.OutlinedTextField(value = asgHint, onValueChange = { asgHint = it.take(300) }, singleLine = true,
+                        label = { Text(stringResource(R.string.ai_assign_hint_label)) }, modifier = Modifier.fillMaxWidth())
+                    if (!db.editable) Text(stringResource(R.string.ai_assign_read_only), style = MaterialTheme.typography.bodySmall)
+                    Button(onClick = {
+                        asgOff.clear(); asgApplied = false; asgOpen = false
+                        run("assign", kotlinx.serialization.json.buildJsonObject {
+                            put("db", kotlinx.serialization.json.JsonPrimitive(db.id)); put("prop", kotlinx.serialization.json.JsonPrimitive(asgProp ?: ""))
+                            put("only_empty", kotlinx.serialization.json.JsonPrimitive(asgEmpty))
+                            if (asgHint.isNotBlank()) put("hint", kotlinx.serialization.json.JsonPrimitive(asgHint.trim()))
+                        })
+                    }, enabled = db.editable && asgProp != null && !running) { Text(stringResource(R.string.ai_assign_go)) }
+                }
+            }
+        }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         val persona = AiPersonaLogic.effective(st)
         if (persona != null && (running || text.isNotEmpty())) Box(Modifier.padding(bottom = 6.dp)) { AiWho(persona, persona.name) }
-        if (running && text.isEmpty()) {
+        if (running && (text.isEmpty() || action == "assign")) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 Text(thinkingText(persona), modifier = Modifier.padding(start = 8.dp))
@@ -405,7 +457,45 @@ private fun PageTab(repo: SagaRepository, ed: PageEditor, st: AiStatus?, onOpenP
         if (running) TextButton(onClick = { job?.cancel(); running = false }) { Text(stringResource(R.string.ai_stop)) }
         val d = done
         val ts = d?.tasks
-        if (action == "tasks" && ts != null) {
+        val asg = d?.assign
+        if (action == "assign" && d != null) {                       // Rohantwort ("3: Offen") nicht zeigen
+            val items = (asg?.get("items") as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { it as? kotlinx.serialization.json.JsonObject }
+            val pr = asg?.get("prop") as? kotlinx.serialization.json.JsonObject
+            fun s(o: kotlinx.serialization.json.JsonObject?, k: String) = (o?.get(k) as? kotlinx.serialization.json.JsonPrimitive)?.content.orEmpty()
+            if (items.isEmpty()) Text(d.message ?: stringResource(R.string.ai_assign_nothing), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else {
+                Text(stringResource(R.string.ai_assign_head, s(pr, "name"), items.size), style = MaterialTheme.typography.titleSmall)
+                items.forEach { it0 ->
+                    val rid = s(it0, "id").toDoubleOrNull()?.toLong() ?: return@forEach
+                    val on = rid !in asgOff
+                    Row(Modifier.fillMaxWidth().toggleable(value = on, enabled = !asgApplied, role = Role.Checkbox) { v -> if (v) asgOff.remove(rid) else asgOff.add(rid) },
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = on, onCheckedChange = null, enabled = !asgApplied)
+                        val old = s(it0, "old")
+                        Text(s(it0, "title") + ": " + (if (old.isNotEmpty()) "$old → " else "") + s(it0, "label"), modifier = Modifier.padding(start = 8.dp))
+                    }
+                }
+                val unsure = (asg?.get("unsure") as? kotlinx.serialization.json.JsonPrimitive)?.content?.toIntOrNull() ?: 0
+                if (unsure > 0) Text(androidx.compose.ui.res.pluralStringResource(R.plurals.ai_assign_unsure, unsure, unsure), style = MaterialTheme.typography.bodySmall)
+                if (d.more > 0) Text(stringResource(R.string.ai_assign_more, d.more), style = MaterialTheme.typography.bodySmall)
+                Button(onClick = {
+                    val pid = s(pr, "id")
+                    val chosen = items.filter { (s(it, "id").toDoubleOrNull()?.toLong() ?: -1) !in asgOff }
+                    asgApplied = true
+                    repo.launchAction {
+                        var n = 0
+                        chosen.forEach { o ->
+                            val id = s(o, "id").toDoubleOrNull()?.toLong() ?: return@forEach
+                            val v = o["value"] ?: return@forEach
+                            repo.api.patch("api/notes/$id", kotlinx.serialization.json.buildJsonObject { put("props", kotlinx.serialization.json.buildJsonObject { put(pid, v) }) })
+                            n++
+                        }
+                        repo.dbStore.changed()
+                        repo.notify(UiText.Plural(R.plurals.ai_assign_done, n))
+                    }
+                }, enabled = !asgApplied && items.any { (s(it, "id").toDoubleOrNull()?.toLong() ?: -1) !in asgOff }) { Text(stringResource(R.string.ai_assign_apply)) }
+            }
+        } else if (action == "tasks" && ts != null) {
             ts.forEachIndexed { i, t ->
                 Row(
                     Modifier.fillMaxWidth().toggleable(value = taskOn.getOrElse(i) { true }, role = Role.Checkbox) { v -> if (i < taskOn.size) taskOn[i] = v },

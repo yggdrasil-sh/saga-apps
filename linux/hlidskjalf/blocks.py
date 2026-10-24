@@ -735,8 +735,19 @@ class BlockKit:
                 if holder:
                     self.synced(holder[0])                     # die Ansicht zeigt den neuen Stand schon
                 self.editor.text_changed()
+            def save_head(k, on):                              # 2.5: Titel/Reiter des Blocks ein-/ausblenden
+                key = "hide_title" if k == "title" else "hide_tabs"
+                if on:
+                    d.pop(key, None)
+                else:
+                    d[key] = True
+                if holder:
+                    self.synced(holder[0])
+                self.editor.text_changed()
             dv = DatabaseView(self.view.win, d["db"], view_id=d.get("view"), local_views=d.get("views"), embedded=True,
-                              on_local_views=save_views, host_locked=self.editor.locked)
+                              on_local_views=save_views, host_locked=self.editor.locked,
+                              show_title=not d.get("hide_title"), show_tabs=not d.get("hide_tabs"),
+                              on_head=None if self.editor.locked else save_head)
             holder.append(dv)
             return dv
         if t == "tasks":

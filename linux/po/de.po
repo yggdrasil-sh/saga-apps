@@ -7178,3 +7178,98 @@ msgstr "Ein Link möchte in Saga eine neue Seite anlegen."
 #: hlidskjalf/window.py:1929
 msgid "Create page"
 msgstr "Seite anlegen"
+
+#. 2.5: Datenbank-Kopf, Vorlagen verwalten, KI zuordnen
+msgid "Assign in database"
+msgstr "Datenbank zuordnen"
+
+msgid "Default for “New”"
+msgstr "Als Standard für „Neu“"
+
+msgid "Default"
+msgstr "Standard"
+
+msgid "Get suggestions"
+msgstr "Vorschläge holen"
+
+msgid "Hint (optional, e.g. “by urgency”)"
+msgstr "Hinweis (optional, z. B. „nach Dringlichkeit“)"
+
+msgid "Manage templates …"
+msgstr "Vorlagen verwalten …"
+
+msgid "More actions"
+msgstr "Weitere Aktionen"
+
+msgid "Move template “{name}” to the trash?"
+msgstr "Vorlage „{name}“ in den Papierkorb?"
+
+msgid "New template"
+msgstr "Neue Vorlage"
+
+msgid "No longer a template"
+msgstr "Keine Vorlage mehr"
+
+msgid "No longer default"
+msgstr "Nicht mehr Standard"
+
+msgid "No suggestions."
+msgstr "Keine Vorschläge."
+
+msgid "Only entries without a value"
+msgstr "Nur Einträge ohne Wert"
+
+msgid "Other property …"
+msgstr "Andere Eigenschaft …"
+
+msgid "Show database title"
+msgstr "Datenbanktitel anzeigen"
+
+msgid "Show view tabs"
+msgstr "Ansichts-Reiter anzeigen"
+
+msgid "Suggests a value per entry for a property – you decide what is applied."
+msgstr "Schlägt je Eintrag einen Wert für eine Eigenschaft vor – du entscheidest, was übernommen wird."
+
+msgid "Templates of this database"
+msgstr "Vorlagen dieser Datenbank"
+
+msgid "The assistant"
+msgstr "Der Assistent"
+
+msgid "There is no database with a suitable property (select, checkbox, text, number, date, URL) on this page."
+msgstr "Auf dieser Seite ist keine Datenbank mit passender Eigenschaft (Auswahl, Häkchen, Text, Zahl, Datum, URL)."
+
+msgid "This block"
+msgstr "Dieser Block"
+
+msgid "This database has no templates yet."
+msgstr "Diese Datenbank hat noch keine Vorlagen."
+
+msgid "You can only read this database."
+msgstr "Du darfst diese Datenbank nur lesen."
+
+msgid "You can restore it from there at any time."
+msgstr "Du kannst sie dort jederzeit wiederherstellen."
+
+msgid "{name} (default)"
+msgstr "{name} (Standard)"
+
+msgid "{name} suggests a value for each entry – you decide what is applied."
+msgstr "{name} schlägt für jeden Eintrag einen Wert vor – du entscheidest, was übernommen wird."
+
+msgid "{n} more entries – run again after applying."
+msgstr "{n} weitere Einträge – nach dem Übernehmen noch einmal starten."
+
+msgid "“{name}” for {n} entries:"
+msgstr "„{name}“ für {n} Einträge:"
+
+msgid "Unsure about {n} entry."
+msgid_plural "Unsure about {n} entries."
+msgstr[0] "Bei {n} Eintrag unsicher."
+msgstr[1] "Bei {n} Einträgen unsicher."
+
+msgid "{n} entry changed."
+msgid_plural "{n} entries changed."
+msgstr[0] "{n} Eintrag geändert."
+msgstr[1] "{n} Einträge geändert."

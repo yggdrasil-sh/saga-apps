@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: Datenbank-Kopf, Vorlagen verwalten, KI zuordnen -->
+<resources>
+    <string name="tpl_blank_entry">Entrada vacía</string>
+    <string name="tpl_template">Plantilla</string>
+    <string name="tpl_default_suffix">%1$s (predeterminada)</string>
+    <string name="tpl_manage">Gestionar plantillas …</string>
+    <string name="tpl_manage_title">Plantillas de esta base de datos</string>
+    <string name="tpl_none">Esta base de datos aún no tiene plantillas.</string>
+    <string name="tpl_name">Nombre de la plantilla</string>
+    <string name="tpl_default">Predeterminada para «Nuevo»</string>
+    <string name="tpl_edit">Editar</string>
+    <string name="tpl_duplicate">Duplicar</string>
+    <string name="tpl_copy">%1$s (copia)</string>
+    <string name="tpl_make_default">Predeterminada para «Nuevo»</string>
+    <string name="tpl_not_default">Quitar como predeterminada</string>
+    <string name="tpl_untemplate">Dejar de ser plantilla</string>
+    <string name="tpl_trash">Mover a la papelera</string>
+    <string name="tpl_trash_q">¿Mover la plantilla «%1$s» a la papelera?</string>
+    <string name="tpl_trash_hint">Puedes restaurarla desde allí en cualquier momento.</string>
+    <string name="tpl_new">Nueva plantilla</string>
+    <string name="tpl_new_title">Nueva plantilla</string>
+    <string name="db_title_hide">Ocultar título</string>
+    <string name="db_title_show">Mostrar título</string>
+    <string name="ai_assign">Asignar en la base de datos</string>
+    <string name="ai_assign_none">En esta página no hay ninguna base de datos con una propiedad adecuada (selección, casilla, texto, número, fecha, URL).</string>
+    <string name="ai_assign_hint">El asistente sugiere un valor para cada entrada; tú decides qué se aplica.</string>
+    <string name="ai_assign_only_empty">Solo entradas sin valor</string>
+    <string name="ai_assign_hint_label">Indicación (opcional)</string>
+    <string name="ai_assign_read_only">Solo puedes leer esta base de datos.</string>
+    <string name="ai_assign_go">Obtener sugerencias</string>
+    <string name="ai_assign_nothing">Sin sugerencias.</string>
+    <string name="ai_assign_head">«%1$s» para %2$d entradas:</string>
+    <string name="ai_assign_more">%1$d entradas más: vuelve a empezar después de aplicar.</string>
+    <string name="ai_assign_apply">Aplicar</string>
+    <plurals name="ai_assign_unsure">
+        <item quantity="one">El asistente no estaba seguro de 1 entrada.</item>
+        <item quantity="other">El asistente no estaba seguro de %d entradas.</item>
+    </plurals>
+    <plurals name="ai_assign_done">
+        <item quantity="one">1 entrada modificada.</item>
+        <item quantity="other">%d entradas modificadas.</item>
+    </plurals>
+</resources>

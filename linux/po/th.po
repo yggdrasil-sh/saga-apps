@@ -6910,3 +6910,96 @@ msgstr "ลิงก์ต้องการสร้างหน้าใหม
 #: hlidskjalf/window.py:1929
 msgid "Create page"
 msgstr "สร้างหน้า"
+
+#. 2.5: Datenbank-Kopf, Vorlagen verwalten, KI zuordnen
+msgid "Assign in database"
+msgstr "กำหนดค่าในฐานข้อมูล"
+
+msgid "Default for “New”"
+msgstr "ค่าเริ่มต้นสำหรับ “ใหม่”"
+
+msgid "Default"
+msgstr "ค่าเริ่มต้น"
+
+msgid "Get suggestions"
+msgstr "ขอคำแนะนำ"
+
+msgid "Hint (optional, e.g. “by urgency”)"
+msgstr "คำแนะนำ (ไม่บังคับ เช่น “ตามความเร่งด่วน”)"
+
+msgid "Manage templates …"
+msgstr "จัดการเทมเพลต …"
+
+msgid "More actions"
+msgstr "การกระทำเพิ่มเติม"
+
+msgid "Move template “{name}” to the trash?"
+msgstr "ย้ายเทมเพลต “{name}” ไปถังขยะไหม?"
+
+msgid "New template"
+msgstr "เทมเพลตใหม่"
+
+msgid "No longer a template"
+msgstr "เลิกเป็นเทมเพลต"
+
+msgid "No longer default"
+msgstr "เลิกเป็นค่าเริ่มต้น"
+
+msgid "No suggestions."
+msgstr "ไม่มีคำแนะนำ"
+
+msgid "Only entries without a value"
+msgstr "เฉพาะรายการที่ยังไม่มีค่า"
+
+msgid "Other property …"
+msgstr "คุณสมบัติอื่น …"
+
+msgid "Show database title"
+msgstr "แสดงชื่อฐานข้อมูล"
+
+msgid "Show view tabs"
+msgstr "แสดงแท็บมุมมอง"
+
+msgid "Suggests a value per entry for a property – you decide what is applied."
+msgstr "แนะนำค่าของคุณสมบัติสำหรับแต่ละรายการ – คุณเป็นผู้ตัดสินใจ"
+
+msgid "Templates of this database"
+msgstr "เทมเพลตของฐานข้อมูลนี้"
+
+msgid "The assistant"
+msgstr "ผู้ช่วย"
+
+msgid "There is no database with a suitable property (select, checkbox, text, number, date, URL) on this page."
+msgstr "ไม่มีฐานข้อมูลที่มีคุณสมบัติที่เหมาะสมในหน้านี้"
+
+msgid "This block"
+msgstr "บล็อกนี้"
+
+msgid "This database has no templates yet."
+msgstr "ฐานข้อมูลนี้ยังไม่มีเทมเพลต"
+
+msgid "You can only read this database."
+msgstr "คุณอ่านฐานข้อมูลนี้ได้เท่านั้น"
+
+msgid "You can restore it from there at any time."
+msgstr "คุณกู้คืนได้จากที่นั่นทุกเมื่อ"
+
+msgid "{name} (default)"
+msgstr "{name} (ค่าเริ่มต้น)"
+
+msgid "{name} suggests a value for each entry – you decide what is applied."
+msgstr "{name} จะแนะนำค่าสำหรับแต่ละรายการ – คุณเป็นผู้ตัดสินใจ"
+
+msgid "{n} more entries – run again after applying."
+msgstr "อีก {n} รายการ – เริ่มอีกครั้งหลังจากนำไปใช้"
+
+msgid "“{name}” for {n} entries:"
+msgstr "“{name}” สำหรับ {n} รายการ:"
+
+msgid "Unsure about {n} entry."
+msgid_plural "Unsure about {n} entries."
+msgstr[0] "ไม่แน่ใจ {n} รายการ"
+
+msgid "{n} entry changed."
+msgid_plural "{n} entries changed."
+msgstr[0] "เปลี่ยน {n} รายการแล้ว"

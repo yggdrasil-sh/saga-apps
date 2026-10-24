@@ -440,6 +440,12 @@ class AssistantDialog(Adw.Dialog):
         tr.connect("activated", lambda *_: self.run_action("translate"))
         lb.append(tr)
         self.page_btns.append(tr)
+        asg = Adw.ActionRow(title=_("Assign in database"), activatable=True,
+                            subtitle=_("Suggests a value per entry for a property – you decide what is applied."))
+        asg.add_suffix(Gtk.Image.new_from_icon_name("go-next-symbolic"))
+        asg.connect("activated", lambda *_: self.assign_form())
+        lb.append(asg)
+        self.page_btns.append(asg)
         self._targets()
         inner.append(lb)
         self.sel_label = _lbl("", ("caption", "dim-label"))
@@ -477,6 +483,78 @@ class AssistantDialog(Adw.Dialog):
         self.sel_label.set_label(ngettext("Selected: {n} block", "Selected: {n} blocks", n).format(n=n) if n else
                                  _("For “Improve” and “Translate”, mark blocks in the block menu (⋮⋮ → “Mark for the assistant”) or "
                                    "place the cursor in a block first."))
+
+    # 2.5 Datenbank zuordnen: Datenbank + Eigenschaft waehlen, Vorschlaege holen, abhaken und uebernehmen (PATCH)
+    TYPE_NAMES = {"select": "Select", "multi_select": "Multi-select", "checkbox": "Checkbox", "text": "Text", "number": "Number",
+                  "date": "Date", "url": "URL"}
+
+    def assign_form(self):
+        v = self.view
+        if v is None or v.id < 0 or self.stream is not None:
+            return
+        while (c := self.result.get_first_child()):
+            self.result.remove(c)
+        sp = Gtk.Spinner(spinning=True, halign=Gtk.Align.START)
+        self.result.append(sp)
+
+        def fill(j):
+            self.result.remove(sp)
+            dbs = [d for d in (j or {}).get("dbs") or [] if d.get("props")]
+            if not dbs:
+                self.result.append(_lbl(_("There is no database with a suitable property (select, checkbox, text, number, date, URL) on this page."),
+                                        ("dim-label",)))
+                return
+            lb = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+            lb.add_css_class("boxed-list")
+            dbr = Adw.ComboRow(title=_("Database"), model=Gtk.StringList.new([f"{d.get('title')} ({d.get('rows')})" for d in dbs]))
+            pr = Adw.ComboRow(title=_("Property"))
+            lb.append(dbr)
+            lb.append(pr)
+            only = Adw.SwitchRow(title=_("Only entries without a value"), active=True)
+            lb.append(only)
+            hint = Adw.EntryRow(title=_("Hint (optional, e.g. “by urgency”)"))
+            lb.append(hint)
+            state = {"props": []}
+
+            def props_of(*_a):
+                d = dbs[dbr.get_selected()]
+                state["props"] = d.get("props") or []
+                pr.set_model(Gtk.StringList.new([f"{p.get('name')} · {_(self.TYPE_NAMES.get(p.get('type'), p.get('type') or ''))}" for p in state["props"]]))
+                i = next((k for k, p in enumerate(state["props"]) if p.get("type") == "select"), 0)
+                pr.set_selected(i)
+                go.set_sensitive(bool(d.get("editable")))
+                ro.set_visible(not d.get("editable"))
+            go = Gtk.Button(label=_("Get suggestions"), halign=Gtk.Align.START)
+            go.add_css_class("suggested-action")
+            ro = _lbl(_("You can only read this database."), ("caption", "dim-label"))
+            dbr.connect("notify::selected", props_of)
+            self.result.append(_lbl(_("{name} suggests a value for each entry – you decide what is applied.").format(name=ai_name() if ai.persona() else _("The assistant")),
+                                    ("dim-label",)))
+            self.result.append(lb)
+            self.result.append(ro)
+            self.result.append(go)
+            props_of()
+
+            def run(*_a):
+                p = state["props"][pr.get_selected()] if state["props"] else None
+                if not p:
+                    return
+                body = {"action": "assign", "db": dbs[dbr.get_selected()]["id"], "prop": p["id"], "only_empty": only.get_active()}
+                if hint.get_text().strip():
+                    body["hint"] = hint.get_text().strip()[:300]
+                while (c := self.result.get_first_child()):
+                    self.result.remove(c)
+                for b in self.page_btns:
+                    b.set_sensitive(False)
+                box = AnswerBox(self, _("Assign in database"), page_action="assign")
+                self.result.append(box)
+                self._start(f"api/ai/page/{v.id}", body, box)
+            go.connect("clicked", run)
+
+        def err(e):
+            self.result.remove(sp)
+            self.result.append(_lbl(str(e), ("error",)))
+        v.editor.flush(lambda: bg(client.get, f"api/ai/page/{v.id}/dbs", done=fill, error=err))
 
     def run_action(self, action):
         v = self.view
@@ -551,6 +629,9 @@ class AnswerBox(Gtk.Box):
         self.started()
 
     def delta(self, t):
+        if self.action == "assign":                          # Rohantwort ("3: Offen") nicht zeigen
+            self.text += t
+            return
         if not self.text:
             self.answer.remove_css_class("dim-label")
         self.text += t
@@ -585,6 +666,9 @@ class AnswerBox(Gtk.Box):
             self.extra.append(_lbl(_("The page is long – only the beginning was used."), ("caption", "dim-label")))
         if self.action is None:
             self._chips()
+        elif self.action == "assign":
+            self.answer.set_visible(False)
+            self._assign(d)
         elif self.action == "tasks":
             self._tasks(d.get("tasks") or [])
         elif self.action in ("improve", "translate"):
@@ -609,6 +693,63 @@ class AnswerBox(Gtk.Box):
             b.connect("clicked", lambda *_, s=s: self.dlg.open_source(s.get("id")))
             fb.append(b)
         self.extra.append(fb)
+
+    def _assign(self, d):
+        a = d.get("assign") or {}
+        items, prop = a.get("items") or [], a.get("prop") or {}
+        if not items:
+            self.extra.append(_lbl(d.get("message") or _("No suggestions."), ("dim-label",)))
+            return
+        self.extra.append(_lbl(_("“{name}” for {n} entries:").format(name=prop.get("name") or "?", n=len(items)), ("heading",)))
+        lb = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+        lb.add_css_class("boxed-list")
+        checks = []
+        for it in items:
+            sub = ((it.get("old") or "") + " → " if it.get("old") else "") + (it.get("label") or "")
+            r = Adw.ActionRow(title=GLib.markup_escape_text(it.get("title") or _("Untitled")), subtitle=GLib.markup_escape_text(sub))
+            cb = Gtk.CheckButton(active=True, valign=Gtk.Align.CENTER)
+            r.add_prefix(cb)
+            r.set_activatable_widget(cb)
+            lb.append(r)
+            checks.append((cb, it))
+        self.extra.append(lb)
+        if a.get("unsure"):
+            n = a["unsure"]
+            self.extra.append(_lbl(ngettext("Unsure about {n} entry.", "Unsure about {n} entries.", n).format(n=n), ("caption", "dim-label")))
+        if d.get("more"):
+            self.extra.append(_lbl(_("{n} more entries – run again after applying.").format(n=d["more"]), ("caption", "dim-label")))
+        bar = _bar()
+        ok = Gtk.Button(label=_("Apply"))
+        ok.add_css_class("suggested-action")
+
+        def apply(*_a):
+            chosen = [it for cb, it in checks if cb.get_active()]
+            if not chosen:
+                return
+            ok.set_sensitive(False)
+            for cb, _it in checks:
+                cb.set_sensitive(False)
+
+            def work():
+                for it in chosen:
+                    client.json("PATCH", f"api/notes/{it['id']}", {"props": {prop["id"]: it.get("value")}})
+                return len(chosen)
+
+            def fin(n):
+                from .store import store
+                store.changed_data()
+                self.dlg.toast(ngettext("{n} entry changed.", "{n} entries changed.", n).format(n=n))
+
+            def err(e):
+                ok.set_sensitive(True)
+                self.dlg.toast(_("Not imported: {err}").format(err=e))
+            bg(work, done=fin, error=err)
+        ok.connect("clicked", apply)
+        bar.append(ok)
+        again = Gtk.Button(label=_("Other property …"))
+        again.connect("clicked", lambda *_: self.dlg.assign_form())
+        bar.append(again)
+        self.extra.append(bar)
 
     def _copy_btn(self, text):
         b = Gtk.Button(label=_("Copy"), halign=Gtk.Align.START)

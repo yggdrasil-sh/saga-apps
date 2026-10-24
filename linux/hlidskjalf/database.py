@@ -93,6 +93,8 @@ class DBModel(GObject.Object):
         self.on_local_views = None
         self.role = "owner"                # Teilen (1.3): Rolle fuer diese Datenbank (Antwort von .../rows)
         self.host_locked = False           # Datenbank-Block auf einer gesperrten (bzw. nur lesbaren) Seite
+        self.show_title = self.show_tabs = True
+        self.on_head = None                # 2.5: eingebetteter Block - Kopf ein-/ausblenden (k "title"/"tabs", an)
 
     @property
     def readonly(self):
@@ -344,6 +346,46 @@ class DBModel(GObject.Object):
             if done:
                 done(r["id"])
         store.run("POST", f"api/notes/{tid}/duplicate", {"parent_id": self.db_id}, done=fin)
+
+    # --- 2.5 Vorlagen verwalten ------------------------------------------------------------------------------------
+    def default_template(self):
+        tid = self.schema.get("default_tpl")
+        return next((t for t in self.templates if t.get("id") == tid), None) if tid else None
+
+    def set_default_template(self, tid):
+        self.edit_schema(lambda sc: sc.__setitem__("default_tpl", tid))      # None -> null hebt ihn auf
+
+    def _tpl(self, method, path, body=None, done=None):
+        def fin(r):
+            self.load()
+            store.refresh()
+            store.changed_data()
+            if done:
+                done(r)
+        store.run(method, path, body if body is not None else {}, done=fin, error=lambda e: store.emit("error", str(e)))
+
+    def rename_template(self, t, title):
+        if title.strip() != (t.get("title") or ""):
+            self._tpl("PATCH", f"api/notes/{t['id']}", {"title": title.strip()})
+
+    def duplicate_template(self, t, title):
+        self._tpl("POST", f"api/notes/{t['id']}/duplicate", {"parent_id": self.db_id, "template": True, "title": title})
+
+    def untemplate(self, t):
+        if (self.default_template() or {}).get("id") == t["id"]:
+            self.set_default_template(None)
+        self._tpl("PATCH", f"api/notes/{t['id']}", {"template": False})
+
+    def trash_template(self, t):
+        if (self.default_template() or {}).get("id") == t["id"]:
+            self.set_default_template(None)
+        store.run("DELETE", f"api/notes/{t['id']}", done=lambda r: (self.load(), store.refresh(), store.changed_data()),
+                  error=lambda e: store.emit("error", str(e)))
+
+    def new_template(self, title, done=None):
+        def made(r):
+            self._tpl("PATCH", f"api/notes/{r['id']}", {"template": True}, done=lambda _r: done and done(r["id"]))
+        store.run("POST", "api/notes", {"parent_id": self.db_id, "title": title}, done=made, error=lambda e: store.emit("error", str(e)))
 
     def edit_schema(self, change):
         sc = copy.deepcopy(self.schema)
@@ -1131,10 +1173,14 @@ class CalendarView(Gtk.Box, RowMenuMixin):
 class DatabaseView(Gtk.Box):
     __gtype_name__ = "HKDatabaseView"
 
-    def __init__(self, win, db_id, view_id=None, local_views=None, embedded=False, on_local_views=None, host_locked=False):
+    def __init__(self, win, db_id, view_id=None, local_views=None, embedded=False, on_local_views=None, host_locked=False,
+                 show_title=True, show_tabs=True, on_head=None):
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.win, self.db_id, self.embedded = win, db_id, embedded
         self.m = DBModel(db_id)
+        # 2.5: eingebetteter Block - Datenbanktitel/Ansichts-Reiter ausblendbar (hide_title/hide_tabs im Block)
+        self.m.show_title, self.m.show_tabs = bool(show_title), bool(show_tabs)
+        self.m.on_head = (lambda k, on: (on_head(k, on), self.apply_head())) if (embedded and on_head) else None
         # Block auf einer gesperrten Seite: kein "Neu", keine Ansichts-Einstellungen, kein "+" (Ansicht) - nur ansehen,
         # Eintraege oeffnen, suchen und zwischen den Ansichten wechseln
         self.m.host_locked = bool(host_locked)
@@ -1144,8 +1190,10 @@ class DatabaseView(Gtk.Box):
         self.local_readonly = bool(local_views) and on_local_views is None
         self.current = view_id
         self.cal_month = None
-        if embedded:
-            self.append(self._header())
+        self.head = self._header() if embedded else None
+        if self.head is not None:
+            self.append(self.head)
+            self.head.set_visible(self.m.show_title)
         from .dbedit import ViewBar
         self.bar = ViewBar(self)
         self.bar.set_narrow(bool(getattr(win, "very_narrow", False)))   # Breite folgt in do_size_allocate
@@ -1194,6 +1242,11 @@ class DatabaseView(Gtk.Box):
                                cb=lambda: self.win.show_page(self.db_id)))
         return row
 
+    def apply_head(self):
+        if self.head is not None:
+            self.head.set_visible(self.m.show_title)
+        self.bar.update()
+
     @property
     def views(self):
         return self.m.all_views() if not self.local_readonly else self.m.views
@@ -1235,9 +1288,12 @@ class DatabaseView(Gtk.Box):
             w = TableView(self.win, self.m, v)
         self.content.append(w)
 
-    def new_entry(self, template=None):
+    def new_entry(self, template=None, blank=False):
         v = self.view
         mode = (v or {}).get("open") or "side"
+        if template is None and not blank:                 # "Neu": Standardvorlage (2.5), wenn gesetzt
+            dt = self.m.default_template()
+            template = dt["id"] if dt else None
         if template:
             self.m.new_from_template(template, done=lambda i: self.win.open_entry(i, mode))
         else:

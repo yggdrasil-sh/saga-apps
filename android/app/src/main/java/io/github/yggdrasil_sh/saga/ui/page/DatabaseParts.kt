@@ -201,7 +201,8 @@ fun DatabaseBlock(d: JsonObject, env: BlockEnv) {
             Text("🗃️ " + stringResource(R.string.db_missing), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             return@Column
         }
-        Row(
+        // 2.5: Titel im Block ausgeblendet (hide_title, wie Web/iOS) - die Eintraege oeffnen sich weiter
+        if ((d["hide_title"] as? JsonPrimitive)?.content != "true") Row(
             Modifier.fillMaxWidth().clickable { env.onLink("/notes#$dbId") }.padding(bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {

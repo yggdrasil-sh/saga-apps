@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: Datenbank-Kopf, Vorlagen verwalten, KI zuordnen -->
+<resources>
+    <string name="tpl_blank_entry">รายการว่าง</string>
+    <string name="tpl_template">เทมเพลต</string>
+    <string name="tpl_default_suffix">%1$s (ค่าเริ่มต้น)</string>
+    <string name="tpl_manage">จัดการเทมเพลต …</string>
+    <string name="tpl_manage_title">เทมเพลตของฐานข้อมูลนี้</string>
+    <string name="tpl_none">ฐานข้อมูลนี้ยังไม่มีเทมเพลต</string>
+    <string name="tpl_name">ชื่อเทมเพลต</string>
+    <string name="tpl_default">ค่าเริ่มต้นสำหรับ “ใหม่”</string>
+    <string name="tpl_edit">แก้ไข</string>
+    <string name="tpl_duplicate">ทำสำเนา</string>
+    <string name="tpl_copy">%1$s (สำเนา)</string>
+    <string name="tpl_make_default">ตั้งเป็นค่าเริ่มต้นสำหรับ “ใหม่”</string>
+    <string name="tpl_not_default">เลิกเป็นค่าเริ่มต้น</string>
+    <string name="tpl_untemplate">เลิกเป็นเทมเพลต</string>
+    <string name="tpl_trash">ย้ายไปถังขยะ</string>
+    <string name="tpl_trash_q">ย้ายเทมเพลต “%1$s” ไปถังขยะไหม?</string>
+    <string name="tpl_trash_hint">คุณกู้คืนได้จากที่นั่นทุกเมื่อ</string>
+    <string name="tpl_new">เทมเพลตใหม่</string>
+    <string name="tpl_new_title">เทมเพลตใหม่</string>
+    <string name="db_title_hide">ซ่อนชื่อ</string>
+    <string name="db_title_show">แสดงชื่อ</string>
+    <string name="ai_assign">กำหนดค่าในฐานข้อมูล</string>
+    <string name="ai_assign_none">ไม่มีฐานข้อมูลที่มีคุณสมบัติที่เหมาะสมในหน้านี้</string>
+    <string name="ai_assign_hint">ผู้ช่วยจะแนะนำค่าสำหรับแต่ละรายการ – คุณเป็นผู้ตัดสินใจ</string>
+    <string name="ai_assign_only_empty">เฉพาะรายการที่ยังไม่มีค่า</string>
+    <string name="ai_assign_hint_label">คำแนะนำ (ไม่บังคับ)</string>
+    <string name="ai_assign_read_only">คุณอ่านฐานข้อมูลนี้ได้เท่านั้น</string>
+    <string name="ai_assign_go">ขอคำแนะนำ</string>
+    <string name="ai_assign_nothing">ไม่มีคำแนะนำ</string>
+    <string name="ai_assign_head">“%1$s” สำหรับ %2$d รายการ:</string>
+    <string name="ai_assign_more">อีก %1$d รายการ – เริ่มอีกครั้งหลังจากนำไปใช้</string>
+    <string name="ai_assign_apply">นำไปใช้</string>
+    <plurals name="ai_assign_unsure">
+        <item quantity="other">ผู้ช่วยไม่แน่ใจ %d รายการ</item>
+    </plurals>
+    <plurals name="ai_assign_done">
+        <item quantity="other">เปลี่ยน %d รายการแล้ว</item>
+    </plurals>
+</resources>

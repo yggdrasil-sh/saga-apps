@@ -78,6 +78,11 @@ class DbViewState(
         private set
     var noAccess by mutableStateOf(false)
         private set
+    /** 2.5: Vorlagen der Datenbank ("Neu ▾", Vorlagen verwalten) - nur der Eigentuemer bekommt sie vom Server */
+    var templates by mutableStateOf<List<io.github.yggdrasil_sh.saga.db.DbTemplate>>(emptyList())
+        private set
+    /** Vorlagen-Verwaltung offen */
+    var managing by mutableStateOf(false)
     var offline by mutableStateOf(false)
         private set
     var error by mutableStateOf<UiText?>(null)
@@ -174,6 +179,7 @@ class DbViewState(
         }
         noAccess = false
         role = p.role
+        templates = p.templates
         if (pendingSchema == null) schema = p.schema
         if (viewId != null && p.schema.views.none { it.id == viewId }) viewId = p.schema.views.first().id
         return p
@@ -376,6 +382,58 @@ class DbViewState(
             if (k == target && !has) columns[k] = c.copy(rows = listOf(r) + c.rows, matched = c.matched + 1)
             else if (k != target && has) columns[k] = c.copy(rows = c.rows.filter { it.id != r.id }, matched = (c.matched - 1).coerceAtLeast(0))
         }
+    }
+
+    /** 2.5: Standardvorlage fuer "Neu" (Schema default_tpl), nur wenn es sie noch gibt */
+    val defaultTemplate: io.github.yggdrasil_sh.saga.db.DbTemplate?
+        get() {
+            val id = (schema?.raw?.get("default_tpl") as? JsonPrimitive)?.content?.toDoubleOrNull()?.toLong() ?: return null
+            return templates.firstOrNull { it.id == id }
+        }
+    val canManageTemplates: Boolean get() = role == "owner" && dbId > 0
+
+    /** Neuer Eintrag aus einer Vorlage -> ID */
+    suspend fun createFrom(t: io.github.yggdrasil_sh.saga.db.DbTemplate): Long? = try {
+        ownChange = store.changes.value + 1
+        val id = repo.buttonEntry(dbId, "", t.id)
+        reload()
+        id
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        repo.notify(UiText.Res(R.string.dbv_not_created, if (e is ApiException) e.text else repo.friendly(e)))
+        null
+    }
+
+    /** "Neu": Standardvorlage, wenn gesetzt, sonst leer mit den Werten des Filters */
+    suspend fun createDefault(): Long? = defaultTemplate?.let { createFrom(it) } ?: create()
+
+    /** Vorlagen-Aktion ausfuehren, danach neu laden; Fehler als Hinweis */
+    fun tplOp(op: suspend () -> Unit) {
+        scope.launch {
+            try {
+                op(); reload()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                repo.notify(UiText.Res(R.string.dbv_not_saved, if (e is ApiException) e.text else repo.friendly(e)))
+            }
+        }
+    }
+    fun tplRename(t: io.github.yggdrasil_sh.saga.db.DbTemplate, n: String) { if (n.trim() != t.title) tplOp { repo.templateRename(t.id, n) } }
+    fun tplDuplicate(t: io.github.yggdrasil_sh.saga.db.DbTemplate, title: String) = tplOp { repo.templateDuplicate(t.id, dbId, title) }
+    fun tplUntemplate(t: io.github.yggdrasil_sh.saga.db.DbTemplate) { if (defaultTemplate?.id == t.id) setDefaultTemplate(null); tplOp { repo.templateSet(t.id, false) } }
+    fun tplTrash(t: io.github.yggdrasil_sh.saga.db.DbTemplate) { if (defaultTemplate?.id == t.id) setDefaultTemplate(null); tplOp { repo.templateTrash(t.id) } }
+    suspend fun tplNew(title: String): Long? = try {
+        repo.templateNew(dbId, title).also { reload() }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        repo.notify(UiText.Res(R.string.dbv_not_created, if (e is ApiException) e.text else repo.friendly(e))); null
+    }
+    fun setDefaultTemplate(id: Long?) {
+        if (!canEditViews) return
+        editSchema { raw -> JsonObject(LinkedHashMap(raw).apply { put("default_tpl", if (id != null) JsonPrimitive(id) else kotlinx.serialization.json.JsonNull) }) }
     }
 
     /** Neuer Eintrag mit Werten aus dem Filter der Ansicht (+ extra, z. B. Board-Spalte/Kalendertag) -> ID */

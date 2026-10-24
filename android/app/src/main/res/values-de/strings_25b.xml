@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: Datenbank-Kopf, Vorlagen verwalten, KI zuordnen -->
+<resources>
+    <string name="tpl_blank_entry">Leerer Eintrag</string>
+    <string name="tpl_template">Vorlage</string>
+    <string name="tpl_default_suffix">%1$s (Standard)</string>
+    <string name="tpl_manage">Vorlagen verwalten …</string>
+    <string name="tpl_manage_title">Vorlagen dieser Datenbank</string>
+    <string name="tpl_none">Diese Datenbank hat noch keine Vorlagen.</string>
+    <string name="tpl_name">Name der Vorlage</string>
+    <string name="tpl_default">Standard für „Neu“</string>
+    <string name="tpl_edit">Bearbeiten</string>
+    <string name="tpl_duplicate">Duplizieren</string>
+    <string name="tpl_copy">%1$s (Kopie)</string>
+    <string name="tpl_make_default">Als Standard für „Neu“</string>
+    <string name="tpl_not_default">Nicht mehr Standard</string>
+    <string name="tpl_untemplate">Keine Vorlage mehr</string>
+    <string name="tpl_trash">In den Papierkorb</string>
+    <string name="tpl_trash_q">Vorlage „%1$s“ in den Papierkorb?</string>
+    <string name="tpl_trash_hint">Du kannst sie dort jederzeit wiederherstellen.</string>
+    <string name="tpl_new">Neue Vorlage</string>
+    <string name="tpl_new_title">Neue Vorlage</string>
+    <string name="db_title_hide">Titel ausblenden</string>
+    <string name="db_title_show">Titel zeigen</string>
+    <string name="ai_assign">Datenbank zuordnen</string>
+    <string name="ai_assign_none">Auf dieser Seite ist keine Datenbank mit passender Eigenschaft (Auswahl, Häkchen, Text, Zahl, Datum, URL).</string>
+    <string name="ai_assign_hint">Der Assistent schlägt für jeden Eintrag einen Wert vor – du entscheidest, was übernommen wird.</string>
+    <string name="ai_assign_only_empty">Nur Einträge ohne Wert</string>
+    <string name="ai_assign_hint_label">Hinweis (optional)</string>
+    <string name="ai_assign_read_only">Du darfst diese Datenbank nur lesen.</string>
+    <string name="ai_assign_go">Vorschläge holen</string>
+    <string name="ai_assign_nothing">Keine Vorschläge.</string>
+    <string name="ai_assign_head">„%1$s“ für %2$d Einträge:</string>
+    <string name="ai_assign_more">%1$d weitere Einträge – nach dem Übernehmen noch einmal starten.</string>
+    <string name="ai_assign_apply">Übernehmen</string>
+    <plurals name="ai_assign_unsure">
+        <item quantity="one">Bei 1 Eintrag war sich der Assistent unsicher.</item>
+        <item quantity="other">Bei %d Einträgen war sich der Assistent unsicher.</item>
+    </plurals>
+    <plurals name="ai_assign_done">
+        <item quantity="one">1 Eintrag geändert.</item>
+        <item quantity="other">%d Einträge geändert.</item>
+    </plurals>
+</resources>

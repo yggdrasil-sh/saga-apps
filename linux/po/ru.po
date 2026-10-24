@@ -7160,3 +7160,100 @@ msgstr "Ссылка хочет создать новую страницу в Sa
 #: hlidskjalf/window.py:1929
 msgid "Create page"
 msgstr "Создать страницу"
+
+#. 2.5: Datenbank-Kopf, Vorlagen verwalten, KI zuordnen
+msgid "Assign in database"
+msgstr "Заполнить базу данных"
+
+msgid "Default for “New”"
+msgstr "По умолчанию для «Новая»"
+
+msgid "Default"
+msgstr "По умолчанию"
+
+msgid "Get suggestions"
+msgstr "Получить предложения"
+
+msgid "Hint (optional, e.g. “by urgency”)"
+msgstr "Подсказка (необязательно, напр. «по срочности»)"
+
+msgid "Manage templates …"
+msgstr "Управлять шаблонами …"
+
+msgid "More actions"
+msgstr "Другие действия"
+
+msgid "Move template “{name}” to the trash?"
+msgstr "Переместить шаблон «{name}» в корзину?"
+
+msgid "New template"
+msgstr "Новый шаблон"
+
+msgid "No longer a template"
+msgstr "Больше не шаблон"
+
+msgid "No longer default"
+msgstr "Больше не по умолчанию"
+
+msgid "No suggestions."
+msgstr "Нет предложений."
+
+msgid "Only entries without a value"
+msgstr "Только записи без значения"
+
+msgid "Other property …"
+msgstr "Другое свойство …"
+
+msgid "Show database title"
+msgstr "Показывать название базы данных"
+
+msgid "Show view tabs"
+msgstr "Показывать вкладки представлений"
+
+msgid "Suggests a value per entry for a property – you decide what is applied."
+msgstr "Предлагает значение свойства для каждой записи – вы решаете, что применить."
+
+msgid "Templates of this database"
+msgstr "Шаблоны этой базы данных"
+
+msgid "The assistant"
+msgstr "Ассистент"
+
+msgid "There is no database with a suitable property (select, checkbox, text, number, date, URL) on this page."
+msgstr "На этой странице нет базы данных с подходящим свойством (выбор, флажок, текст, число, дата, URL)."
+
+msgid "This block"
+msgstr "Этот блок"
+
+msgid "This database has no templates yet."
+msgstr "У этой базы данных ещё нет шаблонов."
+
+msgid "You can only read this database."
+msgstr "Эту базу данных вы можете только читать."
+
+msgid "You can restore it from there at any time."
+msgstr "Оттуда его можно восстановить в любой момент."
+
+msgid "{name} (default)"
+msgstr "{name} (по умолчанию)"
+
+msgid "{name} suggests a value for each entry – you decide what is applied."
+msgstr "{name} предложит значение для каждой записи – вы решаете, что применить."
+
+msgid "{n} more entries – run again after applying."
+msgstr "Ещё {n} записей – после применения запустите снова."
+
+msgid "“{name}” for {n} entries:"
+msgstr "«{name}» для {n} записей:"
+
+msgid "Unsure about {n} entry."
+msgid_plural "Unsure about {n} entries."
+msgstr[0] "Не уверен в {n} записи."
+msgstr[1] "Не уверен в {n} записях."
+msgstr[2] "Не уверен в {n} записях."
+
+msgid "{n} entry changed."
+msgid_plural "{n} entries changed."
+msgstr[0] "Изменена {n} запись."
+msgstr[1] "Изменено {n} записи."
+msgstr[2] "Изменено {n} записей."

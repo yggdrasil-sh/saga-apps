@@ -6821,3 +6821,97 @@ msgstr ""
 #: hlidskjalf/window.py:1929
 msgid "Create page"
 msgstr ""
+
+msgid "Assign in database"
+msgstr ""
+
+msgid "Default for “New”"
+msgstr ""
+
+msgid "Default"
+msgstr ""
+
+msgid "Get suggestions"
+msgstr ""
+
+msgid "Hint (optional, e.g. “by urgency”)"
+msgstr ""
+
+msgid "Manage templates …"
+msgstr ""
+
+msgid "More actions"
+msgstr ""
+
+msgid "Move template “{name}” to the trash?"
+msgstr ""
+
+msgid "New template"
+msgstr ""
+
+msgid "No longer a template"
+msgstr ""
+
+msgid "No longer default"
+msgstr ""
+
+msgid "No suggestions."
+msgstr ""
+
+msgid "Only entries without a value"
+msgstr ""
+
+msgid "Other property …"
+msgstr ""
+
+msgid "Show database title"
+msgstr ""
+
+msgid "Show view tabs"
+msgstr ""
+
+msgid "Suggests a value per entry for a property – you decide what is applied."
+msgstr ""
+
+msgid "Templates of this database"
+msgstr ""
+
+msgid "The assistant"
+msgstr ""
+
+msgid "There is no database with a suitable property (select, checkbox, text, number, date, URL) on this page."
+msgstr ""
+
+msgid "This block"
+msgstr ""
+
+msgid "This database has no templates yet."
+msgstr ""
+
+msgid "You can only read this database."
+msgstr ""
+
+msgid "You can restore it from there at any time."
+msgstr ""
+
+msgid "{name} (default)"
+msgstr ""
+
+msgid "{name} suggests a value for each entry – you decide what is applied."
+msgstr ""
+
+msgid "{n} more entries – run again after applying."
+msgstr ""
+
+msgid "“{name}” for {n} entries:"
+msgstr ""
+
+msgid "Unsure about {n} entry."
+msgid_plural "Unsure about {n} entries."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "{n} entry changed."
+msgid_plural "{n} entries changed."
+msgstr[0] ""
+msgstr[1] ""

@@ -9,6 +9,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – Android und Linux: Datenbank-Kopf, Vorlagen verwalten, KI ordnet zu (Server 2.5)
+- Wie auf iOS/macOS: eingebetteter Datenbank-Block mit ausblendbarem Titel (Android: Block antippen → „Titel
+  ausblenden“; Linux: ⚙ → „Dieser Block“, dort auch die Ansichts-Reiter).
+- Vorlagen einer Datenbank: Android bietet sie jetzt unter „Neuer Eintrag ▾“ an (vorher gar nicht), dazu
+  „Vorlagen verwalten …“ auf Android und Linux (umbenennen, bearbeiten, duplizieren, Standard für „Neu“, „Keine
+  Vorlage mehr“, Papierkorb, neue Vorlage). Linux: „Neu“ nimmt die Standardvorlage, „Leerer Eintrag“ bleibt leer.
+- KI-Assistent → „Diese Seite“ → „Datenbank zuordnen“: Vorschläge je Eintrag, abhaken und übernehmen.
+
 ### Verbessert – Android und iOS/macOS: weniger Akku in Anrufen über einen Knoten
 - Bisher kodierte die App das eigene Kamerabild immer in allen Schichten (UDP: 1/4, 1/2 und volle Größe), auch wenn
   niemand sie braucht. Jetzt: allein im Raum (z. B. beim Klingeln) keine; zu zweit ohne die kleine Kachel-Schicht;

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: Datenbank-Kopf, Vorlagen verwalten, KI zuordnen -->
+<resources>
+    <string name="tpl_blank_entry">Empty entry</string>
+    <string name="tpl_template">Template</string>
+    <string name="tpl_default_suffix">%1$s (default)</string>
+    <string name="tpl_manage">Manage templates …</string>
+    <string name="tpl_manage_title">Templates of this database</string>
+    <string name="tpl_none">This database has no templates yet.</string>
+    <string name="tpl_name">Template name</string>
+    <string name="tpl_default">Default for “New”</string>
+    <string name="tpl_edit">Edit</string>
+    <string name="tpl_duplicate">Duplicate</string>
+    <string name="tpl_copy">%1$s (copy)</string>
+    <string name="tpl_make_default">Default for “New”</string>
+    <string name="tpl_not_default">No longer default</string>
+    <string name="tpl_untemplate">No longer a template</string>
+    <string name="tpl_trash">Move to trash</string>
+    <string name="tpl_trash_q">Move template “%1$s” to the trash?</string>
+    <string name="tpl_trash_hint">You can restore it from there at any time.</string>
+    <string name="tpl_new">New template</string>
+    <string name="tpl_new_title">New template</string>
+    <string name="db_title_hide">Hide title</string>
+    <string name="db_title_show">Show title</string>
+    <string name="ai_assign">Assign in database</string>
+    <string name="ai_assign_none">There is no database with a suitable property (select, checkbox, text, number, date, URL) on this page.</string>
+    <string name="ai_assign_hint">The assistant suggests a value for each entry – you decide what is applied.</string>
+    <string name="ai_assign_only_empty">Only entries without a value</string>
+    <string name="ai_assign_hint_label">Hint (optional)</string>
+    <string name="ai_assign_read_only">You can only read this database.</string>
+    <string name="ai_assign_go">Get suggestions</string>
+    <string name="ai_assign_nothing">No suggestions.</string>
+    <string name="ai_assign_head">“%1$s” for %2$d entries:</string>
+    <string name="ai_assign_more">%1$d more entries – run again after applying.</string>
+    <string name="ai_assign_apply">Apply</string>
+    <plurals name="ai_assign_unsure">
+        <item quantity="one">The assistant was unsure about 1 entry.</item>
+        <item quantity="other">The assistant was unsure about %d entries.</item>
+    </plurals>
+    <plurals name="ai_assign_done">
+        <item quantity="one">1 entry changed.</item>
+        <item quantity="other">%d entries changed.</item>
+    </plurals>
+</resources>

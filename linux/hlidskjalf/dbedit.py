@@ -109,6 +109,7 @@ class ViewBar(Gtk.Box):
         return not self.m.locked and not self.dv.local_readonly
 
     def update(self):
+        self.tab_scroll.set_visible(self.m.show_tabs)          # 2.5: Reiter im Block ausgeblendet
         while (c := self.tabs.get_first_child()):
             self.tabs.remove(c)
         cur = (self.dv.view or {}).get("id")
@@ -135,7 +136,7 @@ class ViewBar(Gtk.Box):
             add.add_css_class("flat")
             add.set_create_popup_func(lambda mb: mb.set_popover(menu_popover(None, [(t[1], (lambda t=t[0]: self._add_view(t))) for t in VIEW_TYPES])))
             self.tabs.append(add)
-        self.settings.set_visible(self.editable)
+        self.settings.set_visible(self.editable or self.m.on_head is not None)
         nf = len((self.dv.view or {}).get("filters") or [])
         self.filter_pill.set_visible(nf > 0)
         if nf:
@@ -151,15 +152,21 @@ class ViewBar(Gtk.Box):
             lb.add_css_class("hk-role-pill")
             self.new_slot.append(lb)
             return
-        if self.m.templates:
+        if self.m.templates or self.m.role == "owner":
+            # "Neu" = Standardvorlage (2.5), sonst leer; Menue: leer, Vorlagen, Vorlagen verwalten
             sb = Adw.SplitButton(label=_("New"))
             sb.add_css_class("suggested-action")
             sb.connect("clicked", lambda *_: self.dv.new_entry())
-            ents = [(_("Empty entry"), lambda: self.dv.new_entry()), None]
+            dt = self.m.default_template()
+            ents = [(_("Empty entry"), lambda: self.dv.new_entry(blank=True)), None]
             for t in self.m.templates:
                 ic = t.get("icon") or ""
                 name = ((ic + " ") if ic and len(ic) <= 4 else "") + (t.get("title") or _("Template"))
+                if dt and t.get("id") == dt.get("id"):
+                    name = _("{name} (default)").format(name=name)
                 ents.append((name, (lambda tid=t["id"]: self.dv.new_entry(tid))))
+            if self.m.role == "owner":
+                ents += [None, (_("Manage templates …"), lambda: TemplateManager(self.dv.win, self.m, self.dv).present(self.dv.win))]
             sb.set_popover(menu_popover(None, ents))
             self.new_slot.append(sb)
         else:
@@ -216,7 +223,9 @@ class ViewBar(Gtk.Box):
             while (c := holder.get_first_child()):
                 holder.remove(c)
             v = self.dv.view
-            if v:
+            if v and not self.editable:                        # nur Kopf des Blocks (Datenbank gesperrt)
+                holder.append(HeadSettings(self.m))
+            elif v:
                 holder.append(ViewSettings(self.m, v.get("id"), refill))
 
         def refill():
@@ -239,6 +248,8 @@ class ViewSettings(Gtk.Box):
             if rebuild:
                 refill()
 
+        if m.on_head:                                          # 2.5: eingebetteter Block - Kopf ein-/ausblenden
+            self.append(HeadSettings(m))
         self.append(section(_("View")))
         en = Gtk.Entry(text=v.get("name") or "")
         en.connect("activate", lambda e: setv(lambda d: d.__setitem__("name", e.get_text().strip() or _("View")), False))
@@ -643,3 +654,98 @@ class CalcRow(Gtk.Box):
         if op == "latest":
             return day_text(days[-1]) if days else "–"
         return ""
+
+
+class HeadSettings(Gtk.Box):
+    """2.5: "Dieser Block" - Datenbanktitel und Ansichts-Reiter des eingebetteten Blocks ein-/ausblenden"""
+    def __init__(self, m):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        if not m.on_head:
+            return
+        self.append(section(_("This block")))
+        for k, text in (("title", _("Show database title")), ("tabs", _("Show view tabs"))):
+            cb = Gtk.CheckButton(label=text, active=m.show_title if k == "title" else m.show_tabs)
+
+            def toggled(b, k=k):
+                if k == "title":
+                    m.show_title = b.get_active()
+                else:
+                    m.show_tabs = b.get_active()
+                m.on_head(k, b.get_active())
+            cb.connect("toggled", toggled)
+            self.append(cb)
+
+
+class TemplateManager(Adw.Dialog):
+    """2.5 Vorlagen verwalten (wie Web/iOS/Android): umbenennen direkt im Feld, Bearbeiten, Duplizieren (bleibt Vorlage),
+    Standard fuer "Neu", "Keine Vorlage mehr", Papierkorb (mit Rueckfrage), neue Vorlage. Nur der Eigentuemer."""
+    __gtype_name__ = "HKTemplateManager"
+
+    def __init__(self, win, m, dv):
+        super().__init__(title=_("Templates of this database"), content_width=560, content_height=440)
+        self.win, self.m, self.dv = win, m, dv
+        tv = Adw.ToolbarView()
+        hb = Adw.HeaderBar()
+        nb = Gtk.Button(label=_("New template"))
+        nb.add_css_class("suggested-action")
+        nb.connect("clicked", lambda *_: self.m.new_template(_("New template"), done=self._open))
+        hb.pack_start(nb)
+        tv.add_top_bar(hb)
+        sw = Gtk.ScrolledWindow(vexpand=True)
+        self.box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=10, margin_bottom=10, margin_start=12, margin_end=12)
+        sw.set_child(self.box)
+        tv.set_content(sw)
+        self.set_child(tv)
+        self._sig = m.connect("changed", lambda *_: self.fill())
+        self.connect("closed", lambda *_: self.m.disconnect(self._sig))
+        self.fill()
+
+    def _open(self, tid):
+        self.close()
+        self.win.show_page(tid)
+
+    def fill(self):
+        while (c := self.box.get_first_child()):
+            self.box.remove(c)
+        if not self.m.templates:
+            lb = Gtk.Label(label=_("This database has no templates yet."), margin_top=20)
+            lb.add_css_class("dim-label")
+            self.box.append(lb)
+        dt = self.m.default_template()
+        for t in self.m.templates:
+            row = Gtk.Box(spacing=6)
+            en = Gtk.Entry(text=t.get("title") or "", hexpand=True, placeholder_text=_("Untitled"))
+            en.connect("activate", lambda e, t=t: self.m.rename_template(t, e.get_text()))
+            fc = Gtk.EventControllerFocus()
+            fc.connect("leave", lambda c, e=en, t=t: self.m.rename_template(t, e.get_text()))
+            en.add_controller(fc)
+            row.append(en)
+            is_d = bool(dt and dt.get("id") == t.get("id"))
+            if is_d:
+                lb = Gtk.Label(label=_("Default"), valign=Gtk.Align.CENTER)
+                lb.add_css_class("hk-role-pill")
+                row.append(lb)
+            eb = Gtk.Button(label=_("Edit"))
+            eb.connect("clicked", lambda *_, t=t: self._open(t["id"]))
+            row.append(eb)
+            mb = Gtk.MenuButton(icon_name="view-more-symbolic", tooltip_text=_("More actions"))
+            mb.add_css_class("flat")
+            ents = [(_("Duplicate"), lambda t=t: self.m.duplicate_template(t, _("{name} (copy)").format(name=t.get("title") or _("Template"))))]
+            if not self.m.locked:
+                ents.append((_("No longer default") if is_d else _("Default for “New”"), lambda t=t, d=is_d: self.m.set_default_template(None if d else t["id"])))
+            ents += [(_("No longer a template"), lambda t=t: self.m.untemplate(t)), None,
+                     (_("Move to trash"), lambda t=t: self._ask_trash(t), True)]
+            mb.set_create_popup_func(lambda b, ents=ents: b.set_popover(menu_popover(None, ents)))
+            row.append(mb)
+            self.box.append(row)
+
+    def _ask_trash(self, t):
+        d = Adw.AlertDialog(heading=_("Move template “{name}” to the trash?").format(name=t.get("title") or _("Untitled")),
+                            body=_("You can restore it from there at any time."))
+        d.add_response("cancel", _("Cancel"))
+        d.add_response("ok", _("Move to trash"))
+        d.set_response_appearance("ok", Adw.ResponseAppearance.DESTRUCTIVE)
+        d.set_default_response("cancel")
+        d.set_close_response("cancel")
+        d.connect("response", lambda dd, r: r == "ok" and self.m.trash_template(t))
+        d.present(self.win)

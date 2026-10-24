@@ -736,6 +736,22 @@ class SagaRepository(
     /** Gemerkte Ansicht je Datenbank (nur Oberflaeche) */
     val dbPrefs: android.content.SharedPreferences? get() = appContext?.getSharedPreferences("saga_ui", android.content.Context.MODE_PRIVATE)
 
+    // ---------------------------------------------------------------- 2.5: Vorlagen einer Datenbank verwalten
+    private suspend fun tplDone() { refresh(join = false); dbStore.changed() }
+    suspend fun templateRename(id: Long, title: String) { api.patch("api/notes/$id", buildJsonObject { put("title", title.trim()) }); tplDone() }
+    suspend fun templateDuplicate(id: Long, dbId: Long, title: String) {
+        api.post("api/notes/$id/duplicate", buildJsonObject { put("parent_id", dbId); put("template", true); put("title", title) }); tplDone()
+    }
+    /** false: "Keine Vorlage mehr" (wird ein normaler Eintrag) */
+    suspend fun templateSet(id: Long, on: Boolean) { api.patch("api/notes/$id", buildJsonObject { put("template", on) }); tplDone() }
+    suspend fun templateTrash(id: Long) { api.delete("api/notes/$id"); tplDone() }
+    suspend fun templateNew(dbId: Long, title: String): Long {
+        val id = decode<NewId>(api.post("api/notes", buildJsonObject { put("parent_id", dbId); put("title", title) })).id
+        api.patch("api/notes/$id", buildJsonObject { put("template", true) })
+        tplDone()
+        return id
+    }
+
     /** Neuer Eintrag in einer Datenbank (Werte z. B. aus dem Filter der Ansicht oder der Board-Spalte) */
     suspend fun newRow(dbId: Long, props: JsonObject?): Long {
         val b = buildJsonObject {

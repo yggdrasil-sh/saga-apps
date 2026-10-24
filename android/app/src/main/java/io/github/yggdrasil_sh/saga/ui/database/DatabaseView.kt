@@ -222,6 +222,7 @@ private fun GroupHeader(st: DbViewState, h: GroupHead) {
 
 @Composable
 private fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit) {
+    if (st.managing) TemplateManager(st, onOpen)
     val s = st.schema
     val scope = rememberCoroutineScope()
     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
@@ -256,6 +257,10 @@ private fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit) {
                             DropdownMenuItem(text = { Text(stringResource(R.string.dbv_new_view)) }, leadingIcon = { Icon(Icons.Filled.Add, null) },
                                 onClick = { viewMenu = false; st.sheet = "new_view" })
                         }
+                        if (st.canManageTemplates) {                    // 2.5: auch ohne Vorlagen erreichbar
+                            androidx.compose.material3.HorizontalDivider()
+                            DropdownMenuItem(text = { Text(stringResource(R.string.tpl_manage)) }, onClick = { viewMenu = false; st.managing = true })
+                        }
                     }
                 }
                 Spacer(Modifier.weight(1f))
@@ -272,10 +277,28 @@ private fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit) {
                             tint = if (ns > 0) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current)
                     }
                 }
-                if (st.canAdd) {
-                    FilledTonalButton(onClick = { scope.launch { st.create()?.let(onOpen) } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp)) {
+                if (st.canAdd) Box {
+                    // 2.5: mit Vorlagen "Neu ▾" (leer, Vorlagen, Vorlagen verwalten); ohne Vorlagen gleich ein neuer Eintrag
+                    var newMenu by remember { mutableStateOf(false) }
+                    FilledTonalButton(onClick = { if (st.templates.isEmpty()) scope.launch { st.create()?.let(onOpen) } else newMenu = true },
+                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp)) {
                         Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
                         Text(stringResource(R.string.dbv_new_entry), modifier = Modifier.padding(start = 4.dp), maxLines = 1)
+                        if (st.templates.isNotEmpty()) Icon(Icons.Filled.ArrowDropDown, null, Modifier.size(18.dp))
+                    }
+                    DropdownMenu(expanded = newMenu, onDismissRequest = { newMenu = false }) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.tpl_blank_entry)) }, onClick = { newMenu = false; scope.launch { st.create()?.let(onOpen) } })
+                        androidx.compose.material3.HorizontalDivider()
+                        val dt = st.defaultTemplate
+                        (listOfNotNull(dt) + st.templates.filter { it.id != dt?.id }).forEach { t ->
+                            val name = (t.icon?.takeIf { it.length <= 4 }?.let { "$it " } ?: "📐 ") + t.title.ifEmpty { stringResource(R.string.tpl_template) }
+                            DropdownMenuItem(text = { Text(if (t.id == dt?.id) stringResource(R.string.tpl_default_suffix, name) else name) },
+                                onClick = { newMenu = false; scope.launch { st.createFrom(t)?.let(onOpen) } })
+                        }
+                        if (st.canManageTemplates) {
+                            androidx.compose.material3.HorizontalDivider()
+                            DropdownMenuItem(text = { Text(stringResource(R.string.tpl_manage)) }, onClick = { newMenu = false; st.managing = true })
+                        }
                     }
                 }
             }

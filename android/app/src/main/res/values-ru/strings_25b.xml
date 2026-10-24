@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: Datenbank-Kopf, Vorlagen verwalten, KI zuordnen -->
+<resources>
+    <string name="tpl_blank_entry">Пустая запись</string>
+    <string name="tpl_template">Шаблон</string>
+    <string name="tpl_default_suffix">%1$s (по умолчанию)</string>
+    <string name="tpl_manage">Управлять шаблонами …</string>
+    <string name="tpl_manage_title">Шаблоны этой базы данных</string>
+    <string name="tpl_none">У этой базы данных ещё нет шаблонов.</string>
+    <string name="tpl_name">Название шаблона</string>
+    <string name="tpl_default">По умолчанию для «Новая»</string>
+    <string name="tpl_edit">Редактировать</string>
+    <string name="tpl_duplicate">Дублировать</string>
+    <string name="tpl_copy">%1$s (копия)</string>
+    <string name="tpl_make_default">По умолчанию для «Новая»</string>
+    <string name="tpl_not_default">Больше не по умолчанию</string>
+    <string name="tpl_untemplate">Больше не шаблон</string>
+    <string name="tpl_trash">В корзину</string>
+    <string name="tpl_trash_q">Переместить шаблон «%1$s» в корзину?</string>
+    <string name="tpl_trash_hint">Оттуда его можно восстановить в любой момент.</string>
+    <string name="tpl_new">Новый шаблон</string>
+    <string name="tpl_new_title">Новый шаблон</string>
+    <string name="db_title_hide">Скрыть название</string>
+    <string name="db_title_show">Показать название</string>
+    <string name="ai_assign">Заполнить базу данных</string>
+    <string name="ai_assign_none">На этой странице нет базы данных с подходящим свойством (выбор, флажок, текст, число, дата, URL).</string>
+    <string name="ai_assign_hint">Ассистент предложит значение для каждой записи – вы решаете, что применить.</string>
+    <string name="ai_assign_only_empty">Только записи без значения</string>
+    <string name="ai_assign_hint_label">Подсказка (необязательно)</string>
+    <string name="ai_assign_read_only">Эту базу данных вы можете только читать.</string>
+    <string name="ai_assign_go">Получить предложения</string>
+    <string name="ai_assign_nothing">Нет предложений.</string>
+    <string name="ai_assign_head">«%1$s» для %2$d записей:</string>
+    <string name="ai_assign_more">Ещё %1$d записей – после применения запустите снова.</string>
+    <string name="ai_assign_apply">Применить</string>
+    <plurals name="ai_assign_unsure">
+        <item quantity="one">Ассистент не уверен в %d записи.</item>
+        <item quantity="few">Ассистент не уверен в %d записях.</item>
+        <item quantity="many">Ассистент не уверен в %d записях.</item>
+        <item quantity="other">Ассистент не уверен в %d записях.</item>
+    </plurals>
+    <plurals name="ai_assign_done">
+        <item quantity="one">Изменена %d запись.</item>
+        <item quantity="few">Изменено записей: %d.</item>
+        <item quantity="many">Изменено записей: %d.</item>
+        <item quantity="other">Изменено записей: %d.</item>
+    </plurals>
+</resources>

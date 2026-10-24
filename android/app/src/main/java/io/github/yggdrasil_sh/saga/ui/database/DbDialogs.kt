@@ -41,6 +41,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.github.yggdrasil_sh.saga.R
+import kotlinx.coroutines.launch
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.db.DbFilter
 import io.github.yggdrasil_sh.saga.db.DbProp
@@ -313,4 +314,74 @@ private fun NewViewDialog(onCreate: (String, String) -> Unit, onDismiss: () -> U
         confirmButton = { TextButton(onClick = { onCreate(type, name.ifBlank { defaultName }); onDismiss() }) { Text(stringResource(R.string.action_apply)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
     )
+}
+
+
+/**
+ * 2.5 Vorlagen verwalten (wie Web/iOS): umbenennen direkt im Feld, Bearbeiten (oeffnet die Vorlage), Duplizieren (bleibt
+ * Vorlage), Standard fuer "Neu", "Keine Vorlage mehr", Papierkorb (mit Rueckfrage), neue Vorlage. Nur der Eigentuemer.
+ */
+@Composable
+internal fun TemplateManager(st: DbViewState, onOpen: (Long) -> Unit) {
+    val names = remember { androidx.compose.runtime.mutableStateMapOf<Long, String>() }
+    var trash by remember { mutableStateOf<io.github.yggdrasil_sh.saga.db.DbTemplate?>(null) }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val newTitle = stringResource(R.string.tpl_new_title)
+    val untitled = stringResource(R.string.tpl_template)
+    val copyFmt = stringResource(R.string.tpl_copy)
+    fun saveNames() { st.templates.forEach { t -> names[t.id]?.let { st.tplRename(t, it) } }; names.clear() }
+    AlertDialog(
+        onDismissRequest = { saveNames(); st.managing = false },
+        title = { Text(stringResource(R.string.tpl_manage_title)) },
+        text = {
+            Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (st.templates.isEmpty()) Text(stringResource(R.string.tpl_none), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val dt = st.defaultTemplate
+                st.templates.forEach { t ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        OutlinedTextField(
+                            value = names[t.id] ?: t.title, onValueChange = { names[t.id] = it.take(200) }, singleLine = true,
+                            label = { Text(if (t.id == dt?.id) stringResource(R.string.tpl_default) else stringResource(R.string.tpl_name)) },
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { names[t.id]?.let { st.tplRename(t, it) }; names.remove(t.id) }),
+                            modifier = Modifier.weight(1f),
+                        )
+                        Box {
+                            var menu by remember { mutableStateOf(false) }
+                            IconButton(onClick = { menu = true }) { Text("⋯") }
+                            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                DropdownMenuItem(text = { Text(stringResource(R.string.tpl_edit)) }, onClick = { menu = false; saveNames(); st.managing = false; onOpen(t.id) })
+                                DropdownMenuItem(text = { Text(stringResource(R.string.tpl_duplicate)) }, onClick = {
+                                    menu = false; st.tplDuplicate(t, (names[t.id] ?: t.title).ifEmpty { untitled } .let { n -> copyFmt.format(n) })
+                                })
+                                if (st.canEditViews) DropdownMenuItem(
+                                    text = { Text(stringResource(if (t.id == dt?.id) R.string.tpl_not_default else R.string.tpl_make_default)) },
+                                    onClick = { menu = false; st.setDefaultTemplate(if (t.id == dt?.id) null else t.id) },
+                                )
+                                DropdownMenuItem(text = { Text(stringResource(R.string.tpl_untemplate)) }, onClick = { menu = false; st.tplUntemplate(t) })
+                                HorizontalDivider()
+                                DropdownMenuItem(text = { Text(stringResource(R.string.tpl_trash), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; trash = t })
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { saveNames(); st.managing = false }) { Text(stringResource(R.string.action_done)) } },
+        dismissButton = {
+            TextButton(onClick = {
+                saveNames()
+                scope.launch { st.tplNew(newTitle)?.let { st.managing = false; onOpen(it) } }
+            }) { Text(stringResource(R.string.tpl_new)) }
+        },
+    )
+    trash?.let { t ->
+        AlertDialog(
+            onDismissRequest = { trash = null },
+            title = { Text(stringResource(R.string.tpl_trash_q, t.title.ifEmpty { untitled })) },
+            text = { Text(stringResource(R.string.tpl_trash_hint)) },
+            confirmButton = { TextButton(onClick = { st.tplTrash(t); trash = null }) { Text(stringResource(R.string.tpl_trash), color = MaterialTheme.colorScheme.error) } },
+            dismissButton = { TextButton(onClick = { trash = null }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
 }

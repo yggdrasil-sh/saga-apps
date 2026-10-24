@@ -965,6 +965,16 @@ private fun EditorToolbar(
                     }
                 }
             }
+            val dbBlock = ed.block(blockPath)?.takeIf { BlockDoc.type(it) == "database" && active.itemPath() == null }
+            if (dbBlock != null) {                                  // 2.5: Datenbanktitel des Blocks ein-/ausblenden (wie Web/iOS)
+                val hidden = (BlockDoc.data(dbBlock)["hide_title"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true"
+                TextButton(onClick = {
+                    ed.updateBlock(blockPath) { b ->
+                        val d = LinkedHashMap(BlockDoc.data(b)).apply { if (hidden) remove("hide_title") else put("hide_title", kotlinx.serialization.json.JsonPrimitive(true)) }
+                        kotlinx.serialization.json.JsonObject(LinkedHashMap(b).apply { put("data", kotlinx.serialization.json.JsonObject(d)) })
+                    }
+                }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(if (hidden) R.string.db_title_show else R.string.db_title_hide)) }
+            }
             androidx.compose.material3.VerticalDivider(Modifier.height(28.dp))
             Row(Modifier.padding(end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = { ed.moveBlock(blockPath, -1) }) { Icon(Icons.Filled.KeyboardArrowUp, stringResource(R.string.block_move_up)) }

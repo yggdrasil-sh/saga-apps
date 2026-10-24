@@ -80,7 +80,14 @@ data class AiDone(
     val text: String? = null,
     val replyId: String? = null,
     val replySha: String? = null,
+    /** 2.5 "Datenbank zuordnen": {db, prop{id,name,type}, items[{id,title,value,label,old}], unsure} */
+    val assign: JsonObject? = null,
+    val more: Int = 0,
+    val message: String? = null,
 )
+
+/** 2.5: Datenbank auf der Seite (GET api/ai/page/<id>/dbs) mit Eigenschaften, denen der Assistent Werte vorschlagen kann */
+data class AiPageDb(val id: Long, val title: String, val editable: Boolean, val rows: Int, val props: List<Triple<String, String, String>>)
 
 sealed interface AiChunk {
     data class Sources(val sources: List<AiSource>) : AiChunk
@@ -153,6 +160,9 @@ object AiLogic {
                     text = (o["text"] as? JsonPrimitive)?.contentOrNull,
                     replyId = ((o["reply"] as? JsonObject)?.get("id") as? JsonPrimitive)?.contentOrNull,
                     replySha = ((o["reply"] as? JsonObject)?.get("sha256") as? JsonPrimitive)?.contentOrNull,
+                    assign = o["assign"] as? JsonObject,
+                    more = (o["more"] as? JsonPrimitive)?.intOrNull ?: 0,
+                    message = (o["message"] as? JsonPrimitive)?.contentOrNull,
                 ),
             )
             "reset" -> AiChunk.Reset
@@ -250,7 +260,24 @@ class AiService(private val repo: SagaRepository, scope: CoroutineScope? = null)
         if (calendar) put("calendar", true)
     })
 
-    fun page(id: Long, action: String, blocks: List<String>? = null, target: String? = null): Flow<AiChunk> = stream("api/ai/page/$id", buildJsonObject {
+    /** 2.5: Datenbanken auf der Seite (nur mit Zugriff) */
+    suspend fun pageDbs(id: Long): List<AiPageDb> {
+        val o = Json.parseToJsonElement(repo.api.get("api/ai/page/$id/dbs")) as? JsonObject ?: return emptyList()
+        return (o["dbs"] as? JsonArray).orEmpty().mapNotNull { e ->
+            val d = e as? JsonObject ?: return@mapNotNull null
+            val pid = (d["id"] as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull()?.toLong() ?: return@mapNotNull null
+            AiPageDb(pid, (d["title"] as? JsonPrimitive)?.contentOrNull.orEmpty(), (d["editable"] as? JsonPrimitive)?.booleanOrNull == true,
+                (d["rows"] as? JsonPrimitive)?.intOrNull ?: 0,
+                (d["props"] as? JsonArray).orEmpty().mapNotNull { q ->
+                    val p = q as? JsonObject ?: return@mapNotNull null
+                    Triple((p["id"] as? JsonPrimitive)?.contentOrNull ?: return@mapNotNull null, (p["name"] as? JsonPrimitive)?.contentOrNull ?: "?",
+                        (p["type"] as? JsonPrimitive)?.contentOrNull.orEmpty())
+                })
+        }
+    }
+
+    fun page(id: Long, action: String, blocks: List<String>? = null, target: String? = null, extra: JsonObject? = null): Flow<AiChunk> = stream("api/ai/page/$id", buildJsonObject {
+        extra?.forEach { (k, v) -> put(k, v) }
         put("action", action)
         if (blocks != null) put("blocks", kotlinx.serialization.json.JsonArray(blocks.map { JsonPrimitive(it) }))
         if (target != null) put("target", target)
