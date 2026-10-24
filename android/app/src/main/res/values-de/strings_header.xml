@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Seitenkopf: Titelbild und Symbol (wie iOS/Web) -->
+<resources>
+    <string name="page_cover">Titelbild</string>
+    <string name="page_cover_change">Ändern</string>
+    <string name="page_cover_remove">Entfernen</string>
+    <string name="page_cover_add">Titelbild hinzufügen</string>
+    <string name="page_icon_add">Symbol hinzufügen</string>
+    <string name="page_icon">Symbol</string>
+    <string name="page_icon_image">Bild</string>
+    <string name="page_icon_random">Zufällig</string>
+    <string name="page_icon_remove">Symbol entfernen</string>
+    <string name="page_header_locked">Die Seite ist gesperrt – Symbol und Titelbild lassen sich erst nach dem Entsperren ändern.</string>
+    <string name="page_tag_add">+ Tag</string>
+    <string name="page_tag_remove">Tag entfernen</string>
+    <string name="page_tag_hint">Tag</string>
+    <string name="page_backlinks">Verlinkt von</string>
+</resources>

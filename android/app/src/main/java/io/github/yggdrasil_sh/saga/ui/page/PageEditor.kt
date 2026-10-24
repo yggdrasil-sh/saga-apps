@@ -29,6 +29,7 @@ import io.github.yggdrasil_sh.saga.data.Publish
 import io.github.yggdrasil_sh.saga.data.PublishState
 import io.github.yggdrasil_sh.saga.data.PublishVia
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -81,6 +82,8 @@ interface PageBackend {
     suspend fun createPageWith(title: String, body: String): Long
     suspend fun setPinned(id: Long, pinned: Boolean)
     suspend fun setLocked(id: Long, locked: Boolean)
+    /** Kopf der Seite (icon, cover, cover_pos) speichern */
+    suspend fun patchPage(id: Long, body: JsonObject) {}
     fun updateTitleLocal(id: Long, title: String)
     fun visited(id: Long)
     fun friendly(e: Throwable): UiText
@@ -122,6 +125,14 @@ class PageEditor(
     var title by mutableStateOf("")
         private set
     var icon by mutableStateOf("")
+        private set
+    /** Titelbild (/files/... oder /api/fed/files/...), null = keins; Position 0 (oben) ... 100 (unten) wie Web/iOS */
+    var cover by mutableStateOf<String?>(null)
+        private set
+    var coverPos by mutableStateOf(50.0)
+        private set
+    /** Tags unter dem Titel (wie Web/iOS) */
+    var tags by mutableStateOf<List<String>>(emptyList())
         private set
     var kind by mutableStateOf("page")
         private set
@@ -292,6 +303,8 @@ class PageEditor(
         val body = if (bodyEl != null && bodyEl.isString) bodyEl.content else null
         title = BlockDoc.str(p, "title")
         icon = BlockDoc.str(p, "icon")
+        applyHeader(p)
+        tags = (p["tags"] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf { t -> t.isNotBlank() } }
         kind = BlockDoc.str(p, "kind").ifEmpty { "page" }
         locked = BlockDoc.bool(p, "locked")
         pinned = BlockDoc.bool(p, "pinned")
@@ -1009,6 +1022,44 @@ class PageEditor(
     }
 
     // ---------------------------------------------------------------- Seiten-Aktionen
+
+    /**
+     * Symbol/Titelbild/Position sofort zeigen und speichern (PATCH wie Web/iOS; JsonNull bzw. "" = entfernen).
+     * Klappt das Speichern nicht, gilt wieder der alte Stand (Fehler geht an den Aufrufer).
+     */
+    suspend fun setHeader(fields: JsonObject) {
+        val old = Triple(icon, cover, coverPos)
+        applyHeader(fields, partial = true)
+        try {
+            repo.patchPage(id, fields)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            icon = old.first; cover = old.second; coverPos = old.third
+            throw e
+        }
+    }
+
+    /** Tags setzen (sofort sichtbar, dann speichern; Fehler: alter Stand) */
+    suspend fun setTags(new: List<String>) {
+        val old = tags
+        tags = new
+        try {
+            repo.patchPage(id, JsonObject(mapOf("tags" to kotlinx.serialization.json.JsonArray(new.map { JsonPrimitive(it) }))))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            tags = old
+            throw e
+        }
+    }
+
+    private fun applyHeader(p: JsonObject, partial: Boolean = false) {
+        if (partial) (p["icon"] as? JsonPrimitive)?.let { icon = it.contentOrNull.orEmpty() }
+        if (!partial || "cover" in p) cover = (p["cover"] as? JsonPrimitive)?.contentOrNull?.trim()?.ifEmpty { null }
+        if (!partial || "cover_pos" in p) coverPos = ((p["cover_pos"] as? JsonPrimitive)?.contentOrNull?.toDoubleOrNull() ?: 50.0)
+            .takeIf { it.isFinite() }?.coerceIn(0.0, 100.0) ?: 50.0
+    }
 
     suspend fun setPinned(on: Boolean) {
         repo.setPinned(id, on)

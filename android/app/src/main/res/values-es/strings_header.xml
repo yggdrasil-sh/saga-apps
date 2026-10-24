@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Seitenkopf: Titelbild und Symbol (wie iOS/Web) -->
+<resources>
+    <string name="page_cover">Imagen de portada</string>
+    <string name="page_cover_change">Cambiar</string>
+    <string name="page_cover_remove">Quitar</string>
+    <string name="page_cover_add">Añadir portada</string>
+    <string name="page_icon_add">Añadir icono</string>
+    <string name="page_icon">Icono</string>
+    <string name="page_icon_image">Imagen</string>
+    <string name="page_icon_random">Aleatorio</string>
+    <string name="page_icon_remove">Quitar icono</string>
+    <string name="page_header_locked">La página está bloqueada: el icono y la portada solo se pueden cambiar tras desbloquearla.</string>
+    <string name="page_tag_add">+ Etiqueta</string>
+    <string name="page_tag_remove">Quitar etiqueta</string>
+    <string name="page_tag_hint">Etiqueta</string>
+    <string name="page_backlinks">Enlazado desde</string>
+</resources>

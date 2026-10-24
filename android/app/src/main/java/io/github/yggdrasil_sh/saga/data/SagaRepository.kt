@@ -778,6 +778,21 @@ class SagaRepository(
         pages.value = pages.value.map { if (it.id == id) it.copy(pinned = pinned) else it }
     }
 
+    override suspend fun patchPage(id: Long, body: JsonObject) {
+        api.patch("api/notes/$id", body)
+        (body["icon"] as? kotlinx.serialization.json.JsonPrimitive)?.let { ic ->
+            val v = if (ic is kotlinx.serialization.json.JsonNull) "" else ic.content
+            pages.value = pages.value.map { if (it.id == id) it.copy(icon = v) else it }
+        }
+        (body["tags"] as? kotlinx.serialization.json.JsonArray)?.let { arr ->
+            val t = arr.mapNotNull { (it as? kotlinx.serialization.json.JsonPrimitive)?.content }
+            pages.value = pages.value.map { if (it.id == id) it.copy(tags = t) else it }
+        }
+    }
+
+    /** Seiten, die auf diese Seite verweisen ("Verlinkt von", wie Web/iOS) */
+    suspend fun backlinks(id: Long): List<PageMeta> = decode(api.get("api/notes/$id/backlinks"))
+
     override suspend fun setLocked(id: Long, locked: Boolean) {
         api.patch("api/notes/$id", buildJsonObject { put("locked", locked) })
         pages.value = pages.value.map { if (it.id == id) it.copy(locked = locked) else it }

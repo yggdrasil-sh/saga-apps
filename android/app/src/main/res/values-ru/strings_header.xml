@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Seitenkopf: Titelbild und Symbol (wie iOS/Web) -->
+<resources>
+    <string name="page_cover">Обложка</string>
+    <string name="page_cover_change">Изменить</string>
+    <string name="page_cover_remove">Удалить</string>
+    <string name="page_cover_add">Добавить обложку</string>
+    <string name="page_icon_add">Добавить значок</string>
+    <string name="page_icon">Значок</string>
+    <string name="page_icon_image">Изображение</string>
+    <string name="page_icon_random">Случайный</string>
+    <string name="page_icon_remove">Удалить значок</string>
+    <string name="page_header_locked">Страница заблокирована – значок и обложку можно изменить только после разблокировки.</string>
+    <string name="page_tag_add">+ Тег</string>
+    <string name="page_tag_remove">Удалить тег</string>
+    <string name="page_tag_hint">Тег</string>
+    <string name="page_backlinks">Ссылки сюда</string>
+</resources>

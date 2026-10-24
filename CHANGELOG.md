@@ -9,6 +9,17 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Android wie iOS: Seitenkopf, Tags, Datenbanken
+- **Titelbilder auf Seiten** (fehlten bisher ganz): über die volle Breite mit gespeicherter Position; antippen =
+  Ändern/Entfernen. Das Symbol (Emoji oder Bild) sitzt halb darüber; antippen öffnet die Auswahl (Emoji, eigenes
+  Bild, Zufällig, Entfernen). Fehlt eins davon: „Symbol hinzufügen“ / „Titelbild hinzufügen“.
+- **Tags** unter dem Titel („+ Tag“ mit Vorschlägen, × zum Entfernen) und **„Verlinkt von“** am Seitenende.
+- **Datenbanken:** eine kompakte Zeile wie auf iOS – Ansicht als Auswahl-Menü (inkl. „Ansicht bearbeiten“/„Neue
+  Ansicht“), Suche als Symbol, Filter und Sortieren als Symbole mit Zähler, „Neuer Eintrag“; „x von y“ nur beim
+  Filtern. Galerie-Karten ohne Bild ohne leere Fläche, Symbol vor dem Namen.
+- Eigenes Profilbild oben in der Seitenleiste (tippen = Einstellungen); Favoriten-Stern als Umriss, solange die Seite
+  kein Favorit ist.
+
 ### Geändert – Anruf-Oberfläche vereinheitlicht (iOS/iPadOS/macOS, Android, Web)
 Gemeinsame Regeln in `docs/ANRUF-UI.md`:
 - Kopf: Titel (Gegenüber bzw. Gruppe), Dauer direkt darunter, eine Sicherheitszeile; Teilnehmenden-Chip mit Zahl nur

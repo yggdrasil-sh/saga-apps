@@ -341,10 +341,10 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             }
             if (ed.fetched && caps.canFavorite) {
                 IconButton(onClick = { repo.launchAction { ed.setPinned(!ed.pinned) } }) {
-                    Icon(
-                        Icons.Filled.Star, stringResource(if (ed.pinned) R.string.favorite_remove else R.string.favorite_add),
-                        tint = if (ed.pinned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
-                    )
+                    // wie iOS: kein Favorit = Umriss, Favorit = gefuellt in der Akzentfarbe
+                    val favDesc = stringResource(if (ed.pinned) R.string.favorite_remove else R.string.favorite_add)
+                    if (ed.pinned) Icon(Icons.Filled.Star, favDesc, tint = MaterialTheme.colorScheme.primary)
+                    else Icon(painterResource(R.drawable.ic_star_border), favDesc, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             Box {
@@ -489,7 +489,9 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 }
             }
             CompositionLocalProvider(LocalPageImageSink provides imageSink) {
-            LazyColumn(Modifier.widthIn(max = if (dbState != null) 1400.dp else 820.dp).fillMaxSize().padding(horizontal = 18.dp), state = listState) {
+            // Rand als contentPadding (nicht padding): das Titelbild darf bis an den Rand reichen, ohne abgeschnitten zu werden
+            LazyColumn(Modifier.widthIn(max = if (dbState != null) 1400.dp else 820.dp + 36.dp).fillMaxSize(), state = listState,
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp)) {
                 item(key = "header") {
                     PageHeader(
                         ed, repo, onPublish = if (ed.template || publishHidden || !caps.canPublish || ed.isRemote) null else openPublish,
@@ -531,6 +533,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                             }
                         }
                     }
+                    item(key = "backlinks") { BacklinksList(ed, repo) { pid -> nav.push(Dest.Page(pid)) } }
                     item(key = "footer") {
                         // wie Notion: in den freien Bereich unter dem letzten Block tippen -> weiterschreiben
                         Spacer(
@@ -722,11 +725,22 @@ private fun copy(context: Context, text: String) {
 private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> Unit)?, live: PageLiveState? = null, onSettings: () -> Unit = {}) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp)) {
+    var iconPicker by remember { mutableStateOf(false) }
+    if (iconPicker) IconPickerDialog(ed, repo) { iconPicker = false }
+    val cover = ed.cover.takeIf { !ed.noAccess && ed.fetched }
+    Column(Modifier.fillMaxWidth().padding(top = if (cover != null) 0.dp else 8.dp, bottom = 8.dp)) {
+        // wie iOS/Web: Titelbild ueber die volle Breite, Symbol halb darueber; fehlt eins davon: dezent anbieten
+        if (cover != null) PageCover(ed, repo, cover, pad = 18.dp)
         if (ed.icon.isNotEmpty() && !ed.noAccess) {
-            PageIcon(ed.icon, repo, ed.isDatabase, size = 52.dp)
-            Spacer(Modifier.height(6.dp))
-        }
+            Box(
+                Modifier.then(if (cover != null) Modifier.pullUp(36.dp) else Modifier)
+                    .clickable(enabled = headerEditable(ed) || ed.locked, onClickLabel = stringResource(R.string.page_icon)) {
+                        if (ed.locked) repo.notify(UiText.Res(R.string.page_header_locked)) else iconPicker = true
+                    },
+            ) { PageIcon(ed.icon, repo, ed.isDatabase, size = 64.dp) }
+            Spacer(Modifier.height(if (cover != null) 10.dp else 8.dp))
+        } else if (cover != null) Spacer(Modifier.height(12.dp))
+        HeaderAddRow(ed, repo) { iconPicker = true }
         if (ed.fetched) {
             val titleStyle = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             if (!ed.titleEditable) {                         // gesperrt oder fremde Seite mit Lesen/Kommentieren
@@ -760,6 +774,7 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
         }
         // Fremde Seite (G1): unter dem Titel "Geteilt von {Name} · Du kannst …" (kein Knopf), darunter wer zuletzt
         // geaendert/angelegt hat - beide gleich gross (Sekundaertext)
+        if (ed.fetched && !ed.isDatabase && !ed.noAccess) TagsRow(ed, repo)       // wie iOS/Web: Tags unter dem Titel
         if (ed.fetched && ed.caps.foreign) SharedByLabel(ed.share)
         if (ed.fetched) MetaLine(ed.share)
         if (ed.fetched) RowProperties(ed, repo)                 // Datenbank-Zeile: Eigenschaften (nur lesen)

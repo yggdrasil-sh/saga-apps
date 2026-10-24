@@ -1,5 +1,11 @@
 package io.github.yggdrasil_sh.saga.ui.database
 
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -220,50 +226,73 @@ private fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
         if (s != null) {
             val v = s.view(st.viewId)
-            // Ansichten als Reiter; die aktuelle noch einmal antippen = bearbeiten
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                s.views.forEach { x ->
-                    val on = x.id == v.id
-                    val typeLabel = viewLabel(x.type)
+            // wie iOS: eine Zeile - Ansicht als Auswahl (Menue), Suche, Filter, Sortieren, Neuer Eintrag
+            var viewMenu by remember { mutableStateOf(false) }
+            var q by remember(st) { mutableStateOf(st.search) }
+            var searchOpen by remember(st) { mutableStateOf(st.search.isNotEmpty()) }
+            val nf = v.filters.size
+            val ns = v.sorts.size
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                Box {
+                    val typeLabel = viewLabel(v.type)
                     FilterChip(
-                        selected = on,
-                        onClick = { if (on) { if (st.canEditViews) st.sheet = "view" } else st.selectView(x.id) },
-                        label = { Text(viewIcon(x.type) + " " + x.name.ifEmpty { viewLabel(x.type) }, maxLines = 1) },
-                        modifier = Modifier.semantics { contentDescription = x.name.ifEmpty { typeLabel } + ", " + typeLabel },
+                        selected = true, onClick = { viewMenu = true },
+                        label = { Text(viewIcon(v.type) + " " + v.name.ifEmpty { typeLabel }, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        trailingIcon = { Icon(Icons.Filled.ArrowDropDown, null, Modifier.size(18.dp)) },
+                        modifier = Modifier.widthIn(max = 200.dp).semantics { contentDescription = v.name.ifEmpty { typeLabel } + ", " + typeLabel },
                     )
+                    DropdownMenu(expanded = viewMenu, onDismissRequest = { viewMenu = false }) {
+                        s.views.forEach { x ->
+                            DropdownMenuItem(
+                                text = { Text(viewIcon(x.type) + " " + x.name.ifEmpty { viewLabel(x.type) }) },
+                                trailingIcon = { if (x.id == v.id) Icon(Icons.Filled.Check, null) },
+                                onClick = { viewMenu = false; if (x.id != v.id) st.selectView(x.id) },
+                            )
+                        }
+                        if (st.canEditViews) {
+                            androidx.compose.material3.HorizontalDivider()
+                            DropdownMenuItem(text = { Text(stringResource(R.string.dbv_view_settings)) }, onClick = { viewMenu = false; st.sheet = "view" })
+                            DropdownMenuItem(text = { Text(stringResource(R.string.dbv_new_view)) }, leadingIcon = { Icon(Icons.Filled.Add, null) },
+                                onClick = { viewMenu = false; st.sheet = "new_view" })
+                        }
+                    }
                 }
-                if (st.canEditViews) {
-                    IconButton(onClick = { st.sheet = "new_view" }) { Icon(Icons.Filled.Add, stringResource(R.string.dbv_new_view)) }
-                }
-            }
-            Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                val nf = v.filters.size
-                val ns = v.sorts.size
-                AssistChip(
-                    onClick = { st.sheet = "filter" }, enabled = st.canEditViews || nf > 0,
-                    label = { Text(if (nf > 0) stringResource(R.string.dbv_filter_count, nf) else stringResource(R.string.dbv_filter)) },
-                )
-                AssistChip(
-                    onClick = { st.sheet = "sort" }, enabled = st.canEditViews || ns > 0,
-                    label = { Text(if (ns > 0) stringResource(R.string.dbv_sort_count, ns) else stringResource(R.string.dbv_sort)) },
-                )
                 Spacer(Modifier.weight(1f))
+                IconButton(onClick = { searchOpen = !searchOpen || q.isNotEmpty() }) { Icon(Icons.Filled.Search, stringResource(R.string.dbv_search)) }
+                IconButton(onClick = { st.sheet = "filter" }, enabled = st.canEditViews || nf > 0) {
+                    androidx.compose.material3.BadgedBox(badge = { if (nf > 0) androidx.compose.material3.Badge { Text("$nf") } }) {
+                        Icon(painterResource(R.drawable.ic_filter), if (nf > 0) stringResource(R.string.dbv_filter_count, nf) else stringResource(R.string.dbv_filter),
+                            tint = if (nf > 0) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current)
+                    }
+                }
+                IconButton(onClick = { st.sheet = "sort" }, enabled = st.canEditViews || ns > 0) {
+                    androidx.compose.material3.BadgedBox(badge = { if (ns > 0) androidx.compose.material3.Badge { Text("$ns") } }) {
+                        Icon(painterResource(R.drawable.ic_sort), if (ns > 0) stringResource(R.string.dbv_sort_count, ns) else stringResource(R.string.dbv_sort),
+                            tint = if (ns > 0) MaterialTheme.colorScheme.primary else androidx.compose.material3.LocalContentColor.current)
+                    }
+                }
                 if (st.canAdd) {
-                    FilledTonalButton(onClick = { scope.launch { st.create()?.let(onOpen) } }) {
+                    FilledTonalButton(onClick = { scope.launch { st.create()?.let(onOpen) } }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp)) {
                         Icon(Icons.Filled.Add, null, Modifier.size(18.dp))
-                        Text(stringResource(R.string.dbv_new_entry), modifier = Modifier.padding(start = 4.dp))
+                        Text(stringResource(R.string.dbv_new_entry), modifier = Modifier.padding(start = 4.dp), maxLines = 1)
                     }
                 }
             }
-            var q by remember(st) { mutableStateOf(st.search) }
-            OutlinedTextField(
-                value = q, onValueChange = { q = it.take(500); st.updateSearch(q) }, singleLine = true,
-                placeholder = { Text(stringResource(R.string.dbv_search)) },
-                leadingIcon = { Icon(Icons.Filled.Search, null) },
-                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-            )
+            if (searchOpen || q.isNotEmpty()) {
+                val fr = remember { androidx.compose.ui.focus.FocusRequester() }
+                OutlinedTextField(
+                    value = q, onValueChange = { q = it.take(500); st.updateSearch(q) }, singleLine = true,
+                    placeholder = { Text(stringResource(R.string.dbv_search)) },
+                    leadingIcon = { Icon(Icons.Filled.Search, null) },
+                    trailingIcon = {
+                        IconButton(onClick = { q = ""; st.updateSearch(""); searchOpen = false }) { Icon(Icons.Filled.Close, stringResource(R.string.action_close)) }
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp).focusRequester(fr),
+                )
+                LaunchedEffect(searchOpen) { if (searchOpen && q.isEmpty()) runCatching { fr.requestFocus() } }
+            }
             Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                if (st.loaded && v.type != "calendar") {
+                if (st.loaded && v.type != "calendar" && st.matched != st.total) {        // wie iOS: Zahl nur, wenn gefiltert/gesucht
                     Text(stringResource(R.string.dbv_count, st.matched, st.total), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (st.readOnly) Text("  · " + stringResource(R.string.dbv_read_only), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -390,19 +419,22 @@ private fun GalleryCard(st: DbViewState, repo: SagaRepository, r: DbRow, v: DbVi
     ) {
         Column {
             val pv = r.preview
+            // wie iOS/Web: Titelbild (bzw. erstes Bild) oben, ohne Bild keine leere Flaeche; Symbol vor dem Namen
             if (pv != null) {
-                val sized = if (pv.startsWith("/files/") && !pv.contains("?")) "$pv?w=480" else pv
+                val sized = if ((pv.startsWith("/files/") || pv.startsWith("/api/fed/files/")) && !pv.contains("?")) "$pv?w=640" else pv
                 AsyncImage(model = repo.absoluteUrl(sized), contentDescription = null, contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxWidth().aspectRatio(16f / 10f))
-            } else {
-                Box(Modifier.fillMaxWidth().aspectRatio(16f / 10f).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {
-                    PageIcon(r.icon, repo, size = 36.dp)
-                }
+                    modifier = Modifier.fillMaxWidth().height(110.dp).background(MaterialTheme.colorScheme.surfaceContainerHigh))
             }
-            Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(r.title.ifEmpty { stringResource(R.string.page_untitled) }, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
-                s.visibleProps(v).filter { p -> !DbQuery.isEmpty(DbQuery(s).value(p, r)) && p.type != "text" }.take(3).forEach { p ->
-                    DbValueView(p, DbQuery(s).value(p, r), fmt)
+            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    if (!r.icon.isNullOrEmpty()) PageIcon(r.icon, repo, size = 20.dp)
+                    Text(r.title.ifEmpty { stringResource(R.string.page_untitled) }, maxLines = 2, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Medium)
+                }
+                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    s.visibleProps(v).filter { p -> !DbQuery.isEmpty(DbQuery(s).value(p, r)) && p.type != "text" }.take(3).forEach { p ->
+                        DbValueView(p, DbQuery(s).value(p, r), fmt)
+                    }
                 }
             }
         }

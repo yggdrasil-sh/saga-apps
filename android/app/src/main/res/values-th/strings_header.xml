@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Seitenkopf: Titelbild und Symbol (wie iOS/Web) -->
+<resources>
+    <string name="page_cover">ภาพปก</string>
+    <string name="page_cover_change">เปลี่ยน</string>
+    <string name="page_cover_remove">นำออก</string>
+    <string name="page_cover_add">เพิ่มภาพปก</string>
+    <string name="page_icon_add">เพิ่มไอคอน</string>
+    <string name="page_icon">ไอคอน</string>
+    <string name="page_icon_image">รูปภาพ</string>
+    <string name="page_icon_random">สุ่ม</string>
+    <string name="page_icon_remove">นำไอคอนออก</string>
+    <string name="page_header_locked">หน้านี้ถูกล็อก – เปลี่ยนไอคอนและภาพปกได้หลังจากปลดล็อกแล้วเท่านั้น</string>
+    <string name="page_tag_add">+ แท็ก</string>
+    <string name="page_tag_remove">นำแท็กออก</string>
+    <string name="page_tag_hint">แท็ก</string>
+    <string name="page_backlinks">ลิงก์มาจาก</string>
+</resources>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Seitenkopf: Titelbild und Symbol (wie iOS/Web) -->
+<resources>
+    <string name="page_cover">Cover image</string>
+    <string name="page_cover_change">Change</string>
+    <string name="page_cover_remove">Remove</string>
+    <string name="page_cover_add">Add cover</string>
+    <string name="page_icon_add">Add icon</string>
+    <string name="page_icon">Icon</string>
+    <string name="page_icon_image">Image</string>
+    <string name="page_icon_random">Random</string>
+    <string name="page_icon_remove">Remove icon</string>
+    <string name="page_header_locked">The page is locked – icon and cover can only be changed after unlocking.</string>
+    <string name="page_tag_add">+ Tag</string>
+    <string name="page_tag_remove">Remove tag</string>
+    <string name="page_tag_hint">Tag</string>
+    <string name="page_backlinks">Linked from</string>
+</resources>

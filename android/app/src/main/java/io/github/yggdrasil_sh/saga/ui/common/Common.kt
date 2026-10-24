@@ -86,10 +86,10 @@ fun PageIcon(icon: String?, repo: SagaRepository, isDatabase: Boolean = false, s
             AsyncImage(
                 model = repo.absoluteUrl(if (ic.contains("?")) ic else "$ic?w=160"), contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.size(size).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
+                modifier = Modifier.size(size).clip(RoundedCornerShape(if (size >= 48.dp) 10.dp else 4.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
             )
         } else {
-            Text(ic.ifEmpty { if (isDatabase) "🗃️" else "📄" }, fontSize = (size.value * 0.72f).sp, maxLines = 1)
+            Text(ic.ifEmpty { if (isDatabase) "🗃️" else "📄" }, fontSize = (size.value * (if (size >= 48.dp) 0.82f else 0.72f)).sp, maxLines = 1)   // grosses Symbol (Seitenkopf) etwa so gross wie auf iOS
         }
     }
 }

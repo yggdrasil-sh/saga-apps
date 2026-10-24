@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.nav
 
+import androidx.compose.foundation.clickable
+import io.github.yggdrasil_sh.saga.data.avatarState
 import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.ui.common.pageTitle
@@ -169,7 +171,18 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
 
     LazyColumn(Modifier.statusBarsPadding(), state = listState) {
         item {
-            Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            // wie iOS: eigenes Profilbild oben links (tippen = Einstellungen)
+            val account by repo.account.collectAsState()
+            val signIns by repo.signInCount.collectAsState()
+            var ownAvatar by remember { mutableStateOf<String?>(null) }
+            androidx.compose.runtime.LaunchedEffect(account, signIns) {
+                ownAvatar = try { repo.avatarState().url } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { ownAvatar }
+            }
+            Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 8.dp, top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (account.isNotEmpty()) Box(
+                    Modifier.padding(end = 10.dp).clip(CircleShape)
+                        .clickable(onClickLabel = stringResource(R.string.nav_settings)) { nav.top(Dest.Settings); onNavigate() },
+                ) { io.github.yggdrasil_sh.saga.ui.notifications.Avatar(account, size = 36, avatar = ownAvatar) }
                 Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 IconButton(onClick = { newPage(null) }, enabled = !creating) {
                     if (creating) {
