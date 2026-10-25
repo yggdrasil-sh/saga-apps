@@ -88,4 +88,11 @@ class OpenWithTest {
             assertFalse("ACTION_VIEW mit http-Link: ${f.name}", Regex("""ACTION_VIEW[^\n]*"https?://""").containsMatchIn(t))
         }
     }
+
+    @org.junit.Test
+    fun apkNieDirektInDenInstaller() {
+        org.junit.Assert.assertTrue(io.github.yggdrasil_sh.saga.util.OpenWith.installer("application/vnd.android.package-archive"))
+        org.junit.Assert.assertTrue(io.github.yggdrasil_sh.saga.util.OpenWith.installer("application/octet-stream", "Saga.APK"))
+        org.junit.Assert.assertFalse(io.github.yggdrasil_sh.saga.util.OpenWith.installer("image/png", "bild.png"))
+    }
 }

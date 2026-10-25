@@ -32,6 +32,10 @@ object OpenWith {
         return if (g != null && MIME_RE.matches(g)) g else FALLBACK
     }
 
+    /** Angehaengte App-Pakete (Typ vom Absender) gehen nicht direkt an den Paket-Installer, sondern in die Teilen-Auswahl */
+    fun installer(type: String, name: String = ""): Boolean =
+        type == "application/vnd.android.package-archive" || name.lowercase().endsWith(".apk") || name.lowercase().endsWith(".apks")
+
     fun viewPlan(type: String): Plan =
         Plan(Intent.ACTION_VIEW, type, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK, chooser = false)
 
@@ -53,6 +57,7 @@ object OpenWith {
     /** Oeffnen (Standard-App bzw. Systemauswahl mit "Immer"); findet sich keine App: Teilen-Auswahl */
     fun open(context: Context, uri: Uri, mime: String?, name: String) {
         val type = mime(mime, name, ::guessFromSystem)
+        if (installer(type, name)) { share(context, uri, type, name); return }   // App-Pakete nie direkt in den Installer
         try {
             context.startActivity(intent(viewPlan(type), uri))
         } catch (_: ActivityNotFoundException) {

@@ -724,7 +724,9 @@ internal fun MeetCall(
             val lb: (@Composable (androidx.compose.ui.unit.Dp) -> Unit)? = if (Meeting.layoutButton(model)) ({ col ->
                 MeetLayoutButton(ms, model.screens.isNotEmpty(), col, tc, tf) { open -> menuOpen = open; lastAct = System.currentTimeMillis() }
             }) else null
-            if (flat) Box(Modifier.fillMaxHeight().safeDrawingPadding().padding(4.dp)) {
+            if (flat) androidx.compose.foundation.layout.Row(Modifier.fillMaxHeight().safeDrawingPadding().padding(4.dp),
+                verticalAlignment = Alignment.Bottom) {
+                RoomActions(calls, st, withMic)            // z. B. "Hierher uebernehmen" fuer Begleitgeraete auch im Querformat
                 Controls(calls, st, {}, onCam, onShare, onMic, layoutBtn = lb, vertical = true, onPlayback = onPlayback)
             } else Column(Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 RoomActions(calls, st, withMic)
