@@ -149,7 +149,7 @@ targets:
   HlidskjalfBroadcast:
     type: app-extension
     platform: iOS
-    sources: [Broadcast, Shared/ScreenFrame.swift, Shared/Localizable.xcstrings]
+    sources: [Broadcast, Shared/ScreenFrame.swift, Shared/ScreenSocket.swift, Shared/Localizable.xcstrings]
     info:
       path: Broadcast/Info.plist
       properties:

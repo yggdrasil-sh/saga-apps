@@ -10,6 +10,8 @@ func screenShareTests() {
     screenBitrateTests()
     screenCaptureTests()
     screenFrameTests()
+    screenSocketTests()
+    screenMacAccessTests()
 }
 
 private func screenModeTests() {
@@ -189,4 +191,56 @@ private func screenFrameTests() {
           "Pfad im App-Gruppen-Container passt")
     // Speicher der Erweiterung: hoechstens zwei NV12-Puffer 1080p unterwegs
     check(2 * F.payloadSize(width: 1920, height: 1080) < 8_000_000, "Puffer der Erweiterung < 8 MB")
+}
+
+// 2.5-Fix: angenommener Socket muss blockierend lesen (Darwin erbt O_NONBLOCK vom lauschenden Socket)
+private func screenSocketTests() {
+    let path = "/tmp/sgf-\(getpid()).sock"
+    defer { unlink(path) }
+    check(ScreenSocket.address(String(repeating: "x", count: 104)) == nil, "Socket-Pfad zu lang: nil statt abschneiden")
+    check(ScreenSocket.address(String(repeating: "x", count: 103)) != nil, "Socket-Pfad 103 Byte passt")
+    guard let l = ScreenSocket.listen(path: path) else { check(false, "listen"); return }
+    defer { close(l) }
+    check(!ScreenSocket.isBlocking(l), "lauschender Socket nicht blockierend (DispatchSource)")
+    // Ursache: rohes accept() erbt O_NONBLOCK -> read() sofort EAGAIN
+    if let c0 = ScreenSocket.connect(path: path) {
+        var r = Darwin.accept(l, nil, nil)
+        for _ in 0..<50 where r < 0 { usleep(10_000); r = Darwin.accept(l, nil, nil) }
+        check(r >= 0 && !ScreenSocket.isBlocking(r), "Darwin: rohes accept erbt O_NONBLOCK (Ursache)")
+        var b = [UInt8](repeating: 0, count: 4)
+        let n = r >= 0 ? b.withUnsafeMutableBytes { Darwin.read(r, $0.baseAddress!, 4) } : 0
+        check(n < 0 && errno == EAGAIN, "rohes accept: read ohne Daten -> EAGAIN (alte App trennte hier)")
+        if r >= 0 { close(r) }; close(c0)
+    } else { check(false, "connect") }
+    // Fix: ScreenSocket.accept liefert blockierend; Kopf kommt verzoegert und wird vollstaendig gelesen
+    guard let c = ScreenSocket.connect(path: path) else { check(false, "connect 2"); return }
+    var a: Int32? = ScreenSocket.accept(l)
+    for _ in 0..<50 where a == nil { usleep(10_000); a = ScreenSocket.accept(l) }
+    guard let a else { check(false, "accept"); close(c); return }
+    check(ScreenSocket.isBlocking(a), "ScreenSocket.accept: blockierend")
+    let head = ScreenFrame.encode(.init(width: 1280, height: 720, rotation: 90, ptsNs: 42))
+    let t = Thread {
+        usleep(150_000)                                                     // Erweiterung schickt das erste Bild spaeter
+        _ = head.withUnsafeBytes { ScreenSocket.writeAll(c, $0.baseAddress!, 16) }
+        usleep(50_000)
+        _ = head.withUnsafeBytes { ScreenSocket.writeAll(c, $0.baseAddress! + 16, 16) }
+    }
+    t.start()
+    var got = [UInt8](repeating: 0, count: ScreenFrame.headerSize)
+    let ok = got.withUnsafeMutableBytes { ScreenSocket.readAll(a, $0.baseAddress!, $0.count) }
+    check(ok && ScreenFrame.decode(got) == .init(width: 1280, height: 720, rotation: 90, ptsNs: 42), "verzoegerter Kopf in zwei Teilen vollstaendig gelesen")
+    close(c)
+    var one = [UInt8](repeating: 0, count: 1)
+    check(!one.withUnsafeMutableBytes { ScreenSocket.readAll(a, $0.baseAddress!, 1) }, "Erweiterung trennt: readAll false")
+    close(a)
+}
+
+// 2.5-Fix Mac: eigener Filter bzw. setConfiguration(for:) nur mit dauerhafter Freigabe
+private func screenMacAccessTests() {
+    typealias S = ScreenShare
+    check(!S.excludeSelf(display: true, hasAccess: false), "ohne Freigabe: Filter der Auswahl (keine Ablehnung -3801, kein Neustart)")
+    check(S.excludeSelf(display: true, hasAccess: true), "mit Freigabe: ganzer Bildschirm ohne Saga")
+    check(!S.excludeSelf(display: false, hasAccess: true), "Fenster/App: wie gewaehlt")
+    check(!S.pickerConfigPerStream(hasAccess: false), "ohne Freigabe kein setConfiguration(for:)")
+    check(S.pickerConfigPerStream(hasAccess: true), "mit Freigabe setConfiguration(for:)")
 }
