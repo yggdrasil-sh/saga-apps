@@ -770,13 +770,7 @@ class SagaRepository(
      * Ohne Vorlage wird immer ein Titel mitgeschickt (auch leer), mit Vorlage nur ein gesetzter - sonst bleibt deren Titel.
      */
     suspend fun buttonEntry(dbId: Long, title: String, tpl: Long?, via: Long? = null): Long {
-        val b = buildJsonObject {
-            put("parent_id", dbId)
-            if (title.isNotEmpty() || tpl == null) put("title", title)
-            // geteilte Seite: der Server prueft die Schaltflaeche auf dieser Seite (Vorlage des Eigentuemers, Server 2.5)
-            if (tpl != null && via != null && via > 0) put("via", via)
-        }
-        val id = decode<NewId>(api.post(if (tpl != null) "api/notes/$tpl/duplicate" else "api/notes", b)).id
+        val id = decode<NewId>(api.post(if (tpl != null) "api/notes/$tpl/duplicate" else "api/notes", buttonEntryBody(dbId, title, tpl, via))).id
         if (tpl == null) pageAdded(id, dbId) else refresh(join = false)
         dbStore.changed()
         return id
@@ -1626,4 +1620,15 @@ class SagaRepository(
         val url = ((o?.get("file") as? JsonObject)?.get("url") as? kotlinx.serialization.json.JsonPrimitive)?.content
         return url?.takeIf { it.isNotBlank() } ?: throw ApiException(500, UiText.Res(R.string.image_upload_failed))
     }
+}
+
+/**
+ * Anfrage fuer die Schaltflaeche "Neuer Eintrag". via = Seite mit der Schaltflaeche: Bei einer geteilten Seite prueft
+ * der Server die Schaltflaeche dort (Vorlage des Eigentuemers, Server 2.5) - auch bei einer Seite eines anderen Servers
+ * (negative ID; der eigene Server reicht es an den Eigentuemer-Server weiter, Faehigkeit tplbtn).
+ */
+internal fun buttonEntryBody(dbId: Long, title: String, tpl: Long?, via: Long?): JsonObject = buildJsonObject {
+    put("parent_id", dbId)
+    if (title.isNotEmpty() || tpl == null) put("title", title)
+    if (tpl != null && via != null && via != 0L) put("via", via)
 }

@@ -1568,7 +1568,7 @@ struct ButtonsBlock: View {
             struct R: Decodable { let id: Int; let updated: Double? }
             let tpl = b["tpl"] as? Int
             var body: [String: Any] = ["parent_id": t]; if !title.isEmpty || tpl == nil { body["title"] = title }
-            if tpl != nil, let p = pageID, p > 0 { body["via"] = p }
+            if tpl != nil, let p = pageID, p != 0 { body["via"] = p }   // auch Seite eines anderen Servers (negative ID, tplbtn)
             do {
                 let d = try await store.api(tpl.map { "api/notes/\($0)/duplicate" } ?? "api/notes", method: "POST", body: body)   // Vorlage: alles uebernehmen
                 let r = try JSONDecoder().decode(R.self, from: d)
