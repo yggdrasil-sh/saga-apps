@@ -140,7 +140,7 @@ fun NextcloudScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                                     val flow = repo.ncConnect(url.orEmpty())
                                     msg = null
                                     busy = false
-                                    if (flow.isNotEmpty()) openUrl(context, flow)
+                                    if (flow.isNotEmpty()) openUrl(context, flow, inApp = true)
                                     load()
                                 }
                             }, enabled = !busy && !url.isNullOrBlank()) { Text(stringResource(R.string.ub_connect)) }

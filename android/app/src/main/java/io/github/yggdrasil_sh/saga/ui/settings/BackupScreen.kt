@@ -320,7 +320,7 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                                     val flow = repo.backupConnect(url, user, pw, folder)
                                     pw = ""
                                     targetMsg = null
-                                    if (flow != null) openUrl(context, flow)
+                                    if (flow != null) openUrl(context, flow, inApp = true)
                                     load()
                                 }
                             }, enabled = url.isNotBlank()) { Text(stringResource(R.string.ub_connect)) }
