@@ -40,4 +40,6 @@
         <item quantity="one">+%d weitere</item>
         <item quantity="other">+%d weitere</item>
     </plurals>
+    <string name="widget_sign_in">Anmelden</string>
+    <string name="widget_more_a11y">„Heute“ öffnen: %1$d weitere</string>
 </resources>

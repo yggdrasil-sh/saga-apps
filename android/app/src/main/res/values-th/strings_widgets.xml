@@ -39,4 +39,6 @@
     <plurals name="widget_more">
         <item quantity="other">อีก %d รายการ</item>
     </plurals>
+    <string name="widget_sign_in">เข้าสู่ระบบ</string>
+    <string name="widget_more_a11y">เปิด “วันนี้”: อีก %1$d รายการ</string>
 </resources>

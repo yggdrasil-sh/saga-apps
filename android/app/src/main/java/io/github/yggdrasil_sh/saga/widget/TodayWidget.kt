@@ -92,20 +92,27 @@ private fun TodayContent(store: WidgetStore, @Suppress("UNUSED_PARAMETER") versi
                 modifier = GlanceModifier.defaultWeight(),
             )
             if (wide && ui is WidgetUi.Content) {
+                // Trefferflaeche 48 dp, sichtbarer Kreis 36 dp
                 Box(
-                    GlanceModifier.size(32.dp).cornerRadius(16.dp).background(GlanceTheme.colors.secondaryContainer)
+                    GlanceModifier.size(48.dp).cornerRadius(24.dp)
                         .clickable(actionStartActivity(WidgetLinks.intent(ctx, WidgetLinks.NEW_TASK)))
                         .semantics { contentDescription = ctx.getString(R.string.widget_new_task) },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Image(ImageProvider(R.drawable.ic_widget_add), ctx.getString(R.string.widget_new_task), GlanceModifier.size(18.dp),
-                        colorFilter = ColorFilter.tint(GlanceTheme.colors.onSecondaryContainer))
+                    Box(GlanceModifier.size(36.dp).cornerRadius(18.dp).background(GlanceTheme.colors.secondaryContainer), contentAlignment = Alignment.Center) {
+                        Image(ImageProvider(R.drawable.ic_widget_add), ctx.getString(R.string.widget_new_task), GlanceModifier.size(20.dp),
+                            colorFilter = ColorFilter.tint(GlanceTheme.colors.onSecondaryContainer))
+                    }
                 }
             }
         }
         Spacer(GlanceModifier.height(4.dp))
         when (ui) {
-            WidgetUi.SignedOut -> Hint(ctx.getString(R.string.widget_signed_out))
+            WidgetUi.SignedOut -> {
+                Hint(ctx.getString(R.string.widget_signed_out))
+                Spacer(GlanceModifier.height(8.dp))
+                SignInButton(ctx)
+            }
             WidgetUi.Loading, WidgetUi.NotConfigured, WidgetUi.Missing -> Hint(ctx.getString(R.string.widget_loading))
             is WidgetUi.Content -> {
                 val s = snap ?: return@Column
@@ -116,24 +123,44 @@ private fun TodayContent(store: WidgetStore, @Suppress("UNUSED_PARAMETER") versi
                     val evs = TodayLogic.events(s.events, today, zone)
                     val tasks = TodayLogic.tasks(s.tasks, today, hidden)
                     val status = ui.staleSince != null || s.eventsFailed || store.doneFailed
-                    val all = TodayLayout.rows(size.height.value, chromeDp = if (status) 72f else 56f)
+                    val head = if (wide) 72f else 56f                     // Kopf mit 48-dp-Knopf "+"
+                    val all = TodayLayout.rows(size.height.value, chromeDp = if (status) head + 16f else head)
                     val rows = if (evs.size + tasks.size > all) all - 1 else all       // Platz fuer "+N weitere"
                     val (ne, nt) = TodayLayout.split(rows.coerceAtLeast(1), evs.size, tasks.size)
                     evs.take(ne).forEach { EventRow(ctx, it, wide) }
                     tasks.take(nt).forEach { TaskRow(ctx, it) }
                     val rest = (evs.size - ne) + (tasks.size - nt)
                     if (rest > 0) {
-                        Text(
-                            ctx.resources.getQuantityString(R.plurals.widget_more, rest, rest),
-                            style = WidgetLook.muted(),
-                            modifier = GlanceModifier.padding(start = 4.dp, top = 2.dp)
-                                .clickable(actionStartActivity(WidgetLinks.intent(ctx, if (tasks.size > nt) WidgetLinks.TASKS else WidgetLinks.EVENTS))),
-                        )
+                        // "+N weitere": als Knopf (Pille) gestaltet, oeffnet "Heute"
+                        Row(GlanceModifier.fillMaxWidth().height(26.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                GlanceModifier.height(24.dp).cornerRadius(12.dp).background(GlanceTheme.colors.secondaryContainer)
+                                    .padding(horizontal = 10.dp)
+                                    .clickable(actionStartActivity(WidgetLinks.intent(ctx, WidgetLinks.TODAY)))
+                                    .semantics { contentDescription = ctx.getString(R.string.widget_more_a11y, rest) },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    ctx.resources.getQuantityString(R.plurals.widget_more, rest, rest) + "  ›",
+                                    style = WidgetLook.text(WidgetLook.small, bold = true, color = GlanceTheme.colors.onSecondaryContainer), maxLines = 1,
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
     }
+}
+
+/** "Anmelden": oeffnet die App (dort die Anmeldung) */
+@Composable
+internal fun SignInButton(ctx: Context) {
+    androidx.glance.appwidget.components.FilledButton(
+        ctx.getString(R.string.widget_sign_in), actionStartActivity(WidgetLinks.intent(ctx, WidgetLinks.TODAY)),
+        colors = androidx.glance.ButtonDefaults.buttonColors(backgroundColor = GlanceTheme.colors.primary, contentColor = GlanceTheme.colors.onPrimary),
+        maxLines = 1,
+    )
 }
 
 @Composable
