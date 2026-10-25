@@ -25,6 +25,8 @@ sealed interface Dest {
     /** 2.3: Einstellungen -> Mein Backup bzw. Nextcloud */
     data object Backup : Dest
     data object Nextcloud : Dest
+    /** 2.5: Graph der Seiten; focus = Seite fuer "Lokal" (Seitenmenue "Lokaler Graph"), null = alle Seiten */
+    data class Graph(val focus: Long? = null) : Dest
 
     companion object {
         /** Als Text (zum Sichern nach Prozess-Tod) */
@@ -43,6 +45,7 @@ sealed interface Dest {
             ChatDevices -> "chat-devices"
             Backup -> "backup"
             Nextcloud -> "nextcloud"
+            is Graph -> if (d.focus != null) "graph:${d.focus}" else "graph"
         }
 
         fun decode(s: String): Dest? = when {
@@ -60,6 +63,8 @@ sealed interface Dest {
             s == "chat-devices" -> ChatDevices
             s == "backup" -> Backup
             s == "nextcloud" -> Nextcloud
+            s == "graph" -> Graph()
+            s.startsWith("graph:") -> s.removePrefix("graph:").toLongOrNull()?.let { Graph(it) }
             else -> null
         }
     }

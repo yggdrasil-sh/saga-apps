@@ -434,6 +434,13 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                             },
                         )
                     }
+                    // 2.5: Lokaler Graph (Nachbarschaft der Seite) - nur eigene/freigegebene Seiten dieses Servers ab 2.5
+                    if (ed.fetched && !ed.isRemote && io.github.yggdrasil_sh.saga.ui.graph.GraphSupport.available(serverVersion, repo.server.value)) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.graph_local_menu)) }, onClick = {
+                            menu = false
+                            nav.push(io.github.yggdrasil_sh.saga.ui.nav.Dest.Graph(id))
+                        })
+                    }
                     // "App-Link kopieren" / "Im Web-Editor öffnen": Link in den Editor (nicht die oeffentliche Seite)
                     DropdownMenuItem(text = { Text(stringResource(R.string.page_copy_link)) }, onClick = {
                         menu = false
