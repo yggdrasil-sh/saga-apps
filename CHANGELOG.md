@@ -9,6 +9,12 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – alle Apps: Schaltflächen mit Vorlage auf Seiten eines anderen Servers
+- Auf einer über Servergrenzen geteilten Seite meldete „Neuer Eintrag“ mit Vorlage „Eintrag nicht angelegt: Nicht
+  gefunden“. Android, iOS/Mac und Linux schicken die Seite mit der Schaltfläche (`via`) jetzt auch bei negativer
+  Seiten-ID; der Server reicht den Eintrag an den Server des Eigentümers weiter (Server mit Fähigkeit `tplbtn`).
+  Android-Test `ButtonEntryFedTest`.
+
 ### Neu – macOS: Die App aktualisiert sich selbst (DMG von GitHub)
 - Die Mac-App aus der DMG erkennt neue Versionen, bietet sie an („Installieren“, „Später“, „Überspringen“), installiert
   auf Wunsch und startet neu. Menü „Saga → Nach Updates suchen …“; automatische Prüfung alle 4 Stunden, abschaltbar

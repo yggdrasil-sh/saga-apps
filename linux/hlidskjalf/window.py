@@ -1757,8 +1757,8 @@ class MainWindow(Adw.ApplicationWindow):
             body = {"parent_id": tgt}
             if title or not tpl:
                 body["title"] = title
-            if tpl and isinstance(via, int) and via > 0:
-                body["via"] = via          # geteilte Seite: Server prueft die Schaltflaeche auf dieser Seite (Server 2.5)
+            if tpl and isinstance(via, int) and not isinstance(via, bool) and via != 0:
+                body["via"] = via          # geteilte Seite (auch eines anderen Servers, negativ): Server prueft die Schaltflaeche dort
             path = f"api/notes/{tpl}/duplicate" if tpl else "api/notes"
             if busy:
                 busy(True)
