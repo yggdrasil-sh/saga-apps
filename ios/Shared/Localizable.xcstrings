@@ -61301,6 +61301,176 @@
           }
         }
       }
+    },
+    "🔖 Lesezeichen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🔖 Lesezeichen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🔖 Bookmark"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🔖 Marcador"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🔖 Закладка"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "🔖 บุ๊กมาร์ก"
+          }
+        }
+      }
+    },
+    "Kategorie wählen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kategorie wählen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose category"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elegir categoría"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Выбрать категорию"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกหมวดหมู่"
+          }
+        }
+      }
+    },
+    "Erscheint unter „Dienste“. Ein Symbol kannst du später in der App wählen." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Erscheint unter „Dienste“. Ein Symbol kannst du später in der App wählen."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appears under “Services”. You can pick an icon later in the app."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aparece en «Servicios». Puedes elegir un icono más tarde en la app."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Появится в разделе «Сервисы». Значок можно выбрать позже в приложении."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "จะแสดงใน “บริการ” คุณเลือกไอคอนได้ภายหลังในแอป"
+          }
+        }
+      }
+    },
+    "Dein Saga-Server kann noch keine Lesezeichen aus dem Teilen-Blatt anlegen (ab Saga 2.5)." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dein Saga-Server kann noch keine Lesezeichen aus dem Teilen-Blatt anlegen (ab Saga 2.5)."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your Saga server can't add bookmarks from the share sheet yet (Saga 2.5 or later)."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tu servidor Saga aún no puede añadir marcadores desde la hoja para compartir (desde Saga 2.5)."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ваш сервер Saga пока не умеет добавлять закладки из меню «Поделиться» (нужна Saga 2.5 или новее)."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เซิร์ฟเวอร์ Saga ของคุณยังเพิ่มบุ๊กมาร์กจากเมนูแชร์ไม่ได้ (ต้องใช้ Saga 2.5 ขึ้นไป)"
+          }
+        }
+      }
+    },
+    "📥 Eingang" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "📥 Eingang"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "📥 Inbox"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "📥 Bandeja"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "📥 Входящие"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "📥 กล่องรับ"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
