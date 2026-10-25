@@ -115,6 +115,22 @@ class Bughunt2AppsTest {
     }
 
     @Test
+    fun a10RepairKeepsKeysUnlessSurelyAnotherAccount() {
+        val a = "https://a.example.org"
+        val uid = io.github.yggdrasil_sh.saga.data.AccountKey.uid("mia")
+        val name = io.github.yggdrasil_sh.saga.data.AccountKey.name("Mia")
+        // dasselbe Konto, Kennung kurz nicht abfragbar (Netzfehler) -> name: statt uid: -> behalten
+        assertTrue(SignOutChat.keepOnRepair(a, uid, a, name))
+        // alte Kennung name:, neue uid: (dasselbe Konto nach Update) -> behalten
+        assertTrue(SignOutChat.keepOnRepair(a, name, a, uid))
+        assertTrue(SignOutChat.keepOnRepair(a, uid, a, uid))
+        // sicher anderes Konto bzw. anderer Server -> nicht behalten
+        assertFalse(SignOutChat.keepOnRepair(a, uid, a, io.github.yggdrasil_sh.saga.data.AccountKey.uid("tom")))
+        assertFalse(SignOutChat.keepOnRepair(a, uid, "https://b.example.org", uid))
+        assertFalse(SignOutChat.keepOnRepair("", "", a, uid))
+    }
+
+    @Test
     fun a10ClearChatIgnoresEmptyScope() {
         val sec = SecureStore(MemorySecretStore())
         sec.put("chat_keys:|", "x")

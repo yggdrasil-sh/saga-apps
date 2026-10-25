@@ -70,7 +70,8 @@ class AuthSession(
         }
         // A10: erneut mit demselben Konto am selben Server gekoppelt -> Chat-Schluessel behalten (kein Abmelden)
         val newKey = if (user != null) AccountKey.uid(user) else AccountKey.name(r.name.orEmpty())
-        val same = SignOutChat.sameAccount(secure.tokenServer.orEmpty(), settings.accountKey.value, server, newKey)
+        // Review: nur sicher anderes Konto loescht (Kennung kurz unbekannt -> name:, alte Kennung legacy:/name: -> behalten)
+        val same = SignOutChat.keepOnRepair(secure.tokenServer.orEmpty(), settings.accountKey.value, server, newKey)
         signOutLocal(forgetRemote = true, keepChat = same)
         withContext(io) { secure.setCredentials(server, token, r.appKey?.takeIf { it.startsWith("hk_") }) }
         settings.setServer(server)
@@ -115,4 +116,13 @@ object SignOutChat {
     /** Neue Anmeldung gehoert zum selben Konto am selben Server (dann bleiben die Chat-Schluessel) */
     fun sameAccount(oldServer: String, oldKey: String, newServer: String, newKey: String): Boolean =
         oldServer.isNotEmpty() && oldKey.isNotEmpty() && oldServer == newServer && oldKey == newKey
+
+    /**
+     * Beim erneuten Koppeln die Chat-Schluessel behalten? Ja, ausser es ist sicher ein anderes Konto bzw. ein anderer
+     * Server: Ist eine der Kennungen nicht stabil (uid: unbekannt, z. B. kurzer Netzfehler bei der Abfrage -> name:,
+     * oder eine alte legacy:/name:-Kennung), gilt es als dasselbe Konto - sonst gingen Schluessel verloren, die kurz
+     * danach (ensureAccountKey) wieder gepasst haetten (iOS: forgetsOldChat behaelt ebenso bei unbekanntem Konto).
+     */
+    fun keepOnRepair(oldServer: String, oldKey: String, newServer: String, newKey: String): Boolean =
+        oldServer.isNotEmpty() && oldServer == newServer && !AccountKey.switched(oldKey, newKey)
 }
