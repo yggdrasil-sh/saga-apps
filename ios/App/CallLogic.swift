@@ -202,9 +202,10 @@ enum CallLogic {
     /// 2.5: Kopf und Knoepfe blenden nach controlsIdle s ohne Bedienung aus (wie FaceTime); Tippen bzw. Mausbewegung
     /// zeigt sie wieder. Nie bei: nicht verbunden, nur Ton (kein Bild auf der Buehne), VoiceOver, offenem Menue/Hinweis
     /// bzw. einer wichtigen Meldung (stummgeschaltet durch Gastgeber, Wiederverbinden)
-    static let controlsIdle = 5.0
-    static func hideControls(idle: Double, phase: String, video: Bool, voiceOver: Bool, menuOpen: Bool, notice: Bool) -> Bool {
-        phase == "active" && video && !voiceOver && !menuOpen && !notice && idle >= controlsIdle
+    /// MEETING-SPEC §6.1: 4 s auf allen Plattformen; Maus ueber Kopf oder Knopfleiste haelt sie sichtbar
+    static let controlsIdle = 4.0
+    static func hideControls(idle: Double, phase: String, video: Bool, voiceOver: Bool, menuOpen: Bool, notice: Bool, pointerOverBar: Bool = false) -> Bool {
+        phase == "active" && video && !voiceOver && !menuOpen && !notice && !pointerOverBar && idle >= controlsIdle
     }
 
     /// V5: Groesse des eigenen Bilds - passt es nicht zweimal uebereinander (plus 8 Abstand) in die freie Hoehe,
