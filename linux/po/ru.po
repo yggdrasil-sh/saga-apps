@@ -7456,7 +7456,7 @@ msgstr "Стрелки выбирают страницу, Enter открывае
 
 #: hlidskjalf/graphview.py:988
 msgid "Shared with you"
-msgstr "Доступно вам"
+msgstr "Доступно тебе"
 
 #: hlidskjalf/graphview.py:1045
 msgid "No matches"

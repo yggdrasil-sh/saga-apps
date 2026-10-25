@@ -64,7 +64,7 @@
     <string name="graph_kind_database">База данных</string>
     <string name="graph_kind_row">Запись базы</string>
     <string name="graph_kind_tag">Тег</string>
-    <string name="graph_shared">Доступно вам</string>
+    <string name="graph_shared">Доступно тебе</string>
     <string name="graph_current">Открытая страница</string>
     <string name="graph_untitled">Без названия</string>
     <string name="graph_depth_n">Глубина %1$d</string>
