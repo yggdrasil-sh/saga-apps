@@ -139,7 +139,7 @@ final class GraphModel: ObservableObject {
         let first = size.width == 0
         if !first { cam.tx += (s.width - size.width) / 2; cam.ty += (s.height - size.height) / 2 }
         size = s
-        if first { fit(instant: true) }
+        if first || !touched { fit(instant: true) }                    // noch nicht bewegt: Groesse geaendert -> neu einpassen
         wake()
     }
     func zoom(by f: Double, at p: CGPoint? = nil) {
@@ -147,7 +147,8 @@ final class GraphModel: ObservableObject {
         cam.zoom(at: c.x, c.y, by: f); updateRadii(); wake()
     }
     func pan(dx: Double, dy: Double) { user(); cam.tx += dx; cam.ty += dy; wake() }
-    private func user() { autoFit = false; camAnim = nil }
+    private func user() { autoFit = false; camAnim = nil; touched = true }
+    private var touched = false
 
     // MARK: Treffer, Hervorheben
     func node(at p: CGPoint, slop: Double) -> Int? {
@@ -447,7 +448,7 @@ struct GraphScreen: View {
                     .accessibilityLabel(Text("Tiefe", tableName: "Graph"))
             }
             Spacer(minLength: 0)
-            stats.font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            stats.font(.caption).foregroundStyle(.secondary).lineLimit(2).minimumScaleFactor(0.85).multilineTextAlignment(.trailing)
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
     }
@@ -472,9 +473,9 @@ struct GraphScreen: View {
                 legend
                 Spacer()
                 VStack(spacing: 8) {
-                    Button { model.zoom(by: 1.25) } label: { Image(systemName: "plus").frame(width: 20, height: 20) }.accessibilityLabel(Text("Vergrößern", tableName: "Graph"))
-                    Button { model.zoom(by: 0.8) } label: { Image(systemName: "minus").frame(width: 20, height: 20) }.accessibilityLabel(Text("Verkleinern", tableName: "Graph"))
-                    Button { model.fit() } label: { Image(systemName: "scope").frame(width: 20, height: 20) }.accessibilityLabel(Text("Einpassen", tableName: "Graph"))
+                    Button { model.zoom(by: 1.25) } label: { Image(systemName: "plus").frame(width: 20, height: 20) }.accessibilityLabel(Text("Vergrößern", tableName: "Graph")).keyboardShortcut("+", modifiers: .command)
+                    Button { model.zoom(by: 0.8) } label: { Image(systemName: "minus").frame(width: 20, height: 20) }.accessibilityLabel(Text("Verkleinern", tableName: "Graph")).keyboardShortcut("-", modifiers: .command)
+                    Button { model.fit() } label: { Image(systemName: "scope").frame(width: 20, height: 20) }.accessibilityLabel(Text("Einpassen", tableName: "Graph")).keyboardShortcut("0", modifiers: .command)
                 }
                 .buttonStyle(.bordered).buttonBorderShape(.circle).controlSize(.regular)
             }
@@ -753,6 +754,7 @@ struct LocalGraphSheet: View {
         NavigationStack {
             GraphScreen(store: store, focusID: id, initialMode: .local, onOpen: { n in dismiss(); if n != id { open(n) } }, onClose: { dismiss() })
         }
+        .interactiveDismissDisabled()                    // Ziehen im Graph soll das Blatt nicht schliessen
         #if os(macOS)
         .frame(minWidth: 720, idealWidth: 960, minHeight: 520, idealHeight: 720)
         #endif
