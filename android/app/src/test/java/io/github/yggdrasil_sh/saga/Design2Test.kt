@@ -54,7 +54,7 @@ class Design2Test {
         assertEquals("D", ChatDesign.initials("dana"))
         assertEquals("AK", ChatDesign.initials("anna-katrin müller"))
         assertEquals("?", ChatDesign.initials("  "))
-        assertEquals("ÖS", ChatDesign.initials("Özlem Şahin"))
+        assertEquals("ÖŞ", ChatDesign.initials("Özlem Şahin"))
     }
 
     @Test
