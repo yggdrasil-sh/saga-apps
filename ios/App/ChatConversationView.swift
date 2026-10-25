@@ -51,7 +51,9 @@ struct ConversationView: View {
     }
     #endif
 
-    var body: some View {
+    var body: some View { withAlerts(core) }
+
+    private var core: some View {
         VStack(spacing: 0) {
             if conv.notFound {
                 ContentUnavailableView("Chat", systemImage: "bubble.left.and.exclamationmark.bubble.right", description: Text("Diesen Chat gibt es nicht (mehr) oder du gehörst nicht mehr dazu."))
@@ -172,30 +174,39 @@ struct ConversationView: View {
         .sheet(isPresented: $showMembers) { MembersSheet(conv: conv) { p in showMembers = false; safetyPeer = p } }
         .sheet(isPresented: $pickPage) { PagePickSheet { id, title in text += (text.isEmpty || text.hasSuffix(" ") ? "" : " ") + "[[note:\(id)]] "; conv.notes[id] = (title, "") } }
         .photosPicker(isPresented: $pickPhotos, selection: $photoItems, maxSelectionCount: 5, matching: .any(of: [.images, .videos]))
-        .onChange(of: photoItems) { _, items in
-            Task {
-                for it in items {
-                    if it.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {   // 2.4: Video als Datei, nie im Speicher
-                        if let m = try? await it.loadTransferable(type: PickedMovie.self) { files.append(ChatVideoPick.pending(movie: m, index: files.count + 1)) }
-                        continue
-                    }
-                    if let d = try? await it.loadTransferable(type: Data.self) {
-                        let jpg = Self.jpeg(d)
-                        files.append(ChatPendingFile(name: "bild-\(files.count + 1).\(jpg.ext)", mime: jpg.mime, data: jpg.data))
-                    }
+        .onChange(of: photoItems) { _, items in addPhotos(items) }
+        .fileImporter(isPresented: $pickFile, allowedContentTypes: [.item], allowsMultipleSelection: true) { r in addFiles(r) }
+    }
+
+    // Aus body ausgelagert: die lange Modifier-Kette ueberfordert sonst die Typpruefung (CI-Xcode, Release)
+    private func addPhotos(_ items: [PhotosPickerItem]) {
+        Task {
+            for it in items {
+                if it.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {   // 2.4: Video als Datei, nie im Speicher
+                    if let m = try? await it.loadTransferable(type: PickedMovie.self) { files.append(ChatVideoPick.pending(movie: m, index: files.count + 1)) }
+                    continue
                 }
-                photoItems = []
-            }
-        }
-        .fileImporter(isPresented: $pickFile, allowedContentTypes: [.item], allowsMultipleSelection: true) { r in
-            for u in (try? r.get()) ?? [] {
-                let ok = u.startAccessingSecurityScopedResource(); defer { if ok { u.stopAccessingSecurityScopedResource() } }
-                if let v = ChatVideoPick.pending(fromFile: u) { files.append(v); continue }      // 2.4: Video als Kopie (Datei)
-                if let d = try? Data(contentsOf: u) {
-                    files.append(ChatPendingFile(name: u.lastPathComponent, mime: UTType(filenameExtension: u.pathExtension)?.preferredMIMEType ?? "application/octet-stream", data: d))
+                if let d = try? await it.loadTransferable(type: Data.self) {
+                    let jpg = Self.jpeg(d)
+                    files.append(ChatPendingFile(name: "bild-\(files.count + 1).\(jpg.ext)", mime: jpg.mime, data: jpg.data))
                 }
             }
+            photoItems = []
         }
+    }
+
+    private func addFiles(_ r: Result<[URL], Error>) {
+        for u in (try? r.get()) ?? [] {
+            let ok = u.startAccessingSecurityScopedResource(); defer { if ok { u.stopAccessingSecurityScopedResource() } }
+            if let v = ChatVideoPick.pending(fromFile: u) { files.append(v); continue }      // 2.4: Video als Kopie (Datei)
+            if let d = try? Data(contentsOf: u) {
+                files.append(ChatPendingFile(name: u.lastPathComponent, mime: UTType(filenameExtension: u.pathExtension)?.preferredMIMEType ?? "application/octet-stream", data: d))
+            }
+        }
+    }
+
+    private func withAlerts<V: View>(_ v: V) -> some View {
+        v
         .alert("Nachricht für alle löschen?", isPresented: Binding(get: { askDelete != nil }, set: { if !$0 { askDelete = nil } }), presenting: askDelete) { m in
             Button("Löschen", role: .destructive) { Task { await conv.delete(m) } }
             Button("Abbrechen", role: .cancel) {}
@@ -1332,3 +1343,4 @@ struct PendingFileIcon: View {
         }
     }
 }
+
