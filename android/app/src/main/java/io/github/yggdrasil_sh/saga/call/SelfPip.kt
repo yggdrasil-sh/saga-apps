@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
@@ -49,6 +50,8 @@ import kotlin.math.roundToInt
 @Composable
 internal fun SelfPip(
     width: Dp, height: Dp, top: Dp, bottom: Dp, side: Dp, modifier: Modifier = Modifier,
+    /** Meeting-Ansicht: Doppeltippen schaltet die Groesse S/M/L weiter (null = aus) */
+    onDoubleTap: (() -> Unit)? = null, sizeLabel: String? = null,
     content: @Composable (Modifier) -> Unit,
 ) {
     val ctx = LocalContext.current
@@ -85,10 +88,13 @@ internal fun SelfPip(
                         onDragCancel = { drag = Offset.Zero },
                     ) { ch, delta -> ch.consume(); drag += delta }
                 }
+                .then(if (onDoubleTap != null) Modifier.pointerInput(Unit) {
+                    detectTapGestures(onDoubleTap = { onDoubleTap() })
+                } else Modifier)
                 .semantics {
-                    customActions = listOf(CustomAccessibilityAction(moveLabel) {
+                    customActions = listOfNotNull(CustomAccessibilityAction(moveLabel) {
                         corner = (corner + 1) % 4; prefs.edit().putInt("self_corner", corner).apply(); true
-                    })
+                    }, if (onDoubleTap != null && sizeLabel != null) CustomAccessibilityAction(sizeLabel) { onDoubleTap(); true } else null)
                 },
         ) {
             if (hidden) {
@@ -98,7 +104,7 @@ internal fun SelfPip(
                         .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape),
                 ) { Icon(painterResource(R.drawable.ic_person_video), stringResource(R.string.call_self_show), tint = Color.White) }
             } else {
-                content(Modifier.fillMaxSize().shadow(6.dp, RoundedCornerShape(12.dp)).clip(RoundedCornerShape(12.dp)))
+                content(Modifier.fillMaxSize().shadow(6.dp, RoundedCornerShape(14.dp)).clip(RoundedCornerShape(14.dp)))
                 IconButton(
                     onClick = { hidden = true; prefs.edit().putBoolean("self_hidden", true).apply() },
                     modifier = Modifier.align(Alignment.TopStart).size(40.dp),

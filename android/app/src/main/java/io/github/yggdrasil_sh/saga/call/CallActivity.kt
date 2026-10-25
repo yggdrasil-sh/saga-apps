@@ -34,6 +34,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
@@ -52,6 +53,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -372,8 +374,12 @@ private fun CallScreen(
     // 2.4 E5: Kachelansicht (Gruppe bzw. mehrere sichtbare Verbindungen); im Bild-im-Bild der aktive Sprecher gross
     val meshOn = room?.mesh == true && st.phase != CallPhase.INCOMING && st.phase != CallPhase.ENDED && !pip
     val showVideo = st.remoteVideo && st.phase == CallPhase.CONNECTED && !meshOn
+    // MEETING-SPEC: eine Buehne fuer 1:1 mit Bild/Teilen, Mesh und Knoten (sonst Profilkreis wie bisher)
+    val videoish = st.remoteVideo || st.peerSharing || st.cam || st.sharing
+    val meetOn = !pip && st.meet.isNotEmpty() && st.phase != CallPhase.INCOMING && st.phase != CallPhase.ENDED &&
+        (meshOn || room?.horn != null || (st.phase == CallPhase.CONNECTED && videoish))
     Box(Modifier.fillMaxSize().then(if (showVideo || pip) Modifier.background(Color.Black) else Modifier.background(CallDesign.backdrop))) {
-        if (st.phase != CallPhase.INCOMING && st.phase != CallPhase.ENDED) {
+        if (st.phase != CallPhase.INCOMING && st.phase != CallPhase.ENDED && !meetOn) {
             // Bild des Gegenuebers eingepasst (ganzes Bild, Rand schwarz): SurfaceViewRenderer schneidet bei fester
             // Groesse auf das Seitenverhaeltnis der Ansicht zu - daher die Ansicht selbst auf das Videoformat begrenzen.
             // Bild-im-Bild nutzt DIESELBE Ansicht (gleiche Stelle im Compose-Baum -> kein zweiter Renderer).
@@ -402,6 +408,10 @@ private fun CallScreen(
                     pipText, color = Color.White, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center,
                     modifier = Modifier.padding(6.dp),
                 )
+            }
+        } else if (meetOn) {
+            androidx.compose.runtime.CompositionLocalProvider(LocalFlatCall provides flat) {
+                MeetCall(calls, st, flat, onMinimize, onCam, onShare, onMic, withMic, onPanel = { hornPanel = it })
             }
         } else {
         androidx.compose.runtime.CompositionLocalProvider(LocalFlatCall provides flat) {
@@ -543,6 +553,160 @@ private fun CallScreen(
     }
 }
 
+/**
+ * Meeting-Ansicht im laufenden Anruf (1:1, Mesh, Knoten): Buehne/Streifen/Galerie aus den Geraeten (`who`), Kopf und
+ * Knoepfe blenden nach 4 s aus (nicht bei Screenreader, offenem Menue, wichtiger Meldung, ohne Video), eigene
+ * Teilen-Leiste bleibt sichtbar. Layout, Groesse des eigenen Bilds und Streifen merkt sich das Geraet.
+ */
+@Composable
+private fun MeetCall(
+    calls: CallManager, st: CallUiState, flat: Boolean, onMinimize: () -> Unit, onCam: () -> Unit, onShare: () -> Unit, onMic: () -> Unit,
+    withMic: (() -> Unit) -> Unit, onPanel: (String) -> Unit,
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val conf = androidx.compose.ui.platform.LocalConfiguration.current
+    val phone = conf.smallestScreenWidthDp < 600
+    val form = if (phone) "phone" else "tablet"
+    val ms = remember { MeetPrefs.load(context, form) }
+    // Ansicht weg (Bild-im-Bild, Anrufende, alte Ansicht): wieder alles empfangen
+    DisposableEffect(Unit) { onDispose { calls.meetShown(null) } }
+    LaunchedEffect(ms.pref, ms.selfSize, ms.stripCollapsed, ms.showSelf, ms.showNoVideo) { MeetPrefs.save(context, form, ms) }
+    val model = remember(st.meet, st.meetMe) { Meeting.tiles(st.meet, st.meetMe) }
+    val room = st.room
+    val reduced = io.github.yggdrasil_sh.saga.ui.chat.reducedMotion()
+    // Leisten: Leerlauf seit der letzten Beruehrung
+    var lastAct by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var tick by remember { mutableIntStateOf(0) }
+    LaunchedEffect(lastAct) { delay(Meeting.IDLE_MS + 50); tick++ }
+    var menuOpen by remember { mutableStateOf(false) }
+    var meshPeople by remember { mutableStateOf(false) }
+    if (meshPeople) {
+        val you = stringResource(R.string.room_you)
+        val ui = HornUi(people = st.meet.sortedBy { if (it.me) 0 else 1 }.map { d ->
+            HornPerson(d.device, d.name.ifEmpty { you }, d.devName, d.avatar, me = d.me, mic = d.mic, companion = d.companion, speaking = d.speaking)
+        })
+        AlertDialog(
+            onDismissRequest = { meshPeople = false; menuOpen = false },
+            confirmButton = { TextButton(onClick = { meshPeople = false; menuOpen = false }) { Text(stringResource(R.string.action_close)) } },
+            title = { Text(meetPersons(model.persons), modifier = Modifier.semantics { heading() }) },
+            text = { HornPeopleList(ui, {}, {}) },
+        )
+    }
+    val am = remember { context.getSystemService(android.view.accessibility.AccessibilityManager::class.java) }
+    val sr = am?.isTouchExplorationEnabled == true
+    val stageVideo = model.all.any { it.video && !it.me }
+    val notice = st.message != null || (room?.mutedBy != null && !st.mic) || st.reconnecting
+    @Suppress("UNUSED_EXPRESSION") tick
+    val hidden = Meeting.hideControls(System.currentTimeMillis() - lastAct, st.phase == CallPhase.CONNECTED, stageVideo, sr, menuOpen, notice)
+    // Vollbild verlassen per Zurueck
+    BackHandler(enabled = ms.fullscreen) { ms.fullscreen = false }
+    // Galerie: beginnt jemand zu teilen, einmal "Anna teilt den Bildschirm – Anzeigen"
+    LaunchedEffect(model.screens.map { it.id }) {
+        val fresh = model.screens.firstOrNull { it.id !in ms.hinted }
+        if (fresh != null && ms.effPref == Meeting.Pref.GALLERY) ms.galleryHint = fresh.id
+        ms.hinted.addAll(model.screens.map { it.id }.filter { it !in ms.hinted })
+        if (ms.galleryHint != null && model.screens.none { it.id == ms.galleryHint }) ms.galleryHint = null
+    }
+    MeetingLayer(
+        model, ms, st.meetSpeaker, hidden, reduced, phone, onActivity = { lastAct = System.currentTimeMillis() }, sideControls = flat,
+        onShown = { calls.meetShown(it) },
+        tileVideo = { t, fit, m -> calls.meetSink(t)?.let { sink -> MeetVideo(calls, sink, mirror = t.me, fit = fit, modifier = m) } },
+        selfVideo = { m, onA -> MeetVideo(calls, calls.localSink, mirror = true, fit = false, modifier = m, onAspect = onA) },
+        header = {
+            Box(Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 4.dp, vertical = 4.dp)) {
+                IconButton(onClick = onMinimize, modifier = Modifier.align(Alignment.TopStart)) {
+                    Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.call_minimize), tint = Color.White)
+                }
+                CallHeader(flat, Modifier.fillMaxWidth().padding(horizontal = 48.dp)) {
+                    val title = if (room?.kind == CallRoom.KIND_GROUP && room.dm != true) room.title.ifEmpty { stringResource(R.string.room_group_audio) }
+                    else st.peer.shown
+                    Text(HornLogic.shortName(title, 28), color = Color.White, style = MaterialTheme.typography.titleMedium, maxLines = 1,
+                        modifier = Modifier.semantics { heading() })
+                    InfoLine(st, onDark = true)
+                    RoomLine(st, onDark = true, persons = model.persons)
+                    if (room?.companion == true) {
+                        val main = st.meet.firstOrNull { it.me && !it.companion && it.device != st.meetMe }?.devName
+                        if (!main.isNullOrEmpty()) Text(stringResource(R.string.meet_companion_head, main), color = Color.White, style = MaterialTheme.typography.labelMedium)
+                    } else MeetCompanions(model.companions, onDark = true)
+                    room?.horn?.let { h ->
+                        HornBar(h, onDark = true, limit = room.limit, dm = room.dm, onRunes = { onPanel("runes") }, onPeople = { onPanel("people") },
+                            onView = {}, persons = model.persons)
+                    }
+                    // MEETING-SPEC §9: Teilnehmerliste auch im Mesh (Personen-Chip)
+                    if (room != null && room.horn == null && (room.kind == CallRoom.KIND_GROUP || st.meet.size > 2)) {
+                        val pl = meetPersons(model.persons)
+                        Surface(
+                            color = Color(0x66101114), shape = RoundedCornerShape(50),
+                            modifier = Modifier.padding(top = 6.dp).minimumInteractiveComponentSize().clip(RoundedCornerShape(50))
+                                .clickable(role = Role.Button) { meshPeople = true; menuOpen = true }.semantics { contentDescription = pl },
+                        ) {
+                            Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(painterResource(R.drawable.ic_group), null, Modifier.size(16.dp), tint = Color.White)
+                                Text("${model.persons}", color = Color.White, style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(start = 4.dp))
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        pinned = {
+            // eigene Freigabe: rote Leiste bleibt sichtbar (Datenschutz), 32 dp, oben links
+            if (st.sharing) Surface(color = SHARE_RED, contentColor = Color.White, shape = RoundedCornerShape(16.dp)) {
+                Row(Modifier.height(32.dp).padding(start = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(painterResource(R.drawable.ic_screen_share), null, Modifier.size(16.dp))
+                    Text(stringResource(R.string.call_screen_you), style = MaterialTheme.typography.labelLarge, maxLines = 1,
+                        modifier = Modifier.padding(start = 6.dp).semantics { liveRegion = LiveRegionMode.Polite })
+                    TextButton(onClick = { calls.stopScreen() }) { Text(stringResource(R.string.call_screen_stop), color = Color.White) }
+                }
+            }
+        },
+        notices = {
+            val dark = Color(0xFF101114)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                ms.galleryHint?.let { id ->
+                    model.screens.firstOrNull { it.id == id }?.let { t ->
+                        Surface(color = dark.copy(alpha = 0.8f), contentColor = Color.White, shape = RoundedCornerShape(50)) {
+                            Row(Modifier.padding(start = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(stringResource(R.string.meet_sharing_chip, t.name), style = MaterialTheme.typography.labelLarge)
+                                TextButton(onClick = { ms.callPref = Meeting.Pref.PRESENTATION; ms.galleryHint = null }) {
+                                    Text(stringResource(R.string.meet_show), color = Color(0xFF7CC4FF))
+                                }
+                            }
+                        }
+                    }
+                }
+                val msg = st.message?.resolve()
+                if (msg != null) Surface(color = dark.copy(alpha = 0.75f), contentColor = Color.White, shape = RoundedCornerShape(12.dp)) {
+                    Text(msg, color = if (st.error) MaterialTheme.colorScheme.error else Color.White, style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp).semantics { liveRegion = LiveRegionMode.Polite })
+                }
+                room?.mutedBy?.let { by ->
+                    if (!st.mic && st.phase == CallPhase.CONNECTED) Surface(color = dark.copy(alpha = 0.75f), contentColor = Color.White, shape = RoundedCornerShape(50)) {
+                        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(painterResource(R.drawable.ic_mic_off), null, Modifier.size(16.dp))
+                            Text(stringResource(R.string.horn_muted_hint, by), style = MaterialTheme.typography.labelLarge,
+                                modifier = Modifier.padding(start = 6.dp).semantics { liveRegion = LiveRegionMode.Polite })
+                        }
+                    }
+                }
+            }
+        },
+        controls = {
+            val tc = MaterialTheme.colorScheme.surfaceContainerHighest
+            val tf = MaterialTheme.colorScheme.onSurface
+            val lb: (@Composable (androidx.compose.ui.unit.Dp) -> Unit)? = if (Meeting.layoutButton(model)) ({ col ->
+                MeetLayoutButton(ms, model.screens.isNotEmpty(), col, tc, tf) { open -> menuOpen = open; lastAct = System.currentTimeMillis() }
+            }) else null
+            if (flat) Box(Modifier.fillMaxHeight().safeDrawingPadding().padding(4.dp)) {
+                Controls(calls, st, {}, onCam, onShare, onMic, layoutBtn = lb, vertical = true)
+            } else Column(Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                RoomActions(calls, st, withMic)
+                Controls(calls, st, {}, onCam, onShare, onMic, layoutBtn = lb)
+            }
+        },
+    )
+}
+
 @Composable
 private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modifier) {
     if (st.phase != CallPhase.CONNECTED && st.phase != CallPhase.CONNECTING && st.phase != CallPhase.RINGING) return
@@ -586,7 +750,13 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
 }
 
 @Composable
-private fun Controls(calls: CallManager, st: CallUiState, answer: (Boolean) -> Unit, onCam: () -> Unit, onShare: () -> Unit, onMic: () -> Unit) {
+private fun Controls(
+    calls: CallManager, st: CallUiState, answer: (Boolean) -> Unit, onCam: () -> Unit, onShare: () -> Unit, onMic: () -> Unit,
+    /** Meeting-Ansicht: Layout-Knopf rechts vom Lautsprecher, vor Auflegen */
+    layoutBtn: (@Composable (androidx.compose.ui.unit.Dp) -> Unit)? = null,
+    /** MEETING-SPEC §8 Handy quer: Knoepfe rechts senkrecht (56 dp Spalte, ohne Beschriftung) */
+    vertical: Boolean = false,
+) {
     val flat = LocalFlatCall.current
     when (st.phase) {
         // Design 2: Annehmen/Ablehnen mit breiteren Spalten - "Mit Audio annehmen" passt in zwei Zeilen statt "…"
@@ -638,7 +808,19 @@ private fun Controls(calls: CallManager, st: CallUiState, answer: (Boolean) -> U
                     if (st.speaker) MaterialTheme.colorScheme.primary else tc, if (st.speaker) MaterialTheme.colorScheme.onPrimary else tf,
                     selected = st.speaker, compact = compact, col = col,
                 ) { calls.toggleSpeaker() } }
-                add { col -> RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = compact, col = col) { calls.hangup() } }
+                if (layoutBtn != null) add { col -> layoutBtn(col) }
+                add { col -> RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = compact || layoutBtn != null, col = col) { calls.hangup() } }
+            }
+            if (vertical) {
+                Surface(color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(32.dp)) {
+                    androidx.compose.foundation.layout.BoxWithConstraints(Modifier.width(64.dp).fillMaxHeight().padding(vertical = 6.dp)) {
+                        val col = minOf(56.dp, maxHeight / buttons.size)
+                        Column(Modifier.fillMaxHeight().width(64.dp), verticalArrangement = Arrangement.SpaceEvenly, horizontalAlignment = Alignment.CenterHorizontally) {
+                            buttons.forEach { b -> Box(Modifier.height(col), contentAlignment = Alignment.Center) { b(col) } }
+                        }
+                    }
+                }
+                return
             }
             // Design 2: schwebende Knopfleiste (abgerundete Flaeche, auch ueber Video lesbar)
             Surface(
@@ -701,12 +883,16 @@ private fun ShareBar(calls: CallManager, st: CallUiState) {
  * Personen ohne Saga 2.4 (werden nicht eingeladen).
  */
 @Composable
-private fun RoomLine(st: CallUiState, onDark: Boolean) {
+private fun RoomLine(st: CallUiState, onDark: Boolean, persons: Int? = null) {
     val room = st.room ?: return
     if (st.phase == CallPhase.INCOMING || st.phase == CallPhase.ENDED) return
     val fg = if (onDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
     val parts = buildList {
-        if (room.horn == null && !room.dm && (room.kind == CallRoom.KIND_GROUP || room.endpoints > 2)) add(stringResource(R.string.room_devices_of, room.endpoints, room.limit))
+        // MEETING-SPEC §4.1: der Zaehler zaehlt Personen; Geraete erst ab Grenze - 2
+        if (room.horn == null && !room.dm && (room.kind == CallRoom.KIND_GROUP || room.endpoints > 2)) {
+            if (persons != null && room.endpoints < room.limit - 2) add(meetPersons(persons))
+            else add(stringResource(R.string.room_devices_of, room.endpoints, room.limit))
+        }
         if (room.companion) add(stringResource(R.string.room_companion_hint))
         if (room.takingOver) add(stringResource(R.string.room_taking_over))
     }
@@ -835,6 +1021,8 @@ internal fun RoundButton(
     col: androidx.compose.ui.unit.Dp? = null,
     /** Design 2: ausgeschaltet (Mikrofon/Kamera aus) - Kreis wird zum abgerundeten Quadrat (zusaetzlich zur Farbe) */
     off: Boolean = false,
+    /** Screenreader-Text, wenn er von der sichtbaren Beschriftung abweicht ("Layout, Auto" zu "Layout") */
+    cd: String? = null,
     onClick: () -> Unit,
 ) {
     // col: Spaltenbreite der Reihe (2.5) - Kreis passt hinein (mind. 44 dp, Zielgroesse fuer Finger)
@@ -845,7 +1033,7 @@ internal fun RoundButton(
             onClick = onClick,
             colors = IconButtonDefaults.filledIconButtonColors(containerColor = bg, contentColor = fg),
             modifier = Modifier.size(size).semantics {
-                contentDescription = label
+                contentDescription = cd ?: label
                 if (selected != null) this.selected = selected
             },
             shape = RoundedCornerShape(androidx.compose.animation.core.animateIntAsState(if (off) 30 else 50, label = "shape").value),

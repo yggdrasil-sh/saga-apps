@@ -185,6 +185,10 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         private set
     val speaking = HashSet<String>()
     private val speakAt = HashMap<String, Long>()
+    /** Meeting-Ansicht: letzte Pegel je Geraet (Sprecher-Hysterese im CallManager) und wann gemessen */
+    val levelsNow = HashMap<String, Double>()
+    var levelsAt = 0L
+        private set
     var runes: HornE2E.RuneSeal? = null
         private set
     private var runesKey = ""
@@ -1315,6 +1319,9 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         c.q = HornLogic.quality(c.net)
         c.bytesIn = bytes
         // Sprechring (Pegel der Tonplaetze), 600 ms Nachlauf; stumme Geraete nie
+        levelsNow.clear()
+        for ((d, lv) in levels) if (st[d]?.first != false) levelsNow[d] = lv
+        levelsAt = now
         for ((d, lv) in levels) if (lv > 0.03 && st[d]?.first != false) speakAt[d] = now
         speaking.clear()
         for ((d, t) in speakAt) if (now - t < 3600) speaking.add(d)

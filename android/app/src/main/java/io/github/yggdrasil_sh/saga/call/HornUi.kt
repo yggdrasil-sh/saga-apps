@@ -155,7 +155,11 @@ private fun qualityText(q: String): String = when (q) {
  * Teilnehmende, Ansicht (Kacheln / Sprecher).
  */
 @Composable
-fun HornBar(ui: HornUi, onDark: Boolean, limit: Int = 0, dm: Boolean = false, onRunes: () -> Unit, onPeople: () -> Unit, onView: () -> Unit) {
+fun HornBar(
+    ui: HornUi, onDark: Boolean, limit: Int = 0, dm: Boolean = false, onRunes: () -> Unit, onPeople: () -> Unit, onView: () -> Unit,
+    /** Meeting-Ansicht: Personen statt Geraete zaehlen; ohne Ansicht-Knopf (das macht der Layout-Knopf) */
+    persons: Int? = null,
+) {
     val fg = if (onDark) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
     val chipBg = if (onDark) Color(0x66101114) else MaterialTheme.colorScheme.surfaceContainerHigh
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(top = 6.dp)) {
@@ -180,7 +184,7 @@ fun HornBar(ui: HornUi, onDark: Boolean, limit: Int = 0, dm: Boolean = false, on
                     Text(ui.runes, color = fg, fontSize = 15.sp, letterSpacing = 2.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 2.dp))
                 }
             }
-            val pl = stringResource(R.string.horn_people, ui.people.size)
+            val pl = if (persons != null) meetPersons(persons) else stringResource(R.string.horn_people, ui.people.size)
             // ANRUF-UI: im 1:1 kein Teilnehmenden-Chip (wie iOS und Web)
             if (!dm) Surface(
                 color = chipBg, shape = RoundedCornerShape(50),
@@ -189,12 +193,12 @@ fun HornBar(ui: HornUi, onDark: Boolean, limit: Int = 0, dm: Boolean = false, on
                 Row(Modifier.padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(painterResource(R.drawable.ic_group), null, Modifier.size(16.dp), tint = fg)
                     val n = ui.people.size
-                    Text(if (limit > 0 && n >= limit - 2) "$n/$limit" else "$n", color = fg, style = MaterialTheme.typography.labelMedium,
+                    Text(if (limit > 0 && n >= limit - 2) "$n/$limit" else "${persons ?: n}", color = fg, style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier.padding(start = 4.dp))
                 }
             }
             val vl = stringResource(if (ui.view == "speaker") R.string.horn_view_grid else R.string.horn_view_speaker)
-            Surface(
+            if (persons == null) Surface(
                 color = chipBg, shape = RoundedCornerShape(50),
                 modifier = Modifier.minimumInteractiveComponentSize().clip(RoundedCornerShape(50)).clickable(role = Role.Button) { onView() }.semantics { contentDescription = vl },
             ) {
