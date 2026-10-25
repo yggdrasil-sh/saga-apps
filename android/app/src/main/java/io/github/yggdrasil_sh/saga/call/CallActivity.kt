@@ -209,7 +209,8 @@ class CallActivity : ComponentActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         if (intent?.action == ACTION_ANSWER) answerRequest++
         setContent {
-            SagaTheme {
+            // Design 2: Anrufe immer im Nachtblau von Saga (ruhig, Video wirkt, Knoepfe gleich in hell und dunkel)
+            SagaTheme(dark = true) {
                 val st by calls.ui.collectAsState()
                 LaunchedEffect(st == null) { if (st == null) finish() }
                 // PiP-Parameter aktuell halten: Seitenverhaeltnis des Fernbilds, Stumm-Knopf, Auto-Enter nur mit Video
@@ -371,7 +372,7 @@ private fun CallScreen(
     // 2.4 E5: Kachelansicht (Gruppe bzw. mehrere sichtbare Verbindungen); im Bild-im-Bild der aktive Sprecher gross
     val meshOn = room?.mesh == true && st.phase != CallPhase.INCOMING && st.phase != CallPhase.ENDED && !pip
     val showVideo = st.remoteVideo && st.phase == CallPhase.CONNECTED && !meshOn
-    Box(Modifier.fillMaxSize().background(if (showVideo || pip) Color.Black else MaterialTheme.colorScheme.surface)) {
+    Box(Modifier.fillMaxSize().then(if (showVideo || pip) Modifier.background(Color.Black) else Modifier.background(CallDesign.backdrop))) {
         if (st.phase != CallPhase.INCOMING && st.phase != CallPhase.ENDED) {
             // Bild des Gegenuebers eingepasst (ganzes Bild, Rand schwarz): SurfaceViewRenderer schneidet bei fester
             // Groesse auf das Seitenverhaeltnis der Ansicht zu - daher die Ansicht selbst auf das Videoformat begrenzen.
@@ -443,14 +444,17 @@ private fun CallScreen(
             } else if (meshOn) TileGrid(calls, st, Modifier.weight(1f).fillMaxWidth().padding(vertical = 8.dp))
             else Spacer(Modifier.weight(1f))
             if (!showVideo && !meshOn) {
-                if (room?.kind == CallRoom.KIND_GROUP && room.dm != true && st.peer.avatar == null) Box(
-                    Modifier.size(112.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center,
-                ) { Icon(painterResource(R.drawable.ic_group), null, Modifier.size(52.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-                else Avatar(st.peer.shown, size = if (flat) 64 else 112, avatar = st.peer.avatar)
+                // Design 2: Profilkreis in der Farbe der Person, beim Klingeln/Verbinden mit langsam laufenden Ringen
+                val waiting = st.phase == CallPhase.INCOMING || st.phase == CallPhase.PREPARING || st.phase == CallPhase.RINGING || st.phase == CallPhase.CONNECTING
+                val groupIcon = room?.kind == CallRoom.KIND_GROUP && room.dm != true && st.peer.avatar == null
+                CallHaloAvatar(
+                    st.peer.shown, if (flat) 64.dp else 120.dp, waiting = waiting && st.phase != CallPhase.ENDED, avatar = st.peer.avatar,
+                    icon = if (groupIcon) R.drawable.ic_group else null,
+                )
                 Text(
-                    st.peer.shown, style = MaterialTheme.typography.headlineSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(top = if (flat) 6.dp else 16.dp).semantics { heading() }, textAlign = TextAlign.Center,
+                    st.peer.shown, style = if (flat) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurface, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = if (flat) 4.dp else 12.dp, start = 16.dp, end = 16.dp).semantics { heading() }, textAlign = TextAlign.Center,
                 )
             }
             val status = when {
@@ -583,58 +587,79 @@ private fun InfoLine(st: CallUiState, onDark: Boolean, modifier: Modifier = Modi
 
 @Composable
 private fun Controls(calls: CallManager, st: CallUiState, answer: (Boolean) -> Unit, onCam: () -> Unit, onShare: () -> Unit, onMic: () -> Unit) {
+    val flat = LocalFlatCall.current
     when (st.phase) {
-        CallPhase.INCOMING -> Row(Modifier.fillMaxWidth().padding(bottom = if (LocalFlatCall.current) 4.dp else 24.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
-            RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_decline), CallLabels.HANGUP_BG, Color.White) { calls.decline() }
-            if (st.video) {
-                RoundButton(R.drawable.ic_call, stringResource(R.string.call_answer_audio), CALL_GREEN, Color.White) { answer(false) }
-                RoundButton(R.drawable.ic_videocam, stringResource(R.string.call_answer_video), CALL_GREEN, Color.White, big = true) { answer(true) }
-            } else {
-                RoundButton(R.drawable.ic_call, stringResource(R.string.call_answer), CALL_GREEN, Color.White, big = true) { answer(false) }
+        // Design 2: Annehmen/Ablehnen mit breiteren Spalten - "Mit Audio annehmen" passt in zwei Zeilen statt "…"
+        CallPhase.INCOMING -> androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = if (flat) 4.dp else 28.dp)) {
+            val col = minOf(120.dp, maxWidth / 3)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
+                RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_decline), CallLabels.HANGUP_BG, Color.White, big = true, col = col) { calls.decline() }
+                if (st.video) {
+                    RoundButton(R.drawable.ic_call, stringResource(R.string.call_answer_audio), CALL_GREEN, Color.White, big = true, col = col) { answer(false) }
+                    RoundButton(R.drawable.ic_videocam, stringResource(R.string.call_answer_video), CALL_GREEN, Color.White, big = true, col = col) { answer(true) }
+                } else {
+                    RoundButton(R.drawable.ic_call, stringResource(R.string.call_answer), CALL_GREEN, Color.White, big = true, col = col) { answer(false) }
+                }
             }
         }
         CallPhase.ENDED -> TextButton(onClick = { calls.dismiss() }, modifier = Modifier.padding(bottom = 24.dp)) { Text(stringResource(R.string.action_close)) }
-        else -> androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = if (LocalFlatCall.current) 2.dp else 24.dp)) {
-          // 2.5: Spaltenbreite aus der tatsaechlichen Breite (bis sechs Knoepfe): mit festen 64 dp passten sie auf schmalen
-          // Geraeten bzw. grosser Anzeigegroesse nicht in eine Reihe (abgeschnitten), auch nach dem Drehen
-          val n = 3 + (if (st.cam) 1 else 0) + (if (st.phase == CallPhase.CONNECTED) 1 else 0) + 1
-          val col = minOf(72.dp, maxWidth / n)
-          Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
-            val tc = MaterialTheme.colorScheme.secondaryContainer
-            val tf = MaterialTheme.colorScheme.onSecondaryContainer
-            // 2.4 E3: "Bildschirm teilen" nur im verbundenen Anruf; bei sechs Knoepfen etwas kleiner (schmale Telefone)
+        else -> {
+            val tc = MaterialTheme.colorScheme.surfaceContainerHighest
+            val tf = MaterialTheme.colorScheme.onSurface
+            // aus: helle Flaeche mit dunklem Symbol (wie bisher inverseSurface), Form wechselt zum abgerundeten Quadrat
+            val offBg = MaterialTheme.colorScheme.inverseSurface
+            val offFg = MaterialTheme.colorScheme.inverseOnSurface
+            // 2.4 E3: "Bildschirm teilen" nur im verbundenen Anruf; 2.4 E4: Begleitgeraet - eigener Knopf "Ton an/aus"
             val share = st.phase == CallPhase.CONNECTED
-            // 2.4 E4: Begleitgeraet - eigener Knopf "Ton an/aus" (Wiedergabe), statt Lautsprecher solange stumm
             val room = st.room
             val compact = share && st.cam || room?.companion == true
-            RoundButton(
-                if (st.mic) R.drawable.ic_mic else R.drawable.ic_mic_off, stringResource(if (st.mic) R.string.call_mute else R.string.call_unmute),
-                if (st.mic) tc else MaterialTheme.colorScheme.inverseSurface, if (st.mic) tf else MaterialTheme.colorScheme.inverseOnSurface,
-                compact = compact, col = col,
-            ) { onMic() }
-            RoundButton(
-                if (st.cam) R.drawable.ic_videocam else R.drawable.ic_videocam_off, stringResource(if (st.cam) R.string.call_cam_off else R.string.call_cam_on),
-                if (st.cam) tc else MaterialTheme.colorScheme.inverseSurface, if (st.cam) tf else MaterialTheme.colorScheme.inverseOnSurface,
-                compact = compact, col = col,
-            ) { onCam() }
-            if (st.cam) RoundButton(R.drawable.ic_cameraswitch, stringResource(R.string.call_switch_camera), tc, tf, compact = compact, col = col) { calls.switchCamera() }
-            if (share) RoundButton(
-                R.drawable.ic_screen_share, stringResource(if (st.sharing) R.string.call_screen_stop else R.string.call_screen_share),
-                if (st.sharing) SHARE_RED else tc, if (st.sharing) Color.White else tf, selected = st.sharing, compact = compact, col = col,
-            ) { onShare() }
-            if (room != null && (room.companion || !room.playback)) RoundButton(
-                if (room.playback) R.drawable.ic_volume_up else R.drawable.ic_volume_off,
-                stringResource(if (room.playback) R.string.room_sound_off else R.string.room_sound_on),
-                if (room.playback) tc else MaterialTheme.colorScheme.inverseSurface, if (room.playback) tf else MaterialTheme.colorScheme.inverseOnSurface,
-                selected = room.playback, compact = compact, col = col,
-            ) { calls.togglePlayback() }
-            else RoundButton(
-                R.drawable.ic_volume_up, stringResource(R.string.call_speaker),
-                if (st.speaker) MaterialTheme.colorScheme.primary else tc, if (st.speaker) MaterialTheme.colorScheme.onPrimary else tf,
-                selected = st.speaker, compact = compact, col = col,
-            ) { calls.toggleSpeaker() }
-            RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = compact, col = col) { calls.hangup() }
-          }
+            val buttons = buildList<@Composable (androidx.compose.ui.unit.Dp) -> Unit> {
+                add { col -> RoundButton(
+                    if (st.mic) R.drawable.ic_mic else R.drawable.ic_mic_off, stringResource(if (st.mic) R.string.call_mute else R.string.call_unmute),
+                    if (st.mic) tc else offBg, if (st.mic) tf else offFg, compact = compact, col = col, off = !st.mic,
+                ) { onMic() } }
+                add { col -> RoundButton(
+                    if (st.cam) R.drawable.ic_videocam else R.drawable.ic_videocam_off, stringResource(if (st.cam) R.string.call_cam_off else R.string.call_cam_on),
+                    if (st.cam) tc else offBg, if (st.cam) tf else offFg, compact = compact, col = col, off = !st.cam,
+                ) { onCam() } }
+                if (st.cam) add { col -> RoundButton(R.drawable.ic_cameraswitch, stringResource(R.string.call_switch_camera), tc, tf, compact = compact, col = col) { calls.switchCamera() } }
+                if (share) add { col -> RoundButton(
+                    R.drawable.ic_screen_share, stringResource(if (st.sharing) R.string.call_screen_stop else R.string.call_screen_share),
+                    if (st.sharing) SHARE_RED else tc, if (st.sharing) Color.White else tf, selected = st.sharing, compact = compact, col = col,
+                ) { onShare() } }
+                if (room != null && (room.companion || !room.playback)) add { col -> RoundButton(
+                    if (room.playback) R.drawable.ic_volume_up else R.drawable.ic_volume_off,
+                    stringResource(if (room.playback) R.string.room_sound_off else R.string.room_sound_on),
+                    if (room.playback) tc else offBg, if (room.playback) tf else offFg,
+                    selected = room.playback, compact = compact, col = col, off = !room.playback,
+                ) { calls.togglePlayback() } }
+                else add { col -> RoundButton(
+                    R.drawable.ic_volume_up, stringResource(R.string.call_speaker),
+                    if (st.speaker) MaterialTheme.colorScheme.primary else tc, if (st.speaker) MaterialTheme.colorScheme.onPrimary else tf,
+                    selected = st.speaker, compact = compact, col = col,
+                ) { calls.toggleSpeaker() } }
+                add { col -> RoundButton(R.drawable.ic_call_end, stringResource(R.string.call_hangup), CallLabels.HANGUP_BG, Color.White, compact = compact, col = col) { calls.hangup() } }
+            }
+            // Design 2: schwebende Knopfleiste (abgerundete Flaeche, auch ueber Video lesbar)
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.92f), shape = RoundedCornerShape(if (flat) 28.dp else 36.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = if (flat) 2.dp else 16.dp),
+            ) {
+                androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = if (flat) 4.dp else 10.dp)) {
+                    // 2.5: Spaltenbreite aus der tatsaechlichen Breite; Design 2: bei grosser Schrift zwei Reihen statt
+                    // zerschnittener Woerter ("Came-ra off") - flach (ohne Beschriftung) immer eine Reihe
+                    val rows = CallLayout.controlRows(buttons.size, LocalDensity.current.fontScale, flat, maxWidth.value)
+                    val perRow = (buttons.size + rows - 1) / rows
+                    val col = minOf(if (rows > 1) 96.dp else 72.dp, maxWidth / perRow)
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        buttons.chunked(perRow).forEach { line ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.Top) {
+                                line.forEach { it(col) }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -751,7 +776,7 @@ private fun Tile(calls: CallManager, t: CallTile, self: Boolean, modifier: Modif
             val sink = if (self) calls.localSink else calls.tileSink(t.device)
             if (sink != null) VideoView(calls, remote = !self, visible = true, modifier = Modifier.fillMaxSize(), sink = sink, overlay = true)
         } else {
-            Avatar(t.name, size = 64)
+            io.github.yggdrasil_sh.saga.ui.chat.ChatAvatar(t.name, 64.dp)
         }
         Row(
             Modifier.align(Alignment.BottomStart).padding(6.dp).background(Color(0x99101114), RoundedCornerShape(8.dp))
@@ -808,6 +833,8 @@ private fun ScreenHintDialog(group: Boolean, onDismiss: () -> Unit, onContinue: 
 internal fun RoundButton(
     icon: Int, label: String, bg: Color, fg: Color, big: Boolean = false, selected: Boolean? = null, compact: Boolean = false,
     col: androidx.compose.ui.unit.Dp? = null,
+    /** Design 2: ausgeschaltet (Mikrofon/Kamera aus) - Kreis wird zum abgerundeten Quadrat (zusaetzlich zur Farbe) */
+    off: Boolean = false,
     onClick: () -> Unit,
 ) {
     // col: Spaltenbreite der Reihe (2.5) - Kreis passt hinein (mind. 44 dp, Zielgroesse fuer Finger)
@@ -821,7 +848,7 @@ internal fun RoundButton(
                 contentDescription = label
                 if (selected != null) this.selected = selected
             },
-            shape = CircleShape,
+            shape = RoundedCornerShape(androidx.compose.animation.core.animateIntAsState(if (off) 30 else 50, label = "shape").value),
         ) {
             Icon(painterResource(icon), null, Modifier.size(if (big) 34.dp else if (compact || size < 56.dp) 24.dp else 28.dp))
         }
@@ -956,6 +983,13 @@ internal val LocalFlatCall = androidx.compose.runtime.staticCompositionLocalOf {
 internal object CallLayout {
     /** quer und niedrig (Telefon quer, auch grosse Anzeige) - Tablets quer bleiben beim normalen Layout */
     fun flat(widthDp: Int, heightDp: Int): Boolean = widthDp > heightDp && heightDp in 1..499
+
+    /**
+     * Design 2: Reihen der Knopfleiste - flach (ohne Beschriftung) immer eine; ab fuenf Knoepfen zwei Reihen, wenn die
+     * Schrift gross ist (>= 130 %) oder eine Spalte schmaler als 60 dp wuerde (sonst zerfallen die Beschriftungen).
+     */
+    fun controlRows(n: Int, fontScale: Float, flat: Boolean, widthDp: Float): Int =
+        if (flat || n < 5) 1 else if (fontScale >= 1.3f || widthDp / n < 60f) 2 else 1
 }
 
 /** V1: Kopf des Anrufs - hoch untereinander, flach nebeneinander (umbrechend) */

@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.call
 
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -236,9 +237,9 @@ fun HornStage(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (strip) {
             val bigTile = tiles.firstOrNull { it.big }
-            Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(14.dp)).background(Color.Black), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(io.github.yggdrasil_sh.saga.ui.theme.SagaRadius.l)).background(Color.Black), contentAlignment = Alignment.Center) {
                 if (ui.screenFrom != null || bigTile?.video == true) big(Modifier.fillMaxSize())
-                else if (bigTile != null) Avatar(bigTile.name, size = 96, avatar = bigTile.avatar)
+                else if (bigTile != null) io.github.yggdrasil_sh.saga.ui.chat.ChatAvatar(bigTile.name, 96.dp, avatar = bigTile.avatar)
                 val label = ui.screenFrom?.let { stringResource(R.string.call_screen_peer, it) } ?: bigTile?.name
                 if (label != null) Text(
                     label, color = Color.White, style = MaterialTheme.typography.labelLarge,
@@ -286,7 +287,7 @@ fun HornStage(
 @Composable
 private fun MoreTile(n: Int, modifier: Modifier) {
     val cd = stringResource(R.string.horn_more_cd, n)
-    Box(modifier.clip(RoundedCornerShape(14.dp)).background(TILE_BG).semantics { contentDescription = cd }, contentAlignment = Alignment.Center) {
+    Box(modifier.clip(RoundedCornerShape(io.github.yggdrasil_sh.saga.ui.theme.SagaRadius.l)).background(TILE_BG).semantics { contentDescription = cd }, contentAlignment = Alignment.Center) {
         Text("+$n", color = Color.White, style = MaterialTheme.typography.titleLarge)
     }
 }
@@ -303,19 +304,23 @@ private fun Tile(
     val speaking = stringResource(R.string.room_speaking)
     val muted = stringResource(R.string.room_muted)
     val desc = listOfNotNull(label, speaking.takeIf { t.speaking }, muted.takeIf { !t.mic }).joinToString(", ")
+    // Design 2: weichere Kacheln; ohne Bild in einem dunklen Hauch der Personenfarbe statt einheitlich grau
+    val tileShape = RoundedCornerShape(io.github.yggdrasil_sh.saga.ui.theme.SagaRadius.l)
+    val tint = io.github.yggdrasil_sh.saga.ui.chat.ChatDesign.tone(t.name, dark = true).bg
     Box(
-        modifier.clip(RoundedCornerShape(14.dp)).background(TILE_BG)
-            .then(if (t.speaking) Modifier.border(3.dp, SPEAK, RoundedCornerShape(14.dp)) else Modifier)
+        modifier.clip(tileShape)
+            .background(if (t.video) androidx.compose.ui.graphics.SolidColor(TILE_BG) else androidx.compose.ui.graphics.Brush.verticalGradient(listOf(tint.copy(alpha = 0.55f).compositeOver(TILE_BG), TILE_BG)))
+            .then(if (t.speaking) Modifier.border(3.dp, SPEAK, tileShape) else Modifier)
             .then(if (!self) Modifier.clickable(onClickLabel = stringResource(R.string.horn_view_speaker)) { onPin(t.dev) } else Modifier)
             .semantics(mergeDescendants = true) { contentDescription = desc },
         contentAlignment = Alignment.Center,
     ) {
         if (t.video) {
             if (self) selfVideo(Modifier.fillMaxSize()) else video(t, Modifier.fillMaxSize())
-        } else Avatar(t.name, size = 56, avatar = t.avatar)
+        } else io.github.yggdrasil_sh.saga.ui.chat.ChatAvatar(t.name, 64.dp, avatar = t.avatar)
         Row(
-            Modifier.align(Alignment.BottomStart).padding(6.dp).background(Color(0xB3101114), RoundedCornerShape(8.dp))
-                .padding(horizontal = 6.dp, vertical = 2.dp),
+            Modifier.align(Alignment.BottomStart).padding(8.dp).background(Color(0xB3101114), RoundedCornerShape(50))
+                .padding(horizontal = 8.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (!t.mic) Icon(painterResource(R.drawable.ic_mic_off), null, Modifier.size(14.dp), tint = Color.White)
