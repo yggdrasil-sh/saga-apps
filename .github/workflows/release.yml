@@ -245,7 +245,14 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER: ${{ secrets.ASC_ISSUER_ID }}
           SAGA_VERSION_LABEL: ${{ needs.version.outputs.label }}
-        run: sh ios/build-dmg.sh
+        shell: bash
+        run: |
+          set -o pipefail
+          sh ios/build-dmg.sh 2>&1 | tee "$RUNNER_TEMP/dmg.log"
+      - name: Fehler als Hinweise (lesbar ueber die API, ohne Log-Download)
+        if: failure()
+        shell: bash
+        run: grep -E "error:|FEHLER|abgelehnt" "$RUNNER_TEMP/dmg.log" | sort -u | head -20 | sed 's/^/::error::/' || true
       - if: steps.keys.outputs.skip != '1'
         uses: actions/upload-artifact@v4
         with:
