@@ -4,6 +4,7 @@ import Foundation
 func callUITests() {
     typealias L = CallLogic
     controlsHideTests()
+    selfPipSizeTests()
     let cid = String(repeating: "ab", count: 16)
 
     // Vollbild: laeuft und nicht verkleinert -> ja; verkleinert -> nein (Anruf laeuft weiter)
@@ -74,4 +75,27 @@ private func controlsHideTests() {
     check(!h(60, menu: true), "offenes Menue/Hinweis: nicht ausblenden")
     check(!h(60, notice: true), "wichtige Meldung: nicht ausblenden")
     for p in ["preparing", "ringingOut", "connecting", "incoming", "ended", "idle"] { check(!h(60, phase: p), "\(p): nicht ausblenden") }
+}
+
+// 2.5: Rahmen des eigenen Bilds folgt dem Seitenverhaeltnis des eigenen Videos (Mac quer, iPhone hoch)
+private func selfPipSizeTests() {
+    typealias L = CallLogic
+    func r(_ x: (w: Double, h: Double)) -> Double { x.w / x.h }
+    let mac = L.selfPipSize(aspect: 16.0 / 9, fallback: 16.0 / 9, width: 900, avail: 700)
+    check(mac.w > mac.h && abs(r(mac) - 16.0 / 9) < 0.02, "Mac-Kamera quer: breiter Rahmen im Verhaeltnis 16:9")
+    check(mac.w == 198, "Mac 900 breit: 22 % = 198")
+    check(L.selfPipSize(aspect: 16.0 / 9, fallback: 1, width: 3000, avail: 2000).w == 280, "sehr breites Fenster: hoechstens 280")
+    check(L.selfPipSize(aspect: 16.0 / 9, fallback: 1, width: 300, avail: 2000).w == 120, "schmales Fenster: mindestens 120")
+    let phone = L.selfPipSize(aspect: 9.0 / 16, fallback: 9.0 / 16, width: 393, avail: 600)
+    check(phone.h > phone.w && abs(r(phone) - 9.0 / 16) < 0.02, "iPhone hoch: hoher Rahmen 9:16")
+    check(phone.w >= 90 && phone.w <= 160, "iPhone: Breite in den Grenzen")
+    let pad = L.selfPipSize(aspect: 4.0 / 3, fallback: 3.0 / 4, width: 1180, avail: 700)
+    check(pad.w > pad.h, "iPad quer gedreht: Rahmen wird breit")
+    let none = L.selfPipSize(aspect: nil, fallback: 16.0 / 9, width: 900, avail: 700)
+    check(none == mac, "noch kein Bild (Kamera aus/startet): Rueckfall-Verhaeltnis")
+    check(r(L.selfPipSize(aspect: 10, fallback: 1, width: 900, avail: 700)) <= 2.01, "unsinniges Verhaeltnis begrenzt")
+    check(r(L.selfPipSize(aspect: .nan, fallback: 16.0 / 9, width: 900, avail: 700)) > 1.7, "NaN: Rueckfall")
+    let low = L.selfPipSize(aspect: 9.0 / 16, fallback: 1, width: 393, avail: 200)
+    check(low.h <= 96 && abs(r(low) - 9.0 / 16) < 0.03, "wenig Hoehe (quer): kleiner im gleichen Verhaeltnis")
+    check(L.videoAspect(width: 1280, height: 720) == 1280.0 / 720 && L.videoAspect(width: 0, height: 720) == nil, "Verhaeltnis aus Videogroesse")
 }

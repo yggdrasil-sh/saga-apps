@@ -63,12 +63,12 @@ struct HornStage: View {
         }
     }
     private func duo(other: HornTile, me: HornTile, size: CGSize) -> some View {
-        let w: CGFloat = size.width <= 640 ? 110 : 180, h = w * 16 / 11
-        // eigenes Bild in einer Ecke (Start oben rechts unter den Knoepfen); ziehen rastet ein, ausblendbar (wie 1:1)
+        // eigenes Bild in einer Ecke (Start oben rechts unter den Knoepfen); ziehen rastet ein, ausblendbar (wie 1:1);
+        // 2.5: Rahmen im Seitenverhaeltnis des eigenen Videos (CallLogic.selfPipSize)
         return ZStack(alignment: .topLeading) {
             tile(other).frame(maxWidth: .infinity, maxHeight: .infinity)
-            SelfPip(size: CGSize(width: w, height: h), top: 50, bottom: 8, side: 8) {
-                tile(me, compact: true)
+            SelfPip(aspect: calls.selfAspect, fallback: SelfPipDefaults.aspect, top: 50, bottom: 8, side: 8) {
+                HornTileView(tile: me, compact: true, onVideoSize: { sz in Task { @MainActor in calls.noteSelfSize(sz) } })
                     .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.3)))
             }
         }
@@ -138,12 +138,14 @@ struct HornStage: View {
 struct HornTileView: View {
     let tile: HornTile
     var compact = false
+    /// 2.5: Videogroesse melden (eigene Kachel als Eigenbild)
+    var onVideoSize: ((CGSize) -> Void)? = nil
     @Environment(\.hornPreviewFill) private var previewFill
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             Color.white.opacity(0.08)
             if let v = tile.video, tile.cam {
-                RTCVideoBox(track: v, mirror: tile.mirror, fill: true)
+                RTCVideoBox(track: v, mirror: tile.mirror, fill: true, onSize: onVideoSize)
             } else if previewFill && tile.moving && tile.cam {
                 HornPreviewPicture(seed: tile.id).accessibilityHidden(true)   // nur Bilder (Debug)
             } else {

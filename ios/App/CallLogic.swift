@@ -214,6 +214,21 @@ enum CallLogic {
         let nh = min(h, max(h / 2, ((avail - 8) / 2).rounded(.down)))
         return ((w * nh / h).rounded(.down), nh)
     }
+    /// 2.5: Rahmen des eigenen Bilds im Seitenverhaeltnis des eigenen Videos (Breite/Hoehe nach Drehung), damit das
+    /// Video ihn ganz fuellt (kein leerer Rand oben/unten, Mac-Kamera quer = breiter Rahmen, iPhone hoch = hoher).
+    /// Breite ca. 22 % (quer) bzw. 26 % (hoch) der Flaeche mit Unter-/Obergrenze; aspect nil = fallback (noch kein Bild).
+    /// Danach wie V5: passt es nicht zweimal uebereinander in avail, im gleichen Verhaeltnis kleiner.
+    static func selfPipSize(aspect: Double?, fallback: Double, width cw: Double, avail: Double) -> (w: Double, h: Double) {
+        var a = aspect ?? fallback
+        if !(a.isFinite && a > 0) { a = fallback > 0 ? fallback : 9.0 / 16 }
+        a = min(2.0, max(0.5, a))
+        let w = a >= 1 ? min(280, max(120, 0.22 * cw)) : min(160, max(90, 0.26 * cw))
+        let h = (w / a).rounded(.down)
+        return pipSize(w: w.rounded(.down), h: h, avail: avail)
+    }
+    /// Seitenverhaeltnis aus der gemeldeten Videogroesse (nil bei 0)
+    static func videoAspect(width: Double, height: Double) -> Double? { width > 0 && height > 0 ? width / height : nil }
+
     /// V5: Ecke aus der Mitte des Bilds nach dem Loslassen (0 oben links, 1 oben rechts, 2 unten links, 3 unten rechts);
     /// top/bottom = Ober- und Unterkante der erlaubten Flaeche
     static func pipCorner(x: Double, y: Double, width: Double, top: Double, bottom: Double) -> Int {

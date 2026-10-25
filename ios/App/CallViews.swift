@@ -5,6 +5,17 @@ import WebRTC
 // Stumm/Kamera/Lautsprecher/Auflegen, "Ende-zu-Ende verschluesselt" erst nach der Pruefung des DTLS-Fingerabdrucks.
 // iPhone/iPad: Vollbild ueber der App; Mac: eigenes Fenster "Anruf" (HlidskjalfApp).
 
+/// 2.5: Verhaeltnis des eigenen Bilds, solange die Kamera noch keins gemeldet hat (iPhone hoch, iPad/Mac quer)
+enum SelfPipDefaults {
+    static var aspect: Double {
+        #if os(iOS)
+        return UIDevice.current.userInterfaceIdiom == .phone ? 9.0 / 16 : 4.0 / 3
+        #else
+        return 16.0 / 9
+        #endif
+    }
+}
+
 /// Zeitpunkt der letzten Bedienung (ohne Neuzeichnen setzbar)
 final class PokeClock { var t = Date() }
 
@@ -106,8 +117,9 @@ struct CallScreen: View {
             .padding(.horizontal, 20).padding(.vertical, flat ? 6 : 24)
             if calls.cam, let t = calls.localVideo, calls.phase != .incoming, calls.phase != .ended, !showHorn {   // Knoten: eigene Kachel
                 // 2.5: in eine Ecke ziehen (rastet ein) oder ausblenden - unter der Kopfzeile, ueber den Knoepfen
-                SelfPip(size: CGSize(width: 110, height: 160), top: topInset, bottom: bottomInset, side: 16) {
-                    RTCVideoBox(track: t, mirror: calls.frontCamera)             // Rueckkamera nicht spiegeln (Schrift lesbar)
+                SelfPip(aspect: calls.selfAspect, fallback: SelfPipDefaults.aspect, top: topInset, bottom: bottomInset, side: 16) {
+                    RTCVideoBox(track: t, mirror: calls.frontCamera, fill: true,   // Rueckkamera nicht spiegeln (Schrift lesbar)
+                                onSize: { sz in Task { @MainActor in calls.noteSelfSize(sz) } })
                         .accessibilityLabel(Text("Eigenes Kamerabild"))
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.3)))
@@ -867,7 +879,9 @@ struct CallRunBar: View {
 /// Knopf in der Ecke, Tippen zeigt es wieder). Ecke und Ausblenden merkt sich das Geraet fuer alle Anrufe.
 /// top/bottom/side: freier Rand (Kopfzeile oben, Steuerknoepfe unten)
 struct SelfPip<Content: View>: View {
-    var size: CGSize
+    /// 2.5: Seitenverhaeltnis des eigenen Videos (nil = noch keins gemeldet, dann fallback); Groesse: CallLogic.selfPipSize
+    var aspect: Double?
+    var fallback: Double
     var top: CGFloat
     var bottom: CGFloat
     var side: CGFloat = 16
@@ -878,7 +892,7 @@ struct SelfPip<Content: View>: View {
     var body: some View {
         GeometryReader { g in
             // V5: quer (wenig Hoehe) kleiner, damit oben und unten zwei getrennte Ecken bleiben - sonst wirkten die unteren nicht
-            let fit = CallLogic.pipSize(w: Double(size.width), h: Double(size.height), avail: Double(g.size.height - top - bottom))
+            let fit = CallLogic.selfPipSize(aspect: aspect, fallback: fallback, width: Double(g.size.width), avail: Double(g.size.height - top - bottom))
             let w = hidden ? 44 : CGFloat(fit.w), h = hidden ? 44 : CGFloat(fit.h)
             let x = corner % 2 == 0 ? side : g.size.width - w - side
             let y = corner < 2 ? top : max(top, g.size.height - h - bottom)
@@ -894,9 +908,9 @@ struct SelfPip<Content: View>: View {
                     content().frame(width: w, height: h)
                         .overlay(alignment: .topLeading) {
                             Button { withAnimation(.spring(duration: 0.25)) { hidden = true } } label: {
-                                Image(systemName: "eye.slash").font(.caption.weight(.semibold)).frame(width: 28, height: 28)
-                                    .background(.black.opacity(0.45), in: Circle())
-                                    .frame(width: 40, height: 40).contentShape(Rectangle())
+                                Image(systemName: "eye.slash").font(.caption2.weight(.semibold)).frame(width: 22, height: 22)
+                                    .background(.black.opacity(0.5), in: Circle())
+                                    .padding(4).frame(width: 32, height: 32, alignment: .topLeading).contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(Text("Eigenes Bild ausblenden")).help(Text("Eigenes Bild ausblenden"))
