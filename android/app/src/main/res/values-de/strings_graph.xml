@@ -11,16 +11,16 @@
     <string name="graph_search_clear">Suche leeren</string>
     <string name="graph_no_hits">Keine Treffer</string>
     <plurals name="graph_hits">
-        <item quantity="one">%d Treffer</item>
-        <item quantity="other">%d Treffer</item>
+        <item quantity="one">%1$s Treffer</item>
+        <item quantity="other">%1$s Treffer</item>
     </plurals>
     <plurals name="graph_pages">
-        <item quantity="one">%d Seite</item>
-        <item quantity="other">%d Seiten</item>
+        <item quantity="one">%1$s Seite</item>
+        <item quantity="other">%1$s Seiten</item>
     </plurals>
     <plurals name="graph_links">
-        <item quantity="one">%d Verbindung</item>
-        <item quantity="other">%d Verbindungen</item>
+        <item quantity="one">%1$s Verbindung</item>
+        <item quantity="other">%1$s Verbindungen</item>
     </plurals>
     <string name="graph_truncated">gekürzt</string>
     <string name="graph_truncated_hint">Es erscheinen nur die zuletzt bearbeiteten Seiten.</string>
@@ -30,7 +30,7 @@
     <string name="graph_offline">Keine Verbindung zum Server</string>
     <string name="graph_offline_hint">Der Graph braucht eine Verbindung. Versuche es erneut, sobald du wieder online bist.</string>
     <string name="graph_needs_server">Braucht Server 2.5</string>
-    <string name="graph_needs_server_hint">Dieser Server bietet den Graph der Seiten noch nicht an.</string>
+    <string name="graph_needs_server_hint">Bitte deine Server-Verwaltung, auf Saga 2.5 zu aktualisieren.</string>
     <string name="graph_empty">Noch keine Seiten</string>
     <string name="graph_empty_hint">Lege Seiten an und verlinke sie untereinander – hier siehst du dann, wie alles zusammenhängt.</string>
     <string name="graph_filter_empty">Keine Seiten passen zu den Filtern</string>
@@ -56,9 +56,12 @@
     <string name="graph_local_desc">Lokaler Graph von „%1$s“: %2$s</string>
     <string name="graph_kind_page">Seite</string>
     <string name="graph_kind_database">Datenbank</string>
-    <string name="graph_kind_row">Eintrag</string>
+    <string name="graph_kind_row">Datenbank-Eintrag</string>
     <string name="graph_kind_tag">Tag</string>
-    <string name="graph_shared">Freigegeben</string>
+    <string name="graph_shared">Mit dir geteilt</string>
     <string name="graph_current">Offene Seite</string>
     <string name="graph_untitled">Unbenannt</string>
+    <string name="graph_depth_n">Tiefe %1$d</string>
+    <string name="graph_zoom_in">Vergrößern</string>
+    <string name="graph_zoom_out">Verkleinern</string>
 </resources>

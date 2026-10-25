@@ -39,6 +39,14 @@ import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -55,7 +63,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
-import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -173,7 +180,8 @@ private enum class Mode { ALL, LOCAL }
 
 /**
  * Die Ansicht ohne Repository (fuer Bildschirmfotos und Geraetetests mit Beispieldaten): load liefert die Daten,
- * onOpenPage oeffnet eine Seite. initialSelect = Knoten-ID, die gleich ausgewaehlt ist (Karte; nur fuer Tests).
+ * onOpenPage oeffnet eine Seite. initialSelect = Knoten-ID, die gleich ausgewaehlt ist (Karte; nur fuer Tests),
+ * initialDepth = Tiefe des lokalen Graphen beim Start (Tests).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -184,6 +192,7 @@ fun GraphScreenContent(
     onOpenPage: (Long) -> Unit,
     initialSelect: Long? = null,
     onRunner: (GraphRunner) -> Unit = {},
+    initialDepth: Int = 1,
 ) {
     val res = LocalResources.current
     val ctx = LocalContext.current
@@ -195,7 +204,7 @@ fun GraphScreenContent(
     val a11y = remember(ctx) { (ctx.getSystemService(android.content.Context.ACCESSIBILITY_SERVICE) as? AccessibilityManager)?.isTouchExplorationEnabled == true }
 
     var mode by rememberSaveable { mutableStateOf(if (focus != null) Mode.LOCAL else Mode.ALL) }
-    var depth by rememberSaveable { mutableIntStateOf(1) }
+    var depth by rememberSaveable { mutableIntStateOf(initialDepth) }
     var fLinks by rememberSaveable { mutableStateOf(true) }
     var fChildren by rememberSaveable { mutableStateOf(true) }
     var fRel by rememberSaveable { mutableStateOf(true) }
@@ -312,71 +321,89 @@ fun GraphScreenContent(
         onOpenPage(m.ids[i])
     }
 
-    val pagesTxt = g?.let { pluralStringResource(R.plurals.graph_pages, it.n, it.n) } ?: ""
-    val linksTxt = g?.let { pluralStringResource(R.plurals.graph_links, it.m, it.m) } ?: ""
+    val numLocale = LocalConfiguration.current.locales[0]
+    val nf = remember(numLocale) { java.text.NumberFormat.getIntegerInstance(numLocale) }
+    val pagesTxt = g?.let { pluralStringResource(R.plurals.graph_pages, it.n, nf.format(it.n)) } ?: ""
+    val linksTxt = g?.let { pluralStringResource(R.plurals.graph_links, it.m, nf.format(it.m)) } ?: ""
     val focusTitle = focus?.let { id -> data?.nodes?.firstOrNull { it.id == id }?.title?.ifBlank { untitled } ?: titleOf(id) } ?: ""
+    // Server ohne Graph: Werkzeuge ohne Sinn -> deaktiviert (wie im Web)
+    val tools = loaded !is GraphLoad.Unsupported
+    val segColors = SegmentedButtonDefaults.colors(
+        activeContainerColor = LocalSagaAccent.current.goldSoft, activeContentColor = LocalSagaAccent.current.onGoldSoft,
+        inactiveContainerColor = Color.Transparent, inactiveContentColor = MaterialTheme.colorScheme.onSurface,
+        disabledInactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        disabledActiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        disabledActiveContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+    )
 
     Column(Modifier.fillMaxSize()) {
         SagaTopBar(stringResource(R.string.graph_title), nav, chrome) {
-            IconButton(onClick = { asList = !asList }) {
+            IconButton(onClick = { asList = !asList }, enabled = tools) {
                 if (asList) Icon(painterResource(R.drawable.ic_graph), stringResource(R.string.graph_show_canvas))
                 else Icon(Icons.AutoMirrored.Filled.List, stringResource(R.string.graph_show_list))
             }
-            IconButton(onClick = { showFilters = true }) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.graph_filters)) }
+            IconButton(onClick = { showFilters = true }, enabled = tools) { Icon(painterResource(R.drawable.ic_filter), stringResource(R.string.graph_filters)) }
         }
-        // Kopf: Alle Seiten | Lokal, Tiefe, Suche, Zaehler
+        // Kopf (kompakt): Alle Seiten | Lokal, Tiefe, Suche, Zaehler
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SingleChoiceSegmentedButtonRow(Modifier.weight(1f).semantics { contentDescription = res.getString(R.string.graph_mode) }) {
-                    SegmentedButton(mode == Mode.ALL, { mode = Mode.ALL; sel = -1 }, SegmentedButtonDefaults.itemShape(0, 2)) { Text(stringResource(R.string.graph_mode_all), maxLines = 1) }
-                    SegmentedButton(mode == Mode.LOCAL, { mode = Mode.LOCAL; sel = -1 }, SegmentedButtonDefaults.itemShape(1, 2), enabled = focus != null) {
-                        Text(stringResource(R.string.graph_mode_local), maxLines = 1)
+                    SegmentedButton(mode == Mode.ALL, { mode = Mode.ALL; sel = -1 }, SegmentedButtonDefaults.itemShape(0, 2), enabled = tools, colors = segColors, icon = {}) {
+                        Text(stringResource(R.string.graph_mode_all), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    SegmentedButton(mode == Mode.LOCAL, { mode = Mode.LOCAL; sel = -1 }, SegmentedButtonDefaults.itemShape(1, 2), enabled = focus != null && tools, colors = segColors, icon = {}) {
+                        Text(stringResource(R.string.graph_mode_local), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 if (local) {
-                    SingleChoiceSegmentedButtonRow(Modifier.widthIn(max = 120.dp).semantics { contentDescription = res.getString(R.string.graph_depth) }) {
+                    Text(stringResource(R.string.graph_depth), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clearAndSetSemantics {})
+                    SingleChoiceSegmentedButtonRow(Modifier.widthIn(max = 104.dp)) {
                         listOf(1, 2).forEachIndexed { i, d ->
-                            SegmentedButton(depth == d, { depth = d }, SegmentedButtonDefaults.itemShape(i, 2), icon = {}) { Text("$d") }
+                            val a11y = res.getString(R.string.graph_depth_n, d)
+                            SegmentedButton(
+                                depth == d, { depth = d }, SegmentedButtonDefaults.itemShape(i, 2), colors = segColors, icon = {},
+                                modifier = Modifier.semantics { contentDescription = a11y },
+                            ) { Text(nf.format(d)) }
                         }
                     }
                 }
             }
             OutlinedTextField(
-                query, { query = it }, Modifier.fillMaxWidth().padding(top = 8.dp).heightIn(min = 52.dp),
-                placeholder = { Text(stringResource(R.string.graph_search)) },
+                query, { query = it }, Modifier.fillMaxWidth().padding(top = 6.dp).heightIn(min = 48.dp),
+                placeholder = { Text(stringResource(R.string.graph_search), maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 leadingIcon = { Icon(Icons.Filled.Search, null) },
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Clear, stringResource(R.string.graph_search_clear)) } },
-                singleLine = true, shape = MaterialTheme.shapes.extraLarge,
+                singleLine = true, shape = MaterialTheme.shapes.extraLarge, enabled = tools,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { focusMgr.clearFocus(); if (matches.isNotEmpty() && !asList) select(matches[0]) }),
             )
+            // Zaehlzeile: ohne Seitennamen (steht schon in der Karte/Beschreibung), eine Zeile, Zahlen nach Sprache
             val stat = buildString {
                 if (g != null && loaded is GraphLoad.Ok) {
-                    if (local) append(focusTitle).append(" · ")
                     append(pagesTxt).append(" · ").append(linksTxt)
                     if (data?.truncated == true && !local) append(" · ").append(res.getString(R.string.graph_truncated))
-                    if (query.isNotBlank()) append(" · ").append(if (matches.isEmpty()) res.getString(R.string.graph_no_hits) else res.getQuantityString(R.plurals.graph_hits, matches.size, matches.size))
+                    if (query.isNotBlank()) append(" · ").append(if (matches.isEmpty()) res.getString(R.string.graph_no_hits) else res.getQuantityString(R.plurals.graph_hits, matches.size, nf.format(matches.size)))
                 }
             }
             Text(
-                stat, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp).semantics { liveRegion = LiveRegionMode.Polite },
+                stat, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 2.dp).testTag("graph-stat").semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
         Box(Modifier.fillMaxWidth().weight(1f).onSizeChanged { size = it }) {
             val st = loaded
             when {
                 st == null -> Message(loading = true, title = stringResource(R.string.graph_loading))
-                st is GraphLoad.Unsupported -> Message(title = stringResource(R.string.graph_needs_server), sub = stringResource(R.string.graph_needs_server_hint))
-                st is GraphLoad.Offline -> Message(title = stringResource(R.string.graph_offline), sub = stringResource(R.string.graph_offline_hint), action = stringResource(R.string.graph_retry)) { attempt++ }
-                st is GraphLoad.Failed -> Message(title = stringResource(R.string.graph_error), sub = st.text.asString(res), action = stringResource(R.string.graph_retry)) { attempt++ }
+                st is GraphLoad.Unsupported -> Message(icon = R.drawable.ic_upgrade, title = stringResource(R.string.graph_needs_server), sub = stringResource(R.string.graph_needs_server_hint))
+                st is GraphLoad.Offline -> Message(icon = R.drawable.ic_cloud_off, title = stringResource(R.string.graph_offline), sub = stringResource(R.string.graph_offline_hint), action = stringResource(R.string.graph_retry)) { attempt++ }
+                st is GraphLoad.Failed -> Message(error = true, title = stringResource(R.string.graph_error), sub = st.text.asString(res), action = stringResource(R.string.graph_retry)) { attempt++ }
                 data != null && data.nodes.isEmpty() -> Message(title = stringResource(R.string.graph_empty), sub = stringResource(R.string.graph_empty_hint))
                 g == null -> Message(loading = true, title = stringResource(R.string.graph_loading))
                 local && g.missing -> Message(title = stringResource(R.string.graph_local_missing), sub = stringResource(R.string.graph_local_missing_hint), action = stringResource(R.string.graph_mode_all)) { mode = Mode.ALL }
-                g.n == 0 -> Message(title = stringResource(R.string.graph_filter_empty), action = stringResource(R.string.graph_filter_reset)) {
+                g.n == 0 -> Message(icon = R.drawable.ic_filter, title = stringResource(R.string.graph_filter_empty), action = stringResource(R.string.graph_filter_reset)) {
                     fLinks = true; fChildren = true; fRel = true; fTags = false; fOrphans = true
                 }
-                asList -> NodeList(g, matches.takeIf { query.isNotBlank() }, pal) { open(it) }
+                asList -> NodeList(g, matches.takeIf { query.isNotBlank() }, pal, nf) { open(it) }
                 else -> {
                     val desc = if (local) res.getString(R.string.graph_local_desc, focusTitle, linksTxt) else res.getString(R.string.graph_canvas_desc, pagesTxt, linksTxt)
                     GraphCanvas(
@@ -385,20 +412,38 @@ fun GraphScreenContent(
                         runner = runner, desc = desc,
                     )
                     if (local && g.n == 1) {
-                        Text(
-                            stringResource(R.string.graph_local_alone, focusTitle), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.TopCenter).padding(24.dp),
-                        )
+                        Column(Modifier.align(Alignment.TopCenter).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(stringResource(R.string.graph_local_alone, focusTitle), style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+                            Text(
+                                stringResource(R.string.graph_local_alone_hint), style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
                     }
-                    Legend(g, pal, Modifier.align(Alignment.TopStart).padding(start = 12.dp, top = 4.dp))
-                    SmallFloatingActionButton(
-                        onClick = {
-                            val f = frameState.value ?: return@SmallFloatingActionButton
-                            if (f.x.size == g.n) cam = Camera.fit(f.x, f.y, g.n, size.width.toFloat(), size.height.toFloat(), with(density) { 48.dp.toPx() }, with(density) { 2.dp.toPx() })
-                        },
-                        modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    ) { Icon(painterResource(R.drawable.ic_fullscreen), stringResource(R.string.graph_fit)) }
+                    // Zoom und Einpassen: rechts oben, je 48 dp
+                    Surface(
+                        Modifier.align(Alignment.TopEnd).padding(8.dp), shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 2.dp,
+                    ) {
+                        Column {
+                            fun zoomBy(z: Float) {
+                                if (size.width == 0) return
+                                autoFit = false
+                                cam = cam.zoomAt(size.width / 2f, size.height / 2f, z, 0.04f * density.density, 8f * density.density)
+                            }
+                            GraphTool(R.drawable.ic_zoom_in, stringResource(R.string.graph_zoom_in)) { zoomBy(1.4f) }
+                            GraphTool(R.drawable.ic_zoom_out, stringResource(R.string.graph_zoom_out)) { zoomBy(1 / 1.4f) }
+                            GraphTool(R.drawable.ic_center_focus, stringResource(R.string.graph_fit)) {
+                                val f = frameState.value
+                                if (f != null && f.x.size == g.n) cam = Camera.fit(f.x, f.y, g.n, size.width.toFloat(), size.height.toFloat(), with(density) { 48.dp.toPx() }, with(density) { 2.dp.toPx() })
+                            }
+                        }
+                    }
+                    // Legende: kleine Einblendung unten links (weicht der Karte)
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = sel !in 0 until g.n, modifier = Modifier.align(Alignment.BottomStart),
+                        enter = fadeIn(if (reduced) snap() else tween(150)), exit = fadeOut(if (reduced) snap() else tween(150)),
+                    ) { Legend(g, pal, Modifier.navigationBarsPadding().padding(start = 12.dp, bottom = 12.dp)) }
                     androidx.compose.animation.AnimatedVisibility(
                         visible = sel in 0 until g.n, modifier = Modifier.align(Alignment.BottomCenter),
                         enter = if (reduced) fadeIn(snap()) else slideInVertically { it / 2 } + fadeIn(), exit = if (reduced) fadeOut(snap()) else slideOutVertically { it / 2 } + fadeOut(),
@@ -406,7 +451,7 @@ fun GraphScreenContent(
                         val last = remember { intArrayOf(0) }                 // beim Ausblenden die letzte Karte zeigen
                         if (sel in 0 until g.n) last[0] = sel
                         val i = last[0].coerceIn(0, g.n - 1)
-                        NodeCard(g, i, pal, onOpen = { open(i) }, onClose = { sel = -1 })
+                        NodeCard(g, i, pal, nf, onOpen = { open(i) }, onClose = { sel = -1 })
                     }
                 }
             }
@@ -442,16 +487,26 @@ private fun FilterRow(label: String, on: Boolean, enabled: Boolean = true, set: 
 }
 
 @Composable
-private fun Message(loading: Boolean = false, title: String, sub: String? = null, action: String? = null, onAction: () -> Unit = {}) {
+private fun Message(loading: Boolean = false, icon: Int? = null, error: Boolean = false, title: String, sub: String? = null, action: String? = null, onAction: () -> Unit = {}) {
     Column(
         Modifier.fillMaxSize().padding(32.dp).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
     ) {
         if (loading) { CircularProgressIndicator(); Spacer(Modifier.height(16.dp)) }
-        else Icon(painterResource(R.drawable.ic_graph), null, Modifier.size(40.dp).padding(bottom = 4.dp), tint = LocalSagaAccent.current.gold)
+        else if (error) Icon(Icons.Filled.Warning, null, Modifier.size(40.dp).padding(bottom = 4.dp), tint = MaterialTheme.colorScheme.error)
+        else Icon(painterResource(icon ?: R.drawable.ic_graph), null, Modifier.size(40.dp).padding(bottom = 4.dp), tint = LocalSagaAccent.current.gold)
         Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
         if (sub != null) Text(sub, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 6.dp))
-        if (action != null) FilledTonalButton(onClick = onAction, modifier = Modifier.padding(top = 16.dp)) { Text(action) }
+        if (action != null) FilledTonalButton(onClick = onAction, modifier = Modifier.padding(top = 16.dp).heightIn(min = 48.dp)) { Text(action) }
+    }
+}
+
+/** Werkzeug-Knopf im Graph (48 dp, Tooltip = Beschriftung) */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GraphTool(icon: Int, label: String, onClick: () -> Unit) {
+    TooltipBox(TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Start), tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState()) {
+        IconButton(onClick = onClick, modifier = Modifier.size(48.dp)) { Icon(painterResource(icon), label) }
     }
 }
 
@@ -467,33 +522,43 @@ private fun kindLabel(k: NodeKind): String = stringResource(
     when (k) { NodeKind.PAGE -> R.string.graph_kind_page; NodeKind.DATABASE -> R.string.graph_kind_database; NodeKind.ROW -> R.string.graph_kind_row; NodeKind.TAG -> R.string.graph_kind_tag },
 )
 
+/** Legende wie im Web (drawLegend): Seite, Datenbank, Datenbank-Eintrag, Tag, Mit dir geteilt, Offene Seite (Ring) */
 @Composable
 private fun Legend(g: GraphModel, p: GraphPalette, modifier: Modifier) {
     val has = remember(g) { g.kinds.toSet() to g.own.any { !it } }
     val items = buildList {
-        if (NodeKind.PAGE in has.first) add(Triple(p.page, kindLabel(NodeKind.PAGE), false))
-        if (NodeKind.DATABASE in has.first) add(Triple(p.db, kindLabel(NodeKind.DATABASE), false))
-        if (NodeKind.ROW in has.first) add(Triple(p.row, kindLabel(NodeKind.ROW), false))
-        if (NodeKind.TAG in has.first) add(Triple(p.tag, kindLabel(NodeKind.TAG), false))
-        if (has.second) add(Triple(p.page, stringResource(R.string.graph_shared), true))
-        if (g.focus >= 0) add(Triple(p.accent, stringResource(R.string.graph_current), false))
+        if (NodeKind.PAGE in has.first) add(Triple(p.page, kindLabel(NodeKind.PAGE), 0))
+        if (NodeKind.DATABASE in has.first) add(Triple(p.db, kindLabel(NodeKind.DATABASE), 0))
+        if (NodeKind.ROW in has.first) add(Triple(p.row, kindLabel(NodeKind.ROW), 0))
+        if (NodeKind.TAG in has.first) add(Triple(p.tag, kindLabel(NodeKind.TAG), 0))
+        if (has.second) add(Triple(p.page, stringResource(R.string.graph_shared), 1))
+        if (g.focus >= 0) add(Triple(p.accent, stringResource(R.string.graph_current), 2))
     }
     if (items.size < 2) return
-    Column(modifier.semantics(mergeDescendants = true) {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        items.forEach { (c, l, ring) ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier.size(9.dp).background(if (ring) c.copy(alpha = 0.35f) else c, CircleShape)
-                        .then(if (ring) Modifier.border(1.5.dp, c, CircleShape) else Modifier),
-                )
-                Text(l, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 6.dp))
+    val bg = MaterialTheme.colorScheme.background
+    Surface(
+        modifier.testTag("graph-legend").semantics(mergeDescendants = true) {}, shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.88f),
+    ) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            items.forEach { (c, l, kind) ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(13.dp), contentAlignment = Alignment.Center) {
+                        when (kind) {
+                            1 -> Box(Modifier.size(9.dp).background(c.copy(alpha = 0.35f), CircleShape).border(1.5.dp, c, CircleShape))
+                            2 -> Box(Modifier.size(13.dp).border(1.5.dp, c, CircleShape).padding(2.dp).background(bg, CircleShape).padding(0.5.dp).background(c, CircleShape))
+                            else -> Box(Modifier.size(9.dp).background(c, CircleShape))
+                        }
+                    }
+                    Text(l, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, modifier = Modifier.padding(start = 6.dp))
+                }
             }
         }
     }
 }
 
 @Composable
-private fun NodeCard(g: GraphModel, i: Int, p: GraphPalette, onOpen: () -> Unit, onClose: () -> Unit) {
+private fun NodeCard(g: GraphModel, i: Int, p: GraphPalette, nf: java.text.NumberFormat, onOpen: () -> Unit, onClose: () -> Unit) {
     val acc = LocalSagaAccent.current
     Surface(
         Modifier.navigationBarsPadding().padding(12.dp).widthIn(max = 560.dp).fillMaxWidth().testTag("graph-card"),
@@ -509,7 +574,7 @@ private fun NodeCard(g: GraphModel, i: Int, p: GraphPalette, onOpen: () -> Unit,
                 val sub = buildString {
                     append(kindLabel(g.kinds[i]))
                     if (!g.own[i]) append(" · ").append(stringResource(R.string.graph_shared))
-                    append(" · ").append(pluralStringResource(R.plurals.graph_links, c, c))
+                    append(" · ").append(pluralStringResource(R.plurals.graph_links, c, nf.format(c)))
                 }
                 Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -524,7 +589,7 @@ private fun NodeCard(g: GraphModel, i: Int, p: GraphPalette, onOpen: () -> Unit,
 
 /** Listenansicht der Knoten (TalkBack): Titel, Art und Anzahl der Verbindungen; Antippen oeffnet */
 @Composable
-private fun NodeList(g: GraphModel, hits: IntArray?, p: GraphPalette, onOpen: (Int) -> Unit) {
+private fun NodeList(g: GraphModel, hits: IntArray?, p: GraphPalette, nf: java.text.NumberFormat, onOpen: (Int) -> Unit) {
     val order = remember(g, hits) { if (hits != null) hits.sortedByDescending { g.deg[it] }.toIntArray() else GraphBuild.listOrder(g) }
     LazyColumn(Modifier.fillMaxSize().testTag("graph-list")) {
         items(order.toList(), key = { g.ids[it] }) { i ->
@@ -539,7 +604,7 @@ private fun NodeList(g: GraphModel, hits: IntArray?, p: GraphPalette, onOpen: (I
                         if (i == g.focus) append(" · ").append(stringResource(R.string.graph_current))
                     })
                 },
-                trailingContent = { Text(pluralStringResource(R.plurals.graph_links, c, c), style = MaterialTheme.typography.labelMedium) },
+                trailingContent = { Text(pluralStringResource(R.plurals.graph_links, c, nf.format(c)), style = MaterialTheme.typography.labelMedium) },
                 modifier = Modifier.clickable { onOpen(i) },
             )
             HorizontalDivider()
@@ -646,6 +711,15 @@ class GraphPainter {
     private var buf = FloatArray(0)
     private val path = android.graphics.Path()
     private var hl = BooleanArray(0)
+    private var cand = LongArray(0)
+    private var candA = FloatArray(0)
+    private var widths = FloatArray(0)
+    private var widthsFor: GraphModel? = null
+    private var widthsFs = 0f
+    private val labels = LabelGrid()
+    /** Anzahl der Beschriftungen im letzten Bild (Tests) */
+    var lastLabels = 0
+        private set
     /** Dauer des letzten Bildes (ms, Messung) */
     @Volatile var lastDrawMs = 0.0
         private set
@@ -770,35 +844,55 @@ class GraphPainter {
             }
         }
         cv.restore()
-        // --- Beschriftungen in Bildschirmkoordinaten (feste Groesse, Rand in Hintergrundfarbe)
+        // --- Beschriftungen in Bildschirmkoordinaten (feste Groesse, Rand in Hintergrundfarbe), ohne Ueberlappung:
+        // Vorrang hat der gewaehlte Knoten, dann hervorgehobene, dann mehr Verbindungen. Wer mit einer schon
+        // gesetzten Beschriftung kollidiert, erscheint erst beim Hineinzoomen bzw. bei Hervorhebung.
         val few = n <= 40
         val thr = 1.1f * 1.6f
         val fs = 12f * dens
         text.textSize = fs; halo.textSize = fs; halo.strokeWidth = 3f * dens; halo.color = p.bg.toArgb()
-        var drawn = 0
-        for (layer in 0..1) {
-            for (i in 0 until n) {
-                if (drawn >= 450) break
-                val isHl = hl[i] && anyHl
-                if ((layer == 1) != isHl) continue
-                val sx = cam.tx + x[i] * k; val sy = cam.ty + y[i] * k
-                if (sx < -150 || sx > w + 150 || sy < -20 || sy > h + 20) continue
-                val z = kd * (1 + sqrt(g.deg[i].toFloat()) * 0.3f)
-                val za = if (few) 1f else ((z - thr * 0.72f) / (thr * 0.28f)).coerceIn(0f, 1f)
-                var la = maxOf(za * dimA, if (isHl) 1f else 0f)
-                if (matches != null && i !in matches && sel < 0) la = minOf(la, za * dimA)
-                if (la <= 0.03f) continue
-                val big = i == sel
-                text.isFakeBoldText = big
-                val t = g.titles[i].let { if (it.length > 40 && !big) it.take(39) + "…" else it }
-                val rr = maxOf(radii[i], minR) * k * (if (big) 1.35f else 1f)
-                val ty = sy + rr + 4f * dens + fs * 0.9f
-                text.color = argb(p.fg, la); halo.alpha = (255 * la).toInt()
-                cv.drawText(t, sx, ty, halo)
-                cv.drawText(t, sx, ty, text)
-                drawn++
-            }
+        if (widthsFor !== g || widthsFs != fs) { widthsFor = g; widthsFs = fs; widths = FloatArray(n) { -1f } }
+        if (cand.size < n) { cand = LongArray(n); candA = FloatArray(n) }
+        var nc = 0
+        for (i in 0 until n) {
+            val isHl = hl[i] && anyHl
+            val sx = cam.tx + x[i] * k; val sy = cam.ty + y[i] * k
+            if (sx < -150 || sx > w + 150 || sy < -20 || sy > h + 20) continue
+            val z = kd * (1 + sqrt(g.deg[i].toFloat()) * 0.3f)
+            val za = if (few) 1f else ((z - thr * 0.72f) / (thr * 0.28f)).coerceIn(0f, 1f)
+            var la = maxOf(za * dimA, if (isHl) 1f else 0f)
+            if (matches != null && i !in matches && sel < 0) la = minOf(la, za * dimA)
+            if (la <= 0.03f) continue
+            val tier = if (i == sel) 0L else if (isHl) 1L else 2L
+            cand[nc] = (tier shl 50) or ((LABEL_DEG_MAX - minOf(g.deg[i], LABEL_DEG_MAX - 1)).toLong() shl 24) or i.toLong()
+            candA[i] = la
+            nc++
         }
+        java.util.Arrays.sort(cand, 0, nc)
+        labels.reset(w, h, 64f * dens)
+        val gap = 2f * dens
+        var drawn = 0
+        for (c in 0 until nc) {
+            if (drawn >= 450) break
+            val i = (cand[c] and 0xFFFFFF).toInt()
+            val big = i == sel
+            val t = g.titles[i].let { if (it.length > 40 && !big) it.take(39) + "…" else it }
+            text.isFakeBoldText = big
+            val tw = if (big) text.measureText(t) else widths[i].let { if (it >= 0f) it else text.measureText(t).also { m -> widths[i] = m } }
+            val sx = cam.tx + x[i] * k; val sy = cam.ty + y[i] * k
+            val rr = maxOf(radii[i], minR) * k * (if (big) 1.35f else 1f)
+            val ty = sy + rr + 4f * dens + fs * 0.9f
+            val l = sx - tw / 2 - gap; val r = sx + tw / 2 + gap; val top = ty - fs * 0.95f - gap; val bot = ty + fs * 0.25f + gap
+            if (!big && labels.hits(l, top, r, bot)) continue
+            labels.add(l, top, r, bot)
+            val la = candA[i]
+            text.color = argb(p.fg, la); halo.alpha = (255 * la).toInt()
+            cv.drawText(t, sx, ty, halo)
+            cv.drawText(t, sx, ty, text)
+            drawn++
+        }
+        text.isFakeBoldText = false
+        lastLabels = drawn
         lastDrawMs = (System.nanoTime() - t0) / 1e6
         drawCount++
         GraphDrawStats.add(lastDrawMs)
@@ -815,6 +909,66 @@ object GraphDrawStats {
         private set
     fun add(ms: Double) { count++; sumMs += ms; if (ms > maxMs) maxMs = ms }
     fun reset() { count = 0; sumMs = 0.0; maxMs = 0.0 }
+}
+
+private const val LABEL_DEG_MAX = 1 shl 20
+
+/**
+ * Belegte Beschriftungs-Rechtecke (Bildschirm) in einem groben Raster: Kollisionstest nur gegen Rechtecke in den
+ * beruehrten Zellen statt gegen alle. Wiederverwendbar (reset je Bild, keine Zuteilungen im Normalfall).
+ */
+class LabelGrid {
+    private var cell = 64f
+    private var cols = 1
+    private var rows = 1
+    private var head = IntArray(0)
+    private var next = IntArray(256)
+    private var ref = IntArray(256)
+    private var links = 0
+    private var rect = FloatArray(4 * 64)
+    var count = 0
+        private set
+    private val ox = 200f
+    private val oy = 40f
+
+    fun reset(w: Float, h: Float, cellPx: Float) {
+        cell = maxOf(8f, cellPx)
+        cols = ((w + 2 * ox) / cell).toInt() + 1
+        rows = ((h + 2 * oy) / cell).toInt() + 1
+        if (head.size < cols * rows) head = IntArray(cols * rows)
+        java.util.Arrays.fill(head, 0, cols * rows, -1)
+        links = 0; count = 0
+    }
+
+    private inline fun cells(l: Float, t: Float, r: Float, b: Float, f: (Int) -> Boolean): Boolean {
+        val c0 = ((l + ox) / cell).toInt().coerceIn(0, cols - 1); val c1 = ((r + ox) / cell).toInt().coerceIn(0, cols - 1)
+        val r0 = ((t + oy) / cell).toInt().coerceIn(0, rows - 1); val r1 = ((b + oy) / cell).toInt().coerceIn(0, rows - 1)
+        for (rr in r0..r1) for (cc in c0..c1) if (f(rr * cols + cc)) return true
+        return false
+    }
+
+    /** ueberlappt (l,t,r,b) ein gesetztes Rechteck? */
+    fun hits(l: Float, t: Float, r: Float, b: Float): Boolean = cells(l, t, r, b) { c ->
+        var e = head[c]
+        var hit = false
+        while (e >= 0) {
+            val q = ref[e] * 4
+            if (l < rect[q + 2] && r > rect[q] && t < rect[q + 3] && b > rect[q + 1]) { hit = true; break }
+            e = next[e]
+        }
+        hit
+    }
+
+    fun add(l: Float, t: Float, r: Float, b: Float) {
+        if ((count + 1) * 4 > rect.size) rect = rect.copyOf(rect.size * 2)
+        val id = count++
+        rect[id * 4] = l; rect[id * 4 + 1] = t; rect[id * 4 + 2] = r; rect[id * 4 + 3] = b
+        cells(l, t, r, b) { c ->
+            if (links >= next.size) { next = next.copyOf(next.size * 2); ref = ref.copyOf(ref.size * 2) }
+            ref[links] = id; next[links] = head[c]; head[c] = links; links++
+            false
+        }
+    }
 }
 
 /** wiederverwendbarer Punktpuffer (x, y, x, y, ...) */

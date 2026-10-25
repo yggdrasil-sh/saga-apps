@@ -46,13 +46,16 @@ class GraphShotsTest {
     private val ins get() = InstrumentationRegistry.getInstrumentation()
     private val dir: File get() = File(ins.targetContext.getExternalFilesDir(null), "shots").apply { mkdirs() }
 
-    private fun launch(dark: Boolean, n: Int, select: Long? = null, focus: Long? = null, onRunner: (GraphRunner) -> Unit = {}): ActivityScenario<ComponentActivity> {
+    private fun launch(
+        dark: Boolean, n: Int, select: Long? = null, focus: Long? = null, onRunner: (GraphRunner) -> Unit = {},
+        depth: Int = 1, lang: String = "de", result: GraphLoad? = null,
+    ): ActivityScenario<ComponentActivity> {
         val data = GraphDemo.generate(n)
         val sc = ActivityScenario.launch(ComponentActivity::class.java)
         sc.onActivity { a ->
             a.enableEdgeToEdge()
             val cfg = Configuration(a.resources.configuration).apply {
-                setLocale(Locale.forLanguageTag("de"))
+                setLocale(Locale.forLanguageTag(lang))
                 uiMode = (uiMode and Configuration.UI_MODE_NIGHT_MASK.inv()) or (if (dark) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO)
             }
             val lc = a.createConfigurationContext(cfg)
@@ -62,7 +65,8 @@ class GraphShotsTest {
                         Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                             GraphScreenContent(
                                 AppNavigator(), Chrome(showMenu = true, onMenu = {}), focus,
-                                load = { GraphLoad.Ok(data) }, onOpenPage = {}, initialSelect = select, onRunner = onRunner,
+                                load = { result ?: GraphLoad.Ok(data) }, onOpenPage = {}, initialSelect = select, onRunner = onRunner,
+                                initialDepth = depth,
                             )
                         }
                     }
@@ -80,12 +84,39 @@ class GraphShotsTest {
         assertTrue(f.length() > 1000)
     }
 
+    /** Startet und wartet, bis die Simulation steht (traeger Emulator: feste Wartezeit reicht beim kalten Start nicht) */
+    private fun settled(dark: Boolean, n: Int, name: String, select: Long? = null, focus: Long? = null, depth: Int = 1, lang: String = "de") {
+        var runner: GraphRunner? = null
+        launch(dark = dark, n = n, select = select, focus = focus, depth = depth, lang = lang, onRunner = { runner = it }).use {
+            val t0 = SystemClock.uptimeMillis()
+            while (SystemClock.uptimeMillis() - t0 < 30_000) {
+                Thread.sleep(250)
+                val f = runner?.frames?.value
+                if (f != null && !f.moving) break
+            }
+            Thread.sleep(1200)                                          // Kamera/Karte nachziehen lassen
+            shot(name)
+        }
+    }
+
     @Test
     fun shotsLightDarkCard() {
-        launch(dark = false, n = 140).use { Thread.sleep(6000); shot("hell") }
-        launch(dark = true, n = 140).use { Thread.sleep(6000); shot("dunkel") }
-        launch(dark = false, n = 140, select = 1).use { Thread.sleep(6000); shot("karte") }
-        launch(dark = true, n = 140, focus = 2, select = 2).use { Thread.sleep(6000); shot("lokal") }
+        settled(false, 140, "hell")
+        settled(true, 140, "dunkel")
+        settled(false, 140, "karte", select = 1)
+        settled(true, 140, "lokal", focus = 2, select = 2)
+        settled(false, 140, "lokal-tiefe2", focus = 2, depth = 2)
+        settled(true, 140, "lokal-tiefe2-dunkel", focus = 5, depth = 2)
+    }
+
+    /** Leer- und Fehlerzustaende wie im Web (Braucht Server 2.5, offline, Ladefehler, keine Seiten) */
+    @Test
+    fun shotsStates() {
+        launch(dark = false, n = 10, result = GraphLoad.Unsupported).use { Thread.sleep(1500); shot("server25") }
+        launch(dark = true, n = 10, result = GraphLoad.Offline).use { Thread.sleep(1500); shot("offline") }
+        launch(dark = false, n = 10, result = GraphLoad.Failed(io.github.yggdrasil_sh.saga.util.UiText.Raw("Serverfehler (500)"))).use { Thread.sleep(1500); shot("fehler") }
+        launch(dark = false, n = 10, result = GraphLoad.Ok(io.github.yggdrasil_sh.saga.graph.GraphData(emptyList(), emptyList(), emptyList(), false))).use { Thread.sleep(1500); shot("leer") }
+        settled(false, 140, "ru", lang = "ru")
     }
 
     @Test
@@ -113,6 +144,7 @@ class GraphShotsTest {
                 if (f != null && !f.moving && f.x.size == nodes) break
             }
             val st = runner!!.stats.value
+            if (nodes == 2000 && tag.isEmpty()) { Thread.sleep(800); shot("2000-eingepasst") }   // nach dem Einpendeln: ganz im Bild
             out.append(report("einpendeln", frames)).append('\n').append(phase(phases)).append('\n')
             out.append("sim n=${st.n} tick_avg=${"%.2f".format(st.tickMsAvg)}ms ticks=${st.ticks} bis_stillstand=${st.settleMs}ms\n")
             out.append("zeichnen n=${GraphDrawStats.count} avg=${"%.2f".format(GraphDrawStats.sumMs / maxOf(1, GraphDrawStats.count))}ms max=${"%.2f".format(GraphDrawStats.maxMs)}ms\n")
@@ -120,7 +152,7 @@ class GraphShotsTest {
             frames.clear(); phases.clear(); GraphDrawStats.reset()
             Thread.sleep(500)
             val dm = ins.targetContext.resources.displayMetrics
-            val x0 = dm.widthPixels * 0.06f; val y0 = dm.heightPixels * 0.93f   // unten links: Hintergrund (verschieben)
+            val x0 = dm.widthPixels * 0.42f; val y0 = dm.heightPixels * 0.95f   // unten, rechts der Legende: Hintergrund (verschieben)
             val down = SystemClock.uptimeMillis()
             ins.sendPointerSync(MotionEvent.obtain(down, down, MotionEvent.ACTION_DOWN, x0, y0, 0))
             for (i in 1..120) {
