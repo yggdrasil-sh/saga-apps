@@ -6,7 +6,6 @@ import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -45,7 +44,7 @@ import io.github.yggdrasil_sh.saga.widget.WidgetLook.sagaBackground
  * Klein (1x1/2x1) als kompakte Seiten-Karte: nur Symbol bzw. Symbol + Titel. Antippen oeffnet die Seite.
  */
 class PageWidget : GlanceAppWidget() {
-    override val sizeMode = SizeMode.Responsive(setOf(TINY, STRIP, SMALL, WIDE, LARGE))
+    override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val widgetId = GlanceAppWidgetManager(context).getAppWidgetId(id)
@@ -57,13 +56,6 @@ class PageWidget : GlanceAppWidget() {
         }
     }
 
-    companion object {
-        val TINY = DpSize(57.dp, 57.dp)
-        val STRIP = DpSize(120.dp, 57.dp)
-        val SMALL = DpSize(120.dp, 120.dp)
-        val WIDE = DpSize(250.dp, 120.dp)
-        val LARGE = DpSize(250.dp, 250.dp)
-    }
 }
 
 @Composable

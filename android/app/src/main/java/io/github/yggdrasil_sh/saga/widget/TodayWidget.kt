@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.glance.ColorFilter
 import androidx.glance.GlanceId
@@ -52,7 +51,8 @@ import java.util.Date
  * Kreis antippen = abhaken (ohne die App zu oeffnen), Zeile antippen = Termine/Aufgaben in der App, "+" = neue Aufgabe.
  */
 class TodayWidget : GlanceAppWidget() {
-    override val sizeMode = SizeMode.Responsive(setOf(SMALL, TALL, WIDE, LARGE))
+    // Exact: echte Groesse des Widgets (Zeilenzahl passt sich jeder Hoehe an; nur wenige Widgets -> wenig Aufwand)
+    override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
@@ -63,12 +63,6 @@ class TodayWidget : GlanceAppWidget() {
         }
     }
 
-    companion object {
-        val SMALL = DpSize(120.dp, 120.dp)
-        val TALL = DpSize(120.dp, 250.dp)
-        val WIDE = DpSize(250.dp, 120.dp)
-        val LARGE = DpSize(250.dp, 250.dp)
-    }
 }
 
 @Composable
@@ -122,8 +116,9 @@ private fun TodayContent(store: WidgetStore, @Suppress("UNUSED_PARAMETER") versi
                     val evs = TodayLogic.events(s.events, today, zone)
                     val tasks = TodayLogic.tasks(s.tasks, today, hidden)
                     val status = ui.staleSince != null || s.eventsFailed || store.doneFailed
-                    val rows = TodayLayout.rows(size.height.value, chromeDp = if (status) 62f else 46f)
-                    val (ne, nt) = TodayLayout.split(rows, evs.size, tasks.size)
+                    val all = TodayLayout.rows(size.height.value, chromeDp = if (status) 72f else 56f)
+                    val rows = if (evs.size + tasks.size > all) all - 1 else all       // Platz fuer "+N weitere"
+                    val (ne, nt) = TodayLayout.split(rows.coerceAtLeast(1), evs.size, tasks.size)
                     evs.take(ne).forEach { EventRow(ctx, it, wide) }
                     tasks.take(nt).forEach { TaskRow(ctx, it) }
                     val rest = (evs.size - ne) + (tasks.size - nt)
