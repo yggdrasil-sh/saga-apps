@@ -16,6 +16,29 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Updates und Update-Liste sind mit EdDSA signiert (Sparkle 2); Apps aus eigenen Builds oder MDM und iOS sind nicht
   betroffen. Die erste DMG mit Selbst-Update einmal von Hand installieren.
 
+### Neu – alle Apps: Graph der Seiten wie in Obsidian (Server 2.5)
+- „Graph“ in der Seitenleiste zeigt alle Seiten und ihre Verbindungen (Verweise im Text, Unterseiten,
+  Datenbank-Relationen, auf Wunsch Tags als Knoten); „Lokaler Graph“ im Seitenmenü zeigt die Nachbarn einer Seite in
+  Tiefe 1 oder 2. Zoomen, verschieben, Knoten ziehen, Suche und Filter; Antippen zeigt eine Karte mit „Öffnen“.
+- iOS/iPadOS/macOS, Android und Linux; am Mac auch über „Gehe zu“ (⇧⌘G) und ⌘+/⌘−/⌘0. Für VoiceOver, TalkBack und
+  Orca gibt es eine Listenansicht. Mit älteren Servern erscheint „Braucht Server 2.5“.
+
+### Neu – Android: Widgets „Heute“ und „Seite“
+- „Heute“ zeigt die Termine des Tages und offene Aufgaben (heute fällig, überfällig oder ohne Datum); der Kreis hakt
+  eine Aufgabe direkt im Widget ab, „+“ öffnet „Heute“ mit dem Eingabefeld für eine neue Aufgabe. Offline bleibt der letzte Stand mit Uhrzeit stehen.
+- „Seite“ zeigt eine frei gewählte Seite mit Symbol, Titel und Textanfang; antippen öffnet sie in der App.
+- Die Widgets nutzen die Anmeldung der App und werden beim Abmelden geleert.
+
+### Neu – iOS/macOS: Lesezeichen aus dem Teilen-Blatt (Server 2.5)
+- Wer einen Link teilt (z. B. aus Safari), kann ihn jetzt als „Lesezeichen“ unter „Dienste“ ablegen: Name aus dem
+  Seitentitel, Kategorie aus den vorhandenen wählbar. Die zuletzt benutzte Art und Kategorie sind vorausgewählt.
+  Ältere Server melden, dass sie das noch nicht können.
+
+### Geändert – Android: Links öffnen im Standard-Browser
+- Links aus Seiten, Diensten, Lesezeichen, Datenbanken und dem Chat öffnen im Standard-Browser des Geräts statt in
+  einem eingebetteten Tab. Anmeldungen (Saga, Nextcloud, Sicherheit) laufen weiter im eingebetteten Tab, damit die
+  Rückkehr in die App klappt.
+
 ### Neu – Android und Linux: Datenbank-Kopf, Vorlagen verwalten, KI ordnet zu (Server 2.5)
 - Wie auf iOS/macOS: eingebetteter Datenbank-Block mit ausblendbarem Titel (Android: Block antippen → „Titel
   ausblenden“; Linux: ⚙ → „Dieser Block“, dort auch die Ansichts-Reiter).
