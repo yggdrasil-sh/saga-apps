@@ -76,6 +76,9 @@ struct SettingsView: View {
                 Button(busy ? "Prüfe …" : "Verbindung testen") { Task { await test() } }.disabled(busy)
                 if !status.isEmpty { Text(status).font(.footnote) }
             }
+            #if os(macOS)
+            UpdateSettingsSection()                       // Selbst-Update (nur DMG-Builds)
+            #endif
             Section("Über") {
                 LabeledContent("App", value: "Saga \(Store.appVersionLabel) (\(Store.appBuild))")
                 LabeledContent("Server", value: store.serverVersion.map { "Saga \($0)" } ?? "–")

@@ -18,6 +18,10 @@
 #   Android: ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
 # Fehlen sie, wird beim reinen Bauen uebersprungen (macOS) bzw. unsigniert gebaut (Android);
 # ein Release bricht dann ab.
+# Optional: SPARKLE_ED_PRIVATE_KEY (Selbst-Update der Mac-App ueber Sparkle; Export von Sparkles generate_keys -x).
+#   Mit ihm traegt die DMG Appcast-Adresse und oeffentlichen Schluessel ein, und jede Veroeffentlichung ersetzt den
+#   signierten Appcast im Zweig "appcast" (appcast.xml = Releases, appcast-rc.xml = Vorabversionen).
+#   Ohne ihn: DMG ohne Selbst-Update, kein Appcast, nur ein Hinweis.
 name: Release
 
 on:
@@ -238,6 +242,22 @@ jobs:
           echo "$P8" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
           echo "SAGA_KEYCHAIN=$KC" >> "$GITHUB_ENV"
           echo "ASC_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+      # Selbst-Update (Sparkle): oeffentlichen Schluessel aus dem privaten ableiten; ohne Secret bleibt es aus
+      - name: Sparkle-Schluessel
+        if: steps.keys.outputs.skip != '1'
+        env:
+          SPARKLE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          if [ -z "$SPARKLE_KEY" ]; then
+            echo "::notice::Kein Secret SPARKLE_ED_PRIVATE_KEY - die DMG kommt ohne Selbst-Update, es gibt keinen Appcast"
+            exit 0
+          fi
+          if ! PUB=$(printf '%s' "$SPARKLE_KEY" | swift tools/sparkle-pubkey.swift); then
+            echo "::error::SPARKLE_ED_PRIVATE_KEY ist kein Sparkle-Schluessel (Export von generate_keys -x erwartet)"
+            exit 1
+          fi
+          echo "SAGA_SPARKLE_PUBLIC_KEY=$PUB" >> "$GITHUB_ENV"
+          echo "Oeffentlicher Sparkle-Schluessel (SUPublicEDKey): $PUB"
       - name: DMG bauen und beglaubigen
         if: steps.keys.outputs.skip != '1'
         env:
@@ -245,10 +265,31 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER: ${{ secrets.ASC_ISSUER_ID }}
           SAGA_VERSION_LABEL: ${{ needs.version.outputs.label }}
+          SAGA_REPO: ${{ github.repository }}
         shell: bash
         run: |
           set -o pipefail
           sh ios/build-dmg.sh 2>&1 | tee "$RUNNER_TEMP/dmg.log"
+      # Appcast (eine Datei je Kanal, ein Eintrag): DMG und Appcast mit EdDSA signieren und beides gleich pruefen.
+      # Veroeffentlicht wird er erst nach dem Release (Jobs release/testing, tools/publish-appcast.sh).
+      - name: Appcast (Sparkle)
+        if: steps.keys.outputs.skip != '1' && env.SAGA_SPARKLE_PUBLIC_KEY != ''
+        env:
+          SPARKLE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          . ios/dist/sparkle-info.env
+          SU=ios/dist/sparkle-bin/sign_update
+          DMG=ios/dist/Saga-$SAGA_LABEL-macOS.dmg
+          SIG=$(printf '%s' "$SPARKLE_KEY" | "$SU" --ed-key-file - -p "$DMG")
+          printf '%s' "$SPARKLE_KEY" | "$SU" --verify --ed-key-file - "$DMG" "$SIG"
+          F=$(python3 tools/appcast.py --label "$SAGA_LABEL" --build "$SAGA_BUILD" --dmg "$DMG" --signature "$SIG" \
+                --repo "$GITHUB_REPOSITORY" --changelog CHANGELOG.md --out-dir ios/dist/appcast)
+          printf '%s' "$SPARKLE_KEY" | "$SU" --ed-key-file - "$F"
+          printf '%s' "$SPARKLE_KEY" | "$SU" --verify --ed-key-file - "$F"
+          xmllint --noout "$F"
+          echo "Appcast $F fuer $SAGA_FEED:"; cat "$F"
       - name: Fehler als Hinweise (lesbar ueber die API, ohne Log-Download)
         if: failure()
         shell: bash
@@ -258,6 +299,12 @@ jobs:
         with:
           name: macos
           path: ios/dist/Saga-*-macOS.dmg
+          if-no-files-found: error
+      - if: steps.keys.outputs.skip != '1' && env.SAGA_SPARKLE_PUBLIC_KEY != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-appcast
+          path: ios/dist/appcast/appcast*.xml
           if-no-files-found: error
       - name: Aufraeumen
         if: always()
@@ -282,6 +329,7 @@ jobs:
         env:
           V: ${{ needs.version.outputs.version }}
         run: |
+          mkdir -p appcast-out && find dist -maxdepth 1 -name 'appcast*.xml' -exec mv {} appcast-out/ \;   # kein Release-Asset
           ls -l dist
           # Abschnitt "## [x.y.z] – Datum" aus CHANGELOG.md; fehlt er, lieber abbrechen als ohne Notizen veroeffentlichen
           N=$(awk -v v="[$V]" '/^## \[/ { p = index($0, v) > 0; next } p' CHANGELOG.md)
@@ -320,6 +368,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           V: ${{ needs.version.outputs.version }}
         run: gh release create "v$V" dist/* --target "$GITHUB_SHA" --title "Saga-Apps $V" --notes-file notes.md
+      - name: Appcast fuer das Selbst-Update (Mac)
+        env:
+          V: ${{ needs.version.outputs.version }}
+        run: sh tools/publish-appcast.sh appcast-out appcast.xml "$V"
 
   # Jeder Push auf testing aktualisiert EINE Vorabversion "v<Version>-rc.<N>" (Release Candidate, Pre-release, nie "Latest").
   # Aeltere Vorabversionen (*-rc.N, *+dev.N und die frueheren *-testing) werden dabei entfernt; echte Releases bleiben.
@@ -343,6 +395,7 @@ jobs:
         env:
           L: ${{ needs.version.outputs.label }}
         run: |
+          mkdir -p appcast-out && find dist -maxdepth 1 -name 'appcast*.xml' -exec mv {} appcast-out/ \;   # kein Release-Asset
           ls -l dist
           (cd dist && sha256sum * > SHA256SUMS)
           # Abschnitt [Unveröffentlicht]; direkt nach einem Release ist er leer -> kurzer Satz statt leerer Notizen
@@ -386,3 +439,10 @@ jobs:
           done
           gh release create "v$L" dist/* --target "$GITHUB_SHA" --prerelease --latest=false \
             --title "$TITLE" --notes-file notes.md
+      - name: Appcast fuer das Selbst-Update (Mac)
+        env:
+          L: ${{ needs.version.outputs.label }}
+        run: |
+          # wie oben: nur fuer echte Vorabversionen (x.y.z-rc.N)
+          printf '%s' "$L" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$' || exit 0
+          sh tools/publish-appcast.sh appcast-out appcast-rc.xml "$L"
