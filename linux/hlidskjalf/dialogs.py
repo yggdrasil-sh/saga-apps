@@ -1,4 +1,5 @@
 """Dialoge: Befehlspalette, Papierkorb, Verschieben, Versionen, Seitenauswahl, Immich, Schaltflaechen, Dienste."""
+import re
 from gi.repository import Adw, Gdk, GLib, Gtk, Pango
 
 from . import images
@@ -667,7 +668,17 @@ def _seti(b, k, v):
         b.pop(k, None)
 
 
-def service_icon(icon, name, size=30):
+def service_icon_path(icon, icon_url=None):
+    """Pfad des Symbols auf dem eigenen Server oder None: icon_url (Server 2.5, auch automatische Symbole wie geratenes
+    selfh.st-Symbol oder Favicon der Seite), sonst wie bisher /api/services/icon/<name>"""
+    if isinstance(icon_url, str) and icon_url.startswith("/api/"):
+        return icon_url
+    if isinstance(icon, str) and re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", icon):
+        return f"/api/services/icon/{icon}"
+    return None
+
+
+def service_icon(icon, name, size=30, icon_url=None):
     """Symbol eines Dienstes ueber den eigenen Server (selfh.st wie im Web), sonst Anfangsbuchstabe"""
     holder = Gtk.Box(valign=Gtk.Align.CENTER, halign=Gtk.Align.START, hexpand=False)
     holder.set_size_request(size, size)
@@ -676,7 +687,8 @@ def service_icon(icon, name, size=30):
     letter = Gtk.Label(label=(name[:1] or "?").upper(), hexpand=True, vexpand=True)
     letter.add_css_class("hk-svc-letter")
     holder.append(letter)
-    if icon:
+    path = service_icon_path(icon, icon_url)
+    if path:
         def got(dec):
             if dec is None:
                 return
@@ -689,7 +701,7 @@ def service_icon(icon, name, size=30):
             while (c := holder.get_first_child()):
                 holder.remove(c)
             holder.append(v)
-        images.load(f"/api/services/icon/{icon}", got, max_px=128)
+        images.load(path, got, max_px=128)
     return holder
 
 
@@ -725,7 +737,7 @@ def services_screen(win):
                              min_children_per_line=1, max_children_per_line=5, valign=Gtk.Align.START)
             for s in [x for x in shown if (x.get("category") or "") == cat]:
                 r = Gtk.Box(spacing=10)
-                r.append(service_icon(s.get("icon"), s.get("name") or ""))
+                r.append(service_icon(s.get("icon"), s.get("name") or "", icon_url=s.get("icon_url")))
                 col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
                 # lange Namen kuerzen: sonst bestimmt die laengste Karte die Breite aller Karten (homogen)
                 col.append(Gtk.Label(label=s.get("name") or "", xalign=0, ellipsize=Pango.EllipsizeMode.END, max_width_chars=22,

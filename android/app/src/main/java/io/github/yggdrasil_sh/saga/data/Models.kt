@@ -83,7 +83,16 @@ data class ServiceItem(
     val icon: String = "",
     val own: Boolean = false,
     val key: String = "",
-)
+    /** Server 2.5: fertige Bildadresse, auch fuer automatische Symbole (geratenes selfh.st-Symbol oder Favicon) */
+    @SerialName("icon_url") val iconUrl: String = "",
+) {
+    /** Pfad des Symbols auf dem eigenen Server oder null (Anfangsbuchstabe): icon_url, sonst wie bisher der Name */
+    fun iconPath(): String? = when {
+        iconUrl.startsWith("/api/") -> iconUrl.removePrefix("/")
+        icon.isNotBlank() && Regex("[a-z0-9][a-z0-9-]{0,63}").matches(icon) -> "api/services/icon/$icon"
+        else -> null
+    }
+}
 
 @Serializable
 data class VersionInfo(

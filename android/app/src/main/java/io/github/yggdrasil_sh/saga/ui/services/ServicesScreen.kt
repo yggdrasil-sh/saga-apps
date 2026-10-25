@@ -141,7 +141,7 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     }
 }
 
-/** Symbol ueber den eigenen Server (/api/services/icon/<name>), sonst Anfangsbuchstabe wie im Web */
+/** Symbol ueber den eigenen Server (icon_url bzw. /api/services/icon/<name>), sonst Anfangsbuchstabe wie im Web */
 @Composable
 private fun ServiceIcon(s: ServiceItem, repo: SagaRepository) {
     val letter: @Composable () -> Unit = {
@@ -150,13 +150,14 @@ private fun ServiceIcon(s: ServiceItem, repo: SagaRepository) {
             contentAlignment = Alignment.Center,
         ) { Text(s.name.take(1).uppercase(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
-    if (s.icon.isBlank() || !Regex("[a-z0-9][a-z0-9-]{0,63}").matches(s.icon)) {
+    val path = s.iconPath()
+    if (path == null) {
         letter()
     } else {
         // Dienst-Symbole sind oft dunkel auf transparent: im Dunkelmodus auf heller Plakette, sonst unsichtbar
         val dark = MaterialTheme.colorScheme.background.luminance() < 0.3f
         SubcomposeAsyncImage(
-            model = repo.absoluteUrl("api/services/icon/${s.icon}"), contentDescription = null, contentScale = ContentScale.Fit,
+            model = repo.absoluteUrl(path), contentDescription = null, contentScale = ContentScale.Fit,
             modifier = Modifier.size(32.dp).then(
                 if (dark) Modifier.clip(RoundedCornerShape(7.dp)).background(Color(0xFFF1EDE4)).padding(3.dp) else Modifier
             ),
