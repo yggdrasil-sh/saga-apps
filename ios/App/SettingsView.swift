@@ -29,6 +29,11 @@ struct SettingsView: View {
                 try? await Task.sleep(for: .seconds(2)); proxy.scrollTo(v, anchor: v == "konto" ? .center : .top)   // Zeilen kommen ggf. erst nach dem Laden
             }
             #endif
+            .task {                                                      // 2.5: "Geraete verwalten" aus dem Chat-Hinweis
+                guard CloudNav.pendingSection == "chats" else { return }
+                CloudNav.pendingSection = nil
+                try? await Task.sleep(for: .seconds(0.6)); withAnimation { proxy.scrollTo("chats", anchor: .top) }
+            }
         }
     }
 

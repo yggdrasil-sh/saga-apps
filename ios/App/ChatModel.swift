@@ -210,6 +210,8 @@ struct ChatSummary: Identifiable, Equatable {
     var callGroup: Bool?
     var callGroupBlock: String?
     var callRunning: String?
+    /// 2.5: warum (noch) keine Reaktionen/Bearbeiten (x3_why; nil = geht bzw. Server meldet es nicht)
+    var x3Why: ChatSelectLogic.Why?
     var statusFlags: ReceiptLogic.ChatFlags {
         ReceiptLogic.ChatFlags(kind: kind, fed: isFed, request: fed?.request ?? false, readonly: fed?.readonly ?? false, receiptsOK: receiptsOK, onlineOK: onlineOK)
     }
@@ -218,7 +220,7 @@ struct ChatSummary: Identifiable, Equatable {
             && a.retention == b.retention && a.lastAt == b.lastAt && a.lastSeq == b.lastSeq && a.decryptedTitle == b.decryptedTitle && a.role == b.role && a.ai == b.ai
             && a.canArchive == b.canArchive && a.archived == b.archived && a.clearedSeq == b.clearedSeq && a.deleteForAll == b.deleteForAll && a.fed == b.fed
             && a.receiptsOK == b.receiptsOK && a.onlineOK == b.onlineOK && a.bigFiles == b.bigFiles
-            && a.callGroup == b.callGroup && a.callGroupBlock == b.callGroupBlock && a.callRunning == b.callRunning
+            && a.callGroup == b.callGroup && a.callGroupBlock == b.callGroupBlock && a.callRunning == b.callRunning && a.x3Why == b.x3Why
     }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let i = ShareJSON.int(d["id"]) else { return nil }
@@ -242,6 +244,7 @@ struct ChatSummary: Identifiable, Equatable {
         fed = FedChatInfo(d)
         (receiptsOK, onlineOK) = ReceiptLogic.flags(d)
         bigFiles = d["big_files"] as? Bool
+        x3Why = ChatSelectLogic.why(d)
         if let k = d["call"] as? [String: Any] {
             callGroup = k["group"] as? Bool; callGroupBlock = ShareJSON.str(k["group_block"])
             if let r = k["running"] as? [String: Any], (r["state"] as? String) != "ended", (r["kind"] as? String) == "group" { callRunning = r["id"] as? String }
@@ -647,6 +650,9 @@ final class ChatModel: ObservableObject {
         case "chat.message", "chat.deleted", "chat.read", "chat.changed":
             if let o = open, o.chatID == cid { o.live(type, d) }
             Task { await loadList(); if keys == nil { await refreshUnread() } }
+        case "chat.hidden":                                             // 2.5: auf einem eigenen Geraet "fuer mich geloescht"
+            if let o = open, o.chatID == cid { o.live(type, d) }
+            Task { await loadList() }
         case "chat.typing", "chat.react", "chat.edited":                // 2.5: Reaktionen, Bearbeitungen (kein Push, keine Liste)
             if let o = open, o.chatID == cid { o.live(type, d) }
         case "chat.receipt", "chat.presence", "chat.privacy":           // 2.4: Gelesen-Bestaetigungen, Online-Status

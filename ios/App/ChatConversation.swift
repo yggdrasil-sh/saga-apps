@@ -200,8 +200,8 @@ final class ConversationModel: ObservableObject {
             list.append(cm)
         }
         openReactions(list.map(\.id))                                   // auch schon bekannte: Reaktionen frisch vom Server
-        let known = Set(messages.map(\.id))
-        list.removeAll { known.contains($0.id) }
+        let known = Set(messages.map(\.id)), hidden = locallyHidden          // 2.5: nur hier ausgeblendete (aelterer Server)
+        list.removeAll { known.contains($0.id) || hidden.contains($0.id) }
         // Anhaenge diesem Chat zuordnen (Chat loeschen leert dann genau seine Bilder, 2.1)
         ChatBlobCache.shared.note(chatID: chatID, ids: list.flatMap { m in (m.content?.files ?? []).flatMap { [$0.id] + ($0.thumb.map { [$0.id] } ?? []) } })
         if prepend { messages = list + messages; more = ShareJSON.bool(j["more"]) }
@@ -255,6 +255,7 @@ final class ConversationModel: ObservableObject {
         case "chat.changed": recipients = nil; Task { await load() }
         case "chat.react": liveReactions(d)                              // 2.5
         case "chat.edited": liveEdited(d)
+        case "chat.hidden": liveHidden(d)                                // 2.5: auf einem anderen eigenen Geraet ausgeblendet
         case "chat.typing":
             if let u = d["user"] as? [String: Any], let n = u["username"] as? String, n != me {
                 typing[n] = (u["name"] as? String ?? n, Date())

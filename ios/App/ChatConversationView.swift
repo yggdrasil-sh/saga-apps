@@ -36,12 +36,20 @@ struct ConversationView: View {
     @State private var editing: ChatMessage?              // 2.5: Nachricht wird im Eingabefeld bearbeitet
     @State private var voiceProgress: Double?             // 2.5: Sprachnachricht wird hochgeladen
     @StateObject private var rec = VoiceRecorder()        // 2.5: Aufnahme einer Sprachnachricht
+    @StateObject private var sel = ChatSelection()        // 2.5: Mehrfachauswahl (ChatSelect.swift)
     @FocusState private var focused: Bool
 
     init(chatID: Int, chat: ChatModel) {
         self.chatID = chatID; self.chat = chat
         _conv = StateObject(wrappedValue: ConversationModel(chatID: chatID, model: chat))
     }
+    #if DEBUG
+    /// nur fuer Bilder (ChatSelectPreview.swift): erfundener Verlauf ohne Server
+    init(preview c: ConversationModel, chat: ChatModel) {
+        chatID = c.chatID; self.chat = chat
+        _conv = StateObject(wrappedValue: c)
+    }
+    #endif
 
     var body: some View {
         VStack(spacing: 0) {
@@ -54,18 +62,27 @@ struct ConversationView: View {
                 messagesList
                 if let f = conv.fed, f.request || f.readonly {
                     FedStateBar(conv: conv, fed: f) { nav.back() }               // Nachrichtenanfrage bzw. schreibgeschuetzt
+                } else if sel.on {
+                    ChatSelectBar(count: selectedCount, busy: sel.busy, copy: selCopy, forward: selForward,
+                                  toPage: { sel.askPage = true }, delete: { sel.askDelete = true })
                 } else {
                     composer
                 }
             }
         }
-        .navigationTitle(conv.info?.title ?? "")
+        .navigationTitle(sel.on ? String(localized: "\(selectedCount) ausgewählt") : (conv.info?.title ?? ""))
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #else
         .navigationSubtitle(presenceText ?? conv.info.map { ChatSubtitle.text($0) } ?? "")   // 2.4: online / zuletzt online
         #endif
         .toolbar {
+            if sel.on {                                                         // 2.5: Auswahl beenden (x, Esc)
+                ToolbarItem(placement: .cancellationAction) {
+                    Button { sel.end() } label: { Label("Auswahl beenden", systemImage: "xmark") }
+                        .keyboardShortcut(.cancelAction).help(Text("Auswahl beenden"))
+                }
+            } else {
             #if os(iOS)
             if let s = presenceText, let t = conv.info?.title {                   // 2.4: Name, darunter online / zuletzt online
                 ToolbarItem(placement: .principal) { ChatTitleWithPresence(title: t, status: s, online: chat.presenceOf(conv.info)?.online == true) }
@@ -87,6 +104,10 @@ struct ConversationView: View {
             }
             // Suche im Chat steckt im Menue (Befehl-F): eine zweite Lupe neben dem Suchfeld der Liste/Seitenleiste verwirrt
             ToolbarItem(placement: .primaryAction) { menu }
+            if let w = conv.info?.x3Why, !conv.x3 {                           // 2.5: warum (noch) keine Reaktionen
+                ToolbarItem(placement: .primaryAction) { X3WhyButton(why: w) }
+            }
+            }
         }
         .task {
             chat.open = conv
@@ -121,6 +142,10 @@ struct ConversationView: View {
             let after = UserDefaults.standard.double(forKey: "hkChatSendPendingAfter")        // nur fuer Tests: Anhaenge nach n s senden
             if after > 0 { try? await Task.sleep(for: .seconds(after)); if text.isEmpty { text = "Eingesetzt" }; sendNow() }
             if UserDefaults.standard.bool(forKey: "hkChatAck") { for u in conv.changedPeers { conv.acknowledge(u) } }   // nur fuer Tests: "Verstanden"
+            if let p = SelectPreview.mode, p == "select" || p == "delete" {    // nur fuer Bilder: Auswahl (+ Loeschen-Dialog)
+                try? await Task.sleep(for: .seconds(0.8)); sel.start("m2"); sel.ids = ["m2", "m3", "m4"]
+                if p == "delete" { try? await Task.sleep(for: .seconds(0.8)); sel.askDelete = true }
+            }
             #endif
         }
         .task(id: scenePhase) {
@@ -133,7 +158,8 @@ struct ConversationView: View {
             if chat.open === conv { chat.open = nil }; chat.presenceSoon()             // 2.4: Online-Abo dieses Chats endet
             if rec.active { rec.cancel() }                                            // 2.5: Aufnahme endet mit dem Chat
         }
-        .onChange(of: conv.purged) { _, _ in text = ""; files = []; replyTo = nil; askDelete = nil; editing = nil; rec.cancel() }   // Chat geloescht: Entwurf weg
+        .onChange(of: conv.purged) { _, _ in text = ""; files = []; replyTo = nil; askDelete = nil; editing = nil; rec.cancel(); sel.end() }   // Chat geloescht: Entwurf weg
+        .modifier(ChatSelectFlows(sel: sel, conv: conv, chat: chat, openPage: { id in nav.push(PageRoute(id: id)) }))   // 2.5: Auswahl-Aktionen
         .sheet(item: $deleting) { c in ChatDeleteSheet(chat: chat, c: c) }
         .modifier(ChatMediaInput(files: $files, pickImmich: $pickImmich, immichOn: $immichOn, enabled: !conv.notFound, maxBytes: chat.me.fileMax))
         .sheet(item: $safetyPeer) { p in
@@ -249,6 +275,7 @@ struct ConversationView: View {
                         if i == 0 || !Calendar.current.isDate(shown[i - 1].date, inSameDayAs: m.date) {
                             Text(m.date.sagaFormatted(date: .complete, time: .omitted)).font(.caption2.weight(.semibold)).foregroundStyle(.secondary).padding(.top, 8)
                         }
+                        selRow(m) {
                         if let e = m.call {
                             CallEntryRow(entry: e, mine: m.mine, date: m.date) {
                                 if e.group, let i = conv.info, canGroupCall(i) { store.calls.startGroup(i, video: e.media == "video") }   // 2.4 E5
@@ -262,10 +289,12 @@ struct ConversationView: View {
                                       conv: conv, highlight: !search.isEmpty && ChatLogic.matches(m.text, search),
                                       reply: { replyTo = m; editing = nil; focused = true }, delete: { askDelete = m },
                                       edit: { startEdit(m) },
+                                      select: conv.selectable(m) ? { startSelect(m) } : nil,
                                       openPage: { id in nav.push(PageRoute(id: id)) },
                                       checkSafety: { safetyPeer = ChatMember(username: m.sender, name: m.senderName, me: false) })
                             .id(m.id)
                             .onAppear { conv.saw(m) }                                   // 2.4: Bestaetigung erst, wenn sichtbar
+                        }
                         }
                     }
                     if let p = conv.aiPending {                                    // KI antwortet gerade (Strom)
@@ -300,6 +329,52 @@ struct ConversationView: View {
         }
     }
     private var shown: [ChatMessage] { conv.messages }
+
+    // MARK: Mehrfachauswahl (2.5)
+
+    private var selectedCount: Int { conv.messages.filter { sel.ids.contains($0.id) && conv.selectable($0) }.count }
+    private func startSelect(_ m: ChatMessage) {
+        guard conv.selectable(m) else { return }
+        replyTo = nil; if editing != nil { cancelEdit() }; focused = false
+        sel.start(m.id)
+    }
+    private func selTap(_ m: ChatMessage, shift: Bool) {
+        sel.tap(m.id, shift: shift, order: conv.messages.map(\.id), selectable: Set(conv.messages.filter(conv.selectable).map(\.id)))
+    }
+    private func selCopy() {
+        let items = conv.messages.filter { sel.ids.contains($0.id) && conv.selectable($0) }.map(conv.selectItem)
+        copyText(ChatSelectFlows.copy(items))
+        chat.toast = String(localized: "Kopiert.")
+        sel.end()
+    }
+    private func selForward() {
+        guard ChatSelectLogic.forwardAllowed(selectedCount) else {
+            chat.toast = String(localized: "Höchstens \(ChatSelectLogic.forwardMax) Nachrichten auf einmal weiterleiten."); return
+        }
+        sel.pickForward = true
+    }
+    /// Zeile im Auswahlmodus: Kreis davor, ganze Zeile antippbar (Mac: Umschalt-Klick = Bereich), Blase selbst nicht bedienbar
+    @ViewBuilder private func selRow<C: View>(_ m: ChatMessage, @ViewBuilder _ row: () -> C) -> some View {
+        if sel.on {
+            let ok = conv.selectable(m), on = sel.ids.contains(m.id)
+            HStack(spacing: 6) {
+                SelectMark(on: on, enabled: ok)
+                row().allowsHitTesting(false)
+            }
+            .contentShape(Rectangle())
+            .opacity(ok ? 1 : 0.45)
+            .onTapGesture { selTap(m, shift: false) }
+            #if os(macOS)
+            .highPriorityGesture(TapGesture().modifiers(.shift).onEnded { selTap(m, shift: true) })
+            #endif
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(on ? [.isSelected, .isButton] : (ok ? .isButton : []))
+            .accessibilityHint(ok ? (on ? Text("Auswahl aufheben") : Text("Auswählen")) : Text("Nicht auswählbar"))
+            .accessibilityAction { selTap(m, shift: false) }
+        } else {
+            row()
+        }
+    }
     /// 2.4: "online" bzw. "zuletzt online …" im Direkt-Chat (nil = nichts zeigen)
     private var presenceText: String? { PresenceText.text(chat.presenceOf(conv.info)) }
     /// Anrufe: Server kann es; ueber Servergrenzen nur aus angenommenen, beschreibbaren Chats (Anfragen klingeln nie)
@@ -640,6 +715,8 @@ struct MessageBubble: View {
     var reply: () -> Void
     var delete: () -> Void
     var edit: () -> Void = {}
+    /// 2.5: Auswahlmodus mit dieser Nachricht starten (nil = nicht auswaehlbar)
+    var select: (() -> Void)? = nil
     var openPage: (Int) -> Void
     var checkSafety: () -> Void = {}
     @State private var info = false
@@ -701,6 +778,7 @@ struct MessageBubble: View {
             }
             #if os(macOS)
             .onHover { hover = $0 }
+            .simultaneousGesture(TapGesture().modifiers(.command).onEnded { select?() })   // 2.5: Cmd-Klick startet die Auswahl
             #endif
             #if os(iOS)
             // 2.5: eigene schwebende Leiste statt Kontextmenue-Palette (die war auf iPhone/iPad abgeschnitten): Emojis in
@@ -749,6 +827,7 @@ struct MessageBubble: View {
         if conv.canEdit(m) { a.append(BubbleAction(id: "edit", title: "Bearbeiten", icon: "pencil") { edit() }) }
         if !conv.chips(m).isEmpty { a.append(BubbleAction(id: "who", title: "Reaktionen von …", icon: "face.smiling", sheet: true) { rxWho = RxWho(e: nil) }) }
         if !m.text.isEmpty { a.append(BubbleAction(id: "copy", title: "Text kopieren", icon: "doc.on.doc") { copyText(m.text) }) }
+        if let select { a.append(BubbleAction(id: "select", title: "Auswählen", icon: "checkmark.circle") { select() }) }   // 2.5: Mehrfachauswahl
         if m.mine && m.delivery == .failed && m.content != nil {
             a.append(BubbleAction(id: "resend", title: "Erneut senden", icon: "arrow.clockwise") { Task { await conv.resend(m) } })
         }
