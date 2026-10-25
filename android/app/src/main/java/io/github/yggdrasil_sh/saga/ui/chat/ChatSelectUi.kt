@@ -30,6 +30,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -88,14 +94,28 @@ fun SelectionTopBar(count: Int, onClose: () -> Unit, onCopy: () -> Unit, onForwa
             )
         },
         actions = {
-            IconButton(onClick = onCopy, enabled = on) { Icon(painterResource(R.drawable.ic_content_copy), stringResource(R.string.cs_copy)) }
-            IconButton(onClick = onForward, enabled = on) { Icon(painterResource(R.drawable.ic_forward), stringResource(R.string.cs_forward)) }
-            IconButton(onClick = onToPage, enabled = on) { Icon(painterResource(R.drawable.ic_note_add), stringResource(R.string.cs_to_page)) }
-            IconButton(onClick = onDelete, enabled = on) {
-                Icon(Icons.Filled.Delete, stringResource(R.string.cs_delete), tint = if (on) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            SelAction(painterResource(R.drawable.ic_content_copy), stringResource(R.string.cs_copy), on, onCopy)
+            SelAction(painterResource(R.drawable.ic_forward), stringResource(R.string.cs_forward), on, onForward)
+            SelAction(painterResource(R.drawable.ic_note_add), stringResource(R.string.cs_to_page), on, onToPage)
+            SelAction(
+                androidx.compose.ui.graphics.vector.rememberVectorPainter(Icons.Filled.Delete), stringResource(R.string.cs_delete), on, onDelete,
+                tint = if (on) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         },
     )
+}
+
+/** Aktion der Auswahl-Kopfzeile: Symbol mit Beschriftung (contentDescription) und Tooltip bei langem Druck */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SelAction(icon: androidx.compose.ui.graphics.painter.Painter, label: String, enabled: Boolean, onClick: () -> Unit, tint: Color? = null) {
+    TooltipBox(
+        TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Below), tooltip = { PlainTooltip { Text(label) } }, state = rememberTooltipState(),
+    ) {
+        IconButton(onClick = onClick, enabled = enabled) {
+            if (tint != null) Icon(icon, label, tint = tint) else Icon(icon, label)
+        }
+    }
 }
 
 /** Auswahlkreis links neben einer Nachricht (gefuellt in Primaerfarbe mit Haken bzw. Ring) */
@@ -224,36 +244,35 @@ fun PageTargetDialog(repo: SagaRepository, onDismiss: () -> Unit, onPick: (ChatN
     )
 }
 
-/** Löschen: "Für mich" (alle eigenen Geraete) bzw. "Für alle" nur, wenn ausschliesslich eigene ausgewaehlt sind */
+/**
+ * Löschen: "Für mich" (alle eigenen Geraete) bzw. "Für alle" nur, wenn ausschliesslich eigene ausgewaehlt sind.
+ * Erklaerung als Text, die Aktionen als rote Textknoepfe neben "Abbrechen" (Material-Dialog).
+ */
 @Composable
 fun DeleteSelectionDialog(count: Int, forAll: Boolean, onDismiss: () -> Unit, onForMe: () -> Unit, onForAll: () -> Unit) {
+    val red = MaterialTheme.colorScheme.error
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Filled.Delete, null) },
         title = { Text(pluralStringResource(R.plurals.cs_delete_title, count, count)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                DeleteChoice(stringResource(R.string.cs_delete_me), stringResource(R.string.cs_delete_me_hint), false, onForMe)
-                if (forAll) DeleteChoice(stringResource(R.string.cs_delete_all), stringResource(R.string.cs_delete_all_hint), true, onForAll)
+                Text(stringResource(R.string.cs_delete_me_hint), style = MaterialTheme.typography.bodyMedium)
+                if (forAll) Text(stringResource(R.string.cs_delete_all_hint), style = MaterialTheme.typography.bodyMedium)
                 else Text(stringResource(R.string.cs_delete_only_own), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
-        confirmButton = {},
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) } },
+        // "Für mich löschen" steht als roter Textknopf direkt neben "Abbrechen"; "Für alle löschen" (falls moeglich) darueber
+        confirmButton = {
+            Column(horizontalAlignment = Alignment.End) {
+                if (forAll) TextButton(onClick = onForAll, modifier = Modifier.testTag("cs-delete-all")) { Text(stringResource(R.string.cs_delete_all), color = red) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+                    TextButton(onClick = onForMe, modifier = Modifier.testTag("cs-delete-me")) { Text(stringResource(R.string.cs_delete_me), color = red) }
+                }
+            }
+        },
     )
-}
-
-@Composable
-private fun DeleteChoice(label: String, hint: String, danger: Boolean, onClick: () -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHighest, shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button, onClick = onClick),
-    ) {
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-            Text(label, fontWeight = FontWeight.SemiBold, color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-            Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
 }
 
 /** Rueckfrage vor "Für alle löschen" */

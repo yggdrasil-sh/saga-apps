@@ -104,6 +104,7 @@ fun SagaTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> 
     // ANIMATOR_DURATION_SCALE = 0 -> ruhige Federn ohne Ueberschwingen (Compose kuerzt die Dauer zusaetzlich selbst).
     val reduced = rememberReducedMotion()
     val motion = remember(reduced) { if (reduced) SagaMotion.Calm else SagaMotion.Expressive }
+    SystemBarIcons(dark)
     MaterialTheme(colorScheme = scheme, shapes = SagaShapes, typography = SagaTypography) {
         // Grund-Textfarbe passend zum Hintergrund: Bildschirme ohne Scaffold/Surface (Seiten, Datenbank-Bloecke,
         // Einbettungen) erben sonst LocalContentColor = Schwarz - im Dunkelmodus schwarz auf schwarz.
@@ -115,4 +116,27 @@ fun SagaTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> 
             content = content,
         )
     }
+}
+
+/**
+ * Symbole der Status- und Navigationsleiste nach Thema: dunkel -> helle Symbole. enableEdgeToEdge() entscheidet nur
+ * beim Start; MainActivity behandelt uiMode selbst (configChanges) und wird beim Themenwechsel nicht neu erzeugt.
+ */
+@Composable
+private fun SystemBarIcons(dark: Boolean) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    if (view.isInEditMode) return
+    androidx.compose.runtime.SideEffect {
+        val window = view.context.findActivity()?.window ?: return@SideEffect
+        androidx.core.view.WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
+        }
+    }
+}
+
+private tailrec fun android.content.Context.findActivity(): android.app.Activity? = when (this) {
+    is android.app.Activity -> this
+    is android.content.ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

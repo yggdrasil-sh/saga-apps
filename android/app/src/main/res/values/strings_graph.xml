@@ -11,16 +11,16 @@
     <string name="graph_search_clear">Clear search</string>
     <string name="graph_no_hits">No matches</string>
     <plurals name="graph_hits">
-        <item quantity="one">%d match</item>
-        <item quantity="other">%d matches</item>
+        <item quantity="one">%1$s match</item>
+        <item quantity="other">%1$s matches</item>
     </plurals>
     <plurals name="graph_pages">
-        <item quantity="one">%d page</item>
-        <item quantity="other">%d pages</item>
+        <item quantity="one">%1$s page</item>
+        <item quantity="other">%1$s pages</item>
     </plurals>
     <plurals name="graph_links">
-        <item quantity="one">%d connection</item>
-        <item quantity="other">%d connections</item>
+        <item quantity="one">%1$s connection</item>
+        <item quantity="other">%1$s connections</item>
     </plurals>
     <string name="graph_truncated">truncated</string>
     <string name="graph_truncated_hint">Only the most recently edited pages are shown.</string>
@@ -29,8 +29,8 @@
     <string name="graph_retry">Try again</string>
     <string name="graph_offline">No connection to the server</string>
     <string name="graph_offline_hint">The graph needs a connection. Try again once you are back online.</string>
-    <string name="graph_needs_server">Requires Server 2.5</string>
-    <string name="graph_needs_server_hint">This server does not offer the graph of pages yet.</string>
+    <string name="graph_needs_server">Requires server 2.5</string>
+    <string name="graph_needs_server_hint">Ask your server administrator to update to Saga 2.5.</string>
     <string name="graph_empty">No pages yet</string>
     <string name="graph_empty_hint">Create pages and link them to each other – this is where you will see how everything connects.</string>
     <string name="graph_filter_empty">No pages match the filters</string>
@@ -56,9 +56,12 @@
     <string name="graph_local_desc">Local graph of “%1$s”: %2$s</string>
     <string name="graph_kind_page">Page</string>
     <string name="graph_kind_database">Database</string>
-    <string name="graph_kind_row">Entry</string>
+    <string name="graph_kind_row">Database entry</string>
     <string name="graph_kind_tag">Tag</string>
-    <string name="graph_shared">Shared</string>
+    <string name="graph_shared">Shared with you</string>
     <string name="graph_current">Open page</string>
     <string name="graph_untitled">Untitled</string>
+    <string name="graph_depth_n">Depth %1$d</string>
+    <string name="graph_zoom_in">Zoom in</string>
+    <string name="graph_zoom_out">Zoom out</string>
 </resources>

@@ -11,16 +11,16 @@
     <string name="graph_search_clear">Borrar búsqueda</string>
     <string name="graph_no_hits">Sin resultados</string>
     <plurals name="graph_hits">
-        <item quantity="one">%d resultado</item>
-        <item quantity="other">%d resultados</item>
+        <item quantity="one">%1$s resultado</item>
+        <item quantity="other">%1$s resultados</item>
     </plurals>
     <plurals name="graph_pages">
-        <item quantity="one">%d página</item>
-        <item quantity="other">%d páginas</item>
+        <item quantity="one">%1$s página</item>
+        <item quantity="other">%1$s páginas</item>
     </plurals>
     <plurals name="graph_links">
-        <item quantity="one">%d conexión</item>
-        <item quantity="other">%d conexiones</item>
+        <item quantity="one">%1$s conexión</item>
+        <item quantity="other">%1$s conexiones</item>
     </plurals>
     <string name="graph_truncated">recortado</string>
     <string name="graph_truncated_hint">Solo se muestran las páginas editadas más recientemente.</string>
@@ -30,7 +30,7 @@
     <string name="graph_offline">Sin conexión con el servidor</string>
     <string name="graph_offline_hint">El grafo necesita conexión. Vuelve a intentarlo cuando estés en línea.</string>
     <string name="graph_needs_server">Requiere el servidor 2.5</string>
-    <string name="graph_needs_server_hint">Este servidor todavía no ofrece el grafo de páginas.</string>
+    <string name="graph_needs_server_hint">Pide a la administración de tu servidor que actualice a Saga 2.5.</string>
     <string name="graph_empty">Aún no hay páginas</string>
     <string name="graph_empty_hint">Crea páginas y enlázalas entre sí: aquí verás cómo se relaciona todo.</string>
     <string name="graph_filter_empty">Ninguna página coincide con los filtros</string>
@@ -56,9 +56,12 @@
     <string name="graph_local_desc">Grafo local de «%1$s»: %2$s</string>
     <string name="graph_kind_page">Página</string>
     <string name="graph_kind_database">Base de datos</string>
-    <string name="graph_kind_row">Entrada</string>
+    <string name="graph_kind_row">Entrada de base de datos</string>
     <string name="graph_kind_tag">Etiqueta</string>
-    <string name="graph_shared">Compartida</string>
+    <string name="graph_shared">Compartida contigo</string>
     <string name="graph_current">Página abierta</string>
     <string name="graph_untitled">Sin título</string>
+    <string name="graph_depth_n">Profundidad %1$d</string>
+    <string name="graph_zoom_in">Acercar</string>
+    <string name="graph_zoom_out">Alejar</string>
 </resources>

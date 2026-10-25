@@ -2,22 +2,22 @@
 <!-- 2.5 Graph der Seiten (wie Obsidian) -->
 <resources>
     <string name="graph_title">กราฟ</string>
-    <string name="graph_local_menu">กราฟเฉพาะหน้า</string>
+    <string name="graph_local_menu">กราฟเฉพาะที่</string>
     <string name="graph_mode_all">ทุกหน้า</string>
-    <string name="graph_mode_local">เฉพาะหน้า</string>
+    <string name="graph_mode_local">เฉพาะที่</string>
     <string name="graph_mode">มุมมอง</string>
     <string name="graph_depth">ความลึก</string>
     <string name="graph_search">ค้นหาหน้าในกราฟ</string>
     <string name="graph_search_clear">ล้างการค้นหา</string>
     <string name="graph_no_hits">ไม่พบผลลัพธ์</string>
     <plurals name="graph_hits">
-        <item quantity="other">%d รายการที่ตรงกัน</item>
+        <item quantity="other">%1$s รายการที่ตรงกัน</item>
     </plurals>
     <plurals name="graph_pages">
-        <item quantity="other">%d หน้า</item>
+        <item quantity="other">%1$s หน้า</item>
     </plurals>
     <plurals name="graph_links">
-        <item quantity="other">%d การเชื่อมโยง</item>
+        <item quantity="other">%1$s การเชื่อมโยง</item>
     </plurals>
     <string name="graph_truncated">ตัดทอนแล้ว</string>
     <string name="graph_truncated_hint">แสดงเฉพาะหน้าที่แก้ไขล่าสุดเท่านั้น</string>
@@ -27,7 +27,7 @@
     <string name="graph_offline">เชื่อมต่อเซิร์ฟเวอร์ไม่ได้</string>
     <string name="graph_offline_hint">กราฟต้องใช้การเชื่อมต่อ ลองอีกครั้งเมื่อกลับมาออนไลน์</string>
     <string name="graph_needs_server">ต้องใช้เซิร์ฟเวอร์ 2.5</string>
-    <string name="graph_needs_server_hint">เซิร์ฟเวอร์นี้ยังไม่รองรับกราฟของหน้า</string>
+    <string name="graph_needs_server_hint">โปรดขอให้ผู้ดูแลเซิร์ฟเวอร์ของคุณอัปเดตเป็น Saga 2.5</string>
     <string name="graph_empty">ยังไม่มีหน้า</string>
     <string name="graph_empty_hint">สร้างหน้าและลิงก์ถึงกัน แล้วคุณจะเห็นที่นี่ว่าทุกอย่างเชื่อมโยงกันอย่างไร</string>
     <string name="graph_filter_empty">ไม่มีหน้าที่ตรงกับตัวกรอง</string>
@@ -50,12 +50,15 @@
     <string name="graph_show_list">แสดงเป็นรายการ</string>
     <string name="graph_show_canvas">แสดงเป็นกราฟ</string>
     <string name="graph_canvas_desc">กราฟที่มี %1$s และ %2$s ใช้มุมมองรายการหรือการค้นหาเพื่อเปิดหน้า</string>
-    <string name="graph_local_desc">กราฟเฉพาะของ “%1$s”: %2$s</string>
+    <string name="graph_local_desc">กราฟเฉพาะที่ของ “%1$s”: %2$s</string>
     <string name="graph_kind_page">หน้า</string>
     <string name="graph_kind_database">ฐานข้อมูล</string>
-    <string name="graph_kind_row">รายการ</string>
+    <string name="graph_kind_row">รายการฐานข้อมูล</string>
     <string name="graph_kind_tag">แท็ก</string>
-    <string name="graph_shared">แชร์แล้ว</string>
+    <string name="graph_shared">แชร์กับคุณ</string>
     <string name="graph_current">หน้าที่เปิดอยู่</string>
     <string name="graph_untitled">ไม่มีชื่อ</string>
+    <string name="graph_depth_n">ความลึก %1$d</string>
+    <string name="graph_zoom_in">ขยาย</string>
+    <string name="graph_zoom_out">ย่อ</string>
 </resources>

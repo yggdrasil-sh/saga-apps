@@ -87,7 +87,11 @@ private fun PageContent(store: WidgetStore, widgetId: Int, @Suppress("UNUSED_PAR
         when {
             ui !is WidgetUi.Content && ui != WidgetUi.Loading -> Column(verticalAlignment = Alignment.CenterVertically, horizontalAlignment = Alignment.Start) {
                 if (!tiny) Text(ctx.getString(R.string.widget_page_title), style = WidgetLook.text(WidgetLook.title, bold = true, color = WidgetLook.gold), maxLines = 1)
-                Text(message(ctx, ui), style = WidgetLook.muted(if (tiny) WidgetLook.small else WidgetLook.body), maxLines = if (tiny) 3 else 4)
+                Text(message(ctx, ui), style = WidgetLook.muted(if (tiny) WidgetLook.small else WidgetLook.body), maxLines = if (tiny) 3 else if (ui == WidgetUi.SignedOut && !strip) 3 else 4)
+                if (ui == WidgetUi.SignedOut && !tiny && !strip) {
+                    Spacer(GlanceModifier.height(8.dp))
+                    SignInButton(ctx)
+                }
             }
             tiny -> Text(emoji, style = TextStyle(fontSize = 30.sp))
             strip -> Row(GlanceModifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {

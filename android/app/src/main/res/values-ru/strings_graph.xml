@@ -11,22 +11,22 @@
     <string name="graph_search_clear">Очистить поиск</string>
     <string name="graph_no_hits">Ничего не найдено</string>
     <plurals name="graph_hits">
-        <item quantity="one">%d совпадение</item>
-        <item quantity="few">%d совпадения</item>
-        <item quantity="many">%d совпадений</item>
-        <item quantity="other">%d совпадения</item>
+        <item quantity="one">%1$s совпадение</item>
+        <item quantity="few">%1$s совпадения</item>
+        <item quantity="many">%1$s совпадений</item>
+        <item quantity="other">%1$s совпадения</item>
     </plurals>
     <plurals name="graph_pages">
-        <item quantity="one">%d страница</item>
-        <item quantity="few">%d страницы</item>
-        <item quantity="many">%d страниц</item>
-        <item quantity="other">%d страницы</item>
+        <item quantity="one">%1$s страница</item>
+        <item quantity="few">%1$s страницы</item>
+        <item quantity="many">%1$s страниц</item>
+        <item quantity="other">%1$s страницы</item>
     </plurals>
     <plurals name="graph_links">
-        <item quantity="one">%d связь</item>
-        <item quantity="few">%d связи</item>
-        <item quantity="many">%d связей</item>
-        <item quantity="other">%d связи</item>
+        <item quantity="one">%1$s связь</item>
+        <item quantity="few">%1$s связи</item>
+        <item quantity="many">%1$s связей</item>
+        <item quantity="other">%1$s связи</item>
     </plurals>
     <string name="graph_truncated">сокращено</string>
     <string name="graph_truncated_hint">Показаны только недавно изменённые страницы.</string>
@@ -34,11 +34,11 @@
     <string name="graph_error">Не удалось загрузить граф.</string>
     <string name="graph_retry">Повторить</string>
     <string name="graph_offline">Нет связи с сервером</string>
-    <string name="graph_offline_hint">Для графа нужно соединение. Попробуйте снова, когда появится сеть.</string>
+    <string name="graph_offline_hint">Для графа нужно соединение. Попробуй снова, когда появится сеть.</string>
     <string name="graph_needs_server">Нужен сервер 2.5</string>
-    <string name="graph_needs_server_hint">Этот сервер пока не предоставляет граф страниц.</string>
+    <string name="graph_needs_server_hint">Попроси администратора сервера обновить Saga до версии 2.5.</string>
     <string name="graph_empty">Страниц пока нет</string>
-    <string name="graph_empty_hint">Создайте страницы и свяжите их ссылками — здесь будет видно, как всё связано.</string>
+    <string name="graph_empty_hint">Создай страницы и свяжи их ссылками — здесь будет видно, как всё связано.</string>
     <string name="graph_filter_empty">Нет страниц, подходящих под фильтры</string>
     <string name="graph_filter_reset">Сбросить фильтры</string>
     <string name="graph_local_missing">Этой страницы нет в графе</string>
@@ -58,13 +58,16 @@
     <string name="graph_fit">Вписать в экран</string>
     <string name="graph_show_list">Показать списком</string>
     <string name="graph_show_canvas">Показать графом</string>
-    <string name="graph_canvas_desc">Граф: %1$s, %2$s. Откройте страницу через список или поиск.</string>
+    <string name="graph_canvas_desc">Граф: %1$s, %2$s. Открой страницу через список или поиск.</string>
     <string name="graph_local_desc">Локальный граф «%1$s»: %2$s</string>
     <string name="graph_kind_page">Страница</string>
     <string name="graph_kind_database">База данных</string>
-    <string name="graph_kind_row">Запись</string>
+    <string name="graph_kind_row">Запись базы</string>
     <string name="graph_kind_tag">Тег</string>
-    <string name="graph_shared">Общая</string>
+    <string name="graph_shared">Доступно вам</string>
     <string name="graph_current">Открытая страница</string>
     <string name="graph_untitled">Без названия</string>
+    <string name="graph_depth_n">Глубина %1$d</string>
+    <string name="graph_zoom_in">Увеличить</string>
+    <string name="graph_zoom_out">Уменьшить</string>
 </resources>

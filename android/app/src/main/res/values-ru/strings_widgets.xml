@@ -2,13 +2,13 @@
 <!-- Homescreen-Widgets (Heute, Seite) -->
 <resources>
     <string name="widget_today_name">Saga: Сегодня</string>
-    <string name="widget_today_desc">События и задачи на сегодня, а также просроченные и без срока — отмечайте прямо в виджете</string>
+    <string name="widget_today_desc">События и задачи на сегодня, а также просроченные и без срока — отмечай прямо в виджете</string>
     <string name="widget_page_name">Saga: Страница</string>
     <string name="widget_page_desc">Показывает выбранную страницу: значок, заголовок и начало текста</string>
     <string name="widget_today_title">Сегодня</string>
     <string name="widget_page_title">Страница</string>
     <string name="widget_new_task">Новая задача</string>
-    <string name="widget_signed_out">Войдите в Saga, чтобы видеть здесь свой день.</string>
+    <string name="widget_signed_out">Войди в Saga, чтобы видеть здесь свой день.</string>
     <string name="widget_loading">Загрузка…</string>
     <string name="widget_today_empty">На сегодня ничего нет</string>
     <string name="widget_done_failed">Не удалось отметить задачу</string>
@@ -22,12 +22,12 @@
     <string name="widget_high_priority">высокий приоритет</string>
     <string name="widget_untitled">Без названия</string>
     <string name="widget_open_page">Открыть страницу %1$s</string>
-    <string name="widget_pick_page">Нажмите, чтобы выбрать страницу</string>
-    <string name="widget_page_missing">Этой страницы больше нет. Нажмите, чтобы выбрать другую.</string>
+    <string name="widget_pick_page">Нажми, чтобы выбрать страницу</string>
+    <string name="widget_page_missing">Этой страницы больше нет. Нажми, чтобы выбрать другую.</string>
     <string name="widget_page_database">База данных</string>
     <string name="widget_page_empty">Страница пуста</string>
     <string name="widget_config_title">Выбор страницы</string>
-    <string name="widget_config_signed_out">Сначала войдите в Saga, затем добавьте виджет снова.</string>
+    <string name="widget_config_signed_out">Сначала войди в Saga, затем добавь виджет снова.</string>
     <string name="widget_open_app">Открыть Saga</string>
     <string name="widget_config_search">Поиск страниц</string>
     <string name="widget_config_none">Страницы не найдены</string>
@@ -42,4 +42,6 @@
         <item quantity="many">ещё %d</item>
         <item quantity="other">ещё %d</item>
     </plurals>
+    <string name="widget_sign_in">Войти</string>
+    <string name="widget_more_a11y">Открыть «Сегодня»: ещё %1$d</string>
 </resources>
