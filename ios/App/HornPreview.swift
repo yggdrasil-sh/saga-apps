@@ -27,6 +27,16 @@ struct HornPreviewView: View {
     private func setUp() {
         guard !ready else { return }
         let c = store.calls
+        if mode.hasPrefix("meet-") {                                         // Meeting-Ansicht mit Beispiel-Anruf
+            c.mockMeet(String(mode.dropFirst(5)))
+            #if os(iOS)
+            if UserDefaults.standard.bool(forKey: "hkLandscape"), let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene {
+                scene.requestGeometryUpdate(.iOS(interfaceOrientations: .landscapeRight)) { _ in }
+            }
+            #endif
+            ready = true
+            return
+        }
         let people: [(String, String, String)] = [("Bea", "iPhone", "member"), ("Tom", "MacBook", "member"), ("Ana", "iPad", "member"), ("Kai", "Pixel", "member"),
                                                   ("Lena", "Firefox", "member"), ("Mo", "iPhone", "member"), ("Ida", "Chrome", "member"), ("Jon", "Galaxy", "member"),
                                                   ("Eva", "Safari", "member"), ("Ole", "iPhone", "member"), ("Uma", "Mac mini", "member")]
@@ -46,6 +56,50 @@ struct HornPreviewView: View {
 }
 
 extension CallManager {
+    /// nur fuer Bilder (-hkHornPreview meet-duo|present|present-group|gallery|speaker|pages): Meeting-Ansicht mit
+    /// erfundenen Geraeten ohne Netz und ohne Medien (bewegte Bilder als Farbflaechen). present = Labor-Befund: Anna mit
+    /// Mac (Kamera), iPhone (Begleitgeraet ohne Bild) und Android (Begleitgeraet teilt den Bildschirm)
+    func mockMeet(_ m: String) {
+        reset()
+        id = String(repeating: "b", count: 32); media = "video"; phase = .active; connected = true; ready = true; inRoom = true
+        connectedAt = Date().addingTimeInterval(-421); verified = true; mic = true; cam = true; limit = 12
+        func d(_ dev: String, _ who: String, _ name: String, _ dn: String, comp: Bool = false, mic: Bool = true, cam: Bool = false, screen: Bool = false) -> Meeting.Device {
+            Meeting.Device(device: dev, who: who, name: name, devName: dn, companion: comp, mic: mic, cam: cam, screen: screen, screenSince: screen ? 10 : 0)
+        }
+        let me = Meeting.Device(device: "me-dev", who: "me", name: "Max", devName: "iPhone", own: true, here: true, mic: true, cam: true)
+        var list = [me]
+        let names = ["Anna", "Ben", "Cem", "Dora", "Emil", "Fiona", "Gustav", "Hanna", "Ida", "Jonas", "Kira"]
+        switch m {
+        case "duo":
+            kind = "dm"; peerName = "Anna"
+            list.append(d("a1", "anna", "Anna", "MacBook", cam: true))
+            list.append(d("a2", "anna", "Anna", "iPhone", comp: true, mic: false))
+        case "present":
+            kind = "dm"; peerName = "Anna"
+            list.append(d("a1", "anna", "Anna", "MacBook", cam: true))
+            list.append(d("a2", "anna", "Anna", "iPhone", comp: true, mic: false))
+            list.append(d("a3", "anna", "Anna", "Android", comp: true, mic: false, screen: true))
+        case "present-group":
+            kind = "group"; peerName = "Projekt Nordlicht"
+            list.append(d("a1", "anna", "Anna", "MacBook", cam: true, screen: true))
+            for (i, n) in names.dropFirst().prefix(3).enumerated() { list.append(d("p\(i)", n.lowercased(), n, "iPhone", mic: i != 1, cam: i != 2)) }
+        case "speaker":
+            kind = "group"; peerName = "Projekt Nordlicht"
+            for (i, n) in names.prefix(7).enumerated() { list.append(d("p\(i)", n.lowercased(), n, "Mac", mic: i != 3 && i != 5, cam: i % 4 != 3)) }
+            meet.stage = "cem"; meet.speaking = ["cem"]
+        case "pages":
+            kind = "group"; peerName = "Sommerfest"
+            for (i, n) in names.enumerated() { list.append(d("p\(i)", n.lowercased(), n, "iPad", mic: i % 3 != 2, cam: i % 2 == 0)) }
+            meet.speaking = ["ben"]
+        default:                                                             // gallery
+            kind = "group"; peerName = "Projekt Nordlicht"
+            for (i, n) in names.prefix(4).enumerated() { list.append(d("p\(i)", n.lowercased(), n, i == 1 ? "Pixel" : "Mac", mic: i != 3, cam: i != 2)) }
+            meet.speaking = ["ben"]
+        }
+        UserDefaults.standard.set(m == "gallery" || m == "pages" ? "gallery" : "auto", forKey: "call.layout")
+        meet.demo = list
+    }
+
     /// nur fuer Bilder: Zustand eines laufenden Knoten-Anrufs ohne Netz und ohne Medien
     func mockHorn(title t: String, legs: [CallRoom.Leg], mode: String, path: String) {
         reset()
