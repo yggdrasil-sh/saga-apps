@@ -682,6 +682,7 @@ struct NativePageScreen: View {
     @EnvironmentObject var nav: NavModel
     @Environment(\.dismiss) private var dismiss
     @State private var moving = false
+    @State private var localGraph = false                 // 2.5: Lokaler Graph (Seitenmenue)
     @State private var publishing = false                // Dialog "Veroeffentlichen"
     @State private var sharing = false                   // Dialog "Teilen" (nur Eigentuemer)
     @State private var commentsTarget: CommentsTarget?   // Kommentare (alle bzw. eines Blocks)
@@ -765,6 +766,9 @@ struct NativePageScreen: View {
                         if a.allows(.share) && doc.fetched {
                             Button { Task { await ed.flush(); sharing = true } } label: { Label("Teilen …", systemImage: a.shared ? "person.2.fill" : "person.2") }
                         }
+                    }
+                    if !a.remote && doc.fetched && store.graphSupported {     // 2.5: Nachbarschaft der Seite (nur Seiten dieses Servers)
+                        Button { localGraph = true } label: { Label { Text("Lokaler Graph", tableName: "Graph") } icon: { Image(systemName: "point.3.connected.trianglepath.dotted") } }
                     }
                     Divider()
                     if a.allows(.move) { Button { moving = true } label: { Label("Verschieben nach …", systemImage: "arrow.turn.up.right") } }
@@ -1116,6 +1120,7 @@ struct NativePageScreen: View {
                            subtitle: doc.noAccess ? "" : store.path(id).map(\.label).joined(separator: " / ")))
         #endif
         .sheet(isPresented: $moving) { MoveSheet(id: id) }
+        .sheet(isPresented: $localGraph) { LocalGraphSheet(id: id) { nav.push(PageRoute(id: $0)) }.environmentObject(store) }
         .sheet(isPresented: $publishing) {
             PublishSheet(id: id, onChange: { s in for (k, v) in PublishLogic.pageFields(s) { doc.page[k] = v } },
                          openPage: { pid in nav.peek = nil; nav.push(PageRoute(id: pid)) })

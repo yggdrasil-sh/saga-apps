@@ -12,6 +12,7 @@ struct HKCommands {
     var today: () -> Void
     var tasks: () -> Void
     var events: () -> Void
+    var graph: (() -> Void)? = nil                  // 2.5: Graph der Seiten (nil = Server zu alt)
 }
 struct HKCommandsKey: FocusedValueKey { typealias Value = HKCommands }
 extension FocusedValues {
@@ -34,6 +35,7 @@ struct HKMenuCommands: Commands {
             Button("Heute") { hk?.today() }.keyboardShortcut("1", modifiers: .command).disabled(hk == nil)
             Button("Aufgaben") { hk?.tasks() }.keyboardShortcut("2", modifiers: .command).disabled(hk == nil)
             Button("Termine") { hk?.events() }.keyboardShortcut("3", modifiers: .command).disabled(hk == nil)
+            Button { hk?.graph?() } label: { Text("Graph", tableName: "Graph") }.keyboardShortcut("g", modifiers: [.command, .shift]).disabled(hk?.graph == nil)
             Divider()
             Button("Link zur Seite kopieren") { hk?.copyLink() }.keyboardShortcut("l", modifiers: .command).disabled(!(hk?.hasPage ?? false))
         }

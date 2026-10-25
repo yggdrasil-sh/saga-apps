@@ -14,7 +14,7 @@ struct HlidskjalfApp: App {
         #if os(macOS)
         WindowGroup {
             #if DEBUG
-            if X3Preview.mode != nil { X3PreviewView(store: store) } else if HornPreview.mode != nil { HornPreviewView(store: store) } else {   // nur fuer Bilder (2.5, ohne Server)
+            if X3Preview.mode != nil { X3PreviewView(store: store) } else if HornPreview.mode != nil { HornPreviewView(store: store) } else if GraphPreview.nodes != nil { GraphPreviewView() } else {   // nur fuer Bilder (2.5, ohne Server)
             RootView(store: store)
                 .environment(\.calendar, SagaDate.calendar)                    // Datumswahl gregorianisch (Thai: nicht 2569)
                 .handlesExternalEvents(preferring: ["*"], allowing: ["*"])   // Widget-Links im offenen Fenster, kein zweites
@@ -50,6 +50,7 @@ struct HlidskjalfApp: App {
             #if DEBUG
             if X3Preview.mode != nil { X3PreviewView(store: store) } else if HornPreview.mode != nil { HornPreviewView(store: store) }   // nur fuer Bilder
             else if SelectPreview.mode != nil { SelectPreviewView(store: store) }                       // 2.5: Mehrfachauswahl (ohne Server)
+            else if GraphPreview.nodes != nil { GraphPreviewView() }                                   // 2.5: Graph mit Beispieldaten
             else { RootView(store: store).environment(\.calendar, SagaDate.calendar) }
             #else
             RootView(store: store).environment(\.calendar, SagaDate.calendar)     // Datumswahl gregorianisch
