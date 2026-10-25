@@ -180,6 +180,7 @@ struct ServicesScreen: View {
         var id: String { key ?? url }
         let name: String; let url: String; let host: String; let category: String; let icon: String?
         var own: Bool? = nil; var key: String? = nil
+        var icon_url: String? = nil                                  // Server 2.5: fertige Bildadresse, auch automatisch
     }
     @State private var list: [S] = []
     @State private var q = ""
@@ -215,7 +216,7 @@ struct ServicesScreen: View {
                         ForEach(shown.filter { $0.1 == c }.map(\.0)) { s in
                             Button { if let u = URL(string: s.url) { openURL(u) } } label: {
                                 HStack(spacing: 10) {
-                                    ServiceIcon(icon: s.icon, name: s.name)
+                                    ServiceIcon(icon: s.icon, iconURL: s.icon_url, name: s.name)
                                     VStack(alignment: .leading, spacing: 2) { Text(s.name).fontWeight(.medium); Text(s.host).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
                                     Spacer(minLength: 0)
                                 }

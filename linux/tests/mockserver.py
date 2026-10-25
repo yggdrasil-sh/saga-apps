@@ -354,6 +354,8 @@ class MockServer:
                                                  "calendar": "Arbeit"}]})
         if path == "api/services":
             return self._reply(200, self.services)
+        if path.startswith("api/services/favicon/"):                 # Server 2.5: automatisches Symbol (icon_url)
+            return self._reply(200, _png((200, 30, 30, 255)))
         if path.startswith("api/services/icon/"):
             name = parts[-1]
             return self._reply(200, _png((25, 25, 25, 255) if name == "dark" else (240, 240, 240, 255)))

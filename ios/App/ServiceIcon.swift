@@ -1,9 +1,11 @@
 import SwiftUI
 
-/// Symbol eines Dienstes (selfh.st wie die Kacheln im Web) - ueber den eigenen Server (/api/services/icon/<name>),
-/// fehlt es: Anfangsbuchstabe wie im Web.
+/// Symbol eines Dienstes (selfh.st wie die Kacheln im Web) - ueber den eigenen Server. iconURL (Server 2.5, Feld
+/// icon_url in /api/services) ist die fertige Adresse, auch fuer automatische Symbole (geratenes selfh.st-Symbol oder
+/// Favicon der Seite); aeltere Server: /api/services/icon/<name>. Fehlt es: Anfangsbuchstabe wie im Web.
 struct ServiceIcon: View {
     let icon: String?
+    var iconURL: String? = nil
     let name: String
     var size: CGFloat = 30
     @EnvironmentObject var store: Store
@@ -31,8 +33,9 @@ struct ServiceIcon: View {
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)                                   // der Name steht daneben
-        .task(id: icon) {
-            guard let icon, !icon.isEmpty, let d = await store.imageData("/api/services/icon/" + icon) else { return }
+        .task(id: (iconURL ?? "") + "|" + (icon ?? "")) {
+            let path = (iconURL?.hasPrefix("/api/") == true ? iconURL : nil) ?? icon.flatMap { $0.isEmpty ? nil : "/api/services/icon/" + $0 }
+            guard let path, let d = await store.imageData(path) else { return }
             #if os(iOS)
             img = UIImage(data: d)
             #else
