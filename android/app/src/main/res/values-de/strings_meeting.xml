@@ -42,6 +42,7 @@
     <string name="meet_echo_here">Hier einschalten, %1$s stumm</string>
     <string name="meet_echo_anyway">Trotzdem einschalten</string>
     <string name="meet_echo_manual">Bitte zuerst am Gerät %1$s stummschalten.</string>
+    <string name="meet_more_novideo">+ %1$d ohne Video</string>
     <plurals name="meet_persons">
         <item quantity="one">%1$d Person</item>
         <item quantity="other">%1$d Personen</item>

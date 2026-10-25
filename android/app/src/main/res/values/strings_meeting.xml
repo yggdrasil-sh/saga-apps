@@ -42,6 +42,7 @@
     <string name="meet_echo_here">Turn on here, mute %1$s</string>
     <string name="meet_echo_anyway">Turn on anyway</string>
     <string name="meet_echo_manual">Please mute %1$s there first.</string>
+    <string name="meet_more_novideo">+ %1$d without video</string>
     <plurals name="meet_persons">
         <item quantity="one">%1$d person</item>
         <item quantity="other">%1$d people</item>

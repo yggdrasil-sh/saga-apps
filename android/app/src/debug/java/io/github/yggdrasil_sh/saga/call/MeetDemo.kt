@@ -53,7 +53,7 @@ object MeetDemo {
                 Meeting.Dev("anna", "Anna", "a-and", "Android", companion = true, screen = true, sharedAt = 1),
                 p(1, speaking = true), p(2, cam = false), me,
             )
-            "gallery" -> listOf(p(0), p(1, speaking = true), p(2, cam = false), p(3, mic = false), p(4), p(5, cam = false), p(6), me)
+            "gallery", "novideo" -> listOf(p(0), p(1, speaking = true), p(2, cam = false), p(3, mic = false), p(4), p(5, cam = false), p(6), me)
             "speaker" -> listOf(p(0), p(1), p(2, speaking = true), p(3, cam = false), p(4), p(5, mic = false), p(6), me)
             else -> listOf(Meeting.Dev("anna", "Anna", "a-mac", "MacBook", mic = true, cam = true), me)
         }
@@ -62,7 +62,7 @@ object MeetDemo {
     fun speaker(scenario: String): String? = if (scenario == "speaker") "cem" else null
 
     fun pref(scenario: String): Meeting.Pref = when (scenario) {
-        "gallery" -> Meeting.Pref.GALLERY
+        "gallery", "novideo" -> Meeting.Pref.GALLERY
         "speaker" -> Meeting.Pref.SPEAKER
         else -> Meeting.Pref.AUTO
     }
@@ -95,7 +95,7 @@ fun MeetDemoContent(scenario: String, hidden: Boolean = false) {
     val conf = LocalConfiguration.current
     val phone = conf.smallestScreenWidthDp < 600
     val flat = CallLayout.flat(conf.screenWidthDp, conf.screenHeightDp)
-    val ms = remember(scenario) { MeetState(MeetDemo.pref(scenario)) }
+    val ms = remember(scenario) { MeetState(MeetDemo.pref(scenario), showNoVideo = scenario != "novideo") }
     val model = remember(scenario) { Meeting.tiles(MeetDemo.devs(scenario), "me") }
     androidx.compose.runtime.CompositionLocalProvider(LocalFlatCall provides flat) {
         MeetingLayer(

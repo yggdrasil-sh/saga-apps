@@ -42,6 +42,7 @@
     <string name="meet_echo_here">Activar aquí, silenciar %1$s</string>
     <string name="meet_echo_anyway">Activar de todos modos</string>
     <string name="meet_echo_manual">Silencia primero %1$s.</string>
+    <string name="meet_more_novideo">+ %1$d sin vídeo</string>
     <plurals name="meet_persons">
         <item quantity="one">%1$d persona</item>
         <item quantity="other">%1$d personas</item>

@@ -421,8 +421,18 @@ internal fun MeetingStage(
     insetEnd: Dp = 0.dp,
     /** Geraete, deren Kamera gerade mit Bild gezeigt wird (Mesh: `want` der anderen auf off) */
     onShown: (Set<String>) -> Unit = {},
+    /** Chip "+ 3 ohne Video": Teilnehmerliste oeffnen */
+    onPeople: (() -> Unit)? = null,
 ) {
-    val m = if (ms.showNoVideo) model else model.copy(people = model.people.filter { it.video || it.me || it.speaking })
+    // §3 Kacheln ohne Video ausgeblendet: wer spricht, erscheint waehrend des Sprechens + 5 s
+    val spokeAt = remember { androidx.compose.runtime.mutableStateMapOf<String, Long>() }
+    var tick by remember { mutableIntStateOf(0) }
+    val now = System.currentTimeMillis().also { @Suppress("UNUSED_EXPRESSION") tick }
+    model.people.filter { it.speaking }.forEach { spokeAt[it.who] = now }
+    LaunchedEffect(spokeAt.values.maxOrNull()) { delay(5100); tick++ }
+    val keep: (Meeting.Tile) -> Boolean = { it.video || it.me || it.speaking || (spokeAt[it.who]?.let { t -> now - t < 5000 } == true) }
+    val m = if (ms.showNoVideo) model else model.copy(people = model.people.filter(keep))
+    val noVideo = if (ms.showNoVideo) 0 else model.people.count { !keep(it) }
     val view = Meeting.pickLayout(ms.effPref, m, reducedMotion)
     // Pin faellt weg, wenn die Quelle endet
     LaunchedEffect(ms.pin, m.all.map { it.id }) {
@@ -474,6 +484,17 @@ internal fun MeetingStage(
                 if (floats && ms.showSelf) m.self?.let { self ->
                     SelfFloat(self, ms, w, h, insetTop, bottom, phone, selfVideo)
                 }
+            }
+        }
+        // "+ 3 ohne Video" am Ende von Raster/Streifen (oeffnet die Teilnehmerliste)
+        if (noVideo > 0) {
+            val label = stringResource(R.string.meet_more_novideo, noVideo)
+            Surface(
+                color = MEET_BAR, contentColor = Color.White, shape = RoundedCornerShape(50),
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 12.dp + end, bottom = bottom + 12.dp)
+                    .then(if (onPeople != null) Modifier.clip(RoundedCornerShape(50)).clickable(role = androidx.compose.ui.semantics.Role.Button) { onPeople() } else Modifier),
+            ) {
+                Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp))
             }
         }
         val ended = ms.pinEnded
@@ -742,6 +763,7 @@ internal fun MeetingLayer(
     /** Handy quer: Knopfleiste rechts senkrecht, Streifen links davon */
     sideControls: Boolean = false,
     onShown: (Set<String>) -> Unit = {},
+    onPeople: (() -> Unit)? = null,
     tileVideo: @Composable (Meeting.Tile, Boolean, Modifier) -> Unit,
     selfVideo: @Composable (Modifier, (Float?) -> Unit) -> Unit,
     header: @Composable () -> Unit,
@@ -778,7 +800,7 @@ internal fun MeetingLayer(
                 .windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.displayCutout),
             insetTop = with(d) { topH.toDp() }, insetBottom = if (sideControls) 0.dp else with(d) { botH.toDp() },
             insetEnd = if (sideControls) with(d) { endW.toDp() } else 0.dp, tileVideo = tileVideo, selfVideo = selfVideo, phone = phone,
-            onShown = onShown,
+            onShown = onShown, onPeople = onPeople,
         )
         AnimatedVisibility(!hidden && !ms.fullscreen, Modifier.align(Alignment.TopCenter).fillMaxWidth(), enter = enter, exit = exit) {
             Box(

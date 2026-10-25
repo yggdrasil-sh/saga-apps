@@ -42,6 +42,7 @@
     <string name="meet_echo_here">Включить здесь, выключить звук на %1$s</string>
     <string name="meet_echo_anyway">Всё равно включить</string>
     <string name="meet_echo_manual">Сначала выключи звук на %1$s.</string>
+    <string name="meet_more_novideo">+ %1$d без видео</string>
     <plurals name="meet_persons">
         <item quantity="one">%1$d человек</item>
         <item quantity="few">%1$d человека</item>

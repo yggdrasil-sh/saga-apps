@@ -636,6 +636,7 @@ private fun MeetCall(
     MeetingLayer(
         model, ms, st.meetSpeaker, hidden, reduced, phone, onActivity = { lastAct = System.currentTimeMillis() }, sideControls = flat,
         onShown = { calls.meetShown(it) },
+        onPeople = { if (room?.horn != null) onPanel("people") else { meshPeople = true; menuOpen = true } },
         tileVideo = { t, fit, m -> calls.meetSink(t)?.let { sink -> MeetVideo(calls, sink, mirror = t.me, fit = fit, modifier = m) } },
         selfVideo = { m, onA -> MeetVideo(calls, calls.localSink, mirror = true, fit = false, modifier = m, onAspect = onA) },
         header = {

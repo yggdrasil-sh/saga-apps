@@ -42,6 +42,7 @@
     <string name="meet_echo_here">เปิดที่นี่ ปิดเสียง %1$s</string>
     <string name="meet_echo_anyway">เปิดต่อไป</string>
     <string name="meet_echo_manual">โปรดปิดเสียงที่ %1$s ก่อน</string>
+    <string name="meet_more_novideo">+ %1$d ไม่มีวิดีโอ</string>
     <plurals name="meet_persons">
         <item quantity="other">%1$d คน</item>
     </plurals>

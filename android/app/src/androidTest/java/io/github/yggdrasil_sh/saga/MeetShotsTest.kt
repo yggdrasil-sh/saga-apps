@@ -60,6 +60,11 @@ class MeetShotsTest {
     }
 
     @Test
+    fun galleryNoVideo() {
+        shot("galerie-ohne-video-hoch", "novideo", false)
+    }
+
+    @Test
     fun speaker() {
         shot("sprecher-hoch", "speaker", false)
         shot("sprecher-quer", "speaker", true)
