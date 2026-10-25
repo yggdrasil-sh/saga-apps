@@ -1,0 +1,1403 @@
+{
+ "_doc": "Meeting-Ansicht (MEETING-SPEC §12): gemeinsame Vektoren fuer Web, iOS, Android. Geraete: device, who, name, dev_name, role, here, own, mic (Standard an), cam, screen, screen_since.",
+ "meetingTiles": [
+  {
+   "name": "S2 Begleitgeraet ohne Bild ist unsichtbar",
+   "devices": [
+    {
+     "device": "ben-mac",
+     "who": "ben",
+     "name": "Ben",
+     "dev_name": "MacBook",
+     "here": true,
+     "own": true,
+     "cam": true
+    },
+    {
+     "device": "anna-mac",
+     "who": "anna",
+     "name": "Anna",
+     "dev_name": "MacBook",
+     "cam": true
+    },
+    {
+     "device": "anna-ip",
+     "who": "anna",
+     "name": "Anna",
+     "dev_name": "iPhone",
+     "role": "companion",
+     "mic": false
+    }
+   ],
+   "expect": {
+    "tiles": [
+     {
+      "id": "anna",
+      "kind": "person",
+      "dev": "anna-mac",
+      "video": true
+     },
+     {
+      "id": "ben",
+      "kind": "person",
+      "dev": "ben-mac",
+      "video": true,
+      "me": true
+     }
+    ],
+    "people": 2,
+    "ownOthers": [],
+    "selfSharing": false,
+    "mode": "duo",
+    "layoutButton": false,
+    "selfFloats": true
+   }
+  },
+  {
+   "name": "S3 Android-Begleitgeraet teilt, Mac mit Kamera",
+   "devices": [
+    {
+     "device": "ben-mac",
+     "who": "ben",
+     "name": "Ben",
+     "dev_name": "MacBook",
+     "here": true,
+     "own": true,
+     "cam": true
+    },
+    {
+     "device": "anna-mac",
+     "who": "anna",
+     "name": "Anna",
+     "dev_name": "MacBook",
+     "cam": true
+    },
+    {
+     "device": "anna-ip",
+     "who": "anna",
+     "name": "Anna",
+     "dev_name": "iPhone",
+     "role": "companion",
+     "mic": false
+    },
+    {
+     "device": "anna-and",
+     "who": "anna",
+     "name": "Anna",
+     "dev_name": "Android",
+     "role": "companion",
+     "mic": false,
+     "screen": true,
+     "screen_since": 5
+    }
+   ],
+   "expect": {
+    "tiles": [
+     {
+      "id": "anna|anna-and:scr",
+      "kind": "screen",
+      "dev": "anna-and",
+      "video": true,
+      "devLabel": "Android"
+     },
+     {
+      "id": "anna",
+      "kind": "person",
+      "dev": "anna-mac",
+      "video": true
+     },
+     {
+      "id": "ben",
+      "kind": "person",
+      "dev": "ben-mac",
+      "video": true,
+      "me": true
+     }
+    ],
+    "people": 2,
+    "ownOthers": [],
+    "selfSharing": false,
+    "mode": "presentation",
+    "layoutButton": true,
+    "selfFloats": true,
+    "stage": "anna|anna-and:scr"
+   }
+  },
+  {
+   "name": "S9 zwei Freigaben, die zuletzt gestartete auf der Buehne",
+   "devices": [
+    {
+     "device": "dora-ip",
+     "who": "dora",
+     "name": "Dora",
+     "dev_name": "iPhone",
+     "here": true,
+     "own": true
+    },
+    {
+     "device": "anna-mac",
+     "who": "anna",
+     "name": "Anna",
+     "dev_name": "MacBook",
+     "cam": true,
+     "screen": true,
+     "screen_since": 10
+    },
+    {
+     "device": "ben-pc",
+     "who": "ben",
+     "name": "Ben",
+     "dev_name": "Firefox",
+     "screen": true,
+     "screen_since": 20
+    },
+    {
+     "device": "cem-and",
+     "who": "cem",
+     "name": "Cem",
+     "dev_name": "Pixel",
+     "cam": true
+    }
+   ],
+   "expect": {
+    "tiles": [
+     {
+      "id": "ben|ben-pc:scr",
+      "kind": "screen",
+      "dev": "ben-pc",
+      "video": true,
+      "devLabel": ""
+     },
+     {
+      "id": "anna|anna-mac:scr",
+      "kind": "screen",
+      "dev": "anna-mac",
+      "video": true,
+      "devLabel": ""
+     },
+     {
+      "id": "anna",
+      "kind": "person",
+      "dev": "anna-mac",
+      "video": true
+     },
+     {
+      "id": "ben",
+      "kind": "person",
+      "dev": "ben-pc",
+      "video": false
+     },
+     {
+      "id": "cem",
+      "kind": "person",
+      "dev": "cem-and",
+      "video": true
+     },
+     {
+      "id": "dora",
+      "kind": "person",
+      "dev": "dora-ip",
+      "video": false,
+      "me": true
+     }
+    ],
+    "people": 4,
+    "ownOthers": [],
+    "selfSharing": false,
+    "mode": "presentation",
+    "layoutButton": true,
+    "selfFloats": false,
+    "stage": "ben|ben-pc:scr",
+    "strip": [
+     "anna|anna-mac:scr",
+     "anna",
+     "ben",
+     "cem",
+     "dora"
+    ]
+   }
+  },
+  {
+   "name": "eigene Begleitgeraete nie als Kachel, auch mit Kamera und Bildschirm",
+   "devices": [
+    {
+     "device": "me-mac",
+     "who": "me",
+     "name": "Max",
+     "dev_name": "MacBook",
+     "here": true,
+     "own": true,
+     "cam": true
+    },
+    {
+     "device": "me-ip",
+     "who": "me",
+     "name": "Max",
+     "dev_name": "iPhone",
+     "own": true,
+     "role": "companion",
+     "cam": true,
+     "screen": true,
+     "screen_since": 3
+    },
+    {
+     "device": "ben-mac",
+     "who": "ben",
+     "name": "Ben",
+     "dev_name": "MacBook",
+     "cam": true
+    }
+   ],
+   "expect": {
+    "tiles": [
+     {
+      "id": "ben",
+      "kind": "person",
+      "dev": "ben-mac",
+      "video": true
+     },
+     {
+      "id": "me",
+      "kind": "person",
+      "dev": "me-mac",
+      "video": true,
+      "me": true
+     }
+    ],
+    "people": 2,
+    "ownOthers": [
+     "me-ip"
+    ],
+    "selfSharing": false,
+    "mode": "duo",
+    "layoutButton": false,
+    "selfFloats": true
+   }
+  },
+  {
+   "name": "Begleitgeraet mit eigener Kamera = zweite Kamera-Kachel",
+   "devices": [
+    {
+     "device": "me-ip",
+     "who": "me",
+     "name": "Max",
+     "dev_name": "iPhone",
+     "here": true,
+     "own": true,
+     "screen": true,
+     "screen_since": 1
+    },
+    {
+     "device": "alex-mac",
+     "who": "alex",
+     "name": "Alex",
+     "dev_name": "MacBook",
+     "cam": true
+    },
+    {
+     "device": "alex-pad",
+     "who": "alex",
+     "name": "Alex",
+     "dev_name": "iPad",
+     "role": "companion",
+     "cam": true
+    }
+   ],
+   "expect": {
+    "tiles": [
+     {
+      "id": "alex",
+      "kind": "person",
+      "dev": "alex-mac",
+      "video": true
+     },
+     {
+      "id": "alex|alex-pad:cam",
+      "kind": "camera",
+      "dev": "alex-pad",
+      "video": true,
+      "devLabel": "iPad"
+     },
+     {
+      "id": "me",
+      "kind": "person",
+      "dev": "me-ip",
+      "video": false,
+      "me": true
+     }
+    ],
+    "people": 2,
+    "ownOthers": [],
+    "selfSharing": true,
+    "mode": "gallery",
+    "layoutButton": true,
+    "selfFloats": false
+   }
+  },
+  {
+   "name": "Begleitgeraet-Kamera ersetzt fehlende Hauptkamera",
+   "devices": [
+    {
+     "device": "me-mac",
+     "who": "me",
+     "name": "Max",
+     "dev_name": "MacBook",
+     "here": true,
+     "own": true
+    },
+    {
+     "device": "alex-mac",
+     "who": "alex",
+     "name": "Alex",
+     "dev_name": "MacBook",
+     "mic": true
+    },
+    {
+     "device": "alex-ip",
+     "who": "alex",
+     "name": "Alex",
+     "dev_name": "iPhone",
+     "role": "companion",
+     "cam": true,
+     "mic": false
+    }
+   ],
+   "expect": {
+    "tiles": [
+     {
+      "id": "alex",
+      "kind": "person",
+      "dev": "alex-ip",
+      "video": true
+     },
+     {
+      "id": "me",
+      "kind": "person",
+      "dev": "me-mac",
+      "video": false,
+      "me": true
+     }
+    ],
+    "people": 2,
+    "ownOthers": [],
+    "selfSharing": false,
+    "mode": "duo",
+    "layoutButton": false,
+    "selfFloats": true
+   }
+  }
+ ],
+ "speakerHysteresis": [
+  {
+   "name": "S5 abwechselnd 1-s-Toene: kein Wechsel",
+   "me": "me",
+   "ticks": [
+    {
+     "t": 0.0,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 0.33,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 0.66,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 0.99,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 1.32,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 1.65,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 1.98,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 2.31,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 2.64,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 2.97,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 3.3,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 3.63,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 3.96,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 4.29,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 4.62,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 4.95,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 5.28,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 5.61,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 5.94,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 6.27,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 6.6,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 6.93,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 7.26,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 7.59,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 7.92,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 8.25,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 8.58,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 8.91,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 9.24,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 9.57,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 9.9,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 10.23,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 10.56,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 10.89,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 11.22,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    },
+    {
+     "t": 11.55,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2,
+      "me": 0.0
+     }
+    }
+   ],
+   "expect": {
+    "stage": "a",
+    "switchTimes": [
+     0.33
+    ]
+   }
+  },
+  {
+   "name": "neue Person 1,5 s am Stueck lauter: Wechsel",
+   "me": "me",
+   "ticks": [
+    {
+     "t": 0.0,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 0.33,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 0.66,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 0.99,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 1.32,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 1.65,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 1.98,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 2.31,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 2.64,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 2.97,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 3.3,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 3.63,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 3.96,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 4.29,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 4.62,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 4.95,
+     "levels": {
+      "a": 0.0,
+      "b": 0.2
+     }
+    }
+   ],
+   "expect": {
+    "stage": "b",
+    "switchTimes": [
+     0.33,
+     3.96
+    ]
+   }
+  },
+  {
+   "name": "hoechstens alle 3 s wechseln",
+   "me": "me",
+   "ticks": [
+    {
+     "t": 0.0,
+     "levels": {
+      "a": 0.1,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 0.33,
+     "levels": {
+      "a": 0.1,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 0.66,
+     "levels": {
+      "a": 0.1,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 0.99,
+     "levels": {
+      "a": 0.1,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 1.32,
+     "levels": {
+      "a": 0.1,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 1.65,
+     "levels": {
+      "a": 0.1,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 1.98,
+     "levels": {
+      "a": 0.1,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 2.31,
+     "levels": {
+      "a": 0.1,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 2.64,
+     "levels": {
+      "a": 0.1,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 2.97,
+     "levels": {
+      "a": 0.1,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 3.3,
+     "levels": {
+      "a": 0.1,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 3.63,
+     "levels": {
+      "a": 0.1,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 3.96,
+     "levels": {
+      "a": 0.1,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 4.29,
+     "levels": {
+      "a": 0.1,
+      "b": 0.2
+     }
+    },
+    {
+     "t": 4.62,
+     "levels": {
+      "a": 0.1,
+      "b": 0.2
+     }
+    }
+   ],
+   "expect": {
+    "stage": "b",
+    "switchTimes": [
+     0.33,
+     3.63
+    ]
+   }
+  },
+  {
+   "name": "eigene Stimme bewegt die Buehne nie",
+   "me": "me",
+   "ticks": [
+    {
+     "t": 0.0,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 0.33,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 0.66,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 0.99,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 1.32,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 1.65,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 1.98,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 2.31,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 2.64,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 2.97,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 3.3,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 3.63,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 3.96,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 4.29,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 4.62,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 4.95,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 5.28,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 5.61,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 5.94,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    },
+    {
+     "t": 6.27,
+     "levels": {
+      "me": 0.5,
+      "a": 0.0
+     }
+    }
+   ],
+   "expect": {
+    "stage": null,
+    "switchTimes": []
+   }
+  },
+  {
+   "name": "niemand spricht: Buehne bleibt",
+   "me": "me",
+   "ticks": [
+    {
+     "t": 0.0,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 0.33,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 0.66,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 0.99,
+     "levels": {
+      "a": 0.2,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 1.32,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 1.65,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 1.98,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 2.31,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 2.64,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 2.97,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 3.3,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 3.63,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 3.96,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 4.29,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 4.62,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 4.95,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 5.28,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 5.61,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 5.94,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    },
+    {
+     "t": 6.27,
+     "levels": {
+      "a": 0.0,
+      "b": 0.0
+     }
+    }
+   ],
+   "expect": {
+    "stage": "a",
+    "switchTimes": [
+     0.33
+    ]
+   }
+  }
+ ],
+ "galleryGrid": [
+  {
+   "w": 390,
+   "h": 700,
+   "n": 2,
+   "cols": 1,
+   "perPage": 6,
+   "videoMax": 4
+  },
+  {
+   "w": 390,
+   "h": 700,
+   "n": 5,
+   "cols": 2,
+   "perPage": 6,
+   "videoMax": 4
+  },
+  {
+   "w": 844,
+   "h": 390,
+   "n": 5,
+   "cols": 3,
+   "perPage": 6,
+   "videoMax": 4
+  },
+  {
+   "w": 820,
+   "h": 1000,
+   "n": 4,
+   "cols": 2,
+   "perPage": 9,
+   "videoMax": 6
+  },
+  {
+   "w": 1280,
+   "h": 720,
+   "n": 9,
+   "cols": 3,
+   "perPage": 16,
+   "videoMax": 9
+  },
+  {
+   "w": 1280,
+   "h": 720,
+   "n": 12,
+   "cols": 4,
+   "perPage": 16,
+   "videoMax": 9
+  },
+  {
+   "w": 1920,
+   "h": 1080,
+   "n": 20,
+   "cols": 5,
+   "perPage": 25,
+   "videoMax": 16
+  }
+ ],
+ "pickLayout": [
+  {
+   "pref": "auto",
+   "tiles": 2,
+   "screens": 0,
+   "mode": "duo"
+  },
+  {
+   "pref": "auto",
+   "tiles": 2,
+   "screens": 1,
+   "mode": "presentation"
+  },
+  {
+   "pref": "auto",
+   "tiles": 4,
+   "screens": 0,
+   "mode": "gallery"
+  },
+  {
+   "pref": "auto",
+   "tiles": 5,
+   "screens": 0,
+   "mode": "speaker"
+  },
+  {
+   "pref": "auto",
+   "tiles": 8,
+   "screens": 0,
+   "reduceMotion": true,
+   "mode": "gallery"
+  },
+  {
+   "pref": "auto",
+   "tiles": 9,
+   "screens": 0,
+   "reduceMotion": true,
+   "mode": "speaker"
+  },
+  {
+   "pref": "gallery",
+   "tiles": 6,
+   "screens": 1,
+   "mode": "gallery"
+  },
+  {
+   "pref": "presentation",
+   "tiles": 6,
+   "screens": 0,
+   "mode": "speaker"
+  },
+  {
+   "pref": "speaker",
+   "tiles": 3,
+   "screens": 0,
+   "mode": "speaker"
+  },
+  {
+   "pref": "gallery",
+   "tiles": 2,
+   "screens": 0,
+   "mode": "duo"
+  }
+ ],
+ "stripPlace": [
+  {
+   "w": 390,
+   "h": 700,
+   "presentation": true,
+   "side": "bottom",
+   "size": 84
+  },
+  {
+   "w": 844,
+   "h": 390,
+   "presentation": true,
+   "side": "right",
+   "size": 120
+  },
+  {
+   "w": 820,
+   "h": 1100,
+   "presentation": false,
+   "side": "bottom",
+   "size": 96
+  },
+  {
+   "w": 1000,
+   "h": 700,
+   "presentation": true,
+   "side": "right",
+   "size": 160
+  },
+  {
+   "w": 1280,
+   "h": 720,
+   "presentation": false,
+   "side": "right",
+   "size": 200
+  },
+  {
+   "w": 2000,
+   "h": 1100,
+   "presentation": true,
+   "side": "right",
+   "size": 240
+  }
+ ]
+}

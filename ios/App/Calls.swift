@@ -133,6 +133,13 @@ final class CallManager: NSObject, ObservableObject {
     @Published var inRoom = false
     /// 2.5 Gjallarhorn: Gruppenanruf ueber einen Knoten (topo=horn, HornCall.swift); nil = Mesh bzw. 1:1
     @Published var horn: HornSession?
+    /// Meeting-Ansicht (MEETING-SPEC, MeetingCall.swift): Pin, Seite, Hinweise, Sprecher - nur dieser Anruf
+    @Published var meet = MeetState()
+    var meetSpk = Meeting.Speakers()
+    var meetShareAt: [String: Double] = [:]
+    /// stabile Galerie-Reihenfolge (nicht veroeffentlicht: aendert sich im Zeichnen)
+    var meetOrder = Meeting.Order()
+    var meetPages = 1
     /// Aufbau des Anrufs laut Server ("mesh" | "horn"; leer = aelterer Server)
     var topo = ""
     /// 2.5 P10: Hinweis horn_mesh (Gruppenanruf ueber Servergrenzen ohne Knoten) schon gezeigt
@@ -1382,6 +1389,7 @@ final class CallManager: NSObject, ObservableObject {
             while !Task.isCancelled {
                 guard let self, !self.ending else { return }
                 var levels: [(device: String, level: Double, mic: Bool)] = []
+                var selfLevel = 0.0
                 for L in self.links where !L.gone {
                     guard let pc = L.pc else { continue }
                     let rep = await pc.statsAsync()
@@ -1408,6 +1416,7 @@ final class CallManager: NSObject, ObservableObject {
                     L.level = au.levelIn
                     if let d = L.dev, !L.own { levels.append((d, au.levelIn, L.remote.mic)) }
                     if L === self.primary {
+                        selfLevel = au.levelMic
                         self.meter.update(au, micOn: self.mic && self.audioTrack != nil)
                         if self.audioIn != self.meter.input { self.audioIn = self.meter.input }
                         if self.audioMic != self.meter.mic { self.audioMic = self.meter.mic }
@@ -1428,6 +1437,8 @@ final class CallManager: NSObject, ObservableObject {
                     }
                 }
                 if self.meshView, self.speakerState.update(levels, now: Date().timeIntervalSince1970) { self.speakerDev = self.speakerState.device }
+                // Meeting-Ansicht: Pegel je Person mit Hysterese (Buehne, Sprechring)
+                self.meetLevels(Dictionary(levels.map { ($0.device, $0.mic ? $0.level : 0) }, uniquingKeysWith: max), selfLevel: self.mic ? selfLevel : 0)
                 self.syncPrimary()
                 #if DEBUG
                 if CallEnv.fakeMedia {
@@ -1646,6 +1657,7 @@ final class CallManager: NSObject, ObservableObject {
     func reset() {
         for L in links { L.close() }
         hornStop(); horn = nil; topo = ""; meshNoted = false; callHost = false
+        meet = MeetState(); meetSpk = Meeting.Speakers(); meetShareAt = [:]; meetOrder = Meeting.Order()
         id = nil; chatID = 0; peer = ""; links = []; seen = []; early = []
         v2 = nil; roomHandle = nil
         ready = false; connected = false; ending = false; answered = false; keysRefreshed = []; failed = false

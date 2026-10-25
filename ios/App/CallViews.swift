@@ -14,6 +14,14 @@ enum SelfPipDefaults {
         return 16.0 / 9
         #endif
     }
+    /// MEETING-SPEC §2.6: call.self.<Geraeteform>.size
+    static var sizeKey: String {
+        #if os(iOS)
+        return UIDevice.current.userInterfaceIdiom == .phone ? "call.self.phone.size" : "call.self.tablet.size"
+        #else
+        return "call.self.desktop.size"
+        #endif
+    }
 }
 
 /// Zeitpunkt der letzten Bedienung (ohne Neuzeichnen setzbar)
@@ -33,7 +41,15 @@ struct CallScreen: View {
     /// 2.5: Kopf und Knoepfe nach einigen Sekunden ohne Bedienung ausblenden (CallLogic.hideControls)
     @State private var lastPoke = PokeClock()                               // Klasse: Mausbewegung zeichnet nicht neu
     @State private var chromeHidden = false
+    /// Mac: Maus ueber Kopf bzw. Knopfleiste (haelt sie sichtbar)
+    @State private var overBar = false
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// MEETING-SPEC §2.6: Layout je Geraet fuer alle Anrufe
+    @AppStorage("call.layout") private var layoutRaw = ""
+    /// Echo-Rueckfrage (Begleitgeraet)
+    @State private var echoAsk: EchoWhat?
+    @State private var echoDevice = ""
     #if os(iOS)
     /// I03: iPhone quer (niedrig) - Kopf in einer Zeile, kleinere Knoepfe ohne Textzeile, weniger Rand
     @Environment(\.verticalSizeClass) private var vsc
@@ -56,6 +72,18 @@ struct CallScreen: View {
         .onContinuousHover { _ in poke() }                                  // Mac: Mausbewegung
         #endif
         .onChange(of: controlsKey) { _, _ in poke() }                       // Bedienung bzw. neuer Zustand
+        .background { MeetShortcuts(calls: calls, layoutRaw: $layoutRaw, poke: poke).accessibilityHidden(true) }
+        .confirmationDialog(Text("Ist \(echoDevice) im selben Raum? Dann gibt es Echo."), isPresented: Binding(get: { echoAsk != nil }, set: { if !$0 { echoAsk = nil } }),
+                            titleVisibility: .visible) {
+            Button(String(localized: "Trotzdem einschalten")) { if let w = echoAsk { echoDo(w) }; echoAsk = nil }
+            Button(String(localized: "Abbrechen"), role: .cancel) { echoAsk = nil }
+        } message: {
+            Text("Bitte zuerst an \(echoDevice) Mikrofon und Ton ausschalten.")
+        }
+        #if os(iOS)
+        .persistentSystemOverlays(calls.meet.immersive ? .hidden : .automatic)
+        .statusBarHidden(calls.meet.immersive)
+        #endif
         .task(id: calls.phase) {                                            // Takt 1 s, solange die Ansicht steht
             while !Task.isCancelled {
                 updateChrome()
@@ -64,15 +92,31 @@ struct CallScreen: View {
         }
     }
     /// Bild auf der Buehne (sonst nur Ton: nie ausblenden)
-    private var stageVideo: Bool {
-        if showRemoteVideo { return true }
-        if showTiles { return calls.tiles.contains { $0.video != nil && !$0.own } || calls.sharing }
-        if showHorn, let H = calls.horn { return H.share != nil || H.focusTrack != nil || H.tiles.contains { $0.video != nil && !$0.mine } || calls.sharing }
-        return false
+    private var stageVideo: Bool { meetOn && built.tiles.contains { !$0.me && $0.video } }
+    /// MEETING-SPEC: Personen und Kacheln aus den Geraeten (alle Wege: 1:1, Mesh, Knoten)
+    private var built: Meeting.Built { Meeting.tiles(calls.meetingDevices()) }
+    /// Meeting-Ansicht statt Profilbild-Block: Gruppe/Knoten immer, 1:1 sobald das Gegenueber Bild sendet
+    private var meetOn: Bool {
+        guard calls.phase == .active || calls.phase == .connecting || (calls.horn != nil && calls.phase == .ringingOut) else { return false }
+        if calls.horn != nil { return true }
+        #if DEBUG
+        let demo = calls.meet.demo != nil
+        #else
+        let demo = false
+        #endif
+        guard !calls.links.isEmpty || demo else { return false }
+        if calls.kind == "group" && !calls.dmRoom { return true }
+        let b = built
+        return b.tiles.contains { !$0.me && $0.video } || b.tiles.filter { $0.kind != .screen }.count > 2
+    }
+    private func meetMode(_ b: Meeting.Built) -> Meeting.Mode {
+        let n = b.tiles.filter { $0.kind != .screen }.count, s = b.tiles.filter { $0.kind == .screen }.count
+        return Meeting.mode(calls.meet.override ?? meetLayoutPref(layoutRaw), tiles: n, screens: s, reduceMotion: reduceMotion)
     }
     /// Offenes Menue bzw. Hinweis (Teilnehmerliste, Runensiegel, Entfernen-Rueckfrage, Bildschirm-Hinweis)
     private var menuOpen: Bool {
         if calls.screenHint { return true }
+        if calls.meet.people && !peopleSidebar { return true }
         if let H = calls.horn { return H.plist || H.rpop || H.ppop || H.rmSure != nil }
         return false
     }
@@ -80,42 +124,44 @@ struct CallScreen: View {
     private var notice: Bool { (calls.mutedBy != nil && !calls.mic) || calls.reconnecting || !calls.status.isEmpty }
     /// Aenderungen, die Kopf und Knoepfe wieder zeigen
     private var controlsKey: [String] {
-        [calls.phase.rawValue, "\(calls.mic)", "\(calls.cam)", "\(calls.sharing)", "\(calls.speaker)", "\(calls.sound)", "\(calls.swapView)"]
+        [calls.phase.rawValue, "\(calls.mic)", "\(calls.cam)", "\(calls.sharing)", "\(calls.speaker)", "\(calls.sound)", calls.meet.pin ?? "", layoutRaw,
+         "\(calls.meet.override?.rawValue ?? "")", "\(calls.meet.page)"]
     }
     private func poke() {
         lastPoke.t = Date()
         if chromeHidden { withAnimation(.easeOut(duration: 0.2)) { chromeHidden = false } }
     }
     private func updateChrome() {
-        let hide = CallLogic.hideControls(idle: Date().timeIntervalSince(lastPoke.t), phase: calls.phase.rawValue, video: stageVideo,
-                                          voiceOver: voiceOver, menuOpen: menuOpen, notice: notice)
-        if hide != chromeHidden { withAnimation(.easeInOut(duration: 0.35)) { chromeHidden = hide } }
+        let idle = Date().timeIntervalSince(lastPoke.t)
+        var hide = CallLogic.hideControls(idle: idle, phase: calls.phase.rawValue, video: stageVideo,
+                                          voiceOver: voiceOver, menuOpen: menuOpen, notice: notice, pointerOverBar: overBar)
+        if calls.meet.immersive { hide = !menuOpen && !voiceOver && idle >= CallLogic.controlsIdle }   // iPad: Vollbild, Leisten aus
+        if hide != chromeHidden { withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { chromeHidden = hide } }
     }
     private var screen: some View {
         ZStack {
             LinearGradient(colors: [Color(red: 0.10, green: 0.09, blue: 0.07), Color(red: 0.04, green: 0.04, blue: 0.05)], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
-            if let H = calls.horn, showHorn {
-                // 2.5: Gruppenanruf ueber einen Knoten (Kacheln bis 25, Sprecher, Bildschirm)
-                HornStage(calls: calls, horn: H)
-                    .padding(.top, topInset).padding(.bottom, bottomInset).padding(.horizontal, 10)
-            } else if showTiles {
-                // 2.4 E4/E5: Kachelansicht (Gruppe bzw. mehrere sichtbare Verbindungen), Sprecher hervorgehoben
-                CallTileGrid(calls: calls)
-                    .padding(.top, topInset).padding(.bottom, bottomInset).padding(.horizontal, 10)
-            } else if showRemoteVideo {
-                // 2.4 E3: Bildschirm gross und ganz sichtbar (aspect fit), Kamera klein; "Ansicht tauschen" tauscht
-                RTCVideoBox(track: bigTrack, fill: !bigIsScreen).ignoresSafeArea()
+            if meetOn {
+                // MEETING-SPEC: eine Buehne fuer 1:1, Mesh und Knoten - Personen zusammengefasst, Bildschirm ganz sichtbar
+                let b = built
+                MeetingStage(calls: calls, built: b, mode: meetMode(b), chromeHidden: chromeHidden, top: topInset, bottom: bottomInset,
+                             trailing: sideBar ? 64 : 0, sidebar: peopleSidebar ? 336 : 0)
             }
             VStack(spacing: flat ? 6 : 14) {
                 VStack(spacing: flat ? 6 : 14) { shareBar; header.opacity(chromeHidden ? 0 : 1).allowsHitTesting(!chromeHidden) }   // 2.5: Hoehe inkl. Leiste "teilt den Bildschirm" (bleibt sichtbar)
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
-                if !showRemoteVideo && !showTiles && !showHorn { Spacer(); peerBlock; Spacer() } else { Spacer() }
+                if !meetOn { Spacer(); peerBlock; Spacer() } else { Spacer() }
                 if calls.phase == .incoming { incomingButtons } else if calls.phase == .ended { endedBlock }
-                else { controls.opacity(chromeHidden ? 0 : 1).allowsHitTesting(!chromeHidden).accessibilityHidden(chromeHidden) }
+                else {
+                    controls.opacity(chromeHidden ? 0 : 1).allowsHitTesting(!chromeHidden).accessibilityHidden(chromeHidden)
+                        #if os(macOS)
+                        .onHover { overBar = $0 }
+                        #endif
+                }
             }
             .padding(.horizontal, 20).padding(.vertical, flat ? 6 : 24)
-            if calls.cam, let t = calls.localVideo, calls.phase != .incoming, calls.phase != .ended, !showHorn {   // Knoten: eigene Kachel
+            if !meetOn, calls.cam, let t = calls.localVideo, calls.phase != .incoming, calls.phase != .ended {   // sonst in der Buehne
                 // 2.5: in eine Ecke ziehen (rastet ein) oder ausblenden - unter der Kopfzeile, ueber den Knoepfen
                 SelfPip(aspect: calls.selfAspect, fallback: SelfPipDefaults.aspect, top: topInset, bottom: bottomInset, side: 16) {
                     RTCVideoBox(track: t, mirror: calls.frontCamera, fill: true,   // Rueckkamera nicht spiegeln (Schrift lesbar)
@@ -136,18 +182,25 @@ struct CallScreen: View {
                         #endif
                 }
             }
-            if showRemoteVideo, let t = smallTrack {                         // 2.4 E3: zweites Fernbild klein (Tippen tauscht)
-                Button { calls.swapView.toggle() } label: {
-                    ZStack { RTCVideoBox(track: t, fill: bigIsScreen).allowsHitTesting(false); Color.clear }
-                        .frame(width: 120, height: bigIsScreen ? 160 : 90).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.3)))
-                        .contentShape(Rectangle())
+            if meetOn && calls.horn == nil && calls.meet.people {             // Teilnehmerliste (Mesh/1:1)
+                if peopleSidebar {
+                    MeetPeoplePanel(calls: calls, devices: calls.meetingDevices(), sidebar: true)
+                        .environment(\.colorScheme, systemScheme).foregroundStyle(systemScheme == .dark ? Color.white : Color.black)
+                        .frame(width: 320).padding(.top, topInset).padding(.bottom, bottomInset).padding(.trailing, 8)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                } else {
+                    Color.black.opacity(0.35).ignoresSafeArea().onTapGesture { calls.meet.people = false }
+                    MeetPeoplePanel(calls: calls, devices: calls.meetingDevices())
+                        .environment(\.colorScheme, systemScheme).foregroundStyle(systemScheme == .dark ? Color.white : Color.black)
+                        .padding(.top, topInset - 10).padding(.bottom, bottomInset - 10)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel(Text("Ansicht tauschen"))
-                .help(Text("Ansicht tauschen"))
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.top, topInset).padding(.leading, 16)
+            }
+            if sideBar && calls.phase != .incoming && calls.phase != .ended {
+                controlRow(spacing: 6, width: 56, vertical: true)
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+                    .padding(.trailing, 8)
+                    .opacity(chromeHidden ? 0 : 1).allowsHitTesting(!chromeHidden).accessibilityHidden(chromeHidden)
             }
             if calls.screenHint { ScreenHintCard(calls: calls) }
             if let H = calls.horn { HornOverlays(calls: calls, horn: H, scheme: systemScheme, top: topInset - (flat ? 4 : 10), bottom: bottomInset - 10) }
@@ -191,41 +244,25 @@ struct CallScreen: View {
 
     /// Abstand unten fuer Buehne und Ebenen: Steuerknoepfe samt Dauer (gemessen) plus Rand
     private var bottomInset: CGFloat { CallLogic.stageBottom(controls: Double(controlsHeight), flat: flat) }
-    /// 2.5: Knoten-Anruf (Buehne statt Einzelansicht)
-    private var showHorn: Bool { calls.horn != nil && (calls.phase == .active || calls.phase == .connecting || calls.phase == .ringingOut) }
-    private var showRemoteVideo: Bool { !showHorn && !showTiles && calls.remoteVideo != nil && (calls.remote.cam || calls.remote.screen) && (calls.phase == .active || calls.phase == .connecting) }
-    /// 2.4 E4/E5: Kacheln statt Einzelansicht
-    private var showTiles: Bool { calls.meshView && !calls.tiles.isEmpty && (calls.phase == .active || calls.phase == .connecting) }
-    // 2.4 E3: remoteVideo = Bildschirm (teilt das Gegenueber) bzw. Kamera, remoteSide = Kamera neben dem Bildschirm
-    private var swapped: Bool { calls.swapView && calls.remoteSide != nil }
-    private var bigTrack: RTCVideoTrack? { swapped ? calls.remoteSide : calls.remoteVideo }
-    private var smallTrack: RTCVideoTrack? { calls.remoteSide == nil ? nil : swapped ? calls.remoteVideo : calls.remoteSide }
-    private var bigIsScreen: Bool { calls.remote.screen && !swapped }
 
     /// Rote Leiste: "Du teilst deinen Bildschirm" (mit Beenden) bzw. "<Name> teilt den Bildschirm" (mit Tauschen)
     @ViewBuilder private var shareBar: some View {
         // 2.5 (Anruf-UI-Regeln): fremdes Teilen nur als Bildunterschrift am geteilten Bild - kein Banner ueber dem Kopf
-        if calls.sharing || (calls.horn == nil && calls.remote.screen && calls.phase == .active) {
+        // MEETING-SPEC §5.5: fremdes Teilen als Chip unten links in der Buehne; hier nur die eigene Freigabe (blendet nie aus)
+        if calls.sharing {
             HStack(spacing: 10) {
                 Image(systemName: "rectangle.inset.filled.on.rectangle")
                 VStack(alignment: .leading, spacing: 1) {
-                    if calls.sharing { Text("Du teilst deinen Bildschirm").font(.subheadline.weight(.semibold)) }
-                    else { Text("\(calls.peerName) teilt den Bildschirm").font(.subheadline.weight(.semibold)) }
+                    Text("Du teilst deinen Bildschirm").font(.subheadline.weight(.semibold))
                     if calls.sharing && calls.shareCamPaused { Text("Kamera pausiert (langsame Verbindung)").font(.caption) }
                 }
                 .lineLimit(1).minimumScaleFactor(0.75)
                 Spacer(minLength: 4)
-                if calls.sharing {
-                    Button(String(localized: "Teilen beenden")) { calls.stopScreen() }
-                        .buttonStyle(.bordered).tint(.white).controlSize(.small)
-                } else if calls.remoteSide != nil {
-                    Button { calls.swapView.toggle() } label: { Image(systemName: "arrow.left.arrow.right") }
-                        .buttonStyle(.bordered).tint(.white).controlSize(.small)
-                        .accessibilityLabel(Text("Ansicht tauschen")).help(Text("Ansicht tauschen"))
-                }
+                Button(String(localized: "Teilen beenden")) { calls.stopScreen() }
+                    .buttonStyle(.bordered).tint(.white).controlSize(.small)
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, 12).padding(.vertical, 7)
+            .padding(.horizontal, 12).padding(.vertical, 3).frame(minHeight: 32)
             .background(Color(red: 0.78, green: 0.13, blue: 0.13), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             #if os(iOS)
             .padding(.leading, 48)                                            // Platz fuer "Zurueck zur App"
@@ -238,7 +275,7 @@ struct CallScreen: View {
 
     private var header: some View {
         // I05: auf Video halbtransparente Kapsel hinter den Kopf-Texten (weiss auf hellem Bild sonst kaum lesbar)
-        let onVideo = showRemoteVideo || showTiles || showHorn
+        let onVideo = meetOn
         return Group {
             if flat {                                                        // I03: quer eine Zeile, sonst untereinander
                 ViewThatFits(in: .horizontal) {
@@ -252,11 +289,14 @@ struct CallScreen: View {
         .padding(.horizontal, onVideo ? 12 : 0).padding(.vertical, onVideo ? 5 : 0)
         .background { if onVideo { RoundedRectangle(cornerRadius: 18, style: .continuous).fill(.black.opacity(0.38)) } }
         .frame(maxWidth: .infinity)
+        #if os(macOS)
+        .onHover { overBar = $0 }
+        #endif
     }
 
     @ViewBuilder private var headerItems: some View {
-            if showRemoteVideo || showTiles || showHorn { Text(verbatim: calls.peerName).font(.headline).lineLimit(1).truncationMode(.middle).shadow(radius: 3) }
-            if showRemoteVideo || showTiles || showHorn { statusLine }      // Dauer direkt unter dem Titel (Anruf-UI-Regeln)
+            if meetOn { Text(verbatim: calls.peerName).font(.headline).lineLimit(1).truncationMode(.middle).shadow(radius: 3) }
+            if meetOn { statusLine }                                         // Dauer direkt unter dem Titel (Anruf-UI-Regeln)
             if calls.phase != .ended { roomInfo }
             if let H = calls.horn, calls.phase != .ended { HornInfoLine(calls: calls, horn: H) }    // 2.5: Weg, Runensiegel, Schloss
             if calls.horn == nil, calls.phase != .ended { HStack(spacing: 6) {
@@ -344,7 +384,7 @@ struct CallScreen: View {
 
     private var controls: some View {
         VStack(spacing: 10) {
-            if showRemoteVideo && calls.phase == .active && !calls.remote.mic {        // sonst nur im (ausgeblendeten) Profilbild-Block
+            if meetOn && calls.kind != "group" && calls.horn == nil && calls.phase == .active && !calls.remote.mic {   // sonst im Profilbild-Block
                 Label("\(calls.peerName) ist stummgeschaltet", systemImage: "mic.slash.fill").font(.footnote).shadow(radius: 2)
                     .padding(.horizontal, 12).padding(.vertical, 6).background(.black.opacity(0.45), in: Capsule())
             }
@@ -353,11 +393,13 @@ struct CallScreen: View {
                     .padding(.horizontal, 12).padding(.vertical, 6).background(.black.opacity(0.55), in: Capsule())
             }
             companionBlock
-            let fit = CallLogic.controlFit(count: controlCount, width: Double(rowWidth > 0 ? rowWidth : 320))
-            controlRow(spacing: fit.spacing, width: fit.width)
-                .frame(maxWidth: .infinity)
-                .padding(.horizontal, -8)
-                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)               // Bedienungshilfen-Groessen: Auflegen bleibt erreichbar
+            if !sideBar {
+                let fit = CallLogic.controlFit(count: controlCount, width: Double(rowWidth > 0 ? rowWidth : 320))
+                controlRow(spacing: fit.spacing, width: fit.width)
+                    .frame(maxWidth: .infinity)
+                    .padding(.horizontal, -8)
+                    .dynamicTypeSize(...DynamicTypeSize.xxxLarge)           // Bedienungshilfen-Groessen: Auflegen bleibt erreichbar
+            }
         }
         .padding(.bottom, 6)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { controlsHeight = $0 }
@@ -372,19 +414,61 @@ struct CallScreen: View {
             if UIDevice.current.userInterfaceIdiom == .phone { n += 1 }
             #endif
         }
+        if showLayoutButton { n += 1 }
         return n
     }
-    private func controlRow(spacing: CGFloat, width: CGFloat) -> some View {
-        HStack(alignment: .top, spacing: spacing) {
-            toggle(calls.mic ? "mic.fill" : "mic.slash.fill", calls.mic ? String(localized: "Stumm") : String(localized: "Ton an"), on: !calls.mic, width: width) { calls.toggleMic() }
+    /// MEETING-SPEC §2: Layout-Knopf nicht im 1:1 ohne Teilen und ohne zweite Kamera-Kachel
+    private var showLayoutButton: Bool {
+        guard meetOn, calls.phase == .active else { return false }
+        let b = built
+        return Meeting.layoutButton(tiles: b.tiles.filter { $0.kind != .screen }.count, screens: b.tiles.filter { $0.kind == .screen }.count)
+    }
+    private func layoutButton(width: CGFloat) -> some View {
+        let b = built
+        let cur = calls.meet.override ?? meetLayoutPref(layoutRaw)
+        let label = String(localized: "Layout")
+        return MeetLayoutMenu(calls: calls, sharing: b.tiles.contains { $0.kind == .screen }) {
+            VStack(spacing: 6) {
+                Image(systemName: "square.grid.2x2").font(.title3).frame(width: flat ? 48 : 60, height: flat ? 48 : 60)
+                    .background(Color.white.opacity(0.18), in: Circle()).foregroundStyle(.white)
+                if !flat { buttonLabel(label, width: width) }
+            }
+        }
+        .accessibilityLabel(Text(verbatim: label))
+        .accessibilityValue(Text(verbatim: meetLayoutName(cur)))
+        .help(Text("Layout (L)"))
+    }
+    /// MEETING-SPEC §4.3: Begleitgeraet schaltet Mikrofon/Ton ein, waehrend ein anderes eigenes Geraet Mikrofon bzw. Ton an
+    /// hat -> erst fragen (Echo). Ohne ask_mute beim Server/Hauptgeraet: Hinweis, dort stummzuschalten.
+    enum EchoWhat { case mic, sound }
+    private func echoGuard(_ w: EchoWhat) {
+        let turningOn = w == .mic ? !calls.mic : !calls.sound
+        let other = built.ownOthers.first { $0.mic || !$0.companion }
+        if calls.companion, turningOn, let other {
+            echoAsk = w; echoDevice = other.devName.isEmpty ? String(localized: "anderes Gerät") : other.devName
+            return
+        }
+        echoDo(w)
+    }
+    private func echoDo(_ w: EchoWhat) { if w == .mic { calls.toggleMic() } else { calls.toggleSound() } }
+    /// MEETING-SPEC §9: Teilnehmerliste ab 900 pt als Seitenleiste rechts (schiebt die Buehne zusammen)
+    private var peopleSidebar: Bool { calls.meet.people && calls.horn == nil && rowWidth + 24 >= 900 }
+    /// MEETING-SPEC §8: iPhone quer - Knoepfe als Spalte rechts (Buehne bleibt breit)
+    private var sideBar: Bool { flat && MeetStyle.phone && meetOn }
+    private func controlRow(spacing: CGFloat, width: CGFloat, vertical: Bool = false) -> some View {
+        let lay = vertical ? AnyLayout(VStackLayout(spacing: 6)) : AnyLayout(HStackLayout(alignment: .top, spacing: spacing))
+        return lay {
+            toggle(calls.mic ? "mic.fill" : "mic.slash.fill", calls.mic ? String(localized: "Stumm") : String(localized: "Ton an"), on: !calls.mic, width: width) { echoGuard(.mic) }
+                .help(Text("Mikrofon (M)"))
             toggle(calls.cam ? "video.fill" : "video.slash.fill", calls.cam ? String(localized: "Kamera aus") : String(localized: "Kamera an"), on: !calls.cam, width: width) { calls.toggleCam() }
+                .help(Text("Kamera (V)"))
             if calls.phase == .active {                                       // 2.4 E3: Bildschirm teilen
                 toggle("rectangle.inset.filled.on.rectangle", calls.sharing ? String(localized: "Teilen beenden") : String(localized: "Bildschirm teilen"),
                        on: calls.sharing, width: width) { calls.toggleScreen() }
             }
             if calls.companion || !calls.sound {                              // 2.4: Begleitgeraet - Wiedergabe an/aus (startet stumm)
                 toggle(calls.sound ? "speaker.wave.2.fill" : "speaker.slash.fill", calls.sound ? String(localized: "Ton aus") : String(localized: "Ton an"),
-                       on: !calls.sound, width: width) { calls.toggleSound() }
+                       on: !calls.sound, width: width) { echoGuard(.sound) }
             } else {
                 #if os(iOS)
                 if UIDevice.current.userInterfaceIdiom == .phone {           // nur iPhone hat eine Hoermuschel; auch bei Video umschaltbar
@@ -392,21 +476,27 @@ struct CallScreen: View {
                 }
                 #endif
             }
+            if showLayoutButton { layoutButton(width: width) }
             round("phone.down.fill", String(localized: "Auflegen"), .red, width: width) { calls.hangup() }
         }
     }
 
     /// 2.4: Teilnehmer, Grenze, Personen ohne Saga 2.4, Begleitgeraet
     @ViewBuilder private var roomInfo: some View {
-        if calls.kind == "group" || calls.inRoom || calls.tiles.count > 1 {
+        if calls.kind == "group" || calls.inRoom || calls.tiles.count > 1 || meetOn {
             VStack(spacing: 2) {
+                let b = built
                 if CallLogic.showsDeviceCount(kind: calls.kind, dmRoom: calls.dmRoom), calls.phase == .active || calls.phase == .connecting || calls.phase == .ringingOut {
+                    // MEETING-SPEC §4.1: Personen zaehlen; Geraete erst nahe der Grenze (die bleibt geraete-basiert)
                     let n = calls.horn != nil ? max(1, calls.roster.legs.count) : calls.links.count + 1
-                    Label(n >= calls.limit - 2 ? "\(n)/\(calls.limit)" : "\(n)", systemImage: "person.2.fill").font(.caption.weight(.semibold))
+                    let p = max(1, b.people)
+                    Label { Text(verbatim: n >= calls.limit - 2 ? "\(p) · \(n)/\(calls.limit)" : "\(p)") } icon: { Image(systemName: "person.2.fill") }
+                        .font(.caption.weight(.semibold))
                         .padding(.horizontal, 8).padding(.vertical, 2).background(.black.opacity(0.4), in: Capsule())
                         .accessibilityElement(children: .ignore)
-                        .accessibilityLabel(Text("\(n) von höchstens \(calls.limit) Geräten"))
+                        .accessibilityLabel(n >= calls.limit - 2 ? Text("\(p) Personen, \(n) von höchstens \(calls.limit) Geräten") : Text("\(p) Personen"))
                 }
+                if calls.phase == .active { MeetCompanionChip(calls: calls, others: b.ownOthers) }
                 if !calls.oldNames.isEmpty {
                     Text("Braucht Saga 2.4: \(calls.oldNames.joined(separator: ", "))").font(.caption2).multilineTextAlignment(.center)
                 }
@@ -440,7 +530,7 @@ struct CallScreen: View {
 
     private var endedBlock: some View {
         VStack(spacing: 12) {
-            if showRemoteVideo { Text(verbatim: calls.status).font(.callout) }
+            if meetOn { Text(verbatim: calls.status).font(.callout) }
             Button(String(localized: "Schließen")) { calls.dismissEnded(); close() }
                 .buttonStyle(.bordered).tint(.white).controlSize(.large)
         }
@@ -730,72 +820,6 @@ private extension Double { var nonZero: Double? { self == 0 ? nil : self } }
 
 // MARK: - 2.4 E4/E5: Kachelansicht und Leiste "Anruf laeuft"
 
-/// Kacheln je Verbindung (iPhone 2x2, iPad/Mac ab 5 Kacheln drei Spalten); Sprecher gruen umrandet
-struct CallTileGrid: View {
-    @ObservedObject var calls: CallManager
-    var body: some View {
-        GeometryReader { g in
-            let n = max(1, calls.tiles.count)
-            let cols = CallRoom.columns(n, wide: g.size.width > 600)
-            let rows = (n + cols - 1) / cols
-            let sp: CGFloat = 8
-            let h = max(90, (g.size.height - sp * CGFloat(rows - 1)) / CGFloat(rows))
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: sp), count: cols), spacing: sp) {
-                ForEach(calls.tiles) { t in CallTileView(tile: t) { calls.swapTile(t.id) }.frame(height: h) }
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel(Text("Teilnehmende"))
-        }
-    }
-}
-struct CallTileView: View {
-    let tile: CallTile
-    var swap: () -> Void = {}
-    var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            Color.white.opacity(0.08)
-            if let v = tile.video {
-                RTCVideoBox(track: v, fill: !tile.screen)
-            } else {
-                AvatarView(name: tile.name, avatar: tile.avatar, size: 64).frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
-            if let s = tile.side {
-                Button(action: swap) {
-                    ZStack { RTCVideoBox(track: s, fill: true).allowsHitTesting(false); Color.clear }
-                        .frame(width: 76, height: 56).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(.white.opacity(0.3)))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain).accessibilityLabel(Text("Ansicht tauschen")).help(Text("Ansicht tauschen"))
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing).padding(6)
-            }
-            HStack(spacing: 4) {
-                if !tile.mic { Image(systemName: "mic.slash.fill").accessibilityHidden(true) }
-                Text(verbatim: tile.name).fontWeight(.semibold)
-                if !tile.devName.isEmpty { Text(verbatim: tile.devName).opacity(0.8) }
-                if tile.companion { Text("Begleitgerät").opacity(0.8) }
-            }
-            .font(.caption).lineLimit(1).minimumScaleFactor(0.7)
-            .padding(.horizontal, 8).padding(.vertical, 4).background(.black.opacity(0.5), in: Capsule()).padding(6)
-            if !tile.connected { ProgressView().tint(.white).frame(maxWidth: .infinity, maxHeight: .infinity) }
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous)
-            .strokeBorder(tile.speaking ? Color.green : Color.white.opacity(0.15), lineWidth: tile.speaking ? 3 : 1))
-        .animation(.easeOut(duration: 0.2), value: tile.speaking)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text(verbatim: label))
-    }
-    private var label: String {
-        var p = [tile.name]
-        if !tile.devName.isEmpty { p.append(tile.devName) }
-        if tile.companion { p.append(String(localized: "Begleitgerät")) }
-        if !tile.mic { p.append(String(localized: "stumm")) }
-        if tile.speaking { p.append(String(localized: "spricht")) }
-        return p.joined(separator: ", ")
-    }
-}
-
 /// Leiste "Anruf laeuft auf <Geraet>" (Hinzufuegen / Hierher uebernehmen) bzw. "Gruppenanruf laeuft" (Beitreten)
 struct CallRunBar: View {
     @ObservedObject var calls: CallManager
@@ -885,17 +909,26 @@ struct SelfPip<Content: View>: View {
     var top: CGFloat
     var bottom: CGFloat
     var side: CGFloat = 16
+    /// MEETING-SPEC §7: auf dem Handy in der Praesentation immer klein (S), damit es den Bildschirm nicht verdeckt
+    var forceSmall = false
+    /// feste Ecke (Handy-Praesentation: unten rechts ueber dem Streifen)
+    var forceCorner: Int? = nil
     @ViewBuilder var content: () -> Content
     @AppStorage("hkCallSelfCorner") private var corner = 1        // 0 oben links, 1 oben rechts, 2 unten links, 3 unten rechts
     @AppStorage("hkCallSelfHidden") private var hidden = false
+    /// Groesse S/M/L je Geraeteform (Telefon/Tablet/Desktop), Doppeltippen schaltet weiter
+    @AppStorage(SelfPipDefaults.sizeKey) private var sizeRaw = Meeting.SelfSize.m.rawValue
     @State private var drag = CGSize.zero
     var body: some View {
         GeometryReader { g in
             // V5: quer (wenig Hoehe) kleiner, damit oben und unten zwei getrennte Ecken bleiben - sonst wirkten die unteren nicht
-            let fit = CallLogic.selfPipSize(aspect: aspect, fallback: fallback, width: Double(g.size.width), avail: Double(g.size.height - top - bottom))
+            let k = forceSmall ? Meeting.SelfSize.s.factor : (Meeting.SelfSize(rawValue: sizeRaw) ?? .m).factor
+            let base = CallLogic.selfPipSize(aspect: aspect, fallback: fallback, width: Double(g.size.width), avail: Double(g.size.height - top - bottom))
+            let fit = CallLogic.pipSize(w: (base.w * k).rounded(.down), h: (base.h * k).rounded(.down), avail: Double(g.size.height - top - bottom))
             let w = hidden ? 44 : CGFloat(fit.w), h = hidden ? 44 : CGFloat(fit.h)
-            let x = corner % 2 == 0 ? side : g.size.width - w - side
-            let y = corner < 2 ? top : max(top, g.size.height - h - bottom)
+            let c = forceCorner ?? corner
+            let x = c % 2 == 0 ? side : g.size.width - w - side
+            let y = c < 2 ? top : max(top, g.size.height - h - bottom)
             Group {
                 if hidden {
                     Button { withAnimation(.spring(duration: 0.25)) { hidden = false } } label: {
@@ -906,6 +939,9 @@ struct SelfPip<Content: View>: View {
                     .accessibilityLabel(Text("Eigenes Bild zeigen")).help(Text("Eigenes Bild zeigen"))
                 } else {
                     content().frame(width: w, height: h)
+                        .onTapGesture(count: 2) {
+                            withAnimation(.spring(duration: 0.25)) { sizeRaw = (Meeting.SelfSize(rawValue: sizeRaw) ?? .m).next.rawValue }
+                        }
                         .overlay(alignment: .topLeading) {
                             Button { withAnimation(.spring(duration: 0.25)) { hidden = true } } label: {
                                 Image(systemName: "eye.slash").font(.caption2.weight(.semibold)).frame(width: 22, height: 22)
@@ -930,6 +966,7 @@ struct SelfPip<Content: View>: View {
                     }
                 })
             .accessibilityAction(named: Text("Eigenes Bild verschieben")) { corner = (corner + 1) % 4 }
+            .accessibilityAction(named: Text("Größe des eigenen Bilds ändern")) { sizeRaw = (Meeting.SelfSize(rawValue: sizeRaw) ?? .m).next.rawValue }
         }
     }
 }

@@ -162,6 +162,8 @@ final class HornSession: ObservableObject {
     var monTask: Task<Void, Never>?
     var candT = 0.0, statT = 0.0, udpProbeAt = 0.0, rosterT = 0.0, tuneT = 0.0
     var levels: [String: Double] = [:]
+    /// Meeting-Ansicht: Kamerabild je Geraet (hornDraw)
+    var vid: [String: RTCVideoTrack] = [:]
     var speaking = Set<String>()
     var speakAt: [String: Double] = [:]
     var spk: String?
@@ -807,6 +809,10 @@ extension CallManager {
         for (d, t) in H.speakAt where now - t < 600 { sp.insert(d) }
         if sp.isEmpty, lv.isEmpty, let s = H.spk { sp.insert(s) }         // ohne Pegel: Sprecherplatz des Knotens
         if sp != H.speaking { H.speaking = sp }
+        // Meeting-Ansicht: Hysterese je Person; ohne Pegel gilt der Sprecherplatz des Knotens als Kandidat
+        var ml = lv
+        if ml.isEmpty, let s = H.spk { ml[s] = 0.1 }
+        meetLevels(ml, selfLevel: H.selfLevel)
     }
     /// Qualitaet (RTT, Verlust, Einfrieren), UDP-Regeln, Nachforderung aus getStats
     private func hornStats(_ conn: HornConn) async {
@@ -927,6 +933,7 @@ extension CallManager {
             }
         }
         H.spk = spk ?? H.spk
+        H.vid = vid
         let devs = roster.legs.map(\.device).filter { $0 != me }
         if let s = H.spk, !devs.contains(s) { H.spk = nil }
         if let p = H.pin, !devs.contains(p) { H.pin = nil }
