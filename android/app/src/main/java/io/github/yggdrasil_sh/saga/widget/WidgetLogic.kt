@@ -72,23 +72,26 @@ object TodayLogic {
     /** hoechste Prioritaet = 1; ohne Angabe wie "normal" (2, so legt die App neue Aufgaben an) */
     private fun prio(t: WTask) = t.prio ?: 2
 
-    /** Aufgaben fuer den Zwischenspeicher: offen, mit Datum bis einschliesslich [until] */
+    /** Aufgaben fuer den Zwischenspeicher: offen, ohne Datum oder mit Datum bis einschliesslich [until] */
     fun forSnapshot(open: List<TaskItem>, until: LocalDate): List<WTask> =
         open.asSequence()
             .filter { !it.done }
-            .filter { t -> parseDay(t.due)?.let { !it.isAfter(until) } ?: false }
+            .filter { t -> t.due.isNullOrBlank() || parseDay(t.due)?.let { !it.isAfter(until) } ?: false }
             .map { WTask(it.id, it.text, it.due, it.prio) }
             .toList()
 
     /**
-     * Aufgaben fuer "Heute": faellig heute oder ueberfaellig (ohne Datum nicht - die stehen in "Aufgaben").
-     * Reihenfolge: aeltestes Faelligkeitsdatum zuerst (ueberfaellige also vorn), dann Prioritaet, dann ID.
+     * Aufgaben fuer "Heute" wie im iOS-Widget und in der Ansicht "Heute" der App: faellig heute, ueberfaellig oder
+     * ohne Datum (spaetere nicht, ein unlesbares Datum auch nicht).
+     * Reihenfolge: aeltestes Faelligkeitsdatum zuerst (ueberfaellige also vorn), ohne Datum zuletzt, dann Prioritaet, dann ID.
      * hidden = gerade im Widget abgehakt (der Server bestaetigt noch).
      */
     fun tasks(all: List<WTask>, today: LocalDate, hidden: Set<Int> = emptySet()): List<TaskLine> =
         all.mapNotNull { t ->
+            if (t.id in hidden) return@mapNotNull null
+            if (t.due.isNullOrBlank()) return@mapNotNull Triple(t, LocalDate.MAX, false)
             val d = parseDay(t.due) ?: return@mapNotNull null
-            if (d.isAfter(today) || t.id in hidden) null else Triple(t, d, d.isBefore(today))
+            if (d.isAfter(today)) null else Triple(t, d, d.isBefore(today))
         }
             .sortedWith(compareBy<Triple<WTask, LocalDate, Boolean>> { it.second }.thenBy { prio(it.first) }.thenBy { it.first.id })
             .map { TaskLine(it.first, it.third) }

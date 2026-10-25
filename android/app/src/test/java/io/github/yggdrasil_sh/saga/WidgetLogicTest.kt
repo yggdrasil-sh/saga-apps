@@ -25,18 +25,20 @@ class WidgetLogicTest {
     // ------------------------------------------------------------ Aufgaben
 
     @Test
-    fun tasksOnlyDueTodayOrOverdue() {
+    fun tasksDueTodayOverdueOrWithoutDate() {
+        // wie iOS-Widget und Ansicht "Heute": ohne Datum dabei (zuletzt), spaetere und unlesbare nicht
         val all = listOf(
             WTask(1, "ohne Datum"),
             WTask(2, "morgen", "2026-10-26"),
             WTask(3, "heute", "2026-10-25"),
             WTask(4, "gestern", "2026-10-24"),
             WTask(5, "kaputtes Datum", "bald"),
+            WTask(6, "leeres Datum", ""),
+            WTask(7, "ohne Datum, wichtig", null, 1),
         )
         val r = TodayLogic.tasks(all, today)
-        assertEquals(listOf(4, 3), r.map { it.task.id })
-        assertTrue(r[0].overdue)
-        assertFalse(r[1].overdue)
+        assertEquals(listOf(4, 3, 7, 1, 6), r.map { it.task.id })
+        assertEquals(listOf(true, false, false, false, false), r.map { it.overdue })
     }
 
     @Test
@@ -65,8 +67,9 @@ class WidgetLogicTest {
             TaskItem(3, "uebermorgen", due = "2026-10-27"),
             TaskItem(4, "ohne Datum"),
             TaskItem(5, "erledigt", done = true, due = "2026-10-25"),
+            TaskItem(6, "erledigt ohne Datum", done = true),
         )
-        assertEquals(listOf(1, 2), TodayLogic.forSnapshot(open, today.plusDays(1)).map { it.id })
+        assertEquals(listOf(1, 2, 4), TodayLogic.forSnapshot(open, today.plusDays(1)).map { it.id })
     }
 
     @Test

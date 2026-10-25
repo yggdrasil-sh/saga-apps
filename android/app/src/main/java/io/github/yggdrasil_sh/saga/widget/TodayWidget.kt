@@ -47,7 +47,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Date
 
 /**
- * Widget "Heute" (wie iOS TodayWidget): Termine von heute und Aufgaben, die heute faellig oder ueberfaellig sind.
+ * Widget "Heute" (wie iOS TodayWidget): Termine von heute und Aufgaben, die heute faellig, ueberfaellig oder ohne Datum sind.
  * Kreis antippen = abhaken (ohne die App zu oeffnen), Zeile antippen = Termine/Aufgaben in der App, "+" = neue Aufgabe.
  */
 class TodayWidget : GlanceAppWidget() {
