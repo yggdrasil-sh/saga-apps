@@ -132,6 +132,8 @@ data class RoomUi(
 /** Reine Regeln fuer Raum, Mesh und Mehrgeraete (Unit-Tests) */
 object CallRoom {
     const val CAP_MULTI = "multi"
+    /** MEETING-SPEC §4.3/§11: Echo-Vorschlag `state.ask_mute` zwischen eigenen Geraeten */
+    const val CAP_ASKMUTE = "askmute"
     /** 2.5: Gruppenanrufe ueber Gjallarhorn-Knoten (Frame-E2E saga-horn/v1 mit FrameCryptor) */
     const val CAP_HORN = "horn"
     const val TOPO_HORN = "horn"
@@ -158,7 +160,8 @@ object CallRoom {
      */
     fun myCaps(serverFeatures: Set<String>, screen2: Boolean = true, multi: Boolean = true, horn: Boolean = true): List<String> {
         val m = multi && CallV3.CAP_RENEG in serverFeatures && CAP_MULTI in serverFeatures
-        return CallV3.myCaps(serverFeatures, screen2) + listOfNotNull(CAP_MULTI.takeIf { m }, CAP_HORN.takeIf { m && horn && CAP_HORN in serverFeatures })
+        return CallV3.myCaps(serverFeatures, screen2) +
+            listOfNotNull(CAP_MULTI.takeIf { m }, CAP_HORN.takeIf { m && horn && CAP_HORN in serverFeatures }, CAP_ASKMUTE.takeIf { m })
     }
 
     fun multi(caps: Collection<String>): Boolean = CAP_MULTI in caps

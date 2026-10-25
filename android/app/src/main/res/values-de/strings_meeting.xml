@@ -37,6 +37,11 @@
     <string name="meet_tile_menu">Optionen für %1$s</string>
     <string name="meet_companion_head">Begleitgerät · Hauptgerät %1$s</string>
     <string name="meet_cam2">%1$s (%2$s)</string>
+    <string name="meet_echo_muted">Stumm, weil %1$s übernommen hat</string>
+    <string name="meet_echo_title">Ist %1$s im selben Raum? Dann gibt es Echo.</string>
+    <string name="meet_echo_here">Hier einschalten, %1$s stumm</string>
+    <string name="meet_echo_anyway">Trotzdem einschalten</string>
+    <string name="meet_echo_manual">Bitte zuerst am Gerät %1$s stummschalten.</string>
     <plurals name="meet_persons">
         <item quantity="one">%1$d Person</item>
         <item quantity="other">%1$d Personen</item>

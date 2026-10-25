@@ -352,7 +352,33 @@ private fun CallScreen(
             micPerm.launch(Manifest.permission.RECORD_AUDIO)
         }
     }
-    val onMic: () -> Unit = { if (st.mic) calls.toggleMic() else withMic { calls.toggleMic() } }
+    // MEETING-SPEC §4.3 Echo-Schutz: Begleitgeraet schaltet Mikrofon/Ton ein, waehrend ein anderes eigenes Geraet das
+    // Mikrofon an hat -> Bestaetigungsblatt ("Hier einschalten, MacBook stumm" / "Trotzdem einschalten" / "Abbrechen")
+    var echoAsk by remember { mutableStateOf<Pair<String, Triple<String, String, Boolean>>?>(null) }
+    val doEcho: (String) -> Unit = { what -> if (what == "mic") withMic { calls.toggleMic() } else calls.togglePlayback() }
+    val echoGate: (String) -> Unit = { what ->
+        val turningOn = if (what == "mic") !st.mic else st.room?.playback == false
+        val peer = if (turningOn && st.room?.companion == true) calls.echoPeer() else null
+        if (peer != null) echoAsk = what to peer else doEcho(what)
+    }
+    echoAsk?.let { (what, p) ->
+        AlertDialog(
+            onDismissRequest = { echoAsk = null },
+            title = { Text(stringResource(R.string.meet_echo_title, p.second)) },
+            text = if (!p.third) ({ Text(stringResource(R.string.meet_echo_manual, p.second)) }) else null,
+            confirmButton = {
+                Column(horizontalAlignment = Alignment.End) {
+                    if (p.third) TextButton(onClick = { echoAsk = null; calls.askMute(p.first); doEcho(what) }) {
+                        Text(stringResource(R.string.meet_echo_here, p.second))
+                    }
+                    TextButton(onClick = { echoAsk = null; doEcho(what) }) { Text(stringResource(R.string.meet_echo_anyway)) }
+                    TextButton(onClick = { echoAsk = null }) { Text(stringResource(R.string.action_cancel)) }
+                }
+            },
+        )
+    }
+    val onMic: () -> Unit = { if (st.mic) calls.toggleMic() else echoGate("mic") }
+    val onPlayback: () -> Unit = { echoGate("sound") }
 
     val dark = Color(0xFF101114)
     // V1: flacher Bildschirm (Telefon quer, grosse Anzeige) - Kopf in einer Zeile, Knoepfe ohne Textzeile, kleinere
@@ -411,7 +437,7 @@ private fun CallScreen(
             }
         } else if (meetOn) {
             androidx.compose.runtime.CompositionLocalProvider(LocalFlatCall provides flat) {
-                MeetCall(calls, st, flat, onMinimize, onCam, onShare, onMic, withMic, onPanel = { hornPanel = it })
+                MeetCall(calls, st, flat, onMinimize, onCam, onShare, onMic, withMic, onPanel = { hornPanel = it }, onPlayback = onPlayback)
             }
         } else {
         androidx.compose.runtime.CompositionLocalProvider(LocalFlatCall provides flat) {
@@ -508,7 +534,7 @@ private fun CallScreen(
             // A06: Hoehe der Knopfzone messen - das eigene Bild bleibt darueber
             Column(Modifier.onSizeChanged { ctrlHeight = it.height }, horizontalAlignment = Alignment.CenterHorizontally) {
                 RoomActions(calls, st, withMic)
-                Controls(calls, st, ::answer, onCam, onShare, onMic)
+                Controls(calls, st, ::answer, onCam, onShare, onMic, onPlayback = onPlayback)
             }
         }
         }
@@ -561,7 +587,7 @@ private fun CallScreen(
 @Composable
 private fun MeetCall(
     calls: CallManager, st: CallUiState, flat: Boolean, onMinimize: () -> Unit, onCam: () -> Unit, onShare: () -> Unit, onMic: () -> Unit,
-    withMic: (() -> Unit) -> Unit, onPanel: (String) -> Unit,
+    withMic: (() -> Unit) -> Unit, onPanel: (String) -> Unit, onPlayback: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val conf = androidx.compose.ui.platform.LocalConfiguration.current
@@ -698,10 +724,10 @@ private fun MeetCall(
                 MeetLayoutButton(ms, model.screens.isNotEmpty(), col, tc, tf) { open -> menuOpen = open; lastAct = System.currentTimeMillis() }
             }) else null
             if (flat) Box(Modifier.fillMaxHeight().safeDrawingPadding().padding(4.dp)) {
-                Controls(calls, st, {}, onCam, onShare, onMic, layoutBtn = lb, vertical = true)
+                Controls(calls, st, {}, onCam, onShare, onMic, layoutBtn = lb, vertical = true, onPlayback = onPlayback)
             } else Column(Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 RoomActions(calls, st, withMic)
-                Controls(calls, st, {}, onCam, onShare, onMic, layoutBtn = lb)
+                Controls(calls, st, {}, onCam, onShare, onMic, layoutBtn = lb, onPlayback = onPlayback)
             }
         },
     )
@@ -756,6 +782,8 @@ private fun Controls(
     layoutBtn: (@Composable (androidx.compose.ui.unit.Dp) -> Unit)? = null,
     /** MEETING-SPEC §8 Handy quer: Knoepfe rechts senkrecht (56 dp Spalte, ohne Beschriftung) */
     vertical: Boolean = false,
+    /** Begleitgeraet: Ton an/aus (mit Echo-Schutz) */
+    onPlayback: () -> Unit = { calls.togglePlayback() },
 ) {
     val flat = LocalFlatCall.current
     when (st.phase) {
@@ -802,7 +830,7 @@ private fun Controls(
                     stringResource(if (room.playback) R.string.room_sound_off else R.string.room_sound_on),
                     if (room.playback) tc else offBg, if (room.playback) tf else offFg,
                     selected = room.playback, compact = compact, col = col, off = !room.playback,
-                ) { calls.togglePlayback() } }
+                ) { onPlayback() } }
                 else add { col -> RoundButton(
                     R.drawable.ic_volume_up, stringResource(R.string.call_speaker),
                     if (st.speaker) MaterialTheme.colorScheme.primary else tc, if (st.speaker) MaterialTheme.colorScheme.onPrimary else tf,

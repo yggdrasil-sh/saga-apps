@@ -34,7 +34,7 @@ class CallRoomTest {
         assertFalse("multi" in CallRoom.myCaps(setOf("multi")))                  // ohne reneg kein Raum
         assertFalse("multi" in CallRoom.myCaps(setOf("reneg", "screen2")))
         val all = CallRoom.myCaps(setOf("reneg", "screen2", "multi", "group"))
-        assertEquals(listOf("reneg", "want", "bye", "screen2", "multi"), all)
+        assertEquals(listOf("reneg", "want", "bye", "screen2", "multi", "askmute"), all)
         assertFalse("group" in all)                                              // group ist nur eine Server-Faehigkeit
         assertTrue(CallRoom.groupOk(setOf("reneg", "multi", "group")))
         assertFalse(CallRoom.groupOk(setOf("reneg", "multi")))

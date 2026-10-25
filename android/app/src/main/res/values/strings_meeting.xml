@@ -37,6 +37,11 @@
     <string name="meet_tile_menu">Options for %1$s</string>
     <string name="meet_companion_head">Companion device · main device %1$s</string>
     <string name="meet_cam2">%1$s (%2$s)</string>
+    <string name="meet_echo_muted">Muted because %1$s took over</string>
+    <string name="meet_echo_title">Is %1$s in the same room? Then there will be echo.</string>
+    <string name="meet_echo_here">Turn on here, mute %1$s</string>
+    <string name="meet_echo_anyway">Turn on anyway</string>
+    <string name="meet_echo_manual">Please mute %1$s there first.</string>
     <plurals name="meet_persons">
         <item quantity="one">%1$d person</item>
         <item quantity="other">%1$d people</item>

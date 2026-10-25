@@ -440,7 +440,9 @@ internal fun MeetingStage(
         val w = maxWidth.value
         val h = maxHeight.value
         when (view) {
-            Meeting.View.GALLERY -> Gallery(m, ms, speaker, controls, w, h, bottom, insetTop, tileVideo, speakingWho, onShown)
+            Meeting.View.GALLERY -> Box(Modifier.fillMaxSize().padding(end = end)) {
+                Gallery(m, ms, speaker, controls, w - end.value, h, bottom, insetTop, tileVideo, speakingWho, onShown)
+            }
             else -> {
                 val st = Meeting.stage(view, m, ms.pin, speaker)
                 // Android: eigenes Bild schwebt nur im 1:1 (DUO); in Praesentation/Sprecher steht es im Streifen und

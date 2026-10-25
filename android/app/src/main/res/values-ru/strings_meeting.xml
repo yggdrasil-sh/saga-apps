@@ -37,6 +37,11 @@
     <string name="meet_tile_menu">Действия для %1$s</string>
     <string name="meet_companion_head">Дополнительное устройство · основное %1$s</string>
     <string name="meet_cam2">%1$s (%2$s)</string>
+    <string name="meet_echo_muted">Звук выключен: %1$s взял звонок на себя</string>
+    <string name="meet_echo_title">%1$s в той же комнате? Тогда будет эхо.</string>
+    <string name="meet_echo_here">Включить здесь, выключить звук на %1$s</string>
+    <string name="meet_echo_anyway">Всё равно включить</string>
+    <string name="meet_echo_manual">Сначала выключи звук на %1$s.</string>
     <plurals name="meet_persons">
         <item quantity="one">%1$d человек</item>
         <item quantity="few">%1$d человека</item>

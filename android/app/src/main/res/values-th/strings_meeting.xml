@@ -37,6 +37,11 @@
     <string name="meet_tile_menu">ตัวเลือกสำหรับ %1$s</string>
     <string name="meet_companion_head">อุปกรณ์เสริม · อุปกรณ์หลัก %1$s</string>
     <string name="meet_cam2">%1$s (%2$s)</string>
+    <string name="meet_echo_muted">ปิดเสียงแล้วเพราะ %1$s รับช่วงต่อ</string>
+    <string name="meet_echo_title">%1$s อยู่ในห้องเดียวกันหรือไม่ ถ้าใช่จะมีเสียงสะท้อน</string>
+    <string name="meet_echo_here">เปิดที่นี่ ปิดเสียง %1$s</string>
+    <string name="meet_echo_anyway">เปิดต่อไป</string>
+    <string name="meet_echo_manual">โปรดปิดเสียงที่ %1$s ก่อน</string>
     <plurals name="meet_persons">
         <item quantity="other">%1$d คน</item>
     </plurals>

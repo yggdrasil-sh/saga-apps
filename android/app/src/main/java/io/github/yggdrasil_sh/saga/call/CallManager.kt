@@ -395,6 +395,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         var sharedAt = 0L
         /** Meeting-Ansicht: Kamera dieses Geraets wird gerade nicht gezeigt (andere Seite, ueber der Video-Hoechstzahl) */
         var meetOff = false
+        /** §4.3: mit dem naechsten state `ask_mute` an dieses (eigene) Geraet */
+        var askMute = false
     }
 
     /** Laufende Bildschirmaufnahme */
@@ -992,6 +994,27 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
     }
 
+    /**
+     * §4.3 Echo-Schutz: anderes eigenes Geraet im Anruf mit Mikrofon an (Geraet, Name, kann ask_mute) - nur im Mesh
+     * (der Knoten-Pfad meldet das ueber die Teilnehmerliste nicht verlaesslich).
+     */
+    fun echoPeer(): Triple<String, String, Boolean>? {
+        val r = cur ?: return null
+        if (r.rs.horn != null) return null
+        val l = links(r).firstOrNull { own(it) && it.connected && it.rMic } ?: return null
+        val x = legOf(l)
+        return Triple(l.peerDevice.orEmpty(), x?.devName?.ifEmpty { null } ?: l.peer.shown, CallRoom.CAP_ASKMUTE in (x?.caps ?: emptyList()))
+    }
+
+    /** §4.3: das eigene Geraet dev bitten, Mikrofon und Ton auszuschalten (state.ask_mute) */
+    fun askMute(dev: String) {
+        val r = cur ?: return
+        val l = linkOf(r, dev) ?: return
+        if (!own(l)) return
+        l.askMute = true
+        scope.launch { if (live(l)) stateOut(l) }
+    }
+
     /** Meeting-Ansicht: Bild einer Kachel (eigene Kamera, Bildschirm bzw. Kamera eines Geraets) */
     fun meetSink(t: Meeting.Tile): ProxySink? {
         val r = cur ?: return null
@@ -1166,6 +1189,11 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             put("screen", sharing)
             // 2.4: Bild-im-Bild und gewuenschte Videogroesse (aeltere Gegenstellen ignorieren die Felder)
             put("pip", c.pip)
+            // §4.3 Echo-Vorschlag an ein eigenes Geraet (einmalig)
+            if (c.askMute) {
+                put("ask_mute", true)
+                c.askMute = false
+            }
             // Meeting-Ansicht §2.2: Kamera ohne Videoplatz abbestellen (nur diese Verbindung)
             putJsonObject("want") { put("video", if (c.meetOff && c.myWant != "off") "off" else c.myWant) }
             // eigener Weg (immer, sobald bekannt); das Gegenueber rechnet mit dem schlechteren
@@ -1248,6 +1276,16 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 c.rCam = (b["cam"] as? JsonPrimitive)?.booleanOrNull == true
                 peerTracksIn(c, b)
                 c.rMic = (b["mic"] as? JsonPrimitive)?.booleanOrNull != false
+                // §4.3: ein anderes eigenes Geraet schaltet Mikrofon/Ton ein und bittet hier um Stille (Echo)
+                if ((b["ask_mute"] as? JsonPrimitive)?.booleanOrNull == true && own(c)) {
+                    val r = roomOf(c)
+                    if (r.micOn) toggleMic()
+                    if (r.rs.playback) {
+                        setPlayback(r, false)
+                        update(r)
+                    }
+                    repo.notify(UiText.Res(R.string.meet_echo_muted, legOf(c)?.devName?.ifEmpty { null } ?: c.peer.shown))
+                }
                 // 2.4 E4: ein anderes eigenes Geraet hat uebernommen ("Hierher uebernehmen") -> hier still und raus
                 if ((b["ready"] as? JsonPrimitive)?.booleanOrNull == true && b.s("replaces") == myDevId() && own(c)) {
                     handoverOut(roomOf(c), from)
