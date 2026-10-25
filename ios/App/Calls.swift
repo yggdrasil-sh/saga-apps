@@ -430,12 +430,22 @@ final class CallManager: NSObject, ObservableObject {
             do {
                 guard await ensureChat() else { throw APIError.other(String(localized: "Chats sind auf diesem Gerät noch nicht bereit.")) }
                 guard await loadConfig() else { throw APIError.other(String(localized: "Anrufe sind auf diesem Server abgeschaltet.")) }
-                try await loadPeerKeys(L)
-                if L.devs.isEmpty { throw APIError.other(String(localized: "\(peerName) hat Chats noch auf keinem Gerät eingerichtet – Anrufe gehen erst danach.")) }
+                // 2.5 A07: "Alle Anrufe ueber Knoten" (horn_dm) - erst ueber den Knoten, bei 409 fallback direkt wie bisher
+                let viaHorn = CallRoom.dmViaHorn(hornDm: ShareJSON.bool(cfg["horn_dm"]), myCaps: myCaps)
+                if !viaHorn {
+                    try await loadPeerKeys(L)
+                    if L.devs.isEmpty { throw APIError.other(String(localized: "\(peerName) hat Chats noch auf keinem Gerät eingerichtet – Anrufe gehen erst danach.")) }
+                }
                 try await prepareMedia(video: video)
                 guard phase == .preparing else { return }
                 id = ChatCrypto.hexID()
                 CallSystem.shared.startOutgoing(self, id: id!, name: peerName, video: media == "video")
+                if viaHorn {
+                    if try await dialHorn(L) { return }
+                    try await loadPeerKeys(L)                               // Rueckfall: derselbe Anruf (dieselbe id) direkt
+                    if L.devs.isEmpty { throw APIError.other(String(localized: "\(peerName) hat Chats noch auf keinem Gerät eingerichtet – Anrufe gehen erst danach.")) }
+                    guard phase == .preparing, !ending else { return }
+                }
                 makePC(L)
                 addLocal(L, fromOffer: false)
                 guard let pc = L.pc else { return }
@@ -444,6 +454,53 @@ final class CallManager: NSObject, ObservableObject {
                 try await dial(L, again: false)
             } catch { fail(error.localizedDescription) }
         }
+    }
+    /// 2.5 A07: 1:1 ueber einen Knoten (APP-API "1:1 ueber Knoten", wie Android dialHorn / static/calls.js startGroup mit dm):
+    /// POST /api/calls mit via "horn" OHNE signals. true = erledigt (Raum-Anruf laeuft, besetzt oder aufgelegt), false = Server
+    /// meldet 409 {fallback: "direct"} bzw. Netzfehler - nichts angelegt, der Aufrufer ruft mit derselben id direkt an.
+    private func dialHorn(_ L: CallLink) async throws -> Bool {
+        guard let store, let id, let dev = myDevice, !ending, phase == .preparing else { return true }
+        status = String(localized: "Verbinde …")
+        links = []                                                     // Raum: Verbindungen kommen ueber den Knoten
+        let asked = Date().timeIntervalSince1970
+        let res = try? await store.apiResponse("api/calls", method: "POST",
+                                               body: CallRoom.dmHornBody(id: id, chatID: chatID, media: media, device: dev, caps: myCaps, devClass: hornDevClass))
+        let j = res.flatMap { ShareJSON.obj($0.0) }
+        guard CallLogic.dialStillWanted(ending: ending, preparing: phase == .preparing, sameCall: self.id == id) else {
+            CallEnv.log("dial horn: aufgelegt waehrend Verbinde")
+            if let code = res?.1, (200..<300).contains(code) {
+                _ = try? await store.apiResponse("api/calls/\(id)/end", method: "POST", body: ["reason": "hangup", "device": dev])
+            }
+            return true
+        }
+        switch CallRoom.dmHornOutcome(code: res?.1, body: j) {
+        case .direct:
+            CallEnv.log("dm via horn: fallback direct (\(ShareJSON.str(j?["horn_block"]) ?? (res == nil ? "net" : "-")))")
+            links = [L]
+            return false
+        case .busy:
+            finish(.busy); return true
+        case .failed(let m):
+            throw APIError.http(res?.1 ?? 0, m ?? "")
+        case .room:
+            break
+        }
+        guard let c = j?["call"] as? [String: Any] else { throw APIError.http(res?.1 ?? 0, "") }
+        // ab hier ein Raum-Anruf mit dm (Anzeige wie 1:1: Titel = Gegenueber), wie ein angenommener 1:1-Knoten-Anruf
+        kind = "group"; dmRoom = true; joinRole = "member"
+        adoptCall(c)
+        kind = "group"; dmRoom = true
+        await adoptV2(c)
+        ready = true; inRoom = true
+        rosterIn(CallRoom.legs(c["legs"]), rv: asked, extra: c)
+        if topo == "horn" { hornGo(c["horn"]) }
+        phase = .ringingOut; status = String(localized: "Klingelt …")
+        CallEnv.log("ringing horn \(id.prefix(8))")
+        CallTones.shared.play(.ringback)
+        aliveOn()
+        let pending = early; early = []
+        for s in pending { await handleRaw(s) }
+        return true
     }
     private func dial(_ L: CallLink, again: Bool) async throws {
         guard let store, let id, let dev = myDevice, let sdp = L.pc?.localDescription?.sdp, !ending, phase == .preparing else { return }
