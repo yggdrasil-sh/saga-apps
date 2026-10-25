@@ -27,7 +27,7 @@ object NotifyDesign {
         p.color = tone.fg.toArgb()
         p.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         p.textAlign = Paint.Align.CENTER
-        p.textSize = px * (if (text.length > 1) 0.38f else 0.46f)
+        p.textSize = px * (if (text.length > 1) 0.30f else 0.38f)          // System schneidet rund und etwas enger zu
         val y = px / 2f - (p.descent() + p.ascent()) / 2f
         c.drawText(text, px / 2f, y, p)
         return bmp
