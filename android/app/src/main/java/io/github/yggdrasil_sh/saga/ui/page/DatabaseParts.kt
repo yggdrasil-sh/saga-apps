@@ -25,6 +25,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.background
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -97,9 +99,9 @@ fun DatabaseRows(dbId: Long, repo: SagaRepository, onOpen: (Long) -> Unit, limit
         }
         val shown = if (limit != null) rows.take(limit) else rows
         shown.forEachIndexed { i, r ->
-            if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f))
             Row(
-                Modifier.fillMaxWidth().clickable { onOpen(r.id) }.padding(vertical = 10.dp),
+                Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { onOpen(r.id) }.padding(vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 PageIcon(r.icon, repo, r.isDatabase)
@@ -107,7 +109,13 @@ fun DatabaseRows(dbId: Long, repo: SagaRepository, onOpen: (Long) -> Unit, limit
             }
         }
         if (limit != null && rows.size > limit) {
-            TextButton(onClick = { onOpen(dbId) }) { Text(stringResource(R.string.db_more, rows.size)) }
+            androidx.compose.material3.FilledTonalButton(
+                onClick = { onOpen(dbId) }, modifier = Modifier.padding(top = 6.dp),
+                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                    containerColor = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldSoft,
+                    contentColor = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.onGoldSoft,
+                ),
+            ) { Text(stringResource(R.string.db_more, rows.size)) }
         }
     }
 }
@@ -201,9 +209,10 @@ fun DatabaseBlock(d: JsonObject, env: BlockEnv) {
     val dbId = (d["db"] as? JsonPrimitive)?.content?.toDoubleOrNull()?.toLong()
     val all = knownPages(env.repo)
     val meta = dbId?.let { id -> all.firstOrNull { it.id == id } }
+    // Karte im Saga-Stil (tonal, 20 dp) statt Rahmen
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(12.dp),
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).background(MaterialTheme.colorScheme.surfaceContainerLow)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f), MaterialTheme.shapes.large).padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         if (dbId == null || (meta == null && dbId >= 0)) {
             Text("🗃️ " + stringResource(R.string.db_missing), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -211,11 +220,11 @@ fun DatabaseBlock(d: JsonObject, env: BlockEnv) {
         }
         // 2.5: Titel im Block ausgeblendet (hide_title, wie Web/iOS) - die Eintraege oeffnen sich weiter
         if ((d["hide_title"] as? JsonPrimitive)?.content != "true") Row(
-            Modifier.fillMaxWidth().clickable { env.onLink("/notes#$dbId") }.padding(bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
+            Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).clickable { env.onLink("/notes#$dbId") }.padding(bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             // Datenbank eines anderen Servers, die (noch) nicht in "Mit mir geteilt" steht: ohne Titel, Zeilen von dort
-            PageIcon(meta?.icon, env.repo, true)
+            io.github.yggdrasil_sh.saga.ui.theme.SagaIconTile(size = 36.dp) { PageIcon(meta?.icon, env.repo, true) }
             Text(meta?.title?.ifEmpty { null } ?: stringResource(if (meta == null) R.string.blocktype_database else R.string.page_untitled),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
         }
@@ -303,8 +312,8 @@ fun EmbedBlock(d: JsonObject, env: BlockEnv) {
     val url = InlineHtml.decodeEntities(BlockDoc.str(d, "url"))
     val title = InlineHtml.plain(BlockDoc.str(d, "title"))
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))
+        Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium)
             .clickable(enabled = url.isNotEmpty()) { env.onLink(url) }.padding(12.dp),
     ) {
         Text((if (BlockDoc.str(d, "kind") == "youtube") "▶ " else "🔗 ") + title.ifEmpty { url.ifEmpty { stringResource(R.string.blocktype_embed) } },

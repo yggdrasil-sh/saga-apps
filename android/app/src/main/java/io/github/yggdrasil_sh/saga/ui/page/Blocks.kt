@@ -42,6 +42,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
@@ -143,8 +144,9 @@ fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
             )
         }
         "list" -> ListItems(block, path, d["items"] as? JsonArray ?: JsonArray(emptyList()), BlockDoc.str(d, "style").ifEmpty { "unordered" }, path + listOf("data", "items"), emptyList(), env)
-        "quote" -> Row(Modifier.height(IntrinsicSize.Min)) {
-            Box(Modifier.width(3.dp).fillMaxHeight().background(MaterialTheme.colorScheme.outline))
+        "quote" -> Row(Modifier.height(IntrinsicSize.Min).padding(vertical = 2.dp)) {
+            // Saga-Gold als Zitatbalken (Zierfarbe, kein Text)
+            Box(Modifier.width(4.dp).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.gold))
             Column(Modifier.padding(start = 12.dp)) {
                 RichField(
                     BlockDoc.str(d, "text"), key, ed, path, body.copy(fontStyle = FontStyle.Italic), { ed.setString(path + listOf("data", "text"), it) },
@@ -159,16 +161,16 @@ fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
             }
         }
         "callout" -> Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(12.dp),
+            Modifier.fillMaxWidth().clip(MaterialTheme.shapes.large).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(14.dp),
         ) {
-            Text(BlockDoc.str(d, "emoji").ifEmpty { "💡" }, modifier = Modifier.padding(end = 10.dp))
+            Text(BlockDoc.str(d, "emoji").ifEmpty { "💡" }, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(end = 12.dp))
             RichField(
                 BlockDoc.str(d, "text"), key, ed, path, body, { ed.setString(path + listOf("data", "text"), it) },
                 placeholder = stringResource(R.string.block_callout), onEnter = splitToParagraph, onLink = env.onLink,
             )
         }
         "code" -> Box(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(12.dp),
+            Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(14.dp),
         ) {
             val lang = BlockDoc.str(d, "language")
             RichField(
@@ -358,7 +360,15 @@ private fun ToggleBlock(block: JsonObject, path: JsonPath, key: String, env: Blo
     Column {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { open = !open }) {
-                Icon(if (open) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(if (open) R.string.action_collapse else R.string.action_expand))
+                // Pfeil dreht sich mit (Feder), statt das Symbol zu tauschen
+                val rtl = androidx.compose.ui.platform.LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Rtl
+                val turn by androidx.compose.animation.core.animateFloatAsState(
+                    if (open) 90f else 0f, io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.fastSpatial(), label = "toggle",
+                )
+                Icon(
+                    Icons.AutoMirrored.Filled.KeyboardArrowRight, stringResource(if (open) R.string.action_collapse else R.string.action_expand),
+                    Modifier.graphicsLayer { rotationZ = if (rtl) -turn else turn },
+                )
             }
             RichField(
                 BlockDoc.str(d, "title"), key, ed, path, MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
@@ -371,7 +381,13 @@ private fun ToggleBlock(block: JsonObject, path: JsonPath, key: String, env: Blo
                 onLink = env.onLink,
             )
         }
-        if (open) {
+        androidx.compose.animation.AnimatedVisibility(
+            open,
+            enter = androidx.compose.animation.expandVertically(io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.defaultSpatial()) +
+                androidx.compose.animation.fadeIn(io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.defaultEffects()),
+            exit = androidx.compose.animation.shrinkVertically(io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.fastSpatial()) +
+                androidx.compose.animation.fadeOut(io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.fastEffects()),
+        ) {
             val arr = JsonTree.get(ed.doc, inner) as? JsonArray
             Box(Modifier.padding(start = 32.dp, top = 4.dp)) {
                 if (arr.isNullOrEmpty()) {

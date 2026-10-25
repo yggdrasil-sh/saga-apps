@@ -11,6 +11,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import io.github.yggdrasil_sh.saga.ui.theme.sagaSegment
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -151,6 +154,14 @@ internal fun PageCover(ed: PageEditor, repo: SagaRepository, url: String, pad: D
             model = repo.absoluteUrl(sizedImage(url, 1600)), contentDescription = desc, contentScale = ContentScale.Crop,
             alignment = BiasAlignment(0f, ((if (repositioning) pos else ed.coverPos) / 50.0 - 1.0).toFloat()), modifier = Modifier.fillMaxSize(),
         )
+        // weicher Uebergang ins Blatt: unten blendet das Bild in den Hintergrund aus (Symbol und Titel sitzen ruhig)
+        if (!repositioning) Box(
+            Modifier.fillMaxWidth().fillMaxHeight(0.45f).align(Alignment.BottomCenter).background(
+                androidx.compose.ui.graphics.Brush.verticalGradient(
+                    listOf(androidx.compose.ui.graphics.Color.Transparent, MaterialTheme.colorScheme.background.copy(alpha = 0.85f)),
+                ),
+            ),
+        )
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.BottomCenter))
         if (repositioning) Row(
             Modifier.align(Alignment.BottomCenter).padding(10.dp)
@@ -268,12 +279,13 @@ internal fun TagsRow(ed: PageEditor, repo: SagaRepository) {
         Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         ed.tags.forEach { t ->
+            val accent = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current
             Row(
-                Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh, androidx.compose.foundation.shape.RoundedCornerShape(50))
-                    .padding(start = 8.dp, end = if (editable) 2.dp else 8.dp, top = 2.dp, bottom = 2.dp),
+                Modifier.background(accent.goldSoft, androidx.compose.foundation.shape.RoundedCornerShape(50))
+                    .padding(start = 10.dp, end = if (editable) 2.dp else 10.dp, top = 2.dp, bottom = 2.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("#$t", style = small)
+                Text("#$t", style = small, color = accent.onGoldSoft)
                 if (editable) {
                     val rm = stringResource(R.string.page_tag_remove)
                     Box(
@@ -326,9 +338,11 @@ internal fun BacklinksList(ed: PageEditor, repo: SagaRepository, onOpen: (Long) 
     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
         androidx.compose.material3.HorizontalDivider(Modifier.padding(vertical = 8.dp))
         Text(stringResource(R.string.page_backlinks), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        list.forEach { p ->
+        list.forEachIndexed { i, p ->
+            // Kacheln einer segmentierten Liste, 48 dp hoch (vorher 6 dp Abstand = zu kleine Trefferflaeche)
             Row(
-                Modifier.fillMaxWidth().clickable { onOpen(p.id) }.padding(vertical = 6.dp),
+                Modifier.fillMaxWidth().padding(top = if (i == 0) 6.dp else 0.dp)
+                    .sagaSegment(i, list.size, horizontal = 0.dp).clickable { onOpen(p.id) }.heightIn(min = 48.dp).padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 io.github.yggdrasil_sh.saga.ui.common.PageIcon(p.icon, repo, p.kind == "database")

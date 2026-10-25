@@ -27,6 +27,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,9 +57,17 @@ data class Chrome(val showMenu: Boolean, val onMenu: () -> Unit)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SagaTopBar(title: String, nav: AppNavigator, chrome: Chrome, actions: @Composable RowScope.() -> Unit = {}) {
+fun SagaTopBar(
+    title: String, nav: AppNavigator, chrome: Chrome,
+    /** false: Titel ausgeblendet (z. B. solange der grosse Seitentitel darunter sichtbar ist), blendet weich ein */
+    titleVisible: Boolean = true,
+    actions: @Composable RowScope.() -> Unit = {},
+) {
+    val alpha by androidx.compose.animation.core.animateFloatAsState(
+        if (titleVisible) 1f else 0f, io.github.yggdrasil_sh.saga.ui.theme.SagaMotion.current.defaultEffects(), label = "bar-title",
+    )
     TopAppBar(
-        title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.graphicsLayer { this.alpha = alpha }) },
         navigationIcon = {
             when {
                 nav.canGoBack -> IconButton(onClick = { nav.pop() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.action_back)) }

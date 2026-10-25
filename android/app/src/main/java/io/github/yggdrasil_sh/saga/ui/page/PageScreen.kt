@@ -326,7 +326,14 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
 
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars))) {
         // G4: "Kein Zugriff": Kopfzeile ohne Titel/Symbol der Seite
-        SagaTopBar(if (ed.noAccess) "" else ed.title.ifEmpty { if (ed.fetched) stringResource(R.string.page_untitled) else "" }, nav, chrome) {
+        // grosser Titel im Seitenkopf sichtbar: in der Leiste ausgeblendet, beim Wegscrollen weich eingeblendet
+        val titleInBar by remember {
+            androidx.compose.runtime.derivedStateOf {
+                val h = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == "header" }
+                h == null || -h.offset > h.size * 0.55f
+            }
+        }
+        SagaTopBar(if (ed.noAccess) "" else ed.title.ifEmpty { if (ed.fetched) stringResource(R.string.page_untitled) else "" }, nav, chrome, titleVisible = titleInBar) {
             PresenceAvatars(liveSt)
             SaveState(ed)
             // KI-Assistent (1.6): nur sichtbar, wenn der Server ihn fuer diese Person anbietet
@@ -741,7 +748,14 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
                     .clickable(enabled = headerEditable(ed) || ed.locked, onClickLabel = stringResource(R.string.page_icon)) {
                         if (ed.locked) repo.notify(UiText.Res(R.string.page_header_locked)) else iconPicker = true
                     },
-            ) { PageIcon(ed.icon, repo, ed.isDatabase, size = 64.dp) }
+            ) {
+                // auf dem Titelbild: Symbol auf einer schwebenden Kachel (hebt sich von jedem Bild ab)
+                if (cover != null) androidx.compose.material3.Surface(
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surface,
+                    shadowElevation = 6.dp, tonalElevation = 1.dp,
+                ) { Box(Modifier.padding(8.dp)) { PageIcon(ed.icon, repo, ed.isDatabase, size = 64.dp) } }
+                else PageIcon(ed.icon, repo, ed.isDatabase, size = 64.dp)
+            }
             Spacer(Modifier.height(if (cover != null) 10.dp else 8.dp))
         } else if (cover != null) Spacer(Modifier.height(12.dp))
         HeaderAddRow(ed, repo) { iconPicker = true }
@@ -911,9 +925,14 @@ private fun EditorToolbar(
     val blockPath: JsonPath = active.blockPath()
     val isText = active.toggle != null
 
-    Surface(tonalElevation = 3.dp, shadowElevation = 3.dp) {
+    // Design 2.5: schwebende Werkzeugleiste (Pille ueber der Tastatur, wie die Expressive-Toolbar)
+    val toolBg = MaterialTheme.colorScheme.surfaceContainerHigh
+    Surface(
+        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp), shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+        color = toolBg, shadowElevation = 6.dp,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+    ) {
         Column {
-            HorizontalDivider()
             // Nr. 16: Hoch/Runter/Loeschen/Fertig fest rechts, nur Einfuegen und Formate scrollen (vorher lagen die Knoepfe
             // am Ende der scrollenden Leiste ausserhalb des Bildschirms)
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -983,7 +1002,7 @@ private fun EditorToolbar(
                 Spacer(Modifier.width(if (toolScroll.maxValue > 0) 36.dp else 0.dp))   // letzter Knopf nicht unter dem Hinweis
             }
             if (toolScroll.canScrollForward) {
-                val bg = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+                val bg = toolBg
                 val px = with(androidx.compose.ui.platform.LocalDensity.current) { 144.dp.toPx() }
                 Box(
                     Modifier.align(Alignment.CenterEnd).width(40.dp).height(48.dp)
@@ -1067,7 +1086,10 @@ private fun FormatButton(
 ) {
     IconToggleButton(
         checked = on, onCheckedChange = { onClick() }, enabled = enabled,
-        colors = IconButtonDefaults.iconToggleButtonColors(checkedContainerColor = MaterialTheme.colorScheme.secondaryContainer),
+        colors = IconButtonDefaults.iconToggleButtonColors(
+            checkedContainerColor = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldSoft,
+            checkedContentColor = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.onGoldSoft,
+        ),
         modifier = Modifier.semantics { contentDescription = description },
     ) {
         Text(label, fontWeight = fontWeight, fontStyle = fontStyle, textDecoration = deco, fontSize = 18.sp, modifier = Modifier.clearAndSetSemantics { })
