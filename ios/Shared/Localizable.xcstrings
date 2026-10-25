@@ -61161,6 +61161,40 @@
           }
         }
       }
+    },
+    "📥 Eingang" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "📥 Eingang"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "📥 Inbox"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "📥 Bandeja"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "📥 Входящие"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "📥 กล่องรับ"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"

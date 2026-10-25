@@ -44,6 +44,8 @@ struct ShareView: View {
         _name = State(initialValue: ShareBookmarkLogic.defaultName(title: content.title, url: content.url))
     }
 
+    @ScaledMetric private var labelWidth: CGFloat = 86
+
     private var canSave: Bool {
         guard !busy, AppConfig.hasToken else { return false }
         return kind != "bookmark" || (content.url != nil && !bookmarkUnsupported)
@@ -59,13 +61,18 @@ struct ShareView: View {
                 Button(busy ? "…" : "Sichern") { Task { await save() } }.bold().disabled(!canSave)
             }
             Picker("", selection: $kind) {
-                Text("📥 Seite im Eingang").tag("page")
+                // mit drei Optionen kurz, sonst schneidet das Segment den Text ab
+                Text(content.url != nil ? LocalizedStringKey("📥 Eingang") : LocalizedStringKey("📥 Seite im Eingang")).tag("page")
                 Text("✓ Aufgabe").tag("task")
                 if content.url != nil { Text("🔖 Lesezeichen").tag("bookmark") }
             }.pickerStyle(.segmented).labelsHidden()
             if kind == "bookmark" {
-                TextField("Name", text: $name).textFieldStyle(.roundedBorder)
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
+                    Text("Name").foregroundStyle(.secondary).frame(width: labelWidth, alignment: .leading)
+                    TextField("Name", text: $name).textFieldStyle(.roundedBorder)
+                }
+                HStack(spacing: 8) {
+                    Text("Kategorie").foregroundStyle(.secondary).frame(width: labelWidth, alignment: .leading)
                     TextField("Kategorie", text: $category).textFieldStyle(.roundedBorder)
                     if !categories.isEmpty {
                         Menu {
