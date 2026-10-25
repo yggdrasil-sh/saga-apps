@@ -273,7 +273,7 @@ fun BackupScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     item { Hint(stringResource(R.string.nc_flow_wait), w) }
                     item {
                         FlowRow(w.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { openUrl(context, s.flow.login.orEmpty()) }) { Text(stringResource(R.string.nc_sign_in) + " ↗") }
+                            Button(onClick = { openUrl(context, s.flow.login.orEmpty(), inApp = true) }) { Text(stringResource(R.string.nc_sign_in) + " ↗") }
                             OutlinedButton(onClick = { act({ targetMsg = it }) { repo.backupFlowCancel(); load() } }) { Text(stringResource(R.string.action_cancel)) }
                         }
                     }

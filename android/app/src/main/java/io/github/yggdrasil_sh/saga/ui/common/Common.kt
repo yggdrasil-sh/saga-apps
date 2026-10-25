@@ -113,20 +113,25 @@ fun ephemeralTabsSupported(context: Context): Boolean = try {
 }
 
 /**
- * Link im Browser oeffnen (Custom Tab, sonst beliebiger Browser). ephemeral: privater Tab ohne die Browser-Sitzung
- * (Kontowechsel bei der Anmeldung), falls der Browser das kann.
+ * Link oeffnen. Normale Links gehen an den Standard-Browser des Geraets (bzw. die Auswahl, wenn keiner festgelegt ist) -
+ * kein eingebetteter Tab, damit man den Browser frei waehlen kann. inApp: Custom Tab fuer Anmelde-Ablaeufe, die per
+ * saga://-Link in die App zurueckkehren; ephemeral: privater Tab ohne die Browser-Sitzung (Kontowechsel), falls moeglich.
  */
-fun openUrl(context: Context, url: String, ephemeral: Boolean = false) {
-    try {
-        val b = CustomTabsIntent.Builder().setShowTitle(true)
-        if (ephemeral && ephemeralTabsSupported(context)) b.setEphemeralBrowsingEnabled(true)
-        b.build().launchUrl(context, url.toUri())
-    } catch (_: Exception) {
+fun openUrl(context: Context, url: String, ephemeral: Boolean = false, inApp: Boolean = false) {
+    if (inApp || ephemeral) {
         try {
-            context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        } catch (_: ActivityNotFoundException) {
-            Toast.makeText(context, context.getString(R.string.no_browser), Toast.LENGTH_SHORT).show()
+            val b = CustomTabsIntent.Builder().setShowTitle(true)
+            if (ephemeral && ephemeralTabsSupported(context)) b.setEphemeralBrowsingEnabled(true)
+            b.build().launchUrl(context, url.toUri())
+            return
+        } catch (_: Exception) {
         }
+    }
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())
+            .addCategory(Intent.CATEGORY_BROWSABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, context.getString(R.string.no_browser), Toast.LENGTH_SHORT).show()
     }
 }
 

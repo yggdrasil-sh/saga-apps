@@ -135,7 +135,7 @@ fun SecurityBlock(repo: SagaRepository, modifier: Modifier, reloadKey: Any?) {
             // Der Browser zeigt die Seite des DORT angemeldeten Kontos - Konto der App nennen und mitgeben (user=),
             // damit der Server bei einem anderen Konto warnen kann
             val account = repo.account.collectAsState().value.trim()
-            OutlinedButton(onClick = { openUrl(context, io.github.yggdrasil_sh.saga.auth.LoginFlow.securityUrl(repo.server.value, account)) }) {
+            OutlinedButton(onClick = { openUrl(context, io.github.yggdrasil_sh.saga.auth.LoginFlow.securityUrl(repo.server.value, account), inApp = true) }) {
                 Text(stringResource(R.string.security_manage))
             }
             if (account.isNotEmpty()) {

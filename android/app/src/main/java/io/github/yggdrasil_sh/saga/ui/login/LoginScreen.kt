@@ -100,7 +100,7 @@ fun LoginScreen(repo: SagaRepository) {
                 val url = repo.prepareBrowserLogin(server)
                 repo.browserLoginStarted()                  // Rueckkehr ohne Code -> "Anmeldung abgebrochen"
                 // nach dem Abmelden in der App (Kontowechsel): privater Tab ohne die Sitzung des bisherigen Kontos
-                openUrl(context, url, ephemeral = repo.freshLogin)
+                openUrl(context, url, ephemeral = repo.freshLogin, inApp = true)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
