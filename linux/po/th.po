@@ -7026,7 +7026,7 @@ msgstr "ไม่ได้บันทึกชื่อที่แสดง: {
 
 #: hlidskjalf/graphview.py:42 hlidskjalf/graphview.py:987
 msgid "Database entry"
-msgstr "รายการในฐานข้อมูล"
+msgstr "รายการฐานข้อมูล"
 
 #: hlidskjalf/graphview.py:43
 #, python-brace-format
@@ -7128,8 +7128,13 @@ msgid "Requires server 2.5"
 msgstr "ต้องใช้เซิร์ฟเวอร์ 2.5"
 
 #: hlidskjalf/graphview.py:894
-msgid "Update the Saga server to see how your pages are connected."
-msgstr "อัปเดตเซิร์ฟเวอร์ Saga เพื่อดูว่าหน้าต่าง ๆ ของคุณเชื่อมโยงกันอย่างไร"
+msgid "Ask your server admin to update to Saga 2.5."
+msgstr "ขอให้ผู้ดูแลเซิร์ฟเวอร์อัปเดตเป็น Saga 2.5"
+
+#: hlidskjalf/graphview.py:1069
+msgctxt "graph legend"
+msgid "Open page"
+msgstr "หน้าที่เปิดอยู่"
 
 #: hlidskjalf/graphview.py:896
 msgid "The graph needs a connection to the server."

@@ -7280,7 +7280,7 @@ msgstr "Отображаемое имя не сохранено: {err}"
 
 #: hlidskjalf/graphview.py:42 hlidskjalf/graphview.py:987
 msgid "Database entry"
-msgstr "Запись базы данных"
+msgstr "Запись базы"
 
 #: hlidskjalf/graphview.py:43
 #, python-brace-format
@@ -7309,7 +7309,7 @@ msgstr "Все страницы"
 
 #: hlidskjalf/graphview.py:696
 msgid "Local"
-msgstr "Локальный"
+msgstr "Локально"
 
 #: hlidskjalf/graphview.py:697
 msgid "The open page and its neighbors"
@@ -7384,8 +7384,13 @@ msgid "Requires server 2.5"
 msgstr "Нужен сервер 2.5"
 
 #: hlidskjalf/graphview.py:894
-msgid "Update the Saga server to see how your pages are connected."
-msgstr "Обновите сервер Saga, чтобы увидеть, как связаны ваши страницы."
+msgid "Ask your server admin to update to Saga 2.5."
+msgstr "Попроси администратора сервера обновить его до Saga 2.5."
+
+#: hlidskjalf/graphview.py:1069
+msgctxt "graph legend"
+msgid "Open page"
+msgstr "Открытая страница"
 
 #: hlidskjalf/graphview.py:896
 msgid "The graph needs a connection to the server."

@@ -7041,7 +7041,12 @@ msgid "Requires server 2.5"
 msgstr ""
 
 #: hlidskjalf/graphview.py:894
-msgid "Update the Saga server to see how your pages are connected."
+msgid "Ask your server admin to update to Saga 2.5."
+msgstr ""
+
+#: hlidskjalf/graphview.py:1069
+msgctxt "graph legend"
+msgid "Open page"
 msgstr ""
 
 #: hlidskjalf/graphview.py:896
