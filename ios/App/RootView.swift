@@ -80,6 +80,7 @@ struct RootView: View {
                     Group {
                         if selection == -1 { TasksScreen() } else if selection == -2 { EventsScreen() } else if selection == -3 { ServicesScreen() }
                     else if selection == FedLogic.chatsTag { ChatsScreen(chat: store.chat, openChat: $openChat) }
+                    else if selection == FedLogic.graphTag { GraphScreen(store: store, focusID: store.recent.first, onOpen: { selection = $0 }) }   // 2.5
                     else if let id = selection, FedLogic.isPageID(id) { NativePageScreen(id: id).id(id) } else { TodayScreen(store: store) }
                     }
                     .navigationDestination(for: PageRoute.self) { r in
@@ -158,7 +159,8 @@ struct RootView: View {
             newPage: { Task { if let id = await store.newPage() { selection = id } } },
             search: { showPalette = true },
             copyLink: { if let id = currentPageID { copyPageLink(id) } }, hasPage: currentPageID != nil,
-            today: { selection = nil }, tasks: { selection = -1 }, events: { selection = -2 }))
+            today: { selection = nil }, tasks: { selection = -1 }, events: { selection = -2 },
+            graph: store.graphSupported ? { selection = FedLogic.graphTag } : nil))
     }
 
     /// Ereignisse, Takt und Hinweisleisten
@@ -303,6 +305,7 @@ extension RootView {
             .init(id: "trash", icon: "trash", title: String(localized: "Papierkorb")) { showTrash = true },
             .init(id: "services", icon: "square.grid.3x3", title: String(localized: "Dienste")) { selection = -3 },
             .init(id: "chats", icon: "bubble.left.and.bubble.right", title: String(localized: "Chats")) { selection = FedLogic.chatsTag },
+            .init(id: "graph", icon: "point.3.connected.trianglepath.dotted", title: GT("Graph")) { selection = FedLogic.graphTag },
             .init(id: "notifs", icon: "bell", title: String(localized: "Benachrichtigungen")) { showNotifs = true },
             .init(id: "refresh", icon: "arrow.clockwise", title: String(localized: "Aktualisieren")) { Task { await store.refresh() } },
             .init(id: "back", icon: "chevron.left", title: String(localized: "Zurück")) { nav.peek = nil; nav.back() },
@@ -505,6 +508,7 @@ struct Sidebar: View {
                     Label("Termine", systemImage: "calendar").tag(-2)
                     Label("Dienste", systemImage: "square.grid.3x3").tag(-3)
                     ChatsSidebarRow(chat: store.chat).tag(FedLogic.chatsTag)
+                    if store.graphSupported { Label { Text("Graph", tableName: "Graph") } icon: { Image(systemName: "point.3.connected.trianglepath.dotted") }.tag(FedLogic.graphTag) }
                 }
                 TodaySection(store: store)
                 if !store.favorites.isEmpty {
