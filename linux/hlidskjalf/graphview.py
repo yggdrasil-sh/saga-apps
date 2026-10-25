@@ -10,13 +10,13 @@ import math
 import time
 
 import cairo
-from gi.repository import Adw, Gdk, GLib, Gtk, Pango, PangoCairo
+from gi.repository import Adw, Gdk, GLib, GObject, Gtk, Pango, PangoCairo
 
 from . import config, graphsim, version_tuple
 from .api import APIError, client
-from .i18n import _, ngettext
+from .i18n import _, ngettext, pgettext
 from .store import store
-from .util import bg
+from .util import bg, count_text
 
 PREF_KEY = "graph"
 BIG = 400                                              # ab so vielen Knoten: Layout im Hintergrund, Knoten ohne Nachziehen
@@ -24,7 +24,8 @@ _cache = {"data": None, "t": 0.0}                      # Antwort von api/graph (
 
 # Farben wie im Web (static/style.css, Abschnitt 2.5 Graph): (dunkel, hell)
 COLORS = {"page": ("#9aa6b8", "#6a7383"), "database": ("#b39ddb", "#7b5cc0"), "row": ("#7fb0e0", "#3d72ad"),
-          "tag": ("#6cc48a", "#2e8049"), "line": ("#8b97a8", "#5d6878")}
+          "tag": ("#6cc48a", "#2e8049"), "line": ("#8b97a8", "#5d6878"),
+          "acc": ("#c9a45c", "#7a5a12")}                      # Saga-Gold (Web: --accent), nicht die Systemfarbe
 LINE_A = (0.32, 0.30)
 
 
@@ -44,7 +45,11 @@ def kind_text(n):
 
 
 def conn_text(c):
-    return ngettext("{n} connection", "{n} connections", c).format(n=c)
+    return ngettext("{n} connection", "{n} connections", c).format(n=count_text(c))
+
+
+def pages_text(c):
+    return ngettext("{n} page", "{n} pages", c).format(n=count_text(c))
 
 
 def _rgb(hexs):
@@ -193,32 +198,18 @@ class GraphCanvas(Gtk.DrawingArea):
         dark = Adw.StyleManager.get_default().get_dark()
         i = 0 if dark else 1
         fg = self.get_color()
-        try:
-            acc = Adw.StyleManager.get_default().get_accent_color_rgba()
-        except (AttributeError, TypeError):
-            acc = Gdk.RGBA()
-            acc.parse("#3584e4")
         return {"dark": dark, "fg": (fg.red, fg.green, fg.blue), "bg": (0.12, 0.12, 0.12) if dark else (1.0, 1.0, 1.0),
-                "acc": (acc.red, acc.green, acc.blue), "line_a": LINE_A[i],
-                **{k: _rgb(v[i]) for k, v in COLORS.items()}}
+                "line_a": LINE_A[i], **{k: _rgb(v[i]) for k, v in COLORS.items()}}
 
     def color(self, P, n):
         return P["tag"] if n.tag else P.get(n.kind, P["page"])
 
-    def _shape(self, cr, n, x, y, r):
-        """Form je Art (zusaetzlich zur Farbe): Seite/Eintrag Kreis, Datenbank Quadrat, Tag Raute"""
-        if n.kind == "database":
-            s = r * 0.9
-            cr.rectangle(x - s, y - s, 2 * s, 2 * s)
-        elif n.tag:
-            cr.move_to(x, y - r * 1.15)
-            cr.line_to(x + r * 1.15, y)
-            cr.line_to(x, y + r * 1.15)
-            cr.line_to(x - r * 1.15, y)
-            cr.close_path()
-        else:
-            cr.new_sub_path()
-            cr.arc(x, y, r, 0, 2 * math.pi)
+    @staticmethod
+    def _shape(cr, n, x, y, r):
+        """Knoten: Kreis fuer alle Arten wie im Web (Art an der Farbe und in der Legende, Seiten/Datenbanken/Eintraege
+        sind auf allen Plattformen gleich geformt)"""
+        cr.new_sub_path()
+        cr.arc(x, y, r, 0, 2 * math.pi)
 
     def _draw(self, _a, cr, w, h):
         """Grundebene (Kanten, Knoten, Beschriftungen im Ruhezustand) als Bild zwischenspeichern: Verschieben und Zoomen
@@ -322,12 +313,20 @@ class GraphCanvas(Gtk.DrawingArea):
                 cr.set_line_width(1.4)
                 cr.set_source_rgba(*c, 1)
                 cr.stroke()
-        labels.sort(key=lambda it: it[0].deg)
-        for n, x, y, la, r in labels[-450:]:
-            self._label(cr, P, n, x, y + r + 3, la, False)
+        # ohne Ueberlappung: bei Kollision gewinnt der Knoten mit mehr Verbindungen, die uebrigen kommen beim Hineinzoomen
+        labels.sort(key=lambda it: -it[0].deg)
+        labels = labels[:450]
+        keep = graphsim.place_labels([self._lbox(cr, n, x, y + r + 3, False) for n, x, y, _la, r in labels])
+        for (n, x, y, la, r), ok in zip(labels, keep):
+            if ok:
+                self._label(cr, P, n, x, y + r + 3, la, False)
         surf.flush()
         return {"surf": surf, "k": k, "tx": tx, "ty": ty, "m": m,
                 "v": (self.sim.ticks, self._gen, P["dark"], w, h, sf)}
+
+    def _lbox(self, cr, n, x, y, big):
+        tw, th = self._layout(cr, n, big).get_pixel_size()
+        return (x - tw / 2, y, x + tw / 2, y + th)
 
     def _label(self, cr, P, n, x, y, la, big):
         lay = self._layout(cr, n, big)
@@ -406,8 +405,14 @@ class GraphCanvas(Gtk.DrawingArea):
                 la = sc.label_alpha(n, few=few)
                 if la > 0.03:
                     labels.append((n, x, y + r + 3, la))
-        labels.sort(key=lambda it: it[0].e)
-        for n, x, y, la in labels[-200:]:
+        # Rangfolge: ueberfahrener bzw. ausgewaehlter Knoten, offene Seite, dann mehr Verbindungen; was sich mit einer
+        # wichtigeren Beschriftung ueberschneidet, entfaellt (erscheint beim Hineinzoomen)
+        labels.sort(key=lambda it: (it[0] is not sc.hover and it[0] is not sc.sel, it[0].id != sc.focus, -it[0].e, -it[0].deg))
+        labels = labels[:200]
+        keep = graphsim.place_labels([self._lbox(cr, n, x, y, n is sc.hover or n is sc.sel) for n, x, y, _la in labels])
+        labels = [it for it, ok in zip(labels, keep) if ok]
+        labels.reverse()                                   # wichtigste zuletzt (oben)
+        for n, x, y, la in labels:
             big = n is sc.hover or n is sc.sel
             if big:                                        # kleine Beschriftung der Grundebene darunter abdecken
                 lay = self._layout(cr, n, False)
@@ -654,9 +659,19 @@ class GraphScreen(Gtk.Box):
         self.matches = []
         self._ready = False                                # Umschalter erst nach dem Aufbau beachten
         self.add_css_class("hk-graph")
+        # Breite des Bereichs (nicht des Fensters) entscheidet ueber den Kopf: breit | kompakt (Suche als Lupe) |
+        # schmal (zwei Zeilen, Tiefe kurz) - so laeuft er in keiner Sprache ueber und die Fensterknoepfe bleiben sichtbar
+        root = self.root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.bin = Adw.BreakpointBin(child=root, width_request=280, height_request=200, hexpand=True, vexpand=True)
+        self._bps = {}
+        for name, cond in (("compact", "max-width: 820sp"), ("narrow", "max-width: 600sp")):   # zuletzt hinzugefuegt gewinnt
+            bp = self._bps[name] = Adw.Breakpoint.new(Adw.BreakpointCondition.parse(cond))
+            self.bin.add_breakpoint(bp)
+        self.bin.connect("notify::current-breakpoint", lambda *_: self.check_narrow())
+        self.append(self.bin)
         self._head()
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE, vexpand=True)
-        self.append(self.stack)
+        root.append(self.stack)
         self.status = Adw.StatusPage()
         self.stack.add_named(self.status, "msg")
         self.canvas = GraphCanvas(self.open_node, self._selected)
@@ -664,13 +679,21 @@ class GraphScreen(Gtk.Box):
         ov.add_css_class("view")
         self.card = self._card()
         ov.add_overlay(self.card)
-        self.legend = Gtk.Box(spacing=12, halign=Gtk.Align.START, valign=Gtk.Align.END, margin_start=12, margin_bottom=10,
-                              can_target=False)
+        # Zaehlzeile: einzeilig ueber der Zeichenflaeche (im Kopf wurde sie je nach Sprache abgeschnitten)
+        self.stat = Gtk.Label(xalign=0, halign=Gtk.Align.START, valign=Gtk.Align.START, margin_start=12, margin_top=10,
+                              single_line_mode=True, can_target=True)
+        self.stat.add_css_class("caption")
+        self.stat.add_css_class("hk-graph-chip")
+        ov.add_overlay(self.stat)
+        self.legend = Gtk.FlowBox(halign=Gtk.Align.START, valign=Gtk.Align.END, margin_start=12, margin_bottom=10,
+                                  margin_end=12, can_target=False, selection_mode=Gtk.SelectionMode.NONE,
+                                  column_spacing=12, row_spacing=2, max_children_per_line=6)   # schmal: umbrechen
         self.legend.add_css_class("caption")
+        self.legend.add_css_class("hk-graph-chip")
         self.legend.update_property([Gtk.AccessibleProperty.LABEL], [_("Legend")])
         ov.add_overlay(self.legend)
         self.hint = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, halign=Gtk.Align.CENTER, valign=Gtk.Align.START,
-                              margin_top=14, margin_start=24, margin_end=24, visible=False, can_target=False)
+                              margin_top=44, margin_start=24, margin_end=24, visible=False, can_target=False)
         self.hint.add_css_class("dim-label")
         ov.add_overlay(self.hint)
         self.stack.add_named(ov, "graph")
@@ -687,9 +710,11 @@ class GraphScreen(Gtk.Box):
 
     # --- Kopf ---------------------------------------------------------------------------------------------------------
     def _head(self):
-        bar = self.bar = Gtk.Box(spacing=6, margin_start=10, margin_end=10, margin_top=6, margin_bottom=6)
-        bar.add_css_class("toolbar")
-        seg = Gtk.Box()
+        self.bar = Gtk.Box(spacing=6, margin_start=10, margin_end=10, margin_top=6, margin_bottom=6)
+        self.bar.add_css_class("toolbar")
+        self.bar2 = Gtk.Box(spacing=6, margin_start=10, margin_end=10, margin_bottom=6, visible=False)
+        self.bar2.add_css_class("toolbar")
+        seg = self.seg = Gtk.Box()
         seg.add_css_class("linked")
         seg.update_property([Gtk.AccessibleProperty.LABEL], [_("View")])
         self.b_all = Gtk.ToggleButton(label=_("All pages"))
@@ -699,43 +724,66 @@ class GraphScreen(Gtk.Box):
         self.b_loc.connect("toggled", lambda b: b.get_active() and self.show_mode("local"))
         seg.append(self.b_all)
         seg.append(self.b_loc)
-        bar.append(seg)
+        # Tiefe: im Knopf "Tiefe 2" bzw. schmal nur "2" (Pfeil vom DropDown), in der Liste immer ausgeschrieben
         self.depth = Gtk.DropDown.new_from_strings([_("Depth 1"), _("Depth 2")])
         self.depth.set_tooltip_text(_("How many steps away neighbors may be"))
         self.depth.set_selected(self.P["depth"] - 1)
         self.depth.connect("notify::selected", self._depth_changed)
-        bar.append(self.depth)
-        self.stat = Gtk.Label(xalign=0, hexpand=True, ellipsize=Pango.EllipsizeMode.END)
-        self.stat.add_css_class("dim-label")
-        bar.append(self.stat)
+        self._depth_short = False
+        self.depth.set_factory(self._depth_factory())
+        self.depth.set_list_factory(self._depth_factory(full=True))
+        self._depth_a11y()
+        self.spacer = Gtk.Box(hexpand=True)
         self.search = Gtk.SearchEntry(placeholder_text=_("Search pages in the graph"), width_chars=18)
         self.search.update_property([Gtk.AccessibleProperty.LABEL], [_("Search pages in the graph")])
         self.search.connect("search-changed", lambda *_: self.apply_search())
         self.search.connect("activate", self._search_enter)
-        bar.append(self.search)
-        self.filter_btn = Gtk.MenuButton(icon_name="saga-filter-symbolic",
-                                         tooltip_text=_("Filters"))
+        self.search.connect("stop-search", lambda *_: self.searchbar.set_search_mode(False))
+        # kompakt/schmal: Lupe im Kopf, Suche in eigener Zeile darunter (Gtk.SearchBar)
+        self.search_btn = Gtk.ToggleButton(icon_name="system-search-symbolic", tooltip_text=_("Search pages in the graph"))
+        self.search_btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Search pages in the graph")])
+        self.search_clamp = Adw.Clamp(maximum_size=560, hexpand=True)
+        self.searchbar = Gtk.SearchBar(show_close_button=True, child=self.search_clamp)
+        self.searchbar.bind_property("search-mode-enabled", self.search_btn, "active",
+                                     GObject.BindingFlags.BIDIRECTIONAL | GObject.BindingFlags.SYNC_CREATE)
+        self.searchbar.connect("notify::search-mode-enabled", self._searchbar_toggled)
+        self.filter_btn = Gtk.MenuButton(icon_name="saga-filter-symbolic", tooltip_text=_("Filters"))
         self.filter_btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Filters")])
         self.filter_btn.set_popover(self._filters())
-        bar.append(self.filter_btn)
         self.list_btn = Gtk.ToggleButton(icon_name="view-list-symbolic", tooltip_text=_("Show as list"),
                                          active=self.P["list"])
         self.list_btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Show as list")])
         self.list_btn.connect("toggled", self._list_toggled)
-        bar.append(self.list_btn)
         self.fit_btn = Gtk.Button(icon_name="zoom-fit-best-symbolic", tooltip_text=_("Fit to view"))
         self.fit_btn.update_property([Gtk.AccessibleProperty.LABEL], [_("Fit to view")])
         self.fit_btn.connect("clicked", lambda *_: self.canvas.fit())
-        bar.append(self.fit_btn)
-        self.append(bar)
-        # sehr schmal (360 px): Tiefe und Suche in eine zweite Zeile, Zaehler ausblenden (steht in der Liste/Beschreibung)
-        self.bar2 = Gtk.Box(spacing=6, margin_start=10, margin_end=10, margin_bottom=6, visible=False)
-        self.append(self.bar2)
-        self.spacer = Gtk.Box(hexpand=True, visible=False)
-        bar.insert_child_after(self.spacer, self.stat)
-        self.narrow = False
-        self.append(Gtk.Separator())
+        self.root.append(self.bar)
+        self.root.append(self.bar2)
+        self.root.append(self.searchbar)
+        self.root.append(Gtk.Separator())
+        self.level = None
         self.check_narrow()
+
+    def _depth_factory(self, full=False):
+        f = Gtk.SignalListItemFactory()
+        f.connect("setup", lambda _f, it: it.set_child(Gtk.Label(xalign=0)))
+
+        def bind(_f, it):
+            t = it.get_item().get_string()
+            it.get_child().set_label(t.rsplit(" ", 1)[-1] if self._depth_short and not full else t)
+        f.connect("bind", bind)
+        return f
+
+    def _depth_a11y(self):
+        it = self.depth.get_selected_item()
+        if it is not None:                                 # Orca liest "Tiefe 2", auch wenn der Knopf nur "2" zeigt
+            self.depth.update_property([Gtk.AccessibleProperty.LABEL], [it.get_string()])
+
+    def _searchbar_toggled(self, sb, _p):
+        if sb.get_search_mode():
+            self.search.grab_focus()
+        elif self.level != "wide" and self.search.get_text():
+            self.search.set_text("")
 
     def _filters(self):
         pop = Gtk.Popover()
@@ -771,7 +819,7 @@ class GraphScreen(Gtk.Box):
         tx.append(self.card_s)
         card.append(tx)
         self.card_o = Gtk.Button(label=_("Open"), valign=Gtk.Align.CENTER, margin_end=10)
-        self.card_o.add_css_class("suggested-action")
+        self.card_o.add_css_class("hk-gold")
         self.card_o.add_css_class("pill")
         self.card_o.connect("clicked", lambda *_: self.open_node(self.canvas.scene.sel))
         card.append(self.card_o)
@@ -781,26 +829,51 @@ class GraphScreen(Gtk.Box):
         return (_("Graph"), _("Local graph") if self.mode == "local" else _("All pages"))
 
     def check_narrow(self):
-        """vom Fenster (Breakpoint 560 sp): Kopf ein- bzw. zweizeilig"""
-        n = bool(getattr(self.win, "very_narrow", False))
-        if n == self.narrow:
+        """Kopf je Breite des Bereichs (Breakpoints am BreakpointBin): breit | kompakt | schmal"""
+        bp = self.bin.get_current_breakpoint()
+        level = next((k for k, v in self._bps.items() if v == bp), "wide")
+        if level == self.level:
             return
-        self.narrow = n
-        for w in (self.depth, self.search):
-            w.get_parent().remove(w)
-        if n:
-            self.bar2.append(self.depth)
-            self.bar2.append(self.search)
-            self.search.set_hexpand(True)
-            self.search.set_width_chars(8)
+        self.level = level
+        q = self.search.get_text()
+        for w in (self.seg, self.depth, self.spacer, self.search, self.search_btn, self.filter_btn, self.list_btn,
+                  self.fit_btn):
+            if w.get_parent() is self.search_clamp:
+                self.search_clamp.set_child(None)
+            elif w.get_parent() is not None:
+                w.get_parent().remove(w)
+        narrow = level == "narrow"
+        self.seg.set_homogeneous(narrow)
+        self.seg.set_hexpand(narrow)
+        if level == "wide":
+            order = [(self.bar, self.seg), (self.bar, self.depth), (self.bar, self.spacer), (self.bar, self.search)]
         else:
-            self.bar.insert_child_after(self.depth, self.b_all.get_parent())
-            self.bar.insert_child_after(self.search, self.spacer)
+            order = [(self.bar, self.seg)] + ([] if narrow else [(self.bar, self.depth), (self.bar, self.spacer)]) + \
+                    ([(self.bar2, self.depth), (self.bar2, self.spacer)] if narrow else []) + \
+                    [(self.bar2 if narrow else self.bar, self.search_btn)]
+        tail = self.bar2 if narrow else self.bar
+        order += [(tail, self.filter_btn), (tail, self.list_btn), (tail, self.fit_btn)]
+        for box, w in order:
+            box.append(w)
+        self.bar2.set_visible(narrow)
+        if level == "wide":
+            self.searchbar.set_search_mode(False)
             self.search.set_hexpand(False)
             self.search.set_width_chars(18)
-        self.bar2.set_visible(n)
-        self.stat.set_visible(not n)
-        self.spacer.set_visible(n)
+        else:
+            self.search.set_hexpand(True)
+            self.search.set_width_chars(8)
+            self.search_clamp.set_child(self.search)
+            self.searchbar.connect_entry(self.search)
+            if q:
+                self.searchbar.set_search_mode(True)
+        if self.search.get_text() != q:
+            self.search.set_text(q)
+        if hasattr(self, "legend"):
+            self._legend_cols()
+        if self._depth_short != narrow:                    # "Profundidad 2" -> "2" (neu binden)
+            self._depth_short = narrow
+            self.depth.set_factory(self._depth_factory())
 
     def has_menu(self):
         return False
@@ -815,6 +888,7 @@ class GraphScreen(Gtk.Box):
 
     def _depth_changed(self, dd, _p):
         self.P["depth"] = int(dd.get_selected()) + 1
+        self._depth_a11y()
         self._save()
         if self.mode == "local":
             self.rebuild(True)
@@ -848,7 +922,7 @@ class GraphScreen(Gtk.Box):
             self.rebuild(False)
 
     # --- Daten und Zustaende ------------------------------------------------------------------------------------------
-    def _msg(self, icon, title, desc=None, btn=None, fn=None, spin=False):
+    def _msg(self, icon, title, desc=None, btn=None, fn=None, spin=False, old=False):
         st = self.status
         st.set_icon_name(icon)
         st.set_title(title)
@@ -860,11 +934,21 @@ class GraphScreen(Gtk.Box):
         elif btn:
             child = Gtk.Button(label=btn, halign=Gtk.Align.CENTER)
             child.add_css_class("pill")
-            child.add_css_class("suggested-action")
+            child.add_css_class("hk-gold")
             child.connect("clicked", lambda *_: fn())
         st.set_child(child)
         self.stack.set_visible_child_name("msg")
         self.legend.set_visible(False)
+        self._tools(not old)
+
+    def _tools(self, on):
+        """Werkzeugleiste: beim alten Server ausgegraut (es gibt nichts zu filtern oder zu suchen)"""
+        for w in (self.seg, self.depth, self.search, self.search_btn, self.filter_btn, self.list_btn, self.fit_btn):
+            w.set_sensitive(on)
+        if on:
+            self.b_loc.set_sensitive(self.page_id is not None)
+        else:
+            self.searchbar.set_search_mode(False)
 
     def load(self, force=False):
         d = _cache["data"]
@@ -890,8 +974,8 @@ class GraphScreen(Gtk.Box):
             sb = getattr(self.win, "sidebar", None)
             if sb is not None:
                 sb.fill(force=True)
-            self._msg("dialog-information-symbolic", _("Requires server 2.5"),
-                      _("Update the Saga server to see how your pages are connected."))
+            self._msg("software-update-available-symbolic", _("Requires server 2.5"),
+                      _("Ask your server admin to update to Saga 2.5."), old=True)
         elif code == 0:
             self._msg("network-offline-symbolic", _("You're offline"), _("The graph needs a connection to the server."),
                       _("Try again"), lambda: self.load(force=True))
@@ -913,8 +997,7 @@ class GraphScreen(Gtk.Box):
         g = graphsim.build(d, self.P, focus=self.page_id if loc else None, depth=self.P["depth"], untitled=_("Untitled"))
         self.g = g
         nm, ed = len(g.nodes), len(g.edges)
-        counts = ngettext("{n} page", "{n} pages", nm).format(n=nm) + " · " + conn_text(ed)
-        stat = (self._title_of(self.page_id) + " · " if loc else "") + counts
+        stat = pages_text(nm) + " · " + conn_text(ed)          # ohne Seitennamen (steht in der Kopfzeile des Fensters)
         if g.truncated and not loc:
             stat += " · " + _("truncated")
             self.stat.set_tooltip_text(_("Only the most recently edited pages are shown."))
@@ -958,10 +1041,9 @@ class GraphScreen(Gtk.Box):
         self.canvas.set_graph(g, keep=keep, focus=self.page_id, placed=placed)
         if loc:
             desc = ngettext("Local graph of “{name}”: {n} connected page", "Local graph of “{name}”: {n} connected pages",
-                            max(0, nm - 1)).format(name=self._title_of(self.page_id), n=max(0, nm - 1))
+                            max(0, nm - 1)).format(name=self._title_of(self.page_id), n=count_text(max(0, nm - 1)))
         else:
-            desc = _("Graph with {pages} and {edges}.").format(pages=ngettext("{n} page", "{n} pages", nm).format(n=nm),
-                                                               edges=conn_text(ed))
+            desc = _("Graph with {pages} and {edges}.").format(pages=pages_text(nm), edges=conn_text(ed))
         self.canvas.update_property([Gtk.AccessibleProperty.LABEL, Gtk.AccessibleProperty.DESCRIPTION],
                                     [desc, _("Arrow keys select a page, Enter opens it, plus and minus zoom, 0 fits. "
                                              "The list view shows the same pages.")])
@@ -980,39 +1062,56 @@ class GraphScreen(Gtk.Box):
         self.rebuild(True)
 
     def _legend(self, g):
-        while (c := self.legend.get_first_child()):
-            self.legend.remove(c)
+        """Legende wie im Web (drawLegend): Seite, Datenbank, Datenbank-Eintrag, Tag, offene Seite - alles Kreise;
+        dazu "Mit dir geteilt", weil freigegebene Knoten hier blass mit Rand gezeichnet werden"""
+        self.legend.remove_all()
         has = g.kinds()
-        P = self.canvas._palette()
+        if self.page_id is not None and any(n.id == self.page_id for n in g.nodes):
+            has = has | {"cur"}
         items = [("page", _("Page")), ("database", _("Database")), ("row", _("Database entry")), ("tag", _("Tag")),
-                 ("shared", _("Shared with you"))]
+                 ("cur", pgettext("graph legend", "Open page")), ("shared", _("Shared with you"))]
         shown = 0
         for key, text in items:
             if key not in has:
                 continue
             shown += 1
-            dot = Gtk.DrawingArea(content_width=12, content_height=12, valign=Gtk.Align.CENTER)
+            dot = Gtk.DrawingArea(content_width=14, content_height=14, valign=Gtk.Align.CENTER)
 
             def paint(_a, cr, w, h, key=key):
-                n = graphsim.Node(0, "", kind="page" if key == "shared" else ("page" if key == "tag" else key),
-                                  own=key != "shared", tag=key == "tag")
-                self.canvas._shape(cr, n, w / 2, h / 2, 4.5)
-                c = P["page"] if key == "shared" else P[key]
+                P = self.canvas._palette()                 # beim Zeichnen: folgt hell/dunkel
+                x, y = w / 2, h / 2
+                cr.new_sub_path()
+                cr.arc(x, y, 4.5 if key != "cur" else 3.5, 0, 2 * math.pi)
                 if key == "shared":
-                    cr.set_source_rgba(*c, 0.35)
+                    cr.set_source_rgba(*P["page"], 0.35)
                     cr.fill_preserve()
                     cr.set_line_width(1.4)
-                    cr.set_source_rgba(*c, 1)
+                    cr.set_source_rgba(*P["page"], 1)
                     cr.stroke()
-                else:
-                    cr.set_source_rgba(*c, 1)
-                    cr.fill()
+                    return
+                cr.set_source_rgba(*P["acc" if key == "cur" else key], 1)
+                cr.fill()
+                if key == "cur":                           # offene Seite: Ring mit Abstand wie im Graph
+                    cr.new_sub_path()
+                    cr.arc(x, y, 6, 0, 2 * math.pi)
+                    cr.set_line_width(1.4)
+                    cr.stroke()
             dot.set_draw_func(paint)
             b = Gtk.Box(spacing=5)
             b.append(dot)
             b.append(Gtk.Label(label=text))
             self.legend.append(b)
-        self.legend.set_visible(shown > 1)
+        self._legend_n = shown
+        self._legend_cols()
+        self._legend_on = shown > 1
+        self.legend.set_visible(self._legend_on and not self.card.get_visible())
+
+    def _legend_cols(self):
+        """breit eine Zeile wie im Web, kompakt drei, schmal zwei Eintraege je Zeile (die FlowBox bekommt im Overlay nur
+        ihre Mindestbreite)"""
+        n = max(1, getattr(self, "_legend_n", 1))
+        self.legend.set_max_children_per_line(n)
+        self.legend.set_min_children_per_line(min(n, {"narrow": 2, "compact": 3}.get(self.level, n)))
 
     def _fill_list(self, g):
         """Listenansicht: gleiche Knoten, meist verbundene zuerst - fuer Orca und Tastatur"""
@@ -1044,8 +1143,10 @@ class GraphScreen(Gtk.Box):
             msg = ngettext("{n} match", "{n} matches", len(self.matches)).format(n=len(self.matches)) if self.matches \
                 else _("No matches")
             self.search.set_tooltip_text(msg)
-            if hasattr(self.search, "announce"):
-                self.search.announce(msg, Gtk.AccessibleAnnouncementPriority.MEDIUM)
+            # ansagen ueber den Bereich: das Suchfeld wechselt je nach Breite den Platz (Ansage am umgehaengten Feld
+            # stuerzt in GTK 4.14 ab)
+            if hasattr(self, "announce") and self.get_mapped():
+                self.announce(msg, Gtk.AccessibleAnnouncementPriority.MEDIUM)
         q2 = q.strip().lower()
         row = self.listbox.get_first_child()
         while row is not None:                             # Liste: nur Treffer zeigen
@@ -1061,6 +1162,7 @@ class GraphScreen(Gtk.Box):
 
     def _selected(self, n, src):
         self.card.set_visible(n is not None)
+        self.legend.set_visible(n is None and getattr(self, "_legend_on", False))   # wie im Web: Karte statt Legende
         if n is None:
             return
         c = len(self.canvas.scene.adj.get(n.id, ()))

@@ -210,3 +210,27 @@ def test_performance_2000():
     for i in range(50):
         sc.at(600 + i, 400)
     assert (time.perf_counter() - t0) / 50 < 0.01          # Hover-Treffer < 10 ms
+
+
+def test_place_labels_no_overlap():
+    # Rangfolge: erste Box gewinnt, ueberlappende entfallen, freie bleiben
+    boxes = [(0, 0, 50, 12), (30, 5, 80, 17), (100, 0, 150, 12), (0, 40, 50, 52), (148, 2, 200, 14)]
+    assert G.place_labels(boxes) == [True, False, True, True, False]
+    # ueber Zellgrenzen hinweg (Raster 64 px)
+    assert G.place_labels([(60, 60, 70, 70), (66, 66, 140, 80)]) == [True, False]
+    assert G.place_labels([]) == []
+
+
+def test_count_and_month_names_follow_ui_language():
+    import datetime
+    from hlidskjalf import util
+    assert util.count_text(2000, "de") == "2.000" and util.count_text(2000, "en") == "2,000"
+    assert util.count_text(2000, "es") == "2000" and util.count_text(20000, "es") == "20.000"
+    assert util.count_text(2000, "ru") == "2 000" and util.count_text(7, "th") == "7"
+    d = datetime.date(2026, 10, 25)
+    assert util.fmt_date(d, "%-d. %b", lang="de") == "25. Okt"
+    assert util.fmt_date(d, "%-d %b", lang="es") == "25 oct"
+    assert util.fmt_date(d, "%a, %-d %b", lang="ru") == "Вс, 25 окт"
+    assert util.fmt_date(d, "%OB %Y", lang="ru") == "Октябрь 2026"
+    assert util.fmt_date(d, "%B de %Y", lang="es") == "octubre de 2026"
+    assert util.fmt_date(d, "100%% %b", lang="en") == "100% Oct"

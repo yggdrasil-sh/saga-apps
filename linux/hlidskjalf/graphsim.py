@@ -370,6 +370,30 @@ class Sim:
             nd.vx = nd.vy = 0.0
 
 
+def place_labels(boxes, cell=64.0, pad=2.0):
+    """Beschriftungen ohne Ueberlappung: boxes [(x0, y0, x1, y1)] in Rangfolge (wichtigste zuerst, z. B. mehr
+    Verbindungen bzw. ueberfahren); eine Beschriftung, die eine schon gesetzte beruehrt, entfaellt. -> [bool] je Box.
+    Raster aus Zellen (cell px), damit auch einige hundert Beschriftungen je Bild schnell bleiben."""
+    grid, out = {}, []
+    for x0, y0, x1, y1 in boxes:
+        x0, y0, x1, y1 = x0 - pad, y0 - pad, x1 + pad, y1 + pad
+        cs = [(i, j) for i in range(int(math.floor(x0 / cell)), int(math.floor(x1 / cell)) + 1)
+              for j in range(int(math.floor(y0 / cell)), int(math.floor(y1 / cell)) + 1)]
+        hit = False
+        for c in cs:
+            for a0, b0, a1, b1 in grid.get(c, ()):
+                if x0 < a1 and a0 < x1 and y0 < b1 and b0 < y1:
+                    hit = True
+                    break
+            if hit:
+                break
+        out.append(not hit)
+        if not hit:
+            for c in cs:
+                grid.setdefault(c, []).append((x0, y0, x1, y1))
+    return out
+
+
 class Scene:
     """Kamera, Hervorhebung, Treffer und Tastatur - Bildschirmkoordinaten = Welt * k + (tx, ty)"""
 

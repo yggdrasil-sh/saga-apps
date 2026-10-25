@@ -277,3 +277,13 @@ button.hk-voice-speed { min-height: 0; min-width: 0; padding: 1px 6px; font-size
 .hk-rec-time { font-feature-settings: "tnum"; }
 .hk-rec-time.hk-rec-warn { color: var(--warning-color); font-weight: 700; }
 levelbar.hk-rec-level > trough > block.filled { background: var(--accent-bg-color); }
+/* 2.5 Graph: Saga-Gold (wie --accent im Web) fuer "Oeffnen" und Knoepfe in Zustaenden, nicht die Systemfarbe */
+.hk-graph button.hk-gold { background: #7a5a12; color: #fbf8f1; font-weight: bold; }
+.hk-graph button.hk-gold:hover { background: #8a6919; }
+.hk-graph button.hk-gold:active { background: #6a4d0d; }
+window.hk-dark .hk-graph button.hk-gold { background: #c9a45c; color: #0f141c; }
+window.hk-dark .hk-graph button.hk-gold:hover { background: #d4b26c; }
+window.hk-dark .hk-graph button.hk-gold:active { background: #b8934c; }
+/* Zaehlzeile und Legende ueber der Zeichenflaeche: halbdurchsichtiger Grund wie im Web */
+.hk-graph .hk-graph-chip { background: alpha(@view_bg_color, 0.85); border-radius: 8px; padding: 2px 8px; color: alpha(@view_fg_color, 0.7); }
+.hk-graph .hk-graph-chip flowboxchild { padding: 0; min-height: 0; }

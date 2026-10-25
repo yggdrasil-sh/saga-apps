@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from gi.repository import GLib
 
-from .i18n import _
+from .i18n import _, ui_language
 
 # Getrennte Pools: Server-Anfragen (Speichern, Listen) warten nie hinter Bildern, Downloads oder Uploads
 _pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix="hk-api")
@@ -172,8 +172,59 @@ def parse_day(s):
         return None
 
 
-def fmt_date(d, fmt):
-    """date/datetime mit GLib.DateTime.format (%a, %b, %B in der Systemsprache)"""
+# Monats- und Wochentagsnamen je Sprache der Oberflaeche (wie glibc): gebraucht, wenn die Datumssprache des Systems
+# (LC_TIME) nicht zur Oberflaeche passt - in der App gewaehlte Sprache, fehlende Locale -> sonst "25. Oct"
+_NAMES = {
+    "en": ("Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec",
+           "January February March April May June July August September October November December",
+           "Mon Tue Wed Thu Fri Sat Sun", "Monday Tuesday Wednesday Thursday Friday Saturday Sunday", None),
+    "de": ("Jan Feb Mär Apr Mai Jun Jul Aug Sep Okt Nov Dez",
+           "Januar Februar März April Mai Juni Juli August September Oktober November Dezember",
+           "Mo Di Mi Do Fr Sa So", "Montag Dienstag Mittwoch Donnerstag Freitag Samstag Sonntag", None),
+    "es": ("ene feb mar abr may jun jul ago sep oct nov dic",
+           "enero febrero marzo abril mayo junio julio agosto septiembre octubre noviembre diciembre",
+           "lun mar mié jue vie sáb dom", "lunes martes miércoles jueves viernes sábado domingo", None),
+    "ru": ("янв фев мар апр мая июн июл авг сен окт ноя дек",
+           "января февраля марта апреля мая июня июля августа сентября октября ноября декабря",
+           "Пн Вт Ср Чт Пт Сб Вс", "Понедельник Вторник Среда Четверг Пятница Суббота Воскресенье",
+           "Январь Февраль Март Апрель Май Июнь Июль Август Сентябрь Октябрь Ноябрь Декабрь"),
+    "th": ("ม.ค. ก.พ. มี.ค. เม.ย. พ.ค. มิ.ย. ก.ค. ส.ค. ก.ย. ต.ค. พ.ย. ธ.ค.",
+           "มกราคม กุมภาพันธ์ มีนาคม เมษายน พฤษภาคม มิถุนายน กรกฎาคม สิงหาคม กันยายน ตุลาคม พฤศจิกายน ธันวาคม",
+           "จ. อ. พ. พฤ. ศ. ส. อา.", "จันทร์ อังคาร พุธ พฤหัสบดี ศุกร์ เสาร์ อาทิตย์", None),
+}
+
+
+def _time_lang():
+    try:
+        loc = locale.getlocale(locale.LC_TIME)[0] or ""
+    except (ValueError, TypeError):
+        loc = ""
+    return loc.split("_")[0].split("-")[0].lower() or "en"
+
+
+def _own_names(fmt, d, lang):
+    """%b %B %OB %a %A durch die Namen der Sprache ersetzen (vor GLib.DateTime.format)"""
+    mon, mon_full, wd, wd_full, mon_nom = (x.split(" ") if x else None for x in _NAMES[lang])
+    m, w = d.month - 1, d.weekday()
+    rep = {"%OB": (mon_nom or mon_full)[m], "%B": mon_full[m], "%b": mon[m], "%h": mon[m], "%a": wd[w], "%A": wd_full[w]}
+    out, i = [], 0
+    while i < len(fmt):
+        for k in ("%%", "%OB", "%B", "%b", "%h", "%a", "%A"):
+            if fmt.startswith(k, i):
+                out.append("%%" if k == "%%" else rep[k].replace("%", "%%"))
+                i += len(k)
+                break
+        else:
+            out.append(fmt[i])
+            i += 1
+    return "".join(out)
+
+
+def fmt_date(d, fmt, lang=None):
+    """date/datetime mit GLib.DateTime.format; Namen (%a, %b, %B) in der Sprache der Oberflaeche"""
+    lang = lang or ui_language()
+    if lang in _NAMES and lang != _time_lang():
+        fmt = _own_names(fmt, d, lang)
     if isinstance(d, _dt.datetime):
         g = GLib.DateTime.new_local(d.year, d.month, d.day, d.hour, d.minute, d.second)
     else:
@@ -280,6 +331,18 @@ def _num(x, maxfrac=2):
     if maxfrac and dp in s:
         s = s.rstrip("0").rstrip(dp)
     return s
+
+
+def count_text(n, lang=None):
+    """ganze Zahl mit Tausendertrennung der Oberflaechensprache (wie Intl.NumberFormat): en/th 2,000 - de 2.000 -
+    es 2000 bzw. 20.000 (erst ab 5 Stellen) - ru 2 000"""
+    lang = lang or ui_language()
+    n = int(n)
+    s = f"{abs(n):,}"
+    if lang == "es" and abs(n) < 10000:
+        s = str(abs(n))
+    sep = {"de": ".", "es": ".", "ru": " "}.get(lang, ",")
+    return ("-" if n < 0 else "") + s.replace(",", sep)
 
 
 def num_text(n, fmt=None, show=None):

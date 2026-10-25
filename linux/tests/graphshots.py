@@ -66,6 +66,15 @@ def shot_all(g):
 def shot_hover(g):
     s = scr(g)
     check(S["hub"].e == 1 and s.canvas.scene.dim == 1, "Hervorhebung nach ~180 ms fertig")
+    leg = []
+    c = s.legend.get_first_child()
+    while c is not None:
+        leg.append(c.get_child().get_last_child().get_label())
+        c = c.get_next_sibling()
+    from hlidskjalf.i18n import pgettext
+    check(leg[:2] == [_("Page"), _("Database")] and pgettext("graph legend", "Open page") in leg,
+          "Legende wie im Web: " + ", ".join(leg))
+    check(" · " in s.stat.get_label() and s.stat.get_ellipsize() == 0, "Zaehlzeile: " + s.stat.get_label())
     shoot(g, "02-hover")
     s.canvas.scene.hover = None
     s.search.set_text("Garden")
@@ -230,6 +239,9 @@ def shot_old(g):
     s = scr(g)
     check(s.status.get_title() == _("Requires server 2.5"), "alter Server: Hinweis")
     check(("graph",) not in g["win"].sidebar.rows, "alter Server: Eintrag ausgeblendet")
+    check(not s.filter_btn.get_sensitive() and not s.seg.get_sensitive() and not s.search.get_sensitive(),
+          "alter Server: Werkzeugleiste ausgegraut")
+    check(s.status.get_icon_name() == "software-update-available-symbolic", "alter Server: Symbol Aktualisierung")
     shoot(g, "09-alter-server")
     g["store"].graph_api = None
     S["srv"].graph = None
@@ -240,6 +252,7 @@ def shot_old(g):
 def shot_offline(g):
     s = scr(g)
     check(s.stack.get_visible_child_name() == "msg", "offline: Hinweis")
+    check(s.filter_btn.get_sensitive(), "offline: Werkzeugleiste wieder bedienbar")
     shoot(g, "10-offline")
     S["srv"].fail.pop("GET api/graph", None)
     s.load(force=True)
@@ -281,13 +294,48 @@ def page_menu(g):
 
 def shot_narrow(g):
     s = scr(g)
-    check(s.narrow and s.bar2.get_visible(), "schmal: Kopf zweizeilig")
+    check(s.level == "narrow" and s.bar2.get_visible(), "schmal: Kopf zweizeilig")
+    check(s.search_btn.get_parent() is not None and s.search_clamp.get_child() is s.search, "schmal: Suche als Lupe")
     s.canvas.settled_now()
 
 
+def _min_w(w):
+    from gi.repository import Gtk
+    return w.measure(Gtk.Orientation.HORIZONTAL, -1)[0]
+
+
 def shot_narrow2(g):
-    check(g["win"].get_width() <= 380, "Fenster schmal (%d px)" % g["win"].get_width())
+    s = scr(g)
+    W = g["win"].get_width()
+    check(W <= 380, "Fenster schmal (%d px)" % W)
+    check(_min_w(s.root) <= s.bin.get_width(), "schmal: Kopf passt (%d <= %d px)" % (_min_w(s.root), s.bin.get_width()))
+    check(s.fit_btn.get_mapped() and s.filter_btn.get_mapped() and s.search_btn.get_mapped(),
+          "schmal: Lupe, Filter und Einpassen sichtbar")
+    check(s.depth.get_visible() and s._depth_short, "schmal: Tiefe kurz")
     shoot(g, "11-schmal-360")
+    s.search_btn.set_active(True)
+    s.search.set_text("Unter")
+
+
+def shot_narrow3(g):
+    s = scr(g)
+    check(s.searchbar.get_search_mode() and s.search.get_mapped(), "schmal: Suchzeile offen")
+    shoot(g, "12-schmal-suche")
+    s.search_btn.set_active(False)
+    check(s.search.get_text() == "", "schmal: Suchzeile zu leert die Suche")
+    g["win"].set_default_size(700, 700)
+
+
+def mid(g):
+    s = scr(g)
+    check(s.level == "compact", "mittel (%d px): Suche als Lupe, eine Zeile" % s.bin.get_width())
+    check(_min_w(s.root) <= s.bin.get_width(), "mittel: Kopf passt")
+    g["win"].set_default_size(1200, 780)
+
+
+def wide(g):
+    s = scr(g)
+    check(s.level == "wide" and s.search.get_parent() is s.bar, "breit: Suchfeld im Kopf")
 
 
 steps = [(1500, start), (1500, open_graph), (1500, all_light), (500, shot_all), (400, shot_hover), (900, shot_search),
@@ -295,4 +343,4 @@ steps = [(1500, start), (1500, open_graph), (1500, all_light), (500, shot_all), 
          (500, shot_dark2)] + [(500, wait_big)] * 30 + [
          (500, perf_zoom), (2500, perf_hover), (3500, perf_pan), (2500, perf_end), (1500, shot_big), (1500, shot_old),
          (1200, shot_offline), (1500, open_page), (1200, opened), (1200, back), (1200, page_menu), (1500, shot_narrow),
-         (500, shot_narrow2)]
+         (500, shot_narrow2), (700, shot_narrow3), (1200, mid), (1200, wide)]
