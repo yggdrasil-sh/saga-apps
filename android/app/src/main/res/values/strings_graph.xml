@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Graph der Seiten (wie Obsidian) -->
+<resources>
+    <string name="graph_title">Graph</string>
+    <string name="graph_local_menu">Local graph</string>
+    <string name="graph_mode_all">All pages</string>
+    <string name="graph_mode_local">Local</string>
+    <string name="graph_mode">View</string>
+    <string name="graph_depth">Depth</string>
+    <string name="graph_search">Search pages in graph</string>
+    <string name="graph_search_clear">Clear search</string>
+    <string name="graph_no_hits">No matches</string>
+    <plurals name="graph_hits">
+        <item quantity="one">%d match</item>
+        <item quantity="other">%d matches</item>
+    </plurals>
+    <plurals name="graph_pages">
+        <item quantity="one">%d page</item>
+        <item quantity="other">%d pages</item>
+    </plurals>
+    <plurals name="graph_links">
+        <item quantity="one">%d connection</item>
+        <item quantity="other">%d connections</item>
+    </plurals>
+    <string name="graph_truncated">truncated</string>
+    <string name="graph_truncated_hint">Only the most recently edited pages are shown.</string>
+    <string name="graph_loading">Loading graph …</string>
+    <string name="graph_error">The graph could not be loaded.</string>
+    <string name="graph_retry">Try again</string>
+    <string name="graph_offline">No connection to the server</string>
+    <string name="graph_offline_hint">The graph needs a connection. Try again once you are back online.</string>
+    <string name="graph_needs_server">Requires Server 2.5</string>
+    <string name="graph_needs_server_hint">This server does not offer the graph of pages yet.</string>
+    <string name="graph_empty">No pages yet</string>
+    <string name="graph_empty_hint">Create pages and link them to each other – this is where you will see how everything connects.</string>
+    <string name="graph_filter_empty">No pages match the filters</string>
+    <string name="graph_filter_reset">Reset filters</string>
+    <string name="graph_local_missing">This page is not in the graph</string>
+    <string name="graph_local_missing_hint">Archived pages, templates and pages from other servers do not appear here.</string>
+    <string name="graph_local_alone">“%1$s” is not connected to any other page yet</string>
+    <string name="graph_local_alone_hint">Links in the text, subpages and relations appear here as lines.</string>
+    <string name="graph_open">Open</string>
+    <string name="graph_filter_tag">Filter</string>
+    <string name="graph_card_close">Deselect</string>
+    <string name="graph_filters">Filters</string>
+    <string name="graph_f_links">Links in text</string>
+    <string name="graph_f_children">Subpages</string>
+    <string name="graph_f_relations">Database relations</string>
+    <string name="graph_f_tags">Tags as nodes</string>
+    <string name="graph_f_orphans">Pages without connections</string>
+    <string name="graph_relayout">Rearrange</string>
+    <string name="graph_fit">Fit to screen</string>
+    <string name="graph_show_list">Show as list</string>
+    <string name="graph_show_canvas">Show as graph</string>
+    <string name="graph_canvas_desc">Graph with %1$s and %2$s. Use the list view or the search to open a page.</string>
+    <string name="graph_local_desc">Local graph of “%1$s”: %2$s</string>
+    <string name="graph_kind_page">Page</string>
+    <string name="graph_kind_database">Database</string>
+    <string name="graph_kind_row">Entry</string>
+    <string name="graph_kind_tag">Tag</string>
+    <string name="graph_shared">Shared</string>
+    <string name="graph_current">Open page</string>
+    <string name="graph_untitled">Untitled</string>
+</resources>

@@ -161,7 +161,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
     LaunchedEffect(showShared) {
         if (showShared == seenShared) return@LaunchedEffect
         seenShared = showShared
-        var i = 1 + 5                                                   // Kopf + Heute/Aufgaben/Termine/Dienste/Suchen
+        var i = 1 + 6                                                   // Kopf + Heute/Aufgaben/Termine/Dienste/Suchen/Graph
         if (chatOn) i++                                                 // Chats
         if (notifOn) i++                                                // Benachrichtigungen
         if (favorites.isNotEmpty()) i += 1 + favorites.size
@@ -211,6 +211,12 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
         item { NavItem(stringResource(R.string.nav_events), Icons.Filled.DateRange, nav.root == Dest.Events) { nav.top(Dest.Events); onNavigate() } }
         item { NavItem(stringResource(R.string.nav_services), Icons.Filled.Build, nav.root == Dest.Services) { nav.top(Dest.Services); onNavigate() } }
         item { NavItem(stringResource(R.string.nav_search_pages), Icons.Filled.Search, nav.root == Dest.Search) { nav.top(Dest.Search); onNavigate() } }
+        item {
+            val sv by repo.serverVersion.collectAsState()
+            if (io.github.yggdrasil_sh.saga.ui.graph.GraphSupport.available(sv, repo.server.value)) {
+                NavItem(stringResource(R.string.graph_title), null, nav.root is Dest.Graph, painter = R.drawable.ic_graph) { nav.top(Dest.Graph()); onNavigate() }
+            }
+        }
         if (chatOn) {
             item {
                 NavItem(
