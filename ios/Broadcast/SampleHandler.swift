@@ -79,32 +79,11 @@ final class SampleHandler: RPBroadcastSampleHandler {
     private func connect() -> Bool {
         guard let group = Bundle.main.object(forInfoDictionaryKey: "SagaAppGroup") as? String, !group.isEmpty,
               let dir = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: group),
-              let path = ScreenFrame.socketPath(container: dir) else { return false }
-        let s = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard s >= 0 else { return false }
-        var one: Int32 = 1
-        setsockopt(s, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
-        var tv = timeval(tv_sec: 2, tv_usec: 0)                               // App haengt: nicht ewig warten
-        setsockopt(s, SOL_SOCKET, SO_SNDTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
-        var addr = sockaddr_un()
-        addr.sun_family = sa_family_t(AF_UNIX)
-        let bytes = Array(path.utf8)
-        withUnsafeMutableBytes(of: &addr.sun_path) { p in for (i, c) in bytes.enumerated() where i < p.count - 1 { p[i] = c } }
-        let r = withUnsafePointer(to: &addr) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.connect(s, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } }
-        guard r == 0 else { Darwin.close(s); return false }
+              let path = ScreenFrame.socketPath(container: dir), let s = ScreenSocket.connect(path: path) else { return false }
         lock.lock(); fd = s; lock.unlock()
         return true
     }
-    private func writeAll(_ s: Int32, _ p: UnsafeRawPointer, _ n: Int) -> Bool {
-        var off = 0
-        while off < n {
-            let w = Darwin.write(s, p + off, n - off)
-            if w < 0 && errno == EINTR { continue }
-            if w <= 0 { return false }
-            off += w
-        }
-        return true
-    }
+    private func writeAll(_ s: Int32, _ p: UnsafeRawPointer, _ n: Int) -> Bool { ScreenSocket.writeAll(s, p, n) }
     /// Kopf + Y-Ebene + UV-Ebene (zeilenweise, ohne Auffuellbytes)
     private func send(_ pb: CVPixelBuffer, rotation: Int, pts: UInt64) -> Bool {
         lock.lock(); let s = fd; lock.unlock()

@@ -103,6 +103,13 @@ enum ScreenShare {
         if max(w, h) <= m { return (even(w), even(h)) }
         return w >= h ? (even(m), even(h * m / w)) : (even(w * m / h), even(m))     // lange Kante exakt, keine Rundungsfehler
     }
+    /// Mac (2.5-Fix): Nur die Auswahl des Systems (SCContentSharingPicker) gibt ohne die Freigabe "Bildschirm- und
+    /// Systemaudioaufnahme" frei. Ein eigener Filter (ganzer Bildschirm ohne Saga-Fenster) und setConfiguration(for:)
+    /// verlangen die dauerhafte Freigabe - ohne sie lehnte macOS ab (SCStreamError -3801), legte den Eintrag in den
+    /// Systemeinstellungen an und schickte zum Freigeben dorthin; das Einschalten beendet die App samt Anruf.
+    /// Daher nur mit vorhandener Freigabe (CGPreflightScreenCaptureAccess, fragt nie nach).
+    static func excludeSelf(display: Bool, hasAccess: Bool) -> Bool { display && hasAccess }
+    static func pickerConfigPerStream(hasAccess: Bool) -> Bool { hasAccess }
     /// Bildrate der Aufnahme je Weg: 15, ueber Relais TCP 8 (wie maxFramerate des Bildschirm-Senders)
     static func captureFps(path: CallV3.Path?) -> Int { path == .relayTCP ? 8 : 15 }
 

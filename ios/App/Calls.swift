@@ -90,6 +90,12 @@ final class CallManager: NSObject, ObservableObject {
     // 2.4 E3: Bildschirm teilen (ScreenShareLogic.swift, ScreenCapture.swift)
     /// Ich teile gerade meinen Bildschirm
     @Published var sharing = false
+    /// 2.5: Seitenverhaeltnis des eigenen Videos (vom Renderer gemeldet) fuer den Rahmen des eigenen Bilds
+    @Published var selfAspect: Double?
+    func noteSelfSize(_ s: CGSize) {
+        guard let a = CallLogic.videoAspect(width: Double(s.width), height: Double(s.height)), abs(a - (selfAspect ?? 0)) > 0.01 else { return }
+        selfAspect = a
+    }
     /// Kamera des Gegenuebers, waehrend es den Bildschirm teilt (klein; remoteVideo ist dann der Bildschirm)
     @Published var remoteSide: RTCVideoTrack?
     /// Ansicht getauscht (Kamera gross, Bildschirm klein); neues Teilen beginnt wieder mit dem Bildschirm gross

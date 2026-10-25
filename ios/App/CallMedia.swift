@@ -309,24 +309,30 @@ struct RTCVideoBox: UIViewRepresentable {
     let track: RTCVideoTrack?
     var mirror = false
     var fill = true
+    /// 2.5: gemeldete Videogroesse (nach Drehung) - fuer den Rahmen des eigenen Bilds
+    var onSize: ((CGSize) -> Void)? = nil
     func makeUIView(context: Context) -> RTCMTLVideoView {
         let v = RTCMTLVideoView(frame: .zero)
         v.videoContentMode = fill ? .scaleAspectFill : .scaleAspectFit
         v.clipsToBounds = true
+        v.delegate = context.coordinator
         return v
     }
     func updateUIView(_ v: RTCMTLVideoView, context: Context) {
         v.transform = mirror ? CGAffineTransform(scaleX: -1, y: 1) : .identity
+        context.coordinator.onSize = onSize
         context.coordinator.attach(track, to: v)
     }
     static func dismantleUIView(_ v: RTCMTLVideoView, coordinator: Coord) { coordinator.attach(nil, to: v) }
     func makeCoordinator() -> Coord { Coord() }
-    final class Coord {
+    final class Coord: NSObject, RTCVideoViewDelegate {
         weak var track: RTCVideoTrack?
+        var onSize: ((CGSize) -> Void)?
         func attach(_ t: RTCVideoTrack?, to v: RTCVideoRenderer) {
             guard t !== track else { return }
             track?.remove(v); track = t; t?.add(v)
         }
+        func videoView(_ videoView: RTCVideoRenderer, didChangeVideoSize size: CGSize) { onSize?(size) }
     }
 }
 #else
@@ -335,23 +341,29 @@ struct RTCVideoBox: NSViewRepresentable {
     var mirror = false
     var fill = true
     // webrtc-sdk: RTCMTLVideoView ist am Mac selbst ein NSView (RTCMTLNSVideoView steht nur noch im Header, ohne Symbol)
+    /// 2.5: gemeldete Videogroesse - der Mac kennt kein aspectFill, der Rahmen folgt deshalb dem Verhaeltnis des Videos
+    var onSize: ((CGSize) -> Void)? = nil
     func makeNSView(context: Context) -> RTCMTLVideoView {
         let v = RTCMTLVideoView(frame: .zero)
         v.wantsLayer = true
+        v.delegate = context.coordinator
         return v
     }
     func updateNSView(_ v: RTCMTLVideoView, context: Context) {
         v.layer?.setAffineTransform(mirror ? CGAffineTransform(scaleX: -1, y: 1) : .identity)
+        context.coordinator.onSize = onSize
         context.coordinator.attach(track, to: v)
     }
     static func dismantleNSView(_ v: RTCMTLVideoView, coordinator: Coord) { coordinator.attach(nil, to: v) }
     func makeCoordinator() -> Coord { Coord() }
-    final class Coord {
+    final class Coord: NSObject, RTCVideoViewDelegate {
         weak var track: RTCVideoTrack?
+        var onSize: ((CGSize) -> Void)?
         func attach(_ t: RTCVideoTrack?, to v: RTCVideoRenderer) {
             guard t !== track else { return }
             track?.remove(v); track = t; t?.add(v)
         }
+        func videoView(_ videoView: RTCVideoRenderer, didChangeVideoSize size: CGSize) { onSize?(size) }
     }
 }
 #endif

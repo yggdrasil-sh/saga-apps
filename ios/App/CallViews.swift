@@ -5,6 +5,20 @@ import WebRTC
 // Stumm/Kamera/Lautsprecher/Auflegen, "Ende-zu-Ende verschluesselt" erst nach der Pruefung des DTLS-Fingerabdrucks.
 // iPhone/iPad: Vollbild ueber der App; Mac: eigenes Fenster "Anruf" (HlidskjalfApp).
 
+/// 2.5: Verhaeltnis des eigenen Bilds, solange die Kamera noch keins gemeldet hat (iPhone hoch, iPad/Mac quer)
+enum SelfPipDefaults {
+    static var aspect: Double {
+        #if os(iOS)
+        return UIDevice.current.userInterfaceIdiom == .phone ? 9.0 / 16 : 4.0 / 3
+        #else
+        return 16.0 / 9
+        #endif
+    }
+}
+
+/// Zeitpunkt der letzten Bedienung (ohne Neuzeichnen setzbar)
+final class PokeClock { var t = Date() }
+
 struct CallScreen: View {
     @ObservedObject var calls: CallManager
     var close: () -> Void = {}
@@ -16,6 +30,10 @@ struct CallScreen: View {
     @State private var rowWidth: CGFloat = 0
     /// Farbschema des Systems (2.5: Teilnehmerliste/Runensiegel folgen hell/dunkel, das Anruf-Fenster bleibt dunkel)
     @Environment(\.colorScheme) private var systemScheme
+    /// 2.5: Kopf und Knoepfe nach einigen Sekunden ohne Bedienung ausblenden (CallLogic.hideControls)
+    @State private var lastPoke = PokeClock()                               // Klasse: Mausbewegung zeichnet nicht neu
+    @State private var chromeHidden = false
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     #if os(iOS)
     /// I03: iPhone quer (niedrig) - Kopf in einer Zeile, kleinere Knoepfe ohne Textzeile, weniger Rand
     @Environment(\.verticalSizeClass) private var vsc
@@ -32,6 +50,46 @@ struct CallScreen: View {
             screen.frame(width: g.size.width, height: g.size.height)
                 .onChange(of: g.size.width, initial: true) { _, w in rowWidth = max(0, w - 40 + 16) }   // Rand 20 je Seite, Reihe -8 je Seite
         }
+        .contentShape(Rectangle())
+        .simultaneousGesture(TapGesture().onEnded { poke() })              // Tippen zeigt Kopf und Knoepfe wieder
+        #if os(macOS)
+        .onContinuousHover { _ in poke() }                                  // Mac: Mausbewegung
+        #endif
+        .onChange(of: controlsKey) { _, _ in poke() }                       // Bedienung bzw. neuer Zustand
+        .task(id: calls.phase) {                                            // Takt 1 s, solange die Ansicht steht
+            while !Task.isCancelled {
+                updateChrome()
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+    }
+    /// Bild auf der Buehne (sonst nur Ton: nie ausblenden)
+    private var stageVideo: Bool {
+        if showRemoteVideo { return true }
+        if showTiles { return calls.tiles.contains { $0.video != nil && !$0.own } || calls.sharing }
+        if showHorn, let H = calls.horn { return H.share != nil || H.focusTrack != nil || H.tiles.contains { $0.video != nil && !$0.mine } || calls.sharing }
+        return false
+    }
+    /// Offenes Menue bzw. Hinweis (Teilnehmerliste, Runensiegel, Entfernen-Rueckfrage, Bildschirm-Hinweis)
+    private var menuOpen: Bool {
+        if calls.screenHint { return true }
+        if let H = calls.horn { return H.plist || H.rpop || H.ppop || H.rmSure != nil }
+        return false
+    }
+    /// Meldungen, die stehen bleiben muessen (Moderation, Wiederverbinden, Statuszeile)
+    private var notice: Bool { (calls.mutedBy != nil && !calls.mic) || calls.reconnecting || !calls.status.isEmpty }
+    /// Aenderungen, die Kopf und Knoepfe wieder zeigen
+    private var controlsKey: [String] {
+        [calls.phase.rawValue, "\(calls.mic)", "\(calls.cam)", "\(calls.sharing)", "\(calls.speaker)", "\(calls.sound)", "\(calls.swapView)"]
+    }
+    private func poke() {
+        lastPoke.t = Date()
+        if chromeHidden { withAnimation(.easeOut(duration: 0.2)) { chromeHidden = false } }
+    }
+    private func updateChrome() {
+        let hide = CallLogic.hideControls(idle: Date().timeIntervalSince(lastPoke.t), phase: calls.phase.rawValue, video: stageVideo,
+                                          voiceOver: voiceOver, menuOpen: menuOpen, notice: notice)
+        if hide != chromeHidden { withAnimation(.easeInOut(duration: 0.35)) { chromeHidden = hide } }
     }
     private var screen: some View {
         ZStack {
@@ -50,16 +108,18 @@ struct CallScreen: View {
                 RTCVideoBox(track: bigTrack, fill: !bigIsScreen).ignoresSafeArea()
             }
             VStack(spacing: flat ? 6 : 14) {
-                VStack(spacing: flat ? 6 : 14) { shareBar; header }                      // 2.5: Hoehe inkl. Leiste "teilt den Bildschirm"
+                VStack(spacing: flat ? 6 : 14) { shareBar; header.opacity(chromeHidden ? 0 : 1).allowsHitTesting(!chromeHidden) }   // 2.5: Hoehe inkl. Leiste "teilt den Bildschirm" (bleibt sichtbar)
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
                 if !showRemoteVideo && !showTiles && !showHorn { Spacer(); peerBlock; Spacer() } else { Spacer() }
-                if calls.phase == .incoming { incomingButtons } else if calls.phase == .ended { endedBlock } else { controls }
+                if calls.phase == .incoming { incomingButtons } else if calls.phase == .ended { endedBlock }
+                else { controls.opacity(chromeHidden ? 0 : 1).allowsHitTesting(!chromeHidden).accessibilityHidden(chromeHidden) }
             }
             .padding(.horizontal, 20).padding(.vertical, flat ? 6 : 24)
             if calls.cam, let t = calls.localVideo, calls.phase != .incoming, calls.phase != .ended, !showHorn {   // Knoten: eigene Kachel
                 // 2.5: in eine Ecke ziehen (rastet ein) oder ausblenden - unter der Kopfzeile, ueber den Knoepfen
-                SelfPip(size: CGSize(width: 110, height: 160), top: topInset, bottom: bottomInset, side: 16) {
-                    RTCVideoBox(track: t, mirror: calls.frontCamera)             // Rueckkamera nicht spiegeln (Schrift lesbar)
+                SelfPip(aspect: calls.selfAspect, fallback: SelfPipDefaults.aspect, top: topInset, bottom: bottomInset, side: 16) {
+                    RTCVideoBox(track: t, mirror: calls.frontCamera, fill: true,   // Rueckkamera nicht spiegeln (Schrift lesbar)
+                                onSize: { sz in Task { @MainActor in calls.noteSelfSize(sz) } })
                         .accessibilityLabel(Text("Eigenes Kamerabild"))
                         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.white.opacity(0.3)))
@@ -106,6 +166,7 @@ struct CallScreen: View {
                 .padding(.leading, 16).padding(.top, 8)
                 .accessibilityLabel(Text("Zurück zur App"))
                 .help(Text("Zurück zur App"))
+                .opacity(chromeHidden ? 0 : 1).allowsHitTesting(!chromeHidden)
             }
         }
         #else
@@ -119,6 +180,7 @@ struct CallScreen: View {
                 .padding(.leading, 14).padding(.top, 10)
                 .accessibilityLabel(Text("Bild im Bild"))
                 .help(Text("Bild im Bild"))
+                .opacity(chromeHidden ? 0 : 1).allowsHitTesting(!chromeHidden)
             }
         }
         #endif
@@ -817,7 +879,9 @@ struct CallRunBar: View {
 /// Knopf in der Ecke, Tippen zeigt es wieder). Ecke und Ausblenden merkt sich das Geraet fuer alle Anrufe.
 /// top/bottom/side: freier Rand (Kopfzeile oben, Steuerknoepfe unten)
 struct SelfPip<Content: View>: View {
-    var size: CGSize
+    /// 2.5: Seitenverhaeltnis des eigenen Videos (nil = noch keins gemeldet, dann fallback); Groesse: CallLogic.selfPipSize
+    var aspect: Double?
+    var fallback: Double
     var top: CGFloat
     var bottom: CGFloat
     var side: CGFloat = 16
@@ -828,7 +892,7 @@ struct SelfPip<Content: View>: View {
     var body: some View {
         GeometryReader { g in
             // V5: quer (wenig Hoehe) kleiner, damit oben und unten zwei getrennte Ecken bleiben - sonst wirkten die unteren nicht
-            let fit = CallLogic.pipSize(w: Double(size.width), h: Double(size.height), avail: Double(g.size.height - top - bottom))
+            let fit = CallLogic.selfPipSize(aspect: aspect, fallback: fallback, width: Double(g.size.width), avail: Double(g.size.height - top - bottom))
             let w = hidden ? 44 : CGFloat(fit.w), h = hidden ? 44 : CGFloat(fit.h)
             let x = corner % 2 == 0 ? side : g.size.width - w - side
             let y = corner < 2 ? top : max(top, g.size.height - h - bottom)
@@ -844,9 +908,9 @@ struct SelfPip<Content: View>: View {
                     content().frame(width: w, height: h)
                         .overlay(alignment: .topLeading) {
                             Button { withAnimation(.spring(duration: 0.25)) { hidden = true } } label: {
-                                Image(systemName: "eye.slash").font(.caption.weight(.semibold)).frame(width: 28, height: 28)
-                                    .background(.black.opacity(0.45), in: Circle())
-                                    .frame(width: 40, height: 40).contentShape(Rectangle())
+                                Image(systemName: "eye.slash").font(.caption2.weight(.semibold)).frame(width: 22, height: 22)
+                                    .background(.black.opacity(0.5), in: Circle())
+                                    .padding(4).frame(width: 32, height: 32, alignment: .topLeading).contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
                             .accessibilityLabel(Text("Eigenes Bild ausblenden")).help(Text("Eigenes Bild ausblenden"))

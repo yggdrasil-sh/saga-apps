@@ -95,9 +95,11 @@ final class ScreenCapture: NSObject {
         c.capturesAudio = false                                             // Systemton: siehe oben
         return c
     }
-    /// Ganzer Bildschirm: Saga-Fenster ausschliessen (SCShareableContent.currentProcess braucht keine Berechtigung)
+    /// Ganzer Bildschirm: Saga-Fenster ausschliessen (currentProcess selbst braucht keine Freigabe, der eigene Filter schon)
+    /// - nur mit dauerhafter Freigabe, sonst bleibt es beim Filter der Auswahl (ScreenShare.excludeSelf)
     private func withoutSelf(_ f: SCContentFilter) async -> SCContentFilter? {
-        guard f.style == .display, let d = f.includedDisplays.first,
+        guard ScreenShare.excludeSelf(display: f.style == .display, hasAccess: CGPreflightScreenCaptureAccess()),
+              let d = f.includedDisplays.first,
               let own = try? await SCShareableContent.currentProcess, !own.applications.isEmpty else { return nil }
         return SCContentFilter(display: d, excludingApplications: own.applications, exceptingWindows: [])
     }
@@ -119,7 +121,9 @@ final class ScreenCapture: NSObject {
                 try s.addStreamOutput(output, type: .screen, sampleHandlerQueue: output.queue)
                 try await s.startCapture()
                 stream = s; filter = f
-                SCContentSharingPicker.shared.setConfiguration(SCContentSharingPicker.shared.defaultConfiguration, for: s)
+                if ScreenShare.pickerConfigPerStream(hasAccess: CGPreflightScreenCaptureAccess()) {
+                    SCContentSharingPicker.shared.setConfiguration(SCContentSharingPicker.shared.defaultConfiguration, for: s)
+                }
                 output.stopped = { [weak self] in Task { @MainActor in self?.ended() } }
                 onStart?()
                 return
@@ -184,10 +188,18 @@ final class ScreenCapture {
     /// Unsichtbare Systemauswahl in die Anruf-Oberflaeche haengen (BroadcastPickerHost)
     func attach(_ p: RPSystemBroadcastPickerView) { picker = p }
     func pick(fps: Int) {
-        guard let p = picker, let b = p.subviews.compactMap({ $0 as? UIButton }).first else {
+        guard let p = picker, let b = Self.button(in: p) else {
             onError?(String(localized: "Bildschirm teilen nicht möglich.")); return
         }
         b.sendActions(for: .allTouchEvents)
+    }
+    /// Knopf der Systemauswahl (auch tiefer verschachtelt, falls das System den Aufbau aendert)
+    private static func button(in v: UIView) -> UIButton? {
+        for s in v.subviews {
+            if let b = s as? UIButton { return b }
+            if let b = button(in: s) { return b }
+        }
+        return nil
     }
     func setFps(_ f: Int) {}                                                // Bildrate legt die Erweiterung fest (10/5)
     /// Teilen beenden: Verbindung trennen - die Erweiterung beendet die Uebertragung dann selbst
@@ -225,17 +237,7 @@ final class ScreenSocketServer: @unchecked Sendable {
     func listen() {
         lock.lock(); defer { lock.unlock() }
         guard listenFD < 0, let dir = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: AppConfig.appGroup),
-              let p = ScreenFrame.socketPath(container: dir) else { return }
-        unlink(p)
-        let s = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard s >= 0 else { return }
-        var addr = sockaddr_un()
-        addr.sun_family = sa_family_t(AF_UNIX)
-        let bytes = Array(p.utf8)
-        withUnsafeMutableBytes(of: &addr.sun_path) { b in for (i, c) in bytes.enumerated() where i < b.count - 1 { b[i] = c } }
-        let ok = withUnsafePointer(to: &addr) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(s, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) } } == 0
-        guard ok, Darwin.listen(s, 1) == 0 else { Darwin.close(s); return }
-        _ = fcntl(s, F_SETFL, fcntl(s, F_GETFL) | O_NONBLOCK)
+              let p = ScreenFrame.socketPath(container: dir), let s = ScreenSocket.listen(path: p) else { return }
         listenFD = s; path = p
         let src = DispatchSource.makeReadSource(fileDescriptor: s, queue: queue)
         src.setEventHandler { [weak self] in self?.accept() }
@@ -256,25 +258,13 @@ final class ScreenSocketServer: @unchecked Sendable {
     }
     private func accept() {
         lock.lock(); let l = listenFD, busy = clientFD >= 0; lock.unlock()
-        let c = Darwin.accept(l, nil, nil)
-        guard c >= 0 else { return }
+        guard let c = ScreenSocket.accept(l) else { return }               // blockierend (erbt sonst O_NONBLOCK)
         if busy { Darwin.close(c); return }                                 // nur eine Uebertragung zugleich
-        var one: Int32 = 1
-        setsockopt(c, SOL_SOCKET, SO_NOSIGPIPE, &one, socklen_t(MemoryLayout<Int32>.size))
         lock.lock(); clientFD = c; lock.unlock()
         connected?()
         Thread.detachNewThread { [weak self] in self?.readLoop(c) }
     }
-    private func readAll(_ c: Int32, _ p: UnsafeMutableRawPointer, _ n: Int) -> Bool {
-        var off = 0
-        while off < n {
-            let r = Darwin.read(c, p + off, n - off)
-            if r < 0 && errno == EINTR { continue }
-            if r <= 0 { return false }
-            off += r
-        }
-        return true
-    }
+    private func readAll(_ c: Int32, _ p: UnsafeMutableRawPointer, _ n: Int) -> Bool { ScreenSocket.readAll(c, p, n) }
     private func readLoop(_ c: Int32) {
         var pool: CVPixelBufferPool?
         var pw = 0, ph = 0
