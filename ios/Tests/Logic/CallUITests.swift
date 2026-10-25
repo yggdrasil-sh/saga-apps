@@ -3,6 +3,7 @@ import Foundation
 // Anrufe 2.3.1: Anruf verkleinern ("zurueck zur App"), Leiste oben, Hinweis im Chat, Mitteilungen waehrend eines Anrufs
 func callUITests() {
     typealias L = CallLogic
+    controlsHideTests()
     let cid = String(repeating: "ab", count: 16)
 
     // Vollbild: laeuft und nicht verkleinert -> ja; verkleinert -> nein (Anruf laeuft weiter)
@@ -58,4 +59,19 @@ func callUITests() {
     // Chat oeffnen: Bereich wechseln und Chat nicht im selben Schritt
     check(L.chatOpenNeedsTwoSteps(chatsVisible: false), "Chats nicht vorne: zwei Schritte")
     check(!L.chatOpenNeedsTwoSteps(chatsVisible: true), "Chats vorne: direkt")
+}
+
+// 2.5: Kopf und Knoepfe automatisch ausblenden (blieben bisher den ganzen Anruf sichtbar)
+private func controlsHideTests() {
+    typealias L = CallLogic
+    func h(_ idle: Double, phase: String = "active", video: Bool = true, vo: Bool = false, menu: Bool = false, notice: Bool = false) -> Bool {
+        L.hideControls(idle: idle, phase: phase, video: video, voiceOver: vo, menuOpen: menu, notice: notice)
+    }
+    check(!h(0) && !h(L.controlsIdle - 0.1), "kurz nach Bedienung: sichtbar")
+    check(h(L.controlsIdle) && h(60), "ab controlsIdle ohne Bedienung: ausblenden")
+    check(!h(60, video: false), "nur Ton: nie ausblenden")
+    check(!h(60, vo: true), "VoiceOver: nie ausblenden")
+    check(!h(60, menu: true), "offenes Menue/Hinweis: nicht ausblenden")
+    check(!h(60, notice: true), "wichtige Meldung: nicht ausblenden")
+    for p in ["preparing", "ringingOut", "connecting", "incoming", "ended", "idle"] { check(!h(60, phase: p), "\(p): nicht ausblenden") }
 }

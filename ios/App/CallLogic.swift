@@ -199,6 +199,14 @@ enum CallLogic {
     /// I03: Abstand unten fuer Buehne und Ebenen - Knopfzone (gemessen) plus Rand; flach ohne die grosse Mindesthoehe
     static func stageBottom(controls: Double, flat: Bool) -> Double { flat ? max(56, controls + 6 + 4) : max(170, controls + 24 + 10) }
 
+    /// 2.5: Kopf und Knoepfe blenden nach controlsIdle s ohne Bedienung aus (wie FaceTime); Tippen bzw. Mausbewegung
+    /// zeigt sie wieder. Nie bei: nicht verbunden, nur Ton (kein Bild auf der Buehne), VoiceOver, offenem Menue/Hinweis
+    /// bzw. einer wichtigen Meldung (stummgeschaltet durch Gastgeber, Wiederverbinden)
+    static let controlsIdle = 5.0
+    static func hideControls(idle: Double, phase: String, video: Bool, voiceOver: Bool, menuOpen: Bool, notice: Bool) -> Bool {
+        phase == "active" && video && !voiceOver && !menuOpen && !notice && idle >= controlsIdle
+    }
+
     /// V5: Groesse des eigenen Bilds - passt es nicht zweimal uebereinander (plus 8 Abstand) in die freie Hoehe,
     /// wird es im gleichen Seitenverhaeltnis kleiner (hoechstens bis zur Haelfte)
     static func pipSize(w: Double, h: Double, avail: Double) -> (w: Double, h: Double) {

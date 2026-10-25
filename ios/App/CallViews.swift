@@ -5,6 +5,9 @@ import WebRTC
 // Stumm/Kamera/Lautsprecher/Auflegen, "Ende-zu-Ende verschluesselt" erst nach der Pruefung des DTLS-Fingerabdrucks.
 // iPhone/iPad: Vollbild ueber der App; Mac: eigenes Fenster "Anruf" (HlidskjalfApp).
 
+/// Zeitpunkt der letzten Bedienung (ohne Neuzeichnen setzbar)
+final class PokeClock { var t = Date() }
+
 struct CallScreen: View {
     @ObservedObject var calls: CallManager
     var close: () -> Void = {}
@@ -16,6 +19,10 @@ struct CallScreen: View {
     @State private var rowWidth: CGFloat = 0
     /// Farbschema des Systems (2.5: Teilnehmerliste/Runensiegel folgen hell/dunkel, das Anruf-Fenster bleibt dunkel)
     @Environment(\.colorScheme) private var systemScheme
+    /// 2.5: Kopf und Knoepfe nach einigen Sekunden ohne Bedienung ausblenden (CallLogic.hideControls)
+    @State private var lastPoke = PokeClock()                               // Klasse: Mausbewegung zeichnet nicht neu
+    @State private var chromeHidden = false
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOver
     #if os(iOS)
     /// I03: iPhone quer (niedrig) - Kopf in einer Zeile, kleinere Knoepfe ohne Textzeile, weniger Rand
     @Environment(\.verticalSizeClass) private var vsc
@@ -32,6 +39,46 @@ struct CallScreen: View {
             screen.frame(width: g.size.width, height: g.size.height)
                 .onChange(of: g.size.width, initial: true) { _, w in rowWidth = max(0, w - 40 + 16) }   // Rand 20 je Seite, Reihe -8 je Seite
         }
+        .contentShape(Rectangle())
+        .simultaneousGesture(TapGesture().onEnded { poke() })              // Tippen zeigt Kopf und Knoepfe wieder
+        #if os(macOS)
+        .onContinuousHover { _ in poke() }                                  // Mac: Mausbewegung
+        #endif
+        .onChange(of: controlsKey) { _, _ in poke() }                       // Bedienung bzw. neuer Zustand
+        .task(id: calls.phase) {                                            // Takt 1 s, solange die Ansicht steht
+            while !Task.isCancelled {
+                updateChrome()
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+    }
+    /// Bild auf der Buehne (sonst nur Ton: nie ausblenden)
+    private var stageVideo: Bool {
+        if showRemoteVideo { return true }
+        if showTiles { return calls.tiles.contains { $0.video != nil && !$0.own } || calls.sharing }
+        if showHorn, let H = calls.horn { return H.share != nil || H.focusTrack != nil || H.tiles.contains { $0.video != nil && !$0.mine } || calls.sharing }
+        return false
+    }
+    /// Offenes Menue bzw. Hinweis (Teilnehmerliste, Runensiegel, Entfernen-Rueckfrage, Bildschirm-Hinweis)
+    private var menuOpen: Bool {
+        if calls.screenHint { return true }
+        if let H = calls.horn { return H.plist || H.rpop || H.ppop || H.rmSure != nil }
+        return false
+    }
+    /// Meldungen, die stehen bleiben muessen (Moderation, Wiederverbinden, Statuszeile)
+    private var notice: Bool { (calls.mutedBy != nil && !calls.mic) || calls.reconnecting || !calls.status.isEmpty }
+    /// Aenderungen, die Kopf und Knoepfe wieder zeigen
+    private var controlsKey: [String] {
+        [calls.phase.rawValue, "\(calls.mic)", "\(calls.cam)", "\(calls.sharing)", "\(calls.speaker)", "\(calls.sound)", "\(calls.swapView)"]
+    }
+    private func poke() {
+        lastPoke.t = Date()
+        if chromeHidden { withAnimation(.easeOut(duration: 0.2)) { chromeHidden = false } }
+    }
+    private func updateChrome() {
+        let hide = CallLogic.hideControls(idle: Date().timeIntervalSince(lastPoke.t), phase: calls.phase.rawValue, video: stageVideo,
+                                          voiceOver: voiceOver, menuOpen: menuOpen, notice: notice)
+        if hide != chromeHidden { withAnimation(.easeInOut(duration: 0.35)) { chromeHidden = hide } }
     }
     private var screen: some View {
         ZStack {
@@ -50,10 +97,11 @@ struct CallScreen: View {
                 RTCVideoBox(track: bigTrack, fill: !bigIsScreen).ignoresSafeArea()
             }
             VStack(spacing: flat ? 6 : 14) {
-                VStack(spacing: flat ? 6 : 14) { shareBar; header }                      // 2.5: Hoehe inkl. Leiste "teilt den Bildschirm"
+                VStack(spacing: flat ? 6 : 14) { shareBar; header.opacity(chromeHidden ? 0 : 1).allowsHitTesting(!chromeHidden) }   // 2.5: Hoehe inkl. Leiste "teilt den Bildschirm" (bleibt sichtbar)
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headerHeight = $0 }
                 if !showRemoteVideo && !showTiles && !showHorn { Spacer(); peerBlock; Spacer() } else { Spacer() }
-                if calls.phase == .incoming { incomingButtons } else if calls.phase == .ended { endedBlock } else { controls }
+                if calls.phase == .incoming { incomingButtons } else if calls.phase == .ended { endedBlock }
+                else { controls.opacity(chromeHidden ? 0 : 1).allowsHitTesting(!chromeHidden).accessibilityHidden(chromeHidden) }
             }
             .padding(.horizontal, 20).padding(.vertical, flat ? 6 : 24)
             if calls.cam, let t = calls.localVideo, calls.phase != .incoming, calls.phase != .ended, !showHorn {   // Knoten: eigene Kachel
@@ -106,6 +154,7 @@ struct CallScreen: View {
                 .padding(.leading, 16).padding(.top, 8)
                 .accessibilityLabel(Text("Zurück zur App"))
                 .help(Text("Zurück zur App"))
+                .opacity(chromeHidden ? 0 : 1).allowsHitTesting(!chromeHidden)
             }
         }
         #else
@@ -119,6 +168,7 @@ struct CallScreen: View {
                 .padding(.leading, 14).padding(.top, 10)
                 .accessibilityLabel(Text("Bild im Bild"))
                 .help(Text("Bild im Bild"))
+                .opacity(chromeHidden ? 0 : 1).allowsHitTesting(!chromeHidden)
             }
         }
         #endif
