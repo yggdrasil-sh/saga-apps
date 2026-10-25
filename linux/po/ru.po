@@ -7277,3 +7277,186 @@ msgstr "Необязательно – его видят все, с кем вы 
 #: hlidskjalf/chatview.py
 msgid "Display name not saved: {err}"
 msgstr "Отображаемое имя не сохранено: {err}"
+
+#: hlidskjalf/graphview.py:42 hlidskjalf/graphview.py:987
+msgid "Database entry"
+msgstr "Запись базы данных"
+
+#: hlidskjalf/graphview.py:43
+#, python-brace-format
+msgid "{kind}, shared with you"
+msgstr "{kind}, доступно вам"
+
+#: hlidskjalf/graphview.py:47
+#, python-brace-format
+msgid "{n} connection"
+msgid_plural "{n} connections"
+msgstr[0] "{n} связь"
+msgstr[1] "{n} связи"
+msgstr[2] "{n} связей"
+
+#: hlidskjalf/graphview.py:670
+msgid "Legend"
+msgstr "Легенда"
+
+#: hlidskjalf/graphview.py:680
+msgid "Pages in the graph"
+msgstr "Страницы в графе"
+
+#: hlidskjalf/graphview.py:695 hlidskjalf/graphview.py:781 hlidskjalf/graphview.py:931
+msgid "All pages"
+msgstr "Все страницы"
+
+#: hlidskjalf/graphview.py:696
+msgid "Local"
+msgstr "Локальный"
+
+#: hlidskjalf/graphview.py:697
+msgid "The open page and its neighbors"
+msgstr "Открытая страница и её соседи"
+
+#: hlidskjalf/graphview.py:703
+msgid "Depth 1"
+msgstr "Глубина 1"
+
+#: hlidskjalf/graphview.py:703
+msgid "Depth 2"
+msgstr "Глубина 2"
+
+#: hlidskjalf/graphview.py:704
+msgid "How many steps away neighbors may be"
+msgstr "На сколько шагов могут отстоять соседи"
+
+#: hlidskjalf/graphview.py:711 hlidskjalf/graphview.py:712
+msgid "Search pages in the graph"
+msgstr "Искать страницы в графе"
+
+#: hlidskjalf/graphview.py:717 hlidskjalf/graphview.py:718
+msgid "Filters"
+msgstr "Фильтры"
+
+#: hlidskjalf/graphview.py:721 hlidskjalf/graphview.py:723
+msgid "Show as list"
+msgstr "Показать списком"
+
+#: hlidskjalf/graphview.py:726 hlidskjalf/graphview.py:727
+msgid "Fit to view"
+msgstr "Вписать в окно"
+
+#: hlidskjalf/graphview.py:745
+msgid "Database relations"
+msgstr "Связи баз данных"
+
+#: hlidskjalf/graphview.py:745
+msgid "Links in text"
+msgstr "Ссылки в тексте"
+
+#: hlidskjalf/graphview.py:745
+msgid "Subpages"
+msgstr "Подстраницы"
+
+#: hlidskjalf/graphview.py:746
+msgid "Pages without connections"
+msgstr "Страницы без связей"
+
+#: hlidskjalf/graphview.py:746
+msgid "Tags as nodes"
+msgstr "Теги как узлы"
+
+#: hlidskjalf/graphview.py:752
+msgid "Rearrange"
+msgstr "Перестроить"
+
+#: hlidskjalf/graphview.py:781 hlidskjalf/window.py:250 hlidskjalf/window.py:1584
+msgid "Graph"
+msgstr "Граф"
+
+#: hlidskjalf/graphview.py:781 hlidskjalf/page.py:1397 hlidskjalf/window.py:1604
+msgid "Local graph"
+msgstr "Локальный граф"
+
+#: hlidskjalf/graphview.py:875 hlidskjalf/graphview.py:943
+msgid "Loading graph …"
+msgstr "Загрузка графа …"
+
+#: hlidskjalf/graphview.py:893
+msgid "Requires server 2.5"
+msgstr "Нужен сервер 2.5"
+
+#: hlidskjalf/graphview.py:894
+msgid "Update the Saga server to see how your pages are connected."
+msgstr "Обновите сервер Saga, чтобы увидеть, как связаны ваши страницы."
+
+#: hlidskjalf/graphview.py:896
+msgid "The graph needs a connection to the server."
+msgstr "Для графа нужно подключение к серверу."
+
+#: hlidskjalf/graphview.py:896
+msgid "You're offline"
+msgstr "Нет подключения"
+
+#: hlidskjalf/graphview.py:899
+msgid "The graph couldn't be loaded."
+msgstr "Не удалось загрузить граф."
+
+#: hlidskjalf/graphview.py:919
+msgid "truncated"
+msgstr "сокращено"
+
+#: hlidskjalf/graphview.py:920
+msgid "Only the most recently edited pages are shown."
+msgstr "Показаны только недавно изменённые страницы."
+
+#: hlidskjalf/graphview.py:927
+msgid "Create pages and link them to each other – here you'll see how everything is connected."
+msgstr "Создавайте страницы и связывайте их между собой – здесь будет видно, как всё связано."
+
+#: hlidskjalf/graphview.py:930
+msgid "This page is not in the graph"
+msgstr "Этой страницы нет в графе"
+
+#: hlidskjalf/graphview.py:931
+msgid "Archived pages, templates and pages from other servers don't appear here."
+msgstr "Архивные страницы, шаблоны и страницы с других серверов здесь не отображаются."
+
+#: hlidskjalf/graphview.py:935
+msgid "No pages match the filters"
+msgstr "Нет страниц, подходящих под фильтры"
+
+#: hlidskjalf/graphview.py:935
+msgid "Reset filters"
+msgstr "Сбросить фильтры"
+
+#: hlidskjalf/graphview.py:938
+#, python-brace-format
+msgid "“{name}” isn't connected to any other page yet"
+msgstr "«{name}» пока не связана ни с одной другой страницей"
+
+#: hlidskjalf/graphview.py:960
+#, python-brace-format
+msgid "Local graph of “{name}”: {n} connected page"
+msgid_plural "Local graph of “{name}”: {n} connected pages"
+msgstr[0] "Локальный граф «{name}»: {n} связанная страница"
+msgstr[1] "Локальный граф «{name}»: {n} связанные страницы"
+msgstr[2] "Локальный граф «{name}»: {n} связанных страниц"
+
+#: hlidskjalf/graphview.py:963
+#, python-brace-format
+msgid "Graph with {pages} and {edges}."
+msgstr "Граф: {pages}, {edges}."
+
+#: hlidskjalf/graphview.py:966
+msgid "Arrow keys select a page, Enter opens it, plus and minus zoom, 0 fits. The list view shows the same pages."
+msgstr "Стрелки выбирают страницу, Enter открывает её, плюс и минус меняют масштаб, 0 вписывает. В виде списка те же страницы."
+
+#: hlidskjalf/graphview.py:988
+msgid "Shared with you"
+msgstr "Доступно вам"
+
+#: hlidskjalf/graphview.py:1045
+msgid "No matches"
+msgstr "Нет совпадений"
+
+#: hlidskjalf/graphview.py:1069
+msgid "Filter"
+msgstr "Фильтровать"

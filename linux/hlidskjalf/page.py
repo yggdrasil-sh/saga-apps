@@ -1391,6 +1391,10 @@ class PageView(Gtk.Box):
                           (_("Suggest tasks"), lambda: win.assistant("page", "tasks")),
                           (_("Improve selected text"), lambda: win.assistant("page", "improve")),
                           (_("Ask your pages"), lambda: win.assistant("ask"))]))
+        from .graphview import available as graph_available
+        from .sharing import is_remote
+        if self.doc.fetched and graph_available() and not is_remote(p) and isinstance(self.id, int) and self.id > 0:
+            ents.append((_("Local graph"), lambda: win.show_route(("graph", "local", self.id))))   # 2.5: Nachbarn der Seite
         ents.append(None)
         if ok("move"):
             ents.append((_("Move to …"), lambda: win.move_dialog(self.id)))
