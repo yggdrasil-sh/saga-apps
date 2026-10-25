@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Meeting-Ansicht (MEETING-SPEC.md): Layout-Knopf, Bühne, Streifen, Galerie, Hinweis-Chip -->
+<resources>
+    <string name="meet_layout">Diseño</string>
+    <string name="meet_layout_cd">Diseño, %1$s</string>
+    <string name="meet_layout_auto">Automático</string>
+    <string name="meet_layout_gallery">Galería</string>
+    <string name="meet_layout_speaker">Orador</string>
+    <string name="meet_layout_presentation">Presentación</string>
+    <string name="meet_show_novideo">Mostrar mosaicos sin vídeo</string>
+    <string name="meet_show_self">Mostrar mi vídeo</string>
+    <string name="meet_screen_of">Pantalla de %1$s</string>
+    <string name="meet_screen_of_dev">Pantalla de %1$s (%2$s)</string>
+    <string name="meet_sharing_chip">%1$s está compartiendo pantalla</string>
+    <string name="meet_chip_close">Ocultar aviso</string>
+    <string name="meet_companions">%1$s conectado</string>
+    <string name="meet_pin">Fijar para mí</string>
+    <string name="meet_unpin">Dejar de fijar</string>
+    <string name="meet_pinned">fijado</string>
+    <string name="meet_pin_ended">La vista fijada terminó</string>
+    <string name="meet_fullscreen">Pantalla completa</string>
+    <string name="meet_fullscreen_exit">Salir de pantalla completa</string>
+    <string name="meet_zoom">%1$d %%</string>
+    <string name="meet_zoom_reset">Restablecer</string>
+    <string name="meet_page">Página %1$d de %2$d</string>
+    <string name="meet_page_prev">Página anterior</string>
+    <string name="meet_page_next">Página siguiente</string>
+    <string name="meet_stage_cd">Escenario: %1$s</string>
+    <string name="meet_participants_cd">Participantes, %1$d</string>
+    <string name="meet_cam_on">cámara activada</string>
+    <string name="meet_no_cam">sin cámara</string>
+    <string name="meet_show">Mostrar</string>
+    <string name="meet_self_size">Cambiar tamaño de mi vídeo</string>
+    <string name="meet_strip_collapse">Contraer tira</string>
+    <string name="meet_strip_expand">Expandir tira</string>
+    <string name="meet_screen_na">Pantalla de %1$s – no disponible a través del nodo</string>
+    <string name="meet_tile_menu">Opciones para %1$s</string>
+    <string name="meet_companion_head">Dispositivo acompañante · principal %1$s</string>
+    <string name="meet_cam2">%1$s (%2$s)</string>
+    <string name="meet_echo_muted">Silenciado porque %1$s tomó el control</string>
+    <string name="meet_echo_title">¿Está %1$s en la misma sala? Entonces habrá eco.</string>
+    <string name="meet_echo_here">Activar aquí, silenciar %1$s</string>
+    <string name="meet_echo_anyway">Activar de todos modos</string>
+    <string name="meet_echo_manual">Silencia primero %1$s.</string>
+    <string name="meet_more_novideo">+ %1$d sin vídeo</string>
+    <plurals name="meet_persons">
+        <item quantity="one">%1$d persona</item>
+        <item quantity="other">%1$d personas</item>
+    </plurals>
+</resources>

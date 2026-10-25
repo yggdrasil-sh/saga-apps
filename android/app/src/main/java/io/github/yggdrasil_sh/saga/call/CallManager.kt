@@ -109,6 +109,10 @@ data class CallUiState(
     val remoteSmall: Boolean = false,
     /** Gross laeuft der Bildschirm des Gegenuebers */
     val bigIsScreen: Boolean = false,
+    /** Meeting-Ansicht: alle Geraete im Anruf mit Medienzustand (Personen ueber `who`), dieses Geraet, Buehnen-Person */
+    val meet: List<Meeting.Dev> = emptyList(),
+    val meetMe: String = "",
+    val meetSpeaker: String? = null,
     /** Meine Kamera pausiert waehrend des Teilens (Relais TCP) */
     val camPaused: Boolean = false,
     // 2.4 E4/E5
@@ -255,6 +259,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         /** Pegel der empfangenen Tonspuren je Geraet und aktiver Sprecher */
         val levels = HashMap<String, Double>()
         var speaker: String? = null
+        /** Meeting-Ansicht: Sprecher mit Zeit-Hysterese je Person (who) */
+        val pick = SpeakerPick()
+        var pickFed = 0L
         var title = ""
         // 2.5 Gjallarhorn: Gruppenanruf ueber einen Knoten
         var horn: HornSession? = null
@@ -381,6 +388,15 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         /** 2.4 E5: Kachel-Bild dieser Verbindung (Hauptspur des Gegenuebers) */
         val tile = ProxySink()
         var tileVideo: VideoTrack? = null
+        /** Meeting-Ansicht: Kamera dieser Verbindung, waehrend der Bildschirm in [tile] laeuft (Personenkachel) */
+        val camTile = ProxySink()
+        var camTileVideo: VideoTrack? = null
+        /** seit wann das Gegenueber teilt (zuletzt gestartete Freigabe auf die Buehne) */
+        var sharedAt = 0L
+        /** Meeting-Ansicht: Kamera dieses Geraets wird gerade nicht gezeigt (andere Seite, ueber der Video-Hoechstzahl) */
+        var meetOff = false
+        /** §4.3: mit dem naechsten state `ask_mute` an dieses (eigene) Geraet */
+        var askMute = false
     }
 
     /** Laufende Bildschirmaufnahme */
@@ -789,6 +805,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 old.removeSink(c.tile)
                 c.tileVideo = null
             }
+            if (c.camTileVideo === old) {
+                old.removeSink(c.camTile)
+                c.camTileVideo = null
+            }
             if (c.remoteVideo === old) c.remoteVideo = null
             if (c.smallVideo === old) c.smallVideo = null
             unbindMain(old)
@@ -820,6 +840,14 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             c.tileVideo = big
             big?.addSink(c.tile)
         }
+        // Meeting-Ansicht: Kamera neben dem Bildschirm in die Personenkachel (kein Bild-im-Bild im Bildschirm)
+        val cam = c.smallVideo.takeIf { v.bigScreen }
+        if (c.camTileVideo !== cam) {
+            c.camTileVideo?.removeSink(c.camTile)
+            c.camTileVideo = cam
+            cam?.addSink(c.camTile)
+        }
+        if (c.rScreen && c.sharedAt == 0L) c.sharedAt = now else if (!c.rScreen) c.sharedAt = 0L
         bindMain(roomOf(c))
         update(c)
     }
@@ -881,6 +909,119 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         val sh = shown(r)
         if (meshView(r)) r.rs.speaker?.let { sp -> sh.firstOrNull { it.peerDevice == sp }?.let { return it } }
         return sh.firstOrNull() ?: links(r).firstOrNull() ?: r.takeIf { it.pc != null || r.rs.links.isEmpty() }
+    }
+
+    /**
+     * Pegel je Geraet -> Person (Maximum), in die Sprecher-Hysterese; Rueckgabe: Geraet der Buehnen-Person mit dem hoechsten
+     * Pegel (Hauptverbindung, Bild-im-Bild), sonst das bisherige.
+     */
+    private fun feedPick(r: Call, devLevels: Map<String, Double>): String? {
+        val whoOf = r.rs.roster.legs.associate { it.device to it.who }
+        val byWho = HashMap<String, Double>()
+        for ((d, lv) in devLevels) {
+            val w = whoOf[d] ?: d
+            if (w == myUser()) continue
+            byWho[w] = maxOf(byWho[w] ?: 0.0, lv)
+        }
+        val who = r.rs.pick.feed(byWho, System.currentTimeMillis()) ?: return r.rs.speaker
+        return devLevels.filterKeys { (whoOf[it] ?: it) == who }.maxByOrNull { it.value }?.key ?: r.rs.speaker
+    }
+
+    /** Meeting-Ansicht: Geraete mit Medienzustand (Roster; 1:1 ohne Roster: das Gegenueber) */
+    private fun meetDevs(c: Call): List<Meeting.Dev> {
+        val rs = c.rs
+        val me = myDevId()
+        val user = myUser()
+        val horn = rs.horn
+        val now = System.currentTimeMillis()
+        val self = { who: String, name: String, devName: String, comp: Boolean, av: String? ->
+            Meeting.Dev(who, name, me, devName, comp, me = true, avatar = av, mic = c.micOn && !rs.companion, cam = c.videoTrack != null,
+                screen = c.screen != null)
+        }
+        val legs = rs.roster.legs
+        if (legs.isEmpty()) {
+            val p = primary(c) ?: c
+            val who = p.peer.username.ifEmpty { "peer" }
+            val dev = p.peerDevice ?: "peer"
+            val video = if (p.gotState) p.rCam else c.media == "video"
+            return listOf(
+                Meeting.Dev(who, p.peer.shown, dev, avatar = p.peer.avatar, mic = p.rMic, cam = video && (if (p.rScreen) p.camTileVideo != null else p.tileVideo != null),
+                    screen = p.rScreen && p.tileVideo != null, sharedAt = p.sharedAt, level = rs.levels[dev] ?: 0.0, speaking = rs.pick.speaking(who, now)),
+                self(user.ifEmpty { "me" }, "", "", false, null),
+            )
+        }
+        return legs.map { x ->
+            val name = io.github.yggdrasil_sh.saga.util.PersonName.shown(x.name.ifEmpty { x.who }, x.handle ?: x.who, x.host)
+            val isMe = x.me || (user.isNotEmpty() && x.who == user)
+            when {
+                x.device == me -> self(x.who, name, x.devName, x.companion, x.avatar)
+                horn != null -> {
+                    val s = horn.st[x.device]
+                    val scr = horn.screenFrom == x.device
+                    Meeting.Dev(
+                        x.who, name, x.device, x.devName, x.companion, me = isMe, avatar = x.avatar, mic = s?.first != false,
+                        cam = s?.second != false && x.device in horn.moving, screen = scr || s?.third == true, screenNa = !scr && s?.third == true,
+                        sharedAt = if (scr) 2 else 1, level = horn.levelsNow[x.device] ?: 0.0, speaking = x.device in horn.speaking,
+                    )
+                }
+                else -> {
+                    val l = linkOf(c, x.device)
+                    Meeting.Dev(
+                        x.who, name, x.device, x.devName, x.companion, me = isMe, avatar = x.avatar, mic = l?.rMic == true,
+                        cam = l != null && l.rCam && (if (l.rScreen) l.camTileVideo != null else l.tileVideo != null),
+                        screen = l?.rScreen == true && l.tileVideo != null, sharedAt = l?.sharedAt ?: 0,
+                        level = rs.levels[x.device] ?: 0.0, speaking = !isMe && rs.pick.speaking(x.who, now),
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Meeting-Ansicht: Geraete, deren Kamera gerade mit Bild gezeigt wird (null = Ansicht aus, alles empfangen). Im Mesh
+     * bekommen die anderen `want: off` (nur bei Aenderung); der Bildschirm ist davon nicht betroffen.
+     */
+    fun meetShown(devs: Set<String>?) {
+        val r = cur ?: return
+        if (r.rs.horn != null) return
+        for (l in links(r)) {
+            val d = l.peerDevice ?: continue
+            val off = devs != null && d !in devs && !own(l)
+            if (off != l.meetOff) {
+                l.meetOff = off
+                scope.launch { if (live(l)) stateOut(l) }
+            }
+        }
+    }
+
+    /**
+     * §4.3 Echo-Schutz: anderes eigenes Geraet im Anruf mit Mikrofon an (Geraet, Name, kann ask_mute) - nur im Mesh
+     * (der Knoten-Pfad meldet das ueber die Teilnehmerliste nicht verlaesslich).
+     */
+    fun echoPeer(): Triple<String, String, Boolean>? {
+        val r = cur ?: return null
+        if (r.rs.horn != null) return null
+        val l = links(r).firstOrNull { own(it) && it.connected && it.rMic } ?: return null
+        val x = legOf(l)
+        return Triple(l.peerDevice.orEmpty(), x?.devName?.ifEmpty { null } ?: l.peer.shown, CallRoom.CAP_ASKMUTE in (x?.caps ?: emptyList()))
+    }
+
+    /** §4.3: das eigene Geraet dev bitten, Mikrofon und Ton auszuschalten (state.ask_mute) */
+    fun askMute(dev: String) {
+        val r = cur ?: return
+        val l = linkOf(r, dev) ?: return
+        if (!own(l)) return
+        l.askMute = true
+        scope.launch { if (live(l)) stateOut(l) }
+    }
+
+    /** Meeting-Ansicht: Bild einer Kachel (eigene Kamera, Bildschirm bzw. Kamera eines Geraets) */
+    fun meetSink(t: Meeting.Tile): ProxySink? {
+        val r = cur ?: return null
+        if (t.me) return localSink
+        if (r.rs.horn != null) return if (t.screen) remoteSink else hornSinks.getOrPut(t.device) { ProxySink() }
+        val l = linkOf(r, t.device) ?: (primary(r).takeIf { r.rs.roster.legs.isEmpty() }) ?: return null
+        return if (t.screen) l.tile else if (l.rScreen) l.camTile else l.tile
     }
 
     /** Oberflaeche: Ansicht tauschen (Bildschirm <-> Kamera des Gegenuebers) */
@@ -1048,7 +1189,13 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             put("screen", sharing)
             // 2.4: Bild-im-Bild und gewuenschte Videogroesse (aeltere Gegenstellen ignorieren die Felder)
             put("pip", c.pip)
-            putJsonObject("want") { put("video", c.myWant) }
+            // §4.3 Echo-Vorschlag an ein eigenes Geraet (einmalig)
+            if (c.askMute) {
+                put("ask_mute", true)
+                c.askMute = false
+            }
+            // Meeting-Ansicht §2.2: Kamera ohne Videoplatz abbestellen (nur diese Verbindung)
+            putJsonObject("want") { put("video", if (c.meetOff && c.myWant != "off") "off" else c.myWant) }
             // eigener Weg (immer, sobald bekannt); das Gegenueber rechnet mit dem schlechteren
             c.path?.let { put("path", it.wire) }
             // 2.4 E3: Rollen der m-Zeilen; screen_mid = mid, auf der JETZT der Bildschirm laeuft (B: eigene, A: Kamera)
@@ -1129,6 +1276,16 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
                 c.rCam = (b["cam"] as? JsonPrimitive)?.booleanOrNull == true
                 peerTracksIn(c, b)
                 c.rMic = (b["mic"] as? JsonPrimitive)?.booleanOrNull != false
+                // §4.3: ein anderes eigenes Geraet schaltet Mikrofon/Ton ein und bittet hier um Stille (Echo)
+                if ((b["ask_mute"] as? JsonPrimitive)?.booleanOrNull == true && own(c)) {
+                    val r = roomOf(c)
+                    if (r.micOn) toggleMic()
+                    if (r.rs.playback) {
+                        setPlayback(r, false)
+                        update(r)
+                    }
+                    repo.notify(UiText.Res(R.string.meet_echo_muted, legOf(c)?.devName?.ifEmpty { null } ?: c.peer.shown))
+                }
                 // 2.4 E4: ein anderes eigenes Geraet hat uebernommen ("Hierher uebernehmen") -> hier still und raus
                 if ((b["ready"] as? JsonPrimitive)?.booleanOrNull == true && b.s("replaces") == myDevId() && own(c)) {
                     handoverOut(roomOf(c), from)
@@ -1620,6 +1777,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         c.failJob?.cancel()
         c.tileVideo?.removeSink(c.tile)
         c.tileVideo = null
+        c.camTileVideo?.removeSink(c.camTile)
+        c.camTileVideo = null
         for ((m, t) in c.rvid) {
             c.watch[m]?.let { t.removeSink(it) }
             unbindMain(t)
@@ -2772,7 +2931,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         // 2.4 E5: Pegel der empfangenen Tonspur -> aktiver Sprecher (Kachel hervorheben, Bild-im-Bild)
         c.peerDevice?.let { d ->
             if (!own(c) && c.connected) r.rs.levels[d] = if (c.rMic) aLevel ?: 0.0 else 0.0
-            val sp = CallRoom.speaker(r.rs.levels.filterKeys { k -> linkOf(r, k) != null }, r.rs.speaker)
+            // MEETING-SPEC §2.3: Hysterese je Person (1,5 s lauter, 3 s Abstand) statt Pegel-Marge
+            val sp = feedPick(r, r.rs.levels.filterKeys { k -> linkOf(r, k) != null })
             if (sp != r.rs.speaker) {
                 r.rs.speaker = sp
                 bindMain(r)
@@ -3320,6 +3480,8 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             l.failJob?.cancel()
             l.tileVideo?.removeSink(l.tile)
             l.tileVideo = null
+            l.camTileVideo?.removeSink(l.camTile)
+            l.camTileVideo = null
             for ((m, t) in l.rvid) l.watch[m]?.let { t.removeSink(it) }
             l.rvid.clear()
             l.remoteVideo = null
@@ -3392,6 +3554,10 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             CallRoom.Wait.WAITING -> UiText.Res(R.string.room_waiting)
             CallRoom.Wait.NONE -> null
         }
+        if (horn != null && horn.levelsAt != c.rs.pickFed) {
+            c.rs.pickFed = horn.levelsAt
+            feedPick(c, horn.levelsNow)
+        }
         _ui.value = st.copy(
             phase = phase, id = c.id, peer = if (group) c.peer else p.peer, video = c.media == "video",
             mic = c.micOn, cam = c.videoTrack != null,
@@ -3404,6 +3570,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             remoteVideo = p.remoteVideo != null && (if (p.gotState) p.rCam || p.rScreen else c.media == "video"),
             remoteMic = p.rMic,
             room = roomUi(c, mesh),
+            meet = meetDevs(c), meetMe = myDevId(), meetSpeaker = c.rs.pick.stage,
         ).let { u ->
             if (horn == null) u else u.copy(
                 remoteVideo = horn.bigOn, path = "", quality = "", bytesIn = horn.bytesIn,
