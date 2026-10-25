@@ -291,4 +291,28 @@ enum CallRoom {
 
     /// Faehigkeiten melden (PUT /api/calls/caps): einmal je Geraet und Faehigkeiten
     static func capsKey(device: String, caps: [String]) -> String { device + "|" + caps.joined(separator: ",") }
+
+    // MARK: 2.5 A07 "Alle Anrufe ueber Knoten" (horn_dm) - 1:1 ueber einen Knoten (wie Android CallRoom.dmViaHorn)
+
+    /// Server meldet horn_dm und dieses Geraet hat horn + multi -> 1:1 zuerst mit via "horn" (ohne signals) anrufen
+    static func dmViaHorn(hornDm: Bool, myCaps: [String]) -> Bool { hornDm && myCaps.contains("horn") && myCaps.contains("multi") }
+    /// POST /api/calls fuer 1:1 ueber Knoten: ohne signals, mit via und Geraeteklasse
+    static func dmHornBody(id: String, chatID: Int, media: String, device: String, caps: [String], devClass: String) -> [String: Any] {
+        ["id": id, "chat_id": chatID, "media": media, "device": device, "caps": caps, "via": "horn", "dev_class": devClass]
+    }
+    enum DMHorn: Equatable {
+        case room                 // Raum-Anruf ueber den Knoten laeuft (call in der Antwort)
+        case direct               // nichts angelegt: mit derselben id direkt anrufen
+        case busy                 // Gegenueber telefoniert
+        case failed(String?)      // anderer Fehler (Meldung des Servers)
+    }
+    /// Antwort auf POST /api/calls mit via "horn". code nil = Netzfehler -> direkt (der Direktweg meldet dann selbst)
+    static func dmHornOutcome(code: Int?, body: [String: Any]?) -> DMHorn {
+        guard let code else { return .direct }
+        if (200..<300).contains(code) { return body?["call"] is [String: Any] ? .room : .failed(nil) }
+        if code == 409, (body?["fallback"] as? String) == "direct" { return .direct }
+        if code == 409, (body?["busy"] as? Bool) == true { return .busy }
+        let e = (body?["error"] as? String).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        return .failed(e?.isEmpty == false ? e : nil)
+    }
 }
