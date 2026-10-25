@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design 2 (Chats, Anrufe, Einstellungen, Anmeldung, Mitteilungen) -->
+<resources>
+    <string name="d2_chat_none_hint">Начните разговор кнопкой «Новый чат» — прочитать его сможете только вы и участники чата.</string>
+    <string name="d2_chat_empty_title">Поздоровайтесь</string>
+</resources>

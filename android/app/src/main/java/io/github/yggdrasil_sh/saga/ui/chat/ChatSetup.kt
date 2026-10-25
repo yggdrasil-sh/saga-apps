@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import androidx.compose.foundation.layout.heightIn
 import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -118,8 +119,12 @@ fun ChatSetupView(svc: ChatService, st: ChatSetup) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Column(Modifier.widthIn(max = 560.dp).fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(Icons.Filled.Lock, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(12.dp))
+            // Design 2: Schloss in einer goldenen Kachel (wie die leeren Zustaende), etwas Luft nach oben
+            Spacer(Modifier.height(16.dp))
+            io.github.yggdrasil_sh.saga.ui.theme.SagaIconTile(size = 72.dp, container = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldSoft) {
+                Icon(Icons.Filled.Lock, null, Modifier.size(34.dp), tint = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.onGoldSoft)
+            }
+            Spacer(Modifier.height(20.dp))
             when (st) {
                 ChatSetup.LOADING -> CircularProgressIndicator()
                 ChatSetup.UNSUPPORTED -> Info(stringResource(R.string.chat_unsupported))
@@ -197,7 +202,7 @@ private fun NewAccount(svc: ChatService) {
                     busy = false
                 }
             }
-        }, enabled = !busy, modifier = Modifier.padding(top = 20.dp)) { Text(stringResource(R.string.chat_setup_start)) }
+        }, enabled = !busy, modifier = Modifier.padding(top = 20.dp).fillMaxWidth().heightIn(min = 52.dp)) { Text(stringResource(R.string.chat_setup_start)) }
         err?.let { ErrorText(it) }
     } else {
         RecoveryKeyConfirm(p.recoveryKey, busy, err, onCancel = { svc.discardPending(); pending = null; err = null }) {

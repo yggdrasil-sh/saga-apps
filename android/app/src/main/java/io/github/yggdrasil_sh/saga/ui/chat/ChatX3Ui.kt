@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.chat
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -107,26 +109,28 @@ fun ReactionBar(mine: String?, onPick: (String) -> Unit, onMore: () -> Unit) {
 @Composable
 fun ReactionChips(chips: List<ReactionChip>, mineSide: Boolean, onToggle: ((String) -> Unit)?, onShow: () -> Unit) {
     if (chips.isEmpty()) return
+    // Design 2: Chips als Pillen, die leicht in die Blase ragen (Rand in Hintergrundfarbe trennt sie von der Blase)
     FlowRow(
-        Modifier.padding(top = 2.dp).widthIn(max = 520.dp),
+        Modifier.padding(horizontal = 10.dp).offset(y = (-6).dp).widthIn(max = 520.dp).animateContentSize(),
         horizontalArrangement = Arrangement.spacedBy(4.dp, if (mineSide) Alignment.End else Alignment.Start),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         chips.forEach { c ->
             val sc = MaterialTheme.colorScheme
             val desc = stringResource(R.string.x3_react_chip, c.e, c.n)
+            val pill = RoundedCornerShape(50)
             Surface(
                 color = if (c.mine) sc.secondaryContainer else sc.surfaceContainerHighest,
                 contentColor = if (c.mine) sc.onSecondaryContainer else sc.onSurface,
-                shape = RoundedCornerShape(12.dp),
+                shape = pill,
                 modifier = Modifier.heightIn(min = 32.dp)
-                    .then(if (c.mine) Modifier.border(1.dp, sc.primary, RoundedCornerShape(12.dp)) else Modifier)
-                    .clip(RoundedCornerShape(12.dp))
+                    .border(2.dp, if (c.mine) sc.primary else sc.surface, pill)
+                    .clip(pill)
                     .combinedClickable(onClick = { if (onToggle != null) onToggle(c.e) else onShow() }, onLongClick = onShow)
                     .semantics { contentDescription = desc },
             ) {
-                Row(Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(c.e, fontSize = 15.sp)
+                Row(Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(c.e, fontSize = 16.sp)
                     if (c.n > 1) Text(" " + c.n, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
                 }
             }

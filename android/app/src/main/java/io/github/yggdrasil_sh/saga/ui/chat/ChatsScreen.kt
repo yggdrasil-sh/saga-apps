@@ -178,13 +178,18 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
                 // 2.3: Nachrichtenanfragen (Personen anderer Server, noch nicht angenommen) oben in eigenem Bereich
                 // wie iOS: Suchfeld ueber der Liste (Name des Chats bzw. der Person)
                 if (chats.isNotEmpty() || query.isNotEmpty()) item(key = "search") {
-                    androidx.compose.material3.OutlinedTextField(
+                    // Design 2: Suchfeld als gefuellte Pille (wie die Suchleiste in Material 3)
+                    androidx.compose.material3.TextField(
                         value = query, onValueChange = { query = it.take(100) }, singleLine = true,
+                        colors = androidx.compose.material3.TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh, unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent, unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                        ),
                         placeholder = { Text(stringResource(R.string.chat_search_list)) },
                         leadingIcon = { Icon(Icons.Filled.Search, null) },
                         trailingIcon = { if (query.isNotEmpty()) androidx.compose.material3.IconButton(onClick = { query = "" }) { Icon(Icons.Filled.Close, stringResource(R.string.action_close)) } },
                         shape = RoundedCornerShape(28.dp),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
                     )
                 }
                 val q = query.trim().lowercase()
@@ -205,7 +210,8 @@ private fun ChatList(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, se
                     item(key = "requests-end") { HorizontalDivider(Modifier.padding(vertical = 4.dp)) }
                 }
                 if (loaded && active.isEmpty() && archived.isEmpty()) {
-                    item { Text(stringResource(R.string.chat_none), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
+                    // Design 2: freundlicher Leerzustand mit naechstem Schritt (Knopf "Neuer Chat" unten rechts)
+                    item { io.github.yggdrasil_sh.saga.ui.theme.SagaEmptyState(stringResource(R.string.chat_none), emoji = "💬", text = stringResource(R.string.d2_chat_none_hint)) }
                 }
                 val nameOf = { c: ChatSummary -> titles[c.id]?.takeIf { c.kind == "free" } ?: svc.displayName(c) }
                 items(active, key = { it.id }) { c ->
@@ -341,30 +347,48 @@ private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, online: Boo
         "free" -> stringResource(R.string.chat_kind_free)
         else -> stringResource(R.string.chat_kind_dm)
     }
+    val unread = c.unread > 0
+    val strong = unread && !c.muted
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 8.dp).clip(RoundedCornerShape(16.dp))
+        Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 1.dp).clip(RoundedCornerShape(20.dp))
             .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent)
             .combinedClickable(
                 onClick = onClick, onLongClick = onLongClick,
                 onLongClickLabel = if (onLongClick != null) stringResource(R.string.chatdel_actions) else null,
-            ).padding(horizontal = 8.dp, vertical = 10.dp),
+            ).padding(horizontal = 10.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Design 2: groesserer Profilkreis in der Tonfarbe der Person bzw. Gruppe
         WithOnlineDot(online) {
-            Avatar(name, symbol = if (c.kind == "page") "📄" else null, size = 40, icon = if (c.kind == "group" || c.kind == "free") R.drawable.ic_group else null, avatar = if (c.kind == "dm") c.peer?.avatar else null)
+            ChatAvatar(
+                name, 52.dp, symbol = if (c.kind == "page") "📄" else null,
+                icon = if (c.kind == "group" || c.kind == "free") R.drawable.ic_group else null, avatar = if (c.kind == "dm") c.peer?.avatar else null,
+            )
         }
-        Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f).padding(start = 14.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+              Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    name.ifEmpty { kindLabel }, style = MaterialTheme.typography.titleSmall,
-                    fontWeight = if (c.unread > 0 && !c.muted) FontWeight.Bold else FontWeight.Normal,
+                    name.ifEmpty { kindLabel }, style = MaterialTheme.typography.titleMedium,
+                    fontWeight = if (strong) FontWeight.Bold else FontWeight.Medium,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                 )
                 if (c.muted) {
                     val d = stringResource(R.string.chat_muted)
                     Icon(
-                        painterResource(R.drawable.ic_notifications_off), d, Modifier.padding(start = 4.dp).size(14.dp),
+                        painterResource(R.drawable.ic_notifications_off), d, Modifier.padding(start = 4.dp).size(16.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+              }
+                // Zeit rechts oben: heute Uhrzeit, diese Woche Wochentag, sonst Datum (Bildschirmleser: "vor 2 Minuten")
+                c.lastAt?.let { at ->
+                    val rel = relativeTime(at)
+                    Text(
+                        ChatDesign.listTime((at * 1000).toLong(), locale = io.github.yggdrasil_sh.saga.ui.common.appLocale()), style = MaterialTheme.typography.labelMedium,
+                        color = if (strong) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = if (strong) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1,
+                        modifier = Modifier.padding(start = 8.dp).semantics { contentDescription = rel },
                     )
                 }
             }
@@ -376,19 +400,23 @@ private fun ChatRow(c: ChatSummary, name: String, selected: Boolean, online: Boo
                     else " · " + androidx.compose.ui.res.pluralStringResource(R.plurals.fed_people_n, c.memberCount, c.memberCount) +
                         (c.home?.takeIf { !c.homeSelf }?.let { " · $it" }.orEmpty())) +
                     (if (c.readonly) " · " + stringResource(R.string.fed_readonly_chip) else "")
+            } else if (c.kind != "dm" && c.memberCount > 0) {
+                kindLabel + " · " + androidx.compose.ui.res.pluralStringResource(R.plurals.fed_people_n, c.memberCount, c.memberCount)
             } else kindLabel
-            Text(
-                sub + (c.lastAt?.let { " · " + relativeTime(it) } ?: ""), style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
-            )
-        }
-        if (c.unread > 0) {
-            val d = androidx.compose.ui.res.pluralStringResource(R.plurals.notifications_unread_n, c.unread, c.unread)
-            Badge(
-                Modifier.semantics { contentDescription = d },
-                containerColor = if (c.muted) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            ) { Text(if (c.unread > 99) "99+" else "${c.unread}") }
+            Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    sub, style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f),
+                )
+                if (unread) {
+                    val d = androidx.compose.ui.res.pluralStringResource(R.plurals.notifications_unread_n, c.unread, c.unread)
+                    Badge(
+                        Modifier.padding(start = 8.dp).semantics { contentDescription = d },
+                        containerColor = if (c.muted) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary,
+                        contentColor = if (c.muted) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onPrimary,
+                    ) { Text(if (c.unread > 99) "99+" else "${c.unread}", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 2.dp)) }
+                }
+            }
         }
     }
 }

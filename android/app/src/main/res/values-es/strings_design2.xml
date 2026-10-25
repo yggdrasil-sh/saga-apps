@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design 2 (Chats, Anrufe, Einstellungen, Anmeldung, Mitteilungen) -->
+<resources>
+    <string name="d2_chat_none_hint">Empieza una conversación con «Chat nuevo»: solo tú y las personas del chat podéis leerla.</string>
+    <string name="d2_chat_empty_title">Saluda</string>
+</resources>

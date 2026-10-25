@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Design 2 (Chats, Anrufe, Einstellungen, Anmeldung, Mitteilungen) -->
+<resources>
+    <string name="d2_chat_none_hint">Starte eine Unterhaltung mit „Neuer Chat“ – lesen können sie nur du und die Personen im Chat.</string>
+    <string name="d2_chat_empty_title">Sag Hallo</string>
+</resources>

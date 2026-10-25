@@ -575,8 +575,16 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     } else if (call != null) {
                         CallEntryRow(m, call, s.me, canCall) { startCall(it) }
                     } else {
+                        // Design 2: Folgen derselben Person enger und mit passenden Ecken (Liste neueste zuerst)
+                        val runOf = { o: io.github.yggdrasil_sh.saga.chat.ChatMessage? ->
+                            o != null && o.sys == null && o.call == null && o.ai == m.ai &&
+                                ChatDesign.sameRun(m.sender?.username, m.mine, m.ts, o.sender?.username, o.mine, o.ts)
+                        }
+                        val older = shown.getOrNull(i + 1)
+                        val dayStart = io.github.yggdrasil_sh.saga.chat.ChatFormat.dayStarts(m.ts, older?.ts, ZoneId.systemDefault())
                         Bubble(
                             m, s, group = s.summary?.kind != "dm", aiPersona = aiPersona,
+                            first = dayStart || !runOf(older), last = !runOf(shown.getOrNull(i - 1)),
                             onReply = { s.replyTo = m },
                             onCopy = { copyText(context, m.content?.text.orEmpty()) },
                             onDelete = { repo.launchAction { s.delete(m) } },
@@ -610,10 +618,8 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 }
                 if (!s.loading && s.messages.isEmpty()) {
                     item {
-                        Text(
-                            stringResource(R.string.chat_empty), color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(24.dp),
-                        )
+                        // Design 2: Leerzustand mit Gruss statt grauer Zeile
+                        io.github.yggdrasil_sh.saga.ui.theme.SagaEmptyState(stringResource(R.string.d2_chat_empty_title), emoji = "👋", text = stringResource(R.string.chat_empty))
                     }
                 }
                 // 2.1: "Der bisherige Verlauf wurde gelöscht." am Anfang des Verlaufs (umgekehrte Liste: zuletzt = oben)
@@ -756,10 +762,16 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     voiceRec.secs, voiceRec.levels, voiceRec.phase == VoiceRecUi.Phase.LOCKED, voiceRec.warned,
                     onStop = { voiceRec.stop() }, onCancel = { voiceRec.cancel() },
                 )
-            } else OutlinedTextField(
+            } else androidx.compose.material3.TextField(
                 state = input,
                 placeholder = { Text(stringResource(if (s.editing != null) R.string.x3_edit_hint else R.string.chat_message_hint)) },
                 lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 6), shape = RoundedCornerShape(24.dp),
+                // Design 2: gefuelltes Eingabefeld als Pille, ohne Unterstrich und Rahmen
+                colors = androidx.compose.material3.TextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh, unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent, unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                    disabledIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                ),
                 modifier = Modifier.weight(1f).heightIn(min = 48.dp).contentReceiver(receiver),
             )
             val canSend = (input.text.isNotBlank() || files.isNotEmpty() || noteIds.isNotEmpty() || videos.isNotEmpty()) && !s.sending && fetching == 0
@@ -834,9 +846,13 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                         repo.notify(if (repo.isNetworkFailure(e)) UiText.Res(R.string.chat_send_offline) else repo.friendly(e))
                     }
                 }
-            }, enabled = canSend) {
-                if (s.sending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                else Icon(Icons.AutoMirrored.Filled.Send, stringResource(R.string.chat_send), tint = if (canSend) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline)
+            }, enabled = canSend, colors = androidx.compose.material3.IconButtonDefaults.iconButtonColors(
+                // Design 2: Senden als goldener Kreis (deaktiviert: ruhige Flaeche)
+                containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary,
+                disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest, disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            ), modifier = Modifier.padding(start = 4.dp)) {
+                if (s.sending) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else Icon(Icons.AutoMirrored.Filled.Send, stringResource(R.string.chat_send))
             }
         }
     }
@@ -1081,6 +1097,8 @@ private fun Bubble(
     onUnverified: () -> Unit, onResend: () -> Unit = {},
     tick: io.github.yggdrasil_sh.saga.chat.Tick = io.github.yggdrasil_sh.saga.chat.Tick(io.github.yggdrasil_sh.saga.chat.TickKind.NONE),
     readAt: Long? = null, onReadBy: (() -> Unit)? = null,
+    /** Design 2: erste bzw. letzte Nachricht einer Folge derselben Person (Ecken, Abstand, Name, Profilkreis) */
+    first: Boolean = true, last: Boolean = true,
     /** 2.5: Reaktion (Emoji; gleiches nochmal nimmt zurueck), volle Auswahl, "Reaktionen", Bearbeiten */
     onReact: (String) -> Unit = {}, onMoreEmoji: () -> Unit = {}, onShowReactions: () -> Unit = {}, onEdit: () -> Unit = {},
 ) {
@@ -1098,29 +1116,34 @@ private fun Bubble(
     val time = remember(m.ts) {
         Instant.ofEpochMilli(m.ts).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
     }
+    val reactions = s.chipsOf(m).isNotEmpty()
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
+        Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = if (first) 6.dp else 1.dp, bottom = if (last || reactions) 2.dp else 1.dp),
         horizontalArrangement = if (mineSide) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Bottom,
     ) {
+        // Profilkreis nur an der letzten Blase einer Folge, sonst gleich breiter Platz (Blasen bleiben buendig)
         if (isAi) {
-            Box(Modifier.padding(end = 6.dp, bottom = 2.dp)) { AiAvatar(aiPersona, 28) }
+            Box(Modifier.padding(end = 6.dp, bottom = 2.dp).size(28.dp)) { if (last) AiAvatar(aiPersona, 28) }
         } else if (group && !m.mine) {
             // 2.1: Profilbild des Absenders (Gruppen-Chats)
-            Box(Modifier.padding(end = 6.dp, bottom = 2.dp)) {
-                io.github.yggdrasil_sh.saga.ui.notifications.Avatar(m.sender?.let { io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(it) }.orEmpty(), size = 28, avatar = m.sender?.avatar)
+            Box(Modifier.padding(end = 6.dp, bottom = if (reactions) 26.dp else 2.dp).size(28.dp)) {
+                if (last) ChatAvatar(m.sender?.let { io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(it) }.orEmpty(), 28.dp, avatar = m.sender?.avatar)
             }
         }
         Column(horizontalAlignment = if (mineSide) Alignment.End else Alignment.Start) {
         Box {
             Surface(
                 color = bg, contentColor = fg,
-                shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = if (mineSide) 18.dp else 4.dp, bottomEnd = if (mineSide) 4.dp else 18.dp),
+                shape = ChatDesign.bubbleShape(mineSide, first, last),
                 // voll deckend - auch bei "Echtheit nicht bestätigt" (kein Abdunkeln des Inhalts)
                 modifier = Modifier.widthIn(max = 520.dp)
                     .combinedClickable(onClick = {}, onLongClick = { menu = true }, onLongClickLabel = stringResource(R.string.chat_message_actions)),
             ) {
-                Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                // Design 2: nur Bild/Video - schmaler Rand, das Bild fuellt die Blase
+                val mediaOnly = m.content?.let { c -> c.text.isEmpty() && c.notes.isEmpty() && c.files.isNotEmpty() && c.files.all { (it.isImage || it.isVideo) && !it.isVoice } } == true &&
+                    m.replyTo == null && m.verified && !isAi && m.ai != AiReplyCheck.BAD && !(group && !m.mine && first)
+                Column(if (mediaOnly) Modifier.padding(4.dp) else Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                     if (isAi) {
                         val name = aiPersona?.name ?: m.content?.aiName ?: stringResource(R.string.ai_title)
                         val by = if (m.mine) stringResource(R.string.chat_ai_asked_by_you)
@@ -1132,8 +1155,10 @@ private fun Bubble(
                             )
                             Text(" · $by", style = MaterialTheme.typography.labelSmall, color = fg.copy(alpha = 0.75f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                    } else if (group && !m.mine) {
-                        Text(m.sender?.let { io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(it) }.orEmpty(), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                    } else if (group && !m.mine && first) {
+                        // Design 2: Name in der Tonfarbe der Person (wie ihr Profilkreis), nur an der ersten Blase
+                        val who = m.sender?.let { io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(it) }.orEmpty()
+                        Text(who, style = MaterialTheme.typography.labelMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, color = ChatDesign.nameColor(who, MaterialTheme.colorScheme))
                     }
                     if (m.ai == AiReplyCheck.BAD) {
                         // gibt sich als KI-Antwort aus, Beleg fehlt/passt nicht
@@ -1201,7 +1226,8 @@ private fun Bubble(
                     }
                     // Uhrzeit + Haken (2.4): ⏳ → ✓ → ✓✓; in Gruppen fuehrt Antippen zu "Gelesen von"
                     Row(
-                        Modifier.align(Alignment.End).then(if (onReadBy != null) Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onReadBy) else Modifier),
+                        Modifier.align(Alignment.End).then(if (mediaOnly) Modifier.padding(end = 8.dp, top = 2.dp, bottom = 2.dp) else Modifier)
+                            .then(if (onReadBy != null) Modifier.clip(RoundedCornerShape(6.dp)).clickable(onClick = onReadBy) else Modifier),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         // 2.5: "bearbeitet" klein neben der Zeit (Zeitpunkt fuer Bildschirmleser)
@@ -1314,7 +1340,7 @@ private fun Attachment(f: ChatFile, s: ChatSession, onOpen: (ChatFile) -> Unit) 
                 ?: loaded?.let { io.github.yggdrasil_sh.saga.chat.ChatImages.displaySize(it.width, it.height) }
                 ?: (200 to 150)
             Box(
-                Modifier.padding(vertical = 4.dp).size(dims.first.dp, dims.second.dp).clip(RoundedCornerShape(10.dp))
+                Modifier.padding(vertical = 2.dp).size(dims.first.dp, dims.second.dp).clip(RoundedCornerShape(16.dp))
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest).clickable { onOpen(f) },
                 contentAlignment = Alignment.Center,
             ) {
