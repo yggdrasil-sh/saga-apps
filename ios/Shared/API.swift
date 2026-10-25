@@ -70,6 +70,15 @@ enum API {
         _ = try await request("api/app/rows/\(row)/check", method: "POST", body: ["pid": pid, "value": value])
     }
 
+    /// Teilen-Blatt (2.5): Namen der eigenen Lesezeichen-Kategorien und ein Lesezeichen anlegen (nur diese zwei Rechte).
+    struct BookmarkCategories: Decodable { var categories: [String]; var `default`: String? }
+    static func bookmarkCategories() async throws -> BookmarkCategories {
+        try JSONDecoder().decode(BookmarkCategories.self, from: try await request("api/app/bookmarks/categories"))
+    }
+    static func addBookmark(_ body: [String: Any]) async throws {
+        _ = try await request("api/app/bookmarks", method: "POST", body: body)
+    }
+
     /// Link/Text ablegen: kind "page" (Seite im Eingang) oder "task" (Aufgabe).
     static func capture(kind: String, title: String, text: String, url: String?, due: Date? = nil) async throws {
         var b: [String: Any] = ["kind": kind, "title": title, "text": text]

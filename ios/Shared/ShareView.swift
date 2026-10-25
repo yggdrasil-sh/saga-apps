@@ -26,9 +26,28 @@ func readShared(_ items: [NSExtensionItem]) async -> SharedContent {
 struct ShareView: View {
     @State var content: SharedContent
     var done: (Bool) -> Void
-    @State private var kind = "page"
+    @State private var kind: String
     @State private var busy = false
     @State private var error = ""
+    // Lesezeichen (2.5)
+    @State private var name: String
+    @State private var category = ""
+    @State private var categories: [String] = []
+    @State private var standardCategory = String(localized: "Lesezeichen")
+    @State private var bookmarkUnsupported = false      // Server ohne /api/app/bookmarks (vor 2.5)
+
+    init(content: SharedContent, done: @escaping (Bool) -> Void) {
+        _content = State(initialValue: content)
+        self.done = done
+        _kind = State(initialValue: ShareBookmarkLogic.initialKind(last: AppConfig.store.string(forKey: ShareBookmarkLogic.lastKindKey),
+                                                                   hasURL: content.url != nil))
+        _name = State(initialValue: ShareBookmarkLogic.defaultName(title: content.title, url: content.url))
+    }
+
+    private var canSave: Bool {
+        guard !busy, AppConfig.hasToken else { return false }
+        return kind != "bookmark" || (content.url != nil && !bookmarkUnsupported)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -37,16 +56,37 @@ struct ShareView: View {
                 Spacer()
                 Text("In Saga speichern").font(.headline)
                 Spacer()
-                Button(busy ? "…" : "Sichern") { Task { await save() } }.bold().disabled(busy || !AppConfig.hasToken)
+                Button(busy ? "…" : "Sichern") { Task { await save() } }.bold().disabled(!canSave)
             }
             Picker("", selection: $kind) {
                 Text("📥 Seite im Eingang").tag("page")
                 Text("✓ Aufgabe").tag("task")
+                if content.url != nil { Text("🔖 Lesezeichen").tag("bookmark") }
             }.pickerStyle(.segmented).labelsHidden()
-            TextField("Titel", text: $content.title).textFieldStyle(.roundedBorder)
+            if kind == "bookmark" {
+                TextField("Name", text: $name).textFieldStyle(.roundedBorder)
+                HStack(spacing: 6) {
+                    TextField("Kategorie", text: $category).textFieldStyle(.roundedBorder)
+                    if !categories.isEmpty {
+                        Menu {
+                            ForEach(categories, id: \.self) { c in Button(c) { category = c } }
+                        } label: { Image(systemName: "chevron.up.chevron.down") }
+                        .accessibilityLabel(Text("Kategorie wählen"))
+                        .fixedSize()
+                    }
+                }
+            } else {
+                TextField("Titel", text: $content.title).textFieldStyle(.roundedBorder)
+            }
             if let u = content.url { Label(u, systemImage: "link").font(.caption).lineLimit(2).foregroundStyle(.secondary) }
             if !content.text.isEmpty && kind == "page" {
                 Text(content.text).font(.caption).lineLimit(6).foregroundStyle(.secondary)
+            }
+            if kind == "bookmark" && !bookmarkUnsupported {
+                Text("Erscheint unter „Dienste“. Ein Symbol kannst du später in der App wählen.").font(.caption).foregroundStyle(.secondary)
+            }
+            if kind == "bookmark" && bookmarkUnsupported {
+                Text("Dein Saga-Server kann noch keine Lesezeichen aus dem Teilen-Blatt anlegen (ab Saga 2.5).").font(.caption).foregroundStyle(.orange)
             }
             if !AppConfig.hasToken {
                 Text("Noch kein App-Schlüssel – bitte einmal die Saga-App öffnen und unter Einstellungen eintragen.").font(.caption).foregroundStyle(.orange)
@@ -56,12 +96,38 @@ struct ShareView: View {
         }
         .padding()
         .frame(minWidth: 360, minHeight: 240)
+        .task { await loadCategories() }
+    }
+
+    /// Kategorien nur laden, wenn ein Link dabei ist; ohne Antwort bleibt der Standard (Fehler zeigt erst "Sichern").
+    private func loadCategories() async {
+        guard content.url != nil else { return }
+        var server: [String] = []
+        do {
+            let r = try await API.bookmarkCategories()
+            server = r.categories
+            if let d = r.default, !d.isEmpty { standardCategory = d }
+        } catch APIError.http(404, _) {
+            bookmarkUnsupported = true
+        } catch {}
+        categories = ShareBookmarkLogic.categories(server: server, standard: standardCategory)
+        if category.isEmpty {
+            category = ShareBookmarkLogic.initialCategory(last: AppConfig.store.string(forKey: ShareBookmarkLogic.lastCategoryKey),
+                                                          available: categories, standard: standardCategory)
+        }
     }
 
     private func save() async {
         busy = true; error = ""
         do {
-            try await API.capture(kind: kind, title: content.title, text: kind == "page" ? content.text : "", url: content.url)
+            if kind == "bookmark", let u = content.url {
+                let body = ShareBookmarkLogic.payload(name: name, url: u, category: category)
+                try await API.addBookmark(body)
+                AppConfig.store.set(body["category"] as? String, forKey: ShareBookmarkLogic.lastCategoryKey)
+            } else {
+                try await API.capture(kind: kind, title: content.title, text: kind == "page" ? content.text : "", url: content.url)
+            }
+            AppConfig.store.set(kind, forKey: ShareBookmarkLogic.lastKindKey)
             done(true)
         } catch { self.error = error.localizedDescription; busy = false }
     }
