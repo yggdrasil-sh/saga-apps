@@ -180,7 +180,7 @@ if [ "$UPDATES" = 1 ]; then
 fi
 for b in "$SPF/Versions/B/Autoupdate" "$SPF/Versions/B/Updater.app" "$SPF/Versions/B/XPCServices/Installer.xpc"; do
   [ -e "$b" ] || die "Sparkle-Teil fehlt: $b"
-  codesign -dv "$b" 2>&1 | grep -q "Authority=Developer ID Application" || [ "${SAGA_SIGN_IDENTITY:-}" = - ] || die "nicht mit Developer ID signiert: $b"
+  codesign -dvv "$b" 2>&1 | grep -q "Authority=Developer ID Application" || [ "${SAGA_SIGN_IDENTITY:-}" = - ] || die "nicht mit Developer ID signiert: $b"
 done
 
 notarize() { # $1 = zip oder dmg
