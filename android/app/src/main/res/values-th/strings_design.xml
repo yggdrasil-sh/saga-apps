@@ -7,6 +7,8 @@
     <string name="greeting_night">ราตรีสวัสดิ์</string>
     <string name="today_events_empty_hint">ปฏิทินว่าง – ได้เวลาทำสิ่งดี ๆ</string>
     <string name="today_tasks_empty_hint">เพิ่มงานด้านบน หรือพักผ่อนให้เต็มที่</string>
+    <string name="dbv_views_menu">มุมมองและเทมเพลต</string>
+    <string name="action_clear_search">ล้างการค้นหา</string>
     <string name="search_empty_title">ค้นหาทุกหน้า</string>
     <string name="search_empty_hint">ค้นหาทั้งชื่อเรื่องและข้อความ รวมถึงในฐานข้อมูล</string>
     <string name="search_no_hits_title">ไม่พบผลลัพธ์</string>

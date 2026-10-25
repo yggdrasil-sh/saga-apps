@@ -7,6 +7,8 @@
     <string name="greeting_night">Good night</string>
     <string name="today_events_empty_hint">Your calendar is free – time for something nice.</string>
     <string name="today_tasks_empty_hint">Add a task above or enjoy the free day.</string>
+    <string name="dbv_views_menu">Views and templates</string>
+    <string name="action_clear_search">Clear search</string>
     <string name="search_empty_title">Search all pages</string>
     <string name="search_empty_hint">Titles and text are searched, also in databases.</string>
     <string name="search_no_hits_title">Nothing found</string>

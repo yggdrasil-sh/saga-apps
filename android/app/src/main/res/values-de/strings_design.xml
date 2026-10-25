@@ -7,6 +7,8 @@
     <string name="greeting_night">Gute Nacht</string>
     <string name="today_events_empty_hint">Dein Kalender ist frei – Zeit für etwas Schönes.</string>
     <string name="today_tasks_empty_hint">Oben eine Aufgabe anlegen oder den freien Tag genießen.</string>
+    <string name="dbv_views_menu">Ansichten und Vorlagen</string>
+    <string name="action_clear_search">Suche leeren</string>
     <string name="search_empty_title">Alle Seiten durchsuchen</string>
     <string name="search_empty_hint">Gesucht wird in Titeln und Text, auch in Datenbanken.</string>
     <string name="search_no_hits_title">Nichts gefunden</string>
