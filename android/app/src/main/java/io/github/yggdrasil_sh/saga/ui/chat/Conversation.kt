@@ -82,6 +82,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.res.pluralStringResource
+import androidx.activity.compose.BackHandler
+import io.github.yggdrasil_sh.saga.chat.ChatSelect
+import io.github.yggdrasil_sh.saga.chat.X3Hint
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.AnnotatedString
@@ -301,6 +307,17 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     var emojiFor by remember { mutableStateOf<ChatMessage?>(null) }
     var reactionsFor by remember { mutableStateOf<ChatMessage?>(null) }
     var micDenied by remember { mutableStateOf(false) }
+    // 25.10.: Mehrfachauswahl (langer Druck bzw. Menue "Auswählen"; Antippen waehlt weitere, Zurueck/× beendet)
+    var selecting by remember(chatId) { mutableStateOf(false) }
+    var selected by remember(chatId) { mutableStateOf<Set<String>>(emptySet()) }
+    var selDialog by remember(chatId) { mutableStateOf<String?>(null) }
+    var forwardTo by remember(chatId) { mutableStateOf<Pair<io.github.yggdrasil_sh.saga.chat.ChatSummary, String>?>(null) }
+    var forwarding by remember(chatId) { mutableStateOf(false) }
+    var pageTarget by remember(chatId) { mutableStateOf<ChatNoteRef?>(null) }
+    val endSelection = { selecting = false; selected = emptySet(); selDialog = null }
+    BackHandler(enabled = selecting) { endSelection() }
+    LaunchedEffect(s) { quietly { s.loadHiddenLocal() } }
+    LaunchedEffect(s.messages.size) { if (selected.isNotEmpty()) selected = ChatSelect.prune(selected, s.messages.toList()) }
     val voiceRec = remember(chatId) { VoiceRecUi(scope) { repo.notify(it) } }
     LaunchedEffect(Unit) {
         io.github.yggdrasil_sh.saga.chat.voice.VoicePlayer.init(context)
@@ -414,7 +431,10 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     Column(Modifier.fillMaxSize().windowInsetsPadding(io.github.yggdrasil_sh.saga.ui.common.SafeBottom.insets)) {
         // zweizeiliger Titel: Kopfzeile waechst mit der Schriftgroesse (200 %: sonst unter der Statusleiste, BUG-070)
         val fontScale = LocalDensity.current.fontScale
-        TopAppBar(
+        if (selecting) SelectionTopBar(
+            selected.size, onClose = endSelection,
+            onCopy = { selDialog = "copy" }, onForward = { selDialog = "forward" }, onToPage = { selDialog = "page" }, onDelete = { selDialog = "delete" },
+        ) else TopAppBar(
             expandedHeight = maxOf(TopAppBarDefaults.TopAppBarExpandedHeight, (46 * fontScale).dp),
             title = {
                 Column {
@@ -450,11 +470,14 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                         Icon(painterResource(R.drawable.ic_videocam), stringResource(if (running) R.string.room_join_video else R.string.room_group_video))
                     }
                 }
+                // 25.10.: warum (noch) keine Reaktionen/kein Bearbeiten (x3_why) - dezentes ⓘ mit Popover
+                X3Hint.of(s.summary)?.let { h -> X3InfoButton(h) { nav.push(Dest.ChatDevices) } }
                 IconButton(onClick = { search = if (search == null) "" else null }) { Icon(Icons.Filled.Search, stringResource(R.string.chat_search)) }
                 Box {
                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more)) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         val sum = s.summary
+                        DropdownMenuItem(text = { Text(stringResource(R.string.cs_select)) }, onClick = { menu = false; selecting = true })
                         DropdownMenuItem(text = { Text(stringResource(R.string.chat_safety_number)) }, onClick = { menu = false; dialog = "safety" })
                         DropdownMenuItem(text = { Text(stringResource(R.string.chat_members)) }, onClick = { menu = false; dialog = "members" })
                         if (sum != null) {
@@ -511,6 +534,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         )
         // Laeuft der Anruf in diesem Chat: zurueck in den Anrufbildschirm (derselbe Anruf, kein neuer Aufbau)
         io.github.yggdrasil_sh.saga.call.ReturnToCallRow(callSt, chatId)
+        if (forwarding) androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
         search?.let { q ->
             OutlinedTextField(
                 value = q, onValueChange = { search = it }, singleLine = true, placeholder = { Text(stringResource(R.string.chat_search_hint)) },
@@ -551,9 +575,10 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             Text(it.resolve(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
         }
 
-        val shown = remember(s.messages.toList(), search) {
+        val shown = remember(s.messages.toList(), search, s.hiddenLocal) {
             val q = search?.trim()?.lowercase().orEmpty()
-            s.messages.toList().filter { q.isEmpty() || it.content?.text?.lowercase()?.contains(q) == true }.asReversed()
+            val hid = s.hiddenLocal
+            s.messages.toList().filter { it.id !in hid && (q.isEmpty() || it.content?.text?.lowercase()?.contains(q) == true) }.asReversed()
         }
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
           androidx.compose.runtime.CompositionLocalProvider(LocalVideoHost provides videoHost) {
@@ -603,6 +628,14 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                                 s.editing = m
                                 input.setTextAndPlaceCursorAtEnd(m.content?.text.orEmpty())
                             },
+                            selecting = selecting, selected = m.id in selected,
+                            onSelect = if (ChatSelect.selectable(m)) ({
+                                if (!selecting) {
+                                    selecting = true
+                                    selected = setOf(m.id)
+                                } else selected = ChatSelect.toggle(selected, m)
+                            }) else null,
+                            onMenuAction = { if (selected.size <= 1) endSelection() },
                         )
                     }
                   }
@@ -867,6 +900,90 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     }
     reactionsFor?.let { m -> ReactionsSheet(s.chipsOf(m), s.myHandle, { s.nameOfHandle(it) }) { reactionsFor = null } }
     if (micDenied) MicDeniedDialog { micDenied = false }
+    // 25.10.: Aktionen der Mehrfachauswahl
+    val selLabels = ChatSelect.Labels(
+        image = stringResource(R.string.cs_l_image), voice = stringResource(R.string.cs_l_voice), video = stringResource(R.string.cs_l_video),
+        file = stringResource(R.string.cs_l_file).let { f -> { n: String -> f.replace("%1\$s", n) } },
+    )
+    val noForwardMark = stringResource(R.string.cs_att_not_forwarded)
+    val selNameOf = { m: ChatMessage ->
+        if (m.ai == io.github.yggdrasil_sh.saga.ai.AiReplyCheck.OK) aiName.ifEmpty { m.content?.aiName.orEmpty() }
+        else m.sender?.let { io.github.yggdrasil_sh.saga.chat.ChatLogic.shown(it) }.orEmpty()
+    }
+    val selLoc = io.github.yggdrasil_sh.saga.ui.common.appLocale()
+    val selTimeOf = { m: ChatMessage ->
+        Instant.ofEpochMilli(m.ts).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withLocale(selLoc))
+    }
+    val noteTitle = { id: Long -> s.notes[id]?.title }
+    val selMsgs = ChatSelect.ordered(s.messages.toList(), selected)
+    when (selDialog) {
+        "copy" -> LaunchedEffect(Unit) {
+            val text = ChatSelect.copyText(selMsgs, selLabels, selNameOf, selTimeOf, noteTitle)
+            copyText(context, text)
+            repo.notify(UiText.Plural(R.plurals.cs_copied, selMsgs.size, listOf(selMsgs.size)))
+            endSelection()
+        }
+        "forward" -> if (selMsgs.size > ChatSelect.FORWARD_MAX) LaunchedEffect(Unit) {
+            repo.notify(UiText.Res(R.string.cs_forward_max, ChatSelect.FORWARD_MAX))
+            selDialog = null
+        } else ForwardTargetDialog(repo, chatId, onDismiss = { selDialog = null }) { c, name -> forwardTo = c to name; selDialog = "forward_confirm" }
+        "forward_confirm" -> forwardTo?.let { (target, name) ->
+            AlertDialog(
+                onDismissRequest = { selDialog = null },
+                title = { Text(pluralStringResource(R.plurals.cs_forward_confirm, selMsgs.size, selMsgs.size, name)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        val msgs = selMsgs
+                        endSelection()
+                        forwarding = true
+                        repo.launchAction(onError = { forwarding = false }) {
+                            val r = forwardMessages(repo, s, target.id, msgs, noForwardMark)
+                            forwarding = false
+                            repo.notify(UiText.Plural(R.plurals.cs_forward_done, r.first, listOf(r.first, name)))
+                            if (r.second > 0) repo.notify(UiText.Plural(R.plurals.cs_forward_dropped, r.second, listOf(r.second)))
+                        }
+                    }) { Text(stringResource(R.string.cs_forward)) }
+                },
+                dismissButton = { TextButton(onClick = { selDialog = null }) { Text(stringResource(R.string.action_cancel)) } },
+            )
+        }
+        "page" -> ToPageDialog(onDismiss = { selDialog = null }, onNew = { selDialog = "page_new" }, onAppend = { selDialog = "page_pick" })
+        "page_pick" -> PageTargetDialog(repo, onDismiss = { selDialog = null }) { ref -> forwardTo = null; pageTarget = ref; selDialog = "page_go" }
+        "page_new", "page_go" -> {
+            val target = if (selDialog == "page_go") pageTarget else null
+            val paras = ChatSelect.pageParagraphs(selMsgs, selLabels, selNameOf, selTimeOf, noteTitle)
+            val title = ChatSelect.pageTitle(s.name, java.time.LocalDate.now().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(io.github.yggdrasil_sh.saga.ui.common.appLocale())))
+            LaunchedEffect(Unit) {
+                endSelection()
+                repo.launchAction {
+                    val id = chatToPage(repo, target?.id, title, paras)
+                    nav.push(Dest.Page(id))
+                    repo.notify(UiText.Res(R.string.cs_page_done, target?.title?.ifEmpty { null } ?: title))
+                }
+            }
+        }
+        "delete" -> DeleteSelectionDialog(
+            selMsgs.size, ChatSelect.canDeleteForAll(selMsgs, !fedReq && !fedRo), onDismiss = { selDialog = null },
+            onForMe = {
+                val ids = selMsgs.map { it.id }
+                endSelection()
+                repo.launchAction {
+                    val server = s.hide(ids)
+                    repo.notify(if (server) UiText.Plural(R.plurals.cs_hidden, ids.size, listOf(ids.size)) else UiText.Res(R.string.cs_hidden_local))
+                }
+            },
+            onForAll = { selDialog = "delete_all" },
+        )
+        "delete_all" -> DeleteAllConfirm(onDismiss = { selDialog = null }) {
+            val ids = selMsgs.map { it.id }
+            endSelection()
+            repo.launchAction {
+                val r = s.deleteMany(ids)
+                repo.notify(UiText.Plural(R.plurals.cs_deleted, r.deleted.size, listOf(r.deleted.size)))
+                if (r.failed.isNotEmpty()) repo.notify(UiText.Plural(R.plurals.cs_delete_failed, r.failed.size, listOf(r.failed.size)))
+            }
+        }
+    }
     unverifiedOf?.let { who ->
         AlertDialog(
             onDismissRequest = { unverifiedOf = null },
@@ -1089,9 +1206,10 @@ object ChatUi {
     }
 }
 
+/** internal: auch fuer die Bildschirmfotos im Geraete-Test (ChatSelShotsTest) */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Bubble(
+internal fun Bubble(
     m: ChatMessage, s: ChatSession, group: Boolean, aiPersona: AiPersona?,
     onReply: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit, onOpenNote: (Long) -> Unit, onOpenFile: (ChatFile) -> Unit,
     onUnverified: () -> Unit, onResend: () -> Unit = {},
@@ -1101,8 +1219,15 @@ private fun Bubble(
     first: Boolean = true, last: Boolean = true,
     /** 2.5: Reaktion (Emoji; gleiches nochmal nimmt zurueck), volle Auswahl, "Reaktionen", Bearbeiten */
     onReact: (String) -> Unit = {}, onMoreEmoji: () -> Unit = {}, onShowReactions: () -> Unit = {}, onEdit: () -> Unit = {},
+    /** 25.10.: Auswahlmodus aktiv / diese Nachricht ausgewaehlt; onSelect null = nicht auswaehlbar (nicht entschluesselt) */
+    selecting: Boolean = false, selected: Boolean = false, onSelect: (() -> Unit)? = null,
+    /** Eintrag im Nachrichtenmenue gewaehlt (beendet eine nur per langem Druck begonnene Auswahl) */
+    onMenuAction: () -> Unit = {},
 ) {
     var menu by remember { mutableStateOf(false) }
+    val isSel = selecting && selected
+    val selDesc = stringResource(if (isSel) R.string.cs_state_selected else R.string.cs_state_not_selected)
+    val selLabel = stringResource(R.string.cs_select_action)
     var confirmDelete by remember { mutableStateOf(false) }
     // 2.1: bestaetigte KI-Antwort - links mit Profilbild + Name der KI, "gefragt von …" (auch die eigene)
     val isAi = m.ai == AiReplyCheck.OK
@@ -1117,8 +1242,14 @@ private fun Bubble(
         Instant.ofEpochMilli(m.ts).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
     }
     val reactions = s.chipsOf(m).isNotEmpty()
+    // 25.10.: im Auswahlmodus Kreis links, getoente Zeile, Antippen der ganzen Zeile waehlt (Inhalt nicht bedienbar)
+    Box(
+        Modifier.fillMaxWidth().background(selectedRowColor(isSel))
+            .then(if (selecting && onSelect != null) Modifier.semantics(mergeDescendants = true) { this.selected = isSel; stateDescription = selDesc } else Modifier),
+    ) {
+    if (selecting && onSelect != null) SelectMark(isSel, Modifier.align(Alignment.CenterStart).padding(start = 12.dp))
     Row(
-        Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = if (first) 6.dp else 1.dp, bottom = if (last || reactions) 2.dp else 1.dp),
+        Modifier.fillMaxWidth().padding(start = if (selecting) 46.dp else 12.dp, end = 12.dp, top = if (first) 6.dp else 1.dp, bottom = if (last || reactions) 2.dp else 1.dp),
         horizontalArrangement = if (mineSide) Arrangement.End else Arrangement.Start,
         verticalAlignment = Alignment.Bottom,
     ) {
@@ -1138,7 +1269,12 @@ private fun Bubble(
                 shape = ChatDesign.bubbleShape(mineSide, first, last),
                 // voll deckend - auch bei "Echtheit nicht bestätigt" (kein Abdunkeln des Inhalts)
                 modifier = Modifier.widthIn(max = 520.dp)
-                    .combinedClickable(onClick = {}, onLongClick = { menu = true }, onLongClickLabel = stringResource(R.string.chat_message_actions)),
+                    .combinedClickable(
+                        onClick = {},
+                        // langer Druck: Auswahl beginnen (diese Nachricht) und das Nachrichtenmenue zeigen
+                        onLongClick = { if (!selecting) { onSelect?.invoke(); menu = true } },
+                        onLongClickLabel = stringResource(R.string.chat_message_actions),
+                    ),
             ) {
                 // Design 2: nur Bild/Video - schmaler Rand, das Bild fuellt die Blase
                 val mediaOnly = m.content?.let { c -> c.text.isEmpty() && c.notes.isEmpty() && c.files.isNotEmpty() && c.files.all { (it.isImage || it.isVideo) && !it.isVoice } } == true &&
@@ -1252,35 +1388,39 @@ private fun Bubble(
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                 // 2.5: Schnellleiste (6 Emojis + "+") ueber den Eintraegen
                 if (s.canReact(m)) {
-                    ReactionBar(s.myReaction(m), onPick = { menu = false; onReact(it) }, onMore = { menu = false; onMoreEmoji() })
+                    ReactionBar(s.myReaction(m), onPick = { menu = false; onMenuAction(); onReact(it) }, onMore = { menu = false; onMenuAction(); onMoreEmoji() })
                     HorizontalDivider()
                 }
-                DropdownMenuItem(text = { Text(stringResource(R.string.chat_reply)) }, onClick = { menu = false; onReply() })
-                if (s.canEdit(m)) DropdownMenuItem(text = { Text(stringResource(R.string.x3_edit)) }, onClick = { menu = false; onEdit() })
-                if (s.chipsOf(m).isNotEmpty()) DropdownMenuItem(text = { Text(stringResource(R.string.x3_reactions_title)) }, onClick = { menu = false; onShowReactions() })
+                DropdownMenuItem(text = { Text(stringResource(R.string.chat_reply)) }, onClick = { menu = false; onMenuAction(); onReply() })
+                if (s.canEdit(m)) DropdownMenuItem(text = { Text(stringResource(R.string.x3_edit)) }, onClick = { menu = false; onMenuAction(); onEdit() })
+                if (s.chipsOf(m).isNotEmpty()) DropdownMenuItem(text = { Text(stringResource(R.string.x3_reactions_title)) }, onClick = { menu = false; onMenuAction(); onShowReactions() })
                 // P-22: Videos auch aus dem Nachrichten-Menue speichern
                 if (saveVideo != null) videoFiles.forEach { f ->
                     DropdownMenuItem(
                         text = { Text(if (videoFiles.size > 1) stringResource(R.string.video_save) + " · " + f.n else stringResource(R.string.video_save)) },
-                        onClick = { menu = false; saveVideo(f) },
+                        onClick = { menu = false; onMenuAction(); saveVideo(f) },
                     )
                 }
-                if (!m.content?.text.isNullOrEmpty()) DropdownMenuItem(text = { Text(stringResource(R.string.text_copy)) }, onClick = { menu = false; onCopy() })
+                if (!m.content?.text.isNullOrEmpty()) DropdownMenuItem(text = { Text(stringResource(R.string.text_copy)) }, onClick = { menu = false; onMenuAction(); onCopy() })
                 if (m.mine && m.fstate == "failed" && m.content != null) {
-                    DropdownMenuItem(text = { Text(stringResource(R.string.fed_resend)) }, onClick = { menu = false; onResend() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.fed_resend)) }, onClick = { menu = false; onMenuAction(); onResend() })
                 }
                 // 2.4: "Info" - gelesen von … (Gruppen)
                 if (onReadBy != null) {
-                    DropdownMenuItem(text = { Text(stringResource(R.string.chat_info)) }, onClick = { menu = false; onReadBy() })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.chat_info)) }, onClick = { menu = false; onMenuAction(); onReadBy() })
                 }
                 if (m.mine) {
-                    DropdownMenuItem(text = { Text(stringResource(R.string.chat_delete_all), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; confirmDelete = true })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.chat_delete_all), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; onMenuAction(); confirmDelete = true })
                 }
             }
         }
         // 2.5: Reaktionen als Chips unter der Blase
         ReactionChips(s.chipsOf(m), mineSide, onToggle = if (s.canReact(m)) onReact else null, onShow = onShowReactions)
         }
+    }
+    if (selecting && onSelect != null) Box(
+        Modifier.matchParentSize().clickable(onClickLabel = selLabel, role = androidx.compose.ui.semantics.Role.Checkbox) { onSelect() },
+    )
     }
     if (confirmDelete) {
         AlertDialog(
@@ -1438,4 +1578,67 @@ internal fun videoLimitText(r: VideoLogic.Route, l: ChatLimits): UiText = when (
     VideoLogic.Route.NO_FILE2 -> UiText.Res(R.string.video_too_big_server, l.fileMax / 1048576)
     VideoLogic.Route.PEER_OLD -> UiText.Res(R.string.video_peer_old, l.fileMax / 1048576)
     else -> UiText.Res(R.string.chat_file_too_big, maxOf(l.fileMax, l.videoMax) / 1048576)
+}
+
+/**
+ * 25.10.: Nachrichten weiterleiten - Text entschluesselt neu senden (Ziel verschluesselt neu, normaler Sendeweg), v1-Anhaenge
+ * herunterladen und wie beim normalen Senden neu hochladen. -> (gesendet, nicht weitergeleitete Anhaenge)
+ */
+private suspend fun forwardMessages(repo: SagaRepository, from: ChatSession, target: Long, msgs: List<ChatMessage>, droppedMark: String): Pair<Int, Int> {
+    val t = ChatSession(target, repo.chat)
+    t.prepareSend()
+    val max = repo.chat.me.value?.limits?.fileMax ?: ChatLimits().fileMax
+    var sent = 0
+    var dropped = 0
+    for (m in msgs.take(ChatSelect.FORWARD_MAX)) {
+        val plan = ChatSelect.forwardPlan(m, max, droppedMark) ?: continue
+        val files = plan.files.mapNotNull { f ->
+            try {
+                PendingFile(f.n, f.m, from.download(f))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
+        }
+        val lost = plan.files.size - files.size
+        val text = if (lost > 0 && plan.dropped == 0) listOf(plan.text, droppedMark).filter { it.isNotBlank() }.joinToString("\n") else plan.text
+        dropped += plan.dropped + lost
+        if (text.isBlank() && files.isEmpty()) continue
+        try {
+            t.send(text, files)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            throw io.github.yggdrasil_sh.saga.util.UiTextException(UiText.Res(R.string.cs_forward_failed, repo.friendly(e)))
+        }
+        sent++
+    }
+    return sent to dropped
+}
+
+/** 25.10.: Auswahl als Absaetze in eine neue Seite bzw. ans Ende einer bestehenden (409 = woanders geaendert: einmal neu laden) */
+private suspend fun chatToPage(repo: SagaRepository, target: Long?, title: String, paras: List<String>): Long {
+    val blocks = paras.map { io.github.yggdrasil_sh.saga.blocks.BlockDoc.newBlock("paragraph", it) }
+    if (target == null) {
+        val doc = kotlinx.serialization.json.JsonObject(mapOf("blocks" to kotlinx.serialization.json.JsonArray(blocks)))
+        return repo.createPageWith(title, io.github.yggdrasil_sh.saga.blocks.BlockDoc.serialize(doc))
+    }
+    var tries = 0
+    while (true) {
+        try {
+            repo.withPageLock(target) {
+                val p = repo.loadPage(target)
+                val bodyEl = p["body"] as? kotlinx.serialization.json.JsonPrimitive
+                val body = if (bodyEl != null && bodyEl.isString) bodyEl.content else null
+                val doc = io.github.yggdrasil_sh.saga.blocks.BlockDoc.parse(body, io.github.yggdrasil_sh.saga.blocks.BlockDoc.str(p, "format").ifEmpty { "text" }).doc
+                val all = io.github.yggdrasil_sh.saga.blocks.BlockDoc.blocks(doc) + blocks
+                val next = kotlinx.serialization.json.JsonObject(LinkedHashMap(doc).apply { put("blocks", kotlinx.serialization.json.JsonArray(all)) })
+                repo.savePage(target, io.github.yggdrasil_sh.saga.blocks.BlockDoc.str(p, "title"), io.github.yggdrasil_sh.saga.blocks.BlockDoc.serialize(next), io.github.yggdrasil_sh.saga.blocks.BlockDoc.int(p, "rev"))
+            }
+            return target
+        } catch (e: io.github.yggdrasil_sh.saga.data.ApiException) {
+            if (e.code != 409 || ++tries > 1) throw e
+        }
+    }
 }

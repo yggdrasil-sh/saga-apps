@@ -1318,6 +1318,96 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
         messages.removeAll { it.id == m.id }
     }
 
+    // ---------------------------------------------------------------- 25.10.: Mehrfachauswahl (Loeschen / Ausblenden)
+
+    /** Nur auf diesem Geraet ausgeblendet (aelterer Server ohne POST hide) - die Ansicht laesst sie weg */
+    var hiddenLocal by mutableStateOf<Set<String>>(emptySet())
+        private set
+    private var hiddenLoaded = false
+
+    suspend fun loadHiddenLocal() {
+        if (hiddenLoaded) return
+        val h = withContext(Dispatchers.IO) { svc.store.hiddenLocal(chatId) }
+        hiddenLocal = hiddenLocal + h
+        hiddenLoaded = true
+    }
+
+    private fun dropLocal(ids: Collection<String>) {
+        val set = ids.toHashSet()
+        messages.removeAll { it.id in set }
+        if (editing?.id in set) editing = null
+        if (replyTo?.id in set) replyTo = null
+    }
+
+    /**
+     * Eigene Nachrichten fuer alle loeschen: POST messages/delete {ids} (je 100) -> {deleted, failed}. Kennt der Server
+     * den Endpunkt nicht (404/405), einzeln ueber DELETE .../messages/{mid}.
+     */
+    suspend fun deleteMany(ids: List<String>): ChatSelect.DeleteResult {
+        val deleted = ArrayList<String>()
+        val failed = LinkedHashMap<String, String>()
+        var bulk = true
+        for (part in ChatSelect.chunks(ids, ChatSelect.DELETE_MAX)) {
+            if (bulk) {
+                try {
+                    val r = ChatSelect.parseDelete(api.post("api/chats/$chatId/messages/delete", idsBody(part)))
+                    deleted += r.deleted
+                    failed.putAll(r.failed)
+                    continue
+                } catch (e: ApiException) {
+                    if (!ChatSelect.isMissingEndpoint(e.code)) throw e
+                    bulk = false
+                }
+            }
+            for (id in part) {
+                try {
+                    api.delete("api/chats/$chatId/messages/$id")
+                    deleted += id
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    failed[id] = (e as? ApiException)?.code?.toString() ?: "error"
+                }
+            }
+        }
+        dropLocal(deleted)
+        return ChatSelect.DeleteResult(deleted, failed)
+    }
+
+    /**
+     * Fuer mich ausblenden: POST hide {ids} (je 500) - auf allen eigenen Geraeten. -> true; aelterer Server (404/405):
+     * nur auf diesem Geraet merken -> false.
+     */
+    suspend fun hide(ids: List<String>): Boolean {
+        var server = true
+        for (part in ChatSelect.chunks(ids, ChatSelect.HIDE_MAX)) {
+            try {
+                api.post("api/chats/$chatId/hide", idsBody(part))
+            } catch (e: ApiException) {
+                if (!ChatSelect.isMissingEndpoint(e.code)) throw e
+                server = false
+                break
+            }
+        }
+        if (!server) {
+            loadHiddenLocal()
+            hiddenLocal = hiddenLocal + ids
+            val all = hiddenLocal
+            withContext(Dispatchers.IO) { svc.store.saveHiddenLocal(chatId, all) }
+        }
+        dropLocal(ids)
+        return server
+    }
+
+    private fun idsBody(ids: List<String>) = buildJsonObject { put("ids", buildJsonArray { ids.forEach { add(JsonPrimitive(it)) } }) }
+
+    /** Als Ziel einer Weiterleitung: Stand und (v2) Schluessel holen, ohne Verlauf zu laden oder "gelesen" zu melden */
+    suspend fun prepareSend() {
+        if (summary == null) summary = svc.chats.value.firstOrNull { it.id == chatId }
+        loadSummary()
+        if (isFed) quietly { loadFedKeys(false) }
+    }
+
     /** "tippt" hoechstens alle 2,5 s */
     suspend fun typingNow() {
         val now = System.currentTimeMillis()
@@ -1509,6 +1599,8 @@ class ChatSession(val chatId: Long, private val svc: ChatService) {
                 }
                 behind = !quietly { loadNewer() }        // Funkloch: kein Absturz (BUG-003), catchUp() holt nach
             }
+            // 25.10.: auf einem anderen eigenen Geraet "fuer mich" ausgeblendet
+            "chat.hidden" -> dropLocal(ChatSelect.hiddenIds(ev.data))
             "chat.deleted" -> ev.str("id")?.let { id ->
                 messages.removeAll { it.id == id }
                 if (editing?.id == id) editing = null

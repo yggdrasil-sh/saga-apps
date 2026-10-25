@@ -771,7 +771,7 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
                 ChatDeleteLogic.parse(ev.type, ev.data, me.value?.uid.orEmpty())?.let { onWipe(it) }
                 if (chatsLoaded.value) loadChats()
             }
-            "chat.message", "chat.changed", "chat.deleted", "chat.read", "chat.request" -> if (chatsLoaded.value) loadChats()
+            "chat.message", "chat.changed", "chat.deleted", "chat.hidden", "chat.read", "chat.request" -> if (chatsLoaded.value) loadChats()
             // 2.3: eigene Schluessel geaendert (Geraet neu/entfernt): Zertifikate/Geraete-Liste v2 neu signieren
             "chat.keys.changed" -> if (state.value == ChatSetup.READY && FedChat.keysChanged(ev.data).second) fed.certs()
             "reset" -> {

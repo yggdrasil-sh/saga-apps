@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 25.10.: Chat-Mehrfachauswahl (Kopieren, Weiterleiten, In Seite, Loeschen) und Hinweis zu Reaktionen (x3_why) -->
+<resources>
+    <string name="cs_select">เลือก</string>
+    <string name="cs_close_selection">เลิกเลือก</string>
+    <string name="cs_state_selected">เลือกแล้ว</string>
+    <string name="cs_state_not_selected">ยังไม่ได้เลือก</string>
+    <string name="cs_select_action">เลือกหรือยกเลิกการเลือก</string>
+    <string name="cs_copy">คัดลอก</string>
+    <string name="cs_forward">ส่งต่อ</string>
+    <string name="cs_forward_title">ส่งต่อไปยัง …</string>
+    <string name="cs_forward_search">ค้นหาแชท</string>
+    <string name="cs_forward_none">ไม่พบแชทที่ตรงกัน</string>
+    <string name="cs_forward_max">ส่งต่อได้สูงสุดครั้งละ %1$d ข้อความ</string>
+    <string name="cs_forward_failed">หยุดการส่งต่อ: %1$s</string>
+    <string name="cs_forward_running">กำลังส่งต่อ …</string>
+    <string name="cs_att_not_forwarded">[ไม่ได้ส่งต่อไฟล์แนบ]</string>
+    <string name="cs_to_page">นำไปใส่ในหน้า</string>
+    <string name="cs_page_new">หน้าใหม่</string>
+    <string name="cs_page_append">ต่อท้ายหน้าที่มีอยู่</string>
+    <string name="cs_page_pick">เลือกหน้า</string>
+    <string name="cs_page_search">ค้นหาหน้า</string>
+    <string name="cs_page_warn">หน้านี้ไม่ได้เข้ารหัสแบบต้นทางถึงปลายทาง เซิร์ฟเวอร์อ่านข้อความได้</string>
+    <string name="cs_page_ok">นำไปใส่</string>
+    <string name="cs_page_done">นำไปใส่ใน “%1$s” แล้ว</string>
+    <string name="cs_page_open">เปิด</string>
+    <string name="cs_delete">ลบ</string>
+    <string name="cs_delete_me">ลบสำหรับฉัน</string>
+    <string name="cs_delete_me_hint">ซ่อนบนอุปกรณ์ทั้งหมดของคุณ คนอื่นยังเห็นข้อความอยู่</string>
+    <string name="cs_delete_all">ลบสำหรับทุกคน</string>
+    <string name="cs_delete_all_hint">จะถูกลบสำหรับสมาชิกทุกคน ย้อนกลับไม่ได้</string>
+    <string name="cs_delete_only_own">ลบสำหรับทุกคนได้เฉพาะข้อความของคุณเอง</string>
+    <string name="cs_delete_all_confirm">ลบสำหรับทุกคนจริงหรือ?</string>
+    <string name="cs_hidden_local">ซ่อนเฉพาะบนอุปกรณ์นี้ เซิร์ฟเวอร์ยังทำให้ทุกอุปกรณ์ของคุณไม่ได้</string>
+    <string name="cs_l_image">รูปภาพ</string>
+    <string name="cs_l_video">วิดีโอ</string>
+    <string name="cs_l_voice">ข้อความเสียง</string>
+    <string name="cs_l_file">ไฟล์: %1$s</string>
+    <string name="cs_x3_button">ทำไมยังไม่มีรีแอคชัน?</string>
+    <string name="cs_x3_title">รีแอคชันและการแก้ไข</string>
+    <string name="cs_x3_devices">รีแอคชันและการแก้ไขจะมา เมื่ออุปกรณ์ทุกเครื่องใช้ Saga 2.5</string>
+    <string name="cs_x3_wait_mine">ยังไม่ได้อัปเดต: %1$s</string>
+    <string name="cs_x3_until">อย่างช้าที่สุดวันที่ %1$s</string>
+    <string name="cs_x3_server">รีแอคชันและการแก้ไขจะมา เมื่อ %1$s อัปเดตแล้ว</string>
+    <string name="cs_x3_server_unknown">รีแอคชันและการแก้ไขจะมา เมื่อเซิร์ฟเวอร์ที่เกี่ยวข้องทั้งหมดอัปเดตแล้ว</string>
+    <string name="cs_x3_setting">รีแอคชันและการแก้ไขถูกปิดบนเซิร์ฟเวอร์นี้</string>
+    <string name="cs_x3_readonly">แชทนี้อ่านได้อย่างเดียว จึงไม่มีรีแอคชันและการแก้ไข</string>
+    <string name="cs_x3_pending">รีแอคชันและการแก้ไขจะใช้ได้ เมื่อคำขอข้อความได้รับการตอบรับ</string>
+    <string name="cs_x3_other">แชทนี้ยังใช้รีแอคชันและการแก้ไขไม่ได้</string>
+    <string name="cs_x3_devices_link">จัดการอุปกรณ์</string>
+    <plurals name="cs_selected">
+        <item quantity="other">เลือกแล้ว %d รายการ</item>
+    </plurals>
+    <plurals name="cs_copied">
+        <item quantity="other">คัดลอก %d ข้อความแล้ว</item>
+    </plurals>
+    <plurals name="cs_forward_confirm">
+        <item quantity="other">ส่งต่อ %1$d ข้อความไปยัง “%2$s” ไหม?</item>
+    </plurals>
+    <plurals name="cs_forward_done">
+        <item quantity="other">ส่งต่อ %1$d ข้อความไปยัง “%2$s” แล้ว</item>
+    </plurals>
+    <plurals name="cs_forward_dropped">
+        <item quantity="other">ไม่ได้ส่งต่อไฟล์แนบ %d รายการ</item>
+    </plurals>
+    <plurals name="cs_delete_title">
+        <item quantity="other">ลบ %d ข้อความไหม?</item>
+    </plurals>
+    <plurals name="cs_deleted">
+        <item quantity="other">ลบ %d ข้อความแล้ว</item>
+    </plurals>
+    <plurals name="cs_delete_failed">
+        <item quantity="other">ลบไม่ได้ %d ข้อความ</item>
+    </plurals>
+    <plurals name="cs_hidden">
+        <item quantity="other">ซ่อน %d ข้อความแล้ว</item>
+    </plurals>
+    <plurals name="cs_x3_wait_both">
+        <item quantity="other">ยังไม่ได้อัปเดต: %1$s และอุปกรณ์ของอีก %2$d คน</item>
+    </plurals>
+    <plurals name="cs_x3_wait_others">
+        <item quantity="other">ยังไม่ได้อัปเดต: อุปกรณ์ของอีก %d คน</item>
+    </plurals>
+</resources>

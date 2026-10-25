@@ -245,6 +245,12 @@ data class ChatSummary(
     val call: io.github.yggdrasil_sh.saga.call.ChatCallInfo? = null,
     /** 2.5: Reaktionen, Bearbeiten, Sprachnachrichten moeglich (Format v2, angenommen, beschreibbar, alle Server chat3) */
     @SerialName("x3_ok") val x3Ok: Boolean? = null,
+    /** 25.10.: warum (noch) nicht - "setting" | "devices" | "server" | "readonly" | "pending" | null (fehlt = Server kennt es nicht) */
+    @SerialName("x3_why") val x3Why: String? = null,
+    /** bei "devices": eigene Geräte (Namen), Anzahl weiterer Personen, Stichtag (Unix-Sekunden) */
+    @SerialName("x3_wait") val x3Wait: X3Wait? = null,
+    /** bei "server": beteiligte Server, die Stufe 3 noch nicht können */
+    @SerialName("x3_hosts") val x3Hosts: List<String> = emptyList(),
     /** 2.5: bestehender Chat auf Stufe 3 umgestellt - Nachrichten bis seq (bzw. ohne sender_handle) im Format v1 */
     val v3: ChatV3Info? = null,
 ) {

@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 25.10.: Chat-Mehrfachauswahl (Kopieren, Weiterleiten, In Seite, Loeschen) und Hinweis zu Reaktionen (x3_why) -->
+<resources>
+    <string name="cs_select">Select</string>
+    <string name="cs_close_selection">End selection</string>
+    <string name="cs_state_selected">Selected</string>
+    <string name="cs_state_not_selected">Not selected</string>
+    <string name="cs_select_action">Select or deselect</string>
+    <string name="cs_copy">Copy</string>
+    <string name="cs_forward">Forward</string>
+    <string name="cs_forward_title">Forward to …</string>
+    <string name="cs_forward_search">Search chats</string>
+    <string name="cs_forward_none">No matching chats.</string>
+    <string name="cs_forward_max">At most %1$d messages can be forwarded at once.</string>
+    <string name="cs_forward_failed">Forwarding stopped: %1$s</string>
+    <string name="cs_forward_running">Forwarding …</string>
+    <string name="cs_att_not_forwarded">[Attachment not forwarded]</string>
+    <string name="cs_to_page">Add to page</string>
+    <string name="cs_page_new">New page</string>
+    <string name="cs_page_append">Append to an existing page</string>
+    <string name="cs_page_pick">Choose page</string>
+    <string name="cs_page_search">Search pages</string>
+    <string name="cs_page_warn">The page is not end-to-end encrypted – the server can read the text.</string>
+    <string name="cs_page_ok">Add</string>
+    <string name="cs_page_done">Added to “%1$s”.</string>
+    <string name="cs_page_open">Open</string>
+    <string name="cs_delete">Delete</string>
+    <string name="cs_delete_me">Delete for me</string>
+    <string name="cs_delete_me_hint">Hidden on all your devices. The others keep the messages.</string>
+    <string name="cs_delete_all">Delete for everyone</string>
+    <string name="cs_delete_all_hint">Removed for all members. This cannot be undone.</string>
+    <string name="cs_delete_only_own">Only your own messages can be deleted for everyone.</string>
+    <string name="cs_delete_all_confirm">Really delete for everyone?</string>
+    <string name="cs_hidden_local">Hidden on this device only – the server cannot do it for all your devices yet.</string>
+    <string name="cs_l_image">Image</string>
+    <string name="cs_l_video">Video</string>
+    <string name="cs_l_voice">Voice message</string>
+    <string name="cs_l_file">File: %1$s</string>
+    <string name="cs_x3_button">Why no reactions?</string>
+    <string name="cs_x3_title">Reactions and editing</string>
+    <string name="cs_x3_devices">Reactions and editing will arrive as soon as all devices use Saga 2.5.</string>
+    <string name="cs_x3_wait_mine">Not updated yet: %1$s.</string>
+    <string name="cs_x3_until">At the latest on %1$s.</string>
+    <string name="cs_x3_server">Reactions and editing will arrive as soon as %1$s is updated.</string>
+    <string name="cs_x3_server_unknown">Reactions and editing will arrive as soon as all servers involved are updated.</string>
+    <string name="cs_x3_setting">Reactions and editing are turned off on this server.</string>
+    <string name="cs_x3_readonly">This chat is read-only – so there are no reactions and no editing.</string>
+    <string name="cs_x3_pending">Reactions and editing are available once the message request is accepted.</string>
+    <string name="cs_x3_other">Reactions and editing are not possible in this chat yet.</string>
+    <string name="cs_x3_devices_link">Manage devices</string>
+    <plurals name="cs_selected">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <plurals name="cs_copied">
+        <item quantity="one">Message copied.</item>
+        <item quantity="other">%d messages copied.</item>
+    </plurals>
+    <plurals name="cs_forward_confirm">
+        <item quantity="one">Forward %1$d message to “%2$s”?</item>
+        <item quantity="other">Forward %1$d messages to “%2$s”?</item>
+    </plurals>
+    <plurals name="cs_forward_done">
+        <item quantity="one">%1$d message forwarded to “%2$s”.</item>
+        <item quantity="other">%1$d messages forwarded to “%2$s”.</item>
+    </plurals>
+    <plurals name="cs_forward_dropped">
+        <item quantity="one">%d attachment was not forwarded.</item>
+        <item quantity="other">%d attachments were not forwarded.</item>
+    </plurals>
+    <plurals name="cs_delete_title">
+        <item quantity="one">Delete %d message?</item>
+        <item quantity="other">Delete %d messages?</item>
+    </plurals>
+    <plurals name="cs_deleted">
+        <item quantity="one">%d message deleted.</item>
+        <item quantity="other">%d messages deleted.</item>
+    </plurals>
+    <plurals name="cs_delete_failed">
+        <item quantity="one">%d message could not be deleted.</item>
+        <item quantity="other">%d messages could not be deleted.</item>
+    </plurals>
+    <plurals name="cs_hidden">
+        <item quantity="one">%d message hidden.</item>
+        <item quantity="other">%d messages hidden.</item>
+    </plurals>
+    <plurals name="cs_x3_wait_both">
+        <item quantity="one">Not updated yet: %1$s and devices of %2$d other person.</item>
+        <item quantity="other">Not updated yet: %1$s and devices of %2$d other people.</item>
+    </plurals>
+    <plurals name="cs_x3_wait_others">
+        <item quantity="one">Not updated yet: devices of %d other person.</item>
+        <item quantity="other">Not updated yet: devices of %d other people.</item>
+    </plurals>
+</resources>

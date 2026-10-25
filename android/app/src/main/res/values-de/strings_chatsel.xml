@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 25.10.: Chat-Mehrfachauswahl (Kopieren, Weiterleiten, In Seite, Loeschen) und Hinweis zu Reaktionen (x3_why) -->
+<resources>
+    <string name="cs_select">Auswählen</string>
+    <string name="cs_close_selection">Auswahl beenden</string>
+    <string name="cs_state_selected">Ausgewählt</string>
+    <string name="cs_state_not_selected">Nicht ausgewählt</string>
+    <string name="cs_select_action">Aus- oder abwählen</string>
+    <string name="cs_copy">Kopieren</string>
+    <string name="cs_forward">Weiterleiten</string>
+    <string name="cs_forward_title">Weiterleiten an …</string>
+    <string name="cs_forward_search">Chats durchsuchen</string>
+    <string name="cs_forward_none">Keine passenden Chats.</string>
+    <string name="cs_forward_max">Höchstens %1$d Nachrichten lassen sich auf einmal weiterleiten.</string>
+    <string name="cs_forward_failed">Weiterleiten abgebrochen: %1$s</string>
+    <string name="cs_forward_running">Wird weitergeleitet …</string>
+    <string name="cs_att_not_forwarded">[Anhang nicht weitergeleitet]</string>
+    <string name="cs_to_page">In Seite übernehmen</string>
+    <string name="cs_page_new">Neue Seite</string>
+    <string name="cs_page_append">An bestehende Seite anhängen</string>
+    <string name="cs_page_pick">Seite wählen</string>
+    <string name="cs_page_search">Seiten durchsuchen</string>
+    <string name="cs_page_warn">Die Seite ist nicht Ende-zu-Ende-verschlüsselt – der Server kann den Text lesen.</string>
+    <string name="cs_page_ok">Übernehmen</string>
+    <string name="cs_page_done">In „%1$s“ übernommen.</string>
+    <string name="cs_page_open">Öffnen</string>
+    <string name="cs_delete">Löschen</string>
+    <string name="cs_delete_me">Für mich löschen</string>
+    <string name="cs_delete_me_hint">Wird auf allen deinen Geräten ausgeblendet. Die anderen behalten die Nachrichten.</string>
+    <string name="cs_delete_all">Für alle löschen</string>
+    <string name="cs_delete_all_hint">Wird für alle Mitglieder entfernt. Das lässt sich nicht rückgängig machen.</string>
+    <string name="cs_delete_only_own">Nur eigene Nachrichten lassen sich für alle löschen.</string>
+    <string name="cs_delete_all_confirm">Wirklich für alle löschen?</string>
+    <string name="cs_hidden_local">Nur auf diesem Gerät ausgeblendet – der Server kann es noch nicht für alle deine Geräte.</string>
+    <string name="cs_l_image">Bild</string>
+    <string name="cs_l_video">Video</string>
+    <string name="cs_l_voice">Sprachnachricht</string>
+    <string name="cs_l_file">Datei: %1$s</string>
+    <string name="cs_x3_button">Warum keine Reaktionen?</string>
+    <string name="cs_x3_title">Reaktionen und Bearbeiten</string>
+    <string name="cs_x3_devices">Reaktionen und Bearbeiten kommen, sobald alle Geräte Saga 2.5 nutzen.</string>
+    <string name="cs_x3_wait_mine">Noch nicht aktualisiert: %1$s.</string>
+    <string name="cs_x3_until">Spätestens am %1$s.</string>
+    <string name="cs_x3_server">Reaktionen und Bearbeiten kommen, sobald %1$s aktualisiert ist.</string>
+    <string name="cs_x3_server_unknown">Reaktionen und Bearbeiten kommen, sobald alle beteiligten Server aktualisiert sind.</string>
+    <string name="cs_x3_setting">Reaktionen und Bearbeiten sind auf diesem Server ausgeschaltet.</string>
+    <string name="cs_x3_readonly">In diesem Chat kann nicht geschrieben werden – darum gibt es keine Reaktionen und kein Bearbeiten.</string>
+    <string name="cs_x3_pending">Reaktionen und Bearbeiten gibt es, sobald die Nachrichtenanfrage angenommen ist.</string>
+    <string name="cs_x3_other">Reaktionen und Bearbeiten sind in diesem Chat noch nicht möglich.</string>
+    <string name="cs_x3_devices_link">Geräte verwalten</string>
+    <plurals name="cs_selected">
+        <item quantity="one">%d ausgewählt</item>
+        <item quantity="other">%d ausgewählt</item>
+    </plurals>
+    <plurals name="cs_copied">
+        <item quantity="one">Nachricht kopiert.</item>
+        <item quantity="other">%d Nachrichten kopiert.</item>
+    </plurals>
+    <plurals name="cs_forward_confirm">
+        <item quantity="one">%1$d Nachricht an „%2$s“ weiterleiten?</item>
+        <item quantity="other">%1$d Nachrichten an „%2$s“ weiterleiten?</item>
+    </plurals>
+    <plurals name="cs_forward_done">
+        <item quantity="one">%1$d Nachricht an „%2$s“ weitergeleitet.</item>
+        <item quantity="other">%1$d Nachrichten an „%2$s“ weitergeleitet.</item>
+    </plurals>
+    <plurals name="cs_forward_dropped">
+        <item quantity="one">%d Anhang wurde nicht weitergeleitet.</item>
+        <item quantity="other">%d Anhänge wurden nicht weitergeleitet.</item>
+    </plurals>
+    <plurals name="cs_delete_title">
+        <item quantity="one">%d Nachricht löschen?</item>
+        <item quantity="other">%d Nachrichten löschen?</item>
+    </plurals>
+    <plurals name="cs_deleted">
+        <item quantity="one">%d Nachricht gelöscht.</item>
+        <item quantity="other">%d Nachrichten gelöscht.</item>
+    </plurals>
+    <plurals name="cs_delete_failed">
+        <item quantity="one">%d Nachricht ließ sich nicht löschen.</item>
+        <item quantity="other">%d Nachrichten ließen sich nicht löschen.</item>
+    </plurals>
+    <plurals name="cs_hidden">
+        <item quantity="one">%d Nachricht ausgeblendet.</item>
+        <item quantity="other">%d Nachrichten ausgeblendet.</item>
+    </plurals>
+    <plurals name="cs_x3_wait_both">
+        <item quantity="one">Noch nicht aktualisiert: %1$s und Geräte von %2$d weiteren Person.</item>
+        <item quantity="other">Noch nicht aktualisiert: %1$s und Geräte von %2$d weiteren Personen.</item>
+    </plurals>
+    <plurals name="cs_x3_wait_others">
+        <item quantity="one">Noch nicht aktualisiert: Geräte von %d weiteren Person.</item>
+        <item quantity="other">Noch nicht aktualisiert: Geräte von %d weiteren Personen.</item>
+    </plurals>
+</resources>

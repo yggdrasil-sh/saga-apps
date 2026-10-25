@@ -129,6 +129,12 @@ class ChatStore(private val secure: SecureStore, private val scope: () -> String
     fun draft(chat: Long): String? = secure.get(k("draft_$chat"))
     fun saveDraft(chat: Long, text: String?) = secure.put(k("draft_$chat"), text)
 
+    // ---------------------------------------------------------------- 25.10.: nur auf diesem Geraet ausgeblendet
+    // (aelterer Server ohne POST /api/chats/{cid}/hide) - Kennungen kommasepariert, die neuesten 2000
+
+    fun hiddenLocal(chat: Long): Set<String> = secure.get(k("hid_$chat"))?.split(',')?.filter { it.isNotBlank() }?.toCollection(LinkedHashSet()) ?: emptySet()
+    fun saveHiddenLocal(chat: Long, ids: Set<String>) = secure.put(k("hid_$chat"), ids.toList().takeLast(2000).joinToString(",").ifEmpty { null })
+
     // ---------------------------------------------------------------- TOFU
 
     fun known(): Map<String, KnownIdent> = try {

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 25.10.: Chat-Mehrfachauswahl (Kopieren, Weiterleiten, In Seite, Loeschen) und Hinweis zu Reaktionen (x3_why) -->
+<resources>
+    <string name="cs_select">Выбрать</string>
+    <string name="cs_close_selection">Завершить выбор</string>
+    <string name="cs_state_selected">Выбрано</string>
+    <string name="cs_state_not_selected">Не выбрано</string>
+    <string name="cs_select_action">Выбрать или снять выбор</string>
+    <string name="cs_copy">Копировать</string>
+    <string name="cs_forward">Переслать</string>
+    <string name="cs_forward_title">Переслать в …</string>
+    <string name="cs_forward_search">Поиск чатов</string>
+    <string name="cs_forward_none">Подходящих чатов нет.</string>
+    <string name="cs_forward_max">За раз можно переслать не более %1$d сообщений.</string>
+    <string name="cs_forward_failed">Пересылка прервана: %1$s</string>
+    <string name="cs_forward_running">Пересылка …</string>
+    <string name="cs_att_not_forwarded">[Вложение не переслано]</string>
+    <string name="cs_to_page">Перенести на страницу</string>
+    <string name="cs_page_new">Новая страница</string>
+    <string name="cs_page_append">Добавить к существующей странице</string>
+    <string name="cs_page_pick">Выберите страницу</string>
+    <string name="cs_page_search">Поиск страниц</string>
+    <string name="cs_page_warn">Страница не защищена сквозным шифрованием – сервер может прочитать текст.</string>
+    <string name="cs_page_ok">Перенести</string>
+    <string name="cs_page_done">Перенесено на «%1$s».</string>
+    <string name="cs_page_open">Открыть</string>
+    <string name="cs_delete">Удалить</string>
+    <string name="cs_delete_me">Удалить у меня</string>
+    <string name="cs_delete_me_hint">Скрывается на всех ваших устройствах. У остальных сообщения останутся.</string>
+    <string name="cs_delete_all">Удалить у всех</string>
+    <string name="cs_delete_all_hint">Будет удалено у всех участников. Это нельзя отменить.</string>
+    <string name="cs_delete_only_own">Удалить у всех можно только свои сообщения.</string>
+    <string name="cs_delete_all_confirm">Точно удалить у всех?</string>
+    <string name="cs_hidden_local">Скрыто только на этом устройстве – сервер пока не умеет делать это для всех ваших устройств.</string>
+    <string name="cs_l_image">Изображение</string>
+    <string name="cs_l_video">Видео</string>
+    <string name="cs_l_voice">Голосовое сообщение</string>
+    <string name="cs_l_file">Файл: %1$s</string>
+    <string name="cs_x3_button">Почему нет реакций?</string>
+    <string name="cs_x3_title">Реакции и редактирование</string>
+    <string name="cs_x3_devices">Реакции и редактирование появятся, как только все устройства перейдут на Saga 2.5.</string>
+    <string name="cs_x3_wait_mine">Ещё не обновлены: %1$s.</string>
+    <string name="cs_x3_until">Не позднее %1$s.</string>
+    <string name="cs_x3_server">Реакции и редактирование появятся, как только %1$s обновится.</string>
+    <string name="cs_x3_server_unknown">Реакции и редактирование появятся, как только обновятся все участвующие серверы.</string>
+    <string name="cs_x3_setting">Реакции и редактирование отключены на этом сервере.</string>
+    <string name="cs_x3_readonly">Этот чат только для чтения – поэтому реакций и редактирования нет.</string>
+    <string name="cs_x3_pending">Реакции и редактирование станут доступны, когда запрос на переписку будет принят.</string>
+    <string name="cs_x3_other">Реакции и редактирование в этом чате пока недоступны.</string>
+    <string name="cs_x3_devices_link">Управление устройствами</string>
+    <plurals name="cs_selected">
+        <item quantity="one">Выбрано: %d</item>
+        <item quantity="few">Выбрано: %d</item>
+        <item quantity="many">Выбрано: %d</item>
+        <item quantity="other">Выбрано: %d</item>
+    </plurals>
+    <plurals name="cs_copied">
+        <item quantity="one">%d сообщение скопировано.</item>
+        <item quantity="few">%d сообщения скопированы.</item>
+        <item quantity="many">%d сообщений скопировано.</item>
+        <item quantity="other">%d сообщения скопировано.</item>
+    </plurals>
+    <plurals name="cs_forward_confirm">
+        <item quantity="one">Переслать %1$d сообщение в «%2$s»?</item>
+        <item quantity="few">Переслать %1$d сообщения в «%2$s»?</item>
+        <item quantity="many">Переслать %1$d сообщений в «%2$s»?</item>
+        <item quantity="other">Переслать %1$d сообщения в «%2$s»?</item>
+    </plurals>
+    <plurals name="cs_forward_done">
+        <item quantity="one">%1$d сообщение переслано в «%2$s».</item>
+        <item quantity="few">%1$d сообщения пересланы в «%2$s».</item>
+        <item quantity="many">%1$d сообщений переслано в «%2$s».</item>
+        <item quantity="other">%1$d сообщения переслано в «%2$s».</item>
+    </plurals>
+    <plurals name="cs_forward_dropped">
+        <item quantity="one">%d вложение не переслано.</item>
+        <item quantity="few">%d вложения не пересланы.</item>
+        <item quantity="many">%d вложений не переслано.</item>
+        <item quantity="other">%d вложения не переслано.</item>
+    </plurals>
+    <plurals name="cs_delete_title">
+        <item quantity="one">Удалить %d сообщение?</item>
+        <item quantity="few">Удалить %d сообщения?</item>
+        <item quantity="many">Удалить %d сообщений?</item>
+        <item quantity="other">Удалить %d сообщения?</item>
+    </plurals>
+    <plurals name="cs_deleted">
+        <item quantity="one">%d сообщение удалено.</item>
+        <item quantity="few">%d сообщения удалены.</item>
+        <item quantity="many">%d сообщений удалено.</item>
+        <item quantity="other">%d сообщения удалено.</item>
+    </plurals>
+    <plurals name="cs_delete_failed">
+        <item quantity="one">%d сообщение не удалось удалить.</item>
+        <item quantity="few">%d сообщения не удалось удалить.</item>
+        <item quantity="many">%d сообщений не удалось удалить.</item>
+        <item quantity="other">%d сообщения не удалось удалить.</item>
+    </plurals>
+    <plurals name="cs_hidden">
+        <item quantity="one">%d сообщение скрыто.</item>
+        <item quantity="few">%d сообщения скрыты.</item>
+        <item quantity="many">%d сообщений скрыто.</item>
+        <item quantity="other">%d сообщения скрыто.</item>
+    </plurals>
+    <plurals name="cs_x3_wait_both">
+        <item quantity="one">Ещё не обновлены: %1$s и устройства ещё %2$d человека.</item>
+        <item quantity="few">Ещё не обновлены: %1$s и устройства ещё %2$d человек.</item>
+        <item quantity="many">Ещё не обновлены: %1$s и устройства ещё %2$d человек.</item>
+        <item quantity="other">Ещё не обновлены: %1$s и устройства ещё %2$d человек.</item>
+    </plurals>
+    <plurals name="cs_x3_wait_others">
+        <item quantity="one">Ещё не обновлены: устройства ещё %d человека.</item>
+        <item quantity="few">Ещё не обновлены: устройства ещё %d человек.</item>
+        <item quantity="many">Ещё не обновлены: устройства ещё %d человек.</item>
+        <item quantity="other">Ещё не обновлены: устройства ещё %d человек.</item>
+    </plurals>
+</resources>

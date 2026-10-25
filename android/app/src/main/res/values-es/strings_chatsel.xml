@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 25.10.: Chat-Mehrfachauswahl (Kopieren, Weiterleiten, In Seite, Loeschen) und Hinweis zu Reaktionen (x3_why) -->
+<resources>
+    <string name="cs_select">Seleccionar</string>
+    <string name="cs_close_selection">Terminar selección</string>
+    <string name="cs_state_selected">Seleccionado</string>
+    <string name="cs_state_not_selected">No seleccionado</string>
+    <string name="cs_select_action">Seleccionar o deseleccionar</string>
+    <string name="cs_copy">Copiar</string>
+    <string name="cs_forward">Reenviar</string>
+    <string name="cs_forward_title">Reenviar a …</string>
+    <string name="cs_forward_search">Buscar chats</string>
+    <string name="cs_forward_none">No hay chats que coincidan.</string>
+    <string name="cs_forward_max">Se pueden reenviar como máximo %1$d mensajes a la vez.</string>
+    <string name="cs_forward_failed">Reenvío detenido: %1$s</string>
+    <string name="cs_forward_running">Reenviando …</string>
+    <string name="cs_att_not_forwarded">[Adjunto no reenviado]</string>
+    <string name="cs_to_page">Pasar a una página</string>
+    <string name="cs_page_new">Página nueva</string>
+    <string name="cs_page_append">Añadir a una página existente</string>
+    <string name="cs_page_pick">Elegir página</string>
+    <string name="cs_page_search">Buscar páginas</string>
+    <string name="cs_page_warn">La página no tiene cifrado de extremo a extremo: el servidor puede leer el texto.</string>
+    <string name="cs_page_ok">Pasar</string>
+    <string name="cs_page_done">Añadido a «%1$s».</string>
+    <string name="cs_page_open">Abrir</string>
+    <string name="cs_delete">Eliminar</string>
+    <string name="cs_delete_me">Eliminar para mí</string>
+    <string name="cs_delete_me_hint">Se oculta en todos tus dispositivos. Los demás conservan los mensajes.</string>
+    <string name="cs_delete_all">Eliminar para todos</string>
+    <string name="cs_delete_all_hint">Se elimina para todos los miembros. No se puede deshacer.</string>
+    <string name="cs_delete_only_own">Solo tus propios mensajes se pueden eliminar para todos.</string>
+    <string name="cs_delete_all_confirm">¿Eliminar de verdad para todos?</string>
+    <string name="cs_hidden_local">Oculto solo en este dispositivo: el servidor aún no puede hacerlo para todos tus dispositivos.</string>
+    <string name="cs_l_image">Imagen</string>
+    <string name="cs_l_video">Vídeo</string>
+    <string name="cs_l_voice">Mensaje de voz</string>
+    <string name="cs_l_file">Archivo: %1$s</string>
+    <string name="cs_x3_button">¿Por qué no hay reacciones?</string>
+    <string name="cs_x3_title">Reacciones y edición</string>
+    <string name="cs_x3_devices">Las reacciones y la edición llegarán en cuanto todos los dispositivos usen Saga 2.5.</string>
+    <string name="cs_x3_wait_mine">Aún sin actualizar: %1$s.</string>
+    <string name="cs_x3_until">Como muy tarde el %1$s.</string>
+    <string name="cs_x3_server">Las reacciones y la edición llegarán en cuanto se actualice %1$s.</string>
+    <string name="cs_x3_server_unknown">Las reacciones y la edición llegarán en cuanto se actualicen todos los servidores implicados.</string>
+    <string name="cs_x3_setting">Las reacciones y la edición están desactivadas en este servidor.</string>
+    <string name="cs_x3_readonly">Este chat es de solo lectura, por eso no hay reacciones ni edición.</string>
+    <string name="cs_x3_pending">Las reacciones y la edición estarán disponibles cuando se acepte la solicitud de mensajes.</string>
+    <string name="cs_x3_other">Las reacciones y la edición aún no son posibles en este chat.</string>
+    <string name="cs_x3_devices_link">Gestionar dispositivos</string>
+    <plurals name="cs_selected">
+        <item quantity="one">%d seleccionado</item>
+        <item quantity="other">%d seleccionados</item>
+    </plurals>
+    <plurals name="cs_copied">
+        <item quantity="one">Mensaje copiado.</item>
+        <item quantity="other">%d mensajes copiados.</item>
+    </plurals>
+    <plurals name="cs_forward_confirm">
+        <item quantity="one">¿Reenviar %1$d mensaje a «%2$s»?</item>
+        <item quantity="other">¿Reenviar %1$d mensajes a «%2$s»?</item>
+    </plurals>
+    <plurals name="cs_forward_done">
+        <item quantity="one">%1$d mensaje reenviado a «%2$s».</item>
+        <item quantity="other">%1$d mensajes reenviados a «%2$s».</item>
+    </plurals>
+    <plurals name="cs_forward_dropped">
+        <item quantity="one">%d adjunto no se reenvió.</item>
+        <item quantity="other">%d adjuntos no se reenviaron.</item>
+    </plurals>
+    <plurals name="cs_delete_title">
+        <item quantity="one">¿Eliminar %d mensaje?</item>
+        <item quantity="other">¿Eliminar %d mensajes?</item>
+    </plurals>
+    <plurals name="cs_deleted">
+        <item quantity="one">%d mensaje eliminado.</item>
+        <item quantity="other">%d mensajes eliminados.</item>
+    </plurals>
+    <plurals name="cs_delete_failed">
+        <item quantity="one">%d mensaje no se pudo eliminar.</item>
+        <item quantity="other">%d mensajes no se pudieron eliminar.</item>
+    </plurals>
+    <plurals name="cs_hidden">
+        <item quantity="one">%d mensaje oculto.</item>
+        <item quantity="other">%d mensajes ocultos.</item>
+    </plurals>
+    <plurals name="cs_x3_wait_both">
+        <item quantity="one">Aún sin actualizar: %1$s y dispositivos de %2$d persona más.</item>
+        <item quantity="other">Aún sin actualizar: %1$s y dispositivos de %2$d personas más.</item>
+    </plurals>
+    <plurals name="cs_x3_wait_others">
+        <item quantity="one">Aún sin actualizar: dispositivos de %d persona más.</item>
+        <item quantity="other">Aún sin actualizar: dispositivos de %d personas más.</item>
+    </plurals>
+</resources>
