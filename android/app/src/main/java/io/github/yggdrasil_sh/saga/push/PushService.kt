@@ -588,6 +588,7 @@ object Notifier {
         val pi = PendingIntent.getActivity(context, tag.hashCode(), open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val n = NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
+            .setColor(NotifyDesign.ACCENT)
             .setContentTitle(m.title.ifEmpty { context.getString(R.string.app_name) })
             .setContentText(m.body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(m.body))

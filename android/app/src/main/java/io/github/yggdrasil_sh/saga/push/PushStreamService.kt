@@ -178,6 +178,7 @@ class PushStreamService : Service() {
         val pi = PendingIntent.getActivity(this, NOTIF_ID, open, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
+            .setColor(NotifyDesign.ACCENT)
             .setContentTitle(getString(R.string.push_stream_notif_title))
             .setContentText(getString(R.string.push_stream_notif_text))
             .setPriority(NotificationCompat.PRIORITY_MIN)

@@ -58,7 +58,10 @@ object CallNotify {
     }
 
     private fun person(context: Context, peer: CallPeer): Person =
-        Person.Builder().setName(peer.shown.ifEmpty { context.getString(R.string.app_name) }).setImportant(true).build()
+        Person.Builder().setName(peer.shown.ifEmpty { context.getString(R.string.app_name) }).setImportant(true)
+            // Design 2: Profilkreis mit Initialen in der Tonfarbe der Person (wie im Anrufbildschirm)
+            .setIcon(androidx.core.graphics.drawable.IconCompat.createWithBitmap(io.github.yggdrasil_sh.saga.push.NotifyDesign.initials(peer.shown.ifEmpty { "?" })))
+            .build()
 
     private fun activityIntent(context: Context, action: String?, code: Int): PendingIntent {
         val i = Intent(context, CallActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -85,6 +88,7 @@ object CallNotify {
         val full = activityIntent(context, null, 1)
         val n = NotificationCompat.Builder(context, CH_RING)
             .setSmallIcon(R.drawable.ic_notification)
+            .setColor(io.github.yggdrasil_sh.saga.push.NotifyDesign.ACCENT)
             .setContentTitle(context.getString(if (video) R.string.call_incoming_video else R.string.call_incoming))
             .setContentText(context.getString(if (video) R.string.call_video_from else R.string.call_from, name))
             .setCategory(NotificationCompat.CATEGORY_CALL)
@@ -118,6 +122,7 @@ object CallNotify {
         // den Namen ein zweites Mal; dazu die Dauer als Stoppuhr. Beim Teilen: "Du teilst deinen Bildschirm".
         return NotificationCompat.Builder(context, CH_CALL)
             .setSmallIcon(R.drawable.ic_notification)
+            .setColor(io.github.yggdrasil_sh.saga.push.NotifyDesign.ACCENT)
             .setContentTitle(peer.shown)
             .setContentText(
                 if (!screen && group > 0) context.getString(R.string.horn_ongoing_group, group)   // 2.5: Gruppenanruf (Knoten)

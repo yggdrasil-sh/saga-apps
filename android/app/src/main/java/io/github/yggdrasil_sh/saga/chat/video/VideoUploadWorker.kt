@@ -66,6 +66,7 @@ class VideoUploadWorker(context: Context, params: WorkerParameters) : CoroutineW
         val cancel = WorkManager.getInstance(ctx).createCancelPendingIntent(id)
         val n = NotificationCompat.Builder(ctx, Videos.CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
+            .setColor(io.github.yggdrasil_sh.saga.push.NotifyDesign.ACCENT)
             .setContentTitle(ctx.getString(if (phase == PHASE_PREPARE) R.string.video_preparing else R.string.video_uploading))
             .setContentText(name)
             .setOnlyAlertOnce(true)

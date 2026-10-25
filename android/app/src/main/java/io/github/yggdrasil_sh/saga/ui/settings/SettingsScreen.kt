@@ -1,5 +1,10 @@
 package io.github.yggdrasil_sh.saga.ui.settings
 
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.foundation.lazy.itemsIndexed
+import io.github.yggdrasil_sh.saga.ui.theme.sagaSegment
+import io.github.yggdrasil_sh.saga.ui.theme.SagaSectionTitle
 import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.util.UiText
@@ -132,7 +137,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
             // Sprache der App ganz oben (gut auffindbar; auf einem fremden/geteilten Geraet unabhaengig von der Geraetesprache)
             item { LanguageRow(w.padding(top = 4.dp)) }
-            item { SectionHeader(stringResource(R.string.settings_account), w) }
+            item { SagaSectionTitle(stringResource(R.string.settings_account), w.padding(top = 8.dp)) }
             item {
                 // Mit welchem Konto auf welchem Server angemeldet (Schutz vor unbemerktem Kontowechsel)
                 ListItem(
@@ -140,15 +145,16 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     supportingContent = { Text(stringResource(R.string.settings_on_server, io.github.yggdrasil_sh.saga.util.ShotMode.host(PairLink.displayHost(server)).ifEmpty { "–" })) },
                     leadingContent = {
                         // 2.1: eigenes Profilbild (sonst Initialen)
-                        io.github.yggdrasil_sh.saga.ui.notifications.Avatar(account.ifEmpty { "?" }, size = 40, avatar = ownAvatar)
+                        io.github.yggdrasil_sh.saga.ui.chat.ChatAvatar(account.ifEmpty { "?" }, 48.dp, avatar = ownAvatar)
                     },
-                    modifier = w,
+                    // Design 2: Konto als hervorgehobene Kachel oben
+                    colors = SEG, modifier = w.sagaSegment(0, 1, color = MaterialTheme.colorScheme.surfaceContainer),
                 )
             }
             item {
                 Text(
                     stringResource(R.string.settings_server_change_hint), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = w.padding(horizontal = 16.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = w.padding(start = 20.dp, end = 20.dp, top = 6.dp),
                 )
             }
             // 2.1: Profilbild (hochladen mit Zuschnitt) und "Anmeldung & Sicherheit" (Verwalten im Browser)
@@ -165,28 +171,33 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
 
             // Saga 2.0: Benachrichtigungen (Glocke) je Art, Mitteilungen (Push), Chats & Geraete
             if (notifKinds.isNotEmpty()) {
-                item { SectionHeader(stringResource(R.string.notifications), w) }
-                items(notifKinds, key = { "nk-" + it.kind }) { k ->
-                    io.github.yggdrasil_sh.saga.ui.push.SwitchRow(stringResource(notifKindLabel(k.kind)), k.on, w) { on ->
+                item { SagaSectionTitle(stringResource(R.string.notifications), w.padding(top = 12.dp)) }
+                itemsIndexed(notifKinds, key = { _, it -> "nk-" + it.kind }) { i, k ->
+                    io.github.yggdrasil_sh.saga.ui.push.SwitchRow(stringResource(notifKindLabel(k.kind)), k.on, w.sagaSegment(i, notifKinds.size)) { on ->
                         repo.launchAction { notifKinds = repo.live.setKind(k.kind, on).kinds }
                     }
                 }
             }
+            // Design 2: Mitteilungen und "Chats & Geräte" als eigene Kachelgruppe mit Pfeil (fuehrt weiter)
+            val chatDev = chatState != ChatSetup.UNSUPPORTED && chatState != ChatSetup.OFF
+            val navRows = (if (pushSupported) 1 else 0) + (if (chatDev) 1 else 0)
             if (pushSupported) {
                 item {
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.push_title)) },
                         supportingContent = { Text(stringResource(R.string.push_settings_hint)) },
-                        modifier = w.clickable { nav.push(Dest.Push) },
+                        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                        colors = SEG, modifier = w.padding(top = 10.dp).sagaSegment(0, navRows).clickable { nav.push(Dest.Push) },
                     )
                 }
             }
-            if (chatState != ChatSetup.UNSUPPORTED && chatState != ChatSetup.OFF) {
+            if (chatDev) {
                 item {
                     ListItem(
                         headlineContent = { Text(stringResource(R.string.chat_devices)) },
                         supportingContent = { Text(stringResource(R.string.chat_devices_hint)) },
-                        modifier = w.clickable { nav.push(Dest.ChatDevices) },
+                        trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null) },
+                        colors = SEG, modifier = w.padding(top = if (navRows == 1) 10.dp else 0.dp).sagaSegment(navRows - 1, navRows).clickable { nav.push(Dest.ChatDevices) },
                     )
                 }
             }
@@ -196,15 +207,16 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             val onFeat = chatState == ChatSetup.READY && io.github.yggdrasil_sh.saga.chat.ReceiptLogic.has(chatMe, "online") && chatMe?.privacy != null
             if (rcFeat || onFeat) {
                 val pv = chatMe?.privacy ?: io.github.yggdrasil_sh.saga.chat.ChatPrivacy()
-                item { SectionHeader(stringResource(R.string.chat_privacy_title), w) }
+                item { SagaSectionTitle(stringResource(R.string.chat_privacy_title), w.padding(top = 12.dp)) }
+                val pn = (if (rcFeat) 1 else 0) + (if (onFeat) 1 else 0)
                 if (rcFeat) item(key = "privacy-receipts") {
                     io.github.yggdrasil_sh.saga.ui.push.SwitchRow(
-                        stringResource(R.string.chat_privacy_receipts), pv.receipts, w, hint = stringResource(R.string.chat_privacy_receipts_hint),
+                        stringResource(R.string.chat_privacy_receipts), pv.receipts, w.sagaSegment(0, pn), hint = stringResource(R.string.chat_privacy_receipts_hint),
                     ) { on -> repo.launchAction { repo.chat.setPrivacy(receipts = on) } }
                 }
                 if (onFeat) item(key = "privacy-online") {
                     io.github.yggdrasil_sh.saga.ui.push.SwitchRow(
-                        stringResource(R.string.chat_privacy_online), pv.online, w, hint = stringResource(R.string.chat_privacy_online_hint),
+                        stringResource(R.string.chat_privacy_online), pv.online, w.sagaSegment(pn - 1, pn), hint = stringResource(R.string.chat_privacy_online_hint),
                     ) { on -> repo.launchAction { repo.chat.setPrivacy(online = on) } }
                 }
             }
@@ -212,9 +224,9 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             if (callsOn == true) item { CallsFullScreenHint(w) }
             if (callsOn == true) item { CallsPushHint(repo.push, w) { nav.push(Dest.Push) } }
 
-            item { SectionHeader(stringResource(R.string.settings_about), w) }
-            item { ListItem(headlineContent = { Text(stringResource(R.string.settings_app)) }, trailingContent = { Text(io.github.yggdrasil_sh.saga.util.ShotMode.version("Saga ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")) }, modifier = w) }
-            item { ListItem(headlineContent = { Text(stringResource(R.string.settings_server)) }, trailingContent = { Text(serverVersion?.let { "Saga $it" } ?: "–") }, modifier = w) }
+            item { SagaSectionTitle(stringResource(R.string.settings_about), w.padding(top = 12.dp)) }
+            item { ListItem(headlineContent = { Text(stringResource(R.string.settings_app)) }, trailingContent = { Text(io.github.yggdrasil_sh.saga.util.ShotMode.version("Saga ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")) }, colors = SEG, modifier = w.sagaSegment(0, 2)) }
+            item { ListItem(headlineContent = { Text(stringResource(R.string.settings_server)) }, trailingContent = { Text(serverVersion?.let { "Saga $it" } ?: "–") }, colors = SEG, modifier = w.sagaSegment(1, 2)) }
             if (minApp != null && repo.appTooOld) {
                 item {
                     Text(
@@ -224,7 +236,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                 }
             }
 
-            item { SectionHeader(stringResource(R.string.settings_apps_devices), w) }
+            item { SagaSectionTitle(stringResource(R.string.settings_apps_devices), w.padding(top = 12.dp)) }
             item {
                 Text(
                     stringResource(R.string.settings_apps_explainer),
@@ -234,7 +246,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             appsError?.let { e -> item { Text(e.resolve(), color = MaterialTheme.colorScheme.error, modifier = w.padding(16.dp)) } }
             apps?.let { a ->
                 if (a.devices.isEmpty()) item { Text(stringResource(R.string.settings_no_apps), modifier = w.padding(16.dp)) }
-                items(a.devices, key = { "dev-${it.id}" }) { d ->
+                itemsIndexed(a.devices, key = { _, it -> "dev-${it.id}" }) { i, d ->
                     ListItem(
                         headlineContent = { Text(d.name) },
                         supportingContent = {
@@ -248,7 +260,7 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                         // Nr. 33: dieses Geraet kennzeichnen; Abmelden hier ueber den normalen Weg (Konto oben), nicht per Liste
                         overlineContent = if (d.current) ({ Text(stringResource(R.string.settings_device_current), color = MaterialTheme.colorScheme.primary) }) else null,
                         trailingContent = { if (!d.current) TextButton(onClick = { drop = d }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) } },
-                        modifier = w,
+                        colors = SEG, modifier = w.padding(top = if (i == 0) 8.dp else 0.dp).sagaSegment(i, a.devices.size),
                     )
                 }
                 if (a.keys.isNotEmpty()) {
@@ -264,7 +276,13 @@ fun SettingsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             item { HorizontalDivider(w.padding(vertical = 12.dp)) }
             item {
                 Column(w.padding(16.dp)) {
-                    OutlinedButton(onClick = { confirmLogout = true }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) }
+                    // Design 2: Abmelden als tonaler Warnknopf ueber die ganze Breite (gut zu treffen, klar als Warnung)
+                    androidx.compose.material3.FilledTonalButton(
+                        onClick = { confirmLogout = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+                        colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer, contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                        ),
+                    ) { Text(stringResource(R.string.sign_out)) }
                     Text(
                         stringResource(R.string.settings_sign_out_explainer),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp),
@@ -322,6 +340,10 @@ fun notifKindLabel(kind: String): Int = when (kind) {
     "userbackup.failed" -> R.string.notify_kind_userbackup_failed
     else -> R.string.notifications
 }
+
+/** Design 2: Listeneintraege ohne eigene Flaeche (die Kachel kommt von sagaSegment) */
+private val SEG: androidx.compose.material3.ListItemColors
+    @Composable get() = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
 
 /** Scrollstand der Einstellungen (nur im Speicher, je Anmeldung) */
 private object SettingsScroll {

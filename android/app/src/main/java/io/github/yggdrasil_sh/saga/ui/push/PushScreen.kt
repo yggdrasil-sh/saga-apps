@@ -299,6 +299,8 @@ fun SwitchRow(label: String, value: Boolean, modifier: Modifier, hint: String? =
         headlineContent = { Text(label) },
         supportingContent = hint?.let { { Text(it) } },
         trailingContent = { Switch(checked = value, onCheckedChange = null, enabled = enabled) },
+        // Design 2: ohne eigene Flaeche - so passt die Zeile auch in eine Kachelgruppe (sagaSegment)
+        colors = androidx.compose.material3.ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
         modifier = modifier.toggleable(value = value, enabled = enabled, role = Role.Switch, onValueChange = onChange),
     )
 }

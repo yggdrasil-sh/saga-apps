@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.login
 
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.util.UiText
 import io.github.yggdrasil_sh.saga.util.resolve
@@ -127,6 +129,9 @@ fun LoginScreen(repo: SagaRepository) {
     }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        // Design 2: ein Hauch Gold von oben (wie das Licht im App-Symbol), sonst ruhige Flaeche
+        val glow = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.gold.copy(alpha = 0.16f)
+        Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Brush.verticalGradient(0f to glow, 0.45f to androidx.compose.ui.graphics.Color.Transparent)))
         Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding(), contentAlignment = Alignment.Center) {
             Column(
                 Modifier.widthIn(max = 420.dp).fillMaxWidth().verticalScroll(rememberScrollState()).padding(28.dp),
@@ -135,7 +140,7 @@ fun LoginScreen(repo: SagaRepository) {
             ) {
                 Image(
                     painterResource(R.drawable.ic_launcher_foreground), contentDescription = null,
-                    modifier = Modifier.size(96.dp).clip(RoundedCornerShape(22.dp)).background(SagaNight),
+                    modifier = Modifier.size(104.dp).shadow(12.dp, RoundedCornerShape(28.dp)).clip(RoundedCornerShape(28.dp)).background(SagaNight),
                 )
                 Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.Bold)
                 Text(
@@ -153,23 +158,25 @@ fun LoginScreen(repo: SagaRepository) {
                     keyboardActions = KeyboardActions(onGo = { login() }),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Button(onClick = { login() }, enabled = !busy && server.isNotBlank(), modifier = Modifier.fillMaxWidth()) {
+                Button(onClick = { login() }, enabled = !busy && server.isNotBlank(), modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                     Text(stringResource(if (busy) R.string.login_button_busy else R.string.login_button))
                 }
-                OutlinedButton(onClick = { startScan() }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                OutlinedButton(onClick = { startScan() }, enabled = !busy, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
                     Text(stringResource(R.string.login_qr))
                 }
-                Text(
-                    stringResource(R.string.login_qr_hint),
-                    style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                // 2.1: Zwei-Faktor-Anmeldung laeuft im Browserfenster (Passkey/Code) - die App braucht dafuer nichts
-                Text(
-                    stringResource(R.string.login_2fa_hint),
-                    style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                // Design 2: die beiden Hinweise gesammelt in einer ruhigen Karte statt loser grauer Zeilen
+                io.github.yggdrasil_sh.saga.ui.theme.SagaCard(Modifier.fillMaxWidth().padding(top = 4.dp), padding = 14.dp) {
+                    Text(
+                        stringResource(R.string.login_qr_hint),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    // 2.1: Zwei-Faktor-Anmeldung laeuft im Browserfenster (Passkey/Code) - die App braucht dafuer nichts
+                    Text(
+                        stringResource(R.string.login_2fa_hint),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 8.dp),
+                    )
+                }
                 // Kontowechsel ohne privaten Tab (Browser kann es nicht): der Browser bleibt beim bisherigen Konto angemeldet
                 val switchHint = remember { repo.freshLogin && !io.github.yggdrasil_sh.saga.ui.common.ephemeralTabsSupported(context) }
                 if (switchHint) {

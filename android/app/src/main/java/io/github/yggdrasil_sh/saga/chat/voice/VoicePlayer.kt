@@ -221,6 +221,7 @@ class VoicePlaybackService : Service() {
         }
         val n: Notification = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification)
+            .setColor(io.github.yggdrasil_sh.saga.push.NotifyDesign.ACCENT)
             .setContentTitle(getString(R.string.voice_playing))
             .setOngoing(true)
             .setSilent(true)
