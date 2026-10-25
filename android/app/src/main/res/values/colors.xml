@@ -3,4 +3,8 @@
     <color name="saga_icon_bg">#0F141C</color>
     <color name="saga_bg_light">#FBF9F5</color>
     <color name="saga_bg_dark">#0F141C</color>
+    <!-- Widget-Vorschau in der Auswahl (Android 12+); hell hier, dunkel in values-night -->
+    <color name="widget_text">#FF1E1B16</color>
+    <color name="widget_text_muted">#FF4D4639</color>
+    <color name="widget_gold">#FF7A5A12</color>
 </resources>

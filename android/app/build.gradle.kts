@@ -220,6 +220,9 @@ dependencies {
     implementation(libs.androidx.work.runtime)
     // 2.5 Reaktionen: volle Emoji-Auswahl ohne Internet (Emoji-Daten in der Bibliothek, kein Download zur Laufzeit)
     implementation(libs.androidx.emoji2.emojipicker)
+    // Homescreen-Widgets "Heute" und "Seite" (Compose fuer Widgets, Material-You-Farben)
+    implementation(libs.glance.appwidget)
+    implementation(libs.glance.material3)
 
     // Anrufe (2.1): WebRTC (Maven Central). Seit 2.5 webrtc-sdk (libwebrtc M150 mit FrameCryptor und HKDF-Ableitung fuer
     // den Frame-E2E saga-horn/v1, docs/HORN-E2E.md), gleiche Hauptversion wie iOS/macOS; Paket org.webrtc wie bisher

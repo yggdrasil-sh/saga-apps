@@ -60,6 +60,12 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
         // Profilbilder nur vom eingestellten Server; Anrufe hoeren ab jetzt auf den Live-Kanal (Klingeln, Signale)
         io.github.yggdrasil_sh.saga.ui.common.AvatarLogic.server = { repo.settings.server.value }
         repo.calls
+        // Homescreen-Widgets: nach Aenderungen in der App neu laden; periodischen Abgleich sicherstellen, falls Widgets da sind
+        appScope.launch { io.github.yggdrasil_sh.saga.widget.WidgetUpdates.followApp(this@SagaApplication, repo) }
+        appScope.launch(Dispatchers.IO) {
+            val has = io.github.yggdrasil_sh.saga.widget.WidgetUpdates.present(this@SagaApplication)
+            if (has.today || has.page) io.github.yggdrasil_sh.saga.widget.WidgetUpdates.schedule(this@SagaApplication)
+        }
         // 2.5: eigene Push-Verbindung (ohne Verteiler) nach einem Prozess-Neustart wieder aufnehmen bzw. beenden
         appScope.launch {
             repo.awaitReady()

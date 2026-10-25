@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget "Seite": Auswahl beim Platzieren, spaeter ueber "Widget bearbeiten" (reconfigurable). 1x1 = Seiten-Karte -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_page_desc"
+    android:initialLayout="@layout/glance_default_loading_layout"
+    android:configure="io.github.yggdrasil_sh.saga.widget.PageWidgetConfigActivity"
+    android:widgetFeatures="reconfigurable"
+    android:minWidth="40dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="40dp"
+    android:minResizeHeight="40dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="2"
+    android:previewLayout="@layout/widget_page_preview"
+    android:previewImage="@mipmap/ic_launcher"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

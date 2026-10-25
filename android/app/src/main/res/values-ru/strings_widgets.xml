@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Homescreen-Widgets (Heute, Seite) -->
+<resources>
+    <string name="widget_today_name">Saga: Сегодня</string>
+    <string name="widget_today_desc">События на сегодня и задачи со сроком сегодня или просроченные — отмечайте прямо в виджете</string>
+    <string name="widget_page_name">Saga: Страница</string>
+    <string name="widget_page_desc">Показывает выбранную страницу: значок, заголовок и начало текста</string>
+    <string name="widget_today_title">Сегодня</string>
+    <string name="widget_page_title">Страница</string>
+    <string name="widget_new_task">Новая задача</string>
+    <string name="widget_signed_out">Войдите в Saga, чтобы видеть здесь свой день.</string>
+    <string name="widget_loading">Загрузка…</string>
+    <string name="widget_today_empty">На сегодня ничего нет</string>
+    <string name="widget_done_failed">Не удалось отметить задачу</string>
+    <string name="widget_offline_since">Нет сети · данные на %1$s</string>
+    <string name="widget_stale_since">Данные на %1$s</string>
+    <string name="widget_calendar_failed">Календарь недоступен</string>
+    <string name="widget_all_day">Весь день</string>
+    <string name="widget_event_a11y">%1$s, %2$s</string>
+    <string name="widget_mark_done">Отметить как выполненную: %1$s</string>
+    <string name="widget_overdue">просрочено</string>
+    <string name="widget_high_priority">высокий приоритет</string>
+    <string name="widget_untitled">Без названия</string>
+    <string name="widget_open_page">Открыть страницу %1$s</string>
+    <string name="widget_pick_page">Нажмите, чтобы выбрать страницу</string>
+    <string name="widget_page_missing">Этой страницы больше нет. Нажмите, чтобы выбрать другую.</string>
+    <string name="widget_page_database">База данных</string>
+    <string name="widget_page_empty">Страница пуста</string>
+    <string name="widget_config_title">Выбор страницы</string>
+    <string name="widget_config_signed_out">Сначала войдите в Saga, затем добавьте виджет снова.</string>
+    <string name="widget_open_app">Открыть Saga</string>
+    <string name="widget_config_search">Поиск страниц</string>
+    <string name="widget_config_none">Страницы не найдены</string>
+    <string name="widget_preview_event">9:30  Планёрка</string>
+    <string name="widget_preview_task">Полить цветы</string>
+    <string name="widget_preview_task2">Составить план на неделю</string>
+    <string name="widget_preview_page">📄 План проекта</string>
+    <string name="widget_preview_excerpt">Цель: закончить первый вариант до конца месяца.</string>
+    <plurals name="widget_more">
+        <item quantity="one">ещё %d</item>
+        <item quantity="few">ещё %d</item>
+        <item quantity="many">ещё %d</item>
+        <item quantity="other">ещё %d</item>
+    </plurals>
+</resources>

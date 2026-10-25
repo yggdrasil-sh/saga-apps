@@ -3,6 +3,7 @@ package io.github.yggdrasil_sh.saga.ui.tasks
 import androidx.compose.ui.res.stringResource
 import io.github.yggdrasil_sh.saga.R
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -107,7 +108,27 @@ fun TaskRow(t: TaskItem, repo: SagaRepository, onEdit: (TaskItem) -> Unit) {
 /** Schnell-Eingabe: Text + optionale Faelligkeit */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun QuickAddTask(repo: SagaRepository, modifier: Modifier = Modifier, defaultDue: String? = null) {
+fun QuickAddTask(
+    repo: SagaRepository,
+    modifier: Modifier = Modifier,
+    defaultDue: String? = null,
+    /** Widget "Neue Aufgabe": Feld fokussieren und Tastatur zeigen */
+    focus: Boolean = false,
+    onFocused: () -> Unit = {},
+) {
+    val focusRequester = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    androidx.compose.runtime.LaunchedEffect(focus) {
+        if (focus) {
+            kotlinx.coroutines.delay(250)                  // erst nach dem Einblenden der Liste
+            try {
+                focusRequester.requestFocus()
+                keyboard?.show()
+            } catch (_: IllegalStateException) {
+            }
+            onFocused()
+        }
+    }
     var text by remember { mutableStateOf("") }
     var due by remember { mutableStateOf(defaultDue) }
     var pick by remember { mutableStateOf(false) }
@@ -124,7 +145,7 @@ fun QuickAddTask(repo: SagaRepository, modifier: Modifier = Modifier, defaultDue
     Column(modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
         OutlinedTextField(
             value = text, onValueChange = { text = it }, placeholder = { Text(stringResource(R.string.task_new_placeholder)) },
-            singleLine = true, modifier = Modifier.fillMaxWidth(),
+            singleLine = true, modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
             keyboardActions = KeyboardActions(onDone = { add() }),
             trailingIcon = { IconButton(onClick = { add() }, enabled = text.isNotBlank() && !busy) { Icon(Icons.Filled.Add, stringResource(R.string.action_add)) } },

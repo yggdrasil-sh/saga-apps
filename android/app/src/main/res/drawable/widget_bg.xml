@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Widget-Hintergrund fuer Android 8-11 (ab 12: Systemradius und dynamische Farben im Code) -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <corners android:radius="20dp" />
+    <solid android:color="#FFF6F3EC" />
+</shape>
