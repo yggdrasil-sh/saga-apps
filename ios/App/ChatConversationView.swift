@@ -734,7 +734,9 @@ struct MessageBubble: View {
     @State private var readBy = false                             // 2.4: "Gelesen von" (Gruppen)
     @State private var pickEmoji = false                          // 2.5: "+" (System-Emoji-Auswahl)
     @State private var rxWho: RxWho?                              // 2.5: "Reaktionen von …"
-    @State private var hover = false                              // 2.5: Mac - Reagieren beim Ueberfahren
+    @State private var hover = false                              // 2.5: Mac - Reagieren beim Ueberfahren (Knopf sichtbar)
+    @State private var hoverIn = false                            // Maus ueber der Blase
+    @State private var hoverBtn = false                           // Maus ueber dem Knopf (liegt neben der Blase)
     @State private var rxBar = false
     @State private var actions = false                            // 2.5 iPhone/iPad: langes Druecken -> Leiste + Aktionen
     struct RxWho: Identifiable { var e: String?; var id: String { e ?? "*" } }
@@ -788,7 +790,7 @@ struct MessageBubble: View {
                 }.font(.caption2).foregroundStyle(.secondary)
             }
             #if os(macOS)
-            .onHover { hover = $0 }
+            .onHover { hoverIn = $0; hoverChanged() }
             .simultaneousGesture(TapGesture().modifiers(.command).onEnded { select?() })   // 2.5: Cmd-Klick startet die Auswahl
             #endif
             #if os(iOS)
@@ -850,6 +852,12 @@ struct MessageBubble: View {
     }
     /// Blatt erst oeffnen, wenn die schwebende Leiste zu ist
     private func later(_ f: @escaping () -> Void) { DispatchQueue.main.asyncAfter(deadline: .now() + 0.35, execute: f) }
+    /// Mac: Knopf sofort zeigen, aber erst kurz nach dem Verlassen ausblenden - sonst verschwindet er auf dem Weg von der
+    /// Blase zum Knopf (er liegt neben der Blase, ausserhalb ihrer Hover-Flaeche)
+    private func hoverChanged() {
+        if hoverIn || hoverBtn { hover = true; return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { if !hoverIn && !hoverBtn { hover = false } }
+    }
     /// Mac: beim Ueberfahren ein kleiner Knopf an der Blase -> Schnellleiste
     @ViewBuilder private var hoverReact: some View {
         #if os(macOS)
@@ -860,7 +868,9 @@ struct MessageBubble: View {
                     .overlay(Circle().strokeBorder(Color.secondary.opacity(0.25), lineWidth: 0.5))
             }
             .buttonStyle(.plain)
-            .offset(x: mine ? -30 : 30, y: -6)
+            .padding(6).contentShape(Rectangle())                       // etwas groessere Flaeche, kein Spalt zur Blase
+            .onHover { hoverBtn = $0; hoverChanged() }
+            .offset(x: mine ? -36 : 36, y: -6)
             .help(Text("Reagieren")).accessibilityLabel(Text("Reagieren"))
             .popover(isPresented: $rxBar, arrowEdge: .top) {
                 ReactionBar(current: conv.myReaction(m), pick: { e in rxBar = false; conv.react(m, e) }, more: { rxBar = false; pickEmoji = true })
