@@ -796,6 +796,7 @@ class Store(GObject.Object):
 
     server_version = None
     min_app = None
+    graph_api = None                    # 2.5: False = Server kennt api/graph nicht (404) -> Einstieg "Graph" ausblenden
 
     def check_version(self):
         """Server-Version + aelteste App-Version, die er voll unterstuetzt (/api/version, ohne Anmeldung)"""

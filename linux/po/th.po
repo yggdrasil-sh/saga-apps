@@ -7023,3 +7023,182 @@ msgstr "ไม่บังคับ – ทุกคนที่คุณแช�
 #: hlidskjalf/chatview.py
 msgid "Display name not saved: {err}"
 msgstr "ไม่ได้บันทึกชื่อที่แสดง: {err}"
+
+#: hlidskjalf/graphview.py:42 hlidskjalf/graphview.py:987
+msgid "Database entry"
+msgstr "รายการในฐานข้อมูล"
+
+#: hlidskjalf/graphview.py:43
+#, python-brace-format
+msgid "{kind}, shared with you"
+msgstr "{kind} ที่แชร์กับคุณ"
+
+#: hlidskjalf/graphview.py:47
+#, python-brace-format
+msgid "{n} connection"
+msgid_plural "{n} connections"
+msgstr[0] "{n} การเชื่อมโยง"
+
+#: hlidskjalf/graphview.py:670
+msgid "Legend"
+msgstr "คำอธิบายสัญลักษณ์"
+
+#: hlidskjalf/graphview.py:680
+msgid "Pages in the graph"
+msgstr "หน้าในกราฟ"
+
+#: hlidskjalf/graphview.py:695 hlidskjalf/graphview.py:781 hlidskjalf/graphview.py:931
+msgid "All pages"
+msgstr "ทุกหน้า"
+
+#: hlidskjalf/graphview.py:696
+msgid "Local"
+msgstr "เฉพาะที่"
+
+#: hlidskjalf/graphview.py:697
+msgid "The open page and its neighbors"
+msgstr "หน้าที่เปิดอยู่และหน้าข้างเคียง"
+
+#: hlidskjalf/graphview.py:703
+msgid "Depth 1"
+msgstr "ความลึก 1"
+
+#: hlidskjalf/graphview.py:703
+msgid "Depth 2"
+msgstr "ความลึก 2"
+
+#: hlidskjalf/graphview.py:704
+msgid "How many steps away neighbors may be"
+msgstr "หน้าข้างเคียงห่างได้กี่ขั้น"
+
+#: hlidskjalf/graphview.py:711 hlidskjalf/graphview.py:712
+msgid "Search pages in the graph"
+msgstr "ค้นหาหน้าในกราฟ"
+
+#: hlidskjalf/graphview.py:717 hlidskjalf/graphview.py:718
+msgid "Filters"
+msgstr "ตัวกรอง"
+
+#: hlidskjalf/graphview.py:721 hlidskjalf/graphview.py:723
+msgid "Show as list"
+msgstr "แสดงเป็นรายการ"
+
+#: hlidskjalf/graphview.py:726 hlidskjalf/graphview.py:727
+msgid "Fit to view"
+msgstr "พอดีกับมุมมอง"
+
+#: hlidskjalf/graphview.py:745
+msgid "Database relations"
+msgstr "ความสัมพันธ์ของฐานข้อมูล"
+
+#: hlidskjalf/graphview.py:745
+msgid "Links in text"
+msgstr "ลิงก์ในข้อความ"
+
+#: hlidskjalf/graphview.py:745
+msgid "Subpages"
+msgstr "หน้าย่อย"
+
+#: hlidskjalf/graphview.py:746
+msgid "Pages without connections"
+msgstr "หน้าที่ไม่มีการเชื่อมโยง"
+
+#: hlidskjalf/graphview.py:746
+msgid "Tags as nodes"
+msgstr "แท็กเป็นโหนด"
+
+#: hlidskjalf/graphview.py:752
+msgid "Rearrange"
+msgstr "จัดเรียงใหม่"
+
+#: hlidskjalf/graphview.py:781 hlidskjalf/window.py:250 hlidskjalf/window.py:1584
+msgid "Graph"
+msgstr "กราฟ"
+
+#: hlidskjalf/graphview.py:781 hlidskjalf/page.py:1397 hlidskjalf/window.py:1604
+msgid "Local graph"
+msgstr "กราฟเฉพาะที่"
+
+#: hlidskjalf/graphview.py:875 hlidskjalf/graphview.py:943
+msgid "Loading graph …"
+msgstr "กำลังโหลดกราฟ …"
+
+#: hlidskjalf/graphview.py:893
+msgid "Requires server 2.5"
+msgstr "ต้องใช้เซิร์ฟเวอร์ 2.5"
+
+#: hlidskjalf/graphview.py:894
+msgid "Update the Saga server to see how your pages are connected."
+msgstr "อัปเดตเซิร์ฟเวอร์ Saga เพื่อดูว่าหน้าต่าง ๆ ของคุณเชื่อมโยงกันอย่างไร"
+
+#: hlidskjalf/graphview.py:896
+msgid "The graph needs a connection to the server."
+msgstr "กราฟต้องเชื่อมต่อกับเซิร์ฟเวอร์"
+
+#: hlidskjalf/graphview.py:896
+msgid "You're offline"
+msgstr "คุณออฟไลน์อยู่"
+
+#: hlidskjalf/graphview.py:899
+msgid "The graph couldn't be loaded."
+msgstr "ไม่สามารถโหลดกราฟได้"
+
+#: hlidskjalf/graphview.py:919
+msgid "truncated"
+msgstr "ถูกตัดทอน"
+
+#: hlidskjalf/graphview.py:920
+msgid "Only the most recently edited pages are shown."
+msgstr "แสดงเฉพาะหน้าที่แก้ไขล่าสุด"
+
+#: hlidskjalf/graphview.py:927
+msgid "Create pages and link them to each other – here you'll see how everything is connected."
+msgstr "สร้างหน้าและเชื่อมโยงเข้าด้วยกัน แล้วคุณจะเห็นว่าทุกอย่างเชื่อมโยงกันอย่างไรที่นี่"
+
+#: hlidskjalf/graphview.py:930
+msgid "This page is not in the graph"
+msgstr "หน้านี้ไม่อยู่ในกราฟ"
+
+#: hlidskjalf/graphview.py:931
+msgid "Archived pages, templates and pages from other servers don't appear here."
+msgstr "หน้าที่เก็บถาวร เทมเพลต และหน้าจากเซิร์ฟเวอร์อื่นจะไม่แสดงที่นี่"
+
+#: hlidskjalf/graphview.py:935
+msgid "No pages match the filters"
+msgstr "ไม่มีหน้าที่ตรงกับตัวกรอง"
+
+#: hlidskjalf/graphview.py:935
+msgid "Reset filters"
+msgstr "รีเซ็ตตัวกรอง"
+
+#: hlidskjalf/graphview.py:938
+#, python-brace-format
+msgid "“{name}” isn't connected to any other page yet"
+msgstr "“{name}” ยังไม่ได้เชื่อมโยงกับหน้าอื่น"
+
+#: hlidskjalf/graphview.py:960
+#, python-brace-format
+msgid "Local graph of “{name}”: {n} connected page"
+msgid_plural "Local graph of “{name}”: {n} connected pages"
+msgstr[0] "กราฟเฉพาะที่ของ “{name}”: {n} หน้าที่เชื่อมโยง"
+
+#: hlidskjalf/graphview.py:963
+#, python-brace-format
+msgid "Graph with {pages} and {edges}."
+msgstr "กราฟที่มี {pages} และ {edges}"
+
+#: hlidskjalf/graphview.py:966
+msgid "Arrow keys select a page, Enter opens it, plus and minus zoom, 0 fits. The list view shows the same pages."
+msgstr "ปุ่มลูกศรเลือกหน้า Enter เปิดหน้า บวกและลบซูม 0 พอดีกับมุมมอง มุมมองรายการแสดงหน้าเดียวกัน"
+
+#: hlidskjalf/graphview.py:988
+msgid "Shared with you"
+msgstr "แชร์กับคุณ"
+
+#: hlidskjalf/graphview.py:1045
+msgid "No matches"
+msgstr "ไม่พบผลลัพธ์"
+
+#: hlidskjalf/graphview.py:1069
+msgid "Filter"
+msgstr "กรอง"

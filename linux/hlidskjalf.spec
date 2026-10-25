@@ -123,6 +123,8 @@ test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/act
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/saga-chat-symbolic.svg
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/saga-assistant-symbolic.svg
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/saga-send-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/saga-graph-symbolic.svg
+test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/icons/hicolor/scalable/actions/saga-filter-symbolic.svg
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/chatcrypto.py
 # 2.1: Profilbilder, Anmeldung & Sicherheit, Anrufe
 test -s %{buildroot}%{_datadir}/hlidskjalf/hlidskjalf/avatars.py

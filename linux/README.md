@@ -42,6 +42,10 @@ mit dem Funktionsumfang der Mac-App:
   verschlüsselt und in Teilen hochgeladen (fortsetzbar, abbrechbar); Abspielen mit Spulen über einen lokalen Proxy
   (127.0.0.1, Token je Wiedergabe; nur die nötigen Blöcke per Range, Ciphertext-Zwischenspeicher 512 MB); Speichern als
   Datenstrom; optional „Optimiert 720p“ (x264enc/openh264enc). Geprüft gegen `tests/file_v2_vectors.json`
+- Graph der Seiten (Server 2.5, wie Obsidian): „Graph“ in der Seitenleiste bzw. Befehlspalette, „Lokaler Graph“ im
+  Seitenmenü (Nachbarn in Tiefe 1–2); Zoom mit Mausrad, Strg+Wischen oder Pinch, Ziehen verschiebt, Knoten lassen sich
+  ziehen, Überfahren hebt Nachbarn hervor, Doppelklick öffnet; Suche, Filter, Listenansicht für Orca. Simulation in
+  reinem Python (`graphsim.py`, Barnes-Hut), getestet mit `tests/test_graphsim.py` und `tests/graphshots.py`
 - Aufgaben, Termine (CalDAV), Dienste, Befehlspalette (Strg+K), Einstellungen
 - Bleibt angemeldet: Geräte-Schlüssel im GNOME-Schlüsselbund (libsecret), Sitzung wird still erneuert
 - GNOME-Suche (Seiten in der Aktivitäten-Übersicht), Dock-Aktionen „Neue Seite“ / „Neue Aufgabe“

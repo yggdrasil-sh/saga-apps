@@ -126,6 +126,12 @@ for part in $PARTS; do
       HK_OUT="$SRC/build/shots" app_test fedshots.py
       HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test fedshots.py es_ES.UTF-8
       for l in th_TH.UTF-8 ru_RU.UTF-8; do HK_OUT="$SRC/build/shots" app_test thrushots.py "$l"; done
+      HK_OUT="$SRC/build/shots" app_test graphshots.py
+      ;;
+    graphshots)                                          # nur die Bilder zum Graph der Seiten (2.5) + Messung 2000 Knoten
+      mkdir -p "$SRC/build/shots"
+      HK_OUT="$SRC/build/shots" app_test graphshots.py
+      HK_OUT="$SRC/build/shots" HK_SHOT_PREFIX=es- app_test graphshots.py es_ES.UTF-8
       ;;
     fedshots)                                            # nur die Bilder zu "Chats ueber Servergrenzen" (2.3)
       mkdir -p "$SRC/build/shots"

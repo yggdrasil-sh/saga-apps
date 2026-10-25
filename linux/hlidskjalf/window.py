@@ -11,6 +11,7 @@ from .api import APIError, Cancelled, client, pkce
 from .blocks import context_menu, flat_button, menu_popover
 from .config import device_name, get_device_token, settings
 from .i18n import _, ngettext
+from .graphview import available as graph_available
 from .page import PageView
 from .publish import available as publish_available, globe_icon, header_state, open_publish
 from .store import is_db, label, store, watch
@@ -202,7 +203,7 @@ class Sidebar(Gtk.Box):
                 tuple((p["id"], p.get("title"), p.get("icon"), p.get("parent_id"), p.get("kind"), p.get("root"), p.get("unread"),
                        p.get("role"), (p.get("owner") or {}).get("name")) for p in store.shared), store.share_off,
                 tuple(p["id"] for p in store.archived), tuple(store.recent[:5]), len(store.tasks), self.query, len(self.results),
-                tuple(sorted(self.expanded)), self.show_archive, tuple(store.fed_unreachable), _chat_sig())
+                tuple(sorted(self.expanded)), self.show_archive, tuple(store.fed_unreachable), _chat_sig(), graph_available())
 
     def _today_changed(self):
         self.fill(force=False)                       # nur neu, wenn sich die Anzahl der Aufgaben geaendert hat
@@ -245,7 +246,10 @@ class Sidebar(Gtk.Box):
             return
         for key, title, icon, badge in (("tasks", _("Tasks"), "object-select-symbolic", len(store.tasks) or None),
                                         ("events", _("Events"), "x-office-calendar-symbolic", None),
-                                        ("services", _("Services"), "view-app-grid-symbolic", None)):
+                                        ("services", _("Services"), "view-app-grid-symbolic", None),
+                                        ("graph", _("Graph"), "saga-graph-symbolic", None)):
+            if key == "graph" and not graph_available():          # 2.5: Graph der Seiten, nur wenn der Server ihn kennt
+                continue
             r = SidebarRow(w, title, Gtk.Image.new_from_icon_name(icon), key=(key,), badge=badge)
             self.rows[(key,)] = r
             self.box.append(r)
@@ -482,7 +486,7 @@ class MainWindow(Adw.ApplicationWindow):
         """sehr schmal an/aus: offene Seite mit schmalen Raendern neu aufbauen (Seite, Datenbank-Leiste)"""
         def go():
             v = self.current
-            if isinstance(v, PageView):
+            if isinstance(v, PageView) or hasattr(v, "check_narrow"):    # Seite bzw. Graph (Kopf zweizeilig)
                 v.check_narrow()
             if getattr(self, "_hdr_presence", None):
                 self.set_presence(self._hdr_presence)
@@ -749,6 +753,7 @@ class MainWindow(Adw.ApplicationWindow):
         self.callbar = CallBar(self)                                # eingehender Anruf (2.1): Ablehnen / Annehmen
         ct.add_top_bar(self.callbar)
         store.connect("version-changed", lambda *_: self._version_banner())
+        store.connect("version-changed", lambda *_: self.sidebar.fill(force=False))     # 2.5: Eintrag "Graph" je Server
         self.overlay = Gtk.Overlay()
         self.slot = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, vexpand=True, hexpand=True)
         self.overlay.set_child(self.slot)
@@ -999,6 +1004,10 @@ class MainWindow(Adw.ApplicationWindow):
         if k == "services":
             from .dialogs import services_screen
             return services_screen(self)
+        if k == "graph":                                        # 2.5: ("graph", "all"|"local", Seite)
+            from .graphview import GraphScreen
+            return GraphScreen(self, route[1] if len(route) > 1 else "all",
+                               route[2] if len(route) > 2 else getattr(self, "last_page_id", None))
         if k in ("chats", "chat"):
             from .chatview import ChatsScreen
             return ChatsScreen(self, route[1] if k == "chat" and len(route) > 1 else None)
@@ -1009,6 +1018,8 @@ class MainWindow(Adw.ApplicationWindow):
         if isinstance(self.current, PageView):
             self.current.editor.flush()
         self.close_peek()
+        if route[0] == "page":
+            self.last_page_id = route[1]                        # Graph: zuletzt offene Seite markieren / lokal zeigen
         self.route = route
         while (c := self.slot.get_first_child()):
             self.slot.remove(c)
@@ -1090,7 +1101,8 @@ class MainWindow(Adw.ApplicationWindow):
 
     def mark_active(self):
         rows = getattr(getattr(self, "sidebar", None), "rows", {})
-        cur = ("chats",) if self.route and self.route[0] == "chat" else self.route
+        cur = ("chats",) if self.route and self.route[0] == "chat" else ("graph",) if self.route and self.route[0] == "graph" \
+            else self.route
         for k, r in rows.items():
             if isinstance(r, Gtk.Widget):
                 (r.add_css_class if k == cur else r.remove_css_class)("hk-active")
@@ -1569,6 +1581,7 @@ class MainWindow(Adw.ApplicationWindow):
              ("object-select-symbolic", _("Tasks"), lambda: self.show_root(("tasks",))),
              ("x-office-calendar-symbolic", _("Events"), lambda: self.show_root(("events",))),
              ("user-trash-symbolic", _("Trash"), self.trash_dialog), ("view-app-grid-symbolic", _("Services"), lambda: self.show_root(("services",))),
+             *([("saga-graph-symbolic", _("Graph"), lambda: self.show_route(("graph", "all", self.page_id())))] if graph_available() else []),
              ("view-refresh-symbolic", _("Refresh"), lambda: store.refresh()), ("go-previous-symbolic", _("Back"), self.go_back),
              ("go-next-symbolic", _("Forward"), self.go_forward), ("system-search-symbolic", _("Search in the sidebar"), self.search_sidebar),
              ("sidebar-show-symbolic", _("Show/hide sidebar"), self.toggle_sidebar),
@@ -1586,6 +1599,9 @@ class MainWindow(Adw.ApplicationWindow):
         if self.page_id():
             from .sharing import allowed, comment_icon, people_icon
             a.append(("insert-link-symbolic", _("Copy link to page"), self.copy_link))
+            pid = self.page_id()
+            if graph_available() and pid > 0:
+                a.append(("saga-graph-symbolic", _("Local graph"), lambda: self.show_route(("graph", "local", pid))))
             doc = self.peek[1].doc if self.peek else self.current.doc
             if doc.fetched and publish_available(doc.page) and allowed(doc.page, "publish"):
                 a.append((globe_icon(), _("Publish …"), lambda: self.publish_dialog(doc.id)))

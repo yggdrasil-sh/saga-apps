@@ -122,9 +122,28 @@ class MockServer:
                           "category": "Werkzeuge"},
                          {"name": "Ohne Symbol mit sehr langem Namen", "host": "lang.example.org", "url": "https://lang.example.org",
                           "category": "Medien"}]
+        # Graph (Server ab 2.5): None = aus den Seiten gebaut, dict = feste Antwort (z. B. graphsim.demo), False = 404
+        self.graph = None
+        self.version = "1.0.0"      # /api/version
         mockv2.init(self)                    # Saga 2.0: Live, Benachrichtigungen, Chat, Push, KI, Foederation
         mockv21.init(self)                   # Saga 2.1: Profilbilder, 2FA-Stand, Anrufe
         mockki.init(self)                    # Saga 2.1: KI-Persona, KI im Chat
+
+    def _graph(self):
+        """api/graph wie saga/graph.py: eigene Seiten, Unterseiten-Kanten, Zeilen unter Datenbanken"""
+        if self.graph is False:
+            return self._reply(404, {"error": "not found"})
+        if isinstance(self.graph, dict):
+            return self._reply(200, self.graph)
+        ns = self.notes
+        nodes = []
+        for n in ns.values():
+            kind = n.get("kind") or "page"
+            if kind == "page" and (ns.get(n.get("parent_id")) or {}).get("kind") == "database":
+                kind = "row"
+            nodes.append([n["id"], n.get("title") or "", n.get("icon") or "", kind, 1, n.get("parent_id")])
+        edges = [[n["parent_id"], n["id"], "c"] for n in ns.values() if n.get("parent_id") in ns]
+        return self._reply(200, {"nodes": nodes, "edges": edges, "tags": [], "truncated": False})
 
     # --- Saga 2.0 (mockv2.py) --------------------------------------------------------------------------
     def push_event(self, ev, data):
@@ -196,7 +215,7 @@ class MockServer:
         if path == "app/forget":
             self.forgotten.append((base, (body or {}).get("device_token")))
         if path == "api/version":
-            return self._reply(200, {"version": "1.0.0", "min_app": "1.0.0"})
+            return self._reply(200, {"version": self.version, "min_app": "1.0.0"})
         if path == "app/pair":
             if (body or {}).get("code", "").startswith("bad"):
                 return self._reply(400, {"error": "Code ungueltig"})
@@ -239,6 +258,8 @@ class MockServer:
         r = self._share_api(method, path, parts, q, body if isinstance(body, dict) else {})
         if r is not None:
             return r
+        if path == "api/graph" and method == "GET":
+            return self._graph()
         if path == "api/notes" and method == "GET":
             if self.share_api:
                 return self._reply(200, [dict(self.note_meta(n), shared=bool(self.shares.get(n["id"])),
