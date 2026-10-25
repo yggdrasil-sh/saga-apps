@@ -165,7 +165,7 @@
               "other": {
                 "stringUnit": {
                   "state": "translated",
-                  "value": "%lld การเชื่อมต่อ"
+                  "value": "%lld การเชื่อมโยง"
                 }
               }
             }
@@ -308,6 +308,41 @@
         }
       }
     },
+    "Bitte deine Server-Verwaltung, auf Saga 2.5 zu aktualisieren.": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bitte deine Server-Verwaltung, auf Saga 2.5 zu aktualisieren."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ask your server admin to update to Saga 2.5."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pide a quien administra tu servidor que lo actualice a Saga 2.5."
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "โปรดขอให้ผู้ดูแลเซิร์ฟเวอร์ของคุณอัปเดตเป็น Saga 2.5"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Попроси администратора сервера обновить его до Saga 2.5."
+          }
+        }
+      }
+    },
     "Braucht Server 2.5": {
       "extractionState": "manual",
       "localizations": {
@@ -378,6 +413,41 @@
         }
       }
     },
+    "Datenbank-Eintrag": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Datenbank-Eintrag"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Database entry"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Entrada de base de datos"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "รายการฐานข้อมูล"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запись базы"
+          }
+        }
+      }
+    },
     "Datenbank-Einträge": {
       "extractionState": "manual",
       "localizations": {
@@ -402,13 +472,13 @@
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "รายการในฐานข้อมูล"
+            "value": "รายการฐานข้อมูล"
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Записи баз данных"
+            "value": "Записи базы"
           }
         }
       }
@@ -444,41 +514,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Связи баз данных"
-          }
-        }
-      }
-    },
-    "Der Graph der Seiten ist ab Saga-Server 2.5 verfügbar.": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Der Graph der Seiten ist ab Saga-Server 2.5 verfügbar."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The page graph is available from Saga server 2.5."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "El grafo de páginas está disponible a partir del servidor Saga 2.5."
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "กราฟของหน้าใช้ได้ตั้งแต่เซิร์ฟเวอร์ Saga 2.5"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Граф страниц доступен начиная с сервера Saga 2.5."
           }
         }
       }
@@ -584,41 +619,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вписать"
-          }
-        }
-      }
-    },
-    "Eintrag": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Eintrag"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Entry"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Entrada"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "รายการ"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Запись"
           }
         }
       }
@@ -763,41 +763,6 @@
         }
       }
     },
-    "Freigegeben": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Freigegeben"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Shared"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Compartida"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "แชร์แล้ว"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Общая"
-          }
-        }
-      }
-    },
     "Für eine Liste aller Seiten „Liste“ wählen.": {
       "extractionState": "manual",
       "localizations": {
@@ -828,7 +793,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выберите «Список», чтобы увидеть все страницы списком."
+            "value": "Выбери «Список», чтобы увидеть все страницы списком."
           }
         }
       }
@@ -899,6 +864,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "Граф страниц"
+          }
+        }
+      }
+    },
+    "Graph durchsuchen": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Graph durchsuchen"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search graph"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar en el grafo"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ค้นหาในกราฟ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поиск по графу"
           }
         }
       }
@@ -1073,7 +1073,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Создайте страницы и свяжите их между собой — здесь будет видно, как всё взаимосвязано."
+            "value": "Создай страницы и свяжи их между собой — здесь будет видно, как всё взаимосвязано."
           }
         }
       }
@@ -1143,7 +1143,7 @@
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Локальный"
+            "value": "Локально"
           }
         }
       }
@@ -1179,6 +1179,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "Локальный граф"
+          }
+        }
+      }
+    },
+    "Mit dir geteilt": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mit dir geteilt"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shared with you"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Compartida contigo"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "แชร์กับคุณ"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Доступно вам"
           }
         }
       }
@@ -1463,41 +1498,6 @@
         }
       }
     },
-    "Seiten im Graph suchen": {
-      "extractionState": "manual",
-      "localizations": {
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Seiten im Graph suchen"
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Search pages in the graph"
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Buscar páginas en el grafo"
-          }
-        },
-        "th": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ค้นหาหน้าในกราฟ"
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Искать страницы в графе"
-          }
-        }
-      }
-    },
     "Seiten ohne Verbindung": {
       "extractionState": "manual",
       "localizations": {
@@ -1510,7 +1510,7 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Pages without links"
+            "value": "Pages without connections"
           }
         },
         "es": {
@@ -1522,7 +1522,7 @@
         "th": {
           "stringUnit": {
             "state": "translated",
-            "value": "หน้าที่ไม่มีการเชื่อมต่อ"
+            "value": "หน้าที่ไม่มีการเชื่อมโยง"
           }
         },
         "ru": {
@@ -1634,6 +1634,41 @@
           "stringUnit": {
             "state": "translated",
             "value": "Глубина"
+          }
+        }
+      }
+    },
+    "Tiefe %@": {
+      "extractionState": "manual",
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tiefe %@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Depth %@"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profundidad %@"
+          }
+        },
+        "th": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ความลึก %@"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Глубина %@"
           }
         }
       }

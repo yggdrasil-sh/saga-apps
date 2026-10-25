@@ -43,6 +43,7 @@ final class GraphModel: ObservableObject {
     private var autoFit = false
     private var lastFrame: Date?
     private var radii: [Double] = []
+    private var labelSizes: [Int: CGSize] = [:]
     private var dragState: (node: Int?, start: CGPoint, cam: GraphCamera, moved: Bool)?
     private var pinchStart: GraphCamera?
     /// Messung (Debug): Dauer der letzten Bilder in ms
@@ -52,6 +53,13 @@ final class GraphModel: ObservableObject {
     func load(_ store: Store?) async {
         if raw == nil { phase = .loading }
         #if DEBUG
+        switch GraphPreview.state {                                     // nur fuer Bilder: Zustaende
+        case "unsupported": phase = .unsupported; return
+        case "offline": phase = .offline; return
+        case "error": phase = .error(GT("Unerwartete Antwort des Servers.")); return
+        case "empty": finish(GraphRaw()); return
+        default: break
+        }
         if let n = GraphPreview.nodes { finish(GraphDemo.raw(nodes: n)); return }
         #endif
         guard let store else { return }
@@ -89,6 +97,7 @@ final class GraphModel: ObservableObject {
         let selKey = selected.flatMap { $0 < data.nodes.count ? data.nodes[$0].key : nil }
         let focusIdx = local ? g.index(of: focusID!) : nil
         data = g
+        labelSizes = [:]
         sim = GraphSim(g, old: old, focus: focusIdx)
         hl = GraphHighlight(count: g.nodes.count)
         hover = nil
@@ -247,8 +256,8 @@ final class GraphModel: ObservableObject {
         static func make(dark: Bool) -> Palette {
             func c(_ h: UInt32) -> Color { Color(red: Double(h >> 16 & 255) / 255, green: Double(h >> 8 & 255) / 255, blue: Double(h & 255) / 255) }
             return dark
-                ? Palette(page: c(0x9aa6b8), db: c(0xb39ddb), row: c(0x7fb0e0), tag: c(0x6cc48a), line: c(0x8b97a8), accent: .accentColor, fg: .white, bg: .black, lineA: 0.32)
-                : Palette(page: c(0x6a7383), db: c(0x7b5cc0), row: c(0x3d72ad), tag: c(0x2e8049), line: c(0x5d6878), accent: .accentColor, fg: .black, bg: .white, lineA: 0.3)
+                ? Palette(page: c(0x9aa6b8), db: c(0xb39ddb), row: c(0x7fb0e0), tag: c(0x6cc48a), line: c(0x8b97a8), accent: .gold, fg: .white, bg: .black, lineA: 0.32)
+                : Palette(page: c(0x6a7383), db: c(0x7b5cc0), row: c(0x3d72ad), tag: c(0x2e8049), line: c(0x5d6878), accent: .gold, fg: .black, bg: .white, lineA: 0.3)
         }
         func color(_ k: GraphKind) -> Color { k == .database ? db : k == .row ? row : k == .tag ? tag : page }
     }
@@ -319,32 +328,56 @@ final class GraphModel: ObservableObject {
             if g > 0 && !cur { ctx.fill(Path(ellipseIn: rect), with: .color(P.accent.opacity(g))) }
             if cur { ctx.stroke(Path(ellipseIn: rect.insetBy(dx: -3.5, dy: -3.5)), with: .color(P.accent.opacity(max(dimA, a))), lineWidth: 1.6) }   // "du bist hier"
         }
-        // Beschriftungen: feste Groesse, Rand in Hintergrundfarbe; hervorgehobene zuletzt (oben)
-        labels.sort { hl.e[$0.0] < hl.e[$1.0] }
-        if labels.count > 300 { labels.removeFirst(labels.count - 300) }
+        // Beschriftungen: feste Groesse, Rand in Hintergrundfarbe. Ueberlappen zwei, bleibt die des Knotens mit mehr
+        // Verbindungen (hervorgehobene und die offene Seite haben Vorrang); die uebrigen erst beim Hineinzoomen.
         let em = emphasis
+        if labels.count > 600 {                                         // sehr viele: nur die wichtigsten messen
+            labels.sort { (hl.e[$0.0], data.nodes[$0.0].deg) > (hl.e[$1.0], data.nodes[$1.0].deg) }
+            labels.removeLast(labels.count - 600)
+        }
         ctx.drawLayer { l in
             l.addFilter(.shadow(color: P.bg.opacity(0.9), radius: 1.2))
+            var texts: [(Int, Double, GraphicsContext.ResolvedText, CGPoint)] = [], cands: [GraphLabels.Candidate] = []
+            texts.reserveCapacity(labels.count); cands.reserveCapacity(labels.count)
             for (i, a) in labels {
                 let nd = data.nodes[i], big = i == em
                 let r = GraphGeo.drawRadius(radii[i], grow: hl.g[i], k: k) * k, p = scr(i)
                 var t = nd.title
                 if t.count > 40 && !big { t = String(t.prefix(39)) + "…" }
                 if !nd.icon.isEmpty && nd.icon.count <= 4 { t = nd.icon + " " + t }
-                l.draw(Text(t).font(.system(size: big ? 13 : 11.5, weight: big ? .semibold : .regular)).foregroundStyle(P.fg.opacity(a * 0.92)),
-                       at: CGPoint(x: p.x, y: p.y + r + 3), anchor: .top)
+                let rt = l.resolve(Text(t).font(.system(size: big ? 13 : 11.5, weight: big ? .semibold : .regular)))
+                let sz = labelSize(i, big: big, rt)
+                let at = CGPoint(x: p.x, y: p.y + r + 3)
+                texts.append((i, a, rt, at))
+                cands.append(.init(box: .init(x0: at.x - sz.width / 2, y0: at.y, x1: at.x + sz.width / 2, y1: at.y + sz.height),
+                                   deg: nd.deg, hot: hl.e[i], forced: big || i == focusIdx))
+            }
+            var keep = GraphLabels.place(cands)
+            keep.sort { hl.e[texts[$0].0] < hl.e[texts[$1].0] }            // hervorgehobene zuletzt (oben)
+            for j in keep {
+                var (_, a, rt, at) = texts[j]
+                rt.shading = .color(P.fg.opacity(a * 0.92))
+                l.draw(rt, at: at, anchor: .top)
             }
         }
         #if DEBUG
         frameMS.append(Date().timeIntervalSince(t0) * 1000); if frameMS.count > 240 { frameMS.removeFirst(frameMS.count - 240) }
         #endif
     }
+    /// Groesse einer Beschriftung (zwischengespeichert je Knoten und Schriftgroesse; neu bei jedem Aufbau)
+    private func labelSize(_ i: Int, big: Bool, _ rt: GraphicsContext.ResolvedText) -> CGSize {
+        let key = i * 2 + (big ? 1 : 0)
+        if let s = labelSizes[key] { return s }
+        let s = rt.measure(in: CGSize(width: 2000, height: 200))
+        labelSizes[key] = s
+        return s
+    }
     private func emphasisOfEdge(_ e: GraphEdge) -> Double {
         guard let f = emphasis else { return 0 }
         return e.a == f || e.b == f ? min(hl.e[e.a], hl.e[e.b]) : 0
     }
 
-    func describe(_ i: Int) -> String { GT("\(data.neighbors[i].count) Verbindungen") }
+    func describe(_ i: Int) -> String { let c = data.neighbors[i].count; return GraphText.formatted(GT("\(c) Verbindungen"), c) }
 
     // MARK: Filter speichern
     private static func loadFilter() -> GraphFilter {
@@ -376,7 +409,7 @@ struct GraphScreen: View {
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
-            .searchable(text: $model.query, prompt: Text("Seiten im Graph suchen", tableName: "Graph"))
+            .modifier(GraphSearch(on: model.phase == .ready, text: $model.query))   // ohne Graph keine Suche
             .onSubmit(of: .search) { if let i = model.firstMatch { open(i) } }
             .toolbar { toolbar }
             .task {
@@ -406,8 +439,8 @@ struct GraphScreen: View {
             VStack(spacing: 12) { ProgressView(); Text("Graph wird geladen …", tableName: "Graph").foregroundStyle(.secondary) }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         case .unsupported:
-            ContentUnavailableView { Label { Text("Braucht Server 2.5", tableName: "Graph") } icon: { Image(systemName: "point.3.connected.trianglepath.dotted") } }
-                description: { Text("Der Graph der Seiten ist ab Saga-Server 2.5 verfügbar.", tableName: "Graph") }
+            ContentUnavailableView { Label { Text("Braucht Server 2.5", tableName: "Graph") } icon: { Image(systemName: "server.rack") } }
+                description: { Text("Bitte deine Server-Verwaltung, auf Saga 2.5 zu aktualisieren.", tableName: "Graph") }
         case .offline:
             ContentUnavailableView { Label { Text("Offline", tableName: "Graph") } icon: { Image(systemName: "wifi.slash") } }
                 description: { Text("Keine Verbindung zum Server. Der Graph erscheint, sobald die Verbindung wieder da ist.", tableName: "Graph") }
@@ -432,32 +465,51 @@ struct GraphScreen: View {
         }
     }
 
+    /// Kopf: Umschalter, Tiefe (lokal) und Zaehlzeile. Passt die Zeile nicht (iPhone, lokal), steht die Zaehlzeile
+    /// darunter - einzeilig, nie umgebrochen.
     private var header: some View {
-        HStack(spacing: 10) {
-            Picker(selection: Binding(get: { model.mode }, set: { model.setMode($0) })) {
-                Text("Alle Seiten", tableName: "Graph").tag(GraphMode.all)
-                Text("Lokal", tableName: "Graph").tag(GraphMode.local)
-            } label: { Text("Ansicht", tableName: "Graph") }
-                .pickerStyle(.segmented).labelsHidden().fixedSize()
-                .disabled(model.focusID == nil)
-            if model.mode == .local {
-                Picker(selection: Binding(get: { model.depth }, set: { model.setDepth($0) })) {
-                    Text(verbatim: "1").tag(1); Text(verbatim: "2").tag(2)
-                } label: { Text("Tiefe", tableName: "Graph") }
-                    .pickerStyle(.segmented).fixedSize()
-                    .accessibilityLabel(Text("Tiefe", tableName: "Graph"))
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 10) {
+                controls
+                Spacer(minLength: 8)
+                stats(short: false)
             }
-            Spacer(minLength: 0)
-            stats.font(.caption).foregroundStyle(.secondary).lineLimit(2).minimumScaleFactor(0.85).multilineTextAlignment(.trailing)
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 10) { controls; Spacer(minLength: 0) }
+                ViewThatFits(in: .horizontal) { stats(short: false); stats(short: true) }
+            }
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
     }
 
-    private var stats: some View {
+    @ViewBuilder private var controls: some View {
+        Picker(selection: Binding(get: { model.mode }, set: { model.setMode($0) })) {
+            Text("Alle Seiten", tableName: "Graph").tag(GraphMode.all)
+            Text("Lokal", tableName: "Graph").tag(GraphMode.local)
+        } label: { Text("Ansicht", tableName: "Graph") }
+            .pickerStyle(.segmented).labelsHidden().fixedSize()
+            .disabled(model.focusID == nil)
+        if model.mode == .local {
+            HStack(spacing: 6) {
+                Text("Tiefe", tableName: "Graph").font(.subheadline).foregroundStyle(.secondary).accessibilityHidden(true)
+                Picker(selection: Binding(get: { model.depth }, set: { model.setDepth($0) })) {
+                    ForEach([1, 2], id: \.self) { d in
+                        Text(verbatim: String(d)).tag(d).accessibilityLabel(Text(GT("Tiefe \(String(d))")))
+                    }
+                } label: { Text("Tiefe", tableName: "Graph") }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+            }
+        }
+    }
+
+    /// Zaehlzeile ohne Seitennamen, Zahlen nach Sprache; kurz: nur die Seiten
+    private func stats(short: Bool) -> some View {
         let _ = model.revision
-        var s = GT("\(model.data.nodes.count) Seiten") + " · " + GT("\(model.data.edges.count) Verbindungen")
+        let n = model.data.nodes.count, e = model.data.edges.count
+        var s = GraphText.formatted(GT("\(n) Seiten"), n)
+        if !short { s += " · " + GraphText.formatted(GT("\(e) Verbindungen"), e) }
         if model.truncated && model.mode == .all { s += " · " + GT("gekürzt") }
-        return Text(s)
+        return Text(s).font(.caption).foregroundStyle(.secondary).lineLimit(1).fixedSize()
     }
 
     @ViewBuilder private var overlays: some View {
@@ -471,17 +523,35 @@ struct GraphScreen: View {
             Spacer()
             HStack(alignment: .bottom) {
                 legend
-                Spacer()
+                Spacer(minLength: 8)
                 VStack(spacing: 8) {
-                    Button { model.zoom(by: 1.25) } label: { Image(systemName: "plus").frame(width: 20, height: 20) }.accessibilityLabel(Text("Vergrößern", tableName: "Graph")).keyboardShortcut("+", modifiers: .command)
-                    Button { model.zoom(by: 0.8) } label: { Image(systemName: "minus").frame(width: 20, height: 20) }.accessibilityLabel(Text("Verkleinern", tableName: "Graph")).keyboardShortcut("-", modifiers: .command)
-                    Button { model.fit() } label: { Image(systemName: "scope").frame(width: 20, height: 20) }.accessibilityLabel(Text("Einpassen", tableName: "Graph")).keyboardShortcut("0", modifiers: .command)
+                    control("plus", Text("Vergrößern", tableName: "Graph")) { model.zoom(by: 1.25) }.keyboardShortcut("+", modifiers: .command)
+                    control("minus", Text("Verkleinern", tableName: "Graph")) { model.zoom(by: 0.8) }.keyboardShortcut("-", modifiers: .command)
+                    control("scope", Text("Einpassen", tableName: "Graph")) { model.fit() }.keyboardShortcut("0", modifiers: .command)
                 }
-                .buttonStyle(.bordered).buttonBorderShape(.circle).controlSize(.regular)
             }
             if let i = model.selected, i < model.data.nodes.count { card(i) }
         }
         .padding(12)
+    }
+
+    /// Steuerknopf: mindestens 44 pt Trefferflaeche (Mac 32 pt), runde Flaeche aus Material
+    private func control(_ icon: String, _ label: Text, _ run: @escaping () -> Void) -> some View {
+        #if os(macOS)
+        let side: CGFloat = 32
+        #else
+        let side: CGFloat = 44
+        #endif
+        return Button(action: run) {
+            Image(systemName: icon).font(.system(size: side * 0.4, weight: .semibold))
+                .frame(width: side, height: side)
+                .background(.regularMaterial, in: Circle())
+                .overlay(Circle().strokeBorder(.separator, lineWidth: 0.5))
+                .contentShape(Circle())
+        }
+        .buttonStyle(.plain).foregroundStyle(Color.gold)
+        .accessibilityLabel(label)
+        .help(label)
     }
 
     private func banner(_ t: String, _ icon: String) -> some View {
@@ -489,23 +559,32 @@ struct GraphScreen: View {
             .background(.regularMaterial, in: Capsule())
     }
 
-    private var legend: some View {
+    /// Legende wie im Web (drawLegend): Seite, Datenbank, Datenbank-Eintrag, Tag, dann "Mit dir geteilt" und
+    /// "Offene Seite"; nebeneinander mit Umbruch, nur bei mindestens zwei Eintraegen, ausgeblendet unter der Karte
+    @ViewBuilder private var legend: some View {
         let _ = model.revision
         let kinds = Set(model.data.nodes.map(\.kind)), shared = model.data.nodes.contains { !$0.own }
         let P = GraphModel.Palette.make(dark: scheme == .dark)
-        return VStack(alignment: .leading, spacing: 4) {
-            if kinds.contains(.page) { dot(P.page, GT("Seite")) }
-            if kinds.contains(.database) { dot(P.db, GT("Datenbank")) }
-            if kinds.contains(.row) { dot(P.row, GT("Eintrag")) }
-            if kinds.contains(.tag) { dot(P.tag, GT("Tag")) }
-            if shared { HStack(spacing: 6) { Circle().stroke(P.page, lineWidth: 1.2).frame(width: 9, height: 9); Text(GT("Freigegeben")) } }
-            if model.mode == .local { HStack(spacing: 6) { Circle().fill(Color.accentColor).frame(width: 9, height: 9); Text(GT("Offene Seite")) } }
+        let cur = model.mode == .local && model.focusID.flatMap { model.data.index(of: $0) } != nil
+        let items: [(GraphKind, Color, String)] = [(.page, P.page, GT("Seite")), (.database, P.db, GT("Datenbank")),
+                                                   (.row, P.row, GT("Datenbank-Eintrag")), (.tag, P.tag, GT("Tag"))].filter { kinds.contains($0.0) }
+        if items.count + (shared ? 1 : 0) + (cur ? 1 : 0) >= 2 && model.selected == nil {
+            WrapLayout(spacing: 12, lineSpacing: 4) {
+                ForEach(items, id: \.2) { it in dot(Circle().fill(it.1), it.2) }
+                if shared { dot(Circle().fill(P.page.opacity(0.3)).overlay(Circle().stroke(P.page, lineWidth: 1.2)), GT("Mit dir geteilt")) }
+                if cur {
+                    dot(Circle().fill(Color.gold).padding(1.5).overlay(Circle().stroke(Color.gold, lineWidth: 1.2)), GT("Offene Seite"))
+                }
+            }
+            .font(.caption).foregroundStyle(.secondary)
+            .padding(.horizontal, 9).padding(.vertical, 5)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+            .accessibilityHidden(true)
         }
-        .font(.caption2).foregroundStyle(.secondary)
-        .padding(8).background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
-        .accessibilityHidden(true)
     }
-    private func dot(_ c: Color, _ t: String) -> some View { HStack(spacing: 6) { Circle().fill(c).frame(width: 9, height: 9); Text(t) } }
+    private func dot(_ c: some View, _ t: String) -> some View {
+        HStack(spacing: 5) { c.frame(width: 9, height: 9); Text(t).lineLimit(1).fixedSize() }
+    }
 
     private func card(_ i: Int) -> some View {
         let n = model.data.nodes[i]
@@ -515,7 +594,7 @@ struct GraphScreen: View {
                 Text(model.describe(i)).font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            Button { open(i) } label: { Text(n.kind == .tag ? GT("Filtern") : GT("Öffnen")) }.buttonStyle(.borderedProminent)
+            Button { open(i) } label: { Text(n.kind == .tag ? GT("Filtern") : GT("Öffnen")) }.prominentGold()   // Gold mit lesbarer Schrift (hell und dunkel)
         }
         .padding(12).frame(maxWidth: 520)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12))
@@ -562,10 +641,12 @@ struct GraphScreen: View {
                 Button { model.relayout() } label: { Label { Text("Neu anordnen", tableName: "Graph") } icon: { Image(systemName: "arrow.triangle.2.circlepath") } }
                 Button { model.resetFilter() } label: { Label { Text("Filter zurücksetzen", tableName: "Graph") } icon: { Image(systemName: "arrow.uturn.backward") } }
             } label: { Label { Text("Filter", tableName: "Graph") } icon: { Image(systemName: "line.3.horizontal.decrease.circle") } }
+            .disabled(model.phase != .ready)
             Button { showList = !listMode } label: {
                 Label { Text(listMode ? GT("Graph") : GT("Liste")) } icon: { Image(systemName: listMode ? "point.3.connected.trianglepath.dotted" : "list.bullet") }
             }
             .help(Text("Liste", tableName: "Graph"))
+            .disabled(model.phase != .ready)
             if let onClose {
                 Button { onClose() } label: { Label { Text("Schließen", tableName: "Graph") } icon: { Image(systemName: "xmark") } }
                     .keyboardShortcut(.cancelAction)
@@ -578,6 +659,15 @@ struct GraphScreen: View {
         let n = model.data.nodes[i]
         if n.kind == .tag { model.query = String(n.title.dropFirst()); model.selected = nil; return }   // Tag: danach filtern
         if let id = n.pageID { onOpen(id) }
+    }
+}
+
+/// Suche nur, wenn ein Graph da ist (Fehler, alter Server: Werkzeugleiste und Suche aus)
+private struct GraphSearch: ViewModifier {
+    let on: Bool
+    @Binding var text: String
+    func body(content: Content) -> some View {
+        if on { content.searchable(text: $text, prompt: Text("Graph durchsuchen", tableName: "Graph")) } else { content }
     }
 }
 
@@ -625,7 +715,8 @@ struct GraphCanvas: View {
         .clipped()
         .accessibilityElement()
         .accessibilityLabel(Text("Graph der Seiten", tableName: "Graph"))
-        .accessibilityValue(Text(GT("\(model.data.nodes.count) Seiten") + ", " + GT("\(model.data.edges.count) Verbindungen")))
+        .accessibilityValue(Text(GraphText.formatted(GT("\(model.data.nodes.count) Seiten"), model.data.nodes.count) + ", "
+                                 + GraphText.formatted(GT("\(model.data.edges.count) Verbindungen"), model.data.edges.count)))
         .accessibilityHint(Text("Für eine Liste aller Seiten „Liste“ wählen.", tableName: "Graph"))
     }
 
@@ -676,7 +767,7 @@ struct GraphList: View {
                     Image(systemName: n.kind == .database ? "tablecells" : n.kind == .tag ? "number" : n.kind == .row ? "list.bullet.rectangle" : "doc.text")
                         .foregroundStyle(.secondary).accessibilityHidden(true)
                     Text(n.title).lineLimit(1)
-                    if !n.own { Image(systemName: "person.2.fill").font(.caption2).foregroundStyle(.secondary).accessibilityLabel(Text("Freigegeben", tableName: "Graph")) }
+                    if !n.own { Image(systemName: "person.2.fill").font(.caption2).foregroundStyle(.secondary).accessibilityLabel(Text("Mit dir geteilt", tableName: "Graph")) }
                     Spacer()
                     Text(model.describe(i)).font(.caption).foregroundStyle(.secondary)
                 }
@@ -691,12 +782,14 @@ struct GraphList: View {
 #if DEBUG
 /// Nur fuer Bilder und Messungen (Debug-Build, ohne Server): eingebauter Beispielgraph.
 /// Start: -hkGraphDemo <knoten> [-hkGraphDark YES] [-hkGraphLocal <id>] [-hkGraphDepth 2] [-hkGraphHover <titel>]
-/// [-hkGraphSelect <titel>] [-hkGraphSettle YES] [-hkGraphPerf YES] (Bildzeiten ins Protokoll)
+/// [-hkGraphSelect <titel>] [-hkGraphSettle YES] [-hkGraphState unsupported|offline|error|empty] [-hkGraphPerf YES] (Bildzeiten ins Protokoll)
 enum GraphPreview {
     static var nodes: Int? { let v = UserDefaults.standard.integer(forKey: "hkGraphDemo"); return v > 0 ? v : nil }
     static var local: Bool { UserDefaults.standard.integer(forKey: "hkGraphLocal") > 0 }
     static var focus: Int? { let v = UserDefaults.standard.integer(forKey: "hkGraphLocal"); return v > 0 ? v : nil }
     static var depth: Int? { let v = UserDefaults.standard.integer(forKey: "hkGraphDepth"); return v > 0 ? v : nil }
+    /// -hkGraphState unsupported|offline|error|empty
+    static var state: String? { UserDefaults.standard.string(forKey: "hkGraphState") }
 
     @MainActor static func afterLoad(_ m: GraphModel) {
         let ud = UserDefaults.standard

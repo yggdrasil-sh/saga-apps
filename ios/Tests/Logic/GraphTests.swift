@@ -156,6 +156,38 @@ func graphTests() {
     for i in 0..<200 { if GraphGeo.hit(sx: Double(i), sy: Double(i), cam: GraphCamera(), xs: s2k.x, ys: s2k.y, radii: radii, slop: 10) != nil { hits += 1 } }
     print("  Treffer 2000 Knoten: \(String(format: "%.3f", Date().timeIntervalSince(t1) * 1000 / 200)) ms je Abfrage")
 
+    // Beschriftungen: keine Ueberlappung, wichtigere gewinnt, erzwungene immer, Zahlen nach Sprache
+    typealias LB = GraphLabels.Box
+    let lc: [GraphLabels.Candidate] = [
+        .init(box: LB(x0: 0, y0: 0, x1: 60, y1: 14), deg: 1, hot: 0),
+        .init(box: LB(x0: 30, y0: 5, x1: 90, y1: 19), deg: 5, hot: 0),          // ueberlappt 0, mehr Verbindungen
+        .init(box: LB(x0: 200, y0: 0, x1: 260, y1: 14), deg: 0, hot: 0),        // frei
+        .init(box: LB(x0: 40, y0: 10, x1: 100, y1: 24), deg: 0, hot: 1),        // hervorgehoben schlaegt Grad
+        .init(box: LB(x0: 250, y0: 0, x1: 270, y1: 14), deg: 0, hot: 0, forced: true),   // erzwungen, verdraengt 2
+        .init(box: LB(x0: 500, y0: 0, x1: 560, y1: 14), deg: 0, hot: 0),        // frei
+    ]
+    let placed = Set(GraphLabels.place(lc))
+    check(placed == [3, 4, 5], "Beschriftung: nur ueberlappungsfrei, Vorrang erzwungen > hervorgehoben > Grad (\(placed.sorted()))")
+    check(GraphLabels.place([.init(box: LB(x0: 0, y0: 0, x1: 60, y1: 14), deg: 1, hot: 0), .init(box: LB(x0: 30, y0: 5, x1: 90, y1: 19), deg: 5, hot: 0)]) == [1],
+          "Beschriftung: Knoten mit mehr Verbindungen behaelt seine")
+    check(GraphLabels.place((0..<500).map { .init(box: LB(x0: Double($0) * 100, y0: 0, x1: Double($0) * 100 + 50, y1: 14), deg: 0, hot: 0) }).count == 300,
+          "Beschriftung: hoechstens 300")
+    // dichter lokaler Graph (iPhone): kein Paar ueberlappt
+    var dense: [GraphLabels.Candidate] = []
+    for i in 0..<60 { let x = Double(i % 6) * 40, y = Double(i / 6) * 9; dense.append(.init(box: LB(x0: x, y0: y, x1: x + 70, y1: y + 14), deg: i % 7, hot: 0)) }
+    let dp = GraphLabels.place(dense).map { dense[$0].box }
+    var dclash = 0
+    for a in dp.indices { for b in dp.indices where a < b && GraphLabels.overlaps(dp[a], dp[b], gap: 0) { dclash += 1 } }
+    check(dclash == 0 && !dp.isEmpty, "Beschriftung: dichter Graph ohne Ueberlappung (\(dp.count) von 60)")
+    check(GraphText.formatted("1234 Seiten", 1234, locale: Locale(identifier: "de_DE")) == "1.234 Seiten", "Zahl de")
+    check(GraphText.formatted("1234 pages", 1234, locale: Locale(identifier: "en_US")) == "1,234 pages", "Zahl en")
+    check(GraphText.formatted("12 Seiten", 12, locale: Locale(identifier: "de_DE")) == "12 Seiten", "Zahl klein unveraendert")
+    check(GraphText.formatted("1234 страницы", 1234, locale: Locale(identifier: "ru_RU")).hasPrefix("1\u{a0}234") || GraphText.formatted("1234 страницы", 1234, locale: Locale(identifier: "ru_RU")).hasPrefix("1\u{202f}234"), "Zahl ru")
+    // Einpassen: wenig Rand (iPad), Graph fuellt die Flaeche weitgehend
+    let fitPad = GraphCamera.fit((-500, -500, 500, 500), w: 1000, h: 900)
+    let (_, py0) = fitPad.toScreen(0, -500), (_, py1) = fitPad.toScreen(0, 500)
+    check(py1 - py0 > 900 * 0.85 || fitPad.k == 2, "Einpassen: wenig Rand (\(Int(py1 - py0)) von 900)")
+
     // Texte des Graphen: eigener Katalog, alle Sprachen, Russisch mit Pluralformen
     let dir = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("../../App/Graph.xcstrings")
     let cat = (try? Data(contentsOf: dir)).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }?["strings"] as? [String: [String: Any]] ?? [:]
@@ -178,5 +210,12 @@ func graphTests() {
             check(forms == ["few", "many", "one", "other"], "Graph.xcstrings ru-Plural: \(key)")
         }
     }
+    // Russisch: Hinweise duzen (Imperativ 2. Person Singular)
+    var siezen = 0
+    for (key, entry) in cat {
+        guard let u = ((entry["localizations"] as? [String: [String: Any]])?["ru"]?["stringUnit"] as? [String: Any])?["value"] as? String else { continue }
+        if u.range(of: #"\b(Выберите|Создайте|Нажмите|Попросите|Войдите|Откройте|Обновите|вы|вас|вам|ваш\w*)\b"#, options: [.regularExpression, .caseInsensitive]) != nil, key != "Mit dir geteilt" { siezen += 1; print("  ru siezt: \(u)") }
+    }
+    check(siezen == 0, "Graph.xcstrings ru duzt")
     check(miss == 0 && ph == 0, "Graph.xcstrings vollstaendig (\(miss) fehlen, \(ph) Platzhalter)")
 }

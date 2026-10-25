@@ -324,9 +324,10 @@ struct GraphCamera: Equatable {
         let nk = min(GraphCamera.maxK, max(GraphCamera.minK, k * f)), g = nk / k
         tx = sx - (sx - tx) * g; ty = sy - (sy - ty) * g; k = nk
     }
-    /// Alles einpassen (seitlich Platz fuer Beschriftungen), hoechstens Zoom 2
+    /// Alles einpassen (seitlich etwas Platz fuer Beschriftungen, unten fuer die unterste), hoechstens Zoom 2.
+    /// Wenig Rand: auch auf dem iPad soll der Graph die Flaeche fuellen.
     static func fit(_ b: (x0: Double, y0: Double, x1: Double, y1: Double), w: Double, h: Double) -> GraphCamera {
-        let pad = min(90, min(w, h) * 0.08), padX = pad + min(50, w * 0.05)
+        let pad = min(40, min(w, h) * 0.05), padX = pad + min(30, w * 0.03)
         let k = max(minK, min((w - 2 * padX) / (b.x1 - b.x0 + 1), (h - 2 * pad) / (b.y1 - b.y0 + 1), 2))
         return GraphCamera(k: k, tx: w / 2 - (b.x0 + b.x1) / 2 * k, ty: h / 2 - (b.y0 + b.y1) / 2 * k)
     }
@@ -438,5 +439,67 @@ enum GraphDemo {
         if n > 20 { g.nodes.append(.init(id: id + 1, title: "Loose note", icon: "", kind: "page", own: true, parent: nil)) }   // Waise
         g.tags = [("idea", Array(stride(from: dbID + 1, to: id, by: 9))), ("todo", Array(stride(from: dbID + 3, to: id, by: 13)))]
         return g
+    }
+}
+
+// MARK: - Beschriftungen ohne Ueberlappung, Zahlen
+
+/// Beschriftungen duerfen sich nicht ueberdecken: Bei Kollision bleibt die des wichtigeren Knotens (hervorgehoben,
+/// dann mehr Verbindungen), die uebrigen erscheinen erst beim Hineinzoomen bzw. wenn sie hervorgehoben werden.
+enum GraphLabels {
+    struct Box: Equatable { var x0: Double, y0: Double, x1: Double, y1: Double }
+    struct Candidate { var box: Box; var deg: Int; var hot: Double; var forced = false }
+
+    static func overlaps(_ a: Box, _ b: Box, gap: Double = 2) -> Bool {
+        a.x0 < b.x1 + gap && b.x0 < a.x1 + gap && a.y0 < b.y1 + gap && b.y0 < a.y1 + gap
+    }
+
+    /// Reihenfolge: erzwungen (offene/ueberfahrene Seite), hervorgehoben, mehr Verbindungen, frueherer Index
+    static func order(_ c: [Candidate]) -> [Int] {
+        c.indices.sorted { a, b in
+            let A = c[a], B = c[b]
+            if A.forced != B.forced { return A.forced }
+            let ha = A.hot > 0.5, hb = B.hot > 0.5
+            if ha != hb { return ha }
+            if A.deg != B.deg { return A.deg > B.deg }
+            return a < b
+        }
+    }
+
+    /// Angenommene Kandidaten (Indizes in `c`). Erzwungene immer; die uebrigen nur ohne Ueberlappung mit schon
+    /// angenommenen. Raster-Eimer halten das auch bei einigen hundert Beschriftungen schnell.
+    static func place(_ c: [Candidate], limit: Int = 300, gap: Double = 2) -> [Int] {
+        let cell = 80.0
+        var grid: [Int64: [Int]] = [:], out: [Int] = []
+        func keys(_ b: Box) -> [Int64] {
+            let gx0 = Int64((b.x0 / cell).rounded(.down)), gx1 = Int64((b.x1 / cell).rounded(.down))
+            let gy0 = Int64((b.y0 / cell).rounded(.down)), gy1 = Int64((b.y1 / cell).rounded(.down))
+            guard gx1 - gx0 < 64, gy1 - gy0 < 64 else { return [] }
+            var k: [Int64] = []
+            for gx in gx0...gx1 { for gy in gy0...gy1 { k.append(gx << 32 ^ (gy & 0xffff_ffff)) } }
+            return k
+        }
+        for i in order(c) {
+            if out.count >= limit { break }
+            let b = c[i].box, ks = keys(b)
+            if !c[i].forced {
+                var hit = false
+                for k in ks where !hit { for j in grid[k] ?? [] where overlaps(b, c[j].box, gap: gap) { hit = true; break } }
+                if hit { continue }
+            }
+            out.append(i)
+            for k in ks { grid[k, default: []].append(i) }
+        }
+        return out
+    }
+}
+
+enum GraphText {
+    /// Zahl im fertig uebersetzten Text nach Sprache formatieren ("1234 Seiten" -> "1.234 Seiten");
+    /// die Pluralform waehlt der Katalog mit der rohen Zahl.
+    static func formatted(_ s: String, _ n: Int, locale: Locale = .current) -> String {
+        let raw = String(n), nice = n.formatted(.number.locale(locale))
+        guard raw != nice, let r = s.range(of: raw) else { return s }
+        return s.replacingCharacters(in: r, with: nice)
     }
 }
