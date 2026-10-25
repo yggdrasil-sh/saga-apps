@@ -388,11 +388,7 @@ private fun StreamBlock(repo: SagaRepository, w: Modifier, state: PushState, onA
             }
         }
         TextButton(onClick = {
-            try {
-                context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://ntfy.sh/"))
-                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
-            } catch (_: Exception) {
-            }
+            io.github.yggdrasil_sh.saga.ui.common.openUrl(context, "https://ntfy.sh/")
         }, modifier = Modifier.padding(start = 8.dp)) { Text(stringResource(R.string.push_stream_get_ntfy)) }
     }
 }

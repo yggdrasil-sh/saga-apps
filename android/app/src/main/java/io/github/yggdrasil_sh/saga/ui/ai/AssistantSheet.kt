@@ -166,10 +166,18 @@ private fun Footer(st: AiStatus?) {
 @Composable
 private fun AnswerText(text: String, sources: List<AiSource>, onOpenPage: (Long) -> Unit) {
     val link = MaterialTheme.colorScheme.primary
+    val context = androidx.compose.ui.platform.LocalContext.current
     val s = buildAnnotatedString {
         for (seg in AiLogic.segments(text, sources)) {
             when (seg) {
-                is AiLogic.Seg.Text -> append(seg.t)
+                // http(s)-Links in der Antwort: ueber openUrl (Standard-Browser)
+                is AiLogic.Seg.Text -> for (p in io.github.yggdrasil_sh.saga.util.Links.split(seg.t)) {
+                    val u = p.url
+                    if (u == null) append(p.text)
+                    else withLink(LinkAnnotation.Clickable("url-$length", TextLinkStyles(SpanStyle(color = link, textDecoration = androidx.compose.ui.text.style.TextDecoration.Underline))) {
+                        io.github.yggdrasil_sh.saga.ui.common.openUrl(context, u)
+                    }) { append(p.text) }
+                }
                 is AiLogic.Seg.Ref -> {
                     val id = sources.firstOrNull { it.n == seg.n }?.id
                     if (id != null) withLink(LinkAnnotation.Clickable("src-${seg.n}", TextLinkStyles(SpanStyle(color = link, fontWeight = FontWeight.SemiBold))) { onOpenPage(id) }) {

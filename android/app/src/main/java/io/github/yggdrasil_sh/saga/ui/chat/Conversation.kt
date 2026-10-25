@@ -615,6 +615,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                             onDelete = { repo.launchAction { s.delete(m) } },
                             onOpenNote = { id -> nav.push(Dest.Page(id)) },
                             onOpenFile = { f -> scope.launch { openFile(context, s, f) { repo.notify(it) } } },
+                            onShareFile = { f -> scope.launch { openFile(context, s, f, share = true) { repo.notify(it) } } },
                             onUnverified = { unverifiedOf = m.sender?.username ?: "" },
                             onResend = { repo.launchAction { s.resend(m) } },
                             tick = s.tickOf(m),
@@ -1118,10 +1119,10 @@ private suspend fun readFile(context: Context, u: Uri, max: Long, chat: String):
 private val fileCleanup = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
 /**
- * Anhang laden, entschluesseln und mit einer anderen App oeffnen oder teilen/speichern. Klartext nur kurz im Cache
+ * Anhang laden, entschluesseln und mit einer anderen App oeffnen (share = false) oder teilen/speichern (share = true). Klartext nur kurz im Cache
  * (eigener Zufallsordner); nach ChatFiles.KEEP_MS Freigabe zuruecknehmen und loeschen (BUG-023).
  */
-private suspend fun openFile(context: Context, s: ChatSession, f: ChatFile, onError: (io.github.yggdrasil_sh.saga.util.UiText) -> Unit) {
+private suspend fun openFile(context: Context, s: ChatSession, f: ChatFile, share: Boolean = false, onError: (io.github.yggdrasil_sh.saga.util.UiText) -> Unit) {
     try {
         val app = context.applicationContext
         val (out, uri) = if (f.isV2) {
@@ -1154,13 +1155,9 @@ private suspend fun openFile(context: Context, s: ChatSession, f: ChatFile, onEr
             }
             ChatFiles.remove(out)
         }
-        val type = f.m.ifEmpty { "application/octet-stream" }
-        val view = Intent(Intent.ACTION_VIEW).setDataAndType(uri, type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        // zusaetzlich Teilen (z. B. "In Dateien speichern") - auch fuer Typen ohne Betrachter-App (BUG-108)
-        val send = Intent(Intent.ACTION_SEND).setType(type).putExtra(Intent.EXTRA_STREAM, uri)
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        val chooser = Intent.createChooser(view, f.n).putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(send))
-        context.startActivity(chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        // Oeffnen: schlichtes ACTION_VIEW (Android bietet "Immer" an); Teilen/Speichern per Menue bzw. als Ausweg (BUG-108)
+        if (share) io.github.yggdrasil_sh.saga.util.OpenWith.share(context, uri, f.m, f.n)
+        else io.github.yggdrasil_sh.saga.util.OpenWith.open(context, uri, f.m, f.n)
     } catch (e: CancellationException) {
         throw e
     } catch (_: Exception) {
@@ -1173,14 +1170,24 @@ private suspend fun openFile(context: Context, s: ChatSession, f: ChatFile, onEr
 private fun messageText(text: String, notes: Map<Long, ChatNoteRef?>, onOpen: (Long) -> Unit): AnnotatedString {
     val noAccess = stringResource(R.string.chat_page_no_access)
     val linkColor = MaterialTheme.colorScheme.primary
+    val context = LocalContext.current
+    val linkStyle = TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))
     return buildAnnotatedString {
+        // http(s)-Links antippbar - immer ueber openUrl (Standard-Browser bzw. Systemauswahl, kein Custom Tab)
+        fun plain(t: String) {
+            for (p in io.github.yggdrasil_sh.saga.util.Links.split(t)) {
+                val u = p.url
+                if (u == null) append(p.text)
+                else withLink(LinkAnnotation.Clickable("url-$length", linkStyle) { io.github.yggdrasil_sh.saga.ui.common.openUrl(context, u) }) { append(p.text) }
+            }
+        }
         var last = 0
         for (m in ChatFormat.NOTE_REF.findAll(text)) {
-            append(text.substring(last, m.range.first))
+            plain(text.substring(last, m.range.first))
             val id = m.groupValues[1].toLongOrNull()
             val ref = id?.let { notes[it] }
             if (id != null && ref != null) {
-                withLink(LinkAnnotation.Clickable("note-$id", TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))) { onOpen(id) }) {
+                withLink(LinkAnnotation.Clickable("note-$id", linkStyle) { onOpen(id) }) {
                     append("📄 " + ref.title)
                 }
             } else {
@@ -1188,7 +1195,7 @@ private fun messageText(text: String, notes: Map<Long, ChatNoteRef?>, onOpen: (L
             }
             last = m.range.last + 1
         }
-        append(text.substring(last))
+        plain(text.substring(last))
     }
 }
 
@@ -1213,6 +1220,8 @@ internal fun Bubble(
     m: ChatMessage, s: ChatSession, group: Boolean, aiPersona: AiPersona?,
     onReply: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit, onOpenNote: (Long) -> Unit, onOpenFile: (ChatFile) -> Unit,
     onUnverified: () -> Unit, onResend: () -> Unit = {},
+    /** Anhang teilen bzw. speichern (Systemauswahl) - Oeffnen selbst geht ohne Auswahl an die Standard-App */
+    onShareFile: (ChatFile) -> Unit = {},
     tick: io.github.yggdrasil_sh.saga.chat.Tick = io.github.yggdrasil_sh.saga.chat.Tick(io.github.yggdrasil_sh.saga.chat.TickKind.NONE),
     readAt: Long? = null, onReadBy: (() -> Unit)? = null,
     /** Design 2: erste bzw. letzte Nachricht einer Folge derselben Person (Ecken, Abstand, Name, Profilkreis) */
@@ -1399,6 +1408,14 @@ internal fun Bubble(
                     DropdownMenuItem(
                         text = { Text(if (videoFiles.size > 1) stringResource(R.string.video_save) + " · " + f.n else stringResource(R.string.video_save)) },
                         onClick = { menu = false; onMenuAction(); saveVideo(f) },
+                    )
+                }
+                // Anhaenge (ausser Sprache/Video) teilen bzw. "In Dateien speichern" - die Auswahl gibt es nur noch hier
+                val shareFiles = m.content?.files.orEmpty().filter { !it.unsupported && !it.isVoice && !(it.isVideo && videoHost != null) }
+                shareFiles.forEach { f ->
+                    DropdownMenuItem(
+                        text = { Text(if (shareFiles.size > 1) stringResource(R.string.publish_share) + " · " + f.n else stringResource(R.string.publish_share)) },
+                        onClick = { menu = false; onMenuAction(); onShareFile(f) },
                     )
                 }
                 if (!m.content?.text.isNullOrEmpty()) DropdownMenuItem(text = { Text(stringResource(R.string.text_copy)) }, onClick = { menu = false; onMenuAction(); onCopy() })

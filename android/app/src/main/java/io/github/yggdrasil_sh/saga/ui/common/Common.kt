@@ -128,12 +128,15 @@ fun openUrl(context: Context, url: String, ephemeral: Boolean = false, inApp: Bo
         }
     }
     try {
-        context.startActivity(Intent(Intent.ACTION_VIEW, url.toUri())
-            .addCategory(Intent.CATEGORY_BROWSABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        context.startActivity(browserIntent(url))
     } catch (_: ActivityNotFoundException) {
         Toast.makeText(context, context.getString(R.string.no_browser), Toast.LENGTH_SHORT).show()
     }
 }
+
+/** Normaler Link: ACTION_VIEW + BROWSABLE, ohne Paket und ohne Chooser - Standard-Browser bzw. Systemauswahl ("Immer") */
+fun browserIntent(url: String): Intent = Intent(Intent.ACTION_VIEW, url.toUri())
+    .addCategory(Intent.CATEGORY_BROWSABLE).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
 /** Seitentitel fuer die Anzeige (leer -> "Unbenannt" in der App-Sprache) */
 @Composable

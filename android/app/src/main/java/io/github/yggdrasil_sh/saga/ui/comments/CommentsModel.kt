@@ -54,8 +54,6 @@ class SheetToast(val text: UiText, val action: UiText? = null, val onAction: (()
 /** Reine Regeln (Zustand -> Anzeige), wie static/comments.js - Unit-Tests */
 object CommentLogic {
     const val MAX = 2000
-    private val URL_RE = Regex("""\bhttps?://[^\s<>"']+""")
-    private val TRAIL = Regex("""[).,;:!?\]]+$""")
     private val TEXT_KEYS = setOf("text", "title", "code", "content", "caption", "items", "blocks", "cols")
 
     fun openThreads(threads: List<CommentThread>): List<CommentThread> = threads.filter { !it.resolved }
@@ -116,20 +114,8 @@ object CommentLogic {
     /** Ungelesen: Punkt neben dem letzten Kommentar von anderen (-1 = keiner) */
     fun unreadIndex(t: CommentThread): Int = if (!t.unread) -1 else t.comments.indexOfLast { !it.mine }
 
-    fun linkify(text: String): List<Segment> {
-        val out = ArrayList<Segment>()
-        var last = 0
-        var m = URL_RE.find(text, 0)
-        while (m != null) {
-            val u = m.value.replace(TRAIL, "")
-            if (m.range.first > last) out.add(Segment(text.substring(last, m.range.first)))
-            if (u.isNotEmpty()) out.add(Segment(u, u))
-            last = m.range.first + u.length
-            m = if (last < text.length) URL_RE.find(text, maxOf(last, m.range.first + 1)) else null
-        }
-        if (last < text.length) out.add(Segment(text.substring(last)))
-        return out
-    }
+    /** Links im Kommentar (gemeinsame Regel mit Chat und KI-Antwort: util.Links) */
+    fun linkify(text: String): List<Segment> = io.github.yggdrasil_sh.saga.util.Links.split(text).map { Segment(it.text, it.url) }
 
     /** "✓ Erledigt" bzw. "Erledigt von {name}" ("von dir") */
     fun resolvedLabel(t: CommentThread): UiText {
