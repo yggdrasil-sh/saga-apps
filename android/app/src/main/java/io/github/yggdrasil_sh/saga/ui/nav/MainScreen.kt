@@ -180,6 +180,19 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
     LaunchedEffect(openRequest) {
         openRequest?.let { nav.top(Dest.Page(it)); repo.openPageRequest.value = null }
     }
+    // Homescreen-Widget: Heute / Aufgaben / Termine / Seite / neue Aufgabe
+    val openDest by repo.openDestRequest.collectAsState()
+    LaunchedEffect(openDest) {
+        openDest?.let { s ->
+            if (s == "new-task") {
+                nav.top(Dest.Today)
+                repo.focusQuickAdd.value = true
+            } else {
+                Dest.decode(s)?.let { nav.top(it) }
+            }
+            repo.openDestRequest.value = null
+        }
+    }
     val openChat by repo.openChatRequest.collectAsState()
     LaunchedEffect(openChat) {
         openChat?.let {

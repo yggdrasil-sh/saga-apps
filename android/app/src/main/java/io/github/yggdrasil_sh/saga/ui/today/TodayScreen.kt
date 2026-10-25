@@ -67,6 +67,10 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         repo.loadTodayEvents()
     }
     val today = todayIso()
+    // Widget "Neue Aufgabe": zur Eingabe springen und fokussieren
+    val quickAdd by repo.focusQuickAdd.collectAsState()
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    LaunchedEffect(quickAdd) { if (quickAdd) listState.scrollToItem(3 + maxOf(1, events.size)) }
     val todayTasks = tasks.filter { it.due.isNullOrEmpty() || it.due <= today }
 
     Scaffold(topBar = {
@@ -78,7 +82,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
             val accent = LocalSagaAccent.current
             val maxW = SagaSpace.readingWidth
             LazyColumn(
-                Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally,
+                Modifier.fillMaxSize(), state = listState, horizontalAlignment = Alignment.CenterHorizontally,
                 contentPadding = PaddingValues(bottom = SagaSpace.xxl),
             ) {
                 // Kopf: Datum (Gold) + Gruss + kurze Zusammenfassung
@@ -110,7 +114,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     Box(Modifier.widthIn(max = maxW).fillMaxWidth().sagaSegment(i, events.size).padding(vertical = SagaSpace.xs).sagaAppear(1 + i)) { EventRow(e) }
                 }
                 item(key = "t-head") { SagaSectionTitle(stringResource(R.string.nav_tasks), Modifier.widthIn(max = maxW).padding(top = SagaSpace.m), count = todayTasks.size) }
-                item(key = "t-add") { QuickAddTask(repo, Modifier.widthIn(max = maxW), defaultDue = today) }
+                item(key = "t-add") { QuickAddTask(repo, Modifier.widthIn(max = maxW), defaultDue = today, focus = quickAdd, onFocused = { repo.focusQuickAdd.value = false }) }
                 if (todayTasks.isEmpty()) {
                     item(key = "t-empty") {
                         Box(Modifier.widthIn(max = maxW).fillMaxWidth().padding(top = SagaSpace.s).sagaSegment(0, 1)) {

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Homescreen-Widgets (Heute, Seite) -->
+<resources>
+    <string name="widget_today_name">Saga: วันนี้</string>
+    <string name="widget_today_desc">กิจกรรมวันนี้และงานที่ครบกำหนดหรือเลยกำหนด – ทำเครื่องหมายได้ในวิดเจ็ต</string>
+    <string name="widget_page_name">Saga: หน้า</string>
+    <string name="widget_page_desc">แสดงหน้าที่คุณเลือก: ไอคอน ชื่อ และส่วนต้นของเนื้อหา</string>
+    <string name="widget_today_title">วันนี้</string>
+    <string name="widget_page_title">หน้า</string>
+    <string name="widget_new_task">งานใหม่</string>
+    <string name="widget_signed_out">เข้าสู่ระบบ Saga เพื่อดูวันของคุณที่นี่</string>
+    <string name="widget_loading">กำลังโหลด…</string>
+    <string name="widget_today_empty">วันนี้ไม่มีงานที่ครบกำหนด</string>
+    <string name="widget_done_failed">ทำเครื่องหมายงานไม่สำเร็จ</string>
+    <string name="widget_offline_since">ออฟไลน์ · ข้อมูลเมื่อ %1$s</string>
+    <string name="widget_stale_since">ข้อมูลเมื่อ %1$s</string>
+    <string name="widget_calendar_failed">ปฏิทินไม่พร้อมใช้งาน</string>
+    <string name="widget_all_day">ทั้งวัน</string>
+    <string name="widget_event_a11y">%1$s, %2$s</string>
+    <string name="widget_mark_done">ทำเครื่องหมายว่าเสร็จ: %1$s</string>
+    <string name="widget_overdue">เลยกำหนด</string>
+    <string name="widget_high_priority">ความสำคัญสูง</string>
+    <string name="widget_untitled">ไม่มีชื่อ</string>
+    <string name="widget_open_page">เปิดหน้า %1$s</string>
+    <string name="widget_pick_page">แตะเพื่อเลือกหน้า</string>
+    <string name="widget_page_missing">หน้านี้ไม่มีอยู่แล้ว แตะเพื่อเลือกหน้าอื่น</string>
+    <string name="widget_page_database">ฐานข้อมูล</string>
+    <string name="widget_page_empty">หน้านี้ว่างเปล่า</string>
+    <string name="widget_config_title">เลือกหน้า</string>
+    <string name="widget_config_signed_out">เข้าสู่ระบบ Saga ก่อน แล้วเพิ่มวิดเจ็ตอีกครั้ง</string>
+    <string name="widget_open_app">เปิด Saga</string>
+    <string name="widget_config_search">ค้นหาหน้า</string>
+    <string name="widget_config_none">ไม่พบหน้า</string>
+    <string name="widget_preview_event">9:30  ประชุมสั้น</string>
+    <string name="widget_preview_task">รดน้ำต้นไม้</string>
+    <string name="widget_preview_task2">เขียนแผนประจำสัปดาห์</string>
+    <string name="widget_preview_page">📄 แผนโครงการ</string>
+    <string name="widget_preview_excerpt">เป้าหมาย: ทำร่างแรกให้เสร็จภายในสิ้นเดือน</string>
+    <plurals name="widget_more">
+        <item quantity="other">อีก %d รายการ</item>
+    </plurals>
+</resources>

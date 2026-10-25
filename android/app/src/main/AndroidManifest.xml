@@ -181,6 +181,49 @@
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
 
+        <!-- Homescreen-Widgets (Jetpack Glance): "Heute" und "Seite". Aktualisierung ueber WorkManager -->
+        <receiver
+            android:name=".widget.TodayWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_today_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_today_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.PageWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_page_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_page_info" />
+        </receiver>
+        <!-- Seite fuer ein Widget waehlen: vom Launcher gestartet (exportiert), prueft, dass die Widget-ID zu Saga gehoert -->
+        <activity
+            android:name=".widget.PageWidgetConfigActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:label="@string/widget_config_title">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+        <!-- Sprung aus dem Widget in die App: nicht exportiert (nur eigene PendingIntents) -->
+        <activity
+            android:name=".widget.WidgetLinkActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- Chat-Anhaenge (entschluesselt im Cache) an andere Apps weitergeben -->
         <provider
             android:name="androidx.core.content.FileProvider"

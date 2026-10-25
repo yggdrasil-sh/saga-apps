@@ -1305,6 +1305,12 @@ class SagaRepository(
     /** Seite oeffnen (aus Meldungen ausserhalb der Navigation, z. B. "Geteilt - Oeffnen") */
     val openPageRequest = MutableStateFlow<Long?>(null)
 
+    /** Homescreen-Widget angetippt: Ziel ("today", "tasks", "events", "page:12", "new-task") - MainScreen navigiert */
+    val openDestRequest = MutableStateFlow<String?>(null)
+
+    /** "Neue Aufgabe" aus dem Widget: Eingabefeld in "Heute" fokussieren */
+    val focusQuickAdd = MutableStateFlow(false)
+
     /**
      * Geteiltes ablegen wie die iOS-Teilen-Erweiterung: POST api/app/capture mit dem App-Schluessel
      * (Seite landet im Eingang, Aufgabe in den Aufgaben). Ohne App-Schluessel ueber die normale Sitzung.
@@ -1568,6 +1574,11 @@ class SagaRepository(
         tasks.value = emptyList()
         doneTasks.value = emptyList()
         todayEvents.value = emptyList()
+        // Homescreen-Widgets: Aufgaben, Termine und Seitentexte des bisherigen Kontos sofort entfernen
+        appContext?.let { ctx ->
+            withContext(Dispatchers.IO) { io.github.yggdrasil_sh.saga.widget.WidgetStore(ctx).clearContent(signedOut = true) }
+            io.github.yggdrasil_sh.saga.widget.WidgetUpdates.redraw(ctx)
+        }
         error.value = null
         serverVersion.value = null
         minApp.value = null

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Homescreen-Widgets (Heute, Seite) -->
+<resources>
+    <string name="widget_today_name">Saga: Heute</string>
+    <string name="widget_today_desc">Termine von heute und fällige oder überfällige Aufgaben – direkt im Widget abhaken</string>
+    <string name="widget_page_name">Saga: Seite</string>
+    <string name="widget_page_desc">Zeigt eine Seite deiner Wahl: Symbol, Titel und den Anfang des Inhalts</string>
+    <string name="widget_today_title">Heute</string>
+    <string name="widget_page_title">Seite</string>
+    <string name="widget_new_task">Neue Aufgabe</string>
+    <string name="widget_signed_out">Melde dich in Saga an, um deinen Tag hier zu sehen.</string>
+    <string name="widget_loading">Lädt …</string>
+    <string name="widget_today_empty">Heute nichts fällig</string>
+    <string name="widget_done_failed">Aufgabe konnte nicht abgehakt werden</string>
+    <string name="widget_offline_since">Offline · Stand %1$s</string>
+    <string name="widget_stale_since">Stand %1$s</string>
+    <string name="widget_calendar_failed">Kalender nicht erreichbar</string>
+    <string name="widget_all_day">Ganztägig</string>
+    <string name="widget_event_a11y">%1$s, %2$s</string>
+    <string name="widget_mark_done">Als erledigt markieren: %1$s</string>
+    <string name="widget_overdue">überfällig</string>
+    <string name="widget_high_priority">hohe Priorität</string>
+    <string name="widget_untitled">Unbenannt</string>
+    <string name="widget_open_page">Seite %1$s öffnen</string>
+    <string name="widget_pick_page">Antippen, um eine Seite zu wählen</string>
+    <string name="widget_page_missing">Diese Seite gibt es nicht mehr. Antippen, um eine andere zu wählen.</string>
+    <string name="widget_page_database">Datenbank</string>
+    <string name="widget_page_empty">Diese Seite ist leer</string>
+    <string name="widget_config_title">Seite wählen</string>
+    <string name="widget_config_signed_out">Melde dich zuerst in Saga an und füge das Widget dann erneut hinzu.</string>
+    <string name="widget_open_app">Saga öffnen</string>
+    <string name="widget_config_search">Seiten durchsuchen</string>
+    <string name="widget_config_none">Keine Seiten gefunden</string>
+    <string name="widget_preview_event">9:30  Stand-up</string>
+    <string name="widget_preview_task">Blumen gießen</string>
+    <string name="widget_preview_task2">Wochenplan schreiben</string>
+    <string name="widget_preview_page">📄 Projektplan</string>
+    <string name="widget_preview_excerpt">Ziel: bis Ende des Monats die erste Fassung fertig haben.</string>
+    <plurals name="widget_more">
+        <item quantity="one">+%d weitere</item>
+        <item quantity="other">+%d weitere</item>
+    </plurals>
+</resources>

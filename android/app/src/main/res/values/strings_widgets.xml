@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Homescreen-Widgets (Heute, Seite) -->
+<resources>
+    <string name="widget_today_name">Saga: Today</string>
+    <string name="widget_today_desc">Today’s events and due or overdue tasks – check them off right in the widget</string>
+    <string name="widget_page_name">Saga: Page</string>
+    <string name="widget_page_desc">Shows a page of your choice: icon, title and the beginning of its content</string>
+    <string name="widget_today_title">Today</string>
+    <string name="widget_page_title">Page</string>
+    <string name="widget_new_task">New task</string>
+    <string name="widget_signed_out">Sign in to Saga to see your day here.</string>
+    <string name="widget_loading">Loading…</string>
+    <string name="widget_today_empty">Nothing due today</string>
+    <string name="widget_done_failed">Couldn’t check off the task</string>
+    <string name="widget_offline_since">Offline · as of %1$s</string>
+    <string name="widget_stale_since">As of %1$s</string>
+    <string name="widget_calendar_failed">Calendar unavailable</string>
+    <string name="widget_all_day">All day</string>
+    <string name="widget_event_a11y">%1$s, %2$s</string>
+    <string name="widget_mark_done">Mark as done: %1$s</string>
+    <string name="widget_overdue">overdue</string>
+    <string name="widget_high_priority">high priority</string>
+    <string name="widget_untitled">Untitled</string>
+    <string name="widget_open_page">Open page %1$s</string>
+    <string name="widget_pick_page">Tap to choose a page</string>
+    <string name="widget_page_missing">This page no longer exists. Tap to choose another one.</string>
+    <string name="widget_page_database">Database</string>
+    <string name="widget_page_empty">This page is empty</string>
+    <string name="widget_config_title">Choose a page</string>
+    <string name="widget_config_signed_out">Sign in to Saga first, then add the widget again.</string>
+    <string name="widget_open_app">Open Saga</string>
+    <string name="widget_config_search">Search pages</string>
+    <string name="widget_config_none">No pages found</string>
+    <string name="widget_preview_event">9:30  Stand-up</string>
+    <string name="widget_preview_task">Water the plants</string>
+    <string name="widget_preview_task2">Write the weekly plan</string>
+    <string name="widget_preview_page">📄 Project plan</string>
+    <string name="widget_preview_excerpt">Goal: finish the first draft by the end of the month.</string>
+    <plurals name="widget_more">
+        <item quantity="one">+%d more</item>
+        <item quantity="other">+%d more</item>
+    </plurals>
+</resources>
