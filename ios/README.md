@@ -198,6 +198,16 @@ TestFlight und Ad-hoc signieren über einen **App-Store-Connect-API-Schlüssel**
   Die Mac-App nutzt dafür die App-Gruppe `<TEAM>.<App-ID>` (kein Bereitstellungsprofil nötig);
   `build-dmg.sh` baut immer mit der öffentlichen App-ID `io.github.yggdrasil-sh.saga` (außer `SAGA_BUNDLE_ID` ist gesetzt)
   und ohne vorbelegten Server.
+- **Selbst-Update der DMG (Sparkle 2):** Die DMG-Fassung sucht selbst nach neuen Versionen (Menü „Saga → Nach Updates
+  suchen …“, automatisch alle 4 Stunden, abschaltbar in den Einstellungen) und installiert sie auf Wunsch – trotz
+  Sandbox über Sparkles Installer-Dienst. Testversionen (`x.y.z-rc.N`) lesen `appcast-rc.xml`, Releases `appcast.xml`,
+  beide im Zweig `appcast` (`https://raw.githubusercontent.com/<repo>/appcast/…`). Die CI erzeugt und signiert sie
+  (EdDSA, `tools/appcast.py`, `tools/publish-appcast.sh`), wenn das Secret `SPARKLE_ED_PRIVATE_KEY` gesetzt ist; ohne
+  das Secret bleibt das Selbst-Update in der DMG aus. Nur `build-dmg.sh` schaltet es ein (Info.plist-Schlüssel,
+  mach-lookup-Ausnahmen `<App-ID>-spks/-spki`); eigene Builds, MDM und iOS bleiben ohne.
+  Schlüssel einmalig anlegen: Sparkle 2.10.0 von GitHub laden, `./bin/generate_keys` (legt ihn im Schlüsselbund ab),
+  `./bin/generate_keys -x <datei>` exportieren, als Secret hinterlegen (`gh secret set SPARKLE_ED_PRIVATE_KEY < <datei>`),
+  Datei löschen. Den Schlüssel sicher aufbewahren: Ohne ihn bekommen installierte Apps keine Updates mehr.
 
 - **Personal Team (kostenlos):** Installation nur aus Xcode, die App läuft 7 Tage; auf dem Gerät ist der Entwicklermodus nötig.
 - **TestFlight (empfohlen):** kein Entwicklermodus, keine Geräte-Registrierung; Tester per Apple-ID einladen.

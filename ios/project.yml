@@ -23,6 +23,10 @@ packages:
   # Pruefsumme dort; das Specs-Manifest selbst laesst sich mit Xcode 27 nicht laden).
   WebRTC:
     path: Packages/WebRTC
+  # Selbst-Update der Mac-App (nur macOS, aktiv nur in DMG-Builds: build-dmg.sh, App/AppUpdater.swift), Version fest
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle.git
+    exactVersion: 2.10.0
 settings:
   base:
     CODE_SIGN_STYLE: Automatic
@@ -79,6 +83,9 @@ targets:
         product: Clibsodium
       - package: WebRTC
         product: WebRTC
+      - package: Sparkle
+        product: Sparkle
+        destinationFilters: [macOS]                       # nie im iOS-Teil
       - target: HlidskjalfWidget
       - target: HlidskjalfShare
         destinationFilters: [iOS]

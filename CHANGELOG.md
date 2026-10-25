@@ -9,6 +9,13 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – macOS: Die App aktualisiert sich selbst (DMG von GitHub)
+- Die Mac-App aus der DMG erkennt neue Versionen, bietet sie an („Installieren“, „Später“, „Überspringen“), installiert
+  auf Wunsch und startet neu. Menü „Saga → Nach Updates suchen …“; automatische Prüfung alle 4 Stunden, abschaltbar
+  in den Einstellungen unter „Updates“. Testversionen erhalten neue Testversionen, Releases nur Releases.
+- Updates und Update-Liste sind mit EdDSA signiert (Sparkle 2); Apps aus eigenen Builds oder MDM und iOS sind nicht
+  betroffen. Die erste DMG mit Selbst-Update einmal von Hand installieren.
+
 ### Neu – Android und Linux: Datenbank-Kopf, Vorlagen verwalten, KI ordnet zu (Server 2.5)
 - Wie auf iOS/macOS: eingebetteter Datenbank-Block mit ausblendbarem Titel (Android: Block antippen → „Titel
   ausblenden“; Linux: ⚙ → „Dieser Block“, dort auch die Ansichts-Reiter).

@@ -32,6 +32,7 @@ struct HlidskjalfApp: App {
                     Button("Über Saga") {
                         NSApp.orderFrontStandardAboutPanel(options: [.applicationVersion: Store.appVersionLabel, .version: Store.appBuild])
                     }
+                    CheckForUpdatesButton()                                          // Selbst-Update (nur DMG-Builds)
                 }
                 CommandGroup(after: .toolbar) { Button("Aktualisieren") { Task { await store.refresh() } }.keyboardShortcut("r") }
                 CommandGroup(after: .appSettings) { Button("Abmelden") { Task { await store.logout() } } }
@@ -66,6 +67,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         UNUserNotificationCenter.current().delegate = PushCenterDelegate.shared       // Mitteilungen: Antippen, Anzeige im Vordergrund
         ImagePaste.install()                                                         // Bilder aus der Zwischenablage (Seite, Chat)
         CallSystem.shared.setup()                                                    // Anrufe: Mitteilungs-Aktionen Annehmen/Ablehnen
+        AppUpdater.shared.start()                                                    // Selbst-Update ueber Sparkle (nur DMG-Builds)
         #if DEBUG
         SnapshotHelper.setUp()                                                       // nur fuer Tests: Fenster unsichtbar abbilden
         #endif
