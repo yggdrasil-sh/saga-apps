@@ -210,11 +210,8 @@ private suspend fun ncDownload(context: Context, repo: SagaRepository, noteId: L
             }
             ChatFiles.remove(out)
         }
-        val type = mime.ifEmpty { "application/octet-stream" }
-        val view = Intent(Intent.ACTION_VIEW).setDataAndType(uri, type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        val send = Intent(Intent.ACTION_SEND).setType(type).putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        val chooser = Intent.createChooser(view, name).putExtra(Intent.EXTRA_INITIAL_INTENTS, arrayOf(send))
-        context.startActivity(chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        // schlichtes ACTION_VIEW: Android bietet "Nur diesmal / Immer" an; ohne passende App die Teilen-Auswahl
+        io.github.yggdrasil_sh.saga.util.OpenWith.open(context, uri, mime, name)
         null
     } catch (e: CancellationException) {
         throw e
