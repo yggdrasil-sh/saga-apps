@@ -2,7 +2,7 @@
 <!-- Homescreen-Widgets (Heute, Seite) -->
 <resources>
     <string name="widget_today_name">Saga: Hoy</string>
-    <string name="widget_today_desc">Eventos de hoy y tareas pendientes o vencidas: márcalas directamente en el widget</string>
+    <string name="widget_today_desc">Eventos de hoy y tareas para hoy, vencidas o sin fecha: márcalas directamente en el widget</string>
     <string name="widget_page_name">Saga: Página</string>
     <string name="widget_page_desc">Muestra la página que elijas: icono, título y el comienzo del contenido</string>
     <string name="widget_today_title">Hoy</string>

@@ -2,7 +2,7 @@
 <!-- Homescreen-Widgets (Heute, Seite) -->
 <resources>
     <string name="widget_today_name">Saga: Today</string>
-    <string name="widget_today_desc">Today’s events and due or overdue tasks – check them off right in the widget</string>
+    <string name="widget_today_desc">Today’s events and tasks due today, overdue or without a date – check them off right in the widget</string>
     <string name="widget_page_name">Saga: Page</string>
     <string name="widget_page_desc">Shows a page of your choice: icon, title and the beginning of its content</string>
     <string name="widget_today_title">Today</string>

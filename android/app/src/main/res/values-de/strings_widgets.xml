@@ -2,7 +2,7 @@
 <!-- Homescreen-Widgets (Heute, Seite) -->
 <resources>
     <string name="widget_today_name">Saga: Heute</string>
-    <string name="widget_today_desc">Termine von heute und fällige oder überfällige Aufgaben – direkt im Widget abhaken</string>
+    <string name="widget_today_desc">Termine von heute und Aufgaben, die heute fällig, überfällig oder ohne Datum sind – direkt im Widget abhaken</string>
     <string name="widget_page_name">Saga: Seite</string>
     <string name="widget_page_desc">Zeigt eine Seite deiner Wahl: Symbol, Titel und den Anfang des Inhalts</string>
     <string name="widget_today_title">Heute</string>

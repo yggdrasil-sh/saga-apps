@@ -2,7 +2,7 @@
 <!-- Homescreen-Widgets (Heute, Seite) -->
 <resources>
     <string name="widget_today_name">Saga: วันนี้</string>
-    <string name="widget_today_desc">กิจกรรมวันนี้และงานที่ครบกำหนดหรือเลยกำหนด – ทำเครื่องหมายได้ในวิดเจ็ต</string>
+    <string name="widget_today_desc">กิจกรรมวันนี้และงานที่ครบกำหนดวันนี้ เลยกำหนด หรือไม่มีวันครบกำหนด – ทำเครื่องหมายได้ในวิดเจ็ต</string>
     <string name="widget_page_name">Saga: หน้า</string>
     <string name="widget_page_desc">แสดงหน้าที่คุณเลือก: ไอคอน ชื่อ และส่วนต้นของเนื้อหา</string>
     <string name="widget_today_title">วันนี้</string>

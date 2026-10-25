@@ -2,7 +2,7 @@
 <!-- Homescreen-Widgets (Heute, Seite) -->
 <resources>
     <string name="widget_today_name">Saga: Сегодня</string>
-    <string name="widget_today_desc">События на сегодня и задачи со сроком сегодня или просроченные — отмечайте прямо в виджете</string>
+    <string name="widget_today_desc">События и задачи на сегодня, а также просроченные и без срока — отмечайте прямо в виджете</string>
     <string name="widget_page_name">Saga: Страница</string>
     <string name="widget_page_desc">Показывает выбранную страницу: значок, заголовок и начало текста</string>
     <string name="widget_today_title">Сегодня</string>
