@@ -51,6 +51,7 @@ struct HlidskjalfApp: App {
             if X3Preview.mode != nil { X3PreviewView(store: store) } else if HornPreview.mode != nil { HornPreviewView(store: store) }   // nur fuer Bilder
             else if SelectPreview.mode != nil { SelectPreviewView(store: store) }                       // 2.5: Mehrfachauswahl (ohne Server)
             else if GraphPreview.nodes != nil { GraphPreviewView() }                                   // 2.5: Graph mit Beispieldaten
+            else if SharePreview.on { SharePreviewView() }                                             // Teilen-Blatt (ohne Server)
             else { RootView(store: store).environment(\.calendar, SagaDate.calendar) }
             #else
             RootView(store: store).environment(\.calendar, SagaDate.calendar)     // Datumswahl gregorianisch

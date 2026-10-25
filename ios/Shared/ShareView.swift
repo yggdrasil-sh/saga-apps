@@ -23,6 +23,19 @@ func readShared(_ items: [NSExtensionItem]) async -> SharedContent {
     return c
 }
 
+/// Saga-Gold (wie AccentColor der App; die Erweiterungen haben keinen eigenen Farbkatalog)
+extension Color {
+    static let shareGold: Color = {
+        #if os(iOS)
+        return Color(UIColor { t in t.userInterfaceStyle == .dark ? UIColor(red: 0xC9 / 255, green: 0xA4 / 255, blue: 0x5C / 255, alpha: 1)
+                                                                  : UIColor(red: 0x7A / 255, green: 0x5A / 255, blue: 0x12 / 255, alpha: 1) })
+        #else
+        return Color(NSColor(name: nil) { a in a.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? NSColor(red: 0xC9 / 255, green: 0xA4 / 255, blue: 0x5C / 255, alpha: 1)
+                                                                                          : NSColor(red: 0x7A / 255, green: 0x5A / 255, blue: 0x12 / 255, alpha: 1) })
+        #endif
+    }()
+}
+
 struct ShareView: View {
     @State var content: SharedContent
     var done: (Bool) -> Void
@@ -33,22 +46,37 @@ struct ShareView: View {
     @State private var name: String
     @State private var category = ""
     @State private var categories: [String] = []
+    @State private var newCategory = false             // "Neue Kategorie …": freie Eingabe
+    @FocusState private var categoryFocus: Bool
     @State private var standardCategory = String(localized: "Lesezeichen")
     @State private var bookmarkUnsupported = false      // Server ohne /api/app/bookmarks (vor 2.5)
+    private let preset: [String]?                       // nur Bilder (Debug): Kategorien ohne Server
 
-    init(content: SharedContent, done: @escaping (Bool) -> Void) {
+    init(content: SharedContent, categories preset: [String]? = nil, done: @escaping (Bool) -> Void) {
         _content = State(initialValue: content)
         self.done = done
+        self.preset = preset
         _kind = State(initialValue: ShareBookmarkLogic.initialKind(last: AppConfig.store.string(forKey: ShareBookmarkLogic.lastKindKey),
                                                                    hasURL: content.url != nil))
         _name = State(initialValue: ShareBookmarkLogic.defaultName(title: content.title, url: content.url))
     }
 
+    private var hasToken: Bool { preset != nil || AppConfig.hasToken }     // Bild (Debug): wie eingerichtet
     @ScaledMetric private var labelWidth: CGFloat = 86
+    private static let newTag = "\u{1}neu"
 
     private var canSave: Bool {
-        guard !busy, AppConfig.hasToken else { return false }
+        guard !busy, hasToken else { return false }
+        if kind == "bookmark" && newCategory && category.trimmingCharacters(in: .whitespaces).isEmpty { return false }
         return kind != "bookmark" || (content.url != nil && !bookmarkUnsupported)
+    }
+
+    /// Arten: Seite im Eingang, Aufgabe, Lesezeichen (nur mit Link) - mit SF Symbols statt Emoji
+    private var kinds: [(tag: String, title: LocalizedStringKey, icon: String)] {
+        var k: [(String, LocalizedStringKey, String)] = [("page", content.url != nil ? "Eingang" : "Seite im Eingang", "tray.and.arrow.down"),
+                                                        ("task", "Aufgabe", "checkmark.circle")]
+        if content.url != nil { k.append(("bookmark", "Lesezeichen (Segment)", "bookmark")) }
+        return k
     }
 
     var body: some View {
@@ -58,14 +86,10 @@ struct ShareView: View {
                 Spacer()
                 Text("In Saga speichern").font(.headline)
                 Spacer()
-                Button(busy ? "…" : "Sichern") { Task { await save() } }.bold().disabled(!canSave)
+                Button { Task { await save() } } label: { if busy { ProgressView().controlSize(.small) } else { Text("Speichern") } }
+                    .bold().disabled(!canSave)
             }
-            Picker("", selection: $kind) {
-                // mit drei Optionen kurz, sonst schneidet das Segment den Text ab
-                Text(content.url != nil ? LocalizedStringKey("📥 Eingang") : LocalizedStringKey("📥 Seite im Eingang")).tag("page")
-                Text("✓ Aufgabe").tag("task")
-                if content.url != nil { Text("🔖 Lesezeichen").tag("bookmark") }
-            }.pickerStyle(.segmented).labelsHidden()
+            kindPicker
             if kind == "bookmark" {
                 HStack(spacing: 8) {
                     Text("Name").foregroundStyle(.secondary).frame(width: labelWidth, alignment: .leading)
@@ -73,13 +97,14 @@ struct ShareView: View {
                 }
                 HStack(spacing: 8) {
                     Text("Kategorie").foregroundStyle(.secondary).frame(width: labelWidth, alignment: .leading)
-                    TextField("Kategorie", text: $category).textFieldStyle(.roundedBorder)
-                    if !categories.isEmpty {
-                        Menu {
-                            ForEach(categories, id: \.self) { c in Button(c) { category = c } }
-                        } label: { Image(systemName: "chevron.up.chevron.down") }
-                        .accessibilityLabel(Text("Kategorie wählen"))
-                        .fixedSize()
+                    categoryPicker
+                    Spacer(minLength: 0)
+                }
+                if newCategory {
+                    HStack(spacing: 8) {
+                        Color.clear.frame(width: labelWidth, height: 1)
+                        TextField("Neue Kategorie", text: $category).textFieldStyle(.roundedBorder).focused($categoryFocus)
+                            .onChange(of: category) { _, v in if v.count > ShareBookmarkLogic.categoryMax { category = String(v.prefix(ShareBookmarkLogic.categoryMax)) } }
                     }
                 }
             } else {
@@ -95,7 +120,7 @@ struct ShareView: View {
             if kind == "bookmark" && bookmarkUnsupported {
                 Text("Dein Saga-Server kann noch keine Lesezeichen aus dem Teilen-Blatt anlegen (ab Saga 2.5).").font(.caption).foregroundStyle(.orange)
             }
-            if !AppConfig.hasToken {
+            if !hasToken {
                 Text("Noch kein App-Schlüssel – bitte einmal die Saga-App öffnen und unter Einstellungen eintragen.").font(.caption).foregroundStyle(.orange)
             }
             if !error.isEmpty { Text(error).font(.caption).foregroundStyle(.red) }
@@ -103,20 +128,57 @@ struct ShareView: View {
         }
         .padding()
         .frame(minWidth: 360, minHeight: 240)
+        .tint(.shareGold)
         .task { await loadCategories() }
     }
 
-    /// Kategorien nur laden, wenn ein Link dabei ist; ohne Antwort bleibt der Standard (Fehler zeigt erst "Sichern").
+    /// Umschalter der Art: eigene Segmente, damit Symbol und Text zusammen passen (Segment-Picker zeigt nur eins)
+    private var kindPicker: some View {
+        HStack(spacing: 2) {
+            ForEach(kinds, id: \.tag) { k in
+                let on = kind == k.tag
+                Button { kind = k.tag } label: {
+                    Label(k.title, systemImage: k.icon).labelStyle(.titleAndIcon)
+                        .font(.subheadline.weight(on ? .semibold : .regular)).lineLimit(1).minimumScaleFactor(0.85)
+                        .frame(maxWidth: .infinity, minHeight: 32).padding(.horizontal, 4)
+                        .foregroundStyle(on ? Color.shareGold : Color.primary)
+                        .background { if on { RoundedRectangle(cornerRadius: 8).fill(.background).shadow(color: .black.opacity(0.12), radius: 2, y: 1) } }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(on ? .isSelected : [])
+            }
+        }
+        .padding(2)
+        .background(Color.secondary.opacity(0.14), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    /// Kategorie als Menue-Zeile: bekannte Kategorien und "Neue Kategorie …" (freie Eingabe darunter)
+    private var categoryPicker: some View {
+        let options = categories.isEmpty ? [standardCategory] : categories
+        return Picker(selection: Binding(get: { newCategory ? Self.newTag : (category.isEmpty ? standardCategory : category) },
+                                         set: { v in
+                                             if v == Self.newTag { newCategory = true; category = ""; categoryFocus = true }
+                                             else { newCategory = false; category = v }
+                                         })) {
+            ForEach(options, id: \.self) { c in Text(verbatim: c).tag(c) }
+            Divider()
+            Text("Neue Kategorie …").tag(Self.newTag)
+        } label: { Text("Kategorie") }
+            .pickerStyle(.menu).labelsHidden().fixedSize()
+    }
+
+    /// Kategorien nur laden, wenn ein Link dabei ist; ohne Antwort bleibt der Standard (Fehler zeigt erst "Speichern").
     private func loadCategories() async {
         guard content.url != nil else { return }
         var server: [String] = []
-        do {
+        if let preset { server = preset } else { do {
             let r = try await API.bookmarkCategories()
             server = r.categories
             if let d = r.default, !d.isEmpty { standardCategory = d }
         } catch APIError.http(404, _) {
             bookmarkUnsupported = true
-        } catch {}
+        } catch {} }
         categories = ShareBookmarkLogic.categories(server: server, standard: standardCategory)
         if category.isEmpty {
             category = ShareBookmarkLogic.initialCategory(last: AppConfig.store.string(forKey: ShareBookmarkLogic.lastCategoryKey),

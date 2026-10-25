@@ -53,7 +53,7 @@ struct UpdateSettingsSection: View {
                 Toggle("Automatisch nach Updates suchen", isOn: Binding(get: { updater.automaticChecks }, set: { updater.setAutomaticChecks($0) }))
                 HStack {
                     Text(UpdateLogic.isPrerelease(Store.appVersionLabel)
-                         ? "Diese Testversion erhält auch neue Testversionen."
+                         ? "Diese Testversion erhält nur neue Testversionen."
                          : "Diese Version erhält nur stabile Versionen.")
                         .font(.footnote).foregroundStyle(.secondary)
                     Spacer()

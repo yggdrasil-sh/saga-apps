@@ -260,7 +260,7 @@ struct ChatSelectBar: View {
         HStack(spacing: 0) {
             item("Kopieren", "doc.on.doc", copy)
             item("Weiterleiten", "arrowshape.turn.up.right", forward)
-            item("In Seite übernehmen", "doc.text", toPage)
+            item("In Seite", "doc.text", toPage, help: "In Seite übernehmen")
             item("Löschen", "trash", delete, destructive: true)
         }
         .disabled(count == 0 || busy)
@@ -268,17 +268,20 @@ struct ChatSelectBar: View {
         .padding(.horizontal, 8).padding(.vertical, 6)
         .background(.bar)
     }
-    private func item(_ t: LocalizedStringKey, _ icon: String, _ run: @escaping () -> Void, destructive: Bool = false) -> some View {
+    /// Kurze Beschriftung in einheitlicher Groesse (kein Verkleinern); `help` = ausfuehrlich fuer Hilfe und VoiceOver
+    private func item(_ t: LocalizedStringKey, _ icon: String, _ run: @escaping () -> Void, destructive: Bool = false,
+                      help: LocalizedStringKey? = nil) -> some View {
         Button(role: destructive ? .destructive : nil, action: run) {
             VStack(spacing: 3) {
                 Image(systemName: icon).font(.title3).frame(height: 26)
-                Text(t).font(.caption2).lineLimit(1).minimumScaleFactor(0.7)
+                Text(t).font(.caption2).lineLimit(1)
             }
             .frame(maxWidth: .infinity, minHeight: 44).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .foregroundStyle(destructive ? Color.red : Color.gold)
-        .help(Text(t))
+        .help(Text(help ?? t))
+        .accessibilityLabel(Text(help ?? t))
     }
 }
 
@@ -287,11 +290,56 @@ struct SelectMark: View {
     let on: Bool
     var enabled = true
     var body: some View {
+        // nicht auswaehlbar (Anruf, Systemzeile): kein Kreis, nur derselbe Platz - die Zeilen bleiben buendig
         Image(systemName: on ? "checkmark.circle.fill" : "circle")
             .font(.title3)
-            .foregroundStyle(on ? Color.gold : Color.secondary.opacity(enabled ? 0.8 : 0.25))
+            .foregroundStyle(on ? Color.gold : Color.secondary.opacity(0.8))
+            .opacity(enabled || on ? 1 : 0)
             .frame(width: 28)
             .accessibilityHidden(true)
+    }
+}
+
+/// Loeschen mehrerer Nachrichten: Fuer mich / Fuer alle / Abbrechen, breit genug fuer ganze Woerter
+struct ChatDeleteChoice: View {
+    let count: Int
+    let forAll: Bool
+    var forMe: () -> Void
+    var everyone: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var height: CGFloat = 320
+    var body: some View {
+        VStack(spacing: 16) {
+            VStack(spacing: 6) {
+                Text("\(count) Nachrichten löschen?").font(.headline)
+                Group {
+                    if forAll { Text("„Für mich löschen“ blendet die Nachrichten auf allen deinen Geräten aus. „Für alle löschen“ löscht sie vom Server.") }
+                    else { Text("„Für mich löschen“ blendet die Nachrichten auf allen deinen Geräten aus. Nur eigene Nachrichten lassen sich für alle löschen.") }
+                }
+                .font(.subheadline).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            .multilineTextAlignment(.center)
+            VStack(spacing: 10) {
+                Button(role: .destructive, action: forMe) { Text("Für mich löschen").frame(maxWidth: .infinity) }
+                    .buttonStyle(.bordered).controlSize(.large)
+                if forAll {
+                    Button(role: .destructive, action: everyone) { Text("Für alle löschen").frame(maxWidth: .infinity) }
+                        .buttonStyle(.bordered).controlSize(.large)
+                }
+                Button { dismiss() } label: { Text("Abbrechen").frame(maxWidth: .infinity) }
+                    .buttonStyle(.bordered).controlSize(.large).tint(.secondary)
+                    .keyboardShortcut(.cancelAction)
+            }
+        }
+        .padding(.horizontal, 24).padding(.top, 24).padding(.bottom, 16)
+        .frame(maxWidth: 440)
+        #if os(iOS)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
+        .presentationDetents([.height(height)])
+        .presentationDragIndicator(.visible)
+        #else
+        .frame(width: 400)
+        #endif
     }
 }
 
@@ -391,18 +439,12 @@ struct ChatSelectFlows: ViewModifier {
     private var items: [ChatSelectLogic.Item] { msgs.map(conv.selectItem) }
     func body(content: Content) -> some View {
         content
-            .confirmationDialog(Text("\(msgs.count) Nachrichten löschen?"), isPresented: $sel.askDelete, titleVisibility: .visible) {
-                Button("Für mich löschen", role: .destructive) { hide() }
-                if ChatSelectLogic.canDeleteForAll(items, allowed: conv.deleteAllowed) {
-                    Button("Für alle löschen", role: .destructive) { sel.askDeleteAll = true }
-                }
-                Button("Abbrechen", role: .cancel) {}
-            } message: {
-                if ChatSelectLogic.canDeleteForAll(items, allowed: conv.deleteAllowed) {
-                    Text("„Für mich löschen“ blendet die Nachrichten auf allen deinen Geräten aus. „Für alle löschen“ löscht sie vom Server.")
-                } else {
-                    Text("„Für mich löschen“ blendet die Nachrichten auf allen deinen Geräten aus. Nur eigene Nachrichten lassen sich für alle löschen.")
-                }
+            .sheet(isPresented: $sel.askDelete) {
+                // eigenes Blatt statt confirmationDialog: das schmale Popover (iOS 26, iPad) trennte Woerter und
+                // zeigte kein "Abbrechen"
+                ChatDeleteChoice(count: msgs.count, forAll: ChatSelectLogic.canDeleteForAll(items, allowed: conv.deleteAllowed),
+                                 forMe: { sel.askDelete = false; hide() },
+                                 everyone: { sel.askDelete = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { sel.askDeleteAll = true } })
             }
             .alert(Text("\(msgs.count) Nachrichten für alle löschen?"), isPresented: $sel.askDeleteAll) {
                 Button("Für alle löschen", role: .destructive) { deleteAll() }
