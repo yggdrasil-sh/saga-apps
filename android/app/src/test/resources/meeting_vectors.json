@@ -1,0 +1,1804 @@
+{
+ "note": "Meeting-Ansicht (MEETING-SPEC.md §12): gemeinsame Vektoren fuer Web, iOS, Android. people/screens: 'id|kind|device|video[|devName]'. speakerHysteresis: Pegel je Person alle 330 ms, stage = Person auf der Buehne nach dem Schritt (null = keine). grid: [breite, hoehe, n, [spalten, je_seite, mit_video]]; strip: [breite, hoehe, [seite, groesse, videos]]; Masse in dp/pt/px.",
+ "meetingTiles": [
+  {
+   "name": "S2 1:1, Anna mit stillem Begleitgeraet",
+   "my_device": "b1",
+   "legs": [
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a-mac",
+     "dev_name": "MacBook",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a-ios",
+     "dev_name": "iPhone",
+     "role": "companion",
+     "me": false,
+     "mic": false,
+     "cam": false,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "ben",
+     "name": "Ben",
+     "device": "b1",
+     "dev_name": "Pixel",
+     "role": "member",
+     "me": true,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    }
+   ],
+   "expect": {
+    "people": [
+     "anna|person|a-mac|1",
+     "ben|person|b1|1"
+    ],
+    "screens": [],
+    "companions": [],
+    "persons": 2,
+    "layout": "duo",
+    "layout_button": false,
+    "self_floats": true,
+    "stage": "anna",
+    "strip": []
+   }
+  },
+  {
+   "name": "S3 1:1, Annas Android teilt, Mac mit Kamera",
+   "my_device": "b1",
+   "legs": [
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a-mac",
+     "dev_name": "MacBook",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a-ios",
+     "dev_name": "iPhone",
+     "role": "companion",
+     "me": false,
+     "mic": false,
+     "cam": false,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a-and",
+     "dev_name": "Android",
+     "role": "companion",
+     "me": false,
+     "mic": false,
+     "cam": false,
+     "screen": true,
+     "shared_at": 10
+    },
+    {
+     "who": "ben",
+     "name": "Ben",
+     "device": "b1",
+     "dev_name": "Pixel",
+     "role": "member",
+     "me": true,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    }
+   ],
+   "expect": {
+    "people": [
+     "anna|person|a-mac|1",
+     "ben|person|b1|1"
+    ],
+    "screens": [
+     "annaa-and:scr|screen|a-and|1|Android"
+    ],
+    "companions": [],
+    "persons": 2,
+    "layout": "presentation",
+    "layout_button": true,
+    "self_floats": true,
+    "stage": "annaa-and:scr",
+    "strip": [
+     "anna"
+    ]
+   }
+  },
+  {
+   "name": "S2 aus Sicht von Annas Mac: Begleitgeraet nur als Chip",
+   "my_device": "a-mac",
+   "legs": [
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a-mac",
+     "dev_name": "MacBook",
+     "role": "member",
+     "me": true,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a-ios",
+     "dev_name": "iPhone",
+     "role": "companion",
+     "me": true,
+     "mic": false,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "ben",
+     "name": "Ben",
+     "device": "b1",
+     "dev_name": "Pixel",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    }
+   ],
+   "expect": {
+    "people": [
+     "ben|person|b1|1",
+     "anna|person|a-mac|1"
+    ],
+    "screens": [],
+    "companions": [
+     "iPhone"
+    ],
+    "persons": 2,
+    "layout": "duo",
+    "layout_button": false,
+    "self_floats": true,
+    "stage": "ben",
+    "strip": []
+   }
+  },
+  {
+   "name": "Begleitgeraet mit eigener Kamera: zweite Kamera-Kachel",
+   "my_device": "b1",
+   "legs": [
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a-mac",
+     "dev_name": "MacBook",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a-ios",
+     "dev_name": "iPhone",
+     "role": "companion",
+     "me": false,
+     "mic": false,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "ben",
+     "name": "Ben",
+     "device": "b1",
+     "dev_name": "Pixel",
+     "role": "member",
+     "me": true,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    }
+   ],
+   "expect": {
+    "people": [
+     "anna|person|a-mac|1",
+     "annaa-ios:cam|cam|a-ios|1|iPhone",
+     "ben|person|b1|1"
+    ],
+    "screens": [],
+    "companions": [],
+    "persons": 2,
+    "layout": "gallery",
+    "layout_button": true,
+    "self_floats": false,
+    "stage": null,
+    "strip": []
+   }
+  },
+  {
+   "name": "Hauptgeraet ohne Kamera: Kamera des Begleitgeraets in der Personenkachel",
+   "my_device": "b1",
+   "legs": [
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a-mac",
+     "dev_name": "MacBook",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": false,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a-ios",
+     "dev_name": "iPhone",
+     "role": "companion",
+     "me": false,
+     "mic": false,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "ben",
+     "name": "Ben",
+     "device": "b1",
+     "dev_name": "Pixel",
+     "role": "member",
+     "me": true,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    }
+   ],
+   "expect": {
+    "people": [
+     "anna|person|a-ios|1",
+     "ben|person|b1|1"
+    ],
+    "screens": [],
+    "companions": [],
+    "persons": 2,
+    "layout": "duo",
+    "layout_button": false,
+    "self_floats": true,
+    "stage": "anna",
+    "strip": []
+   }
+  },
+  {
+   "name": "S9 zwei Freigaben: Buehne = zuletzt gestartete",
+   "my_device": "c1",
+   "legs": [
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a1",
+     "dev_name": "",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": true,
+     "shared_at": 100
+    },
+    {
+     "who": "ben",
+     "name": "Ben",
+     "device": "b1",
+     "dev_name": "",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": false,
+     "screen": true,
+     "shared_at": 200
+    },
+    {
+     "who": "cem",
+     "name": "Cem",
+     "device": "c1",
+     "dev_name": "",
+     "role": "member",
+     "me": true,
+     "mic": true,
+     "cam": false,
+     "screen": false,
+     "shared_at": 0
+    }
+   ],
+   "expect": {
+    "people": [
+     "anna|person|a1|1",
+     "ben|person|b1|0",
+     "cem|person|c1|0"
+    ],
+    "screens": [
+     "benb1:scr|screen|b1|1",
+     "annaa1:scr|screen|a1|1"
+    ],
+    "companions": [],
+    "persons": 3,
+    "layout": "presentation",
+    "layout_button": true,
+    "self_floats": false,
+    "stage": "benb1:scr",
+    "strip": [
+     "annaa1:scr",
+     "anna",
+     "ben",
+     "cem"
+    ]
+   }
+  },
+  {
+   "name": "S9 angeheftet: Annas Bildschirm auf der Buehne",
+   "my_device": "c1",
+   "pin": "annaa1:scr",
+   "legs": [
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a1",
+     "dev_name": "",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": true,
+     "shared_at": 100
+    },
+    {
+     "who": "ben",
+     "name": "Ben",
+     "device": "b1",
+     "dev_name": "",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": false,
+     "screen": true,
+     "shared_at": 200
+    },
+    {
+     "who": "cem",
+     "name": "Cem",
+     "device": "c1",
+     "dev_name": "",
+     "role": "member",
+     "me": true,
+     "mic": true,
+     "cam": false,
+     "screen": false,
+     "shared_at": 0
+    }
+   ],
+   "expect": {
+    "people": [
+     "anna|person|a1|1",
+     "ben|person|b1|0",
+     "cem|person|c1|0"
+    ],
+    "screens": [
+     "benb1:scr|screen|b1|1",
+     "annaa1:scr|screen|a1|1"
+    ],
+    "companions": [],
+    "persons": 3,
+    "layout": "presentation",
+    "layout_button": true,
+    "self_floats": false,
+    "stage": "annaa1:scr",
+    "strip": [
+     "benb1:scr",
+     "anna",
+     "ben",
+     "cem"
+    ]
+   }
+  },
+  {
+   "name": "Ich teile: eigener Bildschirm nicht auf der Buehne",
+   "my_device": "b1",
+   "legs": [
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a1",
+     "dev_name": "",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "ben",
+     "name": "Ben",
+     "device": "b1",
+     "dev_name": "",
+     "role": "member",
+     "me": true,
+     "mic": true,
+     "cam": true,
+     "screen": true,
+     "shared_at": 5
+    }
+   ],
+   "expect": {
+    "people": [
+     "anna|person|a1|1",
+     "ben|person|b1|1"
+    ],
+    "screens": [],
+    "companions": [],
+    "persons": 2,
+    "self_sharing": true,
+    "layout": "duo",
+    "layout_button": false,
+    "self_floats": true,
+    "stage": "anna",
+    "strip": []
+   }
+  },
+  {
+   "name": "S4 vier Personen: Galerie",
+   "my_device": "d1",
+   "legs": [
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a1",
+     "dev_name": "",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "ben",
+     "name": "Ben",
+     "device": "b1",
+     "dev_name": "",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "cem",
+     "name": "Cem",
+     "device": "c1",
+     "dev_name": "",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "dora",
+     "name": "Dora",
+     "device": "d1",
+     "dev_name": "",
+     "role": "member",
+     "me": true,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    }
+   ],
+   "expect": {
+    "people": [
+     "anna|person|a1|1",
+     "ben|person|b1|1",
+     "cem|person|c1|1",
+     "dora|person|d1|1"
+    ],
+    "screens": [],
+    "companions": [],
+    "persons": 4,
+    "layout": "gallery",
+    "layout_button": true,
+    "self_floats": false,
+    "stage": null,
+    "strip": []
+   }
+  },
+  {
+   "name": "S5 acht Personen: Sprecher (reduzierte Bewegung: Galerie)",
+   "my_device": "h1",
+   "speaker": "cem",
+   "legs": [
+    {
+     "who": "anna",
+     "name": "Anna",
+     "device": "a1",
+     "dev_name": "",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "ben",
+     "name": "Ben",
+     "device": "b1",
+     "dev_name": "",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "cem",
+     "name": "Cem",
+     "device": "c1",
+     "dev_name": "",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "dora",
+     "name": "Dora",
+     "device": "d1",
+     "dev_name": "",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "emil",
+     "name": "Emil",
+     "device": "e1",
+     "dev_name": "",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "finn",
+     "name": "Finn",
+     "device": "f1",
+     "dev_name": "",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "gina",
+     "name": "Gina",
+     "device": "g1",
+     "dev_name": "",
+     "role": "member",
+     "me": false,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    },
+    {
+     "who": "hans",
+     "name": "Hans",
+     "device": "h1",
+     "dev_name": "",
+     "role": "member",
+     "me": true,
+     "mic": true,
+     "cam": true,
+     "screen": false,
+     "shared_at": 0
+    }
+   ],
+   "expect": {
+    "people": [
+     "anna|person|a1|1",
+     "ben|person|b1|1",
+     "cem|person|c1|1",
+     "dora|person|d1|1",
+     "emil|person|e1|1",
+     "finn|person|f1|1",
+     "gina|person|g1|1",
+     "hans|person|h1|1"
+    ],
+    "screens": [],
+    "companions": [],
+    "persons": 8,
+    "layout": "speaker",
+    "layout_reduced": "gallery",
+    "layout_button": true,
+    "self_floats": false,
+    "stage": "cem",
+    "strip": [
+     "anna",
+     "ben",
+     "dora",
+     "emil",
+     "finn",
+     "gina",
+     "hans"
+    ]
+   }
+  }
+ ],
+ "speakerHysteresis": [
+  {
+   "name": "S5 abwechselnde 1-s-Toene: kein Wechsel",
+   "self": "me",
+   "steps": [
+    {
+     "t": 0,
+     "levels": {
+      "anna": 0.2,
+      "ben": 0.0
+     },
+     "stage": null
+    },
+    {
+     "t": 330,
+     "levels": {
+      "anna": 0.2,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 660,
+     "levels": {
+      "anna": 0.2,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 990,
+     "levels": {
+      "anna": 0.2,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 1320,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.25
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 1650,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.25
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 1980,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.25
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 2310,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.25
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 2640,
+     "levels": {
+      "anna": 0.25,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 2970,
+     "levels": {
+      "anna": 0.25,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 3300,
+     "levels": {
+      "anna": 0.25,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 3630,
+     "levels": {
+      "anna": 0.25,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 3960,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.25
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 4290,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.25
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 4620,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.25
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 4950,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.25
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 5280,
+     "levels": {
+      "anna": 0.25,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 5610,
+     "levels": {
+      "anna": 0.25,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 5940,
+     "levels": {
+      "anna": 0.25,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 6270,
+     "levels": {
+      "anna": 0.25,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 6600,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.25
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 6930,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.25
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 7260,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.25
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 7590,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.25
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 7920,
+     "levels": {
+      "anna": 0.25,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 8250,
+     "levels": {
+      "anna": 0.25,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 8580,
+     "levels": {
+      "anna": 0.25,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 8910,
+     "levels": {
+      "anna": 0.25,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 9240,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.25
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 9570,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.25
+     },
+     "stage": "anna"
+    }
+   ]
+  },
+  {
+   "name": "Ben dauerhaft lauter: Wechsel nach 1,5 s und 3 s Abstand",
+   "self": "me",
+   "steps": [
+    {
+     "t": 0,
+     "levels": {
+      "anna": 0.2,
+      "ben": 0.0
+     },
+     "stage": null
+    },
+    {
+     "t": 330,
+     "levels": {
+      "anna": 0.2,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 660,
+     "levels": {
+      "anna": 0.2,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 990,
+     "levels": {
+      "anna": 0.2,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 1320,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 1650,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 1980,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 2310,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 2640,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 2970,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 3300,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 3630,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.2
+     },
+     "stage": "ben"
+    },
+    {
+     "t": 3960,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.2
+     },
+     "stage": "ben"
+    },
+    {
+     "t": 4290,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.2
+     },
+     "stage": "ben"
+    },
+    {
+     "t": 4620,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.2
+     },
+     "stage": "ben"
+    },
+    {
+     "t": 4950,
+     "levels": {
+      "anna": 0.0,
+      "ben": 0.2
+     },
+     "stage": "ben"
+    }
+   ]
+  },
+  {
+   "name": "eigene Stimme bewegt die Buehne nicht",
+   "self": "me",
+   "steps": [
+    {
+     "t": 0,
+     "levels": {
+      "me": 0.6,
+      "anna": 0.05,
+      "ben": 0.0
+     },
+     "stage": null
+    },
+    {
+     "t": 330,
+     "levels": {
+      "me": 0.6,
+      "anna": 0.05,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 660,
+     "levels": {
+      "me": 0.6,
+      "anna": 0.05,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 990,
+     "levels": {
+      "me": 0.6,
+      "anna": 0.0,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 1320,
+     "levels": {
+      "me": 0.6,
+      "anna": 0.0,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 1650,
+     "levels": {
+      "me": 0.6,
+      "anna": 0.0,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 1980,
+     "levels": {
+      "me": 0.6,
+      "anna": 0.0,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 2310,
+     "levels": {
+      "me": 0.6,
+      "anna": 0.0,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 2640,
+     "levels": {
+      "me": 0.6,
+      "anna": 0.0,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 2970,
+     "levels": {
+      "me": 0.6,
+      "anna": 0.0,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 3300,
+     "levels": {
+      "me": 0.6,
+      "anna": 0.0,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 3630,
+     "levels": {
+      "me": 0.6,
+      "anna": 0.0,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 3960,
+     "levels": {
+      "me": 0.6,
+      "anna": 0.0,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 4290,
+     "levels": {
+      "me": 0.6,
+      "anna": 0.0,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 4620,
+     "levels": {
+      "me": 0.6,
+      "anna": 0.0,
+      "ben": 0.0
+     },
+     "stage": "anna"
+    }
+   ]
+  },
+  {
+   "name": "Stille: Buehne bleibt",
+   "self": "me",
+   "steps": [
+    {
+     "t": 0,
+     "levels": {
+      "anna": 0.01,
+      "ben": 0.0
+     },
+     "stage": null
+    },
+    {
+     "t": 330,
+     "levels": {
+      "anna": 0.01,
+      "ben": 0.0
+     },
+     "stage": null
+    },
+    {
+     "t": 660,
+     "levels": {
+      "anna": 0.01,
+      "ben": 0.0
+     },
+     "stage": null
+    },
+    {
+     "t": 990,
+     "levels": {
+      "anna": 0.01,
+      "ben": 0.2
+     },
+     "stage": null
+    },
+    {
+     "t": 1320,
+     "levels": {
+      "anna": 0.01,
+      "ben": 0.2
+     },
+     "stage": "ben"
+    },
+    {
+     "t": 1650,
+     "levels": {
+      "anna": 0.01,
+      "ben": 0.2
+     },
+     "stage": "ben"
+    },
+    {
+     "t": 1980,
+     "levels": {
+      "anna": 0.01,
+      "ben": 0.2
+     },
+     "stage": "ben"
+    },
+    {
+     "t": 2310,
+     "levels": {
+      "anna": 0.01,
+      "ben": 0.0
+     },
+     "stage": "ben"
+    },
+    {
+     "t": 2640,
+     "levels": {
+      "anna": 0.01,
+      "ben": 0.0
+     },
+     "stage": "ben"
+    },
+    {
+     "t": 2970,
+     "levels": {
+      "anna": 0.01,
+      "ben": 0.0
+     },
+     "stage": "ben"
+    },
+    {
+     "t": 3300,
+     "levels": {
+      "anna": 0.01,
+      "ben": 0.0
+     },
+     "stage": "ben"
+    },
+    {
+     "t": 3630,
+     "levels": {
+      "anna": 0.01,
+      "ben": 0.0
+     },
+     "stage": "ben"
+    },
+    {
+     "t": 3960,
+     "levels": {
+      "anna": 0.01,
+      "ben": 0.0
+     },
+     "stage": "ben"
+    },
+    {
+     "t": 4290,
+     "levels": {
+      "anna": 0.01,
+      "ben": 0.0
+     },
+     "stage": "ben"
+    },
+    {
+     "t": 4620,
+     "levels": {
+      "anna": 0.01,
+      "ben": 0.0
+     },
+     "stage": "ben"
+    }
+   ]
+  },
+  {
+   "name": "leiser als die Buehne: kein Wechsel",
+   "self": "me",
+   "steps": [
+    {
+     "t": 0,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": null
+    },
+    {
+     "t": 330,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 660,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 990,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 1320,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 1650,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 1980,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 2310,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 2640,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 2970,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 3300,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 3630,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 3960,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 4290,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 4620,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 4950,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 5280,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 5610,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 5940,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    },
+    {
+     "t": 6270,
+     "levels": {
+      "anna": 0.3,
+      "ben": 0.2
+     },
+     "stage": "anna"
+    }
+   ]
+  }
+ ],
+ "grid": [
+  [
+   390,
+   844,
+   2,
+   [
+    1,
+    6,
+    4
+   ]
+  ],
+  [
+   390,
+   844,
+   5,
+   [
+    2,
+    6,
+    4
+   ]
+  ],
+  [
+   844,
+   390,
+   2,
+   [
+    2,
+    6,
+    4
+   ]
+  ],
+  [
+   844,
+   390,
+   5,
+   [
+    3,
+    6,
+    4
+   ]
+  ],
+  [
+   800,
+   1280,
+   4,
+   [
+    2,
+    9,
+    6
+   ]
+  ],
+  [
+   800,
+   1280,
+   5,
+   [
+    3,
+    9,
+    6
+   ]
+  ],
+  [
+   1280,
+   720,
+   6,
+   [
+    3,
+    16,
+    9
+   ]
+  ],
+  [
+   1280,
+   720,
+   4,
+   [
+    2,
+    16,
+    9
+   ]
+  ],
+  [
+   1280,
+   720,
+   12,
+   [
+    4,
+    16,
+    9
+   ]
+  ],
+  [
+   1920,
+   1080,
+   17,
+   [
+    5,
+    25,
+    16
+   ]
+  ],
+  [
+   1920,
+   1080,
+   10,
+   [
+    4,
+    25,
+    16
+   ]
+  ]
+ ],
+ "strip": [
+  [
+   390,
+   844,
+   [
+    "bottom",
+    84,
+    3
+   ]
+  ],
+  [
+   844,
+   390,
+   [
+    "right",
+    120,
+    3
+   ]
+  ],
+  [
+   800,
+   1280,
+   [
+    "bottom",
+    96,
+    6
+   ]
+  ],
+  [
+   1000,
+   700,
+   [
+    "right",
+    160,
+    6
+   ]
+  ],
+  [
+   1280,
+   720,
+   [
+    "right",
+    200,
+    6
+   ]
+  ],
+  [
+   1920,
+   1080,
+   [
+    "right",
+    240,
+    6
+   ]
+  ]
+ ],
+ "selfPipSize": [
+  {
+   "aspect": 1.7777777777777777,
+   "fallback": 0.5625,
+   "width": 1280,
+   "avail": 720,
+   "factor": 1.0,
+   "expect": [
+    280.0,
+    157.0
+   ]
+  },
+  {
+   "aspect": null,
+   "fallback": 0.5625,
+   "width": 390,
+   "avail": 700,
+   "factor": 1.0,
+   "expect": [
+    101.0,
+    179.0
+   ]
+  },
+  {
+   "aspect": 0.75,
+   "fallback": 0.5625,
+   "width": 390,
+   "avail": 700,
+   "factor": 1.4,
+   "expect": [
+    141.0,
+    188.0
+   ]
+  },
+  {
+   "aspect": 0.5625,
+   "fallback": 0.5625,
+   "width": 390,
+   "avail": 200,
+   "factor": 1.0,
+   "expect": [
+    54.0,
+    96.0
+   ]
+  },
+  {
+   "aspect": 3.0,
+   "fallback": 0.5625,
+   "width": 844,
+   "avail": 300,
+   "factor": 0.7,
+   "expect": [
+    129.0,
+    64.0
+   ]
+  }
+ ],
+ "hideControls": [
+  {
+   "idle": 4000,
+   "connected": true,
+   "video": true,
+   "sr": false,
+   "menu": false,
+   "notice": false,
+   "over": false,
+   "hide": true
+  },
+  {
+   "idle": 3999,
+   "connected": true,
+   "video": true,
+   "sr": false,
+   "menu": false,
+   "notice": false,
+   "over": false,
+   "hide": false
+  },
+  {
+   "idle": 9000,
+   "connected": true,
+   "video": false,
+   "sr": false,
+   "menu": false,
+   "notice": false,
+   "over": false,
+   "hide": false
+  },
+  {
+   "idle": 9000,
+   "connected": true,
+   "video": true,
+   "sr": true,
+   "menu": false,
+   "notice": false,
+   "over": false,
+   "hide": false
+  },
+  {
+   "idle": 9000,
+   "connected": true,
+   "video": true,
+   "sr": false,
+   "menu": true,
+   "notice": false,
+   "over": false,
+   "hide": false
+  },
+  {
+   "idle": 9000,
+   "connected": true,
+   "video": true,
+   "sr": false,
+   "menu": false,
+   "notice": true,
+   "over": false,
+   "hide": false
+  },
+  {
+   "idle": 9000,
+   "connected": false,
+   "video": true,
+   "sr": false,
+   "menu": false,
+   "notice": false,
+   "over": false,
+   "hide": false
+  },
+  {
+   "idle": 9000,
+   "connected": true,
+   "video": true,
+   "sr": false,
+   "menu": false,
+   "notice": false,
+   "over": true,
+   "hide": false
+  }
+ ]
+}

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Meeting-Ansicht (MEETING-SPEC.md): Layout-Knopf, Bühne, Streifen, Galerie, Hinweis-Chip -->
+<resources>
+    <string name="meet_layout">Раскладка</string>
+    <string name="meet_layout_cd">Раскладка, %1$s</string>
+    <string name="meet_layout_auto">Авто</string>
+    <string name="meet_layout_gallery">Галерея</string>
+    <string name="meet_layout_speaker">Докладчик</string>
+    <string name="meet_layout_presentation">Презентация</string>
+    <string name="meet_show_novideo">Показывать плитки без видео</string>
+    <string name="meet_show_self">Показывать твоё видео</string>
+    <string name="meet_screen_of">Экран: %1$s</string>
+    <string name="meet_screen_of_dev">Экран: %1$s (%2$s)</string>
+    <string name="meet_sharing_chip">%1$s показывает экран</string>
+    <string name="meet_chip_close">Скрыть подсказку</string>
+    <string name="meet_companions">%1$s: подключено</string>
+    <string name="meet_pin">Закрепить для себя</string>
+    <string name="meet_unpin">Открепить</string>
+    <string name="meet_pinned">закреплено</string>
+    <string name="meet_pin_ended">Закреплённый вид завершён</string>
+    <string name="meet_fullscreen">Во весь экран</string>
+    <string name="meet_fullscreen_exit">Выйти из полноэкранного режима</string>
+    <string name="meet_zoom">%1$d %%</string>
+    <string name="meet_zoom_reset">Сбросить</string>
+    <string name="meet_page">Страница %1$d из %2$d</string>
+    <string name="meet_page_prev">Предыдущая страница</string>
+    <string name="meet_page_next">Следующая страница</string>
+    <string name="meet_stage_cd">Сцена: %1$s</string>
+    <string name="meet_participants_cd">Участники, %1$d</string>
+    <string name="meet_cam_on">камера включена</string>
+    <string name="meet_no_cam">без камеры</string>
+    <string name="meet_show">Показать</string>
+    <string name="meet_self_size">Изменить размер твоего видео</string>
+    <string name="meet_strip_collapse">Свернуть ленту</string>
+    <string name="meet_strip_expand">Развернуть ленту</string>
+    <string name="meet_screen_na">Экран: %1$s – недоступно через узел</string>
+    <string name="meet_tile_menu">Действия для %1$s</string>
+    <string name="meet_companion_head">Дополнительное устройство · основное %1$s</string>
+    <string name="meet_cam2">%1$s (%2$s)</string>
+    <plurals name="meet_persons">
+        <item quantity="one">%1$d человек</item>
+        <item quantity="few">%1$d человека</item>
+        <item quantity="many">%1$d человек</item>
+        <item quantity="other">%1$d человека</item>
+    </plurals>
+</resources>

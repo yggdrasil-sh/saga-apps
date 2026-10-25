@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Meeting-Ansicht (MEETING-SPEC.md): Layout-Knopf, Bühne, Streifen, Galerie, Hinweis-Chip -->
+<resources>
+    <string name="meet_layout">Layout</string>
+    <string name="meet_layout_cd">Layout, %1$s</string>
+    <string name="meet_layout_auto">Auto</string>
+    <string name="meet_layout_gallery">Gallery</string>
+    <string name="meet_layout_speaker">Speaker</string>
+    <string name="meet_layout_presentation">Presentation</string>
+    <string name="meet_show_novideo">Show tiles without video</string>
+    <string name="meet_show_self">Show my video</string>
+    <string name="meet_screen_of">%1$s’s screen</string>
+    <string name="meet_screen_of_dev">%1$s’s screen (%2$s)</string>
+    <string name="meet_sharing_chip">%1$s is sharing the screen</string>
+    <string name="meet_chip_close">Hide notice</string>
+    <string name="meet_companions">%1$s connected</string>
+    <string name="meet_pin">Pin for me</string>
+    <string name="meet_unpin">Unpin</string>
+    <string name="meet_pinned">pinned</string>
+    <string name="meet_pin_ended">Pinned view ended</string>
+    <string name="meet_fullscreen">Full screen</string>
+    <string name="meet_fullscreen_exit">Exit full screen</string>
+    <string name="meet_zoom">%1$d %%</string>
+    <string name="meet_zoom_reset">Reset</string>
+    <string name="meet_page">Page %1$d of %2$d</string>
+    <string name="meet_page_prev">Previous page</string>
+    <string name="meet_page_next">Next page</string>
+    <string name="meet_stage_cd">Stage: %1$s</string>
+    <string name="meet_participants_cd">Participants, %1$d</string>
+    <string name="meet_cam_on">camera on</string>
+    <string name="meet_no_cam">no camera</string>
+    <string name="meet_show">Show</string>
+    <string name="meet_self_size">Change size of my video</string>
+    <string name="meet_strip_collapse">Collapse strip</string>
+    <string name="meet_strip_expand">Expand strip</string>
+    <string name="meet_screen_na">%1$s’s screen – not available via the node</string>
+    <string name="meet_tile_menu">Options for %1$s</string>
+    <string name="meet_companion_head">Companion device · main device %1$s</string>
+    <string name="meet_cam2">%1$s (%2$s)</string>
+    <plurals name="meet_persons">
+        <item quantity="one">%1$d person</item>
+        <item quantity="other">%1$d people</item>
+    </plurals>
+</resources>
