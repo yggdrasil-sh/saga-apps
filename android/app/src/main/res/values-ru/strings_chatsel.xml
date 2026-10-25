@@ -18,7 +18,7 @@
     <string name="cs_to_page">Перенести на страницу</string>
     <string name="cs_page_new">Новая страница</string>
     <string name="cs_page_append">Добавить к существующей странице</string>
-    <string name="cs_page_pick">Выберите страницу</string>
+    <string name="cs_page_pick">Выбери страницу</string>
     <string name="cs_page_search">Поиск страниц</string>
     <string name="cs_page_warn">Страница не защищена сквозным шифрованием – сервер может прочитать текст.</string>
     <string name="cs_page_ok">Перенести</string>
@@ -26,12 +26,12 @@
     <string name="cs_page_open">Открыть</string>
     <string name="cs_delete">Удалить</string>
     <string name="cs_delete_me">Удалить у меня</string>
-    <string name="cs_delete_me_hint">Скрывается на всех ваших устройствах. У остальных сообщения останутся.</string>
+    <string name="cs_delete_me_hint">Скрывается на всех твоих устройствах. У остальных сообщения останутся.</string>
     <string name="cs_delete_all">Удалить у всех</string>
     <string name="cs_delete_all_hint">Будет удалено у всех участников. Это нельзя отменить.</string>
     <string name="cs_delete_only_own">Удалить у всех можно только свои сообщения.</string>
     <string name="cs_delete_all_confirm">Точно удалить у всех?</string>
-    <string name="cs_hidden_local">Скрыто только на этом устройстве – сервер пока не умеет делать это для всех ваших устройств.</string>
+    <string name="cs_hidden_local">Скрыто только на этом устройстве – сервер пока не умеет делать это для всех твоих устройств.</string>
     <string name="cs_l_image">Изображение</string>
     <string name="cs_l_video">Видео</string>
     <string name="cs_l_voice">Голосовое сообщение</string>
