@@ -585,7 +585,7 @@ private fun CallScreen(
  * Teilen-Leiste bleibt sichtbar. Layout, Groesse des eigenen Bilds und Streifen merkt sich das Geraet.
  */
 @Composable
-private fun MeetCall(
+internal fun MeetCall(
     calls: CallManager, st: CallUiState, flat: Boolean, onMinimize: () -> Unit, onCam: () -> Unit, onShare: () -> Unit, onMic: () -> Unit,
     withMic: (() -> Unit) -> Unit, onPanel: (String) -> Unit, onPlayback: () -> Unit,
 ) {
