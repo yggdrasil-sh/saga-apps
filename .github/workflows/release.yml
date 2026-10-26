@@ -372,6 +372,12 @@ jobs:
         env:
           V: ${{ needs.version.outputs.version }}
         run: sh tools/publish-appcast.sh appcast-out appcast.xml "$V"
+      - name: Update-Info (Update-Hinweis der Apps)
+        env:
+          V: ${{ needs.version.outputs.version }}
+        run: |
+          python3 tools/update-info.py --label "$V" --repo "$GITHUB_REPOSITORY" --dist dist --commit "$GITHUB_SHA" --out-dir update-out
+          sh tools/publish-appcast.sh update-out stable.json "$V"
 
   # Jeder Push auf testing aktualisiert EINE Vorabversion "v<Version>-rc.<N>" (Release Candidate, Pre-release, nie "Latest").
   # Aeltere Vorabversionen (*-rc.N, *+dev.N und die frueheren *-testing) werden dabei entfernt; echte Releases bleiben.
@@ -446,3 +452,10 @@ jobs:
           # wie oben: nur fuer echte Vorabversionen (x.y.z-rc.N)
           printf '%s' "$L" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$' || exit 0
           sh tools/publish-appcast.sh appcast-out appcast-rc.xml "$L"
+      - name: Update-Info (Update-Hinweis der Apps)
+        env:
+          L: ${{ needs.version.outputs.label }}
+        run: |
+          printf '%s' "$L" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$' || exit 0
+          python3 tools/update-info.py --label "$L" --repo "$GITHUB_REPOSITORY" --dist dist --commit "$GITHUB_SHA" --out-dir update-out
+          sh tools/publish-appcast.sh update-out testing.json "$L"

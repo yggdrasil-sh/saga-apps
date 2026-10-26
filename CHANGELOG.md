@@ -9,6 +9,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – alle Apps: aufgeräumte Einstellungen und Update-Hinweis
+- Die Einstellungen sind wie in anderen Apps geteilt in **Konto**, **Einstellungen** und **Info** (iOS/Android:
+  Unterseiten, Mac: Tabs im Einstellungsfenster).
+- Unter **Info** stehen die Versionen von App und Server. Gibt es im eigenen Kanal (Testversion bzw. stabil) eine neuere
+  Version, zeigt die App das an – mit **Update**-Schaltfläche (Android: APK, Mac: Selbst-Update bzw. DMG, Linux:
+  Release-Seite; iOS nur als Hinweis, das Update kommt über die Verteilung).
+- Die CI legt dafür `stable.json`/`testing.json` in den Zweig `appcast` (`tools/update-info.py`).
+
 ### Behoben – alle Apps: Schaltflächen mit Vorlage auf Seiten eines anderen Servers
 - Auf einer über Servergrenzen geteilten Seite meldete „Neuer Eintrag“ mit Vorlage „Eintrag nicht angelegt: Nicht
   gefunden“. Android, iOS/Mac und Linux schicken die Seite mit der Schaltfläche (`via`) jetzt auch bei negativer
