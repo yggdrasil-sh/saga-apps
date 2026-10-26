@@ -9,6 +9,18 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – Android: Anrufe über den Knoten (Kamera, Bildschirm, neue Teilnehmende)
+- **Kamera:** Die Simulcast-Schichten hatten je Schicht eigene Bildrate und zeitliche Schichten – wie auf iOS kann
+  WebRTC damit das 720p-Bild nicht kodieren. Jetzt alle Schichten mit denselben Werten, die Bildrate wird nur
+  gemeinsam begrenzt (Energiesparen).
+- **Bildschirm teilen:** Bei stehendem Bildschirm liefert Android keine neuen Bilder; ein vom Knoten angefordertes
+  Schlüsselbild kam erst mit der nächsten Änderung. Die App wiederholt jetzt das letzte Bild alle 500 ms.
+- **Knotenwechsel:** Kamera ein- oder Teilen gestartet, während die App gerade zu einem anderen Knoten wechselte – auf
+  der neuen Verbindung ging dann kein Bild. Die Spuren werden beim Übernehmen abgeglichen.
+- **Neue Teilnehmende:** Belegte der Knoten den Platz eines neuen Geräts, bevor dessen Schlüssel ankam, räumte die
+  App die Schlüssel zwei Sekunden später wieder weg – Ton und Bild des Neuen blieben auf diesem Platz aus.
+- Nach dem Auflegen entsteht keine Verbindung zum Knoten mehr (blieb sonst bis zum App-Ende liegen).
+
 ### Behoben – iOS/Mac: Bildschirm teilen über den Knoten blieb beim Gegenüber schwarz
 - Ursache: Die verwendete WebRTC-Bibliothek legt für einen Sender **ohne Spur** keine Ende-zu-Ende-Verschlüsselung
   (FrameCryptor) an. Der Bildschirm-Sender ist beim Verbindungsaufbau leer, die Spur kommt erst mit dem Teilen – die
