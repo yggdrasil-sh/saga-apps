@@ -513,7 +513,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 item(key = "header") {
                     PageHeader(
                         ed, repo, onPublish = if (ed.template || publishHidden || !caps.canPublish || ed.isRemote) null else openPublish,
-                        live = liveSt, onSettings = { nav.top(Dest.Settings) },
+                        live = liveSt, onSettings = { io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, "public", replace = true) },
                     )
                 }
                 if (ed.fetched && !ed.isDatabase) {

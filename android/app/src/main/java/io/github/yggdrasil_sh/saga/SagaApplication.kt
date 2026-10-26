@@ -57,6 +57,9 @@ class SagaApplication : Application(), SingletonImageLoader.Factory {
             },
             appContext = this,
         )
+        // 2.5: Update-Hinweis (Einstellungen -> Info): Zwischenspeicher laden, beim Start hoechstens alle 12 h pruefen
+        io.github.yggdrasil_sh.saga.ui.settings.UpdateHintModel.init(this, appScope)
+        io.github.yggdrasil_sh.saga.ui.settings.UpdateHintModel.appStarted()
         // Profilbilder nur vom eingestellten Server; Anrufe hoeren ab jetzt auf den Live-Kanal (Klingeln, Signale)
         io.github.yggdrasil_sh.saga.ui.common.AvatarLogic.server = { repo.settings.server.value }
         repo.calls

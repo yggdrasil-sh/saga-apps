@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: Einstellungen in Konto · Einstellungen · Info, Update-Hinweis unter Info (SPEC-einstellungen) -->
+<resources>
+    <string name="settings_info">เกี่ยวกับ</string>
+    <string name="settings_update_dot">มีอัปเดต</string>
+    <string name="settings_group_general">ทั่วไป</string>
+    <string name="settings_group_chat">แชท</string>
+    <string name="settings_group_services">บริการ</string>
+    <string name="settings_versions">เวอร์ชัน</string>
+    <string name="settings_channel">ช่องทาง</string>
+    <string name="settings_channel_testing">เวอร์ชันทดสอบ</string>
+    <string name="settings_channel_stable">เสถียร</string>
+    <string name="settings_channel_custom">บิลด์ของคุณเอง</string>
+    <string name="settings_licenses">สัญญาอนุญาต</string>
+    <string name="settings_license_text">การโทรใช้ WebRTC (libwebrtc, © The WebRTC project authors, สัญญาอนุญาต BSD) และ libsodium (สัญญาอนุญาต ISC)</string>
+    <string name="update_title">อัปเดต</string>
+    <string name="update_toggle">แจ้งเตือนเมื่อมีเวอร์ชันใหม่</string>
+    <string name="update_available">Saga %1$s พร้อมให้ใช้งานแล้ว</string>
+    <string name="update_latest">คุณใช้เวอร์ชันล่าสุดแล้ว</string>
+    <string name="update_failed">การตรวจสอบล้มเหลว</string>
+    <string name="update_last_checked">ตรวจสอบล่าสุด: %1$s</string>
+    <string name="update_checking">กำลังตรวจสอบ …</string>
+    <string name="update_check">ตรวจหาอัปเดต</string>
+    <string name="update_button">อัปเดต</string>
+    <string name="update_footer_testing">เวอร์ชันทดสอบนี้จะได้รับเฉพาะเวอร์ชันทดสอบใหม่เท่านั้น</string>
+    <string name="update_footer_stable">เวอร์ชันนี้จะได้รับเฉพาะเวอร์ชันเสถียรเท่านั้น</string>
+    <string name="update_footer_custom">บิลด์ของคุณเอง: ไม่ตรวจหาอัปเดต</string>
+</resources>

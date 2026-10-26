@@ -17,6 +17,8 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   sonst **Update** (Android: APK, Mac: Selbst-Update bzw. DMG, Linux: Release-Seite; iOS nur als Hinweis, das Update
   kommt über die Geräteverwaltung). Geprüft wird höchstens alle 12 Stunden; der Hinweis lässt sich abschalten.
 - Die CI legt dafür `stable.json`/`testing.json` in den Zweig `appcast` (`tools/update-info.py`).
+- Android: Startseite mit Profilbild und Name (→ Konto), „Einstellungen“ (Allgemein · Benachrichtigungen · Chat ·
+  Dienste) und „Info“ mit Punkt bei bekanntem Update; „Update“ öffnet die APK von GitHub. Test `UpdateHintTest`.
 
 ### Behoben – alle Apps: Schaltflächen mit Vorlage auf Seiten eines anderen Servers
 - Auf einer über Servergrenzen geteilten Seite meldete „Neuer Eintrag“ mit Vorlage „Eintrag nicht angelegt: Nicht

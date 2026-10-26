@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: Einstellungen in Konto · Einstellungen · Info, Update-Hinweis unter Info (SPEC-einstellungen) -->
+<resources>
+    <string name="settings_info">About</string>
+    <string name="settings_update_dot">Update available</string>
+    <string name="settings_group_general">General</string>
+    <string name="settings_group_chat">Chat</string>
+    <string name="settings_group_services">Services</string>
+    <string name="settings_versions">Versions</string>
+    <string name="settings_channel">Channel</string>
+    <string name="settings_channel_testing">Pre-release</string>
+    <string name="settings_channel_stable">Stable</string>
+    <string name="settings_channel_custom">Custom build</string>
+    <string name="settings_licenses">Licenses</string>
+    <string name="settings_license_text">Calls use WebRTC (libwebrtc, © The WebRTC project authors, BSD license) and libsodium (ISC license).</string>
+    <string name="update_title">Updates</string>
+    <string name="update_toggle">Notify me about new versions</string>
+    <string name="update_available">Saga %1$s is available</string>
+    <string name="update_latest">You have the latest version.</string>
+    <string name="update_failed">Check failed</string>
+    <string name="update_last_checked">Last checked: %1$s</string>
+    <string name="update_checking">Checking …</string>
+    <string name="update_check">Check for updates</string>
+    <string name="update_button">Update</string>
+    <string name="update_footer_testing">This test version only receives new test versions.</string>
+    <string name="update_footer_stable">This version only receives stable versions.</string>
+    <string name="update_footer_custom">Custom build: no update check.</string>
+</resources>

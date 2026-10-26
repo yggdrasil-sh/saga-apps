@@ -70,7 +70,7 @@ fun NotificationsScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome)
         SagaTopBar(stringResource(R.string.notifications), nav, chrome) {
             // "Alle gelesen" sichtbar als Textknopf (wie im Web), ohne Ungelesene gesperrt
             TextButton(onClick = { repo.launchAction { live.markAllRead() } }, enabled = unread > 0) { Text(stringResource(R.string.notifications_mark_all)) }
-            IconButton(onClick = { nav.top(Dest.Settings) }) { Icon(Icons.Filled.Settings, stringResource(R.string.notifications_settings)) }
+            IconButton(onClick = { io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, "notifs", replace = true) }) { Icon(Icons.Filled.Settings, stringResource(R.string.notifications_settings)) }
         }
     }) { pad ->
         PullToRefreshBox(
@@ -125,7 +125,7 @@ fun open(repo: SagaRepository, nav: AppNavigator, n: NotifItem) {
         chat != null -> nav.push(Dest.Chat(chat.id))
         // 2.3: Systemmeldungen (Backups): Einstellungen bzw. Admin-Bereich
         note == null -> when (val t = NotifLogic.target(n.url)) {
-            is NotifLogic.Target.Settings -> { nav.push(Dest.Settings); if (t.section == "backup") nav.push(Dest.Backup) }
+            is NotifLogic.Target.Settings -> io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, t.section, replace = false)
             else -> NotifLogic.adminLink(n)?.let { repo.openExternalRequest.value = it }
         }
         note != null -> {

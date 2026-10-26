@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: Einstellungen in Konto · Einstellungen · Info, Update-Hinweis unter Info (SPEC-einstellungen) -->
+<resources>
+    <string name="settings_info">Información</string>
+    <string name="settings_update_dot">Actualización disponible</string>
+    <string name="settings_group_general">General</string>
+    <string name="settings_group_chat">Chat</string>
+    <string name="settings_group_services">Servicios</string>
+    <string name="settings_versions">Versiones</string>
+    <string name="settings_channel">Canal</string>
+    <string name="settings_channel_testing">Versión de prueba</string>
+    <string name="settings_channel_stable">Estable</string>
+    <string name="settings_channel_custom">Compilación propia</string>
+    <string name="settings_licenses">Licencias</string>
+    <string name="settings_license_text">Las llamadas usan WebRTC (libwebrtc, © The WebRTC project authors, licencia BSD) y libsodium (licencia ISC).</string>
+    <string name="update_title">Actualizaciones</string>
+    <string name="update_toggle">Avisar de nuevas versiones</string>
+    <string name="update_available">Saga %1$s está disponible</string>
+    <string name="update_latest">Tienes la versión más reciente.</string>
+    <string name="update_failed">La comprobación ha fallado</string>
+    <string name="update_last_checked">Última comprobación: %1$s</string>
+    <string name="update_checking">Comprobando …</string>
+    <string name="update_check">Buscar actualizaciones</string>
+    <string name="update_button">Actualizar</string>
+    <string name="update_footer_testing">Esta versión de prueba solo recibe nuevas versiones de prueba.</string>
+    <string name="update_footer_stable">Esta versión solo recibe versiones estables.</string>
+    <string name="update_footer_custom">Compilación propia: sin comprobación de actualizaciones.</string>
+</resources>

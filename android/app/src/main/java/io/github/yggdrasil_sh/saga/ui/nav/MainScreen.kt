@@ -205,8 +205,7 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
     val openSettings by repo.openSettingsRequest.collectAsState()
     LaunchedEffect(openSettings) {
         openSettings?.let { sec ->
-            nav.top(Dest.Settings)
-            if (sec == "backup") nav.push(Dest.Backup) else if (sec == "nextcloud") nav.push(Dest.Nextcloud)
+            io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, sec, replace = true)   // 2.5: Bereich + Unterseite
             repo.openSettingsRequest.value = null
         }
     }
@@ -359,6 +358,9 @@ private fun Content(repo: SagaRepository, nav: AppNavigator, chrome: Chrome, app
                     Dest.Services -> ServicesScreen(repo, nav, chrome)
                     Dest.Search -> SearchScreen(repo, nav, chrome)
                     Dest.Settings -> SettingsScreen(repo, nav, chrome)
+                    Dest.SettingsAccount -> io.github.yggdrasil_sh.saga.ui.settings.SettingsAccountScreen(repo, nav, chrome)
+                    Dest.SettingsGeneral -> io.github.yggdrasil_sh.saga.ui.settings.SettingsGeneralScreen(repo, nav, chrome)
+                    Dest.SettingsInfo -> io.github.yggdrasil_sh.saga.ui.settings.SettingsInfoScreen(repo, nav, chrome)
                     is Dest.Page -> key(d.id) { PageScreen(d.id, repo, nav, chrome, appScope) }
                     Dest.Notifications -> NotificationsScreen(repo, nav, chrome)
                     Dest.Chats -> ChatsScreen(repo, nav, chrome, null)

@@ -167,22 +167,27 @@ fun NextcloudScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
 }
 
 /**
- * Einstellungen -> Konto: Eintraege "Mein Backup" und "Nextcloud" (Saga 2.3) mit Kurzstatus. Aeltere Server kennen die
- * Endpunkte nicht -> nichts anzeigen.
+ * Eintraege "Mein Backup" (Einstellungen -> Konto) und "Nextcloud" (Einstellungen -> Dienste, mit Ueberschrift
+ * `heading`) mit Kurzstatus (Saga 2.3). Aeltere Server kennen die Endpunkte nicht -> nichts anzeigen.
  */
 @Composable
-fun AccountServicesRows(repo: SagaRepository, nav: AppNavigator, modifier: Modifier, reloadKey: Any? = null) {
-    var backup by remember { mutableStateOf<BackupStatus?>(null) }
+fun AccountServicesRows(
+    repo: SagaRepository, nav: AppNavigator, modifier: Modifier, reloadKey: Any? = null,
+    backup: Boolean = true, nextcloud: Boolean = true, heading: (@Composable () -> Unit)? = null,
+) {
+    val showBackup = backup
+    val showNc = nextcloud
+    var bk by remember { mutableStateOf<BackupStatus?>(null) }
     var nc by remember { mutableStateOf<NcSettings?>(null) }
     LaunchedEffect(reloadKey) {
-        backup = try {
+        if (showBackup) bk = try {
             repo.backupStatus()
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
             null
         }
-        nc = try {
+        if (showNc) nc = try {
             repo.ncSettings()
         } catch (e: CancellationException) {
             throw e
@@ -190,8 +195,10 @@ fun AccountServicesRows(repo: SagaRepository, nav: AppNavigator, modifier: Modif
             null
         }
     }
+    val ncShown = nc?.takeIf { it.enabled || it.connected }
     Column(modifier) {
-        backup?.let { b ->
+        if (ncShown != null) heading?.invoke()
+        bk?.let { b ->
             ListItem(
                 headlineContent = { Text(stringResource(R.string.ub_title)) },
                 supportingContent = {
@@ -208,7 +215,7 @@ fun AccountServicesRows(repo: SagaRepository, nav: AppNavigator, modifier: Modif
                 modifier = Modifier.clickable { nav.push(Dest.Backup) },
             )
         }
-        nc?.takeIf { it.enabled || it.connected }?.let { n ->
+        ncShown?.let { n ->
             ListItem(
                 headlineContent = { Text("Nextcloud") },
                 supportingContent = { Text(if (n.connected) stringResource(R.string.nc_connected_as, n.user.orEmpty()) else stringResource(R.string.nc_not_connected)) },

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: Einstellungen in Konto · Einstellungen · Info, Update-Hinweis unter Info (SPEC-einstellungen) -->
+<resources>
+    <string name="settings_info">О приложении</string>
+    <string name="settings_update_dot">Доступно обновление</string>
+    <string name="settings_group_general">Общие</string>
+    <string name="settings_group_chat">Чат</string>
+    <string name="settings_group_services">Сервисы</string>
+    <string name="settings_versions">Версии</string>
+    <string name="settings_channel">Канал</string>
+    <string name="settings_channel_testing">Тестовая версия</string>
+    <string name="settings_channel_stable">Стабильная</string>
+    <string name="settings_channel_custom">Собственная сборка</string>
+    <string name="settings_licenses">Лицензии</string>
+    <string name="settings_license_text">Звонки используют WebRTC (libwebrtc, © The WebRTC project authors, лицензия BSD) и libsodium (лицензия ISC).</string>
+    <string name="update_title">Обновления</string>
+    <string name="update_toggle">Сообщать о новых версиях</string>
+    <string name="update_available">Доступна Saga %1$s</string>
+    <string name="update_latest">У вас последняя версия.</string>
+    <string name="update_failed">Проверка не удалась</string>
+    <string name="update_last_checked">Последняя проверка: %1$s</string>
+    <string name="update_checking">Проверка …</string>
+    <string name="update_check">Проверить обновления</string>
+    <string name="update_button">Обновить</string>
+    <string name="update_footer_testing">Эта тестовая версия получает только новые тестовые версии.</string>
+    <string name="update_footer_stable">Эта версия получает только стабильные версии.</string>
+    <string name="update_footer_custom">Собственная сборка: обновления не проверяются.</string>
+</resources>

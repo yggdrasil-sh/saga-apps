@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: Einstellungen in Konto · Einstellungen · Info, Update-Hinweis unter Info (SPEC-einstellungen) -->
+<resources>
+    <string name="settings_info">Info</string>
+    <string name="settings_update_dot">Update verfügbar</string>
+    <string name="settings_group_general">Allgemein</string>
+    <string name="settings_group_chat">Chat</string>
+    <string name="settings_group_services">Dienste</string>
+    <string name="settings_versions">Versionen</string>
+    <string name="settings_channel">Kanal</string>
+    <string name="settings_channel_testing">Testversion</string>
+    <string name="settings_channel_stable">Stabil</string>
+    <string name="settings_channel_custom">Eigener Build</string>
+    <string name="settings_licenses">Lizenzen</string>
+    <string name="settings_license_text">Anrufe nutzen WebRTC (libwebrtc, © The WebRTC project authors, BSD-Lizenz) und libsodium (ISC-Lizenz).</string>
+    <string name="update_title">Updates</string>
+    <string name="update_toggle">Auf neue Versionen hinweisen</string>
+    <string name="update_available">Saga %1$s ist verfügbar</string>
+    <string name="update_latest">Du hast die neueste Version.</string>
+    <string name="update_failed">Prüfung fehlgeschlagen</string>
+    <string name="update_last_checked">Zuletzt geprüft: %1$s</string>
+    <string name="update_checking">Prüfe …</string>
+    <string name="update_check">Nach Updates suchen</string>
+    <string name="update_button">Update</string>
+    <string name="update_footer_testing">Diese Testversion erhält nur neue Testversionen.</string>
+    <string name="update_footer_stable">Diese Version erhält nur stabile Versionen.</string>
+    <string name="update_footer_custom">Eigener Build: keine Update-Prüfung.</string>
+</resources>
