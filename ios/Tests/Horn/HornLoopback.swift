@@ -114,6 +114,8 @@ final class TestPattern: RTCVideoCapturer, @unchecked Sendable {
     var W = 320, H = 240
     /// Abstand der Rahmen (Standard 66 ms = 15 fps)
     var ms = 66
+    /// Drehung wie RTCCameraVideoCapturer im Hochformat (._90); Standard ohne
+    var rot: RTCVideoRotation = ._0
     func start() {
         let t = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "saga.horntest.video"))
         t.schedule(deadline: .now(), repeating: .milliseconds(ms))
@@ -146,7 +148,7 @@ final class TestPattern: RTCVideoCapturer, @unchecked Sendable {
             }
         }
         let buf = cache[n % cache.count]
-        delegate?.capturer(self, didCapture: RTCVideoFrame(buffer: buf, rotation: ._0, timeStampNs: Int64(DispatchTime.now().uptimeNanoseconds)))
+        delegate?.capturer(self, didCapture: RTCVideoFrame(buffer: buf, rotation: rot, timeStampNs: Int64(DispatchTime.now().uptimeNanoseconds)))
     }
 }
 
