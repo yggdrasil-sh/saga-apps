@@ -120,8 +120,9 @@ mkdir -p dist; rm -rf dist/sparkle-bin dist/sparkle-info.env
 SPBIN="$WORK/dd/SourcePackages/artifacts/sparkle/Sparkle/bin"
 if [ -x "$SPBIN/sign_update" ]; then ditto "$SPBIN" dist/sparkle-bin; else echo "  Hinweis: Sparkles sign_update nicht gefunden ($SPBIN)"; fi
 UPDATES=0
+pb() { /usr/libexec/PlistBuddy -c "$1" "$APP/Contents/Info.plist"; }
+pb "Add :SagaUpdateRepo string $REPO"                     # Update-Hinweis in Info (UpdateHintLogic.repo)
 if [ -n "$SPK" ]; then
-  pb() { /usr/libexec/PlistBuddy -c "$1" "$APP/Contents/Info.plist"; }
   pb "Add :SagaSelfUpdate bool true"
   pb "Add :SUFeedURL string $FEED"
   pb "Add :SUPublicEDKey string $SPK"

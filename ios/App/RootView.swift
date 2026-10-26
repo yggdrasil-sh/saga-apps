@@ -183,7 +183,8 @@ struct RootView: View {
             if v { store.live.stop() } else { store.live.start(); store.push.appStarted(); Task { await store.chat.load() } }
         }
         .onReceive(NotificationCenter.default.publisher(for: .hkOpenTarget)) { n in if let t = n.object as? NotifTarget { PushModel.pending = nil; openAfterCallUI { openTarget(t) } } }
-        .onReceive(NotificationCenter.default.publisher(for: .hkOpenSettings)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .hkOpenSettings)) { n in
+            if CloudNav.pendingSection == nil, let s = n.object as? String { CloudNav.pendingSection = s }   // Bereich (2.5: Konto/Einstellungen/Info)
             #if os(macOS)
             openSettings()
             #else
@@ -239,7 +240,7 @@ struct RootView: View {
             Button("Abbrechen", role: .cancel) { newAsk = nil }
         } message: { Text("Ein Link möchte in Saga einen neuen Eintrag anlegen.") }
         .sheet(isPresented: $showSettings) {
-            NavigationStack { SettingsView(onLogout: { Task { await store.logout() } }) }.environmentObject(store)
+            SettingsView(onLogout: { Task { await store.logout() } }).environmentObject(store)   // eigener Stapel bzw. Tabs (2.5)
                 #if os(macOS)
                 .frame(minWidth: 560, idealWidth: 600, minHeight: 480, idealHeight: 640, maxHeight: 720)   // Mac: "Fertig" unten bleibt sichtbar
                 #endif
@@ -274,6 +275,7 @@ extension RootView {
         await store.refresh()
         if let h = startHome, store.homePage == nil, selection == h { selection = nil }   // gehoerte einem anderen Konto (BUG-060)
         if !store.needsLogin { store.live.start(); store.push.appStarted(); Task { await store.chat.load() } }
+        UpdateHintModel.shared.appStarted()                                    // Update-Hinweis: hoechstens alle 12 h
         if let t = PushModel.pending { PushModel.pending = nil; openAfterCallUI { openTarget(t) } }   // Kaltstart per Mitteilung
         if let home = store.homePage, !store.pages.isEmpty, store.page(home) == nil { store.setHome(nil); if selection == home { selection = nil } }   // geloescht -> vergessen
         #if DEBUG

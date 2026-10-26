@@ -44,23 +44,6 @@ struct CheckForUpdatesButton: View {
     }
 }
 
-/// Einstellungen: automatische Pruefung ein/aus (nur in DMG-Builds sichtbar)
-struct UpdateSettingsSection: View {
-    @ObservedObject var updater = AppUpdater.shared
-    var body: some View {
-        if updater.enabled {
-            Section("Updates") {
-                Toggle("Automatisch nach Updates suchen", isOn: Binding(get: { updater.automaticChecks }, set: { updater.setAutomaticChecks($0) }))
-                HStack {
-                    Text(UpdateLogic.isPrerelease(Store.appVersionLabel)
-                         ? "Diese Testversion erhält nur neue Testversionen."
-                         : "Diese Version erhält nur stabile Versionen.")
-                        .font(.footnote).foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Jetzt suchen") { updater.checkForUpdates() }.disabled(!updater.canCheck)
-                }
-            }
-        }
-    }
-}
+// Einstellungen -> Info: Schalter "Automatisch nach Updates suchen" und die Update-Schaltflaeche stehen in
+// UpdateHintSection (UpdateHintModel.swift); "Update" ruft dort checkForUpdates() auf.
 #endif
