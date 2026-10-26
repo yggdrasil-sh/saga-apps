@@ -328,17 +328,34 @@ object HornLogic {
 
     // ---- Simulcast (NODE.md "Erwartungen an Clients") ------------------------------------------------------------
 
-    data class Enc(val rid: String, val scaleDown: Double, val maxKbit: Int, val maxFps: Int, val mode: String)
+    /**
+     * Fehler 26.10. (iOS, gleiche libwebrtc M150 wie hier): VP8-Simulcast mit verschiedenen maxFramerate bzw. zeitlichen
+     * Schichten je Schicht (frueher l 20 fps/L1T2, m 30 fps/L1T3) kodiert ein 720p-Bild GAR NICHT - beim Anlegen gesetzt
+     * kommt kein Rahmen, spaeter gesetzt bleibt der Kodierer nach wenigen Sekunden stehen. Daher alle Schichten mit
+     * denselben Werten: [CAM_TEMPORAL] zeitliche Schichten (Bildrate der Kacheln am Knoten), keine eigene Bildrate je
+     * Schicht; begrenzt wird nur gemeinsam ([camMaxFps], Energiesparen 15 fps). Wie ios/App/HornCamPlan.swift.
+     */
+    data class Enc(val rid: String, val scaleDown: Double, val maxKbit: Int)
 
-    /** TCP/TLS: l = 1/4, 20 fps L1T2 (Kacheln, der Knoten nimmt 10 fps), m = voll 30 fps L1T3; UDP zusaetzlich h */
+    /** zeitliche Schichten je Kamera-Schicht (gleich fuer alle, sonst kodiert libwebrtc nichts) */
+    const val CAM_TEMPORAL = 3
+
+    /** TCP/TLS: l = 1/4, m = voll; UDP zusaetzlich h (m dann halbe Groesse) - alle T3, ohne eigene Bildrate */
     fun camEncodings(path: String): List<Enc> = if (path == "udp") listOf(
-        Enc("l", 4.0, 150, 20, "L1T2"),
-        Enc("m", 2.0, 500, 30, "L1T3"),
-        Enc("h", 1.0, 1500, 30, "L1T3"),
+        Enc("l", 4.0, 150),
+        Enc("m", 2.0, 500),
+        Enc("h", 1.0, 1500),
     ) else listOf(
-        Enc("l", 4.0, 150, 20, "L1T2"),
-        Enc("m", 1.0, 700, 30, "L1T3"),
+        Enc("l", 4.0, 150),
+        Enc("m", 1.0, 700),
     )
+
+    /** Gemeinsame Hoechstrate aller Kamera-Schichten: null = keine Grenze (Kamera liefert 30 fps), sonst 1 … 30 */
+    fun camMaxFps(fps: Int?): Int? = fps?.coerceIn(1, 30)
+
+    /** Gleiche Bildrate und zeitliche Schichten in allen Schichten? (null = nicht gesetzt) */
+    fun camUniform(fps: List<Int?>, temporal: List<Int?>): Boolean =
+        fps.map { it ?: 0 }.toSet().size <= 1 && temporal.map { it ?: 0 }.toSet().size <= 1
 
     /**
      * 2.5 Akku: welche Kamera-Schichten wirklich kodiert werden. others = andere Geraete im Raum am Knoten.

@@ -654,10 +654,10 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         }
         if (role != "audio") {
             val enc = HornLogic.camEncodings(path).map { e ->
+                // alle Schichten gleich: T3 ueber numTemporalLayers, keine Bildrate je Schicht (HornLogic.Enc, Fehler 26.10.)
                 RtpParameters.Encoding(e.rid, true, e.scaleDown).apply {
                     maxBitrateBps = e.maxKbit * 1000
-                    maxFramerate = e.maxFps
-                    scalabilityMode = e.mode
+                    numTemporalLayers = HornLogic.CAM_TEMPORAL
                 }
             }
             val init = RtpTransceiver.RtpTransceiverInit(RtpTransceiver.RtpTransceiverDirection.SEND_ONLY, listOf("saga"), enc)
@@ -853,7 +853,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         val mine = myRefs().toSet() + myRef(conn)                    // auch eigene Kennungen anderer Verbindungen (Wechsel)
         val others = conn.peers.keys.count { it !in mine }
         val (on, fps) = HornLogic.camActive(conn.path, others, host.lowPower())
-        val max = HornLogic.camEncodings(conn.path).associate { it.rid to it.maxFps }
+        val f = HornLogic.camMaxFps(fps)                              // gemeinsam fuer alle Schichten, nie je Schicht
         for (L in conn.legs.values) {
             val s = L.cam?.sender ?: continue
             try {
@@ -861,7 +861,6 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
                 var diff = false
                 for (e in p.encodings) {
                     val a = e.rid in on
-                    val f = minOf(max[e.rid] ?: 30, fps ?: 30)
                     if (e.active != a) { e.active = a; diff = true }
                     if (e.maxFramerate != f) { e.maxFramerate = f; diff = true }
                 }

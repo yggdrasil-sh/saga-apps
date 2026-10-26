@@ -253,7 +253,7 @@ class HornLogicTest {
         assertEquals(listOf("audio", "video"), H.roles("turn"))
         assertEquals("l,m", H.camEncodings("tcp").joinToString(",") { it.rid })
         assertEquals("l,m,h", H.camEncodings("udp").joinToString(",") { it.rid })
-        assertEquals("L1T2", H.camEncodings("turn")[0].mode)
+        assertEquals(3, H.CAM_TEMPORAL)
     }
 
     @Test
