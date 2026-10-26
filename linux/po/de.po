@@ -7580,3 +7580,39 @@ msgstr "Nach Updates suchen"
 #: hlidskjalf/settings.py
 msgid "Chats &amp; devices"
 msgstr "Chats &amp; Geräte"
+
+#: hlidskjalf/blocks.py
+msgid "This block can’t be shown in the app yet."
+msgstr "Dieser Block lässt sich in der App noch nicht anzeigen."
+
+#: hlidskjalf/blocks.py
+msgid "Open on the web"
+msgstr "Im Web öffnen"
+
+#: hlidskjalf/blocks.py
+msgid "Color"
+msgstr "Farbe"
+
+#: hlidskjalf/blocks.py
+msgid "Text color"
+msgstr "Textfarbe"
+
+#: hlidskjalf/blocks.py
+msgid "Background"
+msgstr "Hintergrund"
+
+#: hlidskjalf/page.py
+msgid "Font"
+msgstr "Schrift"
+
+#: hlidskjalf/page.py
+msgid "Serif"
+msgstr "Serif"
+
+#: hlidskjalf/page.py
+msgid "Mono"
+msgstr "Mono"
+
+#: hlidskjalf/page.py
+msgid "Small text"
+msgstr "Kleiner Text"

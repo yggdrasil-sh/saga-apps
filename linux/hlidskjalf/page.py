@@ -6,6 +6,7 @@ from .api import client
 from .blocks import BlockKit, HoverManager, SuggestPopover, flat_button, menu_popover
 from .config import settings
 from .editor import PageDoc, PageEditor
+from .gestalten import design_supported, page_css, page_font, page_small
 from .i18n import _, ngettext, pgettext
 from .publish import available as publish_available
 from .richtext import RichText
@@ -517,6 +518,8 @@ class PageView(Gtk.Box):
             col.append(self._backlinks())
         clamp.set_child(col)
         outer.append(clamp)
+        for c in page_css(doc.page):                         # G9: Schrift (Serif/Mono) und kleiner Text der Seite
+            outer.add_css_class(c)
         self.scroll.set_child(outer)
         self._update_toc()
         if self.header_changed:
@@ -1331,7 +1334,9 @@ class PageView(Gtk.Box):
     # --- Menue + Felder ------------------------------------------------------------------------
     def save_fields(self, fields):
         for k, v in fields.items():
-            if v is None:
+            if k == "font" and v == "default":              # API: "default" -> null
+                self.doc.page["font"] = None
+            elif v is None:
                 self.doc.page.pop(k, None)
             else:
                 self.doc.page[k] = v
@@ -1373,6 +1378,11 @@ class PageView(Gtk.Box):
         ents = [(info or edited_text(p.get("updated")) or "–", lambda: None), None]
         if ok("wide"):
             ents.append((("✓ " if p.get("wide") else "") + _("Full width"), lambda: self.save_fields({"wide": not p.get("wide")})))
+        if ok("wide") and design_supported(p):              # G9 (Server ab 2.5): Schrift und kleiner Text, wie "Volle Breite"
+            f = page_font(p)
+            ents.append((_("Font"), [(("✓ " if f == k else "") + n, (lambda k=k: self.save_fields({"font": k or "default"})))
+                                     for k, n in ((None, _("Default")), ("serif", _("Serif")), ("mono", _("Mono")))]))
+            ents.append((("✓ " if page_small(p) else "") + _("Small text"), lambda: self.save_fields({"small": not page_small(p)})))
         if ok("home"):
             ents.append((_("Remove as home page") if home else _("Set as home page"), lambda: store.set_home(None if home else self.id)))
         if "role" in p and self.doc.fetched:                     # Server kennt Teilen + Kommentare (ab 1.3)

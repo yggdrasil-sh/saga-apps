@@ -2,16 +2,16 @@
 import json
 import re
 
-from gi.repository import Gdk, GLib, GObject, Graphene, Gtk, Pango
+from gi.repository import Gdk, GLib, GObject, Graphene, Gsk, Gtk, Pango
 
-from . import images
+from . import gestalten, images
 from .config import settings
 from .editor import CONVERTIBLE, SLASH_ITEMS, cell_key, make
 from .emoji import EMOJI
 from .i18n import _
 from .richtext import RichText, date_text, find_trigger, parse_date, rel_text
 from .store import is_db, label, store
-from .util import decode_entities, esc, human_size, norm, plain
+from .util import COLOR_NAMES, COLOR_ORDER, decode_entities, esc, human_size, norm, plain
 
 TEXT_FIELD = {"paragraph": "text", "header": "text", "quote": "text", "callout": "text"}
 HEADER_CSS = {1: "hk-h1", 2: "hk-h2", 3: "hk-h3", 4: "hk-h4"}
@@ -19,6 +19,76 @@ MD_SHORTCUTS = {"# ": ("header", 1), "## ": ("header", 2), "### ": ("header", 3)
                 "- ": ("unordered", 0), "* ": ("unordered", 0), "1. ": ("ordered", 0), "[] ": ("checklist", 0),
                 "[ ] ": ("checklist", 0), "> ": ("quote", 0), "```": ("code", 0), "---": ("delimiter", 0)}
 CTRL, SHIFT, ALT = Gdk.ModifierType.CONTROL_MASK, Gdk.ModifierType.SHIFT_MASK, Gdk.ModifierType.ALT_MASK
+
+
+class WeightLayout(Gtk.LayoutManager):
+    """Kinder nebeneinander, Breite je Kind = Anteil an der Breite (Spaltengewichte G1, Bild-/Player-Breite G2).
+    Summe der Anteile < 1: der freie Platz liegt je nach Ausrichtung links/rechts/beidseitig."""
+    __gtype_name__ = "HKWeightLayout"
+
+    def __init__(self, weights, spacing=0, align="left"):
+        super().__init__()
+        self.weights, self.spacing, self.align = list(weights), spacing, align
+
+    def _kids(self, w):
+        out, c = [], w.get_first_child()
+        while c is not None:
+            if c.should_layout():
+                out.append(c)
+            c = c.get_next_sibling()
+        return out
+
+    def _widths(self, n, width):
+        ws = (self.weights + [0.0] * n)[:n]
+        avail = max(0, width - self.spacing * (n - 1))
+        return [max(0, int(avail * x)) for x in ws], avail
+
+    def do_get_request_mode(self, w):
+        return Gtk.SizeRequestMode.HEIGHT_FOR_WIDTH
+
+    def do_measure(self, w, orientation, for_size):
+        kids = self._kids(w)
+        if not kids:
+            return 0, 0, -1, -1
+        if orientation == Gtk.Orientation.HORIZONTAL:
+            mn = nat = 0
+            for k, x in zip(kids, self.weights):
+                a, b, _x, _y = k.measure(orientation, -1)
+                x = max(x, 0.05)
+                mn, nat = max(mn, a / x), max(nat, b / x)
+            sp = self.spacing * (len(kids) - 1)
+            return int(mn) + sp, int(nat) + sp, -1, -1
+        mn = nat = 0
+        cws = self._widths(len(kids), for_size)[0] if for_size >= 0 else [-1] * len(kids)
+        for k, cw in zip(kids, cws):
+            a, b, _x, _y = k.measure(orientation, max(cw, k.measure(Gtk.Orientation.HORIZONTAL, -1)[0]) if cw >= 0 else -1)
+            mn, nat = max(mn, a), max(nat, b)
+        return mn, nat, -1, -1
+
+    def do_allocate(self, w, width, height, baseline):
+        kids = self._kids(w)
+        if not kids:
+            return
+        cws, avail = self._widths(len(kids), width)
+        free = max(0, avail - sum(cws))
+        x = {"left": 0, "center": free // 2, "right": free}.get(self.align, 0)
+        for k, cw in zip(kids, cws):
+            cw = max(cw, k.measure(Gtk.Orientation.HORIZONTAL, -1)[0])
+            k.allocate(cw, height, -1, Gsk.Transform().translate(Graphene.Point().init(x, 0)))
+            x += cw + self.spacing
+
+
+class WeightBox(Gtk.Box):
+    """Box mit WeightLayout (Kinder mit append wie gewohnt)"""
+    __gtype_name__ = "HKWeightBox"
+
+    def __init__(self, weights, spacing=0, align="left"):
+        super().__init__()
+        self.weights = list(weights)
+        self.set_layout_manager(WeightLayout(weights, spacing, align))
+
+
+ALIGN_GTK = {"left": Gtk.Align.START, "center": Gtk.Align.CENTER, "right": Gtk.Align.END}
 
 
 def flat_button(label=None, icon=None, tooltip=None, css=None, cb=None):
@@ -409,6 +479,10 @@ class BlockRow(Gtk.Box):
         self.append(self.handle)
         content = kit.build(block, depth)
         content.set_hexpand(True)
+        sc = gestalten.style_css(block)                       # G3: Text- oder Hintergrundfarbe aus der Palette
+        if sc:
+            content.add_css_class(sc)
+            content.add_css_class("hk-styled")
         self.append(content)
         # Kommentare (1.3): rechts ein schmaler Platz fuer die Zahl offener Unterhaltungen bzw. 💬+ beim Ueberfahren
         self.cslot = None
@@ -565,6 +639,8 @@ class BlockKit:
             extra += (bool(self.view.get_width() and self.view.get_width() < 700),)
         elif t == "toggle":
             extra += (self.view.toggle_state.get(b.get("id")),)
+        elif t in ("image", "embed"):
+            extra += (bool(getattr(self.view, "narrow", False)),)
         return (j, tuple(ids), extra)
 
     def _reuse(self, b, depth):
@@ -765,13 +841,37 @@ class BlockKit:
         if t == "buttons":
             return self._buttons(b, d)
         if t == "embed":
-            return self._embed(d)
+            return self._embed(d, b)
         if t == "nextcloud":                                    # Nextcloud-Datei (2.3): Karte; Daten bleiben unveraendert
             from .nextcloud import block_widget
             return block_widget(self, b, d)
-        lb = Gtk.Label(label=f"[{t}]", xalign=0)
-        lb.add_css_class("dim-label")
-        return lb
+        return self._fallback(b, t)
+
+    def _fallback(self, b, t):
+        """R: unbekannter Block-Typ (neuer Server/Web) - Karte mit Hinweis und \"Im Web öffnen\". Der Block bleibt beim
+        Speichern unveraendert (Regel 0)."""
+        box = Gtk.Box(spacing=12)
+        box.add_css_class("hk-card-box")
+        box.add_css_class("hk-fallback")
+        ic = Gtk.Image.new_from_icon_name("dialog-information-symbolic")
+        ic.set_pixel_size(20)
+        ic.set_valign(Gtk.Align.CENTER)
+        ic.add_css_class("dim-label")
+        box.append(ic)
+        msg = Gtk.Label(label=_("This block can’t be shown in the app yet."), xalign=0, wrap=True, hexpand=True)
+        msg.set_tooltip_text(t or None)
+        box.append(msg)
+        btn = Gtk.Button(label=_("Open on the web"), valign=Gtk.Align.CENTER)
+        btn.add_css_class("hk-fallback-open")
+        btn.connect("clicked", lambda *_: self.view.win.open_uri(self.fallback_url(b.get("id"))))
+        box.append(btn)
+        box.hk_fallback = btn
+        return box
+
+    def fallback_url(self, bid):
+        """Seite im Browser, mit Block-Anker (wie \"Link zum Block kopieren\"), wenn die Seite auf diesem Server liegt"""
+        pid = self.editor.doc.id
+        return gestalten.block_url(store.page_url(pid), pid, bid)
 
     def _list(self, b, items, style, path):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
@@ -822,8 +922,14 @@ class BlockKit:
         arrow.add_css_class("flat")
         arrow.add_css_class("hk-tiny")
         head.append(arrow)
-        rt = self._rt(b["id"], b, "title", d.get("title", ""), css="hk-p hk-bold", placeholder=_("Toggle"), base_bold=True)
+        lvl = gestalten.toggle_level(d)                        # G10: Toggle-Ueberschrift 1-3
+        css = HEADER_CSS[lvl] if lvl else "hk-p hk-bold"
+        ph = _("Heading {n}").format(n=lvl) if lvl else _("Toggle")
+        rt = self._rt(b["id"], b, "title", d.get("title", ""), css=css, placeholder=ph, base_bold=True)
         rt.set_hexpand(True)
+        if lvl:
+            arrow.set_valign(Gtk.Align.CENTER)
+            head.add_css_class("hk-toggle-h")
         head.append(rt)
         box.append(head)
         rev = Gtk.Revealer(reveal_child=opened, transition_type=Gtk.RevealerTransitionType.SLIDE_DOWN)
@@ -848,7 +954,11 @@ class BlockKit:
     def _columns(self, b, d, depth):
         cols = [c.setdefault("blocks", []) for c in d.get("cols") or [] if isinstance(c, dict)]
         narrow = self.view.get_width() and self.view.get_width() < 700
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL if narrow else Gtk.Orientation.HORIZONTAL, spacing=24, homogeneous=not narrow)
+        ws = None if narrow else gestalten.col_weights([c for c in d.get("cols") or [] if isinstance(c, dict)])
+        if ws:                                                 # G1: Spaltengewichte (breites Fenster)
+            box = WeightBox(ws, spacing=24)
+        else:
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL if narrow else Gtk.Orientation.HORIZONTAL, spacing=24, homogeneous=not narrow)
         for c in cols:
             col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, hexpand=True)
             col.append(self.block_list(c, depth + 1))
@@ -877,6 +987,7 @@ class BlockKit:
         fc = Gtk.EventControllerFocus()
         fc.connect("enter", lambda *_: self._sel_focused(box))
         box.add_controller(fc)
+        frac, al = gestalten.media_layout(b, narrow=self._narrow())       # G2: Breite und Ausrichtung
         if url:
             img = images.ImageView(url, mode="fit", w=2000, max_height=900, radius=8)
             img.set_halign(Gtk.Align.START)
@@ -886,7 +997,28 @@ class BlockKit:
             cap.add_css_class("caption")
             cap.add_css_class("dim-label")
             box.append(cap)
-        return box
+        if frac is None and al in ("center", "right"):
+            box.set_halign(ALIGN_GTK[al])
+            if url:
+                img.set_halign(Gtk.Align.CENTER)
+        return self._sized(box, frac, al)
+
+    def _narrow(self):
+        return bool(getattr(self.view, "narrow", False))
+
+    @staticmethod
+    def _sized(w, frac, al):
+        """Widget mit Anteil an der Inhaltsbreite (G2) - frac None: unveraendert"""
+        if frac is None:
+            return w
+        w.set_halign(Gtk.Align.FILL)
+        c = w.get_first_child()
+        if isinstance(c, images.ImageView):                   # Bild fuellt den Anteil
+            c.set_halign(Gtk.Align.FILL)
+        wb = WeightBox([frac], align=al or "center")
+        wb.add_css_class("hk-sized")
+        wb.append(w)
+        return wb
 
     def _attach(self, d):
         f = d.get("file") or {}
@@ -903,7 +1035,7 @@ class BlockKit:
                                    cb=lambda: self.view.win.download_open(f["url"], f.get("name") or "datei")))
         return box
 
-    def _embed(self, d):
+    def _embed(self, d, b=None):
         url = decode_entities(d.get("url") or "")
         title = decode_entities(d.get("title") or "")
         if not url.startswith(("http://", "https://")):
@@ -932,6 +1064,12 @@ class BlockKit:
         btn.add_css_class("hk-card-box")
         btn.add_css_class("flat")
         btn.connect("clicked", lambda *_: self.view.win.open_uri(url))
+        if yt and b is not None:                               # G2: nur Player (YouTube), Link-Karten unveraendert
+            frac, al = gestalten.media_layout(b, narrow=self._narrow())
+            if frac is None and al in ("center", "right"):
+                btn.set_hexpand(False)
+                btn.set_halign(ALIGN_GTK[al])
+            return self._sized(btn, frac, al)
         return btn
 
     def _buttons(self, b, d):
@@ -1068,8 +1206,11 @@ class BlockKit:
     def block_menu(self, parent, bid):
         ed = self.editor
         conv = [(it[0], (lambda t=it[1], l=it[2]: ed.convert(bid, t, l or 2))) for it in CONVERTIBLE]
-        ents = [(_("Turn into"), conv),
-                (_("Copy link to block"), lambda: self.view.win.copy_text(f"{settings.server}/notes#{ed.doc.id}:{bid}"))]
+        ents = [(_("Turn into"), conv)]
+        blk = ed.block(bid)
+        if isinstance(blk, dict) and blk.get("type") in gestalten.STYLE_TYPES:     # G3: Farbe (Text oder Hintergrund)
+            ents.append((_("Color"), self._color_entries(blk)))
+        ents.append((_("Copy link to block"), lambda: self.view.win.copy_text(f"{settings.server}/notes#{ed.doc.id}:{bid}")))
         if getattr(self.view, "cpanel", None) is not None and "role" in ed.doc.page:     # Server ab 1.3
             ents.append((_("Comment"), lambda: self.view.show_comments(bid)))
         c = ed.column_of(bid)
@@ -1094,6 +1235,24 @@ class BlockKit:
         ents += [(_("Duplicate"), lambda: ed.duplicate(bid)), (_("Move up"), lambda: ed.move(bid, -1)),
                  (_("Move down"), lambda: ed.move(bid, 1)), None, (_("Delete"), lambda: ed.delete(bid, undo=True), True)]
         menu_popover(parent, ents).popup()
+
+    def _color_entries(self, blk):
+        """Untermenue Farbe: Standard, Textfarben, Hintergruende (nur Palette); andere tunes bleiben erhalten"""
+        cur = gestalten.hkstyle(blk)
+        ed = self.editor
+
+        def setter(c, bg=False):
+            def go():
+                gestalten.set_hkstyle(blk, c, bg)
+                ed.changed()
+            return go
+
+        def mark(on):
+            return "✓ " if on else ""
+        fg = [(mark(cur == (c, False)) + COLOR_NAMES[c], setter(c)) for c in COLOR_ORDER]
+        bg = [(mark(cur == (c, True)) + COLOR_NAMES[c], setter(c, True)) for c in COLOR_ORDER]
+        return [(mark(cur is None) + _("Default"), setter(None)), None,
+                (_("Text color"), fg), (_("Background"), bg)]
 
     # --- Tippen -----------------------------------------------------------------------------------
     def on_changed(self, rt):

@@ -7308,3 +7308,39 @@ msgstr "ตรวจหาอัปเดต"
 #: hlidskjalf/settings.py
 msgid "Chats &amp; devices"
 msgstr "แชตและอุปกรณ์"
+
+#: hlidskjalf/blocks.py
+msgid "This block can’t be shown in the app yet."
+msgstr "แอปยังแสดงบล็อกนี้ไม่ได้"
+
+#: hlidskjalf/blocks.py
+msgid "Open on the web"
+msgstr "เปิดบนเว็บ"
+
+#: hlidskjalf/blocks.py
+msgid "Color"
+msgstr "สี"
+
+#: hlidskjalf/blocks.py
+msgid "Text color"
+msgstr "สีข้อความ"
+
+#: hlidskjalf/blocks.py
+msgid "Background"
+msgstr "พื้นหลัง"
+
+#: hlidskjalf/page.py
+msgid "Font"
+msgstr "แบบอักษร"
+
+#: hlidskjalf/page.py
+msgid "Serif"
+msgstr "เซอริฟ"
+
+#: hlidskjalf/page.py
+msgid "Mono"
+msgstr "โมโน"
+
+#: hlidskjalf/page.py
+msgid "Small text"
+msgstr "ข้อความขนาดเล็ก"
