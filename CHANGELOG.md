@@ -18,6 +18,14 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Umwandeln behält die Farbe.
 - **Unbekannte Blöcke** sind nicht mehr unsichtbar: Hinweis-Karte mit „Im Web öffnen“ (springt zum Block).
 - Speichern behält unbekannte Felder in Blöcken und Block-Tunes unverändert (mit Rundreise-Test).
+### Neu – Linux: Seite gestalten (Darstellung, Farbe, Schrift) und Rückfall-Karte
+- **Darstellung:** Spaltenbreiten ab 700 px Seitenbreite (schmaler untereinander), Breite und Ausrichtung von Bildern und
+  YouTube-Playern, Text- und Hintergrundfarbe von Blöcken (hell/dunkel), Toggle-Überschriften, Schrift Serif/Mono und
+  kleiner Text.
+- **Block-Menü:** „Farbe“ (Standard, 9 Textfarben, 9 Hintergründe). **Seitenmenü:** „Schrift“ und „Kleiner Text“ – nur mit Server 2.5.
+- **Unbekannte Blöcke:** Hinweis-Karte mit „Im Web öffnen“ statt `[typ]`.
+- Umwandeln und Kopieren/Einfügen behalten Block-Tunes (Farbe); Speichern behält unbekannte Felder (mit Rundreise-Test).
+
 ### Neu – Android: Seite gestalten (Darstellung, Farbe, Schrift) und Rückfall-Karte
 - **Spaltenbreite:** Gewichte der Spalten (`cols[].w`) gelten ab 600 dp Breite; auf Telefonen weiter untereinander.
 - **Bilder und Videos:** Breite (`width`, auf Telefonen mindestens 50 %) und Ausrichtung links/Mitte/rechts wie im Web;
