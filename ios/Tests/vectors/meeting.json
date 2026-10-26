@@ -1398,6 +1398,20 @@
    "presentation": true,
    "side": "right",
    "size": 240
+  },
+  {
+   "w": 1032,
+   "h": 1366,
+   "presentation": true,
+   "side": "bottom",
+   "size": 96
+  },
+  {
+   "w": 1366,
+   "h": 1032,
+   "presentation": true,
+   "side": "right",
+   "size": 200
   }
  ]
 }

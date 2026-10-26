@@ -212,8 +212,9 @@ struct CallScreen: View {
         .overlay(alignment: .topLeading) {                                   // 2.3.1: zurueck in die App, Anruf laeuft weiter
             if CallLogic.isOngoing(calls.phase.rawValue) {
                 Button { calls.minimize() } label: {
+                    // dunkle Unterlage: auch auf hellem Bildschirm-Inhalt (Praesentation) gut sichtbar
                     Image(systemName: "chevron.down").font(.body.weight(.semibold)).frame(width: 40, height: 40)
-                        .background(.white.opacity(0.18), in: Circle())
+                        .background(.black.opacity(0.6), in: Circle())
                 }
                 .buttonStyle(.plain).foregroundStyle(.white)
                 .padding(.leading, 16).padding(.top, 8)

@@ -243,7 +243,8 @@ enum Meeting {
     /// Lage und Breite/Hoehe des Streifens (§2.3/§2.4/§8); presentation: ab < 1100 schmaler
     static func strip(width w: Double, height h: Double, presentation: Bool) -> StripPlace {
         if h < 500 && w > h { return StripPlace(side: .right, size: 120) }       // Handy quer
-        if w < 900 { return StripPlace(side: .bottom, size: w < 600 ? 84 : 96) }
+        // schmal bzw. hochkant (auch iPad hochkant ueber 900 pt): Streifen unten, die Buehne behaelt die volle Breite
+        if w < 900 || h > w { return StripPlace(side: .bottom, size: w < 600 ? 84 : 96) }
         if w >= 1920 { return StripPlace(side: .right, size: 240) }
         if presentation && w < 1100 { return StripPlace(side: .right, size: 160) }
         return StripPlace(side: .right, size: 200)
