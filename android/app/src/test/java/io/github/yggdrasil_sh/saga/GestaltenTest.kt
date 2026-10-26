@@ -182,6 +182,9 @@ class GestaltenTest {
         assertNull(Gestalten.mediaFraction(obj("""{}"""), false))
         assertEquals(10, Gestalten.widthPercent(obj("""{"width":3}""")))
         assertEquals(100, Gestalten.widthPercent(obj("""{"width":250}""")))
+        assertEquals(100, Gestalten.widthPercent(obj("""{"width":1e300}""")))
+        assertEquals(100, Gestalten.widthPercent(obj("""{"width":4294967306}""")))
+        assertEquals(10, Gestalten.widthPercent(obj("""{"width":-1e300}""")))
         assertNull(Gestalten.widthPercent(obj("""{"width":"50"}""")))
         assertTrue(Gestalten.isPlayerEmbed(obj("""{"url":"https://youtu.be/abcdefghijk"}""")))
         assertFalse(Gestalten.isPlayerEmbed(obj("""{"url":"https://example.org/x"}""")))
@@ -230,6 +233,8 @@ class GestaltenTest {
         assertEquals(3, Gestalten.toggleLevel(obj("""{"level":7}""")))
         assertEquals(0, Gestalten.toggleLevel(obj("""{"level":-1}""")))
         assertEquals(0, Gestalten.toggleLevel(obj("""{"level":"2"}""")))
+        assertEquals(3, Gestalten.toggleLevel(obj("""{"level":1e300}""")))      // riesige Werte: begrenzt, nicht abgeschnitten
+        assertEquals(0, Gestalten.toggleLevel(obj("""{"level":-1e300}""")))
     }
 
     @Test
