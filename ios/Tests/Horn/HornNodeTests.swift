@@ -194,9 +194,12 @@ final class HornNodeTests: XCTestCase {
     // Verkleinern, erst bewegt, dann statisch (ReplayKit liefert bei stehendem Bildschirm keine neuen Bilder), dann
     // wieder bewegt. B muss am Bildschirm-Platz fortlaufend dekodieren - auch nach der Ruhephase.
     func testScreenShareFromPhone() async throws { try await screenShare(path: "tcp") }
+    /// Wie in der App: Bein ohne Bildschirm-Spur aufbauen, Teilen beginnt erst im laufenden Anruf (Fehler 26.10.: ohne
+    /// Spur legte webrtc-sdk keinen FrameCryptor an, das Gegenueber sah nur eine schwarze Flaeche)
+    func testScreenShareStartedLater() async throws { try await screenShare(path: "tcp", late: true) }
     // Hinweis: volle iPhone-Aufloesung 1290x2796 sendet die App nie (Erweiterung verkleinert auf lange Kante 1920); im
     // Simulator (Software-VP8, 1,2 Mbit/s) staut sie nach ~15 s - daher kein Test dafuer.
-    private func screenShare(path: String, w: Int? = nil, h: Int? = nil) async throws {
+    private func screenShare(path: String, w: Int? = nil, h: Int? = nil, late: Bool = false) async throws {
         let room = "apple-scr-\(UInt32.random(in: 1...UInt32.max))"
         _ = try await HornNet.json(base + "/api/dev/room", body: ["room": room])
         let kA = Data(repeating: 0x5A, count: 32)
@@ -209,7 +212,7 @@ final class HornNodeTests: XCTestCase {
         pa.setKey(kA, with: 0, forParticipant: "devA")
         HornCryptor.setSlots(pb, device: "devA", newest: 0, key: kA)
         let tiles = HornLogic.tileSlots(mobile: true)
-        let a = try await join(room: room, peer: "peerSA", dev: "devA", provider: pa, camera: nil, path: path, tiles: tiles, mobile: true, screen: scr)
+        let a = try await join(room: room, peer: "peerSA", dev: "devA", provider: pa, camera: nil, path: path, tiles: tiles, mobile: true, screen: late ? nil : scr)
         let b = try await join(room: room, peer: "peerSB", dev: "devB", provider: pb, camera: nil, path: path, tiles: tiles, mobile: true)
         var map: [UInt32: String] = [:]
         for (me, legs) in [("devA", a), ("devB", b)] {
@@ -240,6 +243,12 @@ final class HornNodeTests: XCTestCase {
             if up { break }
         }
         XCTAssertTrue(up, "verbunden")
+        if late {
+            XCTAssertNil(a["video"]!.scr?.sender.track, "vor dem Teilen keine Spur am Bildschirm-Sender")
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+            a["video"]!.scr?.sender.track = scr                             // wie hornScreen()
+            try await Task.sleep(nanoseconds: 1_500_000_000)                 // Platz belegen, Schluesselbild
+        }
         let v = b["video"]!
         func screenFrames() async -> (frames: Int, w: Int, h: Int) {
             guard let s = v.slots.first(where: { $0.cls == "screen" }), s.i < v.recv.count, let pc = v.pc else { return (0, 0, 0) }

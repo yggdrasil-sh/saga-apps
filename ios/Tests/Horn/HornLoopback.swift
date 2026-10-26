@@ -15,7 +15,9 @@ final class Loopback: NSObject, RTCPeerConnectionDelegate, RTCFrameCryptorDelega
     private let lock = NSLock()
     private var seen: [RTCFrameCryptorState] = [], ice: [RTCIceConnectionState] = []
 
-    static func run(seconds: Double = 4, sender: (RTCFrameCryptorKeyProvider, RTCFrameCryptor) -> Int,
+    /// lateTrack: Sender ohne Spur anlegen (wie der Bildschirm-Sender im Bein), Cryptor ueber HornCryptor.sender, Spur
+    /// erst nach der Verhandlung setzen (Teilen beginnt spaeter)
+    static func run(seconds: Double = 4, lateTrack: Bool = false, sender: (RTCFrameCryptorKeyProvider, RTCFrameCryptor) -> Int,
                     receiver: (RTCFrameCryptorKeyProvider) -> Void) async throws -> Outcome {
         let f = factory, L = Loopback()
         let cfg = RTCConfiguration(); cfg.sdpSemantics = .unifiedPlan; cfg.iceServers = []
@@ -26,10 +28,11 @@ final class Loopback: NSObject, RTCPeerConnectionDelegate, RTCFrameCryptorDelega
         let src = f.videoSource(), cap = TestPattern(delegate: src)
         let track = f.videoTrack(with: src, trackId: "horn-test-video")
         let ti = RTCRtpTransceiverInit(); ti.direction = .sendOnly
-        guard let tx = a.addTransceiver(with: track, init: ti) else { throw Err.setup("transceiver") }
+        guard let tx = lateTrack ? a.addTransceiver(of: .video, init: ti) : a.addTransceiver(with: track, init: ti) else { throw Err.setup("transceiver") }
         // Sender-Cryptor VOR dem ersten Bild und vor der Verhandlung
         let pa = HornCryptor.keyProvider()
-        guard let ca = HornCryptor.sender(f, tx.sender, device: HornE2EVectorsTests.devA, provider: pa) else { throw Err.setup("cryptor tx") }
+        guard let ca = HornCryptor.sender(f, tx.sender, kind: .video, device: HornE2EVectorsTests.devA, provider: pa) else { throw Err.setup("cryptor tx") }
+        if lateTrack && tx.sender.track != nil { throw Err.setup("Platzhalter blieb am Sender") }
         ca.keyIndex = Int32(sender(pa, ca)); ca.enabled = true
         cap.start(); defer { cap.stop() }
 
@@ -42,6 +45,7 @@ final class Loopback: NSObject, RTCPeerConnectionDelegate, RTCFrameCryptorDelega
         receiver(pb); cb.enabled = true
         try await b.hornSetLocal(b.hornAnswer(c)); try await gathered(b)
         try await a.hornSetRemote(b.localDescription!)
+        if lateTrack { try await Task.sleep(nanoseconds: 500_000_000); tx.sender.track = track }
         try await Task.sleep(nanoseconds: UInt64(seconds * 1e9))
         let stats = await summary(a, ["outbound-rtp": ["framesEncoded", "framesSent", "bytesSent", "keyFramesEncoded"]])
             + " | " + summary(b, ["inbound-rtp": ["framesReceived", "framesDecoded", "framesDropped", "bytesReceived", "keyFramesDecoded", "pliCount"]])

@@ -9,7 +9,8 @@ import WebRTC
 //   Bildschirm, Kacheln = Last-N - 1)
 // - Kamera mit Simulcast: TCP/TLS l (1/4) + m (voll); UDP l/m/h - alle T3, gleiche Bildrate (HornCamPlan). Bildschirm als eigener
 //   Sender (Stream-ID "screen…" und screen_mid), Raten wie 2.4 relay-tcp bzw. relay-udp
-// - FrameCryptor an JEDEM Sender vor der Verhandlung (kein Rahmen geht unverschluesselt raus), an jedem Empfangsplatz mit
+// - FrameCryptor an JEDEM Sender vor der Verhandlung, auch ohne Spur (Platzhalter, HornCryptor.sender; ohne Cryptor kein
+//   Bein - kein Rahmen geht unverschluesselt raus), an jedem Empfangsplatz mit
 //   der Geraete-ID des Besitzers (wechselt der Besitzer, neuer Cryptor); ohne Besitzer ein Platzhalter ohne Schluessel
 //   (verwirft alles)
 // Hinweis: jitterBufferTarget (Web: 150 ms fuer Bild auf TCP/TLS) bietet die ObjC-API von webrtc-sdk M150 nicht an.
@@ -69,23 +70,25 @@ final class HornLeg: NSObject {
         } else { c.iceServers = [] }
         guard let pc = factory.peerConnection(with: c, constraints: RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: ["DtlsSrtpKeyAgreement": "true"]), delegate: self) else { return false }
         self.pc = pc
+        /// Ohne Cryptor an einem Sender nie verhandeln (sonst gingen dessen Rahmen im Klartext zum Knoten)
+        func fail() -> Bool { close(); return false }
         if role != "video" {                                                // Ton-Leitung bzw. UDP-Weg: eigener Ton + 3 Tonplaetze
             let i = RTCRtpTransceiverInit(); i.direction = .sendOnly; i.streamIds = [sid]
             tr = audio.flatMap { pc.addTransceiver(with: $0, init: i) } ?? pc.addTransceiver(of: .audio, init: i)
-            if let s = tr?.sender { cryptSender(s, keyIndex) }
+            guard let s = tr?.sender, cryptSender(s, .audio, keyIndex) else { return fail() }
             for _ in 0..<Self.audioSlots { addRecv(.audio) }
         }
         if role != "audio" {
             let ci = RTCRtpTransceiverInit(); ci.direction = .sendOnly; ci.streamIds = [sid]
             ci.sendEncodings = Self.encodings(path: path)
             cam = camera.flatMap { pc.addTransceiver(with: $0, init: ci) } ?? pc.addTransceiver(of: .video, init: ci)
-            if let s = cam?.sender { cryptSender(s, keyIndex) }
+            guard let s = cam?.sender, cryptSender(s, .video, keyIndex) else { return fail() }
             let si = RTCRtpTransceiverInit(); si.direction = .sendOnly; si.streamIds = ["screen" + sid]
             let e = RTCRtpEncodingParameters()
             e.maxBitrateBps = NSNumber(value: path == "udp" ? 1_800_000 : 1_200_000); e.maxFramerate = NSNumber(value: path == "udp" ? 15 : 8)
             si.sendEncodings = [e]
             scr = screen.flatMap { pc.addTransceiver(with: $0, init: si) } ?? pc.addTransceiver(of: .video, init: si)
-            if let s = scr?.sender { cryptSender(s, keyIndex) }
+            guard let s = scr?.sender, cryptSender(s, .video, keyIndex) else { return fail() }
             addRecv(.video)                                                 // Sprecher
             addRecv(.video)                                                 // Bildschirm
             for _ in 0..<tiles { addRecv(.video) }                          // Kacheln (Last-N)
@@ -129,10 +132,12 @@ final class HornLeg: NSObject {
         recv.append(x); kinds.append(t == .audio ? "audio" : "video")
         cryptReceiver(recv.count - 1, dev: Self.none)                      // vor dem ersten Rahmen: ohne Schluessel verwerfen
     }
-    private func cryptSender(_ s: RTCRtpSender, _ kid: Int) {
-        guard let c = HornCryptor.sender(factory, s, device: me, provider: provider) else { return }
+    /// Cryptor an den Sender (auch ohne Spur: HornCryptor.sender mit Platzhalter); false = keiner moeglich
+    private func cryptSender(_ s: RTCRtpSender, _ kind: RTCRtpMediaType, _ kid: Int) -> Bool {
+        guard let c = HornCryptor.sender(factory, s, kind: kind, device: me, provider: provider) else { return false }
         c.keyIndex = Int32(kid); c.enabled = true; c.delegate = self
         senders.append(c)
+        return true
     }
     private func cryptReceiver(_ i: Int, dev: String) {
         guard i < recv.count, let c = HornCryptor.receiver(factory, recv[i].receiver, from: dev, provider: provider) else { return }

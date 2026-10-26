@@ -9,6 +9,17 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – iOS/Mac: Bildschirm teilen über den Knoten blieb beim Gegenüber schwarz
+- Ursache: Die verwendete WebRTC-Bibliothek legt für einen Sender **ohne Spur** keine Ende-zu-Ende-Verschlüsselung
+  (FrameCryptor) an. Der Bildschirm-Sender ist beim Verbindungsaufbau leer, die Spur kommt erst mit dem Teilen – die
+  Bilder gingen dann unverschlüsselt zum Knoten, das Gegenüber verwarf sie und sah nur eine schwarze Fläche. Gleiches
+  galt für die Kamera, wenn sie erst im laufenden Anruf eingeschaltet wurde.
+- Jetzt wie in der Android-App: Für das Anlegen der Verschlüsselung hängt kurz eine Platzhalter-Spur am Sender. Lässt
+  sich an einem Sender trotzdem keine Verschlüsselung anlegen, wird die Verbindung zum Knoten gar nicht erst aufgebaut –
+  kein Bild und kein Ton geht unverschlüsselt hinaus.
+- Tests: `HornE2EVectorsTests.testLoopbackTrackSetLater` (Spur nach der Aushandlung, mit und ohne Schlüssel beim
+  Empfänger), `HornNodeTests.testScreenShareStartedLater` (Teilen beginnt im laufenden Anruf über einen lokalen Knoten).
+
 ### Behoben – iOS: Bildschirm teilen über den Knoten kam stark verzögert an und blieb stehen
 - Bei stehendem Bildschirm liefert iOS (ReplayKit) keine neuen Bilder. Der Knoten fordert beim Belegen des
   Bildschirm-Platzes und nach Verlusten ein Schlüsselbild an, das WebRTC aber erst mit dem nächsten Bild kodiert –

@@ -205,6 +205,35 @@ final class HornE2EVectorsTests: XCTestCase {
         XCTAssertEqual(r.codec, "VP8/90000", "bevorzugter Codec")
     }
 
+    /// Fehler 26.10. (Bildschirm ueber den Knoten schwarz): Sender ohne Spur beim Aufbau, Spur erst spaeter. webrtc-sdk legt
+    /// ohne Spur keinen Cryptor an; HornCryptor.sender nimmt einen Platzhalter - die spaeter gesetzte Spur ist verschluesselt
+    /// und der Empfaenger entschluesselt sie
+    func testLoopbackTrackSetLater() async throws {
+        let f = Loopback.factory
+        let cfg = RTCConfiguration(); cfg.sdpSemantics = .unifiedPlan; cfg.iceServers = []
+        let pc = try XCTUnwrap(f.peerConnection(with: cfg, constraints: RTCMediaConstraints(mandatoryConstraints: nil, optionalConstraints: nil), delegate: nil))
+        defer { pc.close() }
+        let ti = RTCRtpTransceiverInit(); ti.direction = .sendOnly
+        let empty = try XCTUnwrap(pc.addTransceiver(of: .video, init: ti))
+        // die Ursache selbst: ohne Spur gibt das SDK keinen Cryptor
+        XCTAssertNil(RTCFrameCryptor(factory: f, rtpSender: empty.sender, participantId: Self.devA, algorithm: .aesGcm,
+                                     keyProvider: HornCryptor.keyProvider()), "webrtc-sdk legt ohne Spur inzwischen einen Cryptor an")
+        let audio = try XCTUnwrap(pc.addTransceiver(of: .audio, init: ti))
+        XCTAssertNotNil(HornCryptor.sender(f, audio.sender, kind: .audio, device: Self.devA, provider: HornCryptor.keyProvider()))
+        XCTAssertNil(audio.sender.track, "Platzhalter wieder ab")
+        let r = try await Loopback.run(lateTrack: true) { tx, _ in
+            tx.setKey(Self.key(0), with: 0, forParticipant: Self.devA); return 0
+        } receiver: { rx in rx.setKey(Self.key(0), with: 0, forParticipant: Self.devA) }
+        XCTAssertGreaterThan(r.frames, 30, "spaet gesetzte Spur: Bilder nach Entschluesselung, \(r.stats)")
+        XCTAssertTrue(r.states.contains(.ok), "Zustand ok: \(r.states.map(\.rawValue))")
+        // ... und wirklich verschluesselt: ohne Schluessel beim Empfaenger kommt nichts durch
+        let n = try await Loopback.run(lateTrack: true) { tx, _ in
+            tx.setKey(Self.key(0), with: 0, forParticipant: Self.devA); return 0
+        } receiver: { _ in }
+        XCTAssertEqual(n.frames, 0, "spaet gesetzte Spur ohne Schluessel beim Empfaenger: \(n.stats)")
+        XCTAssertGreaterThan(n.bytesIn, 10_000, n.stats)
+    }
+
     /// Empfaenger ohne Schluessel: nichts dekodiert (kein Klartext-Durchreichen)
     func testLoopbackNoKey() async throws {
         let r = try await Loopback.run { tx, _ in
