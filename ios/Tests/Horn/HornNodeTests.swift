@@ -114,7 +114,83 @@ final class HornNodeTests: XCTestCase {
         withExtendedLifetime((src, cap, cam)) {}
     }
 
-    private func join(room: String, peer: String, dev: String, provider: RTCFrameCryptorKeyProvider, camera: RTCVideoTrack?, path: String) async throws -> [String: HornLeg] {
+    // 1:1 ueber den Knoten wie am iPhone (Fehler 26.10.): beide senden Kamera (Testbild 1280x720, 30 fps), Handy-Kacheln
+    // (Last-N 4), Schichten wie die App bei genau einem Gegenueber (HornLogic.camActive: ohne "l"), Bild-Platz wie
+    // hornDraw gewaehlt (nicht pausiert, Besitzer per CSRC) - jede Seite muss Bilder der anderen dekodieren. Vor dem Fix:
+    // 0 Rahmen in beide Richtungen (Schichten mit verschiedener Bildrate/zeitlichen Schichten kodierten 720p nicht)
+    func testOneToOneVideoBothWays() async throws { try await oneToOne(big: true) }       // 1280x720 wie die Kamera
+    func testOneToOneVideoSmall() async throws { try await oneToOne(big: false) }
+    func testOneToOneVideoLowPower() async throws { try await oneToOne(big: true, lowPower: true) }   // gemeinsame Grenze 15 fps
+    private func oneToOne(big: Bool, lowPower: Bool = false) async throws {
+        let room = "apple-dm-\(UInt32.random(in: 1...UInt32.max))"
+        _ = try await HornNet.json(base + "/api/dev/room", body: ["room": room])
+        let kA = Data(repeating: 0x5A, count: 32), kB = Data(repeating: 0x3C, count: 32)
+        let srcA = Self.factory.videoSource(), capA = TestPattern(delegate: srcA), camA = Self.factory.videoTrack(with: srcA, trackId: "dm-a")
+        let srcB = Self.factory.videoSource(), capB = TestPattern(delegate: srcB), camB = Self.factory.videoTrack(with: srcB, trackId: "dm-b")
+        if big { capA.W = 1280; capA.H = 720; capB.W = 1280; capB.H = 720 }
+        if big { capA.ms = 33; capB.ms = 33 }                              // 30 fps
+        capA.start(); capB.start(); defer { capA.stop(); capB.stop() }
+        let devOf = ["peerDMA": "devA", "peerDMB": "devB"]
+        let pa = HornCryptor.keyProvider(), pb = HornCryptor.keyProvider()
+        pa.setKey(kA, with: 0, forParticipant: "devA"); HornCryptor.setSlots(pa, device: "devB", newest: 0, key: kB)
+        pb.setKey(kB, with: 0, forParticipant: "devB"); HornCryptor.setSlots(pb, device: "devA", newest: 0, key: kA)
+        let tiles = HornLogic.tileSlots(mobile: true)
+        let a = try await join(room: room, peer: "peerDMA", dev: "devA", provider: pa, camera: camA, path: "tcp", tiles: tiles, mobile: true)
+        let b = try await join(room: room, peer: "peerDMB", dev: "devB", provider: pb, camera: camB, path: "tcp", tiles: tiles, mobile: true)
+        if let s = a["video"]?.cam?.sender {
+            let e = s.parameters.encodings
+            XCTAssertTrue(HornCamPlan.uniform(fps: e.map { $0.maxFramerate?.intValue }, temporal: e.map { $0.numTemporalLayers?.intValue }),
+                          "Schichten mit gleichen Werten (sonst kodiert libwebrtc bei 720p nichts)")
+        }
+        var maps: [String: [UInt32: String]] = [:]
+        for (who, me, legs) in [("A", "devA", a), ("B", "devB", b)] {
+            for L in legs.values {
+                guard let ev = HornEvents(base: base, leg: L.id ?? "") else { XCTFail("events \(who)"); continue }
+                L.events = ev
+                var peers: [String: UInt32] = [:]
+                ev.onEvent = { e in
+                    switch e {
+                    case .hello(_, let p, let s, _, _): peers = p; L.slots = s
+                    case .peers(let p): peers = p
+                    case .layout(let s, _): L.slots = s
+                    default: break
+                    }
+                    let m = HornLogic.csrcMap(peers: peers, slots: L.slots, me: me) { devOf[$0] }
+                    if L.role == "video" { maps[who] = m }
+                    let bySlot = Dictionary(L.slots.map { ($0.i, $0) }, uniquingKeysWith: { x, _ in x })
+                    L.bind { i in HornLogic.owner(bySlot[i], m) }
+                    // Schichten wie CallManager.hornTune: andere = Kennungen ausser der eigenen
+                    let (on, fps) = HornLogic.camActive(path: "tcp", others: peers.keys.filter { devOf[$0] != me }.count, lowPower: lowPower)
+                    L.tuneCam(on: on, fps: fps)
+                }
+                ev.start()
+            }
+        }
+        var up = false
+        for _ in 0..<40 {
+            try await Task.sleep(nanoseconds: 250_000_000)
+            up = [a, b].allSatisfy { $0.values.allSatisfy { $0.state == .connected } }
+            if up { break }
+        }
+        XCTAssertTrue(up, "1:1 verbunden: \([a, b].map { $0.mapValues { $0.state.rawValue } })")
+        try await Task.sleep(nanoseconds: 8_000_000_000)
+        for (who, other, legs) in [("A", "devB", a), ("B", "devA", b)] {
+            let v = legs["video"]!
+            let r = await decoded(v)
+            // Platz wie hornDraw: Bild-Platz (nicht Ton), Besitzer = Gegenueber, nicht pausiert
+            let shown = v.slots.filter { $0.cls != "audio" && $0.cls != "screen" && !$0.paused && HornLogic.owner($0, maps[who] ?? [:]) == other }
+            XCTAssertFalse(shown.isEmpty, "\(who): Bild-Platz des Gegenuebers belegt: \(v.slots) map \(maps[who] ?? [:])")
+            XCTAssertNotNil(shown.first.flatMap { v.track($0.i) as? RTCVideoTrack }, "\(who): Spur am Platz")
+            XCTAssertGreaterThan(r.frames, 10, "\(who) dekodiert Bilder des Gegenuebers (1:1 ueber Knoten): \(r)")
+            print("dm \(who) out: \(await sent(legs["video"]!))")
+            print("dm \(who): frames \(r.frames) packets \(r.packets) slots \(v.slots.map { "\($0.cls)\($0.i):\($0.layer ?? "-")\($0.paused ? "P" : "")" })")
+        }
+        for legs in [a, b] { for L in legs.values { L.close() } }
+        withExtendedLifetime((srcA, capA, camA, srcB, capB, camB)) {}
+    }
+
+    private func join(room: String, peer: String, dev: String, provider: RTCFrameCryptorKeyProvider, camera: RTCVideoTrack?, path: String,
+                      tiles: Int = 8, mobile: Bool = false) async throws -> [String: HornLeg] {
         var out: [String: HornLeg] = [:]
         var turn: HornLeg.Turn?
         if path == "turn" {
@@ -124,12 +200,12 @@ final class HornNodeTests: XCTestCase {
             turn = HornLeg.Turn(url: "turns:\(hp.host):\(hp.port)?transport=tcp", user: t.user, pass: t.pass, insecure: true)
         }
         for role in ["audio", "video"] {
-            let tok = try await HornNet.json(base + "/api/dev/token", body: ["room": room, "peer": peer, "role": role, "device": "desktop"])["token"] as? String ?? ""
-            let L = HornLeg(role: role, path: path, me: dev, tiles: 8, factory: Self.factory, provider: provider)
+            let tok = try await HornNet.json(base + "/api/dev/token", body: ["room": room, "peer": peer, "role": role, "device": mobile ? "mobile" : "desktop"])["token"] as? String ?? ""
+            let L = HornLeg(role: role, path: path, me: dev, tiles: tiles, factory: Self.factory, provider: provider)
             XCTAssertTrue(L.build(turn: turn, audio: nil, camera: camera, screen: nil, keyIndex: 0, sid: "s" + peer))
             let offer = try await L.offer()
             XCTAssertTrue(offer.contains("VP8") || role == "audio")
-            let ans = try await HornNet.leg(base, L.body(token: tok, offer: offer, mobile: false))
+            let ans = try await HornNet.leg(base, L.body(token: tok, offer: offer, mobile: mobile))
             L.id = ans.id; L.slots = ans.slots
             try await L.answer(ans.answer)
             out[role] = L
@@ -137,6 +213,19 @@ final class HornNodeTests: XCTestCase {
         return out
     }
 
+    /// Sende-Statistik je rid (Bild): Rahmen, Groesse, Grund der Begrenzung
+    private func sent(_ L: HornLeg) async -> String {
+        guard let pc = L.pc else { return "-" }
+        let r: RTCStatisticsReport = await withCheckedContinuation { k in pc.statistics { k.resume(returning: $0) } }
+        return r.statistics.values.filter { $0.type == "outbound-rtp" && ($0.values["kind"] as? String) == "video" }.map { s in
+            let v = s.values
+            func f(_ k: String) -> String { v[k].map { "\($0)" } ?? "-" }
+            return "\(f("rid")):\(f("framesEncoded"))f \(f("frameWidth"))x\(f("frameHeight")) act=\(f("active")) lim=\(f("qualityLimitationReason")) tgt=\(f("targetBitrate")) impl=\(f("encoderImplementation"))"
+        }.sorted().joined(separator: " | ") + " src=" + r.statistics.values.filter { $0.type == "media-source" && ($0.values["kind"] as? String) == "video" }
+            .map { "\($0.values["frames"] ?? 0 as NSNumber)@\($0.values["width"] ?? 0 as NSNumber)" }.joined(separator: ",")
+            + " bwe=" + r.statistics.values.filter { $0.type == "candidate-pair" && ($0.values["nominated"] as? NSNumber)?.boolValue == true }
+            .map { "\($0.values["availableOutgoingBitrate"] ?? 0 as NSNumber)" }.joined(separator: ",")
+    }
     private func decoded(_ L: HornLeg) async -> (frames: Int, packets: Int) {
         guard let pc = L.pc else { return (0, 0) }
         let r: RTCStatisticsReport = await withCheckedContinuation { k in pc.statistics { k.resume(returning: $0) } }

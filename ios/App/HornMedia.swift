@@ -7,7 +7,7 @@ import WebRTC
 // gjallarhorn/NODE.md "Erwartungen an Clients", docs/HORN-E2E.md §2/§6:
 // - Angebot: zuerst die eigenen Sendespuren, dann die Empfangsplaetze in fester Reihenfolge (Ton: 3; Bild: Sprecher,
 //   Bildschirm, Kacheln = Last-N - 1)
-// - Kamera mit Simulcast: TCP/TLS l (1/4, 20 fps, L1T2) + m (voll, 30 fps, L1T3); UDP l/m/h. Bildschirm als eigener
+// - Kamera mit Simulcast: TCP/TLS l (1/4) + m (voll); UDP l/m/h - alle T3, gleiche Bildrate (HornCamPlan). Bildschirm als eigener
 //   Sender (Stream-ID "screen…" und screen_mid), Raten wie 2.4 relay-tcp bzw. relay-udp
 // - FrameCryptor an JEDEM Sender vor der Verhandlung (kein Rahmen geht unverschluesselt raus), an jedem Empfangsplatz mit
 //   der Geraete-ID des Besitzers (wechselt der Besitzer, neuer Cryptor); ohne Besitzer ein Platzhalter ohne Schluessel
@@ -92,31 +92,32 @@ final class HornLeg: NSObject {
         }
         return true
     }
-    /// Simulcast (NODE.md): TCP-Wege l = 1/4, 20 fps L1T2 (Kacheln, der Knoten nimmt 10 fps), m = voll, 30 fps L1T3;
-    /// UDP zusaetzlich h (m dann halbe Groesse)
+    /// Simulcast (NODE.md): TCP-Wege l = 1/4, m = voll; UDP zusaetzlich h (m dann halbe Groesse). Alle Schichten mit
+    /// denselben zeitlichen Schichten (T3) und ohne eigene Bildrate - verschiedene Werte je Schicht (frueher l 20 fps/T2,
+    /// m 30 fps/T3) liessen libwebrtc bei 720p gar nichts kodieren (HornCamPlan, Fehler 26.10.)
     static func encodings(path: String) -> [RTCRtpEncodingParameters] {
-        // Zeitliche Schichten ueber numTemporalLayers (= L1T2/L1T3): scalabilityMode lehnt libwebrtc vor der Aushandlung ab,
-        // solange die Codec-Liste noch nicht auf VP8 festgelegt ist (UNSUPPORTED_OPERATION, Transceiver fehlt dann)
-        func enc(_ rid: String, _ scale: Double, _ kbit: Int, _ fps: Int, _ mode: String) -> RTCRtpEncodingParameters {
+        // Zeitliche Schichten ueber numTemporalLayers: scalabilityMode lehnt libwebrtc vor der Aushandlung ab, solange die
+        // Codec-Liste noch nicht auf VP8 festgelegt ist (UNSUPPORTED_OPERATION, Transceiver fehlt dann)
+        HornCamPlan.layers(path: path).map { x in
             let e = RTCRtpEncodingParameters()
-            e.rid = rid; e.scaleResolutionDownBy = NSNumber(value: scale); e.maxBitrateBps = NSNumber(value: kbit * 1000)
-            e.maxFramerate = NSNumber(value: fps); e.numTemporalLayers = NSNumber(value: mode == "L1T2" ? 2 : 3); e.isActive = true
+            e.rid = x.rid; e.scaleResolutionDownBy = NSNumber(value: x.scale); e.maxBitrateBps = NSNumber(value: x.kbit * 1000)
+            e.numTemporalLayers = NSNumber(value: HornCamPlan.temporalLayers); e.isActive = true
             return e
         }
-        if path == "udp" { return [enc("l", 4, 150, 20, "L1T2"), enc("m", 2, 500, 30, "L1T3"), enc("h", 1, 1500, 30, "L1T3")] }
-        return [enc("l", 4, 150, 20, "L1T2"), enc("m", 1, 700, 30, "L1T3")]
     }
     /// 2.5 Akku: Kamera-Schichten an/aus und Bildrate (HornLogic.camActive) - setzt nur bei Aenderung; -> geaendert?
+    /// Bildrate gemeinsam fuer alle Schichten (HornCamPlan.maxFps), nie je Schicht verschieden
     @discardableResult
     func tuneCam(on: Set<String>, fps: Int?) -> Bool {
         guard let s = cam?.sender else { return false }
         let p = s.parameters
         var diff = false
+        let f = HornCamPlan.maxFps(fps)
         for e in p.encodings {
             guard let rid = e.rid else { continue }
-            let a = on.contains(rid), f = min(HornLogic.camMaxFps(rid), fps ?? 30)
+            let a = on.contains(rid)
             if e.isActive != a { e.isActive = a; diff = true }
-            if e.maxFramerate?.intValue != f { e.maxFramerate = NSNumber(value: f); diff = true }
+            if e.maxFramerate?.intValue != f { e.maxFramerate = f.map { NSNumber(value: $0) }; diff = true }
         }
         if diff { s.parameters = p }
         return diff

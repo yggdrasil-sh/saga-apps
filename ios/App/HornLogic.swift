@@ -27,8 +27,6 @@ enum HornLogic {
         if r.isEmpty { r = [all.last!] }
         return (r, lowPower ? 15 : nil)
     }
-    /// Hoechstrate je Schicht (wie HornLeg.encodings)
-    static func camMaxFps(_ rid: String) -> Int { rid == "l" ? 20 : 30 }
     static let probeMs = 800.0, pings = 5, noUdpMs = 15.0, hereMs = 25.0
     static let loadFrom = 0.7, loadSlope = 200.0, full = 0.9, fullMs = 1000.0
     static let betterRel = 0.25, betterMs = 30.0, betterFor = 20_000.0, dwell = 60_000.0, window = 600_000.0, maxSwitch = 3

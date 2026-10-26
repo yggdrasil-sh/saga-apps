@@ -243,6 +243,7 @@ targets:
       - App/HornLogic.swift                                # 2.5 P11 Stufe 2: Kandidaten, Umschalter, Kacheln, Schluesselplan
       - App/HornNode.swift                                 # Gespraech mit dem Knoten (Messung, Bein, Ereigniskanal)
       - App/HornMedia.swift                                # Bein = PeerConnection mit FrameCryptor
+      - App/HornCamPlan.swift                              # Kamera-Schichten (gleiche Werte je Schicht)
       - path: Tests/vectors/horn_e2e.json
         buildPhase: resources
     dependencies:

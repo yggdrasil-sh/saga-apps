@@ -21,6 +21,15 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Android: Startseite mit Profilbild und Name (→ Konto), „Einstellungen“ (Allgemein · Benachrichtigungen · Chat ·
   Dienste) und „Info“ mit Punkt bei bekanntem Update; „Update“ öffnet die APK von GitHub. Test `UpdateHintTest`.
 
+### Behoben – iOS/Mac: 1:1-Videoanruf über den Knoten zeigte kein Bild des Gegenübers
+- Lief ein Videoanruf über einen Gjallarhorn-Knoten (z. B. mit „Alle Anrufe über Knoten“), war der Ton da, aber beide
+  sahen vom Gegenüber nur die Initialen. Ursache: Die Kamera-Schichten (Simulcast) hatten je Schicht eine andere
+  Bildrate und andere zeitliche Schichten; damit kodierte WebRTC ein Kamerabild in voller Größe gar nicht. Alle
+  Schichten haben jetzt dieselben Werte, Energiesparen begrenzt die Bildrate gemeinsam. Betraf auch Gruppenanrufe
+  über den Knoten von iPhone, iPad und Mac aus.
+- Integrationstest gegen einen lokalen Knoten mit zwei Seiten und Testbild 1280×720 (`HornNodeTests.testOneToOneVideo*`),
+  Logiktest `HornCamTests`.
+
 ### Behoben – Android: eingehende Anrufe klingeln bei geschlossener App durchgehend
 - Bei geschlossener App klingelte bzw. vibrierte ein Anruf nur einmal (Pixel, gesperrt wie entsperrt). Die App
   klingelt jetzt selbst: Klingelton in Schleife und wiederholte Vibration, bis angenommen, abgelehnt, auf einem

@@ -106,20 +106,31 @@ extension RTCPeerConnection {
 final class TestPattern: RTCVideoCapturer, @unchecked Sendable {
     private var timer: DispatchSourceTimer?
     private var n = 0
+    /// Groesse (Standard 320x240; 1:1-Test auch 1280x720 wie die Kamera)
+    var W = 320, H = 240
+    /// Abstand der Rahmen (Standard 66 ms = 15 fps)
+    var ms = 66
     func start() {
         let t = DispatchSource.makeTimerSource(queue: DispatchQueue(label: "saga.horntest.video"))
-        t.schedule(deadline: .now(), repeating: .milliseconds(66))
+        t.schedule(deadline: .now(), repeating: .milliseconds(ms))
         t.setEventHandler { [weak self] in self?.frame() }
         t.resume(); timer = t
     }
     func stop() { timer?.cancel(); timer = nil }
+    private var cache: [RTCI420Buffer] = []
     private func frame() {
         n += 1
-        let W = 320, H = 240, bar = (n * 8) % W
-        var y = [UInt8](repeating: 0, count: W * H)
-        for r in 0..<H { for c in 0..<W { y[r * W + c] = abs(c - bar) < 16 ? 235 : UInt8(30 + (c + r) % 180) } }
-        let u = [UInt8](repeating: 90, count: W * H / 4), v = [UInt8](repeating: 200, count: W * H / 4)
-        let buf = RTCI420Buffer(width: Int32(W), height: Int32(H), dataY: y, dataU: u, dataV: v)
+        let W = self.W, H = self.H
+        if cache.isEmpty {                                                  // 8 vorberechnete Rahmen (schnell auch bei 720p)
+            for k in 0..<8 {
+                let bar = k * W / 8
+                var y = [UInt8](repeating: 0, count: W * H)
+                for r in 0..<H { for c in 0..<W { y[r * W + c] = abs(c - bar) < 16 ? 235 : UInt8(30 + (c + r) % 180) } }
+                let u = [UInt8](repeating: 90, count: W * H / 4), v = [UInt8](repeating: 200, count: W * H / 4)
+                cache.append(RTCI420Buffer(width: Int32(W), height: Int32(H), dataY: y, dataU: u, dataV: v))
+            }
+        }
+        let buf = cache[n % cache.count]
         delegate?.capturer(self, didCapture: RTCVideoFrame(buffer: buf, rotation: ._0, timeStampNs: Int64(DispatchTime.now().uptimeNanoseconds)))
     }
 }
