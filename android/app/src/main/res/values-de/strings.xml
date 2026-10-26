@@ -180,11 +180,6 @@
     <string name="block_divider">Trenner</string>
     <string name="placeholder_paragraph">Tippe etwas …</string>
     <string name="placeholder_list_item">Listenpunkt</string>
-    <string name="block_unsupported">%1$s – wird hier noch nicht unterstützt</string>
-    <plurals name="block_table_rows">
-        <item quantity="one">%d Zeile</item>
-        <item quantity="other">%d Zeilen</item>
-    </plurals>
     <string name="toggle_empty_tap">Leerer Toggle – tippen zum Schreiben</string>
     <string name="toggle_empty">Leer</string>
     <string name="blocktype_table">Tabelle</string>
@@ -195,8 +190,6 @@
     <string name="blocktype_buttons">Schaltflächen</string>
     <string name="blocktype_embed">Einbettung</string>
     <string name="blocktype_columns">Spalten</string>
-    <string name="blocktype_unknown">Unbekannter Block</string>
-    <string name="blocktype_named">„%1$s“</string>
 
     <!-- Review-Korrekturen 14.10.2026: Kopplung, Speichern, Konflikt, Barrierefreiheit, Teilen -->
     <string name="server_placeholder">z. B. saga.example.org</string>

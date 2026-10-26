@@ -18,6 +18,17 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Umwandeln behält die Farbe.
 - **Unbekannte Blöcke** sind nicht mehr unsichtbar: Hinweis-Karte mit „Im Web öffnen“ (springt zum Block).
 - Speichern behält unbekannte Felder in Blöcken und Block-Tunes unverändert (mit Rundreise-Test).
+### Neu – Android: Seite gestalten (Darstellung, Farbe, Schrift) und Rückfall-Karte
+- **Spaltenbreite:** Gewichte der Spalten (`cols[].w`) gelten ab 600 dp Breite; auf Telefonen weiter untereinander.
+- **Bilder und Videos:** Breite (`width`, auf Telefonen mindestens 50 %) und Ausrichtung links/Mitte/rechts wie im Web;
+  „Volle Breite“ gewinnt. Link-Karten bleiben unverändert.
+- **Block-Farbe:** Text- oder Hintergrundfarbe aus der Saga-Palette (hell/dunkel lesbar) wird angezeigt und lässt sich
+  über „Farbe“ in der Werkzeugleiste setzen (Absatz, Überschrift, Liste, Zitat, Toggle, Hinweis).
+- **Schrift und kleiner Text je Seite:** Seitenmenü „Schrift und Textgröße“ (Standard · Serif · Mono, kleiner Text);
+  erscheint nur mit Servern, die die Felder liefern.
+- **Toggle-Überschriften:** Titel in Überschriftengröße (H1–H3).
+- **Unbekannte Blöcke:** einheitliche Karte „Dieser Block lässt sich in der App noch nicht anzeigen.“ mit „Im Web
+  öffnen“ (springt zum Block). Unbekannte Felder und Block-Einstellungen bleiben beim Speichern erhalten.
 
 ### Behoben – Android: Anrufe über den Knoten (Kamera, Bildschirm, neue Teilnehmende)
 - **Kamera:** Die Simulcast-Schichten hatten je Schicht eigene Bildrate und zeitliche Schichten – wie auf iOS kann

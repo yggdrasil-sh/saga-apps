@@ -311,6 +311,16 @@ fun ButtonsBlock(d: JsonObject, env: BlockEnv) {
 fun EmbedBlock(d: JsonObject, env: BlockEnv) {
     val url = InlineHtml.decodeEntities(BlockDoc.str(d, "url"))
     val title = InlineHtml.plain(BlockDoc.str(d, "title"))
+    // G2 (2.5): Player-Embed (YouTube) mit Breite/Ausrichtung; Link-Karten unveraendert
+    if (io.github.yggdrasil_sh.saga.blocks.Gestalten.isPlayerEmbed(d) && d["width"] != null) {
+        MediaBox(d) { EmbedCard(url, title, d, env) }
+        return
+    }
+    EmbedCard(url, title, d, env)
+}
+
+@Composable
+private fun EmbedCard(url: String, title: String, d: JsonObject, env: BlockEnv) {
     Column(
         Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.medium)

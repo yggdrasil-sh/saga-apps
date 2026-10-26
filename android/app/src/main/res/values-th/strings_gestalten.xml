@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5 "Seite gestalten" (G3 Farbe, G9 Schrift, R Rueckfall-Karte) -->
+<resources>
+    <string name="gest_fallback_text">บล็อกนี้ยังแสดงในแอปไม่ได้</string>
+    <string name="gest_open_web">เปิดบนเว็บ</string>
+    <string name="gest_color">สี</string>
+    <string name="gest_color_default">ค่าเริ่มต้น</string>
+    <string name="gest_color_bg">พื้นหลัง%1$s</string>
+    <string name="gest_c_gray">เทา</string>
+    <string name="gest_c_brown">น้ำตาล</string>
+    <string name="gest_c_orange">ส้ม</string>
+    <string name="gest_c_yellow">เหลือง</string>
+    <string name="gest_c_green">เขียว</string>
+    <string name="gest_c_blue">น้ำเงิน</string>
+    <string name="gest_c_purple">ม่วง</string>
+    <string name="gest_c_pink">ชมพู</string>
+    <string name="gest_c_red">แดง</string>
+    <string name="gest_font_menu">แบบอักษรและขนาดข้อความ</string>
+    <string name="gest_font_default">ค่าเริ่มต้น</string>
+    <string name="gest_font_serif">มีเชิง</string>
+    <string name="gest_font_mono">ความกว้างคงที่</string>
+    <string name="gest_small">ข้อความขนาดเล็ก</string>
+</resources>

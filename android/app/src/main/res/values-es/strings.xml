@@ -181,12 +181,6 @@
     <string name="block_divider">Separador</string>
     <string name="placeholder_paragraph">Escribe algo…</string>
     <string name="placeholder_list_item">Elemento de lista</string>
-    <string name="block_unsupported">%1$s: aún no es compatible aquí</string>
-    <plurals name="block_table_rows">
-        <item quantity="one">%d fila</item>
-        <item quantity="many">%d filas</item>
-        <item quantity="other">%d filas</item>
-    </plurals>
     <string name="toggle_empty_tap">Desplegable vacío: toca para escribir</string>
     <string name="toggle_empty">Vacío</string>
     <string name="blocktype_table">Tabla</string>
@@ -197,8 +191,6 @@
     <string name="blocktype_buttons">Botones</string>
     <string name="blocktype_embed">Contenido insertado</string>
     <string name="blocktype_columns">Columnas</string>
-    <string name="blocktype_unknown">Bloque desconocido</string>
-    <string name="blocktype_named">«%1$s»</string>
 
     <!-- Review-Korrekturen 14.10.2026: Kopplung, Speichern, Konflikt, Barrierefreiheit, Teilen -->
     <string name="server_placeholder">p. ej. saga.example.org</string>

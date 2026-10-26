@@ -161,10 +161,6 @@
     <string name="block_divider">เส้นคั่น</string>
     <string name="placeholder_paragraph">พิมพ์อะไรสักอย่าง…</string>
     <string name="placeholder_list_item">รายการ</string>
-    <string name="block_unsupported">%1$s ยังไม่รองรับที่นี่</string>
-    <plurals name="block_table_rows">
-        <item quantity="other">%d แถว</item>
-    </plurals>
     <string name="toggle_empty_tap">บล็อกพับได้ว่างเปล่า แตะเพื่อเขียน</string>
     <string name="toggle_empty">ว่าง</string>
     <string name="blocktype_table">ตาราง</string>
@@ -175,8 +171,6 @@
     <string name="blocktype_buttons">ปุ่ม</string>
     <string name="blocktype_embed">เนื้อหาฝัง</string>
     <string name="blocktype_columns">คอลัมน์</string>
-    <string name="blocktype_unknown">บล็อกที่ไม่รู้จัก</string>
-    <string name="blocktype_named">“%1$s”</string>
     <string name="login_server_hint">ที่อยู่ของเซิร์ฟเวอร์ Saga ของคุณ ระบบจะเติม https:// ให้อัตโนมัติ</string>
     <string name="login_no_device_token">เซิร์ฟเวอร์ไม่ได้ส่งการเข้าสู่ระบบสำหรับอุปกรณ์กลับมา โปรดอัปเดตเซิร์ฟเวอร์</string>
     <string name="login_not_saga">ไม่พบเซิร์ฟเวอร์ Saga ที่ที่อยู่นี้ โปรดตรวจสอบที่อยู่</string>

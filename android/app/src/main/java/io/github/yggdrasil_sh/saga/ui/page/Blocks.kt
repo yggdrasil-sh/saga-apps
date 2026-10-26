@@ -1,7 +1,6 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.res.pluralStringResource
 import io.github.yggdrasil_sh.saga.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -42,6 +41,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.layout.ContentScale
@@ -98,8 +100,30 @@ fun BlockColumn(arrayPath: JsonPath, env: BlockEnv) {
     }
 }
 
+/** G3 (2.5): Block-Farbe aus tunes.hkstyle - Textfarbe ueber onSurface des Blocks, Hintergrund als Flaeche */
 @Composable
 fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
+    val st = io.github.yggdrasil_sh.saga.blocks.Gestalten.style(block)
+    if (st == null) {
+        BlockViewInner(block, path, env)
+        return
+    }
+    val cs = MaterialTheme.colorScheme
+    val dark = cs.surface.luminance() < 0.5f
+    val g = io.github.yggdrasil_sh.saga.blocks.Gestalten
+    if (st.bg) {
+        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).background(Color(g.bgArgb(st.color, dark))).padding(horizontal = 8.dp, vertical = 4.dp)) {
+            BlockViewInner(block, path, env)
+        }
+    } else {
+        MaterialTheme(colorScheme = cs.copy(onSurface = Color(g.textArgb(st.color, dark))), typography = MaterialTheme.typography, shapes = MaterialTheme.shapes) {
+            BlockViewInner(block, path, env)
+        }
+    }
+}
+
+@Composable
+private fun BlockViewInner(block: JsonObject, path: JsonPath, env: BlockEnv) {
     val ed = env.editor
     val d = BlockDoc.data(block)
     val key = ed.blockKey(block, path)
@@ -200,7 +224,7 @@ fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
         // Aufgaben, Kalender, Immich gehoeren dem Eigentuemer: auf fremden Seiten nur ein neutraler Platzhalter
         // (der Block bleibt beim Speichern unveraendert)
         else -> if (ed.caps.ownerOnlyBlock(type)) Selectable(key, path, env) { OwnerOnly(type) }
-        else Selectable(key, path, env) { Unsupported(type, d, env) }
+        else Selectable(key, path, env) { Unsupported(BlockDoc.id(block), env) }
     }
 }
 
@@ -236,34 +260,30 @@ private fun OwnerOnly(type: String) {
     )
 }
 
-/** Platzhalter fuer Bloecke, die die App noch nicht kann - der Block bleibt unveraendert gespeichert */
+/**
+ * R (2.5): einheitliche Rueckfall-Karte fuer Bloecke, die die App noch nicht kann - Symbol, Hinweis, "Im Web oeffnen"
+ * (Seite im Browser, mit Block-Anker). Der Block bleibt beim Speichern unveraendert (Regel 0).
+ */
 @Composable
-private fun Unsupported(type: String, d: JsonObject, env: BlockEnv) {
-    Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(12.dp),
+private fun Unsupported(blockId: String?, env: BlockEnv) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val ed = env.editor
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        Icon(androidx.compose.material.icons.Icons.Filled.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(end = 10.dp).size(20.dp))
         Text(
-            stringResource(R.string.block_unsupported, blockTypeLabel(type)),
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            stringResource(R.string.gest_fallback_text), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f),
         )
-        // kleine Vorschau, wo es einfach geht
-        when (type) {
-            "attaches" -> {
-                val f = d["file"] as? JsonObject
-                val name = BlockDoc.str(f, "name").ifEmpty { BlockDoc.str(d, "title") }
-                val u = BlockDoc.str(f, "url")
-                if (name.isNotEmpty()) Text("📎 $name", style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary, modifier = Modifier.padding(top = 4.dp).clickable(enabled = u.isNotEmpty()) { env.onLink(u) })
-            }
-            "embed" -> {
-                val u = InlineHtml.decodeEntities(BlockDoc.str(d, "url"))
-                if (u.isNotEmpty()) Text(u, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.padding(top = 4.dp).clickable { env.onLink(u) })
-            }
-            "table" -> {
-                val rows = (d["content"] as? JsonArray)?.size ?: 0
-                if (rows > 0) Text(pluralStringResource(R.plurals.block_table_rows, rows, rows), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+        // Seiten anderer Server haben keine Adresse im eigenen Web-Editor
+        if (!ed.isRemote) {
+            TextButton(onClick = {
+                ed.flush()
+                io.github.yggdrasil_sh.saga.ui.common.openUrl(context, io.github.yggdrasil_sh.saga.blocks.Gestalten.webUrl(env.repo.absoluteUrl("notes"), ed.id, blockId))
+            }) { Text(stringResource(R.string.gest_open_web)) }
         }
     }
 }
@@ -371,7 +391,9 @@ private fun ToggleBlock(block: JsonObject, path: JsonPath, key: String, env: Blo
                 )
             }
             RichField(
-                BlockDoc.str(d, "title"), key, ed, path, MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold),
+                // G10 (2.5): Toggle-Ueberschrift 1-3 in Ueberschriftengroesse
+                BlockDoc.str(d, "title"), key, ed, path,
+                io.github.yggdrasil_sh.saga.blocks.Gestalten.toggleLevel(d).let { lvl -> if (lvl > 0) headerStyle(lvl) else MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold) },
                 { ed.setString(path + listOf("data", "title"), it) },
                 placeholder = stringResource(R.string.block_toggle),
                 onEnter = { _, right ->
@@ -400,19 +422,4 @@ private fun ToggleBlock(block: JsonObject, path: JsonPath, key: String, env: Blo
             }
         }
     }
-}
-
-/** Namen fuer Bloecke, die (noch) nicht bearbeitet werden koennen */
-@Composable
-private fun blockTypeLabel(type: String): String = when (type) {
-    "table" -> stringResource(R.string.blocktype_table)
-    "attaches" -> stringResource(R.string.blocktype_attachment)
-    "database" -> stringResource(R.string.blocktype_database)
-    "tasks" -> stringResource(R.string.blocktype_tasks)
-    "calendar" -> stringResource(R.string.blocktype_calendar)
-    "buttons" -> stringResource(R.string.blocktype_buttons)
-    "embed" -> stringResource(R.string.blocktype_embed)
-    "columns" -> stringResource(R.string.blocktype_columns)
-    "" -> stringResource(R.string.blocktype_unknown)
-    else -> stringResource(R.string.blocktype_named, type)
 }
