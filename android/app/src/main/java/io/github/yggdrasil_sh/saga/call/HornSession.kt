@@ -1013,6 +1013,7 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             } catch (_: Exception) {
             }
         }
+        syncTracks(conn)
         val s = sw
         if (s == null) sw = HornLogic.Switcher(conn.node, conn.path, now) else s.moved(now, conn.node, conn.path, why)
         retryJob?.cancel()
@@ -1040,6 +1041,24 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
             }
         }
         host.changed()
+    }
+
+    /**
+     * Eigene Spuren an die uebernommene Verbindung: die Beine bekamen beim Anlegen die damaligen Spuren. Kamera an/aus
+     * bzw. Teilen starten/beenden WAEHREND des Verbindens traf nur [cur] (camChanged setzt an anderen Verbindungen null,
+     * screenChanged nur an cur) - nach dem Wechsel ging sonst kein Bild bzw. die alte, schon freigegebene Spur.
+     */
+    private fun syncTracks(conn: Conn) {
+        val a = host.audioTrack()
+        val v = host.camTrack()
+        val sc = host.screenTrack()
+        for (L in conn.legs.values) try {
+            L.tr?.sender?.let { if (it.track() !== a) it.setTrack(a, false) }
+            L.cam?.sender?.let { if (it.track() !== v) it.setTrack(v, false) }
+            L.scr?.sender?.let { if (it.track() !== sc) it.setTrack(sc, false) }
+        } catch (e: Exception) {
+            log("spuren: ${e.message}")
+        }
     }
 
     /** Wechseln. why: lost | draining | better (to) | udp-loss / udp (path, selber Knoten) */

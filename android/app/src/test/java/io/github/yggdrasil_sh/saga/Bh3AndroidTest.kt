@@ -94,4 +94,19 @@ class Bh3AndroidTest {
         assertTrue(r.contains("surface.forceFrame()"))
         assertTrue(r.contains("CallScreen.nextTimestamp("))
     }
+
+    /**
+     * Fund 3: Kamera an/aus bzw. Teilen starten/beenden WAEHREND eines Knotenwechsels traf nur die bisherige Verbindung;
+     * die neue behielt die Spuren vom Anlegen (keine Kamera bzw. eine freigegebene Bildschirm-Spur). adopt() gleicht
+     * die Spuren jetzt ab - vor mapAll/stateOut.
+     */
+    @Test
+    fun adoptSyncsTracks() {
+        val s = src("HornSession.kt")
+        val adopt = s.substring(s.indexOf("private fun adopt("), s.indexOf("fun switch(why"))
+        assertTrue(adopt.contains("syncTracks(conn)"))
+        assertTrue(adopt.indexOf("syncTracks(conn)") < adopt.indexOf("mapAll()"))
+        val sync = s.substring(s.indexOf("private fun syncTracks("))
+        for (x in listOf("L.tr?.sender", "L.cam?.sender", "L.scr?.sender")) assertTrue(x, sync.contains(x))
+    }
 }
