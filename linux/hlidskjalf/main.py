@@ -87,6 +87,9 @@ class App(Adw.Application):
                 raise
             if os.environ.get("HK_TEST"):
                 GLib.timeout_add(1500, self._run_test)
+            else:                                         # Update-Hinweis (Einstellungen -> Info): hoechstens alle 12 h
+                from .updatecheck import hint
+                GLib.timeout_add_seconds(15, lambda: (hint.app_started(), False)[1])
         self.win.present()
         if self._pending:
             act, self._pending = self._pending, None

@@ -473,7 +473,7 @@ class NcPicker(Adw.Dialog):
         self.box.append(lb)
         if settings_btn:
             b = Gtk.Button(label=_("Open settings"), halign=Gtk.Align.CENTER, vexpand=True, valign=Gtk.Align.START)
-            b.connect("clicked", lambda *_: (self.close(), self.win.settings_dialog(page="account")))
+            b.connect("clicked", lambda *_: (self.close(), self.win.settings_dialog(page="settings")))
             self.box.append(b)
 
     def _state(self, s):

@@ -1,10 +1,10 @@
-"""Einstellungen wie in der Mac-App: Server, Darstellung, Immich, Kalender (CalDAV), App-Schluessel, angemeldete Apps."""
+"""Einstellungen wie in den anderen Apps (2.5): Konto · Einstellungen · Info (Versionen, Update-Hinweis, Lizenzen)."""
 from gi.repository import Adw, Gdk, GLib, Gtk
 
 from . import config
 from .api import account_body, account_name, client
 from .config import settings
-from .i18n import _, ngettext
+from .i18n import _, ngettext, pgettext
 from .store import store
 from .util import bg, date_short, placeholder
 
@@ -25,31 +25,66 @@ def _btn(label, css=None, cb=None):
 
 
 class SettingsDialog(Adw.PreferencesDialog):
+    """Einstellungen in drei Seiten wie in den anderen Apps (2.5): Konto · Einstellungen · Info.
+    Mein Backup, Mitteilungen und Chats & Geraete sind Unterseiten (Zeile mit Pfeil). show_page(name): "account",
+    "settings" (alt: "general"), "info" bzw. die Unterseiten "backup", "push", "chats"."""
+
+    SUBPAGES = ("backup", "push", "chats")
+
     def __init__(self, win):
         super().__init__(title=_("Settings"), search_enabled=False)
-        if (Adw.get_major_version(), Adw.get_minor_version()) < (1, 7):
-            # libadwaita 1.6 (AlmaLinux 10): bei 640 px kuerzt die Reiterleiste "Mitteilungen" - etwas breiter
-            self.set_content_width(720)
         self.win = win
-        page = Adw.PreferencesPage(title=_("General"), icon_name="emblem-system-symbolic")
+        self.sub = None                            # gerade gezeigte Unterseite (Name) oder None
+        self._navs = {}
+        self.pages = {}
+        self.add(self._account_page())
+        self.add(self._settings_page())
+        self.add(self._info_page())
+        # Fokus beim Oeffnen nicht ins Adressfeld (markiert - ein Tastendruck haette die Adresse ersetzt, Testbericht 090)
+        self.connect("map", lambda *_: (GLib.idle_add(self._initial_focus), GLib.timeout_add(250, self._initial_focus)))
+
+    # --- Konto ------------------------------------------------------------------------------------------------------
+    def _account_page(self):
+        acc = Adw.PreferencesPage(title=_("Account"), icon_name="avatar-default-symbolic")
+        self.pages["account"] = acc
         g = Adw.PreferencesGroup(title=_("Server"))
         self.server = Adw.EntryRow(title=_("Address"), text=settings.server, show_apply_button=True)
         placeholder(self.server, "https://saga.example.org")
         self.server.connect("apply", self._apply_server)
         g.add(self.server)
-        from . import version_label
-        srv = f"Saga {store.server_version}" if store.server_version else "–"
-        about = Adw.ActionRow(title=_("Version"), subtitle=_("App: Saga {version} · Server: {server}").format(version=version_label(), server=srv))
-        if store.app_too_old:
-            about.set_subtitle(about.get_subtitle() + " · " + _("app too old (version {version} or later needed), please update").format(version=store.min_app))
-        g.add(about)
         self.status = Adw.ActionRow(title=_("Test connection"))
         self.test_btn = _btn(_("Test"), cb=self._test)
         self.status.add_suffix(self.test_btn)
         g.add(self.status)
-        # Fokus beim Oeffnen nicht ins Adressfeld (markiert - ein Tastendruck haette die Adresse ersetzt, Testbericht 090)
-        self.connect("map", lambda *_: (GLib.idle_add(self._initial_focus), GLib.timeout_add(250, self._initial_focus)))
-        page.add(g)
+        acc.add(g)
+        from .profile import AvatarGroup
+        acc.add(AvatarGroup(self))                 # Profilbild (Server ab 2.1); sonst unsichtbar
+        acc.add(DisplayNameGroup(self))            # Bughunt D01: Anzeigename (optional); LDAP/SSO: unsichtbar
+        from .publish import PublicNameGroup
+        acc.add(PublicNameGroup(self))             # oeffentlicher Name (Veroeffentlichen); aeltere Server: unsichtbar
+        from .security import SecurityGroup
+        acc.add(SecurityGroup(self))               # Anmeldung & Sicherheit (2FA, Server ab 2.1): Stand + Browser
+        acc.add(AppsGroup(self))
+        from .userbackup import BackupPage         # Mein Backup (Server ab 2.3); sonst unsichtbar - als Unterseite
+        self.pages["backup"] = BackupPage(self)
+        gb = Adw.PreferencesGroup()
+        gb.add(self._nav_row("backup", _("My backup"), "drive-harddisk-symbolic"))
+        acc.add(gb)
+        g3 = Adw.PreferencesGroup()
+        out = Adw.ButtonRow(title=_("Sign out")) if hasattr(Adw, "ButtonRow") else Adw.ActionRow(title=_("Sign out"), activatable=True)
+        out.add_css_class("destructive-action")
+        out.connect("activated", lambda *_: self._logout())
+        g3.add(out)
+        g3.set_description(_("Removes the sign-in and the cache on this device."))
+        acc.add(g3)
+        return acc
+
+    # --- Einstellungen ------------------------------------------------------------------------------------------------
+    def _settings_page(self):
+        page = Adw.PreferencesPage(title=_("Settings"), icon_name="emblem-system-symbolic")
+        self.pages["settings"] = page
+        # Allgemein
+        page.add(self._language_group())
         g2 = Adw.PreferencesGroup(title=_("Appearance"))
         ch = Adw.SpinRow.new_with_range(100, 600, 10)
         ch.set_title(_("Cover image height"))
@@ -58,43 +93,83 @@ class SettingsDialog(Adw.PreferencesDialog):
         ch.connect("notify::value", lambda r, _: settings.set("cover_height", int(r.get_value())))
         g2.add(ch)
         page.add(g2)
-        page.add(self._language_group())
-        g3 = Adw.PreferencesGroup()
-        out = Adw.ButtonRow(title=_("Sign out")) if hasattr(Adw, "ButtonRow") else Adw.ActionRow(title=_("Sign out"), activatable=True)
-        out.add_css_class("destructive-action")
-        out.connect("activated", lambda *_: self._logout())
-        g3.add(out)
-        g3.set_description(_("Removes the sign-in and the cache on this device."))
-        page.add(g3)
-        self.add(page)
-        acc = Adw.PreferencesPage(title=_("Account"), icon_name="avatar-default-symbolic")
-        from .profile import AvatarGroup
-        acc.add(AvatarGroup(self))                 # Profilbild (Server ab 2.1); sonst unsichtbar
-        from .security import SecurityGroup
-        acc.add(SecurityGroup(self))               # Anmeldung & Sicherheit (2FA, Server ab 2.1): Stand + Browser
-        acc.add(DisplayNameGroup(self))            # Bughunt D01: Anzeigename (optional); LDAP/SSO: unsichtbar
-        from .publish import PublicNameGroup
-        acc.add(PublicNameGroup(self))             # oeffentlicher Name (Veroeffentlichen); aeltere Server: unsichtbar
-        from .notifications import NotificationSettingsGroup
-        acc.add(NotificationSettingsGroup(self))   # Benachrichtigungen je Art (Server ab 1.4); sonst unsichtbar
-        acc.add(ImmichGroup(self))
-        from .nextcloud import NextcloudGroup
-        acc.add(NextcloudGroup(self))              # Nextcloud-Dateien in Seiten (Server ab 2.3); sonst unsichtbar
-        acc.add(CalendarGroup(self))
-        acc.add(AppsGroup(self))
-        self.add(acc)
-        self.pages = {"general": page, "account": acc}
-        from .userbackup import BackupPage         # Mein Backup (Server ab 2.3); sonst unsichtbar
-        self.pages["backup"] = BackupPage(self)
-        self.add(self.pages["backup"])
+        # Benachrichtigungen (Glocke) + Mitteilungen (Push, Unterseite)
+        from .notifications import NotificationSettingsGroup, bell_icon
+        page.add(NotificationSettingsGroup(self))  # Benachrichtigungen je Art (Server ab 1.4); sonst unsichtbar
         from .push import PushPage                 # Mitteilungen (Server ab 1.7)
         self.pages["push"] = PushPage(self)
-        self.add(self.pages["push"])
+        gn = Adw.PreferencesGroup()
+        gn.add(self._nav_row("push", pgettext("settings tab", "Push"), bell_icon()))
+        page.add(gn)
+        # Chat: Chats & Geraete (Server ab 1.5) - Unterseite, nur wenn Chats eingerichtet sind
         from .chat import chat
         if chat.status in ("setup", "device", "ready"):
-            from .chatview import ChatDevicesPage  # Chats & Geraete (Server ab 1.5)
+            from .chatview import ChatDevicesPage, chat_icon
             self.pages["chats"] = ChatDevicesPage(self)
-            self.add(self.pages["chats"])
+            gc = Adw.PreferencesGroup(title=_("Chat"))
+            # Translators: the title is markup - write "&" as "&amp;"
+            gc.add(self._nav_row("chats", _("Chats &amp; devices"), chat_icon()))
+            page.add(gc)
+        # Dienste
+        from .nextcloud import NextcloudGroup
+        page.add(NextcloudGroup(self))             # Nextcloud-Dateien in Seiten (Server ab 2.3); sonst unsichtbar
+        page.add(ImmichGroup(self))
+        page.add(CalendarGroup(self))
+        return page
+
+    # --- Info -------------------------------------------------------------------------------------------------------
+    def _info_page(self):
+        from . import version_label
+        info = InfoPage(self, version_label())
+        self.pages["info"] = info
+        return info
+
+    # --- Unterseiten --------------------------------------------------------------------------------------------------
+    def _nav_row(self, name, title, icon):
+        r = Adw.ActionRow(title=title, activatable=True)
+        r.add_prefix(Gtk.Image.new_from_icon_name(icon))
+        r.add_suffix(Gtk.Image.new_from_icon_name("go-next-symbolic"))
+        r.connect("activated", lambda *_: self.show_page(name))
+        r.hk_sub = name
+        p = self.pages[name]
+        r.set_visible(p.get_visible())             # Mein Backup: erst sichtbar, wenn der Server die Funktion kennt
+        p.connect("notify::visible", lambda pp, _p: r.set_visible(pp.get_visible()))
+        return r
+
+    def _push_sub(self, name):
+        p = self.pages[name]
+        old = self._navs.get(name)
+        if old is not None:                        # schon einmal gezeigt: Seite aus der alten Huelle loesen und wiederverwenden
+            old.get_child().set_content(None)
+        titles = {"backup": _("My backup"), "push": pgettext("settings tab", "Push"), "chats": _("Chats &amp; devices")}
+        tv = Adw.ToolbarView()
+        tv.add_top_bar(Adw.HeaderBar())
+        tv.set_content(p)
+        nav = Adw.NavigationPage(title=titles[name], child=tv, tag=name)
+        nav.connect("hidden", lambda *_: self.sub == name and setattr(self, "sub", None))
+        self._navs[name] = nav
+        self.sub = name
+        self.push_subpage(nav)
+
+    def show_page(self, name):
+        name = {"general": "settings"}.get(name, name)
+        p = self.pages.get(name)
+        if p is None:
+            return
+        if name in self.SUBPAGES:
+            self.set_visible_page(self.pages["account" if name == "backup" else "settings"])
+            if not p.get_visible():
+                self.want_page = p                # noch unsichtbar (z. B. "Mein Backup" laedt noch): danach zeigen
+                return
+            if self.sub == name:
+                return
+            if self.sub is not None:
+                self.pop_subpage()
+            self._push_sub(name)
+            return
+        if self.sub is not None:
+            self.pop_subpage()
+        self.set_visible_page(p)
 
     # Sprache der App (settings.json "language"; leer = Systemsprache). Gilt ab dem naechsten Start (i18n.py),
     # auch fuer Accept-Language der Anfragen an den Server.
@@ -144,15 +219,6 @@ class SettingsDialog(Adw.PreferencesDialog):
         d.connect("response", resp)
         d.present(self)
         self.lang_dialog = d                          # fuer Tests
-
-    def show_page(self, name):
-        p = self.pages.get(name)
-        if p is None:
-            return
-        if p.get_visible():
-            self.set_visible_page(p)
-        else:
-            self.want_page = p                    # noch unsichtbar (z. B. "Mein Backup" laedt noch): danach zeigen
 
     def _initial_focus(self):
         foc = self.get_focus() if hasattr(self, "get_focus") else None
@@ -585,3 +651,111 @@ class AppsGroup(Adw.PreferencesGroup):
     def _drop(self, k):
         self._ask(_("Sign out this device?"), _("The app has to sign in again; widget and sharing lose access."), _("Sign out"),
                   lambda: bg(client.request, "DELETE", f"api/settings/devices/{k['id']}", done=lambda _: self.load()))
+
+
+class InfoPage(Adw.PreferencesPage):
+    """Einstellungen -> Info: Versionen, Kanal, Update-Hinweis (updatecheck.py), Lizenzen"""
+
+    def __init__(self, dlg, label):
+        super().__init__(title=_("Info"), icon_name="help-about-symbolic")
+        from . import updatehint as U
+        from .updatecheck import hint
+        self.dlg, self.hint = dlg, hint
+        g = Adw.PreferencesGroup(title=_("Versions"))
+        self.app_row = Adw.ActionRow(title=_("App"), subtitle=GLib.markup_escape_text("Saga " + label))
+        self.srv_row = Adw.ActionRow(title=_("Server"), subtitle=f"Saga {GLib.markup_escape_text(store.server_version)}" if store.server_version else "–")
+        ch = U.channel(hint.label) if hint.label else None
+        self.ch_row = Adw.ActionRow(title=_("Channel"),
+                                    subtitle={"testing": _("Test version"), "stable": _("Stable")}.get(ch, _("Own build")))
+        for r in (self.app_row, self.srv_row, self.ch_row):
+            r.add_css_class("property")
+            r.set_subtitle_selectable(True)
+            g.add(r)
+        if store.app_too_old:
+            old = Adw.ActionRow(title=_("This app is older than the server expects (version {version} or later). Please update the app.")
+                                .format(version=GLib.markup_escape_text(str(store.min_app))))
+            old.set_title_lines(0)
+            old.add_css_class("warning")
+            old.add_prefix(Gtk.Image.new_from_icon_name("dialog-warning-symbolic"))
+            g.add(old)
+        self.add(g)
+        # Updates: Schalter, Statuszeile, eine Schaltflaeche
+        gu = Adw.PreferencesGroup(title=_("Updates"))
+        gu.set_description({"testing": _("This test version only receives new test versions."),
+                            "stable": _("This version only receives stable versions.")}.get(ch, _("Own build: no update check.")))
+        self.sw = Adw.SwitchRow(title=_("Notify about new versions"), active=hint.enabled)
+        self.sw.connect("notify::active", lambda r, _p: hint.set_enabled(r.get_active()))
+        gu.add(self.sw)
+        self.st_row = Adw.ActionRow()
+        self.st_icon = Gtk.Image()
+        self.st_row.add_prefix(self.st_icon)
+        self.btn = Gtk.Button(valign=Gtk.Align.CENTER)
+        self.btn.connect("clicked", lambda *_: self._clicked())
+        self.st_row.add_suffix(self.btn)
+        gu.add(self.st_row)
+        self.dev = ch is None                      # Entwickler-Build: keine Pruefung, nur der Hinweis unter der Gruppe
+        self.add(gu)
+        gl = Adw.PreferencesGroup(title=_("Licenses"))
+        gl.set_description(_("Saga is free software under the GNU AGPL 3.0. Chat encryption uses libsodium (ISC license) via PyNaCl "
+                             "(Apache License 2.0)."))
+        ab = Adw.ActionRow(title=_("About Saga"), activatable=True)
+        ab.add_suffix(Gtk.Image.new_from_icon_name("go-next-symbolic"))
+        ab.connect("activated", lambda *_: dlg.win.about(dlg))
+        gl.add(ab)
+        self.add(gl)
+        self._h = 0
+        self.connect("map", lambda *_: self._mapped())
+        self.connect("unmap", lambda *_: self._unmapped())
+        self.refresh()
+
+    def _mapped(self):
+        if not self._h:
+            self._h = self.hint.connect("changed", lambda *_: self.refresh())
+        self.refresh()
+        self.hint.info_opened()
+
+    def _unmapped(self):
+        if self._h:
+            self.hint.disconnect(self._h)
+            self._h = 0
+
+    def refresh(self):
+        h = self.hint
+        if self.sw.get_active() != h.enabled:
+            self.sw.set_active(h.enabled)
+        self.st_row.set_visible(h.enabled and not self.dev)
+        kind, ver = h.status()
+        icon, title = {
+            "available": ("software-update-available-symbolic", _("Saga {version} is available").format(version=GLib.markup_escape_text(ver or ""))),
+            "uptodate": ("emblem-ok-symbolic", _("You have the latest version.")),
+            "failed": ("dialog-warning-symbolic", _("Check failed")),
+        }.get(kind, ("software-update-available-symbolic", _("Not checked yet")))
+        self.st_icon.set_from_icon_name(icon)
+        self.st_row.set_title(title)
+        from .util import date_time_text
+        self.st_row.set_subtitle(_("Last checked: {when}").format(when=date_time_text(h.checked)) if h.checked else "")
+        for c in ("suggested-action", "pill"):
+            self.btn.remove_css_class(c)
+        state = h.button()
+        self.btn_state = state
+        if state == "checking":
+            self.btn.set_label(_("Checking …"))
+            self.btn.set_sensitive(False)
+        elif state == "update":
+            self.btn.set_label(pgettext("button", "Update"))
+            self.btn.add_css_class("suggested-action")
+            self.btn.set_sensitive(True)
+        else:
+            self.btn.set_label(_("Check for updates"))
+            self.btn.set_sensitive(True)
+
+    def _clicked(self):
+        from . import updatehint as U
+        h = self.hint
+        st = h.button()
+        if st == "update":
+            u = U.action(h.available)
+            if u:
+                self.dlg.win.open_uri(u)            # Release-Seite im Browser (Flatpak/RPM: dort die passende Datei)
+        elif st == "check":
+            h.check(manual=True)

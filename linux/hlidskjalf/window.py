@@ -1420,7 +1420,7 @@ class MainWindow(Adw.ApplicationWindow):
             return
         kind, nid, blk = t
         if kind == "settings":                                # "/?settings=backup" (Mein Backup fehlgeschlagen)
-            self.settings_dialog(page={"backup": "backup", "nextcloud": "account"}.get(nid, "account"))
+            self.settings_dialog(page={"backup": "backup", "nextcloud": "settings"}.get(nid, "account"))
             return
         if kind == "chat":
             self.show_route(("chat", nid))
@@ -1642,9 +1642,9 @@ class MainWindow(Adw.ApplicationWindow):
     def settings_dialog(self, page=None):
         from .settings import SettingsDialog
         d = SettingsDialog(self)
+        d.present(self)
         if page:
             d.show_page(page)
-        d.present(self)
 
     def trash_dialog(self):
         from .dialogs import TrashDialog
@@ -1697,13 +1697,13 @@ class MainWindow(Adw.ApplicationWindow):
         d.add_response("ok", _("OK"))
         d.present(self)
 
-    def about(self):
+    def about(self, parent=None):
         from . import version_label
         a = Adw.AboutDialog(application_name="Saga", application_icon=APP_ID, version=version_label(),
                             developer_name=_("Saga project"), comments=_("Notes, databases, tasks and events – self-hosted."),
                             translator_credits=_("translator-credits"),
                             website=PROJECT_URL, issue_url=PROJECT_URL + "/issues", license_type=Gtk.License.AGPL_3_0_ONLY)
-        a.present(self)
+        a.present(parent or self)
 
     # --- Seitenleiste: Aktionen --------------------------------------------------------------------
     def page_actions(self, widget, p):

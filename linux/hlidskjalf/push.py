@@ -288,8 +288,14 @@ class PushPage(Adw.PreferencesPage):
                                "chats is never included."))
         self.h = up.connect("changed", lambda *_: self.load())
         self.connect("unrealize", lambda *_: self._drop())
+        self.connect("realize", lambda *_: self._watch())        # Unterseite erneut geoeffnet (Einstellungen 2.5)
         self.load()
         up.distributors(self._dists)
+
+    def _watch(self):
+        if not self.h:
+            self.h = up.connect("changed", lambda *_: self.load())
+            self.load()
 
     def _drop(self):
         if self.h:
