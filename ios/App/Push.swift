@@ -196,7 +196,15 @@ final class PushModel: ObservableObject {
 final class PushCenterDelegate: NSObject, UNUserNotificationCenterDelegate {
     static let shared = PushCenterDelegate()
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
-        [.banner, .list, .sound]
+        let info = notification.request.content.userInfo
+        // Anruf-Mitteilung vom Server, waehrend die App vorne ist: die App klingelt selbst (CallKit bzw. Klingelton und
+        // Fenster) - nicht zusaetzlich Banner und Ton; Klingeln anstossen, falls der Live-Kanal es verpasst hat
+        if CallLogic.hideWhileRunning(kind: info["kind"] as? String, remote: notification.request.trigger is UNPushNotificationTrigger) {
+            let plain = info.reduce(into: [AnyHashable: Any]()) { r, kv in if kv.value is String || kv.value is NSNumber { r[kv.key] = kv.value } }
+            await MainActor.run { CallSystem.shared.ringFromNotice(plain) }
+            return []
+        }
+        return [.banner, .list, .sound]
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
         PushModel.handleTap(response.notification.request.content.userInfo, action: response.actionIdentifier)

@@ -599,14 +599,17 @@ final class CallManager: NSObject, ObservableObject {
                 guard let self, let inc = self.incoming, inc.id == cid, let store = self.store else { return }
                 guard let (d, c) = try? await store.apiResponse("api/calls/\(cid)"), c == 200, let call = ShareJSON.obj(d)?["call"] as? [String: Any],
                       self.incoming?.id == cid else { continue }
-                let st = call["state"] as? String
-                if inc.group {
-                    let mine = (call["mine"] as? [Any] ?? []).count
-                    if st == "ended" { self.remoteEnded(reason: call["reason"] as? String); return }
-                    if mine > 0 || (call["invite"] as? String).map({ $0 != "ringing" }) == true { self.stopGroupRing(cid, declined: (call["invite"] as? String) == "declined"); return }
-                } else if st != "ringing" {
-                    self.remoteEnded(reason: st == "active" ? "elsewhere" : (call["reason"] as? String))
+                let now = ShareJSON.num(call["now"]) ?? Date().timeIntervalSince1970
+                let age = now - (ShareJSON.num(call["created"]) ?? now)
+                switch CallLogic.ringPoll(group: inc.group, state: call["state"] as? String, mine: (call["mine"] as? [Any] ?? []).count,
+                                          invite: call["invite"] as? String, age: age, ringS: ShareJSON.num(call["ring_s"]) ?? 45) {
+                case .keep: continue
+                case .ended: self.remoteEnded(reason: call["reason"] as? String); return
+                case .elsewhere:
+                    if inc.group { self.stopGroupRing(cid, declined: false) } else { self.remoteEnded(reason: "elsewhere") }
                     return
+                case .declined: self.stopGroupRing(cid, declined: true); return
+                case .expired: self.stopGroupRing(cid, declined: false, expired: true); return   // Gruppe laeuft ohne mich weiter
                 }
             }
         }

@@ -25,6 +25,8 @@ final class CallSystem: NSObject {
     /// Push/Antwort kam, bevor die App ihr Modell hatte (Start im Hintergrund)
     private var pendingRings: [CallLogic.Push] = []
     private var pendingAnswer: (call: String, video: Bool)?
+    /// Medienart aus dem VoIP-Push (CallKit-Annehmen, bevor die Abfrage des Anrufs fertig ist)
+    private var pushMedia: [String: String] = [:]
 
     /// App-Start: Mitteilungs-Kategorie (Annehmen/Ablehnen), iOS: PushKit-Anmeldung
     func setup() {
@@ -66,6 +68,12 @@ final class CallSystem: NSObject {
             else { pendingAnswer = (cid, video); Task { await m.ringing(callID: cid); drainPending() } }
         default: Task { await m.ringing(callID: cid) }                   // Mitteilung angetippt: klingeln lassen (Fenster)
         }
+    }
+
+    /// Anruf-Mitteilung im Vordergrund (nicht gezeigt): klingeln lassen, wenn die App den Anruf noch nicht kennt
+    func ringFromNotice(_ info: [AnyHashable: Any]) {
+        guard let m = manager, let p = CallLogic.push(info), !m.busy, m.incoming == nil, !m.done.contains(p.call) else { return }
+        Task { await m.ringing(callID: p.call, hint: p) }
     }
 
     #if os(iOS)
@@ -135,8 +143,8 @@ final class CallSystem: NSObject {
     func groupInfo(_ m: CallManager, count: Int) {
         #if os(iOS)
         guard CallEnv.callKit, m.kind == "group", let id = m.id, let u = CallLogic.uuid(id), reported.contains(u) else { return }
-        let name = m.title.isEmpty ? m.peerName : m.title
-        provider.reportCall(with: u, updated: update(name: count > 1 ? "\(name) · \(count)" : name, video: m.media == "video", chat: m.chatID))
+        let name = m.dmRoom || m.title.isEmpty ? m.peerName : m.title          // 1:1 ueber Knoten: Name der Person, ohne Zahl
+        provider.reportCall(with: u, updated: update(name: count > 1 && !m.dmRoom ? "\(name) · \(count)" : name, video: m.media == "video", chat: m.chatID))
         #endif
     }
     func reportIncoming(_ m: CallManager, _ inc: IncomingCall) {
@@ -145,6 +153,11 @@ final class CallSystem: NSObject {
             let up = update(name: inc.name, video: inc.media == "video", chat: inc.chatID)
             if reported.contains(u) { provider.reportCall(with: u, updated: up) }
             else { reported.insert(u); provider.reportNewIncomingCall(with: u, update: up) { _ in } }
+            // in CallKit angenommen, waehrend die App den Anruf noch abfragte (Kaltstart per VoIP-Push): jetzt annehmen
+            if let a = pendingAnswer, a.call == inc.id {
+                pendingAnswer = nil
+                Task { @MainActor in if m.incoming?.id == inc.id { m.answer(video: a.video) } }
+            }
             return
         }
         #endif
@@ -188,7 +201,8 @@ final class CallSystem: NSObject {
         UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["call-" + id])
         #if os(iOS)
         guard CallEnv.callKit, let u = CallLogic.uuid(id), reported.contains(u) else { return }
-        reported.remove(u); outgoing.remove(u)
+        reported.remove(u); outgoing.remove(u); pushMedia[id] = nil
+        if pendingAnswer?.call == id { pendingAnswer = nil }
         let r: CXCallEndedReason
         switch reason {
         case .failed: r = .failed
@@ -215,7 +229,7 @@ extension CallSystem: CXProviderDelegate {
     nonisolated func provider(_ provider: CXProvider, perform action: CXAnswerCallAction) {
         let cid = CallLogic.callID(action.callUUID)
         MainActor.assumeIsolated {
-            let video = manager?.incoming?.media == "video"
+            let video = (manager?.incoming?.id == cid ? manager?.incoming?.media : pushMedia[cid]) == "video"
             configureAudio(video: video)
             if let m = manager, m.incoming?.id == cid { m.answer(video: video) } else { pendingAnswer = (cid, video) }
         }
@@ -224,7 +238,8 @@ extension CallSystem: CXProviderDelegate {
     nonisolated func provider(_ provider: CXProvider, perform action: CXEndCallAction) {
         let cid = CallLogic.callID(action.callUUID)
         MainActor.assumeIsolated {
-            reported.remove(action.callUUID); outgoing.remove(action.callUUID)
+            reported.remove(action.callUUID); outgoing.remove(action.callUUID); pushMedia[cid] = nil
+            if pendingAnswer?.call == cid { pendingAnswer = nil }
             if let m = manager, m.callID == cid || m.incoming?.id == cid { m.hangup() }
             else if let m = manager { Task { _ = try? await m.store?.apiResponse("api/calls/\(cid)/decline", method: "POST", body: ["reason": "declined"]) } }
         }
@@ -269,12 +284,26 @@ extension CallSystem: PKPushRegistryDelegate {
                 }
                 return
             }
-            let up = update(name: p.caller ?? title, video: p.media == "video", chat: p.chat)
+            // 1:1 (auch "call.group" mit dm ueber einen Knoten): Name der Person; Gruppenanruf: Chatname bzw. Mitteilungstext
+            let chatTitle = p.chat.flatMap { ch in manager?.store?.chat.chats.first(where: { $0.id == ch })?.title }
+            let up = update(name: CallLogic.systemName(p, chatTitle: chatTitle, title: title), video: p.media == "video", chat: p.chat)
             let known = reported.contains(u)                                   // klingelt schon (Live-Kanal): trotzdem melden,
             reported.insert(u)                                                 // CallKit antwortet dann "existiert schon"
+            pushMedia[p.call] = p.media
             provider.reportNewIncomingCall(with: u, update: up) { _ in completion() }
             if known { return }
             if let m = manager { Task { await m.ringing(callID: p.call, hint: p) } } else { pendingRings.append(p) }
+            // Schutz: klingelt der Anruf nach voipGrace s in der App nicht (Abfrage haengt, Modell fehlt), CallKit beenden
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .seconds(CallLogic.voipGrace))
+                if self?.manager == nil { try? await Task.sleep(for: .seconds(CallLogic.voipGraceNoModel - CallLogic.voipGrace)) }
+                guard let self, self.reported.contains(u) else { return }
+                let m = self.manager
+                if CallLogic.voipStale(reported: true, ringing: m?.incoming?.id == p.call, current: m?.callID == p.call) {
+                    CallEnv.log("voip stale \(p.call.prefix(8))")
+                    self.endReported(p.call, reason: .failed)
+                }
+            }
         }
     }
 }

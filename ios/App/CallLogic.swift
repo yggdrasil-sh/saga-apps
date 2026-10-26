@@ -293,16 +293,60 @@ enum CallLogic {
 
     // MARK: Mitteilung (VoIP-Push bzw. Art "call")
 
-    /// 2.4 E5: Art "call.group" (Gruppenanruf klingelt, group: true) - wie "call" ueber VoIP/CallKit
-    struct Push: Equatable { var call: String; var chat: Int?; var media: String; var caller: String?; var group = false }
+    /// 2.4 E5: Art "call.group" (Gruppenanruf klingelt, group: true) - wie "call" ueber VoIP/CallKit.
+    /// 2.5: auch 1:1 ueber einen Knoten kommt als "call.group" mit dm: true (Name der Person, Annehmen = Raum beitreten)
+    struct Push: Equatable {
+        var call: String; var chat: Int?; var media: String; var caller: String?; var group = false
+        var dm = false; var body: String? = nil
+        /// echter Gruppenanruf (nicht 1:1 ueber Knoten)
+        var groupChat: Bool { group && !dm }
+    }
     static func push(_ info: [AnyHashable: Any]) -> Push? {
         let kind = info["kind"] as? String
         guard kind == "call" || kind == "call.group", let c = info["call"] as? String, isCallID(c) else { return nil }
         let chat = (info["chat"] as? NSNumber)?.intValue ?? (info["chat"] as? String).flatMap { Int($0) }
-        let caller = (info["caller"] as? String).flatMap { $0.isEmpty ? nil : $0 }
-        let group = kind == "call.group" || (info["group"] as? Bool) == true || (info["group"] as? String) == "1"
-        return Push(call: c, chat: chat, media: (info["media"] as? String) == "video" ? "video" : "audio", caller: caller, group: group)
+        func str(_ k: String) -> String? { (info[k] as? String).flatMap { $0.trimmingCharacters(in: .whitespaces).isEmpty ? nil : $0 } }
+        func flag(_ k: String) -> Bool { (info[k] as? Bool) == true || (info[k] as? String) == "1" || (info[k] as? String) == "true" }
+        let group = kind == "call.group" || flag("group")
+        return Push(call: c, chat: chat, media: (info["media"] as? String) == "video" ? "video" : "audio", caller: str("caller"), group: group,
+                    dm: group && flag("dm"), body: str("body"))
     }
+    /// Name fuer CallKit beim VoIP-Push: 1:1 (auch ueber Knoten) = anrufende Person; Gruppenanruf = Chatname (falls
+    /// bekannt), sonst der Text der Mitteilung ("Gruppenanruf von Anna") - nie nur der Name der Person bzw. des Servers
+    /// (gleiche Form wie spaeter beim Klingeln, damit der Name in CallKit nicht springt)
+    static func systemName(_ p: Push, chatTitle: String?, title: String) -> String {
+        let n = ringName(who: p.caller ?? "", chat: p.groupChat ? chatTitle : nil, dm: !p.groupChat, body: p.body)
+        return n.isEmpty ? (p.body ?? title) : n
+    }
+    /// Name eines klingelnden Raum-Anrufs (App und CallKit): 1:1 ueber Knoten = Person; Gruppe = "Person · Chat",
+    /// ohne bekannten Chatnamen der Mitteilungstext (enthaelt "Gruppenanruf"), sonst die Person
+    static func ringName(who: String, chat: String?, dm: Bool, body: String?) -> String {
+        if dm { return who }
+        if let c = chat?.trimmingCharacters(in: .whitespaces), !c.isEmpty { return who.isEmpty ? c : "\(who) · \(c)" }
+        if let b = body, !b.isEmpty { return b }
+        return who
+    }
+    /// Klingeln (alle 5 s GET /api/calls/<id>): weiter, beendet (Anrufer weg / abgelaufen), anderes eigenes Geraet
+    /// angenommen, Einladung (anderswo) abgelehnt, Gruppen-Einladung abgelaufen (Anruf laeuft ohne mich weiter)
+    enum RingPoll: Equatable { case keep, ended, elsewhere, declined, expired }
+    static func ringPoll(group: Bool, state: String?, mine: Int, invite: String?, age: Double, ringS: Double) -> RingPoll {
+        if group {
+            if state == "ended" { return .ended }
+            if mine > 0 { return .elsewhere }
+            if let i = invite, i != "ringing" { return i == "declined" ? .declined : .elsewhere }
+            return age >= ringS ? .expired : .keep
+        }
+        if state == "ringing" { return .keep }
+        return state == "active" ? .elsewhere : .ended
+    }
+    /// Mitteilung vom Server (APNs/Web-Push), waehrend die App laeuft: Anrufe klingelt die App selbst (CallKit bzw.
+    /// Klingelton + eigenes Fenster) - die Mitteilung nicht zusaetzlich zeigen (kein doppeltes Klingeln)
+    static func hideWhileRunning(kind: String?, remote: Bool) -> Bool { remote && (kind == "call" || kind == "call.group") }
+    /// VoIP-Push gemeldet, aber nach `after` s klingelt bzw. laeuft er in der App nicht (Abfrage haengt, kein Modell):
+    /// CallKit-Anruf beenden statt endlos zu klingeln
+    /// Ohne App-Modell (Hintergrundstart, Store noch nicht da) laenger warten: bis die Klingeldauer sicher vorbei ist
+    static let voipGrace = 20.0, voipGraceNoModel = 60.0
+    static func voipStale(reported: Bool, ringing: Bool, current: Bool) -> Bool { reported && !ringing && !current }
     /// Ziel aus der Web-Adresse einer Anruf-Mitteilung (/chats#call-<id>)
     static func callFromURL(_ url: String?) -> String? {
         guard let u = url, let r = u.range(of: "#call-") else { return nil }

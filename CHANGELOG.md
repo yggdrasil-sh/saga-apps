@@ -21,6 +21,18 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Android: Startseite mit Profilbild und Name (→ Konto), „Einstellungen“ (Allgemein · Benachrichtigungen · Chat ·
   Dienste) und „Info“ mit Punkt bei bekanntem Update; „Update“ öffnet die APK von GitHub. Test `UpdateHintTest`.
 
+### Behoben – iOS: Anrufe über den Knoten klingeln bei geschlossener App
+- Seit Anrufe über Gjallarhorn-Knoten laufen, kommen auch 1:1-Anrufe als Art `call.group` (mit `dm`). Der Server
+  schickt sie jetzt (wie Gruppenanrufe) als VoIP-Mitteilung; die App zeigt sie in CallKit richtig an: bei 1:1 den Namen
+  der Person, bei Gruppen den Chatnamen (ohne bekannten Namen den Text „Gruppenanruf von …“), Video aus `media`.
+- Annehmen auf dem Sperrbildschirm tritt dem Raum über den Knoten bei (wie in der App), auch wenn CallKit schneller
+  angenommen hat, als die App den Anruf abfragen konnte; die Audio-Session aktiviert CallKit.
+- Legt die anrufende Person auf, nimmt ein anderes eigenes Gerät an, wird die Einladung anderswo abgelehnt oder läuft
+  das Klingeln ab (auch wenn der Gruppenanruf ohne mich weiterläuft), endet der CallKit-Anruf sofort. Ein schon
+  beendeter Anruf wird gemeldet und gleich beendet; klingelt ein gemeldeter Anruf nach 20 s in der App nicht, endet er.
+- Ist die App offen, zeigt sie Anruf-Mitteilungen des Servers nicht zusätzlich als Banner mit Ton (kein doppeltes
+  Klingeln). Logiktests `VoipGroupTests`.
+
 ### Behoben – iOS/Mac: 1:1-Videoanruf über den Knoten zeigte kein Bild des Gegenübers
 - Lief ein Videoanruf über einen Gjallarhorn-Knoten (z. B. mit „Alle Anrufe über Knoten“), war der Ton da, aber beide
   sahen vom Gegenüber nur die Initialen. Ursache: Die Kamera-Schichten (Simulcast) hatten je Schicht eine andere

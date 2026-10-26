@@ -72,11 +72,14 @@ extension CallManager {
         if incoming?.id == cid || id == cid || done.contains(cid) { return }
         let from = c["from"] as? [String: Any] ?? c["peer"] as? [String: Any] ?? [:]
         let who = ShareJSON.str(from["name"]) ?? hint?.caller ?? ""
-        let dm = (c["dm"] as? Bool) == true                                 // 2.5: 1:1 ueber Knoten - klingelt wie 1:1
-        let chatName = dm ? nil : ShareJSON.str(from["chat"])
+        let dm = (c["dm"] as? Bool) == true || hint?.dm == true              // 2.5: 1:1 ueber Knoten - klingelt wie 1:1
+        let chID = ShareJSON.int(c["chat_id"]) ?? 0
+        // Freie Gruppen: Name Ende-zu-Ende-verschluesselt (Server kennt ihn nicht) - aus der Chatliste
+        let listed = chID != 0 ? store?.chat.chats.first(where: { $0.id == chID })?.title : nil
+        let chatName = dm ? nil : (ShareJSON.str(from["chat"]) ?? listed.flatMap { $0.isEmpty ? nil : $0 })
         let media = (c["media"] as? String) == "video" ? "video" : "audio"
-        let inc = IncomingCall(id: cid, chatID: ShareJSON.int(c["chat_id"]) ?? 0, media: media,
-                               name: chatName.map { "\(who) · \($0)" } ?? who, username: from["username"] as? String ?? "", avatar: ShareJSON.str(from["avatar"]),
+        let inc = IncomingCall(id: cid, chatID: chID, media: media,
+                               name: CallLogic.ringName(who: who, chat: chatName, dm: dm, body: hint?.body), username: from["username"] as? String ?? "", avatar: ShareJSON.str(from["avatar"]),
                                group: true, chatName: chatName)
         reset()
         incoming = inc; phase = .incoming; role = "callee"; kind = "group"; dmRoom = dm; self.media = media; peerName = inc.name; peerAvatar = inc.avatar
@@ -93,10 +96,10 @@ extension CallManager {
         #endif
     }
     /// Klingeln beenden: ein eigenes Geraet ist beigetreten bzw. die Einladung wurde (auf einem anderen Geraet) abgelehnt
-    func stopGroupRing(_ cid: String, declined: Bool) {
+    func stopGroupRing(_ cid: String, declined: Bool, expired: Bool = false) {
         guard let inc = incoming, inc.id == cid else { return }
-        CallEnv.log("group ring stop \(declined ? "declined" : "joined elsewhere")")
-        CallSystem.shared.endReported(cid, reason: declined ? .declinedLocally : .answeredElsewhere)
+        CallEnv.log("group ring stop \(declined ? "declined" : expired ? "expired" : "joined elsewhere")")
+        CallSystem.shared.endReported(cid, reason: declined ? .declinedLocally : expired ? .unanswered : .answeredElsewhere)
         incoming = nil; aliveTask?.cancel(); CallTones.shared.stop()
         phase = .idle; status = ""
         runSoon()
