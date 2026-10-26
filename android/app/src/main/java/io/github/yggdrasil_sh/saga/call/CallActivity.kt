@@ -640,7 +640,26 @@ internal fun MeetCall(
         tileVideo = { t, fit, m -> calls.meetSink(t)?.let { sink -> MeetVideo(calls, sink, mirror = t.me, fit = fit, modifier = m) } },
         selfVideo = { m, onA -> MeetVideo(calls, calls.localSink, mirror = true, fit = false, modifier = m, onAspect = onA) },
         header = {
-            Box(Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 4.dp, vertical = 4.dp)) {
+            if (flat) Box(Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 4.dp, vertical = 4.dp)) {
+                // §8 Handy quer: eine Zeile als Pille (wie iOS) - Titel · Dauer · Personen
+                IconButton(onClick = onMinimize, modifier = Modifier.align(Alignment.CenterStart)) {
+                    Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.call_minimize), tint = Color.White)
+                }
+                var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+                LaunchedEffect(st.connectedAt) { while (true) { now = System.currentTimeMillis(); delay(1000) } }
+                val title = if (room?.kind == CallRoom.KIND_GROUP && room.dm != true) room.title.ifEmpty { stringResource(R.string.room_group_audio) }
+                else st.peer.shown
+                val info = listOfNotNull(
+                    st.connectedAt.takeIf { it > 0 }?.let { CallLogic.duration((now - it) / 1000) },
+                    meetPersons(model.persons).takeIf { model.persons > 2 },
+                ).joinToString(" · ")
+                val group = room != null && (room.kind == CallRoom.KIND_GROUP || st.meet.size > 2)
+                MeetPill(
+                    HornLogic.shortName(title, 28), info, stringResource(if (st.verified) R.string.call_e2e else R.string.call_encrypted),
+                    Modifier.align(Alignment.Center).padding(horizontal = 56.dp),
+                    onClick = if (group) ({ if (room?.horn != null) onPanel("people") else { meshPeople = true; menuOpen = true } }) else null,
+                )
+            } else Box(Modifier.fillMaxWidth().safeDrawingPadding().padding(horizontal = 4.dp, vertical = 4.dp)) {
                 IconButton(onClick = onMinimize, modifier = Modifier.align(Alignment.TopStart)) {
                     Icon(Icons.Filled.KeyboardArrowDown, stringResource(R.string.call_minimize), tint = Color.White)
                 }
