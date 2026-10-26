@@ -428,3 +428,6 @@ suspend fun SagaRepository.ncSearch(q: String): NcItems =
     json.decodeFromString(NcItems.serializer(), api.get("api/nextcloud/search?q=" + java.net.URLEncoder.encode(q.trim(), "UTF-8")))
 
 suspend fun SagaRepository.ncPageStatus(noteId: Long): NcPageStatus = json.decodeFromString(NcPageStatus.serializer(), api.get("api/notes/$noteId/nc"))
+
+/** 2.5 Widgets in Seiten (SPEC-widgets): Werte der Server-Widgets einer Seite - Rohtext, PageWidgets.parseResponse liest ihn */
+suspend fun SagaRepository.pageWidgetValues(noteId: Long): String = api.get("api/notes/$noteId/widgets")

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5 Widgets in Seiten (Block "widget", Anzeige) -->
+<resources>
+    <string name="pw_kind_clock">Часы</string>
+    <string name="pw_kind_countdown">Обратный отсчёт</string>
+    <string name="pw_kind_progress">Прогресс</string>
+    <string name="pw_kind_metric">Показатель</string>
+    <string name="pw_kind_quote">Цитата</string>
+    <string name="pw_kind_widget">Виджет</string>
+    <string name="pw_newer">Виджет — нужна более новая версия</string>
+    <string name="pw_edit_web">Изменить в веб-версии</string>
+    <string name="pw_unsupported">Виджет доступен только на исходном сервере</string>
+    <string name="pw_old_server">Для значений нужен сервер Saga 2.5</string>
+    <string name="pw_failed">Не удалось загрузить значения</string>
+    <string name="pw_pending">Значения пока нет — оно появится после сохранения</string>
+    <string name="pw_err_no_access">Нет доступа к источнику данных</string>
+    <string name="pw_err_gone">Источник данных удалён</string>
+    <string name="pw_err_bad_cfg">Виджет настроен неправильно — измените его в веб-версии</string>
+    <string name="pw_err_too_big">Источник данных слишком велик для этого виджета</string>
+    <string name="pw_no_quotes">Цитат пока нет</string>
+    <string name="pw_cd_today">Сегодня</string>
+    <string name="pw_cd_reached">Достигнуто</string>
+    <string name="pw_cd_not_started">Ещё не началось</string>
+    <string name="pw_cd_until_hm">через %1$d ч %2$d мин</string>
+    <string name="pw_cd_since_hm">%1$d ч %2$d мин назад</string>
+    <string name="pw_of">%1$s из %2$s</string>
+    <string name="pw_goal">Цель: %1$s</string>
+    <plurals name="pw_cd_until_days">
+        <item quantity="one">через %d день</item>
+        <item quantity="few">через %d дня</item>
+        <item quantity="many">через %d дней</item>
+        <item quantity="other">через %d дня</item>
+    </plurals>
+    <plurals name="pw_cd_since_days">
+        <item quantity="one">%d день назад</item>
+        <item quantity="few">%d дня назад</item>
+        <item quantity="many">%d дней назад</item>
+        <item quantity="other">%d дня назад</item>
+    </plurals>
+</resources>

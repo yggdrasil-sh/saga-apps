@@ -208,6 +208,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
         }
     }
     val env = remember(ed) { BlockEnv(ed, repo, onLink) }
+    PageWidgetsForeground(env)                                         // 2.5: Widget-Werte beim Zurueckkehren neu
     // Bilder einfuegen (Zwischenablage, Tastatur): hochladen wie im Web-Editor, dann Bild-Block hinter dem Block mit dem Cursor
     var uploading by remember { mutableIntStateOf(0) }
     val insertImages: (List<IncomingImage>, JsonPath?) -> Unit = { list, path ->
@@ -1050,6 +1051,14 @@ private fun EditorToolbar(
                     }
                 }
             }
+            }
+            // 2.5: Widget - Einstellungen nur im Web (Etappe 1): Seite mit Block-Anker im Browser
+            val wBlock = ed.block(blockPath)?.takeIf { BlockDoc.type(it) == "widget" && active.itemPath() == null }
+            if (wBlock != null && !ed.isRemote && repo != null) {
+                TextButton(onClick = {
+                    ed.flush()
+                    openUrl(context, io.github.yggdrasil_sh.saga.blocks.Gestalten.webUrl(repo.absoluteUrl("notes"), ed.id, BlockDoc.id(wBlock)))
+                }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.pw_edit_web)) }
             }
             val dbBlock = ed.block(blockPath)?.takeIf { BlockDoc.type(it) == "database" && active.itemPath() == null }
             if (dbBlock != null) {                                  // 2.5: Datenbanktitel des Blocks ein-/ausblenden (wie Web/iOS)

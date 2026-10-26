@@ -26,6 +26,16 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Unbekannte Blöcke:** Hinweis-Karte mit „Im Web öffnen“ statt `[typ]`.
 - Umwandeln und Kopieren/Einfügen behalten Block-Tunes (Farbe); Speichern behält unbekannte Felder (mit Rundreise-Test).
 
+### Neu – Android: Widgets in Seiten anzeigen (Saga-Server 2.5)
+- Block **Widget** als Karte mit Titel, Größe (S/M/L), Stil (Karte/schlicht) und Akzentfarbe aus der Palette: **Uhr**
+  (tickt lokal, Zeitzone, 12/24 h, Sekunden, analoge Zeigeruhr), **Countdown** (bis/seit, Tage oder Std./Min.),
+  **Fortschritt** (fester Wert oder aus einer Datenbank), **Kennzahl** (Zahl/Prozent/Euro in App-Sprache, optional mit Ziel),
+  **Zitat** (feste Liste täglich/zufällig oder aus einer Datenbank). Auch in Spalten und Toggles.
+- Werte über `GET /api/notes/{id}/widgets` beim Öffnen und beim Zurückkehren in die App; freundliche Hinweise bei fehlendem
+  Zugriff, gelöschter Quelle, falscher Einrichtung, zu großer Datenbank, älterem Server und Seiten anderer Server.
+- Unbekannte Widget-Arten: „Widget – neuere Version nötig“. Einstellungen nur im Web („Im Web bearbeiten“ im Block-Menü);
+  Widget-Blöcke werden unverändert gespeichert (mit Rundreise-Test).
+
 ### Neu – Android: Seite gestalten (Darstellung, Farbe, Schrift) und Rückfall-Karte
 - **Spaltenbreite:** Gewichte der Spalten (`cols[].w`) gelten ab 600 dp Breite; auf Telefonen weiter untereinander.
 - **Bilder und Videos:** Breite (`width`, auf Telefonen mindestens 50 %) und Ausrichtung links/Mitte/rechts wie im Web;

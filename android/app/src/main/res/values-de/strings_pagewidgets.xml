@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5 Widgets in Seiten (Block "widget", Anzeige) -->
+<resources>
+    <string name="pw_kind_clock">Uhr</string>
+    <string name="pw_kind_countdown">Countdown</string>
+    <string name="pw_kind_progress">Fortschritt</string>
+    <string name="pw_kind_metric">Kennzahl</string>
+    <string name="pw_kind_quote">Zitat</string>
+    <string name="pw_kind_widget">Widget</string>
+    <string name="pw_newer">Widget – neuere Version nötig</string>
+    <string name="pw_edit_web">Im Web bearbeiten</string>
+    <string name="pw_unsupported">Widget nur auf dem Ursprungsserver</string>
+    <string name="pw_old_server">Werte brauchen Saga-Server 2.5</string>
+    <string name="pw_failed">Werte konnten nicht geladen werden</string>
+    <string name="pw_pending">Noch kein Wert – erscheint nach dem Speichern</string>
+    <string name="pw_err_no_access">Kein Zugriff auf die Datenquelle</string>
+    <string name="pw_err_gone">Die Datenquelle wurde gelöscht</string>
+    <string name="pw_err_bad_cfg">Widget ist nicht richtig eingerichtet – im Web bearbeiten</string>
+    <string name="pw_err_too_big">Datenquelle zu groß für dieses Widget</string>
+    <string name="pw_no_quotes">Noch keine Zitate</string>
+    <string name="pw_cd_today">Heute</string>
+    <string name="pw_cd_reached">Erreicht</string>
+    <string name="pw_cd_not_started">Noch nicht begonnen</string>
+    <string name="pw_cd_until_hm">in %1$d Std. %2$d Min.</string>
+    <string name="pw_cd_since_hm">vor %1$d Std. %2$d Min.</string>
+    <string name="pw_of">%1$s von %2$s</string>
+    <string name="pw_goal">Ziel: %1$s</string>
+    <plurals name="pw_cd_until_days">
+        <item quantity="one">in %d Tag</item>
+        <item quantity="other">in %d Tagen</item>
+    </plurals>
+    <plurals name="pw_cd_since_days">
+        <item quantity="one">seit %d Tag</item>
+        <item quantity="other">seit %d Tagen</item>
+    </plurals>
+</resources>

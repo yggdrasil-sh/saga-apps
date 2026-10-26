@@ -69,6 +69,8 @@ import kotlinx.serialization.json.JsonPrimitive
 class BlockEnv(val editor: PageEditor, val repo: SagaRepository, val onLink: (String) -> Unit) {
     /** 2.3: Status der Nextcloud-Bloecke dieser Seite (einmal geholt, fuer alle Karten) */
     val nc: NcPageCache by lazy { NcPageCache(editor.id, repo) }
+    /** 2.5: Werte der Seiten-Widgets (GET /api/notes/{id}/widgets), einmal fuer alle Karten */
+    val widgets: PageWidgetCache by lazy { PageWidgetCache(editor.id, repo) }
     /** 2.4: "/"-Menue - Auswahl auf dem Absatz (PageScreen setzt es) und erfuellte Voraussetzungen der Eintraege */
     var slash: ((JsonPath, io.github.yggdrasil_sh.saga.blocks.SlashLogic.Item) -> Unit)? = null
     var slashNeeds by mutableStateOf<Set<io.github.yggdrasil_sh.saga.blocks.SlashLogic.Need>>(emptySet())
@@ -221,6 +223,8 @@ private fun BlockViewInner(block: JsonObject, path: JsonPath, env: BlockEnv) {
         "embed" -> Selectable(key, path, env) { EmbedBlock(d, env) }
         // 2.3: Datei/Ordner aus einer Nextcloud - nur anzeigen, die Daten bleiben beim Speichern unveraendert
         "nextcloud" -> Selectable(key, path, env) { NextcloudCard(d, env) }
+        // 2.5: Widgets in Seiten - nur anzeigen (Einstellungen im Web), Block bleibt beim Speichern unveraendert
+        "widget" -> Selectable(key, path, env) { PageWidgetBlock(block, env) }
         // Aufgaben, Kalender, Immich gehoeren dem Eigentuemer: auf fremden Seiten nur ein neutraler Platzhalter
         // (der Block bleibt beim Speichern unveraendert)
         else -> if (ed.caps.ownerOnlyBlock(type)) Selectable(key, path, env) { OwnerOnly(type) }
