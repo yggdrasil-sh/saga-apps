@@ -610,6 +610,10 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
      * Empfangsplaetze in fester Reihenfolge (Ton 3; Sprecher, Bildschirm, Kacheln). POST /api/sfu/leg, 401 -> einmal frisch.
      */
     private suspend fun leg(conn: Conn, role: String, path: String, turn: Pair<String, String>?) {
+        // Aufgelegt bzw. Verbindung verworfen, waehrend davor gewartet wurde (TURN-Zugang, voriges Bein): kein neues Bein -
+        // closeConn liefe fuer die tote Verbindung nicht mehr, PeerConnection und Platzhalter blieben liegen, und der
+        // schon freigegebene KeyProvider wirft
+        if (closed || conn.dead) throw CancellationException()
         var legObj: Leg? = null
         val pc = host.factory.createPeerConnection(rtcConfig(conn.cand, turn), observer(conn) { legObj })
             ?: throw IOException("peerconnection")

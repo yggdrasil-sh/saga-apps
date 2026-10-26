@@ -109,4 +109,13 @@ class Bh3AndroidTest {
         val sync = s.substring(s.indexOf("private fun syncTracks("))
         for (x in listOf("L.tr?.sender", "L.cam?.sender", "L.scr?.sender")) assertTrue(x, sync.contains(x))
     }
+
+    /** Fund 4: nach dem Auflegen (bzw. fuer eine verworfene Verbindung) entsteht kein neues Bein mehr */
+    @Test
+    fun noLegAfterClose() {
+        val s = src("HornSession.kt")
+        val leg = s.substring(s.indexOf("private suspend fun leg("))
+        val guard = leg.indexOf("if (closed || conn.dead) throw CancellationException()")
+        assertTrue(guard > 0 && guard < leg.indexOf("createPeerConnection"))
+    }
 }
