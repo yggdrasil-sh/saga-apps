@@ -114,6 +114,7 @@ func gestaltenTests() {
     // MARK: G10 Toggle-Ueberschrift
     check(GestaltenLogic.toggleLevel(d(["level": 2])) == 2 && GestaltenLogic.toggleLevel(d([:])) == 0, "Toggle-Ebene")
     check(GestaltenLogic.toggleLevel(d(["level": 9])) == 3 && GestaltenLogic.toggleLevel(d(["level": -1])) == 0 && GestaltenLogic.toggleLevel(d(["level": "2"])) == 0, "Toggle-Ebene begrenzt")
+    check(GestaltenLogic.toggleLevel(d(["level": 1e300])) == 3 && GestaltenLogic.toggleLevel(d(["level": -1e300])) == 0, "Toggle-Ebene: riesige Werte ohne Absturz")
 
     // MARK: R Rueckfall-Karte
     check(GestaltenLogic.needsFallback("zauberblock") && GestaltenLogic.needsFallback("immich"), "unbekannter Typ -> Karte")
