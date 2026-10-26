@@ -189,6 +189,7 @@ class CallActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         calls.setView(pip = isInPictureInPictureMode, visible = true)
+        CallRingService.ensure(applicationContext)              // 2.5: Klingel-Dienst nachholen (sichtbar = Start erlaubt)
     }
 
     override fun onStop() {

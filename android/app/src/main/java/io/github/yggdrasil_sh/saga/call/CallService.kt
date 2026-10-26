@@ -11,8 +11,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
-import android.media.AudioAttributes
-import android.media.RingtoneManager
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -25,11 +23,15 @@ import io.github.yggdrasil_sh.saga.SagaApplication
 
 /**
  * Mitteilungen fuer Anrufe: Klingeln als Vollbild-Benachrichtigung (CallStyle.forIncomingCall, Kanal mit hoher
- * Wichtigkeit und Klingelton, wiederholt) - ohne Namen nur, solange er nicht geladen ist; laufender Anruf als
- * Vordergrund-Dienst (Typ phoneCall + Mikrofon/Kamera) mit "Auflegen".
+ * Wichtigkeit ohne eigenen Ton - Ton und Vibration in Schleife macht CallRinger) - ohne Namen nur, solange er nicht
+ * geladen ist; laufender Anruf als Vordergrund-Dienst (Typ phoneCall + Mikrofon/Kamera) mit "Auflegen".
  */
 object CallNotify {
-    const val CH_RING = "saga_call_ring"
+    /** 2.5: neuer Kanal OHNE eigenen Ton/Vibration (die App klingelt selbst, CallRinger); der alte wird geloescht */
+    const val CH_RING = "saga_call_ring2"
+    const val CH_RING_OLD = "saga_call_ring"
+    /** Ersatzkanal mit Systemton (nur ohne Klingel-Dienst im Hintergrund) */
+    const val CH_RING_SOUND = "saga_call_ring_sound"
     const val CH_CALL = "saga_call"
     const val ID_RING = 4101
     const val ID_CALL = 4102
@@ -40,15 +42,27 @@ object CallNotify {
 
     fun channels(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java) ?: return
+        // 2.5: Klingeln macht die App selbst (CallRinger). Der alte Kanal hatte Ton/Vibration fest eingebaut (nach dem
+        // ersten Anlegen eingefroren, von Android 15+ gedaempft) - weg damit; der neue ist still, aber wichtig (Vollbild).
+        if (nm.getNotificationChannel(CH_RING_OLD) != null) nm.deleteNotificationChannel(CH_RING_OLD)
         if (nm.getNotificationChannel(CH_RING) == null) {
             val ch = NotificationChannel(CH_RING, context.getString(R.string.call_channel_ring), NotificationManager.IMPORTANCE_HIGH)
+            ch.setSound(null, null)
+            ch.enableVibration(false)
+            ch.vibrationPattern = null
+            ch.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+            nm.createNotificationChannel(ch)
+        }
+        // Ersatz, wenn die App im Hintergrund keinen Klingel-Dienst starten darf (UnifiedPush ohne Akku-Ausnahme): dann
+        // spielt das System den Klingelton der Mitteilung (wiederholt, FLAG_INSISTENT); Vibration macht CallRinger
+        if (nm.getNotificationChannel(CH_RING_SOUND) == null) {
+            val ch = NotificationChannel(CH_RING_SOUND, context.getString(R.string.call_channel_ring_fallback), NotificationManager.IMPORTANCE_HIGH)
             ch.setSound(
-                RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
-                AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build(),
+                android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE),
+                android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_RINGTONE)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION).build(),
             )
-            ch.enableVibration(true)
-            ch.vibrationPattern = longArrayOf(0, 800, 600, 800, 600)
+            ch.enableVibration(false)
             ch.lockscreenVisibility = Notification.VISIBILITY_PUBLIC
             nm.createNotificationChannel(ch)
         }
@@ -80,13 +94,22 @@ object CallNotify {
     fun canNotify(context: Context): Boolean = Build.VERSION.SDK_INT < 33 ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
-    fun showIncoming(context: Context, info: CallInfo) {
-        if (!canNotify(context)) return
+    /** Klingel-Mitteilung zeigen -> die Mitteilung (fuer den Klingel-Dienst), null = Mitteilungen nicht erlaubt */
+    fun showIncoming(context: Context, info: CallInfo, audible: Boolean = false): Notification? =
+        buildIncoming(context, info, audible)?.takeIf { post(context, it) }
+
+    /**
+     * Klingel-Mitteilung nur bauen (null = Mitteilungen nicht erlaubt). 2.5: Sie wird genau EINMAL eingestellt - vom
+     * Klingel-Dienst (startForeground) oder, wenn der nicht starten darf, per post(); ein zweites Einstellen derselben
+     * Mitteilung gilt als stille Aktualisierung und beendet einen laufenden Systemton.
+     */
+    fun buildIncoming(context: Context, info: CallInfo, audible: Boolean = false): Notification? {
+        if (!canNotify(context)) return null
         channels(context)
         val video = info.media == "video"
         val name = info.peer.shown
         val full = activityIntent(context, null, 1)
-        val n = NotificationCompat.Builder(context, CH_RING)
+        val n = NotificationCompat.Builder(context, if (audible) CH_RING_SOUND else CH_RING)
             .setSmallIcon(R.drawable.ic_notification)
             .setColor(io.github.yggdrasil_sh.saga.push.NotifyDesign.ACCENT)
             .setContentTitle(context.getString(if (video) R.string.call_incoming_video else R.string.call_incoming))
@@ -98,6 +121,8 @@ object CallNotify {
             .setAutoCancel(false)
             .setContentIntent(full)
             .setFullScreenIntent(full, true)
+            .setOnlyAlertOnce(!audible)
+            .setSilent(!audible)
             .setTimeoutAfter(((info.expiresIn ?: (info.ringS ?: 45).toDouble()) * 1000).toLong().coerceIn(5_000, 120_000))
             .setStyle(
                 NotificationCompat.CallStyle.forIncomingCall(
@@ -105,11 +130,22 @@ object CallNotify {
                 ).setIsVideo(video),
             )
             .build()
-        n.flags = n.flags or Notification.FLAG_INSISTENT
-        try {
-            NotificationManagerCompat.from(context).notify(ID_RING, n)
-        } catch (_: SecurityException) {
-        }
+        if (audible) n.flags = n.flags or Notification.FLAG_INSISTENT
+        return n
+    }
+
+    fun post(context: Context, n: Notification): Boolean = try {
+        NotificationManagerCompat.from(context).notify(ID_RING, n)
+        true
+    } catch (_: SecurityException) {
+        false
+    }
+
+    /** Ersatz, falls der Klingel-Dienst ohne Mitteilung startet (beendet sich dann sofort) */
+    fun placeholder(context: Context): Notification {
+        channels(context)
+        return NotificationCompat.Builder(context, CH_RING).setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(context.getString(R.string.call_incoming)).setCategory(NotificationCompat.CATEGORY_CALL).setSilent(true).build()
     }
 
     fun cancelIncoming(context: Context) {

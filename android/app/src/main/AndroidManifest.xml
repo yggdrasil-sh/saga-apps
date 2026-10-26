@@ -19,6 +19,8 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" />
+    <!-- 2.5: die App klingelt selbst (wiederholte Vibration beim eingehenden Anruf) -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
@@ -149,6 +151,12 @@
             android:resizeableActivity="true"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|keyboard|navigation|density|uiMode|locale|layoutDirection|fontScale"
             tools:targetApi="27" />
+
+        <!-- 2.5: Klingeln eingehender Anrufe (eigener Ton + Vibration, CallRinger) - haelt den Prozess bis Annehmen/Ablehnen -->
+        <service
+            android:name=".call.CallRingService"
+            android:exported="false"
+            android:foregroundServiceType="phoneCall" />
 
         <service
             android:name=".call.CallService"

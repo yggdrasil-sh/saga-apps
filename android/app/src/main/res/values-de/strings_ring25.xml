@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5: eingehende Anrufe klingeln bei geschlossener App durchgehend (CallRinger) -->
+<resources>
+    <string name="call_channel_ring_fallback">Eingehende Anrufe (Ton bei geschlossener App)</string>
+</resources>

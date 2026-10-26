@@ -628,11 +628,15 @@ class PushReceiver : BroadcastReceiver() {
                 val work = push.onMessage(token, bytes)
                 push.local()?.let { UnifiedPush.ack(context, it.distributor, token, intent.getStringExtra(UnifiedPush.EXTRA_ID)) }
                 if (work != null) {
-                    // Anruf: Prozess wach halten, bis der Zustand geholt ist und es klingelt (hoechstens ~9 s)
+                    // Anruf: Prozess wach halten, bis der Zustand geholt ist und es klingelt (hoechstens ~9 s); 2.5: durfte der
+                    // Klingel-Dienst aus dem Hintergrund nicht starten, weiter offen halten, solange es klingelt (<= 55 s)
                     val pending = goAsync()
+                    val at = System.currentTimeMillis()
+                    val fg = (intent.flags and Intent.FLAG_RECEIVER_FOREGROUND) != 0       // 10 s Frist statt 60 s
                     app.appScope.launch {
                         try {
-                            kotlinx.coroutines.withTimeoutOrNull(9_000) { work.join() }
+                            kotlinx.coroutines.withTimeoutOrNull(if (fg) 8_000 else 9_000) { work.join() }
+                            app.repo.calls.holdWhileRinging(at, fg)
                         } finally {
                             pending.finish()
                         }

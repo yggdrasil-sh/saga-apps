@@ -20,6 +20,13 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Android: Startseite mit Profilbild und Name (→ Konto), „Einstellungen“ (Allgemein · Benachrichtigungen · Chat ·
   Dienste) und „Info“ mit Punkt bei bekanntem Update; „Update“ öffnet die APK von GitHub. Test `UpdateHintTest`.
 
+### Behoben – Android: eingehende Anrufe klingeln bei geschlossener App durchgehend
+- Bei geschlossener App klingelte bzw. vibrierte ein Anruf nur einmal (Pixel, gesperrt wie entsperrt). Die App
+  klingelt jetzt selbst: Klingelton in Schleife und wiederholte Vibration, bis angenommen, abgelehnt, auf einem
+  anderen Gerät angenommen oder aufgelegt wird; Stumm, Vibration, Ruftonlautstärke und „Bitte nicht stören“ gelten.
+- Neuer Mitteilungskanal ohne eigenen Ton (der alte wird entfernt); ein kurzer Vordergrund-Dienst hält die App
+  während des Klingelns wach. Test `RingLogicTest`.
+
 ### Behoben – alle Apps: Schaltflächen mit Vorlage auf Seiten eines anderen Servers
 - Auf einer über Servergrenzen geteilten Seite meldete „Neuer Eintrag“ mit Vorlage „Eintrag nicht angelegt: Nicht
   gefunden“. Android, iOS/Mac und Linux schicken die Seite mit der Schaltfläche (`via`) jetzt auch bei negativer

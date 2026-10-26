@@ -17,5 +17,13 @@
                 <action android:name="io.github.yggdrasil_sh.saga.DEBUG_STREAM" />
             </intent-filter>
         </receiver>
+        <!-- 2.5, nur Debug: eingehenden Anruf mit Beispieldaten klingeln lassen (call/DebugRing.kt) -->
+        <receiver
+            android:name=".call.DebugRing"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="io.github.yggdrasil_sh.saga.DEBUG_RING" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

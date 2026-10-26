@@ -2551,17 +2551,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
         ring = info
         _ui.value = CallUiState(CallPhase.INCOMING, info.id, info.chatId, false, info.media == "video", info.peer, group = !info.dm)   // 2.5: dm = Anzeige wie 1:1
-        CallNotify.showIncoming(app, info)
-        if (androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
-            CallActivity.open(app)
-        }
-        val left = ((info.expiresIn ?: (info.ringS ?: 45).toDouble()).coerceAtLeast(5.0) * 1000).toLong() + 3000
-        ringJob?.cancel()
-        ringJob = scope.launch {
-            delay(left)
-            waitRingHold()
-            unring(info.id, UiText.Res(R.string.call_missed))
-        }
+        startRinging(info)
     }
 
     // ---------------------------------------------------------------- Klingeln, Annehmen
@@ -2611,17 +2601,97 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         }
         ring = info
         _ui.value = CallUiState(CallPhase.INCOMING, info.id, info.chatId, false, info.media == "video", info.peer)
-        CallNotify.showIncoming(app, info)
-        if (androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)) {
-            CallActivity.open(app)
+        startRinging(info)
+    }
+
+    /**
+     * 2.5: Klingeln beginnt (1:1 und Gruppe): Vollbild-Mitteilung (stiller Kanal), eigener Ton + Vibration in Schleife
+     * (CallRinger), Klingel-Dienst haelt den Prozess am Leben; ohne Live-Kanal (App geschlossen) fragt die App alle 3 s
+     * den Zustand ab - Auflegen der Gegenseite, Annehmen/Ablehnen auf einem anderen Geraet beenden das Klingeln sofort.
+     * Ende immer ueber unring() (Annehmen, Ablehnen, Zeitablauf, Ereignis, Abmelden).
+     */
+    private fun startRinging(info: CallInfo) {
+        val fg = androidx.lifecycle.ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED)
+        // Woher der Ton kommt, steht vor der Mitteilung fest: eigener Ton (sichtbar bzw. mit eigener Verbindung) oder
+        // Systemton der Mitteilung (Ersatzkanal) - die Mitteilung wird zugleich die des Klingel-Dienstes
+        val plan = RingLogic.sound(fg, serviceStarted = true, audibleInBackground = io.github.yggdrasil_sh.saga.push.PushStreamService.status.value.running)
+        val n = CallNotify.buildIncoming(app, info, audible = plan == RingLogic.Sound.NONE)
+        if (fg) CallActivity.open(app)
+        if (RingLogic.shouldRing(n != null, fg)) {
+            // Klingel-Mitteilung als Vordergrund-Dienst (haelt den Prozess, erlaubt hoerbaren Ton); darf er nicht
+            // starten, die Mitteilung selbst einstellen - mit Systemton, falls der eigene Ton nicht hoerbar waere
+            val svc = n != null && CallRingService.start(app, n)
+            val sound = if (plan == RingLogic.Sound.AFTER_SERVICE && !svc) RingLogic.Sound.NONE else plan
+            if (n != null && !svc) {
+                val audible = RingLogic.fallback(sound, CallRinger.mode(app), notified = true)
+                CallNotify.post(app, if (audible && plan != RingLogic.Sound.NONE) CallNotify.buildIncoming(app, info, audible = true) ?: n else n)
+            }
+            CallRinger.start(app, info.id, sound)
         }
-        val left = ((info.expiresIn ?: (info.ringS ?: 45).toDouble()).coerceAtLeast(5.0) * 1000).toLong() + 3000
+        val id = info.id
+        val left = RingLogic.ringMs(info.expiresIn, info.ringS)
+        ringUntil = System.currentTimeMillis() + left
         ringJob?.cancel()
         ringJob = scope.launch {
             delay(left)
             waitRingHold()
-            unring(callId, UiText.Res(R.string.call_missed))
+            unring(id, UiText.Res(R.string.call_missed))
         }
+        ringPoll?.cancel()
+        ringPoll = scope.launch {
+            while (ring?.id == id) {
+                delay(RingLogic.POLL_MS)
+                if (ring?.id != id || repo.live.connected.value) continue      // mit Live-Kanal kommen die Ereignisse
+                val now = try {
+                    json.decodeFromString(CallState.serializer(), api.get("api/calls/$id")).call
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: ApiException) {
+                    if (e.code == 404 || e.code == 403) unring(id)
+                    continue
+                } catch (_: Exception) {
+                    continue                                                   // offline: Zeitlimit beendet es
+                }
+                if (ring?.id == id && !RingLogic.stillRinging(now, myUser())) {
+                    unring(id, if (RingLogic.missed(now)) UiText.Res(R.string.call_missed) else null)
+                    if (now.state == "ended") markEnded(id)
+                }
+            }
+        }
+    }
+
+    /** Nur Debug-Build (DebugRing): klingeln mit Beispieldaten, ohne Server */
+    fun debugRing(ringS: Int) {
+        if (!BuildConfig.DEBUG || cur != null || ring != null) return
+        val id = "0123456789abcdef0123456789abcdef"
+        gone.remove(id)
+        val info = CallInfo(id = id, chatId = 1, media = "audio", state = "ringing", role = "callee", peer = CallPeer("alex", "Alex Beispiel"), ringS = ringS)
+        ring = info
+        _ui.value = CallUiState(CallPhase.INCOMING, info.id, info.chatId, false, false, info.peer)
+        startRinging(info)
+    }
+
+    private var ringPoll: Job? = null
+    @Volatile private var ringUntil = 0L
+
+    /**
+     * Push-Empfaenger (UnifiedPush ohne Vordergrund-Dienst): Prozess wach halten, solange es klingelt und der
+     * Klingel-Dienst nicht starten durfte - hoechstens RingLogic.HOLD_MAX_MS.
+     */
+    suspend fun holdWhileRinging(receivedAt: Long, fgBroadcast: Boolean) {
+        val now = System.currentTimeMillis()
+        val until = now + RingLogic.holdMs(CallRingService.running, ringUntil - now, fgBroadcast, now - receivedAt)
+        while (ring != null && !CallRingService.running && System.currentTimeMillis() < until) delay(250)
+        // Danach darf Android den Prozess einfrieren - dann liefe die Schleife (Vibration!) ohne Stopp weiter. Also
+        // Ton/Vibration hier beenden; die Mitteilung bleibt (Annehmen/Ablehnen geht weiter, Zeitlimit des Systems).
+        if (ring != null && !CallRingService.running && RingLogic.stopAfterHold(CallRinger.ringingId != null, CallRingService.running)) {
+            CallRinger.stop(app)
+        }
+    }
+
+    /** Klingel-Dienst vom System beendet: still aufhoeren (nicht ablehnen - ein anderes Geraet kann noch annehmen) */
+    fun ringEndedBySystem() {
+        scope.launch { ring?.let { unring(it.id) } }
     }
 
     /** N-02: Beim Annehmen fragt die Oberflaeche nach dem Mikrofon - so lange wartet das lokale Klingel-Zeitlimit (max. 60 s) */
@@ -2643,6 +2713,9 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         ring = null
         ringJob?.cancel()
         ringJob = null
+        ringPoll?.cancel()
+        ringPoll = null
+        CallRinger.stop(app)                                 // Ton + Vibration sofort aus, Klingel-Dienst beenden
         CallNotify.cancelIncoming(app)
         val st = _ui.value
         if (!keepUi && st != null && st.phase == CallPhase.INCOMING && st.id == id) {
