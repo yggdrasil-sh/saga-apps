@@ -98,10 +98,14 @@ enum AvatarLogic {
     static let retryAfterError: TimeInterval = 60
     /// Antwort des Servers -> was der Zwischenspeicher tut. Nur 404 heisst "kein Bild" (Initialen, bis zur
     /// Revalidierung); 401/429/5xx usw. sind voruebergehend und duerfen das Bild nicht fuer die Sitzung sperren.
-    enum Fetch: Equatable { case image, missing, transient }
+    /// notModified: 304 ohne Bilddaten - iOS reicht die Antwort auf die Nachfrage (ETag) manchmal leer durch, statt den
+    /// Zwischenspeicher zu liefern. Das heisst "Bild unveraendert", NICHT "kein Bild" (sonst verschwanden Profilbilder
+    /// nach 10 min durch Initialen, bis die App neu startete).
+    enum Fetch: Equatable { case image, missing, transient, notModified }
     static func fetchResult(code: Int?, decoded: Bool) -> Fetch {
         guard let code else { return .transient }                        // offline
-        if code == 200 || code == 304 { return decoded ? .image : .missing }
+        if code == 304 { return decoded ? .image : .notModified }
+        if code == 200 { return decoded ? .image : .missing }
         if code == 404 || code == 410 { return .missing }
         return .transient
     }

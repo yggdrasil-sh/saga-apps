@@ -9,6 +9,12 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – iOS/Mac: Profilbilder verschwanden nach einigen Minuten
+- Nach etwa 10 Minuten zeigten Chatliste, Konto und Mitglieder nur noch Initialen, bis die App neu startete. Ursache:
+  Bei der Nachfrage „Bild unverändert?“ (ETag) reichte iOS die Antwort `304` manchmal leer durch, und die App wertete
+  das als „kein Bild“. Ein leeres `304` gilt jetzt als „unverändert“ (das Bild bleibt); fehlt es im Speicher, lädt die
+  App es einmal ohne Zwischenspeicher neu.
+
 ### Behoben – alle Apps: Schaltflächen mit Vorlage auf Seiten eines anderen Servers
 - Auf einer über Servergrenzen geteilten Seite meldete „Neuer Eintrag“ mit Vorlage „Eintrag nicht angelegt: Nicht
   gefunden“. Android, iOS/Mac und Linux schicken die Seite mit der Schaltfläche (`via`) jetzt auch bei negativer
