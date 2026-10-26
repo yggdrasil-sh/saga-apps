@@ -191,6 +191,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     val scope = rememberCoroutineScope()
     val needsLogin by repo.needsLogin.collectAsState()
     var menu by remember { mutableStateOf(false) }
+    var styleMenu by remember { mutableStateOf(false) }
 
     LaunchedEffect(ed) { ed.load() }
     DisposableEffect(ed) { onDispose { ed.close() } }                // speichern (laeuft im App-Scope weiter)
@@ -360,6 +361,11 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
             }
             Box {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more)) }
+                PageStyleMenu(
+                    styleMenu, ed.font, ed.small, onDismiss = { styleMenu = false },
+                    onFont = { f -> styleMenu = false; repo.launchAction { ed.setFont(f) } },
+                    onSmall = { on -> styleMenu = false; repo.launchAction { ed.setSmall(on) } },
+                )
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     if (ed.fetched && caps.canShare && !ed.isRemote) {
                         DropdownMenuItem(text = { Text(stringResource(R.string.share_menu)) }, onClick = {
@@ -379,6 +385,13 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                                 comments.openAll()
                             },
                         )
+                    }
+                    // G9 (2.5): Schrift/kleiner Text - nur wenn der Server die Felder kennt und die Seite bearbeitbar ist
+                    if (ed.fetched && !ed.isDatabase && ed.styleSupported && headerEditable(ed)) {
+                        DropdownMenuItem(text = { Text(stringResource(R.string.gest_font_menu)) }, onClick = {
+                            menu = false
+                            styleMenu = true
+                        })
                     }
                     if (ed.fetched && !ed.isDatabase && caps.canLock && !ed.isRemote) {
                         DropdownMenuItem(text = { Text(stringResource(if (ed.locked) R.string.page_unlock else R.string.page_lock)) }, onClick = {
@@ -507,6 +520,8 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 }
             }
             CompositionLocalProvider(LocalPageImageSink provides imageSink) {
+            // G9 (2.5): Schrift und kleiner Text der Seite gelten fuer Titel, Inhalt und Eigenschaften
+            MaterialTheme(colorScheme = MaterialTheme.colorScheme, typography = pageTypography(MaterialTheme.typography, ed.font, ed.small), shapes = MaterialTheme.shapes) {
             // Rand als contentPadding (nicht padding): das Titelbild darf bis an den Rand reichen, ohne abgeschnitten zu werden
             LazyColumn(Modifier.widthIn(max = if (dbState != null) 1400.dp else 820.dp + 36.dp).fillMaxSize(), state = listState,
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 18.dp)) {
@@ -564,6 +579,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                     // 2.4: Ansichten, Filter, Sortierung, neue Eintraege, Werte bearbeiten - Zeilen direkt in dieser Liste
                     databaseItems(dbState, repo, onOpen = { pid -> nav.push(Dest.Page(pid)) }, wide = dbWide)
                 }
+            }
             }
             }
             if (dbState != null) io.github.yggdrasil_sh.saga.ui.database.DatabaseDialogs(dbState, repo)
@@ -928,6 +944,7 @@ private fun EditorToolbar(
     var addMenu by remember { mutableStateOf(false) }
     var ncPick by remember { mutableStateOf(false) }
     var typeMenu by remember { mutableStateOf(false) }
+    var colorMenu by remember { mutableStateOf(false) }
     var linkDialog by remember { mutableStateOf(false) }
     val blockPath: JsonPath = active.blockPath()
     val isText = active.toggle != null
@@ -993,6 +1010,18 @@ private fun EditorToolbar(
                                     ed.convertBlock(blockPath, t)
                                 })
                             }
+                        }
+                    }
+                }
+                // G3 (2.5): Block-Farbe (Text oder Hintergrund) aus der Palette
+                val styleBlock = ed.block(blockPath)
+                if (io.github.yggdrasil_sh.saga.blocks.Gestalten.canStyle(styleBlock)) {
+                    Box {
+                        val cur = styleBlock?.let { io.github.yggdrasil_sh.saga.blocks.Gestalten.style(it) }
+                        TextButton(onClick = { colorMenu = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.gest_color)) }
+                        BlockColorMenu(colorMenu, cur, onDismiss = { colorMenu = false }) { c, bg ->
+                            colorMenu = false
+                            ed.setBlockStyle(blockPath, c, bg)
                         }
                     }
                 }

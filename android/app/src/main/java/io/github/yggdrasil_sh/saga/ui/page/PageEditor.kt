@@ -11,6 +11,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import io.github.yggdrasil_sh.saga.blocks.BlockDoc
+import io.github.yggdrasil_sh.saga.blocks.Gestalten
 import io.github.yggdrasil_sh.saga.blocks.BlockOps
 import io.github.yggdrasil_sh.saga.blocks.InlineHtml
 import io.github.yggdrasil_sh.saga.blocks.InlineStyle
@@ -130,6 +131,13 @@ class PageEditor(
     var cover by mutableStateOf<String?>(null)
         private set
     var coverPos by mutableStateOf(50.0)
+        private set
+    /** G9 (2.5): Schrift der Seite ("serif" | "mono", null = Standard) und kleiner Text; styleSupported = Server liefert die Felder */
+    var font by mutableStateOf<String?>(null)
+        private set
+    var small by mutableStateOf(false)
+        private set
+    var styleSupported by mutableStateOf(false)
         private set
     /** Tags unter dem Titel (wie Web/iOS) */
     var tags by mutableStateOf<List<String>>(emptyList())
@@ -304,6 +312,9 @@ class PageEditor(
         title = BlockDoc.str(p, "title")
         icon = BlockDoc.str(p, "icon")
         applyHeader(p)
+        font = Gestalten.pageFont(p)
+        small = Gestalten.pageSmall(p)
+        styleSupported = Gestalten.pageStyleSupported(p)
         tags = (p["tags"] as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf { t -> t.isNotBlank() } }
         kind = BlockDoc.str(p, "kind").ifEmpty { "page" }
         locked = BlockDoc.bool(p, "locked")
@@ -1043,6 +1054,42 @@ class PageEditor(
             icon = old.first; cover = old.second; coverPos = old.third
             throw e
         }
+    }
+
+    /** G9: Schrift (null = Standard) sofort zeigen und per PATCH speichern; Fehler: alter Stand */
+    suspend fun setFont(f: String?) {
+        val old = font
+        font = f
+        try {
+            repo.patchPage(id, Gestalten.patchFont(f))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            font = old
+            throw e
+        }
+    }
+
+    /** G9: kleiner Text an/aus (PATCH small) */
+    suspend fun setSmall(on: Boolean) {
+        val old = small
+        small = on
+        try {
+            repo.patchPage(id, Gestalten.patchSmall(on))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            small = old
+            throw e
+        }
+    }
+
+    /** G3: Farbe eines Blocks (null = Standard) - nur Text-Typen, andere tunes-Schluessel bleiben */
+    fun setBlockStyle(path: JsonPath, color: String?, bg: Boolean) {
+        if (!editable) return
+        val b = block(path) ?: return
+        if (!Gestalten.canStyle(b)) return
+        updateBlock(path) { Gestalten.setStyle(it, color, bg) }
     }
 
     /** Tags setzen (sofort sichtbar, dann speichern; Fehler: alter Stand) */

@@ -184,11 +184,6 @@
     <string name="block_divider">Divider</string>
     <string name="placeholder_paragraph">Type something…</string>
     <string name="placeholder_list_item">List item</string>
-    <string name="block_unsupported">%1$s – not supported here yet</string>
-    <plurals name="block_table_rows">
-        <item quantity="one">%d row</item>
-        <item quantity="other">%d rows</item>
-    </plurals>
     <string name="toggle_empty_tap">Empty toggle – tap to write</string>
     <string name="toggle_empty">Empty</string>
     <string name="blocktype_table">Table</string>
@@ -199,8 +194,6 @@
     <string name="blocktype_buttons">Buttons</string>
     <string name="blocktype_embed">Embed</string>
     <string name="blocktype_columns">Columns</string>
-    <string name="blocktype_unknown">Unknown block</string>
-    <string name="blocktype_named">“%1$s”</string>
 
     <!-- Review-Korrekturen 14.10.2026: Kopplung, Speichern, Konflikt, Barrierefreiheit, Teilen -->
     <string name="login_server_hint">Address of your Saga server – https:// is added automatically</string>

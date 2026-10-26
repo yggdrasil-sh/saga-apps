@@ -271,9 +271,11 @@ fun ColumnsBlockEdit(block: JsonObject, path: JsonPath, env: BlockEnv) {
             }
         }
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            if (maxWidth >= 600.dp) {
+            if (maxWidth >= io.github.yggdrasil_sh.saga.blocks.Gestalten.WIDE_DP.dp) {
+                // G1 (2.5): Spaltengewichte cols[].w (fehlen sie: gleich breit)
+                val w = io.github.yggdrasil_sh.saga.blocks.Gestalten.columnWeights(block)?.takeIf { it.size == cols }
                 Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                    for (ci in 0 until cols) Box(Modifier.weight(1f)) { col(ci) }
+                    for (ci in 0 until cols) Box(Modifier.weight(w?.get(ci) ?: 1f)) { col(ci) }
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -286,6 +288,30 @@ fun ColumnsBlockEdit(block: JsonObject, path: JsonPath, env: BlockEnv) {
 
 // ---------------------------------------------------------------- Bild
 
+/**
+ * G2 (2.5): Bild/Player mit data.width (% der Inhaltsbreite, Telefon min. 50 %) und data.align; ohne width wie bisher
+ * (volle Breite). stretched gewinnt.
+ */
+@Composable
+fun MediaBox(d: JsonObject, content: @Composable () -> Unit) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        val phone = maxWidth < io.github.yggdrasil_sh.saga.blocks.Gestalten.WIDE_DP.dp
+        val f = io.github.yggdrasil_sh.saga.blocks.Gestalten.mediaFraction(d, phone)
+        if (f == null || f >= 1f) {
+            content()
+        } else {
+            val al = when (io.github.yggdrasil_sh.saga.blocks.Gestalten.align(d)) {
+                "left" -> Alignment.CenterStart
+                "right" -> Alignment.CenterEnd
+                else -> Alignment.Center
+            }
+            Box(Modifier.fillMaxWidth(), contentAlignment = al) {
+                Box(Modifier.fillMaxWidth(f)) { content() }
+            }
+        }
+    }
+}
+
 @Composable
 fun ImageBlockEdit(block: JsonObject, path: JsonPath, key: String, env: BlockEnv) {
     val ed = env.editor
@@ -297,7 +323,7 @@ fun ImageBlockEdit(block: JsonObject, path: JsonPath, key: String, env: BlockEnv
     val border = BlockDoc.bool(d, "withBorder")
     val wide = BlockDoc.bool(d, "stretched")
     Column(Modifier.fillMaxWidth()) {
-        if (url.isNotEmpty()) {
+        if (url.isNotEmpty()) MediaBox(d) {
             val sized = if ((url.startsWith("/files/") || url.startsWith("/api/fed/files/")) && !url.contains("?")) "$url?w=2000" else url
             Box(
                 Modifier.fillMaxWidth().then(if (bg) Modifier.clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(12.dp) else Modifier),

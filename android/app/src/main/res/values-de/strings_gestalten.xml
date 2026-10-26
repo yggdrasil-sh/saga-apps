@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5 "Seite gestalten" (G3 Farbe, G9 Schrift, R Rueckfall-Karte) -->
+<resources>
+    <string name="gest_fallback_text">Dieser Block lässt sich in der App noch nicht anzeigen.</string>
+    <string name="gest_open_web">Im Web öffnen</string>
+    <string name="gest_color">Farbe</string>
+    <string name="gest_color_default">Standard</string>
+    <string name="gest_color_bg">%1$s (Hintergrund)</string>
+    <string name="gest_c_gray">Grau</string>
+    <string name="gest_c_brown">Braun</string>
+    <string name="gest_c_orange">Orange</string>
+    <string name="gest_c_yellow">Gelb</string>
+    <string name="gest_c_green">Grün</string>
+    <string name="gest_c_blue">Blau</string>
+    <string name="gest_c_purple">Lila</string>
+    <string name="gest_c_pink">Rosa</string>
+    <string name="gest_c_red">Rot</string>
+    <string name="gest_font_menu">Schrift und Textgröße</string>
+    <string name="gest_font_default">Standard</string>
+    <string name="gest_font_serif">Serif</string>
+    <string name="gest_font_mono">Mono</string>
+    <string name="gest_small">Kleiner Text</string>
+</resources>

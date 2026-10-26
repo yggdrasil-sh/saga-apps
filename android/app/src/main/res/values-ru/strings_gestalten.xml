@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5 "Seite gestalten" (G3 Farbe, G9 Schrift, R Rueckfall-Karte) -->
+<resources>
+    <string name="gest_fallback_text">Этот блок пока нельзя показать в приложении.</string>
+    <string name="gest_open_web">Открыть в вебе</string>
+    <string name="gest_color">Цвет</string>
+    <string name="gest_color_default">По умолчанию</string>
+    <string name="gest_color_bg">%1$s (фон)</string>
+    <string name="gest_c_gray">Серый</string>
+    <string name="gest_c_brown">Коричневый</string>
+    <string name="gest_c_orange">Оранжевый</string>
+    <string name="gest_c_yellow">Жёлтый</string>
+    <string name="gest_c_green">Зелёный</string>
+    <string name="gest_c_blue">Синий</string>
+    <string name="gest_c_purple">Фиолетовый</string>
+    <string name="gest_c_pink">Розовый</string>
+    <string name="gest_c_red">Красный</string>
+    <string name="gest_font_menu">Шрифт и размер текста</string>
+    <string name="gest_font_default">По умолчанию</string>
+    <string name="gest_font_serif">С засечками</string>
+    <string name="gest_font_mono">Моноширинный</string>
+    <string name="gest_small">Мелкий текст</string>
+</resources>

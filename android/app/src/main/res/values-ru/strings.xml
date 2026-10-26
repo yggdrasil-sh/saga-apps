@@ -164,13 +164,6 @@
     <string name="block_divider">Разделитель</string>
     <string name="placeholder_paragraph">Напиши что-нибудь…</string>
     <string name="placeholder_list_item">Элемент списка</string>
-    <string name="block_unsupported">%1$s – здесь пока не поддерживается</string>
-    <plurals name="block_table_rows">
-        <item quantity="one">%d строка</item>
-        <item quantity="few">%d строки</item>
-        <item quantity="many">%d строк</item>
-        <item quantity="other">%d строки</item>
-    </plurals>
     <string name="toggle_empty_tap">Пустой раскрывающийся блок – нажми, чтобы написать</string>
     <string name="toggle_empty">Пусто</string>
     <string name="blocktype_table">Таблица</string>
@@ -181,8 +174,6 @@
     <string name="blocktype_buttons">Кнопки</string>
     <string name="blocktype_embed">Встраивание</string>
     <string name="blocktype_columns">Столбцы</string>
-    <string name="blocktype_unknown">Неизвестный блок</string>
-    <string name="blocktype_named">«%1$s»</string>
     <string name="login_server_hint">Адрес твоего сервера Saga – https:// добавляется автоматически</string>
     <string name="login_no_device_token">Сервер не выдал вход для устройства. Обнови сервер.</string>
     <string name="login_not_saga">По этому адресу сервер Saga не найден. Проверь адрес.</string>
