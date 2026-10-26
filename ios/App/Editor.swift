@@ -333,10 +333,12 @@ final class PageEditor: ObservableObject {
             nb = Self.make(type)
             let items = NSMutableArray(array: texts.map { NSMutableDictionary(dictionary: ["content": $0, "meta": NSMutableDictionary(dictionary: type == "checklist" ? ["checked": false] : [:]), "items": NSMutableArray()]) })
             (nb["data"] as! NSMutableDictionary)["items"] = items
+            GestaltenLogic.carryTunes(from: b, to: nb)
             arr.replaceObject(at: i, with: nb); arr.removeObject(at: i); arr.insert(nb, at: i)
             nb["id"] = id; focus = id + "/0"
         } else {
             nb = Self.make(type, text: texts[0], level: level); nb["id"] = id
+            GestaltenLogic.carryTunes(from: b, to: nb)                 // Farbe (tunes.hkstyle) bleibt beim Umwandeln
             arr.replaceObject(at: i, with: nb)
             for (k, t) in texts.dropFirst().enumerated() { arr.insert(Self.make(type, text: t, level: level), at: i + 1 + k) }
             focus = id
@@ -437,6 +439,7 @@ struct EditText: View {
     @State private var linkText = ""
     @State private var box = EditFieldBox()
     @EnvironmentObject private var store: Store
+    @Environment(\.blockTint) private var tint             // Textfarbe des Blocks (2.5, tunes.hkstyle)
 
     /// Cursor als Zeichen-Offset (nil bei markiertem Text)
     private var cursor: Int? {
@@ -565,7 +568,7 @@ struct EditText: View {
         Group {
             if html.isEmpty { Text(placeholder).foregroundStyle(.tertiary) }
             else if raw { Text(html) }
-            else { Text(inlineText(html)).foregroundStyle(muted ? .secondary : .primary) }
+            else { Text(inlineText(html)).foregroundStyle(muted ? .secondary : (tint ?? .primary)) }
         }
         .font(font)
         .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
@@ -585,6 +588,7 @@ struct EditText: View {
                     ZStack(alignment: .topLeading) {
                         TextEditor(text: $rich, selection: $rsel)
                             .font(font)
+                            .foregroundStyle(tint ?? .primary)
                             .scrollDisabled(true)
                             .scrollContentBackground(.hidden)
                             #if os(iOS)

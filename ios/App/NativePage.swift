@@ -17,7 +17,7 @@ let pageGutter: CGFloat = 18, columnGap: CGFloat = 22
 #endif
 
 /// Ziel im Navigationsstapel: Seite nativ oder (zum Bearbeiten) im Web-Editor.
-struct PageRoute: Hashable { let id: Int; var web = false }
+struct PageRoute: Hashable { let id: Int; var web = false; var block: String? = nil }   // block: Anker im Web-Editor (2.5)
 
 // MARK: - Inline-HTML -> AttributedString
 
@@ -391,9 +391,8 @@ final class PageDoc: ObservableObject {
     }
 
     private func setBody(_ body: String, format: String?) {
-        if format == "blocks", let bd = body.data(using: .utf8),
-           let m = try? JSONSerialization.jsonObject(with: bd, options: .mutableContainers) as? NSMutableDictionary,
-           let arr = m["blocks"] as? NSMutableArray {
+        // Regel 0 (2.5): unbekannte Schluessel in data und block.tunes bleiben im Baum und werden mitgespeichert
+        if format == "blocks", let m = GestaltenLogic.parseDoc(body), let arr = m["blocks"] as? NSMutableArray {
             doc = m; root = arr
         } else {                                     // alte Textnotiz -> Absaetze
             root = NSMutableArray(array: body.split(separator: "\n", omittingEmptySubsequences: true).map { PageEditor.make("paragraph", text: mdToHTML(String($0))) })
@@ -427,9 +426,7 @@ final class PageDoc: ObservableObject {
 
     /// Inhalt so, wie er gespeichert wird
     private func serialized() -> String? {
-        doc["blocks"] = root; doc["time"] = Int(Date().timeIntervalSince1970 * 1000)
-        guard let data = try? JSONSerialization.data(withJSONObject: doc) else { return nil }
-        return String(data: data, encoding: .utf8)
+        GestaltenLogic.serialize(doc, blocks: root, timeMs: Int(Date().timeIntervalSince1970 * 1000))
     }
 
     // MARK: Entwuerfe
@@ -738,6 +735,17 @@ struct NativePageScreen: View {
                     if a.allows(.wide) {
                         Toggle(isOn: Binding(get: { doc.page["wide"] as? Bool ?? false },
                                              set: { v in Task { try? await store.patch(id, ["wide": v]); doc.page["wide"] = v } })) { Label("Volle Breite", systemImage: "arrow.left.and.right") }
+                        if GestaltenLogic.supportsPageFont(doc.page) {          // 2.5: Schrift und kleiner Text (Server 2.5)
+                            Picker(selection: Binding(get: { GestaltenLogic.pageFont(doc.page) },
+                                                      set: { f in Task { try? await store.patch(id, ["font": GestaltenLogic.patchValue(f)]); doc.page["font"] = f == .standard ? nil : f.rawValue } })) {
+                                Text("Standard").tag(GestaltenLogic.PageFont.standard)
+                                Text("Serif").tag(GestaltenLogic.PageFont.serif)
+                                Text("Mono").tag(GestaltenLogic.PageFont.mono)
+                            } label: { Label("Schrift", systemImage: "textformat") }
+                            .pickerStyle(.menu)
+                            Toggle(isOn: Binding(get: { GestaltenLogic.pageSmall(doc.page) },
+                                                 set: { v in Task { try? await store.patch(id, ["small": v]); doc.page["small"] = v } })) { Label("Kleiner Text", systemImage: "textformat.size.smaller") }
+                        }
                     }
                     Button { store.setHome(store.homePage == id ? nil : id) } label: {
                         Label(store.homePage == id ? "Nicht mehr Startseite" : "Als Startseite festlegen", systemImage: store.homePage == id ? "house.slash" : "house")
@@ -1027,6 +1035,7 @@ struct NativePageScreen: View {
                     }
                 }
                 .padding(.horizontal, pageGutter).padding(.vertical, 12)
+                .modifier(PageTypography(font: GestaltenLogic.pageFont(doc.page), small: GestaltenLogic.pageSmall(doc.page)))   // 2.5: Schrift/kleiner Text
                 #if os(macOS)
                 .overlayPreferenceValue(BlockFramesKey.self) { frames in if !ed.locked { BlockHandles(frames: frames, hover: ed.hover) } }   // Griffe auf Seitenebene
                 #endif
@@ -1275,7 +1284,7 @@ struct BlockView: View {
         if ShareLogic.isOwnerOnlyBlock(type, foreign: ed.foreign) {
             OwnerOnlyBlock(type: type)                          // fremde Seite: Daten gehoeren dem, der schaut - neutraler Platzhalter
         } else {
-            content
+            content.modifier(BlockStyleMod(style: GestaltenLogic.style(block)))   // Farbe (2.5, tunes.hkstyle)
         }
     }
 
@@ -1321,6 +1330,7 @@ struct BlockView: View {
                         .accessibilityAddTraits(ed.selected == id ? [.isImage, .isSelected] : .isImage)
                     if !s("caption").isEmpty { Text(plain(s("caption"))).font(.caption).foregroundStyle(.secondary) }
                 }
+                .mediaSized(data, compact: hsc == .compact)                    // 2.5: Breite/Ausrichtung (width, align)
             }
         case "attaches":
             let f = data["file"] as? NSDictionary
@@ -1348,17 +1358,13 @@ struct BlockView: View {
                         VStack(alignment: .leading, spacing: 4) { BlocksView(arr: c); ColumnAddButton(visible: true) { ed.continueInColumn(c) } }
                     }
                 }
+            } else if let ws = GestaltenLogic.colWeights(data["cols"] as? NSArray), ws.count == cols.count {
+                WeightedColumns(weights: ws, spacing: columnGap) {            // 2.5: Spaltenbreiten aus dem Web (cols[].w)
+                    ForEach(Array(cols.enumerated()), id: \.offset) { i, c in column(i, c) }
+                }
             } else {
                 HStack(alignment: .top, spacing: columnGap) {
-                    ForEach(Array(cols.enumerated()), id: \.offset) { i, c in
-                        VStack(alignment: .leading, spacing: 4) {
-                            BlocksView(arr: c)
-                            ColumnAddButton(visible: colHover == i) { ed.continueInColumn(c) }   // in DIESER Spalte weiterschreiben
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .onHover { colHover = $0 ? i : (colHover == i ? nil : colHover) }
-                    }
+                    ForEach(Array(cols.enumerated()), id: \.offset) { i, c in column(i, c) }
                 }
             }
         case "database":
@@ -1380,12 +1386,29 @@ struct BlockView: View {
                 if !ed.locked { Button { ed.configButtons = id } label: { Image(systemName: "gearshape").foregroundStyle(.tertiary) }.buttonStyle(.plain).help("Schaltflächen einrichten").accessibilityLabel("Schaltflächen einrichten") }
             }
         case "embed":
-            EmbedCard(url: decodeEntities(s("url")), title: decodeEntities(s("title")))
+            let u = decodeEntities(s("url"))
+            if GestaltenLogic.isPlayer(u) {                                   // 2.5: Player mit Breite/Ausrichtung
+                EmbedCard(url: u, title: decodeEntities(s("title"))).mediaSized(data, compact: hsc == .compact)
+            } else {
+                EmbedCard(url: u, title: decodeEntities(s("title")))
+            }
         case "nextcloud":                                            // 2.3: Datei/Ordner aus Nextcloud (Block bleibt unveraendert)
             NextcloudCard(data: data, note: ed.doc.id, remotePage: FedLogic.isRemote(ed.doc.id))
         default:
-            EmptyView()
+            // 2.5: unbekannter Typ -> Hinweis-Karte statt unsichtbar; der Block bleibt beim Speichern unveraendert (Regel 0)
+            if GestaltenLogic.needsFallback(type) { FallbackBlockCard(type: type, blockID: id, note: ed.doc.id) }
         }
+    }
+
+    /// Eine Spalte (Mac/iPad nebeneinander)
+    private func column(_ i: Int, _ c: NSMutableArray) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            BlocksView(arr: c)
+            ColumnAddButton(visible: colHover == i) { ed.continueInColumn(c) }   // in DIESER Spalte weiterschreiben
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onHover { colHover = $0 ? i : (colHover == i ? nil : colHover) }
     }
 }
 
@@ -1460,6 +1483,10 @@ struct ToggleBlock: View {
     @EnvironmentObject var ed: PageEditor
     @State private var open: Bool
     init(id: String, data: NSMutableDictionary) { self.id = id; self.data = data; _open = State(initialValue: data["open"] as? Bool ?? false) }
+    /// 2.5: Toggle-Ueberschrift (data.level 1-3) in Ueberschriftengroesse
+    private var titleFont: Font {
+        switch GestaltenLogic.toggleLevel(data) { case 1: return .title.bold(); case 2: return .title2.bold(); case 3: return .title3.bold(); default: return .body.bold() }
+    }
     private var inner: NSMutableArray {
         if let a = data["blocks"] as? NSMutableArray { return a }
         let a = NSMutableArray(); data["blocks"] = a; return a
@@ -1470,7 +1497,7 @@ struct ToggleBlock: View {
                 Button { withAnimation(.snappy) { open.toggle() } } label: {
                     Image(systemName: "chevron.right").font(.caption.bold()).rotationEffect(.degrees(open ? 90 : 0)).foregroundStyle(.secondary).frame(width: 18, height: 22)
                 }.buttonStyle(.plain)
-                EditText(key: id, html: data["title"] as? String ?? "", font: .body.bold(), placeholder: String(localized: "Toggle"), boldBase: true,
+                EditText(key: id, html: data["title"] as? String ?? "", font: titleFont, placeholder: String(localized: "Toggle"), boldBase: true,
                          setHTML: { v in data["title"] = v; ed.textChanged() },
                          onReturn: { before, after in
                              data["title"] = before; open = true
@@ -1712,6 +1739,7 @@ struct BlockMenuItems: View {
             }
         } label: { Label("Umwandeln in", systemImage: "arrow.triangle.2.circlepath") }
         }
+        BlockColorMenu(id: id)                                          // 2.5: Text-/Hintergrundfarbe (tunes.hkstyle)
         Button { copyText(AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/notes#\(ed.doc.id):\(id)") } label: { Label("Link zum Block kopieren", systemImage: "link") }
         // Spalten wie Notion: hinein, heraus, zusammenfuehren
         if let c = ed.columnOf(id) {
