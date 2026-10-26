@@ -1,5 +1,6 @@
 package io.github.yggdrasil_sh.saga
 
+import io.github.yggdrasil_sh.saga.call.CallScreen
 import io.github.yggdrasil_sh.saga.call.HornLogic
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -55,5 +56,42 @@ class Bh3AndroidTest {
         assertFalse(s.contains("scalabilityMode ="))
         assertTrue(s.contains("numTemporalLayers = HornLogic.CAM_TEMPORAL"))
         assertTrue(s.contains("val f = HornLogic.camMaxFps(fps)"))
+    }
+
+    /**
+     * Fund 2: stehender Bildschirm - MediaProjection liefert keine neuen Bilder, das vom Knoten angeforderte
+     * Schluesselbild kommt erst mit dem naechsten. Das letzte Bild wird spaetestens alle 500 ms wiederholt, mit streng
+     * aufsteigendem Zeitstempel (die Wiederholung aus der SurfaceTexture traegt sonst den des Originals).
+     */
+    @Test
+    fun screenRepeat() {
+        val ms = 1_000_000L
+        assertEquals(500L, CallScreen.REPEAT_MS)
+        assertFalse(CallScreen.repeatDue(0, 10_000 * ms))                 // noch kein Bild: nichts wiederholen
+        assertFalse(CallScreen.repeatDue(1000 * ms, 1499 * ms))
+        assertTrue(CallScreen.repeatDue(1000 * ms, 1500 * ms))
+        assertFalse(CallScreen.repeatDue(1000 * ms, 900 * ms))            // Uhr rueckwaerts: nie
+        assertTrue(CallScreen.repeatDue(1000 * ms, 1010 * ms, 0))         // ms < 1 -> 1 ms
+        // Zeitstempel: Original vor der Wiederholung, Wiederholung mit gleichem Quell-Stempel -> trotzdem aufsteigend
+        var last = 0L
+        val out = ArrayList<Long>()
+        for (src in listOf(5000 * ms, 5000 * ms, 5000 * ms, 5200 * ms, 5200 * ms)) {
+            last = CallScreen.nextTimestamp(src, last)
+            out.add(last)
+        }
+        assertEquals(out.sorted().distinct(), out)
+        assertEquals(5000 * ms, out[0])
+        assertEquals(5200 * ms, out[3])
+    }
+
+    /** Fund 2 (Code): die Aufnahme laeuft ueber ScreenRepeat (forceFrame) und wird vor stopCapture angehalten */
+    @Test
+    fun screenRepeatWired() {
+        val cm = src("CallManager.kt")
+        assertTrue(cm.contains("cap.initialize(sth, app, rep)"))
+        assertTrue(cm.indexOf("s.repeat.stop()") in 1 until cm.indexOf("s.capturer.stopCapture()"))
+        val r = src("ScreenRepeat.kt")
+        assertTrue(r.contains("surface.forceFrame()"))
+        assertTrue(r.contains("CallScreen.nextTimestamp("))
     }
 }

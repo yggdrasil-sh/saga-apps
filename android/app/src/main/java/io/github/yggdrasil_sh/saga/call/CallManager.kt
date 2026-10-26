@@ -402,7 +402,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
     /** Laufende Bildschirmaufnahme */
     private class ScreenShare(
         val capturer: ScreenCapturerAndroid, val source: VideoSource, val track: VideoTrack, val surface: SurfaceTextureHelper,
-        var w: Int, var h: Int, var fps: Int,
+        var w: Int, var h: Int, var fps: Int, val repeat: ScreenRepeat,
     )
 
     // ---------------------------------------------------------------- 2.4 E4/E5: Raum und Verbindungen
@@ -3228,16 +3228,19 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         var cap: ScreenCapturerAndroid? = null
         var src: VideoSource? = null
         var sth: SurfaceTextureHelper? = null
+        var rep: ScreenRepeat? = null
         return try {
             cap = ScreenCapturerAndroid(data, cb)
             src = f.createVideoSource(true)                // Bildschirm: Detail/Text statt Bewegung (screencast)
             sth = SurfaceTextureHelper.create("saga-screen", egl.eglBaseContext)
-            cap.initialize(sth, app, src.capturerObserver)
+            // stehender Bildschirm: letztes Bild wiederholen (ScreenRepeat, Fehler 26.10.)
+            rep = ScreenRepeat(src.capturerObserver, sth)
+            cap.initialize(sth, app, rep)
             cap.startCapture(w, h, fps)
             src.adaptOutputFormat(w, h, fps)
             val track = f.createVideoTrack(CallScreen.TRACK_SCREEN, src)
             track.setEnabled(true)
-            val s = ScreenShare(cap, src, track, sth, w, h, fps)
+            val s = ScreenShare(cap, src, track, sth, w, h, fps, rep)
             share = s
             c.screen = s
             log("screen on ${w}x$h@$fps")
@@ -3251,6 +3254,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
             if (c.screen != null && c.screen === share) {
                 stopScreen(c)
             } else {
+                rep?.stop()
                 try {
                     cap?.stopCapture()
                 } catch (_: Exception) {
@@ -3331,6 +3335,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         mixOff(c)
         c.rs.horn?.screenChanged()                          // Spur abnehmen, bevor sie freigegeben wird
         for (l in listOf(c) + c.rs.links.values) shareOff(l)
+        s.repeat.stop()
         try {
             s.capturer.stopCapture()
         } catch (_: Exception) {
@@ -3340,7 +3345,7 @@ class CallManager(private val repo: SagaRepository, private val app: Context, pr
         s.source.dispose()
         s.surface.dispose()
         CallService.setScreen(false)
-        log("screen off")
+        log("screen off (wiederholt ${s.repeat.repeats})")
         update(c)
     }
 

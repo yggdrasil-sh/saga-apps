@@ -180,6 +180,21 @@ object CallScreen {
         else -> 15
     }
 
+    /**
+     * Stehender Bildschirm (Fehler 26.10., zuerst auf iOS): das virtuelle Display der MediaProjection liefert bei
+     * unveraendertem Bild KEINE neuen Bilder. libwebrtc kodiert ein angefordertes Schluesselbild (PLI vom Knoten bzw.
+     * Gegenueber) aber erst mit dem naechsten Eingangsbild - bis zur naechsten Aenderung sah das Gegenueber nichts.
+     * Daher das letzte Bild wiederholen, solange keine neuen kommen ([ScreenRepeat]), spaetestens alle REPEAT_MS.
+     */
+    const val REPEAT_MS = 500L
+
+    /** Wiederholung faellig? lastNs = letztes Bild an die Quelle (0 = noch keins) */
+    fun repeatDue(lastNs: Long, nowNs: Long, ms: Long = REPEAT_MS): Boolean =
+        lastNs > 0 && nowNs > lastNs && nowNs - lastNs >= maxOf(ms, 1L) * 1_000_000
+
+    /** Zeitstempel an die Quelle streng aufsteigend (eine Wiederholung traegt sonst den Zeitstempel des Originals) */
+    fun nextTimestamp(now: Long, last: Long): Long = maxOf(now, last + 1_000_000)
+
     /** Kamera daneben (nur B) ueber Relais TCP aus - Hinweis "Kamera pausiert (langsame Verbindung)" beim Teilenden */
     fun camPaused(mode: Mode?, path: CallV3.Path?, cam: Boolean): Boolean =
         mode == Mode.B && cam && path == CallV3.Path.RELAY_TCP
