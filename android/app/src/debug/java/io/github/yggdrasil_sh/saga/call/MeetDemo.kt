@@ -106,6 +106,14 @@ fun MeetDemoContent(scenario: String, hidden: Boolean = false) {
                 DemoCam(4, m)
             },
             header = {
+                if (flat) {
+                    Box(Modifier.fillMaxWidth().safeDrawingPadding().padding(6.dp), contentAlignment = Alignment.Center) {
+                        val title = if (scenario == "duo" || scenario == "presentation") "Anna" else "Projekt Nordlicht"
+                        MeetPill(title, "12:34" + if (model.persons > 2) " · " + meetPersons(model.persons) else "", stringResource(R.string.call_e2e),
+                            Modifier.padding(horizontal = 56.dp))
+                    }
+                    return@MeetingLayer
+                }
                 Column(Modifier.fillMaxWidth().safeDrawingPadding().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(if (scenario == "duo" || scenario == "presentation") "Anna" else "Projekt Nordlicht", color = Color.White, style = MaterialTheme.typography.titleMedium)
                     Text("12:34 · " + stringResource(R.string.call_e2e), color = Color.White, style = MaterialTheme.typography.labelMedium)

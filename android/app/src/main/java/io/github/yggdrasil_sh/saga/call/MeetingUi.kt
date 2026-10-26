@@ -73,6 +73,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.navigationBarsIgnoringVisibility
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -81,6 +82,9 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.heading
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -367,7 +371,8 @@ private fun StageView(
             enter = fadeIn(tween(200)), exit = fadeOut(tween(200)),
         ) {
             // hoechstens die halbe Buehne, auf schmalen Buehnen mind. 260 dp (hoechstens 90 %)
-            val maxW = with(LocalDensity.current) { maxOf(wPx * 0.5f, minOf(260.dp.toPx(), wPx * 0.9f)).toDp() }
+            // Text erst kuerzen, wenn die Buehne (abzueglich Rand) wirklich zu schmal ist
+            val maxW = with(LocalDensity.current) { (wPx - 24.dp.toPx()).coerceAtLeast(120.dp.toPx()).toDp() }
             if (chip) ShareChip(t, Modifier.widthIn(max = maxW)) { ms.chipOff.add(t.id) }
             else NameBar(t, speaking, pinned)
         }
@@ -388,7 +393,7 @@ private fun StageView(
 /** §5.5: Chip unten links in der Buehne (70 % Schwarz, 32 dp hoch, Name gekuerzt) mit × (48 dp Trefferflaeche) */
 @Composable
 private fun ShareChip(t: Meeting.Tile, modifier: Modifier, onClose: () -> Unit) {
-    val nm = HornLogic.shortName(t.name, 14)
+    val nm = HornLogic.shortName(t.name, 28)
     val text = if (t.devName.isNotEmpty()) stringResource(R.string.meet_sharing_chip, "$nm (${t.devName})") else stringResource(R.string.meet_sharing_chip, nm)
     Row(
         modifier.height(32.dp).background(MEET_BAR, RoundedCornerShape(16.dp)).padding(start = 10.dp),
@@ -586,6 +591,7 @@ private fun Strip(
     }
 }
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 /** Galerie: gleich grosse 16:9-Kacheln, letzte Reihe mittig; Seiten mit Pfeilen, Punkten und Wischen */
 @Composable
 private fun Gallery(
@@ -601,8 +607,13 @@ private fun Gallery(
     LaunchedEffect(shown) { onShown(shown) }
     val scope = rememberCoroutineScope()
     val gap = 8f
-    val areaTop = top.value.coerceAtMost(56f)
-    val areaH = h - areaTop - maxOf(bottom.value, 24f) - 8f
+    // Raster beginnt unter dem Kopf; unten frei: Knopfleiste bzw. Gestenleiste (auch immersiv) + Punkte
+    val d = LocalDensity.current
+    val gesture = with(d) { androidx.compose.foundation.layout.WindowInsets.navigationBarsIgnoringVisibility.getBottom(this).toDp() }
+    val dotsBottom = maxOf(bottom, gesture) + 6.dp
+    val areaTop = top.value + 4f
+    val areaBottom = dotsBottom.value + 14f
+    val areaH = h - areaTop - areaBottom
     Box(Modifier.fillMaxSize()) {
         HorizontalPager(pager, Modifier.fillMaxSize(), key = { it }) { pi ->
             val list = pages.getOrElse(pi) { emptyList() }
@@ -616,7 +627,7 @@ private fun Gallery(
             val vids = Meeting.videoSlots(list, g.videos, ms.pin, speaker, emptyMap())
             val cd = stringResource(R.string.meet_participants_cd, order.size)
             Column(
-                Modifier.fillMaxSize().padding(top = areaTop.dp, bottom = maxOf(bottom.value, 24f).dp).semantics { contentDescription = cd },
+                Modifier.fillMaxSize().padding(top = areaTop.dp, bottom = areaBottom.dp).semantics { contentDescription = cd },
                 verticalArrangement = Arrangement.spacedBy(gap.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 list.chunked(cols).forEach { row ->
@@ -644,7 +655,7 @@ private fun Gallery(
             }
             val pageCd = stringResource(R.string.meet_page, pager.currentPage + 1, pages.size)
             Row(
-                Modifier.align(Alignment.BottomCenter).padding(bottom = maxOf(bottom.value, 0f).dp + 6.dp).semantics(mergeDescendants = true) { contentDescription = pageCd },
+                Modifier.align(Alignment.BottomCenter).padding(bottom = dotsBottom).semantics(mergeDescendants = true) { contentDescription = pageCd },
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 repeat(pages.size) { i ->
@@ -819,6 +830,30 @@ internal fun MeetingLayer(
             AnimatedVisibility(!hidden && !ms.fullscreen, enter = enter, exit = exit) {
                 Box(Modifier.fillMaxWidth().onSizeChanged { botH = it.height }) { controls() }
             }
+        }
+    }
+}
+
+/**
+ * §8 Handy quer: Kopf einzeilig als dunkle Pille (Titel · Dauer · Personen · Schloss) wie iOS; onClick oeffnet bei
+ * Gruppen die Teilnehmerliste.
+ */
+@Composable
+internal fun MeetPill(title: String, info: String, e2e: String, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
+    Surface(
+        color = MEET_BAR, contentColor = Color.White, shape = RoundedCornerShape(50),
+        modifier = modifier.then(if (onClick != null) Modifier.clip(RoundedCornerShape(50)).clickable(role = androidx.compose.ui.semantics.Role.Button) { onClick() } else Modifier),
+    ) {
+        Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false).semantics { heading() },
+            )
+            if (info.isNotEmpty()) Text(" · $info", style = MaterialTheme.typography.labelMedium, maxLines = 1, color = Color.White.copy(alpha = 0.85f))
+            Icon(
+                Icons.Filled.Lock, e2e, Modifier.padding(start = 6.dp).size(14.dp),
+                tint = Color(0xFF8BE28B),
+            )
         }
     }
 }
