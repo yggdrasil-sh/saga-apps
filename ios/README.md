@@ -95,7 +95,9 @@ Die Anruf-Signalisierung (`App/CallCrypto.swift`, `App/CallLogic.swift`) prüft 
   Tests: `HornLogicTests` (Fälle wie `tests/horn_logik.js`) im Ziel `HornE2ETests`; Integrationstest `HornNodeTests`
   gegen einen lokalen Knoten (nur 127.0.0.1, `HORN_DEV=1 HORN_UDP=0 HORN_TLS_SELF=1 HORN_ICE_IPS=127.0.0.1
   HORN_LISTEN=127.0.0.1:<port> gjallarhorn node`), Aufruf mit `TEST_RUNNER_SAGA_HORN_NODE=https://127.0.0.1:<port>`
-  und einer eigenen iOS-Simulator-ID (am Mac läuft nur die Messung). Bilder ohne Server: Startparameter
+  und einer eigenen iOS-Simulator-ID (am Mac läuft nur die Messung). UDP-Weg (eine Leitung, Schichten l/m/h): zweiter
+  Knoten mit `HORN_UDP=1` auf einem anderen Port und `TEST_RUNNER_SAGA_HORN_NODE_UDP=https://127.0.0.1:<port2>`
+  (sonst werden die `…UDP`-Tests übersprungen). Bilder ohne Server: Startparameter
   `-hkHornPreview grid|speaker|share|people|runes` (Debug, erfundener Zustand).
 - iPhone/iPad: Hintergrundmodi `voip` und `audio` (Info.plist), CallKit für das Klingeln, PushKit-Token als eigenes
   Mitteilungs-Abo `apns-voip`. Zusätzliche Berechtigungen braucht die App-ID nicht: die Fähigkeit „Push
