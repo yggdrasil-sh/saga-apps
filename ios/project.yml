@@ -244,6 +244,8 @@ targets:
       - App/HornNode.swift                                 # Gespraech mit dem Knoten (Messung, Bein, Ereigniskanal)
       - App/HornMedia.swift                                # Bein = PeerConnection mit FrameCryptor
       - App/HornCamPlan.swift                              # Kamera-Schichten (gleiche Werte je Schicht)
+      - Shared/ScreenFrame.swift                           # Bildschirm: Groesse/Bildrate der Erweiterung (Knotentest)
+      - App/ScreenSink.swift                               # Bildschirm: Empfaenger vor der Quelle (Wiederholung)
       - path: Tests/vectors/horn_e2e.json
         buildPhase: resources
     dependencies:

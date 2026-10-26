@@ -9,6 +9,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – iOS: Bildschirm teilen über den Knoten kam stark verzögert an und blieb stehen
+- Bei stehendem Bildschirm liefert iOS (ReplayKit) keine neuen Bilder. Der Knoten fordert beim Belegen des
+  Bildschirm-Platzes und nach Verlusten ein Schlüsselbild an, das WebRTC aber erst mit dem nächsten Bild kodiert –
+  bis zur nächsten Änderung am Bildschirm sah das Gegenüber nichts oder ein stehendes Bild.
+- Die App wiederholt jetzt das letzte Bild alle 500 ms, solange keine neuen kommen (auch am Mac, ScreenCaptureKit
+  verhält sich gleich). Gleiche Bilder kosten als Delta kaum Bitrate.
+- Nachweis gegen einen lokalen Knoten (`HornNodeTests.testScreenShareSparseFrames*`, Bilder wie aus der Erweiterung
+  884×1920): ohne Wiederholung 0 Bilder nach 5 s, mit Wiederholung sofort und bei jeder Änderung.
+
 ### Behoben – iOS/Mac: Profilbilder verschwanden weiterhin während die App lief
 - Zweite Ursache neben dem leeren `304`: iOS leert den Bild-Speicher der App von selbst (Hintergrund, Speicherdruck).
   War das Bild weg, die letzte Prüfung aber jünger als 10 Minuten, zeigte die App Initialen statt es neu zu lesen – bis

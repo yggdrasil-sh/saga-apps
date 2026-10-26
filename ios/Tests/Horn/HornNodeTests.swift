@@ -189,8 +189,187 @@ final class HornNodeTests: XCTestCase {
         withExtendedLifetime((srcA, capA, camA, srcB, capB, camB)) {}
     }
 
+    // Bildschirm teilen vom iPhone ueber den Knoten (Fehler 26.10.: Bild kam stark verzoegert an und blieb stehen).
+    // A teilt wie die App: RTCVideoSource(forScreenCast:), Hochformat wie die ReplayKit-Erweiterung nach dem
+    // Verkleinern, erst bewegt, dann statisch (ReplayKit liefert bei stehendem Bildschirm keine neuen Bilder), dann
+    // wieder bewegt. B muss am Bildschirm-Platz fortlaufend dekodieren - auch nach der Ruhephase.
+    func testScreenShareFromPhone() async throws { try await screenShare(path: "tcp") }
+    // Hinweis: volle iPhone-Aufloesung 1290x2796 sendet die App nie (Erweiterung verkleinert auf lange Kante 1920); im
+    // Simulator (Software-VP8, 1,2 Mbit/s) staut sie nach ~15 s - daher kein Test dafuer.
+    private func screenShare(path: String, w: Int? = nil, h: Int? = nil) async throws {
+        let room = "apple-scr-\(UInt32.random(in: 1...UInt32.max))"
+        _ = try await HornNet.json(base + "/api/dev/room", body: ["room": room])
+        let kA = Data(repeating: 0x5A, count: 32)
+        let (sw, sh) = (w, h) == (nil, nil) ? ScreenFrame.scaled(width: 1290, height: 2796, maxLong: ScreenFrame.maxLongEdge) : (w!, h!)
+        let src = Self.factory.videoSource(forScreenCast: true), cap = TestPattern(delegate: src)
+        cap.W = sw; cap.H = sh; cap.ms = 1000 / ScreenFrame.fps
+        let scr = Self.factory.videoTrack(with: src, trackId: "scr-a")
+        let devOf = ["peerSA": "devA", "peerSB": "devB"]
+        let pa = HornCryptor.keyProvider(), pb = HornCryptor.keyProvider()
+        pa.setKey(kA, with: 0, forParticipant: "devA")
+        HornCryptor.setSlots(pb, device: "devA", newest: 0, key: kA)
+        let tiles = HornLogic.tileSlots(mobile: true)
+        let a = try await join(room: room, peer: "peerSA", dev: "devA", provider: pa, camera: nil, path: path, tiles: tiles, mobile: true, screen: scr)
+        let b = try await join(room: room, peer: "peerSB", dev: "devB", provider: pb, camera: nil, path: path, tiles: tiles, mobile: true)
+        var map: [UInt32: String] = [:]
+        for (me, legs) in [("devA", a), ("devB", b)] {
+            for L in legs.values {
+                guard let ev = HornEvents(base: base, leg: L.id ?? "") else { XCTFail("events"); continue }
+                L.events = ev
+                var peers: [String: UInt32] = [:]
+                ev.onEvent = { e in
+                    switch e {
+                    case .hello(_, let p, let s, _, _): peers = p; L.slots = s
+                    case .peers(let p): peers = p
+                    case .layout(let s, _): L.slots = s
+                    default: break
+                    }
+                    let m = HornLogic.csrcMap(peers: peers, slots: L.slots, me: me) { devOf[$0] }
+                    if me == "devB" && L.role == "video" { map = m }
+                    let bySlot = Dictionary(L.slots.map { ($0.i, $0) }, uniquingKeysWith: { x, _ in x })
+                    L.bind { i in HornLogic.owner(bySlot[i], m) }
+                }
+                ev.start()
+            }
+        }
+        cap.start()
+        var up = false
+        for _ in 0..<40 {
+            try await Task.sleep(nanoseconds: 250_000_000)
+            up = [a, b].allSatisfy { $0.values.allSatisfy { $0.state == .connected } }
+            if up { break }
+        }
+        XCTAssertTrue(up, "verbunden")
+        let v = b["video"]!
+        func screenFrames() async -> (frames: Int, w: Int, h: Int) {
+            guard let s = v.slots.first(where: { $0.cls == "screen" }), s.i < v.recv.count, let pc = v.pc else { return (0, 0, 0) }
+            let mid = v.recv[s.i].mid
+            let r: RTCStatisticsReport = await withCheckedContinuation { k in pc.statistics { k.resume(returning: $0) } }
+            for x in r.statistics.values where x.type == "inbound-rtp" && (x.values["mid"] as? String) == mid {
+                return ((x.values["framesDecoded"] as? NSNumber)?.intValue ?? 0, (x.values["frameWidth"] as? NSNumber)?.intValue ?? 0,
+                        (x.values["frameHeight"] as? NSNumber)?.intValue ?? 0)
+            }
+            return (0, 0, 0)
+        }
+        // Phase 1: bewegt; jede Sekunde muessen neue Bilder kommen
+        var last = 0, seq: [Int] = []
+        for _ in 0..<8 {
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+            let f = await screenFrames().frames; seq.append(f - last); last = f
+        }
+        let p1 = await screenFrames()
+        print("scr \(sw)x\(sh) bewegt: je s \(seq) -> \(p1) out: \(await sent(a["video"]!)) slots \(v.slots.map { "\($0.cls)\($0.i):\($0.layer ?? "-")\($0.paused ? "P" : "")" }) map \(map)")
+        XCTAssertGreaterThan(seq.suffix(4).min() ?? 0, 3, "Bildschirm kommt fortlaufend an (\(sw)x\(sh)): je s \(seq)")
+        XCTAssertGreaterThan(p1.w * p1.h, 0, "Bildgroesse beim Empfaenger")
+        // Phase 2: statisch (ReplayKit liefert nichts), dann wieder bewegt - Bild muss sofort weiterlaufen
+        cap.stop()
+        try await Task.sleep(nanoseconds: 4_000_000_000)
+        let still = await screenFrames().frames
+        let stillSlot = v.slots.first { $0.cls == "screen" }
+        print("scr statisch: \(still - p1.frames) Bilder in 4 s, Platz \(String(describing: stillSlot))")
+        cap.start()
+        last = await screenFrames().frames; seq = []
+        for _ in 0..<5 {
+            try await Task.sleep(nanoseconds: 1_000_000_000)
+            let f = await screenFrames().frames; seq.append(f - last); last = f
+        }
+        print("scr wieder bewegt: je s \(seq) out: \(await sent(a["video"]!))")
+        XCTAssertGreaterThan(seq.suffix(3).min() ?? 0, 3, "nach statischer Phase laeuft der Bildschirm weiter: je s \(seq)")
+        cap.stop()
+        for legs in [a, b] { for L in legs.values { L.close() } }
+        withExtendedLifetime((src, cap, scr)) {}
+    }
+
+    // Wie ReplayKit: Bilder nur bei Aenderung (NV12 aus der Erweiterung, 884x1920), ueber ScreenSink wie die App.
+    // Ein Bild beim Start, dann 5 s Ruhe, dann alle 2 s eine einzelne Aenderung. Ohne Wiederholung (Verhalten vor dem
+    // Fix) kommt das erste Bild erst mit einer spaeteren Aenderung an (das Schluesselbild, das der Knoten beim Belegen
+    // des Platzes anfordert, kodiert libwebrtc erst mit dem naechsten Eingangsbild).
+    func testScreenShareSparseFramesOld() async throws { try await sparse(repeatMs: nil) }
+    func testScreenShareSparseFrames() async throws { try await sparse(repeatMs: ScreenFrame.repeatMs) }
+    private func sparse(repeatMs: Int?) async throws {
+        let room = "apple-sp-\(UInt32.random(in: 1...UInt32.max))"
+        _ = try await HornNet.json(base + "/api/dev/room", body: ["room": room])
+        let kA = Data(repeating: 0x5A, count: 32)
+        let (w, h) = ScreenFrame.scaled(width: 1290, height: 2796, maxLong: ScreenFrame.maxLongEdge)
+        let src = Self.factory.videoSource(forScreenCast: true), sink = ScreenSink(repeatMs: repeatMs)
+        let scr = Self.factory.videoTrack(with: src, trackId: "scr-sp")
+        let devOf = ["peerPA": "devA", "peerPB": "devB"]
+        let pa = HornCryptor.keyProvider(), pb = HornCryptor.keyProvider()
+        pa.setKey(kA, with: 0, forParticipant: "devA")
+        HornCryptor.setSlots(pb, device: "devA", newest: 0, key: kA)
+        let tiles = HornLogic.tileSlots(mobile: true)
+        let a = try await join(room: room, peer: "peerPA", dev: "devA", provider: pa, camera: nil, path: "tcp", tiles: tiles, mobile: true, screen: scr)
+        let b = try await join(room: room, peer: "peerPB", dev: "devB", provider: pb, camera: nil, path: "tcp", tiles: tiles, mobile: true)
+        for (me, legs) in [("devA", a), ("devB", b)] {
+            for L in legs.values {
+                guard let ev = HornEvents(base: base, leg: L.id ?? "") else { XCTFail("events"); continue }
+                L.events = ev
+                var peers: [String: UInt32] = [:]
+                ev.onEvent = { e in
+                    switch e {
+                    case .hello(_, let p, let s, _, _): peers = p; L.slots = s
+                    case .peers(let p): peers = p
+                    case .layout(let s, _): L.slots = s
+                    default: break
+                    }
+                    let m = HornLogic.csrcMap(peers: peers, slots: L.slots, me: me) { devOf[$0] }
+                    let bySlot = Dictionary(L.slots.map { ($0.i, $0) }, uniquingKeysWith: { x, _ in x })
+                    L.bind { i in HornLogic.owner(bySlot[i], m) }
+                }
+                ev.start()
+            }
+        }
+        var up = false
+        for _ in 0..<40 {
+            try await Task.sleep(nanoseconds: 250_000_000)
+            up = [a, b].allSatisfy { $0.values.allSatisfy { $0.state == .connected } }
+            if up { break }
+        }
+        XCTAssertTrue(up, "verbunden")
+        let v = b["video"]!
+        func frames() async -> Int {
+            guard let s = v.slots.first(where: { $0.cls == "screen" }), s.i < v.recv.count, let pc = v.pc else { return 0 }
+            let mid = v.recv[s.i].mid
+            let r: RTCStatisticsReport = await withCheckedContinuation { k in pc.statistics { k.resume(returning: $0) } }
+            return r.statistics.values.first { $0.type == "inbound-rtp" && ($0.values["mid"] as? String) == mid }
+                .flatMap { ($0.values["framesDecoded"] as? NSNumber)?.intValue } ?? 0
+        }
+        sink.set(src)
+        sink.deliver(Self.nv12(w, h, k: 0), rotation: ._0)                 // Teilen beginnt: ein Bild, dann Ruhe
+        try await Task.sleep(nanoseconds: 5_000_000_000)
+        let first = await frames()
+        var after: [Int] = []
+        for k in 1...4 {                                                    // einzelne Aenderungen
+            sink.deliver(Self.nv12(w, h, k: k), rotation: ._0)
+            try await Task.sleep(nanoseconds: 2_000_000_000)
+            after.append(await frames())
+        }
+        print("sparse repeat=\(repeatMs.map(String.init) ?? "aus"): nach 5 s Ruhe \(first) Bilder, dann \(after), wiederholt \(sink.repeats) out: \(await sent(a["video"]!))")
+        sink.set(nil)
+        if repeatMs != nil {
+            XCTAssertGreaterThan(first, 0, "erstes Bild kommt ohne weitere Aenderung an")
+            for i in after.indices { XCTAssertGreaterThan(after[i], i == 0 ? first : after[i - 1], "jede Aenderung kommt an: \(after)") }
+        }
+        for legs in [a, b] { for L in legs.values { L.close() } }
+        withExtendedLifetime((src, scr, sink)) {}
+    }
+    /// NV12 wie aus der Erweiterung (IOSurface), Inhalt je k verschieden
+    static func nv12(_ w: Int, _ h: Int, k: Int) -> CVPixelBuffer {
+        var pb: CVPixelBuffer?
+        let attrs: [CFString: Any] = [kCVPixelBufferIOSurfacePropertiesKey: [:] as [CFString: Any]]
+        CVPixelBufferCreate(nil, w, h, kCVPixelFormatType_420YpCbCr8BiPlanarFullRange, attrs as CFDictionary, &pb)
+        CVPixelBufferLockBaseAddress(pb!, [])
+        for plane in 0..<2 {
+            let base = CVPixelBufferGetBaseAddressOfPlane(pb!, plane)!, st = CVPixelBufferGetBytesPerRowOfPlane(pb!, plane)
+            let rows = plane == 0 ? h : h / 2
+            for r in 0..<rows { memset(base + r * st, Int32(plane == 0 ? (40 + (r / 64 + k * 7) * 23) % 200 : 128), st) }
+        }
+        CVPixelBufferUnlockBaseAddress(pb!, [])
+        return pb!
+    }
+
     private func join(room: String, peer: String, dev: String, provider: RTCFrameCryptorKeyProvider, camera: RTCVideoTrack?, path: String,
-                      tiles: Int = 8, mobile: Bool = false) async throws -> [String: HornLeg] {
+                      tiles: Int = 8, mobile: Bool = false, screen: RTCVideoTrack? = nil) async throws -> [String: HornLeg] {
         var out: [String: HornLeg] = [:]
         var turn: HornLeg.Turn?
         if path == "turn" {
@@ -202,7 +381,7 @@ final class HornNodeTests: XCTestCase {
         for role in ["audio", "video"] {
             let tok = try await HornNet.json(base + "/api/dev/token", body: ["room": room, "peer": peer, "role": role, "device": mobile ? "mobile" : "desktop"])["token"] as? String ?? ""
             let L = HornLeg(role: role, path: path, me: dev, tiles: tiles, factory: Self.factory, provider: provider)
-            XCTAssertTrue(L.build(turn: turn, audio: nil, camera: camera, screen: nil, keyIndex: 0, sid: "s" + peer))
+            XCTAssertTrue(L.build(turn: turn, audio: nil, camera: camera, screen: screen, keyIndex: 0, sid: "s" + peer))
             let offer = try await L.offer()
             XCTAssertTrue(offer.contains("VP8") || role == "audio")
             let ans = try await HornNet.leg(base, L.body(token: tok, offer: offer, mobile: mobile))
@@ -220,7 +399,7 @@ final class HornNodeTests: XCTestCase {
         return r.statistics.values.filter { $0.type == "outbound-rtp" && ($0.values["kind"] as? String) == "video" }.map { s in
             let v = s.values
             func f(_ k: String) -> String { v[k].map { "\($0)" } ?? "-" }
-            return "\(f("rid")):\(f("framesEncoded"))f \(f("frameWidth"))x\(f("frameHeight")) act=\(f("active")) lim=\(f("qualityLimitationReason")) tgt=\(f("targetBitrate")) impl=\(f("encoderImplementation"))"
+            return "\(f("rid")):\(f("framesEncoded"))f k\(f("keyFramesEncoded")) sent\(f("framesSent")) \(f("frameWidth"))x\(f("frameHeight")) act=\(f("active")) lim=\(f("qualityLimitationReason")) tgt=\(f("targetBitrate")) bytes=\(f("bytesSent")) delay=\(f("totalPacketSendDelay")) pkts=\(f("packetsSent")) pli=\(f("pliCount")) impl=\(f("encoderImplementation"))"
         }.sorted().joined(separator: " | ") + " src=" + r.statistics.values.filter { $0.type == "media-source" && ($0.values["kind"] as? String) == "video" }
             .map { "\($0.values["frames"] ?? 0 as NSNumber)@\($0.values["width"] ?? 0 as NSNumber)" }.joined(separator: ",")
             + " bwe=" + r.statistics.values.filter { $0.type == "candidate-pair" && ($0.values["nominated"] as? NSNumber)?.boolValue == true }

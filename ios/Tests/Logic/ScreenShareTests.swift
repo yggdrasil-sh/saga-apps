@@ -191,6 +191,20 @@ private func screenFrameTests() {
           "Pfad im App-Gruppen-Container passt")
     // Speicher der Erweiterung: hoechstens zwei NV12-Puffer 1080p unterwegs
     check(2 * F.payloadSize(width: 1920, height: 1080) < 8_000_000, "Puffer der Erweiterung < 8 MB")
+    // Fehler 26.10. (Knoten): bei stehendem Bildschirm das letzte Bild wiederholen, damit ein angefordertes
+    // Schluesselbild kodiert wird (libwebrtc kodiert es erst mit dem naechsten Eingangsbild)
+    let s1: UInt64 = 10_000_000_000
+    check(!F.repeatDue(lastNs: 0, nowNs: s1, ms: F.repeatMs), "noch kein Bild: nichts wiederholen")
+    check(!F.repeatDue(lastNs: s1, nowNs: s1 + 100_000_000, ms: F.repeatMs), "Bild vor 100 ms: nicht wiederholen")
+    check(!F.repeatDue(lastNs: s1, nowNs: s1 + 499_000_000, ms: F.repeatMs), "knapp unter 500 ms: nicht wiederholen")
+    check(F.repeatDue(lastNs: s1, nowNs: s1 + 500_000_000, ms: F.repeatMs), "500 ms ohne Bild: wiederholen")
+    check(!F.repeatDue(lastNs: s1, nowNs: s1 - 1, ms: F.repeatMs), "Uhr rueckwaerts: nicht wiederholen")
+    check(F.repeatMs <= 1000 && F.repeatMs >= 1000 / F.fps, "Wiederholung hoechstens 1 s, nie schneller als die Bildrate")
+    // Wiederholen bremst nichts aus: ein Bild alle 500 ms ist weit unter der Rate der Erweiterung
+    check(1000 / F.repeatMs < F.hotFps, "Wiederholung (2 fps) unter der Bildrate auch heiss (5 fps)")
+    check(F.nextTimestamp(now: 5_000_000, last: 0) == 5_000_000, "Zeitstempel = jetzt")
+    check(F.nextTimestamp(now: 5_000_000, last: 5_000_000) == 6_000_000, "gleicher Zeitpunkt: 1 ms spaeter")
+    check(F.nextTimestamp(now: 4_000_000, last: 5_000_000) == 6_000_000, "nie rueckwaerts (zwei Threads)")
 }
 
 // 2.5-Fix: angenommener Socket muss blockierend lesen (Darwin erbt O_NONBLOCK vom lauschenden Socket)

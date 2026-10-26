@@ -56,6 +56,16 @@ enum ScreenFrame {
         guard let lastNs, nowNs > lastNs else { return true }
         return nowNs - lastNs >= UInt64(1_000_000_000 / max(fps, 1)) * 9 / 10
     }
+    /// App (ScreenSink): letztes Bild wiederholen, solange keine neuen kommen - ReplayKit/ScreenCaptureKit liefern bei
+    /// stehendem Bildschirm nichts, libwebrtc kodiert ein angefordertes Schluesselbild aber erst mit dem naechsten
+    /// Eingangsbild (Fehler 26.10.). Alle 500 ms, also spaetestens dann.
+    static let repeatMs = 500
+    static func repeatDue(lastNs: UInt64, nowNs: UInt64, ms: Int) -> Bool {
+        guard lastNs > 0 else { return false }                              // noch kein Bild
+        return nowNs > lastNs && nowNs - lastNs >= UInt64(max(ms, 1)) * 1_000_000
+    }
+    /// Zeitstempel der Bilder an die Quelle streng aufsteigend (Aufnahme und Wiederholung kommen von zwei Threads)
+    static func nextTimestamp(now: Int64, last: Int64) -> Int64 { max(now, last + 1_000_000) }
     /// ReplayKit-Ausrichtung (RPVideoSampleOrientationKey, CGImagePropertyOrientation) -> Drehung in Grad
     static func rotation(orientation: UInt32) -> Int {
         switch orientation {

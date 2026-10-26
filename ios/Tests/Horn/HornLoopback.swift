@@ -124,8 +124,19 @@ final class TestPattern: RTCVideoCapturer, @unchecked Sendable {
         if cache.isEmpty {                                                  // 8 vorberechnete Rahmen (schnell auch bei 720p)
             for k in 0..<8 {
                 let bar = k * W / 8
+                // zeilenweise aus einer Grundzeile kopieren (auch 1290x2796 im Debug-Build schnell genug)
+                let base = (0..<(W + H)).map { UInt8(30 + $0 % 180) }
                 var y = [UInt8](repeating: 0, count: W * H)
-                for r in 0..<H { for c in 0..<W { y[r * W + c] = abs(c - bar) < 16 ? 235 : UInt8(30 + (c + r) % 180) } }
+                y.withUnsafeMutableBufferPointer { p in
+                    base.withUnsafeBufferPointer { b in
+                        for r in 0..<H {
+                            let row = p.baseAddress! + r * W
+                            row.update(from: b.baseAddress! + r, count: W)
+                            let x0 = max(0, bar - 15), x1 = min(W, bar + 16)
+                            if x1 > x0 { (row + x0).update(repeating: 235, count: x1 - x0) }
+                        }
+                    }
+                }
                 let u = [UInt8](repeating: 90, count: W * H / 4), v = [UInt8](repeating: 200, count: W * H / 4)
                 cache.append(RTCI420Buffer(width: Int32(W), height: Int32(H), dataY: y, dataU: u, dataV: v))
             }

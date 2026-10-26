@@ -21,21 +21,6 @@ import ReplayKit
 //   Daher screen_audio = false; das Mikrofon bleibt wie es ist. Seit 2.5 (webrtc-sdk) gibt es am Mac RTCAudioDevice,
 //   RTCAudioDeviceModule und RTCDesktopCapturer - damit liesse sich die Luecke spaeter schliessen (nicht in diesem Schritt).
 
-/// Empfaenger der Bilder (thread-sicher; Bilder kommen auf Hintergrund-Threads)
-final class ScreenSink: @unchecked Sendable {
-    private let lock = NSLock()
-    private var source: RTCVideoSource?
-    private let capturer = RTCVideoCapturer()
-    func set(_ s: RTCVideoSource?) { lock.lock(); source = s; lock.unlock() }
-    func deliver(_ pb: CVPixelBuffer, rotation: RTCVideoRotation) {
-        lock.lock(); let s = source; lock.unlock()
-        guard let s else { return }
-        let f = RTCVideoFrame(buffer: RTCCVPixelBuffer(pixelBuffer: pb), rotation: rotation,
-                              timeStampNs: Int64(DispatchTime.now().uptimeNanoseconds))
-        s.capturer(capturer, didCapture: f)
-    }
-}
-
 #if os(macOS)
 /// Mac: Auswahl per SCContentSharingPicker, Aufnahme per SCStream
 @MainActor
@@ -88,7 +73,7 @@ final class ScreenCapture: NSObject {
         c.width = sz.width; c.height = sz.height
         c.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(fps))
         c.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarFullRange      // NV12 wie der Hardware-Encoder
-        c.queueDepth = 4
+        c.queueDepth = 5                                                    // ein Puffer mehr: ScreenSink haelt das letzte Bild (Wiederholung)
         c.showsCursor = true
         c.scalesToFit = true
         c.preservesAspectRatio = true
