@@ -201,8 +201,12 @@ jobs:
   macos:
     name: macOS (DMG)
     needs: version
-    # Eigener Mac nur von Hand (Run workflow, mac_runner=self); Pushes bauen immer auf GitHub-Runnern
-    runs-on: ${{ inputs.mac_runner == 'self' && fromJSON('["self-hosted","saga-mac"]') || 'macos-26' }}
+    # Eigener Mac: von Hand (Run workflow, mac_runner=self) oder fuer Pushes ueber die Repository-Variable
+    # SAGA_MAC_RUNNER=self (Settings -> Secrets and variables -> Actions -> Variables), z. B. wenn GitHub keinen
+    # macOS-arm64-Runner zuteilt. Variable loeschen bzw. auf "hosted" -> wieder GitHub-Runner.
+    # Hinweis: Workflows aus Pull Requests von Forks duerfen nie auf dem eigenen Mac laufen - dieser Workflow hat
+    # keinen pull_request-Ausloeser; in den Repo-Einstellungen Freigabe fuer Workflows von Aussenstehenden verlangen.
+    runs-on: ${{ (inputs.mac_runner || vars.SAGA_MAC_RUNNER) == 'self' && fromJSON('["self-hosted","saga-mac"]') || 'macos-26' }}
     steps:
       - uses: actions/checkout@v5
       # Xcode-Auswahl nur auf GitHub-Runnern; auf dem eigenen Mac bleibt das System unveraendert
