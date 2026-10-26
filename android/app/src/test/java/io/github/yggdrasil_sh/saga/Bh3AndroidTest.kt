@@ -118,4 +118,24 @@ class Bh3AndroidTest {
         val guard = leg.indexOf("if (closed || conn.dead) throw CancellationException()")
         assertTrue(guard > 0 && guard < leg.indexOf("createPeerConnection"))
     }
+
+    /**
+     * Fund 5: Platz wechselt zu einem Geraet, dessen fkey noch fehlt (Plan leer). Kommt der fkey binnen 2 s, setzte
+     * applyPlan die Schluessel - und der Aufraeum-Job mit dem beim Belegen gemerkten leeren Plan loeschte sie wieder.
+     * Ein erneut gesendeter gleicher fkey aendert nichts (fkey() -> false): Ton/Bild des Neuen blieben auf dem Platz aus.
+     */
+    @Test
+    fun scrubUsesCurrentPlan() {
+        // Voraussetzung: gleicher fkey zweimal -> kein neuer Stand (darum kein zweites applyPlan)
+        val p = HornLogic.PeerKeys()
+        val k = ByteArray(32) { 7 }
+        assertTrue(p.fkey(0, k, "s1", 0))
+        assertFalse(p.fkey(0, k, "s1", 100))
+        assertEquals(5, p.plan().size)
+        val s = src("HornSession.kt")
+        val so = s.substring(s.indexOf("private fun setOwner("), s.indexOf("private fun applyPlan("))
+        val job = so.substring(so.indexOf("r.scrubJob = scope.launch"))
+        assertTrue(job.contains("val keep = peerKeys[d]?.plan()"))
+        assertFalse(so.substring(0, so.indexOf("r.scrubJob = scope.launch")).contains("val keep"))
+    }
 }

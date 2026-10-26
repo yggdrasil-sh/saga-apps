@@ -916,10 +916,13 @@ class HornSession(private val host: Host, val callId: String, block: HornLogic.B
         val plan = peerKeys[d]?.plan().orEmpty()
         for (s in plan) provider.setKey(r.vid, s.kid, s.key)
         r.scrubJob?.cancel()
-        val keep = plan.map { it.kid }.toSet()
         r.scrubJob = scope.launch {
             delay(2000)
             if (r.owner != d || closed) return@launch
+            // Plan JETZT bestimmen: kam der fkey von d erst nach dem Belegen (neues Geraet - der Knoten belegt den Platz
+            // oft vor dem versiegelten fkey), haette ein beim Belegen gemerkter (leerer) Plan dessen Schluessel geloescht;
+            // ein erneut gesendeter gleicher fkey setzt nichts neu (PeerKeys.fkey -> false) - der Platz bliebe stumm/schwarz
+            val keep = peerKeys[d]?.plan().orEmpty().map { it.kid }.toSet()
             for (k in 0 until HornE2E.RING) if (k !in keep) provider.setKey(r.vid, k, HornE2E.scrubKey())
         }
     }
