@@ -313,9 +313,11 @@ class MockServer:
                 if content:
                     self.last_overwrite = bool(body.get("overwrite"))
                     n["updated_by"] = self.me
-                for k in ("title", "body", "icon", "pinned", "cover", "cover_pos", "tags", "locked", "wide", "template", "schema"):
+                for k in ("title", "body", "icon", "pinned", "cover", "cover_pos", "tags", "locked", "wide", "font", "small", "template", "schema"):
                     if k in body:
                         n[k] = body[k]
+                if n.get("font") not in ("serif", "mono"):          # wie der Server (2.5): "default"/Unbekanntes -> null
+                    n.pop("font", None)
                 if "props" in body:
                     n.setdefault("props", {}).update(body["props"])
                     n["props"] = {k: v for k, v in n["props"].items() if v is not None}
@@ -690,9 +692,11 @@ class MockServer:
                     if content and b.get("rev") is not None and b["rev"] != n["rev"]:
                         by = n.get("updated_by")
                         return self._reply(409, {"error": "conflict", "rev": n["rev"], "by": self.names.get(by) if by != self.me else None})
-                    for k in ("title", "body", "icon", "cover", "tags", "wide"):
+                    for k in ("title", "body", "icon", "cover", "tags", "wide", "font", "small"):
                         if k in b:
                             n[k] = b[k]
+                    if n.get("font") not in ("serif", "mono"):          # wie der Server (2.5): "default"/Unbekanntes -> null
+                        n.pop("font", None)
                     if content:
                         self.last_overwrite = bool(b.get("overwrite"))
                         n["rev"] += 1

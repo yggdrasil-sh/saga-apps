@@ -43,8 +43,13 @@ def block_text(b):
 
 
 def payload(blocks, server, owner):
-    return json.dumps([{"id": b.get("id"), "tool": b.get("type"), "data": b.get("data") or {}, "hk": {"server": server, "owner": owner}}
-                       for b in blocks], ensure_ascii=False).encode()
+    out = []
+    for b in blocks:
+        it = {"id": b.get("id"), "tool": b.get("type"), "data": b.get("data") or {}, "hk": {"server": server, "owner": owner}}
+        if isinstance(b.get("tunes"), dict) and b["tunes"]:
+            it["tunes"] = b["tunes"]                            # Block-Farbe u. a. (2.5) - wie Editor.js
+        out.append(it)
+    return json.dumps(out, ensure_ascii=False).encode()
 
 
 def provider(blocks, server, owner, texture=None):
@@ -93,6 +98,8 @@ def parse(data):
         if t not in TYPES or not isinstance(d, dict):
             continue
         b = {"id": "", "type": t, "data": copy.deepcopy(d)}
+        if isinstance(it.get("tunes"), dict) and it["tunes"]:
+            b["tunes"] = copy.deepcopy(it["tunes"])
         _renew(b)
         hk = it.get("hk") if isinstance(it.get("hk"), dict) else {}
         out.append((b, hk))

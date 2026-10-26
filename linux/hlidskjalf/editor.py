@@ -10,6 +10,7 @@ from .api import SWITCHED, APIError, client
 from .sharing import RANK, doc_text, role_of
 from .store import is_db, store
 from .i18n import _
+from .gestalten import STYLE_TYPES
 from .util import bg, bg_serial, esc, md_to_html, new_block_id
 
 # "/"-Menue: (Name, Typ, Ebene, Symbol, Suchwoerter - deutsch, englisch, spanisch; der Name wird zusaetzlich durchsucht)
@@ -986,6 +987,7 @@ class PageEditor:
         else:
             texts = [d.get("text") if d.get("text") is not None else d.get("title", "") or ""]
         texts = texts or [""]
+        tunes = b.get("tunes") if isinstance(b.get("tunes"), dict) else None
         if btype in ("checklist", "unordered", "ordered"):
             nb = make(btype)
             nb["data"]["items"] = [{"content": t, "meta": {"checked": False} if btype == "checklist" else {}, "items": []} for t in texts]
@@ -999,6 +1001,12 @@ class PageEditor:
             for k, t in enumerate(texts[1:]):
                 a.insert(i + 1 + k, make(btype, t, level))
             self.set_focus(bid, "end")
+        if tunes:                                            # Regel 0: Block-Tunes (z. B. Farbe) bleiben beim Umwandeln
+            keep = dict(tunes)
+            if a[i].get("type") not in STYLE_TYPES:
+                keep.pop("hkstyle", None)
+            if keep:
+                a[i]["tunes"] = keep
         self.changed()
 
     def continue_writing(self, arr=None):

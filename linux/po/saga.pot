@@ -7218,3 +7218,39 @@ msgstr ""
 #: hlidskjalf/settings.py
 msgid "Chats &amp; devices"
 msgstr ""
+
+#: hlidskjalf/blocks.py
+msgid "This block can’t be shown in the app yet."
+msgstr ""
+
+#: hlidskjalf/blocks.py
+msgid "Open on the web"
+msgstr ""
+
+#: hlidskjalf/blocks.py
+msgid "Color"
+msgstr ""
+
+#: hlidskjalf/blocks.py
+msgid "Text color"
+msgstr ""
+
+#: hlidskjalf/blocks.py
+msgid "Background"
+msgstr ""
+
+#: hlidskjalf/page.py
+msgid "Font"
+msgstr ""
+
+#: hlidskjalf/page.py
+msgid "Serif"
+msgstr ""
+
+#: hlidskjalf/page.py
+msgid "Mono"
+msgstr ""
+
+#: hlidskjalf/page.py
+msgid "Small text"
+msgstr ""

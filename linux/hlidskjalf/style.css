@@ -287,3 +287,51 @@ window.hk-dark .hk-graph button.hk-gold:active { background: #b8934c; }
 /* Zaehlzeile und Legende ueber der Zeichenflaeche: halbdurchsichtiger Grund wie im Web */
 .hk-graph .hk-graph-chip { background: alpha(@view_bg_color, 0.85); border-radius: 8px; padding: 2px 8px; color: alpha(@view_fg_color, 0.7); }
 .hk-graph .hk-graph-chip flowboxchild { padding: 0; min-height: 0; }
+
+/* Seite gestalten (2.5): Schrift und kleiner Text je Seite (G9) - erbt auf Titel, Inhalt und Eigenschaften;
+   Code-Bloecke behalten ihre Festbreitenschrift (Klasse monospace am Textfeld) */
+.hk-font-serif { font-family: ui-serif, Georgia, "Times New Roman", serif; }
+.hk-font-mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+.hk-small-text { font-size: 0.875em; }
+/* Block-Farbe (G3): Palette wie im Web, Text dunkler im Hellen, heller im Dunkeln; Hintergrund als zarte Flaeche */
+.hk-fg-gray textview, textview.hk-fg-gray, textview.hk-fg-gray > text { color: #787774; }
+.hk-fg-brown textview, textview.hk-fg-brown, textview.hk-fg-brown > text { color: #9f6b53; }
+.hk-fg-orange textview, textview.hk-fg-orange, textview.hk-fg-orange > text { color: #d9730d; }
+.hk-fg-yellow textview, textview.hk-fg-yellow, textview.hk-fg-yellow > text { color: #b58500; }
+.hk-fg-green textview, textview.hk-fg-green, textview.hk-fg-green > text { color: #0f7b6c; }
+.hk-fg-blue textview, textview.hk-fg-blue, textview.hk-fg-blue > text { color: #0b6e99; }
+.hk-fg-purple textview, textview.hk-fg-purple, textview.hk-fg-purple > text { color: #6940a5; }
+.hk-fg-pink textview, textview.hk-fg-pink, textview.hk-fg-pink > text { color: #ad1a72; }
+.hk-fg-red textview, textview.hk-fg-red, textview.hk-fg-red > text { color: #e03e3e; }
+window.hk-dark .hk-fg-gray textview, window.hk-dark textview.hk-fg-gray, window.hk-dark textview.hk-fg-gray > text { color: #9b9b9b; }
+window.hk-dark .hk-fg-brown textview, window.hk-dark textview.hk-fg-brown, window.hk-dark textview.hk-fg-brown > text { color: #ba856f; }
+window.hk-dark .hk-fg-orange textview, window.hk-dark textview.hk-fg-orange, window.hk-dark textview.hk-fg-orange > text { color: #ec9a4f; }
+window.hk-dark .hk-fg-yellow textview, window.hk-dark textview.hk-fg-yellow, window.hk-dark textview.hk-fg-yellow > text { color: #e6bf4f; }
+window.hk-dark .hk-fg-green textview, window.hk-dark textview.hk-fg-green, window.hk-dark textview.hk-fg-green > text { color: #4dab9a; }
+window.hk-dark .hk-fg-blue textview, window.hk-dark textview.hk-fg-blue, window.hk-dark textview.hk-fg-blue > text { color: #529cca; }
+window.hk-dark .hk-fg-purple textview, window.hk-dark textview.hk-fg-purple, window.hk-dark textview.hk-fg-purple > text { color: #9a6dd7; }
+window.hk-dark .hk-fg-pink textview, window.hk-dark textview.hk-fg-pink, window.hk-dark textview.hk-fg-pink > text { color: #e255a1; }
+window.hk-dark .hk-fg-red textview, window.hk-dark textview.hk-fg-red, window.hk-dark textview.hk-fg-red > text { color: #ff7369; }
+.hk-styled.hk-bg-gray, .hk-styled.hk-bg-brown, .hk-styled.hk-bg-orange, .hk-styled.hk-bg-yellow, .hk-styled.hk-bg-green,
+.hk-styled.hk-bg-blue, .hk-styled.hk-bg-purple, .hk-styled.hk-bg-pink, .hk-styled.hk-bg-red { border-radius: 6px; padding: 2px 6px; }
+.hk-bg-gray { background: alpha(#9b9a97, 0.18); }
+.hk-bg-brown { background: alpha(#9f6b53, 0.18); }
+.hk-bg-orange { background: alpha(#d9730d, 0.18); }
+.hk-bg-yellow { background: alpha(#dfab01, 0.20); }
+.hk-bg-green { background: alpha(#0f7b6c, 0.18); }
+.hk-bg-blue { background: alpha(#0b6e99, 0.18); }
+.hk-bg-purple { background: alpha(#6940a5, 0.18); }
+.hk-bg-pink { background: alpha(#ad1a72, 0.18); }
+.hk-bg-red { background: alpha(#e03e3e, 0.18); }
+window.hk-dark .hk-bg-gray { background: alpha(#9b9b9b, 0.24); }
+window.hk-dark .hk-bg-brown { background: alpha(#ba856f, 0.26); }
+window.hk-dark .hk-bg-orange { background: alpha(#ec9a4f, 0.26); }
+window.hk-dark .hk-bg-yellow { background: alpha(#e6bf4f, 0.26); }
+window.hk-dark .hk-bg-green { background: alpha(#4dab9a, 0.26); }
+window.hk-dark .hk-bg-blue { background: alpha(#529cca, 0.26); }
+window.hk-dark .hk-bg-purple { background: alpha(#9a6dd7, 0.28); }
+window.hk-dark .hk-bg-pink { background: alpha(#e255a1, 0.26); }
+window.hk-dark .hk-bg-red { background: alpha(#ff7369, 0.26); }
+.hk-toggle-h { margin-top: 4px; }
+/* Rueckfall-Karte fuer unbekannte Block-Typen (R) */
+.hk-fallback { padding: 12px 14px; }

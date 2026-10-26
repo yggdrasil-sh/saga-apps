@@ -7566,3 +7566,39 @@ msgstr "Проверить обновления"
 #: hlidskjalf/settings.py
 msgid "Chats &amp; devices"
 msgstr "Чаты и устройства"
+
+#: hlidskjalf/blocks.py
+msgid "This block can’t be shown in the app yet."
+msgstr "Этот блок пока нельзя показать в приложении."
+
+#: hlidskjalf/blocks.py
+msgid "Open on the web"
+msgstr "Открыть в вебе"
+
+#: hlidskjalf/blocks.py
+msgid "Color"
+msgstr "Цвет"
+
+#: hlidskjalf/blocks.py
+msgid "Text color"
+msgstr "Цвет текста"
+
+#: hlidskjalf/blocks.py
+msgid "Background"
+msgstr "Фон"
+
+#: hlidskjalf/page.py
+msgid "Font"
+msgstr "Шрифт"
+
+#: hlidskjalf/page.py
+msgid "Serif"
+msgstr "С засечками"
+
+#: hlidskjalf/page.py
+msgid "Mono"
+msgstr "Моноширинный"
+
+#: hlidskjalf/page.py
+msgid "Small text"
+msgstr "Мелкий текст"
