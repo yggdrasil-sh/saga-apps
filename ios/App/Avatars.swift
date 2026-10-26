@@ -50,9 +50,17 @@ final class AvatarCache: ObservableObject {
         guard AppConfig.hasServer, let store, let u = AvatarLogic.url(server: AppConfig.serverString, avatar: avatar, px: px) else { return nil }
         let key = u.absoluteString
         let old = mem.object(forKey: key as NSString)
-        if AvatarLogic.fresh(checked: checked[key], retry: retry[key], now: Date()) { return missing.contains(key) ? nil : old }
+        // Frisch heisst nur "nicht beim Server nachfragen" - NICHT "kein Bild": iOS leert den NSCache von selbst (Hintergrund,
+        // Speicherdruck). Ist das Bild dort weg, wird es neu gelesen (meist ohne Netz aus dem URLCache); sonst blieben bis
+        // zum Neustart Initialen stehen.
+        let revalidate: Bool
+        switch AvatarLogic.plan(fresh: AvatarLogic.fresh(checked: checked[key], retry: retry[key], now: Date()),
+                                inMemory: old != nil, missing: missing.contains(key), checkedBefore: checked[key] != nil) {
+        case .none: return nil
+        case .memory: return old
+        case .load(let rv): revalidate = rv
+        }
         if let t = inflight[key] { return await t.value }
-        let revalidate = old != nil || missing.contains(key) || checked[key] != nil
         let t = Task { () -> PlatformImage? in
             var r = await store.avatarData(u, revalidate: revalidate)
             var img = r.flatMap { PlatformImage(data: $0.0) }

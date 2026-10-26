@@ -102,6 +102,15 @@ enum AvatarLogic {
     /// Zwischenspeicher zu liefern. Das heisst "Bild unveraendert", NICHT "kein Bild" (sonst verschwanden Profilbilder
     /// nach 10 min durch Initialen, bis die App neu startete).
     enum Fetch: Equatable { case image, missing, transient, notModified }
+    /// Was tun beim Anzeigen? fresh = vor < 10 min geprueft. Frisch heisst nur "nicht beim Server nachfragen", nicht
+    /// "kein Bild": hat iOS das Bild aus dem NSCache geworfen (Hintergrund, Speicherdruck), wird es neu gelesen - ohne
+    /// Nachfrage (meist aus dem URLCache, ohne Netz). Sonst blieben bis zum Neustart Initialen stehen.
+    enum Plan: Equatable { case none, memory, load(revalidate: Bool) }
+    static func plan(fresh: Bool, inMemory: Bool, missing: Bool, checkedBefore: Bool) -> Plan {
+        if fresh && missing { return .none }
+        if fresh && inMemory { return .memory }
+        return .load(revalidate: !fresh && (inMemory || missing || checkedBefore))
+    }
     static func fetchResult(code: Int?, decoded: Bool) -> Fetch {
         guard let code else { return .transient }                        // offline
         if code == 304 { return decoded ? .image : .notModified }

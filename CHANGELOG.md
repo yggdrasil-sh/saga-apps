@@ -9,6 +9,12 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – iOS/Mac: Profilbilder verschwanden weiterhin während die App lief
+- Zweite Ursache neben dem leeren `304`: iOS leert den Bild-Speicher der App von selbst (Hintergrund, Speicherdruck).
+  War das Bild weg, die letzte Prüfung aber jünger als 10 Minuten, zeigte die App Initialen statt es neu zu lesen – bis
+  zum Neustart. Jetzt liest sie es neu (meist ohne Netz aus dem Zwischenspeicher von iOS).
+- „1 people“/„1 Personen“ in der Chatliste: Personenzahl jetzt mit Einzahl (de/en/es; ru hatte schon Pluralformen).
+
 ### Neu – alle Apps: aufgeräumte Einstellungen und Update-Hinweis
 - Die Einstellungen sind wie in anderen Apps geteilt in **Konto**, **Einstellungen** und **Info** (iOS/Android:
   Unterseiten, Mac: Tabs im Einstellungsfenster, Linux: drei Seiten im Einstellungsdialog, Mein Backup, Mitteilungen
