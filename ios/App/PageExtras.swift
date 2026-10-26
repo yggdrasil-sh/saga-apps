@@ -196,6 +196,11 @@ func tocItems(_ root: NSArray) -> [TOCItem] {
                 let t = plain(d?["text"] as? String ?? "")
                 if !t.trimmingCharacters(in: .whitespaces).isEmpty { out.append(TOCItem(id: id, text: t, level: d?["level"] as? Int ?? 2)) }
             }
+            // 2.5: Toggle-Ueberschrift erscheint wie eine Ueberschrift
+            if b["type"] as? String == "toggle", let id = b["id"] as? String, case let lvl = GestaltenLogic.toggleLevel(d), lvl > 0 {
+                let t = plain(d?["title"] as? String ?? "")
+                if !t.trimmingCharacters(in: .whitespaces).isEmpty { out.append(TOCItem(id: id, text: t, level: lvl)) }
+            }
             if let cols = d?["cols"] as? NSArray { for case let c as NSDictionary in cols { if let inner = c["blocks"] as? NSArray { walk(inner) } } }
         }
     }

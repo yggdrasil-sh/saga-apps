@@ -84,7 +84,7 @@ struct RootView: View {
                     else if let id = selection, FedLogic.isPageID(id) { NativePageScreen(id: id).id(id) } else { TodayScreen(store: store) }
                     }
                     .navigationDestination(for: PageRoute.self) { r in
-                        if r.web { PageScreen(id: r.id, store: store) } else { NativePageScreen(id: r.id).id(r.id) }
+                        if r.web { PageScreen(id: r.id, store: store, block: r.block) } else { NativePageScreen(id: r.id).id(r.id) }
                     }
                 }
                 if let p = nav.peek, !p.center {                 // Peek rechts: feste Breite (kein Inspector -> kein Layout-Kreislauf)
@@ -687,9 +687,9 @@ struct PageScreen: View {
     let id: Int
     @ObservedObject var store: Store
     @StateObject private var model: WebModel
-    init(id: Int, store: Store) {
+    init(id: Int, store: Store, block: String? = nil) {
         self.id = id; self.store = store
-        _model = StateObject(wrappedValue: WebModel(path: "/notes?embed=1#\(id)", padTop: false))
+        _model = StateObject(wrappedValue: WebModel(path: GestaltenLogic.webPath(note: id, block: block), padTop: false))
     }
     var body: some View {
         WebView(model: model)

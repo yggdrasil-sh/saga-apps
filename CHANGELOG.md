@@ -9,6 +9,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – iOS/Mac: Seite gestalten (Saga-Server 2.5)
+- **Darstellung** der im Web gestalteten Seiten: Spaltenbreiten (iPad/Mac; iPhone weiter untereinander), Breite und
+  Ausrichtung von Bildern und YouTube-Playern (iPhone mindestens 50 %), Text- und Hintergrundfarbe von Blöcken
+  (Palette der Auswahl-Farben, hell/dunkel), Toggle-Überschriften (auch im Inhaltsverzeichnis).
+- **Seitenmenü:** „Schrift“ (Standard · Serif · Mono) und „Kleiner Text“ neben „Volle Breite“ – nur mit Server 2.5.
+- **Block-Menü:** „Farbe“ mit Textfarben und Hintergründen für Text, Überschrift, Liste, Zitat, Toggle und Hinweis.
+  Umwandeln behält die Farbe.
+- **Unbekannte Blöcke** sind nicht mehr unsichtbar: Hinweis-Karte mit „Im Web öffnen“ (springt zum Block).
+- Speichern behält unbekannte Felder in Blöcken und Block-Tunes unverändert (mit Rundreise-Test).
+
 ### Behoben – Android: Anrufe über den Knoten (Kamera, Bildschirm, neue Teilnehmende)
 - **Kamera:** Die Simulcast-Schichten hatten je Schicht eigene Bildrate und zeitliche Schichten – wie auf iOS kann
   WebRTC damit das 720p-Bild nicht kodieren. Jetzt alle Schichten mit denselben Werten, die Bildrate wird nur
