@@ -59,7 +59,9 @@ class BackupPage(Adw.PreferencesPage):
                                "belongs to you is included – what others share with you stays out. Readable only with your "
                                "private key, even without Saga."))
         self.set_visible(False)                           # erst, wenn der Server die Funktion kennt
-        self.connect("unrealize", lambda *_: self._stop())
+        self.connect("unrealize", lambda *_: (self._stop(), setattr(self, "_stale", True)))
+        self.connect("realize", lambda *_: self._stale and (setattr(self, "_stale", False), self.load(quiet=True)))   # erneut geoeffnet
+        self._stale = False
         self.load()
 
     # --- Laden ----------------------------------------------------------------------------------------------------------
@@ -86,7 +88,7 @@ class BackupPage(Adw.PreferencesPage):
             self.set_visible(True)
             if getattr(self.dlg, "want_page", None) is self:
                 self.dlg.want_page = None
-                self.dlg.set_visible_page(self)
+                self.dlg.show_page("backup")
             old = self.S
             self.S = s
             # Abfrage waehrend eines Laufs/einer Anmeldung: nur Status und Ziel neu (Eingaben weiter unten bleiben)

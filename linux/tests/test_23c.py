@@ -108,8 +108,8 @@ def test_backup_page_status_flow_and_schedule(win, srv):
     d.show_page("backup")
     bp = d.pages["backup"]
     assert pump(lambda: bp.get_visible() and bp.S is not None, 5)
-    pump(lambda: d.get_visible_page() is bp, 3)
-    assert d.get_visible_page() is bp                                  # erst unsichtbar, dann doch gezeigt
+    pump(lambda: d.sub == "backup" and bp.get_mapped(), 3)
+    assert d.sub == "backup" and bp.get_mapped()                       # erst unsichtbar, dann doch gezeigt (Unterseite)
     tx = _texts(bp)
     assert "none yet" in tx and "Nextcloud found" in tx
     btn = next(b for b in _walk(bp) if isinstance(b, Gtk.Button) and b.get_label() == "Sign in to Nextcloud")
@@ -196,8 +196,8 @@ def test_notification_opens_backup_settings_and_admin_in_browser(win, srv):
     assert opened == ["https://admin.saga.test/backups"]
     win.open_notification({"kind": "userbackup.failed", "url": "/?settings=backup", "access": True})
     from hlidskjalf.settings import SettingsDialog
-    assert pump(lambda: isinstance(win.get_visible_dialog(), SettingsDialog) and
-                win.get_visible_dialog().get_visible_page() is win.get_visible_dialog().pages["backup"], 5)
+    assert pump(lambda: isinstance(win.get_visible_dialog(), SettingsDialog) and win.get_visible_dialog().sub == "backup" and
+                win.get_visible_dialog().pages["backup"].get_mapped(), 5)
     win.get_visible_dialog().force_close()
 
 

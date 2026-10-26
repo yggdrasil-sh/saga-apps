@@ -7479,3 +7479,104 @@ msgstr "Keine Treffer"
 #: hlidskjalf/graphview.py:1069
 msgid "Filter"
 msgstr "Filtern"
+
+#: hlidskjalf/settings.py
+msgid "Info"
+msgstr "Info"
+
+#: hlidskjalf/settings.py
+msgid "App"
+msgstr "App"
+
+#: hlidskjalf/settings.py
+msgid "Channel"
+msgstr "Kanal"
+
+#: hlidskjalf/settings.py
+msgid "Test version"
+msgstr "Testversion"
+
+#: hlidskjalf/settings.py
+msgid "Stable"
+msgstr "Stabil"
+
+#: hlidskjalf/settings.py
+msgid "Own build"
+msgstr "Eigener Build"
+
+#: hlidskjalf/settings.py
+#, python-brace-format
+msgid ""
+"This app is older than the server expects (version {version} or later). "
+"Please update the app."
+msgstr ""
+"Diese App ist älter als der Server erwartet (ab {version}). Bitte die App "
+"aktualisieren."
+
+#: hlidskjalf/settings.py
+msgid "Updates"
+msgstr "Updates"
+
+#: hlidskjalf/settings.py
+msgid "This test version only receives new test versions."
+msgstr "Diese Testversion erhält nur neue Testversionen."
+
+#: hlidskjalf/settings.py
+msgid "This version only receives stable versions."
+msgstr "Diese Version erhält nur stabile Versionen."
+
+#: hlidskjalf/settings.py
+msgid "Own build: no update check."
+msgstr "Eigener Build: keine Update-Prüfung."
+
+#: hlidskjalf/settings.py
+msgid "Notify about new versions"
+msgstr "Auf neue Versionen hinweisen"
+
+#: hlidskjalf/settings.py
+msgid "Licenses"
+msgstr "Lizenzen"
+
+#: hlidskjalf/settings.py
+msgid ""
+"Saga is free software under the GNU AGPL 3.0. Chat encryption uses libsodium "
+"(ISC license) via PyNaCl (Apache License 2.0)."
+msgstr ""
+"Saga ist freie Software unter der GNU AGPL 3.0. Die Chat-Verschlüsselung "
+"nutzt libsodium (ISC-Lizenz) über PyNaCl (Apache License 2.0)."
+
+#: hlidskjalf/settings.py
+#, python-brace-format
+msgid "Saga {version} is available"
+msgstr "Saga {version} ist verfügbar"
+
+#: hlidskjalf/settings.py
+msgid "You have the latest version."
+msgstr "Du hast die neueste Version."
+
+#: hlidskjalf/settings.py
+msgid "Check failed"
+msgstr "Prüfung fehlgeschlagen"
+
+#: hlidskjalf/settings.py
+msgid "Not checked yet"
+msgstr "Noch nicht geprüft"
+
+#: hlidskjalf/settings.py
+#, python-brace-format
+msgid "Last checked: {when}"
+msgstr "Zuletzt geprüft: {when}"
+
+#: hlidskjalf/settings.py
+msgctxt "button"
+msgid "Update"
+msgstr "Update"
+
+#: hlidskjalf/settings.py
+msgid "Check for updates"
+msgstr "Nach Updates suchen"
+
+#. Translators: the title is markup - write "&" as "&amp;"
+#: hlidskjalf/settings.py
+msgid "Chats &amp; devices"
+msgstr "Chats &amp; Geräte"

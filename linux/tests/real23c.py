@@ -290,7 +290,7 @@ def main():
         win.open_notification(it)
         d2 = wait(lambda: next((x for x in walk(win) if isinstance(x, SettingsDialog)), None) or
                   (lambda dd: dd if isinstance(dd, SettingsDialog) else None)(win.get_visible_dialog()), 10)
-        check(d2 is not None and wait(lambda: d2.get_visible_page() is d2.pages["backup"], 15), "Klick oeffnet Einstellungen -> Mein Backup")
+        check(d2 is not None and wait(lambda: d2.sub == "backup" and d2.pages["backup"].get_mapped(), 15), "Klick oeffnet Einstellungen -> Mein Backup")
         shot(win, "backup-fehler")
         if d2 is not None:
             d2.close()
@@ -310,7 +310,7 @@ def main():
     # ================================ Nextcloud =========================================================================
     dlg = SettingsDialog(win)
     dlg.present(win)
-    dlg.show_page("account")
+    dlg.show_page("settings")
     from hlidskjalf.nextcloud import NextcloudGroup
     ng = next(x for x in walk(dlg) if isinstance(x, NextcloudGroup))
     check(wait(lambda: ng.get_visible() and ng.rows, 10), "Nextcloud: Abschnitt sichtbar (Server 2.3)")

@@ -7121,3 +7121,100 @@ msgstr ""
 #: hlidskjalf/graphview.py:1069
 msgid "Filter"
 msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "Info"
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "App"
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "Channel"
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "Test version"
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "Stable"
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "Own build"
+msgstr ""
+
+#: hlidskjalf/settings.py
+#, python-brace-format
+msgid ""
+"This app is older than the server expects (version {version} or later). "
+"Please update the app."
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "Updates"
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "This test version only receives new test versions."
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "This version only receives stable versions."
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "Own build: no update check."
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "Notify about new versions"
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "Licenses"
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid ""
+"Saga is free software under the GNU AGPL 3.0. Chat encryption uses libsodium "
+"(ISC license) via PyNaCl (Apache License 2.0)."
+msgstr ""
+
+#: hlidskjalf/settings.py
+#, python-brace-format
+msgid "Saga {version} is available"
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "You have the latest version."
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "Check failed"
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "Not checked yet"
+msgstr ""
+
+#: hlidskjalf/settings.py
+#, python-brace-format
+msgid "Last checked: {when}"
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgctxt "button"
+msgid "Update"
+msgstr ""
+
+#: hlidskjalf/settings.py
+msgid "Check for updates"
+msgstr ""
+
+#. Translators: the title is markup - write "&" as "&amp;"
+#: hlidskjalf/settings.py
+msgid "Chats &amp; devices"
+msgstr ""

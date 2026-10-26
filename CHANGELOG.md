@@ -11,7 +11,8 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 
 ### Neu – alle Apps: aufgeräumte Einstellungen und Update-Hinweis
 - Die Einstellungen sind wie in anderen Apps geteilt in **Konto**, **Einstellungen** und **Info** (iOS/Android:
-  Unterseiten, Mac: Tabs im Einstellungsfenster).
+  Unterseiten, Mac: Tabs im Einstellungsfenster, Linux: drei Seiten im Einstellungsdialog, Mein Backup, Mitteilungen
+  und Chats & Geräte als Unterseiten).
 - Unter **Info** stehen die Versionen von App und Server. Gibt es im eigenen Kanal (Testversion bzw. stabil) eine neuere
   Version, zeigt die App das an. Eine einzige Schaltfläche: **Nach Updates suchen**, solange nichts Neues bekannt ist,
   sonst **Update** (Android: APK, Mac: Selbst-Update bzw. DMG, Linux: Release-Seite; iOS nur als Hinweis, das Update

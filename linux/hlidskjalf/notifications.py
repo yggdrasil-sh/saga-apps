@@ -319,7 +319,7 @@ class NotificationList(Gtk.Box):
         head.append(self.all_btn)
         gear = Gtk.Button(icon_name="emblem-system-symbolic", tooltip_text=_("Notification settings"))
         gear.add_css_class("flat")
-        gear.connect("clicked", lambda *_: (self.close and self.close(), win.settings_dialog(page="account")))
+        gear.connect("clicked", lambda *_: (self.close and self.close(), win.settings_dialog(page="settings")))
         head.append(gear)
         self.append(head)
         self.append(Gtk.Separator())
