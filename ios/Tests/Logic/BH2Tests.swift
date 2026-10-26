@@ -62,6 +62,8 @@ func bh2AvatarCacheTests() {
     for c in [401, 403, 429, 500, 502, 503] { check(A.fetchResult(code: c, decoded: false) == .transient, "\(c) ist voruebergehend") }
     check(A.fetchResult(code: nil, decoded: false) == .transient, "offline: voruebergehend")
     check(A.fetchResult(code: 200, decoded: false) == .missing, "kaputtes Bild: wie fehlt")
+    check(A.fetchResult(code: 304, decoded: false) == .notModified, "leeres 304 = unveraendert, nicht fehlt")
+    check(A.fetchResult(code: 304, decoded: true) == .image, "304 mit Zwischenspeicher-Daten = Bild")
     let t0 = Date(timeIntervalSince1970: 1_000_000)
     check(!A.fresh(checked: nil, retry: nil, now: t0), "nie geladen: nicht frisch")
     check(A.fresh(checked: t0, retry: nil, now: t0.addingTimeInterval(599)), "unter 10 min: frisch")

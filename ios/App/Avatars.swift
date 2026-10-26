@@ -54,9 +54,22 @@ final class AvatarCache: ObservableObject {
         if let t = inflight[key] { return await t.value }
         let revalidate = old != nil || missing.contains(key) || checked[key] != nil
         let t = Task { () -> PlatformImage? in
-            let r = await store.avatarData(u, revalidate: revalidate)
-            let img = r.flatMap { PlatformImage(data: $0.0) }
-            switch AvatarLogic.fetchResult(code: r?.1, decoded: img != nil) {
+            var r = await store.avatarData(u, revalidate: revalidate)
+            var img = r.flatMap { PlatformImage(data: $0.0) }
+            var res = AvatarLogic.fetchResult(code: r?.1, decoded: img != nil)
+            if res == .notModified, old == nil {                       // 304 ohne Bild im Speicher: einmal ganz neu laden
+                r = await store.avatarData(u, reload: true)
+                img = r.flatMap { PlatformImage(data: $0.0) }
+                res = AvatarLogic.fetchResult(code: r?.1, decoded: img != nil)
+            }
+            switch res {
+            case .notModified:
+                guard let old else {                                   // immer noch nichts: spaeter erneut, kein "fehlt"
+                    self.retry[key] = Date().addingTimeInterval(AvatarLogic.retryAfterError)
+                    return nil
+                }
+                self.missing.remove(key); self.checked[key] = Date(); self.retry[key] = nil
+                return old
             case .image:
                 self.mem.setObject(img!, forKey: key as NSString); self.missing.remove(key)
                 self.checked[key] = Date(); self.retry[key] = nil
@@ -118,8 +131,10 @@ struct AvatarView: View {
 extension Store {
     /// Profilbild laden (Sitzung bzw. still erneuert); nil = offline
     /// revalidate: am URLCache vorbei beim Server nachfragen (If-None-Match -> 304, sonst neues Bild)
-    func avatarData(_ url: URL, revalidate: Bool = false) async -> (Data, Int)? {
-        var req = URLRequest(url: url, cachePolicy: revalidate ? .reloadRevalidatingCacheData : .useProtocolCachePolicy, timeoutInterval: 20)
+    /// reload: am Zwischenspeicher ganz vorbei (nach einem leeren 304)
+    func avatarData(_ url: URL, revalidate: Bool = false, reload: Bool = false) async -> (Data, Int)? {
+        let policy: URLRequest.CachePolicy = reload ? .reloadIgnoringLocalCacheData : revalidate ? .reloadRevalidatingCacheData : .useProtocolCachePolicy
+        var req = URLRequest(url: url, cachePolicy: policy, timeoutInterval: 20)
         req.httpShouldHandleCookies = false
         req.setValue("image/webp,image/*;q=0.8", forHTTPHeaderField: "Accept")
         return try? await sendQuiet(req)
