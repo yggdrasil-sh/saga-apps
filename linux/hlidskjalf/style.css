@@ -335,3 +335,57 @@ window.hk-dark .hk-bg-red { background: alpha(#ff7369, 0.26); }
 .hk-toggle-h { margin-top: 4px; }
 /* Rueckfall-Karte fuer unbekannte Block-Typen (R) */
 .hk-fallback { padding: 12px 14px; }
+/* Widgets in Seiten (2.5): Karte, Groessen s/m/l, Stil card/plain, Akzentfarbe aus der Palette (wie die Block-Farbe) */
+.hk-widget { padding: 12px 14px; min-height: 48px; }
+.hk-widget-plain { padding: 4px 0; }
+.hk-widget-card { border-left: 3px solid transparent; }
+.hk-w-title { font-weight: 600; font-size: 0.9em; opacity: 0.75; }
+.hk-w-main { font-weight: 700; font-size: 1.6em; font-feature-settings: "tnum"; }
+.hk-widget-s .hk-w-main { font-size: 1.15em; }
+.hk-widget-l .hk-w-main { font-size: 2.3em; }
+.hk-widget-s { padding: 8px 12px; }
+.hk-widget-l { padding: 16px 18px; min-height: 96px; }
+.hk-w-main.hk-w-quote { font-weight: 400; font-style: italic; font-size: 1.15em; }
+.hk-widget-l .hk-w-main.hk-w-quote { font-size: 1.4em; }
+.hk-widget-s .hk-w-main.hk-w-quote { font-size: 1em; }
+.hk-w-error { color: var(--error-color, #c01c28); }
+.hk-widget-newer { padding: 10px 12px; min-height: 0; }
+.hk-widget-newer .hk-w-notice { opacity: 0.75; }
+progressbar.hk-w-bar > trough { min-height: 8px; border-radius: 4px; }
+progressbar.hk-w-bar > trough > progress { min-height: 8px; border-radius: 4px; }
+.hk-widget-card.hk-wacc-gray { border-left-color: #787774; background: alpha(#787774, 0.08); }
+.hk-wacc-gray .hk-w-main { color: #787774; } .hk-wacc-gray progressbar.hk-w-bar > trough > progress { background: #787774; }
+.hk-widget-card.hk-wacc-brown { border-left-color: #9f6b53; background: alpha(#9f6b53, 0.08); }
+.hk-wacc-brown .hk-w-main { color: #9f6b53; } .hk-wacc-brown progressbar.hk-w-bar > trough > progress { background: #9f6b53; }
+.hk-widget-card.hk-wacc-orange { border-left-color: #d9730d; background: alpha(#d9730d, 0.08); }
+.hk-wacc-orange .hk-w-main { color: #d9730d; } .hk-wacc-orange progressbar.hk-w-bar > trough > progress { background: #d9730d; }
+.hk-widget-card.hk-wacc-yellow { border-left-color: #b58500; background: alpha(#b58500, 0.08); }
+.hk-wacc-yellow .hk-w-main { color: #b58500; } .hk-wacc-yellow progressbar.hk-w-bar > trough > progress { background: #b58500; }
+.hk-widget-card.hk-wacc-green { border-left-color: #0f7b6c; background: alpha(#0f7b6c, 0.08); }
+.hk-wacc-green .hk-w-main { color: #0f7b6c; } .hk-wacc-green progressbar.hk-w-bar > trough > progress { background: #0f7b6c; }
+.hk-widget-card.hk-wacc-blue { border-left-color: #0b6e99; background: alpha(#0b6e99, 0.08); }
+.hk-wacc-blue .hk-w-main { color: #0b6e99; } .hk-wacc-blue progressbar.hk-w-bar > trough > progress { background: #0b6e99; }
+.hk-widget-card.hk-wacc-purple { border-left-color: #6940a5; background: alpha(#6940a5, 0.08); }
+.hk-wacc-purple .hk-w-main { color: #6940a5; } .hk-wacc-purple progressbar.hk-w-bar > trough > progress { background: #6940a5; }
+.hk-widget-card.hk-wacc-pink { border-left-color: #ad1a72; background: alpha(#ad1a72, 0.08); }
+.hk-wacc-pink .hk-w-main { color: #ad1a72; } .hk-wacc-pink progressbar.hk-w-bar > trough > progress { background: #ad1a72; }
+.hk-widget-card.hk-wacc-red { border-left-color: #e03e3e; background: alpha(#e03e3e, 0.08); }
+.hk-wacc-red .hk-w-main { color: #e03e3e; } .hk-wacc-red progressbar.hk-w-bar > trough > progress { background: #e03e3e; }
+window.hk-dark .hk-widget-card.hk-wacc-gray { border-left-color: #9b9b9b; background: alpha(#9b9b9b, 0.12); }
+window.hk-dark .hk-wacc-gray .hk-w-main { color: #9b9b9b; } window.hk-dark .hk-wacc-gray progressbar.hk-w-bar > trough > progress { background: #9b9b9b; }
+window.hk-dark .hk-widget-card.hk-wacc-brown { border-left-color: #ba856f; background: alpha(#ba856f, 0.12); }
+window.hk-dark .hk-wacc-brown .hk-w-main { color: #ba856f; } window.hk-dark .hk-wacc-brown progressbar.hk-w-bar > trough > progress { background: #ba856f; }
+window.hk-dark .hk-widget-card.hk-wacc-orange { border-left-color: #ec9a4f; background: alpha(#ec9a4f, 0.12); }
+window.hk-dark .hk-wacc-orange .hk-w-main { color: #ec9a4f; } window.hk-dark .hk-wacc-orange progressbar.hk-w-bar > trough > progress { background: #ec9a4f; }
+window.hk-dark .hk-widget-card.hk-wacc-yellow { border-left-color: #e6bf4f; background: alpha(#e6bf4f, 0.12); }
+window.hk-dark .hk-wacc-yellow .hk-w-main { color: #e6bf4f; } window.hk-dark .hk-wacc-yellow progressbar.hk-w-bar > trough > progress { background: #e6bf4f; }
+window.hk-dark .hk-widget-card.hk-wacc-green { border-left-color: #4dab9a; background: alpha(#4dab9a, 0.12); }
+window.hk-dark .hk-wacc-green .hk-w-main { color: #4dab9a; } window.hk-dark .hk-wacc-green progressbar.hk-w-bar > trough > progress { background: #4dab9a; }
+window.hk-dark .hk-widget-card.hk-wacc-blue { border-left-color: #529cca; background: alpha(#529cca, 0.12); }
+window.hk-dark .hk-wacc-blue .hk-w-main { color: #529cca; } window.hk-dark .hk-wacc-blue progressbar.hk-w-bar > trough > progress { background: #529cca; }
+window.hk-dark .hk-widget-card.hk-wacc-purple { border-left-color: #9a6dd7; background: alpha(#9a6dd7, 0.12); }
+window.hk-dark .hk-wacc-purple .hk-w-main { color: #9a6dd7; } window.hk-dark .hk-wacc-purple progressbar.hk-w-bar > trough > progress { background: #9a6dd7; }
+window.hk-dark .hk-widget-card.hk-wacc-pink { border-left-color: #e255a1; background: alpha(#e255a1, 0.12); }
+window.hk-dark .hk-wacc-pink .hk-w-main { color: #e255a1; } window.hk-dark .hk-wacc-pink progressbar.hk-w-bar > trough > progress { background: #e255a1; }
+window.hk-dark .hk-widget-card.hk-wacc-red { border-left-color: #ff7369; background: alpha(#ff7369, 0.12); }
+window.hk-dark .hk-wacc-red .hk-w-main { color: #ff7369; } window.hk-dark .hk-wacc-red progressbar.hk-w-bar > trough > progress { background: #ff7369; }

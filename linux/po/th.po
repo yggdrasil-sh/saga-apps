@@ -7344,3 +7344,112 @@ msgstr "โมโน"
 #: hlidskjalf/page.py
 msgid "Small text"
 msgstr "ข้อความขนาดเล็ก"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Clock"
+msgstr "นาฬิกา"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Countdown"
+msgstr "นับถอยหลัง"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Metric"
+msgstr "ตัวชี้วัด"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Widget"
+msgstr "วิดเจ็ต"
+
+#: hlidskjalf/pagewidgets.py
+msgid "AM"
+msgstr "AM"
+
+#: hlidskjalf/pagewidgets.py
+msgid "PM"
+msgstr "PM"
+
+#: hlidskjalf/blocks.py
+msgid "Edit on the web"
+msgstr "แก้ไขบนเว็บ"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Widget – a newer app version is needed"
+msgstr "วิดเจ็ต – ต้องใช้แอปเวอร์ชันใหม่กว่า"
+
+#: hlidskjalf/pagewidgets.py
+msgid "No access to the data source"
+msgstr "ไม่มีสิทธิ์เข้าถึงแหล่งข้อมูล"
+
+#: hlidskjalf/pagewidgets.py
+msgid "The data source was deleted"
+msgstr "แหล่งข้อมูลถูกลบแล้ว"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Widget is not set up correctly – edit it on the web"
+msgstr "วิดเจ็ตตั้งค่าไม่ถูกต้อง – แก้ไขบนเว็บ"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Data source too large for this widget"
+msgstr "แหล่งข้อมูลใหญ่เกินไปสำหรับวิดเจ็ตนี้"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Value not available"
+msgstr "ไม่มีค่า"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Values need Saga server 2.5"
+msgstr "ค่าต้องใช้เซิร์ฟเวอร์ Saga 2.5"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Widget only available on the originating server"
+msgstr "วิดเจ็ตใช้ได้เฉพาะบนเซิร์ฟเวอร์ต้นทาง"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Values couldn’t be loaded"
+msgstr "โหลดค่าไม่ได้"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Value not available yet – it appears after saving"
+msgstr "ยังไม่มีค่า – จะแสดงหลังบันทึก"
+
+#: hlidskjalf/pagewidgets.py
+msgid "No quotes yet"
+msgstr "ยังไม่มีคำคม"
+
+#: hlidskjalf/pagewidgets.py
+msgid "No value"
+msgstr "ไม่มีค่า"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Not set up"
+msgstr "ยังไม่ได้ตั้งค่า"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Not started yet"
+msgstr "ยังไม่เริ่ม"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Reached"
+msgstr "ถึงแล้ว"
+
+#: hlidskjalf/pagewidgets.py
+msgid "in {h} h {m} min"
+msgstr "อีก {h} ชม. {m} นาที"
+
+#: hlidskjalf/pagewidgets.py
+msgid "{h} h {m} min ago"
+msgstr "{h} ชม. {m} นาทีที่แล้ว"
+
+#: hlidskjalf/pagewidgets.py
+msgid "{value} of {max}"
+msgstr "{value} จาก {max}"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Goal: {value}"
+msgstr "เป้าหมาย: {value}"
+
+#: hlidskjalf/pagewidgets.py
+msgid "in {n} day"
+msgid_plural "in {n} days"
+msgstr[0] "อีก {n} วัน"

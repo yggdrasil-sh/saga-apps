@@ -7254,3 +7254,113 @@ msgstr ""
 #: hlidskjalf/page.py
 msgid "Small text"
 msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Clock"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Countdown"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Metric"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Widget"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "AM"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "PM"
+msgstr ""
+
+#: hlidskjalf/blocks.py
+msgid "Edit on the web"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Widget – a newer app version is needed"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "No access to the data source"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "The data source was deleted"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Widget is not set up correctly – edit it on the web"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Data source too large for this widget"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Value not available"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Values need Saga server 2.5"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Widget only available on the originating server"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Values couldn’t be loaded"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Value not available yet – it appears after saving"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "No quotes yet"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "No value"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Not set up"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Not started yet"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Reached"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "in {h} h {m} min"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "{h} h {m} min ago"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "{value} of {max}"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "Goal: {value}"
+msgstr ""
+
+#: hlidskjalf/pagewidgets.py
+msgid "in {n} day"
+msgid_plural "in {n} days"
+msgstr[0] ""
+msgstr[1] ""

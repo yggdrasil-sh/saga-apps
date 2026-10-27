@@ -45,6 +45,15 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Zugriff, gelöschter Quelle, falscher Einrichtung, zu großer Datenbank, älterem Server und Seiten anderer Server.
 - Unbekannte Widget-Arten: „Widget – neuere Version nötig“. Einstellungen nur im Web („Im Web bearbeiten“ im Block-Menü);
   Widget-Blöcke werden unverändert gespeichert (mit Rundreise-Test).
+### Neu – Linux: Widgets in Seiten (Anzeige, Saga-Server 2.5)
+- Block `widget` als native Karte (Titel, Größe S/M/L, Karte/schlicht, Akzentfarbe): **Uhr** (Zeitzone, 12/24 h,
+  Sekunden, Zeigeruhr; tickt nur, solange sichtbar), **Countdown** (bis/seit, Tage oder Std./Min.), **Fortschritt**,
+  **Kennzahl** (Zahl, Prozent, Euro in der Schreibweise der Sprache), **Zitat** – auch in Spalten und Toggles.
+- Werte aus der Datenbank kommen vom Server (beim Öffnen und wenn das Fenster wieder aktiv wird); freundliche Hinweise
+  bei fehlendem Zugriff, gelöschter Quelle, älterem Server, Föderation ohne Widgets und offline – ein Fehler beim
+  Neuladen lässt die zuletzt geladenen Werte stehen.
+- Einstellungen nur im Web: Block-Menü „Im Web bearbeiten“. Unbekannte Widget-Arten: „Widget – neuere Version nötig“.
+  Widget-Blöcke bleiben beim Speichern unverändert (mit Rundreise-Test).
 
 ### Neu – Android: Seite gestalten (Darstellung, Farbe, Schrift) und Rückfall-Karte
 - **Spaltenbreite:** Gewichte der Spalten (`cols[].w`) gelten ab 600 dp Breite; auf Telefonen weiter untereinander.

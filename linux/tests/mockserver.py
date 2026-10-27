@@ -125,6 +125,10 @@ class MockServer:
         # Graph (Server ab 2.5): None = aus den Seiten gebaut, dict = feste Antwort (z. B. graphsim.demo), False = 404
         self.graph = None
         self.version = "1.0.0"      # /api/version
+        # Widgets in Seiten (Server ab 2.5): widgets_api False = aelterer Server (404), "unsupported" = fremder Server ohne
+        # widgets1; widget_values: feste Antworten je Block-ID (sonst einfach aus den Zeilen gerechnet)
+        self.widgets_api = True
+        self.widget_values = {}
         mockv2.init(self)                    # Saga 2.0: Live, Benachrichtigungen, Chat, Push, KI, Foederation
         mockv21.init(self)                   # Saga 2.1: Profilbilder, 2FA-Stand, Anrufe
         mockki.init(self)                    # Saga 2.1: KI-Persona, KI im Chat
@@ -146,6 +150,77 @@ class MockServer:
         return self._reply(200, {"nodes": nodes, "edges": edges, "tags": [], "truncated": False})
 
     # --- Saga 2.0 (mockv2.py) --------------------------------------------------------------------------
+    def _widgets(self, n):
+        """GET api/notes/{nid}/widgets wie saga/page_widgets.py (vereinfacht): Werte der Server-Widgets der gespeicherten Seite"""
+        if self.widgets_api is False:
+            return self._reply(404, {"error": "not found"})
+        if self.widgets_api == "unsupported":
+            return self._reply(200, {"widgets": {}, "unsupported": True})
+        try:
+            blocks = json.loads(n.get("body") or "{}").get("blocks") or []
+        except ValueError:
+            blocks = []
+        out = {}
+
+        def walk(bs):
+            for b in bs if isinstance(bs, list) else []:
+                if not isinstance(b, dict):
+                    continue
+                d = b.get("data") if isinstance(b.get("data"), dict) else {}
+                if b.get("type") == "widget":
+                    w = self._widget_value(b.get("id"), d)
+                    if w is not None:
+                        out[b.get("id")] = w
+                walk(d.get("blocks"))
+                for c in d.get("cols") or []:
+                    if isinstance(c, dict):
+                        walk(c.get("blocks"))
+        walk(blocks)
+        return self._reply(200, {"widgets": out})
+
+    def _widget_value(self, bid, d):
+        kind, cfg = d.get("kind"), d.get("cfg") if isinstance(d.get("cfg"), dict) else {}
+        if kind not in ("progress", "metric", "quote") or (kind == "progress" and cfg.get("src") != "db"):
+            return None
+        if bid in self.widget_values:
+            return dict(self.widget_values[bid])
+        w = {"kind": kind, "value": None, "max": None, "text": None, "fmt": None,
+             "as_of": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "error": None}
+        if kind == "quote" and cfg.get("src") != "db":
+            items = [x for x in cfg.get("items") or [] if isinstance(x, str)]
+            w["text"] = items[0] if items else None
+            return w
+        db = self.notes.get(cfg.get("db"))
+        if db is None or db.get("kind") != "database":
+            w["error"] = "gone"
+            return w
+        rows = [r for r in self.notes.values() if r.get("parent_id") == db["id"]]
+        prop = cfg.get("prop") or ""
+        if kind == "quote":
+            w["text"] = rows[0].get("title") if rows else None
+        elif kind == "progress":
+            w["value"] = float(sum(1 for r in rows if (r.get("props") or {}).get(prop)))
+            w["max"] = float(len(rows))
+        else:
+            vals = [(r.get("props") or {}).get(prop) for r in rows]
+            nums = [float(v) for v in vals if isinstance(v, (int, float)) and not isinstance(v, bool)]
+            agg = cfg.get("agg")
+            w["fmt"] = cfg.get("fmt") if cfg.get("fmt") in ("num", "pct", "eur") else "num"
+            if agg == "count":
+                w["value"] = float(len(rows))
+            elif agg == "sum":
+                w["value"] = sum(nums)
+            elif agg == "avg":
+                w["value"] = sum(nums) / len(nums) if nums else None
+            elif agg in ("min", "max"):
+                w["value"] = (min if agg == "min" else max)(nums) if nums else None
+            elif agg == "pct_checked":
+                w["value"] = round(100.0 * sum(1 for v in vals if v is True) / len(rows), 1) if rows else None
+                w["fmt"] = "pct"
+            else:
+                w["error"] = "bad_cfg"
+        return w
+
     def push_event(self, ev, data):
         mockv2.push_event(self, ev, data)
 
@@ -292,6 +367,8 @@ class MockServer:
             if n is None:
                 return self._reply(404, {"error": "not found"})
             rest = parts[3:]
+            if rest == ["widgets"] and method == "GET":
+                return self._widgets(n)
             if not rest and method == "GET":
                 out = dict(n)
                 if self.publish_api:
