@@ -805,7 +805,9 @@ class SagaRepository(
      * Ohne Vorlage wird immer ein Titel mitgeschickt (auch leer), mit Vorlage nur ein gesetzter - sonst bleibt deren Titel.
      */
     suspend fun buttonEntry(dbId: Long, title: String, tpl: Long?, via: Long? = null): Long {
-        val id = decode<NewId>(api.post(if (tpl != null) "api/notes/$tpl/duplicate" else "api/notes", buttonEntryBody(dbId, title, tpl, via))).id
+        val raw = api.post(if (tpl != null) "api/notes/$tpl/duplicate" else "api/notes", buttonEntryBody(dbId, title, tpl, via))
+        val id = decode<NewId>(raw).id
+        if (tpl != null && title.isEmpty()) FreshEntries.parse(raw)?.let { freshEntries[it.id] = it }   // fix27 E4
         if (tpl == null) pageAdded(id, dbId) else refresh(join = false)
         dbStore.changed()
         return id
@@ -943,6 +945,43 @@ class SagaRepository(
 
     /** Kommentare beim Oeffnen dieser Seite zeigen (Benachrichtigung/Mitteilung): Seite + Block (null = alle) */
     val openCommentsFor = MutableStateFlow<Pair<Long, String?>?>(null)
+
+    // ---------------------------------------------------------------- fix27 E2/E4
+
+    /** E4: eben aus einer Vorlage angelegte Eintraege (ID -> Schluessel + Platzhalter), solange sie offen sind */
+    val freshEntries = java.util.concurrent.ConcurrentHashMap<Long, FreshEntry>()
+
+    /** E4: unveraendert geschlossen -> endgueltig verwerfen (Server prueft selbst; 409 = geaendert, bleibt) */
+    fun discardFresh(id: Long) {
+        val f = freshEntries.remove(id) ?: return
+        scope.launch {
+            try {
+                api.post("api/notes/$id/discard", FreshEntries.discardBody(f))
+                dbStore.changed()
+                if (id < 0) loadFedShared() else refresh(join = false)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // geaendert, abgelaufen oder offline: der Eintrag bleibt einfach stehen
+            }
+        }
+    }
+
+    /** E2: eigene Startseite (null = Heute); startPageSupported = Server kennt die Einstellung */
+    val startPage = MutableStateFlow<Long?>(null)
+    val startPageSupported = MutableStateFlow(false)
+
+    suspend fun loadStartPage(): Long? {
+        val info = StartPage.parse(api.get("api/account"))
+        startPageSupported.value = info.supported
+        startPage.value = info.id
+        return info.id
+    }
+
+    suspend fun setStartPage(id: Long?) {
+        api.patch("api/account", StartPage.body(id))
+        startPage.value = id
+    }
 
     /** "Zu „Mit mir geteilt“" (Seite ohne Zugriff): Zaehler - Seitenleiste oeffnen und zum Bereich scrollen */
     val showSharedRequest = MutableStateFlow(0)

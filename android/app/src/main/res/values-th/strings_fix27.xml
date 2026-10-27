@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5 Fix-Runde 27.10. (#11, #14, E1, E2, E4) -->
+<resources>
+    <string name="button_readonly_hint">อ่านอย่างเดียว – เฉพาะผู้ที่แก้ไขได้เท่านั้นที่สร้างรายการที่นี่ได้</string>
+    <string name="start_page_set">ตั้งเป็นหน้าเริ่มต้น</string>
+    <string name="start_page_reset">รีเซ็ตหน้าเริ่มต้น</string>
+    <string name="start_page_was_set">Saga จะเปิดด้วยหน้านี้แล้ว</string>
+    <string name="start_page_was_reset">Saga จะเปิดด้วย “วันนี้” อีกครั้ง</string>
+    <string name="start_page_failed">บันทึกหน้าเริ่มต้นไม่สำเร็จ: %1$s</string>
+</resources>

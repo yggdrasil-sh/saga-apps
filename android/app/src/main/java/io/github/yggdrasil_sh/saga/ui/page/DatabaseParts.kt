@@ -254,11 +254,7 @@ fun ButtonsBlock(d: JsonObject, env: BlockEnv) {
                 val target = (b["target"] as? JsonPrimitive)?.content?.toDoubleOrNull()?.toLong()
                 val tpl = (b["tpl"] as? JsonPrimitive)?.content?.toDoubleOrNull()?.toLong()
                 val action = BlockDoc.str(b, "action")
-                val usable = when (action) {
-                    "page", "db" -> target != null
-                    "task" -> true
-                    else -> false
-                } && (action == "page" || canAct)
+                val usable = io.github.yggdrasil_sh.saga.blocks.ButtonRights.usable(action, target != null, canAct)
                 val taskDefault = stringResource(R.string.button_task_default)
                 OutlinedButton(
                     onClick = {
@@ -299,6 +295,12 @@ fun ButtonsBlock(d: JsonObject, env: BlockEnv) {
                 }
             }
         }
+        // Fix #11: Lesen/Kommentieren - Anlege-Schaltflaechen ausgegraut, mit Hinweis warum
+        val hint = io.github.yggdrasil_sh.saga.blocks.ButtonRights.readOnlyHint(
+            buttons.map { BlockDoc.str(it, "action") to ((it["target"] as? JsonPrimitive)?.content?.toDoubleOrNull() != null) }, canAct,
+        )
+        if (hint) Text(stringResource(R.string.button_readonly_hint), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
         problem?.let { p ->
             Text(stringResource(R.string.button_entry_failed, p.resolve()), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 4.dp))
