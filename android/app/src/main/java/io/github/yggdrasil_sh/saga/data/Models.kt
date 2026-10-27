@@ -85,6 +85,8 @@ data class ServiceItem(
     val key: String = "",
     /** Server 2.5: fertige Bildadresse, auch fuer automatische Symbole (geratenes selfh.st-Symbol oder Favicon) */
     @SerialName("icon_url") val iconUrl: String = "",
+    /** Server 2.5, nur Lesezeichen: hoechstens 3 Adressen auf dem Host des Lesezeichens - Rueckfall direkt vom Geraet */
+    @SerialName("icon_direct") val iconDirect: List<String> = emptyList(),
 ) {
     /** Pfad des Symbols auf dem eigenen Server oder null (Anfangsbuchstabe): icon_url, sonst wie bisher der Name */
     fun iconPath(): String? = when {
@@ -92,6 +94,9 @@ data class ServiceItem(
         icon.isNotBlank() && Regex("[a-z0-9][a-z0-9-]{0,63}").matches(icon) -> "api/services/icon/$icon"
         else -> null
     }
+
+    /** Geprueft und in Reihenfolge: direkte Favicon-Adressen (leer bei Diensten und aelteren Servern) */
+    fun directIcons(): List<String> = FaviconLogic.directCandidates(iconDirect, url)
 }
 
 @Serializable
