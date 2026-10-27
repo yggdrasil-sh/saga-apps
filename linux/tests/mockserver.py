@@ -105,6 +105,9 @@ class MockServer:
         self.comment_429 = False
         self.last_overwrite = None
         self.headers_log = []    # [(methode, url, zusaetzliche Kopfzeilen)]
+        # 2.5 Lesezeichen-Favicons direkt vom Geraet (icon_direct): url -> (status, content_type, daten); fehlt -> nicht erreichbar
+        self.sites = {}
+        self.direct_log = []     # [url] der direkten Abrufe (gehen nie ueber client/_send, also ohne Sitzung)
         # Veroeffentlichen (Server ab 1.2): publish_api=False wie ein aelterer Server (404, keine Felder in der Seite)
         self.publish_api = True
         self.publish_enabled = True
@@ -925,6 +928,17 @@ def install(server=SERVER, logged_in=True):
         except OSError as e:
             raise api.APIError(0, str(e)) from e
     client._media_send = media_send
+
+    from hlidskjalf import favicon
+
+    def direct_get(url, timeout=favicon.TIMEOUT, max_bytes=favicon.MAX_BYTES):
+        srv.direct_log.append(url)
+        if url not in srv.sites:
+            return 0, None, None, None
+        code, ctype, data = srv.sites[url]
+        return code, ctype, len(data or b""), (data or b"")[:max_bytes + 1]
+    favicon._get = direct_get
+    favicon.forget_memory()
     client._open_stream = lambda method, url, data, headers, timeout: mockv2.open_stream(srv, method, url, data, headers)
     if logged_in:
         config.settings.server = server
