@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Vorlagengalerie: einfache Auswahl "Aus Vorlage ..." -->
+<resources>
+    <string name="gal_new_page">New page</string>
+    <string name="gal_from_template">From template …</string>
+    <string name="gal_title">Templates</string>
+    <string name="gal_sub">Ready-made pages and databases – created as a copy in your account.</string>
+    <string name="gal_sub_under">Created under „%1$s“</string>
+    <string name="gal_cat_personal">Personal</string>
+    <string name="gal_cat_work">Work</string>
+    <string name="gal_cat_team">Team</string>
+    <string name="gal_cat_other">More</string>
+    <string name="gal_empty">No templates available.</string>
+    <string name="gal_load_failed">Templates could not be loaded: %1$s</string>
+    <string name="gal_examples">With examples</string>
+    <string name="gal_under_current">Under „%1$s“</string>
+    <string name="gal_contains">Contains: %1$s</string>
+    <string name="gal_needs_hint">Some parts need an additional service (e.g. calendar) – without it, a note is shown instead.</string>
+    <string name="gal_use">Use</string>
+    <string name="gal_created">Template created</string>
+    <string name="gal_unsupported">This server does not offer templates yet.</string>
+    <string name="gal_error_bad_answer">Unexpected answer from the server.</string>
+    <string name="gal_error_rate">Too many templates in a short time – please wait a moment and try again.</string>
+    <string name="gal_error_gone">This template is no longer available.</string>
+    <string name="gal_error_forbidden">You are not allowed to create pages here.</string>
+    <string name="gal_error_invalid">The template could not be created here.</string>
+    <string name="gal_error_server">The server could not create the template (error %1$d). Please try again later.</string>
+</resources>

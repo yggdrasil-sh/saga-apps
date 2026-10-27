@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Vorlagengalerie: einfache Auswahl "Aus Vorlage ..." -->
+<resources>
+    <string name="gal_new_page">Página nueva</string>
+    <string name="gal_from_template">Desde plantilla …</string>
+    <string name="gal_title">Plantillas</string>
+    <string name="gal_sub">Páginas y bases de datos listas – se crean como copia en tu cuenta.</string>
+    <string name="gal_sub_under">Se crea dentro de «%1$s»</string>
+    <string name="gal_cat_personal">Personal</string>
+    <string name="gal_cat_work">Trabajo</string>
+    <string name="gal_cat_team">Equipo</string>
+    <string name="gal_cat_other">Más</string>
+    <string name="gal_empty">No hay plantillas disponibles.</string>
+    <string name="gal_load_failed">No se pudieron cargar las plantillas: %1$s</string>
+    <string name="gal_examples">Con ejemplos</string>
+    <string name="gal_under_current">Dentro de «%1$s»</string>
+    <string name="gal_contains">Contiene: %1$s</string>
+    <string name="gal_needs_hint">Algunas partes necesitan un servicio adicional (p. ej. calendario); sin él se muestra un aviso.</string>
+    <string name="gal_use">Usar</string>
+    <string name="gal_created">Plantilla creada</string>
+    <string name="gal_unsupported">Este servidor aún no ofrece plantillas.</string>
+    <string name="gal_error_bad_answer">Respuesta inesperada del servidor.</string>
+    <string name="gal_error_rate">Demasiadas plantillas en poco tiempo: espera un momento y vuelve a intentarlo.</string>
+    <string name="gal_error_gone">Esta plantilla ya no está disponible.</string>
+    <string name="gal_error_forbidden">No puedes crear páginas aquí.</string>
+    <string name="gal_error_invalid">La plantilla no se puede crear aquí.</string>
+    <string name="gal_error_server">El servidor no pudo crear la plantilla (error %1$d). Inténtalo más tarde.</string>
+</resources>

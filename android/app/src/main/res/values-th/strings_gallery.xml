@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Vorlagengalerie: einfache Auswahl "Aus Vorlage ..." -->
+<resources>
+    <string name="gal_new_page">หน้าใหม่</string>
+    <string name="gal_from_template">จากเทมเพลต …</string>
+    <string name="gal_title">เทมเพลต</string>
+    <string name="gal_sub">หน้าและฐานข้อมูลสำเร็จรูป – สร้างเป็นสำเนาในบัญชีของคุณ</string>
+    <string name="gal_sub_under">จะสร้างภายใต้ “%1$s”</string>
+    <string name="gal_cat_personal">ส่วนตัว</string>
+    <string name="gal_cat_work">งาน</string>
+    <string name="gal_cat_team">ทีม</string>
+    <string name="gal_cat_other">อื่น ๆ</string>
+    <string name="gal_empty">ไม่มีเทมเพลต</string>
+    <string name="gal_load_failed">โหลดเทมเพลตไม่ได้: %1$s</string>
+    <string name="gal_examples">พร้อมตัวอย่าง</string>
+    <string name="gal_under_current">ภายใต้ “%1$s”</string>
+    <string name="gal_contains">ประกอบด้วย: %1$s</string>
+    <string name="gal_needs_hint">บางส่วนต้องใช้บริการเพิ่มเติม (เช่น ปฏิทิน) – ถ้าไม่มีจะแสดงคำแนะนำแทน</string>
+    <string name="gal_use">ใช้</string>
+    <string name="gal_created">สร้างเทมเพลตแล้ว</string>
+    <string name="gal_unsupported">เซิร์ฟเวอร์นี้ยังไม่มีเทมเพลต</string>
+    <string name="gal_error_bad_answer">เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง</string>
+    <string name="gal_error_rate">สร้างเทมเพลตมากเกินไปในเวลาสั้น ๆ – โปรดรอสักครู่แล้วลองอีกครั้ง</string>
+    <string name="gal_error_gone">เทมเพลตนี้ไม่มีแล้ว</string>
+    <string name="gal_error_forbidden">คุณไม่มีสิทธิ์สร้างหน้าที่นี่</string>
+    <string name="gal_error_invalid">ไม่สามารถสร้างเทมเพลตที่นี่ได้</string>
+    <string name="gal_error_server">เซิร์ฟเวอร์สร้างเทมเพลตไม่ได้ (ข้อผิดพลาด %1$d) โปรดลองใหม่ภายหลัง</string>
+</resources>

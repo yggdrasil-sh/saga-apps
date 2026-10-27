@@ -726,6 +726,41 @@ class SagaRepository(
         return id
     }
 
+    // ---------------------------------------------------------------- 2.5: Vorlagengalerie (einfache Auswahl)
+
+    /** Je Server: Galerie angeboten? (404 -> Eintrag "Aus Vorlage ..." ausblenden) und zuletzt geladene Liste */
+    val gallery = GalleryState()
+
+    /** Sprache fuer ?lang= (App-Sprache bzw. angezeigte Sprache) */
+    fun galleryLang(): String = io.github.yggdrasil_sh.saga.util.AppLanguage.normalize(language()).ifEmpty { "de" }
+
+    /** GET api/gallery?lang= - Ergebnis wird je Server/Sprache gemerkt; Fehler werden nicht geworfen */
+    suspend fun galleryList(): GalleryLoad {
+        val server = settings.server.value
+        val lang = galleryLang()
+        val load = try {
+            GalleryLoad.Ok(withContext(Dispatchers.Default) { Gallery.parseList(api.get(Gallery.listPath(lang))) })
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Gallery.classifyList(e, ::friendly)
+        }
+        gallery.record(server, lang, load)
+        return load
+    }
+
+    /** Vorlage anlegen, Seitenliste neu laden; Rueckgabe: Root-Seite (Fehler als ApiException/IOException) */
+    suspend fun galleryUse(id: String, parent: Long?, examples: Boolean): Long {
+        val r = withContext(Dispatchers.Default) { Gallery.parseUse(api.post(Gallery.usePath(id), Gallery.useBody(parent, examples))) }
+        try {
+            refresh(join = false)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+        return r.root
+    }
+
     // ---------------------------------------------------------------- 2.4: Datenbanken (Ansichten, Werte, Eintraege)
 
     /** Zeilen laden, Werte setzen (mit Warteschlange fuer offline), Schema speichern - siehe db/DbStore.kt */

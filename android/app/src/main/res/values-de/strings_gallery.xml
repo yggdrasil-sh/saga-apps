@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Vorlagengalerie: einfache Auswahl "Aus Vorlage ..." -->
+<resources>
+    <string name="gal_new_page">Neue Seite</string>
+    <string name="gal_from_template">Aus Vorlage …</string>
+    <string name="gal_title">Vorlagen</string>
+    <string name="gal_sub">Fertige Seiten und Datenbanken – werden als Kopie in deinem Konto angelegt.</string>
+    <string name="gal_sub_under">Wird unter „%1$s“ angelegt</string>
+    <string name="gal_cat_personal">Persönlich</string>
+    <string name="gal_cat_work">Arbeit</string>
+    <string name="gal_cat_team">Team</string>
+    <string name="gal_cat_other">Weitere</string>
+    <string name="gal_empty">Keine Vorlagen vorhanden.</string>
+    <string name="gal_load_failed">Vorlagen konnten nicht geladen werden: %1$s</string>
+    <string name="gal_examples">Mit Beispielen</string>
+    <string name="gal_under_current">Unter „%1$s“</string>
+    <string name="gal_contains">Enthält: %1$s</string>
+    <string name="gal_needs_hint">Einige Teile brauchen einen zusätzlichen Dienst (z. B. Kalender) – ohne ihn erscheint stattdessen ein Hinweis.</string>
+    <string name="gal_use">Verwenden</string>
+    <string name="gal_created">Vorlage angelegt</string>
+    <string name="gal_unsupported">Dieser Server bietet noch keine Vorlagen an.</string>
+    <string name="gal_error_bad_answer">Unerwartete Antwort vom Server.</string>
+    <string name="gal_error_rate">Zu viele Vorlagen in kurzer Zeit – bitte kurz warten und noch einmal versuchen.</string>
+    <string name="gal_error_gone">Diese Vorlage gibt es nicht mehr.</string>
+    <string name="gal_error_forbidden">Du darfst hier keine Seiten anlegen.</string>
+    <string name="gal_error_invalid">Die Vorlage kann hier nicht angelegt werden.</string>
+    <string name="gal_error_server">Der Server konnte die Vorlage nicht anlegen (Fehler %1$d). Bitte später noch einmal versuchen.</string>
+</resources>

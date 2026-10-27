@@ -154,6 +154,26 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
         }
     }
 
+    // 2.5 Vorlagengalerie: "+" wird zum Menue "Neue Seite" / "Aus Vorlage ...", wenn der Server die Galerie anbietet
+    // (einmal je Server/Sprache im Hintergrund geprueft; 404 = aelterer Server -> "+" legt wie bisher direkt an)
+    val galServer by repo.server.collectAsState()
+    val galUnsupported by repo.gallery.unsupported.collectAsState()
+    val galLists by repo.gallery.lists.collectAsState()
+    val galOn = galServer.isNotEmpty() && galServer !in galUnsupported && galLists.containsKey(repo.gallery.key(galServer, repo.galleryLang()))
+    LaunchedEffect(galServer, loading) {
+        if (galServer.isEmpty() || loading || galServer in repo.gallery.unsupported.value) return@LaunchedEffect
+        if (repo.gallery.cached(galServer, repo.galleryLang()) == null) repo.galleryList()
+    }
+    var newMenu by remember { mutableStateOf(false) }
+    var galleryOpen by remember { mutableStateOf(false) }
+    /** Elternseite aus dem Langdruck-Menue (null = Kopf-Menue "Neu": oberste Ebene oder offene Seite) */
+    var galleryParent by remember { mutableStateOf<PageMeta?>(null) }
+    fun openGallery(parent: PageMeta?) {
+        galleryParent = parent
+        galleryOpen = true
+    }
+    val galTemplate: ((PageMeta) -> Unit)? = if (galOn) ({ p -> openGallery(p) }) else null
+
     // "Zu „Mit mir geteilt“" (Seite ohne Zugriff): zum Bereich scrollen (Reihenfolge wie die Eintraege unten)
     val listState = rememberLazyListState()
     val showShared by repo.showSharedRequest.collectAsState()
@@ -190,8 +210,9 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 )
                 // Neue Seite: deutlich als Hauptaktion (getoente Goldflaeche), 48 dp
                 val accent = io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current
+                Box {
                 androidx.compose.material3.FilledTonalIconButton(
-                    onClick = { newPage(null) }, enabled = !creating,
+                    onClick = { if (galOn) newMenu = true else newPage(null) }, enabled = !creating,
                     colors = androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(containerColor = accent.goldSoft, contentColor = accent.onGoldSoft),
                 ) {
                     if (creating) {
@@ -199,6 +220,11 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                     } else {
                         Icon(Icons.Filled.Add, stringResource(R.string.sidebar_new_page))
                     }
+                }
+                DropdownMenu(expanded = newMenu, onDismissRequest = { newMenu = false }) {
+                    DropdownMenuItem(text = { Text(stringResource(R.string.gal_new_page)) }, onClick = { newMenu = false; newPage(null) })
+                    DropdownMenuItem(text = { Text(stringResource(R.string.gal_from_template)) }, onClick = { newMenu = false; openGallery(null) })
+                }
                 }
             }
         }
@@ -236,13 +262,13 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
         if (favorites.isNotEmpty()) {
             item { SidebarSection(stringResource(R.string.sidebar_favorites)) }
             items(favorites, key = { "fav-${it.id}" }) { p ->
-                PageRowItem(p, 0, false, false, nav.root == Dest.Page(p.id), repo, { open(p.id) }, {}, { newPage(it) }, scope, allMeta = allMeta, onMove = onMove)
+                PageRowItem(p, 0, false, false, nav.root == Dest.Page(p.id), repo, { open(p.id) }, {}, { newPage(it) }, scope, allMeta = allMeta, onMove = onMove, onTemplate = galTemplate)
             }
         }
         if (recent.isNotEmpty()) {
             item { SidebarSection(stringResource(R.string.sidebar_recent)) }
             items(recent, key = { "rec-${it.id}" }) { p ->
-                PageRowItem(p, 0, false, false, nav.root == Dest.Page(p.id), repo, { open(p.id) }, {}, { newPage(it) }, scope, allMeta = allMeta, onMove = onMove)
+                PageRowItem(p, 0, false, false, nav.root == Dest.Page(p.id), repo, { open(p.id) }, {}, { newPage(it) }, scope, allMeta = allMeta, onMove = onMove, onTemplate = galTemplate)
             }
         }
         item { SidebarSection(stringResource(R.string.pages)) }
@@ -259,7 +285,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                 r.page, r.depth, r.hasChildren, r.page.id in expanded, nav.root == Dest.Page(r.page.id), repo,
                 { open(r.page.id) },
                 { expanded = if (r.page.id in expanded) expanded - r.page.id else expanded + r.page.id },
-                { newPage(it) }, scope, allMeta = allMeta, onMove = onMove,
+                { newPage(it) }, scope, allMeta = allMeta, onMove = onMove, onTemplate = galTemplate,
             )
         }
         if (sharedTree.isNotEmpty() || shareOff || fedUnreachable.isNotEmpty()) {
@@ -305,7 +331,7 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
                     r.page, r.depth, r.hasChildren, r.page.id in sharedExpanded, nav.root == Dest.Page(r.page.id), repo,
                     { open(r.page.id) },
                     { sharedExpanded = if (r.page.id in sharedExpanded) sharedExpanded - r.page.id else sharedExpanded + r.page.id },
-                    { newPage(it) }, scope, owner = if (r.page.root) r.page.owner?.name else null, allMeta = allMeta, onMove = onMove,
+                    { newPage(it) }, scope, owner = if (r.page.root) r.page.owner?.name else null, allMeta = allMeta, onMove = onMove, onTemplate = galTemplate,
                 )
             }
         }
@@ -320,6 +346,20 @@ fun Sidebar(repo: SagaRepository, nav: AppNavigator, onNavigate: () -> Unit) {
     }
     if (showTrash) io.github.yggdrasil_sh.saga.ui.pages.TrashDialog(repo, onDismiss = { showTrash = false })
     movePage?.let { p -> io.github.yggdrasil_sh.saga.ui.pages.MovePageDialog(repo, p, onDismiss = { movePage = null }) }
+    if (galleryOpen) {
+        // Kopf-Menue: offene Seite als Elternseite anbieten (nur wenn dort Unterseiten erlaubt sind)
+        val current = (nav.root as? Dest.Page)?.id?.let { id -> allMeta.firstOrNull { it.id == id } }
+            ?.takeIf { galleryParent == null && io.github.yggdrasil_sh.saga.data.Gallery.canBeParent(it) }
+        io.github.yggdrasil_sh.saga.ui.pages.GallerySheet(
+            repo, parent = galleryParent, current = current,
+            onDismiss = { galleryOpen = false },
+            onCreated = { id ->
+                galleryOpen = false
+                galleryParent?.let { expanded = expanded + it.id }
+                open(id)
+            },
+        )
+    }
 }
 
 /** Abschnitt der Seitenleiste (Favoriten, Zuletzt, Seiten): Gold, eingerueckt wie die Eintraege */
@@ -364,6 +404,8 @@ private fun PageRowItem(
     /** 2.4: Verschieben im Langdruck-Menue (Regeln: MoveLogic) */
     allMeta: List<PageMeta> = emptyList(),
     onMove: ((PageMeta) -> Unit)? = null,
+    /** 2.5: "Aus Vorlage ..." als Unterseite (nur wenn der Server die Galerie anbietet) */
+    onTemplate: ((PageMeta) -> Unit)? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     val context = LocalContext.current
@@ -373,12 +415,13 @@ private fun PageRowItem(
     // Seiten anderer Saga-Instanzen: Unterseiten nur, wenn ihr Server es kann (2.3, Rolle Bearbeiten), sonst nicht
     val canSub = !p.isDatabase && p.can(io.github.yggdrasil_sh.saga.data.RemoteCaps.SUBPAGES) && (!(foreign || p.isRemote) || p.role == "edit")
     val canMove = onMove != null && io.github.yggdrasil_sh.saga.data.MoveLogic.canMove(p, allMeta)
+    val canTemplate = onTemplate != null && canSub && io.github.yggdrasil_sh.saga.data.Gallery.canBeParent(p)
     Box {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(CircleShape)
                 .background(if (selected) io.github.yggdrasil_sh.saga.ui.theme.LocalSagaAccent.current.goldSoft else androidx.compose.ui.graphics.Color.Transparent)
                 .combinedClickable(
-                    onClick = onOpen, onLongClick = if (canFavorite || canSub || canMove) ({ menu = true }) else null,
+                    onClick = onOpen, onLongClick = if (canFavorite || canSub || canMove || canTemplate) ({ menu = true }) else null,
                     onLongClickLabel = stringResource(R.string.page_actions),
                 )
                 .padding(start = (16 + depth * 16).dp, end = if (hasChildren || p.shared || p.unread) 0.dp else 12.dp).heightIn(min = 48.dp),
@@ -424,6 +467,9 @@ private fun PageRowItem(
             }
             if (canSub) {
                 DropdownMenuItem(text = { Text(stringResource(R.string.new_subpage)) }, onClick = { menu = false; onNewChild(p.id) })
+            }
+            if (canTemplate) {
+                DropdownMenuItem(text = { Text(stringResource(R.string.gal_from_template)) }, onClick = { menu = false; onTemplate?.invoke(p) })
             }
             if (canMove) {
                 DropdownMenuItem(text = { Text(stringResource(R.string.mv_menu)) }, onClick = { menu = false; onMove?.invoke(p) })

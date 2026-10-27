@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 2.5 Vorlagengalerie: einfache Auswahl "Aus Vorlage ..." -->
+<resources>
+    <string name="gal_new_page">Новая страница</string>
+    <string name="gal_from_template">Из шаблона …</string>
+    <string name="gal_title">Шаблоны</string>
+    <string name="gal_sub">Готовые страницы и базы данных – создаются как копия в вашей учётной записи.</string>
+    <string name="gal_sub_under">Будет создано в «%1$s»</string>
+    <string name="gal_cat_personal">Личное</string>
+    <string name="gal_cat_work">Работа</string>
+    <string name="gal_cat_team">Команда</string>
+    <string name="gal_cat_other">Другое</string>
+    <string name="gal_empty">Шаблонов нет.</string>
+    <string name="gal_load_failed">Не удалось загрузить шаблоны: %1$s</string>
+    <string name="gal_examples">С примерами</string>
+    <string name="gal_under_current">В «%1$s»</string>
+    <string name="gal_contains">Содержит: %1$s</string>
+    <string name="gal_needs_hint">Некоторым частям нужен дополнительный сервис (например, календарь) – без него вместо них показывается подсказка.</string>
+    <string name="gal_use">Использовать</string>
+    <string name="gal_created">Шаблон создан</string>
+    <string name="gal_unsupported">Этот сервер пока не предлагает шаблоны.</string>
+    <string name="gal_error_bad_answer">Неожиданный ответ сервера.</string>
+    <string name="gal_error_rate">Слишком много шаблонов за короткое время – подождите немного и попробуйте снова.</string>
+    <string name="gal_error_gone">Этот шаблон больше недоступен.</string>
+    <string name="gal_error_forbidden">Вам нельзя создавать здесь страницы.</string>
+    <string name="gal_error_invalid">Здесь нельзя создать этот шаблон.</string>
+    <string name="gal_error_server">Сервер не смог создать шаблон (ошибка %1$d). Попробуйте позже.</string>
+</resources>
