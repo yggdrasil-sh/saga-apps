@@ -663,6 +663,16 @@ class MainWindow(Adw.ApplicationWindow):
         hb.set_title_widget(Adw.WindowTitle(title="Saga"))
         new = flat_button(icon="document-new-symbolic", tooltip=_("New page (Ctrl+N)"), cb=self.new_page)
         hb.pack_start(new)
+        # 2.5: mit Vorlagengalerie wird daraus ein Knopf mit Menue (Neue Seite / Aus Vorlage ...)
+        nm = Gio.Menu()
+        nm.append(_("New page"), "win.new-page")
+        nm.append(_("From template …"), "win.gallery")
+        self.new_split = Adw.SplitButton(icon_name="document-new-symbolic", tooltip_text=_("New page (Ctrl+N)"), menu_model=nm,
+                                         dropdown_tooltip=_("More ways to create"), visible=False)
+        self.new_split.add_css_class("flat")
+        self.new_split.connect("clicked", lambda *_: self.new_page())
+        hb.pack_start(self.new_split)
+        self.new_btn = new
         menu = Gtk.MenuButton(icon_name="open-menu-symbolic", tooltip_text=_("Menu"))
         m = Gio.Menu()
         m.append(_("Command palette"), "win.palette")
@@ -754,6 +764,7 @@ class MainWindow(Adw.ApplicationWindow):
         ct.add_top_bar(self.callbar)
         store.connect("version-changed", lambda *_: self._version_banner())
         store.connect("version-changed", lambda *_: self.sidebar.fill(force=False))     # 2.5: Eintrag "Graph" je Server
+        store.connect("version-changed", lambda *_: self._gallery_probe())               # 2.5: Vorlagengalerie je Server
         self.overlay = Gtk.Overlay()
         self.slot = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, vexpand=True, hexpand=True)
         self.overlay.set_child(self.slot)
@@ -1547,6 +1558,7 @@ class MainWindow(Adw.ApplicationWindow):
         acts = {
             "palette": (self.palette, ["<Control>k", "<Control>p"]),
             "new-page": (self.new_page, ["<Control>n"]),
+            "gallery": (self.gallery_dialog, []),
             "back": (self.go_back, ["<Alt>Left"]),
             "forward": (self.go_forward, ["<Alt>Right"]),
             "refresh": (lambda: store.refresh(), ["<Control>r", "F5"]),
@@ -1577,7 +1589,9 @@ class MainWindow(Adw.ApplicationWindow):
         return False
 
     def palette_actions(self):
-        a = [("document-new-symbolic", _("New page"), self.new_page), ("weather-clear-symbolic", _("Today"), lambda: self.show_root(("today",))),
+        a = [("document-new-symbolic", _("New page"), self.new_page),
+             *([("document-new-symbolic", _("From template …"), self.gallery_dialog)] if self._gallery_offered() else []),
+             ("weather-clear-symbolic", _("Today"), lambda: self.show_root(("today",))),
              ("object-select-symbolic", _("Tasks"), lambda: self.show_root(("tasks",))),
              ("x-office-calendar-symbolic", _("Events"), lambda: self.show_root(("events",))),
              ("user-trash-symbolic", _("Trash"), self.trash_dialog), ("view-app-grid-symbolic", _("Services"), lambda: self.show_root(("services",))),
@@ -1625,6 +1639,28 @@ class MainWindow(Adw.ApplicationWindow):
 
     def new_page(self, parent=None):
         store.new_page(parent, done=lambda pid: self.show_page(pid, root=parent is None))
+
+    # --- Vorlagengalerie (2.5) ---------------------------------------------------------------
+    def _gallery_offered(self):
+        from .galeriedialog import offered
+        return offered()
+
+    def _gallery_probe(self):
+        from .galeriedialog import probe
+        probe(self)
+        self.gallery_changed()
+
+    def gallery_changed(self):
+        """Neu-Knopf mit/ohne Menue "Aus Vorlage ..." (404/403 bzw. aelterer Server: ausgeblendet)"""
+        on = self._gallery_offered()
+        self.new_split.set_visible(on)
+        self.new_btn.set_visible(not on)
+
+    def gallery_dialog(self, parent=None):
+        if not self._gallery_offered():
+            return
+        from .galeriedialog import GalleryDialog
+        GalleryDialog(self, parent).present(self)
 
     def copy_link(self):
         pid = self.page_id()
@@ -1724,6 +1760,8 @@ class MainWindow(Adw.ApplicationWindow):
             ents = [(_("Remove from favorites") if p.get("pinned") else _("Add to favorites"), lambda: store.patch(pid, {"pinned": not p.get("pinned")}))]
             if not is_db(p):
                 ents.append((_("New subpage"), lambda: store.new_page(pid, done=lambda n: self.show_page(n))))
+                if self._gallery_offered() and pid > 0:
+                    ents.append((_("New subpage from template …"), lambda: self.gallery_dialog(pid)))
             ents += [(_("Move to …"), lambda: self.move_dialog(pid)), (_("Duplicate"), lambda: store.duplicate(pid, done=lambda n: self.show_page(n))),
                      (_("Copy link"), lambda: self.copy_text(store.page_url(pid))),
                      (_("Archive"), lambda: (self._leave_if(pid), store.set_archived(pid, True))), None,

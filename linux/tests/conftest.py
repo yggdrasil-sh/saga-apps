@@ -65,6 +65,8 @@ def srv():
     ai.status, ai.known, ai.persona_only = {}, False, None
     from hlidskjalf.clipimg import forget_immich
     forget_immich()
+    from hlidskjalf.galerie import state as gallery_state
+    gallery_state.set(None, None)                 # Vorlagengalerie (2.5): je Test neu fragen
     client.set_cookies("", {})
     s = mockserver.install()
     yield s

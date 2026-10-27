@@ -9,6 +9,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – Linux: Vorlagengalerie (Saga-Server 2.5)
+- **„Neu“-Knopf mit Menü** → „Aus Vorlage …“, ebenso in der Befehlspalette und im Seitenmenü („Unterseite aus
+  Vorlage …“): Liste der Galerie-Vorlagen des Servers (Symbol, Titel, Beschreibung), gruppiert nach Persönlich ·
+  Arbeit · Team, in der App-Sprache.
+- Bestätigung mit „Enthält: …“, Schalter **„Mit Beispielen“** (Standard an) und – auf einer eigenen Seite –
+  „Als Unterseite von …“; danach öffnet sich die angelegte Startseite, der Seitenbaum wird neu geladen.
+- Älterer Server oder Galerie abgeschaltet: Einträge ausgeblendet. Fehler (zu viele Anfragen, Server, Rechte) als
+  freundlicher Hinweis. Föderierte Seiten und Datenbanken werden nicht als Elternseite angeboten.
+
 ### Neu – iOS/Mac: Seite gestalten (Saga-Server 2.5)
 - **Darstellung** der im Web gestalteten Seiten: Spaltenbreiten (iPad/Mac; iPhone weiter untereinander), Breite und
   Ausrichtung von Bildern und YouTube-Playern (iPhone mindestens 50 %), Text- und Hintergrundfarbe von Blöcken
