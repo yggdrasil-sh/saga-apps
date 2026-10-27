@@ -44,6 +44,16 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Unbekannte Blöcke:** Hinweis-Karte mit „Im Web öffnen“ statt `[typ]`.
 - Umwandeln und Kopieren/Einfügen behalten Block-Tunes (Farbe); Speichern behält unbekannte Felder (mit Rundreise-Test).
 
+### Neu – Android: Vorlagengalerie „Aus Vorlage …“ (Saga-Server 2.5)
+- Das „+“ der Seitenleiste wird zum Menü **Neue Seite · Aus Vorlage …**, sobald der Server die Vorlagengalerie
+  anbietet (sonst legt „+“ wie bisher direkt eine Seite an). Langdruck an einer eigenen oder mit „Bearbeiten“ geteilten
+  Seite: „Aus Vorlage …“ als Unterseite (nicht bei Datenbanken und Seiten anderer Saga-Instanzen).
+- Liste in der App-Sprache mit Icon, Titel und Beschreibung, gruppiert nach Persönlich · Arbeit · Team. Antippen →
+  Bestätigung mit „Enthält: …“, Schalter **Mit Beispielen** (Standard an) und – wenn eine Seite offen ist –
+  „Unter „…““. Danach öffnet die angelegte Startseite, die Seitenliste wird neu geladen.
+- Älterer Server (404): Eintrag ausgeblendet. Freundliche Meldungen bei zu vielen Vorlagen in kurzer Zeit (429),
+  fehlender Berechtigung (403), nicht möglicher Elternseite (400, Meldung des Servers) und verschwundener Vorlage.
+- Unit-Tests für tolerantes Parsing, Gruppen, Anfrage und Fehlerfälle; Texte in de/en/es/ru/th.
 ### Neu – Android: Widgets in Seiten anzeigen (Saga-Server 2.5)
 - Block **Widget** als Karte mit Titel, Größe (S/M/L), Stil (Karte/schlicht) und Akzentfarbe aus der Palette: **Uhr**
   (tickt lokal, Zeitzone, 12/24 h, Sekunden, analoge Zeigeruhr), **Countdown** (bis/seit, Tage oder Std./Min.),
