@@ -75,6 +75,11 @@ func widgetTests() {
     let h = WidgetLogic.hands(at("2026-10-27T15:30:15Z"), cfg: ["tz": "UTC"])
     check(h == WidgetLogic.Hands(hour: 105, minute: 181.5, second: 90), "Zeigerwinkel 15:30:15")
 
+    // MARK: riesige Werte (unbereinigt, z. B. von einem aelteren Server) stuerzen nicht ab
+    let huge = WidgetLogic.Progress(value: 1e11, max: 1e-300)
+    check(huge.percent == 1_000_000_000 && huge.fraction == 1, "riesiger Fortschritt begrenzt")
+    check(WidgetLogic.Progress(value: -1e300, max: 1e-10).percent == -1_000_000_000, "negativ begrenzt")
+
     // MARK: Countdown (UTC)
     let now = at("2026-10-27T10:00:00Z")
     check(WidgetLogic.countdown(["date": "2026-11-06"], now: now, calendar: cal) == .days(10, since: false), "noch 10 Tage")

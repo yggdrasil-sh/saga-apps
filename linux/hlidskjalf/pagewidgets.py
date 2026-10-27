@@ -27,7 +27,10 @@ def _num(v):
     """Zahl (kein bool, endlich) oder None"""
     if isinstance(v, bool) or not isinstance(v, (int, float)):
         return None
-    v = float(v)
+    try:
+        v = float(v)
+    except OverflowError:                           # riesige ganze Zahl (unbereinigte Daten)
+        return None
     return v if math.isfinite(v) else None
 
 

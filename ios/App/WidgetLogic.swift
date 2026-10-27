@@ -288,7 +288,11 @@ enum WidgetLogic {
         /// Anteil 0 ... 1 (fuer den Balken)
         var fraction: Double { max > 0 && value.isFinite ? Swift.min(1, Swift.max(0, value / max)) : 0 }
         /// Prozent fuer den Text (ganzzahlig, ueber 100 % moeglich)
-        var percent: Int { max > 0 && value.isFinite ? Int((value / max * 100).rounded()) : 0 }
+        var percent: Int {
+            let p = (value / max * 100).rounded()
+            // Int(_:) stuerzt bei unendlich/riesig ab (z. B. value 1e11, max 1e-9 aus unbereinigten Daten)
+            return max > 0 && !p.isNaN ? Int(Swift.min(1e9, Swift.max(-1e9, p))) : 0
+        }
     }
 
     /// Fortschritt: fest aus cfg (value/max), aus DB vom Server (value/max); nil = (noch) kein Wert

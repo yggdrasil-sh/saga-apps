@@ -174,6 +174,8 @@ def test_progress_and_quote_logic():
     db = _spec({"id": "p", "data": {"kind": "progress", "cfg": {"src": "db", "goal": 10}}})
     assert pw.progress(db, {"value": 4.0, "max": None}) == (4.0, 10.0) and pw.progress(db, None) is None
     assert pw.progress(db, {"value": 4.0, "max": 8.0}) == (4.0, 8.0)
+    big = _spec({"id": "p", "data": {"kind": "progress", "cfg": {"src": "fixed", "value": 10 ** 400, "max": float("nan")}}})
+    assert pw.progress(big, None) is None and pw.parse_value({"value": 10 ** 400})["value"] is None   # kein OverflowError
     assert pw.quote_items({"items": ["  a ", "", 3, "b" * 400] + ["c"] * 30})[:3] == ["a", "b" * 300, "c"]
     assert len(pw.quote_items({"items": ["c"] * 30})) == 20
     assert pw.fnv1a("") == 0x811C9DC5 and pw.fnv1a("a") == 0xE40C292C          # Testvektoren FNV-1a 32

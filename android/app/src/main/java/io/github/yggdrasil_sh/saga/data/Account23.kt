@@ -430,4 +430,6 @@ suspend fun SagaRepository.ncSearch(q: String): NcItems =
 suspend fun SagaRepository.ncPageStatus(noteId: Long): NcPageStatus = json.decodeFromString(NcPageStatus.serializer(), api.get("api/notes/$noteId/nc"))
 
 /** 2.5 Widgets in Seiten (SPEC-widgets): Werte der Server-Widgets einer Seite - Rohtext, PageWidgets.parseResponse liest ihn */
-suspend fun SagaRepository.pageWidgetValues(noteId: Long): String = api.get("api/notes/$noteId/widgets")
+suspend fun SagaRepository.pageWidgetValues(noteId: Long): String =
+    api.get("api/notes/$noteId/widgets" + (io.github.yggdrasil_sh.saga.blocks.PageWidgets.tzParam(java.time.ZoneId.systemDefault().id)
+        ?.let { "?tz=" + java.net.URLEncoder.encode(it, "UTF-8") } ?: ""))

@@ -173,6 +173,7 @@ fun PageWidgetBlock(block: JsonObject, env: BlockEnv) {
         // Fehler/Zustand der Server-Werte (nur fuer Arten, die der Server rechnet)
         val problem: String? = if (!s.serverValue) null else when {
             all == null -> ""
+            s.localFallback -> v?.error?.let { errorText(it) }        // festes Zitat: sonst lokal nach pick
             all is PageWidgets.Values.Unsupported -> stringResource(R.string.pw_unsupported)
             all is PageWidgets.Values.OldServer -> stringResource(R.string.pw_old_server)
             all is PageWidgets.Values.Failed -> stringResource(R.string.pw_failed)

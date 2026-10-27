@@ -36,12 +36,15 @@ object PageWidgets {
         val cfg: JsonObject,
     ) {
         val known: Boolean get() = kind in KINDS
-        /** Rechnet der Server den Wert (Etappe 1: progress/db, metric, quote/db)? */
+        /** Holt die App den Wert vom Server (Etappe 1: progress/db, metric, jedes quote - auch feste Zitate waehlt der
+         *  Server nach `pick`, damit die Auswahl wie im Web ist)? */
         val serverValue: Boolean get() = when (kind) {
-            "metric" -> true
-            "progress", "quote" -> str(cfg, "src") == "db"
+            "metric", "quote" -> true
+            "progress" -> str(cfg, "src") == "db"
             else -> false
         }
+        /** Festes Zitat: ohne Server-Wert (alter Server, offline, Foederation) lokal nach `pick` */
+        val localFallback: Boolean get() = kind == "quote" && str(cfg, "src") != "db" && quoteItems(cfg).isNotEmpty()
     }
 
     private fun str(o: JsonObject?, k: String): String = (o?.get(k) as? JsonPrimitive)?.takeIf { it.isString }?.content ?: ""
@@ -131,6 +134,9 @@ object PageWidgets {
         val w = root["widgets"] as? JsonObject ?: return Values.Ok(emptyMap())
         return Values.Ok(w.mapNotNull { (k, v) -> (v as? JsonObject)?.let { k to parseValue(it) } }.toMap())
     }
+
+    /** Zeitzone des Betrachters fuer `?tz=` (nur IANA-Namen; sonst weglassen - der Server antwortet auf Ungueltiges mit 400) */
+    fun tzParam(id: String): String? = id.takeIf { (it == "UTC" || '/' in it) && Regex("""[A-Za-z0-9_+\-/]{1,64}""").matches(it) && ".." !in it }
 
     /** HTTP-Fehler beim Abruf: 404 = aelterer Server, sonst Fehler */
     fun fromHttpError(code: Int): Values = if (code == 404) Values.OldServer else Values.Failed
@@ -295,9 +301,10 @@ object PageWidgets {
         return (fnv1a(date.toString() + ":" + (blockId ?: "")) % n).toInt()
     }
 
-    /** Zitattext: db aus dem Server-Wert, fixed lokal */
+    /** Zitattext: zuerst der Server-Text (gleiche Auswahl wie im Web); fest notfalls lokal nach `pick` */
     fun quoteText(s: Spec, v: Value?, date: LocalDate, rnd: Random = Random.Default): String? {
-        if (str(s.cfg, "src") == "db") return v?.text?.trim()?.takeIf { it.isNotEmpty() }
+        v?.text?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+        if (str(s.cfg, "src") == "db") return null
         val items = quoteItems(s.cfg)
         val i = quoteIndex(items.size, str(s.cfg, "pick"), date, s.id, rnd)
         return items.getOrNull(i)

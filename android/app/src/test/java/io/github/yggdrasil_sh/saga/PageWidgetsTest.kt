@@ -65,7 +65,7 @@ class PageWidgetsTest {
         assertTrue(sv("progress", """{"src":"db"}"""))
         assertFalse(sv("progress", """{"src":"fixed","value":1,"max":2}"""))
         assertTrue(sv("quote", """{"src":"db"}"""))
-        assertFalse(sv("quote", """{"src":"fixed","items":["a"]}"""))
+        assertTrue(sv("quote", """{"src":"fixed","items":["a"]}"""))            // Auswahl vom Server (wie Web)
         assertFalse(sv("countdown", """{}"""))
     }
 
@@ -79,6 +79,21 @@ class PageWidgetsTest {
         )
         assertEquals(listOf("a", "b", "d", "e"), PageWidgets.collect(BlockDoc.blocks(doc)).map { BlockDoc.id(it) })
         assertEquals(setOf("a", "b", "e"), PageWidgets.serverIds(doc))
+    }
+
+    @Test
+    fun festesZitatZuerstVomServerUndTz() {
+        val d = LocalDate.of(2026, 10, 27)
+        val fixed = PageWidgets.spec(obj("""{"id":"q","type":"widget","data":{"kind":"quote","cfg":{"src":"fixed","items":["a","b","c"],"pick":"daily"}}}"""))
+        assertTrue(fixed.localFallback)
+        val srv = PageWidgets.Value("quote", null, null, "b", null, null, null)
+        assertEquals("b", PageWidgets.quoteText(fixed, srv, d))
+        assertNotNull(PageWidgets.quoteText(fixed, null, d))                 // ohne Server-Wert lokal
+        assertFalse(PageWidgets.spec(obj("""{"id":"q","type":"widget","data":{"kind":"quote","cfg":{"src":"db"}}}""")).localFallback)
+        assertEquals("Europe/Berlin", PageWidgets.tzParam("Europe/Berlin"))
+        assertEquals("UTC", PageWidgets.tzParam("UTC"))
+        assertNull(PageWidgets.tzParam("GMT+05:30"))
+        assertNull(PageWidgets.tzParam("../etc"))
     }
 
     // ---------------------------------------------------------------- Antwort GET /api/notes/{nid}/widgets
