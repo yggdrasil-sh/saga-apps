@@ -35,6 +35,9 @@ final class Store: ObservableObject {
     @Published var loginPostponed = false
     @Published var pendingPair: PairRequest?               // Kopplungslink wartet auf Bestaetigung
     @Published var serverVersion: String?                // aus /api/version
+    /// 2.5 Vorlagengalerie: bietet dieser Server sie an? (GalleryViews.swift; aelterer Server 404 -> Eintrag ausgeblendet)
+    @Published var galleryOffered = false
+    var galleryOrigin: String?                           // Server, fuer den galleryOffered gilt
     @Published var minApp: String?                       // aelteste App-Version, die der Server voll unterstuetzt
     var appTooOld: Bool { minApp.map { Store.versionLess(Store.appVersion, $0) } ?? false }
     nonisolated static var appVersion: String { Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0" }
@@ -420,6 +423,7 @@ final class Store: ObservableObject {
             Task { await notifs.loadCount(); await chat.refreshUnread(); await loadAIStatus() }
             if error != nil, error != Store.keychainFailedText { error = nil }   // Schluesselbund-Problem bleibt sichtbar (BUG-104)
             if serverVersion == nil { await checkVersion() }
+            if galleryOrigin != AppConfig.serverOrigin { Task { await probeGallery() } }   // 2.5: einmal je Server
             await loadToday()
             await ensureDeviceKey()
             // Konto fuer die Entwuerfe: einmal je Start, und solange es fuer diesen Server noch unbekannt ist

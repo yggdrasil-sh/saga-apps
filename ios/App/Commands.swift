@@ -13,6 +13,7 @@ struct HKCommands {
     var tasks: () -> Void
     var events: () -> Void
     var graph: (() -> Void)? = nil                  // 2.5: Graph der Seiten (nil = Server zu alt)
+    var fromTemplate: (() -> Void)? = nil           // 2.5: Vorlagengalerie (nil = Server ohne Galerie)
 }
 struct HKCommandsKey: FocusedValueKey { typealias Value = HKCommands }
 extension FocusedValues {
@@ -25,6 +26,7 @@ struct HKMenuCommands: Commands {
     var body: some Commands {
         CommandGroup(before: .newItem) {
             Button("Neue Seite") { hk?.newPage() }.keyboardShortcut("n", modifiers: [.command, .option]).disabled(hk == nil)
+            Button("Aus Vorlage …") { hk?.fromTemplate?() }.disabled(hk?.fromTemplate == nil)
         }
         CommandMenu("Gehe zu") {
             Button("Zurück") { hk?.back() }.keyboardShortcut("[", modifiers: .command).disabled(hk == nil)

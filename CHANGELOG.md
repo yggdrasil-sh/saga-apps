@@ -28,6 +28,14 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   gelöschter Quelle, unvollständiger Einrichtung, zu vielen Einträgen, älterem Server und fremden Servern ohne Widgets.
   Unbekannte Widget-Arten: „Widget – neuere Version nötig“.
 - **Block-Menü:** „Im Web bearbeiten“ (springt zum Block). Die App speichert Widget-Blöcke unverändert (mit Rundreise-Test).
+### Neu – iOS/Mac: Vorlagengalerie, einfache Auswahl (Saga-Server 2.5)
+- **„Neue Seite“ → „Aus Vorlage …“** (iPhone/iPad: langes Drücken auf den Knopf; Mac: Pfeil am Knopf, Menü „Ablage“
+  und Befehlspalette) sowie **„Unterseite aus Vorlage …“** im Seitenmenü eigener Seiten: Liste der Galerie-Vorlagen des
+  Servers in der App-Sprache (Icon, Titel, Beschreibung), gruppiert nach Persönlich · Arbeit · Team.
+- Antippen → kurze Bestätigung mit „Enthält …“ und Schalter **„Mit Beispielen“** (Standard an) → „Verwenden“ legt die
+  Vorlage an, lädt die Seitenliste neu und öffnet die Startseite der Vorlage.
+- Server ohne Galerie (älter, 404) oder abgeschaltet: Einträge bleiben ausgeblendet. Fehler (keine Rechte, zu viele
+  Versuche, Meldung des Servers) als freundlicher Hinweis; Logik mit Logic-Tests.
 ### Neu – Linux: Seite gestalten (Darstellung, Farbe, Schrift) und Rückfall-Karte
 - **Darstellung:** Spaltenbreiten ab 700 px Seitenbreite (schmaler untereinander), Breite und Ausrichtung von Bildern und
   YouTube-Playern, Text- und Hintergrundfarbe von Blöcken (hell/dunkel), Toggle-Überschriften, Schrift Serif/Mono und
