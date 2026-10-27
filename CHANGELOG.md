@@ -18,6 +18,16 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Umwandeln behält die Farbe.
 - **Unbekannte Blöcke** sind nicht mehr unsichtbar: Hinweis-Karte mit „Im Web öffnen“ (springt zum Block).
 - Speichern behält unbekannte Felder in Blöcken und Block-Tunes unverändert (mit Rundreise-Test).
+### Neu – iOS/Mac: Widgets in Seiten (Saga-Server 2.5)
+- **Anzeige** der im Web eingerichteten Widget-Blöcke als Karte (Titel, Größe S/M/L, Karte oder schlicht, Akzentfarbe
+  aus der Palette), auch in Spalten und Toggles: **Uhr** (lokal tickend, Zeitzone, 12/24 h, Sekunden, Zeigeruhr),
+  **Countdown** (bis/seit, Tage oder unter einem Tag Std./Min.), **Fortschritt** (fest oder aus einer Datenbank),
+  **Kennzahl** (Zahl/Prozent/Euro in der App-Sprache, Ziel), **Zitat** (vom Server; feste Zitate notfalls lokal nach
+  „täglich“/„je Öffnen“).
+- Werte vom Server beim Öffnen der Seite und beim Zurückkehren in die App; freundliche Hinweise bei fehlendem Zugriff,
+  gelöschter Quelle, unvollständiger Einrichtung, zu vielen Einträgen, älterem Server und fremden Servern ohne Widgets.
+  Unbekannte Widget-Arten: „Widget – neuere Version nötig“.
+- **Block-Menü:** „Im Web bearbeiten“ (springt zum Block). Die App speichert Widget-Blöcke unverändert (mit Rundreise-Test).
 ### Neu – Linux: Seite gestalten (Darstellung, Farbe, Schrift) und Rückfall-Karte
 - **Darstellung:** Spaltenbreiten ab 700 px Seitenbreite (schmaler untereinander), Breite und Ausrichtung von Bildern und
   YouTube-Playern, Text- und Hintergrundfarbe von Blöcken (hell/dunkel), Toggle-Überschriften, Schrift Serif/Mono und

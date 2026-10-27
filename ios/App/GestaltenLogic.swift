@@ -131,7 +131,7 @@ enum GestaltenLogic {
 
     /// Typen, die die App darstellt (alles andere: Rueckfall-Karte)
     static let knownTypes: Set<String> = ["paragraph", "header", "list", "quote", "code", "delimiter", "table", "image", "attaches",
-                                          "callout", "toggle", "columns", "database", "tasks", "calendar", "buttons", "embed", "nextcloud"]
+                                          "callout", "toggle", "columns", "database", "tasks", "calendar", "buttons", "embed", "nextcloud", "widget"]
     /// Ohne sichtbaren Inhalt auch im Web (Hilfsblock) - keine Karte
     static let silentTypes: Set<String> = ["verweis"]
     static func needsFallback(_ type: String) -> Bool { !knownTypes.contains(type) && !silentTypes.contains(type) }

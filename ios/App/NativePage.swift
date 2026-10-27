@@ -676,6 +676,7 @@ struct NativePageScreen: View {
     @EnvironmentObject var store: Store
     @StateObject private var doc: PageDoc
     @StateObject private var ed: PageEditor
+    @StateObject private var widgets = PageWidgetValues()   // 2.5: Werte der Seiten-Widgets
     @EnvironmentObject var nav: NavModel
     @Environment(\.dismiss) private var dismiss
     @State private var moving = false
@@ -860,6 +861,11 @@ struct NativePageScreen: View {
                                  ed.insert(b, after: (doc.root.lastObject as? NSMutableDictionary)?.blockID); ed.focus = nil
                                  Task { await ed.flush() }
                              })
+    }
+
+    private func refreshWidgets() {
+        guard doc.fetched, !doc.noAccess, !doc.isDatabase else { return }
+        Task { await widgets.refresh(note: id, blocks: doc.root, store: store) }
     }
 
     // MARK: Live (1.4): Anwesenheit, fremde Aenderungen
@@ -1120,6 +1126,7 @@ struct NativePageScreen: View {
             Task { for i in imgs { await e?.insertImage(i.data) } }
         }
         .environmentObject(ed)
+        .environmentObject(widgets)
         .overlay { if !doc.loaded { ProgressView() } }
         #if os(iOS)
         .navigationTitle(scrolled && !doc.noAccess ? doc.title : "")
@@ -1212,6 +1219,9 @@ struct NativePageScreen: View {
         }
         .refreshable { await ed.flush(); await doc.load(store); store.refreshEvents() }
         .task(id: "presence-\(id)") { await presenceLoop() }
+        // 2.5: Widget-Werte beim Oeffnen, nach neuem Stand der Seite und beim Zurueckkehren in den Vordergrund
+        .onChange(of: doc.fetched ? doc.currentRev : -1, initial: true) { _, r in if r >= 0 { refreshWidgets() } }
+        .onChange(of: phase) { _, p in if p == .active { refreshWidgets() } }
         .onReceive(store.live.events) { liveEvent($0) }
         .onChange(of: doc.updatedBy) { _, v in if v != nil { Task { try? await Task.sleep(for: .seconds(6)); doc.updatedBy = nil } } }
         .sheet(item: $assistant) { l in
@@ -1394,6 +1404,8 @@ struct BlockView: View {
             }
         case "nextcloud":                                            // 2.3: Datei/Ordner aus Nextcloud (Block bleibt unveraendert)
             NextcloudCard(data: data, note: ed.doc.id, remotePage: FedLogic.isRemote(ed.doc.id))
+        case "widget":                                               // 2.5: Seiten-Widget (nur Anzeige; Block bleibt unveraendert)
+            WidgetBlockView(data: data, blockID: id)
         default:
             // 2.5: unbekannter Typ -> Hinweis-Karte statt unsichtbar; der Block bleibt beim Speichern unveraendert (Regel 0)
             if GestaltenLogic.needsFallback(type) { FallbackBlockCard(type: type, blockID: id, note: ed.doc.id) }
@@ -1704,6 +1716,11 @@ struct BlockHandles: View {
 struct BlockMenuItems: View {
     let id: String
     @EnvironmentObject var ed: PageEditor
+    @EnvironmentObject private var nav: NavModel
+    private var isWidget: Bool {
+        guard let (arr, i) = ed.locate(id), let b = arr[i] as? NSDictionary else { return false }
+        return (b["type"] as? String) == "widget"
+    }
     private var isImage: Bool {
         guard let (arr, i) = ed.locate(id), let b = arr[i] as? NSDictionary else { return false }
         return (b["type"] as? String) == "image" && ((b["data"] as? NSDictionary)?["file"] as? NSDictionary)?["url"] is String
@@ -1740,6 +1757,9 @@ struct BlockMenuItems: View {
         } label: { Label("Umwandeln in", systemImage: "arrow.triangle.2.circlepath") }
         }
         BlockColorMenu(id: id)                                          // 2.5: Text-/Hintergrundfarbe (tunes.hkstyle)
+        if isWidget {                                                   // 2.5: Widgets nur im Web einrichten
+            Button { nav.peek = nil; nav.push(PageRoute(id: ed.doc.id, web: true, block: id)) } label: { Label("Im Web bearbeiten", systemImage: "safari") }
+        }
         Button { copyText(AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/notes#\(ed.doc.id):\(id)") } label: { Label("Link zum Block kopieren", systemImage: "link") }
         // Spalten wie Notion: hinein, heraus, zusammenfuehren
         if let c = ed.columnOf(id) {
