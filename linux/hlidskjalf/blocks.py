@@ -845,6 +845,9 @@ class BlockKit:
         if t == "nextcloud":                                    # Nextcloud-Datei (2.3): Karte; Daten bleiben unveraendert
             from .nextcloud import block_widget
             return block_widget(self, b, d)
+        if t == "widget":                                       # Widgets in Seiten (2.5): nur Anzeige, Block bleibt unveraendert
+            from .pwcard import WidgetCard
+            return WidgetCard(self, b)
         return self._fallback(b, t)
 
     def _fallback(self, b, t):
@@ -1206,8 +1209,11 @@ class BlockKit:
     def block_menu(self, parent, bid):
         ed = self.editor
         conv = [(it[0], (lambda t=it[1], l=it[2]: ed.convert(bid, t, l or 2))) for it in CONVERTIBLE]
-        ents = [(_("Turn into"), conv)]
         blk = ed.block(bid)
+        is_widget = isinstance(blk, dict) and blk.get("type") == "widget"
+        # Widget (2.5): Einstellungen nur im Web; Umwandeln wuerde die Einstellungen verwerfen
+        ents = [(_("Edit on the web"), lambda: self.view.win.open_uri(self.fallback_url(bid)))] if is_widget else \
+            [(_("Turn into"), conv)]
         if isinstance(blk, dict) and blk.get("type") in gestalten.STYLE_TYPES:     # G3: Farbe (Text oder Hintergrund)
             ents.append((_("Color"), self._color_entries(blk)))
         ents.append((_("Copy link to block"), lambda: self.view.win.copy_text(f"{settings.server}/notes#{ed.doc.id}:{bid}")))

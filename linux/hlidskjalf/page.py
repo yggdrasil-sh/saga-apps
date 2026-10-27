@@ -229,7 +229,7 @@ class PageView(Gtk.Box):
         self.header_changed = None              # Rueckruf: Fensterleiste aktualisieren
         self._built_once = False
         self.blocks_box = None
-        self.doc.on_loaded = lambda d: self.rebuild()
+        self.doc.on_loaded = lambda d: (self.rebuild(), self.load_widgets(first=True))
         self.doc.on_error = self._error
         self.doc.on_saved = lambda: (self.header_changed and self.header_changed(), self.update_banners())
         self.doc.on_conflict = self._conflict
@@ -248,6 +248,9 @@ class PageView(Gtk.Box):
         self.cm_loaded = False
         self.ai_marked = set()                  # KI-Assistent: markierte Bloecke ("Verbessern", "Uebersetzen")
         self.presence = None                    # Anwesenheit (live.Presence), nur Hauptansicht, nur Seiten dieser Instanz
+        from .pagewidgets import Values
+        self.wvalues = Values()                 # Widgets in Seiten (2.5): Werte vom Server (GET .../widgets)
+        self._wv_busy = self._wv_once = False
         if in_peek:
             self.append(self._peek_header())
             self.append(Gtk.Separator())
@@ -779,6 +782,39 @@ class PageView(Gtk.Box):
     def window_active(self):
         if self.presence is not None:
             self.presence.beat()
+        self.load_widgets()                                  # Widgets (2.5): Fokus zurueck -> Werte neu
+
+    def load_widgets(self, first=False):
+        """Widgets in Seiten (2.5): Werte der Server-Widgets holen - beim Oeffnen (erstes erfolgreiches Laden) und beim
+        Fokus-Wiedergewinn. Ein Fehler beim Neuladen verdraengt vorhandene Werte nicht (pagewidgets.Values)."""
+        from . import pagewidgets as pwl
+        doc = self.doc
+        if not doc.fetched or doc.is_database or self._wv_busy or (first and self._wv_once):
+            return
+        if not pwl.needs_server(doc.root):
+            return
+        self._wv_once = True
+        self._wv_busy = True
+        from urllib.parse import quote
+        from .api import APIError
+        from .push import local_tz
+        pid = self.id
+        path = f"api/notes/{pid}/widgets?tz={quote(local_tz(), safe='')}"
+
+        def fin(r):
+            self._wv_busy = False
+            st, vals = pwl.parse_response(r)
+            self._widgets_done(st, vals)
+
+        def err(e):
+            self._wv_busy = False
+            self._widgets_done(pwl.error_state(e.code if isinstance(e, APIError) else -1), {})
+        bg(client.get, path, done=fin, error=err)
+
+    def _widgets_done(self, st, vals):
+        from .pwcard import redraw_all
+        self.wvalues.apply(st, vals)
+        redraw_all(self)
 
     def live_presence(self, users):
         if self.presence is not None:
