@@ -26,6 +26,7 @@ object DbProps {
         time: (Double) -> String = { it.toLong().toString() },
         day: (String) -> String = { it },
         number: (Double) -> String = ::num,
+        locale: java.util.Locale = java.util.Locale.getDefault(),
     ): List<Field> {
         val defs = (schema?.get("props") as? JsonArray).orEmpty().mapNotNull { it as? JsonObject }
         val values = props ?: JsonObject(emptyMap())
@@ -38,8 +39,8 @@ object DbProps {
             val v = when (type) {
                 "created" -> created?.let(time)
                 "edited" -> updated?.let(time)
-                "calc" -> calc(p, values)?.let(number)
-                else -> format(p, type, values[id], titleOf, day, number)
+                "calc" -> calc(p, values)?.let { numberText(p, it, number, locale) }
+                else -> format(p, type, values[id], titleOf, day, number, locale)
             }
             if (!v.isNullOrBlank()) out.add(Field(id, name, type, v))
         }
@@ -61,19 +62,14 @@ object DbProps {
     fun format(
         p: JsonObject, type: String, v: JsonElement?, titleOf: (Long) -> String? = { null },
         day: (String) -> String = { it }, number: (Double) -> String = ::num,
+        locale: java.util.Locale = java.util.Locale.getDefault(),
     ): String? {
         if (v == null || v is JsonNull) return null
         return when (type) {
             "select" -> prim(v)?.let { option(p, it) }
             "multi_select" -> list(v).mapNotNull { prim(it)?.let { id -> option(p, id) } }.joinToString(", ")
             "checkbox" -> if ((v as? JsonPrimitive)?.booleanOrNull == true || prim(v) == "1") "☑" else "☐"
-            "number" -> (v as? JsonPrimitive)?.doubleOrNull?.let { n ->
-                when (BlockDoc.str(p, "fmt").ifEmpty { BlockDoc.str(p, "format") }) {   // wie numText() im Web
-                    "percent" -> number(n) + " %"
-                    "euro" -> java.text.NumberFormat.getCurrencyInstance().apply { currency = java.util.Currency.getInstance("EUR") }.format(n)
-                    else -> number(n)
-                }
-            } ?: prim(v)
+            "number" -> (v as? JsonPrimitive)?.doubleOrNull?.let { n -> numberText(p, n, number, locale) } ?: prim(v)
             "relation" -> list(v).mapNotNull { e -> prim(e)?.let { s -> s.toLongOrNull()?.let { titleOf(it) } ?: s } }.joinToString(", ")
             "date" -> when (v) {
                 is JsonObject -> listOfNotNull(prim(v["start"]), prim(v["end"])).map(day).joinToString(" – ")
@@ -87,6 +83,13 @@ object DbProps {
             }
         }
     }
+
+    /** Zahl nach dem Format der Eigenschaft (wie numText() im Web): Prozent ganzzahlig, Euro mit 2 Stellen */
+    fun numberText(p: JsonObject, n: Double, number: (Double) -> String = ::num, locale: java.util.Locale = java.util.Locale.getDefault()): String =
+        when (val f = BlockDoc.str(p, "fmt").ifEmpty { BlockDoc.str(p, "format") }) {
+            "percent", "euro" -> NumFormat.prop(n, f, locale)
+            else -> number(n)
+        }
 
     /** Berechnete Eigenschaft wie saga/notes.py _calc_value (A / B, A in % von B, A * B, A + B, A - B) */
     fun calc(p: JsonObject, values: JsonObject): Double? {

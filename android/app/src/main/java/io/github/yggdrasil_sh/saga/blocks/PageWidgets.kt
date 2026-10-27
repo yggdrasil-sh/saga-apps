@@ -18,7 +18,6 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.temporal.ChronoUnit
-import java.util.Currency
 import java.util.Locale
 import kotlin.random.Random
 
@@ -247,7 +246,8 @@ object PageWidgets {
 
     data class Progress(val value: Double, val max: Double) {
         val fraction: Float get() = if (max > 0) (value / max).coerceIn(0.0, 1.0).toFloat() else 0f
-        val percent: Int get() = if (max > 0) Math.round((value / max * 100).coerceIn(0.0, 100.0)).toInt() else 0
+        /** echt gerechnet, auch ueber 100 (Balken deckelt ueber [fraction]) */
+        val percent: Int get() = NumFormat.progressPercent(value, max)
     }
 
     /** fixed lokal (max > 0), db aus dem Server-Wert; null = kein Wert */
@@ -264,10 +264,10 @@ object PageWidgets {
 
     // ---------------------------------------------------------------- Zahlenformat
 
-    /** num: bis 2 Nachkommastellen; pct: Wert in Prozent (42 -> "42 %"); eur: Waehrung, lokalisiert */
+    /** num: bis 2 Nachkommastellen; pct: Wert in ganzen Prozent (42,4 -> "42 %"); eur: Waehrung mit 2 Stellen, lokalisiert */
     fun format(value: Double, fmt: String?, locale: Locale): String = when (fmt) {
-        "pct" -> NumberFormat.getPercentInstance(locale).apply { maximumFractionDigits = 1 }.format(value / 100.0)
-        "eur" -> NumberFormat.getCurrencyInstance(locale).apply { currency = Currency.getInstance("EUR") }.format(value)
+        "pct" -> NumberFormat.getPercentInstance(locale).apply { maximumFractionDigits = 0; roundingMode = java.math.RoundingMode.HALF_UP }.format(value / 100.0)
+        "eur" -> NumFormat.euro(value, locale)
         else -> NumberFormat.getNumberInstance(locale).apply { maximumFractionDigits = 2 }.format(value)
     }
 

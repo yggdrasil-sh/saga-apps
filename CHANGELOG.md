@@ -9,6 +9,17 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – Android: Galerie-Testrunde 27.10.
+- **Zahlenformate einheitlich (#10):** Prozent ganzzahlig („41 %“ statt „41,0377 %“, auch berechnete Eigenschaften
+  und Eintragsfelder), Euro immer mit 2 Nachkommastellen in der App-Sprache, Fortschritt über 100 % wird echt
+  angezeigt („119 %“, Balken voll) statt bei 100 % gedeckelt.
+- **Nur lesen / Kommentieren (#11):** Anlege-Schaltflächen („Neuer Eintrag“, „Aufgabe“) bleiben ausgegraut, darunter
+  steht jetzt ein Hinweis, warum. „Seite öffnen“ bleibt bedienbar.
+- **Spalten (#14):** „Spalten 2 3 4“, „Spalte n“ und „+ Block“ erscheinen nur noch, während man im Spalten-Block
+  schreibt (leere Spalte behält „+ Block“) – die Seite liest sich ruhig wie im Web.
+- **Relationsfilter:** „enthält“/„enthält nicht“ wertet eine fehlende Verknüpfung (auch Einzelwert) als leere Liste –
+  wie Server und Web.
+
 ### Neu – Linux: Vorlagengalerie (Saga-Server 2.5)
 - **„Neu“-Knopf mit Menü** → „Aus Vorlage …“, ebenso in der Befehlspalette und im Seitenmenü („Unterseite aus
   Vorlage …“): Liste der Galerie-Vorlagen des Servers (Symbol, Titel, Beschreibung), gruppiert nach Persönlich ·

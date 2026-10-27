@@ -124,8 +124,7 @@ class DbFormat(private val locale: Locale, private val titleOf: (Long) -> String
     private val dt = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale)
 
     fun number(p: DbProp, n: Double): String = when (p.fmt) {
-        "percent" -> num(n) + " %"
-        "euro" -> java.text.NumberFormat.getCurrencyInstance(locale).apply { currency = java.util.Currency.getInstance("EUR") }.format(n)
+        "percent", "euro" -> io.github.yggdrasil_sh.saga.blocks.NumFormat.prop(n, p.fmt, locale)
         else -> num(n)
     }
 

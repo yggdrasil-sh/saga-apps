@@ -211,7 +211,7 @@ class PageWidgetsTest {
         val f = PageWidgets.progress(spec("progress", """{"src":"fixed","value":3,"max":4}"""), null)!!
         assertEquals(75, f.percent)
         assertEquals(0.75f, f.fraction, 0.001f)
-        assertEquals(100, PageWidgets.progress(spec("progress", """{"src":"fixed","value":9,"max":4}"""), null)!!.percent)
+        assertEquals(225, PageWidgets.progress(spec("progress", """{"src":"fixed","value":9,"max":4}"""), null)!!.percent)   // Fix #10: echt, nicht gedeckelt
         assertNull(PageWidgets.progress(spec("progress", """{"src":"fixed","value":1,"max":0}"""), null))
         // db: Wert und max vom Server, sonst goal
         val db = spec("progress", """{"src":"db","mode":"sum","goal":200}""")

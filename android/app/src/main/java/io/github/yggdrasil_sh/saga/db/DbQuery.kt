@@ -53,6 +53,8 @@ class DbQuery(
         val fv = f.value
         return when (f.op) {
             "contains", "not_contains" -> {
+                // Relation ohne Verknuepfung (fehlt, null, Einzelwert) = leere Liste - wie saga/dbquery.py und static/pages.js (82e26d6)
+                if (p.type == "relation" && v !is JsonArray) v = JsonArray(emptyList())
                 val hit = if (v is JsonArray) {
                     if (p.type == "relation") fv.toDoubleOrNull().let { n -> n != null && v.any { (it as? JsonPrimitive)?.doubleOrNull == n } }
                     else v.any { (it as? JsonPrimitive)?.takeIf { e -> e.isString }?.content == fv }

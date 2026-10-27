@@ -246,14 +246,19 @@ fun ColumnsBlockEdit(block: JsonObject, path: JsonPath, env: BlockEnv) {
     val ed = env.editor
     val cols = BlockOps.columnBlocksCount(block)
     if (cols == 0) return
+    // Fix #14: Bedienung nur, solange man im Block schreibt (leere Spalte: "+ Block" bleibt)
+    val activePath = ed.active?.blockPath?.invoke()
     val edit = ed.editable
+    val bar = io.github.yggdrasil_sh.saga.blocks.ColumnsChrome.showBar(edit, activePath, path)
     @Composable
     fun col(ci: Int) {
         val inner = path + listOf("data", "cols", ci, "blocks")
+        val empty = ((BlockDoc.data(block)["cols"] as? JsonArray)?.getOrNull(ci) as? JsonObject)?.get("blocks").let { (it as? JsonArray)?.isEmpty() ?: true }
+        val controls = io.github.yggdrasil_sh.saga.blocks.ColumnsChrome.showColumnControls(edit, activePath, path, empty)
         Column {
-            if (edit) Text(stringResource(R.string.ed24_column_n, ci + 1), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (controls) Text(stringResource(R.string.ed24_column_n, ci + 1), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             BlockColumn(inner, env)
-            if (edit) {
+            if (controls) {
                 TextButton(onClick = {
                     val n = ((BlockDoc.data(ed.block(path))["cols"] as? JsonArray)?.getOrNull(ci) as? JsonObject)?.get("blocks").let { (it as? JsonArray)?.size ?: 0 }
                     ed.insertInto(inner, n, BlockDoc.newBlock("paragraph"))
@@ -262,7 +267,7 @@ fun ColumnsBlockEdit(block: JsonObject, path: JsonPath, env: BlockEnv) {
         }
     }
     Column(Modifier.fillMaxWidth()) {
-        if (edit) {
+        if (bar) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(stringResource(R.string.blocktype_columns), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 (if (cols > 3) listOf(2, 3, 4) else listOf(2, 3)).forEach { n ->
