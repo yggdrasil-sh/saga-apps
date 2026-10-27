@@ -32,6 +32,7 @@ struct RootView: View {
     @State private var openChat: Int?                                // Chats (2.0): geoeffnete Unterhaltung
     @State private var showNotifs = false                            // Glocke (1.4)
     @State private var showAssistant = false                         // KI-Assistent ohne Seite (1.6)
+    @State private var gallery: GalleryRequest?                      // 2.5: "Aus Vorlage …" (oberste Ebene)
 
     @State private var columns: NavigationSplitViewVisibility = {
         #if DEBUG && os(macOS)
@@ -60,7 +61,16 @@ struct RootView: View {
                 .toolbar {
                     #if os(iOS)
                     ToolbarItem(placement: .primaryAction) {
-                        Button { Task { if let id = await store.newPage() { selection = id } } } label: { Label("Neue Seite", systemImage: "square.and.pencil") }
+                        if store.galleryOffered {                    // 2.5: Tippen = neue Seite, langes Druecken = Menue mit "Aus Vorlage …"
+                            Menu {
+                                Button { Task { if let id = await store.newPage() { selection = id } } } label: { Label("Neue Seite", systemImage: "doc.badge.plus") }
+                                Button { gallery = GalleryRequest() } label: { Label("Aus Vorlage …", systemImage: "square.grid.2x2") }
+                            } label: { Label("Neue Seite", systemImage: "square.and.pencil") } primaryAction: {
+                                Task { if let id = await store.newPage() { selection = id } }
+                            }
+                        } else {
+                            Button { Task { if let id = await store.newPage() { selection = id } } } label: { Label("Neue Seite", systemImage: "square.and.pencil") }
+                        }
                     }
                     ToolbarItem(placement: .primaryAction) {
                         if store.notifs.supported { BellButton(notifs: store.notifs) { showNotifs = true } }
@@ -104,8 +114,18 @@ struct RootView: View {
             .toolbar {                                           // Mac: Glocke im Inhaltsbereich - auch bei eingeklappter Seitenleiste sichtbar
                 // "Neue Seite" ebenfalls hier: in der schmalen Seitenleisten-Leiste landete der Knopf im unbeschrifteten Ueberlauf ">>"
                 ToolbarItem(placement: .navigation) {
-                    Button { Task { if let id = await store.newPage() { selection = id } } } label: { Label("Neue Seite", systemImage: "doc.badge.plus") }
-                        .help(Text("Neue Seite"))                       // eigenes Symbol: "Neuer Chat" nutzt das Stift-Symbol
+                    if store.galleryOffered {                        // 2.5: Klick = neue Seite, Pfeil = Menue mit "Aus Vorlage …"
+                        Menu {
+                            Button { Task { if let id = await store.newPage() { selection = id } } } label: { Label("Neue Seite", systemImage: "doc.badge.plus") }
+                            Button { gallery = GalleryRequest() } label: { Label("Aus Vorlage …", systemImage: "square.grid.2x2") }
+                        } label: { Label("Neue Seite", systemImage: "doc.badge.plus") } primaryAction: {
+                            Task { if let id = await store.newPage() { selection = id } }
+                        }
+                        .help(Text("Neue Seite"))
+                    } else {
+                        Button { Task { if let id = await store.newPage() { selection = id } } } label: { Label("Neue Seite", systemImage: "doc.badge.plus") }
+                            .help(Text("Neue Seite"))                       // eigenes Symbol: "Neuer Chat" nutzt das Stift-Symbol
+                    }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     if store.notifs.supported { BellButton(notifs: store.notifs) { showNotifs = true } }
@@ -160,7 +180,9 @@ struct RootView: View {
             search: { showPalette = true },
             copyLink: { if let id = currentPageID { copyPageLink(id) } }, hasPage: currentPageID != nil,
             today: { selection = nil }, tasks: { selection = -1 }, events: { selection = -2 },
-            graph: store.graphSupported ? { selection = FedLogic.graphTag } : nil))
+            graph: store.graphSupported ? { selection = FedLogic.graphTag } : nil,
+            fromTemplate: store.galleryOffered ? { gallery = GalleryRequest() } : nil))
+        .galleryPicker($gallery, store: store) { root in nav.peek = nil; nav.path = []; selection = root }
     }
 
     /// Ereignisse, Takt und Hinweisleisten
@@ -314,6 +336,7 @@ extension RootView {
             .init(id: "fwd", icon: "chevron.right", title: String(localized: "Vor")) { nav.goForward() },
             .init(id: "search", icon: "sidebar.left", title: String(localized: "In der Seitenleiste suchen")) { searchFocused = true },
         ]
+        if store.galleryOffered { a.insert(.init(id: "gallery", icon: "square.grid.2x2", title: String(localized: "Aus Vorlage …")) { gallery = GalleryRequest() }, at: 1) }
         if let id = currentPageID { a.append(.init(id: "link", icon: "link", title: String(localized: "Link zur Seite kopieren")) { copyPageLink(id) }) }
         if store.aiEnabled { a.append(.init(id: "ai", icon: "sparkles", title: store.aiAskLabel) { showAssistant = true }) }
         #if os(macOS)

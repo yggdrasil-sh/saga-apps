@@ -681,6 +681,7 @@ struct NativePageScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var moving = false
     @State private var localGraph = false                 // 2.5: Lokaler Graph (Seitenmenue)
+    @State private var gallery: GalleryRequest?           // 2.5: Unterseite aus Vorlage
     @State private var publishing = false                // Dialog "Veroeffentlichen"
     @State private var sharing = false                   // Dialog "Teilen" (nur Eigentuemer)
     @State private var commentsTarget: CommentsTarget?   // Kommentare (alle bzw. eines Blocks)
@@ -753,6 +754,10 @@ struct NativePageScreen: View {
                     }
                     if a.foreign && a.allows(.addSubpage) && !doc.isDatabase {      // fremde Instanz (2.3): nur mit Faehigkeit subpages
                         Button { Task { await ed.flush(); if let n = await store.newPage(parent: id) { nav.push(PageRoute(id: n)) } } } label: { Label("Unterseite hinzufügen", systemImage: "doc.badge.plus") }
+                    }
+                    // 2.5 Vorlagengalerie: nur unter Seiten dieses Servers (foederiert geteilte Elternseiten lehnt der Server in Etappe 1 ab)
+                    if store.galleryOffered && !a.remote && a.allows(.addSubpage) && !doc.isDatabase && doc.fetched {
+                        Button { Task { await ed.flush(); gallery = GalleryRequest(parent: id) } } label: { Label("Unterseite aus Vorlage …", systemImage: "square.grid.2x2") }
                     }
                     if store.aiEnabled && doc.fetched {                // KI-Assistent (1.6): nur, wenn der Server ihn fuer mich anbietet
                         Menu {
@@ -1137,6 +1142,7 @@ struct NativePageScreen: View {
         #endif
         .sheet(isPresented: $moving) { MoveSheet(id: id) }
         .sheet(isPresented: $localGraph) { LocalGraphSheet(id: id) { nav.push(PageRoute(id: $0)) }.environmentObject(store) }
+        .galleryPicker($gallery, store: store) { nav.push(PageRoute(id: $0)) }
         .sheet(isPresented: $publishing) {
             PublishSheet(id: id, onChange: { s in for (k, v) in PublishLogic.pageFields(s) { doc.page[k] = v } },
                          openPage: { pid in nav.peek = nil; nav.push(PageRoute(id: pid)) })
