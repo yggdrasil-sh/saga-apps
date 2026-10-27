@@ -146,6 +146,8 @@ class Store(GObject.Object):
     def clear_cache(self):
         import shutil
         shutil.rmtree(config.CACHE_DIR, ignore_errors=True)
+        from . import favicon                              # 2.5: direkt geladene Lesezeichen-Favicons (Speicher; Platte oben)
+        favicon.forget_memory()
         for d in (config.CACHE_DIR, os.path.join(config.CACHE_DIR, "files")):
             os.makedirs(d, mode=0o700, exist_ok=True)
             os.chmod(d, 0o700)

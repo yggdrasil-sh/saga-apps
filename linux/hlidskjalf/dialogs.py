@@ -678,8 +678,11 @@ def service_icon_path(icon, icon_url=None):
     return None
 
 
-def service_icon(icon, name, size=30, icon_url=None):
-    """Symbol eines Dienstes ueber den eigenen Server (selfh.st wie im Web), sonst Anfangsbuchstabe"""
+def service_icon(icon, name, size=30, icon_url=None, icon_direct=None, url=None):
+    """Symbol eines Dienstes ueber den eigenen Server (selfh.st wie im Web), sonst Anfangsbuchstabe.
+    2.5 Lesezeichen: liefert der Server kein Favicon (z. B. Bot-Schutz), laedt das Geraet es der Reihe nach aus
+    icon_direct direkt von der Seite (favicon.py); Dienste und aeltere Server (ohne icon_direct) wie bisher."""
+    from . import favicon
     holder = Gtk.Box(valign=Gtk.Align.CENTER, halign=Gtk.Align.START, hexpand=False)
     holder.set_size_request(size, size)
     holder.add_css_class("hk-svc-icon")
@@ -688,20 +691,44 @@ def service_icon(icon, name, size=30, icon_url=None):
     letter.add_css_class("hk-svc-letter")
     holder.append(letter)
     path = service_icon_path(icon, icon_url)
+    direct = favicon.direct_candidates(icon_direct, url or "")
+
+    def show(dec):
+        v = images.ImageView(mode="fit", natural=size, max_height=size)
+        v.set_decoded(dec)
+        v.set_size_request(size, size)
+        v.set_halign(Gtk.Align.CENTER)
+        v.set_valign(Gtk.Align.CENTER)
+        v.set_hexpand(False)
+        while (c := holder.get_first_child()):
+            holder.remove(c)
+        holder.append(v)
+
+    def try_direct():
+        if not direct:
+            return
+
+        def opens(data):
+            try:
+                images._open(data).load()
+                return True
+            except Exception:  # noqa: BLE001 - kaputtes Bild zaehlt als Fehlversuch
+                return False
+
+        def got_direct(data):
+            if data is not None:
+                images.load_local(data, lambda dec: dec is not None and show(dec), max_px=128)
+        bg(favicon.load_blocking, direct, opens, done=got_direct, error=lambda e: None, media=True)
+
     if path:
         def got(dec):
             if dec is None:
+                try_direct()
                 return
-            v = images.ImageView(mode="fit", natural=size, max_height=size)
-            v.set_decoded(dec)
-            v.set_size_request(size, size)
-            v.set_halign(Gtk.Align.CENTER)
-            v.set_valign(Gtk.Align.CENTER)
-            v.set_hexpand(False)
-            while (c := holder.get_first_child()):
-                holder.remove(c)
-            holder.append(v)
+            show(dec)
         images.load(path, got, max_px=128)
+    else:
+        try_direct()
     return holder
 
 
@@ -737,7 +764,8 @@ def services_screen(win):
                              min_children_per_line=1, max_children_per_line=5, valign=Gtk.Align.START)
             for s in [x for x in shown if (x.get("category") or "") == cat]:
                 r = Gtk.Box(spacing=10)
-                r.append(service_icon(s.get("icon"), s.get("name") or "", icon_url=s.get("icon_url")))
+                r.append(service_icon(s.get("icon"), s.get("name") or "", icon_url=s.get("icon_url"),
+                                      icon_direct=s.get("icon_direct"), url=s.get("url")))
                 col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True)
                 # lange Namen kuerzen: sonst bestimmt die laengste Karte die Breite aller Karten (homogen)
                 col.append(Gtk.Label(label=s.get("name") or "", xalign=0, ellipsize=Pango.EllipsizeMode.END, max_width_chars=22,

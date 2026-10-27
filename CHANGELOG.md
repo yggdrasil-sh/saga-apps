@@ -20,6 +20,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 
 ### Neu – iOS/Mac: Favicons für Lesezeichen notfalls direkt vom Gerät (Saga-Server 2.5)
 ### Neu – Android: Favicons für Lesezeichen notfalls direkt vom Gerät (Saga-Server 2.5)
+### Neu – Linux: Favicons für Lesezeichen notfalls direkt vom Gerät (Saga-Server 2.5)
 - Liefert der eigene Server das Favicon eines Lesezeichens nicht (z. B. Shops mit Bot-Schutz), lädt die App es der Reihe
   nach aus `icon_direct` direkt von der Seite – wie ein Browser-Tab: höchstens 5 s, höchstens 512 KB, nur Rasterbilder
   (PNG/ICO/JPEG/GIF/WebP, kein SVG), ohne Cookies und Anmeldedaten, nur Adressen auf dem Host des Lesezeichens, keine
@@ -29,6 +30,8 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Security nur `https`-Favicons direkt.
 - Dienste unverändert; ältere Server (ohne `icon_direct`) wie bisher. Hinweis: Android lädt wie bisher nur
   `https` (Klartext ist gesperrt), `http`-Favicons bleiben beim Buchstaben.
+- Dienste unverändert; ältere Server (ohne `icon_direct`) wie bisher. Tests: `tests/test_favicon.py` (Logik, Rückfall
+  in der Dienste-Ansicht, Zwischenspeicher, echter Abruf gegen lokalen Testserver); Mockserver kennt `icon_direct`-Seiten.
 ### Neu – iOS/Mac: Seite gestalten (Saga-Server 2.5)
 - **Darstellung** der im Web gestalteten Seiten: Spaltenbreiten (iPad/Mac; iPhone weiter untereinander), Breite und
   Ausrichtung von Bildern und YouTube-Playern (iPhone mindestens 50 %), Text- und Hintergrundfarbe von Blöcken
