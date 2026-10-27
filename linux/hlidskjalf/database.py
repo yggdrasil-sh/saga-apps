@@ -343,6 +343,7 @@ class DBModel(GObject.Object):
             return
 
         def fin(r):
+            store.note_fresh(r.get("id"), r)          # E4: leerer Titel + Platzhalter, unveraendert geschlossen -> weg
             self.load()
             store.refresh()
             store.changed_data()

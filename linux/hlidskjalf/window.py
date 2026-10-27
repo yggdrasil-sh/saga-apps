@@ -14,6 +14,7 @@ from .i18n import _, ngettext
 from .graphview import available as graph_available
 from .page import PageView
 from .publish import available as publish_available, globe_icon, header_state, open_publish
+from .entries import start_switch
 from .store import is_db, label, store, watch
 from .util import bg, date_num, norm, placeholder
 
@@ -467,18 +468,19 @@ class MainWindow(Adw.ApplicationWindow):
         else:
             self.stack.set_visible_child_name("main")
         home = store.home_page
-        if home and home in store.by_id:
+        if home and store.visible(home):                    # zuletzt bekannte Startseite (E2: auch geteilte) sofort
             self.show_root(("page", home))
         else:
             self.show_root(("today",))
+        self._start_route = self.route                     # E2: Startseite vom Server, solange noch nichts anderes offen ist
         store.refresh(done=self._after_first_refresh)
         bg(images.prune_disk_cache, error=lambda e: None, media=True)      # Bilder-Zwischenspeicher begrenzen
         bg(avatars.prune, error=lambda e: None, media=True)                # alte Profilbilder
 
     def _after_first_refresh(self):
         home = store.home_page
-        if home and store.pages and home not in store.by_id:
-            store.set_home(None)
+        if home and store.pages and not store.visible(home):
+            store.set_home(None, local_only=True)          # weg bzw. ohne Zugriff: wie keine (Server rechnet selbst so)
         if not store.needs_login:
             self._session_started()
 
@@ -1027,7 +1029,9 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _show(self, route):
         if isinstance(self.current, PageView):
-            self.current.editor.flush()
+            if route == ("page", self.current.id):
+                self.current.keep_fresh = True             # dieselbe Seite neu aufbauen: nicht verwerfen (E4)
+            self.current.leave()
         self.close_peek()
         if route[0] == "page":
             self.last_page_id = route[1]                        # Graph: zuletzt offene Seite markieren / lokal zeigen
@@ -1280,7 +1284,21 @@ class MainWindow(Adw.ApplicationWindow):
             if srv == settings.server and isinstance(j, dict):
                 self.me = j
                 self._account_button()
+                known, start = store.account_loaded(j)
+                if known:
+                    self._apply_start(start)
         bg(client.get, "api/account", done=fin, error=lambda e: None)
+
+    def _apply_start(self, start):
+        """E2: Startseite des Kontos (Server 2.5) beim Kaltstart oeffnen - nur, solange die Startansicht noch offen ist"""
+        first = getattr(self, "_start_route", None)
+        self._start_route = None                           # nur einmal je Start
+        if first is None:
+            return
+        still = self.route == first and len(self.history) == 1 and not self.peek
+        to = start_switch(start, first, still, store.visible)
+        if to is not None:
+            self.show_root(to)
 
     def account_name(self):
         m = getattr(self, "me", None) or {}
@@ -1501,7 +1519,7 @@ class MainWindow(Adw.ApplicationWindow):
         if center:
             dlg = Adw.Dialog(content_width=900, content_height=760)
             dlg.set_child(v)
-            dlg.connect("closed", lambda *_: (v.editor.flush(), self._peek_closed(dlg)))
+            dlg.connect("closed", lambda *_: (v.leave(), self._peek_closed(dlg)))
             self.peek = ("center", v, dlg)
             dlg.present(self)
             return
@@ -1536,7 +1554,7 @@ class MainWindow(Adw.ApplicationWindow):
             return
         kind, v, w = self.peek
         self.peek = None
-        v.editor.flush()
+        v.leave()
         if kind == "side":
             self.overlay.remove_overlay(w)
         else:
@@ -1807,6 +1825,7 @@ class MainWindow(Adw.ApplicationWindow):
 
             def fin(r):
                 if tpl:
+                    store.note_fresh(r.get("id"), r)       # E4: aus Vorlage in eine Datenbank -> Platzhalter, ggf. verwerfen
                     store.refresh()                        # Vorlage kann Unterseiten mitbringen: Liste vom Server
                 else:
                     store.page_added(r["id"], tgt)         # neuer Eintrag lokal in die Seitenliste

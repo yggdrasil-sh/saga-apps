@@ -2,6 +2,7 @@
 import datetime as _dt
 import json
 import os
+import re
 import time
 import weakref
 
@@ -70,6 +71,8 @@ class Store(GObject.Object):
         self.docs = weakref.WeakSet()     # offene Seiten (PageDoc) - Schliessen wartet auf deren Speichern
         self.changed_data = Debounce(350, lambda: self.emit("data-changed"))   # Datenbank-Ansichten neu laden (gebuendelt)
         self.recent = list(config.settings.get("recent", []))
+        self.server_home = False          # E2 (2.5): Server fuehrt die Startseite als Kontoeinstellung start_page
+        self.fresh = {}                   # E4 (2.5): eben aus einer Vorlage angelegte Eintraege -> {"tok", "placeholder"}
         client.on_need_login = lambda: GLib.idle_add(self._need_login)
         # Seitenbaum-Abgleich (2.2): _tree_base = Liste genau wie der Server sie zum Stand _tree_cursor kennt (Grundlage
         # fuers Einarbeiten, nie lokal veraendert); die angezeigte Liste (_all, by_id ...) sind Kopien davon, die lokale
@@ -179,6 +182,7 @@ class Store(GObject.Object):
         self.recent = []
         for k in ("recent", "home_page", "expanded"):
             config.settings.set(k, None)
+        self.server_home, self.fresh = False, {}
         self.server_version = self.min_app = None
         self.emit("server-changed")
         self.emit("pages-changed")
@@ -816,6 +820,10 @@ class Store(GObject.Object):
     def run(self, method, path, body=None, done=None, error=None, refresh=False, data_changed=False, key=None, coalesce=None):
         """Anfrage im Hintergrund; danach optional Seitenliste/Datenbanken auffrischen.
         key: Schreib-Warteschlange (z. B. ("note", 12)) - Zugriffe mit demselben key laufen nacheinander."""
+        if self.fresh and method != "GET":                 # E4: Eintrag wird geaendert (Eigenschaft, Symbol ...) -> bleibt
+            m = re.match(r"api/notes/(-?\d+)(/(\w+))?$", path or "")
+            if m and m.group(3) != "discard":
+                self.fresh.pop(int(m.group(1)), None)
         def fin(r):
             if data_changed:
                 self.changed_data()
@@ -984,8 +992,53 @@ class Store(GObject.Object):
     def home_page(self):
         return config.settings.get("home_page")
 
-    def set_home(self, pid):
+    def set_home(self, pid, local_only=False):
+        """Startseite setzen (None = zuruecksetzen). Server mit start_page (E2): Kontoeinstellung, sonst nur dieses Geraet.
+        Lokal gemerkt wird sie immer (Kaltstart ohne Netz oeffnet sie sofort)."""
+        old = config.settings.get("home_page")
         config.settings.set("home_page", pid)
+        if local_only or not self.server_home:
+            return
+
+        def err(e):
+            if config.settings.get("home_page") == pid:
+                config.settings.set("home_page", old)
+            if not (isinstance(e, APIError) and e.code == 401):
+                self.emit("error", str(e))
+        self.run("PATCH", "api/account", {"start_page": pid}, error=err)
+
+    def account_loaded(self, acc):
+        """GET api/account (Fensterkopf): Startseite vom Server uebernehmen, wenn er sie kennt -> (bekannt, Seiten-ID)"""
+        from .entries import account_start
+        known, start = account_start(acc)
+        self.server_home = known
+        if known:
+            config.settings.set("home_page", start)
+        return known, start
+
+    # --- E4: Eintraege aus Vorlagen, die unveraendert wieder geschlossen werden ------------------------------------------
+    def note_fresh(self, nid, resp):
+        """Antwort von duplicate merken (fresh + placeholder), sofern der Server sie liefert"""
+        from .entries import fresh_info
+        f = fresh_info(resp)
+        if f and isinstance(nid, int):
+            self.fresh[nid] = f
+        return f
+
+    def discard_fresh(self, nid, done=None):
+        """eben angelegten, unveraenderten Eintrag endgueltig loeschen (POST api/notes/{id}/discard). 409 (geaendert,
+        abgelaufen) und andere Fehler: Eintrag bleibt, ohne Meldung."""
+        f = self.fresh.pop(nid, None)
+        if not f:
+            return False
+
+        def fin(_r):
+            self.refresh()
+            self.changed_data()
+            if done:
+                done(True)
+        self.run("POST", f"api/notes/{nid}/discard", {"fresh": f["tok"]}, done=fin, error=lambda e: done and done(False))
+        return True
 
     # --- Aufgaben -------------------------------------------------------------------------------
     def load_today(self):

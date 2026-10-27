@@ -46,6 +46,7 @@ def srv():
     store._set_pages([])
     store.tasks, store.done_tasks, store.events = [], [], []
     store.recent = []
+    store.server_home, store.fresh = False, {}              # Fix-Runde 27.10.: E2/E4
     store.needs_login = False
     store._refresh_next = None
     store._task_deletes = {}

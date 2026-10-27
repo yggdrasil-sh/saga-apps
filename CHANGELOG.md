@@ -9,6 +9,17 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – Linux: Vorlagen für Bearbeitende, eigene Startseite, leere neue Einträge (Saga-Server 2.5)
+- **Eintrags-Vorlagen auch mit „Bearbeiten“:** „Neu“-Menü der Datenbank zeigt ihre Vorlagen, „Neu“ nutzt die
+  Standardvorlage; „Vorlagen verwalten“ bleibt beim Eigentümer. Lesen/Kommentieren: keine Vorlagen.
+- **Eigene Startseite** als Kontoeinstellung (`start_page`): beim Kaltstart öffnet sich die Startseite des Kontos –
+  auch eine geteilte Seite –, solange noch nichts anderes geöffnet wurde; Seitenmenü „Als Startseite festlegen“ /
+  „Startseite zurücksetzen“. Ältere Server: wie bisher nur auf diesem Gerät.
+- **Neuer Eintrag aus einer Vorlage** hat einen leeren Titel mit dem Vorlagennamen als Platzhalter. Wird er ohne
+  jede Änderung wieder geschlossen, wird er endgültig gelöscht (nicht Papierkorb, `POST …/discard`; der Server prüft
+  selbst, ob er unverändert ist, sonst bleibt er).
+- Mockserver: Vorlagen in `rows`, Anlegen aus Vorlage, `discard`, `start_page`.
+
 ### Behoben – Linux: Fix-Runde nach der Galerie-Testrunde
 - **Zahlenformate wie im Web:** Prozent ganzzahlig (z. B. „41 %“ statt „41,04 %“), Euro immer mit 2 Nachkommastellen
   in der Schreibweise der App-Sprache (auch in Datenbank-Zellen). Fortschritt über 100 % zeigt den echten Wert
