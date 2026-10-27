@@ -1580,6 +1580,7 @@ class SagaRepository(
         chat.reset()
         // entschluesselte Chat-Anhaenge (Klartext im Cache) beim Abmelden/Kontowechsel loeschen (BUG-023)
         appContext?.cacheDir?.let { c -> withContext(Dispatchers.IO) { io.github.yggdrasil_sh.saga.chat.ChatFiles.purge(c) } }
+        appContext?.cacheDir?.let { c -> withContext(Dispatchers.IO) { FaviconLoader.clear(c) } }   // 2.5: direkt geladene Lesezeichen-Favicons
         // Bild-Cache (Coil): private Immich-Vorschaubilder, Profilbilder, Seitenbilder des bisherigen Kontos
         appContext?.let { ctx ->
             withContext(Dispatchers.IO) {

@@ -45,6 +45,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.SubcomposeAsyncImage
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import io.github.yggdrasil_sh.saga.data.FaviconLoader
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import io.github.yggdrasil_sh.saga.data.SagaRepository
 import io.github.yggdrasil_sh.saga.data.ServiceItem
 import io.github.yggdrasil_sh.saga.data.StdCategory
@@ -141,7 +148,11 @@ fun ServicesScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     }
 }
 
-/** Symbol ueber den eigenen Server (icon_url bzw. /api/services/icon/<name>), sonst Anfangsbuchstabe wie im Web */
+/**
+ * Symbol ueber den eigenen Server (icon_url bzw. /api/services/icon/<name>), sonst Anfangsbuchstabe wie im Web.
+ * 2.5 Lesezeichen: liefert der Server kein Favicon (z. B. Bot-Schutz), laedt das Geraet es der Reihe nach aus
+ * icon_direct direkt von der Seite (FaviconLoader); Dienste und aeltere Server wie bisher.
+ */
 @Composable
 private fun ServiceIcon(s: ServiceItem, repo: SagaRepository) {
     val letter: @Composable () -> Unit = {
@@ -150,20 +161,38 @@ private fun ServiceIcon(s: ServiceItem, repo: SagaRepository) {
             contentAlignment = Alignment.Center,
         ) { Text(s.name.take(1).uppercase(), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
+    // Dienst-Symbole sind oft dunkel auf transparent: im Dunkelmodus auf heller Plakette, sonst unsichtbar
+    val dark = MaterialTheme.colorScheme.background.luminance() < 0.3f
+    val mod = Modifier.size(32.dp).then(
+        if (dark) Modifier.clip(RoundedCornerShape(7.dp)).background(Color(0xFFF1EDE4)).padding(3.dp) else Modifier
+    )
     val path = s.iconPath()
-    if (path == null) {
-        letter()
-    } else {
-        // Dienst-Symbole sind oft dunkel auf transparent: im Dunkelmodus auf heller Plakette, sonst unsichtbar
-        val dark = MaterialTheme.colorScheme.background.luminance() < 0.3f
-        SubcomposeAsyncImage(
-            model = repo.absoluteUrl(path), contentDescription = null, contentScale = ContentScale.Fit,
-            modifier = Modifier.size(32.dp).then(
-                if (dark) Modifier.clip(RoundedCornerShape(7.dp)).background(Color(0xFFF1EDE4)).padding(3.dp) else Modifier
-            ),
-            error = { letter() }, loading = { letter() },
+    val direct = remember(s.iconDirect, s.url) { s.directIcons() }
+    var serverFailed by remember(path) { mutableStateOf(path == null) }
+    when {
+        path != null && !serverFailed -> SubcomposeAsyncImage(
+            model = repo.absoluteUrl(path), contentDescription = null, contentScale = ContentScale.Fit, modifier = mod,
+            error = { letter() }, loading = { letter() }, onError = { if (direct.isNotEmpty()) serverFailed = true },
         )
+        direct.isNotEmpty() -> DirectFavicon(direct, mod, letter)
+        else -> letter()
     }
 }
+
+/** Favicon direkt von der Seite (Rueckfall), bis dahin bzw. bei Fehler der Anfangsbuchstabe */
+@Composable
+private fun DirectFavicon(urls: List<String>, modifier: Modifier, letter: @Composable () -> Unit) {
+    val ctx = LocalContext.current.applicationContext
+    var bmp by remember(urls) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(urls) {
+        val d = FaviconLoader.load(ctx.cacheDir, urls) { decodeIcon(it) != null }
+        bmp = d?.let { withContext(Dispatchers.Default) { decodeIcon(it) } }
+    }
+    val b = bmp
+    if (b != null) Image(b, contentDescription = null, modifier = modifier, contentScale = ContentScale.Fit) else letter()
+}
+
+private fun decodeIcon(d: ByteArray): ImageBitmap? =
+    runCatching { BitmapFactory.decodeByteArray(d, 0, d.size)?.asImageBitmap() }.getOrNull()
 
 private fun norm(s: String): String = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
