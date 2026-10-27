@@ -18,20 +18,18 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - Älterer Server oder Galerie abgeschaltet: Einträge ausgeblendet. Fehler (zu viele Anfragen, Server, Rechte) als
   freundlicher Hinweis. Föderierte Seiten und Datenbanken werden nicht als Elternseite angeboten.
 
-### Neu – iOS/Mac: Favicons für Lesezeichen notfalls direkt vom Gerät (Saga-Server 2.5)
-### Neu – Android: Favicons für Lesezeichen notfalls direkt vom Gerät (Saga-Server 2.5)
-### Neu – Linux: Favicons für Lesezeichen notfalls direkt vom Gerät (Saga-Server 2.5)
+### Neu – iOS/Mac, Android, Linux: Favicons für Lesezeichen notfalls direkt vom Gerät (Saga-Server 2.5)
 - Liefert der eigene Server das Favicon eines Lesezeichens nicht (z. B. Shops mit Bot-Schutz), lädt die App es der Reihe
   nach aus `icon_direct` direkt von der Seite – wie ein Browser-Tab: höchstens 5 s, höchstens 512 KB, nur Rasterbilder
-  (PNG/ICO/JPEG/GIF/WebP, kein SVG), ohne Cookies und Anmeldedaten, nur Adressen auf dem Host des Lesezeichens, keine
-  Weiterleitung von https auf http. Sonst wie bisher der Anfangsbuchstabe.
+  (PNG/ICO/JPEG/GIF/WebP, kein SVG) bis 2048 × 2048 Pixel, ohne Cookies und Anmeldedaten, nur Adressen auf dem Host des
+  Lesezeichens, keine Weiterleitung von https auf http. Sonst wie bisher der Anfangsbuchstabe.
 - Ergebnis lokal zwischengespeichert (7 Tage, Fehlversuch 1 Stunde), beim Abmelden gelöscht; nichts geht zum Server.
-- Dienste unverändert; ältere Server (ohne `icon_direct`) wie bisher. Hinweis: iOS/macOS laden wegen App Transport
-  Security nur `https`-Favicons direkt.
-- Dienste unverändert; ältere Server (ohne `icon_direct`) wie bisher. Hinweis: Android lädt wie bisher nur
-  `https` (Klartext ist gesperrt), `http`-Favicons bleiben beim Buchstaben.
-- Dienste unverändert; ältere Server (ohne `icon_direct`) wie bisher. Tests: `tests/test_favicon.py` (Logik, Rückfall
-  in der Dienste-Ansicht, Zwischenspeicher, echter Abruf gegen lokalen Testserver); Mockserver kennt `icon_direct`-Seiten.
+- Dienste unverändert; ältere Server (ohne `icon_direct`) wie bisher. iOS/macOS (App Transport Security) und Android
+  (Klartext gesperrt) laden nur `https`-Favicons direkt, `http`-Favicons bleiben dort beim Buchstaben.
+- Tests: iOS-Logik `Tests/Logic/FaviconTests.swift`, Android `FaviconLogicTest`, Linux `tests/test_favicon.py` (Logik,
+  Rückfall in der Dienste-Ansicht, Zwischenspeicher, echter Abruf gegen lokalen Testserver; Mockserver kennt
+  `icon_direct`-Seiten).
+
 ### Neu – iOS/Mac: Seite gestalten (Saga-Server 2.5)
 - **Darstellung** der im Web gestalteten Seiten: Spaltenbreiten (iPad/Mac; iPhone weiter untereinander), Breite und
   Ausrichtung von Bildern und YouTube-Playern (iPhone mindestens 50 %), Text- und Hintergrundfarbe von Blöcken
