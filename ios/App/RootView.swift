@@ -61,13 +61,11 @@ struct RootView: View {
                 .toolbar {
                     #if os(iOS)
                     ToolbarItem(placement: .primaryAction) {
-                        if store.galleryOffered {                    // 2.5: Tippen = neue Seite, langes Druecken = Menue mit "Aus Vorlage …"
+                        if store.galleryOffered {                    // 2.5 (fix27 #9): Tippen oeffnet das Menue (Neue Seite · Aus Vorlage …) wie Android
                             Menu {
                                 Button { Task { if let id = await store.newPage() { selection = id } } } label: { Label("Neue Seite", systemImage: "doc.badge.plus") }
                                 Button { gallery = GalleryRequest() } label: { Label("Aus Vorlage …", systemImage: "square.grid.2x2") }
-                            } label: { Label("Neue Seite", systemImage: "square.and.pencil") } primaryAction: {
-                                Task { if let id = await store.newPage() { selection = id } }
-                            }
+                            } label: { Label("Neue Seite", systemImage: "square.and.pencil") }
                         } else {
                             Button { Task { if let id = await store.newPage() { selection = id } } } label: { Label("Neue Seite", systemImage: "square.and.pencil") }
                         }

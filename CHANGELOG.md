@@ -9,6 +9,10 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – iOS/Mac: Galerie-Testrunde
+- **iPhone/iPad: „Neue Seite“** öffnet beim normalen Tippen ein Menü (Neue Seite · Aus Vorlage …) wie Android –
+  „Aus Vorlage …“ war bisher nur per langem Druck erreichbar.
+
 ### Neu – Linux: Vorlagengalerie (Saga-Server 2.5)
 - **„Neu“-Knopf mit Menü** → „Aus Vorlage …“, ebenso in der Befehlspalette und im Seitenmenü („Unterseite aus
   Vorlage …“): Liste der Galerie-Vorlagen des Servers (Symbol, Titel, Beschreibung), gruppiert nach Persönlich ·
