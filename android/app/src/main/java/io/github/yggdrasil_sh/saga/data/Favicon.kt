@@ -45,13 +45,17 @@ object FaviconLogic {
             if (!raw.startsWith("http://", true) && !raw.startsWith("https://", true)) continue
             val c = raw.toHttpUrlOrNull() ?: continue
             if (b.isHttps && !c.isHttps) continue
-            if (!c.host.equals(b.host, true) || c.port != b.port) continue
+            if (!c.host.equals(b.host, true) || !samePort(c, b)) continue
             if (c.username.isNotEmpty() || c.password.isNotEmpty()) continue
             val s = c.toString()
             if (s !in out) out += s
         }
         return out
     }
+
+    /** gleicher Port - oder beide auf dem Standardport ihres Schemas (http-Lesezeichen, Favicon per https) */
+    private fun samePort(a: HttpUrl, b: HttpUrl): Boolean =
+        a.port == b.port || (a.port == HttpUrl.defaultPort(a.scheme) && b.port == HttpUrl.defaultPort(b.scheme))
 
     fun plan(serverPath: String?, direct: List<String>): List<Source> =
         listOfNotNull(serverPath?.let { Source.Server(it) }) + direct.map { Source.Direct(it) }
