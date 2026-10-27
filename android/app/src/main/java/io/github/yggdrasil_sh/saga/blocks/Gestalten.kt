@@ -54,7 +54,7 @@ object Gestalten {
     /** data.width (10-100, % der Inhaltsbreite) als Anteil; null = nicht gesetzt/ungueltig */
     fun widthPercent(d: JsonObject): Int? {
         val v = num(d["width"]) ?: return null
-        return Math.round(v).toInt().coerceIn(10, 100)
+        return Math.round(v.coerceIn(10.0, 100.0)).toInt()            // erst begrenzen: toInt() schneidet riesige Werte ab
     }
 
     /**
@@ -158,7 +158,7 @@ object Gestalten {
     // ---------------------------------------------------------------- G10 Toggle-Ueberschrift
 
     /** toggle.data.level: 0 = normaler Toggle, 1-3 = Ueberschrift */
-    fun toggleLevel(d: JsonObject): Int = (num(d["level"]) ?: 0.0).let { Math.round(it).toInt() }.coerceIn(0, 3)
+    fun toggleLevel(d: JsonObject): Int = Math.round((num(d["level"]) ?: 0.0).coerceIn(0.0, 3.0)).toInt()
 
     // ---------------------------------------------------------------- R Rueckfall-Karte
 
