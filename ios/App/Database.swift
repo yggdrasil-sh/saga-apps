@@ -340,7 +340,7 @@ struct TableGrid: View {
         }
         // Datum: Datumswahl + "x" brauchen ~150 (bei 90 ragte das Datum in die naechste Spalte)
         let dateCols = Set(cols.filter { $0.type == "date" }.map(\.id))
-        shrink(cols.map(\.id)) { (dateCols.contains($0) ? 150 : 90) * scale }; shrink(["title"]) { _ in 140 * scale }
+        shrink(cols.map(\.id)) { (dateCols.contains($0) ? 150 : 90) * scale }; shrink(["title"]) { _ in 180 * scale }   // fix27 #17: Titel nicht mitten im Wort trennen (iPhone: "Work-/shop")
         if sum < avail { out["title"] = (out["title"] ?? 0) + avail - sum }
         return out
     }
@@ -518,7 +518,14 @@ struct CalcRow: View {
             ForEach(Self.ops(p), id: \.self) { o in Button(Self.names[o] ?? o) { set(key, o) } }
         } label: {
             if let op {
-                HStack(spacing: 4) { Text(Self.names[op] ?? op); Text(value(op, p)).foregroundStyle(.primary).fontWeight(.semibold) }.lineLimit(1)
+                // schmale Spalte (iPhone): Wert vor dem Namen, nie beides abgeschnitten ("Sum… 1.4…", fix27 #10)
+                let val = Text(value(op, p)).foregroundStyle(.primary).fontWeight(.semibold)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 4) { Text(Self.names[op] ?? op); val }.lineLimit(1).fixedSize()
+                    val.lineLimit(1).fixedSize()
+                    val.lineLimit(1).minimumScaleFactor(0.6)
+                }
+                .accessibilityElement(children: .ignore).accessibilityLabel(Text(verbatim: (Self.names[op] ?? op) + " " + value(op, p)))
             }
             else { Text("Berechnen").opacity(0.35) }
         }
@@ -643,10 +650,9 @@ func dayText(_ s: String) -> String {
     if !Calendar.current.isDate(d, equalTo: .now, toGranularity: .year) { style = style.year() }
     return d.formatted(style)
 }
+/// Zahl einer Eigenschaft (Zahl/Berechnet) als Text - Prozent ganzzahlig, Euro mit 2 Nachkommastellen (fix27 #10)
 func numText(_ n: Double, _ fmt: String?, _ show: String? = nil) -> String {
-    switch fmt {
-    case "percent" where show == "ring" || show == "bar": return (n / 100).formatted(.percent.precision(.fractionLength(0)))   // Fortschritt: ganze Prozent
-    case "percent": return (n / 100).formatted(.percent.precision(.fractionLength(0...2))); case "euro": return n.formatted(.currency(code: "EUR")); default: return n.formatted() }
+    NumFormat.text(n, fmt: fmt)
 }
 
 // MARK: - Board: Spalten nach Auswahl, Karten ziehen aendert den Wert
@@ -773,9 +779,14 @@ struct FlowChips: View {
     let row: DBRow
     let props: [DBProp]
     var body: some View {
+        let gs = CardChipLogic.groups(types: props.map(\.type), filled: props.map { hasValue(m.value($0, row)) })
         WrapLayout {
-            ForEach(props, id: \.id) { p in
-                if p.type == "checkbox", let b = row.props[p.id]?.base as? Bool, b { Image(systemName: "checkmark.square.fill").font(.caption).foregroundStyle(.secondary) }
+            ForEach(gs, id: \.self) { g in
+                let p = props[g[0]]
+                if g.count == 2, let a = m.value(p, row) as? String, let b = m.value(props[g[1]], row) as? String {
+                    Text(CardChipLogic.range(dayText(a), dayText(b))).font(.caption).foregroundStyle(.secondary)   // Zeitraum (fix27 #17)
+                }
+                else if p.type == "checkbox", let b = row.props[p.id]?.base as? Bool, b { Image(systemName: "checkmark.square.fill").font(.caption).foregroundStyle(.secondary) }
                 else { ValueChip(prop: p, value: m.value(p, row)) }
             }
         }
@@ -940,22 +951,34 @@ struct PropEditor: View {
                 .keyboardType(prop.type == "number" ? .decimalPad : prop.type == "url" ? .URL : prop.type == "email" ? .emailAddress : prop.type == "phone" ? .phonePad : .default)
                 #endif
                 .focused($focused)
-                .onAppear { text = shown; base = shown }
-                .onChange(of: shown) { _, v in if !focused || text == base { text = v; base = v } }   // neuer Wert vom Server: uebernehmen statt alten zurueckschreiben
+                .onAppear { text = shownView; base = text }
+                .onChange(of: shown) { _, v in    // neuer Wert vom Server: uebernehmen statt alten zurueckschreiben
+                    if !focused { text = shownView; base = text } else if text == base { text = v; base = v }
+                }
                 .onSubmit { commit() }
-                .onChange(of: focused) { _, f in if !f { commit() } }
+                .onChange(of: focused) { _, f in
+                    // fix27 #10: Zahl ausserhalb der Bearbeitung mit Einheit ("48,50 €"), beim Bearbeiten ohne
+                    if f { if text == base { text = shown; base = text } }
+                    else { commit(); if prop.type == "number" { text = text.isEmpty ? "" : parsed(text).map { NumFormat.text($0, fmt: prop.fmt) } ?? text; base = text } }
+                }
                 .onDisappear { commit() }
         }
     }
     private var leer: some View { Text("Leer").font(.subheadline).foregroundStyle(.tertiary) }
     /// Wert als Text (wie im Eingabefeld)
-    private var shown: String { value.map { v in (v as? Double).map { prop.type == "number" ? $0.formatted() : "\($0)" } ?? "\(v)" } ?? "" }
+    private var shown: String { value.map { v in (v as? Double).map { prop.type == "number" ? NumFormat.editText($0) : "\($0)" } ?? "\(v)" } ?? "" }
+    /// Anzeige ohne Fokus: Zahl mit Format der Eigenschaft (fix27 #10), sonst wie im Eingabefeld
+    private var shownView: String {
+        if prop.type == "number", let n = value as? Double { return NumFormat.text(n, fmt: prop.fmt) }
+        return shown
+    }
+    private func parsed(_ t: String) -> Double? { (try? Double(t, format: .number)) ?? Double(t) }
     private func commit() {
         guard text != base else { return }                          // nichts eingegeben -> nichts (Veraltetes) zurueckschreiben
         base = text
         let cur = value.map { "\($0)" } ?? ""
         if prop.type == "number" {
-            let n = (try? Double(text, format: .number)) ?? Double(text)          // Zahl in der Schreibweise der Systemsprache
+            let n = parsed(text)                                                 // Zahl in der Schreibweise der Systemsprache
             if text.isEmpty { if value != nil { set(nil) } } else if let n, n != (value as? Double) { set(n) }
         } else if text != cur { set(text.isEmpty ? nil : text) }
     }

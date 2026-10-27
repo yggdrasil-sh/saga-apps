@@ -112,7 +112,7 @@ func widgetTests() {
     check(WidgetLogic.format(1234.5, fmt: "num", locale: de) == "1.234,5" && WidgetLogic.format(1234.5, fmt: "num", locale: en) == "1,234.5", "Zahl lokalisiert")
     check(WidgetLogic.format(2.0 / 3, fmt: "num", locale: en) == "0.67", "zwei Nachkommastellen")
     let pct = WidgetLogic.format(42.5, fmt: "pct", locale: de)
-    check(pct.hasPrefix("42,5") && pct.hasSuffix("%"), "Prozent (\(pct))")
+    check(pct.hasPrefix("43") && pct.hasSuffix("%") && !pct.contains(","), "Prozent ganzzahlig (\(pct))")
     let eur = WidgetLogic.format(1234.5, fmt: "eur", locale: de)
     check(eur.contains("1.234,50") && eur.contains("€"), "Euro de (\(eur))")
     check(WidgetLogic.format(9.5, fmt: "eur", locale: en).contains("€9.50"), "Euro en")

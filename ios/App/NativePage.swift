@@ -1570,25 +1570,30 @@ struct ButtonsBlock: View {
     @State private var problem: String?
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(Array(buttons.enumerated()), id: \.offset) { i, b in
-                        let key = String(i), busy = gate.busy(key)
-                        Button { start(key, b) } label: {
-                            HStack(spacing: 6) {
-                                if busy { ProgressView().controlSize(.small) }          // sofort sichtbar: Aktion laeuft
-                                else if let ic = b["icon"] as? String, !ic.isEmpty { Text(ic) }
-                                else { Image(systemName: "cursorarrow.click").foregroundStyle(.secondary) }
-                                Text(b["label"] as? String ?? "").foregroundStyle(.primary)
-                            }
-                            .font(.subheadline.weight(.medium)).padding(.horizontal, 10).padding(.vertical, 6)
-                            .background(.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
-                            .opacity(busy ? 0.7 : 1)
+            // fix27 #17: Reihe bricht um (wie Android/Web) statt einzeilig waagrecht zu scrollen
+            WrapLayout(spacing: 8, lineSpacing: 8) {
+                ForEach(Array(buttons.enumerated()), id: \.offset) { i, b in
+                    let key = String(i), busy = gate.busy(key)
+                    let on = ButtonLogic.enabled(action: b["action"] as? String, readOnlyRole: readOnlyRole)
+                    Button { start(key, b) } label: {
+                        HStack(spacing: 6) {
+                            if busy { ProgressView().controlSize(.small) }          // sofort sichtbar: Aktion laeuft
+                            else if let ic = b["icon"] as? String, !ic.isEmpty { Text(ic) }
+                            else { Image(systemName: "cursorarrow.click").foregroundStyle(.secondary) }
+                            Text(b["label"] as? String ?? "").foregroundStyle(on ? .primary : .secondary).lineLimit(2)
                         }
-                        .buttonStyle(.plain)
-                        .disabled(busy || !ButtonLogic.enabled(readOnlyRole: readOnlyRole))
+                        .font(.subheadline.weight(.medium)).padding(.horizontal, 10).padding(.vertical, 6)
+                        .background(.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+                        .opacity(busy ? 0.7 : on ? 1 : 0.5)                     // fix27 #11: ausgegraut
                     }
+                    .buttonStyle(.plain)
+                    .disabled(busy || !on)
+                    .help(on ? Text(verbatim: "") : Text("Neue Einträge kann nur anlegen, wer diese Seite bearbeiten darf."))
                 }
+            }
+            if ButtonLogic.showsReadOnlyHint(actions: buttons.map { $0["action"] as? String }, readOnlyRole: readOnlyRole) {
+                Label("Neue Einträge kann nur anlegen, wer diese Seite bearbeiten darf.", systemImage: "eye")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             if let problem { Text(problem).font(.caption).foregroundStyle(.orange) }
         }

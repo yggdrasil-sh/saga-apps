@@ -307,22 +307,15 @@ enum WidgetLogic {
 
     // MARK: Kennzahl
 
-    /// Zahl formatieren: num (bis 2 Nachkommastellen), pct (Wert in Prozent, z. B. 42,5 -> "42,5 %"), eur (Waehrung)
+    /// Zahl formatieren: num (bis 2 Nachkommastellen), pct (ganzzahlig, z. B. 42,5 -> "43 %"), eur (Waehrung, 2 Nachkommastellen)
     static func format(_ value: Double?, fmt: String?, locale: Locale) -> String {
-        guard let value, value.isFinite else { return "–" }
-        let f = NumberFormatter()
-        f.locale = locale
-        switch fmt {
-        case "pct":
-            f.numberStyle = .percent; f.maximumFractionDigits = 1; f.minimumFractionDigits = 0
-            return f.string(from: NSNumber(value: value / 100)) ?? "–"
-        case "eur":
-            f.numberStyle = .currency; f.currencyCode = "EUR"
-            return f.string(from: NSNumber(value: value)) ?? "–"
-        default:
-            f.numberStyle = .decimal; f.maximumFractionDigits = 2; f.minimumFractionDigits = 0
-            return f.string(from: NSNumber(value: (value * 100).rounded() / 100)) ?? "–"
-        }
+        NumFormat.text(value, fmt: fmt, locale: locale)                 // fix27 #10: ein Format fuer Widgets und Tabellen
+    }
+
+    /// Format der Werte eines Fortschritts ("1.430,50 € von 1.200,00 €"): Server-Angabe, sonst Block-Einstellung, sonst Zahl
+    static func progressFmt(_ b: Block, value v: Value?) -> String {
+        let f = NumFormat.kind(v?.fmt ?? (b.cfg["fmt"] as? String))
+        return f == "pct" ? "num" : f                                   // Prozent steht schon gross darueber
     }
 
     /// Format einer Kennzahl: Server-Angabe, sonst Block-Einstellung

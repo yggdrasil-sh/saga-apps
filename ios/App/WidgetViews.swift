@@ -147,7 +147,8 @@ private struct WidgetContent: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text(verbatim: WidgetLogic.format(Double(p.percent), fmt: "pct", locale: locale)).font(valueFont(size)).monospacedDigit()
                 ProgressView(value: p.fraction).progressViewStyle(.linear)
-                Text("\(WidgetLogic.format(p.value, fmt: "num", locale: locale)) von \(WidgetLogic.format(p.max, fmt: "num", locale: locale))")
+                let vf = WidgetLogic.progressFmt(block, value: value)
+                Text("\(WidgetLogic.format(p.value, fmt: vf, locale: locale)) von \(WidgetLogic.format(p.max, fmt: vf, locale: locale))")
                     .font(.caption).foregroundStyle(.secondary).monospacedDigit()
             }
         } else {

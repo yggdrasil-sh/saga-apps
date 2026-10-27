@@ -12,6 +12,16 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 ### Behoben – iOS/Mac: Galerie-Testrunde
 - **iPhone/iPad: „Neue Seite“** öffnet beim normalen Tippen ein Menü (Neue Seite · Aus Vorlage …) wie Android –
   „Aus Vorlage …“ war bisher nur per langem Druck erreichbar.
+- **Zahlenformate einheitlich** (Tabellen, Karten, Fußzeilen, Widgets): Euro immer mit 2 Nachkommastellen in der
+  App-Sprache („48,50 €“, vorher „48,5“ ohne Einheit in Tabellenzellen), Prozent ganzzahlig („41 %“), Fortschritt über
+  100 % mit echter Zahl („119 %“, Balken voll); Fortschritts-Werte im Format der Quelle, wenn der Server es mitliefert.
+  Zahlenzellen zeigen beim Bearbeiten die Zahl ohne Einheit. Fußzeile in schmalen Spalten: Wert vor Beschriftung.
+- **Lesen/Kommentieren:** Schaltflächen „Eintrag anlegen“ (z. B. „Neue Aufgabe“) ausgegraut mit Hinweis statt Fehler
+  nach dem Tippen; Schaltflächen „Seite öffnen“ und „Saga-Aufgabe“ bleiben bedienbar (vorher alle gesperrt).
+- **iPhone:** Schaltflächen-Reihen brechen um statt einzeilig waagrecht zu scrollen; Tabellen-Titelspalte breiter (kein
+  Trennen mitten im Wort); zwei aufeinanderfolgende Daten auf Karten als Zeitraum („18. Juli – 25. Juli“).
+- **Relationsfilter** „enthält“/„enthält nicht“ vergleicht Eintrags-IDs als Zahlen (vorher traf „enthält“ in der App
+  nie) und behandelt Zeilen ohne Verknüpfung als leere Liste – wie Server und Web.
 
 ### Neu – Linux: Vorlagengalerie (Saga-Server 2.5)
 - **„Neu“-Knopf mit Menü** → „Aus Vorlage …“, ebenso in der Befehlspalette und im Seitenmenü („Unterseite aus
