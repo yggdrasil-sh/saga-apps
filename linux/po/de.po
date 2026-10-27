@@ -7616,3 +7616,113 @@ msgstr "Mono"
 #: hlidskjalf/page.py
 msgid "Small text"
 msgstr "Kleiner Text"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Clock"
+msgstr "Uhr"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Countdown"
+msgstr "Countdown"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Metric"
+msgstr "Kennzahl"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Widget"
+msgstr "Widget"
+
+#: hlidskjalf/pagewidgets.py
+msgid "AM"
+msgstr "AM"
+
+#: hlidskjalf/pagewidgets.py
+msgid "PM"
+msgstr "PM"
+
+#: hlidskjalf/blocks.py
+msgid "Edit on the web"
+msgstr "Im Web bearbeiten"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Widget – a newer app version is needed"
+msgstr "Widget – neuere Version nötig"
+
+#: hlidskjalf/pagewidgets.py
+msgid "No access to the data source"
+msgstr "Kein Zugriff auf die Datenquelle"
+
+#: hlidskjalf/pagewidgets.py
+msgid "The data source was deleted"
+msgstr "Die Datenquelle wurde gelöscht"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Widget is not set up correctly – edit it on the web"
+msgstr "Widget ist nicht richtig eingerichtet – im Web bearbeiten"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Data source too large for this widget"
+msgstr "Datenquelle zu groß für dieses Widget"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Value not available"
+msgstr "Wert nicht verfügbar"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Values need Saga server 2.5"
+msgstr "Werte brauchen Saga-Server 2.5"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Widget only available on the originating server"
+msgstr "Widget nur auf dem Ursprungsserver"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Values couldn’t be loaded"
+msgstr "Werte konnten nicht geladen werden"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Value not available yet – it appears after saving"
+msgstr "Noch kein Wert – erscheint nach dem Speichern"
+
+#: hlidskjalf/pagewidgets.py
+msgid "No quotes yet"
+msgstr "Noch keine Zitate"
+
+#: hlidskjalf/pagewidgets.py
+msgid "No value"
+msgstr "Kein Wert"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Not set up"
+msgstr "Nicht eingerichtet"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Not started yet"
+msgstr "Noch nicht begonnen"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Reached"
+msgstr "Erreicht"
+
+#: hlidskjalf/pagewidgets.py
+msgid "in {h} h {m} min"
+msgstr "in {h} Std. {m} Min."
+
+#: hlidskjalf/pagewidgets.py
+msgid "{h} h {m} min ago"
+msgstr "vor {h} Std. {m} Min."
+
+#: hlidskjalf/pagewidgets.py
+msgid "{value} of {max}"
+msgstr "{value} von {max}"
+
+#: hlidskjalf/pagewidgets.py
+msgid "Goal: {value}"
+msgstr "Ziel: {value}"
+
+#: hlidskjalf/pagewidgets.py
+msgid "in {n} day"
+msgid_plural "in {n} days"
+msgstr[0] "in {n} Tag"
+msgstr[1] "in {n} Tagen"
