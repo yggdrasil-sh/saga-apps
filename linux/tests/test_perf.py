@@ -253,6 +253,7 @@ def test_schaltflaeche_neuer_eintrag_einmal(win, srv):
 
     kit = BlockKit.__new__(BlockKit)
     kit.view = V()
+    kit.editor = type("E", (), {"doc": type("D", (), {"read_only": False})()})()    # fix27 #11: _press fragt die Rolle
     bt = Gtk.Button(label="➕ Neu")
     cfg = {"label": "Neu", "action": "db", "target": 10, "title": "Eintrag"}
     posts0 = sum(1 for x in srv.log if x[0] == "POST" and x[1].endswith("/api/notes"))
