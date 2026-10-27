@@ -27,6 +27,8 @@ object FaviconLogic {
     const val MAX_REDIRECTS = 4
     const val OK_TTL_MS = 7L * 86_400_000
     const val FAIL_TTL_MS = 3_600_000L
+    /** hoechstens so viele Pixel dekodieren (2048 x 2048): kleine Datei, riesiges Bild = Speicher voll */
+    const val MAX_PIXELS = 2048L * 2048
 
     sealed interface Source {
         data class Server(val path: String) : Source
@@ -85,6 +87,9 @@ object FaviconLogic {
         val ct = contentType.orEmpty().lowercase()
         return "svg" in ct || ct.startsWith("text/")
     }
+
+    /** Bildmasse vor dem Dekodieren pruefen (Dekompressionsbombe) */
+    fun pixelsOk(width: Int, height: Int): Boolean = width > 0 && height > 0 && width.toLong() * height <= MAX_PIXELS
 
     fun accept(status: Int, contentType: String?, declaredLength: Long?, data: ByteArray): Boolean =
         !rejectEarly(status, contentType, declaredLength) && data.isNotEmpty() && data.size <= MAX_BYTES && isRaster(data)

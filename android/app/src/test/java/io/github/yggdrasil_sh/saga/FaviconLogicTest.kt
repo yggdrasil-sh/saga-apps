@@ -123,4 +123,13 @@ class FaviconLogicTest {
         assertTrue(k != FaviconLogic.cacheKey(direct.reversed()))
         assertEquals("cbf29ce484222325", FaviconLogic.cacheKey(emptyList()))
     }
+
+    @Test
+    fun pixelLimit() {
+        assertTrue(FaviconLogic.pixelsOk(180, 180))
+        assertTrue(FaviconLogic.pixelsOk(2048, 2048))
+        assertFalse(FaviconLogic.pixelsOk(2049, 2048))
+        assertFalse(FaviconLogic.pixelsOk(50_000, 50_000))
+        assertFalse(FaviconLogic.pixelsOk(-1, -1))
+    }
 }

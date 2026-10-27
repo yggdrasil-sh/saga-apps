@@ -59,6 +59,9 @@ func faviconTests() {
     check(L.rejectEarly(status: 404, contentType: "image/png", declaredLength: nil), "frueh abbrechen: 404")
     check(!L.rejectEarly(status: 200, contentType: nil, declaredLength: nil), "ohne Kopfzeilen weiterlesen")
     check(L.timeout <= 5 && L.maxBytes == 524_288, "Limits laut Vertrag")
+    check(L.pixelsOK(width: 180, height: 180) && L.pixelsOK(width: 2048, height: 2048), "normale Favicons dekodieren")
+    check(!L.pixelsOK(width: 2049, height: 2048) && !L.pixelsOK(width: 50_000, height: 50_000) && !L.pixelsOK(width: 0, height: 16),
+          "riesige/kaputte Bildmasse nicht dekodieren")
     // Cache
     let t0 = Date(timeIntervalSince1970: 1_800_000_000)
     check(L.cacheDecision(ok: true, savedAt: t0, now: t0.addingTimeInterval(6 * 86_400)) == .use, "Treffer 6 Tage alt: nutzen")

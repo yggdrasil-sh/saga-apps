@@ -22,6 +22,7 @@ MAX_DIRECT = 3
 MAX_REDIRECTS = 4
 OK_TTL = 7 * 86400
 FAIL_TTL = 3600
+MAX_PIXELS = 2048 * 2048         # kleine Datei, riesiges Bild (Dekompressionsbombe): nicht dekodieren
 _ACCEPT = "image/png,image/x-icon,image/vnd.microsoft.icon,image/jpeg,image/gif,image/webp,*/*;q=0.1"
 
 
@@ -106,6 +107,11 @@ def reject_early(status, ctype, length):
         return True
     ct = (ctype or "").lower()
     return "svg" in ct or ct.startswith("text/")
+
+
+def pixels_ok(width, height):
+    """Bildmasse vor dem Dekodieren pruefen"""
+    return width > 0 and height > 0 and width * height <= MAX_PIXELS
 
 
 def accept(status, ctype, length, data):

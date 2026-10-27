@@ -1,3 +1,4 @@
+import ImageIO
 import SwiftUI
 
 /// Symbol eines Dienstes (selfh.st wie die Kacheln im Web) - ueber den eigenen Server. iconURL (Server 2.5, Feld
@@ -42,8 +43,16 @@ struct ServiceIcon: View {
             let direct = FaviconLogic.directCandidates(iconDirect, bookmarkURL: url)
             if let server, let d = await store.imageData(server), let i = Self.decode(d) { img = i; return }
             guard !direct.isEmpty, !Task.isCancelled else { return }
-            if let d = await FaviconLoader.shared.load(direct, decodes: { Self.decode($0) != nil }), let i = Self.decode(d) { img = i }
+            if let d = await FaviconLoader.shared.load(direct, decodes: { Self.decodeDirect($0) != nil }), let i = Self.decodeDirect(d) { img = i }
         }
+    }
+    /// Direkt von fremder Seite: erst die Bildmasse lesen (ImageIO), riesige Bilder gar nicht dekodieren
+    private static func decodeDirect(_ d: Data) -> PlatformImage? {
+        guard let src = CGImageSourceCreateWithData(d as CFData, nil),
+              let p = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
+              let w = p[kCGImagePropertyPixelWidth] as? Int, let h = p[kCGImagePropertyPixelHeight] as? Int,
+              FaviconLogic.pixelsOK(width: w, height: h) else { return nil }
+        return decode(d)
     }
     private static func decode(_ d: Data) -> PlatformImage? {
         #if os(iOS)

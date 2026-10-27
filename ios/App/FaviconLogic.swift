@@ -11,6 +11,7 @@ enum FaviconLogic {
     static let maxDirect = 3
     static let okTTL: TimeInterval = 7 * 86_400          // geladenes Favicon 7 Tage merken
     static let failTTL: TimeInterval = 3_600             // Fehlversuch 1 Stunde merken
+    static let maxPixels = 2048 * 2048                   // kleine Datei, riesiges Bild (Dekompressionsbombe): nicht dekodieren
 
     enum Source: Equatable { case server(String), direct(URL) }
 
@@ -66,6 +67,11 @@ enum FaviconLogic {
         if b.starts(with: Array("GIF8".utf8)) { return true }                             // GIF
         if b.count >= 12, b.starts(with: Array("RIFF".utf8)), Array(b[8..<12]) == Array("WEBP".utf8) { return true }
         return false
+    }
+
+    /// Bildmasse vor dem Dekodieren pruefen
+    static func pixelsOK(width: Int, height: Int) -> Bool {
+        width > 0 && height > 0 && Int64(width) * Int64(height) <= Int64(maxPixels)
     }
 
     /// Antwort eines direkten Abrufs annehmen? 200, angekuendigte und echte Groesse im Limit, kein SVG, Rasterbild.

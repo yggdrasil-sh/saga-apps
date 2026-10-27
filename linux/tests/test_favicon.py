@@ -113,6 +113,12 @@ def test_cache_decision():
     assert cache_key([]) == "cbf29ce484222325"                                          # wie iOS/Android (FNV-1a 64)
 
 
+def test_pixel_limit():
+    from hlidskjalf.favicon import pixels_ok
+    assert pixels_ok(180, 180) and pixels_ok(2048, 2048)
+    assert not pixels_ok(2049, 2048) and not pixels_ok(50_000, 50_000) and not pixels_ok(0, 16)
+
+
 def _shop(icon_direct=DIRECT, key="bm9"):
     b = {"name": "Shop", "host": "shop.example.org", "url": BM, "icon": "", "category": "Lesezeichen", "own": True,
          "key": key, "icon_url": f"/api/services/favicon/{key}?h=0123456789"}

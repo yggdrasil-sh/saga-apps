@@ -710,7 +710,10 @@ def service_icon(icon, name, size=30, icon_url=None, icon_direct=None, url=None)
 
         def opens(data):
             try:
-                images._open(data).load()
+                im = images._open(data)
+                if not favicon.pixels_ok(*im.size):            # erst die Masse: keine Dekompressionsbombe
+                    return False
+                im.load()
                 return True
             except Exception:  # noqa: BLE001 - kaputtes Bild zaehlt als Fehlversuch
                 return False

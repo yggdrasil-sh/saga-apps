@@ -50,6 +50,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import io.github.yggdrasil_sh.saga.data.FaviconLoader
+import io.github.yggdrasil_sh.saga.data.FaviconLogic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import io.github.yggdrasil_sh.saga.data.SagaRepository
@@ -192,7 +193,10 @@ private fun DirectFavicon(urls: List<String>, modifier: Modifier, letter: @Compo
     if (b != null) Image(b, contentDescription = null, modifier = modifier, contentScale = ContentScale.Fit) else letter()
 }
 
-private fun decodeIcon(d: ByteArray): ImageBitmap? =
-    runCatching { BitmapFactory.decodeByteArray(d, 0, d.size)?.asImageBitmap() }.getOrNull()
+private fun decodeIcon(d: ByteArray): ImageBitmap? = runCatching {
+    val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }   // erst die Masse: keine Dekompressionsbombe
+    BitmapFactory.decodeByteArray(d, 0, d.size, o)
+    if (!FaviconLogic.pixelsOk(o.outWidth, o.outHeight)) null else BitmapFactory.decodeByteArray(d, 0, d.size)?.asImageBitmap()
+}.getOrNull()
 
 private fun norm(s: String): String = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
