@@ -103,12 +103,12 @@ class GalleryDialog(Adw.Dialog):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         txt = galerie.contents_text(it["contents"])
         if txt:
-            lb = Gtk.Label(label=txt, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR, xalign=0)
+            lb = Gtk.Label(label=txt, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR, justify=Gtk.Justification.CENTER)
             lb.add_css_class("dim-label")
             box.append(lb)
         if it["needs"]:
-            lb = Gtk.Label(label=_("Some parts need features that may not be set up here: {needs}").format(needs=", ".join(it["needs"])),
-                           wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR, xalign=0)
+            lb = Gtk.Label(label=_("Some parts need features that may not be set up here: {needs}").format(needs=", ".join(galerie.needs_text(it["needs"]))),
+                           wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR, justify=Gtk.Justification.CENTER)
             lb.add_css_class("caption")
             lb.add_css_class("dim-label")
             box.append(lb)
@@ -158,4 +158,7 @@ class GalleryDialog(Adw.Dialog):
             if isinstance(e, APIError) and code == 401:
                 return
             win.toast(galerie.error_text(code, getattr(e, "msg", ""), "use"))
+            if code == 404 and srv == config.settings.server:   # Vorlage weg oder Galerie inzwischen abgeschaltet: neu fragen
+                galerie.state.set(srv, None)
+                probe(win)
         bg(client.json, "POST", galerie.use_path(it["id"]), body, done=fin, error=err)

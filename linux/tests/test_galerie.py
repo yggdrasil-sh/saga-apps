@@ -65,6 +65,11 @@ def test_contents_text():
     assert t == "Contains: ✅ Start, Aufgaben"
 
 
+def test_needs_text():
+    from hlidskjalf import galerie as g
+    assert g.needs_text(["calendar", "zukunft"]) == ["Calendar", "zukunft"]
+
+
 def test_use_body_parent_rules():
     from hlidskjalf import galerie as g
     own = {3: {"id": 3}, 10: {"id": 10, "kind": "database"}, 4: {"id": 4, "archived": True}}
@@ -260,3 +265,20 @@ def test_empty_list(win, srv):
     d = _dialog(win)
     assert d.stack.get_visible_child_name() == "empty"
     d.close()
+
+
+def test_use_404_gallery_switched_off(win, srv):
+    """Admin schaltet die Galerie ab, waehrend der Dialog offen ist: alle Endpunkte 404 -> Hinweis, Eintraege verschwinden"""
+    assert _probed(win)
+    toasts = []
+    win.toast = toasts.append
+    win.gallery_dialog()
+    d = _dialog(win)
+    d.rows["wiki"].emit("activated")
+    c = _confirm(d)
+    srv.gallery_api = 404
+    c.emit("response", "use")
+    pump(lambda: toasts, 3)
+    assert toasts == ["This template is no longer available."]
+    pump(lambda: win.new_btn.get_visible(), 3)
+    assert not win.new_split.get_visible()

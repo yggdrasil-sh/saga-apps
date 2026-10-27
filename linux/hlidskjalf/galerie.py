@@ -89,6 +89,12 @@ def contents_text(contents):
     return _("Contains: {items}").format(items=", ".join(names))
 
 
+def needs_text(needs):
+    """Faehigkeiten (needs) lesbar: bekannte uebersetzt, unbekannte wie geliefert"""
+    known = {"calendar": _("Calendar")}
+    return [known.get(n, n) for n in needs]
+
+
 def list_path(lang):
     lang = lang if isinstance(lang, str) and re.match(r"^[a-z]{2,3}$", lang) else "en"
     return "api/gallery?lang=" + urllib.parse.quote(lang)
