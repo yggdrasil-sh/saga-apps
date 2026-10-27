@@ -129,6 +129,25 @@ class MockServer:
         # widgets1; widget_values: feste Antworten je Block-ID (sonst einfach aus den Zeilen gerechnet)
         self.widgets_api = True
         self.widget_values = {}
+        # Vorlagengalerie (Server ab 2.5): gallery_api True, sonst HTTP-Code fuer die Liste (404 aelterer Server, 403 abgeschaltet);
+        # gallery_use_fail: HTTP-Code fuer POST .../use (mit {"error": ...}); gallery_used: [(id, body)]
+        self.gallery_api = True
+        self.gallery_use_fail = None
+        self.gallery_used = []
+        self.gallery = [
+            {"id": "aufgaben-projekte", "v": 1, "order": 20, "category": "work", "icon": "✅", "title": "Aufgaben & Projekte",
+             "desc": "Projekte mit Aufgaben, Board nach Status.", "needs": [], "zukunft": {"x": 1},
+             "contents": [{"kind": "page", "title": "Aufgaben & Projekte", "icon": "✅"},
+                          {"kind": "database", "title": "Projekte", "icon": "📁"}, {"kind": "database", "title": "Aufgaben", "icon": "☑️"}]},
+            {"id": "mein-tag", "order": 10, "category": "personal", "icon": "☀️", "title": "Mein Tag", "desc": "Startseite mit Widgets.",
+             "needs": ["calendar"], "contents": [{"kind": "page", "title": "Mein Tag", "icon": "☀️"}]},
+            {"id": "leseliste", "order": 20, "category": "personal", "icon": "📚", "title": "Leseliste", "desc": "Bücher und Notizen.",
+             "contents": []},
+            {"id": "wiki", "order": 10, "category": "team", "icon": "📖", "title": "Team-Wiki", "desc": "Wissen fürs Team."},
+            {"id": "../böse", "title": "Ungueltige ID"},
+            {"id": "ohne-titel", "category": "work"},
+            "kaputt",
+        ]
         mockv2.init(self)                    # Saga 2.0: Live, Benachrichtigungen, Chat, Push, KI, Foederation
         mockv21.init(self)                   # Saga 2.1: Profilbilder, 2FA-Stand, Anrufe
         mockki.init(self)                    # Saga 2.1: KI-Persona, KI im Chat
@@ -148,6 +167,46 @@ class MockServer:
             nodes.append([n["id"], n.get("title") or "", n.get("icon") or "", kind, 1, n.get("parent_id")])
         edges = [[n["parent_id"], n["id"], "c"] for n in ns.values() if n.get("parent_id") in ns]
         return self._reply(200, {"nodes": nodes, "edges": edges, "tags": [], "truncated": False})
+
+    def _gallery(self, method, parts, q, body):
+        """api/gallery (Liste) und api/gallery/{id}/use wie saga/gallery.py (vereinfacht: legt Seite + Datenbank an)"""
+        if self.gallery_api is not True:
+            return self._reply(self.gallery_api, {"error": "not found" if self.gallery_api == 404 else "Vorlagengalerie abgeschaltet"})
+        if parts == ["api", "gallery"] and method == "GET":
+            self.gallery_lang = q.get("lang")
+            return self._reply(200, {"items": self.gallery})
+        if len(parts) == 4 and parts[3] == "use" and method == "POST":
+            gid = parts[2]
+            self.gallery_used.append((gid, dict(body)))
+            if self.gallery_use_fail:
+                code = self.gallery_use_fail
+                return self._reply(code, {"error": {429: "Zu viele Anfragen", 400: "Unter dieser Seite geht das nicht."}.get(code, "x")})
+            it = next((g for g in self.gallery if isinstance(g, dict) and g.get("id") == gid), None)
+            if it is None:
+                return self._reply(404, {"error": "not found"})
+            par = body.get("parent_id")
+            if par is not None and par not in self.notes:
+                return self._reply(403, {"error": "Dafür fehlt dir die Berechtigung."})
+            now = time.time()
+            root = self.next_id
+            db = root + 1
+            self.next_id += 2
+            self.notes[root] = {"id": root, "title": it.get("title") or "", "format": "blocks", "rev": 1, "parent_id": par,
+                                "icon": it.get("icon") or "", "updated": now, "created": now,
+                                "body": json.dumps({"blocks": [{"id": "g1", "type": "paragraph", "data": {"text": "Aus der Galerie"}},
+                                                               {"id": "g2", "type": "database", "data": {"db": db}}]})}
+            self.notes[db] = {"id": db, "title": "Aufgaben", "kind": "database", "format": "blocks", "body": "", "rev": 1,
+                              "parent_id": root, "icon": "☑️", "updated": now, "created": now,
+                              "schema": {"props": [], "views": [{"id": "tabelle", "name": "Tabelle", "type": "table"}]}}
+            created = [root, db]
+            if body.get("examples"):
+                ex = self.next_id
+                self.next_id += 1
+                self.notes[ex] = {"id": ex, "title": "Beispiel", "format": "blocks", "body": _blocks("Beispiel"), "rev": 1,
+                                  "parent_id": db, "updated": now, "created": now, "props": {}}
+                created.append(ex)
+            return self._reply(200, {"root": root, "created": created})
+        return self._reply(404, {"error": "not found"})
 
     # --- Saga 2.0 (mockv2.py) --------------------------------------------------------------------------
     def _widgets(self, n):
@@ -333,6 +392,8 @@ class MockServer:
         r = self._share_api(method, path, parts, q, body if isinstance(body, dict) else {})
         if r is not None:
             return r
+        if path == "api/gallery" or parts[:2] == ["api", "gallery"]:
+            return self._gallery(method, parts, q, body if isinstance(body, dict) else {})
         if path == "api/graph" and method == "GET":
             return self._graph()
         if path == "api/notes" and method == "GET":

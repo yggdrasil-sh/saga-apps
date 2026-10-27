@@ -7716,3 +7716,99 @@ msgid "in {n} day"
 msgid_plural "in {n} days"
 msgstr[0] "en {n} día"
 msgstr[1] "en {n} días"
+
+#: hlidskjalf/window.py
+msgid "From template …"
+msgstr "Desde plantilla …"
+
+#: hlidskjalf/window.py
+msgid "More ways to create"
+msgstr "Más formas de crear"
+
+#: hlidskjalf/window.py
+msgid "New subpage from template …"
+msgstr "Subpágina desde plantilla …"
+
+#: hlidskjalf/galeriedialog.py
+msgid "From template"
+msgstr "Desde plantilla"
+
+#: hlidskjalf/galeriedialog.py
+msgid "No templates available"
+msgstr "No hay plantillas disponibles"
+
+#: hlidskjalf/galeriedialog.py
+msgid "Some parts need features that may not be set up here: {needs}"
+msgstr "Algunas partes necesitan funciones que quizá no estén configuradas aquí: {needs}"
+
+#: hlidskjalf/galeriedialog.py
+msgid "With examples"
+msgstr "Con ejemplos"
+
+#: hlidskjalf/galeriedialog.py
+msgid "Sample entries to try things out – delete them any time."
+msgstr "Entradas de ejemplo para probar – bórralas cuando quieras."
+
+#: hlidskjalf/galeriedialog.py
+msgid "As subpage of “{title}”"
+msgstr "Como subpágina de «{title}»"
+
+#: hlidskjalf/galeriedialog.py
+msgid "Use template"
+msgstr "Usar plantilla"
+
+#: hlidskjalf/galeriedialog.py
+msgid "Template “{title}” created"
+msgstr "Plantilla «{title}» creada"
+
+#: hlidskjalf/galerie.py
+msgid "Personal"
+msgstr "Personal"
+
+#: hlidskjalf/galerie.py
+msgid "Work"
+msgstr "Trabajo"
+
+#: hlidskjalf/galerie.py
+msgid "Team"
+msgstr "Equipo"
+
+#: hlidskjalf/galerie.py
+msgid "Other templates"
+msgstr "Otras plantillas"
+
+#: hlidskjalf/galerie.py
+msgid "Contains: {items}"
+msgstr "Contiene: {items}"
+
+#: hlidskjalf/galerie.py
+msgid "Too many templates in a short time – please try again in a minute."
+msgstr "Demasiadas plantillas en poco tiempo – inténtalo de nuevo en un minuto."
+
+#: hlidskjalf/galerie.py
+msgid "The server could not create the template. Nothing was created – please try again later."
+msgstr "El servidor no pudo crear la plantilla. No se ha creado nada – inténtalo más tarde."
+
+#: hlidskjalf/galerie.py
+msgid "The template gallery could not be loaded. Please try again later."
+msgstr "No se pudo cargar la galería de plantillas. Inténtalo más tarde."
+
+#: hlidskjalf/galerie.py
+msgid "The template gallery is not available on this server."
+msgstr "La galería de plantillas no está disponible en este servidor."
+
+#: hlidskjalf/galerie.py
+msgid "This template is no longer available."
+msgstr "Esta plantilla ya no está disponible."
+
+#: hlidskjalf/galerie.py
+msgid "You are not allowed to create pages there."
+msgstr "No puedes crear páginas ahí."
+
+#: hlidskjalf/galerie.py
+msgid "The template could not be created."
+msgstr "No se pudo crear la plantilla."
+
+#: hlidskjalf/galerie.py
+msgid "The template gallery could not be loaded."
+msgstr "No se pudo cargar la galería de plantillas."

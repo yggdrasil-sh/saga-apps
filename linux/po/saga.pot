@@ -7364,3 +7364,99 @@ msgid "in {n} day"
 msgid_plural "in {n} days"
 msgstr[0] ""
 msgstr[1] ""
+
+#: hlidskjalf/window.py
+msgid "From template …"
+msgstr ""
+
+#: hlidskjalf/window.py
+msgid "More ways to create"
+msgstr ""
+
+#: hlidskjalf/window.py
+msgid "New subpage from template …"
+msgstr ""
+
+#: hlidskjalf/galeriedialog.py
+msgid "From template"
+msgstr ""
+
+#: hlidskjalf/galeriedialog.py
+msgid "No templates available"
+msgstr ""
+
+#: hlidskjalf/galeriedialog.py
+msgid "Some parts need features that may not be set up here: {needs}"
+msgstr ""
+
+#: hlidskjalf/galeriedialog.py
+msgid "With examples"
+msgstr ""
+
+#: hlidskjalf/galeriedialog.py
+msgid "Sample entries to try things out – delete them any time."
+msgstr ""
+
+#: hlidskjalf/galeriedialog.py
+msgid "As subpage of “{title}”"
+msgstr ""
+
+#: hlidskjalf/galeriedialog.py
+msgid "Use template"
+msgstr ""
+
+#: hlidskjalf/galeriedialog.py
+msgid "Template “{title}” created"
+msgstr ""
+
+#: hlidskjalf/galerie.py
+msgid "Personal"
+msgstr ""
+
+#: hlidskjalf/galerie.py
+msgid "Work"
+msgstr ""
+
+#: hlidskjalf/galerie.py
+msgid "Team"
+msgstr ""
+
+#: hlidskjalf/galerie.py
+msgid "Other templates"
+msgstr ""
+
+#: hlidskjalf/galerie.py
+msgid "Contains: {items}"
+msgstr ""
+
+#: hlidskjalf/galerie.py
+msgid "Too many templates in a short time – please try again in a minute."
+msgstr ""
+
+#: hlidskjalf/galerie.py
+msgid "The server could not create the template. Nothing was created – please try again later."
+msgstr ""
+
+#: hlidskjalf/galerie.py
+msgid "The template gallery could not be loaded. Please try again later."
+msgstr ""
+
+#: hlidskjalf/galerie.py
+msgid "The template gallery is not available on this server."
+msgstr ""
+
+#: hlidskjalf/galerie.py
+msgid "This template is no longer available."
+msgstr ""
+
+#: hlidskjalf/galerie.py
+msgid "You are not allowed to create pages there."
+msgstr ""
+
+#: hlidskjalf/galerie.py
+msgid "The template could not be created."
+msgstr ""
+
+#: hlidskjalf/galerie.py
+msgid "The template gallery could not be loaded."
+msgstr ""

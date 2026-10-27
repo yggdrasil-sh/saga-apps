@@ -7453,3 +7453,99 @@ msgstr "เป้าหมาย: {value}"
 msgid "in {n} day"
 msgid_plural "in {n} days"
 msgstr[0] "อีก {n} วัน"
+
+#: hlidskjalf/window.py
+msgid "From template …"
+msgstr "จากเทมเพลต …"
+
+#: hlidskjalf/window.py
+msgid "More ways to create"
+msgstr "วิธีสร้างอื่น ๆ"
+
+#: hlidskjalf/window.py
+msgid "New subpage from template …"
+msgstr "หน้าย่อยจากเทมเพลต …"
+
+#: hlidskjalf/galeriedialog.py
+msgid "From template"
+msgstr "จากเทมเพลต"
+
+#: hlidskjalf/galeriedialog.py
+msgid "No templates available"
+msgstr "ไม่มีเทมเพลต"
+
+#: hlidskjalf/galeriedialog.py
+msgid "Some parts need features that may not be set up here: {needs}"
+msgstr "บางส่วนต้องใช้ฟีเจอร์ที่อาจยังไม่ได้ตั้งค่าที่นี่: {needs}"
+
+#: hlidskjalf/galeriedialog.py
+msgid "With examples"
+msgstr "พร้อมตัวอย่าง"
+
+#: hlidskjalf/galeriedialog.py
+msgid "Sample entries to try things out – delete them any time."
+msgstr "รายการตัวอย่างสำหรับทดลองใช้ – ลบได้ทุกเมื่อ"
+
+#: hlidskjalf/galeriedialog.py
+msgid "As subpage of “{title}”"
+msgstr "เป็นหน้าย่อยของ “{title}”"
+
+#: hlidskjalf/galeriedialog.py
+msgid "Use template"
+msgstr "ใช้เทมเพลต"
+
+#: hlidskjalf/galeriedialog.py
+msgid "Template “{title}” created"
+msgstr "สร้างเทมเพลต “{title}” แล้ว"
+
+#: hlidskjalf/galerie.py
+msgid "Personal"
+msgstr "ส่วนตัว"
+
+#: hlidskjalf/galerie.py
+msgid "Work"
+msgstr "งาน"
+
+#: hlidskjalf/galerie.py
+msgid "Team"
+msgstr "ทีม"
+
+#: hlidskjalf/galerie.py
+msgid "Other templates"
+msgstr "เทมเพลตอื่น ๆ"
+
+#: hlidskjalf/galerie.py
+msgid "Contains: {items}"
+msgstr "ประกอบด้วย: {items}"
+
+#: hlidskjalf/galerie.py
+msgid "Too many templates in a short time – please try again in a minute."
+msgstr "ใช้เทมเพลตมากเกินไปในเวลาสั้น ๆ – โปรดลองอีกครั้งในอีกหนึ่งนาที"
+
+#: hlidskjalf/galerie.py
+msgid "The server could not create the template. Nothing was created – please try again later."
+msgstr "เซิร์ฟเวอร์สร้างเทมเพลตไม่ได้ ไม่มีสิ่งใดถูกสร้าง – โปรดลองอีกครั้งภายหลัง"
+
+#: hlidskjalf/galerie.py
+msgid "The template gallery could not be loaded. Please try again later."
+msgstr "โหลดคลังเทมเพลตไม่ได้ โปรดลองอีกครั้งภายหลัง"
+
+#: hlidskjalf/galerie.py
+msgid "The template gallery is not available on this server."
+msgstr "คลังเทมเพลตไม่พร้อมใช้งานบนเซิร์ฟเวอร์นี้"
+
+#: hlidskjalf/galerie.py
+msgid "This template is no longer available."
+msgstr "เทมเพลตนี้ไม่มีให้ใช้แล้ว"
+
+#: hlidskjalf/galerie.py
+msgid "You are not allowed to create pages there."
+msgstr "คุณไม่มีสิทธิ์สร้างหน้าที่นั่น"
+
+#: hlidskjalf/galerie.py
+msgid "The template could not be created."
+msgstr "สร้างเทมเพลตไม่ได้"
+
+#: hlidskjalf/galerie.py
+msgid "The template gallery could not be loaded."
+msgstr "โหลดคลังเทมเพลตไม่ได้"
