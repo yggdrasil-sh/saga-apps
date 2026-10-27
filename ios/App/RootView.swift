@@ -293,11 +293,13 @@ extension RootView {
         let startHome = store.homePage
         if selection == nil, let home = startHome { selection = home }        // Startseite sofort (aus dem Zwischenspeicher)
         await store.refresh()
-        if let h = startHome, store.homePage == nil, selection == h { selection = nil }   // gehoerte einem anderen Konto (BUG-060)
+        // gehoerte einem anderen Konto (BUG-060) bzw. Konto-Startseite (fix27 E2) anders/neu: Auswahl nachziehen, solange
+        // noch nichts anderes geoeffnet ist
+        if case .some(let s) = StartPageLogic.reselect(selection: selection, before: startHome, after: store.homePage) { selection = s }
         if !store.needsLogin { store.live.start(); store.push.appStarted(); Task { await store.chat.load() } }
         UpdateHintModel.shared.appStarted()                                    // Update-Hinweis: hoechstens alle 12 h
         if let t = PushModel.pending { PushModel.pending = nil; openAfterCallUI { openTarget(t) } }   // Kaltstart per Mitteilung
-        if let home = store.homePage, !store.pages.isEmpty, store.page(home) == nil { store.setHome(nil); if selection == home { selection = nil } }   // geloescht -> vergessen
+        if !store.startPageSupported, let home = store.homePage, !store.pages.isEmpty, store.page(home) == nil { store.setHome(nil); if selection == home { selection = nil } }   // geloescht -> vergessen (Konto-Startseite: prueft der Server)
         #if DEBUG
         if let v = UserDefaults.standard.string(forKey: "hkOpen"), let id = Int(v.replacingOccurrences(of: "m", with: "-")) { selection = id }   // nur fuer Tests (Startparameter -hkOpen <id>, m2049 = -2049)
         if UserDefaults.standard.string(forKey: "hkSettings") != nil { showSettings = true }            // nur fuer Tests: Einstellungen oeffnen

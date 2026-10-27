@@ -130,11 +130,12 @@ extension DBModel {
         return nid
     }
     func newFromTemplate(_ store: Store, _ t: DBTemplate) async -> Int? {
-        struct R: Decodable { let id: Int }
-        guard let d = try? await store.api("api/notes/\(t.id)/duplicate", method: "POST", body: ["parent_id": dbID]),
-              let r = try? JSONDecoder().decode(R.self, from: d) else { return nil }
-        await load(store); await store.refresh(); store.dataChanged()
-        return r.id
+        do {
+            let d = try await store.api("api/notes/\(t.id)/duplicate", method: "POST", body: ["parent_id": dbID])
+            guard let id = store.noteDuplicated(d) else { return nil }     // fix27 E4: "frisch" merken (Platzhalter, Verwerfen)
+            await load(store); await store.refresh(); store.dataChanged()
+            return id
+        } catch { self.error = error.localizedDescription; return nil }    // z. B. Bearbeitende an alter Server-Fassung
     }
     // --- 2.5 Vorlagen verwalten -------------------------------------------------------------------------------------
     /// Standardvorlage fuer "Neu" (Schema default_tpl) - nur, wenn es die Vorlage noch gibt

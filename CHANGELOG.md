@@ -9,6 +9,16 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – iOS/Mac: Startseite im Konto, Eintrags-Vorlagen für Bearbeitende (Saga-Server 2.5)
+- **Eigene Startseite** gilt jetzt fürs Konto (Web und alle Geräte): Seitenmenü „Als Startseite festlegen“ /
+  „Startseite zurücksetzen“, beim Kaltstart öffnet die App sie. Eine bisher nur auf dem Gerät gesetzte Startseite wird
+  einmalig ins Konto übernommen; ältere Server: wie bisher nur auf dem Gerät.
+- **Bearbeitende** sehen die Eintrags-Vorlagen einer geteilten Datenbank („Neu ▾“, Standardvorlage bei „Neu“) und legen
+  daraus an; Vorlagen verwalten bleibt dem Eigentümer.
+- **Aus Vorlage angelegte Einträge** (Neu ▾, Schaltfläche mit Vorlage) starten mit leerem Titel, der Vorlagenname
+  steht als Platzhalter. Wird so ein Eintrag ohne jede Änderung geschlossen, löscht die App ihn endgültig (der Server
+  prüft, dass wirklich nichts geändert wurde – sonst bleibt er).
+
 ### Behoben – iOS/Mac: Galerie-Testrunde
 - **iPhone/iPad: „Neue Seite“** öffnet beim normalen Tippen ein Menü (Neue Seite · Aus Vorlage …) wie Android –
   „Aus Vorlage …“ war bisher nur per langem Druck erreichbar.

@@ -627,6 +627,7 @@ struct PageTitleField: View {
     let ed: PageEditor
     var fallback: String?
     @EnvironmentObject private var nav: NavModel
+    @EnvironmentObject private var store: Store
     @FocusState private var focused: Bool
     /// I10: neue Vorlage - Titel ("Neue Vorlage") markiert, Tippen ersetzt ihn
     @State private var selection: TextSelection?
@@ -634,7 +635,8 @@ struct PageTitleField: View {
         if !doc.fetched, doc.titleRaw.isEmpty, let t = fallback, !t.isEmpty {
             Text(t).font(.largeTitle.bold()).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
         } else {
-            TextField("Unbenannt", text: Binding(get: { doc.titleRaw }, set: { v in input(v) }), selection: $selection, axis: .vertical)
+            TextField(FreshEntryLogic.placeholder(store.fresh[doc.id], fallback: String(localized: "Unbenannt")),   // fix27 E4: Vorlagenname als Platzhalter
+                      text: Binding(get: { doc.titleRaw }, set: { v in input(v) }), selection: $selection, axis: .vertical)
                 .font(.largeTitle.bold()).textFieldStyle(.plain).disabled(ed.locked || !doc.fetched)
                 .focused($focused)
                 .onSubmit { ed.enterFromTitle() }                     // Mac: Return ohne Umbruch
@@ -749,8 +751,10 @@ struct NativePageScreen: View {
                                                  set: { v in Task { try? await store.patch(id, ["small": v]); doc.page["small"] = v } })) { Label("Kleiner Text", systemImage: "textformat.size.smaller") }
                         }
                     }
-                    Button { store.setHome(store.homePage == id ? nil : id) } label: {
-                        Label(store.homePage == id ? "Nicht mehr Startseite" : "Als Startseite festlegen", systemImage: store.homePage == id ? "house.slash" : "house")
+                    if StartPageLogic.offered(id: id, supported: store.startPageSupported) {   // fix27 E2: mit Server 2.5 im Konto
+                        Button { Task { await store.setStartPage(store.homePage == id ? nil : id) } } label: {
+                            Label(store.homePage == id ? "Startseite zurücksetzen" : "Als Startseite festlegen", systemImage: store.homePage == id ? "house.slash" : "house")
+                        }
                     }
                     if a.foreign && a.allows(.addSubpage) && !doc.isDatabase {      // fremde Instanz (2.3): nur mit Faehigkeit subpages
                         Button { Task { await ed.flush(); if let n = await store.newPage(parent: id) { nav.push(PageRoute(id: n)) } } } label: { Label("Unterseite hinzufügen", systemImage: "doc.badge.plus") }
@@ -1249,7 +1253,18 @@ struct NativePageScreen: View {
             .environmentObject(store)
         }
         .onAppear { if doc.loaded && ed.focus == nil { Task { await ed.flush(); await doc.load(store) } } }   // zurueck aus dem Web-Editor
-        .onDisappear { Task { await ed.flush(); await sendPresence(leave: true) } }
+        .onDisappear {
+            Task {
+                await ed.flush(); await sendPresence(leave: true)
+                // fix27 E4: aus Vorlage angelegt und unveraendert geschlossen -> endgueltig verwerfen (Server prueft)
+                guard store.fresh[id] != nil else { return }
+                try? await Task.sleep(for: .milliseconds(400))                  // Peek-Wechsel/Zurueck abwarten
+                let open = nav.peek?.id == id || nav.path.contains { $0.id == id }
+                if FreshEntryLogic.shouldDiscard(fresh: store.fresh[id], title: doc.titleRaw, unsaved: doc.hasUnsaved, stillOpen: open) {
+                    await store.discardIfUntouched(id)
+                }
+            }
+        }
         .onChange(of: store.needsLogin) { _, v in                          // wieder angemeldet -> neu laden
             if !v && doc.fetched && doc.staleSession(store) { ed.focus = nil; Task { await doc.resetForNewSession(store) } }   // anderes Konto/neue Sitzung
             else if !v && !doc.fetched { Task { await doc.load(store) } }
@@ -1622,6 +1637,7 @@ struct ButtonsBlock: View {
             do {
                 let d = try await store.api(tpl.map { "api/notes/\($0)/duplicate" } ?? "api/notes", method: "POST", body: body)   // Vorlage: alles uebernehmen
                 let r = try JSONDecoder().decode(R.self, from: d)
+                if tpl != nil { _ = store.noteDuplicated(d) }               // fix27 E4: leerer Titel + Platzhalter, unveraendert -> verwerfen
                 // Gleich oeffnen (wie im Web) - die Seitenliste laedt still dahinter. Vorher wartete die App auf das
                 // komplette Neuladen (Seiten, Freigaben, Heute, Konto ...): bei langsamer Verbindung sekundenlang
                 // keine Reaktion, und weiteres Tippen legte weitere Eintraege an.

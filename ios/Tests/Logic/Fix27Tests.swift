@@ -59,4 +59,42 @@ func fix27Tests() {
     check(ButtonLogic.enabled(action: "page", readOnlyRole: true) && ButtonLogic.enabled(action: "task", readOnlyRole: true), "Seite oeffnen/eigene Aufgabe auch beim Lesen")
     check(ButtonLogic.showsReadOnlyHint(actions: ["page", "db"], readOnlyRole: true) && !ButtonLogic.showsReadOnlyHint(actions: ["page"], readOnlyRole: true)
           && !ButtonLogic.showsReadOnlyHint(actions: ["db"], readOnlyRole: false), "Hinweis nur bei ausgegrauter Schaltflaeche")
+
+    // MARK: E2 Startseite
+    let p0 = StartPageLogic.parse(["username": "a"]), p1 = StartPageLogic.parse(["start_page": NSNull()]), p2 = StartPageLogic.parse(["start_page": 42])
+    let p3 = StartPageLogic.parse(["start_page": true]), p4 = StartPageLogic.parse(["start_page": -3])
+    check(!p0.supported && p0.page == nil && p1.supported && p1.page == nil && p2.supported && p2.page == 42, "start_page lesen (fehlt = alter Server)")
+    check(p3.page == nil && p4.page == nil, "Unsinn/negativ = keine Startseite")
+    check(StartPageLogic.sync(supported: false, server: nil, local: 5, migrated: false) == .keep, "alter Server: Geraete-Startseite")
+    check(StartPageLogic.sync(supported: true, server: 7, local: 5, migrated: false) == .adopt(7), "Konto gewinnt")
+    check(StartPageLogic.sync(supported: true, server: nil, local: 5, migrated: false) == .upload(5), "einmalig hochladen")
+    check(StartPageLogic.sync(supported: true, server: nil, local: 5, migrated: true) == .adopt(nil), "im Web zurueckgesetzt -> auch hier")
+    check(StartPageLogic.sync(supported: true, server: nil, local: -4, migrated: false) == .adopt(nil), "foederierte Geraete-Startseite nicht hochladen")
+    check(StartPageLogic.reselect(selection: nil, before: nil, after: 9) == .some(9), "Kaltstart: Startseite oeffnen")
+    check(StartPageLogic.reselect(selection: 3, before: 3, after: 9) == .some(9), "zwischengespeicherte durch Konto-Startseite ersetzen")
+    check(StartPageLogic.reselect(selection: 3, before: 3, after: nil) == .some(nil), "zurueckgesetzt -> Start")
+    check(StartPageLogic.reselect(selection: 8, before: 3, after: 9) == nil, "schon anderes geoeffnet: nichts aendern")
+    check(StartPageLogic.reselect(selection: 3, before: 3, after: 3) == nil, "gleich: nichts")
+    check(StartPageLogic.offered(id: -5, supported: true) == false && StartPageLogic.offered(id: 5, supported: true) && StartPageLogic.offered(id: -5, supported: false), "Menue")
+
+    // MARK: E4 frische Eintraege
+    let dup = FreshEntryLogic.parse(Data(#"{"id": 12, "updated": 1.5, "fresh": "abcDEF12_-xy", "placeholder": " Neues Buch "}"#.utf8))
+    check(dup?.id == 12 && dup?.fresh == FreshEntry(token: "abcDEF12_-xy", placeholder: "Neues Buch"), "duplicate mit fresh")
+    let old = FreshEntryLogic.parse(Data(#"{"id": 13, "updated": 1.5}"#.utf8))
+    check(old?.id == 13 && old?.fresh == nil, "alter Server: keine Markierung")
+    check(FreshEntryLogic.parse(Data(#"{"id": 14, "fresh": "kurz"}"#.utf8))?.fresh == nil
+          && FreshEntryLogic.parse(Data(#"{"id": 14, "fresh": "abc def ghi"}"#.utf8))?.fresh == nil, "ungueltiges Token ignoriert")
+    check(FreshEntryLogic.parse(Data("{}".utf8)) == nil, "ohne ID")
+    let fe = FreshEntry(token: "abcdefgh", placeholder: "Neue Aufgabe")
+    check(FreshEntryLogic.shouldDiscard(fresh: fe, title: "  ", unsaved: false, stillOpen: false), "leer + zu -> verwerfen")
+    check(!FreshEntryLogic.shouldDiscard(fresh: fe, title: "Mein Buch", unsaved: false, stillOpen: false), "Titel -> bleibt")
+    check(!FreshEntryLogic.shouldDiscard(fresh: fe, title: "", unsaved: true, stillOpen: false), "ungesendet -> bleibt")
+    check(!FreshEntryLogic.shouldDiscard(fresh: fe, title: "", unsaved: false, stillOpen: true), "noch offen -> bleibt")
+    check(!FreshEntryLogic.shouldDiscard(fresh: nil, title: "", unsaved: false, stillOpen: false), "nicht frisch -> bleibt")
+    check(FreshEntryLogic.discardPath(5) == "api/notes/5/discard" && (FreshEntryLogic.discardBody(fe)["fresh"] as? String) == "abcdefgh", "discard-Aufruf")
+    check(FreshEntryLogic.outcome(status: 200, Data(#"{"deleted": true}"#.utf8)) == .deleted && FreshEntryLogic.outcome(status: 409, nil) == .kept
+          && FreshEntryLogic.outcome(status: 404, nil) == .kept && FreshEntryLogic.outcome(status: 0, nil) == .failed
+          && FreshEntryLogic.outcome(status: 200, Data("{}".utf8)) == .failed, "discard-Antworten")
+    check(FreshEntryLogic.placeholder(fe, fallback: "Unbenannt") == "Neue Aufgabe" && FreshEntryLogic.placeholder(nil, fallback: "Unbenannt") == "Unbenannt"
+          && FreshEntryLogic.placeholder(FreshEntry(token: "abcdefgh", placeholder: ""), fallback: "U") == "U", "Platzhalter")
 }
