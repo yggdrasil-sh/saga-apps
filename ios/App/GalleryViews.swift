@@ -33,7 +33,7 @@ extension Store {
             let (d, code) = try await apiResponse(path, method: "POST", body: GalleryLogic.useBody(parent: parent, examples: examples), timeout: 60)
             guard (200..<300).contains(code) else {
                 let f = GalleryLogic.failure(code: code, data: d)
-                if f == .unsupported { galleryOffered = false }
+                if f == .gone { galleryOrigin = nil; await probeGallery() }   // Galerie inzwischen abgeschaltet? neu fragen
                 return .failure(f)
             }
             guard let c = GalleryLogic.parseCreated(d) else { return .failure(.badResponse) }
@@ -47,6 +47,7 @@ extension Store {
 func galleryFailureText(_ f: GalleryLogic.Failure) -> String {
     switch f {
     case .unsupported: return String(localized: "Dieser Server bietet keine Vorlagengalerie an.")
+    case .gone: return String(localized: "Die Vorlage oder die Elternseite gibt es nicht mehr.")
     case .rateLimited: return String(localized: "Zu viele Vorlagen in kurzer Zeit – bitte einen Moment warten.")
     case .forbidden: return String(localized: "Hier darfst du keine Seiten anlegen.")
     case .invalid: return String(localized: "Die Vorlage lässt sich hier nicht anlegen.")

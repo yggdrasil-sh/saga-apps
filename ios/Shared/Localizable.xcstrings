@@ -1,6 +1,40 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Die Vorlage oder die Elternseite gibt es nicht mehr." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Vorlage oder die Elternseite gibt es nicht mehr."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The template or the parent page no longer exists."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La plantilla o la página principal ya no existe."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Шаблон или родительская страница больше не существует."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่มีเทมเพลตหรือหน้าหลักนี้อีกต่อไป"
+          }
+        }
+      }
+    },
     "Arbeit" : {
       "localizations" : {
         "de" : {

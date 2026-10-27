@@ -40,6 +40,7 @@ enum GalleryLogic {
     /// Einordnung einer Fehlerantwort (die App waehlt daraus den Text)
     enum Failure: Equatable {
         case unsupported            // 404: aelterer Server ohne Galerie (Eintrag ausblenden)
+        case gone                   // 404 beim Anlegen ohne eigenen Text: Vorlage, Elternseite oder Galerie weg
         case rateLimited            // 429
         case forbidden              // 403 ohne Text
         case invalid                // 400 ohne Text
@@ -128,13 +129,14 @@ enum GalleryLogic {
         return Created(root: root, created: created)
     }
 
-    /// Fehlerantwort einordnen. 404 heisst bei der Liste "keine Galerie"; beim Anlegen nur ohne eigenen Text
-    /// (mit Text, z. B. Elternseite nicht gefunden, wird er gezeigt).
+    /// Fehlerantwort einordnen. 404 heisst bei der Liste "keine Galerie"; beim Anlegen ohne eigenen Text (der Server
+    /// schickt dort nur das technische "not found") .gone, mit Text wird er gezeigt.
     static func failure(code: Int, data: Data, list: Bool = false) -> Failure {
         let msg = ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any])?["error"] as? String
-        let m = (msg ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        var m = (msg ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if ["not found", "forbidden", "unauthorized", "bad request"].contains(m.lowercased()) { m = "" }   // technische Kurztexte
         switch code {
-        case 404: return list || m.isEmpty ? .unsupported : .message(String(m.prefix(300)))
+        case 404: return list ? .unsupported : m.isEmpty ? .gone : .message(String(m.prefix(300)))
         case 429: return .rateLimited
         case 200..<300: return .badResponse
         default: break

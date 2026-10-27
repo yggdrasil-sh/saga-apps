@@ -66,7 +66,9 @@ func galleryTests() {
     // MARK: Fehler
     let err = d(#"{"error":"Unter föderiert geteilten Seiten nicht möglich"}"#)
     check(GalleryLogic.failure(code: 404, data: d(""), list: true) == .unsupported, "Liste 404: aelterer Server")
-    check(GalleryLogic.failure(code: 404, data: d("<html>Not Found</html>"), list: false) == .unsupported, "Verwenden 404 ohne Text")
+    check(GalleryLogic.failure(code: 404, data: d("<html>Not Found</html>"), list: false) == .gone, "Verwenden 404 ohne Text")
+    check(GalleryLogic.failure(code: 404, data: d(#"{"error":"not found"}"#)) == .gone, "Verwenden 404 mit technischem Text (so antwortet der Server)")
+    check(GalleryLogic.failure(code: 403, data: d(#"{"error":"forbidden"}"#)) == .forbidden, "technischer Kurztext -> eigener Text")
     check(GalleryLogic.failure(code: 404, data: d(#"{"error":"Elternseite fehlt"}"#), list: true) == .unsupported, "Liste 404 immer ausblenden")
     check(GalleryLogic.failure(code: 404, data: d(#"{"error":"Elternseite fehlt"}"#)) == .message("Elternseite fehlt"), "Verwenden 404 mit Text")
     check(GalleryLogic.failure(code: 400, data: err) == .message("Unter föderiert geteilten Seiten nicht möglich"), "400 mit Text")
