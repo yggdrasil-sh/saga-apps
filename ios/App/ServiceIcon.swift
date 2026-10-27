@@ -3,9 +3,13 @@ import SwiftUI
 /// Symbol eines Dienstes (selfh.st wie die Kacheln im Web) - ueber den eigenen Server. iconURL (Server 2.5, Feld
 /// icon_url in /api/services) ist die fertige Adresse, auch fuer automatische Symbole (geratenes selfh.st-Symbol oder
 /// Favicon der Seite); aeltere Server: /api/services/icon/<name>. Fehlt es: Anfangsbuchstabe wie im Web.
+/// 2.5 Lesezeichen: liefert der Server das Favicon nicht (z. B. Bot-Schutz), laedt das Geraet es der Reihe nach aus
+/// iconDirect (Feld icon_direct, nur bei Lesezeichen) direkt von der Seite - FaviconLogic/FaviconLoader.
 struct ServiceIcon: View {
     let icon: String?
     var iconURL: String? = nil
+    var iconDirect: [String]? = nil
+    var url: String = ""                                             // Adresse des Lesezeichens (Host-Pruefung)
     let name: String
     var size: CGFloat = 30
     @EnvironmentObject var store: Store
@@ -33,14 +37,19 @@ struct ServiceIcon: View {
         }
         .frame(width: size, height: size)
         .accessibilityHidden(true)                                   // der Name steht daneben
-        .task(id: (iconURL ?? "") + "|" + (icon ?? "")) {
-            let path = (iconURL?.hasPrefix("/api/") == true ? iconURL : nil) ?? icon.flatMap { $0.isEmpty ? nil : "/api/services/icon/" + $0 }
-            guard let path, let d = await store.imageData(path) else { return }
-            #if os(iOS)
-            img = UIImage(data: d)
-            #else
-            img = NSImage(data: d)
-            #endif
+        .task(id: (iconURL ?? "") + "|" + (icon ?? "") + "|" + (iconDirect ?? []).joined(separator: " ")) {
+            let server = FaviconLogic.serverPath(iconURL: iconURL, icon: icon)
+            let direct = FaviconLogic.directCandidates(iconDirect, bookmarkURL: url)
+            if let server, let d = await store.imageData(server), let i = Self.decode(d) { img = i; return }
+            guard !direct.isEmpty, !Task.isCancelled else { return }
+            if let d = await FaviconLoader.shared.load(direct, decodes: { Self.decode($0) != nil }), let i = Self.decode(d) { img = i }
         }
+    }
+    private static func decode(_ d: Data) -> PlatformImage? {
+        #if os(iOS)
+        UIImage(data: d)
+        #else
+        NSImage(data: d)
+        #endif
     }
 }
