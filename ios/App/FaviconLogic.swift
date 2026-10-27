@@ -31,13 +31,18 @@ enum FaviconLogic {
         for raw in list.prefix(maxDirect) {
             guard let c = URLComponents(string: raw), let s = c.scheme?.lowercased(), s == "http" || s == "https",
                   !(bs == "https" && s == "http"), c.host?.lowercased() == bh, c.user == nil, c.password == nil,
-                  effectivePort(c) == effectivePort(b), let u = c.url, !out.contains(u) else { continue }
+                  samePort(c, b), let u = c.url, !out.contains(u) else { continue }
             out.append(u)
         }
         return out
     }
     private static func effectivePort(_ c: URLComponents) -> Int {
         c.port ?? (c.scheme?.lowercased() == "https" ? 443 : 80)
+    }
+    private static func standardPort(_ c: URLComponents) -> Int { c.scheme?.lowercased() == "https" ? 443 : 80 }
+    /// gleicher Port - oder beide auf dem Standardport ihres Schemas (http-Lesezeichen, Favicon per https)
+    private static func samePort(_ a: URLComponents, _ b: URLComponents) -> Bool {
+        effectivePort(a) == effectivePort(b) || (effectivePort(a) == standardPort(a) && effectivePort(b) == standardPort(b))
     }
 
     /// Reihenfolge der Versuche
