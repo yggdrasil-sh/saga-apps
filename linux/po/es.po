@@ -7812,3 +7812,11 @@ msgstr "No se pudo crear la plantilla."
 #: hlidskjalf/galerie.py
 msgid "The template gallery could not be loaded."
 msgstr "No se pudo cargar la galería de plantillas."
+
+#: hlidskjalf/entries.py
+msgid "You can only view this page – new entries can’t be created here."
+msgstr "Solo puedes ver esta página: aquí no se pueden crear entradas."
+
+#: hlidskjalf/entries.py
+msgid "You can only view this database – new entries can’t be created here."
+msgstr "Solo puedes ver esta base de datos: aquí no se pueden crear entradas."

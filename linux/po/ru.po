@@ -7809,3 +7809,11 @@ msgstr "Не удалось создать шаблон."
 #: hlidskjalf/galerie.py
 msgid "The template gallery could not be loaded."
 msgstr "Не удалось загрузить галерею шаблонов."
+
+#: hlidskjalf/entries.py
+msgid "You can only view this page – new entries can’t be created here."
+msgstr "Эту страницу можно только просматривать – создавать записи здесь нельзя."
+
+#: hlidskjalf/entries.py
+msgid "You can only view this database – new entries can’t be created here."
+msgstr "Эту базу данных можно только просматривать – создавать записи здесь нельзя."

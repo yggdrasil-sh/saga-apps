@@ -174,13 +174,20 @@ def number(v, frac=2, lang=None, fixed=False):
     return out
 
 
+def round_half(v):
+    """kaufmaennisch runden (wie Intl.NumberFormat/Math.round fuer positive Werte): 42.5 -> 43, -2.5 -> -3"""
+    r = math.floor(abs(v) + 0.5)
+    return -r if v < 0 else r
+
+
 def fmt_value(v, fmt, lang=None):
-    """num: bis 2 Nachkommastellen; pct: Wert ist schon Prozent (42 -> "42 %"); eur: 2 Stellen mit Euro-Zeichen"""
+    """num: bis 2 Nachkommastellen; pct: Wert ist schon Prozent, ganzzahlig (42.7 -> "43 %", 119 bleibt 119);
+    eur: immer 2 Stellen mit Euro-Zeichen in der Sprache der Person"""
     lang = lang or ui_language()
     if v is None:
         return "–"
     if fmt == "pct":
-        n = number(v, 1, lang)
+        n = number(round_half(v), 0, lang)
         return n + (_NBSP + "%" if lang in _SEP else "%")
     if fmt == "eur":
         n = number(v, 2, lang, fixed=True)
@@ -419,8 +426,8 @@ def present(spec, values, now=None, viewer=None, lang=None, rnd=None):
                 out["notice"] = _missing(st, w)
             return out
         v, mx = p
-        fr = fraction(v, mx)
-        out.update(fraction=fr, main=fmt_value(round(fr * 100), "pct", lang),
+        fr = fraction(v, mx)      # Balken hoechstens voll, die Zahl zeigt den echten Wert (z. B. 119 %)
+        out.update(fraction=fr, main=fmt_value(v / mx * 100, "pct", lang),
                    sub=_("{value} of {max}").format(value=number(v, 2, lang), max=number(mx, 2, lang)))
         return out
     # metric

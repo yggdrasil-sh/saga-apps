@@ -98,6 +98,12 @@ class MockServer:
         self.names = {"test": "Test", "anna": "Anna Beispiel", "bert": "Bert Beispiel", "cora": "Cora Muster"}
         self.groups = {"team": ["test", "bert"]}           # Gruppe -> Mitglieder
         self.foreign = {}        # Seiten anderer Konten: id -> Seite mit "uid" (Eigentuemer)
+        # Fix-Runde 27.10. (SPEC-fix27): E2 Startseite als Kontoeinstellung (start_api=False wie ein aelterer Server),
+        # E4 eben aus einer Vorlage angelegte Eintraege (fresh-Token -> Stand beim Anlegen), endgueltig verworfene IDs
+        self.start_api = False
+        self.start_page = None
+        self.fresh_marks = {}
+        self.discarded = []
         self.grants = {}         # fremde Seite -> Rolle fuer mich (vererbt ueber parent_id)
         self.shares = {}         # eigene Seite -> [{type, target, role}]
         self.comments = []       # [{id, note_id, thread_id, block_id, uid, body, created, edited, resolved_at, resolved_by}]
@@ -378,7 +384,19 @@ class MockServer:
         if not cookie or want is None or f"hk_session={want}" not in cookie:
             return self._reply(401, {"error": "unauthorized"})
         if path == "api/account":
-            return mockv21.decorate(self, path, self._reply(200, {"username": self.users.get(base, "test"), "name": "Test"}))
+            if self.start_api and method == "PATCH" and isinstance(body, dict) and "start_page" in body:
+                sp = body["start_page"]
+                if sp is not None and (not isinstance(sp, int) or isinstance(sp, bool)):
+                    return self._reply(400, {"error": "ungültige Angabe"})
+                if sp is not None and sp not in self.notes and not self.role_for(sp):
+                    return self._reply(404, {"error": "not found"})
+                self.start_page = sp
+                return self._reply(200, {"ok": True, "start_page": sp})
+            acc = {"username": self.users.get(base, "test"), "name": "Test"}
+            if self.start_api:                                # Seite weg/ohne Zugriff -> null (wie der Server)
+                sp = self.start_page
+                acc["start_page"] = sp if sp is not None and (sp in self.notes or self.role_for(sp)) else None
+            return mockv21.decorate(self, path, self._reply(200, acc))
         with self.lock:
             self._raw = data
             bd = body if isinstance(body, dict) else {}
@@ -475,14 +493,21 @@ class MockServer:
                     self.trash.append(n2)
                 return self._reply(200, {"deleted": len(ids), "trash": True})
             if rest == ["rows"]:
+                kids = [r for r in self.notes.values() if r.get("parent_id") == nid]
                 rows = [{"id": r["id"], "title": r["title"], "icon": r.get("icon") or "", "props": r.get("props") or {},
-                         "updated": r["updated"], "created": r["created"]} for r in self.notes.values() if r.get("parent_id") == nid]
-                return self._reply(200, {"schema": n.get("schema") or {"props": []}, "rows": rows, "templates": []})
+                         "updated": r["updated"], "created": r["created"]} for r in kids if not r.get("template")]
+                tpls = [{"id": r["id"], "title": r["title"], "icon": r.get("icon") or ""} for r in kids if r.get("template")]
+                return self._reply(200, {"schema": n.get("schema") or {"props": []}, "rows": rows, "templates": tpls})
+            if rest == ["discard"] and method == "POST":
+                return self._discard(nid, self.notes, body or {})
             if rest == ["backlinks"]:
                 return self._reply(200, [])
             if rest == ["versions"]:
                 return self._reply(200, [])
             if rest == ["duplicate"]:
+                par = (body or {}).get("parent_id", n.get("parent_id"))
+                if n.get("template") and par is not None and (self.notes.get(par) or {}).get("kind") == "database":
+                    return self._from_template(n, par, self.notes, body or {})
                 cp = dict(n, id=self.next_id, title=(n.get("title") or "") + " (Kopie)")
                 self.notes[cp["id"]] = cp
                 self.next_id += 1
@@ -676,6 +701,35 @@ class MockServer:
             self.grants[nid] = role
         return n
 
+    @staticmethod
+    def _fingerprint(n):
+        return json.dumps([n.get("title") or "", n.get("icon") or "", n.get("body") or "",
+                           {k: v for k, v in (n.get("props") or {}).items() if v not in (None, "", [], False)}], sort_keys=True)
+
+    def _from_template(self, tpl, parent, where, b):
+        """E1/E4: Eintrag aus einer Eintrags-Vorlage - Titel leer (ausser b.title), Antwort mit fresh + placeholder"""
+        nid = self.next_id
+        self.next_id += 1
+        now = time.time()
+        n = dict(tpl, id=nid, title=str(b.get("title", "")), parent_id=parent, template=False, rev=1, updated=now, created=now,
+                 props=dict(tpl.get("props") or {}), created_by=self.me)
+        where[nid] = n
+        tok = f"fresh-{nid}-{int(now * 1000) % 100000:05d}"
+        self.fresh_marks[nid] = (tok, self.me, self._fingerprint(n))
+        return self._reply(200, {"id": nid, "updated": now, "fresh": tok, "placeholder": tpl.get("title") or ""})
+
+    def _discard(self, nid, where, b):
+        """E4: POST .../discard {"fresh"} - nur mit Token, nur unveraendert; endgueltig (kein Papierkorb)"""
+        m = self.fresh_marks.get(nid)
+        if not m or b.get("fresh") != m[0] or m[1] != self.me or nid not in where:
+            return self._reply(404, {"error": "not found"})
+        if self._fingerprint(where[nid]) != m[2]:
+            return self._reply(409, {"error": "Der Eintrag wurde geändert und bleibt erhalten.", "deleted": False, "reason": "changed"})
+        del where[nid]
+        self.fresh_marks.pop(nid, None)
+        self.discarded.append(nid)
+        return self._reply(200, {"deleted": True})
+
     def role_for(self, nid):
         """meine Rolle fuer eine Seite: eigene -> owner, fremde -> hoechste Freigabe in der Kette (oder None)"""
         if nid in self.notes:
@@ -847,9 +901,19 @@ class MockServer:
                 if rest == ["backlinks"]:
                     return self._reply(200, [])
                 if rest == ["rows"]:
+                    kids = [r for r in self.foreign.values() if r.get("parent_id") == nid]
                     rows = [{"id": r["id"], "title": r["title"], "props": r.get("props") or {}, "updated": r["updated"], "created": r["created"]}
-                            for r in self.foreign.values() if r.get("parent_id") == nid]
-                    return self._reply(200, {"schema": n.get("schema") or {"props": []}, "rows": rows, "templates": [], "role": role})
+                            for r in kids if not r.get("template")]
+                    tpls = [{"id": r["id"], "title": r["title"], "icon": r.get("icon") or ""} for r in kids if r.get("template")] \
+                        if self.RANK[role] >= self.RANK["edit"] else []          # E1: Vorlagen ab Bearbeiten
+                    return self._reply(200, {"schema": n.get("schema") or {"props": []}, "rows": rows, "templates": tpls, "role": role})
+                if rest == ["duplicate"] and method == "POST":
+                    par = b.get("parent_id")
+                    if not n.get("template") or par != n.get("parent_id") or self.RANK.get(self.role_for(par), 0) < self.RANK["edit"]:
+                        return self._reply(403 if n.get("template") else 404, {"error": "Dafür fehlt dir die Berechtigung."})
+                    return self._from_template(n, par, self.foreign, b)
+                if rest == ["discard"] and method == "POST":
+                    return self._discard(nid, self.foreign, b)
                 if rest == ["shares"]:
                     return self._reply(404, {"error": "not found"})
             elif nid in self.notes and rest == ["rows"] and method == "GET":

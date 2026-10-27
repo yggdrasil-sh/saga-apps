@@ -7,6 +7,7 @@ from .blocks import chip, context_menu, flat_button, menu_popover
 from .database import PROP_ICON, has_value
 from .i18n import _, ngettext
 from .store import label, store
+from .entries import blocked_new_hint
 from .util import COLOR_NAMES, COLOR_ORDER, day_text, new_pid, num_text
 
 DB_TYPES = [("text", _("Text")), ("number", _("Number")), ("select", _("Select")), ("multi_select", _("Multi-select")), ("date", _("Date")),
@@ -151,6 +152,10 @@ class ViewBar(Gtk.Box):
                            tooltip_text=_("View only – changes to the view are not saved."))
             lb.add_css_class("hk-role-pill")
             self.new_slot.append(lb)
+            nb = Gtk.Button(label=_("New"), sensitive=False, tooltip_text=blocked_new_hint(True), margin_start=6)    # #11: ausgegraut mit Hinweis
+            nb.add_css_class("suggested-action")
+            nb.hk_blocked = True
+            self.new_slot.append(nb)
             return
         if self.m.templates or self.m.role == "owner":
             # "Neu" = Standardvorlage (2.5), sonst leer; Menue: leer, Vorlagen, Vorlagen verwalten
@@ -688,7 +693,7 @@ class TemplateManager(Adw.Dialog):
         hb = Adw.HeaderBar()
         nb = Gtk.Button(label=_("New template"))
         nb.add_css_class("suggested-action")
-        nb.connect("clicked", lambda *_: self.m.new_template(_("New template"), done=self._open))
+        nb.connect("clicked", lambda *a: self.m.new_template(_("New template"), done=self._open))
         hb.pack_start(nb)
         tv.add_top_bar(hb)
         sw = Gtk.ScrolledWindow(vexpand=True)

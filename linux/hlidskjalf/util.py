@@ -348,12 +348,10 @@ def count_text(n, lang=None):
 def num_text(n, fmt=None, show=None):
     if n is None:
         return ""
-    if fmt == "percent" and show in ("ring", "bar"):
-        return _("{value}%").format(value=_num(round(n), 0))
-    if fmt == "percent":
-        return _("{value}%").format(value=_num(n))
-    if fmt == "euro":
-        return _("€{value}").format(value=locale.format_string("%.2f", n, grouping=True))
+    if fmt in ("percent", "euro"):
+        # wie Web und Widgets: Prozent ganzzahlig (auch > 100 %), Euro immer 2 Stellen - Schreibweise der Oberflaechensprache
+        from .pagewidgets import fmt_value
+        return fmt_value(n, "pct" if fmt == "percent" else "eur")
     if float(n).is_integer():
         return _num(n, 0)
     return _num(n, 4)

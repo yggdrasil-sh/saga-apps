@@ -8,6 +8,7 @@ from . import gestalten, images
 from .config import settings
 from .editor import CONVERTIBLE, SLASH_ITEMS, cell_key, make
 from .emoji import EMOJI
+from .entries import blocked_button_hint
 from .i18n import _
 from .richtext import RichText, date_text, find_trigger, parse_date, rel_text
 from .store import is_db, label, store
@@ -1081,6 +1082,11 @@ class BlockKit:
             lab = ((cfg.get("icon") + " ") if cfg.get("icon") else "") + (cfg.get("label") or "")
             bt = Gtk.Button(label=lab)
             bt.add_css_class("hk-action-btn")
+            hint = blocked_button_hint(cfg.get("action"), self.editor.doc.read_only)
+            if hint:                                        # Lesen/Kommentieren (#11): ausgegraut mit Hinweis statt 403-Meldung
+                bt.set_sensitive(False)
+                bt.set_tooltip_text(hint)
+                bt.hk_blocked = hint
             bt.connect("clicked", lambda b_, c=cfg: self._press(b_, c))
             box.append(bt)
         if not self.editor.locked:
@@ -1091,6 +1097,10 @@ class BlockKit:
     def _press(self, bt, cfg):
         """Schaltflaeche: sofort Rueckmeldung (Fortschritt im Knopf) und gesperrt, solange die Aktion laeuft"""
         if getattr(bt, "_hk_busy", False):
+            return
+        hint = blocked_button_hint(cfg.get("action"), self.editor.doc.read_only)
+        if hint:                                            # Rolle inzwischen Lesen/Kommentieren (#11): nichts anlegen
+            self.view.win.toast(hint)
             return
         lab = bt.get_label()
 

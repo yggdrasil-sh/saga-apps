@@ -10,7 +10,8 @@ from .gestalten import design_supported, page_css, page_font, page_small
 from .i18n import _, ngettext, pgettext
 from .publish import available as publish_available
 from .richtext import RichText
-from .sharing import RANK, allowed, can_comment, is_owner, meta_lines, role_of, shared_by_box
+from .entries import can_set_home, discard_ok
+from .sharing import RANK, allowed, can_comment, is_owner, is_remote, meta_lines, role_of, shared_by_box
 from .store import is_db, label, store, watch
 from .util import bg, date_time_text, edited_text, new_block_id, plain, watch_obj
 
@@ -226,6 +227,7 @@ class PageView(Gtk.Box):
         self.suggest = SuggestPopover()
         self.toggle_state = {}
         self.title_rt = None
+        self.keep_fresh = False                 # E4: beim Schliessen nicht verwerfen (dieselbe Seite geht gleich wieder auf)
         self.header_changed = None              # Rueckruf: Fensterleiste aktualisieren
         self._built_once = False
         self.blocks_box = None
@@ -351,7 +353,7 @@ class PageView(Gtk.Box):
         bar = Gtk.Box(spacing=6, margin_start=10, margin_end=10, margin_top=6, margin_bottom=6)
         bar.append(flat_button(icon="window-close-symbolic", tooltip=_("Close (Esc)"), cb=lambda: self.on_close and self.on_close()))
         bar.append(flat_button(icon="view-fullscreen-symbolic", tooltip=_("Open as full page"),
-                               cb=lambda: (self.on_close and self.on_close(), self.win.show_page(self.id))))
+                               cb=lambda: (setattr(self, "keep_fresh", True), self.on_close and self.on_close(), self.win.show_page(self.id))))
         lst = self.win.peek_list
         if len(lst) > 1:
             i = lst.index(self.id) if self.id in lst else -1
@@ -447,7 +449,8 @@ class PageView(Gtk.Box):
         col.append(self._icon_row())
         trow = Gtk.Box()
         trow.append(Gtk.Box(width_request=self.gut))
-        self.title_rt = RichText(doc.title_raw, css="hk-title", placeholder=_("Untitled"), raw=True, editable=not self.editor.locked)
+        ph = (store.fresh.get(self.id) or {}).get("placeholder")      # E4: aus Vorlage angelegt -> Vorlagenname als Platzhalter
+        self.title_rt = RichText(doc.title_raw, css="hk-title", placeholder=ph or _("Untitled"), raw=True, editable=not self.editor.locked)
         self.title_rt.set_monospace(False)
         self.title_rt.set_hexpand(True)
         self.title_rt.on_key = self._title_key
@@ -742,7 +745,6 @@ class PageView(Gtk.Box):
     @property
     def remote(self):
         """Seite einer anderen Saga-Instanz (Foederation, negative ID)"""
-        from .sharing import is_remote
         return self.id < 0 or is_remote(self.doc.page)
 
     def rcan(self, cap):
@@ -945,6 +947,7 @@ class PageView(Gtk.Box):
     def show_comments(self, block=None):
         """Seitenleiste "Kommentare": alle Unterhaltungen bzw. nur die eines Blocks"""
         if self.cpanel is None:                               # Peek: die ganze Seite oeffnen
+            self.keep_fresh = True                            # E4: dieselbe Seite bleibt offen - nicht verwerfen
             if self.on_close:
                 self.on_close()
             self.win.show_page(self.id)
@@ -1398,6 +1401,19 @@ class PageView(Gtk.Box):
         else:
             go()
 
+    def leave(self):
+        """Ansicht wird geschlossen: sofort speichern. E4: eben aus einer Vorlage angelegt, Titel leer und nichts geaendert
+        -> endgueltig verwerfen (Server prueft zusaetzlich); sonst bleibt der Eintrag und gilt nicht mehr als neu."""
+        self.editor.flush()
+        f = store.fresh.get(self.id)
+        if not f or self.keep_fresh:
+            return
+        d = self.doc
+        if discard_ok(f, d.fetched, d.title_raw, d.gen, d.dirty, d.saving, d.read_only):
+            store.discard_fresh(self.id)
+        else:
+            store.fresh.pop(self.id, None)
+
     def page_menu(self, parent):
         """Seitenmenue. Fremde Seiten (Teilen): nur, was die Rolle darf - Loeschen, Verschieben, Archiv, Veroeffentlichen,
         Teilen, Versionen, Vorlage, Favorit, Sperren, Duplizieren und Startseite bleiben beim Eigentuemer."""
@@ -1419,7 +1435,7 @@ class PageView(Gtk.Box):
             ents.append((_("Font"), [(("✓ " if f == k else "") + n, (lambda k=k: self.save_fields({"font": k or "default"})))
                                      for k, n in ((None, _("Default")), ("serif", _("Serif")), ("mono", _("Mono")))]))
             ents.append((("✓ " if page_small(p) else "") + _("Small text"), lambda: self.save_fields({"small": not page_small(p)})))
-        if ok("home"):
+        if can_set_home(ok("home"), is_remote(p), self.id, store.server_home):     # E2: auch geteilte Seiten (Server 2.5)
             ents.append((_("Remove as home page") if home else _("Set as home page"), lambda: store.set_home(None if home else self.id)))
         if "role" in p and self.doc.fetched:                     # Server kennt Teilen + Kommentare (ab 1.3)
             ents.append((cm_label, lambda: self.show_comments()))
@@ -1438,7 +1454,6 @@ class PageView(Gtk.Box):
                           (_("Improve selected text"), lambda: win.assistant("page", "improve")),
                           (_("Ask your pages"), lambda: win.assistant("ask"))]))
         from .graphview import available as graph_available
-        from .sharing import is_remote
         if self.doc.fetched and graph_available() and not is_remote(p) and isinstance(self.id, int) and self.id > 0:
             ents.append((_("Local graph"), lambda: win.show_route(("graph", "local", self.id))))   # 2.5: Nachbarn der Seite
         ents.append(None)
