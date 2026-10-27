@@ -117,7 +117,7 @@ def test_number_formats():
     assert f(1234.5, "num", "en") == "1,234.5" and f(1234.5, "num", "de") == "1.234,5"
     assert f(1234567, "num", "ru") == "1 234 567" and f(1234, "num", "es") == "1234" and f(12345, "num", "es") == "12.345"
     assert f(2, "num", "de") == "2" and f(0.5, "num", "en") == "0.5" and f(1 / 3, "num", "en") == "0.33"
-    assert f(42, "pct", "en") == "42%" and f(42.75, "pct", "de") == "42,8\u00a0%"
+    assert f(42, "pct", "en") == "42%" and f(42.75, "pct", "de") == "43\u00a0%"            # Fix-Runde 27.10.: Prozent ganzzahlig
     assert f(1234.5, "eur", "de") == "1.234,50 €" and f(1234.5, "eur", "en") == "€1,234.50"
     assert f(-3, "eur", "en") == "-€3.00" and f(-0.001, "num", "de") == "0"
     assert f(None, "num", "de") == "–" and f(7, "unbekannt", "th") == "7"

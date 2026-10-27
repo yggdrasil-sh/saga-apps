@@ -7460,3 +7460,11 @@ msgstr ""
 #: hlidskjalf/galerie.py
 msgid "The template gallery could not be loaded."
 msgstr ""
+
+#: hlidskjalf/entries.py
+msgid "You can only view this page – new entries can’t be created here."
+msgstr ""
+
+#: hlidskjalf/entries.py
+msgid "You can only view this database – new entries can’t be created here."
+msgstr ""

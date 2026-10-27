@@ -10,6 +10,7 @@ from .api import client
 from .blocks import chip, context_menu, flat_button, menu_popover, more_button
 from .i18n import _
 from .store import label, store, watch
+from .entries import blocked_new_hint
 from .util import bg, day_text, iso_day, lane_busy, month_text, num_text, parse_day, parse_num, weekday_names
 
 PROP_ICON = {"text": "format-justify-left-symbolic", "number": "accessories-calculator-symbolic", "select": "go-down-symbolic",
@@ -189,6 +190,8 @@ class DBModel(GObject.Object):
             return True
         fv = str(fv)
         arr = [str(x) for x in v] if isinstance(v, list) else None
+        if arr is None and p.get("type") == "relation" and op in ("contains", "not_contains"):
+            arr = []                       # Relation ohne Verknuepfung = leere Liste (wie Server/Web seit 2.5, kein Textvergleich)
         s = v if isinstance(v, str) else ("" if v is None else str(v))
         num = v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
         try:
@@ -739,6 +742,16 @@ class RowMenuMixin:
                    done=lambda i: self.win.open_entry(i, (self.view or {}).get("open") or "side"))
 
 
+def _blocked(btn, m):
+    """#11: Lesen/Kommentieren - Anlege-Schaltflaeche ausgegraut mit Hinweis (nicht ausgeblendet)"""
+    hint = blocked_new_hint(m.readonly)
+    if hint:
+        btn.set_sensitive(False)
+        btn.set_tooltip_text(hint)
+        btn.hk_blocked = hint
+    return btn
+
+
 def _color_css(w, color):
     if color:
         w.add_css_class(f"hk-row-{color}")
@@ -847,9 +860,10 @@ class TableView(Gtk.ScrolledWindow, RowMenuMixin):
             self.box.append(e)
         from .dbedit import CalcRow
         self.box.append(CalcRow(self, m, self.view, self.cols, self.rows))
-        if m.can_add:
+        if m.can_add or m.readonly:
             nb = flat_button(icon="list-add-symbolic", label=_("New"), css="dim-label", cb=self.new_row)
             nb.set_halign(Gtk.Align.START)
+            _blocked(nb, m)
             self.box.append(nb)
         self.apply_widths()
 
@@ -1053,9 +1067,9 @@ class BoardView(Gtk.ScrolledWindow, RowMenuMixin):
                 b.add_controller(ds)
                 self.attach_menu(b, r)
                 col.append(b)
-            if self.m.can_add:
-                col.append(flat_button(icon="list-add-symbolic", label=_("New"), css="dim-label",
-                                       cb=lambda oid=oid: self.new_row({g["id"]: oid} if oid else {})))
+            if self.m.can_add or self.m.readonly:
+                col.append(_blocked(flat_button(icon="list-add-symbolic", label=_("New"), css="dim-label",
+                                                cb=lambda oid=oid: self.new_row({g["id"]: oid} if oid else {})), self.m))
             dt = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
 
             def drop(t, val, x, y, oid=oid):

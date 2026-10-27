@@ -9,6 +9,15 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Behoben – Linux: Fix-Runde nach der Galerie-Testrunde
+- **Zahlenformate wie im Web:** Prozent ganzzahlig (z. B. „41 %“ statt „41,04 %“), Euro immer mit 2 Nachkommastellen
+  in der Schreibweise der App-Sprache (auch in Datenbank-Zellen). Fortschritt über 100 % zeigt den echten Wert
+  („119 %“), der Balken bleibt voll.
+- **Lesen/Kommentieren:** Schaltflächen „Neuer Eintrag“ und „Neu“ der Datenbank sind ausgegraut mit Hinweis statt
+  klickbar mit Fehlermeldung bzw. unsichtbar.
+- **Relationsfilter:** Zeilen ohne Verknüpfung gelten bei „enthält“/„enthält nicht“ als leere Liste (wie der Server).
+- Tests: `tests/test_fix27.py`.
+
 ### Neu – Linux: Vorlagengalerie (Saga-Server 2.5)
 - **„Neu“-Knopf mit Menü** → „Aus Vorlage …“, ebenso in der Befehlspalette und im Seitenmenü („Unterseite aus
   Vorlage …“): Liste der Galerie-Vorlagen des Servers (Symbol, Titel, Beschreibung), gruppiert nach Persönlich ·

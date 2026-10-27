@@ -7549,3 +7549,11 @@ msgstr "สร้างเทมเพลตไม่ได้"
 #: hlidskjalf/galerie.py
 msgid "The template gallery could not be loaded."
 msgstr "โหลดคลังเทมเพลตไม่ได้"
+
+#: hlidskjalf/entries.py
+msgid "You can only view this page – new entries can’t be created here."
+msgstr "คุณดูหน้านี้ได้อย่างเดียว – สร้างรายการใหม่ที่นี่ไม่ได้"
+
+#: hlidskjalf/entries.py
+msgid "You can only view this database – new entries can’t be created here."
+msgstr "คุณดูฐานข้อมูลนี้ได้อย่างเดียว – สร้างรายการใหม่ที่นี่ไม่ได้"
