@@ -409,6 +409,40 @@
         }
       }
     },
+    "Neue Einträge kann nur anlegen, wer diese Seite bearbeiten darf." : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Neue Einträge kann nur anlegen, wer diese Seite bearbeiten darf."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Only people who can edit this page can add new entries."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo quien puede editar esta página puede añadir entradas nuevas."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Добавлять новые записи могут только те, кто может редактировать эту страницу."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เฉพาะผู้ที่แก้ไขหน้านี้ได้เท่านั้นที่เพิ่มรายการใหม่ได้"
+          }
+        }
+      }
+    },
     "Persönlich" : {
       "localizations" : {
         "de" : {
@@ -439,6 +473,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ส่วนตัว"
+          }
+        }
+      }
+    },
+    "Startseite zurücksetzen" : {
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Startseite zurücksetzen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset start page"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restablecer página de inicio"
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Сбросить главную страницу"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รีเซ็ตหน้าเริ่มต้น"
           }
         }
       }

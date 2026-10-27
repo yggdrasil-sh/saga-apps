@@ -95,4 +95,11 @@ enum ButtonLogic {
     }
     /// Schaltflaechen bleiben auf gesperrten Seiten bedienbar (wie im Web); nur Lesen/Kommentieren: nicht
     static func enabled(readOnlyRole: Bool) -> Bool { !readOnlyRole }
+    /// fix27 #11: je Schaltflaeche - nur "Eintrag anlegen" (db) braucht Bearbeiten; Seite oeffnen und eigene
+    /// Saga-Aufgabe gehen auch beim Lesen/Kommentieren (ausgegraut + Hinweis statt Fehlermeldung nach dem Tippen)
+    static func enabled(action: String?, readOnlyRole: Bool) -> Bool { !(readOnlyRole && action == "db") }
+    /// Hinweis unter der Reihe anzeigen: mindestens eine Schaltflaeche ausgegraut
+    static func showsReadOnlyHint(actions: [String?], readOnlyRole: Bool) -> Bool {
+        actions.contains { !enabled(action: $0, readOnlyRole: readOnlyRole) }
+    }
 }

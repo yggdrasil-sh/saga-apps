@@ -642,6 +642,49 @@ final class Store: ObservableObject {
             if let o = AppConfig.serverOrigin, let a = DraftOwner.app.account(origin: o) { d.set(HomeOwner.key(origin: o, account: a), forKey: "hk.homeOwner") }
         } else { d.removeObject(forKey: "hk.homePage"); d.removeObject(forKey: "hk.homeOwner") }
     }
+    /// fix27 E2: Server fuehrt die Startseite als Kontoeinstellung (GET/PATCH /api/account "start_page")
+    @Published var startPageSupported = false
+    /// Startseite setzen/zuruecksetzen: lokal sofort, mit Server 2.5 auch im Konto (alle Geraete, Web). false = Server lehnte ab.
+    @discardableResult
+    func setStartPage(_ id: Int?) async -> Bool {
+        let before = homePage
+        setHome(id)
+        guard startPageSupported else { return true }
+        do { _ = try await api("api/account", method: "PATCH", body: ["start_page": id.map { $0 as Any } ?? NSNull()]); return true }
+        catch { setHome(before); self.error = error.localizedDescription; return false }
+    }
+    /// Abgleich mit der Antwort von GET /api/account (identifyAccount)
+    private func syncStartPage(_ j: [String: Any], origin: String, account: String) async {
+        let (sup, server) = StartPageLogic.parse(j)
+        if startPageSupported != sup { startPageSupported = sup }
+        let key = HomeOwner.key(origin: origin, account: account), d = UserDefaults.standard
+        switch StartPageLogic.sync(supported: sup, server: server, local: homePage, migrated: d.string(forKey: "hk.homeSynced") == key) {
+        case .keep: return
+        case .adopt(let id): if homePage != id { setHome(id) }
+        case .upload(let id):
+            let r = try? await apiResponse("api/account", method: "PATCH", body: ["start_page": id])
+            if let c = r?.1, c == 404 || c == 400 { setHome(nil) }       // Seite weg/kein Zugriff
+        }
+        d.set(key, forKey: "hk.homeSynced")
+    }
+
+    /// fix27 E4: eben aus einer Eintrags-Vorlage angelegte Eintraege (nur im Speicher)
+    @Published var fresh: [Int: FreshEntry] = [:]
+    /// Antwort von duplicate merken -> neue ID
+    func noteDuplicated(_ d: Data) -> Int? {
+        guard let r = FreshEntryLogic.parse(d) else { return nil }
+        if let f = r.fresh { fresh[r.id] = f }
+        return r.id
+    }
+    /// Eintrag unveraendert geschlossen: endgueltig loeschen (der Server prueft, ob wirklich nichts geaendert wurde)
+    func discardIfUntouched(_ id: Int) async {
+        guard let f = fresh.removeValue(forKey: id) else { return }
+        let r = try? await apiResponse(FreshEntryLogic.discardPath(id), method: "POST", body: FreshEntryLogic.discardBody(f))
+        guard FreshEntryLogic.outcome(status: r?.1 ?? 0, r?.0) == .deleted else { return }
+        try? FileManager.default.removeItem(at: cacheURL("api/notes/\(id)"))
+        await refresh(quiet: true); dataChanged()
+    }
+
     /// Konto erkannt: Startseite eines anderen Kontos vergessen
     private func checkHomeOwner(origin: String, account: String) {
         if homePage != nil, HomeOwner.mustForget(stored: UserDefaults.standard.string(forKey: "hk.homeOwner"), origin: origin, account: account) { setHome(nil) }
@@ -1061,6 +1104,7 @@ final class Store: ObservableObject {
               let u = j["username"] as? String, !u.isEmpty else { return nil }
         DraftOwner.app.signedIn(origin: o, account: u)
         checkHomeOwner(origin: o, account: u)
+        await syncStartPage(j, origin: o, account: u)                      // fix27 E2
         let n = (j["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         accountName = n.isEmpty ? u : n
         let av = ShareJSON.str(j["avatar"])
@@ -1143,7 +1187,7 @@ final class Store: ObservableObject {
         AppConfig.store.removeObject(forKey: "w.tasks")                 // Widget: eben abgehakte Aufgaben (IDs des alten Kontos)
         // Startseite immer vergessen: die naechste Anmeldung kann ein anderes Konto sein - dessen Start sonst die
         // Seiten-ID des alten Kontos an den Server schickte (BUG-060)
-        setHome(nil)
+        setHome(nil); startPageSupported = false; fresh = [:]                 // fix27 E2/E4: gehoeren zum Konto
         SpotlightIndex.clear()                                            // abgemeldet/anderes Konto: nichts mehr in der Systemsuche
     }
 

@@ -145,6 +145,14 @@ struct DBQuery {
         let unit: Calendar.Component = op == "this_month" ? .month : op == "this_week" ? .weekOfYear : .day
         return cal.isDate(day, equalTo: Date(), toGranularity: unit)
     }
+    /// Eintrags-ID einer Relation (Zahl, Zahl als Text) -> Int; sonst nil
+    static func relID(_ x: Any) -> Int? {
+        if let d = x as? Double { return d.isFinite && d.rounded() == d && abs(d) < 1e15 ? Int(d) : nil }
+        if let i = x as? Int { return i }
+        if let n = x as? NSNumber { return relID(n.doubleValue) }
+        if let s = x as? String { return Double(s.trimmingCharacters(in: .whitespaces)).flatMap { relID($0) } }
+        return nil
+    }
     private func match(_ r: DBRow, _ f: [String: Any]) -> Bool {
         let pid = f["pid"] as? String, op = f["op"] as? String ?? ""
         let p: DBProp? = pid == "title" ? DBProp(["id": "title", "type": "text"]) : prop(pid)
@@ -161,6 +169,13 @@ struct DBQuery {
         }
         guard let fvRaw = f["value"], !(fvRaw is NSNull), !"\(fvRaw)".isEmpty else { return true }
         let fv = "\(fvRaw)"
+        // Relation (wie Web/Server seit fix-relfilter): Eintrags-IDs als Zahlen vergleichen (Werte kommen als Double: "5.0" != "5"),
+        // ohne Verknuepfung = leere Liste -> "enthaelt" falsch, "enthaelt nicht" wahr
+        if p.type == "relation", op == "contains" || op == "not_contains" {
+            let ids = (v as? [AnyHashable])?.compactMap { Self.relID($0) } ?? []
+            let hit = Self.relID(fvRaw).map { ids.contains($0) } ?? false
+            return op == "contains" ? hit : !hit
+        }
         let arr = (v as? [AnyHashable])?.map { "\($0)" }
         let s = (v as? String) ?? (v.map { "\($0)" } ?? "")
         let num = (v as? Double), fnum = Double(fv)
