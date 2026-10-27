@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5 Widgets in Seiten (Block "widget", Anzeige) -->
+<resources>
+    <string name="pw_kind_clock">นาฬิกา</string>
+    <string name="pw_kind_countdown">นับถอยหลัง</string>
+    <string name="pw_kind_progress">ความคืบหน้า</string>
+    <string name="pw_kind_metric">ตัวชี้วัด</string>
+    <string name="pw_kind_quote">คำคม</string>
+    <string name="pw_kind_widget">วิดเจ็ต</string>
+    <string name="pw_newer">วิดเจ็ต – ต้องใช้เวอร์ชันที่ใหม่กว่า</string>
+    <string name="pw_edit_web">แก้ไขบนเว็บ</string>
+    <string name="pw_unsupported">วิดเจ็ตใช้ได้เฉพาะบนเซิร์ฟเวอร์ต้นทาง</string>
+    <string name="pw_old_server">ค่าต้องใช้เซิร์ฟเวอร์ Saga 2.5</string>
+    <string name="pw_failed">โหลดค่าไม่ได้</string>
+    <string name="pw_pending">ยังไม่มีค่า – จะแสดงหลังบันทึก</string>
+    <string name="pw_err_no_access">ไม่มีสิทธิ์เข้าถึงแหล่งข้อมูล</string>
+    <string name="pw_err_gone">แหล่งข้อมูลถูกลบแล้ว</string>
+    <string name="pw_err_bad_cfg">ตั้งค่าวิดเจ็ตไม่ถูกต้อง – แก้ไขบนเว็บ</string>
+    <string name="pw_err_too_big">แหล่งข้อมูลใหญ่เกินไปสำหรับวิดเจ็ตนี้</string>
+    <string name="pw_no_quotes">ยังไม่มีคำคม</string>
+    <string name="pw_cd_today">วันนี้</string>
+    <string name="pw_cd_reached">ถึงแล้ว</string>
+    <string name="pw_cd_not_started">ยังไม่เริ่ม</string>
+    <string name="pw_cd_until_hm">อีก %1$d ชม. %2$d นาที</string>
+    <string name="pw_cd_since_hm">%1$d ชม. %2$d นาทีที่แล้ว</string>
+    <string name="pw_of">%1$s จาก %2$s</string>
+    <string name="pw_goal">เป้าหมาย: %1$s</string>
+    <plurals name="pw_cd_until_days">
+        <item quantity="other">อีก %d วัน</item>
+    </plurals>
+    <plurals name="pw_cd_since_days">
+        <item quantity="other">%d วันที่แล้ว</item>
+    </plurals>
+</resources>

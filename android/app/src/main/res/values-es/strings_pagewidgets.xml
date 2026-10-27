@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5 Widgets in Seiten (Block "widget", Anzeige) -->
+<resources>
+    <string name="pw_kind_clock">Reloj</string>
+    <string name="pw_kind_countdown">Cuenta atrás</string>
+    <string name="pw_kind_progress">Progreso</string>
+    <string name="pw_kind_metric">Indicador</string>
+    <string name="pw_kind_quote">Cita</string>
+    <string name="pw_kind_widget">Widget</string>
+    <string name="pw_newer">Widget: se necesita una versión más reciente</string>
+    <string name="pw_edit_web">Editar en la web</string>
+    <string name="pw_unsupported">Widget solo disponible en el servidor de origen</string>
+    <string name="pw_old_server">Los valores necesitan Saga Server 2.5</string>
+    <string name="pw_failed">No se pudieron cargar los valores</string>
+    <string name="pw_pending">Aún no hay valor: aparece después de guardar</string>
+    <string name="pw_err_no_access">Sin acceso a la fuente de datos</string>
+    <string name="pw_err_gone">La fuente de datos se eliminó</string>
+    <string name="pw_err_bad_cfg">El widget no está bien configurado: edítalo en la web</string>
+    <string name="pw_err_too_big">Fuente de datos demasiado grande para este widget</string>
+    <string name="pw_no_quotes">Aún no hay citas</string>
+    <string name="pw_cd_today">Hoy</string>
+    <string name="pw_cd_reached">Alcanzado</string>
+    <string name="pw_cd_not_started">Aún no ha empezado</string>
+    <string name="pw_cd_until_hm">en %1$d h %2$d min</string>
+    <string name="pw_cd_since_hm">hace %1$d h %2$d min</string>
+    <string name="pw_of">%1$s de %2$s</string>
+    <string name="pw_goal">Objetivo: %1$s</string>
+    <plurals name="pw_cd_until_days">
+        <item quantity="one">en %d día</item>
+        <item quantity="many">en %d días</item>
+        <item quantity="other">en %d días</item>
+    </plurals>
+    <plurals name="pw_cd_since_days">
+        <item quantity="one">hace %d día</item>
+        <item quantity="many">hace %d días</item>
+        <item quantity="other">hace %d días</item>
+    </plurals>
+</resources>
