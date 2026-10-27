@@ -1825,7 +1825,7 @@ class MainWindow(Adw.ApplicationWindow):
 
             def fin(r):
                 if tpl:
-                    store.note_fresh(r.get("id"), r)       # E4: aus Vorlage in eine Datenbank -> Platzhalter, ggf. verwerfen
+                    store.note_fresh(r.get("id"), r, body.get("title", ""))   # E4 (auch mit Titel, wie Web): aus Vorlage in eine Datenbank -> Platzhalter, ggf. verwerfen
                     store.refresh()                        # Vorlage kann Unterseiten mitbringen: Liste vom Server
                 else:
                     store.page_added(r["id"], tgt)         # neuer Eintrag lokal in die Seitenliste

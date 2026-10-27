@@ -807,7 +807,7 @@ class SagaRepository(
     suspend fun buttonEntry(dbId: Long, title: String, tpl: Long?, via: Long? = null): Long {
         val raw = api.post(if (tpl != null) "api/notes/$tpl/duplicate" else "api/notes", buttonEntryBody(dbId, title, tpl, via))
         val id = decode<NewId>(raw).id
-        if (tpl != null && title.isEmpty()) FreshEntries.parse(raw)?.let { freshEntries[it.id] = it }   // fix27 E4
+        if (tpl != null) FreshEntries.parse(raw)?.let { freshEntries[it.id] = it.copy(title = title.trim()) }   // fix27 E4 (auch Schaltflaeche mit Titel, wie Web)
         if (tpl == null) pageAdded(id, dbId) else refresh(join = false)
         dbStore.changed()
         return id

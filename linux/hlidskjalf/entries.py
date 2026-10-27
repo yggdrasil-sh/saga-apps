@@ -53,20 +53,22 @@ def start_switch(start, opened, still_initial, visible):
 
 
 # --- E4 neue Eintraege aus einer Vorlage -----------------------------------------------------------------------------
-def fresh_info(resp):
-    """Antwort von POST api/notes/{vorlage}/duplicate -> {"tok", "placeholder"} oder None (aelterer Server, keine Vorlage
-    in eine Datenbank)"""
+def fresh_info(resp, title=""):
+    """Antwort von POST api/notes/{vorlage}/duplicate -> {"tok", "placeholder", "title"} oder None (aelterer Server, keine
+    Vorlage in eine Datenbank). title: Titel beim Anlegen (leer bzw. Titel einer Schaltflaeche)"""
     if not isinstance(resp, dict):
         return None
     tok = resp.get("fresh")
     if not isinstance(tok, str) or not 8 <= len(tok) <= 64:
         return None
     ph = resp.get("placeholder")
-    return {"tok": tok, "placeholder": ph.strip()[:200] if isinstance(ph, str) else ""}
+    return {"tok": tok, "placeholder": ph.strip()[:200] if isinstance(ph, str) else "", "title": (title or "").strip()}
 
 
 def discard_ok(fresh, fetched, title, edits, dirty, saving, read_only=False):
     """Beim Schliessen endgueltig verwerfen? Nur ein eben aus einer Vorlage angelegter Eintrag (fresh), sauber geladen,
-    Titel leer und in dieser Ansicht nichts geaendert (keine Eingabe, nichts offen zum Speichern). Ob Eigenschaften/Inhalt
-    noch der Vorlage entsprechen, prueft der Server zusaetzlich (409 -> Eintrag bleibt)."""
-    return bool(fresh) and fetched and not (title or "").strip() and not edits and not dirty and not saving and not read_only
+    Titel wie beim Anlegen (leer bzw. Titel der Schaltflaeche - wie im Web) und in dieser Ansicht nichts geaendert (keine
+    Eingabe, nichts offen zum Speichern). Ob Eigenschaften/Inhalt noch der Vorlage entsprechen, prueft der Server
+    zusaetzlich (409 -> Eintrag bleibt)."""
+    return (bool(fresh) and fetched and (title or "").strip() == (fresh.get("title") or "").strip()
+            and not edits and not dirty and not saving and not read_only)

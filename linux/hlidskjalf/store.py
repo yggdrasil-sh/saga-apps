@@ -1017,10 +1017,10 @@ class Store(GObject.Object):
         return known, start
 
     # --- E4: Eintraege aus Vorlagen, die unveraendert wieder geschlossen werden ------------------------------------------
-    def note_fresh(self, nid, resp):
-        """Antwort von duplicate merken (fresh + placeholder), sofern der Server sie liefert"""
+    def note_fresh(self, nid, resp, title=""):
+        """Antwort von duplicate merken (fresh + placeholder + Titel beim Anlegen), sofern der Server sie liefert"""
         from .entries import fresh_info
-        f = fresh_info(resp)
+        f = fresh_info(resp, title)
         if f and isinstance(nid, int):
             self.fresh[nid] = f
         return f

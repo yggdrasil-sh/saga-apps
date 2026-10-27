@@ -40,6 +40,8 @@ enum StartPageLogic {
 struct FreshEntry: Equatable {
     var token: String
     var placeholder: String
+    /// Titel beim Anlegen: leer bzw. Titel einer Schaltflaeche ("Tagebuch {datum}") - unveraendert = verwerfen (wie Web)
+    var title: String = ""
 }
 
 enum FreshEntryLogic {
@@ -52,10 +54,12 @@ enum FreshEntryLogic {
         return (id, FreshEntry(token: tok, placeholder: String(ph.prefix(500))))
     }
 
-    /// Beim Schliessen verwerfen? Nur mit Markierung, leerem Titel, ohne ungesendete Aenderungen und wenn die Seite
-    /// nirgends mehr offen ist (Peek gewechselt/geschlossen, aus dem Stapel genommen)
+    /// Beim Schliessen verwerfen? Nur mit Markierung, Titel wie beim Anlegen (leer bzw. Titel der Schaltflaeche), ohne
+    /// ungesendete Aenderungen und wenn die Seite nirgends mehr offen ist (Peek gewechselt/geschlossen, aus dem Stapel genommen)
     static func shouldDiscard(fresh: FreshEntry?, title: String, unsaved: Bool, stillOpen: Bool) -> Bool {
-        fresh != nil && title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !unsaved && !stillOpen
+        guard let fresh else { return false }
+        let ws = CharacterSet.whitespacesAndNewlines
+        return title.trimmingCharacters(in: ws) == fresh.title.trimmingCharacters(in: ws) && !unsaved && !stillOpen
     }
 
     static func discardPath(_ id: Int) -> String { "api/notes/\(id)/discard" }

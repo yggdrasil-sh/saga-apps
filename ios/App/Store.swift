@@ -671,9 +671,9 @@ final class Store: ObservableObject {
     /// fix27 E4: eben aus einer Eintrags-Vorlage angelegte Eintraege (nur im Speicher)
     @Published var fresh: [Int: FreshEntry] = [:]
     /// Antwort von duplicate merken -> neue ID
-    func noteDuplicated(_ d: Data) -> Int? {
+    func noteDuplicated(_ d: Data, title: String = "") -> Int? {
         guard let r = FreshEntryLogic.parse(d) else { return nil }
-        if let f = r.fresh { fresh[r.id] = f }
+        if var f = r.fresh { f.title = title.trimmingCharacters(in: .whitespacesAndNewlines); fresh[r.id] = f }
         return r.id
     }
     /// Eintrag unveraendert geschlossen: endgueltig loeschen (der Server prueft, ob wirklich nichts geaendert wurde)

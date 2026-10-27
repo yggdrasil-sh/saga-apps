@@ -32,6 +32,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   Trennen mitten im Wort); zwei aufeinanderfolgende Daten auf Karten als Zeitraum („18. Juli – 25. Juli“).
 - **Relationsfilter** „enthält“/„enthält nicht“ vergleicht Eintrags-IDs als Zahlen (vorher traf „enthält“ in der App
   nie) und behandelt Zeilen ohne Verknüpfung als leere Liste – wie Server und Web.
+
 ### Neu – Android: Startseite, Vorlagen für Bearbeitende, leere Einträge verwerfen (Saga-Server 2.5)
 - **Eigene Startseite (E2):** Seitenmenü „Als Startseite festlegen“ / „Startseite zurücksetzen“ (Kontoeinstellung
   `start_page`). Beim Kaltstart öffnet die App diese Seite über „Heute“ – „Zurück“ führt zu „Heute“. Nicht nach einer
@@ -52,6 +53,7 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   schreibt (leere Spalte behält „+ Block“) – die Seite liest sich ruhig wie im Web.
 - **Relationsfilter:** „enthält“/„enthält nicht“ wertet eine fehlende Verknüpfung (auch Einzelwert) als leere Liste –
   wie Server und Web.
+
 ### Neu – Linux: Vorlagen für Bearbeitende, eigene Startseite, leere neue Einträge (Saga-Server 2.5)
 - **Eintrags-Vorlagen auch mit „Bearbeiten“:** „Neu“-Menü der Datenbank zeigt ihre Vorlagen, „Neu“ nutzt die
   Standardvorlage; „Vorlagen verwalten“ bleibt beim Eigentümer. Lesen/Kommentieren: keine Vorlagen.

@@ -91,6 +91,10 @@ func fix27Tests() {
     check(!FreshEntryLogic.shouldDiscard(fresh: fe, title: "", unsaved: true, stillOpen: false), "ungesendet -> bleibt")
     check(!FreshEntryLogic.shouldDiscard(fresh: fe, title: "", unsaved: false, stillOpen: true), "noch offen -> bleibt")
     check(!FreshEntryLogic.shouldDiscard(fresh: nil, title: "", unsaved: false, stillOpen: false), "nicht frisch -> bleibt")
+    let ft = FreshEntry(token: "abcdefgh", placeholder: "Tagebuch", title: "Tagebuch 27.10.2026")
+    check(FreshEntryLogic.shouldDiscard(fresh: ft, title: "Tagebuch 27.10.2026", unsaved: false, stillOpen: false)
+          && !FreshEntryLogic.shouldDiscard(fresh: ft, title: "", unsaved: false, stillOpen: false)
+          && !FreshEntryLogic.shouldDiscard(fresh: ft, title: "Tagebuch", unsaved: false, stillOpen: false), "Schaltflaeche mit Titel wie Web")
     check(FreshEntryLogic.discardPath(5) == "api/notes/5/discard" && (FreshEntryLogic.discardBody(fe)["fresh"] as? String) == "abcdefgh", "discard-Aufruf")
     check(FreshEntryLogic.outcome(status: 200, Data(#"{"deleted": true}"#.utf8)) == .deleted && FreshEntryLogic.outcome(status: 409, nil) == .kept
           && FreshEntryLogic.outcome(status: 404, nil) == .kept && FreshEntryLogic.outcome(status: 0, nil) == .failed

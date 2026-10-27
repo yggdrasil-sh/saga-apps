@@ -175,7 +175,7 @@ def test_e1_viewer_gets_no_templates(win, srv):
 # --- E4 unveraendert geschlossen -> endgueltig weg ------------------------------------------------------------------
 def test_e4_logic():
     from hlidskjalf.entries import discard_ok, fresh_info
-    assert fresh_info({"id": 5, "fresh": "abcdefgh12", "placeholder": " Neues Buch "}) == {"tok": "abcdefgh12", "placeholder": "Neues Buch"}
+    assert fresh_info({"id": 5, "fresh": "abcdefgh12", "placeholder": " Neues Buch "}) == {"tok": "abcdefgh12", "placeholder": "Neues Buch", "title": ""}
     assert fresh_info({"id": 5}) is None and fresh_info({"fresh": "kurz"}) is None and fresh_info(None) is None
     f = {"tok": "abcdefgh12", "placeholder": ""}
     assert discard_ok(f, True, "", 0, False, False)
@@ -183,6 +183,9 @@ def test_e4_logic():
     assert not discard_ok(f, False, "", 0, False, False) and not discard_ok(None, True, "", 0, False, False)
     assert not discard_ok(f, True, "", 0, True, False) and not discard_ok(f, True, "", 0, False, True)
     assert not discard_ok(f, True, "  ", 0, False, False, read_only=True)
+    t = fresh_info({"fresh": "abcdefgh12"}, " Tagebuch 27.10.2026 ")      # Schaltflaeche mit Titel: unveraendert -> weg (wie Web)
+    assert discard_ok(t, True, "Tagebuch 27.10.2026", 0, False, False)
+    assert not discard_ok(t, True, "", 0, False, False) and not discard_ok(t, True, "Tagebuch", 0, False, False)
 
 
 def _own_tpl_db(srv):

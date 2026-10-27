@@ -152,5 +152,10 @@ class Fix27AndroidTest {
         assertFalse(FreshEntries.shouldDiscard(f, "", edited = false, dirty = true, stillOpen = false))
         assertFalse(FreshEntries.shouldDiscard(f, "", edited = false, dirty = false, stillOpen = true))   // nur ueberdeckt
         assertFalse(FreshEntries.shouldDiscard(null, "", edited = false, dirty = false, stillOpen = false))
+        // Schaltflaeche mit Titel ("Tagebuch {datum}"): unveraendert -> verwerfen wie im Web, umbenannt -> bleibt
+        val t = f.copy(title = "Tagebuch 27.10.2026")
+        assertTrue(FreshEntries.shouldDiscard(t, "Tagebuch 27.10.2026", edited = false, dirty = false, stillOpen = false))
+        assertFalse(FreshEntries.shouldDiscard(t, "", edited = false, dirty = false, stillOpen = false))
+        assertFalse(FreshEntries.shouldDiscard(t, "Tagebuch", edited = false, dirty = false, stillOpen = false))
     }
 }

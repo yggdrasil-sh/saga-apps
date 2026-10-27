@@ -43,7 +43,8 @@ object StartPage {
  * Wird der Eintrag ohne jede Aenderung geschlossen, verwirft die App ihn (POST /api/notes/{id}/discard {"fresh"}) -
  * endgueltig, der Server prueft selbst noch einmal, ob er unveraendert ist (sonst 409, Eintrag bleibt).
  */
-data class FreshEntry(val id: Long, val token: String, val placeholder: String)
+/** title: Titel beim Anlegen (leer bzw. der Titel einer Schaltflaeche wie "Tagebuch {datum}") - unveraendert = verwerfen */
+data class FreshEntry(val id: Long, val token: String, val placeholder: String, val title: String = "")
 
 object FreshEntries {
     fun parse(response: String): FreshEntry? = try {
@@ -59,9 +60,10 @@ object FreshEntries {
     fun discardBody(f: FreshEntry): JsonObject = buildJsonObject { put("fresh", f.token) }
 
     /**
-     * Beim Schliessen verwerfen? Nur mit Schluessel, Titel leer, keine Eingabe im Editor, nichts ungespeichert und die
-     * Seite liegt nicht mehr im Navigationsstapel (nur ueberdeckt = noch offen).
+     * Beim Schliessen verwerfen? Nur mit Schluessel, Titel wie beim Anlegen (leer bzw. Titel der Schaltflaeche - wie im
+     * Web), keine Eingabe im Editor, nichts ungespeichert und die Seite liegt nicht mehr im Navigationsstapel (nur
+     * ueberdeckt = noch offen).
      */
     fun shouldDiscard(fresh: FreshEntry?, title: String, edited: Boolean, dirty: Boolean, stillOpen: Boolean): Boolean =
-        fresh != null && title.isBlank() && !edited && !dirty && !stillOpen
+        fresh != null && title.trim() == fresh.title.trim() && !edited && !dirty && !stillOpen
 }

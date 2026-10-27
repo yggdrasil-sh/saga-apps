@@ -1637,7 +1637,7 @@ struct ButtonsBlock: View {
             do {
                 let d = try await store.api(tpl.map { "api/notes/\($0)/duplicate" } ?? "api/notes", method: "POST", body: body)   // Vorlage: alles uebernehmen
                 let r = try JSONDecoder().decode(R.self, from: d)
-                if tpl != nil { _ = store.noteDuplicated(d) }               // fix27 E4: leerer Titel + Platzhalter, unveraendert -> verwerfen
+                if tpl != nil { _ = store.noteDuplicated(d, title: title) } // fix27 E4: Platzhalter, unveraendert (auch mit Titel, wie Web) -> verwerfen
                 // Gleich oeffnen (wie im Web) - die Seitenliste laedt still dahinter. Vorher wartete die App auf das
                 // komplette Neuladen (Seiten, Freigaben, Heute, Konto ...): bei langsamer Verbindung sekundenlang
                 // keine Reaktion, und weiteres Tippen legte weitere Eintraege an.
