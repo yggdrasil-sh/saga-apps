@@ -78,6 +78,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import io.github.yggdrasil_sh.saga.data.FreshEntries
+import io.github.yggdrasil_sh.saga.data.StartPage
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.saveable.Saver
@@ -192,9 +194,22 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     val needsLogin by repo.needsLogin.collectAsState()
     var menu by remember { mutableStateOf(false) }
     var styleMenu by remember { mutableStateOf(false) }
+    val startId by repo.startPage.collectAsState()
+    val startSupported by repo.startPageSupported.collectAsState()
 
     LaunchedEffect(ed) { ed.load() }
-    DisposableEffect(ed) { onDispose { ed.close() } }                // speichern (laeuft im App-Scope weiter)
+    DisposableEffect(ed) {
+        onDispose {
+            ed.close()                                               // speichern (laeuft im App-Scope weiter)
+            // fix27 E4: aus einer Vorlage angelegt und unveraendert geschlossen -> endgueltig verwerfen
+            val fresh = repo.freshEntries[id]
+            if (fresh != null) {
+                val open = nav.stack.any { it == io.github.yggdrasil_sh.saga.ui.nav.Dest.Page(id) }
+                if (FreshEntries.shouldDiscard(fresh, ed.title, ed.lastInputAt > 0L, ed.dirty, open)) repo.discardFresh(id)
+                else if (!open) repo.freshEntries.remove(id)
+            }
+        }
+    }
     LifecycleEventEffect(Lifecycle.Event.ON_STOP) { ed.flush() }      // App verlassen: Entwurf auf Platte + speichern
     LaunchedEffect(needsLogin) { if (!needsLogin && ed.dirty) ed.scheduleSave(500) }   // nach erneuter Anmeldung nachholen
 
@@ -453,6 +468,23 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                         DropdownMenuItem(text = { Text(stringResource(R.string.graph_local_menu)) }, onClick = {
                             menu = false
                             nav.push(io.github.yggdrasil_sh.saga.ui.nav.Dest.Graph(id))
+                        })
+                    }
+                    // fix27 E2: eigene Startseite festlegen / zuruecksetzen (Server ab 2.5 mit start_page)
+                    if (ed.fetched && !ed.noAccess && startSupported && StartPage.eligible(id)) {
+                        val isStart = startId == id
+                        DropdownMenuItem(text = { Text(stringResource(if (isStart) R.string.start_page_reset else R.string.start_page_set)) }, onClick = {
+                            menu = false
+                            scope.launch {
+                                try {
+                                    repo.setStartPage(if (isStart) null else id)
+                                    repo.notify(UiText.Res(if (isStart) R.string.start_page_was_reset else R.string.start_page_was_set))
+                                } catch (e: kotlinx.coroutines.CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    repo.notify(UiText.Res(R.string.start_page_failed, repo.friendly(e)))
+                                }
+                            }
                         })
                     }
                     // "App-Link kopieren" / "Im Web-Editor öffnen": Link in den Editor (nicht die oeffentliche Seite)
@@ -803,7 +835,8 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
                     modifier = Modifier.fillMaxWidth(),
                     decorationBox = { inner ->
                         Box {
-                            if (ed.title.isEmpty()) Text(stringResource(R.string.page_untitled), style = titleStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)))
+                            // fix27 E4: neuer Eintrag aus einer Vorlage - Vorlagenname als Platzhalter ("Neues Buch")
+                            if (ed.title.isEmpty()) Text(repo.freshEntries[ed.id]?.placeholder?.ifBlank { null } ?: stringResource(R.string.page_untitled), style = titleStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)))
                             inner()
                         }
                     },

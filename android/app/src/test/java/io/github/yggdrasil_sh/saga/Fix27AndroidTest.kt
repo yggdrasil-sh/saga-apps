@@ -5,6 +5,8 @@ import io.github.yggdrasil_sh.saga.blocks.ColumnsChrome
 import io.github.yggdrasil_sh.saga.blocks.DbProps
 import io.github.yggdrasil_sh.saga.blocks.NumFormat
 import io.github.yggdrasil_sh.saga.blocks.PageWidgets
+import io.github.yggdrasil_sh.saga.data.FreshEntries
+import io.github.yggdrasil_sh.saga.data.StartPage
 import io.github.yggdrasil_sh.saga.db.DbFilter
 import io.github.yggdrasil_sh.saga.db.DbQuery
 import io.github.yggdrasil_sh.saga.db.DbRow
@@ -13,6 +15,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
@@ -115,5 +118,39 @@ class Fix27AndroidTest {
         assertEquals(listOf(1L, 4L), ids("contains"))                    // Einzelwert "5" zaehlt nicht (wie Server)
         assertEquals(listOf(2L, 3L, 5L, 6L, 7L), ids("not_contains"))     // ohne Verknuepfung: gehoert dazu, kein Absturz
         assertEquals(listOf(2L, 3L, 6L), q.filter(rows, listOf(DbFilter("proj", "is_empty"))).map { it.id })
+    }
+    // ---------------------------------------------------------------- E2 Startseite
+
+    @Test fun startPageContract() {
+        assertEquals(StartPage.Info(true, 42L), StartPage.parse("""{"name":"A","start_page":42}"""))
+        assertEquals(StartPage.Info(true, null), StartPage.parse("""{"name":"A","start_page":null}"""))
+        assertEquals(StartPage.Info(false, null), StartPage.parse("""{"name":"A"}"""))           // aelterer Server
+        assertEquals(StartPage.Info(true, null), StartPage.parse("""{"start_page":-5}"""))      // foederiert: nicht in Etappe 1
+        assertEquals(StartPage.Info(false, null), StartPage.parse("kaputt"))
+        assertEquals("""{"start_page":7}""", StartPage.body(7).toString())
+        assertEquals("""{"start_page":null}""", StartPage.body(null).toString())
+        assertTrue(StartPage.openOnColdStart(7, alreadyChecked = false, onlyHome = true))
+        assertFalse(StartPage.openOnColdStart(7, alreadyChecked = true, onlyHome = true))     // wiederhergestellt
+        assertFalse(StartPage.openOnColdStart(7, alreadyChecked = false, onlyHome = false))   // Link/Mitteilung war schneller
+        assertFalse(StartPage.openOnColdStart(null, alreadyChecked = false, onlyHome = true))
+        assertFalse(StartPage.eligible(-3))
+    }
+
+    // ---------------------------------------------------------------- E4 neue Eintraege aus Vorlage
+
+    @Test fun freshEntryContract() {
+        val f = FreshEntries.parse("""{"id":91,"updated":1.0,"fresh":"abcDEF123456","placeholder":"Neues Buch"}""")!!
+        assertEquals(91L, f.id)
+        assertEquals("Neues Buch", f.placeholder)
+        assertEquals("""{"fresh":"abcDEF123456"}""", FreshEntries.discardBody(f).toString())
+        assertNull(FreshEntries.parse("""{"id":91,"updated":1.0}"""))                              // aelterer Server / ohne Vorlage
+        assertNull(FreshEntries.parse("""{"id":91,"fresh":null}"""))
+        assertTrue(FreshEntries.shouldDiscard(f, "", edited = false, dirty = false, stillOpen = false))
+        assertTrue(FreshEntries.shouldDiscard(f, "  ", edited = false, dirty = false, stillOpen = false))
+        assertFalse(FreshEntries.shouldDiscard(f, "Mein Buch", edited = false, dirty = false, stillOpen = false))
+        assertFalse(FreshEntries.shouldDiscard(f, "", edited = true, dirty = false, stillOpen = false))
+        assertFalse(FreshEntries.shouldDiscard(f, "", edited = false, dirty = true, stillOpen = false))
+        assertFalse(FreshEntries.shouldDiscard(f, "", edited = false, dirty = false, stillOpen = true))   // nur ueberdeckt
+        assertFalse(FreshEntries.shouldDiscard(null, "", edited = false, dirty = false, stillOpen = false))
     }
 }

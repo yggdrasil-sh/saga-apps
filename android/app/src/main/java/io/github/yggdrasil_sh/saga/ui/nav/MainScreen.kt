@@ -223,6 +223,20 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
             onDismiss = { repo.push.callHintDone() },
         )
     }
+    // fix27 E2: beim Kaltstart die eigene Startseite oeffnen (Heute bleibt darunter, "Zurueck" fuehrt dorthin)
+    var startChecked by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val sp = try {
+            repo.loadStartPage()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null                                               // offline/alter Server: wie ohne Startseite
+        }
+        val onlyHome = nav.stack.size == 1 && nav.stack.first() == Dest.Today
+        if (io.github.yggdrasil_sh.saga.data.StartPage.openOnColdStart(sp, startChecked, onlyHome)) nav.push(Dest.Page(sp!!))
+        startChecked = true
+    }
     val scope = rememberCoroutineScope()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val lifecycle = LocalLifecycleOwner.current.lifecycle

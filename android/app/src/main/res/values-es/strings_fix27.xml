@@ -2,4 +2,9 @@
 <!-- Saga 2.5 Fix-Runde 27.10. (#11, #14, E1, E2, E4) -->
 <resources>
     <string name="button_readonly_hint">Solo lectura: solo quien puede editar puede crear entradas aquí.</string>
+    <string name="start_page_set">Establecer como página de inicio</string>
+    <string name="start_page_reset">Restablecer página de inicio</string>
+    <string name="start_page_was_set">Saga se abrirá ahora con esta página.</string>
+    <string name="start_page_was_reset">Saga vuelve a abrirse con «Hoy».</string>
+    <string name="start_page_failed">No se guardó la página de inicio: %1$s</string>
 </resources>
