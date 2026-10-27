@@ -121,7 +121,11 @@ enum GestaltenLogic {
 
     // MARK: G10 Toggle-Ueberschriften
 
-    static func toggleLevel(_ data: NSDictionary?) -> Int { min(3, max(0, Int(num(data?["level"]) ?? 0))) }
+    static func toggleLevel(_ data: NSDictionary?) -> Int {
+        // vor Int(...) begrenzen: Int(Double) stuerzt bei sehr grossen Werten ab
+        guard let v = num(data?["level"]), v.isFinite else { return 0 }
+        return Int(min(3, max(0, v)))
+    }
 
     // MARK: R Rueckfall-Karte
 
