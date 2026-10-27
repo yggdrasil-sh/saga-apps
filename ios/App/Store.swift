@@ -1131,7 +1131,7 @@ final class Store: ObservableObject {
         Store.cacheQueue.sync {}                                          // laufende Schreibvorgaenge abwarten, dann loeschen
         try? FileManager.default.removeItem(at: cacheDir)
         try? FileManager.default.createDirectory(at: cacheDir.appendingPathComponent("files"), withIntermediateDirectories: true)
-        images.removeAllObjects(); cookieHeader = nil; AvatarCache.shared.reset()
+        images.removeAllObjects(); cookieHeader = nil; AvatarCache.shared.reset(); FaviconLoader.shared.reset()
         URLCache.shared.removeAllCachedResponses()                      // Profilbilder (private, max-age) u. a. nicht liegen lassen
         live.stop(); live.forgetServer(); notifs.reset(); calls.signedOut(); chat.signedOut(); push.signedOut()   // 2.0: Live, Glocke, Chat-Schluessel im Speicher, Push-Abo
         cursorEpoch += 1; noteCursor = nil; savedCursor = nil; listUnsaved = false; cacheLoad?.cancel(); cacheLoad = nil   // Abgleich-Stand gehoert zum Konto

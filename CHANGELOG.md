@@ -9,6 +9,14 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – iOS/Mac: Favicons für Lesezeichen notfalls direkt vom Gerät (Saga-Server 2.5)
+- Liefert der eigene Server das Favicon eines Lesezeichens nicht (z. B. Shops mit Bot-Schutz), lädt die App es der Reihe
+  nach aus `icon_direct` direkt von der Seite – wie ein Browser-Tab: höchstens 5 s, höchstens 512 KB, nur Rasterbilder
+  (PNG/ICO/JPEG/GIF/WebP, kein SVG), ohne Cookies und Anmeldedaten, nur Adressen auf dem Host des Lesezeichens, keine
+  Weiterleitung von https auf http. Sonst wie bisher der Anfangsbuchstabe.
+- Ergebnis lokal zwischengespeichert (7 Tage, Fehlversuch 1 Stunde), beim Abmelden gelöscht; nichts geht zum Server.
+- Dienste unverändert; ältere Server (ohne `icon_direct`) wie bisher. Hinweis: iOS/macOS laden wegen App Transport
+  Security nur `https`-Favicons direkt.
 ### Neu – iOS/Mac: Seite gestalten (Saga-Server 2.5)
 - **Darstellung** der im Web gestalteten Seiten: Spaltenbreiten (iPad/Mac; iPhone weiter untereinander), Breite und
   Ausrichtung von Bildern und YouTube-Playern (iPhone mindestens 50 %), Text- und Hintergrundfarbe von Blöcken
