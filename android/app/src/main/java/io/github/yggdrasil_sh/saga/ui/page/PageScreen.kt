@@ -773,12 +773,8 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
                         if (ed.locked) repo.notify(UiText.Res(R.string.page_header_locked)) else iconPicker = true
                     },
             ) {
-                // auf dem Titelbild: Symbol auf einer schwebenden Kachel (hebt sich von jedem Bild ab)
-                if (cover != null) androidx.compose.material3.Surface(
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surface,
-                    shadowElevation = 6.dp, tonalElevation = 1.dp,
-                ) { Box(Modifier.padding(8.dp)) { PageIcon(ed.icon, repo, ed.isDatabase, size = 64.dp) } }
-                else PageIcon(ed.icon, repo, ed.isDatabase, size = 64.dp)
+                // Wie iOS: Symbol direkt auf dem Titelbild, ohne Kachel dahinter - transparente Bilder bleiben transparent
+                PageIcon(ed.icon, repo, ed.isDatabase, size = 72.dp)
             }
             Spacer(Modifier.height(if (cover != null) 10.dp else 8.dp))
         } else if (cover != null) Spacer(Modifier.height(12.dp))
