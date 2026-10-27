@@ -161,9 +161,9 @@ object Gallery {
     fun friendlyUse(e: Throwable, friendly: (Throwable) -> UiText): UiText =
         if (e is ApiException) useError(e.code, e.body) ?: friendly(e) else friendly(e)
 
-    /** Meldung des Servers aus {"error": "..."} (leer -> null) */
+    /** Meldung des Servers aus {"error": "..."} (leer, null oder keine Zeichenkette -> null) */
     fun serverMessage(body: String): String? = try {
-        ((json.parseToJsonElement(body) as? JsonObject)?.get("error") as? JsonPrimitive)?.content?.trim()?.takeIf { it.isNotEmpty() }
+        ((json.parseToJsonElement(body) as? JsonObject)?.get("error") as? JsonPrimitive)?.takeIf { it.isString }?.content?.trim()?.takeIf { it.isNotEmpty() }
     } catch (_: Exception) {
         null
     }
