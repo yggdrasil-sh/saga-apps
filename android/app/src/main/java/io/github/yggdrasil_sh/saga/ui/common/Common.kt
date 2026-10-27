@@ -28,6 +28,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -93,10 +96,15 @@ fun PageIcon(icon: String?, repo: SagaRepository, isDatabase: Boolean = false, s
     // Mindestgroesse statt fester Groesse: Emoji waechst mit der Schriftgroesse mit und wird nicht abgeschnitten
     Box(Modifier.defaultMinSize(size, size), contentAlignment = Alignment.Center) {
         if (ic.startsWith("/files/") || ic.startsWith("/api/fed/files/")) {
+            // Grauer Platzhalter nur, solange das Bild laedt (wie iOS) - danach bleiben transparente Symbole transparent
+            var loaded by remember(ic) { mutableStateOf(false) }
+            val shape = RoundedCornerShape(if (size >= 48.dp) 10.dp else 4.dp)
             AsyncImage(
                 model = repo.absoluteUrl(if (ic.contains("?")) ic else "$ic?w=160"), contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.size(size).clip(RoundedCornerShape(if (size >= 48.dp) 10.dp else 4.dp)).background(MaterialTheme.colorScheme.surfaceVariant),
+                onSuccess = { loaded = true },
+                modifier = Modifier.size(size).clip(shape)
+                    .then(if (loaded) Modifier else Modifier.background(MaterialTheme.colorScheme.surfaceVariant)),
             )
         } else {
             Text(ic.ifEmpty { if (isDatabase) "🗃️" else "📄" }, fontSize = (size.value * (if (size >= 48.dp) 0.82f else 0.72f)).sp, maxLines = 1)   // grosses Symbol (Seitenkopf) etwa so gross wie auf iOS
