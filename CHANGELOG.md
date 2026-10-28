@@ -33,6 +33,31 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Relationsfilter** „enthält“/„enthält nicht“ vergleicht Eintrags-IDs als Zahlen (vorher traf „enthält“ in der App
   nie) und behandelt Zeilen ohne Verknüpfung als leere Liste – wie Server und Web.
 
+### Neu – Android: Datenbanken, Editor und Widgets auf Stand Saga-Server 2.5 (Etappe 1)
+Alles nur mit Saga-Server 2.5 (`/api/version` → `features`); ältere Server: wie bisher.
+- **Formeln und Rollups:** Werte je Ergebnistyp (Zahl mit Format/Balken, Text, Häkchen, Datum, Liste) in Tabelle,
+  Liste, Karten und Eintrag; Laufzeitfehler als „#Fehler“ mit Erklärung; nicht bearbeitbar („Berechnet – im Web
+  bearbeiten“), werden nie zurückgeschrieben. Gruppen/Board-Spalten nach Formel, Rollup oder Person (nur lesend).
+- **Personen und Dateien:** Personen als Chip mit Avatar, „ich“ hervorgehoben, gelöschte ausgegraut – nie Anmeldenamen;
+  Auswahl über die Personensuche der Datenbank, Filter „ist mir zugewiesen“. Dateien anzeigen/öffnen, hochladen und
+  entfernen (ganze Liste wird gespeichert).
+- **Status mit Gruppen:** Symbol ○ ◐ ●, Auswahl nach Gruppen geordnet, Board nach Status-Gruppen (Ziehen setzt die erste
+  Option der Gruppe), Liste hakt über Status ab, Filter „Status ist …“.
+- **Datum mit Uhrzeit und Zeitraum:** Anzeige in der eigenen Zeitzone, Eingabe mit Uhrzeit und Ende; Uhrzeit entfernen
+  schickt `Tag/Tag`. Kalender zeigt Zeiträume auf jedem Tag und die Uhrzeit vor dem Namen; Wochenansicht (Tablet als
+  Spalten, Telefon als Tagesliste). Relative Datumsfilter (gestern, nächste Woche, überfällig, in den nächsten N Tagen …).
+- **Unteraufgaben:** Einrückung in der Liste, „⛔ blockiert“. **Tabellenoptionen:** fixierte Spalten, Zeilenumbruch,
+  Kartenfarben auf Board/Galerie; einfache Tabelle mit Kopfspalte, Spaltenbreiten und Farben (bleiben beim Bearbeiten).
+- **Diagramm-Ansicht** und **Diagramm-Widget** mit eigener Zeichnung (Balken, waagrecht, gestapelt, Linie, Fläche,
+  Kreis, Ring, Zahl, Ziellinie), Werte zusätzlich als Tabelle. **Zeitleiste** nur lesend (Tablet waagrecht, Telefon
+  Liste nach Start).
+- **Eingebettete Datenbanken als echte Ansichten:** alle Ansichtsarten umschaltbar (eigene Ansichten des Blocks zuerst),
+  Filter/Sortierung der Ansicht, Werte setzen, Board-Karten verschieben, „Als ganze Seite öffnen“.
+- **Widgets:** Wetter (mit Quellenangabe), Gewohnheiten (abhaken), Anstehendes, Diagramm.
+- **Editor:** Text- und Hintergrundfarben, Erwähnungen (aktueller Name), Inline-Mathe; Mathe/Mermaid als Vorschaubild
+  aus dem Web (Hinweis „veraltet“), Quelltext bearbeitbar; synchronisierte Blöcke anzeigen mit Sprung zum Original;
+  5–6 Spalten mit Umbruch. Absätze mit Erwähnung/Inline-Mathe nur im Web bearbeiten; die App meldet `inline2,cols6`.
+
 ### Neu – Android: Startseite, Vorlagen für Bearbeitende, leere Einträge verwerfen (Saga-Server 2.5)
 - **Eigene Startseite (E2):** Seitenmenü „Als Startseite festlegen“ / „Startseite zurücksetzen“ (Kontoeinstellung
   `start_page`). Beim Kaltstart öffnet die App diese Seite über „Heute“ – „Zurück“ führt zu „Heute“. Nicht nach einer
