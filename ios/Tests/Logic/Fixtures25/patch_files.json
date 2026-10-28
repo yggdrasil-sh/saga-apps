@@ -1,0 +1,39 @@
+{
+ "calc": {
+  "pbud": 1250.5,
+  "pnam": [
+   "Alpha",
+   "Beta"
+  ],
+  "quot": 5,
+  "spaet": false,
+  "summe": 7,
+  "tag": "Dienstag"
+ },
+ "fx_err": {},
+ "ok": true,
+ "people": {
+  "~gc27sqqye2yzgxoa": {
+   "avatar": null,
+   "me": true,
+   "name": "Anna Beispiel",
+   "remote": false
+  }
+ },
+ "rev": 0,
+ "updated": 1793148184.2940974,
+ "values": {
+  "anh": [
+   {
+    "image": false,
+    "mime": "application/octet-stream",
+    "name": "plan.pdf",
+    "size": 13,
+    "url": "/files/d4f9f47b6236032ccdf37e2b"
+   }
+  ],
+  "wer": [
+   "~gc27sqqye2yzgxoa"
+  ]
+ }
+}

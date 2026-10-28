@@ -1,0 +1,161 @@
+{
+ "blocks": [
+  {
+   "data": {
+    "cols": [
+     {
+      "blocks": [
+       {
+        "data": {
+         "text": "0"
+        },
+        "id": "c0",
+        "type": "paragraph"
+       }
+      ]
+     },
+     {
+      "blocks": [
+       {
+        "data": {
+         "text": "1"
+        },
+        "id": "c1",
+        "type": "paragraph"
+       }
+      ]
+     },
+     {
+      "blocks": [
+       {
+        "data": {
+         "text": "2"
+        },
+        "id": "c2",
+        "type": "paragraph"
+       }
+      ]
+     },
+     {
+      "blocks": [
+       {
+        "data": {
+         "text": "3"
+        },
+        "id": "c3",
+        "type": "paragraph"
+       }
+      ]
+     },
+     {
+      "blocks": [
+       {
+        "data": {
+         "text": "4"
+        },
+        "id": "c4",
+        "type": "paragraph"
+       }
+      ]
+     },
+     {
+      "blocks": [
+       {
+        "data": {
+         "text": "5"
+        },
+        "id": "c5",
+        "type": "paragraph"
+       }
+      ]
+     }
+    ]
+   },
+   "id": "c6",
+   "type": "columns"
+  },
+  {
+   "data": {
+    "code": "graph TD; A-->B",
+    "language": "mermaid",
+    "render": {
+     "h": "c18237e0a535bdb7",
+     "hgt": 138,
+     "png": "/files/d4f9f47b6236032ccdf37e2b",
+     "w": 168
+    },
+    "view": "split"
+   },
+   "id": "g1",
+   "type": "code"
+  },
+  {
+   "data": {
+    "text": "<span class=\"hk-c-red\">rot</span> <mark class=\"hk-bg-blue\">blau</mark> <span class=\"hk-mention\" data-u=\"~2pjnl6f3eg3is6jl\">Bert</span> <code class=\"hk-math\">x^2</code>"
+   },
+   "id": "p1",
+   "type": "paragraph"
+  },
+  {
+   "data": {
+    "render": {
+     "h": "0000000000000000",
+     "hgt": 57,
+     "png": "/files/d4f9f47b6236032ccdf37e2b",
+     "stale": true,
+     "w": 31
+    },
+    "tex": "\\frac{a}{b}"
+   },
+   "id": "m1",
+   "type": "math"
+  },
+  {
+   "data": {
+    "colWidths": [
+     30.0,
+     70.0
+    ],
+    "colors": {
+     "r": {
+      "1": "blue"
+     },
+     "x": {
+      "1,1": "red"
+     }
+    },
+    "content": [
+     [
+      "A",
+      "B"
+     ],
+     [
+      "1",
+      "2"
+     ]
+    ],
+    "headCol": true,
+    "withHeadings": true
+   },
+   "id": "t1",
+   "type": "table"
+  },
+  {
+   "data": {
+    "blocks": [
+     {
+      "data": {
+       "text": "Synchron"
+      },
+      "id": "sp",
+      "type": "paragraph"
+     }
+    ]
+   },
+   "id": "s1",
+   "type": "synced"
+  }
+ ],
+ "time": null,
+ "version": null
+}

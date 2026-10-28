@@ -1,0 +1,37 @@
+{
+ "calc": {
+  "pbud": 1000,
+  "pnam": [
+   "Alpha"
+  ],
+  "quot": 2.5,
+  "spaet": true,
+  "summe": 4,
+  "tag": "Mittwoch"
+ },
+ "fx_err": {},
+ "ok": true,
+ "people": {
+  "~2pjnl6f3eg3is6jl": {
+   "avatar": null,
+   "me": false,
+   "name": "Bert Beispiel",
+   "remote": false
+  },
+  "~gc27sqqye2yzgxoa": {
+   "avatar": null,
+   "me": true,
+   "name": "Anna Beispiel",
+   "remote": false
+  }
+ },
+ "rev": 0,
+ "updated": 1793148184.3021193,
+ "values": {
+  "anh": null,
+  "wer": [
+   "~gc27sqqye2yzgxoa",
+   "~2pjnl6f3eg3is6jl"
+  ]
+ }
+}

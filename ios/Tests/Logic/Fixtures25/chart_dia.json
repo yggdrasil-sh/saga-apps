@@ -1,0 +1,53 @@
+{
+ "chart": {
+  "as_of": "2026-10-28T00:43:04Z",
+  "cats": [
+   {
+    "color": "gray",
+    "key": "todo",
+    "label": "Zu erledigen"
+   },
+   {
+    "color": "blue",
+    "key": "doing",
+    "label": "In Arbeit"
+   },
+   {
+    "color": "green",
+    "key": "done",
+    "label": "Erledigt"
+   }
+  ],
+  "fmt": "num",
+  "other": 0,
+  "rows": 5,
+  "series": [
+   {
+    "color": null,
+    "key": "~gc27sqqye2yzgxoa",
+    "label": "Anna Beispiel",
+    "values": [
+     0,
+     1,
+     1
+    ]
+   },
+   {
+    "color": null,
+    "key": "~2pjnl6f3eg3is6jl",
+    "label": "Bert Beispiel",
+    "values": [
+     1,
+     1,
+     0
+    ]
+   }
+  ],
+  "total": 5,
+  "truncated": false,
+  "type": "bar",
+  "x_kind": "cat"
+ },
+ "error": null,
+ "view": "dia"
+}

@@ -1,0 +1,49 @@
+{
+ "chart": {
+  "as_of": "2026-10-28T00:43:04Z",
+  "bucket": "day",
+  "cats": [
+   {
+    "color": null,
+    "key": "2026-10-27",
+    "label": "2026-10-27",
+    "start": "2026-10-27"
+   },
+   {
+    "color": null,
+    "key": "2026-10-28",
+    "label": "2026-10-28",
+    "start": "2026-10-28"
+   },
+   {
+    "color": null,
+    "key": "2026-10-29",
+    "label": "2026-10-29",
+    "start": "2026-10-29"
+   }
+  ],
+  "cumulative": true,
+  "fmt": "eur",
+  "goal": 50,
+  "other": 0,
+  "rows": 5,
+  "series": [
+   {
+    "color": null,
+    "key": "",
+    "label": "",
+    "values": [
+     7,
+     11,
+     41
+    ]
+   }
+  ],
+  "total": 41,
+  "truncated": false,
+  "type": "line",
+  "x_kind": "date"
+ },
+ "error": null,
+ "view": "dia2"
+}

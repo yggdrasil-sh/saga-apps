@@ -1,0 +1,505 @@
+{
+ "groups": [
+  {
+   "count": 1,
+   "id": null
+  },
+  {
+   "count": 1,
+   "id": "todo"
+  },
+  {
+   "count": 2,
+   "id": "doing"
+  },
+  {
+   "count": 1,
+   "id": "done"
+  }
+ ],
+ "matched": 5,
+ "offset": 0,
+ "people": {
+  "~2pjnl6f3eg3is6jl": {
+   "avatar": null,
+   "me": false,
+   "name": "Bert Beispiel",
+   "remote": false
+  },
+  "~gc27sqqye2yzgxoa": {
+   "avatar": null,
+   "me": true,
+   "name": "Anna Beispiel",
+   "remote": false
+  }
+ },
+ "role": "owner",
+ "rows": [
+  {
+   "created": 1793148184.2631783,
+   "icon": "",
+   "id": 55,
+   "preview": "",
+   "props": {
+    "pnam": [],
+    "spaet": false
+   },
+   "title": "Ohne",
+   "updated": 1793148184.2631783
+  },
+  {
+   "blocked": true,
+   "created": 1793148184.2527552,
+   "icon": "",
+   "id": 54,
+   "preview": "",
+   "props": {
+    "blk": [
+     53
+    ],
+    "frist": "2026-10-29T14:30+01:00/2026-10-29T16:00+01:00",
+    "menge": 3,
+    "par": [
+     53
+    ],
+    "pnam": [],
+    "preis": 10,
+    "quot": 3.3333333333333335,
+    "spaet": true,
+    "status": "neu",
+    "summe": 30,
+    "tag": "Donnerstag",
+    "wer": [
+     "~2pjnl6f3eg3is6jl"
+    ]
+   },
+   "title": "Testen",
+   "updated": 1793148184.27934
+  },
+  {
+   "created": 1793148184.2403429,
+   "icon": "",
+   "id": 53,
+   "preview": "",
+   "props": {
+    "frist": "2026-10-28/2026-10-30",
+    "menge": 4,
+    "pbud": 1000,
+    "pnam": [
+     "Alpha"
+    ],
+    "preis": 1,
+    "proj": [
+     49
+    ],
+    "quot": 2.5,
+    "rbccbabd5": [
+     54
+    ],
+    "rd7bec3cc": [
+     54
+    ],
+    "spaet": true,
+    "status": "lauf",
+    "summe": 4,
+    "tag": "Mittwoch",
+    "wer": [
+     "~gc27sqqye2yzgxoa",
+     "~2pjnl6f3eg3is6jl"
+    ]
+   },
+   "title": "Bauen",
+   "updated": 1793148184.3021193
+  },
+  {
+   "created": 1793148184.2681053,
+   "fx_err": {
+    "quot": "num"
+   },
+   "icon": "",
+   "id": 56,
+   "preview": "",
+   "props": {
+    "menge": 0,
+    "pnam": [],
+    "spaet": false,
+    "status": "warten"
+   },
+   "title": "Kaputt",
+   "updated": 1793148184.2681053
+  },
+  {
+   "created": 1793148184.233071,
+   "icon": "",
+   "id": 52,
+   "preview": "",
+   "props": {
+    "anh": [
+     {
+      "image": false,
+      "mime": "application/octet-stream",
+      "name": "plan.pdf",
+      "size": 13,
+      "url": "/files/d4f9f47b6236032ccdf37e2b"
+     }
+    ],
+    "frist": "2026-10-27T09:00+01:00",
+    "menge": 2,
+    "pbud": 1250.5,
+    "pnam": [
+     "Alpha",
+     "Beta"
+    ],
+    "preis": 3.5,
+    "proj": [
+     49,
+     50
+    ],
+    "quot": 5,
+    "spaet": false,
+    "status": "ok",
+    "summe": 7,
+    "tag": "Dienstag",
+    "wer": [
+     "~gc27sqqye2yzgxoa"
+    ]
+   },
+   "title": "Planen",
+   "updated": 1793148184.2940974
+  }
+ ],
+ "schema": {
+  "_since": {
+   "anh": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "blk": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "frist": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "menge": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "par": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "pbud": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "pnam": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "preis": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "proj": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "quot": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "rbccbabd5": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "rd7bec3cc": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "spaet": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "status/lauf": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "status/neu": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "status/ok": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "status/warten": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "summe": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "tag": [
+    1,
+    "562a8eeebf0a"
+   ],
+   "wer": [
+    1,
+    "562a8eeebf0a"
+   ]
+  },
+  "props": [
+   {
+    "id": "status",
+    "name": "Status",
+    "options": [
+     {
+      "color": "gray",
+      "group": "todo",
+      "id": "neu",
+      "name": "Neu"
+     },
+     {
+      "color": "blue",
+      "group": "doing",
+      "id": "lauf",
+      "name": "Läuft"
+     },
+     {
+      "color": "yellow",
+      "group": "doing",
+      "id": "warten",
+      "name": "Wartet"
+     },
+     {
+      "color": "green",
+      "group": "done",
+      "id": "ok",
+      "name": "Fertig"
+     }
+    ],
+    "status": true,
+    "type": "select"
+   },
+   {
+    "id": "menge",
+    "name": "Menge",
+    "type": "number"
+   },
+   {
+    "fmt": "euro",
+    "id": "preis",
+    "name": "Preis",
+    "type": "number"
+   },
+   {
+    "expr": "prop(\"menge\") * prop(\"preis\")",
+    "fmt": "euro",
+    "id": "summe",
+    "name": "Summe",
+    "rtype": "number",
+    "type": "formula"
+   },
+   {
+    "expr": "10 / prop(\"menge\")",
+    "id": "quot",
+    "name": "Quote",
+    "rtype": "number",
+    "type": "formula"
+   },
+   {
+    "expr": "formatDate(prop(\"frist\"), \"dddd\")",
+    "id": "tag",
+    "name": "Wochentag",
+    "rtype": "text",
+    "type": "formula"
+   },
+   {
+    "expr": "prop(\"menge\") > 2",
+    "id": "spaet",
+    "name": "Spät",
+    "rtype": "checkbox",
+    "type": "formula"
+   },
+   {
+    "id": "frist",
+    "name": "Frist",
+    "range": true,
+    "time": true,
+    "type": "date"
+   },
+   {
+    "id": "proj",
+    "name": "Projekt",
+    "target": 48,
+    "type": "relation"
+   },
+   {
+    "fn": "sum",
+    "id": "pbud",
+    "name": "Projektbudget",
+    "rel": "proj",
+    "rtype": "number",
+    "target": "bud",
+    "type": "rollup"
+   },
+   {
+    "fn": "show",
+    "id": "pnam",
+    "name": "Projektnamen",
+    "rel": "proj",
+    "rtype": "list",
+    "target": "title",
+    "type": "rollup"
+   },
+   {
+    "id": "wer",
+    "multi": true,
+    "name": "Zuständig",
+    "notify": true,
+    "type": "person"
+   },
+   {
+    "id": "anh",
+    "max": 10,
+    "name": "Anhänge",
+    "type": "files"
+   },
+   {
+    "id": "par",
+    "name": "Übergeordnet",
+    "pair": "rd7bec3cc",
+    "role": "parent",
+    "target": 51,
+    "type": "relation"
+   },
+   {
+    "id": "blk",
+    "name": "Blockiert durch",
+    "pair": "rbccbabd5",
+    "role": "blocked_by",
+    "target": 51,
+    "type": "relation"
+   },
+   {
+    "id": "rd7bec3cc",
+    "name": "Unteraufgaben",
+    "pair": "par",
+    "role": "children",
+    "target": 51,
+    "type": "relation"
+   },
+   {
+    "id": "rbccbabd5",
+    "name": "Blockiert",
+    "pair": "blk",
+    "role": "blocking",
+    "target": 51,
+    "type": "relation"
+   }
+  ],
+  "srev": 1,
+  "views": [
+   {
+    "id": "liste",
+    "name": "Liste",
+    "sub": {
+     "mode": "nested",
+     "parent": "par"
+    },
+    "type": "list"
+   },
+   {
+    "colors": [
+     {
+      "color": "red",
+      "op": "gt",
+      "pid": "menge",
+      "value": "2"
+     }
+    ],
+    "group_by": "status",
+    "group_status": true,
+    "id": "board",
+    "name": "Board",
+    "type": "board"
+   },
+   {
+    "group_by": "tag",
+    "id": "wtag",
+    "name": "Nach Tag",
+    "type": "board"
+   },
+   {
+    "date_by": "frist",
+    "id": "woche",
+    "name": "Woche",
+    "range": "week",
+    "type": "calendar"
+   },
+   {
+    "freeze": 2,
+    "id": "tab",
+    "name": "Tabelle",
+    "type": "table",
+    "wrap_cols": [
+     "title"
+    ]
+   },
+   {
+    "filters": [
+     {
+      "op": "next_days",
+      "pid": "frist",
+      "value": "7"
+     }
+    ],
+    "id": "bald",
+    "name": "Bald",
+    "type": "list"
+   },
+   {
+    "date_by": "frist",
+    "id": "zeit",
+    "name": "Zeitleiste",
+    "type": "table"
+   },
+   {
+    "chart": {
+     "agg": "count",
+     "fmt": "num",
+     "series": "wer",
+     "sort": "x",
+     "status": true,
+     "type": "bar",
+     "x": "status",
+     "y": ""
+    },
+    "id": "dia",
+    "name": "Diagramm",
+    "type": "chart"
+   },
+   {
+    "chart": {
+     "agg": "sum",
+     "bucket": "day",
+     "cumulative": true,
+     "fmt": "eur",
+     "goal": 50,
+     "sort": "x",
+     "type": "line",
+     "x": "frist",
+     "y": "summe"
+    },
+    "id": "dia2",
+    "name": "Summe je Monat",
+    "type": "chart"
+   }
+  ]
+ },
+ "templates": [],
+ "total": 5
+}

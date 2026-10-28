@@ -6,7 +6,7 @@ import Foundation
 
 enum WidgetLogic {
     /// Arten der Etappe 1; andere Werte -> Karte "neuere Version noetig"
-    static let kinds: Set<String> = ["clock", "countdown", "progress", "metric", "quote"]
+    static let kinds: Set<String> = ["clock", "countdown", "progress", "metric", "quote", "weather", "habit", "upcoming", "chart"]
 
     enum Size: String { case s, m, l }
     enum Style: String { case card, plain }
@@ -42,7 +42,7 @@ enum WidgetLogic {
     /// nach `pick` - gleiche Auswahl wie im Web); Uhr, Countdown und fester Fortschritt rechnen nur lokal
     static func needsServer(_ b: Block) -> Bool {
         switch b.kind {
-        case "metric", "quote": return true
+        case "metric", "quote", "weather", "habit", "upcoming", "chart": return true
         case "progress": return (b.cfg["src"] as? String) == "db"
         default: return false
         }

@@ -242,7 +242,7 @@ final class PageEditor: ObservableObject {
         let n = max(colCount(a), colCount(b))
         let ad = a["data"] as? NSMutableDictionary ?? NSMutableDictionary()
         let merged = NSMutableArray()
-        for ci in 0..<min(4, n) {
+        for ci in 0..<min(ColumnsLogic.maxColumns, n) {        // 2.5 cols6: bis 6 Spalten (frueher 4 - Inhalt ging verloren)
             let blocks = NSMutableArray()
             if let x = colArray(a, ci) { blocks.addObjects(from: x as! [Any]) }
             if let y = colArray(b, ci) { blocks.addObjects(from: y as! [Any]) }
