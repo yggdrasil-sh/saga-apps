@@ -704,6 +704,7 @@ def test_synced_copy_edit_writes_back_with_src(win, srv):
     assert sent[1]["data"]["src"] == SYNC_PAGE[1]["data"]["src"]                   # src unveraendert gesendet
     assert sent[1]["data"]["blocks"][0]["data"]["text"] == "aus A + hier"
     assert sent[3] == SYNC_PAGE[3] and sent[0]["data"]["blocks"] == SYNC_PAGE[0]["data"]["blocks"]
+    assert "blocks" not in sent[2]["data"] and sent[2]["data"]["src"] == SYNC_PAGE[2]["data"]["src"]   # nur lesen: kein Inhalt
     caps = [h[2].get("X-Saga-Caps") for h in srv.headers_log if h[0] == "PATCH" and h[1].endswith("/api/notes/3")]
     assert "sync1" in caps[-1].split(",")
     assert v.doc.root[1]["data"]["src"]["rev"] == 8

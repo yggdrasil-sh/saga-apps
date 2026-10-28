@@ -552,14 +552,14 @@ class PageDoc:
         self._write_draft()
         b = {"title": self.title_raw, "rev": self.rev}
         if not self.is_database:
-            b["body"] = json.dumps(self.doc, ensure_ascii=False)
+            b["body"] = json.dumps(self._wire_doc(), ensure_ascii=False)
             b["format"] = "blocks"
         if self._overwrite:                                  # "Meine Version behalten": andere Fassung als Version sichern
             b["overwrite"] = True
             self._overwrite = False
         merge = self.can_merge() and not b.get("overwrite")
         caps = MERGE_CAPS if merge else CAPS
-        if store.has("synced1") and not self.is_database:
+        if getattr(self, "_sync_send", False):
             caps += ",sync1"                                 # 2.5 (P6-6): Kopien mit bearbeitetem Inhalt (data.src unveraendert)
         if merge:
             b["merge"] = 1
@@ -779,6 +779,30 @@ class PageDoc:
     def _pull_full(self, done):
         self.base_blocks = None
         self.pull(done)
+
+    def _wire_doc(self):
+        """Was gesendet wird: Kopien synchronisierter Bloecke nur mit Inhalt, wenn sie hier bearbeitbar sind und sich gegen
+        den geladenen Stand geaendert haben (sonst wuerde der Server bei Rolle view/comment bei jedem Speichern 'denied'
+        melden); data.src bleibt unveraendert (Stand src.rev fuer das Durchschreiben)."""
+        self._sync_send = False
+        cps = synced_copies(self.root)
+        if not cps or not store.has("synced1"):
+            return self.doc
+        base = synced_copies(self.base_blocks or [])
+        edited = set()
+        for sid, b in cps.items():
+            old = base.get(sid)
+            if synced_editable(b) and (old is None or json.dumps(old.get("data", {}).get("blocks"), sort_keys=True) !=
+                                       json.dumps(b.get("data", {}).get("blocks"), sort_keys=True)):
+                edited.add(sid)
+        if not edited:
+            return self.doc                                  # keine Kopie bearbeitet: alles unveraendert wie geladen (ohne sync1)
+        self._sync_send = True
+        doc = copy.deepcopy(self.doc)
+        for sid, b in synced_copies(doc.get("blocks") or []).items():
+            if sid not in edited:
+                b["data"].pop("blocks", None)                # nur die bearbeiteten Kopien schreiben durch
+        return doc
 
     def _trashed(self, e):
         """Speichern meldet 404 fuer die eigene Seite (anderswo in den Papierkorb gelegt bzw. geloescht): Stand als Entwurf
