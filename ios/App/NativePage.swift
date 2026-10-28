@@ -1101,13 +1101,13 @@ struct NativePageScreen: View {
         #if os(macOS)
         return WritingLogic.metrics(mac: true, regularWidth: true)
         #else
-        return WritingLogic.metrics(mac: false, regularWidth: pageHSC == .regular)
+        return WritingLogic.metrics(mac: false, regularWidth: WritingLogic.padRegular(pageHSC))
         #endif
     }
     /// Seitenrand: iPad in normaler Breite mehr Weissraum und Platz fuer die Griffe (iPhone/Mac unveraendert)
     private var gutter: CGFloat {
         #if os(iOS)
-        if pageHSC == .regular && !inPeek { return 56 }              // Platz fuer die Griffe (Trackpad) und mehr Weissraum
+        if WritingLogic.padRegular(pageHSC) && !inPeek { return 56 }              // Platz fuer die Griffe (Trackpad) und mehr Weissraum
         #endif
         return pageGutter
     }
@@ -1197,7 +1197,7 @@ struct NativePageScreen: View {
                 .overlayPreferenceValue(BlockFramesKey.self) { frames in if !ed.locked { BlockHandles(frames: frames, hover: ed.hover, wm: writing, small: GestaltenLogic.pageSmall(doc.page)) } }   // Griffe auf Seitenebene
                 #else
                 .overlayPreferenceValue(BlockFramesKey.self) { frames in       // iPad mit Zeiger (normale Breite, nicht im Peek)
-                    if !ed.locked && pageHSC == .regular && !inPeek { BlockHandles(frames: frames, hover: ed.hover, wm: writing, small: GestaltenLogic.pageSmall(doc.page)) }
+                    if !ed.locked && WritingLogic.padRegular(pageHSC) && !inPeek { BlockHandles(frames: frames, hover: ed.hover, wm: writing, small: GestaltenLogic.pageSmall(doc.page)) }
                 }
                 #endif
                 .frame(maxWidth: (doc.page["wide"] as? Bool ?? false) ? .infinity : 760 + 2 * gutter)      // lesbare Spalte (ausser "Volle Breite")

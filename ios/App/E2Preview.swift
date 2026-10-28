@@ -31,7 +31,8 @@ struct E2PreviewView: View {
     @Environment(\.dynamicTypeSize) private var dts
     var body: some View {
         // 2.5 Notion-Gefuehl: dieselben Masse wie die Seite (iPad normale Breite: mehr Luft)
-        let wm = WritingLogic.metrics(mac: false, regularWidth: hsc == .regular)
+        let pad = WritingLogic.padRegular(hsc)
+        let wm = WritingLogic.metrics(mac: false, regularWidth: pad)
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
@@ -55,8 +56,8 @@ struct E2PreviewView: View {
                         }
                     }
                 }
-                .padding(.horizontal, hsc == .regular ? 56 : 16).padding(.vertical, 16)
-                .frame(maxWidth: hsc == .regular ? 760 + 112 : .infinity).frame(maxWidth: .infinity)
+                .padding(.horizontal, pad ? 56 : 16).padding(.vertical, 16)
+                .frame(maxWidth: pad ? 760 + 112 : .infinity).frame(maxWidth: .infinity)
             }
             .navigationTitle(Text(verbatim: E2Preview.mode == "aufgaben" ? "Aufgaben" : ""))
         }

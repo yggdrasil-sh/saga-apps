@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 // Saga 2.5 "Notion-Gefuehl": Schreibflaeche der Seite (Masse aus WritingLogic). Die Seite setzt `writingMetrics`;
 // ausserhalb der Seite (und auf dem iPhone) gilt `standard` - dort bleibt alles wie bisher.
@@ -24,5 +27,16 @@ extension WritingLogic {
     /// Bisherige Textstile (iPhone) fuer Ueberschriften: Ebene 0/1 title, 2 title2, 3 title3, sonst headline
     static func systemHeaderFont(level: Int) -> Font {
         level <= 1 ? .title.bold() : level == 2 ? .title2.bold() : level == 3 ? .title3.bold() : .headline
+    }
+}
+
+extension WritingLogic {
+    /// iPad in normaler Breite. Nur auf dem iPad: grosse iPhones melden quer ebenfalls "regular" und bleiben unveraendert.
+    @MainActor static func padRegular(_ hsc: UserInterfaceSizeClass?) -> Bool {
+        #if os(iOS)
+        return hsc == .regular && UIDevice.current.userInterfaceIdiom == .pad
+        #else
+        return false
+        #endif
     }
 }

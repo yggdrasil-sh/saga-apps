@@ -42,7 +42,7 @@ struct RootView: View {
         #if os(macOS)
         return true
         #else
-        return rootHSC == .regular
+        return WritingLogic.padRegular(rootHSC)
         #endif
     }
 
@@ -560,6 +560,23 @@ struct Sidebar: View {
     static let sharedAnchor = "hk-shared-section"
 }
 
+/// Kopf "Werkzeuge": beobachtet den Chat selbst (Store leitet dessen Aenderungen nicht weiter), damit der Zaehler live bleibt
+private struct ToolsFoldHeader: View {
+    @ObservedObject var chat: ChatModel
+    let expanded: Bool
+    var body: some View {
+        HStack(spacing: 6) {
+            Text("Werkzeuge")
+            let n = SidebarLayout.foldedBadge(expanded: expanded, chatUnread: chat.unread)
+            if n > 0 {
+                Text(verbatim: "\(n)").font(.caption2.bold()).foregroundStyle(Color("OnAccent"))
+                    .padding(.horizontal, 6).padding(.vertical, 1).background(Color.accentColor, in: Capsule())
+                    .accessibilityLabel(Text("Chats"))
+            }
+        }
+    }
+}
+
 /// Listenstil der Seitenleiste: Mac und iPad (normale Breite) `.sidebar`, iPhone wie bisher `.insetGrouped`
 private struct SidebarListStyle: ViewModifier {
     let desk: Bool
@@ -585,17 +602,7 @@ extension Sidebar {
         case .pages: pagesSection
         case .shared: sharedSection
         case .toolsFolded:
-            Section(isExpanded: $toolsOpen) { toolRows } header: {
-                HStack(spacing: 6) {
-                    Text("Werkzeuge")
-                    let n = SidebarLayout.foldedBadge(expanded: toolsOpen, chatUnread: store.chat.unread)
-                    if n > 0 {
-                        Text(verbatim: "\(n)").font(.caption2.bold()).foregroundStyle(Color("OnAccent"))
-                            .padding(.horizontal, 6).padding(.vertical, 1).background(Color.accentColor, in: Capsule())
-                            .accessibilityLabel(Text("Chats"))
-                    }
-                }
-            }
+            Section(isExpanded: $toolsOpen) { toolRows } header: { ToolsFoldHeader(chat: store.chat, expanded: toolsOpen) }
         case .archive: archiveSection
         case .trash: trashSection
         }
