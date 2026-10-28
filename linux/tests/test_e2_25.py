@@ -770,3 +770,55 @@ def test_move_conflict_retry_and_errors(win, srv):
     v.move_blocks(["p1"], 2)
     assert pump(lambda: toasts, 4) and "storage" in toasts[-1]
     srv.move_fail = None
+
+
+# --- 7. Zeitleiste ziehen ---------------------------------------------------------------------------------------------------
+def test_timeline_shift_rules():
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+    from hlidskjalf import dbvalues as dv
+    B = ZoneInfo("Europe/Berlin")
+    assert dv.shift_value("2026-10-28", 2) == "2026-10-30"
+    assert dv.shift_value("2026-10-28/2026-10-30", 1) == "2026-10-29/2026-10-31"
+    assert dv.shift_value("2026-10-28/2026-10-30", 0, end_days=3) == "2026-10-28/2026-11-02"   # Ende ziehen
+    assert dv.shift_value("2026-10-28/2026-10-30", 0, end_days=-5) == "2026-10-28"             # nie vor dem Beginn
+    assert dv.shift_value("2026-10-28", 0, end_days=2) == "2026-10-28/2026-10-30"              # eintaegig -> Zeitraum
+    # mit Uhrzeit: Uhrzeit bleibt, Offset des neuen Tages (Sommerzeit-Ende 25.10.)
+    assert dv.shift_value("2026-10-24T09:30+02:00", 2, viewer=B) == "2026-10-26T09:30+01:00"
+    assert dv.shift_value("2026-10-28T09:00+01:00/2026-10-28T11:00+01:00", 1, viewer=B) == \
+        "2026-10-29T09:00+01:00/2026-10-29T11:00+01:00"
+    sp, ep = {"id": "s", "type": "date"}, {"id": "e", "type": "date"}
+    assert dv.timeline_patch(sp, ep, "2026-10-28", "2026-10-30", 2) == {"s": "2026-10-30", "e": "2026-11-01"}
+    assert dv.timeline_patch(sp, ep, "2026-10-28", "2026-10-30", 2, end_only=True) == {"e": "2026-11-01"}
+    assert dv.timeline_patch(sp, None, "2026-10-28/2026-10-30", None, -1) == {"s": "2026-10-27/2026-10-29"}
+    assert dv.timeline_patch({"id": "c", "type": "created"}, None, "2026-10-28", None, 1) == {}
+    assert dv.timeline_patch(sp, None, "2026-10-28", None, 1, full=False) == {"s": "2026-10-29"}
+    assert dt.date(2026, 10, 28)
+
+
+def test_timeline_drop_patches_both_dates(win, srv):
+    from hlidskjalf.database import DBModel
+    from hlidskjalf.dbviews25 import TimelineView
+    from hlidskjalf.store import store
+    srv.v25 = True
+    srv.extra_features = ["timeline1"]
+    store.check_version()
+    assert pump(lambda: store.has("timeline1"), 4)
+    sc = srv.notes[10]["schema"]
+    sc["props"].append({"id": "en", "name": "Ende", "type": "date"})
+    sc["views"].append({"id": "tl", "name": "Gantt", "type": "timeline", "date_by": "dt", "end_by": "en", "scale": "day"})
+    srv.notes[11]["props"]["en"] = "2026-10-16"
+    m = DBModel(10)
+    m.load()
+    assert pump(lambda: m.rows, 4)
+    view = next(v for v in m.all_views() if v.get("id") == "tl")
+    tv = TimelineView(win, m, view)
+    assert tv.can_drag()
+    r = next(x for x in m.rows if x["id"] == 11)
+    assert tv.drop(r, 3) == {"dt": "2026-10-17", "en": "2026-10-19"}
+    assert pump(lambda: srv.notes[11]["props"].get("dt") == "2026-10-17", 4)
+    idle()
+    assert srv.notes[11]["props"]["en"] == "2026-10-19"
+    p = [b for mm, u, b, c in srv.log if mm == "PATCH" and u.endswith("/api/notes/11")][-1]
+    assert p == {"props": {"dt": "2026-10-17", "en": "2026-10-19"}}                  # ein Aufruf, beide Daten
+    assert tv.drop(r, 2, end_only=True) == {"en": "2026-10-21"}

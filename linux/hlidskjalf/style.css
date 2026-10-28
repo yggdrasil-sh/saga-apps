@@ -476,3 +476,6 @@ window.hk-dark label.hk-pres-orange { color: #f0a35e; } window.hk-dark label.hk-
 window.hk-dark label.hk-pres-green { color: #4fc4a9; } window.hk-dark label.hk-pres-blue { color: #62b4e2; }
 window.hk-dark label.hk-pres-purple { color: #b893e6; } window.hk-dark label.hk-pres-pink { color: #e682bb; }
 window.hk-dark label.hk-pres-red { color: #f28585; }
+/* 2.5 (timeline1): Ende des Balkens ziehen */
+.hk-tl-handle { background: alpha(currentColor, 0.25); border-radius: 0 6px 6px 0; }
+.hk-tl-handle:hover { background: alpha(var(--accent-bg-color), 0.6); }
