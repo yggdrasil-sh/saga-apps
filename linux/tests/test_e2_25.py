@@ -501,3 +501,105 @@ def test_digest_settings(srv):
     g.tm.set_text("6:45")
     g.tm.emit("apply")
     assert pump(lambda: srv.digest["time"] == "06:45", 3)
+
+
+# --- 5. Inline-Formen setzen -------------------------------------------------------------------------------------------------
+def _rtx(html):
+    from hlidskjalf.richtext import RichText
+    rt = RichText(html)
+    return rt, rt.get_buffer()
+
+
+def _sel(buf, a, b):
+    buf.select_range(buf.get_iter_at_offset(a), buf.get_iter_at_offset(b))
+
+
+def test_inline_set_colors_order_and_remove():
+    rt, buf = _rtx("Hallo Welt")
+    _sel(buf, 6, 10)
+    assert rt.set_inline_color("color", "red")
+    assert rt.html() == 'Hallo <span class="hk-c-red">Welt</span>'
+    _sel(buf, 6, 10)
+    rt.set_inline_color("bg", "blue")                                 # span aussen, mark innen
+    assert rt.html() == 'Hallo <span class="hk-c-red"><mark class="hk-bg-blue">Welt</mark></span>'
+    assert rt.inline_colors() == ("red", "blue")
+    _sel(buf, 6, 10)
+    rt.set_inline_color("color", "green")                            # genau eine Farbe je Stelle
+    assert rt.html() == 'Hallo <span class="hk-c-green"><mark class="hk-bg-blue">Welt</mark></span>'
+    _sel(buf, 6, 10)
+    rt.set_inline_color("color", None)
+    assert rt.html() == 'Hallo <mark class="hk-bg-blue">Welt</mark>'
+    _sel(buf, 6, 10)
+    rt.set_inline_color("bg", None)
+    assert rt.html() == "Hallo Welt"
+    _sel(buf, 0, 5)
+    assert not rt.set_inline_color("color", "lila")                  # nur Palette
+    # Teil einer Farbe umfaerben, Fett bleibt
+    rt, buf = _rtx('<span class="hk-c-red">ab <b>cd</b></span>')
+    _sel(buf, 3, 5)
+    rt.set_inline_color("color", "blue")
+    assert rt.html() == '<span class="hk-c-red">ab </span><span class="hk-c-blue"><b>cd</b></span>'
+    # Marker (Gelb) wird durch Hintergrundfarbe ersetzt
+    rt, buf = _rtx('<mark class="cdx-marker">gelb</mark>')
+    _sel(buf, 0, 4)
+    rt.set_inline_color("bg", "pink")
+    assert rt.html() == '<mark class="hk-bg-pink">gelb</mark>'
+
+
+def test_inline_set_results_are_server_clean():
+    """was die App setzt, laesst die Bereinigung des Servers (Vektoren sanitize) unveraendert"""
+    vec = {inp: out for _n, inp, out in _vec("editor_inline.json")["sanitize"]}
+    for kind, c in (("color", "red"), ("bg", "blue")):
+        rt, buf = _rtx("abc")
+        _sel(buf, 0, 3)
+        rt.set_inline_color(kind, c)
+        h = rt.html()
+        assert vec.get(h, h) == h
+    rt, buf = _rtx("x ")
+    buf.place_cursor(buf.get_end_iter())
+    rt.set_math("a<b")
+    assert rt.html() == 'x <code class="hk-math">a&lt;b</code>'
+    assert vec['<code class="hk-math">a&lt;b</code>'] == '<code class="hk-math">a&lt;b</code>'
+
+
+def test_inline_math_edit_and_remove():
+    rt, buf = _rtx('vor <code class="hk-math">x^2</code> nach')
+    buf.place_cursor(buf.get_iter_at_offset(5))
+    rng = rt.math_range()
+    assert rng and buf.get_text(rng[0], rng[1], True) == "x^2"
+    rt.set_math("\\frac{a}{b}", rng)
+    assert rt.html() == 'vor <code class="hk-math">\\frac{a}{b}</code> nach'
+    buf.place_cursor(buf.get_iter_at_offset(6))
+    rt.set_math("", rt.math_range())
+    assert rt.html() == "vor  nach"
+
+
+def test_inline_mention_insert_html():
+    rt, buf = _rtx("Hallo @An")
+    buf.place_cursor(buf.get_end_iter())
+    rt.insert_mention("~abcdefghijklmnop", "Anna Berg", n_chars=3)
+    assert rt.html() == 'Hallo <span class="hk-mention" data-u="~abcdefghijklmnop">Anna Berg</span> '
+    rt, buf = _rtx("")
+    rt.insert_mention('@bob@b.example', "Bob")
+    assert rt.html() == '<span class="hk-mention" data-u="@bob@b.example">Bob</span> '
+
+
+def test_color_picker_ui_and_caps(win, srv):
+    """Farb-Auswahl auf einer Seite: Strg+Umschalt+C auf Auswahl, speichern mit inline2,cols6(,merge1)"""
+    srv.notes[3]["body"] = json.dumps({"blocks": [{"id": "c1", "type": "paragraph", "data": {"text": "Farbe hier"}}]})
+    win.show_root(("page", 3))
+    v = win.current
+    assert pump(lambda: v.doc.fetched and "c1" in v.kit.by_key)
+    rt = v.kit.by_key["c1"]
+    buf = rt.get_buffer()
+    _sel(buf, 0, 5)
+    pop = v.color_popover(rt)
+    pump(None, 0.2)
+    btn = next(b for b in walk(pop) if getattr(b, "hk_color", None) == ("color", "orange"))
+    btn.emit("clicked")
+    v.editor.flush()
+    assert pump(lambda: "hk-c-orange" in srv.notes[3]["body"], 5)
+    idle()
+    assert json.loads(srv.notes[3]["body"])["blocks"][0]["data"]["text"] == '<span class="hk-c-orange">Farbe</span> hier'
+    caps = [h[2].get("X-Saga-Caps") for h in srv.headers_log if h[0] == "PATCH" and h[1].endswith("/api/notes/3")]
+    assert caps[-1].startswith("inline2,cols6")

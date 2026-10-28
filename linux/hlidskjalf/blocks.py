@@ -1402,6 +1402,11 @@ class BlockKit:
             [(_("Turn into"), conv)]
         if isinstance(blk, dict) and blk.get("type") in gestalten.STYLE_TYPES:     # G3: Farbe (Text oder Hintergrund)
             ents.append((_("Color"), self._color_entries(blk)))
+        rt = next((r for k, r in self.order if k.split("/")[0] == bid and not r.raw and r.get_editable()), None)
+        if rt is not None and hasattr(self.view, "color_popover"):      # 2.5: Inline-Formen im Text des Blocks
+            if rt.get_buffer().get_has_selection():
+                ents.append((_("Color of selected text …"), lambda: self.view.color_popover(rt)))
+            ents.append((_("Inline math …"), lambda: self.view.ask_math(rt)))
         ents.append((_("Copy link to block"), lambda: self.view.win.copy_text(f"{settings.server}/notes#{ed.doc.id}:{bid}")))
         if getattr(self.view, "cpanel", None) is not None and "role" in ed.doc.page:     # Server ab 1.3
             ents.append((_("Comment"), lambda: self.view.show_comments(bid)))
@@ -1582,6 +1587,12 @@ class BlockKit:
                 return True
             if not shift and kv == Gdk.KEY_k and not rt.raw and rt.get_buffer().get_has_selection():
                 self.view.ask_link(rt)                         # wie Notion: Strg+K mit Auswahl = Link, sonst Befehlspalette
+                return True
+            if shift and kv in (Gdk.KEY_C, Gdk.KEY_c) and not rt.raw and hasattr(self.view, "color_popover"):
+                self.view.color_popover(rt)                    # 2.5: Text-/Hintergrundfarbe der Auswahl
+                return True
+            if shift and kv in (Gdk.KEY_M, Gdk.KEY_m) and not rt.raw and hasattr(self.view, "ask_math"):
+                self.view.ask_math(rt)                         # 2.5: Inline-Mathe einfuegen/bearbeiten
                 return True
             if shift and kv == Gdk.KEY_Up:
                 ed.move(bid, -1)

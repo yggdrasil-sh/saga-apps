@@ -1600,6 +1600,93 @@ class PageView(Gtk.Box):
         dlg.connect("response", resp)
         dlg.present(self.win)
 
+    # --- 2.5 (P6-8): Inline-Formen setzen ----------------------------------------------------------------------------------
+    def color_popover(self, rt):
+        """Farbauswahl fuer die markierte Stelle: Textfarbe und Hintergrund (Palette), jeweils "Standard" = entfernen"""
+        buf = rt.get_buffer()
+        b = buf.get_selection_bounds()
+        if not b:
+            self.win.toast(_("Select some text first."))
+            return None
+        ms, me = buf.create_mark(None, b[0], True), buf.create_mark(None, b[1], False)
+        fg0, bg0 = rt.inline_colors()
+        from .util import COLOR_NAMES, COLOR_ORDER
+        from .richtext import BC, TC, is_dark
+        pop = Gtk.Popover(has_arrow=True)
+        pop.add_css_class("hk-colorpick")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=8, margin_bottom=8, margin_start=8, margin_end=8)
+
+        def apply(kind, c):
+            buf.select_range(buf.get_iter_at_mark(ms), buf.get_iter_at_mark(me))
+            rt.set_inline_color(kind, c)
+            pop.popdown()
+        for kind, title, cur in (("color", _("Text color"), fg0), ("bg", _("Background"), bg0)):
+            h = Gtk.Label(label=title, xalign=0)
+            h.add_css_class("caption-heading")
+            box.append(h)
+            fb = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=10, min_children_per_line=10,
+                             homogeneous=True, row_spacing=4, column_spacing=4)
+            none = Gtk.Button(label="∅", tooltip_text=_("Default"))
+            none.add_css_class("flat")
+            none.add_css_class("hk-swatch")
+            none.connect("clicked", lambda *_, k=kind: apply(k, None))
+            fb.append(none)
+            for c in COLOR_ORDER:
+                if c not in TC:
+                    continue
+                lb = Gtk.Label(label="A" if kind == "color" else " ")
+                col = TC[c][1 if is_dark() else 0] if kind == "color" else BC[c]
+                lb.set_markup(f'<span foreground="{col}" weight="bold">A</span>' if kind == "color" else
+                              f'<span background="{col}">\u2003</span>')
+                bt = Gtk.Button(child=lb, tooltip_text=COLOR_NAMES.get(c, c))
+                bt.add_css_class("flat")
+                bt.add_css_class("hk-swatch")
+                if c == cur:
+                    bt.add_css_class("hk-sel")
+                bt.hk_color = (kind, c)
+                bt.connect("clicked", lambda *_, k=kind, c=c: apply(k, c))
+                fb.append(bt)
+            box.append(fb)
+        pop.set_child(box)
+        pop.set_parent(rt)
+        pop.set_pointing_to(rt.cursor_rect())
+        pop.connect("closed", lambda p: (buf.delete_mark(ms), buf.delete_mark(me), GLib.idle_add(lambda: (p.unparent(), False)[1])))
+        pop.popup()
+        return pop
+
+    def ask_math(self, rt):
+        """Inline-Mathe einfuegen bzw. (Schreibmarke darin) bearbeiten - Quelltext (TeX)"""
+        rng = rt.math_range()
+        buf = rt.get_buffer()
+        cur = buf.get_text(rng[0], rng[1], True) if rng else (buf.get_text(*buf.get_selection_bounds(), True)
+                                                            if buf.get_has_selection() else "")
+        ms = buf.create_mark(None, rng[0], True) if rng else None
+        me = buf.create_mark(None, rng[1], False) if rng else None
+        dlg = Adw.AlertDialog(heading=_("Inline math"), body=_("TeX source, e.g. a^2 + b^2"))
+        en = Gtk.Entry(text=cur, placeholder_text="\\frac{a}{b}")
+        en.add_css_class("monospace")
+        dlg.set_extra_child(en)
+        dlg.add_response("cancel", _("Cancel"))
+        if rng:
+            dlg.add_response("remove", _("Remove"))
+            dlg.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE)
+        dlg.add_response("set", _("Set"))
+        dlg.set_response_appearance("set", Adw.ResponseAppearance.SUGGESTED)
+        dlg.set_default_response("set")
+        self._math_dlg = dlg
+
+        def done(r, text):
+            if r in ("set", "remove"):
+                rr = (buf.get_iter_at_mark(ms), buf.get_iter_at_mark(me)) if ms else None
+                rt.set_math("" if r == "remove" else text, rr)
+            if ms:
+                buf.delete_mark(ms)
+                buf.delete_mark(me)
+        en.connect("activate", lambda *_: (dlg.close(), done("set", en.get_text())))
+        dlg.connect("response", lambda d, r: done(r, en.get_text()) if r != "close" else None)
+        dlg.present(self.win)
+        return dlg
+
     def remote_blocked(self):
         """Seite einer anderen Saga-Instanz ohne 'upload' (Server 2.1/2.2): keine Uploads - Hinweis statt Dateiauswahl"""
         if not self.rcan("upload"):
