@@ -539,7 +539,7 @@ def test_page_render_and_roundtrip(win, srv):
     want[0]["data"]["text"] += " Ende"
     assert got == want
     caps = [h[2].get("X-Saga-Caps") for h in srv.headers_log if h[0] == "PATCH" and h[1].endswith("/api/notes/3")]
-    assert caps and caps[-1] == "inline2,cols6"
+    assert caps and caps[-1] == "inline2,cols6,merge1"
 
 
 def test_table_cell_edit_keeps_fields(win, srv):

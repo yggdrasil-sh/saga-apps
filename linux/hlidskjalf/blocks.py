@@ -4,7 +4,7 @@ import re
 
 from gi.repository import Gdk, GLib, GObject, Graphene, Gsk, Gtk, Pango
 
-from . import gestalten, images
+from . import gestalten, images, rebase
 from .config import settings
 from .editor import CONVERTIBLE, SLASH_ITEMS, cell_key, make
 from .emoji import EMOJI
@@ -13,6 +13,8 @@ from .i18n import _
 from .richtext import RichText, date_text, find_trigger, inline_safe, parse_date, rel_text
 from .store import is_db, label, store
 from .util import COLOR_NAMES, COLOR_ORDER, decode_entities, esc, human_size, norm, plain
+
+PRESENCE_COLORS = ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red")
 
 TEXT_FIELD = {"paragraph": "text", "header": "text", "quote": "text", "callout": "text"}
 HEADER_CSS = {1: "hk-h1", 2: "hk-h2", 3: "hk-h3", 4: "hk-h4"}
@@ -484,6 +486,10 @@ class BlockRow(Gtk.Box):
         if sc:
             content.add_css_class(sc)
             content.add_css_class("hk-styled")
+        cf = rebase.conflict_info(block)                      # 2.5 (P3): Konfliktblock - gelber Rand, Uebernehmen/Verwerfen
+        if cf is not None:
+            content = self._conflict_box(content, cf)
+        self.presence_lb = None                               # 2.5: "{name} bearbeitet" (Anwesenheit je Block)
         self.append(content)
         # Kommentare (1.3): rechts ein schmaler Platz fuer die Zahl offener Unterhaltungen bzw. 💬+ beim Ueberfahren
         self.cslot = None
@@ -506,6 +512,53 @@ class BlockRow(Gtk.Box):
             dt.connect("leave", lambda *_: self._mark(None))
             dt.connect("drop", self._drop)
             self.add_controller(dt)
+
+    def _conflict_box(self, content, cf):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, hexpand=True)
+        box.add_css_class("hk-conflict")
+        bar = Gtk.Box(spacing=6)
+        name = cf.get("name") if isinstance(cf.get("name"), str) else ""
+        who = _("Version by {name}").format(name=name) if name else _("Other version")
+        lb = Gtk.Label(label="⚠ " + who + " – " + _("changed at the same time"), xalign=0, hexpand=True, wrap=True)
+        lb.add_css_class("hk-conflict-title")
+        bar.append(lb)
+        self.conflict_label = lb
+        if not self.kit.view.editor.locked:
+            take = Gtk.Button(label=_("Accept"), valign=Gtk.Align.CENTER)
+            take.add_css_class("hk-small")
+            take.connect("clicked", lambda *_: self.kit.editor.conflict_resolve(self.bid, True))
+            drop = Gtk.Button(label=_("Discard"), valign=Gtk.Align.CENTER)
+            drop.add_css_class("flat")
+            drop.add_css_class("hk-small")
+            drop.connect("clicked", lambda *_: self.kit.editor.conflict_resolve(self.bid, False))
+            bar.append(take)
+            bar.append(drop)
+            self.conflict_buttons = (take, drop)
+        box.append(bar)
+        box.append(content)
+        return box
+
+    def set_presence(self, users):
+        """Anwesenheit je Block (2.5): farbiger Rand links + "{name} bearbeitet" - nur Hinweis, keine Sperre"""
+        for c in PRESENCE_COLORS:
+            self.remove_css_class("hk-pres-" + c)
+        self.remove_css_class("hk-pres")
+        if self.presence_lb is not None:
+            if self.presence_lb.get_parent() is self:
+                self.remove(self.presence_lb)
+            self.presence_lb = None
+        if not users:
+            self.set_tooltip_text(None)
+            return
+        col = users[0].get("color") if users[0].get("color") in PRESENCE_COLORS else "blue"
+        self.add_css_class("hk-pres")
+        self.add_css_class("hk-pres-" + col)
+        names = [u.get("name") or "" for u in users if u.get("name")]
+        txt = _("{name} is editing").format(name=", ".join(names)) if names else ""
+        lb = Gtk.Label(label=txt, valign=Gtk.Align.START, halign=Gtk.Align.END, css_classes=["hk-pres-label", "hk-pres-" + col])
+        lb.set_can_target(False)
+        self.presence_lb = lb
+        self.append(lb)
 
     def show_handle(self, on):
         (self.handle.add_css_class if on else self.handle.remove_css_class)("hk-on")

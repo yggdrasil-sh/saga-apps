@@ -17,6 +17,13 @@ def init(s):
     s.v25_chart = {}           # (db, view) -> Antwort von .../chart
     s.v25_habit = []           # [(seite, block, body)]
     s.v25_uploads = []         # [(note, name)]
+    # 2.5 (P3): Zusammenfuehren - Basis je (Seite, rev) und eingereichte Fassung; einfache Regeln (genau: Server-Vektoren)
+    s.merge_api = False        # PATCH mit merge: 1 -> merged statt 409
+    s.merge_bases = {}         # (nid, rev) -> Bloecke (Server-Stand)
+    s.merge_sent = {}          # (nid, rev) -> eingereichte Bloecke
+    s.merge_gone = set()       # (nid, rev): Basis "nicht mehr da" -> 409
+    s.merge_log = []           # [(nid, body)]
+    s.since_log = []           # [(nid, since, delta?)]
 
 
 def version(s):
@@ -125,3 +132,111 @@ def handle(s, method, path, parts, q, body):
 
 def as_of():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+
+
+# --- 2.5 (P3): Zusammenfuehren (vereinfachte Regeln wie saga/merge.py fuer die App-Tests) -------------------------------------
+def _blocks(body):
+    try:
+        return json.loads(body or "{}").get("blocks") or []
+    except ValueError:
+        return []
+
+
+def keep_base(s, nid, n):
+    if getattr(s, "merge_api", False) and (n.get("format") or "blocks") == "blocks":
+        s.merge_bases[(nid, n["rev"])] = json.loads(json.dumps(_blocks(n.get("body"))))
+
+
+def _merge(base, mine, theirs, by):
+    bb = {b["id"]: b for b in base}
+    mm = {b["id"]: b for b in mine}
+    tt = {b["id"]: b for b in theirs}
+    info = {"conflicts": [], "restored": [], "lost": []}
+    out = []
+    for b in theirs:
+        i = b["id"]
+        if i in mm:
+            mc = mm[i] != bb.get(i)
+            tc = b != bb.get(i)
+            if mc and tc and mm[i] != b:
+                out.append(b)                              # Ueberschneidung: Server-Fassung bleibt, eigene als Konfliktblock
+                cb = json.loads(json.dumps(mm[i]))
+                cb["id"] = i + "-k"
+                cb.setdefault("tunes", {})["hkconflict"] = dict(by, at=1, of=i)
+                out.append(cb)
+                info["conflicts"].append(cb["id"])
+            else:
+                out.append(mm[i] if mc else b)
+        elif i in bb:
+            if b != bb[i]:
+                out.append(b)                              # geloescht gegen geaendert: Aenderung gewinnt
+                info["restored"].append(i)
+        else:
+            out.append(b)                                  # fremd neu
+    prev = None
+    for b in mine:
+        if b["id"] not in bb and b["id"] not in tt:        # eigen neu: hinter dem Vorgaenger
+            k = next((j + 1 for j, x in enumerate(out) if x["id"] == prev), len(out) if prev else 0)
+            out.insert(k, b)
+        prev = b["id"]
+    return out, info
+
+
+def merge_patch(s, nid, n, body):
+    """PATCH mit merge: 1 und veralteter rev (bzw. base: sent) -> 200 mit merged; Basis fehlt -> None (409 wie bisher)"""
+    if not getattr(s, "merge_api", False) or not body.get("merge") or body.get("rev") is None or "body" not in body:
+        return None
+    want = body["rev"]
+    sent = body.get("base") == "sent"
+    if want == n["rev"] and not sent:
+        s.merge_sent[(nid, want + 1)] = _blocks(body["body"])
+        return None                                        # ganz normal speichern (keep_base danach)
+    s.merge_log.append((nid, dict(body)))
+    if (nid, want) in s.merge_gone:
+        return None
+    base = s.merge_sent.get((nid, want)) if sent else s.merge_bases.get((nid, want))
+    if base is None:
+        return None
+    mine = _blocks(body["body"])
+    doc, info = _merge(base, mine, _blocks(n.get("body")), {"by": "~testtesttesttest", "name": "Test"})
+    n["body"] = json.dumps({"blocks": doc})
+    if "title" in body and body["title"] != n.get("title"):
+        info["title_lost"] = True                          # eigene Fassung gilt
+        n["title"] = body["title"]
+    n["rev"] += 1
+    n["updated"] = time.time()
+    n["updated_by"] = s.me
+    s.merge_sent[(nid, n["rev"])] = mine
+    keep_base(s, nid, n)
+    m = dict(info, **{"from": want})
+    if not m.get("title_lost"):
+        m.pop("title_lost", None)
+    return s._reply(200, {"ok": True, "rev": n["rev"], "updated": n["updated"], "body": n["body"], "format": "blocks",
+                          "title": n.get("title") or "", "merged": m})
+
+
+def since_delta(s, nid, out, q):
+    """GET ?since=<rev>: delta {from, blocks} statt body (unveraenderte Bloecke nur als {"id"})"""
+    if not getattr(s, "merge_api", False) or "since" not in q:
+        return out
+    try:
+        since = int(q["since"])
+    except ValueError:
+        return out
+    base = s.merge_bases.get((nid, since))
+    s.since_log.append((nid, since, base is not None))
+    if base is None or (out.get("format") or "blocks") != "blocks":
+        return out
+    bb = {b["id"]: b for b in base}
+    blocks = [{"id": b["id"]} if bb.get(b["id"]) == b else b for b in _blocks(out.get("body"))]
+    out = dict(out)
+    out.pop("body", None)
+    out["delta"] = {"from": since, "blocks": blocks}
+    return out
+
+
+def enable_merge(s):
+    """Schein-Server kann zusammenfuehren (Antwortform merged); aktuelle Staende als Basis merken"""
+    s.merge_api = True
+    for nid, n in s.notes.items():
+        keep_base(s, nid, n)

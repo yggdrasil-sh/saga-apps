@@ -240,6 +240,8 @@ class PageView(Gtk.Box):
         self.doc.on_copies = lambda: self.update_banners()
         self.doc.on_lost = self._lost
         self.doc.on_trashed = lambda: self._trash_state()
+        self.doc.on_adopted = self._adopted              # 2.5 (P3): fremder Stand blockweise uebernommen
+        self.doc.on_merged = self._merged_hint
         self._shown_trash = False
         self._conflict_dlg = None
         self._conflict_wait = 0                 # Konflikt-Dialog wartet, bis eine Tipp-Pause ist (BUG-027)
@@ -866,6 +868,14 @@ class PageView(Gtk.Box):
         if doc.saving:                                       # eigenes Speichern laeuft: danach neu pruefen
             GLib.timeout_add(1500, lambda: (self.live_changed(d), False)[1])
             return
+        if doc.conflict is None and doc.can_merge():         # 2.5 (P3): blockweise uebernehmen, kein "Neu laden"-Hinweis
+            def pulled(ok):
+                if ok and name and not doc.dirty:
+                    self.win.toast(_("Updated – changed by {name}").format(name=name))
+                elif not ok and not doc.dirty and doc.conflict is None:
+                    doc.load(force=True)
+            doc.pull(pulled)
+            return
         if not doc.dirty and doc.conflict is None:
             old = self.doc.on_loaded
 
@@ -884,6 +894,39 @@ class PageView(Gtk.Box):
             return
         self.changed_banner.set_title(GLib.markup_escape_text(_("{name} changed this page").format(name=name or _("Someone"))))
         self.changed_banner.set_revealed(True)
+
+    def _adopted(self, title_changed):
+        """Stand vom Server blockweise uebernommen (Zusammenfuehren bzw. fremde Aenderung): nur geaenderte Bloecke neu
+        zeichnen; die Schreibmarke bleibt im eigenen Block an derselben Stelle - ohne Fokus wird keiner gesetzt"""
+        ed = self.editor
+        rt = self.kit.by_key.get(ed.focus) if ed.focus else None
+        if rt is not None and rt.is_focus():
+            ed.focus_where = rt.cursor_offset()
+        elif ed.focus and self.kit.cells.get(ed.focus) is None:
+            ed.focus = None
+        self.rebuild_blocks()
+        if title_changed and self.title_rt is not None and not self.title_rt.is_focus():
+            self.title_rt.set_html(self.doc.title_raw)
+            if self.header_changed:
+                self.header_changed()
+
+    def _merged_hint(self, info):
+        """Hinweise nach dem Zusammenfuehren - dezent: Konflikt (beide Fassungen untereinander), lost/title_lost mit Weg
+        zu den Versionen, restored"""
+        if not isinstance(info, dict) or self.win.current is not self and not self.in_peek:
+            return
+        if info.get("conflicts"):
+            self.win.toast(_("Changed at the same time – both versions are shown one below the other."))
+        elif info.get("lost") or info.get("title_lost"):
+            t = Adw.Toast(title=GLib.markup_escape_text(_("Changed at the same time – the other version is in the version history.")),
+                          timeout=6)
+            if allowed(self.doc.page, "versions"):
+                t.set_button_label(_("Versions"))
+                t.connect("button-clicked", lambda *_: self.editor.flush(lambda: self.win.versions_dialog(
+                    self.id, lambda: self.doc.load(force=True))))
+            self.win.toasts.add_toast(t)
+        elif info.get("restored"):
+            self.win.toast(_("A block you deleted was changed by someone else in the meantime and was kept."))
 
     def _reload_from_banner(self):
         self.changed_banner.set_revealed(False)
