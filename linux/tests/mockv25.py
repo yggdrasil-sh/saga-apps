@@ -136,6 +136,8 @@ def handle(s, method, path, parts, q, body):
             w["data"] = d
             s.widget_values[rest[1]] = w
             return s._reply(200, {"widget": w})
+    if len(parts) == 5 and parts[:2] == ["api", "notes"] and parts[3:] == ["blocks", "move"] and method == "POST":
+        return _move(s, int(parts[2]), body)
     if path == "api/files" and method == "POST":
         s.v25_uploads.append((q.get("note"), len(getattr(s, "_raw", b"") or b"")))
         fid = "%024x" % (len(s.v25_uploads) + 0xabc)
@@ -315,3 +317,37 @@ def _tasksrc(s, method, path, parts, q, body):
             s.digest.update({k: body[k] for k in ("on", "time", "tz") if k in body})
         return s._reply(200, dict(s.digest))
     return None
+
+
+# --- 2.5 (P6-4): Bloecke verschieben ------------------------------------------------------------------------------------
+def _move(s, a, b):
+    s.move_log = getattr(s, "move_log", [])
+    s.move_log.append((a, dict(b)))
+    to = b.get("to")
+    if isinstance(to, int) and to < 0:
+        return s._reply(400, {"error": "federated", "federated": True})
+    na, nb = s.notes.get(a), s.notes.get(to)
+    if na is None or nb is None:
+        return s._reply(404, {"error": "not found"})
+    if getattr(s, "move_fail", None):
+        return s._reply(s.move_fail, {"error": "mock", "quota": s.move_fail == 507})
+    if b.get("rev_a") != na["rev"]:
+        return s._reply(409, {"error": "conflict", "rev_a": na["rev"], "rev_b": nb["rev"]})
+    ba, bb = _blocks(na.get("body")), _blocks(nb.get("body"))
+    ids = b.get("ids") or []
+    moved = [x for x in ba if x.get("id") in ids]
+    if not moved:
+        return s._reply(404, {"error": "not found"})
+    ba = [x for x in ba if x.get("id") not in ids]
+    if b.get("after"):
+        k = next((i + 1 for i, x in enumerate(bb) if x.get("id") == b["after"]), None)
+        if k is None:
+            return s._reply(404, {"error": "not found"})
+    else:
+        k = 0 if b.get("at") == "start" else len(bb)
+    bb[k:k] = moved
+    na["body"], nb["body"] = json.dumps({"blocks": ba}), json.dumps({"blocks": bb})
+    na["rev"] += 1
+    nb["rev"] += 1
+    return s._reply(200, {"ok": True, "rev_a": na["rev"], "rev_b": nb["rev"], "ids": [x["id"] for x in moved], "renamed": {},
+                          "files_copied": 0, "unsigned": [], "comments": 0, "updated": time.time()})

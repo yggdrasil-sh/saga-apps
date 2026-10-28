@@ -1654,6 +1654,91 @@ class PageView(Gtk.Box):
         pop.popup()
         return pop
 
+    # --- 2.5 (move1): Bloecke auf eine andere Seite verschieben -------------------------------------------------------------
+    def move_targets(self):
+        """eigene Seiten und geteilte Seiten mit Bearbeiten (keine Datenbanken, nicht diese Seite, nur positive IDs)"""
+        from .sharing import RANK as _R
+        out = [p for p in store.pages if p.get("id") != self.id and not is_db(p) and isinstance(p.get("id"), int) and p["id"] > 0]
+        for p in store.shared:
+            if isinstance(p.get("id"), int) and p["id"] > 0 and p["id"] != self.id and not is_db(p) \
+                    and _R.get(role_of(p), 0) >= _R["edit"]:
+                out.append(p)
+        return out
+
+    def move_blocks_dialog(self, ids):
+        from .dialogs import PagePicker
+        PagePicker(self.win, _("Move to page"), self.move_targets(), lambda to: self.move_blocks(ids, to)).present(self.win)
+
+    def move_blocks(self, ids, to, undo_of=None):
+        """POST /api/notes/{a}/blocks/move {ids, to, rev_a, after?|at} - vorher ungespeicherte Aenderungen speichern; 409 ->
+        neu laden und noch einmal; 403/423/507 verstaendlich melden; danach beide Seiten neu laden, Rueckgaengig anbieten
+        (= Gegenrichtung: alte Seite, alter Vorgaenger bzw. Anfang)"""
+        from .api import APIError, client
+        from .util import bg
+        ed, doc = self.editor, self.doc
+        a = self.id
+        loc = ed.locate(ids[0])
+        if loc is None:
+            return
+        arr, i = loc
+        prev = arr[i - 1]["id"] if i > 0 and isinstance(arr[i - 1], dict) and arr is doc.root else None
+
+        def go(retry=True):
+            body = {"ids": list(ids), "to": to, "rev_a": doc.rev}
+            if undo_of is not None:
+                body.update(undo_of)
+
+            def fin(r):
+                for d in list(store.docs):
+                    if d.id in (a, to) and d.fetched:
+                        d.load(force=True)                  # beide Seiten neu (die offene und ein offenes Ziel)
+                store.drop_cache(f"api/notes/{to}")
+                store.changed_data()
+                if undo_of is not None:
+                    self.win.toast(_("Move undone"))
+                    return
+                back = {"after": prev} if prev else {"at": "start"}
+                moved = (r or {}).get("ids") or list(ids)
+                title = label(store.meta(to) or {"title": ""}) if store.meta(to) else ""
+                t = Adw.Toast(title=GLib.markup_escape_text(
+                    ngettext("Block moved to “{title}”", "{n} blocks moved to “{title}”", len(moved)).format(
+                        n=len(moved), title=title or _("Untitled"))), button_label=_("Undo"), timeout=8)
+                t.connect("button-clicked", lambda *_: self._undo_move(to, moved, a, back))
+                self.win.toasts.add_toast(t)
+
+            def err(e):
+                code = e.code if isinstance(e, APIError) else None
+                if code == 409 and retry:                    # Stand veraltet: neu laden, dann noch einmal
+                    old_cb = doc.on_loaded
+
+                    def again(_d=None):
+                        doc.on_loaded = old_cb
+                        if old_cb:
+                            old_cb(doc)
+                        go(False)
+                    doc.on_loaded = again
+                    doc.load(force=True)
+                    return
+                self.win.toast({403: _("You can’t edit the target page."),
+                                404: _("Page or block not found."),
+                                423: _("The page is locked."),
+                                507: _("Not enough storage space for the files of these blocks.")}.get(
+                    code, _("Not moved: {error}").format(error=e)))
+            bg(client.json, "POST", f"api/notes/{a}/blocks/move", body, done=fin, error=err)
+        ed.flush(go)                                         # erst ungespeicherte Aenderungen speichern (rev_a passt dann)
+
+    def _undo_move(self, b, ids, a, where):
+        from .api import client
+        from .util import bg
+
+        def go(rev_b):
+            body = dict({"ids": ids, "to": a, "rev_a": rev_b}, **where)
+            bg(client.json, "POST", f"api/notes/{b}/blocks/move", body,
+               done=lambda r: (self.doc.load(force=True), self.win.toast(_("Move undone"))),
+               error=lambda e: self.win.toast(_("Not moved: {error}").format(error=e)))
+        bg(client.get, f"api/notes/{b}", done=lambda p: go((p or {}).get("rev") or 0),
+           error=lambda e: self.win.toast(str(e)))
+
     def share_and_mention(self, rt, v, n):
         """Person ohne Zugriff erwaehnen: Rueckfrage, dann Seite teilen (Lesen bzw. Kommentieren) und einfuegen"""
         from .api import client

@@ -716,3 +716,57 @@ def test_synced_copy_edit_writes_back_with_src(win, srv):
     assert pump(lambda: len([1 for m, u, b, c in srv.log if m == "GET" and u.endswith("/api/notes/3")]) > gets, 5)
     srv.patch_extra = None
     idle()
+
+
+# --- 6. Verschieben (move1) ------------------------------------------------------------------------------------------------
+def test_move_block_to_page_and_undo(win, srv):
+    from hlidskjalf.store import store
+    srv.v25 = True
+    store.check_version()
+    assert pump(lambda: store.has("move1"), 4)
+    _three(srv)
+    srv.notes[2]["body"] = json.dumps({"blocks": [{"id": "z1", "type": "paragraph", "data": {"text": "Ziel"}}]})
+    srv.notes[2]["format"] = "blocks"
+    win.show_root(("page", 3))
+    v = win.current
+    assert pump(lambda: v.doc.fetched and "p2" in v.kit.by_key)
+    v.doc.root[0]["data"]["text"] = "ungespeichert"                    # vorher speichern
+    v.editor.text_changed()
+    srv.notes[3]["rev"] += 0
+    assert any(p["id"] == 2 for p in v.move_targets()) and all(p["id"] != 3 for p in v.move_targets())
+    v.move_blocks(["p2"], 2)
+    assert pump(lambda: "Zwei" in srv.notes[2]["body"], 5)
+    idle()
+    assert _texts(_body(srv, 3)) == ["ungespeichert", "Drei"]
+    assert _texts(_body(srv, 2)) == ["Ziel", "Zwei"]
+    a, b = srv.move_log[-1]
+    assert a == 3 and b["ids"] == ["p2"] and b["to"] == 2 and isinstance(b["rev_a"], int)
+    pump(lambda: "p2" not in [x["id"] for x in v.doc.root], 4)
+    # Rueckgaengig: Gegenrichtung hinter den alten Vorgaenger
+    v._undo_move(2, ["p2"], 3, {"after": "p1"})
+    assert pump(lambda: "Zwei" in srv.notes[3]["body"], 5)
+    idle()
+    assert _texts(_body(srv, 3)) == ["ungespeichert", "Zwei", "Drei"]
+    assert srv.move_log[-1] == (2, {"ids": ["p2"], "to": 3, "rev_a": srv.notes[2]["rev"] - 1, "after": "p1"})
+
+
+def test_move_conflict_retry_and_errors(win, srv):
+    from hlidskjalf.store import store
+    srv.v25 = True
+    store.check_version()
+    assert pump(lambda: store.has("move1"), 4)
+    _three(srv)
+    win.show_root(("page", 3))
+    v = win.current
+    assert pump(lambda: v.doc.fetched)
+    srv.notes[3]["rev"] += 1                                         # woanders geaendert -> 409, neu laden, noch einmal
+    v.move_blocks(["p3"], 2)
+    assert pump(lambda: "Drei" in (srv.notes[2].get("body") or ""), 6)
+    idle()
+    assert len([1 for a, b in srv.move_log if a == 3]) == 2
+    toasts = []
+    win.toast = toasts.append
+    srv.move_fail = 507
+    v.move_blocks(["p1"], 2)
+    assert pump(lambda: toasts, 4) and "storage" in toasts[-1]
+    srv.move_fail = None

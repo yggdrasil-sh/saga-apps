@@ -1448,6 +1448,9 @@ class BlockKit:
         ents += self._ai_entries(bid)
         if hasattr(self.view, "copy_block"):
             ents += [(_("Copy block"), lambda: self.view.copy_block(bid)), (_("Cut block"), lambda: self.view.copy_block(bid, cut=True))]
+        if store.has("move1") and hasattr(self.view, "move_blocks_dialog") and isinstance(ed.doc.id, int) and ed.doc.id > 0 \
+                and not getattr(self.view, "remote", False):
+            ents.append((_("Move to another page …"), lambda: self.view.move_blocks_dialog([bid])))   # 2.5 (move1)
         ents += [(_("Duplicate"), lambda: ed.duplicate(bid)), (_("Move up"), lambda: ed.move(bid, -1)),
                  (_("Move down"), lambda: ed.move(bid, 1)), None, (_("Delete"), lambda: ed.delete(bid, undo=True), True)]
         menu_popover(parent, ents).popup()
