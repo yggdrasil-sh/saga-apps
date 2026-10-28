@@ -47,7 +47,8 @@ func db25Tests() {
     // MARK: Dateien
     let anh = q.prop("anh")!
     let files = FilesLogic.files(q.value(anh, byTitle["Planen"]!))
-    check(files.count == 1 && files[0].name == "plan.pdf" && files[0].url.hasPrefix("/files/") && files[0].size == 13, "Datei-Wert")
+    guard files.count == 1 else { check(false, "Datei-Wert gelesen: \(String(describing: q.value(anh, byTitle["Planen"]!)))"); return }
+    check(files[0].name == "plan.pdf" && files[0].url.hasPrefix("/files/") && files[0].size == 13, "Datei-Wert")
     check(FilesLogic.symbol(files[0]) == "doc.richtext", "PDF-Symbol")
     let more = FilesLogic.adding(files, url: "/files/x", name: "b.png", max: 10)!
     check(FilesLogic.stored(more).map { $0.keys.sorted() } == [["name", "url"], ["name", "url"]], "nur url+name speichern")
@@ -94,12 +95,12 @@ func db25Tests() {
     check(DBDate.originalHint("2026-10-27T14:30+01:00", tz: ny) != nil && DBDate.originalHint("2026-10-27T14:30+01:00", tz: berlin) == nil, "Originalzeit-Hinweis")
     check(DBDate.part("2026-02-30") == nil && DBDate.part("2026-10-27T24:00+01:00") == nil && DBDate.part("1800-01-01T10:00+00:00") == nil, "streng wie Server")
     check(DBDate.spans("2026-10-27T23:30+02:00", bkk).map { DBDate.iso($0.0) } == "2026-10-28", "Tag in Bangkok")
-    check(DBDate.stamp(Date(timeIntervalSince1970: 1793107800), tz: berlin) == "2026-10-27T11:10+01:00", "Schreiben mit Offset \(DBDate.stamp(Date(timeIntervalSince1970: 1793107800), tz: berlin))")
-    let d27 = Date(timeIntervalSince1970: 1793107800)                     // 27.10.2026 11:10 Berlin
+    check(DBDate.stamp(Date(timeIntervalSince1970: 1793107800), tz: berlin) == "2026-10-27T14:30+01:00", "Schreiben mit Offset \(DBDate.stamp(Date(timeIntervalSince1970: 1793107800), tz: berlin))")
+    let d27 = Date(timeIntervalSince1970: 1793107800)                     // 27.10.2026 14:30 Berlin
     check(DBDate.compose(start: d27, startTime: false, end: nil, endTime: false, old: "2026-10-27T09:00+01:00", tz: berlin) == "2026-10-27/2026-10-27", "Uhrzeit entfernen = Tag/Tag")
     check(DBDate.compose(start: d27, startTime: false, end: nil, endTime: false, old: "2026-10-27", tz: berlin) == "2026-10-27", "reiner Tag bleibt Tag")
     check(DBDate.compose(start: d27, startTime: false, end: nil, endTime: false, old: "2026-10-25T09:00+01:00", tz: berlin) == "2026-10-27", "anderer Tag: nur Tag")
-    check(DBDate.compose(start: d27, startTime: true, end: d27.addingTimeInterval(3600), endTime: true, old: nil, tz: berlin) == "2026-10-27T11:10+01:00/2026-10-27T12:10+01:00", "Zeitraum mit Uhrzeit")
+    check(DBDate.compose(start: d27, startTime: true, end: d27.addingTimeInterval(3600), endTime: true, old: nil, tz: berlin) == "2026-10-27T14:30+01:00/2026-10-27T15:30+01:00", "Zeitraum mit Uhrzeit")
     check(DBDate.compose(start: d27, startTime: false, end: d27.addingTimeInterval(86400 * 2), endTime: false, old: nil, tz: berlin) == "2026-10-27/2026-10-29", "Zeitraum Tage schreiben")
     let rules = fxObj("date_rules")
     check(rules["day_only"] as? String == "2026-10-27T09:00+01:00" && rules["day_day"] as? String == "2026-10-27", "Server: Tag behaelt Uhrzeit, Tag/Tag entfernt sie")
@@ -183,7 +184,7 @@ func db25Tests() {
 
     // MARK: Zeitleiste und Woche
     let tl = TimelineLogic.bars(q, rows: q.rows, view: ["date_by": "frist"], tz: berlin)
-    check(tl.bars.map(\.title) == ["Planen", "Bauen", "Testen"] && tl.undated.count == 2, "Zeitleiste: Balken + ohne Termin")
+    check(tl.bars.map(\.title) == ["Planen", "Bauen", "Testen"] && tl.undated.count == 2, "Zeitleiste: Balken + ohne Termin \(tl.bars.map(\.title)) \(tl.undated)")
     check(tl.bars[1].end - tl.bars[1].start == 2, "Zeitraum als Balken")
     check(TimelineLogic.byStart(tl.bars).count == 3, "Telefon: nach Start gruppiert")
     let wk = TimelineLogic.week(of: DBDate.days(2026, 10, 29))

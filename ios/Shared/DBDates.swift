@@ -199,6 +199,8 @@ enum DBDate {
     static func jsNum(_ s: String) -> Double? {
         let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
         if t.isEmpty { return 0 }
+        let lo = t.lowercased()                                  // Number("0x10") = 16 (auch 0o/0b)
+        if lo.count > 2, lo.hasPrefix("0x") || lo.hasPrefix("0o") || lo.hasPrefix("0b"), let n = Int(lo.dropFirst(2), radix: lo.hasPrefix("0x") ? 16 : lo.hasPrefix("0o") ? 8 : 2) { return Double(n) }
         guard t.range(of: #"^[+-]?(\d+\.?\d*([eE][+-]?\d+)?|\.\d+([eE][+-]?\d+)?)$"#, options: .regularExpression) != nil, let d = Double(t), d.isFinite else { return nil }
         return d.rounded(.towardZero)
     }

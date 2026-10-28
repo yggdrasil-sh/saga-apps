@@ -65,6 +65,7 @@ func dbHashable(_ v: Any?) -> AnyHashable? {
     case let b as Bool: return b
     case let n as NSNumber: return n.doubleValue
     case let a as [Any]: return a.compactMap { dbHashable($0) } as [AnyHashable]
+    case let d as [String: Any]: return d.compactMapValues { dbHashable($0) } as [String: AnyHashable]   // 2.5: Datei-Werte {url, name, ...}
     default: return nil
     }
 }

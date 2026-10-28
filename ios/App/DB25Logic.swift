@@ -145,8 +145,9 @@ struct DBFile: Equatable, Identifiable {
 enum FilesLogic {
     static func files(_ v: Any?) -> [DBFile] {
         ((v as? [Any]) ?? []).compactMap { x in
-            guard let d = x as? [String: Any], let u = d["url"] as? String, !u.isEmpty else { return nil }
-            return DBFile(url: u, name: (d["name"] as? String) ?? "", size: (d["size"] as? Int) ?? (d["size"] as? Double).map(Int.init),
+            let d: [String: Any]? = (x as? [String: Any]) ?? (x as? [String: AnyHashable]).map { $0.mapValues { $0.base } }
+            guard let d, let u = d["url"] as? String, !u.isEmpty else { return nil }
+            return DBFile(url: u, name: (d["name"] as? String) ?? "", size: (d["size"] as? Int) ?? (d["size"] as? Double).map { Int($0) },
                           mime: d["mime"] as? String, image: d["image"] as? Bool == true)
         }
     }
