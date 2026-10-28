@@ -147,6 +147,9 @@ class PageEditor(
     /** Datenbank-Zeile: Werte der Eigenschaften (null = keine) */
     var props by mutableStateOf<JsonObject?>(null)
         private set
+    /** 2.5: Zeile - Formel-Fehler, Personen-Verzeichnis, "blockiert" (nur gelesen) */
+    var rowMeta by mutableStateOf(io.github.yggdrasil_sh.saga.db.RowMeta())
+        private set
     var parentId by mutableStateOf<Long?>(null)
         private set
     var created: Double? = null
@@ -335,6 +338,7 @@ class PageEditor(
         // lassen sich Status/Datum auf der Seite nie setzen; ob die Elternseite eine Datenbank ist, klaert RowProperties
         parentId = (p["parent_id"] as? JsonPrimitive)?.content?.toLongOrNull()
         props = rowProps(p, parentId)
+        rowMeta = io.github.yggdrasil_sh.saga.db.RowMeta.of(p)
         created = (p["created"] as? JsonPrimitive)?.content?.toDoubleOrNull()
         updatedAt = (p["updated"] as? JsonPrimitive)?.content?.toDoubleOrNull()
         converted = parsed.converted && !body.isNullOrBlank()

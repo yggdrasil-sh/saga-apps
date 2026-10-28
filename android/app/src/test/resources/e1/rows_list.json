@@ -1,0 +1,329 @@
+{
+ "schema": {
+  "props": [
+   {
+    "id": "status",
+    "name": "Status",
+    "type": "select",
+    "options": [
+     {
+      "id": "todo",
+      "name": "Offen",
+      "color": "gray",
+      "group": "todo"
+     },
+     {
+      "id": "wait",
+      "name": "Wartet",
+      "color": "yellow",
+      "group": "todo"
+     },
+     {
+      "id": "doing",
+      "name": "In Arbeit",
+      "color": "blue",
+      "group": "doing"
+     },
+     {
+      "id": "done",
+      "name": "Erledigt",
+      "color": "green",
+      "group": "done"
+     }
+    ],
+    "status": true
+   },
+   {
+    "id": "menge",
+    "name": "Menge",
+    "type": "number"
+   },
+   {
+    "id": "preis",
+    "name": "Preis",
+    "type": "number",
+    "fmt": "euro"
+   },
+   {
+    "id": "summe",
+    "name": "Summe",
+    "type": "formula",
+    "expr": "prop(\"menge\") * prop(\"preis\")",
+    "fmt": "euro",
+    "rtype": "number"
+   },
+   {
+    "id": "quot",
+    "name": "Quote",
+    "type": "formula",
+    "expr": "100 / prop(\"menge\")",
+    "rtype": "number"
+   },
+   {
+    "id": "txt",
+    "name": "Kurz",
+    "type": "formula",
+    "expr": "upper(prop(\"title\"))",
+    "rtype": "text"
+   },
+   {
+    "id": "wann",
+    "name": "Wann",
+    "type": "date",
+    "time": true,
+    "range": true
+   },
+   {
+    "id": "wer",
+    "name": "Zuständig",
+    "type": "person",
+    "multi": true,
+    "notify": true
+   },
+   {
+    "id": "anh",
+    "name": "Anhänge",
+    "type": "files",
+    "max": 10
+   },
+   {
+    "id": "par",
+    "name": "Übergeordnet",
+    "type": "relation",
+    "target": 1,
+    "role": "parent",
+    "pair": "r4c0f497e"
+   },
+   {
+    "id": "blk",
+    "name": "Blockiert durch",
+    "type": "relation",
+    "target": 1,
+    "role": "blocked_by",
+    "pair": "r98835c90"
+   },
+   {
+    "id": "r4c0f497e",
+    "type": "relation",
+    "target": 1,
+    "pair": "par",
+    "name": "Unteraufgaben",
+    "role": "children"
+   },
+   {
+    "id": "r98835c90",
+    "type": "relation",
+    "target": 1,
+    "pair": "blk",
+    "name": "Blockiert",
+    "role": "blocking"
+   }
+  ],
+  "views": [
+   {
+    "id": "t",
+    "name": "Tabelle",
+    "type": "table",
+    "wrap_cols": [
+     "title"
+    ],
+    "freeze": 2
+   },
+   {
+    "id": "b",
+    "name": "Board",
+    "type": "board",
+    "group_by": "status",
+    "group_status": true,
+    "colors": [
+     {
+      "pid": "status",
+      "op": "is",
+      "value": "doing",
+      "color": "blue"
+     }
+    ]
+   },
+   {
+    "id": "l",
+    "name": "Liste",
+    "type": "list",
+    "sub": {
+     "parent": "par",
+     "mode": "nested"
+    }
+   },
+   {
+    "id": "k",
+    "name": "Woche",
+    "type": "calendar",
+    "date_by": "wann",
+    "range": "week"
+   },
+   {
+    "id": "c",
+    "name": "Diagramm",
+    "type": "chart",
+    "chart": {
+     "type": "bar",
+     "x": "status",
+     "agg": "sum",
+     "y": "menge",
+     "sort": "x",
+     "fmt": "num",
+     "status": true
+    }
+   },
+   {
+    "id": "tl",
+    "name": "Zeitleiste",
+    "type": "table",
+    "date_by": "wann"
+   }
+  ],
+  "srev": 1,
+  "_since": {
+   "summe": [
+    1,
+    "667afdc75987"
+   ],
+   "wer": [
+    1,
+    "667afdc75987"
+   ],
+   "quot": [
+    1,
+    "667afdc75987"
+   ],
+   "r4c0f497e": [
+    1,
+    "667afdc75987"
+   ],
+   "par": [
+    1,
+    "667afdc75987"
+   ],
+   "txt": [
+    1,
+    "667afdc75987"
+   ],
+   "blk": [
+    1,
+    "667afdc75987"
+   ],
+   "r98835c90": [
+    1,
+    "667afdc75987"
+   ],
+   "preis": [
+    1,
+    "667afdc75987"
+   ],
+   "anh": [
+    1,
+    "667afdc75987"
+   ],
+   "menge": [
+    1,
+    "667afdc75987"
+   ],
+   "status/wait": [
+    1,
+    "667afdc75987"
+   ],
+   "wann": [
+    1,
+    "667afdc75987"
+   ]
+  }
+ },
+ "templates": [],
+ "rows": [
+  {
+   "id": 2,
+   "title": "Alpha",
+   "icon": "",
+   "props": {
+    "status": "doing",
+    "menge": 3,
+    "preis": 2.5,
+    "wann": "2026-10-27T14:30+01:00/2026-10-27T16:00+01:00",
+    "wer": [
+     "~abcdefghijklmnop"
+    ],
+    "r4c0f497e": [
+     3
+    ],
+    "summe": 7.5,
+    "quot": 33.333333333333336,
+    "txt": "ALPHA"
+   },
+   "updated": 1793147945.3141594,
+   "created": 1793147945.3141594,
+   "preview": "",
+   "depth": 0,
+   "sub_of": null
+  },
+  {
+   "id": 3,
+   "title": "Beta",
+   "icon": "",
+   "props": {
+    "status": "todo",
+    "menge": 0,
+    "wann": "2026-10-28",
+    "par": [
+     2
+    ],
+    "r98835c90": [
+     4
+    ],
+    "txt": "BETA"
+   },
+   "updated": 1793147945.3346434,
+   "created": 1793147945.3346434,
+   "preview": "",
+   "fx_err": {
+    "quot": "num"
+   },
+   "depth": 1,
+   "sub_of": 2
+  },
+  {
+   "id": 4,
+   "title": "Gamma",
+   "icon": "",
+   "props": {
+    "status": "done",
+    "menge": 2,
+    "preis": 4,
+    "wann": "2026-10-27/2026-10-29",
+    "blk": [
+     3
+    ],
+    "summe": 8,
+    "quot": 50,
+    "txt": "GAMMA"
+   },
+   "updated": 1793147945.3467684,
+   "created": 1793147945.3467684,
+   "preview": "",
+   "blocked": true,
+   "depth": 0,
+   "sub_of": null
+  }
+ ],
+ "people": {
+  "~abcdefghijklmnop": {
+   "name": "Anna Berg",
+   "avatar": null,
+   "me": true,
+   "remote": false
+  }
+ },
+ "offset": 0,
+ "limit": 50,
+ "total": 3,
+ "matched": 3,
+ "role": "owner"
+}

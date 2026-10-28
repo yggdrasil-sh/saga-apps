@@ -3,6 +3,15 @@ package io.github.yggdrasil_sh.saga.ui.page
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import io.github.yggdrasil_sh.saga.data.habitCheck
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -79,6 +88,12 @@ import kotlin.math.sin
  * Zurueckkehren in den Vordergrund (force). Der Server merkt sich die Werte selbst 60 s.
  */
 class PageWidgetCache(private val noteId: Long, private val repo: SagaRepository) {
+    /** 2.5 habit1: einen Wert ersetzen (Antwort von .../habit oder lokal umgeschaltet) */
+    fun replace(id: String, v: PageWidgets.Value) {
+        val cur = values as? PageWidgets.Values.Ok ?: return
+        values = PageWidgets.Values.Ok(cur.map + (id to v))
+    }
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var job: Job? = null
     private var at = 0L
@@ -135,6 +150,10 @@ private fun kindName(kind: String): String = when (kind) {
     "progress" -> stringResource(R.string.pw_kind_progress)
     "metric" -> stringResource(R.string.pw_kind_metric)
     "quote" -> stringResource(R.string.pw_kind_quote)
+    "weather" -> stringResource(R.string.e1_kind_weather)
+    "habit" -> stringResource(R.string.e1_kind_habit)
+    "upcoming" -> stringResource(R.string.e1_kind_upcoming)
+    "chart" -> stringResource(R.string.e1_kind_chart)
     else -> stringResource(R.string.pw_kind_widget)
 }
 
@@ -142,7 +161,9 @@ private fun kindName(kind: String): String = when (kind) {
 @Composable
 fun PageWidgetBlock(block: JsonObject, env: BlockEnv) {
     val s = remember(block) { PageWidgets.spec(block) }
-    if (!s.known) {
+    val features by env.repo.serverFeatures.collectAsState()
+    // Etappe-2-Arten nur mit passender Server-Faehigkeit (aeltere Server: "neuere Version noetig")
+    if (!s.known || (s.kind in PageWidgets.KINDS2 && !PageWidgets.supported(s.kind, features) && features.isNotEmpty())) {
         NewerVersionCard(s, env)
         return
     }
@@ -190,6 +211,11 @@ fun PageWidgetBlock(block: JsonObject, env: BlockEnv) {
                 "progress" -> ProgressBody(s, v, sz, accent)
                 "metric" -> MetricBody(s, v, sz, accent)
                 "quote" -> QuoteBody(s, v, sz)
+                "weather" -> WeatherBody(v, sz, accent)
+                "habit" -> HabitBody(s, v, env, accent)
+                "upcoming" -> UpcomingBody(v, env)
+                "chart" -> v?.data?.let { io.github.yggdrasil_sh.saga.ui.database.ChartBlock(io.github.yggdrasil_sh.saga.db.DbChart.parseResult(it), if (s.size == "l") 280.dp else if (s.size == "s") 150.dp else 210.dp, showTable = false) }
+                    ?: ProblemLine(stringResource(R.string.pw_failed))
             }
         }
     }
@@ -202,6 +228,8 @@ private fun errorText(e: PageWidgets.Err): String = stringResource(
         PageWidgets.Err.GONE -> R.string.pw_err_gone
         PageWidgets.Err.BAD_CFG -> R.string.pw_err_bad_cfg
         PageWidgets.Err.TOO_BIG -> R.string.pw_err_too_big
+        PageWidgets.Err.DISABLED -> R.string.e1_weather_disabled
+        PageWidgets.Err.UNAVAILABLE -> R.string.e1_weather_unavailable
         PageWidgets.Err.OTHER -> R.string.pw_failed
     },
 )
@@ -373,4 +401,153 @@ private fun NewerVersionCard(s: PageWidgets.Spec, env: BlockEnv) {
             }) { Text(stringResource(R.string.gest_open_web)) }
         }
     }
+}
+
+
+// ---------------------------------------------------------------- 2.5 Paket 4: Wetter, Gewohnheiten, Anstehendes
+
+@Composable
+private fun WeatherBody(v: PageWidgets.Value?, sz: SizeSpec, accent: Color) {
+    val w = PageWidgets.weather(v?.data)
+    if (w == null) {
+        ProblemLine(stringResource(R.string.e1_weather_unavailable))
+        return
+    }
+    val locale = appLocale()
+    val unit = if (w.imperial) "°F" else "°C"
+    fun t(x: Double?) = x?.let { java.text.NumberFormat.getIntegerInstance(locale).format(Math.round(it)) + "°" } ?: "–"
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text(PageWidgets.weatherEmoji(w.code), style = sz.value())
+        Column {
+            Text((w.now?.let { t(it) } ?: "–") + unit.drop(1), style = sz.value(), color = accent)
+            val sub = listOfNotNull(w.place.ifEmpty { null }, w.wind?.let { java.text.NumberFormat.getIntegerInstance(locale).format(Math.round(it)) + if (w.imperial) " mph" else " km/h" })
+            if (sub.isNotEmpty()) Text(sub.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    if (w.days.size > 1) {
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            w.days.drop(1).forEach { d ->
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(d.day.dayOfWeek.getDisplayName(java.time.format.TextStyle.SHORT, locale), style = MaterialTheme.typography.labelSmall)
+                    Text(PageWidgets.weatherEmoji(d.code))
+                    Text(t(d.max) + " " + t(d.min), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    d.rain?.let { Text("$it %", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+            }
+        }
+    }
+    if (w.stale) Text(stringResource(R.string.e1_weather_stale), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
+    // Pflicht: Quellenangabe (CC BY 4.0)
+    Text(stringResource(R.string.e1_weather_source), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+}
+
+@Composable
+private fun HabitBody(s: PageWidgets.Spec, v: PageWidgets.Value?, env: BlockEnv, accent: Color) {
+    val h = PageWidgets.habits(v?.data)
+    if (h == null || h.habits.isEmpty()) {
+        ProblemLine(stringResource(R.string.pw_err_bad_cfg))
+        return
+    }
+    val locale = appLocale()
+    val scope = rememberCoroutineScope()
+    val id = s.id ?: return
+    val canCheck = h.canCheck
+    var failed by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth()) {
+            Spacer(Modifier.width(90.dp))
+            h.days.takeLast(14).forEach { d ->
+                Text(d.dayOfWeek.getDisplayName(java.time.format.TextStyle.NARROW, locale), style = MaterialTheme.typography.labelSmall,
+                    color = if (d == h.today) accent else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
+        }
+        h.habits.forEach { x ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.width(90.dp)) {
+                    Text(x.name.ifEmpty { x.pid }, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.e1_habit_stats, x.streak, x.pct), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                val shown = h.days.takeLast(14)
+                val offset = h.days.size - shown.size
+                shown.forEachIndexed { j, d ->
+                    val on = x.done.getOrNull(offset + j) == true
+                    val desc = x.name + ", " + d.format(java.time.format.DateTimeFormatter.ofLocalizedDate(java.time.format.FormatStyle.MEDIUM).withLocale(locale)) +
+                        ", " + stringResource(if (on) R.string.dbv_checked else R.string.dbv_unchecked)
+                    Box(Modifier.weight(1f).aspectRatio(1f).padding(2.dp).clip(RoundedCornerShape(4.dp))
+                        .background(if (on) accent else MaterialTheme.colorScheme.surfaceContainerHighest)
+                        .then(if (canCheck) Modifier.clickable(role = androidx.compose.ui.semantics.Role.Checkbox) {
+                            failed = false
+                            val before = v ?: return@clickable
+                            env.widgets.replace(id, before.copy(data = habitsJson(before.data, PageWidgets.habitToggled(h, x.pid, d, !on))))
+                            scope.launch {
+                                try {
+                                    val r = env.repo.habitCheck(env.editor.id, id, PageWidgets.habitBody(x.pid, d, !on))
+                                    PageWidgets.parseSingle(r)?.let { env.widgets.replace(id, it) }
+                                } catch (e: kotlinx.coroutines.CancellationException) {
+                                    throw e
+                                } catch (_: Exception) {
+                                    failed = true
+                                    env.widgets.replace(id, before)
+                                }
+                            }
+                        } else Modifier)
+                        .semantics { contentDescription = desc })
+                }
+            }
+        }
+        if (failed) Text(stringResource(R.string.dbv_not_saved, ""), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+        if (!h.canCheck) Text(stringResource(R.string.e1_habit_readonly), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** lokale Aenderung ins data-JSON zurueck (nur done-Listen), damit das Raster sofort umspringt */
+private fun habitsJson(data: kotlinx.serialization.json.JsonObject?, h: PageWidgets.Habits): kotlinx.serialization.json.JsonObject? {
+    data ?: return null
+    val hs = (data["habits"] as? kotlinx.serialization.json.JsonArray).orEmpty().map { e ->
+        val o = e as? kotlinx.serialization.json.JsonObject ?: return@map e
+        val pid = (o["pid"] as? kotlinx.serialization.json.JsonPrimitive)?.content
+        val x = h.habits.firstOrNull { it.pid == pid } ?: return@map o
+        kotlinx.serialization.json.JsonObject(LinkedHashMap(o).apply { put("done", kotlinx.serialization.json.JsonArray(x.done.map { kotlinx.serialization.json.JsonPrimitive(it) })) })
+    }
+    return kotlinx.serialization.json.JsonObject(LinkedHashMap(data).apply { put("habits", kotlinx.serialization.json.JsonArray(hs)) })
+}
+
+@Composable
+private fun UpcomingBody(v: PageWidgets.Value?, env: BlockEnv) {
+    val u = PageWidgets.upcoming(v?.data)
+    if (u == null) {
+        ProblemLine(stringResource(R.string.pw_failed))
+        return
+    }
+    val locale = appLocale()
+    val today = LocalDate.now()
+    if (u.items.isEmpty()) Text(stringResource(R.string.e1_upcoming_empty), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val timeFmt = remember(locale) { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(locale) }
+    PageWidgets.upcomingGroups(u.items, today).forEach { (k, list) ->
+        Text(
+            when (k) {
+                "overdue" -> stringResource(R.string.e1_overdue)
+                "today" -> stringResource(R.string.e1_today)
+                "tomorrow" -> stringResource(R.string.e1_tomorrow)
+                else -> runCatching { LocalDate.parse(k).format(DateTimeFormatter.ofLocalizedDate(FormatStyle.FULL).withLocale(locale)) }.getOrDefault(k)
+            },
+            style = MaterialTheme.typography.labelLarge, color = if (k == "overdue") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp),
+        )
+        list.forEach { x ->
+            val time = if (x.allday) null else io.github.yggdrasil_sh.saga.db.DbDate.parsePart(x.start)?.localTime(ZoneId.systemDefault())?.format(timeFmt)
+            val icon = when (x.k) { "event" -> "🗓"; "task" -> "☐"; else -> "▪" }
+            Row(
+                Modifier.fillMaxWidth().then(if (x.note != null) Modifier.clickable { env.onLink("/notes#${x.note}") } else Modifier).padding(vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(icon, style = MaterialTheme.typography.bodySmall)
+                if (time != null) Text(time, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(x.title.ifEmpty { "–" }, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                x.cal?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline, maxLines = 1) }
+            }
+        }
+    }
+    if (u.more > 0) Text(stringResource(R.string.e1_upcoming_more, u.more), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    if (u.errors > 0) Text(stringResource(R.string.e1_upcoming_errors), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
 }

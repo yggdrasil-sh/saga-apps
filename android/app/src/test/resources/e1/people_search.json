@@ -1,0 +1,12 @@
+{
+ "people": [
+  {
+   "ref": "~abcdefghijklmnop",
+   "name": "Anna Berg",
+   "avatar": null,
+   "me": true,
+   "remote": false
+  }
+ ],
+ "more": false
+}

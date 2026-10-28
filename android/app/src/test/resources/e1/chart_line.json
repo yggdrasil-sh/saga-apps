@@ -1,0 +1,59 @@
+{
+ "chart": {
+  "type": "line",
+  "x_kind": "date",
+  "cats": [
+   {
+    "key": "2026-10-26",
+    "label": "2026-10-26",
+    "color": null,
+    "start": "2026-10-26"
+   },
+   {
+    "key": "2026-10-27",
+    "label": "2026-10-27",
+    "color": null,
+    "start": "2026-10-27"
+   },
+   {
+    "key": "2026-10-28",
+    "label": "2026-10-28",
+    "color": null,
+    "start": "2026-10-28"
+   }
+  ],
+  "series": [
+   {
+    "key": "true",
+    "label": "Ja",
+    "color": null,
+    "values": [
+     1,
+     1,
+     4
+    ]
+   },
+   {
+    "key": "false",
+    "label": "Nein",
+    "color": null,
+    "values": [
+     0,
+     2,
+     2
+    ]
+   }
+  ],
+  "total": 6,
+  "fmt": "num",
+  "other": 0,
+  "truncated": false,
+  "rows": 3,
+  "goal": 5,
+  "bucket": "day",
+  "cumulative": true,
+  "as_of": "2026-10-28T00:39:21Z"
+ },
+ "view": "c",
+ "error": null
+}

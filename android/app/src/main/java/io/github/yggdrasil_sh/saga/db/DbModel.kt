@@ -326,3 +326,30 @@ data class DbPage(
         )
     }
 }
+
+/** 2.5: Zusatz einer Einzelzeile (GET /api/notes/{zeile}, PATCH-Antwort): fx_err, people, blocked, calc */
+data class RowMeta(
+    val fxErr: Map<String, String> = emptyMap(),
+    val people: Map<String, DbPerson> = emptyMap(),
+    val blocked: Boolean = false,
+) {
+    companion object {
+        fun of(o: JsonObject): RowMeta = RowMeta(
+            (o["fx_err"] as? JsonObject)?.mapNotNull { (k, v) -> v.prim()?.let { k to it } }?.toMap().orEmpty(),
+            DbPerson.map(o["people"]),
+            o.bool("blocked"),
+        )
+
+        /**
+         * PATCH-Antwort: "calc" (Formeln/Rollups, null = leer) und "values" (Personen/Dateien wie gespeichert) in die
+         * Werte uebernehmen - kein Neuladen noetig. Berechnete Werte bleiben nur zur Anzeige.
+         */
+        fun applySaved(props: JsonObject, resp: JsonObject): JsonObject {
+            val m = LinkedHashMap(props)
+            listOf("calc", "values").forEach { k ->
+                (resp[k] as? JsonObject)?.forEach { (pid, v) -> if (v is JsonNull) m.remove(pid) else m[pid] = v }
+            }
+            return JsonObject(m)
+        }
+    }
+}

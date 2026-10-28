@@ -125,6 +125,32 @@ fun rememberDbViewState(dbId: Long, repo: SagaRepository): DbViewState {
     return st
 }
 
+/**
+ * 2.5 P7 Teil B: Zustand einer eingebetteten Datenbank (Block `database`) - Block-Ansichten aus data.views, Startansicht
+ * aus data.view, gemerkte Ansicht je Seite+Block, kleinere Seiten. Live/Aenderungen wie im Vollbild.
+ */
+@Composable
+fun rememberEmbeddedDbState(dbId: Long, repo: SagaRepository, data: kotlinx.serialization.json.JsonObject, pageId: Long, blockId: String): DbViewState {
+    val scope = rememberCoroutineScope()
+    val local = remember(data["views"]) { DbViews.localViews(data) }
+    val key = "db_view_${pageId}_$blockId"
+    val st = remember(dbId, key, local) {
+        val remembered = repo.dbPrefs?.getString(key, null)
+        val blockView = (data["view"] as? JsonPrimitive)?.content
+        // Startansicht: gemerkte, sonst data.view (Ansicht des Blocks bzw. der Datenbank) - fehlt sie, die erste
+        val start = if (local.isNotEmpty()) DbViews.startView(local, remembered, blockView) else remembered ?: blockView
+        DbViewState(dbId, repo, scope, start, embed = DbViewState.Embed(local, key))
+    }
+    LaunchedEffect(st) { st.reload() }
+    LaunchedEffect(st) { repo.dbStore.changes.drop(1).collect { st.onStoreChange(it) } }
+    LaunchedEffect(st) {
+        repo.live.events.collect { ev ->
+            if ((ev.type == "note.changed" && ev.long("id") == dbId) || ev.type == "reset") st.reload(debounce = 500)
+        }
+    }
+    return st
+}
+
 @Composable
 fun viewLabel(type: String): String = stringResource(
     when (type) {
