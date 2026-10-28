@@ -8,6 +8,7 @@ import weakref
 from gi.repository import GLib, Gtk, Pango
 
 from . import pagewidgets as pw
+from .i18n import _
 
 ANALOG_PX = {"s": 64, "m": 96, "l": 132}
 
@@ -72,6 +73,9 @@ class WidgetCard(Gtk.Box):
         col.append(self.notice_lb)
         row.append(col)
         self.append(row)
+        self.extra = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)      # Etappe 2: Wetter, Gewohnheiten, Anstehendes, Diagramm
+        self.append(self.extra)
+        self._extra_key = None
         self.stale_lb = Gtk.Label(xalign=0, wrap=True, visible=False)
         self.stale_lb.add_css_class("caption")
         self.stale_lb.add_css_class("dim-label")
@@ -86,6 +90,9 @@ class WidgetCard(Gtk.Box):
         return pw.present(self.spec, getattr(self.view, "wvalues", None), rnd=random.Random(self._seed))
 
     def redraw(self):
+        if self.spec.stage2:
+            self._redraw2()
+            return
         p = self.present()
         self.shown = p
         title = p["title"] or (pw.kind_label(self.spec.kind) if self.spec.known else "")
@@ -111,6 +118,68 @@ class WidgetCard(Gtk.Box):
         self.stale_lb.set_visible(stale)
         if self.analog is not None:
             self.analog.queue_draw()
+
+    def _redraw2(self):
+        """Wetter/Gewohnheiten/Anstehendes/Diagramm: Inhalt aus W.data (vom Server)"""
+        from . import pwcard2
+        from . import pagewidgets as pwl
+        vals = getattr(self.view, "wvalues", None)
+        w = vals.get(self.spec.id) if vals is not None and self.spec.id else None
+        title = self.spec.title or pwl.kind_label(self.spec.kind)
+        self.title_lb.set_label(title)
+        self.title_lb.set_visible(bool(title))
+        for x in (self.main_lb, self.sub_lb, self.bar):
+            x.set_visible(False)
+        notice = None
+        if w is not None and w.get("error"):
+            notice = pwl.error_text(w["error"])
+        elif w is None or w.get("data") is None:
+            st = vals.state if vals is not None else "none"
+            notice = _("Widget only available on the originating server") if (vals is not None and vals.no2) else pwl._missing(st, w)
+        self.notice_lb.set_label(notice or "")
+        self.notice_lb.set_visible(bool(notice))
+        key = repr((w or {}).get("data")) + repr(notice)
+        if key == self._extra_key:
+            return
+        self._extra_key = key
+        while (c := self.extra.get_first_child()):
+            self.extra.remove(c)
+        if notice:
+            return
+        d = w["data"]
+        k = self.spec.kind
+        if k == "weather":
+            self.extra.append(pwcard2.weather_box(d))
+        elif k == "habit":
+            self.extra.append(pwcard2.habit_box(d, self._habit))           # can_check entscheidet der Server
+        elif k == "upcoming":
+            self.extra.append(pwcard2.upcoming_box(d, open_note=lambda n: self.view.win.show_page(n)))
+        elif k == "chart":
+            self.extra.append(pwcard2.chart_box(d))
+
+    def _habit(self, pid, day, on):
+        """Abhaken: POST .../widgets/{bid}/habit -> neuer Stand des Widgets"""
+        from urllib.parse import quote
+        from .api import client
+        from .push import local_tz
+        from .util import bg
+        from . import pagewidgets as pwl
+        nid = self.view.id
+        path = f"api/notes/{nid}/widgets/{quote(self.spec.id, safe='')}/habit?tz={quote(local_tz(), safe='')}"
+
+        def fin(r):
+            nw = (r or {}).get("widget")
+            vals = getattr(self.view, "wvalues", None)
+            if isinstance(nw, dict) and vals is not None:
+                vals.values[self.spec.id] = pwl.parse_value(nw)
+            self._extra_key = None
+            self.redraw()
+
+        def err(e):
+            self._extra_key = None
+            self.redraw()
+            self.view.win.toast(_("Couldn’t save: {error}").format(error=e))
+        bg(client.json, "POST", path, {"pid": pid, "day": day, "on": bool(on)}, done=fin, error=err)
 
     # --- Ticken (nur Uhr und Countdown, nur sichtbar) -----------------------------------------------------
     def ticking(self):

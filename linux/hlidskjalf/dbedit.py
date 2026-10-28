@@ -16,6 +16,8 @@ DB_TYPES = [("text", _("Text")), ("number", _("Number")), ("select", _("Select")
 CALC_OPS = [("div", "A ÷ B"), ("pct", _("A as percentage of B")), ("mul", "A × B"), ("add", "A + B"), ("sub", "A − B")]
 VIEW_TYPES = [("table", _("Table"), "view-grid-symbolic"), ("board", _("Board"), "view-dual-symbolic"), ("list", _("List"), "view-list-symbolic"),
               ("gallery", _("Gallery"), "view-app-grid-symbolic"), ("calendar", _("Calendar"), "x-office-calendar-symbolic")]
+# 2.5: nur anzeigen (Einrichten im Web): Diagramm und Zeitleiste
+VIEW_TYPES_RO = [("chart", _("Chart"), "saga-graph-symbolic"), ("timeline", _("Timeline"), "view-continuous-symbolic")]
 CALC_NAMES = {"count": _("Count"), "filled": _("Filled"), "empty": _("Empty"), "pct_filled": _("Percent filled"), "unique": _("Unique"),
               "sum": _("Sum"), "avg": _("Average"), "median": _("Median"), "min": _("Minimum"), "max": _("Maximum"), "range": _("Range"),
               "checked": _("Checked"), "unchecked": _("Unchecked"), "pct_checked": _("Percent checked"), "earliest": _("Earliest"), "latest": _("Latest")}
@@ -137,7 +139,7 @@ class ViewBar(Gtk.Box):
         for v in self.dv.views:
             vid = v.get("id")
             bx = Gtk.Box(spacing=5)
-            bx.append(Gtk.Image.new_from_icon_name(next((t[2] for t in VIEW_TYPES if t[0] == v.get("type")), "view-grid-symbolic")))
+            bx.append(Gtk.Image.new_from_icon_name(next((t[2] for t in VIEW_TYPES + VIEW_TYPES_RO if t[0] == v.get("type")), "view-grid-symbolic")))
             bx.append(Gtk.Label(label=v.get("name") or _("View")))
             b = Gtk.ToggleButton(child=bx, active=vid == cur)
             b.add_css_class("flat")
@@ -281,7 +283,12 @@ class ViewSettings(Gtk.Box):
         en = Gtk.Entry(text=v.get("name") or "")
         en.connect("activate", lambda e: setv(lambda d: d.__setitem__("name", e.get_text().strip() or _("View")), False))
         self.append(self._row(_("Name"), en))
-        self.append(self._row(_("Layout"), dropdown([(x[0], x[1]) for x in VIEW_TYPES], t, lambda val: setv(lambda d: d.__setitem__("type", val)))))
+        if t in [x[0] for x in VIEW_TYPES]:
+            self.append(self._row(_("Layout"), dropdown([(x[0], x[1]) for x in VIEW_TYPES], t, lambda val: setv(lambda d: d.__setitem__("type", val)))))
+        else:                                                  # Diagramm/Zeitleiste/neuere Typen: Einrichten im Web
+            lb = Gtk.Label(label=_("Set up this view on the web."), xalign=0, wrap=True)
+            lb.add_css_class("dim-label")
+            self.append(lb)
         if t == "board" and groupables:
             self.append(self._row(_("Group by"), dropdown([(p["id"], p["name"]) for p in groupables], v.get("group_by") or (selects or groupables)[0]["id"],
                                                               lambda val: setv(lambda d: d.__setitem__("group_by", val)))))

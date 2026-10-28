@@ -194,15 +194,67 @@ def viewer_tz():
     return _dt.datetime.now().astimezone().tzinfo
 
 
-def day_span(v, viewer=None):
-    """(erster Tag, letzter Tag) in der Zeitzone des Betrachters oder None"""
-    pr = parse_date(v)
-    if pr is None:
+def _js_num(s):
+    s = (s or "").strip()
+    if s == "":
+        return 0.0
+    try:
+        return float(s) if re.fullmatch(r"[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?", s) else float("nan")
+    except ValueError:
+        return float("nan")
+
+
+def _js_day(s):
+    """wie new Date(+s.slice(0,4), +s.slice(5,7) - 1, +s.slice(8,10)) - Tag oder None (Server _rel_date_day)"""
+    y, m, d = _js_num(s[0:4]), _js_num(s[5:7]) - 1, _js_num(s[8:10])
+    if any(x != x or x in (float("inf"), float("-inf")) for x in (y, m, d)):
         return None
-    viewer = viewer or viewer_tz()
-    a = pr[0].local(viewer)[0]
-    b = pr[1].local(viewer)[0] if pr[1] else a
-    return a, max(a, b)
+    y, m, d = int(y), int(m), int(d)
+    if 0 <= y <= 99:
+        y += 1900
+    y += m // 12
+    m %= 12
+    try:
+        return _dt.date(y, m + 1, 1) + _dt.timedelta(days=d - 1)
+    except (ValueError, OverflowError):
+        return None
+
+
+def _new_form(v):
+    """Neuer Datumswert (mit Uhrzeit+Offset oder mit "/") streng wie der Server, sonst None"""
+    if not isinstance(v, str) or len(v) <= 10:
+        return None
+    ps = v.split("/")
+    if len(ps) > 2 or (len(ps) == 1 and "T" not in v):
+        return None
+    out = []
+    for x in ps:
+        m = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(Z|[+-]\d{2}:\d{2}))?", x)
+        if not m:
+            return None
+        y = int(m.group(1))
+        if m.group(4) is not None and not 1900 <= y <= 9998:
+            return None
+        p = parse_part(x)
+        if p is None or (p.tz is not None and (abs(p.tz.utcoffset(None).total_seconds()) > 18 * 3600 + 59 * 60)):
+            return None
+        out.append(p)
+    return out[0], (out[1] if len(out) == 2 else out[0])
+
+
+def day_span(v, viewer=None):
+    """(erster Tag, letzter Tag) in der Zeitzone des Betrachters oder None - wie der Server (daySpan): neue Werte streng,
+    sonst die ersten 10 Zeichen"""
+    if isinstance(v, (int, float)) and not isinstance(v, bool):
+        v = str(int(v)) if float(v).is_integer() else str(v)
+    if not isinstance(v, str) or not v:
+        return None
+    nf = _new_form(v)
+    if nf is not None:
+        viewer = viewer or viewer_tz()
+        return nf[0].local(viewer)[0], nf[1].local(viewer)[0]
+    d = _js_day(v)
+    return (d, d) if d else None
 
 
 def sort_key(v, viewer=None):
@@ -327,10 +379,7 @@ def _stichtag(val, today):
     if m:
         n = int(m.group(2))
         return today + _dt.timedelta(days=n if m.group(1) == "+" else -n)
-    try:
-        return _dt.date.fromisoformat(s) if len(s) == 10 else None
-    except ValueError:
-        return None
+    return _js_day(s) if re.fullmatch(r"\d{4}-\d{2}-\d{2}", s) else None       # 2026-02-30 -> 2. Maerz (wie das Web)
 
 
 def _count(val):
@@ -391,7 +440,7 @@ def match_day_filter(span, op, val, today):
         return False
     a, b = span
     if w[0] == "win":
-        return a <= w[2] and b >= w[1]
+        return a <= w[2] and b >= w[1]          # beruehrt das Fenster (Start <= Fensterende, Ende >= Fensteranfang)
     if w[0] == "before":
         return a <= w[1]
     if w[0] == "after":

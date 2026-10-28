@@ -185,6 +185,8 @@ class Store(GObject.Object):
         self.server_home, self.fresh = False, {}
         self.server_version = self.min_app = None
         self.features = frozenset()
+        from . import pagewidgets
+        pagewidgets.FEATURES = None
         self.emit("server-changed")
         self.emit("pages-changed")
         self.emit("today-changed")
@@ -813,6 +815,8 @@ class Store(GObject.Object):
                 self.server_version, self.min_app = j.get("version"), j.get("min_app")
                 f = j.get("features")
                 self.features = frozenset(x for x in f if isinstance(x, str)) if isinstance(f, list) else frozenset()
+                from . import pagewidgets
+                pagewidgets.FEATURES = self.features                 # Widgets Etappe 2 nur mit passendem Server
                 self.emit("version-changed")
         bg(client.get, "api/version", done=fin, error=lambda e: None)
 

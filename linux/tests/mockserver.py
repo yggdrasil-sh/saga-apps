@@ -14,6 +14,7 @@ import urllib.parse
 
 import mockv2
 import mockv21
+import mockv25
 import mockki
 
 SERVER = "https://saga.test"
@@ -160,6 +161,7 @@ class MockServer:
         mockv2.init(self)                    # Saga 2.0: Live, Benachrichtigungen, Chat, Push, KI, Foederation
         mockv21.init(self)                   # Saga 2.1: Profilbilder, 2FA-Stand, Anrufe
         mockki.init(self)                    # Saga 2.1: KI-Persona, KI im Chat
+        mockv25.init(self)                   # Saga 2.5: Etappe 1 der Apps (Formeln, Personen, Diagramme ...)
 
     def _graph(self):
         """api/graph wie saga/graph.py: eigene Seiten, Unterseiten-Kanten, Zeilen unter Datenbanken"""
@@ -248,6 +250,8 @@ class MockServer:
 
     def _widget_value(self, bid, d):
         kind, cfg = d.get("kind"), d.get("cfg") if isinstance(d.get("cfg"), dict) else {}
+        if bid in self.widget_values and kind in ("weather", "habit", "upcoming", "chart"):     # 2.5 Etappe 2 (feste Antworten)
+            return dict(self.widget_values[bid])
         if kind not in ("progress", "metric", "quote") or (kind == "progress" and cfg.get("src") != "db"):
             return None
         if bid in self.widget_values:
@@ -358,6 +362,8 @@ class MockServer:
         if path == "app/forget":
             self.forgotten.append((base, (body or {}).get("device_token")))
         if path == "api/version":
+            if self.v25:
+                return self._reply(200, mockv25.version(self))
             return self._reply(200, {"version": self.version, "min_app": "1.0.0"})
         if path == "app/pair":
             if (body or {}).get("code", "").startswith("bad"):
@@ -407,6 +413,9 @@ class MockServer:
 
     def _api(self, method, path, q, body):
         parts = path.split("/")
+        r = mockv25.handle(self, method, path, parts, q, body if isinstance(body, dict) else {})
+        if r is not None:
+            return r
         r = mockv2.handle(self, method, path, parts, q, body if isinstance(body, dict) else {}, getattr(self, "_raw", None))
         if r is not None:
             return r
@@ -452,7 +461,7 @@ class MockServer:
             if rest == ["widgets"] and method == "GET":
                 return self._widgets(n)
             if not rest and method == "GET":
-                out = dict(n)
+                out = mockv25.decorate_note(self, nid, dict(n))
                 if self.publish_api:
                     st = self.pub_state(nid)
                     out.update(published=st["published"], published_via=st["published_via"], public_url=st["url"])
@@ -483,7 +492,10 @@ class MockServer:
                 if content:
                     n["rev"] += 1
                 n["updated"] = time.time()
-                return self._reply(200, {"ok": True, "updated": n["updated"], "rev": n["rev"]})
+                out = {"ok": True, "updated": n["updated"], "rev": n["rev"]}
+                if "props" in body:
+                    out = mockv25.patch_row(self, nid, body, out)
+                return self._reply(200, out)
             if not rest and method == "DELETE":                  # wie der Server: samt Unterseiten in den Papierkorb
                 ids = self._subtree(nid)
                 for i in ids:
@@ -497,7 +509,8 @@ class MockServer:
                 rows = [{"id": r["id"], "title": r["title"], "icon": r.get("icon") or "", "props": r.get("props") or {},
                          "updated": r["updated"], "created": r["created"]} for r in kids if not r.get("template")]
                 tpls = [{"id": r["id"], "title": r["title"], "icon": r.get("icon") or ""} for r in kids if r.get("template")]
-                return self._reply(200, {"schema": n.get("schema") or {"props": []}, "rows": rows, "templates": tpls})
+                return self._reply(200, mockv25.decorate_rows(self, nid, {"schema": n.get("schema") or {"props": []}, "rows": rows,
+                                                                          "templates": tpls}))
             if rest == ["discard"] and method == "POST":
                 return self._discard(nid, self.notes, body or {})
             if rest == ["backlinks"]:

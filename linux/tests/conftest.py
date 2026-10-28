@@ -52,6 +52,9 @@ def srv():
     store._task_deletes = {}
     store.docs = weakref.WeakSet()
     store.server_version = None
+    store.features = frozenset()                          # 2.5: Faehigkeiten des Servers je Test neu
+    from hlidskjalf import pagewidgets as _pw
+    _pw.FEATURES = None
     store.tree_seen = False
     store.fed_shared, store.fed_unreachable = [], []
     store._set_shared([])

@@ -163,6 +163,10 @@ class DBModel(GObject.Object):
                     x[k] = r[k]
             self.rows.append(x)
         self.people = j.get("people") if isinstance(j.get("people"), dict) else {}
+        from .richtext import MENTION_NAMES                       # Erwaehnungen zeigen den aktuellen Namen (nur Anzeige)
+        for k, v in self.people.items():
+            if isinstance(v, dict) and isinstance(v.get("name"), str) and not v.get("gone"):
+                MENTION_NAMES[k] = v["name"]
         self.templates = j.get("templates") or []
 
     def prop(self, pid):
@@ -1563,7 +1567,13 @@ class DatabaseView(Gtk.Box):
         v = self.view
         t = (v or {}).get("type") or "table"
         narrow = 0 < self.get_width() < self.NARROW
-        if t == "board":
+        if t == "chart" and store.has("chart1"):             # 2.5: Diagramm (Server rechnet, Cairo zeichnet)
+            from .dbviews25 import ChartView
+            w = ChartView(self.win, self.m, v)
+        elif t == "timeline":                               # 2.5: Zeitleiste nur lesend
+            from .dbviews25 import TimelineView
+            w = TimelineView(self.win, self.m, v, narrow=narrow)
+        elif t == "board":
             w = BoardView(self.win, self.m, v)
         elif t == "gallery":
             w = GalleryView(self.win, self.m, v)
