@@ -18,6 +18,20 @@ struct ToggleTaskIntent: AppIntent {
     }
 }
 
+/// 2.5: Zeile einer Aufgabenquelle abhaken (POST /api/app/tasks/src/{zeile}/done, gleiche Rechte wie in der App)
+struct ToggleSourceRowIntent: AppIntent {
+    static var title: LocalizedStringResource = "Aufgabe abhaken"
+    static var isDiscoverable = false
+    @Parameter(title: "Zeile") var rowID: Int
+    init() {}
+    init(rowID: Int) { self.rowID = rowID }
+    func perform() async throws -> some IntentResult {
+        WidgetState.markKey("r:\(rowID)")                   // sofort ausblenden
+        do { try await API.rowDone(rowID, done: true) } catch { WidgetState.unmarkKey("r:\(rowID)"); throw error }
+        return .result()
+    }
+}
+
 /// Haekchen-Feld einer Datenbank-Zeile setzen (z. B. "Häkchen" in den ToDos)
 struct CheckRowIntent: AppIntent {
     static var title: LocalizedStringResource = "Häkchen setzen"
@@ -37,6 +51,10 @@ struct CheckRowIntent: AppIntent {
 enum WidgetState {
     private static var store: UserDefaults { AppConfig.store }
     static func markTask(_ id: Int, done: Bool) { var d = tasks(); d[String(id)] = done ? Date().timeIntervalSince1970 : nil; store.set(d, forKey: "w.tasks") }
+    /// 2.5: Eintraege der gemeinsamen Liste ("t:12"/"r:345")
+    static func markKey(_ key: String) { var d = keys(); d[key] = Date().timeIntervalSince1970; store.set(d, forKey: "w.keys") }
+    static func unmarkKey(_ key: String) { var d = keys(); d[key] = nil; store.set(d, forKey: "w.keys") }
+    static func keys() -> [String: Double] { (store.dictionary(forKey: "w.keys") as? [String: Double] ?? [:]).filter { Date().timeIntervalSince1970 - $0.value < 120 } }
     static func tasks() -> [String: Double] { (store.dictionary(forKey: "w.tasks") as? [String: Double] ?? [:]).filter { Date().timeIntervalSince1970 - $0.value < 120 } }
 }
 

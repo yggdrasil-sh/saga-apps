@@ -529,7 +529,7 @@ struct Sidebar: View {
                 }
             } else {
                 Section {
-                    Label("Aufgaben", systemImage: "checklist").badge(store.tasks.count).tag(-1)
+                    Label("Aufgaben", systemImage: "checklist").badge(store.features.has("tasksrc1") ? store.taskItems.count : store.tasks.count).tag(-1)
                     Label("Termine", systemImage: "calendar").tag(-2)
                     Label("Dienste", systemImage: "square.grid.3x3").tag(-3)
                     ChatsSidebarRow(chat: store.chat).tag(FedLogic.chatsTag)
@@ -690,12 +690,28 @@ struct TodaySection: View {
     @State private var editingEvent: CalEvent?
     var body: some View {
         Section {
-            if store.events.isEmpty && store.tasks.isEmpty { Text("Nichts geplant 🎉").foregroundStyle(.secondary) }
+            let src = store.features.has("tasksrc1")              // 2.5: Zeilen aus Aufgabenquellen (Server-Reihenfolge)
+            if store.events.isEmpty && (src ? todayItems.isEmpty : store.tasks.isEmpty) { Text("Nichts geplant 🎉").foregroundStyle(.secondary) }
             ForEach(store.events.prefix(4)) { e in Button { editingEvent = e } label: { EventRow(e: e) }.buttonStyle(.plain) }
-            ForEach(todayTasks) { t in TaskRow(task: t) { editingTask = t } }
+            if src {
+                if let u = store.taskUndo { TaskUndoBar(undo: u) }
+                ForEach(todayItems) { it in
+                    SourceTaskRow(item: it) {
+                        if it.isRow { nav.open(it.id, mode: "side") } else if let t = store.tasks.first(where: { $0.id == it.id }) { editingTask = t }
+                    }
+                }
+            } else {
+                ForEach(todayTasks) { t in TaskRow(task: t) { editingTask = t } }
+            }
         } header: { if header { Text("Heute") } }
         .sheet(item: $editingTask) { t in TaskEditor(task: t).environmentObject(store) }
         .sheet(item: $editingEvent) { e in EventEditor(event: e).environmentObject(store) }
+    }
+    @EnvironmentObject private var nav: NavModel
+    /// 2.5: heute/ueberfaellig + ohne Datum (hoechstens 5) aus der gemeinsamen Liste
+    private var todayItems: [TaskItem] {
+        let today = isoToday()
+        return Array(store.taskItems.filter { t in let d = t.due ?? ""; return d.isEmpty || d <= today }.prefix(5))
     }
     /// Heute/ueberfaellig + ohne Datum (hoechstens 5)
     private var todayTasks: [OpenTask] {

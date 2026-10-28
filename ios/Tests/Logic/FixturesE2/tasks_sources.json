@@ -1,0 +1,1 @@
+{"max": 20, "sources": [{"count": 3, "db": 6, "icon": "☑️", "map": {"assignee": "wer", "done": "st", "done_type": "status", "done_value": "fertig", "due": "fl", "open_value": "neu", "prio": "pr", "prio_values": {"1": "h", "2": "m", "3": "n"}}, "own": true, "role": "owner", "scope": "all", "title": "Projekt Alpha", "truncated": false}]}

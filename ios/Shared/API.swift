@@ -1,11 +1,5 @@
 import Foundation
 
-struct TodayEvent: Codable, Hashable {
-    var summary: String; var start: String; var end: String; var allday: Bool
-    var location: String?; var color: String?; var calendar: String?
-}
-struct TodayTask: Codable, Hashable { var id: Int; var text: String; var due: String?; var prio: Int?; var overdue: Bool? }
-struct TodayData: Codable { var date: String; var events: [TodayEvent]; var tasks: [TodayTask]; var errors: [String?]? }
 struct AppView: Codable, Hashable { var id: String?; var name: String?; var type: String? }
 struct AppPage: Codable, Hashable {
     var id: Int; var title: String; var icon: String; var kind: String; var parent_id: Int?; var views: [AppView]?
@@ -52,7 +46,7 @@ enum API {
     }
 
     static func today() async throws -> TodayData {
-        try JSONDecoder().decode(TodayData.self, from: try await request("api/app/today"))
+        try JSONDecoder().decode(TodayData.self, from: try await request("api/app/today?sources=1"))   // aeltere Server ignorieren sources
     }
 
     // --- Widgets ---
@@ -65,6 +59,12 @@ enum API {
     static func taskDone(_ id: Int, done: Bool) async throws {
         let f = DateFormatter.isoDay()
         _ = try await request("api/app/tasks/\(id)/done", method: "POST", body: ["done": done, "today": f.string(from: .now)])
+    }
+    /// 2.5: Zeile einer Aufgabenquelle abhaken (Antwort mit prev fuer Rueckgaengig)
+    @discardableResult
+    static func rowDone(_ row: Int, done: Bool, value: TaskValue? = nil) async throws -> TaskValue? {
+        let d = try await request("api/app/tasks/src/\(row)/done", method: "POST", body: TaskSourceLogic.doneBody(done: done, value: value))
+        return ((try? JSONSerialization.jsonObject(with: d)) as? [String: Any])?["prev"].map(TaskValue.init)
     }
     static func check(row: Int, pid: String, value: Bool) async throws {
         _ = try await request("api/app/rows/\(row)/check", method: "POST", body: ["pid": pid, "value": value])

@@ -19,6 +19,8 @@ struct TodayProvider: TimelineProvider {
                 var d = try await API.today()
                 let hidden = WidgetState.tasks()                         // gerade abgehakt: nicht mehr zeigen
                 d.tasks.removeAll { hidden[String($0.id)] != nil }
+                let hk = WidgetState.keys()                               // 2.5: Liste mit Quellen
+                d.items?.removeAll { hk[$0.key] != nil || ($0.kind == "task" && hidden[String($0.id)] != nil) }
                 done(TodayEntry(date: .now, data: d, error: nil))
             } catch { done(TodayEntry(date: .now, data: nil, error: error.localizedDescription)) }
         }
@@ -91,7 +93,8 @@ struct TodayWidgetView: View {
                 Text(err).font(.caption).foregroundStyle(.secondary)
             } else if let d = entry.data {
                 let evs = todays(d.events)
-                if evs.isEmpty && d.tasks.isEmpty { Text("Nichts geplant 🎉").font(.caption).foregroundStyle(.secondary) }
+                let rows = WTask.list(d)
+                if evs.isEmpty && rows.isEmpty { Text("Nichts geplant 🎉").font(.caption).foregroundStyle(.secondary) }
                 ForEach(Array(evs.prefix(limit).enumerated()), id: \.offset) { _, x in
                     Link(destination: WLink.events) {
                         HStack(spacing: 6) {
@@ -104,9 +107,10 @@ struct TodayWidgetView: View {
                 }
                 if family != .systemSmall || evs.isEmpty {
                     let n = max(0, limit - min(evs.count, limit) + (family == .systemLarge ? 2 : 0))
-                    ForEach(d.tasks.prefix(n), id: \.id) { t in TaskLine(task: t) }
-                    if d.tasks.count > n && family != .systemSmall {
-                        Link(destination: WLink.tasks) { Text("+ \(d.tasks.count - n) weitere").font(.caption2).foregroundStyle(.secondary) }
+                    ForEach(rows.prefix(n), id: \.key) { t in TaskLine(task: t, source: t.src.flatMap { s in d.sources?.first { $0.db == s } }) }
+                    let rest = rows.count - min(n, rows.count) + (d.more ?? 0)
+                    if rest > 0 && family != .systemSmall {
+                        Link(destination: WLink.tasks) { Text("+ \(rest) weitere").font(.caption2).foregroundStyle(.secondary) }
                     }
                 }
             }
@@ -118,22 +122,41 @@ struct TodayWidgetView: View {
     }
 }
 
+/// Aufgaben des Widgets: 2.5 gemeinsame Liste (items, Server-Reihenfolge), aeltere Server nur Inbox (tasks)
+enum WTask {
+    static func list(_ d: TodayData) -> [TaskItem] {
+        if let it = d.items { return it }
+        return d.tasks.map { TaskItem(key: "t:\($0.id)", kind: "task", id: $0.id, text: $0.text, due: $0.due, prio: $0.prio, overdue: $0.overdue) }
+    }
+}
+
 struct TaskLine: View {
-    let task: TodayTask
+    let task: TaskItem
+    var source: TaskSource? = nil
     var body: some View {
         HStack(spacing: 6) {
-            Button(intent: ToggleTaskIntent(taskID: task.id, done: true)) {        // abhaken, ohne die App zu oeffnen
-                Image(systemName: "circle").font(.caption).foregroundStyle(task.overdue == true ? .red : .secondary)
-                    .frame(width: 18, height: 18).contentShape(Rectangle())
+            Group {
+                if task.isRow {
+                    Button(intent: ToggleSourceRowIntent(rowID: task.id)) { circle }.disabled(task.readOnly)
+                } else {
+                    Button(intent: ToggleTaskIntent(taskID: task.id, done: true)) { circle }      // abhaken, ohne die App zu oeffnen
+                }
             }.buttonStyle(.plain).accessibilityLabel("Erledigt")
-            Link(destination: WLink.tasks) {
+            Link(destination: task.isRow ? WLink.page(task.id) : WLink.tasks) {
                 HStack(spacing: 4) {
+                    if let e = source?.emoji { Text(e).font(.caption2) }
                     Text(task.text).font(.caption).lineLimit(1).privacySensitive()
                     if task.prio == 1 { Text("!").font(.caption2.bold()).foregroundStyle(.orange) }
                     Spacer(minLength: 0)
+                    if let t = task.time { Text(t).font(.caption2).foregroundStyle(.secondary) }
                 }
             }
         }
+    }
+    private var circle: some View {
+        Image(systemName: "circle").font(.caption)
+            .foregroundStyle(task.readOnly ? Color.secondary.opacity(0.35) : task.overdue == true ? .red : .secondary)
+            .frame(width: 18, height: 18).contentShape(Rectangle())
     }
 }
 
@@ -152,7 +175,9 @@ struct TodayWidget: Widget {
 struct LockWidgetView: View {
     @Environment(\.widgetFamily) private var family
     let entry: TodayEntry
-    private var tasks: [TodayTask] { entry.data?.tasks ?? [] }
+    private var tasks: [TaskItem] { entry.data.map(WTask.list) ?? [] }
+    /// alle offenen (2.5: hoechstens 20 geliefert + more)
+    private var total: Int { tasks.count + (entry.data?.more ?? 0) }
     private var overdue: Int { tasks.filter { $0.overdue == true }.count }
     private var next: (when: String, ev: TodayEvent)? { nextEvent(entry.data?.events ?? [], now: entry.date) }
 
@@ -164,13 +189,13 @@ struct LockWidgetView: View {
                     AccessoryWidgetBackground()
                     VStack(spacing: 0) {
                         Image(systemName: overdue > 0 ? "exclamationmark.circle" : "checklist").font(.caption)
-                        Text("\(tasks.count)").font(.title3.weight(.semibold)).minimumScaleFactor(0.6)
+                        Text("\(total)").font(.title3.weight(.semibold)).minimumScaleFactor(0.6)
                     }
                 }
                 .widgetURL(WLink.tasks)
             case .accessoryInline:
                 if let n = next { Text(verbatim: "📅 " + (n.when == wToday ? "" : n.when + " ") + n.ev.summary).privacySensitive() }
-                else { Text("✓ \(tasks.count) Aufgaben offen") }
+                else { Text("✓ \(total) Aufgaben offen") }
             default:            // Rechteck
                 VStack(alignment: .leading, spacing: 1) {
                     if let n = next {
@@ -180,7 +205,7 @@ struct LockWidgetView: View {
                     } else {
                         Text("Keine Termine").font(.headline).widgetAccentable()
                     }
-                    Text(tasks.isEmpty ? String(localized: "Alles erledigt") : String(localized: "\(tasks.count) Aufgaben") + (overdue > 0 ? " · " + String(localized: "\(overdue) überfällig") : ""))
+                    Text(tasks.isEmpty ? String(localized: "Alles erledigt") : String(localized: "\(total) Aufgaben") + (overdue > 0 ? " · " + String(localized: "\(overdue) überfällig") : ""))
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

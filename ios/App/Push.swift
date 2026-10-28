@@ -345,6 +345,7 @@ struct PushSettingsSection: View {
         case "publish": return String(localized: "Veröffentlichung: ein Admin zieht etwas zurück")
         case "call": return String(localized: "Anrufe")
         case "admin": return String(localized: "Admin: Backups des Servers fehlgeschlagen")
+        case "tasks": return String(localized: "Aufgaben heute fällig oder überfällig")
         default: return c
         }
     }

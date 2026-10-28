@@ -780,6 +780,7 @@ struct NativePageScreen: View {
     @State private var presenceOff = false               // 404/aelterer Server: nicht mehr senden
     @State private var presenceThrottle = PresenceThrottle()   // 2.5: Blockwechsel hoechstens 1x/s melden
     @State private var presenceTask: Task<Void, Never>?
+    @State private var taskSrcAsk = false                // 2.5: "Als Aufgabenquelle verwenden …"
     @State private var assistant: AssistantLaunch?       // KI-Assistent (1.6)
     /// Editor-Tastaturleiste nur, solange ein Seitenblock bearbeitet wird und kein Blatt mit eigenem Textfeld offen ist
     private var editorKeyboard: Bool {
@@ -873,6 +874,9 @@ struct NativePageScreen: View {
                         if a.allows(.share) && doc.fetched {
                             Button { Task { await ed.flush(); sharing = true } } label: { Label("Teilen …", systemImage: a.shared ? "person.2.fill" : "person.2") }
                         }
+                    }
+                    if doc.isDatabase && !a.remote && doc.fetched && store.features.has("tasksrc1") {   // 2.5: Aufgabenquelle abonnieren
+                        Button { taskSrcAsk = true } label: { Label("Als Aufgabenquelle verwenden …", systemImage: "checklist") }
                     }
                     if !a.remote && doc.fetched && store.graphSupported {     // 2.5: Nachbarschaft der Seite (nur Seiten dieses Servers)
                         Button { localGraph = true } label: { Label { Text("Lokaler Graph", tableName: "Graph") } icon: { Image(systemName: "point.3.connected.trianglepath.dotted") } }
@@ -1362,6 +1366,7 @@ struct NativePageScreen: View {
                 .environmentObject(store)
         }
         .modifier(SaveGuard(doc: doc, ed: ed))
+        .modifier(TaskSourceAsk(db: id, trigger: $taskSrcAsk))
         // gesperrt (Eigentuemer) oder Rolle Lesen/Kommentieren: schreibgeschuetzt, ohne Platzhalter und Griffe
         .onChange(of: pageLocked || doc.access.readOnly, initial: true) { _, v in ed.locked = v; if v { ed.focus = nil } }
         .onChange(of: doc.access, initial: true) { _, a in ed.applyAccess(a) }

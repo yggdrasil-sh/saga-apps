@@ -68,6 +68,13 @@ final class Store: ObservableObject {
     @Published var linkError: String?
     @Published var tasks: [OpenTask] = []
     @Published var doneTasks: [OpenTask] = []
+    /// 2.5 Aufgabenquellen (tasksrc1): gemeinsame Liste (Server-Reihenfolge), Quellen, Personen; leer = wie bisher
+    @Published var taskItems: [TaskItem] = []
+    @Published var taskSources: [TaskSource] = []
+    @Published var taskPeople: [String: TaskPerson] = [:]
+    /// Abgehakt mit Rueckgaengig (Schluessel, Wert vorher) - kurzer Hinweis in der Liste
+    @Published var taskUndo: TaskUndo?
+    var taskQueue = TaskQueue()
     @Published var events: [CalEvent] = []
     @Published var recent: [Int] = UserDefaults.standard.array(forKey: "recent") as? [Int] ?? []
     private var cookieHeader: [String: String]?
@@ -502,9 +509,17 @@ final class Store: ObservableObject {
 
     func loadToday() async {
         struct T: Decodable { let open: [OpenTask]; let done: [OpenTask]? }
-        if let d = try? await api("api/tasks"), let t = try? JSONDecoder().decode(T.self, from: d) {
+        let src = features.has("tasksrc1")                       // 2.5: Zeilen aus Aufgabenquellen dazu
+        if src { await flushTaskQueue() }
+        let path = src ? TaskSourceLogic.listPath(today: DateFormatter.isoDay().string(from: .now), tz: TimeZone.current.identifier) : "api/tasks"
+        if let d = try? await api(path), let t = try? JSONDecoder().decode(T.self, from: d) {
             if tasks != t.open { tasks = t.open }
             if doneTasks != (t.done ?? []) { doneTasks = t.done ?? [] }
+            let s = src ? (try? JSONDecoder().decode(TaskSourcesList.self, from: d)) : nil
+            let items = applyQueue(s?.items ?? [])
+            if taskItems != items { taskItems = items }
+            if taskSources != (s?.sources ?? []) { taskSources = s?.sources ?? [] }
+            if taskPeople != (s?.people ?? [:]) { taskPeople = s?.people ?? [:] }
         }
         if events.isEmpty, let c = cachedEvents(days: 1), !c.isEmpty { events = c }   // sofort anzeigen
         if let e = await self.events(days: 1), e != events { events = e }            // Fehler: bisherigen Stand behalten

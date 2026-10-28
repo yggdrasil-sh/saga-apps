@@ -15,6 +15,10 @@ struct TaskListView: View {
     @State private var showDone = false
     @EnvironmentObject private var nav: NavModel
     @FocusState private var adding: Bool
+    @State private var target: Int?                     // 2.5: Ziel neuer Aufgaben (nil = Inbox)
+    @State private var managing = false                 // 2.5: Quellen verwalten
+    /// 2.5 tasksrc1: gemeinsame Liste aus Inbox und Quellen in Server-Reihenfolge
+    private var withSources: Bool { store.features.has("tasksrc1") }
 
     private var groups: [(String, [OpenTask])] {
         let today = dayKey(.now), tomorrow = dayKey(Calendar.current.date(byAdding: .day, value: 1, to: .now)!)
@@ -29,19 +33,38 @@ struct TaskListView: View {
             HStack(spacing: 8) {
                 Image(systemName: "plus").foregroundStyle(.secondary)
                 TextField("Neue Aufgabe …", text: $newText).textFieldStyle(.plain).focused($adding)
-                    .onSubmit { let t = newText.trimmingCharacters(in: .whitespaces); newText = ""; if !t.isEmpty { Task { await store.addTask(t) } } }
+                    .onSubmit {
+                        let t = newText.trimmingCharacters(in: .whitespaces); newText = ""
+                        if !t.isEmpty { Task { if withSources { await store.addTask(t, src: target) } else { await store.addTask(t) } } }
+                    }
                     .task(id: nav.wantQuickAdd) {                        // Widget "+ Aufgabe": Eingabe sofort bereit
                         guard nav.wantQuickAdd, !compact else { return }
                         nav.wantQuickAdd = false
                         try? await Task.sleep(for: .milliseconds(350)); adding = true
                     }
             }
+            .overlay(alignment: .trailing) {
+                if withSources && !TaskSourceLogic.targets(store.taskSources).isEmpty { TaskTargetMenu(target: $target, sources: TaskSourceLogic.targets(store.taskSources)) }
+            }
             .padding(.vertical, 6)
+            if let u = store.taskUndo { TaskUndoBar(undo: u) }
+            if withSources {
+                if store.taskItems.isEmpty { Text("Alles erledigt 🎉").foregroundStyle(.secondary).padding(.vertical, 4) }
+                ForEach(compact ? Array(store.taskItems.prefix(12)) : store.taskItems) { it in
+                    SourceTaskRow(item: it) {
+                        if it.isRow { nav.open(it.id, mode: "side") } else if let t = store.tasks.first(where: { $0.id == it.id }) { editing = t }
+                    }
+                }
+                if !compact {
+                    Button { managing = true } label: { Label("Aufgabenquellen …", systemImage: "tray.2") }.font(.caption).buttonStyle(.borderless).padding(.top, 6)
+                }
+            } else {
             if store.tasks.isEmpty { Text("Alles erledigt 🎉").foregroundStyle(.secondary).padding(.vertical, 4) }
-            ForEach(groups, id: \.0) { g in
+            }
+            if !withSources { ForEach(groups, id: \.0) { g in
                 if !compact || groups.count > 1 { Text(g.0).font(.caption.weight(.semibold)).foregroundStyle(g.0 == String(localized: "Überfällig") ? .red : .secondary).padding(.top, 6) }
                 ForEach(g.1) { t in TaskRow(task: t) { editing = t } }
-            }
+            } }
             if !store.doneTasks.isEmpty {
                 Button { withAnimation { showDone.toggle() } } label: {
                     Label("\(store.doneTasks.count) erledigt", systemImage: showDone ? "chevron.down" : "chevron.right").font(.caption)
@@ -50,6 +73,7 @@ struct TaskListView: View {
             }
         }
         .sheet(item: $editing) { t in TaskEditor(task: t) }
+        .sheet(isPresented: $managing) { TaskSourcesSheet().environmentObject(store).environmentObject(nav) }
     }
 }
 

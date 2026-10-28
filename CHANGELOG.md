@@ -18,6 +18,14 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   wenn deren Server `merge1` kann; sonst und bei älteren Servern der bisherige Dialog. Kopf `X-Saga-Caps: merge1`.
 - **Anwesenheit je Block:** der fokussierte Block wird mitgemeldet (höchstens 1×/s); Blöcke, die jemand anderes
   bearbeitet, bekommen einen farbigen Rand links und „{Name} bearbeitet“ (nur Hinweis).
+- **Aufgabenquellen** (`tasksrc1`): Aufgabenliste, „Heute“ und Seitenleisten-Zähler zeigen Inbox und abonnierte
+  Datenbank-Zeilen in der Reihenfolge des Servers – mit Quelle, Datum/Uhrzeit/Zeitraum, Priorität und Zugewiesenen
+  (Namen aus `people`); nur lesbare Zeilen mit ausgegrautem Haken. Abhaken mit „Rückgängig“ (stellt den Wert davor
+  wieder her, z. B. „Läuft“), neue Aufgabe mit Ziel (Inbox oder Quelle), „Aufgabenquellen …“ (alle/mir zugewiesene,
+  Abo entfernen), im Datenbank-Menü „Als Aufgabenquelle verwenden …“ (ohne Zuordnung: Hinweis aufs Web).
+  **Offline-Warteschlange** je Eintrag (letzte Aktion gewinnt, 403/404/400 verwerfen, danach neu laden).
+  Widgets „Heute“ und Sperrbildschirm lesen `/api/app/today?sources=1` und haken Zeilen direkt im Widget ab.
+  Einstellungen: **Tägliche Zusammenfassung** (`taskdue1`) mit Uhrzeit; Mitteilungs-Kategorie „Aufgaben“.
 
 ### Neu – iOS/Mac: Datenbanken, Diagramme, Widgets und Inline-Formen (Saga-Server 2.5, App-Runde Etappe 1)
 Alles nur, wenn der Server die jeweilige Fähigkeit meldet (`/api/version` → `features`); ältere Server: wie bisher.
