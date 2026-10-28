@@ -488,7 +488,7 @@ final class PageDoc: ObservableObject {
         // "Meine Version behalten": ohne Revision, mit overwrite - der Server sichert die andere Fassung als Version
         if overwriteNext { b["overwrite"] = true }
         else { b.merge(MergeLogic.patchFields(rev: merge ? (draftBase ?? rev) : rev, merge: merge, baseSent: baseSentNext && draftBase == nil)) { $1 } }
-        if !isDatabase { b["body"] = body; b["format"] = "blocks" }
+        if !isDatabase { b["body"] = SyncedLogic.wireBody(body); b["format"] = "blocks" }   // nur lesbare Kopien ohne Inhalt (sonst "denied")
         do {
             let (r, code) = try await store.apiResponse("api/notes/\(id)", method: "PATCH", body: b, headers: SagaCaps.headers)
             guard (200..<300).contains(code) else {

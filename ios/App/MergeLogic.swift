@@ -246,6 +246,32 @@ enum SyncedLogic {
         default: return String(localized: "Synchronisierter Block: das Original wurde inzwischen geändert – neu geladen.")
         }
     }
+    /// Was gesendet wird: Kopien, die hier nicht bearbeitbar sind (Rolle view/comment, gone, ohne src.rev), ohne
+    /// eingesetzten Inhalt - sonst meldet der Server bei jedem Speichern "denied" (Hinweis + Neuladen). Bearbeitbare
+    /// Kopien und Originale bleiben unveraendert (unveraenderter Inhalt -> "ok").
+    static func wireBody(_ body: String) -> String {
+        guard body.contains("\"synced\""), let d = body.data(using: .utf8),
+              let m = try? JSONSerialization.jsonObject(with: d, options: .mutableContainers) as? NSMutableDictionary,
+              let root = m["blocks"] as? NSMutableArray else { return body }
+        var n = 0
+        func walk(_ arr: NSArray) {
+            for case let b as NSMutableDictionary in arr {
+                let dd = b["data"] as? NSMutableDictionary
+                if b["type"] as? String == "synced", let dd, dd["blocks"] != nil {
+                    switch kind(dd) {
+                    case .original, .copy(editable: true): break
+                    case .unknown: break
+                    default: dd.removeObject(forKey: "blocks"); n += 1; continue
+                    }
+                }
+                if let inner = dd?["blocks"] as? NSArray { walk(inner) }
+                if let cols = dd?["cols"] as? NSArray { for c in cols { if let inner = (c as? NSDictionary)?["blocks"] as? NSArray { walk(inner) } } }
+            }
+        }
+        walk(root)
+        guard n > 0, let out = try? JSONSerialization.data(withJSONObject: m), let s = String(data: out, encoding: .utf8) else { return body }
+        return s
+    }
     /// synced_rev als src.rev in die Kopien uebernehmen (alle Ebenen); gibt die Zahl der aktualisierten Kopien zurueck
     @discardableResult
     static func adoptRevs(_ revs: [String: Int], in arr: NSArray) -> Int {

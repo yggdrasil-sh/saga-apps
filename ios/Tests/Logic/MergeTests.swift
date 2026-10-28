@@ -143,6 +143,14 @@ func syncedTests() {
     check(SyncedLogic.result(["synced": ["a": "stale"]]) == .reload("stale") && SyncedLogic.result(["synced": ["a": "ok", "b": "locked"]]) == .reload("locked"), "stale/locked -> neu laden")
     check(SyncedLogic.result(["synced": ["a": "merged"], "synced_rev": ["a": 5]]) == .ok(["a": 5]) && SyncedLogic.result(["ok": true]) == .none, "merged wie ok; ohne synced nichts")
     check(SagaCaps.all.contains("sync1"), "sync1 im Kopf")
+    // Gesendet: nur lesbare Kopie (view) ohne Inhalt (sonst "denied" bei jedem Speichern); Original/bearbeitbare Kopie unveraendert
+    let ro = "{\"blocks\":[{\"id\":\"k\",\"type\":\"synced\",\"data\":{\"sid\":\"abcdefghijklmnop\",\"blocks\":[{\"id\":\"i\",\"type\":\"paragraph\",\"data\":{\"text\":\"t\"}}],\"src\":{\"note\":6,\"block\":\"o\",\"role\":\"view\",\"rev\":1}}}]}"
+    let rob = MergeLogic.blocks(ofBody: SyncedLogic.wireBody(ro))
+    check(((rob?.firstObject as? NSDictionary)?["data"] as? NSDictionary)?["blocks"] == nil && ((rob?.firstObject as? NSDictionary)?["data"] as? NSDictionary)?["sid"] as? String == "abcdefghijklmnop", "nur lesbare Kopie ohne Inhalt gesendet")
+    let edBody = String(data: try! JSONSerialization.data(withJSONObject: ["blocks": blocks("synced_copy.json")]), encoding: .utf8)!
+    check(SyncedLogic.wireBody(edBody) == edBody, "bearbeitbare Kopie unveraendert gesendet")
+    let sameBody = String(data: try! JSONSerialization.data(withJSONObject: ["blocks": same]), encoding: .utf8)!
+    check(SyncedLogic.wireBody(sameBody) == sameBody, "Original unveraendert gesendet")
 }
 
 // Bloecke verschieben (move1): Aufruf, Rueckgaengig (Gegenrichtung), Fehlercodes, Ziele
