@@ -9,6 +9,23 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – Android: Gleichzeitig bearbeiten, Aufgabenquellen, Editor-Rest (Saga-Server 2.5, App-Runde Etappe 2)
+Alles nur, wenn der Server die jeweilige Fähigkeit meldet; ältere Server: wie bisher (Konfliktdialog bleibt als Rückfall).
+- **Zusammenführen statt Konflikt:** Speichern mit `merge`, fremde Änderungen kommen blockweise in die offene Seite
+  (auch per `?since`), ohne „Neu laden“. Überschneidungen erscheinen als **Konfliktblock** (gelber Rand, „Fassung von …
+  – Übernehmen / Verwerfen“); Hinweis mit Weg zu den Versionen, wenn eine Fassung dort liegt. Offline-Entwürfe werden
+  nach der Wiederverbindung zusammengeführt.
+- **Anwesenheit je Block:** farbiger Rand links am Block + „{Name} bearbeitet“.
+- **Aufgabenquellen:** Datenbank-Zeilen in Aufgaben und Heute (Quelle, Uhrzeit/Zeitraum, Zugewiesene), Abhaken mit
+  Rückgängig auch offline (Warteschlange), neue Aufgabe mit Ziel, Quellen verwalten, „Als Aufgabenquelle verwenden“ im
+  Datenbank-Menü. Widget „Heute“ mit Zeilen der Quellen (Abhaken im Widget). Tägliche Zusammenfassung in den
+  Einstellungen, Push-Kategorie „Aufgaben“.
+- **Editor:** Text- und Hintergrundfarbe auf Auswahl, Inline-Formeln, Personen erwähnen („@“, auch mit „Seite teilen
+  und erwähnen“), Erwähnungen in Kommentaren; Absätze mit Erwähnung/Formel sind jetzt in der App bearbeitbar.
+  Synchronisierte Blöcke: Kopien (mit Bearbeiten-Recht) und das Original direkt bearbeiten.
+- **Blöcke auf eine andere Seite verschieben** (mit Rückgängig).
+- Nicht in dieser Etappe: Zeitleiste ziehen, API-Token-Liste.
+
 ### Neu – iOS/Mac: Datenbanken, Diagramme, Widgets und Inline-Formen (Saga-Server 2.5, App-Runde Etappe 1)
 Alles nur, wenn der Server die jeweilige Fähigkeit meldet (`/api/version` → `features`); ältere Server: wie bisher.
 - **Formeln und Rollups** werden angezeigt (Zahl, Text, Häkchen, Datum, Liste), Fehler als „#Fehler“ mit Erklärung;
