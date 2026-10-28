@@ -857,7 +857,7 @@ class PageEditor(
         val ow = overwriteNext
         saving = true
         try {
-            val body = if (isDatabase) null else withContext(cpu) { BlockDoc.serialize(BlockDoc.withTime(d, clock())) }
+            val body = if (isDatabase) null else withContext(cpu) { BlockDoc.serialize(BlockDoc.withTime(io.github.yggdrasil_sh.saga.blocks.RenderPreview.docForSave(d), clock())) }
             (if (ow) repo.savePage(id, t, body, rev, true) else repo.savePage(id, t, body, rev))?.let { rev = it }
             if (ow) overwriteNext = false
             conflictBy = null

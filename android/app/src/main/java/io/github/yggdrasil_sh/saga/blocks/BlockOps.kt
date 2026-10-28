@@ -159,11 +159,11 @@ object BlockOps {
     fun columnBlocksCount(block: JsonObject): Int = (BlockDoc.data(block)["cols"] as? JsonArray)?.size ?: 0
 
     /**
-     * Anzahl der Spalten aendern (2-4). Mehr: leere Spalten anhaengen. Weniger: die Bloecke der wegfallenden Spalten
+     * Anzahl der Spalten aendern (2-6, 2.5 cols6). Mehr: leere Spalten anhaengen. Weniger: die Bloecke der wegfallenden Spalten
      * kommen ans Ende der letzten verbleibenden Spalte - nichts geht verloren (wie "Zusammenfuehren" im Web).
      */
     fun setColumnCount(block: JsonObject, n: Int): JsonObject {
-        val want = n.coerceIn(2, 4)
+        val want = n.coerceIn(2, 6)
         val cols = (BlockDoc.data(block)["cols"] as? JsonArray)?.toMutableList() ?: mutableListOf()
         if (cols.size == want) return block
         if (cols.size < want) {
@@ -185,4 +185,24 @@ object BlockOps {
     // ---------------------------------------------------------------- Bild
 
     fun setImageFlag(block: JsonObject, key: String, on: Boolean): JsonObject = withData(block, key, JsonPrimitive(on))
+}
+
+/** 2.5 tableopts1: Kopfspalte, Spaltenbreiten (%), Farben je Zeile/Spalte/Zelle - nur Anzeige; Bearbeiten laesst sie stehen */
+object TableOpts {
+    fun headCol(block: JsonObject): Boolean = BlockDoc.bool(BlockDoc.data(block), "headCol")
+
+    /** Breiten in Prozent - nur, wenn genau so viele wie Spalten (sonst gleich breit: null) */
+    fun widths(block: JsonObject, cols: Int): List<Float>? {
+        val a = (BlockDoc.data(block)["colWidths"] as? kotlinx.serialization.json.JsonArray) ?: return null
+        val w = a.mapNotNull { (it as? JsonPrimitive)?.content?.toDoubleOrNull()?.toFloat() }
+        if (w.size != cols || w.size != a.size || w.any { it <= 0f }) return null
+        return w
+    }
+
+    /** Hintergrundfarbe einer Zelle: Zelle > Zeile > Spalte (Zeile 0 = Kopfzeile) */
+    fun color(block: JsonObject, r: Int, c: Int): String? {
+        val o = BlockDoc.data(block)["colors"] as? JsonObject ?: return null
+        fun pick(k: String, key: String) = ((o[k] as? JsonObject)?.get(key) as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf { it in Gestalten.PALETTE }
+        return pick("x", "$r,$c") ?: pick("r", "$r") ?: pick("c", "$c")
+    }
 }

@@ -41,6 +41,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -156,6 +158,10 @@ fun TableBlock(block: JsonObject, path: JsonPath, key: String, env: BlockEnv) {
     val cur = tableCellOf(ed.active?.key, key)
     val shape = BlockOps.tableShape(block)
     val line = MaterialTheme.colorScheme.outlineVariant
+    // 2.5 tableopts1: Kopfspalte, Breiten (% einer Mindestgesamtbreite), Farben
+    val headCol = io.github.yggdrasil_sh.saga.blocks.TableOpts.headCol(block)
+    val widths = io.github.yggdrasil_sh.saga.blocks.TableOpts.widths(block, ncols)
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
     /** Nach Zeile/Spalte einfuegen: Cursor bleibt in seiner Zelle (die Felder setzen wegen des neuen Aufbaus neu auf) */
     fun keepCursor(row: Int? = null, col: Int? = null) {
         val (r, c) = cur ?: return
@@ -171,11 +177,14 @@ fun TableBlock(block: JsonObject, path: JsonPath, key: String, env: BlockEnv) {
                     Row(if (ed.editable) Modifier else Modifier.height(IntrinsicSize.Min)) {
                         for (c in 0 until ncols) {
                             val html = row.getOrNull(c) ?: ""
-                            val head = heads && r == 0
+                            val head = (heads && r == 0) || (headCol && c == 0)
                             val style = MaterialTheme.typography.bodyMedium.let { if (head) it.copy(fontWeight = FontWeight.Bold) else it }
+                            val tint = io.github.yggdrasil_sh.saga.blocks.TableOpts.color(block, r, c)
+                            val cw = widths?.let { (it[c] / 100f * maxOf(ncols * 150f, 320f)).coerceAtLeast(60f).dp } ?: 150.dp
                             Box(
-                                Modifier.width(150.dp).fillMaxHeight().heightIn(min = 34.dp).border(0.5.dp, line)
+                                Modifier.width(cw).fillMaxHeight().heightIn(min = 34.dp).border(0.5.dp, line)
                                     .then(if (head) Modifier.background(MaterialTheme.colorScheme.surfaceContainer) else Modifier)
+                                    .then(if (tint != null) Modifier.background(Color(io.github.yggdrasil_sh.saga.blocks.InlineForms.bgArgb(tint, dark))) else Modifier)
                                     .padding(horizontal = 8.dp, vertical = 6.dp),
                             ) {
                                 RichField(
@@ -270,17 +279,28 @@ fun ColumnsBlockEdit(block: JsonObject, path: JsonPath, env: BlockEnv) {
         if (bar) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(stringResource(R.string.blocktype_columns), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                (if (cols > 3) listOf(2, 3, 4) else listOf(2, 3)).forEach { n ->
+                (if (cols > 4) listOf(2, 3, 4, 5, 6) else if (cols > 3) listOf(2, 3, 4) else listOf(2, 3)).forEach { n ->
                     FilterChip(selected = cols == n, onClick = { ed.updateBlock(path) { BlockOps.setColumnCount(it, n) } }, label = { Text("$n") })
                 }
             }
         }
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            if (maxWidth >= io.github.yggdrasil_sh.saga.blocks.Gestalten.WIDE_DP.dp) {
+            val perRow = io.github.yggdrasil_sh.saga.blocks.Gestalten.columnsPerRow(cols, maxWidth.value)
+            if (maxWidth >= io.github.yggdrasil_sh.saga.blocks.Gestalten.WIDE_DP.dp && perRow == cols) {
                 // G1 (2.5): Spaltengewichte cols[].w (fehlen sie: gleich breit)
                 val w = io.github.yggdrasil_sh.saga.blocks.Gestalten.columnWeights(block)?.takeIf { it.size == cols }
                 Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                     for (ci in 0 until cols) Box(Modifier.weight(w?.get(ci) ?: 1f)) { col(ci) }
+                }
+            } else if (maxWidth >= io.github.yggdrasil_sh.saga.blocks.Gestalten.WIDE_DP.dp) {
+                // 2.5 P6-2: 5-6 Spalten mit Mindestbreite - zu schmal: in Reihen umbrechen (gleich breit)
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    (0 until cols).chunked(perRow).forEach { chunk ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                            chunk.forEach { ci -> Box(Modifier.weight(1f)) { col(ci) } }
+                            repeat(perRow - chunk.size) { androidx.compose.foundation.layout.Spacer(Modifier.weight(1f)) }
+                        }
+                    }
                 }
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {

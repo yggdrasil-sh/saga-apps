@@ -198,7 +198,7 @@ class ApiClient(
      */
     suspend fun request(
         method: String, path: String, body: JsonElement? = null, auth: Boolean = false, base: String? = null,
-        bearer: String? = null,
+        bearer: String? = null, headers: Map<String, String> = emptyMap(),
     ): String {
         val rb = when {
             body != null -> body.toString().toRequestBody(jsonType)
@@ -208,6 +208,7 @@ class ApiClient(
         val target = if (base != null) ServerUrl.absolute(base, path) else url(path)
         val rq = Request.Builder().url(target).method(method, rb).header("X-Saga", "1").header("User-Agent", userAgent)
         if (bearer != null) rq.header("Authorization", "Bearer $bearer")
+        headers.forEach { (k, v) -> rq.header(k, v) }
         val req = rq.build()
         val (code, text) = execute(if (auth || base != null || bearer != null) authClient else client, req)
         if (code !in 200..299) throw ApiException(code, errorText(code, text), text)

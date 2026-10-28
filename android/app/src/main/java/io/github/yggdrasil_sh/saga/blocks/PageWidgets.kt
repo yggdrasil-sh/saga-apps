@@ -29,16 +29,21 @@ import kotlin.random.Random
  */
 object PageWidgets {
     val KINDS = setOf("clock", "countdown", "progress", "metric", "quote")
+    /** 2.5 Paket 4: rechnet der Server, nur mit passender Faehigkeit (weather1, habit1, upcoming1, chart1) */
+    val KINDS2 = setOf("weather", "habit", "upcoming", "chart")
+
+    /** Art anzeigbar? Etappe-2-Arten nur, wenn der Server sie meldet */
+    fun supported(kind: String, features: Set<String>): Boolean = kind in KINDS || (kind in KINDS2 && "${kind}1" in features)
 
     data class Spec(
         val id: String?, val kind: String, val size: String, val style: String, val accent: String?, val title: String,
         val cfg: JsonObject,
     ) {
-        val known: Boolean get() = kind in KINDS
+        val known: Boolean get() = kind in KINDS || kind in KINDS2
         /** Holt die App den Wert vom Server (Etappe 1: progress/db, metric, jedes quote - auch feste Zitate waehlt der
          *  Server nach `pick`, damit die Auswahl wie im Web ist)? */
         val serverValue: Boolean get() = when (kind) {
-            "metric", "quote" -> true
+            "metric", "quote", "weather", "habit", "upcoming", "chart" -> true
             "progress" -> str(cfg, "src") == "db"
             else -> false
         }
@@ -85,10 +90,12 @@ object PageWidgets {
 
     // ---------------------------------------------------------------- Werte vom Server
 
-    enum class Err { NO_ACCESS, GONE, BAD_CFG, TOO_BIG, OTHER }
+    enum class Err { NO_ACCESS, GONE, BAD_CFG, TOO_BIG, DISABLED, UNAVAILABLE, OTHER }
 
     data class Value(
         val kind: String, val value: Double?, val max: Double?, val text: String?, val fmt: String?, val asOf: String?, val error: Err?,
+        /** 2.5 Paket 4: strukturierte Werte je Art (bei error immer null) */
+        val data: JsonObject? = null,
     )
 
     /** Zustand aller Werte einer Seite */
@@ -108,6 +115,8 @@ object PageWidgets {
         "gone" -> Err.GONE
         "bad_cfg" -> Err.BAD_CFG
         "too_big" -> Err.TOO_BIG
+        "disabled" -> Err.DISABLED
+        "unavailable" -> Err.UNAVAILABLE
         else -> Err.OTHER
     }
 
@@ -119,7 +128,118 @@ object PageWidgets {
             str(o, "fmt").takeIf { it in setOf("num", "pct", "eur") },
             str(o, "as_of").ifEmpty { null },
             if (e == null || !e.isString) null else err(e.content),
+            o["data"] as? JsonObject,
         )
+    }
+
+    /** Antwort von POST .../widgets/{bid}/habit -> {"widget": W} */
+    fun parseSingle(text: String): Value? = try {
+        ((Json.parseToJsonElement(text) as? JsonObject)?.get("widget") as? JsonObject)?.let(::parseValue)
+    } catch (_: Exception) {
+        null
+    }
+
+    // ---------------------------------------------------------------- Wetter (weather1)
+
+    data class WeatherDay(val day: LocalDate, val min: Double?, val max: Double?, val code: Int?, val rain: Int?)
+    data class Weather(val now: Double?, val code: Int?, val wind: Double?, val days: List<WeatherDay>, val imperial: Boolean, val stale: Boolean, val place: String)
+
+    fun weather(d: JsonObject?): Weather? {
+        d ?: return null
+        val now = d["now"] as? JsonObject
+        val days = (d["days"] as? JsonArray).orEmpty().mapNotNull { e ->
+            val x = e as? JsonObject ?: return@mapNotNull null
+            val day = try { LocalDate.parse(str(x, "d")) } catch (_: Exception) { return@mapNotNull null }
+            WeatherDay(day, num(x["min"]), num(x["max"]), num(x["code"])?.toInt(), num(x["rain"])?.toInt())
+        }
+        return Weather(num(now?.get("t")), num(now?.get("code"))?.toInt(), num(now?.get("wind")), days, str(d, "units") == "imperial", bool(d, "stale"), str(d, "place"))
+    }
+
+    /** WMO-Code -> Schluessel der gemeinsamen Tabelle (groesster Eintrag <= code) */
+    fun weatherKind(code: Int?): String {
+        val c = code ?: return "cloud"
+        val table = listOf(0 to "clear", 1 to "mostly_clear", 2 to "partly", 3 to "cloud", 45 to "fog", 51 to "drizzle", 61 to "rain",
+            66 to "sleet", 71 to "snow", 77 to "snow", 80 to "showers", 85 to "snow", 95 to "thunder")
+        return table.lastOrNull { it.first <= c }?.second ?: "clear"
+    }
+
+    /** Symbol je Art (wie Web-Emoji; Material-Symbole bringt die App nicht mit) */
+    fun weatherEmoji(code: Int?): String = when (weatherKind(code)) {
+        "clear" -> "☀️"
+        "mostly_clear" -> "🌤️"
+        "partly" -> "⛅"
+        "fog" -> "🌫️"
+        "drizzle", "showers" -> "🌦️"
+        "rain", "sleet" -> "🌧️"
+        "snow" -> "🌨️"
+        "thunder" -> "⛈️"
+        else -> "☁️"
+    }
+
+    // ---------------------------------------------------------------- Gewohnheiten (habit1)
+
+    data class Habit(val pid: String, val name: String, val done: List<Boolean>, val streak: Int, val pct: Int, val week: Int)
+    data class Habits(val days: List<LocalDate>, val today: LocalDate?, val canCheck: Boolean, val goal: Int?, val habits: List<Habit>)
+
+    fun habits(d: JsonObject?): Habits? {
+        d ?: return null
+        val days = (d["days"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonPrimitive)?.content?.let { t -> runCatching { LocalDate.parse(t) }.getOrNull() } }
+        val hs = (d["habits"] as? JsonArray).orEmpty().mapNotNull { e ->
+            val x = e as? JsonObject ?: return@mapNotNull null
+            val done = (x["done"] as? JsonArray).orEmpty().map { (it as? JsonPrimitive)?.booleanOrNull == true }
+            Habit(str(x, "pid"), str(x, "name"), List(days.size) { done.getOrNull(it) ?: false },
+                num(x["streak"])?.toInt() ?: 0, num(x["pct"])?.toInt() ?: 0, num(x["week"])?.toInt() ?: 0)
+        }.filter { it.pid.isNotEmpty() }
+        val today = runCatching { LocalDate.parse(str(d, "today")) }.getOrNull()
+        return Habits(days, today, bool(d, "can_check"), num(d["goal"])?.toInt(), hs)
+    }
+
+    /** Body fuer POST .../widgets/{bid}/habit */
+    fun habitBody(pid: String, day: LocalDate, on: Boolean): JsonObject =
+        JsonObject(mapOf("pid" to JsonPrimitive(pid), "day" to JsonPrimitive(day.toString()), "on" to JsonPrimitive(on)))
+
+    /** Lokal sofort umschalten (bis die Antwort kommt) */
+    fun habitToggled(h: Habits, pid: String, day: LocalDate, on: Boolean): Habits {
+        val i = h.days.indexOf(day)
+        if (i < 0) return h
+        return h.copy(habits = h.habits.map { x -> if (x.pid != pid) x else x.copy(done = x.done.toMutableList().also { it[i] = on }) })
+    }
+
+    // ---------------------------------------------------------------- Anstehendes (upcoming1)
+
+    data class Upcoming(
+        val k: String, val title: String, val start: String, val end: String?, val allday: Boolean, val color: String?,
+        val cal: String?, val note: Long?, val task: Long?, val overdue: Boolean,
+    ) {
+        val day: LocalDate? get() = runCatching { LocalDate.parse(start.take(10)) }.getOrNull()
+    }
+
+    data class UpcomingList(val items: List<Upcoming>, val more: Int, val errors: Int)
+
+    fun upcoming(d: JsonObject?): UpcomingList? {
+        d ?: return null
+        val items = (d["items"] as? JsonArray).orEmpty().mapNotNull { e ->
+            val x = e as? JsonObject ?: return@mapNotNull null
+            Upcoming(str(x, "k"), str(x, "title"), str(x, "start"), str(x, "end").ifEmpty { null }, (x["allday"] as? JsonPrimitive)?.booleanOrNull ?: true,
+                str(x, "color").ifEmpty { null }, str(x, "cal").ifEmpty { null }, num(x["note"])?.toLong(), num(x["task"])?.toLong(), bool(x, "overdue"))
+        }
+        return UpcomingList(items, num(d["more"])?.toInt() ?: 0, num(d["errors"])?.toInt() ?: 0)
+    }
+
+    /** Gruppen: "overdue", "today", "tomorrow" oder das Datum (ISO) - Reihenfolge wie geliefert */
+    fun upcomingGroups(items: List<Upcoming>, today: LocalDate): List<Pair<String, List<Upcoming>>> {
+        val out = LinkedHashMap<String, MutableList<Upcoming>>()
+        for (u in items) {
+            val d = u.day
+            val k = when {
+                u.overdue || (d != null && d.isBefore(today)) -> "overdue"
+                d == today -> "today"
+                d == today.plusDays(1) -> "tomorrow"
+                else -> d?.toString() ?: "?"
+            }
+            out.getOrPut(k) { mutableListOf() }.add(u)
+        }
+        return out.map { it.key to it.value }
     }
 
     /** Antwort von GET /api/notes/{nid}/widgets; kaputtes JSON -> Failed */

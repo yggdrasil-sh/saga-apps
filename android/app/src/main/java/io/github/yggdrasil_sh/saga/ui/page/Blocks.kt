@@ -195,7 +195,10 @@ private fun BlockViewInner(block: JsonObject, path: JsonPath, env: BlockEnv) {
                 placeholder = stringResource(R.string.block_callout), onEnter = splitToParagraph, onLink = env.onLink,
             )
         }
-        "code" -> Box(
+        "code" -> Column {
+            // 2.5 P6-2: Mermaid mit Vorschaubild aus dem Web (render.png), darunter der bearbeitbare Code
+            if (io.github.yggdrasil_sh.saga.blocks.RenderPreview.isMermaid(d)) MermaidPreview(d, env)
+            Box(
             Modifier.fillMaxWidth().clip(MaterialTheme.shapes.medium).background(MaterialTheme.colorScheme.surfaceContainerHighest).padding(14.dp),
         ) {
             val lang = BlockDoc.str(d, "language")
@@ -208,6 +211,10 @@ private fun BlockViewInner(block: JsonObject, path: JsonPath, env: BlockEnv) {
                 Text(lang, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.align(Alignment.TopEnd))
             }
         }
+        }
+        // 2.5 P6-2: Mathe als Vorschaubild + Quelltext, synchronisierte Bloecke nur anzeigen
+        "math" -> Selectable(key, path, env) { MathBlock(block, path, key, env) }
+        "synced" -> Selectable(key, path, env) { SyncedBlock(block, path, env) }
         "delimiter" -> Selectable(key, path, env) { HorizontalDivider(Modifier.padding(vertical = 10.dp)) }
         "image" -> Selectable(key, path, env) { ImageBlockEdit(block, path, key, env) }
         "toggle" -> ToggleBlock(block, path, key, env)
@@ -218,7 +225,7 @@ private fun BlockViewInner(block: JsonObject, path: JsonPath, env: BlockEnv) {
         "tasks" -> Selectable(key, path, env) { if (ed.caps.ownerOnlyBlock(type)) OwnerOnly(type) else TasksBlock(env) }
         "calendar" -> Selectable(key, path, env) { if (ed.caps.ownerOnlyBlock(type)) OwnerOnly(type) else CalendarBlock(d, env) }
         // Notion-Import: eingebettete Datenbank, Schaltflaechen, Einbettungen - lesbar statt Platzhalter
-        "database" -> Selectable(key, path, env) { DatabaseBlock(d, env) }
+        "database" -> Selectable(key, path, env) { DatabaseBlock(d, env, path) }
         "buttons" -> Selectable(key, path, env) { ButtonsBlock(d, env) }
         "embed" -> Selectable(key, path, env) { EmbedBlock(d, env) }
         // 2.3: Datei/Ordner aus einer Nextcloud - nur anzeigen, die Daten bleiben beim Speichern unveraendert
