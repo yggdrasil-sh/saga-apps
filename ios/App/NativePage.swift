@@ -10,7 +10,7 @@ import AppKit
 // MARK: - Navigation
 
 #if os(macOS)
-/// Mac: Platz fuer die Block-Griffe (+ ≡) links neben Bloecken - am Seitenrand und zwischen Spalten (wie Notion)
+/// Mac: Platz fuer die Block-Griffe (+ ⋮⋮) links neben Bloecken - am Seitenrand und zwischen Spalten (wie Notion)
 let pageGutter: CGFloat = 60, columnGap: CGFloat = 56
 #else
 let pageGutter: CGFloat = 18, columnGap: CGFloat = 22
@@ -706,13 +706,17 @@ struct PageTitleField: View {
     @FocusState private var focused: Bool
     /// I10: neue Vorlage - Titel ("Neue Vorlage") markiert, Tippen ersetzt ihn
     @State private var selection: TextSelection?
+    @Environment(\.writingMetrics) private var wm
+    @Environment(\.dynamicTypeSize) private var dts
+    /// 2.5 Notion-Gefuehl: Mac 35 pt fett (mit Dynamic Type), sonst wie bisher .largeTitle
+    private var titleFont: Font { WritingLogic.font(.title, fallback: .largeTitle.bold(), dts: dts, in: wm) }
     var body: some View {
         if !doc.fetched, doc.titleRaw.isEmpty, let t = fallback, !t.isEmpty {
-            Text(t).font(.largeTitle.bold()).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
+            Text(t).font(titleFont).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
         } else {
             TextField(FreshEntryLogic.placeholder(store.fresh[doc.id], fallback: String(localized: "Unbenannt")),   // fix27 E4: Vorlagenname als Platzhalter
                       text: Binding(get: { doc.titleRaw }, set: { v in input(v) }), selection: $selection, axis: .vertical)
-                .font(.largeTitle.bold()).textFieldStyle(.plain).disabled(ed.locked || !doc.fetched)
+                .font(titleFont).textFieldStyle(.plain).disabled(ed.locked || !doc.fetched)
                 .focused($focused)
                 .onSubmit { ed.enterFromTitle() }                     // Mac: Return ohne Umbruch
                 .onChange(of: doc.fetched, initial: true) { _, f in    // neuer Datenbank-Eintrag: Titel gleich bearbeiten
@@ -1091,6 +1095,22 @@ struct NativePageScreen: View {
 
     @State private var pageW: CGFloat = 0
     @State private var showVersions = false
+    @Environment(\.horizontalSizeClass) private var pageHSC
+    /// 2.5 Notion-Gefuehl: Mac feste Schreibgroesse, iPad (normale Breite) mehr Luft, iPhone wie bisher
+    private var writing: WritingLogic.Metrics {
+        #if os(macOS)
+        return WritingLogic.metrics(mac: true, regularWidth: true)
+        #else
+        return WritingLogic.metrics(mac: false, regularWidth: pageHSC == .regular)
+        #endif
+    }
+    /// Seitenrand: iPad in normaler Breite mehr Weissraum und Platz fuer die Griffe (iPhone/Mac unveraendert)
+    private var gutter: CGFloat {
+        #if os(iOS)
+        if pageHSC == .regular && !inPeek { return 56 }              // Platz fuer die Griffe (Trackpad) und mehr Weissraum
+        #endif
+        return pageGutter
+    }
     // Seite in drei Teilen (Inhalt, Blaetter, Leiste/Ablauf): eine einzige lange Modifier-Kette braucht im CI-Xcode
     // sonst viele Sekunden Typpruefung
     private var scrollPart: some View {
@@ -1170,12 +1190,17 @@ struct NativePageScreen: View {
                     }
                     }
                 }
-                .padding(.horizontal, pageGutter).padding(.vertical, 12)
+                .padding(.horizontal, gutter).padding(.vertical, 12)
+                .environment(\.writingMetrics, writing)                                                 // 2.5 Notion-Gefuehl: Schreibflaeche
                 .modifier(PageTypography(font: GestaltenLogic.pageFont(doc.page), small: GestaltenLogic.pageSmall(doc.page)))   // 2.5: Schrift/kleiner Text
                 #if os(macOS)
-                .overlayPreferenceValue(BlockFramesKey.self) { frames in if !ed.locked { BlockHandles(frames: frames, hover: ed.hover) } }   // Griffe auf Seitenebene
+                .overlayPreferenceValue(BlockFramesKey.self) { frames in if !ed.locked { BlockHandles(frames: frames, hover: ed.hover, wm: writing, small: GestaltenLogic.pageSmall(doc.page)) } }   // Griffe auf Seitenebene
+                #else
+                .overlayPreferenceValue(BlockFramesKey.self) { frames in       // iPad mit Zeiger (normale Breite, nicht im Peek)
+                    if !ed.locked && pageHSC == .regular && !inPeek { BlockHandles(frames: frames, hover: ed.hover, wm: writing, small: GestaltenLogic.pageSmall(doc.page)) }
+                }
                 #endif
-                .frame(maxWidth: (doc.page["wide"] as? Bool ?? false) ? .infinity : 760 + 2 * pageGutter)      // lesbare Spalte (ausser "Volle Breite")
+                .frame(maxWidth: (doc.page["wide"] as? Bool ?? false) ? .infinity : 760 + 2 * gutter)      // lesbare Spalte (ausser "Volle Breite")
                 .frame(maxWidth: .infinity)
             }
         }
@@ -1405,9 +1430,10 @@ struct BlocksView: View {
     let arr: NSMutableArray
     @EnvironmentObject var ed: PageEditor
     @Environment(\.blockDepth) private var depth
+    @Environment(\.writingMetrics) private var wm
     var body: some View {
         let blocks = arr.compactMap { $0 as? NSMutableDictionary }
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: wm.blockSpacing) {
             ForEach(blocks, id: \.blockID) { b in BlockRow(block: b) }
         }
         .environment(\.blockDepth, depth + 1)
@@ -1421,6 +1447,7 @@ struct BlockView: View {
     @EnvironmentObject var store: Store
     @EnvironmentObject var ed: PageEditor
     @Environment(\.horizontalSizeClass) private var hsc
+    @Environment(\.writingMetrics) private var wm                // 2.5 Notion-Gefuehl: Abstand ueber Ueberschriften
     @State private var colHover: Int?
     @State private var colWidth: CGFloat = 0                 // Breite des Spalten-Blocks (Umbruch bei 5-6 Spalten)
     private var type: String { block["type"] as? String ?? "" }
@@ -1448,18 +1475,18 @@ struct BlockView: View {
     @ViewBuilder private var content: some View {
         switch type {
         case "paragraph":
-            EditText(key: id, html: s("text"), placeholder: ed.focus == id ? String(localized: "Tippe etwas oder „/“ für Blöcke …") : "", slash: true, setHTML: set("text"), onReturn: split("text")).id(id)
+            EditText(key: id, html: s("text"), role: .body, placeholder: ed.focus == id ? String(localized: "Tippe etwas oder „/“ für Blöcke …") : "", slash: true, setHTML: set("text"), onReturn: split("text")).id(id)
         case "header":
             let lvl = data["level"] as? Int ?? 2
-            EditText(key: id, html: s("text"), font: lvl <= 1 ? .title.bold() : lvl == 2 ? .title2.bold() : lvl == 3 ? .title3.bold() : .headline,
-                     placeholder: String(localized: "Überschrift"), boldBase: true, setHTML: set("text"), onReturn: split("text")).id(id).padding(.top, 6)
+            EditText(key: id, html: s("text"), font: WritingLogic.systemHeaderFont(level: lvl), role: WritingLogic.headerRole(level: max(lvl, 1)),
+                     placeholder: String(localized: "Überschrift"), boldBase: true, setHTML: set("text"), onReturn: split("text")).id(id).padding(.top, wm.headerPadding(level: lvl))
         case "list":
             ListBlock(blockID: id, items: data["items"] as? NSMutableArray ?? NSMutableArray(), style: s("style"), path: [])
         case "quote":
             HStack(alignment: .top, spacing: 10) {
                 Rectangle().fill(.secondary).frame(width: 3)
                 VStack(alignment: .leading, spacing: 4) {
-                    EditText(key: id, html: s("text"), placeholder: String(localized: "Zitat"), setHTML: set("text"), onReturn: split("text")).id(id).italic()
+                    EditText(key: id, html: s("text"), role: .body, placeholder: String(localized: "Zitat"), setHTML: set("text"), onReturn: split("text")).id(id).italic()
                     if !s("caption").isEmpty {                               // Quelle (wie im Web), bleibt beim Bearbeiten erhalten
                         Text(verbatim: "— " + plain(s("caption"))).font(.footnote).foregroundStyle(.secondary)
                     }
@@ -1508,7 +1535,7 @@ struct BlockView: View {
         case "callout":
             HStack(alignment: .top, spacing: 10) {
                 Text(s("emoji").isEmpty ? "💡" : s("emoji"))
-                EditText(key: id, html: s("text"), placeholder: String(localized: "Hinweis"), setHTML: set("text"), onReturn: split("text")).id(id)
+                EditText(key: id, html: s("text"), role: .body, placeholder: String(localized: "Hinweis"), setHTML: set("text"), onReturn: split("text")).id(id)
             }
             .padding(12).background(.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
         case "toggle":
@@ -1610,7 +1637,7 @@ struct ListBlock: View {
                         }
                         VStack(alignment: .leading, spacing: 6) {
                             // Nr. 11: "/" im letzten Punkt der obersten Ebene oeffnet das Block-Menue (setzt den Block hinter die Liste)
-                            EditText(key: key(i), html: it["content"] as? String ?? "", placeholder: String(localized: "Listenpunkt"), muted: checked,
+                            EditText(key: key(i), html: it["content"] as? String ?? "", role: .body, placeholder: String(localized: "Listenpunkt"), muted: checked,
                                      slash: path.isEmpty && i == items.count - 1 && ((it["items"] as? NSArray)?.count ?? 0) == 0,
                                      setHTML: { v in it["content"] = v; ed.textChanged() },
                                      onReturn: { before, after in returnIn(i, before: before, after: after) }).id(key(i))
@@ -1668,7 +1695,7 @@ struct ToggleBlock: View {
                 Button { withAnimation(.snappy) { open.toggle() } } label: {
                     Image(systemName: "chevron.right").font(.caption.bold()).rotationEffect(.degrees(open ? 90 : 0)).foregroundStyle(.secondary).frame(width: 18, height: 22)
                 }.buttonStyle(.plain)
-                EditText(key: id, html: data["title"] as? String ?? "", font: titleFont, placeholder: String(localized: "Toggle"), boldBase: true,
+                EditText(key: id, html: data["title"] as? String ?? "", font: titleFont, role: WritingLogic.headerRole(level: GestaltenLogic.toggleLevel(data)), placeholder: String(localized: "Toggle"), boldBase: true,
                          setHTML: { v in data["title"] = v; ed.textChanged() },
                          onReturn: { before, after in
                              data["title"] = before; open = true
@@ -1848,8 +1875,12 @@ struct BlockRow: View {
             .transformAnchorPreference(key: BlockFramesKey.self, value: .bounds) { frames, a in frames[id] = a }
             .contextMenu { if ed.locked { BlockMenuItems(id: id) } }   // schreibgeschuetzt (keine Griffe): Kommentieren, Link
         #else
+        // 2.5 Notion-Gefuehl: iPad mit Trackpad/Maus - Griffe beim Zeigen (nur oberste Ebene: zwischen Spalten ist kein Platz).
+        // Ohne Zeiger meldet onHover nichts: Touch bleibt wie bisher (langes Druecken = Kontextmenue).
         BlockView(block: block)
             .contentShape(Rectangle())
+            .onHover { inside in if depth <= 1 { ed.hover.hover(id, depth: depth, inside: inside) } }
+            .transformAnchorPreference(key: BlockFramesKey.self, value: .bounds) { frames, a in if depth <= 1 { frames[id] = a } }
             .contextMenu { BlockMenuItems(id: id) }
         #endif
     }
@@ -1863,12 +1894,23 @@ struct BlockFramesKey: PreferenceKey {
 private struct BlockDepthKey: EnvironmentKey { static let defaultValue = 0 }
 extension EnvironmentValues { var blockDepth: Int { get { self[BlockDepthKey.self] } set { self[BlockDepthKey.self] = newValue } } }
 
-/// Mac: EINE Griffleiste (+ ≡) fuer die ganze Seite, links neben dem Block unter der Maus.
+/// Mac: EINE Griffleiste (+ ⋮⋮) fuer die ganze Seite, links neben dem Block unter der Maus.
 /// Liegt auf Seitenebene -> auch im Rand neben Spalten erreichbar (vorher: ausserhalb der Spalte nicht).
 struct BlockHandles: View {
     let frames: [String: Anchor<CGRect>]
     @ObservedObject var hover: HoverModel
     @EnvironmentObject var ed: PageEditor
+    /// Masse der Schreibflaeche (die Griffe liegen ueber der Seite, ausserhalb ihrer Umgebung) und "kleiner Text"
+    var wm = WritingLogic.standard
+    var small = false
+    @Environment(\.dynamicTypeSize) private var dts
+    /// 2.5 Notion-Gefuehl: Griffe mittig zur ersten Textzeile (Ueberschriften: unter dem Abstand darueber)
+    private func center(_ id: String) -> CGFloat {
+        let b = ed.block(id)
+        let lvl = ((b?["data"] as? NSDictionary)?["level"] as? Int) ?? 2
+        let st = WritingLogic.step(dts)
+        return WritingLogic.handleCenter(type: b?["type"] as? String ?? "", level: lvl, step: small ? GestaltenLogic.smallerStep(st) : st, in: wm)
+    }
     var body: some View {
         GeometryReader { g in
             if let id = hover.hovered, let a = frames[id] {
@@ -1876,13 +1918,13 @@ struct BlockHandles: View {
                 HStack(spacing: 0) {
                     Button { ed.insert(PageEditor.make("paragraph"), after: id) } label: { Image(systemName: "plus").frame(width: 22, height: 22).contentShape(Rectangle()) }.accessibilityLabel("Block einfügen")
                         .buttonStyle(.plain).help("Klicken: Block darunter einfügen")
-                    BlockMenu(id: id) { Image(systemName: "line.3.horizontal").frame(width: 20, height: 22).contentShape(Rectangle()) }.help("Block-Menü").accessibilityLabel("Block-Menü")
+                    BlockMenu(id: id) { Image(systemName: "circle.grid.2x3.fill").font(.system(size: 9)).frame(width: 20, height: 22).contentShape(Rectangle()) }.help("Block-Menü").accessibilityLabel("Block-Menü")
                 }
                 .foregroundStyle(.secondary)
                 .padding(.trailing, 8).padding(.vertical, 4)                  // grosszuegige Trefferflaeche bis zum Text
                 .contentShape(Rectangle())
                 .onHover { hover.overHandle = $0; if !$0 { hover.scheduleClear() } }
-                .position(x: r.minX - 26, y: r.minY + 13)
+                .position(x: r.minX - 26, y: r.minY + center(id))
             }
         }
     }

@@ -34,6 +34,18 @@ struct RootView: View {
     @State private var showAssistant = false                         // KI-Assistent ohne Seite (1.6)
     @State private var gallery: GalleryRequest?                      // 2.5: "Aus Vorlage …" (oberste Ebene)
 
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var rootHSC
+    #endif
+    /// 2.5 Notion-Gefuehl: Seitenleiste wie am Schreibtisch (Mac immer, iPad in normaler Breite; iPhone wie bisher)
+    private var deskSidebar: Bool {
+        #if os(macOS)
+        return true
+        #else
+        return rootHSC == .regular
+        #endif
+    }
+
     @State private var columns: NavigationSplitViewVisibility = {
         #if DEBUG && os(macOS)
         if UserDefaults.standard.bool(forKey: "hkDetailOnly") { return .detailOnly }    // nur fuer Test-Bilder (Seitenleiste ist "vibrant")
@@ -44,7 +56,7 @@ struct RootView: View {
     /// Oberflaeche ohne Ereignisse und Blaetter (body ist dreigeteilt: eine lange Kette sprengt die Typpruefung im CI-Xcode)
     private var core: some View {
         NavigationSplitView(columnVisibility: $columns) {
-            Sidebar(store: store, selection: $selection, query: query, results: results, sharedJump: nav.sharedJump)
+            Sidebar(store: store, selection: $selection, query: query, results: results, sharedJump: nav.sharedJump, desk: deskSidebar)
                 .navigationSplitViewColumnWidth(min: 220, ideal: 260, max: 380)      // wie Notion, nicht abgeschnitten
                 .navigationTitle("Saga")
                 #if os(macOS)
@@ -177,9 +189,10 @@ struct RootView: View {
             newPage: { Task { if let id = await store.newPage() { selection = id } } },
             search: { showPalette = true },
             copyLink: { if let id = currentPageID { copyPageLink(id) } }, hasPage: currentPageID != nil,
-            today: { selection = nil }, tasks: { selection = -1 }, events: { selection = -2 },
+            today: { selection = deskSidebar ? SidebarLayout.todayTag : nil }, tasks: { selection = -1 }, events: { selection = -2 },
             graph: store.graphSupported ? { selection = FedLogic.graphTag } : nil,
-            fromTemplate: store.galleryOffered ? { gallery = GalleryRequest() } : nil))
+            fromTemplate: store.galleryOffered ? { gallery = GalleryRequest() } : nil,
+            toggleSidebar: deskSidebar ? { withAnimation(.snappy(duration: 0.2)) { columns = SidebarLayout.toggled(columns == .detailOnly) ? .detailOnly : .all } } : nil))
         .galleryPicker($gallery, store: store) { root in nav.peek = nil; nav.path = []; selection = root }
     }
 
@@ -493,6 +506,9 @@ struct Sidebar: View {
     let results: [Page]
     /// "Zu „Mit mir geteilt“" gewaehlt (zaehlt hoch): Bereich zeigen (auch leer) und dorthin scrollen
     var sharedJump = 0
+    /// 2.5 Notion-Gefuehl: Mac/iPad (normale Breite) - Seitenbaum oben, Werkzeuge unten und einklappbar
+    var desk = false
+    @AppStorage("hk.sidebarToolsOpen") private var toolsOpen = false
     @State private var moveID: MoveTarget?
     @State private var showTrash = false
 
@@ -528,17 +544,86 @@ struct Sidebar: View {
                     }
                 }
             } else {
-                Section {
+                ForEach(SidebarLayout.parts(desk: desk), id: \.self) { part($0) }
+            }
+            if let e = store.error { Text(e).font(.caption).foregroundStyle(.red) }
+        }
+        .modifier(SidebarListStyle(desk: desk))                          // 2.5: iPad (normale Breite) wie Mac als Seitenleiste
+        .overlay { if store.loading && store.pages.isEmpty { ProgressView() } }
+        .sheet(isPresented: $showTrash) { TrashSheet().environmentObject(store) }
+        .sheet(item: $moveID) { m in MoveSheet(id: m.id) }
+        .onChange(of: sharedJump) { _, _ in
+            Task { await store.refresh(quiet: true); try? await Task.sleep(for: .milliseconds(350)); withAnimation { proxy.scrollTo(Self.sharedAnchor, anchor: .top) } }
+        }
+        }
+    }
+    static let sharedAnchor = "hk-shared-section"
+}
+
+/// Listenstil der Seitenleiste: Mac und iPad (normale Breite) `.sidebar`, iPhone wie bisher `.insetGrouped`
+private struct SidebarListStyle: ViewModifier {
+    let desk: Bool
+    func body(content: Content) -> some View {
+        #if os(macOS)
+        content.listStyle(.sidebar)
+        #else
+        if desk { content.listStyle(.sidebar) } else { content.listStyle(.insetGrouped) }
+        #endif
+    }
+}
+
+extension Sidebar {
+    /// Ein Teil der Seitenleiste (Reihenfolge: SidebarLayout.parts)
+    @ViewBuilder func part(_ p: SidebarLayout.Part) -> some View {
+        switch p {
+        case .tools: toolsSection
+        case .today: TodaySection(store: store)
+        case .todayRow:
+            Label("Heute", systemImage: "sun.max").badge(todayCount).tag(SidebarLayout.todayTag)
+        case .favorites: favoritesSection
+        case .recent: recentSection
+        case .pages: pagesSection
+        case .shared: sharedSection
+        case .toolsFolded:
+            Section(isExpanded: $toolsOpen) { toolRows } header: {
+                HStack(spacing: 6) {
+                    Text("Werkzeuge")
+                    let n = SidebarLayout.foldedBadge(expanded: toolsOpen, chatUnread: store.chat.unread)
+                    if n > 0 {
+                        Text(verbatim: "\(n)").font(.caption2.bold()).foregroundStyle(Color("OnAccent"))
+                            .padding(.horizontal, 6).padding(.vertical, 1).background(Color.accentColor, in: Capsule())
+                            .accessibilityLabel(Text("Chats"))
+                    }
+                }
+            }
+        case .archive: archiveSection
+        case .trash: trashSection
+        }
+    }
+    /// Termine heute + offene Aufgaben (heute/ueberfaellig/ohne Datum)
+    private var todayCount: Int {
+        let today = DateFormatter.isoDay().string(from: .now)
+        let open = store.features.has("tasksrc1")
+            ? store.taskItems.filter { t in let d = t.due ?? ""; return d.isEmpty || d <= today }.count
+            : store.tasks.filter { t in let d = t.due ?? ""; return d.isEmpty || d <= today }.count
+        return SidebarLayout.todayCount(events: store.events.count, tasksDueTodayOrUndated: open)
+    }
+    @ViewBuilder private var toolRows: some View {
                     Label("Aufgaben", systemImage: "checklist").badge(store.features.has("tasksrc1") ? store.taskItems.count : store.tasks.count).tag(-1)
                     Label("Termine", systemImage: "calendar").tag(-2)
                     Label("Dienste", systemImage: "square.grid.3x3").tag(-3)
                     ChatsSidebarRow(chat: store.chat).tag(FedLogic.chatsTag)
                     if store.graphSupported { Label { Text("Graph", tableName: "Graph") } icon: { Image(systemName: "point.3.connected.trianglepath.dotted") }.tag(FedLogic.graphTag) }
-                }
-                TodaySection(store: store)
+    }
+    private var toolsSection: some View {
+        Section { toolRows }
+    }
+    @ViewBuilder private var favoritesSection: some View {
                 if !store.favorites.isEmpty {
                     Section("Favoriten") { ForEach(store.favorites) { PageRow(page: $0, store: store).pageActions($0, store: store, selection: $selection, moveID: $moveID).tag($0.id) } }
                 }
+    }
+    @ViewBuilder private var recentSection: some View {
                 // offene Seite nicht doppelt markieren (steht schon unter "Seiten")
                 let recent = store.recent.filter { $0 != selection }.compactMap { store.page($0) }.prefix(5)
                 if !recent.isEmpty {
@@ -549,6 +634,8 @@ struct Sidebar: View {
                         }
                     }
                 }
+    }
+    @ViewBuilder private var pagesSection: some View {
                 Section {
                     let top = tree(nil)
                     OutlineGroup(top, children: \.children) { n in
@@ -561,6 +648,8 @@ struct Sidebar: View {
                     Text("Seiten").frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
                         .dropDestination(for: String.self) { ids, _ in dropPages(ids, into: nil) }        // auf "Seiten" = oberste Ebene
                 }
+    }
+    @ViewBuilder private var sharedSection: some View {
                 if !store.shared.isEmpty || !store.fedShared.isEmpty || store.shareOffHint || sharedJump > 0 {     // Mit mir geteilt (1.3, 2.0: auch andere Saga-Instanzen)
                     Section {
                         if store.shareOffHint {
@@ -587,6 +676,8 @@ struct Sidebar: View {
                         .id(Self.sharedAnchor)
                     }
                 }
+    }
+    @ViewBuilder private var archiveSection: some View {
                 if !store.archivedPages.isEmpty {
                     Section {
                         DisclosureGroup("📦 Archiv (\(store.archivedPages.count))") {
@@ -597,28 +688,14 @@ struct Sidebar: View {
                         }
                     }
                 }
+    }
+    @ViewBuilder private var trashSection: some View {
                 Section {
                     Button { showTrash = true } label: {
                         Label("Papierkorb", systemImage: "trash").frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())   // ganze Zeile (N5)
                     }.buttonStyle(.plain).foregroundStyle(.secondary)
                 }
-            }
-            if let e = store.error { Text(e).font(.caption).foregroundStyle(.red) }
-        }
-        #if os(macOS)
-        .listStyle(.sidebar)
-        #else
-        .listStyle(.insetGrouped)
-        #endif
-        .overlay { if store.loading && store.pages.isEmpty { ProgressView() } }
-        .sheet(isPresented: $showTrash) { TrashSheet().environmentObject(store) }
-        .sheet(item: $moveID) { m in MoveSheet(id: m.id) }
-        .onChange(of: sharedJump) { _, _ in
-            Task { await store.refresh(quiet: true); try? await Task.sleep(for: .milliseconds(350)); withAnimation { proxy.scrollTo(Self.sharedAnchor, anchor: .top) } }
-        }
-        }
-    }
-    static let sharedAnchor = "hk-shared-section"
+                }
 }
 
 extension Sidebar {

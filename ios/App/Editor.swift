@@ -429,6 +429,8 @@ struct EditText: View {
     let key: String
     let html: String
     var font: Font = .body
+    /// 2.5 Notion-Gefuehl: Rolle auf der Schreibflaeche (Mac: feste Schreibgroesse statt `font`; nil = immer `font`)
+    var role: WritingLogic.Role? = nil
     var placeholder = String(localized: "Tippe etwas …")
     var splitOnReturn = true
     var raw = false                                    // Code: Text unveraendert, ohne Formatierung
@@ -451,6 +453,13 @@ struct EditText: View {
     @State private var box = EditFieldBox()
     @EnvironmentObject private var store: Store
     @Environment(\.blockTint) private var tint             // Textfarbe des Blocks (2.5, tunes.hkstyle)
+    @Environment(\.writingMetrics) private var wm
+    @Environment(\.dynamicTypeSize) private var dts
+    /// Schrift dieses Felds: Rolle der Schreibflaeche (Mac) oder die uebergebene Schrift
+    private var wfont: Font { role.map { WritingLogic.font($0, fallback: font, dts: dts, in: wm) } ?? font }
+    /// feste Groesse (nur mit Rolle auf dem Mac) - fuer Grundlinie und Zeilenabstand
+    private var wsize: CGFloat? { role.flatMap { WritingLogic.pointSize($0, step: WritingLogic.step(dts), in: wm) } }
+    private var wline: CGFloat { role == nil ? 0 : wm.lineSpacing }
 
     /// Cursor als Zeichen-Offset (nil bei markiertem Text)
     private var cursor: Int? {
@@ -473,7 +482,7 @@ struct EditText: View {
         return trigger.map { t in
             var ppl: [MentionPerson] = []
             if case .at(let q) = t.trigger, InlineLogic.editable { ppl = ed.mentionPeople.people(note: ed.doc.id, q: q, store: store) }
-            return mentionItems(t.trigger, store: store, font: font, people: ppl)
+            return mentionItems(t.trigger, store: store, font: wfont, people: ppl)
         } ?? []
     }
     @State private var shareAsk: MentionItem?
@@ -481,7 +490,7 @@ struct EditText: View {
     private func pickMention(_ it: MentionItem) {
         guard let m = trigger else { return }
         if it.share != nil, shareAsk == nil { shareAsk = it; return }   // Person ohne Zugriff: erst fragen
-        let c = replaceTrigger(&rich, m.trigger, at: m.start, with: it.insert, font: font); mSel = 0
+        let c = replaceTrigger(&rich, m.trigger, at: m.start, with: it.insert, font: wfont); mSel = 0
         rsel = AttributedTextSelection(insertionPoint: rich.characters.index(rich.startIndex, offsetBy: min(c, rich.characters.count)))
     }
 
@@ -555,13 +564,13 @@ struct EditText: View {
         let a = EditorFlow.apply(carry: c, caret: caret, canSplit: canSplit)
         // Weitergereichtes "/Seite⏎": wie Return im Menue waehlen statt "/Seite" als Absatz abzutrennen
         if let line = EditorFlow.carrySlashLine(text: String(rich.characters), caret: caret, a, slashPick: slashPickable) {
-            var r = AttributedString(line); r.font = font
+            var r = AttributedString(line); r.font = wfont
             rich = r; box.shadow = line; box.handover = EditorFlow.Handover(base: line)
             slashPick(line, rest: a.rest)
             return
         }
         let start = caret - min(a.removedBefore, caret)
-        var ins = AttributedString(a.inserted); ins.font = font
+        var ins = AttributedString(a.inserted); ins.font = wfont
         rich.replaceSubrange(rich.characters.index(rich.startIndex, offsetBy: start)..<rich.characters.index(rich.startIndex, offsetBy: caret), with: ins)
         let end = rich.characters.index(rich.startIndex, offsetBy: start + a.inserted.count)
         box.shadow = String(rich.characters)
@@ -591,7 +600,7 @@ struct EditText: View {
             else if raw { Text(html) }
             else { Text(inlineText(html)).foregroundStyle(muted ? .secondary : (tint ?? .primary)) }
         }
-        .font(font)
+        .font(wfont).lineSpacing(wline)
         .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
     }
 
@@ -606,7 +615,7 @@ struct EditText: View {
         if (ed.focus == key || focused) && !protected {
             if raw {
                 TextField(placeholder, text: $text, selection: $sel, axis: .vertical)
-                    .font(font).focused($focused)
+                    .font(wfont).focused($focused)
                     .onAppear { text = html; sel = TextSelection(insertionPoint: text.endIndex); DispatchQueue.main.async { focused = true } }
                     .onChange(of: text) { _, new in if new != html { setHTML(new) } }
                     .onChange(of: focused) { _, f in if !f && ed.focus == key { ed.focus = nil } }
@@ -614,7 +623,7 @@ struct EditText: View {
                 VStack(alignment: .leading, spacing: 6) {
                     ZStack(alignment: .topLeading) {
                         TextEditor(text: $rich, selection: $rsel)
-                            .font(font)
+                            .font(wfont).lineSpacing(wline)
                             .foregroundStyle(tint ?? .primary)
                             .scrollDisabled(true)
                             .scrollContentBackground(.hidden)
@@ -627,7 +636,7 @@ struct EditText: View {
                             .frame(minHeight: 22)
                             .focused($focused)
                             .overlay(alignment: .topLeading) {
-                                if rich.characters.isEmpty { Text(placeholder).font(font).foregroundStyle(.tertiary).allowsHitTesting(false) }
+                                if rich.characters.isEmpty { Text(placeholder).font(wfont).foregroundStyle(.tertiary).allowsHitTesting(false) }
                             }
                             .onKeyPress(keys: [.upArrow, .downArrow, .return, .tab, .escape]) { kp in   // @/:-Liste mit Tastatur
                                 let items = mentions
@@ -659,7 +668,7 @@ struct EditText: View {
                 #if os(macOS)
                 // Das Textfeld meldet keine Text-Grundlinie: ohne diese Angabe richten sich Kaestchen/Aufzaehlungszeichen
                 // davor (HStack .firstTextBaseline) an der Unterkante aus und der Text steht versetzt daneben
-                .alignmentGuide(.firstTextBaseline) { d in d[.top] + MacTextMetrics.ascent(font) }
+                .alignmentGuide(.firstTextBaseline) { d in d[.top] + (wsize.map { NSFont.systemFont(ofSize: $0).ascender.rounded() } ?? MacTextMetrics.ascent(wfont)) }
                 #endif
                 #if os(iOS)
                 .onChange(of: handingOver ? nil : slashQuery, initial: true) { _, q in       // Menue an der Seite andocken (ueber der Tastatur)
@@ -669,7 +678,7 @@ struct EditText: View {
                 .onDisappear { if ed.slashDock?.key == key { ed.slashDock = nil } }
                 #endif
                 .onAppear {
-                    rich = richText(html, base: font)
+                    rich = richText(html, base: wfont)
                     box.shadow = String(rich.characters); box.handover = nil
                     let atStart = ed.caretStart.remove(key) != nil
                     rsel = AttributedTextSelection(insertionPoint: atStart ? rich.startIndex : rich.endIndex)
@@ -683,7 +692,7 @@ struct EditText: View {
                 .onChange(of: html) { _, new in
                     guard box.handover == nil, !sameInline(new, richToHTML(rich, ctx: fctx, baseBold: boldBase)) else { return }
                     let at = cursor ?? rich.characters.count
-                    rich = richText(new, base: font); box.shadow = String(rich.characters)
+                    rich = richText(new, base: wfont); box.shadow = String(rich.characters)
                     rsel = AttributedTextSelection(insertionPoint: rich.characters.index(rich.startIndex, offsetBy: min(at, rich.characters.count)))
                 }
                 .onReceive(NotificationCenter.default.publisher(for: .hkCarry)) { n in if n.object as? String == key { takeCarry() } }
@@ -691,7 +700,7 @@ struct EditText: View {
                 .onReceive(NotificationCenter.default.publisher(for: .hkFormat)) { n in   // Leiste: fett, kursiv, ...
                     guard ed.focus == key, let a = n.userInfo?["action"] as? String else { return }
                     rich.transformAttributes(in: &rsel) { c in
-                        let f = c.font ?? font
+                        let f = c.font ?? wfont
                         switch a {
                         case "bold": c.font = f.bold(!f.resolve(in: fctx).isBold)
                         case "italic": c.font = f.italic(!f.resolve(in: fctx).isItalic)
@@ -699,10 +708,10 @@ struct EditText: View {
                         case "strike": c.strikethroughStyle = c.strikethroughStyle == nil ? .single : nil
                         case "mark": c.backgroundColor = InlineStyle.background(c.backgroundColor).0 != nil ? nil : hkMarkColor
                         case "code":
-                            if InlineStyle.background(c.backgroundColor).1 != nil { c.backgroundColor = nil; c.font = font } else { c.backgroundColor = hkCodeColor; c.font = font.monospaced() }
+                            if InlineStyle.background(c.backgroundColor).1 != nil { c.backgroundColor = nil; c.font = wfont } else { c.backgroundColor = hkCodeColor; c.font = wfont.monospaced() }
                         case "math":                                   // 2.5: Inline-Mathe (Quelltext bleibt bearbeitbar)
-                            if InlineStyle.background(c.backgroundColor).1 == .math { c.backgroundColor = nil; c.font = font }
-                            else { c.backgroundColor = InlineStyle.math; c.font = font.monospaced(); c.link = nil; c.foregroundColor = nil; c.underlineStyle = nil; c.strikethroughStyle = nil }
+                            if InlineStyle.background(c.backgroundColor).1 == .math { c.backgroundColor = nil; c.font = wfont }
+                            else { c.backgroundColor = InlineStyle.math; c.font = wfont.monospaced(); c.link = nil; c.foregroundColor = nil; c.underlineStyle = nil; c.strikethroughStyle = nil }
                         case let x where x.hasPrefix("color:"):        // 2.5: Textfarbe aus der Palette (entfernen: color:)
                             let n = String(x.dropFirst(6)); c.foregroundColor = n.isEmpty ? nil : HKPalette.textColor(n)
                         case let x where x.hasPrefix("bg:"):           // 2.5: Hintergrund aus der Palette (Code bleibt Code)
@@ -713,10 +722,10 @@ struct EditText: View {
                     }
                     if a == "link" { linkText = ""; linkAsk = true }
                     if a == "mention" {                              // "@" an der Schreibmarke: die Auswahl erscheint wie beim Tippen
-                        var at = AttributedString("@"); at.font = font
+                        var at = AttributedString("@"); at.font = wfont
                         let c = cursor ?? rich.characters.count
                         let needsSpace = c > 0 && !(rich.characters[rich.characters.index(rich.startIndex, offsetBy: c - 1)].isWhitespace)
-                        if needsSpace { var sp = AttributedString(" "); sp.font = font; at = sp + at }
+                        if needsSpace { var sp = AttributedString(" "); sp.font = wfont; at = sp + at }
                         let i = rich.characters.index(rich.startIndex, offsetBy: c)
                         rich.insert(at, at: i)
                         rsel = AttributedTextSelection(insertionPoint: rich.characters.index(rich.startIndex, offsetBy: c + at.characters.count))
@@ -754,7 +763,7 @@ struct EditText: View {
                 .onChange(of: ed.focus) { _, f in
                     if f == key {                                          // wieder Ziel, waehrend noch abgegeben wurde
                         if box.handover != nil {
-                            rich = richText(html, base: font); box.shadow = String(rich.characters); box.handover = nil
+                            rich = richText(html, base: wfont); box.shadow = String(rich.characters); box.handover = nil
                             rsel = AttributedTextSelection(insertionPoint: rich.endIndex)
                         }
                         return

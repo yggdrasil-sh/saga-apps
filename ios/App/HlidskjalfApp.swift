@@ -12,7 +12,7 @@ struct HlidskjalfApp: App {
 
     var body: some Scene {
         #if os(macOS)
-        WindowGroup {
+        WindowGroup(id: HKScene.main) {
             #if DEBUG
             if X3Preview.mode != nil { X3PreviewView(store: store) } else if HornPreview.mode != nil { HornPreviewView(store: store) } else if GraphPreview.nodes != nil { GraphPreviewView() } else {   // nur fuer Bilder (2.5, ohne Server)
             RootView(store: store)

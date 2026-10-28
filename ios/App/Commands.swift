@@ -14,19 +14,33 @@ struct HKCommands {
     var events: () -> Void
     var graph: (() -> Void)? = nil                  // 2.5: Graph der Seiten (nil = Server zu alt)
     var fromTemplate: (() -> Void)? = nil           // 2.5: Vorlagengalerie (nil = Server ohne Galerie)
+    var toggleSidebar: (() -> Void)? = nil          // 2.5 Notion-Gefuehl: Seitenleiste ein/aus (⌘\\)
 }
 struct HKCommandsKey: FocusedValueKey { typealias Value = HKCommands }
 extension FocusedValues {
     var hk: HKCommands? { get { self[HKCommandsKey.self] } set { self[HKCommandsKey.self] = newValue } }
 }
+/// Kennung des Hauptfensters (Mac: "Neues Fenster" ueber openWindow)
+enum HKScene { static let main = "main" }
 extension Notification.Name { static let hkCaptured = Notification.Name("hkCaptured") }
 
 struct HKMenuCommands: Commands {
     @FocusedValue(\.hk) private var hk
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
     var body: some Commands {
-        CommandGroup(before: .newItem) {
-            Button("Neue Seite") { hk?.newPage() }.keyboardShortcut("n", modifiers: [.command, .option]).disabled(hk == nil)
+        // 2.5 Notion-Gefuehl: ⌘N = neue Seite (wie Notion); "Neues Fenster" (Mac) wandert auf ⇧⌘N
+        CommandGroup(replacing: .newItem) {
+            Button("Neue Seite") { hk?.newPage() }.keyboardShortcut("n", modifiers: .command).disabled(hk == nil)
             Button("Aus Vorlage …") { hk?.fromTemplate?() }.disabled(hk?.fromTemplate == nil)
+            #if os(macOS)
+            Divider()
+            Button("Neues Fenster") { openWindow(id: HKScene.main) }.keyboardShortcut("n", modifiers: [.command, .shift])
+            #endif
+        }
+        CommandGroup(before: .sidebar) {
+            Button("Seitenleiste ein-/ausblenden") { hk?.toggleSidebar?() }.keyboardShortcut("\\", modifiers: .command).disabled(hk?.toggleSidebar == nil)
         }
         CommandMenu("Gehe zu") {
             Button("Zurück") { hk?.back() }.keyboardShortcut("[", modifiers: .command).disabled(hk == nil)
