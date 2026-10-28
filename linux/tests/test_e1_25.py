@@ -249,6 +249,23 @@ def test_chart_ticks_vectors():
         assert C.nice_ticks(c["lo"], c["hi"]) == c["want"], c
 
 
+def test_chart_ticks_integer_counts():
+    """Anzahl (ganze Werte): keine Achsenwerte 0,2/0,4 ..."""
+    from hlidskjalf import chart as C
+    assert C.nice_ticks(0, 1, integer=True) == [0, 1]
+    assert C.nice_ticks(0, 3, integer=True) == [0, 1, 2, 3]
+    assert C.nice_ticks(0, 0, integer=True) == [0, 1]
+    assert C.nice_ticks(0, 12, integer=True) == [0, 5, 10, 15]
+    assert C.nice_ticks(0, 100, integer=True) == C.nice_ticks(0, 100)
+    assert all(float(t).is_integer() for t in C.nice_ticks(-3, 7, integer=True))
+    ch = C.parse({"type": "bar", "cats": [{"key": "a"}, {"key": "b"}], "series": [{"values": [1, 1]}], "fmt": "num"})
+    assert C.integer_values(ch)
+    ch2 = C.parse({"type": "bar", "cats": [{"key": "a"}], "series": [{"values": [0.5]}], "fmt": "num"})
+    assert not C.integer_values(ch2)
+    ch3 = C.parse({"type": "bar", "cats": [{"key": "a"}], "series": [{"values": [1]}], "fmt": "pct"})
+    assert not C.integer_values(ch3)
+
+
 def test_chart_parse_and_colors():
     from hlidskjalf import chart as C
     ch = C.parse({"type": "bar", "x_kind": "cat", "cats": [{"key": "h", "label": "Hoch", "color": "red"}, {"key": None, "label": ""},

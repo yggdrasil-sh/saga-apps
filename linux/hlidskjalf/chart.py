@@ -14,8 +14,9 @@ TC = {"gray": ("#686763", "#b0afab"), "brown": ("#8a5a44", "#c9a08b"), "orange":
       "purple": ("#6940a5", "#b893e6"), "pink": ("#a8186e", "#e682bb"), "red": ("#c22a2a", "#f28585")}
 
 
-def nice_ticks(lo, hi, n=5):
-    """Schoene Achsenwerte (1, 2, 2.5, 5 x 10^k) von <= lo bis >= hi (wie saga/chartsvg.py nice_ticks)"""
+def nice_ticks(lo, hi, n=5, integer=False):
+    """Schoene Achsenwerte (1, 2, 2.5, 5 x 10^k) von <= lo bis >= hi (wie saga/chartsvg.py nice_ticks).
+    integer: nur ganze Werte (Anzahl, ganzzahlige Summen) - Schritte 1/2/5 x 10^k, mindestens 1 (kein "0,2 / 0,4")."""
     if lo == hi:
         hi = lo + 1 if lo >= 0 else lo
         lo = min(0, lo)
@@ -25,6 +26,8 @@ def nice_ticks(lo, hi, n=5):
     raw = span / max(1, n)
     mag = 10 ** math.floor(math.log10(raw))
     step = next(m * mag for m in (1, 2, 2.5, 5, 10) if m * mag >= raw - 1e-12)
+    if integer:
+        step = max(1, next(m * mag for m in (1, 2, 5, 10) if m * mag >= raw - 1e-12))
     a = math.floor(lo / step + 1e-9) * step
     b = math.ceil(hi / step - 1e-9) * step
     out, x = [], a
@@ -127,6 +130,14 @@ def value_range(ch):
     return min(0.0, min(vals)), max(0.0, max(vals))
 
 
+def integer_values(ch):
+    """Alle gezeichneten Werte (und Ziel) ganzzahlig -> Achse nur mit ganzen Werten"""
+    vals = [v for s in ch["series"] for v in s["values"] if v is not None]
+    if ch["goal"] is not None:
+        vals.append(ch["goal"])
+    return ch["fmt"] != "pct" and all(float(v).is_integer() for v in vals)
+
+
 def fmt(v, f, lang=None):
     if v is None:
         return "–"
@@ -224,7 +235,7 @@ def _draw_xy(cr, w, h, ch, dark, fg, lang):
     t = ch["type"]
     horiz = t == "hbar"
     lo, hi = value_range(ch)
-    ticks = nice_ticks(lo, hi)
+    ticks = nice_ticks(lo, hi, integer=integer_values(ch))
     vmin, vmax = ticks[0], ticks[-1]
     if vmax == vmin:
         vmax = vmin + 1
