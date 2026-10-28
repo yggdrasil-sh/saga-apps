@@ -19,19 +19,39 @@ VIEW_TYPES = [("table", _("Table"), "view-grid-symbolic"), ("board", _("Board"),
 CALC_NAMES = {"count": _("Count"), "filled": _("Filled"), "empty": _("Empty"), "pct_filled": _("Percent filled"), "unique": _("Unique"),
               "sum": _("Sum"), "avg": _("Average"), "median": _("Median"), "min": _("Minimum"), "max": _("Maximum"), "range": _("Range"),
               "checked": _("Checked"), "unchecked": _("Unchecked"), "pct_checked": _("Percent checked"), "earliest": _("Earliest"), "latest": _("Latest")}
-NO_VALUE = {"is_empty", "not_empty", "checked", "unchecked", "today", "this_week", "this_month"}
+NO_VALUE = {"is_empty", "not_empty", "checked", "unchecked", "today", "this_week", "this_month", "me",
+            "yesterday", "tomorrow", "last_week", "next_week", "last_month", "next_month", "this_year", "overdue"}
+COUNT_OPS = {"next_days", "past_days"}
+DAY_VALUE_OPS = {"on_or_before", "on_or_after"}
 
 
-def filter_ops(t):
+def filter_ops(t, p=None):
+    """Operatoren je Typ. p: Eigenschaft (Formel/Rollup nach rtype, Status, relative Datumsfilter nur mit relfilter1)"""
+    from . import dbvalues as dv
+    from .store import store
+    if p is not None and dv.is_fx(p):
+        t = dv.eff_type(p)
     empty = [("is_empty", _("is empty")), ("not_empty", _("is not empty"))]
     rel = [("today", _("is today")), ("this_week", _("is this week")), ("this_month", _("is this month"))]
+    if store.has("relfilter1"):
+        rel += [("yesterday", _("is yesterday")), ("tomorrow", _("is tomorrow")), ("last_week", _("is last week")),
+                ("next_week", _("is next week")), ("last_month", _("is last month")), ("next_month", _("is next month")),
+                ("this_year", _("is this year")), ("overdue", _("is overdue")), ("next_days", _("within the next days")),
+                ("past_days", _("within the past days")), ("on_or_before", _("on or before")), ("on_or_after", _("on or after"))]
     if t in ("number", "calc"):
         return [("eq", "="), ("gt", ">"), ("lt", "<")] + empty
     if t == "select":
-        return [("is", _("is")), ("is_not", _("is not"))] + empty
+        ops = [("is", _("is")), ("is_not", _("is not"))]
+        if p is not None and dv.is_status(p) and store.has("status1"):
+            ops.append(("status_group", _("is in group")))
+        return ops + empty
     if t == "multi_select":
         return [("contains", _("contains")), ("not_contains", _("does not contain"))] + empty
-    if t == "relation":
+    if t == "list":
+        return [("contains", _("contains")), ("not_contains", _("does not contain"))] + empty
+    if t == "person":
+        return [("me", _("is me")), ("contains", _("contains")), ("not_contains", _("does not contain"))] + empty
+    if t in ("relation", "files"):
         return empty
     if t == "date":
         return [("eq", _("on")), ("before", _("before")), ("after", _("after"))] + rel + empty
@@ -247,6 +267,8 @@ class ViewSettings(Gtk.Box):
         v = next((x for x in m.all_views() if x.get("id") == vid), {"id": vid, "type": "table"})
         t = v.get("type") or "table"
         selects = [p for p in m.props if p.get("type") == "select"]
+        from . import dbvalues as dv
+        groupables = [p for p in m.props if dv.groupable(p)]          # 2.5: auch Formel/Rollup/Personen (nur lesend)
 
         def setv(change, rebuild=True):
             m.edit_view(vid, change)
@@ -260,11 +282,11 @@ class ViewSettings(Gtk.Box):
         en.connect("activate", lambda e: setv(lambda d: d.__setitem__("name", e.get_text().strip() or _("View")), False))
         self.append(self._row(_("Name"), en))
         self.append(self._row(_("Layout"), dropdown([(x[0], x[1]) for x in VIEW_TYPES], t, lambda val: setv(lambda d: d.__setitem__("type", val)))))
-        if t == "board" and selects:
-            self.append(self._row(_("Group by"), dropdown([(p["id"], p["name"]) for p in selects], v.get("group_by") or selects[0]["id"],
+        if t == "board" and groupables:
+            self.append(self._row(_("Group by"), dropdown([(p["id"], p["name"]) for p in groupables], v.get("group_by") or (selects or groupables)[0]["id"],
                                                               lambda val: setv(lambda d: d.__setitem__("group_by", val)))))
         if t in ("table", "list"):
-            self.append(self._row(_("Grouping"), dropdown([("", _("no grouping"))] + [(p["id"], p["name"]) for p in selects], v.get("group") or "",
+            self.append(self._row(_("Grouping"), dropdown([("", _("no grouping"))] + [(p["id"], p["name"]) for p in groupables], v.get("group") or "",
                                                          lambda val: setv(lambda d: _set(d, "group", val)))))
         if t == "calendar":
             dates = [p for p in m.props if p.get("type") in ("date", "created", "edited")]
@@ -313,7 +335,7 @@ class ViewSettings(Gtk.Box):
             first = m.props[0]
             self.append(flat_button(icon="list-add-symbolic", label=_("Add filter"),
                                     cb=lambda: setv(lambda d: d.__setitem__("filters", (d.get("filters") or []) + [
-                                        {"pid": first["id"], "op": filter_ops(first.get("type"))[0][0], "value": ""}]))))
+                                        {"pid": first["id"], "op": filter_ops(first.get("type"), first)[0][0], "value": ""}]))))
 
     def _row(self, title, w):
         r = Gtk.Box(spacing=8)
@@ -330,12 +352,36 @@ class ViewSettings(Gtk.Box):
         r = Gtk.Box(spacing=4)
 
         def set_prop(val):
-            tt = "text" if val == "title" else ((m.prop(val) or {}).get("type") or "text")
-            setv(lambda d: _at_full(d, "filters", i, {"pid": val, "op": filter_ops(tt)[0][0], "value": ""}))
+            pp = None if val == "title" else m.prop(val)
+            tt = "text" if val == "title" else ((pp or {}).get("type") or "text")
+            setv(lambda d: _at_full(d, "filters", i, {"pid": val, "op": filter_ops(tt, pp)[0][0], "value": ""}))
         r.append(dropdown(name_pairs, pid, set_prop, 130))
-        r.append(dropdown(filter_ops(ptype), op, lambda val: setv(lambda d: _at(d, "filters", i, "op", val))))
+        r.append(dropdown(filter_ops(ptype, p if pid != "title" else None), op, lambda val: setv(lambda d: _at(d, "filters", i, "op", val))))
         if op not in NO_VALUE and p:
-            if ptype in ("select", "multi_select"):
+            if op == "status_group":
+                r.append(dropdown([("open", _("Not done")), ("todo", _("To do")), ("doing", _("In progress")), ("done", _("Done"))],
+                                  f.get("value") or "", lambda val: setv(lambda d: _at(d, "filters", i, "value", val)), 120))
+            elif op in COUNT_OPS:
+                sb = Gtk.SpinButton.new_with_range(1, 366, 1)
+                try:
+                    sb.set_value(int(f.get("value") or 7))
+                except (TypeError, ValueError):
+                    sb.set_value(7)
+                sb.connect("value-changed", lambda b: setv(lambda d: _at(d, "filters", i, "value", str(int(b.get_value()))), False))
+                r.append(sb)
+                r.append(Gtk.Label(label=_("days"), css_classes=["dim-label"]))
+            elif op in DAY_VALUE_OPS:
+                cur = str(f.get("value") or "")
+                opts = [("today", _("today")), ("today-7", _("one week ago")), ("today+7", _("in one week"))]
+                if cur and cur not in [x[0] for x in opts]:
+                    opts.append((cur, day_text(cur)))
+                r.append(dropdown([("", _("– choose –"))] + opts, cur, lambda val: setv(lambda d: _at(d, "filters", i, "value", val)), 130))
+            elif ptype == "person":
+                from . import dbvalues as dv
+                refs = sorted({x for row in m.rows for x in dv.person_refs(row["props"].get(pid))} | set(m.people or {}))
+                r.append(dropdown([("", _("– choose –"))] + [(x, dv.person_label(x, m.people)) for x in refs], f.get("value") or "",
+                                  lambda val: setv(lambda d: _at(d, "filters", i, "value", val)), 140))
+            elif ptype in ("select", "multi_select"):
                 r.append(dropdown([("", _("– choose –"))] + [(o["id"], o["name"]) for o in p.get("options") or []], f.get("value") or "",
                                   lambda val: setv(lambda d: _at(d, "filters", i, "value", val)), 120))
             elif ptype in ("date", "created", "edited"):
@@ -432,11 +478,29 @@ class ColumnEditor(Gtk.Popover):
         from gi.repository import GLib
         GLib.idle_add(lambda: (self.fill(), False)[1])
 
+    def _web_only(self, p, t):
+        """Formel, Rollup, Person, Datei und kuenftige Typen: in der App nicht umbauen (Schema bleibt roh erhalten)"""
+        self.name_entry = None
+        h = Gtk.Label(label=p.get("name") or "", xalign=0)
+        h.add_css_class("heading")
+        self.box.append(h)
+        lb = Gtk.Label(label=_web_only_text(t), xalign=0, wrap=True)
+        lb.add_css_class("dim-label")
+        self.box.append(lb)
+        if p.get("type") in ("formula", "rollup") and isinstance(p.get("expr"), str):
+            code = Gtk.Label(label=p["expr"], xalign=0, wrap=True, selectable=True)
+            code.add_css_class("monospace")
+            code.add_css_class("caption")
+            self.box.append(code)
+
     def fill(self):
         while (c := self.box.get_first_child()):
             self.box.remove(c)
         p = self._p()
         t = p.get("type") or "text"
+        if t not in [x[0] for x in DB_TYPES]:
+            self._web_only(p, t)
+            return
         en = Gtk.Entry(text=p.get("name") or "")
         self.name_entry = en
         en.connect("activate", self._save_name)
@@ -495,6 +559,12 @@ class ColumnEditor(Gtk.Popover):
         dl.connect("clicked", lambda *_: (self.popdown(), self.m.edit_schema(
             lambda sc: sc.__setitem__("props", [x for x in sc.get("props") or [] if x.get("id") != self.pid]))))
         self.box.append(dl)
+
+
+def _web_only_text(t):
+    if t in ("formula", "rollup"):
+        return _("Calculated – edit the formula on the web")
+    return _("Edit this property on the web")
 
 
 def _opt(d, i, k, v):
@@ -573,7 +643,8 @@ class CalcRow(Gtk.Box):
 
     @staticmethod
     def ops(p):
-        t = "number" if p and p.get("type") == "calc" else ((p or {}).get("type") or "text")
+        from .dbvalues import eff_type
+        t = "number" if p and p.get("type") == "calc" else (eff_type(p) or "text")
         if t == "checkbox":
             return ["count", "checked", "unchecked", "pct_checked"]
         o = ["count", "filled", "empty", "pct_filled", "unique"]
@@ -613,7 +684,7 @@ class CalcRow(Gtk.Box):
 
         def fmt(x):
             x = round(x * 100) / 100
-            return num_text(x, p.get("fmt")) if p and p.get("type") in ("number", "calc") else num_text(x)
+            return num_text(x, p.get("fmt")) if p and p.get("type") in ("number", "calc", "formula", "rollup") else num_text(x)
 
         def pct(a):
             return _("{value}%").format(value=round(a / n * 100)) if n else "–"
