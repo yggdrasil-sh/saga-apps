@@ -541,9 +541,9 @@ enum TimelineLogic {
         let ep = q.prop(view?["end_by"] as? String)
         var bars: [Bar] = [], none: [Int] = []
         for r in rows {
-            guard let sp, let s = DBDate.daySpan(q.value(sp, r), tz) else { none.append(r.id); continue }
+            guard let sp, let s = shownSpan(q.value(sp, r), tz) else { none.append(r.id); continue }
             var e = s.1
-            if let ep, let x = DBDate.daySpan(q.value(ep, r), tz) { e = max(s.0, x.1) }
+            if let ep, let x = shownSpan(q.value(ep, r), tz) { e = max(s.0, x.1) }
             bars.append(Bar(id: r.id, title: r.title, start: s.0, end: e))
         }
         return (bars.sorted { $0.start != $1.start ? $0.start < $1.start : $0.id < $1.id }, none)
@@ -564,8 +564,19 @@ enum TimelineLogic {
     /// Zeilen an einem Tag (Zeitraum: auf jedem Tag, hoechstens 62)
     static func rows(on day: Int, _ q: DBQuery, rows: [DBRow], prop: DBProp, tz: TimeZone = .current) -> [DBRow] {
         rows.filter { r in
-            guard let s = DBDate.daySpan(q.value(prop, r), tz) else { return false }
+            guard let s = shownSpan(q.value(prop, r), tz) else { return false }
             return s.0 <= day && day <= min(s.1, s.0 + 61)
         }
+    }
+    /// Tage eines Datumswerts zum Anzeigen (leer/kein Datum -> nil; Erstellt/Bearbeitet als Zeitstempel)
+    static func shownSpan(_ v: Any?, _ tz: TimeZone) -> (Int, Int)? {
+        if let t = v as? Double {
+            let d = DBDate.dayString(Date(timeIntervalSince1970: t), tz: tz)
+            return DBDate.part(d).map { let n = DBDate.days($0.y, $0.m, $0.d); return (n, n) }
+        }
+        guard let s = v as? String, !s.isEmpty, let x = DBDate.parse(s) else { return nil }
+        if let sp = DBDate.spans(s, tz) { return (sp.0, max(sp.0, sp.1)) }
+        let a = DBDate.days(x.start.y, x.start.m, x.start.d)
+        return (a, a)
     }
 }
