@@ -53,7 +53,7 @@ class PageWidgetsTest {
         assertNull(t.accent)                                                 // nur Palette
         assertEquals(80, t.title.length)
         assertFalse(t.serverValue)
-        val u = PageWidgets.spec(obj("""{"id":"w3","type":"widget","data":{"kind":"chart","accent":"blue","size":"l"}}"""))
+        val u = PageWidgets.spec(obj("""{"id":"w3","type":"widget","data":{"kind":"kanban","accent":"blue","size":"l"}}"""))
         assertFalse(u.known)                                                 // -> "neuere Version noetig"
         assertEquals("blue", u.accent)
         assertEquals("l", u.size)
