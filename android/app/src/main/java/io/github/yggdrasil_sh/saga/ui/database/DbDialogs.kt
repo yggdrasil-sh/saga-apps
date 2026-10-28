@@ -46,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import io.github.yggdrasil_sh.saga.R
 import kotlinx.coroutines.launch
 import io.github.yggdrasil_sh.saga.data.SagaRepository
+import io.github.yggdrasil_sh.saga.data.dbPeople
+import io.github.yggdrasil_sh.saga.data.uploadRowFile
 import io.github.yggdrasil_sh.saga.db.DbFilter
 import io.github.yggdrasil_sh.saga.db.DbProp
 import io.github.yggdrasil_sh.saga.db.DbSchema
@@ -59,18 +61,24 @@ import io.github.yggdrasil_sh.saga.ui.tasks.DueDatePicker
 fun DatabaseDialogs(st: DbViewState, repo: SagaRepository) {
     st.editing?.let { (row, prop) ->
         val cur = st.rows.firstOrNull { it.id == row.id } ?: st.monthRows.firstOrNull { it.id == row.id } ?: row
+        val ctx = androidx.compose.ui.platform.LocalContext.current
+        val fmt = rememberDbFormat({ id -> repo.page(id)?.title }, st.people)
         PropValueEditor(
             p = prop, value = cur.props[prop.id],
             onSet = { v -> st.setProp(cur, prop, v) },
             onDismiss = { st.editing = null },
             onNewOption = if (st.readOnly) null else { name -> st.addOption(cur, prop, name, prop.type == "multi_select") },
             relationRows = prop.target?.let { t -> { q: String -> repo.dbStore.search(t, q) } },
+            people = if (repo.hasFeature("person1") || st.dbId < 0) ({ q: String -> repo.dbPeople(st.dbId, q) }) else null,
+            upload = if (st.dbId > 0) ({ uri: android.net.Uri -> repo.uploadRowFile(cur.id, ctx, uri) }) else null,
+            fmt = fmt,
+            datetime = repo.hasFeature("datetime1"),
         )
     }
     val s = st.schema ?: return
-    val v = s.view(st.viewId)
+    val v = st.view ?: return
     when (st.sheet) {
-        "filter" -> FilterDialog(s, v, st.canEditViews, onApply = { st.setFilters(it) }, onDismiss = { st.sheet = null })
+        "filter" -> FilterDialog(s, v, st.canEditViews, repo.serverFeatures.value, onApply = { st.setFilters(it) }, onDismiss = { st.sheet = null })
         "sort" -> SortDialog(s, v, st.canEditViews, onApply = { st.setSorts(it) }, onDismiss = { st.sheet = null })
         "view" -> ViewDialog(st, s, v, onDismiss = { st.sheet = null })
         "new_view" -> NewViewDialog(onCreate = { type, name -> st.addView(type, name) }, onDismiss = { st.sheet = null })
@@ -123,6 +131,21 @@ fun opLabel(op: String, type: String): String = when (op) {
     "this_month" -> stringResource(R.string.dbv_op_this_month)
     "checked" -> stringResource(R.string.dbv_op_checked)
     "unchecked" -> stringResource(R.string.dbv_op_unchecked)
+    // 2.5
+    "me" -> stringResource(R.string.e1_op_me)
+    "status_group" -> stringResource(R.string.e1_op_status_group)
+    "yesterday" -> stringResource(R.string.e1_op_yesterday)
+    "tomorrow" -> stringResource(R.string.e1_op_tomorrow)
+    "last_week" -> stringResource(R.string.e1_op_last_week)
+    "next_week" -> stringResource(R.string.e1_op_next_week)
+    "last_month" -> stringResource(R.string.e1_op_last_month)
+    "next_month" -> stringResource(R.string.e1_op_next_month)
+    "this_year" -> stringResource(R.string.e1_op_this_year)
+    "overdue" -> stringResource(R.string.e1_op_overdue)
+    "next_days" -> stringResource(R.string.e1_op_next_days)
+    "past_days" -> stringResource(R.string.e1_op_past_days)
+    "on_or_before" -> stringResource(R.string.e1_op_on_or_before)
+    "on_or_after" -> stringResource(R.string.e1_op_on_or_after)
     else -> op
 }
 
@@ -132,7 +155,7 @@ private fun propChoices(s: DbSchema): List<Pair<String, String>> =
     listOf("title" to (s.titleName ?: stringResource(R.string.dbv_name_col))) + s.props.map { it.id to it.name }
 
 @Composable
-private fun FilterDialog(s: DbSchema, v: DbView, editable: Boolean, onApply: (List<DbFilter>) -> Unit, onDismiss: () -> Unit) {
+private fun FilterDialog(s: DbSchema, v: DbView, editable: Boolean, features: Set<String>, onApply: (List<DbFilter>) -> Unit, onDismiss: () -> Unit) {
     val fs = remember(v.id) { mutableStateListOf<DbFilter>().apply { addAll(v.filters) } }
     val choices = propChoices(s)
     AlertDialog(
@@ -146,12 +169,13 @@ private fun FilterDialog(s: DbSchema, v: DbView, editable: Boolean, onApply: (Li
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Picker(stringResource(R.string.dbv_filter_prop), choices, f.pid, enabled = editable, role = stringResource(R.string.dbv_filter_prop), onPick = { pid ->
-                                val t = s.prop(pid)?.type ?: "text"
-                                fs[i] = DbFilter(pid, DbFilter.ops(t).first(), "")
+                                fs[i] = DbFilter(pid, DbFilter.ops(s.prop(pid) ?: DbProp.TITLE, features).first(), "")
                             }, modifier = Modifier.weight(1f))
                             if (editable) IconButton(onClick = { fs.removeAt(i) }) { Icon(Icons.Filled.Close, stringResource(R.string.dbv_remove)) }
                         }
-                        Picker("", DbFilter.ops(p.type).map { it to opLabel(it, p.type) }, f.op, enabled = editable, role = stringResource(R.string.dbv_filter_cond), onPick = { op -> fs[i] = f.copy(op = op) }, modifier = Modifier.fillMaxWidth())
+                        // unbekannter Operator (neuere Version) bleibt waehlbar und unveraendert
+                        val ops = DbFilter.ops(p, features).let { if (f.op in it) it else it + f.op }
+                        Picker("", ops.map { it to opLabel(it, p.effType) }, f.op, enabled = editable, role = stringResource(R.string.dbv_filter_cond), onPick = { op -> fs[i] = f.copy(op = op) }, modifier = Modifier.fillMaxWidth())
                         if (!f.noValue) FilterValue(p, f, editable) { fs[i] = f.copy(value = it) }
                     }
                     HorizontalDivider()
@@ -175,7 +199,22 @@ private fun FilterDialog(s: DbSchema, v: DbView, editable: Boolean, onApply: (Li
 /** Wert eines Filters: Auswahl aus den Optionen, Datum per Kalender, sonst Text/Zahl */
 @Composable
 private fun FilterValue(p: DbProp, f: DbFilter, editable: Boolean, onChange: (String) -> Unit) {
-    when (p.type) {
+    if (f.op == "status_group") {
+        Picker(stringResource(R.string.dbv_value_empty), listOf("open" to stringResource(R.string.e1_status_open), "todo" to stringResource(R.string.e1_status_todo),
+            "doing" to stringResource(R.string.e1_status_doing), "done" to stringResource(R.string.e1_status_done)), f.value, enabled = editable,
+            role = stringResource(R.string.dbv_filter_value), onPick = onChange, modifier = Modifier.fillMaxWidth())
+        return
+    }
+    if (f.op == "next_days" || f.op == "past_days") {
+        var text by remember(f.pid, f.op) { mutableStateOf(f.value) }
+        OutlinedTextField(text, { t -> text = t.filter { it.isDigit() }.take(3); onChange(text) }, enabled = editable, singleLine = true,
+            label = { Text(stringResource(R.string.e1_filter_days)) }, modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number))
+        return
+    }
+    // Person "enthaelt": Kennung waehlen nur im Web; "ist mir zugewiesen" (me) braucht keinen Wert
+    if (p.type == "person") return
+    when (p.effType) {
         "select", "multi_select" -> Picker(stringResource(R.string.dbv_value_empty), p.options.map { it.id to it.name }, f.value, enabled = editable, role = stringResource(R.string.dbv_filter_value), onPick = onChange, modifier = Modifier.fillMaxWidth())
         "date", "created", "edited" -> {
             var pick by remember { mutableStateOf(false) }

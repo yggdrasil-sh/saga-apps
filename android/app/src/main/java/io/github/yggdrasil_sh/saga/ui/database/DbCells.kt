@@ -113,12 +113,24 @@ fun typeName(type: String): String = stringResource(
         "calc" -> R.string.dbv_type_calc
         "created" -> R.string.dbv_type_created
         "edited" -> R.string.dbv_type_edited
+        "formula" -> R.string.e1_type_formula
+        "rollup" -> R.string.e1_type_rollup
+        "person" -> R.string.e1_type_person
+        "files" -> R.string.e1_type_files
         else -> R.string.dbv_type_text
     },
 )
 
 /** Wert als Text (Tabelle, Bedienungshilfen) in der Schreibweise der App-Sprache */
-class DbFormat(private val locale: Locale, private val titleOf: (Long) -> String?) {
+class DbFormat(
+    private val locale: Locale,
+    private val titleOf: (Long) -> String?,
+    /** 2.5 person1: Personen der Antwort (nie Anmeldenamen) */
+    val person: (String) -> io.github.yggdrasil_sh.saga.db.DbPerson? = { null },
+    val zone: java.time.ZoneId = java.time.ZoneId.systemDefault(),
+    /** Text fuer geloeschte/unbekannte Personen */
+    private val gone: String = "–",
+) {
     private val day = DbProps.localDay(locale)
     private val num = DbProps.localNum(locale)
     private val dt = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, locale)
@@ -130,18 +142,33 @@ class DbFormat(private val locale: Locale, private val titleOf: (Long) -> String
 
     fun day(iso: String): String = day.invoke(iso)
 
+    /** Name einer Person: Anzeigename, geloescht -> Hinweis, unbekannt -> Kurzform der Kennung (nie Anmeldename) */
+    fun personName(ref: String): String = person(ref)?.let { if (it.gone) gone else it.name.ifBlank { null } } ?: gone
+
     fun text(p: DbProp, v: JsonElement?): String {
         if (v == null || v is JsonNull) return ""
+        if (p.computed) return computedText(p, v)
         return when (p.type) {
-            "select" -> p.option(v.prim())?.name ?: ""
+            "select" -> p.option(v.prim())?.let { o -> if (p.status) io.github.yggdrasil_sh.saga.db.DbProp.groupSymbol(o.group) + " " + o.name else o.name } ?: ""
+            "person" -> DbValues.ids(v).joinToString(", ") { personName(it) }
+            "files" -> (v as? kotlinx.serialization.json.JsonArray)?.mapNotNull { (it as? kotlinx.serialization.json.JsonObject)?.let { o -> (o["name"] as? JsonPrimitive)?.content } }?.joinToString(", ").orEmpty()
             "multi_select" -> DbValues.ids(v).mapNotNull { p.option(it)?.name }.joinToString(", ")
             "checkbox" -> ""
             "number", "calc" -> (v as? JsonPrimitive)?.doubleOrNull?.let { number(p, it) } ?: v.prim().orEmpty()
-            "date" -> DbValues.parseDate(v)?.let { day(it.toString()) } ?: v.prim().orEmpty()
+            "date" -> io.github.yggdrasil_sh.saga.db.DbDate.display(v.prim(), zone, locale) ?: DbValues.parseDate(v)?.let { day(it.toString()) } ?: v.prim().orEmpty()
             "created", "edited" -> (v as? JsonPrimitive)?.doubleOrNull?.let { dt.format(Date((it * 1000).toLong())) }.orEmpty()
             "relation" -> DbValues.relationIds(v).map { titleOf(it) ?: "#$it" }.joinToString(", ")
             else -> InlineHtml.plain(DbQuery.text(v))
         }
+    }
+
+    /** 2.5 Formel/Rollup: Wert je rtype (Zahl wie Zahl-Spalte, Datum lesbar, Liste "a, b", Haekchen leer) */
+    fun computedText(p: DbProp, v: JsonElement): String = when (p.rtype) {
+        "number" -> (v as? JsonPrimitive)?.doubleOrNull?.let { number(p, it) } ?: v.prim().orEmpty()
+        "date" -> io.github.yggdrasil_sh.saga.db.DbDate.display(v.prim(), zone, locale) ?: v.prim().orEmpty()
+        "checkbox" -> ""
+        "list" -> (v as? kotlinx.serialization.json.JsonArray)?.joinToString(", ") { DbQuery.text(it) } ?: DbQuery.text(v)
+        else -> DbQuery.text(v)
     }
 }
 
@@ -153,11 +180,83 @@ fun rememberDbFormat(titleOf: (Long) -> String?): DbFormat {
     return remember(locale) { DbFormat(locale, titleOf) }
 }
 
+/** 2.5: mit Personen-Verzeichnis (Name, Avatar, "ich", geloescht) */
+@Composable
+fun rememberDbFormat(titleOf: (Long) -> String?, people: Map<String, io.github.yggdrasil_sh.saga.db.DbPerson>): DbFormat {
+    val locale = appLocale()
+    val gone = stringResource(R.string.e1_person_gone)
+    return remember(locale, people, gone) { DbFormat(locale, titleOf, { people[it] }, gone = gone) }
+}
+
+/** Person als Chip: Avatar (oder Initiale), Name, "ich" hervorgehoben, geloescht ausgegraut */
+@Composable
+fun PersonChip(ref: String, fmt: DbFormat) {
+    val p = fmt.person(ref)
+    val gone = p == null || p.gone
+    val name = fmt.personName(ref)
+    val cs = MaterialTheme.colorScheme
+    Row(
+        Modifier.clip(RoundedCornerShape(10.dp)).background(if (p?.me == true) cs.primaryContainer.copy(alpha = 0.6f) else cs.surfaceContainerHigh)
+            .padding(start = 2.dp, end = 6.dp, top = 1.dp, bottom = 1.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        androidx.compose.foundation.layout.Box(
+            Modifier.size(16.dp).clip(androidx.compose.foundation.shape.CircleShape).background(if (gone) cs.outlineVariant else cs.tertiaryContainer),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (!gone && p?.avatar != null) {
+                val repo = LocalDbRepo.current
+                coil3.compose.AsyncImage(model = repo?.absoluteUrl(p.avatar) ?: p.avatar, contentDescription = null,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.size(16.dp))
+            } else Text(name.take(1).uppercase(), style = MaterialTheme.typography.labelSmall, color = cs.onTertiaryContainer)
+        }
+        Text(name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            color = if (gone) cs.outline else cs.onSurface)
+    }
+}
+
+/** Fuer Avatare/Dateien: Repository (absolute Adressen); null in Vorschauen */
+val LocalDbRepo = androidx.compose.runtime.staticCompositionLocalOf<io.github.yggdrasil_sh.saga.data.SagaRepository?> { null }
+
 /** Ein Wert in Tabelle/Karte/Liste: Auswahl als farbige Marke, Haekchen als Symbol, Fortschritt als Balken */
 @Composable
-fun DbValueView(p: DbProp, v: JsonElement?, fmt: DbFormat, maxLines: Int = 1) {
+fun DbValueView(p: DbProp, v: JsonElement?, fmt: DbFormat, maxLines: Int = 1, err: String? = null) {
+    // 2.5 Formel/Rollup: Laufzeitfehler je Zelle
+    if (p.computed && err != null) {
+        val why = stringResource(R.string.e1_fx_error_hint, err)
+        Text(stringResource(R.string.e1_fx_error), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.semantics { contentDescription = why })
+        return
+    }
+    if (p.computed) {
+        when (p.rtype) {
+            "checkbox" -> {
+                val on = DbQuery.truthy(v)
+                val cd = stringResource(if (on) R.string.dbv_checked else R.string.dbv_unchecked)
+                androidx.compose.material3.Checkbox(checked = on, onCheckedChange = null, enabled = false, modifier = Modifier.size(24.dp).semantics { contentDescription = cd })
+            }
+            "list" -> FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                ((v as? kotlinx.serialization.json.JsonArray) ?: listOfNotNull(v)).forEach { OptChip(DbQuery.text(it), "gray") }
+            }
+            "number" -> {
+                val n = (v as? JsonPrimitive)?.doubleOrNull
+                if (n != null && p.fmt == "percent" && (p.show == "bar" || p.show == "ring")) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        LinearProgressIndicator(progress = { (n / 100).toFloat().coerceIn(0f, 1f) }, modifier = Modifier.width(56.dp))
+                        Text(fmt.number(p, n), style = MaterialTheme.typography.bodySmall)
+                    }
+                } else Text(fmt.text(p, v), maxLines = maxLines, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+            }
+            else -> Text(fmt.text(p, v), maxLines = maxLines, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+        }
+        return
+    }
     when (p.type) {
-        "select" -> p.option(v.prim())?.let { OptChip(it.name, it.color) }
+        "person" -> FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            DbValues.ids(v).forEach { PersonChip(it, fmt) }
+        }
+        "files" -> FilesView(v)
+        "select" -> p.option(v.prim())?.let { OptChip(if (p.status) io.github.yggdrasil_sh.saga.db.DbProp.groupSymbol(it.group) + " " + it.name else it.name, it.color) }
         "multi_select" -> FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             DbValues.ids(v).mapNotNull { p.option(it) }.forEach { OptChip(it.name, it.color) }
         }
@@ -183,7 +282,7 @@ fun DbValueView(p: DbProp, v: JsonElement?, fmt: DbFormat, maxLines: Int = 1) {
 /** Beschreibung fuer Bedienungshilfen: "Status: In Arbeit" */
 @Composable
 fun valueDescription(p: DbProp, v: JsonElement?, fmt: DbFormat): String {
-    val t = when (p.type) {
+    val t = when (p.effType) {
         "checkbox" -> stringResource(if (DbQuery.truthy(v)) R.string.dbv_checked else R.string.dbv_unchecked)
         else -> fmt.text(p, v).ifEmpty { stringResource(R.string.dbv_value_empty) }
     }
@@ -203,8 +302,53 @@ fun PropValueEditor(
     onDismiss: () -> Unit,
     onNewOption: ((String) -> Unit)? = null,
     relationRows: (suspend (String) -> List<Pair<Long, String>>)? = null,
+    /** 2.5: Personen-Auswahl, Datei-Upload, Server kann Datum mit Uhrzeit (datetime1) */
+    people: (suspend (String) -> List<io.github.yggdrasil_sh.saga.db.DbPerson>)? = null,
+    upload: (suspend (android.net.Uri) -> io.github.yggdrasil_sh.saga.db.DbFiles.File?)? = null,
+    fmt: DbFormat? = null,
+    datetime: Boolean = false,
 ) {
     val locale = appLocale()
+    if (p.computed) {
+        LaunchedEffect(Unit) { onDismiss() }                         // Formel/Rollup: nur im Web
+        return
+    }
+    when (p.type) {
+        "person" -> if (people != null && fmt != null) PersonDialog(p, value, fmt, people, onSet, onDismiss) else LaunchedEffect(Unit) { onDismiss() }
+        "files" -> if (upload != null) FilesDialog(p, value, upload, onSet, onDismiss) else LaunchedEffect(Unit) { onDismiss() }
+        "date" -> if (datetime) DateTimeDialog(p, value, onSet, onDismiss) else LegacyDateDialog(p, value, onSet, onDismiss)
+        else -> PropValueEditorBase(p, value, onSet, onDismiss, onNewOption, relationRows, locale)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LegacyDateDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -> Unit, onDismiss: () -> Unit) {
+    val init = DbValues.parseDate(value)?.atStartOfDay(ZoneOffset.UTC)?.toInstant()?.toEpochMilli()
+    val state = rememberDatePickerState(initialSelectedDateMillis = init)
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                onSet(DbValues.date(state.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }))
+                onDismiss()
+            }) { Text(stringResource(R.string.action_apply)) }
+        },
+        dismissButton = {
+            Row {
+                if (value != null && value !is JsonNull) TextButton(onClick = { onSet(JsonNull); onDismiss() }) { Text(stringResource(R.string.dbv_clear)) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.action_cancel)) }
+            }
+        },
+    ) { DatePicker(state) }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PropValueEditorBase(
+    p: DbProp, value: JsonElement?, onSet: (JsonElement?) -> Unit, onDismiss: () -> Unit,
+    onNewOption: ((String) -> Unit)?, relationRows: (suspend (String) -> List<Pair<Long, String>>)?, locale: Locale,
+) {
     when (p.type) {
         "select", "multi_select" -> OptionDialog(p, value, onSet, onDismiss, onNewOption)
         "relation" -> RelationDialog(p, value, onSet, onDismiss, relationRows)
@@ -278,7 +422,8 @@ private fun OptionDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -
         text = {
             Column {
                 OutlinedTextField(q, { q = it.take(40) }, singleLine = true, placeholder = { Text(stringResource(R.string.dbv_option_search)) }, modifier = Modifier.fillMaxWidth())
-                val shown = p.options.filter { q.isBlank() || it.name.contains(q.trim(), ignoreCase = true) }
+                // 2.5 Status: nach Gruppen geordnet (Zu erledigen, In Arbeit, Erledigt), Gruppensymbol vor dem Namen
+        val shown = p.optionsGrouped().filter { q.isBlank() || it.name.contains(q.trim(), ignoreCase = true) }
                 LazyColumn(Modifier.heightIn(max = 320.dp).padding(top = 8.dp)) {
                     items(shown, key = { it.id }) { o ->
                         val on = o.id in chosen
@@ -291,7 +436,7 @@ private fun OptionDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?) -
                             }.padding(vertical = 10.dp).semantics { contentDescription = o.name + if (on) ", " else "" },
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            OptChip(o.name, o.color)
+                            OptChip(if (p.status) io.github.yggdrasil_sh.saga.db.DbProp.groupSymbol(o.group) + " " + o.name else o.name, o.color)
                             Spacer(Modifier.weight(1f))
                             if (on) Icon(Icons.Filled.Check, stringResource(R.string.dbv_checked), tint = MaterialTheme.colorScheme.primary)
                         }
@@ -368,7 +513,7 @@ private fun RelationDialog(p: DbProp, value: JsonElement?, onSet: (JsonElement?)
 
 /** Zeile "Name  Wert" zum Antippen (Eintrag als Seite, Karte) */
 @Composable
-fun PropRow(p: DbProp, v: JsonElement?, fmt: DbFormat, editable: Boolean, onEdit: () -> Unit, onToggle: () -> Unit, onLink: ((String) -> Unit)? = null) {
+fun PropRow(p: DbProp, v: JsonElement?, fmt: DbFormat, editable: Boolean, onEdit: () -> Unit, onToggle: () -> Unit, onLink: ((String) -> Unit)? = null, err: String? = null) {
     val desc = valueDescription(p, v, fmt)
     val canEdit = editable && p.editable
     Row(
@@ -381,9 +526,10 @@ fun PropRow(p: DbProp, v: JsonElement?, fmt: DbFormat, editable: Boolean, onEdit
         Text(p.name, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.width(120.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
         Column(Modifier.weight(1f)) {
-            if (DbQuery.isEmpty(v) && p.type != "checkbox") {
+            if (DbQuery.isEmpty(v) && p.effType != "checkbox" && err == null) {
                 Text(if (canEdit) stringResource(R.string.dbv_value_empty) else "", color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodyMedium)
-            } else DbValueView(p, v, fmt, maxLines = 4)
+            } else DbValueView(p, v, fmt, maxLines = 4, err = err)
+            if (p.computed) Text(stringResource(R.string.e1_fx_web), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
         }
         val link = if (p.type == "url" || p.type == "email" || p.type == "phone") DbValues.safeLink(p.type, v.prim().orEmpty()) else null
         if (link != null && onLink != null) {

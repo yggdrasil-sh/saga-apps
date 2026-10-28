@@ -552,7 +552,10 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                     if (seen.add(k)) k else "dup-$i-$k"
                 }
             }
-            CompositionLocalProvider(LocalPageImageSink provides imageSink) {
+            // 2.5 P6-2: Erwaehnungen zeigen den aktuellen Namen (aus den Personen-Verzeichnissen der Datenbank-Antworten)
+            val people by repo.peopleNames.collectAsState()
+            val mentionName = remember(people) { { ref: String -> people[ref] } }
+            CompositionLocalProvider(LocalPageImageSink provides imageSink, LocalMentionName provides mentionName) {
             // G9 (2.5): Schrift und kleiner Text der Seite gelten fuer Titel, Inhalt und Eigenschaften
             MaterialTheme(colorScheme = MaterialTheme.colorScheme, typography = pageTypography(MaterialTheme.typography, ed.font, ed.small), shapes = MaterialTheme.shapes) {
             // Rand als contentPadding (nicht padding): das Titelbild darf bis an den Rand reichen, ohne abgeschnitten zu werden

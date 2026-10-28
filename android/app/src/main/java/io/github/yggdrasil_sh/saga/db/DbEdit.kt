@@ -107,6 +107,29 @@ object DbValues {
 
 /** Ansichten bearbeiten: neues Schema (raw) mit geaenderter Ansicht - alle unbekannten Felder bleiben erhalten */
 object DbViews {
+    /** 2.5 P7-B: Ansichten zum Umschalten - Block-Ansichten (eingebettet) haben Vorrang, sonst die der Datenbank */
+    fun effectiveViews(s: DbSchema?, local: List<DbView>?): List<DbView> =
+        local?.filter { it.id.isNotEmpty() }?.takeIf { it.isNotEmpty() } ?: s?.views.orEmpty()
+
+    /** Ansicht mit dieser ID, sonst die erste (wie curView im Web) */
+    fun pick(views: List<DbView>, id: String?): DbView = views.firstOrNull { it.id == id } ?: views.firstOrNull()
+        ?: DbView(JsonObject(mapOf("id" to JsonPrimitive("tabelle"), "type" to JsonPrimitive("table"))))
+
+    /** Block-Ansichten aus data.views (roh; die App aendert sie nicht) */
+    fun localViews(data: JsonObject): List<DbView> =
+        (data["views"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let(::DbView) }.filter { it.id.isNotEmpty() }
+
+    /** Startansicht eines Blocks: gemerkte (wenn es sie noch gibt), sonst data.view, sonst die erste */
+    fun startView(views: List<DbView>, remembered: String?, blockView: String?): String? =
+        listOf(remembered, blockView).firstOrNull { id -> id != null && views.any { it.id == id } } ?: views.firstOrNull()?.id
+
+    /** Montag der Woche */
+    fun weekStart(d: LocalDate): LocalDate = d.minusDays((d.dayOfWeek.value - 1).toLong())
+
+    /** Board-Spalten: "Ohne" + Optionen bzw. (group_status) Status-Gruppen todo/doing/done */
+    fun boardKeys(gp: DbProp, v: DbView): List<String?> =
+        if (v.groupStatus && gp.status) listOf<String?>(null) + DbProp.STATUS_GROUPS else listOf<String?>(null) + gp.options.map { it.id }
+
     /**
      * A11/A12: Schema aus einer Antwort nur uebernehmen, wenn sie nicht aelter ist als der lokale Stand - also keine
      * kleinere srev hat und vor keiner eigenen Aenderung/Bestaetigung angefragt wurde (asked = Zaehler beim Anfragen).
@@ -251,7 +274,25 @@ object DbParams {
         return listOf(DbFilter(dateProp, "after", first.minusDays(1).toString()), DbFilter(dateProp, "before", first.plusMonths(1).toString()))
     }
 
-    /** Board: eine Spalte (Option oder "Ohne") */
-    fun columnFilter(groupProp: String, option: String?): DbFilter =
-        if (option == null) DbFilter(groupProp, "is_empty") else DbFilter(groupProp, "is", option)
+    /** Board: eine Spalte (Option oder "Ohne"; statusGroup: Status-Gruppe todo/doing/done) */
+    fun columnFilter(groupProp: String, option: String?, statusGroup: Boolean = false): DbFilter = when {
+        option == null -> DbFilter(groupProp, "is_empty")
+        statusGroup -> DbFilter(groupProp, "status_group", option)
+        else -> DbFilter(groupProp, "is", option)
+    }
+
+    /** Kalender-Woche: Eintraege von from (inkl.) bis to (exkl.) - Zeitraeume beruehren das Fenster */
+    fun rangeFilters(dateProp: String, from: LocalDate, to: LocalDate): List<DbFilter> =
+        listOf(DbFilter(dateProp, "after", from.minusDays(1).toString()), DbFilter(dateProp, "before", to.toString()))
+
+    /** GET /api/notes/{db}/chart: Ansicht der Datenbank per view=, Block-Ansicht mit chart=<spec> und filters= */
+    fun chartQuery(v: DbView, local: Boolean, tz: String?): String {
+        val p = ArrayList<String>()
+        if (local) {
+            v.chart?.let { p.add("chart=" + enc(it.toString())) }
+            p.add("filters=" + enc(JsonArray(v.filters.map { it.toJson() }).toString()))
+        } else p.add("view=" + enc(v.id))
+        if (tz != null) p.add("tz=" + enc(tz))
+        return p.joinToString("&")
+    }
 }
