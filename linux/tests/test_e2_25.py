@@ -842,3 +842,48 @@ def test_api_tokens_list_and_revoke(win, srv):
     dlg.force_close()
     assert pump(lambda: srv.api_tokens[0]["revoked"], 3)
     assert pump(lambda: [r.get_title() for r in g.rows] == ["No API tokens"], 3)
+
+
+# --- Bildschirmfotos (HK_E2_SHOTS=<ordner>) ------------------------------------------------------------------------------------
+def test_shots_e2(win, srv):
+    """Konfliktblock, Block-Markierung (Anwesenheit), Aufgabenliste mit Quellen, Farb-Auswahl - hell und dunkel"""
+    out = os.environ.get("HK_E2_SHOTS")
+    if not out:
+        return
+    from gi.repository import Adw
+    from hlidskjalf.testing import shot
+    os.makedirs(out, exist_ok=True)
+    win.set_default_size(1200, 820)
+    _src_setup(srv)
+    srv.live_api = True
+    srv.presence_users = [{"username": "anna", "name": "Anna Berg", "editing": True, "block": "p3", "color": "green"}]
+    page = [{"id": "p1", "type": "header", "data": {"text": "Projektplan", "level": 2}},
+            {"id": "p2", "type": "paragraph", "data": {"text": "Wir starten am Montag mit der Planung."}},
+            {"id": "p2-k", "type": "paragraph", "data": {"text": "Wir starten am Dienstag mit der Planung."},
+             "tunes": {"hkconflict": {"by": "~bertbertbertbert", "name": "Bert", "at": 1, "of": "p2"}}},
+            {"id": "p3", "type": "paragraph", "data": {"text": 'Danach <span class="hk-c-red">wichtige</span> Punkte '
+                                                               '<mark class="hk-bg-blue">markieren</mark>.'}},
+            {"id": "p4", "type": "paragraph", "data": {"text": "Farbe für diesen Text wählen"}}]
+    srv.notes[3]["body"] = json.dumps({"blocks": page})
+    for scheme, name in ((Adw.ColorScheme.FORCE_LIGHT, "hell"), (Adw.ColorScheme.FORCE_DARK, "dunkel")):
+        Adw.StyleManager.get_default().set_color_scheme(scheme)
+        win.show_root(("page", 3))
+        v = win.current
+        assert pump(lambda: v.doc.fetched and "p4" in v.kit.by_key, 6)
+        pump(lambda: any(r.has_css_class("hk-pres") for r in v.kit.rows()), 4)
+        pump(None, 0.8)
+        shot(win, os.path.join(out, f"e2-konflikt-anwesenheit-{name}.png"))
+        rt = v.kit.by_key["p4"]
+        buf = rt.get_buffer()
+        rt.grab_focus()
+        _sel(buf, 0, 5)
+        pop = v.color_popover(rt)
+        pump(None, 0.8)
+        shot(win, os.path.join(out, f"e2-farbauswahl-{name}.png"))
+        shot(win, os.path.join(out, f"e2-farbauswahl-popover-{name}.png"), widget=pop)     # eigenes Fenster (Popover)
+        pop.popdown()
+        pump(None, 0.2)
+        win.show_root(("tasks",))
+        pump(None, 1.0)
+        shot(win, os.path.join(out, f"e2-aufgaben-quellen-{name}.png"))
+    Adw.StyleManager.get_default().set_color_scheme(Adw.ColorScheme.DEFAULT)

@@ -1648,9 +1648,29 @@ class PageView(Gtk.Box):
                 fb.append(bt)
             box.append(fb)
         pop.set_child(box)
+        old = getattr(rt, "hk_colorpop", None)               # ein Farb-Popover je Textfeld (das alte loesen)
+        if old is not None and old.get_parent() is rt:
+            old.unparent()
+        rt.hk_colorpop = pop
         pop.set_parent(rt)
+        if not getattr(rt, "hk_colorpop_hook", False):       # Textfeld verschwindet (Neuaufbau, andere Seite): Popover loesen
+            rt.hk_colorpop_hook = True
+
+            def gone(w):
+                p = getattr(w, "hk_colorpop", None)
+                if p is not None and p.get_parent() is w:
+                    p.unparent()
+                w.hk_colorpop = None
+            rt.connect("unrealize", gone)
         pop.set_pointing_to(rt.cursor_rect())
-        pop.connect("closed", lambda p: (buf.delete_mark(ms), buf.delete_mark(me), GLib.idle_add(lambda: (p.unparent(), False)[1])))
+        marks = [ms, me]
+
+        def closed(_p):
+            while marks:
+                m = marks.pop()
+                if not m.get_deleted():
+                    buf.delete_mark(m)
+        pop.connect("closed", closed)
         pop.popup()
         return pop
 

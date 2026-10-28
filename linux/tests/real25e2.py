@@ -4,7 +4,7 @@ Anwesenheit je Block, Aufgabenquellen (Liste, Abhaken mit prev, Rueckgaengig), E
 inkl. Original + Kopie auf derselben Seite, Verschieben + Rueckgaengig, Zeitleiste (Props-PATCH).
 Umgebung wie die Server-Tests: HK_TEST_BASE, BASE_URL, SESSION_SECRET; Konten hk-test-a/hk-test-b. Raeumt auf (endgueltig).
 Start: dbus-run-session xvfb-run python3 tests/real25e2.py"""
-import base64, copy, json, os, sys, tempfile, time, urllib.error, urllib.parse, urllib.request
+import base64, json, os, sys, tempfile, time, urllib.error, urllib.parse, urllib.request
 from itsdangerous import TimestampSigner
 
 _HOME = tempfile.mkdtemp(prefix="hk-real25e2-")
@@ -49,7 +49,7 @@ def call(m, p, b=None, user="hk-test-a", hdr=None):
 import gi                                                        # noqa: E402
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Gtk                                    # noqa: E402,F401
+import gi.repository.Gtk                                         # noqa: E402,F401 - GTK vor der App laden
 from hk_helpers import idle, pump                                # noqa: E402
 from hlidskjalf import config                                    # noqa: E402
 from hlidskjalf.api import APIError, client                      # noqa: E402
