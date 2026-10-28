@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5 Etappe 2 (Zusammenfuehren, Anwesenheit je Block, Aufgabenquellen, Inline-Formen, Erwaehnungen, synchronisierte Bloecke, Verschieben) -->
+<resources>
+    <string name="e2_conflict_accept">Aceptar</string>
+    <string name="e2_conflict_discard">Descartar</string>
+    <string name="e2_conflict_someone">otra persona</string>
+    <string name="e2_conflict_title">Versión de %1$s</string>
+    <string name="e2_merged_conflicts">Combinado con cambios de otros – revisa las versiones marcadas</string>
+    <string name="e2_merged_lost">Combinado: otra versión de algunos cambios está en el historial</string>
+    <string name="e2_merged_restored">Combinado con cambios de otros: se conservan bloques eliminados que se modificaron entretanto</string>
+    <string name="e2_merged_versions">Versiones</string>
+    <string name="e2_sync_reload">No se pudo escribir el bloque sincronizado en su original – página recargada</string>
+</resources>

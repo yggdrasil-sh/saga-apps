@@ -19,6 +19,8 @@ import io.github.yggdrasil_sh.saga.blocks.InlineHtml
 import io.github.yggdrasil_sh.saga.blocks.InlineStyle
 import io.github.yggdrasil_sh.saga.blocks.JsonPath
 import io.github.yggdrasil_sh.saga.blocks.JsonTree
+import io.github.yggdrasil_sh.saga.blocks.MergeLogic
+import io.github.yggdrasil_sh.saga.blocks.SyncEdit
 import io.github.yggdrasil_sh.saga.data.AccountKey
 import io.github.yggdrasil_sh.saga.data.ApiException
 import io.github.yggdrasil_sh.saga.data.Draft
@@ -81,6 +83,14 @@ interface PageBackend {
     suspend fun savePage(id: Long, title: String, body: String?, rev: Int?): Int?
     /** overwrite = "Meine Version behalten" nach einem Konflikt (Server 1.3 sichert die andere Fassung als Version) */
     suspend fun savePage(id: Long, title: String, body: String?, rev: Int?, overwrite: Boolean): Int? = savePage(id, title, body, rev)
+    /**
+     * 2.5 P3 Stufe 1: Speichern mit merge (Basis rev bzw. "sent") -> Antwort samt merged/body/synced. Standard (aeltere
+     * Attrappen): wie bisher ohne Zusammenfuehren.
+     */
+    suspend fun savePageMerge(id: Long, title: String, body: String?, rev: Int?, merge: Boolean, baseSent: Boolean): MergeLogic.SaveOutcome =
+        MergeLogic.SaveOutcome(savePage(id, title, body, rev))
+    /** GET ?since=<rev> (delta statt body, wenn die Basis noch vorliegt); Standard: ganz laden */
+    suspend fun loadPageSince(id: Long, since: Int?): JsonObject = loadPage(id)
     /** Neue Seite mit diesem Inhalt (Konflikt-Kopie) -> ID */
     suspend fun createPageWith(title: String, body: String): Long
     suspend fun setPinned(id: Long, pinned: Boolean)
@@ -212,6 +222,22 @@ class PageEditor(
         private set
     /** naechstes Speichern mit overwrite (nach "Meine Version behalten") */
     private var overwriteNext = false
+
+    // ---- 2.5 P3 Stufe 1: Zusammenfuehren (Buchfuehrung, die Logik hat der Server)
+    /** naechstes Speichern mit base "sent" (nach einer zusammengefuehrten Antwort, waehrend weitergeschrieben wurde) */
+    var baseSentNext = false
+        private set
+    /** Stand der Seite zu rev, wie der Server ihn kennt (Grundlage fuer delta ?since) */
+    private var serverDoc: JsonObject? = null
+    /** Hinweis nach dem Zusammenfuehren: restored (dezent) bzw. lost/title_lost (mit Weg zu den Versionen) */
+    var mergeHint by mutableStateOf<MergeHint?>(null)
+    /** 2.5 sync1: Inhalt synchronisierter Kopien beim Laden (sid -> blocks) - nur Geaendertes wird durchgeschrieben */
+    private var syncedLoaded: Map<String, JsonArray> = emptyMap()
+    /** Server meldet synced1 (Kopien bearbeitbar) - setzt PageScreen aus /api/version features */
+    var syncSupported by mutableStateOf(false)
+
+    /** Seite kann zusammenfuehren: eigene Seite immer (alter Server: 409 wie bisher), fremde mit remote.caps merge1 */
+    val canMerge: Boolean get() = MergeLogic.canMerge(isRemote, remoteCaps)
 
     /** Feld, das den Fokus bekommen soll (Schluessel) - das Feld setzt es nach dem Fokussieren zurueck */
     var focusRequest by mutableStateOf<String?>(null)
@@ -346,9 +372,13 @@ class PageEditor(
         converted = parsed.converted && !body.isNullOrBlank()
         ncBase = NcLogic.keys(parsed.doc)
         // TT 18: Seitenverweise mit dem aktuellen Titel (Unterseite "Unbenannt" -> spaeter benannt), wie im Web
-        doc = withStarter(NoteLinks.refresh(parsed.doc, titleOf))
+        serverDoc = parsed.doc
+        syncedLoaded = SyncEdit.contents(parsed.doc)
+        val nd = withStarter(NoteLinks.refresh(parsed.doc, titleOf))
+        doc = if (fetched) MergeLogic.adopt(doc, nd) else nd       // unveraenderte Bloecke bleiben dasselbe Objekt
         version = 0
         savedVersion = 0
+        baseSentNext = false
         fetched = true
         error = null
     }
@@ -400,7 +430,12 @@ class PageEditor(
         if (nd != null) doc = withStarter(nd)
         version = savedVersion + 1                           // der Entwurf auf Platte bleibt (mit seiner Revision)
         if (d.rev != null && rev != null && d.rev != rev) {
-            conflict = true                                  // Server hat inzwischen einen anderen Stand
+            if (canMerge) {
+                rev = d.rev                                  // 2.5 P3: auf der Basis des Entwurfs zusammenfuehren statt Dialog
+                requestSave()
+            } else {
+                conflict = true                              // Server hat inzwischen einen anderen Stand
+            }
         } else {
             requestSave()
         }
@@ -482,6 +517,9 @@ class PageEditor(
     }
 
     fun block(path: JsonPath): JsonObject? = JsonTree.get(doc, path) as? JsonObject
+
+    /** 2.5 E2: ID des fokussierten Blocks (Anwesenheit je Block); null = keiner */
+    fun focusedBlockId(): String? = active?.let { a -> try { BlockDoc.id(block(a.blockPath())) } catch (_: Exception) { null } }
 
     // ---------------------------------------------------------------- KI-Assistent: Vorschlaege uebernehmen (nach Klick)
 
@@ -863,12 +901,22 @@ class PageEditor(
         val ow = overwriteNext
         saving = true
         try {
-            val body = if (isDatabase) null else withContext(cpu) { BlockDoc.serialize(BlockDoc.withTime(RenderPreview.docForSave(d), clock())) }
-            (if (ow) repo.savePage(id, t, body, rev, true) else repo.savePage(id, t, body, rev))?.let { rev = it }
+            val edited = if (syncSupported) SyncEdit.edited(d, syncedLoaded) else emptySet()
+            val body = if (isDatabase) null else withContext(cpu) { BlockDoc.serialize(BlockDoc.withTime(RenderPreview.docForSave(d, edited), clock())) }
+            val merge = !ow && canMerge
+            val bs = baseSentNext
+            if (merge) {
+                val out = repo.savePageMerge(id, t, body, rev, true, bs)
+                out.rev?.let { rev = it }
+                afterMergeSave(out, v, d)
+            } else {
+                (if (ow) repo.savePage(id, t, body, rev, true) else repo.savePage(id, t, body, rev))?.let { rev = it }
+                if (!isDatabase) serverDoc = d
+                savedVersion = v
+            }
             if (ow) overwriteNext = false
             conflictBy = null
             ncBase = NcLogic.keys(d)
-            savedVersion = v
             error = null
             offline = false
             savedAt = clock()
@@ -927,6 +975,93 @@ class PageEditor(
             saving = false
         }
         return false
+    }
+
+    /**
+     * Antwort eines Speicherns mit merge (APP-API "Rebase im Client"): ohne merged wie bisher; mit merged und seit dem
+     * Senden unveraendertem Editor den Inhalt blockweise uebernehmen, sonst lokal behalten und mit base "sent" weiter.
+     */
+    private suspend fun afterMergeSave(out: MergeLogic.SaveOutcome, v: Int, sent: JsonObject) {
+        when (MergeLogic.rebase(out, v, version)) {
+            MergeLogic.Rebase.PLAIN -> {
+                if (!isDatabase) serverDoc = sent
+                savedVersion = v
+                baseSentNext = false
+            }
+            MergeLogic.Rebase.ADOPT -> {
+                val parsed = try { withContext(cpu) { BlockDoc.parse(out.body, "blocks") } } catch (_: BlockDoc.UnreadableException) { null }
+                if (parsed != null) {
+                    serverDoc = parsed.doc
+                    syncedLoaded = SyncEdit.contents(parsed.doc)
+                    doc = MergeLogic.adopt(doc, withStarter(NoteLinks.refresh(parsed.doc, titleOf)))
+                    out.title?.let { if (it != title) { title = it; repo.updateTitleLocal(id, it) } }
+                }
+                savedVersion = v
+                baseSentNext = false
+            }
+            MergeLogic.Rebase.KEEP_LOCAL_BASE_SENT -> {
+                savedVersion = v                             // der eingereichte Stand liegt beim Server; lokal geht es weiter
+                baseSentNext = true
+                again = true                                 // gleich mit base "sent" nachspeichern (bringt die fremden Bloecke)
+            }
+        }
+        out.merged?.let { m -> MergeHint.of(m)?.let { mergeHint = it } }
+        // sync1: Durchschreiben ins Original
+        if (out.syncedRev.isNotEmpty()) {
+            doc = SyncEdit.withSrcRev(doc, out.syncedRev)
+            syncedLoaded = syncedLoaded + SyncEdit.contents(sent).filterKeys { it in out.syncedRev }
+        }
+        if (out.syncReload) {
+            info = UiText.Res(R.string.e2_sync_reload)
+            if (!dirty) scope.launch { load() }
+        }
+    }
+
+    /**
+     * Fremde Aenderung (note.changed mit hoeherer rev): ohne eigene Eingaben nur das Geaenderte holen (?since) und
+     * blockweise uebernehmen; mit eigenen Eingaben sofort mit merge speichern (die Antwort bringt die fremden Bloecke).
+     * -> false, wenn das hier nicht geht (fremde Seite ohne merge1) - dann wie bisher Hinweis/neu laden.
+     */
+    suspend fun followRemoteChange(): Boolean {
+        if (!fetched) return false
+        if (dirty) {
+            if (!canMerge || conflict) return false
+            requestSave()
+            return true
+        }
+        val since = rev
+        val base = serverDoc
+        try {
+            val p = repo.withPageLock(id) { repo.loadPageSince(id, if (base != null && canMerge) since else null) }
+            if (dirty) return true                            // inzwischen getippt: das naechste Speichern fuehrt zusammen
+            val delta = MergeLogic.delta(p)
+            val full = if (delta != null) {
+                val nd = base?.let { MergeLogic.applyDelta(it, delta) }
+                if (nd == null) { load(); return true }
+                JsonObject(LinkedHashMap(p).apply { remove("delta"); put("body", JsonPrimitive(BlockDoc.serialize(nd))); put("format", JsonPrimitive("blocks")) })
+            } else p
+            val parsed = withContext(cpu) { parse(full) }
+            apply(full, parsed)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            load()
+        }
+        return true
+    }
+
+    /** Konfliktblock "Uebernehmen": Original (of) loeschen, hkconflict entfernen, speichern */
+    fun acceptConflict(blockId: String) {
+        if (!editable) return
+        change(MergeLogic.acceptConflict(doc, blockId))
+        active = null
+    }
+
+    /** Konfliktblock "Verwerfen": Konfliktblock loeschen, speichern */
+    fun discardConflict(blockId: String) {
+        if (!editable) return
+        change(MergeLogic.discardConflict(doc, blockId))
+        active = null
     }
 
     // ---------------------------------------------------------------- Entwuerfe
@@ -1141,3 +1276,14 @@ private fun jobj(vararg pairs: Pair<String, kotlinx.serialization.json.JsonEleme
  */
 internal fun rowProps(p: JsonObject, parentId: Long?): JsonObject? =
     (p["props"] as? JsonObject) ?: if (parentId != null) JsonObject(emptyMap()) else null
+
+/** 2.5 P3: dezenter Hinweis nach dem Zusammenfuehren (restored ohne, lost/title_lost mit Weg zu den Versionen) */
+data class MergeHint(val restored: Int, val lost: Int, val titleLost: Boolean, val conflicts: Int) {
+    val versions: Boolean get() = lost > 0 || titleLost
+
+    companion object {
+        fun of(m: MergeLogic.Merged): MergeHint? =
+            if (m.restored.isEmpty() && m.lost.isEmpty() && !m.titleLost && m.conflicts.isEmpty()) null
+            else MergeHint(m.restored.size, m.lost.size, m.titleLost, m.conflicts.size)
+    }
+}

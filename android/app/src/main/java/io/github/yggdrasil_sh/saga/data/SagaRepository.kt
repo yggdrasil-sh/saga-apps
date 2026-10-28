@@ -945,6 +945,27 @@ class SagaRepository(
         return decode<SaveResult>(api.request("PATCH", "api/notes/$id", b, headers = hdr)).rev
     }
 
+    /** 2.5 P3: mit merge 1 (und base "sent") speichern -> Antwort mit merged/body/synced (Rebase im Editor) */
+    override suspend fun savePageMerge(id: Long, title: String, body: String?, rev: Int?, merge: Boolean, baseSent: Boolean): io.github.yggdrasil_sh.saga.blocks.MergeLogic.SaveOutcome {
+        val b = buildJsonObject {
+            put("title", title)
+            if (body != null) {
+                put("body", body)
+                put("format", "blocks")
+            }
+            if (rev != null) put("rev", rev)
+            for ((k, v) in io.github.yggdrasil_sh.saga.blocks.MergeLogic.saveFields(rev, merge, baseSent)) put(k, v)
+        }
+        val hdr = if (body != null) mapOf("X-Saga-Caps" to io.github.yggdrasil_sh.saga.blocks.InlineForms.CAPS) else emptyMap()
+        val text = api.request("PATCH", "api/notes/$id", b, headers = hdr)
+        return withContext(Dispatchers.Default) { io.github.yggdrasil_sh.saga.blocks.MergeLogic.parseSave(text) }
+    }
+
+    override suspend fun loadPageSince(id: Long, since: Int?): JsonObject {
+        val text = api.get(if (since != null) "api/notes/$id?since=$since" else "api/notes/$id")
+        return withContext(Dispatchers.Default) { json.decodeFromString(JsonObject.serializer(), text) }
+    }
+
     // ---------------------------------------------------------------- Teilen und Kommentare (Server 1.3)
 
     /** Mit mir geteilt: fremde Seiten (oberste mit root=true, darunter ihre Unterseiten) */
@@ -1255,7 +1276,8 @@ class SagaRepository(
                 // entzogen oder auf Lesen gesetzt sein (und spaeter wiederkommen). Beim Oeffnen entscheidet der Nutzer.
                 if (!DraftSync.mayUpload(d.id, own)) continue
                 try {
-                    withPageLock(d.id) { savePage(d.id, d.title, d.body, d.rev) }
+                    // 2.5 P3: Entwurf mit Basis-Revision -> zusammenfuehren (merge 1) statt Konflikt; aeltere Server: 409 wie bisher
+                    withPageLock(d.id) { savePageMerge(d.id, d.title, d.body, d.rev, d.id > 0, false) }
                     withContext(Dispatchers.IO) { if (store.read(d.id)?.stamp == d.stamp) store.delete(d.id) }
                     updateTitleLocal(d.id, d.title)
                 } catch (e: CancellationException) {

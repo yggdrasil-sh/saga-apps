@@ -295,6 +295,12 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     val comments = remember(ed) { CommentsModel(id, repo, PageShareInfo()) }
     // Live-Kanal (1.4): Anwesenheit, fremde Aenderungen, neue Kommentare
     val liveSt = rememberPageLive(id, repo, ed, comments, appScope)
+    // 2.5 E2: Block-Markierungen der anderen Anwesenden; sync1 (synchronisierte Kopien bearbeiten), wenn der Server synced1 meldet
+    val features25 by repo.serverFeatures.collectAsState()
+    androidx.compose.runtime.SideEffect {
+        env.blockPresence = PageLiveLogic.byBlock(liveSt.users)
+        ed.syncSupported = "synced1" in features25 && !ed.isRemote
+    }
     // KI-Assistent: null = zu, 0 = "Frag deine Seiten", 1 = "Diese Seite"
     val aiStatus by repo.ai.status.collectAsState()
     val aiOn = aiStatus?.enabled == true
@@ -564,7 +570,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 item(key = "header") {
                     PageHeader(
                         ed, repo, onPublish = if (ed.template || publishHidden || !caps.canPublish || ed.isRemote) null else openPublish,
-                        live = liveSt, onSettings = { io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, "public", replace = true) },
+                        live = liveSt, onVersions = { showVersions = true }, onSettings = { io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, "public", replace = true) },
                     )
                 }
                 if (ed.fetched && !ed.isDatabase) {
@@ -792,7 +798,7 @@ private fun copy(context: Context, text: String) {
 }
 
 @Composable
-private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> Unit)?, live: PageLiveState? = null, onSettings: () -> Unit = {}) {
+private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> Unit)?, live: PageLiveState? = null, onSettings: () -> Unit = {}, onVersions: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var iconPicker by remember { mutableStateOf(false) }
@@ -898,6 +904,7 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
         ed.info?.let {
             Text(it.resolve(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(top = 6.dp).clickable { ed.info = null })
         }
+        ed.mergeHint?.let { h -> MergeHintLine(h, onVersions = onVersions) { ed.mergeHint = null } }
         ed.error?.let { Text(it.resolve(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 6.dp)) }
         if (ed.offline) {
             Text(
@@ -1348,4 +1355,23 @@ private fun CopyTextDialog(title: String, text: String, draft: String, onClose: 
         },
         dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_close)) } },
     )
+}
+
+/** 2.5 P3: dezenter Hinweis nach dem Zusammenfuehren; bei lost/title_lost mit Weg zu den Versionen */
+@Composable
+private fun MergeHintLine(h: MergeHint, onVersions: (() -> Unit)?, onDismiss: () -> Unit) {
+    Row(Modifier.padding(top = 6.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            stringResource(when {
+                h.versions -> R.string.e2_merged_lost
+                h.conflicts > 0 -> R.string.e2_merged_conflicts
+                else -> R.string.e2_merged_restored
+            }),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f).clickable { onDismiss() },
+        )
+        if (h.versions && onVersions != null) {
+            TextButton(onClick = { onDismiss(); onVersions() }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_merged_versions)) }
+        }
+    }
 }

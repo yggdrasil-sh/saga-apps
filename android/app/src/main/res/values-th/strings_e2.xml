@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Saga 2.5 Etappe 2 (Zusammenfuehren, Anwesenheit je Block, Aufgabenquellen, Inline-Formen, Erwaehnungen, synchronisierte Bloecke, Verschieben) -->
+<resources>
+    <string name="e2_conflict_accept">ยอมรับ</string>
+    <string name="e2_conflict_discard">ทิ้ง</string>
+    <string name="e2_conflict_someone">คนอื่น</string>
+    <string name="e2_conflict_title">ฉบับของ %1$s</string>
+    <string name="e2_merged_conflicts">รวมกับการแก้ไขของผู้อื่นแล้ว – โปรดตรวจสอบฉบับที่ไฮไลต์</string>
+    <string name="e2_merged_lost">รวมแล้ว – อีกฉบับของการแก้ไขบางส่วนอยู่ในประวัติเวอร์ชัน</string>
+    <string name="e2_merged_restored">รวมกับการแก้ไขของผู้อื่นแล้ว – บล็อกที่ลบแต่ถูกแก้ไขระหว่างนั้นยังคงอยู่</string>
+    <string name="e2_merged_versions">เวอร์ชัน</string>
+    <string name="e2_sync_reload">เขียนบล็อกที่ซิงค์ไปยังต้นฉบับไม่ได้ – โหลดหน้าใหม่แล้ว</string>
+</resources>

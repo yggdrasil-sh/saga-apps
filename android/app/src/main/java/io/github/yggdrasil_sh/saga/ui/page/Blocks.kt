@@ -74,6 +74,8 @@ class BlockEnv(val editor: PageEditor, val repo: SagaRepository, val onLink: (St
     /** 2.4: "/"-Menue - Auswahl auf dem Absatz (PageScreen setzt es) und erfuellte Voraussetzungen der Eintraege */
     var slash: ((JsonPath, io.github.yggdrasil_sh.saga.blocks.SlashLogic.Item) -> Unit)? = null
     var slashNeeds by mutableStateOf<Set<io.github.yggdrasil_sh.saga.blocks.SlashLogic.Need>>(emptySet())
+    /** 2.5 E2: wer bearbeitet welchen Block (Block-ID -> Personen), aus presence.users[].block */
+    var blockPresence by mutableStateOf<Map<String, List<PresenceUser>>>(emptyMap())
 }
 
 @Composable
@@ -105,6 +107,24 @@ fun BlockColumn(arrayPath: JsonPath, env: BlockEnv) {
 /** G3 (2.5): Block-Farbe aus tunes.hkstyle - Textfarbe ueber onSurface des Blocks, Hintergrund als Flaeche */
 @Composable
 fun BlockView(block: JsonObject, path: JsonPath, env: BlockEnv) {
+    // 2.5 P3: Konfliktblock (tunes.hkconflict) mit gelbem Rand und "Fassung von {name} - Uebernehmen / Verwerfen";
+    // 2.5 E2: Anwesenheit je Block - farbiger Rand links + "{name} bearbeitet" (nur Hinweis)
+    val cf = io.github.yggdrasil_sh.saga.blocks.MergeLogic.conflict(block)
+    val bid = BlockDoc.id(block)
+    val here = bid?.let { env.blockPresence[it] }.orEmpty()
+    if (cf == null && here.isEmpty()) {
+        BlockViewStyled(block, path, env)
+        return
+    }
+    if (cf != null) {
+        ConflictFrame(cf, bid, env) { BlockViewStyled(block, path, env) }
+    } else {
+        PresenceFrame(here) { BlockViewStyled(block, path, env) }
+    }
+}
+
+@Composable
+private fun BlockViewStyled(block: JsonObject, path: JsonPath, env: BlockEnv) {
     val st = io.github.yggdrasil_sh.saga.blocks.Gestalten.style(block)
     if (st == null) {
         BlockViewInner(block, path, env)
@@ -431,6 +451,46 @@ private fun ToggleBlock(block: JsonObject, path: JsonPath, key: String, env: Blo
                     BlockColumn(inner, env)
                 }
             }
+        }
+    }
+}
+
+/** Konfliktblock: gelber Rand + Kopfzeile mit Uebernehmen/Verwerfen (nur, wer bearbeiten darf) */
+@Composable
+private fun ConflictFrame(cf: io.github.yggdrasil_sh.saga.blocks.MergeLogic.ConflictInfo, bid: String?, env: BlockEnv, content: @Composable () -> Unit) {
+    val ed = env.editor
+    val yellow = Color(0xFFE6B800)
+    val name = cf.name.ifBlank { stringResource(R.string.e2_conflict_someone) }
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).border(2.dp, yellow, RoundedCornerShape(8.dp))
+            .background(yellow.copy(alpha = 0.08f)).padding(8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.e2_conflict_title, name), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+            if (ed.editable && bid != null) {
+                TextButton(onClick = { ed.acceptConflict(bid) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_conflict_accept)) }
+                TextButton(onClick = { ed.discardConflict(bid) }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_conflict_discard)) }
+            }
+        }
+        content()
+    }
+}
+
+/** Anwesenheit je Block: farbiger Rand links in der Farbe der Person + "{name} bearbeitet" */
+@Composable
+private fun PresenceFrame(users: List<PresenceUser>, content: @Composable () -> Unit) {
+    val u = users.first()
+    val dark = MaterialTheme.colorScheme.surface.luminance() < 0.5f
+    val col = Color(io.github.yggdrasil_sh.saga.blocks.InlineForms.textArgb(u.color ?: "blue", dark))
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+        Box(Modifier.width(3.dp).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(col))
+        Column(Modifier.padding(start = 8.dp).weight(1f)) {
+            Text(
+                stringResource(R.string.presence_editing, users.joinToString(", ") { it.name }), style = MaterialTheme.typography.labelSmall,
+                color = col,
+            )
+            content()
         }
     }
 }

@@ -50,7 +50,11 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 
 /** Anwesende einer Seite (POST /api/presence, Live "presence") */
-data class PresenceUser(val username: String, val name: String, val editing: Boolean, val me: Boolean, val avatar: String? = null)
+data class PresenceUser(
+    val username: String, val name: String, val editing: Boolean, val me: Boolean, val avatar: String? = null,
+    /** 2.5 E2: fokussierter Block (nur mit editing) und Farbe der Person (Palette) */
+    val block: String? = null, val color: String? = null,
+)
 
 /** Reine Regeln fuer fremde Aenderungen an der offenen Seite (Tests) */
 object PageLiveLogic {
@@ -75,8 +79,37 @@ object PageLiveLogic {
             editing = (o["editing"] as? JsonPrimitive)?.booleanOrNull ?: false,
             me = (o["me"] as? JsonPrimitive)?.booleanOrNull ?: false,
             avatar = (o["avatar"] as? JsonPrimitive)?.contentOrNull,
+            block = (o["block"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotEmpty() },
+            color = (o["color"] as? JsonPrimitive)?.contentOrNull?.takeIf { it in io.github.yggdrasil_sh.saga.blocks.Gestalten.PALETTE },
         )
     }.orEmpty()
+
+    /** Block-Markierungen: andere Personen, die gerade einen Block bearbeiten (Block-ID -> Personen) */
+    fun byBlock(users: List<PresenceUser>): Map<String, List<PresenceUser>> =
+        users.filter { !it.me && it.editing && it.block != null }.groupBy { it.block!! }
+}
+
+/**
+ * 2.5 E2: Blockwechsel melden - hoechstens 1x/s (Drossel im Client). Ein schnellerer Wechsel wird nicht verworfen,
+ * sondern nach Ablauf der Sekunde mit dem dann aktuellen Block gesendet.
+ */
+class PresenceThrottle(private val minGapMs: Long = 1000) {
+    private var lastSent = Long.MIN_VALUE / 2
+    private var sentBlock: String? = null
+    private var hasSent = false
+
+    /** -> Wartezeit in ms bis zum Senden (0 = sofort), null = nichts zu senden (Block unveraendert) */
+    fun due(block: String?, now: Long): Long? {
+        if (hasSent && block == sentBlock) return null
+        val wait = lastSent + minGapMs - now
+        return if (wait <= 0) 0 else wait
+    }
+
+    fun sent(block: String?, now: Long) {
+        lastSent = now
+        sentBlock = block
+        hasSent = true
+    }
 }
 
 /** Live-Zustand der offenen Seite: Anwesende, Hinweis auf fremde Aenderung, Statuszeile nach stillem Neuladen */
@@ -114,33 +147,68 @@ fun rememberPageLive(id: Long, repo: SagaRepository, ed: PageEditor, comments: C
         st.updatedBy = name.ifEmpty { null }
     }
 
+    /** 2.5 P3: fremde Aenderung blockweise uebernehmen (bzw. mit merge speichern) - kein "Neu laden"-Hinweis mehr */
+    suspend fun follow(name: String) {
+        if (ed.followRemoteChange()) {
+            st.changedBy = null
+            if (!ed.dirty) st.updatedBy = name.ifEmpty { null }
+            return
+        }
+        if (ed.dirty) st.changedBy = name else reloadSilently(name)
+    }
+
+    // Block-Anwesenheit: eigene Seiten (Server ab 2.5 kennt "block", aeltere ignorieren es), fremde mit presence2
+    val blockPresence = sendPresence && (id > 0 || ed.can("presence2"))
+    val throttle = remember(ed) { PresenceThrottle() }
+
+    suspend fun postPresence(block: String?) {
+        val editing = PageLiveLogic.editing(System.currentTimeMillis(), ed.lastInputAt, ed.caps.canEditContent) ||
+            (blockPresence && block != null && ed.caps.canEditContent)
+        val body = buildJsonObject {
+            put("note_id", id)
+            put("editing", editing)
+            if (blockPresence && editing) put("block", block)
+        }
+        if (blockPresence && editing) throttle.sent(block, System.currentTimeMillis())
+        val r = repo.api.post("api/presence", body)
+        val o = kotlinx.serialization.json.Json.parseToJsonElement(r) as? JsonObject
+        if (o != null && (o["skipped"] as? JsonPrimitive)?.booleanOrNull != true) {
+            st.users = PageLiveLogic.users(o["users"] as? JsonArray)
+            val rev = (o["rev"] as? JsonPrimitive)?.intOrNull
+            when (PageLiveLogic.onChanged(rev, ed.currentRev, ed.dirty, false)) {
+                PageLiveLogic.Action.RELOAD_SILENT, PageLiveLogic.Action.SHOW_BANNER -> follow(byName(o))
+                else -> {}
+            }
+        }
+    }
+
     if (sendPresence) {
         LaunchedEffect(ed, ed.fetched) {
             if (!ed.fetched) return@LaunchedEffect
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 while (true) {
                     try {
-                        val body = buildJsonObject {
-                            put("note_id", id)
-                            put("editing", PageLiveLogic.editing(System.currentTimeMillis(), ed.lastInputAt, ed.caps.canEditContent))
-                        }
-                        val r = repo.api.post("api/presence", body)
-                        val o = kotlinx.serialization.json.Json.parseToJsonElement(r) as? JsonObject
-                        if (o != null && (o["skipped"] as? JsonPrimitive)?.booleanOrNull != true) {
-                            st.users = PageLiveLogic.users(o["users"] as? JsonArray)
-                            val rev = (o["rev"] as? JsonPrimitive)?.intOrNull
-                            when (PageLiveLogic.onChanged(rev, ed.currentRev, ed.dirty, false)) {
-                                PageLiveLogic.Action.RELOAD_SILENT -> reloadSilently(byName(o))
-                                PageLiveLogic.Action.SHOW_BANNER -> st.changedBy = byName(o)
-                                else -> {}
-                            }
-                        }
+                        postPresence(ed.focusedBlockId())
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: Exception) {
                         // 404 (kein Zugriff) oder offline: beim naechsten Mal wieder
                     }
                     delay(20_000)
+                }
+            }
+        }
+        // 2.5 E2: Blockwechsel sofort melden (Drossel 1x/s), nur fuer Seiten, deren Server Block-Anwesenheit kennt
+        if (blockPresence) {
+            val focused = ed.focusedBlockId()
+            LaunchedEffect(ed, focused) {
+                val wait = throttle.due(focused, System.currentTimeMillis()) ?: return@LaunchedEffect
+                if (wait > 0) delay(wait)
+                try {
+                    postPresence(focused)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
                 }
             }
         }
@@ -174,8 +242,7 @@ fun rememberPageLive(id: Long, repo: SagaRepository, ed: PageEditor, comments: C
                     val name = byName(ev.data)
                     when (PageLiveLogic.onChanged(ev.int("rev"), ed.currentRev, ed.dirty, ev.bool("gone"))) {
                         PageLiveLogic.Action.GONE -> ed.load()
-                        PageLiveLogic.Action.RELOAD_SILENT -> reloadSilently(name)
-                        PageLiveLogic.Action.SHOW_BANNER -> st.changedBy = name
+                        PageLiveLogic.Action.RELOAD_SILENT, PageLiveLogic.Action.SHOW_BANNER -> follow(name)
                         PageLiveLogic.Action.NONE -> {}
                     }
                 }

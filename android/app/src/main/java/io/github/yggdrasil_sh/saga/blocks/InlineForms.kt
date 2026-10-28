@@ -94,6 +94,9 @@ object InlineForms {
         return (a.toLong() shl 24) or Gestalten.baseRgb(color).toLong()
     }
 
-    /** Faehigkeiten fuer X-Saga-Caps beim Speichern: Inline-Formen bleiben erhalten (inline2), bis 6 Spalten (cols6) */
-    const val CAPS = "inline2,cols6"
+    /**
+     * Faehigkeiten fuer X-Saga-Caps beim Speichern: Inline-Formen bleiben erhalten (inline2), bis 6 Spalten (cols6),
+     * blockweises Zusammenfuehren (merge1, 2.5 E2)
+     */
+    const val CAPS = "inline2,cols6,merge1"
 }
