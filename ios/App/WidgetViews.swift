@@ -35,12 +35,15 @@ struct WidgetBlockView: View {
     let data: NSDictionary
     let blockID: String
     @EnvironmentObject private var values: PageWidgetValues
+    @EnvironmentObject private var store: Store
 
     var body: some View {
         let b = WidgetLogic.block(data)
+        // 2.5: neue Arten nur mit passendem Server (features), sonst wie bisher "neuere Version noetig"
+        let known = b.known && (Widget2Logic.featureFor(b.kind).map { store.features.has($0) } ?? true)
         let v = WidgetLogic.value(values.load, blockID: blockID)
         let notice = WidgetLogic.notice(block: b, load: values.load, value: v)
-        if !b.known {
+        if !known {
             HStack(spacing: 8) {
                 Image(systemName: "puzzlepiece.extension").foregroundStyle(.secondary)
                 Text("Widget – neuere Version nötig").font(.subheadline).foregroundStyle(.secondary)
@@ -138,6 +141,10 @@ private struct WidgetContent: View {
         case "countdown": CountdownWidget(cfg: block.cfg)
         case "progress": progress
         case "metric": metric
+        case "weather": WeatherWidget(value: value)
+        case "habit": HabitWidget(value: value, blockID: blockID)
+        case "upcoming": UpcomingWidget(value: value)
+        case "chart": if let d = value?.dict { ChartBody(data: ChartData.parse(d), height: size == .s ? 140 : size == .m ? 200 : 280) } else { Text(verbatim: "–").foregroundStyle(.secondary) }
         default: quote
         }
     }
@@ -272,6 +279,134 @@ private struct CountdownWidget: View {
                     Text(verbatim: t.formatted(SagaDate.style(date: .long, time: hasTime ? .shortened : .omitted))).font(.caption2).foregroundStyle(.tertiary)
                 }
             }
+        }
+    }
+}
+
+// MARK: - Widgets Etappe 2 (weather1, habit1, upcoming1)
+
+private struct WeatherWidget: View {
+    let value: WidgetLogic.Value?
+    @Environment(\.widgetSize) private var size
+    var body: some View {
+        if let n = Widget2Logic.weatherNotice(value?.error) {
+            Label(n, systemImage: "cloud.sun").font(.footnote).foregroundStyle(.secondary)
+        } else if let w = Widget2Logic.weather(value?.dict) {
+            let unit = w.units == "imperial" ? "°F" : "°C"
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .center, spacing: 12) {
+                    Image(systemName: Widget2Logic.weatherSymbol(w.code)).symbolRenderingMode(.multicolor).font(.system(size: size == .s ? 26 : 38))
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(verbatim: w.now.map { String(format: "%.0f", $0) + unit } ?? "–").font(valueFont(size)).monospacedDigit()
+                        Text(verbatim: w.place).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                if size != .s && w.days.count > 1 {
+                    HStack(spacing: 10) {
+                        ForEach(Array(w.days.dropFirst().prefix(size == .m ? 5 : 7).enumerated()), id: \.offset) { _, d in
+                            VStack(spacing: 2) {
+                                Text(verbatim: weekday(d.d)).font(.caption2).foregroundStyle(.secondary)
+                                Image(systemName: Widget2Logic.weatherSymbol(d.code)).symbolRenderingMode(.multicolor)
+                                Text(verbatim: (d.max.map { String(format: "%.0f°", $0) } ?? "–") + " " + (d.min.map { String(format: "%.0f°", $0) } ?? "")).font(.caption2).monospacedDigit()
+                            }
+                        }
+                    }
+                }
+                HStack(spacing: 6) {
+                    if w.stale { Text("Letzter Stand").font(.caption2).foregroundStyle(.orange) }
+                    Text(verbatim: "Wetterdaten: Open-Meteo.com").font(.caption2).foregroundStyle(.tertiary)   // Pflichtangabe (CC BY 4.0)
+                }
+            }
+        } else { Text(verbatim: "–").foregroundStyle(.secondary) }
+    }
+    private func weekday(_ s: String) -> String {
+        guard let p = DBDate.part(s) else { return "" }
+        let d = SagaDate.calendar.date(from: DateComponents(year: p.y, month: p.m, day: p.d, hour: 12)) ?? .now
+        return d.formatted(SagaDate.dateTime().weekday(.abbreviated))
+    }
+}
+
+private struct HabitWidget: View {
+    let value: WidgetLogic.Value?
+    let blockID: String
+    @EnvironmentObject private var values: PageWidgetValues
+    @EnvironmentObject private var store: Store
+    @EnvironmentObject private var ed: PageEditor
+    @State private var local: Widget2Logic.Habit?
+    @State private var busy = false
+    var body: some View {
+        if let h = local ?? Widget2Logic.habit(value?.dict) {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(h.habits, id: \.pid) { it in
+                    HStack(spacing: 8) {
+                        Text(verbatim: it.name).font(.subheadline).lineLimit(1).frame(minWidth: 60, maxWidth: 140, alignment: .leading)
+                        HStack(spacing: 3) {
+                            ForEach(Array(h.days.enumerated()), id: \.offset) { i, day in
+                                let on = it.done[safe: i] ?? false
+                                Button { toggle(it.pid, day, !on) } label: {
+                                    RoundedRectangle(cornerRadius: 3).fill(on ? Color.accentColor : Color.secondary.opacity(0.15))
+                                        .frame(width: h.days.count > 14 ? 8 : 16, height: 16)
+                                        .overlay { if day == h.today { RoundedRectangle(cornerRadius: 3).stroke(Color.primary.opacity(0.5), lineWidth: 1) } }
+                                }
+                                .buttonStyle(.plain).disabled(!h.canCheck || busy)
+                                .accessibilityLabel(Text(verbatim: it.name + " " + day)).accessibilityAddTraits(on ? .isSelected : [])
+                            }
+                        }
+                        Spacer(minLength: 4)
+                        Text("\(it.streak) 🔥").font(.caption).monospacedDigit().foregroundStyle(.secondary).help(Text("Tage in Folge"))
+                    }
+                }
+                if let g = h.goal { Text("Ziel: \(g) Tage je Woche").font(.caption2).foregroundStyle(.tertiary) }
+            }
+            .onChange(of: value?.data) { _, _ in local = nil }
+        } else { Text(verbatim: "–").foregroundStyle(.secondary) }
+    }
+    /// POST /api/notes/{seite}/widgets/{bid}/habit -> neuer Stand
+    private func toggle(_ pid: String, _ day: String, _ on: Bool) {
+        busy = true
+        Task {
+            defer { busy = false }
+            let tz = TimeZone.current.identifier.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "UTC"
+            if let d = try? await store.api("api/notes/\(ed.doc.id)/widgets/\(blockID)/habit?tz=\(tz)", method: "POST", body: Widget2Logic.habitBody(pid: pid, day: day, on: on)),
+               let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any], let w = j["widget"] as? [String: Any] {
+                local = Widget2Logic.habit(w["data"] as? [String: Any])
+            }
+        }
+    }
+}
+
+private struct UpcomingWidget: View {
+    let value: WidgetLogic.Value?
+    @EnvironmentObject private var nav: NavModel
+    var body: some View {
+        if let u = Widget2Logic.upcoming(value?.dict) {
+            VStack(alignment: .leading, spacing: 6) {
+                if u.items.isEmpty { Text("Nichts Anstehendes").font(.subheadline).foregroundStyle(.secondary) }
+                ForEach(Array(Widget2Logic.sections(u, today: u.from).enumerated()), id: \.offset) { _, sec in
+                    Text(title(sec.0)).font(.caption.weight(.semibold)).foregroundStyle(sec.0 == .overdue ? .red : .secondary)
+                    ForEach(Array(sec.1.enumerated()), id: \.offset) { _, it in
+                        Button { if let n = it.note { nav.open(n, mode: "side") } } label: {
+                            HStack(spacing: 6) {
+                                Circle().fill(it.color.flatMap { Color(hex: $0) } ?? (it.k == "task" ? .orange : .accentColor)).frame(width: 7, height: 7)
+                                Image(systemName: it.k == "event" ? "calendar" : it.k == "task" ? "checkmark.circle" : "doc").font(.caption).foregroundStyle(.secondary)
+                                Text(verbatim: it.title).lineLimit(1)
+                                Spacer(minLength: 4)
+                                if !it.allday, let t = DBDate.parse(it.start)?.start.instant { Text(t.formatted(date: .omitted, time: .shortened)).font(.caption).foregroundStyle(.secondary) }
+                            }.font(.subheadline).contentShape(Rectangle())
+                        }.buttonStyle(.plain).disabled(it.note == nil)
+                    }
+                }
+                if u.more > 0 { Text("+\(u.more) weitere").font(.caption).foregroundStyle(.secondary) }
+                if u.errors > 0 { Text("Einige Quellen nicht erreichbar").font(.caption2).foregroundStyle(.orange) }
+            }
+        } else { Text(verbatim: "–").foregroundStyle(.secondary) }
+    }
+    private func title(_ s: Widget2Logic.Section) -> String {
+        switch s {
+        case .overdue: return String(localized: "Überfällig")
+        case .today: return String(localized: "Heute")
+        case .tomorrow: return String(localized: "Morgen")
+        case .day(let d): return DBDate.display(d) ?? d
         }
     }
 }

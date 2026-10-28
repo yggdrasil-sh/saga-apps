@@ -85,6 +85,9 @@ enum WidgetLogic {
         var fmt: String?
         var asOf: Date?
         var error: String?
+        /// 2.5 Etappe 2 (weather/habit/upcoming/chart): strukturierte Daten je Art (roh, JSON)
+        var data: Data?
+        var dict: [String: Any]? { data.flatMap { (try? JSONSerialization.jsonObject(with: $0)) as? [String: Any] } }
     }
 
     struct Response: Equatable {
@@ -95,7 +98,7 @@ enum WidgetLogic {
     static func parse(_ data: Data) -> Response? {
         guard let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         var r = Response()
-        r.unsupported = (o["unsupported"] as? Bool) ?? false
+        r.unsupported = (o["unsupported"] as? Bool) ?? false || (o["unsupported2"] as? Bool) ?? false
         for (id, raw) in (o["widgets"] as? [String: Any]) ?? [:] {
             guard let w = raw as? [String: Any] else { continue }
             var v = Value()
@@ -105,6 +108,7 @@ enum WidgetLogic {
             v.fmt = w["fmt"] as? String
             v.asOf = (w["as_of"] as? String).flatMap(isoDate)
             v.error = w["error"] as? String
+            if let d = w["data"] as? [String: Any] { v.data = try? JSONSerialization.data(withJSONObject: d, options: .sortedKeys) }
             r.widgets[id] = v
         }
         return r
@@ -141,6 +145,7 @@ enum WidgetLogic {
     static func notice(error: String?) -> Notice? {
         switch error {
         case nil, "": return nil
+        case "disabled", "unavailable": return nil              // Wetter: eigener Hinweis in der Karte
         case "no_access": return .noAccess
         case "gone": return .gone
         case "bad_cfg": return .badCfg

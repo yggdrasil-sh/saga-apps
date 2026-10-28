@@ -31,12 +31,17 @@ func inlineText(_ raw: String) -> AttributedString {
     var out = AttributedString()
     var bold = 0, italic = 0, under = 0, strike = 0, mark = 0, code = 0, na = 0
     var links: [URL?] = []
+    // 2.5 Inline-Vertrag (P6-2): span.hk-c-* (Textfarbe), mark.hk-bg-* (Hintergrund), span.hk-mention (Chip), code.hk-math
+    var spans: [String] = []                 // je offenem span: "c:<farbe>" | "m" (Erwaehnung) | ""
+    var marks: [String?] = []                // je offenem mark: Farbe oder nil (Gelb)
+    var codes: [Bool] = []                   // je offenem code: Inline-Mathe?
     let re = hkTagRegex
     let ns = html as NSString
     var pos = 0
     func emit(_ raw: String) {
         guard !raw.isEmpty else { return }
-        var s = AttributedString(decodeEntities(raw))
+        let mention = spans.contains("m")
+        var s = AttributedString(mention ? "@" + decodeEntities(raw) : decodeEntities(raw))
         var intent: InlinePresentationIntent = []
         if bold > 0 { intent.insert(.stronglyEmphasized) }
         if italic > 0 { intent.insert(.emphasized) }
@@ -44,7 +49,10 @@ func inlineText(_ raw: String) -> AttributedString {
         if code > 0 { intent.insert(.code) }
         if !intent.isEmpty { s.inlinePresentationIntent = intent }
         if under > 0 { s.underlineStyle = .single }
-        if mark > 0 { s.backgroundColor = Color.yellow.opacity(0.35) }
+        if mark > 0 { s.backgroundColor = marks.last.flatMap { $0 }.map(HKPalette.bgColor) ?? Color.yellow.opacity(0.35) }
+        if codes.last == true { s.backgroundColor = Color.purple.opacity(0.14) }                 // Inline-Mathe als Code-Chip
+        if let c = spans.last(where: { $0.hasPrefix("c:") }) { s.foregroundColor = HKPalette.textColor(String(c.dropFirst(2))) }
+        if mention { s.foregroundColor = .accentColor; s.backgroundColor = Color.accentColor.opacity(0.14); s.inlinePresentationIntent = (s.inlinePresentationIntent ?? []).union(.stronglyEmphasized) }
         if let l = links.last, let u = l { s.link = u; s.foregroundColor = .accentColor }
         if na > 0 { s.foregroundColor = .secondary }
         out += s
@@ -59,8 +67,17 @@ func inlineText(_ raw: String) -> AttributedString {
         case "i", "em": italic += d
         case "u": under += d
         case "s", "strike", "del": strike += d
-        case "mark": mark += d
-        case "code": code += d
+        case "mark":
+            mark += d
+            if closing { _ = marks.popLast() } else { marks.append(InlineLogic.colorClass(ns.substring(with: m.range(at: 3)), prefix: "hk-bg-")) }
+        case "code":
+            code += d
+            if closing { _ = codes.popLast() } else { codes.append(ns.substring(with: m.range(at: 3)).contains("hk-math")) }
+        case "span":
+            if closing { _ = spans.popLast() } else {
+                let attrs = ns.substring(with: m.range(at: 3))
+                spans.append(InlineLogic.mentionRef(attrs) != nil ? "m" : InlineLogic.colorClass(attrs, prefix: "hk-c-").map { "c:" + $0 } ?? "")
+            }
         case "na": na += d
         case "br": if !closing { out += AttributedString("\n") }
         case "a":
@@ -1298,6 +1315,7 @@ struct BlockView: View {
     @EnvironmentObject var ed: PageEditor
     @Environment(\.horizontalSizeClass) private var hsc
     @State private var colHover: Int?
+    @State private var colWidth: CGFloat = 0                 // Breite des Spalten-Blocks (Umbruch bei 5-6 Spalten)
     private var type: String { block["type"] as? String ?? "" }
     private var id: String { block.blockID }
     private var data: NSMutableDictionary {
@@ -1316,6 +1334,7 @@ struct BlockView: View {
             OwnerOnlyBlock(type: type)                          // fremde Seite: Daten gehoeren dem, der schaut - neutraler Platzhalter
         } else {
             content.modifier(BlockStyleMod(style: GestaltenLogic.style(block)))   // Farbe (2.5, tunes.hkstyle)
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { if type == "columns" && abs($0 - colWidth) > 1 { colWidth = $0 } }
         }
     }
 
@@ -1339,6 +1358,12 @@ struct BlockView: View {
                     }
                 }
             }
+        case "code" where RenderPreview.isMermaid(data as? [String: Any] ?? [:]) && RenderPreview.parse(data as? [String: Any] ?? [:]) != nil:
+            RenderedSourceBlock(data: data, key: "code", blockID: id)          // 2.5: Mermaid als Vorschaubild, Quelltext bearbeitbar
+        case "math":
+            RenderedSourceBlock(data: data, key: "tex", blockID: id)           // 2.5: Mathe als Vorschaubild, TeX bearbeitbar
+        case "synced":
+            SyncedBlockView(data: data, blockID: id)                           // 2.5: synchronisierter Block (Anzeige)
         case "code":
             EditText(key: id, html: s("code"), font: .system(.footnote, design: .monospaced), placeholder: String(localized: "Code"), splitOnReturn: false, raw: true, setHTML: set("code")).id(id)
                 .padding(10).padding(.top, s("language").isEmpty ? 0 : 8).background(.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
@@ -1388,6 +1413,12 @@ struct BlockView: View {
                     ForEach(Array(cols.enumerated()), id: \.offset) { _, c in
                         VStack(alignment: .leading, spacing: 4) { BlocksView(arr: c); ColumnAddButton(visible: true) { ed.continueInColumn(c) } }
                     }
+                }
+            } else if cols.count > 4, colWidth > 0, ColumnsLogic.perRow(count: cols.count, width: Double(colWidth)) < cols.count {
+                // 2.5 cols6: 5-6 Spalten mit Mindestbreite, passen sie nicht nebeneinander -> Umbruch in Zeilen
+                let per = ColumnsLogic.perRow(count: cols.count, width: Double(colWidth))
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: columnGap, alignment: .top), count: per), alignment: .leading, spacing: 14) {
+                    ForEach(Array(cols.enumerated()), id: \.offset) { i, c in column(i, c) }
                 }
             } else if let ws = GestaltenLogic.colWeights(data["cols"] as? NSArray), ws.count == cols.count {
                 WeightedColumns(weights: ws, spacing: columnGap) {            // 2.5: Spaltenbreiten aus dem Web (cols[].w)

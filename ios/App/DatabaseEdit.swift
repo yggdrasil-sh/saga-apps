@@ -15,14 +15,31 @@ let dbCalcOps: [(String, String)] = [("div", "A ÷ B"), ("pct", String(localized
 let viewTypes: [(String, String, String)] = [("table", String(localized: "Tabelle"), "tablecells"), ("board", String(localized: "Board"), "rectangle.split.3x1"),
                                              ("list", String(localized: "Liste"), "list.bullet"), ("gallery", String(localized: "Galerie"), "square.grid.2x2"),
                                              ("calendar", String(localized: "Kalender"), "calendar")]
-func viewSymbol(_ t: String?) -> String { viewTypes.first { $0.0 == t }?.2 ?? "tablecells" }
+func viewSymbol(_ t: String?) -> String {
+    switch t {                                                         // 2.5: nur im Web einzurichten, Apps zeigen an
+    case "chart": return "chart.bar.xaxis"
+    case "timeline": return "chart.bar.doc.horizontal"
+    default: return viewTypes.first { $0.0 == t }?.2 ?? "tablecells"
+    }
+}
 func newPID() -> String { String((0..<8).map { _ in "abcdefghijklmnopqrstuvwxyz0123456789".randomElement()! }) }
 
-/// Bedingungen je Typ (wie OPS im Web)
-func filterOps(_ type: String) -> [(String, String)] {
+/// Bedingungen je Typ (wie OPS im Web); `relative`: Server kann relfilter1, `status`: Status-Eigenschaft (status1)
+func filterOps(_ type: String, relative: Bool = false, status: Bool = false) -> [(String, String)] {
     let empty = [("is_empty", String(localized: "ist leer")), ("not_empty", String(localized: "ist nicht leer"))]
-    let rel = [("today", String(localized: "ist heute")), ("this_week", String(localized: "ist diese Woche")), ("this_month", String(localized: "ist diesen Monat"))]
+    var rel = [("today", String(localized: "ist heute")), ("this_week", String(localized: "ist diese Woche")), ("this_month", String(localized: "ist diesen Monat"))]
+    if relative {
+        rel += [("yesterday", String(localized: "ist gestern")), ("tomorrow", String(localized: "ist morgen")), ("last_week", String(localized: "ist letzte Woche")),
+                ("next_week", String(localized: "ist nächste Woche")), ("last_month", String(localized: "ist letzten Monat")), ("next_month", String(localized: "ist nächsten Monat")),
+                ("this_year", String(localized: "ist dieses Jahr")), ("overdue", String(localized: "ist überfällig")), ("next_days", String(localized: "in den nächsten … Tagen")),
+                ("past_days", String(localized: "in den letzten … Tagen")), ("on_or_before", String(localized: "am oder vor")), ("on_or_after", String(localized: "am oder nach"))]
+    }
+    if status && type == "select" {
+        return [("status_group", String(localized: "Status-Gruppe")), ("is", String(localized: "ist")), ("is_not", String(localized: "ist nicht"))] + empty
+    }
     switch type {
+    case "person": return [("me", String(localized: "ist mir zugewiesen")), ("contains", String(localized: "enthält")), ("not_contains", String(localized: "enthält nicht"))] + empty
+    case "files": return empty
     case "number", "calc": return [("eq", "="), ("gt", ">"), ("lt", "<")] + empty
     case "select": return [("is", String(localized: "ist")), ("is_not", String(localized: "ist nicht"))] + empty
     case "multi_select": return [("contains", String(localized: "enthält")), ("not_contains", String(localized: "enthält nicht"))] + empty
@@ -33,7 +50,7 @@ func filterOps(_ type: String) -> [(String, String)] {
     default: return [("contains", String(localized: "enthält")), ("not_contains", String(localized: "enthält nicht"))] + empty
     }
 }
-let filterNoValue: Set<String> = ["is_empty", "not_empty", "checked", "unchecked", "today", "this_week", "this_month"]
+let filterNoValue: Set<String> = ["is_empty", "not_empty", "checked", "unchecked", "me"].union(DBDate.relOps)
 
 extension DBModel {
     /// Schema gesperrt - oder nur lesen (Rolle Lesen/Kommentieren): keine Spalten/Ansichten aendern
@@ -200,7 +217,20 @@ struct ColumnEditor: View {
     private var type: String { p["type"] as? String ?? "text" }
     private var options: [[String: Any]] { p["options"] as? [[String: Any]] ?? [] }
 
+    /// 2.5: Formel/Rollup/Person/Dateien (und andere unbekannte Typen) richtet nur das Web ein - hier nicht aenderbar
+    private var webOnly: Bool { !dbTypes.contains { $0.0 == type } }
     var body: some View {
+        if webOnly {
+            Form {
+                LabeledContent("Name", value: name)
+                Label(type == "formula" || type == "rollup" ? String(localized: "Formel im Web bearbeiten") : String(localized: "Diese Spalte lässt sich nur im Web einrichten."), systemImage: "safari")
+                    .foregroundStyle(.secondary)
+            }
+            .formStyle(.grouped).macFrame(minWidth: 320, minHeight: 160)
+            .onAppear { name = p["name"] as? String ?? "" }
+        } else { editor }
+    }
+    private var editor: some View {
         Form {
             TextField("Name", text: $name).onSubmit { saveName() }
             Picker("Typ", selection: Binding(get: { type }, set: { t in
@@ -524,8 +554,12 @@ struct ViewSettings: View {
             }
             Section("Ansicht") {
                 TextField("Name", text: Binding(get: { v["name"] as? String ?? "" }, set: { n in set { $0["name"] = n } }))
-                Picker("Layout", selection: Binding(get: { type }, set: { t in set { $0["type"] = t } })) {
-                    ForEach(viewTypes, id: \.0) { Label($0.1, systemImage: $0.2).tag($0.0) }
+                if viewTypes.contains(where: { $0.0 == type }) {
+                    Picker("Layout", selection: Binding(get: { type }, set: { t in set { $0["type"] = t } })) {
+                        ForEach(viewTypes, id: \.0) { Label($0.1, systemImage: $0.2).tag($0.0) }
+                    }
+                } else {                                                    // 2.5: Diagramm/Zeitleiste - einrichten im Web
+                    LabeledContent("Layout") { Label(type == "chart" ? String(localized: "Diagramm") : type == "timeline" ? String(localized: "Zeitleiste") : type, systemImage: viewSymbol(type)) }
                 }
                 if type == "board" {
                     Picker("Gruppieren nach", selection: Binding(get: { v["group_by"] as? String ?? (selects.first?.id ?? "") }, set: { g in set { $0["group_by"] = g } })) {
@@ -620,11 +654,35 @@ struct FilterRow: View {
     }
     private var opPicker: some View {
             Picker("", selection: Binding(get: { op }, set: { set("op", $0) })) {
-                ForEach(filterOps(prop?.type ?? "text"), id: \.0) { Text($0.1).tag($0.0) }
+                ForEach(ops, id: \.0) { Text($0.1).tag($0.0) }
             }.labelsHidden().fixedSize().accessibilityLabel(Text("Bedingung"))
     }
+    /// Bedingungen fuer diese Eigenschaft (Formel/Rollup nach Ergebnistyp; ein unbekannter gespeicherter op bleibt waehlbar)
+    private var ops: [(String, String)] {
+        let t = prop.map { $0.isFx ? ($0.rtype == "list" ? "multi_select" : $0.rtype == "checkbox" ? "checkbox" : $0.rtype == "date" ? "date" : $0.rtype == "number" ? "number" : "text") : $0.type } ?? "text"
+        var o = filterOps(t, relative: store.features.has("relfilter1"), status: prop?.status == true && store.features.status)
+        if !op.isEmpty && !o.contains(where: { $0.0 == op }) { o.append((op, op)) }
+        return o
+    }
     @ViewBuilder private var valueField: some View {
-            if !filterNoValue.contains(op), let p = prop {
+            if op == "status_group" {
+                Picker("", selection: Binding(get: { f["value"] as? String ?? "" }, set: { set("value", $0) })) {
+                    Text("– wählen –").tag(""); Text("Offen (nicht erledigt)").tag("open")
+                    ForEach(DBQuery.statusGroups, id: \.self) { g in Text(verbatim: (StatusLogic.symbols[g] ?? "") + " " + StatusLogic.groupName(g)).tag(g) }
+                }.labelsHidden()
+            } else if op == "next_days" || op == "past_days" {
+                TextField("Tage", text: $text).onSubmit { set("value", text) }
+                    .onAppear { text = f["value"].map { "\($0)" } ?? "" }.onDisappear { if text != (f["value"].map { "\($0)" } ?? "") { set("value", text) } }
+                    .textFieldStyle(.roundedBorder).frame(maxWidth: 80)
+                    #if os(iOS)
+                    .keyboardType(.numberPad)
+                    #endif
+            } else if (op == "contains" || op == "not_contains"), prop?.type == "person" {
+                Picker("", selection: Binding(get: { f["value"] as? String ?? "" }, set: { set("value", $0) })) {
+                    Text("– wählen –").tag("")
+                    ForEach(PeopleLogic.directory(m.people).values.sorted { $0.name < $1.name }) { p in Text(verbatim: PeopleLogic.label(p)).tag(p.ref) }
+                }.labelsHidden()
+            } else if !filterNoValue.contains(op), let p = prop {
                 switch p.type {
                 case "select", "multi_select":
                     Picker("", selection: Binding(get: { f["value"] as? String ?? "" }, set: { set("value", $0) })) {

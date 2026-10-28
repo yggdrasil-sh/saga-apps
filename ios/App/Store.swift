@@ -35,6 +35,8 @@ final class Store: ObservableObject {
     @Published var loginPostponed = false
     @Published var pendingPair: PairRequest?               // Kopplungslink wartet auf Bestaetigung
     @Published var serverVersion: String?                // aus /api/version
+    /// 2.5: Faehigkeiten des Servers (/api/version "features"); aeltere Server: leer -> alles wie bisher
+    @Published var features = ServerFeatures()
     /// 2.5 Vorlagengalerie: bietet dieser Server sie an? (GalleryViews.swift; aelterer Server 404 -> Eintrag ausgeblendet)
     @Published var galleryOffered = false
     var galleryOrigin: String?                           // Server, fuer den galleryOffered gilt
@@ -54,8 +56,9 @@ final class Store: ObservableObject {
     func checkVersion() async {
         guard AppConfig.hasServer, let url = URL(string: AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/api/version"),
               let res = try? await URLSession.shared.data(from: url), (res.1 as? HTTPURLResponse)?.statusCode == 200,
-              let j = (try? JSONSerialization.jsonObject(with: res.0)) as? [String: Any] else { serverVersion = nil; minApp = nil; return }
+              let j = (try? JSONSerialization.jsonObject(with: res.0)) as? [String: Any] else { serverVersion = nil; minApp = nil; features = ServerFeatures(); return }
         serverVersion = j["version"] as? String; minApp = j["min_app"] as? String
+        let f = ServerFeatures.parse(j); if f != features { features = f }
     }
     @Published var loading = false
     /// Eigenes Profilbild (2.1, aus /api/account): relative Adresse oder nil
