@@ -333,8 +333,8 @@ enum InlineLogic {
         guard attrs.contains("hk-mention"), let r = attrs.range(of: #"data-u="([^"]*)""#, options: .regularExpression) else { return nil }
         return String(attrs[r].dropFirst(8).dropLast())
     }
-    /// X-Saga-Caps erst setzen, wenn die App die Formen wirklich erhaelt (Etappe 1: noch nicht)
-    static let capsHeader: String? = nil
+    /// Bearbeitet der App-Editor die Inline-Formen zeichengenau? (Etappe 2, P6-8: dann inline2 in SagaCaps)
+    static let editable = false
 }
 
 enum ColumnsLogic {

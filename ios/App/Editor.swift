@@ -132,6 +132,12 @@ final class PageEditor: ObservableObject {
             await self.doc.save(store)
         }
     }
+    /// 2.5 (P3): andere Personen je Block (presence.users[].block) - nur Hinweis
+    @Published var presenceMarks: [String: [PresenceMark]] = [:]
+    /// Konfliktblock: Uebernehmen (Original weg) bzw. Verwerfen, dann normal speichern
+    func resolveConflict(_ id: String, accept: Bool) {
+        if doc.resolveConflict(id, accept: accept) { if focus?.hasPrefix(id) == true { focus = nil }; changed() }
+    }
     /// Rolle/Zaehler der Seite uebernehmen (nur Geaendertes setzen: jede Aenderung zeichnet die Bloecke neu)
     func applyAccess(_ a: PageAccess) {
         if commentCounts != a.commentCounts { commentCounts = a.commentCounts }

@@ -307,6 +307,12 @@ final class PageDoc: ObservableObject {
     private(set) var lostAccess = false
     /// "Meine Version behalten": naechstes Speichern mit overwrite (der Server sichert die andere Fassung als Version)
     private var overwriteNext = false
+    /// 2.5 (P3): zusammengefuehrt, waehrend weitergeschrieben wurde -> naechstes Speichern mit base: "sent"
+    private var baseSentNext = false
+    /// 2.5 (P3): wiederhergestellter Offline-Entwurf -> mit seiner Revision und merge: 1 senden (statt ueberschreiben)
+    private var draftBase: Int?
+    /// 2.5 (P3): dezenter Hinweis nach dem Zusammenfuehren (Bloecke blieben / andere Fassung in den Versionen)
+    @Published var mergeHint: MergeHint?
     /// Sitzung/Konto, mit dem die Seite geladen wurde: nach Abmelden/Kontowechsel nichts mehr senden (Pruefer 1.3)
     private var loadedGen = 0
     private var loadedOrigin: String?
@@ -470,6 +476,8 @@ final class PageDoc: ObservableObject {
         guard let dr = draft else { return }
         page["title"] = dr.title
         setBody(dr.body, format: "blocks")
+        // 2.5 (P3): Entwurf beruht auf dr.rev -> mit dieser Basis zusammenfuehren statt die neuere Fassung zu ueberschreiben
+        if !dr.conflict, dr.rev > 0, dr.rev < rev, MergeLogic.useMerge(remote: access.remote, caps: access.remoteCaps.set) { draftBase = dr.rev }
         draft = nil; conflict = false
         tracker.edit(); objectWillChange.send()
         await save(store)
@@ -496,19 +504,35 @@ final class PageDoc: ObservableObject {
         }
         if !isDatabase { drafts?.save(id, PageDraft(title: title, body: body, rev: rev, saved: Date(), conflict: false)) }   // vor dem Senden lokal sichern
         var b: [String: Any] = ["title": title]
+        // 2.5 (P3): blockweise zusammenfuehren statt 409 (eigene Seiten; fremde nur mit Faehigkeit merge1)
+        let merge = !isDatabase && MergeLogic.useMerge(remote: access.remote, caps: access.remoteCaps.set)
         // "Meine Version behalten": ohne Revision, mit overwrite - der Server sichert die andere Fassung als Version
-        if overwriteNext { b["overwrite"] = true } else { b["rev"] = rev }
+        if overwriteNext { b["overwrite"] = true }
+        else { b.merge(MergeLogic.patchFields(rev: merge ? (draftBase ?? rev) : rev, merge: merge, baseSent: baseSentNext && draftBase == nil)) { $1 } }
         if !isDatabase { b["body"] = body; b["format"] = "blocks" }
         do {
-            let (r, code) = try await store.apiResponse("api/notes/\(id)", method: "PATCH", body: b)
+            let (r, code) = try await store.apiResponse("api/notes/\(id)", method: "PATCH", body: b, headers: SagaCaps.headers)
             guard (200..<300).contains(code) else {
                 overwriteNext = false
+                if code == 409 { draftBase = nil; baseSentNext = false }       // Basis nicht mehr da: bisheriger Dialog
                 failed(code: code, data: r, store: store)
                 return
             }
-            overwriteNext = false
-            if let j = try? JSONSerialization.jsonObject(with: r) as? [String: Any], let nr = j["rev"] as? Int { rev = nr }
-            savedState = SavedPageState(body: body, title: title, rev: rev)
+            overwriteNext = false; draftBase = nil
+            let j = (try? JSONSerialization.jsonObject(with: r)) as? [String: Any] ?? [:]
+            if let nr = j["rev"] as? Int { rev = nr }
+            switch MergeLogic.outcome(response: j, editsAtSend: sent, editsNow: tracker.snapshot) {
+            case .saved:
+                baseSentNext = false
+                savedState = SavedPageState(body: body, title: title, rev: rev)
+            case .adopt:                                                   // seit dem Senden unveraendert: Server-Stand uebernehmen
+                baseSentNext = false
+                adoptMerged(j)
+            case .keepLocal:                                               // weitergeschrieben: eigene Eingaben behalten
+                baseSentNext = true
+                savedState = nil
+            }
+            if let mi = MergeInfo(j["merged"]) { mergeHint = mi.hint ?? mergeHint }
             tracker.confirm(sent)
             if let sentDoc = body.data(using: .utf8).flatMap({ try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }) {
                 ncSaved = CloudLogic.ncKeys(sentDoc["blocks"])                 // gesendeter Stand ist jetzt der gespeicherte
@@ -522,6 +546,52 @@ final class PageDoc: ObservableObject {
             self.error = String(localized: "Nicht gespeichert – lokal gesichert, neuer Versuch folgt (\(error.localizedDescription)).")
             scheduleRetry(store)
         }
+    }
+
+    /// 2.5 (P3): zusammengefuehrte Antwort uebernehmen - blockweise (unveraenderte Bloecke bleiben dieselben Objekte,
+    /// der fokussierte Block behaelt Fokus und Schreibmarke), Titel und Personen dazu
+    private func adoptMerged(_ j: [String: Any]) {
+        guard let body = j["body"] as? String, let nb = MergeLogic.blocks(ofBody: body) else { return }
+        replaceBlocks(MergeLogic.adopt(local: root, server: nb))
+        if let t = j["title"] as? String { page["title"] = t }
+        if let pp = j["people"] as? [String: Any] { page["people"] = (page["people"] as? [String: Any] ?? [:]).merging(pp) { _, b in b } }
+        if let u = j["updated"] { page["updated"] = u }
+        page["rev"] = rev
+        savedState = serialized().map { SavedPageState(body: $0, title: titleRaw, rev: rev) }
+    }
+    private func replaceBlocks(_ nb: NSMutableArray) {
+        doc["blocks"] = nb; root = nb
+        ensureIDs(root)
+        if root.count == 0 { root.add(PageEditor.make("paragraph")) }
+        ncSaved = CloudLogic.ncKeys(root)
+        objectWillChange.send()
+    }
+    /// 2.5 (P3): fremde Aenderung (note.changed mit hoeherer rev) ohne eigene Eingaben: nur die geaenderten Bloecke holen
+    /// (GET ?since=) und uebernehmen; Basis weg/Text-Seite/alter Server -> ganz normal laden. Mit eigenen Eingaben
+    /// sofort mit merge: 1 speichern (der Server bringt die fremden Bloecke mit der Antwort).
+    func refreshFromServer(_ store: Store) async {
+        guard fetched, !isDatabase, rev > 0, !dirty else { await load(store); return }
+        let known = rev
+        guard let (d, code) = try? await store.apiResponse("api/notes/\(id)?since=\(known)"), code == 200,
+              var p = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { await load(store); return }
+        guard !dirty, rev == known else { return }                      // inzwischen getippt bzw. gespeichert: dabei bleibt es
+        if let delta = p["delta"] as? [String: Any], let nb = MergeLogic.applyDelta(delta, local: root) {
+            p.removeValue(forKey: "delta")
+            page = p; rev = p["rev"] as? Int ?? rev
+            let a = PageAccess(page: p, serverVersion: store.serverVersion); if a != access { access = a }
+            replaceBlocks(nb)
+            savedState = serialized().map { SavedPageState(body: $0, title: titleRaw, rev: rev) }
+        } else if p["body"] != nil {
+            await apply(d, store)
+            savedState = nil
+        } else {
+            await load(store)
+        }
+    }
+    /// Konfliktblock: eigene bzw. fremde Fassung uebernehmen (Original loeschen, Markierung weg) oder verwerfen
+    @discardableResult
+    func resolveConflict(_ blockID: String, accept: Bool) -> Bool {
+        accept ? MergeLogic.accept(blockID, in: root) : MergeLogic.discard(blockID, in: root)
     }
 
     /// Speichern abgelehnt: Konflikt (auch mit anderer Person), Zugriff verloren, dauerhafter oder voruebergehender Fehler
@@ -618,7 +688,7 @@ final class PageDoc: ObservableObject {
         }
         // Konto der Seite unbekannt (kein Entwurf moeglich): ungesicherten Text nicht still verwerfen -> Kopier-Dialog
         let orphan = dirty && !isDatabase && loadedAcct == nil ? plainTextNow() : ""
-        tracker.discard(); conflict = false; conflictBy = nil; askConflict = false; overwriteNext = false
+        tracker.discard(); conflict = false; conflictBy = nil; askConflict = false; overwriteNext = false; baseSentNext = false; draftBase = nil
         draft = nil; copyDialog = nil; lostAccess = false
         fetched = false; loaded = false
         await load(store)
@@ -708,6 +778,8 @@ struct NativePageScreen: View {
     @State private var topInset: CGFloat = 0
     @State private var presence: [PresenceUser] = []     // Live (1.4): andere auf dieser Seite
     @State private var presenceOff = false               // 404/aelterer Server: nicht mehr senden
+    @State private var presenceThrottle = PresenceThrottle()   // 2.5: Blockwechsel hoechstens 1x/s melden
+    @State private var presenceTask: Task<Void, Never>?
     @State private var assistant: AssistantLaunch?       // KI-Assistent (1.6)
     /// Editor-Tastaturleiste nur, solange ein Seitenblock bearbeitet wird und kein Blatt mit eigenem Textfeld offen ist
     private var editorKeyboard: Bool {
@@ -906,25 +978,54 @@ struct NativePageScreen: View {
             try? await Task.sleep(for: .seconds(20))
         }
     }
+    /// 2.5 (P3): Block mitmelden? Eigene Seiten immer (aeltere Server ignorieren das Feld), fremde nur mit presence2
+    private var presenceBlocks: Bool { !doc.access.remote || doc.access.remoteCaps.has("presence2") }
     private func sendPresence(leave: Bool) async {
         guard !FedLogic.isRemote(id) || doc.access.presence, !presenceOff else { return }
+        let canEdit = !doc.access.readOnly && !pageLocked
+        let editing = canEdit && (LiveLogic.editing(lastInput: doc.lastInput, canEdit: canEdit) || ed.focus != nil)
+        let blk = ed.focusedBlock
         let body: [String: Any] = leave ? ["note_id": id, "leave": true]
-            : ["note_id": id, "editing": LiveLogic.editing(lastInput: doc.lastInput, canEdit: !doc.access.readOnly && !pageLocked)]
+            : PresenceBlocks.body(note: id, editing: editing, block: blk, sendBlock: presenceBlocks)
+        if !leave && presenceBlocks { presenceThrottle.sent(editing ? blk : nil, at: Date()) }
         guard let (d, code) = try? await store.apiResponse("api/presence", method: "POST", body: body) else { return }
         if code == 404 || code == 405 { presenceOff = code == 405; return }
-        guard !leave, code == 200, let j = ShareJSON.obj(d), !ShareJSON.bool(j["skipped"]) else { return }
-        let others = PresenceUser.others(j["users"] as? [Any])
-        if others != presence { presence = others }
+        guard !leave, code == 200, let j = ShareJSON.obj(d), !ShareJSON.bool(j["skipped"]) else { return }   // skipped: still ignorieren
+        applyPresence(j["users"] as? [Any])
         pageChanged(rev: ShareJSON.int(j["rev"]), by: SharePerson(j["by"]), gone: false)
+    }
+    private func applyPresence(_ users: [Any]?) {
+        let others = PresenceUser.others(users)
+        if others != presence { presence = others }
+        let marks = PresenceBlocks.marks(users)
+        if marks != ed.presenceMarks { ed.presenceMarks = marks }
+    }
+    /// Blockwechsel melden: hoechstens 1x/s, schnellere Wechsel melden danach nur den zuletzt fokussierten Block
+    private func focusMoved() {
+        guard presenceBlocks, !presenceOff, doc.fetched, !doc.access.readOnly, !pageLocked,
+              !FedLogic.isRemote(id) || doc.access.presence else { return }
+        let blk = ed.focusedBlock
+        guard let wait = presenceThrottle.delay(for: ed.focus == nil ? nil : blk, now: Date()) else { return }
+        presenceTask?.cancel()
+        presenceTask = Task {
+            if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+            guard !Task.isCancelled else { return }
+            await sendPresence(leave: false)
+        }
     }
     /// note.changed / presence-rev: still neu laden oder Hinweis "{name} hat diese Seite geaendert"
     private func pageChanged(rev: Int?, by: SharePerson?, gone: Bool) {
         guard doc.fetched else { return }
         let who = by.flatMap { $0.me ? nil : ($0.name.isEmpty ? nil : $0.name) }
+        let merge = !doc.isDatabase && MergeLogic.useMerge(remote: doc.access.remote, caps: doc.access.remoteCaps.set)
         switch LiveLogic.pageChange(eventRev: rev, ownRev: doc.currentRev, dirty: doc.dirty || ed.focus != nil && doc.dirty, gone: gone) {
         case .ignore: break
-        case .reloadSilently: Task { await doc.load(store); doc.updatedBy = who }
-        case .ask: doc.changedBy = who ?? String(localized: "Jemand")
+        case .reloadSilently:
+            // 2.5 (P3): nur geaenderte Bloecke holen und uebernehmen (Fokus/Schreibmarke bleiben)
+            Task { if merge { await doc.refreshFromServer(store) } else { await doc.load(store) }; doc.updatedBy = who }
+        case .ask:
+            // 2.5 (P3): eigene Eingaben sofort mit merge: 1 speichern - der Server bringt die fremden Bloecke mit
+            if merge { Task { await ed.flush(); doc.updatedBy = who } } else { doc.changedBy = who ?? String(localized: "Jemand") }
         case .gone: Task { doc.loaded = false; await doc.load(store) }
         }
     }
@@ -933,7 +1034,7 @@ struct NativePageScreen: View {
         case "note.changed" where ShareJSON.int(e.data["id"]) == id:
             pageChanged(rev: ShareJSON.int(e.data["rev"]), by: SharePerson(e.data["by"]), gone: ShareJSON.bool(e.data["gone"]))
         case "presence" where ShareJSON.int(e.data["note_id"]) == id:
-            let o = PresenceUser.others(e.data["users"] as? [Any]); if o != presence { presence = o }
+            applyPresence(e.data["users"] as? [Any])
         case "comments.changed" where ShareJSON.int(e.data["note_id"]) == id:
             Task {
                 guard let d = try? await store.api("api/notes/\(id)/comments"), let s = CommentsState(data: d) else { return }
@@ -1028,6 +1129,9 @@ struct NativePageScreen: View {
                     if !presence.isEmpty { PresenceBar(users: presence) }                                 // Live (1.4)
                     if let by = doc.changedBy { ChangedBanner(name: by) { doc.changedBy = nil; ed.focus = nil; Task { await doc.loadNewVersion(store) } } }
                     if let by = doc.updatedBy { Label("Aktualisiert – geändert von \(by)", systemImage: "arrow.triangle.2.circlepath").font(.caption).foregroundStyle(.secondary) }
+                    if let h = doc.mergeHint {                                                             // 2.5 (P3): dezent
+                        MergeHintRow(hint: h, versions: doc.access.allows(.versions) ? { Task { await ed.flush(); showVersions = true } } : nil) { doc.mergeHint = nil }
+                    }
                     if pageLocked {
                         if doc.access.allows(.lock) {
                             Button { Task { await setLocked(false) } } label: { Label("Gesperrt – tippen zum Entsperren", systemImage: "lock.fill").font(.caption) }
@@ -1246,6 +1350,7 @@ struct NativePageScreen: View {
         }
         .refreshable { await ed.flush(); await doc.load(store); store.refreshEvents() }
         .task(id: "presence-\(id)") { await presenceLoop() }
+        .onChange(of: ed.focusedBlock) { _, _ in focusMoved() }
         // 2.5: Widget-Werte beim Oeffnen, nach neuem Stand der Seite und beim Zurueckkehren in den Vordergrund
         .onChange(of: doc.fetched ? doc.currentRev : -1, initial: true) { _, r in if r >= 0 { refreshWidgets() } }
         .onChange(of: phase) { _, p in if p == .active { refreshWidgets() } }
@@ -1721,6 +1826,16 @@ struct BlockRow: View {
         .id(id)                                                        // Ziel fuer das Inhaltsverzeichnis
     }
     @ViewBuilder private var inner: some View {
+        let marks = ed.presenceMarks[id] ?? []
+        if let c = MergeLogic.conflict(block) {
+            ConflictFrame(conflict: c, locked: ed.locked) { accept in ed.resolveConflict(id, accept: accept) } content: { innerBlock }
+        } else if !marks.isEmpty {
+            PresenceFrame(marks: marks) { innerBlock }
+        } else {
+            innerBlock
+        }
+    }
+    @ViewBuilder private var innerBlock: some View {
         #if os(macOS)
         // Griffe zeichnet die SEITE (BlockHandles) - hier nur melden: Maus drueber + Position
         BlockView(block: block)
