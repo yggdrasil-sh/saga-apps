@@ -16,9 +16,11 @@ import kotlinx.serialization.json.doubleOrNull
 
 internal fun JsonObject.str(k: String): String? = (this[k] as? JsonPrimitive)?.takeIf { it.isString }?.content
 internal fun JsonObject.num(k: String): Double? = (this[k] as? JsonPrimitive)?.takeIf { it !is JsonNull }?.content?.toDoubleOrNull()
+internal fun JsonObject.bool(k: String): Boolean = (this[k] as? JsonPrimitive)?.takeIf { !it.isString }?.booleanOrNull == true
 internal fun JsonElement?.prim(): String? = (this as? JsonPrimitive)?.takeIf { it !is JsonNull }?.contentOrNull
 
-data class DbOption(val id: String, val name: String, val color: String)
+/** group: Status-Gruppe todo/doing/done (nur bei status: true, 2.5 status1) */
+data class DbOption(val id: String, val name: String, val color: String, val group: String? = null)
 
 data class DbProp(
     val id: String,
@@ -33,18 +35,48 @@ data class DbProp(
     val a: String? = null,
     val b: String? = null,
     val op: String? = null,
+    /** 2.5 Formel/Rollup: Ergebnistyp (number/text/checkbox/date/list) - setzt der Server */
+    val rtype: String? = null,
+    /** 2.5 Status: Auswahl mit Gruppen */
+    val status: Boolean = false,
+    /** 2.5 Person: mehrere erlaubt (Standard ja) */
+    val multi: Boolean = true,
+    /** 2.5 Selbst-Relation: parent/children/blocked_by/blocking */
+    val role: String? = null,
+    /** 2.5 Datum: Vorgaben fuer die Eingabe (Uhrzeit/Ende-Feld zeigen) */
+    val time: Boolean = false,
+    val range: Boolean = false,
+    /** 2.5 Dateien: hoechstens so viele je Zelle */
+    val max: Int = 10,
 ) {
     fun option(id: String?): DbOption? = if (id == null) null else options.firstOrNull { it.id == id }
     fun optionIndex(id: String?): Int = options.indexOfFirst { it.id == id }
     /** Werte, die man in der App setzen kann (Erstellt/Bearbeitet/Berechnet: nur lesen) */
     val editable: Boolean get() = type in EDITABLE
     val isAuto: Boolean get() = type in AUTO
-    val numLike: Boolean get() = type == "number" || type == "calc"
+    /** 2.5: Formel/Rollup - Werte rechnet der Server, nie zurueckschreiben */
+    val computed: Boolean get() = type == "formula" || type == "rollup"
+    /** Typ fuer Anzeige/Filter/Sortierung: Formel/Rollup wie ihr Ergebnistyp (list wie Relation-Liste) */
+    val effType: String get() = if (computed) (rtype ?: "text") else type
+    val numLike: Boolean get() = type == "number" || type == "calc" || (computed && rtype == "number")
+    /** Status-Optionen in Gruppen-Reihenfolge (Zu erledigen, In Arbeit, Erledigt), sonst Schema-Reihenfolge */
+    fun optionsGrouped(): List<DbOption> = if (!status) options else STATUS_GROUPS.flatMap { g -> options.filter { (it.group ?: "todo") == g } }
+    /** erste Option einer Status-Gruppe (Board-Spalte, Abhaken) */
+    fun firstOfGroup(group: String): DbOption? = options.firstOrNull { (it.group ?: "todo") == group }
+    /** Status-Gruppe des Werts (null = leer/unbekannt) */
+    fun groupOf(optionId: String?): String? = option(optionId)?.let { it.group ?: "todo" }
 
     companion object {
         /** Alle Typen, die der Server kennt (saga/notes.py PROP_TYPES) */
         val TYPES = listOf("text", "number", "select", "multi_select", "date", "checkbox", "url", "relation", "calc", "created", "edited")
-        val EDITABLE = setOf("text", "number", "select", "multi_select", "date", "checkbox", "url", "relation", "email", "phone")
+        val EDITABLE = setOf("text", "number", "select", "multi_select", "date", "checkbox", "url", "relation", "email", "phone", "person", "files")
+        val STATUS_GROUPS = listOf("todo", "doing", "done")
+        /** Gruppensymbol vor dem Namen: todo ○, doing ◐, done ● */
+        fun groupSymbol(g: String?): String = when (g) {
+            "doing" -> "◐"
+            "done" -> "●"
+            else -> "○"
+        }
         val AUTO = setOf("created", "edited")
         val TITLE = DbProp("title", "", "text")
 
@@ -52,12 +84,14 @@ data class DbProp(
             val id = o.str("id")?.ifEmpty { null } ?: return null
             val opts = (o["options"] as? JsonArray).orEmpty().mapNotNull { e ->
                 val x = e as? JsonObject ?: return@mapNotNull null
-                DbOption(x.str("id") ?: return@mapNotNull null, x.str("name").orEmpty(), x.str("color") ?: "gray")
+                DbOption(x.str("id") ?: return@mapNotNull null, x.str("name").orEmpty(), x.str("color") ?: "gray", x.str("group")?.takeIf { it in STATUS_GROUPS })
             }
             return DbProp(
                 id = id, name = o.str("name").orEmpty().ifEmpty { id }, type = o.str("type") ?: "text", options = opts,
                 fmt = o.str("fmt") ?: o.str("format"), show = o.str("show"), target = o.num("target")?.toLong(),
                 a = o.str("a"), b = o.str("b"), op = o.str("op"),
+                rtype = o.str("rtype"), status = o.bool("status"), multi = (o["multi"] as? JsonPrimitive)?.booleanOrNull ?: true,
+                role = o.str("role"), time = o.bool("time"), range = o.bool("range"), max = o.num("max")?.toInt()?.coerceIn(1, 20) ?: 10,
             )
         }
     }
@@ -69,20 +103,37 @@ data class DbFilter(val pid: String, val op: String, val value: String = "") {
     val noValue: Boolean get() = op in NO_VALUE
 
     companion object {
-        val NO_VALUE = setOf("is_empty", "not_empty", "checked", "unchecked", "today", "this_week", "this_month")
+        val NO_VALUE = setOf(
+            "is_empty", "not_empty", "checked", "unchecked", "today", "this_week", "this_month", "me",
+            // 2.5 relfilter1
+            "yesterday", "tomorrow", "last_week", "next_week", "last_month", "next_month", "this_year", "overdue",
+        )
+        /** 2.5 relfilter1: relative Datumsfilter (nur anbieten, wenn der Server sie kennt) */
+        val REL_DATE = listOf("yesterday", "tomorrow", "last_week", "next_week", "last_month", "next_month", "this_year", "overdue", "next_days", "past_days", "on_or_before", "on_or_after")
         fun parse(e: JsonElement): DbFilter? {
             val o = e as? JsonObject ?: return null
             return DbFilter(o.str("pid") ?: return null, o.str("op") ?: return null, (o["value"]).prim().orEmpty())
         }
 
         /** Operatoren je Typ wie im Web (OPS in static/pages.js), erster = Vorgabe */
-        fun ops(type: String): List<String> = when (type) {
-            "number", "calc" -> listOf("eq", "gt", "lt", "is_empty", "not_empty")
-            "select" -> listOf("is", "is_not", "is_empty", "not_empty")
-            "date" -> listOf("eq", "before", "after", "today", "this_week", "this_month", "is_empty", "not_empty")
-            "created", "edited" -> listOf("after", "before", "eq", "today", "this_week", "this_month")
-            "checkbox" -> listOf("checked", "unchecked")
-            else -> listOf("contains", "not_contains", "is_empty", "not_empty")   // Text, URL, Mehrfachauswahl, Relation
+        fun ops(type: String, features: Set<String> = emptySet()): List<String> {
+            val rel = if ("relfilter1" in features) REL_DATE else emptyList()
+            return when (type) {
+                "number", "calc" -> listOf("eq", "gt", "lt", "is_empty", "not_empty")
+                "select" -> listOf("is", "is_not", "is_empty", "not_empty")
+                "date" -> listOf("eq", "before", "after", "today", "this_week", "this_month") + rel + listOf("is_empty", "not_empty")
+                "created", "edited" -> listOf("after", "before", "eq", "today", "this_week", "this_month") + rel
+                "checkbox" -> listOf("checked", "unchecked")
+                "person" -> listOf("me", "contains", "not_contains", "is_empty", "not_empty")
+                "files" -> listOf("is_empty", "not_empty")
+                else -> listOf("contains", "not_contains", "is_empty", "not_empty")   // Text, URL, Mehrfachauswahl, Relation, Liste
+            }
+        }
+
+        /** Operatoren einer Eigenschaft (Formel/Rollup wie ihr Ergebnistyp, Status zusaetzlich nach Gruppe) */
+        fun ops(p: DbProp, features: Set<String> = emptySet()): List<String> {
+            val base = ops(if (p.computed) (if (p.rtype == "number") "number" else p.rtype ?: "text") else p.type, features)
+            return if (p.status && "status1" in features) base + "status_group" else base
         }
     }
 }
@@ -114,6 +165,20 @@ data class DbView(val raw: JsonObject) {
     val dateBy: String? get() = raw.str("date_by")
     val hidden: Set<String> get() = (raw["hidden"] as? JsonArray).orEmpty().mapNotNull { it.prim() }.toSet()
     val order: List<String> get() = (raw["order"] as? JsonArray).orEmpty().mapNotNull { it.prim() }
+    /** 2.5 tableopts1: Umbruch (alle Spalten bzw. nur diese), fixierte Spalten, Kalender-Woche */
+    val wrap: Boolean get() = (raw["wrap"] as? JsonPrimitive)?.booleanOrNull == true
+    val wrapCols: Set<String> get() = (raw["wrap_cols"] as? JsonArray).orEmpty().mapNotNull { it.prim() }.toSet()
+    fun wraps(pid: String): Boolean = wrap || pid in wrapCols
+    val freeze: Int get() = (raw["freeze"] as? JsonPrimitive)?.content?.toDoubleOrNull()?.toInt()?.coerceIn(0, 3) ?: 0
+    val week: Boolean get() = raw.str("range") == "week"
+    /** 2.5 status1: Board/Gruppen nach Status-Gruppe statt je Option */
+    val groupStatus: Boolean get() = (raw["group_status"] as? JsonPrimitive)?.booleanOrNull == true
+    /** 2.5 subtasks1: Unteraufgaben-Darstellung {parent, mode} */
+    val subMode: String? get() = (raw["sub"] as? JsonObject)?.str("mode")
+    /** 2.5 chart1: Diagramm-Spezifikation (roh) */
+    val chart: JsonObject? get() = raw["chart"] as? JsonObject
+    /** 2.5 timeline1: Ende-Datum der Zeitleiste */
+    val endBy: String? get() = raw.str("end_by")
     val colors: List<Pair<DbFilter, String>>
         get() = (raw["colors"] as? JsonArray).orEmpty().mapNotNull { e ->
             val f = DbFilter.parse(e) ?: return@mapNotNull null
@@ -121,7 +186,9 @@ data class DbView(val raw: JsonObject) {
         }
 
     companion object {
-        val TYPES = listOf("table", "board", "list", "gallery", "calendar")
+        val TYPES = listOf("table", "board", "list", "gallery", "calendar", "chart", "timeline")
+        /** Typen, die die App anlegen kann (Diagramm/Zeitleiste einrichten nur im Web) */
+        val CREATABLE = listOf("table", "board", "list", "gallery", "calendar")
     }
 }
 
@@ -134,6 +201,12 @@ data class DbRow(
     val updated: Double = 0.0,
     /** Titelbild oder erstes Bild der Seite (Galerie) */
     val preview: String? = null,
+    /** 2.5: Laufzeitfehler je Formel-Zelle (pid -> Code) */
+    val fxErr: Map<String, String> = emptyMap(),
+    /** 2.5 subtasks1: Ebene (0 = oben) und Eltern-ID in verschachtelter Liste, "blockiert" */
+    val depth: Int = 0,
+    val subOf: Long? = null,
+    val blocked: Boolean = false,
 )
 
 data class DbSchema(val raw: JsonObject) {
@@ -155,10 +228,12 @@ data class DbSchema(val raw: JsonObject) {
     /** Gruppier-Spalte wie group_prop() auf dem Server: Board group_by (sonst erste Auswahl), Tabelle/Liste group */
     fun groupProp(v: DbView): DbProp? {
         fun sel(id: String?) = props.firstOrNull { it.id == id && it.type == "select" }
+        // 2.5 dbgroup1/person1: nach Formel/Rollup/Person gruppiert - nur lesend, Werte und Gruppen kommen vom Server
+        fun any(id: String?) = sel(id) ?: props.firstOrNull { it.id == id && (it.computed || it.type == "person") }
         return when (v.type) {
-            "board" -> sel(v.groupBy) ?: props.firstOrNull { it.type == "select" }
-            "gallery", "calendar" -> null
-            else -> sel(v.group)
+            "board" -> any(v.groupBy) ?: props.firstOrNull { it.type == "select" }
+            "gallery", "calendar", "chart", "timeline" -> null
+            else -> any(v.group)
         }
     }
 
@@ -175,7 +250,20 @@ data class DbSchema(val raw: JsonObject) {
     }
 }
 
-data class DbGroup(val id: String?, val count: Int)
+data class DbGroup(val id: String?, val count: Int, val value: JsonElement? = null)
+
+/** 2.5 person1: Eintrag im people-Verzeichnis einer Antwort (Kennung -> Anzeige); nie der Anmeldename */
+data class DbPerson(val ref: String, val name: String, val avatar: String? = null, val me: Boolean = false, val remote: Boolean = false, val gone: Boolean = false) {
+    companion object {
+        fun parse(ref: String, o: JsonObject): DbPerson = DbPerson(
+            ref, o.str("name").orEmpty(), o.str("avatar")?.ifEmpty { null }, o.bool("me"), o.bool("remote"), o.bool("gone"),
+        )
+
+        /** "people": {"~abc": {...}} */
+        fun map(o: JsonElement?): Map<String, DbPerson> =
+            (o as? JsonObject)?.mapNotNull { (k, v) -> (v as? JsonObject)?.let { k to parse(k, it) } }?.toMap().orEmpty()
+    }
+}
 
 data class DbTemplate(val id: Long, val title: String, val icon: String?)
 
@@ -192,6 +280,8 @@ data class DbPage(
     val offset: Int = 0,
     val groups: List<DbGroup>? = null,
     val templates: List<DbTemplate> = emptyList(),
+    /** 2.5 person1: Personen der Antwort */
+    val people: Map<String, DbPerson> = emptyMap(),
 ) {
     val paged: Boolean get() = total != null && matched != null
     val readOnly: Boolean get() = role == "view" || role == "comment"
@@ -208,7 +298,7 @@ data class DbPage(
             val rows = (o["rows"] as? JsonArray).orEmpty().mapNotNull { e -> (e as? JsonObject)?.let(::row) }
             val groups = (o["groups"] as? JsonArray)?.mapNotNull { e ->
                 val g = e as? JsonObject ?: return@mapNotNull null
-                DbGroup(g["id"].prim(), g.num("count")?.toInt() ?: 0)
+                DbGroup(g["id"].prim(), g.num("count")?.toInt() ?: 0, g["value"])
             }
             val templates = (o["templates"] as? JsonArray).orEmpty().mapNotNull { e ->
                 val t = e as? JsonObject ?: return@mapNotNull null
@@ -217,7 +307,7 @@ data class DbPage(
             return DbPage(
                 schema = DbSchema(o["schema"] as? JsonObject ?: JsonObject(emptyMap())), rows = rows,
                 role = o.str("role") ?: "owner", total = o.num("total")?.toInt(), matched = o.num("matched")?.toInt(),
-                offset = o.num("offset")?.toInt() ?: 0, groups = groups, templates = templates,
+                offset = o.num("offset")?.toInt() ?: 0, groups = groups, templates = templates, people = DbPerson.map(o["people"]),
             )
         }
 
@@ -229,6 +319,10 @@ data class DbPage(
             created = x.num("created") ?: 0.0,
             updated = x.num("updated") ?: 0.0,
             preview = (x.str("preview") ?: x.str("cover"))?.ifEmpty { null },
+            fxErr = (x["fx_err"] as? JsonObject)?.mapNotNull { (k, v) -> v.prim()?.let { k to it } }?.toMap().orEmpty(),
+            depth = x.num("depth")?.toInt()?.coerceIn(0, 10) ?: 0,
+            subOf = x.num("sub_of")?.toLong(),
+            blocked = x.bool("blocked"),
         )
     }
 }

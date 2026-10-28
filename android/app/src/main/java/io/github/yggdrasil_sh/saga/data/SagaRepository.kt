@@ -136,6 +136,9 @@ class SagaRepository(
     val error = MutableStateFlow<UiText?>(null)
     val serverVersion = MutableStateFlow<String?>(null)
     val minApp = MutableStateFlow<String?>(null)
+    /** 2.5: Faehigkeiten aus /api/version (features) - neue Funktionen nur zeigen, wenn der Server sie meldet */
+    val serverFeatures = MutableStateFlow<Set<String>>(emptySet())
+    fun hasFeature(f: String): Boolean = f in serverFeatures.value
     val loginError = MutableStateFlow<UiText?>(null)
     val loginBusy = MutableStateFlow(false)
 
@@ -701,11 +704,13 @@ class SagaRepository(
             val v = decode<VersionInfo>(api.request("GET", "api/version", auth = true))
             serverVersion.value = v.version
             minApp.value = v.minApp
+            serverFeatures.value = v.features.toSet()
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
             serverVersion.value = null
             minApp.value = null
+            serverFeatures.value = emptySet()
         }
     }
 

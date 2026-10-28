@@ -105,6 +105,8 @@ data class VersionInfo(
     val version: String? = null,
     val api: Int? = null,
     @SerialName("min_app") val minApp: String? = null,
+    /** 2.5: Faehigkeiten des Servers (formula1, person1, chart1 ...); aeltere Server: leer */
+    val features: List<String> = emptyList(),
 )
 
 @Serializable
