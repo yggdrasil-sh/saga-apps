@@ -65,6 +65,7 @@ class SettingsDialog(Adw.PreferencesDialog):
         from .security import SecurityGroup
         acc.add(SecurityGroup(self))               # Anmeldung & Sicherheit (2FA, Server ab 2.1): Stand + Browser
         acc.add(AppsGroup(self))
+        acc.add(ApiTokensGroup(self))              # 2.5 (api1): auflisten/widerrufen, Anlegen im Web
         from .userbackup import BackupPage         # Mein Backup (Server ab 2.3); sonst unsichtbar - als Unterseite
         self.pages["backup"] = BackupPage(self)
         gb = Adw.PreferencesGroup()
@@ -573,6 +574,57 @@ class NewCalendar(Adw.Dialog):
             self.group.load()
             self.close()
         bg(client.json, "POST", "api/settings/calendars", b, done=fin, error=lambda e: self.msg.set_label(str(e)))
+
+
+class ApiTokensGroup(Adw.PreferencesGroup):
+    """2.5 (api1): API-Tokens nur auflisten und widerrufen - Anlegen im Web (Einstellungen -> API). Unsichtbar ohne api1."""
+
+    def __init__(self, dlg):
+        super().__init__(title=_("API tokens"), description=_("For scripts and integrations (/api/v1, MCP). Create new tokens on the web."))
+        self.dlg = dlg
+        self.rows = []
+        self.set_visible(False)
+        from .store import store
+        if store.has("api1"):
+            self.load()
+
+    def load(self):
+        bg(client.get, "api/account/api-tokens", done=self.fill, error=lambda e: None)
+
+    def fill(self, d):
+        _clear_group(self, self.rows)
+        d = d if isinstance(d, dict) else {}
+        toks = [x for x in d.get("tokens") or [] if isinstance(x, dict) and not x.get("revoked")]
+        if not toks:
+            r = Adw.ActionRow(title=_("No API tokens"))
+            self.add(r)
+            self.rows.append(r)
+        for t in toks:
+            sub = [str(t.get("prefix") or "") + "…"]
+            if t.get("expired"):
+                sub.append(_("expired"))
+            elif t.get("expires"):
+                sub.append(_("valid until {date}").format(date=date_short(t["expires"])))
+            if t.get("last_used"):
+                sub.append(_("last used {date}").format(date=date_short(t["last_used"])))
+            r = Adw.ActionRow(title=GLib.markup_escape_text(t.get("name") or ""), subtitle=GLib.markup_escape_text(" · ".join(sub)))
+            b = _btn(_("Revoke"), "destructive-action", lambda t=t: self._revoke(t))
+            r.add_suffix(b)
+            r.hk_revoke = b
+            self.add(r)
+            self.rows.append(r)
+        self.set_visible(bool(d.get("enabled", True)) or bool(toks))
+
+    def _revoke(self, t):
+        dlg = Adw.AlertDialog(heading=_("Revoke token?"),
+                              body=_("“{name}” stops working immediately. Webhooks created with it are turned off.").format(name=t.get("name") or ""))
+        dlg.add_response("cancel", _("Cancel"))
+        dlg.add_response("revoke", _("Revoke"))
+        dlg.set_response_appearance("revoke", Adw.ResponseAppearance.DESTRUCTIVE)
+        dlg.connect("response", lambda d, r: r == "revoke" and bg(client.json, "DELETE", f"api/account/api-tokens/{t['id']}", None,
+                                                                    done=lambda _r: self.load(), error=lambda e: self.load()))
+        dlg.present(self.dlg)
+        return dlg
 
 
 class AppsGroup(Adw.PreferencesGroup):

@@ -138,6 +138,15 @@ def handle(s, method, path, parts, q, body):
             return s._reply(200, {"widget": w})
     if len(parts) == 5 and parts[:2] == ["api", "notes"] and parts[3:] == ["blocks", "move"] and method == "POST":
         return _move(s, int(parts[2]), body)
+    if path == "api/account/api-tokens" and method == "GET":
+        return s._reply(200, {"enabled": True, "tokens": getattr(s, "api_tokens", []), "max": 10})
+    if parts[:3] == ["api", "account", "api-tokens"] and len(parts) == 4 and method == "DELETE":
+        tid = int(parts[3])
+        for t in getattr(s, "api_tokens", []):
+            if t["id"] == tid:
+                t["revoked"] = 1.0
+                return s._reply(200, {"ok": True})
+        return s._reply(404, {"error": "not found"})
     if path == "api/files" and method == "POST":
         s.v25_uploads.append((q.get("note"), len(getattr(s, "_raw", b"") or b"")))
         fid = "%024x" % (len(s.v25_uploads) + 0xabc)

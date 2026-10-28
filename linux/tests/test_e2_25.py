@@ -822,3 +822,23 @@ def test_timeline_drop_patches_both_dates(win, srv):
     p = [b for mm, u, b, c in srv.log if mm == "PATCH" and u.endswith("/api/notes/11")][-1]
     assert p == {"props": {"dt": "2026-10-17", "en": "2026-10-19"}}                  # ein Aufruf, beide Daten
     assert tv.drop(r, 2, end_only=True) == {"en": "2026-10-21"}
+
+
+# --- 8. API-Tokens (nur auflisten/widerrufen) ---------------------------------------------------------------------------------
+def test_api_tokens_list_and_revoke(win, srv):
+    from hlidskjalf.settings import ApiTokensGroup
+    from hlidskjalf.store import store
+    srv.v25 = True
+    srv.extra_features = ["api1"]
+    srv.api_tokens = [{"id": 1, "name": "Skript", "prefix": "sga_abcd", "expires": None, "last_used": None, "revoked": None},
+                      {"id": 2, "name": "Alt", "prefix": "sga_old0", "revoked": 5.0}]
+    store.check_version()
+    assert pump(lambda: store.has("api1"), 4)
+    g = ApiTokensGroup(win)
+    assert pump(lambda: g.get_visible() and g.rows, 3)
+    assert [r.get_title() for r in g.rows] == ["Skript"]               # widerrufene nicht
+    dlg = g._revoke(srv.api_tokens[0])
+    dlg.emit("response", "revoke")
+    dlg.force_close()
+    assert pump(lambda: srv.api_tokens[0]["revoked"], 3)
+    assert pump(lambda: [r.get_title() for r in g.rows] == ["No API tokens"], 3)
