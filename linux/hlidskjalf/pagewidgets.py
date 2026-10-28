@@ -17,7 +17,7 @@ from .i18n import _, ngettext, ui_language
 
 KINDS = ("clock", "countdown", "progress", "metric", "quote")
 KINDS2 = {"weather": "weather1", "habit": "habit1", "upcoming": "upcoming1", "chart": "chart1"}   # Etappe 2: Art -> Faehigkeit
-FEATURES = None             # Faehigkeiten des Servers (Menge) - None: unbekannt (Tests: alle Etappe-2-Arten erlaubt)
+FEATURES = None             # Faehigkeiten des Servers (Menge) - None: unbekannt (Etappe-2-Arten dann nicht anzeigen)
 SIZES = ("s", "m", "l")
 FMTS = ("num", "pct", "eur")
 ERRORS = ("no_access", "gone", "bad_cfg", "too_big", "disabled", "unavailable")
@@ -59,7 +59,7 @@ class Spec:
     @property
     def known(self):
         if self.kind in KINDS2:                      # 2.5 Paket 4: nur mit passendem Server
-            return FEATURES is None or KINDS2[self.kind] in FEATURES
+            return FEATURES is not None and KINDS2[self.kind] in FEATURES
         return self.kind in KINDS
 
     @property
@@ -69,7 +69,7 @@ class Spec:
     @property
     def server_value(self):
         """rechnet der Server den Wert? (quote immer - fixed nur als Rueckfall lokal)"""
-        if self.kind in ("metric", "quote") or self.kind in KINDS2:
+        if self.kind in ("metric", "quote") or (self.kind in KINDS2 and self.known):
             return True
         return self.kind == "progress" and _str(self.cfg, "src") == "db"
 
@@ -107,10 +107,12 @@ def parse_value(o):
     e = o.get("error")
     err = None if e in (None, "") else (e if e in ERRORS else "other")
     t = o.get("text")
-    return {"kind": _str(o, "kind"), "value": _num(o.get("value")), "max": _num(o.get("max")),
+    out = {"kind": _str(o, "kind"), "value": _num(o.get("value")), "max": _num(o.get("max")),
             "text": t if isinstance(t, str) else None, "fmt": o.get("fmt") if o.get("fmt") in FMTS else None,
-            "as_of": _str(o, "as_of") or None, "error": err,
-            "data": o.get("data") if isinstance(o.get("data"), dict) and err is None else None}
+            "as_of": _str(o, "as_of") or None, "error": err}
+    if _str(o, "kind") in KINDS2:                   # Etappe 2: strukturierte Daten je Art
+        out["data"] = o.get("data") if isinstance(o.get("data"), dict) and err is None else None
+    return out
 
 
 def parse_response(obj):
