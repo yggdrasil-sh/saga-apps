@@ -1,5 +1,7 @@
 package io.github.yggdrasil_sh.saga.ui.page
 
+import io.github.yggdrasil_sh.saga.db.RowMeta
+import io.github.yggdrasil_sh.saga.blocks.RenderPreview
 import io.github.yggdrasil_sh.saga.blocks.NoteLinks
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.data.RemoteCaps
@@ -148,7 +150,7 @@ class PageEditor(
     var props by mutableStateOf<JsonObject?>(null)
         private set
     /** 2.5: Zeile - Formel-Fehler, Personen-Verzeichnis, "blockiert" (nur gelesen) */
-    var rowMeta by mutableStateOf(io.github.yggdrasil_sh.saga.db.RowMeta())
+    var rowMeta by mutableStateOf(RowMeta())
         private set
     var parentId by mutableStateOf<Long?>(null)
         private set
@@ -338,7 +340,7 @@ class PageEditor(
         // lassen sich Status/Datum auf der Seite nie setzen; ob die Elternseite eine Datenbank ist, klaert RowProperties
         parentId = (p["parent_id"] as? JsonPrimitive)?.content?.toLongOrNull()
         props = rowProps(p, parentId)
-        rowMeta = io.github.yggdrasil_sh.saga.db.RowMeta.of(p)
+        rowMeta = RowMeta.of(p)
         created = (p["created"] as? JsonPrimitive)?.content?.toDoubleOrNull()
         updatedAt = (p["updated"] as? JsonPrimitive)?.content?.toDoubleOrNull()
         converted = parsed.converted && !body.isNullOrBlank()
@@ -861,7 +863,7 @@ class PageEditor(
         val ow = overwriteNext
         saving = true
         try {
-            val body = if (isDatabase) null else withContext(cpu) { BlockDoc.serialize(BlockDoc.withTime(io.github.yggdrasil_sh.saga.blocks.RenderPreview.docForSave(d), clock())) }
+            val body = if (isDatabase) null else withContext(cpu) { BlockDoc.serialize(BlockDoc.withTime(RenderPreview.docForSave(d), clock())) }
             (if (ow) repo.savePage(id, t, body, rev, true) else repo.savePage(id, t, body, rev))?.let { rev = it }
             if (ow) overwriteNext = false
             conflictBy = null

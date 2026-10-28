@@ -52,7 +52,7 @@ val LocalPageImageSink = compositionLocalOf<((IncomingImage, JsonPath) -> Unit)?
 
 // ---------------------------------------------------------------- Darstellung
 
-/** 2.5 P6-2: neue Inline-Formen (Farben wie Web --tc-*/--bc-*, Erwaehnung als Chip, Inline-Mathe als Code-Chip) */
+/** 2.5 P6-2: neue Inline-Formen (Farben wie Web tc/bc-Variablen, Erwaehnung als Chip, Inline-Mathe als Code-Chip) */
 private fun styleFor(sp: io.github.yggdrasil_sh.saga.blocks.Span, c: ColorScheme): SpanStyle? {
     val dark = c.surface.luminance() < 0.5f
     return when (val f = io.github.yggdrasil_sh.saga.blocks.InlineForms.form(sp)) {
