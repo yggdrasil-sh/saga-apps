@@ -5,102 +5,137 @@ import SwiftUI
 let hkMarkColor = Color.yellow.opacity(0.35)
 let hkCodeColor = Color.gray.opacity(0.22)
 
+/// 2.5 (inline2): Darstellung der Inline-Formen im Editor. Die Form steckt in sichtbaren Attributen (Schrift, Farben,
+/// Link-Schema) und wird beim Speichern daraus zurueckgelesen - Farben werden ueber ihre aufgeloesten Werte erkannt
+/// (so ueberstehen sie auch den Weg durch das Textfeld). Varianten mit gleichem Aussehen (Marker Gelb mit/ohne
+/// cdx-marker, Inline-Code mit/ohne Klasse) unterscheiden sich nur unmerklich in der Deckkraft.
+enum InlineStyle {
+    static let mark = hkMarkColor
+    static let cdx = Color.yellow.opacity(0.34)
+    static let code = hkCodeColor
+    static let inlineCode = Color.gray.opacity(0.21)
+    static let math = Color.purple.opacity(0.14)
+    static let text: [(String, Color)] = InlineRuns.palette.map { ($0, HKPalette.textColor($0)) }
+    static let bg: [(String, Color)] = InlineRuns.palette.map { ($0, HKPalette.bgColor($0)) }
+    /// aufgeloeste Farbe in hell und dunkel (das Textfeld kann eine Farbe im aktuellen Erscheinungsbild aufloesen)
+    private static func rgba(_ c: Color, dark: Bool) -> [Float] {
+        var e = EnvironmentValues(); e.colorScheme = dark ? .dark : .light
+        let r = c.resolve(in: e)
+        return [r.red, r.green, r.blue, r.opacity]
+    }
+    private static func match(_ c: Color?, _ list: [(String, Color)]) -> String? {
+        guard let c else { return nil }
+        let v = rgba(c, dark: false), w = rgba(c, dark: true)
+        func same(_ a: [Float], _ b: [Float]) -> Bool { zip(a, b).allSatisfy { abs($0 - $1) < 0.004 } }
+        return list.first { k in same(rgba(k.1, dark: false), v) || same(rgba(k.1, dark: true), w) || same(rgba(k.1, dark: true), v) || same(rgba(k.1, dark: false), w) }?.0
+    }
+    /// Hintergrund -> Markierung/Code
+    static func background(_ c: Color?) -> (InlineFmt.Mark?, InlineFmt.Code?) {
+        guard let c else { return (nil, nil) }
+        if c == mark { return (.plain, nil) }
+        if c == code { return (nil, .plain) }
+        switch match(c, [("mark", mark), ("cdx", cdx), ("code", code), ("icode", inlineCode), ("math", math)]) {
+        case "mark": return (.plain, nil)
+        case "cdx": return (.cdx, nil)
+        case "code": return (nil, .plain)
+        case "icode": return (nil, .inline)
+        case "math": return (nil, .math)
+        default: return (match(c, bg).map { .color($0) }, nil)
+        }
+    }
+    static func color(_ c: Color?) -> String? { match(c, text) }
+    static func bgColor(_ m: InlineFmt.Mark?, _ cd: InlineFmt.Code?) -> Color? {
+        switch cd {
+        case .plain?: return code
+        case .inline?: return inlineCode
+        case .math?: return math
+        case nil: break
+        }
+        switch m {
+        case .plain?: return mark
+        case .cdx?: return cdx
+        case .color(let n)?: return HKPalette.bgColor(n)
+        case nil: return nil
+        }
+    }
+    static func mentionURL(_ ref: String) -> URL? { URL(string: "hkmention:" + (ref.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ref)) }
+    static func mentionRef(_ u: URL) -> String? {
+        guard u.scheme == "hkmention" else { return nil }
+        return String(u.absoluteString.dropFirst("hkmention:".count)).removingPercentEncoding
+    }
+}
+
+/// Personen-Namen fuer Erwaehnungen (people aus GET /api/notes/{id}) - aktueller Name statt gespeichertem Text
+enum MentionNames {
+    nonisolated(unsafe) static var people: [String: [String: Any]] = [:]
+    static func name(_ ref: String) -> String? { (people[ref]?["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } }
+    static func gone(_ ref: String) -> Bool { people[ref]?["gone"] as? Bool == true }
+    static func me(_ ref: String) -> Bool { people[ref]?["me"] as? Bool == true }
+    static func merge(_ pp: [String: Any]) { for (k, v) in pp { if let d = v as? [String: Any] { people[k] = d } } }
+}
+
 /// HTML -> AttributedString fuer den Editor. Fett/kursiv/Code ueber die Schrift (so bearbeitet sie der Editor),
-/// unterstrichen/durchgestrichen/markiert/Link ueber eigene Attribute.
+/// unterstrichen/durchgestrichen/markiert/Farben/Link ueber eigene Attribute (2.5: alle Formen des Inline-Vertrags).
 func richText(_ stored: String, base: Font) -> AttributedString {
     // Verweis auf eine Seite ohne Zugriff (1.3): auch beim Bearbeiten mit 🔒, gedaempft und nicht als Link;
     // intern hkna://<id>, beim Speichern wieder genau <a href="/notes#id">Text</a> (richToHTML)
     let html = ShareLogic.markMasked(PageLinkTitles.apply(stored), keepRef: true)   // Seitenverweise mit aktuellem Titel
     var out = AttributedString()
-    var bold = 0, italic = 0, under = 0, strike = 0, mark = 0, code = 0, na = 0
-    var links: [URL?] = []
-    let re = hkTagRegex
-    let ns = html as NSString
-    var pos = 0
-    func emit(_ raw: String) {
-        guard !raw.isEmpty else { return }
-        var s = AttributedString(decodeEntities(raw))
-        var f = code > 0 ? base.monospaced() : base
-        if bold > 0 { f = f.bold() }
-        if italic > 0 { f = f.italic() }
-        s.font = f
-        if under > 0 { s.underlineStyle = .single }
-        if strike > 0 { s.strikethroughStyle = .single }
-        if code > 0 { s.backgroundColor = hkCodeColor } else if mark > 0 { s.backgroundColor = hkMarkColor }
-        if let l = links.last, let u = l { s.link = u }
-        if na > 0 { s.foregroundColor = .secondary }
+    for r in InlineRuns.parse(html) {
+        var s = AttributedString(r.text)
+        let f = r.fmt
+        var font = f.code != nil ? base.monospaced() : base
+        if f.bold { font = font.bold() }
+        if f.italic { font = font.italic() }
+        s.font = font
+        if f.underline { s.underlineStyle = .single }
+        if f.strike { s.strikethroughStyle = .single }
+        if let bg = InlineStyle.bgColor(f.mark, f.code) { s.backgroundColor = bg }
+        if let c = f.color { s.foregroundColor = HKPalette.textColor(c) }
+        switch f.link {
+        case .href(let h)?: s.link = linkURL(h)
+        case .masked(let h)?:
+            s.link = URL(string: "hkna://" + (h.range(of: #"-?[0-9]+$"#, options: .regularExpression).map { String(h[$0]) } ?? ""))
+            s.foregroundColor = .secondary
+        case .time(let dt, let cls)?: s.link = URL(string: "hkdate://d/\(dt)" + (cls == "hk-remind" ? "?r=1" : cls.isEmpty ? "?c=0" : ""))
+        case .mention(let ref)?: s.link = InlineStyle.mentionURL(ref)
+        case nil: break
+        }
         out += s
     }
-    for m in re.matches(in: html, range: NSRange(location: 0, length: ns.length)) {
-        emit(ns.substring(with: NSRange(location: pos, length: m.range.location - pos)))
-        pos = m.range.location + m.range.length
-        let closing = ns.substring(with: m.range(at: 1)) == "/", tag = ns.substring(with: m.range(at: 2)).lowercased()
-        let d = closing ? -1 : 1
-        switch tag {
-        case "b", "strong": bold += d
-        case "i", "em": italic += d
-        case "u": under += d
-        case "s", "strike", "del": strike += d
-        case "mark": mark += d
-        case "code": code += d
-        case "br": if !closing { var nl = AttributedString("\n"); nl.font = base; out += nl }
-        case "na":
-            na += d
-            if closing { _ = links.popLast() } else {
-                let attrs = ns.substring(with: m.range(at: 3))
-                let id = attrs.range(of: #"/notes#[0-9]+"#, options: .regularExpression).map { String(attrs[$0].dropFirst(7)) } ?? ""
-                links.append(URL(string: "hkna://" + id))
-            }
-        case "time":                       // @-Datum aus dem Web: als eigener Link (hkdate://), beim Speichern wieder <time>
-            if closing { _ = links.popLast() } else {
-                let attrs = ns.substring(with: m.range(at: 3))
-                let dt = attrs.range(of: #"datetime="([0-9T:\-]{10,16})""#, options: .regularExpression).map { String(attrs[$0].dropFirst(10).dropLast()) } ?? ""
-                links.append(dt.isEmpty ? nil : URL(string: "hkdate://d/\(dt)" + (attrs.contains("hk-remind") ? "?r=1" : "")))
-            }
-        case "a":
-            if closing { _ = links.popLast() } else {
-                let attrs = ns.substring(with: m.range(at: 3))
-                let href = attrs.range(of: #"href="([^"]*)""#, options: .regularExpression).map { String(attrs[$0].dropFirst(6).dropLast()) } ?? ""
-                links.append(linkURL(decodeEntities(href)))
-            }
-        default: break
-        }
-    }
-    emit(ns.substring(from: pos))
     return out
 }
 
-private func esc(_ s: String) -> String { s.replacingOccurrences(of: "&", with: "&amp;").replacingOccurrences(of: "<", with: "&lt;").replacingOccurrences(of: ">", with: "&gt;") }
-
 /// AttributedString -> Inline-HTML. `baseBold`: Ueberschriften sind schon fett -> kein <b> dafuer.
 func richToHTML(_ a: AttributedString, ctx: Font.Context, baseBold: Bool) -> String {
-    var html = ""
+    var runs: [InlineRun] = []
     for run in a.runs {
         var text = String(a[run.range].characters)
         guard !text.isEmpty else { continue }
-        if let u = run.link, u.scheme == "hkna" { text = ShareLogic.unmasked(text) }    // Schloss ist nur Darstellung
+        var f = InlineFmt()
         let r = run.font?.resolve(in: ctx)
-        let isBold = (r?.isBold ?? false) && !baseBold, isItalic = r?.isItalic ?? false
-        let isCode = run.backgroundColor == hkCodeColor
-        let isMark = run.backgroundColor == hkMarkColor
-        var open = "", close = ""
-        func wrap(_ tag: String) { open += "<\(tag)>"; close = "</\(tag)>" + close }
-        if let u = run.link, u.scheme == "hkdate" {
-            let dt = String(u.path.dropFirst()), remind = u.query == "r=1"
-            open += "<time datetime=\"\(esc(dt))\" class=\"\(remind ? "hk-remind" : "hk-date")\">"; close = "</time>" + close
-        } else if let u = run.link {
-            let href = u.scheme == "hkpage" || u.scheme == "hkna" ? "/notes#" + (u.host ?? "") : u.absoluteString
-            open += "<a href=\"\(esc(href).replacingOccurrences(of: "\"", with: "&quot;"))\">"; close = "</a>" + close
+        f.bold = (r?.isBold ?? false) && !baseBold
+        f.italic = r?.isItalic ?? false
+        if run.strikethroughStyle != nil { f.strike = true }
+        (f.mark, f.code) = InlineStyle.background(run.backgroundColor)
+        if let u = run.link {
+            switch u.scheme {
+            case "hkdate": f.link = .time(String(u.path.dropFirst()), cls: u.query == "r=1" ? "hk-remind" : u.query == "c=0" ? "" : "hk-date")
+            case "hkna": f.link = .href("/notes#" + (u.host ?? "")); text = ShareLogic.unmasked(text)   // Schloss ist nur Darstellung
+            case "hkpage": f.link = .href("/notes#" + (u.host ?? ""))
+            case "hkmention": f.link = InlineStyle.mentionRef(u).map { .mention($0) }
+            default: f.link = .href(u.absoluteString)
+            }
+        } else {
+            if run.underlineStyle != nil { f.underline = true }       // (Links: Unterstrich ist nur Darstellung)
         }
-        if isBold { wrap("b") }
-        if isItalic { wrap("i") }
-        if run.underlineStyle != nil && run.link == nil { wrap("u") }   // (hkdate-Links: kein <u>)
-        if run.strikethroughStyle != nil { wrap("s") }
-        if isMark { wrap("mark") }
-        if isCode { wrap("code") }
-        html += open + esc(text).replacingOccurrences(of: "\n", with: "<br>") + close
+        if f.link.map({ if case .masked = $0 { return false }; return true }) ?? true { f.color = InlineStyle.color(run.foregroundColor) }
+        if case .href(let h)? = f.link, h.hasPrefix("/notes#"), run.foregroundColor == .secondary { f.color = nil }
+        if f.code == .math { f.bold = false; f.italic = false; f.underline = false; f.strike = false; f.color = nil; f.link = nil }   // Mathe: nur Text
+        runs.append(InlineRun(text: text, fmt: f))
     }
-    // aneinanderstossende gleiche Tags zusammenfassen (</b><b> -> nichts)
-    for t in ["b", "i", "u", "s", "mark", "code"] { html = html.replacingOccurrences(of: "</\(t)><\(t)>", with: "") }
-    return html
+    return InlineRuns.serialize(runs)
 }
+
+/// Gleicher Inhalt (Text und Formen)? Unterschiede nur in der Schreibweise (Reihenfolge der Tags, Attribute) zaehlen nicht.
+func sameInline(_ a: String, _ b: String) -> Bool { a == b || InlineRuns.parse(a) == InlineRuns.parse(b) }

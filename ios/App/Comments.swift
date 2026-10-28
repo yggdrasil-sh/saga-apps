@@ -82,6 +82,10 @@ struct CommentsPanel: View {
     @State private var busy = false
     @State private var askDelete: (CommentItem, CommentThread, Bool, Bool)?    // Kommentar, Unterhaltung, erster?, ganze Unterhaltung?
     @State private var undo: Int?
+    /// 2.5 (P6-5): Namen der Erwaehnten (people der Kommentare) und Auswahl fuer "@"
+    @State private var names: [String: String] = [:]
+    @State private var candidates: [MentionPerson] = []
+    @State private var picked: [CommentPick] = []
     #if os(iOS)
     private let touch = true
     #else
@@ -239,7 +243,7 @@ struct CommentsPanel: View {
                     Menu {
                         ForEach(acts, id: \.self) { a in
                             switch a {
-                            case .edit: Button { editing = c.id; editText = c.body; replyTo = nil } label: { Label("Bearbeiten", systemImage: "pencil") }
+                            case .edit: Button { editing = c.id; editText = editable(c.body); replyTo = nil } label: { Label("Bearbeiten", systemImage: "pencil") }
                             case .delete: Button(role: .destructive) { askDelete = (c, t, first, false) } label: { Label("Löschen", systemImage: "trash") }
                             case .deleteThread: Button(role: .destructive) { askDelete = (c, t, first, true) } label: { Label("Unterhaltung löschen", systemImage: "trash") }
                             }
@@ -255,7 +259,7 @@ struct CommentsPanel: View {
             } else if c.deleted {
                 Text("Kommentar gelöscht").italic().foregroundStyle(.secondary)
             } else {
-                Text(Self.linked(c.body)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
+                Text(Self.mentioned(c.body, names: names)).textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
             }
         }
         .accessibilityElement(children: .contain)
@@ -286,6 +290,18 @@ struct CommentsPanel: View {
                 .onChange(of: text.wrappedValue) { _, v in if v.count > max { text.wrappedValue = String(v.prefix(max)) } }
                 .accessibilityLabel(Text(verbatim: placeholder))
             HStack {
+                if store.features.has("mention1") && !candidates.isEmpty {      // 2.5: Person erwaehnen (Token <@REF>)
+                    Menu {
+                        ForEach(candidates) { p in
+                            Button(p.name) {
+                                let v = text.wrappedValue
+                                text.wrappedValue = v + (v.isEmpty || v.hasSuffix(" ") ? "" : " ") + "@" + p.name + " "
+                                if !picked.contains(where: { $0.ref == p.ref }) { picked.append(CommentPick(name: p.name, ref: p.ref)) }
+                            }
+                        }
+                    } label: { Image(systemName: "at") }
+                    .menuIndicator(.hidden).fixedSize().accessibilityLabel(Text("Person erwähnen …"))
+                }
                 if ShareLogic.showCounter(text.wrappedValue.count, max: max) {
                     Text("\(text.wrappedValue.count) von \(max)").font(.caption).foregroundStyle(.secondary)
                 }
@@ -293,7 +309,7 @@ struct CommentsPanel: View {
                 if let cancel { Button("Abbrechen", action: cancel).buttonStyle(.bordered) }
                 let can = !busy && ShareLogic.canSend(text.wrappedValue, max: max)
                 let btn = Button(ok) {
-                    let v = text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let v = CommentMentions.encode(text.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines), picked: picked.map { ($0.name, $0.ref) })
                     Task { busy = true; if await send(v) { text.wrappedValue = "" }; busy = false }
                 }
                 .keyboardShortcut(.return, modifiers: .command)
@@ -302,6 +318,29 @@ struct CommentsPanel: View {
                 if can { btn.foregroundStyle(Color("OnAccent")) } else { btn.disabled(true) }
             }
         }
+    }
+
+    /// 2.5: Kommentar mit Erwaehnungen (<@REF> -> Chip "@Name" mit aktuellem Namen), dazu Links
+    static func mentioned(_ s: String, names: [String: String]) -> AttributedString {
+        var out = AttributedString()
+        for p in CommentMentions.parts(s) {
+            switch p {
+            case .text(let t): out += linked(t)
+            case .mention(let r):
+                var a = AttributedString("@" + (names[r] ?? String(localized: "Unbekannte Person")))
+                a.foregroundColor = .accentColor; a.backgroundColor = Color.accentColor.opacity(0.14)
+                a.inlinePresentationIntent = .stronglyEmphasized
+                out += a
+            }
+        }
+        return out
+    }
+    /// Eigenen Kommentar bearbeiten: Token als "@Name" zeigen und fuers Speichern merken
+    private func editable(_ body: String) -> String {
+        for case .mention(let r) in CommentMentions.parts(body) where !picked.contains(where: { $0.ref == r }) {
+            picked.append(CommentPick(name: names[r] ?? r, ref: r))
+        }
+        return CommentMentions.display(body) { names[$0] ?? $0 }.replacingOccurrences(of: "@" + String(localized: "Unbekannte Person"), with: "@?")
     }
 
     /// Klartext + erkannte Links (nur http/https)
@@ -337,6 +376,13 @@ struct CommentsPanel: View {
             let d = try await store.api("api/notes/\(noteID)/comments" + (showResolved ? "?resolved=1" : ""))
             guard let s = CommentsState(data: d) else { return }
             st = s; loadError = nil; onUpdate(s)
+            for (k, v) in ShareJSON.obj(d)?["people"] as? [String: Any] ?? [:] { if let n = (v as? [String: Any])?["name"] as? String, !n.isEmpty { names[k] = n } }
+            if candidates.isEmpty, store.features.has("mention1"), let pd = try? await store.api("api/notes/\(noteID)/people?q="), let j = ShareJSON.obj(pd) {
+                candidates = (j["people"] as? [[String: Any]] ?? []).compactMap { p in
+                    guard let r = p["ref"] as? String, InlineRuns.validRef(r), !ShareJSON.bool(p["me"]) else { return nil }
+                    return MentionPerson(ref: r, name: (p["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? String(localized: "Unbekannte Person"))
+                }
+            }
         } catch { if st == nil { loadError = error.localizedDescription } else { self.error = String(localized: "Kommentare nicht geladen: \(error.localizedDescription)") } }
     }
     /// Anfrage mit Fehlertext vom Server (z. B. 429 "Zu viele Kommentare ...") -> true bei Erfolg
@@ -386,3 +432,6 @@ struct CommentsPanel: View {
         st = s; onUpdate(s)
     }
 }
+
+/// Im Kommentar gewaehlte Person ("@Name" im Feld -> <@REF> beim Senden)
+struct CommentPick: Equatable { var name: String; var ref: String }

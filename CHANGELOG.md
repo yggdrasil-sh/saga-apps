@@ -9,6 +9,42 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – iOS/Mac: Gleichzeitig bearbeiten, Aufgabenquellen, Editor (Saga-Server 2.5, App-Runde Etappe 2)
+- **Zusammenführen statt Konfliktdialog:** Speichern mit `merge: 1`; eine zusammengeführte Antwort wird blockweise
+  übernommen (Fokus bleibt im eigenen Block), wurde inzwischen weitergeschrieben, folgt das nächste Speichern mit
+  `base: "sent"`. Fremde Änderungen kommen still über `?since=` (nur geänderte Blöcke) – kein „Neu laden“ mehr.
+  Offline-Entwürfe werden mit ihrer Revision zusammengeführt. **Konfliktblock** mit gelbem Rand: „Fassung von …“ –
+  Übernehmen/Verwerfen. Dezenter Hinweis bei `restored`/`lost` (mit Weg zu den Versionen). Seiten anderer Server nur,
+  wenn deren Server `merge1` kann; sonst und bei älteren Servern der bisherige Dialog. Kopf `X-Saga-Caps: merge1`.
+- **Anwesenheit je Block:** der fokussierte Block wird mitgemeldet (höchstens 1×/s); Blöcke, die jemand anderes
+  bearbeitet, bekommen einen farbigen Rand links und „{Name} bearbeitet“ (nur Hinweis).
+- **Aufgabenquellen** (`tasksrc1`): Aufgabenliste, „Heute“ und Seitenleisten-Zähler zeigen Inbox und abonnierte
+  Datenbank-Zeilen in der Reihenfolge des Servers – mit Quelle, Datum/Uhrzeit/Zeitraum, Priorität und Zugewiesenen
+  (Namen aus `people`); nur lesbare Zeilen mit ausgegrautem Haken. Abhaken mit „Rückgängig“ (stellt den Wert davor
+  wieder her, z. B. „Läuft“), neue Aufgabe mit Ziel (Inbox oder Quelle), „Aufgabenquellen …“ (alle/mir zugewiesene,
+  Abo entfernen), im Datenbank-Menü „Als Aufgabenquelle verwenden …“ (ohne Zuordnung: Hinweis aufs Web).
+  **Offline-Warteschlange** je Eintrag (letzte Aktion gewinnt, 403/404/400 verwerfen, danach neu laden).
+  Widgets „Heute“ und Sperrbildschirm lesen `/api/app/today?sources=1` und haken Zeilen direkt im Widget ab.
+  Einstellungen: **Tägliche Zusammenfassung** (`taskdue1`) mit Uhrzeit; Mitteilungs-Kategorie „Aufgaben“.
+- **Inline-Formen bearbeiten** (`inline2`): Text- und Hintergrundfarbe der Auswahl aus der Palette setzen/entfernen
+  (Leiste bzw. Menü „Format“), Inline-Mathe (Quelltext bleibt bearbeitbar), alle Formen des Inline-Vertrags bleiben
+  zeichengenau erhalten (geprüft gegen `editor_inline.json` und die Texte aus `merge.json`). Absätze mit Farben,
+  Erwähnungen oder Mathe sind nicht mehr gesperrt; nur noch unbekannte Formen → „im Web bearbeiten“.
+  Kopf `X-Saga-Caps: inline2,cols6,merge1,sync1` (5–6 Spalten waren schon bearbeitbar).
+- **Erwähnungen** (`mention1`): „@“ bzw. „Format → Person erwähnen …“ schlägt Personen mit Zugriff vor; Personen
+  ohne Zugriff (Teilen-Suche) nach „Seite teilen und erwähnen?“. Anzeige mit aktuellem Namen aus `people`
+  (eigenes Konto hervorgehoben, Gelöschte durchgestrichen). Kommentare zeigen `<@…>` als Chip, „@“-Knopf fügt ein.
+- **Synchronisierte Blöcke bearbeiten** (`sync1`): Original und Kopien mit Rolle Bearbeiten/Eigentümer direkt in der
+  Seite bearbeitbar; `synced_rev` wird übernommen, bei `stale`/`denied`/`locked` Hinweis und Neuladen. Original und
+  Kopie auf derselben Seite bleiben erhalten (Server-Test, Rundreise im Logik-Test).
+- **Block auf andere Seite verschieben** (`move1`): Block-Menü „Auf andere Seite verschieben …“ mit Seitensuche,
+  vorher speichern, bei veralteter Revision einmal neu versuchen, 403/404/423/507 verständlich; „Rückgängig“
+  schiebt zurück. Seiten anderer Server: Menüpunkt aus.
+- **Zeitleiste ziehen** (iPad/Mac): Balken verschieben bzw. am rechten Rand das Ende ziehen – beide Daten in einem
+  Props-PATCH, Uhrzeit bleibt, Zeitraum im Beginn wird gemeinsam geschrieben. Telefone bleiben lesend.
+- **API-Tokens** (`api1`): Einstellungen → Konto listet die Tokens (Bereiche, Ablauf, zuletzt benutzt) und kann sie
+  widerrufen; Anlegen weiter im Web.
+
 ### Neu – iOS/Mac: Datenbanken, Diagramme, Widgets und Inline-Formen (Saga-Server 2.5, App-Runde Etappe 1)
 Alles nur, wenn der Server die jeweilige Fähigkeit meldet (`/api/version` → `features`); ältere Server: wie bisher.
 - **Formeln und Rollups** werden angezeigt (Zahl, Text, Häkchen, Datum, Liste), Fehler als „#Fehler“ mit Erklärung;

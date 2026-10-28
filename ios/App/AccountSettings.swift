@@ -491,3 +491,67 @@ extension Color {
         return String(format: "#%02x%02x%02x", Int(max(0, min(1, r)) * 255), Int(max(0, min(1, g)) * 255), Int(max(0, min(1, b)) * 255))
     }
 }
+
+// MARK: - 2.5 (api1): API-Tokens nur auflisten und widerrufen (Anlegen im Web)
+
+struct APITokenItem: Identifiable, Equatable {
+    var id: Int; var name: String; var prefix: String; var scopes: [String]
+    var created: Double?; var expires: Double?; var lastUsed: Double?; var revoked: Bool; var expired: Bool
+    init?(_ v: Any?) {
+        guard let d = v as? [String: Any], let i = ShareJSON.int(d["id"]) else { return nil }
+        id = i; name = d["name"] as? String ?? ""; prefix = d["prefix"] as? String ?? ""
+        scopes = (d["scopes"] as? [Any] ?? []).compactMap { $0 as? String }
+        created = ShareJSON.num(d["created"]); expires = ShareJSON.num(d["expires"]); lastUsed = ShareJSON.num(d["last_used"])
+        revoked = d["revoked"] != nil && !(d["revoked"] is NSNull); expired = ShareJSON.bool(d["expired"])
+    }
+}
+
+struct APITokensSection: View {
+    @EnvironmentObject var store: Store
+    @State private var tokens: [APITokenItem] = []
+    @State private var enabled = false
+    @State private var ask: APITokenItem?
+    @State private var msg: String?
+    var body: some View {
+        if store.features.has("api1") && enabled {
+            Section {
+                let active = tokens.filter { !$0.revoked }
+                if active.isEmpty { Text("Keine API-Tokens.").foregroundStyle(.secondary) }
+                ForEach(active) { t in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(verbatim: t.name.isEmpty ? t.prefix : t.name)
+                            Text(verbatim: ([t.prefix + "…"] + t.scopes).joined(separator: " · ")).font(.caption.monospaced()).foregroundStyle(.secondary).lineLimit(1)
+                            Group {
+                                if t.expired { Text("Abgelaufen") }
+                                else if let e = t.expires { Text("Gültig bis \(Date(timeIntervalSince1970: e).formatted(date: .abbreviated, time: .omitted))") }
+                                if let u = t.lastUsed { Text("Zuletzt benutzt \(Date(timeIntervalSince1970: u).sagaRelative)") }
+                            }.font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button(role: .destructive) { ask = t } label: { Text("Widerrufen") }.buttonStyle(.borderless)
+                    }
+                }
+                if let msg { Text(msg).font(.footnote).foregroundStyle(.orange) }
+            } header: { Text("API-Tokens") } footer: { Text("Für Skripte und Automatisierungen. Anlegen im Web unter Einstellungen → API.") }
+            .id("apitokens")
+            .alert("Token widerrufen?", isPresented: Binding(get: { ask != nil }, set: { if !$0 { ask = nil } }), presenting: ask) { t in
+                Button("Widerrufen", role: .destructive) { Task { await revoke(t) } }
+                Button("Abbrechen", role: .cancel) {}
+            } message: { t in Text("„\(t.name)“ ist danach sofort ungültig; Webhooks dieses Tokens werden abgeschaltet.") }
+        } else {
+            Color.clear.frame(height: 0).task { await load() }
+        }
+    }
+    private func load() async {
+        guard store.features.has("api1"), let d = try? await store.api("api/account/api-tokens"), let j = ShareJSON.obj(d) else { return }
+        enabled = ShareJSON.bool(j["enabled"]) || !(j["tokens"] as? [Any] ?? []).isEmpty
+        tokens = (j["tokens"] as? [Any] ?? []).compactMap(APITokenItem.init)
+    }
+    private func revoke(_ t: APITokenItem) async {
+        msg = nil
+        guard let (_, code) = try? await store.apiResponse("api/account/api-tokens/\(t.id)", method: "DELETE") else { msg = String(localized: "Server nicht erreichbar"); return }
+        if !(200..<300).contains(code) && code != 404 { msg = String(localized: "Server-Fehler \(code)") }
+        await load()
+    }
+}

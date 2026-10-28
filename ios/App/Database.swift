@@ -131,6 +131,17 @@ final class DBModel: ObservableObject {
         }
         catch { self.error = error.localizedDescription; await load(store) }
     }
+    /// 2.5: mehrere Werte in EINEM Aufruf (Zeitleiste: Beginn und Ende zusammen)
+    func setMany(_ row: Int, _ values: [String: Any], store: Store) async {
+        guard !readOnly else { return }
+        let vs = values.filter { !FxLogic.computed(props).contains($0.key) }
+        guard !vs.isEmpty else { return }
+        if let i = rows.firstIndex(where: { $0.id == row }) { for (k, v) in vs { if let h = hashable(v) { rows[i].props[k] = h } } }
+        do {
+            let d = try await store.api("api/notes/\(row)", method: "PATCH", body: ["props": vs])
+            applyPatch(row, d); store.dataChanged()
+        } catch { self.error = error.localizedDescription; await load(store) }
+    }
     /// 2.5: Antwort eines Zeilen-PATCH - berechnete Werte (calc, fx_err), gespeicherte Personen/Dateien (values), Personen
     func applyPatch(_ row: Int, _ d: Data) {
         guard let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { return }

@@ -213,6 +213,8 @@ struct NotificationSettingsSection: View {
         case "comment.reply": return String(localized: "Antworten in Unterhaltungen, an denen ich beteiligt bin")
         case "publish.withdrawn": return String(localized: "Ein Admin zieht eine Veröffentlichung von mir zurück")
         case "comment.mention": return String(localized: "Jemand erwähnt mich")
+        case "page.mention": return String(localized: "Jemand erwähnt mich in einer Seite")
+        case "task.due": return String(localized: "Aufgaben heute fällig oder überfällig")
         case "chat.message": return String(localized: "Neue Chat-Nachrichten (ohne Inhalt; stummgeschaltete Chats nie)")
         case "call.missed": return String(localized: "Verpasste Anrufe")
         case "userbackup.failed": return String(localized: "Mein Backup ist fehlgeschlagen")

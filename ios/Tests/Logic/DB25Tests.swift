@@ -137,7 +137,7 @@ func db25Tests() {
     check(InlineLogic.hasProtectedForms(para) && !InlineLogic.hasProtectedForms("<b>x</b> <mark class=\"cdx-marker\">y</mark> <code>z</code>"), "geschuetzte Inline-Formen erkannt")
     check(InlineLogic.colorClass(" class=\"hk-c-red\"", prefix: "hk-c-") == "red" && InlineLogic.colorClass(" class=\"hk-c-lila\"", prefix: "hk-c-") == nil, "Farbklasse")
     check(InlineLogic.mentionRef(" class=\"hk-mention\" data-u=\"~abc\"") == "~abc", "Erwaehnung data-u")
-    check(InlineLogic.capsHeader == nil, "X-Saga-Caps noch nicht setzen (Formen werden noch nicht bearbeitet)")
+    check(!SagaCaps.all.contains("inline2") || InlineLogic.editable, "inline2 erst, wenn die Formen bearbeitet werden")
     let math = page.first { $0["type"] as? String == "math" }?["data"] as? [String: Any] ?? [:]
     let mmd = page.first { $0["id"] as? String == "g1" }?["data"] as? [String: Any] ?? [:]
     check(RenderPreview.parse(math)?.stale == true && RenderPreview.parse(mmd)?.stale == false && RenderPreview.isMermaid(mmd), "render: stale/Mermaid")

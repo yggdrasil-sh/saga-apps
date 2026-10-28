@@ -221,6 +221,7 @@ struct KontoSettings: View {
             AvatarSettingsSection(crop: $crop, cropped: $cropped)   // Profilbild (2.1)
             SecuritySettingsSection()                     // Anmeldung & Sicherheit (2.1, verwaltet im Browser)
             AppsDevicesSection().id("apps")
+            APITokensSection()                            // 2.5 api1: API-Tokens auflisten/widerrufen
             MyBackupSection(model: backup, open: $backupOpen)   // Mein Backup (2.3, nur wenn der Server es kennt)
             if let logout {                               // Mac: unten im Tab Konto
                 Section {
@@ -301,6 +302,7 @@ struct GeneralSettings: View {
                 SettingsGroupHeading("Benachrichtigungen")
                 NotificationSettingsSection()                 // Glocke (1.4)
                 PushSettingsSection(push: store.push)         // Mitteilungen aufs Geraet (1.7)
+                TaskDigestSection()                           // 2.5 taskdue1: taegliche Zusammenfassung der Aufgaben
                 ChatGroupHeading(chat: store.chat)
                 ChatDevicesSection(chat: store.chat)          // Chats & Geraete (2.0), Zeile "chats"
                 ChatPrivacySection(chat: store.chat).id("privacy")   // Gelesen-Bestaetigungen, Online-Status (2.4)

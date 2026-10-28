@@ -115,3 +115,67 @@ extension Store {
         if n != old { aiPersona = n }
     }
 }
+
+// MARK: - 2.5 (P3): Zusammenfuehren und Anwesenheit je Block
+
+/// Konfliktblock (tunes.hkconflict): gelber Rand + "Fassung von {name} – Uebernehmen / Verwerfen"
+struct ConflictFrame<C: View>: View {
+    let conflict: MergeLogic.Conflict
+    let locked: Bool
+    let resolve: (Bool) -> Void
+    @ViewBuilder var content: () -> C
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Label { Text("Fassung von \(conflict.name)") } icon: { Image(systemName: "arrow.triangle.merge") }
+                    .font(.caption.weight(.semibold)).foregroundStyle(Color.adaptive(0x7f6200, 0xe6c54f))
+                Spacer(minLength: 4)
+                if !locked {
+                    Button("Übernehmen") { resolve(true) }.buttonStyle(.bordered).controlSize(.small)
+                    Button("Verwerfen") { resolve(false) }.buttonStyle(.bordered).controlSize(.small)
+                }
+            }
+            content()
+        }
+        .padding(8)
+        .background(Color.yellow.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.yellow.opacity(0.85), lineWidth: 2))
+        .accessibilityElement(children: .contain)
+    }
+}
+
+/// Block, den gerade jemand anderes bearbeitet: farbiger Rand links + "{name} bearbeitet" (keine Sperre)
+struct PresenceFrame<C: View>: View {
+    let marks: [PresenceMark]
+    @ViewBuilder var content: () -> C
+    var body: some View {
+        let color = HKPalette.textColor(marks.first?.color)
+        HStack(alignment: .top, spacing: 8) {
+            RoundedRectangle(cornerRadius: 1.5).fill(color).frame(width: 3)
+            VStack(alignment: .leading, spacing: 2) {
+                content()
+                Text(verbatim: marks.map { String(localized: "\($0.name) bearbeitet") }.joined(separator: " · "))
+                    .font(.caption2).foregroundStyle(color).lineLimit(1)
+            }
+        }
+    }
+}
+
+/// Dezenter Hinweis nach dem Zusammenfuehren
+struct MergeHintRow: View {
+    let hint: MergeHint
+    var versions: (() -> Void)?
+    let close: () -> Void
+    var body: some View {
+        HStack(spacing: 8) {
+            Label(hint == .lost ? String(localized: "Zusammengeführt – eine andere Fassung liegt in den Versionen.")
+                                : String(localized: "Zusammengeführt – gelöschte Blöcke wurden inzwischen geändert und bleiben."),
+                  systemImage: "arrow.triangle.merge")
+                .font(.caption).foregroundStyle(.secondary)
+            if hint == .lost, let versions { Button("Versionen") { versions() }.font(.caption).buttonStyle(.borderless) }
+            Spacer(minLength: 0)
+            Button { close() } label: { Image(systemName: "xmark").font(.caption2) }.buttonStyle(.plain).foregroundStyle(.tertiary)
+                .accessibilityLabel(Text("Schließen"))
+        }
+    }
+}

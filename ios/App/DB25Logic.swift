@@ -333,8 +333,8 @@ enum InlineLogic {
         guard attrs.contains("hk-mention"), let r = attrs.range(of: #"data-u="([^"]*)""#, options: .regularExpression) else { return nil }
         return String(attrs[r].dropFirst(8).dropLast())
     }
-    /// X-Saga-Caps erst setzen, wenn die App die Formen wirklich erhaelt (Etappe 1: noch nicht)
-    static let capsHeader: String? = nil
+    /// Bearbeitet der App-Editor die Inline-Formen zeichengenau? (Etappe 2, P6-8: dann inline2 in SagaCaps)
+    static let editable = true
 }
 
 enum ColumnsLogic {
@@ -585,4 +585,46 @@ enum TimelineLogic {
         let a = DBDate.days(x.start.y, x.start.m, x.start.d)
         return (a, a)
     }
+}
+
+// MARK: - 2.5 (timeline1): Zeitleiste ziehen (Tablet/Mac) - neue Datumswerte fuer den Props-PATCH
+
+enum TimelineDrag {
+    /// Ein Datumswert um n Tage verschieben; Uhrzeit und Zeitzonen-Angabe bleiben ("2026-10-28T09:30+01:00")
+    static func shift(_ v: String, by n: Int) -> String? {
+        guard v.count >= 10, let p = DBDate.part(String(v.prefix(10))) else { return nil }
+        return DBDate.iso(DBDate.days(p.y, p.m, p.d) + n) + v.dropFirst(10)
+    }
+    /// Neue Werte (pid -> Wert) fuer Verschieben (`move`, beide Enden) bzw. Ende ziehen (nur Ende), beide in EINEM Aufruf.
+    /// Zeitraum im Beginn: "start/ende" gemeinsam. Ende vor Beginn wird nie geschrieben.
+    static func props(start sp: String, startValue: String, end ep: String?, endValue: String?, days n: Int, moveStart: Bool) -> [String: Any]? {
+        guard n != 0 else { return nil }
+        let parts = startValue.split(separator: "/", maxSplits: 1).map(String.init)
+        var out: [String: Any] = [:]
+        if let ep {                                                   // eigenes Ende (end_by)
+            let base = endValue.flatMap { $0.isEmpty ? nil : $0 } ?? parts.last ?? startValue
+            guard let ne = shift(base.split(separator: "/").last.map(String.init) ?? base, by: n) else { return nil }
+            if moveStart {
+                guard let ns = parts.count == 2 ? zip2(parts, n) : shift(startValue, by: n) else { return nil }
+                out[sp] = ns
+            } else if String(ne.prefix(10)) < String(parts[0].prefix(10)) { return nil }
+            out[ep] = ne
+            return out
+        }
+        if moveStart {
+            guard let ns = parts.count == 2 ? zip2(parts, n) : shift(startValue, by: n) else { return nil }
+            out[sp] = ns
+        } else {                                                      // Ende im Zeitraum des Beginns
+            let endBase = parts.count == 2 ? parts[1] : parts[0]
+            guard let ne = shift(endBase, by: n), String(ne.prefix(10)) >= String(parts[0].prefix(10)) else { return nil }
+            out[sp] = String(ne.prefix(10)) == String(parts[0].prefix(10)) && !ne.contains("T") ? parts[0] : parts[0] + "/" + ne
+        }
+        return out
+    }
+    private static func zip2(_ p: [String], _ n: Int) -> String? {
+        guard let a = shift(p[0], by: n), let b = shift(p[1], by: n) else { return nil }
+        return a + "/" + b
+    }
+    /// Gezogene Strecke -> ganze Tage
+    static func days(dx: Double, dayWidth: Double) -> Int { dayWidth > 0 ? Int((dx / dayWidth).rounded()) : 0 }
 }

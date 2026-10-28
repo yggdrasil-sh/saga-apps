@@ -68,6 +68,12 @@ final class Store: ObservableObject {
     @Published var linkError: String?
     @Published var tasks: [OpenTask] = []
     @Published var doneTasks: [OpenTask] = []
+    /// 2.5 Aufgabenquellen (tasksrc1): gemeinsame Liste (Server-Reihenfolge), Quellen, Personen; leer = wie bisher
+    @Published var taskItems: [TaskItem] = []
+    @Published var taskSources: [TaskSource] = []
+    @Published var taskPeople: [String: TaskPerson] = [:]
+    /// Abgehakt mit Rueckgaengig (Schluessel, Wert vorher) - kurzer Hinweis in der Liste
+    @Published var taskUndo: TaskUndo?
     @Published var events: [CalEvent] = []
     @Published var recent: [Int] = UserDefaults.standard.array(forKey: "recent") as? [Int] ?? []
     private var cookieHeader: [String: String]?
@@ -220,13 +226,14 @@ final class Store: ObservableObject {
     /// Wie `api`, aber Fehlerantworten (4xx/5xx) kommen mit Code zurueck statt als Fehler - fuer Antworten mit
     /// zusaetzlichen Feldern (z. B. 409 need_name beim Veroeffentlichen). Abgelaufene Sitzung wie bei `api`.
     func apiResponse(_ path: String, method: String = "GET", body: [String: Any]? = nil, timeout: TimeInterval = 20,
-                     stale: (@MainActor () -> Bool)? = nil) async throws -> (Data, Int) {
+                     headers: [String: String] = [:], stale: (@MainActor () -> Bool)? = nil) async throws -> (Data, Int) {
         // NICHT appendingPathComponent: das kodiert "?" als %3F und Abfrage-Parameter werden zum Pfad (404)
         guard AppConfig.hasServer else { needsLogin = true; throw APIError.http(401, String(localized: "Bitte Server eintragen")) }   // noch kein Server -> Anmeldebildschirm
         guard let url = URL(string: AppConfig.server.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/")) + "/" + path) else { throw APIError.other(String(localized: "Ungültige Adresse")) }
         var req = URLRequest(url: url, timeoutInterval: timeout)
         req.httpMethod = method
         req.setValue("1", forHTTPHeaderField: "X-Hlidskjalf"); req.httpShouldHandleCookies = false   // Cookie selbst setzen
+        for (k, v) in headers { req.setValue(v, forHTTPHeaderField: k) }                               // z. B. X-Saga-Caps (2.5)
         if let body { req.setValue("application/json", forHTTPHeaderField: "Content-Type"); req.httpBody = try JSONSerialization.data(withJSONObject: body) }
         return try await send(req, stale: stale) { try await URLSession.shared.data(for: $0) }
     }
@@ -452,8 +459,9 @@ final class Store: ObservableObject {
         for f in ds.files {
             guard let id = DraftResend.pageID(f.lastPathComponent), let dr = ds.load(id),
                   DraftResend.shouldSend(dr, id: id, open: SaveRegistry.openIDs) else { continue }
-            let b: [String: Any] = ["title": dr.title, "body": dr.body, "format": "blocks", "rev": dr.rev]
-            guard let (_, code) = try? await apiResponse("api/notes/\(id)", method: "PATCH", body: b) else { return }   // offline: spaeter
+            var b: [String: Any] = ["title": dr.title, "body": dr.body, "format": "blocks", "rev": dr.rev]
+            if !FedLogic.isRemote(id) { b["merge"] = 1 }       // 2.5 (P3): eigene Seiten zusammenfuehren statt 409 (fremde: Faehigkeit unbekannt)
+            guard let (_, code) = try? await apiResponse("api/notes/\(id)", method: "PATCH", body: b, headers: SagaCaps.headers) else { return }   // offline: spaeter
             // abgemeldet/anderes Konto oder Seite inzwischen geoeffnet bzw. Entwurf geaendert: nichts mehr anfassen
             guard gen == sessionGen, AppConfig.serverOrigin == o, ds.load(id) == dr else { return }
             switch DraftResend.outcome(code) {
@@ -500,9 +508,17 @@ final class Store: ObservableObject {
 
     func loadToday() async {
         struct T: Decodable { let open: [OpenTask]; let done: [OpenTask]? }
-        if let d = try? await api("api/tasks"), let t = try? JSONDecoder().decode(T.self, from: d) {
+        let src = features.has("tasksrc1")                       // 2.5: Zeilen aus Aufgabenquellen dazu
+        if src { await flushTaskQueue() }
+        let path = src ? TaskSourceLogic.listPath(today: DateFormatter.isoDay().string(from: .now), tz: TimeZone.current.identifier) : "api/tasks"
+        if let d = try? await api(path), let t = try? JSONDecoder().decode(T.self, from: d) {
             if tasks != t.open { tasks = t.open }
             if doneTasks != (t.done ?? []) { doneTasks = t.done ?? [] }
+            let s = src ? (try? JSONDecoder().decode(TaskSourcesList.self, from: d)) : nil
+            let items = applyQueue(s?.items ?? [])
+            if taskItems != items { taskItems = items }
+            if taskSources != (s?.sources ?? []) { taskSources = s?.sources ?? [] }
+            if taskPeople != (s?.people ?? [:]) { taskPeople = s?.people ?? [:] }
         }
         if events.isEmpty, let c = cachedEvents(days: 1), !c.isEmpty { events = c }   // sofort anzeigen
         if let e = await self.events(days: 1), e != events { events = e }            // Fehler: bisherigen Stand behalten

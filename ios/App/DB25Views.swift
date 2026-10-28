@@ -470,6 +470,24 @@ struct DBTimelineView: View {
     @ObservedObject var m: DBModel
     let view: [String: Any]?
     @EnvironmentObject var nav: NavModel
+    @EnvironmentObject var store: Store
+    /// 2.5: Balken ziehen (Tablet/Mac): verschieben bzw. Ende ziehen -> Props-PATCH der Datumswerte
+    @State private var drag: (id: Int, days: Int, move: Bool)?
+    private var canDrag: Bool { !phone && !m.readOnly && !m.pageLocked && m.prop(startPid)?.type == "date" }
+    private var startPid: String? { (view?["date_by"] as? String) ?? m.props.first { $0.type == "date" }?.id }
+    private func dragGesture(_ b: TimelineLogic.Bar, move: Bool) -> some Gesture {
+        DragGesture(minimumDistance: 6)
+            .onChanged { g in drag = (b.id, TimelineDrag.days(dx: g.translation.width, dayWidth: Double(dayW)), move) }
+            .onEnded { g in
+                let n = TimelineDrag.days(dx: g.translation.width, dayWidth: Double(dayW))
+                drag = nil
+                guard let sp = startPid, let r = m.rows.first(where: { $0.id == b.id }) else { return }
+                let ep = (view?["end_by"] as? String).flatMap { m.prop($0)?.type == "date" ? $0 : nil }
+                guard let sv = m.query.value(m.prop(sp)!, r) as? String,
+                      let p = TimelineDrag.props(start: sp, startValue: sv, end: ep, endValue: ep.flatMap { m.query.value(m.prop($0)!, r) as? String }, days: n, moveStart: move) else { return }
+                Task { await m.setMany(b.id, p, store: store) }
+            }
+    }
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var hsc
     private var phone: Bool { hsc == .compact }
@@ -513,13 +531,26 @@ struct DBTimelineView: View {
                                 .offset(x: CGFloat(today - lo) * dayW + dayW / 2)
                             VStack(alignment: .leading, spacing: 6) {
                                 ForEach(tl.bars, id: \.id) { b in
+                                    let dragging = drag?.id == b.id
+                                    let ds = dragging && drag?.move == true ? CGFloat(drag?.days ?? 0) * dayW : 0
+                                    let de = dragging ? CGFloat(drag?.days ?? 0) * dayW : 0
                                     Button { open(b.id, rows) } label: {
                                         Text(b.title.isEmpty ? String(localized: "Unbenannt") : b.title).font(.caption).lineLimit(1).fixedSize()
-                                            .padding(.horizontal, 6).frame(minWidth: CGFloat(b.end - b.start + 1) * dayW, minHeight: 24, alignment: .leading)
-                                            .background(barColor(b.id, rows).opacity(0.3), in: RoundedRectangle(cornerRadius: 5))
+                                            .padding(.horizontal, 6).frame(minWidth: max(dayW, CGFloat(b.end - b.start + 1) * dayW + (dragging && drag?.move == false ? de : 0)), minHeight: 24, alignment: .leading)
+                                            .background(barColor(b.id, rows).opacity(dragging ? 0.45 : 0.3), in: RoundedRectangle(cornerRadius: 5))
                                             .overlay(RoundedRectangle(cornerRadius: 5).stroke(barColor(b.id, rows).opacity(0.6)))
+                                            .overlay(alignment: .trailing) {          // Ende ziehen
+                                                if canDrag {
+                                                    Rectangle().fill(Color.clear).frame(width: 10).contentShape(Rectangle())
+                                                        .gesture(dragGesture(b, move: false))
+                                                        #if os(macOS)
+                                                        .onHover { $0 ? NSCursor.resizeLeftRight.push() : NSCursor.pop() }
+                                                        #endif
+                                                }
+                                            }
                                     }
-                                    .buttonStyle(.plain).offset(x: CGFloat(b.start - lo) * dayW)
+                                    .buttonStyle(.plain).offset(x: CGFloat(b.start - lo) * dayW + ds)
+                                    .simultaneousGesture(canDrag ? dragGesture(b, move: true) : nil)
                                 }
                             }
                         }
@@ -643,27 +674,45 @@ struct SyncedBlockView: View {
     let blockID: String
     @EnvironmentObject private var nav: NavModel
     @EnvironmentObject var store: Store
+    @EnvironmentObject var ed: PageEditor
     var body: some View {
         let src = data["src"] as? [String: Any]
-        let inner = (data["blocks"] as? [[String: Any]]) ?? []
+        let kind = SyncedLogic.kind(data)
+        let inner = data["blocks"] as? NSMutableArray
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                Image(systemName: "arrow.triangle.2.circlepath").foregroundStyle(.red.opacity(0.8))
-                Text(src == nil ? "Synchronisierter Block" : "Synchronisierte Kopie").font(.caption).foregroundStyle(.secondary)
+                Image(systemName: kind == .noAccess ? "lock" : "arrow.triangle.2.circlepath").foregroundStyle(.red.opacity(0.8))
+                Text(head(kind)).font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if let note = (src?["note"] as? Int) ?? (src?["note"] as? NSNumber)?.intValue {
                     Button { nav.open(note, mode: "page") } label: { Label("Zum Original", systemImage: "arrow.up.right") }.font(.caption).buttonStyle(.plain).foregroundStyle(Color.accentColor)
                 }
             }
-            if inner.isEmpty { Text("Inhalt nur auf dem Original").font(.subheadline).foregroundStyle(.tertiary) }
-            ForEach(Array(inner.enumerated()), id: \.offset) { _, b in
-                let bd = b["data"] as? [String: Any] ?? [:]
-                let t = (bd["text"] as? String) ?? (bd["title"] as? String) ?? ""
-                if !t.isEmpty { Text(inlineText(t)).font(b["type"] as? String == "header" ? .headline : .body) }
-                else if let items = bd["items"] as? [Any] { ForEach(Array(items.enumerated()), id: \.offset) { Text(verbatim: "• " + plain(($0.element as? [String: Any])?["content"] as? String ?? ($0.element as? String) ?? "")) } }
+            if let inner, SyncedLogic.editable(data), !ed.locked {
+                // 2.5 sync1: Inhalt hier bearbeiten - Original direkt, Kopie schreibt der Server ins Original durch
+                BlocksView(arr: inner)
+            } else if let inner, inner.count > 0 {
+                ForEach(Array((inner as? [[String: Any]] ?? []).enumerated()), id: \.offset) { _, b in
+                    let bd = b["data"] as? [String: Any] ?? [:]
+                    let t = (bd["text"] as? String) ?? (bd["title"] as? String) ?? ""
+                    if !t.isEmpty { Text(inlineText(t)).font(b["type"] as? String == "header" ? .headline : .body) }
+                    else if let items = bd["items"] as? [Any] { ForEach(Array(items.enumerated()), id: \.offset) { Text(verbatim: "• " + plain(($0.element as? [String: Any])?["content"] as? String ?? ($0.element as? String) ?? "")) } }
+                }
+            } else if kind != .noAccess {
+                Text("Inhalt nur auf dem Original").font(.subheadline).foregroundStyle(.tertiary)
             }
         }
         .padding(10).frame(maxWidth: .infinity, alignment: .leading)
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.red.opacity(0.45), lineWidth: 1.5))
+    }
+    private func head(_ k: SyncedLogic.Kind) -> String {
+        switch k {
+        case .original(let n): return n > 0 ? String(localized: "Original · auf \(n) weiteren Seiten") : String(localized: "Synchronisierter Block")
+        case .copy(let e): return e ? String(localized: "Synchronisiert") : String(localized: "Synchronisiert · nur lesen")
+        case .gone: return String(localized: "Original gelöscht")
+        case .noAccess: return String(localized: "Synchronisierter Block – kein Zugriff")
+        case .missing: return String(localized: "Synchronisierter Block nicht gefunden")
+        case .unknown: return String(localized: "Synchronisierter Block")
+        }
     }
 }
