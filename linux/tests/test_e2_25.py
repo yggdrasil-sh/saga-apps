@@ -321,3 +321,183 @@ def test_presence_marks_block_of_other_person(win, srv):
     pump(None, 0.1)
     v.on_typed()
     assert pump(lambda: any(x.get("block") == "p1" for x in srv.presence_log), 4)
+
+
+# --- 3. Aufgabenquellen + Offline-Warteschlange ------------------------------------------------------------------------------
+def test_queue_last_action_wins_prev_and_codes(tmp_path):
+    from hlidskjalf.tasksrc import Queue
+    q = Queue(str(tmp_path / "q.json"))
+    row = {"kind": "row", "id": 7, "src": 77}
+    q.put(row, True, prev="opt-doing")
+    assert list(q.d) == ["r:7"] and q.d["r:7"]["prev"] == "opt-doing"
+    q.put(row, False)                                                # abhaken + wieder oeffnen = nichts
+    assert len(q) == 0
+    q.put(row, True, prev="opt-doing")
+    q.put({"kind": "task", "id": 7}, True)                           # t:7 und r:7 getrennt
+    assert set(q.d) == {"r:7", "t:7"}
+    assert Queue(str(tmp_path / "q.json")).d == q.d                  # auf der Platte
+    # Wieder-Oeffnen nach gesendetem Abhaken: mit prev (nie pauschal open_value)
+    e = {"kind": "row", "id": 7, "done": False, "prev": "opt-doing"}
+    assert Queue.request(e) == ("PATCH", "api/tasks/src/7", {"done": False, "value": "opt-doing"})
+    assert Queue.request({"kind": "row", "id": 7, "done": True, "prev": "x"}) == ("PATCH", "api/tasks/src/7", {"done": True})
+    assert Queue.request({"kind": "task", "id": 3, "done": True}) == ("PATCH", "api/tasks/3", {"done": True})
+    assert [Queue.outcome(c) for c in (200, 403, 404, 400, 500, 503, None)] == ["ok", "drop", "drop", "reload", "keep", "keep", "ok"]
+
+
+def test_tasks_path_and_targets():
+    from hlidskjalf import tasksrc
+    p = tasksrc.tasks_path("2026-10-28", "Europe/Berlin")
+    assert p == "api/tasks?with_sources=1&today=2026-10-28&tz=Europe%2FBerlin"
+    srcs = [{"db": 1, "map": {"done": "s"}, "role": "owner"}, {"db": 2, "map": None, "role": "owner"},
+            {"db": 3, "map": {"done": "s"}, "role": "view"}, {"db": 4, "map": {"done": "s"}, "role": "edit", "inactive": True},
+            {"db": 5, "map": {"done": "s"}, "role": "edit"}]
+    assert [s["db"] for s in tasksrc.targets(srcs)] == [1, 5]
+    assert tasksrc.when_text({"due": "2026-10-28", "time": "09:30"}).endswith("09:30")
+    assert " – " in tasksrc.when_text({"due": "2026-10-28", "due_end": "2026-10-30"})
+
+
+def _src_setup(srv):
+    from hlidskjalf.store import store
+    srv.v25 = True
+    srv.tasksrc = True
+    srv.src_sources = [{"db": 77, "title": "Projekt", "icon": "☑️", "role": "owner", "scope": "all", "own": True, "count": 2,
+                        "map": {"done": "status", "done_type": "status", "assignee": "wer"}},
+                       {"db": 78, "title": "Fremd", "icon": "", "role": "view", "scope": "assigned", "own": False, "count": 1,
+                        "map": {"done": "erl"}}]
+    srv.src_people = {"~annaannaannaanna": {"name": "Anna Berg", "avatar": None, "me": False}}
+    srv.src_items = [{"key": "r:500", "kind": "row", "id": 500, "src": 77, "text": "Zeile mit Termin", "due": "2026-10-29",
+                      "time": "09:30", "prio": 1, "done": False, "overdue": False, "edit": True, "assignees": ["~annaannaannaanna"]},
+                     {"key": "r:501", "kind": "row", "id": 501, "src": 78, "text": "Nur lesen", "done": False, "overdue": False,
+                      "edit": False}]
+    store.check_version()
+    assert pump(lambda: store.has("tasksrc1"), 4)
+    store.load_today()
+    assert pump(lambda: store.task_items is not None, 4)
+
+
+def test_task_list_with_sources(win, srv):
+    """Liste in Server-Reihenfolge, Zeilen mit Quelle, Uhrzeit, Zugewiesene (Name aus people), edit: false ausgegraut"""
+    from hlidskjalf.agenda import SourceRow
+    _src_setup(srv)
+    win.show_root(("tasks",))
+    tl = win.current.task_list
+    pump(lambda: any(isinstance(w, SourceRow) for w in walk(tl)), 4)
+    rows = [w for w in walk(tl) if isinstance(w, SourceRow)]
+    assert [r.it["key"] for r in rows] == [x["key"] for x in srv.src_items[:1]] + [f"t:{t['id']}" for t in srv.tasks] + ["r:501"]
+    ls = labels(rows[0])
+    assert any("☑️ Projekt" == x for x in ls) and any("09:30" in (x or "") for x in ls) and "Anna Berg" in ls
+    assert not any("anna" == x for x in ls)                           # nie Anmeldenamen
+    assert not rows[-1].check.get_sensitive()
+    assert any(l.startswith("Inbox") for l in labels(tl.target)) or tl.target.get_label() == "Inbox"
+    assert ["Projekt"] == [s.get("title") for s in __import__("hlidskjalf.tasksrc", fromlist=["x"]).targets(__import__("hlidskjalf.store", fromlist=["x"]).store.task_sources)]
+
+
+def test_row_done_undo_with_prev(win, srv):
+    """Abhaken -> PATCH /api/tasks/src/{zeile}; Rueckgaengig schickt prev als value"""
+    from hlidskjalf.agenda import SourceRow
+    from hlidskjalf.store import store
+    _src_setup(srv)
+    srv.src_prev[500] = "opt-doing"
+    win.show_root(("tasks",))
+    tl = win.current.task_list
+    pump(lambda: any(isinstance(w, SourceRow) for w in walk(tl)), 4)
+    row = next(w for w in walk(tl) if isinstance(w, SourceRow) and w.it["id"] == 500)
+    got = []
+    store.set_item_done(row.it, True, undo=got.append)
+    assert pump(lambda: got, 4) and got == ["opt-doing"]
+    idle()
+    it = next(x for x in srv.src_items if x["id"] == 500)
+    assert it["done"]
+    store.set_item_done(dict(row.it, done=True), False, got[0])
+    assert pump(lambda: not it["done"], 4)
+    idle()
+    assert any(b == {"done": False, "value": "opt-doing"} for m, p, b in srv.src_log)
+    assert len(store.tqueue) == 0, store.tqueue.d
+
+
+def test_offline_queue_and_error_codes(win, srv):
+    """offline abhaken: bleibt in der Warteschlange (Liste zeigt es), nach Wiederverbindung nachgeholt; 403 -> verworfen"""
+    from hlidskjalf.store import store
+    _src_setup(srv)
+    srv.fail["PATCH api/tasks/src/500"] = 0
+    it = next(x for x in store.task_items if x["id"] == 500)
+    store.set_item_done(it, True, prev="opt-doing")
+    idle()
+    assert "r:500" in store.tqueue.d and store.tqueue.d["r:500"]["prev"] == "opt-doing"
+    store.load_today()                                               # neu geladen: noch nicht gesendet -> abgehakt gezeigt
+    idle()
+    assert next(x for x in store.task_items if x["id"] == 500)["done"]
+    srv.fail.pop("PATCH api/tasks/src/500")
+    store.flush_task_queue()
+    idle()
+    assert len(store.tqueue) == 0 and next(x for x in srv.src_items if x["id"] == 500)["done"]
+    # 403 beim Nachholen: verwerfen und neu laden (kein endloses Wiederholen)
+    srv.src_fail[501] = 403
+    it2 = {"kind": "row", "id": 501, "src": 78, "edit": True}
+    store.set_item_done(it2, True)
+    idle()
+    assert len(store.tqueue) == 0
+    srv.src_fail[501] = 503                                          # 5xx: behalten
+    store.set_item_done(it2, True)
+    idle()
+    assert "r:501" in store.tqueue.d
+    srv.src_fail[501] = 400                                          # 400: neu laden, nicht wiederholen
+    store.flush_task_queue()
+    idle()
+    assert len(store.tqueue) == 0
+
+
+def test_new_task_with_target_and_sources_dialog(win, srv):
+    from hlidskjalf.agenda import SourcesDialog
+    from hlidskjalf.store import store
+    _src_setup(srv)
+    win.show_root(("tasks",))
+    tl = win.current.task_list
+    pump(lambda: tl.target.get_visible(), 3)
+    tl.target.choose(77)
+    tl.entry.set_text("In die Quelle")
+    tl.entry.emit("activate")
+    idle()
+    assert any(m == "POST" and b == {"text": "In die Quelle", "src": 77} for m, p, b in srv.src_log)
+    assert pump(lambda: any(x.get("text") == "In die Quelle" for x in store.task_items), 3)
+    dlg = SourcesDialog(win)
+    dlg.present(win)
+    pump(lambda: dlg.group is not None and any(getattr(r, "hk_db", None) == 77 for r in walk(dlg.group)), 3)
+    r77 = next(r for r in walk(dlg.group) if getattr(r, "hk_db", None) == 77)
+    r77.hk_scope.set_selected(1)
+    assert pump(lambda: next(x for x in srv.src_sources if x["db"] == 77)["scope"] == "assigned", 3)
+    r77.hk_remove.emit("clicked")
+    assert pump(lambda: [x["db"] for x in srv.src_sources] == [78], 3)
+    dlg.force_close()
+
+
+def test_use_as_source_needs_map(win, srv):
+    from hlidskjalf.agenda import use_as_source
+    _src_setup(srv)
+    srv.notes[10]["schema"] = dict(srv.notes[10].get("schema") or {}, tasks=None)
+    use_as_source(win, 10)
+    assert pump(lambda: _dialog(win) is not None, 3)
+    assert _dialog(win).get_heading() == "Set up on the web"
+    _dialog(win).force_close()
+    srv.notes[10]["schema"]["tasks"] = {"done": "x"}
+    use_as_source(win, 10)
+    assert pump(lambda: any(x["db"] == 10 for x in srv.src_sources), 3)
+
+
+def test_digest_settings(srv):
+    from hlidskjalf.agenda import DigestGroup
+    _src_setup(srv)
+
+    class D:
+        toasts = []
+
+        def add_toast(self, t):
+            self.toasts.append(t)
+    g = DigestGroup(D())
+    assert pump(lambda: g.get_visible(), 3)
+    assert not g.sw.get_active() and g.tm.get_text() == "07:30"
+    g.sw.set_active(True)
+    assert pump(lambda: srv.digest["on"] is True, 3)
+    g.tm.set_text("6:45")
+    g.tm.emit("apply")
+    assert pump(lambda: srv.digest["time"] == "06:45", 3)

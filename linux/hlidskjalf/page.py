@@ -1538,6 +1538,9 @@ class PageView(Gtk.Box):
                          lambda: (p.__setitem__("template", not p.get("template")), store.patch(self.id, {"template": p["template"]}, refresh=True))))
         if ok("duplicate"):
             ents.append((_("Duplicate"), lambda: store.duplicate(self.id, done=lambda n: win.show_page(n))))
+        if self.doc.is_database and store.has("tasksrc1") and not self.remote and isinstance(self.id, int) and self.id > 0:
+            from .agenda import use_as_source
+            ents.append((_("Use as task source"), lambda: use_as_source(win, self.id)))      # 2.5 (tasksrc1)
         ents += [(_("Copy link"), lambda: win.copy_text(store.page_url(self.id))),
                  (_("Open in browser"), lambda: win.open_uri(store.page_url(self.id)))]
         if ok("publish") and self.doc.fetched and publish_available(p):

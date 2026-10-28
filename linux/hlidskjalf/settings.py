@@ -96,6 +96,8 @@ class SettingsDialog(Adw.PreferencesDialog):
         # Benachrichtigungen (Glocke) + Mitteilungen (Push, Unterseite)
         from .notifications import NotificationSettingsGroup, bell_icon
         page.add(NotificationSettingsGroup(self))  # Benachrichtigungen je Art (Server ab 1.4); sonst unsichtbar
+        from .agenda import DigestGroup
+        page.add(DigestGroup(self))                # 2.5 (taskdue1): taegliche Zusammenfassung; sonst unsichtbar
         from .push import PushPage                 # Mitteilungen (Server ab 1.7)
         self.pages["push"] = PushPage(self)
         gn = Adw.PreferencesGroup()

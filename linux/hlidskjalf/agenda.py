@@ -69,6 +69,163 @@ class TaskRow(Gtk.Box):
         context_menu(b, lambda w: menu_popover(w, entries()).popup())
 
 
+class SourceRow(Gtk.Box):
+    """2.5 (tasksrc1): Eintrag der gemeinsamen Liste - Inbox-Aufgabe oder Datenbank-Zeile mit Quelle (Symbol/Titel),
+    Datum/Uhrzeit/Zeitraum, Prioritaet, Zugewiesene (Namen aus people, nie Anmeldenamen). edit: false -> Haekchen grau."""
+    __gtype_name__ = "HKSourceRow"
+
+    def __init__(self, win, it, compact=False):
+        super().__init__(spacing=10, margin_top=2, margin_bottom=2)
+        self.win, self.it = win, it
+        if it.get("kind") != "row":
+            t = next((x for x in store.tasks + store.done_tasks if x.get("id") == it.get("id")), None) or dict(it)
+            self.task = t
+        done = bool(it.get("done"))
+        ro = it.get("kind") == "row" and it.get("edit") is False
+        ck = Gtk.Button(icon_name="object-select-symbolic" if done else "radio-symbolic", valign=Gtk.Align.CENTER)
+        ck.add_css_class("flat")
+        ck.add_css_class("circular")
+        ck.add_css_class("hk-taskcheck")
+        if it.get("prio") == 1 and not done:
+            ck.add_css_class("error")
+        ck.set_tooltip_text(_("View only") if ro else (_("Reopen") if done else _("Mark done")))
+        ck.set_sensitive(not ro)
+        ck.connect("clicked", lambda *_: self.toggle())
+        self.check = ck
+        self.append(ck)
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0, hexpand=True)
+        inner = Gtk.Box(spacing=6)
+        text = it.get("text") or ""
+        tx = Gtk.Label(label=text, xalign=0, hexpand=True, wrap=True, lines=2, ellipsize=Pango.EllipsizeMode.END)
+        if done:
+            tx.add_css_class("dim-label")
+            tx.set_markup(f"<s>{GLib.markup_escape_text(text)}</s>")
+        inner.append(tx)
+        if it.get("repeat"):
+            inner.append(Gtk.Image.new_from_icon_name("media-playlist-repeat-symbolic"))
+        from .tasksrc import when_text
+        wt = when_text(it)
+        if wt and not done:
+            dl = Gtk.Label(label=wt)
+            dl.add_css_class("caption")
+            dl.add_css_class("error" if it.get("overdue") else "dim-label")
+            inner.append(dl)
+        if it.get("prio") == 1:
+            fl = Gtk.Image.new_from_icon_name("emblem-important-symbolic")
+            fl.add_css_class("error")
+            inner.append(fl)
+        col.append(inner)
+        meta = Gtk.Box(spacing=6)
+        if it.get("kind") == "row":
+            src = next((x for x in store.task_sources if x.get("db") == it.get("src")), {})
+            ic = src.get("icon") if isinstance(src.get("icon"), str) and len(src.get("icon") or "") <= 4 else ""
+            sl = Gtk.Label(label=((ic or "🗃️") + " " + (src.get("title") or _("Database"))).strip(), xalign=0,
+                           ellipsize=Pango.EllipsizeMode.END)
+            sl.add_css_class("caption")
+            sl.add_css_class("dim-label")
+            sl.add_css_class("hk-task-src")
+            meta.append(sl)
+        from . import dbvalues as dv
+        from .avatars import person as person_avatar
+        refs = [r for r in it.get("assignees") or [] if isinstance(r, str)]
+        for ref in refs[:3]:
+            info = dv.person_info(ref, store.task_people)
+            av = person_avatar({"name": info["name"], "avatar": info["avatar"]}, size=18)
+            av.set_tooltip_text(dv.person_label(ref, store.task_people))
+            meta.append(av)
+        if len(refs) == 1:
+            nl = Gtk.Label(label=dv.person_label(refs[0], store.task_people), xalign=0)
+            nl.add_css_class("caption")
+            nl.add_css_class("dim-label")
+            meta.append(nl)
+        elif len(refs) > 3:
+            meta.append(Gtk.Label(label=f"+{len(refs) - 3}", css_classes=["caption", "dim-label"]))
+        if meta.get_first_child():
+            col.append(meta)
+        b = Gtk.Button(child=col, hexpand=True)
+        b.add_css_class("flat")
+        b.add_css_class("hk-plain")
+        b.connect("clicked", lambda *_: self.open())
+        self.append(b)
+        if it.get("kind") != "row":
+            def entries():
+                t = self.task
+                ents = [(_("Edit …"), lambda: TaskEditor(win, t).present(win))]
+                ents.append((_("Reopen"), lambda: self.toggle()) if done else (_("Mark done"), lambda: self.toggle()))
+                return ents + [None, (_("Delete"), lambda: store.delete_task(t["id"]), True)]
+        else:
+            def entries():
+                ents = [(_("Open"), lambda: self.open())]
+                if not ro:
+                    ents.append((_("Reopen"), lambda: self.toggle()) if done else (_("Mark done"), lambda: self.toggle()))
+                return ents
+        mb = more_button(entries, _("Task actions"))
+        mb.add_css_class("dim-label")
+        if compact:
+            mb.add_css_class("hk-reveal")
+            self.add_css_class("hk-reveal-zone")
+        self.append(mb)
+        context_menu(b, lambda w: menu_popover(w, entries()).popup())
+
+    def open(self):
+        if self.it.get("kind") == "row":
+            self.win.show_page(self.it["id"])
+        else:
+            TaskEditor(self.win, self.task).present(self.win)
+
+    def toggle(self):
+        it = self.it
+        done = not bool(it.get("done"))
+        win = self.win
+        text = it.get("text") or ""
+
+        def undo_offer(prev):
+            t = Adw.Toast(title=GLib.markup_escape_text(_("“{title}” done").format(title=text)), button_label=_("Undo"), timeout=6)
+            t.connect("button-clicked", lambda *_: store.set_item_done(it, False, prev))
+            win.toasts.add_toast(t)
+        if it.get("kind") == "row":
+            store.set_item_done(it, done, undo=undo_offer if done else None)
+        else:
+            store.set_item_done(it, done)
+            if done and self.task.get("repeat"):
+                pass
+
+
+class TaskTarget(Gtk.MenuButton):
+    """Ziel fuer neue Aufgaben: Inbox oder eine Aufgabenquelle (2.5, tasksrc1)"""
+    __gtype_name__ = "HKTaskTarget"
+
+    def __init__(self):
+        super().__init__(valign=Gtk.Align.CENTER, tooltip_text=_("Add to"))
+        self.add_css_class("flat")
+        self.add_css_class("hk-small")
+        self.src = None
+        self.set_create_popup_func(lambda mb: mb.set_popover(menu_popover(None, self._entries())))
+        self.update()
+
+    def _entries(self):
+        from .tasksrc import targets
+        ents = [(("✓ " if self.src is None else "") + _("Inbox"), lambda: self.choose(None))]
+        for s in targets(store.task_sources):
+            ic = s.get("icon") if isinstance(s.get("icon"), str) and len(s.get("icon") or "") <= 4 else "🗃️"
+            ents.append((("✓ " if self.src == s["db"] else "") + f"{ic} {s.get('title') or _('Database')}",
+                         (lambda db=s["db"]: self.choose(db))))
+        return ents
+
+    def choose(self, db):
+        self.src = db
+        self.update()
+
+    def update(self):
+        from .tasksrc import targets
+        ts = targets(store.task_sources)
+        if self.src is not None and not any(s["db"] == self.src for s in ts):
+            self.src = None
+        s = next((x for x in ts if x["db"] == self.src), None)
+        self.set_label(_("Inbox") if s is None else (s.get("title") or _("Database")))
+        self.set_visible(store.task_items is not None and bool(ts))
+
+
 class TaskList(Gtk.Box):
     """Aufgabenliste wie im Dashboard"""
     __gtype_name__ = "HKTaskList"
@@ -83,6 +240,13 @@ class TaskList(Gtk.Box):
         self.entry.add_css_class("flat")
         self.entry.connect("activate", self._add)
         add.append(self.entry)
+        self.target = TaskTarget()                       # 2.5: Ziel (Inbox oder Quelle)
+        add.append(self.target)
+        if not compact:
+            sb = flat_button(icon="emblem-system-symbolic", tooltip=_("Task sources"), cb=lambda: SourcesDialog(win).present(win))
+            sb.add_css_class("dim-label")
+            self.src_btn = sb
+            add.append(sb)
         self.append(add)
         self.list = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         self.append(self.list)
@@ -93,13 +257,24 @@ class TaskList(Gtk.Box):
         t = e.get_text().strip()
         e.set_text("")
         if t:
-            store.add_task(t)
+            if store.task_items is not None and self.target.src is not None:
+                store.add_task_to(t, self.target.src)
+            else:
+                store.add_task(t)
 
-    def focus_entry(self):
+    def focus_entry(self, src=None):
+        if src is not None:
+            self.target.choose(src)
         self.entry.grab_focus()
 
     def fill(self):
         _clear(self.list)
+        if hasattr(self, "target"):
+            self.target.update()
+        if hasattr(self, "src_btn"):
+            self.src_btn.set_visible(store.task_items is not None)
+        if store.task_items is not None:                # 2.5: Server-Reihenfolge (Inbox + Quellen), keine eigene Mischlogik
+            return self._fill_items()
         today = iso_day()
         tomorrow = (_dt.date.today() + _dt.timedelta(days=1)).isoformat()
         all_ = store.tasks
@@ -122,6 +297,40 @@ class TaskList(Gtk.Box):
                 self.list.append(TaskRow(self.win, t))
         if store.done_tasks:
             b = flat_button(icon="pan-down-symbolic" if self.show_done else "pan-end-symbolic", label=ngettext("{n} done", "{n} done", len(store.done_tasks)).format(n=len(store.done_tasks)),
+                            css="dim-label hk-small", cb=self._toggle_done)
+            b.set_halign(Gtk.Align.START)
+            self.list.append(b)
+            if self.show_done:
+                for t in store.done_tasks[: 5 if self.compact else 50]:
+                    self.list.append(TaskRow(self.win, t))
+
+    def _fill_items(self):
+        its = [x for x in store.task_items if not x.get("done") or store.tqueue.d.get(("r:" if x.get("kind") == "row" else "t:") + str(x["id"]))]
+        its = [x for x in its if not (x.get("kind") == "task" and x.get("id") in store._task_deletes)]
+        if not its:
+            lb = Gtk.Label(label=_("All done 🎉"), xalign=0, margin_top=4)
+            lb.add_css_class("dim-label")
+            self.list.append(lb)
+        overdue = [x for x in its if x.get("overdue")]
+        rest = [x for x in its if not x.get("overdue")]
+        for name, group in ((_("Overdue"), overdue), ("", rest)):
+            if not group:
+                continue
+            if name and (not self.compact or rest):
+                h = Gtk.Label(label=name, xalign=0, margin_top=6)
+                h.add_css_class("caption-heading")
+                h.add_css_class("error")
+                self.list.append(h)
+            elif not name and overdue:
+                h = Gtk.Label(label=_("Open"), xalign=0, margin_top=6)
+                h.add_css_class("caption-heading")
+                h.add_css_class("dim-label")
+                self.list.append(h)
+            for it in group[: 5 if self.compact else None]:
+                self.list.append(SourceRow(self.win, it, compact=self.compact))
+        if store.done_tasks:
+            b = flat_button(icon="pan-down-symbolic" if self.show_done else "pan-end-symbolic",
+                            label=ngettext("{n} done", "{n} done", len(store.done_tasks)).format(n=len(store.done_tasks)),
                             css="dim-label hk-small", cb=self._toggle_done)
             b.set_halign(Gtk.Align.START)
             self.list.append(b)
@@ -527,9 +736,15 @@ class TodayBox(Gtk.Box):
     def fill(self):
         _clear(self)
         today = iso_day()
-        tasks = [t for t in store.tasks if not t.get("due") or t["due"] <= today][: self.lt]
+        if store.task_items is not None:                # 2.5: mit Quellen (Server-Reihenfolge), heute faellig/ueberfaellig/ohne Datum
+            items = [x for x in store.task_items if not x.get("done") and (not x.get("due") or x["due"] <= today or x.get("overdue"))
+                     and not (x.get("kind") == "task" and x.get("id") in store._task_deletes)][: self.lt]
+            tasks = []
+        else:
+            items = []
+            tasks = [t for t in store.tasks if not t.get("due") or t["due"] <= today][: self.lt]
         evs = store.events[: self.le]
-        if not tasks and not evs:
+        if not tasks and not evs and not items:
             lb = Gtk.Label(label=_("Nothing planned 🎉"), xalign=0, margin_start=6)
             lb.add_css_class("dim-label")
             self.append(lb)
@@ -541,9 +756,157 @@ class TodayBox(Gtk.Box):
             self.append(b)
         for t in tasks:
             self.append(TaskRow(self.win, t, compact=self.compact))
+        for it in items:
+            self.append(SourceRow(self.win, it, compact=self.compact))
 
 
 def today_screen(win):
     bx = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
     bx.append(TodayBox(win, limit_events=50, limit_tasks=50))
     return _screen(_("Today"), bx)
+
+
+class SourcesDialog(Adw.Dialog):
+    """Aufgabenquellen verwalten (2.5, tasksrc1): abonnierte Datenbanken, je Quelle "alle offenen" / "nur mir zugewiesen",
+    Abo entfernen. Zuordnen (welche Eigenschaft "erledigt" ist) nur im Web."""
+    __gtype_name__ = "HKSourcesDialog"
+
+    def __init__(self, win):
+        super().__init__(title=_("Task sources"), content_width=460, content_height=480)
+        self.win = win
+        tv = Adw.ToolbarView()
+        tv.add_top_bar(Adw.HeaderBar())
+        self.page = Adw.PreferencesPage()
+        tv.set_content(self.page)
+        self.set_child(tv)
+        self.group = None
+        self.reload()
+
+    def reload(self):
+        from .api import client
+        from .util import bg
+        bg(client.get, "api/tasks/sources", done=self.fill, error=lambda e: self.fill(None, str(e)))
+
+    def fill(self, r, error=None):
+        if self.group is not None:
+            self.page.remove(self.group)
+        g = Adw.PreferencesGroup(description=_("Open entries of these databases appear in your task list. To add a database, "
+                                               "open it and choose “Use as task source”."))
+        self.group = g
+        self.page.add(g)
+        if error:
+            g.add(Adw.ActionRow(title=GLib.markup_escape_text(error)))
+            return
+        srcs = [s for s in (r or {}).get("sources") or [] if isinstance(s, dict) and isinstance(s.get("db"), int)]
+        if not srcs:
+            g.add(Adw.ActionRow(title=_("No task sources yet")))
+        for s in srcs:
+            ic = s.get("icon") if isinstance(s.get("icon"), str) and len(s.get("icon") or "") <= 4 else "🗃️"
+            sub = []
+            if s.get("inactive"):
+                sub.append(_("Database deleted or archived"))
+            elif s.get("unmapped") or not s.get("map"):
+                sub.append(_("Not set up as a task source – set it up on the web"))
+            elif isinstance(s.get("count"), int):
+                sub.append(ngettext("{n} open", "{n} open", s["count"]).format(n=s["count"]))
+            row = Adw.ActionRow(title=GLib.markup_escape_text(f"{ic} {s.get('title') or _('Database')}"),
+                                subtitle=GLib.markup_escape_text(" · ".join(sub)))
+            row.hk_db = s["db"]
+            if s.get("map") and not s.get("inactive") and (s.get("map") or {}).get("assignee"):   # ohne Personen: nur "alle"
+                dd = Gtk.DropDown.new_from_strings([_("All open"), _("Assigned to me")])
+                dd.set_valign(Gtk.Align.CENTER)
+                dd.set_selected(1 if s.get("scope") == "assigned" else 0)
+                dd.connect("notify::selected", lambda d, _p, db=s["db"]: self.set_scope(db, "assigned" if d.get_selected() == 1 else "all"))
+                row.hk_scope = dd
+                row.add_suffix(dd)
+            rm = Gtk.Button(icon_name="user-trash-symbolic", valign=Gtk.Align.CENTER, tooltip_text=_("Remove task source"))
+            rm.add_css_class("flat")
+            rm.connect("clicked", lambda *_, db=s["db"]: self.remove(db))
+            row.hk_remove = rm
+            row.add_suffix(rm)
+            g.add(row)
+        if isinstance((r or {}).get("max"), int):
+            g.set_header_suffix(Gtk.Label(label=f"{len(srcs)}/{r['max']}", css_classes=["dim-label", "caption"]))
+
+    def set_scope(self, db, scope):
+        store.run("PUT", f"api/notes/{db}/tasksource", {"scope": scope}, done=lambda r: store.load_today())
+
+    def remove(self, db):
+        store.run("DELETE", f"api/notes/{db}/tasksource", None, done=lambda r: (self.reload(), store.load_today()),
+                  error=lambda e: (self.reload(), store.load_today()))
+
+
+def use_as_source(win, db):
+    """DB-Ansicht "Als Aufgabenquelle verwenden": abonnieren nur, wenn die Zuordnung (map) gesetzt ist - sonst Hinweis
+    "im Web einrichten" (das Zuordnen der Eigenschaften gibt es nur im Web)"""
+    from .api import client
+    from .util import bg
+
+    def fin(r):
+        if not isinstance(r, dict) or not r.get("map"):
+            dlg = Adw.AlertDialog(heading=_("Set up on the web"),
+                                  body=_("This database is not set up as a task source yet. Choose which property means "
+                                         "“done” on the web (database menu → “Use as task source”)."))
+            dlg.add_response("ok", _("OK"))
+            dlg.add_response("web", _("Open in browser"))
+            dlg.connect("response", lambda d, rr: rr == "web" and win.open_uri(store.page_url(db)))
+            dlg.present(win)
+            return
+        if r.get("scope"):
+            win.toast(_("Already a task source"))
+            return
+        store.run("PUT", f"api/notes/{db}/tasksource", {"subscribe": True},
+                  done=lambda x: (win.toast(_("Added to your tasks")), store.load_today()))
+    bg(client.get, f"api/notes/{db}/tasksource", done=fin, error=lambda e: win.toast(str(e)))
+
+
+class DigestGroup(Adw.PreferencesGroup):
+    """Einstellungen: taegliche Zusammenfassung "heute faellig / ueberfaellig" (2.5, taskdue1) - Schalter + Uhrzeit
+    (GET/PUT /api/tasks/digest). Unsichtbar ohne taskdue1."""
+    __gtype_name__ = "HKDigestGroup"
+
+    def __init__(self, dlg):
+        super().__init__(title=_("Tasks"))
+        self.dlg = dlg
+        self.set_visible(False)
+        self.sw = Adw.SwitchRow(title=_("Daily summary"), subtitle=_("Once a day if something is due today or overdue"))
+        self.tm = Adw.EntryRow(title=_("Time"), show_apply_button=True)
+        self.add(self.sw)
+        self.add(self.tm)
+        self._busy = False
+        if store.has("taskdue1"):
+            from .api import client
+            from .util import bg
+            bg(client.get, "api/tasks/digest", done=self.fill, error=lambda e: None)
+
+    def fill(self, d):
+        if not isinstance(d, dict):
+            return
+        self._busy = True
+        self.sw.set_active(bool(d.get("on")))
+        self.tm.set_text(d.get("time") or "07:30")
+        self.tm.set_sensitive(bool(d.get("on")))
+        self._busy = False
+        if not getattr(self, "_wired", False):
+            self._wired = True
+            self.sw.connect("notify::active", lambda r, _p: self._put({"on": r.get_active()}))
+            self.tm.connect("apply", lambda r: self._time(r))
+        self.set_visible(True)
+
+    def _time(self, r):
+        import re
+        t = r.get_text().strip()
+        m = re.fullmatch(r"(\d{1,2})[:.](\d{2})", t)
+        if not m or int(m.group(1)) > 23 or int(m.group(2)) > 59:
+            self.dlg.add_toast(Adw.Toast(title=GLib.markup_escape_text(_("Please enter a time like 07:30."))))
+            return
+        self._put({"time": f"{int(m.group(1)):02d}:{m.group(2)}"})
+
+    def _put(self, b):
+        if self._busy:
+            return
+        self.tm.set_sensitive(self.sw.get_active())
+        from .api import client
+        from .util import bg
+        bg(client.json, "PUT", "api/tasks/digest", b, done=self.fill,
+           error=lambda e: self.dlg.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(e)))))

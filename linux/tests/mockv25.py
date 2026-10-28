@@ -24,12 +24,22 @@ def init(s):
     s.merge_gone = set()       # (nid, rev): Basis "nicht mehr da" -> 409
     s.merge_log = []           # [(nid, body)]
     s.since_log = []           # [(nid, since, delta?)]
+    # 2.5 (Paket 7): Aufgabenquellen
+    s.tasksrc = False          # features tasksrc1/taskdue1 + Antworten
+    s.src_items = []           # Zeilen-Eintraege der Liste (kind row)
+    s.src_sources = []
+    s.src_people = {}
+    s.src_log = []             # [(methode, pfad, body)]
+    s.src_fail = {}            # zeile -> code
+    s.src_prev = {}            # zeile -> prev (Antwort auf done)
+    s.digest = {"on": False, "time": "07:30", "tz": ""}
 
 
 def version(s):
     out = {"version": "2.5.0", "min_app": "1.0.0"}
     if s.v25:
-        out["features"] = list(FEATURES)
+        out["features"] = list(FEATURES) + (["tasksrc1", "taskdue1"] if getattr(s, "tasksrc", False) else []) \
+            + list(getattr(s, "extra_features", []))
     return out
 
 
@@ -100,6 +110,9 @@ def patch_row(s, nid, body, out):
 def handle(s, method, path, parts, q, body):
     if not s.v25:
         return None
+    r = _tasksrc(s, method, path, parts, q, body)
+    if r is not None:
+        return r
     if len(parts) >= 4 and parts[:2] == ["api", "notes"] and parts[2].isdigit():
         nid = int(parts[2])
         rest = parts[3:]
@@ -240,3 +253,65 @@ def enable_merge(s):
     s.merge_api = True
     for nid, n in s.notes.items():
         keep_base(s, nid, n)
+
+
+# --- 2.5 (Paket 7): Aufgabenquellen ------------------------------------------------------------------------------------
+def _tasksrc(s, method, path, parts, q, body):
+    if not getattr(s, "tasksrc", False):
+        return None
+    if path == "api/tasks" and method == "GET" and (q.get("with_sources") or q.get("sources")):
+        s.src_log.append((method, path, dict(q)))
+        inbox = [dict(t, key=f"t:{t['id']}", kind="task", done=False, overdue=bool(t.get("due") and t["due"] < q.get("today", "9")))
+                 for t in s.tasks]
+        rows = [dict(r) for r in s.src_items if not r.get("done")]
+        return s._reply(200, {"open": s.tasks, "done": s.done_tasks, "items": rows[:1] + inbox + rows[1:],
+                              "sources": s.src_sources, "people": s.src_people, "limits": {"sources": 20, "rows": 500}})
+    if path == "api/tasks" and method == "POST" and body.get("src") is not None:
+        s.src_log.append((method, path, dict(body)))
+        rid = s.next_id
+        s.next_id += 1
+        s.src_items.append({"key": f"r:{rid}", "kind": "row", "id": rid, "src": body["src"], "text": body.get("text"), "done": False,
+                            "overdue": False, "edit": True})
+        return s._reply(200, {"id": rid, "kind": "row", "src": body["src"]})
+    if parts[:3] == ["api", "tasks", "src"] and len(parts) == 4 and method == "PATCH":
+        rid = int(parts[3])
+        s.src_log.append((method, path, dict(body)))
+        if rid in s.src_fail:
+            return s._reply(s.src_fail[rid], {"error": "mock"})
+        it = next((r for r in s.src_items if r["id"] == rid), None)
+        if it is None:
+            return s._reply(404, {"error": "not found"})
+        out = {"ok": True, "src": it["src"]}
+        if "done" in body:
+            it["done"] = bool(body["done"])
+            out["done"] = it["done"]
+            if body["done"]:
+                out["prev"] = s.src_prev.get(rid, "opt-open")
+            it["value"] = body.get("value") if not body["done"] else "opt-done"
+        return s._reply(200, out)
+    if path == "api/tasks/sources" and method == "GET":
+        return s._reply(200, {"sources": s.src_sources, "max": 20})
+    if len(parts) == 4 and parts[:2] == ["api", "notes"] and parts[3] == "tasksource":
+        db = int(parts[2])
+        s.src_log.append((method, path, dict(body)))
+        src = next((x for x in s.src_sources if x["db"] == db), None)
+        if method == "GET":
+            mp = (s.notes.get(db, {}).get("schema") or {}).get("tasks")
+            return s._reply(200, {"db": db, "map": (src or {}).get("map") or mp, "scope": (src or {}).get("scope"), "count": len(s.src_sources), "max": 20})
+        if method == "DELETE":
+            s.src_sources = [x for x in s.src_sources if x["db"] != db]
+            return s._reply(200, {"ok": True}) if src else s._reply(404, {"error": "not found"})
+        if method == "PUT":
+            if src is None:
+                n = s.notes.get(db) or {}
+                src = {"db": db, "title": n.get("title"), "icon": "", "role": "owner", "scope": "all", "own": True, "count": 0,
+                       "map": (n.get("schema") or {}).get("tasks")}
+                s.src_sources.append(src)
+            if body.get("scope") in ("all", "assigned"):
+                src["scope"] = body["scope"]
+            return s._reply(200, dict(src))
+    if path == "api/tasks/digest":
+        if method == "PUT":
+            s.digest.update({k: body[k] for k in ("on", "time", "tz") if k in body})
+        return s._reply(200, dict(s.digest))
+    return None

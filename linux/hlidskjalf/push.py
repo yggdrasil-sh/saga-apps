@@ -270,7 +270,8 @@ CATS = [("share", lambda: _("Sharing: someone shares a page with me or changes m
         ("chat", lambda: _("Chat messages")),
         ("publish", lambda: _("Publishing: an admin withdraws something")),
         ("call", lambda: _("Calls: ringing, missed calls")),                # Server ab 2.1 (sonst fehlt "call" in cats)
-        ("admin", lambda: _("Admin: backup failed"))]                       # Server ab 2.3, nur Admin-Konten
+        ("admin", lambda: _("Admin: backup failed")),                       # Server ab 2.3, nur Admin-Konten
+        ("tasks", lambda: _("Tasks due today or overdue"))]                 # 2.5 (taskdue1): taegliche Zusammenfassung
 
 
 class PushPage(Adw.PreferencesPage):
