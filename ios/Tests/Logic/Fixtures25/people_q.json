@@ -1,0 +1,19 @@
+{
+ "more": false,
+ "people": [
+  {
+   "avatar": null,
+   "me": true,
+   "name": "Anna Beispiel",
+   "ref": "~gc27sqqye2yzgxoa",
+   "remote": false
+  },
+  {
+   "avatar": null,
+   "me": false,
+   "name": "Bert Beispiel",
+   "ref": "~2pjnl6f3eg3is6jl",
+   "remote": false
+  }
+ ]
+}

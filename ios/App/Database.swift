@@ -88,16 +88,26 @@ final class DBModel: ObservableObject {
     var ownTick: Int?
     init(dbID: Int) { self.dbID = dbID }
 
+    /// 2.5: Personen-Verzeichnis der Antwort (Kennung -> Name/Bild/ich/geloescht) und eigene Kennung
+    @Published var people: [String: [String: Any]] = [:]
+    var me: String? { people.first { $0.value["me"] as? Bool == true }?.key }
+    /// /rows immer mit Zeitzone des Geraets (Formeln mit today()/now(), Datum mit Uhrzeit) - aeltere Server ignorieren ihn
+    var rowsPath: String {
+        "api/notes/\(dbID)/rows?tz=" + (TimeZone.current.identifier.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "UTC")
+    }
     func load(_ store: Store) async {
-        if !loaded, let c = store.cachedData("api/notes/\(dbID)/rows") { apply(c) }
-        do { apply(try await store.get("api/notes/\(dbID)/rows")); noAccess = false }
-        catch APIError.http(let c, _) where c == 404 || c == 403 { noAccess = true; rows = []; store.dropCache("api/notes/\(dbID)/rows") }
+        if !loaded, let c = store.cachedData(rowsPath) ?? store.cachedData("api/notes/\(dbID)/rows") { apply(c) }
+        do { apply(try await store.get(rowsPath)); noAccess = false }
+        catch APIError.http(let c, _) where c == 404 || c == 403 { noAccess = true; rows = []; store.dropCache(rowsPath); store.dropCache("api/notes/\(dbID)/rows") }
         catch {}
         loaded = true
     }
+    #if DEBUG
+    func previewApply(_ d: Data) { apply(d); loaded = true }   // nur fuer Bilder (DB25Preview)
+    #endif
     private func apply(_ d: Data) {
         guard let q = DBQuery.parse(d) else { return }
-        rows = q.rows
+        rows = q.rows; people = q.people
         guard pendingSchema.isEmpty else { return }               // eigene, noch nicht gesendete Schema-Aenderungen nicht zuruecksetzen
         props = q.props; views = q.views
         if let j = try? JSONSerialization.jsonObject(with: d) as? [String: Any] {
@@ -106,15 +116,26 @@ final class DBModel: ObservableObject {
             templates = (j["templates"] as? [[String: Any]] ?? []).map { DBTemplate(id: $0["id"] as? Int ?? 0, title: $0["title"] as? String ?? "", icon: $0["icon"] as? String ?? "") }
         }
     }
-    private var query: DBQuery { DBQuery(props: props, views: views, rows: rows) }
+    var query: DBQuery { DBQuery(props: props, views: views, rows: rows, people: people, me: me) }
     func prop(_ id: String?) -> DBProp? { props.first { $0.id == id } }
 
     /// Wert einer Eigenschaft setzen (der Server fuehrt die Eigenschaften zusammen)
     func set(_ row: Int, _ pid: String, _ value: Any?, store: Store) async {
         guard !readOnly else { return }                           // nur lesen (1.3): z. B. Karte aufs Board gezogen - nichts senden
+        guard !FxLogic.computed(props).contains(pid) else { return }   // 2.5: Formel/Rollup/Berechnet nie zurueckschreiben
         if let i = rows.firstIndex(where: { $0.id == row }) { if let h = hashable(value) { rows[i].props[pid] = h } else { rows[i].props.removeValue(forKey: pid) } }
-        do { _ = try await store.api("api/notes/\(row)", method: "PATCH", body: ["props": [pid: value ?? NSNull()]]); store.dataChanged() }
+        do {
+            let d = try await store.api("api/notes/\(row)", method: "PATCH", body: ["props": [pid: value ?? NSNull()]])
+            applyPatch(row, d)
+            store.dataChanged()
+        }
         catch { self.error = error.localizedDescription; await load(store) }
+    }
+    /// 2.5: Antwort eines Zeilen-PATCH - berechnete Werte (calc, fx_err), gespeicherte Personen/Dateien (values), Personen
+    func applyPatch(_ row: Int, _ d: Data) {
+        guard let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { return }
+        people = PeopleLogic.merge(people, j["people"] as? [String: Any])
+        if let i = rows.firstIndex(where: { $0.id == row }) { FxLogic.apply(patch: j, to: &rows[i]) }
     }
     func add(_ store: Store, props: [String: Any] = [:]) async -> Int? {
         guard !readOnly else { return nil }
@@ -134,14 +155,19 @@ final class DBModel: ObservableObject {
     func value(_ p: DBProp, _ r: DBRow) -> Any? { query.value(p, r) }
     func rows(for view: [String: Any]?) -> [DBRow] {
         let all = query.rows(for: view), q = search.trimmingCharacters(in: .whitespaces).lowercased()
+        let names = PeopleLogic.directory(people)
         guard !q.isEmpty else { return all }
         return all.filter { r in r.title.lowercased().contains(q) || props.contains { p in
             let v = query.value(p, r)
             if let s = v as? String { return (p.option(s)?.name ?? s).lowercased().contains(q) }
-            if let a = v as? [AnyHashable] { return a.contains { p.option($0 as? String)?.name.lowercased().contains(q) ?? false } }
+            if p.type == "person" { return PeopleLogic.persons(v, names).contains { $0.name.lowercased().contains(q) } }   // Anzeigenamen
+            if let a = v as? [AnyHashable] { return a.contains { p.option($0 as? String)?.name.lowercased().contains(q) ?? ($0 as? String)?.lowercased().contains(q) ?? false } }
+            if let n = v as? Double { return DBDate.jsNumStr(n).contains(q) }
             return false } }
     }
     func defaults(for view: [String: Any]?) -> [String: Any] { query.defaults(for: view) }
+    /// Hoechstzahl Dateien je Zelle (Schema max, Standard 10)
+    func maxFiles(_ pid: String) -> Int { (schema["props"] as? [[String: Any]])?.first { $0["id"] as? String == pid }?["max"] as? Int ?? 10 }
     func color(_ r: DBRow, view: [String: Any]?) -> Color? { query.colorName(r, view: view).map(optColor) }
 }
 
@@ -198,8 +224,13 @@ struct DatabaseView: View {
                 switch type {
                 case "board": BoardView(m: m, view: view)
                 case "gallery": GalleryView(m: m, view: view)
-                case "calendar": DBCalendarView(m: m, view: view)
+                case "calendar":
+                    if view?["range"] as? String == "week", let dp = m.prop(view?["date_by"] as? String) ?? m.props.first(where: { $0.type == "date" }) {
+                        DBWeekView(m: m, view: view, prop: dp)                // 2.5 tableopts1: Kalender-Woche
+                    } else { DBCalendarView(m: m, view: view) }
                 case "list": RowList(m: m, view: view)
+                case "chart" where store.features.chart: DBChartView(m: m, view: view)      // 2.5 chart1: nativ (Swift Charts)
+                case "timeline": DBTimelineView(m: m, view: view)                           // 2.5 timeline1: nur lesen
                 default: TableGrid(m: m, view: view)                 // auch iPhone: echte Spalten, waagrecht scrollbar
                 }
             }
@@ -250,7 +281,8 @@ struct RowList: View {
     var body: some View {
         let rows = m.rows(for: view)
         let check = m.props.first { $0.type == "checkbox" && !hidden.contains($0.id) }
-        let chips = m.props.filter { ["select", "multi_select", "date", "number", "calc"].contains($0.type) && !hidden.contains($0.id) }.prefix(3)
+        let status = check == nil ? m.props.first { $0.status && !hidden.contains($0.id) } : nil      // 2.5: Abhaken ueber Status-Gruppe
+        let chips = m.props.filter { ["select", "multi_select", "date", "number", "calc", "formula", "rollup", "person"].contains($0.type) && !hidden.contains($0.id) && $0.id != status?.id }.prefix(3)
         VStack(spacing: 0) {
             ForEach(rows) { r in
                 HStack(spacing: 10) {
@@ -260,6 +292,12 @@ struct RowList: View {
                             CheckBoxIcon(on: on).font(.body)
                         }.buttonStyle(.plain).disabled(m.readOnly)
                         .accessibilityLabel(Text(check.name)).accessibilityAddTraits(on ? .isSelected : [])
+                    } else if let status {
+                        let done = status.statusGroup(r.props[status.id]?.base) == "done"
+                        Button { Task { if let v = StatusLogic.toggled(status, current: r.props[status.id]?.base as? String) { await m.set(r.id, status.id, v, store: store) } } } label: {
+                            CheckBoxIcon(on: done).font(.body)
+                        }.buttonStyle(.plain).disabled(m.readOnly)
+                        .accessibilityLabel(Text(status.name)).accessibilityAddTraits(done ? .isSelected : [])
                     } else { PageIcon(icon: r.icon, store: store) }
                     Button { nav.open(r.id, mode: view?["open"] as? String ?? "side", list: rows.map(\.id)) } label: {
                         let shown = chips.filter { hasValue(m.value($0, r)) }
@@ -267,19 +305,20 @@ struct RowList: View {
                             if check != nil, let ic = r.icon, !ic.isEmpty { PageIcon(icon: ic, store: store) }
                             Text(r.title.isEmpty ? String(localized: "Unbenannt") : r.title).lineLimit(compact ? 3 : 2).multilineTextAlignment(.leading)
                                 .foregroundStyle(r.title.isEmpty ? .secondary : .primary)
+                            if r.blocked { BlockedBadge() }
                         }
                         Group {
                             if compact {                            // iPhone: Werte unter dem Namen, umbrechend - nichts wird abgeschnitten
                                 VStack(alignment: .leading, spacing: 4) {
                                     title
-                                    if !shown.isEmpty { WrapLayout { ForEach(shown, id: \.id) { p in ValueChip(prop: p, value: m.value(p, r)) } } }
+                                    if !shown.isEmpty { WrapLayout { ForEach(shown, id: \.id) { p in ValueChip(prop: p, value: m.value(p, r), err: r.fxErr[p.id], people: m.people) } } }
                                 }.frame(maxWidth: .infinity, alignment: .leading)
                             } else {
                                 // Werte zuerst (bis 320, umbrechend), der Name bekommt den Rest. Frueher hatte der Name Vorrang:
                                 // ein langer Name liess WrapLayout auf Breite 0 schrumpfen -> Chips als leere Striche.
                                 HStack(spacing: 8) {
                                     title.frame(maxWidth: .infinity, alignment: .leading)
-                                    WrapLayout(trailing: true, maxWidth: 320) { ForEach(shown, id: \.id) { p in ValueChip(prop: p, value: m.value(p, r)) } }
+                                    WrapLayout(trailing: true, maxWidth: 320) { ForEach(shown, id: \.id) { p in ValueChip(prop: p, value: m.value(p, r), err: r.fxErr[p.id], people: m.people) } }
                                         .layoutPriority(1)
                                 }
                             }
@@ -287,6 +326,7 @@ struct RowList: View {
                     }.buttonStyle(.plain)
                 }
                 .padding(.vertical, 7)
+                .padding(.leading, CGFloat(min(r.depth, 6)) * 18)          // 2.5 Unteraufgaben: eingerueckt
                 .contextMenu { RowMenu(m: m, row: r) { nav.open(r.id, mode: view?["open"] as? String ?? "side", list: rows.map(\.id)) } }
                 .padding(.leading, m.color(r, view: view) != nil ? 8 : 0)
                 .background {                                   // bedingte Farbe wie im Web: Hauch + Balken links
@@ -362,6 +402,7 @@ struct TableGrid: View {
                 ForEach(rows) { r in
                     HStack(spacing: 0) {
                         TitleCell(m: m, row: r) { nav.open(r.id, mode: view?["open"] as? String ?? "side", list: rows.map(\.id)) }
+                            .padding(.leading, CGFloat(min(r.depth, 6)) * 14)      // 2.5 Unteraufgaben
                             .padding(.horizontal, 8).padding(.vertical, 5)
                             .frame(width: w["title"] ?? 260, alignment: .leading).frame(maxHeight: .infinity)
                         ForEach(cols) { p in
@@ -433,7 +474,7 @@ struct TableGrid: View {
         let v = m.value(p, r)
         switch p.type {
         case "text", "number", "date", "select", "multi_select":  // direkt in der Tabelle bearbeiten (Auswahl als Chips, Datum lesbar)
-            PropEditor(prop: p, value: v) { nv in Task { await m.set(r.id, p.id, nv, store: store) } }.disabled(m.readOnly).id("\(r.id)-\(p.id)-\(String(describing: v))")
+            PropEditor(prop: p, value: v, dateTime: store.features.datetime) { nv in Task { await m.set(r.id, p.id, nv, store: store) } }.disabled(m.readOnly).id("\(r.id)-\(p.id)-\(String(describing: v))")
         case "url":                                               // bearbeiten + Link oeffnen (nur http/https/mailto)
             HStack(spacing: 4) {
                 PropEditor(prop: p, value: v) { nv in Task { await m.set(r.id, p.id, nv, store: store) } }.disabled(m.readOnly).id("\(r.id)-\(p.id)-\(String(describing: v))")
@@ -454,6 +495,12 @@ struct TableGrid: View {
                     if p.fmt == "percent", p.show == "ring" { ProgressRing(value: n / 100) }
                 }
             }
+        case "formula", "rollup":                                 // 2.5: fertig vom Server, nur lesen
+            FxValueView(prop: p, value: v, err: r.fxErr[p.id]).help(String(localized: "Formel im Web bearbeiten"))
+        case "person":
+            PeopleEditor(prop: p, dbID: m.dbID, value: v, people: m.people, canEdit: !m.readOnly && store.features.people) { nv in Task { await m.set(r.id, p.id, nv, store: store) } }
+        case "files":
+            FilesEditor(rowID: r.id, value: v, max: m.maxFiles(p.id), canEdit: !m.readOnly && store.features.files) { nv in Task { await m.set(r.id, p.id, nv, store: store) } }
         case "created", "edited":
             if let ts = v as? Double { Text(Date(timeIntervalSince1970: ts).sagaFormatted(date: .abbreviated, time: .omitted)).foregroundStyle(.secondary) }
             else if let s = v as? String, !s.isEmpty { Text(dayText(s)).foregroundStyle(.secondary) }
@@ -627,15 +674,20 @@ struct ProgressRing: View {
 struct ValueChip: View {
     let prop: DBProp
     let value: Any?
+    var err: String? = nil
+    var people: [String: [String: Any]] = [:]
     var body: some View {
         switch prop.type {
+        case "select" where prop.status: StatusChip(prop: prop, value: value)
         case "select":
             if let o = prop.option(value as? String) { Chip(text: o.name, color: o.color) }
+        case "formula", "rollup": FxValueView(prop: prop, value: value, err: err, compact: true)
+        case "person": PeopleChips(refs: value, people: people, compact: true)
         case "multi_select":                                // einzelne Chips: in WrapLayout bricht jeder fuer sich um
             let ids = (value as? [AnyHashable])?.compactMap { $0 as? String } ?? []
             ForEach(ids, id: \.self) { id in if let o = prop.option(id) { Chip(text: o.name, color: o.color) } }
         case "date":
-            if let s = value as? String, !s.isEmpty { Text(dayText(s)).font(.caption).foregroundStyle(.secondary) }
+            if let s = value as? String, !s.isEmpty { DateValueText(value: s).font(.caption).foregroundStyle(.secondary) }
         case "number", "calc":
             if let n = value as? Double { Text(numText(n, prop.fmt, prop.show)).font(.caption.monospacedDigit()).foregroundStyle(.secondary) }
         default: EmptyView()
@@ -664,35 +716,47 @@ struct BoardView: View {
     @EnvironmentObject var nav: NavModel
     @State private var avail: CGFloat = 0
     var body: some View {
-        let group = m.prop(view?["group_by"] as? String) ?? m.props.first { $0.type == "select" }
+        // 2.5: auch nach Status-Gruppe (group_status) und nach Formel/Rollup/Person (vorkommende Werte, nur lesend)
+        let group = m.prop(view?["group_by"] as? String).flatMap { p in p.type == "select" || p.type == "person" || (p.isFx && ["number", "text", "checkbox", "date"].contains(p.rtype ?? "")) ? p : nil }
+            ?? m.props.first { $0.type == "select" }
         let rows = m.rows(for: view)
         if let group {
-            let cols: [(String?, String, String?)] = group.options.map { ($0.id, $0.name, $0.color) } + [(nil, String(localized: "Ohne \(group.name)"), nil)]
-            let rowIDs = Set(rows.map(\.id))
+            let byStatus = group.status && view?["group_status"] as? Bool == true
+            let all = GroupLogic.groups(m.query, rows: rows, by: group, byStatus: byStatus)
+            let editable = GroupLogic.draggable(group)
+            // "Ohne …" zuletzt; leer nur bei Auswahl-Spalten zeigen (wie bisher)
+            let cols = Array(all.dropFirst()) + (all.first.map { $0.count > 0 || (group.type == "select" && !byStatus) ? [$0] : [] } ?? [])
+            let rowIDs = Set(rows.map(\.id)), byID = Dictionary(rows.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
             // Spalten fuellen die Breite, wenn alle passen; sonst 240 pt mit waagrechtem Scrollen und Hinweis am Rand
             let fit = avail > 0 && CGFloat(cols.count) * 240 + CGFloat(cols.count - 1) * 12 <= avail
             let colW = fit ? max(240, (avail - CGFloat(cols.count - 1) * 12) / CGFloat(max(1, cols.count))) : 240
             ScrollView(.horizontal, showsIndicators: !fit) {
                 HStack(alignment: .top, spacing: 12) {
                     ForEach(Array(cols.enumerated()), id: \.offset) { _, col in
-                        let items = rows.filter { (($0.props[group.id]?.base as? String).flatMap { $0.isEmpty ? nil : $0 }) == col.0 }
+                        let items = col.ids.compactMap { byID[$0] }
+                        let label = byStatus && col.id != nil ? (StatusLogic.symbols[col.id!] ?? "") + " " + col.label : col.label
                         VStack(alignment: .leading, spacing: 8) {
-                            HStack { Chip(text: col.1, color: col.2); Text("\(items.count)").font(.caption).foregroundStyle(.secondary) }
+                            HStack { Chip(text: label, color: col.color); Text("\(items.count)").font(.caption).foregroundStyle(.secondary) }
                             ForEach(items) { r in
                                 Button { nav.open(r.id, mode: view?["open"] as? String ?? "side", list: m.rows(for: view).map(\.id)) } label: { Card(m: m, row: r, view: view, cover: false) }.buttonStyle(.plain)
                                     .draggable(String(r.id))
                             }
                             if m.canAdd {
-                                Button { Task { if let id = await m.add(store, props: col.0.map { [group.id: $0] } ?? [:]) { nav.open(id, mode: view?["open"] as? String ?? "side") } } } label: {
+                                Button { Task { if let id = await m.add(store, props: newProps(group, col.id, byStatus: byStatus, editable: editable)) { nav.open(id, mode: view?["open"] as? String ?? "side") } } } label: {
                                     Label("Neu", systemImage: "plus").font(.caption)
                                 }.buttonStyle(.plain).foregroundStyle(.secondary)
                             }
                         }
                         .padding(10).frame(width: colW, alignment: .topLeading)
-                        .background(optColor(col.2).opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                        .background(optColor(col.color).opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
                         .dropDestination(for: String.self) { ids, _ in
+                            guard editable else { return false }                                   // Formel/Person: nur lesend
                             let mine = ids.compactMap(Int.init).filter { rowIDs.contains($0) }    // nur Karten dieses Boards (keine Seiten aus der Seitenleiste)
-                            for id in mine { Task { await m.set(id, group.id, col.0, store: store) } }
+                            for id in mine {
+                                let cur = byID[id]?.props[group.id]?.base as? String
+                                if byStatus { if case .some(let v) = StatusLogic.drop(group, current: cur, group: col.id) { Task { await m.set(id, group.id, v, store: store) } } }
+                                else { Task { await m.set(id, group.id, col.id, store: store) } }
+                            }
                             return !mine.isEmpty
                         }
                     }
@@ -704,6 +768,23 @@ struct BoardView: View {
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { avail = $0 }
         } else { Text("Board braucht eine Auswahl-Eigenschaft").foregroundStyle(.secondary) }
+    }
+}
+
+extension BoardView {
+    /// "+ Neu" in einer Spalte: Wert der Spalte (Status-Gruppe: erste Option); Formel/Person-Gruppen setzen nichts
+    func newProps(_ g: DBProp, _ col: String?, byStatus: Bool, editable: Bool) -> [String: Any] {
+        guard editable, let col else { return [:] }
+        if byStatus { return g.firstOption(group: col).map { [g.id: $0.id] } ?? [:] }
+        return [g.id: col]
+    }
+}
+
+/// "blockiert" (Abhaengigkeit nicht erledigt) - nur Anzeige
+struct BlockedBadge: View {
+    var body: some View {
+        Text(verbatim: "⛔").font(.caption).help(Text("Blockiert – eine Abhängigkeit ist noch nicht erledigt"))
+            .accessibilityLabel(Text("Blockiert"))
     }
 }
 
@@ -719,7 +800,7 @@ struct Card: View {
             if cover, let c = row.cover { RemoteImage(path: c, fill: true, w: 640).frame(height: 110).clipped() }
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 6) { if let ic = row.icon, !ic.isEmpty { PageIcon(icon: ic, store: store) }; Text(row.title.isEmpty ? String(localized: "Unbenannt") : row.title).font(.subheadline.weight(.medium)).lineLimit(2) }
-                let ps = m.props.filter { !hidden.contains($0.id) && ["select", "multi_select", "date", "checkbox", "number", "calc"].contains($0.type) }.prefix(4)
+                let ps = m.props.filter { !hidden.contains($0.id) && ["select", "multi_select", "date", "checkbox", "number", "calc", "formula", "rollup", "person"].contains($0.type) }.prefix(4)
                 FlowChips(m: m, row: row, props: Array(ps))
             }.padding(cover ? 10 : 8)
         }
@@ -728,8 +809,10 @@ struct Card: View {
             ZStack { Rectangle().fill(.background.secondary); if let c = m.color(row, view: view) { c.opacity(0.16) } }
                 .clipShape(RoundedRectangle(cornerRadius: 9))
         }
+        .overlay(alignment: .top) { if let c = m.color(row, view: view) { c.frame(height: 3) } }    // 2.5: Streifen oben wie im Web
         .overlay(RoundedRectangle(cornerRadius: 9).stroke(m.color(row, view: view)?.opacity(0.6) ?? .secondary.opacity(0.2)))
         .clipShape(RoundedRectangle(cornerRadius: 9))
+        .overlay(alignment: .topTrailing) { if row.blocked { BlockedBadge().padding(6) } }
     }
 }
 
@@ -787,7 +870,7 @@ struct FlowChips: View {
                     Text(CardChipLogic.range(dayText(a), dayText(b))).font(.caption).foregroundStyle(.secondary)   // Zeitraum (fix27 #17)
                 }
                 else if p.type == "checkbox", let b = row.props[p.id]?.base as? Bool, b { Image(systemName: "checkmark.square.fill").font(.caption).foregroundStyle(.secondary) }
-                else { ValueChip(prop: p, value: m.value(p, row)) }
+                else { ValueChip(prop: p, value: m.value(p, row), err: row.fxErr[p.id], people: m.people) }
             }
         }
     }
@@ -840,7 +923,7 @@ struct DBCalendarView: View {
                     ForEach(0..<(lead + days), id: \.self) { i in
                         if i < lead { Color.clear.frame(minHeight: 64) } else {
                             let d = cal.date(byAdding: .day, value: i - lead, to: first)!, ds = f.string(from: d)
-                            let items = rows.filter { ((m.value(dp, $0) as? String) ?? "").hasPrefix(ds) }
+                            let items = TimelineLogic.rows(on: DBDate.days(cal.component(.year, from: d), cal.component(.month, from: d), cal.component(.day, from: d)), m.query, rows: rows, prop: dp)   // 2.5: Zeitraum auf jedem Tag, Tag in eigener Zeitzone
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack {
                                     Text("\(cal.component(.day, from: d))").font(.caption2.weight(cal.isDateInToday(d) ? .bold : .regular))
@@ -851,7 +934,8 @@ struct DBCalendarView: View {
                                     }
                                 }
                                 ForEach(items.prefix(3)) { r in
-                                    Button { nav.open(r.id, mode: view?["open"] as? String ?? "side", list: m.rows(for: view).map(\.id)) } label: { Text(r.title.isEmpty ? String(localized: "Unbenannt") : r.title).font(.caption2).lineLimit(1).padding(.horizontal, 3).frame(maxWidth: .infinity, alignment: .leading).background(Color.accentColor.opacity(0.18), in: RoundedRectangle(cornerRadius: 3)) }.buttonStyle(.plain)
+                                    let time = (m.value(dp, r) as? String).flatMap { DBDate.parse($0)?.start.instant }.map { $0.formatted(date: .omitted, time: .shortened) + " " } ?? ""
+                                    Button { nav.open(r.id, mode: view?["open"] as? String ?? "side", list: m.rows(for: view).map(\.id)) } label: { Text(verbatim: time + (r.title.isEmpty ? String(localized: "Unbenannt") : r.title)).font(.caption2).lineLimit(1).padding(.horizontal, 3).frame(maxWidth: .infinity, alignment: .leading).background((m.color(r, view: view) ?? Color.accentColor).opacity(0.18), in: RoundedRectangle(cornerRadius: 3)) }.buttonStyle(.plain)
                                 }
                                 if items.count > 3 { Text("+\(items.count - 3)").font(.caption2).foregroundStyle(.secondary) }
                                 Spacer(minLength: 0)
@@ -872,12 +956,23 @@ struct EditableProps: View {
     let schema: [String: Any]
     @EnvironmentObject var store: Store
     private var defs: [DBProp] { (schema["props"] as? [[String: Any]] ?? []).map(DBProp.init) }
+    private var people: [String: [String: Any]] { (doc.page["people"] as? [String: Any] ?? [:]).compactMapValues { $0 as? [String: Any] } }
+    private var fxErr: [String: String] { (doc.page["fx_err"] as? [String: Any] ?? [:]).compactMapValues { $0 as? String } }
+    private var canEdit: Bool { !doc.access.readOnly }
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
+            if doc.page["blocked"] as? Bool == true {                // 2.5: Abhaengigkeit offen
+                Label { Text("Blockiert – eine Abhängigkeit ist noch nicht erledigt") } icon: { Text(verbatim: "⛔") }.font(.subheadline).foregroundStyle(.secondary)
+            }
             ForEach(defs) { p in
                 HStack(alignment: .center, spacing: 8) {
                     Label(p.name, systemImage: p.symbol).font(.subheadline).foregroundStyle(.secondary).frame(width: 150, alignment: .leading).lineLimit(1)
-                    PropEditor(prop: p, value: value(p)) { v in Task { await save(p, v) } }
+                    switch p.type {
+                    case "formula", "rollup": FxValueView(prop: p, value: value(p), err: fxErr[p.id]).font(.subheadline).help(String(localized: "Formel im Web bearbeiten"))
+                    case "person": PeopleEditor(prop: p, dbID: doc.page["parent_id"] as? Int ?? 0, value: value(p), people: people, canEdit: canEdit && store.features.people) { v in Task { await save(p, v) } }
+                    case "files": FilesEditor(rowID: doc.id, value: value(p), max: (schema["props"] as? [[String: Any]])?.first { $0["id"] as? String == p.id }?["max"] as? Int ?? 10, canEdit: canEdit && store.features.files) { v in Task { await save(p, v) } }
+                    default: PropEditor(prop: p, value: value(p), dateTime: store.features.datetime) { v in Task { await save(p, v) } }
+                    }
                     Spacer(minLength: 0)
                 }
                 .frame(minHeight: 32)
@@ -891,8 +986,20 @@ struct EditableProps: View {
         return doc.props[p.id]
     }
     private func save(_ p: DBProp, _ v: Any?) async {
+        guard !p.isFx && p.type != "calc" else { return }                // berechnete Werte nie zurueckschreiben
         var props = doc.props; props[p.id] = v ?? NSNull(); doc.page["props"] = props
-        do { _ = try await store.api("api/notes/\(doc.id)", method: "PATCH", body: ["props": [p.id: v ?? NSNull()]]); store.dataChanged() }
+        do {
+            let d = try await store.api("api/notes/\(doc.id)", method: "PATCH", body: ["props": [p.id: v ?? NSNull()]])
+            // 2.5: berechnete Werte, gespeicherte Personen/Dateien und Personen sofort uebernehmen (kein Neuladen)
+            if let j = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] {
+                var ps = doc.props
+                for (k, x) in (j["calc"] as? [String: Any] ?? [:]).merging(j["values"] as? [String: Any] ?? [:], uniquingKeysWith: { a, _ in a }) { ps[k] = x is NSNull ? nil : x }
+                doc.page["props"] = ps
+                if let e = j["fx_err"] { doc.page["fx_err"] = e }
+                if let pp = j["people"] as? [String: Any] { doc.page["people"] = (doc.page["people"] as? [String: Any] ?? [:]).merging(pp) { _, b in b } }
+            }
+            store.dataChanged()
+        }
         catch { doc.error = error.localizedDescription }
     }
 }
@@ -900,6 +1007,8 @@ struct EditableProps: View {
 struct PropEditor: View {
     let prop: DBProp
     let value: Any?
+    /// 2.5 datetime1: Uhrzeit/Zeitraum bearbeiten (nur wenn der Server es kann)
+    var dateTime = false
     let set: (Any?) -> Void
     @State private var text = ""
     @State private var base = ""                                   // Wert beim Uebernehmen: nur echte Eingaben zurueckschreiben
@@ -909,6 +1018,20 @@ struct PropEditor: View {
         switch prop.type {
         case "calc":                                              // berechnet: nur anzeigen
             if let n = value as? Double { Text(numText(n, prop.fmt, prop.show)).monospacedDigit() } else { Text("–").foregroundStyle(.secondary) }
+        case "select" where prop.status:                          // 2.5: Status - Auswahl nach Gruppen
+            Menu {
+                ForEach(StatusLogic.grouped(prop), id: \.group) { g in
+                    Section((StatusLogic.symbols[g.group] ?? "") + " " + StatusLogic.groupName(g.group)) {
+                        ForEach(g.options, id: \.id) { o in Button(o.name) { set(o.id) } }
+                    }
+                }
+                if value as? String != nil { Divider(); Button("Leeren", role: .destructive) { set(nil) } }
+            } label: {
+                if prop.option(value as? String) != nil { StatusChip(prop: prop, value: value) } else { leer }
+            }.menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+        case "date" where dateTime || DBDate.parse(value)?.isNew == true:
+            if dateTime { DateTimeEditor(prop: prop, value: value, set: set) }
+            else { DateValueText(value: value).font(.subheadline) }   // aelterer Server: Uhrzeit/Zeitraum nur anzeigen
         case "select":
             Menu {
                 ForEach(prop.options, id: \.id) { o in Button(o.name) { set(o.id) } }
@@ -944,6 +1067,8 @@ struct PropEditor: View {
         case "relation":
             let n = (value as? [Any])?.count ?? 0
             Text(n == 0 ? "Leer" : "\(n) verknüpft").font(.subheadline).foregroundStyle(n == 0 ? .tertiary : .primary)
+        case "formula", "rollup", "person", "files":              // 2.5: eigene Ansichten (EditableProps/TableGrid); hier nur lesen
+            Text("Im Web bearbeiten").font(.subheadline).foregroundStyle(.tertiary)
         default:   // text, number, url, email, phone
             TextField("Leer", text: $text)
                 .textFieldStyle(.plain).font(.subheadline)

@@ -214,6 +214,7 @@ struct EditableTable: View {
                 }
                 .padding(.bottom, 2)
             }
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { if abs($0 - tableW) > 1 { tableW = $0 } }
             .accessibilityLabel("Tabelle")
             if !ed.locked {
                 HStack(spacing: 12) {
@@ -231,15 +232,25 @@ struct EditableTable: View {
         .onChange(of: stored, initial: true) { _, new in if new != model.content { model = TableModel(content: data["content"]) } }
     }
 
+    /// 2.5 tableopts1: Breiten in Prozent (gleich breit, wenn die Anzahl nicht passt), Kopfspalte, Farben je Zeile/Spalte/Zelle.
+    /// Nur Anzeige - beim Bearbeiten bleiben alle Felder ausser content unveraendert (Regel 0)
+    private var opts: [String: Any] { data as? [String: Any] ?? [:] }
+    @State private var tableW: CGFloat = 0
+    private func width(_ ci: Int) -> CGFloat {
+        let ws = TableOpts.widths(opts, cols: model.width)
+        guard data["colWidths"] != nil, ws.indices.contains(ci), tableW > 0 else { return colWidth }
+        return max(90, tableW * CGFloat(ws[ci]))
+    }
     @ViewBuilder private func cellView(row: Int, ri: Int, col: Int, ci: Int) -> some View {
-        let head = ri == 0 && headings
+        let head = (ri == 0 && headings) || (ci == 0 && TableOpts.headCol(opts))
+        let tint = TableOpts.color(opts, row: ri, col: ci)
         EditText(key: "\(blockID)/t\(row)-\(col)", html: model.cell(row, ci),
                  font: head ? .subheadline.bold() : .subheadline, placeholder: "", splitOnReturn: false, boldBase: head,
                  setHTML: { h in model.set(row, col, h); write() })
             .padding(8)
-            .frame(width: colWidth, alignment: .topLeading)
+            .frame(width: width(ci), alignment: .topLeading)
             .frame(maxHeight: .infinity, alignment: .topLeading)
-            .background(head ? Color.secondary.opacity(0.1) : .clear)
+            .background(tint.map(HKPalette.bgColor) ?? (head ? Color.secondary.opacity(0.1) : .clear))
             .border(.secondary.opacity(0.25), width: 0.5)
             .contextMenu { if !ed.locked { tableMenu(row, col) } }
     }

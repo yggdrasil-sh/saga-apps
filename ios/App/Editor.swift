@@ -242,7 +242,7 @@ final class PageEditor: ObservableObject {
         let n = max(colCount(a), colCount(b))
         let ad = a["data"] as? NSMutableDictionary ?? NSMutableDictionary()
         let merged = NSMutableArray()
-        for ci in 0..<min(4, n) {
+        for ci in 0..<min(ColumnsLogic.maxColumns, n) {        // 2.5 cols6: bis 6 Spalten (frueher 4 - Inhalt ging verloren)
             let blocks = NSMutableArray()
             if let x = colArray(a, ci) { blocks.addObjects(from: x as! [Any]) }
             if let y = colArray(b, ci) { blocks.addObjects(from: y as! [Any]) }
@@ -574,9 +574,15 @@ struct EditText: View {
         .frame(maxWidth: .infinity, minHeight: 22, alignment: .leading)
     }
 
+    /// 2.5 (P6-2): Absatz mit Inline-Formen, die der App-Editor noch nicht zeichengenau erhaelt (Farben, Erwaehnungen,
+    /// Inline-Mathe, unbekannte Tags) - nicht bearbeiten, sonst ginge die Formatierung verloren; Hinweis "im Web bearbeiten"
+    private var protected: Bool { !raw && InlineLogic.hasProtectedForms(html) }
+    @State private var webHint = false
+    @EnvironmentObject private var nav: NavModel
+
     var body: some View {
         // Nach Return bleibt das alte Feld im Fokus, bis das neue ihn hat: Tastatur und Eingaben gehen nicht verloren
-        if ed.focus == key || focused {
+        if (ed.focus == key || focused) && !protected {
             if raw {
                 TextField(placeholder, text: $text, selection: $sel, axis: .vertical)
                     .font(font).focused($focused)
@@ -701,6 +707,20 @@ struct EditText: View {
                     Task { @MainActor in try? await Task.sleep(for: .milliseconds(900)); if ed.focus != key && focused { focused = false } }
                 }
             }
+        } else if protected {
+            VStack(alignment: .leading, spacing: 4) {
+                staticText
+                if webHint && !ed.locked {
+                    HStack(spacing: 8) {
+                        Label("Farben/Erwähnungen – im Web bearbeiten", systemImage: "lock").font(.caption).foregroundStyle(.secondary)
+                        Button("Im Web öffnen") { nav.peek = nil; nav.push(PageRoute(id: ed.doc.id, web: true, block: blockOf(key))) }
+                            .buttonStyle(.bordered).controlSize(.mini)
+                    }
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { if ed.tapToComment && ed.locked { ed.commentBlock = blockOf(key) } else { webHint.toggle() } }
+            .onAppear { if ed.focus == key { ed.focus = nil } }
         } else {
             staticText
                 .contentShape(Rectangle())

@@ -1,0 +1,59 @@
+{
+ "archived": false,
+ "blocked": true,
+ "comment_counts": {},
+ "comments_open": 0,
+ "comments_resolved": 0,
+ "comments_unread": 0,
+ "cover": "",
+ "cover_pos": 50.0,
+ "created": 1793148184.2527552,
+ "font": null,
+ "format": "blocks",
+ "icon": "",
+ "id": 54,
+ "kind": "page",
+ "locked": false,
+ "parent_id": 51,
+ "people": {
+  "~2pjnl6f3eg3is6jl": {
+   "avatar": null,
+   "me": false,
+   "name": "Bert Beispiel",
+   "remote": false
+  }
+ },
+ "pinned": false,
+ "props": {
+  "blk": [
+   53
+  ],
+  "frist": "2026-10-29T14:30+01:00/2026-10-29T16:00+01:00",
+  "menge": 3,
+  "par": [
+   53
+  ],
+  "pnam": [],
+  "preis": 10,
+  "quot": 3.3333333333333335,
+  "spaet": true,
+  "status": "neu",
+  "summe": 30,
+  "tag": "Donnerstag",
+  "wer": [
+   "~2pjnl6f3eg3is6jl"
+  ]
+ },
+ "public_url": null,
+ "published": false,
+ "published_via": null,
+ "rev": 0,
+ "role": "owner",
+ "shared": false,
+ "small": false,
+ "tags": [],
+ "template": false,
+ "title": "Testen",
+ "updated": 1793148184.27934,
+ "wide": false
+}

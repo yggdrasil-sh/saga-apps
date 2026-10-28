@@ -1,0 +1,168 @@
+{
+ "widgets": {
+  "ch": {
+   "as_of": "2026-10-28T00:43:04Z",
+   "data": {
+    "cats": [
+     {
+      "color": "gray",
+      "key": "neu",
+      "label": "Neu"
+     },
+     {
+      "color": "blue",
+      "key": "lauf",
+      "label": "Läuft"
+     },
+     {
+      "color": "yellow",
+      "key": "warten",
+      "label": "Wartet"
+     },
+     {
+      "color": "green",
+      "key": "ok",
+      "label": "Fertig"
+     }
+    ],
+    "fmt": "num",
+    "other": 0,
+    "rows": 5,
+    "series": [
+     {
+      "color": null,
+      "key": "",
+      "label": "",
+      "values": [
+       1,
+       1,
+       1,
+       1
+      ]
+     }
+    ],
+    "total": 5,
+    "truncated": false,
+    "type": "donut",
+    "x_kind": "cat"
+   },
+   "error": null,
+   "fmt": "num",
+   "kind": "chart",
+   "max": null,
+   "text": null,
+   "value": 5
+  },
+  "hb": {
+   "as_of": "2026-10-28T00:43:04Z",
+   "data": {
+    "can_check": true,
+    "days": [
+     "2026-10-22",
+     "2026-10-23",
+     "2026-10-24",
+     "2026-10-25",
+     "2026-10-26",
+     "2026-10-27",
+     "2026-10-28"
+    ],
+    "habits": [
+     {
+      "done": [
+       false,
+       false,
+       false,
+       true,
+       false,
+       true,
+       true
+      ],
+      "name": "Sport",
+      "pct": 43,
+      "pid": "sport",
+      "streak": 2,
+      "week": 2
+     }
+    ],
+    "today": "2026-10-28"
+   },
+   "error": null,
+   "fmt": null,
+   "kind": "habit",
+   "max": 1,
+   "text": null,
+   "value": 1
+  },
+  "nm": {
+   "as_of": "2026-10-28T00:43:04Z",
+   "data": {
+    "cats": [],
+    "fmt": "num",
+    "other": 0,
+    "rows": 5,
+    "series": [],
+    "total": 5,
+    "truncated": false,
+    "type": "number",
+    "x_kind": "cat"
+   },
+   "error": null,
+   "fmt": "num",
+   "kind": "chart",
+   "max": null,
+   "text": null,
+   "value": 5
+  },
+  "up": {
+   "as_of": "2026-10-28T00:43:04Z",
+   "data": {
+    "days": 7,
+    "errors": 0,
+    "from": "2026-10-28",
+    "items": [
+     {
+      "allday": true,
+      "cal": null,
+      "color": null,
+      "end": "2026-10-30",
+      "k": "row",
+      "note": 53,
+      "overdue": false,
+      "start": "2026-10-28",
+      "task": null,
+      "title": "Bauen"
+     },
+     {
+      "allday": false,
+      "cal": null,
+      "color": null,
+      "end": "2026-10-29T16:00+01:00",
+      "k": "row",
+      "note": 54,
+      "overdue": false,
+      "start": "2026-10-29T14:30+01:00",
+      "task": null,
+      "title": "Testen"
+     }
+    ],
+    "more": 0
+   },
+   "error": null,
+   "fmt": null,
+   "kind": "upcoming",
+   "max": null,
+   "text": null,
+   "value": 2
+  },
+  "wx": {
+   "as_of": "2026-10-28T00:43:04Z",
+   "data": null,
+   "error": "disabled",
+   "fmt": null,
+   "kind": "weather",
+   "max": null,
+   "text": null,
+   "value": null
+  }
+ }
+}
