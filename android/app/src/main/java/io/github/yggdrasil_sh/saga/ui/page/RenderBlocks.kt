@@ -91,7 +91,7 @@ fun MermaidPreview(d: JsonObject, env: BlockEnv) {
 fun SyncedBlock(block: JsonObject, path: JsonPath, env: BlockEnv) {
     val d = BlockDoc.data(block)
     val src = RenderPreview.syncedSource(d)
-    val ownOriginal = src == null && RenderPreview.syncedHasBlocks(d)
+    val ownOriginal = io.github.yggdrasil_sh.saga.blocks.SyncEdit.isOriginal(d) || (src == null && RenderPreview.syncedHasBlocks(d))
     val label = stringResource(R.string.e1_synced)
     Column(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
@@ -108,10 +108,21 @@ fun SyncedBlock(block: JsonObject, path: JsonPath, env: BlockEnv) {
             Text(stringResource(R.string.e1_synced_noaccess), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             return@Column
         }
-        // Inhalt nur anzeigen (Bearbeiten im Web, P6-8): auch das Original, damit die App nichts halb aendert
-        ReadOnlyBlocks(path + listOf("data", "blocks"), env)
-        if (ownOriginal && env.editor.editable) {
-            Text(stringResource(R.string.e1_synced_edit_web), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // 2.5 E2 (sync1): Kopie mit Rolle edit/owner (nicht gone) und das Original dieser Seite sind bearbeitbar - die
+        // Kopie geht mit unveraendertem data.src zurueck, der Server schreibt sie ins Original. Sonst nur anzeigen.
+        val ed = env.editor
+        val canEdit = ed.editable && ed.syncSupported &&
+            (io.github.yggdrasil_sh.saga.blocks.SyncEdit.editable(d) || io.github.yggdrasil_sh.saga.blocks.SyncEdit.isOriginal(d))
+        if (canEdit) {
+            BlockColumn(path + listOf("data", "blocks"), env)
+        } else {
+            ReadOnlyBlocks(path + listOf("data", "blocks"), env)
+            val srcd = d["src"] as? JsonObject
+            val gone = (srcd?.get("gone") as? kotlinx.serialization.json.JsonPrimitive)?.content == "true"
+            if (gone) Text(stringResource(R.string.e2_synced_gone), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else if (ownOriginal && ed.editable) {
+                Text(stringResource(R.string.e1_synced_edit_web), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
     }
 }

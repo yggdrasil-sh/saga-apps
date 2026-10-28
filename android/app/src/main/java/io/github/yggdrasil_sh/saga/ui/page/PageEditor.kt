@@ -65,7 +65,18 @@ class ActiveField(
     val setLink: ((String) -> Unit)? = null,
     val linkAtCursor: (() -> String?)? = null,
     val hasSelection: () -> Boolean = { false },
+    /** 2.5 E2: Text-/Hintergrundfarbe der Auswahl setzen (null = entfernen) und aktuelle Farbe */
+    val setColor: ((String?, Boolean) -> Unit)? = null,
+    val colorAt: ((Boolean) -> String?)? = null,
+    /** 2.5 E2: Erwaehnung an der Schreibmarke einfuegen (ref, name); ein gerade getipptes "@" wird ersetzt */
+    val insertMention: ((String, String) -> Unit)? = null,
+    /** 2.5 E2: Inline-Mathe setzen (Auswahl bzw. Formel an der Schreibmarke) und vorhandene Formel an der Schreibmarke */
+    val setMath: ((String) -> Unit)? = null,
+    val mathAtCursor: (() -> String?)? = null,
 )
+
+/** 2.5 E2: "@" getippt - Auswahl der Person oeffnen (Feld, Stelle des "@" im Klartext) */
+data class MentionTrigger(val fieldKey: String, val at: Int)
 
 /**
  * Was der Editor vom Rest der App braucht (SagaRepository; in Tests eine Attrappe).
@@ -253,6 +264,10 @@ class PageEditor(
     var carry: String = ""
     var carryAt = 0L
     var active by mutableStateOf<ActiveField?>(null)
+    /** 2.5 E2: "@" im Text getippt (nur mit mention1) - PageScreen zeigt die Personenauswahl */
+    var mentionTrigger by mutableStateOf<MentionTrigger?>(null)
+    /** Server kennt Erwaehnungen (features mention1) - setzt PageScreen */
+    var mentionSupported by mutableStateOf(false)
 
     private var rev: Int? = null
     /** Revision des geladenen bzw. zuletzt gespeicherten Stands (Live-Kanal: fremde Aenderung erkennen) */
@@ -373,8 +388,8 @@ class PageEditor(
         ncBase = NcLogic.keys(parsed.doc)
         // TT 18: Seitenverweise mit dem aktuellen Titel (Unterseite "Unbenannt" -> spaeter benannt), wie im Web
         serverDoc = parsed.doc
-        syncedLoaded = SyncEdit.contents(parsed.doc)
         val nd = withStarter(NoteLinks.refresh(parsed.doc, titleOf))
+        syncedLoaded = SyncEdit.contents(nd)                         // Vergleich gegen den angezeigten Stand
         doc = if (fetched) MergeLogic.adopt(doc, nd) else nd       // unveraenderte Bloecke bleiben dasselbe Objekt
         version = 0
         savedVersion = 0
@@ -992,8 +1007,9 @@ class PageEditor(
                 val parsed = try { withContext(cpu) { BlockDoc.parse(out.body, "blocks") } } catch (_: BlockDoc.UnreadableException) { null }
                 if (parsed != null) {
                     serverDoc = parsed.doc
-                    syncedLoaded = SyncEdit.contents(parsed.doc)
-                    doc = MergeLogic.adopt(doc, withStarter(NoteLinks.refresh(parsed.doc, titleOf)))
+                    val nd = withStarter(NoteLinks.refresh(parsed.doc, titleOf))
+                    syncedLoaded = SyncEdit.contents(nd)
+                    doc = MergeLogic.adopt(doc, nd)
                     out.title?.let { if (it != title) { title = it; repo.updateTitleLocal(id, it) } }
                 }
                 savedVersion = v

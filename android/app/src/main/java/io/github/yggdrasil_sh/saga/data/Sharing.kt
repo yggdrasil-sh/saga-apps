@@ -179,7 +179,70 @@ data class CommentsResponse(
     val threads: List<CommentThread> = emptyList(),
     @SerialName("resolved_count") val resolvedCount: Int = 0,
     val max: Int = 2000,
+    /** 2.5 mention1: Namen fuer Erwaehnungen <@REF> in den Kommentaren */
+    val people: Map<String, MentionPerson> = emptyMap(),
 )
+
+@Serializable
+data class MentionPerson(val name: String = "", val avatar: String? = null, val me: Boolean = false, val gone: Boolean = false)
+
+/** 2.5 mention1: Erwaehnungen in Kommentaren (Klartext) als Token <@REF> - Teile fuer die Anzeige als Chip */
+object CommentMentions {
+    private val TOKEN = Regex("<@([~@][^<>\\s]{1,200})>")
+
+    data class Part(val text: String, val ref: String? = null)
+
+    fun split(body: String): List<Part> {
+        val out = ArrayList<Part>()
+        var pos = 0
+        for (m in TOKEN.findAll(body)) {
+            if (m.range.first > pos) out.add(Part(body.substring(pos, m.range.first)))
+            out.add(Part(m.value, m.groupValues[1]))
+            pos = m.range.last + 1
+        }
+        if (pos < body.length) out.add(Part(body.substring(pos)))
+        return out
+    }
+
+    fun token(ref: String): String = "<@$ref>"
+
+    /**
+     * Eingabefeld: Tokens als "@Name" zeigen. -> (angezeigter Text, Bereiche der Chips im angezeigten Text,
+     * Abbildung Original->Anzeige, Anzeige->Original). Positionen innerhalb eines Tokens fallen auf seine Raender.
+     */
+    class Display(val text: String, val chips: List<IntRange>, private val o2d: IntArray, private val d2o: IntArray) {
+        fun toDisplay(i: Int): Int = o2d[i.coerceIn(0, o2d.size - 1)]
+        fun toOriginal(i: Int): Int = d2o[i.coerceIn(0, d2o.size - 1)]
+    }
+
+    fun display(body: String, people: Map<String, MentionPerson>): Display {
+        val sb = StringBuilder()
+        val o2d = IntArray(body.length + 1)
+        val d2o = ArrayList<Int>()
+        val chips = ArrayList<IntRange>()
+        var pos = 0
+        for (part in split(body)) {
+            val ref = part.ref
+            if (ref == null) {
+                for (k in part.text.indices) { o2d[pos + k] = sb.length; d2o.add(pos + k); sb.append(part.text[k]) }
+            } else {
+                val lab = label(ref, people)
+                val st = sb.length
+                for (k in part.text.indices) o2d[pos + k] = if (k == 0) st else st + lab.length
+                for (k in lab.indices) d2o.add(if (k == 0) pos else pos + part.text.length)
+                sb.append(lab)
+                chips.add(st until sb.length)
+            }
+            pos += part.text.length
+        }
+        o2d[body.length] = sb.length
+        d2o.add(body.length)
+        return Display(sb.toString(), chips, o2d, d2o.toIntArray())
+    }
+
+    /** Anzeige: "@Name" (unbekannte Kennung: "@…" statt der Kennung) */
+    fun label(ref: String, people: Map<String, MentionPerson>): String = "@" + (people[ref]?.name?.ifBlank { null } ?: "…")
+}
 
 @Serializable
 data class CommentPosted(val comment: Comment? = null, @SerialName("thread_id") val threadId: Long? = null)

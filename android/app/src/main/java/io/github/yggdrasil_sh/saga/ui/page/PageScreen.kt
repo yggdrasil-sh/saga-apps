@@ -300,6 +300,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     androidx.compose.runtime.SideEffect {
         env.blockPresence = PageLiveLogic.byBlock(liveSt.users)
         ed.syncSupported = "synced1" in features25 && !ed.isRemote
+        ed.mentionSupported = "mention1" in features25 && !ed.isRemote
     }
     // KI-Assistent: null = zu, 0 = "Frag deine Seiten", 1 = "Diese Seite"
     val aiStatus by repo.ai.status.collectAsState()
@@ -712,7 +713,16 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
         )
     }
 
-    if (comments.visible) {
+    var commentMention by remember { mutableStateOf<((String) -> Unit)?>(null) }
+    val cmHook = if ("mention1" in features25 && !ed.isRemote) io.github.yggdrasil_sh.saga.ui.comments.CommentMentionHook(comments.people) { commentMention = it } else null
+    commentMention?.let { cb ->
+        MentionPicker(ed, repo, onDismiss = { commentMention = null }) { ref, name ->
+            commentMention = null
+            comments.people = comments.people + (ref to io.github.yggdrasil_sh.saga.data.MentionPerson(name))
+            cb(ref)
+        }
+    }
+    if (comments.visible) androidx.compose.runtime.CompositionLocalProvider(io.github.yggdrasil_sh.saga.ui.comments.LocalCommentMentions provides cmHook) {
         CommentsSheet(
             comments, scope,
             quote = { bid -> CommentLogic.snippet(ed.doc, bid) },
@@ -986,6 +996,11 @@ private fun EditorToolbar(
     var typeMenu by remember { mutableStateOf(false) }
     var colorMenu by remember { mutableStateOf(false) }
     var linkDialog by remember { mutableStateOf(false) }
+    var inlineColorMenu by remember { mutableStateOf(false) }
+    var mathDialog by remember { mutableStateOf<String?>(null) }
+    var mentionPick by remember { mutableStateOf(false) }
+    val trig = ed.mentionTrigger
+    LaunchedEffect(trig) { if (trig != null && trig.fieldKey == active.key) mentionPick = true }
     val blockPath: JsonPath = active.blockPath()
     val isText = active.toggle != null
 
@@ -1071,6 +1086,24 @@ private fun EditorToolbar(
                     FormatButton(stringResource(R.string.format_underline_short), stringResource(R.string.format_underline), active.styleOn(InlineStyle.UNDERLINE), active.hasSelection(), deco = TextDecoration.Underline) { active.toggle.invoke(InlineStyle.UNDERLINE) }
                     FormatButton(stringResource(R.string.format_strike_short), stringResource(R.string.format_strike), active.styleOn(InlineStyle.STRIKE), active.hasSelection(), deco = TextDecoration.LineThrough) { active.toggle.invoke(InlineStyle.STRIKE) }
                     TextButton(onClick = { linkDialog = true }, enabled = active.hasSelection(), modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.format_link)) }
+                    // 2.5 E2 (P6-8): Farbe der Auswahl, Inline-Mathe, Erwaehnung
+                    if (active.setColor != null) Box {
+                        TextButton(onClick = { inlineColorMenu = true }, enabled = active.hasSelection(), modifier = Modifier.heightIn(min = 48.dp)) {
+                            Text(stringResource(R.string.e2_inline_color))
+                        }
+                        InlineColorMenu(inlineColorMenu, active.colorAt?.invoke(false), active.colorAt?.invoke(true), onDismiss = { inlineColorMenu = false }) { c, bg ->
+                            inlineColorMenu = false
+                            active.setColor.invoke(c, bg)
+                        }
+                    }
+                    if (active.setMath != null) {
+                        TextButton(onClick = { mathDialog = active.mathAtCursor?.invoke() ?: "" }, modifier = Modifier.heightIn(min = 48.dp)) {
+                            Text(stringResource(R.string.e2_inline_math))
+                        }
+                    }
+                    if (active.insertMention != null && ed.mentionSupported) {
+                        TextButton(onClick = { mentionPick = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("@") }
+                    }
                     active.linkAtCursor?.invoke()?.let { href ->
                         TextButton(onClick = { onLink(href) }) { Text(stringResource(R.string.link_open)) }
                     }
@@ -1135,6 +1168,29 @@ private fun EditorToolbar(
                 put("type", kotlinx.serialization.json.JsonPrimitive("nextcloud"))
                 put("data", data)
             }, focus = false)
+        }
+    }
+
+    mathDialog?.let { cur ->
+        var tex by remember { mutableStateOf(cur) }
+        AlertDialog(
+            onDismissRequest = { mathDialog = null },
+            title = { Text(stringResource(R.string.e2_inline_math)) },
+            text = {
+                OutlinedTextField(value = tex, onValueChange = { tex = it.take(io.github.yggdrasil_sh.saga.blocks.RenderPreview.TEX_MAX) }, singleLine = true,
+                    label = { Text(stringResource(R.string.e2_inline_math_tex)) },
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace))
+            },
+            confirmButton = {
+                TextButton(onClick = { mathDialog = null; active.setMath?.invoke(tex) }, enabled = tex.isNotBlank()) { Text(stringResource(R.string.action_apply)) }
+            },
+            dismissButton = { TextButton(onClick = { mathDialog = null }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
+    if (mentionPick && repo != null) {
+        MentionPicker(ed, repo, onDismiss = { mentionPick = false; ed.mentionTrigger = null }) { ref, name ->
+            mentionPick = false
+            active.insertMention?.invoke(ref, name)
         }
     }
 

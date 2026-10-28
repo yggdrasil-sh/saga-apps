@@ -84,7 +84,7 @@ object InlineHtml {
         for (k in 0 until pts.size - 1) {
             val a = pts[k]
             val b = pts[k + 1]
-            val want = spans.filter { it.start <= a && it.end >= b }.sortedWith(spanOrder)
+            val want = InlineForms.colorOuter(spans.filter { it.start <= a && it.end >= b }.sortedWith(spanOrder))
             var common = 0
             while (common < stack.size && common < want.size && stack[common] === want[common]) common++
             for (i in stack.size - 1 downTo common) out.append("</").append(stack[i].tag).append('>')

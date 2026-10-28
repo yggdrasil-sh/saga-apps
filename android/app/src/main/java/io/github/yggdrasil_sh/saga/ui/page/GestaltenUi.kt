@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
@@ -128,5 +129,32 @@ fun PageStyleMenu(expanded: Boolean, font: String?, small: Boolean, onDismiss: (
             trailingIcon = if (small) ({ Text("✓") }) else null,
             onClick = { onSmall(!small) },
         )
+    }
+}
+
+/**
+ * 2.5 E2 (P6-8): Farbe der markierten Textstelle - Textfarbe und Hintergrund getrennt, je "Entfernen". Inline-Vertrag:
+ * span.hk-c-* aussen, mark.hk-bg-* innen (InlineForms.setColor).
+ */
+@Composable
+fun InlineColorMenu(expanded: Boolean, text: String?, bg: String?, onDismiss: () -> Unit, onPick: (String?, Boolean) -> Unit) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        Text(stringResource(R.string.e2_inline_text_color), style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
+            modifier = androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+        DropdownMenuItem(text = { Text(stringResource(R.string.e2_inline_color_remove)) }, leadingIcon = { Swatch(null, false) },
+            trailingIcon = if (text == null) ({ Text("✓") }) else null, onClick = { onPick(null, false) })
+        Gestalten.PALETTE.forEach { c ->
+            DropdownMenuItem(text = { Text(paletteName(c)) }, leadingIcon = { Swatch(c, false) },
+                trailingIcon = if (text == c) ({ Text("✓") }) else null, onClick = { onPick(c, false) })
+        }
+        HorizontalDivider()
+        Text(stringResource(R.string.e2_inline_bg_color), style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
+            modifier = androidx.compose.ui.Modifier.padding(horizontal = 16.dp, vertical = 6.dp))
+        DropdownMenuItem(text = { Text(stringResource(R.string.e2_inline_color_remove)) }, leadingIcon = { Swatch(null, true) },
+            trailingIcon = if (bg == null) ({ Text("✓") }) else null, onClick = { onPick(null, true) })
+        Gestalten.PALETTE.forEach { c ->
+            DropdownMenuItem(text = { Text(paletteName(c)) }, leadingIcon = { Swatch(c, true) },
+                trailingIcon = if (bg == c) ({ Text("✓") }) else null, onClick = { onPick(c, true) })
+        }
     }
 }
