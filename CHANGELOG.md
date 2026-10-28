@@ -54,6 +54,25 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Relationsfilter:** „enthält“/„enthält nicht“ wertet eine fehlende Verknüpfung (auch Einzelwert) als leere Liste –
   wie Server und Web.
 
+### Neu – Linux: Datenbanken, Diagramme, Zeitleiste, Widgets Etappe 2, Inline-Formen (Saga-Server 2.5, App-Runde Etappe 1)
+- **Formeln und Rollups** zeigen ihre Werte (Zahl, Text, Häkchen, Datum, Liste), Fehler als „#Fehler“ mit Erklärung;
+  nur lesend („im Web bearbeiten“), berechnete Werte werden nie zurückgeschrieben. Nach dem Speichern erscheinen neue
+  Werte sofort. Gruppieren nach Formel/Rollup/Personen (lesend).
+- **Personen**: Name und Bild statt Anmeldename, „(ich)“, gelöschte Personen ausgegraut; Auswahl mit Suche (nur Personen
+  mit Zugriff), Filter „bin ich“. **Dateien**: anzeigen, speichern/öffnen, hochladen und entfernen.
+- **Status mit Gruppen** (○ ◐ ●): Auswahl nach Gruppen, Board nach Gruppen (Ziehen setzt die erste Option der Gruppe),
+  Abhaken in der Liste. **Datum mit Uhrzeit und Zeitraum** in der eigenen Zeitzone, Auswahl mit Uhrzeit und Ende;
+  Uhrzeit entfernen schickt „Tag/Tag“. **Relative Filter** (gestern, nächste N Tage, überfällig …), genau wie im Web.
+- **Unteraufgaben** eingerückt in der Liste, „⛔ blockiert“; Tabellen-Block mit Kopfspalte, Spaltenbreiten und Farben
+  (Bearbeiten erhält alle Felder und das Zellen-HTML); Kalender-Woche; Kartenfarben auf Board/Galerie; Zeilenumbruch je Spalte.
+- **Diagramm-Ansicht** (Balken, Linie, Fläche, Kreis, Ring, Zahl) mit Cairo gezeichnet, Werte zusätzlich als Tabelle;
+  **Zeitleiste** nur lesend (schmal: Liste nach Start). **Widgets**: Wetter (Open-Meteo), Gewohnheiten zum Abhaken,
+  Anstehendes, Diagramm.
+- **Inline-Formen**: Textfarben, Hintergründe, Erwähnungen (aktueller Name) und Inline-Mathe werden angezeigt und beim
+  Bearbeiten erhalten; Absätze mit unbekannten Formen sind nur im Web bearbeitbar. Mathe/Mermaid als Vorschaubild
+  (Hinweis bei veraltetem Bild), synchronisierte Blöcke mit Sprung zum Original, 5–6 Spalten mit Umbruch.
+- Ältere Server: alles wie bisher (Funktionen nur, wenn der Server sie meldet).
+
 ### Neu – Linux: Vorlagen für Bearbeitende, eigene Startseite, leere neue Einträge (Saga-Server 2.5)
 - **Eintrags-Vorlagen auch mit „Bearbeiten“:** „Neu“-Menü der Datenbank zeigt ihre Vorlagen, „Neu“ nutzt die
   Standardvorlage; „Vorlagen verwalten“ bleibt beim Eigentümer. Lesen/Kommentieren: keine Vorlagen.
