@@ -52,6 +52,7 @@ def cell_key(bid, r, c):
 
 
 CAPS = "inline2,cols6"
+MERGE_CAPS = CAPS + ",merge1"     # 2.5 (P3): die App sendet merge: 1 und uebernimmt zusammengefuehrte Antworten
 
 
 def make(btype, text="", level=2):
@@ -72,6 +73,39 @@ def make(btype, text="", level=2):
     else:
         data = {"text": text}
     return {"id": new_block_id(), "type": "list" if btype in ("checklist", "unordered", "ordered") else btype, "data": data}
+
+
+def synced_editable(b, page_id=None):
+    """2.5 (P6-6, sync1): Inhalt eines synchronisierten Blocks in der App bearbeitbar? Server mit synced1; Original (Inhalt
+    dieser Seite) immer, Kopie nur mit Rolle edit/owner im Original und nicht geloescht/ohne Zugriff/unbekannt"""
+    if not store.has("synced1"):
+        return False
+    d = b.get("data") if isinstance(b, dict) else None
+    if not isinstance(d, dict) or not isinstance(d.get("blocks"), list):
+        return False
+    src = d.get("src") if isinstance(d.get("src"), dict) else None
+    if src is None or src.get("original"):
+        return True
+    if src.get("gone") or src.get("noaccess") or src.get("missing"):
+        return False
+    return src.get("role") in ("edit", "owner") and isinstance(src.get("rev"), int)
+
+
+def synced_copies(arr, out=None):
+    """alle Kopien (data.src.note gesetzt) einer Blockliste -> {sid: block}"""
+    out = {} if out is None else out
+    for b in arr or []:
+        if not isinstance(b, dict):
+            continue
+        d = b.get("data") if isinstance(b.get("data"), dict) else {}
+        if b.get("type") == "synced" and isinstance(d.get("src"), dict) and isinstance(d["src"].get("note"), int):
+            out[d.get("sid")] = b
+        if isinstance(d.get("blocks"), list):
+            synced_copies(d["blocks"], out)
+        for c in d.get("cols") or []:
+            if isinstance(c, dict):
+                synced_copies(c.get("blocks"), out)
+    return out
 
 
 def ensure_ids(arr):
@@ -157,11 +191,41 @@ class PageDoc:
         self.nc_known = set()          # Nextcloud-Bloecke (author|inst|fileid) im zuletzt geladenen/gespeicherten Stand (2.3)
         self.nc_error = None           # zuletzt gemeldete Ablehnung eines neuen Nextcloud-Blocks
         self._overwrite = False        # "Meine Version behalten": einmal mit overwrite speichern (andere Fassung -> Versionen)
+        # 2.5 (P3 Stufe 1): Zusammenfuehren - Buchfuehrung (rebase.py), die Logik rechnet der Server
+        self.base_blocks = None        # Bloecke des Server-Stands base_rev (fuer ?since und eigene ungespeicherte Bloecke)
+        self.base_rev = None
+        self.base_sent = False         # naechstes Speichern mit base: "sent" (weitergeschrieben waehrend einer Zusammenfuehrung)
+        self.on_merged = None          # (merged-info) -> None: Hinweise (Konflikt, restored, lost)
+        self.on_adopted = None         # (titel_geaendert) -> None: Stand blockweise uebernommen - Bloecke neu zeichnen
         store.docs.add(self)
 
     def mark_dirty(self):
         self.dirty = True
         self.gen += 1
+
+    def _set_base(self, blocks, rev):
+        self.base_blocks = copy.deepcopy(blocks) if isinstance(blocks, list) else None
+        self.base_rev = rev
+
+    def can_merge(self):
+        """Zusammenfuehren (merge: 1)? Block-Seiten; Seiten anderer Server nur, wenn deren Server merge1 kann (sonst 409-Dialog)"""
+        if self.is_database or not self.fetched:
+            return False
+        if self.page.get("format") not in (None, "blocks"):
+            return False
+        from .sharing import remote_can
+        return remote_can(self.page, "merge1")
+
+    def server_merges(self):
+        """Fuehrt der Server sicher zusammen? (merge1 steht nicht in features: Server ab 2.5 bzw. schon eine merged-Antwort
+        gesehen; Seiten anderer Server: remote.caps merge1). Sonst bleibt bei eigenen Eingaben der bisherige Weg."""
+        if not self.can_merge():
+            return False
+        from .sharing import is_remote
+        if is_remote(self.page) or store.merge_seen:
+            return True
+        from . import version_tuple
+        return bool(store.server_version) and version_tuple(store.server_version) >= (2, 5, 0)
 
     # --- Server + Konto ----------------------------------------------------------------------
     def _acct(self):
@@ -261,7 +325,9 @@ class PageDoc:
                 return                                       # das laufende Speichern entscheidet (409 -> Konflikt)
             if (self.dirty or self.conflict is not None) and self.fetched:
                 known = self.conflict.get("rev") if self.conflict is not None else self.rev
-                if (p.get("rev") or 0) != known:
+                if (p.get("rev") or 0) != known and self.conflict is None and self.server_merges():
+                    self.save()                              # 2.5: eigene Eingaben mit merge: 1 senden - der Server fuehrt zusammen
+                elif (p.get("rev") or 0) != known:
                     self._conflict(p)                        # eigene Eingaben + inzwischen anderer Stand: sofort melden
                 if schema is not None:
                     self.parent_schema = schema
@@ -293,6 +359,11 @@ class PageDoc:
     def _apply(self, p, schema):
         self.page = p
         self.rev = p.get("rev") or 0
+        if isinstance(p.get("people"), dict):                # 2.5 (mention1): aktuelle Namen der Erwaehnungen
+            from .richtext import MENTION_NAMES
+            for ref, pp in p["people"].items():
+                if isinstance(pp, dict) and isinstance(pp.get("name"), str):
+                    MENTION_NAMES[ref] = pp["name"]
         body = p.get("body") or ""
         root = None
         if p.get("format") == "blocks":
@@ -306,6 +377,7 @@ class PageDoc:
             root = [make("paragraph", md_to_html(line)) for line in body.split("\n") if line.strip()]
             self.doc = {"blocks": root}
         ensure_ids(root)
+        self._set_base(root if p.get("format") == "blocks" else None, self.rev)
         if not root and not self.is_database:
             root.append(make("paragraph"))
         self.root = root
@@ -480,11 +552,20 @@ class PageDoc:
         self._write_draft()
         b = {"title": self.title_raw, "rev": self.rev}
         if not self.is_database:
-            b["body"] = json.dumps(self.doc, ensure_ascii=False)
+            b["body"] = json.dumps(self._wire_doc(), ensure_ascii=False)
             b["format"] = "blocks"
         if self._overwrite:                                  # "Meine Version behalten": andere Fassung als Version sichern
             b["overwrite"] = True
             self._overwrite = False
+        merge = self.can_merge() and not b.get("overwrite")
+        caps = MERGE_CAPS if merge else CAPS
+        if getattr(self, "_sync_send", False):
+            caps += ",sync1"                                 # 2.5 (P6-6): Kopien mit bearbeitetem Inhalt (data.src unveraendert)
+        if merge:
+            b["merge"] = 1
+            if self.base_sent:
+                b["base"] = "sent"
+        sent_blocks = copy.deepcopy(self.root) if not self.is_database else None
         title = self.title_raw
         sent = self.gen
         acct = self._acct()
@@ -497,6 +578,14 @@ class PageDoc:
             self.nc_error = None
             if isinstance(r, dict) and r.get("rev") is not None:
                 self.rev = r["rev"]
+            if isinstance(r, dict) and isinstance(r.get("merged"), dict):
+                store.merge_seen = True
+                self._merged_reply(r, sent, sent_blocks, title)
+            else:
+                self.base_sent = False
+                self._set_base(sent_blocks, self.rev)
+            if isinstance(r, dict) and isinstance(r.get("synced"), dict):
+                self._synced_reply(r)
             self.dirty = self.gen != sent             # inzwischen weiter getippt -> gleich noch einmal
             self.error = self.last_error = None
             self.conflict_by = None
@@ -504,7 +593,7 @@ class PageDoc:
             self.too_large = False
             if isinstance(self.page.get("updated_by"), dict):  # "Zuletzt geaendert von": jetzt ich
                 self.page["updated_by"] = {"me": True, "name": "", "username": None}
-            store.update_title(self.id, title)
+            store.update_title(self.id, self.title_raw if not self.dirty else title)
             store.drop_cache(f"api/notes/{self.id}")
             if self.parent_schema is not None:
                 store.changed_data()
@@ -545,8 +634,175 @@ class PageDoc:
 
         def send():
             # 2.5 (P6-0): die App erhaelt Inline-Formen (Tags samt Klasse) und bis zu 6 Spalten beim Bearbeiten
-            return client.json("PATCH", f"api/notes/{self.id}", b, server=srv, account=acct, headers={"X-Saga-Caps": CAPS})
+            return client.json("PATCH", f"api/notes/{self.id}", b, server=srv, account=acct, headers={"X-Saga-Caps": caps})
         bg_serial(("note", self.id), send, done=fin, error=err)
+
+    # --- Zusammenfuehren (2.5, P3 Stufe 1) ------------------------------------------------------------------------
+    def _blocks_of(self, r):
+        body = r.get("body") if isinstance(r, dict) else None
+        if r.get("format", "blocks") != "blocks" or not isinstance(body, str):
+            return None, None
+        try:
+            m = json.loads(body) if body else {"blocks": []}
+        except ValueError:
+            return None, None
+        if not isinstance(m, dict) or not isinstance(m.get("blocks"), list):
+            return None, None
+        ensure_ids(m["blocks"])
+        return m, m["blocks"]
+
+    def _take_meta(self, r):
+        """Felder einer Server-Antwort (GET bzw. zusammengefuehrtes PATCH) ausser Inhalt uebernehmen"""
+        for k, v in r.items():
+            if k not in ("body", "delta", "merged", "ok", "synced", "synced_rev", "title", "format"):
+                self.page[k] = v
+        if isinstance(r.get("people"), dict):
+            from .richtext import MENTION_NAMES
+            for ref, pp in r["people"].items():
+                if isinstance(pp, dict) and isinstance(pp.get("name"), str):
+                    MENTION_NAMES[ref] = pp["name"]
+
+    def _merged_reply(self, r, sent_gen, sent_blocks, sent_title):
+        """Antwort mit merged: unveraendert seit dem Senden -> Inhalt blockweise uebernehmen (unveraenderte Bloecke bleiben
+        dieselben Objekte, die Schreibmarke im eigenen Block bleibt); weitergeschrieben -> lokalen Stand behalten, rev ist
+        schon uebernommen, naechstes Speichern mit base: "sent" (der Server bringt die fremden Bloecke dann mit)"""
+        from . import rebase
+        info = r["merged"]
+        m, blocks = self._blocks_of(r)
+        self._take_meta(r)
+        title_changed = False
+        if blocks is None:
+            self.base_sent = True                            # Inhalt fehlt in der Antwort: Rebase beim naechsten Speichern
+            self.mark_dirty()
+        elif self.gen == sent_gen:
+            new = rebase.adopt(self.root, blocks)
+            self.root[:] = new                               # dieselbe Liste (Ansicht/Editor halten sie)
+            for k, v in m.items():
+                if k != "blocks":
+                    self.doc[k] = v
+            self.doc["blocks"] = self.root
+            if isinstance(r.get("title"), str) and r["title"] != self.title_raw and self.title_raw == sent_title:
+                self.page["title"] = r["title"]
+                title_changed = True
+            self._set_base(blocks, self.rev)
+            self.base_sent = False
+        else:
+            self._set_base(blocks, self.rev)
+            self.base_sent = True
+            self.gen += 1                                    # sicher noch einmal speichern
+        if self.on_adopted and blocks is not None and not self.base_sent:
+            self.on_adopted(title_changed)
+        if self.on_merged:
+            self.on_merged(info)
+
+    def _synced_reply(self, r):
+        """Antwort auf das Durchschreiben synchronisierter Kopien: ok/merged -> src.rev = synced_rev uebernehmen (auch im
+        Basis-Stand, damit es nicht als eigene Aenderung zaehlt); stale/denied/locked -> nichts uebernommen: Seite neu laden
+        + Hinweis (gone ebenso)"""
+        res = r["synced"]
+        revs = r.get("synced_rev") if isinstance(r.get("synced_rev"), dict) else {}
+        bad = []
+        for arr in (self.root, self.base_blocks or []):
+            cps = synced_copies(arr)
+            for sid, st in res.items():
+                b = cps.get(sid)
+                if b is None:
+                    continue
+                if st in ("ok", "merged") and isinstance(revs.get(sid), int):
+                    b["data"]["src"]["rev"] = revs[sid]
+        for sid, st in res.items():
+            if st not in ("ok", "merged"):
+                bad.append(st)
+        if any(st == "merged" for st in res.values()) and self.on_notice:
+            self.on_notice(_("Synced block merged with a simultaneous change in the original."))
+        if bad:
+            if self.on_notice:
+                self.on_notice({"denied": _("The synced block could not be saved: no permission to edit the original."),
+                                "locked": _("The synced block could not be saved: the original page is locked."),
+                                "gone": _("The original of the synced block was deleted."),
+                                }.get(bad[0], _("The synced block was changed elsewhere – the page was reloaded.")))
+            GLib.idle_add(lambda: (self.load(force=True) if not self.dirty and not self._saving else None, False)[1])
+
+    def pull(self, done=None):
+        """Fremde Aenderung (note.changed mit hoeherer rev): GET ?since=<rev> (delta) bzw. GET, blockweise uebernehmen.
+        Eigene ungespeicherte Eingaben: statt dessen sofort mit merge: 1 speichern (die Antwort bringt die fremden Bloecke).
+        done(True|False) - False: nicht uebernommen (Rueckfall: normal neu laden)."""
+        from . import rebase
+        if not self.can_merge() or (self.dirty and not self.server_merges()):
+            return done and done(False)
+        if self.dirty or self._saving:
+            if not self._saving:
+                self.save()
+            return done and done(True)
+        since = self.base_rev if self.base_blocks is not None else None
+        path = f"api/notes/{self.id}" + (f"?since={since}" if since is not None else "")
+        gen0 = self.gen
+
+        def fin(p):
+            if not isinstance(p, dict):
+                return done and done(False)
+            theirs = None
+            if isinstance(p.get("delta"), dict):
+                theirs = rebase.from_delta(self.base_blocks, p["delta"])
+                if theirs is None:                           # eigener Stand passt nicht: ganz laden
+                    return self._pull_full(done)
+                ensure_ids(theirs)
+            else:
+                m, theirs = self._blocks_of(p)
+                if theirs is None:
+                    return done and done(False)
+            if self._saving or self.conflict is not None:
+                return done and done(True)                   # laufendes Speichern bringt den Stand mit
+            if self.dirty or self.gen != gen0:               # inzwischen getippt: mit merge: 1 speichern - eigene Bloecke
+                self.save()                                  # bleiben, die Antwort bringt die fremden mit
+                return done and done(True)
+            self.root[:] = rebase.adopt(self.root, theirs)
+            self.doc["blocks"] = self.root
+            self.rev = p.get("rev") or self.rev
+            self._take_meta(p)
+            tch = isinstance(p.get("title"), str) and p["title"] != self.title_raw and not self.dirty
+            if tch:
+                self.page["title"] = p["title"]
+                store.update_title(self.id, p["title"])
+            self._set_base(theirs, self.rev)
+            store.drop_cache(f"api/notes/{self.id}")
+            if self.on_adopted:
+                self.on_adopted(tch)
+            if done:
+                done(True)
+
+        def err(e):
+            if done:
+                done(False)
+        bg(client.get, path, done=fin, error=err)
+
+    def _pull_full(self, done):
+        self.base_blocks = None
+        self.pull(done)
+
+    def _wire_doc(self):
+        """Was gesendet wird: Kopien synchronisierter Bloecke nur mit Inhalt, wenn sie hier bearbeitbar sind und sich gegen
+        den geladenen Stand geaendert haben (sonst wuerde der Server bei Rolle view/comment bei jedem Speichern 'denied'
+        melden); data.src bleibt unveraendert (Stand src.rev fuer das Durchschreiben)."""
+        self._sync_send = False
+        cps = synced_copies(self.root)
+        if not cps or not store.has("synced1"):
+            return self.doc
+        base = synced_copies(self.base_blocks or [])
+        edited = set()
+        for sid, b in cps.items():
+            old = base.get(sid)
+            if synced_editable(b) and (old is None or json.dumps(old.get("data", {}).get("blocks"), sort_keys=True) !=
+                                       json.dumps(b.get("data", {}).get("blocks"), sort_keys=True)):
+                edited.add(sid)
+        if not edited:
+            return self.doc                                  # keine Kopie bearbeitet: alles unveraendert wie geladen (ohne sync1)
+        self._sync_send = True
+        doc = copy.deepcopy(self.doc)
+        for sid, b in synced_copies(doc.get("blocks") or []).items():
+            if sid not in edited:
+                b["data"].pop("blocks", None)                # nur die bearbeiteten Kopien schreiben durch
+        return doc
 
     def _trashed(self, e):
         """Speichern meldet 404 fuer die eigene Seite (anderswo in den Papierkorb gelegt bzw. geloescht): Stand als Entwurf
@@ -869,6 +1125,19 @@ class PageEditor:
                 self.set_focus(b.get("id"), "end")
                 self.changed()
             self.view.block_undo_toast(back)
+
+    def conflict_resolve(self, bid, take):
+        """Konfliktblock (2.5, P3): Uebernehmen = Original (of) loeschen + hkconflict entfernen; Verwerfen = Konfliktblock
+        loeschen; dann normal speichern"""
+        from . import rebase
+        if self.locked:
+            return False
+        ok = rebase.conflict_take(self.doc.root, bid) if take else rebase.conflict_drop(self.doc.root, bid)
+        if ok:
+            if not take and self.focus and self.focus.split("/")[0] == bid:
+                self.focus = None
+            self.changed()
+        return ok
 
     def toggle_of(self, bid, arr=None):
         """(Toggle-Block, seine Bloecke) wenn bid direkt in einem Toggle liegt, sonst None"""

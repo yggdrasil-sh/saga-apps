@@ -240,3 +240,29 @@ def test_page_too_large_explained_once_and_recovers(win, srv):
     assert pump(lambda: note_texts(srv, 3) == ["gekuerzt"], 6)
     idle()
     assert not v.doc.too_large and not v.large_banner.get_revealed()
+
+
+def test_merging_server_no_dialog(win, srv):
+    """2.5 (P3): fuehrt der Server zusammen (merged in der Antwort), gibt es keinen Konfliktdialog und keinen Hinweis -
+    der Dialog oben bleibt nur der Rueckfall fuer aeltere Server bzw. 409 ohne Basis"""
+    import mockv25
+    from hlidskjalf.store import store
+    store.server_version = "2.5.0"
+    srv.notes[3]["body"] = json.dumps({"blocks": [{"id": "p1", "type": "paragraph", "data": {"text": "A"}},
+                                                  {"id": "p2", "type": "paragraph", "data": {"text": "B"}}]})
+    mockv25.enable_merge(srv)
+    win.show_root(("page", 3))
+    v = win.current
+    assert pump(lambda: v.doc.fetched)
+    n = srv.notes[3]
+    bl = json.loads(n["body"])["blocks"]
+    bl[1]["data"]["text"] = "B woanders"
+    n["body"] = json.dumps({"blocks": bl})
+    n["rev"] += 1
+    mockv25.keep_base(srv, 3, n)
+    v.doc.root[0]["data"]["text"] = "A hier"
+    v.editor.text_changed()
+    v.editor.flush()
+    idle()
+    assert _dialog(win) is None and v.doc.conflict is None and not v.conflict_banner.get_revealed()
+    assert note_texts(srv, 3) == ["A hier", "B woanders"]

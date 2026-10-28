@@ -4,15 +4,17 @@ import re
 
 from gi.repository import Gdk, GLib, GObject, Graphene, Gsk, Gtk, Pango
 
-from . import gestalten, images
+from . import gestalten, images, rebase
 from .config import settings
 from .editor import CONVERTIBLE, SLASH_ITEMS, cell_key, make
 from .emoji import EMOJI
 from .entries import blocked_button_hint
-from .i18n import _
+from .i18n import _, ngettext
 from .richtext import RichText, date_text, find_trigger, inline_safe, parse_date, rel_text
 from .store import is_db, label, store
 from .util import COLOR_NAMES, COLOR_ORDER, decode_entities, esc, human_size, norm, plain
+
+PRESENCE_COLORS = ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red")
 
 TEXT_FIELD = {"paragraph": "text", "header": "text", "quote": "text", "callout": "text"}
 HEADER_CSS = {1: "hk-h1", 2: "hk-h2", 3: "hk-h3", 4: "hk-h4"}
@@ -484,6 +486,10 @@ class BlockRow(Gtk.Box):
         if sc:
             content.add_css_class(sc)
             content.add_css_class("hk-styled")
+        cf = rebase.conflict_info(block)                      # 2.5 (P3): Konfliktblock - gelber Rand, Uebernehmen/Verwerfen
+        if cf is not None:
+            content = self._conflict_box(content, cf)
+        self.presence_lb = None                               # 2.5: "{name} bearbeitet" (Anwesenheit je Block)
         self.append(content)
         # Kommentare (1.3): rechts ein schmaler Platz fuer die Zahl offener Unterhaltungen bzw. 💬+ beim Ueberfahren
         self.cslot = None
@@ -506,6 +512,53 @@ class BlockRow(Gtk.Box):
             dt.connect("leave", lambda *_: self._mark(None))
             dt.connect("drop", self._drop)
             self.add_controller(dt)
+
+    def _conflict_box(self, content, cf):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, hexpand=True)
+        box.add_css_class("hk-conflict")
+        bar = Gtk.Box(spacing=6)
+        name = cf.get("name") if isinstance(cf.get("name"), str) else ""
+        who = _("Version by {name}").format(name=name) if name else _("Other version")
+        lb = Gtk.Label(label="⚠ " + who + " – " + _("changed at the same time"), xalign=0, hexpand=True, wrap=True)
+        lb.add_css_class("hk-conflict-title")
+        bar.append(lb)
+        self.conflict_label = lb
+        if not self.kit.view.editor.locked:
+            take = Gtk.Button(label=_("Accept"), valign=Gtk.Align.CENTER)
+            take.add_css_class("hk-small")
+            take.connect("clicked", lambda *_: self.kit.editor.conflict_resolve(self.bid, True))
+            drop = Gtk.Button(label=_("Discard"), valign=Gtk.Align.CENTER)
+            drop.add_css_class("flat")
+            drop.add_css_class("hk-small")
+            drop.connect("clicked", lambda *_: self.kit.editor.conflict_resolve(self.bid, False))
+            bar.append(take)
+            bar.append(drop)
+            self.conflict_buttons = (take, drop)
+        box.append(bar)
+        box.append(content)
+        return box
+
+    def set_presence(self, users):
+        """Anwesenheit je Block (2.5): farbiger Rand links + "{name} bearbeitet" - nur Hinweis, keine Sperre"""
+        for c in PRESENCE_COLORS:
+            self.remove_css_class("hk-pres-" + c)
+        self.remove_css_class("hk-pres")
+        if self.presence_lb is not None:
+            if self.presence_lb.get_parent() is self:
+                self.remove(self.presence_lb)
+            self.presence_lb = None
+        if not users:
+            self.set_tooltip_text(None)
+            return
+        col = users[0].get("color") if users[0].get("color") in PRESENCE_COLORS else "blue"
+        self.add_css_class("hk-pres")
+        self.add_css_class("hk-pres-" + col)
+        names = [u.get("name") or "" for u in users if u.get("name")]
+        txt = _("{name} is editing").format(name=", ".join(names)) if names else ""
+        lb = Gtk.Label(label=txt, valign=Gtk.Align.START, halign=Gtk.Align.END, css_classes=["hk-pres-label", "hk-pres-" + col])
+        lb.set_can_target(False)
+        self.presence_lb = lb
+        self.append(lb)
 
     def show_handle(self, on):
         (self.handle.add_css_class if on else self.handle.remove_css_class)("hk-on")
@@ -706,6 +759,8 @@ class BlockKit:
 
     def _focused(self, rt):
         self.editor.focus = rt.hk_key
+        if hasattr(self.view, "block_focused"):
+            self.view.block_focused((rt.hk_block or {}).get("id"))
         if self.view.suggest.rt is not None and self.view.suggest.rt is not rt:
             self.view.suggest.hide()
         p = rt.get_parent()
@@ -716,6 +771,8 @@ class BlockKit:
     def _cell_focused(self, tv):
         """Tabellenzelle: Fokus merken - nach dem Neuaufbau (Zeile/Spalte dazu) geht es in derselben Zelle weiter"""
         self.editor.focus, self.editor.focus_where = tv.hk_key, "end"
+        if hasattr(self.view, "block_focused"):
+            self.view.block_focused(tv.hk_key.split("/")[0])
         if self.view.suggest.rt is not None:
             self.view.suggest.hide()
         p = tv.get_parent()
@@ -912,6 +969,21 @@ class BlockKit:
                                     cb=lambda: self.view.win.show_page(note)))
         box.append(head)
         inner = d.get("blocks")
+        from .editor import synced_editable
+        if isinstance(inner, list) and synced_editable(b, self.editor.doc.id) and not self.editor.locked:
+            # 2.5 (sync1): Inhalt bearbeitbar - Original (Inhalt dieser Seite) bzw. Kopie mit Bearbeiten im Original;
+            # beim Speichern schreibt der Server die Kopie ins Original (data.src bleibt unveraendert)
+            if src and src.get("refs"):
+                n = int(src.get("refs") or 0)
+                lb.set_label((_("Original") if own else _("Synced")) + " · " +
+                             ngettext("on {n} other page", "on {n} other pages", n).format(n=n))
+            if not inner:
+                inner.append(make("paragraph"))
+            il = self.block_list(inner, depth + 1)
+            il.set_margin_start(4)
+            box.append(il)
+            box.add_css_class("hk-synced-edit")
+            return box
         if isinstance(inner, list) and inner:
             # nur Anzeige: eine Kopie (eigene ID-Liste) darf in der App nicht bearbeitet werden; das Original im Web
             from .richtext import RichText as _RT
@@ -929,10 +1001,14 @@ class BlockKit:
                 rt.set_hexpand(True)
                 rt.on_link = self.view.open_link
                 box.append(rt)
-        elif src is not None and not inner:
+        elif src is not None and src.get("noaccess"):
             box.append(Gtk.Label(label="🔒 " + _("Synced block – no access"), xalign=0, css_classes=["dim-label"]))
+        elif src is not None and not inner:
+            box.append(Gtk.Label(label=_("Synced block not found"), xalign=0, css_classes=["dim-label"]))
         else:
             box.append(Gtk.Label(label=_("Empty synced block"), xalign=0, css_classes=["dim-label"]))
+        if src and src.get("gone"):
+            box.append(Gtk.Label(label=_("Original deleted"), xalign=0, css_classes=["dim-label", "caption"]))
         box.set_tooltip_text(_("Edit synced blocks on the web"))
         return box
 
@@ -1345,6 +1421,11 @@ class BlockKit:
             [(_("Turn into"), conv)]
         if isinstance(blk, dict) and blk.get("type") in gestalten.STYLE_TYPES:     # G3: Farbe (Text oder Hintergrund)
             ents.append((_("Color"), self._color_entries(blk)))
+        rt = next((r for k, r in self.order if k.split("/")[0] == bid and not r.raw and r.get_editable()), None)
+        if rt is not None and hasattr(self.view, "color_popover"):      # 2.5: Inline-Formen im Text des Blocks
+            if rt.get_buffer().get_has_selection():
+                ents.append((_("Color of selected text …"), lambda: self.view.color_popover(rt)))
+            ents.append((_("Inline math …"), lambda: self.view.ask_math(rt)))
         ents.append((_("Copy link to block"), lambda: self.view.win.copy_text(f"{settings.server}/notes#{ed.doc.id}:{bid}")))
         if getattr(self.view, "cpanel", None) is not None and "role" in ed.doc.page:     # Server ab 1.3
             ents.append((_("Comment"), lambda: self.view.show_comments(bid)))
@@ -1367,6 +1448,9 @@ class BlockKit:
         ents += self._ai_entries(bid)
         if hasattr(self.view, "copy_block"):
             ents += [(_("Copy block"), lambda: self.view.copy_block(bid)), (_("Cut block"), lambda: self.view.copy_block(bid, cut=True))]
+        if store.has("move1") and hasattr(self.view, "move_blocks_dialog") and isinstance(ed.doc.id, int) and ed.doc.id > 0 \
+                and not getattr(self.view, "remote", False):
+            ents.append((_("Move to another page …"), lambda: self.view.move_blocks_dialog([bid])))   # 2.5 (move1)
         ents += [(_("Duplicate"), lambda: ed.duplicate(bid)), (_("Move up"), lambda: ed.move(bid, -1)),
                  (_("Move down"), lambda: ed.move(bid, 1)), None, (_("Delete"), lambda: ed.delete(bid, undo=True), True)]
         menu_popover(parent, ents).popup()
@@ -1434,12 +1518,75 @@ class BlockKit:
             n = len(trig[1]) + 1
 
             def pick(v, rt=rt, n=n):
+                if isinstance(v, dict):                       # 2.5 (mention1): Person
+                    self.pick_person(rt, v, n)
+                    return
                 txt, link = v
                 rt.replace_before_cursor(n, txt, link)
             sg.show(rt, trig[0], items, pick)
+            if trig[0] == "at":
+                self._people_async(rt, trig[1], before, items, pick)
             return
         if sg.rt is rt:
             sg.hide()
+
+    # --- 2.5 (mention1): Personen erwaehnen ------------------------------------------------------------------------------
+    def _mention_ok(self):
+        doc = self.editor.doc
+        return store.has("mention1") and doc.fetched and isinstance(doc.id, int) and doc.id > 0 and not self.editor.locked
+
+    def _people_async(self, rt, q, before, items, pick):
+        """Personen mit Zugriff (GET /api/notes/{id}/people?q=), dazu - ab einem Zeichen - Personen ohne Zugriff aus der
+        Teilen-Suche (Auswahl fragt "Seite teilen und erwaehnen?"). Kommt an, wenn noch dieselbe Eingabe offen ist."""
+        if not self._mention_ok():
+            return
+        from urllib.parse import quote
+        from .api import client
+        from .util import bg
+        nid = self.editor.doc.id
+        q = q.strip()
+
+        def work():
+            ppl = client.get(f"api/notes/{nid}/people?q={quote(q)}") or {}
+            hits = {}
+            if q:
+                try:
+                    hits = client.get("api/share/targets?q=" + quote(q)) or {}
+                except Exception:  # noqa: BLE001 - Teilen-Suche ist nur Zusatz
+                    hits = {}
+            return ppl, hits
+
+        def fin(r):
+            sg = self.view.suggest
+            if (sg.rt is not None and sg.rt is not rt) or rt.text_before_cursor() != before or sg.closed_for == before:
+                return
+            ppl, hits = r
+            out = []
+            have = set()
+            for p in (ppl.get("people") if isinstance(ppl, dict) else None) or []:
+                if not isinstance(p, dict) or not isinstance(p.get("ref"), str):
+                    continue
+                have.add(p["ref"])
+                out.append(("👤", p.get("name") or p["ref"], _("me") if p.get("me") else _("Person"),
+                            {"ref": p["ref"], "name": p.get("name") or "", "access": True}))
+            for u in (hits.get("users") if isinstance(hits, dict) else None) or []:
+                ref = u.get("username") if isinstance(u, dict) else None
+                if not isinstance(ref, str) or not ref.startswith("~") or ref in have:
+                    continue                                  # nur Handles (nie Anmeldenamen)
+                out.append(("👤", u.get("name") or ref, _("No access"), {"ref": ref, "name": u.get("name") or "", "access": False}))
+            if out:
+                sg.show(rt, "at", out[:8] + list(items), pick)
+
+        bg(work, done=fin, error=lambda e: None)
+
+    def pick_person(self, rt, v, n):
+        """Erwaehnung einfuegen; Person ohne Zugriff: erst "Seite teilen und erwaehnen?" -> PUT .../shares, dann einfuegen"""
+        from .richtext import MENTION_NAMES
+        if v.get("access"):
+            MENTION_NAMES[v["ref"]] = v.get("name") or v["ref"]
+            rt.insert_mention(v["ref"], v.get("name") or v["ref"], n)
+            return
+        self.view.share_and_mention(rt, v, n)
 
     def _mention_items(self, trig):
         kind, q = trig
@@ -1525,6 +1672,12 @@ class BlockKit:
                 return True
             if not shift and kv == Gdk.KEY_k and not rt.raw and rt.get_buffer().get_has_selection():
                 self.view.ask_link(rt)                         # wie Notion: Strg+K mit Auswahl = Link, sonst Befehlspalette
+                return True
+            if shift and kv in (Gdk.KEY_C, Gdk.KEY_c) and not rt.raw and hasattr(self.view, "color_popover"):
+                self.view.color_popover(rt)                    # 2.5: Text-/Hintergrundfarbe der Auswahl
+                return True
+            if shift and kv in (Gdk.KEY_M, Gdk.KEY_m) and not rt.raw and hasattr(self.view, "ask_math"):
+                self.view.ask_math(rt)                         # 2.5: Inline-Mathe einfuegen/bearbeiten
                 return True
             if shift and kv == Gdk.KEY_Up:
                 ed.move(bid, -1)

@@ -259,6 +259,14 @@ class TimelineView(Gtk.Box):
             bt.set_tooltip_text(f"{r['title'] or _('Untitled')} · {day_text(s.isoformat())}" + ("" if s == e else f" – {day_text(e.isoformat())}"))
             bt.connect("clicked", lambda *_, r=r: self._open(r))
             fx.put(bt, x, head + i * row_h)
+            if self.can_drag():                              # 2.5: Balken ziehen (verschieben) bzw. Ende ziehen (Dauer)
+                self._drag(fx, bt, r, ppd, x, head + i * row_h, end=False)
+                hd = Gtk.Box(css_classes=["hk-tl-handle"], tooltip_text=_("Drag to change the end"))
+                hd.set_size_request(8, row_h - 6)
+                hd.set_cursor_from_name("ew-resize")
+                fx.put(hd, x + max(w, 90) - 8, head + i * row_h)
+                self._drag(fx, hd, r, ppd, x + max(w, 90) - 8, head + i * row_h, end=True)
+                bt.hk_handle = hd
         sw = Gtk.ScrolledWindow(vscrollbar_policy=Gtk.PolicyType.NEVER, hscrollbar_policy=Gtk.PolicyType.AUTOMATIC,
                                 propagate_natural_height=True)
         sw.set_child(fx)
@@ -273,6 +281,52 @@ class TimelineView(Gtk.Box):
             GLib.idle_add(go)
         if not self.items:
             self.append(Gtk.Label(label=_("No entries with a date"), xalign=0, css_classes=["dim-label"]))
+
+
+    # --- 2.5 (timeline1): ziehen -----------------------------------------------------------------------------------------
+    def can_drag(self):
+        sp = self.m.prop((self.view or {}).get("date_by")) or next((p for p in self.m.props if p.get("type") == "date"), None)
+        return store.has("timeline1") and not self.m.locked and (sp or {}).get("type") == "date"
+
+    def _drag(self, fx, w, r, ppd, x0, y0, end):
+        g = Gtk.GestureDrag()
+        g.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        st = {"dx": 0}
+
+        def upd(gg, dx, dy):
+            st["dx"] = dx
+            if abs(dx) > 4:
+                gg.set_state(Gtk.EventSequenceState.CLAIMED)
+                fx.move(w, x0 + dx, y0)
+                h = getattr(w, "hk_handle", None)
+                if h is not None:
+                    fx.move(h, x0 + dx + w.get_width() - 8, y0)
+
+        def end_(gg, dx, dy):
+            days = int(round(dx / ppd)) if ppd else 0
+            if abs(dx) <= 4 or days == 0:
+                fx.move(w, x0, y0)
+                h = getattr(w, "hk_handle", None)
+                if h is not None:
+                    fx.move(h, x0 + w.get_width() - 8, y0)
+                return
+            self.drop(r, days, end_only=end)
+        g.connect("drag-update", upd)
+        g.connect("drag-end", end_)
+        w.add_controller(g)
+
+    def drop(self, r, days, end_only=False):
+        """Daten verschieben: ein Props-PATCH mit beiden Daten (Zeitraum im Beginn gemeinsam)"""
+        sp = self.m.prop((self.view or {}).get("date_by")) or next((p for p in self.m.props if p.get("type") == "date"), None)
+        ep = self.m.prop((self.view or {}).get("end_by"))
+        if ep is not None and ep.get("type") != "date":
+            ep = None
+        full = store.has("datetime1")
+        patch = dv.timeline_patch(sp, ep, self.m.value(sp, r), self.m.value(ep, r) if ep else None, days, end_only, full=full)
+        if not patch:
+            return None
+        self.m.set_props(r["id"], patch)
+        return patch
 
 
 def store_has_chart():

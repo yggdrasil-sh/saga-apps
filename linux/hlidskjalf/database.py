@@ -386,6 +386,27 @@ class DBModel(GObject.Object):
         store.run("PATCH", f"api/notes/{row_id}", {"props": {pid: value}}, data_changed=False, key=("note", row_id),
                   done=done, error=lambda e: (store.emit("error", str(e)), self.load()))
 
+    def set_props(self, row_id, props):
+        """mehrere Eigenschaften in EINEM Props-PATCH (Zeitleiste ziehen: Beginn und Ende gemeinsam, 2.5)"""
+        if self.readonly or not props:
+            self.emit("changed")
+            return
+        props = {k: v for k, v in props.items() if not dv.is_fx(self.prop(k))}
+        r = next((x for x in self.rows if x["id"] == row_id), None)
+        if r is not None:
+            for k, v in props.items():
+                if v is None:
+                    r["props"].pop(k, None)
+                else:
+                    r["props"][k] = v
+        self.emit("changed")
+
+        def done(ans):
+            store.drop_cache(f"api/notes/{row_id}")
+            store.emit("row-changed", int(row_id))
+        store.run("PATCH", f"api/notes/{row_id}", {"props": props}, data_changed=False, key=("note", row_id),
+                  done=done, error=lambda e: (store.emit("error", str(e)), self.load()))
+
     def rename(self, row_id, title):
         """Titel mit Revision speichern (ueber den offenen Peek bzw. die aktuelle Revision) - kein 409 im Peek danach"""
         if self.readonly:

@@ -238,6 +238,7 @@ def buffer_to_html(buf, start=None, end=None, base_bold=False):
     start = start or buf.get_start_iter()
     end = end or buf.get_end_iter()
     out = []
+    ids = {}                                           # Original-Tag -> Nummer (schliessende Tags je Original markieren)
     it = start.copy()
     while it.compare(end) < 0:
         nxt = it.copy()
@@ -254,7 +255,7 @@ def buffer_to_html(buf, start=None, end=None, base_bold=False):
             inner = [n for n in xn if _x_order(n)[0] >= 2]
             for n in spans:                            # span aussen (auch um Verweise), wie der Vertrag
                 o += n[len(X_PREFIX):]
-                c = "</span>" + c
+                c = "</span\x00%d>" % ids.setdefault(n, len(ids)) + c
             link = next((n for n in names if n.startswith(("a:", "t:"))), None)
             if link and link.startswith("t:"):
                 v = link[2:]
@@ -271,16 +272,18 @@ def buffer_to_html(buf, start=None, end=None, base_bold=False):
                     c = f"</{k}>" + c
             for n in inner:
                 o += n[len(X_PREFIX):]
-                c = "</" + n[len(X_PREFIX) + 1:].split(None, 1)[0].rstrip(">").lower() + "\x00>" + c
+                c = "</" + n[len(X_PREFIX) + 1:].split(None, 1)[0].rstrip(">").lower() + "\x00%d>" % ids.setdefault(n, len(ids)) + c
             out.append(o + esc(text).replace("\n", "<br>") + c)
         it = nxt
     html = "".join(out)
     # gleiche Original-Tags in Folge zusammenfassen (Farbe ueber Fett -> ein span), Erwaehnungen bleiben einzeln
-    for t in {n for n in _x_names(buf) if x_kind(n[len(X_PREFIX):])[0] != "mention"}:
+    for t, i in ids.items():
+        if x_kind(t[len(X_PREFIX):])[0] == "mention":
+            continue
         op = t[len(X_PREFIX):]
         tag = op[1:].split(None, 1)[0].rstrip(">").lower()
-        html = html.replace(("</span>" if tag == "span" else f"</{tag}\x00>") + op, "")
-    html = html.replace("\x00", "")
+        html = html.replace(f"</{tag}\x00{i}>" + op, "")    # nur dasselbe Original (Farbe rot gefolgt von blau bleibt getrennt)
+    html = re.sub("\x00\\d+", "", html)
     for t in FORMAT_TAGS:
         html = html.replace(f"</{t}><{t}>", "")
     return html
@@ -647,6 +650,116 @@ class RichText(Gtk.TextView):
             if tag == "code":
                 buf.remove_tag_by_name("mark", s, e)
         self.emit("html-changed")
+
+    # --- 2.5 (P6-8): Inline-Formen setzen ----------------------------------------------------------------------------
+    def _x_tags_in(self, s, e, kinds):
+        out = []
+        for n in _x_names(self.get_buffer()):
+            if x_kind(n[len(X_PREFIX):])[0] in kinds:
+                out.append(n)
+        return out
+
+    def set_inline_color(self, kind, color):
+        """Text- (kind 'color') bzw. Hintergrundfarbe ('bg') der Auswahl setzen (Palette) oder entfernen (color None).
+        Gespeichert als span.hk-c-* aussen / mark.hk-bg-* innen (buffer_to_html ordnet). -> True, wenn etwas geaendert"""
+        buf = self.get_buffer()
+        b = buf.get_selection_bounds()
+        if not b or self.raw:
+            return False
+        s, e = b
+        pal = TC if kind == "color" else BC
+        if color is not None and color not in pal:
+            return False
+        kinds = ("color",) if kind == "color" else ("bg", "marker")
+        for n in self._x_tags_in(s, e, kinds):
+            buf.remove_tag_by_name(n, s, e)
+        if kind == "bg":
+            buf.remove_tag_by_name("mark", s, e)             # einfache Markierung (Gelb) wird durch die Farbe ersetzt
+        if color is not None:
+            tag = f'<span class="hk-c-{color}">' if kind == "color" else f'<mark class="hk-bg-{color}">'
+            buf.apply_tag(_x_tag(buf, tag), s, e)
+        self.emit("html-changed")
+        return True
+
+    def inline_colors(self):
+        """-> (textfarbe|None, hintergrund|None) am Anfang der Auswahl bzw. an der Schreibmarke"""
+        buf = self.get_buffer()
+        b = buf.get_selection_bounds()
+        it = b[0] if b else buf.get_iter_at_mark(buf.get_insert())
+        fg = bgc = None
+        for t in it.get_tags():
+            n = t.props.name or ""
+            if n.startswith(X_PREFIX):
+                k, v = x_kind(n[len(X_PREFIX):])
+                if k == "color":
+                    fg = v
+                elif k == "bg":
+                    bgc = v
+        return fg, bgc
+
+    def math_range(self, it=None):
+        """Inline-Mathe an der Schreibmarke: -> (start, ende) oder None"""
+        buf = self.get_buffer()
+        it = it or buf.get_iter_at_mark(buf.get_insert())
+        tag = next((t for t in it.get_tags() if x_kind((t.props.name or "")[len(X_PREFIX):])[0] == "math"
+                    and (t.props.name or "").startswith(X_PREFIX)), None)
+        if tag is None:
+            back = it.copy()
+            if back.backward_char():
+                tag = next((t for t in back.get_tags() if (t.props.name or "").startswith(X_PREFIX)
+                            and x_kind(t.props.name[len(X_PREFIX):])[0] == "math"), None)
+                it = back
+        if tag is None:
+            return None
+        s, e = it.copy(), it.copy()
+        if not s.starts_tag(tag):
+            s.backward_to_tag_toggle(tag)
+        e.forward_to_tag_toggle(tag)
+        return s, e
+
+    def set_math(self, tex, rng=None):
+        """Inline-Mathe einfuegen (an der Auswahl bzw. Schreibmarke) oder ersetzen (rng = math_range()); leer = entfernen.
+        Gespeichert als code.hk-math mit dem TeX-Quelltext als Text."""
+        if self.raw:
+            return False
+        buf = self.get_buffer()
+        tex = (tex or "").replace("\n", " ").strip()
+        buf.begin_user_action()
+        if rng is not None:
+            s, e = rng
+            m = buf.create_mark(None, s, True)
+            buf.delete(s, e)
+            at = buf.get_iter_at_mark(m)
+            buf.delete_mark(m)
+        else:
+            b = buf.get_selection_bounds()
+            if b:
+                buf.delete(*b)
+            at = buf.get_iter_at_mark(buf.get_insert())
+        if tex:
+            buf.insert_with_tags(at, tex, _x_tag(buf, '<code class="hk-math">'))
+        buf.end_user_action()
+        self.emit("html-changed")
+        return True
+
+    def insert_mention(self, ref, name, n_chars=0):
+        """Erwaehnung einfuegen: span.hk-mention (data-u = Kennung, Text = Name) + Leerzeichen; n_chars: Ausloeser (@...)
+        davor ersetzen. Der Chip ist eine Einheit (nicht bearbeitbar)."""
+        if self.raw or not ref:
+            return False
+        buf = self.get_buffer()
+        cur = buf.get_iter_at_mark(buf.get_insert())
+        st = cur.copy()
+        st.backward_chars(n_chars)
+        buf.begin_user_action()
+        buf.delete(st, cur)
+        cur = buf.get_iter_at_mark(buf.get_insert())
+        tag = _x_tag(buf, '<span class="hk-mention" data-u="%s">' % esc(ref).replace('"', "&quot;"))
+        buf.insert_with_tags(cur, name or ref, tag)
+        cur = buf.get_iter_at_mark(buf.get_insert())
+        buf.insert(cur, " ")
+        buf.end_user_action()
+        return True
 
     def set_link(self, href):
         buf = self.get_buffer()

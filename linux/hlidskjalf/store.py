@@ -68,6 +68,12 @@ class Store(GObject.Object):
         self._refresh_next = None         # Rueckrufe fuer eine weitere Auffrischung (danach angefragt)
         self._refreshed_at = 0.0
         self._task_deletes = {}           # Aufgabe -> (Aufgabe, Zeitgeber): Loeschen erst nach der Rueckgaengig-Frist
+        # 2.5 (tasksrc1): Aufgabenquellen - Liste in Server-Reihenfolge (Inbox + Zeilen), Quellen, Personen, Warteschlange
+        self.task_items = None            # None: Server ohne tasksrc1 (bisherige Liste tasks/done_tasks)
+        self.task_sources = []
+        self.task_people = {}
+        self._tqueue = None
+        self._tq_running = False
         self.docs = weakref.WeakSet()     # offene Seiten (PageDoc) - Schliessen wartet auf deren Speichern
         self.changed_data = Debounce(350, lambda: self.emit("data-changed"))   # Datenbank-Ansichten neu laden (gebuendelt)
         self.recent = list(config.settings.get("recent", []))
@@ -176,6 +182,7 @@ class Store(GObject.Object):
         self.trashed_ids = set()
         self._set_pages([])
         self.tasks, self.done_tasks, self.events = [], [], []
+        self.task_items, self.task_sources, self.task_people, self._tqueue = None, [], {}, None
         self.fed_shared, self.fed_unreachable = [], []
         self._set_shared([])
         self.share_api, self.share_off = None, False
@@ -184,6 +191,7 @@ class Store(GObject.Object):
             config.settings.set(k, None)
         self.server_home, self.fresh = False, {}
         self.server_version = self.min_app = None
+        self.merge_seen = False
         self.features = frozenset()
         from . import pagewidgets
         pagewidgets.FEATURES = None
@@ -238,6 +246,7 @@ class Store(GObject.Object):
         self.trashed_ids = set()
         self._set_pages([])
         self.tasks, self.done_tasks, self.events = [], [], []
+        self.task_items, self.task_sources, self.task_people, self._tqueue = None, [], {}, None
         self.fed_shared, self.fed_unreachable = [], []
         self._set_shared([])
         self.share_api, self.share_off = None, False
@@ -673,7 +682,7 @@ class Store(GObject.Object):
             split = self.split_pages([dict(p) for p in nbase])   # Kopien anzeigen; Baum im Hintergrund aufbereiten
             if tree_only:
                 return nbase, ncur, split, None, None, None
-            t = client.get("api/tasks")
+            t = client.get(self.tasks_api_path())
             return nbase, ncur, split, t, acct, self._fetch_shared()
 
         def finish(ok, r):
@@ -705,8 +714,7 @@ class Store(GObject.Object):
                 elif self._refresh_next is None:             # waehrend des Ladens lokal geaendert: Liste evtl. veraltet
                     self._refresh_next = []
                 self._apply_shared(sh, sh_api, sh_off)
-                self.tasks, self.done_tasks = t.get("open", []), t.get("done", []) or []
-                self._drop_pending_deleted()
+                self._take_tasks(t)
                 self.needs_login = False
                 self._refreshed_at = time.monotonic()
                 self.emit("pages-changed")
@@ -804,6 +812,7 @@ class Store(GObject.Object):
         return time.monotonic() - self._refreshed_at >= every - 30
 
     server_version = None
+    merge_seen = False          # 2.5 (P3): der Server hat schon einmal zusammengefuehrt (merged in einer PATCH-Antwort)
     min_app = None
     features = frozenset()              # 2.5: Faehigkeiten des Servers (/api/version "features"), aeltere Server: leer
     graph_api = None                    # 2.5: False = Server kennt api/graph nicht (404) -> Einstieg "Graph" ausblenden
@@ -818,6 +827,10 @@ class Store(GObject.Object):
                 from . import pagewidgets
                 pagewidgets.FEATURES = self.features                 # Widgets Etappe 2 nur mit passendem Server
                 self.emit("version-changed")
+                if "tasksrc1" in self.features and self.task_items is None:
+                    self.load_today()                                # 2.5: Aufgaben mit Quellen nachladen
+                if "tasksrc1" in self.features and len(self.tqueue):
+                    self.flush_task_queue()
         bg(client.get, "api/version", done=fin, error=lambda e: None)
 
     def has(self, feature):
@@ -1053,13 +1066,134 @@ class Store(GObject.Object):
         return True
 
     # --- Aufgaben -------------------------------------------------------------------------------
+    def tasks_api_path(self):
+        """2.5: mit Aufgabenquellen (tasksrc1) die gemeinsame Liste, sonst wie bisher"""
+        if self.has("tasksrc1"):
+            from .tasksrc import tasks_path
+            return tasks_path()
+        return "api/tasks"
+
+    def _take_tasks(self, t):
+        if not isinstance(t, dict):
+            return
+        self.tasks, self.done_tasks = t.get("open", []) or [], t.get("done", []) or []
+        if isinstance(t.get("items"), list):
+            from . import tasksrc
+            self.task_items = tasksrc.items(t)
+            self.task_sources = [x for x in t.get("sources") or [] if isinstance(x, dict)]
+            self.task_people = t.get("people") if isinstance(t.get("people"), dict) else {}
+            self._overlay_queue()
+        else:
+            self.task_items = None
+        self._drop_pending_deleted()
+
     def load_today(self):
         def fin(t):
-            self.tasks, self.done_tasks = t.get("open", []), t.get("done", []) or []
-            self._drop_pending_deleted()
+            self._take_tasks(t)
             self.emit("today-changed")
-        bg(client.get, "api/tasks", done=fin, error=lambda e: None)
+        bg(client.get, self.tasks_api_path(), done=fin, error=lambda e: None)
         self.load_events()
+
+    # --- Aufgabenquellen (2.5, tasksrc1): Abhaken mit Rueckgaengig, Offline-Warteschlange ------------------------------
+    @property
+    def tqueue(self):
+        from .tasksrc import Queue
+        if self._tqueue is None or self._tqueue.path != Queue().path:
+            self._tqueue = Queue()
+        return self._tqueue
+
+    def _overlay_queue(self):
+        """noch nicht gesendete Aktionen in der Liste zeigen (abgehakt bzw. wieder offen)"""
+        if self.task_items is None or not len(self.tqueue):
+            return
+        q = dict(self.tqueue.entries())
+        from .tasksrc import item_key
+        for it in self.task_items:
+            e = q.get(item_key(it))
+            if e is not None:
+                it["done"] = e["done"]
+
+    def cached_done_value(self, it):
+        """offline: Wert der Erledigt-Eigenschaft einer Zeile aus dem zuletzt geladenen Stand (fuer Rueckgaengig) oder None"""
+        src = next((x for x in self.task_sources if x.get("db") == it.get("src")), None)
+        pid = ((src or {}).get("map") or {}).get("done")
+        c = self.cached(f"api/notes/{it.get('id')}") if pid else None
+        props = c.get("props") if isinstance(c, dict) and isinstance(c.get("props"), dict) else {}
+        return props.get(pid) if pid in props else None
+
+    def set_item_done(self, it, done, prev=None, undo=None):
+        """Inbox-Aufgabe oder Zeile abhaken/wieder oeffnen. Erst in die Warteschlange (Platte), dann senden; Antwort mit
+        prev (Zeilen) -> Rueckgaengig moeglich (undo(prev) ruft der Toast)."""
+        if it.get("kind") == "row" and it.get("edit") is False:
+            return
+        it["done"] = bool(done)
+        if done and prev is None and it.get("kind") == "row":
+            prev = self.cached_done_value(it)
+        self.tqueue.put(it, done, prev)
+        self.emit("today-changed")
+        self.flush_task_queue(undo_for=(it, undo) if done else None)
+
+    def flush_task_queue(self, undo_for=None):
+        """Warteschlange nacheinander senden (letzte Aktion je Eintrag gewinnt). Nach jedem Erfolg neu laden."""
+        if self._tq_running:
+            return
+        q = self.tqueue
+        ents = q.entries()
+        if not ents:
+            return
+        self._tq_running = True
+        from .tasksrc import Queue
+
+        def work():
+            res = []
+            for k, e in ents:
+                m, path, body = Queue.request(e)
+                try:
+                    r = client.json(m, path, body)
+                    res.append((k, e, 200, r))
+                except APIError as ex:
+                    res.append((k, e, ex.code or None if ex.code else 0, None))
+                    if not ex.code:                          # offline: Rest spaeter
+                        break
+            return res
+
+        def fin(res):
+            self._tq_running = False
+            changed = False
+            for k, e, code, r in res:
+                out = Queue.outcome(code) if code != 0 else "keep"
+                cur = q.d.get(k)
+                same = cur is not None and cur.get("done") == e.get("done") and cur.get("prev") == e.get("prev")
+                if out == "keep":
+                    continue
+                if same:
+                    q.drop(k)
+                changed = True
+                if out == "ok" and isinstance(r, dict) and e.get("done") and "prev" in r and undo_for is not None:
+                    it, cb = undo_for
+                    if cb and it.get("id") == e.get("id") and it.get("kind") == e.get("kind"):
+                        cb(r.get("prev"))
+                if out in ("drop", "reload"):
+                    self.emit("error", _("A task could not be updated – the list was reloaded."))
+            if changed:
+                self.load_today()
+            if len(q) and any(Queue.outcome(c) == "ok" for _k, _e, c, _r in res if c):
+                self.flush_task_queue()
+
+        def err(e):
+            self._tq_running = False
+        bg_serial(("tasks", "queue"), work, done=fin, error=err)
+
+    def add_task_to(self, text, src=None, due=None, prio=2):
+        """Neue Aufgabe mit Ziel: Inbox (src None) oder Quelle (POST /api/tasks {text, src}) -> Zeile in der Datenbank"""
+        if src is None:
+            return self.add_task(text, due, prio)
+        b = {"text": text, "src": src}
+        if due:
+            b["due"] = due
+        if prio != 2:
+            b["prio"] = prio
+        self.run("POST", "api/tasks", b, done=lambda r: (self.load_today(), self.changed_data()))
 
     def _drop_pending_deleted(self):
         if self._task_deletes:

@@ -452,3 +452,30 @@ window.hk-dark .hk-render-stale { color: #f0a35e; }
 window.hk-dark .hk-up-over { color: #f28585; }
 .hk-tl-today { background: alpha(#c22a2a, 0.7); }
 button.hk-timeline-bar.hk-tl-default { background: alpha(#0b6e99, 0.18); }
+/* 2.5 (P3): Konfliktblock aus dem Zusammenfuehren - gelber Rand, Kopfzeile mit Uebernehmen/Verwerfen */
+.hk-conflict { border-left: 3px solid #dfab01; background: alpha(#dfab01, 0.10); border-radius: 4px; padding: 4px 8px; }
+.hk-conflict-title { font-size: 0.85em; font-weight: 600; color: #7f6200; }
+window.hk-dark .hk-conflict-title { color: #e6c54f; }
+/* 2.5 (P3): Anwesenheit je Block - farbiger Rand links + "{name} bearbeitet" (nur Hinweis) */
+.hk-block-row.hk-pres { border-radius: 2px; }
+.hk-pres-label { font-size: 0.75em; font-weight: 600; margin: 2px 4px 0 6px; opacity: 0.9; }
+.hk-block-row.hk-pres-gray { box-shadow: inset 3px 0 0 0 #9b9a97; }
+.hk-block-row.hk-pres-brown { box-shadow: inset 3px 0 0 0 #9f6b53; }
+.hk-block-row.hk-pres-orange { box-shadow: inset 3px 0 0 0 #d9730d; }
+.hk-block-row.hk-pres-yellow { box-shadow: inset 3px 0 0 0 #dfab01; }
+.hk-block-row.hk-pres-green { box-shadow: inset 3px 0 0 0 #0f7b6c; }
+.hk-block-row.hk-pres-blue { box-shadow: inset 3px 0 0 0 #0b6e99; }
+.hk-block-row.hk-pres-purple { box-shadow: inset 3px 0 0 0 #6940a5; }
+.hk-block-row.hk-pres-pink { box-shadow: inset 3px 0 0 0 #ad1a72; }
+.hk-block-row.hk-pres-red { box-shadow: inset 3px 0 0 0 #e03e3e; }
+label.hk-pres-gray { color: #686763; } label.hk-pres-brown { color: #8a5a44; } label.hk-pres-orange { color: #a65300; }
+label.hk-pres-yellow { color: #7f6200; } label.hk-pres-green { color: #0b6e60; } label.hk-pres-blue { color: #0b6893; }
+label.hk-pres-purple { color: #6940a5; } label.hk-pres-pink { color: #a8186e; } label.hk-pres-red { color: #c22a2a; }
+window.hk-dark label.hk-pres-gray { color: #b0afab; } window.hk-dark label.hk-pres-brown { color: #c9a08b; }
+window.hk-dark label.hk-pres-orange { color: #f0a35e; } window.hk-dark label.hk-pres-yellow { color: #e6c54f; }
+window.hk-dark label.hk-pres-green { color: #4fc4a9; } window.hk-dark label.hk-pres-blue { color: #62b4e2; }
+window.hk-dark label.hk-pres-purple { color: #b893e6; } window.hk-dark label.hk-pres-pink { color: #e682bb; }
+window.hk-dark label.hk-pres-red { color: #f28585; }
+/* 2.5 (timeline1): Ende des Balkens ziehen */
+.hk-tl-handle { background: alpha(currentColor, 0.25); border-radius: 0 6px 6px 0; }
+.hk-tl-handle:hover { background: alpha(var(--accent-bg-color), 0.6); }

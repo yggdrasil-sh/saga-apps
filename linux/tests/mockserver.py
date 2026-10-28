@@ -462,6 +462,7 @@ class MockServer:
                 return self._widgets(n)
             if not rest and method == "GET":
                 out = mockv25.decorate_note(self, nid, dict(n))
+                out = mockv25.since_delta(self, nid, out, q)
                 if self.publish_api:
                     st = self.pub_state(nid)
                     out.update(published=st["published"], published_via=st["published_via"], public_url=st["url"])
@@ -472,6 +473,9 @@ class MockServer:
                 return self._publish(method, nid, n, body or {}) if self.publish_api else self._reply(404, {"error": "not found"})
             if not rest and method == "PATCH":
                 content = "body" in body or "title" in body
+                mr = mockv25.merge_patch(self, nid, n, body) if content else None
+                if mr is not None:
+                    return mr
                 if content and body.get("rev") is not None and body["rev"] != n["rev"]:
                     by = n.get("updated_by")
                     out = {"error": "conflict", "rev": n["rev"]}
@@ -491,8 +495,11 @@ class MockServer:
                     n["props"] = {k: v for k, v in n["props"].items() if v is not None}
                 if content:
                     n["rev"] += 1
+                    mockv25.keep_base(self, nid, n)
                 n["updated"] = time.time()
                 out = {"ok": True, "updated": n["updated"], "rev": n["rev"]}
+                if content and getattr(self, "patch_extra", None):      # 2.5: z. B. synced/synced_rev (P6-6)
+                    out.update(self.patch_extra)
                 if "props" in body:
                     out = mockv25.patch_row(self, nid, body, out)
                 return self._reply(200, out)

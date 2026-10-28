@@ -686,3 +686,56 @@ def nest(all_rows, shown, sub, get):
     for rid in sorted(roots, key=rank.__getitem__):
         walk(rid, 0)
     return out
+
+
+# --- 2.5 (timeline1): Zeitleiste ziehen ------------------------------------------------------------------------------
+def shift_value(v, days, end_days=None, viewer=None, full=True):
+    """Datumswert um days verschieben (Balken ziehen); end_days: nur das Ende um so viele Tage (Ende ziehen; None = wie
+    days). Uhrzeit/Offset bleiben (in der Zone des Betrachters, wie angezeigt), Zeitraum a/b gemeinsam. Ende nie vor
+    dem Beginn (dann eintaegig bzw. Ende = Beginn). -> neuer Wert oder None (unverstaendlich)"""
+    pr = parse_date(v)
+    if pr is None:
+        return None
+    viewer = viewer or viewer_tz()
+    end_days = days if end_days is None else end_days
+    d1, t1 = pr[0].local(viewer)
+    nd1 = d1 + _dt.timedelta(days=days)
+    if pr[1] is None:
+        if end_days != days and end_days > days:              # eintaegig, Ende gezogen -> Zeitraum
+            return compose(nd1, t1, d1 + _dt.timedelta(days=end_days), t1 if t1 else None, full=full, viewer=viewer)
+        return compose(nd1, t1, full=full, viewer=viewer)
+    d2, t2 = pr[1].local(viewer)
+    nd2 = d2 + _dt.timedelta(days=end_days)
+    if (nd2, t2 or (23, 59)) < (nd1, t1 or (0, 0)):
+        nd2, t2 = nd1, t2 if t2 and t1 and t2 >= t1 else None
+    if nd2 == nd1 and t2 is None and t1 is None:
+        return nd1.isoformat()                              # Zeitraum auf einen Tag geschrumpft
+    return compose(nd1, t1, nd2, t2, full=full, viewer=viewer)
+
+
+def timeline_patch(start_prop, end_prop, start_val, end_val, days, end_only=False, viewer=None, full=True):
+    """Props-PATCH fuer das Ziehen eines Balkens: {pid: wert} - beide Daten in einem Aufruf. end_prop None: Ende steckt im
+    Zeitraum des Beginns (gemeinsam geschrieben). end_only: nur das Ende ziehen. Berechnete Daten (Erstellt/Bearbeitet)
+    werden nie geschrieben -> {}"""
+    out = {}
+    sp_t = (start_prop or {}).get("type")
+    if sp_t != "date":
+        return out
+    if end_prop is not None and (end_prop or {}).get("type") == "date" and isinstance(end_val, str) and end_val:
+        if not end_only:
+            nv = shift_value(start_val, days, viewer=viewer, full=full)
+            if nv is not None:
+                out[start_prop["id"]] = nv
+        ne = shift_value(end_val, days, viewer=viewer, full=full)
+        if ne is not None:
+            out[end_prop["id"]] = ne
+        return out
+    if end_prop is not None and end_only:                    # Ende-Eigenschaft noch leer: Ende = Beginn + days
+        sp = day_span(start_val, viewer)
+        if sp:
+            out[end_prop["id"]] = compose(sp[1] + _dt.timedelta(days=days), None, full=full, viewer=viewer)
+        return out
+    nv = shift_value(start_val, 0 if end_only else days, end_days=days, viewer=viewer, full=full)
+    if nv is not None:
+        out[start_prop["id"]] = nv
+    return out

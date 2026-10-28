@@ -13,6 +13,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk, Pango
 from .api import client
 from .i18n import _, ngettext
 from .sharing import RANK
+from .store import store
 from .util import bg, date_time_text, rel_time
 
 COMMENT_MAX = 2000
@@ -23,6 +24,37 @@ URL_RE = re.compile(r"\bhttps?://[^\s<>\"']+")
 # =====================================================================================================
 # Logik ohne GTK
 # =====================================================================================================
+MENTION_RE = re.compile(r"<@(~[A-Za-z0-9]{16}|@[^\s<>@]+@[^\s<>@]+)>")
+
+
+def mention_token(ref):
+    """Erwaehnung in einem Kommentar (Klartext): <@REF> (Handle bzw. Prinzipal, nie Anmeldename)"""
+    return f"<@{ref}>"
+
+
+def mention_markup(text, people=None):
+    """Kommentartext -> Pango-Markup: <@REF> als Chip "@Name" (aktueller Name aus people; eigenes Konto hervorgehoben,
+    geloeschte Person durchgestrichen, unbekannt: Token als Text), Links wie bisher"""
+    people = people or {}
+    out, last = [], 0
+    text = text or ""
+    for m in MENTION_RE.finditer(text):
+        out.append(linkify_markup(text[last:m.start()]))
+        p = people.get(m.group(1)) if isinstance(people.get(m.group(1)), dict) else None
+        if p is None:
+            out.append(GLib.markup_escape_text(m.group(0)))
+        else:
+            nm = GLib.markup_escape_text("@" + (p.get("name") or ""))
+            if p.get("gone"):
+                out.append(f'<s>{nm}</s>')
+            else:
+                bgc = "#0b689340" if p.get("me") else "#0b689324"
+                out.append(f'<span weight="bold" foreground="#3584e4" background="{bgc}">{nm}</span>')
+        last = m.end()
+    out.append(linkify_markup(text[last:]))
+    return "".join(out)
+
+
 def linkify_markup(text):
     """Klartext -> Pango-Markup mit Links (nur http/https; Satzzeichen am Ende gehoeren nicht zum Link)"""
     out, last = [], 0
@@ -142,6 +174,7 @@ class CommentState:
         self.block = None                 # Blockansicht: nur Unterhaltungen dieses Blocks
         self.expanded = set()             # aufgeklappte erledigte Unterhaltungen
         self.max = COMMENT_MAX
+        self.people = {}
 
     @property
     def can(self):
@@ -154,6 +187,7 @@ class CommentState:
         if d.get("role") in RANK:
             self.role = d["role"]
         self.max = int(d.get("max") or COMMENT_MAX)
+        self.people = d.get("people") if isinstance(d.get("people"), dict) else {}     # 2.5 (mention1): Kennung -> Person
         self.loaded = True
 
     def open(self):
@@ -254,6 +288,47 @@ class Composer(Gtk.Box):
 
     def text(self):
         return self.buf.get_text(self.buf.get_start_iter(), self.buf.get_end_iter(), True)
+
+    def add_mention_button(self, nid):
+        """2.5 (mention1): "@" - Person mit Zugriff waehlen, als <@REF> einfuegen"""
+        mb = Gtk.MenuButton(label="@", tooltip_text=_("Mention someone"))
+        mb.add_css_class("flat")
+        self.mention_btn = mb
+        bar = self.ok.get_parent()
+        bar.insert_child_after(mb, self.count)
+
+        def popup(b):
+            pop = Gtk.Popover()
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4, margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
+            en = Gtk.SearchEntry(placeholder_text=_("Name"))
+            lst = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+            box.append(en)
+            box.append(lst)
+            pop.set_child(box)
+            b.set_popover(pop)
+            from urllib.parse import quote
+
+            def fill(d):
+                while (c := lst.get_first_child()):
+                    lst.remove(c)
+                for p in (d or {}).get("people") or []:
+                    if not isinstance(p, dict) or not isinstance(p.get("ref"), str):
+                        continue
+                    bt = Gtk.Button(label=p.get("name") or p["ref"])
+                    bt.add_css_class("flat")
+                    bt.hk_ref = p["ref"]
+                    bt.connect("clicked", lambda *_, r=p["ref"]: (pop.popdown(), self.insert_mention(r)))
+                    lst.append(bt)
+
+            def search(*_):
+                bg(client.get, f"api/notes/{nid}/people?q={quote(en.get_text().strip())}", done=fill, error=lambda e: None)
+            en.connect("search-changed", search)
+            search()
+        mb.set_create_popup_func(popup)
+
+    def insert_mention(self, ref):
+        self.buf.insert_at_cursor(mention_token(ref) + " ")
+        self.tv.grab_focus()
 
     def _update(self):
         t = self.text()
@@ -466,6 +541,8 @@ class CommentsPanel(Gtk.Box):
                 self.toast(_("Not sent: {err}").format(err=e))
             bg(client.json, "POST", f"api/notes/{nid}/comments", {"block_id": bid, "body": text}, done=ok, error=err)
         self.composer = Composer(s.placeholder(), _("Comment"), send, maxlen=s.max)
+        if store.has("mention1") and isinstance(nid, int) and nid > 0:
+            self.composer.add_mention_button(nid)
         self.foot.append(self.composer)
 
     def _toggle_resolved(self, on):
@@ -613,7 +690,7 @@ class CommentsPanel(Gtk.Box):
             box.append(_label(_("Comment deleted"), "dim-label hk-italic"))
             return box
         body = _label("", "hk-cm-text")
-        body.set_markup(linkify_markup(cm.get("body") or ""))
+        body.set_markup(mention_markup(cm.get("body") or "", self.s.people))
         body.set_selectable(True)
         body.connect("activate-link", lambda lb, uri: (self.win.open_uri(uri), True)[1])
         box.append(body)

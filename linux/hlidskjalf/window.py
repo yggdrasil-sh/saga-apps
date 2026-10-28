@@ -1992,8 +1992,11 @@ class MainWindow(Adw.ApplicationWindow):
         elif host == "new-task":                              # Schnellaktion im Dock: Aufgabe gleich eintippen
             self.show_root(("tasks",))
             tl = getattr(self.current, "task_list", None)
+            q = GLib.Uri.parse_params(u.get_query() or "", -1, "&", GLib.UriParamsFlags.NONE) if u.get_query() else {}
+            src = q.get("src")                               # 2.5: optionales Ziel (Aufgabenquelle), sonst Inbox
+            src = int(src) if src and src.isdigit() else None
             if tl:
-                GLib.timeout_add(300, lambda: (tl.focus_entry(), False)[1])
+                GLib.timeout_add(300, lambda: (tl.focus_entry(src), False)[1])
         elif host == "new":                                   # von einer Webseite aus: nur mit Rueckfrage
             params = GLib.Uri.parse_params(u.get_query() or "", -1, "&", GLib.UriParamsFlags.NONE)
             p = params.get("parent")

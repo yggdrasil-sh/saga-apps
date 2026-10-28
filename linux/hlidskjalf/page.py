@@ -240,6 +240,8 @@ class PageView(Gtk.Box):
         self.doc.on_copies = lambda: self.update_banners()
         self.doc.on_lost = self._lost
         self.doc.on_trashed = lambda: self._trash_state()
+        self.doc.on_adopted = self._adopted              # 2.5 (P3): fremder Stand blockweise uebernommen
+        self.doc.on_merged = self._merged_hint
         self._shown_trash = False
         self._conflict_dlg = None
         self._conflict_wait = 0                 # Konflikt-Dialog wartet, bis eine Tipp-Pause ist (BUG-027)
@@ -540,6 +542,7 @@ class PageView(Gtk.Box):
         self.update_banners()
         self.update_bubbles()
         self._start_presence()
+        self.mark_presence()
         if not self._built_once and self.cpanel is not None and (doc.page.get("comments_open") or 0) > 0:
             self.cpanel.reload()                              # Zahlen und ungelesen-Punkte am Block
         if not self._built_once:
@@ -590,6 +593,7 @@ class PageView(Gtk.Box):
         self.blocks_box.append(lst)
         self.update_bubbles()
         self._update_toc()
+        self.mark_presence()
         GLib.idle_add(lambda: (self.scroll.get_vadjustment().set_value(vadj), False)[1])
         self._relayout_soon()
         self.apply_focus()
@@ -762,7 +766,9 @@ class PageView(Gtk.Box):
         from .sharing import can_edit
         self.presence = Presence(self.id, lambda: can_edit(self.doc.page) and not self.editor.locked,
                                  lambda: self.win.is_active() and self.win.current is self, self._presence_users,
-                                 lambda rev, by: self.live_changed({"id": self.id, "rev": rev, "by": by}), lambda: self.doc.rev)
+                                 lambda rev, by: self.live_changed({"id": self.id, "rev": rev, "by": by}), lambda: self.doc.rev,
+                                 blocks=self.rcan("presence2"))
+        self.presence.block = (self.editor.focus or "").split("/")[0] or None
         self.presence.start()
 
     def _stop_presence(self):
@@ -775,6 +781,24 @@ class PageView(Gtk.Box):
     def _presence_users(self, users):
         if self.win.current is self:
             self.win.set_presence(users)
+        self._pres_users = users
+        self.mark_presence()
+
+    def mark_presence(self):
+        """Anwesenheit je Block (2.5): andere Personen, die gerade einen Block bearbeiten - farbiger Rand + "{name} bearbeitet"
+        (nur Hinweis). Nach jedem Neuaufbau der Bloecke erneut."""
+        by = {}
+        for u in getattr(self, "_pres_users", None) or []:
+            if isinstance(u, dict) and not u.get("me") and u.get("editing") and isinstance(u.get("block"), str):
+                by.setdefault(u["block"], []).append(u)
+        for r in self.kit.rows():
+            us = by.get(r.bid) or []
+            if us or getattr(r, "presence_lb", None) is not None or r.has_css_class("hk-pres"):
+                r.set_presence(us)
+
+    def block_focused(self, bid):
+        if self.presence is not None:
+            self.presence.focus_block(bid)
 
     def on_typed(self):
         self._typed_at = GLib.get_monotonic_time()
@@ -866,6 +890,15 @@ class PageView(Gtk.Box):
         if doc.saving:                                       # eigenes Speichern laeuft: danach neu pruefen
             GLib.timeout_add(1500, lambda: (self.live_changed(d), False)[1])
             return
+        if doc.conflict is None and (doc.server_merges() if doc.dirty else doc.can_merge()):
+            # 2.5 (P3): blockweise uebernehmen (eigene Eingaben: mit merge: 1 speichern), kein "Neu laden"-Hinweis
+            def pulled(ok):
+                if ok and name and not doc.dirty:
+                    self.win.toast(_("Updated – changed by {name}").format(name=name))
+                elif not ok and not doc.dirty and doc.conflict is None:
+                    doc.load(force=True)
+            doc.pull(pulled)
+            return
         if not doc.dirty and doc.conflict is None:
             old = self.doc.on_loaded
 
@@ -884,6 +917,39 @@ class PageView(Gtk.Box):
             return
         self.changed_banner.set_title(GLib.markup_escape_text(_("{name} changed this page").format(name=name or _("Someone"))))
         self.changed_banner.set_revealed(True)
+
+    def _adopted(self, title_changed):
+        """Stand vom Server blockweise uebernommen (Zusammenfuehren bzw. fremde Aenderung): nur geaenderte Bloecke neu
+        zeichnen; die Schreibmarke bleibt im eigenen Block an derselben Stelle - ohne Fokus wird keiner gesetzt"""
+        ed = self.editor
+        rt = self.kit.by_key.get(ed.focus) if ed.focus else None
+        if rt is not None and rt.is_focus():
+            ed.focus_where = rt.cursor_offset()
+        elif ed.focus and self.kit.cells.get(ed.focus) is None:
+            ed.focus = None
+        self.rebuild_blocks()
+        if title_changed and self.title_rt is not None and not self.title_rt.is_focus():
+            self.title_rt.set_html(self.doc.title_raw)
+            if self.header_changed:
+                self.header_changed()
+
+    def _merged_hint(self, info):
+        """Hinweise nach dem Zusammenfuehren - dezent: Konflikt (beide Fassungen untereinander), lost/title_lost mit Weg
+        zu den Versionen, restored"""
+        if not isinstance(info, dict) or self.win.current is not self and not self.in_peek:
+            return
+        if info.get("conflicts"):
+            self.win.toast(_("Changed at the same time – both versions are shown one below the other."))
+        elif info.get("lost") or info.get("title_lost"):
+            t = Adw.Toast(title=GLib.markup_escape_text(_("Changed at the same time – the other version is in the version history.")),
+                          timeout=6)
+            if allowed(self.doc.page, "versions"):
+                t.set_button_label(_("Versions"))
+                t.connect("button-clicked", lambda *_: self.editor.flush(lambda: self.win.versions_dialog(
+                    self.id, lambda: self.doc.load(force=True))))
+            self.win.toasts.add_toast(t)
+        elif info.get("restored"):
+            self.win.toast(_("A block you deleted was changed by someone else in the meantime and was kept."))
 
     def _reload_from_banner(self):
         self.changed_banner.set_revealed(False)
@@ -1472,6 +1538,9 @@ class PageView(Gtk.Box):
                          lambda: (p.__setitem__("template", not p.get("template")), store.patch(self.id, {"template": p["template"]}, refresh=True))))
         if ok("duplicate"):
             ents.append((_("Duplicate"), lambda: store.duplicate(self.id, done=lambda n: win.show_page(n))))
+        if self.doc.is_database and store.has("tasksrc1") and not self.remote and isinstance(self.id, int) and self.id > 0:
+            from .agenda import use_as_source
+            ents.append((_("Use as task source"), lambda: use_as_source(win, self.id)))      # 2.5 (tasksrc1)
         ents += [(_("Copy link"), lambda: win.copy_text(store.page_url(self.id))),
                  (_("Open in browser"), lambda: win.open_uri(store.page_url(self.id)))]
         if ok("publish") and self.doc.fetched and publish_available(p):
@@ -1530,6 +1599,247 @@ class PageView(Gtk.Box):
                 rt.set_link(None)
         dlg.connect("response", resp)
         dlg.present(self.win)
+
+    # --- 2.5 (P6-8): Inline-Formen setzen ----------------------------------------------------------------------------------
+    def color_popover(self, rt):
+        """Farbauswahl fuer die markierte Stelle: Textfarbe und Hintergrund (Palette), jeweils "Standard" = entfernen"""
+        buf = rt.get_buffer()
+        b = buf.get_selection_bounds()
+        if not b:
+            self.win.toast(_("Select some text first."))
+            return None
+        ms, me = buf.create_mark(None, b[0], True), buf.create_mark(None, b[1], False)
+        fg0, bg0 = rt.inline_colors()
+        from .util import COLOR_NAMES, COLOR_ORDER
+        from .richtext import BC, TC, is_dark
+        pop = Gtk.Popover(has_arrow=True)
+        pop.add_css_class("hk-colorpick")
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=8, margin_bottom=8, margin_start=8, margin_end=8)
+
+        def apply(kind, c):
+            buf.select_range(buf.get_iter_at_mark(ms), buf.get_iter_at_mark(me))
+            rt.set_inline_color(kind, c)
+            pop.popdown()
+        for kind, title, cur in (("color", _("Text color"), fg0), ("bg", _("Background"), bg0)):
+            h = Gtk.Label(label=title, xalign=0)
+            h.add_css_class("caption-heading")
+            box.append(h)
+            fb = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, max_children_per_line=10, min_children_per_line=10,
+                             homogeneous=True, row_spacing=4, column_spacing=4)
+            none = Gtk.Button(label="∅", tooltip_text=_("Default"))
+            none.add_css_class("flat")
+            none.add_css_class("hk-swatch")
+            none.connect("clicked", lambda *_, k=kind: apply(k, None))
+            fb.append(none)
+            for c in COLOR_ORDER:
+                if c not in TC:
+                    continue
+                lb = Gtk.Label(label="A" if kind == "color" else " ")
+                col = TC[c][1 if is_dark() else 0] if kind == "color" else BC[c]
+                lb.set_markup(f'<span foreground="{col}" weight="bold">A</span>' if kind == "color" else
+                              f'<span background="{col}">\u2003</span>')
+                bt = Gtk.Button(child=lb, tooltip_text=COLOR_NAMES.get(c, c))
+                bt.add_css_class("flat")
+                bt.add_css_class("hk-swatch")
+                if c == cur:
+                    bt.add_css_class("hk-sel")
+                bt.hk_color = (kind, c)
+                bt.connect("clicked", lambda *_, k=kind, c=c: apply(k, c))
+                fb.append(bt)
+            box.append(fb)
+        pop.set_child(box)
+        old = getattr(rt, "hk_colorpop", None)               # ein Farb-Popover je Textfeld (das alte loesen)
+        if old is not None and old.get_parent() is rt:
+            old.unparent()
+        rt.hk_colorpop = pop
+        pop.set_parent(rt)
+        if not getattr(rt, "hk_colorpop_hook", False):       # Textfeld verschwindet (Neuaufbau, andere Seite): Popover loesen
+            rt.hk_colorpop_hook = True
+
+            def gone(w):
+                p = getattr(w, "hk_colorpop", None)
+                if p is not None and p.get_parent() is w:
+                    p.unparent()
+                w.hk_colorpop = None
+            rt.connect("unrealize", gone)
+        pop.set_pointing_to(rt.cursor_rect())
+        marks = [ms, me]
+
+        def closed(_p):
+            while marks:
+                m = marks.pop()
+                if not m.get_deleted():
+                    buf.delete_mark(m)
+        pop.connect("closed", closed)
+        pop.popup()
+        return pop
+
+    # --- 2.5 (move1): Bloecke auf eine andere Seite verschieben -------------------------------------------------------------
+    def move_targets(self):
+        """eigene Seiten und geteilte Seiten mit Bearbeiten (keine Datenbanken, nicht diese Seite, nur positive IDs)"""
+        from .sharing import RANK as _R
+        out = [p for p in store.pages if p.get("id") != self.id and not is_db(p) and isinstance(p.get("id"), int) and p["id"] > 0]
+        for p in store.shared:
+            if isinstance(p.get("id"), int) and p["id"] > 0 and p["id"] != self.id and not is_db(p) \
+                    and _R.get(role_of(p), 0) >= _R["edit"]:
+                out.append(p)
+        return out
+
+    def move_blocks_dialog(self, ids):
+        from .dialogs import PagePicker
+        PagePicker(self.win, _("Move to page"), self.move_targets(), lambda to: self.move_blocks(ids, to)).present(self.win)
+
+    def move_blocks(self, ids, to, undo_of=None):
+        """POST /api/notes/{a}/blocks/move {ids, to, rev_a, after?|at} - vorher ungespeicherte Aenderungen speichern; 409 ->
+        neu laden und noch einmal; 403/423/507 verstaendlich melden; danach beide Seiten neu laden, Rueckgaengig anbieten
+        (= Gegenrichtung: alte Seite, alter Vorgaenger bzw. Anfang)"""
+        from .api import APIError, client
+        from .util import bg
+        ed, doc = self.editor, self.doc
+        a = self.id
+        loc = ed.locate(ids[0])
+        if loc is None:
+            return
+        arr, i = loc
+        prev = arr[i - 1]["id"] if i > 0 and isinstance(arr[i - 1], dict) and arr is doc.root else None
+
+        def go(retry=True):
+            body = {"ids": list(ids), "to": to, "rev_a": doc.rev}
+            if undo_of is not None:
+                body.update(undo_of)
+
+            def fin(r):
+                for d in list(store.docs):
+                    if d.id in (a, to) and d.fetched:
+                        d.load(force=True)                  # beide Seiten neu (die offene und ein offenes Ziel)
+                store.drop_cache(f"api/notes/{to}")
+                store.changed_data()
+                if undo_of is not None:
+                    self.win.toast(_("Move undone"))
+                    return
+                back = {"after": prev} if prev else {"at": "start"}
+                moved = (r or {}).get("ids") or list(ids)
+                title = label(store.meta(to) or {"title": ""}) if store.meta(to) else ""
+                t = Adw.Toast(title=GLib.markup_escape_text(
+                    ngettext("Block moved to “{title}”", "{n} blocks moved to “{title}”", len(moved)).format(
+                        n=len(moved), title=title or _("Untitled"))), button_label=_("Undo"), timeout=8)
+                t.connect("button-clicked", lambda *_: self._undo_move(to, moved, a, back))
+                self.win.toasts.add_toast(t)
+
+            def err(e):
+                code = e.code if isinstance(e, APIError) else None
+                if code == 409 and retry:                    # Stand veraltet: neu laden, dann noch einmal
+                    old_cb = doc.on_loaded
+
+                    def again(_d=None):
+                        doc.on_loaded = old_cb
+                        if old_cb:
+                            old_cb(doc)
+                        go(False)
+                    doc.on_loaded = again
+                    doc.load(force=True)
+                    return
+                self.win.toast({403: _("You can’t edit the target page."),
+                                404: _("Page or block not found."),
+                                423: _("The page is locked."),
+                                507: _("Not enough storage space for the files of these blocks.")}.get(
+                    code, _("Not moved: {error}").format(error=e)))
+            bg(client.json, "POST", f"api/notes/{a}/blocks/move", body, done=fin, error=err)
+        ed.flush(go)                                         # erst ungespeicherte Aenderungen speichern (rev_a passt dann)
+
+    def _undo_move(self, b, ids, a, where):
+        from .api import client
+        from .util import bg
+
+        def go(rev_b):
+            body = dict({"ids": ids, "to": a, "rev_a": rev_b}, **where)
+            bg(client.json, "POST", f"api/notes/{b}/blocks/move", body,
+               done=lambda r: (self.doc.load(force=True), self.win.toast(_("Move undone"))),
+               error=lambda e: self.win.toast(_("Not moved: {error}").format(error=e)))
+        bg(client.get, f"api/notes/{b}", done=lambda p: go((p or {}).get("rev") or 0),
+           error=lambda e: self.win.toast(str(e)))
+
+    def share_and_mention(self, rt, v, n):
+        """Person ohne Zugriff erwaehnen: Rueckfrage, dann Seite teilen (Lesen bzw. Kommentieren) und einfuegen"""
+        from .api import client
+        from .util import bg
+        buf = rt.get_buffer()
+        cur = buf.get_iter_at_mark(buf.get_insert())
+        st = cur.copy()
+        st.backward_chars(n)
+        ms, me = buf.create_mark(None, st, True), buf.create_mark(None, cur, False)
+        name = v.get("name") or _("this person")
+        dlg = Adw.AlertDialog(heading=_("Share page and mention?"),
+                              body=_("{name} has no access to this page yet. Share it with them so they can see the mention?").format(name=name))
+        dlg.add_response("cancel", _("Cancel"))
+        dlg.add_response("comment", _("Share (can comment)"))
+        dlg.add_response("view", _("Share (can view)"))
+        dlg.set_response_appearance("view", Adw.ResponseAppearance.SUGGESTED)
+        dlg.set_default_response("view")
+        self._mention_dlg = dlg
+
+        def insert():
+            from .richtext import MENTION_NAMES
+            MENTION_NAMES[v["ref"]] = name
+            s0, e0 = buf.get_iter_at_mark(ms), buf.get_iter_at_mark(me)
+            buf.place_cursor(e0)
+            rt.insert_mention(v["ref"], name, e0.get_offset() - s0.get_offset())
+            buf.delete_mark(ms)
+            buf.delete_mark(me)
+
+        answered = []
+
+        def resp(d, r):
+            if answered:                                     # nur die erste Antwort zaehlt (Schliessen danach: nichts)
+                return
+            answered.append(r)
+            if r not in ("view", "comment"):
+                buf.delete_mark(ms)
+                buf.delete_mark(me)
+                return
+
+            def err(e):
+                buf.delete_mark(ms)
+                buf.delete_mark(me)
+                self.win.toast(str(e))
+            bg(client.json, "PUT", f"api/notes/{self.id}/shares", {"type": "user", "target": v["ref"], "role": r},
+               done=lambda _r: insert(), error=err)
+        dlg.connect("response", resp)
+        dlg.present(self.win)
+        return dlg
+
+    def ask_math(self, rt):
+        """Inline-Mathe einfuegen bzw. (Schreibmarke darin) bearbeiten - Quelltext (TeX)"""
+        rng = rt.math_range()
+        buf = rt.get_buffer()
+        cur = buf.get_text(rng[0], rng[1], True) if rng else (buf.get_text(*buf.get_selection_bounds(), True)
+                                                            if buf.get_has_selection() else "")
+        ms = buf.create_mark(None, rng[0], True) if rng else None
+        me = buf.create_mark(None, rng[1], False) if rng else None
+        dlg = Adw.AlertDialog(heading=_("Inline math"), body=_("TeX source, e.g. a^2 + b^2"))
+        en = Gtk.Entry(text=cur, placeholder_text="\\frac{a}{b}")
+        en.add_css_class("monospace")
+        dlg.set_extra_child(en)
+        dlg.add_response("cancel", _("Cancel"))
+        if rng:
+            dlg.add_response("remove", _("Remove"))
+            dlg.set_response_appearance("remove", Adw.ResponseAppearance.DESTRUCTIVE)
+        dlg.add_response("set", _("Set"))
+        dlg.set_response_appearance("set", Adw.ResponseAppearance.SUGGESTED)
+        dlg.set_default_response("set")
+        self._math_dlg = dlg
+
+        def done(r, text):
+            if r in ("set", "remove"):
+                rr = (buf.get_iter_at_mark(ms), buf.get_iter_at_mark(me)) if ms else None
+                rt.set_math("" if r == "remove" else text, rr)
+            if ms:
+                buf.delete_mark(ms)
+                buf.delete_mark(me)
+        en.connect("activate", lambda *_: (dlg.close(), done("set", en.get_text())))
+        dlg.connect("response", lambda d, r: done(r, en.get_text()) if r != "close" else None)
+        dlg.present(self.win)
+        return dlg
 
     def remote_blocked(self):
         """Seite einer anderen Saga-Instanz ohne 'upload' (Server 2.1/2.2): keine Uploads - Hinweis statt Dateiauswahl"""
