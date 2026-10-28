@@ -21,10 +21,10 @@ class DbQuery(
     /** Tagesdatum des Geraets (heute / diese Woche / diesen Monat) */
     private val today: LocalDate = LocalDate.now(),
     private val zone: ZoneId = ZoneId.systemDefault(),
-    /** Titel verknuepfter Eintraege (Suche) */
-    private val label: (Long) -> String? = { null },
     /** 2.5 person1: Anzeigename einer Kennung (Sortierung/Suche) */
     private val personName: (String) -> String? = { null },
+    /** Titel verknuepfter Eintraege (Suche) */
+    private val label: (Long) -> String? = { null },
 ) {
     /** Wert einer Spalte: Berechnet frisch, Erstellt/Bearbeitet = Zeitstempel der Zeile, sonst gespeicherter Wert */
     fun value(p: DbProp, r: DbRow): JsonElement? = when {

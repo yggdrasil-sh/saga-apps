@@ -55,7 +55,7 @@ class DbViewsTest {
           {"id":"tabelle","name":"Tabelle","type":"table","widths":{"status":120}},
           {"id":"offen","name":"Offen","type":"list","filters":[{"pid":"status","op":"is","value":"todo"}],"sort":{"pid":"prio","dir":"desc"}},
           {"id":"board","name":"Board","type":"board","group_by":"status"},
-          {"id":"x","name":"Neu","type":"timeline"}
+          {"id":"x","name":"Neu","type":"zukunft"}
         ],"srev":4}
     """.trimIndent()
     private val schema = DbSchema(o(schemaJson))

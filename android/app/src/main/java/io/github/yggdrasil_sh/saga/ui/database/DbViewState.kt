@@ -146,7 +146,7 @@ class DbViewState(
 
     private val tz: String get() = zone.id
 
-    private fun query(v: DbView?) = DbQuery(schema ?: DbSchema(JsonObject(emptyMap())), LocalDate.now(zone), zone, { id -> repo.page(id)?.title }, { r -> people[r]?.name })
+    private fun query(v: DbView?) = DbQuery(schema ?: DbSchema(JsonObject(emptyMap())), LocalDate.now(zone), zone, { r -> people[r]?.name }) { id -> repo.page(id)?.title }
 
     // ------------------------------------------------------------------ Laden
 
