@@ -1,0 +1,43 @@
+{
+ "chart": {
+  "type": "bar",
+  "x_kind": "cat",
+  "cats": [
+   {
+    "key": "todo",
+    "label": "Zu erledigen",
+    "color": "gray"
+   },
+   {
+    "key": "doing",
+    "label": "In Arbeit",
+    "color": "blue"
+   },
+   {
+    "key": "done",
+    "label": "Erledigt",
+    "color": "green"
+   }
+  ],
+  "series": [
+   {
+    "key": "",
+    "label": "",
+    "color": null,
+    "values": [
+     0,
+     3,
+     2
+    ]
+   }
+  ],
+  "total": 5,
+  "fmt": "num",
+  "other": 0,
+  "truncated": false,
+  "rows": 3,
+  "as_of": "2026-10-28T00:39:05Z"
+ },
+ "view": "c",
+ "error": null
+}

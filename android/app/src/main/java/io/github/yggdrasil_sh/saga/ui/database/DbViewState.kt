@@ -51,7 +51,15 @@ class DbViewState(
     private val scope: CoroutineScope,
     initialView: String?,
     private val zone: ZoneId = ZoneId.systemDefault(),
+    /**
+     * 2.5 P7 Teil B: eingebettete Datenbank - eigene Ansichten des Blocks (data.views, Vorrang vor den Ansichten der
+     * Datenbank), Merk-Schluessel je Block, kleinere Seiten. null = Vollbild-Datenbank.
+     */
+    val embed: Embed? = null,
 ) {
+    /** Einbettung: Block-Ansichten (roh, werden nie von der App gespeichert), Merk-Schluessel, Seitengroesse */
+    data class Embed(val localViews: List<DbView>, val prefKey: String, val pageSize: Int = 25)
+
     private val store: DbStore get() = repo.dbStore
 
     var schema by mutableStateOf<DbSchema?>(null)
@@ -117,23 +125,35 @@ class DbViewState(
     /** A11/A12: zaehlt jede eigene Schema-Aenderung und jedes bestaetigte Speichern - aeltere Antworten zaehlen nicht */
     private var schemaSeq = 0
 
-    val view: DbView? get() = schema?.view(viewId)
+    /** 2.5 person1: Personen (Kennung -> Name/Avatar) aus den Antworten */
+    var people by mutableStateOf<Map<String, io.github.yggdrasil_sh.saga.db.DbPerson>>(emptyMap())
+        private set
+    /** 2.5 chart1: Ergebnis der Diagramm-Ansicht */
+    var chart by mutableStateOf<io.github.yggdrasil_sh.saga.db.DbChart.Response?>(null)
+        private set
+
+    /** Ansichten zum Umschalten: Block-Ansichten (eingebettet) vor denen der Datenbank */
+    val views: List<DbView> get() = DbViews.effectiveViews(schema, embed?.localViews)
+    val view: DbView? get() = schema?.let { DbViews.pick(views, viewId) }
+    /** Ansicht gehoert dem Block (nicht der Datenbank): Filter/Sortierung als Parameter schicken, nie im Schema speichern */
+    val localView: Boolean get() = view?.let { v -> embed?.localViews?.any { it.id == v.id } } == true
+    private val pageSize: Int get() = embed?.pageSize ?: PAGE
     val readOnly: Boolean get() = role == "view" || role == "comment"
     /** Ansichten/Filter/Sortierung aendern (Eigentuemer/Bearbeiten, nicht gesperrt) */
-    val canEditViews: Boolean get() = !readOnly && schema?.locked != true && dbId > 0
+    val canEditViews: Boolean get() = !readOnly && schema?.locked != true && dbId > 0 && embed == null
     val canAdd: Boolean get() = !readOnly
     val hasMore: Boolean get() = rows.size < matched
 
     private val tz: String get() = zone.id
 
-    private fun query(v: DbView?) = DbQuery(schema ?: DbSchema(JsonObject(emptyMap())), LocalDate.now(zone), zone) { id -> repo.page(id)?.title }
+    private fun query(v: DbView?) = DbQuery(schema ?: DbSchema(JsonObject(emptyMap())), LocalDate.now(zone), zone, { r -> people[r]?.name }) { id -> repo.page(id)?.title }
 
     // ------------------------------------------------------------------ Laden
 
     fun selectView(id: String) {
         if (id == viewId) return
         viewId = id
-        repo.appContextPrefs()?.edit { putString("db_view_$dbId", id) }
+        repo.appContextPrefs()?.edit { putString(embed?.prefKey ?: "db_view_$dbId", id) }
         reload()
     }
 
@@ -144,6 +164,17 @@ class DbViewState(
 
     fun showMonth(m: LocalDate) {
         month = m.withDayOfMonth(1)
+        week = DbViews.weekStart(m)
+        reload()
+    }
+
+    /** 2.5 tableopts1: Kalender-Woche (range "week") - erster Tag (Montag) */
+    var week by mutableStateOf(DbViews.weekStart(LocalDate.now(zone)))
+        private set
+
+    fun showWeek(d: LocalDate) {
+        week = DbViews.weekStart(d)
+        month = week.withDayOfMonth(1)
         reload()
     }
 
@@ -183,18 +214,23 @@ class DbViewState(
         noAccess = false
         role = p.role
         templates = p.templates
+        if (p.people.isNotEmpty()) {
+            people = people + p.people
+            repo.rememberPeople(p.people)
+        }
         if (pendingSchema == null && DbViews.acceptSchema(schema, p.schema, seq, schemaSeq)) schema = p.schema
         val sc = schema ?: p.schema
-        if (viewId != null && sc.views.none { it.id == viewId }) viewId = sc.views.first().id
+        val vs = DbViews.effectiveViews(sc, embed?.localViews)
+        if (viewId != null && vs.none { it.id == viewId }) viewId = vs.first().id
         return p
     }
 
     private suspend fun load(g: Int) {
         val s = schema
-        val v = s?.view(viewId)
+        val v = s?.let { view }
         val first = if (s == null || v == null || !serverPaged) null else baseQuery(v, s)
         // Schema noch unbekannt (erstes Oeffnen) oder alter Server: erste Seite holt Schema und zeigt, ob der Server pagt
-        val p = fetch(first ?: DbParams.query(view = viewId, limit = PAGE, tz = tz, today = LocalDate.now(zone), q = search))
+        val p = fetch(first ?: DbParams.query(view = if (isLocal(viewId)) null else viewId, limit = pageSize, tz = tz, today = LocalDate.now(zone), q = search))
         if (g != gen) return
         serverPaged = p.paged
         if (!serverPaged) {
@@ -206,10 +242,19 @@ class DbViewState(
         allRows = null
         total = p.total ?: p.rows.size
         val sc = schema ?: p.schema
-        val cur = sc.view(viewId)
+        val cur = DbViews.pick(DbViews.effectiveViews(sc, embed?.localViews), viewId)
         when (cur.type) {
             "board" -> loadBoard(g, sc, cur)
             "calendar" -> loadMonth(g, sc, cur)
+            "chart" -> loadChart(g, cur)
+            "timeline" -> {
+                val page = fetch(DbParams.query(view = if (isLocal(cur.id)) null else cur.id, filters = cur.filters, sorts = cur.sorts, q = search, group = "",
+                    limit = 500, tz = tz, today = LocalDate.now(zone)))
+                if (g != gen) return
+                rows = page.rows
+                matched = page.matched ?: page.rows.size
+                groups = null
+            }
             else -> {
                 // Antwort passt zur Abfrage der Ansicht (sonst war das Schema neu: richtig abfragen)
                 val page = if (first != null || !DbViews.needsViewQuery(cur, sc)) p else fetch(baseQuery(cur, sc))
@@ -223,10 +268,28 @@ class DbViewState(
 
     /** Abfrage der Ansicht: Filter/Sortierung aus der Ansicht (lokale Aenderung gilt sofort), Seite 1 */
     private fun baseQuery(v: DbView, s: DbSchema, offset: Int = 0): String = DbParams.query(
-        view = v.id, filters = v.filters, sorts = v.sorts, q = search,
+        // Block-Ansicht: kennt der Server nicht - Filter/Sortierung als Parameter (Gruppierung/Unteraufgaben gehen nur mit view=)
+        view = if (isLocal(v.id)) null else v.id, filters = v.filters, sorts = v.sorts, q = search,
         group = if (v.type == "table" || v.type == "list") s.groupProp(v)?.id ?: "" else null,
-        limit = PAGE, offset = offset, tz = tz, today = LocalDate.now(zone),
+        limit = pageSize, offset = offset, tz = tz, today = LocalDate.now(zone),
     )
+
+    private fun isLocal(id: String?): Boolean = id != null && embed?.localViews?.any { it.id == id } == true
+
+    /** 2.5 chart1: Diagramm der Ansicht vom Server (Block-Ansicht: Spec + Filter als Parameter) */
+    private suspend fun loadChart(g: Int, v: DbView) {
+        val path = "api/notes/$dbId/chart?" + DbParams.chartQuery(v, isLocal(v.id), tz)
+        val r = try {
+            io.github.yggdrasil_sh.saga.db.DbChart.parseResponse(repo.api.get(path))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: ApiException) {
+            if (e.code == 404 || e.code == 403) throw e
+            io.github.yggdrasil_sh.saga.db.DbChart.Response.Error(if (e.code == 400) "bad_cfg" else "failed")
+        }
+        if (g != gen) return
+        chart = r
+    }
 
     /** Naechste Seite (Ende der Liste erreicht) */
     fun loadMore() {
@@ -260,7 +323,27 @@ class DbViewState(
             rows = fetch(baseQuery(v, s)).rows
             return
         }
-        val keys = listOf<String?>(null) + gp.options.map { it.id }
+        // 2.5: nach Formel/Rollup/Person gruppiert - Gruppen liefert der Server (nur lesend), eine Abfrage
+        if (gp.type != "select") {
+            val p = fetch(DbParams.query(view = if (isLocal(v.id)) null else v.id, filters = v.filters, sorts = v.sorts, q = search, group = gp.id,
+                limit = 500, tz = tz, today = LocalDate.now(zone)))
+            if (g != gen) return
+            columns.clear()
+            var i = 0
+            val gs = p.groups.orEmpty()
+            boardKeys = gs.map { it.id }
+            boardValues = gs.associate { it.id to it.value }
+            for (gr in gs) {
+                val rs = p.rows.subList(minOf(i, p.rows.size), minOf(p.rows.size, i + gr.count))
+                i += gr.count
+                columns[gr.id] = DbColumn(gr.id, rs, gr.count)
+            }
+            matched = p.matched ?: p.rows.size
+            return
+        }
+        val keys = DbViews.boardKeys(gp, v)
+        boardKeys = keys
+        boardValues = emptyMap()
         val result = kotlinx.coroutines.coroutineScope {
             keys.map { k -> async { k to fetch(columnQuery(v, gp, k, 0)) } }.awaitAll()
         }
@@ -271,14 +354,22 @@ class DbViewState(
     }
 
     private fun columnQuery(v: DbView, gp: DbProp, option: String?, offset: Int): String = DbParams.query(
-        view = v.id, filters = v.filters + DbParams.columnFilter(gp.id, option), sorts = v.sorts, q = search, group = "",
-        limit = COLUMN_PAGE, offset = offset, tz = tz, today = LocalDate.now(zone),
+        view = if (isLocal(v.id)) null else v.id, filters = v.filters + DbParams.columnFilter(gp.id, option, v.groupStatus && gp.status), sorts = v.sorts,
+        q = search, group = "", limit = if (embed != null) 20 else COLUMN_PAGE, offset = offset, tz = tz, today = LocalDate.now(zone),
     )
+
+    /** Board: Spalten-Schluessel in Reihenfolge (null = "Ohne"); bei Status-Gruppen todo/doing/done */
+    var boardKeys by mutableStateOf<List<String?>>(emptyList())
+        private set
+    /** Board nach Formel/Rollup/Person: Wert je Spalte (Anzeige) */
+    var boardValues by mutableStateOf<Map<String?, JsonElement?>>(emptyMap())
+        private set
 
     fun loadMoreColumn(option: String?) {
         val s = schema ?: return
         val v = view ?: return
         val gp = s.groupProp(v) ?: return
+        if (gp.type != "select") return
         val c = columns[option] ?: return
         if (c.loading || c.rows.size >= c.matched || !serverPaged) return
         columns[option] = c.copy(loading = true)
@@ -306,8 +397,9 @@ class DbViewState(
             return
         }
         val q = DbParams.query(
-            view = v.id, filters = v.filters + DbParams.monthFilters(dp.id, month), sorts = v.sorts, q = search, group = "",
-            limit = 5000, tz = tz, today = LocalDate.now(zone),
+            view = if (isLocal(v.id)) null else v.id,
+            filters = v.filters + if (v.week) DbParams.rangeFilters(dp.id, week, week.plusDays(7)) else DbParams.monthFilters(dp.id, month),
+            sorts = v.sorts, q = search, group = "", limit = 5000, tz = tz, today = LocalDate.now(zone),
         )
         val p = fetch(q)
         if (g != gen) return
@@ -318,14 +410,17 @@ class DbViewState(
     /** Alter Server: alles lokal wie im Web */
     private fun applyLocal() {
         val s = schema ?: return
-        val v = s.view(viewId)
+        val v = view ?: return
         val all = store.overlay(allRows ?: return)
         val q = query(v)
         val shown = q.apply(all, v, search)
         when (v.type) {
             "board" -> {
                 columns.clear()
-                s.groupProp(v)?.let { gp -> q.groups(shown, gp).forEach { (grp, rs) -> columns[grp.id] = DbColumn(grp.id, rs, rs.size) } }
+                s.groupProp(v)?.takeIf { it.type == "select" }?.let { gp ->
+                    boardKeys = listOf<String?>(null) + gp.options.map { it.id }
+                    q.groups(shown, gp).forEach { (grp, rs) -> columns[grp.id] = DbColumn(grp.id, rs, rs.size) }
+                }
                 rows = shown
             }
             "calendar" -> {
@@ -336,7 +431,7 @@ class DbViewState(
                 }
             }
             else -> {
-                val gp = s.groupProp(v)
+                val gp = s.groupProp(v)?.takeIf { it.type == "select" }
                 if (gp != null) {
                     val gs = q.groups(shown, gp)
                     groups = gs.map { it.first }
@@ -355,6 +450,10 @@ class DbViewState(
     /** Wert setzen: sofort sichtbar, dann senden (offline: Warteschlange) */
     fun setProp(row: DbRow, prop: DbProp, value: JsonElement?) {
         if (readOnly || !prop.editable) return
+        if (prop.type == "date" && value is JsonPrimitive && value.isString && !repo.hasFeature("datetime1")) {
+            // aelterer Server: nur den Tag schreiben (der Server behaelt Uhrzeit/Ende bei gleichem Tag)
+            return setProp(row, prop, JsonPrimitive(value.content.take(10)))
+        }
         val upd = DbValues.apply(row, prop.id, value)
         rows = rows.map { if (it.id == row.id) upd else it }
         monthRows = monthRows.map { if (it.id == row.id) upd else it }
@@ -380,7 +479,8 @@ class DbViewState(
         val s = schema ?: return
         val v = view ?: return
         if (v.type != "board" || s.groupProp(v)?.id != prop.id) return
-        val target = (r.props[prop.id] as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf { id -> prop.option(id) != null }
+        val opt = (r.props[prop.id] as? JsonPrimitive)?.takeIf { it.isString }?.content?.takeIf { id -> prop.option(id) != null }
+        val target = if (v.groupStatus && prop.status) prop.groupOf(opt) else opt
         for ((k, c) in columns.toMap()) {
             val has = c.rows.any { it.id == r.id }
             if (k == target && !has) columns[k] = c.copy(rows = listOf(r) + c.rows, matched = c.matched + 1)
@@ -439,6 +539,7 @@ class DbViewState(
         if (!canAdd) return null
         val v = view ?: return null
         val props = JsonObject(query(v).defaults(v) + extra)
+        // Status-Gruppe als Spalte: neue Karte bekommt die erste Option der Gruppe
         return try {
             ownChange = store.changes.value + 1
             val id = repo.newRow(dbId, props)
@@ -496,6 +597,22 @@ class DbViewState(
         editSchema { DbViews.add(it, type, name, id) }
         viewId = id
         repo.appContextPrefs()?.edit { putString("db_view_$dbId", id) }
+    }
+
+    /** Board-Spalte (Option bzw. Status-Gruppe) -> Wert der Spalten-Eigenschaft beim Ziehen/Verschieben; null = leeren */
+    fun columnValue(gp: DbProp, key: String?): JsonElement? {
+        val v = view ?: return null
+        if (key == null) return null
+        if (v.groupStatus && gp.status) return gp.firstOfGroup(key)?.let { JsonPrimitive(it.id) }
+        return JsonPrimitive(key)
+    }
+
+    /** Karte in eine Spalte schieben; liegt sie schon in einer Option dieser Status-Gruppe: nichts aendern */
+    fun moveTo(row: DbRow, gp: DbProp, key: String?) {
+        val v = view ?: return
+        val cur = (row.props[gp.id] as? JsonPrimitive)?.content
+        if (v.groupStatus && gp.status && key != null && gp.groupOf(cur) == key) return
+        setProp(row, gp, columnValue(gp, key))
     }
 
     fun setFilters(fs: List<DbFilter>) = view?.let { v -> editSchema { DbViews.setFilters(it, v.id, fs) } }

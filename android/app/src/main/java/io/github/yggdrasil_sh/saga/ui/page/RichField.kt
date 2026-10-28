@@ -20,6 +20,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
@@ -51,6 +52,21 @@ val LocalPageImageSink = compositionLocalOf<((IncomingImage, JsonPath) -> Unit)?
 
 // ---------------------------------------------------------------- Darstellung
 
+/** 2.5 P6-2: neue Inline-Formen (Farben wie Web tc/bc-Variablen, Erwaehnung als Chip, Inline-Mathe als Code-Chip) */
+private fun styleFor(sp: io.github.yggdrasil_sh.saga.blocks.Span, c: ColorScheme): SpanStyle? {
+    val dark = c.surface.luminance() < 0.5f
+    return when (val f = io.github.yggdrasil_sh.saga.blocks.InlineForms.form(sp)) {
+        is io.github.yggdrasil_sh.saga.blocks.InlineForms.Form.TextColor -> SpanStyle(color = Color(io.github.yggdrasil_sh.saga.blocks.InlineForms.textArgb(f.color, dark)))
+        is io.github.yggdrasil_sh.saga.blocks.InlineForms.Form.BgColor -> SpanStyle(background = Color(io.github.yggdrasil_sh.saga.blocks.InlineForms.bgArgb(f.color, dark)))
+        is io.github.yggdrasil_sh.saga.blocks.InlineForms.Form.Mention -> SpanStyle(color = c.primary, fontWeight = FontWeight.Medium, background = c.primaryContainer.copy(alpha = 0.45f))
+        io.github.yggdrasil_sh.saga.blocks.InlineForms.Form.Math -> SpanStyle(fontFamily = FontFamily.Monospace, background = c.tertiaryContainer.copy(alpha = 0.6f), color = c.onTertiaryContainer)
+        null -> styleFor(sp.tag, c)
+    }
+}
+
+/** Personen-Namen fuer Erwaehnungen (Handle -> Anzeigename), aus den people-Verzeichnissen der Datenbank-Antworten */
+val LocalMentionName = compositionLocalOf<(String) -> String?> { { null } }
+
 private fun styleFor(tag: String, c: ColorScheme): SpanStyle? = when (tag) {
     "b", "strong" -> SpanStyle(fontWeight = FontWeight.Bold)
     "i", "em" -> SpanStyle(fontStyle = FontStyle.Italic)
@@ -75,7 +91,7 @@ fun richAnnotated(rt: RichText, c: ColorScheme, onLink: ((String) -> Unit)? = nu
             addStyle(SpanStyle(color = c.onSurfaceVariant), sp.start, sp.end)
             continue
         }
-        styleFor(sp.tag, c)?.let { addStyle(it, sp.start, sp.end) }
+        styleFor(sp, c)?.let { addStyle(it, sp.start, sp.end) }
         if (sp.tag == "a" && onLink != null) {
             val href = InlineHtml.hrefOf(sp.open) ?: continue
             addLink(LinkAnnotation.Clickable(href) { onLink(href) }, sp.start, sp.end)
@@ -87,9 +103,10 @@ fun richAnnotated(rt: RichText, c: ColorScheme, onLink: ((String) -> Unit)? = nu
 @Composable
 fun RichTextView(html: String, style: TextStyle, onLink: (String) -> Unit, modifier: Modifier = Modifier, raw: Boolean = false, foreign: Boolean = false) {
     val c = MaterialTheme.colorScheme
-    val text = remember(html, raw, c, foreign) {
+    val names = LocalMentionName.current
+    val text = remember(html, raw, c, foreign, names) {
         if (raw) AnnotatedString(html)
-        else richAnnotated(InlineHtml.parse(if (foreign) Masking.forDisplay(html) else html), c, onLink, foreign)
+        else richAnnotated(io.github.yggdrasil_sh.saga.blocks.InlineForms.withMentionNames(InlineHtml.parse(if (foreign) Masking.forDisplay(html) else html), names), c, onLink, foreign)
     }
     BasicText(text, style = style.copy(color = if (style.color == Color.Unspecified) c.onSurface else style.color), modifier = modifier.fillMaxWidth())
 }
@@ -254,6 +271,16 @@ fun RichField(
             Box(modifier)
         } else {
             RichTextView(html, style, onLink, modifier, raw, foreign = editor.caps.foreign)
+        }
+        return
+    }
+    // 2.5 P6-2: Erwaehnung/Inline-Mathe sind unteilbar - die App kann sie noch nicht sicher mitfuehren, also den Absatz
+    // nur anzeigen und auf das Web verweisen (statt Formatierung zu verlieren). Farben bleiben bearbeitbar.
+    if (!raw && io.github.yggdrasil_sh.saga.blocks.InlineForms.hasAtomic(html)) {
+        androidx.compose.foundation.layout.Column(modifier) {
+            RichTextView(html, style, onLink, Modifier, false, foreign = editor.caps.foreign)
+            Text(androidx.compose.ui.res.stringResource(io.github.yggdrasil_sh.saga.R.string.e1_inline_web), style = MaterialTheme.typography.labelSmall,
+                color = c.onSurfaceVariant)
         }
         return
     }

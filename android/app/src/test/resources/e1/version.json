@@ -1,0 +1,29 @@
+{
+ "name": "Saga",
+ "version": "2.5.0",
+ "build": "",
+ "channel": "stable",
+ "api": 1,
+ "min_app": "1.0.0",
+ "schema": 24,
+ "features": [
+  "formula1",
+  "rollup1",
+  "dbgroup1",
+  "person1",
+  "file1",
+  "move1",
+  "render1",
+  "relfilter1",
+  "datetime1",
+  "status1",
+  "subtasks1",
+  "tableopts1",
+  "weather1",
+  "habit1",
+  "upcoming1",
+  "chart1",
+  "tasksrc1",
+  "taskdue1"
+ ]
+}

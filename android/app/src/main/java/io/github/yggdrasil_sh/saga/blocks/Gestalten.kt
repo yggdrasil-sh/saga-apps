@@ -112,6 +112,12 @@ object Gestalten {
         "blue" to 0x0B6E99, "purple" to 0x6940A5, "pink" to 0xAD1A72, "red" to 0xE03E3E,
     )
 
+    /** 2.5 P6-2: Mindestbreite einer Spalte (dp) - mehr Spalten als passen brechen in Reihen um */
+    const val COL_MIN_DP = 150f
+
+    /** Spalten je Reihe bei dieser Breite (mindestens 1, hoechstens cols) */
+    fun columnsPerRow(cols: Int, widthDp: Float): Int = ((widthDp + 20f) / (COL_MIN_DP + 20f)).toInt().coerceIn(1, maxOf(1, cols))
+
     fun baseRgb(name: String): Int = BASE[name] ?: BASE.getValue("gray")
 
     private fun mix(rgb: Int, to: Int, t: Float): Int {

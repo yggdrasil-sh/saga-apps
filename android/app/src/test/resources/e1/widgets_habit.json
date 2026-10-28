@@ -1,0 +1,61 @@
+{
+ "widgets": {
+  "h1": {
+   "kind": "habit",
+   "value": 1,
+   "max": 2,
+   "text": null,
+   "fmt": null,
+   "as_of": "2026-10-28T00:39:21Z",
+   "error": null,
+   "data": {
+    "days": [
+     "2026-10-22",
+     "2026-10-23",
+     "2026-10-24",
+     "2026-10-25",
+     "2026-10-26",
+     "2026-10-27",
+     "2026-10-28"
+    ],
+    "habits": [
+     {
+      "pid": "sport",
+      "name": "Sport",
+      "done": [
+       false,
+       false,
+       false,
+       false,
+       true,
+       false,
+       true
+      ],
+      "streak": 1,
+      "pct": 29,
+      "week": 2
+     },
+     {
+      "pid": "lesen",
+      "name": "Lesen",
+      "done": [
+       false,
+       false,
+       false,
+       false,
+       false,
+       false,
+       false
+      ],
+      "streak": 0,
+      "pct": 0,
+      "week": 0
+     }
+    ],
+    "today": "2026-10-28",
+    "goal": 5,
+    "can_check": true
+   }
+  }
+ }
+}

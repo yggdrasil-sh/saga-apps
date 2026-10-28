@@ -107,6 +107,61 @@ object DbValues {
 
 /** Ansichten bearbeiten: neues Schema (raw) mit geaenderter Ansicht - alle unbekannten Felder bleiben erhalten */
 object DbViews {
+    /** 2.5 P7-B: Ansichten zum Umschalten - Block-Ansichten (eingebettet) haben Vorrang, sonst die der Datenbank */
+    fun effectiveViews(s: DbSchema?, local: List<DbView>?): List<DbView> =
+        local?.filter { it.id.isNotEmpty() }?.takeIf { it.isNotEmpty() } ?: s?.views.orEmpty()
+
+    /** Ansicht mit dieser ID, sonst die erste (wie curView im Web) */
+    fun pick(views: List<DbView>, id: String?): DbView = views.firstOrNull { it.id == id } ?: views.firstOrNull()
+        ?: DbView(JsonObject(mapOf("id" to JsonPrimitive("tabelle"), "type" to JsonPrimitive("table"))))
+
+    /** Block-Ansichten aus data.views (roh; die App aendert sie nicht) */
+    fun localViews(data: JsonObject): List<DbView> =
+        (data["views"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.let(::DbView) }.filter { it.id.isNotEmpty() }
+
+    /** Startansicht eines Blocks: gemerkte (wenn es sie noch gibt), sonst data.view, sonst die erste */
+    fun startView(views: List<DbView>, remembered: String?, blockView: String?): String? =
+        listOf(remembered, blockView).firstOrNull { id -> id != null && views.any { it.id == id } } ?: views.firstOrNull()?.id
+
+    /** 2.5 tableopts1: fixierte Spalten (freeze zaehlt den Namen mit) -> (fixierte Eigenschaften, scrollende) */
+    fun frozenSplit(props: List<DbProp>, freeze: Int): Pair<List<DbProp>, List<DbProp>> {
+        val n = (freeze - 1).coerceIn(0, minOf(2, props.size))
+        return props.take(n) to props.drop(n)
+    }
+
+    /** Abhaken ueber Status: erledigt -> erste Option der Gruppe "done", wieder offen -> erste der Gruppe "todo" */
+    fun statusToggle(p: DbProp, current: String?, done: Boolean): JsonElement? {
+        if (done && p.groupOf(current) == "done") return null
+        if (!done && p.groupOf(current) != "done") return null
+        return (if (done) p.firstOfGroup("done") else p.firstOfGroup("todo"))?.let { JsonPrimitive(it.id) }
+    }
+
+    /** Spalte einer Karte im Board: Option bzw. Status-Gruppe (null = "Ohne") */
+    fun cardKey(gp: DbProp, v: DbView, value: String?): String? {
+        if (gp.type != "select") return value
+        val o = gp.option(value) ?: return null
+        return if (v.groupStatus && gp.status) (o.group ?: "todo") else o.id
+    }
+
+    /** Kalender: Zeilen je Tag (ISO) - Zeitraeume auf jedem beruehrten Tag, Zeitpunkte am Tag in der Zone des Betrachters */
+    fun calendarDays(rows: List<DbRow>, dp: DbProp, q: DbQuery, zone: java.time.ZoneId): Map<String, List<DbRow>> {
+        val out = LinkedHashMap<String, MutableList<DbRow>>()
+        for (r in rows) {
+            val x = q.value(dp, r)
+            val days: List<LocalDate> = if (dp.isAuto) listOfNotNull((x as? JsonPrimitive)?.content?.toDoubleOrNull()?.let { LocalDate.parse(q.isoDay(it)) })
+            else DbDate.parse((x as? JsonPrimitive)?.takeIf { it.isString }?.content, zone)?.let { DbDate.days(it, zone) }.orEmpty()
+            for (d in days) out.getOrPut(d.toString()) { mutableListOf() }.add(r)
+        }
+        return out
+    }
+
+    /** Montag der Woche */
+    fun weekStart(d: LocalDate): LocalDate = d.minusDays((d.dayOfWeek.value - 1).toLong())
+
+    /** Board-Spalten: "Ohne" + Optionen bzw. (group_status) Status-Gruppen todo/doing/done */
+    fun boardKeys(gp: DbProp, v: DbView): List<String?> =
+        if (v.groupStatus && gp.status) listOf<String?>(null) + DbProp.STATUS_GROUPS else listOf<String?>(null) + gp.options.map { it.id }
+
     /**
      * A11/A12: Schema aus einer Antwort nur uebernehmen, wenn sie nicht aelter ist als der lokale Stand - also keine
      * kleinere srev hat und vor keiner eigenen Aenderung/Bestaetigung angefragt wurde (asked = Zaehler beim Anfragen).
@@ -251,7 +306,25 @@ object DbParams {
         return listOf(DbFilter(dateProp, "after", first.minusDays(1).toString()), DbFilter(dateProp, "before", first.plusMonths(1).toString()))
     }
 
-    /** Board: eine Spalte (Option oder "Ohne") */
-    fun columnFilter(groupProp: String, option: String?): DbFilter =
-        if (option == null) DbFilter(groupProp, "is_empty") else DbFilter(groupProp, "is", option)
+    /** Board: eine Spalte (Option oder "Ohne"; statusGroup: Status-Gruppe todo/doing/done) */
+    fun columnFilter(groupProp: String, option: String?, statusGroup: Boolean = false): DbFilter = when {
+        option == null -> DbFilter(groupProp, "is_empty")
+        statusGroup -> DbFilter(groupProp, "status_group", option)
+        else -> DbFilter(groupProp, "is", option)
+    }
+
+    /** Kalender-Woche: Eintraege von from (inkl.) bis to (exkl.) - Zeitraeume beruehren das Fenster */
+    fun rangeFilters(dateProp: String, from: LocalDate, to: LocalDate): List<DbFilter> =
+        listOf(DbFilter(dateProp, "after", from.minusDays(1).toString()), DbFilter(dateProp, "before", to.toString()))
+
+    /** GET /api/notes/{db}/chart: Ansicht der Datenbank per view=, Block-Ansicht mit chart=<spec> und filters= */
+    fun chartQuery(v: DbView, local: Boolean, tz: String?): String {
+        val p = ArrayList<String>()
+        if (local) {
+            v.chart?.let { p.add("chart=" + enc(it.toString())) }
+            p.add("filters=" + enc(JsonArray(v.filters.map { it.toJson() }).toString()))
+        } else p.add("view=" + enc(v.id))
+        if (tz != null) p.add("tz=" + enc(tz))
+        return p.joinToString("&")
+    }
 }

@@ -21,6 +21,8 @@ class DbQuery(
     /** Tagesdatum des Geraets (heute / diese Woche / diesen Monat) */
     private val today: LocalDate = LocalDate.now(),
     private val zone: ZoneId = ZoneId.systemDefault(),
+    /** 2.5 person1: Anzeigename einer Kennung (Sortierung/Suche) */
+    private val personName: (String) -> String? = { null },
     /** Titel verknuepfter Eintraege (Suche) */
     private val label: (Long) -> String? = { null },
 ) {
@@ -48,6 +50,12 @@ class DbQuery(
             "checked" -> return truthy(v)
             "unchecked" -> return !truthy(v)
             "today", "this_week", "this_month" -> return !empty && relDate(f.op, v.prim())
+            // 2.5 status1: nach Status-Gruppe; leere Zeilen passen nie, unbekannter Wert -> Filter zaehlt nicht
+            "status_group" -> {
+                if (f.value !in setOf("todo", "doing", "done", "open")) return true
+                val g = p.groupOf(v.prim()) ?: return false
+                return if (f.value == "open") g != "done" else g == f.value
+            }
         }
         if (f.value.isEmpty()) return true                          // unvollstaendiger Filter: alles
         val fv = f.value
@@ -100,6 +108,8 @@ class DbQuery(
         if (p == null || p.id == "title") return r.title.lowercase()
         val v = value(p, r)
         return when (p.type) {
+            "date" -> DbDate.sortKey(v.prim(), zone)?.lowercase()
+            "person" -> (v as? JsonArray)?.firstOrNull()?.prim()?.let { personName(it)?.lowercase() ?: it }
             "select" -> p.optionIndex(v.prim()).let { if (it < 0 || (v as? JsonPrimitive)?.isString != true) 1e9 else it.toDouble() }
             "multi_select", "relation" -> ((v as? JsonArray)?.size ?: 0).toDouble()
             "checkbox" -> if (truthy(v)) 1.0 else 0.0

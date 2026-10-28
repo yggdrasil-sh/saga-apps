@@ -37,6 +37,8 @@ import io.github.yggdrasil_sh.saga.blocks.BlockDoc
 import io.github.yggdrasil_sh.saga.blocks.InlineHtml
 import io.github.yggdrasil_sh.saga.data.PageMeta
 import io.github.yggdrasil_sh.saga.data.SagaRepository
+import io.github.yggdrasil_sh.saga.data.dbPeople
+import io.github.yggdrasil_sh.saga.data.uploadRowFile
 import io.github.yggdrasil_sh.saga.db.DbProp
 import io.github.yggdrasil_sh.saga.db.DbQuery
 import io.github.yggdrasil_sh.saga.db.DbRow
@@ -148,13 +150,15 @@ fun RowProperties(ed: PageEditor, repo: SagaRepository) {
     val row = remember(local, pending, ed.created, ed.updatedAt) {
         repo.dbStore.overlay(listOf(DbRow(ed.id, ed.title, props = local, created = ed.created ?: 0.0, updated = ed.updatedAt ?: 0.0))).first()
     }
-    val fmt = rememberDbFormat { id -> all.firstOrNull { it.id == id }?.title }
+    val meta = ed.rowMeta
+    LaunchedEffect(meta.people) { repo.rememberPeople(meta.people) }
+    val fmt = rememberDbFormat({ id -> all.firstOrNull { it.id == id }?.title }, meta.people)
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     val editable = ed.share.role.canEdit && !ed.isDatabase
     var editing by remember { mutableStateOf<DbProp?>(null) }
     val q = remember(s) { DbQuery(s) }
-    val shown = s.props.filter { p -> editable && p.editable || !DbQuery.isEmpty(q.value(p, row)) }
+    val shown = s.props.filter { p -> editable && p.editable || !DbQuery.isEmpty(q.value(p, row)) || meta.fxErr[p.id] != null }
     if (shown.isEmpty()) return
 
     fun set(p: DbProp, v: JsonElement?) {
@@ -163,7 +167,7 @@ fun RowProperties(ed: PageEditor, repo: SagaRepository) {
             try {
                 if (repo.dbStore.setProp(ed.id, p.id, v) == io.github.yggdrasil_sh.saga.db.DbStore.Saved.QUEUED) {
                     repo.notify(UiText.Res(R.string.dbv_saved_offline))
-                }
+                } else if (s.props.any { it.computed }) ed.load()           // Formeln/Rollups neu (Server rechnet)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -176,10 +180,14 @@ fun RowProperties(ed: PageEditor, repo: SagaRepository) {
         Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(8.dp))
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(horizontal = 10.dp, vertical = 4.dp),
     ) {
-        shown.forEach { p ->
-            val v = q.value(p, row)
-            PropRow(p, v, fmt, editable, onEdit = { editing = p }, onToggle = { set(p, DbValues.checkbox(!DbQuery.truthy(v))) },
-                onLink = { io.github.yggdrasil_sh.saga.ui.common.openUrl(context, it) })
+        if (meta.blocked) Text("⛔ " + stringResource(R.string.e1_blocked), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error,
+            modifier = Modifier.padding(vertical = 4.dp))
+        androidx.compose.runtime.CompositionLocalProvider(io.github.yggdrasil_sh.saga.ui.database.LocalDbRepo provides repo) {
+            shown.forEach { p ->
+                val v = q.value(p, row)
+                PropRow(p, v, fmt, editable, onEdit = { editing = p }, onToggle = { set(p, DbValues.checkbox(!DbQuery.truthy(v))) },
+                    onLink = { io.github.yggdrasil_sh.saga.ui.common.openUrl(context, it) }, err = meta.fxErr[p.id])
+            }
         }
     }
     editing?.let { p ->
@@ -199,13 +207,17 @@ fun RowProperties(ed: PageEditor, repo: SagaRepository) {
                 }
             },
             relationRows = p.target?.let { t -> { query: String -> repo.dbStore.search(t, query) } },
+            people = { query: String -> repo.dbPeople(parent, query) },
+            upload = if (!ed.isRemote) ({ uri: android.net.Uri -> repo.uploadRowFile(ed.id, context, uri) }) else null,
+            fmt = fmt,
+            datetime = repo.hasFeature("datetime1"),
         )
     }
 }
 
-/** Eingebettete Datenbank ({db, view, views}): Titel + erste Zeilen, antippen oeffnet */
+/** Eingebettete Datenbank ({db, view, views}): Titel + echte Ansicht (2.5 P7-B), antippen oeffnet */
 @Composable
-fun DatabaseBlock(d: JsonObject, env: BlockEnv) {
+fun DatabaseBlock(d: JsonObject, env: BlockEnv, path: io.github.yggdrasil_sh.saga.blocks.JsonPath? = null) {
     val dbId = (d["db"] as? JsonPrimitive)?.content?.toDoubleOrNull()?.toLong()
     val all = knownPages(env.repo)
     val meta = dbId?.let { id -> all.firstOrNull { it.id == id } }
@@ -228,7 +240,15 @@ fun DatabaseBlock(d: JsonObject, env: BlockEnv) {
             Text(meta?.title?.ifEmpty { null } ?: stringResource(if (meta == null) R.string.blocktype_database else R.string.page_untitled),
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold))
         }
-        DatabaseRows(dbId, env.repo, onOpen = { env.onLink("/notes#$it") }, limit = 5)
+        // 2.5 P7 Teil B: echte Ansicht (Tabelle, Liste, Galerie, Board, Kalender, Diagramm, Zeitleiste); DatabaseRows nur
+        // noch als Rueckfall, wenn der Block keine ID hat (aelterer Inhalt ohne Block-IDs)
+        val blockId = path?.let { p -> (io.github.yggdrasil_sh.saga.blocks.JsonTree.get(env.editor.doc, p) as? JsonObject)?.let { BlockDoc.id(it) } }
+        if (blockId != null) {
+            io.github.yggdrasil_sh.saga.ui.database.EmbeddedDatabase(
+                dbId, d, env.editor.id, blockId, env.repo, onOpen = { env.onLink("/notes#$it") },
+                hideTabs = (d["hide_tabs"] as? JsonPrimitive)?.content == "true",
+            )
+        } else DatabaseRows(dbId, env.repo, onOpen = { env.onLink("/notes#$it") }, limit = 5)
     }
 }
 

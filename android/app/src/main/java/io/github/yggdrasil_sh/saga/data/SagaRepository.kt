@@ -136,6 +136,17 @@ class SagaRepository(
     val error = MutableStateFlow<UiText?>(null)
     val serverVersion = MutableStateFlow<String?>(null)
     val minApp = MutableStateFlow<String?>(null)
+    /** 2.5: Faehigkeiten aus /api/version (features) - neue Funktionen nur zeigen, wenn der Server sie meldet */
+    val serverFeatures = MutableStateFlow<Set<String>>(emptySet())
+    fun hasFeature(f: String): Boolean = f in serverFeatures.value
+    /** 2.5 person1: zuletzt gesehene Personen (Kennung -> Anzeigename) aus Datenbank-Antworten - fuer Erwaehnungen */
+    val peopleNames = MutableStateFlow<Map<String, String>>(emptyMap())
+    fun rememberPeople(p: Map<String, io.github.yggdrasil_sh.saga.db.DbPerson>) {
+        if (p.isEmpty()) return
+        val add = p.values.filter { !it.gone && it.name.isNotBlank() }.associate { it.ref to it.name }
+        if (add.all { (k, v) -> peopleNames.value[k] == v }) return
+        peopleNames.value = (peopleNames.value + add).let { m -> if (m.size > 2000) m.entries.drop(m.size - 2000).associate { it.key to it.value } else m }
+    }
     val loginError = MutableStateFlow<UiText?>(null)
     val loginBusy = MutableStateFlow(false)
 
@@ -701,11 +712,13 @@ class SagaRepository(
             val v = decode<VersionInfo>(api.request("GET", "api/version", auth = true))
             serverVersion.value = v.version
             minApp.value = v.minApp
+            serverFeatures.value = v.features.toSet()
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
             serverVersion.value = null
             minApp.value = null
+            serverFeatures.value = emptySet()
         }
     }
 
@@ -926,7 +939,10 @@ class SagaRepository(
             if (rev != null) put("rev", rev)
             if (overwrite) put("overwrite", true)
         }
-        return decode<SaveResult>(api.patch("api/notes/$id", b)).rev
+        // 2.5 P6-0: die App erhaelt Inline-Formen (Tags samt Klasse) und bis zu 6 Spalten - der Server schuetzt sonst
+        // Textfelder, deren Klartext gleich blieb, vor dem Verlust neuer Formen
+        val hdr = if (body != null) mapOf("X-Saga-Caps" to io.github.yggdrasil_sh.saga.blocks.InlineForms.CAPS) else emptyMap()
+        return decode<SaveResult>(api.request("PATCH", "api/notes/$id", b, headers = hdr)).rev
     }
 
     // ---------------------------------------------------------------- Teilen und Kommentare (Server 1.3)
@@ -1588,6 +1604,8 @@ class SagaRepository(
         treeSync.clear()                                     // Stand gilt je Konto: neu angemeldet = ganz laden
         adoptNamedDrafts()
         serverVersion.value = null
+        serverFeatures.value = emptySet()
+        peopleNames.value = emptyMap()
         minApp.value = null
         needsLogin.value = false
         loginError.value = null
@@ -1650,6 +1668,8 @@ class SagaRepository(
         }
         error.value = null
         serverVersion.value = null
+        serverFeatures.value = emptySet()
+        peopleNames.value = emptyMap()
         minApp.value = null
     }
 
