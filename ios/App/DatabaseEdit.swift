@@ -50,7 +50,7 @@ func filterOps(_ type: String, relative: Bool = false, status: Bool = false) -> 
     default: return [("contains", String(localized: "enthält")), ("not_contains", String(localized: "enthält nicht"))] + empty
     }
 }
-let filterNoValue: Set<String> = ["is_empty", "not_empty", "checked", "unchecked", "me"].union(DBDate.relOps)
+let filterNoValue: Set<String> = Set(["is_empty", "not_empty", "checked", "unchecked", "me"]).union(DBDate.relOps)
 
 extension DBModel {
     /// Schema gesperrt - oder nur lesen (Rolle Lesen/Kommentieren): keine Spalten/Ansichten aendern
