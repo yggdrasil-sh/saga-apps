@@ -17,14 +17,17 @@ enum InlineStyle {
     static let math = Color.purple.opacity(0.14)
     static let text: [(String, Color)] = InlineRuns.palette.map { ($0, HKPalette.textColor($0)) }
     static let bg: [(String, Color)] = InlineRuns.palette.map { ($0, HKPalette.bgColor($0)) }
-    private static func rgba(_ c: Color) -> [Float] {
-        let r = c.resolve(in: EnvironmentValues())
+    /// aufgeloeste Farbe in hell und dunkel (das Textfeld kann eine Farbe im aktuellen Erscheinungsbild aufloesen)
+    private static func rgba(_ c: Color, dark: Bool) -> [Float] {
+        var e = EnvironmentValues(); e.colorScheme = dark ? .dark : .light
+        let r = c.resolve(in: e)
         return [r.red, r.green, r.blue, r.opacity]
     }
     private static func match(_ c: Color?, _ list: [(String, Color)]) -> String? {
         guard let c else { return nil }
-        let v = rgba(c)
-        return list.first { k in zip(rgba(k.1), v).allSatisfy { abs($0 - $1) < 0.004 } }?.0
+        let v = rgba(c, dark: false), w = rgba(c, dark: true)
+        func same(_ a: [Float], _ b: [Float]) -> Bool { zip(a, b).allSatisfy { abs($0 - $1) < 0.004 } }
+        return list.first { k in same(rgba(k.1, dark: false), v) || same(rgba(k.1, dark: true), w) || same(rgba(k.1, dark: true), v) || same(rgba(k.1, dark: false), w) }?.0
     }
     /// Hintergrund -> Markierung/Code
     static func background(_ c: Color?) -> (InlineFmt.Mark?, InlineFmt.Code?) {

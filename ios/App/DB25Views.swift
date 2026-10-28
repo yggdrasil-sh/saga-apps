@@ -470,6 +470,24 @@ struct DBTimelineView: View {
     @ObservedObject var m: DBModel
     let view: [String: Any]?
     @EnvironmentObject var nav: NavModel
+    @EnvironmentObject var store: Store
+    /// 2.5: Balken ziehen (Tablet/Mac): verschieben bzw. Ende ziehen -> Props-PATCH der Datumswerte
+    @State private var drag: (id: Int, days: Int, move: Bool)?
+    private var canDrag: Bool { !phone && !m.readOnly && !m.pageLocked && m.prop(startPid)?.type == "date" }
+    private var startPid: String? { (view?["date_by"] as? String) ?? m.props.first { $0.type == "date" }?.id }
+    private func dragGesture(_ b: TimelineLogic.Bar, move: Bool) -> some Gesture {
+        DragGesture(minimumDistance: 6)
+            .onChanged { g in drag = (b.id, TimelineDrag.days(dx: g.translation.width, dayWidth: Double(dayW)), move) }
+            .onEnded { g in
+                let n = TimelineDrag.days(dx: g.translation.width, dayWidth: Double(dayW))
+                drag = nil
+                guard let sp = startPid, let r = m.rows.first(where: { $0.id == b.id }) else { return }
+                let ep = (view?["end_by"] as? String).flatMap { m.prop($0)?.type == "date" ? $0 : nil }
+                guard let sv = m.query.value(m.prop(sp)!, r) as? String,
+                      let p = TimelineDrag.props(start: sp, startValue: sv, end: ep, endValue: ep.flatMap { m.query.value(m.prop($0)!, r) as? String }, days: n, moveStart: move) else { return }
+                Task { await m.setMany(b.id, p, store: store) }
+            }
+    }
     #if os(iOS)
     @Environment(\.horizontalSizeClass) private var hsc
     private var phone: Bool { hsc == .compact }
@@ -513,13 +531,26 @@ struct DBTimelineView: View {
                                 .offset(x: CGFloat(today - lo) * dayW + dayW / 2)
                             VStack(alignment: .leading, spacing: 6) {
                                 ForEach(tl.bars, id: \.id) { b in
+                                    let dragging = drag?.id == b.id
+                                    let ds = dragging && drag?.move == true ? CGFloat(drag?.days ?? 0) * dayW : 0
+                                    let de = dragging ? CGFloat(drag?.days ?? 0) * dayW : 0
                                     Button { open(b.id, rows) } label: {
                                         Text(b.title.isEmpty ? String(localized: "Unbenannt") : b.title).font(.caption).lineLimit(1).fixedSize()
-                                            .padding(.horizontal, 6).frame(minWidth: CGFloat(b.end - b.start + 1) * dayW, minHeight: 24, alignment: .leading)
-                                            .background(barColor(b.id, rows).opacity(0.3), in: RoundedRectangle(cornerRadius: 5))
+                                            .padding(.horizontal, 6).frame(minWidth: max(dayW, CGFloat(b.end - b.start + 1) * dayW + (dragging && drag?.move == false ? de : 0)), minHeight: 24, alignment: .leading)
+                                            .background(barColor(b.id, rows).opacity(dragging ? 0.45 : 0.3), in: RoundedRectangle(cornerRadius: 5))
                                             .overlay(RoundedRectangle(cornerRadius: 5).stroke(barColor(b.id, rows).opacity(0.6)))
+                                            .overlay(alignment: .trailing) {          // Ende ziehen
+                                                if canDrag {
+                                                    Rectangle().fill(Color.clear).frame(width: 10).contentShape(Rectangle())
+                                                        .gesture(dragGesture(b, move: false))
+                                                        #if os(macOS)
+                                                        .onHover { $0 ? NSCursor.resizeLeftRight.push() : NSCursor.pop() }
+                                                        #endif
+                                                }
+                                            }
                                     }
-                                    .buttonStyle(.plain).offset(x: CGFloat(b.start - lo) * dayW)
+                                    .buttonStyle(.plain).offset(x: CGFloat(b.start - lo) * dayW + ds)
+                                    .simultaneousGesture(canDrag ? dragGesture(b, move: true) : nil)
                                 }
                             }
                         }

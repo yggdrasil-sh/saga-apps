@@ -164,3 +164,19 @@ func moveTests() {
     check(MoveLogic.allowed(target: 5, source: 4, isDatabase: false) && !MoveLogic.allowed(target: -5, source: 4, isDatabase: false)
           && !MoveLogic.allowed(target: 4, source: 4, isDatabase: false) && !MoveLogic.allowed(target: 6, source: 4, isDatabase: true), "Ziele: keine fremden Server, keine DB, nicht dieselbe Seite")
 }
+
+// Zeitleiste ziehen (timeline1): neue Datumswerte
+func timelineDragTests() {
+    check(TimelineDrag.shift("2026-10-28", by: 3) == "2026-10-31" && TimelineDrag.shift("2026-10-30T09:30+01:00", by: 3) == "2026-11-02T09:30+01:00", "verschieben, Uhrzeit bleibt")
+    check(TimelineDrag.props(start: "d", startValue: "2026-10-28", end: nil, endValue: nil, days: 2, moveStart: true)?["d"] as? String == "2026-10-30", "eintaegig verschieben")
+    check(TimelineDrag.props(start: "d", startValue: "2026-10-28/2026-10-30", end: nil, endValue: nil, days: -1, moveStart: true)?["d"] as? String == "2026-10-27/2026-10-29", "Zeitraum gemeinsam verschieben")
+    check(TimelineDrag.props(start: "d", startValue: "2026-10-28", end: nil, endValue: nil, days: 2, moveStart: false)?["d"] as? String == "2026-10-28/2026-10-30", "Ende ziehen -> Zeitraum")
+    check(TimelineDrag.props(start: "d", startValue: "2026-10-28/2026-10-30", end: nil, endValue: nil, days: -2, moveStart: false)?["d"] as? String == "2026-10-28", "Ende auf Beginn -> eintaegig")
+    check(TimelineDrag.props(start: "d", startValue: "2026-10-28", end: nil, endValue: nil, days: -1, moveStart: false) == nil, "Ende vor Beginn: nichts")
+    let both = TimelineDrag.props(start: "s", startValue: "2026-10-28T09:00+01:00", end: "e", endValue: "2026-10-29", days: 1, moveStart: true)
+    check(both?["s"] as? String == "2026-10-29T09:00+01:00" && both?["e"] as? String == "2026-10-30", "end_by: beide Daten in einem Aufruf")
+    let end = TimelineDrag.props(start: "s", startValue: "2026-10-28", end: "e", endValue: nil, days: 3, moveStart: false)
+    check(end?["e"] as? String == "2026-10-31" && end?["s"] == nil, "end_by fehlt: Ende ab Beginn")
+    check(TimelineDrag.props(start: "s", startValue: "2026-10-28", end: nil, endValue: nil, days: 0, moveStart: true) == nil, "0 Tage: nichts")
+    check(TimelineDrag.days(dx: 47, dayWidth: 16) == 3 && TimelineDrag.days(dx: -7, dayWidth: 16) == 0, "Strecke -> Tage")
+}

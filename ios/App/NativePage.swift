@@ -400,6 +400,9 @@ final class PageDoc: ObservableObject {
         if root.count == 0 && !isDatabase { root.add(PageEditor.make("paragraph")) }
     }
 
+    #if DEBUG
+    func previewLoad(_ d: Data, _ store: Store) async { await apply(d, store) }   // nur fuer Bilder (E2Preview)
+    #endif
     private func apply(_ d: Data, _ store: Store) async {
         guard let p = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return }
         page = p; rev = p["rev"] as? Int ?? 0

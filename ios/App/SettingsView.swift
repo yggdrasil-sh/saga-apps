@@ -221,6 +221,7 @@ struct KontoSettings: View {
             AvatarSettingsSection(crop: $crop, cropped: $cropped)   // Profilbild (2.1)
             SecuritySettingsSection()                     // Anmeldung & Sicherheit (2.1, verwaltet im Browser)
             AppsDevicesSection().id("apps")
+            APITokensSection()                            // 2.5 api1: API-Tokens auflisten/widerrufen
             MyBackupSection(model: backup, open: $backupOpen)   // Mein Backup (2.3, nur wenn der Server es kennt)
             if let logout {                               // Mac: unten im Tab Konto
                 Section {

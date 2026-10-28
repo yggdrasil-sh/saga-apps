@@ -677,6 +677,15 @@ struct EditText: View {
                     if ed.focus == key { acquireFocus() }
                 }
                 .onChange(of: rich) { _, new in handle(new) }
+                // 2.5 (P3): Inhalt von aussen ersetzt (zusammengefuehrt, fremde Aenderung uebernommen), waehrend das Feld
+                // bearbeitet wird: neuen Stand zeigen, Schreibmarke an derselben Stelle halten - sonst schriebe die
+                // naechste Eingabe den alten Text zurueck
+                .onChange(of: html) { _, new in
+                    guard box.handover == nil, !sameInline(new, richToHTML(rich, ctx: fctx, baseBold: boldBase)) else { return }
+                    let at = cursor ?? rich.characters.count
+                    rich = richText(new, base: font); box.shadow = String(rich.characters)
+                    rsel = AttributedTextSelection(insertionPoint: rich.characters.index(rich.startIndex, offsetBy: min(at, rich.characters.count)))
+                }
                 .onReceive(NotificationCenter.default.publisher(for: .hkCarry)) { n in if n.object as? String == key { takeCarry() } }
                 .onReceive(ed.mentionPeople.$results) { _ in if ed.focus == key && trigger != nil { peopleTick += 1 } }   // Personen angekommen
                 .onReceive(NotificationCenter.default.publisher(for: .hkFormat)) { n in   // Leiste: fett, kursiv, ...

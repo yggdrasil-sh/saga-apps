@@ -40,6 +40,10 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Block auf andere Seite verschieben** (`move1`): Block-Menü „Auf andere Seite verschieben …“ mit Seitensuche,
   vorher speichern, bei veralteter Revision einmal neu versuchen, 403/404/423/507 verständlich; „Rückgängig“
   schiebt zurück. Seiten anderer Server: Menüpunkt aus.
+- **Zeitleiste ziehen** (iPad/Mac): Balken verschieben bzw. am rechten Rand das Ende ziehen – beide Daten in einem
+  Props-PATCH, Uhrzeit bleibt, Zeitraum im Beginn wird gemeinsam geschrieben. Telefone bleiben lesend.
+- **API-Tokens** (`api1`): Einstellungen → Konto listet die Tokens (Bereiche, Ablauf, zuletzt benutzt) und kann sie
+  widerrufen; Anlegen weiter im Web.
 
 ### Neu – iOS/Mac: Datenbanken, Diagramme, Widgets und Inline-Formen (Saga-Server 2.5, App-Runde Etappe 1)
 Alles nur, wenn der Server die jeweilige Fähigkeit meldet (`/api/version` → `features`); ältere Server: wie bisher.

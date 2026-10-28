@@ -74,7 +74,6 @@ final class Store: ObservableObject {
     @Published var taskPeople: [String: TaskPerson] = [:]
     /// Abgehakt mit Rueckgaengig (Schluessel, Wert vorher) - kurzer Hinweis in der Liste
     @Published var taskUndo: TaskUndo?
-    var taskQueue = TaskQueue()
     @Published var events: [CalEvent] = []
     @Published var recent: [Int] = UserDefaults.standard.array(forKey: "recent") as? [Int] ?? []
     private var cookieHeader: [String: String]?
