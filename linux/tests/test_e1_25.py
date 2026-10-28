@@ -387,6 +387,18 @@ def test_db_week_chart_timeline_list(win, srv):
     assert any(x == "⛔" for x in labels(dv_))
 
 
+def test_view_tabs_not_cut_off(win, srv):
+    """Viele Ansichten: der letzte Reiter wird nicht abgeschnitten ("Zeitleist") - Werkzeuge rutschen in eine eigene Zeile"""
+    win.set_default_size(1300, 950)
+    _setup_db(srv)
+    dv_ = _open_db(win, srv, "tl")
+    pump(None, 0.8)
+    assert sum(1 for x in walk(dv_.bar.tabs) if "hk-viewtab" in x.get_css_classes()) == 6
+    sw = dv_.bar.tab_scroll
+    nat = dv_.bar.tabs.measure(Gtk.Orientation.HORIZONTAL, -1)[1]
+    assert sw.get_width() >= nat, (sw.get_width(), nat)
+
+
 def test_person_picker_and_file_upload(win, srv, tmp_path):
     rows = _setup_db(srv)
     dv_ = _open_db(win, srv, "tab")

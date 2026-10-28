@@ -112,11 +112,39 @@ class ViewBar(Gtk.Box):
         self.tools.append(self.new_slot)
         self.append(self.tools)
         self.narrow = False
+        self.width_narrow = False                    # schmales Fenster (DatabaseView.do_size_allocate)
+        self._overflow = False                       # Reiter passen nicht neben die Werkzeuge
+        self._ov_src = 0
         self._sig = None
+        sw.get_hadjustment().connect("changed", self._tabs_resized)
+
+    def _tabs_resized(self, adj):
+        """Reiter breiter als ihr Platz neben Suche/Einstellungen/Neu: Werkzeuge in eine eigene Zeile, statt den letzten
+        Reiter abzuschneiden ("Zeitleist", 2.5 E1). Zurueck, wenn alles wieder nebeneinander passt."""
+        if self.width_narrow or self._ov_src:
+            return
+        if not self.narrow:
+            ov = adj.get_upper() > adj.get_page_size() + 1 and adj.get_page_size() > 0
+        else:
+            w = self.get_width()
+            need = self.tabs.measure(Gtk.Orientation.HORIZONTAL, -1)[1] + self.tools.measure(Gtk.Orientation.HORIZONTAL, -1)[1] + 16
+            ov = not (0 < need <= w)
+        if ov != self._overflow:
+            def later():
+                self._ov_src = 0
+                self._overflow = ov
+                self._apply()
+                return False
+            self._ov_src = GLib.idle_add(later)
 
     def set_narrow(self, on):
         """schmales Fenster: Reiter oben ueber die ganze Breite, darunter Suche (dehnt sich), Einstellungen, Neu -
         sonst rutschten die Reiter unter das Suchfeld ("Tab…", Testbericht 183)"""
+        self.width_narrow = on
+        self._apply()
+
+    def _apply(self):
+        on = self.width_narrow or self._overflow
         if on == self.narrow:
             return
         self.narrow = on
