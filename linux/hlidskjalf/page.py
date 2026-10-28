@@ -1654,6 +1654,55 @@ class PageView(Gtk.Box):
         pop.popup()
         return pop
 
+    def share_and_mention(self, rt, v, n):
+        """Person ohne Zugriff erwaehnen: Rueckfrage, dann Seite teilen (Lesen bzw. Kommentieren) und einfuegen"""
+        from .api import client
+        from .util import bg
+        buf = rt.get_buffer()
+        cur = buf.get_iter_at_mark(buf.get_insert())
+        st = cur.copy()
+        st.backward_chars(n)
+        ms, me = buf.create_mark(None, st, True), buf.create_mark(None, cur, False)
+        name = v.get("name") or _("this person")
+        dlg = Adw.AlertDialog(heading=_("Share page and mention?"),
+                              body=_("{name} has no access to this page yet. Share it with them so they can see the mention?").format(name=name))
+        dlg.add_response("cancel", _("Cancel"))
+        dlg.add_response("comment", _("Share (can comment)"))
+        dlg.add_response("view", _("Share (can view)"))
+        dlg.set_response_appearance("view", Adw.ResponseAppearance.SUGGESTED)
+        dlg.set_default_response("view")
+        self._mention_dlg = dlg
+
+        def insert():
+            from .richtext import MENTION_NAMES
+            MENTION_NAMES[v["ref"]] = name
+            s0, e0 = buf.get_iter_at_mark(ms), buf.get_iter_at_mark(me)
+            buf.place_cursor(e0)
+            rt.insert_mention(v["ref"], name, e0.get_offset() - s0.get_offset())
+            buf.delete_mark(ms)
+            buf.delete_mark(me)
+
+        answered = []
+
+        def resp(d, r):
+            if answered:                                     # nur die erste Antwort zaehlt (Schliessen danach: nichts)
+                return
+            answered.append(r)
+            if r not in ("view", "comment"):
+                buf.delete_mark(ms)
+                buf.delete_mark(me)
+                return
+
+            def err(e):
+                buf.delete_mark(ms)
+                buf.delete_mark(me)
+                self.win.toast(str(e))
+            bg(client.json, "PUT", f"api/notes/{self.id}/shares", {"type": "user", "target": v["ref"], "role": r},
+               done=lambda _r: insert(), error=err)
+        dlg.connect("response", resp)
+        dlg.present(self.win)
+        return dlg
+
     def ask_math(self, rt):
         """Inline-Mathe einfuegen bzw. (Schreibmarke darin) bearbeiten - Quelltext (TeX)"""
         rng = rt.math_range()

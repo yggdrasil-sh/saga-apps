@@ -498,6 +498,8 @@ class MockServer:
                     mockv25.keep_base(self, nid, n)
                 n["updated"] = time.time()
                 out = {"ok": True, "updated": n["updated"], "rev": n["rev"]}
+                if content and getattr(self, "patch_extra", None):      # 2.5: z. B. synced/synced_rev (P6-6)
+                    out.update(self.patch_extra)
                 if "props" in body:
                     out = mockv25.patch_row(self, nid, body, out)
                 return self._reply(200, out)

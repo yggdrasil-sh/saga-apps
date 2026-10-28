@@ -9,7 +9,7 @@ from .config import settings
 from .editor import CONVERTIBLE, SLASH_ITEMS, cell_key, make
 from .emoji import EMOJI
 from .entries import blocked_button_hint
-from .i18n import _
+from .i18n import _, ngettext
 from .richtext import RichText, date_text, find_trigger, inline_safe, parse_date, rel_text
 from .store import is_db, label, store
 from .util import COLOR_NAMES, COLOR_ORDER, decode_entities, esc, human_size, norm, plain
@@ -969,6 +969,21 @@ class BlockKit:
                                     cb=lambda: self.view.win.show_page(note)))
         box.append(head)
         inner = d.get("blocks")
+        from .editor import synced_editable
+        if isinstance(inner, list) and synced_editable(b, self.editor.doc.id) and not self.editor.locked:
+            # 2.5 (sync1): Inhalt bearbeitbar - Original (Inhalt dieser Seite) bzw. Kopie mit Bearbeiten im Original;
+            # beim Speichern schreibt der Server die Kopie ins Original (data.src bleibt unveraendert)
+            if src and src.get("refs"):
+                n = int(src.get("refs") or 0)
+                lb.set_label((_("Original") if own else _("Synced")) + " · " +
+                             ngettext("on {n} other page", "on {n} other pages", n).format(n=n))
+            if not inner:
+                inner.append(make("paragraph"))
+            il = self.block_list(inner, depth + 1)
+            il.set_margin_start(4)
+            box.append(il)
+            box.add_css_class("hk-synced-edit")
+            return box
         if isinstance(inner, list) and inner:
             # nur Anzeige: eine Kopie (eigene ID-Liste) darf in der App nicht bearbeitet werden; das Original im Web
             from .richtext import RichText as _RT
@@ -986,10 +1001,14 @@ class BlockKit:
                 rt.set_hexpand(True)
                 rt.on_link = self.view.open_link
                 box.append(rt)
-        elif src is not None and not inner:
+        elif src is not None and src.get("noaccess"):
             box.append(Gtk.Label(label="🔒 " + _("Synced block – no access"), xalign=0, css_classes=["dim-label"]))
+        elif src is not None and not inner:
+            box.append(Gtk.Label(label=_("Synced block not found"), xalign=0, css_classes=["dim-label"]))
         else:
             box.append(Gtk.Label(label=_("Empty synced block"), xalign=0, css_classes=["dim-label"]))
+        if src and src.get("gone"):
+            box.append(Gtk.Label(label=_("Original deleted"), xalign=0, css_classes=["dim-label", "caption"]))
         box.set_tooltip_text(_("Edit synced blocks on the web"))
         return box
 
@@ -1496,12 +1515,75 @@ class BlockKit:
             n = len(trig[1]) + 1
 
             def pick(v, rt=rt, n=n):
+                if isinstance(v, dict):                       # 2.5 (mention1): Person
+                    self.pick_person(rt, v, n)
+                    return
                 txt, link = v
                 rt.replace_before_cursor(n, txt, link)
             sg.show(rt, trig[0], items, pick)
+            if trig[0] == "at":
+                self._people_async(rt, trig[1], before, items, pick)
             return
         if sg.rt is rt:
             sg.hide()
+
+    # --- 2.5 (mention1): Personen erwaehnen ------------------------------------------------------------------------------
+    def _mention_ok(self):
+        doc = self.editor.doc
+        return store.has("mention1") and doc.fetched and isinstance(doc.id, int) and doc.id > 0 and not self.editor.locked
+
+    def _people_async(self, rt, q, before, items, pick):
+        """Personen mit Zugriff (GET /api/notes/{id}/people?q=), dazu - ab einem Zeichen - Personen ohne Zugriff aus der
+        Teilen-Suche (Auswahl fragt "Seite teilen und erwaehnen?"). Kommt an, wenn noch dieselbe Eingabe offen ist."""
+        if not self._mention_ok():
+            return
+        from urllib.parse import quote
+        from .api import client
+        from .util import bg
+        nid = self.editor.doc.id
+        q = q.strip()
+
+        def work():
+            ppl = client.get(f"api/notes/{nid}/people?q={quote(q)}") or {}
+            hits = {}
+            if q:
+                try:
+                    hits = client.get("api/share/targets?q=" + quote(q)) or {}
+                except Exception:  # noqa: BLE001 - Teilen-Suche ist nur Zusatz
+                    hits = {}
+            return ppl, hits
+
+        def fin(r):
+            sg = self.view.suggest
+            if (sg.rt is not None and sg.rt is not rt) or rt.text_before_cursor() != before or sg.closed_for == before:
+                return
+            ppl, hits = r
+            out = []
+            have = set()
+            for p in (ppl.get("people") if isinstance(ppl, dict) else None) or []:
+                if not isinstance(p, dict) or not isinstance(p.get("ref"), str):
+                    continue
+                have.add(p["ref"])
+                out.append(("👤", p.get("name") or p["ref"], _("me") if p.get("me") else _("Person"),
+                            {"ref": p["ref"], "name": p.get("name") or "", "access": True}))
+            for u in (hits.get("users") if isinstance(hits, dict) else None) or []:
+                ref = u.get("username") if isinstance(u, dict) else None
+                if not isinstance(ref, str) or not ref.startswith("~") or ref in have:
+                    continue                                  # nur Handles (nie Anmeldenamen)
+                out.append(("👤", u.get("name") or ref, _("No access"), {"ref": ref, "name": u.get("name") or "", "access": False}))
+            if out:
+                sg.show(rt, "at", out[:8] + list(items), pick)
+
+        bg(work, done=fin, error=lambda e: None)
+
+    def pick_person(self, rt, v, n):
+        """Erwaehnung einfuegen; Person ohne Zugriff: erst "Seite teilen und erwaehnen?" -> PUT .../shares, dann einfuegen"""
+        from .richtext import MENTION_NAMES
+        if v.get("access"):
+            MENTION_NAMES[v["ref"]] = v.get("name") or v["ref"]
+            rt.insert_mention(v["ref"], v.get("name") or v["ref"], n)
+            return
+        self.view.share_and_mention(rt, v, n)
 
     def _mention_items(self, trig):
         kind, q = trig

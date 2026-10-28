@@ -75,6 +75,39 @@ def make(btype, text="", level=2):
     return {"id": new_block_id(), "type": "list" if btype in ("checklist", "unordered", "ordered") else btype, "data": data}
 
 
+def synced_editable(b, page_id=None):
+    """2.5 (P6-6, sync1): Inhalt eines synchronisierten Blocks in der App bearbeitbar? Server mit synced1; Original (Inhalt
+    dieser Seite) immer, Kopie nur mit Rolle edit/owner im Original und nicht geloescht/ohne Zugriff/unbekannt"""
+    if not store.has("synced1"):
+        return False
+    d = b.get("data") if isinstance(b, dict) else None
+    if not isinstance(d, dict) or not isinstance(d.get("blocks"), list):
+        return False
+    src = d.get("src") if isinstance(d.get("src"), dict) else None
+    if src is None or src.get("original"):
+        return True
+    if src.get("gone") or src.get("noaccess") or src.get("missing"):
+        return False
+    return src.get("role") in ("edit", "owner") and isinstance(src.get("rev"), int)
+
+
+def synced_copies(arr, out=None):
+    """alle Kopien (data.src.note gesetzt) einer Blockliste -> {sid: block}"""
+    out = {} if out is None else out
+    for b in arr or []:
+        if not isinstance(b, dict):
+            continue
+        d = b.get("data") if isinstance(b.get("data"), dict) else {}
+        if b.get("type") == "synced" and isinstance(d.get("src"), dict) and isinstance(d["src"].get("note"), int):
+            out[d.get("sid")] = b
+        if isinstance(d.get("blocks"), list):
+            synced_copies(d["blocks"], out)
+        for c in d.get("cols") or []:
+            if isinstance(c, dict):
+                synced_copies(c.get("blocks"), out)
+    return out
+
+
 def ensure_ids(arr):
     for b in arr:
         if not isinstance(b, dict):
@@ -326,6 +359,11 @@ class PageDoc:
     def _apply(self, p, schema):
         self.page = p
         self.rev = p.get("rev") or 0
+        if isinstance(p.get("people"), dict):                # 2.5 (mention1): aktuelle Namen der Erwaehnungen
+            from .richtext import MENTION_NAMES
+            for ref, pp in p["people"].items():
+                if isinstance(pp, dict) and isinstance(pp.get("name"), str):
+                    MENTION_NAMES[ref] = pp["name"]
         body = p.get("body") or ""
         root = None
         if p.get("format") == "blocks":
@@ -520,6 +558,9 @@ class PageDoc:
             b["overwrite"] = True
             self._overwrite = False
         merge = self.can_merge() and not b.get("overwrite")
+        caps = MERGE_CAPS if merge else CAPS
+        if store.has("synced1") and not self.is_database:
+            caps += ",sync1"                                 # 2.5 (P6-6): Kopien mit bearbeitetem Inhalt (data.src unveraendert)
         if merge:
             b["merge"] = 1
             if self.base_sent:
@@ -543,6 +584,8 @@ class PageDoc:
             else:
                 self.base_sent = False
                 self._set_base(sent_blocks, self.rev)
+            if isinstance(r, dict) and isinstance(r.get("synced"), dict):
+                self._synced_reply(r)
             self.dirty = self.gen != sent             # inzwischen weiter getippt -> gleich noch einmal
             self.error = self.last_error = None
             self.conflict_by = None
@@ -591,8 +634,7 @@ class PageDoc:
 
         def send():
             # 2.5 (P6-0): die App erhaelt Inline-Formen (Tags samt Klasse) und bis zu 6 Spalten beim Bearbeiten
-            return client.json("PATCH", f"api/notes/{self.id}", b, server=srv, account=acct,
-                               headers={"X-Saga-Caps": MERGE_CAPS if merge else CAPS})
+            return client.json("PATCH", f"api/notes/{self.id}", b, server=srv, account=acct, headers={"X-Saga-Caps": caps})
         bg_serial(("note", self.id), send, done=fin, error=err)
 
     # --- Zusammenfuehren (2.5, P3 Stufe 1) ------------------------------------------------------------------------
@@ -652,6 +694,34 @@ class PageDoc:
             self.on_adopted(title_changed)
         if self.on_merged:
             self.on_merged(info)
+
+    def _synced_reply(self, r):
+        """Antwort auf das Durchschreiben synchronisierter Kopien: ok/merged -> src.rev = synced_rev uebernehmen (auch im
+        Basis-Stand, damit es nicht als eigene Aenderung zaehlt); stale/denied/locked -> nichts uebernommen: Seite neu laden
+        + Hinweis (gone ebenso)"""
+        res = r["synced"]
+        revs = r.get("synced_rev") if isinstance(r.get("synced_rev"), dict) else {}
+        bad = []
+        for arr in (self.root, self.base_blocks or []):
+            cps = synced_copies(arr)
+            for sid, st in res.items():
+                b = cps.get(sid)
+                if b is None:
+                    continue
+                if st in ("ok", "merged") and isinstance(revs.get(sid), int):
+                    b["data"]["src"]["rev"] = revs[sid]
+        for sid, st in res.items():
+            if st not in ("ok", "merged"):
+                bad.append(st)
+        if any(st == "merged" for st in res.values()) and self.on_notice:
+            self.on_notice(_("Synced block merged with a simultaneous change in the original."))
+        if bad:
+            if self.on_notice:
+                self.on_notice({"denied": _("The synced block could not be saved: no permission to edit the original."),
+                                "locked": _("The synced block could not be saved: the original page is locked."),
+                                "gone": _("The original of the synced block was deleted."),
+                                }.get(bad[0], _("The synced block was changed elsewhere – the page was reloaded.")))
+            GLib.idle_add(lambda: (self.load(force=True) if not self.dirty and not self._saving else None, False)[1])
 
     def pull(self, done=None):
         """Fremde Aenderung (note.changed mit hoeherer rev): GET ?since=<rev> (delta) bzw. GET, blockweise uebernehmen.

@@ -603,3 +603,115 @@ def test_color_picker_ui_and_caps(win, srv):
     assert json.loads(srv.notes[3]["body"])["blocks"][0]["data"]["text"] == '<span class="hk-c-orange">Farbe</span> hier'
     caps = [h[2].get("X-Saga-Caps") for h in srv.headers_log if h[0] == "PATCH" and h[1].endswith("/api/notes/3")]
     assert caps[-1].startswith("inline2,cols6")
+
+
+# --- 4. Erwaehnungen + synchronisierte Bloecke ---------------------------------------------------------------------------------
+def test_comment_mention_markup_and_token():
+    from hlidskjalf.comments import mention_markup, mention_token
+    ppl = {"~abcdefghijklmnop": {"name": "Anna <B>", "me": False}, "~zyxwvutsrqponmlk": {"name": "Weg", "gone": True},
+           "~meeeeeeeeeeeeeee": {"name": "Ich", "me": True}}
+    m = mention_markup("Schau <@~abcdefghijklmnop> und <@~zyxwvutsrqponmlk> <@~meeeeeeeeeeeeeee> <@~unbekanntunbekan> https://x.example", ppl)
+    assert "@Anna &lt;B&gt;" in m and "<s>@Weg</s>" in m and "#0b689340" in m
+    assert "&lt;@~unbekanntunbekan&gt;" in m and '<a href="https://x.example">' in m
+    assert mention_token("~abcdefghijklmnop") == "<@~abcdefghijklmnop>"
+    assert mention_token("@bob@b.example") == "<@@bob@b.example>"
+
+
+def _mention_setup(srv):
+    from hlidskjalf.store import store
+    srv.v25 = True
+    srv.extra_features = ["mention1", "synced1"]
+    srv.v25_people = {"~annaannaannaanna": {"name": "Anna Berg", "me": False}}
+    store.check_version()
+    assert pump(lambda: store.has("mention1"), 4)
+
+
+def test_mention_insert_via_at(win, srv):
+    """"@" im Text: Personen mit Zugriff aus /people -> span.hk-mention (data-u = ref, Text = name)"""
+    _mention_setup(srv)
+    srv.notes[3]["body"] = json.dumps({"blocks": [{"id": "m1", "type": "paragraph", "data": {"text": ""}}]})
+    win.show_root(("page", 3))
+    v = win.current
+    assert pump(lambda: v.doc.fetched and "m1" in v.kit.by_key)
+    rt = v.kit.by_key["m1"]
+    rt.grab_focus()
+    buf = rt.get_buffer()
+    buf.insert_at_cursor("Hallo @An")
+    assert pump(lambda: v.suggest.visible and any(isinstance(it[3], dict) for it in v.suggest.items), 4)
+    i = next(k for k, it in enumerate(v.suggest.items) if isinstance(it[3], dict))
+    v.suggest.sel = i
+    v.suggest.pick_current()
+    v.editor.flush()
+    assert pump(lambda: "hk-mention" in srv.notes[3]["body"], 5)
+    idle()
+    assert json.loads(srv.notes[3]["body"])["blocks"][0]["data"]["text"] == \
+        'Hallo <span class="hk-mention" data-u="~annaannaannaanna">Anna Berg</span> '
+
+
+def test_mention_person_without_access_shares_first(win, srv):
+    _mention_setup(srv)
+    srv.share_api = True
+    srv.names["~bertbertbertbert"] = "Bert"                           # Konto (Handle) bekannt
+    srv.notes[3]["body"] = json.dumps({"blocks": [{"id": "m1", "type": "paragraph", "data": {"text": "x @Be"}}]})
+    win.show_root(("page", 3))
+    v = win.current
+    assert pump(lambda: v.doc.fetched and "m1" in v.kit.by_key)
+    rt = v.kit.by_key["m1"]
+    buf = rt.get_buffer()
+    buf.place_cursor(buf.get_end_iter())
+    dlg = v.share_and_mention(rt, {"ref": "~bertbertbertbert", "name": "Bert", "access": False}, 3)
+    assert dlg.get_heading() == "Share page and mention?"
+    dlg.emit("response", "view")
+    dlg.force_close()
+    v.editor.flush()
+    assert pump(lambda: "hk-mention" in srv.notes[3]["body"], 5)
+    idle()
+    assert any(m == "PUT" and u.endswith("/api/notes/3/shares") and b.get("target") == "~bertbertbertbert" and b.get("role") == "view"
+               for m, u, b, c in srv.log if isinstance(b, dict))
+    assert json.loads(srv.notes[3]["body"])["blocks"][0]["data"]["text"] == \
+        'x <span class="hk-mention" data-u="~bertbertbertbert">Bert</span> '
+
+
+SYNC_PAGE = [
+    {"id": "o1", "type": "synced", "data": {"sid": "OrigOrigOrigOrig", "blocks": [{"id": "oi", "type": "paragraph", "data": {"text": "Original hier"}}],
+                                            "src": {"original": True, "refs": 1}}},
+    {"id": "c1", "type": "synced", "data": {"sid": "KopieKopieKopieK", "blocks": [{"id": "ki", "type": "paragraph", "data": {"text": "aus A"}}],
+                                            "src": {"note": 4, "block": "x", "role": "edit", "rev": 7, "refs": 2}}},
+    {"id": "c2", "type": "synced", "data": {"sid": "LesenLesenLesenL", "blocks": [{"id": "li", "type": "paragraph", "data": {"text": "nur lesen"}}],
+                                            "src": {"note": 5, "block": "y", "role": "view", "rev": 3, "refs": 1}}},
+    {"id": "c3", "type": "synced", "data": {"sid": "OrigOrigOrigOrig", "src": {"missing": True}}},
+]
+
+
+def test_synced_copy_edit_writes_back_with_src(win, srv):
+    """Kopie mit Bearbeiten: Inhalt bearbeitbar, zurueck mit unveraendertem data.src, Kopf sync1; synced_rev -> src.rev.
+    Original und (zweite) Kopie derselben sid auf derselben Seite bleiben erhalten."""
+    _mention_setup(srv)
+    srv.notes[3]["body"] = json.dumps({"blocks": copy.deepcopy(SYNC_PAGE)})
+    win.show_root(("page", 3))
+    v = win.current
+    assert pump(lambda: v.doc.fetched and "ki" in v.kit.by_key)
+    assert v.kit.by_key["ki"].get_editable() and v.kit.by_key["oi"].get_editable()
+    assert "li" not in v.kit.by_key or not v.kit.by_key["li"].get_editable()       # Rolle view: nur lesen
+    srv.patch_extra = {"synced": {"KopieKopieKopieK": "ok"}, "synced_rev": {"KopieKopieKopieK": 8}}
+    buf = v.kit.by_key["ki"].get_buffer()
+    buf.insert(buf.get_end_iter(), " + hier")
+    v.editor.flush()
+    assert pump(lambda: "+ hier" in srv.notes[3]["body"], 5)
+    idle()
+    sent = json.loads(srv.notes[3]["body"])["blocks"]
+    assert [b["id"] for b in sent] == ["o1", "c1", "c2", "c3"]                    # nichts verloren
+    assert sent[1]["data"]["src"] == SYNC_PAGE[1]["data"]["src"]                   # src unveraendert gesendet
+    assert sent[1]["data"]["blocks"][0]["data"]["text"] == "aus A + hier"
+    assert sent[3] == SYNC_PAGE[3] and sent[0]["data"]["blocks"] == SYNC_PAGE[0]["data"]["blocks"]
+    caps = [h[2].get("X-Saga-Caps") for h in srv.headers_log if h[0] == "PATCH" and h[1].endswith("/api/notes/3")]
+    assert "sync1" in caps[-1].split(",")
+    assert v.doc.root[1]["data"]["src"]["rev"] == 8
+    # stale -> neu laden + Hinweis
+    srv.patch_extra = {"synced": {"KopieKopieKopieK": "stale"}, "synced_rev": {}}
+    gets = len([1 for m, u, b, c in srv.log if m == "GET" and u.endswith("/api/notes/3")])
+    buf.insert(buf.get_end_iter(), "!")
+    v.editor.flush()
+    assert pump(lambda: len([1 for m, u, b, c in srv.log if m == "GET" and u.endswith("/api/notes/3")]) > gets, 5)
+    srv.patch_extra = None
+    idle()
