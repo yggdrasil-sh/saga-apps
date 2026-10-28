@@ -86,6 +86,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import io.github.yggdrasil_sh.saga.R
 import io.github.yggdrasil_sh.saga.data.SagaRepository
+import androidx.compose.runtime.collectAsState
 import io.github.yggdrasil_sh.saga.db.DbProp
 import io.github.yggdrasil_sh.saga.db.DbQuery
 import io.github.yggdrasil_sh.saga.db.DbRow
@@ -176,7 +177,7 @@ fun viewIcon(type: String): String = when (type) {
 
 /** Zeilen und Werkzeugleiste der Datenbank als Eintraege der Seiten-LazyColumn */
 fun LazyListScope.databaseItems(st: DbViewState, repo: SagaRepository, onOpen: (Long) -> Unit, wide: Boolean) {
-    item(key = "db-toolbar", contentType = "db-toolbar") { DbToolbar(st, onOpen) }
+    item(key = "db-toolbar", contentType = "db-toolbar") { DbToolbar(st, onOpen, repo) }
     val s = st.schema
     if (st.noAccess) {
         item(key = "db-noaccess") { Text("🗃️ " + stringResource(R.string.db_missing), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 12.dp)) }
@@ -291,8 +292,9 @@ internal fun statusGroupName(g: String): String = stringResource(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit) {
+internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit, repo: SagaRepository? = null) {
     if (st.managing) TemplateManager(st, onOpen)
+    val features by (repo?.serverFeatures ?: kotlinx.coroutines.flow.MutableStateFlow(emptySet())).collectAsState()
     val s = st.schema
     val scope = rememberCoroutineScope()
     Column(Modifier.fillMaxWidth().padding(top = 8.dp)) {
@@ -309,7 +311,7 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit) {
             if (pills) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { ViewPills(st.views, v.id) { st.selectView(it) } }
                 // Menue (Ansicht bearbeiten, neue Ansicht, Vorlagen) rechts neben den Pillen
-                if (st.canEditViews || st.canManageTemplates) IconButton(onClick = { viewMenu = true }) {
+                if (st.canEditViews || st.canManageTemplates || (repo != null && "tasksrc1" in features)) IconButton(onClick = { viewMenu = true }) {
                     Icon(Icons.Filled.MoreVert, stringResource(R.string.dbv_views_menu))
                 }
             }
@@ -339,6 +341,21 @@ internal fun DbToolbar(st: DbViewState, onOpen: (Long) -> Unit) {
                         if (st.canManageTemplates) {                    // 2.5: auch ohne Vorlagen erreichbar
                             androidx.compose.material3.HorizontalDivider()
                             DropdownMenuItem(text = { Text(stringResource(R.string.tpl_manage)) }, onClick = { viewMenu = false; st.managing = true })
+                        }
+                        // 2.5 E2 (tasksrc1): abonnieren nur, wenn die Zuordnung (map) schon gesetzt ist - sonst Hinweis "im Web einrichten"
+                        if (repo != null && st.embed == null && st.dbId > 0 && "tasksrc1" in features) {
+                            androidx.compose.material3.HorizontalDivider()
+                            DropdownMenuItem(text = { Text(stringResource(R.string.e2_task_source_use)) }, onClick = {
+                                viewMenu = false
+                                repo.launchAction {
+                                    val (mapped, subscribed) = repo.taskSourceState(st.dbId)
+                                    when {
+                                        subscribed -> repo.notify(io.github.yggdrasil_sh.saga.util.UiText.Res(R.string.e2_task_source_already))
+                                        mapped -> { repo.subscribeTaskSource(st.dbId); repo.notify(io.github.yggdrasil_sh.saga.util.UiText.Res(R.string.e2_task_source_added)) }
+                                        else -> repo.notify(io.github.yggdrasil_sh.saga.util.UiText.Res(R.string.e2_task_source_web))
+                                    }
+                                }
+                            })
                         }
                     }
                 }

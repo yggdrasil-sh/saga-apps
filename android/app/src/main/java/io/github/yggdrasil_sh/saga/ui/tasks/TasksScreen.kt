@@ -66,13 +66,53 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         stringResource(R.string.no_date) to tasks.filter { it.due.isNullOrEmpty() },
     ).filter { it.second.isNotEmpty() }
 
-    Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_tasks), nav, chrome) }) { pad ->
+    // 2.5 E2 (tasksrc1): zusammengefuehrte Liste aus Inbox und Aufgabenquellen - Reihenfolge vom Server
+    val merged by repo.taskList.collectAsState()
+    var manage by remember { mutableStateOf(false) }
+    Scaffold(topBar = {
+        SagaTopBar(stringResource(R.string.nav_tasks), nav, chrome) {
+            if (merged != null) {
+                androidx.compose.material3.TextButton(onClick = { manage = true }) { Text(stringResource(R.string.e2_task_sources)) }
+            }
+        }
+    }) { pad ->
         PullToRefreshBox(
             isRefreshing = refreshing,
             onRefresh = { scope.launch { refreshing = true; repo.loadTasks(); refreshing = false } },
             modifier = Modifier.padding(pad).fillMaxSize(),
         ) {
-            LazyColumn(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            val ml = merged
+            if (ml != null) LazyColumn(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+                item { QuickAddTask(repo, Modifier.widthIn(max = 760.dp), targets = io.github.yggdrasil_sh.saga.data.TaskSourcesLogic.targets(ml.sources)) }
+                if (ml.items.isEmpty()) {
+                    item { Text(stringResource(R.string.tasks_all_done), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
+                }
+                val bySrc = ml.sources.associateBy { it.db }
+                items(ml.items, key = { it.key }) { e ->
+                    androidx.compose.foundation.layout.Box(Modifier.widthIn(max = 760.dp)) {
+                        SourceTaskRow(e, e.src?.let { bySrc[it] }, ml.people, repo) { x ->
+                            if (x.isRow) nav.push(io.github.yggdrasil_sh.saga.ui.nav.Dest.Page(x.id))
+                            else editing = tasks.firstOrNull { it.id.toLong() == x.id } ?: TaskItem(x.id.toInt(), x.text, false, x.due, x.prio, x.repeat)
+                        }
+                    }
+                }
+                if (done.isNotEmpty()) {
+                    item(key = "done-h") {
+                        Row(
+                            Modifier.widthIn(max = 760.dp).fillMaxWidth().heightIn(min = 48.dp)
+                                .clickable(role = Role.Button) { showDone = !showDone }.padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(if (showDone) Icons.Filled.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(pluralStringResource(R.plurals.tasks_completed, done.size, done.size), color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 6.dp))
+                        }
+                    }
+                    if (showDone) items(done, key = { "d-${it.id}" }) { t ->
+                        androidx.compose.foundation.layout.Box(Modifier.widthIn(max = 760.dp)) { TaskRow(t, repo) { editing = it } }
+                    }
+                }
+            } else LazyColumn(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
                 item { QuickAddTask(repo, Modifier.widthIn(max = 760.dp)) }
                 if (tasks.isEmpty()) {
                     item { Text(stringResource(R.string.tasks_all_done), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(24.dp)) }
@@ -114,4 +154,5 @@ fun TasksScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
         }
     }
     editing?.let { t -> TaskEditDialog(t, repo) { editing = null } }
+    if (manage) TaskSourcesDialog(repo, onOpen = { nav.push(io.github.yggdrasil_sh.saga.ui.nav.Dest.Page(it)) }) { manage = false }
 }

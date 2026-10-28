@@ -326,6 +326,7 @@ fun SettingsGeneralScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
         if (repo.calls.enabled.value == null) repo.calls.checkEnabled()
     }
     val listState = rememberAreaListState(SettingsArea.EINSTELLUNGEN, signIns)
+    val features25 by repo.serverFeatures.collectAsState()
     Scaffold(topBar = { SagaTopBar(stringResource(R.string.nav_settings), nav, chrome) }) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), state = listState, horizontalAlignment = Alignment.CenterHorizontally) {
             val w = Modifier.widthIn(max = 760.dp).fillMaxWidth()
@@ -355,6 +356,8 @@ fun SettingsGeneralScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrom
                     )
                 }
             }
+            // 2.5 E2 (taskdue1): taegliche Zusammenfassung der Aufgaben (Schalter + Uhrzeit)
+            if ("taskdue1" in features25) item(key = "task-digest") { TaskDigestRow(repo, w) }
             if (callHints) item(key = "calls") { CallsFullScreenHint(w) }
             if (callHints) item(key = "calls-push") { CallsPushHint(repo.push, w) { nav.push(Dest.Push) } }
 
@@ -619,4 +622,53 @@ private object SettingsMemory {
     var kindsKey = -1
     var avatar: String? = null
     var scrollTo: Pair<SettingsArea, String>? = null
+}
+
+/** 2.5 E2 (taskdue1): "Heute fällig"-Zusammenfassung an/aus und Uhrzeit (GET/PUT api/tasks/digest) */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun TaskDigestRow(repo: SagaRepository, w: Modifier) {
+    var d by remember { mutableStateOf<io.github.yggdrasil_sh.saga.data.TaskSourcesLogic.Digest?>(null) }
+    var pick by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        try {
+            d = repo.taskDigest()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+    }
+    val cur = d ?: return
+    Column(w.padding(top = 10.dp)) {
+        io.github.yggdrasil_sh.saga.ui.push.SwitchRow(
+            stringResource(R.string.e2_digest), cur.on, Modifier.sagaSegment(0, if (cur.on) 2 else 1), hint = stringResource(R.string.e2_digest_hint),
+        ) { on ->
+            d = cur.copy(on = on)
+            repo.launchAction(onError = { d = cur }) { repo.setTaskDigest(on = on) }
+        }
+        if (cur.on) {
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.e2_digest_time)) },
+                trailingContent = { Text(cur.time, style = MaterialTheme.typography.titleMedium) },
+                colors = SEG, modifier = Modifier.sagaSegment(1, 2).clickable { pick = true },
+            )
+        }
+    }
+    if (pick) {
+        val (h, m) = cur.time.split(":").let { (it.getOrNull(0)?.toIntOrNull() ?: 7) to (it.getOrNull(1)?.toIntOrNull() ?: 30) }
+        val st = androidx.compose.material3.rememberTimePickerState(h, m, is24Hour = true)
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { pick = false },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = {
+                    pick = false
+                    val t = "%02d:%02d".format(st.hour, st.minute)
+                    d = cur.copy(time = t)
+                    repo.launchAction(onError = { d = cur }) { repo.setTaskDigest(time = t) }
+                }) { Text(stringResource(R.string.action_apply)) }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { pick = false }) { Text(stringResource(R.string.action_cancel)) } },
+            text = { androidx.compose.material3.TimePicker(st) },
+        )
+    }
 }

@@ -168,6 +168,8 @@ object CommentLogic {
 class CommentsModel(val pageId: Long, private val backend: CommentBackend, initial: PageShareInfo) {
     var role by mutableStateOf(initial.role)
         private set
+    /** 2.5 mention1: Namen der Erwaehnten (<@REF>) */
+    var people by mutableStateOf<Map<String, io.github.yggdrasil_sh.saga.data.MentionPerson>>(emptyMap())
     var threads by mutableStateOf<List<CommentThread>>(emptyList())
         private set
     var resolvedCount by mutableIntStateOf(initial.commentsResolved)
@@ -223,6 +225,7 @@ class CommentsModel(val pageId: Long, private val backend: CommentBackend, initi
             val r = backend.comments(pageId, showResolved)
             if (n != seq) return
             threads = r.threads
+            people = r.people
             resolvedCount = r.resolvedCount
             r.role?.let { role = Role.of(it) }
             loaded = true

@@ -295,6 +295,13 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
     val comments = remember(ed) { CommentsModel(id, repo, PageShareInfo()) }
     // Live-Kanal (1.4): Anwesenheit, fremde Aenderungen, neue Kommentare
     val liveSt = rememberPageLive(id, repo, ed, comments, appScope)
+    // 2.5 E2: Block-Markierungen der anderen Anwesenden; sync1 (synchronisierte Kopien bearbeiten), wenn der Server synced1 meldet
+    val features25 by repo.serverFeatures.collectAsState()
+    androidx.compose.runtime.SideEffect {
+        env.blockPresence = PageLiveLogic.byBlock(liveSt.users)
+        ed.syncSupported = "synced1" in features25 && !ed.isRemote
+        ed.mentionSupported = "mention1" in features25 && !ed.isRemote
+    }
     // KI-Assistent: null = zu, 0 = "Frag deine Seiten", 1 = "Diese Seite"
     val aiStatus by repo.ai.status.collectAsState()
     val aiOn = aiStatus?.enabled == true
@@ -564,7 +571,7 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
                 item(key = "header") {
                     PageHeader(
                         ed, repo, onPublish = if (ed.template || publishHidden || !caps.canPublish || ed.isRemote) null else openPublish,
-                        live = liveSt, onSettings = { io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, "public", replace = true) },
+                        live = liveSt, onVersions = { showVersions = true }, onSettings = { io.github.yggdrasil_sh.saga.ui.settings.SettingsNav.open(nav, "public", replace = true) },
                     )
                 }
                 if (ed.fetched && !ed.isDatabase) {
@@ -706,7 +713,16 @@ fun PageScreen(id: Long, repo: SagaRepository, nav: AppNavigator, chrome: Chrome
         )
     }
 
-    if (comments.visible) {
+    var commentMention by remember { mutableStateOf<((String) -> Unit)?>(null) }
+    val cmHook = if ("mention1" in features25 && !ed.isRemote) io.github.yggdrasil_sh.saga.ui.comments.CommentMentionHook(comments.people) { commentMention = it } else null
+    commentMention?.let { cb ->
+        MentionPicker(ed, repo, onDismiss = { commentMention = null }) { ref, name ->
+            commentMention = null
+            comments.people = comments.people + (ref to io.github.yggdrasil_sh.saga.data.MentionPerson(name))
+            cb(ref)
+        }
+    }
+    if (comments.visible) androidx.compose.runtime.CompositionLocalProvider(io.github.yggdrasil_sh.saga.ui.comments.LocalCommentMentions provides cmHook) {
         CommentsSheet(
             comments, scope,
             quote = { bid -> CommentLogic.snippet(ed.doc, bid) },
@@ -792,7 +808,7 @@ private fun copy(context: Context, text: String) {
 }
 
 @Composable
-private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> Unit)?, live: PageLiveState? = null, onSettings: () -> Unit = {}) {
+private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> Unit)?, live: PageLiveState? = null, onSettings: () -> Unit = {}, onVersions: (() -> Unit)? = null) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var iconPicker by remember { mutableStateOf(false) }
@@ -898,6 +914,7 @@ private fun PageHeader(ed: PageEditor, repo: SagaRepository, onPublish: (() -> U
         ed.info?.let {
             Text(it.resolve(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary, modifier = Modifier.padding(top = 6.dp).clickable { ed.info = null })
         }
+        ed.mergeHint?.let { h -> MergeHintLine(h, onVersions = onVersions) { ed.mergeHint = null } }
         ed.error?.let { Text(it.resolve(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 6.dp)) }
         if (ed.offline) {
             Text(
@@ -979,6 +996,12 @@ private fun EditorToolbar(
     var typeMenu by remember { mutableStateOf(false) }
     var colorMenu by remember { mutableStateOf(false) }
     var linkDialog by remember { mutableStateOf(false) }
+    var inlineColorMenu by remember { mutableStateOf(false) }
+    var mathDialog by remember { mutableStateOf<String?>(null) }
+    var mentionPick by remember { mutableStateOf(false) }
+    var movePick by remember { mutableStateOf(false) }
+    val trig = ed.mentionTrigger
+    LaunchedEffect(trig) { if (trig != null && trig.fieldKey == active.key) mentionPick = true }
     val blockPath: JsonPath = active.blockPath()
     val isText = active.toggle != null
 
@@ -1064,6 +1087,24 @@ private fun EditorToolbar(
                     FormatButton(stringResource(R.string.format_underline_short), stringResource(R.string.format_underline), active.styleOn(InlineStyle.UNDERLINE), active.hasSelection(), deco = TextDecoration.Underline) { active.toggle.invoke(InlineStyle.UNDERLINE) }
                     FormatButton(stringResource(R.string.format_strike_short), stringResource(R.string.format_strike), active.styleOn(InlineStyle.STRIKE), active.hasSelection(), deco = TextDecoration.LineThrough) { active.toggle.invoke(InlineStyle.STRIKE) }
                     TextButton(onClick = { linkDialog = true }, enabled = active.hasSelection(), modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.format_link)) }
+                    // 2.5 E2 (P6-8): Farbe der Auswahl, Inline-Mathe, Erwaehnung
+                    if (active.setColor != null) Box {
+                        TextButton(onClick = { inlineColorMenu = true }, enabled = active.hasSelection(), modifier = Modifier.heightIn(min = 48.dp)) {
+                            Text(stringResource(R.string.e2_inline_color))
+                        }
+                        InlineColorMenu(inlineColorMenu, active.colorAt?.invoke(false), active.colorAt?.invoke(true), onDismiss = { inlineColorMenu = false }) { c, bg ->
+                            inlineColorMenu = false
+                            active.setColor.invoke(c, bg)
+                        }
+                    }
+                    if (active.setMath != null) {
+                        TextButton(onClick = { mathDialog = active.mathAtCursor?.invoke() ?: "" }, modifier = Modifier.heightIn(min = 48.dp)) {
+                            Text(stringResource(R.string.e2_inline_math))
+                        }
+                    }
+                    if (active.insertMention != null && ed.mentionSupported) {
+                        TextButton(onClick = { mentionPick = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text("@") }
+                    }
                     active.linkAtCursor?.invoke()?.let { href ->
                         TextButton(onClick = { onLink(href) }) { Text(stringResource(R.string.link_open)) }
                     }
@@ -1091,6 +1132,12 @@ private fun EditorToolbar(
                     ed.flush()
                     openUrl(context, io.github.yggdrasil_sh.saga.blocks.Gestalten.webUrl(repo.absoluteUrl("notes"), ed.id, BlockDoc.id(wBlock)))
                 }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.pw_edit_web)) }
+            }
+            // 2.5 E2 (move1): Block auf eine andere Seite verschieben (nur Seiten dieses Servers)
+            val moveFeatures = repo?.serverFeatures?.collectAsState()?.value.orEmpty()
+            if (repo != null && active.itemPath() == null && ed.editable && io.github.yggdrasil_sh.saga.blocks.MoveLogic.available(ed.id, moveFeatures) &&
+                ed.block(blockPath)?.let { BlockDoc.id(it) } != null) {
+                TextButton(onClick = { movePick = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_move)) }
             }
             val dbBlock = ed.block(blockPath)?.takeIf { BlockDoc.type(it) == "database" && active.itemPath() == null }
             if (dbBlock != null) {                                  // 2.5: Datenbanktitel des Blocks ein-/ausblenden (wie Web/iOS)
@@ -1128,6 +1175,39 @@ private fun EditorToolbar(
                 put("type", kotlinx.serialization.json.JsonPrimitive("nextcloud"))
                 put("data", data)
             }, focus = false)
+        }
+    }
+
+    mathDialog?.let { cur ->
+        var tex by remember { mutableStateOf(cur) }
+        AlertDialog(
+            onDismissRequest = { mathDialog = null },
+            title = { Text(stringResource(R.string.e2_inline_math)) },
+            text = {
+                OutlinedTextField(value = tex, onValueChange = { tex = it.take(io.github.yggdrasil_sh.saga.blocks.RenderPreview.TEX_MAX) }, singleLine = true,
+                    label = { Text(stringResource(R.string.e2_inline_math_tex)) },
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace))
+            },
+            confirmButton = {
+                TextButton(onClick = { mathDialog = null; active.setMath?.invoke(tex) }, enabled = tex.isNotBlank()) { Text(stringResource(R.string.action_apply)) }
+            },
+            dismissButton = { TextButton(onClick = { mathDialog = null }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
+    if (movePick && repo != null) {
+        val own by repo.pages.collectAsState()
+        val shared by repo.sharedPages.collectAsState()
+        val pool = remember(own, shared) { io.github.yggdrasil_sh.saga.blocks.MoveLogic.targets(own + shared, ed.id) }
+        val bid = ed.block(blockPath)?.let { BlockDoc.id(it) }
+        PagePickerDialog(stringResource(R.string.e2_move_title), pool, repo, onDismiss = { movePick = false }) { target ->
+            movePick = false
+            if (bid != null) moveBlocksUi(ed, repo, listOf(bid), target)
+        }
+    }
+    if (mentionPick && repo != null) {
+        MentionPicker(ed, repo, onDismiss = { mentionPick = false; ed.mentionTrigger = null }) { ref, name ->
+            mentionPick = false
+            active.insertMention?.invoke(ref, name)
         }
     }
 
@@ -1348,4 +1428,48 @@ private fun CopyTextDialog(title: String, text: String, draft: String, onClose: 
         },
         dismissButton = { TextButton(onClick = onClose) { Text(stringResource(R.string.action_close)) } },
     )
+}
+
+/** 2.5 P3: dezenter Hinweis nach dem Zusammenfuehren; bei lost/title_lost mit Weg zu den Versionen */
+@Composable
+private fun MergeHintLine(h: MergeHint, onVersions: (() -> Unit)?, onDismiss: () -> Unit) {
+    Row(Modifier.padding(top = 6.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            stringResource(when {
+                h.versions -> R.string.e2_merged_lost
+                h.conflicts > 0 -> R.string.e2_merged_conflicts
+                else -> R.string.e2_merged_restored
+            }),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f).clickable { onDismiss() },
+        )
+        if (h.versions && onVersions != null) {
+            TextButton(onClick = { onDismiss(); onVersions() }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_merged_versions)) }
+        }
+    }
+}
+
+/** 2.5 E2 (move1): verschieben mit Rueckgaengig und verstaendlichen Fehlern (403/423/507, foederiert) */
+internal fun moveBlocksUi(ed: PageEditor, repo: io.github.yggdrasil_sh.saga.data.SagaRepository, ids: List<String>, target: io.github.yggdrasil_sh.saga.data.PageMeta) {
+    repo.launchAction(onError = {}) {
+        try {
+            val (req, res) = ed.moveBlocksTo(ids, target.id)
+            val prev = ed.lastMovePrev
+            val name = target.title.ifBlank { "…" }
+            repo.notify(UiText.Res(R.string.e2_move_done, name), UiText.Res(R.string.action_undo)) {
+                repo.launchAction { ed.undoMove(req, res, prev) }
+            }
+            if (res.unsigned > 0) repo.notify(UiText.Res(R.string.e2_move_unsigned))
+        } catch (e: io.github.yggdrasil_sh.saga.data.ApiException) {
+            val msg = when (io.github.yggdrasil_sh.saga.blocks.MoveLogic.error(e.code, e.body)) {
+                io.github.yggdrasil_sh.saga.blocks.MoveLogic.Error.FORBIDDEN -> R.string.e2_move_forbidden
+                io.github.yggdrasil_sh.saga.blocks.MoveLogic.Error.LOCKED -> R.string.e2_move_locked
+                io.github.yggdrasil_sh.saga.blocks.MoveLogic.Error.QUOTA -> R.string.e2_move_quota
+                io.github.yggdrasil_sh.saga.blocks.MoveLogic.Error.CONFLICT -> R.string.e2_move_conflict
+                io.github.yggdrasil_sh.saga.blocks.MoveLogic.Error.FEDERATED -> R.string.e2_move_federated
+                else -> null
+            }
+            if (msg != null) repo.notify(UiText.Res(msg)) else repo.notify(e.text)
+        }
+    }
 }

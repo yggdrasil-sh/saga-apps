@@ -72,6 +72,9 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
     val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     LaunchedEffect(quickAdd) { if (quickAdd) listState.scrollToItem(3 + maxOf(1, events.size)) }
     val todayTasks = tasks.filter { it.due.isNullOrEmpty() || it.due <= today }
+    // 2.5 E2: mit Aufgabenquellen die Server-Liste (heute, ueberfaellig, ohne Datum) inkl. Datenbank-Zeilen
+    val merged by repo.taskList.collectAsState()
+    val todayItems = merged?.items?.filter { it.due.isNullOrEmpty() || it.due <= today }
 
     Scaffold(topBar = {
         SagaTopBar(stringResource(R.string.nav_today), nav, chrome) {
@@ -114,8 +117,23 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     Box(Modifier.widthIn(max = maxW).fillMaxWidth().sagaSegment(i, events.size).padding(vertical = SagaSpace.xs).sagaAppear(1 + i)) { EventRow(e) }
                 }
                 item(key = "t-head") { SagaSectionTitle(stringResource(R.string.nav_tasks), Modifier.widthIn(max = maxW).padding(top = SagaSpace.m), count = todayTasks.size) }
-                item(key = "t-add") { QuickAddTask(repo, Modifier.widthIn(max = maxW), defaultDue = today, focus = quickAdd, onFocused = { repo.focusQuickAdd.value = false }) }
-                if (todayTasks.isEmpty()) {
+                item(key = "t-add") {
+                    QuickAddTask(repo, Modifier.widthIn(max = maxW), defaultDue = today, focus = quickAdd, onFocused = { repo.focusQuickAdd.value = false },
+                        targets = merged?.let { io.github.yggdrasil_sh.saga.data.TaskSourcesLogic.targets(it.sources) }.orEmpty())
+                }
+                val ml = merged
+                if (ml != null && todayItems != null) {
+                    val bySrc = ml.sources.associateBy { it.db }
+                    itemsIndexed(todayItems, key = { _, e -> "e-${e.key}" }) { i, e ->
+                        Box(Modifier.widthIn(max = maxW).fillMaxWidth().padding(top = if (i == 0) SagaSpace.s else 0.dp).sagaSegment(i, todayItems.size)) {
+                            io.github.yggdrasil_sh.saga.ui.tasks.SourceTaskRow(e, e.src?.let { bySrc[it] }, ml.people, repo) { x ->
+                                if (x.isRow) nav.push(io.github.yggdrasil_sh.saga.ui.nav.Dest.Page(x.id))
+                                else editing = tasks.firstOrNull { it.id.toLong() == x.id }
+                            }
+                        }
+                    }
+                }
+                if (ml == null && todayTasks.isEmpty() || ml != null && todayItems.isNullOrEmpty()) {
                     item(key = "t-empty") {
                         Box(Modifier.widthIn(max = maxW).fillMaxWidth().padding(top = SagaSpace.s).sagaSegment(0, 1)) {
                             SagaEmptyState(
@@ -125,7 +143,7 @@ fun TodayScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                         }
                     }
                 }
-                itemsIndexed(todayTasks, key = { _, t -> "t-${t.id}" }) { i, t ->
+                if (ml == null) itemsIndexed(todayTasks, key = { _, t -> "t-${t.id}" }) { i, t ->
                     Box(
                         Modifier.widthIn(max = maxW).fillMaxWidth().padding(top = if (i == 0) SagaSpace.s else 0.dp)
                             .sagaSegment(i, todayTasks.size).animateItem().sagaAppear(2 + i),

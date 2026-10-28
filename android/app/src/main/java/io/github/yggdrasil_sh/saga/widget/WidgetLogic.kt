@@ -22,7 +22,15 @@ import java.time.ZonedDateTime
 
 /** Aufgabe im Widget-Zwischenspeicher (nur was das Widget zeigt) */
 @Serializable
-data class WTask(val id: Int, val text: String, val due: String? = null, val prio: Int? = null)
+data class WTask(
+    val id: Int, val text: String, val due: String? = null, val prio: Int? = null,
+    /** 2.5 E2 (tasksrc1): Zeile einer Aufgabenquelle (id = Zeilen-ID), Quelle (Symbol/Titel), Uhrzeit, nur lesen */
+    val row: Boolean = false, val srcIcon: String? = null, val srcTitle: String? = null, val time: String? = null,
+    val edit: Boolean = true,
+) {
+    /** Schluessel fuer "gerade abgehakt": Zeilen negativ (Inbox-IDs und Zeilen-IDs koennen sich ueberschneiden) */
+    val hideKey: Int get() = if (row) -id else id
+}
 
 /** Termin im Widget-Zwischenspeicher */
 @Serializable
@@ -47,6 +55,8 @@ data class TodaySnapshot(
     val events: List<WEvent> = emptyList(),
     /** Kalender war nicht lesbar (Aufgaben trotzdem da) */
     val eventsFailed: Boolean = false,
+    /** 2.5 E2: Aufgaben fertig sortiert vom Server (mit Aufgabenquellen) - Reihenfolge nicht aendern */
+    val ordered: Boolean = false,
 )
 
 /** Zuletzt bekannter Stand einer Seite */
@@ -80,15 +90,33 @@ object TodayLogic {
             .map { WTask(it.id, it.text, it.due, it.prio) }
             .toList()
 
+    /** 2.5 E2: Eintraege aus /api/app/today?sources=1 (bzw. with_sources) fuer den Zwischenspeicher - Reihenfolge bleibt */
+    fun forSnapshot(l: io.github.yggdrasil_sh.saga.data.TasksWithSources, until: LocalDate): List<WTask> {
+        val src = l.sources.associateBy { it.db }
+        return l.items.asSequence()
+            .filter { !it.done }
+            .filter { t -> t.due.isNullOrBlank() || parseDay(t.due)?.let { !it.isAfter(until) } ?: false }
+            .map { e ->
+                val s = e.src?.let { src[it] }
+                WTask(e.id.toInt(), e.text, e.due, e.prio, row = e.isRow, srcIcon = s?.icon?.ifEmpty { null }, srcTitle = s?.title, time = e.time, edit = e.edit)
+            }
+            .toList()
+    }
+
     /**
      * Aufgaben fuer "Heute" wie im iOS-Widget und in der Ansicht "Heute" der App: faellig heute, ueberfaellig oder
      * ohne Datum (spaetere nicht, ein unlesbares Datum auch nicht).
      * Reihenfolge: aeltestes Faelligkeitsdatum zuerst (ueberfaellige also vorn), ohne Datum zuletzt, dann Prioritaet, dann ID.
      * hidden = gerade im Widget abgehakt (der Server bestaetigt noch).
      */
-    fun tasks(all: List<WTask>, today: LocalDate, hidden: Set<Int> = emptySet()): List<TaskLine> =
-        all.mapNotNull { t ->
-            if (t.id in hidden) return@mapNotNull null
+    fun tasks(all: List<WTask>, today: LocalDate, hidden: Set<Int> = emptySet(), ordered: Boolean = false): List<TaskLine> =
+        if (ordered) all.mapNotNull { t ->                     // 2.5 E2: Reihenfolge vom Server, nur heute/ueberfaellig/ohne Datum
+            if (t.hideKey in hidden) return@mapNotNull null
+            if (t.due.isNullOrBlank()) return@mapNotNull TaskLine(t, false)
+            val d = parseDay(t.due) ?: return@mapNotNull null
+            if (d.isAfter(today)) null else TaskLine(t, d.isBefore(today))
+        } else all.mapNotNull { t ->
+            if (t.hideKey in hidden) return@mapNotNull null
             if (t.due.isNullOrBlank()) return@mapNotNull Triple(t, LocalDate.MAX, false)
             val d = parseDay(t.due) ?: return@mapNotNull null
             if (d.isAfter(today)) null else Triple(t, d, d.isBefore(today))
@@ -167,7 +195,7 @@ object WidgetStates {
     fun today(signedOut: Boolean, snap: TodaySnapshot?, failedAt: Long?, today: LocalDate, zone: ZoneId, now: Long, hidden: Set<Int> = emptySet()): WidgetUi {
         if (signedOut) return WidgetUi.SignedOut
         snap ?: return WidgetUi.Loading
-        val empty = TodayLogic.tasks(snap.tasks, today, hidden).isEmpty() && TodayLogic.events(snap.events, today, zone).isEmpty()
+        val empty = TodayLogic.tasks(snap.tasks, today, hidden, snap.ordered).isEmpty() && TodayLogic.events(snap.events, today, zone).isEmpty()
         val (since, offline) = stale(snap.fetchedAt, failedAt, now)
         return WidgetUi.Content(since, empty, offline)
     }

@@ -38,23 +38,28 @@ object RenderPreview {
 
     /**
      * Speichern: `data.src` nie zurueckschreiben; bei einer Kopie (src gesetzt) auch nicht den eingesetzten Inhalt -
-     * gespeichert wird nur {sid} (+ unbekannte Schluessel). Das Original bleibt unveraendert.
+     * gespeichert wird nur {sid} (+ unbekannte Schluessel). Das Original (src.original, Inhalt lebt hier) behaelt seinen
+     * Inhalt (E2: vorher fiel er weg - Datenverlust). sync1 (2.5 E2): eine in der App bearbeitete Kopie (sid in edited)
+     * geht mit bearbeitetem data.blocks und unveraendertem data.src zurueck; der Server schreibt sie ins Original.
      */
-    fun syncedForSave(block: JsonObject): JsonObject {
+    fun syncedForSave(block: JsonObject, edited: Set<String> = emptySet()): JsonObject {
         val d = BlockDoc.data(block)
-        if (d["src"] == null) return block
-        val nd = LinkedHashMap(d).apply { remove("src"); remove("blocks") }
+        val src = d["src"] as? JsonObject ?: return block
+        val original = (src["original"] as? JsonPrimitive)?.booleanOrNull == true
+        val sid = BlockDoc.str(d, "sid")
+        if (!original && sid.isNotEmpty() && sid in edited && d["blocks"] is JsonArray) return block
+        val nd = LinkedHashMap(d).apply { remove("src"); if (!original) remove("blocks") }
         return JsonObject(LinkedHashMap(block).apply { put("data", JsonObject(nd)) })
     }
 
     /** Ganze Seite zum Speichern: synchronisierte Kopien (auch in Spalten/Toggles) ohne eingesetzten Inhalt/src */
-    fun docForSave(doc: JsonObject): JsonObject {
+    fun docForSave(doc: JsonObject, edited: Set<String> = emptySet()): JsonObject {
         var changed = false
         fun walk(arr: JsonArray, depth: Int): JsonArray = JsonArray(arr.map { el ->
             val b = el as? JsonObject ?: return@map el
             if (depth > 8) return@map b
             val t = BlockDoc.type(b)
-            var nb = if (t == "synced") syncedForSave(b).also { if (it !== b) changed = true } else b
+            var nb = if (t == "synced") syncedForSave(b, edited).also { if (it !== b) changed = true } else b
             val d = BlockDoc.data(nb)
             when (t) {
                 "toggle" -> (d["blocks"] as? JsonArray)?.let { inner -> nb = JsonObject(LinkedHashMap(nb).apply { put("data", JsonObject(LinkedHashMap(d).apply { put("blocks", walk(inner, depth + 1)) })) }) }

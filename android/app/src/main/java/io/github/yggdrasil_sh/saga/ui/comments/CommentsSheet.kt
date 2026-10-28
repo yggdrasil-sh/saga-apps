@@ -71,6 +71,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -208,15 +209,40 @@ private fun Footer(model: CommentsModel, scope: CoroutineScope) {
 }
 
 /** Eingabe mit Zaehler (ab 1800 Zeichen) und Knopf; onCancel = Abbrechen (Antworten/Bearbeiten) */
+/** 2.5 mention1: Personenauswahl fuer Kommentare (null = Server ohne Erwaehnungen) */
+class CommentMentionHook(val people: Map<String, io.github.yggdrasil_sh.saga.data.MentionPerson>, val pick: (((String) -> Unit)) -> Unit)
+
+val LocalCommentMentions = androidx.compose.runtime.compositionLocalOf<CommentMentionHook?> { null }
+
 @Composable
 private fun Editor(
     value: String, onValue: (String) -> Unit, placeholder: String, ok: String, busy: Boolean,
     modifier: Modifier = Modifier, onCancel: (() -> Unit)? = null, onOk: () -> Unit,
 ) {
+    // 2.5 mention1: Erwaehnungen <@REF> als Chip "@Name" zeigen; "@"-Knopf fuegt ein Token ein
+    val mm = LocalCommentMentions.current
+    val chipBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+    val chipFg = MaterialTheme.colorScheme.primary
+    val people = mm?.people.orEmpty()
     Column(modifier.fillMaxWidth()) {
         OutlinedTextField(
             value = value, onValueChange = { onValue(it.take(CommentLogic.MAX)) },
             placeholder = { Text(placeholder) },
+            visualTransformation = if (mm == null || !value.contains("<@")) androidx.compose.ui.text.input.VisualTransformation.None
+            else androidx.compose.ui.text.input.VisualTransformation { t ->
+                val d = io.github.yggdrasil_sh.saga.data.CommentMentions.display(t.text, people)
+                val ann = buildAnnotatedString {
+                    append(d.text)
+                    d.chips.forEach { r -> addStyle(SpanStyle(color = chipFg, background = chipBg, fontWeight = FontWeight.Medium), r.first, r.last + 1) }
+                }
+                androidx.compose.ui.text.input.TransformedText(ann, object : androidx.compose.ui.text.input.OffsetMapping {
+                    override fun originalToTransformed(offset: Int) = d.toDisplay(offset)
+                    override fun transformedToOriginal(offset: Int) = d.toOriginal(offset)
+                })
+            },
+            trailingIcon = if (mm != null) ({
+                TextButton(onClick = { mm.pick { ref -> onValue((value.trimEnd() + (if (value.isBlank()) "" else " ") + io.github.yggdrasil_sh.saga.data.CommentMentions.token(ref) + " ").take(CommentLogic.MAX)) } }) { Text("@") }
+            }) else null,
             modifier = Modifier.fillMaxWidth().semantics { contentDescription = placeholder },
             minLines = 1, maxLines = 6,
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
@@ -383,12 +409,26 @@ private fun CommentView(
         return
     }
     val linkColor = MaterialTheme.colorScheme.primary
-    val text = remember(c.body, linkColor) {
+    val chipBg = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+    val people = model.people
+    val text = remember(c.body, linkColor, people) {
         buildAnnotatedString {
-            for (s in CommentLogic.linkify(c.body)) {
-                if (s.url == null) append(s.text)
-                else withLink(LinkAnnotation.Clickable(s.url, TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))) { openUrl(context, s.url) }) {
-                    append(s.text)
+            // 2.5 mention1: <@REF> als Chip mit dem aktuellen Namen (eigenes Konto hervorgehoben, geloescht durchgestrichen)
+            for (part in io.github.yggdrasil_sh.saga.data.CommentMentions.split(c.body)) {
+                val ref = part.ref
+                if (ref != null) {
+                    val p = people[ref]
+                    withStyle(SpanStyle(color = linkColor, background = chipBg, fontWeight = if (p?.me == true) FontWeight.Bold else FontWeight.Medium,
+                        textDecoration = if (p?.gone == true) TextDecoration.LineThrough else null)) {
+                        append(io.github.yggdrasil_sh.saga.data.CommentMentions.label(ref, people))
+                    }
+                    continue
+                }
+                for (s in CommentLogic.linkify(part.text)) {
+                    if (s.url == null) append(s.text)
+                    else withLink(LinkAnnotation.Clickable(s.url, TextLinkStyles(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline))) { openUrl(context, s.url) }) {
+                        append(s.text)
+                    }
                 }
             }
         }

@@ -274,16 +274,8 @@ fun RichField(
         }
         return
     }
-    // 2.5 P6-2: Erwaehnung/Inline-Mathe sind unteilbar - die App kann sie noch nicht sicher mitfuehren, also den Absatz
-    // nur anzeigen und auf das Web verweisen (statt Formatierung zu verlieren). Farben bleiben bearbeitbar.
-    if (!raw && io.github.yggdrasil_sh.saga.blocks.InlineForms.hasAtomic(html)) {
-        androidx.compose.foundation.layout.Column(modifier) {
-            RichTextView(html, style, onLink, Modifier, false, foreign = editor.caps.foreign)
-            Text(androidx.compose.ui.res.stringResource(io.github.yggdrasil_sh.saga.R.string.e1_inline_web), style = MaterialTheme.typography.labelSmall,
-                color = c.onSurfaceVariant)
-        }
-        return
-    }
+    // 2.5 E2: Erwaehnung/Inline-Mathe sind bearbeitbar - als unteilbare Einheiten (InlineForms.applyEditAtomic), die
+    // Etappe-1-Sperre "im Web bearbeiten" entfaellt
     val foreign = editor.caps.foreign
     val pre = if (onBackspaceAtStart != null) START else ""
     val st = remember(fieldKey, pre, generation) { FieldState(html, raw, pre) }
@@ -345,6 +337,34 @@ fun RichField(
             },
             linkAtCursor = if (raw) null else { { InlineHtml.linkAt(st.rich, sel().start) } },
             hasSelection = { !st.value.selection.collapsed },
+            setColor = if (raw) null else { color, bg ->
+                val r = sel()
+                if (!r.collapsed) publish(io.github.yggdrasil_sh.saga.blocks.InlineForms.setColor(st.rich, r.min, r.max, color, bg))
+            },
+            colorAt = if (raw) null else { bg -> sel().let { r -> io.github.yggdrasil_sh.saga.blocks.InlineForms.colorAt(st.rich, r.min, r.max, bg) } },
+            insertMention = if (raw) null else { ref, name ->
+                var r = st.rich
+                var at = sel().min.coerceIn(0, r.text.length)
+                // gerade getipptes "@" (Ausloeser) ersetzen
+                val trig = editor.mentionTrigger?.takeIf { it.fieldKey == fieldKey }
+                if (trig != null && trig.at < r.text.length && r.text[trig.at] == '@') {
+                    r = InlineHtml.applyEdit(r, r.text.removeRange(trig.at, trig.at + 1))
+                    at = trig.at
+                }
+                editor.mentionTrigger = null
+                val (nr, cur) = io.github.yggdrasil_sh.saga.blocks.InlineForms.insertMention(r, at, ref, name)
+                st.value = TextFieldValue(pre + nr.text, TextRange(p + cur))
+                publish(nr)
+            },
+            setMath = if (raw) null else { tex ->
+                val r = sel()
+                val hit = io.github.yggdrasil_sh.saga.blocks.InlineForms.mathAt(st.rich, r.min)
+                val (a, b) = if (r.collapsed && hit != null) hit.first.first to (hit.first.last + 1) else r.min to r.max
+                val (nr, cur) = io.github.yggdrasil_sh.saga.blocks.InlineForms.insertMath(st.rich, a, b, tex)
+                st.value = TextFieldValue(pre + nr.text, TextRange(p + cur))
+                publish(nr)
+            },
+            mathAtCursor = if (raw) null else { { io.github.yggdrasil_sh.saga.blocks.InlineForms.mathAt(st.rich, sel().min)?.second } },
         )
     }
 
@@ -403,7 +423,16 @@ fun RichField(
                 st.value = clamp(nv)
                 return@BasicTextField
             }
+            val before = st.rich.text
             applyChange(st, clamp(nv), p, raw, enter, ::publish)
+            // 2.5 E2: "@" am Wortanfang getippt -> Personenauswahl (nur mit mention1)
+            if (!raw && editor.mentionSupported) {
+                val ins = insertedText(before, st.rich.text)
+                val at = st.value.selection.end - p - 1
+                if (ins == "@" && at >= 0 && at < st.rich.text.length && st.rich.text[at] == '@' && (at == 0 || st.rich.text[at - 1].isWhitespace())) {
+                    editor.mentionTrigger = MentionTrigger(fieldKey, at)
+                }
+            }
         },
         textStyle = style.copy(color = if (style.color == Color.Unspecified) c.onSurface else style.color),
         cursorBrush = SolidColor(c.primary),
@@ -446,9 +475,12 @@ private fun applyChange(
     enter: ((RichText, RichText) -> Unit)?, publish: (RichText) -> Unit,
 ) {
     val plain = nv.text.substring(p)
-    val updated = if (raw) RichText(plain) else InlineHtml.applyEdit(st.rich, plain)
+    // 2.5 E2: Erwaehnung/Inline-Mathe bleiben unteilbar (Loeschen nimmt sie ganz, Tippen darin landet dahinter)
+    val atomic = if (raw) null else io.github.yggdrasil_sh.saga.blocks.InlineForms.applyEditAtomic(st.rich, plain)
+    val updated = if (raw) RichText(plain) else atomic!!.rich
+    val moved = atomic?.cursor != null && atomic.rich.text != plain
     if (!raw && enter != null) {
-        val nl = newlineInserted(st.value.text.substring(p), plain)
+        val nl = newlineInserted(st.value.text.substring(p), updated.text)
         if (nl >= 0) {
             val left = InlineHtml.split(updated, nl).first
             val right = InlineHtml.split(updated, nl + 1).second
@@ -459,7 +491,7 @@ private fun applyChange(
             return
         }
     }
-    st.value = nv
+    st.value = if (moved) TextFieldValue(st.pre + updated.text, TextRange(p + atomic!!.cursor!!.coerceIn(0, updated.text.length))) else nv
     publish(updated)
 }
 

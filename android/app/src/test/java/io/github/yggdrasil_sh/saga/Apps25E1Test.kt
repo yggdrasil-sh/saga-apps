@@ -273,7 +273,7 @@ class Apps25E1Test {
             """<span class="hk-mention" data-u="~abcdefghijklmnop">X</span>""", """<code class="hk-math">a^2</code>""").forEach { assertTrue(it, out.contains(it)) }
         // unveraendert -> bytegleich
         assertEquals(html, InlineHtml.toHtml(rt))
-        assertEquals("inline2,cols6", InlineForms.CAPS)
+        assertTrue(InlineForms.CAPS.split(",").containsAll(listOf("inline2", "cols6")))
     }
 
     @Test fun mentionShowsCurrentName() {
