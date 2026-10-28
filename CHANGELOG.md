@@ -9,6 +9,35 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – iOS/Mac: Datenbanken, Diagramme, Widgets und Inline-Formen (Saga-Server 2.5, App-Runde Etappe 1)
+Alles nur, wenn der Server die jeweilige Fähigkeit meldet (`/api/version` → `features`); ältere Server: wie bisher.
+- **Formeln und Rollups** werden angezeigt (Zahl, Text, Häkchen, Datum, Liste), Fehler als „#Fehler“ mit Erklärung;
+  bearbeiten nur im Web, die App schickt berechnete Werte nie zurück und übernimmt sie nach dem Speichern sofort.
+  Gruppen nach Formel (z. B. Wochentag) lesend wie der Server. Die App schickt bei `/rows` die eigene Zeitzone mit.
+- **Personen und Dateien:** Personen als Chips mit Bild und Namen (nie Anmeldenamen; „Gelöschte Person“ ausgegraut),
+  Auswahl über die Personensuche der Datenbank, Filter „ist mir zugewiesen“. Dateien anzeigen/öffnen, hinzufügen
+  (Hochladen zur Zeile) und entfernen.
+- **Status mit Gruppen:** ○/◐/● vor dem Namen, Auswahl nach Gruppen, Board nach Status-Gruppe (Ziehen setzt die erste
+  Option der Gruppe), Abhaken in der Liste ohne Häkchen-Spalte über den Status.
+- **Datum mit Uhrzeit und Zeitraum:** Anzeige in der Zeitzone des Betrachters („29. Okt., 14:30 – 16:00“), bearbeiten
+  mit Uhrzeit/Enddatum; Uhrzeit entfernen schickt `Tag/Tag`. Kalender zeigt Uhrzeit und Zeiträume auf jedem Tag,
+  Kalender-Woche (`range: week`) als Spalten (iPad/Mac) bzw. Tagesliste (iPhone).
+- **Relative Datumsfilter** (gestern, nächste Woche, überfällig, in den nächsten N Tagen …) und „Status-Gruppe“ im
+  Filterdialog und in der eigenen Auswertung – geprüft gegen die Testvektoren des Servers.
+- **Unteraufgaben** eingerückt, „⛔ blockiert“; Kartenfarben mit Streifen oben.
+- **Diagramm-Ansicht** nativ mit Swift Charts (Balken, Linie, Fläche, Kreis/Ring, Zahl, Ziellinie, kumuliert), Werte
+  zusätzlich als Tabelle. **Zeitleiste** nur lesend (iPad/Mac waagrecht, iPhone Liste nach Start).
+- **Widgets Etappe 2:** Wetter (mit Quellenangabe Open-Meteo), Gewohnheiten (abhaken), Anstehendes, Diagramm.
+- **Inline-Formen:** Text- und Hintergrundfarben, Erwähnungen als Chip, Inline-Mathe; Absätze mit solchen Formen sind in
+  der App gesperrt („im Web bearbeiten“), damit keine Formatierung verloren geht. Mathe/Mermaid als Vorschaubild
+  (Hinweis „veraltet“), Quelltext bearbeitbar; synchronisierte Blöcke als Anzeige mit Sprung zum Original.
+- **Spalten und Tabellen:** 5–6 Spalten mit Mindestbreite und Umbruch; einfache Tabellen mit Spaltenbreiten,
+  Kopfspalte und Farben (Bearbeiten erhält alle Felder).
+
+### Behoben – iOS/Mac: Datenerhalt
+- Zwei Spalten-Blöcke zusammenführen kappte auf 4 Spalten – Spalten 5–6 gingen verloren (jetzt bis 6).
+- Datei-Werte in Datenbankzeilen fehlten im Zeilenmodell (Liste/Tabelle zeigten sie nicht).
+
 ### Neu – iOS/Mac: Startseite im Konto, Eintrags-Vorlagen für Bearbeitende (Saga-Server 2.5)
 - **Eigene Startseite** gilt jetzt fürs Konto (Web und alle Geräte): Seitenmenü „Als Startseite festlegen“ /
   „Startseite zurücksetzen“, beim Kaltstart öffnet die App sie. Eine bisher nur auf dem Gerät gesetzte Startseite wird
