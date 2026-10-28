@@ -12,6 +12,8 @@ import math
 PALETTE = ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red")
 STYLE_TYPES = frozenset(("paragraph", "header", "list", "quote", "toggle", "callout"))   # Checkliste = list
 MIN_COL = 0.15
+COLS_MAX = 6                 # 2.5 (P6-0, cols6): bis 6 Spalten
+COL_MIN_PX = 200             # Mindestbreite je Spalte - sonst umbrechen (5-6 Spalten im schmalen Fenster)
 ALIGNS = ("left", "center", "right")
 FONTS = ("serif", "mono")
 
@@ -27,7 +29,7 @@ def _num(v):
 def col_weights(cols):
     """Anteile der Spalten (Summe 1) oder None (= alle gleich breit). Wie der Server: alle Spalten brauchen ein w > 0,
     normiert, je Spalte mindestens MIN_COL (fremde/alte Server liefern evtl. Unbegrenztes)."""
-    if not isinstance(cols, list) or not (2 <= len(cols) <= 4):
+    if not isinstance(cols, list) or not (2 <= len(cols) <= COLS_MAX):
         return None
     ws = []
     for c in cols:
@@ -52,6 +54,13 @@ def col_weights(cols):
     if all(abs(w - ws[0]) < 1e-6 for w in ws):
         return None                                   # gleich breit: wie bisher
     return ws
+
+
+def cols_per_row(n, width):
+    """Spalten je Zeile: alle nebeneinander, solange jede mindestens COL_MIN_PX breit ist; sonst umbrechen (mind. 2)"""
+    if n <= 4 or not width:
+        return n
+    return max(2, min(n, int(width // COL_MIN_PX)))
 
 
 def media_layout(block, narrow=False):
@@ -148,3 +157,38 @@ def block_url(page_url, page_id, bid):
     if bid and isinstance(page_id, int) and not isinstance(page_id, bool) and page_id > 0:
         return f"{page_url}:{bid}"
     return page_url
+
+
+# --- Tabellen-Block (2.5 tableopts1): headCol, colWidths, colors -----------------------------------------------------
+def table_widths(data, ncols):
+    """Prozent je Spalte oder None (gleich breit): genau so viele wie Spalten, je 5-90, Summe ~100"""
+    w = data.get("colWidths") if isinstance(data, dict) else None
+    if not isinstance(w, list) or len(w) != ncols or ncols < 1:
+        return None
+    out = []
+    for x in w:
+        x = _num(x)
+        if x is None or not 5 <= x <= 90:
+            return None
+        out.append(x)
+    s = sum(out)
+    if abs(s - 100) > 1:
+        return None
+    return [x / s for x in out]
+
+
+def table_color(data, r, c):
+    """Hintergrund einer Zelle (Zeile 0 = Kopfzeile): Vorrang Zelle > Zeile > Spalte; nur Palette"""
+    cs = data.get("colors") if isinstance(data, dict) else None
+    if not isinstance(cs, dict):
+        return None
+    for k, key in (("x", f"{r},{c}"), ("r", str(r)), ("c", str(c))):
+        m = cs.get(k)
+        v = m.get(key) if isinstance(m, dict) else None
+        if v in PALETTE:
+            return v
+    return None
+
+
+def table_head_col(data):
+    return isinstance(data, dict) and data.get("headCol") is True

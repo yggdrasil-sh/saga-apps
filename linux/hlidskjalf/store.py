@@ -184,6 +184,9 @@ class Store(GObject.Object):
             config.settings.set(k, None)
         self.server_home, self.fresh = False, {}
         self.server_version = self.min_app = None
+        self.features = frozenset()
+        from . import pagewidgets
+        pagewidgets.FEATURES = None
         self.emit("server-changed")
         self.emit("pages-changed")
         self.emit("today-changed")
@@ -802,6 +805,7 @@ class Store(GObject.Object):
 
     server_version = None
     min_app = None
+    features = frozenset()              # 2.5: Faehigkeiten des Servers (/api/version "features"), aeltere Server: leer
     graph_api = None                    # 2.5: False = Server kennt api/graph nicht (404) -> Einstieg "Graph" ausblenden
 
     def check_version(self):
@@ -809,8 +813,16 @@ class Store(GObject.Object):
         def fin(j):
             if isinstance(j, dict):
                 self.server_version, self.min_app = j.get("version"), j.get("min_app")
+                f = j.get("features")
+                self.features = frozenset(x for x in f if isinstance(x, str)) if isinstance(f, list) else frozenset()
+                from . import pagewidgets
+                pagewidgets.FEATURES = self.features                 # Widgets Etappe 2 nur mit passendem Server
                 self.emit("version-changed")
         bg(client.get, "api/version", done=fin, error=lambda e: None)
+
+    def has(self, feature):
+        """Server meldet die Faehigkeit (z. B. "formula1", "datetime1") - aeltere Server ohne "features": nie"""
+        return feature in self.features
 
     @property
     def app_too_old(self):

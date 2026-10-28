@@ -5,6 +5,7 @@ import math
 
 from gi.repository import Gdk, GLib, GObject, Gtk, Pango
 
+from . import dbvalues as dv
 from . import images
 from .api import client
 from .blocks import chip, context_menu, flat_button, menu_popover, more_button
@@ -16,7 +17,19 @@ from .util import bg, day_text, iso_day, lane_busy, month_text, num_text, parse_
 PROP_ICON = {"text": "format-justify-left-symbolic", "number": "accessories-calculator-symbolic", "select": "go-down-symbolic",
              "multi_select": "view-list-bullet-symbolic", "checkbox": "checkbox-checked-symbolic", "date": "x-office-calendar-symbolic",
              "url": "insert-link-symbolic", "email": "mail-unread-symbolic", "phone": "call-start-symbolic", "relation": "send-to-symbolic",
-             "created": "document-open-recent-symbolic", "edited": "document-open-recent-symbolic", "calc": "accessories-calculator-symbolic"}
+             "created": "document-open-recent-symbolic", "edited": "document-open-recent-symbolic", "calc": "accessories-calculator-symbolic",
+             "formula": "accessories-calculator-symbolic", "rollup": "view-list-symbolic", "person": "avatar-default-symbolic",
+             "files": "mail-attachment-symbolic"}
+
+
+def rows_path(db_id):
+    """GET .../rows - mit der Zeitzone des Geraets, wenn der Server 2.5-Faehigkeiten meldet (Formeln today()/now(),
+    Datum mit Uhrzeit); aeltere Server: unveraendert ohne Parameter (Antwort wie immer)"""
+    if not store.features:
+        return f"api/notes/{db_id}/rows"
+    from urllib.parse import quote
+    from .push import local_tz
+    return f"api/notes/{db_id}/rows?tz={quote(local_tz(), safe='')}"
 
 
 def has_value(v):
@@ -96,6 +109,8 @@ class DBModel(GObject.Object):
         self.host_locked = False           # Datenbank-Block auf einer gesperrten (bzw. nur lesbaren) Seite
         self.show_title = self.show_tabs = True
         self.on_head = None                # 2.5: eingebetteter Block - Kopf ein-/ausblenden (k "title"/"tabs", an)
+        self.people = {}                   # 2.5 (person1): Kennung -> {name, avatar, me, remote, gone}
+        self.today = None                  # Tests: fester Tag fuer relative Datumsfilter
 
     @property
     def readonly(self):
@@ -113,7 +128,7 @@ class DBModel(GObject.Object):
 
     def load(self):
         if not self.loaded:
-            c = store.cached(f"api/notes/{self.db_id}/rows")
+            c = store.cached(rows_path(self.db_id))
             if isinstance(c, dict):
                 self._apply(c)
                 self.loaded = True
@@ -130,7 +145,7 @@ class DBModel(GObject.Object):
             self.loaded = True
             self.error = str(e)
             self.emit("changed")
-        bg(store.get_cached, f"api/notes/{self.db_id}/rows", done=fin, error=err)
+        bg(store.get_cached, rows_path(self.db_id), done=fin, error=err)
 
     def _apply(self, j):
         r = j.get("role")
@@ -140,9 +155,18 @@ class DBModel(GObject.Object):
         self.views = self.schema.get("views") or []
         self.rows = []
         for r in j.get("rows") or []:
-            self.rows.append({"id": r.get("id"), "title": r.get("title") or "", "icon": r.get("icon"),
-                              "cover": r.get("preview") or r.get("cover") or None, "props": r.get("props") or {},
-                              "created": r.get("created") or 0, "updated": r.get("updated") or 0})
+            x = {"id": r.get("id"), "title": r.get("title") or "", "icon": r.get("icon"),
+                 "cover": r.get("preview") or r.get("cover") or None, "props": r.get("props") or {},
+                 "created": r.get("created") or 0, "updated": r.get("updated") or 0}
+            for k in ("fx_err", "blocked", "depth", "sub_of"):        # 2.5: nur gelesen, nie gespeichert
+                if k in r:
+                    x[k] = r[k]
+            self.rows.append(x)
+        self.people = j.get("people") if isinstance(j.get("people"), dict) else {}
+        from .richtext import MENTION_NAMES                       # Erwaehnungen zeigen den aktuellen Namen (nur Anzeige)
+        for k, v in self.people.items():
+            if isinstance(v, dict) and isinstance(v.get("name"), str) and not v.get("gone"):
+                MENTION_NAMES[k] = v["name"]
         self.templates = j.get("templates") or []
 
     def prop(self, pid):
@@ -161,6 +185,8 @@ class DBModel(GObject.Object):
         if t == "edited":
             return _dt.date.fromtimestamp(r["updated"]).isoformat() if r["updated"] else None
         v = r["props"].get(p.get("id"))
+        if t in dv.FX and p.get("rtype") == "number" and v is not None and not isinstance(v, bool):
+            return v if isinstance(v, (int, float)) else None
         if t == "number" and v is not None and not isinstance(v, bool):
             try:
                 return float(v)
@@ -174,6 +200,7 @@ class DBModel(GObject.Object):
         if p is None:
             return True
         v = r["title"] if pid == "title" else self.value(p, r)
+        et = dv.eff_type(p)
         empty = not has_value(v) if not isinstance(v, (int, float)) or isinstance(v, bool) else False
         if op == "is_empty":
             return empty
@@ -183,21 +210,36 @@ class DBModel(GObject.Object):
             return bool(v)
         if op == "unchecked":
             return not bool(v)
-        if op in ("today", "this_week", "this_month"):
-            return not empty and rel_date(op, v)
+        if op == "status_group":                   # 2.5 status1: Gruppe der Option (open = alles ausser done)
+            return dv.match_status_group(p, v, f.get("value"))
+        if op == "me":                             # 2.5 person1: mir zugewiesen
+            return any(dv.is_me(x, self.people) for x in dv.person_refs(v))
+        if op in dv.DAY_OPS:                       # Datum (mit Uhrzeit/Zeitraum) als Kalendertage des Geraets
+            return dv.match_day_filter(self._span(p, v), op, f.get("value"), self.today or _dt.date.today())
         fv = f.get("value")
         if fv is None or str(fv) == "":
             return True
         fv = str(fv)
         arr = [str(x) for x in v] if isinstance(v, list) else None
-        if arr is None and p.get("type") == "relation" and op in ("contains", "not_contains"):
+        if arr is None and et in ("relation", "list", "person") and op in ("contains", "not_contains"):
             arr = []                       # Relation ohne Verknuepfung = leere Liste (wie Server/Web seit 2.5, kein Textvergleich)
+        if et == "list" and arr is not None and op in ("contains", "not_contains"):
+            hit = any(fv.lower() in x.lower() for x in arr)        # Formel/Rollup-Liste: wie Relation (Text enthaelt)
+            return hit if op == "contains" else not hit
         s = v if isinstance(v, str) else ("" if v is None else str(v))
         num = v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
         try:
             fnum = float(fv)
         except ValueError:
             fnum = None
+        if et == "date" and op in ("eq", "before", "after"):
+            sp = self._span(p, v)
+            d = dv.parse_part(fv)
+            if sp is None or d is None:
+                return False
+            if op == "eq":
+                return sp[0] <= d.day <= sp[1]
+            return sp[0] < d.day if op == "before" else sp[1] > d.day
         if op == "contains":
             return fv in arr if arr is not None else fv.lower() in s.lower()
         if op == "not_contains":
@@ -207,7 +249,7 @@ class DBModel(GObject.Object):
         if op == "is_not":
             return s != fv
         if op == "eq":
-            return (num is not None and fnum is not None and num == fnum) if p.get("type") in ("number", "calc") else s == fv
+            return (num is not None and fnum is not None and num == fnum) if et in ("number", "calc") else s == fv
         if op == "gt":
             return num is not None and fnum is not None and num > fnum
         if op == "lt":
@@ -218,13 +260,28 @@ class DBModel(GObject.Object):
             return s != "" and s > fv
         return True
 
+    def _span(self, p, v):
+        """(erster, letzter Tag) eines Datumswerts in der Zeitzone des Geraets"""
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            d = _dt.date.fromtimestamp(v)
+            return d, d
+        return dv.day_span(v) if isinstance(v, str) else None
+
     def _sort_key(self, p, r):
         if p is None:
             return r["title"].lower()
         v = self.value(p, r)
+        et = dv.eff_type(p)
         if p.get("type") == "select" and isinstance(v, str):
             o = option(p, v)
             return f"{(p.get('options') or []).index(o):04d}" if o else None
+        if et == "date" and isinstance(v, str):
+            return dv.sort_key(v)
+        if et == "person":                         # nach dem Namen der ersten Person
+            refs = dv.person_refs(v)
+            return dv.person_info(refs[0], self.people)["name"].lower() if refs else None
+        if et in ("list", "relation", "multi_select", "files"):
+            return f"{len(v):06d}" if isinstance(v, list) and v else None
         if isinstance(v, bool):
             return "1" if v else "0"
         if isinstance(v, (int, float)):
@@ -270,7 +327,11 @@ class DBModel(GObject.Object):
                         if q in ((o or {}).get("name") or v).lower():
                             return True
                     elif isinstance(v, list):
-                        if any(q in ((option(p, x) or {}).get("name") or "").lower() for x in v):
+                        if p.get("type") == "person":
+                            if any(q in n.lower() for n in dv.people_names(v, self.people)):
+                                return True
+                        elif any(q in ((option(p, x) or {}).get("name") or (x if isinstance(x, str) and dv.is_fx(p) else "")).lower()
+                                 for x in v):
                             return True
                 return False
             out = [r for r in out if hit(r)]
@@ -302,6 +363,8 @@ class DBModel(GObject.Object):
         if self.readonly:                  # nur lesen (1.3): Haken/Karte/Zelle nichts senden, Anzeige zuruecksetzen
             self.emit("changed")
             return
+        if dv.is_fx(self.prop(pid)):       # berechnete Werte nie zurueckschreiben
+            return
         r = next((x for x in self.rows if x["id"] == row_id), None)
         if r is not None:
             if value is None:
@@ -309,10 +372,19 @@ class DBModel(GObject.Object):
             else:
                 r["props"][pid] = value
         self.emit("changed")
+
+        def done(ans):
+            store.drop_cache(f"api/notes/{row_id}")
+            row = next((x for x in self.rows if x["id"] == row_id), None)
+            if row is not None and isinstance(ans, dict) and any(k in ans for k in ("calc", "values", "fx_err")):
+                ppl = dv.apply_patch_answer(row, ans)          # 2.5: Formeln/Rollups und Personen/Dateien sofort
+                if ppl:
+                    self.people = dv.merge_people(self.people, ppl)
+                self.emit("changed")
+            store.emit("row-changed", int(row_id))
         # Warteschlange je Eintrag: schnelles An/Aus kommt in der richtigen Reihenfolge an
         store.run("PATCH", f"api/notes/{row_id}", {"props": {pid: value}}, data_changed=False, key=("note", row_id),
-                  done=lambda _: (store.drop_cache(f"api/notes/{row_id}"), store.emit("row-changed", int(row_id))),
-                  error=lambda e: (store.emit("error", str(e)), self.load()))
+                  done=done, error=lambda e: (store.emit("error", str(e)), self.load()))
 
     def rename(self, row_id, title):
         """Titel mit Revision speichern (ueber den offenen Peek bzw. die aktuelle Revision) - kein 409 im Peek danach"""
@@ -462,12 +534,21 @@ class Ring(Gtk.DrawingArea):
         cr.stroke()
 
 
-def value_widget(p, v, limit=None):
-    """kompakte Anzeige (Chip, Datum, Zahl) - None wenn leer"""
+def value_widget(p, v, limit=None, m=None, r=None, win=None):
+    """kompakte Anzeige (Chip, Datum, Zahl) - None wenn leer. m/r: Modell und Zeile (Personen, Formelfehler)"""
+    from . import dbcells
     t = p.get("type")
+    if t in dv.FX:
+        return dbcells.fx_widget(p, v, dv.fx_error(r, p.get("id")))
+    if t == "person":
+        return dbcells.people_widget(v, getattr(m, "people", None), limit=limit or 3)
+    if t == "files":
+        return dbcells.files_widget(v, win, limit=limit or 2)
+    if t == "date" and isinstance(v, str):
+        return dbcells.date_label(v)
     if t == "select":
         o = option(p, v)
-        return chip(o["name"], o.get("color")) if o else None
+        return chip(dv.status_label(p, o), o.get("color")) if o else None
     if t == "multi_select":
         box = Gtk.Box(spacing=3)
         opts = [option(p, x) for x in v or []]
@@ -504,9 +585,20 @@ def value_widget(p, v, limit=None):
     return None
 
 
-def prop_editor(p, v, setv, model=None, compact=False):
-    """Eigenschaft direkt bearbeiten (Tabelle + Eintragsseite)"""
+def prop_editor(p, v, setv, model=None, compact=False, row=None, win=None):
+    """Eigenschaft direkt bearbeiten (Tabelle + Eintragsseite). row: Zeile (id, fx_err) fuer Formeln und Dateien"""
+    from . import dbcells
     t = p.get("type")
+    if t in dv.FX:                                         # 2.5: berechnet - nur anzeigen, bearbeiten im Web
+        w = dbcells.fx_widget(p, v, dv.fx_error(row, p.get("id")), compact=compact)
+        return w or _leer("–")
+    if t == "person":
+        return dbcells.person_editor(p, v, setv, model)
+    if t == "files":
+        return dbcells.files_editor(p, v, setv, row_id=(row or {}).get("id"), win=win,
+                                    locked=bool(getattr(model, "locked", False)) or row is None)
+    if t == "date" and (store.features or dv.has_time(v) or dv.is_range(v)):
+        return dbcells.date_editor(p, v, setv)
     if t == "calc":
         w = value_widget(p, v)
         return w or _leer("–")
@@ -523,10 +615,14 @@ def prop_editor(p, v, setv, model=None, compact=False):
         mb.add_css_class("flat")
         mb.add_css_class("hk-cellbtn")
         o = option(p, v)
-        mb.set_child(chip(o["name"], o.get("color")) if o else _leer())
+        mb.set_child(chip(dv.status_label(p, o), o.get("color")) if o else _leer())
 
         def popup(m):
-            ents = [(op_["name"], (lambda i=op_["id"]: setv(i))) for op_ in p.get("options") or []]
+            if dv.is_status(p):                    # 2.5: nach Gruppen (Zu erledigen / In Arbeit / Erledigt)
+                from .dbcells import status_menu_entries
+                ents = status_menu_entries(p, v, setv)
+            else:
+                ents = [(op_["name"], (lambda i=op_["id"]: setv(i))) for op_ in p.get("options") or []]
             if o:
                 ents += [None, (_("Clear"), lambda: setv(None), True)]
             if model is not None:
@@ -758,6 +854,61 @@ def _color_css(w, color):
         w.add_css_class(f"hk-row-{color}")
 
 
+def _wrap_labels(w):
+    """Zeilenumbruch in einer Zelle (view.wrap / wrap_cols): Labels darin umbrechen statt abschneiden"""
+    stack = [w]
+    while stack:
+        x = stack.pop()
+        if isinstance(x, Gtk.Label):
+            x.set_wrap(True)
+            x.set_ellipsize(Pango.EllipsizeMode.NONE)
+        c = x.get_first_child()
+        while c is not None:
+            stack.append(c)
+            c = c.get_next_sibling()
+
+
+def group_label(m, g, key):
+    """Anzeige einer Gruppe (Formel/Rollup-Wert, Personen-Kombination)"""
+    t = g.get("type")
+    if t == "person":
+        return ", ".join(dv.person_label(x, m.people) for x in key.split(","))
+    rt = g.get("rtype")
+    if rt == "checkbox":
+        return _("Checked") if key is True else _("Unchecked")
+    return dv.fx_text(g, key) or str(key)
+
+
+def groups_for(m, view, rows, gid, board=False):
+    """Gruppen einer Ansicht -> [(name | None, farbe, zeilen, schluessel, art)] oder None (keine Gruppierung).
+    art: "option" (Wert = Options-ID, ziehbar), "status" (Gruppe todo/doing/done, ziehen setzt die erste Option),
+    "ro" (Formel/Rollup/Personen - nur lesen). Tabelle/Liste: leere Gruppen weg; Board: leere Spalten bleiben."""
+    g = m.prop(gid) if gid else None
+    if not dv.groupable(g):
+        return None
+    get = (lambda r: m.value(g, r)) if dv.is_fx(g) else (lambda r: r["props"].get(g["id"]))
+    without = _("Without {name}").format(name=g.get("name", ""))
+    out = []
+    if dv.is_status(g) and (view or {}).get("group_status") is True:
+        parts = dv.status_groups(g, rows, get)
+        for key, rs in parts[1:]:
+            out.append((f"{dv.STATUS_ICON[key]} {dv.group_name(key)}", {"todo": "gray", "doing": "blue", "done": "green"}[key], rs, key, "status"))
+        out.append((without, None, parts[0][1], None, "status"))
+    elif g.get("type") == "select":
+        for o in g.get("options") or []:
+            rs = [r for r in rows if get(r) == o["id"]]
+            out.append((dv.status_label(g, o), o.get("color"), rs, o["id"], "option"))
+        out.append((without, None, [r for r in rows if not option(g, get(r))], None, "option"))
+    else:
+        parts = dv.person_groups(rows, get, m.people) if g.get("type") == "person" else dv.value_groups(rows, g.get("rtype"), get)
+        for key, rs in parts[1:]:
+            out.append((group_label(m, g, key), None, rs, key, "ro"))
+        out.append((without, None, parts[0][1], None, "ro"))
+    if board:
+        return [x for x in out if x[2] or x[3] is not None]
+    return [x for x in out if x[2]]
+
+
 # --- Tabelle ---------------------------------------------------------------------------------
 class TableView(Gtk.ScrolledWindow, RowMenuMixin):
     __gtype_name__ = "HKTableView"
@@ -842,7 +993,7 @@ class TableView(Gtk.ScrolledWindow, RowMenuMixin):
             head.append(AddColumnButton(m))
         self.box.append(head)
         groups = self._groups()
-        for gname, gcolor, rows in groups:
+        for gname, gcolor, rows, *_x in groups:
             if gname is not None:
                 gh = Gtk.Box(spacing=8, margin_top=10, margin_bottom=4, margin_start=6)
                 gh.append(chip(gname, gcolor))
@@ -876,19 +1027,11 @@ class TableView(Gtk.ScrolledWindow, RowMenuMixin):
         self._build()
 
     def _groups(self):
-        gid = (self.view or {}).get("group")
-        g = self.m.prop(gid) if gid else None
-        if not g or g.get("type") != "select":
-            return [(None, None, self.rows)]
-        out = []
-        for o in g.get("options") or []:
-            rs = [r for r in self.rows if r["props"].get(g["id"]) == o["id"]]
-            if rs:
-                out.append((o["name"], o.get("color"), rs))
-        rest = [r for r in self.rows if not option(g, r["props"].get(g["id"]))]
-        if rest:
-            out.append((_("Without {name}").format(name=g.get("name", "")), None, rest))
-        return out or [(None, None, [])]
+        return groups_for(self.m, self.view, self.rows, (self.view or {}).get("group"), board=False) or [(None, None, self.rows)]
+
+    def _wraps(self, key):
+        v = self.view or {}
+        return v.get("wrap") is True or key in (v.get("wrap_cols") or [])
 
     def _with_resizer(self, w, key):
         if self.m.locked or not self.vid:
@@ -924,6 +1067,9 @@ class TableView(Gtk.ScrolledWindow, RowMenuMixin):
         row.add_css_class("hk-dbrow")
         _color_css(row, m.color(r, self.view))
         tc = Gtk.Box(spacing=6, margin_start=8, margin_end=4)
+        if r.get("blocked") is True:                        # 2.5 subtasks1: wartet auf einen anderen Eintrag
+            from .dbcells import blocked_mark
+            tc.append(blocked_mark())
         if r.get("icon"):
             tc.append(images.page_icon(r["icon"]))
         en = Gtk.Entry(text=r["title"], placeholder_text=_("Untitled"), hexpand=True)
@@ -948,8 +1094,10 @@ class TableView(Gtk.ScrolledWindow, RowMenuMixin):
             v = m.value(p, r)
             c = Gtk.Box(margin_start=6, margin_end=6)
             c.add_css_class("hk-colsep")
-            ed = prop_editor(p, v, lambda nv, r=r, p=p: m.set(r["id"], p["id"], nv), model=m)
+            ed = prop_editor(p, v, lambda nv, r=r, p=p: m.set(r["id"], p["id"], nv), model=m, compact=True, row=r, win=self.win)
             ed.set_valign(Gtk.Align.CENTER)
+            if self._wraps(p["id"]):
+                _wrap_labels(ed)
             c.append(ed)
             row.append(self._cell(p["id"], c))
         self.attach_menu(row, r)
@@ -960,32 +1108,58 @@ class TableView(Gtk.ScrolledWindow, RowMenuMixin):
 class ListView(Gtk.Box, RowMenuMixin):
     __gtype_name__ = "HKDBList"
 
+    def nested(self):
+        """(zeile, tiefe): Unteraufgaben (view.sub) - Tiefe vom Server (depth) oder lokal wie der Server geschachtelt"""
+        sub = (self.view or {}).get("sub")
+        if isinstance(sub, dict) and sub.get("mode") in ("nested", "parents_only") and self.m.prop(sub.get("parent")):
+            return dv.nest(self.m.rows, self.rows, sub, lambda r, pid: r["props"].get(pid))
+        return [(r, r.get("depth") if isinstance(r.get("depth"), int) else 0) for r in self.rows]
+
     def __init__(self, win, m, view):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self.win, self.m, self.view = win, m, view
         hidden = set((view or {}).get("hidden") or [])
         self.rows = m.rows_for(view)
         check = next((p for p in m.props if p.get("type") == "checkbox" and p["id"] not in hidden), None)
-        chips = [p for p in m.props if p.get("type") in ("select", "multi_select", "date", "number", "calc") and p["id"] not in hidden][:3]
-        for r in self.rows[:300]:
+        status = None if check else next((p for p in m.props if dv.is_status(p) and p["id"] not in hidden), None)
+        chips = [p for p in m.props if p.get("type") in ("select", "multi_select", "date", "number", "calc", "formula", "rollup", "person", "files")
+                 and p["id"] not in hidden and p is not status][:3]
+        for r, depth in self.nested()[:300]:
             row = Gtk.Box(spacing=10, margin_top=4, margin_bottom=4)
             row.add_css_class("hk-listrow")
+            if depth:                                          # 2.5 subtasks1: Unteraufgaben eingerueckt
+                row.set_margin_start(min(depth, 6) * 22)
+                row.add_css_class("hk-subrow")
             _color_css(row, m.color(r, view))
             if check:
                 cb = Gtk.CheckButton(active=bool(r["props"].get(check["id"])))
                 cb.connect("toggled", lambda c, r=r: m.set(r["id"], check["id"], c.get_active()))
                 row.append(cb)
+            elif status is not None:                           # 2.5 status1: Abhaken setzt die erste Option der Gruppe done
+                cur = r["props"].get(status["id"])
+                cb = Gtk.CheckButton(active=dv.option_group(status, cur) == "done")
+                cb.set_tooltip_text(status.get("name") or "")
+
+                def tg(c, r=r):
+                    oid = dv.done_option(status) if c.get_active() else dv.first_option_of_group(status, "todo")
+                    if oid is not None and oid != r["props"].get(status["id"]):
+                        m.set(r["id"], status["id"], oid)
+                cb.connect("toggled", tg)
+                row.append(cb)
             else:
                 row.append(images.page_icon(r.get("icon")))
             inner = Gtk.Box(spacing=8)
-            if check and r.get("icon"):
+            if r.get("blocked") is True:
+                from .dbcells import blocked_mark
+                inner.append(blocked_mark())
+            if (check or status is not None) and r.get("icon"):
                 inner.append(images.page_icon(r["icon"]))
             t = Gtk.Label(label=r["title"] or _("Untitled"), xalign=0, hexpand=True, wrap=True, natural_wrap_mode=Gtk.NaturalWrapMode.WORD)
             if not r["title"]:
                 t.add_css_class("dim-label")
             inner.append(t)
             for p in chips:                                   # kompakt wie Notion: Mehrfachauswahl hoechstens 2 + "+N"
-                w = value_widget(p, m.value(p, r), limit=2)
+                w = value_widget(p, m.value(p, r), limit=2, m=m, r=r, win=win)
                 if w:
                     w.set_valign(Gtk.Align.CENTER)
                     inner.append(w)
@@ -1009,13 +1183,19 @@ def card(win, m, r, view, cover=True):
     hidden = set((view or {}).get("hidden") or [])
     box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
     box.add_css_class("hk-cardview")
-    _color_css(box, m.color(r, view))
+    col = m.color(r, view)
+    if col:                                                # 2.5: Kartenfarbe (view.colors) - Flaeche + Streifen oben
+        box.add_css_class(f"hk-card-{col}")
+        box.hk_color = col
     if cover and r.get("cover"):
         im = images.ImageView(r["cover"], mode="cover", w=640)
         im.set_size_request(-1, 110)
         box.append(im)
     inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=8, margin_bottom=8, margin_start=10, margin_end=10)
     tr = Gtk.Box(spacing=6)
+    if r.get("blocked") is True:
+        from .dbcells import blocked_mark
+        tr.append(blocked_mark())
     if r.get("icon"):
         tr.append(images.page_icon(r["icon"]))
     tl = Gtk.Label(label=r["title"] or _("Untitled"), xalign=0, wrap=True, lines=2, ellipsize=Pango.EllipsizeMode.END)
@@ -1023,8 +1203,9 @@ def card(win, m, r, view, cover=True):
     tr.append(tl)
     inner.append(tr)
     fb = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, row_spacing=3, column_spacing=3, max_children_per_line=10)
-    for p in [p for p in m.props if p["id"] not in hidden and p.get("type") in ("select", "multi_select", "date", "checkbox", "number", "calc")][:4]:
-        w = value_widget(p, m.value(p, r))
+    kinds = ("select", "multi_select", "date", "checkbox", "number", "calc", "formula", "rollup", "person", "files")
+    for p in [p for p in m.props if p["id"] not in hidden and p.get("type") in kinds][:4]:
+        w = value_widget(p, m.value(p, r), m=m, r=r, win=win)
         if w:
             fb.append(w)
     if fb.get_first_child():
@@ -1040,15 +1221,16 @@ class BoardView(Gtk.ScrolledWindow, RowMenuMixin):
         super().__init__(vscrollbar_policy=Gtk.PolicyType.NEVER, propagate_natural_height=True)
         self.win, self.m, self.view = win, m, view
         self.rows = m.rows_for(view)
-        g = m.prop((view or {}).get("group_by")) or next((p for p in m.props if p.get("type") == "select"), None)
+        g = m.prop((view or {}).get("group_by"))
+        if not dv.groupable(g):
+            g = next((p for p in m.props if p.get("type") == "select"), None)
         hb = Gtk.Box(spacing=12)
         self.set_child(hb)
         if not g:
             hb.append(Gtk.Label(label=_("A board needs a select property"), css_classes=["dim-label"]))
             return
-        cols = [(o["id"], o["name"], o.get("color")) for o in g.get("options") or []] + [(None, _("Without {name}").format(name=g.get("name", "")), None)]
-        for oid, name, color in cols:
-            items = [r for r in self.rows if (r["props"].get(g["id"]) or None) == oid]
+        cols = groups_for(m, view, self.rows, g["id"], board=True) or []
+        for name, color, items, key, kind in cols:
             col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
             col.add_css_class("hk-boardcol")
             col.add_css_class(f"hk-col-{color or 'gray'}")
@@ -1063,25 +1245,45 @@ class BoardView(Gtk.ScrolledWindow, RowMenuMixin):
                 b.add_css_class("flat")
                 b.add_css_class("hk-cardbtn")
                 b.connect("clicked", lambda *_, r=r: self.open(r))
-                ds = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
-                ds.connect("prepare", lambda *_, r=r: Gdk.ContentProvider.new_for_value(f"hkrow:{r['id']}"))
-                b.add_controller(ds)
+                if kind != "ro":                                 # Formel/Rollup/Personen: nur lesend (nicht ziehen)
+                    ds = Gtk.DragSource(actions=Gdk.DragAction.MOVE)
+                    ds.connect("prepare", lambda *_, r=r: Gdk.ContentProvider.new_for_value(f"hkrow:{r['id']}"))
+                    b.add_controller(ds)
                 self.attach_menu(b, r)
                 col.append(b)
-            if self.m.can_add or self.m.readonly:
+            if (self.m.can_add or self.m.readonly) and kind != "ro":
+                init = key if kind == "option" else (dv.first_option_of_group(g, key) if key else None)
                 col.append(_blocked(flat_button(icon="list-add-symbolic", label=_("New"), css="dim-label",
-                                                cb=lambda oid=oid: self.new_row({g["id"]: oid} if oid else {})), self.m))
-            dt = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
+                                                cb=lambda init=init: self.new_row({g["id"]: init} if init else {})), self.m))
+            if kind != "ro":
+                dt = Gtk.DropTarget.new(GObject.TYPE_STRING, Gdk.DragAction.MOVE)
 
-            def drop(t, val, x, y, oid=oid):
-                if isinstance(val, str) and val.startswith("hkrow:"):
-                    rid = int(val[6:])
-                    GLib.idle_add(lambda: (m.set(rid, g["id"], oid), False)[1])
-                    return True
-                return False
-            dt.connect("drop", drop)
-            col.add_controller(dt)
+                def drop(t, val, x, y, key=key, kind=kind):
+                    if isinstance(val, str) and val.startswith("hkrow:"):
+                        rid = int(val[6:])
+                        GLib.idle_add(lambda: (self.drop_to(rid, g, key, kind), False)[1])
+                        return True
+                    return False
+                dt.connect("drop", drop)
+                col.add_controller(dt)
             hb.append(col)
+
+    def drop_to(self, rid, g, key, kind):
+        """Karte in eine Spalte gezogen: Option setzen bzw. (Status-Gruppe) erste Option der Gruppe, wenn sie noch nicht
+        in einer Option dieser Gruppe liegt"""
+        r = next((x for x in self.m.rows if x["id"] == rid), None)
+        cur = (r or {}).get("props", {}).get(g["id"])
+        if kind == "status":
+            if key is None:
+                if cur is not None:
+                    self.m.set(rid, g["id"], None)
+                return
+            nv = dv.move_to_group(g, cur, key)
+            if nv is not None:
+                self.m.set(rid, g["id"], nv)
+            return
+        if cur != key:
+            self.m.set(rid, g["id"], key)
 
 
 class GalleryView(Gtk.FlowBox, RowMenuMixin):
@@ -1103,6 +1305,34 @@ class GalleryView(Gtk.FlowBox, RowMenuMixin):
             self.append(b)
 
 
+def cal_items(m, dp, rows, day):
+    """Eintraege eines Tages: (zeile, uhrzeit-text | None) - Zeitraeume auf jedem Tag (hoechstens 62), Uhrzeit vorn"""
+    out = []
+    for r in rows:
+        v = m.value(dp, r)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            v = _dt.date.fromtimestamp(v).isoformat()
+        if not isinstance(v, str) or not v:
+            continue
+        sp = dv.day_span(v)
+        if sp is None:
+            continue
+        a, b = sp
+        if (b - a).days > 61:
+            b = a + _dt.timedelta(days=61)
+        if not (a <= day <= b):
+            continue
+        pr = dv.parse_date(v)
+        t = None
+        if day == a and pr and pr[0].time:
+            from .util import time_text
+            hm = pr[0].local(dv.viewer_tz())[1]
+            t = time_text(_dt.datetime(2000, 1, 1, hm[0], hm[1]))
+        out.append((r, t, (pr[0].key(dv.viewer_tz()) if pr else v)))
+    out.sort(key=lambda x: (x[1] is not None, x[2]))           # ganztaegig zuerst, dann nach Uhrzeit
+    return [(r, t) for r, t, _k in out]
+
+
 class CalendarView(Gtk.Box, RowMenuMixin):
     __gtype_name__ = "HKDBCalendar"
 
@@ -1111,17 +1341,32 @@ class CalendarView(Gtk.Box, RowMenuMixin):
         self.win, self.m, self.view = win, m, view
         self.rows = m.rows_for(view)
         t = _dt.date.today()
+        self.week = (view or {}).get("range") == "week"         # 2.5 tableopts1: Wochenansicht Mo-So
         self.month = month or _dt.date(t.year, t.month, 1)
+        self.week_start = t - _dt.timedelta(days=t.weekday())
         self.dp = m.prop((view or {}).get("date_by")) or next((p for p in m.props if p.get("type") == "date"), None)
         self._build()
+
+    def _item(self, r, t):
+        lb = Gtk.Label(label=((t + " ") if t else "") + (r["title"] or _("Untitled")), xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        b = Gtk.Button(child=lb)
+        b.add_css_class("hk-calitem")
+        _color_css(b, self.m.color(r, self.view))
+        b.connect("clicked", lambda *_, r=r: self.open(r))
+        self.attach_menu(b, r)
+        return b
 
     def _build(self):
         while (c := self.get_first_child()):
             self.remove(c)
-        mth = self.month
         bar = Gtk.Box(spacing=6)
         bar.append(flat_button(icon="go-previous-symbolic", cb=lambda: self._shift(-1)))
-        ml = Gtk.Label(label=month_text(mth), width_chars=16)
+        if self.week:
+            a, b = self.week_start, self.week_start + _dt.timedelta(days=6)
+            title = f"{day_text(a.isoformat())} – {day_text(b.isoformat())}"
+        else:
+            title = month_text(self.month)
+        ml = Gtk.Label(label=title, width_chars=16)
         ml.add_css_class("heading")
         bar.append(ml)
         bar.append(flat_button(icon="go-next-symbolic", cb=lambda: self._shift(1)))
@@ -1131,45 +1376,75 @@ class CalendarView(Gtk.Box, RowMenuMixin):
         if not self.dp:
             self.append(Gtk.Label(label=_("A calendar needs a date property"), css_classes=["dim-label"]))
             return
+        if self.week:
+            self._build_week()
+            return
+        mth = self.month
         grid = Gtk.Grid(column_homogeneous=True, row_spacing=2, column_spacing=2)
         for i, n in enumerate(weekday_names()):
             grid.attach(Gtk.Label(label=n, css_classes=["caption", "dim-label"]), i, 0, 1, 1)
         lead = mth.weekday()
         nxt = _dt.date(mth.year + (mth.month == 12), mth.month % 12 + 1, 1)
         days = (nxt - mth).days
-        today = _dt.date.today()
         for k in range(days):
             d = mth + _dt.timedelta(days=k)
             pos = lead + k
-            cell = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-            cell.add_css_class("hk-calcell")
-            cell.set_size_request(-1, 76)
-            top = Gtk.Box()
-            dl = Gtk.Label(label=str(d.day), xalign=0, hexpand=True)
-            dl.add_css_class("caption")
-            if d == today:
-                dl.add_css_class("accent")
-                dl.add_css_class("heading")
-            else:
-                dl.add_css_class("dim-label")
-            top.append(dl)
-            ds = d.isoformat()
-            if self.dp.get("type") not in ("created", "edited") and self.m.can_add:
-                top.append(flat_button(icon="list-add-symbolic", css="hk-tiny dim-label", cb=lambda ds=ds: self.new_row({self.dp["id"]: ds})))
-            cell.append(top)
-            items = [r for r in self.rows if str(self.m.value(self.dp, r) or "").startswith(ds)]
-            for r in items[:3]:
-                b = Gtk.Button(child=Gtk.Label(label=r["title"] or _("Untitled"), xalign=0, ellipsize=Pango.EllipsizeMode.END))
-                b.add_css_class("hk-calitem")
-                b.connect("clicked", lambda *_, r=r: self.open(r))
-                self.attach_menu(b, r)
-                cell.append(b)
-            if len(items) > 3:
-                cell.append(Gtk.Label(label=f"+{len(items) - 3}", xalign=0, css_classes=["caption", "dim-label"]))
-            grid.attach(cell, pos % 7, 1 + pos // 7, 1, 1)
+            grid.attach(self._cell(d, 3, 76), pos % 7, 1 + pos // 7, 1, 1)
+        self.append(grid)
+
+    def _cell(self, d, limit, height):
+        cell = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        cell.add_css_class("hk-calcell")
+        cell.set_size_request(-1, height)
+        top = Gtk.Box()
+        dl = Gtk.Label(label=str(d.day), xalign=0, hexpand=True)
+        dl.add_css_class("caption")
+        if d == _dt.date.today():
+            dl.add_css_class("accent")
+            dl.add_css_class("heading")
+        else:
+            dl.add_css_class("dim-label")
+        top.append(dl)
+        ds = d.isoformat()
+        if self.dp.get("type") not in ("created", "edited", "formula", "rollup") and self.m.can_add:
+            top.append(flat_button(icon="list-add-symbolic", css="hk-tiny dim-label", cb=lambda ds=ds: self.new_row({self.dp["id"]: ds})))
+        cell.append(top)
+        items = cal_items(self.m, self.dp, self.rows, d)
+        for r, t in items[:limit]:
+            cell.append(self._item(r, t))
+        if len(items) > limit:
+            cell.append(Gtk.Label(label=f"+{len(items) - limit}", xalign=0, css_classes=["caption", "dim-label"]))
+        return cell
+
+    def _build_week(self):
+        narrow = 0 < self.get_width() < 560 or bool(getattr(self.win, "very_narrow", False))
+        if narrow:                                        # schmal: Tagesliste
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+            for k in range(7):
+                d = self.week_start + _dt.timedelta(days=k)
+                h = Gtk.Label(label=weekday_names()[k] + " " + day_text(d.isoformat()), xalign=0)
+                h.add_css_class("heading" if d == _dt.date.today() else "dim-label")
+                box.append(h)
+                items = cal_items(self.m, self.dp, self.rows, d)
+                for r, t in items:
+                    box.append(self._item(r, t))
+                if not items:
+                    box.append(Gtk.Label(label="–", xalign=0, css_classes=["dim-label", "caption"]))
+            self.append(box)
+            return
+        grid = Gtk.Grid(column_homogeneous=True, row_spacing=2, column_spacing=2)
+        grid.add_css_class("hk-calweek")
+        for k in range(7):
+            d = self.week_start + _dt.timedelta(days=k)
+            grid.attach(Gtk.Label(label=weekday_names()[k], css_classes=["caption", "dim-label"]), k, 0, 1, 1)
+            grid.attach(self._cell(d, 20, 220), k, 1, 1, 1)
         self.append(grid)
 
     def _shift(self, d):
+        if self.week:
+            self.week_start += _dt.timedelta(days=7 * d)
+            self._build()
+            return
         y, mo = self.month.year, self.month.month + d
         if mo == 0:
             y, mo = y - 1, 12
@@ -1181,6 +1456,7 @@ class CalendarView(Gtk.Box, RowMenuMixin):
     def _today(self):
         t = _dt.date.today()
         self.month = _dt.date(t.year, t.month, 1)
+        self.week_start = t - _dt.timedelta(days=t.weekday())
         self._build()
 
 
@@ -1291,7 +1567,13 @@ class DatabaseView(Gtk.Box):
         v = self.view
         t = (v or {}).get("type") or "table"
         narrow = 0 < self.get_width() < self.NARROW
-        if t == "board":
+        if t == "chart" and store.has("chart1"):             # 2.5: Diagramm (Server rechnet, Cairo zeichnet)
+            from .dbviews25 import ChartView
+            w = ChartView(self.win, self.m, v)
+        elif t == "timeline":                               # 2.5: Zeitleiste nur lesend
+            from .dbviews25 import TimelineView
+            w = TimelineView(self.win, self.m, v, narrow=narrow)
+        elif t == "board":
             w = BoardView(self.win, self.m, v)
         elif t == "gallery":
             w = GalleryView(self.win, self.m, v)
@@ -1315,6 +1597,12 @@ class DatabaseView(Gtk.Box):
             self.m.add(self.m.defaults(v), done=lambda i: self.win.open_entry(i, mode))
 
 
+class _RowModel:
+    """kleines Modell fuer die Eintragsseite: Personen-Verzeichnis, Datenbank (Personen-Auswahl), gesperrt"""
+    def __init__(self, db_id, people, locked):
+        self.db_id, self.people, self.locked = db_id, people, locked
+
+
 class EditableProps(Gtk.Grid):
     """Eigenschaften eines Datenbank-Eintrags (auf seiner Seite)"""
     __gtype_name__ = "HKEditableProps"
@@ -1323,7 +1611,20 @@ class EditableProps(Gtk.Grid):
         super().__init__(row_spacing=2, column_spacing=8)
         self.view = view
         doc = view.doc
-        for i, p in enumerate(schema.get("props") or []):
+        page = doc.page if isinstance(doc.page, dict) else {}
+        people = page.get("people") if isinstance(page.get("people"), dict) else {}
+        locked = bool(getattr(doc, "read_only", False))
+        rm = _RowModel(page.get("parent_id"), people, locked)
+        row = {"id": doc.id, "fx_err": page.get("fx_err")}
+        i = 0
+        if page.get("blocked") is True:                     # 2.5 subtasks1
+            from .dbcells import blocked_mark
+            bx = Gtk.Box(spacing=6)
+            bx.append(blocked_mark())
+            bx.append(Gtk.Label(label=_("Blocked – waiting for another entry"), xalign=0, css_classes=["dim-label"]))
+            self.attach(bx, 0, i, 2, 1)
+            i += 1
+        for p in schema.get("props") or []:
             lb = Gtk.Box(spacing=6)
             lb.append(Gtk.Image.new_from_icon_name(PROP_ICON.get(p.get("type"), "format-justify-left-symbolic")))
             n = Gtk.Label(label=p.get("name") or "", xalign=0, ellipsize=Pango.EllipsizeMode.END)
@@ -1345,18 +1646,36 @@ class EditableProps(Gtk.Grid):
                         v = float(v)
                     except (TypeError, ValueError):
                         v = None
-            ed = prop_editor(p, v, lambda nv, p=p: self._save(p, nv))
+            ed = prop_editor(p, v, lambda nv, p=p: self._save(p, nv), model=rm, row=row, win=getattr(view, "win", None))
             ed.set_hexpand(True)
             ed.set_halign(Gtk.Align.START if t != "text" else Gtk.Align.FILL)
+            if dv.is_fx(p):
+                ed.set_tooltip_text(_("Calculated – edit the formula on the web"))
             self.attach(ed, 1, i, 1, 1)
+            i += 1
 
     def _save(self, p, v):
+        if dv.is_fx(p):                                       # berechnet: nie zurueckschreiben
+            return
         doc = self.view.doc
         props = dict(doc.props)
         props[p["id"]] = v
         doc.page["props"] = props
-        store.run("PATCH", f"api/notes/{doc.id}", {"props": {p["id"]: v}}, data_changed=True, key=("note", doc.id),
-                  done=lambda _: store.drop_cache(f"api/notes/{doc.id}"))
+
+        def done(ans):
+            store.drop_cache(f"api/notes/{doc.id}")
+            if isinstance(ans, dict) and any(k in ans for k in ("calc", "values", "fx_err", "people")):
+                row = {"props": dict(doc.page.get("props") or {}), "fx_err": doc.page.get("fx_err")}
+                ppl = dv.apply_patch_answer(row, ans)
+                doc.page["props"] = row["props"]
+                if row.get("fx_err"):
+                    doc.page["fx_err"] = row["fx_err"]
+                else:
+                    doc.page.pop("fx_err", None)
+                if ppl:
+                    doc.page["people"] = dv.merge_people(doc.page.get("people"), ppl)
+                GLib.idle_add(lambda: (self.view.rebuild(), False)[1])
+        store.run("PATCH", f"api/notes/{doc.id}", {"props": {p["id"]: v}}, data_changed=True, key=("note", doc.id), done=done)
         GLib.idle_add(lambda: (self.view.rebuild(), False)[1])
 
 

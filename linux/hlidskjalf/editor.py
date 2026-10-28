@@ -51,6 +51,9 @@ def cell_key(bid, r, c):
     return f"{bid}/#{r},{c}"
 
 
+CAPS = "inline2,cols6"
+
+
 def make(btype, text="", level=2):
     if btype == "header":
         data = {"text": text, "level": level}
@@ -541,7 +544,8 @@ class PageDoc:
         srv = self.server
 
         def send():
-            return client.json("PATCH", f"api/notes/{self.id}", b, server=srv, account=acct)
+            # 2.5 (P6-0): die App erhaelt Inline-Formen (Tags samt Klasse) und bis zu 6 Spalten beim Bearbeiten
+            return client.json("PATCH", f"api/notes/{self.id}", b, server=srv, account=acct, headers={"X-Saga-Caps": CAPS})
         bg_serial(("note", self.id), send, done=fin, error=err)
 
     def _trashed(self, e):
@@ -1099,7 +1103,7 @@ class PageEditor:
         top = a[i]
         n = max(self.col_count(top), self.col_count(below))
         merged = []
-        for ci in range(min(4, n)):
+        for ci in range(min(6, n)):                         # 2.5 cols6: bis 6 Spalten
             blocks = list(self.col_array(top, ci) or []) + list(self.col_array(below, ci) or [])
             merged.append({"blocks": blocks})
         top.setdefault("data", {})["cols"] = merged

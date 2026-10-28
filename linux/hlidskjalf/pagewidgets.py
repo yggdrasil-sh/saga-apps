@@ -16,9 +16,11 @@ from zoneinfo import ZoneInfo
 from .i18n import _, ngettext, ui_language
 
 KINDS = ("clock", "countdown", "progress", "metric", "quote")
+KINDS2 = {"weather": "weather1", "habit": "habit1", "upcoming": "upcoming1", "chart": "chart1"}   # Etappe 2: Art -> Faehigkeit
+FEATURES = None             # Faehigkeiten des Servers (Menge) - None: unbekannt (Etappe-2-Arten dann nicht anzeigen)
 SIZES = ("s", "m", "l")
 FMTS = ("num", "pct", "eur")
-ERRORS = ("no_access", "gone", "bad_cfg", "too_big")
+ERRORS = ("no_access", "gone", "bad_cfg", "too_big", "disabled", "unavailable")
 PALETTE = ("gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink", "red")
 MAX_DEPTH = 8
 
@@ -56,12 +58,18 @@ class Spec:
 
     @property
     def known(self):
+        if self.kind in KINDS2:                      # 2.5 Paket 4: nur mit passendem Server
+            return FEATURES is not None and KINDS2[self.kind] in FEATURES
         return self.kind in KINDS
+
+    @property
+    def stage2(self):
+        return self.kind in KINDS2 and self.known
 
     @property
     def server_value(self):
         """rechnet der Server den Wert? (quote immer - fixed nur als Rueckfall lokal)"""
-        if self.kind in ("metric", "quote"):
+        if self.kind in ("metric", "quote") or (self.kind in KINDS2 and self.known):
             return True
         return self.kind == "progress" and _str(self.cfg, "src") == "db"
 
@@ -99,9 +107,12 @@ def parse_value(o):
     e = o.get("error")
     err = None if e in (None, "") else (e if e in ERRORS else "other")
     t = o.get("text")
-    return {"kind": _str(o, "kind"), "value": _num(o.get("value")), "max": _num(o.get("max")),
+    out = {"kind": _str(o, "kind"), "value": _num(o.get("value")), "max": _num(o.get("max")),
             "text": t if isinstance(t, str) else None, "fmt": o.get("fmt") if o.get("fmt") in FMTS else None,
             "as_of": _str(o, "as_of") or None, "error": err}
+    if _str(o, "kind") in KINDS2:                   # Etappe 2: strukturierte Daten je Art
+        out["data"] = o.get("data") if isinstance(o.get("data"), dict) and err is None else None
+    return out
 
 
 def parse_response(obj):
@@ -110,6 +121,9 @@ def parse_response(obj):
         return "failed", {}
     if obj.get("unsupported") is True:
         return "unsupported", {}
+    if obj.get("unsupported2") is True and isinstance(obj.get("widgets"), dict):     # Gegenstelle ohne widgets2
+        w = {k: parse_value(v) for k, v in obj["widgets"].items() if isinstance(k, str) and isinstance(v, dict)}
+        return "ok2", w
     w = obj.get("widgets")
     if not isinstance(w, dict):
         return "ok", {}
@@ -130,11 +144,14 @@ class Values:
     Ein Fehler beim Neuladen verdraengt vorhandene Werte nicht (stale=True)."""
 
     def __init__(self):
-        self.state, self.values, self.stale = "none", {}, False
+        self.state, self.values, self.stale, self.no2 = "none", {}, False, False
 
     def apply(self, state, values=None):
+        if state == "ok2":                          # Etappe-2-Arten fehlen (Ursprungsserver ohne widgets2)
+            self.state, self.values, self.stale, self.no2 = "ok", dict(values or {}), False, True
+            return True
         if state in ("ok", "unsupported"):
-            self.state, self.values, self.stale = state, dict(values or {}), False
+            self.state, self.values, self.stale, self.no2 = state, dict(values or {}), False, False
             return True
         if self.state == "ok":                      # Fehler beim Neuladen: alte Werte bleiben
             self.stale = True
@@ -355,11 +372,13 @@ def quote_index(n, pick, date, bid, rnd=None):
 # --- Darstellung ----------------------------------------------------------------------------------------------
 def kind_label(kind):
     return {"clock": _("Clock"), "countdown": _("Countdown"), "progress": _("Progress"), "metric": _("Metric"),
-            "quote": _("Quote")}.get(kind, _("Widget"))
+            "quote": _("Quote"), "weather": _("Weather"), "habit": _("Habits"), "upcoming": _("Upcoming"),
+            "chart": _("Chart")}.get(kind, _("Widget"))
 
 
 def error_text(err):
-    return {"no_access": _("No access to the data source"), "gone": _("The data source was deleted"),
+    return {"disabled": _("Weather is turned off on this server"), "unavailable": _("Weather data not reachable right now"),
+            "no_access": _("No access to the data source"), "gone": _("The data source was deleted"),
             "bad_cfg": _("Widget is not set up correctly – edit it on the web"),
             "too_big": _("Data source too large for this widget")}.get(err, _("Value not available"))
 
