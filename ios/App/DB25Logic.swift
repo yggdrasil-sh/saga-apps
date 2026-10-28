@@ -430,9 +430,14 @@ struct ChartData: Equatable {
         return (lo, hi)
     }
 
+    /// Alle Werte (und Ziel) ganzzahlig, kein Prozent -> Achse nur mit ganzen Werten (Anzahl: kein "0,2 / 0,4")
+    var integerValues: Bool {
+        fmt != "pct" && (series.flatMap { $0.values.compactMap { $0 } } + (goal.map { [$0] } ?? [])).allSatisfy { $0.isFinite && $0 == $0.rounded(.down) }
+    }
+
     /// "Schoene" Achsenwerte (1/2/2,5/5 x 10^k, ca. 5 Schritte) wie saga/chartsvg.py nice_ticks (tests/chart_ticks.json);
-    /// der Aufrufer nimmt 0 in den Bereich auf (range)
-    static func ticks(_ lo0: Double, _ hi0: Double, n: Int = 5) -> [Double] {
+    /// der Aufrufer nimmt 0 in den Bereich auf (range). integer: nur ganze Werte (Schritte 1/2/5 x 10^k, mindestens 1)
+    static func ticks(_ lo0: Double, _ hi0: Double, n: Int = 5, integer: Bool = false) -> [Double] {
         var lo = lo0, hi = hi0
         if lo == hi {
             hi = lo >= 0 ? lo + 1 : lo
@@ -441,7 +446,8 @@ struct ChartData: Equatable {
         }
         let raw = (hi - lo) / Double(max(1, n))
         let mag = pow(10, log10(raw).rounded(.down))
-        let step = [1.0, 2, 2.5, 5, 10].map { $0 * mag }.first { $0 >= raw - 1e-12 } ?? 10 * mag
+        var step = [1.0, 2, 2.5, 5, 10].map { $0 * mag }.first { $0 >= raw - 1e-12 } ?? 10 * mag
+        if integer { step = max(1, [1.0, 2, 5, 10].map { $0 * mag }.first { $0 >= raw - 1e-12 } ?? 10 * mag) }
         let a = (lo / step + 1e-9).rounded(.down) * step, b = (hi / step - 1e-9).rounded(.up) * step
         var out: [Double] = [], x = a
         while x <= b + step / 2 && out.count < 50 { out.append((x * 1e10).rounded() / 1e10); x += step }

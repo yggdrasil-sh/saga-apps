@@ -36,6 +36,9 @@ object DbChart {
             val all = vals + listOfNotNull(goal)
             return (minOf(0.0, all.minOrNull() ?: 0.0)) to (maxOf(0.0, all.maxOrNull() ?: 0.0))
         }
+        /** Alle Werte (und Ziel) ganzzahlig, kein Prozent -> Achse nur mit ganzen Werten (Anzahl: kein "0,2 / 0,4") */
+        val integerValues: Boolean get() = fmt != "pct" &&
+            (series.flatMap { s -> s.values.filterNotNull() } + listOfNotNull(goal)).all { it == kotlin.math.floor(it) && it.isFinite() }
     }
 
     sealed interface Response {
@@ -89,8 +92,11 @@ object DbChart {
     /** Kreis/Ring: Farbe je Kategorie */
     fun catColor(c: Cat, i: Int): String = c.color ?: DEFAULT_COLORS[i % DEFAULT_COLORS.size]
 
-    /** Schoene Achsenwerte (1/2/2,5/5 x 10^k), ca. n Schritte, [lo, hi] umschlossen - Vektoren tests/chart_ticks.json */
-    fun niceTicks(lo0: Double, hi0: Double, n: Int = 5): List<Double> {
+    /**
+     * Schoene Achsenwerte (1/2/2,5/5 x 10^k), ca. n Schritte, [lo, hi] umschlossen - Vektoren tests/chart_ticks.json.
+     * integer: nur ganze Werte (Schritte 1/2/5 x 10^k, mindestens 1)
+     */
+    fun niceTicks(lo0: Double, hi0: Double, n: Int = 5, integer: Boolean = false): List<Double> {
         var lo = lo0
         var hi = hi0
         if (lo == hi) {
@@ -100,7 +106,8 @@ object DbChart {
         }
         val raw = (hi - lo) / maxOf(1, n)
         val mag = 10.0.pow(floor(log10(raw)))
-        val step = listOf(1.0, 2.0, 2.5, 5.0, 10.0).map { it * mag }.first { it >= raw - 1e-12 }
+        val step = if (integer) maxOf(1.0, listOf(1.0, 2.0, 5.0, 10.0).map { it * mag }.first { it >= raw - 1e-12 })
+        else listOf(1.0, 2.0, 2.5, 5.0, 10.0).map { it * mag }.first { it >= raw - 1e-12 }
         val a = floor(lo / step + 1e-9) * step
         val b = ceil(hi / step - 1e-9) * step
         val out = ArrayList<Double>()

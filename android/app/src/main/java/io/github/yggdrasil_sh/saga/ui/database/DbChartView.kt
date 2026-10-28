@@ -183,7 +183,7 @@ private fun DrawScope.drawXY(
     tm: TextMeasurer, style: TextStyle, fmt: (Double) -> String,
 ) {
     val (lo, hi) = c.yRange()
-    val ticks = DbChart.niceTicks(lo, hi)
+    val ticks = DbChart.niceTicks(lo, hi, integer = c.integerValues)
     val tMin = ticks.first()
     val tMax = ticks.last()
     val horiz = c.horizontal

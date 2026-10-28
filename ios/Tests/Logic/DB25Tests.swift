@@ -163,6 +163,10 @@ func db25Tests() {
         }
         check(bad == 0 && t.count > 10, "Achsenwerte wie Server (\(t.count))")
     }
+    check(ChartData.ticks(0, 1, integer: true) == [0, 1] && ChartData.ticks(0, 3, integer: true) == [0, 1, 2, 3]
+          && ChartData.ticks(0, 0, integer: true) == [0, 1] && ChartData.ticks(0, 12, integer: true) == [0, 5, 10, 15]
+          && ChartData.ticks(0, 100, integer: true) == ChartData.ticks(0, 100), "Achse bei ganzen Werten (Anzahl) ohne 0,2/0,4")
+    check(c1?.integerValues == true, "Anzahl: ganzzahlige Reihen erkannt")
 
     // MARK: Widgets Etappe 2
     let w = fxObj("widgets")["widgets"] as? [String: [String: Any]] ?? [:]

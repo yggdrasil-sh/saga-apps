@@ -336,6 +336,19 @@ class Apps25E1Test {
         }
     }
 
+    @Test fun niceTicksIntegerCounts() {
+        assertEquals(listOf(0.0, 1.0), DbChart.niceTicks(0.0, 1.0, integer = true))
+        assertEquals(listOf(0.0, 1.0, 2.0, 3.0), DbChart.niceTicks(0.0, 3.0, integer = true))
+        assertEquals(listOf(0.0, 1.0), DbChart.niceTicks(0.0, 0.0, integer = true))
+        assertEquals(listOf(0.0, 5.0, 10.0, 15.0), DbChart.niceTicks(0.0, 12.0, integer = true))
+        assertEquals(DbChart.niceTicks(0.0, 100.0), DbChart.niceTicks(0.0, 100.0, integer = true))
+        val one = DbChart.Result("bar", "cat", null, listOf(DbChart.Cat("a", "A", null)), listOf(DbChart.Series("", "", null, listOf(1.0))),
+            1.0, "num", 0, false, 1, null, false, false)
+        assertTrue(one.integerValues)
+        assertFalse(one.copy(series = listOf(DbChart.Series("", "", null, listOf(0.5)))).integerValues)
+        assertFalse(one.copy(fmt = "pct").integerValues)
+    }
+
     @Test fun chartResponses() {
         val r = DbChart.parseResponse(res("chart_view.json")) as DbChart.Response.Ok
         assertEquals("bar", r.chart.type)

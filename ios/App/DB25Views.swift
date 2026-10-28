@@ -371,7 +371,7 @@ struct ChartBody: View {
     @ViewBuilder private var cartesian: some View {
         let pts = points, labels = data.cats.indices.map { data.label($0) }
         let lo = data.range.0, hi = data.cumulative ? max(data.range.1, pts.map(\.v).max() ?? 0) : data.range.1
-        let ticks = ChartData.ticks(min(lo, 0), max(hi, 0))
+        let ticks = ChartData.ticks(min(lo, 0), max(hi, 0), integer: data.integerValues)
         Chart {
             ForEach(pts) { p in
                 let x = PlottableValue.value("Kategorie", p.cat), y = PlottableValue.value("Wert", p.v)
