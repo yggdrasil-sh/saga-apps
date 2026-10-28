@@ -263,7 +263,7 @@ class Presence:
         if not self.blocks or bid == self.block:
             return
         self.block = bid
-        if not self.editing or self._block_src:
+        if not self.alive or self.off or not self.editing or self._block_src or not self.active():
             return
         wait = self.BLOCK_GAP - (time.monotonic() - self.last_beat)
         if wait > 0:
@@ -273,7 +273,7 @@ class Presence:
 
     def _block_due(self):
         self._block_src = 0
-        if self.alive and self.editing and self.block != self.sent_block:
+        if self.alive and self.editing and self.block != self.sent_block and self.active():
             self.beat()
         return False
 
