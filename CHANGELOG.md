@@ -9,6 +9,30 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – Linux: Gleichzeitig bearbeiten, Aufgabenquellen, Editor (Saga-Server 2.5, App-Runde Etappe 2)
+Alles nur, wenn der Server die jeweilige Fähigkeit meldet; ältere Server: wie bisher (Konfliktdialog bleibt als Rückfall).
+- **Zusammenführen statt Konfliktdialog:** Speichern mit `merge: 1`; die zusammengeführte Antwort wird blockweise
+  übernommen (Schreibmarke bleibt im eigenen Block), wer währenddessen weiterschreibt, sendet beim nächsten Speichern
+  `base: "sent"`. Änderungen anderer kommen per `?since=` (nur geänderte Blöcke) ohne „Neu laden“-Hinweis.
+  **Konfliktblöcke** mit gelbem Rand: „Fassung von {name} – Übernehmen / Verwerfen“. Dezente Hinweise bei
+  gleichzeitig geänderten Nicht-Text-Feldern (mit Weg zu den Versionen). Seiten anderer Server nur mit `merge1`.
+- **Wer bearbeitet welchen Block:** farbiger Rand links und „{name} bearbeitet“ (nur Hinweis); die App meldet den
+  eigenen Block höchstens etwa einmal pro Sekunde.
+- **Aufgabenquellen:** Datenbank-Zeilen zusammen mit den eigenen Aufgaben in einer Liste (Reihenfolge vom Server), mit
+  Quelle, Uhrzeit/Zeitraum, Priorität und Zugewiesenen; Abhaken mit Rückgängig (vorheriger Status bleibt), offline in
+  einer Warteschlange. Neue Aufgabe direkt in eine Quelle, Quellen verwalten (alle/nur mir zugewiesen, entfernen),
+  Datenbank-Menü „Als Aufgabenquelle verwenden“. **Tägliche Zusammenfassung** (Schalter + Uhrzeit) in den
+  Einstellungen, Push-Kategorie „Aufgaben“.
+- **Inline-Formen setzen:** Text- und Hintergrundfarbe für markierten Text (Strg+Umschalt+C), Inline-Mathe einfügen und
+  bearbeiten (Strg+Umschalt+M). **Erwähnungen:** „@“ bietet Personen mit Zugriff; Personen ohne Zugriff über
+  „Seite teilen und erwähnen?“. In Kommentaren erscheinen Erwähnungen als Chip, „@“ fügt sie ein.
+- **Synchronisierte Blöcke bearbeiten** (Original und Kopien mit Bearbeiten-Recht im Original).
+- **Blöcke auf eine andere Seite verschieben** (Blockmenü) mit Rückgängig; **Zeitleiste**: Balken verschieben und Ende
+  ziehen; **API-Tokens** in den Einstellungen auflisten und widerrufen (Anlegen im Web).
+
+### Behoben – Linux
+- Zwei aufeinanderfolgende Textstellen in verschiedenen Farben wurden beim Speichern zu einer Farbe zusammengefasst.
+
 ### Neu – iOS/Mac: Datenbanken, Diagramme, Widgets und Inline-Formen (Saga-Server 2.5, App-Runde Etappe 1)
 Alles nur, wenn der Server die jeweilige Fähigkeit meldet (`/api/version` → `features`); ältere Server: wie bisher.
 - **Formeln und Rollups** werden angezeigt (Zahl, Text, Häkchen, Datum, Liste), Fehler als „#Fehler“ mit Erklärung;
