@@ -27,7 +27,11 @@ struct E2PreviewView: View {
     @State private var ed: PageEditor?
     @StateObject private var widgets = PageWidgetValues()
     @State private var ready = false
+    @Environment(\.horizontalSizeClass) private var hsc
+    @Environment(\.dynamicTypeSize) private var dts
     var body: some View {
+        // 2.5 Notion-Gefuehl: dieselben Masse wie die Seite (iPad normale Breite: mehr Luft)
+        let wm = WritingLogic.metrics(mac: false, regularWidth: hsc == .regular)
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 10) {
@@ -35,10 +39,10 @@ struct E2PreviewView: View {
                         if E2Preview.mode == "aufgaben" {
                             TaskListView()
                         } else {
-                            Text(verbatim: doc.title).font(.largeTitle.bold())
+                            Text(verbatim: doc.title).font(WritingLogic.font(.title, fallback: .largeTitle.bold(), dts: dts, in: wm))
                             PresenceBar(users: [PresenceUser(username: "b", name: "Bert Beispiel", editing: true, me: false)])
                             MergeHintRow(hint: .restored, versions: nil) {}
-                            BlocksView(arr: doc.root).environmentObject(ed).environmentObject(widgets)
+                            BlocksView(arr: doc.root).environmentObject(ed).environmentObject(widgets).environment(\.writingMetrics, wm)
                             Divider().padding(.vertical, 6)
                             Text(verbatim: "Format").font(.headline)
                             Menu { InlineFormatItems { _ in } } label: { Label("Format", systemImage: "bold.italic.underline") }
@@ -51,7 +55,8 @@ struct E2PreviewView: View {
                         }
                     }
                 }
-                .padding()
+                .padding(.horizontal, hsc == .regular ? 56 : 16).padding(.vertical, 16)
+                .frame(maxWidth: hsc == .regular ? 760 + 112 : .infinity).frame(maxWidth: .infinity)
             }
             .navigationTitle(Text(verbatim: E2Preview.mode == "aufgaben" ? "Aufgaben" : ""))
         }

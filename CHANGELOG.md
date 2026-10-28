@@ -9,6 +9,17 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Geändert – Mac/iPad: ruhigere Schreibfläche („Notion-Gefühl“, Quick Wins)
+- **Mac-Schreibfläche:** Seitentext 16 pt statt 13 pt, Titel 35 pt, Überschriften 26/21/18 pt, Zeilenabstand +3 pt
+  und mehr Luft über Überschriften; die Größen folgen Dynamic Type bzw. „Kleiner Text“ der Seite.
+  **iPad** (normale Breite): mehr Abstand zwischen Blöcken und breiterer Rand. iPhone unverändert.
+- **Seitenleiste Mac/iPad:** „Heute“ als eine Zeile mit Zähler, darunter Favoriten und **Seitenbaum oben**;
+  Aufgaben, Termine, Dienste, Chats und Graph stehen unten im einklappbaren Abschnitt „Werkzeuge“ (ungelesene Chats
+  am zugeklappten Kopf). iPad nutzt den Seitenleisten-Stil statt gruppierter Liste.
+- **Tastenkürzel:** ⌘N = Neue Seite (vorher ⌥⌘N), ⇧⌘N = Neues Fenster (Mac), ⌘\ = Seitenleiste ein-/ausblenden.
+- **Block-Griffe:** Symbol `⋮⋮` statt `≡` (wie im Web), senkrecht auf der ersten Textzeile; auf dem iPad erscheinen
+  die Griffe beim Zeigen mit Trackpad oder Maus (oberste Ebene).
+
 ### Neu – iOS/Mac: Gleichzeitig bearbeiten, Aufgabenquellen, Editor (Saga-Server 2.5, App-Runde Etappe 2)
 - **Zusammenführen statt Konfliktdialog:** Speichern mit `merge: 1`; eine zusammengeführte Antwort wird blockweise
   übernommen (Fokus bleibt im eigenen Block), wurde inzwischen weitergeschrieben, folgt das nächste Speichern mit
