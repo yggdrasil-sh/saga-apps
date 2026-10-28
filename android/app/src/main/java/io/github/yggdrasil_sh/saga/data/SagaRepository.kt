@@ -961,6 +961,12 @@ class SagaRepository(
         return withContext(Dispatchers.Default) { io.github.yggdrasil_sh.saga.blocks.MergeLogic.parseSave(text) }
     }
 
+    override suspend fun moveBlocks(req: io.github.yggdrasil_sh.saga.blocks.MoveLogic.Request): String {
+        val r = api.request("POST", req.path, req.body())
+        scope.launch { try { refresh(join = false) } catch (e: CancellationException) { throw e } catch (_: Exception) {} }
+        return r
+    }
+
     override suspend fun loadPageSince(id: Long, since: Int?): JsonObject {
         val text = api.get(if (since != null) "api/notes/$id?since=$since" else "api/notes/$id")
         return withContext(Dispatchers.Default) { json.decodeFromString(JsonObject.serializer(), text) }

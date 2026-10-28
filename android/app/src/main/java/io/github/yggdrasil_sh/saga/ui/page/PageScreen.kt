@@ -999,6 +999,7 @@ private fun EditorToolbar(
     var inlineColorMenu by remember { mutableStateOf(false) }
     var mathDialog by remember { mutableStateOf<String?>(null) }
     var mentionPick by remember { mutableStateOf(false) }
+    var movePick by remember { mutableStateOf(false) }
     val trig = ed.mentionTrigger
     LaunchedEffect(trig) { if (trig != null && trig.fieldKey == active.key) mentionPick = true }
     val blockPath: JsonPath = active.blockPath()
@@ -1132,6 +1133,12 @@ private fun EditorToolbar(
                     openUrl(context, io.github.yggdrasil_sh.saga.blocks.Gestalten.webUrl(repo.absoluteUrl("notes"), ed.id, BlockDoc.id(wBlock)))
                 }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.pw_edit_web)) }
             }
+            // 2.5 E2 (move1): Block auf eine andere Seite verschieben (nur Seiten dieses Servers)
+            val moveFeatures = repo?.serverFeatures?.collectAsState()?.value.orEmpty()
+            if (repo != null && active.itemPath() == null && ed.editable && io.github.yggdrasil_sh.saga.blocks.MoveLogic.available(ed.id, moveFeatures) &&
+                ed.block(blockPath)?.let { BlockDoc.id(it) } != null) {
+                TextButton(onClick = { movePick = true }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_move)) }
+            }
             val dbBlock = ed.block(blockPath)?.takeIf { BlockDoc.type(it) == "database" && active.itemPath() == null }
             if (dbBlock != null) {                                  // 2.5: Datenbanktitel des Blocks ein-/ausblenden (wie Web/iOS)
                 val hidden = (BlockDoc.data(dbBlock)["hide_title"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "true"
@@ -1186,6 +1193,16 @@ private fun EditorToolbar(
             },
             dismissButton = { TextButton(onClick = { mathDialog = null }) { Text(stringResource(R.string.action_cancel)) } },
         )
+    }
+    if (movePick && repo != null) {
+        val own by repo.pages.collectAsState()
+        val shared by repo.sharedPages.collectAsState()
+        val pool = remember(own, shared) { io.github.yggdrasil_sh.saga.blocks.MoveLogic.targets(own + shared, ed.id) }
+        val bid = ed.block(blockPath)?.let { BlockDoc.id(it) }
+        PagePickerDialog(stringResource(R.string.e2_move_title), pool, repo, onDismiss = { movePick = false }) { target ->
+            movePick = false
+            if (bid != null) moveBlocksUi(ed, repo, listOf(bid), target)
+        }
     }
     if (mentionPick && repo != null) {
         MentionPicker(ed, repo, onDismiss = { mentionPick = false; ed.mentionTrigger = null }) { ref, name ->
@@ -1428,6 +1445,31 @@ private fun MergeHintLine(h: MergeHint, onVersions: (() -> Unit)?, onDismiss: ()
         )
         if (h.versions && onVersions != null) {
             TextButton(onClick = { onDismiss(); onVersions() }, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.e2_merged_versions)) }
+        }
+    }
+}
+
+/** 2.5 E2 (move1): verschieben mit Rueckgaengig und verstaendlichen Fehlern (403/423/507, foederiert) */
+internal fun moveBlocksUi(ed: PageEditor, repo: io.github.yggdrasil_sh.saga.data.SagaRepository, ids: List<String>, target: io.github.yggdrasil_sh.saga.data.PageMeta) {
+    repo.launchAction(onError = {}) {
+        try {
+            val (req, res) = ed.moveBlocksTo(ids, target.id)
+            val prev = ed.lastMovePrev
+            val name = target.title.ifBlank { "…" }
+            repo.notify(UiText.Res(R.string.e2_move_done, name), UiText.Res(R.string.action_undo)) {
+                repo.launchAction { ed.undoMove(req, res, prev) }
+            }
+            if (res.unsigned > 0) repo.notify(UiText.Res(R.string.e2_move_unsigned))
+        } catch (e: io.github.yggdrasil_sh.saga.data.ApiException) {
+            val msg = when (io.github.yggdrasil_sh.saga.blocks.MoveLogic.error(e.code, e.body)) {
+                io.github.yggdrasil_sh.saga.blocks.MoveLogic.Error.FORBIDDEN -> R.string.e2_move_forbidden
+                io.github.yggdrasil_sh.saga.blocks.MoveLogic.Error.LOCKED -> R.string.e2_move_locked
+                io.github.yggdrasil_sh.saga.blocks.MoveLogic.Error.QUOTA -> R.string.e2_move_quota
+                io.github.yggdrasil_sh.saga.blocks.MoveLogic.Error.CONFLICT -> R.string.e2_move_conflict
+                io.github.yggdrasil_sh.saga.blocks.MoveLogic.Error.FEDERATED -> R.string.e2_move_federated
+                else -> null
+            }
+            if (msg != null) repo.notify(UiText.Res(msg)) else repo.notify(e.text)
         }
     }
 }

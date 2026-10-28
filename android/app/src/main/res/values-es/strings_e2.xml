@@ -26,6 +26,15 @@
     <string name="e2_merged_lost">Combinado: otra versión de algunos cambios está en el historial</string>
     <string name="e2_merged_restored">Combinado con cambios de otros: se conservan bloques eliminados que se modificaron entretanto</string>
     <string name="e2_merged_versions">Versiones</string>
+    <string name="e2_move">Mover a…</string>
+    <string name="e2_move_conflict">La página cambió entretanto – inténtalo de nuevo</string>
+    <string name="e2_move_done">Movido a «%1$s»</string>
+    <string name="e2_move_federated">Las páginas de otros servidores Saga no pueden ser destino</string>
+    <string name="e2_move_forbidden">Necesitas permiso de edición en ambas páginas</string>
+    <string name="e2_move_locked">Una de las páginas está bloqueada</string>
+    <string name="e2_move_quota">No hay espacio suficiente para los archivos copiados</string>
+    <string name="e2_move_title">Mover a otra página</string>
+    <string name="e2_move_unsigned">Algunos botones o bloques de Nextcloud quedan inactivos en la página de destino hasta confirmarlos de nuevo</string>
     <string name="e2_push_cat_tasks">Tareas para hoy o atrasadas</string>
     <string name="e2_sync_reload">No se pudo escribir el bloque sincronizado en su original – página recargada</string>
     <string name="e2_synced_gone">Original eliminado: solo lectura</string>

@@ -26,6 +26,15 @@
     <string name="e2_merged_lost">Merged – another version of some changes is in the version history</string>
     <string name="e2_merged_restored">Merged with changes by others – deleted blocks that were changed meanwhile were kept</string>
     <string name="e2_merged_versions">Versions</string>
+    <string name="e2_move">Move to…</string>
+    <string name="e2_move_conflict">The page changed meanwhile – please try again</string>
+    <string name="e2_move_done">Moved to “%1$s”</string>
+    <string name="e2_move_federated">Pages on other Saga servers can\'t be a target</string>
+    <string name="e2_move_forbidden">You need edit rights on both pages</string>
+    <string name="e2_move_locked">One of the pages is locked</string>
+    <string name="e2_move_quota">Not enough storage for the copied files</string>
+    <string name="e2_move_title">Move to another page</string>
+    <string name="e2_move_unsigned">Some buttons or Nextcloud blocks are inactive on the target page until they are confirmed again</string>
     <string name="e2_push_cat_tasks">Tasks due today or overdue</string>
     <string name="e2_sync_reload">The synced block could not be written to its original – page reloaded</string>
     <string name="e2_synced_gone">Original deleted – read only</string>

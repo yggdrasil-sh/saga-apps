@@ -20,6 +20,7 @@ import io.github.yggdrasil_sh.saga.blocks.InlineStyle
 import io.github.yggdrasil_sh.saga.blocks.JsonPath
 import io.github.yggdrasil_sh.saga.blocks.JsonTree
 import io.github.yggdrasil_sh.saga.blocks.MergeLogic
+import io.github.yggdrasil_sh.saga.blocks.MoveLogic
 import io.github.yggdrasil_sh.saga.blocks.SyncEdit
 import io.github.yggdrasil_sh.saga.data.AccountKey
 import io.github.yggdrasil_sh.saga.data.ApiException
@@ -102,6 +103,8 @@ interface PageBackend {
         MergeLogic.SaveOutcome(savePage(id, title, body, rev))
     /** GET ?since=<rev> (delta statt body, wenn die Basis noch vorliegt); Standard: ganz laden */
     suspend fun loadPageSince(id: Long, since: Int?): JsonObject = loadPage(id)
+    /** 2.5 move1: POST /api/notes/{a}/blocks/move -> Antworttext; ApiException bei 4xx/5xx */
+    suspend fun moveBlocks(req: MoveLogic.Request): String = throw UnsupportedOperationException()
     /** Neue Seite mit diesem Inhalt (Konflikt-Kopie) -> ID */
     suspend fun createPageWith(title: String, body: String): Long
     suspend fun setPinned(id: Long, pinned: Boolean)
@@ -1064,6 +1067,50 @@ class PageEditor(
             load()
         }
         return true
+    }
+
+    /**
+     * 2.5 move1: Bloecke auf eine andere Seite verschieben. Vorher speichern; 409 (rev veraltet) -> neu laden und einmal
+     * erneut; danach diese Seite neu laden (die Zielseite laedt ihr Live-Ereignis bzw. das naechste Oeffnen).
+     * -> (Anfrage, Ergebnis) fuer Rueckgaengig; ApiException mit dem Fehler an den Aufrufer.
+     */
+    suspend fun moveBlocksTo(ids: List<String>, to: Long): Pair<MoveLogic.Request, MoveLogic.Result> {
+        saveAndWait()
+        val prev = MoveLogic.prevSibling(doc, ids)
+        var attempt = 0
+        while (true) {
+            val r = rev ?: throw IllegalStateException("rev")
+            val req = MoveLogic.Request(id, ids, to, r)
+            try {
+                val res = MoveLogic.parse(repo.withPageLock(id) { repo.moveBlocks(req) })
+                active = null
+                fetched = false
+                load()
+                lastMovePrev = prev
+                return req to res
+            } catch (e: ApiException) {
+                if (e.code == 409 && attempt++ == 0) {
+                    saveAndWait()
+                    if (!dirty) { fetched = false; load() }
+                    continue
+                }
+                throw e
+            }
+        }
+    }
+
+    /** Vorgaenger des zuletzt verschobenen Blocks (fuer Rueckgaengig) */
+    var lastMovePrev: String? = null
+        private set
+
+    /** Rueckgaengig: dieselben Bloecke zurueck an die alte Stelle (Gegenrichtung), dann neu laden */
+    suspend fun undoMove(req: MoveLogic.Request, res: MoveLogic.Result, prev: String?) {
+        saveAndWait()
+        val back = MoveLogic.undo(req, res, prev)
+        val r = repo.moveBlocks(back.copy(revA = res.revB ?: back.revA, revB = rev))
+        MoveLogic.parse(r)
+        fetched = false
+        load()
     }
 
     /** Konfliktblock "Uebernehmen": Original (of) loeschen, hkconflict entfernen, speichern */
