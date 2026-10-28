@@ -102,6 +102,9 @@ final class DBModel: ObservableObject {
         catch {}
         loaded = true
     }
+    #if DEBUG
+    func previewApply(_ d: Data) { apply(d); loaded = true }   // nur fuer Bilder (DB25Preview)
+    #endif
     private func apply(_ d: Data) {
         guard let q = DBQuery.parse(d) else { return }
         rows = q.rows; people = q.people

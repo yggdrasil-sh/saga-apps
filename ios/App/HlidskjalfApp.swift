@@ -53,6 +53,7 @@ struct HlidskjalfApp: App {
             else if GraphPreview.nodes != nil { GraphPreviewView() }                                   // 2.5: Graph mit Beispieldaten
             else if SharePreview.on { SharePreviewView() }                                             // Teilen-Blatt (ohne Server)
             else if SettingsPreview.mode != nil { SettingsPreviewView(store: store) }                  // 2.5: Einstellungen (ohne Server)
+            else if DB25Preview.mode != nil { DB25PreviewView(store: store) }                          // 2.5 E1: Datenbanken/Widgets (ohne Server)
             else { RootView(store: store).environment(\.calendar, SagaDate.calendar) }
             #else
             RootView(store: store).environment(\.calendar, SagaDate.calendar)     // Datumswahl gregorianisch

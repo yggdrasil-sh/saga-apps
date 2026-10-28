@@ -10,6 +10,10 @@ final class PageWidgetValues: ObservableObject {
     /// einmal je Oeffnen gewuerfelt (Zitat mit pick "open", lokaler Rueckfall)
     let seed = UInt64.random(in: 0...UInt64.max)
     private var busy = false
+    init() {}
+    #if DEBUG
+    init(preview: WidgetLogic.Load) { load = preview }      // nur fuer Bilder (DB25Preview)
+    #endif
 
     /// Laden, wenn die Seite Widgets mit Server-Wert hat; still (Fehler zeigt die Karte)
     func refresh(note: Int, blocks: NSArray, store: Store) async {
