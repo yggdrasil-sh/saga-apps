@@ -12,7 +12,7 @@ struct InlineFmt: Hashable {
     enum Link: Hashable {
         case href(String)                    // http(s)/mailto oder /notes#12 (wie gespeichert, ohne Entities)
         case masked(String)                  // Seite ohne Zugriff (ShareLogic.markMasked): /notes#<id>
-        case time(String, remind: Bool)      // @-Datum <time datetime="…" class="hk-date|hk-remind">
+        case time(String, cls: String)       // @-Datum <time datetime="…" class="hk-date|hk-remind"> (cls "" = ohne Klasse)
         case mention(String)                 // span.hk-mention data-u
     }
     var bold = false, italic = false, underline = false, strike = false
@@ -107,7 +107,8 @@ enum InlineRuns {
             case "time":
                 if closing { _ = links.popLast() } else {
                     let dt = attr(a, "datetime") ?? ""
-                    links.append(dt.isEmpty ? nil : .time(dt, remind: classes(a).contains("hk-remind")))
+                    let c = classes(a)
+                    links.append(dt.isEmpty ? nil : .time(dt, cls: c.contains("hk-remind") ? "hk-remind" : c.contains("hk-date") ? "hk-date" : ""))
                 }
             case "br": if !closing { emit("\n") }
             default: break
@@ -167,8 +168,8 @@ enum InlineRuns {
         case .href(let h)?, .masked(let h)?:
             let ext = h.hasPrefix("http://") || h.hasPrefix("https://") || h.hasPrefix("mailto:")
             t.append(("a:" + h, "<a href=\"\(escAttr(h))\"" + (ext ? " target=\"_blank\" rel=\"noopener noreferrer\"" : "") + ">", "</a>"))
-        case .time(let dt, let remind)?:
-            t.append(("t:" + dt + (remind ? "r" : ""), "<time datetime=\"\(escAttr(dt))\" class=\"\(remind ? "hk-remind" : "hk-date")\">", "</time>"))
+        case .time(let dt, let cls)?:
+            t.append(("t:" + dt + cls, "<time datetime=\"\(escAttr(dt))\"" + (cls.isEmpty ? "" : " class=\"\(cls)\"") + ">", "</time>"))
         case .mention(let ref)?:
             t.append(("m:" + ref, "<span class=\"hk-mention\" data-u=\"\(escAttr(ref))\">", "</span>"))
         case nil: break

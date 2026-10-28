@@ -45,7 +45,8 @@ func inlineTests() {
     let math = InlineRuns.parse(#"<code class="hk-math">a&lt;b</code>"#)
     check(math == [InlineRun(text: "a<b", fmt: InlineFmt(code: .math))], "Inline-Mathe (Entities)")
     let tm = InlineRuns.parse(#"<time datetime="2026-10-10T09:00" class="hk-remind">⏰ Sa.</time>"#)
-    check(tm.first?.fmt.link == .time("2026-10-10T09:00", remind: true), "Datum/Erinnerung")
+    check(tm.first?.fmt.link == .time("2026-10-10T09:00", cls: "hk-remind"), "Datum/Erinnerung")
+    check(rt(#"<time datetime="2026-10-10">x</time>"#) == #"<time datetime="2026-10-10">x</time>"#, "Datum ohne Klasse bleibt ohne Klasse")
 
     // MARK: Setzen / entfernen (Reihenfolge span aussen, mark innen)
     var runs = InlineRuns.parse("ein <b>fettes</b> Wort")

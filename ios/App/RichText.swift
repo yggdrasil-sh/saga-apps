@@ -97,7 +97,7 @@ func richText(_ stored: String, base: Font) -> AttributedString {
         case .masked(let h)?:
             s.link = URL(string: "hkna://" + (h.range(of: #"-?[0-9]+$"#, options: .regularExpression).map { String(h[$0]) } ?? ""))
             s.foregroundColor = .secondary
-        case .time(let dt, let remind)?: s.link = URL(string: "hkdate://d/\(dt)" + (remind ? "?r=1" : ""))
+        case .time(let dt, let cls)?: s.link = URL(string: "hkdate://d/\(dt)" + (cls == "hk-remind" ? "?r=1" : cls.isEmpty ? "?c=0" : ""))
         case .mention(let ref)?: s.link = InlineStyle.mentionURL(ref)
         case nil: break
         }
@@ -120,7 +120,7 @@ func richToHTML(_ a: AttributedString, ctx: Font.Context, baseBold: Bool) -> Str
         (f.mark, f.code) = InlineStyle.background(run.backgroundColor)
         if let u = run.link {
             switch u.scheme {
-            case "hkdate": f.link = .time(String(u.path.dropFirst()), remind: u.query == "r=1")
+            case "hkdate": f.link = .time(String(u.path.dropFirst()), cls: u.query == "r=1" ? "hk-remind" : u.query == "c=0" ? "" : "hk-date")
             case "hkna": f.link = .href("/notes#" + (u.host ?? "")); text = ShareLogic.unmasked(text)   // Schloss ist nur Darstellung
             case "hkpage": f.link = .href("/notes#" + (u.host ?? ""))
             case "hkmention": f.link = InlineStyle.mentionRef(u).map { .mention($0) }
