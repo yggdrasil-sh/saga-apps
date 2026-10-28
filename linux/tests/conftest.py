@@ -52,6 +52,7 @@ def srv():
     store._task_deletes = {}
     store.docs = weakref.WeakSet()
     store.server_version = None
+    store.merge_seen = False
     store.features = frozenset()                          # 2.5: Faehigkeiten des Servers je Test neu
     from hlidskjalf import pagewidgets as _pw
     _pw.FEATURES = None

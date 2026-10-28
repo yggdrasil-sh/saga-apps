@@ -759,6 +759,8 @@ class BlockKit:
 
     def _focused(self, rt):
         self.editor.focus = rt.hk_key
+        if hasattr(self.view, "block_focused"):
+            self.view.block_focused((rt.hk_block or {}).get("id"))
         if self.view.suggest.rt is not None and self.view.suggest.rt is not rt:
             self.view.suggest.hide()
         p = rt.get_parent()
@@ -769,6 +771,8 @@ class BlockKit:
     def _cell_focused(self, tv):
         """Tabellenzelle: Fokus merken - nach dem Neuaufbau (Zeile/Spalte dazu) geht es in derselben Zelle weiter"""
         self.editor.focus, self.editor.focus_where = tv.hk_key, "end"
+        if hasattr(self.view, "block_focused"):
+            self.view.block_focused(tv.hk_key.split("/")[0])
         if self.view.suggest.rt is not None:
             self.view.suggest.hide()
         p = tv.get_parent()

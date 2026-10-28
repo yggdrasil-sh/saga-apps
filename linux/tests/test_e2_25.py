@@ -100,6 +100,8 @@ THREE = [{"id": "p1", "type": "paragraph", "data": {"text": "Eins"}}, {"id": "p2
 
 def _three(srv, nid=3):
     import mockv25
+    from hlidskjalf.store import store
+    store.server_version = "2.5.0"                                    # Server ab 2.5: fuehrt zusammen
     srv.notes[nid]["body"] = json.dumps({"blocks": copy.deepcopy(THREE)})
     srv.notes[nid]["format"] = "blocks"
     mockv25.enable_merge(srv)
@@ -263,3 +265,59 @@ def test_offline_draft_with_rev_merges_after_reconnect(srv):
     idle()
     assert not seen and d.conflict is None
     assert _texts(_body(srv, 3))[:2] == ["offline getippt", "inzwischen fremd"]
+
+
+# --- 2. Anwesenheit je Block -----------------------------------------------------------------------------------------------
+def test_presence_block_throttle(srv):
+    """Blockwechsel melden: nur mit editing, hoechstens ~1x/s; schneller -> die letzte Meldung wird nachgeholt"""
+    from hlidskjalf.live import Presence
+    srv.live_api = True
+    p = Presence(3, lambda: True, lambda: True, lambda u: None, lambda r, b: None, lambda: 1)
+    p.focus_block("a")                                                # ohne Eingabe: kein editing -> nichts
+    idle()
+    assert not srv.presence_log
+    p.typed()                                                         # editing -> Meldung mit Block
+    assert pump(lambda: srv.presence_log, 3), (p.off, p.alive, p.editing)
+    assert srv.presence_log[-1] == {"note_id": 3, "editing": True, "block": "a"}
+    p.focus_block("b")
+    p.focus_block("c")                                                # innerhalb 1 s: gedrosselt
+    idle()
+    assert len(srv.presence_log) == 1
+    assert pump(lambda: len(srv.presence_log) == 2, 3)
+    assert srv.presence_log[-1]["block"] == "c"                       # nur der letzte Stand
+    pump(None, 1.2)
+    assert len(srv.presence_log) == 2
+    p.stop()
+    # foederiert ohne presence2: kein block
+    q = Presence(3, lambda: True, lambda: True, lambda u: None, lambda r, b: None, lambda: 1, blocks=False)
+    n0 = len(srv.presence_log)
+    q.typed()
+    q.focus_block("x")
+    assert pump(lambda: len(srv.presence_log) > n0, 3)
+    pump(None, 1.2)
+    assert all("block" not in x for x in srv.presence_log[n0:])
+    q.stop()
+
+
+def test_presence_marks_block_of_other_person(win, srv):
+    """Anzeige je Person aus presence.users[].block/color: farbiger Rand + "{name} bearbeitet" (nur Hinweis)"""
+    _three(srv)
+    srv.live_api = True
+    srv.presence_users = [{"username": "anna", "name": "Anna Berg", "editing": True, "block": "p2", "color": "green"},
+                          {"username": "bert", "name": "Bert", "editing": False, "block": None, "color": "red"}]
+    win.show_root(("page", 3))
+    v = win.current
+    assert pump(lambda: v.doc.fetched and any(r.bid == "p2" and r.has_css_class("hk-pres-green") for r in v.kit.rows()), 6)
+    rows = {r.bid: r for r in v.kit.rows()}
+    assert rows["p2"].presence_lb.get_label() == "Anna Berg is editing"
+    assert not rows["p1"].has_css_class("hk-pres")
+    assert v.kit.by_key["p2"].get_editable()                          # keine Sperre
+    v.live_presence([{"username": "anna", "name": "Anna Berg", "editing": True, "block": "p3", "color": "green"}])
+    rows = {r.bid: r for r in v.kit.rows()}
+    assert not rows["p2"].has_css_class("hk-pres") and rows["p2"].presence_lb is None
+    assert rows["p3"].has_css_class("hk-pres-green")
+    # Fokus in Block p1 + Eingabe -> Meldung mit block
+    v.kit.by_key["p1"].focus_at("end")
+    pump(None, 0.1)
+    v.on_typed()
+    assert pump(lambda: any(x.get("block") == "p1" for x in srv.presence_log), 4)

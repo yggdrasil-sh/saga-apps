@@ -226,8 +226,15 @@ class Presence:
     INTERVAL = 20
     EDIT_WINDOW = 30
 
-    def __init__(self, nid, can_edit, active, on_users, on_rev, rev):
+    BLOCK_GAP = 1.0                    # 2.5: Blockwechsel hoechstens etwa 1x/s melden (Drossel im Client)
+
+    def __init__(self, nid, can_edit, active, on_users, on_rev, rev, blocks=True):
         self.nid, self.can_edit, self.active, self.on_users, self.on_rev, self.rev = nid, can_edit, active, on_users, on_rev, rev
+        self.blocks = blocks           # 2.5: fokussierten Block melden (eigene Seiten; foederiert nur mit presence2)
+        self.block = None              # fokussierter Block (ID) bzw. None
+        self.sent_block = None         # zuletzt gemeldeter Block
+        self.last_beat = 0.0
+        self._block_src = 0
         self.last_input = 0.0
         self.src = 0
         self.alive = True
@@ -249,6 +256,26 @@ class Presence:
     @property
     def editing(self):
         return self.can_edit() and time.monotonic() - self.last_input < self.EDIT_WINDOW
+
+    def focus_block(self, bid):
+        """Fokus wechselt in einen anderen Block (bzw. None): bei Bearbeiten melden - hoechstens ~1x/s, die letzte
+        Meldung innerhalb der Frist wird nachgeholt"""
+        if not self.blocks or bid == self.block:
+            return
+        self.block = bid
+        if not self.editing or self._block_src:
+            return
+        wait = self.BLOCK_GAP - (time.monotonic() - self.last_beat)
+        if wait > 0:
+            self._block_src = GLib.timeout_add(int(wait * 1000) + 10, self._block_due)
+        else:
+            self.beat()
+
+    def _block_due(self):
+        self._block_src = 0
+        if self.alive and self.editing and self.block != self.sent_block:
+            self.beat()
+        return False
 
     def _tick(self):
         if not self.alive:
@@ -274,7 +301,12 @@ class Presence:
         def err(e):
             if isinstance(e, APIError) and e.code in (403, 404):
                 self.off = True
-        bg(client.json, "POST", "api/presence", {"note_id": nid, "editing": self.editing}, done=fin, error=err)
+        b = {"note_id": nid, "editing": self.editing}
+        if self.blocks and b["editing"]:
+            b["block"] = self.block
+            self.sent_block = self.block
+        self.last_beat = time.monotonic()
+        bg(client.json, "POST", "api/presence", b, done=fin, error=err)
 
     def stop(self):
         if not self.alive:
@@ -283,6 +315,9 @@ class Presence:
         if self.src:
             GLib.source_remove(self.src)
             self.src = 0
+        if self._block_src:
+            GLib.source_remove(self._block_src)
+            self._block_src = 0
         if not self.off and self.nid is not None and self.users:
             bg(client.json, "POST", "api/presence", {"note_id": self.nid, "leave": True}, error=lambda e: None)
 

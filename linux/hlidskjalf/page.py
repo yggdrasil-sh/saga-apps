@@ -542,6 +542,7 @@ class PageView(Gtk.Box):
         self.update_banners()
         self.update_bubbles()
         self._start_presence()
+        self.mark_presence()
         if not self._built_once and self.cpanel is not None and (doc.page.get("comments_open") or 0) > 0:
             self.cpanel.reload()                              # Zahlen und ungelesen-Punkte am Block
         if not self._built_once:
@@ -592,6 +593,7 @@ class PageView(Gtk.Box):
         self.blocks_box.append(lst)
         self.update_bubbles()
         self._update_toc()
+        self.mark_presence()
         GLib.idle_add(lambda: (self.scroll.get_vadjustment().set_value(vadj), False)[1])
         self._relayout_soon()
         self.apply_focus()
@@ -764,7 +766,9 @@ class PageView(Gtk.Box):
         from .sharing import can_edit
         self.presence = Presence(self.id, lambda: can_edit(self.doc.page) and not self.editor.locked,
                                  lambda: self.win.is_active() and self.win.current is self, self._presence_users,
-                                 lambda rev, by: self.live_changed({"id": self.id, "rev": rev, "by": by}), lambda: self.doc.rev)
+                                 lambda rev, by: self.live_changed({"id": self.id, "rev": rev, "by": by}), lambda: self.doc.rev,
+                                 blocks=self.rcan("presence2"))
+        self.presence.block = (self.editor.focus or "").split("/")[0] or None
         self.presence.start()
 
     def _stop_presence(self):
@@ -777,6 +781,24 @@ class PageView(Gtk.Box):
     def _presence_users(self, users):
         if self.win.current is self:
             self.win.set_presence(users)
+        self._pres_users = users
+        self.mark_presence()
+
+    def mark_presence(self):
+        """Anwesenheit je Block (2.5): andere Personen, die gerade einen Block bearbeiten - farbiger Rand + "{name} bearbeitet"
+        (nur Hinweis). Nach jedem Neuaufbau der Bloecke erneut."""
+        by = {}
+        for u in getattr(self, "_pres_users", None) or []:
+            if isinstance(u, dict) and not u.get("me") and u.get("editing") and isinstance(u.get("block"), str):
+                by.setdefault(u["block"], []).append(u)
+        for r in self.kit.rows():
+            us = by.get(r.bid) or []
+            if us or getattr(r, "presence_lb", None) is not None or r.has_css_class("hk-pres"):
+                r.set_presence(us)
+
+    def block_focused(self, bid):
+        if self.presence is not None:
+            self.presence.focus_block(bid)
 
     def on_typed(self):
         self._typed_at = GLib.get_monotonic_time()
@@ -868,7 +890,8 @@ class PageView(Gtk.Box):
         if doc.saving:                                       # eigenes Speichern laeuft: danach neu pruefen
             GLib.timeout_add(1500, lambda: (self.live_changed(d), False)[1])
             return
-        if doc.conflict is None and doc.can_merge():         # 2.5 (P3): blockweise uebernehmen, kein "Neu laden"-Hinweis
+        if doc.conflict is None and (doc.server_merges() if doc.dirty else doc.can_merge()):
+            # 2.5 (P3): blockweise uebernehmen (eigene Eingaben: mit merge: 1 speichern), kein "Neu laden"-Hinweis
             def pulled(ok):
                 if ok and name and not doc.dirty:
                     self.win.toast(_("Updated – changed by {name}").format(name=name))

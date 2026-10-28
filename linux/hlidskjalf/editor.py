@@ -183,6 +183,17 @@ class PageDoc:
         from .sharing import remote_can
         return remote_can(self.page, "merge1")
 
+    def server_merges(self):
+        """Fuehrt der Server sicher zusammen? (merge1 steht nicht in features: Server ab 2.5 bzw. schon eine merged-Antwort
+        gesehen; Seiten anderer Server: remote.caps merge1). Sonst bleibt bei eigenen Eingaben der bisherige Weg."""
+        if not self.can_merge():
+            return False
+        from .sharing import is_remote
+        if is_remote(self.page) or store.merge_seen:
+            return True
+        from . import version_tuple
+        return bool(store.server_version) and version_tuple(store.server_version) >= (2, 5, 0)
+
     # --- Server + Konto ----------------------------------------------------------------------
     def _acct(self):
         """Konto, zu dem diese Seite gehoert. Unbekannt: das jetzt angemeldete Konto (sobald bekannt) uebernehmen."""
@@ -281,7 +292,7 @@ class PageDoc:
                 return                                       # das laufende Speichern entscheidet (409 -> Konflikt)
             if (self.dirty or self.conflict is not None) and self.fetched:
                 known = self.conflict.get("rev") if self.conflict is not None else self.rev
-                if (p.get("rev") or 0) != known and self.conflict is None and self.can_merge():
+                if (p.get("rev") or 0) != known and self.conflict is None and self.server_merges():
                     self.save()                              # 2.5: eigene Eingaben mit merge: 1 senden - der Server fuehrt zusammen
                 elif (p.get("rev") or 0) != known:
                     self._conflict(p)                        # eigene Eingaben + inzwischen anderer Stand: sofort melden
@@ -527,6 +538,7 @@ class PageDoc:
             if isinstance(r, dict) and r.get("rev") is not None:
                 self.rev = r["rev"]
             if isinstance(r, dict) and isinstance(r.get("merged"), dict):
+                store.merge_seen = True
                 self._merged_reply(r, sent, sent_blocks, title)
             else:
                 self.base_sent = False
@@ -646,7 +658,7 @@ class PageDoc:
         Eigene ungespeicherte Eingaben: statt dessen sofort mit merge: 1 speichern (die Antwort bringt die fremden Bloecke).
         done(True|False) - False: nicht uebernommen (Rueckfall: normal neu laden)."""
         from . import rebase
-        if not self.can_merge():
+        if not self.can_merge() or (self.dirty and not self.server_merges()):
             return done and done(False)
         if self.dirty or self._saving:
             if not self._saving:

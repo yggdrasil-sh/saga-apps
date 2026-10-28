@@ -184,6 +184,7 @@ class Store(GObject.Object):
             config.settings.set(k, None)
         self.server_home, self.fresh = False, {}
         self.server_version = self.min_app = None
+        self.merge_seen = False
         self.features = frozenset()
         from . import pagewidgets
         pagewidgets.FEATURES = None
@@ -804,6 +805,7 @@ class Store(GObject.Object):
         return time.monotonic() - self._refreshed_at >= every - 30
 
     server_version = None
+    merge_seen = False          # 2.5 (P3): der Server hat schon einmal zusammengefuehrt (merged in einer PATCH-Antwort)
     min_app = None
     features = frozenset()              # 2.5: Faehigkeiten des Servers (/api/version "features"), aeltere Server: leer
     graph_api = None                    # 2.5: False = Server kennt api/graph nicht (404) -> Einstieg "Graph" ausblenden
