@@ -1290,6 +1290,8 @@ class SagaRepository(
                     // offline: Entwurf bleibt
                 }
             }
+            // 2.5 E2: offline abgehakte Aufgaben nachholen
+            flushTaskQueue()
             // 2.4: offline geaenderte Datenbank-Werte nachholen (wie Entwuerfe)
             try {
                 dbStore.flush()
@@ -1316,11 +1318,31 @@ class SagaRepository(
 
     // ---------------------------------------------------------------- Aufgaben
 
+    // ---- 2.5 E2: Aufgabenquellen (tasksrc1) - Liste aus Inbox und abonnierten Datenbank-Zeilen, fertig sortiert vom Server
+
+    /** Zusammengefuehrte Liste (null = Server ohne tasksrc1 oder noch nicht geladen) */
+    val taskList = MutableStateFlow<TasksWithSources?>(null)
+
+    /** Abhaken offline: Warteschlange je Server + Konto (APP-API "Offline-Warteschlange (Apps)") */
+    val taskQueue: TaskQueue by lazy {
+        TaskQueue({
+            val k = settings.server.value + "|" + treeAccount()
+            if (treeAccount().isEmpty()) null
+            else File(File(filesDir, "tasks"), java.security.MessageDigest.getInstance("SHA-256").digest(k.toByteArray()).joinToString("") { "%02x".format(it) }.take(24))
+        }, { m, p, b -> api.request(m, p, b) }, { today() })
+    }
+
+    val tasksSourcesOn: Boolean get() = "tasksrc1" in serverFeatures.value
+
+    private fun tz(): String = java.time.ZoneId.systemDefault().id
+
     suspend fun loadTasks() {
         try {
-            val t = decode<TasksResponse>(api.get("api/tasks"))
+            val text = api.get(if (tasksSourcesOn) "api/tasks?with_sources=1&today=${today()}&tz=${q(tz())}" else "api/tasks")
+            val t = decode<TasksResponse>(text)
             tasks.value = t.open
             doneTasks.value = t.done
+            taskList.value = if (tasksSourcesOn) withContext(Dispatchers.Default) { TaskSourcesLogic.parse(text) } else null
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -1388,6 +1410,105 @@ class SagaRepository(
         }
     }
 
+    /** Neue Aufgabe mit Ziel: src = Datenbank (Aufgabenquelle) oder null = Inbox */
+    suspend fun addTaskTo(text: String, due: String?, src: Long?) {
+        if (src == null) return addTask(text, due)
+        api.post("api/tasks", buildJsonObject {
+            put("text", text)
+            put("src", src)
+            if (due != null) put("due", due)
+        })
+        loadTasks()
+    }
+
+    /**
+     * Eintrag der zusammengefuehrten Liste abhaken/wieder oeffnen - ueber die Warteschlange (offline nachgeholt). Sofort
+     * aus der Liste nehmen, mit Rueckgaengig (bei Zeilen mit dem vorherigen Wert prev).
+     */
+    fun toggleEntry(e: TaskEntry, done: Boolean, undo: Boolean = true) {
+        if (!e.edit) return
+        if (done) taskList.value = taskList.value?.let { l -> l.copy(items = l.items.filter { it.key != e.key }) }
+        scope.launch {
+            try {
+                if (taskQueue.put(e.key, done)) {
+                    val r = taskQueue.flush()
+                    if (r.kept > 0 && r.sent == 0) notify(UiText.Res(R.string.e2_task_queued))
+                    if (r.reload || r.kept == 0) loadTasks()
+                } else {
+                    loadTasks()
+                }
+                if (done && undo) notify(UiText.Res(R.string.task_done_message), UiText.Res(R.string.action_undo)) { toggleEntry(e, false, undo = false) }
+            } catch (ex: CancellationException) {
+                throw ex
+            } catch (ex: Exception) {
+                notify(UiText.Res(R.string.task_not_saved, friendly(ex)))
+                loadTasks()
+            }
+        }
+    }
+
+    /**
+     * Widget "Heute" (2.5 E2): Aufgaben mit Quellen - mit App-Schluessel GET api/app/today?sources=1, sonst ueber die
+     * Sitzung; null = Server ohne tasksrc1
+     */
+    suspend fun widgetTasksWithSources(): TasksWithSources? {
+        if (!tasksSourcesOn) return null
+        val key = withContext(Dispatchers.IO) { secure.appKeyFor(settings.server.value) }
+        val text = if (key != null) api.request("GET", "api/app/today?sources=1", bearer = key)
+        else api.get("api/tasks?with_sources=1&today=${today()}&tz=${q(tz())}")
+        return withContext(Dispatchers.Default) { TaskSourcesLogic.parse(text) }
+    }
+
+    /** Widget: Zeile abhaken - POST api/app/tasks/src/{zeile}/done (App-Schluessel), sonst PATCH api/tasks/src/{zeile} */
+    suspend fun widgetRowDone(row: Long) {
+        val key = withContext(Dispatchers.IO) { secure.appKeyFor(settings.server.value) }
+        if (key != null) api.request("POST", "api/app/tasks/src/$row/done", buildJsonObject { put("done", true) }, bearer = key)
+        else api.patch("api/tasks/src/$row", buildJsonObject { put("done", true) })
+        loadTasks()
+    }
+
+    /** Warteschlange nachholen (App im Vordergrund, Netz wieder da) */
+    suspend fun flushTaskQueue() {
+        if (needsLogin.value || taskQueue.pending.value.isEmpty()) return
+        try {
+            if (taskQueue.flush().reload) loadTasks()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+        }
+    }
+
+    /** Quellen verwalten: Liste (auch ohne Zugriff/Zuordnung, zum Entfernen) */
+    suspend fun taskSources(): List<TaskSource> = withContext(Dispatchers.Default) { TaskSourcesLogic.parseSources(api.get("api/tasks/sources")) }
+
+    suspend fun setTaskSourceScope(db: Long, scope: String) {
+        api.put("api/notes/$db/tasksource", buildJsonObject { put("scope", scope) })
+        loadTasks()
+    }
+
+    suspend fun removeTaskSource(db: Long) {
+        api.delete("api/notes/$db/tasksource")
+        loadTasks()
+    }
+
+    /** DB-Ansicht "Als Aufgabenquelle verwenden": (Zuordnung gesetzt, schon abonniert) */
+    suspend fun taskSourceState(db: Long): Pair<Boolean, Boolean> = TaskSourcesLogic.sourceState(api.get("api/notes/$db/tasksource"))
+
+    suspend fun subscribeTaskSource(db: Long) {
+        api.put("api/notes/$db/tasksource", buildJsonObject { put("subscribe", true) })
+        loadTasks()
+    }
+
+    /** Taegliche Zusammenfassung (taskdue1) */
+    suspend fun taskDigest(): TaskSourcesLogic.Digest = TaskSourcesLogic.parseDigest(api.get("api/tasks/digest"))
+
+    suspend fun setTaskDigest(on: Boolean? = null, time: String? = null) {
+        api.put("api/tasks/digest", buildJsonObject {
+            if (on != null) put("on", on)
+            if (time != null) put("time", time)
+        })
+    }
+
     /** Im App-Scope ausfuehren (ueberlebt das Schliessen von Dialog/Zeile); Fehler als Snackbar */
     fun launchAction(onError: (Throwable) -> Unit = {}, onSuccess: () -> Unit = {}, block: suspend () -> Unit) {
         scope.launch {
@@ -1413,6 +1534,9 @@ class SagaRepository(
 
     /** Homescreen-Widget angetippt: Ziel ("today", "tasks", "events", "page:12", "new-task") - MainScreen navigiert */
     val openDestRequest = MutableStateFlow<String?>(null)
+
+    /** 2.5 E2: Ziel fuer "Neue Aufgabe" aus Kurzbefehl/Widget (Datenbank-ID der Aufgabenquelle), null = Inbox */
+    val newTaskTarget = MutableStateFlow<Long?>(null)
 
     /** "Neue Aufgabe" aus dem Widget: Eingabefeld in "Heute" fokussieren */
     val focusQuickAdd = MutableStateFlow(false)

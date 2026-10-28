@@ -184,7 +184,9 @@ fun MainScreen(repo: SagaRepository, appScope: CoroutineScope) {
     val openDest by repo.openDestRequest.collectAsState()
     LaunchedEffect(openDest) {
         openDest?.let { s ->
-            if (s == "new-task") {
+            if (s == "new-task" || s.startsWith("new-task:")) {
+                // 2.5 E2: optionales Ziel "new-task:<db>" (Aufgabenquelle), sonst Inbox
+                repo.newTaskTarget.value = io.github.yggdrasil_sh.saga.widget.WidgetLinks.newTaskTarget(s)
                 nav.top(Dest.Today)
                 repo.focusQuickAdd.value = true
             } else {

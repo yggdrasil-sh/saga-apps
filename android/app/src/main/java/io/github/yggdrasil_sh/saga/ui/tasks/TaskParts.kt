@@ -35,6 +35,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -115,6 +116,8 @@ fun QuickAddTask(
     /** Widget "Neue Aufgabe": Feld fokussieren und Tastatur zeigen */
     focus: Boolean = false,
     onFocused: () -> Unit = {},
+    /** 2.5 E2: Ziele (Aufgabenquellen); leer = nur Inbox */
+    targets: List<io.github.yggdrasil_sh.saga.data.TaskSource> = emptyList(),
 ) {
     val focusRequester = androidx.compose.runtime.remember { androidx.compose.ui.focus.FocusRequester() }
     val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
@@ -133,6 +136,17 @@ fun QuickAddTask(
     var due by remember { mutableStateOf(defaultDue) }
     var pick by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    // Ziel: Widget/Kurzbefehl kann eine Quelle vorgeben (repo.newTaskTarget), sonst Inbox
+    var target by remember { mutableStateOf<Long?>(null) }
+    val wanted by repo.newTaskTarget.collectAsState()
+    androidx.compose.runtime.LaunchedEffect(wanted, targets) {
+        val w = wanted ?: return@LaunchedEffect
+        if (targets.any { it.db == w }) {                  // erst, wenn die Quellen geladen sind
+            target = w
+            repo.newTaskTarget.value = null
+        }
+    }
+    val tgt = target?.takeIf { id -> targets.any { it.db == id } }
     fun add() {
         val t = text.trim()
         if (t.isEmpty() || busy) return
@@ -140,7 +154,7 @@ fun QuickAddTask(
         val d = due
         text = ""
         due = defaultDue
-        repo.launchAction(onError = { text = t; due = d; busy = false }, onSuccess = { busy = false }) { repo.addTask(t, d) }
+        repo.launchAction(onError = { text = t; due = d; busy = false }, onSuccess = { busy = false }) { repo.addTaskTo(t, d, tgt) }
     }
     Column(modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
         OutlinedTextField(
@@ -157,6 +171,7 @@ fun QuickAddTask(
                 leadingIcon = { Icon(Icons.Filled.DateRange, null) },
             )
             if (due != null) IconButton(onClick = { due = null }) { Icon(Icons.Filled.Clear, stringResource(R.string.task_due_remove)) }
+            TargetChip(targets, tgt) { target = it }
         }
     }
     if (pick) DueDatePicker(due, onDismiss = { pick = false }) { due = it; pick = false }

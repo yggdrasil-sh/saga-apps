@@ -185,6 +185,8 @@ fun PushScreen(repo: SagaRepository, nav: AppNavigator, chrome: Chrome) {
                     "chat" to R.string.push_cat_chat, "publish" to R.string.push_cat_publish,
                     // 2.3: nur Admin-Konten (fehlgeschlagene Server-Backups); der Server listet sie nur fuer Admins
                     "admin" to R.string.push_cat_admin,
+                    // 2.5 E2 (taskdue1): Aufgaben heute faellig/ueberfaellig - nur, wenn der Server die Kategorie nennt
+                    "tasks" to R.string.e2_push_cat_tasks,
                 )
                 items(cats.filter { (c, _) -> PushUi.showCategory(c, info?.categories) }, key = { it.first }) { (c, label) ->
                     val v = set.cats[c] ?: true
@@ -318,7 +320,7 @@ object PushUi {
 
     /** Kategorie zeigen: wie bisher alle, die der Server nennt; "admin" nur, wenn der Server sie ausdruecklich nennt */
     fun showCategory(c: String, serverCats: List<String>?): Boolean =
-        if (c == "admin") serverCats?.contains("admin") == true else serverCats?.let { c in it } ?: true
+        if (c == "admin" || c == "tasks") serverCats?.contains(c) == true else serverCats?.let { c in it } ?: true
 }
 
 /** Mitteilungs-Einstellungen dieser App im System (nach dauerhaft verweigerter/entzogener Berechtigung, BUG-109) */

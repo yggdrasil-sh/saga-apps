@@ -38,14 +38,19 @@ object WidgetSync {
     suspend fun refreshToday(repo: SagaRepository, store: WidgetStore) {
         val today = LocalDate.now()
         try {
-            val open = repo.json.decodeFromString(TasksResponse.serializer(), repo.api.get("api/tasks")).open
+            // 2.5 E2 (tasksrc1): Zeilen der Aufgabenquellen mit - ueber den App-Schluessel GET api/app/today?sources=1
+            // (ohne Schluessel ueber die Sitzung api/tasks?with_sources=1); Reihenfolge vom Server
+            val withSrc = repo.widgetTasksWithSources()
+            val tasks = withSrc?.let { TodayLogic.forSnapshot(it, today.plusDays(1)) }
+                ?: TodayLogic.forSnapshot(repo.json.decodeFromString(TasksResponse.serializer(), repo.api.get("api/tasks")).open, today.plusDays(1))
             val evs = repo.events(2)
             val old = store.today()
             store.setToday(
                 TodaySnapshot(
                     day = today.toString(),
                     fetchedAt = System.currentTimeMillis(),
-                    tasks = TodayLogic.forSnapshot(open, today.plusDays(1)),
+                    tasks = tasks,
+                    ordered = withSrc != null,
                     // Kalender nicht lesbar: bisherige Termine behalten (wenn vom selben Tag), Hinweis im Widget
                     events = evs?.map { WEvent(it.summary, it.start, it.end, it.allday, it.color, it.location) }
                         ?: old?.events?.takeIf { old.day == today.toString() }.orEmpty(),
@@ -208,7 +213,8 @@ class TaskDoneWorker(context: Context, params: WorkerParameters) : CoroutineWork
             return Result.failure()
         }
         return try {
-            repo.setTaskDone(TaskItem(id = id), true)         // aktualisiert auch die Aufgaben der App
+            if (id < 0) repo.widgetRowDone(-id.toLong())       // 2.5 E2: Zeile einer Aufgabenquelle
+            else repo.setTaskDone(TaskItem(id = id), true)    // aktualisiert auch die Aufgaben der App
             WidgetSync.refreshToday(repo, store)
             store.unhide(id)
             WidgetUpdates.redraw(ctx)

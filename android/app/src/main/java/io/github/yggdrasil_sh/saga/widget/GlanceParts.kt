@@ -80,6 +80,9 @@ object WidgetLinks {
     const val EVENTS = "events"
     const val NEW_TASK = "new-task"
     fun page(id: Long) = "page:$id"
+    /** 2.5 E2: "Neue Aufgabe" mit Ziel (Aufgabenquelle) */
+    fun newTask(target: Long?) = if (target == null) NEW_TASK else "$NEW_TASK:$target"
+    fun newTaskTarget(dest: String): Long? = dest.removePrefix("$NEW_TASK:").takeIf { it != dest }?.toLongOrNull()?.takeIf { it > 0 }
 
     fun intent(context: Context, dest: String): Intent =
         Intent(context, WidgetLinkActivity::class.java)

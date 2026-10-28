@@ -121,7 +121,7 @@ private fun TodayContent(store: WidgetStore, @Suppress("UNUSED_PARAMETER") versi
                     Hint(ctx.getString(R.string.widget_today_empty))
                 } else {
                     val evs = TodayLogic.events(s.events, today, zone)
-                    val tasks = TodayLogic.tasks(s.tasks, today, hidden)
+                    val tasks = TodayLogic.tasks(s.tasks, today, hidden, s.ordered)
                     val status = ui.staleSince != null || s.eventsFailed || store.doneFailed
                     val head = if (wide) 72f else 56f                     // Kopf mit 48-dp-Knopf "+"
                     val all = TodayLayout.rows(size.height.value, chromeDp = if (status) head + 16f else head)
@@ -203,7 +203,8 @@ private fun TaskRow(ctx: Context, t: TaskLine) {
         // Kreis = abhaken (Trefferflaeche groesser als das Symbol)
         Box(
             GlanceModifier.size(26.dp).cornerRadius(13.dp)
-                .clickable(actionRunCallback<ToggleTaskAction>(actionParametersOf(ToggleTaskAction.ID to t.task.id)))
+                .then(if (t.task.edit) GlanceModifier.clickable(actionRunCallback<ToggleTaskAction>(actionParametersOf(ToggleTaskAction.ID to t.task.hideKey)))
+                    else GlanceModifier)
                 .semantics { contentDescription = ctx.getString(R.string.widget_mark_done, t.task.text) },
             contentAlignment = Alignment.Center,
         ) {
@@ -217,12 +218,18 @@ private fun TaskRow(ctx: Context, t: TaskLine) {
             append(t.task.text)
             if (t.overdue) append(", ").append(ctx.getString(R.string.widget_overdue))
             if (t.task.prio == 1) append(", ").append(ctx.getString(R.string.widget_high_priority))
+            t.task.srcTitle?.let { append(", ").append(it) }
         }
         Row(
             GlanceModifier.defaultWeight().clickable(actionStartActivity(WidgetLinks.intent(ctx, WidgetLinks.TASKS))).semantics { contentDescription = desc },
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(t.task.text, style = WidgetLook.text(), maxLines = 1, modifier = GlanceModifier.defaultWeight())
+            // 2.5 E2: Quelle (Symbol) und Uhrzeit bei Zeilen aus Aufgabenquellen
+            if (t.task.row) {
+                val tag = listOfNotNull(t.task.time, t.task.srcIcon ?: "☑️").joinToString(" ")
+                Text(" $tag", style = WidgetLook.muted(), maxLines = 1)
+            }
             if (t.task.prio == 1) Text(" !", style = WidgetLook.text(bold = true, color = WidgetLook.gold), maxLines = 1)
         }
     }
