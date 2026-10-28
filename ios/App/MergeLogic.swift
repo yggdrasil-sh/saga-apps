@@ -9,7 +9,7 @@ enum SagaCaps {
     /// merge1: sendet merge: 1 und uebernimmt "merged"; sync1: schreibt Kopien synchronisierter Bloecke zurueck;
     /// inline2: erhaelt Inline-Formen (Farben, Erwaehnungen, Inline-Mathe, unbekannte Tags) beim Bearbeiten;
     /// cols6: bearbeitet bis 6 Spalten.
-    static let all = ["merge1"]
+    static let all = ["inline2", "cols6", "merge1", "sync1"]
     static var header: String { all.joined(separator: ",") }
     static var headers: [String: String] { ["X-Saga-Caps": header] }
 }
@@ -203,5 +203,100 @@ enum PresenceBlocks {
         var b: [String: Any] = ["note_id": note, "editing": editing]
         if sendBlock && editing { b["block"] = block ?? NSNull() }
         return b
+    }
+}
+
+// MARK: - Synchronisierte Bloecke (synced1 / sync1)
+
+enum SyncedLogic {
+    enum Kind: Equatable { case original(refs: Int), copy(editable: Bool), gone, noAccess, missing, unknown }
+    /// Art eines synced-Blocks aus data.src (setzt nur der Server beim Lesen)
+    static func kind(_ data: NSDictionary?) -> Kind {
+        guard let d = data else { return .unknown }
+        guard let src = d["src"] as? NSDictionary else { return d["blocks"] is NSArray ? .original(refs: 0) : .unknown }
+        if (src["original"] as? Bool) == true { return .original(refs: (src["refs"] as? Int) ?? 0) }
+        if (src["noaccess"] as? Bool) == true { return .noAccess }
+        if (src["missing"] as? Bool) == true { return .missing }
+        if (src["gone"] as? Bool) == true { return .gone }
+        let role = src["role"] as? String ?? ""
+        return .copy(editable: ["owner", "edit"].contains(role) && d["blocks"] is NSArray && src["rev"] != nil)
+    }
+    /// Inhalt bearbeitbar? Original (es lebt hier) bzw. Kopie mit Rolle edit/owner (nicht gone) - jeweils nur mit sync1
+    static func editable(_ data: NSDictionary?) -> Bool {
+        switch kind(data) {
+        case .original: return true
+        case .copy(let e): return e
+        default: return false
+        }
+    }
+    /// Antwort des PATCH: synced {sid: ok|merged|denied|locked|gone|stale}, synced_rev {sid: R}
+    enum Result: Equatable { case none, ok([String: Int]), reload(String) }
+    static func result(_ j: [String: Any]) -> Result {
+        guard let s = j["synced"] as? [String: Any], !s.isEmpty else { return .none }
+        let revs = (j["synced_rev"] as? [String: Any] ?? [:]).compactMapValues { ($0 as? Int) ?? ($0 as? NSNumber)?.intValue }
+        if let bad = s.values.compactMap({ $0 as? String }).first(where: { ["stale", "denied", "locked", "gone"].contains($0) }) { return .reload(bad) }
+        return .ok(revs)
+    }
+    /// Hinweis, wenn der Inhalt einer Kopie nicht uebernommen wurde (Seite wird neu geladen)
+    static func hint(_ why: String) -> String {
+        switch why {
+        case "denied": return String(localized: "Synchronisierter Block: keine Berechtigung für das Original – nicht übernommen.")
+        case "locked": return String(localized: "Synchronisierter Block: das Original ist gesperrt – nicht übernommen.")
+        case "gone": return String(localized: "Synchronisierter Block: das Original gibt es nicht mehr.")
+        default: return String(localized: "Synchronisierter Block: das Original wurde inzwischen geändert – neu geladen.")
+        }
+    }
+    /// synced_rev als src.rev in die Kopien uebernehmen (alle Ebenen); gibt die Zahl der aktualisierten Kopien zurueck
+    @discardableResult
+    static func adoptRevs(_ revs: [String: Int], in arr: NSArray) -> Int {
+        var n = 0
+        for case let b as NSMutableDictionary in arr {
+            let d = b["data"] as? NSMutableDictionary
+            if b["type"] as? String == "synced", let sid = d?["sid"] as? String, let r = revs[sid], let src = d?["src"] as? NSMutableDictionary, src["original"] == nil {
+                src["rev"] = r; n += 1
+            }
+            if let inner = d?["blocks"] as? NSArray { n += adoptRevs(revs, in: inner) }
+            if let cols = d?["cols"] as? NSArray { for c in cols { if let inner = (c as? NSDictionary)?["blocks"] as? NSArray { n += adoptRevs(revs, in: inner) } } }
+        }
+        return n
+    }
+}
+
+// MARK: - Bloecke auf eine andere Seite verschieben (move1)
+
+enum MoveLogic {
+    /// Ziel waehlbar? Nur Seiten dieses Servers (positive ID), keine Datenbank, nicht dieselbe Seite
+    static func allowed(target: Int, source: Int, isDatabase: Bool) -> Bool { target > 0 && target != source && !isDatabase }
+    /// Rumpf: ids in Reihenfolge der Seite, rev_a Pflicht, rev_b optional, after oder at
+    static func body(ids: [String], to: Int, revA: Int, revB: Int?, after: String? = nil, at: String = "end") -> [String: Any] {
+        var b: [String: Any] = ["ids": ids, "to": to, "rev_a": revA]
+        if let revB { b["rev_b"] = revB }
+        if let after { b["after"] = after } else { b["at"] = at }
+        return b
+    }
+    /// Rueckgaengig = Gegenrichtung: Bloecke (neue IDs aus der Antwort) zurueck hinter den alten Vorgaenger bzw. an den Anfang
+    static func undoBody(response: [String: Any], from: Int, prevBlock: String?) -> [String: Any]? {
+        guard let ids = response["ids"] as? [String], !ids.isEmpty, let revB = response["rev_b"] as? Int else { return nil }
+        return body(ids: ids, to: from, revA: revB, revB: response["rev_a"] as? Int, after: prevBlock, at: "start")
+    }
+    /// Vorgaenger des ersten verschobenen Blocks auf der obersten Ebene (fuer Rueckgaengig); nil = am Anfang
+    static func previous(of id: String, in root: NSArray) -> String? {
+        let ids = root.compactMap { ($0 as? NSDictionary)?["id"] as? String }
+        guard let i = ids.firstIndex(of: id), i > 0 else { return nil }
+        return ids[i - 1]
+    }
+    enum Outcome: Equatable { case ok, conflict, message(String) }
+    static func outcome(code: Int, json: [String: Any]?) -> Outcome {
+        switch code {
+        case 200..<300: return .ok
+        case 409: return .conflict
+        case 403: return .message(String(localized: "Verschieben nicht möglich: Du brauchst das Recht „Bearbeiten“ auf beiden Seiten."))
+        case 404: return .message(String(localized: "Verschieben nicht möglich: Seite oder Block nicht gefunden."))
+        case 423: return .message(String(localized: "Verschieben nicht möglich: eine der Seiten ist gesperrt."))
+        case 507: return .message(String(localized: "Verschieben nicht möglich: Der Speicher des Eigentümers der Zielseite ist voll."))
+        default:
+            let e = (json?["error"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+            return .message(e.map { String(localized: "Verschieben nicht möglich: \($0)") } ?? String(localized: "Verschieben nicht möglich (Fehler \(code))."))
+        }
     }
 }

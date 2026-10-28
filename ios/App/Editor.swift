@@ -132,6 +132,11 @@ final class PageEditor: ObservableObject {
             await self.doc.save(store)
         }
     }
+    /// 2.5 (P6-4): Block auf andere Seite verschieben (Auswahl) und letzte Verschiebung (Rueckgaengig)
+    @Published var moveRequest: BlockMoveRequest?
+    @Published var lastMove: BlockMoveDone?
+    /// 2.5 (P6-5): Personen fuer "@"
+    let mentionPeople = MentionPeople()
     /// 2.5 (P3): andere Personen je Block (presence.users[].block) - nur Hinweis
     @Published var presenceMarks: [String: [PresenceMark]] = [:]
     /// Konfliktblock: Uebernehmen (Original weg) bzw. Verwerfen, dann normal speichern
@@ -463,9 +468,19 @@ struct EditText: View {
         guard let m = hkTrigger(String(rich.characters), cursor: c), mClosed != mKey else { return nil }
         return m
     }
-    private var mentions: [MentionItem] { trigger.map { mentionItems($0.trigger, store: store, font: font) } ?? [] }
+    private var mentions: [MentionItem] {
+        _ = peopleTick
+        return trigger.map { t in
+            var ppl: [MentionPerson] = []
+            if case .at(let q) = t.trigger, InlineLogic.editable { ppl = ed.mentionPeople.people(note: ed.doc.id, q: q, store: store) }
+            return mentionItems(t.trigger, store: store, font: font, people: ppl)
+        } ?? []
+    }
+    @State private var shareAsk: MentionItem?
+    @State private var peopleTick = 0
     private func pickMention(_ it: MentionItem) {
         guard let m = trigger else { return }
+        if it.share != nil, shareAsk == nil { shareAsk = it; return }   // Person ohne Zugriff: erst fragen
         let c = replaceTrigger(&rich, m.trigger, at: m.start, with: it.insert, font: font); mSel = 0
         rsel = AttributedTextSelection(insertionPoint: rich.characters.index(rich.startIndex, offsetBy: min(c, rich.characters.count)))
     }
@@ -503,12 +518,12 @@ struct EditText: View {
         case .none:
             // nur Formatierung geaendert (gleiche Zeichen): trotzdem speichern
             let h = richToHTML(new, ctx: fctx, baseBold: boldBase)
-            if h != html && h != PageLinkTitles.apply(html) { setHTML(h) }
+            if !sameInline(h, html) && !sameInline(h, PageLinkTitles.apply(html)) { setHTML(h) }
         case .text:
             box.shadow = n
             let h = richToHTML(new, ctx: fctx, baseBold: boldBase)
             // nur echte Aenderungen speichern (aktualisierte Seitentitel in Verweisen allein sind keine)
-            if h != html && h != PageLinkTitles.apply(html) { setHTML(h) }
+            if !sameInline(h, html) && !sameInline(h, PageLinkTitles.apply(html)) { setHTML(h) }
         case .split(let at, let from, let rest):
             box.shadow = n
             box.handover = EditorFlow.Handover(base: n)                // weitere Tasten hier gehen ans neue Feld
@@ -557,7 +572,7 @@ struct EditText: View {
         } else {
             rsel = AttributedTextSelection(insertionPoint: end)
             let h = richToHTML(rich, ctx: fctx, baseBold: boldBase)
-            if h != html { setHTML(h) }
+            if !sameInline(h, html) { setHTML(h) }
         }
     }
 
@@ -582,7 +597,7 @@ struct EditText: View {
 
     /// 2.5 (P6-2): Absatz mit Inline-Formen, die der App-Editor noch nicht zeichengenau erhaelt (Farben, Erwaehnungen,
     /// Inline-Mathe, unbekannte Tags) - nicht bearbeiten, sonst ginge die Formatierung verloren; Hinweis "im Web bearbeiten"
-    private var protected: Bool { !raw && InlineLogic.hasProtectedForms(html) }
+    private var protected: Bool { !raw && !InlineLogic.editable && InlineLogic.hasProtectedForms(html) || !raw && InlineLogic.editable && !InlineRuns.editable(html) }
     @State private var webHint = false
     @EnvironmentObject private var nav: NavModel
 
@@ -663,6 +678,7 @@ struct EditText: View {
                 }
                 .onChange(of: rich) { _, new in handle(new) }
                 .onReceive(NotificationCenter.default.publisher(for: .hkCarry)) { n in if n.object as? String == key { takeCarry() } }
+                .onReceive(ed.mentionPeople.$results) { _ in if ed.focus == key && trigger != nil { peopleTick += 1 } }   // Personen angekommen
                 .onReceive(NotificationCenter.default.publisher(for: .hkFormat)) { n in   // Leiste: fett, kursiv, ...
                     guard ed.focus == key, let a = n.userInfo?["action"] as? String else { return }
                     rich.transformAttributes(in: &rsel) { c in
@@ -672,14 +688,40 @@ struct EditText: View {
                         case "italic": c.font = f.italic(!f.resolve(in: fctx).isItalic)
                         case "underline": c.underlineStyle = c.underlineStyle == nil ? .single : nil
                         case "strike": c.strikethroughStyle = c.strikethroughStyle == nil ? .single : nil
-                        case "mark": c.backgroundColor = c.backgroundColor == hkMarkColor ? nil : hkMarkColor
+                        case "mark": c.backgroundColor = InlineStyle.background(c.backgroundColor).0 != nil ? nil : hkMarkColor
                         case "code":
-                            if c.backgroundColor == hkCodeColor { c.backgroundColor = nil; c.font = font } else { c.backgroundColor = hkCodeColor; c.font = font.monospaced() }
+                            if InlineStyle.background(c.backgroundColor).1 != nil { c.backgroundColor = nil; c.font = font } else { c.backgroundColor = hkCodeColor; c.font = font.monospaced() }
+                        case "math":                                   // 2.5: Inline-Mathe (Quelltext bleibt bearbeitbar)
+                            if InlineStyle.background(c.backgroundColor).1 == .math { c.backgroundColor = nil; c.font = font }
+                            else { c.backgroundColor = InlineStyle.math; c.font = font.monospaced(); c.link = nil; c.foregroundColor = nil; c.underlineStyle = nil; c.strikethroughStyle = nil }
+                        case let x where x.hasPrefix("color:"):        // 2.5: Textfarbe aus der Palette (entfernen: color:)
+                            let n = String(x.dropFirst(6)); c.foregroundColor = n.isEmpty ? nil : HKPalette.textColor(n)
+                        case let x where x.hasPrefix("bg:"):           // 2.5: Hintergrund aus der Palette (Code bleibt Code)
+                            let n = String(x.dropFirst(3))
+                            if InlineStyle.background(c.backgroundColor).1 == nil { c.backgroundColor = n.isEmpty ? nil : HKPalette.bgColor(n) }
                         default: break
                         }
                     }
                     if a == "link" { linkText = ""; linkAsk = true }
+                    if a == "mention" {                              // "@" an der Schreibmarke: die Auswahl erscheint wie beim Tippen
+                        var at = AttributedString("@"); at.font = font
+                        let c = cursor ?? rich.characters.count
+                        let needsSpace = c > 0 && !(rich.characters[rich.characters.index(rich.startIndex, offsetBy: c - 1)].isWhitespace)
+                        if needsSpace { var sp = AttributedString(" "); sp.font = font; at = sp + at }
+                        let i = rich.characters.index(rich.startIndex, offsetBy: c)
+                        rich.insert(at, at: i)
+                        rsel = AttributedTextSelection(insertionPoint: rich.characters.index(rich.startIndex, offsetBy: c + at.characters.count))
+                    }
                 }
+                .alert(Text("Seite teilen und erwähnen?"), isPresented: Binding(get: { shareAsk != nil }, set: { if !$0 { shareAsk = nil } }), presenting: shareAsk) { it in
+                    Button("Teilen und erwähnen") {
+                        Task {
+                            if let p = it.share, let e = await ed.mentionPeople.share(note: ed.doc.id, ref: p.ref, store: store) { ed.doc.error = e; shareAsk = nil; return }
+                            pickMention(it); shareAsk = nil
+                        }
+                    }
+                    Button("Abbrechen", role: .cancel) { shareAsk = nil }
+                } message: { it in Text("\(it.title) hat noch keinen Zugriff auf diese Seite. Teilen (Kommentieren) und erwähnen?") }
                 .alert("Link", isPresented: $linkAsk) {
                     TextField("https://… oder /notes#12", text: $linkText)
                     Button("Setzen") {
@@ -718,7 +760,7 @@ struct EditText: View {
                 staticText
                 if webHint && !ed.locked {
                     HStack(spacing: 8) {
-                        Label("Farben/Erwähnungen – im Web bearbeiten", systemImage: "lock").font(.caption).foregroundStyle(.secondary)
+                        Label("Unbekannte Formatierung – im Web bearbeiten", systemImage: "lock").font(.caption).foregroundStyle(.secondary)
                         Button("Im Web öffnen") { nav.peek = nil; nav.push(PageRoute(id: ed.doc.id, web: true, block: blockOf(key))) }
                             .buttonStyle(.bordered).controlSize(.mini)
                     }
@@ -1018,6 +1060,8 @@ struct EditorKeyboardItems: View {
             Button { ed.format("underline") } label: { Label("Unterstrichen", systemImage: "underline") }
             Button { ed.format("strike") } label: { Label("Durchgestrichen", systemImage: "strikethrough") }
             Button { ed.format("mark") } label: { Label("Markieren", systemImage: "highlighter") }
+            Divider()
+            InlineFormatItems { ed.format($0) }
         } label: { Label("Format", systemImage: "bold.italic.underline") }
         Menu {
             Button { if let b = ed.focusedBlock { ed.move(b, by: -1) } } label: { Label("Block nach oben", systemImage: "arrow.up") }

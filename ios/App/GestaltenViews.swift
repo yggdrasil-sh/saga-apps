@@ -149,3 +149,26 @@ extension PageEditor {
         objectWillChange.send(); changed()
     }
 }
+
+/// 2.5 (P6-8): Text- und Hintergrundfarbe der Auswahl (Palette), Inline-Mathe, Person erwaehnen - Leiste/Menue Format
+struct InlineFormatItems: View {
+    let format: (String) -> Void
+    var body: some View {
+        Menu {
+            ForEach(InlineRuns.palette, id: \.self) { c in
+                Button { format("color:" + c) } label: { Label { Text(dbColorNames[c] ?? c) } icon: { Image(systemName: "circle.fill").foregroundStyle(HKPalette.textColor(c)) } }
+            }
+            Divider()
+            Button { format("color:") } label: { Label("Farbe entfernen", systemImage: "xmark") }
+        } label: { Label("Textfarbe", systemImage: "textformat") }
+        Menu {
+            ForEach(InlineRuns.palette, id: \.self) { c in
+                Button { format("bg:" + c) } label: { Label { Text(dbColorNames[c] ?? c) } icon: { Image(systemName: "square.fill").foregroundStyle(HKPalette.bgColor(c)) } }
+            }
+            Divider()
+            Button { format("bg:") } label: { Label("Hintergrund entfernen", systemImage: "xmark") }
+        } label: { Label("Hintergrund", systemImage: "paintbrush") }
+        Button { format("math") } label: { Label("Inline-Mathe", systemImage: "function") }
+        Button { format("mention") } label: { Label("Person erwähnen …", systemImage: "at") }
+    }
+}

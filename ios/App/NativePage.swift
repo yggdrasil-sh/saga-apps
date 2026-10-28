@@ -24,72 +24,45 @@ struct PageRoute: Hashable { let id: Int; var web = false; var block: String? = 
 /// Inline-Tags (einmal angelegt statt bei jedem Aufruf)
 let hkTagRegex = try! NSRegularExpression(pattern: "<(/?)([a-zA-Z]+)([^>]*)>")
 
-/// Wandelt das gespeicherte, bereinigte Inline-HTML (b/i/u/s/mark/code/a/br) in formatierten Text um.
+/// Wandelt das gespeicherte, bereinigte Inline-HTML in formatierten Text um (Anzeige, nicht bearbeiten).
 /// Verweise auf Seiten (/notes#123) werden zu hkpage://123 (oeffnet nativ), http(s) bleibt extern.
+/// 2.5 Inline-Vertrag: Text-/Hintergrundfarbe, Erwaehnung als Chip mit aktuellem Namen (people), Inline-Mathe als Code-Chip.
 func inlineText(_ raw: String) -> AttributedString {
     let html = ShareLogic.markMasked(PageLinkTitles.apply(raw))   // Seitenverweis: aktueller Titel; ohne Zugriff: 🔒 ohne Link (1.3)
     var out = AttributedString()
-    var bold = 0, italic = 0, under = 0, strike = 0, mark = 0, code = 0, na = 0
-    var links: [URL?] = []
-    // 2.5 Inline-Vertrag (P6-2): span.hk-c-* (Textfarbe), mark.hk-bg-* (Hintergrund), span.hk-mention (Chip), code.hk-math
-    var spans: [String] = []                 // je offenem span: "c:<farbe>" | "m" (Erwaehnung) | ""
-    var marks: [String?] = []                // je offenem mark: Farbe oder nil (Gelb)
-    var codes: [Bool] = []                   // je offenem code: Inline-Mathe?
-    let re = hkTagRegex
-    let ns = html as NSString
-    var pos = 0
-    func emit(_ raw: String) {
-        guard !raw.isEmpty else { return }
-        let mention = spans.contains("m")
-        var s = AttributedString(mention ? "@" + decodeEntities(raw) : decodeEntities(raw))
+    var lastMention: String?
+    for r in InlineRuns.parse(html) {
+        let f = r.fmt
+        var text = r.text
+        if case .mention(let ref)? = f.link {
+            if lastMention == ref { continue }                      // Chip nur einmal (Formatierung darin zaehlt nicht)
+            lastMention = ref
+            text = "@" + (MentionNames.name(ref) ?? r.text)         // aktueller Name; unbekannt: gespeicherter Text
+        } else { lastMention = nil }
+        var s = AttributedString(text)
         var intent: InlinePresentationIntent = []
-        if bold > 0 { intent.insert(.stronglyEmphasized) }
-        if italic > 0 { intent.insert(.emphasized) }
-        if strike > 0 { intent.insert(.strikethrough) }
-        if code > 0 { intent.insert(.code) }
+        if f.bold { intent.insert(.stronglyEmphasized) }
+        if f.italic { intent.insert(.emphasized) }
+        if f.strike { intent.insert(.strikethrough) }
+        if f.code != nil && f.code != .math { intent.insert(.code) }
         if !intent.isEmpty { s.inlinePresentationIntent = intent }
-        if under > 0 { s.underlineStyle = .single }
-        if mark > 0 { s.backgroundColor = marks.last.flatMap { $0 }.map(HKPalette.bgColor) ?? Color.yellow.opacity(0.35) }
-        if codes.last == true { s.backgroundColor = Color.purple.opacity(0.14) }                 // Inline-Mathe als Code-Chip
-        if let c = spans.last(where: { $0.hasPrefix("c:") }) { s.foregroundColor = HKPalette.textColor(String(c.dropFirst(2))) }
-        if mention { s.foregroundColor = .accentColor; s.backgroundColor = Color.accentColor.opacity(0.14); s.inlinePresentationIntent = (s.inlinePresentationIntent ?? []).union(.stronglyEmphasized) }
-        if let l = links.last, let u = l { s.link = u; s.foregroundColor = .accentColor }
-        if na > 0 { s.foregroundColor = .secondary }
+        if f.underline { s.underlineStyle = .single }
+        if let m = f.mark { if case .color(let c) = m { s.backgroundColor = HKPalette.bgColor(c) } else { s.backgroundColor = Color.yellow.opacity(0.35) } }
+        if f.code == .math { s.backgroundColor = InlineStyle.math; s.font = .body.monospaced() }       // Inline-Mathe als Code-Chip
+        if let c = f.color { s.foregroundColor = HKPalette.textColor(c) }
+        switch f.link {
+        case .mention(let ref)?:
+            s.foregroundColor = .accentColor; s.backgroundColor = Color.accentColor.opacity(MentionNames.me(ref) ? 0.26 : 0.14)
+            s.inlinePresentationIntent = (s.inlinePresentationIntent ?? []).union(.stronglyEmphasized)
+            if MentionNames.gone(ref) { s.strikethroughStyle = .single; s.foregroundColor = .secondary }
+        case .href(let h)?:
+            if let u = linkURL(h) { s.link = u; if f.color == nil { s.foregroundColor = .accentColor } }
+        case .masked?: s.foregroundColor = .secondary
+        case .time?: s.foregroundColor = .accentColor
+        case nil: break
+        }
         out += s
     }
-    for m in re.matches(in: html, range: NSRange(location: 0, length: ns.length)) {
-        emit(ns.substring(with: NSRange(location: pos, length: m.range.location - pos)))
-        pos = m.range.location + m.range.length
-        let closing = ns.substring(with: m.range(at: 1)) == "/", tag = ns.substring(with: m.range(at: 2)).lowercased()
-        let d = closing ? -1 : 1
-        switch tag {
-        case "b", "strong": bold += d
-        case "i", "em": italic += d
-        case "u": under += d
-        case "s", "strike", "del": strike += d
-        case "mark":
-            mark += d
-            if closing { _ = marks.popLast() } else { marks.append(InlineLogic.colorClass(ns.substring(with: m.range(at: 3)), prefix: "hk-bg-")) }
-        case "code":
-            code += d
-            if closing { _ = codes.popLast() } else { codes.append(ns.substring(with: m.range(at: 3)).contains("hk-math")) }
-        case "span":
-            if closing { _ = spans.popLast() } else {
-                let attrs = ns.substring(with: m.range(at: 3))
-                spans.append(InlineLogic.mentionRef(attrs) != nil ? "m" : InlineLogic.colorClass(attrs, prefix: "hk-c-").map { "c:" + $0 } ?? "")
-            }
-        case "na": na += d
-        case "br": if !closing { out += AttributedString("\n") }
-        case "a":
-            if closing { _ = links.popLast() } else {
-                let attrs = ns.substring(with: m.range(at: 3))
-                let href = attrs.range(of: #"href="([^"]*)""#, options: .regularExpression).map { String(attrs[$0].dropFirst(6).dropLast()) } ?? ""
-                links.append(linkURL(decodeEntities(href)))
-            }
-        default: break
-        }
-    }
-    emit(ns.substring(from: pos))
     return out
 }
 
@@ -313,6 +286,8 @@ final class PageDoc: ObservableObject {
     private var draftBase: Int?
     /// 2.5 (P3): dezenter Hinweis nach dem Zusammenfuehren (Bloecke blieben / andere Fassung in den Versionen)
     @Published var mergeHint: MergeHint?
+    /// 2.5 sync1: Inhalt einer synchronisierten Kopie nicht uebernommen (stale/denied/locked/gone) -> Hinweis
+    @Published var syncHint: String?
     /// Sitzung/Konto, mit dem die Seite geladen wurde: nach Abmelden/Kontowechsel nichts mehr senden (Pruefer 1.3)
     private var loadedGen = 0
     private var loadedOrigin: String?
@@ -428,6 +403,7 @@ final class PageDoc: ObservableObject {
     private func apply(_ d: Data, _ store: Store) async {
         guard let p = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return }
         page = p; rev = p["rev"] as? Int ?? 0
+        if let pp = p["people"] as? [String: Any] { MentionNames.merge(pp) }      // 2.5: Namen der Erwaehnungen
         let a = PageAccess(page: p, serverVersion: store.serverVersion); if a != access { access = a }
         noAccess = false; lostAccess = false
         loadedGen = store.sessionGen; loadedOrigin = AppConfig.serverOrigin
@@ -534,6 +510,15 @@ final class PageDoc: ObservableObject {
             }
             if let mi = MergeInfo(j["merged"]) { mergeHint = mi.hint ?? mergeHint }
             tracker.confirm(sent)
+            // 2.5 sync1: Kopien synchronisierter Bloecke - neuen Stand des Originals uebernehmen bzw. neu laden
+            switch SyncedLogic.result(j) {
+            case .none: break
+            case .ok(let revs):
+                if SyncedLogic.adoptRevs(revs, in: root) > 0 { savedState = serialized().map { SavedPageState(body: $0, title: title, rev: rev) } }
+            case .reload(let why):
+                syncHint = why
+                Task { await load(store, force: !dirty) }
+            }
             if let sentDoc = body.data(using: .utf8).flatMap({ try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }) {
                 ncSaved = CloudLogic.ncKeys(sentDoc["blocks"])                 // gesendeter Stand ist jetzt der gespeicherte
             }
@@ -554,7 +539,7 @@ final class PageDoc: ObservableObject {
         guard let body = j["body"] as? String, let nb = MergeLogic.blocks(ofBody: body) else { return }
         replaceBlocks(MergeLogic.adopt(local: root, server: nb))
         if let t = j["title"] as? String { page["title"] = t }
-        if let pp = j["people"] as? [String: Any] { page["people"] = (page["people"] as? [String: Any] ?? [:]).merging(pp) { _, b in b } }
+        if let pp = j["people"] as? [String: Any] { page["people"] = (page["people"] as? [String: Any] ?? [:]).merging(pp) { _, b in b }; MentionNames.merge(pp) }
         if let u = j["updated"] { page["updated"] = u }
         page["rev"] = rev
         savedState = serialized().map { SavedPageState(body: $0, title: titleRaw, rev: rev) }
@@ -1133,6 +1118,14 @@ struct NativePageScreen: View {
                     if !presence.isEmpty { PresenceBar(users: presence) }                                 // Live (1.4)
                     if let by = doc.changedBy { ChangedBanner(name: by) { doc.changedBy = nil; ed.focus = nil; Task { await doc.loadNewVersion(store) } } }
                     if let by = doc.updatedBy { Label("Aktualisiert – geändert von \(by)", systemImage: "arrow.triangle.2.circlepath").font(.caption).foregroundStyle(.secondary) }
+                    if let w = doc.syncHint {
+                        HStack(spacing: 8) {
+                            Label(SyncedLogic.hint(w), systemImage: "arrow.triangle.2.circlepath").font(.caption).foregroundStyle(.orange)
+                            Spacer(minLength: 0)
+                            Button { doc.syncHint = nil } label: { Image(systemName: "xmark").font(.caption2) }.buttonStyle(.plain).foregroundStyle(.tertiary).accessibilityLabel(Text("Schließen"))
+                        }
+                    }
+                    if let m = ed.lastMove { BlockMoveUndoBar(done: m, ed: ed) }               // 2.5 move1
                     if let h = doc.mergeHint {                                                             // 2.5 (P3): dezent
                         MergeHintRow(hint: h, versions: doc.access.allows(.versions) ? { Task { await ed.flush(); showVersions = true } } : nil) { doc.mergeHint = nil }
                     }
@@ -1270,6 +1263,7 @@ struct NativePageScreen: View {
                            subtitle: doc.noAccess ? "" : store.path(id).map(\.label).joined(separator: " / ")))
         #endif
         .sheet(isPresented: $moving) { MoveSheet(id: id) }
+        .sheet(item: $ed.moveRequest) { r in BlockMoveSheet(request: r, ed: ed).environmentObject(store) }
         .sheet(isPresented: $localGraph) { LocalGraphSheet(id: id) { nav.push(PageRoute(id: $0)) }.environmentObject(store) }
         .galleryPicker($gallery, store: store) { nav.push(PageRoute(id: $0)) }
         .sheet(isPresented: $publishing) {
@@ -1894,6 +1888,7 @@ struct BlockHandles: View {
 struct BlockMenuItems: View {
     let id: String
     @EnvironmentObject var ed: PageEditor
+    @EnvironmentObject private var store: Store
     @EnvironmentObject private var nav: NavModel
     private var isWidget: Bool {
         guard let (arr, i) = ed.locate(id), let b = arr[i] as? NSDictionary else { return false }
@@ -1960,6 +1955,10 @@ struct BlockMenuItems: View {
             Button { ed.mergeColumns(id) } label: { Label("Mit Spalten darunter zusammenführen", systemImage: "rectangle.compress.vertical") }
         }
         Button { ed.duplicate(id) } label: { Label("Duplizieren", systemImage: "plus.square.on.square") }
+        // 2.5 move1: nur Seiten dieses Servers (fremde: Menuepunkt aus)
+        if store.features.has("move1") && !FedLogic.isRemote(ed.doc.id) && ed.doc.fetched {
+            Button { ed.moveRequest = BlockMoveRequest(ids: [id]) } label: { Label("Auf andere Seite verschieben …", systemImage: "arrow.turn.up.right") }
+        }
         Button { ed.move(id, by: -1) } label: { Label("Nach oben", systemImage: "arrow.up") }
         Button { ed.move(id, by: 1) } label: { Label("Nach unten", systemImage: "arrow.down") }
         Divider()

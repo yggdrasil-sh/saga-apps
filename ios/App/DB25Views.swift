@@ -643,27 +643,45 @@ struct SyncedBlockView: View {
     let blockID: String
     @EnvironmentObject private var nav: NavModel
     @EnvironmentObject var store: Store
+    @EnvironmentObject var ed: PageEditor
     var body: some View {
         let src = data["src"] as? [String: Any]
-        let inner = (data["blocks"] as? [[String: Any]]) ?? []
+        let kind = SyncedLogic.kind(data)
+        let inner = data["blocks"] as? NSMutableArray
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
-                Image(systemName: "arrow.triangle.2.circlepath").foregroundStyle(.red.opacity(0.8))
-                Text(src == nil ? "Synchronisierter Block" : "Synchronisierte Kopie").font(.caption).foregroundStyle(.secondary)
+                Image(systemName: kind == .noAccess ? "lock" : "arrow.triangle.2.circlepath").foregroundStyle(.red.opacity(0.8))
+                Text(head(kind)).font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 if let note = (src?["note"] as? Int) ?? (src?["note"] as? NSNumber)?.intValue {
                     Button { nav.open(note, mode: "page") } label: { Label("Zum Original", systemImage: "arrow.up.right") }.font(.caption).buttonStyle(.plain).foregroundStyle(Color.accentColor)
                 }
             }
-            if inner.isEmpty { Text("Inhalt nur auf dem Original").font(.subheadline).foregroundStyle(.tertiary) }
-            ForEach(Array(inner.enumerated()), id: \.offset) { _, b in
-                let bd = b["data"] as? [String: Any] ?? [:]
-                let t = (bd["text"] as? String) ?? (bd["title"] as? String) ?? ""
-                if !t.isEmpty { Text(inlineText(t)).font(b["type"] as? String == "header" ? .headline : .body) }
-                else if let items = bd["items"] as? [Any] { ForEach(Array(items.enumerated()), id: \.offset) { Text(verbatim: "• " + plain(($0.element as? [String: Any])?["content"] as? String ?? ($0.element as? String) ?? "")) } }
+            if let inner, SyncedLogic.editable(data), !ed.locked {
+                // 2.5 sync1: Inhalt hier bearbeiten - Original direkt, Kopie schreibt der Server ins Original durch
+                BlocksView(arr: inner)
+            } else if let inner, inner.count > 0 {
+                ForEach(Array((inner as? [[String: Any]] ?? []).enumerated()), id: \.offset) { _, b in
+                    let bd = b["data"] as? [String: Any] ?? [:]
+                    let t = (bd["text"] as? String) ?? (bd["title"] as? String) ?? ""
+                    if !t.isEmpty { Text(inlineText(t)).font(b["type"] as? String == "header" ? .headline : .body) }
+                    else if let items = bd["items"] as? [Any] { ForEach(Array(items.enumerated()), id: \.offset) { Text(verbatim: "• " + plain(($0.element as? [String: Any])?["content"] as? String ?? ($0.element as? String) ?? "")) } }
+                }
+            } else if kind != .noAccess {
+                Text("Inhalt nur auf dem Original").font(.subheadline).foregroundStyle(.tertiary)
             }
         }
         .padding(10).frame(maxWidth: .infinity, alignment: .leading)
         .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.red.opacity(0.45), lineWidth: 1.5))
+    }
+    private func head(_ k: SyncedLogic.Kind) -> String {
+        switch k {
+        case .original(let n): return n > 0 ? String(localized: "Original · auf \(n) weiteren Seiten") : String(localized: "Synchronisierter Block")
+        case .copy(let e): return e ? String(localized: "Synchronisiert") : String(localized: "Synchronisiert · nur lesen")
+        case .gone: return String(localized: "Original gelöscht")
+        case .noAccess: return String(localized: "Synchronisierter Block – kein Zugriff")
+        case .missing: return String(localized: "Synchronisierter Block nicht gefunden")
+        case .unknown: return String(localized: "Synchronisierter Block")
+        }
     }
 }

@@ -93,10 +93,12 @@ struct MentionItem: Identifiable {
     let title: String
     let hint: String
     let insert: AttributedString
+    /// 2.5: Person ohne Zugriff -> erst "Seite teilen und erwaehnen?"
+    var share: MentionPerson? = nil
 }
 
 @MainActor
-func mentionItems(_ t: HKTrigger, store: Store, font: Font) -> [MentionItem] {
+func mentionItems(_ t: HKTrigger, store: Store, font: Font, people: [MentionPerson] = []) -> [MentionItem] {
     func run(_ text: String, _ link: URL?) -> AttributedString { var a = AttributedString(text); a.font = font; a.link = link; return a }
     switch t {
     case .emoji(let q0):
@@ -136,6 +138,10 @@ func mentionItems(_ t: HKTrigger, store: Store, font: Font) -> [MentionItem] {
                                        insert: run("⏰ " + hkDateText(d), URL(string: "hkdate://d/\(d.date)T09:00?r=1"))))
             }
         } else if let d = parseHKDate(q) { dateItems(d) }
+        out = people.prefix(5).map { p in                                 // 2.5: Personen zuerst (P6-5)
+            MentionItem(icon: p.share ? "👤＋" : "👤", title: p.name, hint: p.share ? String(localized: "teilen und erwähnen") : String(localized: "Person"),
+                        insert: mentionRun(p, font: font), share: p.share ? p : nil)
+        } + out
         let nq = hkNorm(q)
         let pages = store.pages.filter { nq.isEmpty || hkNorm($0.label).contains(nq) }.prefix(q.isEmpty ? 4 : 6)
         for p in pages {
@@ -377,6 +383,8 @@ struct HKEditorCommands: Commands {
             Button("Markieren") { ed?.format("mark") }.keyboardShortcut("h", modifiers: [.command, .shift])
             Button("Code") { ed?.format("code") }.keyboardShortcut("e", modifiers: [.command, .shift])   // ⌘E bleibt "Auswahl suchen" (System)
             Divider()
+            InlineFormatItems { ed?.format($0) }
+            Divider()
             Button("Link …") { ed?.format("link") }.keyboardShortcut("k", modifiers: [.command, .shift])
     }
     @ViewBuilder private var blockItems: some View {
@@ -449,4 +457,66 @@ struct PageEditorSheets: ViewModifier {
             .focusedSceneValue(\.pageEditor, ed)
             .focusedSceneValue(\.editorBlock, ed.locked ? nil : ed.focusedBlock)   // Menueleiste nur fuer den bearbeiteten Block
     }
+}
+
+// MARK: - 2.5 (P6-5): Personen erwaehnen (Auswahl GET /api/notes/{id}/people?q=, sonst "Seite teilen und erwaehnen?")
+
+struct MentionPerson: Identifiable, Equatable {
+    var ref: String
+    var name: String
+    var avatar: String?
+    var me = false
+    /// ohne Zugriff (aus der Teilen-Suche): erst teilen, dann erwaehnen
+    var share = false
+    var id: String { ref }
+}
+
+/// Personen fuer "@" (gedrosselt, je Seite und Suchtext gemerkt)
+@MainActor
+final class MentionPeople: ObservableObject {
+    @Published private(set) var results: [String: [MentionPerson]] = [:]
+    private var running: Set<String> = []
+    private var last = Date.distantPast
+    func people(note: Int, q: String, store: Store) -> [MentionPerson] {
+        let key = "\(note)|\(q.lowercased())"
+        if let r = results[key] { return r }
+        guard !running.contains(key), store.features.has("mention1") else { return [] }
+        running.insert(key)
+        Task {
+            let wait = max(0, 0.25 - Date().timeIntervalSince(last)); last = Date()
+            if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+            var out: [MentionPerson] = []
+            let enc = q.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+            if let d = try? await store.api("api/notes/\(note)/people?q=\(enc)"), let j = ShareJSON.obj(d) {
+                for p in j["people"] as? [[String: Any]] ?? [] {
+                    guard let ref = p["ref"] as? String, InlineRuns.validRef(ref) else { continue }
+                    out.append(MentionPerson(ref: ref, name: (p["name"] as? String).flatMap { $0.isEmpty ? nil : $0 } ?? String(localized: "Unbekannte Person"),
+                                             avatar: p["avatar"] as? String, me: ShareJSON.bool(p["me"])))
+                }
+            }
+            // Personen ohne Zugriff: Teilen-Suche (ab 3 Zeichen), nur eigene Seiten (Teilen darf nur der Eigentuemer)
+            if q.count >= 3, !FedLogic.isRemote(note), let d = try? await store.api("api/share/targets?q=\(enc)"), let j = ShareJSON.obj(d) {
+                for u in j["users"] as? [[String: Any]] ?? [] {
+                    guard let ref = u["username"] as? String, InlineRuns.validRef(ref), !out.contains(where: { $0.ref == ref }) else { continue }
+                    out.append(MentionPerson(ref: ref, name: (u["name"] as? String) ?? "", avatar: u["avatar"] as? String, share: true))
+                }
+            }
+            results[key] = out; running.remove(key)
+        }
+        return []
+    }
+    /// "Seite teilen und erwaehnen": PUT …/shares (Rolle Kommentieren), dann einfuegen
+    func share(note: Int, ref: String, store: Store) async -> String? {
+        guard let (d, code) = try? await store.apiResponse("api/notes/\(note)/shares", method: "PUT", body: ["type": "user", "target": ref, "role": "comment"]) else {
+            return String(localized: "Server nicht erreichbar")
+        }
+        results = [:]
+        return (200..<300).contains(code) ? nil : (ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? String(localized: "Server-Fehler \(code)"))
+    }
+}
+
+/// Erwaehnung als formatierter Text fuer den Editor (Link-Schema hkmention:, Text = Name)
+func mentionRun(_ p: MentionPerson, font: Font) -> AttributedString {
+    var a = AttributedString(p.name); a.font = font; a.link = InlineStyle.mentionURL(p.ref)
+    return a
 }

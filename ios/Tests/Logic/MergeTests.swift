@@ -109,3 +109,58 @@ func mergeTests() {
     check(m.keys.sorted() == ["a2"] && m["a2"] == [PresenceMark(name: "Anna", color: "pink"), PresenceMark(name: String(localized: "Jemand"), color: "green")],
           "Markierung je Block (nur bearbeitend, mit Block; ohne Name -> Jemand)")
 }
+
+// Synchronisierte Bloecke (sync1): Arten, Bearbeitbarkeit, Antwort synced/synced_rev, Rundreise (Original und Kopie
+// auf derselben Seite gehen nicht verloren). Fixtures: echte Antworten (Testserver).
+func syncedTests() {
+    func blocks(_ name: String) -> NSMutableArray { MergeLogic.blocks(ofBody: e2Fixture(name)["body"] as? String ?? "") ?? NSMutableArray() }
+    func synced(_ a: NSArray) -> [NSMutableDictionary] { a.compactMap { $0 as? NSMutableDictionary }.filter { $0["type"] as? String == "synced" } }
+    let copy = synced(blocks("synced_copy.json")).first
+    let cd = copy?["data"] as? NSDictionary
+    check(SyncedLogic.kind(cd) == .copy(editable: true) && SyncedLogic.editable(cd), "Kopie mit Rolle owner: bearbeitbar")
+    func src(_ s: [String: Any]) -> NSDictionary { NSDictionary(dictionary: ["sid": "abcdefghijklmnop", "blocks": [], "src": s]) }
+    check(SyncedLogic.kind(src(["note": 1, "role": "view", "rev": 2])) == .copy(editable: false), "Rolle view: nur lesen")
+    check(SyncedLogic.kind(src(["note": 1, "role": "comment", "rev": 2])) == .copy(editable: false), "Rolle comment: nur lesen")
+    check(SyncedLogic.kind(src(["note": 1, "role": "edit", "rev": 2, "gone": true])) == .gone && !SyncedLogic.editable(src(["gone": true, "role": "edit"])), "gone: nur lesen")
+    check(SyncedLogic.kind(NSDictionary(dictionary: ["sid": "x", "src": ["noaccess": true]])) == .noAccess, "kein Zugriff")
+    check(SyncedLogic.kind(NSDictionary(dictionary: ["sid": "x", "src": ["missing": true]])) == .missing, "unbekannte sid")
+    check(SyncedLogic.kind(src(["note": 1, "role": "edit"])) == .copy(editable: false), "ohne src.rev nicht durchschreiben")
+    let same = blocks("synced_same.json")
+    let orig = synced(same).first?["data"] as? NSDictionary
+    check(SyncedLogic.kind(orig) == .original(refs: 0) && SyncedLogic.editable(orig), "Original: bearbeitbar")
+    // Rundreise: was die App speichert, enthaelt Original (mit Inhalt) und data.src unveraendert
+    let doc = NSMutableDictionary(dictionary: ["blocks": same])
+    let out = GestaltenLogic.serialize(doc, blocks: same, timeMs: 1) ?? ""
+    let back = MergeLogic.blocks(ofBody: out) ?? NSMutableArray()
+    check((synced(back).first?["data"] as? NSDictionary)?.isEqual(to: orig as! [AnyHashable: Any]) == true, "Original samt Inhalt und src unveraendert zurueck")
+    // Antwort
+    let sv = e2Fixture("synced_save.json")
+    guard case .ok(let revs) = SyncedLogic.result(sv) else { check(false, "synced ok"); return }
+    check(revs.values.first == 2, "synced_rev gelesen")
+    let cb = blocks("synced_copy.json")
+    check(SyncedLogic.adoptRevs(revs, in: cb) == 1 && ((synced(cb).first?["data"] as? NSDictionary)?["src"] as? NSDictionary)?["rev"] as? Int == 2, "src.rev uebernommen")
+    check(SyncedLogic.adoptRevs(revs, in: same) == 0, "Original bekommt kein src.rev")
+    check(SyncedLogic.result(["synced": ["a": "stale"]]) == .reload("stale") && SyncedLogic.result(["synced": ["a": "ok", "b": "locked"]]) == .reload("locked"), "stale/locked -> neu laden")
+    check(SyncedLogic.result(["synced": ["a": "merged"], "synced_rev": ["a": 5]]) == .ok(["a": 5]) && SyncedLogic.result(["ok": true]) == .none, "merged wie ok; ohne synced nichts")
+    check(SagaCaps.all.contains("sync1"), "sync1 im Kopf")
+}
+
+// Bloecke verschieben (move1): Aufruf, Rueckgaengig (Gegenrichtung), Fehlercodes, Ziele
+func moveTests() {
+    let b = MoveLogic.body(ids: ["b1", "b7"], to: 456, revA: 12, revB: 30)
+    check(b["ids"] as? [String] == ["b1", "b7"] && b["to"] as? Int == 456 && b["rev_a"] as? Int == 12 && b["rev_b"] as? Int == 30 && b["at"] as? String == "end" && b["after"] == nil, "Move-Aufruf")
+    let b2 = MoveLogic.body(ids: ["x"], to: 5, revA: 1, revB: nil, after: "z1")
+    check(b2["after"] as? String == "z1" && b2["at"] == nil && b2["rev_b"] == nil, "after statt at, ohne rev_b")
+    let r = e2Fixture("move_resp.json")
+    let u = MoveLogic.undoBody(response: r, from: 77, prevBlock: "m1")
+    check(u?["to"] as? Int == 77 && u?["ids"] as? [String] == ["m2"] && u?["rev_a"] as? Int == 2 && u?["after"] as? String == "m1", "Rueckgaengig: Gegenrichtung hinter den alten Vorgaenger")
+    let u2 = MoveLogic.undoBody(response: r, from: 77, prevBlock: nil)
+    check(u2?["at"] as? String == "start", "Rueckgaengig: erster Block -> an den Anfang")
+    check(MoveLogic.undoBody(response: ["ok": true], from: 1, prevBlock: nil) == nil, "ohne ids kein Rueckgaengig")
+    let root: NSArray = [["id": "a"], ["id": "b"], ["id": "c"]]
+    check(MoveLogic.previous(of: "b", in: root) == "a" && MoveLogic.previous(of: "a", in: root) == nil, "Vorgaenger")
+    check(MoveLogic.outcome(code: 200, json: r) == .ok && MoveLogic.outcome(code: 409, json: ["error": "conflict"]) == .conflict, "200/409")
+    for c in [403, 404, 423, 507, 400] { if case .message(let m) = MoveLogic.outcome(code: c, json: nil) { check(!m.isEmpty, "Meldung \(c)") } else { check(false, "Meldung \(c)") } }
+    check(MoveLogic.allowed(target: 5, source: 4, isDatabase: false) && !MoveLogic.allowed(target: -5, source: 4, isDatabase: false)
+          && !MoveLogic.allowed(target: 4, source: 4, isDatabase: false) && !MoveLogic.allowed(target: 6, source: 4, isDatabase: true), "Ziele: keine fremden Server, keine DB, nicht dieselbe Seite")
+}

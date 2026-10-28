@@ -334,7 +334,7 @@ enum InlineLogic {
         return String(attrs[r].dropFirst(8).dropLast())
     }
     /// Bearbeitet der App-Editor die Inline-Formen zeichengenau? (Etappe 2, P6-8: dann inline2 in SagaCaps)
-    static let editable = false
+    static let editable = true
 }
 
 enum ColumnsLogic {

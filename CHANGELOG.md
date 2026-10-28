@@ -26,6 +26,20 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
   **Offline-Warteschlange** je Eintrag (letzte Aktion gewinnt, 403/404/400 verwerfen, danach neu laden).
   Widgets „Heute“ und Sperrbildschirm lesen `/api/app/today?sources=1` und haken Zeilen direkt im Widget ab.
   Einstellungen: **Tägliche Zusammenfassung** (`taskdue1`) mit Uhrzeit; Mitteilungs-Kategorie „Aufgaben“.
+- **Inline-Formen bearbeiten** (`inline2`): Text- und Hintergrundfarbe der Auswahl aus der Palette setzen/entfernen
+  (Leiste bzw. Menü „Format“), Inline-Mathe (Quelltext bleibt bearbeitbar), alle Formen des Inline-Vertrags bleiben
+  zeichengenau erhalten (geprüft gegen `editor_inline.json` und die Texte aus `merge.json`). Absätze mit Farben,
+  Erwähnungen oder Mathe sind nicht mehr gesperrt; nur noch unbekannte Formen → „im Web bearbeiten“.
+  Kopf `X-Saga-Caps: inline2,cols6,merge1,sync1` (5–6 Spalten waren schon bearbeitbar).
+- **Erwähnungen** (`mention1`): „@“ bzw. „Format → Person erwähnen …“ schlägt Personen mit Zugriff vor; Personen
+  ohne Zugriff (Teilen-Suche) nach „Seite teilen und erwähnen?“. Anzeige mit aktuellem Namen aus `people`
+  (eigenes Konto hervorgehoben, Gelöschte durchgestrichen). Kommentare zeigen `<@…>` als Chip, „@“-Knopf fügt ein.
+- **Synchronisierte Blöcke bearbeiten** (`sync1`): Original und Kopien mit Rolle Bearbeiten/Eigentümer direkt in der
+  Seite bearbeitbar; `synced_rev` wird übernommen, bei `stale`/`denied`/`locked` Hinweis und Neuladen. Original und
+  Kopie auf derselben Seite bleiben erhalten (Server-Test, Rundreise im Logik-Test).
+- **Block auf andere Seite verschieben** (`move1`): Block-Menü „Auf andere Seite verschieben …“ mit Seitensuche,
+  vorher speichern, bei veralteter Revision einmal neu versuchen, 403/404/423/507 verständlich; „Rückgängig“
+  schiebt zurück. Seiten anderer Server: Menüpunkt aus.
 
 ### Neu – iOS/Mac: Datenbanken, Diagramme, Widgets und Inline-Formen (Saga-Server 2.5, App-Runde Etappe 1)
 Alles nur, wenn der Server die jeweilige Fähigkeit meldet (`/api/version` → `features`); ältere Server: wie bisher.
