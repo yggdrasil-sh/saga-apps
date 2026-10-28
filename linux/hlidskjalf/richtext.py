@@ -9,6 +9,96 @@ from .util import NA_TEXTS, TAG_RE, decode_entities, esc, link_target, norm, tim
 
 FORMAT_TAGS = ("b", "i", "u", "s", "mark", "code")
 
+# 2.5 Inline-Vertrag (P6-0): span.hk-c-*, mark.hk-bg-*, span.hk-mention[data-u], code.hk-math und jede andere Klasse an
+# span/mark/code bleiben als eigenes Tag "x:<Original-Start-Tag>" erhalten und werden beim Speichern unveraendert
+# geschrieben (X-Saga-Caps inline2). Darstellung: Farben wie das Web (--tc-*/--bc-*), Erwaehnung als Chip, Mathe als Code.
+X_PREFIX = "x:"
+KEEP_TAGS = ("span", "mark", "code")
+INLINE_OK = frozenset(("b", "strong", "i", "em", "u", "s", "strike", "del", "mark", "code", "a", "br", "time", "span"))
+TC = {"gray": ("#686763", "#b0afab"), "brown": ("#8a5a44", "#c9a08b"), "orange": ("#a65300", "#f0a35e"),
+      "yellow": ("#7f6200", "#e6c54f"), "green": ("#0b6e60", "#4fc4a9"), "blue": ("#0b6893", "#62b4e2"),
+      "purple": ("#6940a5", "#b893e6"), "pink": ("#a8186e", "#e682bb"), "red": ("#c22a2a", "#f28585")}
+BC = {"gray": "#9b9a97", "brown": "#9f6b53", "orange": "#d9730d", "yellow": "#dfab01", "green": "#0f7b6c",
+      "blue": "#0b6e99", "purple": "#6940a5", "pink": "#ad1a72", "red": "#e03e3e"}
+MENTION_NAMES = {}          # Kennung -> Anzeigename (Seiten-/Datenbank-Antworten "people"), nie der Anmeldename
+_CLASS_RE = re.compile(r'class="([^"]*)"')
+_DATA_U_RE = re.compile(r'data-u="([^"]*)"')
+
+
+def is_dark():
+    try:
+        from gi.repository import Adw
+        return Adw.StyleManager.get_default().get_dark()
+    except Exception:  # noqa: BLE001 - ohne Display (Tests)
+        return False
+
+
+def x_kind(open_tag):
+    """("color", farbe) | ("bg", farbe) | ("mention", kennung) | ("math", None) | ("other", None)"""
+    m = _CLASS_RE.search(open_tag)
+    cls = (m.group(1) if m else "").split()
+    tag = open_tag[1:].split(None, 1)[0].rstrip(">").lower()
+    if tag == "span" and "hk-mention" in cls:
+        u = _DATA_U_RE.search(open_tag)
+        return "mention", decode_entities(u.group(1)) if u else ""
+    if tag == "code" and "hk-math" in cls:
+        return "math", None
+    if tag == "code":
+        return "code", None
+    if tag == "mark" and "cdx-marker" in cls and not any(c.startswith("hk-bg-") for c in cls):
+        return "marker", None
+    for c in cls:
+        if tag == "span" and c.startswith("hk-c-") and c[5:] in TC:
+            return "color", c[5:]
+        if tag == "mark" and c.startswith("hk-bg-") and c[6:] in BC:
+            return "bg", c[6:]
+    return "other", None
+
+
+def keep_raw(tag, attrs):
+    """span/mark/code mit Klasse bleiben als Original-Tag erhalten (Tags samt Klasse, auch unverstandene - inline2)"""
+    m = _CLASS_RE.search(attrs or "")
+    return tag in KEEP_TAGS and bool((m.group(1) if m else "").split())
+
+
+def inline_safe(html):
+    """Kann die App diesen Text ohne Verlust bearbeiten? (nur bekannte Inline-Tags)"""
+    return all(m.group(2).lower() in INLINE_OK for m in TAG_RE.finditer(html or ""))
+
+
+def _x_tag(buf, open_tag):
+    name = X_PREFIX + open_tag
+    tag = buf.get_tag_table().lookup(name)
+    if tag:
+        return tag
+    kind, val = x_kind(open_tag)
+    dark = is_dark()
+    if kind == "color":
+        tag = buf.create_tag(name, foreground_rgba=_rgba(TC[val][1 if dark else 0]))
+    elif kind == "bg":
+        c = _rgba(BC[val])
+        c.alpha = 0.30 if dark else 0.20
+        tag = buf.create_tag(name, background_rgba=c)
+    elif kind == "mention":
+        tag = buf.create_tag(name, foreground_rgba=_rgba("#62b4e2" if dark else "#0b6893"),
+                             background_rgba=_rgba("rgba(11,110,153,0.14)"), weight=Pango.Weight.MEDIUM, editable=False)
+    elif kind == "math":
+        tag = buf.create_tag(name, family="monospace", background_rgba=_rgba("rgba(105,64,165,0.16)"))
+    elif kind == "code":
+        tag = buf.create_tag(name, family="monospace", background_rgba=_rgba("rgba(127,127,127,0.22)"))
+    elif kind == "marker":
+        tag = buf.create_tag(name, background_rgba=_rgba("rgba(255,204,0,0.35)"))
+    else:
+        tag = buf.create_tag(name)
+    return tag
+
+
+def _x_order(name):
+    """Reihenfolge beim Schreiben: span aussen (Farbe zuerst), dann mark, dann code (wie der Vertrag)"""
+    t = name[len(X_PREFIX) + 1:].split(None, 1)[0].rstrip(">").lower()
+    kind = x_kind(name[len(X_PREFIX):])[0]
+    return ({"span": 0, "mark": 2, "code": 3}.get(t, 1), 0 if kind == "color" else 1, name)
+
 
 def _setup_tags(buf):
     t = buf.get_tag_table()
@@ -58,11 +148,14 @@ def _link_tag(buf, kind, value):
     return buf.create_tag(name, foreground_rgba=_rgba("#3584e4"))
 
 
-def html_to_buffer(buf, html, base_bold=False, start=None):
-    """Inline-HTML an Position start (Standard: Ende) einfuegen"""
+def html_to_buffer(buf, html, base_bold=False, start=None, names=None):
+    """Inline-HTML an Position start (Standard: Ende) einfuegen. names: Kennung -> Anzeigename fuer Erwaehnungen (nur in
+    nicht bearbeitbarer Anzeige - beim Bearbeiten bleibt der gespeicherte Rueckfall-Text, damit sich nichts aendert)"""
     _setup_tags(buf)
     counts = {k: 0 for k in FORMAT_TAGS}
     links = []
+    xs = []                                            # offene Original-Tags (span/mark/code mit Klasse)
+    open_by = {"span": [], "mark": [], "code": []}     # je Name: Stapel aus "fmt" (b/mark/code) bzw. x-Tag
     pos = 0
     it = start.copy() if start else buf.get_end_iter()
     mark = buf.create_mark(None, it, False)
@@ -70,8 +163,13 @@ def html_to_buffer(buf, html, base_bold=False, start=None):
     def emit(raw):
         if not raw:
             return
-        tags = [buf.get_tag_table().lookup(k) for k, n in counts.items() if n > 0]
+        tags = [buf.get_tag_table().lookup(k) for k, n in counts.items() if n > 0] + list(xs)
         text = decode_entities(raw)
+        mention = next((t for t in xs if x_kind(t.props.name[len(X_PREFIX):])[0] == "mention"), None)
+        if mention is not None:
+            u = x_kind(mention.props.name[len(X_PREFIX):])[1]
+            if names and names.get(u):
+                text = names[u]                        # aktueller Name statt Rueckfall-Text (P6-2)
         if links and links[-1] is not None:
             tags.append(links[-1])
             if (links[-1].props.name or "").startswith("a:/notes#") and text.strip() in NA_TEXTS:
@@ -86,6 +184,25 @@ def html_to_buffer(buf, html, base_bold=False, start=None):
         pos = m.end()
         closing, tag, attrs = m.group(1) == "/", m.group(2).lower(), m.group(3)
         d = -1 if closing else 1
+        if tag in KEEP_TAGS:
+            st = open_by[tag]
+            if closing:
+                if st:
+                    top = st.pop()
+                    if top == "fmt":
+                        counts[tag] = max(0, counts[tag] - 1)
+                    elif top in xs:
+                        xs.remove(top)
+            elif keep_raw(tag, attrs):
+                xt = _x_tag(buf, m.group(0))
+                xs.append(xt)
+                st.append(xt)
+            elif tag in counts:
+                counts[tag] += 1
+                st.append("fmt")
+            else:
+                st.append(None)                        # span ohne Klasse: faellt weg (wie der Server), Text bleibt
+            continue
         if tag in ("b", "strong"):
             counts["b"] += d
         elif tag in ("i", "em"):
@@ -94,8 +211,6 @@ def html_to_buffer(buf, html, base_bold=False, start=None):
             counts["u"] += d
         elif tag in ("s", "strike", "del"):
             counts["s"] += d
-        elif tag in ("mark", "code"):
-            counts[tag] += d
         elif tag == "br" and not closing:
             buf.insert(buf.get_iter_at_mark(mark), "\n")
         elif tag == "time":
@@ -134,6 +249,12 @@ def buffer_to_html(buf, start=None, end=None, base_bold=False):
             text = ""
         if text:
             o, c = "", ""
+            xn = sorted((n for n in names if n.startswith(X_PREFIX)), key=_x_order)
+            spans = [n for n in xn if _x_order(n)[0] < 2]
+            inner = [n for n in xn if _x_order(n)[0] >= 2]
+            for n in spans:                            # span aussen (auch um Verweise), wie der Vertrag
+                o += n[len(X_PREFIX):]
+                c = "</span>" + c
             link = next((n for n in names if n.startswith(("a:", "t:"))), None)
             if link and link.startswith("t:"):
                 v = link[2:]
@@ -148,12 +269,27 @@ def buffer_to_html(buf, start=None, end=None, base_bold=False):
                 if k in names and not (k == "b" and base_bold) and not (k == "u" and link):
                     o += f"<{k}>"
                     c = f"</{k}>" + c
+            for n in inner:
+                o += n[len(X_PREFIX):]
+                c = "</" + n[len(X_PREFIX) + 1:].split(None, 1)[0].rstrip(">").lower() + "\x00>" + c
             out.append(o + esc(text).replace("\n", "<br>") + c)
         it = nxt
     html = "".join(out)
+    # gleiche Original-Tags in Folge zusammenfassen (Farbe ueber Fett -> ein span), Erwaehnungen bleiben einzeln
+    for t in {n for n in _x_names(buf) if x_kind(n[len(X_PREFIX):])[0] != "mention"}:
+        op = t[len(X_PREFIX):]
+        tag = op[1:].split(None, 1)[0].rstrip(">").lower()
+        html = html.replace(("</span>" if tag == "span" else f"</{tag}\x00>") + op, "")
+    html = html.replace("\x00", "")
     for t in FORMAT_TAGS:
         html = html.replace(f"</{t}><{t}>", "")
     return html
+
+
+def _x_names(buf):
+    names = []
+    buf.get_tag_table().foreach(lambda t: names.append(t.props.name) if (t.props.name or "").startswith(X_PREFIX) else None)
+    return names
 
 
 def html_to_markup(html):
@@ -164,6 +300,23 @@ def html_to_markup(html):
         pos = m.end()
         closing, tag, attrs = m.group(1) == "/", m.group(2).lower(), m.group(3)
         simple = {"b": "b", "strong": "b", "i": "i", "em": "i", "u": "u", "s": "s", "strike": "s", "del": "s", "code": "tt"}
+        if tag in KEEP_TAGS and (closing or keep_raw(tag, attrs) or tag == "span"):
+            if closing:
+                out.append("</span>" if tag == "span" else ("</span>" if tag == "mark" else "</tt>"))
+                continue
+            kind, val = x_kind(m.group(0)) if keep_raw(tag, attrs) else ("other", None)
+            dark = is_dark()
+            if kind == "color":
+                out.append(f'<span foreground="{TC[val][1 if dark else 0]}">')
+            elif kind == "bg":
+                out.append(f'<span background="{BC[val]}{"4d" if dark else "33"}">')
+            elif kind == "mention":
+                out.append('<span weight="medium" foreground="%s">' % ("#62b4e2" if dark else "#0b6893"))
+            elif tag == "code":
+                out.append("<tt>")
+            else:
+                out.append("<span>")
+            continue
         if tag in simple:
             out.append(f"</{simple[tag]}>" if closing else f"<{simple[tag]}>")
         elif tag == "mark":
@@ -378,7 +531,7 @@ class RichText(Gtk.TextView):
         if raw:
             buf.set_text(html or "")
         else:
-            html_to_buffer(buf, html, base_bold)
+            html_to_buffer(buf, html, base_bold, names=None if editable else MENTION_NAMES)
         buf.set_enable_undo(False)
         buf.set_enable_undo(True)
         self._ph = Gtk.Label(label=placeholder, xalign=0)
@@ -422,7 +575,7 @@ class RichText(Gtk.TextView):
         if self.raw:
             buf.set_text(html or "")
         else:
-            html_to_buffer(buf, html, self.base_bold)
+            html_to_buffer(buf, html, self.base_bold, names=None if self.get_editable() else MENTION_NAMES)
         self.loading = False
         self._update_ph()
 

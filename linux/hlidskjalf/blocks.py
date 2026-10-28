@@ -10,7 +10,7 @@ from .editor import CONVERTIBLE, SLASH_ITEMS, cell_key, make
 from .emoji import EMOJI
 from .entries import blocked_button_hint
 from .i18n import _
-from .richtext import RichText, date_text, find_trigger, parse_date, rel_text
+from .richtext import RichText, date_text, find_trigger, inline_safe, parse_date, rel_text
 from .store import is_db, label, store
 from .util import COLOR_NAMES, COLOR_ORDER, decode_entities, esc, human_size, norm, plain
 
@@ -637,7 +637,8 @@ class BlockKit:
         extra = (depth, self.editor.locked, linked_titles(b) if j and "/notes#" in j else (), getattr(self.view, "gut", 44))
         t = b.get("type")
         if t == "columns":
-            extra += (bool(self.view.get_width() and self.view.get_width() < 700),)
+            extra += (bool(self.view.get_width() and self.view.get_width() < 700),
+                      gestalten.cols_per_row(len((b.get("data") or {}).get("cols") or []), self.view.get_width()))
         elif t == "toggle":
             extra += (self.view.toggle_state.get(b.get("id")),)
         elif t in ("image", "embed"):
@@ -687,8 +688,12 @@ class BlockKit:
     def _rt(self, key, block, field, html, css="hk-p", placeholder="", base_bold=False, raw=False, item=None):
         if not raw:
             html = fresh_links(html)                          # Seitenverweise mit aktuellem Titel
-        rt = RichText(html, css=css, placeholder=placeholder, base_bold=base_bold, raw=raw, editable=not self.editor.locked)
+        safe = raw or inline_safe(html)
+        rt = RichText(html, css=css, placeholder=placeholder, base_bold=base_bold, raw=raw, editable=not self.editor.locked and safe)
         rt.set_hexpand(True)
+        if not safe and not self.editor.locked:              # Formen, die die App nicht sicher erhaelt: nicht bearbeiten
+            rt.set_tooltip_text(_("This text contains formatting the app can’t edit yet – edit it on the web."))
+            rt.add_css_class("hk-web-only")
         rt.hk_key, rt.hk_block, rt.hk_field, rt.hk_item = key, block, field, item
         rt.on_key = self.on_key
         rt.on_link = self.view.open_link
@@ -768,6 +773,12 @@ class BlockKit:
             rt.set_margin_top(6)                              # erste Zeile mittig zum Emoji-Knopf (Testbericht 022)
             box.append(rt)
             return box
+        if t == "math":                                         # 2.5 (P6-0/P6-2): Vorschaubild vom Web, TeX bearbeitbar
+            return self._rendered(b, d, "tex", _("TeX formula"))
+        if t == "code" and d.get("language") == "mermaid" and isinstance(d.get("render"), dict):
+            return self._rendered(b, d, "code", _("Mermaid diagram"))
+        if t == "synced":
+            return self._synced(b, d, depth)
         if t == "code":
             ov = Gtk.Overlay()
             rt = self._rt(bid, b, "code", d.get("code", ""), css="hk-code", placeholder=_("Code"), raw=True)
@@ -850,6 +861,80 @@ class BlockKit:
             from .pwcard import WidgetCard
             return WidgetCard(self, b)
         return self._fallback(b, t)
+
+    def _rendered(self, b, d, field, what):
+        """Mathe/Mermaid: Bild render.png (Hinweis bei stale), darunter der Quelltext (bearbeitbar). render bleibt beim
+        Speichern unveraendert - der Server markiert es selbst als veraltet."""
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        box.add_css_class("hk-rendered")
+        r = d.get("render") if isinstance(d.get("render"), dict) else {}
+        png = r.get("png") if isinstance(r.get("png"), str) and r.get("png").startswith("/") else None
+        if png:
+            w = r.get("w") if isinstance(r.get("w"), (int, float)) and not isinstance(r.get("w"), bool) else None
+            img = images.ImageView(png, mode="fit", w=1600, max_height=700, radius=8)
+            img.add_css_class("hk-render")
+            img.set_halign(Gtk.Align.START if b.get("type") == "code" else Gtk.Align.CENTER)
+            if w:
+                img.set_size_request(min(int(w), 900), -1)
+            img.update_property([Gtk.AccessibleProperty.LABEL], [what])
+            img.hk_render = png
+            box.append(img)
+            if r.get("stale") is True:
+                st = Gtk.Label(label=_("Preview outdated – open on the web"), xalign=0)
+                st.add_css_class("caption")
+                st.add_css_class("hk-render-stale")
+                st.hk_stale = True
+                box.append(st)
+        rt = self._rt(b.get("id"), b, field, d.get(field, ""), css="hk-code", placeholder=what, raw=True)
+        if png and b.get("type") == "math":
+            rt.add_css_class("caption")
+        box.append(rt)
+        return box
+
+    def _synced(self, b, d, depth):
+        """Synchronisierter Block: Inhalt nur anzeigen (Original wie Kopie), Sprung zum Original. Der Block bleibt beim
+        Speichern unveraendert (data.blocks einer Kopie und data.src setzt nur der Server)."""
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        box.add_css_class("hk-synced")
+        head = Gtk.Box(spacing=6)
+        ic = Gtk.Image.new_from_icon_name("emblem-synchronizing-symbolic")
+        ic.add_css_class("dim-label")
+        head.append(ic)
+        src = d.get("src") if isinstance(d.get("src"), dict) else None
+        note = src.get("note") if src and isinstance(src.get("note"), int) else None
+        own = note is None or note == self.editor.doc.id
+        lb = Gtk.Label(label=_("Synced block") if own else _("Synced block – original on another page"), xalign=0, hexpand=True)
+        lb.add_css_class("dim-label")
+        lb.add_css_class("hk-synced-head")
+        head.append(lb)
+        if not own:
+            head.append(flat_button(icon="adw-external-link-symbolic", label=_("Go to original"), css="dim-label",
+                                    cb=lambda: self.view.win.show_page(note)))
+        box.append(head)
+        inner = d.get("blocks")
+        if isinstance(inner, list) and inner:
+            # nur Anzeige: eine Kopie (eigene ID-Liste) darf in der App nicht bearbeitet werden; das Original im Web
+            from .richtext import RichText as _RT
+            for x in inner:
+                if not isinstance(x, dict):
+                    continue
+                xd = x.get("data") if isinstance(x.get("data"), dict) else {}
+                html = xd.get("text") if isinstance(xd.get("text"), str) else ""
+                if not html and isinstance(xd.get("items"), list):
+                    html = "<br>".join(i.get("content", "") if isinstance(i, dict) else str(i) for i in xd["items"])
+                if not html:
+                    continue
+                css = HEADER_CSS.get(xd.get("level") or 2, "hk-h4") if x.get("type") == "header" else "hk-p"
+                rt = _RT(html, css=css, editable=False)
+                rt.set_hexpand(True)
+                rt.on_link = self.view.open_link
+                box.append(rt)
+        elif src is not None and not inner:
+            box.append(Gtk.Label(label="🔒 " + _("Synced block – no access"), xalign=0, css_classes=["dim-label"]))
+        else:
+            box.append(Gtk.Label(label=_("Empty synced block"), xalign=0, css_classes=["dim-label"]))
+        box.set_tooltip_text(_("Edit synced blocks on the web"))
+        return box
 
     def _fallback(self, b, t):
         """R: unbekannter Block-Typ (neuer Server/Web) - Karte mit Hinweis und \"Im Web öffnen\". Der Block bleibt beim
@@ -958,12 +1043,16 @@ class BlockKit:
     def _columns(self, b, d, depth):
         cols = [c.setdefault("blocks", []) for c in d.get("cols") or [] if isinstance(c, dict)]
         narrow = self.view.get_width() and self.view.get_width() < 700
-        ws = None if narrow else gestalten.col_weights([c for c in d.get("cols") or [] if isinstance(c, dict)])
+        per = gestalten.cols_per_row(len(cols), self.view.get_width())
+        ws = None if narrow or per < len(cols) else gestalten.col_weights([c for c in d.get("cols") or [] if isinstance(c, dict)])
         if ws:                                                 # G1: Spaltengewichte (breites Fenster)
             box = WeightBox(ws, spacing=24)
+        elif not narrow and per < len(cols):                   # 5-6 Spalten: Mindestbreite, Rest in die naechste Zeile
+            box = Gtk.Grid(column_spacing=24, row_spacing=12, column_homogeneous=True)
+            box.add_css_class("hk-cols-wrap")
         else:
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL if narrow else Gtk.Orientation.HORIZONTAL, spacing=24, homogeneous=not narrow)
-        for c in cols:
+        for i, c in enumerate(cols):
             col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, hexpand=True)
             col.append(self.block_list(c, depth + 1))
             if not self.editor.locked:
@@ -973,7 +1062,10 @@ class BlockKit:
                 add.add_css_class("hk-reveal")
                 col.add_css_class("hk-reveal-zone")
                 col.append(add)
-            box.append(col)
+            if isinstance(box, Gtk.Grid):
+                box.attach(col, i % per, i // per, 1, 1)
+            else:
+                box.append(col)
         return box
 
     def _image(self, b, d):
@@ -1118,8 +1210,15 @@ class BlockKit:
         self.view.run_button(cfg, busy=busy)
 
     def _table(self, b, d):
-        rows = [[decode_entities(plain(c)) for c in r] for r in (d.get("content") or [["", ""], ["", ""]])] or [["", ""], ["", ""]]
+        src = [[c if isinstance(c, str) else "" for c in r] for r in (d.get("content") or [["", ""], ["", ""]]) if isinstance(r, list)] \
+            or [["", ""], ["", ""]]
+        rows = [[decode_entities(plain(c)) for c in r] for r in src]
+        # gespeichertes Zellen-HTML (fett, Farben, Verweise ...): unveraenderte Zellen behalten es beim Speichern (Regel 0)
+        orig = [[(c, t) for c, t in zip(rs, rt)] for rs, rt in zip(src, rows)]
         heads = bool(d.get("withHeadings"))
+        head_col = gestalten.table_head_col(d)                 # 2.5 tableopts1: erste Spalte als Kopf
+        ncols = max((len(r) for r in rows), default=0)
+        widths = gestalten.table_widths(d, ncols)
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         sw = Gtk.ScrolledWindow(vscrollbar_policy=Gtk.PolicyType.NEVER, propagate_natural_height=True)
         grid = Gtk.Grid(halign=Gtk.Align.START)
@@ -1127,9 +1226,24 @@ class BlockKit:
         sw.set_child(grid)
         outer.append(sw)
 
+        def cell_html(r, c):
+            t = rows[r][c]
+            o = orig[r][c] if r < len(orig) and c < len(orig[r]) else None
+            if o is not None and o[1] == t:
+                return o[0]
+            return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>")
+
         def save():
-            d["content"] = [[c.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br>") for c in r] for r in rows]
+            # nur content aendern - headCol, colWidths, colors und Unbekanntes bleiben unveraendert (Regel 0)
+            d["content"] = [[cell_html(r, c) for c in range(len(rows[r]))] for r in range(len(rows))]
             self.editor.text_changed()
+
+        def shift_rows(i):
+            orig.insert(i, [None] * (len(orig[0]) if orig else 0))
+
+        def shift_cols(i):
+            for x in orig:
+                x.insert(i, None)
 
         def rebuild():
             self.editor.changed()
@@ -1137,14 +1251,15 @@ class BlockKit:
         cur = {"cell": (0, 0)}                                 # zuletzt fokussierte Zelle (fuer "⋮" und die Menue-Taste)
 
         def cell_entries(r, c):
-            ents = [(_("Insert row above"), lambda: (rows.insert(r, [""] * len(rows[r])), save(), rebuild())),
-                    (_("Insert row below"), lambda: (rows.insert(r + 1, [""] * len(rows[r])), save(), rebuild())),
-                    (_("Insert column left"), lambda: ([x.insert(c, "") for x in rows], save(), rebuild())),
-                    (_("Insert column right"), lambda: ([x.insert(c + 1, "") for x in rows], save(), rebuild())), None]
+            ents = [(_("Insert row above"), lambda: (rows.insert(r, [""] * len(rows[r])), shift_rows(r), save(), rebuild())),
+                    (_("Insert row below"), lambda: (rows.insert(r + 1, [""] * len(rows[r])), shift_rows(r + 1), save(), rebuild())),
+                    (_("Insert column left"), lambda: ([x.insert(c, "") for x in rows], shift_cols(c), save(), rebuild())),
+                    (_("Insert column right"), lambda: ([x.insert(c + 1, "") for x in rows], shift_cols(c + 1), save(), rebuild())), None]
             if len(rows) > 1:
-                ents.append((_("Delete row"), lambda: (rows.pop(r), save(), rebuild()), True))
+                ents.append((_("Delete row"), lambda: (rows.pop(r), r < len(orig) and orig.pop(r), save(), rebuild()), True))
             if len(rows[0]) > 1:
-                ents.append((_("Delete column"), lambda: ([x.pop(c) for x in rows if c < len(x)], save(), rebuild()), True))
+                ents.append((_("Delete column"), lambda: ([x.pop(c) for x in rows if c < len(x)], [x.pop(c) for x in orig if c < len(x)],
+                                                          save(), rebuild()), True))
             return ents
 
         for r, row in enumerate(rows):
@@ -1152,9 +1267,13 @@ class BlockKit:
                 tv = Gtk.TextView(wrap_mode=Gtk.WrapMode.WORD_CHAR, editable=not self.editor.locked, accepts_tab=False)
                 tv.get_buffer().set_text(val)
                 tv.add_css_class("hk-cell")
-                if r == 0 and heads:
+                if (r == 0 and heads) or (c == 0 and head_col):
                     tv.add_css_class("hk-cell-head")
-                tv.set_size_request(130, -1)
+                col = gestalten.table_color(d, r, c)
+                if col:
+                    tv.add_css_class(f"hk-tbg-{col}")
+                    tv.hk_color = col
+                tv.set_size_request(max(80, int(widths[c] * 780)) if widths and c < len(widths) else 130, -1)
                 tv.update_property([Gtk.AccessibleProperty.LABEL], [_("Row {row}, column {col}").format(row=r + 1, col=c + 1)])
 
                 def ch(buf, r=r, c=c, tv=tv):
@@ -1181,9 +1300,9 @@ class BlockKit:
                 bar = Gtk.Box(spacing=12, halign=Gtk.Align.START)
             bar.add_css_class("hk-table-bar")
             bar.append(flat_button(icon="list-add-symbolic", label=_("Row"), css="dim-label",
-                                   cb=lambda: (rows.append([""] * max(1, len(rows[0]) if rows else 2)), save(), rebuild())))
+                                   cb=lambda: (rows.append([""] * max(1, len(rows[0]) if rows else 2)), shift_rows(len(orig)), save(), rebuild())))
             bar.append(flat_button(icon="list-add-symbolic", label=_("Column"), css="dim-label",
-                                   cb=lambda: ([x.append("") for x in rows], save(), rebuild())))
+                                   cb=lambda: ([x.append("") for x in rows], shift_cols(len(orig[0]) if orig else 0), save(), rebuild())))
             hc = Gtk.CheckButton(label=_("Header row"), active=heads)
             hc.connect("toggled", lambda c: (d.__setitem__("withHeadings", c.get_active()), rebuild()))
             bar.append(hc)

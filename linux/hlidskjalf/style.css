@@ -389,3 +389,64 @@ window.hk-dark .hk-widget-card.hk-wacc-pink { border-left-color: #e255a1; backgr
 window.hk-dark .hk-wacc-pink .hk-w-main { color: #e255a1; } window.hk-dark .hk-wacc-pink progressbar.hk-w-bar > trough > progress { background: #e255a1; }
 window.hk-dark .hk-widget-card.hk-wacc-red { border-left-color: #ff7369; background: alpha(#ff7369, 0.12); }
 window.hk-dark .hk-wacc-red .hk-w-main { color: #ff7369; } window.hk-dark .hk-wacc-red progressbar.hk-w-bar > trough > progress { background: #ff7369; }
+
+/* Saga 2.5: Tabellen-Block-Farben (tableopts1), Kartenfarben (view.colors), Formelfehler, Personen, Mathe/Mermaid,
+   synchronisierte Bloecke, Wochenkalender, Zeitleiste, Diagramme - Palette wie das Web (--tc-*/--bc-*) */
+textview.hk-tbg-gray, textview.hk-tbg-gray > text { background: alpha(#9b9a97, 0.20); }
+window.hk-dark textview.hk-tbg-gray, window.hk-dark textview.hk-tbg-gray > text { background: alpha(#9b9a97, 0.30); }
+textview.hk-tbg-brown, textview.hk-tbg-brown > text { background: alpha(#9f6b53, 0.20); }
+window.hk-dark textview.hk-tbg-brown, window.hk-dark textview.hk-tbg-brown > text { background: alpha(#9f6b53, 0.30); }
+textview.hk-tbg-orange, textview.hk-tbg-orange > text { background: alpha(#d9730d, 0.20); }
+window.hk-dark textview.hk-tbg-orange, window.hk-dark textview.hk-tbg-orange > text { background: alpha(#d9730d, 0.30); }
+textview.hk-tbg-yellow, textview.hk-tbg-yellow > text { background: alpha(#dfab01, 0.20); }
+window.hk-dark textview.hk-tbg-yellow, window.hk-dark textview.hk-tbg-yellow > text { background: alpha(#dfab01, 0.30); }
+textview.hk-tbg-green, textview.hk-tbg-green > text { background: alpha(#0f7b6c, 0.20); }
+window.hk-dark textview.hk-tbg-green, window.hk-dark textview.hk-tbg-green > text { background: alpha(#0f7b6c, 0.30); }
+textview.hk-tbg-blue, textview.hk-tbg-blue > text { background: alpha(#0b6e99, 0.20); }
+window.hk-dark textview.hk-tbg-blue, window.hk-dark textview.hk-tbg-blue > text { background: alpha(#0b6e99, 0.30); }
+textview.hk-tbg-purple, textview.hk-tbg-purple > text { background: alpha(#6940a5, 0.20); }
+window.hk-dark textview.hk-tbg-purple, window.hk-dark textview.hk-tbg-purple > text { background: alpha(#6940a5, 0.30); }
+textview.hk-tbg-pink, textview.hk-tbg-pink > text { background: alpha(#ad1a72, 0.20); }
+window.hk-dark textview.hk-tbg-pink, window.hk-dark textview.hk-tbg-pink > text { background: alpha(#ad1a72, 0.30); }
+textview.hk-tbg-red, textview.hk-tbg-red > text { background: alpha(#e03e3e, 0.20); }
+window.hk-dark textview.hk-tbg-red, window.hk-dark textview.hk-tbg-red > text { background: alpha(#e03e3e, 0.30); }
+.hk-cardview.hk-card-gray { background: alpha(#9b9a97, 0.12); border-top: 3px solid #686763; }
+window.hk-dark .hk-cardview.hk-card-gray { background: alpha(#9b9a97, 0.22); border-top-color: #b0afab; }
+.hk-cardview.hk-card-brown { background: alpha(#9f6b53, 0.12); border-top: 3px solid #8a5a44; }
+window.hk-dark .hk-cardview.hk-card-brown { background: alpha(#9f6b53, 0.22); border-top-color: #c9a08b; }
+.hk-cardview.hk-card-orange { background: alpha(#d9730d, 0.12); border-top: 3px solid #a65300; }
+window.hk-dark .hk-cardview.hk-card-orange { background: alpha(#d9730d, 0.22); border-top-color: #f0a35e; }
+.hk-cardview.hk-card-yellow { background: alpha(#dfab01, 0.12); border-top: 3px solid #7f6200; }
+window.hk-dark .hk-cardview.hk-card-yellow { background: alpha(#dfab01, 0.22); border-top-color: #e6c54f; }
+.hk-cardview.hk-card-green { background: alpha(#0f7b6c, 0.12); border-top: 3px solid #0b6e60; }
+window.hk-dark .hk-cardview.hk-card-green { background: alpha(#0f7b6c, 0.22); border-top-color: #4fc4a9; }
+.hk-cardview.hk-card-blue { background: alpha(#0b6e99, 0.12); border-top: 3px solid #0b6893; }
+window.hk-dark .hk-cardview.hk-card-blue { background: alpha(#0b6e99, 0.22); border-top-color: #62b4e2; }
+.hk-cardview.hk-card-purple { background: alpha(#6940a5, 0.12); border-top: 3px solid #6940a5; }
+window.hk-dark .hk-cardview.hk-card-purple { background: alpha(#6940a5, 0.22); border-top-color: #b893e6; }
+.hk-cardview.hk-card-pink { background: alpha(#ad1a72, 0.12); border-top: 3px solid #a8186e; }
+window.hk-dark .hk-cardview.hk-card-pink { background: alpha(#ad1a72, 0.22); border-top-color: #e682bb; }
+.hk-cardview.hk-card-red { background: alpha(#e03e3e, 0.12); border-top: 3px solid #c22a2a; }
+window.hk-dark .hk-cardview.hk-card-red { background: alpha(#e03e3e, 0.22); border-top-color: #f28585; }
+.hk-fx-err { color: #c22a2a; font-weight: 600; }
+window.hk-dark .hk-fx-err { color: #f28585; }
+.hk-person { border-radius: 999px; padding: 1px 6px 1px 1px; background: alpha(currentColor, 0.07); }
+.hk-person-gone label { font-style: italic; }
+button.hk-file-chip { min-height: 22px; padding: 0 6px; border-radius: 6px; background: alpha(currentColor, 0.07); }
+.hk-blocked { font-size: 0.9em; }
+.hk-subrow { border-left: 2px solid alpha(currentColor, 0.12); padding-left: 6px; }
+.hk-calweek .hk-calcell { min-height: 220px; }
+.hk-render { background: white; border-radius: 8px; padding: 6px; }
+.hk-render-stale { color: #a65300; }
+window.hk-dark .hk-render-stale { color: #f0a35e; }
+.hk-synced { border-left: 3px solid alpha(#0b6e99, 0.55); padding-left: 10px; border-radius: 2px; }
+.hk-synced-head { font-size: 0.85em; }
+.hk-chart { min-height: 220px; }
+.hk-timeline-bar { border-radius: 5px; padding: 1px 6px; }
+.hk-tl-grid { border-bottom: 1px solid alpha(currentColor, 0.1); }
+.hk-wx-now { font-size: 2em; font-weight: 600; }
+.hk-habit-cell { min-width: 22px; min-height: 22px; padding: 0; border-radius: 5px; }
+.hk-habit-cell.hk-on { background: alpha(#0f7b6c, 0.75); color: white; }
+.hk-up-day { font-weight: 600; margin-top: 4px; }
+.hk-up-over { color: #c22a2a; }
+window.hk-dark .hk-up-over { color: #f28585; }
