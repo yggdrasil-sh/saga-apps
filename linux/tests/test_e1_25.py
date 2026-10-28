@@ -330,7 +330,7 @@ def _open_db(win, srv, vid=None):
 
 
 def test_db_table_shows_new_types(win, srv):
-    rows = _setup_db(srv)
+    _setup_db(srv)
     dv_ = _open_db(win, srv, "tab")
     ls = labels(dv_)
     assert any("Anna Berg" in (x or "") for x in ls)                      # Name, nie Anmeldename

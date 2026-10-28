@@ -216,8 +216,8 @@ class TimelineView(Gtk.Box):
 
     def _bars(self):
         a, b = timeline_range(self.items)
-        ppd = PX_PER_DAY[self.scale]
         days = (b - a).days + 1
+        ppd = max(PX_PER_DAY[self.scale], 760 / days)          # kurze Zeitraeume fuellen die Breite
         width = int(days * ppd) + 20
         fx = Gtk.Fixed()
         row_h = 30
@@ -227,13 +227,15 @@ class TimelineView(Gtk.Box):
         d = a
         while d <= b:
             x = int((d - a).days * ppd)
-            if self.scale == "day" or (self.scale == "week" and d.weekday() == 0) or d.day == 1:
-                txt = str(d.day) if self.scale == "day" else (month_text(d) if d.day == 1 and self.scale in ("month", "quarter")
-                                                                else day_text(d.isoformat()))
+            mark = (self.scale == "day" or (self.scale == "week" and d.weekday() == 0)
+                    or (self.scale in ("month", "quarter") and d.day == 1))
+            if mark:
+                txt = str(d.day) if self.scale == "day" and d.day != 1 else (
+                    month_text(d) if self.scale in ("month", "quarter") else day_text(d.isoformat()))
                 lb = Gtk.Label(label=txt)
                 lb.add_css_class("caption")
                 lb.add_css_class("dim-label")
-                fx.put(lb, x + 2, 4 if d.day != 1 or self.scale in ("month", "quarter") else 18)
+                fx.put(lb, x + 2, 6)
                 sep = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
                 sep.set_size_request(1, head + row_h * max(1, len(self.items)))
                 sep.set_opacity(0.35)

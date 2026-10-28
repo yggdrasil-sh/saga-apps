@@ -392,24 +392,24 @@ window.hk-dark .hk-wacc-red .hk-w-main { color: #ff7369; } window.hk-dark .hk-wa
 
 /* Saga 2.5: Tabellen-Block-Farben (tableopts1), Kartenfarben (view.colors), Formelfehler, Personen, Mathe/Mermaid,
    synchronisierte Bloecke, Wochenkalender, Zeitleiste, Diagramme - Palette wie das Web (--tc-*/--bc-*) */
-textview.hk-tbg-gray, textview.hk-tbg-gray > text { background: alpha(#9b9a97, 0.20); }
-window.hk-dark textview.hk-tbg-gray, window.hk-dark textview.hk-tbg-gray > text { background: alpha(#9b9a97, 0.30); }
-textview.hk-tbg-brown, textview.hk-tbg-brown > text { background: alpha(#9f6b53, 0.20); }
-window.hk-dark textview.hk-tbg-brown, window.hk-dark textview.hk-tbg-brown > text { background: alpha(#9f6b53, 0.30); }
-textview.hk-tbg-orange, textview.hk-tbg-orange > text { background: alpha(#d9730d, 0.20); }
-window.hk-dark textview.hk-tbg-orange, window.hk-dark textview.hk-tbg-orange > text { background: alpha(#d9730d, 0.30); }
-textview.hk-tbg-yellow, textview.hk-tbg-yellow > text { background: alpha(#dfab01, 0.20); }
-window.hk-dark textview.hk-tbg-yellow, window.hk-dark textview.hk-tbg-yellow > text { background: alpha(#dfab01, 0.30); }
-textview.hk-tbg-green, textview.hk-tbg-green > text { background: alpha(#0f7b6c, 0.20); }
-window.hk-dark textview.hk-tbg-green, window.hk-dark textview.hk-tbg-green > text { background: alpha(#0f7b6c, 0.30); }
-textview.hk-tbg-blue, textview.hk-tbg-blue > text { background: alpha(#0b6e99, 0.20); }
-window.hk-dark textview.hk-tbg-blue, window.hk-dark textview.hk-tbg-blue > text { background: alpha(#0b6e99, 0.30); }
-textview.hk-tbg-purple, textview.hk-tbg-purple > text { background: alpha(#6940a5, 0.20); }
-window.hk-dark textview.hk-tbg-purple, window.hk-dark textview.hk-tbg-purple > text { background: alpha(#6940a5, 0.30); }
-textview.hk-tbg-pink, textview.hk-tbg-pink > text { background: alpha(#ad1a72, 0.20); }
-window.hk-dark textview.hk-tbg-pink, window.hk-dark textview.hk-tbg-pink > text { background: alpha(#ad1a72, 0.30); }
-textview.hk-tbg-red, textview.hk-tbg-red > text { background: alpha(#e03e3e, 0.20); }
-window.hk-dark textview.hk-tbg-red, window.hk-dark textview.hk-tbg-red > text { background: alpha(#e03e3e, 0.30); }
+textview.hk-tbg-gray { background: alpha(#9b9a97, 0.20); }
+window.hk-dark textview.hk-tbg-gray { background: alpha(#9b9a97, 0.30); }
+textview.hk-tbg-brown { background: alpha(#9f6b53, 0.20); }
+window.hk-dark textview.hk-tbg-brown { background: alpha(#9f6b53, 0.30); }
+textview.hk-tbg-orange { background: alpha(#d9730d, 0.20); }
+window.hk-dark textview.hk-tbg-orange { background: alpha(#d9730d, 0.30); }
+textview.hk-tbg-yellow { background: alpha(#dfab01, 0.20); }
+window.hk-dark textview.hk-tbg-yellow { background: alpha(#dfab01, 0.30); }
+textview.hk-tbg-green { background: alpha(#0f7b6c, 0.20); }
+window.hk-dark textview.hk-tbg-green { background: alpha(#0f7b6c, 0.30); }
+textview.hk-tbg-blue { background: alpha(#0b6e99, 0.20); }
+window.hk-dark textview.hk-tbg-blue { background: alpha(#0b6e99, 0.30); }
+textview.hk-tbg-purple { background: alpha(#6940a5, 0.20); }
+window.hk-dark textview.hk-tbg-purple { background: alpha(#6940a5, 0.30); }
+textview.hk-tbg-pink { background: alpha(#ad1a72, 0.20); }
+window.hk-dark textview.hk-tbg-pink { background: alpha(#ad1a72, 0.30); }
+textview.hk-tbg-red { background: alpha(#e03e3e, 0.20); }
+window.hk-dark textview.hk-tbg-red { background: alpha(#e03e3e, 0.30); }
 .hk-cardview.hk-card-gray { background: alpha(#9b9a97, 0.12); border-top: 3px solid #686763; }
 window.hk-dark .hk-cardview.hk-card-gray { background: alpha(#9b9a97, 0.22); border-top-color: #b0afab; }
 .hk-cardview.hk-card-brown { background: alpha(#9f6b53, 0.12); border-top: 3px solid #8a5a44; }
@@ -450,3 +450,5 @@ window.hk-dark .hk-render-stale { color: #f0a35e; }
 .hk-up-day { font-weight: 600; margin-top: 4px; }
 .hk-up-over { color: #c22a2a; }
 window.hk-dark .hk-up-over { color: #f28585; }
+.hk-tl-today { background: alpha(#c22a2a, 0.7); }
+button.hk-timeline-bar.hk-tl-default { background: alpha(#0b6e99, 0.18); }
