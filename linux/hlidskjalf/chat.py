@@ -1036,7 +1036,9 @@ class ChatState(GObject.Object):
         bg(client.request, "DELETE", f"api/chat/devices/{urllib.parse.quote(did)}", done=fin, error=error)
 
     def forget_local(self):
+        from . import chatdrafts
         delete_keys(config.settings.server, self.uid)
+        chatdrafts.clear_account()                        # (2.5) Entwuerfe gehoeren zu den Schluesseln dieses Geraets
         chatmedia.clear()
         chatvideo.clear()
         self.keys = None
@@ -1600,7 +1602,11 @@ class ChatState(GObject.Object):
             if wait > 0:
                 self._rc_later(cid, visible, wait)
                 w = None
-        if c.get("read_seq") == seq and not w:
+        mark = bool(ch is not None and ch.get("unread_mark"))
+        if mark:                                          # (2.5, markunread1) Oeffnen loescht die Markierung (POST /read)
+            ch["unread_mark"] = False
+            self.emit("changed")
+        if c.get("read_seq") == seq and not w and not mark:
             return
         c["read_seq"] = seq
         body = {"seq": seq}

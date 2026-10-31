@@ -256,7 +256,9 @@ class Store(GObject.Object):
         self.emit("today-changed")
 
     def logout(self, done=None):
-        self.new_session()                                 # Entwuerfe bleiben beim Konto liegen (naechste Anmeldung)
+        from . import chatdrafts
+        chatdrafts.clear_account()                         # (2.5) Chat-Entwuerfe dieses Kontos beim Abmelden loeschen
+        self.new_session()                                 # Seiten-Entwuerfe bleiben beim Konto liegen (naechste Anmeldung)
 
         def work():
             client.forget()

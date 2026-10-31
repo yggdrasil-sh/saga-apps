@@ -19,6 +19,7 @@ from .chat import (FED_CHECK_EVERY_S, NOTE_RX, RETENTIONS, ChatError, FedNotDeli
                    keys_persistent, recovery_lines, remote_label, retention_label, fed_guide_url, fed_hint_show, fed_hint_texts, safety_for,
                    safety_qr_text, sys_text, chat_home_hint, trust_accept, trust_get, trust_verified,
                    contact_item, contact_keep_for, gi_actions, gi_handle, gi_members, gi_mine, gi_rights, gi_sub, server_has)
+from . import chatdrafts
 from . import chatstd as K
 from . import chatstdview as SV
 from .i18n import _, ngettext, pgettext, ui_language
@@ -491,6 +492,15 @@ class ChatList(Gtk.Box):
     arch_open = False            # Bereich "Archiviert" aufgeklappt (fuer die Sitzung, ueber Neuaufbauten hinweg)
 
     def _activated(self, row):
+        if getattr(row, "hid_toggle", False):
+            ChatList.hid_open = not ChatList.hid_open
+            if ChatList.hid_open:
+                ChatList.hidden = []
+            self.fill()
+            for r in _walk_rows(self.box):
+                if getattr(r, "hid_toggle", False):
+                    r.grab_focus()
+            return
         if getattr(row, "arch_toggle", False):
             ChatList.arch_open = not ChatList.arch_open
             self.fill()
@@ -501,15 +511,41 @@ class ChatList(Gtk.Box):
         if getattr(row, "cid", None) is not None:
             self.screen.open(row.cid)
 
+    hid_open = False             # (2.5) Bereich "Ausgeblendet" aufgeklappt
+    hidden = []                  # (2.5) zuletzt geladene ausgeblendete Chats (GET /api/chats?hidden=1)
+
+    def _hidden_load(self):
+        if getattr(self, "_hid_loading", False):
+            return
+        self._hid_loading = True
+
+        def fin(lst):
+            self._hid_loading = False
+            ChatList.hidden = lst
+            self.sig = None
+            self.fill()
+
+        def err(_e):
+            self._hid_loading = False
+        chat.load_hidden(fin, err)
+
     def fill(self):
         q = self.search.get_text().strip().lower()
-        lst = [c for c in chat.chats if not q or q in chat.title(c).lower()]
+        lst = [c for c in K.list_split(chat.chats) if not q or q in chat.title(c).lower()]
         reqs = [c for c in lst if is_fed(c) and c.get("request")]     # (2.3) Nachrichtenanfragen: eigener Bereich oben
         lst = [c for c in lst if not (is_fed(c) and c.get("request"))]
         act = [c for c in lst if not c.get("archived")]
         arch = [c for c in lst if c.get("archived")]       # (2.1) eigener Bereich unten, bei einer Suche aufgeklappt
         show_arch = ChatList.arch_open or bool(q)
-        sig = (q, self.screen.cid, show_arch, tuple((c.get("id"), chat.title(c), c.get("unread"), c.get("muted"), c.get("last_at"),
+        n_hid = int(chat.hidden_count or 0) if K.has(K.CHATHIDE) else 0
+        show_hid = n_hid and (ChatList.hid_open or bool(q))
+        if show_hid and not ChatList.hidden:
+            self._hidden_load()
+        hid = [c for c in ChatList.hidden if not q or q in chat.title(c).lower()] if show_hid else []
+        sig = (q, self.screen.cid, show_arch, n_hid, bool(show_hid), tuple(c.get("id") for c in hid),
+               tuple((c.get("pinned"), c.get("unread_mark"), c.get("muted_until"), c.get("notify"), c.get("_avf", {}) and
+                      (c.get("_avf") or {}).get("id"), chatdrafts.has(c.get("id"))) for c in lst),
+               tuple((c.get("id"), chat.title(c), c.get("unread"), c.get("muted"), c.get("last_at"),
                                                      c.get("archived"), (chat.peer(c) or {}).get("avatar") if c.get("kind") == "dm" else None,
                                                      c.get("request"), c.get("readonly"),
                                                      bool((chat.pres.get(S.presence_user(chat.me, c)) or {}).get("online")))
@@ -535,6 +571,25 @@ class ChatList(Gtk.Box):
             if show_arch:
                 for c in arch:
                     self.box.append(self._row(c))
+        if n_hid and not (q and not hid):                  # (2.5, chathide1) "Ausgeblendet (n)" am Ende
+            self.box.append(self._hid_head(n_hid, bool(show_hid)))
+            for c in hid:
+                r = self._row(c)
+                r.add_css_class("hk-hidden-chat")
+                self.box.append(r)
+
+    def _hid_head(self, n, shown):
+        row = Gtk.ListBoxRow()
+        row.hid_toggle = True
+        row.add_css_class("hk-arch-head")
+        box = Gtk.Box(spacing=8, margin_top=6, margin_bottom=6, margin_start=4)
+        box.append(Gtk.Image.new_from_icon_name("pan-down-symbolic" if shown else "pan-end-symbolic"))
+        box.append(_lbl(_("Hidden ({n})").format(n=n), ("heading",), hexpand=True, wrap=False))
+        row.set_child(box)
+        row.update_property([Gtk.AccessibleProperty.LABEL], [_("Hidden ({n})").format(n=n)])
+        from .window import set_expanded_state
+        set_expanded_state(row, shown)
+        return row
 
     def _arch_head(self, arch, shown):
         """Kopf des Bereichs "Archiviert (n)": aufklappen/zuklappen, Ungelesen dort als eigene Zahl"""
@@ -600,11 +655,20 @@ class ChatList(Gtk.Box):
         else:
             box.append(av)
         col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, hexpand=True, valign=Gtk.Align.CENTER)
-        t = Gtk.Label(label=title, xalign=0, ellipsize=Pango.EllipsizeMode.END)
-        un = int(c.get("unread") or 0)
-        if un:
+        t = Gtk.Label(label=title, xalign=0, ellipsize=Pango.EllipsizeMode.END, hexpand=True)
+        dot = K.unread_dot(c) and K.has(K.MARKUNREAD)      # (2.5) als ungelesen markiert: Punkt statt Zahl
+        un = 0 if dot else int(c.get("unread") or 0)
+        if un or dot:
             t.add_css_class("heading")
-        col.append(t)
+        if c.get("pinned") and K.has(K.CHATPIN):          # (2.5, chatpin1) angeheftet: Nadel vor dem Namen
+            tb = Gtk.Box(spacing=4)
+            pi = Gtk.Label(label="📌", tooltip_text=_("Pinned"))
+            pi.add_css_class("hk-chat-pin")
+            tb.append(pi)
+            tb.append(t)
+            col.append(tb)
+        else:
+            col.append(t)
         n = int(c.get("member_count") or 0)
         if is_remote(c) and c.get("kind") == "dm":       # 2.3: Anfrage bzw. Direkt-Chat · Server der Person
             sub = (_("Request") if c.get("request") else chat.kind_label(c)) + " · " + ((chat.peer(c) or {}).get("host") or c.get("home") or "?") \
@@ -614,10 +678,19 @@ class ChatList(Gtk.Box):
                 + ("" if c.get("home_self") else " · " + (c.get("home") or "?")) + (" · " + _("read-only") if c.get("readonly") else "")
         else:
             sub = chat.kind_label(c) + ("" if c.get("kind") == "dm" else " · " + ngettext("{n} person", "{n} people", n).format(n=n))
+        mute_now = K.muted_now(c) if K.has(K.MUTE2) else bool(c.get("muted"))
+        if K.has(K.MUTE2) and (mute_now or c.get("notify") in ("mentions", "none")):
+            sub += " · " + K.mute_label(c)                 # (2.5) "Stumm bis …" / "Nur Erwaehnungen"
         s = Gtk.Label(label=sub, xalign=0, ellipsize=Pango.EllipsizeMode.END)
         s.add_css_class("caption")
         s.add_css_class("dim-label")
         col.append(s)
+        has_draft = c["id"] != self.screen.cid and chatdrafts.has(c["id"])
+        if has_draft:                                    # (2.5) Entwurf (nur auf diesem Geraet)
+            dl = Gtk.Label(label=_("Draft"), xalign=0)
+            dl.add_css_class("caption")
+            dl.add_css_class("hk-draft-mark")
+            col.append(dl)
         box.append(col)
         right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, valign=Gtk.Align.CENTER)
         tm = Gtk.Label(label=_short_when(c.get("last_at")), xalign=1)
@@ -625,21 +698,28 @@ class ChatList(Gtk.Box):
         tm.add_css_class("dim-label")
         right.append(tm)
         bx = Gtk.Box(spacing=4, halign=Gtk.Align.END)
-        if c.get("muted"):
+        if mute_now:
             mi = Gtk.Image.new_from_icon_name("audio-volume-muted-symbolic")
             mi.add_css_class("dim-label")
-            mi.set_tooltip_text(_("Muted"))
+            mi.set_tooltip_text(K.mute_label(c) if K.has(K.MUTE2) else _("Muted"))
             bx.append(mi)
         if un:
             b = Gtk.Label(label=str(un))
             b.add_css_class("hk-badge")
             b.add_css_class("hk-badge-accent")
             bx.append(b)
+        elif dot:
+            d0 = Gtk.Box(width_request=10, height_request=10, valign=Gtk.Align.CENTER)
+            d0.add_css_class("hk-unread-dot")
+            d0.set_tooltip_text(_("Marked as unread"))
+            bx.append(d0)
         right.append(bx)
         box.append(right)
         row.set_child(box)
         acc = title + " – " + sub + (" – " + _("online") if online else "") + \
-            (" – " + ngettext("{n} unread", "{n} unread", un).format(n=un) if un else "")
+            (" – " + ngettext("{n} unread", "{n} unread", un).format(n=un) if un else "") + \
+            (" – " + _("Marked as unread") if dot else "") + (" – " + _("Pinned") if c.get("pinned") and K.has(K.CHATPIN) else "") + \
+            (" – " + _("Draft") if has_draft else "")
         row.update_property([Gtk.AccessibleProperty.LABEL], [acc])
         # Kontextmenue (2.1): Rechtsklick, Langdruck (Touch), Menue-Taste bzw. Umschalt+F10
         rc = Gtk.GestureClick(button=Gdk.BUTTON_SECONDARY)

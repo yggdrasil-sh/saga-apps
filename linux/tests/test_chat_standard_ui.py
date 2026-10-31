@@ -46,9 +46,20 @@ def _open(win, cid):
     return win.current.conv
 
 
+class _Pop(_NoPop):
+    def set_pointing_to(self, r):
+        pass
+
+    def connect(self, *a):
+        pass
+
+    def get_child(self):
+        raise AttributeError
+
+
 def _menu_capture(monkeypatch, mod="hlidskjalf.chatview"):
     got = []
-    monkeypatch.setattr(mod + ".menu_popover", lambda parent, ents: got.append(ents) or _NoPop())
+    monkeypatch.setattr(mod + ".menu_popover", lambda parent, ents: got.append(ents) or _Pop())
     return got
 
 
@@ -164,7 +175,7 @@ def test_page_chat_members(win, srv, monkeypatch):
     d = GroupInfoDialog(win, pc)
     d.present(win)
     pump(None, 0.3)
-    toasts = _toasts(d, monkeypatch)
+    _toasts(d, monkeypatch)
     assert "Adding people shares this page with them. Removing revokes the share." in _labels(d)
     assert "Add member" in _labels(d) and d.role_row is not None
     rows = {r.get_title(): r for r in _rows(d.members_group)}
@@ -303,9 +314,6 @@ def test_list_mute_pin_unread_hide(win, srv, monkeypatch):
     _find(got[-1], "Pin")[1]()
     pump(lambda: chat.chat(a).get("pinned") and chat.chats[0]["id"] == a, 3)
     pump(lambda: any(isinstance(w, Gtk.Label) and w.get_label() == "📌" for w in _walk(lst.box)), 3)
-    # 409 bei mehr als 5
-    for i in range(5):
-        srv.new_chat("dm", ["test", f"p{i}"]) if False else None
     # als ungelesen -> Punkt
     lst._menu(row, chat.chat(a))
     _find(got[-1], "Mark as unread")[1]()

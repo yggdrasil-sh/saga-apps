@@ -258,3 +258,19 @@ def test_block_report_forward():
     ok, sk = fwd_files({"files": [{"id": "a"}, {"id": "v", "voice": True}, {"id": "x", "x": 2}]})
     assert [f["id"] for f in ok] == ["a"] and sk == 2
     assert fwd_body({"text": "t", "notes": [1, "x"]}, [], 1) == {"v": 1, "type": "text", "text": "t\n[Attachment not forwarded]", "notes": [1]}
+# --- Entwuerfe je Chat ------------------------------------------------------------------------------------------------
+def test_chat_drafts(srv):
+    from hlidskjalf import chatdrafts, config
+    config.set_account("test")
+    chatdrafts.save(5, "Hallo @Anna <@x>", {"@Anna": H1, "@Weg": H2, "@Boese": "anna-login"})
+    assert chatdrafts.load(5) == {"t": "Hallo @Anna <@x>", "p": {"@Anna": H1}}     # nur benutzte, nur gueltige Kennungen
+    assert chatdrafts.has(5) and not chatdrafts.has(6)
+    config.set_account("other")
+    assert chatdrafts.load(5) is None                          # anderes Konto sieht fremde Entwuerfe nie
+    config.set_account("test")
+    chatdrafts.save(5, "   ")
+    assert chatdrafts.load(5) is None                          # leer = geloescht
+    chatdrafts.save(7, "x" * 30000)
+    assert len(chatdrafts.load(7)["t"]) == 20000
+    chatdrafts.clear_account()
+    assert chatdrafts.load(7) is None and not os.path.exists(chatdrafts.path())
