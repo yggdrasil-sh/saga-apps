@@ -109,7 +109,7 @@ enum FedFlow {
                                    "keys": sk, "files": fileIDs]
         if let replyTo { body["reply_to"] = replyTo }
         if let ai { body["ai"] = ai.hash; body["ai_reply"] = ai.reply }
-        if kind == "title" || kind == "edit" { body["kind"] = kind }       // 2.5: Bearbeitung (mit edit_of in `extra`)
+        if ["title", "edit", "desc", "avatar"].contains(kind) { body["kind"] = kind }   // 2.5: auch Beschreibung/Bild       // 2.5: Bearbeitung (mit edit_of in `extra`)
         for (k, v) in extra { body[k] = v }
         return (body, mid)
     }

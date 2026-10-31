@@ -33,6 +33,8 @@ struct ChatMessage: Identifiable, Equatable {
     var editedAt: Double? = nil
     var editN = 0
     var legacy = false
+    /// 2.5 (moddel1): von einem Admin geloescht (Grabstein, kein Inhalt)
+    var tomb = false
     var date: Date { Date(timeIntervalSince1970: created > 0 ? created : ts / 1000) }
     var text: String { content?.text ?? "" }
 }
@@ -118,7 +120,10 @@ final class ConversationModel: ObservableObject {
             if s?.isFed == true, s?.kind == "free", let x = s {         // 2.3: Gruppenname v2 (Absender selbst geprueft)
                 var l = [x]; await model.decryptTitlesV2(&l); s = l[0]; info = s
             }
-            let m = try await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&limit=50&calls=1")
+            if s?.kind == "free", let x = s, x.descMsg != nil || x.avatarMsg != nil {   // 2.5: Bild, Beschreibung
+                var l = [x]; await model.decryptGroupInfo(&l); s = l[0]; info = s
+            }
+            let m = try await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&limit=50&calls=1\(tombQuery)")
             messages = []; ingest(m, prepend: false)
             error = nil
             await markRead()
@@ -128,13 +133,13 @@ final class ConversationModel: ObservableObject {
     }
     func loadOlder() async {
         guard let store, more, let first = messages.first else { return }
-        if let d = try? await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&before=\(first.seq)&limit=50&calls=1") { ingest(d, prepend: true) }
+        if let d = try? await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&before=\(first.seq)&limit=50&calls=1\(tombQuery)") { ingest(d, prepend: true) }
     }
     func fetchNew() async {
         guard let store else { return }
         if deliveryDue() { await checkDelivery() }
         let after = messages.last?.seq ?? 0
-        if let d = try? await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&after=\(after)&limit=200&calls=1") { ingest(d, prepend: false, onlyMore: false) }
+        if let d = try? await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&after=\(after)&limit=200&calls=1\(tombQuery)") { ingest(d, prepend: false, onlyMore: false) }
         await markRead()
     }
 
@@ -155,6 +160,14 @@ final class ConversationModel: ObservableObject {
                                         mine: e.outgoing(me: me) || (fed != nil && (sender == me || e.from == fed?.myHandle)),   // v2: Anrufer als Prinzipal/Handle
                                         senderAvatar: avatar, call: e))
                 list[list.count - 1].fseq = fseq
+                continue
+            }
+            if ChatStd.isTomb(m) {                                        // 2.5 (moddel1): von einem Admin geloescht
+                var t = ChatMessage(seq: ShareJSON.int(m["seq"]) ?? 0, id: m["id"] as? String ?? "", sender: sender, senderName: name,
+                                    ts: ShareJSON.num(m["ts"]) ?? 0, created: ShareJSON.num(m["created"]) ?? 0, expiresAt: nil,
+                                    replyTo: nil, content: nil, verified: true, mine: sender == me, senderAvatar: avatar)
+                t.tomb = true; t.fseq = fseq; t.senderHandle = ShareJSON.str(m["sender_handle"])
+                list.append(t)
                 continue
             }
             if (m["kind"] as? String) == "sys" {                          // Systemzeile (2.3): Klartext-Metadaten vom Heim
@@ -251,7 +264,13 @@ final class ConversationModel: ObservableObject {
                 messages[i].fseq = f                                    // 2.4: Position der zugestellten eigenen Nachricht
             }
             Task { await fetchNew() }
-        case "chat.deleted": if let id = d["id"] as? String { messages.removeAll { $0.id == id } }
+        case "chat.deleted":
+            if let id = d["id"] as? String {
+                if ShareJSON.bool(d["by_admin"]), let i = messages.firstIndex(where: { $0.id == id }) {   // 2.5: Grabstein
+                    messages[i].tomb = true; messages[i].content = nil; reactions[id] = nil
+                    info?.std.pins.removeAll { $0 == id }
+                } else { messages.removeAll { $0.id == id } }
+            }
         case "chat.changed": recipients = nil; Task { await load() }
         case "chat.react": liveReactions(d)                              // 2.5
         case "chat.edited": liveEdited(d)
@@ -309,7 +328,7 @@ final class ConversationModel: ObservableObject {
     /// Text (+ Anhaenge, Antwort) senden; true = gesendet
     @discardableResult
     func send(text: String, replyTo: String?, files: [ChatPendingFile], kind: String = "msg", title: String? = nil,
-              ai: (reply: String, name: String)? = nil) async -> Bool {
+              ai: (reply: String, name: String)? = nil, mentions: [String] = [], preview: ChatStd.Preview? = nil) async -> Bool {
         guard let store, model.keys != nil else { return false }
         // 2.4: Videos gehen ueber den Video-Weg (Poster, "optimiert 720p", v1 oder saga-file/v2, Upload im Hintergrund,
         // Fortschritt ueber dem Eingabefeld). Der Text reist mit dem ersten Video; andere Anhaenge gehen sofort.
@@ -355,7 +374,8 @@ final class ConversationModel: ObservableObject {
             await Task.detached(priority: .utility) {                     // Platte nicht im UI-Thread beschreiben
                 for p in primed { ChatMedia.prime(p.0, image: p.1, origBlob: p.2, thumbBlob: p.3) }
             }.value
-            return try await post(text: text, title: title, refs: refs, ids: fit.ids, replyTo: replyTo, kind: kind, ai: ai)
+            return try await post(text: text, title: title, refs: refs, ids: fit.ids, replyTo: replyTo, kind: kind, ai: ai,
+                                  mentions: mentions, preview: preview)
         } catch { sendError = String(localized: "Nicht gesendet: \(error.localizedDescription)") }
         return false
     }
@@ -378,16 +398,21 @@ final class ConversationModel: ObservableObject {
 
     /// Inhalt verschluesseln und senden (lokal saga-chat/v1, ueber Servergrenzen v2); true = gesendet
     func post(text: String, title: String?, refs: [ChatFileRef], ids: [String], replyTo: String?, kind: String,
-                      ai: (reply: String, name: String)?) async throws -> Bool {
+              ai: (reply: String, name: String)?, mentions: [String] = [], preview: ChatStd.Preview? = nil,
+              plainOverride: Data? = nil) async throws -> Bool {
         guard let store, let k = model.keys else { return false }
-        let fit = (refs: refs, ids: ids)
+        var fit = (refs: refs, ids: ids)
+        if let i = preview?.img?.id { fit.ids.append(i) }               // 2.5 (unfurl1): Bild der Linkvorschau
+        var extra: [String: Any] = [:]
+        if !mentions.isEmpty { extra["mentions"] = Array(mentions.prefix(ChatStd.mentionsMax)) }   // 2.5 (chatmention1)
         do {
             var content = ChatContent(type: kind == "title" ? "title" : "text", text: text, title: title, files: fit.refs, notes: ChatLogic.noteRefs(text),
                                       aiReply: ai?.reply, aiName: ai?.name)
             if kind == "title" { content.text = "" }
-            let plain = content.json()
+            content.preview = kind == "msg" ? preview : nil
+            let plain = plainOverride ?? content.json()                 // 2.5: Steuer-Nachrichten desc/avatar
             if fed != nil {                                              // 2.3: Chat ueber Servergrenzen (saga-chat/v2)
-                try await sendV2(plain, replyTo: replyTo, fileIDs: fit.ids, ai: ai, kind: kind)
+                try await sendV2(plain, replyTo: replyTo, fileIDs: fit.ids, ai: ai, kind: kind, extra: extra)
                 return true
             }
             if recipients == nil { await loadRecipients() }
@@ -401,6 +426,7 @@ final class ConversationModel: ObservableObject {
                                            "keys": keys, "files": fit.ids, "kind": kind]   // Original- und Vorschaubild-IDs
                 if let replyTo { body["reply_to"] = replyTo }
                 if let ai { body["ai_reply"] = ai.reply }                  // Beleg des Servers (nicht signiert, nur Verweis)
+                for (x, v) in extra { body[x] = v }
                 let (d, code) = try await store.apiResponse("api/chats/\(chatID)/messages", method: "POST", body: body)
                 if code == 409, ShareJSON.bool(ShareJSON.obj(d)?["chat_changed"]) {       // 2.5: gerade auf Stufe 3 umgestellt
                     await load()
@@ -415,7 +441,7 @@ final class ConversationModel: ObservableObject {
                 guard (200..<300).contains(code) else { throw APIError.http(code, ShareJSON.obj(d).flatMap { ShareJSON.str($0["error"]) } ?? "") }
                 if !notReady.isEmpty { sendError = String(localized: "\(notReady.joined(separator: ", ")) hat Chats noch nicht eingerichtet und kann diese Nachricht nicht lesen.") }
                 lastSentID = mid
-                if kind == "title" { await load(); await model.loadList() } else { await fetchNew() }
+                if ["title", "desc", "avatar"].contains(kind) { await load(); await model.loadList() } else { await fetchNew() }
                 return true
             }
         }
@@ -611,7 +637,7 @@ extension ConversationModel {
     func checkDelivery() async {
         guard let store, let from = FedDelivery.oldestPending(deliveryItems) else { return }
         lastDeliveryCheck = Date()
-        guard let d = try? await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&after=\(from - 1)&limit=200&calls=1") else { return }
+        guard let d = try? await store.api("api/chats/\(chatID)/messages?\(model.deviceParam)&after=\(from - 1)&limit=200&calls=1\(tombQuery)") else { return }
         let r = FedDelivery.parse(ShareJSON.obj(d))
         let gone = FedDelivery.gone(deliveryItems, server: r.server, more: r.more, maxSeq: r.maxSeq, from: from)
         if !gone.isEmpty { messages.removeAll { gone.contains($0.id) } }
@@ -676,7 +702,7 @@ extension ConversationModel {
                 confirmed.insert(mid); applyDelivery([:])
             }
             if kind != "edit" { lastSentID = mid }
-            if kind == "title" { await load(); await model.loadList(); return }   // neuer Gruppenname
+            if ["title", "desc", "avatar"].contains(kind) { await load(); await model.loadList(); return }   // Name, Beschreibung, Bild
             await fetchNew()
             if info?.fed?.request == true { await load(); await model.loadList() }   // wer schreibt, nimmt an
             return

@@ -181,6 +181,9 @@ struct ChatMember: Equatable, Identifiable, GroupMemberLike {
     var handle: String? = nil
     /// 2.5 (chatadm1): Admin der freien Gruppe
     var admin = false
+    /// 2.5 (block2): von mir gesperrt; (pagechatmembers1) Zugriffsweg im Seiten-Chat (nur fuer den Eigentuemer)
+    var blocked = false
+    var page = PageMemberInfo()
     var id: String { username }
 }
 
@@ -219,6 +222,13 @@ struct ChatSummary: Identifiable, Equatable {
     var canAdmin: Bool?
     var canRename: Bool?
     var meAdmin = false
+    /// 2.5 Chat-Standard (Gruppen B, Alltag A+C): Rechte, Pins, Stumm/Anheften/ungelesen/ausgeblendet, me_ref
+    var std = ChatStdInfo()
+    /// 2.5 (groupinfo2): entschluesselte Beschreibung und Gruppenbild (Steuer-Nachrichten desc_msg/avatar_msg)
+    var descMsg: [String: Any]?
+    var avatarMsg: [String: Any]?
+    var desc: String?
+    var avatarFile: ChatFileRef?
     var statusFlags: ReceiptLogic.ChatFlags {
         ReceiptLogic.ChatFlags(kind: kind, fed: isFed, request: fed?.request ?? false, readonly: fed?.readonly ?? false, receiptsOK: receiptsOK, onlineOK: onlineOK)
     }
@@ -229,6 +239,7 @@ struct ChatSummary: Identifiable, Equatable {
             && a.receiptsOK == b.receiptsOK && a.onlineOK == b.onlineOK && a.bigFiles == b.bigFiles
             && a.callGroup == b.callGroup && a.callGroupBlock == b.callGroupBlock && a.callRunning == b.callRunning && a.x3Why == b.x3Why
             && a.canManage == b.canManage && a.canAdmin == b.canAdmin && a.canRename == b.canRename && a.meAdmin == b.meAdmin
+            && a.std == b.std && a.desc == b.desc && a.avatarFile == b.avatarFile
     }
     init?(_ v: Any?) {
         guard let d = v as? [String: Any], let i = ShareJSON.int(d["id"]) else { return nil }
@@ -238,7 +249,8 @@ struct ChatSummary: Identifiable, Equatable {
             let ref = ShareJSON.str(m["ref"])
             return ChatMember(username: u, name: PersonRef.display(name: m["name"] as? String, ref: ref, id: u), me: ShareJSON.bool(m["me"]),
                               avatar: ShareJSON.str(m["avatar"]), ref: ref, sub: PersonRef.sub(m["sub"]),
-                              handle: ShareJSON.str(m["handle"]).flatMap { FedChatLogic.isHandle($0) ? $0 : nil }, admin: ShareJSON.bool(m["admin"]))
+                              handle: ShareJSON.str(m["handle"]).flatMap { FedChatLogic.isHandle($0) ? $0 : nil }, admin: ShareJSON.bool(m["admin"]),
+                              blocked: ShareJSON.bool(m["blocked"]), page: PageMemberInfo(m))
         }
         memberCount = ShareJSON.int(d["member_count"]) ?? members.count
         unread = ShareJSON.int(d["unread"]) ?? 0; muted = ShareJSON.bool(d["muted"]); retention = ShareJSON.int(d["retention_s"]) ?? 0
@@ -255,6 +267,9 @@ struct ChatSummary: Identifiable, Equatable {
         x3Why = ChatSelectLogic.why(d)
         canManage = d["can_manage"] as? Bool; canAdmin = d["can_admin"] as? Bool; canRename = d["can_rename"] as? Bool
         meAdmin = ShareJSON.bool(d["me_admin"])
+        std = ChatStdInfo(d)
+        descMsg = d["desc_msg"] as? [String: Any]; avatarMsg = d["avatar_msg"] as? [String: Any]
+        if d["muted_until"] != nil { muted = ChatStd.isMuted(mutedUntil: std.mutedUntil, muted: muted, now: Date()) }
         if let k = d["call"] as? [String: Any] {
             callGroup = k["group"] as? Bool; callGroupBlock = ShareJSON.str(k["group_block"])
             if let r = k["running"] as? [String: Any], (r["state"] as? String) != "ended", (r["kind"] as? String) == "group" { callRunning = r["id"] as? String }
@@ -310,6 +325,14 @@ final class ChatModel: ObservableObject {
     @Published var toast: String?
     /// 2.5 (contacts1): Kontakte (zuletzt zuerst, GroupInfo.swift loadContacts)
     @Published var contacts: [ChatContact] = []
+    /// 2.5 Chat-Standard: ausgeblendete Chats (Bereich unten), Zahl, aufgeklappt; Sperrliste; entschluesselte Bild/Beschreibung
+    @Published var hiddenChats: [ChatSummary] = []
+    @Published var hiddenCount = 0
+    var hiddenOpen = false
+    @Published var blocks: [ChatStd.BlockEntry] = []
+    var infoMemo: [String: (msg: String, ctl: ChatStd.Control?)] = [:]
+    /// Entwurf geaendert (Liste zeigt "Entwurf")
+    @Published var draftTick = 0
     /// Kopplung dieses (neuen) Geraets laeuft: Code + Ablauf
     @Published var linking: (id: String, code: String, expires: Date)?
     @Published var linkError: String?
@@ -358,6 +381,7 @@ final class ChatModel: ObservableObject {
         }
         ChatKeyStore.delete(uid: uid)
         ChatAccountData.clear(me: uid)
+        ChatModel.dropDrafts(keep: nil)                                 // 2.5: Entwuerfe nur auf dem Geraet - beim Abmelden weg
     }
 
     /// Konto der Chats (Server + Benutzer) - fuer den Kontowechsel, bei dem die Anmeldung schon weg ist
@@ -367,10 +391,12 @@ final class ChatModel: ObservableObject {
     static func forgetLocal(_ r: AccountRef) {
         ChatKeyStore.delete(uid: r.uid, origin: r.origin)
         ChatAccountData.clear(me: r.uid, origin: r.origin)
+        ChatModel.dropDrafts(keep: nil)                                 // 2.5: Entwuerfe des alten Kontos
     }
 
     func signedOut() {
         keys = nil; me = ChatMe(); chats = []; unread = 0; requests = 0; myHandle = nil; state = .loading; approval = nil; linking = nil; titleMemo = [:]
+        hiddenChats = []; hiddenCount = 0; blocks = []; infoMemo = [:]; ChatModel.dropDrafts(keep: nil)   // 2.5
         linkPoll?.cancel(); pendingDevice = nil; handledLinks = []
         presenceLoop?.cancel(); presenceLoop = nil; presence = [:]; presenceSub = ReceiptLogic.PresenceSub()
         ChatMedia.clearAll()                                            // Bild-Caches (Speicher + Ciphertext auf der Platte)
@@ -417,7 +443,9 @@ final class ChatModel: ObservableObject {
             ChatH2UStore.note(me.uid, list)                             // 2.5: Handle -> Benutzer aus Chats v1 (Vertrauen)
             for i in list.indices where list[i].kind == "free" { list[i].decryptedTitle = decryptTitle(list[i]) }
             await decryptTitlesV2(&list)                                // 2.3: Gruppen ueber Servergrenzen (Absender selbst pruefen)
+            await decryptGroupInfo(&list)                               // 2.5 (groupinfo2): Gruppenbild, Beschreibung
             if list != chats { chats = list }
+            hiddenCount = ShareJSON.int(j["hidden_count"]) ?? 0
             unread = ShareJSON.int(j["unread"]) ?? unread
             requests = ShareJSON.int(j["requests"]) ?? list.filter { $0.fed?.request == true }.count
             listError = nil
@@ -674,6 +702,10 @@ final class ChatModel: ObservableObject {
             if let o = open, o.chatID == cid { o.live(type, d) }
         case "chat.receipt", "chat.presence", "chat.privacy":           // 2.4: Gelesen-Bestaetigungen, Online-Status
             statusLive(type, d)
+        case "chat.blocks":                                             // 2.5 (block2): auf einem anderen eigenen Geraet
+            Task { await loadBlocks(); await loadList(); if let o = open { await o.load() } }
+        case "chat.mention":
+            Task { await loadList() }
         case "chat.contacts":                                           // 2.5: auf einem anderen Geraet aus den Kontakten entfernt
             if let r = ShareJSON.str(d["ref"]), ShareJSON.bool(d["hidden"]) { contacts.removeAll { $0.ref == r } }
             Task { await loadContacts() }
