@@ -148,6 +148,7 @@ struct ConversationView: View {
             let r = rec, limit = VoiceLogic.fmt(rec.maxS)                                     // Grenze des Servers im Text
             rec.onLimit = { [weak r] in Task { await r?.stop() }; chat.toast = String(localized: "Höchstens \(limit) – Aufnahme beendet.") }
             await conv.load()
+            loadDraft()                                                                      // 2.5: Entwurf dieses Chats
             chat.presenceSoon()                                                             // 2.4: Online-Status des Gegenuebers
             #if DEBUG
             if ChatPerf.on { await perfRun() }
@@ -257,6 +258,9 @@ struct ConversationView: View {
         } message: { Text("\(conv.info?.peer?.name ?? "") kann dir keine Direktnachrichten mehr schicken und dich nicht anrufen. In Gruppen werden die Nachrichten eingeklappt. \(conv.info?.peer?.name ?? "") erfährt davon nichts.") }
         .sheet(item: Binding(get: { reporting.map { ReportItems(list: $0) } }, set: { reporting = $0?.list })) { r in ReportSheet(chatID: chatID, messages: r.list, conv: conv) }
         .sheet(isPresented: $showMedia) { ChatMediaSheet(conv: conv) }
+        #if os(iOS)
+        .fullScreenCover(isPresented: $camera) { ChatCamera { f in if let f { files.append(f) } }.ignoresSafeArea() }
+        #endif
         .alert("Gruppe verlassen?", isPresented: $askLeave) {
             Button("Verlassen", role: .destructive) { Task { if await conv.leave() { nav.back() } } }
             Button("Abbrechen", role: .cancel) {}
@@ -494,6 +498,9 @@ struct ConversationView: View {
                     Button { replyTo = nil } label: { Image(systemName: "xmark.circle.fill") }.buttonStyle(.plain).foregroundStyle(.secondary).accessibilityLabel("Antwort abbrechen")
                 }.frame(height: 36)
             }
+            if let u = unf, editing == nil {                                  // 2.5 (unfurl1): Vorschau mit ✕
+                LinkPreviewCard(title: u.title, desc: u.desc, site: u.site, image: unfImage) { unfOff.insert(u.url); unf = nil }
+            }
             ChatVideoUploadsBar(chatID: chatID)                              // 2.4: Videos werden hochgeladen
             if !files.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -519,6 +526,9 @@ struct ConversationView: View {
             HStack(alignment: .bottom, spacing: 8) {
                 Menu {
                     Button { pickPhotos = true } label: { Label("Fotos", systemImage: "photo") }
+                    #if os(iOS)
+                    if ChatCamera.available { Button { camera = true } label: { Label("Kamera", systemImage: "camera") } }   // 2.5
+                    #endif
                     if immichOn { Button { pickImmich = true } label: { Label("Aus Immich", systemImage: "photo.on.rectangle.angled") } }
                     Button { pickFile = true } label: { Label("Datei", systemImage: "doc") }
                     Button { pickPage = true } label: { Label("Seite verlinken", systemImage: "at") }
@@ -529,7 +539,8 @@ struct ConversationView: View {
                     .padding(.horizontal, 12).padding(.vertical, 8)
                     .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 18))
                     .focused($focused)
-                    .onChange(of: text) { _, v in if !v.isEmpty { conv.typed() } }
+                    .onChange(of: text) { _, v in if !v.isEmpty { conv.typed() }; textChanged() }
+                    .task(id: unfKey) { await fetchUnfurl() }
                     .onSubmit { sendNow() }
                     #if os(macOS)
                     .onKeyPress(.return, phases: .down) { k in if k.modifiers.contains(.shift) { return .ignored }; sendNow(); return .handled }
@@ -597,12 +608,41 @@ struct ConversationView: View {
         guard !t.isEmpty || !files.isEmpty, !conv.sending else { return }
         let f = files, r = replyTo?.id
         let ask = conv.aiAllowed && AIChatLogic.mentions(t, name: conv.aiName)      // "@Marin …": danach die KI fragen
+        let pm = store.chatStd.mention ? ChatStd.applyMentions(t, people: people) : (text: t, refs: [])   // 2.5: <@kennung> + mentions
+        let u = unf.flatMap { ChatStd.firstURL(t) == $0.url ? $0 : nil }
         Task {
-            if await conv.send(text: t, replyTo: r, files: f) {
-                text = ""; files = []; replyTo = nil
+            let pv = u != nil ? await conv.previewForSend(u!) : nil
+            if await conv.send(text: pm.text, replyTo: r, files: f, mentions: pm.refs, preview: pv) {
+                text = ""; files = []; replyTo = nil; people = [:]; unf = nil; unfOff = []
+                ChatDraftStore.save(account: chat.me.uid, chatID: chatID, text: "", people: [:]); chat.draftTick += 1
                 if ask, let qid = conv.lastSentID { conv.askAI(question: t, qid: qid) }
             }
         }
+    }
+    /// 2.5: Entwurf speichern (je Konto und Chat, nie an den Server) - nicht beim Bearbeiten
+    private func textChanged() {
+        guard draftLoaded, editing == nil else { return }
+        let had = ChatDraftStore.has(account: chat.me.uid, chatID: chatID)
+        ChatDraftStore.save(account: chat.me.uid, chatID: chatID, text: text, people: people)
+        if had != ChatDraftStore.has(account: chat.me.uid, chatID: chatID) { chat.draftTick += 1 }
+    }
+    private func loadDraft() {
+        defer { draftLoaded = true }
+        guard text.isEmpty, let d = ChatDraftStore.load(account: chat.me.uid, chatID: chatID) else { return }
+        text = d.t; people = d.p
+    }
+    /// 2.5 (unfurl1): erste Adresse, 0,6 s nach der letzten Eingabe; Nutzereinstellung "Linkvorschau"
+    private var unfKey: String? {
+        guard store.chatStd.unfurl, ChatLinkPreviewSetting.on, editing == nil, let u = ChatStd.firstURL(text), !unfOff.contains(u) else { return nil }
+        return u
+    }
+    private func fetchUnfurl() async {
+        guard let u = unfKey else { unf = nil; unfImage = nil; return }
+        if unf?.url == u { return }
+        try? await Task.sleep(for: .milliseconds(600))
+        guard !Task.isCancelled, let r = await conv.unfurl(u), unfKey == u else { return }
+        unf = r
+        unfImage = r.image.flatMap { ChatImageIO.decode($0.data) }
     }
     private var aiHost: String { store.aiHost.isEmpty ? "?" : store.aiHost }
 
@@ -621,6 +661,22 @@ struct ConversationView: View {
                             }
                             .padding(.horizontal, 10).padding(.vertical, 5).background(Color.gold.opacity(0.14), in: Capsule())
                         }.buttonStyle(.plain)
+                    }
+                    if store.chatStd.mention, let i = conv.info {                  // 2.5 (chatmention1): Mitglieder erwaehnen
+                        ForEach(ChatStd.mentionCandidates(i.members, query: q ?? ""), id: \.ref) { c in
+                            Button {
+                                let label = ChatStd.mentionLabel(c.member.name)
+                                people[label] = c.ref
+                                text = ChatStd.completeMention(text, label: label); focused = true
+                            } label: {
+                                HStack(spacing: 6) {
+                                    AvatarView(name: c.member.name, avatar: c.member.avatar, size: 20)
+                                    Text(verbatim: c.member.name).font(.callout.weight(.semibold))
+                                    Text("erwähnen").font(.caption).foregroundStyle(.secondary)
+                                }
+                                .padding(.horizontal, 10).padding(.vertical, 5).background(Color.gold.opacity(0.10), in: Capsule())
+                            }.buttonStyle(.plain)
+                        }
                     }
                     Button { text = String(text.dropLast((q ?? "").count + 1)); pickPage = true } label: {
                         Label("Seite verlinken", systemImage: "doc.text").font(.callout)

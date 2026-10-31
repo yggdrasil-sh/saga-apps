@@ -307,6 +307,7 @@ struct GeneralSettings: View {
                 ChatDevicesSection(chat: store.chat)          // Chats & Geraete (2.0), Zeile "chats"
                 ChatPrivacySection(chat: store.chat).id("privacy")   // Gelesen-Bestaetigungen, Online-Status (2.4)
                 ChatBlocksSection(chat: store.chat)           // 2.5 (block2): gesperrte Personen
+                ChatLinkPreviewToggle(chat: store.chat)       // 2.5 (unfurl1): Linkvorschau
                 SettingsGroupHeading("Dienste")
                 NextcloudSettingsSection()                    // Nextcloud-Dateien in Seiten (2.3)
                 ImmichSettingsSection().id("immich")          // wie im Web: 👤 → Einstellungen
