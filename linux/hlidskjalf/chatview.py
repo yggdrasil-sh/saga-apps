@@ -18,7 +18,9 @@ from .chat import (FED_CHECK_EVERY_S, NOTE_RX, RETENTIONS, ChatError, FedNotDeli
                    is_remote, can_edit, can_react, has_feature, rx_groups, voice_file, x3_limits, x3_ok,
                    keys_persistent, recovery_lines, remote_label, retention_label, fed_guide_url, fed_hint_show, fed_hint_texts, safety_for,
                    safety_qr_text, sys_text, chat_home_hint, trust_accept, trust_get, trust_verified,
-                   contact_item, contact_keep_for, gi_actions, gi_members, gi_mine, gi_rights, gi_sub, server_has)
+                   contact_item, contact_keep_for, gi_actions, gi_handle, gi_members, gi_mine, gi_rights, gi_sub, server_has)
+from . import chatstd as K
+from . import chatstdview as SV
 from .i18n import _, ngettext, pgettext, ui_language
 from .sharing import person_mark, same_host
 from .util import Debounce, bg, date_short, esc, human_size, rel_time, time_text, weekday_day_text
@@ -559,10 +561,7 @@ class ChatList(Gtk.Box):
         """Kontextmenue eines Chats (Rechtsklick, Langdruck, Menue-Taste/Umschalt+F10): Oeffnen, Stumm, Archiv, Loeschen"""
         win = self.screen.win
         cid = c["id"]
-        ents = [(_("Open"), lambda: self.screen.open(cid)),
-                (_("Unmute") if c.get("muted") else _("Mute"),
-                 lambda: chat.patch(cid, {"muted": not c.get("muted")}, done=lambda _c: chat.load_chats(),
-                                    error=lambda e: _toast(win, str(e))))]
+        ents = [(_("Open"), lambda: self.screen.open(cid))] + SV.mute_entries(win, c) + SV.list_entries(win, c, self.screen)
         ents += manage_entries(win, c)
         pop = menu_popover(self.box, ents)
         ok, pt = row.compute_point(self.box, Graphene.Point().init(x if x is not None else 24, y if y is not None else row.get_height() / 2))
@@ -583,6 +582,8 @@ class ChatList(Gtk.Box):
         av = Adw.Avatar(size=36, text=avatars.initials_text(title), show_initials=c.get("kind") in ("dm", "free"))
         if c.get("kind") == "dm":
             avatars.attach(av, (chat.peer(c) or {}).get("avatar"), 36)     # Profilbild des Gegenuebers (2.1)
+        elif c.get("_avf"):                              # (2.5, groupinfo2) Gruppenbild
+            SV.attach_group(av, c)
         if c.get("kind") == "group":
             from .sharing import people_icon
             av.set_icon_name(people_icon())
@@ -763,6 +764,24 @@ class Conversation(Gtk.Box):
         self.search_bar.set_child(sb)
         self.search_bar.connect_entry(se)
         self.append(self.search_bar)
+        # (2.5, msgpin1) angeheftete Nachrichten: Leiste oben, Klick springt hin (mehrere: der Reihe nach)
+        self.pin_bar = Gtk.Box(spacing=6, visible=False, margin_start=12, margin_end=12, margin_top=4)
+        self.pin_bar.add_css_class("hk-pin-bar")
+        self.pin_go = Gtk.Button(hexpand=True)
+        self.pin_go.add_css_class("flat")
+        self.pin_go.connect("clicked", lambda *_: self._pin_jump())
+        self.pin_label = _lbl("", ("caption",), lines=2, ellipsize=Pango.EllipsizeMode.END)
+        pb = Gtk.Box(spacing=6)
+        pb.append(Gtk.Label(label="📌"))
+        pb.append(self.pin_label)
+        self.pin_go.set_child(pb)
+        self.pin_bar.append(self.pin_go)
+        self.pin_x = flat_button(icon="window-close-symbolic", tooltip=_("Unpin"), cb=self._pin_drop)
+        self.pin_bar.append(self.pin_x)
+        self.pin_i = 0
+        self.append(self.pin_bar)
+        self.unblocked = set()        # (2.5, block2) eingeklappte Nachrichten, die ich trotzdem sehen will
+        self.sel = None               # (2.5) Mehrfachauswahl: Menge der Nachrichten-IDs (None = aus)
         # Nachrichten
         self.scroll = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
         clamp = Adw.Clamp(maximum_size=860, tightening_threshold=600)
@@ -888,6 +907,7 @@ class Conversation(Gtk.Box):
     def _chat_changed(self):
         self._check_trust()
         self._state()
+        self._pins()
         self._mic_update()
         self.screen._header()
         self._ai_note()
@@ -1119,14 +1139,18 @@ class Conversation(Gtk.Box):
         dm = c.get("kind") == "dm"
         p = (chat.peer(c) if dm else c.get("invited_by")) or {}      # Gruppe (2.3): wer eingeladen hat
         p = p if isinstance(p, dict) else {}
-        sig = (req, ro, c.get("readonly_reason"), p.get("name"), p.get("host"), dm)
-        self.composer_box.set_visible(not (req or ro))
+        mute = not req and not ro and not K.rights(c)["send"]      # (2.5) nur Admins schreiben / gesperrte Person
+        sig = (req, ro, c.get("readonly_reason"), p.get("name"), p.get("host"), dm, mute, bool(c.get("blocked")))
+        self.composer_box.set_visible(not (req or ro or mute))
         if sig == self._state_sig:
             return
         self._state_sig = sig
         while (w := self.state_box.get_first_child()):
             self.state_box.remove(w)
-        self.state_box.set_visible(req or ro)
+        self.state_box.set_visible(req or ro or mute)
+        if mute:
+            self.state_box.append(_lbl(K.send_block_text(c), ("dim-label", "hk-perm-note")))
+            return
         if ro:
             self.state_box.append(_lbl("🔒 " + (c.get("readonly_reason") or _("This conversation is read-only.")), ("dim-label",)))
             return
@@ -1223,8 +1247,12 @@ class Conversation(Gtk.Box):
         # (2.1) Verlauf geloescht (fuer mich oder fuer alle): Hinweis am Anfang statt "nicht lesbar"
         cleared = bool(int((chat.chat(self.cid) or {}).get("cleared_seq") or 0) or c.get("floor"))
         x3 = x3_ok(chat.chat(self.cid))
+        cc = chat.chat(self.cid) or {}
+        std = (tuple(sorted(self.unblocked)), tuple(x.get("handle") or x.get("username") for x in cc.get("members") or []
+                                                    if isinstance(x, dict) and x.get("blocked")),
+               None if self.sel is None else tuple(sorted(self.sel)), cc.get("me_ref"), K.has(K.FMT), K.has(K.MENTION))
         sig = (tuple((m["id"], m.get("state"), m.get("ai_state"), m.get("fstate"), _x3sig(m)) for m in shown), c.get("more"), q,
-               len(chat.notes), c.get("error"), self.loaded, cleared, x3)
+               len(chat.notes), c.get("error"), self.loaded, cleared, x3, std)
         if sig == self.sig:
             return
         stick = self.at_bottom
@@ -1264,7 +1292,8 @@ class Conversation(Gtk.Box):
             first = prev is None or _who(prev) != _who(m) or (m.get("created") or 0) - (prev.get("created") or 0) > 600
             key = (m["id"], m.get("state"), m.get("ai_state"), first, group, bool(m.get("reply_to") and m["reply_to"] in by_id),
                    len(chat.notes), m.get("fstate"), _x3sig(m), x3,
-                   _x3sig(by_id.get(m["reply_to"])) if m.get("reply_to") else None)
+                   _x3sig(by_id.get(m["reply_to"])) if m.get("reply_to") else None, std,
+                   None if self.sel is None else m["id"] in self.sel)
             row = old.pop(key, None) or keep.get(key)
             if row is None:
                 self._imgs_building = []
@@ -1289,6 +1318,7 @@ class Conversation(Gtk.Box):
         self.rows_by_id, self.ticks = rows, ticks
         self._update_ticks()
         self._update_rx()
+        self._pins()
         self._vis_soon()
         if q:
             self.search_count.set_label(ngettext("{n} match", "{n} matches", len(shown)).format(n=len(shown)))
@@ -1444,11 +1474,44 @@ class Conversation(Gtk.Box):
         box.set_focusable(True)
         return box
 
+    def _tomb_row(self, m):
+        """(2.5, moddel1) Grabstein: "Nachricht von {name} – von einem Admin geloescht" """
+        who = (m.get("sender") or {}).get("name")
+        text = "🗑 " + (_("Message from {name} – deleted by an admin").format(name=who) if who else _("Deleted by an admin"))
+        box = Gtk.Box(spacing=8, halign=Gtk.Align.CENTER, margin_top=4, margin_bottom=4)
+        box.add_css_class("hk-call-entry")
+        box.add_css_class("hk-tomb")
+        box.append(_lbl(text, ("hk-call-text", "dim-label"), justify=Gtk.Justification.CENTER))
+        tm = _lbl(_time(m.get("created") or (m.get("ts") or 0) / 1000), ("caption", "dim-label"), wrap=False)
+        box.append(tm)
+        box.update_property([Gtk.AccessibleProperty.LABEL], [text + " – " + tm.get_label()])
+        box.set_focusable(True)
+        return box
+
+    def _blocked_row(self, m):
+        """(2.5, block2) Nachricht einer gesperrten Person in einer Gruppe: eingeklappt, "Anzeigen" """
+        box = Gtk.Box(spacing=8, halign=Gtk.Align.CENTER, margin_top=4, margin_bottom=4)
+        box.add_css_class("hk-call-entry")
+        box.add_css_class("hk-blockedmsg")
+        box.append(_lbl("⛔ " + _("Message from a blocked person"), ("hk-call-text", "dim-label")))
+        b = _button(_("Show"), ("flat",), lambda: (self.unblocked.add(m["id"]), self.render()), valign=Gtk.Align.CENTER)
+        box.append(b)
+        return box
+
     def _bubble(self, m, by_id, group, first):
         if m.get("state") == "call":
             return self._call_row(m)
         if m.get("state") == "sys":
             return self._sys_row(m)
+        if m.get("state") == "tomb":
+            return self._tomb_row(m)
+        c0 = chat.chat(self.cid) or {}
+        if K.has(K.BLOCK2) and m["id"] not in self.unblocked and K.grp_blocked(c0, m):
+            return self._blocked_row(m)
+        row = self._bubble0(m, by_id, group, first)
+        return row
+
+    def _bubble0(self, m, by_id, group, first):
         is_ai = m.get("ai_state") == "ok"                 # KI-Antwort mit passendem Beleg (2.1): Bild + Name der KI
         mine = m.get("mine") and not is_ai
         row = Gtk.Box(spacing=6, halign=Gtk.Align.END if mine else Gtk.Align.START, margin_top=6 if first else 0)
@@ -1505,13 +1568,26 @@ class Conversation(Gtk.Box):
             acc.append(_("Can't be decrypted"))
         else:
             text = m.get("text") or ""
+            cm = chat.chat(self.cid) or {}
             if text.strip():
                 lb = Gtk.Label(xalign=0, wrap=True, wrap_mode=Pango.WrapMode.WORD_CHAR, selectable=True, max_width_chars=60)
-                lb.set_markup(text_markup(text, chat.notes))
+                # (2.5) Formatierung (chatfmt1) und Erwaehnungen (chatmention1) - Pango-Markup, alles escaped
+                if K.has(K.FMT) or K.has(K.MENTION):
+                    lb.set_markup(K.message_markup(text, chat.notes, cm, (chat.me or {}).get("name"), fmt=K.has(K.FMT),
+                                                   mention=K.has(K.MENTION)))
+                else:
+                    lb.set_markup(text_markup(text, chat.notes))
                 lb.connect("activate-link", self._link)
                 lb.add_css_class("hk-bubble-text")
                 b.append(lb)
-                acc.append(NOTE_RX.sub("📄", text))
+                plain = K.plain_mentions(text, cm, (chat.me or {}).get("name")) if K.has(K.MENTION) else text
+                acc.append(NOTE_RX.sub("📄", K.strip(plain) if K.has(K.FMT) else plain))
+                if K.has(K.MENTION) and K.mentions_me(cm, text):
+                    b.add_css_class("hk-mention-me")
+            pv = K.preview_of(m.get("body")) if K.has(K.UNFURL) else None
+            if pv:                                       # (2.5, unfurl1) Vorschau aus der Nachricht (nichts nachladen)
+                b.append(self._preview_card(pv))
+                acc.append(pv.get("title") or pv["url"])
             for f in m.get("files") or []:
                 b.append(self._file(f))
                 acc.append(_("Voice message") + " " + voice.fmt(f.get("dur")) if f.get("voice") else f.get("n") or _("File"))
@@ -1577,6 +1653,83 @@ class Conversation(Gtk.Box):
                    and (self._msg_menu(b, m), True)[1])
         b.add_controller(kc)
         return row
+
+    def _preview_card(self, pv, closable=None):
+        """Karte der Linkvorschau: Bild (verschluesselter Anhang), Seite, Titel, Beschreibung; Klick oeffnet die Adresse"""
+        card = Gtk.Box(spacing=8)
+        card.add_css_class("hk-unf-card")
+        if pv.get("img"):
+            pic = Gtk.Picture(content_fit=Gtk.ContentFit.COVER, width_request=64, height_request=64, valign=Gtk.Align.START)
+            chatmedia.request(self.cid, dict(pv["img"], n="preview.jpg"), lambda t, _wh: t is not None and pic.set_paintable(t))
+            card.append(pic)
+        elif pv.get("tex") is not None:
+            card.append(Gtk.Picture(paintable=pv["tex"], content_fit=Gtk.ContentFit.COVER, width_request=64, height_request=64,
+                                    valign=Gtk.Align.START))
+        col = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, hexpand=True)
+        if pv.get("site"):
+            col.append(_lbl(pv["site"], ("caption", "dim-label"), wrap=False, ellipsize=Pango.EllipsizeMode.END))
+        if pv.get("title"):
+            col.append(_lbl(pv["title"], ("heading",), lines=2, ellipsize=Pango.EllipsizeMode.END))
+        if pv.get("desc"):
+            col.append(_lbl(pv["desc"], ("caption",), lines=3, ellipsize=Pango.EllipsizeMode.END))
+        card.append(col)
+        if closable is not None:
+            x = flat_button(icon="window-close-symbolic", tooltip=_("Remove preview"), cb=closable)
+            x.set_valign(Gtk.Align.START)
+            card.append(x)
+            return card
+        btn = Gtk.Button(child=card, tooltip_text=pv["url"])
+        btn.add_css_class("flat")
+        btn.add_css_class("hk-unf-msg")
+        btn.connect("clicked", lambda *_: self.win.open_uri(pv["url"]))
+        return btn
+
+    def _pins(self):
+        """(2.5, msgpin1) Leiste der angehefteten Nachrichten (neueste zuerst, Klick: hinspringen, dann die naechste)"""
+        c = chat.chat(self.cid) or {}
+        ids = [x for x in c.get("pins") or [] if isinstance(x, str)] if K.has(K.MSGPIN) else []
+        self.pin_bar.set_visible(bool(ids))
+        if not ids:
+            return
+        i = min(self.pin_i, len(ids) - 1)
+        mid = ids[len(ids) - 1 - i]
+        m = next((x for x in (chat.cache.get(self.cid) or {}).get("msgs") or [] if x.get("id") == mid), None)
+        head = _("Pinned ({i}/{n})").format(i=i + 1, n=len(ids)) if len(ids) > 1 else _("Pinned")
+        if m is not None:
+            t = K.strip(K.plain_mentions(snippet(m), c, (chat.me or {}).get("name")))
+            body = (((m.get("sender") or {}).get("name") or "") + ": " if (m.get("sender") or {}).get("name") else "") + t
+        else:
+            body = _("Older message")
+        self.pin_label.set_label(head + "\n" + body)
+        self.pin_mid = mid
+        self.pin_x.set_visible(K.rights(c)["pin"])
+
+    def _pin_jump(self):
+        c = chat.chat(self.cid) or {}
+        ids = c.get("pins") or []
+        row = self.rows_by_id.get(getattr(self, "pin_mid", None))
+        if row is not None:
+            ok, rect = row.compute_bounds(self.msgs)
+            if ok:
+                adj = self.scroll.get_vadjustment()
+                adj.set_value(max(0, rect.get_y() - adj.get_page_size() / 3))
+            row.add_css_class("hk-flash")
+            GLib.timeout_add(1200, lambda: (row.remove_css_class("hk-flash"), False)[1])
+        else:
+            _toast(self.win, _("The message isn't loaded yet – scroll further up."))
+        if len(ids) > 1:
+            self.pin_i = (self.pin_i + 1) % len(ids)
+            self._pins()
+
+    def _pin_drop(self):
+        mid = getattr(self, "pin_mid", None)
+        if mid:
+            self.pin_msg(mid, False)
+
+    def pin_msg(self, mid, on):
+        self.pin_i = 0
+        chat.pin_msg(self.cid, mid, on, done=lambda _p: _toast(self.win, _("Pinned.") if on else _("Unpinned.")),
+                     error=lambda e: _toast(self.win, str(e)))
 
     def _fill_rx(self, row, m):
         """Chips einer Zeile neu (nur der Bereich unter der Blase; die Blase bleibt - siehe _update_rx)"""
@@ -1651,8 +1804,22 @@ class Conversation(Gtk.Box):
         if m.get("mine") and c.get("kind") != "dm" and isinstance(S.tick(chat.me, c, m, chat.rcpts.get(self.cid)), tuple) \
                 and S.rc_ok(chat.me, c):                 # (2.4) Gruppe: wer hat gelesen
             ents.append((_("Read by …"), lambda: self.read_by(m)))
+        std = K.rights(c)
+        if m.get("state") in ("ok", "unverified") and not m.get("fstate"):    # (2.5) Anheften, Auswahl, Weiterleiten
+            if std["pin"]:
+                pinned = m.get("id") in (c.get("pins") or [])
+                ents.append((_("Unpin") if pinned else _("Pin"), lambda: self.pin_msg(m["id"], not pinned)))
+        if not m.get("mine") and m.get("sender") and m.get("state") != "undecryptable":
+            tg = K.block_target(c, m)
+            if std["block"] and tg and c.get("kind") != "dm" and not K.grp_blocked(c, m) and not is_remote(c):
+                nm = (m.get("sender") or {}).get("name") or "?"
+                ents.append((_("Block {name}").format(name=nm), lambda: SV.block_person(self.win, self.win, tg, nm), True))
+            if std["report"]:
+                ents.append((_("Report …"), lambda: SV.ReportDialog(self.win, c, [m]).present(self.win)))
         if m.get("mine"):
             ents += [None, (_("Delete for everyone"), lambda: self._ask_delete(m), True)]
+        elif std["moderate"] and m.get("sender"):        # (2.5, moddel1) Admin loescht fremde Nachricht fuer alle
+            ents += [None, (_("Delete (admin)"), lambda: self._ask_mod_delete(m), True)]
         if not ents:
             return None
         # (2.5) Das Menue haengt an der Unterhaltung (dauerhaft), nicht an der Blase: die wird bei Reaktionen und Bearbeitungen
@@ -1824,6 +1991,13 @@ class Conversation(Gtk.Box):
     def voice_stop_all(self):
         for vv in self.voice_views.values():
             vv.stop()
+
+    def _ask_mod_delete(self, m):
+        from .publish import confirm
+        name = (m.get("sender") or {}).get("name") or "?"
+        confirm(self.win, _("Delete message for everyone?"),
+                _("As an admin you delete {name}'s message for everyone. The chat keeps the note “Deleted by an admin”.").format(name=name),
+                _("Delete"), lambda: chat.mod_delete(self.cid, m["id"], error=lambda e: _toast(self.win, str(e))))
 
     def _ask_delete(self, m):
         from .publish import confirm
@@ -2387,9 +2561,22 @@ class Conversation(Gtk.Box):
         if c.get("kind") == "page" and c.get("note_id"):
             ents.append((_("Open page"), lambda: self.win.show_page(int(c["note_id"]))))
         ents.append((_("Search in this chat"), self.toggle_search))
+        if K.has(K.MEDIA):                               # (2.5, chatmedia1)
+            ents.append((_("Media, files, links"), lambda: SV.MediaDialog(self, self.cid).present(self.win)))
         ents.append(None)
-        ents.append((_("Unmute") if c.get("muted") else _("Mute"),
-                     lambda: chat.patch(self.cid, {"muted": not c.get("muted")}, error=lambda e: _toast(self.win, str(e)))))
+        ents += SV.mute_entries(self.win, c)               # (2.5, mute2) Dauer und Mitteilungen; sonst wie bisher
+        ents += SV.list_entries(self.win, c, self.screen)  # (2.5) Anheften, ungelesen, ausblenden
+        pt = K.dm_peer_target(c) if K.has(K.BLOCK2) and not is_remote(c) else None
+        if pt:                                             # (2.5, block2) Direkt-Chat: sperren / entsperren
+            if pt[2]:
+                ents.append((_("Unblock"), lambda: SV.unblock_person(self.win, pt[0])))
+            else:
+                ents.append((_("Block {name}").format(name=pt[1]), lambda: SV.block_person(self.win, self.win, pt[0], pt[1]), True))
+        if K.has(K.REPORT) and c.get("kind") == "dm":     # (2.5, report1) die letzten fremden Nachrichten
+            last = [m for m in (chat.cache.get(self.cid) or {}).get("msgs") or []
+                    if not m.get("mine") and m.get("state") in ("ok", "unverified")][-5:]
+            if last:
+                ents.append((_("Report …"), lambda: SV.ReportDialog(self.win, c, last).present(self.win)))
         cur = int(c.get("retention_s") or 0)
         sub = [(("✓ " if s == cur else "") + retention_label(s),
                 lambda s=s: chat.patch(self.cid, {"retention_s": s}, error=lambda e: _toast(self.win, str(e))))
@@ -3071,9 +3258,10 @@ class ChatInfoDialog(Adw.Dialog):
             row.add_suffix(rm)
         return row
 
-    def _add(self, u, handle=None):
+    def _add(self, u, handle=None, role=None):
         """Person hinzufuegen: Konto hier ({user}) bzw. Person eines anderen Servers ({handle}, 2.3, laeuft ueber das Heim).
-        Gruppe ueber Servergrenzen: danach den Namen neu senden (die neue Person kann den alten nicht lesen)."""
+        Gruppe ueber Servergrenzen: danach den Namen neu senden (die neue Person kann den alten nicht lesen).
+        Seiten-Chat (2.5): role = Rolle der neuen Freigabe (view/comment/edit)."""
         def fin(j):
             ch = (j or {}).get("chat")
             if isinstance(ch, dict):
@@ -3084,6 +3272,8 @@ class ChatInfoDialog(Adw.Dialog):
             else:
                 bg(chat.recipients, self.cid, True, done=self._rc, error=lambda e: None)
         body = {"handle": handle} if handle else {"user": u}
+        if role:
+            body["role"] = role
         bg(client.json, "POST", f"api/chats/{self.cid}/members", body, done=fin, error=lambda e: self.add_toast(Adw.Toast(title=GLib.markup_escape_text(str(e)))))
 
     def _resend_title(self):
@@ -3179,6 +3369,7 @@ class GroupInfoDialog(ChatInfoDialog):
     Archivieren, Gruppe verlassen. group/page: nur lesend mit Hinweis. Live: chat.changed zeichnet neu."""
     __gtype_name__ = "HKGroupInfoDialog"
     head_group = members_group = foot_group = add_box = name_row = None
+    std_groups = ()
 
     def __init__(self, win, cid):
         super().__init__(win, cid)
@@ -3207,18 +3398,20 @@ class GroupInfoDialog(ChatInfoDialog):
         for g in (self.head_group, self.members_group, self.add_group, self.foot_group):
             if g is not None and g.get_parent() is not None:
                 self.page.remove(g)
+        for g in self.std_groups:
+            if g.get_parent() is not None:
+                self.page.remove(g)
+        self.std_groups = []
         c = chat.chat(self.cid) or {}
         kind = c.get("kind")
         rights = gi_rights(c)
+        std = K.rights(c)                                  # (2.5 Chat-Standard) nur mit den Features des Servers
+        can_add = K.can_add_members(c)
         n = int(c.get("member_count") or len(c.get("members") or []))
-        # Kopf: Avatar, Name, Art
+        # Kopf: Avatar (Gruppenbild), Name, Art
         self.head_group = Adw.PreferencesGroup()
         hb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, halign=Gtk.Align.CENTER, margin_bottom=6)
-        from .sharing import people_icon
-        av = Adw.Avatar(size=64, text=chat.title(c), show_initials=kind == "free")
-        if kind != "free":
-            av.set_icon_name(people_icon())
-        hb.append(av)
+        hb.append(SV.head_avatar(self, c, std))
         self.title_lbl = _lbl(chat.title(c), ("title-2",), xalign=0.5, justify=Gtk.Justification.CENTER)
         hb.append(self.title_lbl)
         kl = chat.kind_label(c) + (" „" + str(c.get("group")) + "“" if kind == "group" and c.get("group") else "")
@@ -3236,7 +3429,9 @@ class GroupInfoDialog(ChatInfoDialog):
         else:
             self.name_row = None
         notes = []
-        if kind in ("group", "page"):
+        if kind in ("group", "page") and server_has(K.PAGE_MEMBERS):
+            notes.append(K.members_hint(c))
+        elif kind in ("group", "page"):
             notes.append(_("Here, members come from the group or from the page's shares."))
         home = chat_home_hint(c)
         if home:
@@ -3247,9 +3442,17 @@ class GroupInfoDialog(ChatInfoDialog):
             nl = _lbl(t, ("dim-label", "caption", "hk-gi-note"), margin_top=6)
             self.head_group.add(nl)
         self.page.add(self.head_group)
+        if kind == "free":                                 # (2.5, groupinfo2) Beschreibung, Gruppenrechte
+            for g in (SV.desc_group(self, c, std), SV.perms_group(self, c, std)):
+                if g is not None:
+                    self.page.add(g)
+                    self.std_groups.append(g)
+            if not std["edit_info"] and c.get("perm_info") == "admins" and server_has(K.GROUPINFO2):
+                self.head_group.add(_lbl(_("Only admins change name, picture and description."), ("dim-label", "caption", "hk-gi-note"),
+                                         margin_top=6))
         # Mitglieder
         self.members_group = Adw.PreferencesGroup(title=GLib.markup_escape_text(ngettext("{n} member", "{n} members", n).format(n=n)))
-        if kind == "free" and rights["manage"]:
+        if can_add:
             add = _button(None, ("flat",), self._toggle_add, valign=Gtk.Align.CENTER,
                           child=Adw.ButtonContent(icon_name="list-add-symbolic", label=_("Add member")))
             self.add_btn = add
@@ -3259,16 +3462,24 @@ class GroupInfoDialog(ChatInfoDialog):
             self.members_group.add(self._member_row(c, m, fed))
         self.page.add(self.members_group)
         # Mitglied hinzufuegen (bleibt beim Neuzeichnen samt Eingabe erhalten)
-        if kind == "free" and rights["manage"]:
+        if can_add:
             if self.add_group is None:
-                self._make_add()
+                self._make_add(page=kind == "page")
             self.page.add(self.add_group)
         else:
             self.add_group = None
-        # unten: Stummschalten, Archivieren, Verlassen
+        # unten: Stummschalten (Dauer, Mitteilungen), Medien, Archivieren, Verlassen
         from .publish import button_row
         self.foot_group = Adw.PreferencesGroup()
-        self.foot_group.add(button_row(_("Unmute") if c.get("muted") else _("Mute"), self._mute))
+        if std["mute2"]:
+            mr = button_row(K.mute_label(c), lambda: menu_popover(self.mute_row, SV.mute_entries(
+                self.win, chat.chat(self.cid) or c, self._toast)[0][1]).popup())
+            self.mute_row = mr
+            self.foot_group.add(mr)
+        else:
+            self.foot_group.add(button_row(_("Unmute") if c.get("muted") else _("Mute"), self._mute))
+        if std["media"]:
+            self.foot_group.add(button_row(_("Media, files, links"), lambda: SV.MediaDialog(self.win, self.cid).present(self)))
         if chat.can_archive(c):
             self.foot_group.add(button_row(_("Unarchive") if c.get("archived") else _("Archive"), self._archive))
         if kind == "free":
@@ -3300,6 +3511,26 @@ class GroupInfoDialog(ChatInfoDialog):
             ents.append((_("Remove as admin"), lambda m=m: self._admin(m, False)))
         if "remove" in acts:
             ents.append((_("Remove from group"), lambda m=m: self._ask_remove(m), True))
+        pa = K.page_member_action(c, m)                    # (2.5, pagechatmembers1) Seiten-Chat: Freigabe entziehen
+        if pa and pa[0] == "remove":
+            acts = acts + ["page_remove"]
+            ents.append((_("Remove from chat"), lambda m=m: self._ask_remove_page(m), True))
+        elif pa:
+            acts = acts + ["page_off"]
+            row.hk_why = pa[1]
+            ents.append((_("Remove from chat") + " – " + pa[1], None))
+        tg = gi_handle(m)
+        if K.has(K.BLOCK2) and not mine and tg and not is_remote(c):     # (2.5, block2) Konten dieses Servers
+            if m.get("blocked"):
+                acts = acts + ["unblock"]
+                ents.append((_("Unblock"), lambda tg=tg: SV.unblock_person(self.win, tg, self._toast)))
+            else:
+                acts = acts + ["block"]
+                ents.append((_("Block {name}").format(name=name), lambda tg=tg, nm=name: SV.block_person(self, self.win, tg, nm, self._toast),
+                             True))
+        if m.get("blocked"):
+            b = _lbl(_("Blocked"), ("hk-badge", "hk-gi-blocked"), wrap=False, valign=Gtk.Align.CENTER)
+            row.add_suffix(b)
         row.hk_actions = acts
         if ents:
             row.add_suffix(_more_button(_("Actions for {name}").format(name=name), lambda e=ents: e))
@@ -3340,6 +3571,20 @@ class GroupInfoDialog(ChatInfoDialog):
         confirm(self, _("Remove {name} from the group?").format(name=name),
                 _("{name} will no longer receive new messages from this group.").format(name=name), _("Remove"), go)
 
+    def _ask_remove_page(self, m):
+        """(2.5) Seiten-Chat: direkte Freigabe entziehen (DELETE .../members/{who}); 409 nennt, woher der Zugriff kommt"""
+        from .publish import confirm
+        name = m.get("name") or "?"
+
+        def go():
+            def fin(_r):
+                self._toast(_("{name} was removed.").format(name=name))
+                chat.load_chat(self.cid)
+            bg(client.request, "DELETE", f"api/chats/{self.cid}/members/{GLib.Uri.escape_string(m['username'], None, True)}", done=fin,
+               error=lambda e: self._toast(e))
+        confirm(self, _("Remove {name} from the page chat?").format(name=name),
+                _("{name}'s access to the page will be revoked.").format(name=name), _("Remove"), go)
+
     def _mute(self):
         c = chat.chat(self.cid) or {}
         chat.patch(self.cid, {"muted": not c.get("muted")}, error=lambda e: self._toast(e))
@@ -3350,10 +3595,19 @@ class GroupInfoDialog(ChatInfoDialog):
         chat.set_archived(self.cid, on, done=lambda _ch: chat.load_chat(self.cid), error=lambda e: self._toast(e))
 
     # --- Mitglied hinzufuegen ---
-    def _make_add(self):
+    def _make_add(self, page=False):
         from .sharing import search_min
         self.add_group = Adw.PreferencesGroup(title=_("Add member"))
         self.add_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8, visible=False)
+        self.role_row = None
+        if page:                                           # (2.5, pagechatmembers1) Hinzufuegen teilt die Seite
+            self.add_box.append(_lbl(_("The page will be shared with this person."), ("dim-label", "hk-gi-phint")))
+            lbr = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
+            lbr.add_css_class("boxed-list")
+            labels = K.page_role_labels()
+            self.role_row = Adw.ComboRow(title=_("Role on the page"), model=Gtk.StringList.new([labels[r] for r in K.PAGE_ROLES]))
+            lbr.append(self.role_row)
+            self.add_box.append(lbr)
         lb0 = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE)
         lb0.add_css_class("boxed-list")
         self.add_en = Adw.EntryRow(title=_("Search person") if search_min() == 1 else _("Add person (3+ characters)"))
@@ -3440,7 +3694,8 @@ class GroupInfoDialog(ChatInfoDialog):
         bg(client.get, "api/chat/people?q=" + GLib.Uri.escape_string(q, None, True), done=show, error=lambda e: self._toast(e))
 
     def _add(self, u, handle=None):
-        super()._add(u, handle)
+        role = K.PAGE_ROLES[self.role_row.get_selected()] if getattr(self, "role_row", None) is not None else None
+        super()._add(u, handle, role=role)
         if self.add_box is not None:
             self.add_en.set_text("")
 
@@ -4103,7 +4358,7 @@ class ChatDevicesPage(Adw.PreferencesPage):
     def _blocks_group(self):
         """(2.3) Gesperrt: Personen bzw. ganze Server anderer Saga-Instanzen - von dort kommen keine Anfragen mehr.
         Aeltere Server (ohne /api/chat/blocks): Bereich bleibt weg."""
-        g = Adw.PreferencesGroup(title=_("Blocked (other Saga servers)"), visible=False)
+        g = Adw.PreferencesGroup(title=_("Blocked people") if K.has(K.BLOCK2) else _("Blocked (other Saga servers)"), visible=False)
         self.add(g)
         self.groups.append(g)
 
@@ -4118,9 +4373,10 @@ class ChatDevicesPage(Adw.PreferencesPage):
             for b in lst:
                 inst = b.get("kind") == "instance"
                 r = Adw.ActionRow(title=GLib.markup_escape_text(str((b.get("host") if inst else b.get("label") or b.get("name")) or "?")),
-                                  subtitle=_("whole server") if inst else _("Person"))
+                                  subtitle=_("whole server") if inst else _("Person on this server") if b.get("local") else _("Person"))
                 r.add_suffix(_button(_("Unblock"), (), lambda b=b, r=r: self._unblock(g, b, r), valign=Gtk.Align.CENTER))
                 g.add(r)
+        watch_chat(g, "blocks", lambda: (self._fed.pop("blocks", None), self.fill()))     # (2.5) Live chat.blocks
         if "blocks" in self._fed:
             show(self._fed["blocks"])
         elif not self._fed.get("blocks_off"):                 # aeltere Server: einmal fragen, dann nicht mehr

@@ -196,6 +196,9 @@ def menu_popover(parent, entries):
                 btn = Gtk.Button(child=bx)
                 btn.add_css_class("flat")
                 btn.connect("clicked", lambda *_, s=sub: stack.set_visible_child_name(s))
+            elif act is None:                         # ausgegraut mit Erklaerung (Text enthaelt den Grund)
+                btn = Gtk.Button(child=Gtk.Label(label=text, xalign=0, wrap=True, max_width_chars=40), sensitive=False)
+                btn.add_css_class("flat")
             else:
                 btn = Gtk.Button(child=Gtk.Label(label=text, xalign=0))
                 btn.add_css_class("flat")

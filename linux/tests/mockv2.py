@@ -13,6 +13,7 @@ import secrets
 import time
 
 import mockki
+import mockstd
 import mockv24
 from hlidskjalf import chatcrypto as C
 
@@ -416,7 +417,7 @@ def _chat_dict(s, ch, me, device=None):
             if tm and (device in tm["keys"] or "backup:" + me in tm["keys"]):
                 devs, ids = _senders(s, [tm])
                 d["title_msg"] = dict(_msg_api(s, tm, me, device), device=devs.get(tm["sender_device"]), ident_pub=ids.get(tm["sender"]))
-    return mockki.chat_fields(s, ch, d)
+    return mockstd.chat_fields(s, ch, me, mockki.chat_fields(s, ch, d), device)
 
 
 def _chat_api(s, method, path, parts, q, b, raw):
@@ -521,8 +522,10 @@ def _chat_api(s, method, path, parts, q, b, raw):
     if path == "api/chats" and method == "GET":
         lst = [c for c in s.chats.values() if me in c["members"] and (not s.chat_manage_api or listed(s, c, me))]
         lst.sort(key=lambda c: -(c["msgs"][-1]["created"] if c["msgs"] else c["created"]))
+        lst, n_hid = mockstd.list_filter(s, me, lst, q)
         out = [_chat_dict(s, c, me, q.get("device")) for c in lst]
-        return s._reply(200, {"chats": out, "unread": sum(c["unread"] for c in out if not c["muted"] and not c.get("archived"))})
+        return s._reply(200, {"chats": out, "unread": sum(c["unread"] for c in out if not c["muted"] and not c.get("archived")),
+                              "hidden_count": n_hid})
     if path == "api/chats/unread":
         out = [_chat_dict(s, c, me) for c in s.chats.values() if me in c["members"]]
         return s._reply(200, {"enabled": s.chat_enabled, "unread": sum(c["unread"] for c in out if not c["muted"] and not c.get("archived"))})
@@ -558,13 +561,17 @@ def _chat_api(s, method, path, parts, q, b, raw):
             code, obj = delete_chat(s, ch, me, scope)
             return s._reply(code, obj)
         if not rest and method == "PATCH":
+            bad = mockstd.patch(s, ch, me, b)
+            if bad is not None:
+                return bad
             if "archived" in b and s.chat_manage_api:                      # (2.1)
                 if not isinstance(b["archived"], bool):
                     return s._reply(400, {"error": "ungültige Angabe"})
                 _pref(ch, me)["archived"] = time.time() if b["archived"] else None
                 push_event(s, "chat.changed", {"chat_id": cid, "archived": b["archived"]})
-            if "muted" in b:
-                (ch["muted"].add if b["muted"] else ch["muted"].discard)(me)
+            if "muted" in b or "muted_until" in b:
+                mu = b.get("muted", b.get("muted_until") not in (0, None))
+                (ch["muted"].add if mu else ch["muted"].discard)(me)
             if "retention_s" in b:
                 ch["retention_s"] = b["retention_s"]
             return s._reply(200, {"chat": _chat_dict(s, ch, me)})
@@ -575,6 +582,7 @@ def _chat_api(s, method, path, parts, q, b, raw):
             dev = q.get("device") or "-"
             cl = _pref(ch, me)["cleared"] if s.chat_manage_api else 0
             msgs = [m for m in ch["msgs"] if m["kind"] == "msg" and m["seq"] > cl and (dev in m["keys"] or "backup:" + me in m["keys"])]
+            msgs = mockstd.msgs_filter(s, ch, me, q, msgs)
             if q.get("after"):
                 msgs = [m for m in msgs if m["seq"] > int(q["after"])]
             elif q.get("before"):
@@ -583,7 +591,9 @@ def _chat_api(s, method, path, parts, q, b, raw):
             more = len(msgs) > lim
             msgs = msgs[-lim:] if not q.get("after") else msgs[:lim]
             devs, ids = _senders(s, msgs)
-            return s._reply(200, {"chat_id": cid, "messages": [_msg_api(s, m, me, dev) for m in msgs], "more": more, "devices": devs,
+            tb = [t for t in mockstd.tombs(s, ch, q) if not msgs or t["seq"] >= msgs[0]["seq"]]
+            out = sorted([_msg_api(s, m, me, dev) for m in msgs] + tb, key=lambda x: x["seq"])
+            return s._reply(200, {"chat_id": cid, "messages": out, "more": more, "devices": devs,
                                   "idents": ids, "last_read": ch["last_read"].get(me, 0),
                                   "last_seq": max([m["seq"] for m in ch["msgs"]] or [0])})
         if rest == ["messages"] and method == "POST":
@@ -599,7 +609,11 @@ def _chat_api(s, method, path, parts, q, b, raw):
             bad, ai_meta = mockki.on_send(s, cid, b)
             if bad is not None:
                 return bad
+            bad = mockstd.on_send(s, ch, b, b.get("kind") or "msg")
+            if bad is not None:
+                return bad
             m = _store_msg(s, cid, me, b, b.get("kind") or "msg", b.get("files"))
+            mockstd.after_store(s, ch, m, b.get("kind") or "msg")
             if ai_meta:
                 m["ai"] = ai_meta
             return s._reply(200, {"ok": True, "seq": m["seq"], "created": m["created"], "expires_at": None})
@@ -612,6 +626,7 @@ def _chat_api(s, method, path, parts, q, b, raw):
             ch["msgs"].remove(m)
             return s._reply(200, {"ok": True})
         if rest == ["read"]:
+            mockstd.on_read(s, ch, me)
             ch["last_read"][me] = max(ch["last_read"].get(me, 0), int(b.get("seq") or 0))
             out = [_chat_dict(s, c, me) for c in s.chats.values() if me in c["members"]]
             return s._reply(200, {"ok": True, "last_read": ch["last_read"][me],
@@ -695,6 +710,9 @@ def handle(s, method, path, parts, q, b, raw):
         if not s.chat_api:
             return s._reply(404, {"error": "not found"})
         r = mockv24.handle(s, method, path, parts, q, b)               # (2.4) Gelesen, Online, Datenschutz
+        if r is not None:
+            return r
+        r = mockstd.handle(s, method, path, parts, q, b)               # (2.5) Chat-Standard
         if r is not None:
             return r
         r = _chat_api(s, method, path, parts, q, b, raw)

@@ -726,6 +726,8 @@ class ChatState(GObject.Object):
         "contacts": (GObject.SignalFlags.RUN_FIRST, None, ()),              # (2.5) Kontakte geaendert (anderes Geraet)
         "reactions": (GObject.SignalFlags.RUN_FIRST, None, (int,)),         # (2.5) Reaktionen in einem Chat geaendert
         "presence": (GObject.SignalFlags.RUN_FIRST, None, ()),              # (2.4) Online-Status geaendert
+        "blocks": (GObject.SignalFlags.RUN_FIRST, None, ()),                # (2.5) Sperrliste geaendert
+        "group-avatar": (GObject.SignalFlags.RUN_FIRST, None, (int,)),      # (2.5) Gruppenbild eines Chats geladen
     }
 
     def __init__(self):
@@ -762,6 +764,7 @@ class ChatState(GObject.Object):
         self.my_handle = None      # eigener foederierter Handle (2.3), sobald bekannt
         self.fk = {}               # Handle -> {"keys": gepruefte Schluessel | None, "trust", "stale", "stored"} (2.3)
         self.requests = 0          # Nachrichtenanfragen (2.3)
+        self.hidden_count = 0      # (2.5, chathide1) ausgeblendete Gruppen-/Seiten-Chats
         # (2.4) Gelesen-Bestaetigungen und Online-Status
         self.rcpts = {}            # chat-id -> {von: {"n", "id", "ts"}} (geprueft, je Person das groesste n)
         self.rc_sent = {}          # chat-id -> zuletzt bestaetigte Position
@@ -1058,6 +1061,8 @@ class ChatState(GObject.Object):
                 self._note_ref(c)
             h2u_note(self.uid, self.chats)                 # (2.5) Handle -> Benutzername fuer die Vertrauens-Uebernahme
             self._free_titles(self.chats)
+            self._grp_info(self.chats)
+            self.hidden_count = int(j.get("hidden_count") or 0)
             self.unread = int(j.get("unread") or 0)
             self.requests = int(j.get("requests") or 0)
             self._chats_at = time.monotonic()
@@ -1127,6 +1132,73 @@ class ChatState(GObject.Object):
             return (body or {}).get("title") if isinstance(body, dict) and body.get("type") == "title" else None
         except C.CryptoError:
             return None
+
+    def _ctl_of(self, cid, tm):
+        """Steuer-Nachricht v1 (title/desc/avatar) oeffnen - nur mit gueltiger Signatur -> Inhalt | None"""
+        try:
+            body, ok = self._open(cid, tm, tm.get("device"), tm.get("ident_pub"))
+        except (C.CryptoError, KeyError, TypeError, ValueError):
+            return None
+        return body if ok and isinstance(body, dict) else None
+
+    def _ctl_v2(self, ch, tm):
+        """Steuer-Nachricht v2 (2.5 Stufe 3/ueber Servergrenzen): Signatur v2 mit selbst geprueftem Geraet -> Inhalt | None"""
+        f = self.fk.get(tm.get("sender_handle") or "")
+        k = self.keys
+        if not k or not f or not f.get("keys") or f.get("trust") == "reject":
+            return None
+        ref = ch.get("ref") or ""
+        d = next((x for x in f["keys"]["devices"] if x.get("id") == tm.get("sender_device")), None)
+        try:
+            if d is None or not C.sig_ok_v2(ref, tm, C.unb64(d["sign_pub"], 32)):
+                return None
+            if tm.get("key_for") == "backup":
+                body = C.decrypt_v2(ref, tm, k["backup_pk"], k["backup_sk"])
+            else:
+                body = C.decrypt_v2(ref, tm, k["device"]["enc_pk"], k["device"]["enc_sk"])
+        except (C.CryptoError, KeyError, TypeError, ValueError):
+            return None
+        return body if isinstance(body, dict) else None
+
+    def _grp_info(self, chats):
+        """(2.5, groupinfo2) Beschreibung und Gruppenbild freier Gruppen aus desc_msg/avatar_msg (verschluesselte Steuer-
+        Nachrichten, Signatur geprueft) -> c["_desc"], c["_avf"] (Anhang-Eintrag | None)"""
+        if not server_has("groupinfo2"):
+            return
+        from .chatstd import DESC_MAX
+        need = []
+        for c in chats:
+            if c.get("kind") != "free":
+                continue
+            for key, typ in (("desc_msg", "desc"), ("avatar_msg", "avatar")):
+                tm = c.get(key)
+                if not isinstance(tm, dict):
+                    c.pop("_desc" if typ == "desc" else "_avf", None)
+                    continue
+                if is_fed(c) and tm.get("sender_handle"):
+                    if tm["sender_handle"] not in self.fk and self._handle_ok(tm["sender_handle"]):
+                        need.append(tm["sender_handle"])
+                        continue
+                    body = self._ctl_v2(c, tm)
+                else:
+                    body = self._ctl_of(c["id"], tm)
+                if not body or body.get("type") != typ:
+                    continue
+                if typ == "desc":
+                    c["_desc"] = str(body.get("desc") or "")[:DESC_MAX]
+                else:
+                    f = body.get("file")
+                    c["_avf"] = f if isinstance(f, dict) and f.get("id") and f.get("k") else None
+        if need:
+            def fin(_r):
+                hit = [c for c in self.chats if c.get("kind") == "free" and any(
+                    isinstance(c.get(k), dict) and c[k].get("sender_handle") in need for k in ("desc_msg", "avatar_msg"))]
+                if hit:
+                    self._grp_info(hit)
+                    for c in hit:
+                        self.emit("chat-changed", c["id"])
+                    self.emit("changed")
+            bg(self.fed_keys, list(set(need)), done=fin, error=lambda e: None)
 
     def _title_v2(self, ch, tm):
         """Name einer Gruppe ueber Servergrenzen (2.3): v2-Nachricht kind 'title' - Absender-Geraet aus den selbst
@@ -2355,13 +2427,16 @@ class ChatState(GObject.Object):
     def _merge(self, ch):
         self._note_ref(ch)
         h2u_note(self.uid, [ch])
+        if "_desc" not in ch and "_avf" not in ch:
+            self._grp_info([ch])
         old = self.chat(ch.get("id"))
         if old is not None and old is not ch:                # eben neu aufgenommen (dasselbe dict): nichts zu mischen,
-            t = old.get("_title")                            # clear() wuerde es leeren (BUG-030)
+            keep = {k: old[k] for k in ("_title", "_desc", "_avf") if k in old}   # clear() wuerde es leeren (BUG-030)
             old.clear()
             old.update(ch)
-            if t and "_title" not in ch:
-                old["_title"] = t
+            for k, v in keep.items():
+                if k not in ch and (k == "_title" or isinstance(ch.get("desc_msg" if k == "_desc" else "avatar_msg"), dict)):
+                    old[k] = v
         self.emit("chat-changed", ch.get("id"))
         self.emit("changed")
         self._pres_check()
@@ -2543,6 +2618,7 @@ class ChatState(GObject.Object):
             if isinstance(ch, dict):
                 self._note_ref(ch)
                 self._free_titles([ch])
+                self._grp_info([ch])
                 if self.chat(cid) is None:
                     self.chats.insert(0, ch)
                 self._merge(ch)
@@ -2567,6 +2643,7 @@ class ChatState(GObject.Object):
             ch = (j or {}).get("chat")
             if isinstance(ch, dict):
                 self._free_titles([ch])
+                self._grp_info([ch])
                 self._merge(ch)
             if done:
                 done(ch)
