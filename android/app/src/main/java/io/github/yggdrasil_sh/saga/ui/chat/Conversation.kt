@@ -146,6 +146,8 @@ import io.github.yggdrasil_sh.saga.chat.ChatFormat
 import io.github.yggdrasil_sh.saga.chat.ChatMessage
 import io.github.yggdrasil_sh.saga.chat.ChatNoteRef
 import io.github.yggdrasil_sh.saga.chat.ChatSession
+import io.github.yggdrasil_sh.saga.chat.ChatStd
+import io.github.yggdrasil_sh.saga.chat.ChatLogic
 import io.github.yggdrasil_sh.saga.chat.PendingFile
 import io.github.yggdrasil_sh.saga.chat.quietly
 import io.github.yggdrasil_sh.saga.data.SagaRepository
@@ -244,6 +246,9 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         }
     }
     val list = rememberLazyListState()
+    /** angezeigte Nachrichten (neueste zuerst) - fuer den Sprung aus der Pin-Leiste */
+    val shownRef = remember(chatId) { java.util.concurrent.atomic.AtomicReference<List<ChatMessage>>(emptyList()) }
+    val unknownName = stringResource(R.string.std_unknown)
 
     // KI im Chat (2.1, nur auf Zuruf): Server-Schalter + Persona aus /api/ai/status, Chat-Schalter aus summary.ai
     val aiSt by repo.ai.status.collectAsState()
@@ -304,6 +309,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     PresenceWatch(svc.presence, "chat:$chatId", listOfNotNull(peerOnline))
     val presenceLine = presenceText(peerOnline?.let { presenceAll[it] }, chatMe?.statusLimits?.lastRound ?: 300)
     var readBy by remember { mutableStateOf<ChatMessage?>(null) }
+    // 2.5 Chat-Standard: Melden, Sperren, Admin-Loeschen
+    var reportMsgs by remember { mutableStateOf<List<ChatMessage>?>(null) }
+    var blockAsk by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var modDel by remember { mutableStateOf<ChatMessage?>(null) }
+    val std = svc.std
     // 2.5: Reaktionen (volle Emoji-Auswahl, "Reaktionen von …") und Sprachnachrichten (Aufnahme, Vorschau)
     var emojiFor by remember { mutableStateOf<ChatMessage?>(null) }
     var reactionsFor by remember { mutableStateOf<ChatMessage?>(null) }
@@ -441,9 +451,15 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 // 2.5 (chatadm1): Tipp auf den Chat-Kopf -> Gruppeninfo (Direkt-Chats: Mitglieder wie bisher)
                 val infoLabel = stringResource(R.string.gi_open)
                 // aeltere Server (ohne chatadm1): Kopf wie bisher nicht klickbar
-                Column(if (!svc.groupInfoOn) Modifier else Modifier.clickable(onClickLabel = infoLabel) {
+                Row(if (!svc.groupInfoOn) Modifier else Modifier.clickable(onClickLabel = infoLabel) {
                     dialog = if (GroupInfo.usesGroupInfo(s.summary, svc.groupInfoOn)) "groupinfo" else "members"
-                }) {
+                }, verticalAlignment = Alignment.CenterVertically) {
+                // 2.5 (groupinfo2): Gruppenbild im Kopf
+                val headSum = s.summary
+                if (headSum != null && headSum.kind == "free" && std.groupInfo2 && svc.groupExtras.collectAsState().value[headSum.id]?.avatar != null) {
+                    Box(Modifier.padding(end = 8.dp)) { GroupAvatar(repo, headSum, s.name, 32.dp) }
+                }
+                Column {
                     Text(s.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     // Nr. 54: mit Online-Stand steht "Ende-zu-Ende verschluesselt" nur noch als Schloss (und fuer Bedienungshilfen),
                     // sonst schnitt die einzeilige Zeile Server und Hinweis ab
@@ -458,6 +474,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
+                }
                 }
             },
             navigationIcon = {
@@ -483,8 +500,27 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.action_more)) }
                     DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                         val sum = s.summary
+                        val sum0 = sum
                         DropdownMenuItem(text = { Text(stringResource(R.string.cs_select)) }, onClick = { menu = false; selecting = true })
                         DropdownMenuItem(text = { Text(stringResource(R.string.chat_safety_number)) }, onClick = { menu = false; dialog = "safety" })
+                        // 2.5 (block2/report1): Direkt-Chat - Person sperren/entsperren, Melden
+                        if (sum0 != null && sum0.kind == "dm") {
+                            val p = sum0.members.firstOrNull { !it.me } ?: sum0.peer
+                            val tg = ChatStd.blockTarget(p)
+                            if (std.block && tg != null && !sum0.remote) {
+                                if (p?.blocked == true || sum0.blocked) DropdownMenuItem(text = { Text(stringResource(R.string.std_unblock)) }, onClick = {
+                                    menu = false
+                                    repo.launchAction { s.unblock(tg); repo.notify(UiText.Res(R.string.std_unblocked_done)) }
+                                }) else DropdownMenuItem(text = { Text(stringResource(R.string.std_block_name, p?.let { ChatLogic.shown(it) }.orEmpty()), color = MaterialTheme.colorScheme.error) }, onClick = {
+                                    menu = false
+                                    blockAsk = (p?.let { ChatLogic.shown(it) }.orEmpty()) to tg
+                                })
+                            }
+                            if (std.report) {
+                                val last = s.messages.filter { !it.mine && it.content != null && !it.tomb && it.sys == null && it.call == null }.takeLast(5)
+                                if (last.isNotEmpty()) DropdownMenuItem(text = { Text(stringResource(R.string.std_report_menu)) }, onClick = { menu = false; reportMsgs = last })
+                            }
+                        }
                         // 2.5 (chatadm1): Gruppen -> "Gruppeninfo …" (ersetzt "Mitglieder"); Direkt-Chats wie bisher
                         if (GroupInfo.usesGroupInfo(sum, svc.groupInfoOn)) {
                             DropdownMenuItem(text = { Text(stringResource(R.string.gi_menu)) }, onClick = { menu = false; dialog = "groupinfo" })
@@ -545,6 +581,21 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         )
         // Laeuft der Anruf in diesem Chat: zurueck in den Anrufbildschirm (derselbe Anruf, kein neuer Aufbau)
         io.github.yggdrasil_sh.saga.call.ReturnToCallRow(callSt, chatId)
+        // 2.5 (msgpin1): angeheftete Nachrichten oben; Tipp springt hin
+        if (std.msgPin) {
+            val pinRights = s.summary?.let { ChatStd.rights(it, std) }
+            PinBar(
+                s, pinRights?.pin == true,
+                onJump = { mid ->
+                    val idx = shownRef.get().indexOfFirst { it.id == mid }
+                    if (idx >= 0) scope.launch { list.animateScrollToItem(idx + (if (s.aiPending != null) 1 else 0)) }
+                    else repo.notify(UiText.Res(R.string.std_pin_not_loaded))
+                },
+                onUnpin = { mid -> repo.launchAction { s.pin(mid, false); repo.notify(UiText.Res(R.string.std_unpinned_done)) } },
+                nameOf = { senderName(it) },
+                textOf = { m -> previewText(m, s, unknownName) },
+            )
+        }
         if (forwarding) androidx.compose.material3.LinearProgressIndicator(Modifier.fillMaxWidth())
         search?.let { q ->
             OutlinedTextField(
@@ -591,6 +642,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
             val hid = s.hiddenLocal
             s.messages.toList().filter { it.id !in hid && (q.isEmpty() || it.content?.text?.lowercase()?.contains(q) == true) }.asReversed()
         }
+        shownRef.set(shown)
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
           androidx.compose.runtime.CompositionLocalProvider(LocalVideoHost provides videoHost) {
             LazyColumn(Modifier.fillMaxSize().widthIn(max = 900.dp), state = list, reverseLayout = true) {
@@ -606,7 +658,14 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     }
                     val call = m.call
                     val sys = m.sys
-                    if (sys != null) {
+                    if (m.tomb) {
+                        // 2.5 (moddel1): Grabstein
+                        val who = senderName(m)
+                        StdNoteRow("🗑 " + if (who.isNotEmpty()) stringResource(R.string.std_tomb_of, who) else stringResource(R.string.std_tomb))
+                    } else if (!m.mine && std.block && m.id !in s.unblocked && ChatStd.blockedInGroup(s.summary, m.sender, m.senderHandle)) {
+                        // 2.5 (block2): Nachricht einer gesperrten Person eingeklappt
+                        StdNoteRow("⛔ " + stringResource(R.string.std_blocked_msg), stringResource(R.string.std_show)) { s.unblocked = s.unblocked + m.id }
+                    } else if (sys != null) {
                         SysRow(m, sys, s.summary?.myHandle)
                     } else if (call != null) {
                         CallEntryRow(m, call, s.me, canCall) { startCall(it) }
@@ -648,6 +707,7 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                                 } else selected = ChatSelect.toggle(selected, m)
                             }) else null,
                             onMenuAction = { if (selected.size <= 1) endSelection() },
+                            extraMenu = { close -> StdMessageMenu(repo, s, m, close, onReport = { reportMsgs = listOf(m) }, onBlock = { n, t -> blockAsk = n to t }, onModDel = { modDel = m }) },
                         )
                     }
                   }
@@ -705,6 +765,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                     }
                 }
             }
+            return@Column
+        }
+        // 2.5 (groupinfo2/block2): Schreiben nicht erlaubt -> Hinweis statt Eingabefeld
+        s.summary?.let { ChatStd.sendBlockedText(it) }?.let { t ->
+            SendBlockedBar(t)
             return@Column
         }
         // 2.5: im Eingabefeld bearbeiten ("Bearbeiten · Abbrechen")
@@ -903,6 +968,24 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
     }
     }
 
+    // 2.5 Chat-Standard: Melden, Sperren, Admin-Loeschen
+    reportMsgs?.let { ms ->
+        ReportDialog(repo, s, ms, ChatStd.reportPrefill(ms.map { senderName(it) to previewText(it, s, unknownName) })) { reportMsgs = null }
+    }
+    blockAsk?.let { (n, t) -> BlockConfirm(repo, n, t, onBlock = { s.block(it) }) { blockAsk = null } }
+    modDel?.let { m ->
+        AlertDialog(
+            onDismissRequest = { modDel = null },
+            title = { Text(stringResource(R.string.std_moddel_title)) },
+            text = { Text(stringResource(R.string.std_moddel_text, senderName(m).ifEmpty { "?" })) },
+            confirmButton = {
+                TextButton(onClick = { modDel = null; repo.launchAction { s.deleteAsAdmin(m) } }) {
+                    Text(stringResource(R.string.std_delete), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = { TextButton(onClick = { modDel = null }) { Text(stringResource(R.string.action_cancel)) } },
+        )
+    }
     // 2.4: "Gelesen von" einer eigenen Nachricht (Gruppen)
     readBy?.let { m -> ReadByDialog(s.readersOf(m)) { readBy = null } }
     // 2.5: volle Emoji-Auswahl, "Reaktionen von …", Mikrofon dauerhaft abgelehnt
@@ -1248,6 +1331,8 @@ internal fun Bubble(
     selecting: Boolean = false, selected: Boolean = false, onSelect: (() -> Unit)? = null,
     /** Eintrag im Nachrichtenmenue gewaehlt (beendet eine nur per langem Druck begonnene Auswahl) */
     onMenuAction: () -> Unit = {},
+    /** 2.5 Chat-Standard: weitere Eintraege (Anheften, Löschen (Admin), Sperren, Melden); close schliesst das Menue */
+    extraMenu: (@Composable (close: () -> Unit) -> Unit)? = null,
 ) {
     var menu by remember { mutableStateOf(false) }
     val isSel = selecting && selected
@@ -1445,6 +1530,7 @@ internal fun Bubble(
                 if (m.mine) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.chat_delete_all), color = MaterialTheme.colorScheme.error) }, onClick = { menu = false; onMenuAction(); confirmDelete = true })
                 }
+                extraMenu?.invoke { menu = false; onMenuAction() }
             }
         }
         // 2.5: Reaktionen als Chips unter der Blase
@@ -1674,4 +1760,44 @@ private suspend fun chatToPage(repo: SagaRepository, target: Long?, title: Strin
             if (e.code != 409 || ++tries > 1) throw e
         }
     }
+}
+
+/** 2.5 Chat-Standard: Nachrichtenmenue - Anheften/Lösen (can_pin), Löschen (Admin) (can_moderate), Sperren, Melden */
+@Composable
+private fun StdMessageMenu(
+    repo: SagaRepository, s: ChatSession, m: ChatMessage, close: () -> Unit,
+    onReport: () -> Unit, onBlock: (String, String) -> Unit, onModDel: () -> Unit,
+) {
+    val std = repo.chat.std
+    val c = s.summary ?: return
+    if (m.tomb || m.sys != null || m.call != null) return
+    val r = ChatStd.rights(c, std)
+    if (r.pin && m.fstate == null && m.content != null) {
+        val pinned = m.id in c.pins
+        DropdownMenuItem(text = { Text("📌 " + stringResource(if (pinned) R.string.std_unpin else R.string.std_pin)) }, onClick = {
+            close()
+            repo.launchAction { s.pin(m.id, !pinned); repo.notify(UiText.Res(if (pinned) R.string.std_unpinned_done else R.string.std_pinned_done)) }
+        })
+    }
+    if (!m.mine && r.moderate) {
+        DropdownMenuItem(text = { Text(stringResource(R.string.std_moddel), color = MaterialTheme.colorScheme.error) }, onClick = { close(); onModDel() })
+    }
+    if (!m.mine && m.sender != null && c.kind != "dm") {
+        val p = ChatStd.senderOf(c, m.sender, m.senderHandle)
+        val tg = ChatStd.blockTarget(p)
+        if (std.block && tg != null && p?.blocked != true && p?.remote != true) {
+            DropdownMenuItem(text = { Text(stringResource(R.string.std_block_name, senderName(m))) }, onClick = { close(); onBlock(senderName(m), tg) })
+        }
+    }
+    if (!m.mine && m.sender != null && std.report && m.content != null) {
+        DropdownMenuItem(text = { Text(stringResource(R.string.std_report_menu)) }, onClick = { close(); onReport() })
+    }
+}
+
+/** Kurztext einer Nachricht (Pin-Leiste, Melden): Formatierung entfernt, Erwaehnungen als @Name */
+internal fun previewText(m: ChatMessage, s: ChatSession, unknown: String): String {
+    val t = m.content?.text.orEmpty()
+    if (t.isEmpty()) return m.content?.files?.firstOrNull()?.let { "📎 " + it.n }.orEmpty()
+    return ChatStd.plainMentions(io.github.yggdrasil_sh.saga.chat.ChatFmt.strip(t), s.summary, null, unknown)
+        .replace(Regex("\\[\\[note:\\d+\\]\\]"), "📄").replace(Regex("\\s+"), " ").trim()
 }

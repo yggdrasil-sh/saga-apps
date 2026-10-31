@@ -71,6 +71,23 @@ object ChatImages {
         o == ExifInterface.ORIENTATION_TRANSPOSE || o == ExifInterface.ORIENTATION_TRANSVERSE
 
     /** Vorschaubild erzeugen; null = Format unbekannt/kaputt (dann ohne th senden bzw. Datei-Symbol zeigen) */
+    /** 2.5 (groupinfo2): Gruppenbild - quadratisch (Mitte) zugeschnitten, side x side, JPEG (EXIF-Drehung beachtet) */
+    fun squareJpeg(data: ByteArray, side: Int = ChatStd.AVATAR_PX): ByteArray? {
+        val t = makeThumb(data, side * 4) ?: return null
+        val src = BitmapFactory.decodeByteArray(t.jpeg, 0, t.jpeg.size) ?: return null
+        val (x, y, e) = ChatStd.squareCrop(src.width, src.height)
+        val out = Bitmap.createBitmap(side, side, Bitmap.Config.ARGB_8888)
+        try {
+            Canvas(out).drawBitmap(src, android.graphics.Rect(x, y, x + e, y + e), android.graphics.Rect(0, 0, side, side), Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
+            val bos = ByteArrayOutputStream()
+            out.compress(Bitmap.CompressFormat.JPEG, 85, bos)
+            return bos.toByteArray()
+        } finally {
+            src.recycle()
+            out.recycle()
+        }
+    }
+
     fun makeThumb(data: ByteArray, maxSide: Int = THUMB_MAX): Thumb? {
         val b = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeByteArray(data, 0, data.size, b)

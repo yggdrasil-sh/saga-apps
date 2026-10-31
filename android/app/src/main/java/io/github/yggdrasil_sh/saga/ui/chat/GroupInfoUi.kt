@@ -60,6 +60,7 @@ import io.github.yggdrasil_sh.saga.chat.ChatFedHint
 import io.github.yggdrasil_sh.saga.chat.ChatLogic
 import io.github.yggdrasil_sh.saga.chat.ChatPerson
 import io.github.yggdrasil_sh.saga.chat.ChatSession
+import io.github.yggdrasil_sh.saga.chat.ChatStd
 import io.github.yggdrasil_sh.saga.chat.ChatSummary
 import io.github.yggdrasil_sh.saga.chat.Contacts
 import io.github.yggdrasil_sh.saga.chat.FedPerson
@@ -89,6 +90,10 @@ fun GroupInfoDialog(
 ) {
     val c = s.summary ?: return
     val r = GroupInfo.rights(c, repo.chat.groupInfoOn)
+    val std = repo.chat.std
+    val canAdd = ChatStd.canAdd(c, std, r)
+    var blockOf by remember { mutableStateOf<ChatPerson?>(null) }
+    var media by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf(false) }
     var adding by remember { mutableStateOf(false) }
     var removing by remember { mutableStateOf<ChatPerson?>(null) }
@@ -105,7 +110,7 @@ fun GroupInfoDialog(
             LazyColumn(Modifier.fillMaxSize().padding(pad)) {
                 item(key = "head") {
                     Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Avatar(s.name, size = 56, icon = R.drawable.ic_group)
+                        GroupHeadAvatar(repo, s, c)
                         Column(Modifier.weight(1f).padding(start = 16.dp)) {
                             Text(s.name, style = MaterialTheme.typography.titleLarge, maxLines = 2)
                             Text(
@@ -127,7 +132,12 @@ fun GroupInfoDialog(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp))
                 }
                 if (c.kind == "free" && r.rename) hint("h-name", res.getString(R.string.gi_name_note))
-                if (r.readOnly) hint("h-ro", res.getString(R.string.gi_readonly))
+                // 2.5 Chat-Standard: Beschreibung, Gruppenrechte (freie Gruppen, groupinfo2)
+                item(key = "std") { GroupInfoStdSection(repo, s, c) }
+                // 2.5 (pagechatmembers1): Hinweise nach Chat-Art und Recht wie im Web
+                val mh = ChatStd.membersHint(c, std)
+                if (mh != null) hint("h-ro", mh.asString(res)) else if (r.readOnly) hint("h-ro", res.getString(R.string.gi_readonly))
+                // MEDIA-ITEM
                 if (c.remote) hint("h-home", if (c.homeSelf) res.getString(R.string.fed_members_home_self) else res.getString(R.string.fed_members_home_other, c.home ?: "?"))
                 if (c.readonly) hint("h-lock", "🔒 " + (c.readonlyReason ?: ""))
                 item(key = "mh") {
@@ -136,13 +146,13 @@ fun GroupInfoDialog(
                         style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 4.dp),
                     )
                 }
-                if (c.kind == "free" && r.manage) {
+                if (canAdd) {
                     item(key = "add") {
                         TextButton(onClick = { adding = !adding }, modifier = Modifier.padding(start = 8.dp)) { Text("+ " + stringResource(R.string.gi_add)) }
                     }
                     if (adding) addMemberItems(repo, s, c) { adding = false }
                 }
-                items(GroupInfo.sorted(c.members), key = { "m-" + it.username }) { m -> MemberRow(repo, c, m, r, s, onSafety) { removing = m } }
+                items(GroupInfo.sorted(c.members), key = { "m-" + it.username }) { m -> MemberRow(repo, c, m, r, s, onSafety, onBlock = { blockOf = m }) { removing = m } }
                 item(key = "foot") {
                     HorizontalDivider(Modifier.padding(top = 8.dp))
                     @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
@@ -167,6 +177,12 @@ fun GroupInfoDialog(
         }
     }
     if (renaming) RenameDialog(repo, s) { renaming = false }
+    // MEDIA-DIALOG
+    blockOf?.let { m ->
+        val t = ChatStd.blockTarget(m)
+        if (t == null) blockOf = null
+        else BlockConfirm(repo, ChatLogic.shown(m), t, onBlock = { s.block(it) }) { blockOf = null }
+    }
     removing?.let { m ->
         val n = ChatLogic.shown(m)
         AlertDialog(
@@ -185,8 +201,17 @@ fun GroupInfoDialog(
 }
 
 @Composable
-private fun MemberRow(repo: SagaRepository, c: ChatSummary, m: ChatPerson, r: GroupInfo.Rights, s: ChatSession, onSafety: (String) -> Unit, onRemove: () -> Unit) {
+private fun MemberRow(
+    repo: SagaRepository, c: ChatSummary, m: ChatPerson, r: GroupInfo.Rights, s: ChatSession, onSafety: (String) -> Unit,
+    onBlock: () -> Unit, onRemove: () -> Unit,
+) {
+    val std = repo.chat.std
+    // 2.5 (pagechatmembers1): Seiten-Chat - Entfernen nur bei removable, sonst ausgegraut mit Grund
+    val pageRm = ChatStd.pageRemove(c, m, std)
+    // 2.5 (block2): Personen dieses Servers sperren / entsperren (nicht ich, nicht ueber Servergrenzen)
+    val blockT = if (std.block && !m.me && !m.remote) ChatStd.blockTarget(m) else null
     val acts = GroupInfo.actions(c, m, r)
+    val hasExtra = pageRm != ChatStd.PageRemove.None || blockT != null
     var menu by remember { mutableStateOf(false) }
     val onHost = stringResource(R.string.fed_on_host, "%s")
     val sub = GroupInfo.subline(m, c.myHandle, c.remote) { h -> onHost.replace("%s", h) }
@@ -196,11 +221,12 @@ private fun MemberRow(repo: SagaRepository, c: ChatSummary, m: ChatPerson, r: Gr
                 Text(ChatLogic.shown(m), fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.weight(1f, fill = false))
                 if (m.me) Chip(stringResource(R.string.gi_you))
                 if (m.admin) Chip(stringResource(R.string.gi_admin), strong = true)
+                if (m.blocked) Chip("⛔")
             }
         },
         supportingContent = if (sub.isNotEmpty()) ({ Text(sub, maxLines = 1) }) else null,
         leadingContent = { Avatar(m.name, size = 40, avatar = m.avatar) },
-        trailingContent = if (acts.isEmpty()) null else ({
+        trailingContent = if (acts.isEmpty() && !hasExtra) null else ({
             Box {
                 IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, stringResource(R.string.gi_actions, ChatLogic.shown(m))) }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -233,6 +259,32 @@ private fun MemberRow(repo: SagaRepository, c: ChatSummary, m: ChatPerson, r: Gr
                             },
                         )
                     }
+                    when (pageRm) {
+                        ChatStd.PageRemove.Ok -> DropdownMenuItem(
+                            text = { Text(stringResource(R.string.std_remove_chat), color = MaterialTheme.colorScheme.error) },
+                            onClick = { menu = false; onRemove() },
+                        )
+                        is ChatStd.PageRemove.No -> DropdownMenuItem(
+                            enabled = false,
+                            text = {
+                                Column {
+                                    Text(stringResource(R.string.std_remove_chat))
+                                    Text(pageRm.why.resolve(), style = MaterialTheme.typography.bodySmall)
+                                }
+                            },
+                            onClick = {},
+                        )
+                        ChatStd.PageRemove.None -> {}
+                    }
+                    if (blockT != null) {
+                        if (m.blocked) DropdownMenuItem(
+                            text = { Text(stringResource(R.string.std_unblock)) },
+                            onClick = { menu = false; repo.launchAction { s.unblock(blockT); repo.notify(UiText.Res(R.string.std_unblocked_done)) } },
+                        ) else DropdownMenuItem(
+                            text = { Text(stringResource(R.string.std_block_name, ChatLogic.shown(m)), color = MaterialTheme.colorScheme.error) },
+                            onClick = { menu = false; onBlock() },
+                        )
+                    }
                 }
             }
         }),
@@ -258,6 +310,8 @@ private fun LazyListScope.addMemberItems(repo: SagaRepository, s: ChatSession, c
 @Composable
 private fun AddMemberBox(repo: SagaRepository, s: ChatSession, c: ChatSummary, done: () -> Unit) {
     var q by remember { mutableStateOf("") }
+    val page = c.kind == "page"
+    var role by remember { mutableStateOf("view") }
     var found by remember { mutableStateOf<List<ChatPerson>>(emptyList()) }
     var foundRemote by remember { mutableStateOf<List<FedPerson>>(emptyList()) }
     var hasRemoteHits by remember { mutableStateOf(false) }
@@ -270,30 +324,32 @@ private fun AddMemberBox(repo: SagaRepository, s: ChatSession, c: ChatSummary, d
             val r = repo.chat.people(q)
             found = r.users.filter { u -> !ChatLogic.isMember(u.username, c.members) }
             hasRemoteHits = r.remote.isNotEmpty()
-            foundRemote = if (c.isFed) r.remote.filter { u -> c.members.none { it.handle == u.handle } } else emptyList()
+            foundRemote = if (c.isFed || page) r.remote.filter { u -> c.members.none { it.handle == u.handle } } else emptyList()
             fedFor = if (ChatFedHint.show(q, r.users.size + foundRemote.size)) q else ""
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
         }
     }
-    val add: (ChatPerson) -> Unit = { u -> repo.launchAction { s.addMember(u.username); q = ""; done() } }
-    val addRemote: (String) -> Unit = { h -> repo.launchAction { s.addMemberHandle(h); q = ""; done() } }
+    val addLocal: (String) -> Unit = { u -> repo.launchAction { if (page) s.addPageMember(u, false, role) else s.addMember(u); q = ""; done() } }
+    val add: (ChatPerson) -> Unit = { u -> addLocal(u.username) }
+    val addRemote: (String) -> Unit = { h -> repo.launchAction { if (page) s.addPageMember(h, true, role) else s.addMemberHandle(h); q = ""; done() } }
     Column(Modifier.padding(horizontal = 16.dp)) {
+        if (page) PageRolePicker(role) { role = it }
         OutlinedTextField(
             value = q, onValueChange = { q = it }, singleLine = true, label = { Text(stringResource(R.string.chat_people_search)) },
             modifier = Modifier.fillMaxWidth(),
         )
         if (q.isBlank()) {
-            ContactsBlock(repo, keep = { Contacts.forAdd(it, c) }) { k ->
+            ContactsBlock(repo, keep = { ks -> if (page) ks.filter { k -> c.members.none { m -> m.ref == k.ref || m.handle == k.ref || m.username == k.ref } } else Contacts.forAdd(ks, c) }) { k ->
                 when (val p = Contacts.pick(k)) {
-                    is Contacts.Pick.Local -> repo.launchAction { s.addMember(p.user); done() }
+                    is Contacts.Pick.Local -> addLocal(p.user)
                     is Contacts.Pick.Remote -> addRemote(p.handle)
                 }
             }
         } else {
             if (fedFor.isNotEmpty() && fedFor == q) FedChatHint(fedV2 == true)
-            if (!c.isFed && hasRemoteHits) Text(
+            if (!c.isFed && !page && hasRemoteHits) Text(
                 stringResource(R.string.gi_remote_only_new), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 4.dp),
             )

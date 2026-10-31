@@ -251,10 +251,10 @@ class ChatStdTest {
         val p = chat("patch_alltag")
         assertEquals("mentions", p.notify)
         assertTrue(p.pinned && p.pinnedAt != null)
-        val now = (p.mutedUntil!! - 1800)
+        val now = p.mutedUntil!! - 1800
         assertTrue(ChatStd.mutedNow(p, now))
-        assertEquals(ChatStd.MuteState.Until(p.mutedUntil!!.toLong()), ChatStd.muteState(p, now))
-        assertEquals(ChatStd.MuteState.Off, ChatStd.muteState(p, p.mutedUntil!! + 1))
+        assertEquals(ChatStd.MuteState.Until((now + 1800).toLong()), ChatStd.muteState(p, now))
+        assertEquals(ChatStd.MuteState.Off, ChatStd.muteState(p, now + 1801))
         val h = chat("page_hidden")
         assertTrue(h.hidden && h.canHide)
         assertEquals(ChatStd.MuteState.Always, ChatStd.muteState(h, 0.0))

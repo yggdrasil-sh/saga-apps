@@ -351,6 +351,9 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
         freeTitles.value = emptyMap()
         pendingLinks.value = emptyList()
         requests.value = 0
+        groupExtras.value = emptyMap()
+        hiddenChats.value = null
+        hiddenCount.value = 0
         presence.clearAll()
         fed.reset()
     }
@@ -398,8 +401,10 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
             chatsLoaded.value = true
             repo.live.chatUnread.value = r.unread
             requests.value = r.requests
+            hiddenCount.value = r.hiddenCount
             noteHandles(r.chats)
             decryptTitles(r.chats)
+            decryptExtras(r.chats)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -456,6 +461,106 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
     }
 
     fun displayName(c: ChatSummary): String = ChatLogic.displayName(c, freeTitles.value[c.id])
+
+    // ---------------------------------------------------------------- 2.5 Chat-Standard
+
+    /** Gruppenbild/Beschreibung freier Gruppen (entschluesselt, Signatur geprueft): Chat -> Info */
+    data class GroupExtra(val desc: String? = null, val avatar: ChatFile? = null, val descId: String? = null, val avatarId: String? = null)
+
+    val groupExtras = MutableStateFlow<Map<Long, GroupExtra>>(emptyMap())
+    val blocksTick = MutableStateFlow(0)
+    /** ausgeblendete Chats (nur geladen, wenn der Bereich offen ist bzw. gesucht wird) */
+    val hiddenChats = MutableStateFlow<List<ChatSummary>?>(null)
+    val hiddenCount = MutableStateFlow(0)
+
+    /** Steuer-Nachrichten desc/avatar oeffnen (wie decryptTitles); unveraenderte nicht erneut */
+    suspend fun decryptExtras(list: List<ChatSummary>) {
+        if (!std.groupInfo2) return
+        val k = keys() ?: return
+        val todo = list.filter { c ->
+            c.kind == "free" && (c.descMsg != null || c.avatarMsg != null) &&
+                groupExtras.value[c.id].let { it == null || it.descId != c.descMsg?.id || it.avatarId != c.avatarMsg?.id }
+        }
+        val gone = list.filter { c -> c.kind == "free" && c.descMsg == null && c.avatarMsg == null && groupExtras.value.containsKey(c.id) }.map { it.id }
+        if (todo.isEmpty() && gone.isEmpty()) return
+        val hs = todo.flatMap { listOfNotNull(it.descMsg?.senderHandle, it.avatarMsg?.senderHandle) }.filter { it.isNotEmpty() }
+        val fk = if (hs.isEmpty()) emptyMap() else try {
+            fed.keys(hs)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            emptyMap()
+        }
+        val out = HashMap(groupExtras.value)
+        gone.forEach { out.remove(it) }
+        withContext(Dispatchers.Default) {
+            for (c in todo) {
+                fun open(m: ApiMessage?): ChatContent? {
+                    m ?: return null
+                    val dec = if (c.isFed && !m.senderHandle.isNullOrEmpty()) FedOpener(this@ChatService, k, fk).open(c.cryptoId, m)
+                    else MessageOpener(this@ChatService, k).open(c.id, m, m.device?.let { mapOf(m.senderDevice to it) }.orEmpty(),
+                        m.identPub?.let { ip -> mapOf((m.sender?.username ?: "") to ip) }.orEmpty())
+                    return dec.content?.takeIf { dec.verified }
+                }
+                val d = open(c.descMsg)?.takeIf { it.type == "desc" }
+                val a = open(c.avatarMsg)?.takeIf { it.type == "avatar" }
+                out[c.id] = GroupExtra(d?.desc?.take(ChatStd.DESC_MAX), a?.file?.takeIf { it.id.isNotEmpty() }, c.descMsg?.id, c.avatarMsg?.id)
+            }
+        }
+        groupExtras.value = out
+    }
+
+    /** Gruppenbild laden (verschluesselter Anhang, ueber den Vorschaubild-Cache) */
+    suspend fun groupAvatar(c: ChatSummary): androidx.compose.ui.graphics.ImageBitmap? {
+        val f = groupExtras.value[c.id]?.avatar ?: return null
+        val asThumb = f.copy(th = ChatThumb(f.id, f.k, f.m.ifEmpty { "image/jpeg" }, f.w ?: ChatStd.AVATAR_PX, f.h ?: ChatStd.AVATAR_PX, f.s))
+        return thumbs.load(c.id, asThumb, (me.value?.limits ?: ChatLimits()).fileMax, c.cryptoId)
+    }
+
+    /** 2.5 Alltag: PATCH /api/chats/{cid} (muted_until, notify, pinned, unread_mark, hidden) -> neuer Stand */
+    suspend fun patchChat(cid: Long, body: JsonObject): ChatSummary {
+        val c = decode<ChatWrap>(repo.api.patch("api/chats/$cid", body)).chat
+        chats.value = chats.value.map { if (it.id == cid) c else it }
+        loadChats()
+        if (hiddenChats.value != null) loadHidden()
+        return c
+    }
+
+    suspend fun loadHidden() {
+        if (!std.hide) return
+        val r = decode<ChatList>(repo.api.get("api/chats?hidden=1" + (deviceId?.let { "&device=$it" } ?: "")))
+        hiddenChats.value = r.chats
+        decryptTitles(r.chats)
+        decryptExtras(r.chats)
+    }
+
+    /** 2.5 (block2): sperren (Handle ~x@host bzw. Such-Handle) / entsperren */
+    suspend fun block(target: String) {
+        repo.api.post("api/chat/blocks", buildJsonObject { put("target", target) })
+        blocksTick.value++
+        loadChats()
+    }
+
+    suspend fun unblock(target: String) {
+        repo.api.delete("api/chat/blocks?target=" + java.net.URLEncoder.encode(target, "UTF-8"))
+        blocksTick.value++
+        loadChats()
+    }
+
+    suspend fun report(body: JsonObject) {
+        repo.api.post("api/chat/report", body)
+    }
+
+    /** 2.5 (unfurl1): Linkvorschau holen (der Server ruft die Seite ab); {} -> null */
+    suspend fun unfurl(url: String): UnfurlResult? {
+        val r = decode<UnfurlResult>(repo.api.get("api/chat/unfurl?url=" + java.net.URLEncoder.encode(url, "UTF-8")))
+        return r.takeIf { ChatStd.usable(it) }
+    }
+
+    /** Nutzereinstellung "Linkvorschau" (nur dieses Geraet, Standard an) */
+    var unfurlOn: Boolean
+        get() = try { repo.secure.get("chat_unfurl_on") != "0" } catch (_: Exception) { true }
+        set(v) { try { repo.secure.put("chat_unfurl_on", if (v) null else "0") } catch (_: Exception) {} }
 
     // ---------------------------------------------------------------- Einrichtung
 
@@ -803,6 +908,11 @@ class ChatService(val repo: SagaRepository, private val scope: CoroutineScope) {
             }
             // 2.5 (contacts1): Kontakt auf einem anderen Geraet ausgeblendet -> Listen neu laden
             "chat.contacts" -> contactsTick.value++
+            // 2.5 (block2): Sperrliste auf einem anderen Geraet geaendert
+            "chat.blocks" -> {
+                blocksTick.value++
+                if (chatsLoaded.value) loadChats()
+            }
             "chat.privacy" -> if (me.value?.privacy != null) applyPrivacy(ChatPrivacy(ev.bool("receipts"), ev.bool("online")))
         }
     }
