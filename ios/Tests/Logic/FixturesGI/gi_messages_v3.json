@@ -1,0 +1,48 @@
+{
+ "chat_id": 14,
+ "devices": {},
+ "idents": {},
+ "last_read": 0,
+ "last_seq": 6,
+ "messages": [
+  {
+   "ai": null,
+   "body_ct": "{\"type\":\"admin\",\"target\":{\"handle\":\"~owk4krdjkjrxiejm@a.example\",\"name\":\"Bert Test\",\"host\":\"a.example\"},\"on\":true,\"by\":{\"handle\":\"~kwkrvbg6cuw4jovd@a.example\",\"name\":\"Anna Test\",\"host\":\"a.example\"},\"v\":1}",
+   "created": 1793467428.052706,
+   "expires_at": null,
+   "fseq": null,
+   "fstate": null,
+   "id": "4871a140532118b854ecd16392ea4421",
+   "key": null,
+   "key_for": null,
+   "kind": "sys",
+   "reply_to": null,
+   "sender": null,
+   "sender_device": "",
+   "sender_handle": null,
+   "seq": 5,
+   "sig": "",
+   "ts": 1793467428052
+  },
+  {
+   "ai": null,
+   "body_ct": "{\"type\":\"admin\",\"target\":{\"handle\":\"~owk4krdjkjrxiejm@a.example\",\"name\":\"Bert Test\",\"host\":\"a.example\"},\"on\":false,\"by\":{\"handle\":\"~owk4krdjkjrxiejm@a.example\",\"name\":\"Bert Test\",\"host\":\"a.example\"},\"v\":1}",
+   "created": 1793467428.0662813,
+   "expires_at": null,
+   "fseq": null,
+   "fstate": null,
+   "id": "483330913afae6b678dc13ec4d3a819d",
+   "key": null,
+   "key_for": null,
+   "kind": "sys",
+   "reply_to": null,
+   "sender": null,
+   "sender_device": "",
+   "sender_handle": null,
+   "seq": 6,
+   "sig": "",
+   "ts": 1793467428066
+  }
+ ],
+ "more": false
+}

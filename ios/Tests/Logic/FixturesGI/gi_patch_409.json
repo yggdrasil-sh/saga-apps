@@ -1,0 +1,6 @@
+{
+ "body": {
+  "error": "Das ist der letzte Admin der Gruppe – erst jemand anderen zum Admin machen."
+ },
+ "status": 409
+}

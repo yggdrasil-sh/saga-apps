@@ -124,7 +124,9 @@ enum FedChatLogic {
     /// Systemzeile (kind 'sys', Klartext-Metadaten in body_ct): KI ein/aus {"type":"ai",…}, Mitglieder {"type":"members",…},
     /// ab jetzt ueber Servergrenzen {"type":"fed","on":true,"ai_off":true?}
     /// 2.5: {"type":"crypto","level":3,"verify"?:true} - Chat auf Stufe 3 umgestellt (Handles statt Anmeldenamen)
-    enum SysLine: Equatable { case ai(on: Bool, byMe: Bool, name: String), members(MembersLine), fed(aiOff: Bool), crypto(verify: Bool), other }
+    /// 2.5 (chatadm1): Admin vergeben/entzogen {"type":"admin","target":{…},"on":bool,"by":{…}|null}
+    struct AdminLine: Equatable { var target: SysWho?; var on: Bool; var by: SysWho? }
+    enum SysLine: Equatable { case ai(on: Bool, byMe: Bool, name: String), members(MembersLine), fed(aiOff: Bool), crypto(verify: Bool), admin(AdminLine), other }
     static func sysLine(_ bodyCT: String?, myHandle: String?) -> SysLine {
         guard let j = bodyCT.flatMap({ ShareJSON.obj(Data($0.utf8)) }) else { return .other }
         switch j["type"] as? String {
@@ -136,6 +138,7 @@ enum FedChatLogic {
             return .members(MembersLine(added: list("added"), removed: list("removed"), by: SysWho(j["by"]), reason: ShareJSON.str(j["reason"])))
         case "fed": return .fed(aiOff: ShareJSON.bool(j["ai_off"]))
         case "crypto": return .crypto(verify: ShareJSON.bool(j["verify"]))
+        case "admin": return .admin(AdminLine(target: SysWho(j["target"]), on: ShareJSON.bool(j["on"]), by: SysWho(j["by"])))
         default: return .other
         }
     }
@@ -152,15 +155,38 @@ enum FedChatLogic {
         case .crypto(let verify):
             let t = String(localized: "Dieser Chat ist jetzt an die stabilen Saga-Adressen gebunden (neue Verschlüsselungsstufe).")
             return verify ? t + " " + String(localized: "Bitte die Sicherheitsnummern neu vergleichen – sie werden jetzt anders angezeigt.") : t
+        case .admin(let a): return adminText(a, myHandle: myHandle)
         case .other: return String(localized: "Hinweis")
         }
     }
-    private static func membersText(_ k: MembersLine, myHandle: String?) -> String {
+    /// Person in einer Systemzeile: Name mit Herkunft (eigener Server ohne), ich im Akkusativ als "dich"
+    private static func sysWho(_ x: SysWho, acc: Bool, myHandle: String?) -> String {
         let mine = myHandle.map { host(of: $0) } ?? ""
-        func who(_ x: SysWho, acc: Bool) -> String {
-            if acc, let mh = myHandle, !x.handle.isEmpty, x.handle == mh { return String(localized: "dich") }   // "… hat dich hinzugefuegt"
-            return x.host.isEmpty || x.host == mine ? x.name : x.name + " (" + x.host + ")"
+        if acc, let mh = myHandle, !x.handle.isEmpty, x.handle == mh { return String(localized: "dich") }   // "… hat dich hinzugefuegt"
+        return x.host.isEmpty || x.host == mine ? x.name : x.name + " (" + x.host + ")"
+    }
+    /// Admin vergeben/entzogen (wie static/chat.js sysText 'admin'); ohne `by` ohne Urheber
+    private static func adminText(_ k: AdminLine, myHandle: String?) -> String {
+        let meBy = k.by.map { !$0.handle.isEmpty && $0.handle == myHandle } ?? false
+        let selfAct = k.by != nil && k.target != nil && k.by?.handle == k.target?.handle
+        let tg = k.target.map { sysWho($0, acc: true, myHandle: myHandle) } ?? "?"
+        let tgNom = k.target.map { sysWho($0, acc: false, myHandle: myHandle) } ?? "?"
+        let by = k.by.flatMap { meBy ? nil : sysWho($0, acc: false, myHandle: myHandle) }
+        if selfAct {
+            if k.on { return meBy ? String(localized: "Du bist jetzt Admin.") : String(localized: "\(by ?? tgNom) ist jetzt Admin.") }
+            return meBy ? String(localized: "Du bist kein Admin mehr.") : String(localized: "\(by ?? tgNom) ist kein Admin mehr.")
         }
+        if k.on {
+            if meBy { return String(localized: "Du hast \(tg) zum Admin gemacht.") }
+            if let by { return String(localized: "\(by) hat \(tg) zum Admin gemacht.") }
+            return String(localized: "\(tgNom) ist jetzt Admin.")
+        }
+        if meBy { return String(localized: "Du hast \(tg) die Admin-Rolle entzogen.") }
+        if let by { return String(localized: "\(by) hat \(tg) die Admin-Rolle entzogen.") }
+        return String(localized: "\(tgNom) ist kein Admin mehr.")
+    }
+    private static func membersText(_ k: MembersLine, myHandle: String?) -> String {
+        func who(_ x: SysWho, acc: Bool) -> String { sysWho(x, acc: acc, myHandle: myHandle) }
         let meBy = k.by.map { !$0.handle.isEmpty && $0.handle == myHandle } ?? false
         let by = k.by.flatMap { meBy ? nil : who($0, acc: false) }
         let add = k.added.map { who($0, acc: k.by != nil) }.joined(separator: ", ")

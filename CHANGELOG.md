@@ -9,6 +9,13 @@ Abschnitt hier ergänzen, auf `main` bringen – GitHub baut und veröffentlicht
 Geplant als **2.5.0**, passt zu Saga-Server 2.5. **Die neuen Funktionen brauchen Saga-Server 2.5 und sind dort vorerst
 abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern und Gegenstellen bleibt alles wie bisher.
 
+### Neu – iOS/Mac: Gruppeninfo und Kontakte (Saga-Server 2.5, `chatadm1`/`contacts1`)
+- **Gruppeninfo:** Tipp auf den Chat-Kopf (Mac: Info-Knopf) bzw. „Gruppeninfo …“ im Menü statt „Mitglieder“ – Name
+  bearbeitbar, Mitglieder mit „Du“/„Admin“ und Handle, Admin vergeben/entziehen, entfernen, stummschalten, archivieren,
+  verlassen; Gruppen- und Seiten-Chats nur lesend; Systemzeile „… hat … zum Admin gemacht.“
+- **Kontakte:** ohne Eingabe in „Neue Unterhaltung“ und „Mitglied hinzufügen“ (zuletzt zuerst, nicht erreichbare
+  ausgegraut); Wischen bzw. Kontextmenü „Aus Kontakten entfernen“, auch live von anderen Geräten.
+
 ### Geändert – Mac/iPad: ruhigere Schreibfläche („Notion-Gefühl“, Quick Wins)
 - **Mac-Schreibfläche:** Seitentext 16 pt statt 13 pt, Titel 35 pt, Überschriften 26/21/18 pt, Zeilenabstand +3 pt
   und mehr Luft über Überschriften; die Größen folgen Dynamic Type bzw. „Kleiner Text“ der Seite.
