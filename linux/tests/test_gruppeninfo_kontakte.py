@@ -207,7 +207,10 @@ def test_group_info_member_without_rights_and_readonly_kinds(win, srv):
     assert all(getattr(r, "hk_actions", []) == [] for r in rows.values())
     assert "Add member" not in _labels(d) and d.add_group is None
     assert d.name_row is not None                        # jedes Mitglied darf umbenennen (can_rename)
-    d.force_close()
+    chat.chats = [x for x in chat.chats if x.get("id") != g]   # wie nach "Gruppe verlassen"
+    chat.emit("changed")
+    pump(lambda: win.get_visible_dialog() is not d, 2)
+    assert win.get_visible_dialog() is not d
     d2 = GroupInfoDialog(win, gg)
     d2.present(win)
     pump(None, 0.3)

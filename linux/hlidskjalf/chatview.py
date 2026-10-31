@@ -3187,6 +3187,7 @@ class GroupInfoDialog(ChatInfoDialog):
         self.connect("map", lambda *_: GLib.idle_add(lambda: (self.set_focus(None), False)[1]))   # Name nicht markiert
         watch_chat(self, "chat-changed", lambda c: c == self.cid and self._live())
         watch_chat(self, "contacts", lambda: self._contacts_live())
+        watch_chat(self, "changed", lambda: chat.chat(self.cid) is None and self.close())     # verlassen bzw. geloescht
 
     def _toast(self, text):
         if text:
