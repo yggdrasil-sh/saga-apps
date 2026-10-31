@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: saga\n"
 "Report-Msgid-Bugs-To: https://github.com/yggdrasil-sh/saga-apps/issues\n"
-"POT-Creation-Date: 2026-11-01 00:46+0100\n"
+"POT-Creation-Date: 2026-11-01 00:57+0100\n"
 "PO-Revision-Date: 2026-10-18 18:00+0200\n"
 "Last-Translator: Saga-Projekt\n"
 "Language-Team: Русский\n"
@@ -743,7 +743,7 @@ msgstr "Нет предложений."
 msgid "“{name}” for {n} entries:"
 msgstr "«{name}» для {n} записей:"
 
-#: hlidskjalf/assistant.py:709 hlidskjalf/chatstd.py:476
+#: hlidskjalf/assistant.py:709 hlidskjalf/chatstd.py:491
 #: hlidskjalf/chatview.py:205 hlidskjalf/chatview.py:2749
 #: hlidskjalf/chatview.py:2764 hlidskjalf/database.py:813
 #: hlidskjalf/database.py:1096 hlidskjalf/database.py:1178
@@ -1481,7 +1481,7 @@ msgstr "Ответить только со звуком"
 msgid "Empty"
 msgstr "Пусто"
 
-#: hlidskjalf/chart.py:62 hlidskjalf/chart.py:376 hlidskjalf/chatstd.py:600
+#: hlidskjalf/chart.py:62 hlidskjalf/chart.py:376 hlidskjalf/chatstd.py:615
 msgid "Other"
 msgstr "Другие"
 
@@ -1569,7 +1569,7 @@ msgctxt "object"
 msgid "you"
 msgstr "вас"
 
-#: hlidskjalf/chat.py:243 hlidskjalf/chatstd.py:131 hlidskjalf/chatstd.py:245
+#: hlidskjalf/chat.py:243 hlidskjalf/chatstd.py:131 hlidskjalf/chatstd.py:251
 #: hlidskjalf/chatview.py:3842 hlidskjalf/chatview.py:3902
 #: hlidskjalf/comments.py:76 hlidskjalf/sharing.py:800
 #: hlidskjalf/sharing.py:801
@@ -2010,27 +2010,27 @@ msgstr "Нет"
 msgid "Only mentions and replies"
 msgstr "Только упоминания и ответы"
 
-#: hlidskjalf/chatstd.py:268 hlidskjalf/chatstd.py:487
+#: hlidskjalf/chatstd.py:283 hlidskjalf/chatstd.py:502
 msgid "Unknown"
 msgstr "Неизвестно"
 
-#: hlidskjalf/chatstd.py:479 hlidskjalf/chatview.py:208
+#: hlidskjalf/chatstd.py:494 hlidskjalf/chatview.py:208
 msgid "Page (no access)"
 msgstr "Страница (нет доступа)"
 
-#: hlidskjalf/chatstd.py:600
+#: hlidskjalf/chatstd.py:615
 msgid "Harassment or insult"
 msgstr "Домогательство или оскорбление"
 
-#: hlidskjalf/chatstd.py:600
+#: hlidskjalf/chatstd.py:615
 msgid "Illegal content"
 msgstr "Незаконный контент"
 
-#: hlidskjalf/chatstd.py:600
+#: hlidskjalf/chatstd.py:615
 msgid "Spam"
 msgstr "Спам"
 
-#: hlidskjalf/chatstd.py:652
+#: hlidskjalf/chatstd.py:667
 msgid "[Attachment not forwarded]"
 msgstr "[Вложение не переслано]"
 
@@ -2973,12 +2973,9 @@ msgstr[2] "{n} сообщений удалено для вас."
 msgid "{n} message hidden on this device only – the server can't do that yet."
 msgid_plural ""
 "{n} messages hidden on this device only – the server can't do that yet."
-msgstr[0] ""
-"{n} сообщение скрыто только на этом устройстве — сервер пока так не умеет."
-msgstr[1] ""
-"{n} сообщения скрыты только на этом устройстве — сервер пока так не умеет."
-msgstr[2] ""
-"{n} сообщений скрыто только на этом устройстве — сервер пока так не умеет."
+msgstr[0] "{n} сообщение скрыто только здесь — сервер так не умеет."
+msgstr[1] "{n} сообщения скрыты только здесь — сервер так не умеет."
+msgstr[2] "{n} сообщений скрыто только здесь — сервер так не умеет."
 
 #: hlidskjalf/chatview.py:2168
 msgid "Delete for you?"
