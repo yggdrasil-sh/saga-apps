@@ -174,8 +174,8 @@ struct GroupInfoSheet: View {
                 Spacer()
                 if i.kind == "free" && r.rename {
                     if editing {
-                        Button("Speichern") { saveName(i) }.disabled(busy || newName.trimmingCharacters(in: .whitespaces).isEmpty)
-                        Button("Abbrechen") { editing = false }
+                        Button("Speichern") { saveName(i) }.buttonStyle(.borderless).disabled(busy || newName.trimmingCharacters(in: .whitespaces).isEmpty)
+                        Button("Abbrechen") { editing = false }.buttonStyle(.borderless)
                     } else {
                         Button { newName = i.decryptedTitle ?? ""; editing = true } label: { Image(systemName: "pencil") }
                             .buttonStyle(.borderless).help(Text("Gruppe umbenennen")).accessibilityLabel(Text("Gruppe umbenennen"))

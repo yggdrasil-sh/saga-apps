@@ -100,8 +100,10 @@ func groupInfoTests() {
         check(my3 == bertH, "Fixture aus Sicht von Bert")
         check(FedChatLogic.sysText(l0, myHandle: my3) == "Anna Test hat dich zum Admin gemacht.", "Text: hat dich zum Admin gemacht")
         check(FedChatLogic.sysText(l1, myHandle: my3) == "Du bist kein Admin mehr.", "Text: ich selbst entzogen")
-        check(FedChatLogic.sysText(l0, myHandle: nil) == "Anna Test hat Bert Test zum Admin gemacht.", "Text: Dritte")
-        check(FedChatLogic.sysText(l1, myHandle: nil) == "Bert Test ist kein Admin mehr.", "Text: Dritte, selbst")
+        let third = "~zzzzzzzzzzzzzzzz@a.example"                     // Dritte Person auf demselben Server (ohne Host)
+        check(FedChatLogic.sysText(l0, myHandle: third) == "Anna Test hat Bert Test zum Admin gemacht.", "Text: Dritte")
+        check(FedChatLogic.sysText(l1, myHandle: third) == "Bert Test ist kein Admin mehr.", "Text: Dritte, selbst")
+        check(FedChatLogic.sysText(l0, myHandle: nil) == "Anna Test (a.example) hat Bert Test (a.example) zum Admin gemacht.", "Text: ohne eigenen Handle mit Herkunft")
     }
     func line(_ j: [String: Any]) -> FedChatLogic.SysLine {
         FedChatLogic.sysLine(String(data: try! JSONSerialization.data(withJSONObject: j), encoding: .utf8), myHandle: nil)
@@ -132,9 +134,10 @@ func groupInfoTests() {
     var nr = ks[1]; nr.ready = false
     check(ContactsLogic.subline(nr) == (nr.sub ?? "") + " · hat Chats noch nicht eingerichtet", "nicht eingerichtet")
     // Mitglied hinzufuegen: ohne Mitglieder; fremde nur in Gruppen ueber Servergrenzen
-    let inGroup = ContactsLogic.forAdd(ks + [fk], members: ms, fedChat: false)
+    let annaView = members(pa ?? [:])                                     // Kontakte sind aus Annas Sicht
+    let inGroup = ContactsLogic.forAdd(ks + [fk], members: annaView, fedChat: false)
     check(inGroup.map(\.name) == ["Dora Test"], "ohne Mitglieder und ohne fremde: \(inGroup.map(\.name))")
-    check(ContactsLogic.forAdd([fk], members: ms, fedChat: true).count == 1, "fremde in Gruppe ueber Servergrenzen")
+    check(ContactsLogic.forAdd([fk], members: annaView, fedChat: true).count == 1, "fremde in Gruppe ueber Servergrenzen")
     check(ContactsLogic.deletePath(fk.ref) == "api/chat/contacts/~bslpbslpbslpbslp@b.example" && ContactsLogic.deletePath("~a b") == "api/chat/contacts/~a%20b", "DELETE-Pfad")
     // nach "Aus Kontakten entfernen": Cara fehlt
     check(!ContactsLogic.parse(gi("gi_contacts_after")).contains { $0.name == "Cara Test" }, "entfernt: nicht mehr in der Liste")
