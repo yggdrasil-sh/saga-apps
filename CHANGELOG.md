@@ -16,6 +16,19 @@ abschaltbar** (Chat-Stufe 3, Gruppenanrufe über Knoten); mit älteren Servern u
 - **Kontakte:** ohne Eingabe in „Neue Unterhaltung“ und „Mitglied hinzufügen“ (zuletzt zuerst, nicht erreichbare
   ausgegraut); Wischen bzw. Kontextmenü „Aus Kontakten entfernen“, auch live von anderen Geräten.
 
+### Neu – Android: Chat-Standard (Saga-Server 2.5; je Funktion nur mit passendem Feature, sonst wie bisher)
+- **Seiten-Chats:** „Mitglied hinzufügen“ nach Recht (teilt die Seite, Rolle Lesen/Kommentieren/Bearbeiten), „Aus Chat
+  entfernen“ nur bei direkter Freigabe, sonst ausgegraut mit Grund; Hinweise wie im Web.
+- **Gruppen:** Gruppenbild (quadratisch, verschlüsselt) in Liste, Kopf und Gruppeninfo, Beschreibung, Schalter „Nur Admins
+  dürfen Nachrichten senden“ / „… Name, Bild und Beschreibung ändern“, Hinweis statt Eingabefeld; Nachrichten anheften
+  (Leiste oben), „Löschen (Admin)“ mit Hinweis „Von einem Admin gelöscht“, Personen sperren (Gruppeninfo, Nachricht,
+  Direkt-Chat; Liste in Einstellungen → Chat), Nachrichten gesperrter Personen eingeklappt, „Melden …“ mit Grund.
+- **Alltag:** Stummschalten 1 h / 8 h / 1 Woche / Immer und „Mitteilungen: Alle / Nur Erwähnungen / Keine“, Chats
+  anheften, als ungelesen markieren, Gruppen-/Seiten-Chats ausblenden („Ausgeblendet (n)“ am Listenende).
+- **Nachrichten:** @-Erwähnungen von Mitgliedern, Formatierung (`*fett*`, `_kursiv_`, `~durch~`, Code, Liste, Zitat –
+  ohne HTML), Linkvorschau beim Tippen (abschaltbar), „Medien, Dateien, Links“, Kamera (Foto/Video) im Anhang-Menü,
+  Name bei „Neue Gruppe“.
+
 ### Neu – Android: Gruppeninfo und Kontakte (Saga-Server 2.5)
 - **Gruppeninfo** (Tipp auf den Chat-Kopf bzw. „Gruppeninfo …“): Name, Mitglieder mit „Admin“/„Du“ und Handle, Admins
   vergeben/entziehen, Mitglieder hinzufügen/entfernen, Stummschalten, Archivieren, Verlassen; Systemzeile bei Admin-Wechsel.

@@ -392,6 +392,45 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
         }
     }
 
+    // 2.5: Kamera direkt im Chat (Foto/Video) -> wie ein Bild- bzw. Video-Anhang; Dateien im Cache (camera/), alte weg
+    var camUri by remember { mutableStateOf<Uri?>(null) }
+    var camVideo by remember { mutableStateOf(false) }
+    val takePhoto = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        val u = camUri
+        if (ok && u != null) scope.launch {
+            val max = svc.me.value?.limits?.fileMax ?: ChatLimits().fileMax
+            when (val r = readFile(context, u, max, s.name)) {
+                is ChatAttach.Read.Ok -> files.add(r.file)
+                is ChatAttach.Read.Video -> videos.add(PendingVideo(r.uri, r.name, r.mime, r.size))
+                ChatAttach.Read.TooBig -> repo.notify(UiText.Res(R.string.chat_file_too_big, (max / 1048576).toInt()))
+                ChatAttach.Read.Failed -> repo.notify(UiText.Res(R.string.chat_file_broken))
+            }
+        }
+    }
+    val takeVideo = rememberLauncherForActivityResult(ActivityResultContracts.CaptureVideo()) { ok ->
+        val u = camUri
+        if (ok && u != null) {
+            val f = java.io.File(java.io.File(context.cacheDir, "camera"), u.lastPathSegment ?: "")
+            videos.add(PendingVideo(u.toString(), ChatAttach.niceName(f.name, "video/mp4", s.name, java.time.LocalDateTime.now()), "video/mp4", f.length().takeIf { it > 0 }))
+        }
+    }
+    fun launchCamera(video: Boolean) {
+        val dir = java.io.File(context.cacheDir, "camera").apply { mkdirs() }
+        dir.listFiles()?.filter { System.currentTimeMillis() - it.lastModified() > 24 * 3600_000L }?.forEach { it.delete() }
+        val f = java.io.File(dir, (if (video) "video-" else "photo-") + System.currentTimeMillis() + if (video) ".mp4" else ".jpg")
+        val u = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", f)
+        camUri = u
+        if (video) takeVideo.launch(u) else takePhoto.launch(u)
+    }
+    val camPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) launchCamera(camVideo) else repo.notify(UiText.Res(R.string.std_camera_denied))
+    }
+    val openCamera: (Boolean) -> Unit = { video ->
+        camVideo = video
+        if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) launchCamera(video)
+        else camPermission.launch(android.Manifest.permission.CAMERA)
+    }
+
     // 2.4: nur Videos waehlen (Galerie)
     val pickVideo = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         scope.launch {
@@ -904,6 +943,11 @@ fun Conversation(repo: SagaRepository, nav: AppNavigator, chatId: Long, twoPane:
                 IconButton(onClick = { attach = true }) { Icon(Icons.Filled.Add, stringResource(R.string.chat_attach)) }
                 DropdownMenu(expanded = attach, onDismissRequest = { attach = false }) {
                     DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_file)) }, onClick = { attach = false; pick.launch("*/*") })
+                    // 2.5: Kamera (Foto/Video) - nur mit Kamera am Geraet
+                    if (context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_CAMERA_ANY)) {
+                        DropdownMenuItem(text = { Text("📷 " + stringResource(R.string.std_camera_photo)) }, onClick = { attach = false; openCamera(false) })
+                        DropdownMenuItem(text = { Text("🎥 " + stringResource(R.string.std_camera_video)) }, onClick = { attach = false; openCamera(true) })
+                    }
                     DropdownMenuItem(text = { Text(stringResource(R.string.video_attach)) }, onClick = { attach = false; pickVideo.launch("video/*") })
                     // gleiche Pruefung wie beim Bild-Einfuegen auf Seiten: nur wenn Immich fuer mich eingerichtet ist
                     if (immichOn) DropdownMenuItem(text = { Text(stringResource(R.string.chat_attach_immich)) }, onClick = { attach = false; dialog = "immich" })
