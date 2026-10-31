@@ -487,10 +487,10 @@ struct GroupInfo2Section: View {
             Section {
                 if edit {
                     HStack {
-                        Button { pickPhoto = true } label: { Label(i.avatarFile == nil ? "Gruppenbild wählen …" : "Neues Bild wählen …", systemImage: "camera") }
+                        Button { pickPhoto = true } label: { Label(i.avatarFile == nil ? "Gruppenbild wählen …" : "Neues Bild wählen …", systemImage: "camera") }.buttonStyle(.borderless)
                         if i.avatarFile != nil {
                             Spacer()
-                            Button(role: .destructive) { busy = true; Task { _ = await conv.setGroupAvatar(nil); busy = false } } label: { Label("Bild entfernen", systemImage: "xmark") }
+                            Button(role: .destructive) { busy = true; Task { _ = await conv.setGroupAvatar(nil); busy = false } } label: { Label("Bild entfernen", systemImage: "xmark") }.buttonStyle(.borderless)
                         }
                     }.disabled(busy)
                 }
@@ -531,3 +531,63 @@ struct GroupInfo2Section: View {
         }
     }
 }
+
+// MARK: - Nutzereinstellung "Linkvorschau" (Standard an, nur dieses Geraet)
+
+enum ChatLinkPreviewSetting {
+    static let key = "hk.chat.linkPreview"
+    static var on: Bool { UserDefaults.standard.object(forKey: key) as? Bool ?? true }
+}
+
+struct ChatLinkPreviewToggle: View {
+    @ObservedObject var chat: ChatModel
+    @AppStorage(ChatLinkPreviewSetting.key) private var on = true
+    var body: some View {
+        if chat.std.unfurl && chat.state == .ready {
+            Section {
+                Toggle(isOn: $on) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Linkvorschau")
+                        Text("Beim Tippen einer Adresse holt dein Server eine Vorschau; sie geht verschlüsselt mit der Nachricht.")
+                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Kamera direkt im Chat (iOS): Foto oder Video -> wie ein Anhang
+
+#if os(iOS)
+import UIKit
+import UniformTypeIdentifiers
+
+struct ChatCamera: UIViewControllerRepresentable {
+    static var available: Bool { UIImagePickerController.isSourceTypeAvailable(.camera) }
+    var done: (ChatPendingFile?) -> Void
+    func makeCoordinator() -> Coord { Coord(done: done) }
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let p = UIImagePickerController()
+        p.sourceType = .camera
+        p.mediaTypes = [UTType.image.identifier, UTType.movie.identifier]
+        p.videoQuality = .typeHigh
+        p.delegate = context.coordinator
+        return p
+    }
+    func updateUIViewController(_ vc: UIImagePickerController, context: Context) {}
+    final class Coord: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let done: (ChatPendingFile?) -> Void
+        init(done: @escaping (ChatPendingFile?) -> Void) { self.done = done }
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            var out: ChatPendingFile?
+            if let u = info[.mediaURL] as? URL { out = ChatVideoPick.pending(fromFile: u) }      // Video: Kopie als Datei
+            else if let img = info[.originalImage] as? UIImage, let d = img.jpegData(compressionQuality: 0.85) {
+                out = ChatPendingFile(name: "kamera.jpg", mime: "image/jpeg", data: d)
+            }
+            picker.dismiss(animated: true) { self.done(out) }
+        }
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { picker.dismiss(animated: true) { self.done(nil) } }
+    }
+}
+#endif
